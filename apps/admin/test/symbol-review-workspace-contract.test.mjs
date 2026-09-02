@@ -122,6 +122,15 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(styles, /\.operationLoader/);
 });
 
+test('explains when an approved crop is excluded from training', () => {
+  assert.match(source, /item\.reviewState === 'approved'/);
+  assert.match(source, /Niewyraźny · poza uczeniem/);
+  assert.match(source, /Nieczytelny · \? · poza uczeniem/);
+  assert.match(source, /Nowy crop · poza uczeniem/);
+  assert.match(source, /Brak zatwierdzenia cropa · poza uczeniem/);
+  assert.match(source, /\? · poza uczeniem/);
+});
+
 test('shows durable projection preparation states and progress', () => {
   assert.match(source, /Przygotuj weryfikację symboli/);
   assert.match(source, /Wznów przygotowanie/);

@@ -1129,6 +1129,8 @@ function SymbolReviewCard({
   readonly previewUnavailable: boolean;
   readonly selected: boolean;
 }) {
+  const badge = symbolReviewCardBadge(item);
+
   return (
     <article
       className={`${styles.card}${selected ? ` ${styles.cardSelected}` : ''}${pending ? ` ${styles.cardPending}` : ''}`}
@@ -1175,20 +1177,54 @@ function SymbolReviewCard({
             role="status"
           />
         ) : null}
-        {item.qualityIssue === 'grid_issue' ? (
-          <span className={styles.cardBadge}>Zła siatka</span>
-        ) : item.qualityIssue === 'blurry' ? (
-          <span className={styles.cardBadge}>Niewyraźny</span>
-        ) : item.qualityIssue === 'unreadable' ? (
-          <span className={styles.cardBadge}>Nieczytelny</span>
-        ) : item.cropApprovalState === 'changed_since_approval' ? (
-          <span className={styles.cardBadge}>Nowy crop</span>
-        ) : item.isUnknown ? (
-          <span className={styles.cardBadge}>?</span>
+        {badge !== null ? (
+          <span className={styles.cardBadge}>{badge}</span>
         ) : null}
       </button>
     </article>
   );
+}
+
+function symbolReviewCardBadge(
+  item: SymbolCellReviewListItemResponse,
+): string | null {
+  if (item.reviewState === 'approved') {
+    if (item.qualityIssue === 'grid_issue') {
+      return 'Zła siatka · poza uczeniem';
+    }
+    if (item.qualityIssue === 'blurry') {
+      return 'Niewyraźny · poza uczeniem';
+    }
+    if (item.qualityIssue === 'unreadable') {
+      return 'Nieczytelny · ? · poza uczeniem';
+    }
+    if (item.cropApprovalState === 'changed_since_approval') {
+      return 'Nowy crop · poza uczeniem';
+    }
+    if (item.cropApprovalState === 'unverified') {
+      return 'Brak zatwierdzenia cropa · poza uczeniem';
+    }
+    if (item.isUnknown) {
+      return '? · poza uczeniem';
+    }
+  }
+
+  if (item.qualityIssue === 'grid_issue') {
+    return 'Zła siatka';
+  }
+  if (item.qualityIssue === 'blurry') {
+    return 'Niewyraźny';
+  }
+  if (item.qualityIssue === 'unreadable') {
+    return 'Nieczytelny';
+  }
+  if (item.cropApprovalState === 'changed_since_approval') {
+    return 'Nowy crop';
+  }
+  if (item.isUnknown) {
+    return '?';
+  }
+  return null;
 }
 
 function SymbolReviewSelectionToolbar({

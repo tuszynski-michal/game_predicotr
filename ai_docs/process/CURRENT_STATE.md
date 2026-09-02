@@ -15,6 +15,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Widoczność wykluczenia zatwierdzonego cropa z uczenia — TASK-0396
+
+- W widoku `Zatwierdzone` Weryfikacji symboli crop, który zachowuje decyzję
+  człowieka, lecz nie spełnia kryteriów bieżącej kohorty, otrzymuje badge
+  `Poza uczeniem` z przyczyną jakościową lub informacją o nieaktualnym cropie.
+- Oznaczenie jedynie wyjaśnia istniejącą politykę kohort; nie zmienia statusu,
+  przypisania symbolu, checksumy ani decyzji review.
+
 ### Historia i trwałe wznawianie weryfikacji zakresów — TASK-0393
 
 - Weryfikacja plików `seq_*` ma trwały `workflowMode=filename_verification`,

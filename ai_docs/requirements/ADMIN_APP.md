@@ -460,6 +460,10 @@ crop z kohort treningowych. `Zła siatka` kieruje pole do kolejki korekty
 geometrii, natomiast `Nieczytelny` pozostawia je poza kolejką geometrii i poza
 kohortą treningową. Karta pokazuje zwięzły badge `Niewyraźny`, `Zła siatka`,
 `Nieczytelny`, `Nowy crop` albo `?`, gdy taki stan dotyczy bieżących pikseli.
+W widoku `Zatwierdzone` badge zatwierdzonego cropa, który nie spełnia aktualnych
+warunków kohorty treningowej, zawiera również tekst `Poza uczeniem` oraz
+przyczynę: problem jakości albo brak aktualnie zatwierdzonego, checksum-bound
+cropa.
 Każda akcja najpierw pokazuje niezmienny preview
 liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
 `Zatwierdź` jest niedostępne dla filtra technicznego `Nierozpoznany (?)`.

@@ -633,6 +633,52 @@ test('repairs a legacy descending batch to the next natural source item', () => 
   assert.equal(workspace.nextRangeStart, 441_064);
 });
 
+test('legacy descending repair ignores a skipped range when restoring the source photo', () => {
+  const workspace = remoteSelectionWorkspaceState({
+    schemaVersion: 1,
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    sourceDirectoryName: 'source',
+    sourceKind: 'directory_picker',
+    sourceManifestChecksumSha256: 'a'.repeat(64),
+    firstLayout: 100,
+    direction: 'descending',
+    cursorIndex: 6,
+    fileCount: 10,
+    totalBytes: 1,
+    decisions: [
+      {
+        action: 'accepted',
+        operationId: 'accepted-operation',
+        fileId: 'file-3',
+        sourceIndex: 2,
+        imagePath: '3.jpg',
+        imageChecksumSha256: 'b'.repeat(64),
+        outputName: 'seq_100-108.jpg',
+        rangeStart: 100,
+        rangeEnd: 108,
+        selectionGeneration: 1,
+      },
+      {
+        action: 'skipped',
+        operationId: 'skipped-operation',
+        fileId: null,
+        sourceIndex: 7,
+        imagePath: null,
+        imageChecksumSha256: null,
+        outputName: null,
+        rangeStart: 91,
+        rangeEnd: 99,
+        selectionGeneration: 0,
+      },
+    ],
+    updatedAt: '2026-08-28T10:00:00.000Z',
+  });
+
+  assert.equal(workspace.currentIndex, 3);
+  assert.equal(workspace.nextRangeStart, 82);
+});
+
 test('restarts an operator-local batch at the first source image and first range', async () => {
   const { store } = await fixture(3);
   const source = await store.loadSourceItem('session-1', 'batch-1', 0);

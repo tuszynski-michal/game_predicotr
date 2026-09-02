@@ -1,7 +1,7 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-08-30
+last_updated: 2026-08-31
 ---
 
 # Lokalna ręczna selekcja zdjęć
@@ -241,7 +241,11 @@ Folder `<źródło> wybrane` jest przyjmowany tylko w jednym z dwóch stanów:
 Folder niepusty bez manifestu, z obcym plikiem, brakującym `seq_*`, inną nazwą
 źródła, liczbą plików albo checksumą manifestu źródłowego blokuje rozpoczęcie.
 Nowy manifest schema v2 zapisuje tożsamość źródła, liczbę JPEG-ów, pierwszy
-zakres, kierunek, opcjonalną granicę końcową i stan zakończenia. Podczas
+zakres, kierunek, opcjonalną granicę końcową, stan zakończenia oraz semantykę
+naturalnego przechodzenia po źródle. Starszy malejący manifest bez tej
+semantyki jest wznawiany od zdjęcia bezpośrednio po ostatniej zaakceptowanej
+decyzji, a nie od historycznego lustrzanego indeksu. Pominięcie zakresu nie
+zmienia tego zdjęciowego punktu odniesienia. Podczas
 wznowienia przez nowy link losowe identyfikatory plików z
 poprzedniej sesji są bezpiecznie mapowane na bieżący indeks według ordinalu i
 względnej ścieżki; sesja dostępu nie jest właścicielem danych operatora.

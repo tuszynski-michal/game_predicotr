@@ -418,6 +418,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   długości JSONB z dokładnie 9 do zakresu 1–9. Istniejące rewizje pozostają
   niezmienione, a pełne strony nadal używają dziewięciu quadów i 36 uchwytów.
 
+### Wznowienie malejącej zdalnej selekcji ręcznej
+
+- Manifest operator-local zapisuje teraz jawną semantykę naturalnego porządku
+  źródła. Ponowne wskazanie folderów albo wznowienie pod nowym linkiem nie może
+  odwrócić działania `→`/Enter dla kierunku `malejąco`.
+- Historyczny manifest bez znacznika jest naprawiany od następnego naturalnego
+  zdjęcia po ostatniej zaakceptowanej decyzji; `skipped` zmienia wyłącznie
+  zakres i nie przesuwa punktu wznowienia zdjęć.
+
 ### Widoczny postęp browser uploadu — TASK-0348
 
 - Admin pokazuje postęp przesyłania na podstawie liczników potwierdzonych przez
@@ -577,7 +586,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   taskach.
 - Backfill rolloutów jest idempotentny i ograniczony do 200 gier na partię
   (maksymalnie 500); nie skanuje obrazów ani wielomilionowych tabel cropów.
-  Migracja nie została uruchomiona na roboczej bazie użytkownika.
+  Lokalna baza użytkownika została zaktualizowana przez
+  `0082_virtual_geometry_foundation` i
+  `0083_image_geometry_rollout_backfill_job_type` 2026-08-29. Stan gier
+  pozostał domyślnie `legacy` / `legacy_files`; druga migracja jedynie dodaje
+  wartość enum wymaganą przez ogólny worker i nie zmienia danych obrazów.
 
 ### Source-direct renderer wirtualnych komórek — TASK-0309
 

@@ -25,6 +25,7 @@ from game_predictor_api.application.image_symbol_reviews import (
     SymbolCellReviewQueryService,
 )
 from game_predictor_api.application.unreadable_board_reviews import (
+    SaveUnreadableBoardCellCommand,
     UnreadableBoardReviewService,
     UnreadableBoardReviewView,
 )
@@ -43,6 +44,8 @@ from game_predictor_api.domain.image_symbol_reviews import (
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_symbol_reviews import (
     ResolveUnreadableCellRequest,
+    SaveUnreadableBoardRequest,
+    SaveUnreadableBoardResponse,
     SymbolCellPreviewBatchRequest,
     SymbolCellPreviewBatchResponse,
     SymbolCellReviewBulkOperationRequest,
@@ -62,6 +65,7 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     VirtualCellPreviewBatchRequest,
     VirtualCellPreviewBatchResponse,
     VirtualCellPreviewTileResponse,
+    to_save_unreadable_board_response,
     to_symbol_cell_review_bulk_operation_response,
     to_symbol_cell_review_bulk_preview_response,
     to_symbol_cell_review_bulk_request,
@@ -168,6 +172,42 @@ def create_image_symbol_reviews_router(
                 expected_crop_sample_id=request.expected_crop_sample_id,
                 expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
                 target_symbol_id=target_symbol_id,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        )
+
+    @router.post(
+        "/{game_id}/unreadable-board-reviews/{review_item_id}/save",
+        response_model=SaveUnreadableBoardResponse,
+        operation_id="saveUnreadableBoardReview",
+        summary="Atomically save every visible symbol decision for one pending unreadable board",
+        responses=ERROR_RESPONSES,
+    )
+    def save_unreadable_board_review(
+        game_id: UUID,
+        review_item_id: UUID,
+        request: SaveUnreadableBoardRequest,
+        service: Annotated[UnreadableBoardReviewService, unreadable_board_service_parameter],
+    ) -> SaveUnreadableBoardResponse:
+        return to_save_unreadable_board_response(
+            service.save(
+                game_id=game_id,
+                review_item_id=review_item_id,
+                cells=tuple(
+                    SaveUnreadableBoardCellCommand(
+                        cell_index=cell.cell_index,
+                        expected_revision=cell.expected_revision,
+                        expected_geometry_revision=cell.expected_geometry_revision,
+                        expected_crop_sample_id=cell.expected_crop_sample_id,
+                        expected_crop_checksum_sha256=cell.expected_crop_checksum_sha256,
+                        target_symbol_id=(
+                            cell.assignment.symbol_id
+                            if isinstance(cell.assignment, UnreadableSymbolAssignmentRequest)
+                            else None
+                        ),
+                    )
+                    for cell in request.cells
+                ),
                 actor=_LOCAL_ADMIN_ACTOR,
             )
         )

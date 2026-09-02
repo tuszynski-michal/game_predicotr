@@ -14290,6 +14290,119 @@
         "title": "RulesVersionUpdate",
         "type": "object"
       },
+      "SaveUnreadableBoardCellRequest": {
+        "additionalProperties": false,
+        "description": "One exact visible cell decision supplied by the board workspace.",
+        "properties": {
+          "assignment": {
+            "discriminator": {
+              "mapping": {
+                "symbol": "#/components/schemas/UnreadableSymbolAssignmentRequest",
+                "unknown": "#/components/schemas/UnreadableUnknownAssignmentRequest"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UnreadableSymbolAssignmentRequest"
+              },
+              {
+                "$ref": "#/components/schemas/UnreadableUnknownAssignmentRequest"
+              }
+            ],
+            "title": "Assignment"
+          },
+          "cellIndex": {
+            "maximum": 99.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "expectedCropChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcropchecksumsha256",
+            "type": "string"
+          },
+          "expectedCropSampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcropsampleid",
+            "type": "string"
+          },
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assignment",
+          "expectedRevision",
+          "expectedGeometryRevision",
+          "expectedCropSampleId",
+          "expectedCropChecksumSha256",
+          "cellIndex"
+        ],
+        "title": "SaveUnreadableBoardCellRequest",
+        "type": "object"
+      },
+      "SaveUnreadableBoardRequest": {
+        "additionalProperties": false,
+        "description": "Full topology snapshot for one atomic pending-board save.",
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/SaveUnreadableBoardCellRequest"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Cells",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cells"
+        ],
+        "title": "SaveUnreadableBoardRequest",
+        "type": "object"
+      },
+      "SaveUnreadableBoardResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardStatus": {
+            "title": "Boardstatus",
+            "type": "string"
+          },
+          "changedCellCount": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Changedcellcount",
+            "type": "integer"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reviewItemId",
+          "sequenceNumber",
+          "boardStatus",
+          "changedCellCount"
+        ],
+        "title": "SaveUnreadableBoardResponse",
+        "type": "object"
+      },
       "SemiAutomaticImageSelectionJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -24788,6 +24901,104 @@
           }
         ],
         "summary": "Resolve one unreadable crop as an active symbol or logical unknown",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}/save": {
+      "post": {
+        "operationId": "saveUnreadableBoardReview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveUnreadableBoardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveUnreadableBoardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Atomically save every visible symbol decision for one pending unreadable board",
         "tags": [
           "symbol-cell-reviews"
         ]

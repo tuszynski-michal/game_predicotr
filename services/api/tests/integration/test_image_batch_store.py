@@ -28,6 +28,7 @@ from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationService,
 )
 from game_predictor_api.application.unreadable_board_reviews import (
+    SaveUnreadableBoardCellCommand,
     UnreadableBoardReviewService,
     UnreadableBoardReviewView,
 )
@@ -1290,9 +1291,32 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             assert grid_result.board_reopened is False
             assert grid_result.quality_issue is SymbolCellQualityIssue.GRID_ISSUE
             session.flush()
-            all_game_crops = SqlAlchemySymbolCellReviewQueryRepository(
-                session
-            ).list_items(
+            query_repository = SqlAlchemySymbolCellReviewQueryRepository(session)
+            known_pending = query_repository.list_items(
+                review_filter=SymbolCellReviewListFilter(
+                    game_id=game.id,
+                    symbol_id=first_symbol.id,
+                    state=SymbolCellReviewFilterState.PENDING,
+                ),
+                after_key=None,
+                before_key=None,
+                limit=20,
+            )
+            assert known_pending.items == ()
+            temporarily_unrecognized = query_repository.list_items(
+                review_filter=SymbolCellReviewListFilter(
+                    game_id=game.id,
+                    symbol_id=None,
+                    state=SymbolCellReviewFilterState.PENDING,
+                ),
+                after_key=None,
+                before_key=None,
+                limit=20,
+            )
+            assert [item.cell_index for item in temporarily_unrecognized.items] == [1, 2]
+            assert all(item.is_unknown for item in temporarily_unrecognized.items)
+            assert all(item.assigned_symbol_id is None for item in temporarily_unrecognized.items)
+            all_game_crops = query_repository.list_items(
                 review_filter=SymbolCellReviewListFilter(
                     game_id=game.id,
                     symbol_id=None,
@@ -1500,20 +1524,29 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             )
             assert len(unreadable_detail.cells) == 15
             target = unreadable_detail.cells[1]
-            resolved_unknown = unreadable_service.resolve(
+            normal_cell = unreadable_detail.cells[0]
+            resolved_unknown = unreadable_service.save(
                 game_id=game.id,
                 review_item_id=review_item_id,
-                cell_index=target.cell_index,
-                expected_revision=target.revision,
-                expected_geometry_revision=target.geometry_revision,
-                expected_crop_sample_id=target.crop_sample_id,
-                expected_crop_checksum_sha256=target.crop_checksum_sha256,
-                target_symbol_id=None,
+                cells=tuple(
+                    SaveUnreadableBoardCellCommand(
+                        cell_index=cell.cell_index,
+                        expected_revision=cell.revision,
+                        expected_geometry_revision=cell.geometry_revision,
+                        expected_crop_sample_id=cell.crop_sample_id,
+                        expected_crop_checksum_sha256=cell.crop_checksum_sha256,
+                        target_symbol_id=(
+                            None
+                            if cell.cell_index in {target.cell_index, normal_cell.cell_index}
+                            else cell.assigned_symbol_id
+                        ),
+                    )
+                    for cell in unreadable_detail.cells
+                ),
                 actor="unreadable-board-reviewer",
             )
             assert resolved_unknown.board_status == "corrected"
-            assert resolved_unknown.board_resolution_action == "corrected"
-            assert resolved_unknown.quality_issue is SymbolCellQualityIssue.UNREADABLE
+            assert resolved_unknown.changed_cell_count == 2
             session.commit()
 
         with Session(engine) as session:
@@ -1531,7 +1564,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 {"import_job_id": job.id, "recognized_board_id": board_id},
             )
             assert staging is not None
-            assert staging.cells == [1, 0] + [1] * 13
+            assert staging.cells == [0, 0] + [1] * 13
             target = session.scalar(
                 select(ImageSymbolReviewCellModel).where(
                     ImageSymbolReviewCellModel.review_item_id == review_item_id,
@@ -1544,6 +1577,16 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             assert target.quality_issue == "unreadable"
             assert target.approved_crop_sample_id == target.crop_sample_id
             assert target.approved_crop_checksum_sha256 == target.crop_checksum_sha256
+            normal_cell = session.scalar(
+                select(ImageSymbolReviewCellModel).where(
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                    ImageSymbolReviewCellModel.cell_index == 0,
+                )
+            )
+            assert normal_cell is not None
+            assert normal_cell.review_state == "approved"
+            assert normal_cell.assigned_symbol_id is None
+            assert normal_cell.quality_issue == "unreadable"
             unreadable_service = UnreadableBoardReviewService(
                 SqlAlchemyUnreadableBoardReviewRepository(session)
             )

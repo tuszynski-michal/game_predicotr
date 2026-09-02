@@ -72,12 +72,16 @@ test('keeps a three-page metadata window with virtual cards and background bulk 
   assert.doesNotMatch(source, /Zaznacz wyniki filtra/);
   assert.match(source, /readOnly=\{false\}/);
   assert.match(source, />\s*Zła siatka\s*</);
+  assert.match(
+    source,
+    /interactionBusy \|\|\s*pendingCellIds\.has\(item\.id\)/,
+  );
+  assert.match(source, /Zła siatka · \?/);
   assert.match(source, />\s*Niewyraźny\s*</);
   assert.match(source, />\s*Nieczytelny\s*</);
   assert.doesNotMatch(source, />\s*Nieczytelny symbol\s*</);
   assert.match(source, /className=\{styles\.qualityActions\}/);
   assert.match(styles, /\.qualityActions\s*\{[\s\S]*?flex-wrap:\s*nowrap;/);
-  assert.match(source, /item\.qualityIssue === 'blurry'/);
   assert.match(source, /Zmiana gry lub symbolu wyczyści bieżące zaznaczenie/);
   assert.match(source, /crypto\.randomUUID\(\)/);
   assert.match(source, /window\.setTimeout/);
@@ -139,7 +143,7 @@ test('shows durable projection preparation states and progress', () => {
   assert.match(source, /processedBoardCount/);
   assert.match(source, /persistedCellCount/);
   assert.match(source, /activeJobId/);
-  assert.match(source, /Strona \{currentPageNumber\}/);
+  assert.match(source, /Strona \{currentPageNumber\}\/\{totalPageCount\}/);
   assert.match(source, /currentPageRange\.start/);
   assert.match(source, /currentPageRange\.end/);
   assert.match(source, /zakres/);

@@ -299,6 +299,7 @@ test('materializes a local progress manifest without a host transfer', async () 
   );
   assert.equal(manifest.storageMode, 'operator_local');
   assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.sourceTraversalSemantics, 'natural_v2');
   assert.equal(manifest.sequenceUpperBound, null);
   assert.equal(manifest.selectionComplete, false);
   assert.equal(manifest.nextRangeStart, 10);
@@ -561,6 +562,125 @@ test('resumes on the saved source photo and next range across access sessions', 
   assert.equal(resumed.nextRangeStart, 10);
   assert.equal(resumed.decisions[0].fileId, 'new-file-id');
   assert.equal(resumed.hostRegistered, true);
+});
+
+test('repairs an unmarked descending output manifest to the next natural source photo', async () => {
+  const directory = new MemoryDirectoryHandle();
+  const source = new File(['selected'], 'photo.jpg', { type: 'image/jpeg' });
+  const output = await writeOperatorLocalSelection(directory, source, 100);
+  await writeOperatorLocalManifest(
+    directory,
+    manifestInput({
+      currentIndex: 6,
+      decisions: [
+        {
+          action: 'accepted',
+          fileId: 'old-file-id',
+          imageChecksumSha256: output.checksumSha256,
+          imagePath: 'photo.jpg',
+          operationId: 'descending-decision',
+          outputName: output.name,
+          rangeEnd: 108,
+          rangeStart: 100,
+          selectionGeneration: 1,
+          sourceIndex: 2,
+        },
+      ],
+      direction: 'descending',
+      firstLayout: 100,
+      nextRangeStart: 91,
+    }),
+  );
+  const manifestHandle = directory.files.get(
+    'manual-image-selection-output-v1.json',
+  );
+  const legacyManifest = JSON.parse(
+    new TextDecoder().decode(manifestHandle.value),
+  );
+  delete legacyManifest.sourceTraversalSemantics;
+  manifestHandle.value = new TextEncoder().encode(
+    JSON.stringify(legacyManifest),
+  );
+
+  const state = await inspectOperatorLocalOutputDirectory(directory);
+  assert.equal(state.kind, 'resumable');
+  const resumed = await resumeOperatorLocalBatch(
+    state.manifest,
+    {
+      batchId: 'new-batch',
+      cursorIndex: 0,
+      decisions: [],
+      direction: 'descending',
+      fileCount: 10,
+      firstLayout: 100,
+      navigationStep: 1,
+      nextRangeStart: 100,
+      schemaVersion: 1,
+      sessionId: 'new-session',
+      sourceDirectoryName: '1 - 19',
+      sourceKind: 'directory_handle',
+      sourceManifestChecksumSha256: SOURCE_CHECKSUM,
+      totalBytes: 100,
+      updatedAt: '2026-08-24T00:00:00.000Z',
+    },
+    async (ordinal) =>
+      ordinal === 2
+        ? {
+            batchId: 'new-batch',
+            fileId: 'new-file-id',
+            lastModifiedMs: 1,
+            mimeType: 'image/jpeg',
+            name: 'photo.jpg',
+            ordinal: 2,
+            relativePath: 'photo.jpg',
+            schemaVersion: 1,
+            sessionId: 'new-session',
+            sizeBytes: 8,
+          }
+        : null,
+  );
+
+  assert.equal(resumed.cursorIndex, 3);
+  assert.equal(resumed.sourceTraversalSemantics, 'natural_v2');
+});
+
+test('keeps the saved natural cursor for a marked descending output manifest', async () => {
+  const directory = new MemoryDirectoryHandle();
+  await writeOperatorLocalManifest(
+    directory,
+    manifestInput({
+      currentIndex: 6,
+      direction: 'descending',
+      firstLayout: 100,
+      nextRangeStart: 100,
+    }),
+  );
+  const state = await inspectOperatorLocalOutputDirectory(directory);
+  assert.equal(state.kind, 'resumable');
+  const resumed = await resumeOperatorLocalBatch(
+    state.manifest,
+    {
+      batchId: 'new-batch',
+      cursorIndex: 0,
+      decisions: [],
+      direction: 'descending',
+      fileCount: 10,
+      firstLayout: 100,
+      navigationStep: 1,
+      nextRangeStart: 100,
+      schemaVersion: 1,
+      sessionId: 'new-session',
+      sourceDirectoryName: '1 - 19',
+      sourceKind: 'directory_handle',
+      sourceManifestChecksumSha256: SOURCE_CHECKSUM,
+      totalBytes: 100,
+      updatedAt: '2026-08-24T00:00:00.000Z',
+    },
+    async () => null,
+  );
+
+  assert.equal(resumed.cursorIndex, 6);
+  assert.equal(resumed.sourceTraversalSemantics, 'natural_v2');
 });
 
 test('resumes deliberately edited non-contiguous ranges without renumbering them', async () => {

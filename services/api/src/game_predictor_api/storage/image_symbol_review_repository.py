@@ -28,6 +28,8 @@ from game_predictor_api.application.image_symbol_reviews import (
 )
 from game_predictor_api.application.unreadable_board_reviews import (
     ResolveUnreadableCellCommand,
+    SaveUnreadableBoardCommand,
+    SaveUnreadableBoardResult,
     UnreadableBoardReviewCell,
     UnreadableBoardReviewDetail,
     UnreadableBoardReviewListItem,
@@ -103,6 +105,10 @@ _MAX_CELL_ROWS_PER_INSERT = 1_000
 _BACKFILL_ACTOR = "system:symbol-cell-backfill"
 _WRITE_THROUGH_ACTOR = "system:symbol-cell-write-through"
 _CELL_REVIEW_TRANSACTION_MARKER = "symbol_cell_review_catalog_revision_transaction"
+_TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES = (
+    SymbolCellQualityIssue.GRID_ISSUE.value,
+    SymbolCellQualityIssue.UNREADABLE.value,
+)
 
 BackfillRow = tuple[
     ImageBoardSearchFastDocumentModel,
@@ -486,9 +492,17 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         )
         if not review_filter.include_all_symbols:
             if review_filter.symbol_id is None:
-                statement = statement.where(cell.assigned_symbol_id.is_(None))
+                statement = statement.where(
+                    or_(
+                        cell.assigned_symbol_id.is_(None),
+                        cell.quality_issue.in_(_TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES),
+                    )
+                )
             else:
-                statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
+                statement = statement.where(
+                    cell.assigned_symbol_id == review_filter.symbol_id,
+                    cell.quality_issue.is_(None),
+                )
         if review_filter.state is not SymbolCellReviewFilterState.ALL:
             statement = statement.where(cell.review_state == review_filter.state.value)
         confidence_is_required = (
@@ -1158,6 +1172,138 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
                 actor=command.actor,
                 resolve_unreadable=True,
             )
+        )
+
+    def save_board(
+        self,
+        command: SaveUnreadableBoardCommand,
+    ) -> SaveUnreadableBoardResult:
+        """Persist one complete board edit in the caller's single transaction.
+
+        A board shown in the pending unreadable queue is already reopened.  The
+        operation first marks every newly unknown normal crop as unreadable,
+        then applies real-symbol changes, and only then resolves unreadable
+        crops.  This ordering prevents a transient accepted parent board while
+        a later cell in the same HTTP request still needs to change.
+        """
+
+        detail = self.get_board(
+            game_id=command.game_id,
+            review_item_id=command.review_item_id,
+        )
+        if detail is None:
+            raise SymbolCellReviewError(
+                "UNREADABLE_BOARD_REVIEW_NOT_FOUND",
+                "The unreadable board is not a current logical owner in this game.",
+            )
+        if not any(
+            cell.quality_issue == SymbolCellQualityIssue.UNREADABLE.value
+            and cell.review_state == SymbolCellReviewState.PENDING.value
+            for cell in detail.cells
+        ):
+            raise SymbolCellReviewError(
+                "UNREADABLE_BOARD_REVIEW_NOT_PENDING",
+                "Only a board with an unresolved unreadable crop can be edited here.",
+            )
+
+        requested_by_index = {cell.cell_index: cell for cell in command.cells}
+        current_by_index = {cell.cell_index: cell for cell in detail.cells}
+        if set(requested_by_index) != set(current_by_index):
+            raise SymbolCellReviewError(
+                "UNREADABLE_BOARD_REVIEW_SAVE_TOPOLOGY_MISMATCH",
+                "Saving an unreadable board requires exactly every current board cell.",
+            )
+
+        mutation_repository = SqlAlchemySymbolCellReviewMutationRepository(self._session)
+        current_revision_by_index = {
+            cell.cell_index: requested_by_index[cell.cell_index].expected_revision
+            for cell in detail.cells
+        }
+        changed_indexes: set[int] = set()
+        last_result: SymbolCellReviewMutationResult | None = None
+
+        def apply(
+            *,
+            cell: UnreadableBoardReviewCell,
+            action: SymbolCellReviewAction,
+            target_symbol_id: UUID | None,
+            resolve_unreadable: bool,
+        ) -> None:
+            nonlocal last_result
+            requested = requested_by_index[cell.cell_index]
+            expected_revision = current_revision_by_index[cell.cell_index]
+            result = mutation_repository.apply_mutation(
+                SymbolCellReviewMutationCommand(
+                    game_id=command.game_id,
+                    cell_review_id=cell.cell_review_id,
+                    action=action,
+                    expected_revision=expected_revision,
+                    expected_geometry_revision=requested.expected_geometry_revision,
+                    expected_crop_sample_id=requested.expected_crop_sample_id,
+                    expected_crop_checksum_sha256=requested.expected_crop_checksum_sha256,
+                    target_symbol_id=target_symbol_id,
+                    actor=command.actor,
+                    resolve_unreadable=resolve_unreadable,
+                )
+            )
+            if result.cell_revision != expected_revision:
+                changed_indexes.add(cell.cell_index)
+            current_revision_by_index[cell.cell_index] = result.cell_revision
+            last_result = result
+
+        # A `?` picked for a normal cell means: mark it unreadable and then
+        # resolve that unreadable crop as the intentional logical unknown.
+        for cell in detail.cells:
+            requested = requested_by_index[cell.cell_index]
+            if (
+                requested.target_symbol_id is None
+                and cell.quality_issue != SymbolCellQualityIssue.UNREADABLE.value
+            ):
+                apply(
+                    cell=cell,
+                    action=SymbolCellReviewAction.MARK_UNREADABLE,
+                    target_symbol_id=None,
+                    resolve_unreadable=False,
+                )
+
+        for cell in detail.cells:
+            requested = requested_by_index[cell.cell_index]
+            if (
+                requested.target_symbol_id is not None
+                and cell.quality_issue != SymbolCellQualityIssue.UNREADABLE.value
+                and requested.target_symbol_id != cell.assigned_symbol_id
+            ):
+                apply(
+                    cell=cell,
+                    action=SymbolCellReviewAction.REASSIGN,
+                    target_symbol_id=requested.target_symbol_id,
+                    resolve_unreadable=False,
+                )
+
+        for cell in detail.cells:
+            requested = requested_by_index[cell.cell_index]
+            if (
+                cell.quality_issue == SymbolCellQualityIssue.UNREADABLE.value
+                or requested.target_symbol_id is None
+            ):
+                apply(
+                    cell=cell,
+                    action=(
+                        SymbolCellReviewAction.APPROVE
+                        if requested.target_symbol_id is None
+                        else SymbolCellReviewAction.REASSIGN
+                    ),
+                    target_symbol_id=requested.target_symbol_id,
+                    resolve_unreadable=True,
+                )
+
+        if last_result is None:
+            raise AssertionError("An unreadable board save must resolve at least one pending crop.")
+        return SaveUnreadableBoardResult(
+            review_item_id=last_result.review_item_id,
+            sequence_number=last_result.sequence_number,
+            board_status=last_result.board_status,
+            changed_cell_count=len(changed_indexes),
         )
 
 
@@ -2105,6 +2251,10 @@ def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
             {} if row[2] is None or row[3] is None else {cast(UUID, row[2]): cast(str, row[3])}
         ),
     )
+    temporarily_unrecognized = review.quality_issue in {
+        SymbolCellQualityIssue.GRID_ISSUE,
+        SymbolCellQualityIssue.UNREADABLE,
+    }
     return SymbolCellReviewListItem(
         cell_review_id=cell.id,
         review_item_id=cell.review_item_id,
@@ -2114,9 +2264,9 @@ def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
         cell_index=int(cell.cell_index),
         row_index=int(cell.row_index),
         column_index=int(cell.column_index),
-        assigned_symbol_id=cast(UUID | None, row[2]),
-        assigned_symbol_code=cast(str | None, row[3]),
-        assigned_symbol_name=cast(str | None, row[4]),
+        assigned_symbol_id=None if temporarily_unrecognized else cast(UUID | None, row[2]),
+        assigned_symbol_code=None if temporarily_unrecognized else cast(str | None, row[3]),
+        assigned_symbol_name=None if temporarily_unrecognized else cast(str | None, row[4]),
         prediction_symbol_code=cell.prediction_symbol_code,
         review_state=SymbolCellReviewState(cell.review_state),
         has_grid_issue=(review.quality_issue is SymbolCellQualityIssue.GRID_ISSUE),

@@ -647,6 +647,9 @@ import type {
   RollbackSymbolModelData,
   RollbackSymbolModelErrors,
   RollbackSymbolModelResponses,
+  SaveUnreadableBoardReviewData,
+  SaveUnreadableBoardReviewErrors,
+  SaveUnreadableBoardReviewResponses,
   SearchGameBoardsData,
   SearchGameBoardsErrors,
   SearchGameBoardsResponses,
@@ -2198,6 +2201,30 @@ export const resolveUnreadableBoardReviewCell = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}/cells/{cell_index}/resolve',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Atomically save every visible symbol decision for one pending unreadable board
+ */
+export const saveUnreadableBoardReview = <ThrowOnError extends boolean = false>(
+  options: Options<SaveUnreadableBoardReviewData, ThrowOnError>,
+): RequestResult<
+  SaveUnreadableBoardReviewResponses,
+  SaveUnreadableBoardReviewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SaveUnreadableBoardReviewResponses,
+    SaveUnreadableBoardReviewErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}/save',
     ...options,
     headers: {
       'Content-Type': 'application/json',

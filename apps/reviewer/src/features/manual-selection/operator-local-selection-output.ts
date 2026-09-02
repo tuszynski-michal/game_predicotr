@@ -24,6 +24,7 @@ export interface OperatorLocalOutputManifestV1 {
   readonly fileCount?: number;
   readonly firstLayout?: number;
   readonly direction?: 'ascending' | 'descending';
+  readonly sourceTraversalSemantics?: 'natural_v2';
   readonly decisions: readonly RemoteSelectionWorkspaceDecision[];
   readonly currentIndex: number;
   readonly nextRangeStart: number;
@@ -40,6 +41,7 @@ export interface OperatorLocalOutputManifestV2 {
   readonly fileCount?: number;
   readonly firstLayout: number;
   readonly direction: 'ascending' | 'descending';
+  readonly sourceTraversalSemantics?: 'natural_v2';
   readonly sequenceUpperBound: number | null;
   readonly selectionComplete: boolean;
   readonly decisions: readonly (RemoteSelectionWorkspaceDecision & {
@@ -240,6 +242,7 @@ export async function writeOperatorLocalManifest(
           storageMode: 'operator_local',
           ...input,
           allowSessionAdoption: undefined,
+          sourceTraversalSemantics: 'natural_v2',
           decisions: input.decisions.map((decision) => ({
             ...decision,
             activeBoardCount: manualRangeActiveBoardCount(
@@ -358,11 +361,23 @@ export async function resumeOperatorLocalBatch(
     }
     decisions.push({ ...decision, fileId: source.fileId });
   }
+  const direction = manifest.direction ?? batch.direction;
+  const lastAcceptedDecision = [...decisions]
+    .reverse()
+    .find((decision) => decision.action === 'accepted');
+  const cursorIndex =
+    direction === 'descending' &&
+    manifest.sourceTraversalSemantics !== 'natural_v2'
+      ? Math.min(
+          (lastAcceptedDecision?.sourceIndex ?? -1) + 1,
+          batch.fileCount - 1,
+        )
+      : manifest.currentIndex;
   return {
     ...batch,
-    cursorIndex: manifest.currentIndex,
+    cursorIndex,
     decisions,
-    direction: manifest.direction ?? batch.direction,
+    direction,
     firstLayout:
       manifest.firstLayout ??
       decisions[0]?.rangeStart ??
@@ -373,6 +388,7 @@ export async function resumeOperatorLocalBatch(
       manifest.schemaVersion === 2 ? manifest.selectionComplete : false,
     sequenceUpperBound:
       manifest.schemaVersion === 2 ? manifest.sequenceUpperBound : null,
+    sourceTraversalSemantics: 'natural_v2',
     status: 'active',
     updatedAt: new Date().toISOString(),
   };
@@ -427,6 +443,12 @@ function parseOperatorLocalManifest(
     parsed.direction !== 'descending'
   ) {
     throw new Error('Manifest zawiera nieprawidłową kolejność zdjęć.');
+  }
+  if (
+    parsed.sourceTraversalSemantics !== undefined &&
+    parsed.sourceTraversalSemantics !== 'natural_v2'
+  ) {
+    throw new Error('Manifest zawiera nieprawidłową kolejność źródła.');
   }
 
   const sequenceUpperBound =

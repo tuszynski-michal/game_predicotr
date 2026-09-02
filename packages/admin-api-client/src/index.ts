@@ -191,6 +191,7 @@ import {
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
   resolveUnreadableBoardReviewCell as resolveGeneratedUnreadableBoardReviewCell,
   resumeSemiAutomaticImageSelection as resumeGeneratedSemiAutomaticImageSelection,
+  saveUnreadableBoardReview as saveGeneratedUnreadableBoardReview,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
   selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
@@ -311,6 +312,8 @@ import type {
   VirtualCellPreviewBatchRequest,
   VirtualCellPreviewTileResponse,
   ResolveUnreadableCellRequest,
+  SaveUnreadableBoardRequest,
+  SaveUnreadableBoardResponse,
   UnreadableBoardReviewDetailResponse,
   UnreadableBoardReviewCellResponse,
   UnreadableBoardReviewListItemResponse,
@@ -531,6 +534,8 @@ export type {
   VirtualCellPreviewBatchRequest,
   VirtualCellPreviewTileResponse,
   ResolveUnreadableCellRequest,
+  SaveUnreadableBoardRequest,
+  SaveUnreadableBoardResponse,
   UnreadableBoardReviewCellResponse,
   UnreadableBoardReviewDetailResponse,
   UnreadableBoardReviewListItemResponse,
@@ -1977,6 +1982,16 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           game_id: gameId,
           review_item_id: reviewItemId,
         },
+      }),
+    saveUnreadableBoardReview: (
+      gameId: string,
+      reviewItemId: string,
+      body: SaveUnreadableBoardRequest,
+    ) =>
+      saveGeneratedUnreadableBoardReview({
+        body,
+        client,
+        path: { game_id: gameId, review_item_id: reviewItemId },
       }),
     applySymbolCellReviewDecision: (
       gameId: string,

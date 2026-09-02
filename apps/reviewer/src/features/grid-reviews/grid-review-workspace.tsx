@@ -401,7 +401,9 @@ export function GridReviewWorkspace({
             key={`${anchorItem.sourceImageId}:${selectedReviewItemId}`}
             onEditingChange={setEditing}
             onSaved={() => {
-              setNotice('Zapisano geometrię i przechodzę do kolejnego zdjęcia.');
+              setNotice(
+                'Zapisano geometrię i przechodzę do kolejnego zdjęcia.',
+              );
               void refreshAfterMutation();
             }}
             onSelect={setSelectedReviewItemId}

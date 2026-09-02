@@ -24,6 +24,7 @@ from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationResult,
 )
 from game_predictor_api.application.unreadable_board_reviews import (
+    SaveUnreadableBoardResult,
     UnreadableBoardReviewDetail,
     UnreadableBoardReviewPage,
 )
@@ -366,6 +367,25 @@ class ResolveUnreadableCellRequest(ApiModel):
     expected_crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class SaveUnreadableBoardCellRequest(ResolveUnreadableCellRequest):
+    """One exact visible cell decision supplied by the board workspace."""
+
+    cell_index: int = Field(ge=0, le=99)
+
+
+class SaveUnreadableBoardRequest(ApiModel):
+    """Full topology snapshot for one atomic pending-board save."""
+
+    cells: tuple[SaveUnreadableBoardCellRequest, ...] = Field(min_length=1, max_length=100)
+
+
+class SaveUnreadableBoardResponse(ApiModel):
+    review_item_id: UUID
+    sequence_number: int = Field(ge=1)
+    board_status: str
+    changed_cell_count: int = Field(ge=0, le=100)
+
+
 def to_symbol_cell_review_page_response(
     page: SymbolCellReviewPage,
 ) -> SymbolCellReviewPageResponse:
@@ -457,6 +477,17 @@ def to_unreadable_board_review_detail_response(
             )
             for cell in detail.cells
         ),
+    )
+
+
+def to_save_unreadable_board_response(
+    result: SaveUnreadableBoardResult,
+) -> SaveUnreadableBoardResponse:
+    return SaveUnreadableBoardResponse(
+        review_item_id=result.review_item_id,
+        sequence_number=result.sequence_number,
+        board_status=result.board_status,
+        changed_cell_count=result.changed_cell_count,
     )
 
 
@@ -633,6 +664,9 @@ __all__ = [
     "SymbolCellReviewProjectionStartResponse",
     "SymbolCellReviewProjectionStatusResponse",
     "ResolveUnreadableCellRequest",
+    "SaveUnreadableBoardCellRequest",
+    "SaveUnreadableBoardRequest",
+    "SaveUnreadableBoardResponse",
     "UnreadableBoardReviewDetailResponse",
     "UnreadableBoardReviewPageResponse",
     "UnreadableSymbolAssignmentRequest",
@@ -646,5 +680,6 @@ __all__ = [
     "to_symbol_cell_review_projection_start_response",
     "to_symbol_cell_review_projection_status_response",
     "to_unreadable_board_review_detail_response",
+    "to_save_unreadable_board_response",
     "to_unreadable_board_review_page_response",
 ]

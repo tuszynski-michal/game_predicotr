@@ -71,7 +71,10 @@ test('selects the newest unresolved image import and hides completed history', (
     ['job-ready'],
   );
   assert.equal(selectReviewImportId([older, newest], gameId, ''), newest.id);
-  assert.equal(selectReviewImportId([older, newest], gameId, older.id), newest.id);
+  assert.equal(
+    selectReviewImportId([older, newest], gameId, older.id),
+    newest.id,
+  );
   assert.match(reviewJobLabel(older), /19810 - 45162 · gotowy$/);
   assert.match(reviewJobLabel(newest), /19810 - 45162 · do zatw\.$/);
   assert.doesNotMatch(reviewJobLabel(newest), /job-ready/);

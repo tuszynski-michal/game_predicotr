@@ -143,6 +143,7 @@ GET /api/v1/admin/games/{gameId}/unreadable-board-reviews
 GET /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}
 
 POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/cells/{cellIndex}/resolve
+POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/save
 ```
 
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
@@ -251,14 +252,28 @@ rozwiązane nieczytelne pola. Lista używa keysetu
 `(sequence_number, review_item_id)`, a detail zwraca wszystkie komórki bieżącej
 topologii, nie tylko nieczytelne.
 
+Lista zwykłej weryfikacji cropów mapuje `grid_issue` i `unreadable` jako
+tymczasowy filtr techniczny `unknown`: nie zwraca ich pod historycznie
+przypisanym symbolem, a zwraca pod `symbolId=unknown` z pustym przypisaniem.
+Nie zmienia to rekordu komórki ani append-only audytu; ma tylko zapobiec
+traktowaniu odrzuconych pikseli jako materiału danego symbolu w panelu.
+
 Rozwiązanie jest rozłączne: `{kind: symbol, symbolId}` albo `{kind: unknown}`.
-Request wymaga oczekiwanej rewizji komórki i geometrii, crop sample ID oraz
-SHA-256. Mutacja używa tej samej blokady i agregacji planszy co decyzja
-pojedynczego cropa, zachowuje `quality_issue = unreadable` i nie kwalifikuje
-obrazu do treningu. Logiczne unknown zapisuje `symbolCode = null`, a w stagingu
-datasetu materializuje odpowiadającą komórkę jako sentinel `mobileCode = 0`.
-Canonical, audyt i szybki bieżący właściciel pozostają aktualne. Sentinel nie
-jest dozwolony w katalogu symboli ani w planszy wprowadzanej przez gracza.
+Legacy `POST .../cells/{cellIndex}/resolve` pozostaje kompatybilny dla jednego
+nieczytelnego cropa. Domyślny workspace używa jednak `POST .../save`, którego
+body zawiera decyzję, oczekiwaną rewizję komórki i geometrii, crop sample ID
+oraz SHA-256 dla **każdej** komórki bieżącej topologii. Endpoint przyjmuje tylko
+planszę z co najmniej jednym `unreadable + pending`, weryfikuje dokładne pokrycie
+topologii i wykonuje wszystkie decyzje w jednej transakcji z tą samą blokadą i
+agregacją planszy co decyzja pojedynczego cropa. Zatem konflikt dowolnego pola
+powoduje rollback całej operacji. Przypisanie `unknown` do zwykłego cropa
+najpierw oznacza go jako `unreadable`; przypisanie symbolu do już nieczytelnego
+cropa zachowuje jego `quality_issue = unreadable`. W obu przypadkach taki crop
+nie kwalifikuje się do treningu. Logiczne unknown zapisuje `symbolCode = null`,
+a w stagingu datasetu materializuje odpowiadającą komórkę jako sentinel
+`mobileCode = 0`. Canonical, audyt i szybki bieżący właściciel pozostają
+aktualne. Sentinel nie jest dozwolony w katalogu symboli ani w planszy
+wprowadzanej przez gracza.
 
 ### Trwałe operacje masowe weryfikacji cropów
 

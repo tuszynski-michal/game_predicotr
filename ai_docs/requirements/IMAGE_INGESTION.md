@@ -550,6 +550,11 @@ staging-local potwierdzenia. Komenda startu zawsze zawiera ten tryb, a odpowied�
 idempotentnego startu jest uznawana za sukces tylko wtedy, gdy niezmienny
 snapshot joba odpowiada v20/v19. Historyczne v18 nie są automatycznym fallbackiem.
 
+Ścieżka `verified_v19` jest samowystarczalnym, przypiętym kontraktem v20 i nie
+odczytuje stanu `image_geometry_rollout_states` z równoległego rolloutu 0.10.
+Ten rollout dotyczy wyłącznie importów, które nie wybrały jawnie v20/v19; nie
+może blokować ani zmieniać geometrii i cropów joba v20.
+
 Usunięcie nieużywanego browser stagingu obejmuje jego puste próby preflightu i
 importu, aby nie pozostawały w selektorach operacyjnych. „Nieużywany” oznacza
 brak rozpoznanych plansz, pozycji review oraz chronionych zależności. Rekordy

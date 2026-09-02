@@ -458,15 +458,18 @@ symbol` i jednoliniową grupę `Niewyraźny / Nieczytelny / Zła siatka`.
 `Niewyraźny` zachowuje rozpoznany i zatwierdzony symbol, ale wyklucza bieżący
 crop z kohort treningowych. `Zła siatka` kieruje pole do kolejki korekty
 geometrii, natomiast `Nieczytelny` pozostawia je poza kolejką geometrii i poza
-kohortą treningową. Karta pokazuje zwięzły badge `Niewyraźny`, `Zła siatka`,
-`Nieczytelny`, `Nowy crop` albo `?`, gdy taki stan dotyczy bieżących pikseli.
-W widoku `Zatwierdzone` badge zatwierdzonego cropa, który nie spełnia aktualnych
-warunków kohorty treningowej, zawiera również tekst `Poza uczeniem` oraz
-przyczynę: problem jakości albo brak aktualnie zatwierdzonego, checksum-bound
-cropa.
-Każda akcja najpierw pokazuje niezmienny preview
+kohortą treningową. Dwa ostatnie stany są w game-wide widoku
+listy prezentowane jako `Nierozpoznany (?)`, a ich oryginalne przypisanie
+pozostaje w danych i audycie. Karta pokazuje zwięzły
+badge `Niewyraźny`, `Zła siatka · ?`, `Nieczytelny · ?`, `Nowy crop` albo `?`, gdy taki stan
+dotyczy bieżących pikseli. W widoku `Zatwierdzone` badge zatwierdzonego cropa,
+który nie spełnia aktualnych warunków kohorty treningowej, zawiera również
+tekst `Poza uczeniem` oraz przyczynę: problem jakości albo brak aktualnie
+zatwierdzonego, checksum-bound cropa. Podsumowanie pokazuje aktualną i całkowitą liczbę
+stron oraz jednoznaczny zakres pozycji. Każda akcja najpierw pokazuje niezmienny preview
 liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
-`Zatwierdź` jest niedostępne dla filtra technicznego `Nierozpoznany (?)`.
+`Zatwierdź` działa wyłącznie dla jawnie zaznaczonych cropów; walidacja backendu
+nadal odrzuca próbę zatwierdzenia nierozpoznanego przypisania.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
 polling każdej operacji nie wysyła nakładających się requestów. Pełny sukces
 usuwa jej targety z aktualnie wyświetlanej strony bez ponownego zapytania i bez
@@ -490,20 +493,27 @@ bounded i keysetowa, a wiele problematycznych komórek nadal tworzy jedną pozyc
 planszy.
 
 Plansza renderuje dokładnie `rows × columns` z przypiętej topologii i pokazuje
-crop, pozycję, bieżącą etykietę oraz jakość każdej komórki. Dla nierozwiązanego
-nieczytelnego pola operator wybiera aktywny symbol albo prezentowaną w UI akcję
-`?`. Zapis jest związany z rewizją komórki i geometrii, crop sample ID oraz
+crop, pozycję, bieżącą etykietę oraz jakość każdej komórki. W widoku `Do
+ustalenia` operator może zmienić **każde** pole bieżącej planszy: wybiera
+aktywny symbol albo prezentowaną w UI akcję `?`, a następnie używa jednego
+przycisku `Zapisz i zatwierdź planszę`. UI wysyła pełny snapshot topologii;
+backend zapisuje go atomowo, więc nie może powstać częściowo poprawiona
+plansza. Zapis jest związany z rewizją komórki i geometrii, crop sample ID oraz
 SHA-256. Podczas zapisu pozostałe akcje są zablokowane, a konflikt wymaga
-ponownego pobrania bieżącej planszy.
+ponownego pobrania bieżącej planszy. Widok `Wszystkie nieczytelne` ma charakter
+audytowy: przełączenie resetuje keyset i pobiera jego własną kolejkę, ale
+rozstrzygnięte plansze pozostają w nim tylko do odczytu.
 
 Rozwiązanie zachowuje `quality_issue = unreadable`, dlatego crop pozostaje poza
-treningiem niezależnie od wybranej etykiety. Ostatnia decyzja może domknąć
-planszę jako `corrected`; `?` jest wyłącznie reprezentacją UI wyniku bez
-przypisanego symbolu i nie tworzy symbolu katalogowego. Bieżące API zachowuje
-zgodność przez payload `{kind: unknown}` oraz legacy `NULL`, natomiast przyszły
-write model używa jawnego outcome v2. Snapshot v4 materializuje taki wynik jako
-sentinel `mobileCode = 0`, podczas gdy UI nadal pokazuje `?`; kanoniczny
-właściciel i pełny audyt decyzji pozostają zachowane.
+treningiem niezależnie od wybranej etykiety. Wybranie `?` również dla wcześniej
+zwykłego cropa oznacza go jako `unreadable`, dzięki czemu nie trafia do
+treningu. Ostatnia decyzja może domknąć planszę jako `corrected`; `?` jest
+wyłącznie reprezentacją UI wyniku bez przypisanego symbolu i nie tworzy symbolu
+katalogowego. Bieżące API zachowuje zgodność przez payload `{kind: unknown}`
+oraz legacy `NULL`, natomiast przyszły write model używa jawnego outcome v2.
+Snapshot v4 materializuje taki wynik jako sentinel `mobileCode = 0`, podczas
+gdy UI nadal pokazuje `?`; kanoniczny właściciel i pełny audyt decyzji pozostają
+zachowane.
 
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal

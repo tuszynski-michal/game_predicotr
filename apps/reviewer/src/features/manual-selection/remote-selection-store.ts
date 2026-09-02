@@ -64,7 +64,7 @@ export interface RemoteSelectionLocalBatchRecord {
   /**
    * New batches always walk source ordinals in manifest order. Older
    * descending batches inverted that order and are repaired from the last
-   * durable decision on restore.
+   * durably accepted source photo on restore.
    */
   readonly sourceTraversalSemantics?: RemoteSelectionSourceTraversalSemantics;
   readonly cursorIndex: number;
@@ -213,11 +213,17 @@ export function remoteSelectionWorkspaceState(
 ): RemoteSelectionWorkspaceState {
   const decisions = batch.decisions ?? [];
   const lastDecision = decisions.at(-1);
+  const lastAcceptedDecision = [...decisions]
+    .reverse()
+    .find((decision) => decision.action === 'accepted');
   const repairLegacyDescendingTraversal =
     batch.direction === 'descending' &&
     batch.sourceTraversalSemantics !== 'natural_v2';
   const currentIndex = repairLegacyDescendingTraversal
-    ? Math.min((lastDecision?.sourceIndex ?? -1) + 1, batch.fileCount - 1)
+    ? Math.min(
+        (lastAcceptedDecision?.sourceIndex ?? -1) + 1,
+        batch.fileCount - 1,
+      )
     : batch.cursorIndex;
   const navigationStep = MANUAL_IMAGE_NAVIGATION_STEPS.includes(
     batch.navigationStep as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],

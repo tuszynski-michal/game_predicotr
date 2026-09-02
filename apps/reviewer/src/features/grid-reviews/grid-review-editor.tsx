@@ -570,11 +570,7 @@ function GridReviewEditorContent({
           )}
           <button
             className="primaryButton"
-            disabled={
-              !previewIsCurrent ||
-              saving ||
-              loadingPreview
-            }
+            disabled={!previewIsCurrent || saving || loadingPreview}
             onClick={() => void save()}
             type="button"
           >

@@ -8182,6 +8182,78 @@ export type RulesVersionUpdate = {
 };
 
 /**
+ * SaveUnreadableBoardCellRequest
+ *
+ * One exact visible cell decision supplied by the board workspace.
+ */
+export type SaveUnreadableBoardCellRequest = {
+  /**
+   * Assignment
+   */
+  assignment:
+    | ({
+        kind: 'symbol';
+      } & UnreadableSymbolAssignmentRequest)
+    | ({
+        kind: 'unknown';
+      } & UnreadableUnknownAssignmentRequest);
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Expectedcropchecksumsha256
+   */
+  expectedCropChecksumSha256: string;
+  /**
+   * Expectedcropsampleid
+   */
+  expectedCropSampleId: string;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
+ * SaveUnreadableBoardRequest
+ *
+ * Full topology snapshot for one atomic pending-board save.
+ */
+export type SaveUnreadableBoardRequest = {
+  /**
+   * Cells
+   */
+  cells: Array<SaveUnreadableBoardCellRequest>;
+};
+
+/**
+ * SaveUnreadableBoardResponse
+ */
+export type SaveUnreadableBoardResponse = {
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Changedcellcount
+   */
+  changedCellCount: number;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
+
+/**
  * SemiAutomaticImageSelectionJobPayload
  */
 export type SemiAutomaticImageSelectionJobPayload = {
@@ -13916,6 +13988,54 @@ export type ResolveUnreadableBoardReviewCellResponses = {
 
 export type ResolveUnreadableBoardReviewCellResponse =
   ResolveUnreadableBoardReviewCellResponses[keyof ResolveUnreadableBoardReviewCellResponses];
+
+export type SaveUnreadableBoardReviewData = {
+  body: SaveUnreadableBoardRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}/save';
+};
+
+export type SaveUnreadableBoardReviewErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type SaveUnreadableBoardReviewError =
+  SaveUnreadableBoardReviewErrors[keyof SaveUnreadableBoardReviewErrors];
+
+export type SaveUnreadableBoardReviewResponses = {
+  /**
+   * Successful Response
+   */
+  200: SaveUnreadableBoardResponse;
+};
+
+export type SaveUnreadableBoardReviewResponse =
+  SaveUnreadableBoardReviewResponses[keyof SaveUnreadableBoardReviewResponses];
 
 export type FreezeVerifiedTrainingCohortData = {
   body: VerifiedTrainingCohortFreezeCommand;

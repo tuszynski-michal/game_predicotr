@@ -615,12 +615,18 @@ class JobService:
             ).hexdigest()
             input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
             input_payload["board_cell_processing"] = processing_snapshot
-        effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
-            game_id=game_id,
-            input_payload=input_payload,
-            effective_fingerprint=effective_pipeline_fingerprint,
-            symbol_model=symbol_model,
-        )
+        # The verified v19 board-cell path is the immutable v20 pipeline.
+        # It owns its geometry and crop snapshot in ``board_cell_processing``;
+        # querying the newer per-game virtual-geometry rollout here would both
+        # change that contract and make the historical v20 import depend on
+        # the v0.10 rollout tables.
+        if not use_verified_board_cell_geometry:
+            effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
+                game_id=game_id,
+                input_payload=input_payload,
+                effective_fingerprint=effective_pipeline_fingerprint,
+                symbol_model=symbol_model,
+            )
         input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)

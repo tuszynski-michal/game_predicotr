@@ -339,6 +339,7 @@ def test_verified_v19_full_import_is_pinned_to_the_job(tmp_path: Path) -> None:
     assert processing["gridRows"] == 3
     assert processing["gridColumns"] == 5
     assert processing["topologyRulesVersionId"] == str(_repository.topology_rules_version_id)
+    assert "image_geometry_rollout" not in pinned.input_payload
     assert (
         pinned.input_payload["pipeline_fingerprint"]
         != historical.input_payload["pipeline_fingerprint"]

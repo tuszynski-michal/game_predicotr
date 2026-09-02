@@ -30,6 +30,8 @@ from game_predictor_api.application.image_symbol_reviews import (
 )
 from game_predictor_api.application.unreadable_board_reviews import (
     ResolveUnreadableCellCommand,
+    SaveUnreadableBoardCommand,
+    SaveUnreadableBoardResult,
     UnreadableBoardReviewCell,
     UnreadableBoardReviewDetail,
     UnreadableBoardReviewListItem,
@@ -380,6 +382,7 @@ class MemoryUnreadableBoardReviewRepository:
         self.board_id = uuid4()
         self.import_job_id = uuid4()
         self.commands: list[ResolveUnreadableCellCommand] = []
+        self.save_commands: list[SaveUnreadableBoardCommand] = []
 
     def require_ready_game(self, game_id: UUID) -> None:
         assert game_id == self.game_id
@@ -467,6 +470,15 @@ class MemoryUnreadableBoardReviewRepository:
             board_resolution_action="corrected",
             board_reopened=False,
             catalog_revision=19,
+        )
+
+    def save_board(self, command: SaveUnreadableBoardCommand) -> SaveUnreadableBoardResult:
+        self.save_commands.append(command)
+        return SaveUnreadableBoardResult(
+            review_item_id=command.review_item_id,
+            sequence_number=41,
+            board_status="corrected",
+            changed_cell_count=len(command.cells),
         )
 
 
@@ -673,6 +685,54 @@ def test_unreadable_board_endpoints_preserve_topology_and_assignment_kind(
     assert symbol.status_code == 200
     assert unreadable.commands[0].target_symbol_id is None
     assert unreadable.commands[1].target_symbol_id == symbol_id
+
+
+def test_unreadable_board_save_accepts_a_full_atomic_board_snapshot(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(),
+    )
+    unreadable = MemoryUnreadableBoardReviewRepository(game_id=game_id)
+    cells = [
+        {
+            "assignment": (
+                {"kind": "unknown"}
+                if index == 3
+                else {"kind": "symbol", "symbolId": str(symbol_id)}
+            ),
+            "cellIndex": index,
+            "expectedRevision": 2,
+            "expectedGeometryRevision": 1,
+            "expectedCropSampleId": "b" * 64,
+            "expectedCropChecksumSha256": "a" * 64,
+        }
+        for index in range(8)
+    ]
+    with _client(
+        repository,
+        artifact_root=tmp_path,
+        unreadable_repository=unreadable,
+    ) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/unreadable-board-reviews/"
+            f"{unreadable.review_item_id}/save",
+            json={"cells": cells},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "reviewItemId": str(unreadable.review_item_id),
+        "sequenceNumber": 41,
+        "boardStatus": "corrected",
+        "changedCellCount": 8,
+    }
+    assert len(unreadable.save_commands) == 1
+    saved = unreadable.save_commands[0]
+    assert [cell.cell_index for cell in saved.cells] == list(range(8))
+    assert saved.cells[3].target_symbol_id is None
+    assert saved.cells[4].target_symbol_id == symbol_id
 
 
 def test_projection_status_and_start_are_idempotent(tmp_path: Path) -> None:

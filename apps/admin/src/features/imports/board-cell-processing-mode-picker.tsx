@@ -17,8 +17,15 @@ export function BoardCellProcessingModePicker({
         istniejących jobów ani zatwierdzonych plansz.
       </p>
       <div className="boardCellProcessingModeOptions">
-        <label className={`boardCellProcessingModeOption ${mode === 'verified_v19' ? 'selected' : ''}`}>
-          <input checked={mode === 'verified_v19'} name="engine-policy" onChange={() => onChange('verified_v19')} type="radio" />
+        <label
+          className={`boardCellProcessingModeOption ${mode === 'verified_v19' ? 'selected' : ''}`}
+        >
+          <input
+            checked={mode === 'verified_v19'}
+            name="engine-policy"
+            onChange={() => onChange('verified_v19')}
+            type="radio"
+          />
           <span>
             <strong>v20 — geometria i cropy v19</strong>
             <small>

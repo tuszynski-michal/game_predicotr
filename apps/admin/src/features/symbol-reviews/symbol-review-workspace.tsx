@@ -228,6 +228,13 @@ export function SymbolReviewWorkspace({
     filters.pageSize,
     currentFilteredCount ?? currentPageNumber * filters.pageSize,
   );
+  const totalPageCount = Math.max(
+    1,
+    Math.ceil(
+      (currentFilteredCount ?? currentPageNumber * filters.pageSize) /
+        filters.pageSize,
+    ),
+  );
   const hasLoadError =
     gamesState === 'error' ||
     symbolsState === 'error' ||
@@ -898,9 +905,7 @@ export function SymbolReviewWorkspace({
               checked={filters.state === 'all'}
               disabled={interactionBusy}
               name="symbol-review-state"
-              onChange={() =>
-                requestFilterChange({ ...filters, state: 'all' })
-              }
+              onChange={() => requestFilterChange({ ...filters, state: 'all' })}
               type="radio"
             />
             Wszystkie
@@ -1012,7 +1017,7 @@ export function SymbolReviewWorkspace({
             </span>
             <div className={styles.summaryActions}>
               <span>
-                Strona {currentPageNumber} · zakres{' '}
+                Strona {currentPageNumber}/{totalPageCount} · zakres{' '}
                 {currentPageRange === null
                   ? 'brak wyników'
                   : `${currentPageRange.start}–${currentPageRange.end}`}{' '}
@@ -1177,9 +1182,7 @@ function SymbolReviewCard({
             role="status"
           />
         ) : null}
-        {badge !== null ? (
-          <span className={styles.cardBadge}>{badge}</span>
-        ) : null}
+        {badge !== null ? <span className={styles.cardBadge}>{badge}</span> : null}
       </button>
     </article>
   );
@@ -1210,13 +1213,13 @@ function symbolReviewCardBadge(
   }
 
   if (item.qualityIssue === 'grid_issue') {
-    return 'Zła siatka';
+    return 'Zła siatka · ?';
   }
   if (item.qualityIssue === 'blurry') {
     return 'Niewyraźny';
   }
   if (item.qualityIssue === 'unreadable') {
-    return 'Nieczytelny';
+    return 'Nieczytelny · ?';
   }
   if (item.cropApprovalState === 'changed_since_approval') {
     return 'Nowy crop';

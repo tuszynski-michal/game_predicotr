@@ -1,5 +1,5 @@
 import type {
-  ResolveUnreadableCellRequest,
+  SaveUnreadableBoardRequest,
   SymbolResponse,
   UnreadableBoardReviewDetailResponse,
   UnreadableBoardReviewPageResponse,
@@ -14,7 +14,7 @@ export type UnreadableBoardReviewClient = Pick<
   | 'getUnreadableBoardReview'
   | 'listSymbols'
   | 'listUnreadableBoardReviews'
-  | 'resolveUnreadableBoardReviewCell'
+  | 'saveUnreadableBoardReview'
   | 'symbolCellReviewAssetUrl'
 >;
 
@@ -95,24 +95,22 @@ export async function loadUnreadableBoardSymbols(
   };
 }
 
-export async function resolveUnreadableCell(
+export async function saveUnreadableBoard(
   api: UnreadableBoardReviewClient,
   gameId: string,
   reviewItemId: string,
-  cellIndex: number,
-  body: ResolveUnreadableCellRequest,
+  body: SaveUnreadableBoardRequest,
 ): Promise<{ readonly error?: string; readonly ok: boolean }> {
-  const result = await api.resolveUnreadableBoardReviewCell(
+  const result = await api.saveUnreadableBoardReview(
     gameId,
     reviewItemId,
-    cellIndex,
     body,
   );
   if (result.error !== undefined || result.data === undefined) {
     return {
       error: apiErrorMessage(
         result.error,
-        'Nie udało się zapisać rozwiązania nieczytelnego symbolu.',
+        'Nie udało się atomowo zapisać decyzji całej planszy.',
       ),
       ok: false,
     };

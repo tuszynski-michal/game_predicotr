@@ -390,15 +390,11 @@ def train_ranker(
     torch.manual_seed(seed)
     torch.use_deterministic_algorithms(True, warn_only=True)
     features = np.asarray(
-        [
-            _feature_vector(sample)
-            for sample in samples
-        ],
+        [_feature_vector(sample) for sample in samples],
         dtype=np.float32,
     )
     pair_values = [
-        (_int_value(pair.get("positive")), _int_value(pair.get("negative")))
-        for pair in pairs
+        (_int_value(pair.get("positive")), _int_value(pair.get("negative"))) for pair in pairs
     ]
     train_pairs, test_pairs = _split_pairs(pair_values, samples)
     if not train_pairs:
@@ -556,21 +552,16 @@ def shadow_recommendations(
         values = [
             quality_features(
                 item.quality,
-                float(
-                    max(0, item.source.order_index - minimum)
-                    / max(1, maximum - minimum)
-                ),
+                float(max(0, item.source.order_index - minimum) / max(1, maximum - minimum)),
             )
             for item in candidates
         ]
-        normalized = (np.asarray(values, dtype=np.float32) - np.asarray(
-            snapshot.standardization_mean
-        )) / np.asarray(snapshot.standardization_scale)
+        normalized = (
+            np.asarray(values, dtype=np.float32) - np.asarray(snapshot.standardization_mean)
+        ) / np.asarray(snapshot.standardization_scale)
         normalized = normalized.astype(np.float32)
         scores = session.run(["score"], {"features": normalized})[0].reshape(-1)
-        order = tuple(
-            sorted(range(len(values)), key=lambda index: (-float(scores[index]), index))
-        )
+        order = tuple(sorted(range(len(values)), key=lambda index: (-float(scores[index]), index)))
         heuristic = (
             group.selected_candidate.source.checksum_sha256
             if group.selected_candidate is not None
@@ -669,8 +660,7 @@ def _measure_quality(path: Path) -> ImageQualityMetrics:
         0.0,
         min(
             1.0,
-            0.55 * contrast / (contrast + 30.0)
-            + 0.45 * mean_edges / (mean_edges + 18.0),
+            0.55 * contrast / (contrast + 30.0) + 0.45 * mean_edges / (mean_edges + 18.0),
         ),
     )
     border_margin = max(0.0, min(1.0, 1.0 - mean_edges / (mean_edges + 24.0)))
@@ -802,8 +792,10 @@ def _text(value: Mapping[str, object], key: str) -> str:
 
 
 def _checksum(value: object) -> str:
-    if not isinstance(value, str) or len(value) != 64 or any(
-        char not in "0123456789abcdef" for char in value
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(char not in "0123456789abcdef" for char in value)
     ):
         raise ValueError("Invalid ranker checksum.")
     return value

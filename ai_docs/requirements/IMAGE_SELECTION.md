@@ -1066,6 +1066,20 @@ Przycięty, nieczytelny lub nienumeryczny crop oraz każdy conflict także pozos
 obrazów. Częściowa strona zawsze pozostaje manualna. Wariant jest domenowym
 kontraktem przyszłego runtime'u i nie zmienia fingerprintów v1–v5.
 
+### Runtime OCR pięciu anchorów v6 — TASK-0406
+
+`five-anchor-range-runtime-v1` realizuje zamknięty łańcuch: kanonizacja EXIF
+raz → lokalizator pięciu source-direct cropów → lokalna bramka czytelności →
+recognition-only Paddle → proof v6. Jedna partia obejmuje najwyżej sześć źródeł,
+a jeden wewnętrzny batch Paddle najwyżej dziewięć cropów. Crop, który nie
+przejdzie lokalnej bramki ostrości, kontrastu i krawędzi, nie uruchamia Paddle i
+kończy się `unknown`; nie jest poprawiany albo interpolowany.
+
+Runtime ma własny fingerprint i observation key powiązany z runem, źródłem i
+fingerprintem. Zwraca tylko `RangeEvidenceResult` w kolejności wejścia. Nie
+tworzy joba, checkpointu, grupy, plików `seq_*`, geometrii ani symboli. Nie jest
+jeszcze rejestrowany jako opcja produkcyjnego runu; v1–v5 pozostają bez zmian.
+
 ## Trwały globalny run półautomatycznej selekcji — TASK-0352
 
 - Workflow nie należy do gry: staging, run i job mają `gameId = null`.

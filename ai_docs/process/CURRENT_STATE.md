@@ -4699,5 +4699,18 @@ czytelna wartość sprzeczna z kandydatem blokuje wynik.
 Brak proofu, clipping, blur, niski confidence, tekst nienumeryczny i częściowa
 strona pozostają jawne jako `unknown`. Resolver nie ma I/O, obrazu, Paddle,
 runtime'u, nazwy pliku, source indexu ani sąsiadów. Nie zmieniono adapterów,
-fingerprintów czy jobów v1–v5; integracja runtime'u v6 pozostaje następnym
-zadaniem.
+fingerprintów czy jobów v1–v5; integracja runtime'u v6 została dostarczona
+osobno w TASK-0406.
+
+### TASK-0406 — runtime OCR pięciu anchorów
+
+Dodano `five-anchor-range-runtime-v1`: source-local runtime łączy kanonizację
+EXIF, source-direct lokalizator pięciu etykiet, fail-closed gate czytelności,
+ograniczony batch recognition-only Paddle i proof v6. Zachowuje kolejność
+źródeł, udostępnia telemetryczne diagnostyki oraz własny, checksum-bound
+observation key. Niewyraźny crop nie wywołuje OCR i pozostaje manualnym
+`unknown`.
+
+Runtime nie rejestruje się jeszcze w durable jobie, nie checkpointuje, nie
+grupuje i nie tworzy `seq_*`; nie zmieniono fingerprintów ani retry v1–v5.
+Kolejne zadanie może bezpiecznie dodać jego fingerprint do rejestru joba.

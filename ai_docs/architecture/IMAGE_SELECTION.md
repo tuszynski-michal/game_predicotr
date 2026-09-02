@@ -1602,6 +1602,27 @@ expected filename, source index i historia sąsiadów nie są jego wejściem ani
 dowodem. Tak jak lokalizator, wymaga później osobnego runtime fingerprintu i
 holdoutu, a v1–v5 pozostają odtwarzalne.
 
+## Runtime OCR pięciu anchorów v6 — TASK-0406
+
+`five_anchor_range_runtime.py` jest cienkim, source-local adapterem między
+`five_anchor_range_label_locator.py`, istniejącym portem recognition-only Paddle
+i `five_anchor_range_proof.py`. Przyjmuje wyłącznie trwałą tożsamość źródła,
+bajty oraz tabelę oczekiwanych zakresów wyprowadzoną z granic runu. Nie importuje
+jobów, storage, grupowania, geometrii ani inferencji symboli.
+
+Runtime kanonizuje EXIF dokładnie raz, lokalizuje pięć cropów i sprawdza ich
+lokalną jakość przed OCR. Wystarczy jeden niewyraźny crop, by bez wywołania
+Paddle zwrócić `RANGE_UNREADABLE / LOCAL_BLUR`; output nie przyjmuje częściowej
+hipotezy. Dla cropów czytelnych przetwarza źródła w partiach po sześć, zachowuje
+ograniczenie Paddle do dziewięciu cropów w batchu i po jednym resolverze v6
+mapuje wszystkie wyniki z powrotem do kolejności źródeł.
+
+Każdy output ma `five-anchor-observation-key-v1` będący funkcją `runId`, pełnej
+tożsamości źródła oraz fingerprintu runtime'u. Diagnostyka zawiera tylko
+proweniencję EXIF, crop boxes/modes, lokalne wyniki jakości, teksty/confidence
+OCR i proof. Nie jest to checkpoint ani wynik joba; osobne późniejsze zadanie
+może zarejestrować dokładnie ten fingerprint jako nową durable ścieżkę v6.
+
 ## Historia weryfikacji zakresów nazw plików — TASK-0393
 
 Weryfikacja `seq_*` pozostaje technicznie runem półautomatycznej selekcji i

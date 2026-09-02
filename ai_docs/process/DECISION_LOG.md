@@ -7119,3 +7119,20 @@ sąsiadem. Pusty lub słaby dodatkowy anchor może pozostać bez dowodu wyłącz
 wtedy, gdy trzy rozpięte potwierdzenia nadal istnieją; w każdym innym przypadku
 wynik jest reason-coded `unknown`. Decyzja definiuje wyłącznie czysty proof v6;
 runtime i rollout nadal wymagają osobnych zadań oraz holdoutu.
+
+## D-307 — Runtime v6 kończy się na source-local evidence
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Runtime pięciu anchorów używa pojedynczej kanonizacji EXIF, lokalizatora v6,
+lekkiej lokalnej bramki czytelności i istniejącego recognition-only adaptera
+Paddle. Bramka jakości jest fail-closed: gdy którykolwiek wymagany crop nie
+przechodzi, runtime nie wywołuje OCR dla tego źródła i zwraca `unknown`. Nie
+próbuje odgadywać rozmytej wartości z nazwy, źródłowego indeksu, sąsiada ani
+innej pozycji anchorów.
+
+Runtime nie mutuje stanu trwałego i nie jest automatycznie wybierany przez job.
+Jego osobny fingerprint oraz observation key pozwalają kolejnemu taskowi dodać
+go do rejestru bez zmiany zachowania rozpoczętych runów v1–v5. Do tego czasu
+komponent służy wyłącznie jako testowalny adapter runtime'u.

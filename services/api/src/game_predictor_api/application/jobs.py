@@ -62,6 +62,11 @@ from game_predictor_api.domain.symbol_model_snapshots import (
 )
 
 PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
+# Must match migration 0091 and the immutable v2 recognizer contract.  This
+# module cannot import the workflow classifier without an application cycle.
+_LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINT = (
+    "8b876e8a7cdc25f0709bf27ece4e99b1c777231fa3fcef4aa31e617123825b0f"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1366,7 +1371,15 @@ def _is_filename_verification_job(job: Job) -> bool:
     # Migration 0091 materializes the workflow on historical v2 jobs.  A
     # retry must rely on that durable classification rather than re-inferring
     # it from a mutable recognizer configuration.
-    return job.input_payload.get("workflow_mode") == "filename_verification"
+    workflow_mode = job.input_payload.get("workflow_mode")
+    if workflow_mode in {"selection", "filename_verification"}:
+        return workflow_mode == "filename_verification"
+    recognizer_fingerprint = job.input_payload.get("recognizer_fingerprint")
+    return (
+        isinstance(recognizer_fingerprint, str)
+        and recognizer_fingerprint
+        == _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINT
+    )
 
 
 def _page_geometry_manifest_fingerprint(value: dict[str, object] | None) -> str:

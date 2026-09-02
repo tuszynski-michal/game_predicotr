@@ -39,6 +39,9 @@ from game_predictor_worker.images.pipeline_contract import (
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
     STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
 )
+from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+)
 from test_jobs_domain import MemoryJobRepository
 
 
@@ -972,3 +975,49 @@ def test_filename_verification_retry_resets_only_technical_job_progress(
     assert retried.success_count == 0
     assert retried.review_count == 0
     assert retried.error_code is None
+
+
+def test_historical_filename_verification_retry_resets_technical_job_progress(
+    tmp_path: Path,
+) -> None:
+    _client_instance, _game_id, service, repository = _client(tmp_path)
+    job = replace(
+        create_job(
+            JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+            game_id=None,
+            input_payload={
+                "schema_version": 1,
+                "selection_kind": "semi_automatic_image_selection",
+                "run_id": str(uuid4()),
+                "source_upload_id": str(uuid4()),
+                "source_manifest_checksum_sha256": "a" * 64,
+                "source_fingerprint": "b" * 64,
+                "source_count": 2_200,
+                "first_sequence_number": 1,
+                "last_sequence_number": 19_809,
+                "direction": "ascending",
+                "range_convention": "seq-inclusive-v1",
+                "full_range_size": 9,
+                "expected_ranges_fingerprint": "c" * 64,
+                "recognizer_fingerprint": RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+                "grouping_policy_fingerprint": "e" * 64,
+            },
+        ),
+        status=JobStatus.FAILED,
+        progress_current=2_200,
+        progress_total=2_200,
+        success_count=0,
+        review_count=2_200,
+        error_code="JOB_PROGRESS_REGRESSION",
+        error_message="Progress counters cannot decrease.",
+        finished_at=datetime.now(UTC),
+    )
+    repository.add_job(job)
+
+    retried = service.retry_job(job.id)
+
+    assert retried.status is JobStatus.CREATED
+    assert retried.progress_current == 0
+    assert retried.progress_total is None
+    assert retried.success_count == 0
+    assert retried.review_count == 0

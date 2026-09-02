@@ -591,6 +591,13 @@ class SemiAutomaticImageSelectionJobHandler:
             )
             if checkpoint["phase"] == "analysis_complete":
                 _verify_report(audit, run)
+                if run.workflow_mode is SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+                    _job_checkpoint(
+                        context,
+                        run,
+                        checkpoint,
+                        total=run.source.source_count,
+                    )
                 context.wait_for_review()
             if checkpoint["phase"] == "scanning":
                 run, checkpoint = self._scan(

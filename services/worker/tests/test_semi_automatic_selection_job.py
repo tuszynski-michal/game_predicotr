@@ -707,8 +707,13 @@ def test_filename_verification_finishes_without_selection_or_progress_regression
         repository_root=tmp_path,
         recognizer_factory=fail_if_recognizer_is_rebuilt,
     )
+    resumed_context = _Context()
     with pytest.raises(_WaitForReview):
-        resumed_handler(_Context(), run.job)  # type: ignore[arg-type]
+        resumed_handler(resumed_context, run.job)  # type: ignore[arg-type]
+
+    assert resumed_context.checkpoints[-1]["current"] == 2
+    assert resumed_context.checkpoints[-1]["success_count"] == 0
+    assert resumed_context.checkpoints[-1]["review_count"] == 2
 
 
 def test_filename_verification_with_only_matching_files_cleans_working_data(

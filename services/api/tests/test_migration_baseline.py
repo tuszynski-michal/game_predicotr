@@ -99,6 +99,7 @@ PARTIAL_PAGE_GEOMETRY_OVERRIDES_REVISION = "0086_partial_page_geometry_overrides
 SEMI_AUTOMATIC_IMAGE_SELECTION_REVISION = "0087_semi_automatic_image_selection"
 SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION = "0088_symbol_review_game_sequence_index"
 BLURRY_SYMBOL_QUALITY_REVISION = "0089_blurry_symbol_quality"
+SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION = "0090_symbol_reference_individual_cell_provenance"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -364,7 +365,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION
     )
     blurry_symbol_quality = script.get_revision(BLURRY_SYMBOL_QUALITY_REVISION)
-    assert script.get_heads() == [BLURRY_SYMBOL_QUALITY_REVISION]
+    symbol_reference_individual_cell = script.get_revision(
+        SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION
+    )
+    assert script.get_heads() == [SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION]
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert storage_capacity_guard is not None
@@ -400,6 +404,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     )
     assert blurry_symbol_quality is not None
     assert blurry_symbol_quality.down_revision == SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION
+    assert symbol_reference_individual_cell is not None
+    assert symbol_reference_individual_cell.down_revision == BLURRY_SYMBOL_QUALITY_REVISION
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
@@ -573,6 +579,29 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
     )
+
+
+def test_individually_approved_symbol_reference_migration_is_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{BLURRY_SYMBOL_QUALITY_REVISION}:{SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION}:{BLURRY_SYMBOL_QUALITY_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "ck_symbol_reference_images_position_replacement" in upgrade_sql
+    assert "resolution_revision >= 0" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "lock table symbol_reference_images" in downgrade_sql
+    assert "individually approved symbol references" in downgrade_sql
 
 
 def test_remote_manual_selection_migration_is_additive_and_reversible() -> None:

@@ -205,7 +205,7 @@ class SymbolReferenceImageModel(Base):
     __table_args__ = (
         CheckConstraint(
             "sequence_number > 0 AND cell_index BETWEEN 0 AND 14 "
-            "AND resolution_revision > 0 AND geometry_revision >= 0",
+            "AND resolution_revision >= 0 AND geometry_revision >= 0",
             name="ck_symbol_reference_images_position",
         ),
         CheckConstraint(

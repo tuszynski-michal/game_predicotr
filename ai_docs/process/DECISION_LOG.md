@@ -6981,3 +6981,19 @@ pobranie automatycznie, bez osobnego zatwierdzania i bez trybu blokowania
 selectów. Zmiana gry zeruje zakres symbolu. Jeśli operator ma zaznaczone cropy,
 zmiana filtra nadal wymaga potwierdzenia ich wyczyszczenia, ale nie zmienia
 żadnej decyzji ani pliku.
+
+## D-299 — Grafika mobilna jest trwałą materializacją zatwierdzonego cropa
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Pojedynczo zatwierdzony, bieżący crop aktywnego symbolu jest wystarczającym
+źródłem grafiki katalogowej; nie wymaga zatwierdzenia całej planszy. Wybór
+pozostaje checksum-bound do tożsamości cropa, jego aktualnej geometrii oraz,
+dla v0.10, source-direct render provenance.
+
+Po decyzji katalog przechowuje wyłącznie fizyczną, content-addressed kopię:
+legacy zachowuje własne bajty cropa, a `virtual_source` materializuje pełny PNG
+w momencie wyboru. Aplikacja mobilna i katalog nie odczytują stagingu,
+odtwarzalnego cache atlasów ani dynamicznego renderera. Umożliwia to niezależny
+od procesu importu snapshot mobilny bez zapisywania binariów w tabelach domeny.

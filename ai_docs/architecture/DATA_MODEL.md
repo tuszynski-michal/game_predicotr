@@ -1255,13 +1255,19 @@ nie nadpisuje metryk ani provenance źródła.
 Każdy symbol ma co najwyżej jedną aktywną, ręcznie wybraną referencję. Rekord
 wiąże `symbol_id` z `review_item_id`, `recognized_board_id`, `sequence_number`,
 `cell_index`, rewizją decyzji, rewizją geometrii, trwałą względną ścieżką,
-SHA-256, aktorem oraz czasem wyboru. Checksum i źródłowy crop są weryfikowane
-przed zapisem, a plik referencji jest content-addressed poza tabelą domenową.
+SHA-256 fizycznego pliku, aktorem oraz czasem wyboru. `resolution_revision = 0`
+oznacza, że referencja powstała z pojedynczo zatwierdzonego cropa, bez decyzji
+dla całej planszy. Checksum zatwierdzonego cropa i źródłowego renderu są
+weryfikowane przed zapisem, a plik referencji jest content-addressed poza
+tabelą domenową.
 
-Referencja może pochodzić wyłącznie z aktualnego właściciela
-`image_sequence_canonical`, decyzji `accepted/corrected` i finalnego kodu
-komórki zatwierdzonego przez człowieka. Cropy pending, rejected, superseded,
-alternatywne źródła i predykcje modelu nie tworzą rekordów. Poprzednia
+Referencja może pochodzić wyłącznie z aktualnego właściciela i bieżącej komórki
+`approved` aktywnego symbolu, bez problemu jakości oraz z zgodną tożsamością
+zatwierdzonego cropa. Cropy pending, rejected, superseded, zmienione po
+zatwierdzeniu, alternatywne źródła i predykcje modelu nie tworzą rekordów.
+Dla legacy referencja zawiera niezmienione bajty cropa; dla `virtual_source`
+v0.10 jest jednorazowo materializowany pełny PNG, więc późniejszy odczyt nie
+wymaga stagingu, cache podglądu ani renderera. Poprzednia
 referencja może zostać atomowo zastąpiona, ale obraz binarny pozostaje w
 zarządzanym storage do osobnego cleanupu.
 

@@ -199,8 +199,8 @@ export function SymbolImagePickerModal({
               Wybierz grafikę: {symbol.name}
             </h2>
             <p>
-              Pokazujemy wyłącznie cropy z plansz zatwierdzonych przez
-              człowieka.
+              Pokazujemy aktualne cropy zatwierdzone przez człowieka —
+              pojedynczo albo razem z całą planszą.
             </p>
           </div>
           <button
@@ -236,7 +236,7 @@ export function SymbolImagePickerModal({
         {loadState === 'ready' && candidates.length === 0 ? (
           <div className="symbolImagePickerEmpty">
             <span aria-hidden="true">?</span>
-            <p>Najpierw zatwierdź planszę zawierającą ten symbol.</p>
+            <p>Najpierw zatwierdź crop zawierający ten symbol.</p>
           </div>
         ) : null}
 

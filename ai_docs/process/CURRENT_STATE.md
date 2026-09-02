@@ -15,6 +15,19 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Trwałe grafiki z pojedynczo zatwierdzonych cropów — TASK-0389
+
+- Picker `Wybierz grafikę` używa teraz tej samej bieżącej, checksum-bound
+  decyzji pojedynczej komórki co kohorta treningowa; nie wymaga już
+  rozstrzygnięcia całej planszy.
+- Zatwierdzony crop legacy jest kopiowany bez zmiany bajtów. Crop
+  `virtual_source` v0.10 jest przy wyborze jednokrotnie renderowany w pełnym
+  rozmiarze do content-addressed PNG w `data/symbol-references`; aplikacja
+  mobilna odczytuje następnie wyłącznie ten trwały plik.
+- Migracja `0090_symbol_reference_individual_cell_provenance` dopuszcza
+  `resolution_revision = 0` tylko dla referencji utworzonej z pojedynczo
+  zatwierdzonej komórki.
+
 ### Produkcyjny silnik v0.10 per gra — TASK-0384
 
 - Admin przywraca jednoznaczny wybór pomiędzy stabilnym v19 i produkcyjnym

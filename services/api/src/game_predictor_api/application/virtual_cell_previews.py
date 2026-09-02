@@ -301,7 +301,7 @@ class VirtualCellPreviewService:
                 if asset.asset_mode == "virtual_source":
                     frame = frames.get(asset.source_checksum_sha256 or "")
                     if frame is None:
-                        source_path = self._managed_source_path(asset)
+                        source_path = _managed_virtual_source_path(self._artifact_root, asset)
                         frame = loader.load(
                             source_path,
                             expected_source_checksum_sha256=_required(asset.source_checksum_sha256),
@@ -354,22 +354,6 @@ class VirtualCellPreviewService:
             ),
             content=content,
         )
-
-    def _managed_source_path(self, asset: SymbolCellReviewAsset) -> Path:
-        checksum = _required(asset.source_checksum_sha256)
-        relative = Path("data") / "originals" / checksum[:2] / f"{checksum}.jpg"
-        candidate = (self._artifact_root / relative).resolve()
-        data_root = (self._artifact_root / "data").resolve()
-        if (
-            not candidate.is_relative_to(data_root)
-            or not candidate.is_file()
-            or candidate.is_symlink()
-        ):
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_PREVIEW_SOURCE_UNAVAILABLE",
-                "The managed source image for this virtual symbol-cell preview is unavailable.",
-            )
-        return candidate
 
     def _render_legacy_preview(
         self,
@@ -597,15 +581,57 @@ def _render_virtual_preview(
 
     if not isinstance(frame, CanonicalSourceFrame):
         raise TypeError("frame must be a CanonicalSourceFrame")
+    image = _render_virtual_cell_image(asset=asset, frame=frame)
+    return image.resize((preview_size, preview_size), Image.Resampling.LANCZOS)
+
+
+def render_virtual_symbol_cell_png(*, artifact_root: Path, asset: SymbolCellReviewAsset) -> bytes:
+    """Render one current virtual crop at its canonical size into durable PNG bytes.
+
+    Preview atlases intentionally downsample and expire.  A selected catalog
+    reference must instead freeze the exact source-direct cell pixels once,
+    after all persisted source and render-provenance checks have passed.
+    """
+
+    if asset.asset_mode != "virtual_source":
+        raise SymbolCellReviewError(
+            "SYMBOL_REFERENCE_VIRTUAL_ASSET_INVALID",
+            "Only a virtual symbol-cell asset can be materialized as a virtual reference.",
+        )
+    loader = CanonicalSourceLoader()
+    try:
+        frame = loader.load(
+            _managed_virtual_source_path(artifact_root.resolve(), asset),
+            expected_source_checksum_sha256=_required(asset.source_checksum_sha256),
+        )
+        image = _render_virtual_cell_image(asset=asset, frame=frame)
+        output = BytesIO()
+        image.save(output, format="PNG", optimize=False, compress_level=9)
+        return output.getvalue()
+    except (CanonicalSourceLoadError, VirtualCellExtractionError) as error:
+        raise SymbolCellReviewError(
+            getattr(error, "code", "SYMBOL_REFERENCE_VIRTUAL_RENDER_FAILED"),
+            str(error),
+        ) from error
+    finally:
+        loader.clear()
+
+
+def _render_virtual_cell_image(*, asset: SymbolCellReviewAsset, frame: object) -> Image.Image:
+    """Return full-resolution source-direct cell pixels after contract validation."""
+
+    from game_predictor_worker.images.normalization import CanonicalSourceFrame
+
+    if not isinstance(frame, CanonicalSourceFrame):
+        raise TypeError("frame must be a CanonicalSourceFrame")
     spec = dict(_required(asset.render_spec))
     _require_virtual_asset_contract(asset=asset, frame=frame, render_spec=spec)
     configuration = _mapping(spec.get("configuration"), "configuration")
     width = _positive_int(configuration.get("outputWidth"), "outputWidth")
     height = _positive_int(configuration.get("outputHeight"), "outputHeight")
-    padded_quad = _quad(spec.get("paddedSourceQuad"))
     rgb = source_direct_warp_rgb(
         frame.rgb,
-        source_quad=padded_quad,
+        source_quad=_quad(spec.get("paddedSourceQuad")),
         output_width=width,
         output_height=height,
     )
@@ -614,8 +640,20 @@ def _render_virtual_preview(
             "SYMBOL_CELL_REVIEW_PREVIEW_PIXEL_CHECKSUM_MISMATCH",
             "The virtual preview pixels differ from the current rendered-cell checksum.",
         )
-    image = Image.fromarray(np.asarray(rgb), mode="RGB")
-    return image.resize((preview_size, preview_size), Image.Resampling.LANCZOS)
+    return Image.fromarray(np.asarray(rgb), mode="RGB")
+
+
+def _managed_virtual_source_path(artifact_root: Path, asset: SymbolCellReviewAsset) -> Path:
+    checksum = _required(asset.source_checksum_sha256)
+    relative = Path("data") / "originals" / checksum[:2] / f"{checksum}.jpg"
+    candidate = (artifact_root / relative).resolve()
+    data_root = (artifact_root / "data").resolve()
+    if not candidate.is_relative_to(data_root) or not candidate.is_file() or candidate.is_symlink():
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_PREVIEW_SOURCE_UNAVAILABLE",
+            "The managed source image for this virtual symbol-cell preview is unavailable.",
+        )
+    return candidate
 
 
 def _require_virtual_asset_contract(
@@ -888,6 +926,7 @@ __all__ = [
     "MAX_VIRTUAL_CELL_PREVIEW_BATCH_SIZE",
     "SymbolCellPreviewTarget",
     "SymbolCellPreviewRendererMode",
+    "render_virtual_symbol_cell_png",
     "symbol_cell_preview_renderer_fingerprint",
     "symbol_cell_preview_renderer_version",
     "VirtualCellPreviewBatch",

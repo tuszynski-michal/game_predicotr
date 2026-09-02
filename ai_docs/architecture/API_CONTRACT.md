@@ -1836,16 +1836,20 @@ POST /api/v1/admin/games/{gameId}/symbols/{symbolId}/approved-image-candidates/{
 ```
 
 Lista ma keyset `afterCursor` związany z `gameId` oraz `symbolId` i limit do 20.
-Zwraca tylko cropy kanonicznych plansz `accepted/corrected`, których końcowy
-`resolved_value.symbolCodes[cellIndex]` zgadza się z kodem symbolu. Kolejność
-nie używa confidence: ręcznie poprawiona geometria, `sequenceNumber`,
-`cellIndex`, UUID obserwacji. Wartość `geometryRevision > 0` wskazuje crop
-najnowszej zatwierdzonej geometrii. Klient nie otrzymuje ścieżki pliku.
+Zwraca bieżące cropy pojedynczo zatwierdzone przez człowieka, z aktywnym
+symbolem, bez problemu jakości i z identyczną zatwierdzoną oraz bieżącą
+tożsamością cropa. Nie wymaga rozstrzygnięcia całej planszy: dopuszcza zatem
+`resolutionRevision = 0` dla poprawnego cropa z planszy `pending`, jeżeli ten
+crop ma własną aktualną decyzję `approved`. Kolejność nie używa confidence:
+ręcznie poprawiona geometria, `sequenceNumber`, `cellIndex`, UUID obserwacji.
+Klient nie otrzymuje ścieżki pliku.
 
-Asset i selection ponownie sprawdzają kanonicznego właściciela, decyzję,
-symbol, rewizje i SHA-256. Selection przyjmuje `expectedChecksumSha256` i
-`selectedBy`, kopiuje bajty bez resamplingu do zarządzanego katalogu referencji
-i zwraca zaktualizowany `SymbolResponse`. Konflikt stanu daje
+Asset i selection ponownie sprawdzają aktualnego właściciela, pojedynczą
+decyzję, symbol, rewizje i SHA-256. Selection przyjmuje
+`expectedChecksumSha256` i `selectedBy`: crop legacy kopiuje bez resamplingu,
+a `virtual_source` v0.10 renderuje raz pełny canonical crop i zapisuje go jako
+trwały PNG w zarządzanym katalogu referencji. Rekord referencji przechowuje
+SHA-256 fizycznie zapisanych bajtów. Konflikt stanu daje
 `SYMBOL_REFERENCE_CANDIDATE_STALE`; brak lub podmiana pliku daje kontrolowany
 błąd checksumy/assetu. `GET /image/asset` serwuje wyłącznie trwałą, zatwierdzoną
 referencję — historyczne `image_path` bez proweniencji jest traktowane jako brak

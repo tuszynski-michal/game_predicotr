@@ -359,17 +359,19 @@ stabilny `code`, kolejny `mobileCode` i `displayOrder`. Edycja nazwy nie może
 zmienić żadnego z tych identyfikatorów.
 
 Kafel symbolu bez zatwierdzonej grafiki pokazuje `?`. Kliknięcie kafla zawsze
-otwiera picker cropów, lecz picker pokazuje wyłącznie rzeczywiste cropy komórek
-z kanonicznych plansz `accepted/corrected` tej samej gry, zgodne z końcową
-decyzją człowieka i zatwierdzoną rewizją geometrii. Nie pokazuje pełnej planszy,
-confidence modelu, predykcji ani oczekujących, odrzuconych lub superseded
-źródeł. Propozycje są stronicowane po maksymalnie 20 i uporządkowane: ręcznie
-poprawiona geometria, numer sekwencji, indeks komórki, UUID obserwacji.
+otwiera picker cropów, który pokazuje aktualne cropy komórek zatwierdzone przez
+człowieka — pojedynczo albo wraz z całą planszą. Crop musi wskazywać aktywny
+symbol tej samej gry, nie mieć problemu jakości i mieć identyczną zatwierdzoną
+oraz bieżącą tożsamość. Nie pokazuje pełnej planszy, confidence modelu,
+predykcji, oczekujących, odrzuconych, superseded ani cropów zmienionych po
+zatwierdzeniu. Propozycje są stronicowane po maksymalnie 20 i uporządkowane:
+ręcznie poprawiona geometria, numer sekwencji, indeks komórki, UUID obserwacji.
 
-Wybór cropa jest checksum-bound i zapisuje jego niezmienione bajty jako trwałą,
-content-addressed referencję. Stary `image_path` bez takiej proweniencji nie
+Wybór cropa jest checksum-bound i zapisuje trwałą, content-addressed referencję.
+Legacy zachowuje niezmienione bajty, a crop v0.10 jest jednokrotnie
+materializowany jako pełny PNG. Stary `image_path` bez takiej proweniencji nie
 jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
-„Najpierw zatwierdź planszę zawierającą ten symbol”.
+„Najpierw zatwierdź crop zawierający ten symbol”.
 
 ### Weryfikacja symboli
 

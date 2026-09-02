@@ -15,6 +15,7 @@ from pathlib import Path, PurePosixPath
 from typing import Protocol
 from uuid import UUID
 
+from game_predictor_api.application.virtual_cell_previews import render_virtual_symbol_cell_png
 from game_predictor_api.domain.catalog import CatalogConflictError, CatalogNotFoundError, Symbol
 from game_predictor_api.domain.symbol_references import (
     ApprovedSymbolReferenceCandidate,
@@ -36,6 +37,14 @@ class StoredSymbolReferenceAsset:
     checksum_sha256: str
 
 
+@dataclass(frozen=True, slots=True)
+class RenderedSymbolReferenceCandidate:
+    """Transient pixels for previewing an eligible virtual candidate."""
+
+    content: bytes
+    media_type: str = "image/png"
+
+
 class SymbolReferenceArtifactStore(Protocol):
     def copy_candidate(
         self,
@@ -44,6 +53,10 @@ class SymbolReferenceArtifactStore(Protocol):
         symbol_id: UUID,
         candidate: ApprovedSymbolReferenceCandidate,
     ) -> StoredSymbolReferenceAsset: ...
+
+    def render_virtual_candidate(
+        self, *, candidate: ApprovedSymbolReferenceCandidate
+    ) -> RenderedSymbolReferenceCandidate: ...
 
 
 class ApprovedSymbolReferenceRepository(Protocol):
@@ -73,6 +86,7 @@ class ApprovedSymbolReferenceRepository(Protocol):
         expected_checksum_sha256: str,
         selected_by: str,
         image_relative_path: str,
+        image_checksum_sha256: str,
     ) -> Symbol: ...
 
 
@@ -154,6 +168,25 @@ class ApprovedSymbolReferenceService:
             )
         return reference
 
+    def virtual_candidate_asset(
+        self,
+        game_id: UUID,
+        symbol_id: UUID,
+        observation_id: UUID,
+    ) -> RenderedSymbolReferenceCandidate:
+        candidate = self.candidate(game_id, symbol_id, observation_id)
+        if not candidate.is_virtual:
+            raise CatalogConflictError(
+                "SYMBOL_REFERENCE_CANDIDATE_ASSET_MODE_INVALID",
+                "Only a virtual reference candidate requires rendered preview pixels.",
+            )
+        if self._artifact_store is None:
+            raise CatalogConflictError(
+                "SYMBOL_REFERENCE_STORAGE_UNAVAILABLE",
+                "The approved symbol reference store is unavailable.",
+            )
+        return self._artifact_store.render_virtual_candidate(candidate=candidate)
+
     def select(
         self,
         game_id: UUID,
@@ -186,11 +219,6 @@ class ApprovedSymbolReferenceService:
             symbol_id=symbol_id,
             candidate=candidate,
         )
-        if stored_asset.checksum_sha256 != checksum:
-            raise CatalogConflictError(
-                "SYMBOL_REFERENCE_ASSET_CHECKSUM_MISMATCH",
-                "The copied symbol reference crop checksum does not match.",
-            )
         return self._repository.select_reference(
             game_id=game_id,
             symbol_id=symbol_id,
@@ -198,6 +226,7 @@ class ApprovedSymbolReferenceService:
             expected_checksum_sha256=checksum,
             selected_by=actor,
             image_relative_path=stored_asset.relative_path,
+            image_checksum_sha256=stored_asset.checksum_sha256,
         )
 
     def _require_game(self, game_id: UUID) -> None:
@@ -223,14 +252,19 @@ class ManagedSymbolReferenceArtifactStore:
         symbol_id: UUID,
         candidate: ApprovedSymbolReferenceCandidate,
     ) -> StoredSymbolReferenceAsset:
+        if candidate.is_virtual:
+            return self._materialize_virtual_candidate(
+                game_id=game_id,
+                symbol_id=symbol_id,
+                candidate=candidate,
+            )
         source = self._resolve_source(
-            candidate.crop_relative_path,
+            _require_legacy_crop_path(candidate),
             candidate.crop_checksum_sha256,
         )
         suffix = source.suffix.lower()
         relative_path = (
-            f"data/symbol-references/{game_id}/{symbol_id}/"
-            f"{candidate.crop_checksum_sha256}{suffix}"
+            f"data/symbol-references/{game_id}/{symbol_id}/{candidate.crop_checksum_sha256}{suffix}"
         )
         destination = self._safe_destination(relative_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -261,6 +295,56 @@ class ManagedSymbolReferenceArtifactStore:
             temporary.unlink(missing_ok=True)
         return StoredSymbolReferenceAsset(relative_path, candidate.crop_checksum_sha256)
 
+    def render_virtual_candidate(
+        self, *, candidate: ApprovedSymbolReferenceCandidate
+    ) -> RenderedSymbolReferenceCandidate:
+        if not candidate.is_virtual or candidate.virtual_asset is None:
+            raise CatalogConflictError(
+                "SYMBOL_REFERENCE_CANDIDATE_ASSET_MODE_INVALID",
+                "The requested reference candidate is not a virtual source crop.",
+            )
+        return RenderedSymbolReferenceCandidate(
+            content=render_virtual_symbol_cell_png(
+                artifact_root=self._artifact_root,
+                asset=candidate.virtual_asset,
+            )
+        )
+
+    def _materialize_virtual_candidate(
+        self,
+        *,
+        game_id: UUID,
+        symbol_id: UUID,
+        candidate: ApprovedSymbolReferenceCandidate,
+    ) -> StoredSymbolReferenceAsset:
+        rendered = self.render_virtual_candidate(candidate=candidate)
+        checksum = hashlib.sha256(rendered.content).hexdigest()
+        relative_path = f"data/symbol-references/{game_id}/{symbol_id}/{checksum}.png"
+        destination = self._safe_destination(relative_path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            self._assert_existing_destination(destination, checksum)
+            return StoredSymbolReferenceAsset(relative_path, checksum)
+        descriptor, temporary_name = tempfile.mkstemp(dir=destination.parent, prefix=".tmp-")
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "wb") as output_file:
+                output_file.write(rendered.content)
+                output_file.flush()
+                os.fsync(output_file.fileno())
+            if _sha256_file(temporary) != checksum:
+                raise CatalogConflictError(
+                    "SYMBOL_REFERENCE_ASSET_CHECKSUM_MISMATCH",
+                    "The materialized virtual symbol reference checksum does not match.",
+                )
+            try:
+                os.link(temporary, destination)
+            except FileExistsError:
+                self._assert_existing_destination(destination, checksum)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return StoredSymbolReferenceAsset(relative_path, checksum)
+
     def _resolve_source(self, relative_value: str, checksum: str) -> Path:
         relative = _safe_relative_path(relative_value)
         candidate_paths = [(self._artifact_root / Path(*relative.parts)).resolve()]
@@ -270,9 +354,7 @@ class ManagedSymbolReferenceArtifactStore:
             (
                 path
                 for path in candidate_paths
-                if path.is_relative_to(self._data_root)
-                and path.is_file()
-                and not path.is_symlink()
+                if path.is_relative_to(self._data_root) and path.is_file() and not path.is_symlink()
             ),
             None,
         )
@@ -330,6 +412,15 @@ def _safe_relative_path(value: str) -> PurePosixPath:
     return relative
 
 
+def _require_legacy_crop_path(candidate: ApprovedSymbolReferenceCandidate) -> str:
+    if candidate.crop_relative_path is None:
+        raise CatalogConflictError(
+            "SYMBOL_REFERENCE_ASSET_INVALID",
+            "A legacy symbol reference candidate requires a managed crop path.",
+        )
+    return candidate.crop_relative_path
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as file:
@@ -343,6 +434,7 @@ __all__ = [
     "ApprovedSymbolReferenceService",
     "ManagedSymbolReferenceArtifactStore",
     "MAX_APPROVED_SYMBOL_REFERENCE_PAGE_SIZE",
+    "RenderedSymbolReferenceCandidate",
     "StoredSymbolReferenceAsset",
     "SymbolReferenceArtifactStore",
 ]

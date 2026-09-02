@@ -24,6 +24,7 @@ from game_predictor_worker.images.page_geometry_registration import (
 from game_predictor_worker.images.pipeline_contract import (
     CURRENT_NORMALIZATION_ADAPTER_VERSION,
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
     SYMBOL_RGB_PREPROCESSING_VERSION,
     VIRTUAL_CELL_RENDERER_VERSION,
     CellAssetRolloutMode,
@@ -389,7 +390,11 @@ class JobService:
                 "legacy_files" if reference is None else reference.cell_asset_mode
             ),
             rollout_revision=0 if reference is None else reference.revision,
-            geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+            geometry_engine_version=(
+                STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
+                if reference is None or reference.geometry_mode == GeometryRolloutMode.LEGACY.value
+                else STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION
+            ),
             virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
             preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
             candidate_geometry=(

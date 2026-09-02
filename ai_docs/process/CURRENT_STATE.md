@@ -15,6 +15,25 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Produkcyjny import structured z przypiętym preflightem — TASK-0390
+
+- Nowe joby `structured_default` przypinają silnik
+  `structured-opencv-independent-board-refinement-v2-pinned-preflight-v1` i
+  nie mogą ponownie użyć wadliwych wyników etapów v1.
+- Wpis `registered` checksum-bound manifestu strony jest finalnym dowodem
+  zewnętrznego obrysu. Topologia wyprowadza komórki także dla gier bez
+  widocznych linii 5×3; row-major, brak nakładania i padded source support
+  pozostają twardymi bramkami.
+- Structured cropy walidują osobno pozycje `verified` i `deferred`, nie
+  duplikują zapisu odroczeń, a nowy job odtwarza własne projekcje z
+  niezmiennych wyników współdzielonych etapów.
+- Liczniki sukcesów fazy pipeline'u nie obejmują już samego skopiowania
+  źródeł. Awaria wszystkich 2200 źródeł pokazuje `0` poprawnych i `2200`
+  błędów oraz kończy job jako failed, zamiast sugerować gotowość do review.
+- Ograniczona próba na rzeczywistych `seq_1-9.jpg` oraz `seq_10-18.jpg`
+  zwróciła po dziewięć zweryfikowanych obrysów, dziewięć virtual crops i zero
+  odroczeń. Historyczny v1 pozostaje bez zmian.
+
 ### Trwałe grafiki z pojedynczo zatwierdzonych cropów — TASK-0389
 
 - Picker `Wybierz grafikę` używa teraz tej samej bieżącej, checksum-bound

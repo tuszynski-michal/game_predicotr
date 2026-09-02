@@ -189,11 +189,15 @@ niezależnych dowodów: czerwonych ramek, gradientów grayscale oraz odcinków L
 a następnie dopasowuje oczekiwany układ aktywnych slotów. Brak kompletnego
 dowodu zwraca `needs_manual_review`, bez częściowego wyniku.
 
-Globalna homografia i `initialQuad` są wyłącznie początkowym ROI dla lokalnego
+W historycznym v1 oraz bez source-specific wpisu `registered` globalna
+homografia i `initialQuad` są wyłącznie początkowym ROI dla lokalnego
 dopasowania każdej planszy. Nie są finalną geometrią, nie pozwalają uruchomić
-croppera ani inferencji symboli i nie zastępują bramek TASK-0311. Wynik wiąże
-źródło, topologię, profil, wersję konfiguracji oraz metryki checksumą, ale nie
-tworzy bitmapy. TASK-0310 nie podłącza silnika do pipeline'u produkcyjnego.
+croppera ani inferencji symboli i nie zastępują bramek TASK-0311. Wariant v2
+opisany w sekcji produkcyjnego rolloutu ma jeden jawny wyjątek: dokładny,
+checksum-bound quad zatwierdzonego preflightu jest finalnym dowodem obrysu.
+Wynik wiąże źródło, topologię, profil, wersję konfiguracji oraz metryki
+checksumą, ale nie tworzy bitmapy. TASK-0310 nie podłącza silnika do pipeline'u
+produkcyjnego.
 
 ### 2.3. Niezależne lokalne dopasowanie plansz 0.10
 
@@ -222,6 +226,11 @@ codes. TASK-0312 podłącza wynik do pipeline'u wyłącznie przez przypięty try
 gry; legacy pozostaje dokładnie odtwarzalne, shadow nie zmienia wyniku
 domenowego, review nie uruchamia inferencji, a default nie renderuje slotu bez
 finalnej geometrii.
+
+Powyższe bramki linii pozostają obowiązkowe dla v1 i niezarejestrowanego
+źródła. W v2 z przypiętym wpisem `registered` dowód linii wewnętrznych jest
+zastąpiony dowodem zatwierdzonego obrysu oraz twardymi kontrolami row-major,
+nakładania i padded source support; nie jest to obniżenie progów v1.
 
 ### 2.4. Produkcyjny rollout geometrii i assetów 0.10
 
@@ -1227,3 +1236,17 @@ logiczny zakres do audytu oraz fizyczny plik do bezpiecznego kopiowania.
   przypięte wcześniej snapshoty.
 - Zmiana polityki nie konwertuje cropów istniejącego joba. Jawny rerun z
   managed originals tworzy nowy wynik przypięty do aktualnej polityki.
+
+Od `v0.10.93` nowe importy `structured_default` używają wersji
+`structured-opencv-independent-board-refinement-v2-pinned-preflight-v1`.
+Wpis `registered` przypiętego `PageGeometryManifestV1` jest w tej wersji
+alternatywnym, finalnym dowodem zewnętrznego obrysu planszy. Silnik nie wymaga
+ponownego znalezienia sześciu pionowych i czterech poziomych linii wewnątrz
+planszy, ponieważ część obsługiwanych gier takich linii nie renderuje. Komórki
+są wyprowadzane deterministycznie z obrysu i przypiętej topologii.
+
+Ta ścieżka pozostaje fail-closed: manifest musi zgadzać checksumę i wymiary
+źródła, zawierać dokładny aktywny prefiks wypukłych quadów row-major bez
+nakładania, a wszystkie padded cell quads muszą mieścić się w źródle. Brak
+któregokolwiek dowodu kieruje źródło do korekty i nie uruchamia inferencji.
+Historyczne fingerprinty oraz zachowanie silnika v1 nie zmieniają się.

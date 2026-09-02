@@ -24,6 +24,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     SOURCE_COORDINATE_SPACE,
     ActiveBoardSlot,
     AttestedSequenceRange,
+    NormalizedSourceImage,
     SourcePoint,
     SourceQuad,
     canonical_json_bytes,
@@ -73,6 +74,7 @@ class GlobalInitializationStatus(StrEnum):
 
 
 class GlobalInitializationMethod(StrEnum):
+    PINNED_PAGE_PREFLIGHT = "pinned_page_preflight"
     VERIFIED_PROFILE_ORB_RANSAC = "verified_profile_orb_ransac"
     GENERIC_FRAME_LINES = "generic_frame_lines"
     KEYPOINT_HEATMAPS = "keypoint_heatmaps"
@@ -145,6 +147,8 @@ class StructuredGeometryInitializationRequest:
     expected_board_count: int
     active_board_slots: tuple[int, ...]
     geometry_profile: Mapping[str, object] | None = None
+    pinned_initial_quads: tuple[SourceQuad, ...] | None = None
+    pinned_geometry_checksum_sha256: str | None = None
 
     def __post_init__(self) -> None:
         expected_slots = tuple(slot.position_index for slot in self.attested_range.active_slots)
@@ -166,6 +170,35 @@ class StructuredGeometryInitializationRequest:
                 "IMAGE_STRUCTURED_GEOMETRY_ACTIVE_SLOTS_INVALID",
                 "Active board slots must be the attested row-major prefix.",
             )
+        has_pinned_quads = self.pinned_initial_quads is not None
+        has_pinned_checksum = self.pinned_geometry_checksum_sha256 is not None
+        if has_pinned_quads != has_pinned_checksum:
+            raise StructuredGeometryInitializationError(
+                "IMAGE_STRUCTURED_GEOMETRY_PINNED_PREFLIGHT_INVALID",
+                "Pinned preflight geometry requires both quads and its checksum.",
+            )
+        if has_pinned_quads:
+            assert self.pinned_initial_quads is not None
+            assert self.pinned_geometry_checksum_sha256 is not None
+            if (
+                _SHA256.fullmatch(self.pinned_geometry_checksum_sha256) is None
+                or len(self.pinned_initial_quads) != len(self.active_board_slots)
+                or self.geometry_profile is not None
+            ):
+                raise StructuredGeometryInitializationError(
+                    "IMAGE_STRUCTURED_GEOMETRY_PINNED_PREFLIGHT_INVALID",
+                    "Pinned preflight geometry must exactly cover the active slots.",
+                )
+            source = NormalizedSourceImage(
+                source_checksum_sha256=self.source_checksum_sha256,
+                normalized_pixel_checksum_sha256=self.normalized_pixel_checksum_sha256,
+                width=self.canonical_width,
+                height=self.canonical_height,
+                exif_orientation=None,
+                normalization_adapter_version="structured-preflight-validation-v1",
+            )
+            for quad in self.pinned_initial_quads:
+                quad.require_within(source)
 
     @classmethod
     def for_frame(
@@ -176,6 +209,8 @@ class StructuredGeometryInitializationRequest:
         topology_rules_version_id: UUID,
         attested_range: AttestedSequenceRange,
         geometry_profile: Mapping[str, object] | None = None,
+        pinned_initial_quads: tuple[SourceQuad, ...] | None = None,
+        pinned_geometry_checksum_sha256: str | None = None,
     ) -> StructuredGeometryInitializationRequest:
         return cls(
             source_checksum_sha256=frame.source.source_checksum_sha256,
@@ -188,6 +223,8 @@ class StructuredGeometryInitializationRequest:
             expected_board_count=attested_range.board_count,
             active_board_slots=tuple(slot.position_index for slot in attested_range.active_slots),
             geometry_profile=geometry_profile,
+            pinned_initial_quads=pinned_initial_quads,
+            pinned_geometry_checksum_sha256=pinned_geometry_checksum_sha256,
         )
 
 
@@ -244,7 +281,11 @@ class GlobalInitializationResult:
                 not math.isfinite(value) for row in self.homography for value in row
             )
             homography_missing = (
-                self.method is not GlobalInitializationMethod.KEYPOINT_HEATMAPS
+                self.method
+                not in {
+                    GlobalInitializationMethod.KEYPOINT_HEATMAPS,
+                    GlobalInitializationMethod.PINNED_PAGE_PREFLIGHT,
+                }
                 and self.homography is None
             )
             if (
@@ -371,6 +412,8 @@ class StructuredOpenCvGeometryEngine:
         request: StructuredGeometryInitializationRequest,
     ) -> GlobalInitializationResult:
         self._validate_frame(frame, request=request)
+        if request.pinned_initial_quads is not None:
+            return self._initialize_from_pinned_preflight(request)
         profile = request.geometry_profile
         if _has_verified_anchors(profile):
             return self._initialize_from_profile(
@@ -379,6 +422,42 @@ class StructuredOpenCvGeometryEngine:
                 profile=cast(Mapping[str, object], profile),
             )
         return self._initialize_without_profile(frame, request=request)
+
+    def _initialize_from_pinned_preflight(
+        self,
+        request: StructuredGeometryInitializationRequest,
+    ) -> GlobalInitializationResult:
+        quads = request.pinned_initial_quads
+        checksum = request.pinned_geometry_checksum_sha256
+        if quads is None or checksum is None:
+            raise StructuredGeometryInitializationError(
+                "IMAGE_STRUCTURED_GEOMETRY_PINNED_PREFLIGHT_INVALID",
+                "Pinned preflight geometry is incomplete.",
+            )
+        slots = tuple(
+            ActiveSlotInitialization(slot=slot, initial_quad=quad)
+            for slot, quad in zip(request.attested_range.active_slots, quads, strict=True)
+        )
+        return GlobalInitializationResult(
+            status=GlobalInitializationStatus.INITIALIZED,
+            method=GlobalInitializationMethod.PINNED_PAGE_PREFLIGHT,
+            engine_id=self.engine_id,
+            engine_version=self.version,
+            config_checksum_sha256=self.config_checksum_sha256,
+            source_checksum_sha256=request.source_checksum_sha256,
+            normalized_pixel_checksum_sha256=request.normalized_pixel_checksum_sha256,
+            canonical_width=request.canonical_width,
+            canonical_height=request.canonical_height,
+            topology_rows=request.topology.rows,
+            topology_columns=request.topology.columns,
+            topology_rules_version_id=request.topology_rules_version_id,
+            active_board_slots=request.active_board_slots,
+            homography=None,
+            slots=slots,
+            metrics=(("preflightVerified", True),),
+            reason_codes=(),
+            profile_checksum_sha256=checksum,
+        )
 
     def _initialize_from_profile(
         self,

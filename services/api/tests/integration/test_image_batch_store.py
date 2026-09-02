@@ -3080,8 +3080,9 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
             registered_at=now + timedelta(seconds=6),
         )
         assert reused.file_execution_key == first.file_execution_key
-        assert reused.status == "waiting_for_review"
-        assert reused.checkpoint_payload["nextStage"] == "manual_review"
+        assert reused.status == "processing"
+        assert reused.checkpoint_payload["nextStage"] == "discovery"
+        assert reused.checkpoint_payload["completedStages"] == []
 
         with Session(engine, expire_on_commit=False) as session:
             source = SourceImageModel(

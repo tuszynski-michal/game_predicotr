@@ -35,6 +35,10 @@ from game_predictor_worker.images.board_cell_geometry_contract import (
     BOARD_CELL_GEOMETRY_VERSION,
 )
 from game_predictor_worker.images.board_cell_geometry_crops import CROPPER_VERSION
+from game_predictor_worker.images.pipeline_contract import (
+    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+)
 from test_jobs_domain import MemoryJobRepository
 
 
@@ -372,10 +376,12 @@ def test_per_game_virtual_geometry_rollout_is_immutably_pinned_to_new_jobs(
     assert isinstance(legacy_rollout, dict)
     assert isinstance(shadow_rollout, dict)
     assert legacy_rollout["geometryMode"] == "legacy"
+    assert legacy_rollout["geometryEngineVersion"] == (STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION)
     assert historical.input_payload["source_pipeline_fingerprint"] == "a" * 64
     assert shadow_rollout["geometryMode"] == "structured_shadow"
     assert shadow_rollout["cellAssetMode"] == "virtual_shadow"
     assert shadow_rollout["rolloutRevision"] == 7
+    assert shadow_rollout["geometryEngineVersion"] == (STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION)
     assert shadow_rollout["schemaVersion"] == "virtual-geometry-rollout-snapshot-v2"
     candidate_geometry = shadow_rollout["candidateGeometry"]
     assert isinstance(candidate_geometry, dict)

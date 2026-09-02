@@ -31,7 +31,6 @@ from .orchestration import (
     initial_file_checkpoint,
 )
 from .pipeline_contract import (
-    PIPELINE_STAGES,
     canonical_json_bytes,
     file_execution_key,
     validate_checkpoint_transition,
@@ -760,16 +759,15 @@ def _initial_job_workflow_checkpoint(
     global_checkpoint_payload: Mapping[str, object],
 ) -> dict[str, object]:
     checkpoint = validate_file_checkpoint(global_checkpoint_payload)
-    completed = cast(list[str], checkpoint["completedStages"])
-    automated_count = PIPELINE_STAGES.index("manual_review")
-    if len(completed) < automated_count:
-        return dict(checkpoint)
-    return {
-        **checkpoint,
-        "completedStages": list(PIPELINE_STAGES[:automated_count]),
-        "nextStage": "manual_review",
-        "status": "waiting_for_review",
-    }
+    # Shared stage results are immutable, but source/review projections are
+    # scoped to the importing job.  A new association therefore starts at the
+    # first stage and cheaply replays existing results into its own projection.
+    # Existing associations keep their durable checkpoint on normal restart,
+    # so this does not rehydrate an already waiting queue repeatedly.
+    return initial_file_checkpoint(
+        cast(str, checkpoint["sourceChecksumSha256"]),
+        cast(str, checkpoint["pipelineFingerprint"]),
+    )
 
 
 def _advance_global_execution_if_current(

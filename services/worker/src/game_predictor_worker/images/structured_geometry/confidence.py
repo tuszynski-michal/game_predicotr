@@ -103,6 +103,7 @@ class GeometryConfidenceComponents:
     border_evidence_score: float
     slot_order_score: float
     source_support_score: float
+    pinned_preflight_score: float | None = None
 
     def __post_init__(self) -> None:
         values = (
@@ -115,11 +116,19 @@ class GeometryConfidenceComponents:
             self.slot_order_score,
             self.source_support_score,
         )
-        if any(not math.isfinite(value) or not 0 <= value <= 1 for value in values):
+        if any(not math.isfinite(value) or not 0 <= value <= 1 for value in values) or (
+            self.pinned_preflight_score is not None
+            and (
+                not math.isfinite(self.pinned_preflight_score)
+                or not 0 <= self.pinned_preflight_score <= 1
+            )
+        ):
             raise ValueError("Geometry confidence components must be finite values from 0 to 1.")
 
     @property
     def total(self) -> float:
+        if self.pinned_preflight_score is not None:
+            return round(self.pinned_preflight_score, 8)
         ordering_and_support = (self.slot_order_score + self.source_support_score) / 2.0
         return round(
             0.20 * self.global_registration_score
@@ -133,7 +142,7 @@ class GeometryConfidenceComponents:
         )
 
     def to_payload(self) -> dict[str, float]:
-        return {
+        payload = {
             "borderEvidenceScore": round(self.border_evidence_score, 8),
             "geometryConfidence": self.total,
             "globalRegistrationScore": round(self.global_registration_score, 8),
@@ -144,6 +153,9 @@ class GeometryConfidenceComponents:
             "sourceSupportScore": round(self.source_support_score, 8),
             "spacingRegularityScore": round(self.spacing_regularity_score, 8),
         }
+        if self.pinned_preflight_score is not None:
+            payload["pinnedPreflightScore"] = round(self.pinned_preflight_score, 8)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +173,7 @@ class BoardGeometryEvidence:
     initialization_alignment_valid: bool
     slot_order_valid: bool = True
     overlap_valid: bool = True
+    pinned_preflight_certified: bool = False
 
     def __post_init__(self) -> None:
         if (
@@ -207,7 +220,7 @@ class BoardGeometryEvidence:
         )
 
     def to_payload(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "externalBoundariesSupported": self.external_boundaries_supported,
             "halfScaleP95ReprojectionError": (
                 None
@@ -226,6 +239,9 @@ class BoardGeometryEvidence:
             "slotOrderValid": self.slot_order_valid,
             "supportedIntersectionCount": self.supported_intersection_count,
         }
+        if self.pinned_preflight_certified:
+            payload["pinnedPreflightCertified"] = True
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -250,21 +266,22 @@ def evaluate_geometry_confidence(
         hard_failures.append(BoardGeometryReasonCode.LOCAL_HOMOGRAPHY_UNAVAILABLE)
     if evidence.external_boundaries_supported < 4:
         hard_failures.append(BoardGeometryReasonCode.OUTER_BOUNDARY_EVIDENCE_INCOMPLETE)
-    if len(evidence.observed_vertical_line_indexes) < thresholds.minimum_vertical_lines:
-        hard_failures.append(BoardGeometryReasonCode.VERTICAL_LINE_COVERAGE_INSUFFICIENT)
-    if len(evidence.observed_horizontal_line_indexes) < thresholds.minimum_horizontal_lines:
-        hard_failures.append(BoardGeometryReasonCode.HORIZONTAL_LINE_COVERAGE_INSUFFICIENT)
-    if (
-        evidence.supported_intersection_count < thresholds.minimum_supported_intersections
-        or evidence.inlier_intersection_count < thresholds.minimum_supported_intersections
-    ):
-        hard_failures.append(BoardGeometryReasonCode.INTERSECTION_COVERAGE_INSUFFICIENT)
-    if (
-        evidence.half_scale_p95_reprojection_error is None
-        or evidence.half_scale_p95_reprojection_error
-        > thresholds.maximum_half_scale_p95_reprojection_error
-    ):
-        hard_failures.append(BoardGeometryReasonCode.LOCAL_REPROJECTION_ERROR_EXCEEDED)
+    if not evidence.pinned_preflight_certified:
+        if len(evidence.observed_vertical_line_indexes) < thresholds.minimum_vertical_lines:
+            hard_failures.append(BoardGeometryReasonCode.VERTICAL_LINE_COVERAGE_INSUFFICIENT)
+        if len(evidence.observed_horizontal_line_indexes) < thresholds.minimum_horizontal_lines:
+            hard_failures.append(BoardGeometryReasonCode.HORIZONTAL_LINE_COVERAGE_INSUFFICIENT)
+        if (
+            evidence.supported_intersection_count < thresholds.minimum_supported_intersections
+            or evidence.inlier_intersection_count < thresholds.minimum_supported_intersections
+        ):
+            hard_failures.append(BoardGeometryReasonCode.INTERSECTION_COVERAGE_INSUFFICIENT)
+        if (
+            evidence.half_scale_p95_reprojection_error is None
+            or evidence.half_scale_p95_reprojection_error
+            > thresholds.maximum_half_scale_p95_reprojection_error
+        ):
+            hard_failures.append(BoardGeometryReasonCode.LOCAL_REPROJECTION_ERROR_EXCEEDED)
     if not evidence.padded_cell_source_support_complete:
         hard_failures.append(BoardGeometryReasonCode.SOURCE_SUPPORT_INCOMPLETE)
     if not evidence.initialization_alignment_valid:

@@ -33,6 +33,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     SourceQuad,
     VirtualBoardGeometry,
     VirtualCell,
+    canonical_json_bytes,
     derive_virtual_cells,
 )
 from game_predictor_api.domain.jobs import Job
@@ -117,6 +118,7 @@ from .source_ingestion import (
 )
 from .structured_geometry import (
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
     BoardGeometryDisposition,
     StructuredGeometryConfigV2,
     StructuredGeometryInitializationRequest,
@@ -199,6 +201,7 @@ class ProductionImageImportWorkflow:
             current_offset=0,
             total=max(1, all_source_count),
             stage_prefix="image_source",
+            expose_result_counts=False,
         )
         manifest = self._source_handler.ingest(
             cast(JobExecutionContext, source_context),
@@ -287,7 +290,6 @@ class ProductionImageImportWorkflow:
             current_offset=all_source_count,
             total=all_source_count + source_count,
             stage_prefix="image_pipeline",
-            success_offset=all_source_count,
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
 
@@ -387,13 +389,13 @@ class _ProgressWindowContext:
         current_offset: int,
         total: int,
         stage_prefix: str,
-        success_offset: int = 0,
+        expose_result_counts: bool = True,
     ) -> None:
         self._context = context
         self._current_offset = current_offset
         self._total = total
         self._stage_prefix = stage_prefix
-        self._success_offset = success_offset
+        self._expose_result_counts = expose_result_counts
 
     @property
     def job(self) -> Job:
@@ -433,6 +435,15 @@ class _ProgressWindowContext:
     ) -> None:
         del total
         previous = self._context.job
+        reported_success_count = (
+            success_count if self._expose_result_counts else previous.success_count
+        )
+        reported_failure_count = (
+            failure_count if self._expose_result_counts else previous.failure_count
+        )
+        reported_review_count = (
+            review_count if self._expose_result_counts else previous.review_count
+        )
         self._context.checkpoint(
             checkpoint_payload={
                 **checkpoint_payload,
@@ -441,12 +452,9 @@ class _ProgressWindowContext:
             stage=f"{self._stage_prefix}:{stage}",
             current=max(previous.progress_current, self._current_offset + current),
             total=max(previous.progress_total or 0, self._total),
-            success_count=max(
-                previous.success_count,
-                self._success_offset + success_count,
-            ),
-            failure_count=max(previous.failure_count, failure_count),
-            review_count=max(previous.review_count, review_count),
+            success_count=max(previous.success_count, reported_success_count),
+            failure_count=max(previous.failure_count, reported_failure_count),
+            review_count=max(previous.review_count, reported_review_count),
         )
 
 
@@ -1316,6 +1324,12 @@ class ProductionImageStageAdapterSuite:
         context: ImageStageContext,
         payload: Mapping[str, object],
     ) -> None:
+        # Structured virtual crops carry forward the exact deferrals already
+        # persisted by ``board_cell_geometry``.  Replaying them here would both
+        # duplicate the durable pending projection and try to interpret the
+        # structured ``reasonCode`` as the legacy estimator failure contract.
+        if payload.get("assetMode") == "virtual_source":
+            return
         for value in _sequence(payload.get("deferredBoards", []), "deferredBoards"):
             board = _mapping(value, "deferredBoard")
             self._defer_board_cell_geometry(
@@ -1373,6 +1387,40 @@ class ProductionImageStageAdapterSuite:
             start=context.attested_sequence_range[0],
             end=context.attested_sequence_range[1],
         )
+        pinned_initial_quads: tuple[SourceQuad, ...] | None = None
+        pinned_geometry_checksum: str | None = None
+        geometry_profile: Mapping[str, object] | None = self._page_registration_profile or None
+        if (
+            self._geometry_rollout.geometry_engine_version
+            == STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION
+            and self._page_geometry_manifest
+        ):
+            registered = _registered_page_geometry(
+                self._page_geometry_manifest,
+                context.source_checksum_sha256,
+                image_width=frame.source.width,
+                image_height=frame.source.height,
+                expected_board_count=attested.board_count,
+            )
+            if registered is None:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW",
+                    "The pinned geometry preflight has no verified page for this source.",
+                )
+            pinned_initial_quads = tuple(
+                SourceQuad(
+                    corners=cast(
+                        tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                        tuple(SourcePoint(x=float(point.x), y=float(point.y)) for point in quad),
+                    )
+                )
+                for quad in cast(Sequence[Quad], registered["quads"])
+            )
+            pinned_geometry_checksum = _text(
+                registered,
+                "manifestEntryChecksumSha256",
+            )
+            geometry_profile = None
         engine = self._structured_engine()
         result = engine.detect(
             frame,
@@ -1381,7 +1429,9 @@ class ProductionImageStageAdapterSuite:
                 topology=topology,
                 topology_rules_version_id=UUID(self._board_topology.rules_version_id),
                 attested_range=attested,
-                geometry_profile=(self._page_registration_profile or None),
+                geometry_profile=geometry_profile,
+                pinned_initial_quads=pinned_initial_quads,
+                pinned_geometry_checksum_sha256=pinned_geometry_checksum,
             ),
         )
         payload = result.to_payload()
@@ -1418,6 +1468,7 @@ class ProductionImageStageAdapterSuite:
         if self._structured_geometry_engine is None:
             self._structured_geometry_engine = StructuredOpenCvGeometryEngine(
                 load_anchor_rgb=self._load_anchor_rgb,
+                engine_version=self._geometry_rollout.geometry_engine_version,
             )
         if (
             self._structured_geometry_engine.version
@@ -2197,6 +2248,7 @@ def _registered_page_geometry(
         "featuresVersion": raw.get("featuresVersion"),
         "inlierCount": raw.get("inlierCount"),
         "inlierRatio": raw.get("inlierRatio"),
+        "manifestEntryChecksumSha256": hashlib.sha256(canonical_json_bytes(raw)).hexdigest(),
         "meanRedEdgeCoverage": raw.get("meanRedEdgeCoverage"),
         "p95ReprojectionError": raw.get("p95ReprojectionError"),
         "quads": parsed,
@@ -2211,7 +2263,12 @@ def _registered_geometry_payload(geometry: Mapping[str, object]) -> dict[str, ob
     registration = {
         key: value
         for key, value in geometry.items()
-        if key not in {"quads", "boardRedEdgeCoverages"}
+        if key
+        not in {
+            "boardRedEdgeCoverages",
+            "manifestEntryChecksumSha256",
+            "quads",
+        }
     }
     registration["quads"] = [[point.to_dict() for point in quad] for quad in quads]
     registration["boardRedEdgeCoverages"] = list(coverages)

@@ -1634,15 +1634,25 @@ layoutów. Brak którejkolwiek zgodności daje `local_data_error`.
 
 `image_geometry_rollout_states` jest trwałym źródłem ustawienia silnika dla
 nowych importów danej gry. Warstwa HTTP udostępnia wyłącznie dwie bezpieczne
-projekcje: stabilny `legacy/legacy_files` mapowany na jawny pipeline v20/v19 oraz
-`structured_shadow/virtual_shadow`. Tryby default/review nie są wybieralne w
-Adminie. Polityka i jej rewizja wchodzą do checksummy preflightu i snapshotu
-joba; zmiana nie mutuje istniejących jobów.
+projekcje: stabilny `legacy/legacy_files` mapowany na jawny pipeline v20/v19
+oraz produkcyjny `structured_default/virtual_default` v0.10. Historyczny
+`structured_shadow/virtual_shadow` pozostaje odtwarzalny, ale nie jest opcją
+nowego importu. Polityka i jej rewizja wchodzą do checksummy preflightu i
+snapshotu joba; zmiana nie mutuje istniejących jobów.
 
 Browser preflight wylicza z polityki flagę `geometryPreflightRequired`.
-Oba presety konsumują niezmienny manifest rejestracji stron, ponieważ v20/v19
-pozostaje właścicielem primary. Każda nowa gra dopuszcza pusty profil wejściowy
-preflightu, ale nie import bez geometrii: pierwszy przebieg tworzy
-kontrolowaną kolejkę korekty, a ręczny override strony jest kopiowany do
-snapshotu kotwic kolejnego przebiegu. Kandydat strukturalny pozostaje wyłącznie
-pomiarem shadow i nie przejmuje cropów ani decyzji primary.
+Oba presety konsumują niezmienny, checksum-bound manifest rejestracji stron.
+Każda nowa gra dopuszcza pusty profil wejściowy preflightu, ale nie import bez
+geometrii: pierwszy przebieg tworzy kontrolowaną kolejkę korekty, a ręczny
+override strony jest kopiowany do snapshotu kotwic kolejnego przebiegu.
+
+Nowe joby `structured_default` przypinają silnik
+`structured-opencv-independent-board-refinement-v2-pinned-preflight-v1`.
+Wariant v2 traktuje wpis `registered` manifestu jako finalny, source-bound dowód
+zewnętrznego obrysu planszy. Topologia 5×3 wyprowadza komórki bez wymagania
+wizualnych linii wewnętrznych, których część gier nie rysuje. Przed automatycznym
+renderem nadal obowiązują: zgodność checksummy i wymiarów, dokładna liczba
+slotów, row-major, brak nakładania oraz pełny source support padded cropów.
+Niespełnienie któregokolwiek z tych warunków pozostaje fail-closed. Historyczny
+silnik v1 i joby bez przypiętego manifestu zachowują lokalne bramki linii bez
+zmiany.

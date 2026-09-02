@@ -6997,3 +6997,21 @@ legacy zachowuje własne bajty cropa, a `virtual_source` materializuje pełny PN
 w momencie wyboru. Aplikacja mobilna i katalog nie odczytują stagingu,
 odtwarzalnego cache atlasów ani dynamicznego renderera. Umożliwia to niezależny
 od procesu importu snapshot mobilny bez zapisywania binariów w tabelach domeny.
+
+## D-300 — Zweryfikowany manifest strony jest finalnym dowodem obrysu dla structured v2
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Nowe importy `structured_default` konsumują dokładne quady wpisu `registered`
+z checksum-bound `PageGeometryManifestV1`. Dla wersji
+`structured-opencv-independent-board-refinement-v2-pinned-preflight-v1` ten
+wynik jest finalnym dowodem zewnętrznego obrysu planszy, a nie tylko ROI do
+ponownego szukania linii wewnętrznych. Komórki 5×3 wynikają z przypiętej
+topologii; nie wolno wymagać wizualnych granic, których gra nie renderuje.
+
+Automatyczny wynik nadal wymaga zgodnej checksummy i wymiarów, kompletnego
+aktywnego prefiksu row-major, braku nakładania oraz pełnego source support dla
+padded cell quads. Niespełnienie tych warunków pozostaje korektą ręczną.
+Historyczne wykonania v1, ich fingerprinty i lokalne bramki linii pozostają
+niezmienne.

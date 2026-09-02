@@ -892,12 +892,21 @@ def _v20_crop_positions(
 ) -> None:
     geometry = context.previous_results.get(BOARD_CELL_GEOMETRY_STAGE)
     if geometry is None:
-        _invalid("board_cell_geometry must complete before v19 crops.")
+        _invalid("board_cell_geometry must complete before board crops.")
     geometry_boards = _sequence_mappings(geometry.get("boards"), "board_cell_geometry.boards")
-    expected = [
+    all_geometry_positions = [
+        _nonnegative_integer(item.get("positionIndex"), "board_cell_geometry.positionIndex")
+        for item in geometry_boards
+    ]
+    verified_geometry_positions = [
         _nonnegative_integer(item.get("positionIndex"), "board_cell_geometry.positionIndex")
         for item in geometry_boards
         if item.get("status") == "verified"
+    ]
+    deferred_geometry_positions = [
+        _nonnegative_integer(item.get("positionIndex"), "board_cell_geometry.positionIndex")
+        for item in geometry_boards
+        if item.get("status") == "deferred"
     ]
     deferred = _sequence_mappings(payload.get("deferredBoards", []), "deferredBoards")
     deferred_positions: list[int] = []
@@ -911,9 +920,21 @@ def _v20_crop_positions(
         _nonnegative_integer(item.get("positionIndex"), "board_crops.positionIndex")
         for item in boards
     ]
+    if payload.get("assetMode") == "virtual_source":
+        combined = sorted([*crop_positions, *deferred_positions])
+        if (
+            crop_positions != verified_geometry_positions
+            or deferred_positions != deferred_geometry_positions
+            or combined != all_geometry_positions
+            or len(combined) != len(set(combined))
+        ):
+            _invalid(
+                "Structured crop results must exactly partition verified and deferred geometry."
+            )
+        return
     combined = sorted([*crop_positions, *deferred_positions])
-    if combined != expected or len(combined) != len(set(combined)):
-        _invalid("v19 crop results must partition every verified geometry position.")
+    if combined != verified_geometry_positions or len(combined) != len(set(combined)):
+        _invalid("Legacy crop results must partition every verified geometry position.")
 
 
 def _sequence_mappings(value: object, label: str) -> list[Mapping[str, object]]:

@@ -26,7 +26,10 @@ from ..page_geometry_registration import (
     DEFAULT_PAGE_REGISTRATION_THRESHOLDS,
     PageRegistrationThresholds,
 )
-from ..pipeline_contract import STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
+from ..pipeline_contract import (
+    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+)
 from .confidence import (
     DEFAULT_STRUCTURED_GEOMETRY_VALIDATION_THRESHOLDS,
     BoardGeometryDisposition,
@@ -43,6 +46,7 @@ from .global_initialization import (
     GlobalInitializationMethod,
     GlobalInitializationResult,
     GlobalInitializationStatus,
+    StructuredGeometryInitializationError,
     StructuredGeometryInitializationRequest,
     StructuredGeometryInitializationThresholds,
 )
@@ -199,6 +203,7 @@ class StructuredOpenCvGeometryEngine:
         self,
         *,
         load_anchor_rgb: Callable[[str], NDArray[np.uint8]],
+        engine_version: str = STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
         initialization_thresholds: StructuredGeometryInitializationThresholds = (
             DEFAULT_STRUCTURED_GEOMETRY_INITIALIZATION_THRESHOLDS
         ),
@@ -211,6 +216,12 @@ class StructuredOpenCvGeometryEngine:
         ),
         line_refiner: BoardLineRefiner | None = None,
     ) -> None:
+        if engine_version not in {
+            STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+            STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+        }:
+            raise ValueError("Unsupported structured geometry engine version.")
+        self.version = engine_version
         self._initializer = StructuredGeometryGlobalInitializer(
             load_anchor_rgb=load_anchor_rgb,
             thresholds=initialization_thresholds,
@@ -240,6 +251,14 @@ class StructuredOpenCvGeometryEngine:
     ) -> GlobalInitializationResult:
         """Retain the TASK-0310 initialization API for compatibility and tests."""
 
+        if (
+            request.pinned_initial_quads is not None
+            and self.version != STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION
+        ):
+            raise StructuredGeometryInitializationError(
+                "IMAGE_STRUCTURED_GEOMETRY_PINNED_PREFLIGHT_VERSION_UNSUPPORTED",
+                "Pinned preflight geometry requires the versioned v2 structured engine.",
+            )
         return self._initializer.initialize(frame, request)
 
     def detect(
@@ -294,15 +313,27 @@ def refine_initialized_source_geometry(
         )
 
     global_score = _global_registration_score(initialization)
-    refinements = tuple(
-        line_refiner.refine(
-            source.rgb,
-            initial_quad=initialized.initial_quad,
-            topology=request.topology,
-            global_registration_score=global_score,
+    if initialization.method is GlobalInitializationMethod.PINNED_PAGE_PREFLIGHT:
+        refinements = tuple(
+            _certified_preflight_refinement(
+                initialized.initial_quad,
+                topology_rows=request.topology.rows,
+                topology_columns=request.topology.columns,
+                source_width=source.source.width,
+                source_height=source.source.height,
+            )
+            for initialized in initialization.slots
         )
-        for initialized in initialization.slots
-    )
+    else:
+        refinements = tuple(
+            line_refiner.refine(
+                source.rgb,
+                initial_quad=initialized.initial_quad,
+                topology=request.topology,
+                global_registration_score=global_score,
+            )
+            for initialized in initialization.slots
+        )
     order_violations, overlap_violations = _cross_slot_violations(
         refinements,
         maximum_overlap_fraction=validation_thresholds.maximum_overlap_fraction,
@@ -330,6 +361,117 @@ def refine_initialized_source_geometry(
         engine_id=engine_id,
         engine_version=engine_version,
         config_checksum_sha256=config_checksum_sha256,
+    )
+
+
+def _certified_preflight_refinement(
+    initial_quad: SourceQuad,
+    *,
+    topology_rows: int,
+    topology_columns: int,
+    source_width: int,
+    source_height: int,
+) -> BoardLineRefinementResult:
+    """Use the exact hard-gated page quad as final board geometry.
+
+    A pinned page-geometry manifest has already proved the outer red frame,
+    source dimensions, row-major order and non-overlap.  Games such as Blazing
+    Hot do not draw stable internal 5x3 grid lines, so asking LSD to prove them
+    again creates false corrections.  The topology still derives every cell
+    deterministically from this checksum-bound outer quad.
+    """
+
+    ideal = np.asarray(
+        [
+            [0.0, 0.0],
+            [float(topology_columns), 0.0],
+            [float(topology_columns), float(topology_rows)],
+            [0.0, float(topology_rows)],
+        ],
+        dtype=np.float32,
+    )
+    target = _quad_array(initial_quad).astype(np.float32)
+    homography = cast(NDArray[np.float64], cv2.getPerspectiveTransform(ideal, target))
+    source_support = _padded_cells_have_source_support(
+        homography,
+        rows=topology_rows,
+        columns=topology_columns,
+        source_width=source_width,
+        source_height=source_height,
+    )
+    components = GeometryConfidenceComponents(
+        global_registration_score=1.0,
+        line_coverage_score=0.0,
+        intersection_coverage_score=0.0,
+        spacing_regularity_score=1.0,
+        reprojection_score=1.0,
+        border_evidence_score=1.0,
+        slot_order_score=1.0,
+        source_support_score=1.0 if source_support else 0.0,
+        pinned_preflight_score=1.0,
+    )
+    return BoardLineRefinementResult(
+        initial_quad=initial_quad,
+        final_quad=initial_quad,
+        ideal_to_source_homography=_matrix_payload(homography),
+        evidence=BoardGeometryEvidence(
+            observed_vertical_line_indexes=(),
+            observed_horizontal_line_indexes=(),
+            inferred_vertical_line_indexes=(),
+            inferred_horizontal_line_indexes=(),
+            external_boundaries_supported=4,
+            supported_intersection_count=0,
+            inlier_intersection_count=0,
+            half_scale_p95_reprojection_error=None,
+            homography_available=True,
+            padded_cell_source_support_complete=source_support,
+            initialization_alignment_valid=True,
+            pinned_preflight_certified=True,
+        ),
+        confidence_components=components,
+        lines=(),
+        intrinsic_reason_codes=(),
+        diagnostics=(("pinnedPreflightCertified", "true"),),
+    )
+
+
+def _padded_cells_have_source_support(
+    homography: NDArray[np.float64],
+    *,
+    rows: int,
+    columns: int,
+    source_width: int,
+    source_height: int,
+    padding_fraction: float = 0.08,
+) -> bool:
+    points = np.asarray(
+        [
+            [
+                [column - padding_fraction, row - padding_fraction],
+                [column + 1 + padding_fraction, row - padding_fraction],
+                [column + 1 + padding_fraction, row + 1 + padding_fraction],
+                [column - padding_fraction, row + 1 + padding_fraction],
+            ]
+            for row in range(rows)
+            for column in range(columns)
+        ],
+        dtype=np.float32,
+    )
+    projected = cv2.perspectiveTransform(points, homography).reshape(-1, 2)
+    return bool(
+        np.isfinite(projected).all()
+        and (projected[:, 0] >= 0).all()
+        and (projected[:, 0] < source_width).all()
+        and (projected[:, 1] >= 0).all()
+        and (projected[:, 1] < source_height).all()
+    )
+
+
+def _matrix_payload(value: NDArray[np.float64]) -> Matrix3x3:
+    normalized = value / value[2, 2]
+    return cast(
+        Matrix3x3,
+        tuple(tuple(float(cell) for cell in row) for row in normalized),
     )
 
 
@@ -446,6 +588,8 @@ def _source_status(boards: Sequence[BoardGeometryResult]) -> SourceGeometryStatu
 
 def _global_registration_score(initialization: GlobalInitializationResult) -> float:
     metrics: Mapping[str, MetricValue] = dict(initialization.metrics)
+    if initialization.method is GlobalInitializationMethod.PINNED_PAGE_PREFLIGHT:
+        return 1.0
     if initialization.method is GlobalInitializationMethod.VERIFIED_PROFILE_ORB_RANSAC:
         ratio = _metric_float(metrics.get("inlierRatio"))
         p95 = _metric_float(metrics.get("p95ReprojectionError"))

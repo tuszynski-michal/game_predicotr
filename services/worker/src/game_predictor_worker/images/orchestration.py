@@ -296,9 +296,14 @@ class ImageBatchHandler:
             job.id,
             pipeline_fingerprint=pipeline_fingerprint,
         )
-        if stats.waiting or stats.failed:
+        if stats.waiting:
             context.wait_for_review()
             return
+        if stats.failed:
+            raise JobHandlerError(
+                "IMAGE_BATCH_ALL_SOURCES_FAILED",
+                "The image batch has no reviewable output because every remaining source failed.",
+            )
         if stats.current != stats.total:
             raise JobHandlerError(
                 "IMAGE_BATCH_INCOMPLETE",

@@ -9,6 +9,8 @@ from game_predictor_api.domain.board_topology import LEGACY_IMAGE_BOARD_TOPOLOGY
 from game_predictor_api.domain.image_geometry_v2 import (
     AttestedSequenceRange,
     NormalizedSourceImage,
+    SourcePoint,
+    SourceQuad,
 )
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.normalization import (
@@ -17,10 +19,13 @@ from game_predictor_worker.images.normalization import (
 )
 from game_predictor_worker.images.page_geometry_registration import PAGE_REGISTRATION_VERSION
 from game_predictor_worker.images.structured_geometry import (
+    STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+    BoardGeometryDisposition,
     BoardGeometryReasonCode,
     GlobalInitializationMethod,
     GlobalInitializationStatus,
     SourceGeometryStatus,
+    StructuredGeometryInitializationError,
     StructuredGeometryInitializationRequest,
     StructuredOpenCvGeometryEngine,
 )
@@ -147,6 +152,104 @@ def _maximum_corner_error(result, expected: tuple[np.ndarray, ...]) -> float:
         )
         errors.append(float(np.max(np.linalg.norm(actual - target, axis=1))))
     return max(errors)
+
+
+def _source_quads(
+    quads: tuple[tuple[Point, Point, Point, Point], ...],
+    *,
+    active_count: int,
+) -> tuple[SourceQuad, ...]:
+    return tuple(
+        SourceQuad(
+            corners=tuple(SourcePoint(float(point.x), float(point.y)) for point in quad)  # type: ignore[arg-type]
+        )
+        for quad in quads[:active_count]
+    )
+
+
+def test_v2_uses_exact_checksum_bound_preflight_quads_as_initialization() -> None:
+    image, quads = _page(active_count=9)
+    frame = _frame(image)
+    request = StructuredGeometryInitializationRequest.for_frame(
+        frame,
+        topology=LEGACY_IMAGE_BOARD_TOPOLOGY,
+        topology_rules_version_id=_TOPOLOGY_RULES_VERSION_ID,
+        attested_range=AttestedSequenceRange(start=100, end=108),
+        pinned_initial_quads=_source_quads(quads, active_count=9),
+        pinned_geometry_checksum_sha256="9" * 64,
+    )
+    engine = StructuredOpenCvGeometryEngine(
+        load_anchor_rgb=lambda _checksum: image,
+        engine_version=STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+    )
+
+    result = engine.initialize(frame, request)
+
+    assert result.status is GlobalInitializationStatus.INITIALIZED
+    assert result.method is GlobalInitializationMethod.PINNED_PAGE_PREFLIGHT
+    assert tuple(slot.initial_quad for slot in result.slots) == request.pinned_initial_quads
+    assert result.profile_checksum_sha256 == "9" * 64
+    assert result.homography is None
+
+    detected = engine.detect(frame, request)
+    assert detected.status is SourceGeometryStatus.READY
+    assert all(board.disposition is BoardGeometryDisposition.AUTOMATIC for board in detected.boards)
+    assert all(board.final_quad == board.initial_quad for board in detected.boards)
+    assert all(board.lines == () for board in detected.boards)
+    assert all(board.evidence.pinned_preflight_certified for board in detected.boards)
+    assert all(
+        board.confidence_components.pinned_preflight_score == 1.0
+        for board in detected.boards
+    )
+
+
+def test_v1_refuses_the_new_pinned_preflight_contract() -> None:
+    image, quads = _page(active_count=5)
+    frame = _frame(image)
+    request = StructuredGeometryInitializationRequest.for_frame(
+        frame,
+        topology=LEGACY_IMAGE_BOARD_TOPOLOGY,
+        topology_rules_version_id=_TOPOLOGY_RULES_VERSION_ID,
+        attested_range=AttestedSequenceRange(start=100, end=104),
+        pinned_initial_quads=_source_quads(quads, active_count=5),
+        pinned_geometry_checksum_sha256="8" * 64,
+    )
+    engine = StructuredOpenCvGeometryEngine(load_anchor_rgb=lambda _checksum: image)
+
+    with pytest.raises(StructuredGeometryInitializationError) as raised:
+        engine.initialize(frame, request)
+
+    assert raised.value.code == "IMAGE_STRUCTURED_GEOMETRY_PINNED_PREFLIGHT_VERSION_UNSUPPORTED"
+
+
+def test_v2_pinned_preflight_still_requires_padded_cell_source_support() -> None:
+    image, _quads = _page(active_count=1)
+    frame = _frame(image)
+    edge_quad = SourceQuad(
+        corners=(
+            SourcePoint(0.0, 0.0),
+            SourcePoint(155.0, 0.0),
+            SourcePoint(155.0, 100.0),
+            SourcePoint(0.0, 100.0),
+        )
+    )
+    request = StructuredGeometryInitializationRequest.for_frame(
+        frame,
+        topology=LEGACY_IMAGE_BOARD_TOPOLOGY,
+        topology_rules_version_id=_TOPOLOGY_RULES_VERSION_ID,
+        attested_range=AttestedSequenceRange(start=100, end=100),
+        pinned_initial_quads=(edge_quad,),
+        pinned_geometry_checksum_sha256="7" * 64,
+    )
+    engine = StructuredOpenCvGeometryEngine(
+        load_anchor_rgb=lambda _checksum: image,
+        engine_version=STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+    )
+
+    result = engine.detect(frame, request)
+
+    assert result.status is SourceGeometryStatus.NEEDS_MANUAL_CORRECTION
+    assert result.boards[0].reason_codes == (BoardGeometryReasonCode.SOURCE_SUPPORT_INCOMPLETE,)
 
 
 def test_verified_profile_initializes_full_page_at_target_angle() -> None:

@@ -202,6 +202,96 @@ def _symbol_cells() -> list[dict[str, object]]:
     ]
 
 
+def _virtual_board(position: int) -> dict[str, object]:
+    cells = [
+        {
+            "assetMode": "virtual_source",
+            "columnIndex": index % 5,
+            "cropChecksumSha256": f"{100 + index:064x}",
+            "extractorVersion": "virtual-cell-renderer-source-direct-v1",
+            "logicalCellKeySha256": f"{200 + index:064x}",
+            "logicalCellKeyV2Sha256": f"{300 + index:064x}",
+            "renderIdentityV2Sha256": f"{400 + index:064x}",
+            "renderSpec": {"cellIndex": index},
+            "renderSpecChecksumSha256": f"{500 + index:064x}",
+            "renderedPixelChecksumSha256": f"{600 + index:064x}",
+            "rowIndex": index // 5,
+        }
+        for index in range(15)
+    ]
+    return {
+        "assetMode": "virtual_source",
+        "cells": cells,
+        "cropperVersion": "virtual-cell-renderer-source-direct-v1",
+        "geometryChecksumSha256": "7" * 64,
+        "geometryEngineName": "structured_opencv_v1",
+        "geometryEngineVersion": "structured-opencv-independent-board-refinement-v2",
+        "positionIndex": position,
+    }
+
+
+def test_structured_crops_partition_verified_and_deferred_geometry() -> None:
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256=CHECKSUM,
+        source_relative_path="batch/page.jpg",
+        pipeline_fingerprint=PIPELINE,
+        previous_results={
+            "board_cell_geometry": {
+                "boards": [
+                    {"positionIndex": 0, "status": "verified"},
+                    {"positionIndex": 1, "status": "deferred"},
+                ]
+            }
+        },
+    )
+    payload = {
+        "assetMode": "virtual_source",
+        "boards": [_virtual_board(0)],
+        "deferredBoards": [
+            {
+                "positionIndex": 1,
+                "reasonCode": "incomplete_lattice",
+                "sequenceNumber": 2,
+            }
+        ],
+    }
+
+    assert validate_stage_payload("board_crops", payload, context) == payload
+
+
+def test_structured_crops_allow_a_fully_deferred_source() -> None:
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256=CHECKSUM,
+        source_relative_path="batch/page.jpg",
+        pipeline_fingerprint=PIPELINE,
+        previous_results={
+            "board_cell_geometry": {
+                "boards": [
+                    {"positionIndex": position, "status": "deferred"} for position in range(3)
+                ]
+            }
+        },
+    )
+    payload = {
+        "assetMode": "virtual_source",
+        "boards": [],
+        "deferredBoards": [
+            {
+                "positionIndex": position,
+                "reasonCode": "incomplete_lattice",
+                "sequenceNumber": position + 1,
+            }
+            for position in range(3)
+        ],
+    }
+
+    assert validate_stage_payload("board_crops", payload, context) == payload
+
+
 def _adapters() -> list[FakeAdapter]:
     return [
         FakeAdapter(

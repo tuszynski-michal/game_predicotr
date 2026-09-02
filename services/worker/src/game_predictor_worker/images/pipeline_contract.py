@@ -35,6 +35,9 @@ VIRTUAL_GEOMETRY_ROLLOUT_VERSION = "virtual-geometry-rollout-snapshot-v1"
 VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2 = "virtual-geometry-rollout-snapshot-v2"
 STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_VERSION = "structured-geometry-candidate-snapshot-v1"
 STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION = "structured-opencv-independent-board-refinement-v1"
+STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION = (
+    "structured-opencv-independent-board-refinement-v2-pinned-preflight-v1"
+)
 VIRTUAL_CELL_RENDERER_VERSION = "virtual-cell-renderer-source-direct-v1"
 SYMBOL_RGB_PREPROCESSING_VERSION = "rgb-resize64-normalize-half-v1"
 MANUAL_REVIEW_PREDECESSOR = "symbol_inference"

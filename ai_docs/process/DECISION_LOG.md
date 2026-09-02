@@ -7063,3 +7063,19 @@ Korpus może uruchamiać jedynie recognition-only OCR. Nie wolno użyć nazwy
 pliku, kolejności źródła, sąsiedniego zdjęcia ani etapów geometrii/plansz/
 symboli jako dowodu. Nie jest on treningiem ani samodzielnym holdoutem do
 rolloutu: nowy fingerprint wymaga dodatkowego, niezależnego odbioru.
+
+## D-304 — Recovery lokalnej korekty ma być deterministyczne i widoczne
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Pełna walidacja katalogu `seq_*` po reloadzie pozostaje fail-closed, ale jeden
+plik może być odczytany i hashowany tylko raz w ramach tej samej inspekcji.
+Wynik weryfikacji repair manifestu jest ponownie używany przy kontroli output
+manifestu. Długie lokalne kroki muszą mieć jawny stan UI.
+
+Asynchroniczne recovery z IndexedDB nie ma pierwszeństwa przed świadomym
+ręcznym wyborem katalogu: workspace numeruje próby recovery, unieważnia
+spóźnioną odpowiedź oraz od razu zapisuje nowy uchwyt. Dzięki temu restart lub
+zamknięcie karty nie może przywrócić starego katalogu po nowym wyborze
+operatora.

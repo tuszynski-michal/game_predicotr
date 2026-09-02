@@ -8,6 +8,7 @@ import {
   writeRepairManifest,
   writeRepairFile,
 } from '../src/features/manual-image-selection/manual-selection-repair-storage.ts';
+import { sha256Hex } from '../src/features/manual-image-selection/manual-image-selection-fsa-adapter.ts';
 
 class MemoryFileHandle {
   kind = 'file';
@@ -15,9 +16,11 @@ class MemoryFileHandle {
   constructor(name, file) {
     this.name = name;
     this.file = file;
+    this.getFileCalls = 0;
   }
 
   async getFile() {
+    this.getFileCalls += 1;
     return this.file;
   }
 
@@ -107,6 +110,59 @@ test('writes and reads only the same repair manifest owner', async () => {
     }),
     /FOREIGN_REPAIR_MANIFEST/,
   );
+});
+
+test('checks each persisted seq JPEG once when resuming a verified output', async () => {
+  const first = new File(['first'], 'seq_1-9.jpg', { type: 'image/jpeg' });
+  const second = new File(['second'], 'seq_10-18.jpg', {
+    type: 'image/jpeg',
+  });
+  const directory = new MemoryDirectoryHandle('selected', [first, second]);
+  const output = {
+    direction: 'ascending',
+    firstLayout: 1,
+    gameId: 'local',
+    items: [
+      {
+        activeBoardCount: 9,
+        imageChecksum: await sha256Hex(first),
+        imagePath: 'source/first.jpg',
+        outputName: 'seq_1-9.jpg',
+        rangeEnd: 9,
+        rangeStart: 1,
+      },
+      {
+        activeBoardCount: 9,
+        imageChecksum: await sha256Hex(second),
+        imagePath: 'source/second.jpg',
+        outputName: 'seq_10-18.jpg',
+        rangeEnd: 18,
+        rangeStart: 10,
+      },
+    ],
+    schemaVersion: 2,
+    selectionComplete: true,
+    sequenceUpperBound: 18,
+    sessionKey: 'session',
+    sourceDirectoryName: 'source',
+    updatedAt: '2026-09-02T00:00:00.000Z',
+  };
+  const outputHandle = await directory.getFileHandle(
+    'manual-image-selection-output-v1.json',
+    { create: true },
+  );
+  const outputWritable = await outputHandle.createWritable();
+  await outputWritable.write(JSON.stringify(output));
+  await outputWritable.close();
+
+  const firstInspection = await inspectRepairDirectory(directory);
+  await writeRepairManifest(directory, firstInspection.repairManifest);
+  for (const file of directory.files.values()) file.getFileCalls = 0;
+
+  await inspectRepairDirectory(directory);
+
+  assert.equal(directory.files.get('seq_1-9.jpg').getFileCalls, 1);
+  assert.equal(directory.files.get('seq_10-18.jpg').getFileCalls, 1);
 });
 
 test('fills exact bytes and safely undoes only the checksummed repair file', async () => {
@@ -293,4 +349,26 @@ test('fill workspace exposes bounded steps, gap targets, shortcuts and visibilit
   assert.match(source, /writeRepairFile/);
   assert.match(source, /pickLocalDirectory\(\{ id: 'gp-manual-repair'/);
   assert.match(source, /sourceCursor \+ 1/);
+});
+
+test('repair workspace shows long-running directory phases and lets manual choice win recovery', async () => {
+  const source = await import('node:fs/promises').then(({ readFile }) =>
+    readFile(
+      new URL(
+        '../src/features/manual-image-selection/manual-selection-repair-workspace.tsx',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+
+  assert.match(source, /type RepairWorkspacePhase/);
+  assert.match(source, /Przywracam poprzednią sesję/);
+  assert.match(source, /Sprawdzam nazwy i checksumy wybranego katalogu/);
+  assert.match(source, /Wczytuję listę zdjęć z katalogu bazowego/);
+  assert.match(source, /recoveryGenerationRef/);
+  assert.match(source, /beginWorkPhase\('selecting_selected'\)/);
+  assert.match(source, /beginWorkPhase\('selecting_source'\)/);
+  assert.match(source, /selectedDirectory: directory/);
+  assert.match(source, /mode: null/);
 });

@@ -496,6 +496,14 @@ indeks katalogu inkrementalnie; nie wolno ponownie hashować całego katalogu po
 każdym usunięciu. Pełna walidacja nazw i checksum pozostaje obowiązkowa przy
 pierwszym otwarciu oraz po reloadzie.
 
+Jedna inspekcja odczytuje i hashuje każdy znany JPEG najwyżej raz. Jeżeli
+repair manifest zawiera już checksumę, reconciler weryfikuje ją na rzeczywistym
+pliku, a synchronizacja output manifestu wykorzystuje ten sam zweryfikowany
+wynik zamiast wykonywać drugi pełny odczyt Blobu. Podczas recovery, wyboru
+katalogu `seq_*` i rekurencyjnego listowania katalogu bazowego UI pokazuje
+aktualną fazę; ręczne wskazanie katalogu unieważnia spóźnione recovery i jest
+natychmiast utrwalane w IndexedDB.
+
 ### Trwałość i instrukcja operatora
 
 Repair manifest jest journalem intencji `fill`, `undo_fill`, `delete` i

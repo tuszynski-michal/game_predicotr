@@ -566,6 +566,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   IndexedDB. Wymagania, architektura oraz D-276 opisują recovery, checksumy i
   jednopoziomowe przywracanie delete.
 
+### Stabilizacja wznowienia Popraw selekcję — TASK-0403
+
+- `v0.10.105` utrzymuje pełną fail-closed inspekcję po reloadzie, lecz nie
+  odczytuje dwa razy tego samego JPEG-a podczas jednej kontroli repair/output
+  manifestu.
+- Workspace pokazuje fazy recovery, wyboru katalogu, inspekcji i listowania
+  katalogu bazowego. Ręczny wybór unieważnia spóźnione recovery z IndexedDB i
+  zapisuje nowy uchwyt trwale.
+
 ### Fundament 0.10 — TASK-0307
 
 - `v0.10.0` definiuje wyłącznie czysty kontrakt przyszłej wirtualnej geometrii.

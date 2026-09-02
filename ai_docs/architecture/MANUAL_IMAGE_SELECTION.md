@@ -148,6 +148,15 @@ dodanie albo usunięcie jednego wpisu. Dzięki temu delete nie wykonuje dwóch
 pełnych przebiegów SHA-256 po wszystkich JPEG-ach; nadal hashuje dokładnie
 usuwany plik i zachowuje journal fail-closed.
 
+Przy pełnej inspekcji reload/recovery znana checksuma jest weryfikowana w
+`reconcileRepairManifest`; następna synchronizacja output manifestu dostaje
+ten sam wynik i nie odczytuje JPEG-a ponownie. Workspace ma niezależny numer
+generacji recovery: ręczny wybór katalogu lub katalogu bazowego zwiększa go,
+więc późniejsza odpowiedź starego IndexedDB recovery nie może nadpisać
+aktualnego snapshotu ani uchwytu. Fazy wyboru systemowego, inspekcji i
+listowania są stanem UI, a nie pozornym zawieszeniem; natywny picker pozostaje
+jedyną blokadą współdzielonego pickera katalogów.
+
 `manual-image-selection-repair-v1.json` zachowuje niezmienne granice kolekcji,
 aktywny indeks plików, checksumy, usunięte zakresy, append-only historię oraz
 co najwyżej jedną operację oczekującą. Każda mutacja ma trzy fazy:

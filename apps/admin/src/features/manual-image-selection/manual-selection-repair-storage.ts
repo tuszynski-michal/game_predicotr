@@ -367,14 +367,23 @@ async function attachVerifiedOutputChecksums(
     actualFiles.some((file) => !outputByName.has(file.fileName))
   )
     throw new Error('MANUAL_OUTPUT_MANIFEST_FILES_MISMATCH');
+  const verifiedByName = new Map(
+    manifest.activeFiles.map((file) => [file.fileName, file.checksumSha256]),
+  );
   const activeFiles: RepairActiveFile[] = [];
   for (const file of actualFiles) {
     const output = outputByName.get(file.fileName)!;
     if (output.rangeStart !== file.start || output.rangeEnd !== file.end)
       throw new Error('MANUAL_OUTPUT_MANIFEST_RANGE_MISMATCH');
-    const checksum = await sha256Hex(
-      await (await directory.getFileHandle(file.fileName)).getFile(),
-    );
+    // `reconcileRepairManifest` has already read and verified a known checksum
+    // during this inspection. Reusing it prevents a second complete Blob read
+    // for every JPEG while preserving the full reload verification contract.
+    const verifiedChecksum = verifiedByName.get(file.fileName);
+    const checksum =
+      verifiedChecksum ??
+      (await sha256Hex(
+        await (await directory.getFileHandle(file.fileName)).getFile(),
+      ));
     if (checksum !== output.imageChecksum)
       throw new Error(
         `MANUAL_OUTPUT_MANIFEST_CHECKSUM_MISMATCH:${file.fileName}`,

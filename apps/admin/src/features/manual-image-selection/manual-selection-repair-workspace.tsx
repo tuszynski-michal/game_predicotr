@@ -30,12 +30,21 @@ import {
 
 const FILL_NAVIGATION_STEPS = [1, 2, 5, 10, 20, 50, 100] as const;
 
+type RepairWorkspacePhase =
+  | 'idle'
+  | 'restoring'
+  | 'selecting_selected'
+  | 'inspecting_selected'
+  | 'selecting_source'
+  | 'listing_source';
+
 export function ManualSelectionRepairWorkspace() {
   const store = useMemo(() => new ManualSelectionRepairStore(), []);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const busyRef = useRef(false);
   const traceIndexRef = useRef(0);
   const viewStartedAtRef = useRef(0);
+  const recoveryGenerationRef = useRef(0);
   const deleteUndoRef = useRef<{
     readonly file: File;
     readonly fileName: string;
@@ -57,6 +66,7 @@ export function ManualSelectionRepairWorkspace() {
   const [notice, setNotice] = useState<string | null>(null);
   const [viewReady, setViewReady] = useState(false);
   const [deleteUndoAvailable, setDeleteUndoAvailable] = useState(false);
+  const [workPhase, setWorkPhase] = useState<RepairWorkspacePhase>('idle');
   const sourceCursor = localState?.sourceCursor ?? 0;
   const mode = localState?.mode ?? null;
   const gaps = useMemo(
@@ -93,6 +103,9 @@ export function ManualSelectionRepairWorkspace() {
     Math.max(0, selectedImages.length - 1),
   );
   const currentSelected = snapshot?.files[deleteCursor];
+  const workPhaseMessage = repairWorkspacePhaseMessage(workPhase);
+  const interactiveWorkInProgress =
+    workPhase !== 'idle' && workPhase !== 'restoring';
   const handleViewerError = useCallback(
     (message: string) => setError(message),
     [],
@@ -111,8 +124,16 @@ export function ManualSelectionRepairWorkspace() {
 
   useEffect(() => {
     let cancelled = false;
-    void store.loadLatest().then(async (saved) => {
-      if (cancelled || saved === null) return;
+    const recoveryGeneration = ++recoveryGenerationRef.current;
+    void (async () => {
+      const saved = await store.loadLatest();
+      if (
+        cancelled ||
+        recoveryGeneration !== recoveryGenerationRef.current ||
+        saved === null
+      )
+        return;
+      setWorkPhase('restoring');
       try {
         if (!(await hasPermission(saved.selectedDirectory, 'readwrite')))
           return;
@@ -127,7 +148,10 @@ export function ManualSelectionRepairWorkspace() {
             saved.sourceDirectory,
           ).listImages();
         }
-        if (!cancelled) {
+        if (
+          !cancelled &&
+          recoveryGeneration === recoveryGenerationRef.current
+        ) {
           setSnapshot(restored);
           setSourceImages(sources);
           setLocalState({
@@ -137,7 +161,18 @@ export function ManualSelectionRepairWorkspace() {
           });
         }
       } catch {
-        // Stale handles are recovered explicitly by choosing the folders again.
+        if (
+          !cancelled &&
+          recoveryGeneration === recoveryGenerationRef.current
+        ) {
+          setNotice(
+            'Nie udało się przywrócić poprzedniego katalogu. Wskaż go ponownie.',
+          );
+        }
+      }
+    })().finally(() => {
+      if (!cancelled && recoveryGeneration === recoveryGenerationRef.current) {
+        setWorkPhase('idle');
       }
     });
     return () => {
@@ -193,7 +228,12 @@ export function ManualSelectionRepairWorkspace() {
   useEffect(() => {
     if (mode === null) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (busyRef.current || isEditable(event.target)) return;
+      if (
+        busyRef.current ||
+        interactiveWorkInProgress ||
+        isEditable(event.target)
+      )
+        return;
       const key = event.key.toLowerCase();
       if (key === 'arrowleft' || key === 'arrowright') {
         event.preventDefault();
@@ -230,33 +270,35 @@ export function ManualSelectionRepairWorkspace() {
   });
 
   async function chooseSelectedDirectory(): Promise<void> {
+    const recoveryGeneration = beginWorkPhase('selecting_selected');
     setError(null);
     try {
       const directory = await pickDirectory('readwrite');
+      if (recoveryGeneration !== recoveryGenerationRef.current) return;
+      setWorkPhase('inspecting_selected');
       const inspected = await inspectRepairDirectory(directory);
+      if (recoveryGeneration !== recoveryGenerationRef.current) return;
       await writeRepairManifest(directory, inspected.repairManifest);
       const saved = await store.load(inspected.repairManifest.repairKey);
+      if (recoveryGeneration !== recoveryGenerationRef.current) return;
+      const reboundState: ManualSelectionRepairLocalState = {
+        ...(saved ?? createInitialLocalState(inspected, directory)),
+        mode: null,
+        selectedDirectory: directory,
+        updatedAt: new Date().toISOString(),
+      };
+      await store.save(reboundState);
+      if (recoveryGeneration !== recoveryGenerationRef.current) return;
       setSnapshot(inspected);
-      setLocalState(
-        saved ?? {
-          fileCursor: 0,
-          gapCursor: 0,
-          mode: null,
-          navigationStep: 1,
-          repairKey: inspected.repairManifest.repairKey,
-          scrollTop: 0,
-          selectedDirectory: directory,
-          sourceCursor: 0,
-          sourceDirectory: null,
-          updatedAt: new Date().toISOString(),
-          zoom: 1,
-        },
-      );
+      setSourceImages([]);
+      setLocalState(reboundState);
       setNotice(
         `${inspected.files.length.toLocaleString('pl-PL')} plików · zakres ${inspected.repairManifest.collectionStart}–${inspected.repairManifest.collectionEnd}.`,
       );
     } catch (cause) {
       if (!isPickerCancelled(cause)) setError(errorMessage(cause));
+    } finally {
+      finishWorkPhase(recoveryGeneration);
     }
   }
 
@@ -266,11 +308,16 @@ export function ManualSelectionRepairWorkspace() {
       setNotice('Katalog nie zawiera luk do uzupełnienia.');
       return;
     }
+    const recoveryGeneration = beginWorkPhase('selecting_source');
+    setError(null);
     try {
       const sourceDirectory = await pickDirectory('read');
+      if (recoveryGeneration !== recoveryGenerationRef.current) return;
+      setWorkPhase('listing_source');
       const images = await new FileSystemManualSelectionSourceAdapter(
         sourceDirectory,
       ).listImages();
+      if (recoveryGeneration !== recoveryGenerationRef.current) return;
       if (images.length === 0)
         throw new Error('Bazowy katalog nie zawiera zdjęć JPG/JPEG.');
       setSourceImages(images);
@@ -284,11 +331,14 @@ export function ManualSelectionRepairWorkspace() {
       setNotice(null);
     } catch (cause) {
       if (!isPickerCancelled(cause)) setError(errorMessage(cause));
+    } finally {
+      finishWorkPhase(recoveryGeneration);
     }
   }
 
   async function startDelete(): Promise<void> {
-    if (snapshot === null || localState === null) return;
+    if (snapshot === null || localState === null || interactiveWorkInProgress)
+      return;
     deleteUndoRef.current = null;
     setDeleteUndoAvailable(false);
     setSourceImages([]);
@@ -305,7 +355,8 @@ export function ManualSelectionRepairWorkspace() {
   }
 
   async function returnToModeSelection(): Promise<void> {
-    if (localState === null || busyRef.current) return;
+    if (localState === null || busyRef.current || interactiveWorkInProgress)
+      return;
     deleteUndoRef.current = null;
     setDeleteUndoAvailable(false);
     await updateLocalState({ ...localState, mode: null });
@@ -635,6 +686,18 @@ export function ManualSelectionRepairWorkspace() {
     }
   }
 
+  function beginWorkPhase(
+    phase: Exclude<RepairWorkspacePhase, 'idle'>,
+  ): number {
+    const generation = ++recoveryGenerationRef.current;
+    setWorkPhase(phase);
+    return generation;
+  }
+
+  function finishWorkPhase(generation: number): void {
+    if (generation === recoveryGenerationRef.current) setWorkPhase('idle');
+  }
+
   if (mode === 'fill' && snapshot !== null && localState !== null) {
     return (
       <section
@@ -653,7 +716,7 @@ export function ManualSelectionRepairWorkspace() {
           </div>
         </header>
         <ManualImageViewer
-          busy={busy}
+          busy={busy || interactiveWorkInProgress}
           currentLabel={
             currentGap === null
               ? 'Brak luk'
@@ -672,7 +735,7 @@ export function ManualSelectionRepairWorkspace() {
             <label className="manualImageSelectionStep">
               Skok zdjęcia
               <select
-                disabled={busy}
+                disabled={busy || interactiveWorkInProgress}
                 onChange={(event) =>
                   void updateLocalState({
                     ...localState,
@@ -693,7 +756,7 @@ export function ManualSelectionRepairWorkspace() {
         <div className="manualImageSelectionActions">
           <button
             className="secondaryButton"
-            disabled={busy}
+            disabled={busy || interactiveWorkInProgress}
             onClick={() => void returnToModeSelection()}
             type="button"
           >
@@ -701,7 +764,7 @@ export function ManualSelectionRepairWorkspace() {
           </button>
           <button
             className="secondaryButton"
-            disabled={busy || gapCursor <= 0}
+            disabled={busy || interactiveWorkInProgress || gapCursor <= 0}
             onClick={() =>
               void updateLocalState({ ...localState, gapCursor: gapCursor - 1 })
             }
@@ -711,7 +774,9 @@ export function ManualSelectionRepairWorkspace() {
           </button>
           <button
             className="secondaryButton"
-            disabled={busy || gapCursor >= gaps.length - 1}
+            disabled={
+              busy || interactiveWorkInProgress || gapCursor >= gaps.length - 1
+            }
             onClick={() =>
               void updateLocalState({ ...localState, gapCursor: gapCursor + 1 })
             }
@@ -721,7 +786,7 @@ export function ManualSelectionRepairWorkspace() {
           </button>
           <button
             className="secondaryButton"
-            disabled={busy}
+            disabled={busy || interactiveWorkInProgress}
             onClick={() => void undoLastFill()}
             type="button"
           >
@@ -731,6 +796,7 @@ export function ManualSelectionRepairWorkspace() {
             className="primaryButton"
             disabled={
               busy ||
+              interactiveWorkInProgress ||
               !viewReady ||
               currentGap === null ||
               currentSource === undefined
@@ -777,7 +843,7 @@ export function ManualSelectionRepairWorkspace() {
           usunięcie zastępuje poprzednią kopię w pamięci.
         </p>
         <ManualImageViewer
-          busy={busy}
+          busy={busy || interactiveWorkInProgress}
           currentLabel={
             currentSelected === undefined
               ? 'Brak sekwencji'
@@ -799,7 +865,7 @@ export function ManualSelectionRepairWorkspace() {
         <div className="manualImageSelectionActions">
           <button
             className="secondaryButton"
-            disabled={busy}
+            disabled={busy || interactiveWorkInProgress}
             onClick={() => void returnToModeSelection()}
             type="button"
           >
@@ -807,7 +873,7 @@ export function ManualSelectionRepairWorkspace() {
           </button>
           <button
             className="secondaryButton"
-            disabled={busy || !deleteUndoAvailable}
+            disabled={busy || interactiveWorkInProgress || !deleteUndoAvailable}
             onClick={() => void restoreLastSequence()}
             type="button"
           >
@@ -815,7 +881,9 @@ export function ManualSelectionRepairWorkspace() {
           </button>
           <button
             className="dangerButton"
-            disabled={busy || currentSelected === undefined}
+            disabled={
+              busy || interactiveWorkInProgress || currentSelected === undefined
+            }
             onClick={() => void deleteCurrentSequence()}
             type="button"
           >
@@ -852,7 +920,7 @@ export function ManualSelectionRepairWorkspace() {
       <div className="manualImageSelectionSetup">
         <button
           className="secondaryButton"
-          disabled={busy || directoryPickerActive}
+          disabled={busy || directoryPickerActive || interactiveWorkInProgress}
           onClick={() => void chooseSelectedDirectory()}
           type="button"
         >
@@ -868,7 +936,12 @@ export function ManualSelectionRepairWorkspace() {
         <div className="manualImageSelectionFolderActions">
           <button
             className="primaryButton"
-            disabled={busy || directoryPickerActive || snapshot === null}
+            disabled={
+              busy ||
+              directoryPickerActive ||
+              interactiveWorkInProgress ||
+              snapshot === null
+            }
             onClick={() => void startFill()}
             type="button"
           >
@@ -876,7 +949,7 @@ export function ManualSelectionRepairWorkspace() {
           </button>
           <button
             className="secondaryButton"
-            disabled={busy || snapshot === null}
+            disabled={busy || interactiveWorkInProgress || snapshot === null}
             onClick={() => void startDelete()}
             type="button"
           >
@@ -885,6 +958,11 @@ export function ManualSelectionRepairWorkspace() {
         </div>
         {notice !== null ? (
           <p className="manualImageSelectionStatus">{notice}</p>
+        ) : null}
+        {workPhaseMessage !== null ? (
+          <p className="manualImageSelectionStatus" role="status">
+            {workPhaseMessage}
+          </p>
         ) : null}
         {error !== null ? (
           <p className="formError" role="alert">
@@ -898,6 +976,44 @@ export function ManualSelectionRepairWorkspace() {
 
 async function pickDirectory(mode: 'read' | 'readwrite') {
   return pickLocalDirectory({ id: 'gp-manual-repair', mode });
+}
+
+function createInitialLocalState(
+  snapshot: RepairDirectorySnapshot,
+  directory: FileSystemDirectoryHandle,
+): ManualSelectionRepairLocalState {
+  return {
+    fileCursor: 0,
+    gapCursor: 0,
+    mode: null,
+    navigationStep: 1,
+    repairKey: snapshot.repairManifest.repairKey,
+    scrollTop: 0,
+    selectedDirectory: directory,
+    sourceCursor: 0,
+    sourceDirectory: null,
+    updatedAt: new Date().toISOString(),
+    zoom: 1,
+  };
+}
+
+function repairWorkspacePhaseMessage(
+  phase: RepairWorkspacePhase,
+): string | null {
+  switch (phase) {
+    case 'restoring':
+      return 'Przywracam poprzednią sesję i sprawdzam zapisane pliki…';
+    case 'selecting_selected':
+      return 'Wybierz katalog z plikami seq_* w otwartym oknie systemowym.';
+    case 'inspecting_selected':
+      return 'Sprawdzam nazwy i checksumy wybranego katalogu…';
+    case 'selecting_source':
+      return 'Wybierz bazowy katalog zdjęć w otwartym oknie systemowym.';
+    case 'listing_source':
+      return 'Wczytuję listę zdjęć z katalogu bazowego…';
+    case 'idle':
+      return null;
+  }
 }
 
 async function hasPermission(

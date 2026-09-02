@@ -550,6 +550,16 @@ staging-local potwierdzenia. Komenda startu zawsze zawiera ten tryb, a odpowied�
 idempotentnego startu jest uznawana za sukces tylko wtedy, gdy niezmienny
 snapshot joba odpowiada v20/v19. Historyczne v18 nie są automatycznym fallbackiem.
 
+Usunięcie nieużywanego browser stagingu obejmuje jego puste próby preflightu i
+importu, aby nie pozostawały w selektorach operacyjnych. „Nieużywany” oznacza
+brak rozpoznanych plansz, pozycji review oraz chronionych zależności. Rekordy
+odroczonej geometrii `pending` bez powiązanej planszy/review oraz automatyczna
+rewizja źródła `0` są technicznym wynikiem pustej próby i są usuwane przed
+źródłem. Ręczna, rozwiązana lub dalsza rewizja geometrii, canonical, rollout
+oraz kohorta treningowa są chronione i blokują tę akcję. Staging, który
+wytworzył dane domenowe, nie może zostać skasowany tą akcją; do zwalniania samej
+kopii uploadu po bezpiecznym handoffie służy polityka retencji i GC.
+
 Historia importów plansz pokazuje przy każdym jobie przypięty silnik cięcia:
 `v18 — tryb historyczny`, `v20 — geometria i cropy v19` albo
 `0.10 — nowy silnik w cieniu · primary v20/v19`. Rollout shadow ma pierwszeństwo

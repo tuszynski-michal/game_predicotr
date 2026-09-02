@@ -15,6 +15,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Bezpieczne usuwanie pustej historii browser stagingu — TASK-0391
+
+- Usuwanie stagingu bez plansz i review kasuje również automatyczne rewizje
+  źródłowej geometrii `0` oraz nierozwiązane rekordy odroczeń, zanim usunie
+  źródła i wykonania pipeline'u.
+- Ręczne lub rozwiązane rewizje geometrii, canonical, rollout i kohorty są
+  nadal fail-closed chronione. Operacja wycofuje się w całości, zamiast usuwać
+  część grafu danych.
+
 ### Produkcyjny import structured z przypiętym preflightem — TASK-0390
 
 - Nowe joby `structured_default` przypinają silnik

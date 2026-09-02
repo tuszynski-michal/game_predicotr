@@ -14,14 +14,20 @@ from game_predictor_api.domain.jobs import JobConflictError
 
 from .models import (
     BrowserSelectionRetentionModel,
+    ImageBoardGeometryPendingModel,
     ImageFileExecutionModel,
+    ImageGeometryRolloutStateModel,
     ImageImportJobFileModel,
     ImagePipelineStageResultModel,
     ImagePipelineTerminalManifestModel,
     ImageReviewItemModel,
+    ImageSequenceCanonicalModel,
+    ImageSourceGeometryRevisionModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
+    VerifiedTrainingCohortCellModel,
+    VerifiedTrainingCohortItemModel,
 )
 
 RETENTION_DELAY = timedelta(hours=24)
@@ -203,6 +209,95 @@ class SqlAlchemyBrowserStagingRetentionRepository:
                         },
                     )
 
+                source_image_ids = tuple(
+                    session.scalars(
+                        select(SourceImageModel.id)
+                        .where(SourceImageModel.import_job_id.in_(job_ids))
+                        .with_for_update()
+                    )
+                )
+                pending_geometry = tuple(
+                    session.scalars(
+                        select(ImageBoardGeometryPendingModel)
+                        .where(ImageBoardGeometryPendingModel.import_job_id.in_(job_ids))
+                        .with_for_update()
+                    )
+                )
+                source_geometry_revisions = tuple(
+                    session.scalars(
+                        select(ImageSourceGeometryRevisionModel)
+                        .where(
+                            ImageSourceGeometryRevisionModel.source_image_id.in_(source_image_ids)
+                        )
+                        .with_for_update()
+                    )
+                )
+                protected_pending_geometry = tuple(
+                    item
+                    for item in pending_geometry
+                    if (
+                        item.status != "pending"
+                        or item.recognized_board_id is not None
+                        or item.review_item_id is not None
+                    )
+                )
+                protected_source_geometry = tuple(
+                    item
+                    for item in source_geometry_revisions
+                    if item.revision != 0 or item.geometry_source != "auto"
+                )
+
+                protected_source_references: dict[str, int] = {}
+                if source_image_ids:
+                    source_reference_queries = {
+                        "geometryRolloutStateCount": select(func.count()).where(
+                            ImageGeometryRolloutStateModel.last_source_image_id.in_(
+                                source_image_ids
+                            )
+                        ),
+                        "canonicalSequenceCount": select(func.count()).where(
+                            ImageSequenceCanonicalModel.source_image_id.in_(source_image_ids)
+                        ),
+                        "trainingCohortItemCount": select(func.count()).where(
+                            VerifiedTrainingCohortItemModel.source_image_id.in_(source_image_ids)
+                        ),
+                        "trainingCohortCellCount": select(func.count()).where(
+                            VerifiedTrainingCohortCellModel.source_image_id.in_(source_image_ids)
+                        ),
+                    }
+                    protected_source_references = {
+                        name: int(session.scalar(query) or 0)
+                        for name, query in source_reference_queries.items()
+                    }
+                validation_rollout_count = int(
+                    session.scalar(
+                        select(func.count()).where(
+                            ImageGeometryRolloutStateModel.validation_job_id.in_(job_ids)
+                        )
+                    )
+                    or 0
+                )
+                protected_source_references["validationRolloutCount"] = validation_rollout_count
+                if (
+                    protected_pending_geometry
+                    or protected_source_geometry
+                    or any(protected_source_references.values())
+                ):
+                    raise JobConflictError(
+                        "IMAGE_BROWSER_SELECTION_DELETE_HAS_RESULTS",
+                        "The browser staging produced protected geometry or import results "
+                        "and cannot be deleted as unused.",
+                        details={
+                            "recognizedBoardCount": board_count,
+                            "reviewItemCount": review_count,
+                            "pendingGeometryCount": len(pending_geometry),
+                            "protectedPendingGeometryCount": len(protected_pending_geometry),
+                            "sourceGeometryRevisionCount": len(source_geometry_revisions),
+                            "protectedSourceGeometryRevisionCount": len(protected_source_geometry),
+                            **protected_source_references,
+                        },
+                    )
+
                 execution_keys = set(
                     session.scalars(
                         select(ImageImportJobFileModel.file_execution_key).where(
@@ -210,6 +305,22 @@ class SqlAlchemyBrowserStagingRetentionRepository:
                         )
                     )
                 )
+                # Empty preflights may leave only automatically generated source
+                # geometry and deferred-board records.  They are not domain
+                # results and must disappear before their source images can be
+                # removed.  The protected checks above fail closed for every
+                # manual, resolved, canonical, review, rollout, or cohort link.
+                session.execute(
+                    delete(ImageBoardGeometryPendingModel).where(
+                        ImageBoardGeometryPendingModel.import_job_id.in_(job_ids)
+                    )
+                )
+                if source_image_ids:
+                    session.execute(
+                        delete(ImageSourceGeometryRevisionModel).where(
+                            ImageSourceGeometryRevisionModel.source_image_id.in_(source_image_ids)
+                        )
+                    )
                 session.execute(
                     delete(SourceImageModel).where(SourceImageModel.import_job_id.in_(job_ids))
                 )

@@ -134,6 +134,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   pozostają legacy do czasu jawnego ponownego przetworzenia, a nowe wyniki
   `virtual_default` są bezpośrednio mutowalne.
 
+### Backfill Weryfikacji symboli dla v0.10
+
+- Projekcja komórek Weryfikacji symboli rozpoznaje oba trwałe tryby assetu:
+  legacy `crop_relative_path` oraz `virtual_source` z pełną proweniencją
+  renderu. Backfill v0.10 nie wymaga ani nie tworzy fizycznych cropów.
+- Wznowienie nieudanego backfillu dla poprawnej planszy `virtual_source`
+  zapisuje 15 checksum-bound komórek bez ponownego importu lub korekty
+  geometrii. Zatwierdzenie komórki zachowuje też zatwierdzoną proweniencję
+  renderu, więc późniejsza mutacja nie łamie kontraktu treningowego.
+
 ### Bezpośredni wybór filtrów Weryfikacji symboli — TASK-0385
 
 - Gra i zakres symbolu startują jako niewybrane, więc samo wejście do zakładki

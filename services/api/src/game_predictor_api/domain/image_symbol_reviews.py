@@ -286,10 +286,11 @@ class SymbolCellCropIdentity:
 
     cell_index: int
     crop_sample_id: str
-    crop_relative_path: str
+    crop_relative_path: str | None
     crop_checksum_sha256: str
     geometry_revision: int
     cropper_version: str
+    asset_mode: str = "legacy_file"
 
     def __post_init__(self) -> None:
         if self.cell_index < 0:
@@ -302,10 +303,22 @@ class SymbolCellCropIdentity:
                 "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
                 "A symbol-cell crop identity requires SHA-256 sample and crop checksums.",
             )
-        if not self.crop_relative_path or self.crop_relative_path.startswith(("/", "\\")):
+        if self.asset_mode == "legacy_file":
+            if not self.crop_relative_path or self.crop_relative_path.startswith(("/", "\\")):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
+                    "A legacy symbol-cell crop path must be a non-empty relative path.",
+                )
+        elif self.asset_mode == "virtual_source":
+            if self.crop_relative_path is not None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
+                    "A virtual symbol-cell crop identity cannot name a crop file.",
+                )
+        else:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
-                "A symbol-cell crop path must be a non-empty relative path.",
+                "A symbol-cell crop identity has an unsupported asset mode.",
             )
         if self.geometry_revision < 0:
             raise SymbolCellReviewError(
@@ -478,6 +491,7 @@ def map_current_symbol_cell_reviews(
                 crop_checksum_sha256=cell.crop_checksum_sha256,
                 geometry_revision=geometry_revision,
                 cropper_version=cropper_version,
+                asset_mode=cell.asset_mode,
             ),
             predicted_symbol_code=_normalize_symbol_code(cell.predicted_symbol_code),
             assigned_symbol_code=_normalize_symbol_code(cell.current_symbol_code),

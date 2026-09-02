@@ -7,7 +7,7 @@ from collections import defaultdict
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import Float, String, and_, delete, func, or_, select
@@ -1749,6 +1749,11 @@ class SymbolCellReviewWriteThroughCoordinator:
                         if review.approved_crop is None
                         else review.approved_crop.geometry_revision
                     ),
+                    **_projection_approved_asset_kwargs(
+                        _approved_asset_projection_from_model(existing[review.cell_index])
+                        if review.approved_crop is not None
+                        else _empty_approved_asset_projection()
+                    ),
                 )
                 for review in recropped
             }
@@ -1794,6 +1799,11 @@ class SymbolCellReviewWriteThroughCoordinator:
                         if preserve_approved_crop and existing_cell is not None
                         else board.geometry_revision
                     ),
+                    **_projection_approved_asset_kwargs(
+                        _approved_asset_projection_from_model(existing_cell)
+                        if preserve_approved_crop and existing_cell is not None
+                        else _approved_asset_projection_from_review_cell(review_cell)
+                    ),
                 )
                 event_action = "board_synchronized"
             elif geometry_changed or reason == "board_reopened":
@@ -1805,6 +1815,7 @@ class SymbolCellReviewWriteThroughCoordinator:
                     approved_crop_sample_id=None,
                     approved_crop_checksum_sha256=None,
                     approved_geometry_revision=None,
+                    **_projection_approved_asset_kwargs(_empty_approved_asset_projection()),
                 )
                 event_action = "geometry_invalidated" if geometry_changed else "board_synchronized"
             elif existing_cell is not None and _is_human_cell_decision(existing_cell):
@@ -1816,6 +1827,9 @@ class SymbolCellReviewWriteThroughCoordinator:
                     approved_crop_sample_id=existing_cell.approved_crop_sample_id,
                     approved_crop_checksum_sha256=existing_cell.approved_crop_checksum_sha256,
                     approved_geometry_revision=existing_cell.approved_geometry_revision,
+                    **_projection_approved_asset_kwargs(
+                        _approved_asset_projection_from_model(existing_cell)
+                    ),
                 )
                 event_action = None
             else:
@@ -1827,6 +1841,7 @@ class SymbolCellReviewWriteThroughCoordinator:
                     approved_crop_sample_id=None,
                     approved_crop_checksum_sha256=None,
                     approved_geometry_revision=None,
+                    **_projection_approved_asset_kwargs(_empty_approved_asset_projection()),
                 )
                 event_action = None
             if existing_cell is None:
@@ -1849,6 +1864,7 @@ class SymbolCellReviewWriteThroughCoordinator:
                         column_index=review_cell.column_index,
                         crop_sample_id=review_cell.crop_sample_id,
                         crop_relative_path=review_cell.crop_relative_path,
+                        **_asset_provenance_values(review_cell),
                         crop_checksum_sha256=review_cell.crop_checksum_sha256,
                         geometry_revision=board.geometry_revision,
                         cropper_version=cropper_version,
@@ -1864,6 +1880,16 @@ class SymbolCellReviewWriteThroughCoordinator:
                         approved_crop_sample_id=target.approved_crop_sample_id,
                         approved_crop_checksum_sha256=target.approved_crop_checksum_sha256,
                         approved_geometry_revision=target.approved_geometry_revision,
+                        approved_asset_mode=target.approved_asset_mode,
+                        approved_source_geometry_revision_id=(
+                            target.approved_source_geometry_revision_id
+                        ),
+                        approved_render_spec_checksum_sha256=(
+                            target.approved_render_spec_checksum_sha256
+                        ),
+                        approved_rendered_pixel_checksum_sha256=(
+                            target.approved_rendered_pixel_checksum_sha256
+                        ),
                         assignment_source=target.assignment_source,
                         revision=0,
                         last_reviewed_by=actor,
@@ -2095,6 +2121,17 @@ class _CellProjection:
     approved_crop_sample_id: str | None
     approved_crop_checksum_sha256: str | None
     approved_geometry_revision: int | None
+    approved_asset_mode: str | None = None
+    approved_source_geometry_revision_id: UUID | None = None
+    approved_render_spec_checksum_sha256: str | None = None
+    approved_rendered_pixel_checksum_sha256: str | None = None
+
+
+class _ApprovedAssetProjectionKwargs(TypedDict):
+    approved_asset_mode: str | None
+    approved_source_geometry_revision_id: UUID | None
+    approved_render_spec_checksum_sha256: str | None
+    approved_rendered_pixel_checksum_sha256: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -2105,6 +2142,10 @@ class _CellPreviousState:
     approved_crop_sample_id: str | None
     approved_crop_checksum_sha256: str | None
     approved_geometry_revision: int | None
+    approved_asset_mode: str | None
+    approved_source_geometry_revision_id: UUID | None
+    approved_render_spec_checksum_sha256: str | None
+    approved_rendered_pixel_checksum_sha256: str | None
     logical_cell_key_v2: str | None
     render_identity_v2_sha256: str | None
     asset_mode: str
@@ -2130,6 +2171,10 @@ class _CellPreviousState:
             approved_crop_sample_id=cell.approved_crop_sample_id,
             approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
             approved_geometry_revision=cell.approved_geometry_revision,
+            approved_asset_mode=cell.approved_asset_mode,
+            approved_source_geometry_revision_id=(cell.approved_source_geometry_revision_id),
+            approved_render_spec_checksum_sha256=(cell.approved_render_spec_checksum_sha256),
+            approved_rendered_pixel_checksum_sha256=(cell.approved_rendered_pixel_checksum_sha256),
             logical_cell_key_v2=cell.logical_cell_key_v2,
             render_identity_v2_sha256=cell.render_identity_v2_sha256,
             asset_mode=cell.asset_mode,
@@ -2151,6 +2196,128 @@ class _CellPreviousState:
                 else previous_v2.verified_symbol_id
             ),
         )
+
+
+def _asset_provenance_values(review_cell: ImageReviewCell) -> dict[str, object]:
+    """Translate the shared current-cell asset identity into persisted columns.
+
+    ``virtual_source`` deliberately has no crop path.  Its render provenance is
+    mandatory instead, so fail closed rather than creating a row that would be
+    unreadable by the checksum-bound asset endpoint.
+    """
+
+    if review_cell.asset_mode == "legacy_file":
+        if review_cell.crop_relative_path is None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
+                "A legacy symbol review cell is missing its crop path.",
+            )
+        return {
+            "asset_mode": "legacy_file",
+            "source_geometry_revision_id": None,
+            "logical_cell_key": None,
+            "logical_cell_key_v2": None,
+            "render_identity_v2_sha256": None,
+            "render_spec": None,
+            "render_spec_checksum_sha256": None,
+            "rendered_pixel_checksum_sha256": None,
+            "extractor_version": None,
+        }
+    if review_cell.asset_mode != "virtual_source" or (
+        review_cell.crop_relative_path is not None
+        or review_cell.source_geometry_revision_id is None
+        or review_cell.logical_cell_key is None
+        or review_cell.render_spec is None
+        or review_cell.render_spec_checksum_sha256 is None
+        or review_cell.rendered_pixel_checksum_sha256 is None
+        or not review_cell.extractor_version
+    ):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_VIRTUAL_PROVENANCE_INVALID",
+            "A virtual symbol review cell is missing current render provenance.",
+        )
+    return {
+        "asset_mode": "virtual_source",
+        "source_geometry_revision_id": review_cell.source_geometry_revision_id,
+        "logical_cell_key": review_cell.logical_cell_key,
+        "logical_cell_key_v2": review_cell.logical_cell_key_v2,
+        "render_identity_v2_sha256": review_cell.render_identity_v2_sha256,
+        "render_spec": dict(review_cell.render_spec),
+        "render_spec_checksum_sha256": review_cell.render_spec_checksum_sha256,
+        "rendered_pixel_checksum_sha256": review_cell.rendered_pixel_checksum_sha256,
+        "extractor_version": review_cell.extractor_version,
+    }
+
+
+def _approved_asset_provenance_from_review_cell(
+    review_cell: ImageReviewCell,
+) -> dict[str, object]:
+    if review_cell.asset_mode == "legacy_file":
+        return _empty_approved_asset_provenance()
+    _asset_provenance_values(review_cell)
+    return {
+        "approved_asset_mode": "virtual_source",
+        "approved_source_geometry_revision_id": review_cell.source_geometry_revision_id,
+        "approved_render_spec_checksum_sha256": review_cell.render_spec_checksum_sha256,
+        "approved_rendered_pixel_checksum_sha256": review_cell.rendered_pixel_checksum_sha256,
+    }
+
+
+def _approved_asset_provenance_from_model(
+    cell: ImageSymbolReviewCellModel,
+) -> dict[str, object]:
+    return {
+        "approved_asset_mode": cell.approved_asset_mode,
+        "approved_source_geometry_revision_id": cell.approved_source_geometry_revision_id,
+        "approved_render_spec_checksum_sha256": cell.approved_render_spec_checksum_sha256,
+        "approved_rendered_pixel_checksum_sha256": (cell.approved_rendered_pixel_checksum_sha256),
+    }
+
+
+def _empty_approved_asset_provenance() -> dict[str, object]:
+    return {
+        "approved_asset_mode": None,
+        "approved_source_geometry_revision_id": None,
+        "approved_render_spec_checksum_sha256": None,
+        "approved_rendered_pixel_checksum_sha256": None,
+    }
+
+
+def _approved_asset_projection_from_review_cell(
+    review_cell: ImageReviewCell,
+) -> _ApprovedAssetProjectionKwargs:
+    return cast(
+        _ApprovedAssetProjectionKwargs,
+        _approved_asset_provenance_from_review_cell(review_cell),
+    )
+
+
+def _approved_asset_projection_from_model(
+    cell: ImageSymbolReviewCellModel,
+) -> _ApprovedAssetProjectionKwargs:
+    return {
+        "approved_asset_mode": cell.approved_asset_mode,
+        "approved_source_geometry_revision_id": cell.approved_source_geometry_revision_id,
+        "approved_render_spec_checksum_sha256": cell.approved_render_spec_checksum_sha256,
+        "approved_rendered_pixel_checksum_sha256": (cell.approved_rendered_pixel_checksum_sha256),
+    }
+
+
+def _empty_approved_asset_projection() -> _ApprovedAssetProjectionKwargs:
+    return {
+        "approved_asset_mode": None,
+        "approved_source_geometry_revision_id": None,
+        "approved_render_spec_checksum_sha256": None,
+        "approved_rendered_pixel_checksum_sha256": None,
+    }
+
+
+def _projection_approved_asset_kwargs(
+    value: _ApprovedAssetProjectionKwargs,
+) -> _ApprovedAssetProjectionKwargs:
+    """Keep a named boundary for type-safe ``_CellProjection`` construction."""
+
+    return value
 
 
 @dataclass(slots=True)
@@ -2323,11 +2490,6 @@ def _symbol_cell_review_from_model(
             "SYMBOL_CELL_REVIEW_SYMBOL_INVALID",
             "The crop references an inactive or foreign symbol.",
         )
-    if cell.crop_relative_path is None:
-        raise SymbolCellReviewError(
-            "SYMBOL_CELL_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
-            "Virtual symbol assets are not active in the legacy review mapper.",
-        )
     return SymbolCellReview(
         crop=SymbolCellCropIdentity(
             cell_index=int(cell.cell_index),
@@ -2336,6 +2498,7 @@ def _symbol_cell_review_from_model(
             crop_checksum_sha256=cell.crop_checksum_sha256,
             geometry_revision=int(cell.geometry_revision),
             cropper_version=cell.cropper_version,
+            asset_mode=cell.asset_mode,
         ),
         predicted_symbol_code=_known_symbol_code(cell.prediction_symbol_code),
         assigned_symbol_code=assigned_symbol_code,
@@ -2442,6 +2605,30 @@ def _apply_symbol_cell_review_transition(
     cell.approved_geometry_revision = (
         None if review.approved_crop is None else review.approved_crop.geometry_revision
     )
+    if review.approved_crop is None or cell.asset_mode == "legacy_file":
+        cell.approved_asset_mode = None
+        cell.approved_source_geometry_revision_id = None
+        cell.approved_render_spec_checksum_sha256 = None
+        cell.approved_rendered_pixel_checksum_sha256 = None
+    elif cell.asset_mode == "virtual_source":
+        if (
+            cell.source_geometry_revision_id is None
+            or cell.render_spec_checksum_sha256 is None
+            or cell.rendered_pixel_checksum_sha256 is None
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_VIRTUAL_PROVENANCE_INVALID",
+                "A virtual symbol crop is missing render provenance.",
+            )
+        cell.approved_asset_mode = "virtual_source"
+        cell.approved_source_geometry_revision_id = cell.source_geometry_revision_id
+        cell.approved_render_spec_checksum_sha256 = cell.render_spec_checksum_sha256
+        cell.approved_rendered_pixel_checksum_sha256 = cell.rendered_pixel_checksum_sha256
+    else:
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_VIRTUAL_PROVENANCE_INVALID",
+            "A symbol crop has an unsupported asset mode.",
+        )
     cell.assignment_source = review.assignment_source.value
     verification = _verification_v2(
         review_state=cell.review_state,
@@ -2504,6 +2691,20 @@ def _append_symbol_cell_event(
             approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
             previous_approved_geometry_revision=previous.approved_geometry_revision,
             approved_geometry_revision=cell.approved_geometry_revision,
+            previous_approved_asset_mode=previous.approved_asset_mode,
+            approved_asset_mode=cell.approved_asset_mode,
+            previous_approved_source_geometry_revision_id=(
+                previous.approved_source_geometry_revision_id
+            ),
+            approved_source_geometry_revision_id=cell.approved_source_geometry_revision_id,
+            previous_approved_render_spec_checksum_sha256=(
+                previous.approved_render_spec_checksum_sha256
+            ),
+            approved_render_spec_checksum_sha256=cell.approved_render_spec_checksum_sha256,
+            previous_approved_rendered_pixel_checksum_sha256=(
+                previous.approved_rendered_pixel_checksum_sha256
+            ),
+            approved_rendered_pixel_checksum_sha256=(cell.approved_rendered_pixel_checksum_sha256),
             operation_id=operation_id,
             actor=actor,
         )
@@ -2597,6 +2798,15 @@ def _cell_matches_projection(
         cell.sequence_number == sequence_number
         and cell.crop_sample_id == review_cell.crop_sample_id
         and cell.crop_relative_path == review_cell.crop_relative_path
+        and cell.asset_mode == review_cell.asset_mode
+        and cell.source_geometry_revision_id == review_cell.source_geometry_revision_id
+        and cell.logical_cell_key == review_cell.logical_cell_key
+        and cell.logical_cell_key_v2 == review_cell.logical_cell_key_v2
+        and cell.render_identity_v2_sha256 == review_cell.render_identity_v2_sha256
+        and cell.render_spec == review_cell.render_spec
+        and cell.render_spec_checksum_sha256 == review_cell.render_spec_checksum_sha256
+        and cell.rendered_pixel_checksum_sha256 == review_cell.rendered_pixel_checksum_sha256
+        and cell.extractor_version == review_cell.extractor_version
         and cell.crop_checksum_sha256 == review_cell.crop_checksum_sha256
         and cell.geometry_revision == geometry_revision
         and cell.cropper_version == cropper_version
@@ -2610,6 +2820,11 @@ def _cell_matches_projection(
         and cell.approved_crop_sample_id == target.approved_crop_sample_id
         and cell.approved_crop_checksum_sha256 == target.approved_crop_checksum_sha256
         and cell.approved_geometry_revision == target.approved_geometry_revision
+        and cell.approved_asset_mode == target.approved_asset_mode
+        and cell.approved_source_geometry_revision_id == target.approved_source_geometry_revision_id
+        and cell.approved_render_spec_checksum_sha256 == target.approved_render_spec_checksum_sha256
+        and cell.approved_rendered_pixel_checksum_sha256
+        == target.approved_rendered_pixel_checksum_sha256
         and cell.assignment_source == target.assignment_source
     )
 
@@ -2628,6 +2843,15 @@ def _apply_cell_projection(
     cell.sequence_number = sequence_number
     cell.crop_sample_id = review_cell.crop_sample_id
     cell.crop_relative_path = review_cell.crop_relative_path
+    cell.asset_mode = review_cell.asset_mode
+    cell.source_geometry_revision_id = review_cell.source_geometry_revision_id
+    cell.logical_cell_key = review_cell.logical_cell_key
+    cell.logical_cell_key_v2 = review_cell.logical_cell_key_v2
+    cell.render_identity_v2_sha256 = review_cell.render_identity_v2_sha256
+    cell.render_spec = None if review_cell.render_spec is None else dict(review_cell.render_spec)
+    cell.render_spec_checksum_sha256 = review_cell.render_spec_checksum_sha256
+    cell.rendered_pixel_checksum_sha256 = review_cell.rendered_pixel_checksum_sha256
+    cell.extractor_version = review_cell.extractor_version
     cell.crop_checksum_sha256 = review_cell.crop_checksum_sha256
     cell.geometry_revision = geometry_revision
     cell.cropper_version = cropper_version
@@ -2648,6 +2872,10 @@ def _apply_cell_projection(
     cell.approved_crop_sample_id = target.approved_crop_sample_id
     cell.approved_crop_checksum_sha256 = target.approved_crop_checksum_sha256
     cell.approved_geometry_revision = target.approved_geometry_revision
+    cell.approved_asset_mode = target.approved_asset_mode
+    cell.approved_source_geometry_revision_id = target.approved_source_geometry_revision_id
+    cell.approved_render_spec_checksum_sha256 = target.approved_render_spec_checksum_sha256
+    cell.approved_rendered_pixel_checksum_sha256 = target.approved_rendered_pixel_checksum_sha256
     cell.assignment_source = target.assignment_source
     cell.revision += 1
     cell.last_reviewed_by = actor
@@ -3055,6 +3283,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                     invalid_geometry_count=1 if geometry_error else 0,
                 ) from error
 
+            current_cells_by_index = {cell.cell_index: cell for cell in current_cells}
             for review in mapped:
                 approved = item.status in {"accepted", "corrected"}
                 symbol_code = review.assigned_symbol_code
@@ -3075,8 +3304,9 @@ class SqlAlchemyImageSymbolReviewRepository:
                         "recognized_board_id": board.id,
                         "sequence_number": document.sequence_number,
                         "cell_index": review.cell_index,
-                        "row_index": review.cell_index // 5,
-                        "column_index": review.cell_index % 5,
+                        "row_index": current_cells_by_index[review.cell_index].row_index,
+                        "column_index": current_cells_by_index[review.cell_index].column_index,
+                        **_asset_provenance_values(current_cells_by_index[review.cell_index]),
                         "crop_sample_id": review.crop.crop_sample_id,
                         "crop_relative_path": review.crop.crop_relative_path,
                         "crop_checksum_sha256": review.crop.crop_checksum_sha256,
@@ -3101,6 +3331,13 @@ class SqlAlchemyImageSymbolReviewRepository:
                         ),
                         "approved_geometry_revision": (
                             review.crop.geometry_revision if approved else None
+                        ),
+                        **(
+                            _approved_asset_provenance_from_review_cell(
+                                current_cells_by_index[review.cell_index]
+                            )
+                            if approved
+                            else _empty_approved_asset_provenance()
                         ),
                         "assignment_source": (
                             SymbolCellAssignmentSource.BOARD_DECISION.value
@@ -3218,6 +3455,15 @@ class SqlAlchemyImageSymbolReviewRepository:
                     != ImageSymbolReviewCellModel.crop_relative_path,
                     CellObservationModel.cropper_version
                     != ImageSymbolReviewCellModel.cropper_version,
+                    CellObservationModel.asset_mode != ImageSymbolReviewCellModel.asset_mode,
+                    CellObservationModel.source_geometry_revision_id
+                    != ImageSymbolReviewCellModel.source_geometry_revision_id,
+                    CellObservationModel.logical_cell_key
+                    != ImageSymbolReviewCellModel.logical_cell_key,
+                    CellObservationModel.render_spec_checksum_sha256
+                    != ImageSymbolReviewCellModel.render_spec_checksum_sha256,
+                    CellObservationModel.rendered_pixel_checksum_sha256
+                    != ImageSymbolReviewCellModel.rendered_pixel_checksum_sha256,
                 ),
             )
             .distinct()

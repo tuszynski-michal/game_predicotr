@@ -219,6 +219,11 @@ def build_verified_board_manifest(item: ImageReviewItem) -> Mapping[str, object]
                 "IMAGE_REVIEW_COHORT_CROP_CHANGED",
                 "A verified label no longer references the current immutable crop.",
             )
+        if cell.crop_relative_path is None:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_COHORT_VIRTUAL_ASSET_UNAVAILABLE",
+                "The legacy review cohort manifest cannot represent a virtual crop path.",
+            )
         cells.append(
             {
                 "cellIndex": cell.cell_index,

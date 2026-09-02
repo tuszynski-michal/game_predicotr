@@ -140,6 +140,28 @@ def _mapped_reviews(*, predicted: str = "cherry"):
     )
 
 
+def test_current_virtual_source_cells_map_without_a_legacy_crop_path() -> None:
+    virtual_cells = tuple(
+        replace(
+            cell,
+            crop_relative_path=None,
+            asset_mode="virtual_source",
+        )
+        for cell in _current_cells()
+    )
+
+    reviews = map_current_symbol_cell_reviews(
+        cells=virtual_cells,
+        geometry_revision=0,
+        cropper_version="structured-board-cells-v0.10",
+        assignment_source=SymbolCellAssignmentSource.MODEL,
+    )
+
+    assert len(reviews) == 15
+    assert all(review.crop.asset_mode == "virtual_source" for review in reviews)
+    assert all(review.crop.crop_relative_path is None for review in reviews)
+
+
 def test_approve_requires_a_real_active_symbol_and_clears_grid_issue() -> None:
     review = _mapped_reviews()[0]
     unknown = replace(review, assigned_symbol_code=None)

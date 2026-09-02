@@ -4687,3 +4687,17 @@ importuje geometrii, detekcji plansz, croppera lub klasyfikatora symboli. Jest
 wyłącznie przygotowaniem do następnego, osobno fingerprintowanego runtime'u;
 v1–v5 pozostają niezmienione. Dziewięć testów obejmuje fixture'y rzeczywiste,
 syntetyczne perturbacje i audyt izolacji modułu.
+
+### TASK-0405 — proof zakresu z pięciu anchorów
+
+Dodano `semi-automatic-range-only-ocr-v6-five-anchor-v1` jako czysty kontrakt
+pomiędzy przyszłym recognition-only OCR a grupowaniem. Tabela wiąże pięć
+pozycji z wartościami slotów `0/2/4/6/8` pełnej strony 3×3. Exact wymaga trzech
+zgodnych wartości wysokiej pewności z centrum oraz rozpięciem od góry do dołu;
+czytelna wartość sprzeczna z kandydatem blokuje wynik.
+
+Brak proofu, clipping, blur, niski confidence, tekst nienumeryczny i częściowa
+strona pozostają jawne jako `unknown`. Resolver nie ma I/O, obrazu, Paddle,
+runtime'u, nazwy pliku, source indexu ani sąsiadów. Nie zmieniono adapterów,
+fingerprintów czy jobów v1–v5; integracja runtime'u v6 pozostaje następnym
+zadaniem.

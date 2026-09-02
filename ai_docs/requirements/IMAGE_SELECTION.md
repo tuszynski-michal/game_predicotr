@@ -1049,6 +1049,23 @@ Komponent nie importuje ani nie uruchamia detekcji plansz, geometrii, croppera
 plansz/komórek lub klasyfikatora symboli. Historyczne runy v1–v5 oraz ich
 fingerprinty pozostają bez zmian.
 
+### Proof pięciu anchorów v6 — TASK-0405
+
+`semi-automatic-range-only-ocr-v6-five-anchor-v1` sprawdza rozpoznania ze
+wszystkich pięciu cropów wobec przypiętych slotów pełnej strony 3×3:
+`0`, `2`, `4`, `6`, `8`. Nie odczytuje obrazu ani nie wywołuje OCR — dostaje
+wyłącznie tekst, confidence oraz kompletność/czytelność source-direct cropa.
+
+Wynik `exact` wymaga co najmniej trzech zgodnych wartości o wysokiej pewności,
+w tym `center`, jednego anchoru górnego i jednego dolnego. Każdy dodatkowy,
+czytelny i wysokiej pewności numer niezgodny z tym samym zakresem blokuje wynik.
+Pusty albo słaby pozostały anchor nie wnosi dowodu i nie jest uzupełniany; jeśli
+przez to nie ma trzech rozpiętych potwierdzeń, wynik jest reason-coded `unknown`.
+Przycięty, nieczytelny lub nienumeryczny crop oraz każdy conflict także pozostają
+`unknown`; nie ma fuzzy repair, wyprowadzania z nazwy pliku ani z sąsiednich
+obrazów. Częściowa strona zawsze pozostaje manualna. Wariant jest domenowym
+kontraktem przyszłego runtime'u i nie zmienia fingerprintów v1–v5.
+
 ## Trwały globalny run półautomatycznej selekcji — TASK-0352
 
 - Workflow nie należy do gry: staging, run i job mają `gameId = null`.

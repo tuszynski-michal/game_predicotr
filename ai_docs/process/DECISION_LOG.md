@@ -7098,3 +7098,24 @@ pięciu cropów — także fallbacków — nie obniża późniejszej bramki OCR/
 Adapter pozostaje oddzielony od geometrii, detekcji plansz, croppera i inferencji
 symboli. Historyczne fingerprinty v1–v5 pozostają odtwarzalne; ewentualny
 runtime v6 wymaga osobnego fingerprintu oraz wcześniej niewidzianego holdoutu.
+
+## D-306 — Exact v6 wymaga trzech rozpiętych anchorów i braku widocznego konfliktu
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Wszystkie pięć pozycji `top_left`, `top_right`, `center`, `bottom_left`,
+`bottom_right` jest weryfikowane wobec ich stałych slotów pełnej strony 3×3.
+Automatyczny wynik v6 nie wymaga pięciu udanych OCR: wymaga co najmniej trzech
+zgodnych, wysokiej pewności wartości obejmujących `center`, górę i dół strony.
+Takie rozpięcie pozwala tolerować pojedynczą nieczytelną etykietę bez inferowania
+jej wartości, a nadal wiąże proof z całą stroną, a nie pojedynczym wierszem.
+
+Każda dodatkowa, kompletna i czytelna liczba o wystarczającej pewności, która nie
+pasuje do kandydata zakresu, blokuje exact jako konflikt. Częściowe strony nie
+są automatycznie promowane. Puste, rozmyte, przycięte, nienumeryczne i słabe
+obserwacje nie mogą zostać poprawione fuzzy, nazwą `seq_*`, indeksem źródła ani
+sąsiadem. Pusty lub słaby dodatkowy anchor może pozostać bez dowodu wyłącznie
+wtedy, gdy trzy rozpięte potwierdzenia nadal istnieją; w każdym innym przypadku
+wynik jest reason-coded `unknown`. Decyzja definiuje wyłącznie czysty proof v6;
+runtime i rollout nadal wymagają osobnych zadań oraz holdoutu.

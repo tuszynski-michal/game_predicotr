@@ -1580,6 +1580,28 @@ viewport lub nieograniczony crop kończą się reason-coded wynikiem bez częśc
 sukcesu. Wersje v1–v5 runtime'ów pozostają niezależne; późniejsza integracja v6
 musi otrzymać własny fingerprint i osobny holdout.
 
+## Proof pięciu anchorów v6 — TASK-0405
+
+`five_anchor_range_proof.py` jest czystym etapem po recognition-only OCR. Jego
+wejściem jest zawsze pięć `FiveAnchorRecognition` w kolejności lokalizatora oraz
+`FiveAnchorExpectedRangeTable`, wyprowadzona wyłącznie z deklarowanych granic
+runu. Tabela przypisuje pozycje `top_left`, `top_right`, `center`,
+`bottom_left`, `bottom_right` do slotów `0`, `2`, `4`, `6`, `8` pełnej strony
+3×3 i przechowuje wyłącznie oczekiwane wartości tej strony.
+
+Resolver testuje wszystkie pięć obserwacji. `exact` może powstać tylko dla
+jednego pełnego wpisu tabeli, gdy przynajmniej trzy wartości przechodzą próg
+confidence, obejmują centrum oraz pionowy span top/bottom, a ich średnia spełnia
+wersjonowaną politykę. Widoczna, wysokiej pewności liczba na innym anchorze,
+która nie pasuje do wybranego wpisu, jest `CONFLICTING_ANCHOR_VALUES`; czytelny
+nienumeryczny tekst jest `NON_NUMERIC_OCR`. Częściowa strona, brak pełnego span,
+niska pewność, nieczytelność i clipping są fail-closed jako osobne reason codes.
+
+Proof nie importuje obrazu, lokalizatora, Paddle, joba ani storage. Nazwa pliku,
+expected filename, source index i historia sąsiadów nie są jego wejściem ani
+dowodem. Tak jak lokalizator, wymaga później osobnego runtime fingerprintu i
+holdoutu, a v1–v5 pozostają odtwarzalne.
+
 ## Historia weryfikacji zakresów nazw plików — TASK-0393
 
 Weryfikacja `seq_*` pozostaje technicznie runem półautomatycznej selekcji i

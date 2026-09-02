@@ -382,15 +382,16 @@ operacyjne review: kanoniczna plansza `accepted/corrected` ma pierwszeństwo,
 a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
 starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
-Pierwsza dostępna gra jest domyślna. Wejście do zakładki nie pobiera strony
-cropów: operator najpierw wybiera grę, a następnie używa `Zatwierdź wybór`.
-Dopiero ta jawna akcja
-pobiera stronę o stałym rozmiarze 500 metadanych. Globalne liczniki nie należą
+Gra oraz zakres symbolu są domyślnie niewybrane. Wejście do zakładki nie pobiera
+strony cropów. Pierwsza strona o stałym rozmiarze 500 metadanych jest pobierana
+automatycznie dopiero po wskazaniu kombinacji obu pól. Zmiana gry ponownie
+czyści wybór symbolu; osobne akcje `Zatwierdź wybór` i `Zmień wybór` nie
+występują. Globalne liczniki nie należą
 do krytycznej ścieżki listy: są pobierane osobno dla gry i rewizji
 katalogu. Wolny albo niedostępny licznik nie blokuje oglądania ani decyzji, a
-spóźniona odpowiedź poprzedniej gry jest odrzucana. Po zatwierdzeniu ustawienia są
-zablokowane; `Zmień wybór` czyści strony, wirtualny viewport i zaznaczenie, a
-następnie pozwala ponownie ustawić parametry. Widok zachowuje jawne przyciski
+spóźniona odpowiedź poprzedniej gry jest odrzucana. Zmiana ustawionej gry albo
+symbolu czyści strony i wirtualny viewport. Jeśli istnieje jawne zaznaczenie,
+operator najpierw potwierdza jego wyczyszczenie. Widok zachowuje jawne przyciski
 poprzedniej/następnej strony, prefetchuje wyłącznie jedną kolejną stronę i trzyma
 w pamięci najwyżej trzy najbliższe strony metadanych. Nie utrzymuje obrazów dla
 całej strony: DOM zawiera tylko karty viewportu i małego overscanu. Admin

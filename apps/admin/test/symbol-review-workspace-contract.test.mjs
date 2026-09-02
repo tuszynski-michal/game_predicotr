@@ -24,17 +24,22 @@ const previewSource = await readFile(
   'utf8',
 );
 
-test('loads every available crop after confirming only the selected game', () => {
+test('loads crops only after selecting both a game and a symbol scope', () => {
   assert.match(source, /Weryfikacja symboli/);
   assert.match(source, /wszystkie aktualne cropy[\s\S]*wybranej gry/);
-  assert.doesNotMatch(source, />\s*Symbol\s*<select/);
+  assert.match(source, /Symbol\s*<select/);
+  assert.match(source, /Wybierz grę/);
+  assert.match(source, /Wybierz symbol lub zakres/);
+  assert.match(source, />Wszystkie symbole</);
+  assert.match(source, />Nierozpoznany \(\?\)</);
   assert.doesNotMatch(source, /Pewność predykcji/);
   assert.doesNotMatch(source, /<legend>Stan<\/legend>/);
-  assert.match(source, /Zatwierdź wybór/);
-  assert.match(source, /Zmień wybór/);
-  assert.match(source, /filtersConfirmed/);
+  assert.doesNotMatch(source, /Zatwierdź wybór/);
+  assert.doesNotMatch(source, /Zmień wybór/);
+  assert.doesNotMatch(source, /filtersConfirmed/);
   assert.match(source, /state: 'all'/);
-  assert.match(source, /symbolId: 'all'/);
+  assert.match(source, /symbolId: null/);
+  assert.match(source, /symbolReviewFiltersReady\(filters\)/);
   assert.match(source, /startSymbolReviewBulkOperation/);
   assert.match(source, /mark_grid_issue/);
   assert.match(source, /mark_unreadable/);
@@ -62,10 +67,10 @@ test('keeps a three-page metadata window with virtual cards and background bulk 
   assert.match(styles, /height: 100px/);
   assert.match(source, /Zaznacz stronę/);
   assert.doesNotMatch(source, /Zaznacz wyniki filtra/);
-  assert.match(source, /previewReadOnly \|\|/);
+  assert.match(source, /readOnly=\{false\}/);
   assert.match(source, />\s*Zła siatka\s*</);
   assert.match(source, /Nieczytelny symbol/);
-  assert.match(source, /Zmiana gry wyczyści bieżące zaznaczenie/);
+  assert.match(source, /Zmiana gry lub symbolu wyczyści bieżące zaznaczenie/);
   assert.match(source, /crypto\.randomUUID\(\)/);
   assert.match(source, /window\.setTimeout/);
   assert.match(source, /activeOperations/);
@@ -132,13 +137,10 @@ test('renders metadata before independent revision-bound counts finish', () => {
   assert.doesNotMatch(source, /currentPage\.counts/);
 });
 
-test('keeps the experimental v0.10 preview read only and explicit', () => {
-  assert.match(source, /Aktualne cropy v20\/v19/);
-  assert.match(source, /Eksperymentalny silnik v0\.10/);
-  assert.match(source, /previewMode === 'structured_v0_10'/);
-  assert.match(source, /readOnly \|\| busy \|\| selectedCount === 0/);
-  assert.match(source, /if \(previewReadOnly\) return/);
-  assert.match(source, /Nie zapisuje\s+decyzji, cropów ani jobów/);
-  assert.match(source, /Brak proweniencji dla podglądu v0\.10/);
-  assert.match(previewSource, /rendererMode: previewMode/);
+test('uses only the current persisted crop renderer', () => {
+  assert.match(source, /previewAnchorCellId\.current,\s*'current'/);
+  assert.doesNotMatch(source, /Aktualne cropy v20\/v19/);
+  assert.doesNotMatch(source, /Eksperymentalny silnik v0\.10/);
+  assert.doesNotMatch(source, /previewMode === 'structured_v0_10'/);
+  assert.doesNotMatch(source, /Nie zapisuje\s+decyzji, cropów ani jobów/);
 });

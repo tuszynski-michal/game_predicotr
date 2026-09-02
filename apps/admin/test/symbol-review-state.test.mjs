@@ -6,6 +6,7 @@ import {
   DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
   MAX_SYMBOL_REVIEW_CACHED_PAGES,
   symbolReviewConfidenceRange,
+  symbolReviewFiltersReady,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
 } from '../src/features/symbol-reviews/symbol-review-state.ts';
@@ -17,6 +18,16 @@ const filters = {
   state: 'pending',
   symbolId: 'symbol-1',
 };
+
+test('requires both game and symbol scope before loading review data', () => {
+  assert.equal(
+    symbolReviewFiltersReady({ ...filters, gameId: null, symbolId: null }),
+    false,
+  );
+  assert.equal(symbolReviewFiltersReady({ ...filters, symbolId: null }), false);
+  assert.equal(symbolReviewFiltersReady(filters), true);
+  assert.equal(symbolReviewFiltersReady({ ...filters, symbolId: 'all' }), true);
+});
 
 function page(id, { nextCursor = null, previousCursor = null } = {}) {
   return {

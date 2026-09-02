@@ -57,6 +57,7 @@ import {
   createSymbolReviewWorkspaceState,
   DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
   findCachedSymbolReviewPage,
+  symbolReviewFiltersReady,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
   type SymbolReviewFilters,
@@ -97,7 +98,7 @@ const INITIAL_FILTERS: SymbolReviewFilters = {
   gameId: null,
   pageSize: DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
   state: 'all',
-  symbolId: 'all',
+  symbolId: null,
 };
 
 interface SymbolReviewWorkspaceProps {
@@ -177,7 +178,6 @@ export function SymbolReviewWorkspace({
   const [reassignTargetSymbolId, setReassignTargetSymbolId] = useState<
     string | null
   >(null);
-  const [filtersConfirmed, setFiltersConfirmed] = useState(false);
   const [visibleItems, setVisibleItems] = useState<
     readonly SymbolCellReviewListItemResponse[]
   >([]);
@@ -192,13 +192,13 @@ export function SymbolReviewWorkspace({
   const countsRequestId = useRef(0);
   const projectionRequestId = useRef(0);
   const filtersRef = useRef<SymbolReviewFilters>(INITIAL_FILTERS);
-  const filtersConfirmedRef = useRef(false);
   const pagingRef = useRef(false);
   const pagePositionRef = useRef<SymbolReviewPagePosition>({ number: 1 });
   const virtualPreviewRequestId = useRef(0);
   const previewAnchorCellId = useRef<string | null>(null);
 
   const filters = workspace.filters;
+  const filtersReady = symbolReviewFiltersReady(filters);
   const currentPage = workspace.currentPage?.page ?? null;
   const currentPageNumber = workspace.currentPage?.position.number ?? 1;
   const currentItems = useMemo(
@@ -262,11 +262,7 @@ export function SymbolReviewWorkspace({
       setProjectionStatus(null);
       setProjectionState(nextFilters.gameId === null ? 'ready' : 'loading');
     }
-    setPageState(
-      asPageFilters(nextFilters) === null || !filtersConfirmedRef.current
-        ? 'ready'
-        : 'loading',
-    );
+    setPageState(asPageFilters(nextFilters) === null ? 'ready' : 'loading');
     dispatch({ filters: nextFilters, type: 'filters_changed' });
   }, []);
 
@@ -282,8 +278,6 @@ export function SymbolReviewWorkspace({
     setCountsState('idle');
     setCountsSnapshot(null);
     setCountsCatalogRevision(null);
-    filtersConfirmedRef.current = false;
-    setFiltersConfirmed(false);
     pagePositionRef.current = { number: 1 };
     dispatch({ type: 'clear_page' });
     setReloadRevision((revision) => revision + 1);
@@ -299,50 +293,6 @@ export function SymbolReviewWorkspace({
     },
     [applyFilters, selectedCount],
   );
-
-  const confirmFilters = useCallback(() => {
-    if (filters.gameId === null || interactionBusy) {
-      return;
-    }
-    pageRequestId.current += 1;
-    countsRequestId.current += 1;
-    pagePositionRef.current = { number: 1 };
-    setError('');
-    setSelection(createEmptySymbolReviewSelection());
-    setHiddenCellIds(new Set());
-    setVisibleItems([]);
-    previewAnchorCellId.current = null;
-    setCountsState('idle');
-    setCountsSnapshot(null);
-    setCountsCatalogRevision(null);
-    setVirtualPreviewTiles({});
-    setPreviewAvailability(emptyPreviewAvailability());
-    dispatch({ type: 'clear_page' });
-    filtersConfirmedRef.current = true;
-    setFiltersConfirmed(true);
-    setPageState(projectionStatus?.status === 'ready' ? 'loading' : 'ready');
-  }, [filters.gameId, interactionBusy, projectionStatus?.status]);
-
-  const unlockFilters = useCallback(() => {
-    if (interactionBusy || selectedCount > 0) return;
-    pageRequestId.current += 1;
-    countsRequestId.current += 1;
-    pagePositionRef.current = { number: 1 };
-    setError('');
-    setSelection(createEmptySymbolReviewSelection());
-    setHiddenCellIds(new Set());
-    setVisibleItems([]);
-    previewAnchorCellId.current = null;
-    setCountsState('idle');
-    setCountsSnapshot(null);
-    setCountsCatalogRevision(null);
-    setVirtualPreviewTiles({});
-    setPreviewAvailability(emptyPreviewAvailability());
-    dispatch({ type: 'clear_page' });
-    filtersConfirmedRef.current = false;
-    setFiltersConfirmed(false);
-    setPageState('ready');
-  }, [interactionBusy, selectedCount]);
 
   useEffect(() => {
     if (toast === null) return;
@@ -366,12 +316,12 @@ export function SymbolReviewWorkspace({
         (game) => game.id === currentFilters.gameId,
       )
         ? currentFilters.gameId
-        : (result.games[0]?.id ?? null);
+        : null;
       if (selectedGameId !== currentFilters.gameId) {
         applyFilters({
           ...currentFilters,
           gameId: selectedGameId,
-          symbolId: 'all',
+          symbolId: null,
         });
       }
     });
@@ -410,7 +360,10 @@ export function SymbolReviewWorkspace({
         setError(result.error);
         return;
       }
-      if (result.status.status === 'ready' && filtersConfirmedRef.current) {
+      if (
+        result.status.status === 'ready' &&
+        asPageFilters(filtersRef.current) !== null
+      ) {
         setPageState('loading');
       }
       setProjectionStatus(result.status);
@@ -444,7 +397,10 @@ export function SymbolReviewWorkspace({
         timerId = window.setTimeout(() => void poll(), 2_000);
         return;
       }
-      if (result.status.status === 'ready' && filtersConfirmedRef.current) {
+      if (
+        result.status.status === 'ready' &&
+        asPageFilters(filtersRef.current) !== null
+      ) {
         setPageState('loading');
       }
       setProjectionStatus(result.status);
@@ -466,11 +422,7 @@ export function SymbolReviewWorkspace({
 
   useEffect(() => {
     const pageFilters = asPageFilters(filters);
-    if (
-      !filtersConfirmed ||
-      pageFilters === null ||
-      projectionStatus?.status !== 'ready'
-    ) {
+    if (pageFilters === null || projectionStatus?.status !== 'ready') {
       return;
     }
     const requestId = ++pageRequestId.current;
@@ -492,17 +444,11 @@ export function SymbolReviewWorkspace({
       setHiddenCellIds(new Set());
       setPageState('ready');
     });
-  }, [
-    api,
-    filters,
-    filtersConfirmed,
-    projectionStatus?.status,
-    reloadRevision,
-  ]);
+  }, [api, filters, projectionStatus?.status, reloadRevision]);
 
   useEffect(() => {
     const pageFilters = asPageFilters(filters);
-    if (!filtersConfirmed || pageFilters === null || currentPage === null) {
+    if (pageFilters === null || currentPage === null) {
       return;
     }
     const catalogRevision =
@@ -535,12 +481,11 @@ export function SymbolReviewWorkspace({
     return () => {
       countsRequestId.current += 1;
     };
-  }, [api, countsCatalogRevision, currentPage, filters, filtersConfirmed]);
+  }, [api, countsCatalogRevision, currentPage, filters]);
 
   useEffect(() => {
     const pageFilters = asPageFilters(filters);
     if (
-      !filtersConfirmed ||
       pageFilters === null ||
       currentPage === null ||
       currentPage.nextCursor === null
@@ -565,14 +510,7 @@ export function SymbolReviewWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [
-    api,
-    currentPage,
-    currentPageNumber,
-    filters,
-    filtersConfirmed,
-    workspace,
-  ]);
+  }, [api, currentPage, currentPageNumber, filters, workspace]);
 
   const hasVisibleItems = visibleItems.length > 0;
   const handleVisibleItemsChange = useCallback(
@@ -632,12 +570,7 @@ export function SymbolReviewWorkspace({
   const movePage = useCallback(
     async (direction: -1 | 1) => {
       const pageFilters = asPageFilters(filters);
-      if (
-        !filtersConfirmed ||
-        pagingRef.current ||
-        pageFilters === null ||
-        currentPage === null
-      ) {
+      if (pagingRef.current || pageFilters === null || currentPage === null) {
         return;
       }
       const cursor =
@@ -690,7 +623,7 @@ export function SymbolReviewWorkspace({
       setCountsSnapshot(null);
       setCountsCatalogRevision(result.page.catalogRevision);
     },
-    [api, currentPage, currentPageNumber, filters, filtersConfirmed, workspace],
+    [api, currentPage, currentPageNumber, filters, workspace],
   );
 
   async function prepareProjection() {
@@ -903,19 +836,19 @@ export function SymbolReviewWorkspace({
         <label>
           Gra
           <select
-            disabled={
-              gamesState !== 'ready' || interactionBusy || filtersConfirmed
-            }
+            disabled={gamesState !== 'ready' || interactionBusy}
             onChange={(event) =>
               requestFilterChange({
                 ...filters,
                 gameId: event.target.value || null,
-                symbolId: 'all',
+                symbolId: null,
               })
             }
             value={filters.gameId ?? ''}
           >
-            {games.length === 0 ? <option value="">Brak gier</option> : null}
+            <option value="">
+              {games.length === 0 ? 'Brak gier' : 'Wybierz grę'}
+            </option>
             {games.map((game) => (
               <option key={game.id} value={game.id}>
                 {game.name}
@@ -929,17 +862,19 @@ export function SymbolReviewWorkspace({
             disabled={
               filters.gameId === null ||
               symbolsState !== 'ready' ||
-              interactionBusy ||
-              filtersConfirmed
+              interactionBusy
             }
             onChange={(event) =>
               requestFilterChange({
                 ...filters,
-                symbolId: event.target.value as SymbolReviewFilters['symbolId'],
+                symbolId:
+                  (event.target.value as SymbolReviewFilters['symbolId']) ||
+                  null,
               })
             }
-            value={filters.symbolId ?? 'all'}
+            value={filters.symbolId ?? ''}
           >
+            <option value="">Wybierz symbol lub zakres</option>
             <option value="all">Wszystkie symbole</option>
             {symbols.map((symbol) => (
               <option key={symbol.id} value={symbol.id}>
@@ -949,28 +884,6 @@ export function SymbolReviewWorkspace({
             <option value="unknown">Nierozpoznany (?)</option>
           </select>
         </label>
-        <div className={styles.filterActions}>
-          <button
-            className="primaryButton"
-            disabled={
-              interactionBusy ||
-              (filtersConfirmed ? selectedCount > 0 : filters.gameId === null)
-            }
-            onClick={() => {
-              if (filtersConfirmed) {
-                unlockFilters();
-                return;
-              }
-              confirmFilters();
-            }}
-            type="button"
-          >
-            {filtersConfirmed ? 'Zmień wybór' : 'Zatwierdź wybór'}
-          </button>
-          {filtersConfirmed && selectedCount > 0 ? (
-            <span>Wyczyść zaznaczenie, aby zmienić filtry.</span>
-          ) : null}
-        </div>
       </div>
 
       {projectionStatus?.status === 'ready' && currentPage !== null ? (
@@ -1035,9 +948,9 @@ export function SymbolReviewWorkspace({
           status={projectionStatus}
         />
       ) : null}
-      {projectionStatus?.status === 'ready' && !filtersConfirmed ? (
+      {gamesState === 'ready' && !filtersReady ? (
         <SymbolReviewStatus
-          text="Wybierz grę i zatwierdź wybór. Zostaną pobrane wszystkie dostępne cropy tej gry."
+          text="Wybierz grę oraz symbol lub zakres. Pierwsza strona zostanie pobrana automatycznie dopiero po ustawieniu obu pól."
           title="Ustaw parametry widoku"
         />
       ) : null}
@@ -1098,7 +1011,7 @@ export function SymbolReviewWorkspace({
                     selected={isSymbolReviewItemSelected(selection, item)}
                   />
                 )}
-                scopeKey={`${filters.gameId ?? ''}:${filters.symbolId ?? 'all'}`}
+                scopeKey={`${filters.gameId ?? ''}:${filters.symbolId ?? ''}`}
               />
             )}
             <div className={styles.pagination}>
@@ -1437,17 +1350,17 @@ function SymbolReviewFilterChangeDialog({
   return (
     <div className={styles.modalBackdrop} role="presentation">
       <section aria-modal="true" className={styles.modal} role="dialog">
-        <h2>Zmienić grę?</h2>
+        <h2>Zmienić filtr?</h2>
         <p>
-          Zmiana gry wyczyści bieżące zaznaczenie ({selectedCount} cropów).
-          Żadna decyzja ani plik nie zostaną zmienione.
+          Zmiana gry lub symbolu wyczyści bieżące zaznaczenie ({selectedCount}{' '}
+          cropów). Żadna decyzja ani plik nie zostaną zmienione.
         </p>
         <div className={styles.modalActions}>
           <button className="secondaryButton" onClick={onCancel} type="button">
             Anuluj
           </button>
           <button className="primaryButton" onClick={onConfirm} type="button">
-            Zmień grę
+            Zmień filtr
           </button>
         </div>
       </section>
@@ -1658,14 +1571,14 @@ function operationStatusLabel(
 function asPageFilters(
   filters: SymbolReviewFilters,
 ): LoadSymbolReviewPageOptions | null {
-  if (filters.gameId === null) {
+  if (!symbolReviewFiltersReady(filters)) {
     return null;
   }
   return {
     gameId: filters.gameId,
     limit: filters.pageSize,
     state: 'all',
-    symbolId: filters.symbolId ?? 'all',
+    symbolId: filters.symbolId,
   };
 }
 

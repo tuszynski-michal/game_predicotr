@@ -6969,3 +6969,15 @@ Zmiana polityki gry nie przepisuje istniejących jobów, cropów ani decyzji.
 Każdy import zachowuje przypięty snapshot. Istniejące dane legacy mogą przejść
 na v0.10 wyłącznie przez jawne, nowe przetworzenie z managed originals; dopiero
 nowy wynik ma proweniencję `virtual_source` i może być bieżącym assetem review.
+
+## D-298 — Strona Weryfikacji symboli wymaga kompletnej pary filtrów
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Gra i zakres symbolu są na wejściu niewybrane. Lista nie wykonuje domyślnego
+odczytu, dopóki operator nie wskaże obu wartości. Kompletna para uruchamia
+pobranie automatycznie, bez osobnego zatwierdzania i bez trybu blokowania
+selectów. Zmiana gry zeruje zakres symbolu. Jeśli operator ma zaznaczone cropy,
+zmiana filtra nadal wymaga potwierdzenia ich wyczyszczenia, ale nie zmienia
+żadnej decyzji ani pliku.

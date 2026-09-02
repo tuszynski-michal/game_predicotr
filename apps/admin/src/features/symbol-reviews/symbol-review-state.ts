@@ -60,6 +60,15 @@ export function createSymbolReviewWorkspaceState(
   return { currentPage: null, filters, pages: [] };
 }
 
+export function symbolReviewFiltersReady(
+  filters: SymbolReviewFilters,
+): filters is SymbolReviewFilters & {
+  readonly gameId: string;
+  readonly symbolId: string | 'all' | 'unknown';
+} {
+  return filters.gameId !== null && filters.symbolId !== null;
+}
+
 export function symbolReviewConfidenceRange(
   confidence: SymbolReviewConfidenceFilter,
 ): { readonly maxConfidence?: number; readonly minConfidence?: number } {

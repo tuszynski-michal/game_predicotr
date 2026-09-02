@@ -24,6 +24,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   pozostają legacy do czasu jawnego ponownego przetworzenia, a nowe wyniki
   `virtual_default` są bezpośrednio mutowalne.
 
+### Bezpośredni wybór filtrów Weryfikacji symboli — TASK-0385
+
+- Gra i zakres symbolu startują jako niewybrane, więc samo wejście do zakładki
+  nie pobiera strony cropów.
+- Po wskazaniu obu pól pierwsza strona ładuje się automatycznie. Usunięto
+  dodatkowe akcje `Zatwierdź wybór` i `Zmień wybór`; zmiana gry zeruje symbol,
+  strony oraz viewport, a istniejące zaznaczenie nadal wymaga jawnego
+  potwierdzenia wyczyszczenia.
+
 ### Zakres cropów gry w Weryfikacji symboli — TASK-0371/TASK-0383
 
 - `Weryfikacja symboli` wybiera grę oraz jawny zakres: wszystkie bieżące cropy,

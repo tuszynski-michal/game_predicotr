@@ -13,7 +13,7 @@ const workspaceSource = readFileSync(
 test('symbol review exposes catalog and unknown filtering', () => {
   assert.match(workspaceSource, />Wszystkie symbole</);
   assert.match(workspaceSource, />Nierozpoznany \(\?\)</);
-  assert.match(workspaceSource, /symbolId: filters\.symbolId \?\? 'all'/);
+  assert.match(workspaceSource, /symbolId: filters\.symbolId/);
 });
 
 test('symbol review uses only the persisted current crop renderer', () => {

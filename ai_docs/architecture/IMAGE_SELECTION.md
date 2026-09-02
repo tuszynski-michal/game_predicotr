@@ -1557,6 +1557,29 @@ zakresy i jest testem anty-false-positive: wynik może być tylko `unknown` lub
 inny wynik nieautomatyczny. Nowy runtime może używać korpusu do regresji, lecz
 strojenie wymaga osobnego, niezamrożonego zestawu danych.
 
+## Lokalizacja pięciu anchorów zakresu v6 — TASK-0404
+
+`five-anchor-range-label-locator-v6` jest czystym adapterem między
+kanonizowanym `uint8 RGB` a późniejszym rozpoznawaniem cyfr. Zwraca komplet
+pięciu `FiveAnchorLabelCrop` w kolejności `top_left`, `top_right`, `center`,
+`bottom_left`, `bottom_right`, zawsze z pełnym prostokątem w przestrzeni
+`exif-transposed-rgb-v1`. Nie zapisuje bitmap ani artefaktów; crop jest jedynie
+bezpośrednim wycinkiem pamięci źródłowego obrazu przekazanym do następnego kroku.
+
+Każdy anchor zaczyna od wersjonowanego, szerokiego viewportu. Lekka analiza
+jasnych lokalnych komponentów może go zawęzić do `component_refined`; brak
+takiego komponentu zachowuje ograniczony `viewport_fallback`. To diagnostyka
+lokalizatora, a nie confidence i nie dowód liczby. Pełny zestaw fallbacków może
+istnieć nawet na pustym obrazie; dopiero przyszły OCR i niezależny proof zdecydują
+o `exact` albo `unknown`.
+
+Adapter nie ma wejścia dla nazwy pliku, oczekiwanego zakresu, source indexu,
+historii sąsiadów ani wyników OCR. Nie importuje modułów geometrii, detekcji
+plansz, croppera ani symbol inference. Nieudane wejście RGB, nieobsługiwany
+viewport lub nieograniczony crop kończą się reason-coded wynikiem bez częściowego
+sukcesu. Wersje v1–v5 runtime'ów pozostają niezależne; późniejsza integracja v6
+musi otrzymać własny fingerprint i osobny holdout.
+
 ## Historia weryfikacji zakresów nazw plików — TASK-0393
 
 Weryfikacja `seq_*` pozostaje technicznie runem półautomatycznej selekcji i

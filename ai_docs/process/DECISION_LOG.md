@@ -7079,3 +7079,22 @@ ręcznym wyborem katalogu: workspace numeruje próby recovery, unieważnia
 spóźnioną odpowiedź oraz od razu zapisuje nowy uchwyt. Dzięki temu restart lub
 zamknięcie karty nie może przywrócić starego katalogu po nowym wyborze
 operatora.
+
+## D-305 — Pięć anchorów lokalizuje cropy, lecz nie dowodzi zakresu
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Przyszły lokalizator `five-anchor-range-label-locator-v6` po jednokrotnej
+kanonizacji EXIF wyznacza pięć pełnych cropów w pozycjach `top_left`,
+`top_right`, `center`, `bottom_left`, `bottom_right`. Wersjonowany fallback
+viewportu i opcjonalne lokalne zawężenie komponentem są dozwolone wyłącznie dla
+lokalizacji pikseli. Nie czytają ani nie korygują cyfr, nie znają nazwy pliku,
+expected range, source indexu lub sąsiednich obrazów i nie tworzą wyniku
+`exact`.
+
+Brak kompletnego zestawu bounded cropów jest reason-coded `unknown`. Obecność
+pięciu cropów — także fallbacków — nie obniża późniejszej bramki OCR/proof.
+Adapter pozostaje oddzielony od geometrii, detekcji plansz, croppera i inferencji
+symboli. Historyczne fingerprinty v1–v5 pozostają odtwarzalne; ewentualny
+runtime v6 wymaga osobnego fingerprintu oraz wcześniej niewidzianego holdoutu.

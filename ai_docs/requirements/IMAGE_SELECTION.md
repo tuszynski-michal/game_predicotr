@@ -1032,6 +1032,23 @@ geometria, board/cell cropper i inferencja symboli są poza kontraktem oraz
 muszą pozostać niewywołane. Korpus jest diagnostyką regresji, nie zastępuje
 niezależnego holdoutu ani nie autoryzuje rollout'u nowego fingerprintu.
 
+### Pięć anchorów etykiet zakresu v6 — TASK-0404
+
+Nowy, jeszcze niepodłączony do runtime'u lokalizator
+`five-anchor-range-label-locator-v6` znajduje po jednokrotnej kanonizacji EXIF
+pięć source-direct cropów w stabilnej kolejności: `top_left`, `top_right`,
+`center`, `bottom_left`, `bottom_right`. Każdy crop ma bezwzględne współrzędne
+w przestrzeni `exif-transposed-rgb-v1`, informację o kompletności oraz tryb
+`component_refined` albo `viewport_fallback`.
+
+Anchor lokalizuje wyłącznie kandydat do późniejszego recognition-only OCR;
+sam nie odczytuje liczb, nie zna nazwy, folderu, indeksu źródła ani oczekiwanego
+zakresu i nie stanowi dowodu automatycznego przypisania. Brak kompletnego zestawu
+pięciu bounded cropów zwraca reason-coded `unknown`, bez interpolowania pozycji.
+Komponent nie importuje ani nie uruchamia detekcji plansz, geometrii, croppera
+plansz/komórek lub klasyfikatora symboli. Historyczne runy v1–v5 oraz ich
+fingerprinty pozostają bez zmian.
+
 ## Trwały globalny run półautomatycznej selekcji — TASK-0352
 
 - Workflow nie należy do gry: staging, run i job mają `gameId = null`.

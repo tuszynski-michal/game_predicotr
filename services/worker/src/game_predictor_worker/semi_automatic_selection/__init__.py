@@ -26,6 +26,20 @@ from .engine import (
     grouping_policy_fingerprint,
     select_middle_exact_observation,
 )
+from .five_anchor_range_label_locator import (
+    DEFAULT_FIVE_ANCHOR_RANGE_LABEL_LOCATOR_CONFIG,
+    FIVE_ANCHOR_RANGE_LABEL_COORDINATE_SPACE,
+    FIVE_ANCHOR_RANGE_LABEL_LOCATOR_VERSION,
+    FiveAnchorBoundingBox,
+    FiveAnchorLabelCrop,
+    FiveAnchorLocation,
+    FiveAnchorLocatorMode,
+    FiveAnchorLocatorResult,
+    FiveAnchorLocatorUnknownReason,
+    FiveAnchorPosition,
+    FiveAnchorRangeLabelLocator,
+    FiveAnchorRangeLabelLocatorConfig,
+)
 from .middle_row_locator import (
     MIDDLE_ROW_COORDINATE_SPACE,
     MIDDLE_ROW_CROP_COMPLETENESS_VERSION,
@@ -96,6 +110,9 @@ from .range_only_ocr import (
 )
 
 __all__ = [
+    "DEFAULT_FIVE_ANCHOR_RANGE_LABEL_LOCATOR_CONFIG",
+    "FIVE_ANCHOR_RANGE_LABEL_COORDINATE_SPACE",
+    "FIVE_ANCHOR_RANGE_LABEL_LOCATOR_VERSION",
     "MIDDLE_ROW_COORDINATE_SPACE",
     "MIDDLE_ROW_CROP_COMPLETENESS_VERSION",
     "MIDDLE_ROW_CROP_POLICY_VERSION",
@@ -130,6 +147,15 @@ __all__ = [
     "ExactRangeObservation",
     "ExpectedRangeEntry",
     "ExpectedRangeTable",
+    "FiveAnchorBoundingBox",
+    "FiveAnchorLabelCrop",
+    "FiveAnchorLocation",
+    "FiveAnchorLocatorMode",
+    "FiveAnchorLocatorResult",
+    "FiveAnchorLocatorUnknownReason",
+    "FiveAnchorPosition",
+    "FiveAnchorRangeLabelLocator",
+    "FiveAnchorRangeLabelLocatorConfig",
     "ImageDimensions",
     "LocalQualityScores",
     "LocalReadabilityPolicy",

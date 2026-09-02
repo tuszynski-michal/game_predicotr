@@ -4672,3 +4672,18 @@ poprzednia nakładka systemu jest ukrywana. Tryb osobnych plansz pokazuje jedyni
 quady ukończone w bieżącej operacji i ich linie 5 × 3. Zmiana jest wyłącznie
 narzędziem ręcznej korekty; nie promuje `structured_default`, nie zmienia
 progów Structured OpenCV ani zaakceptowanej bramki cutoveru v0.10.
+
+### TASK-0404 — lokalizator pięciu etykiet zakresu
+
+Dodano izolowany `five-anchor-range-label-locator-v6`. Po jednokrotnej
+kanonizacji EXIF przyjmuje wyłącznie `uint8 RGB` i zwraca pięć source-direct
+cropów `top_left`, `top_right`, `center`, `bottom_left`, `bottom_right` w
+przestrzeni `exif-transposed-rgb-v1`. Lokalna detekcja komponentów może zawęzić
+viewport, a brak komponentu pozostawia ograniczony fallback; oba przypadki są
+diagnostyką lokalizacji, nie dowodem OCR.
+
+Komponent nie zna nazwy źródła, expected range, source indexu ani sąsiadów i nie
+importuje geometrii, detekcji plansz, croppera lub klasyfikatora symboli. Jest
+wyłącznie przygotowaniem do następnego, osobno fingerprintowanego runtime'u;
+v1–v5 pozostają niezmienione. Dziewięć testów obejmuje fixture'y rzeczywiste,
+syntetyczne perturbacje i audyt izolacji modułu.

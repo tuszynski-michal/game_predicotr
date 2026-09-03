@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.jobs import SymbolModelSnapshotResolver
+from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
@@ -20,6 +21,7 @@ from game_predictor_api.domain.symbol_model_snapshots import (
 )
 from game_predictor_api.storage.models import (
     GameSymbolModelActivationModel,
+    SymbolModel,
     SymbolModelIterationModel,
 )
 
@@ -39,6 +41,21 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
             .limit(1)
         )
         if activation is None:
+            ready_candidate_id = self._session.scalar(
+                select(SymbolModelIterationModel.id)
+                .where(
+                    SymbolModelIterationModel.game_id == game_id,
+                    SymbolModelIterationModel.status == "candidate_ready",
+                )
+                .order_by(SymbolModelIterationModel.iteration_number.desc())
+                .limit(1)
+            )
+            if ready_candidate_id is not None:
+                raise JobConflictError(
+                    "SYMBOL_MODEL_ACTIVATION_REQUIRED",
+                    "A verified symbol model candidate is ready for this game. "
+                    "Activate it before starting a new inference job.",
+                )
             return bootstrap_symbol_model_snapshot()
         iteration = self._session.get(SymbolModelIterationModel, activation.model_iteration_id)
         if iteration is None or iteration.game_id != game_id:
@@ -92,6 +109,21 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
             raise JobConflictError(
                 "SYMBOL_MODEL_ACTIVE_CLASSES_DRIFT",
                 "Active model manifest and class catalog differ.",
+            )
+        active_catalog_codes = tuple(
+            self._session.scalars(
+                select(SymbolModel.code)
+                .where(
+                    SymbolModel.game_id == game_id,
+                    SymbolModel.status == SymbolStatus.ACTIVE,
+                )
+                .order_by(SymbolModel.code)
+            )
+        )
+        if tuple(sorted(cast(list[str], class_codes_value))) != active_catalog_codes:
+            raise JobConflictError(
+                "SYMBOL_MODEL_CLASS_CATALOG_MISMATCH",
+                "The active symbol model classes do not match the active game catalog.",
             )
         return SymbolModelJobSnapshot(
             iteration_id=iteration.id,

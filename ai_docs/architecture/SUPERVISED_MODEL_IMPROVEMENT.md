@@ -224,10 +224,13 @@ rekordu gry. Nie istnieje drugi, mutowalny wskaźnik: aktywny model jest projekc
 zdarzenia o najwyższym monotonicznym `activation_number`. Poprzednie wersje
 pozostają niezmienne, więc rollback jest kolejnym zdarzeniem aktywacji.
 
-Jeżeli gra nie ma jeszcze zdarzenia, resolver zwraca jawny, checksum-bound
-snapshot kontrolowanego modelu bootstrapowego. Po pierwszej aktywacji resolver
-sprawdza manifest, ONNX, katalog klas i kalibrację przed utworzeniem joba; brak
-lub drift artefaktu zatrzymuje nowy import bez cichego fallbacku.
+Jeżeli gra nie ma jeszcze zdarzenia i nie ma gotowego kandydata, resolver zwraca
+jawny, checksum-bound snapshot kontrolowanego modelu bootstrapowego. Istnienie
+`candidate_ready` bez aktywacji blokuje nowy import i reinferencję: wymaga jawnej
+decyzji właściciela, zamiast cicho wracać do bootstrapu. Po pierwszej aktywacji
+resolver sprawdza manifest, ONNX, kalibrację oraz dokładną zgodność katalogu
+klas z aktywnymi kodami symboli gry przed utworzeniem joba; brak, drift lub obca
+klasa zatrzymują zapis bez konwersji predykcji do `?`.
 
 Tworzenie image import joba schema v2 zapisuje dokładny snapshot modelu:
 identyfikator iteracji, manifest SHA-256, ONNX SHA-256, wersję, katalog klas,
@@ -243,6 +246,12 @@ Jawna komenda tworzy job z listą elementów kwalifikujących się w momencie
 startu. Worker ponownie sprawdza warunki przy każdym zapisie. Wyniki są nowymi
 rekordami `symbol_prediction_revisions`, a projekcja bieżącej sugestii wybiera
 najnowszą zgodną rewizję dla elementu nadal `pending`.
+
+Dla `legacy_file` worker odczytuje niezmienny crop. Dla `virtual_source`
+odtwarza bieżące piksele bezpośrednio z checksum-bound managed original i
+utrwalonego render spec. Przed inferencją sprawdza źródło, pełną proweniencję
+renderu oraz checksumę wynikowych pikseli. Rewizja predykcji zachowuje tę
+proweniencję, a koordynator projekcji nie nadpisuje decyzji człowieka.
 
 Raport końcowy rozdziela:
 

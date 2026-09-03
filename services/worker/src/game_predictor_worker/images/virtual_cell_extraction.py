@@ -295,6 +295,77 @@ def source_direct_warp_rgb(
     )
 
 
+def render_persisted_virtual_cell_rgb(
+    frame: CanonicalSourceFrame,
+    *,
+    render_spec: Mapping[str, object],
+    expected_render_spec_checksum_sha256: str,
+    expected_rendered_pixel_checksum_sha256: str,
+    expected_cell_index: int,
+    expected_row_index: int,
+    expected_column_index: int,
+    expected_logical_cell_key_sha256: str,
+    expected_logical_cell_key_v2_sha256: str,
+    expected_extractor_version: str,
+) -> NDArray[np.uint8]:
+    """Recreate one persisted virtual crop after checking its frozen identity.
+
+    This is the shared read path for consumers such as pending-only model
+    reinference.  It deliberately accepts persisted provenance instead of a
+    newly computed ``VirtualCell`` and therefore verifies the complete storage
+    boundary before returning pixels.
+    """
+
+    spec = dict(render_spec)
+    if _require_sha256(
+        expected_render_spec_checksum_sha256, "render-spec checksum"
+    ) != _sha256_json(spec):
+        raise VirtualCellExtractionError(
+            "IMAGE_VIRTUAL_CELL_RENDER_SPEC_CHECKSUM_MISMATCH",
+            "The persisted virtual-cell render specification changed.",
+        )
+    _require_sha256(expected_rendered_pixel_checksum_sha256, "rendered-pixel checksum")
+    if spec.get("schemaVersion") != VIRTUAL_CELL_RENDER_SPEC_VERSION:
+        _render_spec_invalid("The persisted virtual cell uses an unsupported schema.")
+    expected_fields: dict[str, object] = {
+        "cellIndex": expected_cell_index,
+        "rowIndex": expected_row_index,
+        "columnIndex": expected_column_index,
+        "logicalCellKeySha256": expected_logical_cell_key_sha256,
+        "logicalCellKeyV1Sha256": expected_logical_cell_key_sha256,
+        "logicalCellKeyV2Sha256": expected_logical_cell_key_v2_sha256,
+        "coordinateSpace": SOURCE_COORDINATE_SPACE,
+        "pixelChecksumVersion": RGB_PIXEL_CHECKSUM_VERSION,
+        "sourceChecksumSha256": frame.source.source_checksum_sha256,
+        "normalizedPixelChecksumSha256": frame.source.normalized_pixel_checksum_sha256,
+    }
+    if any(spec.get(field) != expected for field, expected in expected_fields.items()):
+        _render_spec_invalid("Persisted virtual-cell provenance differs from its source or row.")
+    configuration = _require_mapping(spec.get("configuration"), "configuration")
+    if (
+        configuration.get("extractorVersion") != expected_extractor_version
+        or configuration.get("interpolation") != VIRTUAL_CELL_INTERPOLATION_VERSION
+    ):
+        _render_spec_invalid("Persisted virtual-cell renderer configuration is unsupported.")
+    width = _require_integer(configuration.get("outputWidth"), "output width")
+    height = _require_integer(configuration.get("outputHeight"), "output height")
+    if width < 1 or height < 1:
+        _render_spec_invalid("Persisted virtual-cell dimensions must be positive.")
+    padded_quad = _persisted_quad(spec.get("paddedSourceQuad"))
+    rgb = source_direct_warp_rgb(
+        frame.rgb,
+        source_quad=padded_quad,
+        output_width=width,
+        output_height=height,
+    )
+    if rgb_pixel_checksum_sha256(rgb) != expected_rendered_pixel_checksum_sha256:
+        raise VirtualCellExtractionError(
+            "IMAGE_VIRTUAL_CELL_PIXEL_CHECKSUM_MISMATCH",
+            "Recreated virtual-cell pixels differ from their persisted checksum.",
+        )
+    return rgb
+
+
 def compare_cell_extraction_variants(
     frame: CanonicalSourceFrame,
     cell: VirtualCell,
@@ -623,6 +694,28 @@ def _quad_coordinates(
     return tuple((float(point[0]), float(point[1])) for point in quad)
 
 
+def _persisted_quad(value: object) -> tuple[tuple[float, float], ...]:
+    if not isinstance(value, list | tuple) or len(value) != 4:
+        _render_spec_invalid("A persisted virtual-cell quad must contain four corners.")
+    points: list[tuple[float, float]] = []
+    for raw in value:
+        if not isinstance(raw, Mapping):
+            _render_spec_invalid("A persisted virtual-cell corner must be an object.")
+        x = raw.get("x")
+        y = raw.get("y")
+        if (
+            isinstance(x, bool)
+            or not isinstance(x, int | float)
+            or isinstance(y, bool)
+            or not isinstance(y, int | float)
+            or not math.isfinite(float(x))
+            or not math.isfinite(float(y))
+        ):
+            _render_spec_invalid("A persisted virtual-cell corner must be finite.")
+        points.append((float(x), float(y)))
+    return tuple(points)
+
+
 def _sha256_json(value: object) -> str:
     return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
 
@@ -639,5 +732,6 @@ __all__ = [
     "VirtualCellRender",
     "VirtualCellRenderer",
     "compare_cell_extraction_variants",
+    "render_persisted_virtual_cell_rgb",
     "source_direct_warp_rgb",
 ]

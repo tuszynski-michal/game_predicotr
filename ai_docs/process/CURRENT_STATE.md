@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-02
+last_updated: 2026-09-03
 ---
 
 # Current State
@@ -14,6 +14,22 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
+
+### Wiązanie modelu symboli z katalogiem gry — TASK-0409
+
+- Gotowy kandydat `candidate_ready` bez jawnej aktywacji blokuje nowy import i
+  reinferencję kodem `SYMBOL_MODEL_ACTIVATION_REQUIRED`; bootstrap pozostaje
+  wyłącznie ścieżką zimnego startu gry bez wytrenowanego kandydata.
+- Resolver aktywnego snapshotu i projekcja predykcji kończą się fail-closed,
+  gdy klasy modelu nie odpowiadają dokładnym stabilnym kodom aktywnych symboli
+  gry. Obca klasa nie jest już po cichu zamieniana w `?`.
+- Pending-only reinferencja obsługuje bieżące cropy `virtual_source`: renderuje
+  je w pamięci z managed original, po kontroli źródła, render spec i checksummy
+  pikseli. Nie tworzy bitmap pośrednich i nie zmienia rozstrzygnięć człowieka.
+- Dla gry `777` aktywowano zweryfikowaną iterację 5
+  `ab9780d1-0082-40de-9c8e-cdc1be736b77`; job naprawczy
+  `c2611039-5aca-4360-922e-c6bb9e01142f` przelicza 19 914 nadal oczekujących
+  plansz bez ponownego uploadu i cięcia geometrii.
 
 ### Rzeczywisty korpus regresyjny OCR zakresów — TASK-0402 (done)
 

@@ -1634,7 +1634,12 @@ class SymbolCellReviewWriteThroughCoordinator:
             return False
 
         try:
-            current_cells, cropper_version, prediction_revision_id = self._current_cells(
+            (
+                current_cells,
+                cropper_version,
+                prediction_revision_id,
+                prediction_model_iteration_id,
+            ) = self._current_cells(
                 item=item,
                 board=board,
                 source=source,
@@ -1688,6 +1693,19 @@ class SymbolCellReviewWriteThroughCoordinator:
                 )
             )
         }
+        incompatible_prediction_codes = _incompatible_prediction_codes(
+            cells=current_cells,
+            active_symbol_ids=active_symbol_ids,
+            model_iteration_id=prediction_model_iteration_id,
+        )
+        if incompatible_prediction_codes:
+            self._mark_integrity_failure(
+                state,
+                "SYMBOL_MODEL_CLASS_CATALOG_MISMATCH",
+                "An active model prediction contains classes outside the game's active "
+                f"symbol catalog: {', '.join(incompatible_prediction_codes)}.",
+            )
+            return False
         resolved_symbol_ids = self._resolved_symbol_ids(
             item=item,
             active_symbol_ids=active_symbol_ids,
@@ -2001,7 +2019,7 @@ class SymbolCellReviewWriteThroughCoordinator:
         source: SourceImageModel,
         queue_item: ImageReviewQueueItemModel,
         job: JobModel,
-    ) -> tuple[tuple[ImageReviewCell, ...], str, UUID | None]:
+    ) -> tuple[tuple[ImageReviewCell, ...], str, UUID | None, UUID | None]:
         # See the local import in ``_cell_values``.  The Reviewer remains the
         # owner of the base-vs-corrected geometry mapper.
         from game_predictor_api.storage.image_review_repository import (
@@ -2048,6 +2066,7 @@ class SymbolCellReviewWriteThroughCoordinator:
                 geometry=geometry,
             ),
             None if prediction is None else prediction.id,
+            None if prediction is None else prediction.model_iteration_id,
         )
 
     @staticmethod
@@ -2744,6 +2763,33 @@ def _known_symbol_code(value: str | None) -> str | None:
     return value if value is not None and value != "?" else None
 
 
+def _incompatible_prediction_codes(
+    *,
+    cells: Sequence[ImageReviewCell],
+    active_symbol_ids: Mapping[str, UUID],
+    model_iteration_id: UUID | None,
+) -> tuple[str, ...]:
+    """Reject catalog drift for predictions made by a game-specific model.
+
+    Historical bootstrap predictions intentionally have no model iteration and
+    remain readable as unknown. Once a trained iteration is involved, silently
+    converting a model class to ``?`` would destroy the meaning of the result.
+    """
+
+    if model_iteration_id is None:
+        return ()
+    return tuple(
+        sorted(
+            {
+                code
+                for cell in cells
+                if (code := _known_symbol_code(cell.predicted_symbol_code)) is not None
+                and code not in active_symbol_ids
+            }
+        )
+    )
+
+
 def _verification_v2(
     *,
     review_state: str,
@@ -3253,6 +3299,23 @@ class SqlAlchemyImageSymbolReviewRepository:
                     geometry_revision=current_geometry,
                     prediction_override=prediction_override,
                 )
+                incompatible_prediction_codes = _incompatible_prediction_codes(
+                    cells=current_cells,
+                    active_symbol_ids=active_symbol_ids,
+                    model_iteration_id=(
+                        None
+                        if prediction_revision is None
+                        else prediction_revision.model_iteration_id
+                    ),
+                )
+                if incompatible_prediction_codes:
+                    raise SymbolCellReviewBackfillError(
+                        "SYMBOL_MODEL_CLASS_CATALOG_MISMATCH",
+                        "A trained model prediction contains classes outside the game's active "
+                        f"symbol catalog: {', '.join(incompatible_prediction_codes)}.",
+                        review_item_ids=(item.id,),
+                        invalid_crop_count=1,
+                    )
                 cropper_version = _current_cropper_version(
                     board=board,
                     observations=observations,

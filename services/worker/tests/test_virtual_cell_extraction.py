@@ -46,6 +46,7 @@ from game_predictor_worker.images.virtual_cell_extraction import (
     VirtualCellExtractionError,
     VirtualCellRenderer,
     compare_cell_extraction_variants,
+    render_persisted_virtual_cell_rgb,
 )
 from numpy.typing import NDArray
 from PIL import Image, ImageOps
@@ -369,6 +370,42 @@ def test_same_pixels_in_another_import_keep_content_checksum_but_change_v2_ident
     assert first.render_spec_checksum_sha256 != second.render_spec_checksum_sha256
     assert first.rendered_pixel_checksum_sha256 == second.rendered_pixel_checksum_sha256
     assert np.array_equal(first.rgb, second.rgb)
+
+
+def test_persisted_virtual_cell_is_recreated_only_from_matching_provenance() -> None:
+    frame, _, cells = _frame_and_geometries()
+    rendered = VirtualCellRenderer().render(frame, (cells[4],))[0]
+
+    recreated = render_persisted_virtual_cell_rgb(
+        frame,
+        render_spec=rendered.render_spec,
+        expected_render_spec_checksum_sha256=rendered.render_spec_checksum_sha256,
+        expected_rendered_pixel_checksum_sha256=rendered.rendered_pixel_checksum_sha256,
+        expected_cell_index=rendered.cell_index,
+        expected_row_index=rendered.row_index,
+        expected_column_index=rendered.column_index,
+        expected_logical_cell_key_sha256=rendered.logical_cell_key_sha256,
+        expected_logical_cell_key_v2_sha256=rendered.logical_cell_key_v2_sha256,
+        expected_extractor_version=rendered.extractor_version,
+    )
+
+    assert np.array_equal(recreated, rendered.rgb)
+
+    with pytest.raises(VirtualCellExtractionError) as raised:
+        render_persisted_virtual_cell_rgb(
+            frame,
+            render_spec=rendered.render_spec,
+            expected_render_spec_checksum_sha256="0" * 64,
+            expected_rendered_pixel_checksum_sha256=rendered.rendered_pixel_checksum_sha256,
+            expected_cell_index=rendered.cell_index,
+            expected_row_index=rendered.row_index,
+            expected_column_index=rendered.column_index,
+            expected_logical_cell_key_sha256=rendered.logical_cell_key_sha256,
+            expected_logical_cell_key_v2_sha256=rendered.logical_cell_key_v2_sha256,
+            expected_extractor_version=rendered.extractor_version,
+        )
+
+    assert raised.value.code == "IMAGE_VIRTUAL_CELL_RENDER_SPEC_CHECKSUM_MISMATCH"
 
 
 def test_render_contract_rejects_tampered_provenance_even_with_updated_spec_checksum() -> None:

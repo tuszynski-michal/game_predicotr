@@ -7175,3 +7175,22 @@ odświeża statystyki tabel komórek, bieżących właścicieli, plansz, obserwa
 rewizji predykcji dokładnie raz, przed terminalnym sukcesem joba. Operacja nie
 usuwa danych i nie zastępuje autovacuum. Jej failure wycofuje finalizację, aby
 stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
+## D-310 — Gotowy model symboli wymaga aktywacji i zgodnego katalogu klas
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+- **Decision:** bootstrap modelu symboli jest dozwolony wyłącznie przed
+  powstaniem pierwszego kandydata `candidate_ready`. Gotowy kandydat bez
+  aktywacji blokuje nowy import i reinferencję. Aktywny snapshot oraz każda
+  predykcja modelu gry muszą używać dokładnych stabilnych kodów aktywnego
+  katalogu; kod spoza katalogu jest błędem integralności i nie może zostać
+  zapisany jako `?`. Pending-only reinferencja może odtwarzać crop
+  `virtual_source` z managed original tylko po checksum-bound walidacji pełnej
+  proweniencji renderu.
+- **Reason:** gra `777` miała poprawny kandydat iteracji 5, ale bez zdarzenia
+  aktywacji nowy structured import przypiął angielski bootstrap. Projekcja
+  zapisała 297 000 istniejących predykcji jako nierozpoznane, ponieważ kody
+  bootstrapu nie należały do polskiego katalogu gry.
+- **Consequences:** aktywacja pozostaje świadomą i audytowalną decyzją; system
+  nie zgaduje semantycznego mapowania kodów. Wadliwe pending dane można naprawić
+  bez uploadu i recropu, zachowując zatwierdzone decyzje człowieka.

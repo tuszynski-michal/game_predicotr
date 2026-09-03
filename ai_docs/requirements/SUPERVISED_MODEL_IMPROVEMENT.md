@@ -119,6 +119,13 @@ draft -> training -> evaluating -> candidate_ready -> active
 - model nie staje się aktywny automatycznie po treningu,
 - aktywacja wymaga jawnego potwierdzenia użytkownika po pokazaniu porównania z
   bieżącym modelem,
+- jeżeli istnieje kandydat `candidate_ready`, ale gra nie ma jeszcze aktywacji,
+  nowy import i jawna reinferencja kończą się
+  `SYMBOL_MODEL_ACTIVATION_REQUIRED`; bootstrap nie może wtedy po cichu
+  zastąpić gotowego modelu gry,
+- katalog klas aktywnego snapshotu musi być dokładnie zgodny z aktywnym
+  katalogiem symboli gry; klasa spoza katalogu jest błędem integralności, a nie
+  nierozpoznanym symbolem `?`,
 - poprzednia aktywna wersja pozostaje dostępna do kontrolowanego rollbacku.
 
 ### Historyczny kandydat v19 i bieżący aktywny model
@@ -152,7 +159,10 @@ decyzji i nowego niezmiennego raportu.
 - użytkownik może jawnie uruchomić `Przelicz oczekujące`, aby utworzyć nowe
   sugestie tylko dla nadal nierozwiązanych elementów,
 - ponowna inferencja zapisuje nową rewizję predykcji; nie usuwa poprzedniej
-  rewizji i nie zmienia rozstrzygnięć człowieka.
+  rewizji i nie zmienia rozstrzygnięć człowieka,
+- ponowna inferencja obsługuje zarówno cropy plikowe, jak i bieżące cropy
+  `virtual_source`; wirtualne piksele są odtwarzane z managed original dopiero
+  po sprawdzeniu render spec, rewizji i checksummy, bez trwałego zapisu bitmapy.
 
 ## Panel jakości rozpoznawania
 

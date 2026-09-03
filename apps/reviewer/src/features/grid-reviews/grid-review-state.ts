@@ -271,6 +271,32 @@ export function gridGeometryDragTarget(
   return pointInPolygon(point, draft) ? { kind: 'grid' } : null;
 }
 
+export function gridGeometrySourceItemAtPoint(
+  items: readonly ImageGridReviewItemResponse[],
+  drafts: GridGeometrySourceDrafts,
+  activeReviewItemId: string,
+  activeDraft: GridGeometryDraft,
+  point: OperationalImageReviewGeometryPoint,
+): ImageGridReviewItemResponse | null {
+  return (
+    [...items].reverse().find((candidate) => {
+      const storedDraft = gridGeometrySourceDraft(
+        drafts,
+        candidate.reviewItemId,
+      );
+      const visibleCorners =
+        candidate.reviewItemId === activeReviewItemId
+          ? activeDraft
+          : storedDraft.length > 0
+            ? storedDraft
+            : gridReviewCorners(candidate);
+      return (
+        visibleCorners.length === 4 && pointInPolygon(point, visibleCorners)
+      );
+    }) ?? null
+  );
+}
+
 export function gridReviewApprovalCommand(
   item: ImageGridReviewItemResponse,
 ): ImageGridReviewApprovalCommand {

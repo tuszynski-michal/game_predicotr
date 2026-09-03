@@ -30,6 +30,7 @@ import {
   GRID_CORNER_LABELS,
   gridGeometryDraftAnchor,
   gridGeometrySourceDraft,
+  gridGeometrySourceItemAtPoint,
   gridGeometryDragTarget,
   gridReviewCorners,
   moveGridGeometry,
@@ -127,7 +128,7 @@ function GridReviewEditorContent({
     () => ({ cellIndex: 0, reviewItemId: item.reviewItemId }),
   );
   const [showOverlay, setShowOverlay] = useState(true);
-  const [zoomPercent, setZoomPercent] = useState(100);
+  const [zoomPercent, setZoomPercent] = useState(150);
   const [error, setError] = useState('');
   const sourceAssetItem = items[0] ?? item;
   const sourceUrl = api.imageGridReviewSourceAssetUrl(
@@ -287,14 +288,19 @@ function GridReviewEditorContent({
     if (saving || loadingPreview) return;
     const pointer = sourcePoint(event);
     if (pointer === null) return;
-    if (!editing && !sourceEditing) {
-      const selected = [...items]
-        .reverse()
-        .find((candidate) =>
-          pointInQuad(pointer.point, gridReviewCorners(candidate)),
-        );
-      if (selected !== undefined) onSelect(selected.reviewItemId);
-      return;
+    if (!editing) {
+      const selected = gridGeometrySourceItemAtPoint(
+        items,
+        sourceDrafts,
+        item.reviewItemId,
+        activeDraft,
+        pointer.point,
+      );
+      if (selected !== null && selected.reviewItemId !== item.reviewItemId) {
+        onSelect(selected.reviewItemId);
+        return;
+      }
+      if (!sourceEditing) return;
     }
     event.preventDefault();
     if (activeDraft.length < 4) {
@@ -547,7 +553,9 @@ function GridReviewEditorContent({
           <canvas
             aria-label="Oryginalny obraz źródłowy z aktywnymi siatkami plansz"
             className={
-              isEditing ? 'gridReviewCanvas isEditing' : 'gridReviewCanvas'
+              isEditing
+                ? 'gridReviewCanvas isEditing'
+                : 'gridReviewCanvas isSelecting'
             }
             onLostPointerCapture={() => {
               dragRef.current = null;
@@ -562,6 +570,11 @@ function GridReviewEditorContent({
             style={{ width: `${zoomPercent}%` }}
           />
         </div>
+        <p className="gridReviewCanvasHint">
+          Kliknij siatkę na zdjęciu, aby wybrać planszę. W trybie plansz osobno
+          kliknięcie innej siatki przełącza edytowaną planszę bez zmiany
+          punktów.
+        </p>
         <div
           className="gridReviewSlotList"
           role="list"
@@ -902,28 +915,4 @@ function drawLine(
   context.moveTo(start.x, start.y);
   context.lineTo(end.x, end.y);
   context.stroke();
-}
-
-function pointInQuad(
-  point: { readonly x: number; readonly y: number },
-  quad: GridGeometryDraft,
-): boolean {
-  let inside = false;
-  for (
-    let index = 0, previous = quad.length - 1;
-    index < quad.length;
-    previous = index++
-  ) {
-    const current = quad[index];
-    const previousPoint = quad[previous];
-    if (current === undefined || previousPoint === undefined) continue;
-    const crosses =
-      current.y > point.y !== previousPoint.y > point.y &&
-      point.x <
-        ((previousPoint.x - current.x) * (point.y - current.y)) /
-          (previousPoint.y - current.y) +
-          current.x;
-    if (crosses) inside = !inside;
-  }
-  return inside;
 }

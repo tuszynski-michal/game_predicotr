@@ -1316,9 +1316,19 @@ a:focus-visible {
   touch-action: none;
 }
 
+.gridReviewCanvas.isSelecting {
+  cursor: pointer;
+}
+
 .gridReviewCanvas.isEditing {
   cursor: crosshair;
   outline: 2px solid rgba(244, 211, 94, 0.45);
+}
+
+.gridReviewCanvasHint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .gridReviewEditControls,

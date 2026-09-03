@@ -7303,3 +7303,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   kontrakt pozycji.
 - **Consequences:** przełącznik wpływa wyłącznie na następne aktywne pole w UI;
   nie zmienia API, istniejącego wzoru ani semantyki wyników.
+
+### D-318 — Wybór planszy na źródle używa widocznej geometrii
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** lokalny edytor geometrii wybiera planszę przez hit-test quada
+  aktualnie rysowanego na canvasie. W trybie całego źródła kliknięcie innej
+  siatki najpierw przełącza aktywny szkic i nie jest jednocześnie gestem jego
+  modyfikacji.
+- **Rationale:** po przesunięciu szkicu jego automatyczny quad przestaje
+  odpowiadać temu, co widzi operator. Jeden gest nie może jednocześnie wybierać
+  innej planszy i dopisywać albo przesuwać punktu.
+- **Consequences:** wybór jest przewidywalny również przy zoomie i lokalnych
+  szkicach; sam klik nigdy nie zapisuje danych ani nie zmienia geometrii.

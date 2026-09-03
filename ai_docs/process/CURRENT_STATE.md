@@ -15,6 +15,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Zoom i wybór planszy na obrazie — TASK-0422
+
+- Lokalny ekran `Zatwierdzanie cięcia siatki` otwiera obraz źródłowy domyślnie
+  przy 150%.
+- Kliknięcie widocznej siatki wybiera jej planszę. W trybie `Wyznacz plansze
+  osobno` kliknięcie innej siatki tylko przełącza aktywny szkic; nie przesuwa
+  punktów i nie zapisuje rewizji.
+- Hit-test korzysta z geometrii aktualnie rysowanej na canvasie, w tym z
+  niezapisanych przesuniętych szkiców, zamiast ze starego automatycznego quada.
+
 ### Kolejność wpisywania wzoru wyszukiwania plansz — TASK-0421
 
 - Edytor `Wyszukaj plansze` domyślnie przechodzi pola kolumnami: od góry do

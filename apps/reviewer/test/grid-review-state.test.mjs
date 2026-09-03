@@ -9,9 +9,11 @@ import {
   GRID_CORNER_LABELS,
   gridGeometryDraftAnchor,
   gridGeometrySourceDraft,
+  gridGeometrySourceItemAtPoint,
   GRID_REVIEW_VIEWS,
   gridGeometryDragTarget,
   gridReviewApprovalCommand,
+  gridReviewCorners,
   gridReviewGeometryCommand,
   gridReviewGeometryPreviewCommand,
   gridReviewSourceStats,
@@ -251,5 +253,64 @@ test('pausing source geometry preserves completed drafts and resumes at the next
   assert.deepEqual(
     gridGeometrySourceDraft(drafts, sourceItems[1].reviewItemId),
     [],
+  );
+});
+
+test('canvas hit testing selects the visible moved source draft', () => {
+  const firstItem = {
+    ...item,
+    geometry: {
+      corners: [
+        { x: 10, y: 10 },
+        { x: 110, y: 10 },
+        { x: 110, y: 110 },
+        { x: 10, y: 110 },
+      ],
+    },
+  };
+  const secondItem = {
+    ...item,
+    positionIndex: 1,
+    reviewItemId: '20000000-0000-4000-8000-000000000002',
+    geometry: {
+      corners: [
+        { x: 200, y: 200 },
+        { x: 300, y: 200 },
+        { x: 300, y: 300 },
+        { x: 200, y: 300 },
+      ],
+    },
+  };
+  const movedCorners = [
+    { x: 400, y: 400 },
+    { x: 500, y: 400 },
+    { x: 500, y: 500 },
+    { x: 400, y: 500 },
+  ];
+  const drafts = replaceGridGeometrySourceDraft(
+    emptyGridGeometrySourceDrafts([firstItem, secondItem]),
+    secondItem.reviewItemId,
+    movedCorners,
+  );
+
+  assert.equal(
+    gridGeometrySourceItemAtPoint(
+      [firstItem, secondItem],
+      drafts,
+      firstItem.reviewItemId,
+      gridReviewCorners(firstItem),
+      { x: 450, y: 450 },
+    )?.reviewItemId,
+    secondItem.reviewItemId,
+  );
+  assert.equal(
+    gridGeometrySourceItemAtPoint(
+      [firstItem, secondItem],
+      drafts,
+      firstItem.reviewItemId,
+      gridReviewCorners(firstItem),
+      { x: 250, y: 250 },
+    ),
+    null,
   );
 });

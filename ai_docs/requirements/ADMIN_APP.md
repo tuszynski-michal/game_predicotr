@@ -343,7 +343,11 @@ nie ze stałej 15. Autor decyzji pochodzi z lokalnego, uwierzytelnionego
 kontekstu Admin API.
 
 Lokalny Reviewer otwiera domyślnie ekran `Zatwierdzanie cięcia siatki` z jednym
-oryginalnym obrazem i canvasowym overlayem. Filtry mają kolejność `Do
+oryginalnym obrazem i canvasowym overlayem. Obraz otwiera się domyślnie przy
+powiększeniu 150%. Kliknięcie widocznej siatki wybiera odpowiadającą jej
+planszę; w trybie wyznaczania plansz osobno pozwala przełączać aktywny szkic bez
+zapisu ani zmiany jego punktów. Hit-test zawsze odpowiada geometrii aktualnie
+rysowanej na overlayu, także po lokalnym przesunięciu. Filtry mają kolejność `Do
 walidacji`, `Do poprawy`, `Wszystkie`. `Enter`, `F` i główny przycisk
 zatwierdzają bieżącą geometrię i przechodzą do następnego rekordu. Jeżeli jedno
 źródło zawiera wiele aktywnych plansz, `Zatwierdź całe zdjęcie` wysyła jeden

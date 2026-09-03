@@ -351,7 +351,12 @@ row-major; zapis jest dostępny dopiero po komplecie wszystkich slotów i tworzy
 jedną rewizję geometrii źródła. Lokalny szkic każdego slotu pozostaje widoczny
 po przełączeniu planszy oraz po wstrzymaniu i wznowieniu tego trybu, ale nie
 jest trwałą rewizją przed wspólnym zapisem. Ekran nie pozwala edytować symboli
-i nie zapisuje JPEG-a z overlayem.
+i nie zapisuje JPEG-a z overlayem. Globalny backfill rolloutu może być w toku,
+nie rozpocząć się albo zostać zablokowany przez inne źródło; sam w sobie nie
+blokuje lokalnej korekty kompletnego bieżącego źródła. Przed zapisem backend
+nadal checksum-bound waliduje dokładnie to źródło, jego topologię, rewizje,
+render spec oraz komplet komórek, więc niepełna proweniencja konkretnej planszy
+pozostaje fail-closed.
 
 Nowy workflow jest obowiązującym lokalnym widokiem. Zdalna sesja Reviewera
 zachowuje wąsko ograniczoną ścieżkę operacyjną i nie otrzymuje game-wide

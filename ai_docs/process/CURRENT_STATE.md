@@ -44,6 +44,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   nie ma jeszcze kotwicy overlayu, lecz jest prawidłowym stanem edytora: nie
   może wywrócić lokalnego Reviewera ani przełączyć go na ekran kodu sesji
   zdalnej.
+- Globalny rollout backfill nie jest bramką ręcznej korekty bieżącego źródła:
+  status `not_started`, `rebuilding` lub `failed` może dotyczyć innego źródła
+  gry. Zapis nadal fail-closed weryfikuje kompletne lokalne provenance,
+  topologię, rewizję i wszystkie bieżące komórki, a więc nie omija żadnej
+  kontroli integralności konkretnej planszy.
 
 ### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
 

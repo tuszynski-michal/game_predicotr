@@ -606,11 +606,10 @@ class SqlAlchemyVirtualGridGeometryRepository:
         ],
     ) -> VirtualGridGeometryContext:
         item, board, source, geometry, rollout, document = row
-        if rollout.backfill_status != "ready":
-            raise ImageGridReviewError(
-                "IMAGE_GEOMETRY_ROLLOUT_NOT_READY",
-                "Validate virtual geometry provenance before editing it manually.",
-            )
+        # The rollout backfill is a game-wide migration aid. It can be
+        # incomplete because of another source, so it is not evidence about
+        # this current board. Manual correction must instead fail closed on
+        # the complete, source-scoped provenance checks below.
         if (
             board.asset_mode != "virtual_source"
             or board.source_geometry_revision_id != geometry.id

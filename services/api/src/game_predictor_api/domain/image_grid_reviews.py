@@ -112,6 +112,7 @@ class ImageGridReviewPage:
 @dataclass(frozen=True, slots=True)
 class ImageGridReviewSourceAsset:
     review_item_id: UUID
+    source_image_id: UUID
     source_relative_path: str
     source_checksum_sha256: str
     source_width: int
@@ -126,6 +127,30 @@ class ImageGridReviewSourceAsset:
 class ImageGridApprovalResult:
     item: ImageGridReviewListItem
     changed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ImageGridReviewSourceApprovalTarget:
+    """Exact, client-observed identity of one active board slot of a source."""
+
+    review_item_id: UUID
+    expected_resolution_revision: int
+    expected_geometry_revision: int
+    expected_source_checksum_sha256: str
+    expected_source_width: int
+    expected_source_height: int
+    expected_grid_rows: int
+    expected_grid_columns: int
+
+
+@dataclass(frozen=True, slots=True)
+class ImageGridSourceApprovalResult:
+    source_image_id: UUID
+    approved_review_item_ids: tuple[UUID, ...]
+
+    @property
+    def changed_count(self) -> int:
+        return len(self.approved_review_item_ids)
 
 
 def derive_image_grid_review(
@@ -270,6 +295,8 @@ def decode_image_grid_review_cursor(
 __all__ = [
     "ImageGridApprovalTransition",
     "ImageGridApprovalResult",
+    "ImageGridReviewSourceApprovalTarget",
+    "ImageGridSourceApprovalResult",
     "ImageGridReview",
     "ImageGridReviewCounts",
     "ImageGridReviewCursorDirection",

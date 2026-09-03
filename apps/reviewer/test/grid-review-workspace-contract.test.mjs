@@ -20,6 +20,13 @@ const state = await readFile(
   new URL('../src/features/grid-reviews/grid-review-state.ts', import.meta.url),
   'utf8',
 );
+const actions = await readFile(
+  new URL(
+    '../src/features/grid-reviews/grid-review-actions.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const gate = await readFile(
   new URL('../src/features/access/reviewer-access-gate.tsx', import.meta.url),
   'utf8',
@@ -76,6 +83,7 @@ test('grid workspace groups active slots by source and guards whole-image action
   assert.match(workspace, /submitLock\.current/);
   assert.match(workspace, /moveSource\('next'\)/);
   assert.match(workspace, /approveSource/);
+  assert.match(workspace, /approveGridReviewSource/);
   assert.match(workspace, /rejectSource/);
   assert.match(workspace, /sourceImageId/);
   assert.match(workspace, /gridReviewSourceStats/);
@@ -83,7 +91,7 @@ test('grid workspace groups active slots by source and guards whole-image action
 });
 
 test('editor overlays every active slot and supports bounded A/B correction without overlay files', () => {
-  assert.match(editor, /GRID_CORNER_LABELS\[draft\.length\]/);
+  assert.match(editor, /GRID_CORNER_LABELS\[activeDraft\.length\]/);
   assert.match(editor, /onPointerDown=\{pointerDown\}/);
   assert.match(editor, /moveGridGeometryCorner/);
   assert.match(editor, /moveGridGeometry/);
@@ -99,7 +107,21 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /item\.gridRows/);
   assert.match(editor, /previewGridReviewGeometry/);
   assert.match(editor, /saveGridReviewGeometry/);
+  assert.match(editor, /Wyznacz plansze osobno/);
+  assert.match(editor, /completeGridGeometrySourceDrafts/);
+  assert.match(editor, /saveGridReviewSourceGeometry/);
+  assert.match(editor, /Zapisz i zatwierdź/);
   assert.doesNotMatch(editor, /upload|overlay.*(?:jpeg|jpg)/i);
+});
+
+test('whole-image approval and source manual geometry use one explicit atomic request', () => {
+  assert.match(workspace, /approveGridReviewSource\(api, sourceItems\)/);
+  assert.doesNotMatch(
+    workspace,
+    /for \(const candidate of sourceItems\)[\s\S]{0,400}approveGridReview/,
+  );
+  assert.match(actions, /approveImageGridReviewSourceGeometry/);
+  assert.match(actions, /createImageGridReviewSourceGeometryRevision/);
 });
 
 test('source-scoped client request is explicit and cannot spill into remote reviewer access', () => {

@@ -1997,6 +1997,8 @@ GET  /api/v1/admin/image-reviews/{reviewItemId}/source-asset
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-approval
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-preview
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-revisions
+POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-approval
+POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-revisions
 ```
 
 Lista ma widoki `needs_validation | needs_correction | all`, opcjonalne filtry
@@ -2013,6 +2015,19 @@ temu pobrać bounded listę maksymalnie dziewięciu aktywnych slotów jednego
 źródła, narysować overlay wyłącznie w pamięci i zachować kolejność row-major.
 Zdalny proxy Reviewera nie udostępnia ani tego filtra, ani endpointów walidacji
 geometrii.
+
+`source-geometry-approval` przyjmuje dokładnie komplet aktualnych slotów
+jednego `sourceImageId`, wraz z tożsamością decyzji, geometrii, źródła i
+topologii każdego slotu. Serwer najpierw blokuje oraz ponownie sprawdza cały
+komplet, a następnie zatwierdza go w jednej transakcji. Stary snapshot,
+niepełny komplet albo zmiana właściciela zwracają konflikt bez częściowego
+zapisu.
+
+`source-geometry-revisions` jest dostępny wyłącznie dla `virtual_source`.
+Przyjmuje cztery narożniki każdego aktywnego slotu w kolejności row-major i
+zapisuje jedną append-only source geometry revision, z której tworzy zgodne
+rewizje plansz oraz wirtualne cropy. Niepełny albo niespójny komplet nie może
+utworzyć rewizji dla żadnego slotu.
 
 Status rolloutu zwraca `not_started | processing | ready | failed`, liczby
 wszystkich i przetworzonych źródeł, liczbę źródeł `virtual_source`, aktywny job,

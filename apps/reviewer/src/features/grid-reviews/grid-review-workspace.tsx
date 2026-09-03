@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
 import {
-  approveGridReview,
+  approveGridReviewSource,
   loadGridReviewPage,
   loadGridReviewSource,
   rejectGridReview,
@@ -210,23 +210,19 @@ export function GridReviewWorkspace({
     setSubmitting(true);
     setError('');
     setNotice('');
-    let changed = 0;
-    for (const candidate of sourceItems) {
-      if (candidate.state === 'approved') continue;
-      const result = await approveGridReview(api, candidate);
-      if (!result.ok) {
-        setSubmitting(false);
-        submitLock.current = false;
-        setError(
-          result.isConflict
-            ? `${result.error} Wczytuję aktualne dane zdjęcia.`
-            : result.error,
-        );
-        if (result.isConflict) await loadPage(navigationRef.current);
-        return;
-      }
-      changed += 1;
+    const result = await approveGridReviewSource(api, sourceItems);
+    if (!result.ok) {
+      setSubmitting(false);
+      submitLock.current = false;
+      setError(
+        result.isConflict
+          ? `${result.error} Wczytuję aktualne dane zdjęcia.`
+          : result.error,
+      );
+      if (result.isConflict) await loadPage(navigationRef.current);
+      return;
     }
+    const changed = result.approval.changedCount;
     setNotice(
       changed === 0
         ? 'Całe zdjęcie było już zatwierdzone.'

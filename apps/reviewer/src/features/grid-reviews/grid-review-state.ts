@@ -33,6 +33,7 @@ export interface GridReviewNavigation {
 }
 
 export type GridGeometryDraft = readonly OperationalImageReviewGeometryPoint[];
+export type GridGeometrySourceDrafts = ReadonlyMap<string, GridGeometryDraft>;
 
 export type GridGeometryDragTarget =
   | { readonly kind: 'corner'; readonly index: number }
@@ -115,6 +116,76 @@ export function addGridGeometryPoint(
     ...draft,
     clampOperationalReviewGeometryPoint(point, imageWidth, imageHeight),
   ];
+}
+
+export function emptyGridGeometrySourceDrafts(
+  items: readonly ImageGridReviewItemResponse[],
+): GridGeometrySourceDrafts {
+  return new Map(items.map((item) => [item.reviewItemId, []] as const));
+}
+
+export function gridGeometrySourceDraft(
+  drafts: GridGeometrySourceDrafts,
+  reviewItemId: string,
+): GridGeometryDraft {
+  return drafts.get(reviewItemId) ?? [];
+}
+
+export function replaceGridGeometrySourceDraft(
+  drafts: GridGeometrySourceDrafts,
+  reviewItemId: string,
+  draft: GridGeometryDraft,
+): GridGeometrySourceDrafts {
+  const next = new Map(drafts);
+  next.set(reviewItemId, draft);
+  return next;
+}
+
+export function completeGridGeometrySourceDrafts(
+  items: readonly ImageGridReviewItemResponse[],
+  drafts: GridGeometrySourceDrafts,
+):
+  | readonly {
+      readonly item: ImageGridReviewItemResponse;
+      readonly corners: OperationalReviewGeometryCorners;
+    }[]
+  | null {
+  const values = orderGridReviewSourceItems(items).map((item) => {
+    const draft = gridGeometrySourceDraft(drafts, item.reviewItemId);
+    return {
+      corners:
+        draft.length === 4 ? (draft as OperationalReviewGeometryCorners) : null,
+      item,
+    };
+  });
+  return values.every((value) => value.corners !== null)
+    ? (values as readonly {
+        readonly item: ImageGridReviewItemResponse;
+        readonly corners: OperationalReviewGeometryCorners;
+      }[])
+    : null;
+}
+
+export function nextIncompleteGridGeometrySourceItem(
+  items: readonly ImageGridReviewItemResponse[],
+  drafts: GridGeometrySourceDrafts,
+  afterReviewItemId: string,
+): ImageGridReviewItemResponse | null {
+  const ordered = orderGridReviewSourceItems(items);
+  const startIndex = ordered.findIndex(
+    (item) => item.reviewItemId === afterReviewItemId,
+  );
+  if (startIndex < 0) return null;
+  for (let offset = 1; offset <= ordered.length; offset += 1) {
+    const candidate = ordered[(startIndex + offset) % ordered.length];
+    if (
+      candidate !== undefined &&
+      gridGeometrySourceDraft(drafts, candidate.reviewItemId).length < 4
+    ) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 export function undoGridGeometryPoint(

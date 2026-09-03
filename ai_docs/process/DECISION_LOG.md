@@ -7230,3 +7230,18 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** lokalny katalog `seq_*` oraz źródłowy katalog operatora
   nigdy nie są usuwane tą ścieżką. Aktywny, failed, waiting-for-review,
   `cleanup_pending` i `cleanup_blocked` pozostają niedostępne dla tej mutacji.
+
+## D-313 — Operacje całego źródła geometrii są atomowe
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+- **Decision:** lokalne zatwierdzenie oraz ręczne wyznaczenie wszystkich
+  aktywnych plansz jednego `source_image` wykonują pojedynczą, checksum- i
+  revision-bound transakcję. Ręczny komplet jest zbierany w kolejności
+  `position_index` row-major i tworzy jedną pełną rewizję geometrii źródła.
+- **Reason:** sekwencja pojedynczych żądań używała snapshotu sprzed pierwszej
+  mutacji; po zmianie wspólnej projekcji kolejne żądania mogły kończyć się
+  konfliktem, mimo pozornego sukcesu w UI.
+- **Consequences:** konflikt nie zapisuje części zdjęcia, a pojedyncza ręczna
+  korekta nadal zachowuje istniejącą ścieżkę. Zdalny Reviewer nie otrzymuje
+  nowych endpointów administracyjnych.

@@ -19,15 +19,21 @@ import {
 import {
   previewGridReviewGeometry,
   saveGridReviewGeometry,
+  saveGridReviewSourceGeometry,
   type GridReviewsClient,
 } from './grid-review-actions';
 import {
   addGridGeometryPoint,
+  completeGridGeometrySourceDrafts,
+  emptyGridGeometrySourceDrafts,
   GRID_CORNER_LABELS,
+  gridGeometrySourceDraft,
   gridGeometryDragTarget,
   gridReviewCorners,
   moveGridGeometry,
   moveGridGeometryCorner,
+  nextIncompleteGridGeometrySourceItem,
+  replaceGridGeometrySourceDraft,
   type GridGeometryDragTarget,
   type GridGeometryDraft,
 } from './grid-review-state';
@@ -89,6 +95,10 @@ function GridReviewEditorContent({
   const automaticCorners = useMemo(() => gridReviewCorners(item), [item]);
   const [draft, setDraft] = useState<GridGeometryDraft>(automaticCorners);
   const [editing, setEditing] = useState(false);
+  const [sourceEditing, setSourceEditing] = useState(false);
+  const [sourceDrafts, setSourceDrafts] = useState(
+    emptyGridGeometrySourceDrafts(items),
+  );
   const [loadingSource, setLoadingSource] = useState(true);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -108,16 +118,42 @@ function GridReviewEditorContent({
     sourceAssetItem.gameId,
     sourceAssetItem.sourceChecksumSha256,
   );
-  const draftKey = JSON.stringify(draft);
-  const completeCorners = asCompleteCorners(draft);
+  const activeDraft = sourceEditing
+    ? gridGeometrySourceDraft(sourceDrafts, item.reviewItemId)
+    : draft;
+  const draftKey = sourceEditing
+    ? JSON.stringify(
+        items.map((candidate) => [
+          candidate.reviewItemId,
+          gridGeometrySourceDraft(sourceDrafts, candidate.reviewItemId),
+        ]),
+      )
+    : JSON.stringify(activeDraft);
+  const completeCorners = asCompleteCorners(activeDraft);
+  const completeSourceDrafts = useMemo(
+    () => completeGridGeometrySourceDrafts(items, sourceDrafts),
+    [items, sourceDrafts],
+  );
   const previewIsCurrent = draftPreviewUrl !== null && previewKey === draftKey;
   const cellCount = item.gridRows * item.gridColumns;
   const shownPreviewUrl =
     previewMode === 'automatic' ? autoPreviewUrl : draftPreviewUrl;
+  const sourceBatchEnabled = items.every(
+    (candidate) => candidate.assetMode === 'virtual_source',
+  );
+  const isEditing = editing || sourceEditing;
+  const sourceEditingProgress =
+    sourceDrafts.size === 0
+      ? 0
+      : items.filter(
+          (candidate) =>
+            gridGeometrySourceDraft(sourceDrafts, candidate.reviewItemId)
+              .length === 4,
+        ).length;
 
   useEffect(() => {
-    onEditingChange(editing);
-  }, [editing, onEditingChange]);
+    onEditingChange(editing || sourceEditing);
+  }, [editing, onEditingChange, sourceEditing]);
 
   useEffect(
     () => () => {
@@ -142,8 +178,13 @@ function GridReviewEditorContent({
     for (const candidate of items) {
       const selected = candidate.reviewItemId === item.reviewItemId;
       const corners = selected
-        ? (completeCorners ?? draft)
-        : gridReviewCorners(candidate);
+        ? (completeCorners ?? activeDraft)
+        : sourceEditing
+          ? gridGeometrySourceDraft(sourceDrafts, candidate.reviewItemId)
+              .length > 0
+            ? gridGeometrySourceDraft(sourceDrafts, candidate.reviewItemId)
+            : gridReviewCorners(candidate)
+          : gridReviewCorners(candidate);
       drawBoardOverlay(context, {
         cellIndex: selected ? selectedCellIndex : null,
         corners,
@@ -155,11 +196,13 @@ function GridReviewEditorContent({
     }
   }, [
     completeCorners,
-    draft,
+    activeDraft,
     item.reviewItemId,
     items,
     selectedCellIndex,
     showOverlay,
+    sourceDrafts,
+    sourceEditing,
   ]);
 
   useEffect(() => draw(), [draw, loadingSource]);
@@ -187,6 +230,20 @@ function GridReviewEditorContent({
     setPreviewKey('');
   }, []);
 
+  const replaceActiveDraft = useCallback(
+    (next: GridGeometryDraft) => {
+      if (sourceEditing) {
+        setSourceDrafts((current) =>
+          replaceGridGeometrySourceDraft(current, item.reviewItemId, next),
+        );
+      } else {
+        setDraft(next);
+      }
+      invalidatePreview();
+    },
+    [invalidatePreview, item.reviewItemId, sourceEditing],
+  );
+
   function sourcePoint(event: ReactPointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
     if (canvas === null) return null;
@@ -202,7 +259,7 @@ function GridReviewEditorContent({
     if (saving || loadingPreview) return;
     const pointer = sourcePoint(event);
     if (pointer === null) return;
-    if (!editing) {
+    if (!editing && !sourceEditing) {
       const selected = [...items]
         .reverse()
         .find((candidate) =>
@@ -212,20 +269,31 @@ function GridReviewEditorContent({
       return;
     }
     event.preventDefault();
-    if (draft.length < 4) {
-      setDraft((current) =>
-        addGridGeometryPoint(
-          current,
-          pointer.point,
-          item.sourceWidth,
-          item.sourceHeight,
-        ),
+    if (activeDraft.length < 4) {
+      const next = addGridGeometryPoint(
+        activeDraft,
+        pointer.point,
+        item.sourceWidth,
+        item.sourceHeight,
       );
-      invalidatePreview();
+      replaceActiveDraft(next);
+      if (sourceEditing && next.length === 4) {
+        const nextDrafts = replaceGridGeometrySourceDraft(
+          sourceDrafts,
+          item.reviewItemId,
+          next,
+        );
+        const following = nextIncompleteGridGeometrySourceItem(
+          items,
+          nextDrafts,
+          item.reviewItemId,
+        );
+        if (following !== null) onSelect(following.reviewItemId);
+      }
       return;
     }
     const target = gridGeometryDragTarget(
-      draft,
+      activeDraft,
       pointer.point,
       44 / pointer.scale,
     );
@@ -239,17 +307,17 @@ function GridReviewEditorContent({
     if (active === null) return;
     const pointer = sourcePoint(event);
     if (pointer === null) return;
-    setDraft((current) =>
+    replaceActiveDraft(
       active.target.kind === 'corner'
         ? moveGridGeometryCorner(
-            current,
+            activeDraft,
             active.target.index,
             pointer.point,
             item.sourceWidth,
             item.sourceHeight,
           )
         : moveGridGeometry(
-            current,
+            activeDraft,
             {
               x: pointer.point.x - active.lastPoint.x,
               y: pointer.point.y - active.lastPoint.y,
@@ -311,7 +379,30 @@ function GridReviewEditorContent({
   }
 
   async function save() {
-    if (completeCorners === null || !previewIsCurrent || saving) return;
+    if (saving) return;
+    if (sourceEditing) {
+      if (completeSourceDrafts === null) return;
+      setSaving(true);
+      setError('');
+      const result = await saveGridReviewSourceGeometry(api, {
+        cornersByReviewItemId: new Map(
+          completeSourceDrafts.map((value) => [
+            value.item.reviewItemId,
+            value.corners,
+          ]),
+        ),
+        idempotencyKey: globalThis.crypto.randomUUID(),
+        items,
+      });
+      setSaving(false);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      onSaved();
+      return;
+    }
+    if (completeCorners === null || !previewIsCurrent) return;
     setSaving(true);
     setError('');
     const result = await saveGridReviewGeometry(
@@ -372,12 +463,38 @@ function GridReviewEditorContent({
             </button>
             <button
               className="secondaryButton"
-              disabled={loadingSource || saving}
-              onClick={() => setEditing((value) => !value)}
+              disabled={loadingSource || saving || sourceEditing}
+              onClick={() => {
+                setEditing((value) => !value);
+                setDraft(automaticCorners);
+                invalidatePreview();
+              }}
               type="button"
             >
               {editing ? 'Zakończ edycję' : 'Zmień siatkę'}
             </button>
+            {sourceBatchEnabled ? (
+              <button
+                className="secondaryButton"
+                disabled={loadingSource || saving || editing}
+                onClick={() => {
+                  const ordered = [...items].sort(
+                    (left, right) => left.positionIndex - right.positionIndex,
+                  );
+                  setSourceDrafts(emptyGridGeometrySourceDrafts(ordered));
+                  setSourceEditing((value) => !value);
+                  if (!sourceEditing && ordered[0] !== undefined) {
+                    onSelect(ordered[0].reviewItemId);
+                  }
+                  invalidatePreview();
+                }}
+                type="button"
+              >
+                {sourceEditing
+                  ? 'Zakończ plansze osobno'
+                  : 'Wyznacz plansze osobno'}
+              </button>
+            ) : null}
           </div>
         </div>
         <p className="gridReviewMetadata">
@@ -393,7 +510,7 @@ function GridReviewEditorContent({
           <canvas
             aria-label="Oryginalny obraz źródłowy z aktywnymi siatkami plansz"
             className={
-              editing ? 'gridReviewCanvas isEditing' : 'gridReviewCanvas'
+              isEditing ? 'gridReviewCanvas isEditing' : 'gridReviewCanvas'
             }
             onLostPointerCapture={() => {
               dragRef.current = null;
@@ -434,20 +551,29 @@ function GridReviewEditorContent({
             </button>
           ))}
         </div>
-        {editing ? (
+        {isEditing ? (
           <div className="gridReviewEditControls">
             <p>
-              {draft.length < 4
-                ? `Kliknij narożnik ${GRID_CORNER_LABELS[draft.length]} (${draft.length + 1}/4).`
-                : 'Przeciągnij narożnik albo środek wybranej siatki.'}
+              {sourceEditing
+                ? activeDraft.length < 4
+                  ? `Plansza ${item.positionIndex + 1}/${items.length} · kliknij narożnik ${GRID_CORNER_LABELS[activeDraft.length]} (${activeDraft.length + 1}/4).`
+                  : `Plansza ${item.positionIndex + 1}/${items.length} jest gotowa. Wybierz kolejną albo popraw narożnik.`
+                : activeDraft.length < 4
+                  ? `Kliknij narożnik ${GRID_CORNER_LABELS[activeDraft.length]} (${activeDraft.length + 1}/4).`
+                  : 'Przeciągnij narożnik albo środek wybranej siatki.'}
             </p>
+            {sourceEditing ? (
+              <p className="mutedText">
+                Ręcznie ustawiono {sourceEditingProgress}/{items.length} plansz
+                w kolejności wierszami.
+              </p>
+            ) : null}
             <div>
               <button
                 className="textButton"
-                disabled={draft.length === 0 || saving}
+                disabled={activeDraft.length === 0 || saving}
                 onClick={() => {
-                  setDraft((current) => current.slice(0, -1));
-                  invalidatePreview();
+                  replaceActiveDraft(activeDraft.slice(0, -1));
                 }}
                 type="button"
               >
@@ -457,19 +583,17 @@ function GridReviewEditorContent({
                 className="textButton"
                 disabled={saving}
                 onClick={() => {
-                  setDraft(automaticCorners);
-                  invalidatePreview();
+                  replaceActiveDraft(sourceEditing ? [] : automaticCorners);
                 }}
                 type="button"
               >
-                Resetuj do automatu
+                {sourceEditing ? 'Wyczyść planszę' : 'Resetuj do automatu'}
               </button>
               <button
                 className="textButton"
                 disabled={saving}
                 onClick={() => {
-                  setDraft([]);
-                  invalidatePreview();
+                  replaceActiveDraft([]);
                 }}
                 type="button"
               >
@@ -480,12 +604,16 @@ function GridReviewEditorContent({
         ) : null}
       </div>
 
-      {editing ? (
+      {isEditing ? (
         <section className="gridReviewPreviewPanel">
           <div className="gridReviewCanvasHeading">
             <div>
               <span className="eyebrow">A/B source-direct</span>
-              <h3>Podgląd {cellCount} cropów wybranej planszy</h3>
+              <h3>
+                {sourceEditing
+                  ? `Ręczne plansze ${sourceEditingProgress}/${items.length}`
+                  : `Podgląd ${cellCount} cropów wybranej planszy`}
+              </h3>
             </div>
             <button
               className="secondaryButton"
@@ -570,11 +698,21 @@ function GridReviewEditorContent({
           )}
           <button
             className="primaryButton"
-            disabled={!previewIsCurrent || saving || loadingPreview}
+            disabled={
+              saving ||
+              loadingPreview ||
+              (sourceEditing
+                ? completeSourceDrafts === null
+                : !previewIsCurrent)
+            }
             onClick={() => void save()}
             type="button"
           >
-            {saving ? 'Zapisywanie…' : 'Zapisz i przejdź do następnego zdjęcia'}
+            {saving
+              ? 'Zapisywanie…'
+              : sourceEditing
+                ? `Zapisz i zatwierdź ${items.length} plansz`
+                : 'Zapisz i przejdź do następnego zdjęcia'}
           </button>
         </section>
       ) : null}

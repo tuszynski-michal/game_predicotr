@@ -10,16 +10,21 @@ from pydantic import Field
 
 from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometrySaveResult,
+    VirtualGridGeometrySourceCommand,
+    VirtualGridGeometrySourceSaveResult,
 )
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridApprovalResult,
     ImageGridReviewCounts,
     ImageGridReviewListItem,
     ImageGridReviewPage,
+    ImageGridReviewSourceApprovalTarget,
     ImageGridReviewState,
     ImageGridReviewView,
+    ImageGridSourceApprovalResult,
 )
 from game_predictor_api.domain.image_reviews import (
+    ImageReviewGeometryPoint,
     ImageReviewGeometryRevision,
     crop_sample_id,
 )
@@ -88,6 +93,31 @@ class ImageGridReviewApprovalResponse(ApiModel):
     changed: bool
 
 
+class ImageGridReviewSourceApprovalTargetRequest(ApiModel):
+    review_item_id: UUID
+    expected_resolution_revision: int = Field(ge=0)
+    expected_geometry_revision: int = Field(ge=0)
+    expected_source_checksum_sha256: Sha256
+    expected_source_width: int = Field(gt=0)
+    expected_source_height: int = Field(gt=0)
+    expected_grid_rows: int = Field(gt=0)
+    expected_grid_columns: int = Field(gt=0)
+
+
+class ImageGridReviewSourceApprovalCommand(ApiModel):
+    source_image_id: UUID
+    targets: tuple[ImageGridReviewSourceApprovalTargetRequest, ...] = Field(
+        min_length=1,
+        max_length=9,
+    )
+
+
+class ImageGridReviewSourceApprovalResponse(ApiModel):
+    source_image_id: UUID
+    approved_review_item_ids: tuple[UUID, ...]
+    changed_count: int = Field(ge=0)
+
+
 class ImageGridReviewGeometryPreviewCommand(ApiModel):
     expected_geometry_revision: int = Field(ge=0)
     expected_resolution_revision: int = Field(ge=0)
@@ -106,6 +136,19 @@ class ImageGridReviewGeometryPreviewCommand(ApiModel):
 
 class ImageGridReviewGeometryCommand(ImageGridReviewGeometryPreviewCommand):
     idempotency_key: UUID
+
+
+class ImageGridReviewSourceGeometryTargetCommand(ImageGridReviewGeometryPreviewCommand):
+    review_item_id: UUID
+
+
+class ImageGridReviewSourceGeometryCommand(ApiModel):
+    source_image_id: UUID
+    idempotency_key: UUID
+    targets: tuple[ImageGridReviewSourceGeometryTargetCommand, ...] = Field(
+        min_length=1,
+        max_length=9,
+    )
 
 
 class ImageGridReviewGeometryCellResponse(ApiModel):
@@ -145,6 +188,12 @@ class ImageGridReviewGeometryRevisionResponse(ApiModel):
 
 class ImageGridReviewGeometryResponse(ApiModel):
     geometry_revision: ImageGridReviewGeometryRevisionResponse
+    created: bool
+
+
+class ImageGridReviewSourceGeometryResponse(ApiModel):
+    source_image_id: UUID
+    geometry_revisions: tuple[ImageGridReviewGeometryRevisionResponse, ...]
     created: bool
 
 
@@ -212,6 +261,34 @@ def to_image_grid_review_approval_response(
     return ImageGridReviewApprovalResponse(
         item=to_image_grid_review_item_response(result.item),
         changed=result.changed,
+    )
+
+
+def to_image_grid_review_source_approval_targets(
+    payload: ImageGridReviewSourceApprovalCommand,
+) -> tuple[ImageGridReviewSourceApprovalTarget, ...]:
+    return tuple(
+        ImageGridReviewSourceApprovalTarget(
+            review_item_id=target.review_item_id,
+            expected_resolution_revision=target.expected_resolution_revision,
+            expected_geometry_revision=target.expected_geometry_revision,
+            expected_source_checksum_sha256=target.expected_source_checksum_sha256,
+            expected_source_width=target.expected_source_width,
+            expected_source_height=target.expected_source_height,
+            expected_grid_rows=target.expected_grid_rows,
+            expected_grid_columns=target.expected_grid_columns,
+        )
+        for target in payload.targets
+    )
+
+
+def to_image_grid_review_source_approval_response(
+    result: ImageGridSourceApprovalResult,
+) -> ImageGridReviewSourceApprovalResponse:
+    return ImageGridReviewSourceApprovalResponse(
+        source_image_id=result.source_image_id,
+        approved_review_item_ids=result.approved_review_item_ids,
+        changed_count=result.changed_count,
     )
 
 
@@ -336,17 +413,67 @@ def to_virtual_grid_review_geometry_response(
     )
 
 
+def to_virtual_grid_review_source_geometry_commands(
+    payload: ImageGridReviewSourceGeometryCommand,
+) -> tuple[VirtualGridGeometrySourceCommand, ...]:
+    return tuple(
+        VirtualGridGeometrySourceCommand(
+            review_item_id=target.review_item_id,
+            expected_geometry_revision=target.expected_geometry_revision,
+            expected_resolution_revision=target.expected_resolution_revision,
+            expected_source_checksum_sha256=target.expected_source_checksum_sha256,
+            expected_source_width=target.expected_source_width,
+            expected_source_height=target.expected_source_height,
+            expected_grid_rows=target.expected_grid_rows,
+            expected_grid_columns=target.expected_grid_columns,
+            corners=tuple(
+                ImageReviewGeometryPoint(x=corner.x, y=corner.y) for corner in target.corners
+            ),
+        )
+        for target in payload.targets
+    )
+
+
+def to_virtual_grid_review_source_geometry_response(
+    result: VirtualGridGeometrySourceSaveResult,
+    *,
+    source_image_id: UUID,
+    grid_rows: int,
+    grid_columns: int,
+) -> ImageGridReviewSourceGeometryResponse:
+    return ImageGridReviewSourceGeometryResponse(
+        source_image_id=source_image_id,
+        geometry_revisions=tuple(
+            to_virtual_grid_review_geometry_response(
+                VirtualGridGeometrySaveResult(revision=revision, created=result.created),
+                grid_rows=grid_rows,
+                grid_columns=grid_columns,
+            ).geometry_revision
+            for revision in result.revisions
+        ),
+        created=result.created,
+    )
+
+
 __all__ = [
     "ImageGridReviewApprovalCommand",
     "ImageGridReviewApprovalResponse",
+    "ImageGridReviewSourceApprovalCommand",
+    "ImageGridReviewSourceApprovalResponse",
     "ImageGridReviewCountsResponse",
     "ImageGridReviewGeometryCommand",
     "ImageGridReviewGeometryResponse",
+    "ImageGridReviewSourceGeometryCommand",
+    "ImageGridReviewSourceGeometryResponse",
     "ImageGridReviewGeometryPreviewCommand",
     "ImageGridReviewItemResponse",
     "ImageGridReviewPageResponse",
     "to_image_grid_review_approval_response",
+    "to_image_grid_review_source_approval_response",
+    "to_image_grid_review_source_approval_targets",
     "to_image_grid_review_geometry_response",
     "to_image_grid_review_page_response",
     "to_virtual_grid_review_geometry_response",
+    "to_virtual_grid_review_source_geometry_commands",
+    "to_virtual_grid_review_source_geometry_response",
 ]

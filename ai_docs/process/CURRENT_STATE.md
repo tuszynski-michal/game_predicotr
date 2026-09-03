@@ -31,6 +31,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Ograniczony link online pozostaje celowo wyłączony dla importu v0.10: zdalny
   Reviewer nadal obsługuje wyłącznie historyczne cropy plikowe i nie dostaje
   uprawnień do nowego API walidacji geometrii.
+- `Zatwierdź całe zdjęcie` nie wykonuje już serii żądań z tym samym snapshotem:
+  lokalny endpoint blokuje i weryfikuje wszystkie aktywne sloty źródła, a potem
+  zatwierdza komplet atomowo. Konflikt nie pozostawia częściowo zatwierdzonego
+  zdjęcia.
+- Dla `virtual_source` edytor udostępnia `Wyznacz plansze osobno`. Operator
+  podaje po cztery narożniki kolejnych slotów row-major, po czym pojedynczy
+  zapis tworzy jedną source geometry revision i aktualizuje cały komplet
+  plansz, cropów oraz audytu.
 
 ### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
 

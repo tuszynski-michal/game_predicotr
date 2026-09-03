@@ -27,6 +27,9 @@ import type {
   ApproveImageGridReviewGeometryData,
   ApproveImageGridReviewGeometryErrors,
   ApproveImageGridReviewGeometryResponses,
+  ApproveImageGridReviewSourceGeometryData,
+  ApproveImageGridReviewSourceGeometryErrors,
+  ApproveImageGridReviewSourceGeometryResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -87,6 +90,9 @@ import type {
   CreateImageGridReviewGeometryRevisionData,
   CreateImageGridReviewGeometryRevisionErrors,
   CreateImageGridReviewGeometryRevisionResponses,
+  CreateImageGridReviewSourceGeometryRevisionData,
+  CreateImageGridReviewSourceGeometryRevisionErrors,
+  CreateImageGridReviewSourceGeometryRevisionResponses,
   CreateImageSelectionData,
   CreateImageSelectionErrors,
   CreateImageSelectionResponses,
@@ -1212,6 +1218,61 @@ export const listImageGridReviews = <ThrowOnError extends boolean = false>(
     ListImageGridReviewsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/grid-reviews', ...options });
+
+/**
+ * Atomically approve every current board geometry of one source image
+ */
+export const approveImageGridReviewSourceGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApproveImageGridReviewSourceGeometryData, ThrowOnError>,
+): RequestResult<
+  ApproveImageGridReviewSourceGeometryResponses,
+  ApproveImageGridReviewSourceGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApproveImageGridReviewSourceGeometryResponses,
+    ApproveImageGridReviewSourceGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Atomically persist and approve manual geometry for every board of one source
+ */
+export const createImageGridReviewSourceGeometryRevision = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    CreateImageGridReviewSourceGeometryRevisionData,
+    ThrowOnError
+  >,
+): RequestResult<
+  CreateImageGridReviewSourceGeometryRevisionResponses,
+  CreateImageGridReviewSourceGeometryRevisionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateImageGridReviewSourceGeometryRevisionResponses,
+    CreateImageGridReviewSourceGeometryRevisionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * Get bounded virtual-geometry rollout validation status

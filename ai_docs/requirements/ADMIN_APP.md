@@ -339,11 +339,17 @@ kontekstu Admin API.
 Lokalny Reviewer otwiera domyślnie ekran `Zatwierdzanie cięcia siatki` z jednym
 oryginalnym obrazem i canvasowym overlayem. Filtry mają kolejność `Do
 walidacji`, `Do poprawy`, `Wszystkie`. `Enter`, `F` i główny przycisk
-zatwierdzają bieżącą geometrię i przechodzą do następnego rekordu. Korekta
-pozwala wskazać kolejno LT, PT, PD i LD, przeciągać narożniki lub całą siatkę,
-cofać punkt, resetować szkic oraz obejrzeć dynamiczne `rows × columns` cropy
-przed atomowym zapisem i zatwierdzeniem rewizji. Ekran nie pozwala edytować
-symboli i nie zapisuje JPEG-a z overlayem.
+zatwierdzają bieżącą geometrię i przechodzą do następnego rekordu. Jeżeli jedno
+źródło zawiera wiele aktywnych plansz, `Zatwierdź całe zdjęcie` wysyła jeden
+checksum- i revision-bound rozkaz: zatwierdza cały bieżący komplet albo nie
+zatwierdza żadnej planszy. Korekta pozwala wskazać kolejno LT, PT, PD i LD,
+przeciągać narożniki lub całą siatkę, cofać punkt, resetować szkic oraz obejrzeć
+dynamiczne `rows × columns` cropy przed atomowym zapisem i zatwierdzeniem
+rewizji. Dla `virtual_source` przycisk `Wyznacz plansze osobno`, obok `Zmień
+siatkę`, prowadzi przez cztery narożniki każdej aktywnej planszy w kolejności
+row-major; zapis jest dostępny dopiero po komplecie wszystkich slotów i tworzy
+jedną rewizję geometrii źródła. Ekran nie pozwala edytować symboli i nie
+zapisuje JPEG-a z overlayem.
 
 Nowy workflow jest obowiązującym lokalnym widokiem. Zdalna sesja Reviewera
 zachowuje wąsko ograniczoną ścieżkę operacyjną i nie otrzymuje game-wide

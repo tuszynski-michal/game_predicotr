@@ -140,6 +140,7 @@ revisions.
 |---|---|---|
 | automatyczna geometria structured | nowa `image_source_geometry_revision` ze wszystkimi aktywnymi slotami | `recognized_boards` wskazują właściwe sloty; obserwacje zapisują render provenance |
 | ręczna korekta virtual | nowa pełna source revision z podmienionym jednym slotem | tylko poprawiana plansza zmienia selektor; powstaje board geometry event/revision i nowe obserwacje |
+| ręczna korekta wszystkich slotów virtual | jedna nowa pełna source revision ze wszystkimi quadami wyznaczonymi przez operatora w kolejności row-major | wszystkie aktywne plansze aktualizują selektor, obserwacje i audyt w jednej transakcji albo żadna |
 | ręczna korekta legacy | historyczna board geometry revision i jej assety | `recognized_boards` materializuje bieżący stan; brak fałszywej source revision virtual |
 | preview | brak trwałego właściciela | wynik efemeryczny związany z oczekiwanym źródłem, rewizją i topologią |
 | trening | brak zmiany geometrii | manifest kohorty wskazuje zatwierdzoną rewizję i checksumy cropów |

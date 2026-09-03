@@ -46,10 +46,18 @@ from game_predictor_api.schemas.image_grid_reviews import (
     ImageGridReviewGeometryPreviewCommand,
     ImageGridReviewGeometryResponse,
     ImageGridReviewPageResponse,
+    ImageGridReviewSourceApprovalCommand,
+    ImageGridReviewSourceApprovalResponse,
+    ImageGridReviewSourceGeometryCommand,
+    ImageGridReviewSourceGeometryResponse,
     to_image_grid_review_approval_response,
     to_image_grid_review_geometry_response,
     to_image_grid_review_page_response,
+    to_image_grid_review_source_approval_response,
+    to_image_grid_review_source_approval_targets,
     to_virtual_grid_review_geometry_response,
+    to_virtual_grid_review_source_geometry_commands,
+    to_virtual_grid_review_source_geometry_response,
 )
 
 ImageGridReviewServiceDependency = Callable[..., object]
@@ -246,6 +254,27 @@ def create_image_grid_reviews_router(
         )
 
     @router.post(
+        "/games/{game_id}/grid-reviews/source-geometry-approval",
+        response_model=ImageGridReviewSourceApprovalResponse,
+        operation_id="approveImageGridReviewSourceGeometry",
+        summary="Atomically approve every current board geometry of one source image",
+        responses=ERROR_RESPONSES,
+    )
+    def approve_image_grid_review_source_geometry(
+        game_id: UUID,
+        payload: ImageGridReviewSourceApprovalCommand,
+        service: Annotated[ImageGridReviewService, service_parameter],
+    ) -> ImageGridReviewSourceApprovalResponse:
+        return to_image_grid_review_source_approval_response(
+            service.approve_source(
+                game_id=game_id,
+                source_image_id=payload.source_image_id,
+                targets=to_image_grid_review_source_approval_targets(payload),
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        )
+
+    @router.post(
         "/image-reviews/{review_item_id}/geometry-preview",
         response_class=Response,
         operation_id="previewImageGridReviewGeometry",
@@ -381,6 +410,63 @@ def create_image_grid_reviews_router(
             grid_rows=source.topology.rows,
             grid_columns=source.topology.columns,
             created=created,
+        )
+
+    @router.post(
+        "/games/{game_id}/grid-reviews/source-geometry-revisions",
+        response_model=ImageGridReviewSourceGeometryResponse,
+        operation_id="createImageGridReviewSourceGeometryRevision",
+        summary="Atomically persist and approve manual geometry for every board of one source",
+        responses=ERROR_RESPONSES,
+    )
+    def create_image_grid_review_source_geometry_revision(
+        game_id: UUID,
+        payload: ImageGridReviewSourceGeometryCommand,
+        service: Annotated[ImageGridReviewService, service_parameter],
+        virtual_service: Annotated[
+            VirtualGridGeometryService,
+            virtual_geometry_service_parameter,
+        ],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> ImageGridReviewSourceGeometryResponse:
+        if len({target.review_item_id for target in payload.targets}) != len(payload.targets):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_DUPLICATE",
+                "Manual source geometry cannot repeat a board target.",
+            )
+        sources = tuple(
+            _require_expected_source(service, game_id, target.review_item_id, target)
+            for target in payload.targets
+        )
+        if (
+            any(source.source_image_id != payload.source_image_id for source in sources)
+            or any(source.asset_mode != "virtual_source" for source in sources)
+            or any(
+                source.source_checksum_sha256 != sources[0].source_checksum_sha256
+                or source.source_width != sources[0].source_width
+                or source.source_height != sources[0].source_height
+                or source.topology != sources[0].topology
+                for source in sources[1:]
+            )
+        ):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
+                "Manual source geometry requires one complete current virtual source snapshot.",
+            )
+        first_source = sources[0]
+        result = virtual_service.save_source(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            commands=to_virtual_grid_review_source_geometry_commands(payload),
+            idempotency_key=payload.idempotency_key,
+            actor=_LOCAL_ADMIN_ACTOR,
+            created_at=datetime.now(UTC),
+        )
+        return to_virtual_grid_review_source_geometry_response(
+            result,
+            source_image_id=payload.source_image_id,
+            grid_rows=first_source.topology.rows,
+            grid_columns=first_source.topology.columns,
         )
 
     return router

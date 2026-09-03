@@ -127,6 +127,14 @@ def test_grid_review_openapi_is_topology_aware_and_checksum_bound() -> None:
             "/api/v1/admin/image-reviews/{review_item_id}/geometry-revisions",
             "post",
         ): "createImageGridReviewGeometryRevision",
+        (
+            "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval",
+            "post",
+        ): "approveImageGridReviewSourceGeometry",
+        (
+            "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions",
+            "post",
+        ): "createImageGridReviewSourceGeometryRevision",
     }
     for (path, method), operation_id in expected_operations.items():
         operation = schema["paths"][path][method]

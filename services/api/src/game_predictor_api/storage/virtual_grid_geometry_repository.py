@@ -11,10 +11,12 @@ from sqlalchemy.orm import Session
 
 from game_predictor_api.application.virtual_grid_geometry import (
     PreparedVirtualGridGeometry,
+    PreparedVirtualGridGeometrySource,
     VirtualGridGeometryCell,
     VirtualGridGeometryContext,
     VirtualGridGeometryRevision,
     VirtualGridGeometrySaveResult,
+    VirtualGridGeometrySourceSaveResult,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.image_geometry_v2 import DirectCellRenderConfiguration
@@ -31,6 +33,7 @@ from game_predictor_api.storage.image_geometry_v2_repository import (
 )
 from game_predictor_api.storage.image_review_repository import (
     acquire_image_review_sequence_locks,
+    acquire_image_sequence_locks,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
@@ -208,6 +211,194 @@ class SqlAlchemyVirtualGridGeometryRepository:
         )
         return VirtualGridGeometrySaveResult(
             revision=_revision_from_model(record),
+            created=True,
+        )
+
+    def save_virtual_source_geometry_revision(
+        self,
+        *,
+        prepared: PreparedVirtualGridGeometrySource,
+        idempotency_key: UUID,
+        created_at: datetime,
+    ) -> VirtualGridGeometrySourceSaveResult:
+        """Persist one complete source geometry revision and every board projection.
+
+        The whole write stays inside the request transaction.  A concurrent
+        reviewer may therefore either win before the exact snapshot is locked,
+        producing a conflict, or observe all newly corrected slots together.
+        """
+
+        entries = tuple(
+            sorted(
+                prepared.entries,
+                key=lambda entry: (entry.context.sequence_number, entry.context.position_index),
+            )
+        )
+        if not entries:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_EMPTY",
+                "Manual source geometry requires at least one board target.",
+            )
+        base_context = entries[0].context
+        acquire_image_sequence_locks(
+            self._session,
+            game_id=base_context.game_id,
+            sequence_numbers=[entry.context.sequence_number for entry in entries],
+        )
+        locked_rows = tuple(
+            self._current_row(
+                game_id=entry.context.game_id,
+                import_job_id=entry.context.import_job_id,
+                review_item_id=entry.context.review_item_id,
+                lock=True,
+            )
+            for entry in entries
+        )
+        current_contexts = tuple(self._context_from_row(row) for row in locked_rows)
+        _require_current_source_batch(
+            expected_entries=entries,
+            current_contexts=current_contexts,
+        )
+        for row in locked_rows:
+            item = row[0]
+            if item.status == "superseded":
+                raise ImageGridReviewError(
+                    "IMAGE_REVIEW_SUPERSEDED",
+                    "A superseded source cannot receive a manual virtual geometry revision.",
+                )
+
+        review_item_ids = tuple(entry.context.review_item_id for entry in entries)
+        prior_records = tuple(
+            self._session.scalars(
+                select(ImageBoardGeometryRevisionModel)
+                .where(
+                    ImageBoardGeometryRevisionModel.review_item_id.in_(review_item_ids),
+                    ImageBoardGeometryRevisionModel.idempotency_key == idempotency_key,
+                )
+                .order_by(ImageBoardGeometryRevisionModel.review_item_id)
+            )
+        )
+        if prior_records:
+            prior_by_item = {record.review_item_id: record for record in prior_records}
+            if set(prior_by_item) != set(review_item_ids) or any(
+                prior_by_item[entry.context.review_item_id].command_sha256
+                != entry.command.command_sha256
+                for entry in entries
+            ):
+                raise ImageGridReviewError(
+                    "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",
+                    "The geometry idempotency key already represents another source command.",
+                )
+            return VirtualGridGeometrySourceSaveResult(
+                revisions=tuple(
+                    _revision_from_model(prior_by_item[entry.context.review_item_id])
+                    for entry in entries
+                ),
+                created=False,
+            )
+
+        try:
+            stored_source_geometry = SqlAlchemyImageSourceGeometryRepository(self._session).append(
+                SourceGeometryRevisionInput(
+                    game_id=base_context.game_id,
+                    source_image_id=base_context.source_image_id,
+                    topology_rules_version_id=base_context.topology_rules_version_id,
+                    sequence_range_start=base_context.sequence_range_start,
+                    sequence_range_end=base_context.sequence_range_end,
+                    active_board_slots=base_context.active_board_slots,
+                    source_checksum_sha256=base_context.source_checksum_sha256,
+                    normalized_pixel_checksum_sha256=(
+                        base_context.normalized_pixel_checksum_sha256
+                    ),
+                    oriented_width=base_context.oriented_width,
+                    oriented_height=base_context.oriented_height,
+                    normalization_adapter_version=base_context.normalization_adapter_version,
+                    global_initialization=(
+                        None
+                        if base_context.global_initialization is None
+                        else dict(base_context.global_initialization)
+                    ),
+                    board_geometries=prepared.board_geometries,
+                    engine_kind="manual_v1",
+                    engine_version="manual-source-geometry-v1",
+                    geometry_source="manual",
+                    status="accepted",
+                    geometry_checksum_sha256=prepared.source_geometry_checksum_sha256,
+                    processing_time_ms=None,
+                    warnings=(),
+                    created_by=entries[0].command.corrected_by,
+                )
+            )
+        except ImageGeometryPersistenceError as error:
+            raise ImageGridReviewError(error.code, str(error)) from error
+
+        records: list[ImageBoardGeometryRevisionModel] = []
+        for entry, row in zip(entries, locked_rows, strict=True):
+            item, board, _source, _source_geometry, _rollout, _document = row
+            revision_number = board.geometry_revision + 1
+            record = ImageBoardGeometryRevisionModel(
+                review_item_id=item.id,
+                recognized_board_id=board.id,
+                revision=revision_number,
+                idempotency_key=idempotency_key,
+                command_sha256=entry.command.command_sha256,
+                corners=[{"x": point.x, "y": point.y} for point in entry.command.corners],
+                geometry=dict(entry.board_geometry),
+                asset_mode="virtual_source",
+                source_geometry_revision_id=stored_source_geometry.id,
+                geometry_checksum_sha256=prepared.source_geometry_checksum_sha256,
+                virtual_render_spec=dict(entry.virtual_render_spec),
+                virtual_render_spec_checksum_sha256=(entry.virtual_render_spec_checksum_sha256),
+                board_relative_path=None,
+                board_checksum_sha256=None,
+                cropper_version=entry.cropper_version,
+                crop_artifacts=None,
+                corrected_by=entry.command.corrected_by,
+                created_at=created_at,
+            )
+            self._session.add(record)
+            previous_approved_geometry_revision = board.approved_geometry_revision
+            board.geometry_revision = revision_number
+            board.approved_geometry_revision = revision_number
+            board.geometry_approved_at = created_at
+            board.geometry_approved_by = entry.command.corrected_by
+            board.board_geometry = dict(entry.board_geometry)
+            board.source_geometry_revision_id = stored_source_geometry.id
+            board.geometry_checksum_sha256 = prepared.source_geometry_checksum_sha256
+            board.geometry_engine_name = "manual_v1"
+            board.geometry_engine_version = "manual-source-geometry-v1"
+            self._session.add(
+                ImageBoardGeometryReviewEventModel(
+                    review_item_id=item.id,
+                    recognized_board_id=board.id,
+                    geometry_revision=revision_number,
+                    grid_rows=entry.context.topology.rows,
+                    grid_columns=entry.context.topology.columns,
+                    board_checksum_sha256=prepared.source_geometry_checksum_sha256,
+                    action="geometry_saved",
+                    previous_approved_geometry_revision=previous_approved_geometry_revision,
+                    approved_geometry_revision=revision_number,
+                    actor=entry.command.corrected_by,
+                    created_at=created_at,
+                )
+            )
+            self._replace_current_cells(
+                context=entry.context,
+                revision_number=revision_number,
+                source_geometry_revision_id=stored_source_geometry.id,
+                prepared=entry,
+                actor=entry.command.corrected_by,
+                changed_at=created_at,
+            )
+            records.append(record)
+
+        locked_rows[0][2].processed_at = created_at
+        self._session.flush()
+        SymbolCellReviewWriteThroughCoordinator(self._session).synchronize_after_cell_mutation(
+            game_id=base_context.game_id
+        )
+        return VirtualGridGeometrySourceSaveResult(
+            revisions=tuple(_revision_from_model(record) for record in records),
             created=True,
         )
 
@@ -524,6 +715,31 @@ def _require_same_context(
             "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
             "The virtual grid review changed while its correction was rendered.",
         )
+
+
+def _require_current_source_batch(
+    *,
+    expected_entries: tuple[PreparedVirtualGridGeometry, ...],
+    current_contexts: tuple[VirtualGridGeometryContext, ...],
+) -> None:
+    if len(expected_entries) != len(current_contexts):
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
+            "The active source board slots changed before manual geometry could be saved.",
+        )
+    expected_base = expected_entries[0].context
+    for expected, current in zip(expected_entries, current_contexts, strict=True):
+        _require_same_context(current, expected.context)
+        if (
+            current.source_image_id != expected_base.source_image_id
+            or current.source_geometry_revision_id != expected_base.source_geometry_revision_id
+            or current.active_board_slots != expected_base.active_board_slots
+            or current.board_geometries != expected_base.board_geometries
+        ):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
+                "The source geometry changed before all manual board slots were saved.",
+            )
 
 
 def _event_previous(cell: ImageSymbolReviewCellModel) -> dict[str, Any]:

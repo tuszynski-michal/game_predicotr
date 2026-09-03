@@ -3115,6 +3115,161 @@ export type ImageGridReviewPageResponse = {
 };
 
 /**
+ * ImageGridReviewSourceApprovalCommand
+ */
+export type ImageGridReviewSourceApprovalCommand = {
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Targets
+   */
+  targets: Array<ImageGridReviewSourceApprovalTargetRequest>;
+};
+
+/**
+ * ImageGridReviewSourceApprovalResponse
+ */
+export type ImageGridReviewSourceApprovalResponse = {
+  /**
+   * Approvedreviewitemids
+   */
+  approvedReviewItemIds: Array<string>;
+  /**
+   * Changedcount
+   */
+  changedCount: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * ImageGridReviewSourceApprovalTargetRequest
+ */
+export type ImageGridReviewSourceApprovalTargetRequest = {
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedgridcolumns
+   */
+  expectedGridColumns: number;
+  /**
+   * Expectedgridrows
+   */
+  expectedGridRows: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Expectedsourcechecksumsha256
+   */
+  expectedSourceChecksumSha256: string;
+  /**
+   * Expectedsourceheight
+   */
+  expectedSourceHeight: number;
+  /**
+   * Expectedsourcewidth
+   */
+  expectedSourceWidth: number;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+};
+
+/**
+ * ImageGridReviewSourceGeometryCommand
+ */
+export type ImageGridReviewSourceGeometryCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Targets
+   */
+  targets: Array<ImageGridReviewSourceGeometryTargetCommand>;
+};
+
+/**
+ * ImageGridReviewSourceGeometryResponse
+ */
+export type ImageGridReviewSourceGeometryResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Geometryrevisions
+   */
+  geometryRevisions: Array<ImageGridReviewGeometryRevisionResponse>;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * ImageGridReviewSourceGeometryTargetCommand
+ */
+export type ImageGridReviewSourceGeometryTargetCommand = {
+  /**
+   * Corners
+   *
+   * Source-image outer corners in row-major winding
+   */
+  corners: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedgridcolumns
+   */
+  expectedGridColumns: number;
+  /**
+   * Expectedgridrows
+   */
+  expectedGridRows: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Expectedsourcechecksumsha256
+   */
+  expectedSourceChecksumSha256: string;
+  /**
+   * Expectedsourceheight
+   */
+  expectedSourceHeight: number;
+  /**
+   * Expectedsourcewidth
+   */
+  expectedSourceWidth: number;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+};
+
+/**
  * ImageGridReviewState
  */
 export type ImageGridReviewState =
@@ -12051,6 +12206,99 @@ export type ListImageGridReviewsResponses = {
 
 export type ListImageGridReviewsResponse =
   ListImageGridReviewsResponses[keyof ListImageGridReviewsResponses];
+
+export type ApproveImageGridReviewSourceGeometryData = {
+  body: ImageGridReviewSourceApprovalCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval';
+};
+
+export type ApproveImageGridReviewSourceGeometryErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type ApproveImageGridReviewSourceGeometryError =
+  ApproveImageGridReviewSourceGeometryErrors[keyof ApproveImageGridReviewSourceGeometryErrors];
+
+export type ApproveImageGridReviewSourceGeometryResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGridReviewSourceApprovalResponse;
+};
+
+export type ApproveImageGridReviewSourceGeometryResponse =
+  ApproveImageGridReviewSourceGeometryResponses[keyof ApproveImageGridReviewSourceGeometryResponses];
+
+export type CreateImageGridReviewSourceGeometryRevisionData = {
+  body: ImageGridReviewSourceGeometryCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions';
+};
+
+export type CreateImageGridReviewSourceGeometryRevisionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type CreateImageGridReviewSourceGeometryRevisionError =
+  CreateImageGridReviewSourceGeometryRevisionErrors[keyof CreateImageGridReviewSourceGeometryRevisionErrors];
+
+export type CreateImageGridReviewSourceGeometryRevisionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGridReviewSourceGeometryResponse;
+};
+
+export type CreateImageGridReviewSourceGeometryRevisionResponse =
+  CreateImageGridReviewSourceGeometryRevisionResponses[keyof CreateImageGridReviewSourceGeometryRevisionResponses];
 
 export type GetImageGeometryRolloutStatusData = {
   body?: never;

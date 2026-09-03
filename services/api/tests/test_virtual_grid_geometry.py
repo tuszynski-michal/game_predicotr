@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
 from game_predictor_api.application.virtual_grid_geometry import (
     PreparedVirtualGridGeometry,
+    PreparedVirtualGridGeometrySource,
     VirtualGridGeometryContext,
     VirtualGridGeometryRevision,
     VirtualGridGeometrySaveResult,
     VirtualGridGeometryService,
+    VirtualGridGeometrySourceCommand,
+    VirtualGridGeometrySourceSaveResult,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.image_geometry_v2 import (
@@ -29,6 +33,7 @@ from PIL import Image
 class MemoryVirtualGridGeometryRepository:
     def __init__(self, context: VirtualGridGeometryContext) -> None:
         self.context = context
+        self.contexts = {context.review_item_id: context}
         self.saved: list[PreparedVirtualGridGeometry] = []
 
     def virtual_geometry_context(
@@ -38,10 +43,10 @@ class MemoryVirtualGridGeometryRepository:
         import_job_id: UUID,
         review_item_id: UUID,
     ) -> VirtualGridGeometryContext:
-        assert game_id == self.context.game_id
-        assert import_job_id == self.context.import_job_id
-        assert review_item_id == self.context.review_item_id
-        return self.context
+        context = self.contexts[review_item_id]
+        assert game_id == context.game_id
+        assert import_job_id == context.import_job_id
+        return context
 
     def save_virtual_geometry_revision(
         self,
@@ -68,6 +73,26 @@ class MemoryVirtualGridGeometryRepository:
                 corrected_by=prepared.command.corrected_by,
                 created_at=created_at,
             ),
+            created=True,
+        )
+
+    def save_virtual_source_geometry_revision(
+        self,
+        *,
+        prepared: PreparedVirtualGridGeometrySource,
+        idempotency_key: UUID,
+        created_at: datetime,
+    ) -> VirtualGridGeometrySourceSaveResult:
+        results = tuple(
+            self.save_virtual_geometry_revision(
+                prepared=entry,
+                idempotency_key=idempotency_key,
+                created_at=created_at,
+            )
+            for entry in prepared.entries
+        )
+        return VirtualGridGeometrySourceSaveResult(
+            revisions=tuple(result.revision for result in results),
             created=True,
         )
 
@@ -200,3 +225,107 @@ def test_virtual_save_delegates_only_checksum_bound_metadata(tmp_path: Path) -> 
     assert isinstance(repository, MemoryVirtualGridGeometryRepository)
     assert len(repository.saved) == 1
     assert not any(path.suffix == ".png" for path in (tmp_path / "data").rglob("*"))
+
+
+def test_virtual_source_save_renders_one_complete_source_without_png(tmp_path: Path) -> None:
+    service, context = _fixture(tmp_path)
+    repository = service._repository  # noqa: SLF001 - inspect the application port in a unit test
+
+    result = service.save_source(
+        game_id=context.game_id,
+        import_job_id=context.import_job_id,
+        commands=(
+            VirtualGridGeometrySourceCommand(
+                review_item_id=context.review_item_id,
+                expected_geometry_revision=context.geometry_revision,
+                expected_resolution_revision=context.resolution_revision,
+                expected_source_checksum_sha256=context.source_checksum_sha256,
+                expected_source_width=context.oriented_width,
+                expected_source_height=context.oriented_height,
+                expected_grid_rows=context.topology.rows,
+                expected_grid_columns=context.topology.columns,
+                corners=_corners(),
+            ),
+        ),
+        idempotency_key=uuid4(),
+        actor="local-admin",
+        created_at=datetime(2026, 9, 3, tzinfo=UTC),
+    )
+
+    assert result.created is True
+    assert len(result.revisions) == 1
+    assert len(result.revisions[0].cells) == context.topology.cell_count
+    assert isinstance(repository, MemoryVirtualGridGeometryRepository)
+    assert len(repository.saved) == 1
+    assert not any(path.suffix == ".png" for path in (tmp_path / "data").rglob("*"))
+
+
+def test_virtual_source_save_requires_and_persists_all_nine_row_major_slots(
+    tmp_path: Path,
+) -> None:
+    service, context = _fixture(tmp_path)
+    repository = service._repository  # noqa: SLF001 - application port fixture
+    assert isinstance(repository, MemoryVirtualGridGeometryRepository)
+
+    board_geometries = tuple(
+        {"positionIndex": position, "sequenceNumber": position + 1} for position in range(9)
+    )
+    contexts = tuple(
+        replace(
+            context,
+            review_item_id=uuid4(),
+            recognized_board_id=uuid4(),
+            position_index=position,
+            sequence_number=position + 1,
+            sequence_range_end=9,
+            active_board_slots=tuple(range(9)),
+            board_geometries=board_geometries,
+        )
+        for position in range(9)
+    )
+    repository.contexts = {entry.review_item_id: entry for entry in contexts}
+
+    result = service.save_source(
+        game_id=context.game_id,
+        import_job_id=context.import_job_id,
+        commands=tuple(
+            VirtualGridGeometrySourceCommand(
+                review_item_id=entry.review_item_id,
+                expected_geometry_revision=entry.geometry_revision,
+                expected_resolution_revision=entry.resolution_revision,
+                expected_source_checksum_sha256=entry.source_checksum_sha256,
+                expected_source_width=entry.oriented_width,
+                expected_source_height=entry.oriented_height,
+                expected_grid_rows=entry.topology.rows,
+                expected_grid_columns=entry.topology.columns,
+                corners=_cell_corners(entry.position_index),
+            )
+            for entry in contexts
+        ),
+        idempotency_key=uuid4(),
+        actor="local-admin",
+        created_at=datetime(2026, 9, 3, tzinfo=UTC),
+    )
+
+    assert result.created is True
+    assert [revision.review_item_id for revision in result.revisions] == [
+        entry.review_item_id for entry in contexts
+    ]
+    assert len(repository.saved) == 9
+    assert all(
+        tuple(geometry["positionIndex"] for geometry in prepared.board_geometries)
+        == tuple(range(9))
+        for prepared in repository.saved
+    )
+
+
+def _cell_corners(position_index: int) -> tuple[ImageReviewGeometryPoint, ...]:
+    row, column = divmod(position_index, 3)
+    left = column * 40
+    top = row * 26
+    return (
+        ImageReviewGeometryPoint(x=left, y=top),
+        ImageReviewGeometryPoint(x=left + 38, y=top),
+        ImageReviewGeometryPoint(x=left + 38, y=top + 24),
+        ImageReviewGeometryPoint(x=left, y=top + 24),
+    )

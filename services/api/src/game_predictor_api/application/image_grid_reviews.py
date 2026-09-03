@@ -14,8 +14,10 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewListFilter,
     ImageGridReviewListItem,
     ImageGridReviewPage,
+    ImageGridReviewSourceApprovalTarget,
     ImageGridReviewSourceAsset,
     ImageGridReviewView,
+    ImageGridSourceApprovalResult,
     decode_image_grid_review_cursor,
     encode_image_grid_review_cursor,
 )
@@ -70,6 +72,15 @@ class ImageGridReviewRepository(Protocol):
         expected_grid_columns: int,
         actor: str,
     ) -> ImageGridApprovalResult: ...
+
+    def approve_source_grid_geometry(
+        self,
+        *,
+        game_id: UUID,
+        source_image_id: UUID,
+        targets: tuple[ImageGridReviewSourceApprovalTarget, ...],
+        actor: str,
+    ) -> ImageGridSourceApprovalResult: ...
 
 
 class ImageGridReviewService:
@@ -203,6 +214,34 @@ class ImageGridReviewService:
             expected_source_height=expected_source_height,
             expected_grid_rows=expected_grid_rows,
             expected_grid_columns=expected_grid_columns,
+            actor=actor,
+        )
+
+    def approve_source(
+        self,
+        *,
+        game_id: UUID,
+        source_image_id: UUID,
+        targets: tuple[ImageGridReviewSourceApprovalTarget, ...],
+        actor: str,
+    ) -> ImageGridSourceApprovalResult:
+        if not targets:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_EMPTY",
+                "Source approval requires at least one current board target.",
+            )
+        if len({target.review_item_id for target in targets}) != len(targets):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_DUPLICATE",
+                "A source approval command cannot repeat a board target.",
+            )
+        for target in targets:
+            _validate_sha256(target.expected_source_checksum_sha256)
+        self._repository.require_game(game_id)
+        return self._repository.approve_source_grid_geometry(
+            game_id=game_id,
+            source_image_id=source_image_id,
+            targets=targets,
             actor=actor,
         )
 

@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   addGridGeometryPoint,
+  completeGridGeometrySourceDrafts,
+  emptyGridGeometrySourceDrafts,
   GRID_CORNER_LABELS,
   GRID_REVIEW_VIEWS,
   gridGeometryDragTarget,
@@ -13,6 +15,8 @@ import {
   orderGridReviewSourceItems,
   moveGridGeometry,
   moveGridGeometryCorner,
+  nextIncompleteGridGeometrySourceItem,
+  replaceGridGeometrySourceDraft,
   undoGridGeometryPoint,
 } from '../src/features/grid-reviews/grid-review-state.ts';
 
@@ -158,4 +162,42 @@ test('source statistics and slot ordering stay deterministic for one image', () 
     needsValidationBoards: 1,
     totalBoards: 3,
   });
+});
+
+test('source manual geometry completes exactly nine slots in row-major order', () => {
+  const sourceItems = Array.from({ length: 9 }, (_, positionIndex) => ({
+    ...item,
+    positionIndex,
+    reviewItemId: `00000000-0000-4000-8000-00000000000${positionIndex}`,
+    sequenceNumber: 100 + positionIndex,
+  }));
+  let drafts = emptyGridGeometrySourceDrafts(sourceItems);
+
+  for (const sourceItem of sourceItems) {
+    const draft = [
+      { x: 10, y: 10 },
+      { x: 50, y: 10 },
+      { x: 50, y: 40 },
+      { x: 10, y: 40 },
+    ];
+    drafts = replaceGridGeometrySourceDraft(
+      drafts,
+      sourceItem.reviewItemId,
+      draft,
+    );
+  }
+
+  const completed = completeGridGeometrySourceDrafts(sourceItems, drafts);
+  assert.deepEqual(
+    completed?.map(({ item: sourceItem }) => sourceItem.positionIndex),
+    [0, 1, 2, 3, 4, 5, 6, 7, 8],
+  );
+  assert.equal(
+    nextIncompleteGridGeometrySourceItem(
+      sourceItems,
+      drafts,
+      sourceItems[8].reviewItemId,
+    ),
+    null,
+  );
 });

@@ -85,6 +85,7 @@ class VirtualGridGeometryContext:
     def source_asset(self) -> ImageGridReviewSourceAsset:
         return ImageGridReviewSourceAsset(
             review_item_id=self.review_item_id,
+            source_image_id=self.source_image_id,
             source_relative_path=self.source_relative_path,
             source_checksum_sha256=self.source_checksum_sha256,
             source_width=self.oriented_width,
@@ -155,6 +156,34 @@ class VirtualGridGeometrySaveResult:
     created: bool
 
 
+@dataclass(frozen=True, slots=True)
+class VirtualGridGeometrySourceCommand:
+    """One exact board command inside an all-or-nothing source correction."""
+
+    review_item_id: UUID
+    expected_geometry_revision: int
+    expected_resolution_revision: int
+    expected_source_checksum_sha256: str
+    expected_source_width: int
+    expected_source_height: int
+    expected_grid_rows: int
+    expected_grid_columns: int
+    corners: tuple[ImageReviewGeometryPoint, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedVirtualGridGeometrySource:
+    entries: tuple[PreparedVirtualGridGeometry, ...]
+    source_geometry_checksum_sha256: str
+    board_geometries: tuple[Mapping[str, object], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class VirtualGridGeometrySourceSaveResult:
+    revisions: tuple[VirtualGridGeometryRevision, ...]
+    created: bool
+
+
 class VirtualGridGeometryRepository(Protocol):
     def virtual_geometry_context(
         self,
@@ -171,6 +200,14 @@ class VirtualGridGeometryRepository(Protocol):
         idempotency_key: UUID,
         created_at: datetime,
     ) -> VirtualGridGeometrySaveResult: ...
+
+    def save_virtual_source_geometry_revision(
+        self,
+        *,
+        prepared: PreparedVirtualGridGeometrySource,
+        idempotency_key: UUID,
+        created_at: datetime,
+    ) -> VirtualGridGeometrySourceSaveResult: ...
 
 
 class VirtualGridGeometryService:
@@ -251,6 +288,246 @@ class VirtualGridGeometryService:
             prepared=prepared,
             idempotency_key=idempotency_key,
             created_at=created_at,
+        )
+
+    def save_source(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        commands: Sequence[VirtualGridGeometrySourceCommand],
+        idempotency_key: UUID,
+        actor: str,
+        created_at: datetime,
+    ) -> VirtualGridGeometrySourceSaveResult:
+        prepared = self._prepare_source(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            commands=commands,
+            actor=actor,
+        )
+        return self._repository.save_virtual_source_geometry_revision(
+            prepared=prepared,
+            idempotency_key=idempotency_key,
+            created_at=created_at,
+        )
+
+    def _prepare_source(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        commands: Sequence[VirtualGridGeometrySourceCommand],
+        actor: str,
+    ) -> PreparedVirtualGridGeometrySource:
+        """Render every source slot once, then assemble one immutable revision.
+
+        A source image can contain at most nine logical boards.  Loading and
+        rendering each board through the single-board API would create sibling
+        source-geometry revisions from stale base geometry.  This path validates
+        all client identities first, canonicalizes the source once, and produces
+        one board-geometries document containing every requested quad.
+        """
+
+        if not commands:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_EMPTY",
+                "Manual source geometry requires at least one board command.",
+            )
+        if len({command.review_item_id for command in commands}) != len(commands):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_DUPLICATE",
+                "Manual source geometry cannot repeat a board command.",
+            )
+
+        prepared_inputs: list[
+            tuple[
+                VirtualGridGeometryContext,
+                ValidatedImageReviewGeometryCommand,
+                SourceQuad,
+            ]
+        ] = []
+        for source_command in commands:
+            command = validate_image_review_geometry_command(
+                corners=source_command.corners,
+                expected_geometry_revision=source_command.expected_geometry_revision,
+                expected_resolution_revision=source_command.expected_resolution_revision,
+                corrected_by=actor,
+            )
+            context = self._repository.virtual_geometry_context(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                review_item_id=source_command.review_item_id,
+            )
+            _require_expected_context(
+                context,
+                command=command,
+                source_checksum=source_command.expected_source_checksum_sha256,
+                source_width=source_command.expected_source_width,
+                source_height=source_command.expected_source_height,
+                topology=BoardTopology(
+                    rows=source_command.expected_grid_rows,
+                    columns=source_command.expected_grid_columns,
+                ),
+            )
+            quad = SourceQuad(
+                corners=cast(
+                    tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                    tuple(SourcePoint(x=point.x, y=point.y) for point in command.corners),
+                )
+            )
+            prepared_inputs.append((context, command, quad))
+
+        prepared_inputs.sort(key=lambda value: value[0].position_index)
+        base_context = prepared_inputs[0][0]
+        _require_source_batch_context(
+            base_context=base_context,
+            values=prepared_inputs,
+        )
+        expected_positions = tuple(range(len(base_context.board_geometries)))
+        actual_positions = tuple(
+            context.position_index for context, _command, _quad in prepared_inputs
+        )
+        if actual_positions != expected_positions:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
+                "Manual source geometry requires every active source slot in row-major order.",
+            )
+
+        from game_predictor_worker.images.normalization import (
+            CanonicalSourceLoader,
+            CanonicalSourceLoadError,
+        )
+        from game_predictor_worker.images.virtual_cell_extraction import (
+            VirtualCellExtractionError,
+            VirtualCellRenderer,
+        )
+
+        source_path = resolve_grid_review_source_asset(
+            base_context.source_asset,
+            self._artifact_root,
+        ).path
+        loader = CanonicalSourceLoader()
+        rendered_by_item: dict[UUID, tuple[VirtualCellRender, ...]] = {}
+        try:
+            frame = loader.load(
+                source_path,
+                expected_source_checksum_sha256=base_context.source_checksum_sha256,
+            )
+            _require_frame(
+                base_context,
+                frame.source,
+                raw_width=frame.raw_width,
+                raw_height=frame.raw_height,
+            )
+            renderer = VirtualCellRenderer()
+            for context, _command, quad in prepared_inputs:
+                geometry = VirtualBoardGeometry(
+                    source=frame.source,
+                    source_occurrence=SourceOccurrence(
+                        import_job_id=context.import_job_id,
+                        file_execution_key=context.file_execution_key,
+                    ),
+                    slot=ActiveBoardSlot(
+                        range_start=context.sequence_range_start,
+                        range_end=context.sequence_range_end,
+                        position_index=context.position_index,
+                        sequence_number=context.sequence_number,
+                    ),
+                    topology=context.topology,
+                    topology_rules_version_id=context.topology_rules_version_id,
+                    geometry_revision=context.geometry_revision + 1,
+                    geometry_version=VIRTUAL_MANUAL_GEOMETRY_VERSION,
+                    engine_kind=GeometryEngineKind.MANUAL_V1,
+                    symbol_grid_quad=quad,
+                )
+                rendered_by_item[context.review_item_id] = tuple(
+                    renderer.render(
+                        frame,
+                        derive_virtual_cells(
+                            geometry=geometry,
+                            configuration=context.render_configuration,
+                        ),
+                    )
+                )
+        except (
+            CanonicalSourceLoadError,
+            ImageGeometryContractError,
+            VirtualCellExtractionError,
+        ) as error:
+            raise ImageGridReviewError(
+                getattr(error, "code", "IMAGE_GRID_REVIEW_VIRTUAL_RENDER_FAILED"),
+                str(error),
+            ) from error
+        finally:
+            loader.clear()
+
+        board_geometries = _replace_source_board_geometries(
+            base_context,
+            tuple((context, quad) for context, _command, quad in prepared_inputs),
+        )
+        source_geometry_checksum = hashlib.sha256(
+            canonical_json_bytes(
+                {
+                    "activeBoardSlots": list(base_context.active_board_slots),
+                    "boardGeometries": list(board_geometries),
+                    "engineKind": GeometryEngineKind.MANUAL_V1.value,
+                    "engineVersion": VIRTUAL_MANUAL_GEOMETRY_VERSION,
+                    "previousSourceGeometryRevisionId": str(
+                        base_context.source_geometry_revision_id
+                    ),
+                    "sourceChecksumSha256": base_context.source_checksum_sha256,
+                    "topologyRulesVersionId": str(base_context.topology_rules_version_id),
+                }
+            )
+        ).hexdigest()
+        entries: list[PreparedVirtualGridGeometry] = []
+        for context, command, quad in prepared_inputs:
+            cells = tuple(
+                _cell_from_render(context.recognized_board_id, render)
+                for render in rendered_by_item[context.review_item_id]
+            )
+            render_manifest: dict[str, object] = {
+                "assetMode": "virtual_source",
+                "cells": [
+                    {
+                        "cellIndex": cell.cell_index,
+                        "cropSampleId": cell.crop_sample_id,
+                        "logicalCellKeySha256": cell.logical_cell_key,
+                        "logicalCellKeyV2Sha256": cell.logical_cell_key_v2,
+                        "renderIdentityV2Sha256": cell.render_identity_v2_sha256,
+                        "renderSpec": dict(cell.render_spec),
+                        "renderSpecChecksumSha256": cell.render_spec_checksum_sha256,
+                        "renderedPixelChecksumSha256": cell.rendered_pixel_checksum_sha256,
+                    }
+                    for cell in cells
+                ],
+                "geometryChecksumSha256": source_geometry_checksum,
+                "schemaVersion": VIRTUAL_MANUAL_RENDER_MANIFEST_VERSION,
+            }
+            entries.append(
+                PreparedVirtualGridGeometry(
+                    command=command,
+                    context=context,
+                    source_geometry_checksum_sha256=source_geometry_checksum,
+                    board_geometries=board_geometries,
+                    board_geometry=_recognized_board_geometry(
+                        context,
+                        quad,
+                        command.command_sha256,
+                    ),
+                    virtual_render_spec=render_manifest,
+                    virtual_render_spec_checksum_sha256=hashlib.sha256(
+                        canonical_json_bytes(render_manifest)
+                    ).hexdigest(),
+                    cells=cells,
+                    cropper_version=VirtualCellRenderer.version,
+                )
+            )
+        return PreparedVirtualGridGeometrySource(
+            entries=tuple(entries),
+            source_geometry_checksum_sha256=source_geometry_checksum,
+            board_geometries=board_geometries,
         )
 
     def _prepare(
@@ -492,6 +769,69 @@ def _replace_board_geometry(
     return tuple(values)
 
 
+def _require_source_batch_context(
+    *,
+    base_context: VirtualGridGeometryContext,
+    values: Sequence[
+        tuple[
+            VirtualGridGeometryContext,
+            ValidatedImageReviewGeometryCommand,
+            SourceQuad,
+        ]
+    ],
+) -> None:
+    for context, _command, _quad in values:
+        if (
+            context.game_id != base_context.game_id
+            or context.import_job_id != base_context.import_job_id
+            or context.source_image_id != base_context.source_image_id
+            or context.source_checksum_sha256 != base_context.source_checksum_sha256
+            or context.oriented_width != base_context.oriented_width
+            or context.oriented_height != base_context.oriented_height
+            or context.normalized_pixel_checksum_sha256
+            != base_context.normalized_pixel_checksum_sha256
+            or context.normalization_adapter_version != base_context.normalization_adapter_version
+            or context.topology != base_context.topology
+            or context.topology_rules_version_id != base_context.topology_rules_version_id
+            or context.source_geometry_revision_id != base_context.source_geometry_revision_id
+            or context.active_board_slots != base_context.active_board_slots
+            or context.board_geometries != base_context.board_geometries
+            or context.render_configuration != base_context.render_configuration
+        ):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
+                "The active source slots no longer share one current geometry snapshot.",
+            )
+
+
+def _replace_source_board_geometries(
+    context: VirtualGridGeometryContext,
+    values: Sequence[tuple[VirtualGridGeometryContext, SourceQuad]],
+) -> tuple[dict[str, object], ...]:
+    if context.active_board_slots != tuple(range(len(context.board_geometries))):
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_SOURCE_GEOMETRY_INVALID",
+            "Virtual manual geometry requires a complete attested source prefix.",
+        )
+    result = [dict(value) for value in context.board_geometries]
+    for entry_context, quad in values:
+        if not 0 <= entry_context.position_index < len(result):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_GEOMETRY_INVALID",
+                "A board slot is outside the attested source geometry.",
+            )
+        result[entry_context.position_index].update(
+            {
+                "disposition": "automatic",
+                "finalQuad": quad.to_dict(),
+                "geometrySource": "manual",
+                "positionIndex": entry_context.position_index,
+                "sequenceNumber": entry_context.sequence_number,
+            }
+        )
+    return tuple(result)
+
+
 def _recognized_board_geometry(
     context: VirtualGridGeometryContext,
     quad: SourceQuad,
@@ -565,11 +905,14 @@ def _contact_sheet_png(
 
 __all__ = [
     "PreparedVirtualGridGeometry",
+    "PreparedVirtualGridGeometrySource",
     "VirtualGridGeometryCell",
     "VirtualGridGeometryContext",
     "VirtualGridGeometryPreview",
     "VirtualGridGeometryRepository",
     "VirtualGridGeometryRevision",
     "VirtualGridGeometrySaveResult",
+    "VirtualGridGeometrySourceCommand",
+    "VirtualGridGeometrySourceSaveResult",
     "VirtualGridGeometryService",
 ]

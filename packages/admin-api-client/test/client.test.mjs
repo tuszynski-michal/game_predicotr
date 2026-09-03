@@ -2040,6 +2040,30 @@ test('grid review client binds keyset, source identity and topology-aware writes
       idempotencyKey: '44444444-4444-4444-8444-444444444444',
     },
   );
+  const sourceApprovalTarget = {
+    expectedGeometryRevision: geometry.expectedGeometryRevision,
+    expectedGridColumns: geometry.expectedGridColumns,
+    expectedGridRows: geometry.expectedGridRows,
+    expectedResolutionRevision: geometry.expectedResolutionRevision,
+    expectedSourceChecksumSha256: geometry.expectedSourceChecksumSha256,
+    expectedSourceHeight: geometry.expectedSourceHeight,
+    expectedSourceWidth: geometry.expectedSourceWidth,
+    reviewItemId,
+  };
+  const sourceGeometryTarget = { ...geometry, reviewItemId };
+  await client.approveImageGridReviewSourceGeometry(gameId, {
+    sourceImageId,
+    targets: [sourceApprovalTarget],
+  });
+  await client.createImageGridReviewSourceGeometryRevision(
+    gameId,
+    { gameId, importJobId },
+    {
+      idempotencyKey: '66666666-6666-4666-8666-666666666666',
+      sourceImageId,
+      targets: [sourceGeometryTarget],
+    },
+  );
 
   assert.deepEqual(
     requests.map((request) => [request.method, new URL(request.url).pathname]),
@@ -2051,6 +2075,14 @@ test('grid review client binds keyset, source identity and topology-aware writes
       [
         'POST',
         `/api/v1/admin/image-reviews/${reviewItemId}/geometry-revisions`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/games/${gameId}/grid-reviews/source-geometry-approval`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/games/${gameId}/grid-reviews/source-geometry-revisions`,
       ],
     ],
   );
@@ -2064,6 +2096,15 @@ test('grid review client binds keyset, source identity and topology-aware writes
     checksum,
   );
   assert.equal('correctedBy' in (await requests[4].clone().json()), false);
+  assert.deepEqual(await requests[5].clone().json(), {
+    sourceImageId,
+    targets: [sourceApprovalTarget],
+  });
+  assert.deepEqual(await requests[6].clone().json(), {
+    idempotencyKey: '66666666-6666-4666-8666-666666666666',
+    sourceImageId,
+    targets: [sourceGeometryTarget],
+  });
 });
 
 test('generated client exposes the checksum-bound deferred geometry workflow', async () => {

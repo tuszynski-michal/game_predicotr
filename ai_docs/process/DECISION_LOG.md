@@ -7259,5 +7259,7 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   `localhost:3001`, gdy konfiguracja API używa `127.0.0.1:3001`. Dosłowne
   porównanie blokowało wtedy bezpieczny wspólny zapis geometrii źródła kodem
   `ADMIN_ORIGIN_FORBIDDEN`.
-- **Consequences:** wygoda lokalnego wejścia nie zmienia granicy sieciowej ani
-  nie nadaje Reviewerowi pozostałych uprawnień Admina.
+- **Consequences:** ten sam zbiór aliasów zasila CORS i middleware, więc
+  przeglądarka nie zatrzymuje dozwolonego POST na preflight przed kontrolą
+  uprawnień. Wygoda lokalnego wejścia nie zmienia granicy sieciowej ani nie
+  nadaje Reviewerowi pozostałych uprawnień Admina.

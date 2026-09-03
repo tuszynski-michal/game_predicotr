@@ -54,8 +54,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   geometrii źródła. API traktuje `127.0.0.1`, `localhost` oraz `[::1]` jako
   aliasy wyłącznie tego samego skonfigurowanego portu loopback, dzięki czemu
   otwarcie lokalnego Reviewera przez `localhost:3001` nie kończy się fałszywym
-  `ADMIN_ORIGIN_FORBIDDEN`. Allowlista nie rozszerza dostępu do pozostałych
-  endpointów Admina ani do zdalnej sesji Reviewera.
+  `ADMIN_ORIGIN_FORBIDDEN` ani zablokowanym preflightem CORS. Te same aliasy
+  są używane przez middleware i CORS. Allowlista nie rozszerza dostępu do
+  pozostałych endpointów Admina ani do zdalnej sesji Reviewera.
 
 ### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
 

@@ -279,8 +279,8 @@ class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
         # ``localhost`` or ``127.0.0.1``.  They are equivalent only when the
         # scheme and port remain the configured loopback origin; accepting an
         # arbitrary Origin here would defeat the origin boundary below.
-        self._admin_origins = _loopback_origin_aliases(admin_origin)
-        self._reviewer_origins = _loopback_origin_aliases(reviewer_origin)
+        self._admin_origins = loopback_origin_aliases(admin_origin)
+        self._reviewer_origins = loopback_origin_aliases(reviewer_origin)
         self._audit_log = audit_log
 
     async def dispatch(
@@ -495,7 +495,7 @@ def _matches_reviewer_mutation_path(path: str) -> bool:
     return any(pattern.fullmatch(path) for pattern in _REVIEWER_MUTATION_PATTERNS)
 
 
-def _loopback_origin_aliases(configured_origin: str) -> frozenset[str]:
+def loopback_origin_aliases(configured_origin: str) -> frozenset[str]:
     """Return only same-port spellings of a configured HTTP loopback origin."""
 
     parsed = urlsplit(configured_origin.rstrip("/"))
@@ -533,5 +533,6 @@ __all__ = [
     "LocalAdminSecurityMiddleware",
     "augment_admin_security_openapi",
     "match_high_impact_operation",
+    "loopback_origin_aliases",
     "redact_security_metadata",
 ]

@@ -215,6 +215,7 @@ from game_predictor_api.security.local_admin import (
     AppendOnlyAdminAuditLog,
     LocalAdminSecurityMiddleware,
     augment_admin_security_openapi,
+    loopback_origin_aliases,
 )
 from game_predictor_api.storage.board_cell_geometry_pending_repository import (
     SqlAlchemyBoardCellGeometryPendingRepository,
@@ -1262,10 +1263,10 @@ def create_app(
     )
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            resolved_settings.admin_origin,
-            resolved_settings.reviewer_origin,
-        ],
+        allow_origins=sorted(
+            loopback_origin_aliases(resolved_settings.admin_origin)
+            | loopback_origin_aliases(resolved_settings.reviewer_origin)
+        ),
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=[

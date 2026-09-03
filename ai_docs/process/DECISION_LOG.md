@@ -7317,3 +7317,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   innej planszy i dopisywać albo przesuwać punktu.
 - **Consequences:** wybór jest przewidywalny również przy zoomie i lokalnych
   szkicach; sam klik nigdy nie zapisuje danych ani nie zmienia geometrii.
+
+### D-319 — Walidacja cięcia siatki nie tworzy pracy online ani lokalnego assignmentu
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** launcher `Zatwierdzanie cięcia siatki` otwiera Reviewer
+  bezpośrednio pod docelowym adresem loopback. Nie listuje, nie otwiera, nie
+  utrzymuje heartbeatów i nie zamyka reviewer work assignments oraz nie
+  oferuje linku online.
+- **Rationale:** geometria jest workflowem wyłącznie lokalnym. Asynchroniczny
+  odczyt starego assignmentu powodował miganie `Utwórz link online`, a po
+  załadowaniu zastępował go niepotrzebną akcją `Zakończ pracę lokalną`.
+- **Consequences:** ekran ma jeden stabilny przycisk `Otwórz lokalnie`; osobny
+  purpose-scoped zdalny workflow ręcznej selekcji zdjęć pozostaje bez zmian.

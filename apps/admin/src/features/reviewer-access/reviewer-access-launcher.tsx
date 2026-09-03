@@ -6,22 +6,11 @@ import type {
   GameResponse,
   ImageGridReviewPageResponse,
   JobResponse,
-  ReviewerWorkAssignmentResponse,
-  ReviewerWorkOpenedResponse,
-  ReviewerWorkOverviewResponse,
 } from '@game-predictor/admin-api-client';
 import { useEffect, useMemo, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
-import {
-  closeReviewerWork,
-  heartbeatReviewerWork,
-  loadReviewerWork,
-  openLocalReviewer,
-  openOnlineReviewer,
-  type ReviewerLauncherClient,
-} from '@/features/reviewer-access/reviewer-access-actions';
 import {
   hasImageImport,
   hasReviewerWork,
@@ -34,10 +23,18 @@ import {
   selectReviewImportId,
 } from '@/features/reviewer-access/reviewer-access-state';
 import {
-  closePreparedLocalReviewerWindow,
-  navigatePreparedLocalReviewerWindow,
+  buildPreparedLocalReviewUrl,
   prepareLocalReviewerWindow,
 } from '@/features/reviewer-access/reviewer-local-window';
+
+type GridReviewLauncherClient = Pick<
+  ReturnType<typeof createConfiguredAdminApiClient>,
+  | 'listGames'
+  | 'listJobs'
+  | 'listReadyBrowserImageSelections'
+  | 'listImageGridReviews'
+  | 'listPendingBoardCellGeometry'
+>;
 
 export function ReviewerAccessLauncher({
   apiBaseUrl,
@@ -46,7 +43,7 @@ export function ReviewerAccessLauncher({
   onOpenImports,
 }: {
   readonly apiBaseUrl: string;
-  readonly client?: ReviewerLauncherClient;
+  readonly client?: GridReviewLauncherClient;
   readonly gameId?: string;
   readonly onOpenImports?: () => void;
 }) {
@@ -62,13 +59,7 @@ export function ReviewerAccessLauncher({
   const [uncontrolledGameId, setGameId] = useState('');
   const gameId = controlledGameId ?? uncontrolledGameId;
   const [jobId, setJobId] = useState('');
-  const [overview, setOverview] = useState<ReviewerWorkOverviewResponse | null>(
-    null,
-  );
-  const [oneTimeOnlineAccess, setOneTimeOnlineAccess] =
-    useState<ReviewerWorkOpenedResponse | null>(null);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [reviewContextLoading, setReviewContextLoading] = useState(false);
   const [gridReviewCounts, setGridReviewCounts] = useState<
@@ -76,12 +67,6 @@ export function ReviewerAccessLauncher({
   >(null);
   const [deferredGeometryCounts, setDeferredGeometryCounts] =
     useState<BoardCellGeometryJobCountsResponse | null>(null);
-  const [hasVirtualGridAssets, setHasVirtualGridAssets] = useState(false);
-  const [opening, setOpening] = useState<'local' | 'online' | null>(null);
-  const [closingAssignmentId, setClosingAssignmentId] = useState<string | null>(
-    null,
-  );
-  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [localReviewUrl, setLocalReviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -152,70 +137,12 @@ export function ReviewerAccessLauncher({
   const availableStaging = readyBoardImportStaging(readyStaging, gameId);
   const gameHasImageImport = hasImageImport(jobs, gameId);
   const selectedJob = availableJobs.find((job) => job.id === jobId) ?? null;
-  const selectedAssignment =
-    overview?.assignments.find((item) => item.importJobId === jobId) ?? null;
-
-  async function refreshOverview(showError = true) {
-    if (gameId === '') {
-      setOverview(null);
-      return;
-    }
-    const result = await loadReviewerWork(api, gameId);
-    if (!result.ok) {
-      if (showError) setError(result.error);
-      return;
-    }
-    setOverview(result.overview);
-  }
-
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      if (gameId === '') {
-        setOverview(null);
-        return;
-      }
-      const result = await loadReviewerWork(api, gameId);
-      if (!active) return;
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setOverview(result.overview);
-    }
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [api, gameId]);
-
-  const heartbeatIds = useMemo(
-    () => overview?.assignments.map((item) => item.assignmentId) ?? [],
-    [overview],
-  );
-  const heartbeatKey = heartbeatIds.join(',');
-  useEffect(() => {
-    if (heartbeatIds.length === 0) return;
-    const timer = window.setInterval(() => {
-      void Promise.all(
-        heartbeatIds.map((assignmentId) =>
-          heartbeatReviewerWork(api, assignmentId),
-        ),
-      ).then((results) => {
-        if (results.some((ok) => !ok)) void refreshOverview(false);
-      });
-    }, 60_000);
-    return () => window.clearInterval(timer);
-    // The stable key deliberately restarts the timer only when assignment IDs change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, heartbeatKey]);
 
   useEffect(() => {
     let active = true;
     async function loadReviewContext() {
       setGridReviewCounts(null);
       setDeferredGeometryCounts(null);
-      setHasVirtualGridAssets(false);
       if (gameId === '' || jobId === '') {
         setReviewContextLoading(false);
         return;
@@ -254,11 +181,6 @@ export function ReviewerAccessLauncher({
         }
         setGridReviewCounts(gridResult.data.counts);
         setDeferredGeometryCounts(deferredResult.data.counts);
-        setHasVirtualGridAssets(
-          gridResult.data.items.some(
-            (item) => item.assetMode === 'virtual_source',
-          ),
-        );
       } catch {
         if (active) {
           setError('Połączenie z lokalnym Admin API zostało przerwane.');
@@ -277,119 +199,37 @@ export function ReviewerAccessLauncher({
     return (
       gameId !== '' &&
       jobId !== '' &&
-      hasReviewerWork(gridReviewCounts, deferredGeometryCounts) &&
-      overview !== null &&
-      opening === null &&
-      closingAssignmentId === null
+      !loading &&
+      !reviewContextLoading &&
+      hasReviewerWork(gridReviewCounts, deferredGeometryCounts)
     );
   }
 
-  function canCreateOnlineWork() {
-    return canOpenWork() && !hasVirtualGridAssets;
-  }
-
-  async function launchLocalReviewer() {
+  function launchLocalReviewer() {
     if (!canOpenWork()) return;
+    setError('');
+    const reviewUrl = buildPreparedLocalReviewUrl(window.location.href, {
+      gameId,
+      importJobId: jobId,
+    });
+    if (reviewUrl === null) {
+      setLocalReviewUrl(null);
+      setError(
+        'Lokalny Reviewer można otworzyć wyłącznie z lokalnego panelu Admina.',
+      );
+      return;
+    }
+    setLocalReviewUrl(reviewUrl);
     const reviewerWindow = prepareLocalReviewerWindow(
       window.location.href,
       { gameId, importJobId: jobId },
       (url, target) => window.open(url, target),
     );
-    setOpening('local');
-    setError('');
-    setNotice('');
-    setLocalReviewUrl(null);
-    try {
-      const result = await openLocalReviewer(api, {
-        gameId,
-        importJobId: jobId,
-      });
-      if (!result.ok) {
-        closePreparedLocalReviewerWindow(reviewerWindow);
-        setError(result.error);
-        return;
-      }
-      const reviewUrl = result.opened.assignment.reviewUrl;
-      if (reviewUrl === null) {
-        closePreparedLocalReviewerWindow(reviewerWindow);
-        setError('Lokalna aplikacja Reviewer nie zwróciła adresu.');
-        return;
-      }
-      setLocalReviewUrl(reviewUrl);
-      if (reviewerWindow === null) {
-        setError(
-          'Przeglądarka zablokowała nowe okno. Otwórz lokalny Reviewer z linku poniżej.',
-        );
-        return;
-      }
-      if (!navigatePreparedLocalReviewerWindow(reviewerWindow, reviewUrl)) {
-        closePreparedLocalReviewerWindow(reviewerWindow);
-        setError(
-          'Nie udało się przekierować przygotowanego okna. Otwórz lokalny Reviewer z linku poniżej.',
-        );
-        return;
-      }
-      void refreshOverview(false);
-    } finally {
-      setOpening(null);
+    if (reviewerWindow === null) {
+      setError(
+        'Przeglądarka zablokowała nowe okno. Otwórz lokalny Reviewer z linku poniżej.',
+      );
     }
-  }
-
-  async function createOnlineWork() {
-    if (!canOpenWork() || selectedAssignment !== null) return;
-    setOpening('online');
-    setError('');
-    setNotice('');
-    setOneTimeOnlineAccess(null);
-    setCopied(null);
-    try {
-      const result = await openOnlineReviewer(api, {
-        gameId,
-        importJobId: jobId,
-      });
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      if (result.opened.created && result.opened.accessCode !== null) {
-        setOneTimeOnlineAccess(result.opened);
-      } else {
-        setNotice(
-          'Udostępnienie było już aktywne. Kod wejścia jest pokazywany tylko przy pierwszym utworzeniu.',
-        );
-      }
-      await refreshOverview(false);
-    } finally {
-      setOpening(null);
-    }
-  }
-
-  async function stopAssignment(assignment: ReviewerWorkAssignmentResponse) {
-    if (closingAssignmentId !== null) return;
-    setClosingAssignmentId(assignment.assignmentId);
-    setError('');
-    setNotice('');
-    try {
-      const result = await closeReviewerWork(api, assignment.assignmentId);
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      if (
-        oneTimeOnlineAccess?.assignment.assignmentId === assignment.assignmentId
-      ) {
-        setOneTimeOnlineAccess(null);
-        setCopied(null);
-      }
-      await refreshOverview(false);
-    } finally {
-      setClosingAssignmentId(null);
-    }
-  }
-
-  async function copy(value: string, kind: 'code' | 'link') {
-    await navigator.clipboard.writeText(value);
-    setCopied(kind);
   }
 
   return (
@@ -402,8 +242,8 @@ export function ReviewerAccessLauncher({
           <p className="eyebrow">Osobna aplikacja</p>
           <h1>Zatwierdzanie cięcia siatki</h1>
           <p className="lead">
-            Lokalnie zatwierdzisz geometrię na nowej kolejce. Link online
-            pozostaje ograniczonym dostępem do dotychczasowego Reviewera.
+            Otwórz lokalny Reviewer, aby zatwierdzić lub poprawić geometrię
+            wybranego importu.
           </p>
         </div>
       </header>
@@ -414,15 +254,14 @@ export function ReviewerAccessLauncher({
             <label>
               Gra
               <select
-                disabled={loading || opening !== null}
+                disabled={loading}
                 onChange={(event) => {
                   const nextGameId = event.target.value;
                   setGameId(nextGameId);
                   setJobId(selectReviewImportId(jobs, nextGameId, ''));
                   setGridReviewCounts(null);
                   setDeferredGeometryCounts(null);
-                  setHasVirtualGridAssets(false);
-                  setOneTimeOnlineAccess(null);
+                  setLocalReviewUrl(null);
                 }}
                 value={gameId}
               >
@@ -439,15 +278,12 @@ export function ReviewerAccessLauncher({
               Gotowy import plansz
               <select
                 className="reviewerImportSelect"
-                disabled={loading || opening !== null || reviewContextLoading}
+                disabled={loading || reviewContextLoading}
                 onChange={(event) => {
                   setJobId(event.target.value);
                   setGridReviewCounts(null);
                   setDeferredGeometryCounts(null);
-                  setHasVirtualGridAssets(false);
-                  setOneTimeOnlineAccess(null);
-                  setCopied(null);
-                  setNotice('');
+                  setLocalReviewUrl(null);
                 }}
                 title={
                   selectedJob === null ? undefined : reviewJobLabel(selectedJob)
@@ -468,62 +304,14 @@ export function ReviewerAccessLauncher({
             </label>
           ) : null}
 
-          {selectedAssignment?.assignmentType === 'online' ? (
-            <button
-              className="secondaryButton"
-              disabled={closingAssignmentId !== null}
-              onClick={() => void stopAssignment(selectedAssignment)}
-              type="button"
-            >
-              {closingAssignmentId === selectedAssignment.assignmentId
-                ? 'Zatrzymywanie…'
-                : 'Zatrzymaj udostępnianie'}
-            </button>
-          ) : selectedAssignment?.assignmentType === 'local' ? (
-            <>
-              <button
-                className="secondaryButton"
-                disabled={!canOpenWork()}
-                onClick={() => void launchLocalReviewer()}
-                type="button"
-              >
-                {opening === 'local' ? 'Otwieranie…' : 'Otwórz lokalnie'}
-              </button>
-              <button
-                className="textButton"
-                disabled={closingAssignmentId !== null}
-                onClick={() => void stopAssignment(selectedAssignment)}
-                type="button"
-              >
-                {closingAssignmentId === selectedAssignment.assignmentId
-                  ? 'Kończenie…'
-                  : 'Zakończ pracę lokalną'}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                className="secondaryButton"
-                disabled={!canOpenWork()}
-                onClick={() => void launchLocalReviewer()}
-                type="button"
-              >
-                {opening === 'local'
-                  ? 'Uruchamianie lokalnie…'
-                  : 'Otwórz lokalnie'}
-              </button>
-              <button
-                className="primaryButton"
-                disabled={!canCreateOnlineWork()}
-                onClick={() => void createOnlineWork()}
-                type="button"
-              >
-                {opening === 'online'
-                  ? 'Tworzenie linku…'
-                  : 'Utwórz link online'}
-              </button>
-            </>
-          )}
+          <button
+            className="secondaryButton"
+            disabled={!canOpenWork()}
+            onClick={launchLocalReviewer}
+            type="button"
+          >
+            Otwórz lokalnie
+          </button>
         </div>
 
         {!loading && availableJobs.length === 0 ? (
@@ -603,60 +391,9 @@ export function ReviewerAccessLauncher({
           </dl>
         ) : null}
 
-        {hasVirtualGridAssets ? (
-          <p className="reviewerLocalFallback" role="status">
-            Ten import używa cropów v0.10 renderowanych ze źródła. Otwórz go
-            lokalnie; ograniczony Reviewer online obsługuje wyłącznie
-            historyczne pliki cropów.
-          </p>
-        ) : null}
-
-        {overview ? (
-          <div
-            className={`reviewerIngressStatus reviewerIngressStatus-${overview.ingress.state}`}
-            role="status"
-          >
-            <span>
-              Udostępnienia online:{' '}
-              <strong>
-                {overview.activeOnlineCount}/{overview.maximumOnlineCount}
-              </strong>
-            </span>
-            <span>
-              Wspólny Reviewer:{' '}
-              <strong>
-                {overview.ingress.reviewerReady
-                  ? 'gotowy'
-                  : overview.ingress.state === 'degraded'
-                    ? 'problem'
-                    : 'wyłączony'}
-              </strong>
-            </span>
-          </div>
-        ) : null}
-
-        {selectedAssignment ? (
-          <p className="mutedText" role="status">
-            Wybrany import ma aktywną pracę{' '}
-            <strong>
-              {selectedAssignment.assignmentType === 'online'
-                ? 'online'
-                : 'lokalną'}
-            </strong>
-            {selectedAssignment.ready
-              ? '.'
-              : ' — Reviewer wymaga ponownego uruchomienia.'}
-          </p>
-        ) : null}
-
         {error ? (
           <p className="reviewerLauncherError" role="alert">
             {error}
-          </p>
-        ) : null}
-        {notice ? (
-          <p className="reviewerLocalFallback" role="status">
-            {notice}
           </p>
         ) : null}
         {localReviewUrl ? (
@@ -665,93 +402,6 @@ export function ReviewerAccessLauncher({
               Otwórz lokalny Reviewer
             </a>
           </p>
-        ) : null}
-
-        {oneTimeOnlineAccess?.accessCode &&
-        oneTimeOnlineAccess.assignment.reviewUrl ? (
-          <div className="reviewerSessionResult">
-            <div>
-              <span>Link aplikacji</span>
-              <a
-                href={oneTimeOnlineAccess.assignment.reviewUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {oneTimeOnlineAccess.assignment.reviewUrl}
-              </a>
-              <button
-                className="textButton"
-                onClick={() =>
-                  void copy(oneTimeOnlineAccess.assignment.reviewUrl!, 'link')
-                }
-                type="button"
-              >
-                {copied === 'link' ? 'Skopiowano' : 'Kopiuj link'}
-              </button>
-            </div>
-            <div>
-              <span>Unikalny kod wejścia</span>
-              <strong>{oneTimeOnlineAccess.accessCode}</strong>
-              <button
-                className="textButton"
-                onClick={() =>
-                  void copy(oneTimeOnlineAccess.accessCode!, 'code')
-                }
-                type="button"
-              >
-                {copied === 'code' ? 'Skopiowano' : 'Kopiuj kod'}
-              </button>
-            </div>
-            <small>
-              Kod jest pokazany tylko teraz. Po odświeżeniu lista aktywnych prac
-              nie ujawnia kodu ani tokenów.
-            </small>
-          </div>
-        ) : null}
-
-        {overview && overview.assignments.length > 0 ? (
-          <div className="reviewerWorkList">
-            <h2>Aktywne prace</h2>
-            <ul>
-              {overview.assignments.map((assignment) => {
-                const job = jobs.find(
-                  (item) => item.id === assignment.importJobId,
-                );
-                return (
-                  <li key={assignment.assignmentId}>
-                    <div>
-                      <strong>
-                        {job
-                          ? reviewJobLabel(job)
-                          : assignment.importJobId.slice(0, 8)}
-                      </strong>
-                      <span>
-                        {assignment.assignmentType === 'online'
-                          ? 'Online'
-                          : 'Lokalnie'}
-                        {' · '}
-                        {assignment.ready
-                          ? 'Reviewer gotowy'
-                          : 'wymaga uruchomienia'}
-                      </span>
-                    </div>
-                    <button
-                      className="textButton"
-                      disabled={closingAssignmentId !== null}
-                      onClick={() => void stopAssignment(assignment)}
-                      type="button"
-                    >
-                      {closingAssignmentId === assignment.assignmentId
-                        ? 'Zatrzymywanie…'
-                        : assignment.assignmentType === 'online'
-                          ? 'Zatrzymaj udostępnianie'
-                          : 'Zakończ pracę'}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
         ) : null}
       </div>
     </section>

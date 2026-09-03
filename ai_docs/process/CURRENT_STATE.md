@@ -15,6 +15,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Lokalny launcher walidacji siatki — TASK-0423
+
+- `Zatwierdzanie cięcia siatki` ma wyłącznie jeden przycisk `Otwórz lokalnie`.
+  Nie pobiera overview assignmentów, nie wykonuje heartbeatów i nie pokazuje
+  kontrolek online, kodów, stanu ingressu ani akcji kończenia pracy.
+- Lokalny Reviewer jest otwierany od razu pod docelowym loopback URL dla
+  wybranej gry i importu. Zablokowany popup pozostawia ten sam URL jako link
+  ręczny.
+- Usunięto nieużywany frontendowy adapter assignmentów, jego testy oraz style
+  przeznaczone wyłącznie dla starej listy prac i wyniku udostępniania.
+
 ### Zoom i wybór planszy na obrazie — TASK-0422
 
 - Lokalny ekran `Zatwierdzanie cięcia siatki` otwiera obraz źródłowy domyślnie
@@ -54,9 +65,8 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `grid-reviews`, a nie z legacy mappera Reviewera wymagającego trwałych plików
   cropów. Dzięki temu import `virtual_source` v0.10 można otworzyć lokalnie i
   zatwierdzać z obrazu źródłowego bez `IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE`.
-- Ograniczony link online pozostaje celowo wyłączony dla importu v0.10: zdalny
-  Reviewer nadal obsługuje wyłącznie historyczne cropy plikowe i nie dostaje
-  uprawnień do nowego API walidacji geometrii.
+- Walidacja geometrii jest wyłącznie lokalna niezależnie od silnika importu;
+  ten ekran nie ma wariantu online.
 - `Zatwierdź całe zdjęcie` nie wykonuje już serii żądań z tym samym snapshotem:
   lokalny endpoint blokuje i weryfikuje wszystkie aktywne sloty źródła, a potem
   zatwierdza komplet atomowo. Konflikt nie pozostawia częściowo zatwierdzonego

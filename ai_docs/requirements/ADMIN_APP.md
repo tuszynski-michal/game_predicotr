@@ -584,42 +584,19 @@ pełnych plansz i ma:
   komendzie i nie może prezentować sukcesu, jeżeli zwrócony job ma inny
   niezmienny snapshot; nieudana geometria nie wraca do v18, lecz tworzy trwałe
   odroczenie do końcowej korekty,
-- mieć własny proces i adres; panel Admin wybiera grę oraz gotowy import, pokazuje
-  dla niego liczniki wszystkich, oczekujących i zakończonych plansz, a przycisk
-  `Utwórz link online` uruchamia brakujący produkcyjny Reviewer,
-  kontrolowany tunel HTTPS i dopiero potem generuje ograniczoną sesję, link
-  oraz unikalny kod wejścia,
+- mieć własny proces i lokalny adres; panel Admin wybiera grę oraz gotowy
+  import i pokazuje dla niego liczniki wszystkich, oczekujących i zakończonych
+  plansz,
 - identyfikować import w dropdownie krótką datą i godziną, nazwą katalogu oraz
   krótkim statusem; techniczne ID wybranego joba jest widoczne osobno, a długa
   etykieta nie poszerza bez ograniczenia kontrolki,
-- mieć osobny przycisk `Otwórz lokalnie`, który uruchamia produkcyjny Reviewer
-  wyłącznie na `127.0.0.1`, otwiera wybraną grę oraz import i nie uruchamia
-  tunelu, nie tworzy sesji ani nie wymaga kodu; ten tryb działa wyłącznie dla
-  strony otwartej przez loopback; przygotowane synchronicznie okno ma otrzymać
-  zwrócony URL przed pomocniczym odświeżeniem overview, a błąd nawigacji ma
-  pozostawić właścicielowi widoczny link ręczny zamiast pustej karty
-  `about:blank`,
-- pokazywać jawny stan `online` / `wyłączone` / `problem` i udostępniać przycisk
-  `Zatrzymaj udostępnianie`, który unieważnia wyłącznie sesję i assignment
-  wybranego importu; współdzielony publiczny tunel pozostaje dostępny dla innych
-  aktywnych prac online i kończy się dopiero po ostatniej, a decyzje zapisane
-  wcześniej w audycie pozostają w bazie,
-- dopuszczać najwyżej trzy różne aktywne importy online; tryb lokalny nie zajmuje
-  tego limitu, a próba czwartego linku kończy się kontrolowanym komunikatem bez
-  utworzenia sesji,
-- pokazywać listę aktywnych prac wszystkich gotowych importów wybranej gry i
-  pozwalać zakończyć dokładnie wskazane przypisanie; lista po odświeżeniu nie
-  ujawnia kodu wejścia, bearer tokenu, fencing tokenu ani osobnego pola
-  identyfikatora sesji; publiczny URL może zawierać jego opaque identyfikator,
-- ujawniać kod wejścia wyłącznie bezpośrednio po utworzeniu nowej pracy online;
-  idempotentne ponowienie zwraca istniejące przypisanie bez ponownego pokazania
-  kodu,
-- nigdy nie publikować serwera developerskiego Reviewera ani pełnego Admina;
-  wykrycie procesu developerskiego na porcie Reviewera blokuje start z
-  czytelnym komunikatem,
-- przed pokazaniem danych przez publiczny origin wymagać poprawnego kodu.
-  Lokalna wersja pozostaje dostępna wyłącznie przez loopback i korzysta z
-  uprawnień lokalnego właściciela bez dodatkowego kodu,
+- mieć jeden przycisk `Otwórz lokalnie`, który bez tworzenia assignmentu,
+  sesji, kodu ani tunelu otwiera wybraną grę i import bezpośrednio w Reviewerze
+  na porcie loopback `3001`; sekcja nie pokazuje kontrolek online, stanu
+  ingressu, aktywnych prac ani akcji kończenia pracy,
+- działać wyłącznie ze strony Admina otwartej przez loopback; zablokowane nowe
+  okno pozostawia właścicielowi widoczny, ręczny link do dokładnie tego samego
+  lokalnego scope'u,
 
 - kompaktowy header z grą, `sequence_number`, pozycją w kolejce, statusem,
   przełącznikiem `Widok planszy` / `Plansze kompletne`, nawigacją i małym

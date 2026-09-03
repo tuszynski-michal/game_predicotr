@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
   buildPreparedLocalReviewUrl,
-  navigatePreparedLocalReviewerWindow,
   prepareLocalReviewerWindow,
 } from '../src/features/reviewer-access/reviewer-local-window.ts';
 
@@ -60,22 +59,6 @@ test('an opener isolation error does not abort the prepared local launch', () =>
     ),
     reviewerWindow,
   );
-});
-
-test('retries navigation through the cross-origin location setter after API readiness', () => {
-  const reviewerWindow = {
-    close() {},
-    location: { href: 'http://localhost:3001/?mode=local' },
-    opener: null,
-  };
-  const returnedUrl =
-    'http://127.0.0.1:3001/?mode=local&gameId=game-1&importJobId=job-1';
-
-  assert.equal(
-    navigatePreparedLocalReviewerWindow(reviewerWindow, returnedUrl),
-    true,
-  );
-  assert.equal(reviewerWindow.location.href, returnedUrl);
 });
 
 test('does not prepare a local Reviewer tab from a non-loopback Admin origin', () => {

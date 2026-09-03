@@ -405,10 +405,10 @@ Następnie:
 4. Reviewer uruchomi się pod `http://127.0.0.1:3001` i od razu otworzy wybrany
    import bez tunelu oraz kodu w widoku `Zatwierdzanie cięcia siatki`.
 
-Lokalny widok geometrii jest obowiązującym workflowem 0.9 i nie ma zmiennej
-przywracającej poprzedni ekran. Zdalny link nadal otwiera osobny, ograniczony
-workflow przypisany do konkretnej gry i importu; nie otrzymuje dostępu do
-game-wide kolejki walidacji.
+Lokalny widok geometrii jest obowiązującym workflowem i nie ma zmiennej
+przywracającej poprzedni ekran. Sekcja nie tworzy linków online, assignmentów,
+sesji ani kodów dostępu. Przycisk otwiera bezpośrednio lokalny URL wybranej gry
+i importu.
 
 Po aktualizacji do 0.9 wykonaj migracje i resumowalny backfill przy wyłączonych
 API, workerze, Adminie i Reviewerze:
@@ -703,10 +703,12 @@ decyzji i kopii danych.
 - build Android trwa długo — nie uruchamiaj drugiego builda. Poczekaj na
   zakończenie kontrolowanego procesu Gradle albo sprawdź jego ostatni błąd.
 
-## Czasowy link HTTPS do zdalnego Reviewera
+## Czasowy link HTTPS do zdalnej ręcznej selekcji
 
-Ten tryb publikuje tylko aplikację Reviewer. Admin, API, PostgreSQL i worker
-pozostają na `127.0.0.1`. Nie konfiguruj przekierowania portów routera.
+Ten tryb dotyczy wyłącznie purpose-scoped zdalnej ręcznej selekcji zdjęć.
+Nie udostępnia ekranu `Zatwierdzanie cięcia siatki`, który jest wyłącznie
+lokalny. Admin, API, PostgreSQL i worker pozostają na `127.0.0.1`. Nie
+konfiguruj przekierowania portów routera.
 
 Jednorazowo zainstaluj oficjalny `cloudflared` i zbuduj produkcyjnego Reviewera:
 
@@ -716,14 +718,8 @@ npm run reviewer:build
 ```
 
 Uruchom PostgreSQL, migracje, API i Admin. Nie uruchamiaj `reviewer:dev`,
-ponieważ serwer developerski nie może zostać wystawiony online. W Adminie:
-
-1. otwórz `Zatwierdzanie`,
-2. wybierz grę, a następnie gotowy import zdjęć z listy,
-3. kliknij `Otwórz lokalnie` albo `Utwórz link online`,
-4. dla pracy online poczekaj na stan `gotowy`,
-5. skopiuj publiczny link oraz osobno kod pokazany wyłącznie po pierwszym
-   utworzeniu assignmentu.
+ponieważ serwer developerski nie może zostać wystawiony online. Capability i
+link twórz wyłącznie w sekcji zdalnej ręcznej selekcji zdjęć.
 
 Praca lokalna uruchamia lub wykorzystuje gotowego Reviewera na loopback i nie
 zajmuje limitu online. Maksymalnie trzy różne importy mogą być jednocześnie

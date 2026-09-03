@@ -4,7 +4,10 @@ import test from 'node:test';
 import {
   createSymbolReviewWorkspaceState,
   DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
+  isSymbolReviewPageSize,
   MAX_SYMBOL_REVIEW_CACHED_PAGES,
+  MAX_SYMBOL_REVIEW_PAGE_SIZE,
+  SYMBOL_REVIEW_PAGE_SIZES,
   symbolReviewConfidenceRange,
   symbolReviewFiltersReady,
   symbolReviewPageRange,
@@ -41,6 +44,10 @@ function page(id, { nextCursor = null, previousCursor = null } = {}) {
 
 test('keeps at most three bounded metadata pages around the current keyset page', () => {
   assert.equal(DEFAULT_SYMBOL_REVIEW_PAGE_SIZE, 500);
+  assert.equal(MAX_SYMBOL_REVIEW_PAGE_SIZE, 2_500);
+  assert.deepEqual(SYMBOL_REVIEW_PAGE_SIZES, [500, 1_000, 2_000, 2_500]);
+  assert.equal(isSymbolReviewPageSize(2_500), true);
+  assert.equal(isSymbolReviewPageSize(750), false);
   assert.equal(MAX_SYMBOL_REVIEW_CACHED_PAGES, 3);
   let state = createSymbolReviewWorkspaceState(filters);
   state = symbolReviewWorkspaceReducer(state, {
@@ -137,6 +144,10 @@ test('reports the one-based range represented by the confirmed page size', () =>
   assert.deepEqual(symbolReviewPageRange(3, 20, 100, 220), {
     start: 201,
     end: 220,
+  });
+  assert.deepEqual(symbolReviewPageRange(1, 2_500, 2_500, 3_000), {
+    start: 1,
+    end: 2_500,
   });
   assert.equal(symbolReviewPageRange(1, 0, 100, 0), null);
 });

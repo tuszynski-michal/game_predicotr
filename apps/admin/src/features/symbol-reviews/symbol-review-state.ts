@@ -5,8 +5,11 @@ import type {
 
 export const DEFAULT_SYMBOL_REVIEW_PAGE_SIZE = 500;
 export const MIN_SYMBOL_REVIEW_PAGE_SIZE = 1;
-export const MAX_SYMBOL_REVIEW_PAGE_SIZE = 500;
+export const MAX_SYMBOL_REVIEW_PAGE_SIZE = 2_500;
+export const SYMBOL_REVIEW_PAGE_SIZES = [500, 1_000, 2_000, 2_500] as const;
 export const MAX_SYMBOL_REVIEW_CACHED_PAGES = 3;
+
+export type SymbolReviewPageSize = (typeof SYMBOL_REVIEW_PAGE_SIZES)[number];
 
 export type SymbolReviewConfidenceFilter = 'all' | 'high' | 'low' | 'medium';
 
@@ -67,6 +70,12 @@ export function symbolReviewFiltersReady(
   readonly symbolId: string | 'all' | 'unknown';
 } {
   return filters.gameId !== null && filters.symbolId !== null;
+}
+
+export function isSymbolReviewPageSize(
+  pageSize: number,
+): pageSize is SymbolReviewPageSize {
+  return SYMBOL_REVIEW_PAGE_SIZES.includes(pageSize as SymbolReviewPageSize);
 }
 
 export function symbolReviewConfidenceRange(

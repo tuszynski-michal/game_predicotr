@@ -57,6 +57,8 @@ import {
   createSymbolReviewWorkspaceState,
   DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
   findCachedSymbolReviewPage,
+  isSymbolReviewPageSize,
+  SYMBOL_REVIEW_PAGE_SIZES,
   symbolReviewFiltersReady,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
@@ -903,6 +905,24 @@ export function SymbolReviewWorkspace({
             <option value="unknown">Nierozpoznany (?)</option>
           </select>
         </label>
+        <label>
+          Na stronę
+          <select
+            disabled={interactionBusy}
+            onChange={(event) => {
+              const pageSize = Number.parseInt(event.target.value, 10);
+              if (!isSymbolReviewPageSize(pageSize)) return;
+              requestFilterChange({ ...filters, pageSize });
+            }}
+            value={filters.pageSize}
+          >
+            {SYMBOL_REVIEW_PAGE_SIZES.map((pageSize) => (
+              <option key={pageSize} value={pageSize}>
+                {pageSize}
+              </option>
+            ))}
+          </select>
+        </label>
         <fieldset>
           <legend>Stan weryfikacji</legend>
           <label>
@@ -1069,7 +1089,7 @@ export function SymbolReviewWorkspace({
                     selected={isSymbolReviewItemSelected(selection, item)}
                   />
                 )}
-                scopeKey={`${filters.gameId ?? ''}:${filters.symbolId ?? ''}`}
+                scopeKey={`${filters.gameId ?? ''}:${filters.symbolId ?? ''}:${filters.pageSize}`}
               />
             )}
             <div className={styles.pagination}>

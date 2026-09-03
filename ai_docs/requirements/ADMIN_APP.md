@@ -388,22 +388,24 @@ a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
 starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
 Gra oraz zakres symbolu są domyślnie niewybrane. Wejście do zakładki nie pobiera
-strony cropów. Pierwsza strona o stałym rozmiarze 500 metadanych jest pobierana
+strony cropów. Operator wybiera rozmiar strony `500`, `1000`, `2000` albo
+`2500` metadanych; domyślnie jest to `500`. Pierwsza strona jest pobierana
 automatycznie dopiero po wskazaniu kombinacji obu pól. Zmiana gry ponownie
 czyści wybór symbolu; osobne akcje `Zatwierdź wybór` i `Zmień wybór` nie
 występują. Globalne liczniki nie należą
 do krytycznej ścieżki listy: są pobierane osobno dla gry i rewizji
 katalogu. Wolny albo niedostępny licznik nie blokuje oglądania ani decyzji, a
-spóźniona odpowiedź poprzedniej gry jest odrzucana. Zmiana ustawionej gry albo
-symbolu czyści strony i wirtualny viewport. Jeśli istnieje jawne zaznaczenie,
+spóźniona odpowiedź poprzedniej gry jest odrzucana. Zmiana ustawionej gry,
+symbolu albo rozmiaru strony czyści strony, miniatury, zaznaczenie i wirtualny
+viewport. Jeśli istnieje jawne zaznaczenie,
 operator najpierw potwierdza jego wyczyszczenie. Widok zachowuje jawne przyciski
 poprzedniej/następnej strony, prefetchuje wyłącznie jedną kolejną stronę i trzyma
 w pamięci najwyżej trzy najbliższe strony metadanych. Nie utrzymuje obrazów dla
 całej strony: DOM zawiera tylko karty viewportu i małego overscanu. Admin
 dzieli potwierdzoną stronę deterministycznie na atlasy po maksymalnie 100
 kart, wspólne dla `legacy_file` i `virtual_source`. Dla 500 cropów powstaje
-najwyżej pięć requestów obrazu: najpierw grupa zawierająca widoczny viewport,
-potem pozostałe grupy w kolejności. Klucz atlasu obejmuje rewizje, checksumy,
+najwyżej pięć requestów obrazu, a dla 2500 — najwyżej 25: najpierw grupa
+zawierająca widoczny viewport, potem pozostałe grupy w kolejności. Klucz atlasu obejmuje rewizje, checksumy,
 tryby assetów i wersję renderera, dlatego powrót na stronę korzysta z tego
 samego content-addressed cache, a zmiana cropa nie może pokazać starego tile'a.
 Podsumowanie pokazuje numer strony i jej jednoznaczny zakres pozycji natychmiast
@@ -448,7 +450,7 @@ jawnie do 10 000 pozycji. Game-wide widok nie udostępnia akcji `Zaznacz wyniki
 filtra`, ponieważ jego zakres może zawierać jednocześnie zwykłe, nierozpoznane i
 odrzucone jakościowo cropy o różnych dozwolonych mutacjach.
 Jawne zaznaczenie pozostaje aktywne przy przejściu między keysetowymi stronami,
-więc operator może zbudować jeden job z kilku stron po 500 cropów. Czyści je
+więc operator może zbudować jeden job z kilku stron wybranego rozmiaru. Czyści je
 wyłącznie jawna akcja, zmiana filtra albo skuteczne przekazanie operacji.
 Zmiana filtra przy zaznaczeniu wymaga potwierdzenia i czyści selection. Wysłana
 operacja masowa przechodzi do tła: jej dokładne widoczne targety pozostają

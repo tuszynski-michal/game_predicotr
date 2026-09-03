@@ -15,6 +15,13 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Wybieralny rozmiar strony Weryfikacji symboli
+
+- Operator może wybrać `500`, `1000`, `2000` albo `2500` cropów na stronę;
+  domyślnie pozostaje `500`. Zmiana limitu resetuje kontekst keysetowy,
+  miniatury i zaznaczenie, dzięki czemu nie łączy stron utworzonych różnymi
+  limitami. API pozostaje bounded limitem `2500`.
+
 ### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
 
 - Weryfikacja symboli pokazuje numer planszy bez zwiększania kafelka.
@@ -531,7 +538,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 - Weryfikacja symboli zachowuje jawne, checksum-bound zaznaczenie przy
   przejściu między stronami keysetowymi. Operator może połączyć do 10 000
-  cropów z wielu stron po 500 w jeden job masowy.
+  cropów z wielu stron wybranego rozmiaru w jeden job masowy.
 - Zmiana filtra, jawne wyczyszczenie albo przekazanie operacji nadal czyści
   selection. Pomyślna operacja ukrywa wszystkie jej jawne targety również po
   powrocie do wcześniej odwiedzonej strony.

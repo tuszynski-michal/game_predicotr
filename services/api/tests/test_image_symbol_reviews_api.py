@@ -876,7 +876,7 @@ def test_counts_endpoint_rejects_a_stale_catalog_revision(tmp_path: Path) -> Non
     assert response.json()["code"] == "SYMBOL_CELL_REVIEW_CATALOG_REVISION_STALE"
 
 
-def test_list_endpoint_rejects_a_page_size_above_five_hundred(
+def test_list_endpoint_accepts_the_configured_maximum_and_rejects_a_larger_page(
     tmp_path: Path,
 ) -> None:
     game_id, symbol_id = uuid4(), uuid4()
@@ -899,11 +899,17 @@ def test_list_endpoint_rejects_a_page_size_above_five_hundred(
     with _client(repository, artifact_root=tmp_path) as client:
         response = client.get(
             f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
-            params={"symbolId": str(symbol_id), "limit": 501},
+            params={"symbolId": str(symbol_id), "limit": 2_500},
+        )
+        oversized = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "limit": 2_501},
         )
 
-    assert response.status_code == 422
-    assert repository.limits == []
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 501
+    assert oversized.status_code == 422
+    assert repository.limits == [2_500]
 
 
 def test_list_endpoint_binds_confidence_filter_to_keyset_cursor(tmp_path: Path) -> None:

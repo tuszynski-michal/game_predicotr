@@ -30,6 +30,9 @@ test('loads crops only after selecting both a game and a symbol scope', () => {
   assert.match(source, /Symbol\s*<select/);
   assert.match(source, /Wybierz grę/);
   assert.match(source, /Wybierz symbol lub zakres/);
+  assert.match(source, /Na stronę\s*<select/);
+  assert.match(source, /SYMBOL_REVIEW_PAGE_SIZES/);
+  assert.match(source, /isSymbolReviewPageSize/);
   assert.match(source, />Wszystkie symbole</);
   assert.match(source, />Nierozpoznany \(\?\)</);
   assert.doesNotMatch(source, /Pewność predykcji/);
@@ -64,6 +67,7 @@ test('keeps a three-page metadata window with virtual cards and background bulk 
   assert.match(source, /findCachedSymbolReviewPage/);
   assert.match(source, /pagePositionRef/);
   assert.match(source, /maks\. \$\{filters\.pageSize\} symboli/);
+  assert.match(source, /filters\.pageSize\}`\}/);
   assert.match(source, /Poprzednia strona/);
   assert.match(source, /Następna strona/);
   assert.match(styles, /width: 100px/);

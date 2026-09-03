@@ -120,7 +120,7 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
   &maxConfidence=0..1
   &afterCursor=...
   &beforeCursor=...
-  &limit=1..500
+  &limit=1..2500
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   ?expectedCropChecksumSha256={sha256}

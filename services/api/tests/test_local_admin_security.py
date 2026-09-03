@@ -295,6 +295,18 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
     def revise_grid(item_id: str) -> dict[str, str]:
         return {"itemId": item_id, "operation": "revision"}
 
+    @app.post(
+        "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval"
+    )
+    def approve_source_grid(game_id: str) -> dict[str, str]:
+        return {"gameId": game_id, "operation": "source-approval"}
+
+    @app.post(
+        "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions"
+    )
+    def revise_source_grid(game_id: str) -> dict[str, str]:
+        return {"gameId": game_id, "operation": "source-revision"}
+
     @app.post("/api/v1/admin/jobs")
     def create_job() -> dict[str, bool]:
         return {"created": True}
@@ -331,6 +343,14 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
             "/api/v1/admin/image-reviews/review-item/geometry-revisions",
             headers=headers,
         )
+        accepted_source_grid_approval = client.post(
+            "/api/v1/admin/games/game/grid-reviews/source-geometry-approval",
+            headers=headers,
+        )
+        accepted_source_grid_revision = client.post(
+            "/api/v1/admin/games/game/grid-reviews/source-geometry-revisions",
+            headers=headers,
+        )
         forbidden_admin_mutation = client.post(
             "/api/v1/admin/jobs",
             headers=headers,
@@ -353,6 +373,16 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
     assert accepted_grid_preview.json() == {"itemId": "review-item", "operation": "preview"}
     assert accepted_grid_revision.status_code == 200
     assert accepted_grid_revision.json() == {"itemId": "review-item", "operation": "revision"}
+    assert accepted_source_grid_approval.status_code == 200
+    assert accepted_source_grid_approval.json() == {
+        "gameId": "game",
+        "operation": "source-approval",
+    }
+    assert accepted_source_grid_revision.status_code == 200
+    assert accepted_source_grid_revision.json() == {
+        "gameId": "game",
+        "operation": "source-revision",
+    }
     assert accepted_pending_resolution.status_code == 200
     assert accepted_pending_resolution.json() == {"pendingId": "pending"}
     assert forbidden_admin_mutation.status_code == 403

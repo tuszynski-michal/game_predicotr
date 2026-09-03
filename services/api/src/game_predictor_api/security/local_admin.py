@@ -187,6 +187,8 @@ _REVIEWER_MUTATION_PATTERNS = tuple(
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-approval$",
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-revisions$",
+        r"^/api/v1/admin/games/[^/]+/grid-reviews/source-geometry-approval$",
+        r"^/api/v1/admin/games/[^/]+/grid-reviews/source-geometry-revisions$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-revisions$",
         r"^/api/v1/admin/image-review-items/[^/]+/resolution$",

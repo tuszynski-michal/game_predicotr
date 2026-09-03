@@ -49,6 +49,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   gry. Zapis nadal fail-closed weryfikuje kompletne lokalne provenance,
   topologię, rewizję i wszystkie bieżące komórki, a więc nie omija żadnej
   kontroli integralności konkretnej planszy.
+- Lokalny Reviewer na porcie `3001` ma dokładnie dwie dodatkowe,
+  source-scoped mutacje v0.10: szybkie zatwierdzenie oraz wspólny zapis
+  geometrii źródła. Allowlista nie rozszerza dostępu do pozostałych endpointów
+  Admina ani do zdalnej sesji Reviewera.
 
 ### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
 

@@ -357,6 +357,9 @@ blokuje lokalnej korekty kompletnego bieżącego źródła. Przed zapisem backen
 nadal checksum-bound waliduje dokładnie to źródło, jego topologię, rewizje,
 render spec oraz komplet komórek, więc niepełna proweniencja konkretnej planszy
 pozostaje fail-closed.
+Lokalny origin Reviewera dostaje wyłącznie scope-bound ścieżki szybkiego
+zatwierdzania i wspólnego zapisu geometrii źródła; nie otrzymuje dostępu do
+pozostałych mutacji panelu Admina.
 
 Nowy workflow jest obowiązującym lokalnym widokiem. Zdalna sesja Reviewera
 zachowuje wąsko ograniczoną ścieżkę operacyjną i nie otrzymuje game-wide

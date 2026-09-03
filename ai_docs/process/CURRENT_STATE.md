@@ -15,6 +15,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Kolejność wpisywania wzoru wyszukiwania plansz — TASK-0421
+
+- Edytor `Wyszukaj plansze` domyślnie przechodzi pola kolumnami: od góry do
+  dołu pierwszej kolumny, a następnie kolejnymi kolumnami.
+- Operator może przełączyć kolejność na wierszową. Przełączenie nie zmienia
+  wpisanych symboli i wskazuje pierwsze wolne pole w wybranym porządku.
+- Sposób wprowadzania jest wyłącznie stanem UI. Zapytanie nadal używa
+  kanonicznych indeksów row-major, więc API i ranking pozostają bez zmian.
+
 ### Wybieralny rozmiar strony Weryfikacji symboli
 
 - Operator może wybrać `500`, `1000`, `2000` albo `2500` cropów na stronę;

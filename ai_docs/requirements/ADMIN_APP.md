@@ -312,6 +312,12 @@ dowodu: pozostają widoczne w lokalnym wzorze i historii `Cofnij`, ale nie są
 wysyłane jako znana pozycja i nie wchodzą do denominatora. Wzór zawierający
 wyłącznie puste pola lub `?` nie może uruchomić wyszukiwania.
 
+Operator wybiera kolejność automatycznego przechodzenia pól: kolumnami albo
+wierszami. Domyślnie edytor przechodzi pierwszą kolumnę z góry na dół, a potem
+kolejne kolumny. Zmiana kolejności zachowuje zawartość wzoru i wybiera pierwsze
+wolne pole w nowym porządku. Wizualny układ oraz kanoniczne indeksy komórek
+pozostają row-major niezależnie od sposobu wprowadzania.
+
 Zapisane `?` w znalezionej planszy nie daje punktu, nie zwiększa liczby
 dokładnych dopasowań ani sprzeczności. Znany symbol zapytania zestawiony z `?`
 jest raportowany jako brak danych. Wyniki zachowują deterministyczną kolejność:

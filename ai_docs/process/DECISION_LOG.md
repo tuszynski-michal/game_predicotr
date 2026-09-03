@@ -7290,3 +7290,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   niejednoznaczny outcome v2 i blokowało całą atomową rewizję źródła.
 - **Consequences:** nowy crop nadal wymaga jawnej weryfikacji i jest wykluczony
   z treningu; poprawiona geometria nie dziedziczy pozornej decyzji człowieka.
+
+### D-317 — Kolejność wpisywania nie zmienia tożsamości komórek wzoru
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** edytor wyszukiwania plansz domyślnie przechodzi pola
+  kolumnami, ale pozwala wybrać kolejność wierszową. Oba tryby zapisują wartości
+  pod tymi samymi kanonicznymi indeksami row-major.
+- **Rationale:** operatorowi często łatwiej przepisywać widoczny układ pionowo,
+  natomiast ranking i projekcja wyszukiwania muszą zachować jeden stabilny
+  kontrakt pozycji.
+- **Consequences:** przełącznik wpływa wyłącznie na następne aktywne pole w UI;
+  nie zmienia API, istniejącego wzoru ani semantyki wyników.

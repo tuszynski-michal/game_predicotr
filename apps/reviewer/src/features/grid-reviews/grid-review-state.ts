@@ -131,6 +131,17 @@ export function gridGeometrySourceDraft(
   return drafts.get(reviewItemId) ?? [];
 }
 
+/**
+ * A source-wide manual edit intentionally starts with an empty draft.  Canvas
+ * code must use this optional anchor instead of assuming that a first point
+ * already exists before the operator makes the LT click.
+ */
+export function gridGeometryDraftAnchor(
+  draft: GridGeometryDraft,
+): OperationalImageReviewGeometryPoint | null {
+  return draft[0] ?? null;
+}
+
 export function replaceGridGeometrySourceDraft(
   drafts: GridGeometrySourceDrafts,
   reviewItemId: string,

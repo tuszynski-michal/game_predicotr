@@ -7,6 +7,7 @@ import {
   emptyGridGeometrySourceDrafts,
   firstIncompleteGridGeometrySourceItem,
   GRID_CORNER_LABELS,
+  gridGeometryDraftAnchor,
   gridGeometrySourceDraft,
   GRID_REVIEW_VIEWS,
   gridGeometryDragTarget,
@@ -75,6 +76,14 @@ test('four clicks create corners in LT PT PD LD order and undo removes the last 
     addGridGeometryPoint(draft, { x: 50, y: 50 }, 120, 100),
     draft,
   );
+});
+
+test('a newly selected source slot has no overlay anchor until its first click', () => {
+  assert.equal(gridGeometryDraftAnchor([]), null);
+  assert.deepEqual(gridGeometryDraftAnchor([{ x: 10, y: 20 }]), {
+    x: 10,
+    y: 20,
+  });
 });
 
 test('corner drag changes one point and whole-grid drag preserves shape within source bounds', () => {

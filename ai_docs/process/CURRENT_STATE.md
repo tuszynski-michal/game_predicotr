@@ -40,7 +40,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   zapis tworzy jedną source geometry revision i aktualizuje cały komplet
   plansz, cropów oraz audytu. Wstrzymanie tego trybu nie usuwa lokalnych
   szkiców: kolejne wejście wybiera pierwszy niekompletny slot, a już ustawione
-  quady nadal pozostają widoczne do wspólnego zapisu.
+  quady nadal pozostają widoczne do wspólnego zapisu. Pusty, pierwszy szkic
+  nie ma jeszcze kotwicy overlayu, lecz jest prawidłowym stanem edytora: nie
+  może wywrócić lokalnego Reviewera ani przełączyć go na ekran kodu sesji
+  zdalnej.
 
 ### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
 

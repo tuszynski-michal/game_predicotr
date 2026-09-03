@@ -10,6 +10,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from typing import cast
 from uuid import UUID
 
 NormalizedQuad = tuple[
@@ -18,6 +19,13 @@ NormalizedQuad = tuple[
     tuple[float, float],
     tuple[float, float],
 ]
+
+GRID_CALIBRATION_MANIFEST_SCHEMA_VERSION = 2
+GRID_CALIBRATION_POLICY_V1 = "robust-normalized-corner-offset-v1"
+GRID_CALIBRATION_POLICY_V2 = "source-specific-36-corner-registration-v2"
+GRID_ANCHOR_SELECTION_POLICY_V1 = "geometry-medoid-farthest-point-16-v1"
+GRID_CORNERS_PER_COMPLETE_SOURCE = 36
+GRID_MAX_REGISTRATION_ANCHORS = 16
 
 
 class GridProfileStatus(StrEnum):
@@ -128,9 +136,9 @@ def build_geometry_manifest(
     )
     source_splits = _source_splits(tuple(item.source_checksum_sha256 for item in ordered))
     payload: dict[str, object] = {
-        "schemaVersion": 1,
+        "schemaVersion": GRID_CALIBRATION_MANIFEST_SCHEMA_VERSION,
         "gameId": str(game_id),
-        "splitPolicy": "source-checksum-sha256-80-20-v1",
+        "splitPolicy": "source-checksum-sha256-80-20-v2",
         "samples": [
             {
                 "boardId": str(item.board_id),
@@ -160,6 +168,71 @@ def build_geometry_manifest(
 def train_grid_profile(
     manifest: dict[str, object],
 ) -> tuple[dict[str, object], dict[str, object], tuple[str, ...]]:
+    if manifest.get("schemaVersion") == 1:
+        return _train_legacy_grid_profile_v1(manifest)
+    return _train_source_specific_grid_profile_v2(manifest)
+
+
+def _train_source_specific_grid_profile_v2(
+    manifest: dict[str, object],
+) -> tuple[dict[str, object], dict[str, object], tuple[str, ...]]:
+    raw_samples = manifest.get("samples")
+    if not isinstance(raw_samples, list):
+        raise ValueError("Geometry cohort samples are missing.")
+    samples = [item for item in raw_samples if isinstance(item, dict)]
+    complete_pages, incomplete_source_count = _complete_source_pages(samples)
+    training_pages = [page for page in complete_pages if page[0].get("split") == "training"]
+    validation_pages = [page for page in complete_pages if page[0].get("split") == "validation"]
+    anchor_checksums = _select_geometry_diverse_anchors(
+        training_pages,
+        limit=GRID_MAX_REGISTRATION_ANCHORS,
+    )
+    baseline_errors = [_source_page_error(page) for page in complete_pages]
+    baseline = _error_metrics(baseline_errors)
+    manually_corrected_sources = sum(_source_page_has_correction(page) for page in complete_pages)
+    reasons: list[str] = []
+    if len(complete_pages) < 3:
+        reasons.append("INSUFFICIENT_COMPLETE_SOURCE_COVERAGE")
+    if len(training_pages) < 2 or not anchor_checksums:
+        reasons.append("TRAINING_SOURCE_SET_INSUFFICIENT")
+    if not validation_pages:
+        reasons.append("VALIDATION_SOURCE_SET_EMPTY")
+    profile: dict[str, object] = {
+        "schemaVersion": 2,
+        "calibrationPolicy": GRID_CALIBRATION_POLICY_V2,
+        "cohortChecksumSha256": _checksum(manifest),
+        "cornerCountPerSource": GRID_CORNERS_PER_COMPLETE_SOURCE,
+        "anchorSelectionPolicy": GRID_ANCHOR_SELECTION_POLICY_V1,
+        "anchorSourceChecksums": list(anchor_checksums),
+        "runtimeValidationPolicy": "target-specific-homography-and-nine-red-edge-gates-v1",
+        # Kept empty intentionally. A v2 profile must never fall back to the
+        # source-independent median offsets used by historical v1 profiles.
+        "scopes": [],
+        "positionFallbacks": [],
+    }
+    metrics: dict[str, object] = {
+        "trainingSampleCount": len(training_pages) * 9,
+        "validationSampleCount": len(validation_pages) * 9,
+        "completeSourceCount": len(complete_pages),
+        "incompleteSourceCount": incomplete_source_count,
+        "trainingSourceCount": len(training_pages),
+        "validationSourceCount": len(validation_pages),
+        "anchorSourceCount": len(anchor_checksums),
+        "trainingCornerCount": len(training_pages) * GRID_CORNERS_PER_COMPLETE_SOURCE,
+        "validationCornerCount": len(validation_pages) * GRID_CORNERS_PER_COMPLETE_SOURCE,
+        "manualCorrectionSourceCount": manually_corrected_sources,
+        "sourceGeometryError": baseline,
+        "runtimeFailClosed": True,
+        "passed": not reasons,
+    }
+    return profile, metrics, tuple(reasons)
+
+
+def _train_legacy_grid_profile_v1(
+    manifest: dict[str, object],
+) -> tuple[dict[str, object], dict[str, object], tuple[str, ...]]:
+    """Retain the exact historical v1 trainer for replay and golden tests."""
+
     raw_samples = manifest.get("samples")
     if not isinstance(raw_samples, list):
         raise ValueError("Geometry cohort samples are missing.")
@@ -170,7 +243,7 @@ def train_grid_profile(
     positions = _offset_scopes(training, include_run=False)
     profile: dict[str, object] = {
         "schemaVersion": 1,
-        "calibrationPolicy": "robust-normalized-corner-offset-v1",
+        "calibrationPolicy": GRID_CALIBRATION_POLICY_V1,
         "cohortChecksumSha256": _checksum(manifest),
         "scopes": scopes,
         "positionFallbacks": positions,
@@ -255,6 +328,142 @@ def _source_splits(checksums: tuple[str, ...]) -> dict[str, str]:
     if len(unique) > 1 and "training" not in splits.values():
         splits[unique[0]] = "training"
     return splits
+
+
+def _complete_source_pages(
+    samples: list[dict[str, object]],
+) -> tuple[list[tuple[dict[str, object], ...]], int]:
+    grouped: dict[str, list[dict[str, object]]] = {}
+    for item in samples:
+        checksum = item.get("sourceChecksumSha256")
+        if isinstance(checksum, str):
+            grouped.setdefault(checksum, []).append(item)
+    complete: list[tuple[dict[str, object], ...]] = []
+    incomplete = 0
+    for checksum in sorted(grouped):
+        rows = grouped[checksum]
+        by_position: dict[int, dict[str, object]] = {}
+        duplicated = False
+        for row in rows:
+            position = row.get("positionIndex")
+            if not isinstance(position, int) or position in by_position:
+                duplicated = True
+                continue
+            by_position[position] = row
+        page = tuple(by_position.get(position, {}) for position in range(9))
+        if duplicated or any(not row for row in page) or not _source_page_is_valid(page):
+            incomplete += 1
+            continue
+        complete.append(page)
+    return complete, incomplete
+
+
+def _source_page_is_valid(page: tuple[dict[str, object], ...]) -> bool:
+    if len(page) != 9:
+        return False
+    width = page[0].get("imageWidth")
+    height = page[0].get("imageHeight")
+    split = page[0].get("split")
+    if (
+        not isinstance(width, int)
+        or not isinstance(height, int)
+        or width < 1
+        or height < 1
+        or split not in {"training", "validation"}
+    ):
+        return False
+    quads: list[NormalizedQuad] = []
+    for position, row in enumerate(page):
+        if (
+            row.get("positionIndex") != position
+            or row.get("imageWidth") != width
+            or row.get("imageHeight") != height
+            or row.get("split") != split
+        ):
+            return False
+        quad = _manifest_quad(row.get("finalQuad"))
+        if quad is None or not _quad_is_valid(quad):
+            return False
+        if any(not (0 <= x < width and 0 <= y < height) for x, y in quad):
+            return False
+        quads.append(quad)
+    centers = [
+        (sum(point[0] for point in quad) / 4, sum(point[1] for point in quad) / 4) for quad in quads
+    ]
+    rows_are_ordered = all(
+        centers[row * 3][0] < centers[row * 3 + 1][0] < centers[row * 3 + 2][0] for row in range(3)
+    )
+    columns_are_ordered = all(
+        centers[column][1] < centers[column + 3][1] < centers[column + 6][1] for column in range(3)
+    )
+    return rows_are_ordered and columns_are_ordered
+
+
+def _source_page_signature(page: tuple[dict[str, object], ...]) -> tuple[float, ...]:
+    width = cast(int, page[0]["imageWidth"])
+    height = cast(int, page[0]["imageHeight"])
+    values: list[float] = []
+    for row in page:
+        quad = _manifest_quad(row.get("finalQuad"))
+        if quad is None:
+            raise ValueError("A complete source page must contain nine final quads.")
+        for x, y in quad:
+            values.extend((x / width, y / height))
+    return tuple(values)
+
+
+def _signature_distance(left: tuple[float, ...], right: tuple[float, ...]) -> float:
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(left, right, strict=True)) / len(left))
+
+
+def _select_geometry_diverse_anchors(
+    pages: list[tuple[dict[str, object], ...]],
+    *,
+    limit: int,
+) -> tuple[str, ...]:
+    if not pages or limit < 1:
+        return ()
+    candidates = [
+        (
+            str(page[0]["sourceChecksumSha256"]),
+            _source_page_signature(page),
+        )
+        for page in pages
+    ]
+    candidates.sort(key=lambda value: value[0])
+    # Start with the medoid so the fast path represents the most typical page,
+    # then add the farthest geometry from the already selected set. This keeps
+    # the profile bounded while retaining different perspective/curvature
+    # arrangements captured by all 36 approved corners.
+    first = min(
+        candidates,
+        key=lambda candidate: (
+            sum(_signature_distance(candidate[1], other[1]) for other in candidates),
+            candidate[0],
+        ),
+    )
+    selected = [first]
+    remaining = [candidate for candidate in candidates if candidate[0] != first[0]]
+    while remaining and len(selected) < limit:
+        next_candidate = min(
+            remaining,
+            key=lambda candidate: (
+                -min(_signature_distance(candidate[1], chosen[1]) for chosen in selected),
+                candidate[0],
+            ),
+        )
+        selected.append(next_candidate)
+        remaining = [candidate for candidate in remaining if candidate[0] != next_candidate[0]]
+    return tuple(candidate[0] for candidate in selected)
+
+
+def _source_page_error(page: tuple[dict[str, object], ...]) -> float:
+    errors = [_sample_error(row, None) for row in page]
+    return sum(errors) / len(errors)
+
+
+def _source_page_has_correction(page: tuple[dict[str, object], ...]) -> bool:
+    return any(_sample_error(row, None) > 1e-9 for row in page)
 
 
 def _quad_payload(quad: NormalizedQuad) -> list[dict[str, float]]:

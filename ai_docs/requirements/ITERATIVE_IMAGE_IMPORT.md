@@ -52,22 +52,22 @@ przelicza automatycznie wcześniejszych `pending` i nigdy nie zmienia decyzji
 
 ## Kalibracja siatki
 
-Wersja 0.5 wykorzystuje istniejący detektor i uczy wersjonowane korekty jego
-narożników. Kohorta zawiera pierwotny quad detektora oraz finalny quad
-zaakceptowany przez człowieka. Akceptacja bez edycji siatki jest prawidłowym
-przykładem zerowej korekty.
+Aktywny profil produkcyjny jest uczony na poziomie całego zdjęcia. Jedna próbka
+to dziewięć niezależnie zatwierdzonych quadów plansz, czyli 36 narożników.
+Każda plansza zachowuje własne pochylenie i perspektywę; nie wolno redukować
+próbki do czterech narożników strony ani do mediany przesunięcia pozycji.
 
-Profil jest ograniczony do gry, źródła Selekcji Zdjęć i pozycji planszy 1–9.
-Plansze z bezpośredniego importu bez runu Selekcji Zdjęć również należą do
-kohorty; uczą fallbacku właściwego dla pozycji. Brak pasującego profilu oznacza
-jawny fallback do detektora. Kandydat nie staje się aktywny bez bramki jakości
-i potwierdzenia właściciela.
+Źródła są dzielone rozłącznie na train i validation. Z train wybierany jest
+bounded, deterministyczny zestaw geometrycznie różnorodnych kotwic. Dla nowego
+zdjęcia rejestracja estymuje jego własną homografię, przenosi wszystkie 36
+narożników wybranej kotwicy i osobno dopasowuje czerwone krawędzie każdego z
+dziewięciu quadów. Brak kompletnego dowodu na zdjęciu docelowym kieruje je do
+ręcznej walidacji; nie uruchamia średniego quada ani syntetycznej siatki.
 
-Jeżeli po dwóch iteracjach i reprezentatywnej partii ponad 10% layoutów nadal
-wymaga korekty siatki albo błąd p95 nie poprawia się na odseparowanych
-zdjęciach, należy zaproponować przejście na model neuronowy. Dataset pod taki
-model zachowuje oryginalny obraz, cztery zatwierdzone narożniki, pozycję i sesję;
-podział train/validation/test odbywa się po zdjęciu i sesji.
+Historyczne profile medianowych przesunięć pozostają odtwarzalne wyłącznie dla
+jobów, które już przypięły ich fingerprint. Nowy kandydat nie staje się aktywny
+bez kompletnej kohorty 36-punktowej, rozłącznego źródła walidacyjnego i jawnego
+potwierdzenia właściciela.
 
 ## Aktywny kontrakt geometrii komórek v18/v20
 

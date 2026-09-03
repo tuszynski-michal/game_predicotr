@@ -34,6 +34,20 @@ function metric(
   return typeof value === 'number' ? value.toFixed(5) : '—';
 }
 
+function countMetric(
+  profile: GridCalibrationProfileResponse | null,
+  key:
+    | 'anchorSourceCount'
+    | 'completeSourceCount'
+    | 'trainingCornerCount'
+    | 'trainingSourceCount'
+    | 'validationCornerCount'
+    | 'validationSourceCount',
+): string {
+  const value = profile?.gateMetrics[key];
+  return typeof value === 'number' ? String(value) : '—';
+}
+
 export function GridQualityPanel({
   apiBaseUrl,
   client,
@@ -96,6 +110,8 @@ export function GridQualityPanel({
   }, [refresh]);
 
   const latest = profiles[0] ?? null;
+  const usesFullSourceGeometry =
+    typeof latest?.gateMetrics.trainingCornerCount === 'number';
   const activeId = activations[0]?.profileId ?? null;
   const rollbackId = activations[0]?.previousProfileId ?? null;
 
@@ -194,8 +210,9 @@ export function GridQualityPanel({
       <header>
         <h3 id="grid-quality-title">Kalibracja siatki</h3>
         <p>
-          Niezależny profil powstaje wyłącznie z zaakceptowanych korekt. Nigdy
-          nie zmienia historycznych ani rozstrzygniętych plansz.
+          Profil powstaje z dziewięciu niezależnych quadów na zdjęciu — 36
+          ręcznie zatwierdzonych narożników. Zachowuje różne pochylenie każdej
+          planszy i nie zmienia historycznych wyników.
         </p>
       </header>
       <div className="modelQualityActions">
@@ -236,28 +253,56 @@ export function GridQualityPanel({
           <dt>Status bramki</dt>
           <dd>{latest?.status ?? '—'}</dd>
         </div>
-        <div>
-          <dt>Próbki walidacyjne</dt>
-          <dd>
-            {typeof latest?.gateMetrics.validationSampleCount === 'number'
-              ? latest.gateMetrics.validationSampleCount
-              : '—'}
-          </dd>
-        </div>
-        <div>
-          <dt>Średni błąd: baza → kandydat</dt>
-          <dd>
-            {metric(latest, 'baseline', 'meanNormalizedCornerError')} →{' '}
-            {metric(latest, 'candidate', 'meanNormalizedCornerError')}
-          </dd>
-        </div>
-        <div>
-          <dt>P95: baza → kandydat</dt>
-          <dd>
-            {metric(latest, 'baseline', 'p95NormalizedCornerError')} →{' '}
-            {metric(latest, 'candidate', 'p95NormalizedCornerError')}
-          </dd>
-        </div>
+        {usesFullSourceGeometry ? (
+          <>
+            <div>
+              <dt>Pełne źródła treningowe / walidacyjne</dt>
+              <dd>
+                {countMetric(latest, 'trainingSourceCount')} /{' '}
+                {countMetric(latest, 'validationSourceCount')}
+              </dd>
+            </div>
+            <div>
+              <dt>Narożniki treningowe / walidacyjne</dt>
+              <dd>
+                {countMetric(latest, 'trainingCornerCount')} /{' '}
+                {countMetric(latest, 'validationCornerCount')}
+              </dd>
+            </div>
+            <div>
+              <dt>Różnorodne kotwice 36-punktowe</dt>
+              <dd>
+                {countMetric(latest, 'anchorSourceCount')} z{' '}
+                {countMetric(latest, 'completeSourceCount')} źródeł
+              </dd>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <dt>Próbki walidacyjne (profil historyczny)</dt>
+              <dd>
+                {typeof latest?.gateMetrics.validationSampleCount === 'number'
+                  ? latest.gateMetrics.validationSampleCount
+                  : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt>Średni błąd: baza → kandydat</dt>
+              <dd>
+                {metric(latest, 'baseline', 'meanNormalizedCornerError')} →{' '}
+                {metric(latest, 'candidate', 'meanNormalizedCornerError')}
+              </dd>
+            </div>
+            <div>
+              <dt>P95: baza → kandydat</dt>
+              <dd>
+                {metric(latest, 'baseline', 'p95NormalizedCornerError')} →{' '}
+                {metric(latest, 'candidate', 'p95NormalizedCornerError')}
+              </dd>
+            </div>
+          </>
+        )}
         <div>
           <dt>Geometria zaakceptowana</dt>
           <dd>{diagnostics?.acceptedGeometryCount ?? '—'}</dd>

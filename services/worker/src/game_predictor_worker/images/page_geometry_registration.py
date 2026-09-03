@@ -289,6 +289,8 @@ class VerifiedPageRegistrar:
 
 def build_verified_page_registration_profile(
     geometry_manifest: Mapping[str, object],
+    *,
+    anchor_source_checksums: Sequence[str] | None = None,
 ) -> dict[str, object]:
     """Extract complete, independently reviewed 3 x 3 pages as anchors.
 
@@ -313,7 +315,7 @@ def build_verified_page_registration_profile(
         position = raw.get("positionIndex")
         if isinstance(checksum, str) and isinstance(position, int) and 0 <= position < 9:
             by_source.setdefault(checksum, []).append(raw)
-    anchors: list[dict[str, object]] = []
+    anchors_by_checksum: dict[str, dict[str, object]] = {}
     for checksum, samples in sorted(by_source.items()):
         by_position: dict[int, Mapping[str, object]] = {}
         for sample in samples:
@@ -330,22 +332,38 @@ def build_verified_page_registration_profile(
         quads = [_payload_quad(by_position[position].get("finalQuad")) for position in range(9)]
         if any(quad is None for quad in quads):
             continue
-        anchors.append(
-            {
-                "sourceChecksumSha256": checksum,
-                "imageWidth": width,
-                "imageHeight": height,
-                "quads": [
-                    [{"x": point.x, "y": point.y} for point in cast(Quad, quad)] for quad in quads
-                ],
-            }
-        )
+        anchors_by_checksum[checksum] = {
+            "sourceChecksumSha256": checksum,
+            "imageWidth": width,
+            "imageHeight": height,
+            "quads": [
+                [{"x": point.x, "y": point.y} for point in cast(Quad, quad)] for quad in quads
+            ],
+        }
+    if anchor_source_checksums is None:
+        # Historical schema-v1 profiles selected the first seven complete
+        # sources by checksum. Preserve that exact replay behavior.
+        anchors = [anchors_by_checksum[key] for key in sorted(anchors_by_checksum)[:7]]
+        schema_version = 1
+        selection_policy = "checksum-first-seven-v1"
+    else:
+        # New profiles pin their bounded, source-disjoint and geometry-diverse
+        # anchor order in the immutable calibration payload.
+        anchors = [
+            anchors_by_checksum[key]
+            for key in anchor_source_checksums
+            if key in anchors_by_checksum
+        ]
+        schema_version = 2
+        selection_policy = "geometry-medoid-farthest-point-16-v1"
     return {
-        "schemaVersion": 1,
+        "schemaVersion": schema_version,
         "policy": PAGE_REGISTRATION_VERSION,
         "featuresVersion": PAGE_REGISTRATION_FEATURES_VERSION,
         "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
-        "anchors": anchors[:7],
+        "anchorSelectionPolicy": selection_policy,
+        "cornerCountPerAnchor": 36,
+        "anchors": anchors,
     }
 
 

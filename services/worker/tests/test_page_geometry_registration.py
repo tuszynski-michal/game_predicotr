@@ -175,3 +175,39 @@ def test_profile_keeps_only_complete_reviewed_pages() -> None:
     assert profile["policy"] == PAGE_REGISTRATION_VERSION
     assert profile["featuresVersion"] == PAGE_REGISTRATION_FEATURES_VERSION
     assert [anchor["sourceChecksumSha256"] for anchor in profile["anchors"]] == ["a" * 64]
+
+
+def test_v2_profile_pins_the_selected_36_corner_anchor_order() -> None:
+    def samples(source: str) -> list[dict[str, object]]:
+        output: list[dict[str, object]] = []
+        for position in range(9):
+            left = 10 + (position % 3) * 100
+            top = 20 + (position // 3) * 80
+            output.append(
+                {
+                    "sourceChecksumSha256": source,
+                    "positionIndex": position,
+                    "imageWidth": 400,
+                    "imageHeight": 300,
+                    "finalQuad": [
+                        {"x": left, "y": top},
+                        {"x": left + 70, "y": top + 2},
+                        {"x": left + 68, "y": top + 50},
+                        {"x": left + 1, "y": top + 48},
+                    ],
+                }
+            )
+        return output
+
+    profile = build_verified_page_registration_profile(
+        {"samples": samples("a" * 64) + samples("b" * 64) + samples("c" * 64)},
+        anchor_source_checksums=("c" * 64, "a" * 64),
+    )
+
+    assert profile["schemaVersion"] == 2
+    assert profile["cornerCountPerAnchor"] == 36
+    assert profile["anchorSelectionPolicy"] == "geometry-medoid-farthest-point-16-v1"
+    assert [anchor["sourceChecksumSha256"] for anchor in profile["anchors"]] == [
+        "c" * 64,
+        "a" * 64,
+    ]

@@ -15,6 +15,24 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Kalibracja pełnych 36 narożników źródła — TASK-0424
+
+- Nowy profil siatki schema v2 grupuje ręczne decyzje według zdjęcia i wymaga
+  kompletu dziewięciu niezależnych quadów, czyli 36 narożników. Nie uśrednia
+  korekt pozycji między zdjęciami.
+- Train i validation są rozłączne po checksumie źródła. Z train wybieranych
+  jest maksymalnie 16 geometrycznie różnorodnych kotwic; ich dokładna kolejność
+  jest przypięta w checksum-bound profilu.
+- Produkcyjna rejestracja przenosi pełny zestaw 36 punktów osobną homografią
+  zdjęcia, następnie dopasowuje każdy quad do jego czerwonych krawędzi i nadal
+  kończy się fail-closed przy braku kompletnego dowodu.
+- Stara bramka medianowych przesunięć nie odrzuca już nowego profilu
+  36-punktowego. Profile schema v1 oraz już utworzone snapshoty zachowują
+  historyczne zachowanie.
+- Read-only odbiór bieżącej gry `777` wykazał 32 kompletne źródła: 28 train,
+  4 validation, 1008 narożników treningowych, 144 walidacyjne i 16 kotwic;
+  nowa bramka przechodzi bez powodów odrzucenia.
+
 ### Lokalny launcher walidacji siatki — TASK-0423
 
 - `Zatwierdzanie cięcia siatki` ma wyłącznie jeden przycisk `Otwórz lokalnie`.

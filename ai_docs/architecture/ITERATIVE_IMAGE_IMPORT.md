@@ -148,23 +148,31 @@ przez istniejący bounded bufor plansz.
 
 ## Kohorta i profil geometrii
 
-Kohorta jest game-scoped, kumulacyjna i niezmienna. Dla każdej zaakceptowanej
-planszy zapisuje źródło, pozycję, zatwierdzony numer, pierwotny quad detektora,
-finalny quad review i provenance pipeline'u.
+Kohorta jest game-scoped, kumulacyjna i niezmienna. Rekordy plansz nadal
+zachowują pierwotny i finalny quad, ale profil schema v2 grupuje je według
+źródła i kwalifikuje wyłącznie kompletny układ pozycji 0–8. Pełna próbka ma
+9 niezależnych quadów, 36 narożników, wspólną przestrzeń współrzędnych źródła
+oraz spójne wymiary. Niekompletne i nieuporządkowane źródła są raportowane, a
+nie uzupełniane średnią.
 
-Profil stosuje odporne mediany znormalizowanych przesunięć narożników względem
-quada detektora. Korekty są grupowane według runu Selekcji Zdjęć i pozycji
-planszy, a próbki bez runu pozostają pełnoprawnym wejściem do fallbacku pozycji.
-Inferencja najpierw szuka zgodnego runu, a następnie fallbacku pozycji. Numer
-sekwencji nie bierze udziału w inferencji geometrii, ponieważ OCR jest
-późniejszym etapem pipeline'u; eliminuje to zależność cykliczną i ryzyko
-ukrytego przecieku błędu OCR do cięcia. Nieznana pozycja używa detektora.
+Podział jest source-image-disjoint. Z części treningowej wybieranych jest do
+16 kotwic przez deterministyczny algorytm medoid + farthest point na wektorze
+72 znormalizowanych współrzędnych. Walidacyjne źródło nigdy nie staje się
+kotwicą. Lista checksum kotwic i jej polityka są częścią checksum-bound profilu
+i snapshotu joba.
 
-Walidacja jest source-image-disjoint. Kandydat porównuje średni i p95
-znormalizowany błąd narożników oraz kompletność poprawnych projekcji quada z
-wynikiem bazowego detektora. Właściwe 15 cropów pozostaje deterministycznym
-wynikiem croppera i podlega manualnemu review. Rejestr aktywacji jest
-append-only i umożliwia rollback.
+Na zdjęciu docelowym ORB estymuje osobną homografię względem najlepiej
+dopasowanej kotwicy. Homografia przenosi pełne 36 narożników, po czym każdy z
+dziewięciu quadów jest niezależnie dopasowany do czerwonych krawędzi. Runtime
+zatwierdza wynik tylko przy kompletnej kolejności 3 × 3 oraz przejściu bramek
+inlierów, reprojekcji i pokrycia krawędzi wszystkich plansz. Niepowodzenie jest
+`review_required`, bez fallbacku do czterech narożników strony lub globalnej
+mediany. Rejestr aktywacji jest append-only i umożliwia rollback.
+
+Profile schema v1 zachowują historyczny algorytm medianowych przesunięć i są
+odtwarzane tylko przez już przypięte fingerprinty. Utworzenie nowej kohorty
+używa schema v2, dzięki czemu stary odrzucony profil nie blokuje kandydata
+opartego na 36 narożnikach.
 
 ### Przyrostowe kotwice preflightu strony
 
@@ -215,8 +223,8 @@ Końcowy raport rollout'u oraz przypięte checksumy benchmarków znajdują się 
 
 ## Model neuronowy — ścieżka awaryjna
 
-Jeżeli kalibracja nie osiąga akceptowalnej jakości, te same niezmienne kohorty
-stają się datasetem `image -> four corners`. Przyszły model otrzyma augmentacje
-perspektywy, ekspozycji i częściowych zasłonięć wyłącznie w train. Bramka
-porówna go z aktywną kalibracją na odseparowanych sesjach; aktywacja nadal
-pozostanie jawna i odwracalna.
+Jeżeli rejestracja 36-punktowa nie osiąga akceptowalnego pokrycia, te same
+niezmienne, kompletne źródła stają się datasetem `image -> 9 × 4 corners`.
+Prototyp keypointów pozostaje shadow-only do czasu osobnego odbioru jakości i
+wydajności. Nie wolno wracać do kontraktu `image -> four page corners`, bo nie
+opisuje niezależnego pochylenia dziewięciu plansz.

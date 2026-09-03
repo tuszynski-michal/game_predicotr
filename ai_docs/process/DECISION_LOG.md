@@ -7331,3 +7331,22 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   załadowaniu zastępował go niepotrzebną akcją `Zakończ pracę lokalną`.
 - **Consequences:** ekran ma jeden stabilny przycisk `Otwórz lokalnie`; osobny
   purpose-scoped zdalny workflow ręcznej selekcji zdjęć pozostaje bez zmian.
+
+### D-320 — Profil siatki zachowuje 36 niezależnych narożników źródła
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** nowa kalibracja geometrii działa na kompletnym zdjęciu jako
+  dziewięciu niezależnych quadach w kolejności row-major. Źródło treningowe ma
+  36 narożników; walidacyjne źródła są rozłączne, a bounded zestaw kotwic jest
+  wybierany deterministycznie według różnorodności pełnej geometrii. Na obrazie
+  docelowym osobna homografia przenosi wszystkie quady, po czym każda plansza
+  przechodzi lokalne dopasowanie i hard gate czerwonej krawędzi.
+- **Reason:** medianowe przesunięcia czterech narożników pojedynczej pozycji
+  tracą zależność od kąta zdjęcia i niezależne pochylenie plansz. Ich metryka
+  p95 blokowała aktywację profilu rejestracji nawet wtedy, gdy kohorta zawierała
+  prawidłowe ręczne 36 punktów.
+- **Consequences:** kandydat schema v2 jest oceniany pod kątem kompletnego,
+  source-disjoint wejścia i uruchamia target-specific fail-closed registration.
+  Nie ma fallbacku do czterech narożników strony. Historyczny trainer i profile
+  schema v1 pozostają odtwarzalne dla już przypiętych jobów.

@@ -159,6 +159,9 @@ import type {
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
+  DeleteSemiAutomaticFilenameVerificationHistoryData,
+  DeleteSemiAutomaticFilenameVerificationHistoryErrors,
+  DeleteSemiAutomaticFilenameVerificationHistoryResponses,
   DeleteSymbolData,
   DeleteSymbolErrors,
   DeleteSymbolResponses,
@@ -5460,6 +5463,31 @@ export const getSemiAutomaticImageSelectionDiagnostics = <
     ThrowOnError
   >({
     url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/diagnostics',
+    ...options,
+  });
+
+/**
+ * Permanently delete one fully cleaned filename verification history entry
+ */
+export const deleteSemiAutomaticFilenameVerificationHistory = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    DeleteSemiAutomaticFilenameVerificationHistoryData,
+    ThrowOnError
+  >,
+): RequestResult<
+  DeleteSemiAutomaticFilenameVerificationHistoryResponses,
+  DeleteSemiAutomaticFilenameVerificationHistoryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteSemiAutomaticFilenameVerificationHistoryResponses,
+    DeleteSemiAutomaticFilenameVerificationHistoryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verification-history',
     ...options,
   });
 

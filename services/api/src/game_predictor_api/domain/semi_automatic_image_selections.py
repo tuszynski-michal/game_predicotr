@@ -39,6 +39,14 @@ class FilenameRangeVerificationReviewDecision(StrEnum):
     REJECT = "reject"
 
 
+@dataclass(frozen=True, slots=True)
+class FilenameVerificationHistoryDeletion:
+    """Identifiers removed after a completed filename-verification lifecycle."""
+
+    run_id: UUID
+    job_id: UUID
+
+
 class SemiAutomaticSelectionRunStatus(StrEnum):
     READY = "ready"
     RUNNING = "running"
@@ -771,6 +779,7 @@ __all__ = [
     "SemiAutomaticSelectionConflictError",
     "SemiAutomaticSelectionDirection",
     "SemiAutomaticSelectionError",
+    "FilenameVerificationHistoryDeletion",
     "SemiAutomaticSelectionNotFoundError",
     "SemiAutomaticSelectionRange",
     "SemiAutomaticSelectionRangeStatus",

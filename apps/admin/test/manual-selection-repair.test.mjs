@@ -346,6 +346,9 @@ test('admin mounts durable filename range verification with five-anchor manual r
   assert.match(workspace, /cleanup_blocked/);
   assert.match(workspace, /Wznów czyszczenie/);
   assert.match(workspace, /dane robocze usunięte/);
+  assert.match(workspace, /deleteSemiAutomaticFilenameVerificationHistory/);
+  assert.match(workspace, /Usuń trwale/);
+  assert.match(workspace, /isDeletableHistory/);
   assert.match(workspace, /remoteAssetHandle/);
   assert.match(workspace, /directoryPermissionIsGranted/);
   assert.match(workspace, /Odrzuć i usuń F/);

@@ -1707,6 +1707,21 @@ checkpoint `cleanup_complete`. Brak katalogu po awarii jest idempotentny;
 zmieniony zasób albo obca referencja daje `cleanup_blocked`, nie częściowe
 usunięcie wspólnych danych.
 
+## Ręczne usunięcie lekkiej historii filename verification — TASK-0412
+
+Po udanym cleanupie operator może usunąć końcowy kafel historii przez lokalny,
+potwierdzony endpoint. Repozytorium ponownie blokuje run i job oraz wymaga
+`workflow_mode=filename_verification`, statusu `completed` i checkpointu
+`cleanup=completed`. Przed usunięciem odrzuca istniejący staging retention,
+diagnostykę oraz każdy wynikowy output. Pozostałe, nieoutputowe rows range/review
+tego samego runu są osieroconymi danymi odtwarzalnymi i są kasowane wraz z runem
+przed usunięciem joba w jednej transakcji.
+
+Operacja nie odwołuje GC i nie ma dostępu do katalogu `seq_*` operatora. Jej
+sukces usuwa tylko kompaktowe podsumowanie z bazy i lokalny kontekst tego runu
+z IndexedDB; aktywny, failed, `cleanup_pending` lub `cleanup_blocked` run nie
+ma takiej ścieżki.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

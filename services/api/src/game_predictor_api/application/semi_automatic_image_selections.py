@@ -35,6 +35,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION,
     FilenameRangeVerificationReview,
     FilenameRangeVerificationReviewDecision,
+    FilenameVerificationHistoryDeletion,
     SemiAutomaticSelectionConflictError,
     SemiAutomaticSelectionDirection,
     SemiAutomaticSelectionError,
@@ -130,6 +131,13 @@ class SemiAutomaticSelectionRepository(Protocol):
         *,
         expected_revision: int,
     ) -> FilenameRangeVerificationReview: ...
+
+    def delete_completed_filename_verification_history(
+        self,
+        *,
+        run_id: UUID,
+        job_id: UUID,
+    ) -> FilenameVerificationHistoryDeletion: ...
 
     def list_ranges(
         self,
@@ -349,9 +357,7 @@ class SemiAutomaticImageSelectionService:
                 **item,
                 "reviewDecision": (
                     None
-                    if (
-                        review := reviews.get(_filename_verification_source_index(item))
-                    ) is None
+                    if (review := reviews.get(_filename_verification_source_index(item))) is None
                     else review.decision.value
                 ),
                 "reviewRevision": (None if review is None else review.revision),
@@ -461,6 +467,38 @@ class SemiAutomaticImageSelectionService:
                 updated_at=now,
             ),
             expected_revision=0 if existing is None else expected_revision,
+        )
+
+    def delete_filename_verification_history(
+        self,
+        run_id: UUID,
+    ) -> FilenameVerificationHistoryDeletion:
+        """Remove only the compact, already-cleaned filename review history."""
+
+        run = self._locked(run_id)
+        if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_HISTORY_DELETE_MODE_INVALID",
+                "Only filename verification history can be deleted here.",
+            )
+        if run.status is not SemiAutomaticSelectionRunStatus.COMPLETED:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_HISTORY_DELETE_NOT_COMPLETED",
+                "Only a completed filename verification history entry can be deleted.",
+            )
+        if run.job.status is not JobStatus.COMPLETED:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_HISTORY_DELETE_JOB_ACTIVE",
+                "The filename verification job is not terminal.",
+            )
+        if run.checkpoint.get("cleanup") != "completed":
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_HISTORY_DELETE_CLEANUP_INCOMPLETE",
+                "The filename verification working data has not been safely cleaned.",
+            )
+        return self._repository.delete_completed_filename_verification_history(
+            run_id=run.id,
+            job_id=run.job.id,
         )
 
     def get(self, run_id: UUID) -> SemiAutomaticSelectionRun:

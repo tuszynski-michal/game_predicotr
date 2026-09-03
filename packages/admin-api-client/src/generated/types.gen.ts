@@ -2014,6 +2014,20 @@ export type FilenameRangeVerificationReviewDecisionUpdate = {
 };
 
 /**
+ * FilenameVerificationHistoryDeletionResponse
+ */
+export type FilenameVerificationHistoryDeletionResponse = {
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Runid
+   */
+  runId: string;
+};
+
+/**
  * GameCreate
  */
 export type GameCreate = {
@@ -20807,6 +20821,54 @@ export type GetSemiAutomaticImageSelectionDiagnosticsResponses = {
 
 export type GetSemiAutomaticImageSelectionDiagnosticsResponse =
   GetSemiAutomaticImageSelectionDiagnosticsResponses[keyof GetSemiAutomaticImageSelectionDiagnosticsResponses];
+
+export type DeleteSemiAutomaticFilenameVerificationHistoryData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verification-history';
+};
+
+export type DeleteSemiAutomaticFilenameVerificationHistoryErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type DeleteSemiAutomaticFilenameVerificationHistoryError =
+  DeleteSemiAutomaticFilenameVerificationHistoryErrors[keyof DeleteSemiAutomaticFilenameVerificationHistoryErrors];
+
+export type DeleteSemiAutomaticFilenameVerificationHistoryResponses = {
+  /**
+   * Successful Response
+   */
+  200: FilenameVerificationHistoryDeletionResponse;
+};
+
+export type DeleteSemiAutomaticFilenameVerificationHistoryResponse =
+  DeleteSemiAutomaticFilenameVerificationHistoryResponses[keyof DeleteSemiAutomaticFilenameVerificationHistoryResponses];
 
 export type ListSemiAutomaticFilenameRangeVerificationsData = {
   body?: never;

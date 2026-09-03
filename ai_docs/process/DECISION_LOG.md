@@ -7214,3 +7214,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** cleanup ma preview, mocne potwierdzenie, blokady aktywnych
   zależności i recovery po przerwanym procesie. Końcowy preflight importu nadal
   jest źródłem prawdy, więc plan uploadu nie wprowadza race condition.
+
+## D-312 — Historia zakończonej weryfikacji nazw jest usuwana świadomie i bez katalogu operatora
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+- **Decision:** lokalny Admin może usunąć wyłącznie kompaktową historię runu
+  `filename_verification`, jeżeli jego job jest `completed` i trwały checkpoint
+  potwierdza zakończony cleanup. Akcja wymaga jawnego potwierdzenia, ponownie
+  sprawdza retencję stagingu, diagnostykę, output oraz obce referencje, a potem
+  atomowo usuwa run, job i ewentualne osierocone rekordy range/review.
+- **Reason:** po automatycznym cleanupie użytkownik nie potrzebuje wszystkich
+  lekkich wpisów historii, ale nie może przez przypadek naruszyć trwającego
+  workflowu ani lokalnych zdjęć.
+- **Consequences:** lokalny katalog `seq_*` oraz źródłowy katalog operatora
+  nigdy nie są usuwane tą ścieżką. Aktywny, failed, waiting-for-review,
+  `cleanup_pending` i `cleanup_blocked` pozostają niedostępne dla tej mutacji.

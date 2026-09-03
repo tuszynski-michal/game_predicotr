@@ -66,6 +66,18 @@ export class FilenameRangeVerificationStore {
     }
   }
 
+  async remove(runId: string): Promise<void> {
+    if (this.factory === undefined) return;
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(STORE_NAME, 'readwrite');
+      transaction.objectStore(STORE_NAME).delete(runId);
+      await transactionComplete(transaction);
+    } finally {
+      database.close();
+    }
+  }
+
   private open(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = this.factory?.open(DATABASE_NAME, DATABASE_VERSION);

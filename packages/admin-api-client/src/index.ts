@@ -58,6 +58,7 @@ import {
   deleteMobileRelease as deleteGeneratedMobileRelease,
   deleteBoardSourceRanges as deleteGeneratedBoardSourceRanges,
   deleteCancelledImageSelectionJob as deleteGeneratedCancelledImageSelectionJob,
+  deleteSemiAutomaticFilenameVerificationHistory as deleteGeneratedSemiAutomaticFilenameVerificationHistory,
   generateMockDataset as generateGeneratedMockDataset,
   getDatasetValidationReport as getGeneratedDatasetValidationReport,
   getDatasetVersion as getGeneratedDatasetVersion,
@@ -797,6 +798,12 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         path: { run_id: runId, source_index: sourceIndex },
+      }),
+    deleteSemiAutomaticFilenameVerificationHistory: (runId: string) =>
+      deleteGeneratedSemiAutomaticFilenameVerificationHistory({
+        client,
+        headers: confirmedTargetHeaders(`filename-verification:${runId}`),
+        path: { run_id: runId },
       }),
     pauseSemiAutomaticImageSelection: (runId: string) =>
       pauseGeneratedSemiAutomaticImageSelection({

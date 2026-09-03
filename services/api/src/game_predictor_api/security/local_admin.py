@@ -92,6 +92,13 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "DELETE",
         "/api/v1/admin/jobs/{job_id}",
     ): HighImpactOperation("delete-image-selection-job", "job:{job_id}"),
+    (
+        "DELETE",
+        "/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verification-history",
+    ): HighImpactOperation(
+        "delete-filename-verification-history",
+        "filename-verification:{run_id}",
+    ),
     ("POST", "/api/v1/admin/mobile-releases"): HighImpactOperation(
         "create-mobile-release", "mobile-release:new"
     ),

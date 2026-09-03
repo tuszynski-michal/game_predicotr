@@ -2876,3 +2876,12 @@ ponownym sprawdzeniu wszystkich referencji. Udany run odpowiada statusem
 `completed` i lekkim podsumowaniem; endpoint szczegółów nie serwuje już
 usuniętych obserwacji. `cleanup_blocked` zachowuje dane oraz diagnostykę, a
 zwykłe `POST /api/v1/admin/jobs/{jobId}/retry` wznawia wyłącznie cleanup.
+
+`DELETE /api/v1/admin/semi-automatic-image-selections/{runId}/filename-verification-history`
+wymaga lokalnego potwierdzenia wysokiego ryzyka z targetem
+`filename-verification:{runId}`. Jest dostępny wyłącznie dla completed
+`filename_verification`, którego job jest completed i checkpoint zawiera
+`cleanup=completed`. W jednej transakcji usuwa lekki run i job oraz ewentualne
+osierocone rows range/review tego runu. Pozostały staging, diagnostyka,
+wynikowy output lub obca referencja zwracają konflikt i niczego nie usuwają.
+Endpoint nigdy nie dotyka lokalnego katalogu `seq_*` operatora.

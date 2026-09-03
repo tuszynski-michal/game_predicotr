@@ -11,6 +11,7 @@ from pydantic import Field
 from game_predictor_api.domain.semi_automatic_image_selections import (
     FilenameRangeVerificationReview,
     FilenameRangeVerificationReviewDecision,
+    FilenameVerificationHistoryDeletion,
     SemiAutomaticSelectionDirection,
     SemiAutomaticSelectionRange,
     SemiAutomaticSelectionRangeStatus,
@@ -89,6 +90,11 @@ class FilenameRangeVerificationReviewDecisionResponse(ApiModel):
     revision: int = Field(ge=0)
     created_at: datetime
     updated_at: datetime
+
+
+class FilenameVerificationHistoryDeletionResponse(ApiModel):
+    run_id: UUID
+    job_id: UUID
 
 
 class FilenameRangeVerificationPageResponse(ApiModel):
@@ -229,6 +235,15 @@ def to_filename_verification_review_response(
     )
 
 
+def to_filename_verification_history_deletion_response(
+    deletion: FilenameVerificationHistoryDeletion,
+) -> FilenameVerificationHistoryDeletionResponse:
+    return FilenameVerificationHistoryDeletionResponse(
+        run_id=deletion.run_id,
+        job_id=deletion.job_id,
+    )
+
+
 def to_range_response(
     item: SemiAutomaticSelectionRange,
 ) -> SemiAutomaticSelectionRangeResponse:
@@ -260,6 +275,7 @@ __all__ = [
     "FilenameRangeVerificationPageResponse",
     "FilenameRangeVerificationReviewDecisionResponse",
     "FilenameRangeVerificationReviewDecisionUpdate",
+    "FilenameVerificationHistoryDeletionResponse",
     "SemiAutomaticSelectionCapabilitiesResponse",
     "SemiAutomaticSelectionCreate",
     "SemiAutomaticSelectionCreateResponse",
@@ -270,6 +286,7 @@ __all__ = [
     "SemiAutomaticSelectionRunResponse",
     "SemiAutomaticSelectionRunPageResponse",
     "to_filename_verification_review_response",
+    "to_filename_verification_history_deletion_response",
     "to_range_response",
     "to_run_response",
 ]

@@ -56,6 +56,7 @@ type VerificationClient = SemiAutomaticSelectionClient &
   Pick<
     AdminApiClient,
     | 'decideSemiAutomaticFilenameRangeVerification'
+    | 'deleteSemiAutomaticFilenameVerificationHistory'
     | 'getSemiAutomaticImageSelection'
     | 'getSemiAutomaticImageSelectionCapabilities'
     | 'listSemiAutomaticFilenameRangeVerifications'
@@ -103,6 +104,9 @@ export function ManualSelectionRangeVerificationWorkspace({
   const [directoryPickerActive, setDirectoryPickerActive] = useState(
     isLocalDirectoryPickerActive,
   );
+  const [deleteConfirmationRunId, setDeleteConfirmationRunId] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -293,6 +297,7 @@ export function ManualSelectionRangeVerificationWorkspace({
       setItems([]);
       setCursor(0);
       setSnapshot(null);
+      setDeleteConfirmationRunId(null);
       setError('');
       await restoreRunLocalState(targetRun);
       if (selectedRunRef.current !== targetRun.id) return;
@@ -463,7 +468,9 @@ export function ManualSelectionRangeVerificationWorkspace({
     try {
       const result = await api.retryJob(run.job.id);
       if (result.error !== undefined || result.data === undefined) {
-        setError(apiErrorMessage(result.error, 'Nie udało się wznowić analizy.'));
+        setError(
+          apiErrorMessage(result.error, 'Nie udało się wznowić analizy.'),
+        );
         return;
       }
       // The worker turns the durable run back to `running` at its first
@@ -476,6 +483,63 @@ export function ManualSelectionRangeVerificationWorkspace({
         run.status === 'cleanup_blocked'
           ? 'Wznowiono bezpieczne czyszczenie. OCR ani ręczne decyzje nie będą powtarzane.'
           : 'Wznowiono analizę z zapisanych obserwacji OCR — obrazy nie będą odczytywane ponownie.',
+      );
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function deleteHistory(
+    candidate: SemiAutomaticSelectionRunResponse,
+  ): Promise<void> {
+    if (busyRef.current || !isDeletableHistory(candidate)) return;
+    busyRef.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      const response = await api.deleteSemiAutomaticFilenameVerificationHistory(
+        candidate.id,
+      );
+      if (response.error !== undefined || response.data === undefined) {
+        setError(
+          apiErrorMessage(response.error, 'Nie udało się usunąć historii.'),
+        );
+        return;
+      }
+      let localStateNotice = '';
+      try {
+        await store.remove(candidate.id);
+      } catch {
+        localStateNotice =
+          'Historia została usunięta z serwera. Lokalny skrót katalogu może zniknąć dopiero po odświeżeniu.';
+      }
+      const remaining = runs.filter((item) => item.id !== candidate.id);
+      const deletedSelectedRun = selectedRunRef.current === candidate.id;
+      setRuns(remaining);
+      setDeleteConfirmationRunId(null);
+      if (!deletedSelectedRun) {
+        setNotice(
+          localStateNotice ||
+            'Usunięto historię procesu oraz jego rekord joba.',
+        );
+        return;
+      }
+      selectedRunRef.current = null;
+      localStateRestoredRunRef.current = null;
+      window.localStorage.removeItem(LAST_RUN_KEY);
+      setRun(null);
+      setItems([]);
+      setCursor(0);
+      setSnapshot(null);
+      const next = remaining.find(isActive) ?? remaining[0];
+      if (next !== undefined) {
+        await selectRun(next);
+      }
+      setNotice(
+        localStateNotice || 'Usunięto historię procesu oraz jego rekord joba.',
       );
     } catch (cause) {
       setError(errorMessage(cause));
@@ -701,26 +765,64 @@ export function ManualSelectionRangeVerificationWorkspace({
         ) : null}
         <div className="manualSelectionRepairHistoryList">
           {runs.map((candidate) => (
-            <button
-              className={
-                candidate.id === run?.id
-                  ? 'manualSelectionRepairHistoryItem selected'
-                  : 'manualSelectionRepairHistoryItem'
-              }
-              key={candidate.id}
-              onClick={() => void selectRun(candidate)}
-              type="button"
-            >
-              <strong>{candidate.source.displayName}</strong>
-              <span>
-                {new Date(candidate.createdAt).toLocaleString('pl-PL')} ·{' '}
-                {candidate.source.sourceCount.toLocaleString('pl-PL')} zdjęć
-              </span>
-              <span>
-                {jobProgressLabel(candidate.job)} ·{' '}
-                {formatPercent(jobProgressPercent(candidate.job))}
-              </span>
-            </button>
+            <div className="manualSelectionRepairHistoryRow" key={candidate.id}>
+              <button
+                className={
+                  candidate.id === run?.id
+                    ? 'manualSelectionRepairHistoryItem selected'
+                    : 'manualSelectionRepairHistoryItem'
+                }
+                disabled={busy}
+                onClick={() => void selectRun(candidate)}
+                type="button"
+              >
+                <strong>{candidate.source.displayName}</strong>
+                <span>
+                  {new Date(candidate.createdAt).toLocaleString('pl-PL')} ·{' '}
+                  {candidate.source.sourceCount.toLocaleString('pl-PL')} zdjęć
+                </span>
+                <span>
+                  {jobProgressLabel(candidate.job)} ·{' '}
+                  {formatPercent(jobProgressPercent(candidate.job))}
+                </span>
+              </button>
+              {isDeletableHistory(candidate) ? (
+                deleteConfirmationRunId === candidate.id ? (
+                  <div
+                    className="manualSelectionRepairHistoryDeleteConfirmation"
+                    role="group"
+                  >
+                    <span>Usunąć trwale?</span>
+                    <button
+                      className="textButton"
+                      disabled={busy}
+                      onClick={() => setDeleteConfirmationRunId(null)}
+                      type="button"
+                    >
+                      Wróć
+                    </button>
+                    <button
+                      className="dangerButton"
+                      disabled={busy}
+                      onClick={() => void deleteHistory(candidate)}
+                      type="button"
+                    >
+                      {busy ? 'Usuwanie…' : 'Usuń trwale'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    aria-label={`Usuń historię ${candidate.source.displayName}`}
+                    className="dangerButton"
+                    disabled={busy}
+                    onClick={() => setDeleteConfirmationRunId(candidate.id)}
+                    type="button"
+                  >
+                    Usuń
+                  </button>
+                )
+              ) : null}
+            </div>
           ))}
         </div>
       </section>
@@ -1073,12 +1175,23 @@ function replaceRun(
   );
 }
 function isActive(run: SemiAutomaticSelectionRunResponse): boolean {
-  return ['ready', 'running', 'paused', 'syncing_output', 'cleanup_pending'].includes(
-    run.status,
-  );
+  return [
+    'ready',
+    'running',
+    'paused',
+    'syncing_output',
+    'cleanup_pending',
+  ].includes(run.status);
 }
 function isReviewable(run: SemiAutomaticSelectionRunResponse): boolean {
   return ['analysis_complete', 'review_mode'].includes(run.status);
+}
+function isDeletableHistory(run: SemiAutomaticSelectionRunResponse): boolean {
+  return (
+    run.status === 'completed' &&
+    run.job.status === 'completed' &&
+    run.checkpoint.cleanup === 'completed'
+  );
 }
 function filenameVerificationRunMessage(
   run: SemiAutomaticSelectionRunResponse,

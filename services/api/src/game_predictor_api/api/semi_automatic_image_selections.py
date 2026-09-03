@@ -19,6 +19,7 @@ from game_predictor_api.schemas.semi_automatic_image_selections import (
     FilenameRangeVerificationPageResponse,
     FilenameRangeVerificationReviewDecisionResponse,
     FilenameRangeVerificationReviewDecisionUpdate,
+    FilenameVerificationHistoryDeletionResponse,
     SemiAutomaticSelectionCapabilitiesResponse,
     SemiAutomaticSelectionCreate,
     SemiAutomaticSelectionCreateResponse,
@@ -28,6 +29,7 @@ from game_predictor_api.schemas.semi_automatic_image_selections import (
     SemiAutomaticSelectionRangeResponse,
     SemiAutomaticSelectionRunPageResponse,
     SemiAutomaticSelectionRunResponse,
+    to_filename_verification_history_deletion_response,
     to_filename_verification_review_response,
     to_range_response,
     to_run_response,
@@ -180,6 +182,21 @@ def create_semi_automatic_image_selections_router(
             expected_revision=payload.expected_revision,
         )
         return to_filename_verification_review_response(review)
+
+    @router.delete(
+        "/{run_id}/filename-verification-history",
+        response_model=FilenameVerificationHistoryDeletionResponse,
+        operation_id="deleteSemiAutomaticFilenameVerificationHistory",
+        summary="Permanently delete one fully cleaned filename verification history entry",
+        responses=ERROR_RESPONSES,
+    )
+    def delete_filename_verification_history(
+        run_id: UUID,
+        service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
+    ) -> FilenameVerificationHistoryDeletionResponse:
+        return to_filename_verification_history_deletion_response(
+            service.delete_filename_verification_history(run_id)
+        )
 
     @router.get(
         "/{run_id}/diagnostics",

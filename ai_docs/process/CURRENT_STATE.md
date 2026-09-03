@@ -130,6 +130,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   oraz referencje. W razie konfliktu zapisuje `cleanup_blocked`, nie usuwa
   wspólnych danych i pozwala wznowić sam cleanup bez drugiego OCR.
 
+### Trwałe usunięcie lekkiej historii weryfikacji nazw — TASK-0412
+
+- Operator może świadomie usunąć z prawej strony kafla wyłącznie historię
+  `filename_verification` ze stanem `completed · dane robocze usunięte`.
+  Endpoint ponownie waliduje zakończony job, checkpoint cleanup i brak
+  chronionych referencji przed atomowym usunięciem runu oraz joba.
+- Lokalny katalog `seq_*`, dane innych workflowów i aktywne albo zablokowane
+  procesy nie są objęte tą akcją. Po sukcesie znika również wyłącznie lokalny
+  uchwyt i kursor wybranego runu z IndexedDB.
+
 ### Bezpieczne usuwanie pustej historii browser stagingu — TASK-0391
 
 - Usuwanie stagingu bez plansz i review kasuje również automatyczne rewizje

@@ -1116,8 +1116,16 @@ nav {
   overflow: auto;
 }
 
+.manualSelectionRepairHistoryRow {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .manualSelectionRepairHistoryItem {
   display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
   gap: 3px;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -1135,6 +1143,33 @@ nav {
 .manualSelectionRepairHistoryItem.selected {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.manualSelectionRepairHistoryDeleteConfirmation {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 280px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--danger) 50%, var(--line));
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 620px) {
+  .manualSelectionRepairHistoryRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manualSelectionRepairHistoryDeleteConfirmation {
+    max-width: none;
+    justify-content: flex-start;
+  }
 }
 
 .remoteManualSelectionHostPanel {

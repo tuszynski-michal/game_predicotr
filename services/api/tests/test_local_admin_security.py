@@ -163,6 +163,7 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     release_id = "22222222-2222-4222-8222-222222222222"
     game_id = "33333333-3333-4333-8333-333333333333"
     job_id = "44444444-4444-4444-8444-444444444444"
+    run_id = "55555555-5555-4555-8555-555555555555"
 
     release_operation, release_target = match_high_impact_operation(
         "DELETE", f"/api/v1/admin/mobile-releases/{release_id}"
@@ -172,6 +173,10 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     )
     job_operation, job_target = match_high_impact_operation(
         "DELETE", f"/api/v1/admin/jobs/{job_id}"
+    )
+    filename_history_operation, filename_history_target = match_high_impact_operation(
+        "DELETE",
+        f"/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verification-history",
     )
     local_reviewer_operation, local_reviewer_target = match_high_impact_operation(
         "POST", "/api/v1/admin/reviewer-local/start"
@@ -202,6 +207,9 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     assert job_operation is not None
     assert job_operation.action == "delete-image-selection-job"
     assert job_target == f"job:{job_id}"
+    assert filename_history_operation is not None
+    assert filename_history_operation.action == "delete-filename-verification-history"
+    assert filename_history_target == f"filename-verification:{run_id}"
     assert local_reviewer_operation is not None
     assert local_reviewer_operation.action == "start-local-reviewer"
     assert local_reviewer_target == "local-reviewer"

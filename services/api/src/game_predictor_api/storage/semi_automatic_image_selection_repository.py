@@ -5,17 +5,18 @@ from __future__ import annotations
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticSelectionRepository,
 )
-from game_predictor_api.domain.jobs import requeue_job
+from game_predictor_api.domain.jobs import JobStatus, requeue_job
 from game_predictor_api.domain.semi_automatic_image_selections import (
     FilenameRangeVerificationReview,
     FilenameRangeVerificationReviewDecision,
+    FilenameVerificationHistoryDeletion,
     SemiAutomaticSelectionConflictError,
     SemiAutomaticSelectionDirection,
     SemiAutomaticSelectionRange,
@@ -201,8 +202,7 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
         )
         if (
             run is None
-            or run.workflow_mode
-            != SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION.value
+            or run.workflow_mode != SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION.value
         ):
             raise SemiAutomaticSelectionConflictError(
                 "SEMI_AUTOMATIC_SELECTION_NOT_FOUND",
@@ -283,6 +283,98 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
             run.updated_at = cleanup_run.updated_at
             self._session.flush()
         return _review_from_record(record)
+
+    def delete_completed_filename_verification_history(
+        self,
+        *,
+        run_id: UUID,
+        job_id: UUID,
+    ) -> FilenameVerificationHistoryDeletion:
+        """Delete compact history only after the worker removed all run data."""
+
+        run = self._session.scalar(
+            select(SemiAutomaticImageSelectionRunModel)
+            .where(
+                SemiAutomaticImageSelectionRunModel.id == run_id,
+                SemiAutomaticImageSelectionRunModel.job_id == job_id,
+            )
+            .with_for_update()
+        )
+        job = self._session.scalar(select(JobModel).where(JobModel.id == job_id).with_for_update())
+        if run is None or job is None:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_NOT_FOUND",
+                "The filename verification history changed before deletion.",
+            )
+        if (
+            run.workflow_mode != SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION.value
+            or run.status != SemiAutomaticSelectionRunStatus.COMPLETED.value
+            or job.status is not JobStatus.COMPLETED
+            or run.checkpoint.get("cleanup") != "completed"
+        ):
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_HISTORY_DELETE_NOT_COMPLETED",
+                "Only a fully cleaned, completed filename verification history can be deleted.",
+            )
+        if (
+            run.diagnostics_relative_path is not None
+            or run.diagnostics_checksum_sha256 is not None
+            or self._session.get(BrowserSelectionRetentionModel, run.source_upload_id) is not None
+        ):
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_HISTORY_DELETE_REFERENCED",
+                "The filename verification history still has protected working data.",
+            )
+        has_output = self._session.scalar(
+            select(func.count())
+            .select_from(SemiAutomaticImageSelectionRangeModel)
+            .where(
+                SemiAutomaticImageSelectionRangeModel.run_id == run_id,
+                SemiAutomaticImageSelectionRangeModel.output_checksum_sha256.is_not(None),
+            )
+        )
+        if has_output:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_HISTORY_DELETE_REFERENCED",
+                "The filename verification history still has a protected output reference.",
+            )
+        try:
+            with self._session.begin_nested():
+                # A completed run normally has no heavy rows.  If a crash left
+                # run-owned leftovers, remove them before the compact summary.
+                self._session.execute(
+                    delete(FilenameRangeVerificationReviewModel).where(
+                        FilenameRangeVerificationReviewModel.run_id == run_id
+                    )
+                )
+                self._session.execute(
+                    delete(SemiAutomaticImageSelectionRangeModel).where(
+                        SemiAutomaticImageSelectionRangeModel.run_id == run_id
+                    )
+                )
+                deleted_run = self._session.execute(
+                    delete(SemiAutomaticImageSelectionRunModel)
+                    .where(
+                        SemiAutomaticImageSelectionRunModel.id == run_id,
+                        SemiAutomaticImageSelectionRunModel.job_id == job_id,
+                    )
+                    .returning(SemiAutomaticImageSelectionRunModel.id)
+                ).scalar_one_or_none()
+                deleted_job = self._session.execute(
+                    delete(JobModel).where(JobModel.id == job_id).returning(JobModel.id)
+                ).scalar_one_or_none()
+                if deleted_run is None or deleted_job is None:
+                    raise SemiAutomaticSelectionConflictError(
+                        "SEMI_AUTOMATIC_SELECTION_NOT_FOUND",
+                        "The filename verification history changed before deletion.",
+                    )
+                self._session.flush()
+        except IntegrityError as error:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_HISTORY_DELETE_REFERENCED",
+                "The filename verification history still has protected database references.",
+            ) from error
+        return FilenameVerificationHistoryDeletion(run_id=run_id, job_id=job_id)
 
     def list_ranges(
         self,

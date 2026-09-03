@@ -2580,6 +2580,32 @@ test('filename range verification client lists history and saves a checksum-boun
   });
 });
 
+test('filename range verification history deletion sends the scoped confirmation headers', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  await client.deleteSemiAutomaticFilenameVerificationHistory(runId);
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'DELETE');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/semi-automatic-image-selections/${runId}/filename-verification-history`,
+  );
+  assert.equal(requests[0].headers.get('X-Admin-Confirmation'), 'confirmed');
+  assert.equal(
+    requests[0].headers.get('X-Admin-Target'),
+    `filename-verification:${runId}`,
+  );
+});
+
 test('image selection review queues use scoped idempotent decisions', async () => {
   const requests = [];
   const runId = '22222222-2222-4222-8222-222222222222';

@@ -1182,6 +1182,20 @@ danych użytkownika przez samo wdrożenie.
   liczbę plików, liczniki `verified`, ręcznie pozostawionych i odrzuconych oraz
   `completed · dane robocze usunięte`. Szczegóły obrazów nie są już dostępne.
 
+## Trwałe usunięcie lekkiej historii weryfikacji nazw — TASK-0412
+
+- Przy prawym brzegu kafla historii `filename_verification` Admin pokazuje
+  `Usuń` wyłącznie dla `completed`, którego job również jest `completed` i
+  checkpoint potwierdza `cleanup=completed`. Drugi krok potwierdzenia
+  `Usuń trwale` jest wymagany przed mutacją.
+- Akcja usuwa w jednej transakcji lekki rekord runu i jego job. Może usunąć
+  wyłącznie osierocone rekordy ranges/review należące do tego runu, pozostawione
+  przez przerwany cleanup. Staging, diagnostyka, output lub obca referencja
+  blokują operację fail-closed.
+- Akcja nie usuwa lokalnego katalogu `seq_*`, katalogu źródłowego operatora ani
+  danych innych workflowów. Po sukcesie Admin kasuje jedynie lokalny uchwyt i
+  kursor tego runu z IndexedDB.
+
 ## Deterministyczny silnik wyboru zakresu — TASK-0353
 
 - Każdy JPEG jest dekodowany lekko, ale do range-only OCR trafia najwyżej raz w

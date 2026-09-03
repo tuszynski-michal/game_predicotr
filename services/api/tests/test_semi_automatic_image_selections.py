@@ -37,6 +37,7 @@ from game_predictor_api.domain.jobs import (
 from game_predictor_api.domain.semi_automatic_image_selections import (
     FilenameRangeVerificationReview,
     FilenameRangeVerificationReviewDecision,
+    FilenameVerificationHistoryDeletion,
     SemiAutomaticSelectionConflictError,
     SemiAutomaticSelectionDirection,
     SemiAutomaticSelectionError,
@@ -47,6 +48,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionWorkflowMode,
     begin_filename_verification_cleanup,
     block_filename_verification_cleanup,
+    complete_filename_verification_cleanup,
     resume_filename_verification_cleanup,
 )
 from game_predictor_worker.jobs.runtime import GENERAL_JOB_TYPES as RUNTIME_GENERAL_JOB_TYPES
@@ -143,15 +145,34 @@ class MemorySemiAutomaticSelectionRepository:
         self.reviews[(review.run_id, review.source_index)] = review
         run = self.runs[review.run_id]
         required = run.counters.get("filenameReviewRequired", 0)
-        if required > 0 and len(
-            [item for key, item in self.reviews.items() if key[0] == review.run_id]
-        ) >= required:
+        if (
+            required > 0
+            and len([item for key, item in self.reviews.items() if key[0] == review.run_id])
+            >= required
+        ):
             cleanup = begin_filename_verification_cleanup(run, changed_at=review.updated_at)
             self.runs[review.run_id] = replace(
                 cleanup,
                 job=requeue_job(cleanup.job, updated_at=review.updated_at),
             )
         return review
+
+    def delete_completed_filename_verification_history(
+        self,
+        *,
+        run_id: UUID,
+        job_id: UUID,
+    ) -> FilenameVerificationHistoryDeletion:
+        run = self.runs.get(run_id)
+        if run is None or run.job.id != job_id:
+            raise AssertionError("The run changed before history deletion.")
+        self.runs.pop(run_id)
+        self.identities = {
+            identity: owner for identity, owner in self.identities.items() if owner != run_id
+        }
+        self.ranges = {key: item for key, item in self.ranges.items() if key[0] != run_id}
+        self.reviews = {key: item for key, item in self.reviews.items() if key[0] != run_id}
+        return FilenameVerificationHistoryDeletion(run_id=run_id, job_id=job_id)
 
     def list_ranges(
         self,
@@ -719,6 +740,66 @@ def test_filename_verification_history_and_decisions_are_durable(tmp_path: Path)
     assert decision.json()["revision"] == 0
     assert reloaded.json()["items"][0]["reviewDecision"] == "keep"
     assert reloaded.json()["items"][0]["reviewRevision"] == 0
+
+
+def test_completed_filename_verification_history_is_permanently_deleted(
+    tmp_path: Path,
+) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=18,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+    completed = complete_filename_verification_cleanup(
+        replace(
+            run,
+            job=replace(run.job, status=JobStatus.COMPLETED),
+            status=SemiAutomaticSelectionRunStatus.CLEANUP_PENDING,
+        ),
+        checkpoint={"cleanup": "completed", "phase": "cleanup_complete"},
+    )
+    # The route also clears any run-owned rows left by an interrupted cleanup.
+    repository.save(completed)
+    app = FastAPI()
+    app.include_router(
+        create_semi_automatic_image_selections_router(lambda: service),
+        prefix="/api/v1",
+    )
+    client = TestClient(app)
+
+    response = client.delete(
+        f"/api/v1/admin/semi-automatic-image-selections/{run.id}/filename-verification-history"
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"runId": str(run.id), "jobId": str(run.job.id)}
+    assert repository.get(run.id) is None
+
+
+def test_filename_verification_history_delete_protects_incomplete_cleanup(
+    tmp_path: Path,
+) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=18,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+
+    with pytest.raises(SemiAutomaticSelectionConflictError) as raised:
+        service.delete_filename_verification_history(run.id)
+
+    assert raised.value.code == "SEMI_AUTOMATIC_SELECTION_HISTORY_DELETE_NOT_COMPLETED"
+    assert repository.get(run.id) is not None
 
 
 def test_last_filename_verification_decision_schedules_only_cleanup(tmp_path: Path) -> None:

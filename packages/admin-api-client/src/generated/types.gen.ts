@@ -611,6 +611,52 @@ export type BoardSearchScoreResponse = {
 };
 
 /**
+ * BoardSourceCleanupCommandRequest
+ */
+export type BoardSourceCleanupCommandRequest = {
+  /**
+   * Confirmationtarget
+   */
+  confirmationTarget: string;
+  /**
+   * Confirmed
+   */
+  confirmed: boolean;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+};
+
+/**
+ * BoardSourceCleanupPreviewRequest
+ */
+export type BoardSourceCleanupPreviewRequest = {
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+};
+
+/**
+ * BrowserCanonicalRange
+ */
+export type BrowserCanonicalRange = {
+  /**
+   * Sequencerangeend
+   */
+  sequenceRangeEnd: number;
+  /**
+   * Sequencerangestart
+   */
+  sequenceRangeStart: number;
+};
+
+/**
  * BrowserImageImportJobPayload
  */
 export type BrowserImageImportJobPayload = {
@@ -745,6 +791,10 @@ export type BrowserImageImportPreflightResponse = {
    */
   reusedSequenceCount: number;
   /**
+   * Skippedcanonicalranges
+   */
+  skippedCanonicalRanges?: Array<BrowserCanonicalRange>;
+  /**
    * Skippedsourcecount
    */
   skippedSourceCount: number;
@@ -760,6 +810,10 @@ export type BrowserImageImportPreflightResponse = {
    * Uploadid
    */
   uploadId: string;
+  /**
+   * Uploadplanchecksumsha256
+   */
+  uploadPlanChecksumSha256?: string | null;
   /**
    * Warnings
    */
@@ -847,6 +901,14 @@ export type BrowserImageSelectionCreate = {
    */
   gameId?: string | null;
   purpose?: ImageSelectionPurpose;
+  /**
+   * Skippedcanonicalranges
+   */
+  skippedCanonicalRanges?: Array<BrowserCanonicalRange>;
+  /**
+   * Uploadplanchecksumsha256
+   */
+  uploadPlanChecksumSha256?: string | null;
 };
 
 /**
@@ -908,6 +970,136 @@ export type BrowserImageSelectionUploadResponse = {
    * Uploadedfileindexes
    */
   uploadedFileIndexes: Array<number>;
+};
+
+/**
+ * BrowserImageUploadPlanCreate
+ */
+export type BrowserImageUploadPlanCreate = {
+  /**
+   * Files
+   */
+  files: Array<BrowserImageUploadPlanSourceCreate>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * BrowserImageUploadPlanFileResponse
+ */
+export type BrowserImageUploadPlanFileResponse = {
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Uploadindex
+   */
+  uploadIndex: number;
+};
+
+/**
+ * BrowserImageUploadPlanResponse
+ */
+export type BrowserImageUploadPlanResponse = {
+  /**
+   * Filestoupload
+   */
+  filesToUpload: Array<BrowserImageUploadPlanFileResponse>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Missingsequencecount
+   */
+  missingSequenceCount: number;
+  /**
+   * Partialsourcecount
+   */
+  partialSourceCount: number;
+  /**
+   * Planchecksumsha256
+   */
+  planChecksumSha256: string;
+  /**
+   * Reusedsequencecount
+   */
+  reusedSequenceCount: number;
+  /**
+   * Selectedfilecount
+   */
+  selectedFileCount: number;
+  /**
+   * Selectedtotalbytes
+   */
+  selectedTotalBytes: number;
+  /**
+   * Skippedcompletesourcecount
+   */
+  skippedCompleteSourceCount: number;
+  /**
+   * Skippedcompletesources
+   */
+  skippedCompleteSources: Array<BrowserImageUploadPlanSkippedSourceResponse>;
+  /**
+   * Uploadfilecount
+   */
+  uploadFileCount: number;
+  /**
+   * Uploadtotalbytes
+   */
+  uploadTotalBytes: number;
+};
+
+/**
+ * BrowserImageUploadPlanSkippedSourceResponse
+ */
+export type BrowserImageUploadPlanSkippedSourceResponse = {
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sequencerangeend
+   */
+  sequenceRangeEnd: number;
+  /**
+   * Sequencerangestart
+   */
+  sequenceRangeStart: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+};
+
+/**
+ * BrowserImageUploadPlanSourceCreate
+ */
+export type BrowserImageUploadPlanSourceCreate = {
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
 };
 
 /**
@@ -1169,7 +1361,7 @@ export type CleanupPreviewResponse = {
   /**
    * Kind
    */
-  kind: 'mobile_release' | 'game_layout_data';
+  kind: 'mobile_release' | 'game_layout_data' | 'board_source_ranges';
   /**
    * Previewtoken
    */
@@ -1186,6 +1378,10 @@ export type CleanupPreviewResponse = {
    * Targetlabel
    */
   targetLabel: string;
+  /**
+   * Warnings
+   */
+  warnings: Array<string>;
 };
 
 /**
@@ -1207,7 +1403,7 @@ export type CleanupResultResponse = {
   /**
    * Kind
    */
-  kind: 'mobile_release' | 'game_layout_data';
+  kind: 'mobile_release' | 'game_layout_data' | 'board_source_ranges';
   /**
    * Previewtoken
    */
@@ -11286,6 +11482,94 @@ export type SearchGameBoardsResponses = {
 export type SearchGameBoardsResponse =
   SearchGameBoardsResponses[keyof SearchGameBoardsResponses];
 
+export type PreviewBoardSourceCleanupData = {
+  body: BoardSourceCleanupPreviewRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-source-cleanup-preview';
+};
+
+export type PreviewBoardSourceCleanupErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewBoardSourceCleanupError =
+  PreviewBoardSourceCleanupErrors[keyof PreviewBoardSourceCleanupErrors];
+
+export type PreviewBoardSourceCleanupResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupPreviewResponse;
+};
+
+export type PreviewBoardSourceCleanupResponse =
+  PreviewBoardSourceCleanupResponses[keyof PreviewBoardSourceCleanupResponses];
+
+export type DeleteBoardSourceRangesData = {
+  body: BoardSourceCleanupCommandRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-sources';
+};
+
+export type DeleteBoardSourceRangesErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DeleteBoardSourceRangesError =
+  DeleteBoardSourceRangesErrors[keyof DeleteBoardSourceRangesErrors];
+
+export type DeleteBoardSourceRangesResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupResultResponse;
+};
+
+export type DeleteBoardSourceRangesResponse =
+  DeleteBoardSourceRangesResponses[keyof DeleteBoardSourceRangesResponses];
+
 export type ListDatasetVersionsData = {
   body?: never;
   path: {
@@ -14363,6 +14647,45 @@ export type CreateBrowserImageSelectionResponses = {
 
 export type CreateBrowserImageSelectionResponse =
   CreateBrowserImageSelectionResponses[keyof CreateBrowserImageSelectionResponses];
+
+export type PlanBrowserImageSelectionUploadData = {
+  body: BrowserImageUploadPlanCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/upload-plan';
+};
+
+export type PlanBrowserImageSelectionUploadErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PlanBrowserImageSelectionUploadError =
+  PlanBrowserImageSelectionUploadErrors[keyof PlanBrowserImageSelectionUploadErrors];
+
+export type PlanBrowserImageSelectionUploadResponses = {
+  /**
+   * Successful Response
+   */
+  200: BrowserImageUploadPlanResponse;
+};
+
+export type PlanBrowserImageSelectionUploadResponse =
+  PlanBrowserImageSelectionUploadResponses[keyof PlanBrowserImageSelectionUploadResponses];
 
 export type CancelBrowserImageSelectionData = {
   body?: never;

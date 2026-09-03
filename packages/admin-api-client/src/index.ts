@@ -21,6 +21,7 @@ import {
   cancelSemiAutomaticImageSelection as cancelGeneratedSemiAutomaticImageSelection,
   cancelJob as cancelGeneratedJob,
   createBrowserImageSelection as createGeneratedBrowserImageSelection,
+  planBrowserImageSelectionUpload as planGeneratedBrowserImageSelectionUpload,
   createBrowserPageGeometryOverride as createGeneratedBrowserPageGeometryOverride,
   listReadyBrowserImageSelections as listGeneratedReadyBrowserImageSelections,
   previewReadyBrowserImageImport as previewGeneratedReadyBrowserImageImport,
@@ -55,6 +56,7 @@ import {
   createSymbol as createGeneratedSymbol,
   createSymbolTraining as createGeneratedSymbolTraining,
   deleteMobileRelease as deleteGeneratedMobileRelease,
+  deleteBoardSourceRanges as deleteGeneratedBoardSourceRanges,
   deleteCancelledImageSelectionJob as deleteGeneratedCancelledImageSelectionJob,
   generateMockDataset as generateGeneratedMockDataset,
   getDatasetValidationReport as getGeneratedDatasetValidationReport,
@@ -160,6 +162,7 @@ import {
   previewGridProfileActivation as previewGeneratedGridProfileActivation,
   previewSymbolModelActivation as previewGeneratedSymbolModelActivation,
   previewGameLayoutDataReset as previewGeneratedGameLayoutDataReset,
+  previewBoardSourceCleanup as previewGeneratedBoardSourceCleanup,
   previewMobileReleaseDeletion as previewGeneratedMobileReleaseDeletion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
   previewImageGridReviewGeometry as previewGeneratedImageGridReviewGeometry,
@@ -214,6 +217,7 @@ import {
 } from './generated/sdk.gen';
 import type {
   BrowserImageSelectionCreate,
+  BrowserImageUploadPlanResponse,
   BrowserImageImportPreflightCreate,
   BrowserImageImportStart,
   BrowserPageGeometryOverrideCreate,
@@ -224,6 +228,8 @@ import type {
   BoardSearchResultResponse,
   BoardSearchScoreResponse,
   BoardSearchScope,
+  BoardSourceCleanupCommandRequest,
+  BoardSourceCleanupPreviewRequest,
   CreateJobData,
   GridProfileActivationAction,
   GridProfileActivationCommand,
@@ -346,8 +352,11 @@ export type {
   BoardSearchResultResponse,
   BoardSearchScoreResponse,
   BoardSearchScope,
+  BoardSourceCleanupCommandRequest,
+  BoardSourceCleanupPreviewRequest,
   BrowserImageSelectionCreate,
   BrowserImageSelectionUploadResponse,
+  BrowserImageUploadPlanResponse,
   BrowserReadySelectionResponse,
   CleanupCommandRequest,
   CleanupCountResponse,
@@ -993,6 +1002,14 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     createBrowserImageSelection: (body: BrowserImageSelectionCreate) =>
       createGeneratedBrowserImageSelection({ body, client }),
+    planBrowserImageSelectionUpload: (body: {
+      gameId: string;
+      files: Array<{
+        sourceIndex: number;
+        relativePath: string;
+        sizeBytes: number;
+      }>;
+    }) => planGeneratedBrowserImageSelectionUpload({ body, client }),
     getBrowserImageSelection: (uploadId: string) =>
       getGeneratedBrowserImageSelection({
         client,
@@ -2278,6 +2295,25 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         headers: confirmedTargetHeaders(`game-layout-data:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    previewBoardSourceCleanup: (
+      gameId: string,
+      body: BoardSourceCleanupPreviewRequest,
+    ) =>
+      previewGeneratedBoardSourceCleanup({
+        body,
+        client,
+        path: { game_id: gameId },
+      }),
+    deleteBoardSourceRanges: (
+      gameId: string,
+      body: BoardSourceCleanupCommandRequest,
+    ) =>
+      deleteGeneratedBoardSourceRanges({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`board-source-ranges:${gameId}`),
         path: { game_id: gameId },
       }),
     createGame: (body: GameCreate) => createGeneratedGame({ body, client }),

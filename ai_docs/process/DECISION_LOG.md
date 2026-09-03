@@ -7194,3 +7194,23 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** aktywacja pozostaje świadomą i audytowalną decyzją; system
   nie zgaduje semantycznego mapowania kodów. Wadliwe pending dane można naprawić
   bez uploadu i recropu, zachowując zatwierdzone decyzje człowieka.
+
+## D-311 — Wymiana zdjęcia usuwa całe źródło, a upload jest filtrowany przed transferem
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+- **Decision:** operator wskazuje numery plansz, lecz cleanup rozszerza wybór
+  wyłącznie do pełnych źródeł `seq_<start>-<end>`. Częściowy wybór tego samego
+  źródła jest blokowany. Cleanup kasuje graf zależny tylko od wybranych źródeł,
+  a zarządzane artefakty przenosi do durable kwarantanny związanej z preview
+  tokenem. Niezależny `candidate_ready` nie jest usuwany ani aktywowany; po
+  cleanupie import wymaga jego świadomej aktywacji. Przed browserowym stagingiem
+  Admin wywołuje read-only plan i nie wysyła JPEG-a, gdy cały jego zakres jest
+  już kanoniczny; częściowe źródło pozostaje niepodzielne.
+- **Reason:** pojedyncza plansza jest pochodną wspólnego zdjęcia. Jej niezależne
+  usunięcie pozostawia niejednoznaczną proweniencję oraz uniemożliwia prosty
+  reimport lepszej fotografii całego zakresu. Pomijanie gotowych zakresów przed
+  uploadem ogranicza transfer katalogów zawierających dziesiątki tysięcy zdjęć.
+- **Consequences:** cleanup ma preview, mocne potwierdzenie, blokady aktywnych
+  zależności i recovery po przerwanym procesie. Końcowy preflight importu nadal
+  jest źródłem prawdy, więc plan uploadu nie wprowadza race condition.

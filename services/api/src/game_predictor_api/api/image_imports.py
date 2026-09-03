@@ -30,7 +30,10 @@ from game_predictor_api.application.page_geometry_overrides import (
     PageGeometryOverrideService,
 )
 from game_predictor_api.domain.image_import_engine_policy import ImageImportEnginePolicy
-from game_predictor_api.domain.image_sequence_canonical import ImageSequenceCanonicalService
+from game_predictor_api.domain.image_sequence_canonical import (
+    BrowserUploadPlanSource,
+    ImageSequenceCanonicalService,
+)
 from game_predictor_api.domain.jobs import JobConflictError, JobError, JobStatus, JobType
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_imports import (
@@ -41,6 +44,8 @@ from game_predictor_api.schemas.image_imports import (
     BrowserImageSelectionCreate,
     BrowserImageSelectionFileUploadResponse,
     BrowserImageSelectionUploadResponse,
+    BrowserImageUploadPlanCreate,
+    BrowserImageUploadPlanResponse,
     BrowserPageGeometryOverrideCreate,
     BrowserPageGeometryOverrideResponse,
     BrowserPageGeometryPreflightResponse,
@@ -56,6 +61,29 @@ from game_predictor_api.schemas.image_imports import (
     ImageSequenceImportPreflightResponse,
 )
 from game_predictor_api.schemas.jobs import JobResponse
+
+
+def _validate_skipped_canonical_ranges(
+    *,
+    canonical_service: ImageSequenceCanonicalService,
+    game_id: UUID,
+    skipped_ranges: tuple[tuple[int, int], ...],
+) -> None:
+    if not skipped_ranges:
+        return
+    canonical_numbers = canonical_service.canonical_numbers(game_id)
+    missing_numbers = [
+        number
+        for start, end in skipped_ranges
+        for number in range(start, end + 1)
+        if number not in canonical_numbers
+    ]
+    if missing_numbers:
+        raise JobConflictError(
+            "IMAGE_SEQUENCE_UPLOAD_PLAN_STALE",
+            "A range skipped before upload is no longer fully canonical. Create a new upload plan.",
+            details={"missingSequenceNumbers": missing_numbers[:100]},
+        )
 
 
 def _geometry_manifest_descriptor(
@@ -302,8 +330,18 @@ def create_image_imports_router(
             game_id=game_id,
             manifest=ready.manifest,
         )
+        _validate_skipped_canonical_ranges(
+            canonical_service=cast(ImageSequenceCanonicalService, canonical_service),
+            game_id=game_id,
+            skipped_ranges=ready.upload.skipped_canonical_ranges,
+        )
         base = ImageSequenceImportPreflightResponse.from_domain(result)
         payload = base.model_dump(mode="json", by_alias=True)
+        payload["uploadPlanChecksumSha256"] = ready.upload.upload_plan_checksum_sha256
+        payload["skippedCanonicalRanges"] = [
+            {"sequenceRangeStart": start, "sequenceRangeEnd": end}
+            for start, end in ready.upload.skipped_canonical_ranges
+        ]
         symbol_fingerprint, grid_fingerprint = job_service.current_image_import_model_fingerprints(
             game_id=game_id
         )
@@ -340,7 +378,23 @@ def create_image_imports_router(
     def create_browser_selection(
         payload: BrowserImageSelectionCreate,
         service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        canonical_service: object | None = canonical_parameter,
     ) -> BrowserImageSelectionUploadResponse:
+        skipped_ranges = tuple(
+            (item.sequence_range_start, item.sequence_range_end)
+            for item in payload.skipped_canonical_ranges
+        )
+        if skipped_ranges:
+            if canonical_service is None or payload.game_id is None:
+                raise JobError(
+                    "IMAGE_SEQUENCE_UPLOAD_PLAN_UNAVAILABLE",
+                    "A game-scoped canonical plan is required for skipped source ranges.",
+                )
+            _validate_skipped_canonical_ranges(
+                canonical_service=cast(ImageSequenceCanonicalService, canonical_service),
+                game_id=payload.game_id,
+                skipped_ranges=skipped_ranges,
+            )
         return upload_response(
             service.begin(
                 display_name=payload.display_name,
@@ -348,8 +402,39 @@ def create_image_imports_router(
                 expected_total_bytes=payload.expected_total_bytes,
                 purpose=payload.purpose,
                 game_id=payload.game_id,
+                upload_plan_checksum_sha256=payload.upload_plan_checksum_sha256,
+                skipped_canonical_ranges=skipped_ranges,
             )
         )
+
+    @router.post(
+        "/browser-selections/upload-plan",
+        response_model=BrowserImageUploadPlanResponse,
+        operation_id="planBrowserImageSelectionUpload",
+        summary="Filter fully imported seq_* sources before browser upload",
+        responses=responses,
+    )
+    def plan_browser_selection_upload(
+        payload: BrowserImageUploadPlanCreate,
+        canonical_service: object | None = canonical_parameter,
+    ) -> BrowserImageUploadPlanResponse:
+        if canonical_service is None:
+            raise JobError(
+                "IMAGE_SEQUENCE_PREFLIGHT_UNAVAILABLE",
+                "Canonical sequence preflight is not configured.",
+            )
+        plan = cast(ImageSequenceCanonicalService, canonical_service).plan_browser_upload(
+            game_id=payload.game_id,
+            files=tuple(
+                BrowserUploadPlanSource(
+                    source_index=item.source_index,
+                    relative_path=item.relative_path,
+                    size_bytes=item.size_bytes,
+                )
+                for item in payload.files
+            ),
+        )
+        return BrowserImageUploadPlanResponse.from_domain(plan)
 
     @router.get(
         "/browser-selections/{upload_id}",

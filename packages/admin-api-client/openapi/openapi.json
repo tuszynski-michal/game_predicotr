@@ -1081,6 +1081,83 @@
         "title": "BoardSearchScoreResponse",
         "type": "object"
       },
+      "BoardSourceCleanupCommandRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmationTarget": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Confirmationtarget",
+            "type": "string"
+          },
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "previewToken": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewtoken",
+            "type": "string"
+          },
+          "sequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Sequencenumbers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "previewToken",
+          "confirmationTarget",
+          "confirmed",
+          "sequenceNumbers"
+        ],
+        "title": "BoardSourceCleanupCommandRequest",
+        "type": "object"
+      },
+      "BoardSourceCleanupPreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "sequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Sequencenumbers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sequenceNumbers"
+        ],
+        "title": "BoardSourceCleanupPreviewRequest",
+        "type": "object"
+      },
+      "BrowserCanonicalRange": {
+        "additionalProperties": false,
+        "properties": {
+          "sequenceRangeEnd": {
+            "minimum": 1.0,
+            "title": "Sequencerangeend",
+            "type": "integer"
+          },
+          "sequenceRangeStart": {
+            "minimum": 1.0,
+            "title": "Sequencerangestart",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequenceRangeStart",
+          "sequenceRangeEnd"
+        ],
+        "title": "BrowserCanonicalRange",
+        "type": "object"
+      },
       "BrowserImageImportJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -1334,6 +1411,13 @@
             "title": "Reusedsequencecount",
             "type": "integer"
           },
+          "skippedCanonicalRanges": {
+            "items": {
+              "$ref": "#/components/schemas/BrowserCanonicalRange"
+            },
+            "title": "Skippedcanonicalranges",
+            "type": "array"
+          },
           "skippedSourceCount": {
             "minimum": 0.0,
             "title": "Skippedsourcecount",
@@ -1353,6 +1437,18 @@
             "format": "uuid",
             "title": "Uploadid",
             "type": "string"
+          },
+          "uploadPlanChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploadplanchecksumsha256"
           },
           "warnings": {
             "items": {
@@ -1564,6 +1660,26 @@
           "purpose": {
             "$ref": "#/components/schemas/ImageSelectionPurpose",
             "default": "layout_import"
+          },
+          "skippedCanonicalRanges": {
+            "items": {
+              "$ref": "#/components/schemas/BrowserCanonicalRange"
+            },
+            "maxItems": 1000000,
+            "title": "Skippedcanonicalranges",
+            "type": "array"
+          },
+          "uploadPlanChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploadplanchecksumsha256"
           }
         },
         "required": [
@@ -1667,6 +1783,209 @@
           "gameId"
         ],
         "title": "BrowserImageSelectionUploadResponse",
+        "type": "object"
+      },
+      "BrowserImageUploadPlanCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/BrowserImageUploadPlanSourceCreate"
+            },
+            "maxItems": 1000000,
+            "minItems": 1,
+            "title": "Files",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "files"
+        ],
+        "title": "BrowserImageUploadPlanCreate",
+        "type": "object"
+      },
+      "BrowserImageUploadPlanFileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "minimum": 1.0,
+            "title": "Sizebytes",
+            "type": "integer"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          },
+          "uploadIndex": {
+            "minimum": 0.0,
+            "title": "Uploadindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sourceIndex",
+          "uploadIndex",
+          "relativePath",
+          "sizeBytes"
+        ],
+        "title": "BrowserImageUploadPlanFileResponse",
+        "type": "object"
+      },
+      "BrowserImageUploadPlanResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "filesToUpload": {
+            "items": {
+              "$ref": "#/components/schemas/BrowserImageUploadPlanFileResponse"
+            },
+            "title": "Filestoupload",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "missingSequenceCount": {
+            "minimum": 0.0,
+            "title": "Missingsequencecount",
+            "type": "integer"
+          },
+          "partialSourceCount": {
+            "minimum": 0.0,
+            "title": "Partialsourcecount",
+            "type": "integer"
+          },
+          "planChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Planchecksumsha256",
+            "type": "string"
+          },
+          "reusedSequenceCount": {
+            "minimum": 0.0,
+            "title": "Reusedsequencecount",
+            "type": "integer"
+          },
+          "selectedFileCount": {
+            "minimum": 0.0,
+            "title": "Selectedfilecount",
+            "type": "integer"
+          },
+          "selectedTotalBytes": {
+            "minimum": 0.0,
+            "title": "Selectedtotalbytes",
+            "type": "integer"
+          },
+          "skippedCompleteSourceCount": {
+            "minimum": 0.0,
+            "title": "Skippedcompletesourcecount",
+            "type": "integer"
+          },
+          "skippedCompleteSources": {
+            "items": {
+              "$ref": "#/components/schemas/BrowserImageUploadPlanSkippedSourceResponse"
+            },
+            "title": "Skippedcompletesources",
+            "type": "array"
+          },
+          "uploadFileCount": {
+            "minimum": 0.0,
+            "title": "Uploadfilecount",
+            "type": "integer"
+          },
+          "uploadTotalBytes": {
+            "minimum": 0.0,
+            "title": "Uploadtotalbytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId",
+          "planChecksumSha256",
+          "selectedFileCount",
+          "selectedTotalBytes",
+          "uploadFileCount",
+          "uploadTotalBytes",
+          "skippedCompleteSourceCount",
+          "reusedSequenceCount",
+          "missingSequenceCount",
+          "partialSourceCount",
+          "filesToUpload",
+          "skippedCompleteSources"
+        ],
+        "title": "BrowserImageUploadPlanResponse",
+        "type": "object"
+      },
+      "BrowserImageUploadPlanSkippedSourceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "sequenceRangeEnd": {
+            "minimum": 1.0,
+            "title": "Sequencerangeend",
+            "type": "integer"
+          },
+          "sequenceRangeStart": {
+            "minimum": 1.0,
+            "title": "Sequencerangestart",
+            "type": "integer"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sourceIndex",
+          "relativePath",
+          "sequenceRangeStart",
+          "sequenceRangeEnd"
+        ],
+        "title": "BrowserImageUploadPlanSkippedSourceResponse",
+        "type": "object"
+      },
+      "BrowserImageUploadPlanSourceCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "relativePath": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "minimum": 1.0,
+            "title": "Sizebytes",
+            "type": "integer"
+          },
+          "sourceIndex": {
+            "maximum": 999999.0,
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sourceIndex",
+          "relativePath",
+          "sizeBytes"
+        ],
+        "title": "BrowserImageUploadPlanSourceCreate",
         "type": "object"
       },
       "BrowserPageGeometryOverrideCreate": {
@@ -2067,7 +2386,7 @@
         "additionalProperties": false,
         "properties": {
           "confirmationTarget": {
-            "maxLength": 200,
+            "maxLength": 20000,
             "minLength": 1,
             "title": "Confirmationtarget",
             "type": "string"
@@ -2140,7 +2459,8 @@
           "kind": {
             "enum": [
               "mobile_release",
-              "game_layout_data"
+              "game_layout_data",
+              "board_source_ranges"
             ],
             "title": "Kind",
             "type": "string"
@@ -2161,6 +2481,13 @@
           "targetLabel": {
             "title": "Targetlabel",
             "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -2172,7 +2499,8 @@
           "counts",
           "artifactPaths",
           "retainedSharedArtifactCount",
-          "blockers"
+          "blockers",
+          "warnings"
         ],
         "title": "CleanupPreviewResponse",
         "type": "object"
@@ -2198,7 +2526,8 @@
           "kind": {
             "enum": [
               "mobile_release",
-              "game_layout_data"
+              "game_layout_data",
+              "board_source_ranges"
             ],
             "title": "Kind",
             "type": "string"
@@ -19783,6 +20112,182 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/board-source-cleanup-preview": {
+      "post": {
+        "operationId": "previewBoardSourceCleanup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardSourceCleanupPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup target not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Preview deletion of complete image-source ranges selected by board number",
+        "tags": [
+          "cleanup"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-sources": {
+      "delete": {
+        "operationId": "deleteBoardSourceRanges",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardSourceCleanupCommandRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup target not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Delete complete image-source ranges and their dependent board data",
+        "tags": [
+          "cleanup"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/dataset-versions": {
       "get": {
         "operationId": "listDatasetVersions",
@@ -25607,6 +26112,83 @@
           }
         ],
         "summary": "Start a browser-native image folder upload",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/upload-plan": {
+      "post": {
+        "operationId": "planBrowserImageSelectionUpload",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserImageUploadPlanCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserImageUploadPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Filter fully imported seq_* sources before browser upload",
         "tags": [
           "image-imports"
         ]

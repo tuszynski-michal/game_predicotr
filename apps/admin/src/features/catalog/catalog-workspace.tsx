@@ -17,6 +17,7 @@ import {
   serializeAdminNavigation,
 } from '@/features/catalog/admin-navigation-state';
 import { BoardSearchWorkspace } from '@/features/board-search/board-search-workspace';
+import { BoardSourceCleanupControl } from '@/features/cleanup/board-source-cleanup-control';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
@@ -102,6 +103,11 @@ const GAME_SECTION_OPTIONS: readonly {
     id: 'imports',
     title: 'Import plansz',
     description: 'Wybór folderu, postęp importu i kompletność plansz.',
+  },
+  {
+    id: 'board-source-cleanup',
+    title: 'Usuń plansze',
+    description: 'Usuń całe źródła zdjęć oraz ich dane zależne.',
   },
   {
     id: 'symbols',
@@ -360,6 +366,15 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             onHandoffConsumed={() =>
                               setImageSelectionHandoff(null)
                             }
+                          />
+                        ) : null}
+                        {expanded && section.id === 'board-source-cleanup' ? (
+                          <BoardSourceCleanupControl
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
+                            onCompleted={() => {
+                              setGamesRevision((revision) => revision + 1);
+                            }}
                           />
                         ) : null}
                         {expanded && section.id === 'symbols' ? (

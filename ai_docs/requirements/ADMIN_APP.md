@@ -417,6 +417,9 @@ nakładane na krawędź grafiki i nie zmniejsza jej powierzchni. Nazwa,
 numer planszy, pozycja i stan review nie zajmują miejsca w siatce. Po wysłaniu
 decyzji karta jest nieaktywna, przygaszona i pokazuje centralny spinner; poprawnie
 przypisany do innego symbolu crop znika przed odświeżeniem strony z serwera.
+Numer planszy jest ponadto stale widoczny jako mały, kontrastowy overlay przy
+dolnej krawędzi samej grafiki. Nie powiększa kafelka ani nie przesuwa cropa;
+może użyć półprzezroczystego tła wyłącznie dla czytelności.
 Karta pokazuje tile 100 × 100 px ze wspólnego atlasu WebP, nie pełny crop ani
 base64 w odpowiedzi listy. Przeglądarka utrwala atlas przez content-addressed
 cache `immutable`.

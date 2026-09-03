@@ -1128,6 +1128,19 @@ idempotencję.
 
 ## Kontrolowany import folderu zdjęć
 
+### POST `/api/v1/admin/image-imports/browser-selections/upload-plan`
+
+Read-only plan przyjmuje `gameId` i metadane lokalnie wybranych JPEG-ów
+(`sourceIndex`, względna nazwa i rozmiar). Dla poprawnego `seq_<start>-<end>`
+serwer porównuje cały zakres z aktualną kanoniczną numeracją gry. Odpowiedź
+zawiera uporządkowane `filesToUpload`, ich indeksy źródłowe i liczniki
+pomijanych pełnych zakresów. Admin przesyła bajty tylko pozycji z tego planu;
+częściowy zakres jest przesyłany jako jeden JPEG. Plan nie tworzy stagingu ani
+joba. Przy tworzeniu stagingu Admin przekazuje checksumę planu oraz pełne
+pominięte zakresy; są one utrwalane obok manifestu. Późniejszy preflight
+pozostaje checksum-bound i odrzuca staging, jeśli którykolwiek z pominiętych
+zakresów przestał być w całości kanoniczny.
+
 ### POST `/api/v1/admin/image-imports/browser-selections`
 
 Rozpoczyna kontrolowany upload folderu wybranego standardowym selektorem
@@ -2564,6 +2577,8 @@ MOBILE_RELEASE_APK_CHECKSUM_MISMATCH
 
 ### GET `/api/v1/admin/games/{gameId}/layout-data-reset-preview`
 
+### POST `/api/v1/admin/games/{gameId}/board-source-cleanup-preview`
+
 Oba endpointy są read-only. Zwracają aktualny cel, liczniki zależności, jawne
 ścieżki zarządzanych artefaktów, liczbę zachowanych artefaktów współdzielonych,
 blokady oraz SHA-256 kanonicznego stanu:
@@ -2586,11 +2601,17 @@ blokady oraz SHA-256 kanonicznego stanu:
 ```
 
 Preview nie usuwa danych. Aktywny job, build, sesja Reviewera albo współdzielone
-wydanie jest zwracane jako blokada; UI nie może wtedy wykonać operacji.
+wydanie jest zwracane jako blokada; UI nie może wtedy wykonać operacji. Preview
+źródeł plansz przyjmuje dodatnie `sequenceNumbers`, zwraca dokładne pełne
+zakresy źródeł oraz ostrzeżenia o aktywacji modelu. Wybór choć jednej, lecz nie
+wszystkich plansz tego samego źródła kończy się konfliktem — źródła nie są
+dzielone.
 
 ### DELETE `/api/v1/admin/mobile-releases/{releaseId}`
 
 ### DELETE `/api/v1/admin/games/{gameId}/layout-data`
+
+### DELETE `/api/v1/admin/games/{gameId}/board-sources`
 
 Request obu endpointów:
 
@@ -2606,6 +2627,15 @@ Oprócz body wymagane są standardowa lokalna intencja oraz dokładny nagłówek
 `X-Admin-Target`: odpowiednio `mobile-release:{releaseId}` albo
 `game-layout-data:{gameId}`. Serwer pod blokadą ponownie wylicza preview; zmiana
 stanu daje konflikt zamiast wykonania na starym zakresie.
+
+Usunięcie źródeł plansz wymaga `X-Admin-Target: board-source-ranges:{gameId}`
+i `confirmationTarget` zwróconego przez preview. Kasuje wyłącznie pełne zakresy
+źródłowe wraz z ich planszami, review, geometrią, canonical, zależnymi
+kohortami/modelami i własnymi wydaniami. Niezależny `candidate_ready` pozostaje
+nieaktywny; preview ostrzega, że następny import wymaga ręcznej aktywacji.
+Zarządzane pliki są najpierw przenoszone do durable kwarantanny powiązanej z
+`previewToken`; rollback przywraca je, a potwierdzony commit finalizuje usunięcie
+przy następnym recovery, jeśli odpowiedź procesu została przerwana.
 
 Usunięcie wydania usuwa rekord, powiązania oraz dedykowany katalog snapshotu i
 APK. Reset gry zachowuje rekord `games`, joby i współdzielony cache przetwarzania,

@@ -114,7 +114,7 @@ wartość domyślna pozostaje `500 000`.
 | Pole | Typ | Uwagi |
 |---|---|---|
 | id | UUID | techniczny klucz potwierdzenia wykonania |
-| operation_type | varchar | `mobile_release` albo `game_layout_data` |
+| operation_type | varchar | `mobile_release`, `game_layout_data` albo `board_source_ranges` |
 | target_id | UUID | historyczny cel bez FK do usuniętego rekordu |
 | preview_token | char(64) | SHA-256 kanonicznego preview |
 | result_payload | jsonb | minimalny wynik i liczniki operacji |
@@ -125,6 +125,12 @@ retry po utracie odpowiedzi. Tabela jest append-only i nie przechowuje
 usuniętych danych domenowych ani sekretów. Niezależny audyt bezpieczeństwa JSONL
 zapisuje próbę autoryzacji i wynik requestu; `cleanup_operations` jest trwałym
 potwierdzeniem skutku domenowego.
+
+Operacja `board_source_ranges` zapisuje w wyniku jedynie zakresy i liczniki;
+jej `preview_token` jest także kluczem receiptu pod kontrolowanym
+`cleanup-quarantine`. Receipt zawiera wyłącznie bezpieczne ścieżki względne
+zarządzanych artefaktów. Przy starcie następnej zależności cleanupu obecność
+potwierdzonego rekordu finalizuje kwarantannę, a brak rekordu przywraca pliki.
 
 ### symbols
 

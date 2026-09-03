@@ -218,8 +218,8 @@
 
 .cardBadge {
   position: absolute;
+  top: 4px;
   right: 4px;
-  bottom: 4px;
   max-width: calc(100% - 8px);
   padding: 2px 5px;
   overflow: hidden;
@@ -231,6 +231,22 @@
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
+}
+
+.sequenceNumber {
+  position: absolute;
+  z-index: 2;
+  bottom: 3px;
+  left: 3px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgb(5 11 20 / 55%);
+  color: #fff;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1.2;
   pointer-events: none;
 }
 

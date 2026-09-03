@@ -12,6 +12,7 @@ export type AdminWorkspace = (typeof ADMIN_WORKSPACES)[number];
 
 export const GAME_SECTIONS = [
   'imports',
+  'board-source-cleanup',
   'symbols',
   'board-search',
   'rules',

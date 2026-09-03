@@ -15,7 +15,10 @@ from game_predictor_api.application.iterative_image_imports import (
     CuratedImageImportProgress,
 )
 from game_predictor_api.domain.image_import_engine_policy import ImageImportEnginePolicy
-from game_predictor_api.domain.image_sequence_canonical import ImageSequenceImportPreflight
+from game_predictor_api.domain.image_sequence_canonical import (
+    BrowserImageUploadPlan,
+    ImageSequenceImportPreflight,
+)
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
 
@@ -126,6 +129,11 @@ class BrowserImageImportPreflightCreate(ApiModel):
     game_id: UUID
 
 
+class BrowserCanonicalRange(ApiModel):
+    sequence_range_start: int = Field(ge=1)
+    sequence_range_end: int = Field(ge=1)
+
+
 class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
     upload_id: UUID
     display_name: str
@@ -136,6 +144,8 @@ class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
     image_engine_policy: ImageImportEnginePolicy
     image_engine_policy_revision: int = Field(ge=0)
     geometry_preflight_required: bool
+    upload_plan_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    skipped_canonical_ranges: list["BrowserCanonicalRange"] = Field(default_factory=list)
 
 
 class BrowserPageGeometryPreflightResponse(ApiModel):
@@ -196,11 +206,14 @@ class BrowserImageImportStart(ApiModel):
     grid_profile_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     geometry_preflight_job_id: UUID | None = None
     geometry_manifest_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
-    board_cell_processing_mode: Literal[
-        "verified_v19",
-        "structured_shadow",
-        "structured_default",
-    ] | None = None
+    board_cell_processing_mode: (
+        Literal[
+            "verified_v19",
+            "structured_shadow",
+            "structured_default",
+        ]
+        | None
+    ) = None
     image_engine_policy: ImageImportEnginePolicy | None = None
     image_engine_policy_revision: int | None = Field(default=None, ge=0)
 
@@ -217,6 +230,88 @@ class BrowserImageSelectionCreate(ApiModel):
     expected_total_bytes: int = Field(ge=1)
     purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT
     game_id: UUID | None = None
+    upload_plan_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    skipped_canonical_ranges: list[BrowserCanonicalRange] = Field(
+        default_factory=list,
+        max_length=1_000_000,
+    )
+
+
+class BrowserImageUploadPlanSourceCreate(ApiModel):
+    source_index: int = Field(ge=0, le=999_999)
+    relative_path: str = Field(min_length=1, max_length=1000)
+    size_bytes: int = Field(ge=1)
+
+
+class BrowserImageUploadPlanCreate(ApiModel):
+    game_id: UUID
+    files: list[BrowserImageUploadPlanSourceCreate] = Field(
+        min_length=1,
+        max_length=1_000_000,
+    )
+
+
+class BrowserImageUploadPlanFileResponse(ApiModel):
+    source_index: int = Field(ge=0)
+    upload_index: int = Field(ge=0)
+    relative_path: str
+    size_bytes: int = Field(ge=1)
+
+
+class BrowserImageUploadPlanSkippedSourceResponse(ApiModel):
+    source_index: int = Field(ge=0)
+    relative_path: str
+    sequence_range_start: int = Field(ge=1)
+    sequence_range_end: int = Field(ge=1)
+
+
+class BrowserImageUploadPlanResponse(ApiModel):
+    game_id: UUID
+    plan_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selected_file_count: int = Field(ge=0)
+    selected_total_bytes: int = Field(ge=0)
+    upload_file_count: int = Field(ge=0)
+    upload_total_bytes: int = Field(ge=0)
+    skipped_complete_source_count: int = Field(ge=0)
+    reused_sequence_count: int = Field(ge=0)
+    missing_sequence_count: int = Field(ge=0)
+    partial_source_count: int = Field(ge=0)
+    files_to_upload: list[BrowserImageUploadPlanFileResponse]
+    skipped_complete_sources: list[BrowserImageUploadPlanSkippedSourceResponse]
+
+    @classmethod
+    def from_domain(cls, value: BrowserImageUploadPlan) -> "BrowserImageUploadPlanResponse":
+        preflight = value.preflight
+        return cls(
+            game_id=value.game_id,
+            plan_checksum_sha256=value.plan_checksum_sha256,
+            selected_file_count=preflight.source_file_count,
+            selected_total_bytes=value.selected_total_bytes,
+            upload_file_count=len(value.files_to_upload),
+            upload_total_bytes=value.upload_total_bytes,
+            skipped_complete_source_count=preflight.skipped_source_count,
+            reused_sequence_count=preflight.reused_sequence_count,
+            missing_sequence_count=preflight.new_sequence_count,
+            partial_source_count=preflight.partial_source_count,
+            files_to_upload=[
+                BrowserImageUploadPlanFileResponse(
+                    source_index=item.source_index,
+                    upload_index=index,
+                    relative_path=item.relative_path,
+                    size_bytes=item.size_bytes,
+                )
+                for index, item in enumerate(value.files_to_upload)
+            ],
+            skipped_complete_sources=[
+                BrowserImageUploadPlanSkippedSourceResponse(
+                    source_index=item.source_index,
+                    relative_path=item.relative_path,
+                    sequence_range_start=item.sequence_range_start,
+                    sequence_range_end=item.sequence_range_end,
+                )
+                for item in value.skipped_complete_sources
+            ],
+        )
 
 
 class BrowserImageSelectionUploadResponse(ApiModel):

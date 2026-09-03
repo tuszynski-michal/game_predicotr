@@ -117,7 +117,8 @@ class CleanupOperationModel(Base):
     __tablename__ = "cleanup_operations"
     __table_args__ = (
         CheckConstraint(
-            "operation_type IN ('mobile_release', 'game_layout_data')",
+            "operation_type IN ('mobile_release', 'game_layout_data', "
+            "'board_source_ranges')",
             name="ck_cleanup_operations_type",
         ),
         CheckConstraint(

@@ -1505,6 +1505,117 @@ nav {
   line-height: 1.5;
 }
 
+.manualRepairBulkDeleteDialog {
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 32px));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-raised);
+  color: var(--text);
+}
+
+.manualRepairBulkDeleteDialog::backdrop {
+  background: rgb(0 0 0 / 62%);
+}
+
+.manualRepairBulkDeleteHeader h2 {
+  margin: 0;
+}
+
+.manualRepairBulkDeleteHeader p:last-child {
+  color: var(--muted);
+}
+
+.manualRepairBulkDeleteSearch,
+.manualRepairBulkDeleteConfirm {
+  display: grid;
+  gap: 7px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.manualRepairBulkDeleteSearch input {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(4, 12, 22, 0.82);
+  color: var(--text);
+  font: inherit;
+}
+
+.manualRepairBulkDeleteSuggestions,
+.manualRepairBulkDeleteResults {
+  display: grid;
+  gap: 4px;
+  max-height: 170px;
+  margin: 8px 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.manualRepairBulkDeleteSuggestions button {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.manualRepairBulkDeleteSuggestions button:hover,
+.manualRepairBulkDeleteSuggestions button:focus-visible {
+  border-color: var(--line);
+  background: rgba(79, 209, 197, 0.12);
+}
+
+.manualRepairBulkDeleteList {
+  display: grid;
+  gap: 5px;
+  margin-top: 18px;
+}
+
+.manualRepairBulkDeleteListHeader,
+.manualRepairBulkDeleteRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.manualRepairBulkDeleteListHeader {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.manualRepairBulkDeleteRow {
+  min-height: 38px;
+  padding: 0 2px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.manualRepairBulkDeleteRow button {
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  font: inherit;
+}
+
+.manualRepairBulkDeleteConfirm {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  line-height: 1.45;
+}
+
 .manualImageSelectionActive {
   min-height: min(78vh, 900px);
 }
@@ -2438,6 +2549,27 @@ h1 {
   border: 1px solid rgba(255, 139, 139, 0.22);
   border-radius: 13px;
   background: rgba(255, 139, 139, 0.035);
+}
+
+.boardSourceCleanupInput {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 44rem;
+  margin: 0.9rem 0 0.35rem;
+  font-weight: 650;
+}
+
+.boardSourceCleanupInput textarea {
+  min-height: 6.8rem;
+  resize: vertical;
+}
+
+.cleanupWarnings {
+  margin-top: 0.9rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
 }
 
 .gameAccordion > .cleanupControl {

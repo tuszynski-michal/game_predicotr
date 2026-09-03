@@ -98,6 +98,8 @@ class BrowserImageUpload:
     uploaded_indexes: set[int]
     uploaded_files: dict[int, BrowserUploadedFile]
     uploaded_bytes: int = 0
+    upload_plan_checksum_sha256: str | None = None
+    skipped_canonical_ranges: tuple[tuple[int, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -421,6 +423,8 @@ class BrowserImageSelectionService:
         expected_total_bytes: int,
         purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT,
         game_id: UUID | None = None,
+        upload_plan_checksum_sha256: str | None = None,
+        skipped_canonical_ranges: tuple[tuple[int, int], ...] = (),
     ) -> BrowserImageUpload:
         normalized_name = display_name.strip()
         if (
@@ -476,6 +480,25 @@ class BrowserImageSelectionService:
                 "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
                 "Semi-automatic selection staging cannot be scoped to a game.",
             )
+        normalized_skipped_ranges = _normalize_skipped_canonical_ranges(skipped_canonical_ranges)
+        if normalized_skipped_ranges and purpose is not ImageSelectionPurpose.LAYOUT_IMPORT:
+            raise JobError(
+                "IMAGE_SEQUENCE_UPLOAD_PLAN_SCOPE_INVALID",
+                "Skipped canonical ranges are only valid for layout-import staging.",
+            )
+        if normalized_skipped_ranges and upload_plan_checksum_sha256 is None:
+            raise JobError(
+                "IMAGE_SEQUENCE_UPLOAD_PLAN_INVALID",
+                "A skipped canonical range requires its upload-plan checksum.",
+            )
+        if upload_plan_checksum_sha256 is not None and (
+            len(upload_plan_checksum_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in upload_plan_checksum_sha256)
+        ):
+            raise JobError(
+                "IMAGE_SEQUENCE_UPLOAD_PLAN_INVALID",
+                "The browser upload-plan checksum is invalid.",
+            )
         now = self._clock()
         with self._lock:
             self._remove_expired(now)
@@ -505,6 +528,8 @@ class BrowserImageSelectionService:
             created_at=now,
             uploaded_indexes=set(),
             uploaded_files={},
+            upload_plan_checksum_sha256=upload_plan_checksum_sha256,
+            skipped_canonical_ranges=normalized_skipped_ranges,
         )
         self._write_upload_state(upload)
         with self._lock:
@@ -609,6 +634,11 @@ class BrowserImageSelectionService:
                 "purpose": upload.purpose.value,
                 "gameId": None if upload.game_id is None else str(upload.game_id),
                 "orderingPolicy": "natural_relative_path_v1",
+                "uploadPlanChecksumSha256": upload.upload_plan_checksum_sha256,
+                "skippedCanonicalRanges": [
+                    {"sequenceRangeEnd": end, "sequenceRangeStart": start}
+                    for start, end in upload.skipped_canonical_ranges
+                ],
                 "files": [
                     {
                         "orderIndex": value.file_index,
@@ -1024,6 +1054,11 @@ class BrowserImageSelectionService:
             "expectedFileCount": upload.expected_file_count,
             "expectedTotalBytes": upload.expected_total_bytes,
             "createdAt": upload.created_at.isoformat(),
+            "uploadPlanChecksumSha256": upload.upload_plan_checksum_sha256,
+            "skippedCanonicalRanges": [
+                {"sequenceRangeEnd": end, "sequenceRangeStart": start}
+                for start, end in upload.skipped_canonical_ranges
+            ],
         }
         destination = upload.path / UPLOAD_STATE_FILE_NAME
         temporary = upload.path / f".{UPLOAD_STATE_FILE_NAME}.part"
@@ -1157,10 +1192,18 @@ class BrowserImageSelectionService:
                 uploaded_indexes=set(files),
                 uploaded_files=files,
                 uploaded_bytes=sum(value.size_bytes for value in files.values()),
+                upload_plan_checksum_sha256=(
+                    None
+                    if payload.get("uploadPlanChecksumSha256") is None
+                    else str(payload["uploadPlanChecksumSha256"])
+                ),
+                skipped_canonical_ranges=_parse_skipped_canonical_ranges(
+                    payload.get("skippedCanonicalRanges", [])
+                ),
             )
             if schema_version == 1:
                 self._replace_upload_journal(upload)
-        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        except (JobError, OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
             return None
         if (
             upload.created_at + BROWSER_UPLOAD_TTL <= self._clock()
@@ -1200,6 +1243,8 @@ class BrowserImageSelectionService:
             "expectedTotalBytes": sum(int(value["sizeBytes"]) for value in files),
             "createdAt": metrics["startedAt"],
             "files": files,
+            "uploadPlanChecksumSha256": manifest.get("uploadPlanChecksumSha256"),
+            "skippedCanonicalRanges": manifest.get("skippedCanonicalRanges", []),
         }
 
     def _remove_expired(self, now: datetime) -> None:
@@ -1212,6 +1257,35 @@ class BrowserImageSelectionService:
         for upload_id in expired_ids:
             upload = self._uploads.pop(upload_id)
             shutil.rmtree(upload.path, ignore_errors=True)
+
+
+def _parse_skipped_canonical_ranges(value: object) -> tuple[tuple[int, int], ...]:
+    if not isinstance(value, list):
+        raise ValueError("skipped canonical ranges must be a list")
+    ranges: list[tuple[int, int]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("skipped canonical range is invalid")
+        start = item.get("sequenceRangeStart")
+        end = item.get("sequenceRangeEnd")
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise ValueError("skipped canonical range is invalid")
+        ranges.append((start, end))
+    return _normalize_skipped_canonical_ranges(tuple(ranges))
+
+
+def _normalize_skipped_canonical_ranges(
+    ranges: tuple[tuple[int, int], ...],
+) -> tuple[tuple[int, int], ...]:
+    normalized = tuple(sorted(set(ranges)))
+    if len(normalized) != len(ranges) or any(
+        start <= 0 or end < start or end - start >= 9 for start, end in normalized
+    ):
+        raise JobError(
+            "IMAGE_SEQUENCE_UPLOAD_PLAN_INVALID",
+            "The browser upload plan contains an invalid skipped source range.",
+        )
+    return normalized
 
 
 def inspect_image_folder(path: Path) -> tuple[Path, int]:

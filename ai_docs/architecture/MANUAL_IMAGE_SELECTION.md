@@ -148,6 +148,15 @@ dodanie albo usunięcie jednego wpisu. Dzięki temu delete nie wykonuje dwóch
 pełnych przebiegów SHA-256 po wszystkich JPEG-ach; nadal hashuje dokładnie
 usuwany plik i zachowuje journal fail-closed.
 
+Paczka `Usuwanie sekwencji` jest tylko wygodnym frontem tej samej kolejki
+adaptera. Jej autocomplete indeksuje `start` ze zweryfikowanych nazw
+`seq_<start>-<end>`, filtruje go prefiksem tekstowym i przekazuje do kolejki
+dokładne nazwy, a nie wyprowadzony zakres liczbowy. Każdy plik ma własną
+transakcję journal → mutacja → manifest; sukcesy są raportowane inkrementalnie.
+Awaria checksummy jednego pliku jest izolowana, natomiast błąd zapisu journalu,
+odzyskania uprawnienia uchwytu lub synchronizacji manifestu zatrzymuje kolejkę,
+aby nie obiecać spójnego lokalnego stanu. Nie ma trash ani Blobowego restore.
+
 Przy pełnej inspekcji reload/recovery znana checksuma jest weryfikowana w
 `reconcileRepairManifest`; następna synchronizacja output manifestu dostaje
 ten sam wynik i nie odczytuje JPEG-a ponownie. Workspace ma niezależny numer

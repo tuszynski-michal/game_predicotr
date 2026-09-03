@@ -329,13 +329,22 @@ export function ImageFolderImportPanel({
         setError(result.error);
         return;
       }
+      if (result.kind === 'nothing_to_upload') {
+        setUploadProgress(null);
+        setFeedback(
+          `Nie przesłano JPEG-ów: ${result.uploadPlan.skippedCompleteSourceCount.toLocaleString('pl-PL')} kompletnych zakresów ma już zaimportowane plansze.`,
+        );
+        return;
+      }
       setSelection(result.selection);
       setSelectionDisplayName(result.displayName);
       setReadyUploadId(result.uploadId);
       setPreflight(null);
       setGeometryPreflightJob(null);
       setFeedback(
-        `Folder przesłany: ${result.selection.supportedFileCount} plików JPEG. Przygotowuję raport przed importem.`,
+        result.uploadPlan === null
+          ? `Folder przesłany: ${result.selection.supportedFileCount} plików JPEG. Przygotowuję raport przed importem.`
+          : `Przesłano ${result.uploadPlan.uploadFileCount.toLocaleString('pl-PL')} z ${result.uploadPlan.selectedFileCount.toLocaleString('pl-PL')} JPEG-ów. Pominięto ${result.uploadPlan.skippedCompleteSourceCount.toLocaleString('pl-PL')} kompletnych zakresów. Przygotowuję raport przed importem.`,
       );
       const preflightResult = await previewReadyBrowserImageImport(
         api,

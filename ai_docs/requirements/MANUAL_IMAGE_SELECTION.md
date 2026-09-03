@@ -488,6 +488,17 @@ karty. Reload, zamknięcie karty albo następne usunięcie usuwa możliwość te
 jednopoziomowego przywrócenia. Trwały repair manifest zachowuje samą decyzję i
 lukę, ale nie przechowuje Blobu.
 
+Obok tej akcji dostępne jest `Usuwanie sekwencji` dla paczki plików. Po
+wskazaniu katalogu `seq_*` modal przyjmuje wyłącznie numeryczny prefiks
+`start` z nazwy `seq_<start>-<end>.jpg|jpeg`: wpis `45` znajduje zakresy
+zaczynające się od `45`, a wpis `678` nie znajduje `45678`. Enter lub kliknięcie
+dodaje dokładną nazwę pliku do listy „Nazwa pliku”; każdy wiersz można usunąć z
+listy ikoną kosza. Dopiero jawne potwierdzenie usuwa wskazane pliki lokalnie,
+bez kosza i bez możliwości przywrócenia. Wynik pokazuje osobno każdy sukces
+i izolowany błąd. Błąd uchwytu katalogu albo journalu zatrzymuje pozostałą
+paczkę fail-closed; błąd pojedynczego pliku nie unieważnia poprawnie
+przetworzonych pozostałych pozycji.
+
 Zmiana zdjęcia, fill, delete, restore ani undo nie mogą zerować zapamiętanej
 pozycji viewportu. Wspólny viewer ignoruje przejściowe zdarzenie scrolla
 powstałe podczas wymiany Object URL i odtwarza pozycję dopiero po dekodowaniu

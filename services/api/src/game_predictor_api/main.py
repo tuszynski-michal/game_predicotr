@@ -462,14 +462,20 @@ def create_app(
 
     def default_cleanup_service_dependency() -> Iterator[CleanupService]:
         with session_factory() as session:
+            repository = SqlAlchemyCleanupRepository(session)
+            artifact_store = ManagedCleanupArtifactStore(resolved_settings.artifact_root)
+            service = CleanupService(repository, artifact_store)
+            committed = False
             try:
-                yield CleanupService(
-                    SqlAlchemyCleanupRepository(session),
-                    ManagedCleanupArtifactStore(resolved_settings.artifact_root),
-                )
+                artifact_store.recover(repository.completed_board_source_quarantine_keys())
+                yield service
                 session.commit()
+                committed = True
+                service.finalize_committed_artifacts()
             except BaseException:
-                session.rollback()
+                if not committed:
+                    session.rollback()
+                    service.restore_uncommitted_artifacts()
                 raise
 
     resolved_cleanup_dependency = cleanup_service_dependency or default_cleanup_service_dependency

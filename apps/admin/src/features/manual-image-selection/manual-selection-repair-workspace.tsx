@@ -38,6 +38,11 @@ type RepairWorkspacePhase =
   | 'selecting_source'
   | 'listing_source';
 
+type BulkDeleteResult = {
+  readonly error: string | null;
+  readonly fileName: string;
+};
+
 export function ManualSelectionRepairWorkspace() {
   const store = useMemo(() => new ManualSelectionRepairStore(), []);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -66,6 +71,16 @@ export function ManualSelectionRepairWorkspace() {
   const [notice, setNotice] = useState<string | null>(null);
   const [viewReady, setViewReady] = useState(false);
   const [deleteUndoAvailable, setDeleteUndoAvailable] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteQuery, setBulkDeleteQuery] = useState('');
+  const [bulkDeleteFileNames, setBulkDeleteFileNames] = useState<
+    readonly string[]
+  >([]);
+  const [bulkDeleteConfirmed, setBulkDeleteConfirmed] = useState(false);
+  const [bulkDeleteResults, setBulkDeleteResults] = useState<
+    readonly BulkDeleteResult[]
+  >([]);
+  const [bulkDeleteRunning, setBulkDeleteRunning] = useState(false);
   const [workPhase, setWorkPhase] = useState<RepairWorkspacePhase>('idle');
   const sourceCursor = localState?.sourceCursor ?? 0;
   const mode = localState?.mode ?? null;
@@ -103,6 +118,23 @@ export function ManualSelectionRepairWorkspace() {
     Math.max(0, selectedImages.length - 1),
   );
   const currentSelected = snapshot?.files[deleteCursor];
+  const bulkDeleteCandidates = useMemo(() => {
+    const prefix = bulkDeleteQuery.trim();
+    if (prefix === '' || snapshot === null) return [];
+    return snapshot.files
+      .filter(
+        (file) =>
+          String(file.start).startsWith(prefix) &&
+          !bulkDeleteFileNames.includes(file.fileName),
+      )
+      .slice(0, 50);
+  }, [bulkDeleteFileNames, bulkDeleteQuery, snapshot]);
+  const bulkDeleteFiles = useMemo(
+    () =>
+      snapshot?.files.filter((file) => bulkDeleteFileNames.includes(file.fileName)) ??
+      [],
+    [bulkDeleteFileNames, snapshot],
+  );
   const workPhaseMessage = repairWorkspacePhaseMessage(workPhase);
   const interactiveWorkInProgress =
     workPhase !== 'idle' && workPhase !== 'restoring';
@@ -352,6 +384,130 @@ export function ManualSelectionRepairWorkspace() {
       mode: 'delete',
     });
     setNotice(null);
+  }
+
+  function openBulkDelete(): void {
+    if (snapshot === null || busy || interactiveWorkInProgress) return;
+    setBulkDeleteOpen(true);
+    setBulkDeleteQuery('');
+    setBulkDeleteFileNames([]);
+    setBulkDeleteConfirmed(false);
+    setBulkDeleteResults([]);
+  }
+
+  function addBulkDeleteFile(fileName: string): void {
+    setBulkDeleteFileNames((current) =>
+      current.includes(fileName) ? current : [...current, fileName],
+    );
+    setBulkDeleteQuery('');
+  }
+
+  async function deleteSelectedSequences(): Promise<void> {
+    if (
+      snapshot === null ||
+      localState === null ||
+      !bulkDeleteConfirmed ||
+      bulkDeleteFiles.length === 0 ||
+      bulkDeleteRunning
+    )
+      return;
+    setBulkDeleteRunning(true);
+    setBulkDeleteResults([]);
+    try {
+      await serialize(async () => {
+        let currentSnapshot = snapshot;
+        let currentLocalState = localState;
+        for (const selectedFile of bulkDeleteFiles) {
+          let result;
+          let outputItem;
+          let priorOperation;
+          try {
+            outputItem = currentSnapshot.outputManifest?.items.find(
+              (item) => item.outputName === selectedFile.fileName,
+            );
+            priorOperation = [...currentSnapshot.repairManifest.operations]
+              .reverse()
+              .find((operation) => operation.fileName === selectedFile.fileName);
+            result = await deleteRepairFile({
+              directory: currentSnapshot.directory,
+              fileName: selectedFile.fileName,
+              kind: 'delete',
+              manifest: currentSnapshot.repairManifest,
+              outputManifest: currentSnapshot.outputManifest,
+              sourceIndex: priorOperation?.sourceIndex ?? null,
+              sourcePath:
+                priorOperation?.sourcePath ?? outputItem?.imagePath ?? null,
+            });
+          } catch (cause) {
+            setBulkDeleteResults((current) => [
+              ...current,
+              { error: errorMessage(cause), fileName: selectedFile.fileName },
+            ]);
+            if (isCriticalBulkDeleteFailure(cause)) throw cause;
+            continue;
+          }
+
+          try {
+            await appendRepairTraceEvent(
+              currentSnapshot.directory,
+              result.manifest.repairKey,
+              {
+                decoded: true,
+                eventIndex: traceIndexRef.current++,
+                imageChecksum:
+                  result.manifest.operations[
+                    result.manifest.operations.length - 1
+                  ]?.checksumSha256 ?? null,
+                kind: 'delete',
+                outputName: selectedFile.fileName,
+                rangeEnd: selectedFile.end,
+                rangeStart: selectedFile.start,
+                recordedAt: new Date().toISOString(),
+                repairKey: result.manifest.repairKey,
+                sourceIndex: priorOperation?.sourceIndex ?? null,
+                sourcePath:
+                  priorOperation?.sourcePath ?? outputItem?.imagePath ?? null,
+                visibleMilliseconds: 0,
+              },
+            );
+            currentSnapshot = removeSnapshotFile(
+              currentSnapshot,
+              selectedFile.fileName,
+              result.manifest,
+              result.outputManifest,
+            );
+            currentLocalState = {
+              ...currentLocalState,
+              fileCursor: clamp(
+                currentLocalState.fileCursor,
+                0,
+                Math.max(0, currentSnapshot.files.length - 1),
+              ),
+            };
+            setSnapshot(currentSnapshot);
+            await updateLocalState(currentLocalState);
+            setBulkDeleteResults((current) => [
+              ...current,
+              { error: null, fileName: selectedFile.fileName },
+            ]);
+          } catch (cause) {
+            setBulkDeleteResults((current) => [
+              ...current,
+              { error: errorMessage(cause), fileName: selectedFile.fileName },
+            ]);
+            throw cause;
+          }
+        }
+      });
+    } catch (cause) {
+      setError(
+        `Usuwanie zbiorcze zatrzymano, aby zachować spójność dziennika: ${errorMessage(
+          cause,
+        )}`,
+      );
+    } finally {
+      setBulkDeleteRunning(false);
+    }
   }
 
   async function returnToModeSelection(): Promise<void> {
@@ -950,10 +1106,18 @@ export function ManualSelectionRepairWorkspace() {
           <button
             className="secondaryButton"
             disabled={busy || interactiveWorkInProgress || snapshot === null}
+            onClick={openBulkDelete}
+            type="button"
+          >
+            Usuń wybrane
+          </button>
+          <button
+            className="secondaryButton"
+            disabled={busy || interactiveWorkInProgress || snapshot === null}
             onClick={() => void startDelete()}
             type="button"
           >
-            Usuń sekwencje
+            Usuń pojedynczo
           </button>
         </div>
         {notice !== null ? (
@@ -970,6 +1134,125 @@ export function ManualSelectionRepairWorkspace() {
           </p>
         ) : null}
       </div>
+      {bulkDeleteOpen && snapshot !== null ? (
+        <dialog
+          aria-modal="true"
+          className="manualRepairBulkDeleteDialog"
+          open
+        >
+          <header className="manualRepairBulkDeleteHeader">
+            <div>
+              <p className="eyebrow">Lokalnie · bez cofania</p>
+              <h2>Usuń wybrane sekwencje</h2>
+              <p>
+                Wpisz początek numeru planszy. Wyszukiwanie dotyczy wyłącznie
+                pierwszego numeru zakresu `seq_*`.
+              </p>
+            </div>
+          </header>
+          <label className="manualRepairBulkDeleteSearch">
+            Numer początkowy zakresu
+            <input
+              autoFocus
+              inputMode="numeric"
+              onChange={(event) =>
+                setBulkDeleteQuery(
+                  event.currentTarget.value.replace(/[^0-9]/g, ''),
+                )
+              }
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && bulkDeleteCandidates[0] !== undefined) {
+                  event.preventDefault();
+                  addBulkDeleteFile(bulkDeleteCandidates[0].fileName);
+                }
+              }}
+              placeholder="np. 456"
+              value={bulkDeleteQuery}
+            />
+          </label>
+          {bulkDeleteCandidates.length > 0 ? (
+            <ul className="manualRepairBulkDeleteSuggestions" role="listbox">
+              {bulkDeleteCandidates.map((file) => (
+                <li key={file.fileName}>
+                  <button
+                    onClick={() => addBulkDeleteFile(file.fileName)}
+                    type="button"
+                  >
+                    {file.fileName}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <section aria-label="Wybrane pliki" className="manualRepairBulkDeleteList">
+            <div className="manualRepairBulkDeleteListHeader">
+              <span>Nazwa pliku</span>
+            </div>
+            {bulkDeleteFiles.map((file) => (
+              <div className="manualRepairBulkDeleteRow" key={file.fileName}>
+                <span>{file.fileName}</span>
+                <button
+                  aria-label={`Usuń ${file.fileName} z wyboru`}
+                  disabled={bulkDeleteRunning}
+                  onClick={() =>
+                    setBulkDeleteFileNames((current) =>
+                      current.filter((name) => name !== file.fileName),
+                    )
+                  }
+                  type="button"
+                >
+                  🗑
+                </button>
+              </div>
+            ))}
+          </section>
+          {bulkDeleteResults.length > 0 ? (
+            <ul className="manualRepairBulkDeleteResults" role="status">
+              {bulkDeleteResults.map((result) => (
+                <li key={result.fileName}>
+                  {result.error === null
+                    ? `${result.fileName} — usunięto`
+                    : `${result.fileName} — błąd: ${result.error}`}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <label className="manualRepairBulkDeleteConfirm">
+            <input
+              checked={bulkDeleteConfirmed}
+              disabled={bulkDeleteRunning}
+              onChange={(event) => setBulkDeleteConfirmed(event.currentTarget.checked)}
+              type="checkbox"
+            />
+            Rozumiem, że wybrane pliki zostaną usunięte bez kosza i bez
+            możliwości cofnięcia.
+          </label>
+          <footer className="manualImageSelectionActions">
+            <button
+              className="secondaryButton"
+              disabled={bulkDeleteRunning}
+              onClick={() => setBulkDeleteOpen(false)}
+              type="button"
+            >
+              Zamknij
+            </button>
+            <button
+              className="dangerButton"
+              disabled={
+                bulkDeleteRunning ||
+                !bulkDeleteConfirmed ||
+                bulkDeleteFiles.length === 0
+              }
+              onClick={() => void deleteSelectedSequences()}
+              type="button"
+            >
+              {bulkDeleteRunning
+                ? `Usuwanie ${bulkDeleteResults.length}/${bulkDeleteFiles.length}…`
+                : 'Usuń wybrane'}
+            </button>
+          </footer>
+        </dialog>
+      ) : null}
     </section>
   );
 }
@@ -1097,4 +1380,12 @@ function errorMessage(cause: unknown): string {
   return cause instanceof Error
     ? cause.message
     : 'Nie udało się poprawić selekcji.';
+}
+
+function isCriticalBulkDeleteFailure(cause: unknown): boolean {
+  const message = errorMessage(cause);
+  return !(
+    message.startsWith('REPAIR_FILE_CHECKSUM_MISMATCH:') ||
+    message === 'REPAIR_FILE_NOT_MANAGED'
+  );
 }

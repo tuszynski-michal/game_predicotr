@@ -1187,9 +1187,18 @@ Uczenie symboli może działać na istniejących, kompletnych cropach. Jawne
 
 ### Browser staging i start importu `seq_*`
 
-Browser-native upload layoutów jest dwuetapowy. Finalizacja tworzy trwały
-staging z `_browser_manifest.json`; gotowy staging nie wygasa po restarcie API
-i może zostać wznowiony z listy Admina. Nie wolno traktować fizycznych nazw
+Browser-native upload layoutów zaczyna się od read-only planu uploadu dla
+wybranych metadanych plików. Plan rozpoznaje wyłącznie kanoniczne nazwy
+`seq_<start>-<end>.jpg|jpeg`: JPEG, którego pełny zakres jest już kanoniczny w
+wybranej grze, nie jest wysyłany z przeglądarki. JPEG z zakresem częściowym
+pozostaje w całości w planie — nie dzieli się zdjęcia na plansze. Plan nie jest
+zgodą na import; kompletne zakresy pominięte przez plan są zapisywane w
+kontrolowanym stagingu. Końcowy preflight po stagingu nadal sprawdza ich
+aktualny stan kanoniczny i odrzuca zmianę między planem a startem.
+
+Upload pozostałych plików jest dwuetapowy. Finalizacja tworzy trwały staging z
+`_browser_manifest.json`; gotowy staging nie wygasa po restarcie API i może
+zostać wznowiony z listy Admina. Nie wolno traktować fizycznych nazw
 `00000001.jpg` jako nazw domenowych. API i worker odczytują z manifestu
 `relativePath` (`seq_<start>-<end>.jpg`) oraz osobne `storedFileName`.
 

@@ -63,9 +63,11 @@ test('uploads a browser-native folder and returns a validated selection', async 
 
   assert.deepEqual(result, {
     displayName: 'photos',
+    kind: 'uploaded',
     ok: true,
     selection,
     uploadId: 'upload-1',
+    uploadPlan: null,
   });
   assert.deepEqual(calls[0], [
     'create',
@@ -84,6 +86,95 @@ test('uploads a browser-native folder and returns a validated selection', async 
   ]);
   assert.deepEqual(calls[2], ['finalize', 'upload-1']);
   assert.deepEqual(progress, [[1, 1]]);
+});
+
+test('filters fully imported seq ranges before uploading browser JPEG bytes', async () => {
+  const existing = new File(['old'], 'seq_1-9.jpg', { type: 'image/jpeg' });
+  const missing = new File(['new'], 'seq_10-18.jpg', { type: 'image/jpeg' });
+  const calls = [];
+  const result = await uploadImageFolder(
+    {
+      cancelBrowserImageSelection: async () => ({ data: undefined }),
+      createBrowserImageSelection: async (body) => {
+        calls.push(['create', body]);
+        return {
+          data: {
+            expectedFileCount: 1,
+            expectedTotalBytes: missing.size,
+            uploadId: 'upload-1',
+            uploadedBytes: 0,
+            uploadedFileCount: 0,
+          },
+        };
+      },
+      finalizeBrowserImageSelection: async () => ({
+        data: { status: 'selected', supportedFileCount: 1 },
+      }),
+      planBrowserImageSelectionUpload: async (body) => {
+        calls.push(['plan', body]);
+        return {
+          data: {
+            filesToUpload: [
+              {
+                relativePath: 'seq_10-18.jpg',
+                sizeBytes: missing.size,
+                sourceIndex: 1,
+                uploadIndex: 0,
+              },
+            ],
+            missingSequenceCount: 9,
+            partialSourceCount: 0,
+            planChecksumSha256: 'a'.repeat(64),
+            reusedSequenceCount: 9,
+            selectedFileCount: 2,
+            selectedTotalBytes: existing.size + missing.size,
+            skippedCompleteSources: [
+              {
+                relativePath: 'seq_1-9.jpg',
+                sequenceRangeEnd: 9,
+                sequenceRangeStart: 1,
+                sourceIndex: 0,
+              },
+            ],
+            skippedCompleteSourceCount: 1,
+            uploadFileCount: 1,
+            uploadTotalBytes: missing.size,
+            gameId: 'game-1',
+          },
+        };
+      },
+      uploadBrowserImageSelectionFile: async (...args) => {
+        calls.push(['upload', ...args]);
+        return {
+          data: {
+            expectedFileCount: 1,
+            expectedTotalBytes: missing.size,
+            uploadedBytes: missing.size,
+            uploadedFileCount: 1,
+          },
+        };
+      },
+    },
+    [existing, missing],
+    'game-1',
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(calls[0][0], 'plan');
+  assert.deepEqual(calls[1], [
+    'create',
+    {
+      displayName: 'seq_1-9.jpg',
+      expectedFileCount: 1,
+      expectedTotalBytes: missing.size,
+      gameId: 'game-1',
+      skippedCanonicalRanges: [
+        { sequenceRangeEnd: 9, sequenceRangeStart: 1 },
+      ],
+      uploadPlanChecksumSha256: 'a'.repeat(64),
+    },
+  ]);
+  assert.equal(calls[2][3], 'seq_10-18.jpg');
 });
 
 test('reprocesses an import from its managed originals', async () => {

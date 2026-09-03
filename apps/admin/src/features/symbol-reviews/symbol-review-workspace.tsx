@@ -1188,6 +1188,9 @@ function SymbolReviewCard({
             role="status"
           />
         ) : null}
+        <span className={styles.sequenceNumber}>
+          {item.sequenceNumber}
+        </span>
         {badge !== null ? (
           <span className={styles.cardBadge}>{badge}</span>
         ) : null}

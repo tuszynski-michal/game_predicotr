@@ -273,6 +273,27 @@ test('delete workspace uses fixed step one and keeps only one in-memory restore 
   assert.match(source, /removeSnapshotFile\(/);
 });
 
+test('repair workspace supports a non-reversible batch delete by start-number prefix', async () => {
+  const source = await import('node:fs/promises').then(({ readFile }) =>
+    readFile(
+      new URL(
+        '../src/features/manual-image-selection/manual-selection-repair-workspace.tsx',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  assert.match(source, />\s*Usuń wybrane\s*</);
+  assert.match(source, />\s*Usuń pojedynczo\s*</);
+  assert.match(source, /String\(file\.start\)\.startsWith\(prefix\)/);
+  assert.match(source, /bulkDeleteCandidates\[0\]/);
+  assert.match(source, /Nazwa pliku/);
+  assert.match(source, /bez kosza i bez[\s\S]*możliwości cofnięcia/);
+  assert.match(source, /for \(const selectedFile of bulkDeleteFiles\)/);
+  assert.match(source, /deleteRepairFile\(/);
+  assert.match(source, /isCriticalBulkDeleteFailure/);
+});
+
 test('admin mounts repair directly below local selection and redirects repaired folders', async () => {
   const workspace = await import('node:fs/promises').then(({ readFile }) =>
     readFile(

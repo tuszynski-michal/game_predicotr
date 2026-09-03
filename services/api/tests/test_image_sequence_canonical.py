@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 from game_predictor_api.domain.image_sequence_canonical import (
+    BrowserUploadPlanSource,
     ImageSequenceCanonicalService,
     parse_browser_sequence_manifest,
 )
@@ -181,3 +182,38 @@ def test_preflight_rejects_a_sequence_page_beyond_the_game_bound(
         "rangeStart": 499_999,
         "rangeEnd": 500_007,
     }
+
+
+def test_browser_upload_plan_omits_only_fully_canonical_seq_sources() -> None:
+    service = ImageSequenceCanonicalService(_Repository(set(range(1, 10))))
+
+    plan = service.plan_browser_upload(
+        game_id=uuid4(),
+        files=(
+            BrowserUploadPlanSource(0, "seq_1-9.jpg", 10),
+            BrowserUploadPlanSource(1, "seq_10-18.jpg", 20),
+            BrowserUploadPlanSource(2, "photo.jpg", 30),
+        ),
+    )
+
+    assert plan.preflight.skipped_source_count == 1
+    assert plan.preflight.new_sequence_count == 9
+    assert [item.source_index for item in plan.files_to_upload] == [1, 2]
+    assert [
+        (item.source_index, item.sequence_range_start, item.sequence_range_end)
+        for item in plan.skipped_complete_sources
+    ] == [(0, 1, 9)]
+    assert plan.selected_total_bytes == 60
+    assert plan.upload_total_bytes == 50
+
+
+def test_browser_upload_plan_keeps_a_partially_missing_source() -> None:
+    service = ImageSequenceCanonicalService(_Repository({1, 2, 3}))
+
+    plan = service.plan_browser_upload(
+        game_id=uuid4(),
+        files=(BrowserUploadPlanSource(4, "folder/seq_1-9.jpeg", 10),),
+    )
+
+    assert plan.preflight.partial_source_count == 1
+    assert [item.source_index for item in plan.files_to_upload] == [4]

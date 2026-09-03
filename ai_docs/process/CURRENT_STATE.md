@@ -15,6 +15,19 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
+
+- Weryfikacja symboli pokazuje numer planszy bez zwiększania kafelka.
+- Admin może lokalnie usunąć paczkę zweryfikowanych plików `seq_*` po prefiksie
+  `start`, z jawnym potwierdzeniem bez restore oraz raportem per plik.
+- Preview serwerowego cleanupu akceptuje wyłącznie kompletne zakresy zdjęć,
+  pokazuje blokady modelu/release i kwarantannuje zarządzane artefakty do czasu
+  commita bazy. Niezależny `candidate_ready` pozostaje kandydatem wymagającym
+  ręcznej aktywacji.
+- Przed browserowym stagingiem plan uploadu pomija pełne zakresy już
+  kanoniczne, bez przesyłania ich bajtów; zakresy częściowe i końcowy preflight
+  zachowują dotychczasowe bramki integralności.
+
 ### Niewyraźny jako modyfikator decyzji — TASK-0410
 
 - Toolbar Weryfikacji symboli używa checkboxa `Niewyraźny` zamiast osobnej

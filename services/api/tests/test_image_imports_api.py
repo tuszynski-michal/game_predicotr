@@ -341,6 +341,14 @@ class _BrowserCanonicalRepository:
         return {}
 
 
+class _MutableBrowserCanonicalRepository(_BrowserCanonicalRepository):
+    def __init__(self, numbers: set[int]) -> None:
+        self.numbers = numbers
+
+    def canonical_numbers(self, _game_id: UUID) -> set[int]:
+        return set(self.numbers)
+
+
 def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     tmp_path: Path,
 ) -> None:
@@ -566,6 +574,7 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
         clock=lambda: NOW,
         retention=RetentionGuard(),
     )
+
     canonical_service = ImageSequenceCanonicalService(_BrowserCanonicalRepository())
     job_service = JobService(repository)
     stream = BytesIO()
@@ -705,6 +714,143 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
         "preflightJobId": str(geometry_job_id),
         "relativePath": f"data/page-geometry-manifests/{geometry_checksum}.json",
     }
+
+
+def test_browser_upload_plan_skips_complete_ranges_before_staging_bytes(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=10 * 1024 * 1024,
+        clock=lambda: NOW,
+    )
+    canonical_service = ImageSequenceCanonicalService(_BrowserCanonicalRepository())
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {"GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts")}
+            ),
+            job_service_dependency=lambda: JobService(repository),
+            image_folder_selection_service_dependency=lambda: selection_service,
+            browser_image_selection_service_dependency=lambda: browser_service,
+            image_sequence_canonical_service_dependency=lambda: canonical_service,
+        )
+    )
+
+    with client:
+        response = client.post(
+            "/api/v1/admin/image-imports/browser-selections/upload-plan",
+            json={
+                "gameId": str(game_id),
+                "files": [
+                    {
+                        "sourceIndex": 0,
+                        "relativePath": "seq_1-9.jpg",
+                        "sizeBytes": 100,
+                    },
+                    {
+                        "sourceIndex": 1,
+                        "relativePath": "seq_10-18.jpg",
+                        "sizeBytes": 200,
+                    },
+                ],
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["selectedFileCount"] == 2
+    assert payload["uploadFileCount"] == 1
+    assert payload["uploadTotalBytes"] == 200
+    assert payload["skippedCompleteSourceCount"] == 1
+    assert payload["skippedCompleteSources"] == [
+        {
+            "relativePath": "seq_1-9.jpg",
+            "sequenceRangeEnd": 9,
+            "sequenceRangeStart": 1,
+            "sourceIndex": 0,
+        }
+    ]
+    assert payload["filesToUpload"] == [
+        {
+            "relativePath": "seq_10-18.jpg",
+            "sizeBytes": 200,
+            "sourceIndex": 1,
+            "uploadIndex": 0,
+        }
+    ]
+
+
+def test_browser_preflight_rejects_a_stale_range_skipped_before_upload(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=10 * 1024 * 1024,
+        clock=lambda: NOW,
+    )
+    canonical_repository = _MutableBrowserCanonicalRepository(set(range(1, 10)))
+    canonical_service = ImageSequenceCanonicalService(canonical_repository)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {"GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts")}
+            ),
+            job_service_dependency=lambda: JobService(repository),
+            image_folder_selection_service_dependency=lambda: selection_service,
+            browser_image_selection_service_dependency=lambda: browser_service,
+            image_sequence_canonical_service_dependency=lambda: canonical_service,
+        )
+    )
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(stream, "JPEG")
+    image_bytes = stream.getvalue()
+
+    with client:
+        created = client.post(
+            "/api/v1/admin/image-imports/browser-selections",
+            json={
+                "displayName": "10-18",
+                "expectedFileCount": 1,
+                "expectedTotalBytes": len(image_bytes),
+                "gameId": str(game_id),
+                "uploadPlanChecksumSha256": "a" * 64,
+                "skippedCanonicalRanges": [{"sequenceRangeStart": 1, "sequenceRangeEnd": 9}],
+            },
+        )
+        assert created.status_code == 201, created.text
+        upload_id = created.json()["uploadId"]
+        uploaded = client.put(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/files/0",
+            content=image_bytes,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Image-Relative-Path": "seq_10-18.jpg",
+            },
+        )
+        assert uploaded.status_code == 200, uploaded.text
+        assert (
+            client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize"
+            ).status_code
+            == 200
+        )
+        canonical_repository.numbers.clear()
+        preflight = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight",
+            json={"gameId": str(game_id)},
+        )
+
+    assert preflight.status_code == 409
+    assert preflight.json()["code"] == "IMAGE_SEQUENCE_UPLOAD_PLAN_STALE"
 
 
 def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -> None:

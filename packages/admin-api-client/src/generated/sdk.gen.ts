@@ -150,6 +150,9 @@ import type {
   DecideSemiAutomaticFilenameRangeVerificationData,
   DecideSemiAutomaticFilenameRangeVerificationErrors,
   DecideSemiAutomaticFilenameRangeVerificationResponses,
+  DeleteBoardSourceRangesData,
+  DeleteBoardSourceRangesErrors,
+  DeleteBoardSourceRangesResponses,
   DeleteCancelledImageSelectionJobData,
   DeleteCancelledImageSelectionJobErrors,
   DeleteCancelledImageSelectionJobResponses,
@@ -521,6 +524,12 @@ import type {
   PauseSemiAutomaticImageSelectionData,
   PauseSemiAutomaticImageSelectionErrors,
   PauseSemiAutomaticImageSelectionResponses,
+  PlanBrowserImageSelectionUploadData,
+  PlanBrowserImageSelectionUploadErrors,
+  PlanBrowserImageSelectionUploadResponses,
+  PreviewBoardSourceCleanupData,
+  PreviewBoardSourceCleanupErrors,
+  PreviewBoardSourceCleanupResponses,
   PreviewGameLayoutDataResetData,
   PreviewGameLayoutDataResetErrors,
   PreviewGameLayoutDataResetResponses,
@@ -942,6 +951,54 @@ export const searchGameBoards = <ThrowOnError extends boolean = false>(
     SearchGameBoardsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/board-search', ...options });
+
+/**
+ * Preview deletion of complete image-source ranges selected by board number
+ */
+export const previewBoardSourceCleanup = <ThrowOnError extends boolean = false>(
+  options: Options<PreviewBoardSourceCleanupData, ThrowOnError>,
+): RequestResult<
+  PreviewBoardSourceCleanupResponses,
+  PreviewBoardSourceCleanupErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewBoardSourceCleanupResponses,
+    PreviewBoardSourceCleanupErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-source-cleanup-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete complete image-source ranges and their dependent board data
+ */
+export const deleteBoardSourceRanges = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteBoardSourceRangesData, ThrowOnError>,
+): RequestResult<
+  DeleteBoardSourceRangesResponses,
+  DeleteBoardSourceRangesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteBoardSourceRangesResponses,
+    DeleteBoardSourceRangesErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-sources',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * List game dataset versions
@@ -2387,6 +2444,32 @@ export const createBrowserImageSelection = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Filter fully imported seq_* sources before browser upload
+ */
+export const planBrowserImageSelectionUpload = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PlanBrowserImageSelectionUploadData, ThrowOnError>,
+): RequestResult<
+  PlanBrowserImageSelectionUploadResponses,
+  PlanBrowserImageSelectionUploadErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PlanBrowserImageSelectionUploadResponses,
+    PlanBrowserImageSelectionUploadErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/upload-plan',
     ...options,
     headers: {
       'Content-Type': 'application/json',

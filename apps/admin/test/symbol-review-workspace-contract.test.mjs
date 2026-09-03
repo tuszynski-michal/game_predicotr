@@ -118,6 +118,10 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(source, /hiddenCellIds/);
   assert.match(styles, /\.cardPending/);
   assert.match(styles, /\.cardBadge/);
+  assert.match(source, /className=\{styles\.sequenceNumber\}/);
+  assert.match(source, /\{item\.sequenceNumber\}/);
+  assert.match(styles, /\.sequenceNumber/);
+  assert.match(styles, /font-variant-numeric:\s*tabular-nums/);
   assert.match(source, /item\.qualityIssue === 'unreadable'/);
   assert.match(source, /item\.cropApprovalState === 'changed_since_approval'/);
   assert.match(styles, /symbolReviewSpin/);

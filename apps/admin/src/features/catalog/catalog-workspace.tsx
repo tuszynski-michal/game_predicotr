@@ -64,7 +64,7 @@ const WORKSPACE_OPTIONS: readonly {
   },
   {
     id: 'semi-automatic-image-selection',
-    label: 'Półautomatyczny wybór zdjęć',
+    label: 'Semi-auto selekcja',
   },
   {
     id: 'symbol-verification',

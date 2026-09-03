@@ -80,9 +80,7 @@ class SymbolCellReviewBulkFilterSelection:
             ("min_confidence", self.min_confidence),
             ("max_confidence", self.max_confidence),
         ):
-            if value is not None and (
-                isinstance(value, bool) or not 0.0 <= value <= 1.0
-            ):
+            if value is not None and (isinstance(value, bool) or not 0.0 <= value <= 1.0):
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_BULK_CONFIDENCE_INVALID",
                     f"{name} must be a number between 0 and 1.",
@@ -150,10 +148,17 @@ class SymbolCellReviewBulkRequest:
                 "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_REQUIRED",
                 "Changing crop symbols requires an active target symbol.",
             )
-        if self.action is not SymbolCellReviewAction.REASSIGN and self.target_symbol_id is not None:
+        if (
+            self.action
+            not in {
+                SymbolCellReviewAction.REASSIGN,
+                SymbolCellReviewAction.MARK_BLURRY,
+            }
+            and self.target_symbol_id is not None
+        ):
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_UNEXPECTED",
-                "Only a symbol reassignment may specify a target symbol.",
+                "Only a symbol reassignment or blurry decision may specify a target symbol.",
             )
 
     @property

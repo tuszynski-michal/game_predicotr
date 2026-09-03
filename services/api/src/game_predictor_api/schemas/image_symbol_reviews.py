@@ -225,8 +225,15 @@ class SymbolCellReviewBulkOperationRequest(ApiModel):
     def validate_action_target(self) -> SymbolCellReviewBulkOperationRequest:
         if self.action is SymbolCellReviewAction.REASSIGN and self.target_symbol_id is None:
             raise ValueError("targetSymbolId is required for reassign.")
-        if self.action is not SymbolCellReviewAction.REASSIGN and self.target_symbol_id is not None:
-            raise ValueError("targetSymbolId is allowed only for reassign.")
+        if (
+            self.action
+            not in {
+                SymbolCellReviewAction.REASSIGN,
+                SymbolCellReviewAction.MARK_BLURRY,
+            }
+            and self.target_symbol_id is not None
+        ):
+            raise ValueError("targetSymbolId is allowed only for reassign or mark_blurry.")
         return self
 
 
@@ -279,8 +286,15 @@ class SymbolCellReviewMutationRequest(ApiModel):
     def validate_action_target(self) -> SymbolCellReviewMutationRequest:
         if self.action is SymbolCellReviewAction.REASSIGN and self.target_symbol_id is None:
             raise ValueError("targetSymbolId is required for reassign.")
-        if self.action is not SymbolCellReviewAction.REASSIGN and self.target_symbol_id is not None:
-            raise ValueError("targetSymbolId is allowed only for reassign.")
+        if (
+            self.action
+            not in {
+                SymbolCellReviewAction.REASSIGN,
+                SymbolCellReviewAction.MARK_BLURRY,
+            }
+            and self.target_symbol_id is not None
+        ):
+            raise ValueError("targetSymbolId is allowed only for reassign or mark_blurry.")
         return self
 
 

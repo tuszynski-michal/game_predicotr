@@ -425,6 +425,28 @@ def test_blurry_crop_keeps_recognized_symbol_but_is_not_training_eligible() -> N
     )
 
 
+def test_blurry_crop_can_atomically_reassign_the_recognized_symbol() -> None:
+    review = _mapped_reviews()[0]
+
+    blurry = mark_symbol_cell_blurry(
+        review,
+        active_symbol_codes=("cherry", "lemon"),
+        target_symbol_code="lemon",
+    ).review
+
+    assert blurry.assigned_symbol_code == "lemon"
+    assert blurry.review_state is SymbolCellReviewState.APPROVED
+    assert blurry.quality_issue is SymbolCellQualityIssue.BLURRY
+    assert blurry.assignment_source is SymbolCellAssignmentSource.HUMAN
+    assert blurry.crop_approval_state is SymbolCellCropApprovalState.CURRENT
+    assert not is_symbol_cell_training_eligible(
+        blurry,
+        active_symbol_codes=("cherry", "lemon"),
+        is_current_owner=True,
+        asset_checksum_verified=True,
+    )
+
+
 def test_blurry_crop_requires_an_active_recognized_symbol() -> None:
     review = replace(_mapped_reviews()[0], assigned_symbol_code=None)
 

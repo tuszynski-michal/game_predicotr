@@ -1381,6 +1381,46 @@ def test_single_cell_decision_routes_mark_blurry_as_a_quality_only_action(
     assert mutations.commands[0].target_symbol_id is None
 
 
+def test_single_cell_decision_atomically_reassigns_a_blurry_crop(tmp_path: Path) -> None:
+    game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        items=(item,),
+    )
+    mutations = MemorySymbolCellReviewMutationRepository()
+
+    with _client(
+        reviews,
+        artifact_root=tmp_path,
+        mutation_repository=mutations,
+    ) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/decision",
+            json={
+                "action": "mark_blurry",
+                "expectedRevision": item.revision,
+                "expectedGeometryRevision": item.geometry_revision,
+                "expectedCropSampleId": item.crop_sample_id,
+                "expectedCropChecksumSha256": item.crop_checksum_sha256,
+                "targetSymbolId": str(target_symbol_id),
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["assignedSymbolId"] == str(target_symbol_id)
+    assert response.json()["qualityIssue"] == "blurry"
+    assert mutations.commands[0].action is SymbolCellReviewAction.MARK_BLURRY
+    assert mutations.commands[0].target_symbol_id == target_symbol_id
+
+
 def test_single_cell_decision_returns_conflict_for_stale_revision(tmp_path: Path) -> None:
     game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
     item = _item(
@@ -1583,3 +1623,46 @@ def test_bulk_operation_accepts_mark_blurry_action(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert response.json()["action"] == "mark_blurry"
     assert bulk.requests[0].action is SymbolCellReviewAction.MARK_BLURRY
+
+
+def test_bulk_blurry_operation_accepts_a_target_symbol(tmp_path: Path) -> None:
+    game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        items=(item,),
+    )
+    bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
+
+    with _client(reviews, artifact_root=tmp_path, bulk_repository=bulk) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview",
+            json={
+                "action": "mark_blurry",
+                "targetSymbolId": str(target_symbol_id),
+                "selection": {
+                    "kind": "explicit",
+                    "targets": [
+                        {
+                            "cellReviewId": str(item.cell_review_id),
+                            "expectedRevision": item.revision,
+                            "expectedGeometryRevision": item.geometry_revision,
+                            "expectedCropSampleId": item.crop_sample_id,
+                            "expectedCropChecksumSha256": item.crop_checksum_sha256,
+                        }
+                    ],
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["targetSymbolId"] == str(target_symbol_id)
+    assert bulk.requests[0].action is SymbolCellReviewAction.MARK_BLURRY
+    assert bulk.requests[0].target_symbol_id == target_symbol_id

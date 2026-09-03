@@ -35,7 +35,10 @@ export async function applySingleSymbolReviewDecision(
     expectedCropSampleId: target.expectedCropSampleId,
     expectedGeometryRevision: target.expectedGeometryRevision,
     expectedRevision: target.expectedRevision,
-    ...(action === 'reassign' ? { targetSymbolId: targetSymbolId! } : {}),
+    ...(action === 'reassign' ||
+    (action === 'mark_blurry' && targetSymbolId !== null)
+      ? { targetSymbolId: targetSymbolId! }
+      : {}),
   };
   try {
     const result = await api.applySymbolCellReviewDecision(

@@ -1081,6 +1081,9 @@ człowieka.
 Pojedyncza akcja `approve`, `reassign`, `mark_grid_issue`, `mark_blurry` albo
 `mark_unreadable` jest związana z
 dokładną rewizją i checksumą cropa, zapisuje event i atomowo agreguje rodzica:
+`mark_blurry` może opcjonalnie nieść aktywny symbol docelowy, dzięki czemu
+zmiana etykiety i wykluczenie cropa z treningu pozostają jedną rewizją i jedną
+transakcją.
 komplet `rows × columns` aktualnych `approved` bez problemu siatki domyka
 planszę przez istniejący canonical flow jako `accepted` lub `corrected`, ale
 wyłącznie przy zatwierdzonej bieżącej rewizji geometrii. Oznaczenie złej

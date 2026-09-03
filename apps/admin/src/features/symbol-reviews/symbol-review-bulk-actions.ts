@@ -52,7 +52,10 @@ export function createSymbolReviewBulkCommand(
               state: selection.snapshot.state,
               symbolId: selection.snapshot.symbolId,
             },
-      ...(action === 'reassign' ? { targetSymbolId } : {}),
+      ...(action === 'reassign' ||
+      (action === 'mark_blurry' && targetSymbolId !== null)
+        ? { targetSymbolId: targetSymbolId! }
+        : {}),
     },
   };
 }

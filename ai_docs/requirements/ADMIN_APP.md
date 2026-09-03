@@ -454,9 +454,11 @@ kolejną niezależną operację. Zablokowane pozostają wyłącznie targety już
 oraz krótki foreground start/preview bieżącej decyzji.
 
 Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
-symbol` i jednoliniową grupę `Niewyraźny / Nieczytelny / Zła siatka`.
-`Niewyraźny` zachowuje rozpoznany i zatwierdzony symbol, ale wyklucza bieżący
-crop z kohort treningowych. `Zła siatka` kieruje pole do kolejki korekty
+symbol`, checkbox `Niewyraźny` i jednoliniowe akcje `Nieczytelny / Zła siatka`.
+Checkbox `Niewyraźny` modyfikuje zatwierdzenie oraz zmianę symbolu: decyzja
+atomowo zachowuje albo przypisuje wskazany symbol jako zatwierdzony, ale
+wyklucza bieżący crop z kohort treningowych. Modyfikator jest resetowany po
+zmianie gry albo zakresu symbolu. `Zła siatka` kieruje pole do kolejki korekty
 geometrii, natomiast `Nieczytelny` pozostawia je poza kolejką geometrii i poza
 kohortą treningową. Dwa ostatnie stany są w game-wide widoku
 listy prezentowane jako `Nierozpoznany (?)`, a ich oryginalne przypisanie

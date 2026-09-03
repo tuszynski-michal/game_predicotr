@@ -594,12 +594,19 @@ def mark_symbol_cell_blurry(
     review: SymbolCellReview,
     *,
     active_symbol_codes: Iterable[str],
+    target_symbol_code: str | None = None,
 ) -> SymbolCellReviewTransition:
-    """Approve the recognized label while excluding blurry pixels from training."""
+    """Approve one label while excluding the current blurry pixels from training."""
 
-    _require_active_symbol(review.assigned_symbol_code, active_symbol_codes)
+    target = (
+        review.assigned_symbol_code
+        if target_symbol_code is None
+        else _normalize_symbol_code(target_symbol_code)
+    )
+    _require_active_symbol(target, active_symbol_codes)
     if (
         review.review_state is SymbolCellReviewState.APPROVED
+        and review.assigned_symbol_code == target
         and review.quality_issue is SymbolCellQualityIssue.BLURRY
         and review.crop_approval_state is SymbolCellCropApprovalState.CURRENT
     ):
@@ -607,6 +614,7 @@ def mark_symbol_cell_blurry(
     return SymbolCellReviewTransition(
         review=replace(
             review,
+            assigned_symbol_code=target,
             review_state=SymbolCellReviewState.APPROVED,
             has_grid_issue=False,
             quality_issue=SymbolCellQualityIssue.BLURRY,

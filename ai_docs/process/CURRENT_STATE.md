@@ -15,6 +15,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Niewyraźny jako modyfikator decyzji — TASK-0410
+
+- Toolbar Weryfikacji symboli używa checkboxa `Niewyraźny` zamiast osobnej
+  akcji. Zaznaczenie modyfikuje zarówno zatwierdzenie bieżącej etykiety, jak i
+  zmianę na wskazany symbol.
+- Backend zapisuje przypisanie, zatwierdzenie aktualnego checksum-bound cropa i
+  `quality_issue = blurry` atomowo dla pojedynczej oraz masowej decyzji. Crop
+  pozostaje poza treningiem przez wspólny predykat jakości.
+- Modyfikator jest resetowany przy zmianie gry lub zakresu symbolu, a zwykłe
+  approve/reassign zachowują dotychczasową semantykę.
+
 ### Wiązanie modelu symboli z katalogiem gry — TASK-0409
 
 - Gotowy kandydat `candidate_ready` bez jawnej aktywacji blokuje nowy import i
@@ -181,8 +192,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 - Akcja `Niewyraźny` zachowuje rozpoznany symbol jako zatwierdzony, zapisuje
   osobny `quality_issue = blurry` i wyklucza crop z kohort treningowych.
-- Toolbar grupuje w jednej linii akcje `Niewyraźny / Nieczytelny / Zła siatka`;
-  `blurry` nie trafia do kolejki nieczytelnych ani korekty geometrii.
+- Pierwotna osobna akcja została w TASK-0410 zastąpiona checkboxem
+  modyfikującym zatwierdzenie albo zmianę symbolu; `blurry` nie trafia do
+  kolejki nieczytelnych ani korekty geometrii.
 
 ### Miniatury symboli od krawędzi do krawędzi — TASK-0386
 

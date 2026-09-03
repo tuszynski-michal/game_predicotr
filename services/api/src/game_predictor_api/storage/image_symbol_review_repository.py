@@ -2583,9 +2583,20 @@ def _apply_symbol_cell_command(
     if command.action is SymbolCellReviewAction.MARK_GRID_ISSUE:
         return mark_symbol_cell_grid_issue(review)
     if command.action is SymbolCellReviewAction.MARK_BLURRY:
+        target_symbol_code = (
+            None
+            if command.target_symbol_id is None
+            else symbol_code_by_id.get(command.target_symbol_id)
+        )
+        if command.target_symbol_id is not None and target_symbol_code is None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_INVALID",
+                "The target symbol is not active for this game.",
+            )
         return mark_symbol_cell_blurry(
             review,
             active_symbol_codes=active_symbol_codes,
+            target_symbol_code=target_symbol_code,
         )
     if command.action is SymbolCellReviewAction.MARK_UNREADABLE:
         return mark_symbol_cell_unreadable(review)

@@ -178,6 +178,7 @@ export function SymbolReviewWorkspace({
   const [reassignTargetSymbolId, setReassignTargetSymbolId] = useState<
     string | null
   >(null);
+  const [markBlurry, setMarkBlurry] = useState(false);
   const [visibleItems, setVisibleItems] = useState<
     readonly SymbolCellReviewListItemResponse[]
   >([]);
@@ -263,6 +264,7 @@ export function SymbolReviewWorkspace({
     setVirtualPreviewTiles({});
     setPreviewAvailability(emptyPreviewAvailability());
     setReassignTargetSymbolId(null);
+    setMarkBlurry(false);
     if (previousFilters.gameId !== nextFilters.gameId) {
       setSymbols([]);
       setSymbolsState(nextFilters.gameId === null ? 'ready' : 'loading');
@@ -666,15 +668,16 @@ export function SymbolReviewWorkspace({
   }
 
   async function previewOperation(
-    action:
-      | 'approve'
-      | 'mark_blurry'
-      | 'mark_grid_issue'
-      | 'mark_unreadable'
-      | 'reassign',
+    action: 'approve' | 'mark_grid_issue' | 'mark_unreadable' | 'reassign',
   ) {
     if (filters.gameId === null || selectedCount === 0) return;
     const gameId = filters.gameId;
+    const effectiveAction =
+      markBlurry && (action === 'approve' || action === 'reassign')
+        ? ('mark_blurry' as const)
+        : action;
+    const targetSymbolId =
+      action === 'reassign' ? reassignTargetSymbolId : null;
     const targets =
       selection.kind === 'explicit' ? Object.values(selection.targetsById) : [];
     if (selection.kind === 'explicit' && targets.length === 1) {
@@ -683,9 +686,9 @@ export function SymbolReviewWorkspace({
       const result = await applySingleSymbolReviewDecision(
         api,
         gameId,
-        action,
+        effectiveAction,
         target,
-        action === 'reassign' ? reassignTargetSymbolId : null,
+        targetSymbolId,
       );
       setDirectPendingCellIds(new Set());
       if (!result.ok) {
@@ -702,21 +705,23 @@ export function SymbolReviewWorkspace({
         kind: 'success',
         message:
           action === 'reassign'
-            ? 'Symbol został zmieniony.'
+            ? markBlurry
+              ? 'Symbol został zmieniony i oznaczony jako niewyraźny.'
+              : 'Symbol został zmieniony.'
             : action === 'approve'
-              ? 'Symbol został zatwierdzony.'
+              ? markBlurry
+                ? 'Symbol został zatwierdzony jako niewyraźny i wykluczony z nauki.'
+                : 'Symbol został zatwierdzony.'
               : action === 'mark_grid_issue'
                 ? 'Symbol został oznaczony jako problem siatki.'
-                : action === 'mark_blurry'
-                  ? 'Symbol został oznaczony jako niewyraźny i wykluczony z nauki.'
-                  : 'Symbol został oznaczony jako nieczytelny.',
+                : 'Symbol został oznaczony jako nieczytelny.',
       });
       return;
     }
     const command = createSymbolReviewBulkCommand(
-      action,
+      effectiveAction,
       selection,
-      action === 'reassign' ? reassignTargetSymbolId : null,
+      targetSymbolId,
     );
     if (command === null) {
       setError('Wybierz docelowy aktywny symbol przed zmianą przypisania.');
@@ -943,9 +948,10 @@ export function SymbolReviewWorkspace({
           canApprove={selection.kind === 'explicit'}
           canSelectVisible={currentItems.length > 0}
           hasActiveSymbols={symbols.length > 0}
+          markBlurry={markBlurry}
           onApprove={() => void previewOperation('approve')}
           onClear={() => setSelection(createEmptySymbolReviewSelection())}
-          onMarkBlurry={() => void previewOperation('mark_blurry')}
+          onMarkBlurryChange={setMarkBlurry}
           onMarkGridIssue={() => void previewOperation('mark_grid_issue')}
           onMarkUnreadable={() => void previewOperation('mark_unreadable')}
           onReassign={() => void previewOperation('reassign')}
@@ -1182,7 +1188,9 @@ function SymbolReviewCard({
             role="status"
           />
         ) : null}
-        {badge !== null ? <span className={styles.cardBadge}>{badge}</span> : null}
+        {badge !== null ? (
+          <span className={styles.cardBadge}>{badge}</span>
+        ) : null}
       </button>
     </article>
   );
@@ -1235,9 +1243,10 @@ function SymbolReviewSelectionToolbar({
   canApprove,
   canSelectVisible,
   hasActiveSymbols,
+  markBlurry,
   onApprove,
   onClear,
-  onMarkBlurry,
+  onMarkBlurryChange,
   onMarkGridIssue,
   onMarkUnreadable,
   onReassign,
@@ -1252,9 +1261,10 @@ function SymbolReviewSelectionToolbar({
   readonly canApprove: boolean;
   readonly canSelectVisible: boolean;
   readonly hasActiveSymbols: boolean;
+  readonly markBlurry: boolean;
   readonly onApprove: () => void;
   readonly onClear: () => void;
-  readonly onMarkBlurry: () => void;
+  readonly onMarkBlurryChange: (checked: boolean) => void;
   readonly onMarkGridIssue: () => void;
   readonly onMarkUnreadable: () => void;
   readonly onReassign: () => void;
@@ -1325,14 +1335,15 @@ function SymbolReviewSelectionToolbar({
           Zastosuj zmianę
         </button>
         <div className={styles.qualityActions}>
-          <button
-            className="secondaryButton"
-            disabled={actionsDisabled}
-            onClick={onMarkBlurry}
-            type="button"
-          >
+          <label>
+            <input
+              checked={markBlurry}
+              disabled={readOnly || busy}
+              onChange={(event) => onMarkBlurryChange(event.target.checked)}
+              type="checkbox"
+            />
             Niewyraźny
-          </button>
+          </label>
           <button
             className="secondaryButton"
             disabled={actionsDisabled}

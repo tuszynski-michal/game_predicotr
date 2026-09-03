@@ -78,6 +78,9 @@ test('keeps a three-page metadata window with virtual cards and background bulk 
   );
   assert.match(source, /Zła siatka · \?/);
   assert.match(source, />\s*Niewyraźny\s*</);
+  assert.match(source, /checked=\{markBlurry\}/);
+  assert.match(source, /type="checkbox"/);
+  assert.doesNotMatch(source, /onMarkBlurry=\{/);
   assert.match(source, />\s*Nieczytelny\s*</);
   assert.doesNotMatch(source, />\s*Nieczytelny symbol\s*</);
   assert.match(source, /className=\{styles\.qualityActions\}/);

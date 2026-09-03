@@ -306,6 +306,7 @@ def create_image_symbol_reviews_router(
                 expected_geometry_revision=request.expected_geometry_revision,
                 expected_crop_sample_id=request.expected_crop_sample_id,
                 expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
+                target_symbol_id=request.target_symbol_id,
                 actor=_LOCAL_ADMIN_ACTOR,
             )
         elif request.action is SymbolCellReviewAction.MARK_UNREADABLE:

@@ -147,3 +147,38 @@ test('sends a blurry quality decision without changing the recognized symbol', a
   assert.equal(calls[0].body.action, 'mark_blurry');
   assert.equal('targetSymbolId' in calls[0].body, false);
 });
+
+test('sends one atomic blurry decision with a corrected target symbol', async () => {
+  const calls = [];
+  const result = await applySingleSymbolReviewDecision(
+    {
+      async applySymbolCellReviewDecision(gameId, cellReviewId, body) {
+        calls.push({ body, cellReviewId, gameId });
+        return {
+          data: {
+            assignedSymbolId: 'symbol-2',
+            boardReopened: false,
+            boardResolutionAction: null,
+            boardStatus: 'corrected',
+            catalogRevision: 12,
+            cellReviewId,
+            cellRevision: 8,
+            hasGridIssue: false,
+            qualityIssue: 'blurry',
+            reviewItemId: 'review-1',
+            reviewState: 'approved',
+            sequenceNumber: 10,
+          },
+        };
+      },
+    },
+    'game-1',
+    'mark_blurry',
+    target,
+    'symbol-2',
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(calls[0].body.action, 'mark_blurry');
+  assert.equal(calls[0].body.targetSymbolId, 'symbol-2');
+});

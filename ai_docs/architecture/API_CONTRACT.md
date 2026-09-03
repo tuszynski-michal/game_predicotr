@@ -291,9 +291,11 @@ oczekiwaną rewizją i tożsamością cropa (maksymalnie 10 000) albo filtr
 `symbol + state + minConfidence/maxConfidence + catalogRevision` wraz z co
 najwyżej 10 000 wykluczeń. Snapshot filtra nie przekazuje ID całego wyniku.
 `approve` nie jest dostępne dla filtra technicznego `unknown`.
-`mark_blurry` wymaga istniejącego aktywnego przypisania symbolu, zachowuje je
-jako zatwierdzone i zapisuje `qualityIssue = blurry`; każdy taki crop jest
-wykluczony z treningu przez wspólną bramkę jakości.
+`mark_blurry` bez `targetSymbolId` wymaga istniejącego aktywnego przypisania i
+zachowuje je jako zatwierdzone. Z opcjonalnym aktywnym `targetSymbolId` atomowo
+zmienia przypisanie oraz zatwierdza ten sam crop. Oba warianty zapisują
+`qualityIssue = blurry`; każdy taki crop jest wykluczony z treningu przez
+wspólną bramkę jakości.
 
 Preview nie zmienia danych. Start sprawdza aktualność rewizji katalogu i
 zamraża targety, tworząc idempotentny job `image_symbol_review_bulk`; powtórne

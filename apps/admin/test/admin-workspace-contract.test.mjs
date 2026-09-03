@@ -32,6 +32,11 @@ test('preserves existing workspaces and adds operational main workspaces', () =>
   );
 });
 
+test('keeps the main workspace navigation compact and title-only', () => {
+  assert.doesNotMatch(workspaceSource, /workspaceTileIndex/);
+  assert.doesNotMatch(workspaceSource, /option\.description/);
+});
+
 test('uses a single controlled game context for dependent sections', () => {
   assert.match(workspaceSource, /selectedGameId=\{navigation\.gameId\}/);
   assert.match(workspaceSource, /gameId=\{activeGame\.id\}/);

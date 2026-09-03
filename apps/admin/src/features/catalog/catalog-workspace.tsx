@@ -41,56 +41,38 @@ interface CatalogWorkspaceProps {
 const WORKSPACE_OPTIONS: readonly {
   readonly id: AdminWorkspace;
   readonly label: string;
-  readonly description: string;
-  readonly index: string;
 }[] = [
   {
     id: 'games',
     label: 'Zarządzanie grami',
-    description: 'Gry, import, symbole, reguły i zatwierdzanie.',
-    index: '01',
   },
   {
     id: 'releases',
     label: 'Wersje Android',
-    description: 'Snapshoty i paczki instalacyjne APK.',
-    index: '02',
   },
   {
     id: 'jobs',
     label: 'Joby',
-    description: 'Postęp oraz błędy procesów w tle.',
-    index: '03',
   },
   {
     id: 'image-selection',
     label: 'Selekcja zdjęć',
-    description: 'Szybki wybór reprezentatywnych zdjęć przed importem.',
-    index: '04',
   },
   {
     id: 'manual-image-selection',
     label: 'Ręczna selekcja',
-    description: 'Sekwencyjne przypisywanie zdjęć do zakresów bez algorytmu.',
-    index: '05',
   },
   {
     id: 'semi-automatic-image-selection',
     label: 'Półautomatyczny wybór zdjęć',
-    description: 'Wybór środka grupy na podstawie wyłącznie zakresu OCR.',
-    index: '06',
   },
   {
     id: 'symbol-verification',
     label: 'Weryfikacja symboli',
-    description: 'Masowy przegląd cropów symboli i problemów siatki.',
-    index: '07',
   },
   {
     id: 'storage',
     label: 'Pamięć i czyszczenie',
-    description: 'Zajętość dysku, retencja i bezpieczny garbage collector.',
-    index: '08',
   },
 ];
 
@@ -287,9 +269,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
             onClick={() => selectWorkspace(option.id)}
             type="button"
           >
-            <span className="workspaceTileIndex">{option.index}</span>
             <strong>{option.label}</strong>
-            <span>{option.description}</span>
           </button>
         ))}
       </nav>

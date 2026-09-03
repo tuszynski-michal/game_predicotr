@@ -7245,3 +7245,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** konflikt nie zapisuje części zdjęcia, a pojedyncza ręczna
   korekta nadal zachowuje istniejącą ścieżkę. Zdalny Reviewer nie otrzymuje
   nowych endpointów administracyjnych.
+
+## D-314 — Lokalny origin ma bezpieczne aliasy loopback
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+- **Decision:** porównanie originu lokalnego Admina i Reviewera akceptuje
+  `127.0.0.1`, `localhost` oraz `[::1]` jako równoważne wyłącznie przy tym
+  samym skonfigurowanym schemacie HTTP i porcie. Reviewer nadal wymaga swojej
+  zamkniętej allowlisty ścieżek mutacji; inny port, LAN i publiczny origin są
+  odrzucane.
+- **Reason:** operator może otworzyć ten sam lokalny Reviewer pod
+  `localhost:3001`, gdy konfiguracja API używa `127.0.0.1:3001`. Dosłowne
+  porównanie blokowało wtedy bezpieczny wspólny zapis geometrii źródła kodem
+  `ADMIN_ORIGIN_FORBIDDEN`.
+- **Consequences:** wygoda lokalnego wejścia nie zmienia granicy sieciowej ani
+  nie nadaje Reviewerowi pozostałych uprawnień Admina.

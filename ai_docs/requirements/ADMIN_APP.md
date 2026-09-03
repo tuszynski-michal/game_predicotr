@@ -359,7 +359,10 @@ render spec oraz komplet komórek, więc niepełna proweniencja konkretnej plans
 pozostaje fail-closed.
 Lokalny origin Reviewera dostaje wyłącznie scope-bound ścieżki szybkiego
 zatwierdzania i wspólnego zapisu geometrii źródła; nie otrzymuje dostępu do
-pozostałych mutacji panelu Admina.
+pozostałych mutacji panelu Admina. `127.0.0.1`, `localhost` i `[::1]` są
+równoważne wyłącznie jako spelling tego samego skonfigurowanego originu HTTP i
+portu lokalnego Reviewera; inny port oraz każdy origin LAN/publiczny pozostają
+odrzucone.
 
 Nowy workflow jest obowiązującym lokalnym widokiem. Zdalna sesja Reviewera
 zachowuje wąsko ograniczoną ścieżkę operacyjną i nie otrzymuje game-wide

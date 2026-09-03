@@ -51,8 +51,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   kontroli integralności konkretnej planszy.
 - Lokalny Reviewer na porcie `3001` ma dokładnie dwie dodatkowe,
   source-scoped mutacje v0.10: szybkie zatwierdzenie oraz wspólny zapis
-  geometrii źródła. Allowlista nie rozszerza dostępu do pozostałych endpointów
-  Admina ani do zdalnej sesji Reviewera.
+  geometrii źródła. API traktuje `127.0.0.1`, `localhost` oraz `[::1]` jako
+  aliasy wyłącznie tego samego skonfigurowanego portu loopback, dzięki czemu
+  otwarcie lokalnego Reviewera przez `localhost:3001` nie kończy się fałszywym
+  `ADMIN_ORIGIN_FORBIDDEN`. Allowlista nie rozszerza dostępu do pozostałych
+  endpointów Admina ani do zdalnej sesji Reviewera.
 
 ### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
 

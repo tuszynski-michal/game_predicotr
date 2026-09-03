@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from fastapi import Request
@@ -25,6 +26,7 @@ ADMIN_INTENT_VALUE = ADMIN_ACTOR
 ADMIN_CONFIRMATION_VALUE = "confirmed"
 _UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _LOOPBACK_CLIENTS = frozenset({"127.0.0.1", "::1"})
+_LOOPBACK_ORIGIN_HOSTS = ("127.0.0.1", "localhost", "::1")
 _SENSITIVE_KEY_PARTS = (
     "authorization",
     "bearer",
@@ -273,8 +275,12 @@ class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
         audit_log: AppendOnlyAdminAuditLog,
     ) -> None:
         super().__init__(app)
-        self._admin_origin = admin_origin.rstrip("/")
-        self._reviewer_origin = reviewer_origin.rstrip("/")
+        # A local browser can open the same Reviewer process through either
+        # ``localhost`` or ``127.0.0.1``.  They are equivalent only when the
+        # scheme and port remain the configured loopback origin; accepting an
+        # arbitrary Origin here would defeat the origin boundary below.
+        self._admin_origins = _loopback_origin_aliases(admin_origin)
+        self._reviewer_origins = _loopback_origin_aliases(reviewer_origin)
         self._audit_log = audit_log
 
     async def dispatch(
@@ -310,11 +316,12 @@ class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
         origin = request.headers.get("origin")
         normalized_origin = origin.rstrip("/") if origin is not None else None
         reviewer_origin_allowed = (
-            normalized_origin == self._reviewer_origin and _matches_reviewer_mutation_path(path)
+            normalized_origin in self._reviewer_origins
+            and _matches_reviewer_mutation_path(path)
         )
         if (
             normalized_origin is not None
-            and normalized_origin != self._admin_origin
+            and normalized_origin not in self._admin_origins
             and not reviewer_origin_allowed
         ):
             return self._reject(
@@ -486,6 +493,24 @@ def _is_reviewer_mutation(request: Request, path: str) -> bool:
 
 def _matches_reviewer_mutation_path(path: str) -> bool:
     return any(pattern.fullmatch(path) for pattern in _REVIEWER_MUTATION_PATTERNS)
+
+
+def _loopback_origin_aliases(configured_origin: str) -> frozenset[str]:
+    """Return only same-port spellings of a configured HTTP loopback origin."""
+
+    parsed = urlsplit(configured_origin.rstrip("/"))
+    hostname = parsed.hostname
+    if parsed.scheme != "http" or hostname not in _LOOPBACK_ORIGIN_HOSTS:
+        # ApiSettings rejects this configuration before middleware construction.
+        # Keep a narrow fallback for direct middleware unit tests.
+        return frozenset({configured_origin.rstrip("/")})
+
+    port = parsed.port or 80
+    port_suffix = "" if port == 80 else f":{port}"
+    return frozenset(
+        f"http://{'[' + candidate + ']' if candidate == '::1' else candidate}{port_suffix}"
+        for candidate in _LOOPBACK_ORIGIN_HOSTS
+    )
 
 
 def _default_action(method: str, path: str) -> str:

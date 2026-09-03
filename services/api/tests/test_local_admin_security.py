@@ -351,6 +351,14 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
             "/api/v1/admin/games/game/grid-reviews/source-geometry-revisions",
             headers=headers,
         )
+        accepted_source_grid_revision_via_localhost = client.post(
+            "/api/v1/admin/games/game/grid-reviews/source-geometry-revisions",
+            headers=headers | {"Origin": "http://localhost:3001"},
+        )
+        wrong_port_reviewer_origin = client.post(
+            "/api/v1/admin/games/game/grid-reviews/source-geometry-revisions",
+            headers=headers | {"Origin": "http://localhost:3002"},
+        )
         forbidden_admin_mutation = client.post(
             "/api/v1/admin/jobs",
             headers=headers,
@@ -383,6 +391,9 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
         "gameId": "game",
         "operation": "source-revision",
     }
+    assert accepted_source_grid_revision_via_localhost.status_code == 200
+    assert wrong_port_reviewer_origin.status_code == 403
+    assert wrong_port_reviewer_origin.json()["code"] == "ADMIN_ORIGIN_FORBIDDEN"
     assert accepted_pending_resolution.status_code == 200
     assert accepted_pending_resolution.json() == {"pendingId": "pending"}
     assert forbidden_admin_mutation.status_code == 403

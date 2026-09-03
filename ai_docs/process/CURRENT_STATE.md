@@ -22,6 +22,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   miniatury i zaznaczenie, dzięki czemu nie łączy stron utworzonych różnymi
   limitami. API pozostaje bounded limitem `2500`.
 
+### Lokalna walidacja geometrii dla cropów wirtualnych
+
+- Karta `Zatwierdzanie cięcia siatki` odczytuje stan wyłącznie z kolejki
+  `grid-reviews`, a nie z legacy mappera Reviewera wymagającego trwałych plików
+  cropów. Dzięki temu import `virtual_source` v0.10 można otworzyć lokalnie i
+  zatwierdzać z obrazu źródłowego bez `IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE`.
+- Ograniczony link online pozostaje celowo wyłączony dla importu v0.10: zdalny
+  Reviewer nadal obsługuje wyłącznie historyczne cropy plikowe i nie dostaje
+  uprawnień do nowego API walidacji geometrii.
+
 ### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
 
 - Weryfikacja symboli pokazuje numer planszy bez zwiększania kafelka.

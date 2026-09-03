@@ -4,8 +4,8 @@ import type {
   BoardCellGeometryJobCountsResponse,
   BrowserReadySelectionResponse,
   GameResponse,
+  ImageGridReviewPageResponse,
   JobResponse,
-  OperationalImageReviewCountsResponse,
   ReviewerWorkAssignmentResponse,
   ReviewerWorkOpenedResponse,
   ReviewerWorkOverviewResponse,
@@ -25,6 +25,7 @@ import {
 import {
   hasImageImport,
   hasReviewerWork,
+  gridReviewTotal,
   isImageImport,
   readyBoardImportStaging,
   reviewableGames,
@@ -70,10 +71,12 @@ export function ReviewerAccessLauncher({
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [reviewContextLoading, setReviewContextLoading] = useState(false);
-  const [reviewCounts, setReviewCounts] =
-    useState<OperationalImageReviewCountsResponse | null>(null);
+  const [gridReviewCounts, setGridReviewCounts] = useState<
+    ImageGridReviewPageResponse['counts'] | null
+  >(null);
   const [deferredGeometryCounts, setDeferredGeometryCounts] =
     useState<BoardCellGeometryJobCountsResponse | null>(null);
+  const [hasVirtualGridAssets, setHasVirtualGridAssets] = useState(false);
   const [opening, setOpening] = useState<'local' | 'online' | null>(null);
   const [closingAssignmentId, setClosingAssignmentId] = useState<string | null>(
     null,
@@ -210,8 +213,9 @@ export function ReviewerAccessLauncher({
   useEffect(() => {
     let active = true;
     async function loadReviewContext() {
-      setReviewCounts(null);
+      setGridReviewCounts(null);
       setDeferredGeometryCounts(null);
+      setHasVirtualGridAssets(false);
       if (gameId === '' || jobId === '') {
         setReviewContextLoading(false);
         return;
@@ -219,8 +223,8 @@ export function ReviewerAccessLauncher({
       setReviewContextLoading(true);
       setError('');
       try {
-        const [result, deferredResult] = await Promise.all([
-          api.listOperationalImageReviewItems({
+        const [gridResult, deferredResult] = await Promise.all([
+          api.listImageGridReviews({
             gameId,
             importJobId: jobId,
             limit: 1,
@@ -235,21 +239,26 @@ export function ReviewerAccessLauncher({
         ]);
         if (!active) return;
         if (
-          result.error !== undefined ||
-          result.data === undefined ||
+          gridResult.error !== undefined ||
+          gridResult.data === undefined ||
           deferredResult.error !== undefined ||
           deferredResult.data === undefined
         ) {
           setError(
             apiErrorMessage(
-              result.error ?? deferredResult.error,
+              gridResult.error ?? deferredResult.error,
               'Nie udało się sprawdzić plansz wybranego importu.',
             ),
           );
           return;
         }
-        setReviewCounts(result.data.counts);
+        setGridReviewCounts(gridResult.data.counts);
         setDeferredGeometryCounts(deferredResult.data.counts);
+        setHasVirtualGridAssets(
+          gridResult.data.items.some(
+            (item) => item.assetMode === 'virtual_source',
+          ),
+        );
       } catch {
         if (active) {
           setError('Połączenie z lokalnym Admin API zostało przerwane.');
@@ -268,11 +277,15 @@ export function ReviewerAccessLauncher({
     return (
       gameId !== '' &&
       jobId !== '' &&
-      hasReviewerWork(reviewCounts, deferredGeometryCounts) &&
+      hasReviewerWork(gridReviewCounts, deferredGeometryCounts) &&
       overview !== null &&
       opening === null &&
       closingAssignmentId === null
     );
+  }
+
+  function canCreateOnlineWork() {
+    return canOpenWork() && !hasVirtualGridAssets;
   }
 
   async function launchLocalReviewer() {
@@ -406,8 +419,9 @@ export function ReviewerAccessLauncher({
                   const nextGameId = event.target.value;
                   setGameId(nextGameId);
                   setJobId(selectReviewImportId(jobs, nextGameId, ''));
-                  setReviewCounts(null);
+                  setGridReviewCounts(null);
                   setDeferredGeometryCounts(null);
+                  setHasVirtualGridAssets(false);
                   setOneTimeOnlineAccess(null);
                 }}
                 value={gameId}
@@ -428,8 +442,9 @@ export function ReviewerAccessLauncher({
                 disabled={loading || opening !== null || reviewContextLoading}
                 onChange={(event) => {
                   setJobId(event.target.value);
-                  setReviewCounts(null);
+                  setGridReviewCounts(null);
                   setDeferredGeometryCounts(null);
+                  setHasVirtualGridAssets(false);
                   setOneTimeOnlineAccess(null);
                   setCopied(null);
                   setNotice('');
@@ -499,7 +514,7 @@ export function ReviewerAccessLauncher({
               </button>
               <button
                 className="primaryButton"
-                disabled={!canOpenWork()}
+                disabled={!canCreateOnlineWork()}
                 onClick={() => void createOnlineWork()}
                 type="button"
               >
@@ -543,7 +558,8 @@ export function ReviewerAccessLauncher({
 
         {reviewContextLoading ? (
           <p className="mutedText">Sprawdzam plansze wybranego importu…</p>
-        ) : reviewCounts?.total === 0 &&
+        ) : gridReviewCounts !== null &&
+          gridReviewTotal(gridReviewCounts) === 0 &&
           deferredGeometryCounts?.pending === 0 ? (
           <div className="reviewerPrerequisite" role="status">
             <div>
@@ -551,28 +567,48 @@ export function ReviewerAccessLauncher({
               <p>Doładuj zdjęcia lub wybierz inny gotowy import.</p>
             </div>
           </div>
-        ) : reviewCounts && deferredGeometryCounts ? (
+        ) : gridReviewCounts && deferredGeometryCounts ? (
           <dl
             className="reviewerReadinessSummary"
             aria-label="Stan plansz importu"
           >
             <div>
               <dt>Wszystkie plansze</dt>
-              <dd>{reviewCounts.total.toLocaleString('pl-PL')}</dd>
+              <dd>
+                {(
+                  gridReviewTotal(gridReviewCounts) +
+                  deferredGeometryCounts.total
+                ).toLocaleString('pl-PL')}
+              </dd>
             </div>
             <div>
-              <dt>Do zatwierdzenia</dt>
-              <dd>{reviewCounts.pending.toLocaleString('pl-PL')}</dd>
+              <dt>Do walidacji</dt>
+              <dd>
+                {gridReviewCounts.needsValidation.toLocaleString('pl-PL')}
+              </dd>
             </div>
             <div>
               <dt>Zakończone</dt>
-              <dd>{reviewCounts.completed.toLocaleString('pl-PL')}</dd>
+              <dd>{gridReviewCounts.approved.toLocaleString('pl-PL')}</dd>
             </div>
             <div>
               <dt>Do korekty siatki</dt>
-              <dd>{deferredGeometryCounts.pending.toLocaleString('pl-PL')}</dd>
+              <dd>
+                {(
+                  gridReviewCounts.needsCorrection +
+                  deferredGeometryCounts.pending
+                ).toLocaleString('pl-PL')}
+              </dd>
             </div>
           </dl>
+        ) : null}
+
+        {hasVirtualGridAssets ? (
+          <p className="reviewerLocalFallback" role="status">
+            Ten import używa cropów v0.10 renderowanych ze źródła. Otwórz go
+            lokalnie; ograniczony Reviewer online obsługuje wyłącznie
+            historyczne pliki cropów.
+          </p>
         ) : null}
 
         {overview ? (

@@ -22,7 +22,8 @@ test('launcher exposes import-scoped local and independent online controls', asy
   assert.match(source, /activeOnlineCount/);
   assert.match(source, /maximumOnlineCount/);
   assert.match(source, /assignmentId/);
-  assert.match(source, /listOperationalImageReviewItems/);
+  assert.match(source, /listImageGridReviews/);
+  assert.doesNotMatch(source, /listOperationalImageReviewItems/);
   assert.match(source, /listPendingBoardCellGeometry/);
   assert.match(source, /listReadyBrowserImageSelections/);
   assert.match(source, /readyBoardImportStaging/);
@@ -31,12 +32,14 @@ test('launcher exposes import-scoped local and independent online controls', asy
   assert.match(source, /className="reviewerSelectedImportId"/);
   assert.match(source, /ID: <code>\{selectedJob\.id\}<\/code>/);
   assert.match(source, /Przejdź do Importu plansz/);
-  assert.match(source, /deferredGeometryCounts\?\.pending === 0/);
+  assert.match(source, /gridReviewTotal\(gridReviewCounts\) === 0/);
   assert.match(source, /Do korekty siatki/);
   assert.match(
     source,
-    /hasReviewerWork\(reviewCounts, deferredGeometryCounts\)/,
+    /hasReviewerWork\(gridReviewCounts, deferredGeometryCounts\)/,
   );
+  assert.match(source, /hasVirtualGridAssets/);
+  assert.match(source, /cropów v0\.10 renderowanych ze źródła/);
   assert.match(source, /reviewReadyImports/);
   assert.match(source, /reviewableGames/);
   assert.doesNotMatch(source, /stopReviewerIngress/);

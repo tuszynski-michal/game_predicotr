@@ -20,8 +20,8 @@ export type ReviewerLauncherClient = ReviewerAccessClient &
   Pick<
     AdminApiClient,
     | 'listGames'
+    | 'listImageGridReviews'
     | 'listJobs'
-    | 'listOperationalImageReviewItems'
     | 'listPendingBoardCellGeometry'
     | 'listReadyBrowserImageSelections'
   >;

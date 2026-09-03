@@ -394,7 +394,7 @@ export function GridReviewWorkspace({
           <GridReviewEditor
             api={api}
             items={sourceItems}
-            key={`${anchorItem.sourceImageId}:${selectedReviewItemId}`}
+            key={anchorItem.sourceImageId}
             onEditingChange={setEditing}
             onSaved={() => {
               setNotice(

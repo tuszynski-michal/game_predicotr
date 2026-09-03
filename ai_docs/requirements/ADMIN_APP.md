@@ -348,8 +348,10 @@ dynamiczne `rows × columns` cropy przed atomowym zapisem i zatwierdzeniem
 rewizji. Dla `virtual_source` przycisk `Wyznacz plansze osobno`, obok `Zmień
 siatkę`, prowadzi przez cztery narożniki każdej aktywnej planszy w kolejności
 row-major; zapis jest dostępny dopiero po komplecie wszystkich slotów i tworzy
-jedną rewizję geometrii źródła. Ekran nie pozwala edytować symboli i nie
-zapisuje JPEG-a z overlayem.
+jedną rewizję geometrii źródła. Lokalny szkic każdego slotu pozostaje widoczny
+po przełączeniu planszy oraz po wstrzymaniu i wznowieniu tego trybu, ale nie
+jest trwałą rewizją przed wspólnym zapisem. Ekran nie pozwala edytować symboli
+i nie zapisuje JPEG-a z overlayem.
 
 Nowy workflow jest obowiązującym lokalnym widokiem. Zdalna sesja Reviewera
 zachowuje wąsko ograniczoną ścieżkę operacyjną i nie otrzymuje game-wide

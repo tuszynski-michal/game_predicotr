@@ -188,6 +188,18 @@ export function nextIncompleteGridGeometrySourceItem(
   return null;
 }
 
+export function firstIncompleteGridGeometrySourceItem(
+  items: readonly ImageGridReviewItemResponse[],
+  drafts: GridGeometrySourceDrafts,
+): ImageGridReviewItemResponse | null {
+  return (
+    orderGridReviewSourceItems(items).find(
+      (candidate) =>
+        gridGeometrySourceDraft(drafts, candidate.reviewItemId).length < 4,
+    ) ?? null
+  );
+}
+
 export function undoGridGeometryPoint(
   draft: GridGeometryDraft,
 ): GridGeometryDraft {

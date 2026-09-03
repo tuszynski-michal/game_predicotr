@@ -38,7 +38,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Dla `virtual_source` edytor udostępnia `Wyznacz plansze osobno`. Operator
   podaje po cztery narożniki kolejnych slotów row-major, po czym pojedynczy
   zapis tworzy jedną source geometry revision i aktualizuje cały komplet
-  plansz, cropów oraz audytu.
+  plansz, cropów oraz audytu. Wstrzymanie tego trybu nie usuwa lokalnych
+  szkiców: kolejne wejście wybiera pierwszy niekompletny slot, a już ustawione
+  quady nadal pozostają widoczne do wspólnego zapisu.
 
 ### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
 

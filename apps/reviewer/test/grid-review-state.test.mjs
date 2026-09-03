@@ -5,7 +5,9 @@ import {
   addGridGeometryPoint,
   completeGridGeometrySourceDrafts,
   emptyGridGeometrySourceDrafts,
+  firstIncompleteGridGeometrySourceItem,
   GRID_CORNER_LABELS,
+  gridGeometrySourceDraft,
   GRID_REVIEW_VIEWS,
   gridGeometryDragTarget,
   gridReviewApprovalCommand,
@@ -199,5 +201,46 @@ test('source manual geometry completes exactly nine slots in row-major order', (
       sourceItems[8].reviewItemId,
     ),
     null,
+  );
+});
+
+test('pausing source geometry preserves completed drafts and resumes at the next row-major slot', () => {
+  const sourceItems = [
+    {
+      ...item,
+      positionIndex: 0,
+      reviewItemId: '10000000-0000-4000-8000-000000000001',
+      sequenceNumber: 100,
+    },
+    {
+      ...item,
+      positionIndex: 1,
+      reviewItemId: '10000000-0000-4000-8000-000000000002',
+      sequenceNumber: 101,
+    },
+  ];
+  const firstCorners = [
+    { x: 10, y: 10 },
+    { x: 50, y: 10 },
+    { x: 50, y: 40 },
+    { x: 10, y: 40 },
+  ];
+  const drafts = replaceGridGeometrySourceDraft(
+    emptyGridGeometrySourceDrafts(sourceItems),
+    sourceItems[0].reviewItemId,
+    firstCorners,
+  );
+
+  assert.deepEqual(
+    gridGeometrySourceDraft(drafts, sourceItems[0].reviewItemId),
+    firstCorners,
+  );
+  assert.equal(
+    firstIncompleteGridGeometrySourceItem(sourceItems, drafts)?.reviewItemId,
+    sourceItems[1].reviewItemId,
+  );
+  assert.deepEqual(
+    gridGeometrySourceDraft(drafts, sourceItems[1].reviewItemId),
+    [],
   );
 });

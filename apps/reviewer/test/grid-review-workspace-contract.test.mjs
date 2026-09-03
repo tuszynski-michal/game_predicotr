@@ -87,6 +87,8 @@ test('grid workspace groups active slots by source and guards whole-image action
   assert.match(workspace, /rejectSource/);
   assert.match(workspace, /sourceImageId/);
   assert.match(workspace, /gridReviewSourceStats/);
+  assert.match(workspace, /key=\{anchorItem\.sourceImageId\}/);
+  assert.doesNotMatch(workspace, /sourceImageId\}:\$\{selectedReviewItemId/);
   assert.doesNotMatch(workspace, /listSymbols/);
 });
 
@@ -108,9 +110,13 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /previewGridReviewGeometry/);
   assert.match(editor, /saveGridReviewGeometry/);
   assert.match(editor, /Wyznacz plansze osobno/);
+  assert.match(editor, /Kontynuuj plansze osobno/);
+  assert.match(editor, /Wstrzymaj plansze osobno/);
+  assert.match(editor, /firstIncompleteGridGeometrySourceItem/);
   assert.match(editor, /completeGridGeometrySourceDrafts/);
   assert.match(editor, /saveGridReviewSourceGeometry/);
   assert.match(editor, /Zapisz i zatwierdź/);
+  assert.doesNotMatch(editor, /setSourceDrafts\(emptyGridGeometrySourceDrafts/);
   assert.doesNotMatch(editor, /upload|overlay.*(?:jpeg|jpg)/i);
 });
 

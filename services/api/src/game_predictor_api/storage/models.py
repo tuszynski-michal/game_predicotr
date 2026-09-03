@@ -3046,7 +3046,7 @@ class ImageBoardGeometryRevisionModel(Base):
     board_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     cropper_version: Mapped[str] = mapped_column(String(150), nullable=False)
     crop_artifacts: Mapped[list[dict[str, object]] | None] = mapped_column(
-        JSONB,
+        JSONB(none_as_null=True),
         nullable=True,
     )
     corrected_by: Mapped[str] = mapped_column(String(200), nullable=False)

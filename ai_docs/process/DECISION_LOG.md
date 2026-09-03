@@ -7263,3 +7263,30 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   przeglądarka nie zatrzymuje dozwolonego POST na preflight przed kontrolą
   uprawnień. Wygoda lokalnego wejścia nie zmienia granicy sieciowej ani nie
   nadaje Reviewerowi pozostałych uprawnień Admina.
+
+### D-315 — Brak plikowych cropów rewizji wirtualnej jest SQL NULL
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** nullable `crop_artifacts` w
+  `image_board_geometry_revisions` używa semantyki PostgreSQL SQL NULL dla
+  rewizji `virtual_source`; JSON `null` nie jest równoważnym stanem.
+- **Rationale:** constraint `ck_image_board_geometry_revisions_asset`
+  rozdziela fizyczny manifest cropów `legacy_file` od checksum-bound
+  `virtual_render_spec`. Domyślne kodowanie `None` przez JSONB tworzyło JSON
+  `null` i odrzucało każdy poprawny zapis wirtualny.
+- **Consequences:** model ORM jawnie używa `none_as_null=True`; schemat i API
+  nie zmieniają się, a regresja jest sprawdzana procesorem dialektu PostgreSQL.
+
+### D-316 — Recrop `grid_issue` wraca do modelowej sugestii oczekującej
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** po zapisaniu nowej geometrii komórka oznaczona wcześniej jako
+  `grid_issue` traci problem jakości, pozostaje `pending` i otrzymuje ponownie
+  modelowe pochodzenie oraz przypisanie odpowiadające bieżącej predykcji.
+- **Rationale:** oznaczenie złej siatki nie zatwierdzało logicznej etykiety.
+  Zachowanie `assignment_source = human` po recropie tworzyło niedozwolony,
+  niejednoznaczny outcome v2 i blokowało całą atomową rewizję źródła.
+- **Consequences:** nowy crop nadal wymaga jawnej weryfikacji i jest wykluczony
+  z treningu; poprawiona geometria nie dziedziczy pozornej decyzji człowieka.

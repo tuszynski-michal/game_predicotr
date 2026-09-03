@@ -947,6 +947,9 @@ render manifestem, ale bez ścieżek board/cell. Bieżące komórki zachowują
 cropa. Otrzymują nowy render spec i pixel checksum, dlatego predykat
 `trainingEligible` pozostaje fałszywy do jawnego zatwierdzenia nowych pikseli.
 Event `geometry_invalidated` zapisuje obie proweniencje append-only.
+W rewizji `virtual_source` brak `crop_artifacts` jest SQL NULL, a nie wartością
+JSON `null`; odpowiada to constraintowi rozłączającemu historyczne artefakty
+plikowe od wirtualnego render manifestu.
 
 W plikowym bootstrapie M6 `observationId` wynika z korpusu, źródła, domenowego
 `sequence_number`, pozycji planszy i współrzędnych komórki, ale nie z bajtów
@@ -1082,6 +1085,9 @@ sekwencji aktualizują tę projekcję w tej samej transakcji. Korekta geometrii
 zastępuje bieżącą tożsamość cropa każdej komórki. Zwykła zatwierdzona etykieta
 pozostaje `approved` z proweniencją poprzednio zatwierdzonych pikseli, natomiast
 pole oznaczone `grid_issue` wraca jako `pending` bez problemu jakości.
+Jego techniczne przypisanie ponownie pochodzi z bieżącej predykcji modelu;
+nie jest zachowywane jako decyzja człowieka i nie staje się zatwierdzoną
+etykietą.
 Reinferencja zmienia sugestię modelu, ale nie może nadpisać zatwierdzenia
 człowieka.
 Pojedyncza akcja `approve`, `reassign`, `mark_grid_issue`, `mark_blurry` albo

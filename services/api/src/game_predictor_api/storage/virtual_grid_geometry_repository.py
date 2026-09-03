@@ -19,10 +19,13 @@ from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometrySourceSaveResult,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_geometry_v2 import DirectCellRenderConfiguration
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
+from game_predictor_api.domain.image_symbol_reviews import SymbolCellAssignmentSource
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
+    AdditiveVirtualGeometryContractError,
     optional_verification_outcome_value,
     verification_outcome_value,
 )
@@ -50,6 +53,7 @@ from game_predictor_api.storage.models import (
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
+    SymbolModel,
 )
 
 
@@ -435,6 +439,15 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "IMAGE_GRID_REVIEW_VIRTUAL_CELLS_INCOMPLETE",
                 "Manual virtual geometry did not render every configured cell.",
             )
+        active_symbol_ids_by_code = {
+            code: symbol_id
+            for symbol_id, code in self._session.execute(
+                select(SymbolModel.id, SymbolModel.code).where(
+                    SymbolModel.game_id == context.game_id,
+                    SymbolModel.status == SymbolStatus.ACTIVE,
+                )
+            )
+        }
         for cell, rendered in zip(cells, prepared.cells, strict=True):
             previous = _event_previous(cell)
             cell.asset_mode = "virtual_source"
@@ -451,15 +464,20 @@ class SqlAlchemyVirtualGridGeometryRepository:
             cell.crop_checksum_sha256 = rendered.crop_checksum_sha256
             cell.geometry_revision = revision_number
             cell.cropper_version = prepared.cropper_version
-            if cell.quality_issue == "grid_issue":
-                cell.quality_issue = None
-            verification = verification_outcome_value(
-                review_state=cell.review_state,
-                quality_issue=cell.quality_issue,
-                assigned_symbol_id=cell.assigned_symbol_id,
-                prediction_present=cell.prediction_symbol_code not in {None, "?"},
-                assignment_source=cell.assignment_source,
+            _reset_grid_issue_after_virtual_recrop(
+                cell,
+                active_symbol_ids_by_code=active_symbol_ids_by_code,
             )
+            try:
+                verification = verification_outcome_value(
+                    review_state=cell.review_state,
+                    quality_issue=cell.quality_issue,
+                    assigned_symbol_id=cell.assigned_symbol_id,
+                    prediction_present=cell.prediction_symbol_code not in {None, "?"},
+                    assignment_source=cell.assignment_source,
+                )
+            except AdditiveVirtualGeometryContractError as error:
+                raise ImageGridReviewError(error.code, str(error)) from error
             cell.verification_outcome = verification.outcome
             cell.verified_symbol_id_v2 = verification.verified_symbol_id
             cell.revision += 1
@@ -777,6 +795,18 @@ def _event_previous(cell: ImageSymbolReviewCellModel) -> dict[str, Any]:
         "approved_crop_checksum_sha256": cell.approved_crop_checksum_sha256,
         "approved_geometry_revision": cell.approved_geometry_revision,
     }
+
+
+def _reset_grid_issue_after_virtual_recrop(
+    cell: ImageSymbolReviewCellModel,
+    *,
+    active_symbol_ids_by_code: dict[str, UUID],
+) -> None:
+    if cell.quality_issue != "grid_issue":
+        return
+    cell.quality_issue = None
+    cell.assignment_source = SymbolCellAssignmentSource.MODEL.value
+    cell.assigned_symbol_id = active_symbol_ids_by_code.get(cell.prediction_symbol_code or "")
 
 
 def _revision_from_model(

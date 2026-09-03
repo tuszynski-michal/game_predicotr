@@ -6,9 +6,12 @@ from uuid import uuid4
 
 import pytest
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
+from game_predictor_api.storage.models import ImageBoardGeometryRevisionModel
 from game_predictor_api.storage.virtual_grid_geometry_repository import (
     SqlAlchemyVirtualGridGeometryRepository,
+    _reset_grid_issue_after_virtual_recrop,
 )
+from sqlalchemy.dialects import postgresql
 
 
 @pytest.mark.parametrize("backfill_status", ("not_started", "rebuilding", "failed"))
@@ -39,6 +42,36 @@ def test_current_virtual_source_context_still_rejects_incomplete_cell_projection
         )
 
     assert raised.value.code == "IMAGE_GRID_REVIEW_CELLS_INCOMPLETE"
+
+
+def test_virtual_geometry_crop_artifacts_none_binds_as_sql_null() -> None:
+    column_type = ImageBoardGeometryRevisionModel.__table__.c.crop_artifacts.type
+    processor = column_type.bind_processor(postgresql.dialect())
+
+    assert column_type.none_as_null is True
+    assert processor is not None
+    assert processor(None) is None
+
+
+def test_virtual_recrop_resets_grid_issue_to_pending_model_suggestion() -> None:
+    predicted_symbol_id = uuid4()
+    cell = SimpleNamespace(
+        assigned_symbol_id=uuid4(),
+        assignment_source="human",
+        prediction_symbol_code="cherry",
+        quality_issue="grid_issue",
+        review_state="pending",
+    )
+
+    _reset_grid_issue_after_virtual_recrop(
+        cell,
+        active_symbol_ids_by_code={"cherry": predicted_symbol_id},
+    )
+
+    assert cell.review_state == "pending"
+    assert cell.quality_issue is None
+    assert cell.assignment_source == "model"
+    assert cell.assigned_symbol_id == predicted_symbol_id
 
 
 def _complete_current_virtual_row(*, backfill_status: str) -> tuple[object, ...]:

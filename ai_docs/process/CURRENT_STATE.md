@@ -24,6 +24,13 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ### Lokalna walidacja geometrii dla cropów wirtualnych
 
+- Rewizje plansz `virtual_source` zapisują brak plikowych `crop_artifacts` jako
+  SQL NULL. Dzięki temu atomowy zapis dziewięciu ręcznie wyznaczonych plansz
+  spełnia istniejący constraint PostgreSQL zamiast kończyć się ogólnym błędem
+  po poprawnym wyrenderowaniu cropów.
+- Recrop pola `grid_issue` usuwa problem jakości, pozostawia pole oczekujące i
+  przywraca modelowe pochodzenie bieżącej sugestii. Nie zachowuje nieaktualnego
+  `human + pending` ani nie zatwierdza automatycznie symbolu.
 - Karta `Zatwierdzanie cięcia siatki` odczytuje stan wyłącznie z kolejki
   `grid-reviews`, a nie z legacy mappera Reviewera wymagającego trwałych plików
   cropów. Dzięki temu import `virtual_source` v0.10 można otworzyć lokalnie i

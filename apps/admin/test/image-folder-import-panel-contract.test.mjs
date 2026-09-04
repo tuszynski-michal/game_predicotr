@@ -65,6 +65,9 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Gotowy staging do wznowienia/);
   assert.match(panelSource, /Rozpocznij import z raportu/);
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
+  assert.match(panelSource, /retryBrowserPageGeometryPreflight/);
+  assert.match(panelSource, /geometryPreflightJob\?\.status === 'failed'/);
+  assert.match(panelSource, /Ponów preflight/);
   assert.match(panelSource, /preflightResult\.data\.geometryPreflightRequired/);
   assert.match(panelSource, /result\.data\.geometryPreflightRequired/);
   assert.match(panelSource, /Każda pozycja oznacza jedno zdjęcie/);

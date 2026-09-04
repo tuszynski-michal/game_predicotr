@@ -33,6 +33,7 @@ export type ImageFolderImportClient = Pick<
   | 'createNextCuratedImageImportBatch'
   | 'listJobs'
   | 'getJob'
+  | 'retryJob'
   | 'reprocessManagedImageImport'
   | 'selectImageSequenceSource'
   | 'getImageImportEnginePolicy'
@@ -360,6 +361,30 @@ export async function startBrowserPageGeometryPreflight(
         error: apiErrorMessage(
           result.error,
           'Nie udało się utworzyć preflightu geometrii stron.',
+        ),
+        ok: false,
+      };
+    }
+    return { data: result.data, ok: true };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function retryBrowserPageGeometryPreflight(
+  api: ImageFolderImportClient,
+  jobId: string,
+): Promise<{ readonly data: JobResponse; readonly ok: true } | Failure> {
+  try {
+    const result = await api.retryJob(jobId);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się ponowić preflightu geometrii stron.',
         ),
         ok: false,
       };

@@ -6,6 +6,17 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Kotwica cold-startu z bieżącego stagingu v0.10 — TASK-0435
+
+- Pierwsza ręczna korekta nowej gry może zostać użyta jako kotwica preflightu
+  bez oczekiwania na skopiowanie JPEG-a do managed originals.
+- Loader pierwszego rejestratora używa bieżącego checksum-bound stagingu, a
+  następnie historycznego `data/originals`; nie zmienia algorytmu ani progów.
+- Brak bieżącego źródła i brak historycznej kotwicy zachowują osobne stabilne
+  błędy bez fallbacku. Panel importu potrafi jawnie ponowić istniejący failed
+  preflight przez standardowy retry joba.
+- Nie ponowiono joba gry `77` i nie zmieniono żadnych danych operatorskich.
+
 ### Wznawialne cięcie i kafelkowy review — TASK-0434
 
 - Historyczna sesja `manual-image-crop-output-v1` jest bez przeliczania obrazów

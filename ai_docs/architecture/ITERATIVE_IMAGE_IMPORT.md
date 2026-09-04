@@ -251,6 +251,13 @@ zaostrzoną bramkę, ma ograniczenie dwóch przebiegów i 21 nowych kotwic na
 przebieg. Dzięki temu kolejne kąty kamery mogą zostać rozwiązane automatycznie,
 ale błąd nie propaguje się przez obniżanie bramek ani syntetyczną geometrię.
 
+Kotwica ręcznego cold-startu jest rozwiązywana względem niezmiennego manifestu
+bieżącego stagingu, zanim powstanie managed original. Loader używa kolejno
+pliku stagingowego o tej samej checksumie i historycznego content-addressed
+originalu. Ta kolejność dotyczy również pierwszej instancji rejestratora, nie
+tylko kolejnych przebiegów auto-kotwic. Brak źródła bieżącego i utrata
+historycznej kotwicy pozostają odrębnymi błędami fail-closed.
+
 Manifest końcowy jest również planem częściowego wykonania: `registered`
 wchodzi do pipeline'u, `review_required` pozostaje w stagingu do późniejszego
 ponowienia lub ręcznej korekty. Kolejny import ze świeżym manifestem ponownie

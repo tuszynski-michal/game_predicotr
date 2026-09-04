@@ -7,9 +7,33 @@ import {
   listReadyBrowserImageSelections,
   previewReadyBrowserImageImport,
   reprocessImageFolderImport,
+  retryBrowserPageGeometryPreflight,
   startReadyBrowserImageImport,
   uploadImageFolder,
 } from '../src/features/imports/image-folder-import-actions.ts';
+
+test('retries the existing failed page geometry preflight job', async () => {
+  const calls = [];
+  const job = {
+    id: 'preflight-job-1',
+    inputPayload: { validationKind: 'page_geometry_preflight' },
+    jobType: 'validate',
+    status: 'created',
+  };
+
+  const result = await retryBrowserPageGeometryPreflight(
+    {
+      retryJob: async (jobId) => {
+        calls.push(jobId);
+        return { data: job };
+      },
+    },
+    'preflight-job-1',
+  );
+
+  assert.deepEqual(calls, ['preflight-job-1']);
+  assert.deepEqual(result, { data: job, ok: true });
+});
 
 test('board import accepts cropped seq JPEGs and ignores the local crop manifest', () => {
   const files = [

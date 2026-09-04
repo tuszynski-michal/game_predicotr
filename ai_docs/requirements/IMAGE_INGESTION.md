@@ -659,6 +659,14 @@ można przesuwać niezależnie, aby odwzorować perspektywę i łuk ekranu, a
 pojedynczy quad pozostaje korektą wyjątkową. `Reset` przywraca dokładną
 geometrię wczytaną przy otwarciu źródła.
 
+Ręczna korekta należąca do bieżącego browser stagingu może być kotwicą
+cold-startu przed właściwym importem. Preflight ładuje jej JPEG najpierw z
+checksum-bound stagingu, a `data/originals` pozostaje źródłem kotwic
+historycznych. Nie kopiuje to całego stagingu do managed storage. Brak pliku
+bieżącego źródła daje `IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE`, natomiast brak
+wymaganej kotwicy historycznej nadal daje
+`IMAGE_PAGE_GEOMETRY_ANCHOR_UNAVAILABLE` bez fallbacku geometrii.
+
 Alternatywny tryb `Wyznacz N plansz osobno` pozwala ominąć modelowanie całej
 strony i krzywizny. Operator wskazuje po cztery narożniki LT, PT, PD, LD dla
 każdej aktywnej planszy. Kolejność jest jawnie row-major: plansze 1–3 w pierwszym

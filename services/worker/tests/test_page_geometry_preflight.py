@@ -219,6 +219,119 @@ def test_manual_override_bootstraps_registration_for_remaining_pages(
     assert payload["entries"][checksums[1]]["anchorSourceChecksumSha256"] == checksums[0]
 
 
+def test_manual_override_anchor_loads_from_current_staging_before_managed_original(
+    tmp_path: Path,
+) -> None:
+    _image, quads = _page()
+    initial_job, checksums = _cold_start_job(tmp_path, image_count=2)
+    override = {
+        checksums[0]: {
+            "decisionChecksumSha256": "f" * 64,
+            "imageHeight": 480,
+            "imageWidth": 680,
+            "overrideId": str(uuid4()),
+            "quads": quads,
+            "revision": 1,
+        }
+    }
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial_job.game_id,
+        input_payload={**initial_job.input_payload, "page_geometry_overrides": override},
+    )
+    artifact_root = tmp_path / "artifacts"
+    managed_anchor = (
+        artifact_root / "data" / "originals" / checksums[0][:2] / (f"{checksums[0]}.jpg")
+    )
+    context = _Context()
+
+    PageGeometryPreflightHandler(artifact_root=artifact_root)(  # type: ignore[arg-type]
+        context,
+        job,
+    )
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = artifact_root / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert managed_anchor.exists() is False
+    assert payload["entries"][checksums[0]]["status"] == "registered"
+    assert payload["entries"][checksums[0]]["registrationVersion"] == (
+        "manual-page-geometry-override-v1"
+    )
+    assert payload["entries"][checksums[1]]["anchorSourceChecksumSha256"] == checksums[0]
+
+
+def test_missing_current_staging_override_anchor_reports_source_unavailable(
+    tmp_path: Path,
+) -> None:
+    _image, quads = _page()
+    initial_job, checksums = _cold_start_job(tmp_path, image_count=1)
+    override = {
+        checksums[0]: {
+            "decisionChecksumSha256": "e" * 64,
+            "imageHeight": 480,
+            "imageWidth": 680,
+            "overrideId": str(uuid4()),
+            "quads": quads,
+            "revision": 1,
+        }
+    }
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial_job.game_id,
+        input_payload={**initial_job.input_payload, "page_geometry_overrides": override},
+    )
+    source_directory = Path(str(job.input_payload["source_directory"]))
+    (source_directory / "00000000.jpg").unlink()
+
+    with pytest.raises(
+        preflight_module.JobHandlerError,
+        match="A staged image cannot be decoded for geometry preflight",
+    ) as error:
+        PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(
+            _Context(),
+            job,
+        )  # type: ignore[arg-type]
+
+    assert error.value.code == "IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE"
+
+
+def test_missing_historical_profile_anchor_remains_fail_closed(tmp_path: Path) -> None:
+    _image, quads = _page()
+    initial_job, _checksums = _cold_start_job(tmp_path, image_count=1)
+    historical_checksum = "a" * 64
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial_job.game_id,
+        input_payload={
+            **initial_job.input_payload,
+            "page_registration_profile": {
+                "schemaVersion": 1,
+                "policy": PAGE_REGISTRATION_VERSION,
+                "anchors": [
+                    {
+                        "sourceChecksumSha256": historical_checksum,
+                        "imageWidth": 680,
+                        "imageHeight": 480,
+                        "quads": quads,
+                    }
+                ],
+            },
+        },
+    )
+
+    with pytest.raises(
+        preflight_module.JobHandlerError,
+        match="A reviewed geometry anchor image is unavailable",
+    ) as error:
+        PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(
+            _Context(),
+            job,
+        )  # type: ignore[arg-type]
+
+    assert error.value.code == "IMAGE_PAGE_GEOMETRY_ANCHOR_UNAVAILABLE"
+
+
 def test_manual_override_registers_attested_five_board_final_page(tmp_path: Path) -> None:
     _image, quads = _page()
     initial_job, checksums = _cold_start_job(

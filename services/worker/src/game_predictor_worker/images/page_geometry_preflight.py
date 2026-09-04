@@ -95,17 +95,32 @@ class PageGeometryPreflightHandler:
             source_directory,
             expected_checksum=cast(str, payload["sourceManifestChecksumSha256"]),
         )
-        managed = self._originals.load_or_create_manifest(
-            job,
-            source_directory=source_directory,
-        )
+        try:
+            managed = self._originals.load_or_create_manifest(
+                job,
+                source_directory=source_directory,
+            )
+        except JobHandlerError as error:
+            if error.code != "IMAGE_SOURCE_UNAVAILABLE":
+                raise
+            raise JobHandlerError(
+                "IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE",
+                "A staged image cannot be decoded for geometry preflight.",
+            ) from error
+        originals_by_checksum = {
+            original.checksum_sha256: original for original in managed.originals
+        }
         registration_profile = _profile_with_manual_override_anchors(
             cast(Mapping[str, object], payload["pageRegistrationProfile"]),
             cast(Mapping[str, object], payload["pageGeometryOverrides"]),
         )
         registrar = VerifiedPageRegistrar(
             registration_profile,
-            load_anchor_rgb=self._load_anchor_rgb,
+            load_anchor_rgb=lambda checksum: self._load_preflight_anchor_rgb(
+                checksum,
+                by_checksum=originals_by_checksum,
+                source_directory=managed.source_directory,
+            ),
         )
         entries: dict[str, object] = {}
         registered = review_required = skipped = 0

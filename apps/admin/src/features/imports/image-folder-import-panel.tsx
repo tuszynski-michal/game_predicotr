@@ -39,6 +39,7 @@ import {
   listReadyBrowserImageSelections,
   previewReadyBrowserImageImport,
   reprocessImageFolderImport,
+  retryBrowserPageGeometryPreflight,
   startBrowserPageGeometryPreflight,
   startReadyBrowserImageImport,
   uploadImageFolder,
@@ -619,6 +620,31 @@ export function ImageFolderImportPanel({
     }
   }
 
+  async function retryGeometryPreflight() {
+    if (busy || geometryPreflightJob?.status !== 'failed') return;
+    setActiveAction('geometry-preflight');
+    setError('');
+    setFeedback('Ponawiam istniejący preflight pełnej geometrii 3×3…');
+    try {
+      const result = await retryBrowserPageGeometryPreflight(
+        api,
+        geometryPreflightJob.id,
+      );
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setGeometryPreflightJob(result.data);
+      setFeedback(
+        `Preflight geometrii ${result.data.id} ponowiony — oczekuje na worker.`,
+      );
+    } catch {
+      setError('Nie udało się ponowić preflightu geometrii stron.');
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
   async function rerunGeometryPreflightAfterCorrection() {
     setGeometryPreflightJob(null);
     await startGeometryPreflight();
@@ -1125,14 +1151,20 @@ export function ImageFolderImportPanel({
                             aria-busy={activeAction === 'geometry-preflight'}
                             className="secondaryButton"
                             disabled={busy}
-                            onClick={() => void startGeometryPreflight()}
+                            onClick={() =>
+                              geometryPreflightJob?.status === 'failed'
+                                ? void retryGeometryPreflight()
+                                : void startGeometryPreflight()
+                            }
                             type="button"
                           >
                             {activeAction === 'geometry-preflight'
                               ? 'Tworzenie preflightu…'
-                              : geometryPreflightJob === null
-                                ? 'Przygotuj geometrię stron'
-                                : 'Odśwież preflight geometrii'}
+                              : geometryPreflightJob?.status === 'failed'
+                                ? 'Ponów preflight'
+                                : geometryPreflightJob === null
+                                  ? 'Przygotuj geometrię stron'
+                                  : 'Odśwież preflight geometrii'}
                           </button>
                           {geometryPreflightJob !== null ? (
                             <span className="curatedImportStatus">

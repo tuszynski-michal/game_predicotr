@@ -355,7 +355,10 @@ checksum- i revision-bound rozkaz: zatwierdza cały bieżący komplet albo nie
 zatwierdza żadnej planszy. Korekta pozwala wskazać kolejno LT, PT, PD i LD,
 przeciągać narożniki lub całą siatkę, cofać punkt, resetować szkic oraz obejrzeć
 dynamiczne `rows × columns` cropy przed atomowym zapisem i zatwierdzeniem
-rewizji. Dla `virtual_source` przycisk `Wyznacz plansze osobno`, obok `Zmień
+rewizji. `Zakończ edycję` pojedynczej planszy zachowuje kompletny albo częściowy
+szkic oraz panel A/B; ponowne wejście kontynuuje ten szkic. Do czasu zapisu albo
+jawnego `Resetuj do automatu` zwykłe zatwierdzenie, nawigacja i zmiana planszy
+są zablokowane. Dla `virtual_source` przycisk `Wyznacz plansze osobno`, obok `Zmień
 siatkę`, prowadzi przez cztery narożniki każdej aktywnej planszy w kolejności
 row-major; zapis jest dostępny dopiero po komplecie wszystkich slotów i tworzy
 jedną rewizję geometrii źródła. Lokalny szkic każdego slotu pozostaje widoczny

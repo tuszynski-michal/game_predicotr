@@ -29,6 +29,7 @@ import {
   firstIncompleteGridGeometrySourceItem,
   GRID_CORNER_LABELS,
   gridGeometryDraftAnchor,
+  gridGeometryDraftsEqual,
   gridGeometrySourceDraft,
   gridGeometrySourceItemAtPoint,
   gridGeometryDragTarget,
@@ -142,8 +143,12 @@ function GridReviewEditorContent({
   );
   const currentItemDraft =
     draft.reviewItemId === item.reviewItemId ? draft.corners : automaticCorners;
+  const hasPendingIndividualDraft =
+    draft.reviewItemId === item.reviewItemId &&
+    !gridGeometryDraftsEqual(draft.corners, automaticCorners);
   const activeDraft =
-    sourceEditing || (!editing && storedSourceDraft.length > 0)
+    sourceEditing ||
+    (!editing && !hasPendingIndividualDraft && storedSourceDraft.length > 0)
       ? storedSourceDraft
       : currentItemDraft;
   const draftKey = sourceEditing
@@ -171,6 +176,7 @@ function GridReviewEditorContent({
     (candidate) => candidate.assetMode === 'virtual_source',
   );
   const isEditing = editing || sourceEditing;
+  const showDraftReview = isEditing || hasPendingIndividualDraft;
   const sourceEditingProgress =
     sourceDrafts.size === 0
       ? 0
@@ -181,8 +187,8 @@ function GridReviewEditorContent({
         ).length;
 
   useEffect(() => {
-    onEditingChange(editing || sourceEditing);
-  }, [editing, onEditingChange, sourceEditing]);
+    onEditingChange(isEditing || hasPendingIndividualDraft);
+  }, [hasPendingIndividualDraft, isEditing, onEditingChange]);
 
   useEffect(
     () => () => {
@@ -289,6 +295,7 @@ function GridReviewEditorContent({
     const pointer = sourcePoint(event);
     if (pointer === null) return;
     if (!editing) {
+      if (hasPendingIndividualDraft) return;
       const selected = gridGeometrySourceItemAtPoint(
         items,
         sourceDrafts,
@@ -499,21 +506,36 @@ function GridReviewEditorContent({
               className="secondaryButton"
               disabled={loadingSource || saving || sourceEditing}
               onClick={() => {
-                setEditing((value) => !value);
-                setDraft({
-                  corners: automaticCorners,
-                  reviewItemId: item.reviewItemId,
-                });
-                invalidatePreview();
+                if (editing) {
+                  setEditing(false);
+                  return;
+                }
+                setEditing(true);
+                if (!hasPendingIndividualDraft) {
+                  setDraft({
+                    corners: automaticCorners,
+                    reviewItemId: item.reviewItemId,
+                  });
+                  invalidatePreview();
+                }
               }}
               type="button"
             >
-              {editing ? 'Zakończ edycję' : 'Zmień siatkę'}
+              {editing
+                ? 'Zakończ edycję'
+                : hasPendingIndividualDraft
+                  ? 'Kontynuuj edycję'
+                  : 'Zmień siatkę'}
             </button>
             {sourceBatchEnabled ? (
               <button
                 className="secondaryButton"
-                disabled={loadingSource || saving || editing}
+                disabled={
+                  loadingSource ||
+                  saving ||
+                  editing ||
+                  hasPendingIndividualDraft
+                }
                 onClick={() => {
                   if (sourceEditing) {
                     setSourceEditing(false);
@@ -589,6 +611,10 @@ function GridReviewEditorContent({
                   : undefined
               }
               key={candidate.reviewItemId}
+              disabled={
+                hasPendingIndividualDraft &&
+                candidate.reviewItemId !== item.reviewItemId
+              }
               onClick={() => onSelect(candidate.reviewItemId)}
               type="button"
             >
@@ -654,7 +680,7 @@ function GridReviewEditorContent({
         ) : null}
       </div>
 
-      {isEditing ? (
+      {showDraftReview ? (
         <section className="gridReviewPreviewPanel">
           <div className="gridReviewCanvasHeading">
             <div>

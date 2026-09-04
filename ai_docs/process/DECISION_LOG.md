@@ -7472,3 +7472,18 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   gestem użytkownika, a automatyczne dekodowanie tysięcy podglądów blokowało UI.
 - **Consequences:** wznowienie i wczytanie miniaturek są dwoma świadomymi
   krokami. Poglądowe atlasy mogą używać niższej jakości niż finalne JPEG-i.
+
+### D-329 — Zakończenie edycji pojedynczej siatki zachowuje szkic
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** `Zakończ edycję` wyłącza manipulowanie narożnikami, ale nie
+  przywraca automatycznej geometrii. Kompletny albo częściowy szkic pozostaje
+  wejściem panelu A/B i można go wznowić. Do czasu zapisu albo jawnego resetu
+  blokowane są zatwierdzenie, nawigacja i zmiana aktywnej planszy.
+- **Reason:** wcześniejszy handler bezwarunkowo przypisywał `automaticCorners`
+  przy wejściu i wyjściu z edycji, więc nazwa akcji sugerowała zakończenie pracy,
+  a faktycznie bez ostrzeżenia usuwała wszystkie przesunięcia operatora.
+- **Consequences:** tylko `Resetuj do automatu` usuwa lokalne zmiany. Szkic nie
+  jest automatycznie zapisywany i nadal wymaga aktualnego porównania A/B przed
+  trwałym zapisem geometrii.

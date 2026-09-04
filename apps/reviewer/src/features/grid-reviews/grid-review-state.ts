@@ -105,6 +105,19 @@ export function gridReviewCorners(
   ];
 }
 
+export function gridGeometryDraftsEqual(
+  left: GridGeometryDraft,
+  right: GridGeometryDraft,
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (point, index) =>
+        point.x === right[index]?.x && point.y === right[index]?.y,
+    )
+  );
+}
+
 export function addGridGeometryPoint(
   draft: GridGeometryDraft,
   point: OperationalImageReviewGeometryPoint,

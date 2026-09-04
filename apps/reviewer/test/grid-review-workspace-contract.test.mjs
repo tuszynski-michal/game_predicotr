@@ -104,6 +104,17 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /showOverlay/);
   assert.match(editor, /zoomPercent/);
   assert.match(editor, /useState\(100\)/);
+  assert.match(editor, /hasPendingIndividualDraft/);
+  assert.match(editor, /showDraftReview/);
+  assert.match(editor, /Kontynuuj edycję/);
+  assert.match(
+    editor,
+    /if \(editing\) \{[\s\S]*setEditing\(false\);[\s\S]*return;/,
+  );
+  assert.match(
+    editor,
+    /onEditingChange\(isEditing \|\| hasPendingIndividualDraft\)/,
+  );
   assert.match(editor, /gridGeometrySourceItemAtPoint/);
   assert.match(editor, /Kliknij siatkę na zdjęciu, aby wybrać planszę/);
   assert.match(editor, /A · Automat/);

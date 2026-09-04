@@ -8,6 +8,7 @@ import {
   firstIncompleteGridGeometrySourceItem,
   GRID_CORNER_LABELS,
   gridGeometryDraftAnchor,
+  gridGeometryDraftsEqual,
   gridGeometrySourceDraft,
   gridGeometrySourceItemAtPoint,
   GRID_REVIEW_VIEWS,
@@ -58,6 +59,25 @@ test('grid workflow exposes the three accepted filters in operator order', () =>
       ['needs_correction', 'Do poprawy'],
       ['all', 'Wszystkie'],
     ],
+  );
+});
+
+test('an individual draft stays pending until it exactly matches the automatic geometry', () => {
+  const automatic = [
+    { x: 10, y: 20 },
+    { x: 110, y: 20 },
+    { x: 110, y: 80 },
+    { x: 10, y: 80 },
+  ];
+  const edited = automatic.map((point, index) =>
+    index === 0 ? { ...point, x: point.x + 1 } : point,
+  );
+
+  assert.equal(gridGeometryDraftsEqual(automatic, [...automatic]), true);
+  assert.equal(gridGeometryDraftsEqual(edited, automatic), false);
+  assert.equal(
+    gridGeometryDraftsEqual(automatic.slice(0, 3), automatic),
+    false,
   );
 });
 

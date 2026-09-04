@@ -6,6 +6,15 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Zachowanie szkicu pojedynczej siatki — TASK-0438
+
+- `Zakończ edycję` nie przywraca już automatycznych narożników. Kompletny albo
+  częściowy szkic pozostaje widoczny i można go wznowić, porównać A/B oraz
+  zapisać.
+- Niezapisany szkic blokuje zwykłe zatwierdzenie, nawigację, przełączenie planszy
+  i wejście w tryb całego źródła. Automat wraca wyłącznie po jawnym resecie.
+- Szkic jest lokalny do czasu zapisu i nie jest utrwalany po zamknięciu strony.
+
 ### Domyślny zoom 100% w walidacji siatek — TASK-0437
 
 - Lokalny ekran `Zatwierdzanie cięcia siatki` otwiera gotową siatkę przy 100%.

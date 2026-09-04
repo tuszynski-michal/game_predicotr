@@ -20,7 +20,7 @@ from game_predictor_api.domain.jobs import JobConflictError
 class GridCalibrationRepository(Protocol):
     def cohort_diagnostics(self, *, game_id: UUID) -> GeometryCohortDiagnostics: ...
     def create_candidate(
-        self, *, game_id: UUID
+        self, *, game_id: UUID, end_to_end_report: dict[str, object] | None
     ) -> tuple[GeometryCohort, GridCalibrationProfile, bool]: ...
 
     def list_profiles(self, *, game_id: UUID, limit: int) -> tuple[GridCalibrationProfile, ...]: ...
@@ -57,9 +57,12 @@ class GridCalibrationService:
         self._repository = repository
 
     def create_candidate(
-        self, *, game_id: UUID
+        self, *, game_id: UUID, end_to_end_report: dict[str, object] | None = None
     ) -> tuple[GeometryCohort, GridCalibrationProfile, bool]:
-        return self._repository.create_candidate(game_id=game_id)
+        return self._repository.create_candidate(
+            game_id=game_id,
+            end_to_end_report=end_to_end_report,
+        )
 
     def cohort_diagnostics(self, *, game_id: UUID) -> GeometryCohortDiagnostics:
         return self._repository.cohort_diagnostics(game_id=game_id)

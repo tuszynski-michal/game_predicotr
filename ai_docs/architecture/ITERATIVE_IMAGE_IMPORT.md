@@ -190,6 +190,32 @@ odtwarzane tylko przez już przypięte fingerprinty. Utworzenie nowej kohorty
 używa schema v2, dzięki czemu stary odrzucony profil nie blokuje kandydata
 opartego na 36 narożnikach.
 
+### Końcowa bramka profilu strony
+
+Komplet 36 narożników jest wejściem do kandydata, a nie dowodem gotowości do
+produkcji. Profil schema v2 otrzymuje `candidate_ready` dopiero po dołączeniu
+raportu `grid-profile-end-to-end-gate-report-v1`, utworzonego z wyników tych
+samych adapterów, które wykonują produkcyjną rejestrację strony, estymację
+siatki 3×5 oraz kontrolę 15 cropów.
+
+Korpus raportu jest rozłączny od źródeł treningowych i kotwic po checksumie.
+Ma co najmniej 100 źródeł, 500 aktywnych plansz, pięć niepustych bucketów
+jakości/kąta oraz pełne pokrycie wersjonowanego korpusu znanych regresji.
+Raport wiąże checksumę kohorty, checksumę korpusu, agregaty odroczeń i liczniki
+niezmienników checksumy, kolejności, topologii, overlapu i source support.
+
+Przejście wymaga co najmniej 98% plansz z końcową, gotową geometrią 3×5, zera
+naruszeń niezmienników oraz spadku nie większego niż 0,5 punktu procentowego
+wobec stabilnego baseline'u uruchomionego na identycznych źródłach. Brak,
+niepełność albo drift raportu jest wynikiem fail-closed. Nie obniża się progów
+`incomplete_lattice`, residualu ani source support.
+
+Kohorta i każda rewizja profilu pozostają niezmienne. Ponowna ewaluacja tej
+samej kohorty tworzy następny profil z inną checksumą raportu, zamiast
+nadpisywać poprzedni wynik. Aktywny profil schema v2 bez aktualnego raportu nie
+może zostać przypięty do nowego joba; job utworzony wcześniej zachowuje swój
+snapshot i replay.
+
 ### Przyrostowe kotwice preflightu strony
 
 Preflight strony może zbudować tymczasową kohortę auto-kotwic dla jednego

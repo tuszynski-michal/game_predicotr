@@ -10,6 +10,7 @@ from game_predictor_api.application.grid_calibration import GridCalibrationServi
 from game_predictor_api.domain.grid_calibration import GridProfileActivationAction
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.grid_calibration import (
+    CreateGridCalibrationCandidateCommand,
     CreateGridCalibrationCandidateResponse,
     GeometryCohortDiagnosticsResponse,
     GridCalibrationProfileResponse,
@@ -48,8 +49,17 @@ def create_grid_calibration_router(
     def create_candidate(
         game_id: UUID,
         service: Annotated[GridCalibrationService, dependency],
+        command: CreateGridCalibrationCandidateCommand | None = None,
     ) -> CreateGridCalibrationCandidateResponse:
-        cohort, profile, created = service.create_candidate(game_id=game_id)
+        report = (
+            None
+            if command is None or command.end_to_end_report is None
+            else command.end_to_end_report.model_dump(by_alias=True)
+        )
+        cohort, profile, created = service.create_candidate(
+            game_id=game_id,
+            end_to_end_report=report,
+        )
         return CreateGridCalibrationCandidateResponse(
             cohort=to_cohort_response(cohort),
             profile=to_profile_response(profile),

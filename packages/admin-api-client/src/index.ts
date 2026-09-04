@@ -233,7 +233,9 @@ import type {
   BoardSearchScope,
   BoardSourceCleanupCommandRequest,
   BoardSourceCleanupPreviewRequest,
+  CreateGridCalibrationCandidateCommand,
   CreateJobData,
+  GridEndToEndGateReportCommand,
   GridProfileActivationAction,
   GridProfileActivationCommand,
   CreateSymbolTrainingCommand,
@@ -386,9 +388,12 @@ export type {
   GameStatus,
   GameUpdate,
   CreateGridCalibrationCandidateResponse,
+  CreateGridCalibrationCandidateCommand,
   GeometryCohortDiagnosticsResponse,
   GeometryCohortResponse,
   GridCalibrationProfileResponse,
+  GridEndToEndGateReportCommand,
+  GridEndToEndGateSource,
   GridProfileActivationAction,
   GridProfileActivationCommand,
   GridProfileActivationCommandResponse,
@@ -1654,8 +1659,12 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         headers: confirmedTargetHeaders(`symbol-model-rollback:${gameId}`),
         path: { game_id: gameId, iteration_id: iterationId },
       }),
-    createGridCalibrationCandidate: (gameId: string) =>
+    createGridCalibrationCandidate: (
+      gameId: string,
+      body?: CreateGridCalibrationCandidateCommand,
+    ) =>
       createGeneratedGridCalibrationCandidate({
+        ...(body === undefined ? {} : { body }),
         client,
         headers: confirmedTargetHeaders(`grid-calibration-candidate:${gameId}`),
         path: { game_id: gameId },

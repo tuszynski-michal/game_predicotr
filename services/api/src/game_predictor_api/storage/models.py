@@ -3906,7 +3906,11 @@ class GridCalibrationProfileModel(Base):
             name="ck_grid_calibration_profiles_checksum",
         ),
         UniqueConstraint("game_id", "profile_number", name="uq_grid_calibration_profiles_number"),
-        UniqueConstraint("cohort_id", name="uq_grid_calibration_profiles_cohort"),
+        UniqueConstraint(
+            "cohort_id",
+            "profile_checksum_sha256",
+            name="uq_grid_calibration_profiles_cohort_checksum",
+        ),
         Index("ix_grid_calibration_profiles_game_status", "game_id", "status"),
     )
 

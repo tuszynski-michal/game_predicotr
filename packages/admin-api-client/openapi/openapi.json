@@ -2563,6 +2563,23 @@
         "title": "CleanupResultResponse",
         "type": "object"
       },
+      "CreateGridCalibrationCandidateCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "endToEndReport": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridEndToEndGateReportCommand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CreateGridCalibrationCandidateCommand",
+        "type": "object"
+      },
       "CreateGridCalibrationCandidateResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3921,6 +3938,148 @@
           "createdAt"
         ],
         "title": "GridCalibrationProfileResponse",
+        "type": "object"
+      },
+      "GridEndToEndGateReportCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "activeBoardCount": {
+            "minimum": 0.0,
+            "title": "Activeboardcount",
+            "type": "integer"
+          },
+          "baselineFinalCellGridReadyBoardCount": {
+            "minimum": 0.0,
+            "title": "Baselinefinalcellgridreadyboardcount",
+            "type": "integer"
+          },
+          "cohortChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Cohortchecksumsha256",
+            "type": "string"
+          },
+          "corpusChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Corpuschecksumsha256",
+            "type": "string"
+          },
+          "coveredRegressionCaseCount": {
+            "minimum": 0.0,
+            "title": "Coveredregressioncasecount",
+            "type": "integer"
+          },
+          "deferralReasonCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Deferralreasoncounts",
+            "type": "object"
+          },
+          "finalCellGridReadyBoardCount": {
+            "minimum": 0.0,
+            "title": "Finalcellgridreadyboardcount",
+            "type": "integer"
+          },
+          "invariantViolationCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Invariantviolationcounts",
+            "type": "object"
+          },
+          "knownRegressionCaseCount": {
+            "minimum": 0.0,
+            "title": "Knownregressioncasecount",
+            "type": "integer"
+          },
+          "pageRegistrationReadyBoardCount": {
+            "minimum": 0.0,
+            "title": "Pageregistrationreadyboardcount",
+            "type": "integer"
+          },
+          "policyVersion": {
+            "const": "v0.10-page-and-cell-production-gate-v1",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "qualityAngleBucketCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Qualityanglebucketcounts",
+            "type": "object"
+          },
+          "regressionCorpusVersion": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Regressioncorpusversion",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "grid-profile-end-to-end-gate-report-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "sourceCount": {
+            "minimum": 0.0,
+            "title": "Sourcecount",
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/GridEndToEndGateSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "policyVersion",
+          "cohortChecksumSha256",
+          "corpusChecksumSha256",
+          "sourceCount",
+          "activeBoardCount",
+          "pageRegistrationReadyBoardCount",
+          "finalCellGridReadyBoardCount",
+          "baselineFinalCellGridReadyBoardCount",
+          "qualityAngleBucketCounts",
+          "invariantViolationCounts",
+          "deferralReasonCounts",
+          "knownRegressionCaseCount",
+          "coveredRegressionCaseCount",
+          "regressionCorpusVersion",
+          "sources"
+        ],
+        "title": "GridEndToEndGateReportCommand",
+        "type": "object"
+      },
+      "GridEndToEndGateSource": {
+        "additionalProperties": false,
+        "properties": {
+          "activeBoardCount": {
+            "minimum": 0.0,
+            "title": "Activeboardcount",
+            "type": "integer"
+          },
+          "qualityAngleBucket": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Qualityanglebucket",
+            "type": "string"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceChecksumSha256",
+          "qualityAngleBucket",
+          "activeBoardCount"
+        ],
+        "title": "GridEndToEndGateSource",
         "type": "object"
       },
       "GridProfileActivationAction": {
@@ -20930,6 +21089,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateGridCalibrationCandidateCommand"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Command"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {

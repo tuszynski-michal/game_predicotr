@@ -1423,6 +1423,13 @@ export type CleanupResultResponse = {
 };
 
 /**
+ * CreateGridCalibrationCandidateCommand
+ */
+export type CreateGridCalibrationCandidateCommand = {
+  endToEndReport?: GridEndToEndGateReportCommand | null;
+};
+
+/**
  * CreateGridCalibrationCandidateResponse
  */
 export type CreateGridCalibrationCandidateResponse = {
@@ -2233,6 +2240,100 @@ export type GridCalibrationProfileResponse = {
    * Status
    */
   status: string;
+};
+
+/**
+ * GridEndToEndGateReportCommand
+ */
+export type GridEndToEndGateReportCommand = {
+  /**
+   * Activeboardcount
+   */
+  activeBoardCount: number;
+  /**
+   * Baselinefinalcellgridreadyboardcount
+   */
+  baselineFinalCellGridReadyBoardCount: number;
+  /**
+   * Cohortchecksumsha256
+   */
+  cohortChecksumSha256: string;
+  /**
+   * Corpuschecksumsha256
+   */
+  corpusChecksumSha256: string;
+  /**
+   * Coveredregressioncasecount
+   */
+  coveredRegressionCaseCount: number;
+  /**
+   * Deferralreasoncounts
+   */
+  deferralReasonCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Finalcellgridreadyboardcount
+   */
+  finalCellGridReadyBoardCount: number;
+  /**
+   * Invariantviolationcounts
+   */
+  invariantViolationCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Knownregressioncasecount
+   */
+  knownRegressionCaseCount: number;
+  /**
+   * Pageregistrationreadyboardcount
+   */
+  pageRegistrationReadyBoardCount: number;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'v0.10-page-and-cell-production-gate-v1';
+  /**
+   * Qualityanglebucketcounts
+   */
+  qualityAngleBucketCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Regressioncorpusversion
+   */
+  regressionCorpusVersion: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-profile-end-to-end-gate-report-v1';
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Sources
+   */
+  sources: Array<GridEndToEndGateSource>;
+};
+
+/**
+ * GridEndToEndGateSource
+ */
+export type GridEndToEndGateSource = {
+  /**
+   * Activeboardcount
+   */
+  activeBoardCount: number;
+  /**
+   * Qualityanglebucket
+   */
+  qualityAngleBucket: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
 };
 
 /**
@@ -11933,7 +12034,10 @@ export type ListGridCalibrationProfilesResponse =
   ListGridCalibrationProfilesResponses[keyof ListGridCalibrationProfilesResponses];
 
 export type CreateGridCalibrationCandidateData = {
-  body?: never;
+  /**
+   * Command
+   */
+  body?: CreateGridCalibrationCandidateCommand | null;
   path: {
     /**
      * Game Id

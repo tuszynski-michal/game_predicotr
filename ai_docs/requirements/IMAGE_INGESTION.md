@@ -1173,6 +1173,14 @@ drift dowodu blokuje ponowienie; aktywny profil siatki, detektor historyczny ani
 cztery narożniki strony nie są fallbackiem. Historyczne joby zachowują własny
 snapshot i replay.
 
+Nowy job v0.10 nie może przypiąć aktywnego profilu strony schema v2, jeżeli
+profil nie zawiera aktualnego raportu końcowej bramki 3×3 → 3×5. Raport musi
+być związany checksumą z kohortą i source-disjoint korpusem co najmniej 100
+źródeł / 500 plansz w pięciu bucketach. Co najmniej 98% plansz musi dojść do
+gotowych 15 cropów, bez naruszenia checksumy, kolejności, topologii, overlapu
+lub source support i bez regresji większej niż 0,5 pp wobec baseline'u na tych
+samych źródłach. Brak raportu nie jest sukcesem i nie uruchamia fallbacku.
+
 Model symboli został zatwierdzony w D-088 jako
 `production-spatial-symbol-cnn-v1`. Jego automatyczna akceptacja obowiązuje
 wyłącznie od checksum-bound progu `0.88850097`; poniżej progu wynik pozostaje

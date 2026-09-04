@@ -39,6 +39,8 @@ function countMetric(
   key:
     | 'anchorSourceCount'
     | 'completeSourceCount'
+    | 'evaluationActiveBoardCount'
+    | 'evaluationSourceCount'
     | 'trainingCornerCount'
     | 'trainingSourceCount'
     | 'validationCornerCount'
@@ -46,6 +48,17 @@ function countMetric(
 ): string {
   const value = profile?.gateMetrics[key];
   return typeof value === 'number' ? String(value) : '—';
+}
+
+function rateMetric(
+  profile: GridCalibrationProfileResponse | null,
+  key:
+    | 'baselineFinalCellGridReadyRate'
+    | 'finalCellGridReadyRate'
+    | 'pageRegistrationReadyRate',
+): string {
+  const value = profile?.gateMetrics[key];
+  return typeof value === 'number' ? `${(value * 100).toFixed(2)}%` : '—';
 }
 
 export function GridQualityPanel({
@@ -129,7 +142,11 @@ export function GridQualityPanel({
           ? 'Profil dla tej samej kohorty już istnieje; używam zapisanej wersji.'
           : result.response.profile.status === 'candidate_ready'
             ? 'Kandydat przeszedł bramkę. Aktywuj go osobną akcją.'
-            : 'Kandydat nie przeszedł bramki. Poprzedni profil pozostał bez zmian.',
+            : result.response.profile.rejectionReasons.includes(
+                  'END_TO_END_GATE_REPORT_REQUIRED',
+                )
+              ? 'Kohorta została zamrożona. Kandydat czeka na source-disjoint raport całego toru 3×3 → 3×5.'
+              : 'Kandydat nie przeszedł bramki. Poprzedni profil pozostał bez zmian.',
       );
       await refresh();
     }
@@ -274,6 +291,24 @@ export function GridQualityPanel({
               <dd>
                 {countMetric(latest, 'anchorSourceCount')} z{' '}
                 {countMetric(latest, 'completeSourceCount')} źródeł
+              </dd>
+            </div>
+            <div>
+              <dt>Korpus końcowej bramki: źródła / plansze</dt>
+              <dd>
+                {countMetric(latest, 'evaluationSourceCount')} /{' '}
+                {countMetric(latest, 'evaluationActiveBoardCount')}
+              </dd>
+            </div>
+            <div>
+              <dt>Gotowa geometria stron 3×3</dt>
+              <dd>{rateMetric(latest, 'pageRegistrationReadyRate')}</dd>
+            </div>
+            <div>
+              <dt>Gotowe siatki symboli 3×5: baza → kandydat</dt>
+              <dd>
+                {rateMetric(latest, 'baselineFinalCellGridReadyRate')} →{' '}
+                {rateMetric(latest, 'finalCellGridReadyRate')}
               </dd>
             </div>
           </>

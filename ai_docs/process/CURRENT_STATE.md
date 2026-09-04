@@ -6,6 +6,19 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Końcowa bramka profilu geometrii v0.10 — TASK-0432
+
+- Profil strony schema v2 nie może już uzyskać `candidate_ready` na podstawie
+  samego kompletu 36 narożników. Wymaga checksum-bound raportu przejścia
+  produkcyjnego toru 3×3 → 3×5 na source-disjoint korpusie.
+- Polityka wymaga minimum 100 źródeł, 500 aktywnych plansz, pięciu bucketów,
+  pełnego pokrycia znanych regresji, co najmniej 98% gotowych siatek 3×5,
+  zerowych naruszeń niezmienników i regresji nie większej niż 0,5 pp.
+- Brak raportu i historyczny schema-v2 gate blokują aktywację oraz snapshot
+  nowego joba. Stare joby nadal odtwarzają własne snapshoty.
+- Ta sama kohorta może mieć kolejne niezmienne rewizje profilu powiązane z
+  różnymi raportami; żaden historyczny profil nie jest nadpisywany.
+
 ### Manifest geometrii strony w reprocessie v0.10 — TASK-0431
 
 - Nowy managed reprocess schema v6 dziedziczy checksum-bound manifest managed
@@ -90,12 +103,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Produkcyjna rejestracja przenosi pełny zestaw 36 punktów osobną homografią
   zdjęcia, następnie dopasowuje każdy quad do jego czerwonych krawędzi i nadal
   kończy się fail-closed przy braku kompletnego dowodu.
-- Stara bramka medianowych przesunięć nie odrzuca już nowego profilu
-  36-punktowego. Profile schema v1 oraz już utworzone snapshoty zachowują
-  historyczne zachowanie.
+- Stara bramka medianowych przesunięć nie ocenia profilu 36-punktowego. Nowy
+  profil schema v2 wymaga osobnej końcowej bramki produkcyjnego toru 3×3 → 3×5.
+  Profile schema v1 oraz już utworzone snapshoty zachowują historyczne
+  zachowanie.
 - Read-only odbiór bieżącej gry `777` wykazał 32 kompletne źródła: 28 train,
   4 validation, 1008 narożników treningowych, 144 walidacyjne i 16 kotwic;
-  nowa bramka przechodzi bez powodów odrzucenia.
+  ówczesna bramka 36 narożników przechodziła bez powodów odrzucenia. Po
+  TASK-0432 ten profil wymaga ponownej walidacji przed użyciem w nowym jobie.
 
 ### Lokalny launcher walidacji siatki — TASK-0423
 

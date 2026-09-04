@@ -1090,6 +1090,10 @@ export const createGridCalibrationCandidate = <
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles',
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

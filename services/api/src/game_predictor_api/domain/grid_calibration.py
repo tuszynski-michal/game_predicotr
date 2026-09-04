@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import statistics
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -26,6 +27,13 @@ GRID_CALIBRATION_POLICY_V2 = "source-specific-36-corner-registration-v2"
 GRID_ANCHOR_SELECTION_POLICY_V1 = "geometry-medoid-farthest-point-16-v1"
 GRID_CORNERS_PER_COMPLETE_SOURCE = 36
 GRID_MAX_REGISTRATION_ANCHORS = 16
+GRID_END_TO_END_GATE_REPORT_SCHEMA_V1 = "grid-profile-end-to-end-gate-report-v1"
+GRID_END_TO_END_GATE_POLICY_V1 = "v0.10-page-and-cell-production-gate-v1"
+GRID_END_TO_END_MIN_SOURCE_COUNT = 100
+GRID_END_TO_END_MIN_BOARD_COUNT = 500
+GRID_END_TO_END_MIN_BUCKET_COUNT = 5
+GRID_END_TO_END_MIN_READY_RATE = 0.98
+GRID_END_TO_END_MAX_REGRESSION_RATE = 0.005
 
 
 class GridProfileStatus(StrEnum):
@@ -167,14 +175,21 @@ def build_geometry_manifest(
 
 def train_grid_profile(
     manifest: dict[str, object],
+    *,
+    end_to_end_report: dict[str, object] | None = None,
 ) -> tuple[dict[str, object], dict[str, object], tuple[str, ...]]:
     if manifest.get("schemaVersion") == 1:
         return _train_legacy_grid_profile_v1(manifest)
-    return _train_source_specific_grid_profile_v2(manifest)
+    return _train_source_specific_grid_profile_v2(
+        manifest,
+        end_to_end_report=end_to_end_report,
+    )
 
 
 def _train_source_specific_grid_profile_v2(
     manifest: dict[str, object],
+    *,
+    end_to_end_report: dict[str, object] | None,
 ) -> tuple[dict[str, object], dict[str, object], tuple[str, ...]]:
     raw_samples = manifest.get("samples")
     if not isinstance(raw_samples, list):
@@ -197,6 +212,16 @@ def _train_source_specific_grid_profile_v2(
         reasons.append("TRAINING_SOURCE_SET_INSUFFICIENT")
     if not validation_pages:
         reasons.append("VALIDATION_SOURCE_SET_EMPTY")
+    training_checksums = {
+        str(page[0]["sourceChecksumSha256"])
+        for page in training_pages
+    }
+    report_metrics, report_reasons, report_checksum = _end_to_end_gate_metrics(
+        end_to_end_report,
+        cohort_checksum_sha256=_checksum(manifest),
+        training_source_checksums=training_checksums,
+    )
+    reasons.extend(report_reasons)
     profile: dict[str, object] = {
         "schemaVersion": 2,
         "calibrationPolicy": GRID_CALIBRATION_POLICY_V2,
@@ -210,6 +235,8 @@ def _train_source_specific_grid_profile_v2(
         "scopes": [],
         "positionFallbacks": [],
     }
+    if report_checksum is not None:
+        profile["endToEndGateReportChecksumSha256"] = report_checksum
     metrics: dict[str, object] = {
         "trainingSampleCount": len(training_pages) * 9,
         "validationSampleCount": len(validation_pages) * 9,
@@ -223,9 +250,191 @@ def _train_source_specific_grid_profile_v2(
         "manualCorrectionSourceCount": manually_corrected_sources,
         "sourceGeometryError": baseline,
         "runtimeFailClosed": True,
+        **report_metrics,
         "passed": not reasons,
     }
     return profile, metrics, tuple(reasons)
+
+
+def _end_to_end_gate_metrics(
+    report: dict[str, object] | None,
+    *,
+    cohort_checksum_sha256: str,
+    training_source_checksums: set[str],
+) -> tuple[dict[str, object], list[str], str | None]:
+    if report is None:
+        return (
+            {
+                "endToEndGatePolicyVersion": GRID_END_TO_END_GATE_POLICY_V1,
+                "endToEndGateReportPresent": False,
+            },
+            ["END_TO_END_GATE_REPORT_REQUIRED"],
+            None,
+        )
+    reasons: list[str] = []
+    if report.get("schemaVersion") != GRID_END_TO_END_GATE_REPORT_SCHEMA_V1:
+        reasons.append("END_TO_END_GATE_REPORT_SCHEMA_UNSUPPORTED")
+    if report.get("policyVersion") != GRID_END_TO_END_GATE_POLICY_V1:
+        reasons.append("END_TO_END_GATE_POLICY_UNSUPPORTED")
+    if report.get("cohortChecksumSha256") != cohort_checksum_sha256:
+        reasons.append("END_TO_END_GATE_COHORT_MISMATCH")
+    regression_corpus_version = report.get("regressionCorpusVersion")
+    if not isinstance(regression_corpus_version, str) or not regression_corpus_version.strip():
+        reasons.append("END_TO_END_GATE_REGRESSION_CORPUS_VERSION_REQUIRED")
+
+    sources = _gate_sources(report.get("sources"), reasons)
+    source_checksums = {source["sourceChecksumSha256"] for source in sources}
+    if source_checksums & training_source_checksums:
+        reasons.append("END_TO_END_GATE_NOT_SOURCE_DISJOINT")
+    declared_source_count = _non_negative_int(report.get("sourceCount"))
+    active_board_count = _non_negative_int(report.get("activeBoardCount"))
+    registration_ready = _non_negative_int(report.get("pageRegistrationReadyBoardCount"))
+    final_ready = _non_negative_int(report.get("finalCellGridReadyBoardCount"))
+    baseline_ready = _non_negative_int(report.get("baselineFinalCellGridReadyBoardCount"))
+    if declared_source_count != len(sources):
+        reasons.append("END_TO_END_GATE_SOURCE_COUNT_MISMATCH")
+    if declared_source_count is None or declared_source_count < GRID_END_TO_END_MIN_SOURCE_COUNT:
+        reasons.append("END_TO_END_GATE_SOURCE_COVERAGE_INSUFFICIENT")
+    source_board_count = sum(cast(int, source["activeBoardCount"]) for source in sources)
+    if active_board_count != source_board_count:
+        reasons.append("END_TO_END_GATE_BOARD_COUNT_MISMATCH")
+    if active_board_count is None or active_board_count < GRID_END_TO_END_MIN_BOARD_COUNT:
+        reasons.append("END_TO_END_GATE_BOARD_COVERAGE_INSUFFICIENT")
+    if (
+        active_board_count is None
+        or registration_ready is None
+        or final_ready is None
+        or baseline_ready is None
+        or registration_ready > active_board_count
+        or final_ready > registration_ready
+        or baseline_ready > active_board_count
+    ):
+        reasons.append("END_TO_END_GATE_COUNTERS_INVALID")
+        registration_rate = final_rate = baseline_rate = 0.0
+    else:
+        registration_rate = registration_ready / active_board_count if active_board_count else 0.0
+        final_rate = final_ready / active_board_count if active_board_count else 0.0
+        baseline_rate = baseline_ready / active_board_count if active_board_count else 0.0
+        if final_rate < GRID_END_TO_END_MIN_READY_RATE:
+            reasons.append("END_TO_END_FINAL_CELL_GRID_RATE_BELOW_THRESHOLD")
+        if final_rate + GRID_END_TO_END_MAX_REGRESSION_RATE < baseline_rate:
+            reasons.append("END_TO_END_FINAL_CELL_GRID_REGRESSION")
+
+    buckets = report.get("qualityAngleBucketCounts")
+    bucket_counts = _count_mapping(buckets)
+    if bucket_counts is None or len([count for count in bucket_counts.values() if count > 0]) < 5:
+        reasons.append("END_TO_END_GATE_BUCKET_COVERAGE_INSUFFICIENT")
+        bucket_counts = {} if bucket_counts is None else bucket_counts
+    expected_bucket_counts = Counter(cast(str, source["qualityAngleBucket"]) for source in sources)
+    if bucket_counts != dict(expected_bucket_counts):
+        reasons.append("END_TO_END_GATE_BUCKET_COUNT_MISMATCH")
+    invariant_counts = _count_mapping(report.get("invariantViolationCounts"))
+    required_invariants = {"checksum", "ordering", "topology", "overlap", "sourceSupport"}
+    if invariant_counts is None or set(invariant_counts) != required_invariants:
+        reasons.append("END_TO_END_GATE_INVARIANT_REPORT_INCOMPLETE")
+        invariant_counts = {} if invariant_counts is None else invariant_counts
+    elif any(invariant_counts.values()):
+        reasons.append("END_TO_END_GATE_INVARIANT_VIOLATION")
+    deferrals = _count_mapping(report.get("deferralReasonCounts"))
+    if deferrals is None:
+        reasons.append("END_TO_END_GATE_DEFERRAL_REPORT_INVALID")
+        deferrals = {}
+    elif active_board_count is not None and final_ready is not None:
+        if sum(deferrals.values()) != active_board_count - final_ready:
+            reasons.append("END_TO_END_GATE_DEFERRAL_COUNT_MISMATCH")
+    known_regression_count = _non_negative_int(report.get("knownRegressionCaseCount"))
+    covered_regression_count = _non_negative_int(report.get("coveredRegressionCaseCount"))
+    if (
+        known_regression_count is None
+        or covered_regression_count is None
+        or known_regression_count < 1
+        or covered_regression_count != known_regression_count
+    ):
+        reasons.append("END_TO_END_GATE_REGRESSION_CORPUS_INCOMPLETE")
+
+    canonical_corpus = {
+        "schemaVersion": 1,
+        "sources": sources,
+    }
+    computed_corpus_checksum = _checksum(canonical_corpus)
+    if report.get("corpusChecksumSha256") != computed_corpus_checksum:
+        reasons.append("END_TO_END_GATE_CORPUS_CHECKSUM_MISMATCH")
+    report_checksum = _checksum(report)
+    metrics: dict[str, object] = {
+        "endToEndGatePolicyVersion": GRID_END_TO_END_GATE_POLICY_V1,
+        "endToEndGateReportPresent": True,
+        "endToEndGateReportChecksumSha256": report_checksum,
+        "endToEndGateReport": report,
+        "corpusChecksumSha256": computed_corpus_checksum,
+        "evaluationSourceCount": declared_source_count or 0,
+        "evaluationActiveBoardCount": active_board_count or 0,
+        "pageRegistrationReadyRate": registration_rate,
+        "finalCellGridReadyRate": final_rate,
+        "baselineFinalCellGridReadyRate": baseline_rate,
+        "qualityAngleBucketCounts": dict(sorted(bucket_counts.items())),
+        "invariantViolationCounts": dict(sorted(invariant_counts.items())),
+        "deferralReasonCounts": dict(sorted(deferrals.items())),
+        "knownRegressionCaseCount": known_regression_count or 0,
+        "coveredRegressionCaseCount": covered_regression_count or 0,
+        "regressionCorpusVersion": (
+            regression_corpus_version if isinstance(regression_corpus_version, str) else ""
+        ),
+    }
+    return metrics, list(dict.fromkeys(reasons)), report_checksum
+
+
+def _gate_sources(value: object, reasons: list[str]) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        reasons.append("END_TO_END_GATE_SOURCE_MANIFEST_INVALID")
+        return []
+    output: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for raw in value:
+        if not isinstance(raw, dict):
+            reasons.append("END_TO_END_GATE_SOURCE_MANIFEST_INVALID")
+            continue
+        checksum = raw.get("sourceChecksumSha256")
+        bucket = raw.get("qualityAngleBucket")
+        board_count = _non_negative_int(raw.get("activeBoardCount"))
+        if (
+            not isinstance(checksum, str)
+            or len(checksum) != 64
+            or any(character not in "0123456789abcdef" for character in checksum)
+            or checksum in seen
+            or not isinstance(bucket, str)
+            or not bucket.strip()
+            or board_count is None
+        ):
+            reasons.append("END_TO_END_GATE_SOURCE_MANIFEST_INVALID")
+            continue
+        seen.add(checksum)
+        output.append(
+            {
+                "sourceChecksumSha256": checksum,
+                "qualityAngleBucket": bucket,
+                "activeBoardCount": board_count,
+            }
+        )
+    output.sort(key=lambda item: cast(str, item["sourceChecksumSha256"]))
+    return output
+
+
+def _count_mapping(value: object) -> dict[str, int] | None:
+    if not isinstance(value, dict):
+        return None
+    output: dict[str, int] = {}
+    for key, raw in value.items():
+        count = _non_negative_int(raw)
+        if not isinstance(key, str) or not key or count is None:
+            return None
+        output[key] = count
+    return output
+
+
+def _non_negative_int(value: object) -> int | None:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        return None
+    return value
 
 
 def _train_legacy_grid_profile_v1(
@@ -290,6 +499,25 @@ def _train_legacy_grid_profile_v1(
 
 def profile_checksum(profile: dict[str, object]) -> str:
     return _checksum(profile)
+
+
+def grid_profile_end_to_end_gate_is_current(
+    profile_payload: dict[str, object],
+    gate_metrics: dict[str, object],
+) -> bool:
+    if profile_payload.get("schemaVersion") != 2:
+        return True
+    checksum = profile_payload.get("endToEndGateReportChecksumSha256")
+    report = gate_metrics.get("endToEndGateReport")
+    return (
+        isinstance(checksum, str)
+        and len(checksum) == 64
+        and isinstance(report, dict)
+        and _checksum(report) == checksum
+        and gate_metrics.get("endToEndGatePolicyVersion") == GRID_END_TO_END_GATE_POLICY_V1
+        and gate_metrics.get("endToEndGateReportChecksumSha256") == checksum
+        and gate_metrics.get("passed") is True
+    )
 
 
 def activation_command_sha256(
@@ -652,6 +880,8 @@ def _checksum(value: object) -> str:
 
 __all__ = [
     "GeometryCohort",
+    "GRID_END_TO_END_GATE_POLICY_V1",
+    "GRID_END_TO_END_GATE_REPORT_SCHEMA_V1",
     "GridCalibrationProfile",
     "GridProfileActivation",
     "GridProfileActivationAction",
@@ -661,6 +891,7 @@ __all__ = [
     "VerifiedGeometrySample",
     "activation_command_sha256",
     "build_geometry_manifest",
+    "grid_profile_end_to_end_gate_is_current",
     "profile_checksum",
     "train_grid_profile",
 ]

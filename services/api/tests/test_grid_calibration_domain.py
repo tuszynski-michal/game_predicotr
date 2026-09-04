@@ -1,3 +1,5 @@
+import hashlib
+import json
 from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -10,6 +12,55 @@ from game_predictor_api.domain.grid_calibration import (
 )
 
 NOW = datetime(2026, 8, 9, 12, 0, tzinfo=UTC)
+
+
+def _gate_report(
+    cohort_checksum: str,
+    *,
+    active_board_count: int = 900,
+    final_ready: int = 890,
+    baseline_ready: int = 890,
+) -> dict[str, object]:
+    base_count, remainder = divmod(active_board_count, 100)
+    sources = [
+        {
+            "sourceChecksumSha256": hashlib.sha256(f"gate-{index}".encode()).hexdigest(),
+            "qualityAngleBucket": f"bucket-{index % 5}",
+            "activeBoardCount": base_count + (1 if index < remainder else 0),
+        }
+        for index in range(100)
+    ]
+    sources.sort(key=lambda item: item["sourceChecksumSha256"])
+    corpus = {"schemaVersion": 1, "sources": sources}
+    corpus_checksum = hashlib.sha256(
+        json.dumps(corpus, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
+            "ascii"
+        )
+    ).hexdigest()
+    return {
+        "schemaVersion": "grid-profile-end-to-end-gate-report-v1",
+        "policyVersion": "v0.10-page-and-cell-production-gate-v1",
+        "cohortChecksumSha256": cohort_checksum,
+        "corpusChecksumSha256": corpus_checksum,
+        "sourceCount": 100,
+        "activeBoardCount": active_board_count,
+        "pageRegistrationReadyBoardCount": active_board_count,
+        "finalCellGridReadyBoardCount": final_ready,
+        "baselineFinalCellGridReadyBoardCount": baseline_ready,
+        "qualityAngleBucketCounts": {f"bucket-{index}": 20 for index in range(5)},
+        "invariantViolationCounts": {
+            "checksum": 0,
+            "ordering": 0,
+            "topology": 0,
+            "overlap": 0,
+            "sourceSupport": 0,
+        },
+        "deferralReasonCounts": {"incomplete_lattice": active_board_count - final_ready},
+        "knownRegressionCaseCount": 2,
+        "coveredRegressionCaseCount": 2,
+        "regressionCorpusVersion": "grid-regressions-v1",
+        "sources": sources,
+    }
 
 
 def _sample(
@@ -65,7 +116,10 @@ def test_manifest_split_is_source_disjoint_and_candidate_improves_validation() -
     validation = _page("f" * 64, offset=5.0, run_id=run_id)
 
     manifest, checksum = build_geometry_manifest(game_id, validation + training + second_training)
-    profile, metrics, reasons = train_grid_profile(manifest)
+    profile, metrics, reasons = train_grid_profile(
+        manifest,
+        end_to_end_report=_gate_report(checksum),
+    )
 
     rows = manifest["samples"]
     assert isinstance(rows, list)
@@ -113,8 +167,11 @@ def test_direct_import_without_selection_run_uses_position_fallback() -> None:
         replace(sample, image_selection_run_id=None) for sample in _page("f" * 64, offset=4.0)
     )
 
-    manifest, _checksum = build_geometry_manifest(uuid4(), training + second_training + validation)
-    profile, metrics, reasons = train_grid_profile(manifest)
+    manifest, checksum = build_geometry_manifest(uuid4(), training + second_training + validation)
+    profile, metrics, reasons = train_grid_profile(
+        manifest,
+        end_to_end_report=_gate_report(checksum),
+    )
 
     rows = manifest["samples"]
     assert isinstance(rows, list)
@@ -132,10 +189,13 @@ def test_incomplete_source_never_becomes_a_36_corner_anchor() -> None:
     validation = _page("f" * 64, offset=1.0)
     incomplete = _page("7" * 64, offset=6.0)[:-1]
 
-    manifest, _checksum = build_geometry_manifest(
+    manifest, checksum = build_geometry_manifest(
         uuid4(), complete_training + complete_training_2 + validation + incomplete
     )
-    profile, metrics, reasons = train_grid_profile(manifest)
+    profile, metrics, reasons = train_grid_profile(
+        manifest,
+        end_to_end_report=_gate_report(checksum),
+    )
 
     assert reasons == ()
     assert "7" * 64 not in profile["anchorSourceChecksums"]
@@ -159,3 +219,43 @@ def test_legacy_manifest_keeps_the_offset_profile_replay_contract() -> None:
     assert len(profile["scopes"]) == 1
     assert metrics["passed"] is True
     assert reasons == ()
+
+
+def test_v2_profile_without_end_to_end_report_is_not_ready() -> None:
+    manifest, _checksum = build_geometry_manifest(
+        uuid4(),
+        _page("0" * 64, offset=1.0)
+        + _page("8" * 64, offset=1.0)
+        + _page("f" * 64, offset=1.0),
+    )
+
+    profile, metrics, reasons = train_grid_profile(manifest)
+
+    assert "END_TO_END_GATE_REPORT_REQUIRED" in reasons
+    assert metrics["endToEndGateReportPresent"] is False
+    assert metrics["passed"] is False
+    assert "endToEndGateReportChecksumSha256" not in profile
+
+
+def test_complete_36_corner_candidate_with_two_of_19800_final_grids_is_rejected() -> None:
+    manifest, checksum = build_geometry_manifest(
+        uuid4(),
+        _page("0" * 64, offset=1.0)
+        + _page("8" * 64, offset=1.0)
+        + _page("f" * 64, offset=1.0),
+    )
+
+    _profile, metrics, reasons = train_grid_profile(
+        manifest,
+        end_to_end_report=_gate_report(
+            checksum,
+            active_board_count=19_800,
+            final_ready=2,
+            baseline_ready=19_800,
+        ),
+    )
+
+    assert metrics["finalCellGridReadyRate"] == 2 / 19_800
+    assert "END_TO_END_FINAL_CELL_GRID_RATE_BELOW_THRESHOLD" in reasons
+    assert "END_TO_END_FINAL_CELL_GRID_REGRESSION" in reasons
+    assert metrics["passed"] is False

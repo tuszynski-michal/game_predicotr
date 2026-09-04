@@ -16,7 +16,10 @@ from game_predictor_api.application.jobs import (
     GridProfileSnapshotResolver,
     _baseline_grid_profile_snapshot,
 )
-from game_predictor_api.domain.grid_calibration import GridProfileStatus
+from game_predictor_api.domain.grid_calibration import (
+    GridProfileStatus,
+    grid_profile_end_to_end_gate_is_current,
+)
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.storage.models import (
     GameGridProfileActivationModel,
@@ -47,6 +50,14 @@ class SqlAlchemyGridProfileSnapshotResolver(GridProfileSnapshotResolver):
             raise JobConflictError(
                 "GRID_PROFILE_ACTIVE_PROFILE_INVALID",
                 "The active grid profile is unavailable or no longer eligible.",
+            )
+        if not grid_profile_end_to_end_gate_is_current(
+            dict(profile.profile_payload),
+            dict(profile.gate_metrics),
+        ):
+            raise JobConflictError(
+                "GRID_PROFILE_END_TO_END_REVALIDATION_REQUIRED",
+                "The active schema-v2 profile has no current end-to-end page and cell gate.",
             )
         canonical_profile = json.dumps(
             profile.profile_payload,

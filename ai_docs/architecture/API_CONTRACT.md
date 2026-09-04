@@ -2910,3 +2910,20 @@ wymaga lokalnego potwierdzenia wysokiego ryzyka z targetem
 osierocone rows range/review tego runu. Pozostały staging, diagnostyka,
 wynikowy output lub obca referencja zwracają konflikt i niczego nie usuwają.
 Endpoint nigdy nie dotyka lokalnego katalogu `seq_*` operatora.
+
+### Raport końcowej bramki profilu geometrii
+
+`POST /api/v1/admin/games/{gameId}/grid-calibration-profiles` opcjonalnie
+przyjmuje `CreateGridCalibrationCandidateCommand.endToEndReport`. Raport ma
+kontrakt `grid-profile-end-to-end-gate-report-v1` i zawiera checksumę kohorty,
+checksumę jawnego manifestu źródeł, politykę, wersję korpusu regresyjnego,
+liczniki źródeł i plansz, wyniki rejestracji strony oraz końcowej siatki 3×5,
+baseline, buckety, niezmienniki i agregację powodów odroczenia.
+
+Brak raportu tworzy audytowalny profil `rejected` z powodem
+`END_TO_END_GATE_REPORT_REQUIRED`. Późniejsze dostarczenie raportu dla tej
+samej kohorty tworzy nową niezmienną rewizję profilu. Powtórzenie identycznej
+kohorty i raportu zwraca istniejącą rewizję (`created=false`). Profil schema v2
+bez bieżącej polityki raportu zwraca
+`GRID_PROFILE_END_TO_END_REVALIDATION_REQUIRED` przy próbie użycia w nowym
+snapshotcie.

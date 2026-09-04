@@ -7405,3 +7405,20 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** nowe ponowienia używają schema v6 i
   `pinned_page_preflight`. Schema v4 oraz istniejące joby pozostają niezmienne
   i odtwarzalne; operacje na danych historycznych nadal wymagają osobnej zgody.
+
+### D-325 — Profil strony przechodzi bramkę końcowej geometrii 3×5
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** profil schema v2 może otrzymać `candidate_ready` wyłącznie po
+  checksum-bound, source-disjoint ewaluacji całego produkcyjnego toru od
+  rejestracji dziewięciu plansz do 15 cropów każdej gotowej planszy. Kolejna
+  ewaluacja tej samej kohorty tworzy osobną niezmienną rewizję profilu.
+- **Reason:** kompletność 36 narożników dowodziła jedynie jakości wejścia
+  rejestracji. Profil mógł poprawnie znaleźć dziewięć plansz i jednocześnie
+  przesunąć ich obrysy na tyle, aby fixed v19 odrzucił 19 798 siatek 3×5.
+- **Consequences:** bieżąca polityka wymaga 100 źródeł, 500 plansz, pięciu
+  bucketów, 98% gotowych siatek, zera naruszeń niezmienników i maksymalnie
+  0,5 pp regresji względem baseline'u. Stare schema-v2 profile wymagają
+  ponownej walidacji dla nowych jobów; istniejące snapshoty pozostają
+  odtwarzalne. Progów fixed v19 nie obniża się.

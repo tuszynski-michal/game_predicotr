@@ -100,6 +100,10 @@ SEMI_AUTOMATIC_IMAGE_SELECTION_REVISION = "0087_semi_automatic_image_selection"
 SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION = "0088_symbol_review_game_sequence_index"
 BLURRY_SYMBOL_QUALITY_REVISION = "0089_blurry_symbol_quality"
 SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION = "0090_symbol_reference_individual_cell_provenance"
+FILENAME_RANGE_VERIFICATION_HISTORY_REVISION = "0091_filename_range_verification_history"
+FILENAME_VERIFICATION_CLEANUP_REVISION = "0092_filename_verification_cleanup"
+BOARD_SOURCE_CLEANUP_REVISION = "0093_board_source_cleanup"
+GRID_PROFILE_GATE_REVISIONS_REVISION = "0094_grid_profile_gate_revisions"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -368,7 +372,13 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     symbol_reference_individual_cell = script.get_revision(
         SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION
     )
-    assert script.get_heads() == [SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION]
+    filename_range_verification_history = script.get_revision(
+        FILENAME_RANGE_VERIFICATION_HISTORY_REVISION
+    )
+    filename_verification_cleanup = script.get_revision(FILENAME_VERIFICATION_CLEANUP_REVISION)
+    board_source_cleanup = script.get_revision(BOARD_SOURCE_CLEANUP_REVISION)
+    grid_profile_gate_revisions = script.get_revision(GRID_PROFILE_GATE_REVISIONS_REVISION)
+    assert script.get_heads() == [GRID_PROFILE_GATE_REVISIONS_REVISION]
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert storage_capacity_guard is not None
@@ -406,6 +416,19 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert blurry_symbol_quality.down_revision == SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION
     assert symbol_reference_individual_cell is not None
     assert symbol_reference_individual_cell.down_revision == BLURRY_SYMBOL_QUALITY_REVISION
+    assert filename_range_verification_history is not None
+    assert (
+        filename_range_verification_history.down_revision
+        == SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION
+    )
+    assert filename_verification_cleanup is not None
+    assert (
+        filename_verification_cleanup.down_revision == FILENAME_RANGE_VERIFICATION_HISTORY_REVISION
+    )
+    assert board_source_cleanup is not None
+    assert board_source_cleanup.down_revision == FILENAME_VERIFICATION_CLEANUP_REVISION
+    assert grid_profile_gate_revisions is not None
+    assert grid_profile_gate_revisions.down_revision == BOARD_SOURCE_CLEANUP_REVISION
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION

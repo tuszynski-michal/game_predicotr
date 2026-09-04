@@ -170,6 +170,16 @@ przez istniejący bounded bufor plansz.
 
 ## Kohorta i profil geometrii
 
+### Role geometrii planszy
+
+Structured source geometry schema v2 rozdziela trzy role: `analysisQuad`
+ogranicza lokalne wyszukiwanie, `boardFrameQuad` jest opcjonalnym dowodem
+zewnętrznej ramki, a `symbolGridQuad` opisuje granice układu symboli. W schema
+v2 `finalQuad` jest wyłącznie kompatybilnym aliasem `symbolGridQuad`.
+Renderer komórek nie może użyć `analysisQuad` ani `boardFrameQuad` jako
+zastępstwa brakującej siatki. Schema v1 nie serializuje nowych pól, dzięki
+czemu jej checksumy i historyczny replay pozostają niezmienne.
+
 Kohorta jest game-scoped, kumulacyjna i niezmienna. Rekordy plansz nadal
 zachowują pierwotny i finalny quad, ale profil schema v2 grupuje je według
 źródła i kwalifikuje wyłącznie kompletny układ pozycji 0–8. Pełna próbka ma

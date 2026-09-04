@@ -73,6 +73,12 @@ Format błędu:
 
 Pełne schematy CRUD powstają razem z pionem funkcjonalnym i są generowane do OpenAPI. Poniżej zapisano kontrakty o znaczeniu architektonicznym.
 
+Element game-wide kolejki walidacji geometrii może addytywnie zwrócić
+`analysisQuad`, `boardFrameQuad`, `symbolGridQuad`, `localLatticeStatus` oraz
+`localLatticeVersion`. Dla danych historycznych pola pozostają puste, a
+`geometry` zachowuje dotychczasowy payload. Klient nie może interpretować
+zewnętrznej ramki jako końcowej siatki symboli.
+
 ### Wyszukiwanie plansz częściowym układem
 
 ```text

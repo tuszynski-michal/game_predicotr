@@ -100,6 +100,11 @@ class BoardGeometryResult:
     evidence: BoardGeometryEvidence
     lines: tuple[RefinedGridLine, ...]
     reason_codes: tuple[BoardGeometryReasonCode, ...]
+    analysis_quad: SourceQuad | None = None
+    board_frame_quad: SourceQuad | None = None
+    symbol_grid_quad: SourceQuad | None = None
+    local_lattice_status: str | None = None
+    local_lattice_version: str | None = None
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.confidence) or not 0 <= self.confidence <= 1:
@@ -111,8 +116,33 @@ class BoardGeometryResult:
         if self.final_quad is None and self.ideal_to_source_homography is not None:
             raise ValueError("A board homography cannot exist without its final quad.")
 
-    def to_payload(self) -> dict[str, object]:
-        return {
+        roles_present = any(
+            value is not None
+            for value in (
+                self.analysis_quad,
+                self.board_frame_quad,
+                self.symbol_grid_quad,
+                self.local_lattice_status,
+                self.local_lattice_version,
+            )
+        )
+        if roles_present and self.analysis_quad is None:
+            raise ValueError("Versioned geometry roles require an analysis quad.")
+        if self.symbol_grid_quad is not None and self.final_quad != self.symbol_grid_quad:
+            raise ValueError("finalQuad must remain an alias of symbolGridQuad.")
+        if (
+            roles_present
+            and self.disposition is BoardGeometryDisposition.AUTOMATIC
+            and (
+                self.symbol_grid_quad is None
+                or not self.local_lattice_status
+                or not self.local_lattice_version
+            )
+        ):
+            raise ValueError("Automatic role-aware geometry requires a proven symbol lattice.")
+
+    def to_payload(self, *, include_geometry_roles: bool = False) -> dict[str, object]:
+        payload: dict[str, object] = {
             "confidenceComponents": self.confidence_components.to_payload(),
             "disposition": self.disposition.value,
             "evidence": self.evidence.to_payload(),
@@ -129,6 +159,23 @@ class BoardGeometryResult:
             "reasonCodes": [value.value for value in self.reason_codes],
             "sequenceNumber": self.slot.sequence_number,
         }
+        if include_geometry_roles:
+            payload.update(
+                {
+                    "analysisQuad": (
+                        None if self.analysis_quad is None else self.analysis_quad.to_dict()
+                    ),
+                    "boardFrameQuad": (
+                        None if self.board_frame_quad is None else self.board_frame_quad.to_dict()
+                    ),
+                    "localLatticeStatus": self.local_lattice_status,
+                    "localLatticeVersion": self.local_lattice_version,
+                    "symbolGridQuad": (
+                        None if self.symbol_grid_quad is None else self.symbol_grid_quad.to_dict()
+                    ),
+                }
+            )
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +199,8 @@ class SourceGeometryResult:
     coordinate_space: str = SOURCE_COORDINATE_SPACE
 
     def __post_init__(self) -> None:
+        if self.schema_version not in {1, 2}:
+            raise ValueError("Unsupported source geometry schema version.")
         if self.active_board_slots != tuple(range(len(self.active_board_slots))):
             raise ValueError("Source geometry must preserve the attested active-slot prefix.")
         if tuple(board.slot.position_index for board in self.boards) != self.active_board_slots:
@@ -159,6 +208,8 @@ class SourceGeometryResult:
         expected = _source_status(self.boards)
         if self.status is not expected:
             raise ValueError("Source geometry status must aggregate its independent boards.")
+        if self.schema_version == 2 and any(board.analysis_quad is None for board in self.boards):
+            raise ValueError("Source geometry schema v2 requires explicit geometry roles.")
 
     @property
     def result_checksum_sha256(self) -> str:
@@ -172,7 +223,10 @@ class SourceGeometryResult:
     def _payload(self) -> dict[str, object]:
         return {
             "activeBoardSlots": list(self.active_board_slots),
-            "boards": [board.to_payload() for board in self.boards],
+            "boards": [
+                board.to_payload(include_geometry_roles=self.schema_version >= 2)
+                for board in self.boards
+            ],
             "canonicalHeight": self.canonical_height,
             "canonicalWidth": self.canonical_width,
             "configChecksumSha256": self.config_checksum_sha256,

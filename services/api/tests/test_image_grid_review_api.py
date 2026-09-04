@@ -47,6 +47,7 @@ from game_predictor_api.domain.image_reviews import (
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.schemas.image_grid_reviews import (
     to_image_grid_review_geometry_response,
+    to_image_grid_review_item_response,
 )
 
 SOURCE_BYTES = b"source"
@@ -396,6 +397,41 @@ def _client(
         return JSONResponse(status_code=409, content={"code": error.code, "message": error.message})
 
     return TestClient(app), repository, items
+
+
+def test_grid_review_response_exposes_explicit_geometry_roles() -> None:
+    analysis = [
+        {"x": 1, "y": 1},
+        {"x": 101, "y": 1},
+        {"x": 101, "y": 81},
+        {"x": 1, "y": 81},
+    ]
+    lattice = [
+        {"x": 5, "y": 6},
+        {"x": 97, "y": 6},
+        {"x": 97, "y": 75},
+        {"x": 5, "y": 75},
+    ]
+    item = _item(uuid4(), uuid4(), 1, ImageGridReviewState.NEEDS_VALIDATION)
+    item = replace(
+        item,
+        geometry={
+            "analysisQuad": analysis,
+            "boardFrameQuad": analysis,
+            "symbolGridQuad": lattice,
+            "localLatticeStatus": "estimated",
+            "localLatticeVersion": "lattice-test-v1",
+        },
+    )
+
+    response = to_image_grid_review_item_response(item)
+
+    assert response.analysis_quad is not None
+    assert response.analysis_quad[0].x == 1
+    assert response.symbol_grid_quad is not None
+    assert response.symbol_grid_quad[0].x == 5
+    assert response.local_lattice_status == "estimated"
+    assert response.local_lattice_version == "lattice-test-v1"
 
 
 def test_geometry_rollout_start_is_idempotent_and_reports_progress(tmp_path: Path) -> None:

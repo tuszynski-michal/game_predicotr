@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from uuid import UUID
 
 import cv2
@@ -180,3 +181,78 @@ def test_shadow_v2_is_deterministic_checksum_bound_and_measurement_only() -> Non
     assert first.boards[0].signal_probe.probe_coordinate_source == "structured_v1_final_quad"
     assert first.boards[0].evidence is not None
     assert first.boards[0].evidence.reprojection_cell_diagonal_fraction is not None
+
+
+def test_source_geometry_schema_v1_keeps_the_legacy_board_payload() -> None:
+    upstream = _upstream(_frame())
+    legacy_board = upstream.boards[0]
+    quad = legacy_board.final_quad
+    assert quad is not None
+    role_annotated = replace(
+        legacy_board,
+        analysis_quad=quad,
+        board_frame_quad=quad,
+        symbol_grid_quad=quad,
+        local_lattice_status="estimated",
+        local_lattice_version="ignored-by-schema-v1",
+    )
+    schema_v1_with_roles = replace(upstream, boards=(role_annotated,))
+    board = schema_v1_with_roles.to_payload()["boards"][0]
+
+    assert schema_v1_with_roles.result_checksum_sha256 == upstream.result_checksum_sha256
+    assert "analysisQuad" not in board
+    assert "boardFrameQuad" not in board
+    assert "symbolGridQuad" not in board
+    assert "localLatticeStatus" not in board
+    assert "localLatticeVersion" not in board
+
+
+def test_source_geometry_schema_v2_exposes_explicit_geometry_roles() -> None:
+    upstream = _upstream(_frame())
+    legacy_board = upstream.boards[0]
+    quad = legacy_board.final_quad
+    assert quad is not None
+    board = replace(
+        legacy_board,
+        analysis_quad=quad,
+        board_frame_quad=quad,
+        symbol_grid_quad=quad,
+        local_lattice_status="estimated",
+        local_lattice_version="board-cell-geometry-v19-multi-point-source-direct-v1",
+    )
+    role_aware = replace(upstream, boards=(board,), schema_version=2)
+
+    payload = role_aware.to_payload()["boards"][0]
+
+    assert payload["analysisQuad"] == quad.to_dict()
+    assert payload["boardFrameQuad"] == quad.to_dict()
+    assert payload["symbolGridQuad"] == payload["finalQuad"]
+    assert payload["localLatticeStatus"] == "estimated"
+
+
+def test_role_aware_geometry_rejects_a_different_final_quad_alias() -> None:
+    upstream = _upstream(_frame())
+    legacy_board = upstream.boards[0]
+    quad = legacy_board.final_quad
+    assert quad is not None
+    shifted = SourceQuad(
+        corners=(
+            SourcePoint(1.0, 0.0),
+            SourcePoint(500.0, 0.0),
+            SourcePoint(500.0, 299.0),
+            SourcePoint(1.0, 299.0),
+        )
+    )
+
+    try:
+        replace(
+            legacy_board,
+            analysis_quad=quad,
+            symbol_grid_quad=shifted,
+            local_lattice_status="estimated",
+            local_lattice_version="test-v1",
+        )
+    except ValueError as error:
+        assert str(error) == "finalQuad must remain an alias of symbolGridQuad."
+    else:
+        raise AssertionError("Mismatched geometry aliases must be rejected.")

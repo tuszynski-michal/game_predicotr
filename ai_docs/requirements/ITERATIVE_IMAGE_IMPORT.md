@@ -69,6 +69,12 @@ jobów, które już przypięły ich fingerprint. Nowy kandydat nie staje się ak
 bez kompletnej kohorty 36-punktowej, rozłącznego źródła walidacyjnego i jawnego
 potwierdzenia właściciela.
 
+Geometria planszy rozróżnia obszar analizy od końcowej siatki symboli.
+Zewnętrzna ramka albo quad rejestracji może ograniczać wyszukiwanie, lecz nie
+może być automatycznie dzielony na komórki. Jedynym źródłem cropów jest
+`symbolGridQuad`, poparty lokalnym dowodem siatki albo ręczną decyzją 36
+narożników. Historyczne kontrakty zachowują dotychczasową semantykę.
+
 ## Aktywny kontrakt geometrii komórek v18/v20
 
 Domyślny import nadal używa historycznego

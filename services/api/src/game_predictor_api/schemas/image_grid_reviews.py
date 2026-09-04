@@ -53,6 +53,35 @@ class ImageGridReviewItemResponse(ApiModel):
     grid_rows: int = Field(gt=0)
     grid_columns: int = Field(gt=0)
     geometry: dict[str, object]
+    analysis_quad: (
+        tuple[
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+        ]
+        | None
+    ) = None
+    board_frame_quad: (
+        tuple[
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+        ]
+        | None
+    ) = None
+    symbol_grid_quad: (
+        tuple[
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+        ]
+        | None
+    ) = None
+    local_lattice_status: str | None = None
+    local_lattice_version: str | None = None
     asset_mode: str
     geometry_engine_name: str | None
     geometry_engine_version: str | None
@@ -200,6 +229,7 @@ class ImageGridReviewSourceGeometryResponse(ApiModel):
 def to_image_grid_review_item_response(
     item: ImageGridReviewListItem,
 ) -> ImageGridReviewItemResponse:
+    geometry = dict(item.geometry)
     return ImageGridReviewItemResponse(
         review_item_id=item.review_item_id,
         game_id=item.game_id,
@@ -216,7 +246,14 @@ def to_image_grid_review_item_response(
         resolution_revision=item.resolution_revision,
         grid_rows=item.topology.rows,
         grid_columns=item.topology.columns,
-        geometry=dict(item.geometry),
+        geometry=geometry,
+        analysis_quad=_optional_geometry_quad(geometry.get("analysisQuad")),
+        board_frame_quad=_optional_geometry_quad(geometry.get("boardFrameQuad")),
+        symbol_grid_quad=_optional_geometry_quad(
+            geometry.get("symbolGridQuad") or geometry.get("quad")
+        ),
+        local_lattice_status=_optional_text(geometry.get("localLatticeStatus")),
+        local_lattice_version=_optional_text(geometry.get("localLatticeVersion")),
         asset_mode=item.asset_mode,
         geometry_engine_name=item.geometry_engine_name,
         geometry_engine_version=item.geometry_engine_version,
@@ -224,6 +261,30 @@ def to_image_grid_review_item_response(
         reason_codes=item.reason_codes,
         state=item.state,
     )
+
+
+def _optional_geometry_quad(
+    value: object,
+) -> (
+    tuple[
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+    ]
+    | None
+):
+    if not isinstance(value, list | tuple) or len(value) != 4:
+        return None
+    try:
+        points = tuple(OperationalImageReviewGeometryPoint.model_validate(point) for point in value)
+    except (TypeError, ValueError):
+        return None
+    return (points[0], points[1], points[2], points[3])
+
+
+def _optional_text(value: object) -> str | None:
+    return value if isinstance(value, str) and value.strip() else None
 
 
 def to_image_grid_review_counts_response(

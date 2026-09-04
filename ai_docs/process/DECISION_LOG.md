@@ -7563,3 +7563,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   krawędziowy nie jest maskowany clampem, a nowa wersja renderera zapobiega
   użyciu starych atlasów z innym rozmiarem. Istniejące cropy nie są
   automatycznie nadpisywane.
+### D-335 — Ramka planszy nie jest siatką symboli
+
+- **Status:** accepted
+- **Date:** 2026-09-04
+- **Decision:** kontrakt structured rozdziela obszar analizy, opcjonalną
+  zewnętrzną ramkę oraz końcowy `symbolGridQuad`. Wyłącznie ostatnia geometria
+  może wyprowadzać cropy komórek.
+- **Reason:** produkcyjny v0.10 v2 dzielił quad zewnętrznej ramki bez lokalnego
+  dopasowania, przez co granice komórek przecinały symbole mimo prawidłowej
+  lokalizacji dziewięciu plansz.
+- **Consequences:** nowe schema jest addytywne i wersjonowane; v1/v2 zachowują
+  replay, a brak dowodu wewnętrznej siatki wymaga ręcznej korekty zamiast
+  fallbacku do ramki.

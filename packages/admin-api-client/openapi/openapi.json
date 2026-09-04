@@ -5576,6 +5576,33 @@
       "ImageGridReviewItemResponse": {
         "additionalProperties": false,
         "properties": {
+          "analysisQuad": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysisquad"
+          },
           "approvedGeometryRevision": {
             "anyOf": [
               {
@@ -5597,6 +5624,33 @@
             "minimum": 0.0,
             "title": "Boardconfidence",
             "type": "number"
+          },
+          "boardFrameQuad": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boardframequad"
           },
           "gameId": {
             "format": "uuid",
@@ -5649,6 +5703,28 @@
             "format": "uuid",
             "title": "Importjobid",
             "type": "string"
+          },
+          "localLatticeStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locallatticestatus"
+          },
+          "localLatticeVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locallatticeversion"
           },
           "positionIndex": {
             "maximum": 8.0,
@@ -5705,6 +5781,33 @@
           },
           "state": {
             "$ref": "#/components/schemas/ImageGridReviewState"
+          },
+          "symbolGridQuad": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolgridquad"
           }
         },
         "required": [

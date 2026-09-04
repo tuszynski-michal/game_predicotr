@@ -6,6 +6,17 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Jawne role geometrii planszy — TASK-0445
+
+- Addytywny kontrakt structured schema v2 rozdziela `analysisQuad`, opcjonalny
+  `boardFrameQuad` oraz końcowy `symbolGridQuad`; `finalQuad` pozostaje w nowym
+  schema wyłącznie kompatybilnym aliasem siatki symboli.
+- Kolejka walidacji siatki udostępnia role i wersję lokalnego dopasowania jako
+  opcjonalne pola OpenAPI. Historyczne payloady schema v1, ich checksumy i
+  replay pozostają bez zmian.
+- Kontrakt nie uruchamia jeszcze nowego estymatora. Produkcyjny v3 powstaje w
+  TASK-0446–0447.
+
 ### Bezpieczniejsze kadrowanie i większe miniatury — TASK-0444
 
 - Polityka automatycznego cropa v2 zachowuje 7,5% wysokości nad wykrytym

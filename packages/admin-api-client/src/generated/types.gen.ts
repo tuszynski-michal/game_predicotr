@@ -3195,6 +3195,17 @@ export type ImageGridReviewGeometryRevisionResponse = {
  */
 export type ImageGridReviewItemResponse = {
   /**
+   * Analysisquad
+   */
+  analysisQuad?:
+    | [
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+      ]
+    | null;
+  /**
    * Approvedgeometryrevision
    */
   approvedGeometryRevision?: number | null;
@@ -3206,6 +3217,17 @@ export type ImageGridReviewItemResponse = {
    * Boardconfidence
    */
   boardConfidence: number;
+  /**
+   * Boardframequad
+   */
+  boardFrameQuad?:
+    | [
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+      ]
+    | null;
   /**
    * Gameid
    */
@@ -3240,6 +3262,14 @@ export type ImageGridReviewItemResponse = {
    * Importjobid
    */
   importJobId: string;
+  /**
+   * Locallatticestatus
+   */
+  localLatticeStatus?: string | null;
+  /**
+   * Locallatticeversion
+   */
+  localLatticeVersion?: string | null;
   /**
    * Positionindex
    */
@@ -3281,6 +3311,17 @@ export type ImageGridReviewItemResponse = {
    */
   sourceWidth: number;
   state: ImageGridReviewState;
+  /**
+   * Symbolgridquad
+   */
+  symbolGridQuad?:
+    | [
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+      ]
+    | null;
 };
 
 /**

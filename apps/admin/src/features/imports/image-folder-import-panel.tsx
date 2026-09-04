@@ -35,6 +35,7 @@ import { BoardCellProcessingModePicker } from './board-cell-processing-mode-pick
 import {
   type ImageFolderImportClient,
   createImageFolderImport,
+  filterImageFolderImportFiles,
   listReadyBrowserImageSelections,
   previewReadyBrowserImageImport,
   reprocessImageFolderImport,
@@ -305,8 +306,8 @@ export function ImageFolderImportPanel({
       setError('Poczekaj na wczytanie ustawienia silnika tej gry.');
       return;
     }
-    const selectedFiles = Array.from(input.files ?? []).filter((file) =>
-      /\.jpe?g$/i.test(file.name),
+    const selectedFiles = filterImageFolderImportFiles(
+      Array.from(input.files ?? []),
     );
     input.value = '';
     if (selectedFiles.length === 0) {

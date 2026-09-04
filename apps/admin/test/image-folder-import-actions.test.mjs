@@ -3,12 +3,27 @@ import test from 'node:test';
 
 import {
   createImageFolderImport,
+  filterImageFolderImportFiles,
   listReadyBrowserImageSelections,
   previewReadyBrowserImageImport,
   reprocessImageFolderImport,
   startReadyBrowserImageImport,
   uploadImageFolder,
 } from '../src/features/imports/image-folder-import-actions.ts';
+
+test('board import accepts cropped seq JPEGs and ignores the local crop manifest', () => {
+  const files = [
+    new File(['a'], 'seq_1-9.jpg', { type: 'image/jpeg' }),
+    new File(['b'], 'seq_10-18.jpeg', { type: 'image/jpeg' }),
+    new File(['{}'], 'manual-image-crop-output-v1.json', {
+      type: 'application/json',
+    }),
+  ];
+  assert.deepEqual(
+    filterImageFolderImportFiles(files).map((file) => file.name),
+    ['seq_1-9.jpg', 'seq_10-18.jpeg'],
+  );
+});
 
 test('uploads a browser-native folder and returns a validated selection', async () => {
   const selection = {
@@ -168,9 +183,7 @@ test('filters fully imported seq ranges before uploading browser JPEG bytes', as
       expectedFileCount: 1,
       expectedTotalBytes: missing.size,
       gameId: 'game-1',
-      skippedCanonicalRanges: [
-        { sequenceRangeEnd: 9, sequenceRangeStart: 1 },
-      ],
+      skippedCanonicalRanges: [{ sequenceRangeEnd: 9, sequenceRangeStart: 1 }],
       uploadPlanChecksumSha256: 'a'.repeat(64),
     },
   ]);

@@ -7350,3 +7350,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   source-disjoint wejścia i uruchamia target-specific fail-closed registration.
   Nie ma fallbacku do czterech narożników strony. Historyczny trainer i profile
   schema v1 pozostają odtwarzalne dla już przypiętych jobów.
+### D-321 — Przygotowanie wybranych zdjęć używa poziomego cropa bez rektyfikacji
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** lokalny etap przed importem zapisuje pełnoszeroki pas pomiędzy
+  dwiema ręcznie zatwierdzonymi liniami do sąsiedniego katalogu `cut`. Stosuje
+  EXIF raz, nie skaluje i nie obraca obrazu oraz nie modyfikuje źródła.
+- **Reason:** usunięcie dużego tła zmniejsza liczbę pikseli i skupia dalszą
+  analizę na planszach. Globalny obrót lub homografia nie naprawia zakrzywienia
+  ekranu ani dziewięciu niezależnych perspektyw i dodałaby kolejne resamplowanie.
+- **Consequences:** użycie cropów wymaga nowego importu katalogu `cut`;
+  historyczny reprocess pozostaje związany z managed originals, a dokładna
+  geometria nadal należy do wersjonowanego modelu 36 narożników.

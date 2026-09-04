@@ -74,7 +74,9 @@ export class SelectedImageCropLocalStore {
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () =>
-        reject(request.error ?? new Error('SELECTED_IMAGE_CROP_IDB_OPEN_FAILED'));
+        reject(
+          request.error ?? new Error('SELECTED_IMAGE_CROP_IDB_OPEN_FAILED'),
+        );
     });
   }
 }

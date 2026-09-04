@@ -1279,3 +1279,10 @@ danych użytkownika przez samo wdrożenie.
   SHA-256, rozmiaru, rewizji zakresu oraz tożsamości źródła ze stagingiem.
   Istniejący obcy plik nie jest nadpisywany. Lokalny journal umożliwia recovery
   po przerwaniu przed acknowledgement API.
+## Wejście z lokalnego katalogu `cut`
+
+Katalog przygotowany przez lokalny moduł `Przytnij wybrane zdjęcia` jest dla
+importu zwykłym nowym źródłem JPEG-ów `seq_*`. Pomocniczy plik
+`manual-image-crop-output-v1.json` nie jest uploadowany. System nie podmienia
+nim managed originals wcześniejszego importu i nie zmienia automatycznie
+wersji profilu geometrii ani modelu symboli.

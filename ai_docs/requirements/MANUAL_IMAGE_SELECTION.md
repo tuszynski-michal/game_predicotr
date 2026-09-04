@@ -535,3 +535,27 @@ Jeżeli zwykła ręczna selekcja wykryje repair manifest, nie próbuje przejąć
 katalogu. Kieruje operatora do `Popraw selekcję`. Aktywny output manifest jest
 jedynym źródłem wybranych pozytywów; usunięte wpisy nie mogą trafić do importu
 ani kohorty treningowej.
+## Przycinanie wybranych zdjęć przed importem
+
+Pod `Semi-auto selekcja` działa lokalna karta `Przytnij wybrane zdjęcia`.
+Operator wskazuje katalog nadrzędny z prawem zapisu i wybiera jego bezpośredni
+podkatalog zawierający poprawnie nazwane JPEG-i
+`seq_<start>-<end>.jpg|jpeg`. Narzędzie tworzy obok katalog
+`<nazwa źródła> cut`; źródła nigdy nie są modyfikowane.
+
+Pierwsza wersja usuwa wyłącznie obszar nad górną i pod dolną przeciąganą linią.
+Zachowuje pełną szerokość, kanoniczną orientację EXIF, perspektywę oraz
+rozdzielczość 1:1 wybranego pasa. Nie wykonuje obrotu, homografii, prostowania
+zakrzywionego ekranu ani automatycznej geometrii dziewięciu plansz. Kolejne
+zdjęcie dziedziczy proporcje ostatnio zatwierdzonego pasa.
+
+`F` lub `→` zapisuje i weryfikuje bieżący JPEG, po czym przechodzi dalej. `←`
+tylko nawiguje. Zmiana zatwierdzonego wyniku wymaga jawnego
+`Zapisz ponownie`. Manifest `manual-image-crop-output-v1.json` utrwala źródła,
+wymiary, cropy, checksumy i journal; IndexedDB zawiera wyłącznie uchwyty,
+kursor, zoom i scroll.
+
+Po zakończeniu operator wykonuje nowy import katalogu `cut`. Ponowne
+przetworzenie starego importu nadal świadomie używa jego niezmiennych managed
+originals, więc nie może zostać po cichu przełączone na nowe, przycięte pliki.
+Profil geometrii i model symboli pozostają wersjonowane niezależnie.

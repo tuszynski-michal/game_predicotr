@@ -1858,7 +1858,9 @@ nav {
   height: 4px;
   border-block: 1px solid rgba(255, 255, 255, 0.88);
   background: var(--accent);
-  box-shadow: 0 0 0 1px rgba(2, 6, 23, 0.8), 0 0 10px rgba(34, 211, 238, 0.7);
+  box-shadow:
+    0 0 0 1px rgba(2, 6, 23, 0.8),
+    0 0 10px rgba(34, 211, 238, 0.7);
   cursor: ns-resize;
   pointer-events: auto;
   transform: translateY(-50%);

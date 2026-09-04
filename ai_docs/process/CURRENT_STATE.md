@@ -30,6 +30,15 @@ last_updated: 2026-09-03
 - Kursor, zoom i scroll wracają z IndexedDB; obrazy pozostają w ograniczonym
   cache Object URL i nie są zapisywane w bazie przeglądarki.
 
+### Integracja katalogu `cut` — TASK-0428
+
+- Browserowy import jawnie filtruje pliki do JPEG-ów, więc lokalny manifest
+  cropów jest ignorowany, a zakresy `seq_*` zachowują nazwy.
+- Katalog `cut` należy uruchamiać jako nowy import. Reprocess istniejącego
+  importu nadal używa jego historycznych managed originals.
+- Moduł nie dodaje API, joba, tabel ani migracji i nie zmienia wersjonowania
+  geometrii lub modelu symboli.
+
 Tor `0.5` został zamknięty. Ostatni commit implementacyjny to `v0.5.15`, a
 commit dokumentacyjny zamknięcia otrzymuje `v0.5.16`. Następny tor rozpoczyna
 się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i

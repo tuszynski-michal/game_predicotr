@@ -38,8 +38,7 @@ export interface SelectedImageCropResult {
   readonly acceptedAt: string;
 }
 
-export interface SelectedImageCropManifestEntry
-  extends SelectedImageCropSourceEntry {
+export interface SelectedImageCropManifestEntry extends SelectedImageCropSourceEntry {
   readonly result: SelectedImageCropResult | null;
 }
 
@@ -204,8 +203,7 @@ export function validateSelectedImageCropManifest(
   assertSha256(manifest.sourceInventoryChecksumSha256);
   if (
     expectedInventoryChecksumSha256 !== undefined &&
-    manifest.sourceInventoryChecksumSha256 !==
-      expectedInventoryChecksumSha256
+    manifest.sourceInventoryChecksumSha256 !== expectedInventoryChecksumSha256
   ) {
     throw new Error('SELECTED_IMAGE_CROP_SOURCE_CHANGED');
   }
@@ -245,7 +243,8 @@ export function beginSelectedImageCropWrite(
   const entry = manifest.entries.find(
     (candidate) => candidate.fileName === operation.fileName,
   );
-  if (entry === undefined) throw new Error('SELECTED_IMAGE_CROP_SOURCE_UNKNOWN');
+  if (entry === undefined)
+    throw new Error('SELECTED_IMAGE_CROP_SOURCE_UNKNOWN');
   validateSelectedImageCropBand(operation.crop);
   assertSha256(operation.expectedSourceChecksumSha256);
   assertSha256(operation.expectedOutputChecksumSha256);
@@ -266,7 +265,8 @@ export function finalizeSelectedImageCropWrite(
   now: string,
 ): SelectedImageCropManifestV1 {
   const pending = manifest.pendingOperation;
-  if (pending === null) throw new Error('SELECTED_IMAGE_CROP_OPERATION_MISSING');
+  if (pending === null)
+    throw new Error('SELECTED_IMAGE_CROP_OPERATION_MISSING');
   const index = manifest.entries.findIndex(
     (entry) => entry.fileName === pending.fileName,
   );
@@ -299,8 +299,7 @@ export function selectedImageCropRecoveryAction(
   const pending = manifest.pendingOperation;
   if (pending === null) return 'none';
   if (observedOutputChecksumSha256 === null) return 'rollback_missing_output';
-  return observedOutputChecksumSha256 ===
-    pending.expectedOutputChecksumSha256
+  return observedOutputChecksumSha256 === pending.expectedOutputChecksumSha256
     ? 'finalize_matching_output'
     : 'block_conflicting_output';
 }

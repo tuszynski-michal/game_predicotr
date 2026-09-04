@@ -41,8 +41,9 @@ export function SelectedImageCropWorkspace() {
   const [sourceDirectoryName, setSourceDirectoryName] = useState('');
   const [prepared, setPrepared] =
     useState<PreparedSelectedImageCropDirectory | null>(null);
-  const [manifest, setManifest] =
-    useState<SelectedImageCropManifestV1 | null>(null);
+  const [manifest, setManifest] = useState<SelectedImageCropManifestV1 | null>(
+    null,
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [crop, setCrop] = useState<SelectedImageCropBand | null>(null);
   const [initialView, setInitialView] = useState(EMPTY_VIEW);
@@ -52,7 +53,10 @@ export function SelectedImageCropWorkspace() {
   const [notice, setNotice] = useState('');
   const restoredRef = useRef<SelectedImageCropLocalSession | null>(null);
 
-  const handleViewerError = useCallback((message: string) => setError(message), []);
+  const handleViewerError = useCallback(
+    (message: string) => setError(message),
+    [],
+  );
   const handleViewChange = useCallback((view: ManualImageViewerInitialView) => {
     viewRef.current = view;
   }, []);
@@ -66,7 +70,8 @@ export function SelectedImageCropWorkspace() {
   );
   const currentFile = images[currentIndex] ?? null;
   const currentEntry = manifest?.entries[currentIndex] ?? null;
-  const acceptedCount = manifest?.entries.filter((entry) => entry.result !== null).length ?? 0;
+  const acceptedCount =
+    manifest?.entries.filter((entry) => entry.result !== null).length ?? 0;
   const done = manifest !== null && acceptedCount === manifest.entries.length;
   const dirtyAccepted =
     currentEntry !== null &&
@@ -89,7 +94,9 @@ export function SelectedImageCropWorkspace() {
       viewRef.current = view;
       setInitialView(view);
       void restorePrepared(saved).catch(() => {
-        setNotice('Zapisana sesja wymaga ponownego nadania dostępu do katalogu.');
+        setNotice(
+          'Zapisana sesja wymaga ponownego nadania dostępu do katalogu.',
+        );
       });
     });
     return () => {
@@ -108,26 +115,37 @@ export function SelectedImageCropWorkspace() {
   useEffect(() => {
     if (prepared === null || viewer.sourceImageSize === null) return;
     const persisted = manifest?.entries[currentIndex]?.result?.crop;
+    let nextCrop: SelectedImageCropBand;
     if (
       persisted !== undefined &&
       persisted.width === viewer.sourceImageSize.width &&
       persisted.height === viewer.sourceImageSize.height
     ) {
-      setCrop(persisted);
-      return;
+      nextCrop = persisted;
+    } else {
+      const previous = [...(manifest?.entries.slice(0, currentIndex) ?? [])]
+        .reverse()
+        .find((entry) => entry.result !== null)?.result?.crop;
+      nextCrop =
+        previous === undefined
+          ? createDefaultSelectedImageCropBand(viewer.sourceImageSize)
+          : inheritSelectedImageCropBand(previous, viewer.sourceImageSize);
     }
-    const previous = [...(manifest?.entries.slice(0, currentIndex) ?? [])]
-      .reverse()
-      .find((entry) => entry.result !== null)?.result?.crop;
-    setCrop(
-      previous === undefined
-        ? createDefaultSelectedImageCropBand(viewer.sourceImageSize)
-        : inheritSelectedImageCropBand(previous, viewer.sourceImageSize),
-    );
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setCrop(nextCrop);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [currentIndex, manifest, prepared, viewer.sourceImageSize]);
 
   useEffect(() => {
-    if (parentDirectory === null || sourceDirectoryName === '' || prepared === null)
+    if (
+      parentDirectory === null ||
+      sourceDirectoryName === '' ||
+      prepared === null
+    )
       return;
     const timeout = window.setTimeout(() => {
       void store.save({
@@ -139,7 +157,14 @@ export function SelectedImageCropWorkspace() {
       });
     }, 150);
     return () => window.clearTimeout(timeout);
-  }, [currentIndex, parentDirectory, prepared, sourceDirectoryName, store, viewer.zoom]);
+  }, [
+    currentIndex,
+    parentDirectory,
+    prepared,
+    sourceDirectoryName,
+    store,
+    viewer.zoom,
+  ]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -147,7 +172,10 @@ export function SelectedImageCropWorkspace() {
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
         goPrevious();
-      } else if (event.key.toLocaleLowerCase('pl-PL') === 'f' || event.key === 'ArrowRight') {
+      } else if (
+        event.key.toLocaleLowerCase('pl-PL') === 'f' ||
+        event.key === 'ArrowRight'
+      ) {
         event.preventDefault();
         void saveOrAdvance(false);
       }
@@ -188,7 +216,10 @@ export function SelectedImageCropWorkspace() {
         parentDirectory,
         sourceDirectoryName,
       );
-      applyPrepared(result, restoredRef.current?.currentIndex ?? result.manifest.currentIndex);
+      applyPrepared(
+        result,
+        restoredRef.current?.currentIndex ?? result.manifest.currentIndex,
+      );
       setNotice(
         result.manifest.revision > 0
           ? 'Wznowiono trwałą sesję przycinania.'
@@ -206,7 +237,10 @@ export function SelectedImageCropWorkspace() {
     result: PreparedSelectedImageCropDirectory,
     requestedIndex: number,
   ) {
-    const index = Math.min(Math.max(0, requestedIndex), result.sourceFiles.length - 1);
+    const index = Math.min(
+      Math.max(0, requestedIndex),
+      result.sourceFiles.length - 1,
+    );
     setPrepared(result);
     setManifest(result.manifest);
     setCurrentIndex(index);
@@ -214,10 +248,17 @@ export function SelectedImageCropWorkspace() {
   }
 
   async function saveOrAdvance(forceOverwrite: boolean) {
-    if (prepared === null || manifest === null || currentFile === null || crop === null)
+    if (
+      prepared === null ||
+      manifest === null ||
+      currentFile === null ||
+      crop === null
+    )
       return;
     if (dirtyAccepted && !forceOverwrite) {
-      setNotice('Zmieniono zatwierdzone cięcie. Użyj przycisku „Zapisz ponownie”.');
+      setNotice(
+        'Zmieniono zatwierdzone cięcie. Użyj przycisku „Zapisz ponownie”.',
+      );
       return;
     }
     if (
@@ -289,20 +330,40 @@ export function SelectedImageCropWorkspace() {
 
       {prepared === null ? (
         <div className="selectedImageCropSetup">
-          <button className="secondaryButton" disabled={busy} onClick={() => void chooseParent()} type="button">
+          <button
+            className="secondaryButton"
+            disabled={busy}
+            onClick={() => void chooseParent()}
+            type="button"
+          >
             Wybierz katalog nadrzędny
           </button>
-          {parentDirectory !== null ? <span>{parentDirectory.name}</span> : null}
+          {parentDirectory !== null ? (
+            <span>{parentDirectory.name}</span>
+          ) : null}
           {directoryNames.length > 0 ? (
             <label>
               Katalog z plikami seq_*
-              <select disabled={busy} onChange={(event) => setSourceDirectoryName(event.target.value)} value={sourceDirectoryName}>
-                {directoryNames.map((name) => <option key={name} value={name}>{name}</option>)}
+              <select
+                disabled={busy}
+                onChange={(event) => setSourceDirectoryName(event.target.value)}
+                value={sourceDirectoryName}
+              >
+                {directoryNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
               </select>
             </label>
           ) : null}
           {parentDirectory !== null && sourceDirectoryName !== '' ? (
-            <button className="primaryButton" disabled={busy} onClick={() => void startOrResume()} type="button">
+            <button
+              className="primaryButton"
+              disabled={busy}
+              onClick={() => void startOrResume()}
+              type="button"
+            >
               Rozpocznij lub wznów
             </button>
           ) : null}
@@ -310,7 +371,9 @@ export function SelectedImageCropWorkspace() {
       ) : (
         <div className="selectedImageCropReview">
           <div className="selectedImageCropProgress">
-            <strong>{done ? 'Gotowe' : `${acceptedCount} / ${images.length}`}</strong>
+            <strong>
+              {done ? 'Gotowe' : `${acceptedCount} / ${images.length}`}
+            </strong>
             <progress max={images.length} value={acceptedCount} />
             <span>{manifest?.outputDirectoryName}</span>
           </div>
@@ -320,7 +383,15 @@ export function SelectedImageCropWorkspace() {
             currentPosition={currentIndex + 1}
             currentRelativePath={currentFile?.relativePath ?? null}
             imageCount={images.length}
-            imageOverlay={crop === null ? null : <CropBandOverlay crop={crop} disabled={busy} onChange={setCrop} />}
+            imageOverlay={
+              crop === null ? null : (
+                <CropBandOverlay
+                  crop={crop}
+                  disabled={busy}
+                  onChange={setCrop}
+                />
+              )
+            }
             navigationStepLabel="skok: 1"
             nextDisabled={false}
             onNext={() => void saveOrAdvance(false)}
@@ -328,7 +399,12 @@ export function SelectedImageCropWorkspace() {
             previousDisabled={currentIndex === 0}
             state={viewer}
             toolbarStart={
-              <button className="secondaryButton" disabled={busy || crop === null} onClick={resetCrop} type="button">
+              <button
+                className="secondaryButton"
+                disabled={busy || crop === null}
+                onClick={resetCrop}
+                type="button"
+              >
                 Resetuj cięcie
               </button>
             }
@@ -369,14 +445,19 @@ function CropBandOverlay({
       const bounds = overlayRef.current?.getBoundingClientRect();
       if (bounds === undefined) return;
       const y = Math.round(
-        Math.min(1, Math.max(0, (moveEvent.clientY - bounds.top) / bounds.height)) * crop.height,
+        Math.min(
+          1,
+          Math.max(0, (moveEvent.clientY - bounds.top) / bounds.height),
+        ) * crop.height,
       );
       try {
-        onChange(validateSelectedImageCropBand({
-          ...crop,
-          topY: edge === 'top' ? y : crop.topY,
-          bottomY: edge === 'bottom' ? y : crop.bottomY,
-        }));
+        onChange(
+          validateSelectedImageCropBand({
+            ...crop,
+            topY: edge === 'top' ? y : crop.topY,
+            bottomY: edge === 'bottom' ? y : crop.bottomY,
+          }),
+        );
       } catch {
         // Keep the last valid band while the pointer crosses a protected bound.
       }
@@ -392,23 +473,62 @@ function CropBandOverlay({
   const bottom = (crop.bottomY / crop.height) * 100;
   return (
     <div className="selectedImageCropOverlay" ref={overlayRef}>
-      <div className="selectedImageCropShade" style={{ height: `${top}%`, top: 0 }} />
-      <div className="selectedImageCropShade" style={{ bottom: 0, height: `${100 - bottom}%` }} />
-      <div aria-label="Górna linia cięcia" aria-valuemax={crop.bottomY} aria-valuemin={0} aria-valuenow={crop.topY} className="selectedImageCropLine" onPointerDown={(event) => startDrag('top', event)} role="slider" style={{ top: `${top}%` }} tabIndex={0} />
-      <div aria-label="Dolna linia cięcia" aria-valuemax={crop.height} aria-valuemin={crop.topY} aria-valuenow={crop.bottomY} className="selectedImageCropLine" onPointerDown={(event) => startDrag('bottom', event)} role="slider" style={{ top: `${bottom}%` }} tabIndex={0} />
+      <div
+        className="selectedImageCropShade"
+        style={{ height: `${top}%`, top: 0 }}
+      />
+      <div
+        className="selectedImageCropShade"
+        style={{ bottom: 0, height: `${100 - bottom}%` }}
+      />
+      <div
+        aria-label="Górna linia cięcia"
+        aria-valuemax={crop.bottomY}
+        aria-valuemin={0}
+        aria-valuenow={crop.topY}
+        className="selectedImageCropLine"
+        onPointerDown={(event) => startDrag('top', event)}
+        role="slider"
+        style={{ top: `${top}%` }}
+        tabIndex={0}
+      />
+      <div
+        aria-label="Dolna linia cięcia"
+        aria-valuemax={crop.height}
+        aria-valuemin={crop.topY}
+        aria-valuenow={crop.bottomY}
+        className="selectedImageCropLine"
+        onPointerDown={(event) => startDrag('bottom', event)}
+        role="slider"
+        style={{ top: `${bottom}%` }}
+        tabIndex={0}
+      />
     </div>
   );
 }
 
-function sameCrop(left: SelectedImageCropBand, right: SelectedImageCropBand): boolean {
-  return left.width === right.width && left.height === right.height && left.topY === right.topY && left.bottomY === right.bottomY;
+function sameCrop(
+  left: SelectedImageCropBand,
+  right: SelectedImageCropBand,
+): boolean {
+  return (
+    left.width === right.width &&
+    left.height === right.height &&
+    left.topY === right.topY &&
+    left.bottomY === right.bottomY
+  );
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement &&
-    (target.isContentEditable || ['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName));
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      ['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName))
+  );
 }
 
 function errorMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : 'Nie udało się przygotować przyciętych zdjęć.';
+  return cause instanceof Error
+    ? cause.message
+    : 'Nie udało się przygotować przyciętych zdjęć.';
 }

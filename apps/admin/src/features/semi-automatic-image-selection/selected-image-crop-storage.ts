@@ -21,8 +21,7 @@ export const SELECTED_IMAGE_CROP_MANIFEST_NAME =
   'manual-image-crop-output-v1.json';
 type SelectedImageCropPermissionMode = 'read' | 'readwrite';
 
-export interface SelectedImageCropSourceFile
-  extends SelectedImageCropSourceEntry {
+export interface SelectedImageCropSourceFile extends SelectedImageCropSourceEntry {
   readonly handle: FileSystemFileHandle;
   readonly relativePath: string;
 }
@@ -64,7 +63,8 @@ export async function prepareSelectedImageCropDirectory(
   await ensureDirectoryPermission(parent, 'readwrite');
   const sourceDirectory = await parent.getDirectoryHandle(sourceDirectoryName);
   const sourceFiles = await listSelectedImageCropSourceFiles(sourceDirectory);
-  const inventoryChecksum = await selectedImageCropInventoryChecksum(sourceFiles);
+  const inventoryChecksum =
+    await selectedImageCropInventoryChecksum(sourceFiles);
   const outputName = `${sourceDirectoryName} cut`;
   const outputExisted = await directoryContainsEntry(parent, outputName);
   const outputDirectory = await parent.getDirectoryHandle(outputName, {
@@ -127,9 +127,13 @@ export async function listSelectedImageCropSourceFiles(
     });
   }
   if (invalidJpegs.length > 0)
-    throw new Error(`SELECTED_IMAGE_CROP_INVALID_NAMES:${invalidJpegs.join(',')}`);
+    throw new Error(
+      `SELECTED_IMAGE_CROP_INVALID_NAMES:${invalidJpegs.join(',')}`,
+    );
   const validated = validateSelectedImageCropSources(candidates);
-  const byName = new Map(candidates.map((file) => [file.fileName, file.handle]));
+  const byName = new Map(
+    candidates.map((file) => [file.fileName, file.handle]),
+  );
   return validated.map((entry) => ({
     ...entry,
     handle: byName.get(entry.fileName)!,
@@ -153,7 +157,8 @@ export async function renderSelectedImageCrop(
     canvas.width = crop.width;
     canvas.height = outputHeight;
     const context = canvas.getContext('2d');
-    if (context === null) throw new Error('SELECTED_IMAGE_CROP_CANVAS_UNAVAILABLE');
+    if (context === null)
+      throw new Error('SELECTED_IMAGE_CROP_CANVAS_UNAVAILABLE');
     context.drawImage(
       bitmap,
       0,
@@ -205,8 +210,7 @@ export async function saveSelectedImageCrop(input: {
     input.sourceFile.fileName,
   );
   if (
-    observedExistingChecksum !==
-    (existingResult?.outputChecksumSha256 ?? null)
+    observedExistingChecksum !== (existingResult?.outputChecksumSha256 ?? null)
   ) {
     throw new Error('SELECTED_IMAGE_CROP_OUTPUT_CHANGED');
   }
@@ -227,7 +231,11 @@ export async function saveSelectedImageCrop(input: {
     now,
   );
   await writeSelectedImageCropManifest(input.outputDirectory, manifest);
-  await writeBlob(input.outputDirectory, input.sourceFile.fileName, rendered.blob);
+  await writeBlob(
+    input.outputDirectory,
+    input.sourceFile.fileName,
+    rendered.blob,
+  );
   const verifiedChecksum = await readOptionalFileChecksum(
     input.outputDirectory,
     input.sourceFile.fileName,
@@ -295,7 +303,9 @@ async function readSelectedImageCropManifest(
   directory: FileSystemDirectoryHandle,
 ): Promise<SelectedImageCropManifestV1 | null> {
   try {
-    const handle = await directory.getFileHandle(SELECTED_IMAGE_CROP_MANIFEST_NAME);
+    const handle = await directory.getFileHandle(
+      SELECTED_IMAGE_CROP_MANIFEST_NAME,
+    );
     const value: unknown = JSON.parse(await (await handle.getFile()).text());
     if (value === null || typeof value !== 'object')
       throw new Error('SELECTED_IMAGE_CROP_MANIFEST_INVALID');
@@ -365,7 +375,10 @@ async function selectedImageCropInventoryChecksum(
 }
 
 export async function sha256Blob(blob: Blob): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    await blob.arrayBuffer(),
+  );
   return Array.from(new Uint8Array(digest), (byte) =>
     byte.toString(16).padStart(2, '0'),
   ).join('');
@@ -376,8 +389,12 @@ async function ensureDirectoryPermission(
   mode: SelectedImageCropPermissionMode,
 ): Promise<void> {
   const permissionHandle = directory as FileSystemDirectoryHandle & {
-    queryPermission(options: { mode: SelectedImageCropPermissionMode }): Promise<PermissionState>;
-    requestPermission(options: { mode: SelectedImageCropPermissionMode }): Promise<PermissionState>;
+    queryPermission(options: {
+      mode: SelectedImageCropPermissionMode;
+    }): Promise<PermissionState>;
+    requestPermission(options: {
+      mode: SelectedImageCropPermissionMode;
+    }): Promise<PermissionState>;
   };
   const existing = await permissionHandle.queryPermission({ mode });
   if (existing === 'granted') return;
@@ -385,7 +402,9 @@ async function ensureDirectoryPermission(
     throw new Error('SELECTED_IMAGE_CROP_DIRECTORY_PERMISSION_DENIED');
 }
 
-function directoryEntries(directory: FileSystemDirectoryHandle): AsyncIterable<
+function directoryEntries(
+  directory: FileSystemDirectoryHandle,
+): AsyncIterable<
   readonly [string, FileSystemFileHandle | FileSystemDirectoryHandle]
 > {
   return (

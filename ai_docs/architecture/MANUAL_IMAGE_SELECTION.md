@@ -191,3 +191,32 @@ Zwykły lokalny selector sprawdza obecność repair manifestu przed startem i
 resume. W takim przypadku nie modyfikuje katalogu ani starej sesji, tylko
 kieruje operatora do nowej sekcji. Zapobiega to dwóm writerom utrzymującym
 różne listy aktywnych `seq_*`.
+
+## Architektura lokalnego przycinania wybranych zdjęć
+
+`SelectedImageCropWorkspace` jest lokalnym konsumentem współdzielonego
+`ManualImageViewer`. Viewer zachowuje ograniczone okno Object URL, zoom,
+fullscreen i scroll; opcjonalny overlay renderuje dwie poziome linie bez
+zmiany zachowania istniejących selektorów.
+
+Czysta domena jest eksportowana jako
+`@game-predictor/manual-image-selection-core/crop`. Operuje na współrzędnych
+całkowitych `topY`/`bottomY` w obrazie po jednokrotnej kanonizacji EXIF i nie
+zna Reacta, canvasa ani File System Access API. Adapter Admina skanuje tylko
+główny poziom źródła, ponownie wykorzystuje rygorystyczny parser `seq_*` i
+utrzymuje osobną IndexedDB v1 bez Blobów.
+
+Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma
+szerokość obrazu kanonicznego i wysokość wybranego pasa, a `drawImage` kopiuje
+ten obszar w skali 1:1. Wynik jest JPEG-em jakości 0.98. Operacja przebiega jako
+manifest intencji → SHA-256 źródła → render → zapis → ponowny SHA-256 →
+finalizacja manifestu. Przy restarcie brak wyniku cofa zamiar, zgodna checksuma
+go finalizuje, a obcy wynik blokuje wznowienie.
+
+Katalog wynikowy jest bezpieczny wyłącznie, gdy jest pusty albo zawiera zgodny
+`manual-image-crop-output-v1.json` i wskazane przez niego wyniki. Import plansz
+filtruje wejście do JPEG-ów, dlatego pomocniczy JSON jest ignorowany. To nowa
+tożsamość importu; reprocess historycznego importu nadal czyta jego managed
+originals. Prostowanie perspektywy pozostaje poza tym adapterem, ponieważ
+globalna homografia nie modeluje krzywizny ekranu ani dziewięciu niezależnych
+quadów obsługiwanych przez geometrię 36 narożników.

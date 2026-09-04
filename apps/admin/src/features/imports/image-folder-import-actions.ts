@@ -44,6 +44,12 @@ type Failure = { readonly error: string; readonly ok: false };
 
 const UPLOAD_PROGRESS_PAINT_INTERVAL = 25;
 
+export function filterImageFolderImportFiles(
+  files: readonly File[],
+): readonly File[] {
+  return files.filter((file) => /\.jpe?g$/iu.test(file.name));
+}
+
 async function yieldForUploadProgressPaint(uploadedFileCount: number) {
   if (
     uploadedFileCount !== 1 &&
@@ -119,9 +125,11 @@ export async function uploadImageFolder(
       if (filesToUpload.length === 0) {
         return {
           displayName:
-            (files[0]?.webkitRelativePath || files[0]?.name || 'Wybrane pliki').split(
-              '/',
-            )[0] || 'Wybrane pliki',
+            (
+              files[0]?.webkitRelativePath ||
+              files[0]?.name ||
+              'Wybrane pliki'
+            ).split('/')[0] || 'Wybrane pliki',
           kind: 'nothing_to_upload',
           ok: true,
           uploadPlan,
@@ -173,7 +181,7 @@ export async function uploadImageFolder(
         return {
           error: apiErrorMessage(
             uploaded.error,
-          `Nie udało się przesłać pliku ${index + 1} z ${filesToUpload.length}.`,
+            `Nie udało się przesłać pliku ${index + 1} z ${filesToUpload.length}.`,
           ),
           ok: false,
         };

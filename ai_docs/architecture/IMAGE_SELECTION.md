@@ -1864,3 +1864,10 @@ odrzuca drift źródła. Lokalny zapis może zastąpić wyłącznie plik, które
 bieżąca check­summa odpowiada poprzedniemu wyborowi tego samego manifestu.
 Zmiana metadanych przy niezmienionym statusie zakresu nadal zwiększa rewizję
 runu, ale nie zmienia liczników statusów.
+## Przycięte źródła lokalne
+
+Lokalny katalog `<źródło> cut` wchodzi do standardowego browserowego importu
+jako nowy zbiór. Filtr klienta przekazuje wyłącznie `.jpg` i `.jpeg`, więc
+manifest przycinania pozostaje lokalnym journalem. Nowa zawartość otrzymuje
+własny staging i managed originals; historyczny reprocess pozostaje związany
+z checksumami pierwotnego importu.

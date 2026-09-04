@@ -394,7 +394,8 @@ function GridReviewEditorContent({
     if (completeCorners === null || loadingPreview || saving) return;
     setLoadingPreview(true);
     setError('');
-    const requestedKey = JSON.stringify(completeCorners);
+    const requestedPreviewKey = draftKey;
+    const requestedCornersKey = JSON.stringify(completeCorners);
     const automaticResult = await previewGridReviewGeometry(
       api,
       item,
@@ -406,7 +407,7 @@ function GridReviewEditorContent({
       return;
     }
     const editedResult =
-      JSON.stringify(automaticCorners) === requestedKey
+      JSON.stringify(automaticCorners) === requestedCornersKey
         ? automaticResult
         : await previewGridReviewGeometry(api, item, completeCorners);
     setLoadingPreview(false);
@@ -415,7 +416,7 @@ function GridReviewEditorContent({
       return;
     }
     replacePreviewUrls(automaticResult.blob, editedResult.blob);
-    setPreviewKey(requestedKey);
+    setPreviewKey(requestedPreviewKey);
     setPreviewMode('edited');
   }
 

@@ -122,6 +122,9 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /item\.gridColumns/);
   assert.match(editor, /item\.gridRows/);
   assert.match(editor, /previewGridReviewGeometry/);
+  assert.match(editor, /const requestedPreviewKey = draftKey/);
+  assert.match(editor, /setPreviewKey\(requestedPreviewKey\)/);
+  assert.doesNotMatch(editor, /setPreviewKey\(requestedCornersKey\)/);
   assert.match(editor, /saveGridReviewGeometry/);
   assert.match(editor, /Wyznacz plansze osobno/);
   assert.match(editor, /Kontynuuj plansze osobno/);

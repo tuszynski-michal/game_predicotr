@@ -6,6 +6,17 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Zapis poprawionej siatki po podglądzie A/B — TASK-0443
+
+- Podgląd A/B zapisuje ten sam pełny klucz szkicu, którego używa bramka
+  trwałego zapisu; pojedyncza plansza wiąże klucz z `reviewItemId`, a tryb
+  źródłowy ze wszystkimi szkicami aktywnych slotów.
+- Po wygenerowaniu aktualnego podglądu przycisk zapisu jest dostępny. Kolejne
+  przesunięcie geometrii nadal unieważnia podgląd i ponownie wymaga kontroli
+  A/B.
+- `Zakończ edycję` zachowuje szkic bez automatycznego zapisu zgodnie z D-329;
+  poprawka nie zmienia API, geometrii ani danych gry.
+
 ### Decyzje symboli po ręcznej geometrii v0.10 — TASK-0441
 
 - Pojedyncze i zbiorcze przypisanie symbolu odczytuje ręczną geometrię

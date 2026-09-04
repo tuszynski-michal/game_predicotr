@@ -1,7 +1,7 @@
 ---
 title: TASK-0409 Symbol model catalog binding and virtual reinference
-status: in_progress
-last_updated: 2026-09-03
+status: done
+last_updated: 2026-09-04
 ---
 
 # TASK-0409 — Symbol model catalog binding and virtual reinference
@@ -61,4 +61,15 @@ oczekujących komórek jako nierozpoznane.
 
 ## Outcome
 
-Do uzupełnienia po implementacji i odbiorze operacyjnym.
+- Implementację dostarczył commit `v0.10.112`: nowe joby nie mogą ominąć
+  gotowego kandydata ani użyć aktywnego modelu o klasach niezgodnych z
+  katalogiem gry, a reinferencja odtwarza bieżące cropy `virtual_source`
+  checksum-bound bez trwałych bitmap.
+- Dla gry `777` jawnie aktywowano iterację 5
+  `ab9780d1-0082-40de-9c8e-cdc1be736b77`. Job naprawczy
+  `c2611039-5aca-4360-922e-c6bb9e01142f` zakończył się statusem `completed`:
+  przetworzył 19 914 z 19 914 plansz, z 19 914 sukcesami i bez błędów.
+- Późniejsza, niezależna aktywacja numer 2 przełączyła grę na iterację 6
+  `b739e552-ab55-41e4-861a-7ea4f448ab39`.
+- Historyczne rozstrzygnięcia człowieka pozostały chronione; zadanie nie
+  wymaga ponownego uploadu ani recropu.

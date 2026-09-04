@@ -319,8 +319,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   pikseli. Nie tworzy bitmap pośrednich i nie zmienia rozstrzygnięć człowieka.
 - Dla gry `777` aktywowano zweryfikowaną iterację 5
   `ab9780d1-0082-40de-9c8e-cdc1be736b77`; job naprawczy
-  `c2611039-5aca-4360-922e-c6bb9e01142f` przelicza 19 914 nadal oczekujących
-  plansz bez ponownego uploadu i cięcia geometrii.
+  `c2611039-5aca-4360-922e-c6bb9e01142f` zakończył przeliczenie 19 914 z
+  19 914 plansz bez błędów, ponownego uploadu ani cięcia geometrii. Późniejsza
+  jawna aktywacja numer 2 przełączyła grę na iterację 6
+  `b739e552-ab55-41e4-861a-7ea4f448ab39`.
 
 ### Rzeczywisty korpus regresyjny OCR zakresów — TASK-0402 (done)
 

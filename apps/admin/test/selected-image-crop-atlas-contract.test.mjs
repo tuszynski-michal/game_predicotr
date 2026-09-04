@@ -16,16 +16,36 @@ const worker = await readFile(
   ),
   'utf8',
 );
+const styles = await readFile(
+  new URL('../src/app/globals.css', import.meta.url),
+  'utf8',
+);
 
 test('local review atlases contain at most one hundred deterministic thumbnails', () => {
   assert.match(atlas, /ATLAS_BATCH_SIZE = 100/u);
   assert.match(atlas, /outputChecksumSha256/u);
   assert.match(atlas, /image\/webp/u);
-  assert.match(atlas, /THUMBNAIL_WIDTH = 120/u);
-  assert.match(atlas, /THUMBNAIL_HEIGHT = 80/u);
+  assert.match(atlas, /THUMBNAIL_WIDTH = 144/u);
+  assert.match(atlas, /THUMBNAIL_HEIGHT = 96/u);
+  assert.match(atlas, /selected-image-crop-atlas-webp-v2/u);
   assert.match(atlas, /image\/webp', 0\.58/u);
   assert.match(atlas, /SELECTED_IMAGE_CROP_ATLAS_DIRECTORY/u);
   assert.match(atlas, /await yieldToBrowser\(\)/u);
+});
+
+test('larger crop thumbnails stay in one horizontally scrollable row', () => {
+  assert.match(
+    styles,
+    /\.selectedImageCropGrid\s*\{[\s\S]*?display:\s*flex;[\s\S]*?overflow-x:\s*auto;/u,
+  );
+  assert.match(
+    styles,
+    /\.selectedImageCropTile\s*\{[\s\S]*?flex:\s*0 0 144px;/u,
+  );
+  assert.match(
+    styles,
+    /\.selectedImageCropTilePlaceholder\s*\{[\s\S]*?width:\s*144px;[\s\S]*?height:\s*96px;/u,
+  );
 });
 
 test('crop worker is recycled and has an explicit unsupported-browser fallback', () => {

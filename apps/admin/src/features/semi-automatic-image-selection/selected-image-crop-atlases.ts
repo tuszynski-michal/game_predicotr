@@ -9,10 +9,10 @@ import {
 } from './selected-image-crop-storage';
 
 export const SELECTED_IMAGE_CROP_ATLAS_BATCH_SIZE = 100;
-export const SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH = 120;
-export const SELECTED_IMAGE_CROP_THUMBNAIL_HEIGHT = 80;
+export const SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH = 144;
+export const SELECTED_IMAGE_CROP_THUMBNAIL_HEIGHT = 96;
 const ATLAS_COLUMNS = 10;
-const ATLAS_RENDERER = 'selected-image-crop-atlas-webp-v1';
+const ATLAS_RENDERER = 'selected-image-crop-atlas-webp-v2';
 
 export interface SelectedImageCropAtlas {
   readonly batchIndex: number;

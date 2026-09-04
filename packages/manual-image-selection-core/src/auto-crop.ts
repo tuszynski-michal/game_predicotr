@@ -6,9 +6,10 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 
 export const SELECTED_IMAGE_AUTO_CROP_POLICY =
-  'selected-image-board-band-v1' as const;
+  'selected-image-board-band-v2' as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH = 256 as const;
-export const SELECTED_IMAGE_AUTO_CROP_PADDING_RATIO = 0.045 as const;
+export const SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO = 0.075 as const;
+export const SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO = 0.045 as const;
 
 export type SelectedImageAutoCropStrategy =
   'chromatic_panel' | 'texture_band' | 'safe_default';
@@ -138,12 +139,23 @@ function proposalFromCluster(
   strategy: Exclude<SelectedImageAutoCropStrategy, 'safe_default'>,
   confidence: number,
 ): SelectedImageAutoCropProposal {
-  const padding = Math.round(
-    sample.height * SELECTED_IMAGE_AUTO_CROP_PADDING_RATIO,
+  const topPadding = Math.round(
+    sample.height * SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO,
   );
-  const topRatio = Math.max(0, cluster.start - padding) / sample.height;
+  if (cluster.start <= topPadding) {
+    return {
+      crop: createDefaultSelectedImageCropBand(source),
+      strategy: 'safe_default',
+      confidence: 0,
+      policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
+    };
+  }
+  const bottomPadding = Math.round(
+    sample.height * SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO,
+  );
+  const topRatio = (cluster.start - topPadding) / sample.height;
   const bottomRatio =
-    Math.min(sample.height, cluster.end + 1 + padding) / sample.height;
+    Math.min(sample.height, cluster.end + 1 + bottomPadding) / sample.height;
   let crop: SelectedImageCropBand;
   try {
     crop = validateSelectedImageCropBand({

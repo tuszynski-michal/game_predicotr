@@ -561,7 +561,10 @@ Automat dla każdego jeszcze niezatwierdzonego zdjęcia niezależnie analizuje
 ograniczoną kopię podglądową i proponuje pas obejmujący zwarty panel plansz.
 Najpierw wykorzystuje sygnał chromatyczny panelu, a następnie ogólny sygnał
 szczegółów; brak pewnego wyniku daje jawny, bezpieczny pas domyślny. Propozycja
-nie jest decyzją i zawsze pozostaje edytowalna dwiema liniami.
+nie jest decyzją i zawsze pozostaje edytowalna dwiema liniami. Górny margines
+wynosi 7,5% wysokości, dolny 4,5%. Kandydat, którego górny margines doszedłby
+do początku obrazu, jest odrzucany na rzecz pasa domyślnego zamiast emitować
+`topY = 0`.
 
 Narzędzie usuwa wyłącznie obszar nad górną i pod dolną przeciąganą linią.
 Zachowuje pełną szerokość, kanoniczną orientację EXIF, perspektywę oraz
@@ -580,7 +583,8 @@ oznacza `Do poprawy`, nie zatwierdza ani nie modyfikuje JPEG-a. `Popraw
 zaznaczone` otwiera wyłącznie wybrane oryginały z liniami cięcia. Zapis poprawki
 zastępuje jeden własny crop i unieważnia tylko jego atlas. Zakończenie przeglądu
 jest możliwe po przygotowaniu wszystkich plików, rozwiązaniu błędów i opróżnieniu
-kolejki korekt.
+kolejki korekt. Miniatury 144×96 px pozostają w jednym poziomym, przewijanym
+rzędzie, bez automatycznego zmniejszania albo zawijania.
 
 Historyczny `manual-image-crop-output-v1.json` jest przy pierwszym wznowieniu
 indeksowany do wersji v2 bez ponownego renderowania i hashowania istniejących

@@ -6,6 +6,15 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Bezpieczniejsze kadrowanie i większe miniatury — TASK-0444
+
+- Polityka automatycznego cropa v2 zachowuje 7,5% wysokości nad wykrytym
+  panelem i nie zmienia dolnego marginesu 4,5%.
+- Klaster prowadzący do `topY = 0` jest odrzucany jako fałszywy sygnał przy
+  krawędzi; operator dostaje bezpieczny, nadal edytowalny pas domyślny.
+- Atlasy v2 mają miniatury 144×96 px w jednym poziomym pasku z przewijaniem.
+  Historyczne cropy i manifesty nie są automatycznie przeliczane.
+
 ### Zapis poprawionej siatki po podglądzie A/B — TASK-0443
 
 - Podgląd A/B zapisuje ten sam pełny klucz szkicu, którego używa bramka

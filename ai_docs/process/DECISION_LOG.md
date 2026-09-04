@@ -7546,3 +7546,20 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** źródło, geometria, render spec i wynikowe piksele są
   sprawdzane fail-closed bez dublowania cropów. Historyczne kohorty v1–v3 i
   plikowe assety zachowują dotychczasową semantykę oraz odtwarzalność.
+
+### D-334 — Auto-crop nie ufa klastrowi dotykającemu górnej krawędzi
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** polityka `selected-image-board-band-v2` zachowuje 7,5%
+  wysokości nad wykrytym panelem i 4,5% pod nim. Jeżeli górny padding
+  doprowadziłby do `topY = 0`, propozycja jest odrzucana i zastępowana
+  bezpiecznym pasem domyślnym. Miniatury atlasu v2 mają 144×96 px i pozostają
+  w jednym poziomym pasku.
+- **Reason:** zbyt ciasna górna granica obcinała kontekst plansz, a fałszywy
+  klaster przy początku obrazu tworzył nadmiernie wysoki crop utrudniający
+  późniejszą detekcję. Miniatury 120×80 px były za małe do szybkiej oceny.
+- **Consequences:** dolna granica pozostaje niezmieniona, błędny sygnał
+  krawędziowy nie jest maskowany clampem, a nowa wersja renderera zapobiega
+  użyciu starych atlasów z innym rozmiarem. Istniejące cropy nie są
+  automatycznie nadpisywane.

@@ -222,8 +222,11 @@ Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
 wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 256 px. Wybiera
 najsilniejszy pionowy klaster panelu chromatycznego, następnie klaster tekstury,
 a w przypadku braku dowodu zwraca jawny pas domyślny. Adapter mapuje granice
-proporcjonalnie na kanoniczne piksele źródła. Cache propozycji jest ograniczony
-do bieżącej sesji i związany z nazwą, rozmiarem oraz mtime źródła.
+proporcjonalnie na kanoniczne piksele źródła. Polityka v2 stosuje asymetryczny
+padding 7,5% nad i 4,5% pod klastrem. Klaster, którego górny padding dotknąłby
+zera, jest traktowany jako fałszywy sygnał krawędziowy i zastępowany bezpiecznym
+pasem domyślnym. Cache propozycji jest ograniczony do bieżącej sesji i związany
+z nazwą, rozmiarem oraz mtime źródła.
 
 Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma
 szerokość obrazu kanonicznego i wysokość wybranego pasa, a `drawImage` kopiuje
@@ -251,8 +254,9 @@ tylko dla tej kolejki. Poprawka aktualizuje jeden shard, review state i atlas.
 
 Hydratacja po reloadzie kończy się na odczycie rekordu IndexedDB. Wywołanie
 `requestPermission`, skan katalogu i odczyt obrazów następują dopiero w obsłudze
-jawnego kliknięcia wznowienia. Atlasy 120×80 px, kodowane jako WebP jakości
-0.58, są budowane osobną akcją operatora; samo otwarcie sesji ich nie dekoduje.
+jawnego kliknięcia wznowienia. Atlasy v2 144×96 px, kodowane jako WebP jakości
+0.58, są budowane osobną akcją operatora i prezentowane w poziomym pasku; samo
+otwarcie sesji ich nie dekoduje.
 Wyjście anuluje kolejkę pomiędzy źródłami i unieważnia późne callbacki, ale nie
 cofa zakończonego journalowanego zapisu bieżącego pliku.
 

@@ -856,6 +856,15 @@ krótkotrwałym cache'u pochodnym. Każdy request wiąże rewizję komórki, rew
 geometrii, checksumę render specu i rendered-pixel SHA-256; zmiana dowolnego z
 tych elementów odmawia odczytu, zamiast serwować poprzedni podgląd.
 
+Pojedyncza i zbiorcza decyzja symbolu musi korzystać z tego samego bieżącego
+render specu. Ręczna rewizja `virtual_source` jest kompletna, gdy zawiera
+wszystkie komórki topologii w `virtual_render_spec`; brak legacy
+`crop_artifacts` jest w tym trybie prawidłowy i nie może blokować domknięcia
+planszy. Przy zapisie canonical logiczną tożsamością planszy wirtualnej jest
+checksuma jej bieżącej geometrii, a JPEG źródłowy pozostaje wyłącznie assetem
+widoku. Konflikt jednej planszy w operacji zbiorczej musi zostać zapisany przy
+jej celach bez pozostawiania operacji z niepoliczonym stanem oczekującym.
+
 W aktualnym kandydacie globalne komponenty symboli muszą zostać przypisane do
 5 × 3 przed refinementem lokalnym. Płaszczyzna 500 × 300 służy do detekcji i
 estymacji, ale nie ogranicza dostępnych pikseli zdjęcia źródłowego. Finalny

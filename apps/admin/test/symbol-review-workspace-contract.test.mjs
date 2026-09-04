@@ -95,6 +95,9 @@ test('keeps a three-page metadata window with virtual cards and background bulk 
   assert.match(source, /activeOperations/);
   assert.match(source, /Operacje masowe w tle/);
   assert.match(source, /Operacja została przekazana do przetwarzania w tle/);
+  assert.match(source, /oczekujące \$\{operation\.pendingCount\}/);
+  assert.match(source, /operation\.errorMessage/);
+  assert.match(source, /operation\.errorCode/);
   assert.doesNotMatch(source, /pageRefreshRevision/);
   assert.doesNotMatch(source, /setInterval/);
   assert.doesNotMatch(source, /Edytuj siatkę/);

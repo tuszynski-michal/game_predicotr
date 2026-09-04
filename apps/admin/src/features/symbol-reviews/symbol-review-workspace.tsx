@@ -779,7 +779,11 @@ export function SymbolReviewWorkspace({
             }
           : {
               kind: 'error',
-              message: `Operacja zakończona częściowo: zastosowano ${operation.appliedCount}, konflikty ${operation.conflictCount}, błędy ${operation.failedCount}.`,
+              message: `Operacja zakończona częściowo: zastosowano ${operation.appliedCount}, konflikty ${operation.conflictCount}, błędy ${operation.failedCount}, oczekujące ${operation.pendingCount}.${
+                operation.errorMessage
+                  ? ` ${operation.errorMessage}${operation.errorCode ? ` (${operation.errorCode})` : ''}`
+                  : ''
+              }`,
             },
       );
     },

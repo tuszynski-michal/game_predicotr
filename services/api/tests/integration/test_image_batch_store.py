@@ -1612,6 +1612,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
 
 def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
     isolated_image_batch_database: URL,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     command.upgrade(_migration_config(isolated_image_batch_database), "head")
     engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
@@ -1905,6 +1906,80 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
             assert {target.error_code for target in conflicted_targets} == {
                 "SYMBOL_CELL_REVIEW_CURRENT_OWNER_CONFLICT"
             }
+
+        with Session(engine, expire_on_commit=False) as session:
+            remaining_cell = session.scalar(
+                select(ImageSymbolReviewCellModel)
+                .where(
+                    ImageSymbolReviewCellModel.sequence_number == 1,
+                    ImageSymbolReviewCellModel.quality_issue.is_(None),
+                )
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            )
+            assert remaining_cell is not None
+            operational_conflict_operation, created = (
+                SqlAlchemySymbolCellReviewBulkOperationRepository(session).start(
+                    game_id=game.id,
+                    request=SymbolCellReviewBulkRequest(
+                        action=SymbolCellReviewAction.MARK_BLURRY,
+                        target_symbol_id=symbol.id,
+                        explicit_targets=(
+                            SymbolCellReviewBulkExplicitTarget(
+                                cell_review_id=remaining_cell.id,
+                                expected_revision=remaining_cell.revision,
+                                expected_geometry_revision=remaining_cell.geometry_revision,
+                                expected_crop_sample_id=remaining_cell.crop_sample_id,
+                                expected_crop_checksum_sha256=(
+                                    remaining_cell.crop_checksum_sha256
+                                ),
+                            ),
+                        ),
+                        filter_selection=None,
+                        actor="local-admin",
+                    ),
+                    idempotency_key=uuid4(),
+                )
+            )
+            assert created is True
+            operational_conflict_job = SqlAlchemyJobRepository(session).get_job(
+                operational_conflict_operation.job_id
+            )
+            assert operational_conflict_job is not None
+            session.commit()
+
+        def raise_operational_conflict(
+            _repository: SqlAlchemySymbolCellReviewMutationRepository,
+            _commands: tuple[object, ...],
+        ) -> tuple[object, ...]:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
+                "The current manual geometry revision is incomplete.",
+            )
+
+        monkeypatch.setattr(
+            SqlAlchemySymbolCellReviewMutationRepository,
+            "apply_board_mutations",
+            raise_operational_conflict,
+        )
+        recorded_conflict = SqlAlchemySymbolCellReviewBulkOperationWorker(
+            session_factory
+        ).process_next_batch(job=operational_conflict_job, max_boards=1)
+        assert recorded_conflict.has_pending_targets is False
+        assert recorded_conflict.operation.status is SymbolCellReviewBulkOperationStatus.COMPLETED
+        assert recorded_conflict.operation.applied_count == 0
+        assert recorded_conflict.operation.conflict_count == 1
+        assert recorded_conflict.operation.pending_count == 0
+
+        with Session(engine) as session:
+            recorded_target = session.scalar(
+                select(ImageSymbolReviewBulkTargetModel).where(
+                    ImageSymbolReviewBulkTargetModel.operation_id
+                    == operational_conflict_operation.id
+                )
+            )
+            assert recorded_target is not None
+            assert recorded_target.status == "conflict"
+            assert recorded_target.error_code == "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID"
     finally:
         engine.dispose()
 

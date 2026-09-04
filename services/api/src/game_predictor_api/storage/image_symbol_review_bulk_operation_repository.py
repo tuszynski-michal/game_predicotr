@@ -27,6 +27,7 @@ from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationCommand,
 )
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.image_reviews import ImageReviewConflictError
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewError,
@@ -532,6 +533,15 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
                 code=error.code,
                 message=error.message,
             )
+        except ImageReviewConflictError as error:
+            self._record_board_error(
+                job=job,
+                operation_id=operation_id,
+                targets=targets,
+                code=error.code,
+                message=error.message,
+                force_conflict=True,
+            )
 
     def _record_board_error(
         self,
@@ -541,10 +551,11 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
         targets: Iterable[_FrozenTarget],
         code: str,
         message: str,
+        force_conflict: bool = False,
     ) -> None:
         status = (
             SymbolCellReviewBulkTargetStatus.CONFLICT.value
-            if code in _CONFLICT_CODES
+            if force_conflict or code in _CONFLICT_CODES
             else SymbolCellReviewBulkTargetStatus.FAILED.value
         )
         with self._session_factory() as session, session.begin():

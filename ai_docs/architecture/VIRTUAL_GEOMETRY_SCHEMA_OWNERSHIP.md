@@ -99,6 +99,14 @@ Po TASK-0321 logical cell v2 wiąże komórkę z occurrence źródła, topologi�
 slotem i pozycją. Render identity v2 dodatkowo wiąże geometrię i parametry
 renderowania. Historyczne identyfikatory v1 pozostają niezmienne.
 
+Bieżący read path mutacji symbolu zawsze zaczyna od selektora planszy i jej
+aktualnej rewizji. Dla ręcznej geometrii `virtual_source` materializuje komórki
+z kompletnego `virtual_render_spec`; pole `crop_artifacts` pozostaje SQL NULL
+zgodnie z kontraktem i jest sprawdzane wyłącznie dla `legacy_file`. Canonical
+owner przechowuje checksumę bieżącej geometrii jako tożsamość planszy
+wirtualnej. Ścieżka i checksuma managed original służą osobno do wyświetlenia
+kontekstu i regeneracji pikseli.
+
 ## Active slots i topologia
 
 Źródła prawdy są rozdzielone według czasu życia:

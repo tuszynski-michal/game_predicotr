@@ -778,6 +778,15 @@ więc atlasy A/B nie kolidują. Brak proweniencji jest metadanym stanem
 `unavailable`, a nie zgodą na użycie innego obrazu. Warstwa A/B jest read-only i
 nie ma portu do mutacji komórek, tworzenia cropów ani jobów.
 
+Mutacje symboli korzystają ze wspólnego materializatora bieżących komórek.
+Dla `legacy_file` wybiera on 15 plikowych `crop_artifacts`, a dla
+`virtual_source` dokładnie 15 wpisów bieżącego `virtual_render_spec`. Odczyt
+operacyjnego itemu wirtualnego wystawia managed original jako asset kontekstu,
+lecz zapis canonical wiąże właściciela z checksumą geometrii planszy, nie z
+checksumą źródłowego JPEG-a. Durable bulk traktuje konflikt operacyjnego itemu
+jako board-atomic conflict, zapisuje go przy zamrożonych celach i kontynuuje
+następne plansze.
+
 TASK-0363 potwierdza bounded zachowanie na rzeczywistej projekcji. Jedna strona
 500 rekordów wykonuje najwyżej pięć atlasowych odczytów, a frontend utrzymuje
 najwyżej trzy strony metadanych i wirtualne okno kart. Powtarzalny pomiar jest

@@ -11,6 +11,8 @@ from game_predictor_api.domain.image_symbol_reviews import (
     map_current_symbol_cell_reviews,
 )
 from game_predictor_api.storage.image_review_repository import (
+    _current_board_identity_checksum,
+    _item_from_records,
     materialize_current_image_review_cells,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
@@ -111,6 +113,89 @@ def test_virtual_source_materializer_keeps_current_render_provenance() -> None:
         "rendered_pixel_checksum_sha256": _sha(1_000),
         "extractor_version": "direct-perspective-cell-v2",
     }
+
+
+def test_operational_item_uses_complete_manual_virtual_geometry_revision() -> None:
+    board_id = uuid4()
+    game_id = uuid4()
+    import_job_id = uuid4()
+    source_geometry_revision_id = uuid4()
+    observations = _virtual_observations(board_id, source_geometry_revision_id)
+    revision_cells = []
+    for cell_index, observation in enumerate(observations):
+        revision_cells.append(
+            {
+                "cellIndex": cell_index,
+                "cropSampleId": _sha(5_000 + cell_index),
+                "logicalCellKeySha256": _sha(6_000 + cell_index),
+                "logicalCellKeyV2Sha256": _sha(7_000 + cell_index),
+                "renderIdentityV2Sha256": _sha(8_000 + cell_index),
+                "renderSpec": observation.render_spec,
+                "renderSpecChecksumSha256": observation.render_spec_checksum_sha256,
+                "renderedPixelChecksumSha256": _sha(9_000 + cell_index),
+            }
+        )
+    item_id = uuid4()
+    source_id = uuid4()
+    item = _item_from_records(
+        SimpleNamespace(
+            id=item_id,
+            status="pending",
+            resolved_value=None,
+            resolved_by=None,
+            resolved_at=None,
+            resolution_revision=0,
+            created_at=None,
+        ),
+        SimpleNamespace(
+            id=board_id,
+            asset_mode="virtual_source",
+            grid_rows=3,
+            grid_columns=5,
+            geometry_revision=1,
+            sequence_number=42,
+            board_geometry={"displayAssetKind": "source_context"},
+            pipeline_fingerprint=_sha(10_000),
+        ),
+        SimpleNamespace(
+            id=source_id,
+            import_job_id=import_job_id,
+            relative_path="originals/source.jpg",
+            checksum_sha256=_sha(10_001),
+        ),
+        SimpleNamespace(source_order_index=3, position_index=2),
+        SimpleNamespace(game_id=game_id),
+        observations,
+        SimpleNamespace(
+            revision=1,
+            asset_mode="virtual_source",
+            source_geometry_revision_id=source_geometry_revision_id,
+            virtual_render_spec={"cells": revision_cells},
+            cropper_version="structured-board-cells-v0.10-manual",
+        ),
+    )
+
+    assert item.id == item_id
+    assert item.board_relative_path == "originals/source.jpg"
+    assert item.board_checksum_sha256 == _sha(10_001)
+    assert len(item.cells) == 15
+    assert [cell.crop_sample_id for cell in item.cells] == [
+        _sha(5_000 + index) for index in range(15)
+    ]
+    assert all(cell.asset_mode == "virtual_source" for cell in item.cells)
+
+
+def test_virtual_board_identity_uses_geometry_checksum() -> None:
+    assert (
+        _current_board_identity_checksum(
+            SimpleNamespace(
+                asset_mode="virtual_source",
+                geometry_checksum_sha256=_sha(11_000),
+                board_checksum_sha256=None,
+            )
+        )
+        == _sha(11_000)
+    )
 
 
 def test_approving_virtual_source_cell_persists_approved_render_provenance() -> None:

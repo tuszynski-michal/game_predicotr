@@ -6,6 +6,19 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Decyzje symboli po ręcznej geometrii v0.10 — TASK-0441
+
+- Pojedyncze i zbiorcze przypisanie symbolu odczytuje ręczną geometrię
+  `virtual_source` z kompletnego `virtual_render_spec`, bez wymagania
+  nieistniejących plikowych `crop_artifacts`.
+- Managed original pozostaje assetem kontekstu, a canonical planszy wirtualnej
+  zapisuje checksumę bieżącej geometrii. Legacy file-backed review zachowuje
+  dotychczasową ścieżkę.
+- Konflikt jednej planszy w operacji zbiorczej jest liczony przy jej celach
+  zamiast kończyć cały job z zerowymi licznikami. Admin pokazuje także liczbę
+  oczekujących celów i szczegół błędu operacji.
+- Nie ponowiono historycznych failed jobów i nie zmieniono danych gry.
+
 ### Raport importu przed aktywacją modelu symboli — TASK-0440
 
 - `Pokaż raport` nie jest już blokowane przez brak modelu zgodnego z katalogiem

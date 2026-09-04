@@ -1008,15 +1008,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 else:
                     staging.sequence_number = resolved_sequence
                     staging.cells = mobile_codes
-                if board.board_checksum_sha256 is None:
-                    raise ImageReviewConflictError(
-                        "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
-                        "Virtual board assets are not active in the legacy review writer.",
-                    )
+                board_identity_checksum = _current_board_identity_checksum(board)
                 canonical.status = resolution.action.value
                 canonical.resolution_revision = revision
                 canonical.geometry_revision = board.geometry_revision
-                canonical.board_checksum_sha256 = board.board_checksum_sha256
+                canonical.board_checksum_sha256 = board_identity_checksum
                 canonical.updated_at = resolved_at
                 affected_source_ids.update(
                     self._supersede_pending_sequence_occurrences(
@@ -1118,6 +1114,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         resolution_revision: int,
         created_at: datetime,
     ) -> ImageSequenceCanonicalModel:
+        board_identity_checksum = _current_board_identity_checksum(board)
         self._session.execute(
             postgresql_insert(ImageSequenceCanonicalModel)
             .values(
@@ -1128,7 +1125,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 import_job_id=import_job_id,
                 source_image_id=source.id,
                 source_checksum_sha256=source.checksum_sha256,
-                board_checksum_sha256=board.board_checksum_sha256,
+                board_checksum_sha256=board_identity_checksum,
                 status=status,
                 resolution_revision=resolution_revision,
                 geometry_revision=board.geometry_revision,
@@ -2355,6 +2352,26 @@ def _item_from_records(
     geometry_revision: ImageBoardGeometryRevisionModel | None,
     prediction_override: Sequence[Mapping[str, object]] | None = None,
 ) -> ImageReviewItem:
+    if board.asset_mode == "virtual_source":
+        virtual_cells = _virtual_current_cells_from_records(
+            item=item,
+            board=board,
+            observations=observations,
+            geometry_revision=geometry_revision,
+            prediction_override=prediction_override,
+        )
+        return _review_item_from_current_cells(
+            item=item,
+            board=board,
+            source=source,
+            queue_item=queue_item,
+            job=job,
+            cells=virtual_cells,
+            # Structured boards deliberately have no persistent board bitmap.
+            # The Reviewer displays a bounded source context for this mode.
+            board_relative_path=source.relative_path,
+            board_checksum_sha256=source.checksum_sha256,
+        )
     if len(observations) != 15:
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_CELL_COUNT_INVALID",
@@ -2486,16 +2503,40 @@ def _item_from_records(
                 ),
             )
         )
-    queue_sequence = (
-        cast(int, resolved["sequenceNumber"])
-        if resolved is not None and isinstance(resolved.get("sequenceNumber"), int)
-        else None
-    )
     if board.board_relative_path is None or board.board_checksum_sha256 is None:
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
             "Virtual board assets are not active in the legacy review mapper.",
         )
+    return _review_item_from_current_cells(
+        item=item,
+        board=board,
+        source=source,
+        queue_item=queue_item,
+        job=job,
+        cells=tuple(cells),
+        board_relative_path=board.board_relative_path,
+        board_checksum_sha256=board.board_checksum_sha256,
+    )
+
+
+def _review_item_from_current_cells(
+    *,
+    item: ImageReviewItemModel,
+    board: RecognizedBoardModel,
+    source: SourceImageModel,
+    queue_item: ImageReviewQueueItemModel,
+    job: JobModel,
+    cells: Sequence[ImageReviewCell],
+    board_relative_path: str,
+    board_checksum_sha256: str,
+) -> ImageReviewItem:
+    resolved = cast(Mapping[str, object] | None, item.resolved_value)
+    queue_sequence = (
+        cast(int, resolved["sequenceNumber"])
+        if resolved is not None and isinstance(resolved.get("sequenceNumber"), int)
+        else None
+    )
     return ImageReviewItem(
         id=item.id,
         game_id=cast(UUID, job.game_id),
@@ -2509,8 +2550,8 @@ def _item_from_records(
         suggested_sequence_number=board.sequence_number,
         source_relative_path=source.relative_path,
         source_checksum_sha256=source.checksum_sha256,
-        board_relative_path=board.board_relative_path,
-        board_checksum_sha256=board.board_checksum_sha256,
+        board_relative_path=board_relative_path,
+        board_checksum_sha256=board_checksum_sha256,
         geometry_revision=board.geometry_revision,
         geometry=dict(board.board_geometry),
         pipeline_fingerprint=board.pipeline_fingerprint,
@@ -2821,6 +2862,20 @@ def _event_from_record(
 def _sequence_advisory_lock_key(game_id: UUID, sequence_number: int) -> int:
     digest = hashlib.sha256(f"{game_id}:{sequence_number}".encode("ascii")).digest()
     return int.from_bytes(digest[:8], byteorder="big", signed=True)
+
+
+def _current_board_identity_checksum(board: RecognizedBoardModel) -> str:
+    checksum = (
+        board.geometry_checksum_sha256
+        if board.asset_mode == "virtual_source"
+        else board.board_checksum_sha256
+    )
+    if checksum is None:
+        raise ImageReviewConflictError(
+            "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
+            "The current board identity checksum is unavailable.",
+        )
+    return checksum
 
 
 def _superseded_resolved_value(

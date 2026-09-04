@@ -7504,3 +7504,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   nie jest tworzony, a nowa gra musi wytrenować i jawnie aktywować zgodny model.
   Automatyczny metadata-only recrop wirtualny wymaga osobnego snapshotu i
   bramki jakości zamiast ukrytej zmiany trybu assetów.
+
+### D-331 — Raport importu oddziela gotowość od autoryzacji startu
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** read-only raport browser stagingu i preflight geometrii są
+  dostępne bez aktywnego modelu symboli, ale zwracają jawny stan blokady. Start
+  importu nadal wymaga zgodnego snapshotu modelu gry i ponownej walidacji.
+- **Reason:** wspólny rygorystyczny resolver ukrywał raport i blokował niezależne
+  przygotowanie geometrii przed pierwszym treningiem nowej gry.
+- **Consequences:** checksum raportu obejmuje gotowość modelu; Admin blokuje
+  wyłącznie start i pokazuje dalsze kroki. Niezgodny globalny bootstrap nie jest
+  fallbackiem, a brak modelu nie tworzy joba importu.

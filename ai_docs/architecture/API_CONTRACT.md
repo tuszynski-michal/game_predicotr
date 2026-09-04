@@ -2796,7 +2796,9 @@ trwałym stagingiem:
 - `GET /api/v1/admin/image-imports/browser-selections?purpose=layout_import`
   zwraca gotowe stagingi i checksumę manifestu,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/preflight`
-  przyjmuje `gameId` i zwraca raport zakresów oraz `preflightChecksumSha256`,
+  przyjmuje `gameId` i zwraca raport zakresów, `preflightChecksumSha256` oraz
+  jawne `symbolModelReady`, `symbolModelBlockerCode` i opcjonalny
+  `symbolModelInferenceFingerprint`,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/start`
   przyjmuje `gameId`, `manifestChecksumSha256` i checksumę preflightu.
 
@@ -2805,6 +2807,13 @@ Nieaktualny manifest lub projekcja kanoniczna kończy się stabilnym konfliktem,
 a odpowiedź z `created=false` wskazuje już istniejący job. Typy i klient tych
 operacji są zawsze generowane z OpenAPI; Admin nie utrzymuje ręcznych kopii
 kontraktów.
+
+Preflight raportowy nie tworzy importu i nie wymaga gotowego modelu symboli.
+Znany brak aktywnego lub zgodnego modelu wraca jako HTTP 200 z
+`symbolModelReady=false`; checksum raportu obejmuje ten stan. Endpoint `start`
+ponownie używa rygorystycznego resolvera, więc niezgodność kończy się stabilnym
+konfliktem bez utworzenia joba. Preflight geometrii pozostaje od tego resolvera
+niezależny.
 
 ### Preflight geometrii strony browserowego stagingu
 

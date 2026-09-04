@@ -1438,10 +1438,36 @@
             "title": "Sourcefilecount",
             "type": "integer"
           },
+          "symbolModelBlockerCode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "SYMBOL_MODEL_ACTIVATION_REQUIRED",
+                  "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolmodelblockercode"
+          },
           "symbolModelInferenceFingerprint": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Symbolmodelinferencefingerprint",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolmodelinferencefingerprint"
+          },
+          "symbolModelReady": {
+            "title": "Symbolmodelready",
+            "type": "boolean"
           },
           "uploadId": {
             "format": "uuid",
@@ -1482,7 +1508,7 @@
           "displayName",
           "manifestChecksumSha256",
           "preflightChecksumSha256",
-          "symbolModelInferenceFingerprint",
+          "symbolModelReady",
           "gridProfileInferenceFingerprint",
           "imageEnginePolicy",
           "imageEnginePolicyRevision",

@@ -6,6 +6,17 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Raport importu przed aktywacją modelu symboli — TASK-0440
+
+- `Pokaż raport` nie jest już blokowane przez brak modelu zgodnego z katalogiem
+  symboli gry. Raport zwraca jawny stan gotowości i pozwala przygotować
+  checksum-bound geometrię przed treningiem.
+- Admin pokazuje blokadę oraz polską instrukcję: zatwierdzić bieżące cropy,
+  uruchomić `Ulepsz rozpoznawanie` i aktywować model gry. Przycisk startu importu
+  pozostaje nieaktywny do czasu odświeżenia raportu z gotowym modelem.
+- Backend ponownie wykonuje rygorystyczną kontrolę przy `start`; brak zgodnego
+  modelu nadal nie tworzy joba i nie przywraca globalnego bootstrapu.
+
 ### Bezpieczne przeliczanie oczekujących v0.10 — TASK-0439
 
 - Nowy import i reinferencja nie mogą przypiąć globalnego bootstrapu, jeżeli

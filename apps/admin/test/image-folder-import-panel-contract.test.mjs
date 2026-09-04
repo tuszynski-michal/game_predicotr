@@ -70,6 +70,11 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Ponów preflight/);
   assert.match(panelSource, /preflightResult\.data\.geometryPreflightRequired/);
   assert.match(panelSource, /result\.data\.geometryPreflightRequired/);
+  assert.match(panelSource, /preflight\.symbolModelReady/);
+  assert.match(panelSource, /preflight\.symbolModelBlockerCode/);
+  assert.match(panelSource, /Model symboli/);
+  assert.match(panelSource, /Ulepszaniu modelu symboli/);
+  assert.match(panelSource, /aktywuj model tej gry/);
   assert.match(panelSource, /Każda pozycja oznacza jedno zdjęcie/);
   assert.match(panelSource, /Importuj rozpoznane strony/);
   assert.match(panelSource, /BoardCellProcessingModePicker/);

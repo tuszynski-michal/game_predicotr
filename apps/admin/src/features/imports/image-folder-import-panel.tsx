@@ -121,6 +121,29 @@ function shortChecksum(value: string | null | undefined): string {
   return value === null || value === undefined ? 'brak' : value.slice(0, 12);
 }
 
+function symbolModelReadinessText(
+  preflight: BrowserImageImportPreflightResponse,
+): string {
+  if (
+    preflight.symbolModelReady &&
+    preflight.symbolModelInferenceFingerprint !== null
+  ) {
+    return `gotowy · ${shortChecksum(preflight.symbolModelInferenceFingerprint)}`;
+  }
+  return preflight.symbolModelBlockerCode === 'SYMBOL_MODEL_ACTIVATION_REQUIRED'
+    ? 'blokada — aktywuj gotowego kandydata'
+    : 'blokada — wytrenuj i aktywuj model gry';
+}
+
+function symbolModelNextStep(
+  preflight: BrowserImageImportPreflightResponse,
+): string | null {
+  if (preflight.symbolModelReady) return null;
+  return preflight.symbolModelBlockerCode === 'SYMBOL_MODEL_ACTIVATION_REQUIRED'
+    ? 'Raport i geometria są dostępne, ale start importu wymaga aktywacji gotowego kandydata modelu symboli.'
+    : 'Raport i geometria są dostępne, ale przed startem importu zatwierdź aktualne cropy w Ulepszaniu modelu symboli, wybierz „Ulepsz rozpoznawanie”, a następnie aktywuj model tej gry.';
+}
+
 function jobSnapshotText(job: ImageImportJob, field: string, key: string) {
   const payload = job.inputPayload as unknown as Record<string, unknown>;
   const snapshot = payload[field];
@@ -420,6 +443,7 @@ export function ImageFolderImportPanel({
       }
       setReadyUploadId(uploadId);
       setPreflight(result.data);
+      const modelNextStep = symbolModelNextStep(result.data);
       if (result.data.geometryPreflightRequired) {
         const geometryResult = await startBrowserPageGeometryPreflight(
           api,
@@ -431,15 +455,22 @@ export function ImageFolderImportPanel({
           return;
         }
         setGeometryPreflightJob(geometryResult.data.job);
+        const geometryFeedback = geometryResult.data.created
+          ? 'Raport jest gotowy. Automatyczne przygotowanie geometrii oczekuje na worker.'
+          : 'Raport jest gotowy. Przywrócono istniejący preflight geometrii.';
         setFeedback(
-          geometryResult.data.created
-            ? 'Raport jest gotowy. Automatyczne przygotowanie geometrii oczekuje na worker.'
-            : 'Raport jest gotowy. Przywrócono istniejący preflight geometrii.',
+          modelNextStep === null
+            ? geometryFeedback
+            : `${geometryFeedback} ${modelNextStep}`,
         );
       } else {
         setGeometryPreflightJob(null);
+        const geometryFeedback =
+          'Raport jest gotowy. Nowy silnik rozpocznie bez historycznego profilu siatki i zapisze wyniki w trybie shadow.';
         setFeedback(
-          'Raport jest gotowy. Nowy silnik rozpocznie bez historycznego profilu siatki i zapisze wyniki w trybie shadow.',
+          modelNextStep === null
+            ? geometryFeedback
+            : `${geometryFeedback} ${modelNextStep}`,
         );
       }
     } catch {
@@ -454,6 +485,7 @@ export function ImageFolderImportPanel({
       busy ||
       readyUploadId === null ||
       preflight === null ||
+      !preflight.symbolModelReady ||
       (preflight.geometryPreflightRequired &&
         (geometryPreflightJob?.status !== 'completed' ||
           geometryManifestChecksum === null))
@@ -474,7 +506,7 @@ export function ImageFolderImportPanel({
         geometryManifestChecksum ?? undefined,
         boardCellProcessingMode,
         preflight.imageEnginePolicyRevision,
-        preflight.symbolModelInferenceFingerprint,
+        preflight.symbolModelInferenceFingerprint ?? undefined,
         preflight.gridProfileInferenceFingerprint,
       );
       if (!result.ok) {
@@ -1120,6 +1152,10 @@ export function ImageFolderImportPanel({
                         </dd>
                       </div>
                       <div className="importMetric">
+                        <dt>Model symboli</dt>
+                        <dd>{symbolModelReadinessText(preflight)}</dd>
+                      </div>
+                      <div className="importMetric">
                         <dt>Silnik komórek 3×5</dt>
                         <dd>
                           {boardCellProcessingModeLabel(
@@ -1143,6 +1179,14 @@ export function ImageFolderImportPanel({
                       Ostrzeżenia: {preflight.warnings.join(' · ')}
                     </p>
                   ) : null}
+                  {active && preflight !== null
+                    ? (() => {
+                        const nextStep = symbolModelNextStep(preflight);
+                        return nextStep === null ? null : (
+                          <p className="curatedImportStatus">{nextStep}</p>
+                        );
+                      })()
+                    : null}
                   {active && preflight !== null ? (
                     <>
                       {preflight.geometryPreflightRequired ? (
@@ -1234,9 +1278,10 @@ export function ImageFolderImportPanel({
                 (readyUploadId !== null ||
                   selection?.selectionToken == null)) ||
               (preflight !== null &&
-                preflight.geometryPreflightRequired &&
-                (geometryPreflightJob?.status !== 'completed' ||
-                  geometryManifestChecksum === null))
+                (!preflight.symbolModelReady ||
+                  (preflight.geometryPreflightRequired &&
+                    (geometryPreflightJob?.status !== 'completed' ||
+                      geometryManifestChecksum === null))))
             }
             onClick={() =>
               void (preflight === null ? startImport() : startReadyImport())

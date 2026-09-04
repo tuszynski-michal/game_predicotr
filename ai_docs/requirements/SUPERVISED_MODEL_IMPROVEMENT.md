@@ -45,6 +45,13 @@ Model, kohorta treningowa, metryki i aktywna wersja są przypisane do jednej
 gry. Dane różnych gier nie są łączone bez nowej decyzji architektonicznej,
 ponieważ gry mogą mieć inne katalogi symboli i inne warunki obrazu.
 
+Raport browserowego importu może być odczytany przed pierwszym treningiem, aby
+operator mógł ocenić zakresy i przygotować geometrię. Taki raport jawnie
+pokazuje brak gotowego modelu i nie jest autoryzacją startu importu. Start
+inferencji nadal wymaga wytrenowanego oraz aktywnego snapshotu zgodnego z
+bieżącym katalogiem symboli danej gry; niezgodny globalny bootstrap nie może go
+zastąpić.
+
 ## Kohorta treningowa
 
 Użytkownik uruchamia akcję `Ulepsz rozpoznawanie`. System przed treningiem:

@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from threading import Event
+from typing import NoReturn
 from uuid import UUID, uuid4
 
 import pytest
@@ -341,6 +342,15 @@ class _MutableBrowserCanonicalRepository(_BrowserCanonicalRepository):
         return set(self.numbers)
 
 
+class _UnavailableSymbolModelResolver:
+    def resolve(self, *, game_id: UUID) -> NoReturn:
+        del game_id
+        raise JobConflictError(
+            "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED",
+            "The bootstrap symbol model does not match this game's active symbol catalog.",
+        )
+
+
 def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     tmp_path: Path,
 ) -> None:
@@ -419,6 +429,9 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         assert report["skippedSourceCount"] == 1
         assert report["firstUnresolvedSequence"] == 10
         assert report["geometryPreflightRequired"] is True
+        assert report["symbolModelReady"] is True
+        assert report["symbolModelBlockerCode"] is None
+        assert len(report["symbolModelInferenceFingerprint"]) == 64
 
         missing_geometry = client.post(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
@@ -530,6 +543,105 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             "activationVersion"
         ]
         == "board-cell-processing-v20-verified-v19-v1"
+    )
+
+
+def test_browser_report_and_geometry_preflight_remain_available_without_symbol_model(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=10 * 1024 * 1024,
+        clock=lambda: NOW,
+    )
+    canonical_service = ImageSequenceCanonicalService(_BrowserCanonicalRepository())
+    job_service = JobService(
+        repository,
+        symbol_model_snapshot_resolver=_UnavailableSymbolModelResolver(),
+    )
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(stream, "JPEG")
+    image_bytes = stream.getvalue()
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {
+                    "GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts"),
+                    "GAME_PREDICTOR_IMPORT_ROOT": str(tmp_path / "imports"),
+                }
+            ),
+            job_service_dependency=lambda: job_service,
+            image_folder_selection_service_dependency=lambda: selection_service,
+            browser_image_selection_service_dependency=lambda: browser_service,
+            image_sequence_canonical_service_dependency=lambda: canonical_service,
+        )
+    )
+
+    with client:
+        created = client.post(
+            "/api/v1/admin/image-imports/browser-selections",
+            json={
+                "displayName": "10-18",
+                "expectedFileCount": 1,
+                "expectedTotalBytes": len(image_bytes),
+                "gameId": str(game_id),
+            },
+        )
+        assert created.status_code == 201
+        upload_id = created.json()["uploadId"]
+        uploaded = client.put(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/files/0",
+            content=image_bytes,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Image-Relative-Path": "10-18/seq_10-18.jpg",
+            },
+        )
+        assert uploaded.status_code == 200
+        assert (
+            client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize"
+            ).status_code
+            == 200
+        )
+
+        preflight = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight",
+            json={"gameId": str(game_id)},
+        )
+        assert preflight.status_code == 200, preflight.text
+        report = preflight.json()
+        assert report["symbolModelReady"] is False
+        assert report["symbolModelBlockerCode"] == "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED"
+        assert report["symbolModelInferenceFingerprint"] is None
+        assert len(report["gridProfileInferenceFingerprint"]) == 64
+
+        geometry = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight",
+            json={"gameId": str(game_id)},
+        )
+        assert geometry.status_code == 201, geometry.text
+
+        started = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json={
+                "gameId": str(game_id),
+                "manifestChecksumSha256": report["manifestChecksumSha256"],
+                "preflightChecksumSha256": report["preflightChecksumSha256"],
+            },
+        )
+
+    assert started.status_code == 409
+    assert started.json()["code"] == "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED"
+    assert not repository.list_jobs(
+        status=None,
+        job_type=JobType.IMPORT,
+        game_id=game_id,
+        limit=10,
     )
 
 

@@ -342,9 +342,11 @@ def create_image_imports_router(
             {"sequenceRangeStart": start, "sequenceRangeEnd": end}
             for start, end in ready.upload.skipped_canonical_ranges
         ]
-        symbol_fingerprint, grid_fingerprint = job_service.current_image_import_model_fingerprints(
-            game_id=game_id
-        )
+        (
+            symbol_fingerprint,
+            grid_fingerprint,
+            symbol_blocker_code,
+        ) = job_service.preview_image_import_model_fingerprints(game_id=game_id)
         engine_policy = job_service.current_image_import_engine_policy(game_id=game_id)
         payload["imageEnginePolicy"] = engine_policy.policy.value
         payload["imageEnginePolicyRevision"] = engine_policy.revision
@@ -352,6 +354,8 @@ def create_image_imports_router(
         # structured production path uses it as immutable source provenance;
         # switching the game policy must never bypass the reviewed page gate.
         payload["geometryPreflightRequired"] = True
+        payload["symbolModelReady"] = symbol_fingerprint is not None
+        payload["symbolModelBlockerCode"] = symbol_blocker_code
         checksum = hashlib.sha256(
             json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
                 "ascii"

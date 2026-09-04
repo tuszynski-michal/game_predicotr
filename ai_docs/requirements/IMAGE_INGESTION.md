@@ -1253,8 +1253,13 @@ rozmiar plików oraz zachowuje co najmniej 512 MiB wolnej przestrzeni dyskowej.
 Przed utworzeniem joba Admin wywołuje preflight związany z `gameId` i checksumą
 manifestu. Raport pokazuje nowe i kanonicznie użyte ponownie numery, pominięte
 źródła, częściowe zakresy, alternatywne checksumy oraz pierwszy i ostatni
-nierozwiązany numer. Dopiero jawna akcja startu przekazuje obie checksumy;
-backend ponownie wykonuje preflight i odrzuca nieaktualny raport. Powtórzenie
+nierozwiązany numer. Raport jest operacją read-only: brak aktywnego modelu
+symboli zgodnego z katalogiem gry nie blokuje raportu ani osobnego preflightu
+geometrii. W takim przypadku raport zwraca `symbolModelReady=false`, stabilny
+`symbolModelBlockerCode` oraz brak fingerprintu modelu. Dopiero jawna akcja
+startu przekazuje obie checksumy; backend ponownie wykonuje preflight, wymaga
+zgodnego aktywnego snapshotu modelu symboli i odrzuca nieaktualny raport.
+Powtórzenie
 tej samej akcji dla tego samego stagingu zwraca istniejący job (`created=false`)
 i nie tworzy duplikatu.
 

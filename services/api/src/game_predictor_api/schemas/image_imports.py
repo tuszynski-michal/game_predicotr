@@ -139,7 +139,15 @@ class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
     display_name: str
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    symbol_model_inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    symbol_model_ready: bool
+    symbol_model_blocker_code: (
+        Literal[
+            "SYMBOL_MODEL_ACTIVATION_REQUIRED",
+            "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED",
+        ]
+        | None
+    ) = None
+    symbol_model_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     grid_profile_inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     image_engine_policy: ImageImportEnginePolicy
     image_engine_policy_revision: int = Field(ge=0)

@@ -1177,6 +1177,41 @@ class JobService:
             )
         return symbol.inference_fingerprint, fingerprint
 
+    def preview_image_import_model_fingerprints(
+        self, *, game_id: UUID
+    ) -> tuple[str | None, str, str | None]:
+        """Resolve report metadata without weakening the strict import snapshot gate."""
+
+        symbol_fingerprint: str | None
+        symbol_blocker_code: str | None = None
+        try:
+            symbol = (
+                bootstrap_symbol_model_snapshot()
+                if self._symbol_model_snapshot_resolver is None
+                else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+            )
+            symbol_fingerprint = symbol.inference_fingerprint
+        except JobConflictError as error:
+            if error.code not in {
+                "SYMBOL_MODEL_ACTIVATION_REQUIRED",
+                "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED",
+            }:
+                raise
+            symbol_fingerprint = None
+            symbol_blocker_code = error.code
+        grid = (
+            _baseline_grid_profile_snapshot()
+            if self._grid_profile_snapshot_resolver is None
+            else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
+        )
+        grid_fingerprint = grid.get("inferenceFingerprint")
+        if not isinstance(grid_fingerprint, str) or len(grid_fingerprint) != 64:
+            raise JobError(
+                "GRID_PROFILE_SNAPSHOT_INVALID",
+                "The active grid profile snapshot is invalid.",
+            )
+        return symbol_fingerprint, grid_fingerprint, symbol_blocker_code
+
     def create_page_geometry_preflight_job(
         self,
         *,

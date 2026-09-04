@@ -804,9 +804,20 @@ export type BrowserImageImportPreflightResponse = {
    */
   sourceFileCount: number;
   /**
+   * Symbolmodelblockercode
+   */
+  symbolModelBlockerCode?:
+    | 'SYMBOL_MODEL_ACTIVATION_REQUIRED'
+    | 'SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED'
+    | null;
+  /**
    * Symbolmodelinferencefingerprint
    */
-  symbolModelInferenceFingerprint: string;
+  symbolModelInferenceFingerprint?: string | null;
+  /**
+   * Symbolmodelready
+   */
+  symbolModelReady: boolean;
   /**
    * Uploadid
    */

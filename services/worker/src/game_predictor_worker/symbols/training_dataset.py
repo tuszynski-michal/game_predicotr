@@ -13,8 +13,22 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, cast
+from uuid import UUID
+
+import numpy as np
+from numpy.typing import NDArray
+from PIL import Image, UnidentifiedImageError
 
 from game_predictor_worker.filesystem import long_path_aware
+from game_predictor_worker.images.normalization import (
+    CanonicalSourceLoader,
+    CanonicalSourceLoadError,
+    rgb_pixel_checksum_sha256,
+)
+from game_predictor_worker.images.virtual_cell_extraction import (
+    VirtualCellExtractionError,
+    render_persisted_virtual_cell_rgb,
+)
 
 TRAINING_DATASET_SCHEMA_VERSION = 1
 TRAINING_DATASET_VERSION = "verified-symbol-training-dataset-v1"
@@ -116,9 +130,14 @@ class _Sample:
     review_item_id: str
     sequence_number: int
     cell_index: int
+    asset_mode: str = "legacy_file"
+    virtual_source: _VirtualCropSource | None = None
 
     def to_dict(self, split: SplitName) -> dict[str, object]:
         return {
+            "assetChecksumKind": (
+                "rgb-pixel-v1" if self.asset_mode == "virtual_source" else "sha256-bytes"
+            ),
             "assetRelativePath": self.asset_relative_path,
             "cellIndex": self.cell_index,
             "cropChecksumSha256": self.crop_checksum,
@@ -134,6 +153,25 @@ class _Sample:
             "symbolCode": self.symbol_code,
             "symbolId": self.symbol_id,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class _VirtualCropSource:
+    source_path: Path
+    source_checksum: str
+    normalized_pixel_checksum: str
+    source_geometry_revision_id: UUID
+    geometry_checksum: str
+    render_spec: Mapping[str, object]
+    render_spec_checksum: str
+    rendered_pixel_checksum: str
+    cell_index: int
+    row_index: int
+    column_index: int
+    logical_cell_key: str
+    logical_cell_key_v2: str
+    render_identity_v2: str
+    extractor_version: str
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -236,12 +274,16 @@ def _read_cohort(path: Path, expected_checksum: str) -> Mapping[str, object]:
         (1, "verified-training-cohort-v1"),
         (2, "verified-symbol-cell-training-cohort-v2"),
         (3, "verified-symbol-cell-training-cohort-v3-crop-provenance"),
+        (4, "verified-symbol-cell-training-cohort-v4-virtual-provenance"),
     }:
         raise TrainingDatasetBuildError(
             "TRAINING_DATASET_COHORT_UNSUPPORTED",
             "The verified-training cohort schema is not supported.",
         )
-    if identity == (3, "verified-symbol-cell-training-cohort-v3-crop-provenance"):
+    if identity in {
+        (3, "verified-symbol-cell-training-cohort-v3-crop-provenance"),
+        (4, "verified-symbol-cell-training-cohort-v4-virtual-provenance"),
+    }:
         if cohort.get("trainingEligibilityVersion") != "symbol-cell-training-eligible-v1":
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_COHORT_UNSUPPORTED",
@@ -351,6 +393,74 @@ def _managed_crop(data_root: Path, relative_path: str, checksum: str) -> Path:
             f"The immutable crop {relative_path} differs from its cohort checksum.",
         )
     return resolved
+
+
+def _parse_virtual_crop_source(
+    cell: Mapping[str, object],
+    *,
+    data_root: Path,
+    crop_checksum: str,
+    cell_index: int,
+) -> _VirtualCropSource:
+    source = _mapping(cell.get("source"), "cell.source")
+    source_checksum = _sha256(source.get("checksumSha256"), "cell.source.checksumSha256")
+    source_relative_path = _safe_relative_path(
+        source.get("relativePath"), "cell.source.relativePath"
+    )
+    source_path = _managed_crop(data_root, source_relative_path, source_checksum)
+    rendered_pixel_checksum = _sha256(
+        cell.get("renderedPixelChecksumSha256"),
+        "cell.renderedPixelChecksumSha256",
+    )
+    if rendered_pixel_checksum != crop_checksum:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
+            "A virtual symbol cell crop checksum differs from its rendered-pixel checksum.",
+        )
+    row_index, column_index = divmod(cell_index, 5)
+    declared_source_revision = _text(
+        cell.get("sourceGeometryRevisionId"), "cell.sourceGeometryRevisionId"
+    )
+    try:
+        source_geometry_revision_id = UUID(declared_source_revision)
+    except ValueError as error:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_COHORT_INVALID",
+            "cell.sourceGeometryRevisionId must be a UUID.",
+        ) from error
+    render_spec = _mapping(cell.get("renderSpec"), "cell.renderSpec")
+    render_identity_v2 = _sha256(cell.get("renderIdentityV2Sha256"), "cell.renderIdentityV2Sha256")
+    if render_spec.get("renderIdentityV2Sha256") != render_identity_v2:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
+            "A virtual symbol cell render identity differs from its render specification.",
+        )
+    return _VirtualCropSource(
+        source_path=source_path,
+        source_checksum=source_checksum,
+        normalized_pixel_checksum=_sha256(
+            cell.get("normalizedPixelChecksumSha256"),
+            "cell.normalizedPixelChecksumSha256",
+        ),
+        source_geometry_revision_id=source_geometry_revision_id,
+        geometry_checksum=_sha256(
+            cell.get("geometryChecksumSha256"), "cell.geometryChecksumSha256"
+        ),
+        render_spec=render_spec,
+        render_spec_checksum=_sha256(
+            cell.get("renderSpecChecksumSha256"), "cell.renderSpecChecksumSha256"
+        ),
+        rendered_pixel_checksum=rendered_pixel_checksum,
+        cell_index=cell_index,
+        row_index=row_index,
+        column_index=column_index,
+        logical_cell_key=_sha256(cell.get("logicalCellKeySha256"), "cell.logicalCellKeySha256"),
+        logical_cell_key_v2=_sha256(
+            cell.get("logicalCellKeyV2Sha256"), "cell.logicalCellKeyV2Sha256"
+        ),
+        render_identity_v2=render_identity_v2,
+        extractor_version=_text(cell.get("extractorVersion"), "cell.extractorVersion"),
+    )
 
 
 def build_balanced_source_assignments(
@@ -558,7 +668,7 @@ def _parse_cell_samples(
     crop_labels: dict[str, str] = {}
     for index, raw_cell in enumerate(_sequence(cohort.get("cells"), "cells")):
         cell = _mapping(raw_cell, f"cells[{index}]")
-        if cohort.get("schemaVersion") == 3:
+        if cohort.get("schemaVersion") in {3, 4}:
             approved = _mapping(cell.get("approvedCrop"), "cell.approvedCrop")
             approved_sample_id = _sha256(
                 approved.get("cropSampleId"), "cell.approvedCrop.cropSampleId"
@@ -580,6 +690,24 @@ def _parse_cell_samples(
                     "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
                     "A verified symbol cell does not match its approved crop identity.",
                 )
+            if cohort.get("schemaVersion") == 4:
+                asset_mode = str(cell.get("assetMode", "legacy_file"))
+                if approved.get("assetMode") != asset_mode:
+                    raise TrainingDatasetBuildError(
+                        "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
+                        "A verified symbol cell does not match its approved asset mode.",
+                    )
+                if asset_mode == "virtual_source" and (
+                    approved.get("sourceGeometryRevisionId") != cell.get("sourceGeometryRevisionId")
+                    or approved.get("renderSpecChecksumSha256")
+                    != cell.get("renderSpecChecksumSha256")
+                    or approved.get("renderedPixelChecksumSha256")
+                    != cell.get("renderedPixelChecksumSha256")
+                ):
+                    raise TrainingDatasetBuildError(
+                        "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
+                        "A verified virtual cell differs from its approved render provenance.",
+                    )
         symbol_code = _text(cell.get("symbolCode"), "cell.symbolCode")
         symbol_id = catalog.get(symbol_code)
         if symbol_id is None:
@@ -600,9 +728,27 @@ def _parse_cell_samples(
                 "TRAINING_DATASET_CROP_LABEL_CONFLICT",
                 "Identical crop bytes have conflicting human labels.",
             )
-        crop_relative_path = _safe_relative_path(
-            cell.get("cropRelativePath"), "cell.cropRelativePath"
-        )
+        asset_mode = str(cell.get("assetMode", "legacy_file"))
+        crop_relative_path: str | None = None
+        virtual_source: _VirtualCropSource | None = None
+        if asset_mode == "legacy_file":
+            crop_relative_path = _safe_relative_path(
+                cell.get("cropRelativePath"), "cell.cropRelativePath"
+            )
+            crop_source_path = _managed_crop(data_root, crop_relative_path, crop_checksum)
+        elif asset_mode == "virtual_source" and cohort.get("schemaVersion") == 4:
+            virtual_source = _parse_virtual_crop_source(
+                cell,
+                data_root=data_root,
+                crop_checksum=crop_checksum,
+                cell_index=cell_index,
+            )
+            crop_source_path = virtual_source.source_path
+        else:
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_ASSET_MODE_UNSUPPORTED",
+                "The verified symbol cell uses an unsupported asset mode.",
+            )
         sample_id = _sha256(cell.get("cropSampleId"), "cell.cropSampleId")
         if sample_id in sample_ids:
             raise TrainingDatasetBuildError(
@@ -617,7 +763,7 @@ def _parse_cell_samples(
             _Sample(
                 sample_id=sample_id,
                 crop_checksum=crop_checksum,
-                crop_source_path=_managed_crop(data_root, crop_relative_path, crop_checksum),
+                crop_source_path=crop_source_path,
                 asset_relative_path=PurePosixPath(
                     "assets", crop_checksum[:2], f"{crop_checksum}.png"
                 ).as_posix(),
@@ -631,6 +777,8 @@ def _parse_cell_samples(
                 review_item_id=_text(cell.get("reviewItemId"), "cell.reviewItemId"),
                 sequence_number=_integer(cell.get("sequenceNumber"), "cell.sequenceNumber"),
                 cell_index=cell_index,
+                asset_mode=asset_mode,
+                virtual_source=virtual_source,
             )
         )
     if not samples:
@@ -656,6 +804,7 @@ def _is_symbol_cell_cohort(cohort: Mapping[str, object]) -> bool:
     return cohort.get("datasetKind") in {
         "verified-symbol-cell-training-cohort-v2",
         "verified-symbol-cell-training-cohort-v3-crop-provenance",
+        "verified-symbol-cell-training-cohort-v4-virtual-provenance",
     }
 
 
@@ -816,6 +965,83 @@ def _copy_asset(source: Path, destination: Path) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def _materialize_sample_asset(sample: _Sample, destination: Path) -> None:
+    if sample.asset_mode == "legacy_file":
+        _copy_asset(sample.crop_source_path, destination)
+        return
+    virtual = sample.virtual_source
+    if sample.asset_mode != "virtual_source" or virtual is None:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_ASSET_MODE_UNSUPPORTED",
+            "A training sample has incomplete virtual asset provenance.",
+        )
+    loader = CanonicalSourceLoader()
+    temporary: Path | None = None
+    try:
+        frame = loader.load(
+            virtual.source_path,
+            expected_source_checksum_sha256=virtual.source_checksum,
+        )
+        if frame.source.normalized_pixel_checksum_sha256 != virtual.normalized_pixel_checksum:
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_SOURCE_CHECKSUM_MISMATCH",
+                "The virtual training source differs from its normalized-pixel checksum.",
+            )
+        rgb = render_persisted_virtual_cell_rgb(
+            frame,
+            render_spec=virtual.render_spec,
+            expected_render_spec_checksum_sha256=virtual.render_spec_checksum,
+            expected_rendered_pixel_checksum_sha256=virtual.rendered_pixel_checksum,
+            expected_cell_index=virtual.cell_index,
+            expected_row_index=virtual.row_index,
+            expected_column_index=virtual.column_index,
+            expected_logical_cell_key_sha256=virtual.logical_cell_key,
+            expected_logical_cell_key_v2_sha256=virtual.logical_cell_key_v2,
+            expected_extractor_version=virtual.extractor_version,
+        )
+        filesystem_destination = long_path_aware(destination)
+        filesystem_destination.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            dir=filesystem_destination.parent,
+            prefix=".tmp-",
+            suffix=".png",
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+        Image.fromarray(rgb, mode="RGB").save(temporary, format="PNG", compress_level=9)
+        os.replace(temporary, filesystem_destination)
+        temporary = None
+    except TrainingDatasetBuildError:
+        raise
+    except (CanonicalSourceLoadError, VirtualCellExtractionError) as error:
+        raise TrainingDatasetBuildError(
+            getattr(error, "code", "TRAINING_DATASET_VIRTUAL_RENDER_FAILED"), str(error)
+        ) from error
+    except OSError as error:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_WRITE_FAILED",
+            "A virtual training dataset asset could not be written.",
+        ) from error
+    finally:
+        loader.clear()
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _observed_dataset_asset_checksum(sample: _Sample, path: Path) -> str:
+    if sample.asset_mode == "legacy_file":
+        return hashlib.sha256(long_path_aware(path).read_bytes()).hexdigest()
+    try:
+        with Image.open(long_path_aware(path)) as image:
+            rgb = cast(NDArray[np.uint8], np.asarray(image.convert("RGB"), dtype=np.uint8))
+    except (OSError, UnidentifiedImageError) as error:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_ARTIFACT_INCOMPLETE",
+            "An existing virtual dataset crop is not a decodable image.",
+        ) from error
+    return cast(str, rgb_pixel_checksum_sha256(rgb))
+
+
 def _verify_existing(
     artifact_directory: Path,
     manifest_path: Path,
@@ -842,7 +1068,7 @@ def _verify_existing(
             *PurePosixPath(_asset_relative_path(sample, config)).parts
         )
         try:
-            observed = hashlib.sha256(long_path_aware(asset).read_bytes()).hexdigest()
+            observed = _observed_dataset_asset_checksum(sample, asset)
         except OSError as error:
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_ARTIFACT_INCOMPLETE",
@@ -928,8 +1154,8 @@ def build_cumulative_training_dataset(
                 if sample.crop_checksum in copied:
                     continue
                 copied.add(sample.crop_checksum)
-                _copy_asset(
-                    sample.crop_source_path,
+                _materialize_sample_asset(
+                    sample,
                     artifact_directory.joinpath(
                         *PurePosixPath(_asset_relative_path(sample, config)).parts
                     ),

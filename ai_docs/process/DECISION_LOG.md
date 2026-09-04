@@ -7531,3 +7531,18 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** repair manifest nadal jest jedynym źródłem decyzji, handoff
   można odtworzyć dla starej sesji, a cropowanie uzupełnień wymaga zgodności
   nazwy, obecności i SHA-256 każdego pliku.
+
+### D-333 — Kohorta symboli v4 odtwarza cropy wirtualne z proweniencji
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** zatwierdzony `virtual_source` nie wymaga źródłowego pliku cropa.
+  Manifest kohorty v4 zamraża pełną proweniencję renderu, a worker materializuje
+  PNG datasetu z managed original. Typ checksumy assetu jawnie rozróżnia hash
+  bajtów legacy od checksumy pikselowej RGB v0.10.
+- **Reason:** produkcyjny kontrakt v0.10 celowo nie zapisuje tysięcy cropów, lecz
+  stary builder uznawał ich brak za `missingAsset` i blokował trening mimo
+  zatwierdzonych etykiet.
+- **Consequences:** źródło, geometria, render spec i wynikowe piksele są
+  sprawdzane fail-closed bez dublowania cropów. Historyczne kohorty v1–v3 i
+  plikowe assety zachowują dotychczasową semantykę oraz odtwarzalność.

@@ -87,6 +87,13 @@ wyłącznie w celu reprodukcji istniejących iteracji.
 - źródła muszą być wyprowadzane zarówno z historycznych pełnych plansz, jak i
   z pojedynczo zatwierdzonych cropów; pusty wymagany split blokuje dataset przed
   rozpoczęciem pierwszej epoki,
+- zatwierdzony crop `virtual_source` jest pełnoprawnym źródłem treningowym bez
+  konieczności tworzenia trwałego pliku cropa; kohorta musi zamrozić pełną
+  checksum-bound proweniencję renderu, a builder przed treningiem odtwarza
+  piksele z managed original i sprawdza ich checksumę RGB,
+- brak źródła lub drift source geometry revision, render spec, zatwierdzonej
+  proweniencji albo checksumy pikseli wyklucza próbkę fail-closed; nie wolno
+  zastępować jej cropem legacy ani bieżącą geometrią,
 - stały zestaw kontrolny nie może zostać włączony do treningu kolejnej wersji,
 - raport pokazuje liczność per symbol, źródło i część podziału,
 - brak wymaganej reprezentacji klasy blokuje promocję albo wymaga jawnego

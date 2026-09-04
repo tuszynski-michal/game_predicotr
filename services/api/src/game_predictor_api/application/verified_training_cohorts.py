@@ -17,6 +17,8 @@ from game_predictor_api.domain.image_reviews import (
     canonical_image_review_bytes,
 )
 from game_predictor_api.domain.symbol_cell_training_cohorts import (
+    SYMBOL_CELL_TRAINING_COHORT_DATASET_KIND,
+    SYMBOL_CELL_TRAINING_COHORT_SCHEMA_VERSION,
     ApprovedSymbolCellCandidate,
     build_symbol_cell_training_manifest,
     select_symbol_cell_training_samples,
@@ -336,8 +338,8 @@ class VerifiedTrainingCohortService:
             rejected_item_count=0,
             incomplete_item_count=0,
             warnings=warnings,
-            dataset_kind="verified-symbol-cell-training-cohort-v2",
-            manifest_schema_version=2,
+            dataset_kind=SYMBOL_CELL_TRAINING_COHORT_DATASET_KIND,
+            manifest_schema_version=SYMBOL_CELL_TRAINING_COHORT_SCHEMA_VERSION,
             cells=tuple(cast(Sequence[Mapping[str, object]], manifest["cells"])),
             training_exclusions=inventory.exclusions,
         )

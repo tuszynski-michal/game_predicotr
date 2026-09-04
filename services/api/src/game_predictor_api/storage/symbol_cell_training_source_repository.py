@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +21,7 @@ from game_predictor_api.application.verified_training_cohorts import (
     SymbolCellTrainingSourceInventory,
     SymbolCellTrainingSourceRepository,
 )
+from game_predictor_api.application.virtual_cell_previews import render_virtual_symbol_cell_png
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_reviews import ImageReviewConflictError
 from game_predictor_api.domain.image_symbol_reviews import (
@@ -27,6 +29,8 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellAssignmentSource,
     SymbolCellCropIdentity,
     SymbolCellReview,
+    SymbolCellReviewAsset,
+    SymbolCellReviewError,
     SymbolCellReviewState,
     is_symbol_cell_training_eligible,
 )
@@ -46,7 +50,8 @@ _MAX_DESCRIPTOR_WORKERS = 7
 class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepository):
     def __init__(self, session: Session, artifact_root: Path) -> None:
         self._session = session
-        self._managed_root = artifact_root.resolve() / "data"
+        self._artifact_root = artifact_root.resolve()
+        self._managed_root = self._artifact_root / "data"
 
     def active_symbol_codes(self, game_id: UUID) -> tuple[str, ...]:
         return tuple(
@@ -77,8 +82,12 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 WITH eligible AS (
                   SELECT c.*, s.code AS symbol_code,
                          rb.source_image_id AS source_image_id,
+                         rb.geometry_revision AS current_geometry_revision,
+                         rb.source_geometry_revision_id AS current_source_geometry_revision_id,
                          src.relative_path AS source_relative_path,
                          src.checksum_sha256 AS source_checksum_sha256,
+                         sgr.normalized_pixel_checksum_sha256 AS normalized_pixel_checksum_sha256,
+                         sgr.geometry_checksum_sha256 AS geometry_checksum_sha256,
                          row_number() OVER (
                            PARTITION BY c.assigned_symbol_id, rb.source_image_id
                            ORDER BY (c.prediction_symbol_code IS DISTINCT FROM s.code) DESC,
@@ -88,6 +97,8 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                   JOIN symbols s ON s.id = c.assigned_symbol_id
                   JOIN recognized_boards rb ON rb.id = c.recognized_board_id
                   JOIN source_images src ON src.id = rb.source_image_id
+                  LEFT JOIN image_source_geometry_revisions sgr
+                    ON sgr.id = c.source_geometry_revision_id
                   JOIN image_board_search_fast_documents d
                     ON d.game_id = c.game_id
                    AND d.sequence_number = c.sequence_number
@@ -98,6 +109,17 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                     AND c.approved_crop_sample_id = c.crop_sample_id
                     AND c.approved_crop_checksum_sha256 = c.crop_checksum_sha256
                     AND c.approved_geometry_revision = c.geometry_revision
+                    AND (
+                      (c.asset_mode = 'legacy_file'
+                       AND coalesce(c.approved_asset_mode, 'legacy_file') = 'legacy_file')
+                      OR
+                      (c.asset_mode = 'virtual_source'
+                       AND c.approved_asset_mode = 'virtual_source'
+                       AND c.approved_source_geometry_revision_id = c.source_geometry_revision_id
+                       AND c.approved_render_spec_checksum_sha256 = c.render_spec_checksum_sha256
+                       AND c.approved_rendered_pixel_checksum_sha256 =
+                           c.rendered_pixel_checksum_sha256)
+                    )
                     AND s.status = 'active'
                 ), pooled AS (
                   SELECT *, row_number() OVER (
@@ -177,6 +199,18 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                         approved_crop_sample_id IS DISTINCT FROM crop_sample_id
                         OR approved_crop_checksum_sha256 IS DISTINCT FROM crop_checksum_sha256
                         OR approved_geometry_revision IS DISTINCT FROM geometry_revision
+                        OR coalesce(approved_asset_mode, 'legacy_file') IS DISTINCT FROM asset_mode
+                        OR (
+                          asset_mode = 'virtual_source'
+                          AND (
+                            approved_source_geometry_revision_id IS DISTINCT FROM
+                              source_geometry_revision_id
+                            OR approved_render_spec_checksum_sha256 IS DISTINCT FROM
+                              render_spec_checksum_sha256
+                            OR approved_rendered_pixel_checksum_sha256 IS DISTINCT FROM
+                              rendered_pixel_checksum_sha256
+                          )
+                        )
                       )
                   ) AS changed_crop_count
                 FROM current_cells
@@ -218,25 +252,57 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
     def _candidate(
         self, values: Mapping[str, Any], *, allow_cached: bool
     ) -> ApprovedSymbolCellCandidate:
-        relative_text = str(values["crop_relative_path"])
-        relative = PurePosixPath(relative_text)
-        if relative.is_absolute() or ".." in relative.parts or "\\" in relative_text:
-            raise ImageReviewConflictError(
-                "SYMBOL_CELL_TRAINING_CROP_UNSAFE",
-                "An approved symbol crop has an unsafe managed path.",
-            )
-        path = self._managed_root.joinpath(*relative.parts).resolve()
-        if not path.is_relative_to(self._managed_root) or path.is_symlink():
-            raise ImageReviewConflictError(
-                "SYMBOL_CELL_TRAINING_CROP_UNSAFE",
-                "An approved symbol crop is outside managed storage.",
-            )
         expected = str(values["crop_checksum_sha256"])
-        perceptual_hash, mean_rgb = (
-            _cached_verified_visual_descriptor(str(path), expected)
-            if allow_cached
-            else _verified_visual_descriptor(path, expected)
-        )
+        asset_mode = str(values.get("asset_mode", "legacy_file"))
+        relative: PurePosixPath | None = None
+        if asset_mode == "legacy_file":
+            relative_text = str(values["crop_relative_path"])
+            relative = PurePosixPath(relative_text)
+            if relative.is_absolute() or ".." in relative.parts or "\\" in relative_text:
+                raise ImageReviewConflictError(
+                    "SYMBOL_CELL_TRAINING_CROP_UNSAFE",
+                    "An approved symbol crop has an unsafe managed path.",
+                )
+            path = self._managed_root.joinpath(*relative.parts).resolve()
+            if not path.is_relative_to(self._managed_root) or path.is_symlink():
+                raise ImageReviewConflictError(
+                    "SYMBOL_CELL_TRAINING_CROP_UNSAFE",
+                    "An approved symbol crop is outside managed storage.",
+                )
+            perceptual_hash, mean_rgb = (
+                _cached_verified_visual_descriptor(str(path), expected)
+                if allow_cached
+                else _verified_visual_descriptor(path, expected)
+            )
+        elif asset_mode == "virtual_source":
+            asset = _virtual_asset(values)
+            perceptual_hash, mean_rgb = (
+                _cached_verified_virtual_visual_descriptor(
+                    str(self._artifact_root),
+                    str(asset.cell_review_id),
+                    asset.revision,
+                    asset.geometry_revision,
+                    asset.current_geometry_revision,
+                    str(asset.source_geometry_revision_id),
+                    str(asset.current_source_geometry_revision_id),
+                    str(asset.source_checksum_sha256),
+                    str(asset.normalized_pixel_checksum_sha256),
+                    str(asset.geometry_checksum_sha256),
+                    str(asset.logical_cell_key),
+                    json.dumps(asset.render_spec, separators=(",", ":"), sort_keys=True),
+                    str(asset.render_spec_checksum_sha256),
+                    str(asset.rendered_pixel_checksum_sha256),
+                    str(asset.extractor_version),
+                    expected,
+                )
+                if allow_cached
+                else _verified_virtual_visual_descriptor(self._artifact_root, asset, expected)
+            )
+        else:
+            raise ImageReviewConflictError(
+                "SYMBOL_CELL_TRAINING_CROP_INVALID",
+                "An approved symbol crop has an unsupported asset mode.",
+            )
         candidate = ApprovedSymbolCellCandidate(
             cell_review_id=values["id"],
             review_item_id=values["review_item_id"],
@@ -250,7 +316,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
             cell_revision=int(values["revision"]),
             geometry_revision=int(values["geometry_revision"]),
             crop_sample_id=str(values["crop_sample_id"]),
-            crop_relative_path=relative.as_posix(),
+            crop_relative_path=None if relative is None else relative.as_posix(),
             crop_checksum_sha256=expected,
             approved_crop_sample_id=str(values["approved_crop_sample_id"]),
             approved_crop_checksum_sha256=str(values["approved_crop_checksum_sha256"]),
@@ -261,6 +327,17 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
             prediction_symbol_code=values["prediction_symbol_code"],
             perceptual_hash_64=perceptual_hash,
             mean_rgb=mean_rgb,
+            asset_mode=asset_mode,
+            source_geometry_revision_id=values.get("source_geometry_revision_id"),
+            normalized_pixel_checksum_sha256=values.get("normalized_pixel_checksum_sha256"),
+            geometry_checksum_sha256=values.get("geometry_checksum_sha256"),
+            logical_cell_key=values.get("logical_cell_key"),
+            logical_cell_key_v2=values.get("logical_cell_key_v2"),
+            render_identity_v2_sha256=values.get("render_identity_v2_sha256"),
+            render_spec=values.get("render_spec"),
+            render_spec_checksum_sha256=values.get("render_spec_checksum_sha256"),
+            rendered_pixel_checksum_sha256=values.get("rendered_pixel_checksum_sha256"),
+            extractor_version=values.get("extractor_version"),
         )
         review = SymbolCellReview(
             crop=SymbolCellCropIdentity(
@@ -270,6 +347,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 crop_checksum_sha256=candidate.crop_checksum_sha256,
                 geometry_revision=candidate.geometry_revision,
                 cropper_version=candidate.cropper_version,
+                asset_mode=candidate.asset_mode,
             ),
             predicted_symbol_code=candidate.prediction_symbol_code,
             assigned_symbol_code=candidate.symbol_code,
@@ -315,6 +393,103 @@ def _visual_descriptor(content: bytes) -> tuple[int, tuple[int, int, int]]:
             "An approved symbol crop is not a decodable image.",
         ) from error
     return value, (round(red), round(green), round(blue))
+
+
+def _virtual_asset(values: Mapping[str, Any]) -> SymbolCellReviewAsset:
+    try:
+        return SymbolCellReviewAsset(
+            cell_review_id=values["id"],
+            crop_relative_path=None,
+            crop_checksum_sha256=str(values["crop_checksum_sha256"]),
+            geometry_revision=int(values["geometry_revision"]),
+            current_geometry_revision=int(values["current_geometry_revision"]),
+            revision=int(values["revision"]),
+            asset_mode="virtual_source",
+            source_checksum_sha256=str(values["source_checksum_sha256"]),
+            normalized_pixel_checksum_sha256=str(values["normalized_pixel_checksum_sha256"]),
+            source_geometry_revision_id=values["source_geometry_revision_id"],
+            current_source_geometry_revision_id=values["current_source_geometry_revision_id"],
+            geometry_checksum_sha256=str(values["geometry_checksum_sha256"]),
+            logical_cell_key=str(values["logical_cell_key"]),
+            render_spec=cast(Mapping[str, object], values["render_spec"]),
+            render_spec_checksum_sha256=str(values["render_spec_checksum_sha256"]),
+            rendered_pixel_checksum_sha256=str(values["rendered_pixel_checksum_sha256"]),
+            extractor_version=str(values["extractor_version"]),
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        raise ImageReviewConflictError(
+            "SYMBOL_CELL_TRAINING_CROP_INVALID",
+            "An approved virtual symbol crop has incomplete render provenance.",
+        ) from error
+
+
+def _verified_virtual_visual_descriptor(
+    artifact_root: Path,
+    asset: SymbolCellReviewAsset,
+    expected_checksum_sha256: str,
+) -> tuple[int, tuple[int, int, int]]:
+    if (
+        asset.rendered_pixel_checksum_sha256 != expected_checksum_sha256
+        or asset.crop_checksum_sha256 != expected_checksum_sha256
+    ):
+        raise ImageReviewConflictError(
+            "SYMBOL_CELL_TRAINING_CROP_CHANGED",
+            "An approved virtual symbol crop differs from its persisted pixel checksum.",
+        )
+    try:
+        return _visual_descriptor(
+            render_virtual_symbol_cell_png(artifact_root=artifact_root, asset=asset)
+        )
+    except SymbolCellReviewError as error:
+        code = (
+            "SYMBOL_CELL_TRAINING_CROP_MISSING"
+            if error.code == "SYMBOL_CELL_REVIEW_PREVIEW_SOURCE_UNAVAILABLE"
+            else "SYMBOL_CELL_TRAINING_CROP_CHANGED"
+        )
+        raise ImageReviewConflictError(code, str(error)) from error
+
+
+@lru_cache(maxsize=32_768)
+def _cached_verified_virtual_visual_descriptor(
+    artifact_root_text: str,
+    cell_review_id: str,
+    revision: int,
+    geometry_revision: int,
+    current_geometry_revision: int,
+    source_geometry_revision_id: str,
+    current_source_geometry_revision_id: str,
+    source_checksum_sha256: str,
+    normalized_pixel_checksum_sha256: str,
+    geometry_checksum_sha256: str,
+    logical_cell_key: str,
+    render_spec_json: str,
+    render_spec_checksum_sha256: str,
+    rendered_pixel_checksum_sha256: str,
+    extractor_version: str,
+    expected_checksum_sha256: str,
+) -> tuple[int, tuple[int, int, int]]:
+    asset = SymbolCellReviewAsset(
+        cell_review_id=UUID(cell_review_id),
+        crop_relative_path=None,
+        crop_checksum_sha256=expected_checksum_sha256,
+        geometry_revision=geometry_revision,
+        current_geometry_revision=current_geometry_revision,
+        revision=revision,
+        asset_mode="virtual_source",
+        source_checksum_sha256=source_checksum_sha256,
+        normalized_pixel_checksum_sha256=normalized_pixel_checksum_sha256,
+        source_geometry_revision_id=UUID(source_geometry_revision_id),
+        current_source_geometry_revision_id=UUID(current_source_geometry_revision_id),
+        geometry_checksum_sha256=geometry_checksum_sha256,
+        logical_cell_key=logical_cell_key,
+        render_spec=cast(Mapping[str, object], json.loads(render_spec_json)),
+        render_spec_checksum_sha256=render_spec_checksum_sha256,
+        rendered_pixel_checksum_sha256=rendered_pixel_checksum_sha256,
+        extractor_version=extractor_version,
+    )
+    return _verified_virtual_visual_descriptor(
+        Path(artifact_root_text), asset, expected_checksum_sha256
+    )
 
 
 def _verified_visual_descriptor(

@@ -497,6 +497,19 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   geometrii. Zatwierdzenie komórki zachowuje też zatwierdzoną proweniencję
   renderu, więc późniejsza mutacja nie łamie kontraktu treningowego.
 
+### Kohorty treningowe z cropów v0.10 — TASK-0443
+
+- Podgląd jakości modelu kwalifikuje bieżące, zatwierdzone komórki
+  `virtual_source` przez checksum-bound render z managed original zamiast
+  traktować brak fizycznego PNG jako `missingAsset`.
+- Manifest kohorty v4 zamraża pełną proweniencję renderu v0.10. Worker odtwarza
+  dokładne piksele dopiero przy materializacji datasetu i zapisuje je w jego
+  content-addressed katalogu; nie tworzy źródłowych duplikatów cropów.
+- Historyczne kohorty v1–v3 oraz plikowe cropy legacy pozostają odtwarzalne.
+- Read-only kontrola gry `777 v0.2` wykazała 472 wybrane próbki z 5 źródeł,
+  pokrycie wszystkich 8 aktywnych symboli, `missingAsset = 0` i
+  `canFreeze = true`. Nie zamrożono kohorty ani nie uruchomiono treningu.
+
 ### Bezpośredni wybór filtrów Weryfikacji symboli — TASK-0385
 
 - Gra i zakres symbolu startują jako niewybrane, więc samo wejście do zakładki

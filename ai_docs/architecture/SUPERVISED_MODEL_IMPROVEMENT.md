@@ -40,8 +40,9 @@ należą do `DATA_MODEL.md`.
 
 ### `verified_training_cohorts`
 
-Niezmienny manifest v1 pełnych plansz albo v2 pojedynczych, zatwierdzonych
-cropów symboli jednej gry.
+Niezmienny manifest v1 pełnych plansz, historyczne v2–v3 pojedynczych,
+zatwierdzonych cropów albo v4 pojedynczych cropów z jawnym trybem assetu i
+pełną proweniencją renderu `virtual_source` jednej gry.
 Zawiera co najmniej `game_id`, numer iteracji, checksumę manifestu, liczności,
 identyfikatory źródeł oraz czas i aktora zamrożenia.
 
@@ -93,6 +94,16 @@ są rozpatrywane przed zwykłymi zatwierdzeniami, a round-robin źródeł zapobi
 zdominowaniu kohorty przez jedną stronę. Cel to 1000, hard max 2000 przykładów
 na aktywny symbol. Historyczne manifesty pełnych plansz v1 pozostają
 odtwarzalne i nadal są obsługiwane przez builder datasetu.
+
+Manifest v4 nie wymaga fizycznego pliku cropa dla `virtual_source`. Zamraża
+source geometry revision, checksumę geometrii i znormalizowanych pikseli,
+logical-cell v1/v2, render identity v2, pełny render spec, wersję ekstraktora
+oraz checksumę wynikowych pikseli. Preview oblicza deskryptor przez ten sam
+checksum-bound renderer co podgląd komórki. Builder datasetu odtwarza crop z
+managed original, ponownie sprawdza źródło, render spec i checksumę RGB, a
+dopiero potem zapisuje PNG w content-addressed katalogu datasetu. Manifest
+datasetu rozróżnia checksumę bajtów legacy od `rgb-pixel-v1`, dzięki czemu
+kodowanie PNG nie jest mylone z tożsamością pikseli v0.10.
 
 Read-only preview nie blokuje gry ani pozycji review. Dla wszystkich pozycji
 czyta lekką projekcję stanu potrzebną do deterministycznego manifestu, natomiast

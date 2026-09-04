@@ -613,6 +613,7 @@ def _prepared_data(root: Path, artifact: Any) -> PreparedTrainingData:
                 source_image_checksum=str(row["sourceImageChecksumSha256"]),
                 symbol_code=code,
                 class_index=indexes[code],
+                asset_checksum_kind=str(row.get("assetChecksumKind", "sha256-bytes")),
             )
         )
     return PreparedTrainingData(

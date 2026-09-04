@@ -7325,12 +7325,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Decision:** launcher `Zatwierdzanie cięcia siatki` otwiera Reviewer
   bezpośrednio pod docelowym adresem loopback. Nie listuje, nie otwiera, nie
   utrzymuje heartbeatów i nie zamyka reviewer work assignments oraz nie
-  oferuje linku online.
+  oferuje linku online. Stały endpoint `reviewer-local/start` pozostaje
+  obowiązkowym lifecycle'em procesu i nie jest assignmentem: launcher wymaga
+  jego gotowej odpowiedzi, a następnie ponawia scoped nawigację.
 - **Rationale:** geometria jest workflowem wyłącznie lokalnym. Asynchroniczny
   odczyt starego assignmentu powodował miganie `Utwórz link online`, a po
   załadowaniu zastępował go niepotrzebną akcją `Zakończ pracę lokalną`.
 - **Consequences:** ekran ma jeden stabilny przycisk `Otwórz lokalnie`; osobny
   purpose-scoped zdalny workflow ręcznej selekcji zdjęć pozostaje bez zmian.
+  Zatrzymany albo nieaktualny proces nie może pozostawić użytkownika na
+  `ERR_CONNECTION_REFUSED`.
 
 ### D-320 — Profil siatki zachowuje 36 niezależnych narożników źródła
 

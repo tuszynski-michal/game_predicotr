@@ -591,9 +591,11 @@ pełnych plansz i ma:
   krótkim statusem; techniczne ID wybranego joba jest widoczne osobno, a długa
   etykieta nie poszerza bez ograniczenia kontrolki,
 - mieć jeden przycisk `Otwórz lokalnie`, który bez tworzenia assignmentu,
-  sesji, kodu ani tunelu otwiera wybraną grę i import bezpośrednio w Reviewerze
-  na porcie loopback `3001`; sekcja nie pokazuje kontrolek online, stanu
-  ingressu, aktywnych prac ani akcji kończenia pracy,
+  sesji, kodu ani tunelu uruchamia albo ponownie wykorzystuje proces Reviewera
+  przez stały endpoint `reviewer-local/start`; dopiero po potwierdzeniu gotowego
+  targetu loopback na porcie `3001` ponawia nawigację przygotowanego okna na
+  wybraną grę i import; sekcja nie pokazuje kontrolek online, stanu ingressu,
+  aktywnych prac ani akcji kończenia pracy,
 - działać wyłącznie ze strony Admina otwartej przez loopback; zablokowane nowe
   okno pozostawia właścicielowi widoczny, ręczny link do dokładnie tego samego
   lokalnego scope'u,

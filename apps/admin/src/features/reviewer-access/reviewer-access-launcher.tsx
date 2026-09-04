@@ -7,7 +7,7 @@ import type {
   ImageGridReviewPageResponse,
   JobResponse,
 } from '@game-predictor/admin-api-client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
@@ -24,8 +24,11 @@ import {
 } from '@/features/reviewer-access/reviewer-access-state';
 import {
   buildPreparedLocalReviewUrl,
+  closePreparedLocalReviewerWindow,
+  navigatePreparedLocalReviewerWindow,
   prepareLocalReviewerWindow,
 } from '@/features/reviewer-access/reviewer-local-window';
+import { startLocalReviewerProcess } from '@/features/reviewer-access/reviewer-local-start';
 
 type GridReviewLauncherClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
@@ -34,6 +37,7 @@ type GridReviewLauncherClient = Pick<
   | 'listReadyBrowserImageSelections'
   | 'listImageGridReviews'
   | 'listPendingBoardCellGeometry'
+  | 'startLocalReviewer'
 >;
 
 export function ReviewerAccessLauncher({
@@ -68,6 +72,8 @@ export function ReviewerAccessLauncher({
   const [deferredGeometryCounts, setDeferredGeometryCounts] =
     useState<BoardCellGeometryJobCountsResponse | null>(null);
   const [localReviewUrl, setLocalReviewUrl] = useState<string | null>(null);
+  const [openingLocal, setOpeningLocal] = useState(false);
+  const openingLocalRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -201,13 +207,15 @@ export function ReviewerAccessLauncher({
       jobId !== '' &&
       !loading &&
       !reviewContextLoading &&
+      !openingLocal &&
       hasReviewerWork(gridReviewCounts, deferredGeometryCounts)
     );
   }
 
-  function launchLocalReviewer() {
-    if (!canOpenWork()) return;
+  async function launchLocalReviewer() {
+    if (!canOpenWork() || openingLocalRef.current) return;
     setError('');
+    setLocalReviewUrl(null);
     const reviewUrl = buildPreparedLocalReviewUrl(window.location.href, {
       gameId,
       importJobId: jobId,
@@ -219,16 +227,35 @@ export function ReviewerAccessLauncher({
       );
       return;
     }
-    setLocalReviewUrl(reviewUrl);
     const reviewerWindow = prepareLocalReviewerWindow(
       window.location.href,
       { gameId, importJobId: jobId },
       (url, target) => window.open(url, target),
     );
-    if (reviewerWindow === null) {
-      setError(
-        'Przeglądarka zablokowała nowe okno. Otwórz lokalny Reviewer z linku poniżej.',
-      );
+    openingLocalRef.current = true;
+    setOpeningLocal(true);
+    try {
+      const result = await startLocalReviewerProcess(api);
+      if (!result.ok) {
+        closePreparedLocalReviewerWindow(reviewerWindow);
+        setError(result.error);
+        return;
+      }
+      setLocalReviewUrl(reviewUrl);
+      if (reviewerWindow === null) {
+        setError(
+          'Przeglądarka zablokowała nowe okno. Otwórz lokalny Reviewer z linku poniżej.',
+        );
+        return;
+      }
+      if (!navigatePreparedLocalReviewerWindow(reviewerWindow, reviewUrl)) {
+        setError(
+          'Reviewer działa, ale nie udało się odświeżyć jego okna. Otwórz go z linku poniżej.',
+        );
+      }
+    } finally {
+      openingLocalRef.current = false;
+      setOpeningLocal(false);
     }
   }
 
@@ -254,7 +281,7 @@ export function ReviewerAccessLauncher({
             <label>
               Gra
               <select
-                disabled={loading}
+                disabled={loading || openingLocal}
                 onChange={(event) => {
                   const nextGameId = event.target.value;
                   setGameId(nextGameId);
@@ -278,7 +305,7 @@ export function ReviewerAccessLauncher({
               Gotowy import plansz
               <select
                 className="reviewerImportSelect"
-                disabled={loading || reviewContextLoading}
+                disabled={loading || reviewContextLoading || openingLocal}
                 onChange={(event) => {
                   setJobId(event.target.value);
                   setGridReviewCounts(null);
@@ -307,10 +334,10 @@ export function ReviewerAccessLauncher({
           <button
             className="secondaryButton"
             disabled={!canOpenWork()}
-            onClick={launchLocalReviewer}
+            onClick={() => void launchLocalReviewer()}
             type="button"
           >
-            Otwórz lokalnie
+            {openingLocal ? 'Uruchamianie lokalnie…' : 'Otwórz lokalnie'}
           </button>
         </div>
 

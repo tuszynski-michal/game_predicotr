@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   buildPreparedLocalReviewUrl,
+  closePreparedLocalReviewerWindow,
+  navigatePreparedLocalReviewerWindow,
   prepareLocalReviewerWindow,
 } from '../src/features/reviewer-access/reviewer-local-window.ts';
 
@@ -66,4 +68,38 @@ test('does not prepare a local Reviewer tab from a non-loopback Admin origin', (
     buildPreparedLocalReviewUrl('https://admin.example/reviews', input),
     null,
   );
+});
+
+test('retries the scoped navigation after the Reviewer reaches readiness', () => {
+  const reviewerWindow = {
+    close() {},
+    location: { href: 'browser-error://connection-refused' },
+    opener: null,
+  };
+  const reviewUrl = buildPreparedLocalReviewUrl(
+    'http://127.0.0.1:3000/',
+    input,
+  );
+
+  assert.equal(typeof reviewUrl, 'string');
+  assert.equal(
+    navigatePreparedLocalReviewerWindow(reviewerWindow, reviewUrl),
+    true,
+  );
+  assert.equal(reviewerWindow.location.href, reviewUrl);
+});
+
+test('closes a prepared window when process startup fails', () => {
+  let closed = false;
+  const reviewerWindow = {
+    close() {
+      closed = true;
+    },
+    location: { href: '' },
+    opener: null,
+  };
+
+  assert.doesNotThrow(() => closePreparedLocalReviewerWindow(reviewerWindow));
+  assert.equal(closed, true);
+  assert.doesNotThrow(() => closePreparedLocalReviewerWindow(null));
 });

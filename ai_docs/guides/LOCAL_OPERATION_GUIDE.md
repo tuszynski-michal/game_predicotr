@@ -407,8 +407,11 @@ Następnie:
 
 Lokalny widok geometrii jest obowiązującym workflowem i nie ma zmiennej
 przywracającej poprzedni ekran. Sekcja nie tworzy linków online, assignmentów,
-sesji ani kodów dostępu. Przycisk otwiera bezpośrednio lokalny URL wybranej gry
-i importu.
+sesji ani kodów dostępu. Przycisk najpierw uruchamia albo weryfikuje lokalny
+proces przez `reviewer-local/start`, a po jego gotowości ponownie otwiera
+dokładny URL wybranej gry i importu. Dzięki ponownej nawigacji karta nie
+pozostaje na `ERR_CONNECTION_REFUSED`, gdy port 3001 był zatrzymany przed
+kliknięciem.
 
 Po aktualizacji do 0.9 wykonaj migracje i resumowalny backfill przy wyłączonych
 API, workerze, Adminie i Reviewerze:

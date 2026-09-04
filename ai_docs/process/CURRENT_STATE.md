@@ -6,6 +6,17 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Przywrócenie startu lokalnego Reviewera — TASK-0436
+
+- `Otwórz lokalnie` ponownie wywołuje ograniczony `reviewer-local/start`, ale
+  nadal nie tworzy assignmentu, sesji, kodu ani tunelu.
+- Karta jest przygotowywana synchronicznie pod dokładnym scoped URL, a po
+  potwierdzeniu `reviewerReady = true` nawigacja jest ponawiana. Zastępuje to
+  ewentualny ekran `ERR_CONNECTION_REFUSED` powstały, gdy port 3001 był wcześniej
+  zatrzymany.
+- Błąd startu zamyka przygotowaną kartę, blokada popupu pokazuje ręczny link
+  dopiero po gotowości procesu, a guard zapobiega podwójnemu uruchomieniu.
+
 ### Jawne wznowienie cięcia i lekkie miniaturki — TASK-0435
 
 - Reload przywraca tylko uchwyty i nazwę sesji; dostęp do katalogu jest

@@ -12,6 +12,8 @@ test('launcher exposes only the import-scoped local grid review control', async 
 
   assert.match(source, /buildPreparedLocalReviewUrl/);
   assert.match(source, /prepareLocalReviewerWindow/);
+  assert.match(source, /startLocalReviewerProcess/);
+  assert.match(source, /navigatePreparedLocalReviewerWindow/);
   assert.match(source, /Otwórz lokalnie/);
   assert.doesNotMatch(source, /openOnlineReviewer/);
   assert.doesNotMatch(source, /openLocalReviewer/);
@@ -53,7 +55,7 @@ test('launcher exposes only the import-scoped local grid review control', async 
   assert.doesNotMatch(source, /game\.status === 'active'/);
 });
 
-test('local launch opens the final scoped URL without creating an assignment', async () => {
+test('local launch starts the process and retries the final scoped URL without creating an assignment', async () => {
   const source = await readFile(launcherPath, 'utf8');
   const launchStart = source.indexOf('function launchLocalReviewer()');
   const launchEnd = source.indexOf('\n\n  return (', launchStart);
@@ -61,11 +63,20 @@ test('local launch opens the final scoped URL without creating an assignment', a
 
   assert.match(launchSource, /buildPreparedLocalReviewUrl/);
   assert.match(launchSource, /prepareLocalReviewerWindow/);
+  assert.match(launchSource, /startLocalReviewerProcess\(api\)/);
   assert.match(launchSource, /setLocalReviewUrl\(reviewUrl\)/);
   assert.match(launchSource, /Przeglądarka zablokowała nowe okno/);
+  assert.match(launchSource, /navigatePreparedLocalReviewerWindow/);
+  assert.match(launchSource, /closePreparedLocalReviewerWindow/);
   assert.doesNotMatch(launchSource, /openLocalReviewer/);
   assert.doesNotMatch(launchSource, /refreshOverview/);
-  assert.doesNotMatch(launchSource, /navigatePreparedLocalReviewerWindow/);
-  assert.doesNotMatch(launchSource, /closePreparedLocalReviewerWindow/);
   assert.doesNotMatch(launchSource, /about:blank/);
+  assert.ok(
+    launchSource.indexOf('prepareLocalReviewerWindow') <
+      launchSource.indexOf('startLocalReviewerProcess'),
+  );
+  assert.ok(
+    launchSource.indexOf('startLocalReviewerProcess') <
+      launchSource.indexOf('navigatePreparedLocalReviewerWindow'),
+  );
 });

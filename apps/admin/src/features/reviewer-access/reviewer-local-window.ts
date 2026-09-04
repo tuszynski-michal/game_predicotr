@@ -1,4 +1,6 @@
 export type LocalReviewerWindow = {
+  close: () => void;
+  location: { href: string };
   opener: unknown;
 };
 
@@ -52,5 +54,27 @@ export function prepareLocalReviewerWindow(
     return reviewerWindow;
   } catch {
     return null;
+  }
+}
+
+export function navigatePreparedLocalReviewerWindow(
+  reviewerWindow: LocalReviewerWindow,
+  reviewUrl: string,
+): boolean {
+  try {
+    reviewerWindow.location.href = reviewUrl;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function closePreparedLocalReviewerWindow(
+  reviewerWindow: LocalReviewerWindow | null,
+): void {
+  try {
+    reviewerWindow?.close();
+  } catch {
+    // A disowned or already closed popup does not require further recovery.
   }
 }

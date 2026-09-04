@@ -1590,9 +1590,12 @@ Warstwa composition root tworzy `ReviewerWorkLifecycleService` z repozytoriami
 assignmentu i sesji współdzielącymi jedną transakcję SQL. Idempotentne ponowienie
 open zwraca istniejący scope bez ponownego ujawnienia kodu. Wygenerowany klient
 i historyczne integracje nie wywołują globalnego `start/stop`. Od TASK-0423
-launcher walidacji geometrii nie jest konsumentem tego kontraktu: tworzy
-docelowy URL loopback bezpośrednio i nie tworzy assignmentu. Purpose-scoped
-zdalna ręczna selekcja pozostaje oddzielną granicą.
+launcher walidacji geometrii nie jest konsumentem kontraktu assignmentów i
+tworzy docelowy URL loopback bezpośrednio. Nadal wywołuje ograniczony
+`reviewer-local/start`, aby uruchomić albo zweryfikować wspólny proces, a po
+odpowiedzi `reviewerReady = true` ponawia nawigację przygotowanego okna. Nie
+tworzy przy tym assignmentu ani sesji. Purpose-scoped zdalna ręczna selekcja
+pozostaje oddzielną granicą.
 
 Zdalny recenzent jest osobną granicą M8.7. Nie otrzymuje dostępu do PostgreSQL,
 workera ani pełnego Admin API. Jawnie włączona brama HTTPS udostępnia tylko

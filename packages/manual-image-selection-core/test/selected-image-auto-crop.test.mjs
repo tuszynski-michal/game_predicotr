@@ -33,7 +33,7 @@ test('finds a wide chromatic board panel and adds bounded padding', () => {
   });
   assert.equal(result.strategy, 'chromatic_panel');
   assert.equal(result.policyVersion, SELECTED_IMAGE_AUTO_CROP_POLICY);
-  assert.ok(result.crop.topY >= 350 && result.crop.topY <= 430);
+  assert.ok(result.crop.topY >= 250 && result.crop.topY <= 340);
   assert.ok(result.crop.bottomY >= 1400 && result.crop.bottomY <= 1500);
   assert.ok(result.confidence > 0.6);
 });

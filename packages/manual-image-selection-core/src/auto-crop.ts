@@ -6,9 +6,10 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 
 export const SELECTED_IMAGE_AUTO_CROP_POLICY =
-  'selected-image-board-band-v2' as const;
+  'selected-image-board-band-v3' as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH = 256 as const;
-export const SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO = 0.075 as const;
+/** Preserve more context above the detected board band for tilted cabinet screens. */
+export const SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO = 0.12 as const;
 export const SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO = 0.045 as const;
 
 export type SelectedImageAutoCropStrategy =

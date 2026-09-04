@@ -6,6 +6,13 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Większy górny margines automatycznego przycinania
+
+- Polityka lokalnego automatycznego cropa v3 pozostawia 12% wysokości nad
+  wykrytym panelem plansz oraz dotychczasowe 4,5% pod nim. Wynik obejmuje
+  więcej kontekstu nad górnym rzędem na pochyłych ekranach; zapisane pliki
+  `cut` i ich manifesty nie są automatycznie przeliczane.
+
 ### Odebrana siatka structured v3 — TASK-0448
 
 - `structured_lattice_v3` jest jawną polityką gry dla nowych runów; nie

@@ -222,8 +222,8 @@ Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
 wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 256 px. Wybiera
 najsilniejszy pionowy klaster panelu chromatycznego, następnie klaster tekstury,
 a w przypadku braku dowodu zwraca jawny pas domyślny. Adapter mapuje granice
-proporcjonalnie na kanoniczne piksele źródła. Polityka v2 stosuje asymetryczny
-padding 7,5% nad i 4,5% pod klastrem. Klaster, którego górny padding dotknąłby
+proporcjonalnie na kanoniczne piksele źródła. Polityka v3 stosuje asymetryczny
+padding 12% nad i 4,5% pod klastrem. Klaster, którego górny padding dotknąłby
 zera, jest traktowany jako fałszywy sygnał krawędziowy i zastępowany bezpiecznym
 pasem domyślnym. Cache propozycji jest ograniczony do bieżącej sesji i związany
 z nazwą, rozmiarem oraz mtime źródła.

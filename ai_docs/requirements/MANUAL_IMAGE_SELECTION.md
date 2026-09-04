@@ -562,7 +562,7 @@ ograniczoną kopię podglądową i proponuje pas obejmujący zwarty panel plansz
 Najpierw wykorzystuje sygnał chromatyczny panelu, a następnie ogólny sygnał
 szczegółów; brak pewnego wyniku daje jawny, bezpieczny pas domyślny. Propozycja
 nie jest decyzją i zawsze pozostaje edytowalna dwiema liniami. Górny margines
-wynosi 7,5% wysokości, dolny 4,5%. Kandydat, którego górny margines doszedłby
+wynosi 12% wysokości, dolny 4,5%. Kandydat, którego górny margines doszedłby
 do początku obrazu, jest odrzucany na rzecz pasa domyślnego zamiast emitować
 `topY = 0`.
 

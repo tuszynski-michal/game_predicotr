@@ -1179,6 +1179,16 @@
             "title": "Canonicalsequencenumbers",
             "type": "array"
           },
+          "geometrySystemicGuardPolicy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometrySystemicGuardPolicyJobPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "gridProfile": {
             "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
           },
@@ -4930,6 +4940,133 @@
         "title": "ImageGeometryRolloutStatusResponse",
         "type": "object"
       },
+      "ImageGeometrySystemicGuardJobProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeBoardCount": {
+            "minimum": 0.0,
+            "title": "Activeboardcount",
+            "type": "integer"
+          },
+          "finalCellGridReadyRate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Finalcellgridreadyrate",
+            "type": "number"
+          },
+          "invariantViolationCount": {
+            "minimum": 0.0,
+            "title": "Invariantviolationcount",
+            "type": "integer"
+          },
+          "pageRegistrationReadyRate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pageregistrationreadyrate",
+            "type": "number"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "policyVersion": {
+            "const": "image-geometry-systemic-guard-v1",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "reportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Reportchecksumsha256",
+            "type": "string"
+          },
+          "reportRelativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Reportrelativepath",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "sampleBoardCount": {
+            "minimum": 0.0,
+            "title": "Sampleboardcount",
+            "type": "integer"
+          },
+          "sampleSourceCount": {
+            "minimum": 0.0,
+            "title": "Samplesourcecount",
+            "type": "integer"
+          },
+          "sourceCount": {
+            "minimum": 0.0,
+            "title": "Sourcecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "required",
+          "passed",
+          "reportChecksumSha256",
+          "reportRelativePath",
+          "sourceCount",
+          "activeBoardCount",
+          "sampleSourceCount",
+          "sampleBoardCount",
+          "pageRegistrationReadyRate",
+          "finalCellGridReadyRate",
+          "invariantViolationCount"
+        ],
+        "title": "ImageGeometrySystemicGuardJobProgressResponse",
+        "type": "object"
+      },
+      "ImageGeometrySystemicGuardPolicyJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "minimumActiveBoardCount": {
+            "const": 500,
+            "title": "Minimumactiveboardcount",
+            "type": "integer"
+          },
+          "minimumFinalCellGridReadyRate": {
+            "const": 0.98,
+            "title": "Minimumfinalcellgridreadyrate",
+            "type": "number"
+          },
+          "minimumSourceCount": {
+            "const": 100,
+            "title": "Minimumsourcecount",
+            "type": "integer"
+          },
+          "policyVersion": {
+            "const": "image-geometry-systemic-guard-v1",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "requireZeroInvariantViolations": {
+            "const": true,
+            "title": "Requirezeroinvariantviolations",
+            "type": "boolean"
+          },
+          "sampleSourceLimit": {
+            "const": 25,
+            "title": "Samplesourcelimit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "minimumSourceCount",
+          "minimumActiveBoardCount",
+          "sampleSourceLimit",
+          "minimumFinalCellGridReadyRate",
+          "requireZeroInvariantViolations"
+        ],
+        "title": "ImageGeometrySystemicGuardPolicyJobPayload",
+        "type": "object"
+      },
       "ImageGridReviewApprovalCommand": {
         "additionalProperties": false,
         "properties": {
@@ -8525,6 +8662,16 @@
             "title": "Failed",
             "type": "integer"
           },
+          "geometrySystemicGuard": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometrySystemicGuardJobProgressResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "imageSelection": {
             "anyOf": [
               {
@@ -11621,6 +11768,16 @@
         "properties": {
           "boardCellProcessing": {
             "$ref": "#/components/schemas/BoardCellProcessingJobSnapshotPayload"
+          },
+          "geometrySystemicGuardPolicy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometrySystemicGuardPolicyJobPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "gridProfile": {
             "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"

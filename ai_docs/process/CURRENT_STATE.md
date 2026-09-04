@@ -6,6 +6,22 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Ochrona dużych importów geometrii v0.10 — TASK-0433
+
+- Import od 100 źródeł lub 500 aktywnych plansz wykonuje przed materializacją
+  deterministyczną próbę pełnego produkcyjnego toru do 15 cropów 3×5.
+- Wynik poniżej 98% albo naruszenie niezmiennika kończy się
+  `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION` przed `register_files` i bez tworzenia
+  masowej kolejki `board_cell_geometry_pending`.
+- Niezmienny raport wiąże obie checksumy manifestów, fingerprint pipeline'u i
+  próbę; retry i restart odtwarzają ten sam wynik, a progress API udostępnia go
+  Adminowi.
+- Nowe importy i reprocessy przypinają snapshot polityki ochronnej do
+  fingerprintu. Historyczne joby bez snapshotu zachowują dotychczasowy replay.
+- Admin pokazuje manifest/preflight, pokrycie, profil, silnik komórek i wynik
+  ochronny oraz rozdziela geometrię stron 3×3 od niepełnych siatek symboli 3×5.
+- Nie wykonano żadnej operacji na danych gry `777` ani historycznych jobach.
+
 ### Końcowa bramka profilu geometrii v0.10 — TASK-0432
 
 - Profil strony schema v2 nie może już uzyskać `candidate_ready` na podstawie

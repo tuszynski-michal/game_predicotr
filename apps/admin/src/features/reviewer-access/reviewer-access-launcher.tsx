@@ -242,8 +242,8 @@ export function ReviewerAccessLauncher({
           <p className="eyebrow">Osobna aplikacja</p>
           <h1>Zatwierdzanie cięcia siatki</h1>
           <p className="lead">
-            Otwórz lokalny Reviewer, aby zatwierdzić lub poprawić geometrię
-            wybranego importu.
+            Otwórz lokalny Reviewer, aby osobno zatwierdzić geometrię plansz 3×3
+            lub poprawić wewnętrzne siatki symboli 3×5.
           </p>
         </div>
       </header>
@@ -361,32 +361,30 @@ export function ReviewerAccessLauncher({
             aria-label="Stan plansz importu"
           >
             <div>
-              <dt>Wszystkie plansze</dt>
+              <dt>Geometria plansz ze stron 3×3</dt>
               <dd>
-                {(
-                  gridReviewTotal(gridReviewCounts) +
-                  deferredGeometryCounts.total
-                ).toLocaleString('pl-PL')}
+                {gridReviewTotal(gridReviewCounts).toLocaleString('pl-PL')}
               </dd>
             </div>
             <div>
-              <dt>Do walidacji</dt>
+              <dt>3×3 do walidacji</dt>
               <dd>
                 {gridReviewCounts.needsValidation.toLocaleString('pl-PL')}
               </dd>
             </div>
             <div>
-              <dt>Zakończone</dt>
+              <dt>3×3 zatwierdzone</dt>
               <dd>{gridReviewCounts.approved.toLocaleString('pl-PL')}</dd>
             </div>
             <div>
-              <dt>Do korekty siatki</dt>
+              <dt>3×3 do korekty obrysu</dt>
               <dd>
-                {(
-                  gridReviewCounts.needsCorrection +
-                  deferredGeometryCounts.pending
-                ).toLocaleString('pl-PL')}
+                {gridReviewCounts.needsCorrection.toLocaleString('pl-PL')}
               </dd>
+            </div>
+            <div>
+              <dt>Niepełne siatki symboli 3×5 do ręcznej korekty</dt>
+              <dd>{deferredGeometryCounts.pending.toLocaleString('pl-PL')}</dd>
             </div>
           </dl>
         ) : null}

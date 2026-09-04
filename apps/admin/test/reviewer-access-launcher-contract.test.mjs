@@ -37,7 +37,9 @@ test('launcher exposes only the import-scoped local grid review control', async 
   assert.match(source, /ID: <code>\{selectedJob\.id\}<\/code>/);
   assert.match(source, /Przejdź do Importu plansz/);
   assert.match(source, /gridReviewTotal\(gridReviewCounts\) === 0/);
-  assert.match(source, /Do korekty siatki/);
+  assert.match(source, /Geometria plansz ze stron 3×3/);
+  assert.match(source, /3×3 do korekty obrysu/);
+  assert.match(source, /Niepełne siatki symboli 3×5 do ręcznej korekty/);
   assert.match(
     source,
     /hasReviewerWork\(gridReviewCounts, deferredGeometryCounts\)/,

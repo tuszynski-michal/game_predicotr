@@ -665,6 +665,7 @@ export type BrowserImageImportJobPayload = {
    * Canonicalsequencenumbers
    */
   canonicalSequenceNumbers?: Array<number>;
+  geometrySystemicGuardPolicy?: ImageGeometrySystemicGuardPolicyJobPayload | null;
   gridProfile: GridProfileJobSnapshotPayload;
   imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
   /**
@@ -2810,6 +2811,90 @@ export type ImageGeometryRolloutStatusResponse = {
 };
 
 /**
+ * ImageGeometrySystemicGuardJobProgressResponse
+ */
+export type ImageGeometrySystemicGuardJobProgressResponse = {
+  /**
+   * Activeboardcount
+   */
+  activeBoardCount: number;
+  /**
+   * Finalcellgridreadyrate
+   */
+  finalCellGridReadyRate: number;
+  /**
+   * Invariantviolationcount
+   */
+  invariantViolationCount: number;
+  /**
+   * Pageregistrationreadyrate
+   */
+  pageRegistrationReadyRate: number;
+  /**
+   * Passed
+   */
+  passed: boolean;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'image-geometry-systemic-guard-v1';
+  /**
+   * Reportchecksumsha256
+   */
+  reportChecksumSha256: string;
+  /**
+   * Reportrelativepath
+   */
+  reportRelativePath: string;
+  /**
+   * Required
+   */
+  required: boolean;
+  /**
+   * Sampleboardcount
+   */
+  sampleBoardCount: number;
+  /**
+   * Samplesourcecount
+   */
+  sampleSourceCount: number;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+};
+
+/**
+ * ImageGeometrySystemicGuardPolicyJobPayload
+ */
+export type ImageGeometrySystemicGuardPolicyJobPayload = {
+  /**
+   * Minimumactiveboardcount
+   */
+  minimumActiveBoardCount: 500;
+  /**
+   * Minimumfinalcellgridreadyrate
+   */
+  minimumFinalCellGridReadyRate: 0.98;
+  /**
+   * Minimumsourcecount
+   */
+  minimumSourceCount: 100;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'image-geometry-systemic-guard-v1';
+  /**
+   * Requirezeroinvariantviolations
+   */
+  requireZeroInvariantViolations: true;
+  /**
+   * Samplesourcelimit
+   */
+  sampleSourceLimit: 25;
+};
+
+/**
  * ImageGridReviewApprovalCommand
  */
 export type ImageGridReviewApprovalCommand = {
@@ -4830,6 +4915,7 @@ export type JobProgressResponse = {
    * Failed
    */
   failed: number;
+  geometrySystemicGuard?: ImageGeometrySystemicGuardJobProgressResponse | null;
   imageSelection?: ImageSelectionJobProgressResponse | null;
   pageGeometryPreflight?: PageGeometryPreflightJobProgressResponse | null;
   /**
@@ -6598,6 +6684,7 @@ export type PendingSymbolReinferencePreviewResponse = {
  */
 export type PinnedManagedImageReprocessJobPayload = {
   boardCellProcessing: BoardCellProcessingJobSnapshotPayload;
+  geometrySystemicGuardPolicy?: ImageGeometrySystemicGuardPolicyJobPayload | null;
   gridProfile: GridProfileJobSnapshotPayload;
   imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
   /**

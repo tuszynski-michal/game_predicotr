@@ -76,6 +76,14 @@ from .board_cell_geometry_crops import (
 from .board_cell_geometry_deferred_writer import BoardCellGeometryDeferredWriter
 from .board_cell_geometry_estimator import estimate_board_cell_geometry
 from .geometry import ClassicalPageBoardDetector, Point, Quad
+from .large_import_geometry_guard import (
+    LARGE_IMPORT_GEOMETRY_GUARD_VERSION,
+    LARGE_IMPORT_GUARD_SAMPLE_LIMIT,
+    LARGE_IMPORT_MIN_BOARD_COUNT,
+    LARGE_IMPORT_MIN_READY_RATE,
+    LARGE_IMPORT_MIN_SOURCE_COUNT,
+    run_large_import_geometry_guard,
+)
 from .normalization import CanonicalSourceFrame, CanonicalSourceLoader, CanonicalSourceLoadError
 from .orchestration import ImageBatchHandler, ImageFileRegistration
 from .orchestration_store import SqlAlchemyImageBatchStore
@@ -254,13 +262,64 @@ class ProductionImageImportWorkflow:
             for original in pipeline_originals
             if original.sequence_range_start is not None and original.sequence_range_end is not None
         }
+        board_cell_processing = _board_cell_processing_snapshot(job)
+        geometry_guard_policy = _geometry_systemic_guard_policy(job)
+        geometry_guard = None
+        if board_cell_processing is not None and geometry_guard_policy is not None:
+            guard_suite = ProductionImageStageAdapterSuite(
+                self._artifact_root,
+                repository_root=self._repository_root,
+                symbol_model=_symbol_model_snapshot(job),
+                grid_profile=_grid_profile_snapshot(job),
+                page_registration_profile=_page_registration_profile_snapshot(job),
+                page_geometry_manifest=geometry_manifest,
+                image_selection_run_id=_image_selection_run_id(job),
+                attested_sequence_ranges=attested_sequence_ranges,
+                board_cell_processing=board_cell_processing,
+                geometry_rollout=_geometry_rollout_snapshot(job),
+                game_id=job.game_id,
+                normalization_adapter_version=_normalization_adapter_version(job),
+            )
+            geometry_guard = run_large_import_geometry_guard(
+                artifact_root=self._artifact_root,
+                job_id=job.id,
+                pipeline_fingerprint_sha256=_pipeline_fingerprint(job),
+                source_manifest_checksum_sha256=manifest.checksum_sha256,
+                page_geometry_manifest_checksum_sha256=(_page_geometry_manifest_checksum(job)),
+                originals=pipeline_originals,
+                geometry_entries=geometry_manifest,
+                suite=guard_suite,
+            )
+            if geometry_guard.required:
+                context.checkpoint(
+                    checkpoint_payload={
+                        "checkpoint_kind": "image-geometry-systemic-guard-v1",
+                        "geometry_systemic_guard": geometry_guard.checkpoint_payload(),
+                        "schema_version": 1,
+                    },
+                    stage="image_geometry_systemic_guard",
+                    current=all_source_count,
+                    total=all_source_count + source_count,
+                    success_count=job.success_count,
+                    failure_count=job.failure_count,
+                    review_count=job.review_count,
+                )
+                if not geometry_guard.passed:
+                    ready_rate = geometry_guard.final_cell_grid_ready_rate or 0.0
+                    raise JobHandlerError(
+                        "IMAGE_GEOMETRY_SYSTEMIC_REGRESSION",
+                        (
+                            "Representative final 3x5 geometry readiness "
+                            f"was {ready_rate:.2%}; at least 98.00% and zero "
+                            "geometry invariant violations are required."
+                        ),
+                    )
         self._batch_store.register_files(
             job.id,
             registrations=registrations,
             pipeline_fingerprint=_pipeline_fingerprint(job),
             registered_at=context.now(),
         )
-        board_cell_processing = _board_cell_processing_snapshot(job)
         adapters = ProductionImageStageAdapterSuite(
             self._artifact_root,
             repository_root=self._repository_root,
@@ -294,6 +353,11 @@ class ProductionImageImportWorkflow:
             current_offset=all_source_count,
             total=all_source_count + source_count,
             stage_prefix="image_pipeline",
+            checkpoint_extras=(
+                {"geometry_systemic_guard": geometry_guard.checkpoint_payload()}
+                if geometry_guard is not None and geometry_guard.required
+                else None
+            ),
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
 
@@ -394,12 +458,14 @@ class _ProgressWindowContext:
         total: int,
         stage_prefix: str,
         expose_result_counts: bool = True,
+        checkpoint_extras: Mapping[str, object] | None = None,
     ) -> None:
         self._context = context
         self._current_offset = current_offset
         self._total = total
         self._stage_prefix = stage_prefix
         self._expose_result_counts = expose_result_counts
+        self._checkpoint_extras = dict(checkpoint_extras or {})
 
     @property
     def job(self) -> Job:
@@ -421,6 +487,7 @@ class _ProgressWindowContext:
     def wait_for_storage(self, *, checkpoint_payload: dict[str, object]) -> None:
         self._context.wait_for_storage(
             checkpoint_payload={
+                **self._checkpoint_extras,
                 **checkpoint_payload,
                 "workflow_phase": self._stage_prefix,
             }
@@ -450,6 +517,7 @@ class _ProgressWindowContext:
         )
         self._context.checkpoint(
             checkpoint_payload={
+                **self._checkpoint_extras,
                 **checkpoint_payload,
                 "workflow_phase": self._stage_prefix,
             },
@@ -2198,6 +2266,43 @@ def _page_geometry_manifest(
             raise _page_manifest_error(job, "The managed source manifest is unavailable.")
         _validate_managed_reprocess_page_manifest(job, value, entries, managed_manifest)
     return cast(Mapping[str, object], entries)
+
+
+def _page_geometry_manifest_checksum(job: Job) -> str:
+    descriptor = job.input_payload.get("page_geometry_manifest")
+    checksum = descriptor.get("checksumSha256") if isinstance(descriptor, Mapping) else None
+    if (
+        not isinstance(checksum, str)
+        or len(checksum) != 64
+        or any(character not in "0123456789abcdef" for character in checksum)
+    ):
+        raise JobHandlerError(
+            "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED"
+            if job.input_payload.get("schema_version") == 6
+            else "IMAGE_PAGE_GEOMETRY_MANIFEST_REQUIRED",
+            "The v0.10 board-cell pipeline requires an exact page-geometry manifest.",
+        )
+    return checksum
+
+
+def _geometry_systemic_guard_policy(job: Job) -> Mapping[str, object] | None:
+    value = job.input_payload.get("geometry_systemic_guard_policy")
+    if value is None:
+        return None
+    expected: dict[str, object] = {
+        "policyVersion": LARGE_IMPORT_GEOMETRY_GUARD_VERSION,
+        "minimumSourceCount": LARGE_IMPORT_MIN_SOURCE_COUNT,
+        "minimumActiveBoardCount": LARGE_IMPORT_MIN_BOARD_COUNT,
+        "sampleSourceLimit": LARGE_IMPORT_GUARD_SAMPLE_LIMIT,
+        "minimumFinalCellGridReadyRate": LARGE_IMPORT_MIN_READY_RATE,
+        "requireZeroInvariantViolations": True,
+    }
+    if not isinstance(value, Mapping) or dict(value) != expected:
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_POLICY_INVALID",
+            "The pinned systemic geometry guard policy is invalid.",
+        )
+    return value
 
 
 def _validate_managed_reprocess_page_manifest(

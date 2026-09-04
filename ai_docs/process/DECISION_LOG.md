@@ -7422,3 +7422,21 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   0,5 pp regresji względem baseline'u. Stare schema-v2 profile wymagają
   ponownej walidacji dla nowych jobów; istniejące snapshoty pozostają
   odtwarzalne. Progów fixed v19 nie obniża się.
+
+### D-326 — Duży import przechodzi próbę geometrii przed materializacją
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** każdy nowy import v0.10 od 100 źródeł lub 500 plansz wykonuje
+  checksum-bound, deterministyczną próbę pełnego toru 3×3 → 3×5 przed
+  `register_files`. Wynik poniżej 98% albo naruszenie niezmiennika kończy job
+  kodem `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION` bez zapisania kolejki pending.
+- **Reason:** poprawna rejestracja dziewięciu plansz nie dowodzi poprawności
+  końcowych 15 cropów. Ochrona wyłącznie na etapie aktywacji profilu nie chroni
+  historycznego snapshotu ani nietypowego korpusu konkretnego importu.
+- **Consequences:** próba do 25 źródeł używa produkcyjnych adapterów bez writerów
+  domenowych, a jej niezmienny raport wraca w progressie joba. Admin rozdziela
+  liczniki stron 3×3 i siatek 3×5. Ręczna korekta pojedynczej planszy nie uczy
+  profilu; jego kohorta nadal wymaga kompletnego, jawnie zatwierdzonego źródła
+  dziewięciu quadów. Nowe joby przypinają snapshot polityki do fingerprintu;
+  historyczne payloady bez niego zachowują niezmieniony replay.

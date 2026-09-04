@@ -71,6 +71,14 @@ PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
 _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINT = (
     "8b876e8a7cdc25f0709bf27ece4e99b1c777231fa3fcef4aa31e617123825b0f"
 )
+_IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY: dict[str, object] = {
+    "policyVersion": "image-geometry-systemic-guard-v1",
+    "minimumSourceCount": 100,
+    "minimumActiveBoardCount": 500,
+    "sampleSourceLimit": 25,
+    "minimumFinalCellGridReadyRate": 0.98,
+    "requireZeroInvariantViolations": True,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -585,6 +593,12 @@ class JobService:
             input_payload["grid_profile"] = grid_profile
             if page_geometry_manifest is not None:
                 input_payload["page_geometry_manifest"] = dict(page_geometry_manifest)
+            input_payload["geometry_systemic_guard_policy"] = dict(
+                _IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY
+            )
+            effective_pipeline_fingerprint = _bind_geometry_guard_policy(
+                effective_pipeline_fingerprint
+            )
         if use_verified_board_cell_geometry:
             topology_reference = self._repository.get_or_pin_board_topology(game_id)
             if topology_reference is None:
@@ -920,6 +934,8 @@ class JobService:
         ).hexdigest()
         payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         payload["board_cell_processing"] = processing_snapshot
+        payload["geometry_systemic_guard_policy"] = dict(_IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY)
+        effective_pipeline_fingerprint = _bind_geometry_guard_policy(effective_pipeline_fingerprint)
         effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
             game_id=source.game_id,
             input_payload=payload,
@@ -1410,6 +1426,18 @@ def _is_filename_verification_job(job: Job) -> bool:
         and recognizer_fingerprint
         == _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINT
     )
+
+
+def _bind_geometry_guard_policy(pipeline_fingerprint: str) -> str:
+    policy_checksum = hashlib.sha256(
+        json.dumps(
+            _IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("ascii")
+    ).hexdigest()
+    return hashlib.sha256(f"{pipeline_fingerprint}:{policy_checksum}".encode("ascii")).hexdigest()
 
 
 def _page_geometry_manifest_fingerprint(value: dict[str, object] | None) -> str:

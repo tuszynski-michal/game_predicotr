@@ -842,3 +842,15 @@ technicznym: panel pokazuje źródła do korekty i instruuje operatora, aby
 poprawił jedną reprezentatywną stronę. Zapis uruchamia następny preflight z tą
 stroną jako kotwicą; tylko źródła z kompletną geometrią mogą zostać
 zaimportowane.
+
+Przed startem Admin pokazuje, czy źródłem geometrii jest dokładny manifest czy
+blokada, skróconą checksumę i identyfikator preflightu, pokrycie źródeł,
+fingerprint profilu strony, wersję silnika komórek oraz stan testu ochronnego.
+Dla dużego importu wynik ma początkowo jawny stan „oczekuje”, ponieważ jest
+liczony przez worker po bezpiecznym ingestowaniu oryginałów, ale przed
+materializacją domenową.
+
+Historia joba pokazuje zaliczony albo zablokowany raport z osobnymi
+skutecznościami 3×3 i 3×5. Launcher Reviewera nie sumuje tych domen: osobno
+wyświetla geometrię plansz ze stron 3×3 oraz kolejkę „Niepełne siatki symboli
+3×5 do ręcznej korekty”.

@@ -975,6 +975,8 @@ export type {
   ImageGeometryRolloutJobSnapshotPayload,
   ImageGeometryRolloutStartResponse,
   ImageGeometryRolloutStatusResponse,
+  ImageGeometrySystemicGuardJobProgressResponse,
+  ImageGeometrySystemicGuardPolicyJobPayload,
   ImageGridReviewApprovalCommand,
   ImageGridReviewApprovalResponse,
   ImageGridReviewCountsResponse,

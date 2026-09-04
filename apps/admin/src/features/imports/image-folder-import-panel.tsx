@@ -116,6 +116,18 @@ function imageImportOutcome(job: ImageImportJob) {
   };
 }
 
+function shortChecksum(value: string | null | undefined): string {
+  return value === null || value === undefined ? 'brak' : value.slice(0, 12);
+}
+
+function jobSnapshotText(job: ImageImportJob, field: string, key: string) {
+  const payload = job.inputPayload as unknown as Record<string, unknown>;
+  const snapshot = payload[field];
+  if (typeof snapshot !== 'object' || snapshot === null) return null;
+  const value = (snapshot as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value : null;
+}
+
 export function ImageFolderImportPanel({
   apiBaseUrl,
   client,
@@ -1050,6 +1062,54 @@ export function ImageFolderImportPanel({
                         <dt>Pierwszy nierozwiązany</dt>
                         <dd>{preflight.firstUnresolvedSequence ?? 'brak'}</dd>
                       </div>
+                      <div className="importMetric">
+                        <dt>Źródło geometrii 3×3</dt>
+                        <dd>
+                          {geometryManifestChecksum === null
+                            ? 'blokada — brak dokładnego manifestu'
+                            : 'dokładny manifest preflightu'}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Manifest / preflight</dt>
+                        <dd>
+                          {shortChecksum(geometryManifestChecksum)} ·{' '}
+                          {geometryPreflightJob?.id ?? 'brak'}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Pokrycie geometrii źródeł</dt>
+                        <dd>
+                          {geometryPreflightJob === null
+                            ? 'oczekuje'
+                            : `${geometryPreflightJob.progress.succeeded.toLocaleString('pl-PL')}/${preflight.sourceFileCount.toLocaleString('pl-PL')}`}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Profil strony</dt>
+                        <dd>
+                          {shortChecksum(
+                            preflight.gridProfileInferenceFingerprint,
+                          )}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Silnik komórek 3×5</dt>
+                        <dd>
+                          {boardCellProcessingModeLabel(
+                            boardCellProcessingMode,
+                          )}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Test ochronny ≥98%</dt>
+                        <dd>
+                          {preflight.sourceFileCount >= 100 ||
+                          preflight.newSequenceCount >= 500
+                            ? 'oczekuje — wykona się przed materializacją'
+                            : 'niewymagany dla małego importu'}
+                        </dd>
+                      </div>
                     </dl>
                   ) : null}
                   {active && preflight?.warnings.length ? (
@@ -1389,6 +1449,26 @@ export function ImageFolderImportPanel({
           <ul className="importCompactList">
             {jobs.slice(0, 5).map((job) => {
               const outcome = imageImportOutcome(job);
+              const pageManifestChecksum = jobSnapshotText(
+                job,
+                'pageGeometryManifest',
+                'checksumSha256',
+              );
+              const pagePreflightJobId = jobSnapshotText(
+                job,
+                'pageGeometryManifest',
+                'preflightJobId',
+              );
+              const gridProfileVersion = jobSnapshotText(
+                job,
+                'gridProfile',
+                'profileVersion',
+              );
+              const cellGeometryVersion = jobSnapshotText(
+                job,
+                'boardCellProcessing',
+                'geometryVersion',
+              );
               return (
                 <li key={job.id}>
                   <strong>
@@ -1401,6 +1481,48 @@ export function ImageFolderImportPanel({
                   <span>
                     Silnik cięcia plansz: {boardCellProcessingJobLabel(job)}
                   </span>
+                  {pageManifestChecksum !== null &&
+                  pagePreflightJobId !== null ? (
+                    <span>
+                      Geometria stron 3×3: dokładny manifest{' '}
+                      {shortChecksum(pageManifestChecksum)} · preflight{' '}
+                      {pagePreflightJobId}
+                    </span>
+                  ) : (
+                    <span>Geometria stron 3×3: brak manifestu</span>
+                  )}
+                  {gridProfileVersion !== null ? (
+                    <span>Profil strony: {gridProfileVersion}</span>
+                  ) : null}
+                  {cellGeometryVersion !== null ? (
+                    <span>Silnik komórek 3×5: {cellGeometryVersion}</span>
+                  ) : null}
+                  {job.progress.geometrySystemicGuard ? (
+                    <span>
+                      Test ochronny:{' '}
+                      {job.progress.geometrySystemicGuard.passed
+                        ? 'zaliczony'
+                        : 'zablokowany'}{' '}
+                      · 3×3{' '}
+                      {(
+                        job.progress.geometrySystemicGuard
+                          .pageRegistrationReadyRate * 100
+                      ).toFixed(2)}
+                      % · 3×5{' '}
+                      {(
+                        job.progress.geometrySystemicGuard
+                          .finalCellGridReadyRate * 100
+                      ).toFixed(2)}
+                      % · raport{' '}
+                      {shortChecksum(
+                        job.progress.geometrySystemicGuard.reportChecksumSha256,
+                      )}
+                    </span>
+                  ) : (
+                    <span>
+                      Test ochronny: niewymagany albo jeszcze nieuruchomiony
+                    </span>
+                  )}
                   {outcome === null ? null : (
                     <span>
                       Pipeline zdjęć: {outcome.pipelineImages}/

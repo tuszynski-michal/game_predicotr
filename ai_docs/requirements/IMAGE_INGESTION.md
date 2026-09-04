@@ -1290,3 +1290,31 @@ Ta ścieżka pozostaje fail-closed: manifest musi zgadzać checksumę i wymiary
 nakładania, a wszystkie padded cell quads muszą mieścić się w źródle. Brak
 któregokolwiek dowodu kieruje źródło do korekty i nie uruchamia inferencji.
 Historyczne fingerprinty oraz zachowanie silnika v1 nie zmieniają się.
+
+### Ochrona dużego importu przed regresją geometrii
+
+Import v0.10 obejmujący co najmniej 100 nierozwiązanych źródeł albo 500
+aktywnych plansz musi przed rejestracją plików pipeline'u wykonać
+deterministyczną próbę maksymalnie 25 źródeł. Próba obejmuje początek, środek i
+koniec zakresu oraz reprezentantów dostępnych bucketów jakości geometrii.
+Nowo tworzony job przypina wersję, progi i limit próby w snapshotcie polityki;
+historyczny job bez tego snapshotu zachowuje dotychczasowy replay.
+
+Każde źródło próby przechodzi dokładnie te same adaptery produkcyjne od
+rejestracji strony do końcowych 15 cropów siatki 3×5. Raport wiąże job,
+checksumę managed originals, checksumę manifestu strony, fingerprint pipeline'u
+i uporządkowaną listę źródeł. Jest zapisywany niezmiennie i ponownie używany po
+restarcie lub retry.
+
+Gotowość poniżej 98% albo dowolne naruszenie checksumy, kolejności, topologii,
+overlapu lub source support kończy job kodem
+`IMAGE_GEOMETRY_SYSTEMIC_REGRESSION`. Błąd występuje przed materializacją
+plików domenowych i przed zapisem `board_cell_geometry_pending`, dlatego
+systemowa regresja nie tworzy tysięcy pozycji ręcznej korekty. Małe importy
+zachowują dotychczasowy przepływ.
+
+Ręczna korekta jednej planszy zmienia wyłącznie jej audytowaną geometrię. Nie
+aktualizuje profilu strony ani stałego algorytmu v19. Do jawnie tworzonej
+kohorty profilu strony może wejść wyłącznie kompletne, zatwierdzone źródło z
+dziewięcioma quadami row-major; istniejący hard gate 36 narożników pozostaje
+obowiązkowy.

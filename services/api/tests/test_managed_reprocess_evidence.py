@@ -212,6 +212,14 @@ def test_managed_reprocess_v6_pins_exact_source_and_page_manifests(tmp_path: Pat
     assert job.input_payload["page_geometry_manifest"] == descriptor
     assert job.input_payload["source_manifest_sha256"] == "b" * 64
     assert len(str(job.input_payload["managed_source_manifest_checksum_sha256"])) == 64
+    assert job.input_payload["geometry_systemic_guard_policy"] == {
+        "policyVersion": "image-geometry-systemic-guard-v1",
+        "minimumSourceCount": 100,
+        "minimumActiveBoardCount": 500,
+        "sampleSourceLimit": 25,
+        "minimumFinalCellGridReadyRate": 0.98,
+        "requireZeroInvariantViolations": True,
+    }
     assert JobResponse.from_domain(job).input_payload.schema_version == 6
 
 

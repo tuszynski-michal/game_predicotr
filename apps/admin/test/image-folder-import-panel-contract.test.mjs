@@ -49,6 +49,9 @@ test('distinguishes the active import operation from a disabled prerequisite', (
 test('reports incomplete board creation and offers managed-original reprocessing', () => {
   assert.match(panelSource, /Pipeline zdjęć:/);
   assert.match(panelSource, /Silnik cięcia plansz:/);
+  assert.match(panelSource, /Źródło geometrii 3×3/);
+  assert.match(panelSource, /Test ochronny ≥98%/);
+  assert.match(panelSource, /geometrySystemicGuard/);
   assert.match(panelSource, /boardCellProcessingJobLabel/);
   assert.match(panelSource, /Wynik jest niekompletny/);
   assert.match(panelSource, /Przetwórz ponownie z oryginałów/);

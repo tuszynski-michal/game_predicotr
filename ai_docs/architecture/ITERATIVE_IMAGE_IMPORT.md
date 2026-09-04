@@ -216,6 +216,32 @@ nadpisywać poprzedni wynik. Aktywny profil schema v2 bez aktualnego raportu nie
 może zostać przypięty do nowego joba; job utworzony wcześniej zachowuje swój
 snapshot i replay.
 
+### Bramka systemowa przed materializacją dużego importu
+
+Po ingestowaniu managed originals, sprawdzeniu przypiętego manifestu strony i
+odfiltrowaniu źródeł kanonicznych worker oblicza rozmiar faktycznego pipeline'u.
+Dla co najmniej 100 źródeł albo 500 plansz wybiera deterministycznie do 25
+źródeł: granice, środek, równomierne pozycje oraz pierwszy reprezentant każdego
+dostępnego bucketu geometrii.
+
+API przypina `geometrySystemicGuardPolicy` wyłącznie do nowych browserowych
+importów i managed reprocessów, a checksumę polityki włącza do fingerprintu
+pipeline'u. Worker uruchamia bramkę tylko dla joba z tym dokładnym snapshotem.
+W ten sposób stary schema v5 bez polityki zachowuje replay, a nowy job nie może
+niepostrzeżenie ominąć bramki.
+
+Próba używa osobnej instancji `ProductionImageStageAdapterSuite` bez
+`BoardCellGeometryDeferredWriter`. Dzięki temu wykonuje produkcyjne discovery,
+normalizację, geometrię strony, fixed/structured geometrię komórek i finalne
+cropy, ale nie może zapisać kolejki ręcznej. Dopiero zaliczony raport pozwala
+wywołać `register_files` i uruchomić właściwy `ImageBatchHandler`.
+
+Raport `image-geometry-systemic-guard-v1` jest artefaktem append-only pod
+identyfikatorem joba. Jego fingerprint zawiera obie checksumy manifestów,
+fingerprint pipeline'u i listę próby. Checkpoint przechowuje checksumę raportu,
+pokrycie 3×3, skuteczność końcowej siatki 3×5 i liczbę naruszeń. Każdy późniejszy
+checkpoint zachowuje ten dowód, więc UI i restart widzą ten sam wynik.
+
 ### Przyrostowe kotwice preflightu strony
 
 Preflight strony może zbudować tymczasową kohortę auto-kotwic dla jednego

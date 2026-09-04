@@ -169,6 +169,15 @@ class PageGeometryManifestJobPayload(ApiModel):
     preflight_job_id: UUID
 
 
+class ImageGeometrySystemicGuardPolicyJobPayload(ApiModel):
+    policy_version: Literal["image-geometry-systemic-guard-v1"]
+    minimum_source_count: Literal[100]
+    minimum_active_board_count: Literal[500]
+    sample_source_limit: Literal[25]
+    minimum_final_cell_grid_ready_rate: Literal[0.98]
+    require_zero_invariant_violations: Literal[True]
+
+
 class BrowserImageImportJobPayload(ApiModel):
     schema_version: Literal[5]
     import_kind: Literal["image_directory"]
@@ -188,6 +197,7 @@ class BrowserImageImportJobPayload(ApiModel):
     page_geometry_manifest: PageGeometryManifestJobPayload | None = None
     board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
     image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
+    geometry_systemic_guard_policy: ImageGeometrySystemicGuardPolicyJobPayload | None = None
 
 
 class CuratedImageImportJobPayload(ApiModel):
@@ -247,6 +257,7 @@ class PinnedManagedImageReprocessJobPayload(ApiModel):
     grid_profile: GridProfileJobSnapshotPayload
     board_cell_processing: BoardCellProcessingJobSnapshotPayload
     image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
+    geometry_systemic_guard_policy: ImageGeometrySystemicGuardPolicyJobPayload | None = None
 
 
 class ImageSelectionJobPayload(ApiModel):
@@ -543,6 +554,21 @@ class BoardCellGeometryJobProgressResponse(ApiModel):
     superseded: int = Field(ge=0)
 
 
+class ImageGeometrySystemicGuardJobProgressResponse(ApiModel):
+    policy_version: Literal["image-geometry-systemic-guard-v1"]
+    required: bool
+    passed: bool
+    report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    report_relative_path: str = Field(min_length=1, max_length=2048)
+    source_count: int = Field(ge=0)
+    active_board_count: int = Field(ge=0)
+    sample_source_count: int = Field(ge=0)
+    sample_board_count: int = Field(ge=0)
+    page_registration_ready_rate: float = Field(ge=0, le=1)
+    final_cell_grid_ready_rate: float = Field(ge=0, le=1)
+    invariant_violation_count: int = Field(ge=0)
+
+
 class JobProgressResponse(ApiModel):
     current: int
     total: int | None
@@ -559,6 +585,10 @@ class JobProgressResponse(ApiModel):
         exclude_if=lambda value: value is None,
     )
     board_cell_geometry: BoardCellGeometryJobProgressResponse | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    geometry_systemic_guard: ImageGeometrySystemicGuardJobProgressResponse | None = Field(
         default=None,
         exclude_if=lambda value: value is None,
     )
@@ -641,6 +671,7 @@ class JobResponse(ApiModel):
                 image_selection=_image_selection_progress(job),
                 page_geometry_preflight=_page_geometry_preflight_progress(job),
                 board_cell_geometry=_board_cell_geometry_progress(job),
+                geometry_systemic_guard=_geometry_systemic_guard_progress(job),
             ),
             error=error,
             worker_version=job.worker_version,
@@ -692,6 +723,37 @@ def _board_cell_geometry_progress(job: Job) -> BoardCellGeometryJobProgressRespo
             pending=_progress_integer(raw["pending"]),
             resolved=_progress_integer(raw["resolved"]),
             superseded=_progress_integer(raw["superseded"]),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _geometry_systemic_guard_progress(
+    job: Job,
+) -> ImageGeometrySystemicGuardJobProgressResponse | None:
+    if job.job_type is not JobType.IMPORT or job.checkpoint_payload is None:
+        return None
+    raw = job.checkpoint_payload.get("geometry_systemic_guard")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        checksum = raw["reportChecksumSha256"]
+        relative_path = raw["reportRelativePath"]
+        if not isinstance(checksum, str) or not isinstance(relative_path, str):
+            return None
+        return ImageGeometrySystemicGuardJobProgressResponse(
+            policy_version=raw["policyVersion"],
+            required=raw["required"],
+            passed=raw["passed"],
+            report_checksum_sha256=checksum,
+            report_relative_path=relative_path,
+            source_count=_progress_integer(raw["sourceCount"]),
+            active_board_count=_progress_integer(raw["activeBoardCount"]),
+            sample_source_count=_progress_integer(raw["sampleSourceCount"]),
+            sample_board_count=_progress_integer(raw["sampleBoardCount"]),
+            page_registration_ready_rate=_progress_float(raw["pageRegistrationReadyRate"]),
+            final_cell_grid_ready_rate=_progress_float(raw["finalCellGridReadyRate"]),
+            invariant_violation_count=_progress_integer(raw["invariantViolationCount"]),
         )
     except (KeyError, TypeError, ValueError):
         return None

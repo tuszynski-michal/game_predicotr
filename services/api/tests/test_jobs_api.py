@@ -120,6 +120,56 @@ def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
     }
 
 
+def test_image_import_exposes_systemic_geometry_guard_progress() -> None:
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "import_kind": "image_directory",
+            "source_directory": r"C:\photos",
+            "pipeline_fingerprint": "a" * 64,
+        },
+        created_at=datetime(2026, 9, 4, tzinfo=UTC),
+    )
+    job = replace(
+        job,
+        checkpoint_payload={
+            "geometry_systemic_guard": {
+                "policyVersion": "image-geometry-systemic-guard-v1",
+                "required": True,
+                "passed": False,
+                "reportChecksumSha256": "b" * 64,
+                "reportRelativePath": "data/image-geometry-guards/report.json",
+                "sourceCount": 2_200,
+                "activeBoardCount": 19_800,
+                "sampleSourceCount": 25,
+                "sampleBoardCount": 225,
+                "pageRegistrationReadyRate": 1.0,
+                "finalCellGridReadyRate": 2 / 19_800,
+                "invariantViolationCount": 0,
+            }
+        },
+    )
+
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+
+    assert response["progress"]["geometrySystemicGuard"] == {
+        "policyVersion": "image-geometry-systemic-guard-v1",
+        "required": True,
+        "passed": False,
+        "reportChecksumSha256": "b" * 64,
+        "reportRelativePath": "data/image-geometry-guards/report.json",
+        "sourceCount": 2_200,
+        "activeBoardCount": 19_800,
+        "sampleSourceCount": 25,
+        "sampleBoardCount": 225,
+        "pageRegistrationReadyRate": 1.0,
+        "finalCellGridReadyRate": 2 / 19_800,
+        "invariantViolationCount": 0,
+    }
+
+
 def test_pending_grid_reinference_pins_the_accepted_v19_recrop_snapshot(
     tmp_path: Path,
 ) -> None:
@@ -346,6 +396,47 @@ def test_verified_v19_full_import_is_pinned_to_the_job(tmp_path: Path) -> None:
     )
     response = JobResponse.from_domain(pinned).model_dump(mode="json", by_alias=True)
     assert response["inputPayload"]["boardCellProcessing"] == processing
+
+
+def test_new_browser_import_pins_systemic_geometry_guard_policy(tmp_path: Path) -> None:
+    _client_value, game_id, service, _repository = _client(tmp_path)
+    source = tmp_path / "browser"
+    source.mkdir()
+
+    job = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="browser",
+        pipeline_fingerprint="a" * 64,
+        source_manifest_sha256="b" * 64,
+        start_mode="rerun_current_models",
+        page_geometry_manifest={
+            "checksumSha256": "c" * 64,
+            "relativePath": "data/page-geometry-manifests/test.json",
+            "preflightJobId": str(uuid4()),
+        },
+        use_verified_board_cell_geometry=True,
+    )
+
+    assert job.input_payload["schema_version"] == 5
+    assert job.input_payload["geometry_systemic_guard_policy"] == {
+        "policyVersion": "image-geometry-systemic-guard-v1",
+        "minimumSourceCount": 100,
+        "minimumActiveBoardCount": 500,
+        "sampleSourceLimit": 25,
+        "minimumFinalCellGridReadyRate": 0.98,
+        "requireZeroInvariantViolations": True,
+    }
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+    assert response["inputPayload"]["geometrySystemicGuardPolicy"] == {
+        "policyVersion": "image-geometry-systemic-guard-v1",
+        "minimumSourceCount": 100,
+        "minimumActiveBoardCount": 500,
+        "sampleSourceLimit": 25,
+        "minimumFinalCellGridReadyRate": 0.98,
+        "requireZeroInvariantViolations": True,
+    }
 
 
 def test_per_game_virtual_geometry_rollout_is_immutably_pinned_to_new_jobs(

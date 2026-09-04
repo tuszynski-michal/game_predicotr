@@ -2,6 +2,7 @@ import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import cv2
@@ -31,6 +32,9 @@ from game_predictor_worker.images.geometry import (
     DetectionResult,
     Point,
 )
+from game_predictor_worker.images.large_import_geometry_guard import (
+    LargeImportGeometryGuardResult,
+)
 from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_VERSION,
 )
@@ -49,11 +53,13 @@ from game_predictor_worker.images.pipeline_execution import (
 )
 from game_predictor_worker.images.production_workflow import (
     NORMALIZATION_ADAPTER_VERSION,
+    ProductionImageImportWorkflow,
     ProductionImageStageAdapterSuite,
     _attested_sequence_payload,
     _calibrated_quad,
     _expected_board_count,
     _filter_registered_geometry_originals,
+    _geometry_systemic_guard_policy,
     _page_geometry_manifest,
     _pending_reason,
     _ProgressWindowContext,
@@ -91,6 +97,139 @@ class _ProgressRecorder:
             failure_count=int(values["failure_count"]),
             review_count=int(values["review_count"]),
         )
+
+
+def test_systemic_geometry_guard_fails_before_file_registration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    originals = tuple(
+        ManagedOriginal(
+            checksum_sha256=f"{index + 1:064x}",
+            source_relative_path=f"seq_{index * 9 + 1}_{index * 9 + 9}.jpg",
+            managed_relative_path=f"data/originals/{index + 1:064x}.jpg",
+            size_bytes=100,
+            sequence_range_start=index * 9 + 1,
+            sequence_range_end=index * 9 + 9,
+            sequence_range_source="filename",
+        )
+        for index in range(56)
+    )
+    manifest = ManagedSourceManifest(
+        source_directory=tmp_path,
+        originals=originals,
+        content=b"manifest",
+        relative_path="data/originals/manifests/test.json",
+        checksum_sha256=hashlib.sha256(b"manifest").hexdigest(),
+    )
+    registered = False
+
+    class _BatchStore:
+        def register_files(self, *_args: object, **_kwargs: object) -> None:
+            nonlocal registered
+            registered = True
+
+    class _Context(_ProgressRecorder):
+        def now(self):  # type: ignore[no-untyped-def]
+            return self.job.created_at
+
+    workflow = ProductionImageImportWorkflow.__new__(ProductionImageImportWorkflow)
+    workflow._artifact_root = tmp_path  # type: ignore[attr-defined]
+    workflow._repository_root = tmp_path  # type: ignore[attr-defined]
+    workflow._original_store = SimpleNamespace(  # type: ignore[attr-defined]
+        load_or_create_manifest=lambda *_args, **_kwargs: manifest
+    )
+    workflow._source_handler = SimpleNamespace(  # type: ignore[attr-defined]
+        ingest=lambda *_args, **_kwargs: manifest
+    )
+    workflow._batch_store = _BatchStore()  # type: ignore[attr-defined]
+    workflow._record_browser_staging_handoff = (  # type: ignore[method-assign]
+        lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow._page_geometry_manifest",
+        lambda *_args, **_kwargs: {
+            original.checksum_sha256: {"status": "registered"} for original in originals
+        },
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow._board_cell_processing_snapshot",
+        lambda _job: {},
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow._page_geometry_manifest_checksum",
+        lambda _job: "c" * 64,
+    )
+    for helper_name in (
+        "_symbol_model_snapshot",
+        "_grid_profile_snapshot",
+        "_page_registration_profile_snapshot",
+        "_geometry_rollout_snapshot",
+    ):
+        monkeypatch.setattr(
+            f"game_predictor_worker.images.production_workflow.{helper_name}",
+            lambda _job: None,
+        )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.ProductionImageStageAdapterSuite",
+        lambda *_args, **_kwargs: SimpleNamespace(),
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.run_large_import_geometry_guard",
+        lambda **_kwargs: LargeImportGeometryGuardResult(
+            required=True,
+            passed=False,
+            report_checksum_sha256="d" * 64,
+            report_relative_path="data/image-geometry-guards/test.json",
+            source_count=56,
+            active_board_count=504,
+            sample_source_count=25,
+            sample_board_count=225,
+            page_registration_ready_rate=1.0,
+            final_cell_grid_ready_rate=0.01,
+            invariant_violation_count=0,
+        ),
+    )
+    context = _Context()
+    context.job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 5,
+            "import_kind": "image_directory",
+            "source_directory": str(tmp_path),
+            "pipeline_fingerprint": "a" * 64,
+            "geometry_systemic_guard_policy": {
+                "policyVersion": "image-geometry-systemic-guard-v1",
+                "minimumSourceCount": 100,
+                "minimumActiveBoardCount": 500,
+                "sampleSourceLimit": 25,
+                "minimumFinalCellGridReadyRate": 0.98,
+                "requireZeroInvariantViolations": True,
+            },
+        },
+    )
+
+    with pytest.raises(JobHandlerError) as captured:
+        workflow(context, context.job)
+
+    assert captured.value.code == "IMAGE_GEOMETRY_SYSTEMIC_REGRESSION"
+    assert not registered
+    assert context.values[-1]["stage"] == "image_geometry_systemic_guard"
+
+
+def test_historical_image_job_without_guard_policy_keeps_replay_contract() -> None:
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 5,
+            "import_kind": "image_directory",
+            "pipeline_fingerprint": "a" * 64,
+        },
+    )
+
+    assert _geometry_systemic_guard_policy(job) is None
 
 
 def _managed_manifest_for_page_geometry(
@@ -250,7 +389,7 @@ def test_pipeline_progress_does_not_count_source_ingestion_as_success() -> None:
             "success_count": 0,
             "failure_count": 2_200,
             "review_count": 0,
-        }
+        },
     ]
 
 
@@ -398,9 +537,7 @@ def test_attested_sequence_range_assigns_short_final_page_with_sparse_geometry()
 
     boards = payload["boards"]
     assert isinstance(boards, list)
-    assert [board["normalizedNumber"] for board in boards] == list(
-        range(499_996, 500_001)
-    )
+    assert [board["normalizedNumber"] for board in boards] == list(range(499_996, 500_001))
     assert all(board["sequenceSource"] == "filename" for board in boards)
     assert all(board["reviewReasons"] == [] for board in boards)
 

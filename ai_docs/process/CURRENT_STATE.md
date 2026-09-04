@@ -14,6 +14,13 @@ last_updated: 2026-09-03
   oraz journal operacji; IndexedDB przechowuje tylko uchwyty, kursor i widok.
 - Renderer plików i workspace operatora powstają w kolejnych taskach 0426–0427.
 
+### Bezpieczny renderer przyciętych zdjęć — TASK-0426
+
+- Admin potrafi utworzyć lub wznowić wyłącznie własny katalog `<źródło> cut`.
+- JPEG jest kanonizowany według EXIF dokładnie raz i zapisywany w rozdzielczości
+  1:1 jako pełnoszeroki pas; źródło pozostaje nietknięte.
+- Każdy zapis jest journalowany i sprawdzany SHA-256 przed finalizacją manifestu.
+
 Tor `0.5` został zamknięty. Ostatni commit implementacyjny to `v0.5.15`, a
 commit dokumentacyjny zamknięcia otrzymuje `v0.5.16`. Następny tor rozpoczyna
 się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i

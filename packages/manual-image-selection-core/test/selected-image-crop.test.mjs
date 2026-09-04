@@ -166,3 +166,33 @@ test('journals and deterministically recovers a crop write', () => {
   assert.equal(completed.entries[0].result?.outputChecksumSha256, HASH_B);
   assert.equal(completed.pendingOperation, null);
 });
+
+test('uses a separate compatible output for the filled-gaps handoff', () => {
+  const manifest = createSelectedImageCropManifest({
+    sourceDirectoryName: 'picked',
+    outputDirectoryName: 'picked filled-gaps cut',
+    sourceInventoryChecksumSha256: HASH_A,
+    entries: [
+      {
+        fileName: 'seq_10-18.jpg',
+        sizeBytes: 10,
+        lastModifiedMs: 1,
+        rangeStart: 10,
+        rangeEnd: 18,
+      },
+    ],
+    now: '2026-09-04T12:00:00.000Z',
+  });
+  assert.equal(manifest.outputDirectoryName, 'picked filled-gaps cut');
+  assert.throws(
+    () =>
+      createSelectedImageCropManifest({
+        sourceDirectoryName: 'picked',
+        outputDirectoryName: 'picked arbitrary',
+        sourceInventoryChecksumSha256: HASH_A,
+        entries: manifest.entries,
+        now: '2026-09-04T12:00:00.000Z',
+      }),
+    /OUTPUT_NAME_INVALID/,
+  );
+});

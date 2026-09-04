@@ -3,12 +3,14 @@ import test from 'node:test';
 
 import {
   createRepairManifest,
+  deriveFilledGapsManifest,
   deriveCollectionBounds,
   finalizePendingRepairOperation,
   findSequenceGaps,
   parseSequenceFileName,
   sortAndValidateSequenceFiles,
   validateRepairManifest,
+  validateFilledGapsManifest,
 } from '../src/repair.ts';
 
 test('parses and numerically sorts bounded seq files', () => {
@@ -147,4 +149,59 @@ test('finalizes an interrupted delete deterministically from the observed file s
       ),
     /REPAIR_PENDING_OPERATION_NOT_APPLIED/,
   );
+});
+
+test('derives only active, checksummed fills for the crop handoff', () => {
+  const base = createRepairManifest({
+    bounds: { end: 27, start: 1 },
+    files: sortAndValidateSequenceFiles(['seq_1-9.jpg']),
+    now: '2026-09-04T10:00:00.000Z',
+    repairKey: 'repair-1',
+    selectedDirectoryName: 'selected',
+  });
+  const fill = {
+    checksumSha256: 'a'.repeat(64),
+    expectedFileState: 'present',
+    fileName: 'seq_10-18.jpg',
+    id: 'fill-1',
+    kind: 'fill',
+    occurredAt: '2026-09-04T10:01:00.000Z',
+    rangeEnd: 18,
+    rangeStart: 10,
+    sourceIndex: 7,
+    sourcePath: 'better/photo-7.jpg',
+  };
+  const filled = finalizePendingRepairOperation(
+    { ...base, pendingOperation: fill },
+    'present',
+    '2026-09-04T10:02:00.000Z',
+  );
+  const handoff = deriveFilledGapsManifest(filled);
+  assert.deepEqual(handoff.entries, [
+    {
+      checksumSha256: 'a'.repeat(64),
+      end: 18,
+      fileName: 'seq_10-18.jpg',
+      fillOperationId: 'fill-1',
+      filledAt: '2026-09-04T10:01:00.000Z',
+      sourceIndex: 7,
+      sourcePath: 'better/photo-7.jpg',
+      start: 10,
+    },
+  ]);
+  assert.equal(validateFilledGapsManifest(handoff), handoff);
+
+  const undo = {
+    ...fill,
+    expectedFileState: 'absent',
+    id: 'undo-1',
+    kind: 'undo_fill',
+    occurredAt: '2026-09-04T10:03:00.000Z',
+  };
+  const undone = finalizePendingRepairOperation(
+    { ...filled, pendingOperation: undo },
+    'absent',
+    '2026-09-04T10:04:00.000Z',
+  );
+  assert.deepEqual(deriveFilledGapsManifest(undone).entries, []);
 });

@@ -30,6 +30,7 @@ import {
   saveSelectedImageCrop,
   setSelectedImageCropCorrection,
   type PreparedSelectedImageCropDirectory,
+  type SelectedImageCropSourceSelection,
 } from './selected-image-crop-storage';
 import {
   loadSelectedImageCropAtlases,
@@ -51,6 +52,8 @@ export function SelectedImageCropWorkspace() {
     useState<FileSystemDirectoryHandle | null>(null);
   const [directoryNames, setDirectoryNames] = useState<readonly string[]>([]);
   const [sourceDirectoryName, setSourceDirectoryName] = useState('');
+  const [sourceSelection, setSourceSelection] =
+    useState<SelectedImageCropSourceSelection>('all');
   const [prepared, setPrepared] =
     useState<PreparedSelectedImageCropDirectory | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -244,6 +247,7 @@ export function SelectedImageCropWorkspace() {
       restoredRef.current = saved;
       setParentDirectory(saved.parentDirectory);
       setSourceDirectoryName(saved.sourceDirectoryName);
+      setSourceSelection(saved.sourceSelection ?? 'all');
       const view = {
         scrollLeft: saved.scrollLeft,
         scrollTop: saved.scrollTop,
@@ -335,6 +339,7 @@ export function SelectedImageCropWorkspace() {
       void store.save({
         parentDirectory,
         sourceDirectoryName,
+        sourceSelection,
         currentIndex,
         ...viewRef.current,
         updatedAt: new Date().toISOString(),
@@ -346,6 +351,7 @@ export function SelectedImageCropWorkspace() {
     parentDirectory,
     prepared,
     sourceDirectoryName,
+    sourceSelection,
     store,
     viewer.zoom,
   ]);
@@ -387,6 +393,7 @@ export function SelectedImageCropWorkspace() {
       restoredRef.current = null;
       setDirectoryNames(names);
       setSourceDirectoryName(names[0] ?? '');
+      setSourceSelection('all');
       setPrepared(null);
       setAtlases(new Map());
       if (names.length === 0)
@@ -408,6 +415,7 @@ export function SelectedImageCropWorkspace() {
       const result = await prepareSelectedImageCropDirectory(
         parentDirectory,
         sourceDirectoryName,
+        sourceSelection,
       );
       prepareForReview(
         result,
@@ -443,6 +451,7 @@ export function SelectedImageCropWorkspace() {
       setParentDirectory(null);
       setDirectoryNames([]);
       setSourceDirectoryName('');
+      setSourceSelection('all');
       setNotice('Sesja została zachowana. Możesz wybrać inny katalog.');
     }
   }
@@ -673,6 +682,25 @@ export function SelectedImageCropWorkspace() {
                     {name}
                   </option>
                 ))}
+              </select>
+            </label>
+          ) : null}
+          {parentDirectory !== null && sourceDirectoryName !== '' ? (
+            <label>
+              Zakres do przycięcia
+              <select
+                disabled={busy}
+                onChange={(event) =>
+                  setSourceSelection(
+                    event.target.value as SelectedImageCropSourceSelection,
+                  )
+                }
+                value={sourceSelection}
+              >
+                <option value="all">Wszystkie pliki seq_*</option>
+                <option value="filled_gaps">
+                  Tylko uzupełnione luki z manifestu
+                </option>
               </select>
             </label>
           ) : null}
@@ -1053,7 +1081,15 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 function errorMessage(cause: unknown): string {
-  return cause instanceof Error
-    ? cause.message
-    : 'Nie udało się przygotować przyciętych zdjęć.';
+  if (!(cause instanceof Error))
+    return 'Nie udało się przygotować przyciętych zdjęć.';
+  if (cause.message === 'SELECTED_IMAGE_CROP_FILLED_GAPS_MANIFEST_MISSING')
+    return 'Ten katalog nie ma manifestu korekty z uzupełnionymi lukami.';
+  if (cause.message === 'SELECTED_IMAGE_CROP_FILLED_GAPS_EMPTY')
+    return 'Manifest nie zawiera aktywnych uzupełnień do przycięcia.';
+  if (cause.message.startsWith('SELECTED_IMAGE_CROP_FILLED_GAP_MISSING:'))
+    return `Brakuje pliku zapisanego w manifeście: ${cause.message.split(':')[1]}.`;
+  if (cause.message.startsWith('SELECTED_IMAGE_CROP_FILLED_GAP_CHANGED:'))
+    return `Plik uzupełnienia zmienił się od zapisu manifestu: ${cause.message.split(':')[1]}.`;
+  return cause.message;
 }

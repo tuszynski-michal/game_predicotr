@@ -523,6 +523,14 @@ obecność pliku i SHA-256 pozwalają ją bezpiecznie dokończyć albo wycofać
 logicznie. Osobna IndexedDB przechowuje tylko uchwyty, tryb, kursory i
 preferencje podglądu — nigdy JPEG-i.
 
+Każdy zapis repair manifestu synchronizuje też pochodny
+`manual-image-selection-filled-gaps-v1.json`. Zawiera on wyłącznie nadal
+aktywne pliki utworzone przez `fill`: docelową nazwę i zakres `seq_*`, SHA-256,
+ścieżkę źródłową, indeks oraz identyfikator i czas operacji. Cofnięte albo
+ponownie usunięte uzupełnienie znika z aktywnej listy. Repair manifest pozostaje
+źródłem prawdy, więc brakujący historyczny handoff można odtworzyć bez zmiany
+JPEG-ów.
+
 Operator wykonuje kolejno:
 
 1. wybiera katalog gotowych `seq_*`;
@@ -542,6 +550,12 @@ Operator wskazuje katalog nadrzędny z prawem zapisu i wybiera jego bezpośredni
 podkatalog zawierający poprawnie nazwane JPEG-i
 `seq_<start>-<end>.jpg|jpeg`. Narzędzie tworzy obok katalog
 `<nazwa źródła> cut`; źródła nigdy nie są modyfikowane.
+
+Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
+manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
+przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do
+osobnego katalogu `<nazwa źródła> filled-gaps cut`, dlatego pełna i ograniczona
+sesja nie współdzielą inwentarza ani postępu.
 
 Automat dla każdego jeszcze niezatwierdzonego zdjęcia niezależnie analizuje
 ograniczoną kopię podglądową i proponuje pas obejmujący zwarty panel plansz.

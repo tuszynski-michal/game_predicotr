@@ -11,6 +11,8 @@ export const SELECTED_IMAGE_CROP_DEFAULT_TOP_RATIO = 0.18 as const;
 export const SELECTED_IMAGE_CROP_DEFAULT_BOTTOM_RATIO = 0.86 as const;
 export const SELECTED_IMAGE_CROP_MINIMUM_HEIGHT_PX = 64 as const;
 export const SELECTED_IMAGE_CROP_MINIMUM_HEIGHT_RATIO = 0.1 as const;
+export const SELECTED_IMAGE_CROP_FILLED_GAPS_OUTPUT_SUFFIX =
+  ' filled-gaps cut' as const;
 
 export interface SelectedImageDimensions {
   readonly width: number;
@@ -172,7 +174,12 @@ export function createSelectedImageCropManifest(input: {
 }): SelectedImageCropManifestV1 {
   if (input.sourceDirectoryName.trim() === '')
     throw new Error('SELECTED_IMAGE_CROP_SOURCE_NAME_REQUIRED');
-  if (input.outputDirectoryName !== `${input.sourceDirectoryName} cut`)
+  if (
+    !isSelectedImageCropOutputName(
+      input.sourceDirectoryName,
+      input.outputDirectoryName,
+    )
+  )
     throw new Error('SELECTED_IMAGE_CROP_OUTPUT_NAME_INVALID');
   assertSha256(input.sourceInventoryChecksumSha256);
   const entries = validateSelectedImageCropSources(input.entries);
@@ -199,7 +206,10 @@ export function validateSelectedImageCropManifest(
   if (
     manifest.schemaVersion !== SELECTED_IMAGE_CROP_SCHEMA_VERSION ||
     manifest.rendererVersion !== SELECTED_IMAGE_CROP_RENDERER ||
-    manifest.outputDirectoryName !== `${manifest.sourceDirectoryName} cut`
+    !isSelectedImageCropOutputName(
+      manifest.sourceDirectoryName,
+      manifest.outputDirectoryName,
+    )
   ) {
     throw new Error('SELECTED_IMAGE_CROP_MANIFEST_INCOMPATIBLE');
   }
@@ -245,6 +255,17 @@ export function validateSelectedImageCropManifest(
     assertSha256(manifest.pendingOperation.expectedOutputChecksumSha256);
   }
   return manifest;
+}
+
+function isSelectedImageCropOutputName(
+  sourceDirectoryName: string,
+  outputDirectoryName: string,
+): boolean {
+  return (
+    outputDirectoryName === `${sourceDirectoryName} cut` ||
+    outputDirectoryName ===
+      `${sourceDirectoryName}${SELECTED_IMAGE_CROP_FILLED_GAPS_OUTPUT_SUFFIX}`
+  );
 }
 
 export function beginSelectedImageCropWrite(

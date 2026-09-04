@@ -180,6 +180,12 @@ jest zawsze read-only, a zapisany JPEG zachowuje oryginalne bajty. Delete undo
 przechowuje ostatni `File` wyłącznie w pamięci komponentu, więc nie jest
 możliwy po reloadzie.
 
+Pochodny `manual-image-selection-filled-gaps-v1.json` jest materializowany przy
+każdym zapisie repair manifestu. Jego wpisy są deterministycznie wyprowadzane z
+append-only operacji `fill` oraz bieżącego `activeFiles`; nie jest drugim
+źródłem decyzji. Konsument może odtworzyć brakujący handoff bezpośrednio z
+repair manifestu, a uszkodzony plik handoffu blokuje użycie fail-closed.
+
 Output manifest pozostaje bieżącym źródłem aktywnych wyborów i jest
 synchronizowany po fill, undo, delete oraz restore. Repair trace jest osobnym
 źródłem proweniencji. Ranker może scalić z pierwotnym trace tylko poprawnie
@@ -205,6 +211,12 @@ całkowitych `topY`/`bottomY` w obrazie po jednokrotnej kanonizacji EXIF i nie
 zna Reacta, canvasa ani File System Access API. Adapter Admina skanuje tylko
 główny poziom źródła, ponownie wykorzystuje rygorystyczny parser `seq_*` i
 utrzymuje osobną IndexedDB v1 bez Blobów.
+
+Adapter ma dwa rozłączne tryby inwentarza: pełny katalog zapisuje do
+`<źródło> cut`, a aktywne uzupełnienia do `<źródło> filled-gaps cut`. Drugi tryb
+czyta handoff repairu, odrzuca pusty lub obcy manifest i sprawdza checksumę
+każdego wskazanego JPEG-a przed utworzeniem albo wznowieniem sesji. Dzięki
+osobnym nazwom katalogów manifest v1 nadal jednoznacznie wiąże swój inwentarz.
 
 Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
 wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 256 px. Wybiera

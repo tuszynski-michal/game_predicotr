@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   deleteRepairFile,
   inspectRepairDirectory,
+  readActiveFilledGapsManifest,
   readRepairManifest,
   writeRepairManifest,
   writeRepairFile,
@@ -194,6 +195,15 @@ test('fills exact bytes and safely undoes only the checksummed repair file', asy
       .then((file) => file.text()),
     'chosen-original-bytes',
   );
+  const handoff = await readActiveFilledGapsManifest(directory);
+  assert.deepEqual(
+    handoff.entries.map((entry) => ({
+      fileName: entry.fileName,
+      sourcePath: entry.sourcePath,
+    })),
+    [{ fileName: 'seq_10-18.jpg', sourcePath: 'base/source.jpg' }],
+  );
+  assert.ok(directory.files.has('manual-image-selection-filled-gaps-v1.json'));
   const removed = await deleteRepairFile({
     directory,
     fileName: 'seq_10-18.jpg',
@@ -206,6 +216,7 @@ test('fills exact bytes and safely undoes only the checksummed repair file', asy
   assert.equal(removed.file.size, 'chosen-original-bytes'.length);
   await assert.rejects(directory.getFileHandle('seq_10-18.jpg'), /missing/);
   assert.deepEqual(removed.manifest.deletedRanges, [{ end: 18, start: 10 }]);
+  assert.deepEqual((await readActiveFilledGapsManifest(directory)).entries, []);
   const restored = await writeRepairFile({
     directory,
     kind: 'restore',

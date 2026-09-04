@@ -68,3 +68,11 @@ test('output ownership rejects foreign files and source mutation', () => {
   assert.match(source, /SELECTED_IMAGE_CROP_SOURCE_CHANGED/u);
   assert.match(source, /SELECTED_IMAGE_CROP_OUTPUT_CHANGED/u);
 });
+
+test('filled-gap mode is checksum-bound and uses a separate output directory', () => {
+  assert.match(source, /readActiveFilledGapsManifest/u);
+  assert.match(source, /sourceSelection === 'filled_gaps'/u);
+  assert.match(source, /SELECTED_IMAGE_CROP_FILLED_GAP_MISSING/u);
+  assert.match(source, /SELECTED_IMAGE_CROP_FILLED_GAP_CHANGED/u);
+  assert.match(source, /SELECTED_IMAGE_CROP_FILLED_GAPS_OUTPUT_SUFFIX/u);
+});

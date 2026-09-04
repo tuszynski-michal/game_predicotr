@@ -7517,3 +7517,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** checksum raportu obejmuje gotowość modelu; Admin blokuje
   wyłącznie start i pokazuje dalsze kroki. Niezgodny globalny bootstrap nie jest
   fallbackiem, a brak modelu nie tworzy joba importu.
+
+### D-332 — Repair manifest jest źródłem handoffu uzupełnionych luk
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** aktywne uzupełnienia są deterministycznie materializowane jako
+  pochodny manifest repairu i mogą utworzyć osobny inwentarz lokalnego
+  cropowania. Pełny katalog i uzupełnienia mają rozłączne katalogi wynikowe.
+- **Reason:** ręczne przepisywanie nazw grozi pominięciem lub przycięciem pliku,
+  który został później cofnięty, a drugi niezależny journal mógłby rozjechać się
+  z faktyczną zawartością katalogu `seq_*`.
+- **Consequences:** repair manifest nadal jest jedynym źródłem decyzji, handoff
+  można odtworzyć dla starej sesji, a cropowanie uzupełnień wymaga zgodności
+  nazwy, obecności i SHA-256 każdego pliku.

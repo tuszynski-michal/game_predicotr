@@ -2,11 +2,14 @@
 
 import {
   createRepairManifest,
+  deriveFilledGapsManifest,
   deriveCollectionBounds,
   finalizePendingRepairOperation,
   findSequenceGaps,
   sortAndValidateSequenceFiles,
   validateRepairManifest,
+  validateFilledGapsManifest,
+  type ManualSelectionFilledGapsManifest,
   type ManualSelectionRepairManifest,
   type ParsedSequenceFile,
   type RepairActiveFile,
@@ -21,6 +24,8 @@ import {
 
 export const REPAIR_MANIFEST_NAME = 'manual-image-selection-repair-v1.json';
 export const REPAIR_TRACE_NAME = 'manual-image-selection-repair-trace-v1.json';
+export const FILLED_GAPS_MANIFEST_NAME =
+  'manual-image-selection-filled-gaps-v1.json';
 
 export interface ManualSelectionRepairTraceEvent {
   readonly eventIndex: number;
@@ -138,6 +143,36 @@ export async function writeRepairManifest(
     await writable.close();
   } catch (cause) {
     await writable.abort().catch(() => undefined);
+    throw cause;
+  }
+  await writeJsonFile(
+    directory,
+    FILLED_GAPS_MANIFEST_NAME,
+    deriveFilledGapsManifest(manifest),
+  );
+}
+
+export async function readActiveFilledGapsManifest(
+  directory: FileSystemDirectoryHandle,
+): Promise<ManualSelectionFilledGapsManifest | null> {
+  const repair = await readRepairManifest(directory);
+  if (repair === null) return null;
+  const derived = deriveFilledGapsManifest(repair);
+  try {
+    const file = await (
+      await directory.getFileHandle(FILLED_GAPS_MANIFEST_NAME)
+    ).getFile();
+    const stored = validateFilledGapsManifest(JSON.parse(await file.text()));
+    if (
+      stored.repairKey !== derived.repairKey ||
+      stored.selectedDirectoryName !== derived.selectedDirectoryName ||
+      stored.repairRevision !== derived.repairRevision
+    )
+      return derived;
+    return stored;
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'NotFoundError')
+      return derived;
     throw cause;
   }
 }

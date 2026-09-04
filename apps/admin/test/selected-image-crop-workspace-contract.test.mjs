@@ -75,3 +75,9 @@ test('reload and preview access require explicit operator actions', () => {
     /void rebuildAtlases\(result\);[\s\S]*const missing/u,
   );
 });
+
+test('operator can crop only the active gap fills from the repair manifest', () => {
+  assert.match(workspace, /Tylko uzupełnione luki z manifestu/u);
+  assert.match(workspace, /sourceSelection/u);
+  assert.match(workspace, /SELECTED_IMAGE_CROP_FILLED_GAPS_EMPTY/u);
+});

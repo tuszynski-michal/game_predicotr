@@ -9,6 +9,7 @@ import {
   validateSelectedImageCropBand,
   validateSelectedImageCropManifest,
   validateSelectedImageCropSources,
+  SELECTED_IMAGE_CROP_FILLED_GAPS_OUTPUT_SUFFIX,
   SELECTED_IMAGE_CROP_JPEG_QUALITY,
   type SelectedImageCropBand,
   type SelectedImageCropManifestV1,
@@ -34,6 +35,7 @@ import {
 } from '@game-predictor/manual-image-selection-core/auto-crop';
 
 import { pickLocalDirectory } from '@/lib/local-directory-picker';
+import { readActiveFilledGapsManifest } from '@/features/manual-image-selection/manual-selection-repair-storage';
 
 import { prepareSelectedImageCropInWorker } from './selected-image-crop-worker-client';
 
@@ -46,6 +48,7 @@ const REVIEW_NAME = 'review-v2.json';
 const RESULTS_DIRECTORY = 'results';
 export const SELECTED_IMAGE_CROP_ATLAS_DIRECTORY = 'atlases';
 type SelectedImageCropPermissionMode = 'read' | 'readwrite';
+export type SelectedImageCropSourceSelection = 'all' | 'filled_gaps';
 
 export interface SelectedImageCropSourceFile extends SelectedImageCropSourceEntry {
   readonly handle: FileSystemFileHandle;
@@ -133,13 +136,22 @@ export async function listSelectedImageCropSourceDirectories(
 export async function prepareSelectedImageCropDirectory(
   parent: FileSystemDirectoryHandle,
   sourceDirectoryName: string,
+  sourceSelection: SelectedImageCropSourceSelection = 'all',
 ): Promise<PreparedSelectedImageCropDirectory> {
   await ensureDirectoryPermission(parent, 'readwrite');
   const sourceDirectory = await parent.getDirectoryHandle(sourceDirectoryName);
-  const sourceFiles = await listSelectedImageCropSourceFiles(sourceDirectory);
+  const allSourceFiles =
+    await listSelectedImageCropSourceFiles(sourceDirectory);
+  const sourceFiles =
+    sourceSelection === 'filled_gaps'
+      ? await selectActiveFilledGapFiles(sourceDirectory, allSourceFiles)
+      : allSourceFiles;
   const inventoryChecksum =
     await selectedImageCropInventoryChecksum(sourceFiles);
-  const outputName = `${sourceDirectoryName} cut`;
+  const outputName =
+    sourceSelection === 'filled_gaps'
+      ? `${sourceDirectoryName}${SELECTED_IMAGE_CROP_FILLED_GAPS_OUTPUT_SUFFIX}`
+      : `${sourceDirectoryName} cut`;
   const outputExisted = await directoryContainsEntry(parent, outputName);
   const outputDirectory = await parent.getDirectoryHandle(outputName, {
     create: true,
@@ -180,6 +192,36 @@ export async function prepareSelectedImageCropDirectory(
     manifest,
     snapshot,
   };
+}
+
+async function selectActiveFilledGapFiles(
+  directory: FileSystemDirectoryHandle,
+  files: readonly SelectedImageCropSourceFile[],
+): Promise<readonly SelectedImageCropSourceFile[]> {
+  const handoff = await readActiveFilledGapsManifest(directory);
+  if (handoff === null)
+    throw new Error('SELECTED_IMAGE_CROP_FILLED_GAPS_MANIFEST_MISSING');
+  if (handoff.selectedDirectoryName !== directory.name)
+    throw new Error('SELECTED_IMAGE_CROP_FILLED_GAPS_DIRECTORY_CHANGED');
+  if (handoff.entries.length === 0)
+    throw new Error('SELECTED_IMAGE_CROP_FILLED_GAPS_EMPTY');
+  const byName = new Map(files.map((file) => [file.fileName, file]));
+  const selected: SelectedImageCropSourceFile[] = [];
+  for (const entry of handoff.entries) {
+    const file = byName.get(entry.fileName);
+    if (file === undefined)
+      throw new Error(
+        `SELECTED_IMAGE_CROP_FILLED_GAP_MISSING:${entry.fileName}`,
+      );
+    if (
+      (await sha256Blob(await file.handle.getFile())) !== entry.checksumSha256
+    )
+      throw new Error(
+        `SELECTED_IMAGE_CROP_FILLED_GAP_CHANGED:${entry.fileName}`,
+      );
+    selected.push(file);
+  }
+  return selected;
 }
 
 export async function listSelectedImageCropSourceFiles(

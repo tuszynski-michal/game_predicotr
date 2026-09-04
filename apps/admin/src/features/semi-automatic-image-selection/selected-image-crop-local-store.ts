@@ -9,6 +9,7 @@ export interface SelectedImageCropLocalSession {
   readonly key: typeof SESSION_KEY;
   readonly parentDirectory: FileSystemDirectoryHandle;
   readonly sourceDirectoryName: string;
+  readonly sourceSelection?: 'all' | 'filled_gaps';
   readonly currentIndex: number;
   readonly zoom: number;
   readonly scrollLeft: number;

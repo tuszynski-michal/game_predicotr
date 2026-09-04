@@ -198,6 +198,16 @@ last_updated: 2026-09-04
 - Moduł nie dodaje API, joba, tabel ani migracji i nie zmienia wersjonowania
   geometrii lub modelu symboli.
 
+### Handoff uzupełnionych luk do cropowania — TASK-0442
+
+- `Popraw selekcję` zapisuje pochodny manifest aktywnych uzupełnień z nazwą
+  `seq_*`, zakresem, źródłem i SHA-256; undo lub delete usuwa wpis z listy.
+- `Przytnij wybrane zdjęcia` może przetworzyć wyłącznie te wpisy po kontroli
+  obecności i checksummy, zapisując je do osobnego katalogu
+  `<źródło> filled-gaps cut`.
+- Historyczny repair manifest pozostaje źródłem prawdy i pozwala odtworzyć
+  brakujący handoff bez dotykania JPEG-ów.
+
 Tor `0.5` został zamknięty. Ostatni commit implementacyjny to `v0.5.15`, a
 commit dokumentacyjny zamknięcia otrzymuje `v0.5.16`. Następny tor rozpoczyna
 się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i

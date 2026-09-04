@@ -1,5 +1,7 @@
 export const MANUAL_SELECTION_REPAIR_SCHEMA =
   'manual-image-selection-repair-v1' as const;
+export const MANUAL_SELECTION_FILLED_GAPS_SCHEMA =
+  'manual-image-selection-filled-gaps-v1' as const;
 
 export interface SequenceRange {
   readonly start: number;
@@ -40,6 +42,24 @@ export interface ManualSelectionRepairManifest {
   readonly deletedRanges: readonly SequenceRange[];
   readonly operations: readonly RepairOperation[];
   readonly pendingOperation: PendingRepairOperation | null;
+  readonly updatedAt: string;
+}
+
+export interface ManualSelectionFilledGapEntry extends SequenceRange {
+  readonly fileName: string;
+  readonly checksumSha256: string;
+  readonly sourcePath: string;
+  readonly sourceIndex: number | null;
+  readonly fillOperationId: string;
+  readonly filledAt: string;
+}
+
+export interface ManualSelectionFilledGapsManifest {
+  readonly schemaVersion: typeof MANUAL_SELECTION_FILLED_GAPS_SCHEMA;
+  readonly repairKey: string;
+  readonly selectedDirectoryName: string;
+  readonly repairRevision: number;
+  readonly entries: readonly ManualSelectionFilledGapEntry[];
   readonly updatedAt: string;
 }
 
@@ -209,6 +229,91 @@ export function validateRepairManifest(
       !/^[0-9a-f]{64}$/u.test(file.checksumSha256)
     )
       throw new Error('INVALID_REPAIR_MANIFEST_CHECKSUM');
+  }
+  return manifest;
+}
+
+export function deriveFilledGapsManifest(
+  manifest: ManualSelectionRepairManifest,
+): ManualSelectionFilledGapsManifest {
+  validateRepairManifest(manifest);
+  const activeByName = new Map(
+    manifest.activeFiles.map((file) => [file.fileName, file]),
+  );
+  const latestFillByName = new Map<string, RepairOperation>();
+  const undoneFillNames = new Set<string>();
+  for (const operation of manifest.operations) {
+    if (operation.kind === 'fill') {
+      latestFillByName.set(operation.fileName, operation);
+      undoneFillNames.delete(operation.fileName);
+    } else if (operation.kind === 'undo_fill') {
+      undoneFillNames.add(operation.fileName);
+    }
+  }
+  const entries = [...latestFillByName.values()]
+    .flatMap((operation) => {
+      const active = activeByName.get(operation.fileName);
+      if (
+        active === undefined ||
+        undoneFillNames.has(operation.fileName) ||
+        active.checksumSha256 !== operation.checksumSha256 ||
+        operation.sourcePath === null
+      )
+        return [];
+      return [
+        {
+          checksumSha256: operation.checksumSha256,
+          end: operation.rangeEnd,
+          fileName: operation.fileName,
+          fillOperationId: operation.id,
+          filledAt: operation.occurredAt,
+          sourceIndex: operation.sourceIndex,
+          sourcePath: operation.sourcePath,
+          start: operation.rangeStart,
+        },
+      ];
+    })
+    .sort((left, right) => left.start - right.start || left.end - right.end);
+  return {
+    entries,
+    repairKey: manifest.repairKey,
+    repairRevision: manifest.revision,
+    schemaVersion: MANUAL_SELECTION_FILLED_GAPS_SCHEMA,
+    selectedDirectoryName: manifest.selectedDirectoryName,
+    updatedAt: manifest.updatedAt,
+  };
+}
+
+export function validateFilledGapsManifest(
+  value: unknown,
+): ManualSelectionFilledGapsManifest {
+  if (
+    !isObject(value) ||
+    value.schemaVersion !== MANUAL_SELECTION_FILLED_GAPS_SCHEMA ||
+    typeof value.repairKey !== 'string' ||
+    value.repairKey.length < 1 ||
+    typeof value.selectedDirectoryName !== 'string' ||
+    !Number.isSafeInteger(value.repairRevision) ||
+    (value.repairRevision as number) < 0 ||
+    !Array.isArray(value.entries) ||
+    typeof value.updatedAt !== 'string'
+  )
+    throw new Error('INVALID_FILLED_GAPS_MANIFEST');
+  const manifest = value as unknown as ManualSelectionFilledGapsManifest;
+  sortAndValidateSequenceFiles(manifest.entries.map((entry) => entry.fileName));
+  for (const entry of manifest.entries) {
+    const parsed = parseSequenceFileName(entry.fileName);
+    if (
+      parsed.start !== entry.start ||
+      parsed.end !== entry.end ||
+      !/^[0-9a-f]{64}$/u.test(entry.checksumSha256) ||
+      entry.sourcePath.length < 1 ||
+      entry.fillOperationId.length < 1 ||
+      typeof entry.filledAt !== 'string' ||
+      (entry.sourceIndex !== null &&
+        (!Number.isSafeInteger(entry.sourceIndex) || entry.sourceIndex < 0))
+    )
+      throw new Error('INVALID_FILLED_GAPS_MANIFEST_ENTRY');
   }
   return manifest;
 }

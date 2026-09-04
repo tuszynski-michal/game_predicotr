@@ -128,7 +128,7 @@ function GridReviewEditorContent({
     () => ({ cellIndex: 0, reviewItemId: item.reviewItemId }),
   );
   const [showOverlay, setShowOverlay] = useState(true);
-  const [zoomPercent, setZoomPercent] = useState(150);
+  const [zoomPercent, setZoomPercent] = useState(100);
   const [error, setError] = useState('');
   const sourceAssetItem = items[0] ?? item;
   const sourceUrl = api.imageGridReviewSourceAssetUrl(

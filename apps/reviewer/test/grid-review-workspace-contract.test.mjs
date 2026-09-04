@@ -103,7 +103,7 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /positionIndex \+ 1/);
   assert.match(editor, /showOverlay/);
   assert.match(editor, /zoomPercent/);
-  assert.match(editor, /useState\(150\)/);
+  assert.match(editor, /useState\(100\)/);
   assert.match(editor, /gridGeometrySourceItemAtPoint/);
   assert.match(editor, /Kliknij siatkę na zdjęciu, aby wybrać planszę/);
   assert.match(editor, /A · Automat/);

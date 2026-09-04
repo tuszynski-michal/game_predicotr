@@ -344,7 +344,7 @@ kontekstu Admin API.
 
 Lokalny Reviewer otwiera domyślnie ekran `Zatwierdzanie cięcia siatki` z jednym
 oryginalnym obrazem i canvasowym overlayem. Obraz otwiera się domyślnie przy
-powiększeniu 150%. Kliknięcie widocznej siatki wybiera odpowiadającą jej
+powiększeniu 100%. Kliknięcie widocznej siatki wybiera odpowiadającą jej
 planszę; w trybie wyznaczania plansz osobno pozwala przełączać aktywny szkic bez
 zapisu ani zmiany jego punktów. Hit-test zawsze odpowiada geometrii aktualnie
 rysowanej na overlayu, także po lokalnym przesunięciu. Filtry mają kolejność `Do

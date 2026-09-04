@@ -6,6 +6,12 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Domyślny zoom 100% w walidacji siatek — TASK-0437
+
+- Lokalny ekran `Zatwierdzanie cięcia siatki` otwiera gotową siatkę przy 100%.
+- Ręczne opcje 125%, 150% i 200% pozostają dostępne bez zmian.
+- Zmiana nie wpływa na geometrię, hit-test ani inne workspace'y obrazowe.
+
 ### Przywrócenie startu lokalnego Reviewera — TASK-0436
 
 - `Otwórz lokalnie` ponownie wywołuje ograniczony `reviewer-local/start`, ale
@@ -186,7 +192,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ### Zoom i wybór planszy na obrazie — TASK-0422
 
 - Lokalny ekran `Zatwierdzanie cięcia siatki` otwiera obraz źródłowy domyślnie
-  przy 150%.
+  przy 100% zgodnie z późniejszą zmianą TASK-0437.
 - Kliknięcie widocznej siatki wybiera jej planszę. W trybie `Wyznacz plansze
   osobno` kliknięcie innej siatki tylko przełącza aktywny szkic; nie przesuwa
   punktów i nie zapisuje rewizji.

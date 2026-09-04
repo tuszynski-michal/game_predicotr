@@ -8524,6 +8524,9 @@
                 "$ref": "#/components/schemas/ManagedImageReprocessJobPayload"
               },
               {
+                "$ref": "#/components/schemas/PinnedManagedImageReprocessJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/ImageSelectionJobPayload"
               },
               {
@@ -11452,6 +11455,127 @@
           "protectedResolvedCount"
         ],
         "title": "PendingSymbolReinferencePreviewResponse",
+        "type": "object"
+      },
+      "PinnedManagedImageReprocessJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "boardCellProcessing": {
+            "$ref": "#/components/schemas/BoardCellProcessingJobSnapshotPayload"
+          },
+          "gridProfile": {
+            "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "imageGeometryRollout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometryRolloutJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "imageSelectionRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageselectionrunid"
+          },
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "managedSourceJobId": {
+            "format": "uuid",
+            "title": "Managedsourcejobid",
+            "type": "string"
+          },
+          "managedSourceManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Managedsourcemanifestchecksumsha256",
+            "type": "string"
+          },
+          "normalizationAdapterVersion": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalizationadapterversion"
+          },
+          "pageGeometryManifest": {
+            "$ref": "#/components/schemas/PageGeometryManifestJobPayload"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 6,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcedirectory",
+            "type": "string"
+          },
+          "sourceDisplayName": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Sourcedisplayname",
+            "type": "string"
+          },
+          "sourceManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestsha256",
+            "type": "string"
+          },
+          "sourcePipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcepipelinefingerprint",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "importKind",
+          "sourceSelectionId",
+          "sourceDirectory",
+          "sourceDisplayName",
+          "pipelineFingerprint",
+          "sourcePipelineFingerprint",
+          "sourceManifestSha256",
+          "managedSourceJobId",
+          "managedSourceManifestChecksumSha256",
+          "pageGeometryManifest",
+          "symbolModel",
+          "gridProfile",
+          "boardCellProcessing"
+        ],
+        "title": "PinnedManagedImageReprocessJobPayload",
         "type": "object"
       },
       "RemoteManualSelectionBaseCapabilityResponse": {

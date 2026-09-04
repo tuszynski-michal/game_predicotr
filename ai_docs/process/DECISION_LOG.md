@@ -7390,3 +7390,18 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** zwykła akceptacja zapisuje tylko manifest. Korekta ładuje
   oryginał i zastępuje jeden własny crop. Przygotowanie pozostaje sekwencyjne,
   wznawialne i oddaje sterowanie przeglądarce pomiędzy plikami.
+
+### D-324 — Reprocess v0.10 dziedziczy finalny manifest geometrii strony
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** każde nowe managed reprocess v0.10 przypina dokładny manifest
+  managed originals oraz zgodny `PageGeometryManifestV1` z tego samego,
+  ograniczonego łańcucha źródłowego. API i worker weryfikują oba dowody; brak
+  albo drift blokuje wykonanie bez fallbacku do aktywnego profilu siatki.
+- **Reason:** zachowanie samych 2200 JPEG-ów pozwoliło schema v4 zgubić finalny
+  preflight strony i zastąpić go profilem 36-punktowym, co utworzyło 19 798
+  fałszywych deferrals siatki 3×5.
+- **Consequences:** nowe ponowienia używają schema v6 i
+  `pinned_page_preflight`. Schema v4 oraz istniejące joby pozostają niezmienne
+  i odtwarzalne; operacje na danych historycznych nadal wymagają osobnej zgody.

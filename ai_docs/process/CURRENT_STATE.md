@@ -1,10 +1,21 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-03
+last_updated: 2026-09-04
 ---
 
 # Current State
+
+### Manifest geometrii strony w reprocessie v0.10 — TASK-0431
+
+- Nowy managed reprocess schema v6 dziedziczy checksum-bound manifest managed
+  originals oraz dokładny manifest preflightu strony z ograniczonego,
+  same-game łańcucha źródłowego.
+- API sprawdza kompletność inwentarza i zakończony preflight przed utworzeniem
+  joba, a worker powtarza kontrolę przed pipeline'em. Brak lub drift dowodu
+  kończy się stabilnym błędem bez użycia aktywnego profilu jako fallbacku.
+- Historyczne schema v4 i joby v1–v5 zachowują replay. Nie wykonano reprocessu,
+  cleanupu ani innej operacji na danych gry.
 
 ### Wstępne renderowanie całego katalogu `cut` — TASK-0430
 

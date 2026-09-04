@@ -1165,6 +1165,14 @@ aktualne wersje pipeline'u, profilu siatki i modelu, ale nie usuwa poprzednich
 projekcji ani źródeł; usuwanie nadal wymaga osobnej, jawnie potwierdzonej
 operacji resetu.
 
+Dla nowych ponowień v0.10 samo zachowanie oryginałów nie wystarcza. Job musi
+odziedziczyć dokładny, checksum-bound manifest preflightu geometrii strony z
+tego samego łańcucha źródłowego. API i worker ponownie sprawdzają grę, staging,
+inwentarz plików, poświadczone zakresy oraz disposition każdego źródła. Brak lub
+drift dowodu blokuje ponowienie; aktywny profil siatki, detektor historyczny ani
+cztery narożniki strony nie są fallbackiem. Historyczne joby zachowują własny
+snapshot i replay.
+
 Model symboli został zatwierdzony w D-088 jako
 `production-spatial-symbol-cnn-v1`. Jego automatyczna akceptacja obowiązuje
 wyłącznie od checksum-bound progu `0.88850097`; poniżej progu wynik pozostaje

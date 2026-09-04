@@ -211,7 +211,7 @@ def test_approved_folder_token_creates_one_typed_image_job(tmp_path: Path) -> No
     assert replay.json()["code"] == "IMAGE_FOLDER_SELECTION_INVALID"
 
 
-def test_terminal_image_import_can_be_reprocessed_from_managed_originals(
+def test_terminal_image_import_without_preflight_cannot_start_v0_10_reprocess(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "photos"
@@ -233,16 +233,8 @@ def test_terminal_image_import_can_be_reprocessed_from_managed_originals(
         reprocessed = client.post(f"/api/v1/admin/image-imports/{source_job_id}/reprocess")
 
     assert cancelled.status_code == 200
-    assert reprocessed.status_code == 201
-    payload = reprocessed.json()["job"]["inputPayload"]
-    assert payload["schemaVersion"] == 4
-    assert payload["managedSourceJobId"] == source_job_id
-    assert payload["sourceDisplayName"].endswith("(ponowne przetworzenie)")
-    assert len(payload["pipelineFingerprint"]) == 64
-    assert (
-        payload["boardCellProcessing"]["activationVersion"]
-        == "board-cell-processing-v20-verified-v19-v1"
-    )
+    assert reprocessed.status_code == 409
+    assert reprocessed.json()["code"] == "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED"
 
 
 def test_empty_folder_is_rejected_before_selection_token(tmp_path: Path) -> None:

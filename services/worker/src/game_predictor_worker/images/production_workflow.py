@@ -208,7 +208,11 @@ class ProductionImageImportWorkflow:
             job,
         )
         self._record_browser_staging_handoff(job, manifest, completed_at=context.now())
-        geometry_manifest = _page_geometry_manifest(job, self._artifact_root)
+        geometry_manifest = _page_geometry_manifest(
+            job,
+            self._artifact_root,
+            managed_manifest=manifest,
+        )
         unresolved_originals = _filter_canonical_originals(manifest.originals, job)
         canonical_skipped_count = len(manifest.originals) - len(unresolved_originals)
         pipeline_originals = unresolved_originals
@@ -2131,15 +2135,22 @@ def _page_registration_profile_snapshot(job: Job) -> Mapping[str, object]:
     return cast(Mapping[str, object], profile)
 
 
-def _page_geometry_manifest(job: Job, artifact_root: Path) -> Mapping[str, object]:
+def _page_geometry_manifest(
+    job: Job,
+    artifact_root: Path,
+    *,
+    managed_manifest: ManagedSourceManifest | None = None,
+) -> Mapping[str, object]:
     descriptor = job.input_payload.get("page_geometry_manifest")
     if descriptor is None:
+        if job.input_payload.get("schema_version") == 6:
+            raise JobHandlerError(
+                "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED",
+                "Managed v0.10 reprocessing requires an exact page-geometry manifest.",
+            )
         return {}
     if not isinstance(descriptor, Mapping):
-        raise JobHandlerError(
-            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
-            "The pinned page geometry manifest descriptor is invalid.",
-        )
+        raise _page_manifest_error(job, "The pinned page geometry manifest descriptor is invalid.")
     checksum = descriptor.get("checksumSha256")
     relative_path = descriptor.get("relativePath")
     if (
@@ -2148,37 +2159,92 @@ def _page_geometry_manifest(job: Job, artifact_root: Path) -> Mapping[str, objec
         or not isinstance(relative_path, str)
         or not relative_path.startswith("data/")
     ):
-        raise JobHandlerError(
-            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+        raise _page_manifest_error(
+            job,
             "The pinned page geometry manifest descriptor is incomplete.",
         )
     path = (artifact_root / Path(*PurePosixPath(relative_path).parts)).resolve()
     data_root = (artifact_root / "data").resolve()
     if not path.is_relative_to(data_root):
-        raise JobHandlerError(
-            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
-            "The pinned page geometry manifest path is unsafe.",
-        )
+        raise _page_manifest_error(job, "The pinned page geometry manifest path is unsafe.")
     try:
         content = path.read_bytes()
         value = json.loads(content)
     except (OSError, json.JSONDecodeError) as error:
+        if job.input_payload.get("schema_version") == 6:
+            raise _page_manifest_error(
+                job,
+                "The pinned page geometry manifest cannot be read.",
+            ) from error
         raise JobHandlerError(
             "IMAGE_PAGE_GEOMETRY_MANIFEST_UNAVAILABLE",
             "The pinned page geometry manifest cannot be read.",
         ) from error
     if hashlib.sha256(content).hexdigest() != checksum or not isinstance(value, Mapping):
+        if job.input_payload.get("schema_version") == 6:
+            raise _page_manifest_error(
+                job,
+                "The pinned page geometry manifest changed after preflight.",
+            )
         raise JobHandlerError(
             "IMAGE_PAGE_GEOMETRY_MANIFEST_DRIFT",
             "The pinned page geometry manifest changed after preflight.",
         )
     entries = value.get("entries")
     if not isinstance(entries, Mapping):
-        raise JobHandlerError(
-            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
-            "The pinned page geometry manifest has no source entries.",
-        )
+        raise _page_manifest_error(job, "The pinned page geometry manifest has no source entries.")
+    if job.input_payload.get("schema_version") == 6:
+        if managed_manifest is None:
+            raise _page_manifest_error(job, "The managed source manifest is unavailable.")
+        _validate_managed_reprocess_page_manifest(job, value, entries, managed_manifest)
     return cast(Mapping[str, object], entries)
+
+
+def _validate_managed_reprocess_page_manifest(
+    job: Job,
+    manifest: Mapping[str, object],
+    entries: Mapping[str, object],
+    managed_manifest: ManagedSourceManifest,
+) -> None:
+    source_selection_id = job.input_payload.get("source_selection_id")
+    source_manifest_sha256 = job.input_payload.get("source_manifest_sha256")
+    if (
+        manifest.get("gameId") != str(job.game_id)
+        or manifest.get("sourceSelectionId") != str(source_selection_id)
+        or manifest.get("sourceManifestChecksumSha256") != source_manifest_sha256
+        or manifest.get("sourceCount") != len(managed_manifest.originals)
+        or len(entries) != len(managed_manifest.originals)
+    ):
+        raise _page_manifest_error(job, "The page geometry does not match the managed source.")
+    expected = {original.checksum_sha256: original for original in managed_manifest.originals}
+    if len(expected) != len(managed_manifest.originals) or set(entries) != set(expected):
+        raise _page_manifest_error(job, "The page geometry source inventory is incompatible.")
+    counts = {"registered": 0, "review_required": 0, "skipped_human_resolved": 0}
+    for checksum, raw in entries.items():
+        original = expected[checksum]
+        if not isinstance(raw, Mapping):
+            raise _page_manifest_error(job, "A page geometry source entry is invalid.")
+        status = raw.get("status")
+        if status not in counts or raw.get("sourceRelativePath") != original.source_relative_path:
+            raise _page_manifest_error(job, "A page geometry source entry changed provenance.")
+        counts[cast(str, status)] += 1
+    if counts != {
+        "registered": manifest.get("registeredSourceCount"),
+        "review_required": manifest.get("reviewRequiredSourceCount"),
+        "skipped_human_resolved": manifest.get("skippedHumanResolvedSourceCount"),
+    }:
+        raise _page_manifest_error(job, "The page geometry disposition counts are inconsistent.")
+
+
+def _page_manifest_error(job: Job, message: str) -> JobHandlerError:
+    return JobHandlerError(
+        (
+            "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE"
+            if job.input_payload.get("schema_version") == 6
+            else "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID"
+        ),
+        message,
+    )
 
 
 def _expected_board_count(attested_range: tuple[int, int] | None) -> int:

@@ -1,4 +1,5 @@
 import hashlib
+import json
 from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
@@ -53,12 +54,13 @@ from game_predictor_worker.images.production_workflow import (
     _calibrated_quad,
     _expected_board_count,
     _filter_registered_geometry_originals,
+    _page_geometry_manifest,
     _pending_reason,
     _ProgressWindowContext,
     _resolve_page_sequence_numbers,
     _symbol_model_snapshot,
 )
-from game_predictor_worker.images.source_ingestion import ManagedOriginal
+from game_predictor_worker.images.source_ingestion import ManagedOriginal, ManagedSourceManifest
 from game_predictor_worker.images.structured_geometry import (
     DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2,
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
@@ -89,6 +91,110 @@ class _ProgressRecorder:
             failure_count=int(values["failure_count"]),
             review_count=int(values["review_count"]),
         )
+
+
+def _managed_manifest_for_page_geometry(
+    tmp_path: Path,
+    *,
+    checksum: str,
+) -> ManagedSourceManifest:
+    return ManagedSourceManifest(
+        source_directory=tmp_path,
+        originals=(
+            ManagedOriginal(
+                checksum_sha256=checksum,
+                source_relative_path="seq_1-9.jpg",
+                managed_relative_path=f"data/originals/aa/{checksum}.jpg",
+                size_bytes=100,
+                sequence_range_start=1,
+                sequence_range_end=9,
+                sequence_range_source="filename",
+            ),
+        ),
+        content=b"managed",
+        relative_path="data/originals/manifests/source.json",
+        checksum_sha256=hashlib.sha256(b"managed").hexdigest(),
+    )
+
+
+def test_managed_reprocess_v6_requires_pinned_page_geometry_manifest(tmp_path: Path) -> None:
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 6,
+            "import_kind": "image_directory",
+            "source_directory": str(tmp_path),
+            "pipeline_fingerprint": "a" * 64,
+        },
+    )
+
+    with pytest.raises(JobHandlerError) as captured:
+        _page_geometry_manifest(
+            job,
+            tmp_path,
+            managed_manifest=_managed_manifest_for_page_geometry(tmp_path, checksum="b" * 64),
+        )
+
+    assert captured.value.code == "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED"
+
+
+def test_managed_reprocess_v6_validates_page_inventory_before_processing(tmp_path: Path) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    source_checksum = "b" * 64
+    source_manifest_checksum = "c" * 64
+    value = {
+        "entries": {
+            source_checksum: {
+                "sourceRelativePath": "seq_1-9.jpg",
+                "status": "review_required",
+            }
+        },
+        "gameId": str(game_id),
+        "registeredSourceCount": 0,
+        "reviewRequiredSourceCount": 1,
+        "skippedHumanResolvedSourceCount": 0,
+        "sourceCount": 1,
+        "sourceManifestChecksumSha256": source_manifest_checksum,
+        "sourceSelectionId": str(selection_id),
+    }
+    content = json.dumps(value, sort_keys=True).encode()
+    checksum = hashlib.sha256(content).hexdigest()
+    relative = f"data/page-geometry-manifests/{checksum}.json"
+    path = tmp_path / Path(*relative.split("/"))
+    path.parent.mkdir(parents=True)
+    path.write_bytes(content)
+    job = create_job(
+        JobType.IMPORT,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 6,
+            "import_kind": "image_directory",
+            "source_directory": str(tmp_path),
+            "pipeline_fingerprint": "a" * 64,
+            "source_selection_id": str(selection_id),
+            "source_manifest_sha256": source_manifest_checksum,
+            "page_geometry_manifest": {
+                "checksumSha256": checksum,
+                "preflightJobId": str(uuid4()),
+                "relativePath": relative,
+            },
+        },
+    )
+    managed = _managed_manifest_for_page_geometry(tmp_path, checksum=source_checksum)
+
+    entries = _page_geometry_manifest(job, tmp_path, managed_manifest=managed)
+
+    assert entries[source_checksum]["status"] == "review_required"  # type: ignore[index]
+
+    incompatible = replace(
+        job,
+        input_payload={**job.input_payload, "source_manifest_sha256": "d" * 64},
+    )
+    with pytest.raises(JobHandlerError) as captured:
+        _page_geometry_manifest(incompatible, tmp_path, managed_manifest=managed)
+    assert captured.value.code == "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE"
 
 
 def test_pipeline_progress_does_not_count_source_ingestion_as_success() -> None:

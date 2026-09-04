@@ -1340,6 +1340,7 @@ export type {
   PendingGridReinferencePreviewResponse,
   PendingSymbolReinferenceJobPayload,
   PendingSymbolReinferencePreviewResponse,
+  PinnedManagedImageReprocessJobPayload,
   PlanBrowserImageSelectionUploadData,
   PlanBrowserImageSelectionUploadError,
   PlanBrowserImageSelectionUploadErrors,

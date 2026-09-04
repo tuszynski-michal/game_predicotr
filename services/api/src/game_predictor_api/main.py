@@ -631,6 +631,7 @@ def create_app(
                     artifact_root=resolved_settings.artifact_root,
                 ),
                 SqlAlchemyGridProfileSnapshotResolver(session),
+                artifact_root=resolved_settings.artifact_root,
                 page_geometry_override_snapshot_resolver=PageGeometryOverrideService(
                     SqlAlchemyPageGeometryOverrideRepository(session)
                 ),
@@ -912,6 +913,7 @@ def create_app(
                         artifact_root=resolved_settings.artifact_root,
                     ),
                     SqlAlchemyGridProfileSnapshotResolver(session),
+                    artifact_root=resolved_settings.artifact_root,
                 )
                 yield IterativeImageImportService(
                     SqlAlchemyIterativeImageImportRepository(session),

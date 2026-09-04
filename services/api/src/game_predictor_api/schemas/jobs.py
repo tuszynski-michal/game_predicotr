@@ -229,6 +229,26 @@ class ManagedImageReprocessJobPayload(ApiModel):
     image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
 
 
+class PinnedManagedImageReprocessJobPayload(ApiModel):
+    schema_version: Literal[6]
+    import_kind: Literal["image_directory"]
+    source_selection_id: UUID
+    source_directory: str = Field(min_length=1, max_length=2048)
+    source_display_name: str = Field(min_length=1, max_length=255)
+    pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
+    source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_selection_run_id: UUID | None = None
+    managed_source_job_id: UUID
+    managed_source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    page_geometry_manifest: PageGeometryManifestJobPayload
+    symbol_model: SymbolModelJobSnapshotPayload
+    grid_profile: GridProfileJobSnapshotPayload
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
+
+
 class ImageSelectionJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     source_selection_id: UUID
@@ -466,6 +486,7 @@ JobPayloadResponse = (
     | BrowserImageImportJobPayload
     | CuratedImageImportJobPayload
     | ManagedImageReprocessJobPayload
+    | PinnedManagedImageReprocessJobPayload
     | ImageSelectionJobPayload
     | SemiAutomaticImageSelectionJobPayload
     | ValidateJobPayload
@@ -783,6 +804,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
                 return ManagedImageReprocessJobPayload.model_validate(job.input_payload)
             if job.input_payload.get("schema_version") == 5:
                 return BrowserImageImportJobPayload.model_validate(job.input_payload)
+            if job.input_payload.get("schema_version") == 6:
+                return PinnedManagedImageReprocessJobPayload.model_validate(job.input_payload)
             return ImageImportJobPayload.model_validate(job.input_payload)
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:

@@ -84,7 +84,7 @@ class ManagedOriginalStore:
         destination = self._safe_path(relative_path)
         if destination.exists():
             return self._load_manifest(destination, relative_path, job)
-        if job.input_payload.get("schema_version") == 4:
+        if job.input_payload.get("schema_version") in {4, 6}:
             content = self._managed_reprocess_manifest_bytes(job)
             self._write_immutable(destination, content)
             return self._load_manifest(destination, relative_path, job)
@@ -143,7 +143,8 @@ class ManagedOriginalStore:
         source_relative = f"data/originals/manifests/{source_job_id}.json"
         source_path = self._safe_path(source_relative)
         try:
-            value = json.loads(source_path.read_bytes())
+            source_content = source_path.read_bytes()
+            value = json.loads(source_content)
         except FileNotFoundError as error:
             raise JobHandlerError(
                 "IMAGE_REPROCESS_SOURCE_MANIFEST_MISSING",
@@ -164,6 +165,19 @@ class ManagedOriginalStore:
                 "IMAGE_REPROCESS_SOURCE_MANIFEST_INVALID",
                 "The source import manifest has different provenance.",
             )
+        if job.input_payload.get("schema_version") == 6:
+            expected_checksum = job.input_payload.get(
+                "managed_source_manifest_checksum_sha256"
+            )
+            if (
+                not isinstance(expected_checksum, str)
+                or not SHA256_PATTERN.fullmatch(expected_checksum)
+                or hashlib.sha256(source_content).hexdigest() != expected_checksum
+            ):
+                raise JobHandlerError(
+                    "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE",
+                    "The managed-original manifest changed after reprocess creation.",
+                )
         originals = value.get("originals")
         if not isinstance(originals, Sequence) or isinstance(originals, str | bytes):
             raise JobHandlerError(

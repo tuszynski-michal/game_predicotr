@@ -38,6 +38,10 @@ from game_predictor_worker.images.structured_geometry import (
 )
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
+from game_predictor_api.application.managed_reprocess_evidence import (
+    ManagedReprocessEvidenceError,
+    resolve_managed_reprocess_evidence,
+)
 from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.image_import_engine_policy import (
     ImageImportEnginePolicySnapshot,
@@ -342,6 +346,7 @@ class JobService:
         symbol_model_snapshot_resolver: SymbolModelSnapshotResolver | None = None,
         grid_profile_snapshot_resolver: GridProfileSnapshotResolver | None = None,
         *,
+        artifact_root: Path | None = None,
         page_geometry_override_snapshot_resolver: (
             PageGeometryOverrideSnapshotResolver | None
         ) = None,
@@ -351,6 +356,7 @@ class JobService:
         self._import_source_inspector = import_source_inspector
         self._symbol_model_snapshot_resolver = symbol_model_snapshot_resolver
         self._grid_profile_snapshot_resolver = grid_profile_snapshot_resolver
+        self._artifact_root = None if artifact_root is None else artifact_root.resolve()
         self._page_geometry_override_snapshot_resolver = page_geometry_override_snapshot_resolver
         self._deletion_artifact_store = deletion_artifact_store
         self._pending_deletion_quarantines: list[ImageSelectionDeletionQuarantine] = []
@@ -815,6 +821,19 @@ class JobService:
                 "IMAGE_REPROCESS_SOURCE_ACTIVE",
                 "An active image import cannot be reprocessed.",
             )
+        if self._artifact_root is None:
+            raise JobConflictError(
+                "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED",
+                "Managed v0.10 reprocessing requires configured immutable artifacts.",
+            )
+        try:
+            evidence = resolve_managed_reprocess_evidence(
+                source,
+                artifact_root=self._artifact_root,
+                get_job=self._repository.get_job,
+            )
+        except ManagedReprocessEvidenceError as error:
+            raise JobConflictError(error.code, error.message) from error
         source_directory = source.input_payload.get("source_directory")
         if not isinstance(source_directory, str) or not source_directory:
             raise JobConflictError(
@@ -840,12 +859,15 @@ class JobService:
         effective_pipeline_fingerprint = hashlib.sha256(
             (
                 f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:"
-                f"{grid_fingerprint}:{source.id}"
+                f"{grid_fingerprint}:{source.id}:"
+                f"{evidence.managed_source_manifest_checksum_sha256}:"
+                f"{evidence.page_geometry_manifest['checksumSha256']}"
             ).encode("ascii")
         ).hexdigest()
         payload: dict[str, object] = {
-            "schema_version": 4,
+            "schema_version": 6,
             "import_kind": "image_directory",
+            "source_selection_id": str(evidence.source_selection_id),
             "source_directory": source_directory,
             "source_display_name": (
                 f"{source.input_payload.get('source_display_name') or 'Import obrazów'} "
@@ -855,6 +877,11 @@ class JobService:
             "source_pipeline_fingerprint": pipeline_fingerprint,
             "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
             "managed_source_job_id": str(source.id),
+            "managed_source_manifest_checksum_sha256": (
+                evidence.managed_source_manifest_checksum_sha256
+            ),
+            "source_manifest_sha256": evidence.source_manifest_sha256,
+            "page_geometry_manifest": evidence.page_geometry_manifest,
             "symbol_model": symbol_model.to_payload(),
             "grid_profile": grid_profile,
         }
@@ -900,9 +927,6 @@ class JobService:
             symbol_model=symbol_model,
         )
         payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
-        source_selection_id = source.input_payload.get("source_selection_id")
-        if source_selection_id is not None:
-            payload["source_selection_id"] = source_selection_id
         image_selection_run_id = source.input_payload.get("image_selection_run_id")
         if image_selection_run_id is not None:
             payload["image_selection_run_id"] = image_selection_run_id

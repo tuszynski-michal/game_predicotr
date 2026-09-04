@@ -70,6 +70,22 @@ snapshotami, pozostawiając poprzedni job audytowalny; identyczne żądanie jest
 idempotentne. Staging nie jest ponownie przesyłany, a kanoniczne numery są
 ponownie sprawdzane przed startem.
 
+### Ponowne przetwarzanie z dokładną geometrią strony
+
+Nowy managed reprocess używa schema v6. API odczytuje manifest managed
+originals wybranego joba, a następnie przechodzi bounded, same-game łańcuch
+`managed_source_job_id` / `previous_job_id` do najbliższego przypiętego
+`PageGeometryManifestV1`. Oba artefakty są sprawdzane pod względem checksum,
+gry, browser stagingu, kompletnego inwentarza i disposition źródeł przed
+utworzeniem joba. Ich checksumy wchodzą do fingerprintu.
+
+Worker przed pipeline'em ponownie sprawdza manifest źródłowy oraz zgodność
+każdego wpisu geometrii. Schema v6 nie ma ścieżki bez manifestu strony:
+brak dowodu daje `IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED`, a drift,
+obca proweniencja lub niepełne pokrycie
+`IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE`. Schema v4 pozostaje
+obsługiwana wyłącznie jako historyczny kontrakt replayu.
+
 ### Jawnie przypięty adapter komórek v20
 
 Schema v5 może opcjonalnie zawierać snapshot

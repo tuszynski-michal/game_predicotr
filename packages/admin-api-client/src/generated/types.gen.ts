@@ -4792,6 +4792,7 @@ export type JobResponse = {
     | BrowserImageImportJobPayload
     | CuratedImageImportJobPayload
     | ManagedImageReprocessJobPayload
+    | PinnedManagedImageReprocessJobPayload
     | ImageSelectionJobPayload
     | SemiAutomaticImageSelectionJobPayload
     | ValidateJobPayload
@@ -6489,6 +6490,65 @@ export type PendingSymbolReinferencePreviewResponse = {
    * Requiresexplicitactivation
    */
   requiresExplicitActivation?: boolean;
+};
+
+/**
+ * PinnedManagedImageReprocessJobPayload
+ */
+export type PinnedManagedImageReprocessJobPayload = {
+  boardCellProcessing: BoardCellProcessingJobSnapshotPayload;
+  gridProfile: GridProfileJobSnapshotPayload;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
+  /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId?: string | null;
+  /**
+   * Importkind
+   */
+  importKind: 'image_directory';
+  /**
+   * Managedsourcejobid
+   */
+  managedSourceJobId: string;
+  /**
+   * Managedsourcemanifestchecksumsha256
+   */
+  managedSourceManifestChecksumSha256: string;
+  /**
+   * Normalizationadapterversion
+   */
+  normalizationAdapterVersion?: string | null;
+  pageGeometryManifest: PageGeometryManifestJobPayload;
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 6;
+  /**
+   * Sourcedirectory
+   */
+  sourceDirectory: string;
+  /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName: string;
+  /**
+   * Sourcemanifestsha256
+   */
+  sourceManifestSha256: string;
+  /**
+   * Sourcepipelinefingerprint
+   */
+  sourcePipelineFingerprint: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  symbolModel: SymbolModelJobSnapshotPayload;
 };
 
 /**

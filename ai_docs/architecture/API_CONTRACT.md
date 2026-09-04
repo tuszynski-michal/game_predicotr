@@ -2849,6 +2849,16 @@ konserwatywna estymacja narusza twardą rezerwę woluminu. Poniżej progu
 automatycznego GC system tworzy jeden idempotentny run `automatic`; trwający
 pipeline pokazuje etap `waiting_for_storage` zamiast kończyć się błędem.
 
+`POST /api/v1/admin/image-imports/{sourceJobId}/reprocess` tworzy dla nowych
+wykonań payload schema v6. Odpowiedź zawiera `managedSourceJobId`, checksumę
+manifestu managed originals, `sourceManifestSha256` oraz wymagany
+`pageGeometryManifest`. Backend rozwiązuje ten descriptor z niezmiennego,
+same-game łańcucha jobów i waliduje go przed zapisem. Brak dowodu zwraca
+`IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED`; niezgodny manifest, źródło,
+preflight albo cykl zwraca
+`IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE`. Historyczne odpowiedzi
+schema v4 pozostają czytelne bez zmiany wire contractu.
+
 ### Ręczne źródło półautomatycznego zakresu
 
 `POST /api/v1/admin/semi-automatic-image-selections/{runId}/ranges/{expectedIndex}/output-acknowledgements`

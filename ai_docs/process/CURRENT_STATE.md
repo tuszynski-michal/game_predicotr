@@ -6,6 +6,14 @@ last_updated: 2026-09-03
 
 # Current State
 
+### Lokalna domena przycinania wybranych zdjęć — TASK-0425
+
+- Gotowy jest kontrakt `manual-image-crop-output-v1` dla pełnoszerokiego pasa
+  wyznaczanego przez `topY` i `bottomY` w kanonicznej orientacji EXIF.
+- Manifest wiąże inwentarz `seq_*`, wymiary cropa, checksumy źródła i wyniku
+  oraz journal operacji; IndexedDB przechowuje tylko uchwyty, kursor i widok.
+- Renderer plików i workspace operatora powstają w kolejnych taskach 0426–0427.
+
 Tor `0.5` został zamknięty. Ostatni commit implementacyjny to `v0.5.15`, a
 commit dokumentacyjny zamknięcia otrzymuje `v0.5.16`. Następny tor rozpoczyna
 się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i

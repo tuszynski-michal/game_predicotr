@@ -13,6 +13,10 @@
     "./repair": {
       "types": "./src/repair.ts",
       "default": "./src/repair.ts"
+    },
+    "./crop": {
+      "types": "./src/crop.ts",
+      "default": "./src/crop.ts"
     }
   },
   "scripts": {

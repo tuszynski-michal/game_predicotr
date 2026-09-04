@@ -7456,3 +7456,15 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   wyników. Błąd nie blokuje przeglądu, lecz musi zostać rozwiązany przed jego
   zakończeniem. Atlasy są odtwarzalnym lokalnym cache'em, a wybór korekt jest
   trwałą decyzją UI niezależną od fizycznej obecności cropa.
+
+### D-328 — Dostęp do lokalnej sesji cięcia wyłącznie po geście operatora
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** reload odtwarza tylko metadane sesji. Dostęp do utrwalonego
+  uchwytu katalogu, przygotowanie oraz atlas miniaturek wymagają jawnych akcji
+  operatora; wyjście zachowuje dane i anuluje kolejkę między plikami.
+- **Reason:** przeglądarka może odmówić `requestPermission` poza bezpośrednim
+  gestem użytkownika, a automatyczne dekodowanie tysięcy podglądów blokowało UI.
+- **Consequences:** wznowienie i wczytanie miniaturek są dwoma świadomymi
+  krokami. Poglądowe atlasy mogą używać niższej jakości niż finalne JPEG-i.

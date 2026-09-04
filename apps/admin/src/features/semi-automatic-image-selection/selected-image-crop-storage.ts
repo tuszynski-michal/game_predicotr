@@ -355,6 +355,7 @@ export async function prepareAllSelectedImageCrops(
   prepared: PreparedSelectedImageCropDirectory,
   onProgress?: (progress: SelectedImageCropPreparationProgress) => void,
   onlyFileNames?: ReadonlySet<string>,
+  signal?: AbortSignal,
 ): Promise<SelectedImageCropPreparationResult> {
   let current = prepared;
   const missing = prepared.sourceFiles.filter(
@@ -378,6 +379,7 @@ export async function prepareAllSelectedImageCrops(
     });
   emit(null);
   for (const sourceFile of missing) {
+    if (signal?.aborted === true) break;
     try {
       const source = await sourceFile.handle.getFile();
       let proposal: SelectedImageAutoCropProposal;
@@ -417,7 +419,7 @@ export async function prepareAllSelectedImageCrops(
         cause,
       );
     }
-    emit(sourceFile.fileName);
+    if (!signal?.aborted) emit(sourceFile.fileName);
     await yieldToBrowser();
   }
   return { prepared: current, failures: current.snapshot.session.failures };

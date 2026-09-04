@@ -6,6 +6,15 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Jawne wznowienie cięcia i lekkie miniaturki — TASK-0435
+
+- Reload przywraca tylko uchwyty i nazwę sesji; dostęp do katalogu jest
+  ponawiany dopiero po kliknięciu `Wznów zapisany katalog`.
+- Atlasy nie są ładowane automatycznie. Operator uruchamia je przyciskiem, a
+  poglądowe kafelki używają WebP 120×80 przy jakości 0.58.
+- Workspace można opuścić bez utraty wyników. Przygotowanie zatrzymuje się
+  bezpiecznie między plikami, a UI wraca do wyboru nowego katalogu.
+
 ### Kotwica cold-startu z bieżącego stagingu v0.10 — TASK-0435
 
 - Pierwsza ręczna korekta nowej gry może zostać użyta jako kotwica preflightu

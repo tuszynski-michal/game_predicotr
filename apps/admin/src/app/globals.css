@@ -1904,8 +1904,8 @@ nav {
 
 .selectedImageCropGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
-  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.4rem;
   align-items: start;
 }
 
@@ -1923,7 +1923,7 @@ nav {
   border-radius: 0.55rem;
   cursor: pointer;
   content-visibility: auto;
-  contain-intrinsic-size: 176px 148px;
+  contain-intrinsic-size: 120px 108px;
 }
 
 .selectedImageCropTile:hover,
@@ -1948,19 +1948,19 @@ nav {
 
 .selectedImageCropTilePlaceholder {
   display: grid;
-  width: 176px;
-  height: 118px;
+  width: 120px;
+  height: 80px;
   place-items: center;
   padding: 0.5rem;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.68rem;
 }
 
 .selectedImageCropTileLabel {
   max-width: 100%;
   padding: 0 0.4rem 0.4rem;
   overflow: hidden;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

@@ -21,6 +21,9 @@ test('local review atlases contain at most one hundred deterministic thumbnails'
   assert.match(atlas, /ATLAS_BATCH_SIZE = 100/u);
   assert.match(atlas, /outputChecksumSha256/u);
   assert.match(atlas, /image\/webp/u);
+  assert.match(atlas, /THUMBNAIL_WIDTH = 120/u);
+  assert.match(atlas, /THUMBNAIL_HEIGHT = 80/u);
+  assert.match(atlas, /image\/webp', 0\.58/u);
   assert.match(atlas, /SELECTED_IMAGE_CROP_ATLAS_DIRECTORY/u);
   assert.match(atlas, /await yieldToBrowser\(\)/u);
 });

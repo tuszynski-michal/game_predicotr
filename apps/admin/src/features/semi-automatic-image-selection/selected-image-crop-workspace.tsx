@@ -65,6 +65,8 @@ export function SelectedImageCropWorkspace() {
   const [atlases, setAtlases] = useState<
     ReadonlyMap<number, SelectedImageCropAtlas>
   >(new Map());
+  const [atlasesRequested, setAtlasesRequested] = useState(false);
+  const [atlasesLoading, setAtlasesLoading] = useState(false);
   const [reviewFilter, setReviewFilter] = useState<
     'all' | 'correction' | 'failed'
   >('all');
@@ -79,6 +81,8 @@ export function SelectedImageCropWorkspace() {
     new Map<string, Promise<SelectedImageAutoCropProposal>>(),
   );
   const atlasAbortRef = useRef<AbortController | null>(null);
+  const preparationAbortRef = useRef<AbortController | null>(null);
+  const atlasesRequestedRef = useRef(false);
 
   const handleViewerError = useCallback(
     (message: string) => setError(message),
@@ -134,6 +138,7 @@ export function SelectedImageCropWorkspace() {
           URL.revokeObjectURL(atlas.imageUrl);
         return new Map();
       });
+      setAtlasesLoading(true);
       try {
         await loadSelectedImageCropAtlases(
           result,
@@ -150,6 +155,8 @@ export function SelectedImageCropWorkspace() {
         );
       } catch (cause) {
         if (!controller.signal.aborted) setError(errorMessage(cause));
+      } finally {
+        if (!controller.signal.aborted) setAtlasesLoading(false);
       }
     },
     [],
@@ -158,19 +165,37 @@ export function SelectedImageCropWorkspace() {
   useEffect(
     () => () => {
       atlasAbortRef.current?.abort();
+      preparationAbortRef.current?.abort();
     },
     [],
   );
 
   const prepareForReview = useCallback(
     (result: PreparedSelectedImageCropDirectory, requestedIndex: number) => {
+      preparationAbortRef.current?.abort();
+      const preparationController = new AbortController();
+      preparationAbortRef.current = preparationController;
+      atlasAbortRef.current?.abort();
+      atlasesRequestedRef.current = false;
+      setAtlasesRequested(false);
+      setAtlasesLoading(false);
+      setAtlases((current) => {
+        for (const atlas of current.values())
+          URL.revokeObjectURL(atlas.imageUrl);
+        return new Map();
+      });
       applyPrepared(result, requestedIndex);
-      void rebuildAtlases(result);
       const missing = result.manifest.entries.filter(
         (entry) => entry.result === null,
       ).length;
       if (missing === 0) {
+        preparationAbortRef.current = null;
         setPreparationProgress(null);
+        setNotice(
+          result.snapshot.review.completedAt === null
+            ? 'Wszystkie cropy są przygotowane. Miniaturki wczytasz na żądanie.'
+            : 'Przegląd jest zakończony. Możesz wybrać inny katalog.',
+        );
         return;
       }
       setPreparationProgress({
@@ -178,17 +203,25 @@ export function SelectedImageCropWorkspace() {
         total: result.manifest.entries.length,
       });
       setNotice('Automat wykrywa plansze i przygotowuje katalog cut…');
-      void prepareAllSelectedImageCrops(result, (progress) => {
-        setPrepared(progress.prepared);
-        setPreparationProgress({
-          completed: progress.completed,
-          total: progress.total,
-        });
-      })
+      void prepareAllSelectedImageCrops(
+        result,
+        (progress) => {
+          if (preparationController.signal.aborted) return;
+          setPrepared(progress.prepared);
+          setPreparationProgress({
+            completed: progress.completed,
+            total: progress.total,
+          });
+        },
+        undefined,
+        preparationController.signal,
+      )
         .then((completed) => {
+          if (preparationController.signal.aborted) return;
           applyPrepared(completed.prepared, requestedIndex);
           setPreparationProgress(null);
-          void rebuildAtlases(completed.prepared);
+          if (atlasesRequestedRef.current)
+            void rebuildAtlases(completed.prepared);
           setNotice(
             completed.failures.length > 0
               ? `Przygotowano dostępne cropy. Błędy: ${completed.failures.length}.`
@@ -196,6 +229,7 @@ export function SelectedImageCropWorkspace() {
           );
         })
         .catch((cause: unknown) => {
+          if (preparationController.signal.aborted) return;
           setPreparationProgress(null);
           setError(errorMessage(cause));
         });
@@ -217,33 +251,14 @@ export function SelectedImageCropWorkspace() {
       };
       viewRef.current = view;
       setInitialView(view);
-      void restorePrepared(saved).catch((cause: unknown) => {
-        const message = errorMessage(cause);
-        setError(message);
-        setNotice(
-          message.includes('PERMISSION')
-            ? 'Zapisana sesja wymaga ponownego nadania dostępu do katalogu.'
-            : 'Nie udało się wznowić sesji. Szczegóły błędu pozostają widoczne poniżej.',
-        );
-      });
+      setNotice(
+        'Znaleziono zapisaną sesję. Kliknij „Wznów zapisany katalog”, aby nadać dostęp.',
+      );
     });
     return () => {
       cancelled = true;
     };
-    async function restorePrepared(saved: SelectedImageCropLocalSession) {
-      setBusy(true);
-      try {
-        const result = await prepareSelectedImageCropDirectory(
-          saved.parentDirectory,
-          saved.sourceDirectoryName,
-        );
-        if (cancelled) return;
-        prepareForReview(result, saved.currentIndex);
-      } finally {
-        if (!cancelled) setBusy(false);
-      }
-    }
-  }, [prepareForReview, store]);
+  }, [store]);
 
   useEffect(() => {
     if (
@@ -361,6 +376,7 @@ export function SelectedImageCropWorkspace() {
   });
 
   async function chooseParent() {
+    leavePreparedWorkspace(false);
     setError('');
     setNotice('');
     try {
@@ -368,6 +384,7 @@ export function SelectedImageCropWorkspace() {
       setBusy(true);
       const names = await listSelectedImageCropSourceDirectories(parent);
       setParentDirectory(parent);
+      restoredRef.current = null;
       setDirectoryNames(names);
       setSourceDirectoryName(names[0] ?? '');
       setPrepared(null);
@@ -404,6 +421,39 @@ export function SelectedImageCropWorkspace() {
     }
   }
 
+  function leavePreparedWorkspace(clearDirectory = true) {
+    preparationAbortRef.current?.abort();
+    preparationAbortRef.current = null;
+    atlasAbortRef.current?.abort();
+    atlasAbortRef.current = null;
+    for (const atlas of atlases.values()) URL.revokeObjectURL(atlas.imageUrl);
+    atlasesRequestedRef.current = false;
+    setAtlasesRequested(false);
+    setAtlasesLoading(false);
+    setAtlases(new Map());
+    setPrepared(null);
+    setPreparationProgress(null);
+    setCorrectionMode(false);
+    setCrop(null);
+    setProposal(null);
+    setDetecting(false);
+    setBusy(false);
+    if (clearDirectory) {
+      restoredRef.current = null;
+      setParentDirectory(null);
+      setDirectoryNames([]);
+      setSourceDirectoryName('');
+      setNotice('Sesja została zachowana. Możesz wybrać inny katalog.');
+    }
+  }
+
+  function requestAtlases() {
+    if (prepared === null || atlasesLoading) return;
+    atlasesRequestedRef.current = true;
+    setAtlasesRequested(true);
+    void rebuildAtlases(prepared);
+  }
+
   async function saveCurrentCorrection() {
     if (
       prepared === null ||
@@ -433,7 +483,7 @@ export function SelectedImageCropWorkspace() {
         const remaining = final.snapshot.review.correctionFileNames;
         if (remaining.length === 0) {
           setCorrectionMode(false);
-          void rebuildAtlases(final);
+          if (atlasesRequestedRef.current) void rebuildAtlases(final);
         } else {
           const nextName = remaining[0]!;
           setCurrentIndex(
@@ -526,6 +576,9 @@ export function SelectedImageCropWorkspace() {
       preparationProgress !== null
     )
       return;
+    preparationAbortRef.current?.abort();
+    const preparationController = new AbortController();
+    preparationAbortRef.current = preparationController;
     setPreparationProgress({ completed: preparedCount, total: images.length });
     setError('');
     const retryNames = new Set(failures.map((failure) => failure.fileName));
@@ -539,10 +592,12 @@ export function SelectedImageCropWorkspace() {
         });
       },
       retryNames,
+      preparationController.signal,
     );
+    if (preparationController.signal.aborted) return;
     setPrepared(result.prepared);
     setPreparationProgress(null);
-    void rebuildAtlases(result.prepared);
+    if (atlasesRequestedRef.current) void rebuildAtlases(result.prepared);
     setNotice(
       result.failures.length === 0
         ? 'Błędne pliki zostały przygotowane.'
@@ -628,7 +683,9 @@ export function SelectedImageCropWorkspace() {
               onClick={() => void startOrResume()}
               type="button"
             >
-              Rozpocznij lub wznów
+              {restoredRef.current === null
+                ? 'Rozpocznij lub wznów'
+                : 'Wznów zapisany katalog'}
             </button>
           ) : null}
         </div>
@@ -648,6 +705,14 @@ export function SelectedImageCropWorkspace() {
             />
             <span>{manifest?.outputDirectoryName}</span>
             <span>{proposalLabel(proposal, detecting)}</span>
+            <button
+              className="secondaryButton"
+              disabled={busy}
+              onClick={() => leavePreparedWorkspace()}
+              type="button"
+            >
+              Wyjdź i wybierz inny katalog
+            </button>
           </div>
           {correctionMode ? (
             <>
@@ -759,6 +824,18 @@ export function SelectedImageCropWorkspace() {
                 <strong>Zaznaczone: {correctionFileNames.size}</strong>
                 <button
                   className="secondaryButton"
+                  disabled={atlasesLoading || preparedCount === 0}
+                  onClick={requestAtlases}
+                  type="button"
+                >
+                  {atlasesLoading
+                    ? 'Wczytywanie miniaturek…'
+                    : atlasesRequested
+                      ? `Odśwież miniaturki (${atlases.size})`
+                      : 'Wczytaj miniaturki'}
+                </button>
+                <button
+                  className="secondaryButton"
                   disabled={busy || correctionFileNames.size === 0}
                   onClick={() => void clearCorrections()}
                   type="button"
@@ -798,7 +875,7 @@ export function SelectedImageCropWorkspace() {
                   onClick={() => void finishReview()}
                   type="button"
                 >
-                  Zakończ przegląd
+                  Zatwierdź i zakończ przegląd
                 </button>
               </div>
               <div
@@ -830,7 +907,9 @@ export function SelectedImageCropWorkspace() {
                       !atlas.fileNames.includes(entry.fileName) ? (
                         <span className="selectedImageCropTilePlaceholder">
                           {failure === undefined
-                            ? 'Przygotowywanie…'
+                            ? atlasesRequested
+                              ? 'Przygotowywanie…'
+                              : 'Miniaturka niewczytana'
                             : 'Błąd przygotowania'}
                         </span>
                       ) : (

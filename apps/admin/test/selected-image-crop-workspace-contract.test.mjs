@@ -47,7 +47,7 @@ test('crop review provides an atlas grid and opens only selected corrections in 
   assert.match(workspace, /Miniaturki przyciętych zdjęć/u);
   assert.match(workspace, /setSelectedImageCropCorrection/u);
   assert.match(workspace, /Ponów błędne/u);
-  assert.match(workspace, /Zakończ przegląd/u);
+  assert.match(workspace, /Zatwierdź i zakończ przegląd/u);
 });
 
 test('shared viewer overlay is optional and preserves existing image rendering', () => {
@@ -62,4 +62,16 @@ test('viewport state persists without storing image blobs', () => {
   assert.match(workspace, /scrollTop: saved\.scrollTop/u);
   assert.match(workspace, /zoom: saved\.zoom/u);
   assert.doesNotMatch(workspace, /indexedDB[\s\S]*Blob/u);
+});
+
+test('reload and preview access require explicit operator actions', () => {
+  assert.match(workspace, /Wznów zapisany katalog/u);
+  assert.match(workspace, /Wczytaj miniaturki/u);
+  assert.match(workspace, /Wyjdź i wybierz inny katalog/u);
+  assert.match(workspace, /preparationAbortRef\.current\?\.abort\(\)/u);
+  assert.doesNotMatch(workspace, /function restorePrepared/u);
+  assert.doesNotMatch(
+    workspace,
+    /void rebuildAtlases\(result\);[\s\S]*const missing/u,
+  );
 });

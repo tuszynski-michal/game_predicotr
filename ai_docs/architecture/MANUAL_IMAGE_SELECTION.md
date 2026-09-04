@@ -237,6 +237,13 @@ zakończeniem całej kolejki, stare klucze są usuwane bounded. Grid utrzymuje
 trwały zbiór `needs_correction`; pełny `ManualImageViewer` dekoduje oryginały
 tylko dla tej kolejki. Poprawka aktualizuje jeden shard, review state i atlas.
 
+Hydratacja po reloadzie kończy się na odczycie rekordu IndexedDB. Wywołanie
+`requestPermission`, skan katalogu i odczyt obrazów następują dopiero w obsłudze
+jawnego kliknięcia wznowienia. Atlasy 120×80 px, kodowane jako WebP jakości
+0.58, są budowane osobną akcją operatora; samo otwarcie sesji ich nie dekoduje.
+Wyjście anuluje kolejkę pomiędzy źródłami i unieważnia późne callbacki, ale nie
+cofa zakończonego journalowanego zapisu bieżącego pliku.
+
 Katalog wynikowy jest bezpieczny wyłącznie, gdy jest pusty albo zawiera zgodny
 `manual-image-crop-output-v1.json` i wskazane przez niego wyniki. Import plansz
 filtruje wejście do JPEG-ów, dlatego pomocniczy JSON jest ignorowany. To nowa

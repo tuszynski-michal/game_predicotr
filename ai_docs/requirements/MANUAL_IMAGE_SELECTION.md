@@ -574,6 +574,14 @@ JPEG-ów. Wersja v2 rozdziela niezmienny inwentarz, mały stan sesji, kompaktowy
 stan review oraz wyniki w shardach po maksymalnie 64 pozycje. IndexedDB nadal
 zawiera wyłącznie uchwyty, kursor, zoom i scroll.
 
+Reload nie może automatycznie odczytywać utrwalonego uchwytu ani żądać
+uprawnienia do katalogu. Pokazuje wyłącznie lekką informację o zapisanej sesji;
+operator wznawia ją jawnym kliknięciem. Atlasy miniaturek również są opt-in i
+powstają dopiero po kliknięciu `Wczytaj miniaturki`. Kafelki mają poglądową,
+obniżoną rozdzielczość oraz jakość WebP. `Wyjdź i wybierz inny katalog`
+zatrzymuje przygotowanie między plikami, zachowuje dotychczasowe wyniki i wraca
+do wyboru katalogu.
+
 Po zakończeniu operator wykonuje nowy import katalogu `cut`. Ponowne
 przetworzenie starego importu nadal świadomie używa jego niezmiennych managed
 originals, więc nie może zostać po cichu przełączone na nowe, przycięte pliki.

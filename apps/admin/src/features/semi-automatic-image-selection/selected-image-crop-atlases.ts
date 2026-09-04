@@ -9,8 +9,8 @@ import {
 } from './selected-image-crop-storage';
 
 export const SELECTED_IMAGE_CROP_ATLAS_BATCH_SIZE = 100;
-export const SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH = 176;
-export const SELECTED_IMAGE_CROP_THUMBNAIL_HEIGHT = 118;
+export const SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH = 120;
+export const SELECTED_IMAGE_CROP_THUMBNAIL_HEIGHT = 80;
 const ATLAS_COLUMNS = 10;
 const ATLAS_RENDERER = 'selected-image-crop-atlas-webp-v1';
 
@@ -170,7 +170,7 @@ async function renderAtlas(
     }
     await yieldToBrowser();
   }
-  return canvasToBlob(canvas, 'image/webp', 0.82);
+  return canvasToBlob(canvas, 'image/webp', 0.58);
 }
 
 function hasResult(

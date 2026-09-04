@@ -47,6 +47,9 @@ test('keeps grid calibration separate, gated and future-batch only', () => {
   assert.match(gridSource, /meanNormalizedCornerError/);
   assert.match(gridSource, /recalculableBoardCount/);
   assert.match(gridSource, /currentV19BoardCount/);
+  assert.match(gridSource, /unsupportedVirtualBoardCount/);
+  assert.match(gridSource, /wirtualne v0\.10 do ręcznej/);
+  assert.match(gridSource, /plikowych siatek symboli 3×5 modułem v19/);
   assert.match(gridSource, /geometryVersion/);
   assert.match(gridSource, /cropperVersion/);
   assert.ok(

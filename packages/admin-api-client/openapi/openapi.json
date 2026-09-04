@@ -11688,6 +11688,11 @@
             "default": true,
             "title": "Requiresexplicitactivation",
             "type": "boolean"
+          },
+          "unsupportedVirtualBoardCount": {
+            "minimum": 0.0,
+            "title": "Unsupportedvirtualboardcount",
+            "type": "integer"
           }
         },
         "required": [
@@ -11696,6 +11701,7 @@
           "recalculableBoardCount",
           "currentV19BoardCount",
           "protectedBoardCount",
+          "unsupportedVirtualBoardCount",
           "pendingSourceCount",
           "partiallyResolvedSourceCount",
           "fullyResolvedSourceCount",

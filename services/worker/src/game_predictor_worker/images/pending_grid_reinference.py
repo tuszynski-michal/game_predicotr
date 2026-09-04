@@ -399,6 +399,8 @@ class PendingGridReinferenceHandler:
                     JobModel.game_id == game_id,
                     JobModel.status == JobStatus.WAITING_FOR_REVIEW,
                     ImageReviewItemModel.status == "pending",
+                    RecognizedBoardModel.asset_mode == "legacy_file",
+                    RecognizedBoardModel.approved_geometry_revision.is_(None),
                 )
                 .order_by(
                     ImageImportJobFileModel.order_index,
@@ -845,6 +847,8 @@ def _pending_projection_matches(
         and board.geometry_revision == snapshot.geometry_revision
         and board.position_index == snapshot.position_index
         and board.sequence_number == snapshot.sequence_number
+        and board.asset_mode == "legacy_file"
+        and board.approved_geometry_revision is None
         and board.board_relative_path == snapshot.board_relative_path
         and board.board_checksum_sha256 == snapshot.board_checksum_sha256
         and dict(board.board_geometry) == snapshot.board_geometry

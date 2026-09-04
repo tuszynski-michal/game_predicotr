@@ -225,7 +225,10 @@ zdarzenia o najwyższym monotonicznym `activation_number`. Poprzednie wersje
 pozostają niezmienne, więc rollback jest kolejnym zdarzeniem aktywacji.
 
 Jeżeli gra nie ma jeszcze zdarzenia i nie ma gotowego kandydata, resolver zwraca
-jawny, checksum-bound snapshot kontrolowanego modelu bootstrapowego. Istnienie
+jawny, checksum-bound snapshot kontrolowanego modelu bootstrapowego wyłącznie,
+gdy jego klasy dokładnie odpowiadają aktywnemu katalogowi gry. Niezgodność
+zwraca `SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED` i wymaga treningu oraz jawnej
+aktywacji modelu tej gry. Istnienie
 `candidate_ready` bez aktywacji blokuje nowy import i reinferencję: wymaga jawnej
 decyzji właściciela, zamiast cicho wracać do bootstrapu. Po pierwszej aktywacji
 resolver sprawdza manifest, ONNX, kalibrację oraz dokładną zgodność katalogu

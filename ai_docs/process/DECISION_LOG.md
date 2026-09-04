@@ -7487,3 +7487,20 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** tylko `Resetuj do automatu` usuwa lokalne zmiany. Szkic nie
   jest automatycznie zapisywany i nadal wymaga aktualnego porównania A/B przed
   trwałym zapisem geometrii.
+
+### D-330 — Historyczny recrop v19 nie konwertuje wirtualnych siatek v0.10
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** pending-only recrop v19 obejmuje wyłącznie niezatwierdzone
+  `legacy_file`. `virtual_source` jest raportowany osobno, a nie konwertowany do
+  plikowych board/cell PNG. Nowy job symboli może użyć bootstrapu wyłącznie przy
+  dokładnie zgodnym katalogu klas.
+- **Reason:** zgłoszony job zakwalifikował 45 wirtualnych plansz, w tym 36
+  ręcznie zatwierdzonych, po czym worker odrzucił brak fizycznych board PNG.
+  Równoległa reinferencja symboli użyła niezgodnych kodów angielskiego
+  bootstrapu i zakończyła się pozornym sukcesem.
+- **Consequences:** zatwierdzona geometria ma dwuwarstwową ochronę, błędny job
+  nie jest tworzony, a nowa gra musi wytrenować i jawnie aktywować zgodny model.
+  Automatyczny metadata-only recrop wirtualny wymaga osobnego snapshotu i
+  bramki jakości zamiast ukrytej zmiany trybu assetów.

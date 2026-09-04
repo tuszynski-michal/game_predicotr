@@ -2081,11 +2081,17 @@ POST /api/v1/admin/image-review-items/pending-grid-reinference/{gameId}
 ```
 
 Preview zwraca osobno `pendingBoardCount`, `recalculableBoardCount`,
-`currentV19BoardCount`, `protectedBoardCount`, liczniki źródeł oraz przypięte
+`currentV19BoardCount`, `protectedBoardCount`,
+`unsupportedVirtualBoardCount`, liczniki źródeł oraz przypięte
 `geometryVersion`, `cropperVersion` i checksumę zaakceptowanego audytu 100
 stron. Pozycja `pending` z istniejącą ręczną albo automatyczną geometrią v19
 jest aktualna, a nie kwalifikująca do ponownego zapisu. Brak kwalifikujących
 pozycji blokuje start stabilnym `IMAGE_GRID_REINFERENCE_EMPTY`.
+
+`recalculableBoardCount` obejmuje wyłącznie `legacy_file` bez zatwierdzonej
+rewizji geometrii. Zatwierdzone siatki są chronione, a `virtual_source` jest
+raportowany osobno i nie pozwala utworzyć plikowego joba v19. Worker powtarza
+te same warunki pod blokadą bezpośrednio przed zapisem.
 
 Kontrakt odroczonej geometrii komórek wykorzystuje:
 

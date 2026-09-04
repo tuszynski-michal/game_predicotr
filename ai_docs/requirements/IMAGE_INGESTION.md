@@ -495,6 +495,13 @@ zaakceptowanego audytu 100 stron oraz wersje i fingerprinty locatora,
 homografii, progów, estymatora, geometrii i croppera. Historyczny job schema v1
 pozostaje odtwarzalny; nowe uruchomienie używa schema v2.
 
+Adapter obejmuje wyłącznie niezatwierdzone geometrie `legacy_file`. Bieżąca
+rewizja zatwierdzona przez człowieka jest chroniona niezależnie od statusu
+całej planszy. `virtual_source` v0.10 nie może zostać niejawnie przekonwertowany
+do trwałych PNG przez ten historyczny adapter; pozostaje w lokalnej walidacji
+lub ręcznej korekcie do czasu osobnego metadata-only recropu z własnym
+snapshotem i bramką jakości.
+
 Adapter bierze istniejący zweryfikowany quad planszy i nie uruchamia ponownie
 discovery, detektora strony ani OCR numerów. Tylko kompletne evidence 3 × 5
 może utworzyć 15 source-direct cropów i append-only rewizję geometrii. Brak

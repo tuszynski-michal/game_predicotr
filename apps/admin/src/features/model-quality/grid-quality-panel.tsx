@@ -165,7 +165,7 @@ export function GridQualityPanel({
     const result = await startPendingGridReinference(api, gameId);
     if (result.ok) {
       setNotice(
-        `Uruchomiono odświeżenie geometrii komórek v19 dla oczekujących plansz (job ${result.job.id}).`,
+        `Uruchomiono odświeżenie plikowych siatek symboli 3×5 modułem v19 (job ${result.job.id}).`,
       );
       setPendingPreview({ ...pendingPreview, recalculableBoardCount: 0 });
     } else {
@@ -249,9 +249,10 @@ export function GridQualityPanel({
           <small>
             Oczekujące: {pendingPreview.pendingBoardCount}; już w v19:{' '}
             {pendingPreview.currentV19BoardCount}; chronione:{' '}
-            {pendingPreview.protectedBoardCount}; źródła częściowe:{' '}
-            {pendingPreview.partiallyResolvedSourceCount}; pominięte:{' '}
-            {pendingPreview.fullyResolvedSourceCount}. Silnik:{' '}
+            {pendingPreview.protectedBoardCount}; wirtualne v0.10 do ręcznej
+            walidacji lub korekty: {pendingPreview.unsupportedVirtualBoardCount}
+            ; źródła częściowe: {pendingPreview.partiallyResolvedSourceCount};
+            pominięte: {pendingPreview.fullyResolvedSourceCount}. Silnik:{' '}
             {pendingPreview.geometryVersion}; cropper:{' '}
             {pendingPreview.cropperVersion}.
           </small>

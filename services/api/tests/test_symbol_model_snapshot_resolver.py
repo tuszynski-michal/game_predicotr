@@ -166,6 +166,46 @@ def test_resolver_requires_activation_when_a_candidate_is_ready(tmp_path: Path) 
     assert error.value.code == "SYMBOL_MODEL_ACTIVATION_REQUIRED"
 
 
+def test_resolver_rejects_bootstrap_that_does_not_match_the_game_catalog(
+    tmp_path: Path,
+) -> None:
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _Session(
+            None,
+            None,
+            catalog_codes=("CYTRYNA", "SIEDEM", "WISNIA"),
+        ),  # type: ignore[arg-type]
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    with pytest.raises(JobConflictError) as error:
+        resolver.resolve(game_id=uuid4())
+
+    assert error.value.code == "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED"
+
+
+def test_resolver_keeps_compatible_bootstrap_for_legacy_catalog(tmp_path: Path) -> None:
+    bootstrap_codes = (
+        "cherries",
+        "grapes",
+        "lemon",
+        "orange",
+        "plum",
+        "seven",
+        "star",
+        "watermelon",
+    )
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _Session(None, None, catalog_codes=bootstrap_codes),  # type: ignore[arg-type]
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    snapshot = resolver.resolve(game_id=uuid4())
+
+    assert snapshot.iteration_id is None
+    assert snapshot.class_codes == bootstrap_codes
+
+
 def test_resolver_rejects_active_model_class_catalog_drift(tmp_path: Path) -> None:
     _resolver, _onnx_path, iteration, activation = _resolver_fixture(tmp_path)
     session = _Session(

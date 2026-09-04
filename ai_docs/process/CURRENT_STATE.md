@@ -6,6 +6,22 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Bezpieczne przeliczanie oczekujących v0.10 — TASK-0439
+
+- Nowy import i reinferencja nie mogą przypiąć globalnego bootstrapu, jeżeli
+  jego klasy nie są dokładnie zgodne z aktywnym katalogiem symboli gry. Taki
+  przypadek wymaga treningu oraz jawnej aktywacji modelu gry zamiast pozornie
+  udanego joba z nierozpoznanymi kodami.
+- Plikowy pending-only recrop v19 kwalifikuje wyłącznie niezatwierdzone
+  `legacy_file`. Zatwierdzenie geometrii jest chronione ponownie w workerze,
+  niezależnie od nierozstrzygniętego statusu całej planszy.
+- `virtual_source` v0.10 jest raportowany osobno i nie uruchamia legacy joba
+  tworzącego PNG. Panel kieruje te pozycje do lokalnej walidacji albo ręcznej
+  korekty, dopóki osobny metadata-only recrop nie otrzyma własnego kontraktu i
+  bramki jakości.
+- Nie ponowiono błędnego joba `90254fc1-efb5-4cb4-b73c-994e616415b8` ani nie
+  zmieniono danych gry.
+
 ### Zachowanie szkicu pojedynczej siatki — TASK-0438
 
 - `Zakończ edycję` nie przywraca już automatycznych narożników. Kompletny albo

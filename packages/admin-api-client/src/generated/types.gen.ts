@@ -6640,6 +6640,10 @@ export type PendingGridReinferencePreviewResponse = {
    * Requiresexplicitactivation
    */
   requiresExplicitActivation?: boolean;
+  /**
+   * Unsupportedvirtualboardcount
+   */
+  unsupportedVirtualBoardCount: number;
 };
 
 /**

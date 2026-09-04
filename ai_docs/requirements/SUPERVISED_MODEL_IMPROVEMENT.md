@@ -126,6 +126,9 @@ draft -> training -> evaluating -> candidate_ready -> active
 - katalog klas aktywnego snapshotu musi być dokładnie zgodny z aktywnym
   katalogiem symboli gry; klasa spoza katalogu jest błędem integralności, a nie
   nierozpoznanym symbolem `?`,
+- globalny bootstrap może zostać przypięty do nowego joba wyłącznie wtedy, gdy
+  jego klasy są dokładnie zgodne z aktywnym katalogiem gry; w przeciwnym razie
+  wymagany jest trening i jawna aktywacja modelu tej gry,
 - poprzednia aktywna wersja pozostaje dostępna do kontrolowanego rollbacku.
 
 ### Historyczny kandydat v19 i bieżący aktywny model

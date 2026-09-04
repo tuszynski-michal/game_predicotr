@@ -2031,6 +2031,8 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 SourceImageModel.id,
                 ImageReviewItemModel.status,
                 RecognizedBoardModel.board_geometry,
+                RecognizedBoardModel.asset_mode,
+                RecognizedBoardModel.approved_geometry_revision,
             )
             .select_from(ImageReviewItemModel)
             .join(
@@ -2049,11 +2051,16 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         recalculable_board_count = 0
         current_v19_board_count = 0
         protected_board_count = 0
-        for source_id, status, board_geometry in rows:
+        unsupported_virtual_board_count = 0
+        for source_id, status, board_geometry, asset_mode, approved_geometry_revision in rows:
             source_statuses[source_id].add(str(status))
             if status == "pending":
                 pending_board_count += 1
-                if (
+                if approved_geometry_revision is not None:
+                    protected_board_count += 1
+                elif asset_mode == "virtual_source":
+                    unsupported_virtual_board_count += 1
+                elif (
                     board_geometry.get("geometryVersion") == geometry_version
                     and board_geometry.get("cropperVersion") == cropper_version
                 ):
@@ -2075,6 +2082,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             recalculable_board_count=recalculable_board_count,
             current_v19_board_count=current_v19_board_count,
             protected_board_count=protected_board_count,
+            unsupported_virtual_board_count=unsupported_virtual_board_count,
             pending_source_count=pending_sources,
             partially_resolved_source_count=partial_sources,
             fully_resolved_source_count=fully_resolved_sources,

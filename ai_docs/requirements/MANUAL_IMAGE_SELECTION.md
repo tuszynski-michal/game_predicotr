@@ -554,19 +554,25 @@ Zachowuje pełną szerokość, kanoniczną orientację EXIF, perspektywę oraz
 rozdzielczość 1:1 wybranego pasa. Nie wykonuje obrotu, homografii, prostowania
 zakrzywionego ekranu ani automatycznej geometrii dziewięciu plansz.
 
-Przed rozpoczęciem review automat kolejno renderuje wszystkie brakujące JPEG-i
-do katalogu `cut`. Każdy wynik jest journalowany, ale pozostaje odrębny od
-decyzji człowieka. Przy restarcie przygotowanie pomija istniejące, sprawdzone
-wyniki i kontynuuje od pierwszego brakującego pliku.
+Automat kolejno renderuje brakujące JPEG-i do katalogu `cut`, ale błąd jednego
+pliku nie zatrzymuje pozostałych. Każdy błąd zachowuje nazwę, etap i kod, a
+operator może ponowić wyłącznie brakujące wyniki. Przygotowane cropy są dostępne
+do przeglądu od razu, również gdy dalsze pliki są jeszcze przetwarzane.
 
-Review domyślnie pokazuje gotowe, mniejsze JPEG-i z katalogu `cut`. `F` lub `→`
-utrwala wyłącznie decyzję akceptacji i przechodzi dalej, bez ponownego dekodowania,
-renderowania ani hashowania obrazu. `←` tylko nawiguje. `Dostosuj linie` otwiera
-oryginał z overlayem; zmiana wyniku wymaga jawnego `Zapisz ponownie` i zastępuje
-wyłącznie własny bieżący crop. `Resetuj cięcie` przywraca automatyczną propozycję.
-Manifest `manual-image-crop-output-v1.json` utrwala źródła,
-wymiary, cropy, checksumy i journal; IndexedDB zawiera wyłącznie uchwyty,
-kursor, zoom i scroll.
+Review pokazuje jeden ciągły grid wszystkich źródeł. Gotowe wyniki są
+prezentowane przez lokalne, progresywnie tworzone atlasy WebP po maksymalnie 100
+miniaturek; brakujący lub błędny wynik ma jawny placeholder. Kliknięcie kafelka
+oznacza `Do poprawy`, nie zatwierdza ani nie modyfikuje JPEG-a. `Popraw
+zaznaczone` otwiera wyłącznie wybrane oryginały z liniami cięcia. Zapis poprawki
+zastępuje jeden własny crop i unieważnia tylko jego atlas. Zakończenie przeglądu
+jest możliwe po przygotowaniu wszystkich plików, rozwiązaniu błędów i opróżnieniu
+kolejki korekt.
+
+Historyczny `manual-image-crop-output-v1.json` jest przy pierwszym wznowieniu
+indeksowany do wersji v2 bez ponownego renderowania i hashowania istniejących
+JPEG-ów. Wersja v2 rozdziela niezmienny inwentarz, mały stan sesji, kompaktowy
+stan review oraz wyniki w shardach po maksymalnie 64 pozycje. IndexedDB nadal
+zawiera wyłącznie uchwyty, kursor, zoom i scroll.
 
 Po zakończeniu operator wykonuje nowy import katalogu `cut`. Ponowne
 przetworzenie starego importu nadal świadomie używa jego niezmiennych managed

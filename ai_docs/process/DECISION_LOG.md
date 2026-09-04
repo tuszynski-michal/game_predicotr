@@ -7440,3 +7440,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   profilu; jego kohorta nadal wymaga kompletnego, jawnie zatwierdzonego źródła
   dziewięciu quadów. Nowe joby przypinają snapshot polityki do fingerprintu;
   historyczne payloady bez niego zachowują niezmieniony replay.
+
+### D-327 — Lokalny review cropów używa shardów i atlasów
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** przygotowanie katalogu `cut` zapisuje mały journal i wyniki w
+  shardach po najwyżej 64 sloty, izoluje błąd pojedynczego źródła oraz pokazuje
+  wszystkie pozycje w progresywnym gridzie atlasów WebP po najwyżej 100 cropów.
+  Pełny oryginał jest otwierany tylko dla pozycji zaznaczonych do poprawy.
+- **Reason:** dwukrotny zapis wielomegabajtowego manifestu dla każdego JPEG-a
+  wyczerpywał zasoby przeglądarki pod koniec dużego katalogu, a fail-fast ukrywał
+  tysiące poprawnie przygotowanych wyników przez błąd pojedynczego pliku.
+- **Consequences:** migracja v1 nie renderuje ani nie hashuje istniejących
+  wyników. Błąd nie blokuje przeglądu, lecz musi zostać rozwiązany przed jego
+  zakończeniem. Atlasy są odtwarzalnym lokalnym cache'em, a wybór korekt jest
+  trwałą decyzją UI niezależną od fizycznej obecności cropa.

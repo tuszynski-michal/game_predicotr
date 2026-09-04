@@ -21,6 +21,10 @@
     "./auto-crop": {
       "types": "./src/auto-crop.ts",
       "default": "./src/auto-crop.ts"
+    },
+    "./crop-session": {
+      "types": "./src/crop-session.ts",
+      "default": "./src/crop-session.ts"
     }
   },
   "scripts": {

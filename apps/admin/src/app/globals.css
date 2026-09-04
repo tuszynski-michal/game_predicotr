@@ -1880,6 +1880,108 @@ nav {
   transform: translate(-50%, -50%);
 }
 
+.selectedImageCropGridToolbar {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.selectedImageCropFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-right: auto;
+}
+
+.selectedImageCropGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.selectedImageCropTile {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text);
+  background: #111827;
+  border: 2px solid transparent;
+  border-radius: 0.55rem;
+  cursor: pointer;
+  content-visibility: auto;
+  contain-intrinsic-size: 176px 148px;
+}
+
+.selectedImageCropTile:hover,
+.selectedImageCropTile:focus-visible {
+  border-color: var(--accent);
+}
+
+.selectedImageCropTile.isSelected {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgb(245 158 11 / 28%);
+}
+
+.selectedImageCropTile.hasError {
+  border-color: var(--danger);
+}
+
+.selectedImageCropTileImage {
+  display: block;
+  flex: none;
+  background-repeat: no-repeat;
+}
+
+.selectedImageCropTilePlaceholder {
+  display: grid;
+  width: 176px;
+  height: 118px;
+  place-items: center;
+  padding: 0.5rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.selectedImageCropTileLabel {
+  max-width: 100%;
+  padding: 0 0.4rem 0.4rem;
+  overflow: hidden;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectedImageCropTileBadge {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  padding: 0.2rem 0.4rem;
+  color: #1f1300;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: #fbbf24;
+  border-radius: 999px;
+}
+
+.selectedImageCropTileBadge.isCorrected {
+  color: #052e22;
+  background: var(--accent);
+}
+
 .manualImageSelectionViewer:fullscreen .manualImageSelectionImageFrame {
   min-height: 0;
   height: auto;

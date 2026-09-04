@@ -30,23 +30,24 @@ test('crop workspace is local and mounted below semi automatic selection', () =>
   assert.doesNotMatch(workspace, /AdminApiClient|fetch\(|jobId|apiBaseUrl/u);
 });
 
-test('crop review provides bounded viewer, progress and required shortcuts', () => {
+test('crop review provides an atlas grid and opens only selected corrections in the viewer', () => {
   assert.match(workspace, /<ManualImageViewer/u);
-  assert.match(workspace, /acceptedCount/u);
+  assert.match(workspace, /preparedCount/u);
   assert.match(workspace, /event\.key === 'ArrowLeft'/u);
   assert.match(workspace, /event\.key === 'ArrowRight'/u);
   assert.match(workspace, /toLocaleLowerCase\('pl-PL'\) === 'f'/u);
-  assert.match(workspace, /Zapisz ponownie/u);
+  assert.match(workspace, /saveCurrentCorrection/u);
   assert.match(workspace, /Resetuj cięcie/u);
   assert.match(workspace, /proposeSelectedImageCrop/u);
   assert.match(workspace, /Automatyczna propozycja/u);
   assert.match(workspace, /proposal\?\.crop/u);
   assert.match(workspace, /prepareAllSelectedImageCrops/u);
-  assert.match(workspace, /approvePreparedSelectedImageCropResult/u);
   assert.match(workspace, /Przygotowywanie/u);
-  assert.match(workspace, /listSelectedImageCropOutputFiles/u);
-  assert.match(workspace, /Dostosuj linie/u);
-  assert.match(workspace, /reviewingPreparedOutput/u);
+  assert.match(workspace, /Popraw zaznaczone/u);
+  assert.match(workspace, /Miniaturki przyciętych zdjęć/u);
+  assert.match(workspace, /setSelectedImageCropCorrection/u);
+  assert.match(workspace, /Ponów błędne/u);
+  assert.match(workspace, /Zakończ przegląd/u);
 });
 
 test('shared viewer overlay is optional and preserves existing image rendering', () => {

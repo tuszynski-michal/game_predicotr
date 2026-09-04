@@ -29,17 +29,19 @@ test('automatic proposal analyzes only a bounded EXIF-canonical preview', () => 
   assert.match(source, /getImageData\(0, 0, width, height\)/u);
 });
 
-test('batch preparation renders missing crops without marking human review', () => {
+test('batch preparation isolates failures and uses bounded state files', () => {
   assert.match(source, /prepareAllSelectedImageCrops/u);
   assert.match(source, /markReviewed: false/u);
   assert.match(source, /await yieldToBrowser\(\)/u);
-  assert.match(source, /approvePreparedSelectedImageCropResult/u);
+  assert.match(source, /persistPreparationFailure/u);
+  assert.match(source, /RESULTS_DIRECTORY/u);
+  assert.match(source, /resultShardName/u);
 });
 
 test('selected image crop save journals before writing and verifies the output', () => {
   const journal = source.indexOf('beginSelectedImageCropWrite(');
   const manifestWrite = source.indexOf(
-    'writeSelectedImageCropManifest(input.outputDirectory, manifest)',
+    'await writeSelectedImageCropSession(',
     journal,
   );
   const imageWrite = source.indexOf('await writeBlob(', manifestWrite);
@@ -52,6 +54,12 @@ test('selected image crop save journals before writing and verifies the output',
   assert.ok(manifestWrite < imageWrite);
   assert.ok(imageWrite < verification);
   assert.ok(verification < finalization);
+});
+
+test('preparation prefers an off-main-thread worker with a safe fallback', () => {
+  assert.match(source, /prepareSelectedImageCropInWorker/u);
+  assert.match(source, /workerResult === null/u);
+  assert.match(source, /proposeSelectedImageCrop\(source\)/u);
 });
 
 test('output ownership rejects foreign files and source mutation', () => {

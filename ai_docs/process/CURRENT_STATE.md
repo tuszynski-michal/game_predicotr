@@ -6,6 +6,19 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Wznawialne cięcie i kafelkowy review — TASK-0434
+
+- Historyczna sesja `manual-image-crop-output-v1` jest bez przeliczania obrazów
+  indeksowana do niezmiennego inwentarza, małego journalu, stanu review oraz
+  shardów po maksymalnie 64 sloty.
+- Przygotowanie nie jest już fail-fast: błąd ma dokładną nazwę i etap, pozostałe
+  JPEG-i są kontynuowane, a retry obejmuje wyłącznie niegotowe pliki. Detekcja i
+  render używają odnawianego Web Workera z bezpiecznym fallbackiem.
+- Wszystkie źródła są widoczne w jednym gridzie. Gotowe cropy korzystają z
+  lokalnych atlasów WebP po najwyżej 100 miniaturek, a operator zaznacza tylko
+  pozycje kierowane następnie do pełnego edytora linii.
+- Moduł pozostaje lokalny i nie dodaje API, jobów ani danych PostgreSQL.
+
 ### Ochrona dużych importów geometrii v0.10 — TASK-0433
 
 - Import od 100 źródeł lub 500 aktywnych plansz wykonuje przed materializacją

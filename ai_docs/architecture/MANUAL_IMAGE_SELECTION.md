@@ -220,13 +220,22 @@ manifest intencji → SHA-256 źródła → render → zapis → ponowny SHA-256
 finalizacja manifestu. Przy restarcie brak wyniku cofa zamiar, zgodna checksuma
 go finalizuje, a obcy wynik blokuje wznowienie.
 
-Przygotowanie wykonuje ten sam journalowany zapis sekwencyjnie dla wszystkich
-brakujących wyników i oddaje sterowanie event loopowi po każdym JPEG-u. Pole
-`reviewedFileNames` oddziela obecność fizycznego cropa od decyzji operatora;
-brak tego pola w historycznym manifeście oznacza, że wszystkie jego dotychczasowe
-wyniki były zatwierdzone. Szybka akceptacja zmienia tylko manifest. Domyślny
-viewer czyta gotowe pliki `cut`, a oryginał i pełny renderer są używane dopiero
-po wybraniu korekty linii.
+Przy pierwszym wznowieniu writer migruje manifest v1 do podkatalogu
+`.manual-image-crop-state`: niezmiennego inwentarza, małego session journalu,
+osobnego review state i shardów wyników obejmujących najwyżej 64 sloty. Plik
+inwentarza jest publikowany jako ostatni krok migracji, dlatego jej przerwanie
+jest idempotentne. Istniejących cropów ani checksum nie przelicza się.
+
+Przygotowanie pozostaje sekwencyjne, lecz decode, detekcja i pierwszy render są
+wykonywane przez okresowo odtwarzany Web Worker z `OffscreenCanvas`. Brak tej
+funkcji uruchamia zgodny fallback. Błąd jednego źródła jest zapisywany z etapem
+i kodem, po czym kolejka przechodzi dalej; retry otrzymuje zamknięty zbiór nazw.
+
+Review używa atlasów WebP po najwyżej 100 cropów. Klucz atlasu obejmuje nazwy,
+checksumy wyników, rozmiar i renderer. Pierwszy atlas jest pokazywany przed
+zakończeniem całej kolejki, stare klucze są usuwane bounded. Grid utrzymuje
+trwały zbiór `needs_correction`; pełny `ManualImageViewer` dekoduje oryginały
+tylko dla tej kolejki. Poprawka aktualizuje jeden shard, review state i atlas.
 
 Katalog wynikowy jest bezpieczny wyłącznie, gdy jest pusty albo zawiera zgodny
 `manual-image-crop-output-v1.json` i wskazane przez niego wyniki. Import plansz

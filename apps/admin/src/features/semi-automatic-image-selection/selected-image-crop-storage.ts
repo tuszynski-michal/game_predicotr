@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  approvePreparedSelectedImageCrop,
   beginSelectedImageCropWrite,
   createSelectedImageCropManifest,
   finalizeSelectedImageCropWrite,
@@ -16,6 +15,19 @@ import {
   type SelectedImageCropSourceEntry,
 } from '@game-predictor/manual-image-selection-core/crop';
 import {
+  clearSelectedImageCropFailure,
+  materializeSelectedImageCropManifestV1,
+  markSelectedImageCropCorrected,
+  migrateSelectedImageCropManifestV1,
+  recordSelectedImageCropFailure,
+  selectedImageCropShardIndex,
+  updateSelectedImageCropCorrections,
+  type SelectedImageCropPreparationFailure,
+  type SelectedImageCropPreparationStage,
+  type SelectedImageCropReviewV2,
+  type SelectedImageCropSessionSnapshotV2,
+} from '@game-predictor/manual-image-selection-core/crop-session';
+import {
   detectSelectedImageCropBand,
   SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH,
   type SelectedImageAutoCropProposal,
@@ -23,8 +35,16 @@ import {
 
 import { pickLocalDirectory } from '@/lib/local-directory-picker';
 
+import { prepareSelectedImageCropInWorker } from './selected-image-crop-worker-client';
+
 export const SELECTED_IMAGE_CROP_MANIFEST_NAME =
   'manual-image-crop-output-v1.json';
+export const SELECTED_IMAGE_CROP_STATE_DIRECTORY = '.manual-image-crop-state';
+const INVENTORY_NAME = 'inventory-v2.json';
+const SESSION_NAME = 'session-v2.json';
+const REVIEW_NAME = 'review-v2.json';
+const RESULTS_DIRECTORY = 'results';
+export const SELECTED_IMAGE_CROP_ATLAS_DIRECTORY = 'atlases';
 type SelectedImageCropPermissionMode = 'read' | 'readwrite';
 
 export interface SelectedImageCropSourceFile extends SelectedImageCropSourceEntry {
@@ -37,11 +57,7 @@ export interface PreparedSelectedImageCropDirectory {
   readonly outputDirectory: FileSystemDirectoryHandle;
   readonly sourceFiles: readonly SelectedImageCropSourceFile[];
   readonly manifest: SelectedImageCropManifestV1;
-}
-
-export interface SelectedImageCropOutputFile {
-  readonly handle: FileSystemFileHandle;
-  readonly relativePath: string;
+  readonly snapshot: SelectedImageCropSessionSnapshotV2;
 }
 
 export interface SelectedImageCropRenderedFile {
@@ -53,6 +69,14 @@ export interface SelectedImageCropPreparationProgress {
   readonly completed: number;
   readonly total: number;
   readonly manifest: SelectedImageCropManifestV1;
+  readonly prepared: PreparedSelectedImageCropDirectory;
+  readonly lastFileName: string | null;
+  readonly failures: readonly SelectedImageCropPreparationFailure[];
+}
+
+export interface SelectedImageCropPreparationResult {
+  readonly prepared: PreparedSelectedImageCropDirectory;
+  readonly failures: readonly SelectedImageCropPreparationFailure[];
 }
 
 export async function proposeSelectedImageCrop(
@@ -145,9 +169,17 @@ export async function prepareSelectedImageCropDirectory(
     await writeSelectedImageCropManifest(outputDirectory, manifest);
   }
 
-  manifest = await recoverSelectedImageCropWrite(outputDirectory, manifest);
+  let snapshot = await openSelectedImageCropSnapshot(outputDirectory, manifest);
+  snapshot = await recoverSelectedImageCropSnapshot(outputDirectory, snapshot);
+  manifest = materializeSelectedImageCropManifestV1(snapshot);
   await assertOwnedOutputContents(outputDirectory, manifest);
-  return { sourceDirectory, outputDirectory, sourceFiles, manifest };
+  return {
+    sourceDirectory,
+    outputDirectory,
+    sourceFiles,
+    manifest,
+    snapshot,
+  };
 }
 
 export async function listSelectedImageCropSourceFiles(
@@ -232,16 +264,15 @@ export async function renderSelectedImageCrop(
 }
 
 export async function saveSelectedImageCrop(input: {
-  readonly outputDirectory: FileSystemDirectoryHandle;
+  readonly prepared: PreparedSelectedImageCropDirectory;
   readonly sourceFile: SelectedImageCropSourceFile;
   readonly crop: SelectedImageCropBand;
-  readonly manifest: SelectedImageCropManifestV1;
   readonly markReviewed?: boolean;
   readonly render?: (
     source: File,
     crop: SelectedImageCropBand,
   ) => Promise<SelectedImageCropRenderedFile>;
-}): Promise<SelectedImageCropManifestV1> {
+}): Promise<PreparedSelectedImageCropDirectory> {
   const render = input.render ?? renderSelectedImageCrop;
   const currentSource = await input.sourceFile.handle.getFile();
   if (
@@ -253,11 +284,11 @@ export async function saveSelectedImageCrop(input: {
   const sourceChecksum = await sha256Blob(currentSource);
   const rendered = await render(currentSource, input.crop);
   const outputChecksum = await sha256Blob(rendered.blob);
-  const existingResult = input.manifest.entries.find(
+  const existingResult = input.prepared.manifest.entries.find(
     (entry) => entry.fileName === input.sourceFile.fileName,
   )?.result;
   const observedExistingChecksum = await readOptionalFileChecksum(
-    input.outputDirectory,
+    input.prepared.outputDirectory,
     input.sourceFile.fileName,
   );
   if (
@@ -268,7 +299,7 @@ export async function saveSelectedImageCrop(input: {
 
   const now = new Date().toISOString();
   let manifest = beginSelectedImageCropWrite(
-    input.manifest,
+    input.prepared.manifest,
     {
       kind: 'write_crop',
       fileName: input.sourceFile.fileName,
@@ -282,74 +313,494 @@ export async function saveSelectedImageCrop(input: {
     },
     now,
   );
-  await writeSelectedImageCropManifest(input.outputDirectory, manifest);
+  let snapshot = snapshotWithManifestSession(input.prepared.snapshot, manifest);
+  await writeSelectedImageCropSession(
+    input.prepared.outputDirectory,
+    snapshot.session,
+  );
   await writeBlob(
-    input.outputDirectory,
+    input.prepared.outputDirectory,
     input.sourceFile.fileName,
     rendered.blob,
   );
   const verifiedChecksum = await readOptionalFileChecksum(
-    input.outputDirectory,
+    input.prepared.outputDirectory,
     input.sourceFile.fileName,
   );
   if (verifiedChecksum !== outputChecksum)
     throw new Error('SELECTED_IMAGE_CROP_OUTPUT_CHECKSUM_MISMATCH');
   manifest = finalizeSelectedImageCropWrite(manifest, new Date().toISOString());
-  await writeSelectedImageCropManifest(input.outputDirectory, manifest);
-  return manifest;
-}
-
-export async function approvePreparedSelectedImageCropResult(input: {
-  readonly outputDirectory: FileSystemDirectoryHandle;
-  readonly fileName: string;
-  readonly manifest: SelectedImageCropManifestV1;
-}): Promise<SelectedImageCropManifestV1> {
-  const manifest = approvePreparedSelectedImageCrop(
-    input.manifest,
-    input.fileName,
-    new Date().toISOString(),
+  snapshot = snapshotWithFinalizedResult(
+    snapshot,
+    manifest,
+    input.sourceFile.fileName,
   );
-  await writeSelectedImageCropManifest(input.outputDirectory, manifest);
-  return manifest;
+  await writeSelectedImageCropResultShard(
+    input.prepared.outputDirectory,
+    snapshot,
+    input.sourceFile.fileName,
+  );
+  await writeSelectedImageCropReview(
+    input.prepared.outputDirectory,
+    snapshot.review,
+  );
+  await writeSelectedImageCropSession(
+    input.prepared.outputDirectory,
+    snapshot.session,
+  );
+  return { ...input.prepared, manifest, snapshot };
 }
 
 export async function prepareAllSelectedImageCrops(
   prepared: PreparedSelectedImageCropDirectory,
   onProgress?: (progress: SelectedImageCropPreparationProgress) => void,
-): Promise<PreparedSelectedImageCropDirectory> {
-  let manifest = prepared.manifest;
+  onlyFileNames?: ReadonlySet<string>,
+): Promise<SelectedImageCropPreparationResult> {
+  let current = prepared;
   const missing = prepared.sourceFiles.filter(
     (source) =>
-      manifest.entries.find((entry) => entry.fileName === source.fileName)
-        ?.result === null,
+      prepared.manifest.entries.find(
+        (entry) => entry.fileName === source.fileName,
+      )?.result === null &&
+      (onlyFileNames === undefined || onlyFileNames.has(source.fileName)),
   );
-  let completed = manifest.entries.length - missing.length;
-  onProgress?.({ completed, total: manifest.entries.length, manifest });
-  for (const sourceFile of missing) {
-    const source = await sourceFile.handle.getFile();
-    const proposal = await proposeSelectedImageCrop(source);
-    manifest = await saveSelectedImageCrop({
-      outputDirectory: prepared.outputDirectory,
-      sourceFile,
-      crop: proposal.crop,
-      manifest,
-      markReviewed: false,
+  let completed = current.manifest.entries.filter(
+    (entry) => entry.result !== null,
+  ).length;
+  const emit = (lastFileName: string | null) =>
+    onProgress?.({
+      completed,
+      total: current.manifest.entries.length,
+      manifest: current.manifest,
+      prepared: current,
+      lastFileName,
+      failures: current.snapshot.session.failures,
     });
-    completed += 1;
-    onProgress?.({ completed, total: manifest.entries.length, manifest });
+  emit(null);
+  for (const sourceFile of missing) {
+    try {
+      const source = await sourceFile.handle.getFile();
+      let proposal: SelectedImageAutoCropProposal;
+      let workerRendered: SelectedImageCropRenderedFile | null = null;
+      try {
+        const workerResult = await prepareSelectedImageCropInWorker(source);
+        if (workerResult === null) {
+          proposal = await proposeSelectedImageCrop(source);
+        } else {
+          proposal = workerResult.proposal;
+          workerRendered = workerResult.rendered;
+        }
+      } catch (cause) {
+        throw preparationError(stageFromError(cause), cause);
+      }
+      try {
+        current = await saveSelectedImageCrop({
+          prepared: current,
+          sourceFile,
+          crop: proposal.crop,
+          markReviewed: false,
+          render:
+            workerRendered === null ? undefined : async () => workerRendered,
+        });
+      } catch (cause) {
+        throw preparationError(stageFromError(cause), cause);
+      }
+      current = await clearPersistedPreparationFailure(
+        current,
+        sourceFile.fileName,
+      );
+      completed += 1;
+    } catch (cause) {
+      current = await persistPreparationFailure(
+        current,
+        sourceFile.fileName,
+        cause,
+      );
+    }
+    emit(sourceFile.fileName);
     await yieldToBrowser();
   }
-  return { ...prepared, manifest };
+  return { prepared: current, failures: current.snapshot.session.failures };
 }
 
-export async function listSelectedImageCropOutputFiles(
+export async function setSelectedImageCropCorrection(input: {
+  readonly prepared: PreparedSelectedImageCropDirectory;
+  readonly fileName: string;
+  readonly selected: boolean;
+}): Promise<PreparedSelectedImageCropDirectory> {
+  const review = updateSelectedImageCropCorrections(
+    input.prepared.snapshot.review,
+    input.fileName,
+    input.selected,
+  );
+  await writeSelectedImageCropReview(input.prepared.outputDirectory, review);
+  return {
+    ...input.prepared,
+    snapshot: { ...input.prepared.snapshot, review },
+  };
+}
+
+export async function clearSelectedImageCropCorrections(
   prepared: PreparedSelectedImageCropDirectory,
-): Promise<readonly SelectedImageCropOutputFile[]> {
-  return Promise.all(
-    prepared.sourceFiles.map(async (source) => ({
-      handle: await prepared.outputDirectory.getFileHandle(source.fileName),
-      relativePath: source.relativePath,
-    })),
+): Promise<PreparedSelectedImageCropDirectory> {
+  const review: SelectedImageCropReviewV2 = {
+    ...prepared.snapshot.review,
+    correctionFileNames: [],
+    correctionCursor: 0,
+    completedAt: null,
+  };
+  await writeSelectedImageCropReview(prepared.outputDirectory, review);
+  return { ...prepared, snapshot: { ...prepared.snapshot, review } };
+}
+
+export async function completeSelectedImageCropCorrection(input: {
+  readonly prepared: PreparedSelectedImageCropDirectory;
+  readonly fileName: string;
+}): Promise<PreparedSelectedImageCropDirectory> {
+  const review = markSelectedImageCropCorrected(
+    input.prepared.snapshot.review,
+    input.fileName,
+  );
+  await writeSelectedImageCropReview(input.prepared.outputDirectory, review);
+  const manifest = {
+    ...input.prepared.manifest,
+    reviewedFileNames: review.reviewedFileNames,
+  };
+  return {
+    ...input.prepared,
+    manifest,
+    snapshot: { ...input.prepared.snapshot, review },
+  };
+}
+
+export async function completeSelectedImageCropReview(
+  prepared: PreparedSelectedImageCropDirectory,
+): Promise<PreparedSelectedImageCropDirectory> {
+  if (
+    prepared.manifest.entries.some((entry) => entry.result === null) ||
+    prepared.snapshot.session.failures.length > 0 ||
+    prepared.snapshot.review.correctionFileNames.length > 0 ||
+    prepared.snapshot.session.pendingOperation !== null
+  ) {
+    throw new Error('SELECTED_IMAGE_CROP_REVIEW_INCOMPLETE');
+  }
+  const review: SelectedImageCropReviewV2 = {
+    ...prepared.snapshot.review,
+    reviewedFileNames: prepared.manifest.entries.map((entry) => entry.fileName),
+    completedAt: new Date().toISOString(),
+  };
+  await writeSelectedImageCropReview(prepared.outputDirectory, review);
+  const manifest = {
+    ...prepared.manifest,
+    reviewedFileNames: review.reviewedFileNames,
+  };
+  return {
+    ...prepared,
+    manifest,
+    snapshot: { ...prepared.snapshot, review },
+  };
+}
+
+async function openSelectedImageCropSnapshot(
+  outputDirectory: FileSystemDirectoryHandle,
+  legacyManifest: SelectedImageCropManifestV1,
+): Promise<SelectedImageCropSessionSnapshotV2> {
+  const stateDirectory = await outputDirectory.getDirectoryHandle(
+    SELECTED_IMAGE_CROP_STATE_DIRECTORY,
+    { create: true },
+  );
+  const existingInventory = await readJsonFile<
+    SelectedImageCropSessionSnapshotV2['inventory']
+  >(stateDirectory, INVENTORY_NAME);
+  if (existingInventory === null) {
+    const migrated = migrateSelectedImageCropManifestV1(legacyManifest);
+    await writeJsonFile(stateDirectory, SESSION_NAME, migrated.session);
+    await writeJsonFile(stateDirectory, REVIEW_NAME, migrated.review);
+    const resultsDirectory = await stateDirectory.getDirectoryHandle(
+      RESULTS_DIRECTORY,
+      { create: true },
+    );
+    for (const shard of migrated.shards)
+      await writeJsonFile(
+        resultsDirectory,
+        resultShardName(shard.shardIndex),
+        shard,
+      );
+    await stateDirectory.getDirectoryHandle(
+      SELECTED_IMAGE_CROP_ATLAS_DIRECTORY,
+      {
+        create: true,
+      },
+    );
+    await writeJsonFile(stateDirectory, INVENTORY_NAME, migrated.inventory);
+    return migrated;
+  }
+  if (
+    existingInventory.sourceInventoryChecksumSha256 !==
+      legacyManifest.sourceInventoryChecksumSha256 ||
+    existingInventory.sourceDirectoryName !== legacyManifest.sourceDirectoryName
+  ) {
+    throw new Error('SELECTED_IMAGE_CROP_SOURCE_CHANGED');
+  }
+  const session = await requiredJsonFile<
+    SelectedImageCropSessionSnapshotV2['session']
+  >(stateDirectory, SESSION_NAME);
+  const storedReview = await requiredJsonFile<SelectedImageCropReviewV2>(
+    stateDirectory,
+    REVIEW_NAME,
+  );
+  const review: SelectedImageCropReviewV2 = {
+    ...storedReview,
+    correctedFileNames: storedReview.correctedFileNames ?? [],
+  };
+  const resultsDirectory =
+    await stateDirectory.getDirectoryHandle(RESULTS_DIRECTORY);
+  const shardCount = Math.ceil(existingInventory.entries.length / 64);
+  const shards = await Promise.all(
+    Array.from({ length: shardCount }, async (_, shardIndex) =>
+      requiredJsonFile<SelectedImageCropSessionSnapshotV2['shards'][number]>(
+        resultsDirectory,
+        resultShardName(shardIndex),
+      ),
+    ),
+  );
+  return { inventory: existingInventory, session, review, shards };
+}
+
+function snapshotWithManifestSession(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+  manifest: SelectedImageCropManifestV1,
+): SelectedImageCropSessionSnapshotV2 {
+  return {
+    ...snapshot,
+    session: {
+      ...snapshot.session,
+      revision: manifest.revision,
+      currentIndex: manifest.currentIndex,
+      pendingOperation: manifest.pendingOperation,
+      updatedAt: manifest.updatedAt,
+    },
+    review: {
+      ...snapshot.review,
+      reviewedFileNames: manifest.reviewedFileNames ?? [],
+    },
+  };
+}
+
+function snapshotWithFinalizedResult(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+  manifest: SelectedImageCropManifestV1,
+  fileName: string,
+): SelectedImageCropSessionSnapshotV2 {
+  const entryIndex = manifest.entries.findIndex(
+    (entry) => entry.fileName === fileName,
+  );
+  const result = manifest.entries[entryIndex]?.result;
+  if (entryIndex < 0 || result === null || result === undefined)
+    throw new Error('SELECTED_IMAGE_CROP_RESULT_NOT_PREPARED');
+  const shardIndex = selectedImageCropShardIndex(entryIndex);
+  const shards = snapshot.shards.map((shard) =>
+    shard.shardIndex === shardIndex
+      ? { ...shard, results: { ...shard.results, [fileName]: result } }
+      : shard,
+  );
+  return {
+    ...snapshotWithManifestSession(snapshot, manifest),
+    shards,
+  };
+}
+
+async function recoverSelectedImageCropSnapshot(
+  outputDirectory: FileSystemDirectoryHandle,
+  snapshot: SelectedImageCropSessionSnapshotV2,
+): Promise<SelectedImageCropSessionSnapshotV2> {
+  const pending = snapshot.session.pendingOperation;
+  if (pending === null) return snapshot;
+  const observed = await readOptionalFileChecksum(
+    outputDirectory,
+    pending.fileName,
+  );
+  const manifest = materializeSelectedImageCropManifestV1(snapshot);
+  const action = selectedImageCropRecoveryAction(manifest, observed);
+  if (action === 'block_conflicting_output')
+    throw new Error('SELECTED_IMAGE_CROP_RECOVERY_CONFLICT');
+  if (action === 'rollback_missing_output') {
+    const rolledBack = rollbackSelectedImageCropWrite(
+      manifest,
+      new Date().toISOString(),
+    );
+    const recovered = snapshotWithManifestSession(snapshot, rolledBack);
+    await writeSelectedImageCropSession(outputDirectory, recovered.session);
+    return recovered;
+  }
+  const finalized = finalizeSelectedImageCropWrite(
+    manifest,
+    new Date().toISOString(),
+  );
+  const recovered = snapshotWithFinalizedResult(
+    snapshot,
+    finalized,
+    pending.fileName,
+  );
+  await writeSelectedImageCropResultShard(
+    outputDirectory,
+    recovered,
+    pending.fileName,
+  );
+  await writeSelectedImageCropReview(outputDirectory, recovered.review);
+  await writeSelectedImageCropSession(outputDirectory, recovered.session);
+  return recovered;
+}
+
+async function writeSelectedImageCropSession(
+  outputDirectory: FileSystemDirectoryHandle,
+  session: SelectedImageCropSessionSnapshotV2['session'],
+): Promise<void> {
+  const stateDirectory = await outputDirectory.getDirectoryHandle(
+    SELECTED_IMAGE_CROP_STATE_DIRECTORY,
+  );
+  await writeJsonFile(stateDirectory, SESSION_NAME, session);
+}
+
+async function writeSelectedImageCropReview(
+  outputDirectory: FileSystemDirectoryHandle,
+  review: SelectedImageCropReviewV2,
+): Promise<void> {
+  const stateDirectory = await outputDirectory.getDirectoryHandle(
+    SELECTED_IMAGE_CROP_STATE_DIRECTORY,
+  );
+  await writeJsonFile(stateDirectory, REVIEW_NAME, review);
+}
+
+async function writeSelectedImageCropResultShard(
+  outputDirectory: FileSystemDirectoryHandle,
+  snapshot: SelectedImageCropSessionSnapshotV2,
+  fileName: string,
+): Promise<void> {
+  const entryIndex = snapshot.inventory.entries.findIndex(
+    (entry) => entry.fileName === fileName,
+  );
+  const shardIndex = selectedImageCropShardIndex(entryIndex);
+  const shard = snapshot.shards.find((item) => item.shardIndex === shardIndex);
+  if (shard === undefined) throw new Error('SELECTED_IMAGE_CROP_SHARD_MISSING');
+  const stateDirectory = await outputDirectory.getDirectoryHandle(
+    SELECTED_IMAGE_CROP_STATE_DIRECTORY,
+  );
+  const resultsDirectory =
+    await stateDirectory.getDirectoryHandle(RESULTS_DIRECTORY);
+  await writeJsonFile(resultsDirectory, resultShardName(shardIndex), shard);
+}
+
+async function persistPreparationFailure(
+  prepared: PreparedSelectedImageCropDirectory,
+  fileName: string,
+  cause: unknown,
+): Promise<PreparedSelectedImageCropDirectory> {
+  const details = unwrapPreparationError(cause);
+  const session = recordSelectedImageCropFailure(prepared.snapshot.session, {
+    fileName,
+    stage: details.stage,
+    code: details.code,
+    failedAt: new Date().toISOString(),
+  });
+  await writeSelectedImageCropSession(prepared.outputDirectory, session);
+  return { ...prepared, snapshot: { ...prepared.snapshot, session } };
+}
+
+async function clearPersistedPreparationFailure(
+  prepared: PreparedSelectedImageCropDirectory,
+  fileName: string,
+): Promise<PreparedSelectedImageCropDirectory> {
+  if (
+    !prepared.snapshot.session.failures.some(
+      (item) => item.fileName === fileName,
+    )
+  )
+    return prepared;
+  const session = clearSelectedImageCropFailure(
+    prepared.snapshot.session,
+    fileName,
+    new Date().toISOString(),
+  );
+  await writeSelectedImageCropSession(prepared.outputDirectory, session);
+  return { ...prepared, snapshot: { ...prepared.snapshot, session } };
+}
+
+interface PreparationErrorDetails {
+  readonly stage: SelectedImageCropPreparationStage;
+  readonly code: string;
+}
+
+function preparationError(
+  stage: SelectedImageCropPreparationStage,
+  cause: unknown,
+): Error & { details: PreparationErrorDetails } {
+  const code = cause instanceof Error ? cause.message : 'UNKNOWN_ERROR';
+  return Object.assign(new Error(code), { details: { stage, code } });
+}
+
+function unwrapPreparationError(cause: unknown): PreparationErrorDetails {
+  if (
+    cause instanceof Error &&
+    'details' in cause &&
+    typeof cause.details === 'object' &&
+    cause.details !== null &&
+    'stage' in cause.details &&
+    'code' in cause.details
+  ) {
+    return cause.details as PreparationErrorDetails;
+  }
+  return { stage: stageFromError(cause), code: errorCode(cause) };
+}
+
+function stageFromError(cause: unknown): SelectedImageCropPreparationStage {
+  const code = errorCode(cause);
+  if (code.includes('DECODE') || code.includes('DIMENSIONS')) return 'decode';
+  if (code.includes('ENCOD')) return 'render';
+  if (code.includes('CHECKSUM')) return 'verify';
+  return 'write';
+}
+
+function errorCode(cause: unknown): string {
+  return cause instanceof Error ? cause.message : 'UNKNOWN_ERROR';
+}
+
+function resultShardName(index: number): string {
+  return `${String(index).padStart(6, '0')}.json`;
+}
+
+async function requiredJsonFile<T>(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+): Promise<T> {
+  const value = await readJsonFile<T>(directory, name);
+  if (value === null)
+    throw new Error(`SELECTED_IMAGE_CROP_STATE_MISSING:${name}`);
+  return value;
+}
+
+async function readJsonFile<T>(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+): Promise<T | null> {
+  try {
+    const handle = await directory.getFileHandle(name);
+    return JSON.parse(await (await handle.getFile()).text()) as T;
+  } catch (cause) {
+    if (isNotFound(cause)) return null;
+    throw cause;
+  }
+}
+
+async function writeJsonFile(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+  value: unknown,
+): Promise<void> {
+  await writeBlob(
+    directory,
+    name,
+    new Blob([`${JSON.stringify(value)}\n`], { type: 'application/json' }),
   );
 }
 
@@ -366,33 +817,13 @@ export async function readCanonicalSelectedImageDimensions(
   }
 }
 
-async function recoverSelectedImageCropWrite(
-  outputDirectory: FileSystemDirectoryHandle,
-  manifest: SelectedImageCropManifestV1,
-): Promise<SelectedImageCropManifestV1> {
-  const pending = manifest.pendingOperation;
-  if (pending === null) return manifest;
-  const observed = await readOptionalFileChecksum(
-    outputDirectory,
-    pending.fileName,
-  );
-  const action = selectedImageCropRecoveryAction(manifest, observed);
-  if (action === 'block_conflicting_output')
-    throw new Error('SELECTED_IMAGE_CROP_RECOVERY_CONFLICT');
-  const recovered =
-    action === 'finalize_matching_output'
-      ? finalizeSelectedImageCropWrite(manifest, new Date().toISOString())
-      : rollbackSelectedImageCropWrite(manifest, new Date().toISOString());
-  await writeSelectedImageCropManifest(outputDirectory, recovered);
-  return recovered;
-}
-
 async function assertOwnedOutputContents(
   outputDirectory: FileSystemDirectoryHandle,
   manifest: SelectedImageCropManifestV1,
 ): Promise<void> {
   const allowed = new Set([
     SELECTED_IMAGE_CROP_MANIFEST_NAME.toLocaleLowerCase('en-US'),
+    SELECTED_IMAGE_CROP_STATE_DIRECTORY.toLocaleLowerCase('en-US'),
     ...manifest.entries
       .filter((entry) => entry.result !== null)
       .map((entry) => entry.fileName.toLocaleLowerCase('en-US')),

@@ -75,6 +75,11 @@ class BoardCellGeometryEstimate:
     inlier_slots: tuple[tuple[int, int], ...]
     inlier_p95_residual_px: float | None
     fallback_reason: str | None
+    rectified_candidates: tuple[GlobalSymbolCandidate, ...] = ()
+    assigned_candidate_indices: tuple[int | None, ...] = ()
+    global_column_bases: tuple[float, ...] = ()
+    global_row_bases: tuple[float, ...] = ()
+    ideal_to_observed_matrix: Matrix3x3 | None = None
 
     @property
     def inlier_count(self) -> int:
@@ -506,6 +511,11 @@ def estimate_board_cell_geometry(
         inlier_slots=homography.inlier_slots,
         inlier_p95_residual_px=homography.inlier_p95_residual_px,
         fallback_reason=None,
+        rectified_candidates=candidates,
+        assigned_candidate_indices=assigned,
+        global_column_bases=columns.bases,
+        global_row_bases=rows.bases,
+        ideal_to_observed_matrix=homography.ideal_to_observed_matrix,
     )
 
 

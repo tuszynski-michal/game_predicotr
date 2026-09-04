@@ -180,6 +180,12 @@ Renderer komórek nie może użyć `analysisQuad` ani `boardFrameQuad` jako
 zastępstwa brakującej siatki. Schema v1 nie serializuje nowych pól, dzięki
 czemu jej checksumy i historyczny replay pozostają niezmienne.
 
+Refiner v3 rektyfikuje każdy `analysisQuad` niezależnie, wykorzystuje
+wielopunktowy estimator v19 i chroni bboxy przypisanych komponentów przed
+przecięciem granicami komórek. Ochronny margines w przestrzeni analizy wynosi
+`max(4 px, 5% lokalnego odstępu osi)`. Niewystarczający dowód lub konflikt
+zawartości nie może zwrócić zewnętrznej ramki jako siatki zastępczej.
+
 Kohorta jest game-scoped, kumulacyjna i niezmienna. Rekordy plansz nadal
 zachowują pierwotny i finalny quad, ale profil schema v2 grupuje je według
 źródła i kwalifikuje wyłącznie kompletny układ pozycji 0–8. Pełna próbka ma

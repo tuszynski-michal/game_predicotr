@@ -7576,3 +7576,15 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** nowe schema jest addytywne i wersjonowane; v1/v2 zachowują
   replay, a brak dowodu wewnętrznej siatki wymaga ręcznej korekty zamiast
   fallbacku do ramki.
+
+### D-336 — Refiner v3 chroni zawartość i nie ma geometrycznego fallbacku
+
+- **Status:** accepted
+- **Date:** 2026-09-04
+- **Decision:** structured v3 używa istniejącego estymatora v19 per plansza, a
+  następnie wymaga, aby bboxy wiarygodnych komponentów z ochronnym marginesem
+  mieściły się w przypisanych komórkach.
+- **Reason:** dopasowanie samych środków poprawia granice, lecz bez kontroli
+  rozmiaru komponentu nie dowodzi, że linia nie przecina widocznego symbolu.
+- **Consequences:** brak pełnego dowodu zwraca `needs_review`; adapter 3×5 nie
+  dzieli automatycznie ramki ani nie używa stałego offsetu.

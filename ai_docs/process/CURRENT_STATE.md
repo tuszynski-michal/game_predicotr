@@ -6,6 +6,17 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Izolowany refiner siatki structured v3 — TASK-0446
+
+- `structured-opencv-independent-board-refinement-v3-frame-conditioned-lattice-v1`
+  uruchamia istniejący estimator v19 raz na każdym `analysisQuad` i zwraca
+  oddzielny `symbolGridQuad` albo fail-closed `needs_review` bez fallbacku.
+- `lattice-content-safety-v1` sprawdza bboxy wiarygodnych komponentów z
+  marginesem `max(4 px, 5% lokalnego odstępu osi)`; przecięcie komórki daje
+  `content_boundary_conflict`.
+- Adapter deklaruje wyłącznie topologię 3×5. Moduł nie jest jeszcze źródłem
+  produkcyjnych cropów; integracja shadow należy do TASK-0447.
+
 ### Jawne role geometrii planszy — TASK-0445
 
 - Addytywny kontrakt structured schema v2 rozdziela `analysisQuad`, opcjonalny

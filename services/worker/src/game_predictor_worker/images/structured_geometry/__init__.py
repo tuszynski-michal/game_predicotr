@@ -51,6 +51,15 @@ from .global_initialization import (
 from .global_initialization import (
     StructuredOpenCvGeometryEngine as StructuredGeometryGlobalInitializer,
 )
+from .lattice_refinement_v3 import (
+    LATTICE_CONTENT_SAFETY_VERSION,
+    STRUCTURED_LATTICE_REFINEMENT_V3_VERSION,
+    LatticeContentSafetyResult,
+    StructuredLatticeRefinementError,
+    StructuredLatticeRefinementV3,
+    evaluate_lattice_content_safety,
+    refine_structured_symbol_lattice_v3,
+)
 from .line_refinement import (
     DEFAULT_STRUCTURED_BOARD_LINE_THRESHOLDS,
     STRUCTURED_BOARD_LINE_REFINEMENT_VERSION,
@@ -80,6 +89,8 @@ __all__ = [
     "STRUCTURED_GEOMETRY_GLOBAL_INITIALIZATION_VERSION",
     "STRUCTURED_GEOMETRY_SHADOW_V2_VERSION",
     "STRUCTURED_GEOMETRY_SIGNAL_PROBE_VERSION",
+    "STRUCTURED_LATTICE_REFINEMENT_V3_VERSION",
+    "LATTICE_CONTENT_SAFETY_VERSION",
     "STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION",
     "STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION",
     "STRUCTURED_SOURCE_GEOMETRY_VERSION",
@@ -92,6 +103,7 @@ __all__ = [
     "BoardGeometryResult",
     "BoardLineRefinementResult",
     "BoardLineRefiner",
+    "LatticeContentSafetyResult",
     "DEFAULT_STRUCTURED_BOARD_LINE_THRESHOLDS",
     "DEFAULT_STRUCTURED_GEOMETRY_VALIDATION_THRESHOLDS",
     "GeometryConfidenceComponents",
@@ -123,11 +135,15 @@ __all__ = [
     "StructuredGeometrySignalProbe",
     "StructuredGeometryValidationThresholds",
     "StructuredOpenCvGeometryEngine",
+    "StructuredLatticeRefinementError",
+    "StructuredLatticeRefinementV3",
     "GameGeometryEvidenceProfileV2",
     "DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2",
     "refine_initialized_source_geometry",
     "evaluate_geometry_confidence",
     "evaluate_geometry_candidate_v2",
     "evaluate_structured_geometry_shadow_v2",
+    "evaluate_lattice_content_safety",
+    "refine_structured_symbol_lattice_v3",
     "probe_board_signals",
 ]

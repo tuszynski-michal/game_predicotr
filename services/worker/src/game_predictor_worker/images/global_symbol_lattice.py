@@ -43,6 +43,8 @@ class GlobalSymbolCandidate:
     area: int
     weight: float
     touches_border: bool
+    left: int | None = None
+    top: int | None = None
 
     def to_dict(self) -> dict[str, int | float | bool]:
         return {
@@ -114,7 +116,7 @@ def _bright_components(
         cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), dtype=np.uint8)),
     )
     count, _, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
-    raw: list[tuple[float, float, int, int, int, float, bool]] = []
+    raw: list[tuple[float, float, int, int, int, float, bool, int, int]] = []
     for label in range(1, count):
         x = int(stats[label, cv2.CC_STAT_LEFT])
         y = int(stats[label, cv2.CC_STAT_TOP])
@@ -145,6 +147,8 @@ def _bright_components(
                 area,
                 weight,
                 touches_border,
+                x,
+                y,
             )
         )
     raw.sort(key=lambda value: (value[1], value[0], value[4]))
@@ -158,6 +162,8 @@ def _bright_components(
             area=value[4],
             weight=value[5],
             touches_border=value[6],
+            left=value[7],
+            top=value[8],
         )
         for index, value in enumerate(raw)
     )

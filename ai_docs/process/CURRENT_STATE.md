@@ -6,6 +6,17 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Shadow lokalnej siatki structured v3 — TASK-0447
+
+- Nowe runy `structured_shadow` przypinają kandydata
+  `structured-lattice-candidate-v3-config-v1`; historyczne snapshoty v2 nadal
+  odtwarzają poprzedni adapter bez zmiany fingerprintu.
+- Kandydat v3 zapisuje oddzielny obszar analizy, propozycję siatki, evidence,
+  content safety i powód odroczenia w checkpointach detekcji oraz geometrii.
+  Produkcyjne cropy nadal pochodzą z dotychczasowego primary.
+- Lokalny Reviewer pokazuje obszar analizy oddzielnie i zaczyna nową edycję od
+  bezpiecznego `symbolGridQuad`. Ręczna rewizja ma zawsze pierwszeństwo.
+
 ### Izolowany refiner siatki structured v3 — TASK-0446
 
 - `structured-opencv-independent-board-refinement-v3-frame-conditioned-lattice-v1`

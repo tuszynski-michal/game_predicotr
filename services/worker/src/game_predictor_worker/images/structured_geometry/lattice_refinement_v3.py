@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 import statistics
 from dataclasses import dataclass
@@ -9,7 +10,11 @@ from typing import Literal, cast
 
 import cv2
 import numpy as np
-from game_predictor_api.domain.image_geometry_v2 import SourcePoint, SourceQuad
+from game_predictor_api.domain.image_geometry_v2 import (
+    SourcePoint,
+    SourceQuad,
+    canonical_json_bytes,
+)
 from numpy.typing import NDArray
 
 from ..board_cell_geometry_contract import BoardCellTopology
@@ -20,12 +25,15 @@ from ..board_cell_geometry_estimator import (
 )
 from ..geometry import Point as DetectorPoint
 from ..global_symbol_lattice import GlobalSymbolCandidate
+from ..normalization import CanonicalSourceFrame
 from ..rectification import BOARD_COLUMNS, BOARD_HEIGHT, BOARD_ROWS, BOARD_WIDTH
+from .geometry_engine import SourceGeometryResult
 
 STRUCTURED_LATTICE_REFINEMENT_V3_VERSION = (
     "structured-opencv-independent-board-refinement-v3-frame-conditioned-lattice-v1"
 )
 LATTICE_CONTENT_SAFETY_VERSION = "lattice-content-safety-v1"
+STRUCTURED_LATTICE_CANDIDATE_CONFIG_VERSION = "structured-lattice-candidate-v3-config-v1"
 UNSUPPORTED_TOPOLOGY_CODE = "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED"
 MINIMUM_CONTENT_MARGIN_PX = 4.0
 CONTENT_MARGIN_SPACING_FRACTION = 0.05
@@ -97,6 +105,106 @@ class StructuredLatticeRefinementV3:
                 None if self.symbol_grid_quad is None else self.symbol_grid_quad.to_dict()
             ),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class StructuredLatticeShadowResultV3:
+    source_checksum_sha256: str
+    normalized_pixel_checksum_sha256: str
+    upstream_result_checksum_sha256: str
+    config_checksum_sha256: str
+    boards: tuple[dict[str, object], ...]
+
+    def _payload(self) -> dict[str, object]:
+        return {
+            "activationAllowed": False,
+            "boards": list(self.boards),
+            "candidateRole": "measurement_only",
+            "configChecksumSha256": self.config_checksum_sha256,
+            "configVersion": STRUCTURED_LATTICE_CANDIDATE_CONFIG_VERSION,
+            "geometryOriginPolicy": "frame_conditioned_symbol_lattice_without_crop_authority",
+            "normalizedPixelChecksumSha256": self.normalized_pixel_checksum_sha256,
+            "sourceChecksumSha256": self.source_checksum_sha256,
+            "upstreamResultChecksumSha256": self.upstream_result_checksum_sha256,
+        }
+
+    @property
+    def result_checksum_sha256(self) -> str:
+        return hashlib.sha256(canonical_json_bytes(self._payload())).hexdigest()
+
+    def to_payload(self) -> dict[str, object]:
+        payload = self._payload()
+        payload["resultChecksumSha256"] = self.result_checksum_sha256
+        return payload
+
+
+def structured_lattice_candidate_config_payload() -> dict[str, object]:
+    return {
+        "activationAllowed": False,
+        "configVersion": STRUCTURED_LATTICE_CANDIDATE_CONFIG_VERSION,
+        "contentMarginSpacingFraction": CONTENT_MARGIN_SPACING_FRACTION,
+        "contentSafetyVersion": LATTICE_CONTENT_SAFETY_VERSION,
+        "estimatorVersion": ESTIMATOR_VERSION,
+        "localLatticeVersion": STRUCTURED_LATTICE_REFINEMENT_V3_VERSION,
+        "maturity": "experimental_measurement_only",
+        "minimumContentMarginPx": MINIMUM_CONTENT_MARGIN_PX,
+        "requireDisjointTuningAndEvaluation": True,
+        "topology": {"columns": BOARD_COLUMNS, "rows": BOARD_ROWS},
+    }
+
+
+def evaluate_structured_lattice_shadow_v3(
+    frame: CanonicalSourceFrame,
+    upstream: SourceGeometryResult,
+    *,
+    config_checksum_sha256: str,
+    topology: BoardCellTopology,
+) -> StructuredLatticeShadowResultV3:
+    if (
+        upstream.source_checksum_sha256 != frame.source.source_checksum_sha256
+        or upstream.normalized_pixel_checksum_sha256
+        != frame.source.normalized_pixel_checksum_sha256
+    ):
+        raise ValueError("The v3 shadow source differs from its structured upstream result.")
+    boards: list[dict[str, object]] = []
+    for board in upstream.boards:
+        analysis_quad = board.final_quad
+        if analysis_quad is None:
+            boards.append(
+                {
+                    "analysisQuad": None,
+                    "boardFrameQuad": None,
+                    "contentSafety": _safety_unavailable().to_payload(),
+                    "finalQuad": None,
+                    "localLatticeStatus": "needs_review",
+                    "localLatticeVersion": STRUCTURED_LATTICE_REFINEMENT_V3_VERSION,
+                    "positionIndex": board.slot.position_index,
+                    "reasonCode": "insufficient_lattice_evidence",
+                    "sequenceNumber": board.slot.sequence_number,
+                    "symbolGridQuad": None,
+                }
+            )
+            continue
+        refined = refine_structured_symbol_lattice_v3(
+            frame.rgb,
+            analysis_quad=analysis_quad,
+            board_frame_quad=analysis_quad,
+            topology=topology,
+        )
+        boards.append(
+            {
+                **refined.to_payload(),
+                "positionIndex": board.slot.position_index,
+                "sequenceNumber": board.slot.sequence_number,
+            }
+        )
+    return StructuredLatticeShadowResultV3(
+        source_checksum_sha256=frame.source.source_checksum_sha256,
+        normalized_pixel_checksum_sha256=frame.source.normalized_pixel_checksum_sha256,
+        upstream_result_checksum_sha256=upstream.result_checksum_sha256,
+        config_checksum_sha256=config_checksum_sha256,
+        boards=tuple(boards),
+    )
 
 
 def refine_structured_symbol_lattice_v3(
@@ -308,9 +416,13 @@ __all__ = [
     "LATTICE_CONTENT_SAFETY_VERSION",
     "MINIMUM_CONTENT_MARGIN_PX",
     "STRUCTURED_LATTICE_REFINEMENT_V3_VERSION",
+    "STRUCTURED_LATTICE_CANDIDATE_CONFIG_VERSION",
     "LatticeContentSafetyResult",
     "StructuredLatticeRefinementError",
     "StructuredLatticeRefinementV3",
+    "StructuredLatticeShadowResultV3",
     "evaluate_lattice_content_safety",
     "refine_structured_symbol_lattice_v3",
+    "evaluate_structured_lattice_shadow_v3",
+    "structured_lattice_candidate_config_payload",
 ]

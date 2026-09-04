@@ -186,6 +186,19 @@ przecięciem granicami komórek. Ochronny margines w przestrzeni analizy wynosi
 `max(4 px, 5% lokalnego odstępu osi)`. Niewystarczający dowód lub konflikt
 zawartości nie może zwrócić zewnętrznej ramki jako siatki zastępczej.
 
+Nowe joby `structured_shadow` przypinają checksum-bound konfigurację kandydata
+`structured-lattice-candidate-v3-config-v1`. Checkpointy detekcji i geometrii
+komórek zachowują identyczny `structuredGeometryCandidateV3`; każdy slot
+zapisuje oba quady, evidence estymatora, wynik content safety i zamknięty powód
+odroczenia. Kandydat ma `activationAllowed=false` i nie jest konsumowany przez
+produkcyjny cropper. Historyczne snapshoty konfiguracji v2 nadal wybierają
+`structuredGeometryCandidateV2`, więc retry nie zmienia adaptera.
+
+Read model kolejki może dołączyć pomiar v3 do bieżącej geometrii planszy.
+Reviewer rysuje `analysisQuad` jako cienki obrys diagnostyczny i proponowany
+`symbolGridQuad` jako siatkę edycyjną. Jeśli istnieje ręczna rewizja, jej quad
+wygrywa i pomiar shadow nie może jej zastąpić.
+
 Kohorta jest game-scoped, kumulacyjna i niezmienna. Rekordy plansz nadal
 zachowują pierwotny i finalny quad, ale profil schema v2 grupuje je według
 źródła i kwalifikuje wyłącznie kompletny układ pozycji 0–8. Pełna próbka ma

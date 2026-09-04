@@ -75,6 +75,14 @@ może być automatycznie dzielony na komórki. Jedynym źródłem cropów jest
 `symbolGridQuad`, poparty lokalnym dowodem siatki albo ręczną decyzją 36
 narożników. Historyczne kontrakty zachowują dotychczasową semantykę.
 
+Nowy refiner v3 jest najpierw przypinany wyłącznie jako kandydat shadow.
+Jego `analysisQuad`, proponowany `symbolGridQuad`, diagnostyka i powód
+odroczenia są trwałym pomiarem, lecz nie mają uprawnienia do zmiany cropów,
+statusów ani decyzji. Reviewer może użyć bezpiecznej propozycji jako punktu
+startowego ręcznej korekty; istniejąca ręczna geometria zawsze pozostaje
+prawdą nadrzędną. Aktywacja v3 jako źródła nowych cropów wymaga osobnego
+odbioru jakości i jawnej decyzji operatora.
+
 ## Aktywny kontrakt geometrii komórek v18/v20
 
 Domyślny import nadal używa historycznego

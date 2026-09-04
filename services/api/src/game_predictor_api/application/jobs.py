@@ -34,7 +34,7 @@ from game_predictor_worker.images.pipeline_contract import (
     effective_pipeline_fingerprint,
 )
 from game_predictor_worker.images.structured_geometry import (
-    DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2,
+    structured_lattice_candidate_config_payload,
 )
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
@@ -418,7 +418,7 @@ class JobService:
             preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
             candidate_geometry=(
                 StructuredGeometryCandidateSnapshot.from_config_payload(
-                    DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.to_payload()
+                    structured_lattice_candidate_config_payload()
                 )
                 if reference is not None
                 and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_SHADOW.value

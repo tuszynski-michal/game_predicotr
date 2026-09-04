@@ -90,6 +90,10 @@ export function orderGridReviewSourceItems(
 export function gridReviewCorners(
   item: ImageGridReviewItemResponse,
 ): OperationalReviewGeometryCorners {
+  if (item.geometryRevision === 0) {
+    const symbolGrid = parseTypedCorners(item.symbolGridQuad);
+    if (symbolGrid !== null) return symbolGrid;
+  }
   const parsed = parseCorners(item.geometry);
   if (parsed !== null) return parsed;
   const insetX = Math.max(1, Math.round(item.sourceWidth * 0.1));
@@ -103,6 +107,20 @@ export function gridReviewCorners(
     },
     { x: insetX, y: item.sourceHeight - insetY - 1 },
   ];
+}
+
+export function gridReviewAnalysisCorners(
+  item: ImageGridReviewItemResponse,
+): OperationalReviewGeometryCorners | null {
+  if (item.geometryRevision > 0) return null;
+  return parseTypedCorners(item.analysisQuad);
+}
+
+export function gridReviewLatticeReason(
+  item: ImageGridReviewItemResponse,
+): string | null {
+  const value = item.geometry.latticeReasonCode;
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 export function gridGeometryDraftsEqual(
@@ -364,6 +382,14 @@ function parseCorners(
     geometry.corners;
   if (!Array.isArray(raw) || raw.length !== 4) return null;
   const parsed = raw.map(parsePoint);
+  return parsed.every((point) => point !== null)
+    ? (parsed as OperationalReviewGeometryCorners)
+    : null;
+}
+
+function parseTypedCorners(value: unknown) {
+  if (!Array.isArray(value) || value.length !== 4) return null;
+  const parsed = value.map(parsePoint);
   return parsed.every((point) => point !== null)
     ? (parsed as OperationalReviewGeometryCorners)
     : null;

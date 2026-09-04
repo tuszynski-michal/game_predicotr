@@ -79,6 +79,12 @@ Element game-wide kolejki walidacji geometrii może addytywnie zwrócić
 `geometry` zachowuje dotychczasowy payload. Klient nie może interpretować
 zewnętrznej ramki jako końcowej siatki symboli.
 
+Dla pomiaru v3 `localLatticeStatus=estimated` oznacza bezpieczną, nadal
+nieprodukcyjną propozycję `symbolGridQuad`. `needs_review` może jawnie zwrócić
+`symbolGridQuad=null`; klient nie może wtedy podstawiać `quad` ani
+`boardFrameQuad`. Dokładny powód pozostaje w wersjonowanym payloadzie
+`geometry` jako `latticeReasonCode`.
+
 ### Wyszukiwanie plansz częściowym układem
 
 ```text

@@ -7588,3 +7588,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   rozmiaru komponentu nie dowodzi, że linia nie przecina widocznego symbolu.
 - **Consequences:** brak pełnego dowodu zwraca `needs_review`; adapter 3×5 nie
   dzieli automatycznie ramki ani nie używa stałego offsetu.
+
+### D-337 — Kandydat siatki v3 pozostaje pomiarem shadow
+
+- **Status:** accepted
+- **Date:** 2026-09-04
+- **Decision:** nowe runy structured shadow przypinają refiner v3 jako
+  checksummowany kandydat bez uprawnienia do renderowania cropów. Historyczny
+  snapshot v2 nadal wybiera v2, a ręczna geometria zawsze wygrywa w read modelu.
+- **Reason:** wynik lokalnego estymatora musi zostać oceniony na rozłącznym
+  korpusie zanim zmieni piksele produkcyjne; jednocześnie operator potrzebuje
+  widzieć propozycję i dokładny powód odroczenia.
+- **Consequences:** checkpoint v3 jest trwały i widoczny w Reviewerze, ale
+  aktywacja oraz reprocess należą do osobnego TASK-0448. Brak
+  `symbolGridQuad` nie uruchamia fallbacku do zewnętrznej ramki.

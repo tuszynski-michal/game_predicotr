@@ -13,8 +13,10 @@ import {
   gridGeometrySourceItemAtPoint,
   GRID_REVIEW_VIEWS,
   gridGeometryDragTarget,
+  gridReviewAnalysisCorners,
   gridReviewApprovalCommand,
   gridReviewCorners,
+  gridReviewLatticeReason,
   gridReviewGeometryCommand,
   gridReviewGeometryPreviewCommand,
   gridReviewSourceStats,
@@ -79,6 +81,63 @@ test('an individual draft stays pending until it exactly matches the automatic g
     gridGeometryDraftsEqual(automatic.slice(0, 3), automatic),
     false,
   );
+});
+
+test('automatic v3 review starts from the symbol lattice and keeps the analysis frame separate', () => {
+  const analysisQuad = [
+    { x: 10, y: 10 },
+    { x: 210, y: 10 },
+    { x: 210, y: 130 },
+    { x: 10, y: 130 },
+  ];
+  const symbolGridQuad = [
+    { x: 20, y: 20 },
+    { x: 200, y: 20 },
+    { x: 200, y: 120 },
+    { x: 20, y: 120 },
+  ];
+  const candidate = {
+    ...item,
+    analysisQuad,
+    geometry: { latticeReasonCode: 'content_boundary_conflict' },
+    geometryRevision: 0,
+    localLatticeStatus: 'estimated',
+    localLatticeVersion: 'structured-v3-test',
+    symbolGridQuad,
+  };
+
+  assert.deepEqual(gridReviewCorners(candidate), symbolGridQuad);
+  assert.deepEqual(gridReviewAnalysisCorners(candidate), analysisQuad);
+  assert.equal(gridReviewLatticeReason(candidate), 'content_boundary_conflict');
+});
+
+test('a persisted manual geometry remains truth over a shadow proposal', () => {
+  const manual = [
+    { x: 30, y: 30 },
+    { x: 190, y: 30 },
+    { x: 190, y: 110 },
+    { x: 30, y: 110 },
+  ];
+  const candidate = {
+    ...item,
+    analysisQuad: [
+      { x: 10, y: 10 },
+      { x: 210, y: 10 },
+      { x: 210, y: 130 },
+      { x: 10, y: 130 },
+    ],
+    geometry: { quad: manual },
+    geometryRevision: 1,
+    symbolGridQuad: [
+      { x: 20, y: 20 },
+      { x: 200, y: 20 },
+      { x: 200, y: 120 },
+      { x: 20, y: 120 },
+    ],
+  };
+
+  assert.deepEqual(gridReviewCorners(candidate), manual);
+  assert.equal(gridReviewAnalysisCorners(candidate), null);
 });
 
 test('four clicks create corners in LT PT PD LD order and undo removes the last point', () => {

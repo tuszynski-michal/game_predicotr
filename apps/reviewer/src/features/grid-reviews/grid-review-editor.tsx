@@ -33,7 +33,9 @@ import {
   gridGeometrySourceDraft,
   gridGeometrySourceItemAtPoint,
   gridGeometryDragTarget,
+  gridReviewAnalysisCorners,
   gridReviewCorners,
+  gridReviewLatticeReason,
   moveGridGeometry,
   moveGridGeometryCorner,
   nextIncompleteGridGeometrySourceItem,
@@ -107,6 +109,7 @@ function GridReviewEditorContent({
   const previewUrlsRef = useRef<Set<string>>(new Set());
   const dragRef = useRef<ActiveDrag | null>(null);
   const automaticCorners = useMemo(() => gridReviewCorners(item), [item]);
+  const latticeReason = useMemo(() => gridReviewLatticeReason(item), [item]);
   const [draft, setDraft] = useState<GridGeometryItemDraft>(() => ({
     corners: automaticCorners,
     reviewItemId: item.reviewItemId,
@@ -212,6 +215,10 @@ function GridReviewEditorContent({
 
     for (const candidate of items) {
       const selected = candidate.reviewItemId === item.reviewItemId;
+      const candidateAnalysisCorners = gridReviewAnalysisCorners(candidate);
+      if (candidateAnalysisCorners !== null) {
+        drawAnalysisOverlay(context, candidateAnalysisCorners, selected);
+      }
       const storedCandidateDraft = gridGeometrySourceDraft(
         sourceDrafts,
         candidate.reviewItemId,
@@ -571,6 +578,14 @@ function GridReviewEditorContent({
             ? ` · ${item.reasonCodes.join(', ')}`
             : ''}
         </p>
+        {item.localLatticeVersion ? (
+          <p className="gridReviewMetadata">
+            Dopasowanie lokalne: {item.localLatticeVersion} ·{' '}
+            {item.localLatticeStatus === 'estimated'
+              ? 'bezpieczna propozycja siatki'
+              : `wymaga korekty${latticeReason ? ` · ${latticeReason}` : ''}`}
+          </p>
+        ) : null}
         {loadingSource ? <p>Wczytywanie obrazu…</p> : null}
         <div className="gridReviewSourceViewport">
           <canvas
@@ -908,6 +923,25 @@ function drawBoardOverlay(
       );
     });
   }
+  context.restore();
+}
+
+function drawAnalysisOverlay(
+  context: CanvasRenderingContext2D,
+  corners: OperationalReviewGeometryCorners,
+  selected: boolean,
+) {
+  context.save();
+  context.beginPath();
+  context.moveTo(corners[0].x, corners[0].y);
+  corners.slice(1).forEach((point) => context.lineTo(point.x, point.y));
+  context.closePath();
+  context.lineWidth = Math.max(1, context.canvas.width / 1400);
+  context.setLineDash([10, 8]);
+  context.strokeStyle = selected
+    ? 'rgba(203, 213, 225, 0.9)'
+    : 'rgba(148, 163, 184, 0.48)';
+  context.stroke();
   context.restore();
 }
 

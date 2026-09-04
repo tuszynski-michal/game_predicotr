@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import replace
 from uuid import UUID
 
@@ -10,7 +11,9 @@ from game_predictor_api.domain.image_geometry_v2 import (
     NormalizedSourceImage,
     SourcePoint,
     SourceQuad,
+    canonical_json_bytes,
 )
+from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
 from game_predictor_worker.images.normalization import (
     CANONICAL_SOURCE_LOADER_VERSION,
     CanonicalSourceFrame,
@@ -29,6 +32,8 @@ from game_predictor_worker.images.structured_geometry import (
     SourceGeometryResult,
     SourceGeometryStatus,
     evaluate_structured_geometry_shadow_v2,
+    evaluate_structured_lattice_shadow_v3,
+    structured_lattice_candidate_config_payload,
 )
 
 
@@ -181,6 +186,38 @@ def test_shadow_v2_is_deterministic_checksum_bound_and_measurement_only() -> Non
     assert first.boards[0].signal_probe.probe_coordinate_source == "structured_v1_final_quad"
     assert first.boards[0].evidence is not None
     assert first.boards[0].evidence.reprojection_cell_diagonal_fraction is not None
+
+
+def test_shadow_v3_is_deterministic_checksum_bound_and_measurement_only() -> None:
+    frame = _frame()
+    upstream = _upstream(frame)
+    config = structured_lattice_candidate_config_payload()
+    config_checksum = hashlib.sha256(canonical_json_bytes(config)).hexdigest()
+    topology = BoardCellTopology(rows=3, columns=5)
+
+    first = evaluate_structured_lattice_shadow_v3(
+        frame,
+        upstream,
+        config_checksum_sha256=config_checksum,
+        topology=topology,
+    )
+    second = evaluate_structured_lattice_shadow_v3(
+        frame,
+        upstream,
+        config_checksum_sha256=config_checksum,
+        topology=topology,
+    )
+    payload = first.to_payload()
+
+    assert payload == second.to_payload()
+    assert payload["candidateRole"] == "measurement_only"
+    assert payload["activationAllowed"] is False
+    assert payload["geometryOriginPolicy"] == (
+        "frame_conditioned_symbol_lattice_without_crop_authority"
+    )
+    assert payload["upstreamResultChecksumSha256"] == upstream.result_checksum_sha256
+    assert payload["configChecksumSha256"] == config_checksum
+    assert len(payload["boards"]) == 1
 
 
 def test_source_geometry_schema_v1_keeps_the_legacy_board_payload() -> None:

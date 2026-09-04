@@ -230,6 +230,11 @@ def to_image_grid_review_item_response(
     item: ImageGridReviewListItem,
 ) -> ImageGridReviewItemResponse:
     geometry = dict(item.geometry)
+    symbol_grid_quad = (
+        geometry["symbolGridQuad"]
+        if "symbolGridQuad" in geometry
+        else geometry.get("quad")
+    )
     return ImageGridReviewItemResponse(
         review_item_id=item.review_item_id,
         game_id=item.game_id,
@@ -249,9 +254,7 @@ def to_image_grid_review_item_response(
         geometry=geometry,
         analysis_quad=_optional_geometry_quad(geometry.get("analysisQuad")),
         board_frame_quad=_optional_geometry_quad(geometry.get("boardFrameQuad")),
-        symbol_grid_quad=_optional_geometry_quad(
-            geometry.get("symbolGridQuad") or geometry.get("quad")
-        ),
+        symbol_grid_quad=_optional_geometry_quad(symbol_grid_quad),
         local_lattice_status=_optional_text(geometry.get("localLatticeStatus")),
         local_lattice_version=_optional_text(geometry.get("localLatticeVersion")),
         asset_mode=item.asset_mode,

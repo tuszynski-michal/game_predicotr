@@ -125,6 +125,7 @@ from .source_ingestion import (
     ManagedSourceManifest,
 )
 from .structured_geometry import (
+    STRUCTURED_LATTICE_CANDIDATE_CONFIG_VERSION,
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
     STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
     BoardGeometryDisposition,
@@ -132,6 +133,8 @@ from .structured_geometry import (
     StructuredGeometryInitializationRequest,
     StructuredOpenCvGeometryEngine,
     evaluate_structured_geometry_shadow_v2,
+    evaluate_structured_lattice_shadow_v3,
+    structured_lattice_candidate_config_payload,
 )
 from .symbol_model_release import build_symbol_predictions
 from .symbol_onnx import (
@@ -153,6 +156,41 @@ DETECTION_ADAPTER_VERSION = "page-board-detector-v4-verified-registration-v1"
 CROP_ADAPTER_VERSION = SOURCE_DIRECT_CROPPER_VERSION
 SYMBOL_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
 SEQUENCE_ADAPTER_VERSION = "sequence-number-ocr-v2-page-continuity-v1"
+
+
+def _attach_lattice_candidate_to_detection(
+    raw_boards: Sequence[object],
+    candidate: Mapping[str, object],
+) -> list[dict[str, object]]:
+    candidate_boards = {
+        _integer(board, "positionIndex"): board
+        for board in (
+            _mapping(value, "structuredGeometryCandidateV3.board")
+            for value in _sequence(candidate.get("boards"), "structuredGeometryCandidateV3.boards")
+        )
+    }
+    projected: list[dict[str, object]] = []
+    for value in raw_boards:
+        board = dict(_mapping(value, "board"))
+        position = _integer(board, "positionIndex")
+        measured = candidate_boards.get(position)
+        if measured is None:
+            projected.append(board)
+            continue
+        geometry = dict(_mapping(board.get("geometry"), "geometry"))
+        for key in (
+            "analysisQuad",
+            "boardFrameQuad",
+            "symbolGridQuad",
+            "localLatticeStatus",
+            "localLatticeVersion",
+            "contentSafety",
+        ):
+            geometry[key] = measured.get(key)
+        geometry["latticeReasonCode"] = measured.get("reasonCode")
+        board["geometry"] = geometry
+        projected.append(board)
+    return projected
 
 
 class BoardCellGeometryDeferrer(Protocol):
@@ -749,7 +787,7 @@ class ProductionImageStageAdapterSuite:
 
     def board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
         if not self._geometry_rollout.is_legacy:
-            structured, candidate_v2 = self._detect_structured_geometry(context)
+            structured, candidate_v2, candidate_v3 = self._detect_structured_geometry(context)
             if self._geometry_rollout.geometry_mode is not GeometryRolloutMode.STRUCTURED_SHADOW:
                 return {
                     "boards": [
@@ -769,6 +807,12 @@ class ProductionImageStageAdapterSuite:
             projected = {**legacy, "structuredGeometry": structured}
             if candidate_v2 is not None:
                 projected["structuredGeometryCandidateV2"] = candidate_v2
+            if candidate_v3 is not None:
+                projected["structuredGeometryCandidateV3"] = candidate_v3
+                projected["boards"] = _attach_lattice_candidate_to_detection(
+                    cast(Sequence[object], projected["boards"]),
+                    candidate_v3,
+                )
             return projected
         return self._legacy_board_detection(context)
 
@@ -885,6 +929,11 @@ class ProductionImageStageAdapterSuite:
                 )
                 if isinstance(candidate_v2, Mapping):
                     projected["structuredGeometryCandidateV2"] = dict(candidate_v2)
+                candidate_v3 = _previous(context, "board_detection").get(
+                    "structuredGeometryCandidateV3"
+                )
+                if isinstance(candidate_v3, Mapping):
+                    projected["structuredGeometryCandidateV3"] = dict(candidate_v3)
                 return projected
             return self._structured_board_cell_geometry(context)
         return self._legacy_board_cell_geometry(context)
@@ -1444,7 +1493,11 @@ class ProductionImageStageAdapterSuite:
     def _detect_structured_geometry(
         self,
         context: ImageStageContext,
-    ) -> tuple[dict[str, object], dict[str, object] | None]:
+    ) -> tuple[
+        dict[str, object],
+        dict[str, object] | None,
+        dict[str, object] | None,
+    ]:
         if context.attested_sequence_range is None or self._board_topology.rules_version_id is None:
             raise ImagePipelineExecutionError(
                 "IMAGE_STRUCTURED_GEOMETRY_ATTESTATION_REQUIRED",
@@ -1510,12 +1563,25 @@ class ProductionImageStageAdapterSuite:
         payload["rolloutMode"] = self._geometry_rollout.geometry_mode.value
         candidate_snapshot = self._geometry_rollout.candidate_geometry
         if candidate_snapshot is None:
-            return payload, None
+            return payload, None, None
         if self._geometry_rollout.geometry_mode is not GeometryRolloutMode.STRUCTURED_SHADOW:
             raise ImagePipelineExecutionError(
                 "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_MODE_INVALID",
                 "Structured Geometry v2 measurements are allowed only in shadow mode.",
             )
+        if candidate_snapshot.config_version == STRUCTURED_LATTICE_CANDIDATE_CONFIG_VERSION:
+            if candidate_snapshot.config_payload != structured_lattice_candidate_config_payload():
+                raise ImagePipelineExecutionError(
+                    "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_CONFIG_DRIFT",
+                    "The pinned Structured Geometry v3 lattice config changed.",
+                )
+            candidate_v3 = evaluate_structured_lattice_shadow_v3(
+                frame,
+                result,
+                config_checksum_sha256=candidate_snapshot.config_checksum_sha256,
+                topology=self._board_topology,
+            )
+            return payload, None, candidate_v3.to_payload()
         try:
             config = StructuredGeometryConfigV2.from_payload(candidate_snapshot.config_payload)
         except ValueError as error:
@@ -1528,13 +1594,13 @@ class ProductionImageStageAdapterSuite:
                 "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_CONFIG_DRIFT",
                 "The pinned Structured Geometry v2 config checksum changed.",
             )
-        candidate = evaluate_structured_geometry_shadow_v2(
+        candidate_v2 = evaluate_structured_geometry_shadow_v2(
             frame,
             result,
             config=config,
             game_id=self._game_id,
         )
-        return payload, candidate.to_payload()
+        return payload, candidate_v2.to_payload(), None
 
     def _structured_engine(self) -> StructuredOpenCvGeometryEngine:
         if self._structured_geometry_engine is None:

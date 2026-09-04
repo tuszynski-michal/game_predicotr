@@ -434,6 +434,31 @@ def test_grid_review_response_exposes_explicit_geometry_roles() -> None:
     assert response.local_lattice_version == "lattice-test-v1"
 
 
+def test_grid_review_response_does_not_replace_explicitly_deferred_lattice_with_frame() -> None:
+    frame = [
+        {"x": 1, "y": 1},
+        {"x": 101, "y": 1},
+        {"x": 101, "y": 81},
+        {"x": 1, "y": 81},
+    ]
+    item = _item(uuid4(), uuid4(), 1, ImageGridReviewState.NEEDS_VALIDATION)
+    item = replace(
+        item,
+        geometry={
+            "quad": frame,
+            "analysisQuad": frame,
+            "symbolGridQuad": None,
+            "localLatticeStatus": "needs_review",
+            "localLatticeVersion": "lattice-test-v1",
+        },
+    )
+
+    response = to_image_grid_review_item_response(item)
+
+    assert response.analysis_quad is not None
+    assert response.symbol_grid_quad is None
+
+
 def test_geometry_rollout_start_is_idempotent_and_reports_progress(tmp_path: Path) -> None:
     client, _repository, items = _client(tmp_path)
     endpoint = f"/api/v1/admin/games/{items[0].game_id}/image-geometry-rollout"

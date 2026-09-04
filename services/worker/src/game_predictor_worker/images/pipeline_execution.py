@@ -480,6 +480,9 @@ def validate_stage_payload(
         candidate = payload.get("structuredGeometryCandidateV2")
         if candidate is not None:
             _structured_candidate_v2(candidate, context=context, payload=payload)
+        candidate_v3 = payload.get("structuredGeometryCandidateV3")
+        if candidate_v3 is not None:
+            _structured_candidate_v3(candidate_v3, context=context, payload=payload)
     elif stage == BOARD_CELL_GEOMETRY_STAGE:
         _board_cell_geometry(payload, context)
     elif stage == "board_crops":
@@ -798,6 +801,71 @@ def _structured_candidate_v2(
         )
 
 
+def _structured_candidate_v3(
+    value: object,
+    *,
+    context: ImageStageContext,
+    payload: Mapping[str, object],
+) -> None:
+    candidate = _mapping(value, "structuredGeometryCandidateV3")
+    checksum = candidate.get("resultChecksumSha256")
+    _sha256(checksum, "structuredGeometryCandidateV3.resultChecksumSha256")
+    unsigned = dict(candidate)
+    unsigned.pop("resultChecksumSha256", None)
+    expected = hashlib.sha256(canonical_json_bytes(unsigned)).hexdigest()
+    if checksum != expected:
+        _invalid("The Structured Geometry v3 lattice candidate checksum changed.")
+    if (
+        candidate.get("candidateRole") != "measurement_only"
+        or candidate.get("activationAllowed") is not False
+        or candidate.get("configVersion")
+        != "structured-lattice-candidate-v3-config-v1"
+        or candidate.get("geometryOriginPolicy")
+        != "frame_conditioned_symbol_lattice_without_crop_authority"
+    ):
+        _invalid("The Structured Geometry v3 lattice candidate must remain measurement-only.")
+    _sha256(candidate.get("configChecksumSha256"), "candidate v3 config checksum")
+    _matching_text(
+        candidate.get("sourceChecksumSha256"),
+        context.source_checksum_sha256,
+        "candidate v3 source checksum",
+    )
+    _sha256(candidate.get("normalizedPixelChecksumSha256"), "candidate v3 pixel checksum")
+    structured = _mapping(payload.get("structuredGeometry"), "structuredGeometry")
+    _matching_text(
+        candidate.get("upstreamResultChecksumSha256"),
+        _sha256(structured.get("resultChecksumSha256"), "structured result checksum"),
+        "candidate v3 upstream result checksum",
+    )
+    normalization = context.previous_results.get("normalization")
+    if normalization is not None and "normalizedPixelChecksumSha256" in normalization:
+        _matching_text(
+            candidate.get("normalizedPixelChecksumSha256"),
+            _sha256(
+                normalization.get("normalizedPixelChecksumSha256"),
+                "normalization pixel checksum",
+            ),
+            "candidate v3 normalized pixel checksum",
+        )
+    boards = _sequence_mappings(
+        candidate.get("boards"),
+        "structuredGeometryCandidateV3.boards",
+    )
+    for value in boards:
+        board = _mapping(value, "structuredGeometryCandidateV3.board")
+        status = board.get("localLatticeStatus")
+        symbol_grid = board.get("symbolGridQuad")
+        final_quad = board.get("finalQuad")
+        if status == "estimated":
+            if symbol_grid != final_quad:
+                _invalid("The v3 final quad must alias its symbol grid quad.")
+        elif status == "needs_review":
+            if symbol_grid is not None or final_quad is not None:
+                _invalid("A deferred v3 lattice cannot expose fallback geometry.")
+        else:
+            _invalid("The v3 lattice candidate status is invalid.")
+
+
 def _board_cell_geometry(
     payload: Mapping[str, object],
     context: ImageStageContext,
@@ -829,6 +897,14 @@ def _board_cell_geometry(
         )
         if candidate != previous_candidate:
             _invalid("The Structured Geometry v2 shadow candidate changed between stages.")
+    candidate_v3 = payload.get("structuredGeometryCandidateV3")
+    if candidate_v3 is not None:
+        _structured_candidate_v3(candidate_v3, context=context, payload=payload)
+        previous_candidate_v3 = context.previous_results.get("board_detection", {}).get(
+            "structuredGeometryCandidateV3"
+        )
+        if candidate_v3 != previous_candidate_v3:
+            _invalid("The Structured Geometry v3 shadow candidate changed between stages.")
     structured_primary = (
         structured is not None
         and isinstance(structured_payload.get("engineVersion"), str)

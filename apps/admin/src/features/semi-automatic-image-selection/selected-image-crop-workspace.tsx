@@ -2,6 +2,7 @@
 
 import {
   createDefaultSelectedImageCropBand,
+  selectedImageCropReviewedFileNames,
   validateSelectedImageCropBand,
   type SelectedImageCropBand,
   type SelectedImageCropManifestV1,
@@ -21,11 +22,15 @@ import {
 } from './selected-image-crop-local-store';
 import {
   listSelectedImageCropSourceDirectories,
+  listSelectedImageCropOutputFiles,
+  approvePreparedSelectedImageCropResult,
   pickSelectedImageCropParentDirectory,
+  prepareAllSelectedImageCrops,
   prepareSelectedImageCropDirectory,
   proposeSelectedImageCrop,
   saveSelectedImageCrop,
   type PreparedSelectedImageCropDirectory,
+  type SelectedImageCropOutputFile,
 } from './selected-image-crop-storage';
 
 const EMPTY_VIEW: ManualImageViewerInitialView = {
@@ -50,6 +55,14 @@ export function SelectedImageCropWorkspace() {
   const [proposal, setProposal] =
     useState<SelectedImageAutoCropProposal | null>(null);
   const [detecting, setDetecting] = useState(false);
+  const [preparationProgress, setPreparationProgress] = useState<{
+    readonly completed: number;
+    readonly total: number;
+  } | null>(null);
+  const [outputImages, setOutputImages] = useState<
+    readonly SelectedImageCropOutputFile[]
+  >([]);
+  const [editingCurrent, setEditingCurrent] = useState(false);
   const [initialView, setInitialView] = useState(EMPTY_VIEW);
   const viewRef = useRef<ManualImageViewerInitialView>(EMPTY_VIEW);
   const [busy, setBusy] = useState(false);
@@ -68,8 +81,11 @@ export function SelectedImageCropWorkspace() {
     viewRef.current = view;
   }, []);
   const images = prepared?.sourceFiles ?? [];
+  const reviewingPreparedOutput =
+    !editingCurrent && outputImages.length === images.length;
+  const viewerImages = reviewingPreparedOutput ? outputImages : images;
   const viewer = useManualImageViewer(
-    images,
+    viewerImages,
     currentIndex,
     handleViewerError,
     initialView,
@@ -77,14 +93,72 @@ export function SelectedImageCropWorkspace() {
   );
   const currentFile = images[currentIndex] ?? null;
   const currentEntry = manifest?.entries[currentIndex] ?? null;
-  const acceptedCount =
+  const preparedCount =
     manifest?.entries.filter((entry) => entry.result !== null).length ?? 0;
+  const reviewedFileNames = new Set(
+    manifest === null ? [] : selectedImageCropReviewedFileNames(manifest),
+  );
+  const acceptedCount = reviewedFileNames.size;
+  const currentReviewed =
+    currentFile !== null && reviewedFileNames.has(currentFile.fileName);
   const done = manifest !== null && acceptedCount === manifest.entries.length;
   const dirtyAccepted =
     currentEntry !== null &&
     currentEntry.result !== null &&
     crop !== null &&
     !sameCrop(currentEntry.result.crop, crop);
+
+  const applyPrepared = useCallback(
+    (result: PreparedSelectedImageCropDirectory, requestedIndex: number) => {
+      const index = Math.min(
+        Math.max(0, requestedIndex),
+        result.sourceFiles.length - 1,
+      );
+      setPrepared(result);
+      setManifest(result.manifest);
+      setCurrentIndex(index);
+      setCrop(null);
+      setProposal(null);
+      setEditingCurrent(false);
+    },
+    [],
+  );
+
+  const prepareForReview = useCallback(
+    async (
+      result: PreparedSelectedImageCropDirectory,
+      requestedIndex: number,
+    ) => {
+      applyPrepared(result, requestedIndex);
+      const missing = result.manifest.entries.filter(
+        (entry) => entry.result === null,
+      ).length;
+      if (missing === 0) {
+        setOutputImages(await listSelectedImageCropOutputFiles(result));
+        setPreparationProgress(null);
+        return;
+      }
+      setPreparationProgress({
+        completed: result.manifest.entries.length - missing,
+        total: result.manifest.entries.length,
+      });
+      setNotice('Automat wykrywa plansze i przygotowuje katalog cut…');
+      const completed = await prepareAllSelectedImageCrops(
+        result,
+        (progress) => {
+          setManifest(progress.manifest);
+          setPreparationProgress({
+            completed: progress.completed,
+            total: progress.total,
+          });
+        },
+      );
+      applyPrepared(completed, requestedIndex);
+      setOutputImages(await listSelectedImageCropOutputFiles(completed));
+      setPreparationProgress(null);
+    },
+    [applyPrepared],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -110,14 +184,19 @@ export function SelectedImageCropWorkspace() {
       cancelled = true;
     };
     async function restorePrepared(saved: SelectedImageCropLocalSession) {
+      setBusy(true);
       const result = await prepareSelectedImageCropDirectory(
         saved.parentDirectory,
         saved.sourceDirectoryName,
       );
       if (cancelled) return;
-      applyPrepared(result, saved.currentIndex);
+      try {
+        await prepareForReview(result, saved.currentIndex);
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
     }
-  }, [store]);
+  }, [prepareForReview, store]);
 
   useEffect(() => {
     if (
@@ -128,11 +207,13 @@ export function SelectedImageCropWorkspace() {
       return;
     const sourceSize = viewer.sourceImageSize;
     const persisted = manifest?.entries[currentIndex]?.result?.crop;
-    if (
-      persisted !== undefined &&
-      persisted.width === sourceSize.width &&
-      persisted.height === sourceSize.height
-    ) {
+    if (persisted !== undefined) {
+      if (
+        !reviewingPreparedOutput &&
+        (persisted.width !== sourceSize.width ||
+          persisted.height !== sourceSize.height)
+      )
+        return;
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) return;
@@ -180,7 +261,14 @@ export function SelectedImageCropWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [currentFile, currentIndex, manifest, prepared, viewer.sourceImageSize]);
+  }, [
+    currentFile,
+    currentIndex,
+    manifest,
+    prepared,
+    reviewingPreparedOutput,
+    viewer.sourceImageSize,
+  ]);
 
   useEffect(() => {
     if (
@@ -244,6 +332,7 @@ export function SelectedImageCropWorkspace() {
       setSourceDirectoryName(names[0] ?? '');
       setPrepared(null);
       setManifest(null);
+      setOutputImages([]);
       if (names.length === 0)
         setNotice('Katalog nadrzędny nie zawiera katalogów źródłowych.');
     } catch (cause) {
@@ -264,14 +353,12 @@ export function SelectedImageCropWorkspace() {
         parentDirectory,
         sourceDirectoryName,
       );
-      applyPrepared(
+      await prepareForReview(
         result,
         restoredRef.current?.currentIndex ?? result.manifest.currentIndex,
       );
       setNotice(
-        result.manifest.revision > 0
-          ? 'Wznowiono trwałą sesję przycinania.'
-          : 'Utworzono bezpieczny katalog wynikowy.',
+        'Wszystkie cropy są przygotowane. Możesz je szybko zatwierdzać.',
       );
     } catch (cause) {
       setError(errorMessage(cause));
@@ -279,21 +366,6 @@ export function SelectedImageCropWorkspace() {
     } finally {
       setBusy(false);
     }
-  }
-
-  function applyPrepared(
-    result: PreparedSelectedImageCropDirectory,
-    requestedIndex: number,
-  ) {
-    const index = Math.min(
-      Math.max(0, requestedIndex),
-      result.sourceFiles.length - 1,
-    );
-    setPrepared(result);
-    setManifest(result.manifest);
-    setCurrentIndex(index);
-    setCrop(null);
-    setProposal(null);
   }
 
   async function saveOrAdvance(forceOverwrite: boolean) {
@@ -316,7 +388,27 @@ export function SelectedImageCropWorkspace() {
       !dirtyAccepted &&
       !forceOverwrite
     ) {
-      goNext();
+      if (currentReviewed) {
+        goNext();
+        return;
+      }
+      setBusy(true);
+      setError('');
+      try {
+        const updated = await approvePreparedSelectedImageCropResult({
+          outputDirectory: prepared.outputDirectory,
+          fileName: currentFile.fileName,
+          manifest,
+        });
+        setManifest(updated);
+        setCurrentIndex(updated.currentIndex);
+        setEditingCurrent(false);
+        setNotice('Cięcie zaakceptowane.');
+      } catch (cause) {
+        setError(errorMessage(cause));
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     setBusy(true);
@@ -331,6 +423,7 @@ export function SelectedImageCropWorkspace() {
       });
       setManifest(updated);
       setCurrentIndex(updated.currentIndex);
+      setEditingCurrent(false);
       setNotice(
         updated.entries.every((entry) => entry.result !== null)
           ? `Gotowe. Do importu wybierz katalog „${updated.outputDirectoryName}”.`
@@ -345,9 +438,11 @@ export function SelectedImageCropWorkspace() {
   }
 
   function goPrevious() {
+    setEditingCurrent(false);
     setCurrentIndex((value) => Math.max(0, value - 1));
   }
   function goNext() {
+    setEditingCurrent(false);
     setCurrentIndex((value) => Math.min(images.length - 1, value + 1));
   }
   function resetCrop() {
@@ -417,9 +512,19 @@ export function SelectedImageCropWorkspace() {
         <div className="selectedImageCropReview">
           <div className="selectedImageCropProgress">
             <strong>
-              {done ? 'Gotowe' : `${acceptedCount} / ${images.length}`}
+              {preparationProgress !== null
+                ? `Przygotowywanie ${preparationProgress.completed} / ${preparationProgress.total}`
+                : done
+                  ? 'Gotowe'
+                  : `Zweryfikowano ${acceptedCount} / ${images.length}`}
             </strong>
-            <progress max={images.length} value={acceptedCount} />
+            <progress
+              max={images.length}
+              value={
+                preparationProgress?.completed ??
+                (preparationProgress === null ? acceptedCount : preparedCount)
+              }
+            />
             <span>{manifest?.outputDirectoryName}</span>
             <span>{proposalLabel(proposal, detecting)}</span>
           </div>
@@ -430,7 +535,7 @@ export function SelectedImageCropWorkspace() {
             currentRelativePath={currentFile?.relativePath ?? null}
             imageCount={images.length}
             imageOverlay={
-              crop === null ? null : (
+              crop === null || reviewingPreparedOutput ? null : (
                 <CropBandOverlay
                   crop={crop}
                   disabled={busy || detecting}
@@ -445,14 +550,26 @@ export function SelectedImageCropWorkspace() {
             previousDisabled={currentIndex === 0}
             state={viewer}
             toolbarStart={
-              <button
-                className="secondaryButton"
-                disabled={busy || detecting || crop === null}
-                onClick={resetCrop}
-                type="button"
-              >
-                Resetuj cięcie
-              </button>
+              <>
+                <button
+                  className="secondaryButton"
+                  disabled={busy || detecting || crop === null}
+                  onClick={() => setEditingCurrent((value) => !value)}
+                  type="button"
+                >
+                  {editingCurrent ? 'Pokaż gotowy crop' : 'Dostosuj linie'}
+                </button>
+                {editingCurrent ? (
+                  <button
+                    className="secondaryButton"
+                    disabled={busy || detecting || crop === null}
+                    onClick={resetCrop}
+                    type="button"
+                  >
+                    Resetuj cięcie
+                  </button>
+                ) : null}
+              </>
             }
           />
           <div className="manualImageSelectionActions selectedImageCropActions">

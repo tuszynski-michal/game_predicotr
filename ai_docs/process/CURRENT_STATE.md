@@ -6,6 +6,15 @@ last_updated: 2026-09-03
 
 # Current State
 
+### Wstępne renderowanie całego katalogu `cut` — TASK-0430
+
+- Przed review automat sekwencyjnie wykrywa i zapisuje wszystkie brakujące cropy,
+  z trwałym checkpointem po każdym pliku i jawnym progresem przygotowania.
+- Fizycznie przygotowany JPEG nie jest decyzją człowieka. Manifest utrzymuje
+  osobną listę sprawdzonych plików; historyczne wyniki pozostają zgodne.
+- Szybki przegląd pokazuje mniejsze pliki z `cut`. `F`/`→` aktualizuje wyłącznie
+  stan review, a `Dostosuj linie` ładuje oryginał i przelicza tylko bieżący plik.
+
 ### Automatyczna propozycja cięcia wybranych zdjęć — TASK-0429
 
 - Workspace nie inicjalizuje już stałego pasa ani nie kopiuje granic z

@@ -29,6 +29,13 @@ test('automatic proposal analyzes only a bounded EXIF-canonical preview', () => 
   assert.match(source, /getImageData\(0, 0, width, height\)/u);
 });
 
+test('batch preparation renders missing crops without marking human review', () => {
+  assert.match(source, /prepareAllSelectedImageCrops/u);
+  assert.match(source, /markReviewed: false/u);
+  assert.match(source, /await yieldToBrowser\(\)/u);
+  assert.match(source, /approvePreparedSelectedImageCropResult/u);
+});
+
 test('selected image crop save journals before writing and verifies the output', () => {
   const journal = source.indexOf('beginSelectedImageCropWrite(');
   const manifestWrite = source.indexOf(

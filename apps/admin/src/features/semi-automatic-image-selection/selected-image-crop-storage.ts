@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  approvePreparedSelectedImageCrop,
   beginSelectedImageCropWrite,
   createSelectedImageCropManifest,
   finalizeSelectedImageCropWrite,
@@ -38,9 +39,20 @@ export interface PreparedSelectedImageCropDirectory {
   readonly manifest: SelectedImageCropManifestV1;
 }
 
+export interface SelectedImageCropOutputFile {
+  readonly handle: FileSystemFileHandle;
+  readonly relativePath: string;
+}
+
 export interface SelectedImageCropRenderedFile {
   readonly blob: Blob;
   readonly dimensions: { readonly width: number; readonly height: number };
+}
+
+export interface SelectedImageCropPreparationProgress {
+  readonly completed: number;
+  readonly total: number;
+  readonly manifest: SelectedImageCropManifestV1;
 }
 
 export async function proposeSelectedImageCrop(
@@ -224,6 +236,7 @@ export async function saveSelectedImageCrop(input: {
   readonly sourceFile: SelectedImageCropSourceFile;
   readonly crop: SelectedImageCropBand;
   readonly manifest: SelectedImageCropManifestV1;
+  readonly markReviewed?: boolean;
   readonly render?: (
     source: File,
     crop: SelectedImageCropBand,
@@ -265,6 +278,7 @@ export async function saveSelectedImageCrop(input: {
       startedAt: now,
       replacesOutputChecksumSha256:
         existingResult?.outputChecksumSha256 ?? null,
+      markReviewed: input.markReviewed,
     },
     now,
   );
@@ -283,6 +297,60 @@ export async function saveSelectedImageCrop(input: {
   manifest = finalizeSelectedImageCropWrite(manifest, new Date().toISOString());
   await writeSelectedImageCropManifest(input.outputDirectory, manifest);
   return manifest;
+}
+
+export async function approvePreparedSelectedImageCropResult(input: {
+  readonly outputDirectory: FileSystemDirectoryHandle;
+  readonly fileName: string;
+  readonly manifest: SelectedImageCropManifestV1;
+}): Promise<SelectedImageCropManifestV1> {
+  const manifest = approvePreparedSelectedImageCrop(
+    input.manifest,
+    input.fileName,
+    new Date().toISOString(),
+  );
+  await writeSelectedImageCropManifest(input.outputDirectory, manifest);
+  return manifest;
+}
+
+export async function prepareAllSelectedImageCrops(
+  prepared: PreparedSelectedImageCropDirectory,
+  onProgress?: (progress: SelectedImageCropPreparationProgress) => void,
+): Promise<PreparedSelectedImageCropDirectory> {
+  let manifest = prepared.manifest;
+  const missing = prepared.sourceFiles.filter(
+    (source) =>
+      manifest.entries.find((entry) => entry.fileName === source.fileName)
+        ?.result === null,
+  );
+  let completed = manifest.entries.length - missing.length;
+  onProgress?.({ completed, total: manifest.entries.length, manifest });
+  for (const sourceFile of missing) {
+    const source = await sourceFile.handle.getFile();
+    const proposal = await proposeSelectedImageCrop(source);
+    manifest = await saveSelectedImageCrop({
+      outputDirectory: prepared.outputDirectory,
+      sourceFile,
+      crop: proposal.crop,
+      manifest,
+      markReviewed: false,
+    });
+    completed += 1;
+    onProgress?.({ completed, total: manifest.entries.length, manifest });
+    await yieldToBrowser();
+  }
+  return { ...prepared, manifest };
+}
+
+export async function listSelectedImageCropOutputFiles(
+  prepared: PreparedSelectedImageCropDirectory,
+): Promise<readonly SelectedImageCropOutputFile[]> {
+  return Promise.all(
+    prepared.sourceFiles.map(async (source) => ({
+      handle: await prepared.outputDirectory.getFileHandle(source.fileName),
+      relativePath: source.relativePath,
+    })),
+  );
 }
 
 export async function readCanonicalSelectedImageDimensions(
@@ -394,6 +462,10 @@ async function readOptionalFileChecksum(
     if (isNotFound(cause)) return null;
     throw cause;
   }
+}
+
+async function yieldToBrowser(): Promise<void> {
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 }
 
 async function selectedImageCropInventoryChecksum(

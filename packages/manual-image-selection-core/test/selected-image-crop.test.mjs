@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  approvePreparedSelectedImageCrop,
   beginSelectedImageCropWrite,
   createDefaultSelectedImageCropBand,
   createSelectedImageCropManifest,
   finalizeSelectedImageCropWrite,
   inheritSelectedImageCropBand,
+  selectedImageCropReviewedFileNames,
   selectedImageCropRecoveryAction,
   validateSelectedImageCropBand,
   validateSelectedImageCropSources,
@@ -46,6 +48,60 @@ test('creates and inherits a bounded full-width crop band', () => {
       }),
     /TOO_SHORT/,
   );
+});
+
+test('keeps automatic output separate from human review', () => {
+  const manifest = createSelectedImageCropManifest({
+    sourceDirectoryName: 'picked',
+    outputDirectoryName: 'picked cut',
+    sourceInventoryChecksumSha256: HASH_A,
+    entries: [
+      {
+        fileName: 'seq_1-9.jpg',
+        sizeBytes: 10,
+        lastModifiedMs: 1,
+        rangeStart: 1,
+        rangeEnd: 9,
+      },
+    ],
+    now: '2026-09-04T11:00:00.000Z',
+  });
+  const pending = beginSelectedImageCropWrite(
+    manifest,
+    {
+      kind: 'write_crop',
+      fileName: 'seq_1-9.jpg',
+      expectedSourceChecksumSha256: HASH_A,
+      expectedOutputChecksumSha256: HASH_B,
+      crop: { width: 1080, height: 1920, topY: 400, bottomY: 1100 },
+      startedAt: '2026-09-04T11:01:00.000Z',
+      replacesOutputChecksumSha256: null,
+      markReviewed: false,
+    },
+    '2026-09-04T11:01:00.000Z',
+  );
+  const prepared = finalizeSelectedImageCropWrite(
+    pending,
+    '2026-09-04T11:02:00.000Z',
+  );
+  assert.ok(prepared.entries[0].result);
+  assert.deepEqual(selectedImageCropReviewedFileNames(prepared), []);
+  assert.deepEqual(
+    selectedImageCropReviewedFileNames({
+      ...prepared,
+      reviewedFileNames: undefined,
+    }),
+    ['seq_1-9.jpg'],
+  );
+  const reviewed = approvePreparedSelectedImageCrop(
+    prepared,
+    'seq_1-9.jpg',
+    '2026-09-04T11:03:00.000Z',
+  );
+  assert.deepEqual(selectedImageCropReviewedFileNames(reviewed), [
+    'seq_1-9.jpg',
+  ]);
+  assert.equal(reviewed.entries[0].result, prepared.entries[0].result);
 });
 
 test('validates and orders only non-overlapping seq inputs', () => {

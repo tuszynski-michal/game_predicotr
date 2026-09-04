@@ -220,6 +220,14 @@ manifest intencji → SHA-256 źródła → render → zapis → ponowny SHA-256
 finalizacja manifestu. Przy restarcie brak wyniku cofa zamiar, zgodna checksuma
 go finalizuje, a obcy wynik blokuje wznowienie.
 
+Przygotowanie wykonuje ten sam journalowany zapis sekwencyjnie dla wszystkich
+brakujących wyników i oddaje sterowanie event loopowi po każdym JPEG-u. Pole
+`reviewedFileNames` oddziela obecność fizycznego cropa od decyzji operatora;
+brak tego pola w historycznym manifeście oznacza, że wszystkie jego dotychczasowe
+wyniki były zatwierdzone. Szybka akceptacja zmienia tylko manifest. Domyślny
+viewer czyta gotowe pliki `cut`, a oryginał i pełny renderer są używane dopiero
+po wybraniu korekty linii.
+
 Katalog wynikowy jest bezpieczny wyłącznie, gdy jest pusty albo zawiera zgodny
 `manual-image-crop-output-v1.json` i wskazane przez niego wyniki. Import plansz
 filtruje wejście do JPEG-ów, dlatego pomocniczy JSON jest ignorowany. To nowa

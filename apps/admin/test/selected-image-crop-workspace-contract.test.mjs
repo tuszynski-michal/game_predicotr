@@ -41,6 +41,12 @@ test('crop review provides bounded viewer, progress and required shortcuts', () 
   assert.match(workspace, /proposeSelectedImageCrop/u);
   assert.match(workspace, /Automatyczna propozycja/u);
   assert.match(workspace, /proposal\?\.crop/u);
+  assert.match(workspace, /prepareAllSelectedImageCrops/u);
+  assert.match(workspace, /approvePreparedSelectedImageCropResult/u);
+  assert.match(workspace, /Przygotowywanie/u);
+  assert.match(workspace, /listSelectedImageCropOutputFiles/u);
+  assert.match(workspace, /Dostosuj linie/u);
+  assert.match(workspace, /reviewingPreparedOutput/u);
 });
 
 test('shared viewer overlay is optional and preserves existing image rendering', () => {

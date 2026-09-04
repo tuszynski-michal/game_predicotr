@@ -554,10 +554,17 @@ Zachowuje pełną szerokość, kanoniczną orientację EXIF, perspektywę oraz
 rozdzielczość 1:1 wybranego pasa. Nie wykonuje obrotu, homografii, prostowania
 zakrzywionego ekranu ani automatycznej geometrii dziewięciu plansz.
 
-`F` lub `→` zapisuje i weryfikuje bieżący JPEG, po czym przechodzi dalej. `←`
-tylko nawiguje. Zmiana zatwierdzonego wyniku wymaga jawnego
-`Zapisz ponownie`. `Resetuj cięcie` przywraca propozycję automatu dla bieżącego
-zdjęcia. Manifest `manual-image-crop-output-v1.json` utrwala źródła,
+Przed rozpoczęciem review automat kolejno renderuje wszystkie brakujące JPEG-i
+do katalogu `cut`. Każdy wynik jest journalowany, ale pozostaje odrębny od
+decyzji człowieka. Przy restarcie przygotowanie pomija istniejące, sprawdzone
+wyniki i kontynuuje od pierwszego brakującego pliku.
+
+Review domyślnie pokazuje gotowe, mniejsze JPEG-i z katalogu `cut`. `F` lub `→`
+utrwala wyłącznie decyzję akceptacji i przechodzi dalej, bez ponownego dekodowania,
+renderowania ani hashowania obrazu. `←` tylko nawiguje. `Dostosuj linie` otwiera
+oryginał z overlayem; zmiana wyniku wymaga jawnego `Zapisz ponownie` i zastępuje
+wyłącznie własny bieżący crop. `Resetuj cięcie` przywraca automatyczną propozycję.
+Manifest `manual-image-crop-output-v1.json` utrwala źródła,
 wymiary, cropy, checksumy i journal; IndexedDB zawiera wyłącznie uchwyty,
 kursor, zoom i scroll.
 

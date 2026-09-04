@@ -50,6 +50,7 @@ export interface SelectedImageCropPendingOperation {
   readonly crop: SelectedImageCropBand;
   readonly startedAt: string;
   readonly replacesOutputChecksumSha256: string | null;
+  readonly markReviewed?: boolean;
 }
 
 export interface SelectedImageCropManifestV1 {
@@ -61,6 +62,7 @@ export interface SelectedImageCropManifestV1 {
   readonly revision: number;
   readonly currentIndex: number;
   readonly entries: readonly SelectedImageCropManifestEntry[];
+  readonly reviewedFileNames?: readonly string[];
   readonly pendingOperation: SelectedImageCropPendingOperation | null;
   readonly updatedAt: string;
 }
@@ -184,6 +186,7 @@ export function createSelectedImageCropManifest(input: {
     revision: 0,
     currentIndex: 0,
     entries: entries.map((entry) => ({ ...entry, result: null })),
+    reviewedFileNames: [],
     pendingOperation: null,
     updatedAt: input.now,
   };
@@ -223,6 +226,18 @@ export function validateSelectedImageCropManifest(
       assertSha256(entry.result.sourceChecksumSha256);
       assertSha256(entry.result.outputChecksumSha256);
     }
+  }
+  const reviewedFileNames = selectedImageCropReviewedFileNames(manifest);
+  if (
+    new Set(reviewedFileNames).size !== reviewedFileNames.length ||
+    reviewedFileNames.some(
+      (fileName) =>
+        manifest.entries.find((entry) => entry.fileName === fileName)
+          ?.result === null ||
+        !manifest.entries.some((entry) => entry.fileName === fileName),
+    )
+  ) {
+    throw new Error('SELECTED_IMAGE_CROP_REVIEW_STATE_INVALID');
   }
   if (manifest.pendingOperation !== null) {
     validateSelectedImageCropBand(manifest.pendingOperation.crop);
@@ -282,12 +297,52 @@ export function finalizeSelectedImageCropWrite(
       acceptedAt: now,
     },
   };
+  const reviewedFileNames = new Set(
+    selectedImageCropReviewedFileNames(manifest),
+  );
+  if (pending.markReviewed !== false) reviewedFileNames.add(pending.fileName);
   return {
     ...manifest,
     revision: manifest.revision + 1,
     currentIndex: Math.min(index + 1, entries.length - 1),
     entries,
+    reviewedFileNames: [...reviewedFileNames],
     pendingOperation: null,
+    updatedAt: now,
+  };
+}
+
+export function selectedImageCropReviewedFileNames(
+  manifest: SelectedImageCropManifestV1,
+): readonly string[] {
+  return (
+    manifest.reviewedFileNames ??
+    manifest.entries
+      .filter((entry) => entry.result !== null)
+      .map((entry) => entry.fileName)
+  );
+}
+
+export function approvePreparedSelectedImageCrop(
+  manifest: SelectedImageCropManifestV1,
+  fileName: string,
+  now: string,
+): SelectedImageCropManifestV1 {
+  validateSelectedImageCropManifest(manifest);
+  const index = manifest.entries.findIndex(
+    (entry) => entry.fileName === fileName,
+  );
+  if (index < 0 || manifest.entries[index]?.result === null)
+    throw new Error('SELECTED_IMAGE_CROP_RESULT_NOT_PREPARED');
+  const reviewedFileNames = new Set(
+    selectedImageCropReviewedFileNames(manifest),
+  );
+  reviewedFileNames.add(fileName);
+  return {
+    ...manifest,
+    revision: manifest.revision + 1,
+    currentIndex: Math.min(index + 1, manifest.entries.length - 1),
+    reviewedFileNames: [...reviewedFileNames],
     updatedAt: now,
   };
 }

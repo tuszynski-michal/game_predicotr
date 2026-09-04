@@ -7377,3 +7377,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** detekcja nie tworzy pliku ani decyzji. Dopiero `F`/`→`
   zapisuje źródłowy crop 1:1 do katalogu `cut`; przyjęte wyniki i manifest v1
   zachowują dotychczasową trwałość.
+
+### D-323 — Przygotowanie cropów poprzedza szybki review
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** lokalna sesja najpierw sekwencyjnie materializuje wszystkie
+  brakujące cropy w `cut`, a następnie pokazuje te wyniki do szybkiej akceptacji.
+  Fizyczny wynik i decyzja operatora są niezależnymi stanami manifestu.
+- **Reason:** render pełnego JPEG-a i dwie kontrole SHA wykonywane po każdym
+  `F`/`→` blokowały szybkie przeklikiwanie katalogu.
+- **Consequences:** zwykła akceptacja zapisuje tylko manifest. Korekta ładuje
+  oryginał i zastępuje jeden własny crop. Przygotowanie pozostaje sekwencyjne,
+  wznawialne i oddaje sterowanie przeglądarce pomiędzy plikami.

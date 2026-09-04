@@ -7363,3 +7363,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** użycie cropów wymaga nowego importu katalogu `cut`;
   historyczny reprocess pozostaje związany z managed originals, a dokładna
   geometria nadal należy do wersjonowanego modelu 36 narożników.
+
+### D-322 — Cięcie wybranych zdjęć zaczyna się od automatycznej propozycji
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** każde niezatwierdzone zdjęcie jest niezależnie analizowane na
+  ograniczonym podglądzie. Detektor proponuje pełnoszeroki pas na podstawie
+  zwartego panelu chromatycznego albo tekstury; człowiek akceptuje go lub
+  koryguje. Brak pewnego dowodu pozostaje edytowalnym pasem domyślnym.
+- **Reason:** stałe granice i dziedziczenie poprzedniego cropa czyniły workspace
+  ręcznym mimo umieszczenia w `Semi-auto selekcja`.
+- **Consequences:** detekcja nie tworzy pliku ani decyzji. Dopiero `F`/`→`
+  zapisuje źródłowy crop 1:1 do katalogu `cut`; przyjęte wyniki i manifest v1
+  zachowują dotychczasową trwałość.

@@ -14,6 +14,11 @@ import {
   type SelectedImageCropManifestV1,
   type SelectedImageCropSourceEntry,
 } from '@game-predictor/manual-image-selection-core/crop';
+import {
+  detectSelectedImageCropBand,
+  SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH,
+  type SelectedImageAutoCropProposal,
+} from '@game-predictor/manual-image-selection-core/auto-crop';
 
 import { pickLocalDirectory } from '@/lib/local-directory-picker';
 
@@ -36,6 +41,39 @@ export interface PreparedSelectedImageCropDirectory {
 export interface SelectedImageCropRenderedFile {
   readonly blob: Blob;
   readonly dimensions: { readonly width: number; readonly height: number };
+}
+
+export async function proposeSelectedImageCrop(
+  source: File,
+): Promise<SelectedImageAutoCropProposal> {
+  const bitmap = await createImageBitmap(source, {
+    imageOrientation: 'from-image',
+  });
+  try {
+    const width = Math.min(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, bitmap.width);
+    const height = Math.max(
+      1,
+      Math.round((bitmap.height * width) / bitmap.width),
+    );
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', {
+      alpha: false,
+      willReadFrequently: true,
+    });
+    if (context === null) {
+      throw new Error('SELECTED_IMAGE_AUTO_CROP_CANVAS_UNAVAILABLE');
+    }
+    context.drawImage(bitmap, 0, 0, width, height);
+    const pixels = context.getImageData(0, 0, width, height);
+    return detectSelectedImageCropBand(
+      { width, height, rgba: pixels.data },
+      { width: bitmap.width, height: bitmap.height },
+    );
+  } finally {
+    bitmap.close();
+  }
 }
 
 export async function pickSelectedImageCropParentDirectory(): Promise<FileSystemDirectoryHandle> {

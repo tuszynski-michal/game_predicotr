@@ -6,6 +6,17 @@ last_updated: 2026-09-03
 
 # Current State
 
+### Automatyczna propozycja cięcia wybranych zdjęć — TASK-0429
+
+- Workspace nie inicjalizuje już stałego pasa ani nie kopiuje granic z
+  poprzedniego zdjęcia. Każde niezatwierdzone źródło otrzymuje niezależną,
+  lokalną propozycję na podstawie podglądu do 256 px szerokości.
+- Detektor preferuje zwarty panel chromatyczny, ma fallback oparty na teksturze
+  i jawny bezpieczny wynik dla niepewnego obrazu. Operator akceptuje propozycję
+  przez `F`/`→` albo przesuwa linie; dopiero akceptacja zapisuje JPEG do `cut`.
+- Rzeczywisty przykład `1080×1920` z rozmowy dał pas `414–1068` i pewność
+  `96,5%`, bez OCR, backendu i skalowania finalnego cropa.
+
 ### Lokalna domena przycinania wybranych zdjęć — TASK-0425
 
 - Gotowy jest kontrakt `manual-image-crop-output-v1` dla pełnoszerokiego pasa

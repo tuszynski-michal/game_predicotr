@@ -38,6 +38,9 @@ test('crop review provides bounded viewer, progress and required shortcuts', () 
   assert.match(workspace, /toLocaleLowerCase\('pl-PL'\) === 'f'/u);
   assert.match(workspace, /Zapisz ponownie/u);
   assert.match(workspace, /Resetuj cięcie/u);
+  assert.match(workspace, /proposeSelectedImageCrop/u);
+  assert.match(workspace, /Automatyczna propozycja/u);
+  assert.match(workspace, /proposal\?\.crop/u);
 });
 
 test('shared viewer overlay is optional and preserves existing image rendering', () => {

@@ -21,6 +21,14 @@ test('selected image crop renderer applies EXIF once and keeps a 1:1 full-width 
   assert.doesNotMatch(source, /rotate\(|perspective|homograph/iu);
 });
 
+test('automatic proposal analyzes only a bounded EXIF-canonical preview', () => {
+  assert.match(source, /proposeSelectedImageCrop/u);
+  assert.match(source, /SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH/u);
+  assert.match(source, /imageOrientation: 'from-image'/u);
+  assert.match(source, /detectSelectedImageCropBand/u);
+  assert.match(source, /getImageData\(0, 0, width, height\)/u);
+});
+
 test('selected image crop save journals before writing and verifies the output', () => {
   const journal = source.indexOf('beginSelectedImageCropWrite(');
   const manifestWrite = source.indexOf(

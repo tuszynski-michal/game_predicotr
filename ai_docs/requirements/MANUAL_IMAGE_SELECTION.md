@@ -543,15 +543,21 @@ podkatalog zawierający poprawnie nazwane JPEG-i
 `seq_<start>-<end>.jpg|jpeg`. Narzędzie tworzy obok katalog
 `<nazwa źródła> cut`; źródła nigdy nie są modyfikowane.
 
-Pierwsza wersja usuwa wyłącznie obszar nad górną i pod dolną przeciąganą linią.
+Automat dla każdego jeszcze niezatwierdzonego zdjęcia niezależnie analizuje
+ograniczoną kopię podglądową i proponuje pas obejmujący zwarty panel plansz.
+Najpierw wykorzystuje sygnał chromatyczny panelu, a następnie ogólny sygnał
+szczegółów; brak pewnego wyniku daje jawny, bezpieczny pas domyślny. Propozycja
+nie jest decyzją i zawsze pozostaje edytowalna dwiema liniami.
+
+Narzędzie usuwa wyłącznie obszar nad górną i pod dolną przeciąganą linią.
 Zachowuje pełną szerokość, kanoniczną orientację EXIF, perspektywę oraz
 rozdzielczość 1:1 wybranego pasa. Nie wykonuje obrotu, homografii, prostowania
-zakrzywionego ekranu ani automatycznej geometrii dziewięciu plansz. Kolejne
-zdjęcie dziedziczy proporcje ostatnio zatwierdzonego pasa.
+zakrzywionego ekranu ani automatycznej geometrii dziewięciu plansz.
 
 `F` lub `→` zapisuje i weryfikuje bieżący JPEG, po czym przechodzi dalej. `←`
 tylko nawiguje. Zmiana zatwierdzonego wyniku wymaga jawnego
-`Zapisz ponownie`. Manifest `manual-image-crop-output-v1.json` utrwala źródła,
+`Zapisz ponownie`. `Resetuj cięcie` przywraca propozycję automatu dla bieżącego
+zdjęcia. Manifest `manual-image-crop-output-v1.json` utrwala źródła,
 wymiary, cropy, checksumy i journal; IndexedDB zawiera wyłącznie uchwyty,
 kursor, zoom i scroll.
 

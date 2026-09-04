@@ -2,11 +2,11 @@
 
 import {
   createDefaultSelectedImageCropBand,
-  inheritSelectedImageCropBand,
   validateSelectedImageCropBand,
   type SelectedImageCropBand,
   type SelectedImageCropManifestV1,
 } from '@game-predictor/manual-image-selection-core/crop';
+import type { SelectedImageAutoCropProposal } from '@game-predictor/manual-image-selection-core/auto-crop';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -23,6 +23,7 @@ import {
   listSelectedImageCropSourceDirectories,
   pickSelectedImageCropParentDirectory,
   prepareSelectedImageCropDirectory,
+  proposeSelectedImageCrop,
   saveSelectedImageCrop,
   type PreparedSelectedImageCropDirectory,
 } from './selected-image-crop-storage';
@@ -46,12 +47,18 @@ export function SelectedImageCropWorkspace() {
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [crop, setCrop] = useState<SelectedImageCropBand | null>(null);
+  const [proposal, setProposal] =
+    useState<SelectedImageAutoCropProposal | null>(null);
+  const [detecting, setDetecting] = useState(false);
   const [initialView, setInitialView] = useState(EMPTY_VIEW);
   const viewRef = useRef<ManualImageViewerInitialView>(EMPTY_VIEW);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const restoredRef = useRef<SelectedImageCropLocalSession | null>(null);
+  const proposalCacheRef = useRef(
+    new Map<string, Promise<SelectedImageAutoCropProposal>>(),
+  );
 
   const handleViewerError = useCallback(
     (message: string) => setError(message),
@@ -113,32 +120,67 @@ export function SelectedImageCropWorkspace() {
   }, [store]);
 
   useEffect(() => {
-    if (prepared === null || viewer.sourceImageSize === null) return;
+    if (
+      prepared === null ||
+      viewer.sourceImageSize === null ||
+      currentFile === null
+    )
+      return;
+    const sourceSize = viewer.sourceImageSize;
     const persisted = manifest?.entries[currentIndex]?.result?.crop;
-    let nextCrop: SelectedImageCropBand;
     if (
       persisted !== undefined &&
-      persisted.width === viewer.sourceImageSize.width &&
-      persisted.height === viewer.sourceImageSize.height
+      persisted.width === sourceSize.width &&
+      persisted.height === sourceSize.height
     ) {
-      nextCrop = persisted;
-    } else {
-      const previous = [...(manifest?.entries.slice(0, currentIndex) ?? [])]
-        .reverse()
-        .find((entry) => entry.result !== null)?.result?.crop;
-      nextCrop =
-        previous === undefined
-          ? createDefaultSelectedImageCropBand(viewer.sourceImageSize)
-          : inheritSelectedImageCropBand(previous, viewer.sourceImageSize);
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setCrop(persisted);
+        setProposal(null);
+        setDetecting(false);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
+
     let cancelled = false;
+    const key = `${currentFile.relativePath}:${currentFile.sizeBytes}:${currentFile.lastModifiedMs}`;
+    let pending = proposalCacheRef.current.get(key);
+    if (pending === undefined) {
+      pending = currentFile.handle
+        .getFile()
+        .then((file) => proposeSelectedImageCrop(file));
+      proposalCacheRef.current.set(key, pending);
+    }
     queueMicrotask(() => {
-      if (!cancelled) setCrop(nextCrop);
+      if (cancelled) return;
+      setCrop(null);
+      setProposal(null);
+      setDetecting(true);
     });
+    void pending
+      .then((nextProposal) => {
+        if (cancelled) return;
+        setProposal(nextProposal);
+        setCrop(nextProposal.crop);
+        setDetecting(false);
+      })
+      .catch((cause: unknown) => {
+        if (cancelled) return;
+        const fallback = createDefaultSelectedImageCropBand(sourceSize);
+        setCrop(fallback);
+        setProposal(null);
+        setDetecting(false);
+        setNotice(
+          `Automat nie wyznaczył granic. Sprawdź ręcznie propozycję (${errorMessage(cause)}).`,
+        );
+      });
     return () => {
       cancelled = true;
     };
-  }, [currentIndex, manifest, prepared, viewer.sourceImageSize]);
+  }, [currentFile, currentIndex, manifest, prepared, viewer.sourceImageSize]);
 
   useEffect(() => {
     if (
@@ -168,7 +210,13 @@ export function SelectedImageCropWorkspace() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (prepared === null || busy || isEditableTarget(event.target)) return;
+      if (
+        prepared === null ||
+        busy ||
+        detecting ||
+        isEditableTarget(event.target)
+      )
+        return;
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
         goPrevious();
@@ -245,6 +293,7 @@ export function SelectedImageCropWorkspace() {
     setManifest(result.manifest);
     setCurrentIndex(index);
     setCrop(null);
+    setProposal(null);
   }
 
   async function saveOrAdvance(forceOverwrite: boolean) {
@@ -304,14 +353,10 @@ export function SelectedImageCropWorkspace() {
   function resetCrop() {
     if (viewer.sourceImageSize === null) return;
     const persisted = currentEntry?.result?.crop;
-    const previous = [...(manifest?.entries.slice(0, currentIndex) ?? [])]
-      .reverse()
-      .find((entry) => entry.result !== null)?.result?.crop;
     setCrop(
       persisted ??
-        (previous === undefined
-          ? createDefaultSelectedImageCropBand(viewer.sourceImageSize)
-          : inheritSelectedImageCropBand(previous, viewer.sourceImageSize)),
+        proposal?.crop ??
+        createDefaultSelectedImageCropBand(viewer.sourceImageSize),
     );
   }
 
@@ -376,9 +421,10 @@ export function SelectedImageCropWorkspace() {
             </strong>
             <progress max={images.length} value={acceptedCount} />
             <span>{manifest?.outputDirectoryName}</span>
+            <span>{proposalLabel(proposal, detecting)}</span>
           </div>
           <ManualImageViewer
-            busy={busy}
+            busy={busy || detecting}
             currentLabel={currentFile?.fileName ?? 'Brak zdjęcia'}
             currentPosition={currentIndex + 1}
             currentRelativePath={currentFile?.relativePath ?? null}
@@ -387,7 +433,7 @@ export function SelectedImageCropWorkspace() {
               crop === null ? null : (
                 <CropBandOverlay
                   crop={crop}
-                  disabled={busy}
+                  disabled={busy || detecting}
                   onChange={setCrop}
                 />
               )
@@ -401,7 +447,7 @@ export function SelectedImageCropWorkspace() {
             toolbarStart={
               <button
                 className="secondaryButton"
-                disabled={busy || crop === null}
+                disabled={busy || detecting || crop === null}
                 onClick={resetCrop}
                 type="button"
               >
@@ -412,7 +458,9 @@ export function SelectedImageCropWorkspace() {
           <div className="manualImageSelectionActions selectedImageCropActions">
             <button
               className="primaryButton"
-              disabled={busy || crop === null || (done && !dirtyAccepted)}
+              disabled={
+                busy || detecting || crop === null || (done && !dirtyAccepted)
+              }
               onClick={() => void saveOrAdvance(dirtyAccepted)}
               type="button"
             >
@@ -517,6 +565,21 @@ function sameCrop(
     left.topY === right.topY &&
     left.bottomY === right.bottomY
   );
+}
+
+function proposalLabel(
+  proposal: SelectedImageAutoCropProposal | null,
+  detecting: boolean,
+): string {
+  if (detecting) return 'Automat wykrywa obszar plansz…';
+  if (proposal === null) return 'Zapisane cięcie';
+  if (proposal.strategy === 'safe_default')
+    return 'Brak pewnej granicy — sprawdź i przesuń linie';
+  const strategy =
+    proposal.strategy === 'chromatic_panel'
+      ? 'wykryty panel plansz'
+      : 'wykryty obszar szczegółów';
+  return `Automatyczna propozycja · ${strategy} · ${Math.round(proposal.confidence * 100)}%`;
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

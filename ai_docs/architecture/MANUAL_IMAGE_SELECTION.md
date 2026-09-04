@@ -206,6 +206,13 @@ zna Reacta, canvasa ani File System Access API. Adapter Admina skanuje tylko
 główny poziom źródła, ponownie wykorzystuje rygorystyczny parser `seq_*` i
 utrzymuje osobną IndexedDB v1 bez Blobów.
 
+Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
+wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 256 px. Wybiera
+najsilniejszy pionowy klaster panelu chromatycznego, następnie klaster tekstury,
+a w przypadku braku dowodu zwraca jawny pas domyślny. Adapter mapuje granice
+proporcjonalnie na kanoniczne piksele źródła. Cache propozycji jest ograniczony
+do bieżącej sesji i związany z nazwą, rozmiarem oraz mtime źródła.
+
 Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma
 szerokość obrazu kanonicznego i wysokość wybranego pasa, a `drawImage` kopiuje
 ten obszar w skali 1:1. Wynik jest JPEG-em jakości 0.98. Operacja przebiega jako

@@ -11,6 +11,8 @@ import pytest
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
 )
+from game_predictor_api.domain.board_topology import BoardTopology as DomainBoardTopology
+from game_predictor_api.domain.image_geometry_v2 import SourcePoint, SourceQuad
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
@@ -43,6 +45,7 @@ from game_predictor_worker.images.pipeline_contract import (
     CellAssetRolloutMode,
     GeometryPipelineRolloutSnapshot,
     GeometryRolloutMode,
+    StructuredGeometryActivationSnapshot,
     StructuredGeometryCandidateSnapshot,
     canonical_json_bytes,
 )
@@ -71,6 +74,7 @@ from game_predictor_worker.images.structured_geometry import (
     DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2,
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
     STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+    structured_lattice_active_config_payload,
     structured_lattice_candidate_config_payload,
 )
 from game_predictor_worker.images.symbol_onnx import OnnxInference
@@ -1230,6 +1234,20 @@ def _structured_shadow_lattice_rollout() -> GeometryPipelineRolloutSnapshot:
     )
 
 
+def _structured_active_lattice_rollout() -> GeometryPipelineRolloutSnapshot:
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.STRUCTURED_LATTICE_V3,
+        cell_asset_mode=CellAssetRolloutMode.VIRTUAL_DEFAULT,
+        rollout_revision=4,
+        geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+        virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+        preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+        active_lattice_geometry=StructuredGeometryActivationSnapshot.from_config_payload(
+            structured_lattice_active_config_payload()
+        ),
+    )
+
+
 class _ShadowCandidateResult:
     def __init__(self, *, source_checksum: str, normalized_checksum: str) -> None:
         self._source_checksum = source_checksum
@@ -1257,44 +1275,58 @@ class _ShadowCandidateResult:
 
 
 class _ShadowLatticeCandidateResult:
-    def __init__(self, *, source_checksum: str, normalized_checksum: str) -> None:
+    def __init__(
+        self,
+        *,
+        source_checksum: str,
+        normalized_checksum: str,
+        upstream_result_checksum: str = "9" * 64,
+        config_checksum: str | None = None,
+        deferred_position: int | None = None,
+    ) -> None:
         self._source_checksum = source_checksum
         self._normalized_checksum = normalized_checksum
+        self._upstream_result_checksum = upstream_result_checksum
+        self._config_checksum = config_checksum
+        self._deferred_position = deferred_position
 
     def to_payload(self) -> dict[str, object]:
         config = structured_lattice_candidate_config_payload()
-        config_checksum = hashlib.sha256(canonical_json_bytes(config)).hexdigest()
-        boards = [
-            {
-                "analysisQuad": quad,
-                "boardFrameQuad": quad,
-                "contentSafety": {"status": "passed"},
-                "finalQuad": quad,
-                "localLatticeStatus": "estimated",
-                "localLatticeVersion": config["localLatticeVersion"],
-                "positionIndex": position,
-                "reasonCode": None,
-                "sequenceNumber": position + 1,
-                "symbolGridQuad": quad,
-            }
-            for position, quad in enumerate(_grid_quads())
-        ]
+        config_checksum = (
+            self._config_checksum or hashlib.sha256(canonical_json_bytes(config)).hexdigest()
+        )
+        boards = []
+        for position, quad in enumerate(_grid_quads()):
+            deferred = position == self._deferred_position
+            boards.append(
+                {
+                    "analysisQuad": quad,
+                    "boardFrameQuad": quad,
+                    "contentSafety": {
+                        "status": "failed" if deferred else "passed",
+                        "reasonCode": "content_boundary_conflict" if deferred else None,
+                    },
+                    "finalQuad": None if deferred else quad,
+                    "localLatticeStatus": "needs_review" if deferred else "estimated",
+                    "localLatticeVersion": config["localLatticeVersion"],
+                    "positionIndex": position,
+                    "reasonCode": "content_boundary_conflict" if deferred else None,
+                    "sequenceNumber": position + 1,
+                    "symbolGridQuad": None if deferred else quad,
+                }
+            )
         payload: dict[str, object] = {
             "activationAllowed": False,
             "boards": boards,
             "candidateRole": "measurement_only",
             "configChecksumSha256": config_checksum,
             "configVersion": config["configVersion"],
-            "geometryOriginPolicy": (
-                "frame_conditioned_symbol_lattice_without_crop_authority"
-            ),
+            "geometryOriginPolicy": ("frame_conditioned_symbol_lattice_without_crop_authority"),
             "normalizedPixelChecksumSha256": self._normalized_checksum,
             "sourceChecksumSha256": self._source_checksum,
-            "upstreamResultChecksumSha256": "9" * 64,
+            "upstreamResultChecksumSha256": self._upstream_result_checksum,
         }
-        payload["resultChecksumSha256"] = hashlib.sha256(
-            canonical_json_bytes(payload)
-        ).hexdigest()
+        payload["resultChecksumSha256"] = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
         return payload
 
 
@@ -1447,11 +1479,155 @@ def test_structured_lattice_shadow_is_exposed_without_changing_legacy_cell_geome
     validate_stage_payload("board_cell_geometry", geometry, geometry_context)
 
     assert "structuredGeometryCandidateV2" not in detection
-    assert detection["structuredGeometryCandidateV3"] == (
-        geometry["structuredGeometryCandidateV3"]
-    )
+    assert detection["structuredGeometryCandidateV3"] == (geometry["structuredGeometryCandidateV3"])
     assert detection["boards"][0]["geometry"]["symbolGridQuad"] == _grid_quads()[0]
     assert geometry["processingVersion"] != STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
+
+
+def test_structured_lattice_v3_becomes_primary_only_for_pinned_active_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    processing = board_cell_processing_snapshot(
+        cell_output_size=32,
+        topology=BoardCellTopology(
+            rows=3,
+            columns=5,
+            rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04",
+        ),
+    )
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        geometry_rollout=_structured_active_lattice_rollout(),
+    )
+    suite._structured_geometry_engine = _StructuredGeometryEngine()  # type: ignore[assignment]
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.evaluate_structured_lattice_shadow_v3",
+        lambda frame, result, *_args, **kwargs: _ShadowLatticeCandidateResult(
+            source_checksum=frame.source.source_checksum_sha256,
+            normalized_checksum=frame.source.normalized_pixel_checksum_sha256,
+            upstream_result_checksum=result.to_payload()["resultChecksumSha256"],
+            config_checksum=kwargs["config_checksum_sha256"],
+            deferred_position=8,
+        ),
+    )
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "f" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    normalization = dict(suite.normalization(ImageStageContext(**base, previous_results={})))
+    detection_context = ImageStageContext(
+        **base,
+        previous_results={"normalization": normalization},
+    )
+    detection = dict(suite.board_detection(detection_context))
+    validate_stage_payload("board_detection", detection, detection_context)
+    geometry_context = ImageStageContext(
+        **base,
+        previous_results={"normalization": normalization, "board_detection": detection},
+    )
+    geometry = dict(suite.board_cell_geometry(geometry_context))
+    validate_stage_payload("board_cell_geometry", geometry, geometry_context)
+
+    structured = detection["structuredGeometry"]
+    assert structured["rolloutMode"] == "structured_lattice_v3"
+    assert structured["status"] == "needs_review"
+    assert structured["boards"][0]["finalQuad"] == _grid_quads()[0]
+    assert structured["boards"][8]["finalQuad"] is None
+    assert structured["boards"][8]["reasonCodes"] == ["content_boundary_conflict"]
+    assert geometry["boards"][0]["status"] == "verified"
+    assert geometry["boards"][8]["status"] == "deferred"
+    assert geometry["boards"][8]["reasonCodes"] == ["content_boundary_conflict"]
+
+
+def test_structured_lattice_v3_renders_virtual_crops_from_its_symbol_grid(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    snapshot = _candidate_snapshot()
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=snapshot,
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=board_cell_processing_snapshot(
+            cell_output_size=snapshot.input_size,
+            topology=BoardCellTopology(
+                rows=3,
+                columns=5,
+                rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04",
+            ),
+        ),
+        geometry_rollout=_structured_active_lattice_rollout(),
+    )
+    suite._structured_geometry_engine = _StructuredGeometryEngine()  # type: ignore[assignment]
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.evaluate_structured_lattice_shadow_v3",
+        lambda frame, result, *_args, **kwargs: _ShadowLatticeCandidateResult(
+            source_checksum=frame.source.source_checksum_sha256,
+            normalized_checksum=frame.source.normalized_pixel_checksum_sha256,
+            upstream_result_checksum=result.to_payload()["resultChecksumSha256"],
+            config_checksum=kwargs["config_checksum_sha256"],
+        ),
+    )
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "e" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    results: dict[str, dict[str, object]] = {}
+    for stage, execute in (
+        ("normalization", suite.normalization),
+        ("board_detection", suite.board_detection),
+        ("board_cell_geometry", suite.board_cell_geometry),
+        ("board_crops", suite.board_crops),
+    ):
+        context = ImageStageContext(**base, previous_results=results)
+        results[stage] = dict(execute(context))
+        validate_stage_payload(stage, results[stage], context)
+
+    structured = results["board_detection"]["structuredGeometry"]
+    crop_boards = results["board_crops"]["boards"]
+    assert structured["status"] == "ready"
+    assert len(crop_boards) == 9
+    assert sum(len(board["cells"]) for board in crop_boards) == 135
+    assert crop_boards[0]["geometryChecksumSha256"] == structured["resultChecksumSha256"]
+    active_quad = SourceQuad(
+        corners=tuple(
+            SourcePoint(float(point["x"]), float(point["y"]))
+            for point in structured["boards"][0]["symbolGridQuad"]
+        )  # type: ignore[arg-type]
+    )
+    expected_cell = active_quad.cell_quad(
+        topology=DomainBoardTopology(rows=3, columns=5),
+        row_index=0,
+        column_index=0,
+    )
+    assert crop_boards[0]["cells"][0]["renderSpec"]["sourceQuad"] == expected_cell.to_dict()
+    assert (
+        crop_boards[0]["cells"][0]["renderSpec"]["geometryVersion"]
+        == (structured_lattice_active_config_payload()["localLatticeVersion"])
+    )
+    assert not list((artifact_root / "data").rglob("*.png"))
 
 
 def test_structured_default_renders_one_virtual_batch_and_restarts_without_png(

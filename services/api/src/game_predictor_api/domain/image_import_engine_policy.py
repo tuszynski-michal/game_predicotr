@@ -13,6 +13,7 @@ class ImageImportEnginePolicy(StrEnum):
     VERIFIED_V19 = "verified_v19"
     STRUCTURED_SHADOW = "structured_shadow"
     STRUCTURED_DEFAULT = "structured_default"
+    STRUCTURED_LATTICE_V3 = "structured_lattice_v3"
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +38,8 @@ def policy_rollout_modes(policy: ImageImportEnginePolicy) -> tuple[str, str]:
         return "legacy", "legacy_files"
     if policy is ImageImportEnginePolicy.STRUCTURED_SHADOW:
         return "structured_shadow", "virtual_shadow"
+    if policy is ImageImportEnginePolicy.STRUCTURED_LATTICE_V3:
+        return "structured_lattice_v3", "virtual_default"
     return "structured_default", "virtual_default"
 
 
@@ -51,6 +54,8 @@ def policy_from_rollout_modes(
         return ImageImportEnginePolicy.STRUCTURED_SHADOW
     if pair == ("structured_default", "virtual_default"):
         return ImageImportEnginePolicy.STRUCTURED_DEFAULT
+    if pair == ("structured_lattice_v3", "virtual_default"):
+        return ImageImportEnginePolicy.STRUCTURED_LATTICE_V3
     raise ValueError("The rollout state is not a user-selectable image engine policy.")
 
 

@@ -840,7 +840,11 @@ export type BrowserImageImportStart = {
    * Boardcellprocessingmode
    */
   boardCellProcessingMode?:
-    'verified_v19' | 'structured_shadow' | 'structured_default' | null;
+    | 'verified_v19'
+    | 'structured_shadow'
+    | 'structured_default'
+    | 'structured_lattice_v3'
+    | null;
   /**
    * Gameid
    */
@@ -2717,6 +2721,7 @@ export type ImageGeometryRolloutBackfillJobPayload = {
  * ImageGeometryRolloutJobSnapshotPayload
  */
 export type ImageGeometryRolloutJobSnapshotPayload = {
+  activeLatticeGeometry?: StructuredGeometryActivationJobSnapshotPayload | null;
   candidateGeometry?: StructuredGeometryCandidateJobSnapshotPayload | null;
   /**
    * Cellassetmode
@@ -2734,7 +2739,11 @@ export type ImageGeometryRolloutJobSnapshotPayload = {
    * Geometrymode
    */
   geometryMode:
-    'legacy' | 'structured_shadow' | 'structured_review' | 'structured_default';
+    | 'legacy'
+    | 'structured_shadow'
+    | 'structured_review'
+    | 'structured_default'
+    | 'structured_lattice_v3';
   /**
    * Preprocessingversion
    */
@@ -2748,7 +2757,8 @@ export type ImageGeometryRolloutJobSnapshotPayload = {
    */
   schemaVersion:
     | 'virtual-geometry-rollout-snapshot-v1'
-    | 'virtual-geometry-rollout-snapshot-v2';
+    | 'virtual-geometry-rollout-snapshot-v2'
+    | 'virtual-geometry-rollout-snapshot-v3';
   /**
    * Virtualrendererversion
    */
@@ -3523,7 +3533,10 @@ export type ImageGridReviewView =
  * ImageImportEnginePolicy
  */
 export type ImageImportEnginePolicy =
-  'verified_v19' | 'structured_shadow' | 'structured_default';
+  | 'verified_v19'
+  | 'structured_shadow'
+  | 'structured_default'
+  | 'structured_lattice_v3';
 
 /**
  * ImageImportEnginePolicyPreviewRequest
@@ -9713,6 +9726,30 @@ export type StoragePipelineCompactionJobPayload = {
    * Schemaversion
    */
   schemaVersion?: 1;
+};
+
+/**
+ * StructuredGeometryActivationJobSnapshotPayload
+ */
+export type StructuredGeometryActivationJobSnapshotPayload = {
+  /**
+   * Config
+   */
+  config: {
+    [key: string]: unknown;
+  };
+  /**
+   * Configchecksumsha256
+   */
+  configChecksumSha256: string;
+  /**
+   * Configversion
+   */
+  configVersion: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'structured-geometry-activation-snapshot-v1';
 };
 
 /**

@@ -1526,7 +1526,8 @@
                 "enum": [
                   "verified_v19",
                   "structured_shadow",
-                  "structured_default"
+                  "structured_default",
+                  "structured_lattice_v3"
                 ],
                 "type": "string"
               },
@@ -4754,6 +4755,16 @@
       "ImageGeometryRolloutJobSnapshotPayload": {
         "additionalProperties": false,
         "properties": {
+          "activeLatticeGeometry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StructuredGeometryActivationJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "candidateGeometry": {
             "anyOf": [
               {
@@ -4789,7 +4800,8 @@
               "legacy",
               "structured_shadow",
               "structured_review",
-              "structured_default"
+              "structured_default",
+              "structured_lattice_v3"
             ],
             "title": "Geometrymode",
             "type": "string"
@@ -4808,7 +4820,8 @@
           "schemaVersion": {
             "enum": [
               "virtual-geometry-rollout-snapshot-v1",
-              "virtual-geometry-rollout-snapshot-v2"
+              "virtual-geometry-rollout-snapshot-v2",
+              "virtual-geometry-rollout-snapshot-v3"
             ],
             "title": "Schemaversion",
             "type": "string"
@@ -6176,7 +6189,8 @@
         "enum": [
           "verified_v19",
           "structured_shadow",
-          "structured_default"
+          "structured_default",
+          "structured_lattice_v3"
         ],
         "title": "ImageImportEnginePolicy",
         "type": "string"
@@ -16919,6 +16933,40 @@
           "mode"
         ],
         "title": "StoragePipelineCompactionJobPayload",
+        "type": "object"
+      },
+      "StructuredGeometryActivationJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "configChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Configchecksumsha256",
+            "type": "string"
+          },
+          "configVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Configversion",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "structured-geometry-activation-snapshot-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "configVersion",
+          "configChecksumSha256",
+          "config"
+        ],
+        "title": "StructuredGeometryActivationJobSnapshotPayload",
         "type": "object"
       },
       "StructuredGeometryCandidateJobSnapshotPayload": {

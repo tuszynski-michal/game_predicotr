@@ -6,6 +6,17 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Odebrana siatka structured v3 — TASK-0448
+
+- `structured_lattice_v3` jest jawną polityką gry dla nowych runów; nie
+  przelicza istniejących importów. Run przypina accepted-primary config i
+  checksumę raportu odbiorczego w snapshot schema v3.
+- Odbiór na 450 ręcznych siatkach osiągnął 443/450 (98,44%), medianę błędu
+  narożników 2,46 px i board-level p90 3,74 px, bez naruszeń row-major,
+  overlapu, source support ani zaakceptowanych przecięć zawartości.
+- Niepewne sloty mają `finalQuad = null` i trafiają do korekty. Historyczne
+  snapshoty v1/v2, cropy i decyzje pozostają bez zmian.
+
 ### Shadow lokalnej siatki structured v3 — TASK-0447
 
 - Nowe runy `structured_shadow` przypinają kandydata

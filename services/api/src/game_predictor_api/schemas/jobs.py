@@ -100,16 +100,25 @@ class StructuredGeometryCandidateJobSnapshotPayload(ApiModel):
     config: dict[str, object]
 
 
+class StructuredGeometryActivationJobSnapshotPayload(ApiModel):
+    schema_version: Literal["structured-geometry-activation-snapshot-v1"]
+    config_version: str = Field(min_length=1, max_length=255)
+    config_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    config: dict[str, object]
+
+
 class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
     schema_version: Literal[
         "virtual-geometry-rollout-snapshot-v1",
         "virtual-geometry-rollout-snapshot-v2",
+        "virtual-geometry-rollout-snapshot-v3",
     ]
     geometry_mode: Literal[
         "legacy",
         "structured_shadow",
         "structured_review",
         "structured_default",
+        "structured_lattice_v3",
     ]
     cell_asset_mode: Literal[
         "legacy_files",
@@ -122,6 +131,10 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
     rollout_revision: int = Field(ge=0)
     checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     candidate_geometry: StructuredGeometryCandidateJobSnapshotPayload | None = None
+    active_lattice_geometry: StructuredGeometryActivationJobSnapshotPayload | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
 
     @model_validator(mode="after")
     def validate_candidate_geometry_scope(self) -> Self:
@@ -130,6 +143,11 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
             raise ValueError("rollout snapshot v2 requires one candidate geometry config")
         if has_candidate and self.geometry_mode != "structured_shadow":
             raise ValueError("candidate geometry config is allowed only in structured shadow")
+        has_activation = self.active_lattice_geometry is not None
+        if has_activation != (self.schema_version == "virtual-geometry-rollout-snapshot-v3"):
+            raise ValueError("rollout snapshot v3 requires one active lattice config")
+        if has_activation and self.geometry_mode != "structured_lattice_v3":
+            raise ValueError("active lattice config is allowed only in structured lattice v3")
         return self
 
 

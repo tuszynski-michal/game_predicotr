@@ -1244,18 +1244,22 @@ jobów, ale nie może być utworzony przez ogólne `POST /jobs`; enqueue należy
 dedykowanego `POST /image-selections`, a poświadczenie stagingu do TASK-0152.
 
 Odpowiedź joba może zawierać `imageGeometryRollout` w historycznej wersji
-`virtual-geometry-rollout-snapshot-v1` albo w addytywnej wersji v2. V2 jest
+`virtual-geometry-rollout-snapshot-v1` albo w addytywnej wersji v2/v3. V2 jest
 dopuszczona wyłącznie dla `geometryMode = structured_shadow` i zawiera jedno
 `candidateGeometry` z pełnym configiem Structured Geometry v2 oraz jego
 SHA-256. Pole służy replayowi diagnostycznego sidecaru; nie daje klientowi ani
 workerowi uprawnienia do aktywacji kandydata. Snapshot v1 nie zawiera tego pola.
+V3 jest dopuszczona wyłącznie dla `geometryMode = structured_lattice_v3` i
+zawiera `activeLatticeGeometry` z accepted-primary configiem oraz checksumą
+raportu odbiorczego. Brak lub drift snapshotu kończy replay fail-closed.
 
 Polityka silnika per gra przyjmuje `verified_v19`, historyczny
-`structured_shadow` oraz produkcyjny `structured_default`. Admin oferuje do
-nowych importów tylko `verified_v19` i `structured_default`; ostatni mapuje się
-na `geometryMode = structured_default` oraz
-`cellAssetMode = virtual_default`. Zmiana polityki jest preview-bound,
-rewizjonowana i nie zmienia żadnego istniejącego joba.
+`structured_shadow`, stabilny `structured_default` oraz odebrany
+`structured_lattice_v3`. Admin oferuje do nowych importów `verified_v19`,
+`structured_default` i `structured_lattice_v3`; dwa ostatnie korzystają z
+`cellAssetMode = virtual_default`, lecz tylko v3 używa lokalnie dopasowanej
+siatki symboli jako primary. Zmiana polityki jest preview-bound, rewizjonowana
+i nie zmienia żadnego istniejącego joba.
 
 Dla `payout` API wykonuje wyłącznie szybki preflight i zapis joba; samo
 przeliczanie nadal wykonuje worker. Akceptowana jest tylko wersja algorytmu

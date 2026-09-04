@@ -117,8 +117,7 @@ class CleanupOperationModel(Base):
     __tablename__ = "cleanup_operations"
     __table_args__ = (
         CheckConstraint(
-            "operation_type IN ('mobile_release', 'game_layout_data', "
-            "'board_source_ranges')",
+            "operation_type IN ('mobile_release', 'game_layout_data', 'board_source_ranges')",
             name="ck_cleanup_operations_type",
         ),
         CheckConstraint(
@@ -1831,7 +1830,7 @@ class ImageGeometryRolloutStateModel(Base):
     __table_args__ = (
         CheckConstraint(
             "geometry_mode IN ('legacy', 'structured_shadow', "
-            "'structured_review', 'structured_default')",
+            "'structured_review', 'structured_default', 'structured_lattice_v3')",
             name="ck_image_geometry_rollout_states_geometry_mode",
         ),
         CheckConstraint(

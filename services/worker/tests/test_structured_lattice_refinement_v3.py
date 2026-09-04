@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import replace
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -13,6 +16,7 @@ from game_predictor_worker.images.board_cell_geometry_estimator import (
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.structured_geometry import (
     LATTICE_CONTENT_SAFETY_VERSION,
+    STRUCTURED_LATTICE_ACCEPTANCE_REPORT_CHECKSUM_SHA256,
     STRUCTURED_LATTICE_REFINEMENT_V3_VERSION,
     StructuredLatticeRefinementError,
     evaluate_lattice_content_safety,
@@ -94,11 +98,17 @@ def test_content_safety_rejects_a_component_crossing_a_cell_boundary() -> None:
         _detector_quad(analysis),
     )
     assert estimate.status == "estimated"
-    candidate_index = next(
-        index for index in estimate.assigned_candidate_indices if index is not None
-    )
+    candidate_index = estimate.assigned_candidate_indices[1]
+    assert candidate_index is not None
     candidates = tuple(
-        replace(candidate, left=0, width=120)
+        replace(
+            candidate,
+            touches_border=False,
+            core_left=84.0,
+            core_top=32.0,
+            core_width=32.0,
+            core_height=36.0,
+        )
         if candidate.candidate_index == candidate_index
         else candidate
         for candidate in estimate.rectified_candidates
@@ -110,6 +120,32 @@ def test_content_safety_rejects_a_component_crossing_a_cell_boundary() -> None:
     assert safety.reason_code == "content_boundary_conflict"
     assert safety.minimum_clearance_px is not None
     assert safety.minimum_clearance_px < 0
+
+
+def test_content_safety_allows_extra_background_at_the_outer_lattice_edge() -> None:
+    source, analysis = _source(_board())
+    estimate = estimate_board_cell_geometry(source, _detector_quad(analysis))
+    assert estimate.status == "estimated"
+    candidate_index = estimate.assigned_candidate_indices[0]
+    assert candidate_index is not None
+    candidates = tuple(
+        replace(
+            candidate,
+            touches_border=False,
+            core_left=-8.0,
+            core_top=-6.0,
+            core_width=48.0,
+            core_height=46.0,
+        )
+        if candidate.candidate_index == candidate_index
+        else candidate
+        for candidate in estimate.rectified_candidates
+    )
+
+    safety = evaluate_lattice_content_safety(replace(estimate, rectified_candidates=candidates))
+
+    assert safety.status == "passed"
+    assert safety.reason_code is None
 
 
 def test_v3_rejects_an_unsupported_topology() -> None:
@@ -138,3 +174,33 @@ def test_v19_serialized_diagnostics_ignore_v3_private_evidence() -> None:
     assert "rectifiedCandidates" not in payload
     assert "assignedCandidateIndices" not in payload
     assert "idealToObservedMatrix" not in payload
+
+    candidate_payload = estimate.rectified_candidates[0].to_dict()
+    assert not any(key.startswith("core") for key in candidate_payload)
+
+
+def test_active_config_is_bound_to_the_accepted_real_image_report() -> None:
+    report_path = (
+        Path(__file__).resolve().parents[3]
+        / "ai_docs"
+        / "quality"
+        / "STRUCTURED_LATTICE_V3_ACCEPTANCE.json"
+    )
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    acceptance_passed = report.pop("acceptancePassed")
+    report.pop("evaluationMilliseconds")
+    checksum = report.pop("reportChecksumSha256")
+    canonical = json.dumps(
+        report,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+
+    assert report["reportVersion"] == "structured-lattice-v3-real-manual-acceptance-v1"
+    assert acceptance_passed is True
+    assert checksum == hashlib.sha256(canonical).hexdigest()
+    assert checksum == STRUCTURED_LATTICE_ACCEPTANCE_REPORT_CHECKSUM_SHA256
+    golden = report["goldenRegressions"]
+    assert golden["19999-20007"]["passed"] is True
+    assert golden["20026-20034"]["passed"] is True

@@ -493,6 +493,29 @@ def test_per_game_virtual_geometry_rollout_is_immutably_pinned_to_new_jobs(
     response = JobResponse.from_domain(shadow).model_dump(mode="json", by_alias=True)
     assert response["inputPayload"]["imageGeometryRollout"] == shadow_rollout
 
+    repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
+        geometry_mode="structured_lattice_v3",
+        cell_asset_mode="virtual_default",
+        revision=8,
+    )
+    active = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="structured-v3",
+        pipeline_fingerprint="a" * 64,
+    )
+    active_rollout = active.input_payload["image_geometry_rollout"]
+    assert isinstance(active_rollout, dict)
+    assert active_rollout["schemaVersion"] == "virtual-geometry-rollout-snapshot-v3"
+    assert active_rollout["geometryMode"] == "structured_lattice_v3"
+    assert active_rollout["cellAssetMode"] == "virtual_default"
+    activation = active_rollout["activeLatticeGeometry"]
+    assert isinstance(activation, dict)
+    assert activation["config"]["activationAllowed"] is True
+    assert activation["config"]["maturity"] == "accepted_primary"
+    assert len(activation["config"]["acceptanceReportChecksumSha256"]) == 64
+
 
 def test_verified_v20_import_requires_rules_and_supported_topology(tmp_path: Path) -> None:
     _client_value, game_id, service, repository = _client(tmp_path)

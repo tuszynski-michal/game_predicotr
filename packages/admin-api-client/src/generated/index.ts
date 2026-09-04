@@ -1759,6 +1759,7 @@ export type {
   StorageGcRunResponse,
   StorageInventoryJobPayload,
   StoragePipelineCompactionJobPayload,
+  StructuredGeometryActivationJobSnapshotPayload,
   StructuredGeometryCandidateJobSnapshotPayload,
   SymbolCellPreviewBatchRequest,
   SymbolCellPreviewBatchResponse,

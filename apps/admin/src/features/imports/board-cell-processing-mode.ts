@@ -13,7 +13,9 @@ export function boardCellProcessingModeLabel(
 ): string {
   if (mode === 'verified_v19') return 'v20 — zweryfikowana geometria v19';
   if (mode === 'structured_default')
-    return 'v0.10 — główny silnik strukturalny';
+    return 'v0.10 v2 — stabilny silnik strukturalny';
+  if (mode === 'structured_lattice_v3')
+    return 'v0.10 v3 — precyzyjna siatka symboli';
   return 'v0.10 — historyczny tryb pomiarowy';
 }
 
@@ -28,7 +30,10 @@ export function boardCellProcessingJobLabel(job: JobResponse): string {
     return '0.10 — nowy silnik w cieniu · primary v20/v19';
   }
   if (rollout?.geometryMode === 'structured_default') {
-    return 'v0.10 — główny silnik strukturalny · wirtualne cropy';
+    return 'v0.10 v2 — stabilny silnik strukturalny · wirtualne cropy';
+  }
+  if (rollout?.geometryMode === 'structured_lattice_v3') {
+    return 'v0.10 v3 — precyzyjna siatka symboli · wirtualne cropy';
   }
   const snapshot =
     'boardCellProcessing' in payload ? payload.boardCellProcessing : null;
@@ -53,6 +58,9 @@ export function jobMatchesBoardCellProcessingMode(
   }
   if (rollout?.geometryMode === 'structured_default') {
     return mode === 'structured_default';
+  }
+  if (rollout?.geometryMode === 'structured_lattice_v3') {
+    return mode === 'structured_lattice_v3';
   }
   const snapshot =
     'boardCellProcessing' in payload ? payload.boardCellProcessing : null;

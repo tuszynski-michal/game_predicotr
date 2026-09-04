@@ -33,7 +33,9 @@ PIPELINE_STAGES = (
 CURRENT_NORMALIZATION_ADAPTER_VERSION = "image-normalization-v2-in-memory-source-v1"
 VIRTUAL_GEOMETRY_ROLLOUT_VERSION = "virtual-geometry-rollout-snapshot-v1"
 VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2 = "virtual-geometry-rollout-snapshot-v2"
+VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3 = "virtual-geometry-rollout-snapshot-v3"
 STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_VERSION = "structured-geometry-candidate-snapshot-v1"
+STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_VERSION = "structured-geometry-activation-snapshot-v1"
 STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION = "structured-opencv-independent-board-refinement-v1"
 STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION = (
     "structured-opencv-independent-board-refinement-v2-pinned-preflight-v1"
@@ -65,6 +67,7 @@ class GeometryRolloutMode(StrEnum):
     STRUCTURED_SHADOW = "structured_shadow"
     STRUCTURED_REVIEW = "structured_review"
     STRUCTURED_DEFAULT = "structured_default"
+    STRUCTURED_LATTICE_V3 = "structured_lattice_v3"
 
 
 class CellAssetRolloutMode(StrEnum):
@@ -159,6 +162,87 @@ class StructuredGeometryCandidateSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class StructuredGeometryActivationSnapshot:
+    """Exact accepted-primary config pinned to a new v3 job."""
+
+    config_version: str
+    config_checksum_sha256: str
+    canonical_config_json: str
+
+    def __post_init__(self) -> None:
+        try:
+            config = _object(json.loads(self.canonical_config_json), "activeLatticeGeometry.config")
+        except (json.JSONDecodeError, TypeError, ValueError) as error:
+            raise ImagePipelineContractError(
+                "IMAGE_STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_INVALID",
+                "The active lattice config must be canonical JSON.",
+            ) from error
+        canonical = canonical_json_bytes(config).decode("utf-8")
+        checksum = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        report_checksum = config.get("acceptanceReportChecksumSha256")
+        if (
+            canonical != self.canonical_config_json
+            or config.get("configVersion") != self.config_version
+            or checksum != self.config_checksum_sha256
+            or config.get("maturity") != "accepted_primary"
+            or config.get("activationAllowed") is not True
+            or config.get("requireDisjointTuningAndEvaluation") is not True
+            or not isinstance(report_checksum, str)
+            or not SHA256_PATTERN.fullmatch(report_checksum)
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_INVALID",
+                "The active lattice config must remain tied to an accepted report.",
+            )
+
+    @classmethod
+    def from_config_payload(cls, value: object) -> StructuredGeometryActivationSnapshot:
+        config = _object(value, "activeLatticeGeometry.config")
+        canonical = canonical_json_bytes(config)
+        return cls(
+            config_version=_text(
+                config.get("configVersion"), "activeLatticeGeometry.configVersion"
+            ),
+            config_checksum_sha256=hashlib.sha256(canonical).hexdigest(),
+            canonical_config_json=canonical.decode("utf-8"),
+        )
+
+    @property
+    def config_payload(self) -> dict[str, object]:
+        return dict(_object(json.loads(self.canonical_config_json), "activeLatticeGeometry.config"))
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "config": self.config_payload,
+            "configChecksumSha256": self.config_checksum_sha256,
+            "configVersion": self.config_version,
+            "schemaVersion": STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_VERSION,
+        }
+
+    @classmethod
+    def from_payload(cls, value: object) -> StructuredGeometryActivationSnapshot:
+        payload = _object(value, "activeLatticeGeometry")
+        if (
+            set(payload) != {"config", "configChecksumSha256", "configVersion", "schemaVersion"}
+            or payload.get("schemaVersion") != STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_VERSION
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_INVALID",
+                "The active lattice snapshot schema is unsupported.",
+            )
+        snapshot = cls.from_config_payload(payload.get("config"))
+        if (
+            payload.get("configVersion") != snapshot.config_version
+            or payload.get("configChecksumSha256") != snapshot.config_checksum_sha256
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_DRIFT",
+                "The pinned active lattice config changed.",
+            )
+        return snapshot
+
+
+@dataclass(frozen=True, slots=True)
 class GeometryPipelineRolloutSnapshot:
     """Immutable per-job rollout choice for the v0.10 image pipeline."""
 
@@ -169,6 +253,7 @@ class GeometryPipelineRolloutSnapshot:
     virtual_renderer_version: str
     preprocessing_version: str
     candidate_geometry: StructuredGeometryCandidateSnapshot | None = None
+    active_lattice_geometry: StructuredGeometryActivationSnapshot | None = None
 
     def __post_init__(self) -> None:
         if self.rollout_revision < 0 or any(
@@ -188,6 +273,7 @@ class GeometryPipelineRolloutSnapshot:
             (GeometryRolloutMode.STRUCTURED_SHADOW, CellAssetRolloutMode.VIRTUAL_SHADOW),
             (GeometryRolloutMode.STRUCTURED_REVIEW, CellAssetRolloutMode.VIRTUAL_SHADOW),
             (GeometryRolloutMode.STRUCTURED_DEFAULT, CellAssetRolloutMode.VIRTUAL_DEFAULT),
+            (GeometryRolloutMode.STRUCTURED_LATTICE_V3, CellAssetRolloutMode.VIRTUAL_DEFAULT),
         }
         if (self.geometry_mode, self.cell_asset_mode) not in allowed:
             raise ImagePipelineContractError(
@@ -201,6 +287,22 @@ class GeometryPipelineRolloutSnapshot:
             raise ImagePipelineContractError(
                 "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
                 "A measurement-only candidate can be pinned only in structured shadow mode.",
+            )
+        if (
+            self.active_lattice_geometry is not None
+            and self.geometry_mode is not GeometryRolloutMode.STRUCTURED_LATTICE_V3
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
+                "An accepted lattice config can be pinned only in v3 mode.",
+            )
+        if (
+            self.geometry_mode is GeometryRolloutMode.STRUCTURED_LATTICE_V3
+            and self.active_lattice_geometry is None
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
+                "Structured lattice v3 requires its accepted config snapshot.",
             )
 
     @property
@@ -224,14 +326,18 @@ class GeometryPipelineRolloutSnapshot:
             "preprocessingVersion": self.preprocessing_version,
             "rolloutRevision": self.rollout_revision,
             "schemaVersion": (
-                VIRTUAL_GEOMETRY_ROLLOUT_VERSION
-                if self.candidate_geometry is None
+                VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3
+                if self.active_lattice_geometry is not None
                 else VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2
+                if self.candidate_geometry is not None
+                else VIRTUAL_GEOMETRY_ROLLOUT_VERSION
             ),
             "virtualRendererVersion": self.virtual_renderer_version,
         }
         if self.candidate_geometry is not None:
             payload["candidateGeometry"] = self.candidate_geometry.to_payload()
+        if self.active_lattice_geometry is not None:
+            payload["activeLatticeGeometry"] = self.active_lattice_geometry.to_payload()
         if include_checksum:
             payload["checksumSha256"] = self.checksum_sha256
         return payload
@@ -243,15 +349,21 @@ class GeometryPipelineRolloutSnapshot:
         if schema_version not in {
             VIRTUAL_GEOMETRY_ROLLOUT_VERSION,
             VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2,
+            VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3,
         }:
             raise ImagePipelineContractError(
                 "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
                 "The pinned geometry rollout schema is unsupported.",
             )
         candidate_geometry = (
-            None
-            if schema_version == VIRTUAL_GEOMETRY_ROLLOUT_VERSION
-            else StructuredGeometryCandidateSnapshot.from_payload(payload.get("candidateGeometry"))
+            StructuredGeometryCandidateSnapshot.from_payload(payload.get("candidateGeometry"))
+            if schema_version == VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2
+            else None
+        )
+        active_lattice_geometry = (
+            StructuredGeometryActivationSnapshot.from_payload(payload.get("activeLatticeGeometry"))
+            if schema_version == VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3
+            else None
         )
         rollout_revision = payload.get("rolloutRevision")
         if not isinstance(rollout_revision, int) or isinstance(rollout_revision, bool):
@@ -281,6 +393,7 @@ class GeometryPipelineRolloutSnapshot:
                     "imageGeometryRollout.preprocessingVersion",
                 ),
                 candidate_geometry=candidate_geometry,
+                active_lattice_geometry=active_lattice_geometry,
             )
         except (TypeError, ValueError) as error:
             raise ImagePipelineContractError(
@@ -955,8 +1068,11 @@ __all__ = [
     "PIPELINE_MANIFEST_VERSION",
     "PIPELINE_STAGES",
     "STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_VERSION",
+    "STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_VERSION",
+    "StructuredGeometryActivationSnapshot",
     "StructuredGeometryCandidateSnapshot",
     "VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2",
+    "VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3",
     "build_pipeline_envelope",
     "canonical_json_bytes",
     "current_pipeline_manifest",

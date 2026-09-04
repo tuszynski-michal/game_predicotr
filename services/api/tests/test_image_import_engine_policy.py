@@ -22,11 +22,18 @@ def test_engine_policies_map_to_stable_shadow_and_production_modes() -> None:
         "structured_default",
         "virtual_default",
     )
+    assert policy_rollout_modes(ImageImportEnginePolicy.STRUCTURED_LATTICE_V3) == (
+        "structured_lattice_v3",
+        "virtual_default",
+    )
     assert policy_from_rollout_modes("legacy", "legacy_files") is (
         ImageImportEnginePolicy.VERIFIED_V19
     )
     assert policy_from_rollout_modes("structured_default", "virtual_default") is (
         ImageImportEnginePolicy.STRUCTURED_DEFAULT
+    )
+    assert policy_from_rollout_modes("structured_lattice_v3", "virtual_default") is (
+        ImageImportEnginePolicy.STRUCTURED_LATTICE_V3
     )
     with pytest.raises(ValueError):
         policy_from_rollout_modes("structured_review", "virtual_shadow")

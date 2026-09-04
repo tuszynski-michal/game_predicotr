@@ -7602,3 +7602,18 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** checkpoint v3 jest trwały i widoczny w Reviewerze, ale
   aktywacja oraz reprocess należą do osobnego TASK-0448. Brak
   `symbolGridQuad` nie uruchamia fallbacku do zewnętrznej ramki.
+
+### D-338 — Aktywacja siatki v3 jest jawna, raport-bound i future-run only
+
+- **Status:** accepted
+- **Date:** 2026-09-04
+- **Decision:** wariant `structured_lattice_v3` może być wybrany per gra dla
+  nowych runów, jeżeli job przypnie accepted-primary config razem z SHA-256
+  raportu odbiorczego. Slot bez bezpiecznego `symbolGridQuad` nie ma
+  produkcyjnego `finalQuad`.
+- **Reason:** bounded odbiór na 450 ręcznych siatkach spełnił bramki pokrycia,
+  mediany, board-level p90 i niezmienników. Osobny tryb zachowuje replay v1/v2
+  i nie przełącza milcząco już istniejących gier.
+- **Consequences:** operator jawnie zmienia politykę gry po wdrożeniu migracji;
+  zmiana działa tylko dla nowych, idempotentnych runów. Historyczny reprocess
+  nadal odtwarza swój snapshot, a nie bieżącą politykę.

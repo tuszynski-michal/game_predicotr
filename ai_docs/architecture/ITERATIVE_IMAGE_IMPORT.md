@@ -199,6 +199,16 @@ Reviewer rysuje `analysisQuad` jako cienki obrys diagnostyczny i proponowany
 `symbolGridQuad` jako siatkę edycyjną. Jeśli istnieje ręczna rewizja, jej quad
 wygrywa i pomiar shadow nie może jej zastąpić.
 
+Po odbiorze v3 nowa polityka `structured_lattice_v3` tworzy snapshot
+`virtual-geometry-rollout-snapshot-v3`. Snapshot zawiera dokładną konfigurację
+accepted-primary i SHA-256 niezmiennego raportu z 450 ręcznych plansz. Worker
+najpierw odtwarza przypiętą inicjalizację v2, następnie uruchamia lokalny
+refiner na każdym slocie i buduje role-aware source geometry schema v2.
+Wyłącznie slot `estimated` z przejściem content safety otrzymuje produkcyjny
+`finalQuad = symbolGridQuad`; odroczenie ma `finalQuad = null`, więc renderer
+nie może odziedziczyć zewnętrznej ramki. Stare snapshoty v1/v2 nie zawierają
+aktywnej konfiguracji i zachowują dotychczasową ścieżkę bit-for-bit.
+
 Kohorta jest game-scoped, kumulacyjna i niezmienna. Rekordy plansz nadal
 zachowują pierwotny i finalny quad, ale profil schema v2 grupuje je według
 źródła i kwalifikuje wyłącznie kompletny układ pozycji 0–8. Pełna próbka ma

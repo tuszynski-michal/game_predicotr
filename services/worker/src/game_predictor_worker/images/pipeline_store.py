@@ -300,7 +300,8 @@ class SqlAlchemyImagePipelineStore:
                         status=(
                             "accepted"
                             if structured["status"] == "ready"
-                            and structured.get("rolloutMode") == "structured_default"
+                            and structured.get("rolloutMode")
+                            in {"structured_default", "structured_lattice_v3"}
                             else "needs_review"
                         ),
                         geometry_checksum_sha256=cast(str, structured["resultChecksumSha256"]),

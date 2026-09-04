@@ -15,6 +15,7 @@ from game_predictor_worker.images.pipeline_contract import (
     GeometryPipelineRolloutSnapshot,
     GeometryRolloutMode,
     ImagePipelineContractError,
+    StructuredGeometryActivationSnapshot,
     StructuredGeometryCandidateSnapshot,
     build_pipeline_envelope,
     current_pipeline_manifest,
@@ -30,6 +31,7 @@ from game_predictor_worker.images.pipeline_contract import (
 from game_predictor_worker.images.structured_geometry import (
     DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2,
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    structured_lattice_active_config_payload,
 )
 from game_predictor_worker.images.virtual_cell_extraction import VIRTUAL_CELL_RENDERER_VERSION
 
@@ -69,6 +71,21 @@ def _candidate_rollout() -> GeometryPipelineRolloutSnapshot:
         preprocessing_version=base.preprocessing_version,
         candidate_geometry=StructuredGeometryCandidateSnapshot.from_config_payload(
             DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.to_payload()
+        ),
+    )
+
+
+def _active_lattice_rollout() -> GeometryPipelineRolloutSnapshot:
+    base = _rollout(GeometryRolloutMode.STRUCTURED_DEFAULT)
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.STRUCTURED_LATTICE_V3,
+        cell_asset_mode=CellAssetRolloutMode.VIRTUAL_DEFAULT,
+        rollout_revision=4,
+        geometry_engine_version=base.geometry_engine_version,
+        virtual_renderer_version=base.virtual_renderer_version,
+        preprocessing_version=base.preprocessing_version,
+        active_lattice_geometry=StructuredGeometryActivationSnapshot.from_config_payload(
+            structured_lattice_active_config_payload()
         ),
     )
 
@@ -263,6 +280,38 @@ def test_shadow_candidate_snapshot_rejects_config_tampering_and_non_shadow_use()
             candidate_geometry=_candidate_rollout().candidate_geometry,
         )
     assert invalid_mode.value.code == "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID"
+
+
+def test_active_v3_snapshot_is_pinned_and_replayed_without_changing_v1_v2() -> None:
+    historical = pipeline_fingerprint(_manifest())
+    v1 = _rollout(GeometryRolloutMode.STRUCTURED_DEFAULT)
+    v2 = _candidate_rollout()
+    active = _active_lattice_rollout()
+
+    payload = active.to_payload()
+    assert payload["schemaVersion"] == "virtual-geometry-rollout-snapshot-v3"
+    assert GeometryPipelineRolloutSnapshot.from_payload(payload) == active
+    assert effective_pipeline_fingerprint(historical, active) not in {
+        effective_pipeline_fingerprint(historical, v1),
+        effective_pipeline_fingerprint(historical, v2),
+    }
+    assert v1.to_payload()["schemaVersion"] == "virtual-geometry-rollout-snapshot-v1"
+    assert v2.to_payload()["schemaVersion"] == "virtual-geometry-rollout-snapshot-v2"
+
+
+def test_active_v3_snapshot_rejects_report_or_config_tampering() -> None:
+    payload = _active_lattice_rollout().to_payload()
+    active = cast(dict[str, object], payload["activeLatticeGeometry"])
+    config = cast(dict[str, object], active["config"])
+    config["acceptanceReportChecksumSha256"] = "0" * 64
+
+    with pytest.raises(ImagePipelineContractError) as error:
+        GeometryPipelineRolloutSnapshot.from_payload(payload)
+
+    assert error.value.code in {
+        "IMAGE_STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_INVALID",
+        "IMAGE_STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_DRIFT",
+    }
 
 
 @pytest.mark.parametrize(

@@ -518,6 +518,23 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
     assert production.json()["policy"] == "structured_default"
     assert production.json()["revision"] == 2
 
+    v3_preview = client.post(f"{endpoint}/preview", json={"targetPolicy": "structured_lattice_v3"})
+    v3 = client.put(
+        endpoint,
+        json={
+            "targetPolicy": "structured_lattice_v3",
+            "expectedRevision": 2,
+            "previewToken": v3_preview.json()["previewToken"],
+        },
+    )
+
+    assert v3_preview.status_code == 200
+    assert v3_preview.json()["target"]["geometryMode"] == "structured_lattice_v3"
+    assert v3_preview.json()["changesExistingJobs"] is False
+    assert v3.status_code == 200
+    assert v3.json()["policy"] == "structured_lattice_v3"
+    assert v3.json()["revision"] == 3
+
 
 def test_grid_review_api_lists_keyset_page_and_approves_exact_revision(tmp_path: Path) -> None:
     client, repository, items = _client(tmp_path)

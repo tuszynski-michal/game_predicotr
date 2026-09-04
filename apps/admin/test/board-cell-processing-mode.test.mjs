@@ -31,7 +31,11 @@ test('uses verified v19 processing as the default for new imports', () => {
   );
   assert.equal(
     boardCellProcessingModeLabel('structured_default'),
-    'v0.10 — główny silnik strukturalny',
+    'v0.10 v2 — stabilny silnik strukturalny',
+  );
+  assert.equal(
+    boardCellProcessingModeLabel('structured_lattice_v3'),
+    'v0.10 v3 — precyzyjna siatka symboli',
   );
 });
 
@@ -46,6 +50,9 @@ test('labels each persisted import with its pinned board processing engine', () 
   );
   const structuredDefault = imageImportJob(undefined, {
     geometryMode: 'structured_default',
+  });
+  const structuredV3 = imageImportJob(undefined, {
+    geometryMode: 'structured_lattice_v3',
   });
 
   assert.equal(
@@ -62,7 +69,11 @@ test('labels each persisted import with its pinned board processing engine', () 
   );
   assert.equal(
     boardCellProcessingJobLabel(structuredDefault),
-    'v0.10 — główny silnik strukturalny · wirtualne cropy',
+    'v0.10 v2 — stabilny silnik strukturalny · wirtualne cropy',
+  );
+  assert.equal(
+    boardCellProcessingJobLabel(structuredV3),
+    'v0.10 v3 — precyzyjna siatka symboli · wirtualne cropy',
   );
 });
 
@@ -77,6 +88,9 @@ test('rejects a returned job whose immutable snapshot differs from the game poli
   );
   const structuredDefault = imageImportJob(undefined, {
     geometryMode: 'structured_default',
+  });
+  const structuredV3 = imageImportJob(undefined, {
+    geometryMode: 'structured_lattice_v3',
   });
 
   assert.equal(
@@ -105,6 +119,17 @@ test('rejects a returned job whose immutable snapshot differs from the game poli
   );
   assert.equal(
     jobMatchesBoardCellProcessingMode(shadow, 'structured_default'),
+    false,
+  );
+  assert.equal(
+    jobMatchesBoardCellProcessingMode(structuredV3, 'structured_lattice_v3'),
+    true,
+  );
+  assert.equal(
+    jobMatchesBoardCellProcessingMode(
+      structuredDefault,
+      'structured_lattice_v3',
+    ),
     false,
   );
 });

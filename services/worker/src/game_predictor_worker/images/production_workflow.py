@@ -125,6 +125,7 @@ from .source_ingestion import (
     ManagedSourceManifest,
 )
 from .structured_geometry import (
+    STRUCTURED_LATTICE_ACTIVE_CONFIG_VERSION,
     STRUCTURED_LATTICE_CANDIDATE_CONFIG_VERSION,
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
     STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
@@ -134,6 +135,7 @@ from .structured_geometry import (
     StructuredOpenCvGeometryEngine,
     evaluate_structured_geometry_shadow_v2,
     evaluate_structured_lattice_shadow_v3,
+    structured_lattice_active_config_payload,
     structured_lattice_candidate_config_payload,
 )
 from .symbol_model_release import build_symbol_predictions
@@ -191,6 +193,80 @@ def _attach_lattice_candidate_to_detection(
         board["geometry"] = geometry
         projected.append(board)
     return projected
+
+
+def _activate_structured_lattice_v3(
+    upstream: Mapping[str, object],
+    candidate: Mapping[str, object],
+    *,
+    active_config_checksum_sha256: str,
+) -> dict[str, object]:
+    """Promote only proven per-board v3 lattices; never reuse a frame fallback."""
+
+    candidate_boards = {
+        _integer(board, "positionIndex"): board
+        for board in (
+            _mapping(value, "structuredGeometryCandidateV3.board")
+            for value in _sequence(candidate.get("boards"), "structuredGeometryCandidateV3.boards")
+        )
+    }
+    boards: list[dict[str, object]] = []
+    source_reasons: set[str] = set()
+    for value in _sequence(upstream.get("boards"), "structuredGeometry.boards"):
+        board = dict(_mapping(value, "structuredGeometry.board"))
+        position = _integer(board, "positionIndex")
+        refined = candidate_boards.get(position)
+        if refined is None:
+            reason: str | None = "source_support_incomplete"
+            symbol_grid_quad = None
+            local_status = "needs_review"
+        else:
+            local_status = str(refined.get("localLatticeStatus"))
+            symbol_grid_quad = refined.get("symbolGridQuad")
+            reason_value = refined.get("reasonCode")
+            reason = reason_value if isinstance(reason_value, str) and reason_value else None
+        automatic = local_status == "estimated" and symbol_grid_quad is not None and reason is None
+        reason_codes = [] if automatic else [reason or "insufficient_lattice_evidence"]
+        source_reasons.update(reason_codes)
+        board.update(
+            {
+                "analysisQuad": None if refined is None else refined.get("analysisQuad"),
+                "boardFrameQuad": None if refined is None else refined.get("boardFrameQuad"),
+                "contentSafety": None if refined is None else refined.get("contentSafety"),
+                "disposition": (
+                    BoardGeometryDisposition.AUTOMATIC.value
+                    if automatic
+                    else BoardGeometryDisposition.NEEDS_MANUAL_REVIEW.value
+                ),
+                "finalQuad": symbol_grid_quad if automatic else None,
+                "idealToSourceHomography": None,
+                "localLatticeStatus": local_status,
+                "localLatticeVersion": (
+                    None if refined is None else refined.get("localLatticeVersion")
+                ),
+                "reasonCodes": reason_codes,
+                "symbolGridQuad": symbol_grid_quad if automatic else None,
+            }
+        )
+        boards.append(board)
+    payload = dict(upstream)
+    payload.update(
+        {
+            "activationReportChecksumSha256": structured_lattice_active_config_payload()[
+                "acceptanceReportChecksumSha256"
+            ],
+            "boards": boards,
+            "configChecksumSha256": active_config_checksum_sha256,
+            "geometryRolePolicy": "frame_conditioned_symbol_lattice_v1",
+            "localLatticeConfigVersion": STRUCTURED_LATTICE_ACTIVE_CONFIG_VERSION,
+            "reasonCodes": sorted(source_reasons),
+            "schemaVersion": 2,
+            "status": "ready" if not source_reasons else "needs_review",
+        }
+    )
+    payload.pop("resultChecksumSha256", None)
+    payload["resultChecksumSha256"] = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+    return payload
 
 
 class BoardCellGeometryDeferrer(Protocol):
@@ -1397,6 +1473,12 @@ class ProductionImageStageAdapterSuite:
             if board.get("disposition") != BoardGeometryDisposition.AUTOMATIC.value:
                 continue
             final_quad = _source_quad(board.get("finalQuad"))
+            local_lattice_version = board.get("localLatticeVersion")
+            geometry_version = (
+                local_lattice_version
+                if isinstance(local_lattice_version, str) and local_lattice_version
+                else self._geometry_rollout.geometry_engine_version
+            )
             virtual_geometry = VirtualBoardGeometry(
                 source=frame.source,
                 source_occurrence=SourceOccurrence(
@@ -1407,7 +1489,7 @@ class ProductionImageStageAdapterSuite:
                 topology=topology,
                 topology_rules_version_id=UUID(topology_rules_version),
                 geometry_revision=geometry_revision,
-                geometry_version=self._geometry_rollout.geometry_engine_version,
+                geometry_version=geometry_version,
                 engine_kind=GeometryEngineKind.STRUCTURED_OPENCV_V1,
                 symbol_grid_quad=final_quad,
             )
@@ -1561,6 +1643,42 @@ class ProductionImageStageAdapterSuite:
         )
         payload = result.to_payload()
         payload["rolloutMode"] = self._geometry_rollout.geometry_mode.value
+        active_snapshot = self._geometry_rollout.active_lattice_geometry
+        if active_snapshot is not None:
+            if active_snapshot.config_payload != structured_lattice_active_config_payload():
+                raise ImagePipelineExecutionError(
+                    "IMAGE_STRUCTURED_GEOMETRY_ACTIVATION_CONFIG_DRIFT",
+                    "The pinned accepted Structured Geometry v3 lattice config changed.",
+                )
+            active_candidate = evaluate_structured_lattice_shadow_v3(
+                frame,
+                result,
+                config_checksum_sha256=active_snapshot.config_checksum_sha256,
+                topology=self._board_topology,
+            ).to_payload()
+            if (
+                active_candidate.get("configChecksumSha256")
+                != active_snapshot.config_checksum_sha256
+                or active_candidate.get("upstreamResultChecksumSha256")
+                != _text(payload, "resultChecksumSha256")
+                or active_candidate.get("sourceChecksumSha256")
+                != _text(payload, "sourceChecksumSha256")
+                or active_candidate.get("normalizedPixelChecksumSha256")
+                != _text(payload, "normalizedPixelChecksumSha256")
+            ):
+                raise ImagePipelineExecutionError(
+                    "IMAGE_STRUCTURED_GEOMETRY_ACTIVATION_EVIDENCE_DRIFT",
+                    "The accepted Structured Geometry v3 evidence differs from its pinned source.",
+                )
+            return (
+                _activate_structured_lattice_v3(
+                    payload,
+                    active_candidate,
+                    active_config_checksum_sha256=active_snapshot.config_checksum_sha256,
+                ),
+                None,
+                None,
+            )
         candidate_snapshot = self._geometry_rollout.candidate_geometry
         if candidate_snapshot is None:
             return payload, None, None

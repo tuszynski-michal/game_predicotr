@@ -547,7 +547,8 @@ export function ImageFolderImportPanel({
   }
 
   async function changeEnginePolicy(
-    targetPolicy: 'verified_v19' | 'structured_default',
+    targetPolicy:
+      'verified_v19' | 'structured_default' | 'structured_lattice_v3',
   ) {
     if (busy || enginePolicy === null || targetPolicy === enginePolicy.policy)
       return;
@@ -601,9 +602,11 @@ export function ImageFolderImportPanel({
         }
         setPreflight(refreshed.data);
         setFeedback(
-          result.data.policy === 'structured_default'
-            ? 'Ustawienie zapisano. Raport stagingu odświeżono — nowe importy użyją głównego silnika v0.10.'
-            : 'Ustawienie zapisano. Raport stagingu odświeżono — przygotuj wymaganą geometrię stron.',
+          result.data.policy === 'structured_lattice_v3'
+            ? 'Ustawienie zapisano. Raport stagingu odświeżono — nowe importy użyją precyzyjnej siatki v0.10 v3.'
+            : result.data.policy === 'structured_default'
+              ? 'Ustawienie zapisano. Raport stagingu odświeżono — nowe importy użyją stabilnego silnika v0.10 v2.'
+              : 'Ustawienie zapisano. Raport stagingu odświeżono — przygotuj wymaganą geometrię stron.',
         );
         return;
       }

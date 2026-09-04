@@ -83,6 +83,15 @@ startowego ręcznej korekty; istniejąca ręczna geometria zawsze pozostaje
 prawdą nadrzędną. Aktywacja v3 jako źródła nowych cropów wymaga osobnego
 odbioru jakości i jawnej decyzji operatora.
 
+Odebrany wariant v3 jest dostępny jako jawna polityka gry
+`structured_lattice_v3` wyłącznie dla nowych runów. Każdy taki run przypina
+pełną konfigurację `structured-lattice-active-v3-config-v1` wraz z checksumą
+raportu odbiorczego. Dla każdego slotu produkcyjnym źródłem cropów jest tylko
+bezpieczny `symbolGridQuad`; `insufficient_lattice_evidence`,
+`content_boundary_conflict` i brak source support kończą slot odroczeniem.
+Zmiana polityki nie przelicza historycznych importów i nie zmienia ręcznych
+decyzji. Warianty v1/v2 zachowują własne snapshoty oraz replay.
+
 ## Aktywny kontrakt geometrii komórek v18/v20
 
 Domyślny import nadal używa historycznego

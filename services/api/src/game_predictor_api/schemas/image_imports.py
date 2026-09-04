@@ -219,6 +219,7 @@ class BrowserImageImportStart(ApiModel):
             "verified_v19",
             "structured_shadow",
             "structured_default",
+            "structured_lattice_v3",
         ]
         | None
     ) = None

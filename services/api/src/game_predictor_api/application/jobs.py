@@ -30,10 +30,12 @@ from game_predictor_worker.images.pipeline_contract import (
     CellAssetRolloutMode,
     GeometryPipelineRolloutSnapshot,
     GeometryRolloutMode,
+    StructuredGeometryActivationSnapshot,
     StructuredGeometryCandidateSnapshot,
     effective_pipeline_fingerprint,
 )
 from game_predictor_worker.images.structured_geometry import (
+    structured_lattice_active_config_payload,
     structured_lattice_candidate_config_payload,
 )
 
@@ -422,6 +424,14 @@ class JobService:
                 )
                 if reference is not None
                 and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_SHADOW.value
+                else None
+            ),
+            active_lattice_geometry=(
+                StructuredGeometryActivationSnapshot.from_config_payload(
+                    structured_lattice_active_config_payload()
+                )
+                if reference is not None
+                and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
                 else None
             ),
         )
@@ -1360,12 +1370,12 @@ class JobService:
             and job.input_payload.get("validation_kind") == "page_geometry_preflight"
         ):
             return self._repository.save_job(requeue_job_with_fresh_progress(job))
-        if (
-            job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
-            and _is_filename_verification_job(job)
+        if job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION and _is_filename_verification_job(
+            job
         ):
             return self._repository.save_job(requeue_job_with_fresh_progress(job))
         return self._repository.save_job(requeue_job(job))
+
     def delete_cancelled_image_selection_job(
         self,
         job_id: UUID,
@@ -1458,8 +1468,7 @@ def _is_filename_verification_job(job: Job) -> bool:
     recognizer_fingerprint = job.input_payload.get("recognizer_fingerprint")
     return (
         isinstance(recognizer_fingerprint, str)
-        and recognizer_fingerprint
-        == _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINT
+        and recognizer_fingerprint == _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINT
     )
 
 

@@ -53,6 +53,8 @@ from .global_initialization import (
 )
 from .lattice_refinement_v3 import (
     LATTICE_CONTENT_SAFETY_VERSION,
+    STRUCTURED_LATTICE_ACCEPTANCE_REPORT_CHECKSUM_SHA256,
+    STRUCTURED_LATTICE_ACTIVE_CONFIG_VERSION,
     STRUCTURED_LATTICE_CANDIDATE_CONFIG_VERSION,
     STRUCTURED_LATTICE_REFINEMENT_V3_VERSION,
     LatticeContentSafetyResult,
@@ -62,6 +64,7 @@ from .lattice_refinement_v3 import (
     evaluate_lattice_content_safety,
     evaluate_structured_lattice_shadow_v3,
     refine_structured_symbol_lattice_v3,
+    structured_lattice_active_config_payload,
     structured_lattice_candidate_config_payload,
 )
 from .line_refinement import (
@@ -95,6 +98,8 @@ __all__ = [
     "STRUCTURED_GEOMETRY_SIGNAL_PROBE_VERSION",
     "STRUCTURED_LATTICE_REFINEMENT_V3_VERSION",
     "STRUCTURED_LATTICE_CANDIDATE_CONFIG_VERSION",
+    "STRUCTURED_LATTICE_ACTIVE_CONFIG_VERSION",
+    "STRUCTURED_LATTICE_ACCEPTANCE_REPORT_CHECKSUM_SHA256",
     "LATTICE_CONTENT_SAFETY_VERSION",
     "STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION",
     "STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION",
@@ -153,5 +158,6 @@ __all__ = [
     "evaluate_structured_lattice_shadow_v3",
     "refine_structured_symbol_lattice_v3",
     "structured_lattice_candidate_config_payload",
+    "structured_lattice_active_config_payload",
     "probe_board_signals",
 ]

@@ -29,6 +29,7 @@ export interface ManualImageViewerState {
   readonly visibleImageUrl: string | null;
   readonly zoom: number;
   readonly zoomedImageSize: ManualImageSize | null;
+  readonly sourceImageSize: ManualImageSize | null;
   setZoom: React.Dispatch<React.SetStateAction<number>>;
   toggleFullscreen(): Promise<void>;
   onImageLoad(sourceUrl: string, size: ManualImageSize): void;
@@ -46,6 +47,7 @@ export function useManualImageViewer(
   currentImageIndex: number,
   onError: (message: string) => void,
   initialView?: ManualImageViewerInitialView,
+  onViewChange?: (view: ManualImageViewerInitialView) => void,
 ): ManualImageViewerState {
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const imageViewportRef = useRef<HTMLDivElement | null>(null);
@@ -74,6 +76,18 @@ export function useManualImageViewer(
     imageViewportSize,
     zoom,
   );
+  const sourceImageSize =
+    loadedImageSize?.sourceUrl === visibleImageUrl
+      ? loadedImageSize.size
+      : null;
+
+  useEffect(() => {
+    onViewChange?.({
+      scrollLeft: imageScrollLeftRef.current,
+      scrollTop: imageScrollTopRef.current,
+      zoom,
+    });
+  }, [onViewChange, zoom]);
 
   useEffect(() => {
     const cache = imageUrlCacheRef.current;
@@ -252,9 +266,11 @@ export function useManualImageViewer(
       ) {
         imageScrollLeftRef.current = scrollLeft;
         imageScrollTopRef.current = scrollTop;
+        onViewChange?.({ scrollLeft, scrollTop, zoom });
       }
     },
     setZoom,
+    sourceImageSize,
     toggleFullscreen,
     viewerRef,
     visibleImageUrl,
@@ -269,6 +285,7 @@ export function ManualImageViewer({
   currentPosition,
   currentRelativePath,
   fullscreenExtra,
+  imageOverlay,
   imageCount,
   navigationStepLabel,
   nextDisabled,
@@ -283,6 +300,7 @@ export function ManualImageViewer({
   readonly currentPosition: number;
   readonly currentRelativePath: string | null;
   readonly fullscreenExtra?: ReactNode;
+  readonly imageOverlay?: ReactNode;
   readonly imageCount: number;
   readonly navigationStepLabel: string;
   readonly nextDisabled: boolean;
@@ -383,6 +401,7 @@ export function ManualImageViewer({
                   }
                   src={state.visibleImageUrl}
                 />
+                {imageOverlay}
               </div>
             )}
           </div>

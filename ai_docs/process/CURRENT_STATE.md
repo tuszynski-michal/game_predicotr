@@ -21,6 +21,15 @@ last_updated: 2026-09-03
   1:1 jako pełnoszeroki pas; źródło pozostaje nietknięte.
 - Każdy zapis jest journalowany i sprawdzany SHA-256 przed finalizacją manifestu.
 
+### Workspace „Przytnij wybrane zdjęcia” — TASK-0427
+
+- Pod `Semi-auto selekcja` działa lokalny workspace pełnoszerokiego cięcia góry
+  i dołu z dwiema przeciąganymi liniami, zoomem, fullscreenem i progressem.
+- `F`/`→` zapisuje i przechodzi dalej, `←` tylko nawiguje, a ponowny zapis
+  zaakceptowanego JPEG-a wymaga jawnego przycisku.
+- Kursor, zoom i scroll wracają z IndexedDB; obrazy pozostają w ograniczonym
+  cache Object URL i nie są zapisywane w bazie przeglądarki.
+
 Tor `0.5` został zamknięty. Ostatni commit implementacyjny to `v0.5.15`, a
 commit dokumentacyjny zamknięcia otrzymuje `v0.5.16`. Następny tor rozpoczyna
 się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i

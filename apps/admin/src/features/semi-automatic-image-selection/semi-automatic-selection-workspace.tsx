@@ -34,6 +34,7 @@ import {
   type SemiAutomaticSelectionLocalUiState,
 } from './semi-automatic-selection-output-storage.ts';
 import { SemiAutomaticSelectionReviewWorkspace } from './semi-automatic-selection-review-workspace';
+import { SelectedImageCropWorkspace } from './selected-image-crop-workspace';
 
 const EMPTY_UPLOAD_PROGRESS: SemiAutomaticSelectionUploadProgress = {
   totalBytes: 0,
@@ -772,6 +773,7 @@ export function SemiAutomaticSelectionWorkspace({
           sourceFiles={sourceFiles}
         />
       ) : null}
+      <SelectedImageCropWorkspace />
     </section>
   );
 }

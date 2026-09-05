@@ -1436,3 +1436,16 @@ domenowych. Dla maski częściowej pozycja ma wyłącznie stan
 `source_unavailable` i nie zawiera obrazu. Każda zmiana geometrii lub maski
 unieważnia poprzedni podgląd, a zapis nowej rewizji unieważnia wcześniej
 wybrany manifest w stanie UI; operator musi jawnie zamknąć nowy manifest.
+
+### Opcjonalna rejestracja ograniczona do obszaru plansz
+
+Preflight v0.10 może jawnie przypiąć wariant `board_area_test`, który pobiera
+cechy kotwicy wyłącznie z otoczki ręcznie zatwierdzonych 36 narożników. Nie
+zmienia on detektora targetu, dopasowania siatki symboli ani modelu symboli.
+Ustawieniem domyślnym pozostaje `standard_v0_10`.
+
+Odbiór z 2026-09-05 na 19 source-disjoint korektach nie wykazał poprawy:
+pokrycie spadło z 14/19 do 13/19, mediana błędu wzrosła z 6,20 px do 6,36 px,
+a łączny czas wzrósł o 26,67%. Wariant pozostaje eksperymentalny i nie może
+zostać automatycznie promowany. Szczegóły znajdują się w
+`ai_docs/quality/BOARD_AREA_REGISTRATION_ACCEPTANCE.md`.

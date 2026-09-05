@@ -435,3 +435,21 @@ niezmienne, kompletne źródła stają się datasetem `image -> 9 × 4 corners`.
 Prototyp keypointów pozostaje shadow-only do czasu osobnego odbioru jakości i
 wydajności. Nie wolno wracać do kontraktu `image -> four page corners`, bo nie
 opisuje niezależnego pochylenia dziewięciu plansz.
+
+## Test rejestracji obszaru plansz
+
+W formularzu preflightu operator może pozostawić `Standardowe v0.10` albo
+wybrać `Obszar plansz — testowe`. Wybór jest częścią niezmiennego wejścia runu;
+retry nie może go zmienić. Wariant testowy maskuje cechy kotwicy, ale nadal
+przeszukuje całe zdjęcie docelowe i nie uruchamia dodatkowego przebiegu.
+
+Odbiór ograniczony wykazał gorsze pokrycie i narzut 26,67%, dlatego wariant nie
+jest produkcyjnym domyślnym ustawieniem. Brak poprawy nie może prowadzić do
+obniżania bramek ani użycia syntetycznych quadów.
+
+Aby później porównać oryginał z ciaśniejszym katalogiem `cut`, należy utworzyć
+dwa oddzielne stagingi i dwa nowe preflighty z tym samym wariantem, profilem i
+wersją progów. Porównuje się źródła odpowiadające tym samym zakresom oraz raport
+przyczyn odrzucenia. Ponowne przetworzenie starego importu nadal korzysta z
+jego managed originals; pliki `cut` wymagają nowego importu i własnego
+fingerprintu.

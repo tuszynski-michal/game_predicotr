@@ -7812,3 +7812,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   model symboli ani politykę silnika całej gry.
 - **Consequences:** input key rozdziela warianty, retry jest odtwarzalny, a
   worker odrzuca nieznaną lub niespójną parę wersji fail-closed.
+
+### D-352 — Maskowana rejestracja nie zostaje ustawieniem domyślnym
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** `board_area_test` pozostaje jawnym wariantem eksperymentalnym,
+  a nowe preflighty nadal domyślnie używają `standard_v0_10`.
+- **Reason:** na 19 dostępnych source-disjoint ręcznych korektach maska obniżyła
+  pokrycie z 14 do 13 źródeł, lekko zwiększyła błąd narożników i zwiększyła
+  łączny czas o 26,67%. Nie spełniła bramek jakości ani narzutu.
+- **Consequences:** implementacja i replay pozostają dostępne do kontrolowanych
+  prób, ale aktywacja wymaga nowego, wystarczającego raportu. Późniejsze
+  porównanie oryginału z katalogiem `cut` używa oddzielnych runów i nie zmienia
+  istniejących managed originals.

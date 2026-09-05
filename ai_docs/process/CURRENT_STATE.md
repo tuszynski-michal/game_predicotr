@@ -6,6 +6,18 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Odbiór rejestracji obszaru plansz — TASK-0462
+
+- Read-only porównanie objęło 19 z 21 kompletnych, ręcznie skorygowanych
+  źródeł; oceniane źródło i jego duplikaty były wykluczane z kotwic po SHA-256.
+- Wariant maskowany rozpoznał 13/19 wobec 14/19 standardu, miał medianę błędu
+  6,36 px wobec 6,20 px i był łącznie o 26,67% wolniejszy.
+- Wariant `board_area_test` nie przeszedł bramek i pozostaje opcjonalnym
+  eksperymentem. `standard_v0_10` nadal jest ustawieniem domyślnym.
+- Rzeczywisty `seq_53119-53127.jpg` został odrzucony przez oba warianty na
+  bramce pokrycia czerwonych krawędzi; bez 36 ręcznych narożników jest tylko
+  przypadkiem diagnostycznym.
+
 ### Opcjonalny wybór rejestracji obszaru plansz — TASK-0461
 
 - Start preflightu pozwala wybrać `Standardowe v0.10` albo eksperymentalne

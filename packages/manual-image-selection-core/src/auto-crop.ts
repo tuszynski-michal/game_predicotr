@@ -6,18 +6,21 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 
 export const SELECTED_IMAGE_AUTO_CROP_POLICY =
+  'selected-image-board-band-v6-wide-blue-board-panel' as const;
+export const SELECTED_IMAGE_AUTO_CROP_V5_POLICY =
   'selected-image-board-band-v5-blue-priority-multicolumn' as const;
 export const SELECTED_IMAGE_AUTO_CROP_LEGACY_POLICY =
   'selected-image-board-band-v4-conservative-multicolumn' as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH = 512 as const;
-/** Preserve more context above the detected board band for tilted cabinet screens. */
-export const SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO = 0.12 as const;
+/** Keep context above the panel without retaining the paytable above it. */
+export const SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO = 0.075 as const;
 export const SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO = 0.045 as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_TOP_RATIO = 0.05 as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_BOTTOM_RATIO = 0.95 as const;
 
 export type SelectedImageAutoCropPolicyVersion =
   | typeof SELECTED_IMAGE_AUTO_CROP_POLICY
+  | typeof SELECTED_IMAGE_AUTO_CROP_V5_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_LEGACY_POLICY;
 
 export type SelectedImageAutoCropStrategy =
@@ -104,13 +107,7 @@ export function detectSelectedImageCropBand(
   assertSample(sample);
   const bluePanel = detectBluePanel(sample, source);
   const multicolumn = detectMulticolumnPanel(sample, source);
-  if (
-    bluePanel !== null &&
-    multicolumn.classification !== 'safe_wide' &&
-    multicolumn.crop.topY < bluePanel.crop.topY - source.height * 0.08
-  ) {
-    return bluePanel;
-  }
+  if (bluePanel !== null) return bluePanel;
   return multicolumn;
 }
 
@@ -251,46 +248,71 @@ function detectBluePanel(
   source: SelectedImageDimensions,
 ): DetectedSelectedImageAutoCropProposal | null {
   const { width, height, rgba } = sample;
-  const xStart = Math.floor(width * 0.04);
-  const xEnd = Math.ceil(width * 0.96);
-  const usableWidth = Math.max(1, xEnd - xStart);
-  const blueRows: number[] = [];
-  for (let y = 0; y < height; y += 1) {
-    let blue = 0;
-    for (let x = xStart; x < xEnd; x += 1) {
-      const offset = (y * width + x) * 4;
-      const red = rgba[offset] ?? 0;
-      const green = rgba[offset + 1] ?? 0;
-      const blueChannel = rgba[offset + 2] ?? 0;
-      const maximum = Math.max(red, green, blueChannel);
-      const minimum = Math.min(red, green, blueChannel);
-      if (
-        blueChannel >= 60 &&
-        blueChannel >= red * 1.12 &&
-        blueChannel >= green * 1.04 &&
-        maximum - minimum >= 28
-      ) {
-        blue += 1;
+  const xStart = Math.floor(width * 0.06);
+  const xEnd = Math.ceil(width * 0.94);
+  const usableWidth = Math.max(STRIP_COUNT, xEnd - xStart);
+  const boundaries: Array<LocalBoundary & { readonly stripIndex: number }> = [];
+  const stripPeaks: number[] = [];
+  for (let strip = 0; strip < STRIP_COUNT; strip += 1) {
+    const stripStart = xStart + Math.floor((usableWidth * strip) / STRIP_COUNT);
+    const stripEnd =
+      xStart + Math.floor((usableWidth * (strip + 1)) / STRIP_COUNT);
+    const stripWidth = Math.max(1, stripEnd - stripStart);
+    const rows = Array.from({ length: height }, (_, y) => {
+      let blue = 0;
+      for (let x = stripStart; x < stripEnd; x += 1) {
+        if (isBoardPanelBlue(rgba, (y * width + x) * 4)) blue += 1;
       }
-    }
-    blueRows.push(blue / usableWidth);
+      return blue / stripWidth;
+    });
+    const smoothed = smoothRows(rows, Math.max(1, Math.round(height * 0.008)));
+    const peak = Math.max(...smoothed);
+    if (peak < 0.3) continue;
+    const cluster = strongestRowCluster(
+      smoothed,
+      Math.max(0.18, peak * 0.42),
+      Math.max(1, Math.round(height * 0.035)),
+      Math.round(height * 0.12),
+    );
+    if (cluster === null) continue;
+    const lengthRatio = (cluster.end - cluster.start + 1) / height;
+    if (
+      cluster.start < height * 0.12 ||
+      cluster.start > height * 0.72 ||
+      cluster.end < height * 0.45 ||
+      lengthRatio < 0.18 ||
+      lengthRatio > 0.68
+    )
+      continue;
+    boundaries.push({
+      stripIndex: strip,
+      top: cluster.start,
+      bottom: cluster.end,
+    });
+    stripPeaks.push(cluster.peak);
   }
-  const smoothed = smoothRows(
-    blueRows,
-    Math.max(1, Math.round(height * 0.008)),
+  const supportedStrips = boundaries.map((boundary) => boundary.stripIndex);
+  if (!hasWideSupport(supportedStrips)) return null;
+  const topSpread =
+    Math.max(...boundaries.map((boundary) => boundary.top)) -
+    Math.min(...boundaries.map((boundary) => boundary.top));
+  const bottomSpread =
+    Math.max(...boundaries.map((boundary) => boundary.bottom)) -
+    Math.min(...boundaries.map((boundary) => boundary.bottom));
+  if (topSpread > height * 0.14 || bottomSpread > height * 0.16) return null;
+
+  const panelTop = percentile(
+    boundaries.map((boundary) => boundary.top),
+    0.1,
   );
-  const peak = Math.max(...smoothed);
-  if (peak < 0.18) return null;
-  const cluster = strongestRowCluster(
-    smoothed,
-    Math.max(0.09, peak * 0.32),
-    Math.max(1, Math.round(height * 0.035)),
-    Math.round(height * 0.14),
+  const panelBottom = percentile(
+    boundaries.map((boundary) => boundary.bottom),
+    0.9,
   );
   const topPadding = Math.round(
     height * SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO,
   );
-  if (cluster === null || cluster.start <= topPadding) return null;
+  if (panelTop <= topPadding) return null;
   const bottomPadding = Math.round(
     height * SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO,
   );
@@ -298,27 +320,36 @@ function detectBluePanel(
     return {
       crop: validateSelectedImageCropBand({
         ...source,
-        topY: Math.round(
-          ((cluster.start - topPadding) / height) * source.height,
-        ),
+        topY: Math.round(((panelTop - topPadding) / height) * source.height),
         bottomY: Math.round(
-          (Math.min(height, cluster.end + 1 + bottomPadding) / height) *
+          (Math.min(height, panelBottom + 1 + bottomPadding) / height) *
             source.height,
         ),
       }),
       strategy: 'blue_panel',
       classification: 'high_confidence',
       confidence: Number(
-        clamp01(0.55 + cluster.mean * 0.7 + cluster.peak * 0.25).toFixed(3),
+        clamp01(
+          0.58 +
+            (supportedStrips.length / STRIP_COUNT) * 0.22 +
+            (stripPeaks.reduce((total, peak) => total + peak, 0) /
+              stripPeaks.length) *
+              0.2,
+        ).toFixed(3),
       ),
       policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
       evidence: {
         sampleWidth: width,
         sampleHeight: height,
-        localBounds: [],
-        chromaticCandidateCount: 1,
+        localBounds: boundaries.map((boundary) => ({
+          signal: 'chromatic',
+          stripIndex: boundary.stripIndex,
+          topRatio: Number((boundary.top / height).toFixed(6)),
+          bottomRatio: Number((boundary.bottom / height).toFixed(6)),
+        })),
+        chromaticCandidateCount: boundaries.length,
         structuralCandidateCount: 0,
-        chromaticSupportedStrips: [],
+        chromaticSupportedStrips: supportedStrips,
         structuralSupportedStrips: [],
         evidenceIoU: null,
         boundaryExpanded: false,
@@ -329,6 +360,20 @@ function detectBluePanel(
   } catch {
     return null;
   }
+}
+
+function isBoardPanelBlue(rgba: Uint8ClampedArray, offset: number): boolean {
+  const red = rgba[offset] ?? 0;
+  const green = rgba[offset + 1] ?? 0;
+  const blue = rgba[offset + 2] ?? 0;
+  const maximum = Math.max(red, green, blue);
+  const minimum = Math.min(red, green, blue);
+  return (
+    blue >= 60 &&
+    blue >= red * 1.12 &&
+    blue >= green * 1.04 &&
+    maximum - minimum >= 28
+  );
 }
 
 interface RowCluster {

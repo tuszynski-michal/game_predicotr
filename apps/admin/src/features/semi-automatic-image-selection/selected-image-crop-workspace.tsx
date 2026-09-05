@@ -22,7 +22,6 @@ import {
   type SelectedImageCropLocalSession,
 } from './selected-image-crop-local-store';
 import {
-  clearSelectedImageCropCorrections,
   completeSelectedImageCropCorrection,
   completeSelectedImageCropReview,
   listSelectedImageCropSourceDirectories,
@@ -31,6 +30,7 @@ import {
   prepareSelectedImageCropDirectory,
   proposeSelectedImageCrop,
   recalculateUnreviewedSelectedImageCrops,
+  replaceSelectedImageCropCorrectionSelection,
   saveSelectedImageCrop,
   setSelectedImageCropCorrection,
   type PreparedSelectedImageCropDirectory,
@@ -216,7 +216,7 @@ export function SelectedImageCropWorkspace() {
         preparationAbortRef.current = null;
         setPreparationProgress(null);
         setNotice(
-          'To sesja przypięta do starszej polityki. Użyj „Przelicz nieprzejrzane nowym detektorem”, aby jawnie przejść na v5 i przygotować brakujące pliki.',
+          'To sesja przypięta do starszej polityki. Użyj „Przelicz nieprzejrzane nowym detektorem”, aby jawnie przejść na najnowszy wariant i przygotować brakujące pliki.',
         );
         return;
       }
@@ -568,6 +568,14 @@ export function SelectedImageCropWorkspace() {
         );
       return true;
     });
+  const visibleSelectableNames = visibleEntries
+    .filter(({ entry }) => entry.result !== null)
+    .map(({ entry }) => entry.fileName);
+  const allVisibleSelected =
+    visibleSelectableNames.length > 0 &&
+    visibleSelectableNames.every((fileName) =>
+      correctionFileNames.has(fileName),
+    );
 
   async function recalculateUnreviewed() {
     if (prepared === null || preparationProgress !== null || busy) return;
@@ -598,7 +606,7 @@ export function SelectedImageCropWorkspace() {
       if (atlasesRequestedRef.current) void rebuildAtlases(result.prepared);
       setNotice(
         result.failures.length === 0
-          ? 'Nieprzejrzane cropy przeliczono detektorem v5.'
+          ? 'Nieprzejrzane cropy przeliczono najnowszym detektorem.'
           : `Przeliczanie zakończone. Błędy: ${result.failures.length}.`,
       );
     } catch (cause) {
@@ -678,11 +686,27 @@ export function SelectedImageCropWorkspace() {
     );
   }
 
-  async function clearCorrections() {
+  async function toggleVisibleCorrections() {
     if (prepared === null || busy) return;
     setBusy(true);
+    setError('');
     try {
-      setPrepared(await clearSelectedImageCropCorrections(prepared));
+      const visible = new Set(visibleSelectableNames);
+      const selected = new Set(correctionFileNames);
+      if (allVisibleSelected) {
+        for (const fileName of visible) selected.delete(fileName);
+      } else {
+        for (const fileName of visible) selected.add(fileName);
+      }
+      const ordered = prepared.manifest.entries.flatMap((entry) =>
+        selected.has(entry.fileName) ? [entry.fileName] : [],
+      );
+      setPrepared(
+        await replaceSelectedImageCropCorrectionSelection({
+          prepared,
+          fileNames: ordered,
+        }),
+      );
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -932,7 +956,7 @@ export function SelectedImageCropWorkspace() {
                   type="button"
                 >
                   {policyRecalculationRequired
-                    ? 'Przejdź na v5 i przelicz nieprzejrzane'
+                    ? 'Przejdź na najnowszy detektor i przelicz'
                     : 'Przelicz nieprzejrzane nowym detektorem'}
                 </button>
                 <button
@@ -949,11 +973,13 @@ export function SelectedImageCropWorkspace() {
                 </button>
                 <button
                   className="secondaryButton"
-                  disabled={busy || correctionFileNames.size === 0}
-                  onClick={() => void clearCorrections()}
+                  disabled={busy || visibleSelectableNames.length === 0}
+                  onClick={() => void toggleVisibleCorrections()}
                   type="button"
                 >
-                  Wyczyść zaznaczenie
+                  {allVisibleSelected
+                    ? 'Odznacz wszystkie'
+                    : 'Zaznacz wszystkie'}
                 </button>
                 <button
                   className="primaryButton"

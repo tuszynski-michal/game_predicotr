@@ -7826,3 +7826,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   prób, ale aktywacja wymaga nowego, wystarczającego raportu. Późniejsze
   porównanie oryginału z katalogiem `cut` używa oddzielnych runów i nie zmienia
   istniejących managed originals.
+
+### D-353 — Niebieski panel jest niezależnym, wielopasmowym dowodem auto-cropa
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v6 może użyć niebieskiego panelu bez pomocniczego
+  kandydata ogólnego tylko po zgodnym wykryciu w lewej, środkowej i prawej
+  części obrazu. Górny padding wynosi 7,5% wysokości.
+- **Reason:** v5 ignorowała mocny panel, gdy ogólny detektor zwracał
+  `safe_wide`, oraz pozostawiała 12% obrazu nad panelem. Powodowało to pełne
+  lub zbyt wysokie cropy mimo czytelnego układu 3×3.
+- **Consequences:** koszt pozostaje bounded do jednego podglądu 512 px i bez
+  OCR. Niepełny sygnał nadal trafia do ręcznej korekty. Wyniki v4/v5 zachowują
+  proweniencję i wymagają jawnego przeliczenia.

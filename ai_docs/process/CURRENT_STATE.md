@@ -6,6 +6,19 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Bezpieczniejsza górna granica lokalnego auto-cropa — TASK-0463
+
+- Polityka v6 wykrywa niebieski panel niezależnie w dziewięciu pasach i wymaga
+  zgodności lewej, środka i prawej strony. Mocny panel nie jest już odrzucany
+  tylko dlatego, że ogólny detektor zwrócił `safe_wide`.
+- Górny padding wynosi 7,5% zamiast 12%, więc crop zaczyna się bliżej nad
+  planszami i nie zachowuje większości panelu wypłat. Brak szerokiego dowodu
+  nadal kończy się jawnym `Szerokie — sprawdź`.
+- Grid ma jeden przełącznik `Zaznacz wszystkie` / `Odznacz wszystkie`, który
+  zapisuje zbiór bieżącego filtra bez przepisywania obrazów.
+- Istniejące wyniki v4/v5 nie są zmieniane; ich jawne przeliczenie obejmuje
+  wyłącznie nieprzejrzane i niepoprawiane cropy.
+
 ### Odbiór rejestracji obszaru plansz — TASK-0462
 
 - Read-only porównanie objęło 19 z 21 kompletnych, ręcznie skorygowanych

@@ -219,12 +219,17 @@ każdego wskazanego JPEG-a przed utworzeniem albo wznowieniem sesji. Dzięki
 osobnym nazwom katalogów manifest v1 nadal jednoznacznie wiąże swój inwentarz.
 
 Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
-wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka v5
-wykonuje bounded profil niebieskiego tła zgodny z sygnałem v3. Niebieski panel
-ma pierwszeństwo wyłącznie nad wynikiem już wspartym przez wielokolumnową
-bramkę, gdy jego górna granica zaczyna się co najmniej 8% wysokości wyżej. Taki
-układ wskazuje na połączenie siatki z panelem wypłat. Częściowy niebieski sygnał
-nie może zastąpić `safe_wide`.
+wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka v6
+dzieli środkowe 88% obrazu na dziewięć pasów i w każdym niezależnie znajduje
+długi klaster niebieskiego tła. Dopiero co najmniej pięć zgodnych klastrów,
+obejmujących lewą, środkową i prawą grupę, tworzy granicę panelu. Rozrzut
+górnych i dolnych granic jest ograniczony, dzięki czemu boczne światła lub
+pojedyncze elementy nie mogą udawać plansz.
+
+Potwierdzony w ten sposób panel jest niezależnym dowodem i może zastąpić
+`safe_wide` ogólnego detektora. Naprawia to regresję v5, która odrzucała nawet
+mocny panel, gdy drugi detektor nie dostarczył równocześnie kandydata.
+Historyczne wyniki v4/v5 pozostają czytelne i nie są przeliczane automatycznie.
 
 Jeżeli nie ma takiego kandydata, zachowana ścieżka wielokolumnowa v4
 analizuje środkowe 94% obrazu w dziewięciu pionowych pasach. Dla każdego pasa
@@ -236,7 +241,7 @@ bezpieczną sumę `conservative`, natomiast brak dowodu zwraca `safe_wide` 5–9
 potraktowany jak zwykły gotowy wynik bez świadomego review.
 
 Lokalne granice są agregowane percentylami, więc pochylenie obrazu nie wymusza
-ciasnego cropa według jednego pasa. Padding pozostaje asymetryczny: 12% nad i
+ciasnego cropa według jednego pasa. Padding pozostaje asymetryczny: 7,5% nad i
 4,5% pod panelem. Strefa bezpieczeństwa 3% odsuwa granicę na zewnątrz, jeżeli
 nadal przecina szeroko wspartą zawartość. Wynik niższy niż 40% wysokości jest
 odrzucany na rzecz `safe_wide`. Adapter mapuje granice proporcjonalnie na
@@ -251,12 +256,12 @@ w operacji oczekującej, dlatego recovery po zapisie JPEG-a finalizuje dokładni
 ten sam wynik.
 
 Mały session journal przypina `preparationPolicyVersion`. Nowa sesja zaczyna z
-v5, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
+v6, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
 bez zgadywania wersji. Taka sesja nie przygotuje brakujących plików nową
 polityką, dopóki operator jawnie nie uruchomi przeliczenia. Recalculator
 wyprowadza zamknięty zbiór nazw z shardów i review state; chroni `reviewed`,
 `corrected` oraz `needs_correction`, a każdy dopuszczony wynik zastępuje przez
-istniejący checksum-bound journal. Po przypięciu v5 zwykłe wznowienie może
+istniejący checksum-bound journal. Po przypięciu v6 zwykłe wznowienie może
 przygotować pozostałe, dotąd brakujące wyniki.
 
 Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma
@@ -282,6 +287,9 @@ checksumy wyników, rozmiar i renderer. Pierwszy atlas jest pokazywany przed
 zakończeniem całej kolejki, stare klucze są usuwane bounded. Grid utrzymuje
 trwały zbiór `needs_correction`; pełny `ManualImageViewer` dekoduje oryginały
 tylko dla tej kolejki. Poprawka aktualizuje jeden shard, review state i atlas.
+Zbiorcze zaznaczenie aktualizuje wyłącznie mały review state jednym zapisem;
+nie przepisuje shardów, JPEG-ów ani atlasów. Przełącznik działa na bieżącym
+filtrze i nie usuwa zaznaczeń niewidocznych w tym filtrze.
 
 Hydratacja po reloadzie kończy się na odczycie rekordu IndexedDB. Wywołanie
 `requestPermission`, skan katalogu i odczyt obrazów następują dopiero w obsłudze

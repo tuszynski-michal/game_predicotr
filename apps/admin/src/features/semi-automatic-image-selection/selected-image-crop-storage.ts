@@ -21,6 +21,7 @@ import {
   markSelectedImageCropCorrected,
   migrateSelectedImageCropManifestV1,
   recordSelectedImageCropFailure,
+  replaceSelectedImageCropCorrections,
   selectedImageCropRecalculationFileNames,
   selectedImageCropShardIndex,
   updateSelectedImageCropCorrections,
@@ -608,6 +609,28 @@ export async function clearSelectedImageCropCorrections(
   };
   await writeSelectedImageCropReview(prepared.outputDirectory, review);
   return { ...prepared, snapshot: { ...prepared.snapshot, review } };
+}
+
+export async function replaceSelectedImageCropCorrectionSelection(input: {
+  readonly prepared: PreparedSelectedImageCropDirectory;
+  readonly fileNames: readonly string[];
+}): Promise<PreparedSelectedImageCropDirectory> {
+  const preparedNames = new Set(
+    input.prepared.manifest.entries
+      .filter((entry) => entry.result !== null)
+      .map((entry) => entry.fileName),
+  );
+  if (input.fileNames.some((fileName) => !preparedNames.has(fileName)))
+    throw new Error('SELECTED_IMAGE_CROP_RESULT_NOT_PREPARED');
+  const review = replaceSelectedImageCropCorrections(
+    input.prepared.snapshot.review,
+    input.fileNames,
+  );
+  await writeSelectedImageCropReview(input.prepared.outputDirectory, review);
+  return {
+    ...input.prepared,
+    snapshot: { ...input.prepared.snapshot, review },
+  };
 }
 
 export async function completeSelectedImageCropCorrection(input: {

@@ -559,12 +559,16 @@ sesja nie współdzielą inwentarza ani postępu.
 
 Automat dla każdego jeszcze niezatwierdzonego zdjęcia niezależnie analizuje
 ograniczoną kopię podglądową do 512 px i proponuje pas obejmujący zwarty panel
-plansz. Polityka `selected-image-board-band-v5-blue-priority-multicolumn`
-najpierw sprawdza niebieski panel używany przez aktualny typ szafy. Kandydat
-może zawęzić wyłącznie wynik już poparty wielokolumnowym dowodem, którego górna
-granica została rozszerzona ku panelowi wypłat. W przeciwnym przypadku korzysta
-z wielokolumnowego detektora v4. Dzięki temu kolorowy
-panel wypłat nad siatką nie może zostać połączony z właściwym panelem plansz.
+plansz. Polityka `selected-image-board-band-v6-wide-blue-board-panel`
+wyznacza niebieski panel niezależnie w dziewięciu pionowych pasach i wymaga
+zgodnych granic w co najmniej pięciu pasach oraz w lewej, środkowej i prawej
+części obrazu. Tak potwierdzony panel jest wystarczającym dowodem nawet wtedy,
+gdy ogólny detektor nie zbudował własnego kandydata. Panel wypłat, boczne
+światła i pojedynczy niebieski element nie spełniają tej bramki.
+
+Jeżeli niebieski panel nie ma pełnego wsparcia, automat korzysta z
+wielokolumnowego detektora v4. Historyczna polityka v5 pozostaje akceptowana w
+manifestach i nie jest przeliczana po cichu.
 Historyczna polityka `selected-image-board-band-v4-conservative-multicolumn`
 dzieli środkowe 94% obrazu na dziewięć pasów i łączy niezależny sygnał koloru,
 nasycenia, kontrastu oraz powtarzalnych krawędzi. Automatyczna granica wymaga
@@ -572,7 +576,7 @@ wsparcia w co najmniej pięciu pasach oraz w lewej, środkowej i prawej części
 pojedyncza tabela, światło albo dłoń nie mogą przesunąć całego cropa.
 
 Pochylenie jest uwzględniane przez lokalne granice pasów i bezpieczną
-obwiednię: 10. percentyl górnych granic minus 12% wysokości oraz 90. percentyl
+obwiednię: 10. percentyl górnych granic minus 7,5% wysokości oraz 90. percentyl
 dolnych granic plus 4,5%. Mocny, szeroki sygnał w strefie 3% przy granicy
 rozszerza crop na zewnątrz. Kandydat niższy niż 40% obrazu nie jest używany.
 Brak wystarczającego dowodu daje jawny `safe_wide` równy 5–95% wysokości i
@@ -587,8 +591,12 @@ dwie ostatnie klasy. Wynik historyczny bez tej proweniencji pozostaje czytelny
 i nie jest automatycznie przeliczany.
 
 Jawna akcja `Przelicz nieprzejrzane nowym detektorem` może przełączyć
-rozpoczętą sesję na v5. Obejmuje wyłącznie wyniki nieprzejrzane, niepoprawione
+rozpoczętą sesję na v6. Obejmuje wyłącznie wyniki nieprzejrzane, niepoprawione
 ręcznie i niezaznaczone do poprawy, a następnie przygotowuje brakujące pliki.
+
+W widoku kafelkowym jeden przycisk przełącza `Zaznacz wszystkie` i `Odznacz
+wszystkie`. Działa na przygotowanych wynikach bieżącego filtra, zachowuje
+zaznaczenia ukryte przez filtr i utrwala cały zbiór jednym małym zapisem review.
 Każda zmiana ponownie sprawdza SHA-256 źródła i bieżącego wyniku oraz przechodzi
 przez ten sam journal co pojedyncza poprawka. Akcja nigdy nie zmienia wyników
 zaakceptowanych przez operatora.

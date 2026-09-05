@@ -7,6 +7,7 @@ import {
   markSelectedImageCropCorrected,
   migrateSelectedImageCropManifestV1,
   recordSelectedImageCropFailure,
+  replaceSelectedImageCropCorrections,
   selectedImageCropFileState,
   selectedImageCropRecalculationFileNames,
   selectedImageCropShardIndex,
@@ -60,6 +61,28 @@ test('migrates prepared and reviewed state without rerendering results', () => {
   assert.equal(Object.keys(snapshot.shards[2].results).length, 0);
   assert.equal(snapshot.review.reviewedFileNames.length, 98);
   assert.deepEqual(materializeSelectedImageCropManifestV1(snapshot), source);
+});
+
+test('replaces a bulk correction selection deterministically', () => {
+  const review = {
+    schemaVersion: 2,
+    reviewedFileNames: [],
+    correctionFileNames: ['seq_1-9.jpg'],
+    correctedFileNames: [],
+    correctionCursor: 7,
+    completedAt: '2026-09-05T10:00:00.000Z',
+  };
+  const updated = replaceSelectedImageCropCorrections(review, [
+    'seq_10-18.jpg',
+    'seq_19-27.jpg',
+    'seq_10-18.jpg',
+  ]);
+  assert.deepEqual(updated.correctionFileNames, [
+    'seq_10-18.jpg',
+    'seq_19-27.jpg',
+  ]);
+  assert.equal(updated.correctionCursor, 1);
+  assert.equal(updated.completedAt, null);
 });
 
 test('preserves the reported 2815 of 2817 recovery checkpoint', () => {

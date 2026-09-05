@@ -235,6 +235,22 @@ export function updateSelectedImageCropCorrections(
   };
 }
 
+export function replaceSelectedImageCropCorrections(
+  review: SelectedImageCropReviewV2,
+  fileNames: readonly string[],
+): SelectedImageCropReviewV2 {
+  const unique = [...new Set(fileNames)];
+  return {
+    ...review,
+    correctionFileNames: unique,
+    correctionCursor: Math.min(
+      review.correctionCursor,
+      Math.max(0, unique.length - 1),
+    ),
+    completedAt: null,
+  };
+}
+
 export function markSelectedImageCropCorrected(
   review: SelectedImageCropReviewV2,
   fileName: string,

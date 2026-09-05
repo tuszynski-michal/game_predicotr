@@ -355,6 +355,7 @@ function validateSelectedImageAutoCropProposal(
     ![
       'selected-image-board-band-v4-conservative-multicolumn',
       'selected-image-board-band-v5-blue-priority-multicolumn',
+      'selected-image-board-band-v6-wide-blue-board-panel',
     ].includes(proposal.policyVersion) ||
     !['high_confidence', 'conservative', 'safe_wide'].includes(
       proposal.classification,

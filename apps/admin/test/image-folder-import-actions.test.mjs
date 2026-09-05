@@ -3,12 +3,75 @@ import test from 'node:test';
 
 import {
   createImageFolderImport,
+  filterImageFolderImportFiles,
   listReadyBrowserImageSelections,
   previewReadyBrowserImageImport,
   reprocessImageFolderImport,
+  retryBrowserPageGeometryPreflight,
+  startBrowserPageGeometryPreflight,
   startReadyBrowserImageImport,
   uploadImageFolder,
 } from '../src/features/imports/image-folder-import-actions.ts';
+
+test('pins the selected page registration variant in the preflight request', async () => {
+  const calls = [];
+  const result = await startBrowserPageGeometryPreflight(
+    {
+      startBrowserPageGeometryPreflight: async (uploadId, body) => {
+        calls.push([uploadId, body]);
+        return { data: { created: true, job: { id: 'masked-job' } } };
+      },
+    },
+    'upload-1',
+    'game-1',
+    'board_area_test',
+  );
+
+  assert.deepEqual(calls, [
+    [
+      'upload-1',
+      { gameId: 'game-1', pageRegistrationVariant: 'board_area_test' },
+    ],
+  ]);
+  assert.equal(result.ok, true);
+});
+
+test('retries the existing failed page geometry preflight job', async () => {
+  const calls = [];
+  const job = {
+    id: 'preflight-job-1',
+    inputPayload: { validationKind: 'page_geometry_preflight' },
+    jobType: 'validate',
+    status: 'created',
+  };
+
+  const result = await retryBrowserPageGeometryPreflight(
+    {
+      retryJob: async (jobId) => {
+        calls.push(jobId);
+        return { data: job };
+      },
+    },
+    'preflight-job-1',
+  );
+
+  assert.deepEqual(calls, ['preflight-job-1']);
+  assert.deepEqual(result, { data: job, ok: true });
+});
+
+test('board import accepts cropped seq JPEGs and ignores the local crop manifest', () => {
+  const files = [
+    new File(['a'], 'seq_1-9.jpg', { type: 'image/jpeg' }),
+    new File(['b'], 'seq_10-18.jpeg', { type: 'image/jpeg' }),
+    new File(['{}'], 'manual-image-crop-output-v1.json', {
+      type: 'application/json',
+    }),
+  ];
+  assert.deepEqual(
+    filterImageFolderImportFiles(files).map((file) => file.name),
+    ['seq_1-9.jpg', 'seq_10-18.jpeg'],
+  );
+});
 
 test('uploads a browser-native folder and returns a validated selection', async () => {
   const selection = {
@@ -23,6 +86,7 @@ test('uploads a browser-native folder and returns a validated selection', async 
     value: 'photos/layout.jpg',
   });
   const calls = [];
+  const progress = [];
 
   const result = await uploadImageFolder(
     {
@@ -57,13 +121,16 @@ test('uploads a browser-native folder and returns a validated selection', async 
       },
     },
     [file],
+    (uploaded, total) => progress.push([uploaded, total]),
   );
 
   assert.deepEqual(result, {
     displayName: 'photos',
+    kind: 'uploaded',
     ok: true,
     selection,
     uploadId: 'upload-1',
+    uploadPlan: null,
   });
   assert.deepEqual(calls[0], [
     'create',
@@ -81,6 +148,94 @@ test('uploads a browser-native folder and returns a validated selection', async 
     file,
   ]);
   assert.deepEqual(calls[2], ['finalize', 'upload-1']);
+  assert.deepEqual(progress, [[1, 1]]);
+});
+
+test('filters fully imported seq ranges before uploading browser JPEG bytes', async () => {
+  const existing = new File(['old'], 'seq_1-9.jpg', { type: 'image/jpeg' });
+  const missing = new File(['new'], 'seq_10-18.jpg', { type: 'image/jpeg' });
+  const calls = [];
+  const result = await uploadImageFolder(
+    {
+      cancelBrowserImageSelection: async () => ({ data: undefined }),
+      createBrowserImageSelection: async (body) => {
+        calls.push(['create', body]);
+        return {
+          data: {
+            expectedFileCount: 1,
+            expectedTotalBytes: missing.size,
+            uploadId: 'upload-1',
+            uploadedBytes: 0,
+            uploadedFileCount: 0,
+          },
+        };
+      },
+      finalizeBrowserImageSelection: async () => ({
+        data: { status: 'selected', supportedFileCount: 1 },
+      }),
+      planBrowserImageSelectionUpload: async (body) => {
+        calls.push(['plan', body]);
+        return {
+          data: {
+            filesToUpload: [
+              {
+                relativePath: 'seq_10-18.jpg',
+                sizeBytes: missing.size,
+                sourceIndex: 1,
+                uploadIndex: 0,
+              },
+            ],
+            missingSequenceCount: 9,
+            partialSourceCount: 0,
+            planChecksumSha256: 'a'.repeat(64),
+            reusedSequenceCount: 9,
+            selectedFileCount: 2,
+            selectedTotalBytes: existing.size + missing.size,
+            skippedCompleteSources: [
+              {
+                relativePath: 'seq_1-9.jpg',
+                sequenceRangeEnd: 9,
+                sequenceRangeStart: 1,
+                sourceIndex: 0,
+              },
+            ],
+            skippedCompleteSourceCount: 1,
+            uploadFileCount: 1,
+            uploadTotalBytes: missing.size,
+            gameId: 'game-1',
+          },
+        };
+      },
+      uploadBrowserImageSelectionFile: async (...args) => {
+        calls.push(['upload', ...args]);
+        return {
+          data: {
+            expectedFileCount: 1,
+            expectedTotalBytes: missing.size,
+            uploadedBytes: missing.size,
+            uploadedFileCount: 1,
+          },
+        };
+      },
+    },
+    [existing, missing],
+    'game-1',
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(calls[0][0], 'plan');
+  assert.deepEqual(calls[1], [
+    'create',
+    {
+      displayName: 'seq_1-9.jpg',
+      expectedFileCount: 1,
+      expectedTotalBytes: missing.size,
+      gameId: 'game-1',
+      skippedCanonicalRanges: [{ sequenceRangeEnd: 9, sequenceRangeStart: 1 }],
+      uploadPlanChecksumSha256: 'a'.repeat(64),
+    },
+  ]);
+  assert.equal(calls[2][3], 'seq_10-18.jpg');
 });
 
 test('reprocesses an import from its managed originals', async () => {
@@ -221,6 +376,7 @@ test('previews and starts a recovered browser staging idempotently', async () =>
       {
         gameId: 'game-1',
         boardCellProcessingMode: 'verified_v19',
+        imageEnginePolicy: 'verified_v19',
         geometryManifestChecksumSha256: 'c'.repeat(64),
         geometryPreflightJobId: 'geometry-job-1',
         manifestChecksumSha256: 'a'.repeat(64),
@@ -230,7 +386,7 @@ test('previews and starts a recovered browser staging idempotently', async () =>
   ]);
 });
 
-test('pins v20 board-cell processing for a ready browser staging', async () => {
+test('pins the game engine policy for a ready browser staging', async () => {
   let command;
   const result = await startReadyBrowserImageImport(
     {
@@ -256,4 +412,72 @@ test('pins v20 board-cell processing for a ready browser staging', async () => {
 
   assert.equal(result.ok, true);
   assert.equal(command.boardCellProcessingMode, 'verified_v19');
+});
+
+test('pins the cold-start geometry manifest for structured shadow', async () => {
+  let command;
+  const result = await startReadyBrowserImageImport(
+    {
+      startReadyBrowserImageImport: async (_uploadId, body) => {
+        command = body;
+        return {
+          data: {
+            created: true,
+            job: { id: 'job-shadow' },
+            preflight: {},
+          },
+        };
+      },
+    },
+    'upload-shadow',
+    'game-1',
+    'a'.repeat(64),
+    'b'.repeat(64),
+    'geometry-job-shadow',
+    'c'.repeat(64),
+    'structured_shadow',
+    2,
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(command.imageEnginePolicy, 'structured_shadow');
+  assert.equal(command.imageEnginePolicyRevision, 2);
+  assert.equal(command.geometryPreflightJobId, 'geometry-job-shadow');
+  assert.equal(command.geometryManifestChecksumSha256, 'c'.repeat(64));
+});
+
+test('pins an explicitly sealed geometry guard resolution manifest', async () => {
+  let command;
+  const result = await startReadyBrowserImageImport(
+    {
+      startReadyBrowserImageImport: async (_uploadId, body) => {
+        command = body;
+        return {
+          data: { created: true, job: { id: 'job-v7' }, preflight: {} },
+        };
+      },
+    },
+    'upload-v7',
+    'game-1',
+    'a'.repeat(64),
+    'b'.repeat(64),
+    'geometry-job-v7',
+    'c'.repeat(64),
+    'structured_lattice_v3',
+    3,
+    'd'.repeat(64),
+    'e'.repeat(64),
+    'resolution-manifest-1',
+    'f'.repeat(64),
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(
+    command.geometryGuardResolutionManifestId,
+    'resolution-manifest-1',
+  );
+  assert.equal(
+    command.geometryGuardResolutionManifestChecksumSha256,
+    'f'.repeat(64),
+  );
 });

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 from dataclasses import replace
 from uuid import UUID
 
@@ -11,18 +13,94 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellCropApprovalState,
     SymbolCellQualityIssue,
     SymbolCellReview,
+    SymbolCellReviewCursorDirection,
     SymbolCellReviewError,
+    SymbolCellReviewFilterState,
+    SymbolCellReviewListFilter,
     SymbolCellReviewState,
     approve_symbol_cell_review,
+    decode_symbol_cell_review_cursor,
     derive_symbol_cell_board_resolution,
+    encode_symbol_cell_review_cursor,
     invalidate_symbol_cell_reviews_for_geometry,
     is_symbol_cell_training_eligible,
     map_current_symbol_cell_reviews,
+    mark_symbol_cell_blurry,
     mark_symbol_cell_grid_issue,
     mark_symbol_cell_unreadable,
     reassign_symbol_cell_review,
     resolve_unreadable_symbol_cell_review,
 )
+
+
+def _cursor_payload(value: str) -> dict[str, object]:
+    return json.loads(base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)))
+
+
+def test_symbol_review_cursor_v3_uses_uuid_key_and_accepts_scoped_v2() -> None:
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=UUID(int=2),
+        state=SymbolCellReviewFilterState.PENDING,
+    )
+    key = (123, 4, UUID(int=3))
+
+    encoded = encode_symbol_cell_review_cursor(
+        review_filter=review_filter,
+        direction=SymbolCellReviewCursorDirection.AFTER,
+        key=key,
+    )
+    payload = _cursor_payload(encoded)
+    legacy_payload = {**payload, "version": 2}
+    legacy_raw = json.dumps(legacy_payload, separators=(",", ":"), sort_keys=True).encode()
+    legacy = base64.urlsafe_b64encode(legacy_raw).decode().rstrip("=")
+
+    assert payload["version"] == 3
+    assert payload["key"] == [123, 4, str(UUID(int=3))]
+    assert (
+        decode_symbol_cell_review_cursor(
+            encoded,
+            review_filter=review_filter,
+            direction=SymbolCellReviewCursorDirection.AFTER,
+        )
+        == key
+    )
+    assert (
+        decode_symbol_cell_review_cursor(
+            legacy,
+            review_filter=review_filter,
+            direction=SymbolCellReviewCursorDirection.AFTER,
+        )
+        == key
+    )
+
+
+def test_symbol_review_cursor_v4_binds_the_game_wide_scope() -> None:
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ALL,
+        include_all_symbols=True,
+    )
+    key = (123, 4, UUID(int=3))
+
+    encoded = encode_symbol_cell_review_cursor(
+        review_filter=review_filter,
+        direction=SymbolCellReviewCursorDirection.AFTER,
+        key=key,
+    )
+    payload = _cursor_payload(encoded)
+
+    assert payload["version"] == 4
+    assert payload["symbolId"] == "all"
+    assert (
+        decode_symbol_cell_review_cursor(
+            encoded,
+            review_filter=review_filter,
+            direction=SymbolCellReviewCursorDirection.AFTER,
+        )
+        == key
+    )
 
 
 def _sha(seed: int) -> str:
@@ -60,6 +138,28 @@ def _mapped_reviews(*, predicted: str = "cherry"):
         cropper_version="board-cell-crops-v19",
         assignment_source=SymbolCellAssignmentSource.MODEL,
     )
+
+
+def test_current_virtual_source_cells_map_without_a_legacy_crop_path() -> None:
+    virtual_cells = tuple(
+        replace(
+            cell,
+            crop_relative_path=None,
+            asset_mode="virtual_source",
+        )
+        for cell in _current_cells()
+    )
+
+    reviews = map_current_symbol_cell_reviews(
+        cells=virtual_cells,
+        geometry_revision=0,
+        cropper_version="structured-board-cells-v0.10",
+        assignment_source=SymbolCellAssignmentSource.MODEL,
+    )
+
+    assert len(reviews) == 15
+    assert all(review.crop.asset_mode == "virtual_source" for review in reviews)
+    assert all(review.crop.crop_relative_path is None for review in reviews)
 
 
 def test_approve_requires_a_real_active_symbol_and_clears_grid_issue() -> None:
@@ -303,6 +403,57 @@ def test_unreadable_crop_can_be_resolved_as_unknown_without_becoming_training_da
         is_current_owner=True,
         asset_checksum_verified=True,
     )
+
+
+def test_blurry_crop_keeps_recognized_symbol_but_is_not_training_eligible() -> None:
+    review = _mapped_reviews()[0]
+
+    blurry = mark_symbol_cell_blurry(
+        review,
+        active_symbol_codes=("cherry",),
+    ).review
+
+    assert blurry.assigned_symbol_code == "cherry"
+    assert blurry.review_state is SymbolCellReviewState.APPROVED
+    assert blurry.quality_issue is SymbolCellQualityIssue.BLURRY
+    assert blurry.crop_approval_state is SymbolCellCropApprovalState.CURRENT
+    assert not is_symbol_cell_training_eligible(
+        blurry,
+        active_symbol_codes=("cherry",),
+        is_current_owner=True,
+        asset_checksum_verified=True,
+    )
+
+
+def test_blurry_crop_can_atomically_reassign_the_recognized_symbol() -> None:
+    review = _mapped_reviews()[0]
+
+    blurry = mark_symbol_cell_blurry(
+        review,
+        active_symbol_codes=("cherry", "lemon"),
+        target_symbol_code="lemon",
+    ).review
+
+    assert blurry.assigned_symbol_code == "lemon"
+    assert blurry.review_state is SymbolCellReviewState.APPROVED
+    assert blurry.quality_issue is SymbolCellQualityIssue.BLURRY
+    assert blurry.assignment_source is SymbolCellAssignmentSource.HUMAN
+    assert blurry.crop_approval_state is SymbolCellCropApprovalState.CURRENT
+    assert not is_symbol_cell_training_eligible(
+        blurry,
+        active_symbol_codes=("cherry", "lemon"),
+        is_current_owner=True,
+        asset_checksum_verified=True,
+    )
+
+
+def test_blurry_crop_requires_an_active_recognized_symbol() -> None:
+    review = replace(_mapped_reviews()[0], assigned_symbol_code=None)
+
+    with pytest.raises(SymbolCellReviewError) as captured:
+        mark_symbol_cell_blurry(review, active_symbol_codes=("cherry",))
+
+    assert captured.value.code == "SYMBOL_CELL_REVIEW_SYMBOL_INVALID"
 
 
 def test_unknown_label_completes_the_board_as_corrected() -> None:

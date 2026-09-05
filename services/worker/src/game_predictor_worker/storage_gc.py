@@ -245,7 +245,7 @@ class StorageGcHandler:
         path = _safe_root_path(root, relative_path)
         trash = _trash_path(root, run_id, entry_index, relative_path)
         marker = _deleted_marker(trash)
-        size = int(entry.get("sizeBytes", 0))
+        size = _non_negative_manifest_integer(entry.get("sizeBytes", 0))
         if not path.exists() and (trash.exists() or marker.exists()):
             try:
                 if trash.exists():
@@ -371,11 +371,11 @@ def _policy(manifest: Mapping[str, object]) -> StorageRetentionPolicy:
 
         return StorageRetentionPolicy(
             version=str(raw["version"]),
-            retention=timedelta(seconds=int(raw["retentionSeconds"])),
-            warning_free_bytes=int(raw["warningFreeBytes"]),
-            automatic_gc_free_bytes=int(raw["automaticGcFreeBytes"]),
-            target_free_bytes=int(raw["targetFreeBytes"]),
-            hard_reserve_bytes=int(raw["hardReserveBytes"]),
+            retention=timedelta(seconds=_non_negative_manifest_integer(raw["retentionSeconds"])),
+            warning_free_bytes=_non_negative_manifest_integer(raw["warningFreeBytes"]),
+            automatic_gc_free_bytes=_non_negative_manifest_integer(raw["automaticGcFreeBytes"]),
+            target_free_bytes=_non_negative_manifest_integer(raw["targetFreeBytes"]),
+            hard_reserve_bytes=_non_negative_manifest_integer(raw["hardReserveBytes"]),
         )
     except (KeyError, TypeError, ValueError) as error:
         raise JobHandlerError("STORAGE_GC_SOURCE_CHANGED", "The GC policy is invalid.") from error
@@ -385,12 +385,18 @@ def _batch_end(entries: Sequence[Mapping[str, object]], start: int) -> int:
     total_bytes = 0
     end = start
     while end < len(entries) and end - start < MAX_BATCH_PATHS:
-        size = max(0, int(entries[end].get("sizeBytes", 0)))
+        size = _non_negative_manifest_integer(entries[end].get("sizeBytes", 0))
         if end > start and total_bytes + size > MAX_BATCH_BYTES:
             break
         total_bytes += size
         end += 1
     return end
+
+
+def _non_negative_manifest_integer(value: object) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise ValueError("A storage GC manifest counter must be a non-negative integer.")
+    return value
 
 
 def _safe_root_path(root: Path, relative_path: str) -> Path:

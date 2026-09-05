@@ -14,6 +14,7 @@
   "dependencies": {
     "@game-predictor/admin-api-client": "0.1.0",
     "@game-predictor/manual-image-selection-core": "0.1.0",
+    "@tanstack/react-virtual": "3.14.9",
     "next": "16.2.11",
     "react": "19.2.3",
     "react-dom": "19.2.3"

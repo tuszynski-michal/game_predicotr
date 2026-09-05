@@ -59,10 +59,17 @@ class SymbolCellReviewMutationCommand:
                 "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_REQUIRED",
                 "Changing a crop symbol requires an active target symbol.",
             )
-        if self.action is not SymbolCellReviewAction.REASSIGN and self.target_symbol_id is not None:
+        if (
+            self.action
+            not in {
+                SymbolCellReviewAction.REASSIGN,
+                SymbolCellReviewAction.MARK_BLURRY,
+            }
+            and self.target_symbol_id is not None
+        ):
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_UNEXPECTED",
-                "Only a symbol reassignment may specify a target symbol.",
+                "Only a symbol reassignment or blurry decision may specify a target symbol.",
             )
         if self.resolve_unreadable and self.action not in {
             SymbolCellReviewAction.APPROVE,
@@ -207,6 +214,32 @@ class SymbolCellReviewMutationService:
                 expected_crop_sample_id=expected_crop_sample_id,
                 expected_crop_checksum_sha256=expected_crop_checksum_sha256,
                 target_symbol_id=None,
+                actor=actor,
+            )
+        )
+
+    def mark_blurry(
+        self,
+        *,
+        game_id: UUID,
+        cell_review_id: UUID,
+        expected_revision: int,
+        expected_geometry_revision: int,
+        expected_crop_sample_id: str,
+        expected_crop_checksum_sha256: str,
+        target_symbol_id: UUID | None = None,
+        actor: str,
+    ) -> SymbolCellReviewMutationResult:
+        return self._apply(
+            SymbolCellReviewMutationCommand(
+                game_id=game_id,
+                cell_review_id=cell_review_id,
+                action=SymbolCellReviewAction.MARK_BLURRY,
+                expected_revision=expected_revision,
+                expected_geometry_revision=expected_geometry_revision,
+                expected_crop_sample_id=expected_crop_sample_id,
+                expected_crop_checksum_sha256=expected_crop_checksum_sha256,
+                target_symbol_id=target_symbol_id,
                 actor=actor,
             )
         )

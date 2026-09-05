@@ -88,3 +88,61 @@ def test_candidate_requires_current_approved_crop_identity(tmp_path: Path) -> No
     with pytest.raises(ImageReviewConflictError) as conflict:
         repository._candidate(values, allow_cached=False)
     assert conflict.value.code == "SYMBOL_CELL_TRAINING_ELIGIBILITY_DRIFT"
+
+
+def test_virtual_candidate_uses_checksum_bound_renderer_without_crop_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from game_predictor_api.storage import symbol_cell_training_source_repository as module
+
+    repository = SqlAlchemySymbolCellTrainingSourceRepository(Mock(), tmp_path)
+    source_geometry_revision_id = uuid4()
+    crop_checksum = "c" * 64
+    sample_id = "a" * 64
+    values = {
+        "id": uuid4(),
+        "review_item_id": uuid4(),
+        "recognized_board_id": uuid4(),
+        "source_image_id": uuid4(),
+        "import_job_id": uuid4(),
+        "assigned_symbol_id": uuid4(),
+        "symbol_code": "cherry",
+        "sequence_number": 1,
+        "cell_index": 0,
+        "revision": 2,
+        "geometry_revision": 1,
+        "current_geometry_revision": 1,
+        "asset_mode": "virtual_source",
+        "source_geometry_revision_id": source_geometry_revision_id,
+        "current_source_geometry_revision_id": source_geometry_revision_id,
+        "logical_cell_key": "d" * 64,
+        "logical_cell_key_v2": "e" * 64,
+        "render_identity_v2_sha256": "f" * 64,
+        "render_spec": {"schemaVersion": "fixture"},
+        "render_spec_checksum_sha256": "1" * 64,
+        "rendered_pixel_checksum_sha256": crop_checksum,
+        "extractor_version": "virtual-renderer-v1",
+        "crop_sample_id": sample_id,
+        "crop_relative_path": None,
+        "crop_checksum_sha256": crop_checksum,
+        "approved_crop_sample_id": sample_id,
+        "approved_crop_checksum_sha256": crop_checksum,
+        "approved_geometry_revision": 1,
+        "source_checksum_sha256": "b" * 64,
+        "source_relative_path": "originals/bb/source.jpg",
+        "normalized_pixel_checksum_sha256": "2" * 64,
+        "geometry_checksum_sha256": "3" * 64,
+        "cropper_version": "structured-v0.10",
+        "prediction_symbol_code": "cherry",
+    }
+    monkeypatch.setattr(
+        module,
+        "render_virtual_symbol_cell_png",
+        lambda **_kwargs: _png_bytes((20, 120, 220)),
+    )
+
+    candidate = repository._candidate(values, allow_cached=False)
+
+    assert candidate.asset_mode == "virtual_source"
+    assert candidate.crop_relative_path is None
+    assert candidate.rendered_pixel_checksum_sha256 == crop_checksum

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -9,11 +11,13 @@ from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
 from uuid import UUID
 
+from .image_geometry_v2 import (
+    ImageGeometryContractError,
+    is_sequence_range_filename_candidate,
+    parse_attested_sequence_range_filename,
+)
 from .jobs import JobConflictError
 
-_SEQ_NAME = re.compile(
-    r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.(?:jpg|jpeg)$", re.IGNORECASE
-)
 _STORED_NAME = re.compile(r"^[0-9]{8}\.(?:jpg|jpeg)$", re.IGNORECASE)
 
 
@@ -56,10 +60,42 @@ class ImageSequenceImportPreflight:
     warnings: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class BrowserUploadPlanSource:
+    """Metadata-only browser file considered before any JPEG bytes are uploaded."""
+
+    source_index: int
+    relative_path: str
+    size_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class BrowserUploadPlanSkippedSource:
+    """A fully canonical source that remains required for stale-plan detection."""
+
+    source_index: int
+    relative_path: str
+    sequence_range_start: int
+    sequence_range_end: int
+
+
+@dataclass(frozen=True, slots=True)
+class BrowserImageUploadPlan:
+    game_id: UUID
+    plan_checksum_sha256: str
+    preflight: ImageSequenceImportPreflight
+    files_to_upload: tuple[BrowserUploadPlanSource, ...]
+    skipped_complete_sources: tuple[BrowserUploadPlanSkippedSource, ...]
+    selected_total_bytes: int
+    upload_total_bytes: int
+
+
 class ImageSequenceCanonicalRepository(Protocol):
     def canonical_numbers(self, game_id: UUID) -> set[int]: ...
 
     def canonical_source_checksums(self, game_id: UUID) -> Mapping[int, str]: ...
+
+    def expected_layout_count(self, game_id: UUID) -> int | None: ...
 
 
 class ImageSequenceCanonicalService:
@@ -76,6 +112,12 @@ class ImageSequenceCanonicalService:
         if not callable(method):
             return {}
         return cast(Mapping[int, str], method(game_id))
+
+    def expected_layout_count(self, game_id: UUID) -> int | None:
+        method = getattr(self._repository, "expected_layout_count", None)
+        if not callable(method):
+            return None
+        return cast(int | None, method(game_id))
 
     def preflight(
         self,
@@ -114,26 +156,23 @@ class ImageSequenceCanonicalService:
             source_file_count = len(file_paths)
             ranges = []
             for path in file_paths:
-                match = _SEQ_NAME.fullmatch(path.name)
-                if match is None:
+                if not is_sequence_range_filename_candidate(path.name):
                     continue
-                start = int(match.group("start"))
-                end = int(match.group("end"))
-                if end < start or end - start > 8:
+                try:
+                    sequence_range = parse_attested_sequence_range_filename(path.name)
+                except ImageGeometryContractError as error:
                     raise JobConflictError(
                         "IMAGE_SEQUENCE_PREFLIGHT_RANGE_INVALID",
                         "A seq_* filename contains an invalid inclusive range.",
                         details={"fileName": path.name},
-                    )
-                ranges.append((path, start, end, ""))
+                    ) from error
+                ranges.append((path, sequence_range.start, sequence_range.end, ""))
         warnings: list[str] = list(manifest.warnings) if manifest is not None else []
-        if manifest is not None and any(
-            item.sequence_range is None for item in manifest.files
-        ):
+        if manifest is not None and any(item.sequence_range is None for item in manifest.files):
             warnings.append("IMAGE_SEQUENCE_FILENAME_NOT_ATTESTED")
         elif manifest is None:
             for path in file_paths:
-                if not _SEQ_NAME.fullmatch(path.name):
+                if not is_sequence_range_filename_candidate(path.name):
                     warnings.append("IMAGE_SEQUENCE_FILENAME_NOT_ATTESTED")
         if not ranges:
             warnings.append("IMAGE_SEQUENCE_RANGE_NOT_ATTESTED")
@@ -161,6 +200,28 @@ class ImageSequenceCanonicalService:
             if previous_end and start > previous_end + 1:
                 warnings.append("IMAGE_SEQUENCE_RANGE_GAP")
             previous_end = end
+        expected_layout_count = self.expected_layout_count(game_id)
+        if expected_layout_count is not None:
+            out_of_bounds = next(
+                (
+                    (path, start, end)
+                    for path, start, end, _checksum in ranges
+                    if end > expected_layout_count
+                ),
+                None,
+            )
+            if out_of_bounds is not None:
+                out_of_bounds_path, start, end = out_of_bounds
+                raise JobConflictError(
+                    "IMAGE_SEQUENCE_PREFLIGHT_OUT_OF_BOUNDS",
+                    "A seq_* range exceeds the expected layout count for the game.",
+                    details={
+                        "expectedLayoutCount": expected_layout_count,
+                        "fileName": PurePosixPath(str(out_of_bounds_path).replace("\\", "/")).name,
+                        "rangeStart": start,
+                        "rangeEnd": end,
+                    },
+                )
         canonical = self._repository.canonical_numbers(game_id)
         canonical_sources = self.canonical_source_checksums(game_id)
         unresolved: list[int] = []
@@ -200,6 +261,131 @@ class ImageSequenceCanonicalService:
             warnings=tuple(dict.fromkeys(warnings)),
         )
 
+    def plan_browser_upload(
+        self,
+        *,
+        game_id: UUID,
+        files: Sequence[BrowserUploadPlanSource],
+    ) -> BrowserImageUploadPlan:
+        """Keep fully canonical seq ranges out of a browser staging upload."""
+
+        seen_indexes: set[int] = set()
+        sources: list[BrowserSequenceSource] = []
+        normalized_files: list[BrowserUploadPlanSource] = []
+        for file in files:
+            if file.source_index < 0 or file.source_index in seen_indexes:
+                raise JobConflictError(
+                    "IMAGE_SEQUENCE_UPLOAD_PLAN_INDEX_INVALID",
+                    "Every browser upload-plan source index must be unique and non-negative.",
+                )
+            seen_indexes.add(file.source_index)
+            relative = PurePosixPath(file.relative_path.replace("\\", "/"))
+            if (
+                relative.is_absolute()
+                or not relative.name
+                or any(part in {"", ".", ".."} for part in relative.parts)
+                or relative.suffix.casefold() not in {".jpg", ".jpeg"}
+                or file.size_bytes < 1
+            ):
+                raise JobConflictError(
+                    "IMAGE_SEQUENCE_UPLOAD_PLAN_FILE_INVALID",
+                    "The browser upload plan contains an invalid JPEG descriptor.",
+                    details={"sourceIndex": file.source_index},
+                )
+            sequence_range: tuple[int, int] | None = None
+            if is_sequence_range_filename_candidate(relative.name):
+                try:
+                    parsed = parse_attested_sequence_range_filename(relative.name)
+                except ImageGeometryContractError as error:
+                    raise JobConflictError(
+                        "IMAGE_SEQUENCE_PREFLIGHT_RANGE_INVALID",
+                        "A seq_* filename contains an invalid inclusive range.",
+                        details={"fileName": relative.name},
+                    ) from error
+                sequence_range = (parsed.start, parsed.end)
+            normalized = BrowserUploadPlanSource(
+                source_index=file.source_index,
+                relative_path=relative.as_posix(),
+                size_bytes=file.size_bytes,
+            )
+            normalized_files.append(normalized)
+            sources.append(
+                BrowserSequenceSource(
+                    order_index=file.source_index,
+                    relative_path=normalized.relative_path,
+                    stored_file_name=f"{file.source_index + 1:08d}.jpg",
+                    size_bytes=file.size_bytes,
+                    checksum_sha256="",
+                    sequence_range=sequence_range,
+                )
+            )
+        descriptor = [
+            {
+                "relativePath": item.relative_path,
+                "sizeBytes": item.size_bytes,
+                "sourceIndex": item.source_index,
+            }
+            for item in normalized_files
+        ]
+        descriptor_bytes = json.dumps(
+            descriptor,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("ascii")
+        manifest = BrowserSequenceManifest(
+            files=tuple(sources),
+            warnings=(),
+            checksum_sha256=hashlib.sha256(descriptor_bytes).hexdigest(),
+        )
+        preflight = self.preflight(game_id=game_id, manifest=manifest)
+        canonical = self.canonical_numbers(game_id)
+        files_to_upload = tuple(
+            file
+            for file, source in zip(normalized_files, sources, strict=True)
+            if source.sequence_range is None
+            or any(
+                number not in canonical
+                for number in range(source.sequence_range[0], source.sequence_range[1] + 1)
+            )
+        )
+        skipped_complete_sources = tuple(
+            BrowserUploadPlanSkippedSource(
+                source_index=file.source_index,
+                relative_path=file.relative_path,
+                sequence_range_start=source.sequence_range[0],
+                sequence_range_end=source.sequence_range[1],
+            )
+            for file, source in zip(normalized_files, sources, strict=True)
+            if source.sequence_range is not None
+            and all(
+                number in canonical
+                for number in range(source.sequence_range[0], source.sequence_range[1] + 1)
+            )
+        )
+        plan_payload = {
+            "canonicalSequenceNumbers": sorted(canonical),
+            "files": descriptor,
+            "gameId": str(game_id),
+        }
+        plan_checksum_sha256 = hashlib.sha256(
+            json.dumps(
+                plan_payload,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("ascii")
+        ).hexdigest()
+        return BrowserImageUploadPlan(
+            game_id=game_id,
+            plan_checksum_sha256=plan_checksum_sha256,
+            preflight=preflight,
+            files_to_upload=files_to_upload,
+            skipped_complete_sources=skipped_complete_sources,
+            selected_total_bytes=sum(item.size_bytes for item in normalized_files),
+            upload_total_bytes=sum(item.size_bytes for item in files_to_upload),
+        )
+
 
 __all__ = [
     "ImageSequenceCanonicalRepository",
@@ -207,6 +393,9 @@ __all__ = [
     "ImageSequenceImportPreflight",
     "BrowserSequenceManifest",
     "BrowserSequenceSource",
+    "BrowserImageUploadPlan",
+    "BrowserUploadPlanSkippedSource",
+    "BrowserUploadPlanSource",
     "parse_browser_sequence_manifest",
 ]
 
@@ -275,15 +464,18 @@ def parse_browser_sequence_manifest(
             raise JobConflictError(
                 "IMAGE_SEQUENCE_MANIFEST_INVALID", "A browser manifest path is unsafe."
             )
-        match = _SEQ_NAME.fullmatch(logical.name)
-        sequence_range = (
-            None if match is None else (int(match.group("start")), int(match.group("end")))
-        )
-        if sequence_range is not None and sequence_range[1] - sequence_range[0] > 8:
-            raise JobConflictError(
-                "IMAGE_SEQUENCE_PREFLIGHT_RANGE_INVALID",
-                "A seq_* filename contains an invalid inclusive range.",
-            )
+        sequence_range: tuple[int, int] | None
+        if is_sequence_range_filename_candidate(logical.name):
+            try:
+                parsed_range = parse_attested_sequence_range_filename(logical.name)
+            except ImageGeometryContractError as error:
+                raise JobConflictError(
+                    "IMAGE_SEQUENCE_PREFLIGHT_RANGE_INVALID",
+                    "A seq_* filename contains an invalid inclusive range.",
+                ) from error
+            sequence_range = (parsed_range.start, parsed_range.end)
+        else:
+            sequence_range = None
         any_attested = any_attested or sequence_range is not None
         any_unattested = any_unattested or sequence_range is None
         parsed.append(

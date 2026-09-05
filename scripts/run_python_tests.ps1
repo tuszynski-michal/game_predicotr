@@ -34,6 +34,30 @@ finally {
         if ([System.IO.Path]::GetDirectoryName($resolvedTempPath) -ne $resolvedVenvPath) {
             throw 'Refusing to remove a Pytest path outside .venv.'
         }
-        Remove-Item -LiteralPath $resolvedTempPath -Recurse -Force
+        $cleanupSucceeded = $false
+        for ($attempt = 1; $attempt -le 5; $attempt++) {
+            if (-not (Test-Path -LiteralPath $resolvedTempPath)) {
+                $cleanupSucceeded = $true
+                break
+            }
+            try {
+                Remove-Item `
+                    -LiteralPath $resolvedTempPath `
+                    -Recurse `
+                    -Force `
+                    -ErrorAction Stop
+                $cleanupSucceeded = $true
+                break
+            }
+            catch {
+                if ($attempt -eq 5) {
+                    throw
+                }
+                Start-Sleep -Milliseconds 100
+            }
+        }
+        if (-not $cleanupSucceeded -and (Test-Path -LiteralPath $resolvedTempPath)) {
+            throw 'Pytest temporary directory cleanup did not finish.'
+        }
     }
 }

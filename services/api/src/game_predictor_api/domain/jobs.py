@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 class JobType(StrEnum):
     IMPORT = "import"
     IMAGE_SELECTION = "image_selection"
+    SEMI_AUTOMATIC_IMAGE_SELECTION = "semi_automatic_image_selection"
     VALIDATE = "validate"
     PAYOUT = "payout"
     SNAPSHOT = "snapshot"
@@ -22,6 +23,7 @@ class JobType(StrEnum):
     IMAGE_GRID_REINFERENCE = "image_grid_reinference"
     IMAGE_SYMBOL_REVIEW_BULK = "image_symbol_review_bulk"
     IMAGE_SYMBOL_REVIEW_BACKFILL = "image_symbol_review_backfill"
+    IMAGE_GEOMETRY_ROLLOUT_BACKFILL = "image_geometry_rollout_backfill"
     STORAGE_GC = "storage_gc"
     STORAGE_INVENTORY = "storage_inventory"
     STORAGE_PIPELINE_COMPACTION = "storage_pipeline_compaction"
@@ -103,7 +105,7 @@ def create_job(
 ) -> Job:
     schema_version = input_payload.get("schema_version")
     supports_pinned_image_model = (
-        schema_version in {2, 3, 4, 5}
+        schema_version in {2, 3, 4, 5, 6, 7}
         and job_type is JobType.IMPORT
         and input_payload.get("import_kind") == "image_directory"
     )
@@ -118,12 +120,16 @@ def create_job(
         and job_type is JobType.IMAGE_GRID_REINFERENCE
         and input_payload.get("inference_kind") == "pending_grid_only"
     )
+    supports_semi_automatic_selection_v2 = (
+        schema_version == 2 and job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
+    )
     if (
         schema_version != 1
         and not supports_pinned_image_model
         and not supports_symbol_training_v2
         and not supports_page_geometry_preflight_v2
         and not supports_pending_grid_reinference_v2
+        and not supports_semi_automatic_selection_v2
     ):
         raise JobError(
             "UNSUPPORTED_JOB_PAYLOAD_VERSION",
@@ -212,7 +218,7 @@ def start_job(
         _raise_invalid_transition(job, JobStatus.PROCESSING)
     expected_slot = (
         JobExecutionSlot.IMAGE_SELECTION
-        if job.job_type is JobType.IMAGE_SELECTION
+        if job.job_type in {JobType.IMAGE_SELECTION, JobType.SEMI_AUTOMATIC_IMAGE_SELECTION}
         else JobExecutionSlot.GENERAL
     )
     if execution_slot is not expected_slot:

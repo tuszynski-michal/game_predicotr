@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import select, text
+from sqlalchemy import and_, bindparam, or_, select, text
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import TextClause
 
 from game_predictor_api.application.cleanup import CleanupRepository
 from game_predictor_api.domain.cleanup import (
+    BoardSourceCleanupSelection,
+    CleanupConflictError,
     CleanupCount,
     CleanupKind,
     CleanupNotFoundError,
@@ -20,7 +24,9 @@ from game_predictor_api.domain.cleanup import (
 from game_predictor_api.storage.models import (
     CleanupOperationModel,
     GameModel,
+    ImageSourceGeometryRevisionModel,
     MobileReleaseModel,
+    SourceImageModel,
 )
 
 
@@ -153,6 +159,41 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             blockers=tuple(blockers),
         )
 
+    def board_source_snapshot(
+        self,
+        game_id: UUID,
+        selection: BoardSourceCleanupSelection,
+        *,
+        for_update: bool = False,
+    ) -> CleanupSnapshot:
+        game_statement = select(GameModel).where(GameModel.id == game_id)
+        if for_update:
+            game_statement = game_statement.with_for_update()
+        game = self._session.scalar(game_statement)
+        if game is None:
+            raise CleanupNotFoundError(
+                "CLEANUP_TARGET_NOT_FOUND",
+                "The game selected for source cleanup does not exist.",
+                details={"gameId": str(game_id)},
+            )
+
+        scope = self._board_source_scope(game_id, selection)
+        blockers = self._board_source_blockers(scope)
+        warnings = self._board_source_warnings(scope)
+        counts = self._board_source_counts(scope)
+        ranges = ", ".join(f"{start}-{end}" for start, end in scope.ranges)
+        return CleanupSnapshot(
+            kind="board_source_ranges",
+            target_id=game.id,
+            target_label=f"{game.name} ({game.code}) · {ranges}",
+            confirmation_target=_range_confirmation_target(game.id, scope.ranges),
+            counts=(*counts, CleanupCount("managed_artifacts", len(scope.artifact_paths))),
+            artifact_paths=scope.artifact_paths,
+            retained_shared_artifact_count=scope.retained_shared_artifact_count,
+            blockers=tuple(blockers),
+            warnings=tuple(warnings),
+        )
+
     def completed_result(
         self,
         kind: str,
@@ -167,6 +208,15 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             )
         )
         return None if record is None else _result_from_payload(record.result_payload)
+
+    def completed_board_source_quarantine_keys(self) -> set[str]:
+        return set(
+            self._session.scalars(
+                select(CleanupOperationModel.preview_token).where(
+                    CleanupOperationModel.operation_type == "board_source_ranges"
+                )
+            )
+        )
 
     def delete_release(
         self,
@@ -199,6 +249,26 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             self._session.execute(text(statement), parameters)
         self._record(result)
 
+    def delete_board_sources(
+        self,
+        snapshot: CleanupSnapshot,
+        result: CleanupResult,
+    ) -> None:
+        ranges = _ranges_from_confirmation_target(
+            snapshot.target_id,
+            snapshot.confirmation_target,
+        )
+        scope = self._board_source_scope_for_ranges(snapshot.target_id, ranges)
+        if self._board_source_blockers(scope):
+            raise CleanupConflictError(
+                "CLEANUP_BLOCKED",
+                "The selected source ranges gained a protected dependency.",
+                details={"blockers": self._board_source_blockers(scope)},
+            )
+
+        self._delete_board_source_graph(scope)
+        self._record(result)
+
     def _record(self, result: CleanupResult) -> None:
         self._session.add(
             CleanupOperationModel(
@@ -211,7 +281,11 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         self._session.flush()
 
     def _count(self, statement: str, **parameters: object) -> int:
-        return int(self._session.scalar(text(statement), parameters) or 0)
+        if any(isinstance(value, tuple) and not value for value in parameters.values()):
+            return 0
+        return int(
+            self._session.scalar(self._bound_statement(statement, parameters), parameters) or 0
+        )
 
     def _game_counts(self, game_id: UUID) -> tuple[CleanupCount, ...]:
         row = (
@@ -238,6 +312,692 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 deleted.append(cast(str, row["path"]))
         return tuple(sorted(set(deleted))), retained
 
+    def _board_source_scope(
+        self,
+        game_id: UUID,
+        selection: BoardSourceCleanupSelection,
+    ) -> _BoardSourceScope:
+        range_rows = self._session.execute(
+            select(
+                ImageSourceGeometryRevisionModel.sequence_range_start,
+                ImageSourceGeometryRevisionModel.sequence_range_end,
+            )
+            .where(
+                ImageSourceGeometryRevisionModel.game_id == game_id,
+                or_(
+                    *(
+                        and_(
+                            ImageSourceGeometryRevisionModel.sequence_range_start <= number,
+                            ImageSourceGeometryRevisionModel.sequence_range_end >= number,
+                        )
+                        for number in selection.sequence_numbers
+                    )
+                ),
+            )
+            .distinct()
+        ).all()
+        if not range_rows:
+            raise CleanupNotFoundError(
+                "CLEANUP_SOURCE_RANGE_NOT_FOUND",
+                "None of the selected board numbers belongs to a removable image source.",
+                details={"sequenceNumbers": list(selection.sequence_numbers)},
+            )
+        selected_numbers = set(selection.sequence_numbers)
+        ranges = tuple(sorted((int(row[0]), int(row[1])) for row in range_rows))
+        unmatched_numbers = sorted(
+            selected_numbers - {number for start, end in ranges for number in range(start, end + 1)}
+        )
+        if unmatched_numbers:
+            raise CleanupNotFoundError(
+                "CLEANUP_SOURCE_RANGE_NOT_FOUND",
+                "Some selected board numbers do not belong to a removable image source.",
+                details={"sequenceNumbers": unmatched_numbers},
+            )
+        partial_ranges = [
+            (start, end)
+            for start, end in ranges
+            if not set(range(start, end + 1)).issubset(selected_numbers)
+        ]
+        if partial_ranges:
+            raise CleanupConflictError(
+                "CLEANUP_SOURCE_RANGE_PARTIAL_SELECTION",
+                "Every board in an image source range must be selected together.",
+                details={
+                    "partialRanges": [{"start": start, "end": end} for start, end in partial_ranges]
+                },
+            )
+        return self._board_source_scope_for_ranges(game_id, ranges)
+
+    def _board_source_scope_for_ranges(
+        self,
+        game_id: UUID,
+        ranges: tuple[tuple[int, int], ...],
+    ) -> _BoardSourceScope:
+        range_predicate = or_(
+            *(
+                and_(
+                    ImageSourceGeometryRevisionModel.sequence_range_start == start,
+                    ImageSourceGeometryRevisionModel.sequence_range_end == end,
+                )
+                for start, end in ranges
+            )
+        )
+        source_ids = tuple(
+            self._session.scalars(
+                select(ImageSourceGeometryRevisionModel.source_image_id)
+                .where(
+                    ImageSourceGeometryRevisionModel.game_id == game_id,
+                    range_predicate,
+                )
+                .distinct()
+            )
+        )
+        if not source_ids:
+            raise CleanupNotFoundError(
+                "CLEANUP_SOURCE_RANGE_NOT_FOUND",
+                "The selected image sources no longer exist.",
+            )
+        source_rows = [
+            (
+                cast(UUID, row[0]),
+                cast(str, row[1]),
+                cast(str, row[2]),
+                cast(str, row[3]),
+                cast(UUID, row[4]),
+            )
+            for row in self._session.execute(
+                select(
+                    SourceImageModel.id,
+                    SourceImageModel.relative_path,
+                    SourceImageModel.checksum_sha256,
+                    SourceImageModel.file_execution_key,
+                    SourceImageModel.import_job_id,
+                ).where(SourceImageModel.id.in_(source_ids))
+            ).all()
+        ]
+        board_ids = self._ids(
+            "SELECT id FROM recognized_boards WHERE source_image_id IN :source_ids",
+            source_ids=source_ids,
+        )
+        review_item_ids = self._ids(
+            "SELECT id FROM image_review_items WHERE recognized_board_id IN :board_ids",
+            board_ids=board_ids,
+        )
+        cell_review_ids = self._ids(
+            "SELECT id FROM image_symbol_review_cells WHERE review_item_id IN :review_item_ids",
+            review_item_ids=review_item_ids,
+        )
+        source_geometry_ids = self._ids(
+            "SELECT id FROM image_source_geometry_revisions WHERE source_image_id IN :source_ids",
+            source_ids=source_ids,
+        )
+        observation_ids = self._ids(
+            "SELECT id FROM cell_observations WHERE recognized_board_id IN :board_ids",
+            board_ids=board_ids,
+        )
+        cohort_ids = tuple(
+            sorted(
+                set(
+                    self._ids(
+                        "SELECT DISTINCT cohort_id FROM verified_training_cohort_items "
+                        "WHERE source_image_id IN :source_ids",
+                        source_ids=source_ids,
+                    )
+                ).union(
+                    self._ids(
+                        "SELECT DISTINCT cohort_id FROM verified_training_cohort_cells "
+                        "WHERE source_image_id IN :source_ids",
+                        source_ids=source_ids,
+                    )
+                )
+            )
+        )
+        model_ids = self._ids(
+            "SELECT id FROM symbol_model_iterations WHERE cohort_id IN :cohort_ids",
+            cohort_ids=cohort_ids,
+        )
+        activation_rows = self._session.execute(
+            text(
+                "SELECT id, model_iteration_id FROM game_symbol_model_activations "
+                "WHERE game_id = :game_id ORDER BY activation_number DESC"
+            ),
+            {"game_id": game_id},
+        ).all()
+        active_model_id = activation_rows[0][1] if activation_rows else None
+        active_model_affected = active_model_id in set(model_ids)
+        if active_model_affected:
+            activation_ids = tuple(row[0] for row in activation_rows)
+        else:
+            activation_ids = self._ids(
+                "SELECT id FROM game_symbol_model_activations "
+                "WHERE model_iteration_id IN :model_ids "
+                "OR previous_model_iteration_id IN :model_ids",
+                model_ids=model_ids,
+            )
+        release_ids = (
+            self._ids(
+                "SELECT mobile_release_id FROM mobile_release_games WHERE game_id = :game_id",
+                game_id=game_id,
+            )
+            if active_model_affected
+            else ()
+        )
+        import_job_ids = tuple(sorted({row[4] for row in source_rows}))
+        verified_export_ids = self._ids(
+            "SELECT id FROM image_verified_cohort_exports WHERE import_job_id IN :import_job_ids",
+            import_job_ids=import_job_ids,
+        )
+        selected_sequences = tuple(
+            number for start, end in ranges for number in range(start, end + 1)
+        )
+        source_checksums = tuple(row[2] for row in source_rows)
+        execution_keys = tuple(row[3] for row in source_rows)
+        artifact_paths = self._board_source_artifact_paths(
+            source_ids=source_ids,
+            board_ids=board_ids,
+            review_item_ids=review_item_ids,
+            cohort_ids=cohort_ids,
+            model_ids=model_ids,
+            release_ids=release_ids,
+            verified_export_ids=verified_export_ids,
+            source_rows=source_rows,
+        )
+        return _BoardSourceScope(
+            game_id=game_id,
+            ranges=ranges,
+            source_ids=source_ids,
+            board_ids=board_ids,
+            review_item_ids=review_item_ids,
+            cell_review_ids=cell_review_ids,
+            observation_ids=observation_ids,
+            source_geometry_ids=source_geometry_ids,
+            cohort_ids=cohort_ids,
+            model_ids=model_ids,
+            verified_export_ids=verified_export_ids,
+            activation_ids=activation_ids,
+            release_ids=release_ids,
+            selected_sequences=selected_sequences,
+            source_checksums=source_checksums,
+            execution_keys=execution_keys,
+            import_job_ids=import_job_ids,
+            source_job_execution_pairs=tuple(sorted((row[4], row[3]) for row in source_rows)),
+            active_model_affected=active_model_affected,
+            active_model_survives=active_model_id is not None and not active_model_affected,
+            artifact_paths=artifact_paths,
+            retained_shared_artifact_count=0,
+        )
+
+    def _board_source_blockers(self, scope: _BoardSourceScope) -> list[str]:
+        blockers: list[str] = []
+        if self._count(
+            """
+            SELECT count(*) FROM jobs
+            WHERE game_id = :game_id AND status IN ('created', 'processing')
+            """,
+            game_id=scope.game_id,
+        ):
+            blockers.append("ACTIVE_GAME_JOB")
+        if self._count(
+            """
+            SELECT count(*) FROM reviewer_access_sessions
+            WHERE game_id = :game_id AND revoked_at IS NULL AND expires_at > now()
+            """,
+            game_id=scope.game_id,
+        ):
+            blockers.append("ACTIVE_REVIEWER_SESSION")
+        if scope.release_ids and self._count(
+            """
+            SELECT count(*) FROM mobile_release_games target
+            WHERE target.mobile_release_id IN :release_ids
+              AND target.game_id <> :game_id
+            """,
+            release_ids=scope.release_ids,
+            game_id=scope.game_id,
+        ):
+            blockers.append("SHARED_MULTI_GAME_RELEASE")
+        if scope.release_ids and self._count(
+            """
+            SELECT count(*) FROM mobile_releases mr
+            JOIN jobs j ON j.id = mr.build_job_id
+            WHERE mr.id IN :release_ids AND j.status IN ('created', 'processing')
+            """,
+            release_ids=scope.release_ids,
+        ):
+            blockers.append("ACTIVE_RELEASE_BUILD")
+        return blockers
+
+    def _board_source_warnings(self, scope: _BoardSourceScope) -> list[str]:
+        if scope.active_model_survives:
+            return []
+        exclusion = "AND id NOT IN :model_ids" if scope.model_ids else ""
+        candidate_parameters: dict[str, object] = {"game_id": scope.game_id}
+        if scope.model_ids:
+            candidate_parameters["model_ids"] = scope.model_ids
+        surviving_candidate_count = self._count(
+            f"""
+            SELECT count(*) FROM symbol_model_iterations
+            WHERE game_id = :game_id AND status = 'candidate_ready'
+              {exclusion}
+            """,
+            **candidate_parameters,
+        )
+        if surviving_candidate_count:
+            return ["SYMBOL_MODEL_ACTIVATION_REQUIRED"]
+        return ["SYMBOL_MODEL_BOOTSTRAP_AVAILABLE"]
+
+    @staticmethod
+    def _board_source_counts(scope: _BoardSourceScope) -> tuple[CleanupCount, ...]:
+        return (
+            CleanupCount("source_images", len(scope.source_ids)),
+            CleanupCount("source_geometry_revisions", len(scope.source_geometry_ids)),
+            CleanupCount("recognized_boards", len(scope.board_ids)),
+            CleanupCount("image_review_items", len(scope.review_item_ids)),
+            CleanupCount("cell_observations", len(scope.observation_ids)),
+            CleanupCount("symbol_review_cells", len(scope.cell_review_ids)),
+            CleanupCount("canonical_sequences", len(scope.selected_sequences)),
+            CleanupCount("training_cohorts", len(scope.cohort_ids)),
+            CleanupCount("symbol_model_iterations", len(scope.model_ids)),
+            CleanupCount("verified_cohort_exports", len(scope.verified_export_ids)),
+            CleanupCount("mobile_releases", len(scope.release_ids)),
+        )
+
+    def _board_source_artifact_paths(
+        self,
+        *,
+        source_ids: tuple[UUID, ...],
+        board_ids: tuple[UUID, ...],
+        review_item_ids: tuple[UUID, ...],
+        cohort_ids: tuple[UUID, ...],
+        model_ids: tuple[UUID, ...],
+        release_ids: tuple[UUID, ...],
+        verified_export_ids: tuple[UUID, ...],
+        source_rows: list[tuple[UUID, str, str, str, UUID]],
+    ) -> tuple[str, ...]:
+        paths = {str(row[1]) for row in source_rows}
+        paths.update(
+            self._paths(
+                "SELECT artifact_relative_path FROM image_verified_cohort_exports "
+                "WHERE id IN :verified_export_ids",
+                verified_export_ids=verified_export_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT board_relative_path FROM recognized_boards "
+                "WHERE id IN :board_ids AND board_relative_path IS NOT NULL",
+                board_ids=board_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT board_relative_path FROM image_board_geometry_revisions "
+                "WHERE recognized_board_id IN :board_ids "
+                "AND board_relative_path IS NOT NULL",
+                board_ids=board_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT crop.value->>'cropRelativePath' "
+                "FROM image_board_geometry_revisions geometry "
+                "CROSS JOIN LATERAL jsonb_array_elements(geometry.crop_artifacts) crop(value) "
+                "WHERE geometry.recognized_board_id IN :board_ids "
+                "AND crop.value->>'cropRelativePath' IS NOT NULL",
+                board_ids=board_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT crop_relative_path FROM cell_observations "
+                "WHERE recognized_board_id IN :board_ids "
+                "AND crop_relative_path IS NOT NULL",
+                board_ids=board_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT crop_relative_path FROM image_symbol_review_cells "
+                "WHERE review_item_id IN :review_item_ids "
+                "AND crop_relative_path IS NOT NULL",
+                review_item_ids=review_item_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT image_relative_path FROM symbol_reference_images "
+                "WHERE source_review_item_id IN :review_item_ids",
+                review_item_ids=review_item_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT artifact_relative_path FROM verified_training_cohorts "
+                "WHERE id IN :cohort_ids",
+                cohort_ids=cohort_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT dataset_manifest_relative_path FROM symbol_model_iterations "
+                "WHERE id IN :model_ids AND dataset_manifest_relative_path IS NOT NULL",
+                model_ids=model_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT checkpoint_relative_path FROM symbol_model_iterations "
+                "WHERE id IN :model_ids AND checkpoint_relative_path IS NOT NULL",
+                model_ids=model_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT candidate_manifest_relative_path FROM symbol_model_iterations "
+                "WHERE id IN :model_ids AND candidate_manifest_relative_path IS NOT NULL",
+                model_ids=model_ids,
+            )
+        )
+        paths.update(
+            self._paths(
+                "SELECT gate_report_relative_path FROM symbol_model_iterations "
+                "WHERE id IN :model_ids AND gate_report_relative_path IS NOT NULL",
+                model_ids=model_ids,
+            )
+        )
+        for version in self._paths(
+            "SELECT version FROM mobile_releases WHERE id IN :release_ids",
+            release_ids=release_ids,
+        ):
+            paths.add(f"snapshots/{version}")
+            paths.add(f"android-releases/{version}")
+        return tuple(sorted(path for path in paths if path))
+
+    def _delete_board_source_graph(self, scope: _BoardSourceScope) -> None:
+        self._delete(
+            "DELETE FROM symbol_reference_images WHERE source_review_item_id IN :review_item_ids",
+            review_item_ids=scope.review_item_ids,
+        )
+        self._delete(
+            "DELETE FROM image_symbol_review_bulk_targets WHERE cell_review_id IN :cell_review_ids",
+            cell_review_ids=scope.cell_review_ids,
+        )
+        self._delete(
+            "DELETE FROM image_symbol_review_events WHERE cell_review_id IN :cell_review_ids",
+            cell_review_ids=scope.cell_review_ids,
+        )
+        self._delete(
+            "UPDATE image_symbol_review_cells SET prediction_revision_id = NULL "
+            "WHERE id IN :cell_review_ids",
+            cell_review_ids=scope.cell_review_ids,
+        )
+        if scope.model_ids:
+            self._delete(
+                "UPDATE image_symbol_review_cells SET prediction_revision_id = NULL "
+                "WHERE prediction_revision_id IN ("
+                "SELECT id FROM image_symbol_prediction_revisions "
+                "WHERE model_iteration_id IN :model_ids"
+                ")",
+                model_ids=scope.model_ids,
+            )
+            self._delete(
+                "DELETE FROM image_symbol_prediction_revisions "
+                "WHERE review_item_id IN :review_item_ids "
+                "OR model_iteration_id IN :model_ids",
+                review_item_ids=scope.review_item_ids,
+                model_ids=scope.model_ids,
+            )
+        else:
+            self._delete(
+                "DELETE FROM image_symbol_prediction_revisions "
+                "WHERE review_item_id IN :review_item_ids",
+                review_item_ids=scope.review_item_ids,
+            )
+        self._delete(
+            "DELETE FROM game_symbol_model_activations WHERE id IN :activation_ids",
+            activation_ids=scope.activation_ids,
+        )
+        self._delete(
+            "DELETE FROM symbol_model_iterations WHERE id IN :model_ids", model_ids=scope.model_ids
+        )
+        self._delete(
+            "DELETE FROM verified_training_cohort_cells WHERE cohort_id IN :cohort_ids",
+            cohort_ids=scope.cohort_ids,
+        )
+        self._delete(
+            "DELETE FROM verified_training_cohort_items WHERE cohort_id IN :cohort_ids",
+            cohort_ids=scope.cohort_ids,
+        )
+        self._delete(
+            "DELETE FROM verified_training_cohorts WHERE id IN :cohort_ids",
+            cohort_ids=scope.cohort_ids,
+        )
+        self._delete(
+            "DELETE FROM mobile_release_games WHERE mobile_release_id IN :release_ids",
+            release_ids=scope.release_ids,
+        )
+        self._delete(
+            "DELETE FROM mobile_releases WHERE id IN :release_ids", release_ids=scope.release_ids
+        )
+        self._delete(
+            "DELETE FROM image_layout_staging_rows WHERE review_item_id IN :review_item_ids",
+            review_item_ids=scope.review_item_ids,
+        )
+        self._delete(
+            "DELETE FROM image_verified_cohort_exports WHERE id IN :verified_export_ids",
+            verified_export_ids=scope.verified_export_ids,
+        )
+        self._delete(
+            "DELETE FROM image_sequence_canonical WHERE source_image_id IN :source_ids",
+            source_ids=scope.source_ids,
+        )
+        self._delete(
+            "DELETE FROM image_sequence_alternatives "
+            "WHERE game_id = :game_id AND sequence_number IN :selected_sequences",
+            game_id=scope.game_id,
+            selected_sequences=scope.selected_sequences,
+        )
+        self._delete(
+            "DELETE FROM image_sequence_source_override_events "
+            "WHERE game_id = :game_id AND sequence_number IN :selected_sequences",
+            game_id=scope.game_id,
+            selected_sequences=scope.selected_sequences,
+        )
+        self._delete(
+            "DELETE FROM image_review_resolution_events WHERE review_item_id IN :review_item_ids",
+            review_item_ids=scope.review_item_ids,
+        )
+        self._delete(
+            "DELETE FROM image_board_geometry_review_events "
+            "WHERE recognized_board_id IN :board_ids",
+            board_ids=scope.board_ids,
+        )
+        self._delete(
+            "DELETE FROM image_board_geometry_revisions WHERE recognized_board_id IN :board_ids",
+            board_ids=scope.board_ids,
+        )
+        self._delete(
+            "DELETE FROM image_board_geometry_pending WHERE source_image_id IN :source_ids",
+            source_ids=scope.source_ids,
+        )
+        self._delete(
+            "DELETE FROM image_symbol_review_cells WHERE id IN :cell_review_ids",
+            cell_review_ids=scope.cell_review_ids,
+        )
+        self._delete(
+            "DELETE FROM image_review_items WHERE id IN :review_item_ids",
+            review_item_ids=scope.review_item_ids,
+        )
+        self._delete(
+            "DELETE FROM cell_observations WHERE id IN :observation_ids",
+            observation_ids=scope.observation_ids,
+        )
+        self._delete(
+            "DELETE FROM recognized_boards WHERE id IN :board_ids", board_ids=scope.board_ids
+        )
+        self._delete(
+            "UPDATE image_geometry_rollout_states SET last_source_image_id = NULL "
+            "WHERE last_source_image_id IN :source_ids",
+            source_ids=scope.source_ids,
+        )
+        self._delete(
+            "DELETE FROM image_page_geometry_overrides "
+            "WHERE game_id = :game_id AND source_checksum_sha256 IN :source_checksums",
+            game_id=scope.game_id,
+            source_checksums=scope.source_checksums,
+        )
+        self._delete(
+            "DELETE FROM image_source_geometry_revisions WHERE id IN :source_geometry_ids",
+            source_geometry_ids=scope.source_geometry_ids,
+        )
+        self._delete(
+            "DELETE FROM source_images WHERE id IN :source_ids", source_ids=scope.source_ids
+        )
+        self._delete(
+            "DELETE FROM image_review_queue_states WHERE import_job_id IN :import_job_ids",
+            import_job_ids=scope.import_job_ids,
+        )
+        self._delete(
+            "DELETE FROM image_symbol_review_states WHERE game_id = :game_id",
+            game_id=scope.game_id,
+        )
+        self._delete(
+            "DELETE FROM image_board_search_projection_states WHERE game_id = :game_id",
+            game_id=scope.game_id,
+        )
+        for job_id, execution_key in scope.source_job_execution_pairs:
+            self._session.execute(
+                text(
+                    "DELETE FROM image_import_job_files "
+                    "WHERE job_id = :job_id AND file_execution_key = :execution_key"
+                ),
+                {"job_id": job_id, "execution_key": execution_key},
+            )
+        shared_execution_keys = set(
+            self._session.scalars(
+                self._bound_statement(
+                    "SELECT DISTINCT file_execution_key FROM image_import_job_files "
+                    "WHERE file_execution_key IN :execution_keys",
+                    {"execution_keys": scope.execution_keys},
+                ),
+                {"execution_keys": scope.execution_keys},
+            )
+        )
+        unshared_execution_keys = tuple(
+            key for key in scope.execution_keys if key not in shared_execution_keys
+        )
+        self._delete(
+            "DELETE FROM image_pipeline_stage_results WHERE file_execution_key IN :execution_keys",
+            execution_keys=unshared_execution_keys,
+        )
+        self._delete(
+            "DELETE FROM image_pipeline_terminal_manifests "
+            "WHERE file_execution_key IN :execution_keys",
+            execution_keys=unshared_execution_keys,
+        )
+        self._delete(
+            "DELETE FROM image_file_executions WHERE file_execution_key IN :execution_keys",
+            execution_keys=unshared_execution_keys,
+        )
+
+    def _ids(self, statement: str, **parameters: object) -> tuple[UUID, ...]:
+        if any(isinstance(value, tuple) and not value for value in parameters.values()):
+            return ()
+        return tuple(
+            self._session.scalars(self._bound_statement(statement, parameters), parameters)
+        )
+
+    def _paths(self, statement: str, **parameters: object) -> tuple[str, ...]:
+        if any(isinstance(value, tuple) and not value for value in parameters.values()):
+            return ()
+        return tuple(
+            str(value)
+            for value in self._session.scalars(
+                self._bound_statement(statement, parameters), parameters
+            )
+            if value is not None
+        )
+
+    def _delete(self, statement: str, **parameters: object) -> None:
+        if any(isinstance(value, tuple) and not value for value in parameters.values()):
+            return
+        self._session.execute(self._bound_statement(statement, parameters), parameters)
+
+    @staticmethod
+    def _bound_statement(statement: str, parameters: dict[str, object]) -> TextClause:
+        return text(statement).bindparams(
+            *(
+                bindparam(name, expanding=True)
+                for name, value in parameters.items()
+                if isinstance(value, tuple)
+            )
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _BoardSourceScope:
+    game_id: UUID
+    ranges: tuple[tuple[int, int], ...]
+    source_ids: tuple[UUID, ...]
+    board_ids: tuple[UUID, ...]
+    review_item_ids: tuple[UUID, ...]
+    cell_review_ids: tuple[UUID, ...]
+    observation_ids: tuple[UUID, ...]
+    source_geometry_ids: tuple[UUID, ...]
+    cohort_ids: tuple[UUID, ...]
+    model_ids: tuple[UUID, ...]
+    verified_export_ids: tuple[UUID, ...]
+    activation_ids: tuple[UUID, ...]
+    release_ids: tuple[UUID, ...]
+    selected_sequences: tuple[int, ...]
+    source_checksums: tuple[str, ...]
+    execution_keys: tuple[str, ...]
+    import_job_ids: tuple[UUID, ...]
+    source_job_execution_pairs: tuple[tuple[UUID, str], ...]
+    active_model_affected: bool
+    active_model_survives: bool
+    artifact_paths: tuple[str, ...]
+    retained_shared_artifact_count: int
+
+
+def _range_confirmation_target(
+    game_id: UUID,
+    ranges: tuple[tuple[int, int], ...],
+) -> str:
+    return f"{game_id}:" + ",".join(f"{start}-{end}" for start, end in ranges)
+
+
+def _ranges_from_confirmation_target(
+    game_id: UUID,
+    confirmation_target: str,
+) -> tuple[tuple[int, int], ...]:
+    prefix = f"{game_id}:"
+    if not confirmation_target.startswith(prefix):
+        raise CleanupConflictError(
+            "CLEANUP_CONFIRMATION_MISMATCH",
+            "The source-range confirmation target belongs to another game.",
+        )
+    raw_ranges = confirmation_target.removeprefix(prefix).split(",")
+    ranges: list[tuple[int, int]] = []
+    try:
+        for raw_range in raw_ranges:
+            raw_start, raw_end = raw_range.split("-", maxsplit=1)
+            start, end = int(raw_start), int(raw_end)
+            if start <= 0 or end < start or end - start >= 9:
+                raise ValueError
+            ranges.append((start, end))
+    except ValueError as error:
+        raise CleanupConflictError(
+            "CLEANUP_CONFIRMATION_MISMATCH",
+            "The source-range confirmation target is malformed.",
+        ) from error
+    canonical = tuple(sorted(set(ranges)))
+    if not canonical:
+        raise CleanupConflictError(
+            "CLEANUP_CONFIRMATION_MISMATCH",
+            "The source-range confirmation target is empty.",
+        )
+    return canonical
+
 
 def _release_artifact_directories(
     version: str,
@@ -254,7 +1014,7 @@ def _release_artifact_directories(
 
 
 def _result_payload(result: CleanupResult) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "kind": result.kind,
         "targetId": str(result.target_id),
         "targetLabel": result.target_label,
@@ -265,6 +1025,9 @@ def _result_payload(result: CleanupResult) -> dict[str, object]:
         "deletedArtifactCount": result.deleted_artifact_count,
         "retainedSharedArtifactCount": result.retained_shared_artifact_count,
     }
+    if result.quarantine_key is not None:
+        payload["quarantineKey"] = result.quarantine_key
+    return payload
 
 
 def _result_from_payload(payload: dict[str, object]) -> CleanupResult:
@@ -280,6 +1043,7 @@ def _result_from_payload(payload: dict[str, object]) -> CleanupResult:
         ),
         deleted_artifact_count=int(cast(int, payload["deletedArtifactCount"])),
         retained_shared_artifact_count=int(cast(int, payload["retainedSharedArtifactCount"])),
+        quarantine_key=cast(str | None, payload.get("quarantineKey")),
     )
 
 

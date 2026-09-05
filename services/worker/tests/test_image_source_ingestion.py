@@ -282,6 +282,46 @@ def test_managed_reprocess_clones_manifest_after_original_folder_was_removed(
     assert len(list((artifact_root / "data" / "originals").glob("??/*.jpg"))) == 1
 
 
+def test_managed_reprocess_v6_rejects_changed_source_manifest(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "layout.jpg", "JPEG")
+    artifact_root = tmp_path / "artifacts"
+    source_job = _job(source)
+    store = ManagedOriginalStore(artifact_root)
+    ImageSourceIngestionHandler(store)(RecordingContext(), source_job)  # type: ignore[arg-type]
+    source_manifest = (
+        artifact_root / "data" / "originals" / "manifests" / f"{source_job.id}.json"
+    )
+    expected_checksum = hashlib.sha256(source_manifest.read_bytes()).hexdigest()
+    reprocess_job = create_job(
+        JobType.IMPORT,
+        game_id=source_job.game_id,
+        input_payload={
+            "schema_version": 6,
+            "import_kind": "image_directory",
+            "source_directory": str(source),
+            "source_display_name": "reprocess",
+            "pipeline_fingerprint": "b" * 64,
+            "source_pipeline_fingerprint": "c" * 64,
+            "managed_source_job_id": str(source_job.id),
+            "managed_source_manifest_checksum_sha256": expected_checksum,
+            "symbol_model": {},
+            "grid_profile": {},
+        },
+        created_at=NOW,
+    )
+    source_manifest.write_bytes(source_manifest.read_bytes() + b" ")
+
+    with pytest.raises(JobHandlerError) as captured:
+        ImageSourceIngestionHandler(store).ingest(  # type: ignore[arg-type]
+            RecordingContext(),
+            reprocess_job,
+        )
+
+    assert captured.value.code == "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE"
+
+
 def test_ingestion_rejects_unsupported_image_issue(tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()
@@ -295,6 +335,20 @@ def test_ingestion_rejects_unsupported_image_issue(tmp_path: Path) -> None:
         )
 
     assert caught.value.code == "IMAGE_DISCOVERY_REQUIRES_REVIEW"
+
+
+def test_ingestion_rejects_an_invalid_seq_range_with_the_shared_parser(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "seq_1-10.jpg", "JPEG")
+
+    with pytest.raises(JobHandlerError) as caught:
+        ManagedOriginalStore(tmp_path / "artifacts").load_or_create_manifest(
+            _job(source),
+            source_directory=source,
+        )
+
+    assert caught.value.code == "IMAGE_SEQUENCE_FILENAME_INVALID"
 
 
 def test_curated_ingestion_uses_only_the_pinned_manifest_slice(tmp_path: Path) -> None:

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, Self, cast
 from uuid import UUID
 
 from pydantic import Field, model_validator
 
 from game_predictor_api.application.jobs import ImageSelectionJobDeletion
+from game_predictor_api.application.semi_automatic_image_selections import (
+    workflow_mode_for_recognizer_fingerprint,
+)
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -90,6 +93,64 @@ class BoardCellProcessingJobSnapshotPayload(ApiModel):
         return self
 
 
+class StructuredGeometryCandidateJobSnapshotPayload(ApiModel):
+    schema_version: Literal["structured-geometry-candidate-snapshot-v1"]
+    config_version: str = Field(min_length=1, max_length=255)
+    config_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    config: dict[str, object]
+
+
+class StructuredGeometryActivationJobSnapshotPayload(ApiModel):
+    schema_version: Literal["structured-geometry-activation-snapshot-v1"]
+    config_version: str = Field(min_length=1, max_length=255)
+    config_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    config: dict[str, object]
+
+
+class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
+    schema_version: Literal[
+        "virtual-geometry-rollout-snapshot-v1",
+        "virtual-geometry-rollout-snapshot-v2",
+        "virtual-geometry-rollout-snapshot-v3",
+    ]
+    geometry_mode: Literal[
+        "legacy",
+        "structured_shadow",
+        "structured_review",
+        "structured_default",
+        "structured_lattice_v3",
+    ]
+    cell_asset_mode: Literal[
+        "legacy_files",
+        "virtual_shadow",
+        "virtual_default",
+    ]
+    geometry_engine_version: str = Field(min_length=1, max_length=255)
+    virtual_renderer_version: str = Field(min_length=1, max_length=255)
+    preprocessing_version: str = Field(min_length=1, max_length=255)
+    rollout_revision: int = Field(ge=0)
+    checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_geometry: StructuredGeometryCandidateJobSnapshotPayload | None = None
+    active_lattice_geometry: StructuredGeometryActivationJobSnapshotPayload | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+
+    @model_validator(mode="after")
+    def validate_candidate_geometry_scope(self) -> Self:
+        has_candidate = self.candidate_geometry is not None
+        if has_candidate != (self.schema_version == "virtual-geometry-rollout-snapshot-v2"):
+            raise ValueError("rollout snapshot v2 requires one candidate geometry config")
+        if has_candidate and self.geometry_mode != "structured_shadow":
+            raise ValueError("candidate geometry config is allowed only in structured shadow")
+        has_activation = self.active_lattice_geometry is not None
+        if has_activation != (self.schema_version == "virtual-geometry-rollout-snapshot-v3"):
+            raise ValueError("rollout snapshot v3 requires one active lattice config")
+        if has_activation and self.geometry_mode != "structured_lattice_v3":
+            raise ValueError("active lattice config is allowed only in structured lattice v3")
+        return self
+
+
 class ImageImportJobPayload(ApiModel):
     schema_version: Literal[2]
     import_kind: Literal["image_directory"]
@@ -107,6 +168,7 @@ class ImageImportJobPayload(ApiModel):
     )
     symbol_model: SymbolModelJobSnapshotPayload
     board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
 
 
 class GridProfileJobSnapshotPayload(ApiModel):
@@ -123,6 +185,25 @@ class PageGeometryManifestJobPayload(ApiModel):
     checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     relative_path: str = Field(min_length=1, max_length=2048)
     preflight_job_id: UUID
+
+
+class ImageGeometrySystemicGuardPolicyJobPayload(ApiModel):
+    policy_version: Literal["image-geometry-systemic-guard-v1"]
+    minimum_source_count: Literal[100]
+    minimum_active_board_count: Literal[500]
+    sample_source_limit: Literal[25]
+    minimum_final_cell_grid_ready_rate: Literal[0.98]
+    require_zero_invariant_violations: Literal[True]
+
+
+class ImageGeometryGuardResolutionManifestJobPayload(ApiModel):
+    id: UUID
+    checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    relative_path: str = Field(min_length=1, max_length=2048)
+    guard_job_id: UUID
+    guard_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    page_geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class BrowserImageImportJobPayload(ApiModel):
@@ -143,6 +224,31 @@ class BrowserImageImportJobPayload(ApiModel):
     grid_profile: GridProfileJobSnapshotPayload
     page_geometry_manifest: PageGeometryManifestJobPayload | None = None
     board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
+    geometry_systemic_guard_policy: ImageGeometrySystemicGuardPolicyJobPayload | None = None
+
+
+class ResolvedBrowserImageImportJobPayload(ApiModel):
+    schema_version: Literal[7]
+    import_kind: Literal["image_directory"]
+    source_selection_id: UUID
+    source_directory: str = Field(min_length=1, max_length=2048)
+    source_display_name: str = Field(min_length=1, max_length=255)
+    pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
+    source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    canonical_sequence_numbers: tuple[int, ...] = Field(default=())
+    start_mode: Literal["reuse_exact", "rerun_current_models"]
+    previous_job_id: UUID | None = None
+    image_selection_run_id: UUID | None = None
+    symbol_model: SymbolModelJobSnapshotPayload
+    grid_profile: GridProfileJobSnapshotPayload
+    page_geometry_manifest: PageGeometryManifestJobPayload
+    geometry_guard_resolution_manifest: ImageGeometryGuardResolutionManifestJobPayload | None = None
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
+    geometry_systemic_guard_policy: ImageGeometrySystemicGuardPolicyJobPayload
 
 
 class CuratedImageImportJobPayload(ApiModel):
@@ -164,6 +270,7 @@ class CuratedImageImportJobPayload(ApiModel):
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
     board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
 
 
 class ManagedImageReprocessJobPayload(ApiModel):
@@ -180,6 +287,28 @@ class ManagedImageReprocessJobPayload(ApiModel):
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
     board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
+
+
+class PinnedManagedImageReprocessJobPayload(ApiModel):
+    schema_version: Literal[6]
+    import_kind: Literal["image_directory"]
+    source_selection_id: UUID
+    source_directory: str = Field(min_length=1, max_length=2048)
+    source_display_name: str = Field(min_length=1, max_length=255)
+    pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
+    source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_selection_run_id: UUID | None = None
+    managed_source_job_id: UUID
+    managed_source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    page_geometry_manifest: PageGeometryManifestJobPayload
+    symbol_model: SymbolModelJobSnapshotPayload
+    grid_profile: GridProfileJobSnapshotPayload
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
+    geometry_systemic_guard_policy: ImageGeometrySystemicGuardPolicyJobPayload | None = None
 
 
 class ImageSelectionJobPayload(ApiModel):
@@ -199,6 +328,33 @@ class ImageSelectionJobPayload(ApiModel):
     )
 
 
+class SemiAutomaticImageSelectionJobPayload(ApiModel):
+    schema_version: Literal[1, 2] = 1
+    selection_kind: Literal["semi_automatic_image_selection"]
+    workflow_mode: Literal["selection", "filename_verification"] | None = None
+    run_id: UUID
+    source_upload_id: UUID
+    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_count: int = Field(ge=1)
+    first_sequence_number: int = Field(ge=1)
+    last_sequence_number: int = Field(ge=1)
+    direction: Literal["ascending", "descending"]
+    range_convention: Literal["seq-inclusive-v1"]
+    full_range_size: Literal[9]
+    expected_ranges_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    recognizer_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    grouping_policy_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_workflow_mode(self) -> Self:
+        if self.schema_version == 2 and self.workflow_mode is None:
+            raise ValueError("schema v2 requires workflowMode")
+        if self.schema_version == 1 and self.workflow_mode is not None:
+            raise ValueError("workflowMode is only valid for schema v2")
+        return self
+
+
 class ValidateJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     dataset_version_id: UUID
@@ -214,7 +370,13 @@ class LayoutImportValidateJobPayload(ApiModel):
 class PageGeometryPreflightJobPayload(ApiModel):
     schema_version: Literal[2]
     validation_kind: Literal["page_geometry_preflight"]
-    preflight_policy_version: Literal["page-geometry-preflight-v2-auto-anchor"] | None = None
+    preflight_policy_version: (
+        Literal[
+            "page-geometry-preflight-v2-auto-anchor",
+            "page-geometry-preflight-v3-board-area-mask",
+        ]
+        | None
+    ) = None
     source_selection_id: UUID
     source_directory: str = Field(min_length=1, max_length=2048)
     source_display_name: str | None = Field(default=None, min_length=1, max_length=255)
@@ -222,6 +384,16 @@ class PageGeometryPreflightJobPayload(ApiModel):
     page_registration_profile: dict[str, object]
     page_geometry_overrides: dict[str, object] = Field(default_factory=dict)
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
+
+
+class ImageGeometryGuardReportReconstructionJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    validation_kind: Literal["image_geometry_guard_report_reconstruction"]
+    source_selection_id: UUID
+    source_guard_job_id: UUID
+    legacy_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    page_geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class PayoutJobPayload(ApiModel):
@@ -266,9 +438,28 @@ class SymbolCellReviewBackfillJobPayload(ApiModel):
     schema_version: Literal[1]
     workflow: Literal["image_symbol_review_backfill"]
     generation: int = Field(ge=1)
+    preserve_ready_projection: bool = False
     table_bytes_before: int | None = Field(default=None, ge=0)
     index_bytes_before: int | None = Field(default=None, ge=0)
     database_free_bytes_before: int | None = Field(default=None, ge=0)
+
+
+class ImageGeometryRolloutBackfillJobPayload(ApiModel):
+    schema_version: Literal[1, 2, 3]
+    workflow: Literal["image_geometry_rollout_backfill"]
+    contract_backfill_version: Literal["additive-virtual-geometry-v2-backfill-v1"] | None = None
+    generation: int = Field(ge=1)
+    rollout_revision: int = Field(ge=0)
+    geometry_mode: str = Field(min_length=1, max_length=30)
+    cell_asset_mode: str = Field(min_length=1, max_length=30)
+
+    @model_validator(mode="after")
+    def validate_contract_backfill_version(self) -> Self:
+        if self.schema_version == 3 and self.contract_backfill_version is None:
+            raise ValueError("schema v3 requires contractBackfillVersion")
+        if self.schema_version != 3 and self.contract_backfill_version is not None:
+            raise ValueError("contractBackfillVersion is only valid for schema v3")
+        return self
 
 
 class BoardCellRecropJobSnapshotPayload(ApiModel):
@@ -335,7 +526,10 @@ class ValidateJobCreate(ApiModel):
     job_type: Literal[JobType.VALIDATE]
     game_id: UUID
     input_payload: (
-        ValidateJobPayload | LayoutImportValidateJobPayload | PageGeometryPreflightJobPayload
+        ValidateJobPayload
+        | LayoutImportValidateJobPayload
+        | PageGeometryPreflightJobPayload
+        | ImageGeometryGuardReportReconstructionJobPayload
     )
 
 
@@ -371,18 +565,23 @@ JobPayloadResponse = (
     | LegacyImageImportJobPayload
     | ImageImportJobPayload
     | BrowserImageImportJobPayload
+    | ResolvedBrowserImageImportJobPayload
     | CuratedImageImportJobPayload
     | ManagedImageReprocessJobPayload
+    | PinnedManagedImageReprocessJobPayload
     | ImageSelectionJobPayload
+    | SemiAutomaticImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PageGeometryPreflightJobPayload
+    | ImageGeometryGuardReportReconstructionJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
     | SymbolTrainingJobPayload
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
+    | ImageGeometryRolloutBackfillJobPayload
     | StorageGcJobPayload
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
@@ -427,6 +626,26 @@ class BoardCellGeometryJobProgressResponse(ApiModel):
     superseded: int = Field(ge=0)
 
 
+class ImageGeometrySystemicGuardJobProgressResponse(ApiModel):
+    policy_version: Literal["image-geometry-systemic-guard-v1"]
+    required: bool
+    passed: bool
+    report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    report_relative_path: str = Field(min_length=1, max_length=2048)
+    source_count: int = Field(ge=0)
+    active_board_count: int = Field(ge=0)
+    sample_source_count: int = Field(ge=0)
+    sample_board_count: int = Field(ge=0)
+    page_registration_ready_rate: float = Field(ge=0, le=1)
+    final_cell_grid_ready_rate: float = Field(ge=0, le=1)
+    invariant_violation_count: int = Field(ge=0)
+    resolution_applied: bool = False
+    resolution_manifest_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    corrected_full_count: int = Field(default=0, ge=0)
+    partial_count: int = Field(default=0, ge=0)
+    rejected_count: int = Field(default=0, ge=0)
+
+
 class JobProgressResponse(ApiModel):
     current: int
     total: int | None
@@ -446,6 +665,18 @@ class JobProgressResponse(ApiModel):
         default=None,
         exclude_if=lambda value: value is None,
     )
+    geometry_systemic_guard: ImageGeometrySystemicGuardJobProgressResponse | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+
+
+PageGeometryPreflightPhase = Literal[
+    "source_registration",
+    "auto_anchor_retry",
+    "manifest_write",
+    "complete",
+]
 
 
 class PageGeometryPreflightJobProgressResponse(ApiModel):
@@ -454,6 +685,12 @@ class PageGeometryPreflightJobProgressResponse(ApiModel):
         default=None,
         pattern=r"^[0-9a-f]{64}$",
     )
+    phase: PageGeometryPreflightPhase | None = None
+    phase_current: int | None = Field(default=None, ge=0)
+    phase_total: int | None = Field(default=None, ge=0)
+    auto_anchor_pass: int | None = Field(default=None, ge=1)
+    auto_anchor_pass_count: int | None = Field(default=None, ge=1)
+    provisional_review_required: int | None = Field(default=None, ge=0)
 
 
 class JobErrorResponse(ApiModel):
@@ -499,6 +736,7 @@ class JobResponse(ApiModel):
     started_at: datetime | None
     finished_at: datetime | None
     cancel_requested_at: datetime | None
+    workflow_mode: Literal["selection", "filename_verification"] | None = None
 
     @classmethod
     def from_domain(cls, job: Job) -> JobResponse:
@@ -524,6 +762,7 @@ class JobResponse(ApiModel):
                 image_selection=_image_selection_progress(job),
                 page_geometry_preflight=_page_geometry_preflight_progress(job),
                 board_cell_geometry=_board_cell_geometry_progress(job),
+                geometry_systemic_guard=_geometry_systemic_guard_progress(job),
             ),
             error=error,
             worker_version=job.worker_version,
@@ -535,6 +774,7 @@ class JobResponse(ApiModel):
             started_at=job.started_at,
             finished_at=job.finished_at,
             cancel_requested_at=job.cancel_requested_at,
+            workflow_mode=_workflow_mode_from_domain(job),
         )
 
 
@@ -550,10 +790,53 @@ def _page_geometry_preflight_progress(
     checksum = payload.get("geometry_manifest_checksum_sha256")
     if checksum is not None and (not isinstance(checksum, str) or len(checksum) != 64):
         return None
+    phase = payload.get("progress_phase")
+    if phase not in {
+        "source_registration",
+        "auto_anchor_retry",
+        "manifest_write",
+        "complete",
+    }:
+        phase = None
+    phase_current = _optional_nonnegative_int(payload.get("phase_current"))
+    phase_total = _optional_nonnegative_int(payload.get("phase_total"))
+    if phase is None or phase_current is None or phase_total is None or phase_current > phase_total:
+        phase = None
+        phase_current = None
+        phase_total = None
+    auto_anchor_pass = _optional_positive_int(payload.get("auto_anchor_pass"))
+    auto_anchor_pass_count = _optional_positive_int(payload.get("auto_anchor_pass_count"))
+    if (
+        phase != "auto_anchor_retry"
+        or auto_anchor_pass is None
+        or auto_anchor_pass_count is None
+        or auto_anchor_pass > auto_anchor_pass_count
+    ):
+        auto_anchor_pass = None
+        auto_anchor_pass_count = None
     return PageGeometryPreflightJobProgressResponse(
         complete=complete,
         geometry_manifest_checksum_sha256=checksum,
+        phase=cast(PageGeometryPreflightPhase | None, phase),
+        phase_current=phase_current,
+        phase_total=phase_total,
+        auto_anchor_pass=auto_anchor_pass,
+        auto_anchor_pass_count=auto_anchor_pass_count,
+        provisional_review_required=_optional_nonnegative_int(
+            payload.get("review_required_source_count")
+        ),
     )
+
+
+def _optional_nonnegative_int(value: object) -> int | None:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        return None
+    return value
+
+
+def _optional_positive_int(value: object) -> int | None:
+    parsed = _optional_nonnegative_int(value)
+    return parsed if parsed is not None and parsed > 0 else None
 
 
 def _board_cell_geometry_progress(job: Job) -> BoardCellGeometryJobProgressResponse | None:
@@ -574,6 +857,46 @@ def _board_cell_geometry_progress(job: Job) -> BoardCellGeometryJobProgressRespo
             pending=_progress_integer(raw["pending"]),
             resolved=_progress_integer(raw["resolved"]),
             superseded=_progress_integer(raw["superseded"]),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _geometry_systemic_guard_progress(
+    job: Job,
+) -> ImageGeometrySystemicGuardJobProgressResponse | None:
+    if job.job_type is not JobType.IMPORT or job.checkpoint_payload is None:
+        return None
+    raw = job.checkpoint_payload.get("geometry_systemic_guard")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        checksum = raw["reportChecksumSha256"]
+        relative_path = raw["reportRelativePath"]
+        if not isinstance(checksum, str) or not isinstance(relative_path, str):
+            return None
+        resolution = job.checkpoint_payload.get("geometry_guard_resolution")
+        resolution_payload = resolution if isinstance(resolution, dict) else {}
+        return ImageGeometrySystemicGuardJobProgressResponse(
+            policy_version=raw["policyVersion"],
+            required=raw["required"],
+            passed=raw["passed"],
+            report_checksum_sha256=checksum,
+            report_relative_path=relative_path,
+            source_count=_progress_integer(raw["sourceCount"]),
+            active_board_count=_progress_integer(raw["activeBoardCount"]),
+            sample_source_count=_progress_integer(raw["sampleSourceCount"]),
+            sample_board_count=_progress_integer(raw["sampleBoardCount"]),
+            page_registration_ready_rate=_progress_float(raw["pageRegistrationReadyRate"]),
+            final_cell_grid_ready_rate=_progress_float(raw["finalCellGridReadyRate"]),
+            invariant_violation_count=_progress_integer(raw["invariantViolationCount"]),
+            resolution_applied=resolution_payload.get("passed") is True,
+            resolution_manifest_checksum_sha256=cast(
+                str | None, resolution_payload.get("manifestChecksumSha256")
+            ),
+            corrected_full_count=_progress_integer(resolution_payload.get("correctedFullCount", 0)),
+            partial_count=_progress_integer(resolution_payload.get("partialCount", 0)),
+            rejected_count=_progress_integer(resolution_payload.get("rejectedCount", 0)),
         )
     except (KeyError, TypeError, ValueError):
         return None
@@ -686,15 +1009,25 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
                 return ManagedImageReprocessJobPayload.model_validate(job.input_payload)
             if job.input_payload.get("schema_version") == 5:
                 return BrowserImageImportJobPayload.model_validate(job.input_payload)
+            if job.input_payload.get("schema_version") == 6:
+                return PinnedManagedImageReprocessJobPayload.model_validate(job.input_payload)
+            if job.input_payload.get("schema_version") == 7:
+                return ResolvedBrowserImageImportJobPayload.model_validate(job.input_payload)
             return ImageImportJobPayload.model_validate(job.input_payload)
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:
         return ImageSelectionJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION:
+        return SemiAutomaticImageSelectionJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.VALIDATE:
         if job.input_payload.get("validation_kind") == "layout_import":
             return LayoutImportValidateJobPayload.model_validate(job.input_payload)
         if job.input_payload.get("validation_kind") == "page_geometry_preflight":
             return PageGeometryPreflightJobPayload.model_validate(job.input_payload)
+        if job.input_payload.get("validation_kind") == "image_geometry_guard_report_reconstruction":
+            return ImageGeometryGuardReportReconstructionJobPayload.model_validate(
+                job.input_payload
+            )
         return ValidateJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.PAYOUT:
         return PayoutJobPayload.model_validate(job.input_payload)
@@ -706,6 +1039,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return SymbolCellReviewBulkJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REVIEW_BACKFILL:
         return SymbolCellReviewBackfillJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL:
+        return ImageGeometryRolloutBackfillJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.STORAGE_GC:
         return StorageGcJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.STORAGE_INVENTORY:
@@ -717,3 +1052,17 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:
         return PendingGridReinferenceJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)
+
+
+def _workflow_mode_from_domain(
+    job: Job,
+) -> Literal["selection", "filename_verification"] | None:
+    if job.job_type is not JobType.SEMI_AUTOMATIC_IMAGE_SELECTION:
+        return None
+    raw_mode = job.input_payload.get("workflow_mode")
+    if raw_mode in {"selection", "filename_verification"}:
+        return cast(Literal["selection", "filename_verification"], raw_mode)
+    raw_recognizer = job.input_payload.get("recognizer_fingerprint")
+    return workflow_mode_for_recognizer_fingerprint(
+        raw_recognizer if isinstance(raw_recognizer, str) else None
+    ).value

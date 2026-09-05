@@ -673,6 +673,258 @@ korzysta ze wspólnego loadera i nie wymaga pełnowymiarowego `normalized.png`.
 Historyczny v1 pozostaje przypięty do starych jobów; brakujący PNG może zostać
 odbudowany wyłącznie przy identycznej checksumie oczekiwanych bajtów.
 
+Warstwa 0.10 rozdziela dekodowanie od renderowania. `CanonicalSourceLoader`
+wiąże jeden zweryfikowany managed original z kanoniczną macierzą RGB tylko do
+odczytu i utrzymuje jednoelementowy cache ograniczony do bieżącego wykonania.
+`VirtualCellRenderer` przyjmuje `VirtualCell` z domenowego render specu, oblicza
+padded source quad i wykonuje jeden warp bezpośrednio do wejścia modelu. Nie
+zapisuje bitmapy ani nie buduje pośredniego rastra planszy. Render zwraca dwie
+niezależne tożsamości: checksumę kanonicznego render specu oraz checksumę
+wynikowych pikseli RGB. Cała partia jest walidowana przed pierwszym warpem, więc
+błędna ostatnia komórka nie może pozostawić częściowego wyniku.
+
+TASK-0321 rozdziela tożsamość treści od tożsamości wystąpienia. Historyczny
+`logical-cell-v1` pozostaje content-based i nie zmienia swoich bajtów.
+`logical-cell-v2` korzysta z `source-occurrence-id-v1` wyliczanego z
+`importJobId + fileExecutionKey`, fingerprintu topologii przypiętej do gry,
+slotu planszy oraz współrzędnych komórki. Fingerprint topologii obejmuje wersję
+reguł, wymiary i wersję semantyki slotów. Renderer emituje oba klucze logiczne
+oraz obie wersje render identity w jednym checksumowanym render specu.
+
+TASK-0327 wprowadza addytywny
+`virtual-cell-render-spec-v3-complete-provenance-v1`. Nowy spec przechowuje
+jawny payload occurrence, snapshot fingerprintowanej topologii, wersję i rodzaj
+geometrii, checksumę znormalizowanych pikseli oraz wersję algorytmu checksummy
+RGB. Konstrukcja renderu niezależnie przelicza logical-cell v1/v2 i render
+identity v1/v2; nawet poprawnie ponownie checksumowany, ale wewnętrznie
+niespójny spec jest odrzucany przed przekazaniem pikseli dalej.
+
+Checksum render specu pozostaje tożsamością przepisu, a
+`renderedPixelChecksumSha256` osobnym dowodem dokładnego wyniku RGB. Checksumy
+pikseli nie umieszcza się wewnątrz checksummowanego specu, dzięki czemu nie
+powstaje cykliczna tożsamość. Historyczne specy v1/v2 pozostają czytelne;
+zaostrzona walidacja dotyczy nowych renderów v3 i nie zmienia ich pikseli.
+
+Ścieżka automatyczna pobiera occurrence z kontekstu file execution, a ręczna z
+tego samego rekordu `source_images`. Dzięki temu recrop nie zmienia logical v2,
+zmiana geometrii zmienia wyłącznie render identity v2, a ten sam JPEG użyty w
+innym imporcie tworzy inną komórkę domenową. TASK-0321 nie przełącza jeszcze
+kolumn, indeksów ani canonical ownership na v2.
+
+Porównanie A/B/C jest narzędziem czysto pamięciowym: A używa bounding boxu,
+B source-direct perspektywy, a C pośrednio wyprostowanej planszy. Wyłącznie B
+jest kontraktem przyszłego rolloutu i ma test dokładnej zgodności z niezmienionym
+cropperem v19. Komponent nie jest jeszcze wywoływany przez produkcyjny pipeline.
+
+TASK-0312 podłącza wariant B do produkcyjnego wykonania przez niezmienny,
+per-job snapshot rolloutu gry. `structured_default` renderuje do 135 komórek
+jednego źródła w pamięci, składa je do jednego batcha NCHW i wykonuje jedno
+wywołanie ONNX. Nie materializuje board ani cell PNG. `structured_shadow`
+zachowuje legacy jako primary, ale dual-write'uje source geometry i prediction
+revision virtual; `structured_review` zapisuje geometrię i zatrzymuje się przed
+inferencją.
+
+Następna warstwa 0.10 wydziela globalną inicjalizację geometrii od jej finalnej
+walidacji. `StructuredOpenCvGeometryEngine.initialize()` przyjmuje ten sam
+`CanonicalSourceFrame`, przypiętą topologię oraz poświadczony prefiks slotów.
+Z profilem zatwierdzonych stron używa istniejących anchorów ORB/RANSAC i
+deterministycznego tie-breaku. Bez profilu zbiera dowód czerwonej ramki,
+gradientów i LSD, porządkuje wyłącznie oczekiwane aktywne sloty i dopasowuje
+globalny model strony.
+
+Wynik zawiera checksum-bound konfigurację, globalną homografię oraz początkowe
+ROI aktywnych slotów. Nie zawiera `finalQuad`, nie syntetyzuje nieaktywnych
+pozycji i nie uprawnia do cropowania. Niewystarczający dowód jest kontrolowanym
+`needs_manual_review`. Końcowe lokalne dopasowanie linii pozostaje osobnym
+etapem TASK-0311, a produkcyjny v20 nie został przełączony w TASK-0310.
+
+TASK-0311 dodaje drugi etap
+`structured-opencv-independent-board-refinement-v1`. Każdy aktywny slot jest
+analizowany niezależnie przez tymczasową rektyfikację ROI, LSD, uporządkowane
+rodziny sześciu pionów i czterech poziomów oraz RANSAC homografii idealnej
+siatki. Wynik jest ponownie wyrażany wyłącznie we współrzędnych źródłowych;
+rektyfikacja pomocnicza nie staje się artefaktem ani finalną geometrią.
+
+`StructuredOpenCvGeometryEngine.detect()` zachowuje jeden wynik na poświadczony
+slot row-major. Warstwa źródłowa sprawdza najbliższe początkowe ROI, kolejność
+wierszy i kolumn oraz przecięcia finalnych quadów. Confidence i reason codes są
+oddzielne per plansza, a status źródła jest najgorszym statusem jego aktywnych
+slotów. Brak pełnego lokalnego dowodu kończy się kontrolowaną korektą ręczną i
+nie może zostać uratowany przez wynik rozpoznawania symboli. Integracja z bazą,
+cropperem i rolloutem została wykonana w TASK-0312. Bounded generowanie
+podglądów przez API oraz konsumenci UI pozostają zakresem TASK-0313 i TASK-0314.
+
+TASK-0313 dodaje `VirtualCellPreviewService` wyłącznie jako warstwę odczytu.
+Serwis grupuje do 100 aktualnych komórek po managed original, dekoduje każde
+źródło najwyżej raz na render batcha, kontroluje source geometry, render spec i
+pixel SHA-256, a następnie tworzy atlas WebP z deskryptorami tile'ów. Cache
+`data/working/virtual-preview-cache-v1` jest regenerowalny, ma TTL 15 minut,
+limit 2 GiB LRU oraz process-local single-flight; nigdy nie jest referencją
+domenową, nie zapisuje full-board thumbnaili i może zostać usunięty przez GC.
+Legacy file assety pozostają odczytywane dotychczasową ścieżką.
+
+TASK-0361 rozszerza tę samą warstwę na stabilne atlasy strony Weryfikacji
+symboli. `legacy_file` i `virtual_source` są grupowane deterministycznie po 100,
+ale każdy tryb zachowuje własną kontrolę źródła i checksummy. Cache atlasu ma
+24-godzinny TTL, content-addressed klucz pełnej proweniencji i pruning
+uruchamiany dopiero po przekroczeniu limitu; nie skanuje katalogu po każdym
+trafieniu lub renderze.
+
+TASK-0362 dodaje dwa jawne kontrakty renderera nad tą samą logiczną projekcją
+komórek. `current` odtwarza bieżący asset (`legacy_file` albo `virtual_source`),
+natomiast `structured_v0_10` przyjmuje wyłącznie kompletną proweniencję
+source-direct. Tryb, wersja renderera i jego fingerprint należą do klucza cache,
+więc atlasy A/B nie kolidują. Brak proweniencji jest metadanym stanem
+`unavailable`, a nie zgodą na użycie innego obrazu. Warstwa A/B jest read-only i
+nie ma portu do mutacji komórek, tworzenia cropów ani jobów.
+
+Mutacje symboli korzystają ze wspólnego materializatora bieżących komórek.
+Dla `legacy_file` wybiera on 15 plikowych `crop_artifacts`, a dla
+`virtual_source` dokładnie 15 wpisów bieżącego `virtual_render_spec`. Odczyt
+operacyjnego itemu wirtualnego wystawia managed original jako asset kontekstu,
+lecz zapis canonical wiąże właściciela z checksumą geometrii planszy, nie z
+checksumą źródłowego JPEG-a. Durable bulk traktuje konflikt operacyjnego itemu
+jako board-atomic conflict, zapisuje go przy zamrożonych celach i kontynuuje
+następne plansze.
+
+TASK-0363 potwierdza bounded zachowanie na rzeczywistej projekcji. Jedna strona
+500 rekordów wykonuje najwyżej pięć atlasowych odczytów, a frontend utrzymuje
+najwyżej trzy strony metadanych i wirtualne okno kart. Powtarzalny pomiar jest
+read-only dla domeny i nie tworzy syntetycznych rekordów; pełny wynik znajduje
+się w `quality/SYMBOL_REVIEW_FAST_PAGE_ACCEPTANCE.md`.
+
+TASK-0408 domyka lifecycle dużej projekcji po stronie planera PostgreSQL.
+Pomyślna finalizacja backfillu/reconciliacji, po wszystkich bounded partiach,
+odświeża statystyki dokładnie pięciu tabel używanych przez seek, kontrolę
+bieżącego właściciela i hydrację strony. Maintenance wykonuje się raz przed
+opublikowaniem terminalnego sukcesu, nie po każdej partii. Awaria jest
+fail-closed i nie zmienia cropów, decyzji ani danych treningowych; dialekty
+testowe inne niż PostgreSQL pozostają no-op.
+
+Produkcja odczytuje `image_geometry_rollout_states` podczas tworzenia joba i
+kopiuje wersje oraz checksumę do input payloadu. Legacy zachowuje stary
+fingerprint bez żadnego dodatkowego hashowania; tryby 0.10 wiążą fingerprint z
+checksumą snapshotu. Rehydratacja odtwarza source coordinate metadata,
+append-only source geometry oraz rozpoznanie z tych samych stage results.
+Przed projekcją każdej sekwencji store sprawdza canonical owner, dzięki czemu
+automatyczny retry ani późniejszy staging nie nadpisuje decyzji człowieka.
+
+TASK-0317 dodaje operacyjną bramkę rolloutu jako trwały job general lane. Job
+przechodzi po źródłach w kolejności `(created_at, id)`, zapisuje cursor po
+partii maksymalnie 100 źródeł i przed stanem `ready` sprawdza całą proweniencję
+każdego istniejącego wyniku virtual. Nie renderuje pikseli i nie promuje
+`geometry_mode` ani `cell_asset_mode`. W trakcie walidacji odbudowuje wyłącznie
+compact search owner projection potrzebną do pokazania bieżącej planszy.
+
+Po stanie `ready` lokalny Reviewer może poprawić quad `virtual_source`.
+Application service dekoduje jeden managed original, renderuje wszystkie
+komórki source-direct w pamięci i przekazuje do transakcji tylko geometry-bound
+specy oraz checksumy. Transakcja tworzy append-only source/board revision,
+zachowuje ludzkie etykiety i zatwierdzoną proweniencję poprzednich pikseli oraz
+aktualizuje bieżące komórki. Brak zgodności source, topologii, rewizji albo
+checksummy kończy się fail-closed; legacy zapis pozostaje bez zmian.
+
+TASK-0318 domyka politykę cutoveru niezależną od transportu HTTP i SQL.
+`assess_geometry_cutover` przyjmuje wyłącznie zagregowane dowody z ręcznie
+sprawdzonego holdoutu. Najpierw egzekwuje minimalną próbkę, komplet historycznych
+błędów i gotową walidację TASK-0317, a dopiero potem porównuje board-level z
+progami 95% i 98%. Niepełny dowód nie zwraca rekomendowanego trybu, więc nie
+może zostać przypadkiem zinterpretowany jako zgoda na default ani jako sygnał
+uruchomienia modelu keypoint.
+
+W odbiorze 2026-08-29 nie było kompletnego raportu 0.10. Produkcyjne tryby nie
+zostały promowane, a aliasy, legacy cropy i dual-schema pozostają. Jest to
+świadomy finalny stan bezpiecznego cutoveru, nie automatyczne zaliczenie jakości.
+Pełny rollback jest operacyjny: nowa rewizja stanu gry wraca do
+`legacy/legacy_files`, istniejące joby zachowują snapshot, a source geometry,
+canonical ownership i decyzje człowieka nie są usuwane ani przepisywane.
+
+TASK-0319 dodaje izolowany pakiet `images/keypoint_geometry`, lecz nie nowy
+produkcyjny pipeline. Dataset zamraża wyłącznie ręcznie zatwierdzone source
+quady i rozdziela całe source families między train, validation i test.
+Checksum-bound loader czyta managed JPEG, weryfikuje bajty, stosuje EXIF raz i
+nie zapisuje pośrednich bitmap. Mały model PyTorch zwraca tensor heatmap
+`N×9×4×H×W` i obecność `N×9`; eksportowany ONNX ma dokładnie ten sam kontrakt.
+
+`LocalKeypointGeometryOnnxAdapter` używa wyłącznie CPUExecutionProvider oraz
+odrzuca drift artefaktu, kształtu lub wartości wejścia. Decoder bierze active
+slot prefix z poświadczonego `seq_*`, ignoruje fałszywe obecności poza maską i
+fail-closed odrzuca brakujący aktywny slot, słaby narożnik lub niewypukły quad.
+`KeypointGeometryEngine` przekazuje kompletne initial quads do wspólnego
+`refine_initialized_source_geometry`, dzięki czemu finalne `SourceGeometryResult`,
+lokalne linie, confidence i hard gates są identyczne z Structured OpenCV.
+
+Jedyną integracją jest `KeypointGeometryShadowRunner`: przyjmuje primary wynik,
+zwraca osobny candidate i ma stałe `canReplacePrimary=false`. Nie istnieje
+write path do `image_geometry_rollout_states`, production workflow ani API.
+Niezmienny manifest release'u wiąże dataset, split, trening, ONNX parity i
+bounded CPU timing, a zarazem deklaruje `activationAllowed=false`.
+
+TASK-0323 dodaje izolowany, read-only runner feasibility istniejącego Structured
+OpenCV. Runner jest poza pipeline'em produkcyjnym i warstwą storage: wczytuje
+wyłącznie wersjonowany manifest rzeczywistych JPEG-ów, sprawdza ich SHA-256 i
+zapisuje regenerowalne diagnostyczne JSON-y, overlaye oraz contact sheets.
+Nie importuje ORM ani routerów, nie ma portu zapisu canonical i nie zmienia
+rolloutu gry.
+
+Warstwa pomiarowa rozdziela problem inicjalizacji od lokalnej obserwowalności.
+`genericGlobalProjection` sprawdza inicjalizację bez ręcznych quadów,
+`knownLayoutProjection` wykorzystuje zweryfikowany układ strony,
+`structuredHybrid` uruchamia bieżący silnik z tym profilem, a
+`oracleInitializedLocalRefinement` startuje z ręcznej geometrii wyłącznie po to,
+aby ocenić sam refiner. Hough, gradienty, regularność i centra symboli są
+liczone w ręcznie zweryfikowanym ROI i są oznaczone jako probe widoczności,
+nie jako samodzielny produkcyjny detektor.
+
+Raport techniczny jest niezależny od gotowości korpusu oraz autoryzacji
+produkcyjnej. Wynik z jednej gry, bez częściowych stron, rozmycia i wymaganej
+liczby false-success pozostaje `insufficient_corpus`, nawet jeżeli wybrany
+kandydat osiąga wysoki prowizoryczny wynik geometryczny. TASK-0323 nie zmienia
+bramek 95/98 ani hard gates; jego wyniki mogą jedynie uzasadnić następny,
+szerszy read-only corpus.
+
+TASK-0328 dodaje izolowany kontrakt konfiguracji v2, ale nie nowy produkcyjny
+silnik. Kontrakt rozdziela adaptacyjną skalę analizy, znormalizowaną tolerancję
+reprojekcji, wagi sygnałów, progi oraz opcjonalne profile gry. Jego czysty
+evaluator stosuje triangulację niezależnych rodzin dowodu: mocna ramka, znany
+układ i regularność mogą skompensować słaby sygnał linii, natomiast LSD bez
+dwóch niezależnych rodzin nie może dać automatycznego kandydata. Niezmienne
+bramki bezpieczeństwa geometrii są sprawdzane przed confidence.
+
+Payload i profil gry są deterministycznie checksummowane. Config v2 ma zawsze
+`experimental_measurement_only`, `activationAllowed=false` i wymaga
+rozłącznych source families dla strojenia oraz ewaluacji. TASK-0329 przypina
+dokładny config jako `candidateGeometry` wyłącznie w nowym snapshocie v2 joba
+`structured_shadow`. Snapshot v1 nie otrzymał dodatkowych pól i zachowuje
+historyczną checksumę.
+
+Worker liczy v2 jako read-only sidecar na finalnym quadzie v1. Rzeczywiste
+sygnały Hough, LSD, gradientów, regularności i centrów symboli oraz
+znormalizowany błąd reprojekcji tworzą checksummowany
+`structuredGeometryCandidateV2` w checkpointach detekcji i geometrii komórek.
+Sidecar wskazuje `reuse_v1_final_quad_without_authority`; nie jest source
+geometry revision, nie jest odczytywany przez renderer ani inferencję i nie ma
+portu do review, canonical lub treningu. Legacy oraz Structured OpenCV v1
+pozostają jedynymi wynikami wykonawczymi. Rozszerzenie korpusu i decyzja
+rolloutowa nadal zależą od D-266.
+
+TASK-0324 zamyka własność schematu geometrii wirtualnej. Kanoniczny payload
+quadów należy do niezmiennego `image_source_geometry_revisions`, natomiast
+`recognized_boards.source_geometry_revision_id + position_index` wybiera
+bieżący slot konkretnej planszy. Board revisions pozostają historią komendy i
+audytu, a observations — proweniencją renderu. Rollout jest osobnym stanem
+operacyjnym, zamrażanym w job input, i nie staje się częścią właścicielską
+geometrii. Szczegółowe invarianty i projekt następnej addytywnej korekty
+opisuje [Virtual geometry schema ownership](VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md).
+
+TASK-0325 realizuje wyłącznie addytywną trwałość tych kontraktów. Automatyczny
+i ręczny virtual write path zapisują obok v1 logical/render identity v2, source
+revision zapisuje fingerprint topologii oraz attestation, a review zapisuje
+jawny outcome z osobnym verified-symbol FK. Rollout `ready` jest związany z
+rewizją polityki, SHA-256 inputu i jobem walidującym. Read pathy pozostają na
+v1; bounded diagnostyka historycznych NULL-i nie mutuje danych i oddziela
+rekordy jednoznaczne od wymagających decyzji.
+
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
 znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie
@@ -1346,14 +1598,27 @@ Kontrakt HTTP TASK 18 wystawia list/open/heartbeat/close jako lokalne Admin API.
 Warstwa composition root tworzy `ReviewerWorkLifecycleService` z repozytoriami
 assignmentu i sesji współdzielącymi jedną transakcję SQL. Idempotentne ponowienie
 open zwraca istniejący scope bez ponownego ujawnienia kodu. Wygenerowany klient
-i Admin nie wywołują już globalnego `start/stop` w normalnym przepływie sekcji
-zatwierdzania.
+i historyczne integracje nie wywołują globalnego `start/stop`. Od TASK-0423
+launcher walidacji geometrii nie jest konsumentem kontraktu assignmentów i
+tworzy docelowy URL loopback bezpośrednio. Nadal wywołuje ograniczony
+`reviewer-local/start`, aby uruchomić albo zweryfikować wspólny proces, a po
+odpowiedzi `reviewerReady = true` ponawia nawigację przygotowanego okna. Nie
+tworzy przy tym assignmentu ani sesji. Purpose-scoped zdalna ręczna selekcja
+pozostaje oddzielną granicą.
 
 Zdalny recenzent jest osobną granicą M8.7. Nie otrzymuje dostępu do PostgreSQL,
 workera ani pełnego Admin API. Jawnie włączona brama HTTPS udostępnia tylko
 game-scoped review API po odwoływalnej sesji, kodzie, limicie prób i czasie
 wygaśnięcia. Surowe przekierowanie portu routera nie jest wspierane. Domyślny
 tryb loopback oraz całkowicie offline aplikacja mobilna nie zmieniają się.
+
+Bounded backfill kontraktów geometrii wirtualnej działa w istniejącym general
+lane jako wersja 3 joba `image_geometry_rollout_backfill`. Worker zapisuje
+checkpoint po maksymalnie 100 źródłach, dzięki czemu restart wznawia przebieg
+od trwałego kursora. Operacja jest metadata-only: nie odczytuje pikseli, nie
+tworzy assetów i nie zmienia canonical ownership ani etykiet człowieka.
+Finalizacja jest fail-closed dla niejednoznacznego outcome, rozbieżnej
+tożsamości v2 lub zapisów powstałych po minięciu kursora.
 
 ## Integralność i bezpieczeństwo publikacji
 
@@ -1387,3 +1652,29 @@ sprawdzane względem manifestu oraz logiczną checksumę odtworzoną z
 uporządkowanych rekordów SQLite. Przed aktywacją mobile porównuje schema
 version, wersje wydania, fixture, datasetu, reguł i algorytmu oraz liczbę gier i
 layoutów. Brak którejkolwiek zgodności daje `local_data_error`.
+### Per-game image import engine policy
+
+`image_geometry_rollout_states` jest trwałym źródłem ustawienia silnika dla
+nowych importów danej gry. Warstwa HTTP udostępnia wyłącznie dwie bezpieczne
+projekcje: stabilny `legacy/legacy_files` mapowany na jawny pipeline v20/v19
+oraz produkcyjny `structured_default/virtual_default` v0.10. Historyczny
+`structured_shadow/virtual_shadow` pozostaje odtwarzalny, ale nie jest opcją
+nowego importu. Polityka i jej rewizja wchodzą do checksummy preflightu i
+snapshotu joba; zmiana nie mutuje istniejących jobów.
+
+Browser preflight wylicza z polityki flagę `geometryPreflightRequired`.
+Oba presety konsumują niezmienny, checksum-bound manifest rejestracji stron.
+Każda nowa gra dopuszcza pusty profil wejściowy preflightu, ale nie import bez
+geometrii: pierwszy przebieg tworzy kontrolowaną kolejkę korekty, a ręczny
+override strony jest kopiowany do snapshotu kotwic kolejnego przebiegu.
+
+Nowe joby `structured_default` przypinają silnik
+`structured-opencv-independent-board-refinement-v2-pinned-preflight-v1`.
+Wariant v2 traktuje wpis `registered` manifestu jako finalny, source-bound dowód
+zewnętrznego obrysu planszy. Topologia 5×3 wyprowadza komórki bez wymagania
+wizualnych linii wewnętrznych, których część gier nie rysuje. Przed automatycznym
+renderem nadal obowiązują: zgodność checksummy i wymiarów, dokładna liczba
+slotów, row-major, brak nakładania oraz pełny source support padded cropów.
+Niespełnienie któregokolwiek z tych warunków pozostaje fail-closed. Historyczny
+silnik v1 i joby bez przypiętego manifestu zachowują lokalne bramki linii bez
+zmiany.

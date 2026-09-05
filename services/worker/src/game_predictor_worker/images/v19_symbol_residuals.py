@@ -69,9 +69,7 @@ class ResidualCell:
             "cropChecksumSha256": self.crop_checksum_sha256,
             "cropRelativePath": self.crop_relative_path,
             "cropSampleId": hashlib.sha256(
-                (
-                    f"{self.crop_checksum_sha256}\0{self.cell_index}\0{self.symbol_code}"
-                ).encode()
+                (f"{self.crop_checksum_sha256}\0{self.cell_index}\0{self.symbol_code}").encode()
             ).hexdigest(),
             "rowIndex": self.cell_index // 5,
             "symbolCode": self.symbol_code,
@@ -203,9 +201,7 @@ def build_cohort_document(
             "The canonical cohort contains duplicate sequence numbers.",
         )
     audited_conflicts = _canonical_audited_label_conflicts(audited_label_conflicts)
-    audited_sequences = {
-        cast(int, row["sequenceNumber"]) for row in audited_conflicts
-    }
+    audited_sequences = {cast(int, row["sequenceNumber"]) for row in audited_conflicts}
     if any(board.sequence_number in audited_sequences for board in ordered):
         raise _error(
             "V19_SYMBOL_COHORT_AUDITED_CONFLICT_INCLUDED",
@@ -568,9 +564,9 @@ def _variant_groups(errors: Sequence[EvaluatedCell]) -> list[dict[str, object]]:
     return [
         {
             "errorCount": len(values),
-            "exampleCropChecksumsSha256": sorted(
-                {cell.crop_checksum_sha256 for cell in values}
-            )[:5],
+            "exampleCropChecksumsSha256": sorted({cell.crop_checksum_sha256 for cell in values})[
+                :5
+            ],
             "expectedSymbolCode": expected,
             "predictedSymbolCode": predicted,
             "sourceFamilyCount": len({cell.source_family for cell in values}),
@@ -627,8 +623,10 @@ def _optional_count(value: object) -> int:
 
 
 def _require_sha256(value: object, label: str) -> str:
-    if not isinstance(value, str) or len(value) != 64 or any(
-        character not in "0123456789abcdef" for character in value
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
     ):
         raise _error("V19_SYMBOL_COHORT_CHECKSUM_INVALID", f"{label} must be SHA-256.")
     return value

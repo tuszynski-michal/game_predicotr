@@ -1,14 +1,19 @@
 ---
 title: Local manual image selection architecture
 status: accepted
-last_updated: 2026-08-18
+last_updated: 2026-08-30
 ---
 
 # Architektura lokalnej ręcznej selekcji
 
-Workspace React działa wyłącznie w przeglądarce Admina. `showDirectoryPicker`
-udostępnia dwa uchwyty File System Access API: źródło tylko do odczytu oraz
-folder wynikowy z prawem odczytu i zapisu. Rekurencyjne listowanie i naturalne
+Workspace React działa wyłącznie w przeglądarce Admina. Wspólny lokalny
+koordynator `showDirectoryPicker` serializuje tylko aktywne natywne dialogi
+wszystkich workflowów Admina i zawsze wywołuje metodę z `window` jako receiver.
+Nie kolejkuje późniejszego dialogu, bo browser wymaga bezpośredniego user gesture;
+zamiast tego zwraca stabilny błąd, a po sukcesie, anulowaniu lub konflikcie
+zewnętrznego dialogu natychmiast zwalnia lock. Nie obejmuje on jobów ani
+operacji plikowych. Picker udostępnia dwa uchwyty File System Access API: źródło
+tylko do odczytu oraz folder wynikowy z prawem odczytu i zapisu. Rekurencyjne listowanie i naturalne
 sortowanie są czystą logiką w `manual-image-selection.ts`. Indeks przechowuje
 uchwyty i ścieżki bez otwierania wszystkich Blobów. Workspace utrzymuje
 ograniczony cache Object URL dla bieżącego JPEG-a i trzech sąsiadów z każdej
@@ -42,7 +47,9 @@ checksumami może przesunąć numerację wszystkich decyzji o jeden stały offse
 Synchronizacja utrwala nowy rekord IndexedDB przed pokazaniem następnego JPEG-a;
 nie modyfikuje źródłowych obrazów, istniejących wyników ani append-only trace.
 Operator może także jawnie zmienić wyłącznie bieżący `nextRangeStart` przez
-zakres `start–start+8`. Taka korekta nie zmienia `firstLayout`, poprzednich
+zakres do dziewięciu plansz. Bez granicy jest to `start–start+8`; końcowa
+strona sesji z `sequenceUpperBound` kończy się na
+`min(start+8, sequenceUpperBound)`. Taka korekta nie zmienia `firstLayout`, poprzednich
 decyzji ani plików, a po akceptacji następny zakres jest liczony od ręcznie
 podanej wartości zgodnie z kierunkiem sesji. Dlatego stan i manifest sprawdzają
 każdy zakres niezależnie; nie wymagają sztucznej ciągłości między decyzjami.
@@ -76,6 +83,14 @@ po każdym Enterze, Tabie i Ctrl+Z, natomiast pełny ślad jest materializowany
 poza ścieżką krytyczną sesji. Każdy zapis sprawdza właściciela `sessionKey`, aby
 nie nadpisać artefaktu innej sesji.
 
+Nazwa pliku output pozostaje historyczna, lecz bieżący writer materializuje
+schema v2 z `sequenceUpperBound`, `selectionComplete` oraz
+`activeBoardCount` dla każdego zaakceptowanego zakresu. Reader rozpoznaje
+wersję z pola `schemaVersion`: v1 zawsze oznacza pełne strony dziewięciu
+plansz, a v2 może zakończyć sesję krótszą, ciągłą stroną. Ta sama domena i
+walidacja są współdzielone przez lokalny Admin i operator-local Reviewer;
+historyczny host-transfer pozostaje na kontrakcie v1.
+
 W aktywnej sesji globalny handler klawiatury obsługuje `Enter`/`F` jako
 zatwierdzenie, `Ctrl+Z`/`A` jako cofnięcie, lewo/prawo jako nawigację po
 zdjęciach oraz góra/dół jako przejście po sąsiednich pozycjach wersjonowanej
@@ -104,3 +119,198 @@ dekodowaniu obrazu i obliczeniu jego rzeczywistych wymiarów pojedynczy
 `requestAnimationFrame` ustawia `scrollTop`. Zdarzenia scrolla nie zmieniają
 stanu React, IndexedDB ani trace manifestu, więc nie dodają pracy do ścieżki
 zapisu i dekodowania JPEG-a.
+
+Podczas przejściowego odmontowania canvasa przeglądarka może zgłosić techniczne
+`scrollTop=0`. Viewer przyjmuje nowe współrzędne wyłącznie wtedy, gdy Object URL
+nadal odpowiada bieżącemu indeksowi; zdarzenie z pustego/loading viewportu nie
+może nadpisać ostatniej pozycji. Ta sama reguła obejmuje zwykłą selekcję, fill i
+delete.
+
+## Architektura lokalnej korekty selekcji
+
+`ManualSelectionRepairWorkspace` jest montowany bezpośrednio po lokalnym
+workspace i korzysta ze współdzielonego `ManualImageViewer`. Viewer odpowiada
+wyłącznie za bounded cache Object URL, zoom, fullscreen, scroll i prezentacyjne
+skróty. Domena zakresów i manifestów znajduje się w niezależnym eksporcie
+`@game-predictor/manual-image-selection-core/repair`, dlatego nie zależy od
+Reacta ani File System Access API.
+
+Adapter Admina `manual-selection-repair-storage.ts` jest jedynym miejscem
+mutacji katalogu. Skanuje top-level JPEG-i, weryfikuje SHA-256, zapisuje
+manifesty i utrzymuje osobną IndexedDB v1 bez Blobów. Wszystkie polecenia
+workspace'u przechodzą przez jedną serializowaną kolejkę. Zmiana katalogu lub
+trybu jest blokowana podczas zapisu.
+
+Pełny skan i weryfikacja output manifestu odbywają się przy otwarciu katalogu
+oraz recovery. Po udanej mutacji adapter zwraca finalny repair/output manifest
+i uchwyt zmienionego pliku, a workspace aktualizuje posortowany snapshot przez
+dodanie albo usunięcie jednego wpisu. Dzięki temu delete nie wykonuje dwóch
+pełnych przebiegów SHA-256 po wszystkich JPEG-ach; nadal hashuje dokładnie
+usuwany plik i zachowuje journal fail-closed.
+
+Paczka `Usuwanie sekwencji` jest tylko wygodnym frontem tej samej kolejki
+adaptera. Jej autocomplete indeksuje `start` ze zweryfikowanych nazw
+`seq_<start>-<end>`, filtruje go prefiksem tekstowym i przekazuje do kolejki
+dokładne nazwy, a nie wyprowadzony zakres liczbowy. Każdy plik ma własną
+transakcję journal → mutacja → manifest; sukcesy są raportowane inkrementalnie.
+Awaria checksummy jednego pliku jest izolowana, natomiast błąd zapisu journalu,
+odzyskania uprawnienia uchwytu lub synchronizacji manifestu zatrzymuje kolejkę,
+aby nie obiecać spójnego lokalnego stanu. Nie ma trash ani Blobowego restore.
+
+Przy pełnej inspekcji reload/recovery znana checksuma jest weryfikowana w
+`reconcileRepairManifest`; następna synchronizacja output manifestu dostaje
+ten sam wynik i nie odczytuje JPEG-a ponownie. Workspace ma niezależny numer
+generacji recovery: ręczny wybór katalogu lub katalogu bazowego zwiększa go,
+więc późniejsza odpowiedź starego IndexedDB recovery nie może nadpisać
+aktualnego snapshotu ani uchwytu. Fazy wyboru systemowego, inspekcji i
+listowania są stanem UI, a nie pozornym zawieszeniem; natywny picker pozostaje
+jedyną blokadą współdzielonego pickera katalogów.
+
+`manual-image-selection-repair-v1.json` zachowuje niezmienne granice kolekcji,
+aktywny indeks plików, checksumy, usunięte zakresy, append-only historię oraz
+co najwyżej jedną operację oczekującą. Każda mutacja ma trzy fazy:
+
+1. zapis zamiaru z oczekiwaną nazwą i checksumą;
+2. dokładna zmiana jednego pliku przez uchwyt katalogu;
+3. ponowny odczyt, kontrola SHA-256 i finalizacja obu manifestów.
+
+Reconciler po reloadzie rozstrzyga stan na podstawie pliku, rozmiaru i
+checksummy. Obcy lub zmieniony cel pozostaje fail-closed. Katalog bazowy fill
+jest zawsze read-only, a zapisany JPEG zachowuje oryginalne bajty. Delete undo
+przechowuje ostatni `File` wyłącznie w pamięci komponentu, więc nie jest
+możliwy po reloadzie.
+
+Pochodny `manual-image-selection-filled-gaps-v1.json` jest materializowany przy
+każdym zapisie repair manifestu. Jego wpisy są deterministycznie wyprowadzane z
+append-only operacji `fill` oraz bieżącego `activeFiles`; nie jest drugim
+źródłem decyzji. Konsument może odtworzyć brakujący handoff bezpośrednio z
+repair manifestu, a uszkodzony plik handoffu blokuje użycie fail-closed.
+
+Output manifest pozostaje bieżącym źródłem aktywnych wyborów i jest
+synchronizowany po fill, undo, delete oraz restore. Repair trace jest osobnym
+źródłem proweniencji. Ranker może scalić z pierwotnym trace tylko poprawnie
+zdekodowane zdarzenia `viewed` i `fill`; pozytywem jest wyłącznie plik nadal
+obecny w aktywnym output manifeście. Zdarzenia delete, restore i undo nie mogą
+samodzielnie utworzyć próbki treningowej.
+
+Zwykły lokalny selector sprawdza obecność repair manifestu przed startem i
+resume. W takim przypadku nie modyfikuje katalogu ani starej sesji, tylko
+kieruje operatora do nowej sekcji. Zapobiega to dwóm writerom utrzymującym
+różne listy aktywnych `seq_*`.
+
+## Architektura lokalnego przycinania wybranych zdjęć
+
+`SelectedImageCropWorkspace` jest lokalnym konsumentem współdzielonego
+`ManualImageViewer`. Viewer zachowuje ograniczone okno Object URL, zoom,
+fullscreen i scroll; opcjonalny overlay renderuje dwie poziome linie bez
+zmiany zachowania istniejących selektorów.
+
+Czysta domena jest eksportowana jako
+`@game-predictor/manual-image-selection-core/crop`. Operuje na współrzędnych
+całkowitych `topY`/`bottomY` w obrazie po jednokrotnej kanonizacji EXIF i nie
+zna Reacta, canvasa ani File System Access API. Adapter Admina skanuje tylko
+główny poziom źródła, ponownie wykorzystuje rygorystyczny parser `seq_*` i
+utrzymuje osobną IndexedDB v1 bez Blobów.
+
+Adapter ma dwa rozłączne tryby inwentarza: pełny katalog zapisuje do
+`<źródło> cut`, a aktywne uzupełnienia do `<źródło> filled-gaps cut`. Drugi tryb
+czyta handoff repairu, odrzuca pusty lub obcy manifest i sprawdza checksumę
+każdego wskazanego JPEG-a przed utworzeniem albo wznowieniem sesji. Dzięki
+osobnym nazwom katalogów manifest v1 nadal jednoznacznie wiąże swój inwentarz.
+
+Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
+wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka
+v10 buduje lekką maskę czerwonych ramek, łączy jej komponenty i szuka trzech
+podobnych kandydatów o rosnących współrzędnych X, zgodnych wysokościach oraz
+lokalnie wspólnej linii. Kandydaci muszą leżeć w ograniczonym sąsiedztwie
+górnej granicy uzyskanej z detektora panelu. Wynik wyznacza wyłącznie górę;
+dół oraz fail-safe nadal pochodzą z v9. Brak pełnego dowodu jest no-opem.
+
+Polityka v9
+dzieli środkowe 88% obrazu na dziewięć pasów i w każdym niezależnie znajduje
+długi klaster niebieskiego tła. Dopiero co najmniej pięć zgodnych klastrów,
+obejmujących lewą, środkową i prawą grupę, tworzy granicę panelu. Rozrzut
+górnych i dolnych granic jest ograniczony, dzięki czemu boczne światła lub
+pojedyncze elementy nie mogą udawać plansz.
+
+Potwierdzony w ten sposób panel jest niezależnym dowodem i może zastąpić
+`safe_wide` ogólnego detektora. Naprawia to regresję v5, która odrzucała nawet
+mocny panel, gdy drugi detektor nie dostarczył równocześnie kandydata.
+Historyczne wyniki v4/v5 pozostają czytelne i nie są przeliczane automatycznie.
+
+Jeżeli nie ma takiego kandydata, zachowana ścieżka wielokolumnowa v4
+analizuje środkowe 94% obrazu w dziewięciu pionowych pasach. Dla każdego pasa
+buduje wygładzone profile chromatyczne i strukturalne, a kandydat musi mieć
+wsparcie co najmniej pięciu pasów oraz wszystkich trzech grup szerokości.
+Zgodne kandydatury obu rodzin dowodu dają `high_confidence`; rozbieżność tworzy
+bezpieczną sumę `conservative`, natomiast brak dowodu zwraca `safe_wide` 5–95%.
+`safe_wide` jest automatycznie utrwalany w kolejce korekty i nie może zostać
+potraktowany jak zwykły gotowy wynik bez świadomego review.
+
+Lokalne granice są agregowane percentylami, więc pochylenie obrazu nie wymusza
+ciasnego cropa według jednego pasa. Padding wynosi 4,5% nad i pod panelem.
+4,5% pod panelem. Górna granica nie jest rozszerzana w stronę panelu wypłat.
+Dolna strefa bezpieczeństwa 3% odsuwa granicę na zewnątrz najwyżej raz, jeżeli
+nadal przecina szeroko wspartą zawartość. Wynik niższy niż 28% wysokości jest
+odrzucany na rzecz `safe_wide`. Adapter mapuje granice proporcjonalnie na
+kanoniczne piksele źródła. Cache propozycji jest ograniczony do bieżącej sesji
+i związany z nazwą, rozmiarem oraz mtime źródła.
+
+Proweniencja propozycji jest częścią `SelectedImageCropResult` w shardzie, a
+nie osobnym globalnym plikiem. Zawiera dokładną politykę, klasę, confidence,
+lokalne granice obu rodzin sygnału, wykorzystane pasy, IoU, informację o
+rozszerzeniu granicy i reason code fallbacku. Ta sama proweniencja znajduje się
+w operacji oczekującej, dlatego recovery po zapisie JPEG-a finalizuje dokładnie
+ten sam wynik.
+
+Mały session journal przypina `preparationPolicyVersion`. Nowa sesja zaczyna z
+v10, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
+bez zgadywania wersji. Taka sesja nie przygotuje brakujących plików nową
+polityką, dopóki operator jawnie nie uruchomi przeliczenia. Recalculator
+wyprowadza zamknięty zbiór nazw z shardów i review state; chroni `reviewed`,
+`corrected` oraz `needs_correction`, a każdy dopuszczony wynik zastępuje przez
+istniejący checksum-bound journal. Po przypięciu v10 zwykłe wznowienie może
+przygotować pozostałe, dotąd brakujące wyniki.
+
+Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma
+szerokość obrazu kanonicznego i wysokość wybranego pasa, a `drawImage` kopiuje
+ten obszar w skali 1:1. Wynik jest JPEG-em jakości 0.98. Operacja przebiega jako
+manifest intencji → SHA-256 źródła → render → zapis → ponowny SHA-256 →
+finalizacja manifestu. Przy restarcie brak wyniku cofa zamiar, zgodna checksuma
+go finalizuje, a obcy wynik blokuje wznowienie.
+
+Przy pierwszym wznowieniu writer migruje manifest v1 do podkatalogu
+`.manual-image-crop-state`: niezmiennego inwentarza, małego session journalu,
+osobnego review state i shardów wyników obejmujących najwyżej 64 sloty. Plik
+inwentarza jest publikowany jako ostatni krok migracji, dlatego jej przerwanie
+jest idempotentne. Istniejących cropów ani checksum nie przelicza się.
+
+Przygotowanie pozostaje sekwencyjne, lecz decode, detekcja i pierwszy render są
+wykonywane przez okresowo odtwarzany Web Worker z `OffscreenCanvas`. Brak tej
+funkcji uruchamia zgodny fallback. Błąd jednego źródła jest zapisywany z etapem
+i kodem, po czym kolejka przechodzi dalej; retry otrzymuje zamknięty zbiór nazw.
+
+Review używa atlasów WebP po najwyżej 100 cropów. Klucz atlasu obejmuje nazwy,
+checksumy wyników, rozmiar i renderer. Pierwszy atlas jest pokazywany przed
+zakończeniem całej kolejki, stare klucze są usuwane bounded. Grid utrzymuje
+trwały zbiór `needs_correction`; pełny `ManualImageViewer` dekoduje oryginały
+tylko dla tej kolejki. Poprawka aktualizuje jeden shard, review state i atlas.
+Zbiorcze zaznaczenie aktualizuje wyłącznie mały review state jednym zapisem;
+nie przepisuje shardów, JPEG-ów ani atlasów. Przełącznik działa na bieżącym
+filtrze i nie usuwa zaznaczeń niewidocznych w tym filtrze.
+
+Hydratacja po reloadzie kończy się na odczycie rekordu IndexedDB. Wywołanie
+`requestPermission`, skan katalogu i odczyt obrazów następują dopiero w obsłudze
+jawnego kliknięcia wznowienia. Atlasy v2 144×96 px, kodowane jako WebP jakości
+0.58, są budowane osobną akcją operatora i prezentowane w poziomym pasku; samo
+otwarcie sesji ich nie dekoduje.
+Wyjście anuluje kolejkę pomiędzy źródłami i unieważnia późne callbacki, ale nie
+cofa zakończonego journalowanego zapisu bieżącego pliku.
+
+Katalog wynikowy jest bezpieczny wyłącznie, gdy jest pusty albo zawiera zgodny
+`manual-image-crop-output-v1.json` i wskazane przez niego wyniki. Import plansz
+filtruje wejście do JPEG-ów, dlatego pomocniczy JSON jest ignorowany. To nowa
+tożsamość importu; reprocess historycznego importu nadal czyta jego managed
+originals. Prostowanie perspektywy pozostaje poza tym adapterem, ponieważ
+globalna homografia nie modeluje krzywizny ekranu ani dziewięciu niezależnych
+quadów obsługiwanych przez geometrię 36 narożników.

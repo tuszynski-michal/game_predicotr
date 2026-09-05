@@ -889,3 +889,400 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - V10.20 ma adapter `visible-sequence-label-range-v18` i fingerprint
   `5b979eb826bbf943047bff41a98e293ecf9f3cb46ba95044b606edd32a33bd86`.
   Manifest i fingerprint v10.19 pozostają niezmienne.
+
+## Półautomatyczny wybór zdjęć v1 — kontrakt zakresu
+
+Półautomatyczny wybór jest niezależnym od gry workflowem przygotowującym
+katalog `seq_<start>-<end>.jpg`. Nie zastępuje historycznej automatycznej
+selekcji v10 ani lokalnej ręcznej selekcji.
+
+Jego automat odpowiada wyłącznie na pytanie, czy bieżący JPEG samodzielnie i
+jednoznacznie dowodzi dokładnego oczekiwanego zakresu. Nie wykonuje detekcji
+plansz, geometrii, homografii, croppera, klasyfikacji symboli ani oceny jakości
+plansz. Ostrość, ekspozycja, okluzja albo jakość symboli nie mogą odrzucić
+zdjęcia z mocnym lokalnym dowodem zakresu; ich ewentualna ocena należy do
+późniejszego, ręcznego review.
+
+Zakresy mają wersjonowaną konwencję `seq-inclusive-v1`: numery dodatnie,
+inkluzywne, nazwa zawsze rosnąca, pełny zakres obecnie do dziewięciu plansz i
+końcowy zakres krótszy, gdy wymaga tego deklarowana granica. Rozmiar pełnego
+zakresu jest kontraktem możliwości modułu, a nie topologią gry. Dla `1–19809`
+ostatnim poprawnym zakresem jest `19801–19809`; `19800–19809` ma dziesięć
+plansz i nie jest poprawną nazwą.
+
+Wynik bramki jest jednym z: `exact_range`, `range_unreadable`,
+`range_ambiguous`, `outside_requested_range`, `not_expected_range` albo
+`source_error`. Tylko `exact_range` może wejść do późniejszego grupowania.
+Brak pewnego dowodu jest prawidłową luką do ręcznego uzupełnienia, a nie
+podstawą do zgadywania zakresu z sąsiednich zdjęć.
+
+Adapter `semi-automatic-range-only-ocr-v1` przyjmuje wyłącznie zdekodowany
+obraz RGB oraz checksummowaną tożsamość źródła. Istniejący proof-first
+recognizer jest wywoływany dokładnie raz z pustą kolekcją plansz, dlatego w tym
+workflow nie może uruchomić tras zależnych od detekcji lub geometrii. Wynik
+`exact_range` wymaga mocnego, pozycyjnego dowodu lokalnego; sama wysoka pewność
+OCR nie wystarcza. Końcowy krótszy zakres jest akceptowany wyłącznie wtedy,
+gdy co najmniej trzy dowody pozycyjne mieszczą się w jego rzeczywistej długości.
+
+Nowe runy używają `semi-automatic-range-only-ocr-v2`. V2 zachowuje tę samą
+bramkę dowodu, lecz ma własny filtr rzeczywistych etykiet: X `0.20–0.82`, Y
+`0.24–0.48`, minimalna szerokość `0.025` obrazu i minimalny aspect ratio
+`1.20`. Kandydaci są OCR-owani progresywnie `12 → 24 → 36`, wyłącznie dla
+nowej części poziomu, w batchach do dziewięciu cropów. Analiza kończy się
+wcześniej po jednoznacznym dowodzie. V2 nie korzysta ze stałego viewportu
+pozycji ani z expected range; układ pozycji wynika z dynamicznej lokalnej
+siatki etykiet jednego JPEG-a.
+
+Historyczny v1 pozostaje niezmienny i musi być wybierany dla runu utrwalonego z
+jego fingerprintem. Nieznany fingerprint jest błędem fail-closed. Jedna, dwie,
+sprzeczne albo niewystarczająco mocne etykiety pozostają luką, nawet jeśli
+surowa hipoteza OCR wskazuje jakiś zakres.
+
+Odbiór v2 na checksummowanych próbach 10/100 musi pozostać zapisany wraz z
+fingerprintem recognizera, czasem, poziomem zakończenia i potwierdzeniem braku
+wywołań ciężkiego pipeline'u. Spełnienie bramki odbioru nie włącza feature
+flagi; rollout pozostaje osobną decyzją operatora.
+
+Nowe runy po TASK-0364 używają `semi-automatic-range-only-ocr-v3`. Każda
+wykonana próba zachowuje bez zmian kandydatów `12/24/36` oraz proof v2, ale
+OCR nie jest uruchamiany na każdym podobnym JPEG-u. Tani deskryptor wyglądu
+wyzwala próbę na mocnej zmianie, a niezależny bounded interval wymusza ją co
+najwyżej pięć źródeł. Wygląd nie jest dowodem zakresu: pominięty JPEG ma wynik
+`unproven`, nie może zostać reprezentantem ani odziedziczyć numeru od sąsiada.
+Historyczne runy v1/v2 nadal wykonują swój zapisany kontrakt bez schedulera.
+
+Komponent przygotowany w TASK-0368 definiuje przyszły wariant
+`semi-automatic-range-only-ocr-v4-middle-row-triple-v2`. V4.1 lokalizuje
+wyłącznie trzy pełne etykiety środkowego rzędu po jednokrotnej kanonizacji EXIF.
+Stałe ROI X `0.20–0.82` i Y `0.24–0.48` jest wersjonowanym pierwszym przebiegiem;
+jeżeli nie daje kompletnej, jednoznacznej siatki, locator może rozszerzyć tylko
+dolną granicę do `0.60`. Rozszerzenie nadal kończy się `unknown`, gdy lekki
+afiniczny układ 3×3 pozostaje niejednoznaczny.
+
+Każdy wynik v4.1 jest albo lokalnym `exact`, albo jawnym `unknown`. `Exact`
+wymaga trzech kolejnych, numerycznych odczytów z kompletnych i czytelnych cropów
+źródłowej rozdzielczości, progów confidence oraz dopasowania do dokładnie jednego
+wpisu `ExpectedRangeTable`. Nazwa pliku, katalog, source index, sąsiednie zdjęcia
+i fuzzy correction nie mogą dostarczyć ani uzupełnić dowodu. Częściowa końcowa
+strona jest rozpoznawalna tylko wtedy, gdy zawiera cały środkowy rząd.
+
+TASK-0369 podłącza v4.1 do produkcyjnego recognition-only Paddle i trwałego
+runtime'u joba, ale nadal nie przełącza na niego nowych runów. Batch źródeł ma
+wartość `6`, wybraną jako najlepszy wynik bounded pomiaru `1/3/6/12`; każde
+źródło wnosi najwyżej trzy cropy, a wewnętrzny batch Paddle pozostaje równy
+dziewięć. Orientacja `auto | 0 | 90 | 180 | 270`, run-level prior, grouping,
+pełny prefiks oraz diagnostyka są przypięte fingerprintem i checkpointem.
+
+`Unknown` może leżeć pomiędzy dwoma exact proof tego samego zakresu, lecz nigdy
+nie zostaje kandydatem i nie rozszerza granic evidence span. Reprezentantem jest
+exact proof najbliższy środkowi tego span; jako tie-break służą czytelność,
+minimalne confidence OCR i niższy source index. Rollout i próby 10/100/1000
+pozostają w TASK-0370. V1–v3 i ich fingerprinty zachowują dotychczasowe
+zachowanie.
+
+Odbiór TASK-0370 nie dopuścił v4.1 do rolloutu. Challenge zachował zero false
+exact, `62,5%` readable coverage i `100%` group capture, lecz zamrożony golden
+set osiągnął tylko `26,3%` readable coverage oraz `35,3%` group capture przy
+zerowej liczbie false exact. Cele szybkości zostały przekroczone (`4,83` i
+`5,05` źródła/s), a wszystkie 120 reprezentantów prób 1000 przeszły ręczną
+kontrolę. Bezpieczeństwo proof pozostaje niezmienne; nowy run nadal używa v3,
+dopóki kolejny fingerprint nie przejdzie nowego, wcześniej niewidzianego
+holdoutu.
+
+Wariant v5 `semi-automatic-range-only-ocr-v5-row-first-v1` jest podłączony do
+trwałego joba wyłącznie przez własny fingerprint. Każde źródło jest
+kanonizowane zgodnie z EXIF dokładnie raz; v5 nie wykonuje dodatkowego OCR do
+kalibracji obrotu. Locator może zwrócić niezależne wiersze, ale auto-wybór
+wymaga dwóch zgodnych, kompletnych wierszy tego samego JPEG-a. Jeden wiersz,
+konflikt widocznych wierszy albo nieczytelny crop daje lukę.
+
+Skan v5 zachowuje source batch `6`, dzieli recognition-only Paddle na batche
+nie większe niż dziewięć cropów i zapisuje checkpoint dopiero po pełnym batchu
+źródeł. Wznowienie używa utrwalonego fingerprintu runtime'u, observation key i
+polityki grupowania v5; nie może przełączyć runu v1–v4.1 ani dublować
+zatwierdzonego prefiksu. Wariant nie jest jeszcze domyślny ani nie uruchamia
+geometrii, board/cell croppera lub inferencji symboli.
+
+Odbiór checksum-bound TASK-0374 odrzucił rollout v5 bez zmiany jego kontraktu.
+Na challenge `19` oraz frozen golden `100` wariant nie utworzył żadnego
+`exact`, więc zachował zero false exact, lecz nie spełnił bramek coverage ani
+group capture. Dominujący reason code `COMPLETE_ROW_UNVERIFIED` wskazuje, że
+rozpoznawanie etykiet po lokalizacji nie potwierdza pełnych rzędów; nie jest to
+uprawnienie do obniżenia proof. V5 pozostaje wyłączony, a następna iteracja
+musi powstać pod nowym fingerprintem i przejść wcześniej niewidziany holdout.
+
+Jedyny skalibrowany parametr przekazywany do późniejszego grupowania to
+maksymalna liczba kolejnych źródeł bez dowodu. Polityka
+`real-corpus-unproven-gap-v1` wyznacza ją deterministycznie z checksumowanego
+korpusu rzeczywistych zdjęć; bieżąca wartość wynosi `160`. Parametr nie nadaje
+zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
+
+### Rzeczywisty korpus regresji OCR zakresów — TASK-0402
+
+Każda przyszła wersja recognition-only OCR zakresu musi przejść przez mały,
+checksummowany korpus rzeczywistych ekranów bez widocznej nazwy `seq_*` ani
+tekstu panelu Admina. Korpus zawiera trzy samodzielnie czytelne zakresy
+`28–36`, `55–63` i `64–72` oraz klatkę przejściową z dwoma zakresami. Pierwsze
+trzy przypadki są bramką coverage, a przejście ma kontrakt bezpieczeństwa:
+nigdy nie może otrzymać automatycznego `exact`.
+
+Runner korpusu może wywołać wyłącznie dekodowanie, kanonizację EXIF,
+lokalizację etykiet, preprocessing i recognition-only OCR. Detekcja plansz,
+geometria, board/cell cropper i inferencja symboli są poza kontraktem oraz
+muszą pozostać niewywołane. Korpus jest diagnostyką regresji, nie zastępuje
+niezależnego holdoutu ani nie autoryzuje rollout'u nowego fingerprintu.
+
+### Pięć anchorów etykiet zakresu v6 — TASK-0404
+
+Nowy, jeszcze niepodłączony do runtime'u lokalizator
+`five-anchor-range-label-locator-v6` znajduje po jednokrotnej kanonizacji EXIF
+pięć source-direct cropów w stabilnej kolejności: `top_left`, `top_right`,
+`center`, `bottom_left`, `bottom_right`. Każdy crop ma bezwzględne współrzędne
+w przestrzeni `exif-transposed-rgb-v1`, informację o kompletności oraz tryb
+`component_refined` albo `viewport_fallback`.
+
+Anchor lokalizuje wyłącznie kandydat do późniejszego recognition-only OCR;
+sam nie odczytuje liczb, nie zna nazwy, folderu, indeksu źródła ani oczekiwanego
+zakresu i nie stanowi dowodu automatycznego przypisania. Brak kompletnego zestawu
+pięciu bounded cropów zwraca reason-coded `unknown`, bez interpolowania pozycji.
+Komponent nie importuje ani nie uruchamia detekcji plansz, geometrii, croppera
+plansz/komórek lub klasyfikatora symboli. Historyczne runy v1–v5 oraz ich
+fingerprinty pozostają bez zmian.
+
+### Proof pięciu anchorów v6 — TASK-0405
+
+`semi-automatic-range-only-ocr-v6-five-anchor-v1` sprawdza rozpoznania ze
+wszystkich pięciu cropów wobec przypiętych slotów pełnej strony 3×3:
+`0`, `2`, `4`, `6`, `8`. Nie odczytuje obrazu ani nie wywołuje OCR — dostaje
+wyłącznie tekst, confidence oraz kompletność/czytelność source-direct cropa.
+
+Wynik `exact` wymaga co najmniej trzech zgodnych wartości o wysokiej pewności,
+w tym `center`, jednego anchoru górnego i jednego dolnego. Każdy dodatkowy,
+czytelny i wysokiej pewności numer niezgodny z tym samym zakresem blokuje wynik.
+Pusty albo słaby pozostały anchor nie wnosi dowodu i nie jest uzupełniany; jeśli
+przez to nie ma trzech rozpiętych potwierdzeń, wynik jest reason-coded `unknown`.
+Przycięty, nieczytelny lub nienumeryczny crop oraz każdy conflict także pozostają
+`unknown`; nie ma fuzzy repair, wyprowadzania z nazwy pliku ani z sąsiednich
+obrazów. Częściowa strona zawsze pozostaje manualna. Wariant jest domenowym
+kontraktem przyszłego runtime'u i nie zmienia fingerprintów v1–v5.
+
+### Runtime OCR pięciu anchorów v6 — TASK-0406
+
+`five-anchor-range-runtime-v1` realizuje zamknięty łańcuch: kanonizacja EXIF
+raz → lokalizator pięciu source-direct cropów → lokalna bramka czytelności →
+recognition-only Paddle → proof v6. Jedna partia obejmuje najwyżej sześć źródeł,
+a jeden wewnętrzny batch Paddle najwyżej dziewięć cropów. Crop, który nie
+przejdzie lokalnej bramki ostrości, kontrastu i krawędzi, nie uruchamia Paddle i
+kończy się `unknown`; nie jest poprawiany albo interpolowany.
+
+Runtime ma własny fingerprint i observation key powiązany z runem, źródłem i
+fingerprintem. Zwraca tylko `RangeEvidenceResult` w kolejności wejścia. Nie
+tworzy joba, checkpointu, grupy, plików `seq_*`, geometrii ani symboli. Nie jest
+jeszcze rejestrowany jako opcja produkcyjnego runu; v1–v5 pozostają bez zmian.
+
+### Jawny wariant trwałego runu pięciu anchorów v6 — TASK-0407
+
+`five_anchor_v6` jest zamkniętym, eksperymentalnym wariantem wyłącznie dla
+workflowu `selection`. API przyjmuje nazwę wariantu, nigdy dowolny fingerprint;
+capabilities zwraca nazwę, etykietę, fingerprint, stan domyślny i
+eksperymentalny. `default_v3` pozostaje wyborem domyślnym, a
+`filename_verification` przyjmuje wyłącznie swój historyczny recognizer v2.
+
+Run `five_anchor_v6` zapisuje fingerprint runtime'u v6 i niezależny fingerprint
+polityki grupowania/wyboru środka. Oba są częścią tożsamości idempotencji:
+identyczne żądanie v6 zwraca ten sam run, lecz ten sam staging uruchomiony na v3
+i v6 tworzy dwa rozłączne runy. Wznowienie odczytuje zapisany fingerprint,
+checkpoint i batch size; nie może przełączyć runtime'u ani przejąć zachowania
+v1–v5.
+
+Po source-local `exact` grupowanie obejmuje wyłącznie zdjęcia z własnym proofem
+v6, toleruje reason-coded `unknown` zgodnie z przypiętą polityką i wybiera środek
+spanu exact evidence. Nazwa pliku, indeks źródła ani sąsiednie zdjęcie nie są
+dowodem zakresu. Wariant nie jest automatycznie rolloutowany ani wykonywany na
+danych użytkownika przez samo wdrożenie.
+
+## Trwały globalny run półautomatycznej selekcji — TASK-0352
+
+- Workflow nie należy do gry: staging, run i job mają `gameId = null`.
+- Browser staging ma osobny purpose `semi_automatic_selection`, naturalną
+  kolejność względnych ścieżek oraz niezmienną checksummę finalnego manifestu.
+  Purpose gry, zmiana manifestu, zmiana JPEG-a albo błędna check­summa assetu
+  blokują odczyt fail-closed.
+- Start wymaga pełnych granic sekwencji i kierunku. Tworzy z góry wszystkie
+  oczekiwane zakresy `seq-inclusive-v1`, w tym krótszy zakres końcowy.
+- Idempotencja obejmuje upload, manifest, fingerprint źródła, granice,
+  kierunek, recognizer i politykę grupowania. Identyczne żądanie zwraca ten sam
+  run; zmiana któregokolwiek wejścia tworzy inną tożsamość.
+- Run i jego oczekiwane zakresy są trwałe. API udostępnia capabilities,
+  start/status, keysetową listę zakresów, diagnostykę, checksum-bound asset,
+  pause/resume/cancel oraz potwierdzenie lokalnego outputu.
+- Potwierdzenie outputu wymaga bieżącej rewizji, checksummy wybranego źródła i
+  identycznej checksummy zapisanych bajtów. Aktualizacja zakresu i liczników
+  runu jest jedną transakcją.
+- Funkcja jest domyślnie wyłączona przez
+  `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION=false`. Endpoint
+  capabilities jest jedynym źródłem tej możliwości dla przyszłego UI.
+- Job używa istniejącego lane selekcji zdjęć i nie może zostać przejęty przez
+  general lane.
+
+## Historia weryfikacji zakresów nazw plików — TASK-0393
+
+- Run zachowuje ten sam techniczny job i lane, lecz trwałe pole
+  `workflowMode` rozróżnia `selection` od `filename_verification`. Migracja
+  klasyfikuje historyczne runy po zamkniętej liście fingerprintów recognizera;
+  nie zmienia aktywnego joba ani jego checkpointu.
+- Panel listuje runy `filename_verification` od najnowszego, po 20 pozycji.
+  Reload wybiera najpierw zapamiętany run, następnie aktywny, a potem ostatni
+  ukończony. Polling dotyczy dokładnie jednego wybranego runu.
+- Po terminalnym sukcesie podejrzane (`mismatch`, `unreadable`,
+  `invalid_filename`) źródło ma trwałą, checksum-bound decyzję `keep` albo
+  `reject`. Domyślny widok pokazuje tylko nierozpatrzone; widok pełny zachowuje
+  audyt pozostawionych i usuniętych pozycji.
+- Podgląd korzysta z checksum-bound assetu stagingowego, nie z lokalnego
+  katalogu. Uchwyt `seq_*`, kursor i oczekujące potwierdzenie delete należą do
+  lokalnego stanu IndexedDB per run. Katalog jest wymagany dopiero przed
+  usunięciem i musi pasować liczbą, naturalną kolejnością oraz fingerprintem
+  stagingu.
+- `reject` najpierw wykonuje istniejące journalowane usunięcie lokalne, po
+  czym idempotentnie utrwala decyzję serwerową. Utrata odpowiedzi nie wykonuje
+  drugiego delete: klient wznawia wyłącznie potwierdzenie API.
+- Runy failed i cancelled pozostają widoczne diagnostycznie, ale nie udostępniają
+  decyzji review. Automat nigdy sam nie usuwa plików.
+
+## Domknięcie OCR weryfikacji nazw — TASK-0394
+
+- `filename_verification` kończy skan klasyfikacją pojedynczego pliku jako
+  `verified`, `unreadable`, `mismatch` albo `invalid_filename`; nie wybiera
+  reprezentanta, nie wywołuje `apply_selection` i nie tworzy `seq_*`.
+- Podczas OCR licznik review joba pozostaje równy zero. Dopiero atomowy,
+  terminalny checkpoint zapisuje liczbę pozycji wymagających decyzji, dlatego
+  progres joba nigdy nie maleje.
+- Retry failed runu resetuje wyłącznie techniczne liczniki joba. Zachowuje
+  checksummowany strumień obserwacji i kończy analizę bez ponownego OCR.
+- Admin udostępnia przycisk `Wznów analizę` dla failed runu; komunikat jasno
+  deklaruje wznowienie z zapisanych obserwacji OCR.
+
+## Terminalny cleanup weryfikacji nazw — TASK-0395
+
+- Run `filename_verification` po wyniku z samymi `verified` albo po ostatniej
+  decyzji dla pozycji `unreadable`, `mismatch` lub `invalid_filename` przechodzi
+  przez trwały stan `cleanup_pending` do `completed`. Manualna decyzja dla
+  automatycznie zgodnego pliku jest odrzucana przez backend.
+- W tym samym przypiętym jobie cleanup najpierw rezerwuje staging, a potem
+  usuwa wyłącznie zasoby tego runu: browserowy staging, observations OCR,
+  grupy, checkpointy, raporty robocze, rekordy zakresów i decyzji review.
+  Nie dotyka lokalnego folderu `seq_*`, katalogu operatora, danych ręcznej
+  selekcji, innych importów, cropów, modeli ani danych gry.
+- Przed usunięciem i przed finalizacją cleanup ponownie sprawdza aktywne oraz
+  obce referencje. Konflikt pozostawia zasoby bez zmian, przechodzi do
+  `cleanup_blocked` z diagnostyką i daje się wznowić bez OCR ani utraty decyzji.
+  Katalogi robocze są atomowo przenoszone do managed trash na tym samym
+  woluminie, więc restart pomiędzy etapami jest idempotentny.
+- Po sukcesie historia przechowuje wyłącznie lekki, nieedytowalny run: czasy,
+  liczbę plików, liczniki `verified`, ręcznie pozostawionych i odrzuconych oraz
+  `completed · dane robocze usunięte`. Szczegóły obrazów nie są już dostępne.
+
+## Trwałe usunięcie lekkiej historii weryfikacji nazw — TASK-0412
+
+- Przy prawym brzegu kafla historii `filename_verification` Admin pokazuje
+  `Usuń` wyłącznie dla `completed`, którego job również jest `completed` i
+  checkpoint potwierdza `cleanup=completed`. Drugi krok potwierdzenia
+  `Usuń trwale` jest wymagany przed mutacją.
+- Akcja usuwa w jednej transakcji lekki rekord runu i jego job. Może usunąć
+  wyłącznie osierocone rekordy ranges/review należące do tego runu, pozostawione
+  przez przerwany cleanup. Staging, diagnostyka, output lub obca referencja
+  blokują operację fail-closed.
+- Akcja nie usuwa lokalnego katalogu `seq_*`, katalogu źródłowego operatora ani
+  danych innych workflowów. Po sukcesie Admin kasuje jedynie lokalny uchwyt i
+  kursor tego runu z IndexedDB.
+
+## Deterministyczny silnik wyboru zakresu — TASK-0353
+
+- Każdy JPEG jest dekodowany lekko, ale do range-only OCR trafia najwyżej raz w
+  jednym runie. V1/v2 badają wszystkie źródła; v3 zapisuje pominięte podobne
+  źródła jako `unproven`. Obserwacje są przetwarzane strumieniowo w naturalnej
+  kolejności; zakończony prefiks jest wznawiany z checkpointu bez ponownego OCR.
+- Grupę może otworzyć i podtrzymać wyłącznie `exact_range`. Brak dowodu może
+  rozszerzyć bieżący przedział źródeł maksymalnie o skalibrowane `160` pozycji,
+  ale nigdy nie jest kandydatem do wyboru i nie przypisuje zakresu z sąsiadów.
+- Izolowany układ `A/B/A` pozostaje grupą A z audytowalnym odstającym dowodem.
+  `A/B/B` potwierdza przejście do B, a `A/B/C` oraz `A/B/EOF` zachowują mocny
+  dowód B jako singleton. Duplikaty i zakresy poza kolejnością są raportowane,
+  lecz pierwszy zapis oczekiwanego zakresu nie jest nadpisywany.
+- Reprezentantem grupy jest JPEG z dokładnym dowodem tego samego zakresu,
+  najbliższy środkowi przedziału źródeł. Remis rozstrzygają kolejno wyższa
+  pewność, niższy `sourceIndex` i wcześniejsza naturalna ścieżka.
+- Pełny audyt jest zapisywany jako `observations.jsonl`, `groups.jsonl`,
+  atomowy `checkpoint.json` oraz checksummowany `selection-report.json` pod
+  `data/exports/semi-automatic-selection/<runId>/`. Brak lub zmiana
+  zatwierdzonego prefiksu diagnostyki blokuje wznowienie fail-closed.
+- Zakończenie analizy ustawia run na `analysis_complete`, a job na
+  `waiting_for_review`. Zapis lokalnego katalogu wynikowego nadal należy do
+  TASK-0354.
+
+## Lokalny output półautomatycznej selekcji — TASK-0354
+
+- Automatycznie wybrany JPEG jest kopiowany do katalogu operatora pod nazwą
+  `seq_<start>-<end>.jpg` bez zmiany bajtów. Przed zapisem i po ponownym
+  odczycie celu musi zgadzać się SHA-256 oraz rozmiar źródła.
+- `semi-automatic-image-selection-output-v1.json` wiąże katalog z dokładnym
+  runem, manifestem źródeł, granicami, fingerprintami algorytmów, wyborami,
+  lukami, konfliktami, checkpointem oraz co najwyżej jedną operacją oczekującą.
+- Istniejący plik o identycznej checksumie jest chronionym, idempotentnym
+  sukcesem. Inna zawartość jest konfliktem i nie może zostać automatycznie
+  nadpisana ani potwierdzona do API.
+- Potwierdzenie outputu jest wysyłane dopiero po lokalnym read-backu i zawiera
+  oczekiwaną rewizję zakresu, checksummę źródła oraz checksummę outputu.
+- Po restarcie brak celu wycofuje tylko pending operation, zgodny cel ją
+  finalizuje, a zmieniony cel zapisuje konflikt. Ukończone wybory nie wymagają
+  ponownego pobierania JPEG-a.
+- IndexedDB przechowuje wyłącznie uchwyty katalogów, checksummę manifestu i
+  mały stan widoku. Bloby ani bajty JPEG-ów nie są tam zapisywane.
+
+## Konfiguracja i postęp półautomatycznej selekcji — TASK-0355
+
+- Admin udostępnia osobną, niezależną od gry zakładkę `Półautomatyczny wybór
+  zdjęć`. Nie jest ona sekcją wybranej gry i nie wymaga `gameId`.
+- Konfigurator przyjmuje dwa lokalne katalogi: rekurencyjnie skanowane źródło
+  JPEG oraz katalog docelowy przyszłego outputu. Widoczny wybór katalogów,
+  granic sekwencji i kierunku poprzedza każdy upload.
+- Pierwsza i ostatnia plansza są dodatnie i rosnące. Liczba oczekiwanych
+  zakresów jest wyliczana wyłącznie z `fullRangeSize` przekazanego przez
+  capabilities API; ostatni zakres może być krótszy.
+- Upload używa globalnego stagingu `semi_automatic_selection` i pokazuje
+  potwierdzone przez API pliki oraz bajty. Błąd pojedynczego pliku umożliwia
+  bounded retry albo jawne anulowanie stagingu.
+- Widok odpyta jeden aktywny run bez nakładających się requestów, pokazuje
+  etap, procent, źródła, skan, wybory, luki, konflikty i błędy oraz udostępnia
+  pause/resume/cancel na istniejących endpointach.
+- Capabilities API jest jedynym źródłem flagi serwerowej. Gdy moduł jest
+  wyłączony, konfiguracja i mutacje są nieaktywne; frontend nie może obejść
+  blokady serwera.
+- TASK-0355 nie udostępnia jeszcze przeglądu oczekiwanych zakresów ani ręcznej
+  edycji źródeł; te tryby należą do TASK-0356.
+
+## Przegląd i ręczna edycja źródeł — TASK-0356
+
+- Przed pierwszym review Admin pobiera wszystkie oczekiwane zakresy
+  keysetowo i synchronizuje automatyczne wybory z lokalnym katalogiem.
+  Niepełny, obcy albo nieciągły snapshot jest blokowany przed mutacją plików.
+- `REVIEW MODE` nawiguje po zablokowanych zakresach. `←` i `→` zmieniają
+  zakres, a `F` otwiera edycję jego źródła. Zakres bez wyboru przechodzi od
+  razu do `EDIT SOURCE MODE`.
+- `EDIT SOURCE MODE` nie zmienia aktywnego zakresu. `←` i `→` przeglądają
+  źródłowe JPEG-i, `Enter` albo `F` zapisuje bieżący JPEG, a `Escape` anuluje
+  edycję. Skróty nie przejmują zdarzeń z kontrolek formularza.
+- Istniejący wybór otwiera dokładny `sourceIndex`. Luka rozpoczyna od indeksu
+  poprzedniego wyboru powiększonego o jeden, z fallbackiem `0` i ograniczeniem
+  do końca katalogu.
+- Ręczne dodanie albo zastąpienie zapisuje oryginalne bajty i wymaga zgodności
+  SHA-256, rozmiaru, rewizji zakresu oraz tożsamości źródła ze stagingiem.
+  Istniejący obcy plik nie jest nadpisywany. Lokalny journal umożliwia recovery
+  po przerwaniu przed acknowledgement API.
+## Wejście z lokalnego katalogu `cut`
+
+Katalog przygotowany przez lokalny moduł `Przytnij wybrane zdjęcia` jest dla
+importu zwykłym nowym źródłem JPEG-ów `seq_*`. Pomocniczy plik
+`manual-image-crop-output-v1.json` nie jest uploadowany. System nie podmienia
+nim managed originals wcześniejszego importu i nie zmienia automatycznie
+wersji profilu geometrii ani modelu symboli.

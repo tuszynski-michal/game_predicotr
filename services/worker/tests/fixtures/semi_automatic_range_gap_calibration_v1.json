@@ -1,0 +1,8 @@
+{
+  "contract": "semi-automatic-range-gap-calibration-v1",
+  "corpusManifestSha256": "3ad20befe90d214c46cd671fecbd29105fd9eb60b91c93524057ce57ce42b0ff",
+  "proofSourceIndexes": [0, 8, 9, 11, 18, 25, 41, 72, 76, 81, 87, 91, 97, 107, 112, 117, 122],
+  "schemaVersion": 1,
+  "sourceCount": 283,
+  "source": "ai_docs/quality/image-selection-v1020-low-quality-descending-annotations.json"
+}

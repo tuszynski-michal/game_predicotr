@@ -16,7 +16,10 @@ from game_predictor_api.application.jobs import (
     GridProfileSnapshotResolver,
     _baseline_grid_profile_snapshot,
 )
-from game_predictor_api.domain.grid_calibration import GridProfileStatus
+from game_predictor_api.domain.grid_calibration import (
+    GridProfileStatus,
+    grid_profile_end_to_end_gate_is_current,
+)
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.storage.models import (
     GameGridProfileActivationModel,
@@ -48,6 +51,14 @@ class SqlAlchemyGridProfileSnapshotResolver(GridProfileSnapshotResolver):
                 "GRID_PROFILE_ACTIVE_PROFILE_INVALID",
                 "The active grid profile is unavailable or no longer eligible.",
             )
+        if not grid_profile_end_to_end_gate_is_current(
+            dict(profile.profile_payload),
+            dict(profile.gate_metrics),
+        ):
+            raise JobConflictError(
+                "GRID_PROFILE_END_TO_END_REVALIDATION_REQUIRED",
+                "The active schema-v2 profile has no current end-to-end page and cell gate.",
+            )
         canonical_profile = json.dumps(
             profile.profile_payload,
             ensure_ascii=True,
@@ -65,6 +76,33 @@ class SqlAlchemyGridProfileSnapshotResolver(GridProfileSnapshotResolver):
                 "GRID_PROFILE_ACTIVE_COHORT_INVALID",
                 "The active grid profile has no valid immutable geometry cohort.",
             )
+        anchor_checksums = profile.profile_payload.get("anchorSourceChecksums")
+        selected_anchors = (
+            tuple(value for value in anchor_checksums if isinstance(value, str))
+            if isinstance(anchor_checksums, list)
+            else None
+        )
+        registration_profile = build_verified_page_registration_profile(
+            cohort.manifest_payload,
+            anchor_source_checksums=selected_anchors,
+        )
+        if selected_anchors is not None:
+            raw_anchors = registration_profile.get("anchors")
+            resolved_checksums = (
+                tuple(
+                    anchor.get("sourceChecksumSha256")
+                    for anchor in raw_anchors
+                    if isinstance(anchor, dict)
+                    and isinstance(anchor.get("sourceChecksumSha256"), str)
+                )
+                if isinstance(raw_anchors, list)
+                else ()
+            )
+            if resolved_checksums != selected_anchors:
+                raise JobConflictError(
+                    "GRID_PROFILE_ACTIVE_ANCHOR_DRIFT",
+                    "The active 36-corner anchor set differs from its immutable cohort.",
+                )
         value: dict[str, object] = {
             "profileId": str(profile.id),
             "profileVersion": f"grid-calibration-v{profile.profile_number}",
@@ -74,9 +112,7 @@ class SqlAlchemyGridProfileSnapshotResolver(GridProfileSnapshotResolver):
             # The offset calibration remains immutable and replayable.  Page
             # registration is a separately versioned projection of its
             # reviewed cohort, pinned beside it in each import job.
-            "pageRegistrationProfile": build_verified_page_registration_profile(
-                cohort.manifest_payload
-            ),
+            "pageRegistrationProfile": registration_profile,
         }
         canonical = json.dumps(
             value,

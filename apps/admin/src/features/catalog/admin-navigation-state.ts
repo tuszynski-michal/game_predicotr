@@ -4,6 +4,7 @@ export const ADMIN_WORKSPACES = [
   'jobs',
   'image-selection',
   'manual-image-selection',
+  'semi-automatic-image-selection',
   'symbol-verification',
   'storage',
 ] as const;
@@ -11,6 +12,7 @@ export type AdminWorkspace = (typeof ADMIN_WORKSPACES)[number];
 
 export const GAME_SECTIONS = [
   'imports',
+  'board-source-cleanup',
   'symbols',
   'board-search',
   'rules',

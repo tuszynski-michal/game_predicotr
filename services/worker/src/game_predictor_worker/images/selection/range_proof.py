@@ -65,8 +65,7 @@ def has_strong_local_range_proof(
                 or observation.position_index >= recognized_range.board_count
                 or observation.sequence_number
                 != recognized_range.start + observation.position_index
-                or observation.route
-                not in {"expected_sequence_exact", "expected_sequence_fuzzy"}
+                or observation.route not in {"expected_sequence_exact", "expected_sequence_fuzzy"}
             ):
                 return False
             fuzzy_positions.add(observation.position_index)

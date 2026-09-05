@@ -9,6 +9,13 @@ const panelSource = await readFile(
   ),
   'utf8',
 );
+const actionsSource = await readFile(
+  new URL(
+    '../src/features/imports/image-folder-import-actions.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const modePickerSource = await readFile(
   new URL(
     '../src/features/imports/board-cell-processing-mode-picker.tsx',
@@ -22,6 +29,13 @@ const globalStyles = await readFile(
 );
 const workspaceSource = await readFile(
   new URL('../src/features/catalog/catalog-workspace.tsx', import.meta.url),
+  'utf8',
+);
+const guardResolutionSource = await readFile(
+  new URL(
+    '../src/features/imports/geometry-guard-resolution-panel.tsx',
+    import.meta.url,
+  ),
   'utf8',
 );
 
@@ -42,6 +56,9 @@ test('distinguishes the active import operation from a disabled prerequisite', (
 test('reports incomplete board creation and offers managed-original reprocessing', () => {
   assert.match(panelSource, /Pipeline zdjęć:/);
   assert.match(panelSource, /Silnik cięcia plansz:/);
+  assert.match(panelSource, /Źródło geometrii 3×3/);
+  assert.match(panelSource, /Test ochronny ≥98%/);
+  assert.match(panelSource, /geometrySystemicGuard/);
   assert.match(panelSource, /boardCellProcessingJobLabel/);
   assert.match(panelSource, /Wynik jest niekompletny/);
   assert.match(panelSource, /Przetwórz ponownie z oryginałów/);
@@ -55,24 +72,71 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Gotowy staging do wznowienia/);
   assert.match(panelSource, /Rozpocznij import z raportu/);
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
+  assert.match(panelSource, /Standardowe v0\.10/);
+  assert.match(panelSource, /Obszar plansz — testowe/);
+  assert.match(panelSource, /pageRegistrationVariant/);
+  assert.match(panelSource, /retryBrowserPageGeometryPreflight/);
+  assert.match(panelSource, /geometryPreflightJob\?\.status === 'failed'/);
+  assert.match(panelSource, /Ponów preflight/);
+  assert.match(panelSource, /preflightResult\.data\.geometryPreflightRequired/);
+  assert.match(panelSource, /result\.data\.geometryPreflightRequired/);
+  assert.match(panelSource, /preflight\.symbolModelReady/);
+  assert.match(panelSource, /preflight\.symbolModelBlockerCode/);
+  assert.match(panelSource, /Model symboli/);
+  assert.match(panelSource, /Ulepszaniu modelu symboli/);
+  assert.match(panelSource, /aktywuj model tej gry/);
+  assert.match(panelSource, /Każda pozycja oznacza jedno zdjęcie/);
   assert.match(panelSource, /Importuj rozpoznane strony/);
   assert.match(panelSource, /BoardCellProcessingModePicker/);
   assert.match(panelSource, /jobMatchesBoardCellProcessingMode/);
   assert.match(panelSource, /Rozpocznij import v20 z raportu/);
-  assert.match(panelSource, /Ręczna korekta geometrii — zostaw na koniec/);
+  assert.match(
+    panelSource,
+    /Ręczna korekta zdjęć geometrii — zostaw na\s+koniec/,
+  );
+  assert.match(panelSource, /zarejestrowane zdjęcia/);
   assert.doesNotMatch(panelSource, /Import jest zablokowany/);
   assert.match(panelSource, /utworzony — oczekuje na worker/);
   assert.match(panelSource, /Usuń nieużywany staging/);
   assert.match(panelSource, /Import plansz z folderu/);
 });
 
-test('pins v20 geometry and v19 crops for every new staging import', () => {
-  assert.match(modePickerSource, /Nowe importy zawsze przypinają v20/);
+test('requires explicit board resolutions and pins the sealed manifest to schema v7 start', () => {
+  assert.match(panelSource, /IMAGE_GEOMETRY_SYSTEMIC_REGRESSION/);
+  assert.match(panelSource, /Rozlicz problematyczne plansze/);
+  assert.match(panelSource, /geometryGuardResolutionManifest\?\.id/);
+  assert.match(actionsSource, /geometryGuardResolutionManifestChecksumSha256/);
+  assert.match(guardResolutionSource, /Odtwórz diagnostykę plansz/);
+  assert.match(guardResolutionSource, /Popraw pełną siatkę/);
+  assert.match(guardResolutionSource, /Oznacz jako częściową/);
+  assert.match(guardResolutionSource, /Odrzuć jako nieczytelną/);
+  assert.match(guardResolutionSource, /Generuj podgląd A\/B/);
+  assert.match(guardResolutionSource, /cropped_or_unreadable/);
+  assert.match(guardResolutionSource, /Zamknij manifest decyzji/);
+  assert.match(guardResolutionSource, /nie został uruchomiony automatycznie/);
+});
+
+test('offers stable v19, v0.10 v2 and accepted v0.10 v3 per game', () => {
+  assert.match(modePickerSource, /wyłącznie nowych importów tej gry/);
   assert.match(modePickerSource, /v20 — geometria i cropy v19/);
+  assert.match(modePickerSource, /v0.10 v2 — stabilny silnik strukturalny/);
+  assert.match(modePickerSource, /v0.10 v3 — precyzyjna siatka symboli/);
+  assert.match(modePickerSource, /98,44% bezpiecznych/);
+  assert.match(modePickerSource, /wirtualne\s+assety source-direct/);
+  assert.doesNotMatch(modePickerSource, /onChange\('structured_shadow'\)/);
   assert.match(modePickerSource, /Nie ma fallbacku do\s*v18/);
   assert.doesNotMatch(modePickerSource, /jawny opt-in/);
   assert.doesNotMatch(panelSource, /verifiedV19Confirmed/);
   assert.doesNotMatch(panelSource, /boardCellProcessingStartAllowed/);
+  assert.ok(
+    panelSource.indexOf('<BoardCellProcessingModePicker') <
+      panelSource.indexOf('Gotowy staging do wznowienia'),
+  );
+  assert.match(
+    panelSource,
+    /className="secondaryButton"\s*disabled=\{busy \|\| enginePolicy === null\}[\s\S]*?'Wybierz folder'/,
+  );
+  assert.match(panelSource, /Raport stagingu odświeżono/);
 });
 
 test('provides styled actions and accessible import help', () => {
@@ -130,6 +194,8 @@ test('uses the browser-native directory input without a blocking OS helper', () 
   assert.match(panelSource, /type="file"/);
   assert.match(panelSource, /uploadImageFolder/);
   assert.match(panelSource, /Przesyłanie/);
+  assert.match(actionsSource, /yieldForUploadProgressPaint/);
+  assert.match(actionsSource, /uploaded\.data\.uploadedFileCount/);
   assert.doesNotMatch(panelSource, /Otwieranie…/);
   assert.doesNotMatch(panelSource, /selectImageFolder/);
 });

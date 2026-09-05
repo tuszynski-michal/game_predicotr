@@ -3,16 +3,34 @@ import test from 'node:test';
 
 import {
   createSymbolReviewWorkspaceState,
-  SYMBOL_REVIEW_PAGE_SIZE,
+  DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
+  isSymbolReviewPageSize,
+  MAX_SYMBOL_REVIEW_CACHED_PAGES,
+  MAX_SYMBOL_REVIEW_PAGE_SIZE,
+  SYMBOL_REVIEW_PAGE_SIZES,
+  symbolReviewConfidenceRange,
+  symbolReviewFiltersReady,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
 } from '../src/features/symbol-reviews/symbol-review-state.ts';
 
 const filters = {
+  confidence: 'all',
   gameId: 'game-1',
+  pageSize: 500,
   state: 'pending',
   symbolId: 'symbol-1',
 };
+
+test('requires both game and symbol scope before loading review data', () => {
+  assert.equal(
+    symbolReviewFiltersReady({ ...filters, gameId: null, symbolId: null }),
+    false,
+  );
+  assert.equal(symbolReviewFiltersReady({ ...filters, symbolId: null }), false);
+  assert.equal(symbolReviewFiltersReady(filters), true);
+  assert.equal(symbolReviewFiltersReady({ ...filters, symbolId: 'all' }), true);
+});
 
 function page(id, { nextCursor = null, previousCursor = null } = {}) {
   return {
@@ -24,8 +42,13 @@ function page(id, { nextCursor = null, previousCursor = null } = {}) {
   };
 }
 
-test('uses a single bounded five-hundred-item page without adjacent data cache', () => {
-  assert.equal(SYMBOL_REVIEW_PAGE_SIZE, 500);
+test('keeps at most three bounded metadata pages around the current keyset page', () => {
+  assert.equal(DEFAULT_SYMBOL_REVIEW_PAGE_SIZE, 500);
+  assert.equal(MAX_SYMBOL_REVIEW_PAGE_SIZE, 2_500);
+  assert.deepEqual(SYMBOL_REVIEW_PAGE_SIZES, [500, 1_000, 2_000, 2_500]);
+  assert.equal(isSymbolReviewPageSize(2_500), true);
+  assert.equal(isSymbolReviewPageSize(750), false);
+  assert.equal(MAX_SYMBOL_REVIEW_CACHED_PAGES, 3);
   let state = createSymbolReviewWorkspaceState(filters);
   state = symbolReviewWorkspaceReducer(state, {
     page: page('first', { nextCursor: 'after-first' }),
@@ -43,7 +66,20 @@ test('uses a single bounded five-hundred-item page without adjacent data cache',
     afterCursor: 'after-first',
     number: 2,
   });
-  assert.equal('pages' in state, false);
+  assert.equal(state.pages.length, 2);
+
+  for (const pageNumber of [3, 4]) {
+    state = symbolReviewWorkspaceReducer(state, {
+      page: page(`page-${pageNumber}`),
+      position: { number: pageNumber },
+      type: 'page_prefetched',
+    });
+  }
+  assert.equal(state.pages.length, 3);
+  assert.deepEqual(
+    state.pages.map((cached) => cached.position.number),
+    [1, 2, 3],
+  );
 });
 
 test('changing filters and explicit clearing discard the current page', () => {
@@ -86,20 +122,44 @@ test('fresh keyset reload replaces changed rows instead of merging a page cache'
     ['replacement', 'next'],
   );
   assert.deepEqual(state.currentPage.position, position);
+  assert.deepEqual(
+    state.pages[0]?.page.items.map((item) => item.id),
+    ['replacement', 'next'],
+  );
 });
 
-test('reports the one-based range represented by a bounded page', () => {
-  assert.deepEqual(symbolReviewPageRange(1, 500, 1_240), {
+test('reports the one-based range represented by the confirmed page size', () => {
+  assert.deepEqual(symbolReviewPageRange(1, 500, 500, 1_240), {
     start: 1,
     end: 500,
   });
-  assert.deepEqual(symbolReviewPageRange(2, 500, 1_240), {
+  assert.deepEqual(symbolReviewPageRange(2, 500, 500, 1_240), {
     start: 501,
     end: 1_000,
   });
-  assert.deepEqual(symbolReviewPageRange(3, 240, 1_240), {
+  assert.deepEqual(symbolReviewPageRange(3, 240, 500, 1_240), {
     start: 1_001,
     end: 1_240,
   });
-  assert.equal(symbolReviewPageRange(1, 0, 0), null);
+  assert.deepEqual(symbolReviewPageRange(3, 20, 100, 220), {
+    start: 201,
+    end: 220,
+  });
+  assert.deepEqual(symbolReviewPageRange(1, 2_500, 2_500, 3_000), {
+    start: 1,
+    end: 2_500,
+  });
+  assert.equal(symbolReviewPageRange(1, 0, 100, 0), null);
+});
+
+test('maps stable confidence bands to the API range snapshot', () => {
+  assert.deepEqual(symbolReviewConfidenceRange('all'), {});
+  assert.deepEqual(symbolReviewConfidenceRange('low'), {
+    maxConfidence: 0.499999,
+  });
+  assert.deepEqual(symbolReviewConfidenceRange('medium'), {
+    maxConfidence: 0.799999,
+    minConfidence: 0.5,
+  });
+  assert.deepEqual(symbolReviewConfidenceRange('high'), { minConfidence: 0.8 });
 });

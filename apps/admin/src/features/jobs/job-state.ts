@@ -21,10 +21,12 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   android_build: 'Build APK',
   symbol_training: 'Trening modelu symboli',
   image_selection: 'Selekcja zdjęć',
+  semi_automatic_image_selection: 'Półautomatyczna selekcja zdjęć',
   image_symbol_reinference: 'Przeliczenie oczekujących symboli',
   image_grid_reinference: 'Przeliczenie oczekującej siatki',
   image_symbol_review_bulk: 'Masowa weryfikacja symboli',
   image_symbol_review_backfill: 'Przygotowanie weryfikacji symboli',
+  image_geometry_rollout_backfill: 'Walidacja geometrii wirtualnej',
   storage_gc: 'Bezpieczne czyszczenie pamięci',
   storage_inventory: 'Pomiar zajętości pamięci',
   storage_pipeline_compaction: 'Kompakcja danych pipeline’u',
@@ -52,6 +54,9 @@ export function jobTypeLabel(jobType: JobType): string {
 }
 
 export function jobWorkflowLabel(job: JobResponse): string {
+  if (job.workflowMode === 'filename_verification') {
+    return 'Weryfikacja zakresów plików';
+  }
   if (isImageImportJob(job)) {
     const stage = job.progress.stage;
     if (stage?.startsWith('image_source:') === true) {
@@ -143,11 +148,24 @@ export function jobStageLabel(
   inputPayload?: JobResponse['inputPayload'],
 ): string {
   if (stage === null) return 'Etap nie został jeszcze rozpoczęty';
+  if (stage === 'page_geometry_registering') {
+    return 'Pierwszy przebieg dopasowania geometrii';
+  }
+  const autoAnchorPass = /^page_geometry_auto_anchor_pass_(\d+)$/.exec(stage);
+  if (autoAnchorPass !== null) {
+    return `Dodatkowe dopasowanie geometrii — przebieg ${autoAnchorPass[1]}`;
+  }
+  if (stage === 'page_geometry_manifest_writing') {
+    return 'Zapisywanie końcowego manifestu geometrii';
+  }
+  if (stage === 'page_geometry_manifest_ready') {
+    return 'Manifest geometrii gotowy';
+  }
   if (
     stage.endsWith('sequence_ocr') &&
     inputPayload !== undefined &&
     'schemaVersion' in inputPayload &&
-    inputPayload.schemaVersion === 5
+    (inputPayload.schemaVersion === 5 || inputPayload.schemaVersion === 7)
   ) {
     return 'Przypisanie numerów z nazwy pliku — OCR pominięty';
   }
@@ -257,9 +275,74 @@ export interface JobProgressPresentation {
   readonly label: string;
 }
 
+function isPageGeometryPreflight(job: JobResponse): boolean {
+  return (
+    job.jobType === 'validate' &&
+    'validationKind' in job.inputPayload &&
+    job.inputPayload.validationKind === 'page_geometry_preflight'
+  );
+}
+
+function pageGeometryProgressPresentation(
+  job: JobResponse,
+): JobProgressPresentation | null {
+  if (!isPageGeometryPreflight(job)) return null;
+  const phase = job.progress.pageGeometryPreflight;
+  const phaseCurrent = phase?.phaseCurrent;
+  const phaseTotal = phase?.phaseTotal;
+  const autoAnchorPass = phase?.autoAnchorPass;
+  const autoAnchorPassCount = phase?.autoAnchorPassCount;
+  if (
+    phase?.phase === 'auto_anchor_retry' &&
+    typeof phaseCurrent === 'number' &&
+    typeof phaseTotal === 'number' &&
+    typeof autoAnchorPass === 'number' &&
+    typeof autoAnchorPassCount === 'number'
+  ) {
+    return {
+      current: phaseCurrent,
+      total: phaseTotal,
+      label: `Dodatkowe dopasowanie ${autoAnchorPass}/${autoAnchorPassCount}: ${phaseCurrent.toLocaleString('pl-PL')} / ${phaseTotal.toLocaleString('pl-PL')} zdjęć`,
+    };
+  }
+  if (
+    phase?.phase === 'source_registration' &&
+    typeof phaseCurrent === 'number' &&
+    typeof phaseTotal === 'number'
+  ) {
+    return {
+      current: phaseCurrent,
+      total: phaseTotal,
+      label: `Pierwszy przebieg: ${phaseCurrent.toLocaleString('pl-PL')} / ${phaseTotal.toLocaleString('pl-PL')} zdjęć`,
+    };
+  }
+  if (phase?.phase === 'manifest_write') {
+    return {
+      current: phase.phaseCurrent ?? 0,
+      total: phase.phaseTotal ?? 1,
+      label: 'Zapisywanie końcowego manifestu geometrii',
+    };
+  }
+  if (
+    phase?.complete !== true &&
+    job.progress.stage === 'page_geometry_registering' &&
+    job.progress.total !== null &&
+    job.progress.current >= job.progress.total
+  ) {
+    return {
+      current: 0,
+      total: null,
+      label: `Dodatkowe dopasowanie geometrii · zarejestrowano ${job.progress.succeeded.toLocaleString('pl-PL')} z ${job.progress.total.toLocaleString('pl-PL')} zdjęć`,
+    };
+  }
+  return null;
+}
+
 export function jobProgressPresentation(
   job: JobResponse,
 ): JobProgressPresentation {
+  const pageGeometryProgress = pageGeometryProgressPresentation(job);
+  if (pageGeometryProgress !== null) return pageGeometryProgress;
   const { current, stage, total } = job.progress;
   const isTwoPhaseImageImport =
     isImageImportJob(job) &&
@@ -291,6 +374,39 @@ export function jobProgressPresentation(
       total === null
         ? `${current.toLocaleString('pl-PL')} przetworzonych`
         : `${current.toLocaleString('pl-PL')} / ${total.toLocaleString('pl-PL')}`,
+  };
+}
+
+export interface JobActivityPresentation {
+  readonly label: string;
+  readonly state: 'active' | 'waiting' | 'stale';
+}
+
+export function jobActivityPresentation(
+  job: JobResponse,
+  nowMs = Date.now(),
+): JobActivityPresentation | null {
+  if (job.status !== 'processing') return null;
+  if (job.heartbeatAt === null) {
+    return {
+      label: 'Worker przejął job — oczekiwanie na pierwszy sygnał',
+      state: 'waiting',
+    };
+  }
+  const heartbeatMs = new Date(job.heartbeatAt).valueOf();
+  if (!Number.isFinite(heartbeatMs)) {
+    return { label: 'Nie można odczytać heartbeat workera', state: 'stale' };
+  }
+  const ageSeconds = Math.max(0, Math.floor((nowMs - heartbeatMs) / 1000));
+  if (ageSeconds <= 45) {
+    return {
+      label: `Worker aktywny · sygnał ${ageSeconds} s temu`,
+      state: 'active',
+    };
+  }
+  return {
+    label: `Uwaga: brak świeżego sygnału workera od ${ageSeconds} s`,
+    state: 'stale',
   };
 }
 

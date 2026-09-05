@@ -40,8 +40,9 @@ należą do `DATA_MODEL.md`.
 
 ### `verified_training_cohorts`
 
-Niezmienny manifest v1 pełnych plansz albo v2 pojedynczych, zatwierdzonych
-cropów symboli jednej gry.
+Niezmienny manifest v1 pełnych plansz, historyczne v2–v3 pojedynczych,
+zatwierdzonych cropów albo v4 pojedynczych cropów z jawnym trybem assetu i
+pełną proweniencją renderu `virtual_source` jednej gry.
 Zawiera co najmniej `game_id`, numer iteracji, checksumę manifestu, liczności,
 identyfikatory źródeł oraz czas i aktora zamrożenia.
 
@@ -94,6 +95,16 @@ zdominowaniu kohorty przez jedną stronę. Cel to 1000, hard max 2000 przykład�
 na aktywny symbol. Historyczne manifesty pełnych plansz v1 pozostają
 odtwarzalne i nadal są obsługiwane przez builder datasetu.
 
+Manifest v4 nie wymaga fizycznego pliku cropa dla `virtual_source`. Zamraża
+source geometry revision, checksumę geometrii i znormalizowanych pikseli,
+logical-cell v1/v2, render identity v2, pełny render spec, wersję ekstraktora
+oraz checksumę wynikowych pikseli. Preview oblicza deskryptor przez ten sam
+checksum-bound renderer co podgląd komórki. Builder datasetu odtwarza crop z
+managed original, ponownie sprawdza źródło, render spec i checksumę RGB, a
+dopiero potem zapisuje PNG w content-addressed katalogu datasetu. Manifest
+datasetu rozróżnia checksumę bajtów legacy od `rgb-pixel-v1`, dzięki czemu
+kodowanie PNG nie jest mylone z tożsamością pikseli v0.10.
+
 Read-only preview nie blokuje gry ani pozycji review. Dla wszystkich pozycji
 czyta lekką projekcję stanu potrzebną do deterministycznego manifestu, natomiast
 pełną geometrię i 15 cropów materializuje wyłącznie dla `accepted` oraz
@@ -105,6 +116,13 @@ Grupą podziału jest co najmniej zdjęcie źródłowe. Builder generuje stabiln
 train/validation/test i osobny stały zestaw regresyjny. Ta sama grupa nie może
 wystąpić w kilku częściach. Kolejna iteracja trenuje od początku na całej
 skumulowanej kohorcie, co ogranicza dryf i pozwala dokładnie odtworzyć wynik.
+
+Konfiguracja podziału zbiera rodziny źródeł z rekordów pełnych plansz oraz z
+rekordów pojedynczo zatwierdzonych komórek przez ich `source_image_id`. Przy co
+najmniej czterech rodzinach każdy z czterech splitów musi być niepusty przed
+treningiem. Historyczne przypisanie, którego nie da się uzupełnić nowymi
+źródłami do pełnego podziału, nie jest poprawną kotwicą stabilności i w nowej
+iteracji zostaje odbudowane deterministycznie.
 
 Implementacja `verified-symbol-training-dataset-v1` przypisuje całą rodzinę
 źródła przez stabilny hash checksumy oryginału. Domyślny podział wynosi
@@ -217,10 +235,16 @@ rekordu gry. Nie istnieje drugi, mutowalny wskaźnik: aktywny model jest projekc
 zdarzenia o najwyższym monotonicznym `activation_number`. Poprzednie wersje
 pozostają niezmienne, więc rollback jest kolejnym zdarzeniem aktywacji.
 
-Jeżeli gra nie ma jeszcze zdarzenia, resolver zwraca jawny, checksum-bound
-snapshot kontrolowanego modelu bootstrapowego. Po pierwszej aktywacji resolver
-sprawdza manifest, ONNX, katalog klas i kalibrację przed utworzeniem joba; brak
-lub drift artefaktu zatrzymuje nowy import bez cichego fallbacku.
+Jeżeli gra nie ma jeszcze zdarzenia i nie ma gotowego kandydata, resolver zwraca
+jawny, checksum-bound snapshot kontrolowanego modelu bootstrapowego wyłącznie,
+gdy jego klasy dokładnie odpowiadają aktywnemu katalogowi gry. Niezgodność
+zwraca `SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED` i wymaga treningu oraz jawnej
+aktywacji modelu tej gry. Istnienie
+`candidate_ready` bez aktywacji blokuje nowy import i reinferencję: wymaga jawnej
+decyzji właściciela, zamiast cicho wracać do bootstrapu. Po pierwszej aktywacji
+resolver sprawdza manifest, ONNX, kalibrację oraz dokładną zgodność katalogu
+klas z aktywnymi kodami symboli gry przed utworzeniem joba; brak, drift lub obca
+klasa zatrzymują zapis bez konwersji predykcji do `?`.
 
 Tworzenie image import joba schema v2 zapisuje dokładny snapshot modelu:
 identyfikator iteracji, manifest SHA-256, ONNX SHA-256, wersję, katalog klas,
@@ -236,6 +260,12 @@ Jawna komenda tworzy job z listą elementów kwalifikujących się w momencie
 startu. Worker ponownie sprawdza warunki przy każdym zapisie. Wyniki są nowymi
 rekordami `symbol_prediction_revisions`, a projekcja bieżącej sugestii wybiera
 najnowszą zgodną rewizję dla elementu nadal `pending`.
+
+Dla `legacy_file` worker odczytuje niezmienny crop. Dla `virtual_source`
+odtwarza bieżące piksele bezpośrednio z checksum-bound managed original i
+utrwalonego render spec. Przed inferencją sprawdza źródło, pełną proweniencję
+renderu oraz checksumę wynikowych pikseli. Rewizja predykcji zachowuje tę
+proweniencję, a koordynator projekcji nie nadpisuje decyzji człowieka.
 
 Raport końcowy rozdziela:
 

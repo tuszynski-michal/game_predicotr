@@ -4,8 +4,10 @@ import {
   MANUAL_IMAGE_NAVIGATION_STEPS,
   buildRemoteSourceManifestV1,
   canonicalRemoteChecksumSha256,
+  isManualSelectionRangeTerminal,
   nextManualRangeStart,
   normalizeRemoteSourcePath,
+  rangeForStart,
   type RemoteManualSelectionDirection,
   type RemoteManualSelectionOperationCommandV1,
   type RemoteSourceKind,
@@ -62,7 +64,7 @@ export interface RemoteSelectionLocalBatchRecord {
   /**
    * New batches always walk source ordinals in manifest order. Older
    * descending batches inverted that order and are repaired from the last
-   * durable decision on restore.
+   * durably accepted source photo on restore.
    */
   readonly sourceTraversalSemantics?: RemoteSelectionSourceTraversalSemantics;
   readonly cursorIndex: number;
@@ -75,6 +77,8 @@ export interface RemoteSelectionLocalBatchRecord {
   readonly serverRevision?: number;
   readonly status?: 'indexing' | 'active' | 'finalizing' | 'completed';
   readonly nextRangeStart?: number;
+  readonly selectionComplete?: boolean;
+  readonly sequenceUpperBound?: number | null;
   readonly navigationStep?: number;
   readonly decisions?: readonly RemoteSelectionWorkspaceDecision[];
   readonly updatedAt: string;
@@ -98,6 +102,7 @@ export interface RemoteSelectionWorkspaceState {
   readonly decisions: readonly RemoteSelectionWorkspaceDecision[];
   readonly navigationStep: number;
   readonly nextRangeStart: number;
+  readonly selectionComplete: boolean;
 }
 
 export interface RemoteSelectionOperationClock {
@@ -208,11 +213,17 @@ export function remoteSelectionWorkspaceState(
 ): RemoteSelectionWorkspaceState {
   const decisions = batch.decisions ?? [];
   const lastDecision = decisions.at(-1);
+  const lastAcceptedDecision = [...decisions]
+    .reverse()
+    .find((decision) => decision.action === 'accepted');
   const repairLegacyDescendingTraversal =
     batch.direction === 'descending' &&
     batch.sourceTraversalSemantics !== 'natural_v2';
   const currentIndex = repairLegacyDescendingTraversal
-    ? Math.min((lastDecision?.sourceIndex ?? -1) + 1, batch.fileCount - 1)
+    ? Math.min(
+        (lastAcceptedDecision?.sourceIndex ?? -1) + 1,
+        batch.fileCount - 1,
+      )
     : batch.cursorIndex;
   const navigationStep = MANUAL_IMAGE_NAVIGATION_STEPS.includes(
     batch.navigationStep as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],
@@ -228,6 +239,7 @@ export function remoteSelectionWorkspaceState(
       (lastDecision === undefined
         ? batch.firstLayout
         : nextManualRangeStart(batch.direction, lastDecision.rangeStart)),
+    selectionComplete: batch.selectionComplete === true,
   };
 }
 
@@ -241,6 +253,7 @@ export function restartRemoteSelectionLocalBatch(
     decisions: [],
     hostRegistered: true,
     nextRangeStart: batch.firstLayout,
+    selectionComplete: false,
     sourceTraversalSemantics: 'natural_v2',
     status: 'active',
     updatedAt,
@@ -594,6 +607,7 @@ export class RemoteSelectionIndexedDbStore {
       }
       if (
         workspace.nextRangeStart !== decision.rangeStart ||
+        workspace.selectionComplete ||
         input.nextCursorIndex < 0 ||
         input.nextCursorIndex >= batch.fileCount
       ) {
@@ -621,10 +635,8 @@ export class RemoteSelectionIndexedDbStore {
         cursorIndex: input.nextCursorIndex,
         decisions: [...workspace.decisions, decision],
         navigationStep: workspace.navigationStep,
-        nextRangeStart: nextManualRangeStart(
-          batch.direction,
-          decision.rangeStart,
-        ),
+        nextRangeStart: nextRangeStartAfterDecision(batch, decision),
+        selectionComplete: isDecisionTerminal(batch, decision),
         sourceTraversalSemantics: 'natural_v2',
         updatedAt: queuedAt,
       };
@@ -667,6 +679,7 @@ export class RemoteSelectionIndexedDbStore {
       const workspace = remoteSelectionWorkspaceState(batch);
       if (
         workspace.nextRangeStart !== input.decision.rangeStart ||
+        workspace.selectionComplete ||
         input.nextCursorIndex < 0 ||
         input.nextCursorIndex >= batch.fileCount
       ) {
@@ -681,10 +694,8 @@ export class RemoteSelectionIndexedDbStore {
         cursorIndex: input.nextCursorIndex,
         decisions: [...workspace.decisions, input.decision],
         navigationStep: workspace.navigationStep,
-        nextRangeStart: nextManualRangeStart(
-          batch.direction,
-          input.decision.rangeStart,
-        ),
+        nextRangeStart: nextRangeStartAfterDecision(batch, input.decision),
+        selectionComplete: isDecisionTerminal(batch, input.decision),
         sourceTraversalSemantics: 'natural_v2',
         updatedAt,
       };
@@ -742,6 +753,7 @@ export class RemoteSelectionIndexedDbStore {
         decisions: workspace.decisions.slice(0, -1),
         navigationStep: workspace.navigationStep,
         nextRangeStart: last.rangeStart,
+        selectionComplete: false,
         sourceTraversalSemantics: 'natural_v2',
         updatedAt,
       };
@@ -832,6 +844,7 @@ export class RemoteSelectionIndexedDbStore {
         decisions: workspace.decisions.slice(0, -1),
         navigationStep: workspace.navigationStep,
         nextRangeStart: last.rangeStart,
+        selectionComplete: false,
         updatedAt: queuedAt,
       };
       validateWorkspaceBatch(next);
@@ -1850,11 +1863,15 @@ function validateWorkspaceBatch(record: RemoteSelectionLocalBatchRecord): void {
     workspace.currentIndex >= record.fileCount ||
     !Number.isSafeInteger(workspace.nextRangeStart) ||
     workspace.nextRangeStart < 1 ||
+    (record.sequenceUpperBound !== undefined &&
+      record.sequenceUpperBound !== null &&
+      (!Number.isSafeInteger(record.sequenceUpperBound) ||
+        record.sequenceUpperBound < record.firstLayout)) ||
     workspace.decisions.some(
       (decision) =>
         !Number.isSafeInteger(decision.rangeStart) ||
         decision.rangeStart < 1 ||
-        decision.rangeEnd !== decision.rangeStart + 8 ||
+        !isDecisionRangeValid(record, decision) ||
         !Number.isSafeInteger(decision.sourceIndex) ||
         decision.sourceIndex < 0 ||
         decision.sourceIndex >= record.fileCount,
@@ -1872,6 +1889,42 @@ function validateWorkspaceBatch(record: RemoteSelectionLocalBatchRecord): void {
       'The persisted remote workspace state is inconsistent.',
     );
   }
+}
+
+function isDecisionRangeValid(
+  batch: RemoteSelectionLocalBatchRecord,
+  decision: RemoteSelectionWorkspaceDecision,
+): boolean {
+  try {
+    const upperBound =
+      batch.sequenceUpperBound === undefined ? null : batch.sequenceUpperBound;
+    const expectedEnd = rangeForStart(decision.rangeStart, upperBound).end;
+    return decision.rangeEnd === expectedEnd;
+  } catch {
+    return false;
+  }
+}
+
+function isDecisionTerminal(
+  batch: RemoteSelectionLocalBatchRecord,
+  decision: RemoteSelectionWorkspaceDecision,
+): boolean {
+  if (batch.sequenceUpperBound === undefined) return false;
+  return isManualSelectionRangeTerminal(
+    batch.direction,
+    decision.rangeStart,
+    decision.rangeEnd,
+    batch.sequenceUpperBound,
+  );
+}
+
+function nextRangeStartAfterDecision(
+  batch: RemoteSelectionLocalBatchRecord,
+  decision: RemoteSelectionWorkspaceDecision,
+): number {
+  return isDecisionTerminal(batch, decision)
+    ? decision.rangeStart
+    : nextManualRangeStart(batch.direction, decision.rangeStart);
 }
 
 function validateIndexedSource(input: {

@@ -6,6 +6,11 @@ from uuid import uuid4
 
 import game_predictor_api.storage.image_symbol_review_backfill_repository as backfill_storage
 import pytest
+from game_predictor_api.domain.jobs import JobType, create_job
+from game_predictor_api.schemas.jobs import (
+    SymbolCellReviewBackfillJobPayload,
+    _payload_from_domain,
+)
 from game_predictor_api.storage.image_symbol_review_backfill_repository import (
     SqlAlchemySymbolCellReviewBackfillRepository,
 )
@@ -40,6 +45,57 @@ def test_storage_metrics_keep_database_sizes_when_data_directory_is_inaccessible
     assert metrics == (12_345, 6_789, None)
 
 
+def test_ready_projection_reports_all_current_board_owners_as_processed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    game_id = uuid4()
+    session = MagicMock()
+    session.scalar.side_effect = [123, 1_845]
+    session.get.return_value = SimpleNamespace(
+        status="ready",
+        processed_review_item_count=0,
+        missing_sequence_count=0,
+        invalid_crop_count=0,
+        invalid_geometry_count=0,
+        failure_message=None,
+    )
+    repository = SqlAlchemySymbolCellReviewBackfillRepository(session)
+    monkeypatch.setattr(repository, "_active_job", MagicMock(return_value=None))
+    monkeypatch.setattr(repository, "_latest_job_record", MagicMock(return_value=None))
+    monkeypatch.setattr(repository, "_storage_metrics", MagicMock(return_value=(1, 2, 3)))
+
+    status = repository._status(game_id)
+
+    assert status.expected_board_count == 123
+    assert status.expected_cell_count == 1_845
+    assert status.processed_board_count == 123
+    assert status.persisted_cell_count == 1_845
+
+
+def test_rebuilding_projection_keeps_persisted_checkpoint_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    game_id = uuid4()
+    session = MagicMock()
+    session.scalar.side_effect = [123, 600]
+    session.get.return_value = SimpleNamespace(
+        status="rebuilding",
+        processed_review_item_count=40,
+        missing_sequence_count=0,
+        invalid_crop_count=0,
+        invalid_geometry_count=0,
+        failure_message=None,
+    )
+    repository = SqlAlchemySymbolCellReviewBackfillRepository(session)
+    monkeypatch.setattr(repository, "_active_job", MagicMock(return_value=None))
+    monkeypatch.setattr(repository, "_latest_job_record", MagicMock(return_value=None))
+    monkeypatch.setattr(repository, "_storage_metrics", MagicMock(return_value=(1, 2, 3)))
+
+    status = repository._status(game_id)
+
+    assert status.processed_board_count == 40
+
+
 def test_start_marks_reconciliation_of_ready_projection_as_available(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -64,3 +120,33 @@ def test_start_marks_reconciliation_of_ready_projection_as_available(
     assert result.created is True
     record = session.add.call_args.args[0]
     assert record.input_payload["preserve_ready_projection"] is True
+
+
+def test_backfill_job_payload_accepts_preserved_ready_projection() -> None:
+    payload = SymbolCellReviewBackfillJobPayload.model_validate(
+        {
+            "schema_version": 1,
+            "workflow": "image_symbol_review_backfill",
+            "generation": 2,
+            "preserve_ready_projection": True,
+        }
+    )
+
+    assert payload.preserve_ready_projection is True
+
+
+def test_job_response_serializes_preserved_ready_projection() -> None:
+    job = create_job(
+        JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "workflow": "image_symbol_review_backfill",
+            "generation": 2,
+            "preserve_ready_projection": True,
+        },
+    )
+
+    payload = _payload_from_domain(job)
+
+    assert payload.preserve_ready_projection is True

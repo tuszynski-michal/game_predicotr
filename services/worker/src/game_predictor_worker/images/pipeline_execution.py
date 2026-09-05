@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -213,6 +214,20 @@ class ImagePipelineProjectionStore(Protocol):
         discovery: Mapping[str, object],
     ) -> None: ...
 
+    def project_source_metadata(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        normalization: StoredImageStageResult,
+    ) -> None: ...
+
+    def project_source_geometry(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        stage_results: Mapping[str, StoredImageStageResult],
+    ) -> None: ...
+
     def project_recognition(
         self,
         candidate: ImageBatchCandidate,
@@ -252,6 +267,9 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
         discovery = results.get("discovery")
         if discovery is not None:
             self._store.project_source(candidate, discovery=discovery.payload)
+        normalization = results.get("normalization")
+        if normalization is not None:
+            self._store.project_source_metadata(candidate, normalization=normalization)
         for stage in (BOARD_CELL_GEOMETRY_STAGE, "board_crops"):
             stored = results.get(stage)
             adapter = self._adapters.get(stage)
@@ -273,6 +291,8 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
                     ),
                     stored.payload,
                 )
+            if stage == BOARD_CELL_GEOMETRY_STAGE and stored is not None:
+                self._store.project_source_geometry(candidate, stage_results=results)
         required = {
             "board_detection",
             "board_crops",
@@ -391,6 +411,10 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
             )
         if stage == "discovery":
             self._store.project_source(candidate, discovery=stored.payload)
+        if stage == "normalization":
+            self._store.project_source_metadata(candidate, normalization=stored)
+        if stage == BOARD_CELL_GEOMETRY_STAGE:
+            self._store.project_source_geometry(candidate, stage_results=existing)
         if stage == "symbol_inference":
             self._store.project_recognition(candidate, stage_results=existing)
         return ImageStageExecutionResult.COMPLETED
@@ -453,6 +477,12 @@ def validate_stage_payload(
         _positive_integer(payload.get("height"), "normalization.height")
     elif stage == "board_detection":
         _boards(payload, require_cells=False, require_sequence=False, require_symbols=False)
+        candidate = payload.get("structuredGeometryCandidateV2")
+        if candidate is not None:
+            _structured_candidate_v2(candidate, context=context, payload=payload)
+        candidate_v3 = payload.get("structuredGeometryCandidateV3")
+        if candidate_v3 is not None:
+            _structured_candidate_v3(candidate_v3, context=context, payload=payload)
     elif stage == BOARD_CELL_GEOMETRY_STAGE:
         _board_cell_geometry(payload, context)
     elif stage == "board_crops":
@@ -615,8 +645,14 @@ def _boards(
         positions.append(position)
         if require_cells:
             _board_cells(board)
-            _relative_path(board.get("boardRelativePath"), "boardRelativePath")
-            _sha256(board.get("boardChecksumSha256"), "board checksum")
+            if board.get("assetMode") == "virtual_source":
+                _sha256(board.get("geometryChecksumSha256"), "geometry checksum")
+                for field in ("geometryEngineName", "geometryEngineVersion"):
+                    if not isinstance(board.get(field), str) or not str(board[field]).strip():
+                        _invalid(f"Virtual board {field} must be non-empty.")
+            else:
+                _relative_path(board.get("boardRelativePath"), "boardRelativePath")
+                _sha256(board.get("boardChecksumSha256"), "board checksum")
         elif require_sequence:
             raw_text = board.get("rawText")
             if not isinstance(raw_text, str):
@@ -647,16 +683,29 @@ def _board_cells(board: Mapping[str, object]) -> None:
     if not isinstance(raw_cells, Sequence) or isinstance(raw_cells, str | bytes):
         _invalid("Board crop cells must be an array.")
     cells = cast(Sequence[object], raw_cells)
-    if len(cells) != BOARD_CELL_COUNT:
-        _invalid("Every cropped board must contain exactly 15 cells.")
-    for index, item in enumerate(cells):
-        cell = _mapping(item, f"cells[{index}]")
+    available_indices = _available_cell_indices(board, len(cells), "cropped board")
+    for ordinal, item in enumerate(cells):
+        cell = _mapping(item, f"cells[{ordinal}]")
         row = _nonnegative_integer(cell.get("rowIndex"), "rowIndex")
         column = _nonnegative_integer(cell.get("columnIndex"), "columnIndex")
-        if row != index // BOARD_COLUMNS or column != index % BOARD_COLUMNS:
-            _invalid("Board cells must be complete and row-major.")
-        _relative_path(cell.get("cropRelativePath"), "cropRelativePath")
+        index = row * BOARD_COLUMNS + column
+        if index != available_indices[ordinal]:
+            _invalid("Board cells must match the declared row-major availability mask.")
         _sha256(cell.get("cropChecksumSha256"), "crop checksum")
+        if cell.get("assetMode") == "virtual_source":
+            _sha256(cell.get("logicalCellKeySha256"), "logical cell key")
+            if cell.get("logicalCellKeyV2Sha256") is not None:
+                _sha256(cell.get("logicalCellKeyV2Sha256"), "logical cell v2 key")
+                _sha256(cell.get("renderIdentityV2Sha256"), "render identity v2 checksum")
+            _sha256(cell.get("renderSpecChecksumSha256"), "render spec checksum")
+            _sha256(cell.get("renderedPixelChecksumSha256"), "rendered pixel checksum")
+            if not isinstance(cell.get("renderSpec"), Mapping):
+                _invalid("Virtual cell renderSpec must be an object.")
+            extractor = cell.get("extractorVersion")
+            if not isinstance(extractor, str) or not extractor.strip():
+                _invalid("Virtual cell extractorVersion must be non-empty.")
+        else:
+            _relative_path(cell.get("cropRelativePath"), "cropRelativePath")
     cropper = board.get("cropperVersion")
     if not isinstance(cropper, str) or not cropper.strip():
         _invalid("Board cropperVersion must be non-empty.")
@@ -667,14 +716,14 @@ def _symbol_cells(board: Mapping[str, object]) -> None:
     if not isinstance(raw_cells, Sequence) or isinstance(raw_cells, str | bytes):
         _invalid("Symbol prediction cells must be an array.")
     cells = cast(Sequence[object], raw_cells)
-    if len(cells) != BOARD_CELL_COUNT:
-        _invalid("Every symbol prediction must contain exactly 15 cells.")
-    for index, item in enumerate(cells):
-        cell = _mapping(item, f"cells[{index}]")
+    available_indices = _available_cell_indices(board, len(cells), "symbol prediction")
+    for ordinal, item in enumerate(cells):
+        cell = _mapping(item, f"cells[{ordinal}]")
         row = _nonnegative_integer(cell.get("rowIndex"), "rowIndex")
         column = _nonnegative_integer(cell.get("columnIndex"), "columnIndex")
-        if row != index // BOARD_COLUMNS or column != index % BOARD_COLUMNS:
-            _invalid("Symbol predictions must be complete and row-major.")
+        index = row * BOARD_COLUMNS + column
+        if index != available_indices[ordinal]:
+            _invalid("Symbol predictions must match the declared row-major availability mask.")
         code = cell.get("symbolCode")
         if not isinstance(code, str) or not code.strip():
             _invalid("Predicted symbolCode must be non-empty.")
@@ -686,6 +735,34 @@ def _symbol_cells(board: Mapping[str, object]) -> None:
             or not 1 <= len(alternatives) <= 3
         ):
             _invalid("Symbol alternatives must contain one to three values.")
+
+
+def _available_cell_indices(
+    board: Mapping[str, object], cell_count: int, label: str
+) -> tuple[int, ...]:
+    completeness = board.get("completenessStatus", "complete")
+    raw_unavailable = board.get("unavailableCellIndices", [])
+    if not isinstance(raw_unavailable, Sequence) or isinstance(raw_unavailable, str | bytes):
+        _invalid(f"The {label} unavailable-cell mask must be an array.")
+    unavailable = tuple(
+        _nonnegative_integer(value, f"{label} unavailable cell index") for value in raw_unavailable
+    )
+    if unavailable != tuple(sorted(set(unavailable))) or any(
+        value >= BOARD_CELL_COUNT for value in unavailable
+    ):
+        _invalid(f"The {label} unavailable-cell mask is invalid.")
+    if completeness == "complete":
+        if unavailable or cell_count != BOARD_CELL_COUNT:
+            _invalid(f"A complete {label} must contain exactly 15 cells.")
+    elif completeness == "pending_partial":
+        if not 1 <= len(unavailable) <= BOARD_CELL_COUNT - 1:
+            _invalid(f"A partial {label} must declare between 1 and 14 unavailable cells.")
+        if cell_count != BOARD_CELL_COUNT - len(unavailable):
+            _invalid(f"A partial {label} must contain every available cell exactly once.")
+    else:
+        _invalid(f"The {label} completeness status is invalid.")
+    unavailable_set = set(unavailable)
+    return tuple(index for index in range(BOARD_CELL_COUNT) if index not in unavailable_set)
 
 
 def _same_positions(
@@ -706,6 +783,116 @@ def _same_positions(
         _invalid("Board positions cannot change between pipeline stages.")
 
 
+def _structured_candidate_v2(
+    value: object,
+    *,
+    context: ImageStageContext,
+    payload: Mapping[str, object],
+) -> None:
+    candidate = _mapping(value, "structuredGeometryCandidateV2")
+    checksum = candidate.get("resultChecksumSha256")
+    _sha256(checksum, "structuredGeometryCandidateV2.resultChecksumSha256")
+    unsigned = dict(candidate)
+    unsigned.pop("resultChecksumSha256", None)
+    expected = hashlib.sha256(canonical_json_bytes(unsigned)).hexdigest()
+    if checksum != expected:
+        _invalid("The Structured Geometry v2 shadow candidate checksum changed.")
+    if (
+        candidate.get("candidateRole") != "measurement_only"
+        or candidate.get("activationAllowed") is not False
+        or candidate.get("geometryOriginPolicy") != "reuse_v1_final_quad_without_authority"
+    ):
+        _invalid("The Structured Geometry v2 shadow candidate must remain measurement-only.")
+    _sha256(candidate.get("configChecksumSha256"), "candidate config checksum")
+    _matching_text(
+        candidate.get("sourceChecksumSha256"),
+        context.source_checksum_sha256,
+        "candidate source checksum",
+    )
+    _sha256(candidate.get("normalizedPixelChecksumSha256"), "candidate pixel checksum")
+    _sha256(candidate.get("upstreamResultChecksumSha256"), "candidate upstream checksum")
+    structured = _mapping(payload.get("structuredGeometry"), "structuredGeometry")
+    _matching_text(
+        candidate.get("upstreamResultChecksumSha256"),
+        _sha256(structured.get("resultChecksumSha256"), "structured result checksum"),
+        "candidate upstream result checksum",
+    )
+    normalization = context.previous_results.get("normalization")
+    if normalization is not None and "normalizedPixelChecksumSha256" in normalization:
+        _matching_text(
+            candidate.get("normalizedPixelChecksumSha256"),
+            _sha256(
+                normalization.get("normalizedPixelChecksumSha256"),
+                "normalization pixel checksum",
+            ),
+            "candidate normalized pixel checksum",
+        )
+
+
+def _structured_candidate_v3(
+    value: object,
+    *,
+    context: ImageStageContext,
+    payload: Mapping[str, object],
+) -> None:
+    candidate = _mapping(value, "structuredGeometryCandidateV3")
+    checksum = candidate.get("resultChecksumSha256")
+    _sha256(checksum, "structuredGeometryCandidateV3.resultChecksumSha256")
+    unsigned = dict(candidate)
+    unsigned.pop("resultChecksumSha256", None)
+    expected = hashlib.sha256(canonical_json_bytes(unsigned)).hexdigest()
+    if checksum != expected:
+        _invalid("The Structured Geometry v3 lattice candidate checksum changed.")
+    if (
+        candidate.get("candidateRole") != "measurement_only"
+        or candidate.get("activationAllowed") is not False
+        or candidate.get("configVersion") != "structured-lattice-candidate-v3-config-v1"
+        or candidate.get("geometryOriginPolicy")
+        != "frame_conditioned_symbol_lattice_without_crop_authority"
+    ):
+        _invalid("The Structured Geometry v3 lattice candidate must remain measurement-only.")
+    _sha256(candidate.get("configChecksumSha256"), "candidate v3 config checksum")
+    _matching_text(
+        candidate.get("sourceChecksumSha256"),
+        context.source_checksum_sha256,
+        "candidate v3 source checksum",
+    )
+    _sha256(candidate.get("normalizedPixelChecksumSha256"), "candidate v3 pixel checksum")
+    structured = _mapping(payload.get("structuredGeometry"), "structuredGeometry")
+    _matching_text(
+        candidate.get("upstreamResultChecksumSha256"),
+        _sha256(structured.get("resultChecksumSha256"), "structured result checksum"),
+        "candidate v3 upstream result checksum",
+    )
+    normalization = context.previous_results.get("normalization")
+    if normalization is not None and "normalizedPixelChecksumSha256" in normalization:
+        _matching_text(
+            candidate.get("normalizedPixelChecksumSha256"),
+            _sha256(
+                normalization.get("normalizedPixelChecksumSha256"),
+                "normalization pixel checksum",
+            ),
+            "candidate v3 normalized pixel checksum",
+        )
+    boards = _sequence_mappings(
+        candidate.get("boards"),
+        "structuredGeometryCandidateV3.boards",
+    )
+    for value in boards:
+        board = _mapping(value, "structuredGeometryCandidateV3.board")
+        status = board.get("localLatticeStatus")
+        symbol_grid = board.get("symbolGridQuad")
+        final_quad = board.get("finalQuad")
+        if status == "estimated":
+            if symbol_grid != final_quad:
+                _invalid("The v3 final quad must alias its symbol grid quad.")
+        elif status == "needs_review":
+            if symbol_grid is not None or final_quad is not None:
+                _invalid("A deferred v3 lattice cannot expose fallback geometry.")
+        else:
+            _invalid("The v3 lattice candidate status is invalid.")
+
+
 def _board_cell_geometry(
     payload: Mapping[str, object],
     context: ImageStageContext,
@@ -722,12 +909,50 @@ def _board_cell_geometry(
         require_symbols=False,
     )
     _same_positions(context, "board_detection", boards)
+    structured = payload.get("structuredGeometry")
+    if structured is not None:
+        structured_payload = _mapping(structured, "structuredGeometry")
+        _sha256(
+            structured_payload.get("resultChecksumSha256"),
+            "structuredGeometry.resultChecksumSha256",
+        )
+    candidate = payload.get("structuredGeometryCandidateV2")
+    if candidate is not None:
+        _structured_candidate_v2(candidate, context=context, payload=payload)
+        previous_candidate = context.previous_results.get("board_detection", {}).get(
+            "structuredGeometryCandidateV2"
+        )
+        if candidate != previous_candidate:
+            _invalid("The Structured Geometry v2 shadow candidate changed between stages.")
+    candidate_v3 = payload.get("structuredGeometryCandidateV3")
+    if candidate_v3 is not None:
+        _structured_candidate_v3(candidate_v3, context=context, payload=payload)
+        previous_candidate_v3 = context.previous_results.get("board_detection", {}).get(
+            "structuredGeometryCandidateV3"
+        )
+        if candidate_v3 != previous_candidate_v3:
+            _invalid("The Structured Geometry v3 shadow candidate changed between stages.")
+    structured_primary = (
+        structured is not None
+        and isinstance(structured_payload.get("engineVersion"), str)
+        and processing_version == structured_payload.get("engineVersion")
+    )
     for board in boards:
         status = board.get("status")
         sequence_number = board.get("sequenceNumber")
         _positive_integer(sequence_number, "board_cell_geometry.sequenceNumber")
         if status == "verified":
             geometry = _mapping(board.get("cellGeometry"), "cellGeometry")
+            if structured_primary:
+                quad = geometry.get("gridQuad")
+                if (
+                    not isinstance(quad, Sequence)
+                    or isinstance(quad, str | bytes)
+                    or len(quad) != 4
+                    or any(not isinstance(point, Mapping) for point in quad)
+                ):
+                    _invalid("Verified structured geometry requires a four-point grid quad.")
+                continue
             cells = geometry.get("cells")
             if not isinstance(cells, Sequence) or isinstance(cells, str | bytes):
                 _invalid("Verified board-cell geometry must contain cells.")
@@ -759,8 +984,13 @@ def _board_cell_geometry(
                 _invalid("Deferred board-cell geometry requires a reasonCode.")
             if not isinstance(estimator_reason, str) or not estimator_reason.strip():
                 _invalid("Deferred board-cell geometry requires an estimatorFailureReason.")
+        elif status == "rejected":
+            if board.get("cellGeometry") is not None:
+                _invalid("A rejected board cannot contain cell geometry.")
+            if board.get("reasonCode") != "operator_rejected":
+                _invalid("A rejected board requires the operator_rejected reason.")
         else:
-            _invalid("Board-cell geometry status must be verified or deferred.")
+            _invalid("Board-cell geometry status must be verified, deferred or rejected.")
 
 
 def _v20_crop_positions(
@@ -770,12 +1000,26 @@ def _v20_crop_positions(
 ) -> None:
     geometry = context.previous_results.get(BOARD_CELL_GEOMETRY_STAGE)
     if geometry is None:
-        _invalid("board_cell_geometry must complete before v19 crops.")
+        _invalid("board_cell_geometry must complete before board crops.")
     geometry_boards = _sequence_mappings(geometry.get("boards"), "board_cell_geometry.boards")
-    expected = [
+    all_geometry_positions = [
+        _nonnegative_integer(item.get("positionIndex"), "board_cell_geometry.positionIndex")
+        for item in geometry_boards
+    ]
+    verified_geometry_positions = [
         _nonnegative_integer(item.get("positionIndex"), "board_cell_geometry.positionIndex")
         for item in geometry_boards
         if item.get("status") == "verified"
+    ]
+    deferred_geometry_positions = [
+        _nonnegative_integer(item.get("positionIndex"), "board_cell_geometry.positionIndex")
+        for item in geometry_boards
+        if item.get("status") == "deferred"
+    ]
+    rejected_geometry_positions = [
+        _nonnegative_integer(item.get("positionIndex"), "board_cell_geometry.positionIndex")
+        for item in geometry_boards
+        if item.get("status") == "rejected"
     ]
     deferred = _sequence_mappings(payload.get("deferredBoards", []), "deferredBoards")
     deferred_positions: list[int] = []
@@ -789,9 +1033,27 @@ def _v20_crop_positions(
         _nonnegative_integer(item.get("positionIndex"), "board_crops.positionIndex")
         for item in boards
     ]
+    rejected = _sequence_mappings(payload.get("rejectedBoards", []), "rejectedBoards")
+    rejected_positions = [
+        _nonnegative_integer(item.get("positionIndex"), "rejectedBoards.positionIndex")
+        for item in rejected
+    ]
+    if payload.get("assetMode") == "virtual_source":
+        combined = sorted([*crop_positions, *deferred_positions, *rejected_positions])
+        if (
+            crop_positions != verified_geometry_positions
+            or deferred_positions != deferred_geometry_positions
+            or rejected_positions != rejected_geometry_positions
+            or combined != all_geometry_positions
+            or len(combined) != len(set(combined))
+        ):
+            _invalid(
+                "Structured crop results must exactly partition verified and deferred geometry."
+            )
+        return
     combined = sorted([*crop_positions, *deferred_positions])
-    if combined != expected or len(combined) != len(set(combined)):
-        _invalid("v19 crop results must partition every verified geometry position.")
+    if combined != verified_geometry_positions or len(combined) != len(set(combined)):
+        _invalid("Legacy crop results must partition every verified geometry position.")
 
 
 def _sequence_mappings(value: object, label: str) -> list[Mapping[str, object]]:

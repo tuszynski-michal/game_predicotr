@@ -1,0 +1,1081 @@
+from __future__ import annotations
+
+import json
+from collections.abc import Sequence
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
+from io import BytesIO
+from pathlib import Path
+from uuid import UUID, uuid4
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from game_predictor_api.api.semi_automatic_image_selections import (
+    create_semi_automatic_image_selections_router,
+)
+from game_predictor_api.application.image_imports import (
+    BrowserImageSelectionService,
+    ImageFolderSelectionService,
+    ImageSelectionPurpose,
+)
+from game_predictor_api.application.semi_automatic_image_selections import (
+    SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT,
+    SemiAutomaticImageSelectionService,
+    classify_filename_range_verification,
+    workflow_mode_for_recognizer_fingerprint,
+)
+from game_predictor_api.domain.jobs import (
+    JobError,
+    JobExecutionSlot,
+    JobStatus,
+    JobType,
+    requeue_job,
+    start_job,
+    wait_for_review,
+)
+from game_predictor_api.domain.semi_automatic_image_selections import (
+    FilenameRangeVerificationReview,
+    FilenameRangeVerificationReviewDecision,
+    FilenameVerificationHistoryDeletion,
+    SemiAutomaticSelectionConflictError,
+    SemiAutomaticSelectionDirection,
+    SemiAutomaticSelectionError,
+    SemiAutomaticSelectionRange,
+    SemiAutomaticSelectionRangeStatus,
+    SemiAutomaticSelectionRun,
+    SemiAutomaticSelectionRunStatus,
+    SemiAutomaticSelectionWorkflowMode,
+    begin_filename_verification_cleanup,
+    block_filename_verification_cleanup,
+    complete_filename_verification_cleanup,
+    resume_filename_verification_cleanup,
+)
+from game_predictor_worker.jobs.runtime import GENERAL_JOB_TYPES as RUNTIME_GENERAL_JOB_TYPES
+from game_predictor_worker.jobs.store import GENERAL_JOB_TYPES as STORE_GENERAL_JOB_TYPES
+from game_predictor_worker.semi_automatic_selection.five_anchor_range_runtime import (
+    FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6,
+)
+from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (
+    five_anchor_grouping_policy_fingerprint,
+)
+from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
+)
+from PIL import Image
+
+
+class MemorySemiAutomaticSelectionRepository:
+    def __init__(self) -> None:
+        self.runs: dict[UUID, SemiAutomaticSelectionRun] = {}
+        self.identities: dict[str, UUID] = {}
+        self.ranges: dict[tuple[UUID, int], SemiAutomaticSelectionRange] = {}
+        self.reviews: dict[tuple[UUID, int], FilenameRangeVerificationReview] = {}
+
+    def find_by_identity(self, identity_key: str) -> SemiAutomaticSelectionRun | None:
+        run_id = self.identities.get(identity_key)
+        return None if run_id is None else self.runs[run_id]
+
+    def add(
+        self,
+        run: SemiAutomaticSelectionRun,
+        ranges: Sequence[SemiAutomaticSelectionRange],
+        *,
+        identity_key: str,
+    ) -> SemiAutomaticSelectionRun:
+        if identity_key in self.identities:
+            raise AssertionError("The service should resolve idempotency before inserting.")
+        self.runs[run.id] = run
+        self.identities[identity_key] = run.id
+        self.ranges.update({(item.run_id, item.expected_index): item for item in ranges})
+        return run
+
+    def get(
+        self,
+        run_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> SemiAutomaticSelectionRun | None:
+        del for_update
+        return self.runs.get(run_id)
+
+    def save(self, run: SemiAutomaticSelectionRun) -> SemiAutomaticSelectionRun:
+        self.runs[run.id] = run
+        return run
+
+    def list_runs(
+        self,
+        *,
+        workflow_mode: SemiAutomaticSelectionWorkflowMode,
+        offset: int,
+        limit: int,
+    ) -> tuple[tuple[SemiAutomaticSelectionRun, ...], int | None]:
+        matches = sorted(
+            (run for run in self.runs.values() if run.workflow_mode is workflow_mode),
+            key=lambda run: (run.created_at, run.id),
+            reverse=True,
+        )
+        page = matches[offset : offset + limit + 1]
+        return tuple(page[:limit]), offset + limit if len(page) > limit else None
+
+    def get_filename_verification_reviews(
+        self,
+        run_id: UUID,
+        source_indexes: Sequence[int],
+    ) -> dict[int, FilenameRangeVerificationReview]:
+        return {
+            source_index: review
+            for source_index in source_indexes
+            if (review := self.reviews.get((run_id, source_index))) is not None
+        }
+
+    def save_filename_verification_review(
+        self,
+        review: FilenameRangeVerificationReview,
+        *,
+        expected_revision: int,
+    ) -> FilenameRangeVerificationReview:
+        existing = self.reviews.get((review.run_id, review.source_index))
+        if existing is None:
+            if expected_revision != 0:
+                raise AssertionError("Unexpected stale review creation.")
+        elif existing.revision != expected_revision:
+            raise AssertionError("Unexpected stale review update.")
+        self.reviews[(review.run_id, review.source_index)] = review
+        run = self.runs[review.run_id]
+        required = run.counters.get("filenameReviewRequired", 0)
+        if (
+            required > 0
+            and len([item for key, item in self.reviews.items() if key[0] == review.run_id])
+            >= required
+        ):
+            cleanup = begin_filename_verification_cleanup(run, changed_at=review.updated_at)
+            self.runs[review.run_id] = replace(
+                cleanup,
+                job=requeue_job(cleanup.job, updated_at=review.updated_at),
+            )
+        return review
+
+    def delete_completed_filename_verification_history(
+        self,
+        *,
+        run_id: UUID,
+        job_id: UUID,
+    ) -> FilenameVerificationHistoryDeletion:
+        run = self.runs.get(run_id)
+        if run is None or run.job.id != job_id:
+            raise AssertionError("The run changed before history deletion.")
+        self.runs.pop(run_id)
+        self.identities = {
+            identity: owner for identity, owner in self.identities.items() if owner != run_id
+        }
+        self.ranges = {key: item for key, item in self.ranges.items() if key[0] != run_id}
+        self.reviews = {key: item for key, item in self.reviews.items() if key[0] != run_id}
+        return FilenameVerificationHistoryDeletion(run_id=run_id, job_id=job_id)
+
+    def list_ranges(
+        self,
+        run_id: UUID,
+        *,
+        after_expected_index: int | None,
+        limit: int,
+    ) -> tuple[SemiAutomaticSelectionRange, ...]:
+        items = sorted(
+            (item for (owner, _), item in self.ranges.items() if owner == run_id),
+            key=lambda item: item.expected_index,
+        )
+        if after_expected_index is not None:
+            items = [item for item in items if item.expected_index > after_expected_index]
+        return tuple(items[:limit])
+
+    def get_range_for_update(
+        self,
+        run_id: UUID,
+        expected_index: int,
+    ) -> SemiAutomaticSelectionRange | None:
+        return self.ranges.get((run_id, expected_index))
+
+    def save_range(self, item: SemiAutomaticSelectionRange) -> SemiAutomaticSelectionRange:
+        self.ranges[(item.run_id, item.expected_index)] = item
+        return item
+
+    def save_run_and_range(
+        self,
+        run: SemiAutomaticSelectionRun,
+        item: SemiAutomaticSelectionRange,
+    ) -> tuple[SemiAutomaticSelectionRun, SemiAutomaticSelectionRange]:
+        return self.save(run), self.save_range(item)
+
+
+def _jpeg(color: tuple[int, int, int]) -> bytes:
+    output = BytesIO()
+    Image.new("RGB", (32, 24), color).save(output, format="JPEG")
+    return output.getvalue()
+
+
+def _ready_staging(tmp_path: Path) -> tuple[BrowserImageSelectionService, UUID, bytes]:
+    selection_service = ImageFolderSelectionService(lambda: None)
+    service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=1024 * 1024,
+        photo_selection_max_bytes=1024 * 1024,
+    )
+    first = _jpeg((10, 20, 30))
+    second = _jpeg((40, 50, 60))
+    upload = service.begin(
+        display_name="selection-source",
+        expected_file_count=2,
+        expected_total_bytes=len(first) + len(second),
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+        game_id=None,
+    )
+    service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="selection-source/photo-1.jpg",
+        content=first,
+    )
+    service.upload_file(
+        upload.upload_id,
+        1,
+        relative_path="selection-source/photo-2.jpg",
+        content=second,
+    )
+    service.finalize(upload.upload_id)
+    return service, upload.upload_id, first
+
+
+def test_global_staging_and_run_survive_service_recreation(tmp_path: Path) -> None:
+    staging, upload_id, first_jpeg = _ready_staging(tmp_path)
+    ready = staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+    recreated_staging = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None),
+        tmp_path / "imports",
+        max_bytes=1024 * 1024,
+        photo_selection_max_bytes=1024 * 1024,
+    )
+    recreated_ready = recreated_staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+    repository = MemorySemiAutomaticSelectionRepository()
+    first_service = SemiAutomaticImageSelectionService(
+        repository,
+        recreated_staging,
+        enabled=True,
+    )
+    run, created = first_service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=23,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+
+    recreated_service = SemiAutomaticImageSelectionService(
+        repository,
+        recreated_staging,
+        enabled=True,
+    )
+    duplicate, duplicate_created = recreated_service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=23,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+    ranges = recreated_service.list_ranges(run.id, after_expected_index=None, limit=20)
+    asset, name = recreated_service.source_asset(
+        run.id,
+        0,
+        expected_checksum_sha256=ready.sources[0].checksum_sha256,
+    )
+
+    assert created is True
+    assert duplicate_created is False
+    assert duplicate.id == run.id
+    assert run.job.game_id is None
+    assert run.job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
+    assert run.recognizer_fingerprint == RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3
+    assert recreated_ready.source_fingerprint == ready.source_fingerprint
+    assert [(item.range_start, item.range_end) for item in ranges] == [(1, 9), (10, 18), (19, 23)]
+    assert asset.read_bytes() == first_jpeg
+    assert name == "photo-1.jpg"
+
+
+def test_global_staging_rejects_game_scope_and_other_purpose(tmp_path: Path) -> None:
+    service = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None),
+        tmp_path / "imports",
+        max_bytes=1024 * 1024,
+        photo_selection_max_bytes=1024 * 1024,
+    )
+    with pytest.raises(JobError) as scoped_error:
+        service.begin(
+            display_name="invalid",
+            expected_file_count=1,
+            expected_total_bytes=100,
+            purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+            game_id=uuid4(),
+        )
+    assert scoped_error.value.code == "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID"
+
+    _, upload_id, _ = _ready_staging(tmp_path / "other")
+    other_service = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None),
+        tmp_path / "other" / "imports",
+        max_bytes=1024 * 1024,
+        photo_selection_max_bytes=1024 * 1024,
+    )
+    with pytest.raises(JobError) as purpose_error:
+        other_service.get_ready_source_selection(
+            upload_id,
+            purpose=ImageSelectionPurpose.PHOTO_SELECTION,
+        )
+    assert purpose_error.value.code == "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID"
+
+
+def test_finalized_source_manifest_and_asset_are_checksum_bound(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    ready = staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+
+    with pytest.raises(JobError) as checksum_error:
+        service.source_asset(run.id, 0, expected_checksum_sha256="0" * 64)
+    assert checksum_error.value.code == "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED"
+
+    manifest_path = staging.get(upload_id).path / "_browser_manifest.json"
+    manifest_path.write_bytes(manifest_path.read_bytes() + b" ")
+    with pytest.raises(JobError) as manifest_error:
+        staging.get_ready_source_selection(
+            upload_id,
+            purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+        )
+    assert manifest_error.value.code == "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED"
+    assert len(ready.sources) == 2
+
+
+def test_pause_resume_cancel_and_output_acknowledgement_are_durable(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=100,
+        last_sequence_number=108,
+        direction=SemiAutomaticSelectionDirection.DESCENDING,
+    )
+
+    paused = service.pause(run.id)
+    resumed = service.resume(run.id)
+    selected = replace(
+        repository.ranges[(run.id, 0)],
+        status=SemiAutomaticSelectionRangeStatus.AUTO_SELECTED,
+        source_index=0,
+        source_relative_path="selection-source/photo-1.jpg",
+        source_size_bytes=staging.get_ready_source_selection(
+            upload_id,
+            purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+        )
+        .sources[0]
+        .size_bytes,
+        source_checksum_sha256=staging.get_ready_source_selection(
+            upload_id,
+            purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+        )
+        .sources[0]
+        .checksum_sha256,
+    )
+    repository.save_range(selected)
+    repository.save(
+        replace(
+            repository.runs[run.id],
+            counters={
+                "expected": 1,
+                "autoSelected": 1,
+                "outputSynced": 0,
+                "conflicts": 0,
+                "missing": 0,
+            },
+        )
+    )
+    acknowledged = service.acknowledge_output(
+        run.id,
+        0,
+        expected_revision=0,
+        expected_source_checksum_sha256=selected.source_checksum_sha256 or "",
+        output_checksum_sha256=selected.source_checksum_sha256 or "",
+    )
+    cancelled = service.cancel(run.id)
+
+    assert paused.status.value == "paused"
+    assert resumed.status.value == "ready"
+    assert acknowledged.status is SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED
+    assert service.get(run.id).counters["outputSynced"] == 1
+    assert cancelled.status.value == "cancelled"
+    assert cancelled.job.status is JobStatus.CANCELLED
+    assert service.get(run.id) == cancelled
+
+
+def test_manual_output_acknowledgement_adds_and_replaces_a_checksum_bound_source(
+    tmp_path: Path,
+) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+    ready = staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+
+    added = service.acknowledge_output(
+        run.id,
+        0,
+        expected_revision=0,
+        expected_source_checksum_sha256=ready.sources[0].checksum_sha256,
+        output_checksum_sha256=ready.sources[0].checksum_sha256,
+        source_index=0,
+    )
+    replaced = service.acknowledge_output(
+        run.id,
+        0,
+        expected_revision=added.revision,
+        expected_source_checksum_sha256=ready.sources[1].checksum_sha256,
+        output_checksum_sha256=ready.sources[1].checksum_sha256,
+        source_index=1,
+    )
+
+    assert added.status is SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED
+    assert added.selection_method == "manual-source-added-v1"
+    assert replaced.source_index == 1
+    assert replaced.source_relative_path == "selection-source/photo-2.jpg"
+    assert replaced.selection_method == "manual-source-replaced-v1"
+    assert service.get(run.id).counters["outputSynced"] == 1
+    assert service.get(run.id).revision == 2
+
+
+def test_manual_output_acknowledgement_rejects_a_changed_source(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+
+    with pytest.raises(JobError) as error:
+        service.acknowledge_output(
+            run.id,
+            0,
+            expected_revision=0,
+            expected_source_checksum_sha256="0" * 64,
+            output_checksum_sha256="0" * 64,
+            source_index=0,
+        )
+
+    assert error.value.code == "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED"
+    assert repository.ranges[(run.id, 0)].status is SemiAutomaticSelectionRangeStatus.MISSING
+
+
+def test_resume_requeues_a_paused_worker_checkpoint(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+    now = datetime.now(UTC)
+    processing = start_job(
+        run.job,
+        worker_version="test-worker",
+        worker_id="selection-worker",
+        lease_token=uuid4(),
+        lease_expires_at=now + timedelta(minutes=1),
+        execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        started_at=now,
+    )
+    assert processing.lease_token is not None
+    waiting = wait_for_review(
+        processing,
+        lease_token=processing.lease_token,
+        updated_at=now,
+    )
+    repository.save(
+        replace(
+            run,
+            job=waiting,
+            checkpoint={"phase": "scanning", "observationCount": 1},
+            status=SemiAutomaticSelectionRunStatus.RUNNING,
+        )
+    )
+
+    service.pause(run.id)
+    resumed = service.resume(run.id)
+
+    assert resumed.status.value == "ready"
+    assert resumed.job.status is JobStatus.CREATED
+    assert resumed.checkpoint == {"phase": "scanning", "observationCount": 1}
+
+
+def test_api_exposes_capabilities_idempotent_create_and_ranges(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    service = SemiAutomaticImageSelectionService(
+        MemorySemiAutomaticSelectionRepository(), staging, enabled=True
+    )
+    app = FastAPI()
+    app.include_router(
+        create_semi_automatic_image_selections_router(lambda: service),
+        prefix="/api/v1",
+    )
+    client = TestClient(app)
+    payload = {
+        "uploadId": str(upload_id),
+        "firstSequenceNumber": 1,
+        "lastSequenceNumber": 19,
+        "direction": "ascending",
+    }
+
+    capabilities = client.get("/api/v1/admin/semi-automatic-image-selections/capabilities")
+    created = client.post("/api/v1/admin/semi-automatic-image-selections", json=payload)
+    duplicate = client.post("/api/v1/admin/semi-automatic-image-selections", json=payload)
+    assert created.status_code == 200, created.text
+    run_id = created.json()["run"]["id"]
+    ranges = client.get(f"/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges")
+
+    assert capabilities.status_code == 200
+    assert capabilities.json()["enabled"] is True
+    assert capabilities.json()["filenameVerificationRecognizerFingerprint"] == (
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2
+    )
+    assert created.json()["created"] is True
+    assert created.json()["run"]["gameId"] is None
+    assert duplicate.status_code == 200
+    assert duplicate.json()["created"] is False
+    assert ranges.status_code == 200
+    assert [item["fileName"] for item in ranges.json()["items"]] == [
+        "seq_1-9.jpg",
+        "seq_10-18.jpg",
+        "seq_19-19.jpg",
+    ]
+
+
+def test_api_registers_five_anchor_v6_as_an_isolated_selection_run_variant(
+    tmp_path: Path,
+) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    service = SemiAutomaticImageSelectionService(
+        MemorySemiAutomaticSelectionRepository(), staging, enabled=True
+    )
+    app = FastAPI()
+    app.include_router(
+        create_semi_automatic_image_selections_router(lambda: service),
+        prefix="/api/v1",
+    )
+    client = TestClient(app)
+    base_payload = {
+        "uploadId": str(upload_id),
+        "firstSequenceNumber": 1,
+        "lastSequenceNumber": 18,
+        "direction": "ascending",
+    }
+
+    capabilities = client.get("/api/v1/admin/semi-automatic-image-selections/capabilities")
+    default_run = client.post("/api/v1/admin/semi-automatic-image-selections", json=base_payload)
+    v6_payload = {**base_payload, "recognizerVariant": "five_anchor_v6"}
+    v6_run = client.post("/api/v1/admin/semi-automatic-image-selections", json=v6_payload)
+    v6_duplicate = client.post("/api/v1/admin/semi-automatic-image-selections", json=v6_payload)
+
+    assert capabilities.status_code == 200
+    assert capabilities.json()["selectionRecognizerVariants"] == [
+        {
+            "id": "default_v3",
+            "label": "OCR zakresu v3 (domyślny)",
+            "fingerprint": RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
+            "default": True,
+            "experimental": False,
+        },
+        {
+            "id": SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT,
+            "label": "OCR pięciu anchorów v6 (eksperymentalny)",
+            "fingerprint": FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6,
+            "default": False,
+            "experimental": True,
+        },
+    ]
+    assert default_run.status_code == 200, default_run.text
+    assert v6_run.status_code == 200, v6_run.text
+    assert v6_duplicate.status_code == 200, v6_duplicate.text
+    assert default_run.json()["run"]["id"] != v6_run.json()["run"]["id"]
+    assert v6_run.json()["run"]["recognizerFingerprint"] == (
+        FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6
+    )
+    assert v6_run.json()["run"]["groupingPolicyFingerprint"] == (
+        five_anchor_grouping_policy_fingerprint()
+    )
+    assert v6_duplicate.json()["run"]["id"] == v6_run.json()["run"]["id"]
+    assert v6_duplicate.json()["created"] is False
+
+    with pytest.raises(SemiAutomaticSelectionError) as filename_rejection:
+        service.create(
+            upload_id=upload_id,
+            first_sequence_number=1,
+            last_sequence_number=18,
+            direction=SemiAutomaticSelectionDirection.ASCENDING,
+            mode="filename_verification",
+            recognizer_variant=SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT,
+        )
+    assert filename_rejection.value.code == "SEMI_AUTOMATIC_SELECTION_RECOGNIZER_VARIANT_INVALID"
+
+
+def test_filename_verification_history_and_decisions_are_durable(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(
+        repository,
+        staging,
+        enabled=True,
+        artifact_root=tmp_path / "artifacts",
+    )
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=18,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+    ready = staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+    observations = tmp_path / "artifacts" / "exports" / "semi-automatic-selection" / str(run.id)
+    observations.mkdir(parents=True)
+    observations.joinpath("observations.jsonl").write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "sourceIndex": index,
+                    "sourceRelativePath": source.relative_path,
+                    "sourceSizeBytes": source.size_bytes,
+                    "sourceChecksumSha256": source.checksum_sha256,
+                    "observedRange": None,
+                    "reasonCodes": ["NO_PROOF"],
+                    "runtimeDiagnostics": {"labelEvidence": []},
+                }
+            )
+            for index, source in enumerate(ready.sources)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    repository.save(
+        replace(
+            run,
+            job=replace(
+                run.job,
+                status=JobStatus.WAITING_FOR_REVIEW,
+                finished_at=datetime.now(UTC),
+            ),
+            status=SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+            checkpoint={"observationCount": 2},
+        )
+    )
+    app = FastAPI()
+    app.include_router(
+        create_semi_automatic_image_selections_router(lambda: service),
+        prefix="/api/v1",
+    )
+    client = TestClient(app)
+
+    history = client.get(
+        "/api/v1/admin/semi-automatic-image-selections",
+        params={"workflowMode": "filename_verification", "limit": 20},
+    )
+    items = client.get(
+        f"/api/v1/admin/semi-automatic-image-selections/{run.id}/filename-verifications"
+    )
+    decision = client.put(
+        f"/api/v1/admin/semi-automatic-image-selections/{run.id}/"
+        "filename-verifications/0/review-decision",
+        json={
+            "decision": "keep",
+            "expectedRevision": 0,
+            "expectedSourceChecksumSha256": ready.sources[0].checksum_sha256,
+        },
+    )
+    reloaded = client.get(
+        f"/api/v1/admin/semi-automatic-image-selections/{run.id}/filename-verifications"
+    )
+
+    assert history.status_code == 200, history.text
+    assert history.json()["items"][0]["workflowMode"] == "filename_verification"
+    assert history.json()["items"][0]["job"]["workflowMode"] == "filename_verification"
+    assert items.status_code == 200, items.text
+    assert items.json()["items"][0]["reviewDecision"] is None
+    assert decision.status_code == 200, decision.text
+    assert decision.json()["decision"] == "keep"
+    assert decision.json()["revision"] == 0
+    assert reloaded.json()["items"][0]["reviewDecision"] == "keep"
+    assert reloaded.json()["items"][0]["reviewRevision"] == 0
+
+
+def test_completed_filename_verification_history_is_permanently_deleted(
+    tmp_path: Path,
+) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=18,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+    completed = complete_filename_verification_cleanup(
+        replace(
+            run,
+            job=replace(run.job, status=JobStatus.COMPLETED),
+            status=SemiAutomaticSelectionRunStatus.CLEANUP_PENDING,
+        ),
+        checkpoint={"cleanup": "completed", "phase": "cleanup_complete"},
+    )
+    # The route also clears any run-owned rows left by an interrupted cleanup.
+    repository.save(completed)
+    app = FastAPI()
+    app.include_router(
+        create_semi_automatic_image_selections_router(lambda: service),
+        prefix="/api/v1",
+    )
+    client = TestClient(app)
+
+    response = client.delete(
+        f"/api/v1/admin/semi-automatic-image-selections/{run.id}/filename-verification-history"
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"runId": str(run.id), "jobId": str(run.job.id)}
+    assert repository.get(run.id) is None
+
+
+def test_filename_verification_history_delete_protects_incomplete_cleanup(
+    tmp_path: Path,
+) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=18,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+
+    with pytest.raises(SemiAutomaticSelectionConflictError) as raised:
+        service.delete_filename_verification_history(run.id)
+
+    assert raised.value.code == "SEMI_AUTOMATIC_SELECTION_HISTORY_DELETE_NOT_COMPLETED"
+    assert repository.get(run.id) is not None
+
+
+def test_last_filename_verification_decision_schedules_only_cleanup(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    artifacts = tmp_path / "artifacts"
+    service = SemiAutomaticImageSelectionService(
+        repository,
+        staging,
+        enabled=True,
+        artifact_root=artifacts,
+    )
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=18,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+    ready = staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+    observations = artifacts / "exports" / "semi-automatic-selection" / str(run.id)
+    observations.mkdir(parents=True)
+    observations.joinpath("observations.jsonl").write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "sourceIndex": index,
+                    "sourceRelativePath": source.relative_path,
+                    "sourceSizeBytes": source.size_bytes,
+                    "sourceChecksumSha256": source.checksum_sha256,
+                    "observedRange": None,
+                    "reasonCodes": ["NO_PROOF"],
+                    "runtimeDiagnostics": {"labelEvidence": []},
+                }
+            )
+            for index, source in enumerate(ready.sources)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    repository.save(
+        replace(
+            run,
+            job=replace(run.job, status=JobStatus.WAITING_FOR_REVIEW),
+            status=SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+            counters={**run.counters, "filenameReviewRequired": 1},
+            checkpoint={"observationCount": len(ready.sources)},
+        )
+    )
+
+    review = service.decide_filename_verification(
+        run.id,
+        0,
+        decision=FilenameRangeVerificationReviewDecision.KEEP,
+        expected_source_checksum_sha256=ready.sources[0].checksum_sha256,
+        expected_revision=0,
+    )
+
+    stored = repository.get(run.id)
+    assert review.decision is FilenameRangeVerificationReviewDecision.KEEP
+    assert stored is not None
+    assert stored.status is SemiAutomaticSelectionRunStatus.CLEANUP_PENDING
+    assert stored.job.status is JobStatus.CREATED
+
+
+def test_filename_verification_rejects_manual_decision_for_verified_source(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    artifacts = tmp_path / "artifacts"
+    service = SemiAutomaticImageSelectionService(
+        repository,
+        staging,
+        enabled=True,
+        artifact_root=artifacts,
+    )
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+    ready = staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+    source = ready.sources[0]
+    observations = artifacts / "exports" / "semi-automatic-selection" / str(run.id)
+    observations.mkdir(parents=True)
+    observations.joinpath("observations.jsonl").write_text(
+        json.dumps(
+            {
+                "sourceIndex": 0,
+                "sourceRelativePath": "seq_1-9.jpg",
+                "sourceSizeBytes": source.size_bytes,
+                "sourceChecksumSha256": source.checksum_sha256,
+                "observedRange": {"start": 1, "end": 9},
+                "reasonCodes": [],
+                "runtimeDiagnostics": {
+                    "labelEvidence": [
+                        {
+                            "positionIndex": position,
+                            "sequenceNumber": position + 1,
+                            "confidence": 0.99,
+                        }
+                        for position in (0, 4, 8)
+                    ]
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    repository.save(
+        replace(
+            run,
+            job=replace(run.job, status=JobStatus.WAITING_FOR_REVIEW),
+            status=SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+            checkpoint={"observationCount": 1},
+        )
+    )
+
+    with pytest.raises(SemiAutomaticSelectionConflictError) as raised:
+        service.decide_filename_verification(
+            run.id,
+            0,
+            decision=FilenameRangeVerificationReviewDecision.KEEP,
+            expected_source_checksum_sha256=source.checksum_sha256,
+            expected_revision=0,
+        )
+    assert raised.value.code == "SEMI_AUTOMATIC_SELECTION_REVIEW_NOT_REQUIRED"
+
+
+def test_filename_cleanup_block_is_retryable_without_reopening_review(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    service = SemiAutomaticImageSelectionService(
+        MemorySemiAutomaticSelectionRepository(), staging, enabled=True
+    )
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+    analysis = replace(run, status=SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE)
+    pending = begin_filename_verification_cleanup(analysis)
+    blocked = block_filename_verification_cleanup(pending)
+    resumed = resume_filename_verification_cleanup(blocked)
+
+    assert blocked.status is SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED
+    assert resumed.status is SemiAutomaticSelectionRunStatus.CLEANUP_PENDING
+
+
+def test_legacy_recognizer_fingerprint_classifies_filename_verification_only() -> None:
+    assert (
+        workflow_mode_for_recognizer_fingerprint(RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2)
+        is SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION
+    )
+    assert (
+        workflow_mode_for_recognizer_fingerprint(RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3)
+        is SemiAutomaticSelectionWorkflowMode.SELECTION
+    )
+
+
+def test_filename_verification_requires_three_spread_image_anchors() -> None:
+    base = {
+        "sourceIndex": 0,
+        "sourceRelativePath": "seq_10-18.jpg",
+        "sourceSizeBytes": 100,
+        "sourceChecksumSha256": "a" * 64,
+        "observedRange": {"start": 10, "end": 18},
+        "reasonCodes": ["EXACT_LOCAL_RANGE_PROOF"],
+    }
+    verified = classify_filename_range_verification(
+        {
+            **base,
+            "runtimeDiagnostics": {
+                "labelEvidence": [
+                    {
+                        "positionIndex": position,
+                        "sequenceNumber": 10 + position,
+                        "confidence": 0.94,
+                        "route": "label_lattice",
+                    }
+                    for position in (0, 4, 8)
+                ]
+            },
+        }
+    )
+    insufficient = classify_filename_range_verification(
+        {
+            **base,
+            "runtimeDiagnostics": {
+                "labelEvidence": [
+                    {
+                        "positionIndex": position,
+                        "sequenceNumber": 10 + position,
+                        "confidence": 0.94,
+                        "route": "label_lattice",
+                    }
+                    for position in (0, 2)
+                ]
+            },
+        }
+    )
+
+    assert verified["verificationStatus"] == "verified"
+    assert verified["anchorPositions"] == [0, 4, 8]
+    assert insufficient["verificationStatus"] == "unreadable"
+
+
+def test_filename_verification_reports_strong_mismatch_without_using_filename_as_evidence() -> None:
+    result = classify_filename_range_verification(
+        {
+            "sourceIndex": 4,
+            "sourceRelativePath": "seq_10-18.jpg",
+            "sourceSizeBytes": 100,
+            "sourceChecksumSha256": "b" * 64,
+            "observedRange": {"start": 19, "end": 27},
+            "reasonCodes": ["EXACT_LOCAL_RANGE_PROOF"],
+            "runtimeDiagnostics": {
+                "labelEvidence": [
+                    {
+                        "positionIndex": position,
+                        "sequenceNumber": 19 + position,
+                        "confidence": 0.95,
+                        "route": "label_lattice",
+                    }
+                    for position in (0, 4, 8)
+                ]
+            },
+        }
+    )
+
+    assert result["verificationStatus"] == "mismatch"
+    assert result["expectedRange"] == {"start": 10, "end": 18}
+    assert result["observedRange"] == {"start": 19, "end": 27}
+
+
+def test_semi_automatic_jobs_use_only_the_existing_selection_lane(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    service = SemiAutomaticImageSelectionService(
+        MemorySemiAutomaticSelectionRepository(), staging, enabled=True
+    )
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+
+    now = datetime.now(UTC)
+    leased = start_job(
+        run.job,
+        worker_version="test-worker",
+        worker_id="selection-worker",
+        lease_token=uuid4(),
+        lease_expires_at=now + timedelta(minutes=1),
+        execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        started_at=now,
+    )
+    assert leased.execution_slot == 2
+    assert JobType.SEMI_AUTOMATIC_IMAGE_SELECTION not in RUNTIME_GENERAL_JOB_TYPES
+    assert JobType.SEMI_AUTOMATIC_IMAGE_SELECTION not in STORE_GENERAL_JOB_TYPES
+    with pytest.raises(JobError) as wrong_lane:
+        start_job(
+            run.job,
+            worker_version="test-worker",
+            worker_id="general-worker",
+            lease_token=uuid4(),
+            lease_expires_at=now + timedelta(minutes=1),
+            execution_slot=JobExecutionSlot.GENERAL,
+            started_at=now,
+        )
+    assert wrong_lane.value.code == "INVALID_JOB_EXECUTION_SLOT"

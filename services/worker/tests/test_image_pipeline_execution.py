@@ -28,7 +28,10 @@ from game_predictor_worker.images.pipeline_execution import (
     continuity_issues,
     validate_stage_payload,
 )
-from game_predictor_worker.images.pipeline_store import SqlAlchemyImagePipelineStore
+from game_predictor_worker.images.pipeline_store import (
+    SqlAlchemyImagePipelineStore,
+    _append_prediction_revision,
+)
 from PIL import Image
 
 CHECKSUM = "a" * 64
@@ -59,6 +62,8 @@ class FakeProjectionStore:
     def __init__(self) -> None:
         self.results: dict[str, StoredImageStageResult] = {}
         self.source_projection_count = 0
+        self.source_metadata_projection_count = 0
+        self.source_geometry_projection_count = 0
         self.recognition_projection_count = 0
         self.pending = 1
         self.materialized = 0
@@ -101,6 +106,24 @@ class FakeProjectionStore:
     ) -> None:
         assert set(AUTOMATED_IMAGE_STAGES).issubset(stage_results)
         self.recognition_projection_count += 1
+
+    def project_source_metadata(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        normalization: StoredImageStageResult,
+    ) -> None:
+        del candidate, normalization
+        self.source_metadata_projection_count += 1
+
+    def project_source_geometry(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        stage_results: dict[str, StoredImageStageResult],
+    ) -> None:
+        del candidate, stage_results
+        self.source_geometry_projection_count += 1
 
     def pending_review_count(self, candidate: ImageBatchCandidate) -> int:
         return self.pending
@@ -177,6 +200,132 @@ def _symbol_cells() -> list[dict[str, object]]:
         }
         for index in range(15)
     ]
+
+
+def _virtual_board(position: int) -> dict[str, object]:
+    cells = [
+        {
+            "assetMode": "virtual_source",
+            "columnIndex": index % 5,
+            "cropChecksumSha256": f"{100 + index:064x}",
+            "extractorVersion": "virtual-cell-renderer-source-direct-v1",
+            "logicalCellKeySha256": f"{200 + index:064x}",
+            "logicalCellKeyV2Sha256": f"{300 + index:064x}",
+            "renderIdentityV2Sha256": f"{400 + index:064x}",
+            "renderSpec": {"cellIndex": index},
+            "renderSpecChecksumSha256": f"{500 + index:064x}",
+            "renderedPixelChecksumSha256": f"{600 + index:064x}",
+            "rowIndex": index // 5,
+        }
+        for index in range(15)
+    ]
+    return {
+        "assetMode": "virtual_source",
+        "cells": cells,
+        "cropperVersion": "virtual-cell-renderer-source-direct-v1",
+        "geometryChecksumSha256": "7" * 64,
+        "geometryEngineName": "structured_opencv_v1",
+        "geometryEngineVersion": "structured-opencv-independent-board-refinement-v2",
+        "positionIndex": position,
+    }
+
+
+def test_structured_crops_partition_verified_and_deferred_geometry() -> None:
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256=CHECKSUM,
+        source_relative_path="batch/page.jpg",
+        pipeline_fingerprint=PIPELINE,
+        previous_results={
+            "board_cell_geometry": {
+                "boards": [
+                    {"positionIndex": 0, "status": "verified"},
+                    {"positionIndex": 1, "status": "deferred"},
+                ]
+            }
+        },
+    )
+    payload = {
+        "assetMode": "virtual_source",
+        "boards": [_virtual_board(0)],
+        "deferredBoards": [
+            {
+                "positionIndex": 1,
+                "reasonCode": "incomplete_lattice",
+                "sequenceNumber": 2,
+            }
+        ],
+    }
+
+    assert validate_stage_payload("board_crops", payload, context) == payload
+
+
+def test_structured_crops_allow_a_fully_deferred_source() -> None:
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256=CHECKSUM,
+        source_relative_path="batch/page.jpg",
+        pipeline_fingerprint=PIPELINE,
+        previous_results={
+            "board_cell_geometry": {
+                "boards": [
+                    {"positionIndex": position, "status": "deferred"} for position in range(3)
+                ]
+            }
+        },
+    )
+    payload = {
+        "assetMode": "virtual_source",
+        "boards": [],
+        "deferredBoards": [
+            {
+                "positionIndex": position,
+                "reasonCode": "incomplete_lattice",
+                "sequenceNumber": position + 1,
+            }
+            for position in range(3)
+        ],
+    }
+
+    assert validate_stage_payload("board_crops", payload, context) == payload
+
+
+def test_structured_crops_allow_exact_partial_mask_and_rejected_slot() -> None:
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256=CHECKSUM,
+        source_relative_path="batch/page.jpg",
+        pipeline_fingerprint=PIPELINE,
+        previous_results={
+            "board_cell_geometry": {
+                "boards": [
+                    {"positionIndex": 0, "status": "verified"},
+                    {"positionIndex": 1, "status": "rejected"},
+                ]
+            }
+        },
+    )
+    partial = _virtual_board(0)
+    partial["completenessStatus"] = "pending_partial"
+    partial["unavailableCellIndices"] = [10, 11, 12, 13, 14]
+    partial["cells"] = cast(list[dict[str, object]], partial["cells"])[:10]
+    payload = {
+        "assetMode": "virtual_source",
+        "boards": [partial],
+        "deferredBoards": [],
+        "rejectedBoards": [
+            {
+                "positionIndex": 1,
+                "reasonCode": "operator_rejected",
+                "sequenceNumber": 2,
+            }
+        ],
+    }
+
+    assert validate_stage_payload("board_crops", payload, context) == payload
 
 
 def _adapters() -> list[FakeAdapter]:
@@ -325,6 +474,78 @@ class _ScalarSequenceSession:
         return next(self._values)
 
 
+class _PredictionRevisionSession:
+    def __init__(self, existing: object = None) -> None:
+        self.existing = existing
+        self.added: list[object] = []
+
+    def scalar(self, _statement: object) -> object:
+        return self.existing
+
+    def add(self, value: object) -> None:
+        self.added.append(value)
+
+
+def test_virtual_prediction_revision_keeps_full_render_provenance() -> None:
+    session = _PredictionRevisionSession()
+    review_item_id = uuid4()
+    board_id = uuid4()
+    crops = [
+        {
+            "assetMode": "virtual_source",
+            "columnIndex": index % 5,
+            "cropChecksumSha256": f"{100 + index:064x}",
+            "extractorVersion": "virtual-cell-renderer-source-direct-v1",
+            "logicalCellKeySha256": f"{200 + index:064x}",
+            "logicalCellKeyV2Sha256": f"{250 + index:064x}",
+            "renderIdentityV2Sha256": f"{275 + index:064x}",
+            "renderSpec": {"cellIndex": index},
+            "renderSpecChecksumSha256": f"{300 + index:064x}",
+            "renderedPixelChecksumSha256": f"{400 + index:064x}",
+            "rowIndex": index // 5,
+        }
+        for index in range(15)
+    ]
+    predictions = _symbol_cells()
+
+    _append_prediction_revision(
+        cast(object, session),
+        game_id=uuid4(),
+        job_id=uuid4(),
+        review_item=cast(object, SimpleNamespace(id=review_item_id)),
+        board=cast(object, SimpleNamespace(id=board_id)),
+        crop_board={
+            "assetMode": "virtual_source",
+            "cells": crops,
+            "geometryChecksumSha256": "e" * 64,
+            "positionIndex": 0,
+        },
+        symbol_board={"cells": predictions, "positionIndex": 0},
+        symbol_payload={
+            "modelChecksumSha256": "f" * 64,
+            "modelIterationId": None,
+            "modelVersion": "symbol-model-test-v1",
+        },
+        created_at=NOW,
+    )
+
+    assert len(session.added) == 1
+    revision = session.added[0]
+    assert revision.review_item_id == review_item_id  # type: ignore[attr-defined]
+    assert revision.recognized_board_id == board_id  # type: ignore[attr-defined]
+    virtual = revision.predictions[0]["virtualCell"]  # type: ignore[attr-defined]
+    assert virtual == {
+        "cropChecksumSha256": crops[0]["cropChecksumSha256"],
+        "extractorVersion": "virtual-cell-renderer-source-direct-v1",
+        "logicalCellKeySha256": crops[0]["logicalCellKeySha256"],
+        "logicalCellKeyV2Sha256": crops[0]["logicalCellKeyV2Sha256"],
+        "renderIdentityV2Sha256": crops[0]["renderIdentityV2Sha256"],
+        "renderSpec": {"cellIndex": 0},
+        "renderSpecChecksumSha256": crops[0]["renderSpecChecksumSha256"],
+        "renderedPixelChecksumSha256": crops[0]["renderedPixelChecksumSha256"],
+    }
+
+
 def test_pending_review_count_includes_deferred_board_cell_geometry() -> None:
     source = SimpleNamespace(id=uuid4())
     session = _ScalarSequenceSession((source, 2, 8))
@@ -343,6 +564,8 @@ def test_pipeline_executes_all_adapters_then_stages_only_after_review() -> None:
         assert executor.execute_stage(candidate, stage) is ImageStageExecutionResult.COMPLETED
 
     assert store.source_projection_count == 1
+    assert store.source_metadata_projection_count == 1
+    assert store.source_geometry_projection_count == 0
     assert store.recognition_projection_count == 1
     assert executor.execute_stage(candidate, "manual_review") == "waiting_for_review"
     assert store.materialized == 0
@@ -367,6 +590,8 @@ def test_completed_results_rehydrate_job_local_state_without_inference() -> None
     executor.rehydrate(_candidate())
 
     assert store.source_projection_count == 1
+    assert store.source_metadata_projection_count == 1
+    assert store.source_geometry_projection_count == 0
     assert store.recognition_projection_count == 1
     assert all(adapter.call_count == 0 for adapter in adapters)
 
@@ -441,6 +666,8 @@ def test_v20_geometry_substage_is_persisted_and_replayed_before_crops() -> None:
     assert replay_adapters[4].call_count == 0
     assert replay_geometry.replay_count == 1
     assert "board_cell_geometry" in store.results
+    assert store.source_metadata_projection_count == 1
+    assert store.source_geometry_projection_count == 2
 
 
 def test_incomplete_symbol_board_fails_closed_without_projection() -> None:

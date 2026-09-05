@@ -28,6 +28,7 @@ from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationService,
 )
 from game_predictor_api.application.unreadable_board_reviews import (
+    SaveUnreadableBoardCellCommand,
     UnreadableBoardReviewService,
     UnreadableBoardReviewView,
 )
@@ -1290,6 +1291,43 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             assert grid_result.board_reopened is False
             assert grid_result.quality_issue is SymbolCellQualityIssue.GRID_ISSUE
             session.flush()
+            query_repository = SqlAlchemySymbolCellReviewQueryRepository(session)
+            known_pending = query_repository.list_items(
+                review_filter=SymbolCellReviewListFilter(
+                    game_id=game.id,
+                    symbol_id=first_symbol.id,
+                    state=SymbolCellReviewFilterState.PENDING,
+                ),
+                after_key=None,
+                before_key=None,
+                limit=20,
+            )
+            assert known_pending.items == ()
+            temporarily_unrecognized = query_repository.list_items(
+                review_filter=SymbolCellReviewListFilter(
+                    game_id=game.id,
+                    symbol_id=None,
+                    state=SymbolCellReviewFilterState.PENDING,
+                ),
+                after_key=None,
+                before_key=None,
+                limit=20,
+            )
+            assert [item.cell_index for item in temporarily_unrecognized.items] == [1, 2]
+            assert all(item.is_unknown for item in temporarily_unrecognized.items)
+            assert all(item.assigned_symbol_id is None for item in temporarily_unrecognized.items)
+            all_game_crops = query_repository.list_items(
+                review_filter=SymbolCellReviewListFilter(
+                    game_id=game.id,
+                    symbol_id=None,
+                    state=SymbolCellReviewFilterState.ALL,
+                    include_all_symbols=True,
+                ),
+                after_key=None,
+                before_key=None,
+                limit=20,
+            )
+            assert [item.cell_index for item in all_game_crops.items] == list(range(15))
             operational_repository = SqlAlchemyOperationalImageReviewRepository(session)
             grid_issue_page = operational_repository.list_items(
                 game_id=game.id,
@@ -1486,20 +1524,29 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             )
             assert len(unreadable_detail.cells) == 15
             target = unreadable_detail.cells[1]
-            resolved_unknown = unreadable_service.resolve(
+            normal_cell = unreadable_detail.cells[0]
+            resolved_unknown = unreadable_service.save(
                 game_id=game.id,
                 review_item_id=review_item_id,
-                cell_index=target.cell_index,
-                expected_revision=target.revision,
-                expected_geometry_revision=target.geometry_revision,
-                expected_crop_sample_id=target.crop_sample_id,
-                expected_crop_checksum_sha256=target.crop_checksum_sha256,
-                target_symbol_id=None,
+                cells=tuple(
+                    SaveUnreadableBoardCellCommand(
+                        cell_index=cell.cell_index,
+                        expected_revision=cell.revision,
+                        expected_geometry_revision=cell.geometry_revision,
+                        expected_crop_sample_id=cell.crop_sample_id,
+                        expected_crop_checksum_sha256=cell.crop_checksum_sha256,
+                        target_symbol_id=(
+                            None
+                            if cell.cell_index in {target.cell_index, normal_cell.cell_index}
+                            else cell.assigned_symbol_id
+                        ),
+                    )
+                    for cell in unreadable_detail.cells
+                ),
                 actor="unreadable-board-reviewer",
             )
             assert resolved_unknown.board_status == "corrected"
-            assert resolved_unknown.board_resolution_action == "corrected"
-            assert resolved_unknown.quality_issue is SymbolCellQualityIssue.UNREADABLE
+            assert resolved_unknown.changed_cell_count == 2
             session.commit()
 
         with Session(engine) as session:
@@ -1517,7 +1564,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 {"import_job_id": job.id, "recognized_board_id": board_id},
             )
             assert staging is not None
-            assert staging.cells == [1, 0] + [1] * 13
+            assert staging.cells == [0, 0] + [1] * 13
             target = session.scalar(
                 select(ImageSymbolReviewCellModel).where(
                     ImageSymbolReviewCellModel.review_item_id == review_item_id,
@@ -1530,6 +1577,16 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             assert target.quality_issue == "unreadable"
             assert target.approved_crop_sample_id == target.crop_sample_id
             assert target.approved_crop_checksum_sha256 == target.crop_checksum_sha256
+            normal_cell = session.scalar(
+                select(ImageSymbolReviewCellModel).where(
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                    ImageSymbolReviewCellModel.cell_index == 0,
+                )
+            )
+            assert normal_cell is not None
+            assert normal_cell.review_state == "approved"
+            assert normal_cell.assigned_symbol_id is None
+            assert normal_cell.quality_issue == "unreadable"
             unreadable_service = UnreadableBoardReviewService(
                 SqlAlchemyUnreadableBoardReviewRepository(session)
             )
@@ -1555,6 +1612,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
 
 def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
     isolated_image_batch_database: URL,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     command.upgrade(_migration_config(isolated_image_batch_database), "head")
     engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
@@ -1848,6 +1906,80 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
             assert {target.error_code for target in conflicted_targets} == {
                 "SYMBOL_CELL_REVIEW_CURRENT_OWNER_CONFLICT"
             }
+
+        with Session(engine, expire_on_commit=False) as session:
+            remaining_cell = session.scalar(
+                select(ImageSymbolReviewCellModel)
+                .where(
+                    ImageSymbolReviewCellModel.sequence_number == 1,
+                    ImageSymbolReviewCellModel.quality_issue.is_(None),
+                )
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            )
+            assert remaining_cell is not None
+            operational_conflict_operation, created = (
+                SqlAlchemySymbolCellReviewBulkOperationRepository(session).start(
+                    game_id=game.id,
+                    request=SymbolCellReviewBulkRequest(
+                        action=SymbolCellReviewAction.MARK_BLURRY,
+                        target_symbol_id=symbol.id,
+                        explicit_targets=(
+                            SymbolCellReviewBulkExplicitTarget(
+                                cell_review_id=remaining_cell.id,
+                                expected_revision=remaining_cell.revision,
+                                expected_geometry_revision=remaining_cell.geometry_revision,
+                                expected_crop_sample_id=remaining_cell.crop_sample_id,
+                                expected_crop_checksum_sha256=(
+                                    remaining_cell.crop_checksum_sha256
+                                ),
+                            ),
+                        ),
+                        filter_selection=None,
+                        actor="local-admin",
+                    ),
+                    idempotency_key=uuid4(),
+                )
+            )
+            assert created is True
+            operational_conflict_job = SqlAlchemyJobRepository(session).get_job(
+                operational_conflict_operation.job_id
+            )
+            assert operational_conflict_job is not None
+            session.commit()
+
+        def raise_operational_conflict(
+            _repository: SqlAlchemySymbolCellReviewMutationRepository,
+            _commands: tuple[object, ...],
+        ) -> tuple[object, ...]:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
+                "The current manual geometry revision is incomplete.",
+            )
+
+        monkeypatch.setattr(
+            SqlAlchemySymbolCellReviewMutationRepository,
+            "apply_board_mutations",
+            raise_operational_conflict,
+        )
+        recorded_conflict = SqlAlchemySymbolCellReviewBulkOperationWorker(
+            session_factory
+        ).process_next_batch(job=operational_conflict_job, max_boards=1)
+        assert recorded_conflict.has_pending_targets is False
+        assert recorded_conflict.operation.status is SymbolCellReviewBulkOperationStatus.COMPLETED
+        assert recorded_conflict.operation.applied_count == 0
+        assert recorded_conflict.operation.conflict_count == 1
+        assert recorded_conflict.operation.pending_count == 0
+
+        with Session(engine) as session:
+            recorded_target = session.scalar(
+                select(ImageSymbolReviewBulkTargetModel).where(
+                    ImageSymbolReviewBulkTargetModel.operation_id
+                    == operational_conflict_operation.id
+                )
+            )
+            assert recorded_target is not None
+            assert recorded_target.status == "conflict"
+            assert recorded_target.error_code == "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID"
     finally:
         engine.dispose()
 
@@ -3066,8 +3198,9 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
             registered_at=now + timedelta(seconds=6),
         )
         assert reused.file_execution_key == first.file_execution_key
-        assert reused.status == "waiting_for_review"
-        assert reused.checkpoint_payload["nextStage"] == "manual_review"
+        assert reused.status == "processing"
+        assert reused.checkpoint_payload["nextStage"] == "discovery"
+        assert reused.checkpoint_payload["completedStages"] == []
 
         with Session(engine, expire_on_commit=False) as session:
             source = SourceImageModel(

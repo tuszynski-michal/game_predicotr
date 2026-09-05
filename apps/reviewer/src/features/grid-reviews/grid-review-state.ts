@@ -3,6 +3,7 @@ import type {
   ImageGridReviewGeometryCommand,
   ImageGridReviewGeometryPreviewCommand,
   ImageGridReviewItemResponse,
+  ImageGridReviewState,
   ImageGridReviewView,
   OperationalImageReviewGeometryPoint,
 } from '@game-predictor/admin-api-client';
@@ -13,6 +14,7 @@ import {
 } from '../operational-reviews/operational-review-state.ts';
 
 export const GRID_REVIEW_PAGE_LIMIT = 1;
+export const GRID_REVIEW_SOURCE_PAGE_LIMIT = 9;
 
 export const GRID_REVIEW_VIEWS: readonly {
   readonly label: string;
@@ -31,15 +33,67 @@ export interface GridReviewNavigation {
 }
 
 export type GridGeometryDraft = readonly OperationalImageReviewGeometryPoint[];
+export type GridGeometrySourceDrafts = ReadonlyMap<string, GridGeometryDraft>;
 
 export type GridGeometryDragTarget =
   | { readonly kind: 'corner'; readonly index: number }
   | { readonly kind: 'grid' }
   | null;
 
+export interface GridReviewSourceStats {
+  readonly approvedBoards: number;
+  readonly imageState: ImageGridReviewState;
+  readonly manualBoards: number;
+  readonly needsCorrectionBoards: number;
+  readonly needsValidationBoards: number;
+  readonly totalBoards: number;
+}
+
+export function gridReviewSourceStats(
+  items: readonly ImageGridReviewItemResponse[],
+): GridReviewSourceStats {
+  const approvedBoards = items.filter(
+    (item) => item.state === 'approved',
+  ).length;
+  const needsCorrectionBoards = items.filter(
+    (item) => item.state === 'needs_correction',
+  ).length;
+  const needsValidationBoards = items.filter(
+    (item) => item.state === 'needs_validation',
+  ).length;
+  return {
+    approvedBoards,
+    imageState:
+      needsCorrectionBoards > 0
+        ? 'needs_correction'
+        : needsValidationBoards > 0
+          ? 'needs_validation'
+          : 'approved',
+    manualBoards: items.filter((item) => item.geometryRevision > 0).length,
+    needsCorrectionBoards,
+    needsValidationBoards,
+    totalBoards: items.length,
+  };
+}
+
+export function orderGridReviewSourceItems(
+  items: readonly ImageGridReviewItemResponse[],
+): readonly ImageGridReviewItemResponse[] {
+  return [...items].sort(
+    (left, right) =>
+      left.positionIndex - right.positionIndex ||
+      left.sequenceNumber - right.sequenceNumber ||
+      left.reviewItemId.localeCompare(right.reviewItemId),
+  );
+}
+
 export function gridReviewCorners(
   item: ImageGridReviewItemResponse,
 ): OperationalReviewGeometryCorners {
+  if (item.geometryRevision === 0) {
+    const symbolGrid = parseTypedCorners(item.symbolGridQuad);
+    if (symbolGrid !== null) return symbolGrid;
+  }
   const parsed = parseCorners(item.geometry);
   if (parsed !== null) return parsed;
   const insetX = Math.max(1, Math.round(item.sourceWidth * 0.1));
@@ -55,6 +109,33 @@ export function gridReviewCorners(
   ];
 }
 
+export function gridReviewAnalysisCorners(
+  item: ImageGridReviewItemResponse,
+): OperationalReviewGeometryCorners | null {
+  if (item.geometryRevision > 0) return null;
+  return parseTypedCorners(item.analysisQuad);
+}
+
+export function gridReviewLatticeReason(
+  item: ImageGridReviewItemResponse,
+): string | null {
+  const value = item.geometry.latticeReasonCode;
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+export function gridGeometryDraftsEqual(
+  left: GridGeometryDraft,
+  right: GridGeometryDraft,
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (point, index) =>
+        point.x === right[index]?.x && point.y === right[index]?.y,
+    )
+  );
+}
+
 export function addGridGeometryPoint(
   draft: GridGeometryDraft,
   point: OperationalImageReviewGeometryPoint,
@@ -66,6 +147,99 @@ export function addGridGeometryPoint(
     ...draft,
     clampOperationalReviewGeometryPoint(point, imageWidth, imageHeight),
   ];
+}
+
+export function emptyGridGeometrySourceDrafts(
+  items: readonly ImageGridReviewItemResponse[],
+): GridGeometrySourceDrafts {
+  return new Map(items.map((item) => [item.reviewItemId, []] as const));
+}
+
+export function gridGeometrySourceDraft(
+  drafts: GridGeometrySourceDrafts,
+  reviewItemId: string,
+): GridGeometryDraft {
+  return drafts.get(reviewItemId) ?? [];
+}
+
+/**
+ * A source-wide manual edit intentionally starts with an empty draft.  Canvas
+ * code must use this optional anchor instead of assuming that a first point
+ * already exists before the operator makes the LT click.
+ */
+export function gridGeometryDraftAnchor(
+  draft: GridGeometryDraft,
+): OperationalImageReviewGeometryPoint | null {
+  return draft[0] ?? null;
+}
+
+export function replaceGridGeometrySourceDraft(
+  drafts: GridGeometrySourceDrafts,
+  reviewItemId: string,
+  draft: GridGeometryDraft,
+): GridGeometrySourceDrafts {
+  const next = new Map(drafts);
+  next.set(reviewItemId, draft);
+  return next;
+}
+
+export function completeGridGeometrySourceDrafts(
+  items: readonly ImageGridReviewItemResponse[],
+  drafts: GridGeometrySourceDrafts,
+):
+  | readonly {
+      readonly item: ImageGridReviewItemResponse;
+      readonly corners: OperationalReviewGeometryCorners;
+    }[]
+  | null {
+  const values = orderGridReviewSourceItems(items).map((item) => {
+    const draft = gridGeometrySourceDraft(drafts, item.reviewItemId);
+    return {
+      corners:
+        draft.length === 4 ? (draft as OperationalReviewGeometryCorners) : null,
+      item,
+    };
+  });
+  return values.every((value) => value.corners !== null)
+    ? (values as readonly {
+        readonly item: ImageGridReviewItemResponse;
+        readonly corners: OperationalReviewGeometryCorners;
+      }[])
+    : null;
+}
+
+export function nextIncompleteGridGeometrySourceItem(
+  items: readonly ImageGridReviewItemResponse[],
+  drafts: GridGeometrySourceDrafts,
+  afterReviewItemId: string,
+): ImageGridReviewItemResponse | null {
+  const ordered = orderGridReviewSourceItems(items);
+  const startIndex = ordered.findIndex(
+    (item) => item.reviewItemId === afterReviewItemId,
+  );
+  if (startIndex < 0) return null;
+  for (let offset = 1; offset <= ordered.length; offset += 1) {
+    const candidate = ordered[(startIndex + offset) % ordered.length];
+    if (
+      candidate !== undefined &&
+      gridGeometrySourceDraft(drafts, candidate.reviewItemId).length < 4
+    ) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+export function firstIncompleteGridGeometrySourceItem(
+  items: readonly ImageGridReviewItemResponse[],
+  drafts: GridGeometrySourceDrafts,
+): ImageGridReviewItemResponse | null {
+  return (
+    orderGridReviewSourceItems(items).find(
+      (candidate) =>
+        gridGeometrySourceDraft(drafts, candidate.reviewItemId).length < 4,
+    ) ?? null
+  );
 }
 
 export function undoGridGeometryPoint(
@@ -128,6 +302,32 @@ export function gridGeometryDragTarget(
   return pointInPolygon(point, draft) ? { kind: 'grid' } : null;
 }
 
+export function gridGeometrySourceItemAtPoint(
+  items: readonly ImageGridReviewItemResponse[],
+  drafts: GridGeometrySourceDrafts,
+  activeReviewItemId: string,
+  activeDraft: GridGeometryDraft,
+  point: OperationalImageReviewGeometryPoint,
+): ImageGridReviewItemResponse | null {
+  return (
+    [...items].reverse().find((candidate) => {
+      const storedDraft = gridGeometrySourceDraft(
+        drafts,
+        candidate.reviewItemId,
+      );
+      const visibleCorners =
+        candidate.reviewItemId === activeReviewItemId
+          ? activeDraft
+          : storedDraft.length > 0
+            ? storedDraft
+            : gridReviewCorners(candidate);
+      return (
+        visibleCorners.length === 4 && pointInPolygon(point, visibleCorners)
+      );
+    }) ?? null
+  );
+}
+
 export function gridReviewApprovalCommand(
   item: ImageGridReviewItemResponse,
 ): ImageGridReviewApprovalCommand {
@@ -182,6 +382,14 @@ function parseCorners(
     geometry.corners;
   if (!Array.isArray(raw) || raw.length !== 4) return null;
   const parsed = raw.map(parsePoint);
+  return parsed.every((point) => point !== null)
+    ? (parsed as OperationalReviewGeometryCorners)
+    : null;
+}
+
+function parseTypedCorners(value: unknown) {
+  if (!Array.isArray(value) || value.length !== 4) return null;
+  const parsed = value.map(parsePoint);
   return parsed.every((point) => point !== null)
     ? (parsed as OperationalReviewGeometryCorners)
     : null;

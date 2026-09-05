@@ -92,6 +92,38 @@ class ResolveUnreadableCellCommand:
     actor: str
 
 
+@dataclass(frozen=True, slots=True)
+class SaveUnreadableBoardCellCommand:
+    """One checksum-bound symbol decision staged for a whole board save."""
+
+    cell_index: int
+    expected_revision: int
+    expected_geometry_revision: int
+    expected_crop_sample_id: str
+    expected_crop_checksum_sha256: str
+    target_symbol_id: UUID | None
+
+
+@dataclass(frozen=True, slots=True)
+class SaveUnreadableBoardCommand:
+    """Apply every visible cell decision for one pending unreadable board."""
+
+    game_id: UUID
+    review_item_id: UUID
+    cells: tuple[SaveUnreadableBoardCellCommand, ...]
+    actor: str
+
+
+@dataclass(frozen=True, slots=True)
+class SaveUnreadableBoardResult:
+    """Summary of one atomic whole-board unreadable review save."""
+
+    review_item_id: UUID
+    sequence_number: int
+    board_status: str
+    changed_cell_count: int
+
+
 class UnreadableBoardReviewRepository(Protocol):
     def require_ready_game(self, game_id: UUID) -> None: ...
 
@@ -115,6 +147,11 @@ class UnreadableBoardReviewRepository(Protocol):
         self,
         command: ResolveUnreadableCellCommand,
     ) -> SymbolCellReviewMutationResult: ...
+
+    def save_board(
+        self,
+        command: SaveUnreadableBoardCommand,
+    ) -> SaveUnreadableBoardResult: ...
 
 
 class UnreadableBoardReviewService:
@@ -201,6 +238,34 @@ class UnreadableBoardReviewService:
             )
         )
 
+    def save(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        cells: tuple[SaveUnreadableBoardCellCommand, ...],
+        actor: str,
+    ) -> SaveUnreadableBoardResult:
+        if not cells:
+            raise SymbolCellReviewError(
+                "UNREADABLE_BOARD_REVIEW_SAVE_EMPTY",
+                "Saving an unreadable board requires every visible cell decision.",
+            )
+        cell_indexes = tuple(cell.cell_index for cell in cells)
+        if any(index < 0 for index in cell_indexes) or len(set(cell_indexes)) != len(cell_indexes):
+            raise SymbolCellReviewError(
+                "UNREADABLE_BOARD_REVIEW_SAVE_CELLS_INVALID",
+                "Each unreadable board cell must occur exactly once with a non-negative index.",
+            )
+        return self._repository.save_board(
+            SaveUnreadableBoardCommand(
+                game_id=game_id,
+                review_item_id=review_item_id,
+                cells=cells,
+                actor=actor,
+            )
+        )
+
 
 def encode_unreadable_board_cursor(
     *,
@@ -246,6 +311,9 @@ def decode_unreadable_board_cursor(
 
 __all__ = [
     "ResolveUnreadableCellCommand",
+    "SaveUnreadableBoardCellCommand",
+    "SaveUnreadableBoardCommand",
+    "SaveUnreadableBoardResult",
     "UnreadableBoardReviewCell",
     "UnreadableBoardReviewDetail",
     "UnreadableBoardReviewListItem",

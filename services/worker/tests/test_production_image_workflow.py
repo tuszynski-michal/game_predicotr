@@ -1,6 +1,8 @@
 import hashlib
+import json
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import cv2
@@ -9,6 +11,8 @@ import pytest
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
 )
+from game_predictor_api.domain.board_topology import BoardTopology as DomainBoardTopology
+from game_predictor_api.domain.image_geometry_v2 import SourcePoint, SourceQuad
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
@@ -30,8 +34,23 @@ from game_predictor_worker.images.geometry import (
     DetectionResult,
     Point,
 )
+from game_predictor_worker.images.geometry_guard_resolution import (
+    GeometryGuardBoardResolution,
+)
+from game_predictor_worker.images.large_import_geometry_guard import (
+    LargeImportGeometryGuardResult,
+)
 from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_VERSION,
+)
+from game_predictor_worker.images.pipeline_contract import (
+    SYMBOL_RGB_PREPROCESSING_VERSION,
+    CellAssetRolloutMode,
+    GeometryPipelineRolloutSnapshot,
+    GeometryRolloutMode,
+    StructuredGeometryActivationSnapshot,
+    StructuredGeometryCandidateSnapshot,
+    canonical_json_bytes,
 )
 from game_predictor_worker.images.pipeline_execution import (
     ImagePipelineExecutionError,
@@ -40,18 +59,411 @@ from game_predictor_worker.images.pipeline_execution import (
 )
 from game_predictor_worker.images.production_workflow import (
     NORMALIZATION_ADAPTER_VERSION,
+    ProductionImageImportWorkflow,
     ProductionImageStageAdapterSuite,
+    _apply_geometry_guard_resolutions,
     _attested_sequence_payload,
     _calibrated_quad,
+    _expected_board_count,
     _filter_registered_geometry_originals,
+    _geometry_systemic_guard_policy,
+    _page_geometry_manifest,
     _pending_reason,
+    _ProgressWindowContext,
     _resolve_page_sequence_numbers,
     _symbol_model_snapshot,
 )
-from game_predictor_worker.images.source_ingestion import ManagedOriginal
+from game_predictor_worker.images.source_ingestion import ManagedOriginal, ManagedSourceManifest
+from game_predictor_worker.images.structured_geometry import (
+    DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2,
+    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+    structured_lattice_active_config_payload,
+    structured_lattice_candidate_config_payload,
+)
 from game_predictor_worker.images.symbol_onnx import OnnxInference
+from game_predictor_worker.images.virtual_cell_extraction import VIRTUAL_CELL_RENDERER_VERSION
 from game_predictor_worker.jobs.runtime import JobHandlerError
 from PIL import Image, ImageOps
+
+
+class _ProgressRecorder:
+    def __init__(self) -> None:
+        self.job = create_job(
+            JobType.IMPORT,
+            game_id=uuid4(),
+            input_payload={"schema_version": 1},
+        )
+        self.values: list[dict[str, object]] = []
+
+    def checkpoint(self, **values: object) -> None:
+        self.values.append(values)
+        self.job = replace(
+            self.job,
+            progress_current=int(values["current"]),
+            progress_total=int(values["total"]),
+            success_count=int(values["success_count"]),
+            failure_count=int(values["failure_count"]),
+            review_count=int(values["review_count"]),
+        )
+
+
+def test_guard_resolutions_override_only_exact_structured_slots() -> None:
+    structured = {
+        "boards": [
+            {
+                "positionIndex": position,
+                "sequenceNumber": 100 + position,
+                "disposition": "needs_manual_correction",
+                "finalQuad": None,
+                "reasonCodes": ["incomplete_lattice"],
+                "symbolGridQuad": None,
+            }
+            for position in range(3)
+        ],
+        "reasonCodes": ["incomplete_lattice"],
+        "status": "needs_review",
+    }
+    quad = (
+        {"x": 10, "y": 20},
+        {"x": 110, "y": 20},
+        {"x": 110, "y": 80},
+        {"x": 10, "y": 80},
+    )
+    resolutions = {
+        0: GeometryGuardBoardResolution(
+            source_checksum_sha256="a" * 64,
+            source_relative_path="seq_100-108.jpg",
+            position_index=0,
+            sequence_number=100,
+            disposition="corrected_full",
+            symbol_grid_quad=quad,
+            unavailable_cell_indices=(),
+            decision_checksum_sha256="b" * 64,
+        ),
+        1: GeometryGuardBoardResolution(
+            source_checksum_sha256="a" * 64,
+            source_relative_path="seq_100-108.jpg",
+            position_index=1,
+            sequence_number=101,
+            disposition="partial",
+            symbol_grid_quad=quad,
+            unavailable_cell_indices=(10, 11, 12, 13, 14),
+            decision_checksum_sha256="c" * 64,
+        ),
+        2: GeometryGuardBoardResolution(
+            source_checksum_sha256="a" * 64,
+            source_relative_path="seq_100-108.jpg",
+            position_index=2,
+            sequence_number=102,
+            disposition="rejected",
+            symbol_grid_quad=None,
+            unavailable_cell_indices=(),
+            decision_checksum_sha256="d" * 64,
+        ),
+    }
+
+    result = _apply_geometry_guard_resolutions(structured, resolutions)
+
+    assert result["boards"][0]["disposition"] == "automatic"
+    assert result["boards"][1]["unavailableCellIndices"] == [10, 11, 12, 13, 14]
+    assert result["boards"][2]["reasonCodes"] == ["operator_rejected"]
+    assert result["status"] == "needs_review"
+    assert len(result["resultChecksumSha256"]) == 64
+
+
+def test_systemic_geometry_guard_fails_before_file_registration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    originals = tuple(
+        ManagedOriginal(
+            checksum_sha256=f"{index + 1:064x}",
+            source_relative_path=f"seq_{index * 9 + 1}_{index * 9 + 9}.jpg",
+            managed_relative_path=f"data/originals/{index + 1:064x}.jpg",
+            size_bytes=100,
+            sequence_range_start=index * 9 + 1,
+            sequence_range_end=index * 9 + 9,
+            sequence_range_source="filename",
+        )
+        for index in range(56)
+    )
+    manifest = ManagedSourceManifest(
+        source_directory=tmp_path,
+        originals=originals,
+        content=b"manifest",
+        relative_path="data/originals/manifests/test.json",
+        checksum_sha256=hashlib.sha256(b"manifest").hexdigest(),
+    )
+    registered = False
+
+    class _BatchStore:
+        def register_files(self, *_args: object, **_kwargs: object) -> None:
+            nonlocal registered
+            registered = True
+
+    class _Context(_ProgressRecorder):
+        def now(self):  # type: ignore[no-untyped-def]
+            return self.job.created_at
+
+    workflow = ProductionImageImportWorkflow.__new__(ProductionImageImportWorkflow)
+    workflow._artifact_root = tmp_path  # type: ignore[attr-defined]
+    workflow._repository_root = tmp_path  # type: ignore[attr-defined]
+    workflow._original_store = SimpleNamespace(  # type: ignore[attr-defined]
+        load_or_create_manifest=lambda *_args, **_kwargs: manifest
+    )
+    workflow._source_handler = SimpleNamespace(  # type: ignore[attr-defined]
+        ingest=lambda *_args, **_kwargs: manifest
+    )
+    workflow._batch_store = _BatchStore()  # type: ignore[attr-defined]
+    workflow._record_browser_staging_handoff = (  # type: ignore[method-assign]
+        lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow._page_geometry_manifest",
+        lambda *_args, **_kwargs: {
+            original.checksum_sha256: {"status": "registered"} for original in originals
+        },
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow._board_cell_processing_snapshot",
+        lambda _job: {},
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow._page_geometry_manifest_checksum",
+        lambda _job: "c" * 64,
+    )
+    for helper_name in (
+        "_symbol_model_snapshot",
+        "_grid_profile_snapshot",
+        "_page_registration_profile_snapshot",
+        "_geometry_rollout_snapshot",
+    ):
+        monkeypatch.setattr(
+            f"game_predictor_worker.images.production_workflow.{helper_name}",
+            lambda _job: None,
+        )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.ProductionImageStageAdapterSuite",
+        lambda *_args, **_kwargs: SimpleNamespace(),
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.run_large_import_geometry_guard",
+        lambda **_kwargs: LargeImportGeometryGuardResult(
+            required=True,
+            passed=False,
+            report_checksum_sha256="d" * 64,
+            report_relative_path="data/image-geometry-guards/test.json",
+            source_count=56,
+            active_board_count=504,
+            sample_source_count=25,
+            sample_board_count=225,
+            page_registration_ready_rate=1.0,
+            final_cell_grid_ready_rate=0.01,
+            invariant_violation_count=0,
+        ),
+    )
+    context = _Context()
+    context.job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 5,
+            "import_kind": "image_directory",
+            "source_directory": str(tmp_path),
+            "pipeline_fingerprint": "a" * 64,
+            "geometry_systemic_guard_policy": {
+                "policyVersion": "image-geometry-systemic-guard-v1",
+                "minimumSourceCount": 100,
+                "minimumActiveBoardCount": 500,
+                "sampleSourceLimit": 25,
+                "minimumFinalCellGridReadyRate": 0.98,
+                "requireZeroInvariantViolations": True,
+            },
+        },
+    )
+
+    with pytest.raises(JobHandlerError) as captured:
+        workflow(context, context.job)
+
+    assert captured.value.code == "IMAGE_GEOMETRY_SYSTEMIC_REGRESSION"
+    assert not registered
+    assert context.values[-1]["stage"] == "image_geometry_systemic_guard"
+
+
+def test_historical_image_job_without_guard_policy_keeps_replay_contract() -> None:
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 5,
+            "import_kind": "image_directory",
+            "pipeline_fingerprint": "a" * 64,
+        },
+    )
+
+    assert _geometry_systemic_guard_policy(job) is None
+
+
+def _managed_manifest_for_page_geometry(
+    tmp_path: Path,
+    *,
+    checksum: str,
+) -> ManagedSourceManifest:
+    return ManagedSourceManifest(
+        source_directory=tmp_path,
+        originals=(
+            ManagedOriginal(
+                checksum_sha256=checksum,
+                source_relative_path="seq_1-9.jpg",
+                managed_relative_path=f"data/originals/aa/{checksum}.jpg",
+                size_bytes=100,
+                sequence_range_start=1,
+                sequence_range_end=9,
+                sequence_range_source="filename",
+            ),
+        ),
+        content=b"managed",
+        relative_path="data/originals/manifests/source.json",
+        checksum_sha256=hashlib.sha256(b"managed").hexdigest(),
+    )
+
+
+def test_managed_reprocess_v6_requires_pinned_page_geometry_manifest(tmp_path: Path) -> None:
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 6,
+            "import_kind": "image_directory",
+            "source_directory": str(tmp_path),
+            "pipeline_fingerprint": "a" * 64,
+        },
+    )
+
+    with pytest.raises(JobHandlerError) as captured:
+        _page_geometry_manifest(
+            job,
+            tmp_path,
+            managed_manifest=_managed_manifest_for_page_geometry(tmp_path, checksum="b" * 64),
+        )
+
+    assert captured.value.code == "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED"
+
+
+def test_managed_reprocess_v6_validates_page_inventory_before_processing(tmp_path: Path) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    source_checksum = "b" * 64
+    source_manifest_checksum = "c" * 64
+    value = {
+        "entries": {
+            source_checksum: {
+                "sourceRelativePath": "seq_1-9.jpg",
+                "status": "review_required",
+            }
+        },
+        "gameId": str(game_id),
+        "registeredSourceCount": 0,
+        "reviewRequiredSourceCount": 1,
+        "skippedHumanResolvedSourceCount": 0,
+        "sourceCount": 1,
+        "sourceManifestChecksumSha256": source_manifest_checksum,
+        "sourceSelectionId": str(selection_id),
+    }
+    content = json.dumps(value, sort_keys=True).encode()
+    checksum = hashlib.sha256(content).hexdigest()
+    relative = f"data/page-geometry-manifests/{checksum}.json"
+    path = tmp_path / Path(*relative.split("/"))
+    path.parent.mkdir(parents=True)
+    path.write_bytes(content)
+    job = create_job(
+        JobType.IMPORT,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 6,
+            "import_kind": "image_directory",
+            "source_directory": str(tmp_path),
+            "pipeline_fingerprint": "a" * 64,
+            "source_selection_id": str(selection_id),
+            "source_manifest_sha256": source_manifest_checksum,
+            "page_geometry_manifest": {
+                "checksumSha256": checksum,
+                "preflightJobId": str(uuid4()),
+                "relativePath": relative,
+            },
+        },
+    )
+    managed = _managed_manifest_for_page_geometry(tmp_path, checksum=source_checksum)
+
+    entries = _page_geometry_manifest(job, tmp_path, managed_manifest=managed)
+
+    assert entries[source_checksum]["status"] == "review_required"  # type: ignore[index]
+
+    incompatible = replace(
+        job,
+        input_payload={**job.input_payload, "source_manifest_sha256": "d" * 64},
+    )
+    with pytest.raises(JobHandlerError) as captured:
+        _page_geometry_manifest(incompatible, tmp_path, managed_manifest=managed)
+    assert captured.value.code == "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE"
+
+
+def test_pipeline_progress_does_not_count_source_ingestion_as_success() -> None:
+    recorder = _ProgressRecorder()
+    source_context = _ProgressWindowContext(
+        recorder,  # type: ignore[arg-type]
+        current_offset=0,
+        total=2_200,
+        stage_prefix="image_source",
+        expose_result_counts=False,
+    )
+    source_context.checkpoint(
+        checkpoint_payload={},
+        stage="image_originals_copied",
+        current=2_200,
+        total=2_200,
+        success_count=2_200,
+        failure_count=0,
+        review_count=0,
+    )
+    pipeline_context = _ProgressWindowContext(
+        recorder,  # type: ignore[arg-type]
+        current_offset=2_200,
+        total=4_400,
+        stage_prefix="image_pipeline",
+    )
+
+    pipeline_context.checkpoint(
+        checkpoint_payload={},
+        stage="manual_review",
+        current=2_200,
+        total=2_200,
+        success_count=0,
+        failure_count=2_200,
+        review_count=0,
+    )
+
+    assert recorder.values == [
+        {
+            "checkpoint_payload": {"workflow_phase": "image_source"},
+            "stage": "image_source:image_originals_copied",
+            "current": 2_200,
+            "total": 2_200,
+            "success_count": 0,
+            "failure_count": 0,
+            "review_count": 0,
+        },
+        {
+            "checkpoint_payload": {"workflow_phase": "image_pipeline"},
+            "stage": "image_pipeline:manual_review",
+            "current": 4_400,
+            "total": 4_400,
+            "success_count": 0,
+            "failure_count": 2_200,
+            "review_count": 0,
+        },
+    ]
 
 
 def _managed_jpeg(
@@ -185,6 +597,39 @@ def test_attested_sequence_range_keeps_partial_geometry_in_review() -> None:
         "SEQUENCE_ATTESTED_RANGE_GEOMETRY_REVIEW_REQUIRED" in board["reviewReasons"]
         for board in boards
     )
+
+
+def test_attested_sequence_range_assigns_short_final_page_with_sparse_geometry() -> None:
+    detections = tuple({"positionIndex": index} for index in range(5))
+
+    payload = _attested_sequence_payload(
+        detections,
+        (499_996, 500_000),
+        allow_sparse=True,
+    )
+
+    boards = payload["boards"]
+    assert isinstance(boards, list)
+    assert [board["normalizedNumber"] for board in boards] == list(range(499_996, 500_001))
+    assert all(board["sequenceSource"] == "filename" for board in boards)
+    assert all(board["reviewReasons"] == [] for board in boards)
+
+
+def test_expected_board_count_comes_from_attested_filename_range() -> None:
+    assert _expected_board_count((499_996, 500_000)) == 5
+    assert _expected_board_count((1, 9)) == 9
+
+
+def test_expected_board_count_uses_nine_only_without_attested_range() -> None:
+    assert _expected_board_count(None) == 9
+
+
+def test_expected_board_count_rejects_invalid_attested_range_instead_of_falling_back() -> None:
+    with pytest.raises(
+        ImagePipelineExecutionError,
+        match="attested filename range must declare between one and nine boards",
+    ):
+        _expected_board_count((10, 19))
 
 
 def test_geometry_manifest_defers_unregistered_sources_before_pipeline() -> None:
@@ -493,6 +938,48 @@ def test_pinned_complete_page_geometry_bypasses_the_legacy_detector(
     assert len(detection["boards"]) == 9
 
 
+def test_pinned_final_page_geometry_uses_only_attested_five_boards(tmp_path: Path) -> None:
+    artifact_root = tmp_path / "artifacts"
+    normalized_relative = "working/test/normalized.png"
+    normalized_path = artifact_root / "data" / normalized_relative
+    normalized_path.parent.mkdir(parents=True)
+    Image.fromarray(_grid_image(), mode="RGB").save(normalized_path, format="PNG")
+    checksum = "e" * 64
+    quads = _grid_quads()[:5]
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        page_geometry_manifest={
+            checksum: {
+                "status": "registered",
+                "quads": quads,
+                "boardRedEdgeCoverages": [1.0] * 5,
+                "registrationVersion": "manual-page-geometry-override-v1",
+                "thresholdsVersion": "manual-page-geometry-override-v1",
+            }
+        },
+    )
+    suite._detector = _UnexpectedDetector()  # type: ignore[assignment]
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256=checksum,
+        source_relative_path="unused.jpg",
+        pipeline_fingerprint="d" * 64,
+        previous_results={
+            "normalization": {"normalizedRelativePath": normalized_relative},
+        },
+        attested_sequence_range=(499996, 500000),
+    )
+
+    detection = suite.board_detection(context)
+
+    assert detection["geometryValidity"] == "verified"
+    assert detection["recoveryMode"] == "pinned_verified_page_registration"
+    assert len(detection["boards"]) == 5
+
+
 def test_production_stages_create_review_ready_board_and_cell_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -589,6 +1076,716 @@ class _FifteenCellSymbolAdapter:
             probabilities=np.tile(np.asarray([[0.88, 0.12]], dtype=np.float32), (15, 1)),
             class_indexes=np.zeros((15,), dtype=np.int64),
         )
+
+
+def test_structured_crop_deferrals_are_not_persisted_twice(tmp_path: Path) -> None:
+    writer = _FakeDeferredWriter()
+    suite = ProductionImageStageAdapterSuite(
+        tmp_path / "artifacts",
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        board_cell_processing=board_cell_processing_snapshot(cell_output_size=32),
+        board_cell_geometry_deferred_writer=writer,
+    )
+
+    suite.persist_board_crop_deferrals(
+        ImageStageContext(
+            job_id=uuid4(),
+            file_execution_key="f" * 64,
+            source_checksum_sha256="c" * 64,
+            source_relative_path="originals/c/source.jpg",
+            pipeline_fingerprint="d" * 64,
+            previous_results={},
+        ),
+        {
+            "assetMode": "virtual_source",
+            "boards": [],
+            "deferredBoards": [
+                {
+                    "positionIndex": 0,
+                    "reasonCode": "LOCAL_EVIDENCE_INSUFFICIENT",
+                    "sequenceNumber": 1,
+                }
+            ],
+        },
+    )
+
+    assert writer.values == []
+
+
+class _OnePageSymbolAdapter:
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    def infer(self, tensors: np.ndarray) -> OnnxInference:
+        self.call_count += 1
+        assert tensors.shape == (135, 3, 32, 32)
+        return OnnxInference(
+            logits=np.tile(np.asarray([[3.0, 1.0]], dtype=np.float32), (135, 1)),
+            probabilities=np.tile(np.asarray([[0.88, 0.12]], dtype=np.float32), (135, 1)),
+            class_indexes=np.zeros((135,), dtype=np.int64),
+        )
+
+
+class _StructuredGeometryResult:
+    def __init__(self, payload: dict[str, object]) -> None:
+        self._payload = payload
+
+    def to_payload(self) -> dict[str, object]:
+        return dict(self._payload)
+
+
+class _StructuredGeometryEngine:
+    version = STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
+
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    def detect(self, frame: object, request: object) -> _StructuredGeometryResult:
+        self.call_count += 1
+        self.last_request = request
+        source = frame.source  # type: ignore[attr-defined]
+        active_slots = request.attested_range.active_slots  # type: ignore[attr-defined]
+        boards = []
+        for slot, quad in zip(active_slots, _grid_quads(), strict=True):
+            boards.append(
+                {
+                    "confidenceComponents": {},
+                    "disposition": "automatic",
+                    "evidence": {},
+                    "finalQuad": quad,
+                    "geometryConfidence": 0.99,
+                    "idealToSourceHomography": None,
+                    "initialQuad": quad,
+                    "lines": [],
+                    "positionIndex": slot.position_index,
+                    "reasonCodes": [],
+                    "sequenceNumber": slot.sequence_number,
+                }
+            )
+        return _StructuredGeometryResult(
+            {
+                "activeBoardSlots": list(range(9)),
+                "boards": boards,
+                "canonicalHeight": source.height,
+                "canonicalWidth": source.width,
+                "configChecksumSha256": "8" * 64,
+                "coordinateSpace": source.coordinate_space,
+                "engineId": "structured-opencv-test-v1",
+                "engineVersion": self.version,
+                "geometryRevision": 0,
+                "globalInitialization": {},
+                "normalizedPixelChecksumSha256": source.normalized_pixel_checksum_sha256,
+                "reasonCodes": [],
+                "resultChecksumSha256": "9" * 64,
+                "schemaVersion": 1,
+                "sourceChecksumSha256": source.source_checksum_sha256,
+                "status": "ready",
+                "topology": {
+                    "columns": request.topology.columns,  # type: ignore[attr-defined]
+                    "rows": request.topology.rows,  # type: ignore[attr-defined]
+                    "rulesVersionId": str(request.topology_rules_version_id),  # type: ignore[attr-defined]
+                },
+            }
+        )
+
+
+def _structured_default_rollout() -> GeometryPipelineRolloutSnapshot:
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.STRUCTURED_DEFAULT,
+        cell_asset_mode=CellAssetRolloutMode.VIRTUAL_DEFAULT,
+        rollout_revision=1,
+        geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+        virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+        preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+    )
+
+
+def _structured_default_pinned_preflight_rollout() -> GeometryPipelineRolloutSnapshot:
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.STRUCTURED_DEFAULT,
+        cell_asset_mode=CellAssetRolloutMode.VIRTUAL_DEFAULT,
+        rollout_revision=2,
+        geometry_engine_version=STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+        virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+        preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+    )
+
+
+class _StructuredGeometryEngineV2(_StructuredGeometryEngine):
+    version = STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION
+
+
+def test_structured_v2_binds_registered_preflight_quads_to_the_source(
+    tmp_path: Path,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    rules_version_id = "4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04"
+    processing = board_cell_processing_snapshot(
+        cell_output_size=32,
+        topology=BoardCellTopology(
+            rows=3,
+            columns=5,
+            rules_version_id=rules_version_id,
+        ),
+    )
+    manifest_entry = {
+        "status": "registered",
+        "quads": _grid_quads(),
+        "boardRedEdgeCoverages": [0.9] * 9,
+        "featureCount": 1000,
+        "registrationVersion": "verified-page-registration-v1",
+        "thresholdsVersion": "verified-page-registration-thresholds-v1",
+    }
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        page_geometry_manifest={source_checksum: manifest_entry},
+        geometry_rollout=_structured_default_pinned_preflight_rollout(),
+    )
+    engine = _StructuredGeometryEngineV2()
+    suite._structured_geometry_engine = engine  # type: ignore[assignment]
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "f" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    normalization = dict(suite.normalization(ImageStageContext(**base, previous_results={})))
+    context = ImageStageContext(**base, previous_results={"normalization": normalization})
+
+    detection = dict(suite.board_detection(context))
+
+    request = engine.last_request
+    assert request is not None
+    assert request.geometry_profile is None  # type: ignore[attr-defined]
+    assert len(request.pinned_initial_quads) == 9  # type: ignore[arg-type, attr-defined]
+    assert request.pinned_geometry_checksum_sha256 is not None  # type: ignore[attr-defined]
+    assert detection["structuredGeometry"]["engineVersion"] == (
+        STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION
+    )
+
+
+def _structured_shadow_candidate_rollout() -> GeometryPipelineRolloutSnapshot:
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.STRUCTURED_SHADOW,
+        cell_asset_mode=CellAssetRolloutMode.VIRTUAL_SHADOW,
+        rollout_revision=2,
+        geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+        virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+        preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+        candidate_geometry=StructuredGeometryCandidateSnapshot.from_config_payload(
+            DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.to_payload()
+        ),
+    )
+
+
+def _structured_shadow_lattice_rollout() -> GeometryPipelineRolloutSnapshot:
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.STRUCTURED_SHADOW,
+        cell_asset_mode=CellAssetRolloutMode.VIRTUAL_SHADOW,
+        rollout_revision=3,
+        geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+        virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+        preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+        candidate_geometry=StructuredGeometryCandidateSnapshot.from_config_payload(
+            structured_lattice_candidate_config_payload()
+        ),
+    )
+
+
+def _structured_active_lattice_rollout() -> GeometryPipelineRolloutSnapshot:
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.STRUCTURED_LATTICE_V3,
+        cell_asset_mode=CellAssetRolloutMode.VIRTUAL_DEFAULT,
+        rollout_revision=4,
+        geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+        virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+        preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+        active_lattice_geometry=StructuredGeometryActivationSnapshot.from_config_payload(
+            structured_lattice_active_config_payload()
+        ),
+    )
+
+
+class _ShadowCandidateResult:
+    def __init__(self, *, source_checksum: str, normalized_checksum: str) -> None:
+        self._source_checksum = source_checksum
+        self._normalized_checksum = normalized_checksum
+
+    def to_payload(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "activationAllowed": False,
+            "adaptiveAnalysisAppliedToSignalProbe": True,
+            "analysisScale": 1.0,
+            "boards": [],
+            "candidateRole": "measurement_only",
+            "candidateVersion": "structured-geometry-v2-shadow-measurement-v1",
+            "configChecksumSha256": DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.checksum_sha256,
+            "configVersion": DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.to_payload()["configVersion"],
+            "geometryOriginEngineVersion": STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+            "geometryOriginPolicy": "reuse_v1_final_quad_without_authority",
+            "normalizedPixelChecksumSha256": self._normalized_checksum,
+            "schemaVersion": 1,
+            "sourceChecksumSha256": self._source_checksum,
+            "upstreamResultChecksumSha256": "9" * 64,
+        }
+        payload["resultChecksumSha256"] = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+        return payload
+
+
+class _ShadowLatticeCandidateResult:
+    def __init__(
+        self,
+        *,
+        source_checksum: str,
+        normalized_checksum: str,
+        upstream_result_checksum: str = "9" * 64,
+        config_checksum: str | None = None,
+        deferred_position: int | None = None,
+    ) -> None:
+        self._source_checksum = source_checksum
+        self._normalized_checksum = normalized_checksum
+        self._upstream_result_checksum = upstream_result_checksum
+        self._config_checksum = config_checksum
+        self._deferred_position = deferred_position
+
+    def to_payload(self) -> dict[str, object]:
+        config = structured_lattice_candidate_config_payload()
+        config_checksum = (
+            self._config_checksum or hashlib.sha256(canonical_json_bytes(config)).hexdigest()
+        )
+        boards = []
+        for position, quad in enumerate(_grid_quads()):
+            deferred = position == self._deferred_position
+            boards.append(
+                {
+                    "analysisQuad": quad,
+                    "boardFrameQuad": quad,
+                    "contentSafety": {
+                        "status": "failed" if deferred else "passed",
+                        "reasonCode": "content_boundary_conflict" if deferred else None,
+                    },
+                    "finalQuad": None if deferred else quad,
+                    "localLatticeStatus": "needs_review" if deferred else "estimated",
+                    "localLatticeVersion": config["localLatticeVersion"],
+                    "positionIndex": position,
+                    "reasonCode": "content_boundary_conflict" if deferred else None,
+                    "sequenceNumber": position + 1,
+                    "symbolGridQuad": None if deferred else quad,
+                }
+            )
+        payload: dict[str, object] = {
+            "activationAllowed": False,
+            "boards": boards,
+            "candidateRole": "measurement_only",
+            "configChecksumSha256": config_checksum,
+            "configVersion": config["configVersion"],
+            "geometryOriginPolicy": ("frame_conditioned_symbol_lattice_without_crop_authority"),
+            "normalizedPixelChecksumSha256": self._normalized_checksum,
+            "sourceChecksumSha256": self._source_checksum,
+            "upstreamResultChecksumSha256": self._upstream_result_checksum,
+        }
+        payload["resultChecksumSha256"] = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+        return payload
+
+
+def test_structured_shadow_candidate_is_checkpointed_without_changing_legacy_primary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    processing = board_cell_processing_snapshot(
+        cell_output_size=32,
+        topology=BoardCellTopology(
+            rows=3,
+            columns=5,
+            rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04",
+        ),
+    )
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        page_geometry_manifest={
+            source_checksum: {
+                "status": "registered",
+                "quads": _grid_quads(),
+                "boardRedEdgeCoverages": [0.9] * 9,
+                "featureCount": 1000,
+                "featuresVersion": "orb-test-v1",
+                "registrationVersion": "verified-page-registration-v1",
+                "thresholdsVersion": "verified-page-registration-thresholds-v1",
+            }
+        },
+        geometry_rollout=_structured_shadow_candidate_rollout(),
+        game_id=uuid4(),
+    )
+    suite._structured_geometry_engine = _StructuredGeometryEngine()  # type: ignore[assignment]
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.evaluate_structured_geometry_shadow_v2",
+        lambda frame, *_args, **_kwargs: _ShadowCandidateResult(
+            source_checksum=frame.source.source_checksum_sha256,
+            normalized_checksum=frame.source.normalized_pixel_checksum_sha256,
+        ),
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.estimate_board_cell_geometry",
+        lambda *_args, **_kwargs: _v19_success_estimate(),
+    )
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "f" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    normalization = dict(suite.normalization(ImageStageContext(**base, previous_results={})))
+    detection_context = ImageStageContext(
+        **base,
+        previous_results={"normalization": normalization},
+    )
+    detection = dict(suite.board_detection(detection_context))
+    validate_stage_payload("board_detection", detection, detection_context)
+    geometry_context = ImageStageContext(
+        **base,
+        previous_results={"normalization": normalization, "board_detection": detection},
+    )
+    geometry = dict(suite.board_cell_geometry(geometry_context))
+    validate_stage_payload("board_cell_geometry", geometry, geometry_context)
+
+    assert detection["recoveryMode"] == "pinned_verified_page_registration"
+    assert len(detection["boards"]) == 9
+    assert detection["structuredGeometry"]["engineVersion"] == (
+        STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
+    )
+    assert detection["structuredGeometryCandidateV2"] == (geometry["structuredGeometryCandidateV2"])
+    assert geometry["processingVersion"] != STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
+
+
+def test_structured_lattice_shadow_is_exposed_without_changing_legacy_cell_geometry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    processing = board_cell_processing_snapshot(
+        cell_output_size=32,
+        topology=BoardCellTopology(
+            rows=3,
+            columns=5,
+            rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04",
+        ),
+    )
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        page_geometry_manifest={
+            source_checksum: {
+                "status": "registered",
+                "quads": _grid_quads(),
+                "boardRedEdgeCoverages": [0.9] * 9,
+                "featureCount": 1000,
+                "featuresVersion": "orb-test-v1",
+                "registrationVersion": "verified-page-registration-v1",
+                "thresholdsVersion": "verified-page-registration-thresholds-v1",
+            }
+        },
+        geometry_rollout=_structured_shadow_lattice_rollout(),
+    )
+    suite._structured_geometry_engine = _StructuredGeometryEngine()  # type: ignore[assignment]
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.evaluate_structured_lattice_shadow_v3",
+        lambda frame, *_args, **_kwargs: _ShadowLatticeCandidateResult(
+            source_checksum=frame.source.source_checksum_sha256,
+            normalized_checksum=frame.source.normalized_pixel_checksum_sha256,
+        ),
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.estimate_board_cell_geometry",
+        lambda *_args, **_kwargs: _v19_success_estimate(),
+    )
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "f" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    normalization = dict(suite.normalization(ImageStageContext(**base, previous_results={})))
+    detection_context = ImageStageContext(
+        **base,
+        previous_results={"normalization": normalization},
+    )
+    detection = dict(suite.board_detection(detection_context))
+    validate_stage_payload("board_detection", detection, detection_context)
+    geometry_context = ImageStageContext(
+        **base,
+        previous_results={"normalization": normalization, "board_detection": detection},
+    )
+    geometry = dict(suite.board_cell_geometry(geometry_context))
+    validate_stage_payload("board_cell_geometry", geometry, geometry_context)
+
+    assert "structuredGeometryCandidateV2" not in detection
+    assert detection["structuredGeometryCandidateV3"] == (geometry["structuredGeometryCandidateV3"])
+    assert detection["boards"][0]["geometry"]["symbolGridQuad"] == _grid_quads()[0]
+    assert geometry["processingVersion"] != STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
+
+
+def test_structured_lattice_v3_becomes_primary_only_for_pinned_active_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    processing = board_cell_processing_snapshot(
+        cell_output_size=32,
+        topology=BoardCellTopology(
+            rows=3,
+            columns=5,
+            rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04",
+        ),
+    )
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        geometry_rollout=_structured_active_lattice_rollout(),
+    )
+    suite._structured_geometry_engine = _StructuredGeometryEngine()  # type: ignore[assignment]
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.evaluate_structured_lattice_shadow_v3",
+        lambda frame, result, *_args, **kwargs: _ShadowLatticeCandidateResult(
+            source_checksum=frame.source.source_checksum_sha256,
+            normalized_checksum=frame.source.normalized_pixel_checksum_sha256,
+            upstream_result_checksum=result.to_payload()["resultChecksumSha256"],
+            config_checksum=kwargs["config_checksum_sha256"],
+            deferred_position=8,
+        ),
+    )
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "f" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    normalization = dict(suite.normalization(ImageStageContext(**base, previous_results={})))
+    detection_context = ImageStageContext(
+        **base,
+        previous_results={"normalization": normalization},
+    )
+    detection = dict(suite.board_detection(detection_context))
+    validate_stage_payload("board_detection", detection, detection_context)
+    geometry_context = ImageStageContext(
+        **base,
+        previous_results={"normalization": normalization, "board_detection": detection},
+    )
+    geometry = dict(suite.board_cell_geometry(geometry_context))
+    validate_stage_payload("board_cell_geometry", geometry, geometry_context)
+
+    structured = detection["structuredGeometry"]
+    assert structured["rolloutMode"] == "structured_lattice_v3"
+    assert structured["status"] == "needs_review"
+    assert structured["boards"][0]["finalQuad"] == _grid_quads()[0]
+    assert structured["boards"][8]["finalQuad"] is None
+    assert structured["boards"][8]["reasonCodes"] == ["content_boundary_conflict"]
+    assert geometry["boards"][0]["status"] == "verified"
+    assert geometry["boards"][8]["status"] == "deferred"
+    assert geometry["boards"][8]["reasonCodes"] == ["content_boundary_conflict"]
+
+
+def test_structured_lattice_v3_renders_virtual_crops_from_its_symbol_grid(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    snapshot = _candidate_snapshot()
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=snapshot,
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=board_cell_processing_snapshot(
+            cell_output_size=snapshot.input_size,
+            topology=BoardCellTopology(
+                rows=3,
+                columns=5,
+                rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04",
+            ),
+        ),
+        geometry_rollout=_structured_active_lattice_rollout(),
+    )
+    suite._structured_geometry_engine = _StructuredGeometryEngine()  # type: ignore[assignment]
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.evaluate_structured_lattice_shadow_v3",
+        lambda frame, result, *_args, **kwargs: _ShadowLatticeCandidateResult(
+            source_checksum=frame.source.source_checksum_sha256,
+            normalized_checksum=frame.source.normalized_pixel_checksum_sha256,
+            upstream_result_checksum=result.to_payload()["resultChecksumSha256"],
+            config_checksum=kwargs["config_checksum_sha256"],
+        ),
+    )
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "e" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    results: dict[str, dict[str, object]] = {}
+    for stage, execute in (
+        ("normalization", suite.normalization),
+        ("board_detection", suite.board_detection),
+        ("board_cell_geometry", suite.board_cell_geometry),
+        ("board_crops", suite.board_crops),
+    ):
+        context = ImageStageContext(**base, previous_results=results)
+        results[stage] = dict(execute(context))
+        validate_stage_payload(stage, results[stage], context)
+
+    structured = results["board_detection"]["structuredGeometry"]
+    crop_boards = results["board_crops"]["boards"]
+    assert structured["status"] == "ready"
+    assert len(crop_boards) == 9
+    assert sum(len(board["cells"]) for board in crop_boards) == 135
+    assert crop_boards[0]["geometryChecksumSha256"] == structured["resultChecksumSha256"]
+    active_quad = SourceQuad(
+        corners=tuple(
+            SourcePoint(float(point["x"]), float(point["y"]))
+            for point in structured["boards"][0]["symbolGridQuad"]
+        )  # type: ignore[arg-type]
+    )
+    expected_cell = active_quad.cell_quad(
+        topology=DomainBoardTopology(rows=3, columns=5),
+        row_index=0,
+        column_index=0,
+    )
+    assert crop_boards[0]["cells"][0]["renderSpec"]["sourceQuad"] == expected_cell.to_dict()
+    assert (
+        crop_boards[0]["cells"][0]["renderSpec"]["geometryVersion"]
+        == (structured_lattice_active_config_payload()["localLatticeVersion"])
+    )
+    assert not list((artifact_root / "data").rglob("*.png"))
+
+
+def test_structured_default_renders_one_virtual_batch_and_restarts_without_png(
+    tmp_path: Path,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    rules_version_id = "4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04"
+    snapshot = _candidate_snapshot()
+    processing = board_cell_processing_snapshot(
+        cell_output_size=snapshot.input_size,
+        topology=BoardCellTopology(
+            rows=3,
+            columns=5,
+            rules_version_id=rules_version_id,
+        ),
+    )
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=snapshot,
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        geometry_rollout=_structured_default_rollout(),
+    )
+    geometry_engine = _StructuredGeometryEngine()
+    suite._structured_geometry_engine = geometry_engine  # type: ignore[assignment]
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "f" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    results: dict[str, dict[str, object]] = {}
+    for stage, execute in (
+        ("normalization", suite.normalization),
+        ("board_detection", suite.board_detection),
+        ("board_cell_geometry", suite.board_cell_geometry),
+        ("board_crops", suite.board_crops),
+        ("sequence_ocr", suite.sequence_ocr),
+    ):
+        context = ImageStageContext(**base, previous_results=results)
+        results[stage] = dict(execute(context))
+        validate_stage_payload(stage, results[stage], context)
+
+    crop_boards = results["board_crops"]["boards"]
+    assert isinstance(crop_boards, list)
+    assert len(crop_boards) == 9
+    assert sum(len(board["cells"]) for board in crop_boards) == 135
+    assert all("boardRelativePath" not in board for board in crop_boards)
+    assert all("cropRelativePath" not in cell for board in crop_boards for cell in board["cells"])
+    assert all(
+        cell["logicalCellKeyV2Sha256"] != cell["logicalCellKeySha256"]
+        for board in crop_boards
+        for cell in board["cells"]
+    )
+    assert all(
+        cell["renderSpec"]["logicalCellKeyV2Sha256"] == cell["logicalCellKeyV2Sha256"]
+        for board in crop_boards
+        for cell in board["cells"]
+    )
+    assert all(
+        cell["renderSpec"]["renderIdentityV2Sha256"] == cell["renderIdentityV2Sha256"]
+        for board in crop_boards
+        for cell in board["cells"]
+    )
+    assert geometry_engine.call_count == 1
+    assert not list((artifact_root / "data").rglob("*.png"))
+
+    restarted = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=snapshot,
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        geometry_rollout=_structured_default_rollout(),
+    )
+    symbol_adapter = _OnePageSymbolAdapter()
+    restarted._symbol_model = symbol_adapter  # type: ignore[assignment]
+    symbol_context = ImageStageContext(**base, previous_results=results)
+    symbols = dict(restarted.symbol_inference(symbol_context))
+    validate_stage_payload("symbol_inference", symbols, symbol_context)
+
+    assert symbol_adapter.call_count == 1
+    assert len(symbols["boards"]) == 9
+    assert not list((artifact_root / "data").rglob("*.png"))
 
 
 def _v19_success_estimate() -> BoardCellGeometryEstimate:

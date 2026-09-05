@@ -38,6 +38,9 @@ from game_predictor_api.api.remote_manual_selections import (
 from game_predictor_api.api.reviewer_access import create_reviewer_access_router
 from game_predictor_api.api.reviews import create_reviews_router
 from game_predictor_api.api.rules import create_rules_router
+from game_predictor_api.api.semi_automatic_image_selections import (
+    create_semi_automatic_image_selections_router,
+)
 from game_predictor_api.api.symbol_model_iterations import create_symbol_model_iteration_router
 from game_predictor_api.api.symbol_references import create_symbol_references_router
 from game_predictor_api.api.verified_training_cohorts import (
@@ -56,6 +59,7 @@ def create_api_router(
     dataset_service_dependency: Callable[..., object],
     job_service_dependency: Callable[..., object],
     image_selection_service_dependency: Callable[..., object],
+    semi_automatic_image_selection_service_dependency: Callable[..., object],
     image_job_service_dependency: Callable[..., object],
     image_folder_selection_service_dependency: Callable[..., object],
     browser_image_selection_service_dependency: Callable[..., object],
@@ -64,6 +68,8 @@ def create_api_router(
     image_storage_service_dependency: Callable[..., object],
     image_review_service_dependency: Callable[..., object],
     image_grid_review_service_dependency: Callable[..., object],
+    image_geometry_rollout_service_dependency: Callable[..., object],
+    virtual_grid_geometry_service_dependency: Callable[..., object],
     image_review_cohort_service_dependency: Callable[..., object],
     layout_import_report_service_dependency: Callable[..., object],
     mobile_release_service_dependency: Callable[..., object],
@@ -73,6 +79,7 @@ def create_api_router(
     reviewer_work_lifecycle_service_dependency: Callable[..., object],
     symbol_reference_service_dependency: Callable[..., object],
     symbol_cell_review_query_service_dependency: Callable[..., object],
+    virtual_cell_preview_service_dependency: Callable[..., object],
     symbol_cell_review_mutation_service_dependency: Callable[..., object],
     symbol_cell_review_bulk_operation_service_dependency: Callable[..., object],
     symbol_cell_review_backfill_service_dependency: Callable[..., object],
@@ -83,6 +90,7 @@ def create_api_router(
     symbol_model_registry_service_dependency: Callable[..., object],
     grid_calibration_service_dependency: Callable[..., object],
     page_geometry_override_service_dependency: Callable[..., object],
+    image_import_geometry_guard_service_dependency: Callable[..., object],
     board_cell_geometry_pending_service_dependency: Callable[..., object],
     remote_manual_selection_host_service_dependency: Callable[..., object],
     remote_manual_selection_access_service_dependency: Callable[..., object],
@@ -131,6 +139,7 @@ def create_api_router(
     router.include_router(
         create_image_symbol_reviews_router(
             symbol_cell_review_query_service_dependency,
+            virtual_cell_preview_service_dependency,
             symbol_cell_review_mutation_service_dependency,
             symbol_cell_review_bulk_operation_service_dependency,
             symbol_cell_review_backfill_service_dependency,
@@ -149,6 +158,11 @@ def create_api_router(
         )
     )
     router.include_router(
+        create_semi_automatic_image_selections_router(
+            semi_automatic_image_selection_service_dependency
+        )
+    )
+    router.include_router(
         create_image_imports_router(
             image_folder_selection_service_dependency,
             browser_image_selection_service_dependency,
@@ -156,6 +170,7 @@ def create_api_router(
             iterative_image_import_service_dependency,
             image_sequence_canonical_service_dependency,
             page_geometry_override_service_dependency,
+            image_import_geometry_guard_service_dependency,
             artifact_root,
         )
     )
@@ -178,6 +193,8 @@ def create_api_router(
         create_image_grid_reviews_router(
             image_grid_review_service_dependency,
             image_review_service_dependency,
+            image_geometry_rollout_service_dependency,
+            virtual_grid_geometry_service_dependency,
             settings.artifact_root,
         )
     )

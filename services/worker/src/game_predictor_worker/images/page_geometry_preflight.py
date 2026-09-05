@@ -17,7 +17,11 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
-from .page_geometry_registration import PAGE_REGISTRATION_VERSION, VerifiedPageRegistrar
+from .page_geometry_registration import (
+    PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
+    PAGE_REGISTRATION_VERSION,
+    VerifiedPageRegistrar,
+)
 from .source_ingestion import (
     BROWSER_SELECTION_MANIFEST,
     ManagedOriginal,
@@ -28,13 +32,28 @@ from .source_ingestion import (
 PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION = 2
 LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v1"
 PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v2-auto-anchor"
+PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION = (
+    "page-geometry-preflight-v3-board-area-mask"
+)
 _CHECKPOINT_BATCH_SIZE = 25
 _AUTO_ANCHOR_MAX_PASSES = 2
 _AUTO_ANCHOR_LIMIT_PER_PASS = 21
+_PROGRESS_PHASE_SOURCE_REGISTRATION = "source_registration"
+_PROGRESS_PHASE_AUTO_ANCHOR_RETRY = "auto_anchor_retry"
+_PROGRESS_PHASE_MANIFEST_WRITE = "manifest_write"
+_PROGRESS_PHASE_COMPLETE = "complete"
 # Registration is CPU-bound but OpenCV runs most feature work outside the GIL.
 # Four pages remain the compatibility default for direct construction.  The
 # supervised general worker passes its bounded cooperative process budget.
 _DEFAULT_REGISTRATION_WORKERS = 4
+
+
+def _expected_board_count(original: ManagedOriginal) -> int:
+    start = original.sequence_range_start
+    end = original.sequence_range_end
+    if isinstance(start, int) and isinstance(end, int) and 1 <= start <= end <= start + 8:
+        return end - start + 1
+    return 9
 
 
 class PageGeometryPreflightHandler:
@@ -76,6 +95,9 @@ class PageGeometryPreflightHandler:
                 registered=registered_count,
                 review_required=review_count,
                 complete=True,
+                phase=_PROGRESS_PHASE_COMPLETE,
+                phase_current=1,
+                phase_total=1,
             )
             return
 
@@ -84,19 +106,33 @@ class PageGeometryPreflightHandler:
             source_directory,
             expected_checksum=cast(str, payload["sourceManifestChecksumSha256"]),
         )
-        managed = self._originals.load_or_create_manifest(
-            job,
-            source_directory=source_directory,
+        try:
+            managed = self._originals.load_or_create_manifest(
+                job,
+                source_directory=source_directory,
+            )
+        except JobHandlerError as error:
+            if error.code != "IMAGE_SOURCE_UNAVAILABLE":
+                raise
+            raise JobHandlerError(
+                "IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE",
+                "A staged image cannot be decoded for geometry preflight.",
+            ) from error
+        originals_by_checksum = {
+            original.checksum_sha256: original for original in managed.originals
+        }
+        registration_profile = _profile_with_manual_override_anchors(
+            cast(Mapping[str, object], payload["pageRegistrationProfile"]),
+            cast(Mapping[str, object], payload["pageGeometryOverrides"]),
         )
         registrar = VerifiedPageRegistrar(
-            cast(Mapping[str, object], payload["pageRegistrationProfile"]),
-            load_anchor_rgb=self._load_anchor_rgb,
+            registration_profile,
+            load_anchor_rgb=lambda checksum: self._load_preflight_anchor_rgb(
+                checksum,
+                by_checksum=originals_by_checksum,
+                source_directory=managed.source_directory,
+            ),
         )
-        if not registrar.available:
-            raise JobHandlerError(
-                "IMAGE_PAGE_GEOMETRY_PROFILE_EMPTY",
-                "No complete reviewed page is available as a geometry registration anchor.",
-            )
         entries: dict[str, object] = {}
         registered = review_required = skipped = 0
         total = len(managed.originals)
@@ -137,14 +173,19 @@ class PageGeometryPreflightHandler:
                 registered=registered,
                 review_required=review_required,
                 complete=False,
+                phase=_PROGRESS_PHASE_SOURCE_REGISTRATION,
+                phase_current=processed,
+                phase_total=total,
             )
         auto_anchor_passes: list[dict[str, object]] = []
-        if payload["preflightPolicyVersion"] == PAGE_GEOMETRY_PREFLIGHT_VERSION:
+        if _uses_auto_anchors(cast(str, payload["preflightPolicyVersion"])):
             entries, auto_anchor_passes = self._retry_with_verified_auto_anchors(
                 entries,
                 managed.originals,
+                context=context,
                 source_directory=managed.source_directory,
                 payload=payload,
+                base_profile=registration_profile,
             )
             registered = _entry_status_count(entries, "registered")
             review_required = _entry_status_count(entries, "review_required")
@@ -158,6 +199,9 @@ class PageGeometryPreflightHandler:
                 registered=registered,
                 review_required=review_required,
                 complete=False,
+                phase=_PROGRESS_PHASE_MANIFEST_WRITE,
+                phase_current=0,
+                phase_total=1,
             )
         content = _manifest_bytes(
             job,
@@ -182,6 +226,9 @@ class PageGeometryPreflightHandler:
             registered=registered,
             review_required=review_required,
             complete=True,
+            phase=_PROGRESS_PHASE_COMPLETE,
+            phase_current=1,
+            phase_total=1,
         )
 
     def _evaluate_source(
@@ -210,6 +257,7 @@ class PageGeometryPreflightHandler:
             original.checksum_sha256,
             width=int(rgb.shape[1]),
             height=int(rgb.shape[0]),
+            expected_board_count=_expected_board_count(original),
         )
         if override is not None:
             return (
@@ -223,8 +271,7 @@ class PageGeometryPreflightHandler:
                 },
                 "registered",
             )
-        result = registrar.register(rgb)
-        if result is None:
+        if not registrar.available:
             return (
                 original.checksum_sha256,
                 {
@@ -232,9 +279,24 @@ class PageGeometryPreflightHandler:
                     "sourceRelativePath": original.source_relative_path,
                     "imageHeight": int(rgb.shape[0]),
                     "imageWidth": int(rgb.shape[1]),
+                    "reasonCode": "PAGE_GEOMETRY_BOOTSTRAP_ANCHOR_REQUIRED",
                 },
                 "review_required",
             )
+        evaluation = registrar.evaluate(rgb)
+        if evaluation.result is None:
+            return (
+                original.checksum_sha256,
+                {
+                    "status": "review_required",
+                    "sourceRelativePath": original.source_relative_path,
+                    "imageHeight": int(rgb.shape[0]),
+                    "imageWidth": int(rgb.shape[1]),
+                    **evaluation.failure_payload(),
+                },
+                "review_required",
+            )
+        result = evaluation.result
         return (
             original.checksum_sha256,
             {
@@ -252,13 +314,14 @@ class PageGeometryPreflightHandler:
         entries: dict[str, object],
         originals: Sequence[ManagedOriginal],
         *,
+        context: JobExecutionContext,
         source_directory: Path,
         payload: Mapping[str, object],
+        base_profile: Mapping[str, object],
     ) -> tuple[dict[str, object], list[dict[str, object]]]:
         """Retry unresolved views with a bounded, stricter anchor cohort."""
 
         by_checksum = {original.checksum_sha256: original for original in originals}
-        base_profile = cast(Mapping[str, object], payload["pageRegistrationProfile"])
         raw_anchors = base_profile.get("anchors")
         anchors = (
             [dict(value) for value in raw_anchors if isinstance(value, Mapping)]
@@ -303,10 +366,30 @@ class PageGeometryPreflightHandler:
                 ),
             )
             resolved = 0
-            for original in originals:
-                current = entries.get(original.checksum_sha256)
-                if not isinstance(current, Mapping) or current.get("status") != "review_required":
-                    continue
+            unresolved = [
+                original
+                for original in originals
+                if isinstance(entries.get(original.checksum_sha256), Mapping)
+                and cast(Mapping[str, object], entries[original.checksum_sha256]).get("status")
+                == "review_required"
+            ]
+            _checkpoint(
+                context,
+                payload,
+                manifest_checksum=None,
+                manifest_relative_path=None,
+                processed=len(originals),
+                total=len(originals),
+                registered=_entry_status_count(entries, "registered"),
+                review_required=len(unresolved),
+                complete=False,
+                phase=_PROGRESS_PHASE_AUTO_ANCHOR_RETRY,
+                phase_current=0,
+                phase_total=len(unresolved),
+                auto_anchor_pass=pass_number,
+                auto_anchor_pass_count=_AUTO_ANCHOR_MAX_PASSES,
+            )
+            for retry_index, original in enumerate(unresolved, start=1):
                 checksum, entry, outcome = self._evaluate_source(
                     original,
                     source_directory=source_directory,
@@ -317,6 +400,23 @@ class PageGeometryPreflightHandler:
                     entry["automaticAnchorPass"] = pass_number
                     entries[checksum] = entry
                     resolved += 1
+                if retry_index % _CHECKPOINT_BATCH_SIZE == 0 or retry_index == len(unresolved):
+                    _checkpoint(
+                        context,
+                        payload,
+                        manifest_checksum=None,
+                        manifest_relative_path=None,
+                        processed=len(originals),
+                        total=len(originals),
+                        registered=_entry_status_count(entries, "registered"),
+                        review_required=_entry_status_count(entries, "review_required"),
+                        complete=False,
+                        phase=_PROGRESS_PHASE_AUTO_ANCHOR_RETRY,
+                        phase_current=retry_index,
+                        phase_total=len(unresolved),
+                        auto_anchor_pass=pass_number,
+                        auto_anchor_pass_count=_AUTO_ANCHOR_MAX_PASSES,
+                    )
             reports.append(
                 {
                     "pass": pass_number,
@@ -368,6 +468,7 @@ class PageGeometryPreflightHandler:
         *,
         width: int,
         height: int,
+        expected_board_count: int,
     ) -> dict[str, object] | None:
         overrides = payload.get("pageGeometryOverrides")
         raw = overrides.get(source_checksum_sha256) if isinstance(overrides, Mapping) else None
@@ -376,11 +477,15 @@ class PageGeometryPreflightHandler:
         if raw.get("imageWidth") != width or raw.get("imageHeight") != height:
             return None
         quads = raw.get("quads")
-        if not isinstance(quads, list) or len(quads) != 9:
+        if (
+            not isinstance(quads, Sequence)
+            or isinstance(quads, str | bytes)
+            or len(quads) != expected_board_count
+        ):
             return None
         return {
             "anchorSourceChecksumSha256": None,
-            "boardRedEdgeCoverages": [1.0] * 9,
+            "boardRedEdgeCoverages": [1.0] * expected_board_count,
             "inlierCount": 0,
             "inlierRatio": 0.0,
             "manualOverrideDecisionChecksumSha256": raw.get("decisionChecksumSha256"),
@@ -388,7 +493,7 @@ class PageGeometryPreflightHandler:
             "manualOverrideRevision": raw.get("revision"),
             "meanRedEdgeCoverage": 1.0,
             "p95ReprojectionError": 0.0,
-            "quads": quads,
+            "quads": list(quads),
             "registrationVersion": "manual-page-geometry-override-v1",
             "thresholdsVersion": "manual-page-geometry-override-v1",
         }
@@ -447,6 +552,27 @@ class PageGeometryPreflightHandler:
             ) from error
 
 
+def _uses_auto_anchors(preflight_policy_version: str) -> bool:
+    return preflight_policy_version in {
+        PAGE_GEOMETRY_PREFLIGHT_VERSION,
+        PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION,
+    }
+
+
+def _registration_policy_matches_preflight(
+    preflight_policy_version: object,
+    registration_policy_version: object,
+) -> bool:
+    expected = {
+        LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION: PAGE_REGISTRATION_VERSION,
+        PAGE_GEOMETRY_PREFLIGHT_VERSION: PAGE_REGISTRATION_VERSION,
+        PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION: (
+            PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION
+        ),
+    }
+    return expected.get(preflight_policy_version) == registration_policy_version
+
+
 def _input(job: Job) -> dict[str, object]:
     payload = job.input_payload
     required = {
@@ -487,7 +613,6 @@ def _input(job: Job) -> dict[str, object]:
         or not isinstance(checksum, str)
         or len(checksum) != 64
         or not isinstance(profile, Mapping)
-        or profile.get("policy") != PAGE_REGISTRATION_VERSION
         or not isinstance(overrides, Mapping)
         or not isinstance(canonical, list)
         or (
@@ -502,7 +627,9 @@ def _input(job: Job) -> dict[str, object]:
         not in {
             LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION,
             PAGE_GEOMETRY_PREFLIGHT_VERSION,
+            PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION,
         }
+        or not _registration_policy_matches_preflight(policy, profile.get("policy"))
         or any(
             not isinstance(value, int) or isinstance(value, bool) or value < 1
             for value in canonical
@@ -580,7 +707,7 @@ def _manifest_bytes(
         "registeredSourceCount": registered,
         "schemaVersion": (
             PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION
-            if version == PAGE_GEOMETRY_PREFLIGHT_VERSION
+            if _uses_auto_anchors(version)
             else 1
         ),
         "sourceCount": source_count,
@@ -588,7 +715,7 @@ def _manifest_bytes(
         "sourceSelectionId": payload["sourceSelectionId"],
         "version": version,
     }
-    if version == PAGE_GEOMETRY_PREFLIGHT_VERSION:
+    if _uses_auto_anchors(version):
         value["automaticAnchorPasses"] = list(auto_anchor_passes)
     return (json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
@@ -607,6 +734,10 @@ def _load_manifest(path: Path) -> Mapping[str, object]:
         not in {
             (1, LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION),
             (PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION, PAGE_GEOMETRY_PREFLIGHT_VERSION),
+            (
+                PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION,
+                PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION,
+            ),
         }
         or not isinstance(value.get("sourceCount"), int)
         or not isinstance(value.get("registeredSourceCount"), int)
@@ -641,6 +772,11 @@ def _checkpoint(
     registered: int,
     review_required: int,
     complete: bool,
+    phase: str,
+    phase_current: int,
+    phase_total: int,
+    auto_anchor_pass: int | None = None,
+    auto_anchor_pass_count: int | None = None,
 ) -> None:
     value: dict[str, object] = {
         "schema_version": 1,
@@ -651,7 +787,13 @@ def _checkpoint(
         "registered_source_count": registered,
         "review_required_source_count": review_required,
         "complete": complete,
+        "progress_phase": phase,
+        "phase_current": phase_current,
+        "phase_total": phase_total,
     }
+    if auto_anchor_pass is not None and auto_anchor_pass_count is not None:
+        value["auto_anchor_pass"] = auto_anchor_pass
+        value["auto_anchor_pass_count"] = auto_anchor_pass_count
     if manifest_checksum is not None and manifest_relative_path is not None:
         value["geometry_manifest_checksum_sha256"] = manifest_checksum
         value["geometry_manifest_relative_path"] = manifest_relative_path
@@ -663,12 +805,25 @@ def _checkpoint(
     # review outcome only with the immutable final manifest.
     published_review_count = (
         review_required
-        if complete or payload["preflightPolicyVersion"] != PAGE_GEOMETRY_PREFLIGHT_VERSION
+        if complete
+        or not _uses_auto_anchors(cast(str, payload["preflightPolicyVersion"]))
         else 0
     )
     context.checkpoint(
         checkpoint_payload=value,
-        stage=("page_geometry_manifest_ready" if complete else "page_geometry_registering"),
+        stage=(
+            "page_geometry_manifest_ready"
+            if complete
+            else (
+                f"page_geometry_auto_anchor_pass_{auto_anchor_pass}"
+                if phase == _PROGRESS_PHASE_AUTO_ANCHOR_RETRY
+                else (
+                    "page_geometry_manifest_writing"
+                    if phase == _PROGRESS_PHASE_MANIFEST_WRITE
+                    else "page_geometry_registering"
+                )
+            )
+        ),
         current=processed,
         total=total,
         success_count=registered,
@@ -701,6 +856,56 @@ def _entry_status_count(entries: Mapping[str, object], status: str) -> int:
         for entry in entries.values()
         if isinstance(entry, Mapping) and entry.get("status") == status
     )
+
+
+def _profile_with_manual_override_anchors(
+    profile: Mapping[str, object],
+    overrides: Mapping[str, object],
+) -> dict[str, object]:
+    """Use reviewed page overrides as immutable cold-start registration anchors."""
+
+    raw_anchors = profile.get("anchors")
+    anchors = (
+        [dict(value) for value in raw_anchors if isinstance(value, Mapping)]
+        if isinstance(raw_anchors, Sequence) and not isinstance(raw_anchors, str | bytes)
+        else []
+    )
+    known_checksums = {
+        value.get("sourceChecksumSha256")
+        for value in anchors
+        if isinstance(value.get("sourceChecksumSha256"), str)
+    }
+    for checksum, raw in sorted(overrides.items()):
+        if checksum in known_checksums or not isinstance(raw, Mapping):
+            continue
+        width = raw.get("imageWidth")
+        height = raw.get("imageHeight")
+        quads = raw.get("quads")
+        if (
+            not isinstance(checksum, str)
+            or len(checksum) != 64
+            or not isinstance(width, int)
+            or isinstance(width, bool)
+            or width < 1
+            or not isinstance(height, int)
+            or isinstance(height, bool)
+            or height < 1
+            or not isinstance(quads, Sequence)
+            or isinstance(quads, str | bytes)
+            or len(quads) != 9
+        ):
+            continue
+        anchors.append(
+            {
+                "sourceChecksumSha256": checksum,
+                "imageWidth": width,
+                "imageHeight": height,
+                "quads": list(quads),
+                "provenance": "manual-page-geometry-override-v1",
+            }
+        )
+        known_checksums.add(checksum)
+    return {**profile, "anchors": anchors}
 
 
 def _strong_auto_anchor(entry: Mapping[str, object]) -> bool:
@@ -737,5 +942,6 @@ __all__ = [
     "LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION",
     "PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION",
     "PAGE_GEOMETRY_PREFLIGHT_VERSION",
+    "PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION",
     "PageGeometryPreflightHandler",
 ]

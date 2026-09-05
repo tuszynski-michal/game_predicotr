@@ -66,6 +66,8 @@ class SymbolCellReviewBulkFilterSelection:
     symbol_id: UUID | None
     state: SymbolCellReviewFilterState
     catalog_revision: int
+    min_confidence: float | None = None
+    max_confidence: float | None = None
     excluded_cell_review_ids: tuple[UUID, ...] = ()
 
     def __post_init__(self) -> None:
@@ -73,6 +75,24 @@ class SymbolCellReviewBulkFilterSelection:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_BULK_CATALOG_REVISION_INVALID",
                 "The filter catalog revision cannot be negative.",
+            )
+        for name, value in (
+            ("min_confidence", self.min_confidence),
+            ("max_confidence", self.max_confidence),
+        ):
+            if value is not None and (isinstance(value, bool) or not 0.0 <= value <= 1.0):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_BULK_CONFIDENCE_INVALID",
+                    f"{name} must be a number between 0 and 1.",
+                )
+        if (
+            self.min_confidence is not None
+            and self.max_confidence is not None
+            and self.min_confidence > self.max_confidence
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_BULK_CONFIDENCE_RANGE_INVALID",
+                "min_confidence cannot be greater than max_confidence.",
             )
         if len(self.excluded_cell_review_ids) > MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS:
             raise SymbolCellReviewError(
@@ -128,10 +148,17 @@ class SymbolCellReviewBulkRequest:
                 "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_REQUIRED",
                 "Changing crop symbols requires an active target symbol.",
             )
-        if self.action is not SymbolCellReviewAction.REASSIGN and self.target_symbol_id is not None:
+        if (
+            self.action
+            not in {
+                SymbolCellReviewAction.REASSIGN,
+                SymbolCellReviewAction.MARK_BLURRY,
+            }
+            and self.target_symbol_id is not None
+        ):
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_UNEXPECTED",
-                "Only a symbol reassignment may specify a target symbol.",
+                "Only a symbol reassignment or blurry decision may specify a target symbol.",
             )
 
     @property
@@ -173,6 +200,8 @@ class SymbolCellReviewBulkRequest:
                     str(identifier) for identifier in self.filter_selection.excluded_cell_review_ids
                 ),
                 "kind": "filter",
+                "maxConfidence": self.filter_selection.max_confidence,
+                "minConfidence": self.filter_selection.min_confidence,
                 "state": self.filter_selection.state.value,
                 "symbolId": (
                     "unknown"

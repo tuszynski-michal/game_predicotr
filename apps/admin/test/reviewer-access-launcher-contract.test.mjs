@@ -7,22 +7,29 @@ const launcherPath = new URL(
   import.meta.url,
 );
 
-test('launcher exposes import-scoped local and independent online controls', async () => {
+test('launcher exposes only the import-scoped local grid review control', async () => {
   const source = await readFile(launcherPath, 'utf8');
 
-  assert.match(source, /openOnlineReviewer/);
-  assert.match(source, /openLocalReviewer/);
-  assert.match(source, /loadReviewerWork/);
-  assert.match(source, /heartbeatReviewerWork/);
-  assert.match(source, /closeReviewerWork/);
+  assert.match(source, /buildPreparedLocalReviewUrl/);
+  assert.match(source, /prepareLocalReviewerWindow/);
+  assert.match(source, /startLocalReviewerProcess/);
+  assert.match(source, /navigatePreparedLocalReviewerWindow/);
   assert.match(source, /Otwórz lokalnie/);
-  assert.match(source, /Utwórz link online/);
-  assert.match(source, /Zatrzymaj udostępnianie/);
-  assert.match(source, /Aktywne prace/);
-  assert.match(source, /activeOnlineCount/);
-  assert.match(source, /maximumOnlineCount/);
-  assert.match(source, /assignmentId/);
-  assert.match(source, /listOperationalImageReviewItems/);
+  assert.doesNotMatch(source, /openOnlineReviewer/);
+  assert.doesNotMatch(source, /openLocalReviewer/);
+  assert.doesNotMatch(source, /loadReviewerWork/);
+  assert.doesNotMatch(source, /heartbeatReviewerWork/);
+  assert.doesNotMatch(source, /closeReviewerWork/);
+  assert.doesNotMatch(source, /Utwórz link online/);
+  assert.doesNotMatch(source, /Zatrzymaj udostępnianie/);
+  assert.doesNotMatch(source, /Zakończ pracę lokalną/);
+  assert.doesNotMatch(source, /Aktywne prace/);
+  assert.doesNotMatch(source, /activeOnlineCount/);
+  assert.doesNotMatch(source, /maximumOnlineCount/);
+  assert.doesNotMatch(source, /assignmentId/);
+  assert.doesNotMatch(source, /accessCode/);
+  assert.match(source, /listImageGridReviews/);
+  assert.doesNotMatch(source, /listOperationalImageReviewItems/);
   assert.match(source, /listPendingBoardCellGeometry/);
   assert.match(source, /listReadyBrowserImageSelections/);
   assert.match(source, /readyBoardImportStaging/);
@@ -31,12 +38,15 @@ test('launcher exposes import-scoped local and independent online controls', asy
   assert.match(source, /className="reviewerSelectedImportId"/);
   assert.match(source, /ID: <code>\{selectedJob\.id\}<\/code>/);
   assert.match(source, /Przejdź do Importu plansz/);
-  assert.match(source, /deferredGeometryCounts\?\.pending === 0/);
-  assert.match(source, /Do korekty siatki/);
+  assert.match(source, /gridReviewTotal\(gridReviewCounts\) === 0/);
+  assert.match(source, /Geometria plansz ze stron 3×3/);
+  assert.match(source, /3×3 do korekty obrysu/);
+  assert.match(source, /Niepełne siatki symboli 3×5 do ręcznej korekty/);
   assert.match(
     source,
-    /hasReviewerWork\(reviewCounts, deferredGeometryCounts\)/,
+    /hasReviewerWork\(gridReviewCounts, deferredGeometryCounts\)/,
   );
+  assert.doesNotMatch(source, /hasVirtualGridAssets/);
   assert.match(source, /reviewReadyImports/);
   assert.match(source, /reviewableGames/);
   assert.doesNotMatch(source, /stopReviewerIngress/);
@@ -45,24 +55,28 @@ test('launcher exposes import-scoped local and independent online controls', asy
   assert.doesNotMatch(source, /game\.status === 'active'/);
 });
 
-test('local launch navigates the prepared window before refreshing assignment state', async () => {
+test('local launch starts the process and retries the final scoped URL without creating an assignment', async () => {
   const source = await readFile(launcherPath, 'utf8');
-  const launchStart = source.indexOf('async function launchLocalReviewer()');
-  const launchEnd = source.indexOf(
-    'async function createOnlineWork()',
-    launchStart,
-  );
+  const launchStart = source.indexOf('function launchLocalReviewer()');
+  const launchEnd = source.indexOf('\n\n  return (', launchStart);
   const launchSource = source.slice(launchStart, launchEnd);
-  const navigateAt = launchSource.indexOf(
-    'navigatePreparedLocalReviewerWindow',
-  );
-  const refreshAt = launchSource.indexOf('void refreshOverview(false)');
 
-  assert.notEqual(navigateAt, -1);
-  assert.ok(refreshAt > navigateAt);
-  assert.doesNotMatch(launchSource, /await refreshOverview\(false\)/);
-  assert.doesNotMatch(launchSource, /about:blank/);
-  assert.match(launchSource, /closePreparedLocalReviewerWindow/);
+  assert.match(launchSource, /buildPreparedLocalReviewUrl/);
+  assert.match(launchSource, /prepareLocalReviewerWindow/);
+  assert.match(launchSource, /startLocalReviewerProcess\(api\)/);
   assert.match(launchSource, /setLocalReviewUrl\(reviewUrl\)/);
-  assert.match(launchSource, /Nie udało się przekierować przygotowanego okna/);
+  assert.match(launchSource, /Przeglądarka zablokowała nowe okno/);
+  assert.match(launchSource, /navigatePreparedLocalReviewerWindow/);
+  assert.match(launchSource, /closePreparedLocalReviewerWindow/);
+  assert.doesNotMatch(launchSource, /openLocalReviewer/);
+  assert.doesNotMatch(launchSource, /refreshOverview/);
+  assert.doesNotMatch(launchSource, /about:blank/);
+  assert.ok(
+    launchSource.indexOf('prepareLocalReviewerWindow') <
+      launchSource.indexOf('startLocalReviewerProcess'),
+  );
+  assert.ok(
+    launchSource.indexOf('startLocalReviewerProcess') <
+      launchSource.indexOf('navigatePreparedLocalReviewerWindow'),
+  );
 });

@@ -5,8 +5,10 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
+import numpy as np
 import pytest
 from game_predictor_worker.images.dataset_split import build_symbol_dataset_split
+from game_predictor_worker.images.normalization import rgb_pixel_checksum_sha256
 from game_predictor_worker.images.symbol_classifier import (
     SymbolClassifierError,
     TrainingConfig,
@@ -136,6 +138,24 @@ def test_asset_checksum_drift_is_rejected(tmp_path: Path) -> None:
         prepare_training_data(dataset, split, asset_root)
 
     assert error.value.code == "SYMBOL_CLASSIFIER_ASSET_DRIFT"
+
+
+def test_prepared_data_accepts_explicit_rgb_pixel_checksum(tmp_path: Path) -> None:
+    dataset, split, asset_root = _fixture(tmp_path)
+    payload = json.loads(dataset.read_text(encoding="utf-8"))
+    for sample in payload["samples"]:
+        path = asset_root.joinpath(*sample["assetRelativePath"].split("/"))
+        with Image.open(path) as image:
+            sample["cropChecksumSha256"] = rgb_pixel_checksum_sha256(
+                np.asarray(image.convert("RGB"), dtype=np.uint8)
+            )
+        sample["assetChecksumKind"] = "rgb-pixel-v1"
+    dataset.write_bytes(_json_bytes(payload))
+    split.write_bytes(build_symbol_dataset_split(dataset).to_json_bytes())
+
+    data = prepare_training_data(dataset, split, asset_root)
+
+    assert all(sample.asset_checksum_kind == "rgb-pixel-v1" for sample in data.train)
 
 
 def test_test_samples_are_not_an_input_to_checkpoint_selection(tmp_path: Path) -> None:

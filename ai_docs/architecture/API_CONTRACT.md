@@ -53,6 +53,7 @@ Format błędu:
 /games/{gameId}/symbols
 /games/{gameId}/board-search
 /games/{gameId}/symbol-cell-reviews
+/games/{gameId}/symbol-cell-review-counts
 /games/{gameId}/rules-versions
 /rules-versions/{rulesVersionId}/symbols/{symbolId}
 /rules-versions/{rulesVersionId}/paylines
@@ -71,6 +72,18 @@ Format błędu:
 ```
 
 Pełne schematy CRUD powstają razem z pionem funkcjonalnym i są generowane do OpenAPI. Poniżej zapisano kontrakty o znaczeniu architektonicznym.
+
+Element game-wide kolejki walidacji geometrii może addytywnie zwrócić
+`analysisQuad`, `boardFrameQuad`, `symbolGridQuad`, `localLatticeStatus` oraz
+`localLatticeVersion`. Dla danych historycznych pola pozostają puste, a
+`geometry` zachowuje dotychczasowy payload. Klient nie może interpretować
+zewnętrznej ramki jako końcowej siatki symboli.
+
+Dla pomiaru v3 `localLatticeStatus=estimated` oznacza bezpieczną, nadal
+nieprodukcyjną propozycję `symbolGridQuad`. `needs_review` może jawnie zwrócić
+`symbolGridQuad=null`; klient nie może wtedy podstawiać `quad` ani
+`boardFrameQuad`. Dokładny powód pozostaje w wersjonowanym payloadzie
+`geometry` jako `latticeReasonCode`.
 
 ### Wyszukiwanie plansz częściowym układem
 
@@ -113,15 +126,24 @@ GET  /api/v1/admin/games/{gameId}/symbol-cell-review-projection
 POST /api/v1/admin/games/{gameId}/symbol-cell-review-projection
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
-  ?symbolId={UUID|unknown}
+  ?symbolId={UUID|all|unknown}
   &state=all|approved|pending
+  &minConfidence=0..1
+  &maxConfidence=0..1
   &afterCursor=...
   &beforeCursor=...
-  &limit=1..500
+  &limit=1..2500
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   ?expectedCropChecksumSha256={sha256}
+  &expectedRenderSpecChecksumSha256={sha256-required-for-virtual-source}
   &thumbnailSize=100
+
+POST /api/v1/admin/games/{gameId}/virtual-cell-preview-batches
+GET  /api/v1/admin/games/{gameId}/virtual-cell-preview-batches/{batchKey}/atlas
+
+POST /api/v1/admin/games/{gameId}/symbol-cell-preview-batches
+GET  /api/v1/admin/games/{gameId}/symbol-cell-preview-batches/{batchKey}/atlas
 
 POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/decision
 
@@ -133,6 +155,7 @@ GET /api/v1/admin/games/{gameId}/unreadable-board-reviews
 GET /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}
 
 POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/cells/{cellIndex}/resolve
+POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/save
 ```
 
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
@@ -155,20 +178,53 @@ Status zawiera również rozmiar tabeli i indeksów przed uruchomieniem oraz ich
 bieżący rozmiar; wolne miejsce może być `null`, jeśli proces API nie ma dostępu
 do katalogu danych PostgreSQL.
 
+`POST .../virtual-cell-preview-batches` przyjmuje maksymalnie 100 bieżących
+komórek `virtual_source`, każdą z oczekiwaną rewizją i checksumą render specu.
+Zwraca checksumowany atlas WebP, deterministyczne współrzędne tile'ów i czas
+wygaśnięcia. Atlas jest cache'em pochodnym pod `data/working/`, nie nowym
+artefaktem domenowym: TTL wynosi 24 godziny, limit wynosi 2 GiB, a render
+jednego batcha ma single-flight. Odczyt atlasu oraz rozszerzony endpoint assetu
+ponownie wiążą źródło, geometrię, render spec i checksumę pikseli; drift kończy
+się kontrolowanym konfliktem zamiast podania starego obrazu. Legacy asset nadal
+czyta swój istniejący PNG/JPEG.
+
+`POST .../symbol-cell-preview-batches` jest bieżącym kontraktem Admina dla obu
+trybów `legacy_file` i `virtual_source`. Każdy target wiąże rewizję i checksumę
+cropa, a źródło wirtualne dodatkowo checksumę render specu. Deterministyczny
+batch zawiera najwyżej 100 komórek i ma stabilny klucz niezależny od chwilowego
+viewportu. Cache pochodny ma TTL 24 godziny i limit 2 GiB; pełne pruning nie
+jest wykonywane po każdym renderze, tylko po przekroczeniu limitu. Atlas jest
+serwowany jako prywatny zasób `immutable`, bo zmiana któregokolwiek składnika
+proweniencji tworzy nowy URL.
+
+Żądanie przyjmuje `rendererMode=current|structured_v0_10`. Odpowiedź zawsze
+zwraca tryb, wersję i SHA-256 fingerprintu renderera, `availableCount` oraz
+`unavailableCellReviewIds`. Dla `structured_v0_10` renderowane są wyłącznie
+komórki z kompletną bieżącą proweniencją `virtual_source`. Jeśli cały batch jest
+niedostępny, `batchKey`, `atlasUrl`, check­suma i czas wygaśnięcia są `null`, a
+lista tile'ów jest pusta. Endpoint nie zapisuje danych domenowych i nie uruchamia
+joba; brak proweniencji nigdy nie powoduje fallbacku do `legacy_file`.
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
-zdalny Reviewer ani przez token review. `symbolId=unknown` oznacza techniczne
-`?` (`assigned_symbol_id = NULL`). Domyślna strona ma 500 elementów i jest to
-również twarde maksimum. Lista używa keysetu
-`(sequence_number, cell_index, review_item_id)`; cursor wiąże grę, wybrany
-symbol, stan filtra, kierunek oraz ostatni klucz i nie może być użyty w innym
-scope.
+zdalny Reviewer ani przez token review. `symbolId=all` zwraca wszystkie bieżące
+cropy gry bez ograniczenia przypisania, natomiast `symbolId=unknown` filtruje legacy
+`assigned_symbol_id = NULL`; znak `?` jest wyłącznie jego prezentacją w UI, a
+nie identyfikatorem symbolu ani wartością przyszłego outcome v2. Admin zawsze
+używa strony 500, a kontrakt backendowy ogranicza każde żądanie do `1..500`.
+`minConfidence` i `maxConfidence` są domkniętym przedziałem `0..1`; brak wartości nie ogranicza
+listy. Lista używa keysetu `(sequence_number, cell_index, review_item_id)`;
+cursor wiąże grę, zakres symbolu (`all`, `unknown` albo UUID), stan, oba krańce confidence, kierunek oraz
+ostatni klucz i nie może być użyty w innym scope.
 
 Odpowiedź zwraca wyłącznie metadane cropów bieżącego, deterministycznego
 właściciela `game + sequence_number`, w tym `cropSampleId`, checksumę cropa,
-rewizję komórki i geometrii, liczniki po filtrowaniu, monotoniczną
-`catalogRevision` i kursory poprzedniej/następnej strony. `cropSampleId` wraz
-z checksumą jest obowiązkową tożsamością jawnego targetu masowej operacji.
+rewizję komórki i geometrii, aktualną pewność predykcji, tryb assetu oraz — dla
+`virtual_source` — checksumę render specu. Zwraca monotoniczną
+`catalogRevision` i kursory poprzedniej/następnej strony. Liczniki są pobierane
+osobnym endpointem dla zgodnej rewizji katalogu i nie należą do odpowiedzi
+strony.
+`cropSampleId` wraz z checksumą jest obowiązkową tożsamością jawnego targetu
+masowej operacji.
 Łączenie z
 `image_board_search_fast_documents` oraz bieżącą rewizją geometrii eliminuje
 superseded, alternatywne oraz nieaktualne cropy bez materializowania całego
@@ -186,12 +242,12 @@ sprzeczne kierunki zwracają `409`; drift cropa i jego checksumy również
 zwracają `409`. Brak gry lub aktualnego cropa zwraca `404`, a nieprawidłowy
 filtr, checksum lub limit `422`.
 
-Admin przechowuje tylko jedną odpowiedź strony. Po udanej decyzji ponownie
-wywołuje ten sam endpoint z kursorem, którym otworzył bieżącą stronę. Serwer
-wykonuje wtedy świeże zapytanie keysetowe i naturalnie uzupełnia usunięte z
-filtra pozycje kolejnymi rekordami do limitu 500. Nie istnieje osobny endpoint
-łączenia braków po przesłanych ID, ponieważ taki merge powielałby semantykę
-keysetu i mógłby mieszać rewizje katalogu.
+Admin przechowuje maksymalnie trzy sąsiednie odpowiedzi metadanych i pobiera
+wyłącznie jedną następną stronę z keysetu jako prefetch. Wirtualizuje karty
+wewnątrz strony; atlas preview obejmuje najwyżej 100 bieżąco renderowanych
+komórek i nie jest częścią odpowiedzi listy. Nie istnieje endpoint scalający
+braki po przesłanych ID, ponieważ taki merge powielałby semantykę keysetu i
+mógłby mieszać rewizje katalogu.
 
 `POST .../{cellReviewId}/decision` jest szybką ścieżką wyłącznie dla jednego
 jawnego cropa. Request zawiera akcję, oczekiwaną rewizję komórki i geometrii,
@@ -208,14 +264,28 @@ rozwiązane nieczytelne pola. Lista używa keysetu
 `(sequence_number, review_item_id)`, a detail zwraca wszystkie komórki bieżącej
 topologii, nie tylko nieczytelne.
 
+Lista zwykłej weryfikacji cropów mapuje `grid_issue` i `unreadable` jako
+tymczasowy filtr techniczny `unknown`: nie zwraca ich pod historycznie
+przypisanym symbolem, a zwraca pod `symbolId=unknown` z pustym przypisaniem.
+Nie zmienia to rekordu komórki ani append-only audytu; ma tylko zapobiec
+traktowaniu odrzuconych pikseli jako materiału danego symbolu w panelu.
+
 Rozwiązanie jest rozłączne: `{kind: symbol, symbolId}` albo `{kind: unknown}`.
-Request wymaga oczekiwanej rewizji komórki i geometrii, crop sample ID oraz
-SHA-256. Mutacja używa tej samej blokady i agregacji planszy co decyzja
-pojedynczego cropa, zachowuje `quality_issue = unreadable` i nie kwalifikuje
-obrazu do treningu. Logiczne unknown zapisuje `symbolCode = null`, a w stagingu
-datasetu materializuje odpowiadającą komórkę jako sentinel `mobileCode = 0`.
-Canonical, audyt i szybki bieżący właściciel pozostają aktualne. Sentinel nie
-jest dozwolony w katalogu symboli ani w planszy wprowadzanej przez gracza.
+Legacy `POST .../cells/{cellIndex}/resolve` pozostaje kompatybilny dla jednego
+nieczytelnego cropa. Domyślny workspace używa jednak `POST .../save`, którego
+body zawiera decyzję, oczekiwaną rewizję komórki i geometrii, crop sample ID
+oraz SHA-256 dla **każdej** komórki bieżącej topologii. Endpoint przyjmuje tylko
+planszę z co najmniej jednym `unreadable + pending`, weryfikuje dokładne pokrycie
+topologii i wykonuje wszystkie decyzje w jednej transakcji z tą samą blokadą i
+agregacją planszy co decyzja pojedynczego cropa. Zatem konflikt dowolnego pola
+powoduje rollback całej operacji. Przypisanie `unknown` do zwykłego cropa
+najpierw oznacza go jako `unreadable`; przypisanie symbolu do już nieczytelnego
+cropa zachowuje jego `quality_issue = unreadable`. W obu przypadkach taki crop
+nie kwalifikuje się do treningu. Logiczne unknown zapisuje `symbolCode = null`,
+a w stagingu datasetu materializuje odpowiadającą komórkę jako sentinel
+`mobileCode = 0`. Canonical, audyt i szybki bieżący właściciel pozostają
+aktualne. Sentinel nie jest dozwolony w katalogu symboli ani w planszy
+wprowadzanej przez gracza.
 
 ### Trwałe operacje masowe weryfikacji cropów
 
@@ -226,12 +296,18 @@ GET  /api/v1/admin/games/{gameId}/symbol-cell-review-operations/{operationId}
 ```
 
 Te endpointy są wyłącznie częścią lokalnego Admin API; token zdalnego
-Reviewera nie ma do nich dostępu. Request wybiera akcję `approve`, `reassign`
-albo `mark_grid_issue`, albo `mark_unreadable` oraz jeden z dwóch modeli
+Reviewera nie ma do nich dostępu. Request wybiera akcję `approve`, `reassign`,
+`mark_grid_issue`, `mark_blurry` albo `mark_unreadable` oraz jeden z dwóch modeli
 zaznaczenia: jawne cropy z
 oczekiwaną rewizją i tożsamością cropa (maksymalnie 10 000) albo filtr
-`symbol + state + catalogRevision` wraz z wykluczeniami. `approve` nie jest
-dostępne dla filtra technicznego `unknown`.
+`symbol + state + minConfidence/maxConfidence + catalogRevision` wraz z co
+najwyżej 10 000 wykluczeń. Snapshot filtra nie przekazuje ID całego wyniku.
+`approve` nie jest dostępne dla filtra technicznego `unknown`.
+`mark_blurry` bez `targetSymbolId` wymaga istniejącego aktywnego przypisania i
+zachowuje je jako zatwierdzone. Z opcjonalnym aktywnym `targetSymbolId` atomowo
+zmienia przypisanie oraz zatwierdza ten sam crop. Oba warianty zapisują
+`qualityIssue = blurry`; każdy taki crop jest wykluczony z treningu przez
+wspólną bramkę jakości.
 
 Preview nie zmienia danych. Start sprawdza aktualność rewizji katalogu i
 zamraża targety, tworząc idempotentny job `image_symbol_review_bulk`; powtórne
@@ -243,11 +319,10 @@ jest atomowa, ale awaria może pozostawić wcześniej zapisane targety jako
 `applied` i niewykonane jako `pending`; retry joba wznawia wyłącznie pending.
 Admin tworzy jeden idempotency key dopiero po udanym preview i odpytywa status
 sekwencyjnie, więc nie wysyła równoległych odczytów tej samej operacji.
-Admin używa tej trwałej ścieżki wyłącznie dla co najmniej dwóch jawnych cropów
-bieżącej strony. Kontrakt snapshotu całego filtra pozostaje kompatybilny dla
-innych klientów, ale bieżący Admin go nie tworzy. Jeden jawny crop korzysta z
-bezpośredniej decyzji opisanej wyżej, dzięki czemu zwykłe poprawianie symbol po
-symbolu nie zapełnia historii Jobów.
+Admin używa tej trwałej ścieżki dla co najmniej dwóch jawnych cropów albo dla
+snapshotu całego filtra. Jeden jawny crop korzysta z bezpośredniej decyzji
+opisanej wyżej, dzięki czemu zwykłe poprawianie symbol po symbolu nie zapełnia
+historii Jobów.
 
 ### Host base zdalnej ręcznej selekcji
 
@@ -1065,6 +1140,19 @@ idempotencję.
 
 ## Kontrolowany import folderu zdjęć
 
+### POST `/api/v1/admin/image-imports/browser-selections/upload-plan`
+
+Read-only plan przyjmuje `gameId` i metadane lokalnie wybranych JPEG-ów
+(`sourceIndex`, względna nazwa i rozmiar). Dla poprawnego `seq_<start>-<end>`
+serwer porównuje cały zakres z aktualną kanoniczną numeracją gry. Odpowiedź
+zawiera uporządkowane `filesToUpload`, ich indeksy źródłowe i liczniki
+pomijanych pełnych zakresów. Admin przesyła bajty tylko pozycji z tego planu;
+częściowy zakres jest przesyłany jako jeden JPEG. Plan nie tworzy stagingu ani
+joba. Przy tworzeniu stagingu Admin przekazuje checksumę planu oraz pełne
+pominięte zakresy; są one utrwalane obok manifestu. Późniejszy preflight
+pozostaje checksum-bound i odrzuca staging, jeśli którykolwiek z pominiętych
+zakresów przestał być w całości kanoniczny.
+
 ### POST `/api/v1/admin/image-imports/browser-selections`
 
 Rozpoczyna kontrolowany upload folderu wybranego standardowym selektorem
@@ -1094,8 +1182,13 @@ sprzątane.
 
 ### DELETE `/api/v1/admin/image-imports/browser-selections/{uploadId}`
 
-Anuluje upload i usuwa jego kontrolowany staging. Operacja jest idempotentna z
-perspektywy klienta.
+Anuluje upload i usuwa jego kontrolowany staging. Dla stagingu, który utworzył
+wyłącznie puste próby preflightu/importu, operacja usuwa również powiązane joby,
+mapowania plików, źródła bez plansz oraz niewspółdzielone checkpointy pipeline'u.
+Kasowanie jest blokowane, jeżeli istnieje aktywny job, rozpoznana plansza,
+pozycja review albo inna chroniona referencja. Katalog stagingu jest najpierw
+przenoszony do kwarantanny i wraca na miejsce, jeżeli transakcja bazy zostanie
+odrzucona. Operacja jest idempotentna z perspektywy klienta.
 
 ### POST `/api/v1/admin/image-imports/folder-selection` (legacy)
 
@@ -1149,6 +1242,24 @@ Typowane payloady:
 Payload `image_selection` jest widoczny w odpowiedziach wspólnego monitora
 jobów, ale nie może być utworzony przez ogólne `POST /jobs`; enqueue należy do
 dedykowanego `POST /image-selections`, a poświadczenie stagingu do TASK-0152.
+
+Odpowiedź joba może zawierać `imageGeometryRollout` w historycznej wersji
+`virtual-geometry-rollout-snapshot-v1` albo w addytywnej wersji v2/v3. V2 jest
+dopuszczona wyłącznie dla `geometryMode = structured_shadow` i zawiera jedno
+`candidateGeometry` z pełnym configiem Structured Geometry v2 oraz jego
+SHA-256. Pole służy replayowi diagnostycznego sidecaru; nie daje klientowi ani
+workerowi uprawnienia do aktywacji kandydata. Snapshot v1 nie zawiera tego pola.
+V3 jest dopuszczona wyłącznie dla `geometryMode = structured_lattice_v3` i
+zawiera `activeLatticeGeometry` z accepted-primary configiem oraz checksumą
+raportu odbiorczego. Brak lub drift snapshotu kończy replay fail-closed.
+
+Polityka silnika per gra przyjmuje `verified_v19`, historyczny
+`structured_shadow`, stabilny `structured_default` oraz odebrany
+`structured_lattice_v3`. Admin oferuje do nowych importów `verified_v19`,
+`structured_default` i `structured_lattice_v3`; dwa ostatnie korzystają z
+`cellAssetMode = virtual_default`, lecz tylko v3 używa lokalnie dopasowanej
+siatki symboli jako primary. Zmiana polityki jest preview-bound, rewizjonowana
+i nie zmienia żadnego istniejącego joba.
 
 Dla `payout` API wykonuje wyłącznie szybki preflight i zapis joba; samo
 przeliczanie nadal wykonuje worker. Akceptowana jest tylko wersja algorytmu
@@ -1523,6 +1634,29 @@ Kolejny claim zwiększa `attemptCount`. Pozostałe statusy zwracają
 `null` poza `processing`. Wewnętrzne `leaseToken`, `leaseOwner` oraz
 `checkpointPayload` nigdy nie są zwracane przez Admin API.
 
+Dla walidacji `page_geometry_preflight` obiekt `progress` zawiera addytywne
+`pageGeometryPreflight`. Historyczne checkpointy mogą zwrócić wyłącznie pola
+`complete` i checksummy. Nowe checkpointy podają dokładny postęp fazy:
+
+```json
+{
+  "complete": false,
+  "geometryManifestChecksumSha256": null,
+  "phase": "auto_anchor_retry",
+  "phaseCurrent": 25,
+  "phaseTotal": 118,
+  "autoAnchorPass": 1,
+  "autoAnchorPassCount": 2,
+  "provisionalReviewRequired": 101
+}
+```
+
+`phase` przyjmuje `source_registration`, `auto_anchor_retry`, `manifest_write`
+albo `complete`. Licznik fazy nie zastępuje monotonicznych agregatów całego
+joba. `provisionalReviewRequired` może maleć podczas dodatkowego dopasowania i
+dlatego nie jest wspólnym licznikiem `review`; ten ostatni otrzymuje wynik
+dopiero z niezmiennego manifestu końcowego.
+
 Dla joba `image_selection` obiekt `progress` zawiera dodatkowe pole
 `imageSelection`:
 
@@ -1771,16 +1905,20 @@ POST /api/v1/admin/games/{gameId}/symbols/{symbolId}/approved-image-candidates/{
 ```
 
 Lista ma keyset `afterCursor` związany z `gameId` oraz `symbolId` i limit do 20.
-Zwraca tylko cropy kanonicznych plansz `accepted/corrected`, których końcowy
-`resolved_value.symbolCodes[cellIndex]` zgadza się z kodem symbolu. Kolejność
-nie używa confidence: ręcznie poprawiona geometria, `sequenceNumber`,
-`cellIndex`, UUID obserwacji. Wartość `geometryRevision > 0` wskazuje crop
-najnowszej zatwierdzonej geometrii. Klient nie otrzymuje ścieżki pliku.
+Zwraca bieżące cropy pojedynczo zatwierdzone przez człowieka, z aktywnym
+symbolem, bez problemu jakości i z identyczną zatwierdzoną oraz bieżącą
+tożsamością cropa. Nie wymaga rozstrzygnięcia całej planszy: dopuszcza zatem
+`resolutionRevision = 0` dla poprawnego cropa z planszy `pending`, jeżeli ten
+crop ma własną aktualną decyzję `approved`. Kolejność nie używa confidence:
+ręcznie poprawiona geometria, `sequenceNumber`, `cellIndex`, UUID obserwacji.
+Klient nie otrzymuje ścieżki pliku.
 
-Asset i selection ponownie sprawdzają kanonicznego właściciela, decyzję,
-symbol, rewizje i SHA-256. Selection przyjmuje `expectedChecksumSha256` i
-`selectedBy`, kopiuje bajty bez resamplingu do zarządzanego katalogu referencji
-i zwraca zaktualizowany `SymbolResponse`. Konflikt stanu daje
+Asset i selection ponownie sprawdzają aktualnego właściciela, pojedynczą
+decyzję, symbol, rewizje i SHA-256. Selection przyjmuje
+`expectedChecksumSha256` i `selectedBy`: crop legacy kopiuje bez resamplingu,
+a `virtual_source` v0.10 renderuje raz pełny canonical crop i zapisuje go jako
+trwały PNG w zarządzanym katalogu referencji. Rekord referencji przechowuje
+SHA-256 fizycznie zapisanych bajtów. Konflikt stanu daje
 `SYMBOL_REFERENCE_CANDIDATE_STALE`; brak lub podmiana pliku daje kontrolowany
 błąd checksumy/assetu. `GET /image/asset` serwuje wyłącznie trwałą, zatwierdzoną
 referencję — historyczne `image_path` bez proweniencji jest traktowane jako brak
@@ -1892,18 +2030,64 @@ Nowy, game-wide odczyt walidacji siatki nie materializuje całej gry i zawsze
 
 ```text
 GET  /api/v1/admin/games/{gameId}/grid-reviews
+GET  /api/v1/admin/games/{gameId}/image-geometry-rollout
+POST /api/v1/admin/games/{gameId}/image-geometry-rollout
 GET  /api/v1/admin/image-reviews/{reviewItemId}/source-asset
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-approval
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-preview
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-revisions
+POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-approval
+POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-revisions
 ```
 
-Lista ma widoki `needs_validation | needs_correction | all`, opcjonalny filtr
-`importJobId`, limit domyślny 25 i maksymalny 100. Keyset opiera się na
-`(sequence_number, review_item_id)`. Opaque cursor jest związany z grą,
-widokiem, importem i kierunkiem; nie może zostać odtworzony w innym scope.
-Odpowiedź zwraca liczniki wszystkich trzech stanów dla tego samego scope
-gry/importu.
+Lista ma widoki `needs_validation | needs_correction | all`, opcjonalne filtry
+`importJobId` i `sourceImageId`, limit domyślny 25 i maksymalny 100. Keyset
+opiera się na `(sequence_number, review_item_id)`. Opaque cursor jest związany
+z grą, widokiem, importem, źródłem i kierunkiem; nie może zostać odtworzony w
+innym scope. Odpowiedź zwraca liczniki wszystkich trzech stanów dla tego samego
+scope gry/importu/źródła.
+
+Element kolejki zawiera ponadto immutable identity zdjęcia źródłowego,
+`positionIndex` aktywnego slotu, `assetMode`, nazwę i wersję silnika geometrii,
+`boardConfidence` oraz wersjonowane `reasonCodes`. Lokalny Reviewer może dzięki
+temu pobrać bounded listę maksymalnie dziewięciu aktywnych slotów jednego
+źródła, narysować overlay wyłącznie w pamięci i zachować kolejność row-major.
+Zdalny proxy Reviewera nie udostępnia ani tego filtra, ani endpointów walidacji
+geometrii.
+
+`source-geometry-approval` przyjmuje dokładnie komplet aktualnych slotów
+jednego `sourceImageId`, wraz z tożsamością decyzji, geometrii, źródła i
+topologii każdego slotu. Serwer najpierw blokuje oraz ponownie sprawdza cały
+komplet, a następnie zatwierdza go w jednej transakcji. Stary snapshot,
+niepełny komplet albo zmiana właściciela zwracają konflikt bez częściowego
+zapisu.
+
+`source-geometry-revisions` jest dostępny wyłącznie dla `virtual_source`.
+Przyjmuje cztery narożniki każdego aktywnego slotu w kolejności row-major i
+zapisuje jedną append-only source geometry revision, z której tworzy zgodne
+rewizje plansz oraz wirtualne cropy. Niepełny albo niespójny komplet nie może
+utworzyć rewizji dla żadnego slotu.
+
+Status rolloutu zwraca `not_started | processing | ready | failed`, liczby
+wszystkich i przetworzonych źródeł, liczbę źródeł `virtual_source`, aktywny job,
+ostatni source cursor oraz kontrolowaną diagnostykę. POST jest idempotentny:
+drugi start zwraca ten sam aktywny job, a stan `ready` bez nowych źródeł nie
+tworzy kolejnego. Job skanuje najwyżej 100 źródeł na transakcję w general lane,
+nie konwertuje rekordów legacy i nie zmienia trybu rolloutu gry.
+
+TASK-0318 nie dodaje publicznego endpointu promocji. Stan `ready` potwierdza
+wyłącznie spójność proweniencji i nie oznacza zaliczenia bramki jakości.
+`structured_default` może zostać ustawiony dopiero w osobnym, audytowalnym
+cutoverze opartym na zaakceptowanym raporcie minimum 100 źródeł / 500 plansz /
+5 bucketów i wyniku board-level co najmniej 98%. Brak raportu nie zmienia trybu.
+Endpointy status/start pozostają bez zmian, dlatego OpenAPI i wygenerowany
+klient nie otrzymują w TASK-0318 nowej mutacji.
+
+TASK-0319 nie dodaje endpointów. Fallback keypoint jest lokalnym eksperymentem
+workera wykonywanym wyłącznie w cieniu; Admin, Reviewer, import i kontrakt
+wyboru rolloutu nie mogą go uruchomić ani aktywować. Manifest wydania zapisuje
+`shadowOnly=true` i `activationAllowed=false`, dlatego sam artefakt ONNX nie
+stanowi uprawnienia do zmiany wyniku primary.
 
 Asset źródłowy wymaga oczekiwanej SHA-256, pozostaje pod zarządzanym katalogiem
 artefaktów i przed wysłaniem ponownie sprawdza bajty. Zatwierdzenie wiąże
@@ -1919,6 +2103,15 @@ pozostają kontraktem ograniczonego zdalnego Reviewera. Lokalny workflow nie
 korzysta z nich, ale nie wolno ich usunąć bez osobnego zastąpienia zdalnego
 scope'u.
 
+Dla `virtual_source` te same endpointy preview i zapisu konsumują managed
+original, bieżącą source geometry oraz przypięty render spec. Preview tworzy
+kontaktowy PNG wyłącznie w pamięci. Zapis tworzy append-only source geometry i
+board geometry revision oraz podmienia bieżącą proweniencję komórek bez
+`board_relative_path`, `crop_relative_path` i trwałych bitmap. Odpowiedź ma
+`assetMode=virtual_source`, identyfikator source geometry, geometry checksum i
+checksum wirtualnego render manifestu; legacy nadal zwraca fizyczne ścieżki i
+`decisionChecksumSha256`.
+
 Jawny pending-only recrop v19 wykorzystuje:
 
 ```text
@@ -1927,11 +2120,17 @@ POST /api/v1/admin/image-review-items/pending-grid-reinference/{gameId}
 ```
 
 Preview zwraca osobno `pendingBoardCount`, `recalculableBoardCount`,
-`currentV19BoardCount`, `protectedBoardCount`, liczniki źródeł oraz przypięte
+`currentV19BoardCount`, `protectedBoardCount`,
+`unsupportedVirtualBoardCount`, liczniki źródeł oraz przypięte
 `geometryVersion`, `cropperVersion` i checksumę zaakceptowanego audytu 100
 stron. Pozycja `pending` z istniejącą ręczną albo automatyczną geometrią v19
 jest aktualna, a nie kwalifikująca do ponownego zapisu. Brak kwalifikujących
 pozycji blokuje start stabilnym `IMAGE_GRID_REINFERENCE_EMPTY`.
+
+`recalculableBoardCount` obejmuje wyłącznie `legacy_file` bez zatwierdzonej
+rewizji geometrii. Zatwierdzone siatki są chronione, a `virtual_source` jest
+raportowany osobno i nie pozwala utworzyć plikowego joba v19. Worker powtarza
+te same warunki pod blokadą bezpośrednio przed zapisem.
 
 Kontrakt odroczonej geometrii komórek wykorzystuje:
 
@@ -2438,6 +2637,8 @@ MOBILE_RELEASE_APK_CHECKSUM_MISMATCH
 
 ### GET `/api/v1/admin/games/{gameId}/layout-data-reset-preview`
 
+### POST `/api/v1/admin/games/{gameId}/board-source-cleanup-preview`
+
 Oba endpointy są read-only. Zwracają aktualny cel, liczniki zależności, jawne
 ścieżki zarządzanych artefaktów, liczbę zachowanych artefaktów współdzielonych,
 blokady oraz SHA-256 kanonicznego stanu:
@@ -2460,11 +2661,17 @@ blokady oraz SHA-256 kanonicznego stanu:
 ```
 
 Preview nie usuwa danych. Aktywny job, build, sesja Reviewera albo współdzielone
-wydanie jest zwracane jako blokada; UI nie może wtedy wykonać operacji.
+wydanie jest zwracane jako blokada; UI nie może wtedy wykonać operacji. Preview
+źródeł plansz przyjmuje dodatnie `sequenceNumbers`, zwraca dokładne pełne
+zakresy źródeł oraz ostrzeżenia o aktywacji modelu. Wybór choć jednej, lecz nie
+wszystkich plansz tego samego źródła kończy się konfliktem — źródła nie są
+dzielone.
 
 ### DELETE `/api/v1/admin/mobile-releases/{releaseId}`
 
 ### DELETE `/api/v1/admin/games/{gameId}/layout-data`
+
+### DELETE `/api/v1/admin/games/{gameId}/board-sources`
 
 Request obu endpointów:
 
@@ -2480,6 +2687,15 @@ Oprócz body wymagane są standardowa lokalna intencja oraz dokładny nagłówek
 `X-Admin-Target`: odpowiednio `mobile-release:{releaseId}` albo
 `game-layout-data:{gameId}`. Serwer pod blokadą ponownie wylicza preview; zmiana
 stanu daje konflikt zamiast wykonania na starym zakresie.
+
+Usunięcie źródeł plansz wymaga `X-Admin-Target: board-source-ranges:{gameId}`
+i `confirmationTarget` zwróconego przez preview. Kasuje wyłącznie pełne zakresy
+źródłowe wraz z ich planszami, review, geometrią, canonical, zależnymi
+kohortami/modelami i własnymi wydaniami. Niezależny `candidate_ready` pozostaje
+nieaktywny; preview ostrzega, że następny import wymaga ręcznej aktywacji.
+Zarządzane pliki są najpierw przenoszone do durable kwarantanny powiązanej z
+`previewToken`; rollback przywraca je, a potwierdzony commit finalizuje usunięcie
+przy następnym recovery, jeśli odpowiedź procesu została przerwana.
 
 Usunięcie wydania usuwa rekord, powiązania oraz dedykowany katalog snapshotu i
 APK. Reset gry zachowuje rekord `games`, joby i współdzielony cache przetwarzania,
@@ -2619,7 +2835,9 @@ trwałym stagingiem:
 - `GET /api/v1/admin/image-imports/browser-selections?purpose=layout_import`
   zwraca gotowe stagingi i checksumę manifestu,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/preflight`
-  przyjmuje `gameId` i zwraca raport zakresów oraz `preflightChecksumSha256`,
+  przyjmuje `gameId` i zwraca raport zakresów, `preflightChecksumSha256` oraz
+  jawne `symbolModelReady`, `symbolModelBlockerCode` i opcjonalny
+  `symbolModelInferenceFingerprint`,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/start`
   przyjmuje `gameId`, `manifestChecksumSha256` i checksumę preflightu.
 
@@ -2628,6 +2846,34 @@ Nieaktualny manifest lub projekcja kanoniczna kończy się stabilnym konfliktem,
 a odpowiedź z `created=false` wskazuje już istniejący job. Typy i klient tych
 operacji są zawsze generowane z OpenAPI; Admin nie utrzymuje ręcznych kopii
 kontraktów.
+
+Preflight raportowy nie tworzy importu i nie wymaga gotowego modelu symboli.
+Znany brak aktywnego lub zgodnego modelu wraca jako HTTP 200 z
+`symbolModelReady=false`; checksum raportu obejmuje ten stan. Endpoint `start`
+ponownie używa rygorystycznego resolvera, więc niezgodność kończy się stabilnym
+konfliktem bez utworzenia joba. Preflight geometrii pozostaje od tego resolvera
+niezależny.
+
+Failed duży import z kodem `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION` udostępnia
+checksum-bound workflow wyjątków:
+
+- `GET /browser-selections/{uploadId}/geometry-guards/{guardJobId}/boards`
+  zwraca wszystkie sloty źródeł, odroczone cele, najnowsze decyzje i liczbę
+  nierozliczonych pozycji,
+- `POST .../report-reconstruction` tworzy albo odzyskuje osobny job odtworzenia
+  historycznego raportu v1,
+- `GET .../sources/{sourceChecksumSha256}/asset` serwuje zweryfikowany JPEG
+  wyłącznie z właściwego stagingu,
+- `POST .../preview` przejściowo zwraca 15 cropów propozycja/korekta; komórki
+  częściowe mają `sourceUnavailable=true` i oba obrazy `null`,
+- `POST .../decisions` zapisuje append-only pojedynczą lub atomową
+  jednosource'ową partię,
+- `POST .../resolution-manifests` zamyka komplet najnowszych rewizji.
+
+Endpoint podglądu nie utrwala artefaktów. Start schema v7 przyjmuje jednocześnie
+`geometryGuardResolutionManifestId` i
+`geometryGuardResolutionManifestChecksumSha256`; podanie tylko jednego pola,
+drift raportu albo źródła blokują utworzenie joba bez fallbacku.
 
 ### Preflight geometrii strony browserowego stagingu
 
@@ -2639,9 +2885,36 @@ niezmienny manifest geometrii:
 - `GET /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-sources/{sourceChecksumSha256}/asset`,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-overrides`.
 
+Odpowiedź `review-sources` rozróżnia `geometryOrigin`: wynik automatyczny,
+bieżący ręczny override albo roboczy szablon edytora. Może dołączyć stabilny
+`rejectionReasonCode` i `registrationDiagnostics` z manifestu preflightu.
+Pola diagnostyczne są opcjonalne dla zgodności z manifestami historycznymi, a
+ich odczyt nie uruchamia ponownie detektora.
+
+Start `geometry-preflight` przyjmuje opcjonalne
+`pageRegistrationVariant = standard_v0_10 | board_area_test`. Brak pola oznacza
+wariant standardowy. Wariant testowy ogranicza wyłącznie cechy kotwicy do
+obszaru plansz i zapisuje osobną wersję workflow w jobie oraz manifeście;
+nie zmienia modelu symboli ani lokalnego refinera siatki. Powtórzenie tej samej
+pary staging/wariant jest idempotentne, a inny wariant tworzy odrębny run.
+
 Admin automatycznie wywołuje idempotentny endpoint geometrii po przygotowaniu
 raportu stagingu. Ponowne wejście odzyskuje istniejący job o tym samym wejściu,
 zamiast wymagać ręcznego przycisku startu.
+
+Dla `created = true` zapis joba i przypięcie lifecycle'u browser stagingu są
+atomowe w jednej transakcji. Dla `created = false` API może odświeżyć ochronę
+stagingu osobnym zapisem, ponieważ wskazany job jest już zatwierdzony. Endpoint
+nie może blokować własnego commita na FK do jeszcze niewidocznego joba.
+
+Nowa gra może utworzyć preflight bez aktywnego profilu rejestracji niezależnie
+od wybranego bezpiecznego presetu. Taki job kończy się poprawnym manifestem,
+w którym źródła
+mają stan `review_required` i powód
+`PAGE_GEOMETRY_BOOTSTRAP_ANCHOR_REQUIRED`. Po zapisaniu ręcznego override'u
+następny preflight dołącza go jako niezmienną kotwicę i próbuje zarejestrować
+pozostałe strony. Import nadal wymaga ID ukończonego preflightu i checksummy
+manifestu; tryb shadow nie omija geometrii primary.
 
 Payload joba preflightu przechowuje również `sourceDisplayName` stagingu jako
 metadane prezentacyjne. Nie wchodzi ono do klucza idempotencji: zmiana etykiety
@@ -2653,9 +2926,92 @@ dotyczy tego samego stagingu, gry oraz aktualnego manifestu źródłowego. Brak,
 drift albo nieukończony preflight blokują start. Nierozwiązane wpisy manifestu
 nie blokują importu wpisów `registered`; worker filtruje je jeszcze przed
 kopiowaniem do managed originals i nie wraca do klasycznego detektora. Override
-ma tylko checksumę źródła, rozmiar obrazu,
-dziewięć row-major quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę.
+ma tylko checksumę źródła, rozmiar obrazu, od jednego do dziewięciu row-major
+quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę. Odpowiedź listy
+korekty zawiera `expectedBoardCount` wyliczony przez backend z poświadczonego
+zakresu `seq_*`. Endpoint zapisu wylicza go ponownie z manifestu stagingu i
+zwraca `IMAGE_PAGE_GEOMETRY_BOARD_COUNT_CHANGED`, jeżeli liczba quadów klienta
+nie odpowiada źródłu.
 Operacje obrazowe mogą zwrócić `STORAGE_CAPACITY_INSUFFICIENT`, jeśli ich
 konserwatywna estymacja narusza twardą rezerwę woluminu. Poniżej progu
 automatycznego GC system tworzy jeden idempotentny run `automatic`; trwający
 pipeline pokazuje etap `waiting_for_storage` zamiast kończyć się błędem.
+
+`POST /api/v1/admin/image-imports/{sourceJobId}/reprocess` tworzy dla nowych
+wykonań payload schema v6. Odpowiedź zawiera `managedSourceJobId`, checksumę
+manifestu managed originals, `sourceManifestSha256` oraz wymagany
+`pageGeometryManifest`. Backend rozwiązuje ten descriptor z niezmiennego,
+same-game łańcucha jobów i waliduje go przed zapisem. Brak dowodu zwraca
+`IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED`; niezgodny manifest, źródło,
+preflight albo cykl zwraca
+`IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE`. Historyczne odpowiedzi
+schema v4 pozostają czytelne bez zmiany wire contractu.
+
+### Ręczne źródło półautomatycznego zakresu
+
+`POST /api/v1/admin/semi-automatic-image-selections/{runId}/ranges/{expectedIndex}/output-acknowledgements`
+zachowuje dotychczasowy payload automatycznego wyboru i opcjonalnie przyjmuje
+`sourceIndex`. Jeżeli indeks jest obecny, backend ponownie odczytuje gotowy
+staging runu i wymaga zgodności indeksu, checksummy źródła, checksummy outputu
+oraz oczekiwanej rewizji zakresu. Nie można w ten sposób potwierdzić pliku
+spoza źródłowego manifestu ani zmienionego JPEG-a.
+
+### Historia weryfikacji zakresów nazw plików
+
+`GET /api/v1/admin/semi-automatic-image-selections?workflowMode=filename_verification&offset=0&limit=20`
+zwraca newest-first stronę trwałych runów wraz z `nextOffset`. Odpowiedź runu
+oraz zagnieżdżony `JobResponse` zawierają kompatybilne wstecznie
+`workflowMode`; klient nie wyprowadza nazwy workflowu z mutable statusu joba.
+
+`GET /api/v1/admin/semi-automatic-image-selections/{runId}/filename-verifications`
+dołącza `reviewDecision` i `reviewRevision` do każdego observation. Endpoint
+pozostaje read-only także dla runów failed/cancelled, lecz mutacja decyzji jest
+dozwolona wyłącznie po terminalnym sukcesie.
+
+`PUT /api/v1/admin/semi-automatic-image-selections/{runId}/filename-verifications/{sourceIndex}/review-decision`
+przyjmuje `decision`, `expectedSourceChecksumSha256` i `expectedRevision`.
+Backend sprawdza przynależność indeksu do immutable stagingu oraz jego
+checksummę oraz klasyfikację observation. Pierwsza decyzja używa rewizji `0`;
+ponowienie identycznej decyzji jest idempotentne, a odmienna stale mutation
+kończy się `409`. Decyzja dla automatycznie `verified` pliku zwraca
+`SEMI_AUTOMATIC_SELECTION_REVIEW_NOT_REQUIRED`.
+
+Po OCR `filename_verification` nie używa endpointu ani mechanizmu wyboru
+reprezentanta. Worker zapisuje tylko klasyfikację `verified`, `unreadable`,
+`mismatch` albo `invalid_filename` w checksummowanym raporcie runu; nie tworzy
+local outputu `seq_*`. `POST /api/v1/admin/jobs/{jobId}/retry` dla failed
+filename workflow requeue'uje ten sam job ze świeżym postępem technicznym, a
+worker odczytuje istniejące obserwacje zamiast ponownie uruchamiać OCR.
+
+Po automatycznie zgodnym wyniku albo ostatniej decyzji review run przechodzi
+przez `cleanup_pending`. Worker usuwa tylko dane należące do tego runu, po
+ponownym sprawdzeniu wszystkich referencji. Udany run odpowiada statusem
+`completed` i lekkim podsumowaniem; endpoint szczegółów nie serwuje już
+usuniętych obserwacji. `cleanup_blocked` zachowuje dane oraz diagnostykę, a
+zwykłe `POST /api/v1/admin/jobs/{jobId}/retry` wznawia wyłącznie cleanup.
+
+`DELETE /api/v1/admin/semi-automatic-image-selections/{runId}/filename-verification-history`
+wymaga lokalnego potwierdzenia wysokiego ryzyka z targetem
+`filename-verification:{runId}`. Jest dostępny wyłącznie dla completed
+`filename_verification`, którego job jest completed i checkpoint zawiera
+`cleanup=completed`. W jednej transakcji usuwa lekki run i job oraz ewentualne
+osierocone rows range/review tego runu. Pozostały staging, diagnostyka,
+wynikowy output lub obca referencja zwracają konflikt i niczego nie usuwają.
+Endpoint nigdy nie dotyka lokalnego katalogu `seq_*` operatora.
+
+### Raport końcowej bramki profilu geometrii
+
+`POST /api/v1/admin/games/{gameId}/grid-calibration-profiles` opcjonalnie
+przyjmuje `CreateGridCalibrationCandidateCommand.endToEndReport`. Raport ma
+kontrakt `grid-profile-end-to-end-gate-report-v1` i zawiera checksumę kohorty,
+checksumę jawnego manifestu źródeł, politykę, wersję korpusu regresyjnego,
+liczniki źródeł i plansz, wyniki rejestracji strony oraz końcowej siatki 3×5,
+baseline, buckety, niezmienniki i agregację powodów odroczenia.
+
+Brak raportu tworzy audytowalny profil `rejected` z powodem
+`END_TO_END_GATE_REPORT_REQUIRED`. Późniejsze dostarczenie raportu dla tej
+samej kohorty tworzy nową niezmienną rewizję profilu. Powtórzenie identycznej
+kohorty i raportu zwraca istniejącą rewizję (`created=false`). Profil schema v2
+bez bieżącej polityki raportu zwraca
+`GRID_PROFILE_END_TO_END_REVALIDATION_REQUIRED` przy próbie użycia w nowym
+snapshotcie.

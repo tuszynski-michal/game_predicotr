@@ -19,24 +19,38 @@ import {
 import {
   previewGridReviewGeometry,
   saveGridReviewGeometry,
+  saveGridReviewSourceGeometry,
   type GridReviewsClient,
 } from './grid-review-actions';
 import {
   addGridGeometryPoint,
+  completeGridGeometrySourceDrafts,
+  emptyGridGeometrySourceDrafts,
+  firstIncompleteGridGeometrySourceItem,
   GRID_CORNER_LABELS,
+  gridGeometryDraftAnchor,
+  gridGeometryDraftsEqual,
+  gridGeometrySourceDraft,
+  gridGeometrySourceItemAtPoint,
   gridGeometryDragTarget,
+  gridReviewAnalysisCorners,
   gridReviewCorners,
+  gridReviewLatticeReason,
   moveGridGeometry,
   moveGridGeometryCorner,
-  undoGridGeometryPoint,
+  nextIncompleteGridGeometrySourceItem,
+  replaceGridGeometrySourceDraft,
   type GridGeometryDragTarget,
   type GridGeometryDraft,
 } from './grid-review-state';
 
 interface GridReviewEditorProps {
   readonly api: GridReviewsClient;
-  readonly item: ImageGridReviewItemResponse;
+  readonly items: readonly ImageGridReviewItemResponse[];
+  readonly onEditingChange: (editing: boolean) => void;
   readonly onSaved: () => void;
+  readonly onSelect: (reviewItemId: string) => void;
+  readonly selectedReviewItemId: string;
 }
 
 interface ActiveDrag {
@@ -44,35 +58,149 @@ interface ActiveDrag {
   readonly target: Exclude<GridGeometryDragTarget, null>;
 }
 
+interface GridGeometryItemDraft {
+  readonly corners: GridGeometryDraft;
+  readonly reviewItemId: string;
+}
+
+interface GridReviewCellSelection {
+  readonly cellIndex: number;
+  readonly reviewItemId: string;
+}
+
 export function GridReviewEditor({
   api,
-  item,
+  items,
+  onEditingChange,
   onSaved,
+  onSelect,
+  selectedReviewItemId,
 }: GridReviewEditorProps) {
+  const item =
+    items.find(
+      (candidate) => candidate.reviewItemId === selectedReviewItemId,
+    ) ?? items[0];
+  if (item === undefined) return null;
+
+  return (
+    <GridReviewEditorContent
+      api={api}
+      item={item}
+      items={items}
+      onEditingChange={onEditingChange}
+      onSaved={onSaved}
+      onSelect={onSelect}
+    />
+  );
+}
+
+function GridReviewEditorContent({
+  api,
+  item,
+  items,
+  onEditingChange,
+  onSaved,
+  onSelect,
+}: Omit<GridReviewEditorProps, 'selectedReviewItemId'> & {
+  readonly item: ImageGridReviewItemResponse;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
-  const previewUrlRef = useRef<string | null>(null);
+  const previewUrlsRef = useRef<Set<string>>(new Set());
   const dragRef = useRef<ActiveDrag | null>(null);
-  const [draft, setDraft] = useState<GridGeometryDraft>(() =>
-    gridReviewCorners(item),
-  );
+  const automaticCorners = useMemo(() => gridReviewCorners(item), [item]);
+  const latticeReason = useMemo(() => gridReviewLatticeReason(item), [item]);
+  const [draft, setDraft] = useState<GridGeometryItemDraft>(() => ({
+    corners: automaticCorners,
+    reviewItemId: item.reviewItemId,
+  }));
   const [editing, setEditing] = useState(false);
+  const [sourceEditing, setSourceEditing] = useState(false);
+  const [sourceDrafts, setSourceDrafts] = useState(
+    emptyGridGeometrySourceDrafts(items),
+  );
   const [loadingSource, setLoadingSource] = useState(true);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [autoPreviewUrl, setAutoPreviewUrl] = useState<string | null>(null);
+  const [draftPreviewUrl, setDraftPreviewUrl] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState('');
-  const [error, setError] = useState('');
-  const sourceUrl = api.imageGridReviewSourceAssetUrl(
-    item.reviewItemId,
-    item.gameId,
-    item.sourceChecksumSha256,
+  const [previewMode, setPreviewMode] = useState<'automatic' | 'edited'>(
+    'edited',
   );
-  const draftKey = JSON.stringify(draft);
-  const completeCorners =
-    draft.length === 4 ? (draft as OperationalReviewGeometryCorners) : null;
-  const previewIsCurrent = previewUrl !== null && previewKey === draftKey;
+  const [selectedCell, setSelectedCell] = useState<GridReviewCellSelection>(
+    () => ({ cellIndex: 0, reviewItemId: item.reviewItemId }),
+  );
+  const [showOverlay, setShowOverlay] = useState(true);
+  const [zoomPercent, setZoomPercent] = useState(100);
+  const [error, setError] = useState('');
+  const sourceAssetItem = items[0] ?? item;
+  const sourceUrl = api.imageGridReviewSourceAssetUrl(
+    sourceAssetItem.reviewItemId,
+    sourceAssetItem.gameId,
+    sourceAssetItem.sourceChecksumSha256,
+  );
+  const storedSourceDraft = gridGeometrySourceDraft(
+    sourceDrafts,
+    item.reviewItemId,
+  );
+  const currentItemDraft =
+    draft.reviewItemId === item.reviewItemId ? draft.corners : automaticCorners;
+  const hasPendingIndividualDraft =
+    draft.reviewItemId === item.reviewItemId &&
+    !gridGeometryDraftsEqual(draft.corners, automaticCorners);
+  const activeDraft =
+    sourceEditing ||
+    (!editing && !hasPendingIndividualDraft && storedSourceDraft.length > 0)
+      ? storedSourceDraft
+      : currentItemDraft;
+  const draftKey = sourceEditing
+    ? JSON.stringify(
+        items.map((candidate) => [
+          candidate.reviewItemId,
+          gridGeometrySourceDraft(sourceDrafts, candidate.reviewItemId),
+        ]),
+      )
+    : JSON.stringify([item.reviewItemId, activeDraft]);
+  const completeCorners = asCompleteCorners(activeDraft);
+  const completeSourceDrafts = useMemo(
+    () => completeGridGeometrySourceDrafts(items, sourceDrafts),
+    [items, sourceDrafts],
+  );
+  const previewIsCurrent = draftPreviewUrl !== null && previewKey === draftKey;
   const cellCount = item.gridRows * item.gridColumns;
+  const selectedCellIndex =
+    selectedCell.reviewItemId === item.reviewItemId
+      ? selectedCell.cellIndex
+      : 0;
+  const shownPreviewUrl =
+    previewMode === 'automatic' ? autoPreviewUrl : draftPreviewUrl;
+  const sourceBatchEnabled = items.every(
+    (candidate) => candidate.assetMode === 'virtual_source',
+  );
+  const isEditing = editing || sourceEditing;
+  const showDraftReview = isEditing || hasPendingIndividualDraft;
+  const sourceEditingProgress =
+    sourceDrafts.size === 0
+      ? 0
+      : items.filter(
+          (candidate) =>
+            gridGeometrySourceDraft(sourceDrafts, candidate.reviewItemId)
+              .length === 4,
+        ).length;
+
+  useEffect(() => {
+    onEditingChange(isEditing || hasPendingIndividualDraft);
+  }, [hasPendingIndividualDraft, isEditing, onEditingChange]);
+
+  useEffect(
+    () => () => {
+      onEditingChange(false);
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      previewUrlsRef.current.clear();
+    },
+    [onEditingChange],
+  );
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -83,49 +211,41 @@ export function GridReviewEditor({
     const context = canvas.getContext('2d');
     if (context === null) return;
     context.drawImage(image, 0, 0);
-    context.lineWidth = Math.max(3, canvas.width / 600);
-    context.strokeStyle = '#f4d35e';
-    context.fillStyle = '#fffaf0';
-    if (completeCorners !== null) {
-      for (let column = 0; column <= item.gridColumns; column += 1) {
-        const ratio = column / item.gridColumns;
-        drawLine(
-          context,
-          operationalReviewPointInLattice(completeCorners, ratio, 0),
-          operationalReviewPointInLattice(completeCorners, ratio, 1),
-        );
+    if (!showOverlay) return;
+
+    for (const candidate of items) {
+      const selected = candidate.reviewItemId === item.reviewItemId;
+      const candidateAnalysisCorners = gridReviewAnalysisCorners(candidate);
+      if (candidateAnalysisCorners !== null) {
+        drawAnalysisOverlay(context, candidateAnalysisCorners, selected);
       }
-      for (let row = 0; row <= item.gridRows; row += 1) {
-        const ratio = row / item.gridRows;
-        drawLine(
-          context,
-          operationalReviewPointInLattice(completeCorners, 0, ratio),
-          operationalReviewPointInLattice(completeCorners, 1, ratio),
-        );
-      }
-    } else if (draft.length > 1) {
-      context.beginPath();
-      context.moveTo(draft[0]?.x ?? 0, draft[0]?.y ?? 0);
-      draft.slice(1).forEach((point) => context.lineTo(point.x, point.y));
-      context.stroke();
-    }
-    draft.forEach((point, index) => {
-      const radius = Math.max(10, canvas.width / 140);
-      context.beginPath();
-      context.fillStyle = '#fffaf0';
-      context.strokeStyle = '#b42318';
-      context.arc(point.x, point.y, radius, 0, Math.PI * 2);
-      context.fill();
-      context.stroke();
-      context.fillStyle = '#7a271a';
-      context.font = `bold ${Math.max(20, canvas.width / 55)}px sans-serif`;
-      context.fillText(
-        GRID_CORNER_LABELS[index] ?? '',
-        point.x + radius,
-        point.y - radius,
+      const storedCandidateDraft = gridGeometrySourceDraft(
+        sourceDrafts,
+        candidate.reviewItemId,
       );
-    });
-  }, [completeCorners, draft, item.gridColumns, item.gridRows]);
+      const corners = selected
+        ? (completeCorners ?? activeDraft)
+        : storedCandidateDraft.length > 0
+          ? storedCandidateDraft
+          : gridReviewCorners(candidate);
+      drawBoardOverlay(context, {
+        cellIndex: selected ? selectedCellIndex : null,
+        corners,
+        gridColumns: candidate.gridColumns,
+        gridRows: candidate.gridRows,
+        label: String(candidate.positionIndex + 1),
+        selected,
+      });
+    }
+  }, [
+    completeCorners,
+    activeDraft,
+    item.reviewItemId,
+    items,
+    selectedCellIndex,
+    showOverlay,
+    sourceDrafts,
+  ]);
 
   useEffect(() => draw(), [draw, loadingSource]);
 
@@ -138,7 +258,7 @@ export function GridReviewEditor({
     };
     image.onerror = () => {
       setLoadingSource(false);
-      setError('Nie udało się wczytać oryginalnego obrazu planszy.');
+      setError('Nie udało się wczytać oryginalnego obrazu źródłowego.');
     };
     image.src = sourceUrl;
     return () => {
@@ -148,18 +268,23 @@ export function GridReviewEditor({
     };
   }, [sourceUrl]);
 
-  useEffect(
-    () => () => {
-      if (previewUrlRef.current !== null) {
-        URL.revokeObjectURL(previewUrlRef.current);
-      }
-    },
-    [],
-  );
-
   const invalidatePreview = useCallback(() => {
     setPreviewKey('');
   }, []);
+
+  const replaceActiveDraft = useCallback(
+    (next: GridGeometryDraft) => {
+      if (sourceEditing) {
+        setSourceDrafts((current) =>
+          replaceGridGeometrySourceDraft(current, item.reviewItemId, next),
+        );
+      } else {
+        setDraft({ corners: next, reviewItemId: item.reviewItemId });
+      }
+      invalidatePreview();
+    },
+    [invalidatePreview, item.reviewItemId, sourceEditing],
+  );
 
   function sourcePoint(event: ReactPointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
@@ -173,24 +298,50 @@ export function GridReviewEditor({
   }
 
   function pointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
-    if (!editing || saving || loadingPreview) return;
-    event.preventDefault();
+    if (saving || loadingPreview) return;
     const pointer = sourcePoint(event);
     if (pointer === null) return;
-    if (draft.length < 4) {
-      setDraft((current) =>
-        addGridGeometryPoint(
-          current,
-          pointer.point,
-          item.sourceWidth,
-          item.sourceHeight,
-        ),
+    if (!editing) {
+      if (hasPendingIndividualDraft) return;
+      const selected = gridGeometrySourceItemAtPoint(
+        items,
+        sourceDrafts,
+        item.reviewItemId,
+        activeDraft,
+        pointer.point,
       );
-      invalidatePreview();
+      if (selected !== null && selected.reviewItemId !== item.reviewItemId) {
+        onSelect(selected.reviewItemId);
+        return;
+      }
+      if (!sourceEditing) return;
+    }
+    event.preventDefault();
+    if (activeDraft.length < 4) {
+      const next = addGridGeometryPoint(
+        activeDraft,
+        pointer.point,
+        item.sourceWidth,
+        item.sourceHeight,
+      );
+      replaceActiveDraft(next);
+      if (sourceEditing && next.length === 4) {
+        const nextDrafts = replaceGridGeometrySourceDraft(
+          sourceDrafts,
+          item.reviewItemId,
+          next,
+        );
+        const following = nextIncompleteGridGeometrySourceItem(
+          items,
+          nextDrafts,
+          item.reviewItemId,
+        );
+        if (following !== null) onSelect(following.reviewItemId);
+      }
       return;
     }
     const target = gridGeometryDragTarget(
-      draft,
+      activeDraft,
       pointer.point,
       44 / pointer.scale,
     );
@@ -204,17 +355,17 @@ export function GridReviewEditor({
     if (active === null) return;
     const pointer = sourcePoint(event);
     if (pointer === null) return;
-    setDraft((current) =>
+    replaceActiveDraft(
       active.target.kind === 'corner'
         ? moveGridGeometryCorner(
-            current,
+            activeDraft,
             active.target.index,
             pointer.point,
             item.sourceWidth,
             item.sourceHeight,
           )
         : moveGridGeometry(
-            current,
+            activeDraft,
             {
               x: pointer.point.x - active.lastPoint.x,
               y: pointer.point.y - active.lastPoint.y,
@@ -235,28 +386,72 @@ export function GridReviewEditor({
     }
   }
 
+  function replacePreviewUrls(automatic: Blob, edited: Blob) {
+    previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    previewUrlsRef.current.clear();
+    const automaticUrl = URL.createObjectURL(automatic);
+    const editedUrl = URL.createObjectURL(edited);
+    previewUrlsRef.current.add(automaticUrl);
+    previewUrlsRef.current.add(editedUrl);
+    setAutoPreviewUrl(automaticUrl);
+    setDraftPreviewUrl(editedUrl);
+  }
+
   async function refreshPreview() {
     if (completeCorners === null || loadingPreview || saving) return;
     setLoadingPreview(true);
     setError('');
-    const requestedKey = JSON.stringify(completeCorners);
-    const result = await previewGridReviewGeometry(api, item, completeCorners);
-    setLoadingPreview(false);
-    if (!result.ok) {
-      setError(result.error);
+    const requestedPreviewKey = draftKey;
+    const requestedCornersKey = JSON.stringify(completeCorners);
+    const automaticResult = await previewGridReviewGeometry(
+      api,
+      item,
+      automaticCorners,
+    );
+    if (!automaticResult.ok) {
+      setLoadingPreview(false);
+      setError(automaticResult.error);
       return;
     }
-    if (previewUrlRef.current !== null) {
-      URL.revokeObjectURL(previewUrlRef.current);
+    const editedResult =
+      JSON.stringify(automaticCorners) === requestedCornersKey
+        ? automaticResult
+        : await previewGridReviewGeometry(api, item, completeCorners);
+    setLoadingPreview(false);
+    if (!editedResult.ok) {
+      setError(editedResult.error);
+      return;
     }
-    const url = URL.createObjectURL(result.blob);
-    previewUrlRef.current = url;
-    setPreviewUrl(url);
-    setPreviewKey(requestedKey);
+    replacePreviewUrls(automaticResult.blob, editedResult.blob);
+    setPreviewKey(requestedPreviewKey);
+    setPreviewMode('edited');
   }
 
   async function save() {
-    if (completeCorners === null || !previewIsCurrent || saving) return;
+    if (saving) return;
+    if (sourceEditing) {
+      if (completeSourceDrafts === null) return;
+      setSaving(true);
+      setError('');
+      const result = await saveGridReviewSourceGeometry(api, {
+        cornersByReviewItemId: new Map(
+          completeSourceDrafts.map((value) => [
+            value.item.reviewItemId,
+            value.corners,
+          ]),
+        ),
+        idempotencyKey: globalThis.crypto.randomUUID(),
+        items,
+      });
+      setSaving(false);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      onSaved();
+      return;
+    }
+    if (completeCorners === null || !previewIsCurrent) return;
     setSaving(true);
     setError('');
     const result = await saveGridReviewGeometry(
@@ -277,58 +472,200 @@ export function GridReviewEditor({
     () => Array.from({ length: cellCount }, (_, index) => index),
     [cellCount],
   );
+  const selectedRow = Math.floor(selectedCellIndex / item.gridColumns);
+  const selectedColumn = selectedCellIndex % item.gridColumns;
 
   return (
     <section className="gridReviewEditor">
       <div className="gridReviewCanvasPanel">
         <div className="gridReviewCanvasHeading">
           <div>
-            <span className="eyebrow">Oryginalny obraz i overlay</span>
+            <span className="eyebrow">Oryginalne zdjęcie i aktywne sloty</span>
             <h2>
-              Plansza {item.sequenceNumber} · {item.gridColumns} ×{' '}
-              {item.gridRows}
+              Plansza {item.positionIndex + 1} · sekwencja {item.sequenceNumber}
             </h2>
           </div>
-          <button
-            className="secondaryButton"
-            disabled={loadingSource || saving}
-            onClick={() => setEditing((value) => !value)}
-            type="button"
-          >
-            {editing ? 'Zakończ edycję' : 'Zmień siatkę'}
-          </button>
+          <div className="gridReviewCanvasTools">
+            <label>
+              Zoom
+              <select
+                aria-label="Powiększenie obrazu źródłowego"
+                disabled={saving}
+                onChange={(event) => setZoomPercent(Number(event.target.value))}
+                value={zoomPercent}
+              >
+                {[100, 125, 150, 200].map((value) => (
+                  <option key={value} value={value}>
+                    {value}%
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              aria-pressed={showOverlay}
+              className="secondaryButton"
+              disabled={loadingSource || saving}
+              onClick={() => setShowOverlay((value) => !value)}
+              type="button"
+            >
+              {showOverlay ? 'Ukryj overlay' : 'Pokaż overlay'}
+            </button>
+            <button
+              className="secondaryButton"
+              disabled={loadingSource || saving || sourceEditing}
+              onClick={() => {
+                if (editing) {
+                  setEditing(false);
+                  return;
+                }
+                setEditing(true);
+                if (!hasPendingIndividualDraft) {
+                  setDraft({
+                    corners: automaticCorners,
+                    reviewItemId: item.reviewItemId,
+                  });
+                  invalidatePreview();
+                }
+              }}
+              type="button"
+            >
+              {editing
+                ? 'Zakończ edycję'
+                : hasPendingIndividualDraft
+                  ? 'Kontynuuj edycję'
+                  : 'Zmień siatkę'}
+            </button>
+            {sourceBatchEnabled ? (
+              <button
+                className="secondaryButton"
+                disabled={
+                  loadingSource ||
+                  saving ||
+                  editing ||
+                  hasPendingIndividualDraft
+                }
+                onClick={() => {
+                  if (sourceEditing) {
+                    setSourceEditing(false);
+                  } else {
+                    setSourceEditing(true);
+                    const next = firstIncompleteGridGeometrySourceItem(
+                      items,
+                      sourceDrafts,
+                    );
+                    if (next !== null) {
+                      onSelect(next.reviewItemId);
+                    }
+                  }
+                  invalidatePreview();
+                }}
+                type="button"
+              >
+                {sourceEditing
+                  ? 'Wstrzymaj plansze osobno'
+                  : sourceEditingProgress > 0
+                    ? 'Kontynuuj plansze osobno'
+                    : 'Wyznacz plansze osobno'}
+              </button>
+            ) : null}
+          </div>
         </div>
+        <p className="gridReviewMetadata">
+          {item.geometryEngineName ?? 'Brak silnika'} ·{' '}
+          {item.geometryEngineVersion ?? 'brak wersji'} · confidence{' '}
+          {(item.boardConfidence * 100).toFixed(1)}%
+          {item.reasonCodes.length > 0
+            ? ` · ${item.reasonCodes.join(', ')}`
+            : ''}
+        </p>
+        {item.localLatticeVersion ? (
+          <p className="gridReviewMetadata">
+            Dopasowanie lokalne: {item.localLatticeVersion} ·{' '}
+            {item.localLatticeStatus === 'estimated'
+              ? 'bezpieczna propozycja siatki'
+              : `wymaga korekty${latticeReason ? ` · ${latticeReason}` : ''}`}
+          </p>
+        ) : null}
         {loadingSource ? <p>Wczytywanie obrazu…</p> : null}
-        <canvas
-          aria-label="Oryginalny obraz planszy z edytowalną siatką"
-          className={
-            editing ? 'gridReviewCanvas isEditing' : 'gridReviewCanvas'
-          }
-          onLostPointerCapture={() => {
-            dragRef.current = null;
-          }}
-          onPointerCancel={() => {
-            dragRef.current = null;
-          }}
-          onPointerDown={pointerDown}
-          onPointerMove={pointerMove}
-          onPointerUp={pointerUp}
-          ref={canvasRef}
-        />
-        {editing ? (
+        <div className="gridReviewSourceViewport">
+          <canvas
+            aria-label="Oryginalny obraz źródłowy z aktywnymi siatkami plansz"
+            className={
+              isEditing
+                ? 'gridReviewCanvas isEditing'
+                : 'gridReviewCanvas isSelecting'
+            }
+            onLostPointerCapture={() => {
+              dragRef.current = null;
+            }}
+            onPointerCancel={() => {
+              dragRef.current = null;
+            }}
+            onPointerDown={pointerDown}
+            onPointerMove={pointerMove}
+            onPointerUp={pointerUp}
+            ref={canvasRef}
+            style={{ width: `${zoomPercent}%` }}
+          />
+        </div>
+        <p className="gridReviewCanvasHint">
+          Kliknij siatkę na zdjęciu, aby wybrać planszę. W trybie plansz osobno
+          kliknięcie innej siatki przełącza edytowaną planszę bez zmiany
+          punktów.
+        </p>
+        <div
+          className="gridReviewSlotList"
+          role="list"
+          aria-label="Aktywne plansze źródła"
+        >
+          {items.map((candidate) => (
+            <button
+              aria-pressed={candidate.reviewItemId === item.reviewItemId}
+              className={
+                candidate.reviewItemId === item.reviewItemId
+                  ? 'isSelected'
+                  : undefined
+              }
+              key={candidate.reviewItemId}
+              disabled={
+                hasPendingIndividualDraft &&
+                candidate.reviewItemId !== item.reviewItemId
+              }
+              onClick={() => onSelect(candidate.reviewItemId)}
+              type="button"
+            >
+              #{candidate.positionIndex + 1} · {candidate.sequenceNumber} ·{' '}
+              {candidate.state === 'approved'
+                ? 'zatwierdzona'
+                : candidate.state === 'needs_correction'
+                  ? 'do poprawy'
+                  : 'do walidacji'}
+            </button>
+          ))}
+        </div>
+        {isEditing ? (
           <div className="gridReviewEditControls">
             <p>
-              {draft.length < 4
-                ? `Kliknij narożnik ${GRID_CORNER_LABELS[draft.length]} (${draft.length + 1}/4).`
-                : 'Przeciągnij narożnik albo środek siatki, aby przesunąć całość.'}
+              {sourceEditing
+                ? activeDraft.length < 4
+                  ? `Plansza ${item.positionIndex + 1}/${items.length} · kliknij narożnik ${GRID_CORNER_LABELS[activeDraft.length]} (${activeDraft.length + 1}/4).`
+                  : `Plansza ${item.positionIndex + 1}/${items.length} jest gotowa. Wybierz kolejną albo popraw narożnik.`
+                : activeDraft.length < 4
+                  ? `Kliknij narożnik ${GRID_CORNER_LABELS[activeDraft.length]} (${activeDraft.length + 1}/4).`
+                  : 'Przeciągnij narożnik albo środek wybranej siatki.'}
             </p>
+            {sourceEditing ? (
+              <p className="mutedText">
+                Ręcznie ustawiono {sourceEditingProgress}/{items.length} plansz
+                w kolejności wierszami.
+              </p>
+            ) : null}
             <div>
               <button
                 className="textButton"
-                disabled={draft.length === 0 || saving}
+                disabled={activeDraft.length === 0 || saving}
                 onClick={() => {
-                  setDraft((current) => undoGridGeometryPoint(current));
-                  invalidatePreview();
+                  replaceActiveDraft(activeDraft.slice(0, -1));
                 }}
                 type="button"
               >
@@ -338,24 +675,37 @@ export function GridReviewEditor({
                 className="textButton"
                 disabled={saving}
                 onClick={() => {
-                  setDraft([]);
-                  invalidatePreview();
+                  replaceActiveDraft(sourceEditing ? [] : automaticCorners);
                 }}
                 type="button"
               >
-                Resetuj
+                {sourceEditing ? 'Wyczyść planszę' : 'Resetuj do automatu'}
+              </button>
+              <button
+                className="textButton"
+                disabled={saving}
+                onClick={() => {
+                  replaceActiveDraft([]);
+                }}
+                type="button"
+              >
+                Wskaż od nowa
               </button>
             </div>
           </div>
         ) : null}
       </div>
 
-      {editing ? (
+      {showDraftReview ? (
         <section className="gridReviewPreviewPanel">
           <div className="gridReviewCanvasHeading">
             <div>
-              <span className="eyebrow">Source-direct</span>
-              <h3>Podgląd {cellCount} cropów</h3>
+              <span className="eyebrow">A/B source-direct</span>
+              <h3>
+                {sourceEditing
+                  ? `Ręczne plansze ${sourceEditingProgress}/${items.length}`
+                  : `Podgląd ${cellCount} cropów wybranej planszy`}
+              </h3>
             </div>
             <button
               className="secondaryButton"
@@ -363,45 +713,103 @@ export function GridReviewEditor({
               onClick={() => void refreshPreview()}
               type="button"
             >
-              {loadingPreview ? 'Generowanie…' : 'Generuj podgląd'}
+              {loadingPreview ? 'Generowanie…' : 'Generuj porównanie A/B'}
             </button>
           </div>
-          {previewUrl === null ? (
+          {shownPreviewUrl === null ? (
             <p className="mutedText">
-              Ustaw cztery narożniki i wygeneruj podgląd.
+              Ustaw cztery narożniki i wygeneruj porównanie automatu z edycją.
             </p>
           ) : (
-            <div
-              className="gridReviewCropPreview"
-              style={{
-                gridTemplateColumns: `repeat(${item.gridColumns}, minmax(64px, 1fr))`,
-              }}
-            >
-              {cropIndices.map((index) => {
-                const row = Math.floor(index / item.gridColumns);
-                const column = index % item.gridColumns;
-                return (
-                  <div
-                    aria-label={`Crop ${index + 1}`}
-                    key={index}
-                    role="img"
-                    style={{
-                      backgroundImage: `url("${previewUrl}")`,
-                      backgroundPosition: `${item.gridColumns === 1 ? 0 : (column * 100) / (item.gridColumns - 1)}% ${item.gridRows === 1 ? 0 : (row * 100) / (item.gridRows - 1)}%`,
-                      backgroundSize: `${item.gridColumns * 100}% ${item.gridRows * 100}%`,
-                    }}
-                  />
-                );
-              })}
-            </div>
+            <>
+              <div className="gridReviewPreviewTabs" role="tablist">
+                <button
+                  aria-selected={previewMode === 'automatic'}
+                  className={
+                    previewMode === 'automatic' ? 'isActive' : undefined
+                  }
+                  onClick={() => setPreviewMode('automatic')}
+                  role="tab"
+                  type="button"
+                >
+                  A · Automat
+                </button>
+                <button
+                  aria-selected={previewMode === 'edited'}
+                  className={previewMode === 'edited' ? 'isActive' : undefined}
+                  onClick={() => setPreviewMode('edited')}
+                  role="tab"
+                  type="button"
+                >
+                  B · Edycja
+                </button>
+              </div>
+              <div
+                className="gridReviewCropPreview"
+                style={{
+                  gridTemplateColumns: `repeat(${item.gridColumns}, minmax(64px, 1fr))`,
+                }}
+              >
+                {cropIndices.map((index) => {
+                  const row = Math.floor(index / item.gridColumns);
+                  const column = index % item.gridColumns;
+                  return (
+                    <button
+                      aria-label={`Crop ${index + 1}`}
+                      aria-pressed={selectedCellIndex === index}
+                      className={
+                        selectedCellIndex === index ? 'isSelected' : undefined
+                      }
+                      key={index}
+                      onClick={() =>
+                        setSelectedCell({
+                          cellIndex: index,
+                          reviewItemId: item.reviewItemId,
+                        })
+                      }
+                      style={cropBackgroundStyle(
+                        shownPreviewUrl,
+                        item.gridColumns,
+                        item.gridRows,
+                        column,
+                        row,
+                      )}
+                      type="button"
+                    />
+                  );
+                })}
+              </div>
+              <div
+                aria-label={`Powiększony crop ${selectedCellIndex + 1}`}
+                className="gridReviewCropEnlarged"
+                role="img"
+                style={cropBackgroundStyle(
+                  shownPreviewUrl,
+                  item.gridColumns,
+                  item.gridRows,
+                  selectedColumn,
+                  selectedRow,
+                )}
+              />
+            </>
           )}
           <button
             className="primaryButton"
-            disabled={!previewIsCurrent || saving || loadingPreview}
+            disabled={
+              saving ||
+              loadingPreview ||
+              (sourceEditing
+                ? completeSourceDrafts === null
+                : !previewIsCurrent)
+            }
             onClick={() => void save()}
             type="button"
           >
-            {saving ? 'Zapisywanie…' : 'Zapisz i zatwierdź geometrię'}
+            {saving
+              ? 'Zapisywanie…'
+              : sourceEditing
+                ? `Zapisz i zatwierdź ${items.length} plansz`
+                : 'Zapisz i przejdź do następnego zdjęcia'}
           </button>
         </section>
       ) : null}
@@ -412,6 +820,151 @@ export function GridReviewEditor({
       ) : null}
     </section>
   );
+}
+
+function drawBoardOverlay(
+  context: CanvasRenderingContext2D,
+  input: {
+    readonly cellIndex: number | null;
+    readonly corners: GridGeometryDraft;
+    readonly gridColumns: number;
+    readonly gridRows: number;
+    readonly label: string;
+    readonly selected: boolean;
+  },
+) {
+  const width = context.canvas.width;
+  const completeCorners = asCompleteCorners(input.corners);
+  const anchor = gridGeometryDraftAnchor(input.corners);
+  context.save();
+  // A newly selected source slot deliberately starts without any manual
+  // points.  There is no outline or label to draw yet, but other slots must
+  // remain visible and the editor must keep accepting the first click.
+  if (anchor === null) {
+    context.restore();
+    return;
+  }
+  context.lineWidth = Math.max(2, width / 800);
+  context.strokeStyle = input.selected
+    ? '#f4d35e'
+    : 'rgba(125, 211, 252, 0.72)';
+  context.fillStyle = input.selected
+    ? 'rgba(244, 211, 94, 0.12)'
+    : 'rgba(125, 211, 252, 0.06)';
+  context.beginPath();
+  context.moveTo(input.corners[0].x, input.corners[0].y);
+  input.corners.slice(1).forEach((point) => context.lineTo(point.x, point.y));
+  if (completeCorners !== null) {
+    context.closePath();
+    context.fill();
+  }
+  context.stroke();
+  if (completeCorners !== null) {
+    for (let column = 0; column <= input.gridColumns; column += 1) {
+      const ratio = column / input.gridColumns;
+      drawLine(
+        context,
+        operationalReviewPointInLattice(completeCorners, ratio, 0),
+        operationalReviewPointInLattice(completeCorners, ratio, 1),
+      );
+    }
+    for (let row = 0; row <= input.gridRows; row += 1) {
+      const ratio = row / input.gridRows;
+      drawLine(
+        context,
+        operationalReviewPointInLattice(completeCorners, 0, ratio),
+        operationalReviewPointInLattice(completeCorners, 1, ratio),
+      );
+    }
+  }
+  if (completeCorners !== null && input.selected && input.cellIndex !== null) {
+    const row = Math.floor(input.cellIndex / input.gridColumns);
+    const column = input.cellIndex % input.gridColumns;
+    const topLeft = operationalReviewPointInLattice(
+      completeCorners,
+      column / input.gridColumns,
+      row / input.gridRows,
+    );
+    const bottomRight = operationalReviewPointInLattice(
+      completeCorners,
+      (column + 1) / input.gridColumns,
+      (row + 1) / input.gridRows,
+    );
+    context.fillStyle = 'rgba(255, 255, 255, 0.22)';
+    context.fillRect(
+      Math.min(topLeft.x, bottomRight.x),
+      Math.min(topLeft.y, bottomRight.y),
+      Math.abs(bottomRight.x - topLeft.x),
+      Math.abs(bottomRight.y - topLeft.y),
+    );
+  }
+  const center =
+    completeCorners === null
+      ? input.corners[0]
+      : operationalReviewPointInLattice(completeCorners, 0.5, 0.5);
+  context.fillStyle = input.selected ? '#fffaf0' : '#d9f4ff';
+  context.font = `bold ${Math.max(20, width / 45)}px sans-serif`;
+  context.fillText(input.label, center.x, center.y);
+  if (input.selected) {
+    input.corners.forEach((point, index) => {
+      const radius = Math.max(8, width / 180);
+      context.beginPath();
+      context.fillStyle = '#fffaf0';
+      context.strokeStyle = '#b42318';
+      context.arc(point.x, point.y, radius, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+      context.fillStyle = '#7a271a';
+      context.font = `bold ${Math.max(16, width / 65)}px sans-serif`;
+      context.fillText(
+        GRID_CORNER_LABELS[index] ?? '',
+        point.x + radius,
+        point.y - radius,
+      );
+    });
+  }
+  context.restore();
+}
+
+function drawAnalysisOverlay(
+  context: CanvasRenderingContext2D,
+  corners: OperationalReviewGeometryCorners,
+  selected: boolean,
+) {
+  context.save();
+  context.beginPath();
+  context.moveTo(corners[0].x, corners[0].y);
+  corners.slice(1).forEach((point) => context.lineTo(point.x, point.y));
+  context.closePath();
+  context.lineWidth = Math.max(1, context.canvas.width / 1400);
+  context.setLineDash([10, 8]);
+  context.strokeStyle = selected
+    ? 'rgba(203, 213, 225, 0.9)'
+    : 'rgba(148, 163, 184, 0.48)';
+  context.stroke();
+  context.restore();
+}
+
+function asCompleteCorners(
+  draft: GridGeometryDraft,
+): OperationalReviewGeometryCorners | null {
+  return draft.length === 4
+    ? (draft as OperationalReviewGeometryCorners)
+    : null;
+}
+
+function cropBackgroundStyle(
+  previewUrl: string,
+  columns: number,
+  rows: number,
+  column: number,
+  row: number,
+) {
+  return {
+    backgroundImage: `url("${previewUrl}")`,
+    backgroundPosition: `${columns === 1 ? 0 : (column * 100) / (columns - 1)}% ${rows === 1 ? 0 : (row * 100) / (rows - 1)}%`,
+    backgroundSize: `${columns * 100}% ${rows * 100}%`,
+  };
 }
 
 function drawLine(

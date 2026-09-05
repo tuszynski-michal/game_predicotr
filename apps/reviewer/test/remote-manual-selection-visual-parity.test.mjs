@@ -22,13 +22,13 @@ test('remote workspace reuses the local manual-selection visual system', async (
   assert.doesNotMatch(workspace, /type="range"/);
 });
 
-test('remote workspace persists an explicit nine-layout range correction', async () => {
+test('remote workspace persists an explicit bounded range correction', async () => {
   const workspace = await readFile(workspacePath, 'utf8');
   const css = await readFile(reviewerCssPath, 'utf8');
 
   assert.match(workspace, /manualImageSelectionRangeButton/);
   assert.match(workspace, /openRangeEditor/);
-  assert.match(workspace, /rangeEnd !== rangeStart \+ 8/);
+  assert.match(workspace, /rangeEnd !== expectedRangeEnd/);
   assert.match(workspace, /nextRangeStart: rangeStart/);
   assert.match(workspace, /await persistOperatorLocalManifest\(next\)/);
   assert.match(workspace, /interactionPaused \|\| rangeEditorOpen/);
@@ -41,7 +41,7 @@ test('remote source navigation stays in natural folder order for descending rang
 
   assert.match(
     workspace,
-    /clampRemoteWorkspaceIndex\(\s*workspace\.currentIndex,\s*delta,\s*batch\.fileCount,/,
+    /clampRemoteWorkspaceIndex\(workspace\.currentIndex, delta, batch\.fileCount\)/,
   );
   assert.doesNotMatch(workspace, /direction === 'ascending' \? delta : -delta/);
   assert.match(
@@ -186,7 +186,7 @@ test('remote acceptance does not drop a visible image while its load event settl
   );
   assert.match(
     workspace,
-    /disabled=\{!canEdit \|\| hasConflict \|\| sourceReader === null\}/,
+    /disabled=\{[\s\S]*?!canEdit[\s\S]*?sourceReader === null[\s\S]*?workspace\.selectionComplete[\s\S]*?\}/,
   );
   assert.match(
     workspace,

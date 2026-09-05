@@ -1,9 +1,11 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+import pytest
 from game_predictor_api.application.page_geometry_overrides import (
     PageGeometryOverrideService,
 )
+from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.domain.page_geometry_overrides import ImagePageGeometryOverride
 
 
@@ -68,6 +70,7 @@ def test_page_geometry_override_is_idempotent_and_pinned_in_snapshot() -> None:
         source_checksum_sha256=checksum,
         image_width=320,
         image_height=320,
+        expected_board_count=9,
         final_quads=_quads(),
         actor="local-owner",
     )
@@ -76,6 +79,7 @@ def test_page_geometry_override_is_idempotent_and_pinned_in_snapshot() -> None:
         source_checksum_sha256=checksum,
         image_width=320,
         image_height=320,
+        expected_board_count=9,
         final_quads=_quads(),
         actor="local-owner",
     )
@@ -91,8 +95,46 @@ def test_page_geometry_override_is_idempotent_and_pinned_in_snapshot() -> None:
             "decisionChecksumSha256": first.decision_checksum_sha256,
             "imageHeight": 320,
             "imageWidth": 320,
+            "expectedBoardCount": 9,
             "overrideId": str(first.id),
             "quads": first.final_quads,
             "revision": 1,
         }
     }
+
+
+def test_page_geometry_override_accepts_attested_five_board_final_page() -> None:
+    game_id = uuid4()
+    checksum = "b" * 64
+    service = PageGeometryOverrideService(MemoryPageGeometryOverrideRepository())
+
+    saved, created = service.save(
+        game_id=game_id,
+        source_checksum_sha256=checksum,
+        image_width=320,
+        image_height=320,
+        expected_board_count=5,
+        final_quads=_quads()[:5],
+        actor="local-owner",
+    )
+
+    assert created is True
+    assert len(saved.final_quads) == 5
+    assert service.snapshot(game_id=game_id)[checksum]["expectedBoardCount"] == 5
+
+
+def test_page_geometry_override_rejects_count_different_from_attested_range() -> None:
+    service = PageGeometryOverrideService(MemoryPageGeometryOverrideRepository())
+
+    with pytest.raises(JobError) as error:
+        service.save(
+            game_id=uuid4(),
+            source_checksum_sha256="c" * 64,
+            image_width=320,
+            image_height=320,
+            expected_board_count=5,
+            final_quads=_quads(),
+            actor="local-owner",
+        )
+
+    assert error.value.code == "IMAGE_PAGE_GEOMETRY_INVALID"

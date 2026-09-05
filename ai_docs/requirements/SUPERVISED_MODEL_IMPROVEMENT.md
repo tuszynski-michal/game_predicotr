@@ -45,6 +45,13 @@ Model, kohorta treningowa, metryki i aktywna wersja są przypisane do jednej
 gry. Dane różnych gier nie są łączone bez nowej decyzji architektonicznej,
 ponieważ gry mogą mieć inne katalogi symboli i inne warunki obrazu.
 
+Raport browserowego importu może być odczytany przed pierwszym treningiem, aby
+operator mógł ocenić zakresy i przygotować geometrię. Taki raport jawnie
+pokazuje brak gotowego modelu i nie jest autoryzacją startu importu. Start
+inferencji nadal wymaga wytrenowanego oraz aktywnego snapshotu zgodnego z
+bieżącym katalogiem symboli danej gry; niezgodny globalny bootstrap nie może go
+zastąpić.
+
 ## Kohorta treningowa
 
 Użytkownik uruchamia akcję `Ulepsz rozpoznawanie`. System przed treningiem:
@@ -77,6 +84,16 @@ wyłącznie w celu reprodukcji istniejących iteracji.
 - polityka `source-family-balanced-split-v2` gwarantuje niezależne, niepuste
   zbiory przy co najmniej czterech źródłach; przypisania źródeł są zapisywane
   w konfiguracji i pozostają stabilne po rozszerzeniu kohorty,
+- źródła muszą być wyprowadzane zarówno z historycznych pełnych plansz, jak i
+  z pojedynczo zatwierdzonych cropów; pusty wymagany split blokuje dataset przed
+  rozpoczęciem pierwszej epoki,
+- zatwierdzony crop `virtual_source` jest pełnoprawnym źródłem treningowym bez
+  konieczności tworzenia trwałego pliku cropa; kohorta musi zamrozić pełną
+  checksum-bound proweniencję renderu, a builder przed treningiem odtwarza
+  piksele z managed original i sprawdza ich checksumę RGB,
+- brak źródła lub drift source geometry revision, render spec, zatwierdzonej
+  proweniencji albo checksumy pikseli wyklucza próbkę fail-closed; nie wolno
+  zastępować jej cropem legacy ani bieżącą geometrią,
 - stały zestaw kontrolny nie może zostać włączony do treningu kolejnej wersji,
 - raport pokazuje liczność per symbol, źródło i część podziału,
 - brak wymaganej reprezentacji klasy blokuje promocję albo wymaga jawnego
@@ -116,6 +133,16 @@ draft -> training -> evaluating -> candidate_ready -> active
 - model nie staje się aktywny automatycznie po treningu,
 - aktywacja wymaga jawnego potwierdzenia użytkownika po pokazaniu porównania z
   bieżącym modelem,
+- jeżeli istnieje kandydat `candidate_ready`, ale gra nie ma jeszcze aktywacji,
+  nowy import i jawna reinferencja kończą się
+  `SYMBOL_MODEL_ACTIVATION_REQUIRED`; bootstrap nie może wtedy po cichu
+  zastąpić gotowego modelu gry,
+- katalog klas aktywnego snapshotu musi być dokładnie zgodny z aktywnym
+  katalogiem symboli gry; klasa spoza katalogu jest błędem integralności, a nie
+  nierozpoznanym symbolem `?`,
+- globalny bootstrap może zostać przypięty do nowego joba wyłącznie wtedy, gdy
+  jego klasy są dokładnie zgodne z aktywnym katalogiem gry; w przeciwnym razie
+  wymagany jest trening i jawna aktywacja modelu tej gry,
 - poprzednia aktywna wersja pozostaje dostępna do kontrolowanego rollbacku.
 
 ### Historyczny kandydat v19 i bieżący aktywny model
@@ -149,7 +176,10 @@ decyzji i nowego niezmiennego raportu.
 - użytkownik może jawnie uruchomić `Przelicz oczekujące`, aby utworzyć nowe
   sugestie tylko dla nadal nierozwiązanych elementów,
 - ponowna inferencja zapisuje nową rewizję predykcji; nie usuwa poprzedniej
-  rewizji i nie zmienia rozstrzygnięć człowieka.
+  rewizji i nie zmienia rozstrzygnięć człowieka,
+- ponowna inferencja obsługuje zarówno cropy plikowe, jak i bieżące cropy
+  `virtual_source`; wirtualne piksele są odtwarzane z managed original dopiero
+  po sprawdzeniu render spec, rewizji i checksummy, bez trwałego zapisu bitmapy.
 
 ## Panel jakości rozpoznawania
 

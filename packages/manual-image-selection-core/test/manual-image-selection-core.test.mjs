@@ -28,6 +28,7 @@ import {
   transitionRemoteSessionStatus,
   transitionRemoteTransferStatus,
 } from '../src/index.ts';
+import { previewManualSelectionManifestV2 } from '../../../scripts/preview_manual_selection_manifest_v2.mjs';
 
 const coreSource = await readFile(
   new URL('../src/index.ts', import.meta.url),
@@ -331,7 +332,7 @@ test('shares viewport fitting without resampling or changing the image aspect ra
   assert.equal(fitManualImageToViewport(null, null, 1), null);
 });
 
-test('materializes the existing v1 output schema without skipped decisions', () => {
+test('materializes the bounded v2 output schema without skipped decisions', () => {
   const state = nextManualSelectionState(
     createManualSelectionState(1, 'ascending'),
     {
@@ -367,12 +368,14 @@ test('materializes the existing v1 output schema without skipped decisions', () 
   );
 
   assert.deepEqual(manifest, {
-    schemaVersion: 1,
+    schemaVersion: 2,
     gameId: 'local-independent-manual-image-selection',
     sessionKey: 'session-1',
     sourceDirectoryName: 'source',
     direction: 'ascending',
     firstLayout: 1,
+    sequenceUpperBound: null,
+    selectionComplete: false,
     updatedAt: '2026-08-23T00:00:00.000Z',
     items: [
       {
@@ -381,8 +384,106 @@ test('materializes the existing v1 output schema without skipped decisions', () 
         imageChecksum: 'b'.repeat(64),
         rangeStart: 1,
         rangeEnd: 9,
+        activeBoardCount: 9,
       },
     ],
+  });
+});
+
+test('closes a partial final page at the configured upper bound', () => {
+  const initial = createManualSelectionState(499_996, 'ascending', 500_000);
+  assert.deepEqual(rangeForStart(initial.nextRangeStart, 500_000), {
+    start: 499_996,
+    end: 500_000,
+  });
+
+  const completed = nextManualSelectionState(
+    initial,
+    {
+      action: 'accepted',
+      imageChecksum: 'c'.repeat(64),
+      imagePath: 'source/final.jpg',
+      outputName: 'seq_499996-500000.jpg',
+      rangeEnd: 500_000,
+      rangeStart: 499_996,
+    },
+    1,
+  );
+
+  assert.equal(completed.selectionComplete, true);
+  assert.equal(completed.nextRangeStart, 499_996);
+  assert.throws(
+    () =>
+      nextManualSelectionState(
+        completed,
+        {
+          action: 'skipped',
+          imageChecksum: null,
+          imagePath: null,
+          outputName: null,
+          rangeEnd: 500_000,
+          rangeStart: 499_996,
+        },
+        1,
+      ),
+    /bieżącemu zakresowi|zakończona/i,
+  );
+  assert.equal(
+    previousManualSelectionState(completed)?.selectionComplete,
+    false,
+  );
+
+  const manifest = createManualSelectionOutputManifest(
+    {
+      gameId: 'local-independent-manual-image-selection',
+      key: 'bounded-session',
+      sourceDirectoryName: 'source',
+      state: completed,
+    },
+    '2026-08-30T00:00:00.000Z',
+  );
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.sequenceUpperBound, 500_000);
+  assert.equal(manifest.selectionComplete, true);
+  assert.equal(manifest.items[0].activeBoardCount, 5);
+});
+
+test('previews the stale 500004 manifest correction without writing files', () => {
+  const checksum = 'd'.repeat(64);
+  const preview = previewManualSelectionManifestV2({
+    manifest: {
+      schemaVersion: 1,
+      gameId: 'local-independent-manual-image-selection',
+      sessionKey: 'stale-session',
+      sourceDirectoryName: 'source',
+      direction: 'ascending',
+      firstLayout: 499_996,
+      updatedAt: '2026-08-30T00:00:00.000Z',
+      items: [
+        {
+          outputName: 'seq_499996-500004.jpg',
+          imagePath: 'source/final.jpg',
+          imageChecksum: checksum,
+          rangeStart: 499_996,
+          rangeEnd: 500_004,
+        },
+      ],
+    },
+    outputChecksums: new Map([['seq_499996-500000.jpg', checksum]]),
+    sequenceUpperBound: 500_000,
+  });
+
+  assert.equal(preview.canMaterializeV2, true);
+  assert.equal(preview.writesPerformed, 0);
+  assert.equal(preview.proposedManifest.schemaVersion, 2);
+  assert.equal(preview.proposedManifest.selectionComplete, true);
+  assert.deepEqual(preview.proposedManifest.items[0], {
+    outputName: 'seq_499996-500000.jpg',
+    imagePath: 'source/final.jpg',
+    imageChecksum: checksum,
+    rangeStart: 499_996,
+    rangeEnd: 500_000,
+    activeBoardCount: 5,
   });
 });
 

@@ -1,0 +1,65 @@
+{
+  "contract": "middle-row-range-ocr-v4-selected-review-v1",
+  "reviews": [
+    {
+      "relativePath": "blazing 21400_000505.jpg",
+      "expectedRange": [
+        21646,
+        21654
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_002509.jpg",
+      "expectedRange": [
+        24400,
+        24408
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_002510.jpg",
+      "expectedRange": [
+        24409,
+        24417
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_006508.jpg",
+      "expectedRange": [
+        28459,
+        28467
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_008505.jpg",
+      "expectedRange": [
+        30799,
+        30807
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_012505.jpg",
+      "expectedRange": [
+        35659,
+        35667
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    }
+  ]
+}

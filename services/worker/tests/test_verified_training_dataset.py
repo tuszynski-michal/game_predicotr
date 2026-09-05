@@ -3,14 +3,22 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from uuid import uuid4
 
+import numpy as np
 import pytest
+from game_predictor_worker.filesystem import long_path_aware
+from game_predictor_worker.images.normalization import (
+    CanonicalSourceLoader,
+    rgb_pixel_checksum_sha256,
+)
 from game_predictor_worker.symbols import (
     TrainingDatasetBuildError,
     TrainingDatasetConfig,
     TrainingSymbol,
     build_cumulative_training_dataset,
 )
+from PIL import Image
 
 
 @pytest.fixture
@@ -226,6 +234,22 @@ def test_v3_cell_cohort_requires_matching_approved_crop_provenance(
     )
     assert result.sample_count == 4
 
+    payload["schemaVersion"] = 4
+    payload["datasetKind"] = "verified-symbol-cell-training-cohort-v4-virtual-provenance"
+    for cell in payload["cells"]:
+        cell["assetMode"] = "legacy_file"
+        cell["approvedCrop"]["assetMode"] = "legacy_file"
+    v4_legacy = _canonical(payload)
+    cohort_path.write_bytes(v4_legacy)
+    v4_result = build_cumulative_training_dataset(
+        cohort_path=cohort_path,
+        expected_cohort_checksum_sha256=hashlib.sha256(v4_legacy).hexdigest(),
+        artifact_root=work_root,
+        game_code="fixture-game-v4-legacy",
+        symbols=_symbols(),
+    )
+    assert v4_result.sample_count == 4
+
     payload["cells"][0]["approvedCrop"]["geometryRevision"] = 0
     changed = _canonical(payload)
     cohort_path.write_bytes(changed)
@@ -238,6 +262,119 @@ def test_v3_cell_cohort_requires_matching_approved_crop_provenance(
             symbols=_symbols(),
         )
     assert error.value.code == "TRAINING_DATASET_CROP_PROVENANCE_INVALID"
+
+
+def test_v4_virtual_cell_cohort_renders_from_managed_source_without_crop_file(
+    work_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from game_predictor_worker.symbols import training_dataset as module
+
+    data_root = work_root / "data"
+    source_path = data_root / "originals" / "fixture.jpg"
+    source_path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (40, 40), (10, 20, 30)).save(source_path, format="JPEG")
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    normalized_checksum = (
+        CanonicalSourceLoader()
+        .load(source_path, expected_source_checksum_sha256=source_checksum)
+        .source.normalized_pixel_checksum_sha256
+    )
+    rendered = np.full((16, 16, 3), (40, 120, 220), dtype=np.uint8)
+    crop_checksum = rgb_pixel_checksum_sha256(rendered)
+    render_identity = "8" * 64
+    render_spec = {"renderIdentityV2Sha256": render_identity}
+    render_spec_checksum = hashlib.sha256(_canonical(render_spec)[:-1]).hexdigest()
+    sample_id = hashlib.sha256(b"virtual-sample").hexdigest()
+    source_geometry_revision_id = str(uuid4())
+    payload = {
+        "cells": [
+            {
+                "approvedCrop": {
+                    "assetMode": "virtual_source",
+                    "cropChecksumSha256": crop_checksum,
+                    "cropSampleId": sample_id,
+                    "geometryRevision": 1,
+                    "renderSpecChecksumSha256": render_spec_checksum,
+                    "renderedPixelChecksumSha256": crop_checksum,
+                    "sourceGeometryRevisionId": source_geometry_revision_id,
+                },
+                "assetMode": "virtual_source",
+                "cellIndex": 0,
+                "cellReviewId": str(uuid4()),
+                "cellRevision": 2,
+                "cropChecksumSha256": crop_checksum,
+                "cropSampleId": sample_id,
+                "cropperVersion": "structured-v0.10",
+                "extractorVersion": "fixture-renderer-v1",
+                "geometryChecksumSha256": "7" * 64,
+                "geometryRevision": 1,
+                "importJobId": str(uuid4()),
+                "logicalCellKeySha256": "5" * 64,
+                "logicalCellKeyV2Sha256": "6" * 64,
+                "normalizedPixelChecksumSha256": normalized_checksum,
+                "recognizedBoardId": str(uuid4()),
+                "renderIdentityV2Sha256": render_identity,
+                "renderSpec": render_spec,
+                "renderSpecChecksumSha256": render_spec_checksum,
+                "renderedPixelChecksumSha256": crop_checksum,
+                "reviewItemId": str(uuid4()),
+                "selectionReason": "diverse_approval",
+                "sequenceNumber": 1,
+                "source": {
+                    "checksumSha256": source_checksum,
+                    "relativePath": "originals/fixture.jpg",
+                },
+                "sourceGeometryRevisionId": source_geometry_revision_id,
+                "sourceImageId": str(uuid4()),
+                "symbolCode": "A",
+            }
+        ],
+        "counts": {"cellSamples": 1, "sourceImages": 1},
+        "datasetKind": "verified-symbol-cell-training-cohort-v4-virtual-provenance",
+        "exclusions": {
+            "changedCrop": 0,
+            "gridIssue": 0,
+            "missingAsset": 0,
+            "unknown": 0,
+            "unreadable": 0,
+        },
+        "gameId": "00000000-0000-0000-0000-000000000001",
+        "schemaVersion": 4,
+        "trainingEligibilityVersion": "symbol-cell-training-eligible-v1",
+    }
+    cohort_content = _canonical(payload)
+    cohort_path = data_root / "training" / "virtual-cohort.json"
+    cohort_path.parent.mkdir(parents=True, exist_ok=True)
+    cohort_path.write_bytes(cohort_content)
+    monkeypatch.setattr(
+        module,
+        "render_persisted_virtual_cell_rgb",
+        lambda *_args, **_kwargs: rendered,
+    )
+
+    result = build_cumulative_training_dataset(
+        cohort_path=cohort_path,
+        expected_cohort_checksum_sha256=hashlib.sha256(cohort_content).hexdigest(),
+        artifact_root=work_root,
+        game_code="fixture-game-v4",
+        symbols=(TrainingSymbol(id="symbol-a", code="A"),),
+    )
+
+    assert result.sample_count == 1
+    assert result.manifest["samples"][0]["assetChecksumKind"] == "rgb-pixel-v1"
+    asset_relative = result.manifest["samples"][0]["assetRelativePath"]
+    asset_path = (
+        work_root
+        / "data"
+        / "training"
+        / "fixture-game-v4"
+        / hashlib.sha256(cohort_content).hexdigest()
+        / Path(*str(asset_relative).split("/"))
+    )
+    with Image.open(long_path_aware(asset_path)) as image:
+        assert rgb_pixel_checksum_sha256(np.asarray(image.convert("RGB"), dtype=np.uint8)) == (
+            crop_checksum
+        )
 
 
 def test_build_is_deterministic_content_addressed_and_source_disjoint(

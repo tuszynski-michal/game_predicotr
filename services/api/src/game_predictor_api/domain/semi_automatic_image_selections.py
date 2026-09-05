@@ -1,0 +1,803 @@
+"""Domain contracts for game-independent semi-automatic image selection runs."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import cast
+from uuid import UUID, uuid4
+
+from game_predictor_api.domain.jobs import Job, JobConflictError, JobError, JobType, create_job
+
+SEMI_AUTOMATIC_SELECTION_CONTRACT_VERSION = 1
+SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION = "seq-inclusive-v1"
+SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE = 9
+SEMI_AUTOMATIC_SELECTION_ORDERING_POLICY = "natural_relative_path_v1"
+SEMI_AUTOMATIC_SELECTION_WORKFLOW = "semi_automatic_image_selection"
+_SEQUENCE_FILE_PATTERN = re.compile(
+    r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.jpe?g$", re.IGNORECASE
+)
+_FILENAME_VERIFICATION_ANCHORS = frozenset({0, 2, 4, 6, 8})
+
+
+class SemiAutomaticSelectionDirection(StrEnum):
+    ASCENDING = "ascending"
+    DESCENDING = "descending"
+
+
+class SemiAutomaticSelectionWorkflowMode(StrEnum):
+    SELECTION = "selection"
+    FILENAME_VERIFICATION = "filename_verification"
+
+
+class FilenameRangeVerificationReviewDecision(StrEnum):
+    KEEP = "keep"
+    REJECT = "reject"
+
+
+@dataclass(frozen=True, slots=True)
+class FilenameVerificationHistoryDeletion:
+    """Identifiers removed after a completed filename-verification lifecycle."""
+
+    run_id: UUID
+    job_id: UUID
+
+
+class SemiAutomaticSelectionRunStatus(StrEnum):
+    READY = "ready"
+    RUNNING = "running"
+    PAUSED = "paused"
+    ANALYSIS_COMPLETE = "analysis_complete"
+    SYNCING_OUTPUT = "syncing_output"
+    REVIEW_MODE = "review_mode"
+    EDIT_SOURCE_MODE = "edit_source_mode"
+    CLEANUP_PENDING = "cleanup_pending"
+    CLEANUP_BLOCKED = "cleanup_blocked"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class SemiAutomaticSelectionRangeStatus(StrEnum):
+    MISSING = "missing"
+    AUTO_SELECTED = "auto_selected"
+    OUTPUT_SYNCED = "output_synced"
+    CONFLICT = "conflict"
+
+
+@dataclass(frozen=True, slots=True)
+class FilenameRangeVerificationReview:
+    run_id: UUID
+    source_index: int
+    source_checksum_sha256: str
+    decision: FilenameRangeVerificationReviewDecision
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+
+    def __post_init__(self) -> None:
+        if self.source_index < 0 or self.revision < 0:
+            raise ValueError("Filename verification review has invalid coordinates.")
+        _require_sha256(self.source_checksum_sha256, "filename verification checksum")
+
+
+class SemiAutomaticSelectionError(JobError):
+    """Stable error for the semi-automatic selection HTTP boundary."""
+
+
+class SemiAutomaticSelectionNotFoundError(SemiAutomaticSelectionError):
+    """A run, source, or expected range does not exist."""
+
+
+class SemiAutomaticSelectionConflictError(JobConflictError):
+    """The requested mutation conflicts with durable run state."""
+
+
+@dataclass(frozen=True, slots=True)
+class SemiAutomaticSelectionSourceManifest:
+    upload_id: UUID
+    display_name: str
+    manifest_checksum_sha256: str
+    source_fingerprint: str
+    source_count: int
+    source_total_bytes: int
+
+    def __post_init__(self) -> None:
+        if not self.display_name.strip() or self.source_count < 1 or self.source_total_bytes < 1:
+            raise ValueError("A source manifest requires non-empty staged JPEGs.")
+        _require_sha256(self.manifest_checksum_sha256, "manifest checksum")
+        _require_sha256(self.source_fingerprint, "source fingerprint")
+
+
+@dataclass(frozen=True, slots=True)
+class SemiAutomaticSelectionRange:
+    id: UUID
+    run_id: UUID
+    expected_index: int
+    range_start: int
+    range_end: int
+    status: SemiAutomaticSelectionRangeStatus
+    source_index: int | None
+    source_relative_path: str | None
+    source_size_bytes: int | None
+    source_checksum_sha256: str | None
+    group_first_source_index: int | None
+    group_last_source_index: int | None
+    range_confidence: float | None
+    selection_method: str | None
+    output_checksum_sha256: str | None
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+
+    def __post_init__(self) -> None:
+        if self.expected_index < 0 or self.range_start < 1 or self.range_end < self.range_start:
+            raise ValueError("An expected range has invalid bounds.")
+        if self.range_end - self.range_start + 1 > SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE:
+            raise ValueError("An expected range exceeds the full range size.")
+        if self.revision < 0:
+            raise ValueError("Range revision cannot be negative.")
+        if self.range_confidence is not None and not 0 <= self.range_confidence <= 1:
+            raise ValueError("Range confidence must be between zero and one.")
+        if self.source_checksum_sha256 is not None:
+            _require_sha256(self.source_checksum_sha256, "source checksum")
+        if self.output_checksum_sha256 is not None:
+            _require_sha256(self.output_checksum_sha256, "output checksum")
+
+
+@dataclass(frozen=True, slots=True)
+class SemiAutomaticSelectionRun:
+    id: UUID
+    job: Job
+    source: SemiAutomaticSelectionSourceManifest
+    first_sequence_number: int
+    last_sequence_number: int
+    direction: SemiAutomaticSelectionDirection
+    workflow_mode: SemiAutomaticSelectionWorkflowMode
+    range_convention: str
+    full_range_size: int
+    expected_ranges_fingerprint: str
+    recognizer_fingerprint: str
+    grouping_policy_fingerprint: str
+    status: SemiAutomaticSelectionRunStatus
+    checkpoint: dict[str, object]
+    counters: dict[str, int]
+    diagnostics_relative_path: str | None
+    diagnostics_checksum_sha256: str | None
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+
+    def __post_init__(self) -> None:
+        if (
+            self.job.game_id is not None
+            or self.job.job_type is not JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
+        ):
+            raise ValueError("A semi-automatic selection run requires a global dedicated job.")
+        if self.first_sequence_number < 1 or self.last_sequence_number < self.first_sequence_number:
+            raise ValueError("Run bounds must be positive and increasing.")
+        if self.range_convention != SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION:
+            raise ValueError("Run range convention is unsupported.")
+        if self.full_range_size != SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE:
+            raise ValueError("Run full range size is unsupported.")
+        for value in (
+            self.expected_ranges_fingerprint,
+            self.recognizer_fingerprint,
+            self.grouping_policy_fingerprint,
+        ):
+            _require_sha256(value, "run fingerprint")
+        if self.diagnostics_checksum_sha256 is not None:
+            _require_sha256(self.diagnostics_checksum_sha256, "diagnostics checksum")
+        if self.revision < 0 or any(value < 0 for value in self.counters.values()):
+            raise ValueError("Run revision and counters cannot be negative.")
+
+
+def create_semi_automatic_selection_run(
+    *,
+    source: SemiAutomaticSelectionSourceManifest,
+    first_sequence_number: int,
+    last_sequence_number: int,
+    direction: SemiAutomaticSelectionDirection,
+    recognizer_fingerprint: str,
+    grouping_policy_fingerprint: str,
+    workflow_mode: SemiAutomaticSelectionWorkflowMode = (
+        SemiAutomaticSelectionWorkflowMode.SELECTION
+    ),
+    created_at: datetime | None = None,
+) -> tuple[SemiAutomaticSelectionRun, tuple[SemiAutomaticSelectionRange, ...]]:
+    if first_sequence_number < 1 or last_sequence_number < first_sequence_number:
+        raise SemiAutomaticSelectionError(
+            "SEMI_AUTOMATIC_SELECTION_BOUNDS_INVALID",
+            "The requested sequence bounds are invalid.",
+        )
+    _require_sha256(recognizer_fingerprint, "recognizer fingerprint")
+    _require_sha256(grouping_policy_fingerprint, "grouping policy fingerprint")
+    now = created_at or datetime.now(UTC)
+    run_id = uuid4()
+    ranges = _expected_ranges(
+        run_id=run_id,
+        first_sequence_number=first_sequence_number,
+        last_sequence_number=last_sequence_number,
+        created_at=now,
+    )
+    expected_fingerprint = expected_ranges_fingerprint(ranges)
+    payload: dict[str, object] = {
+        "schema_version": 2,
+        "selection_kind": SEMI_AUTOMATIC_SELECTION_WORKFLOW,
+        "workflow_mode": workflow_mode.value,
+        "run_id": str(run_id),
+        "source_upload_id": str(source.upload_id),
+        "source_manifest_checksum_sha256": source.manifest_checksum_sha256,
+        "source_fingerprint": source.source_fingerprint,
+        "source_count": source.source_count,
+        "first_sequence_number": first_sequence_number,
+        "last_sequence_number": last_sequence_number,
+        "direction": direction.value,
+        "range_convention": SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION,
+        "full_range_size": SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
+        "expected_ranges_fingerprint": expected_fingerprint,
+        "recognizer_fingerprint": recognizer_fingerprint,
+        "grouping_policy_fingerprint": grouping_policy_fingerprint,
+    }
+    job = create_job(
+        JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+        game_id=None,
+        input_payload=payload,
+        created_at=now,
+    )
+    return (
+        SemiAutomaticSelectionRun(
+            id=run_id,
+            job=job,
+            source=source,
+            first_sequence_number=first_sequence_number,
+            last_sequence_number=last_sequence_number,
+            direction=direction,
+            workflow_mode=workflow_mode,
+            range_convention=SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION,
+            full_range_size=SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
+            expected_ranges_fingerprint=expected_fingerprint,
+            recognizer_fingerprint=recognizer_fingerprint,
+            grouping_policy_fingerprint=grouping_policy_fingerprint,
+            status=SemiAutomaticSelectionRunStatus.READY,
+            checkpoint={},
+            counters={
+                "expected": len(ranges),
+                "autoSelected": 0,
+                "outputSynced": 0,
+                "conflicts": 0,
+                "missing": len(ranges),
+            },
+            diagnostics_relative_path=None,
+            diagnostics_checksum_sha256=None,
+            revision=0,
+            created_at=now,
+            updated_at=now,
+        ),
+        ranges,
+    )
+
+
+def pause_run(
+    run: SemiAutomaticSelectionRun,
+    *,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    if run.status is SemiAutomaticSelectionRunStatus.PAUSED:
+        return run
+    if run.status not in {
+        SemiAutomaticSelectionRunStatus.READY,
+        SemiAutomaticSelectionRunStatus.RUNNING,
+    }:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.PAUSED)
+    return _with_status(run, SemiAutomaticSelectionRunStatus.PAUSED, changed_at)
+
+
+def resume_run(
+    run: SemiAutomaticSelectionRun,
+    *,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    if run.status is not SemiAutomaticSelectionRunStatus.PAUSED:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.READY)
+    return _with_status(run, SemiAutomaticSelectionRunStatus.READY, changed_at)
+
+
+def cancel_run(
+    run: SemiAutomaticSelectionRun,
+    *,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    if run.status is SemiAutomaticSelectionRunStatus.CANCELLED:
+        return run
+    if run.status in {
+        SemiAutomaticSelectionRunStatus.CLEANUP_PENDING,
+        SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED,
+        SemiAutomaticSelectionRunStatus.COMPLETED,
+        SemiAutomaticSelectionRunStatus.FAILED,
+    }:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.CANCELLED)
+    return _with_status(run, SemiAutomaticSelectionRunStatus.CANCELLED, changed_at)
+
+
+def begin_filename_verification_cleanup(
+    run: SemiAutomaticSelectionRun,
+    *,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    """Move a fully-reviewed filename run into its terminal cleanup workflow."""
+
+    if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+            "Only filename verification runs can remove their working data.",
+        )
+    if run.status is SemiAutomaticSelectionRunStatus.CLEANUP_PENDING:
+        return run
+    if run.status not in {
+        SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+        SemiAutomaticSelectionRunStatus.REVIEW_MODE,
+    }:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.CLEANUP_PENDING)
+    return _with_status(run, SemiAutomaticSelectionRunStatus.CLEANUP_PENDING, changed_at)
+
+
+def block_filename_verification_cleanup(
+    run: SemiAutomaticSelectionRun,
+    *,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    """Persist a recoverable cleanup block without discarding the run summary."""
+
+    if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+            "Only filename verification runs can have filename cleanup blocked.",
+        )
+    if run.status is SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED:
+        return run
+    if run.status not in {
+        SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+        SemiAutomaticSelectionRunStatus.REVIEW_MODE,
+        SemiAutomaticSelectionRunStatus.CLEANUP_PENDING,
+    }:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED)
+    return _with_status(run, SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED, changed_at)
+
+
+def resume_filename_verification_cleanup(
+    run: SemiAutomaticSelectionRun,
+    *,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    """Retry a cleanup after its concrete external block was removed."""
+
+    if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+            "Only filename verification runs can resume this cleanup.",
+        )
+    if run.status is SemiAutomaticSelectionRunStatus.CLEANUP_PENDING:
+        return run
+    if run.status is not SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.CLEANUP_PENDING)
+    return _with_status(run, SemiAutomaticSelectionRunStatus.CLEANUP_PENDING, changed_at)
+
+
+def complete_filename_verification_cleanup(
+    run: SemiAutomaticSelectionRun,
+    *,
+    checkpoint: dict[str, object],
+    counters: dict[str, int] | None = None,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    """Persist the compact, immutable terminal history of a verified folder."""
+
+    if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+            "Only filename verification runs can complete this cleanup.",
+        )
+    if run.status is not SemiAutomaticSelectionRunStatus.CLEANUP_PENDING:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.COMPLETED)
+    now = changed_at or datetime.now(UTC)
+    return replace(
+        run,
+        status=SemiAutomaticSelectionRunStatus.COMPLETED,
+        checkpoint=dict(checkpoint),
+        counters=dict(run.counters if counters is None else counters),
+        diagnostics_relative_path=None,
+        diagnostics_checksum_sha256=None,
+        revision=run.revision + 1,
+        updated_at=now,
+    )
+
+
+def acknowledge_output(
+    item: SemiAutomaticSelectionRange,
+    *,
+    expected_revision: int,
+    expected_source_checksum_sha256: str,
+    output_checksum_sha256: str,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRange:
+    _require_sha256(expected_source_checksum_sha256, "expected source checksum")
+    _require_sha256(output_checksum_sha256, "output checksum")
+    if item.revision != expected_revision:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_CURSOR_STALE",
+            "The expected range changed after it was loaded.",
+        )
+    if (
+        item.status
+        not in {
+            SemiAutomaticSelectionRangeStatus.AUTO_SELECTED,
+            SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED,
+        }
+        or item.source_checksum_sha256 is None
+    ):
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_RANGE_NOT_SELECTED",
+            "The expected range has no selected source to acknowledge.",
+        )
+    if item.source_checksum_sha256 != expected_source_checksum_sha256:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+            "The selected source changed after it was loaded.",
+        )
+    if output_checksum_sha256 != item.source_checksum_sha256:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_OUTPUT_CHECKSUM_MISMATCH",
+            "The local output differs from the selected source bytes.",
+        )
+    if (
+        item.status is SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED
+        and item.output_checksum_sha256 == output_checksum_sha256
+    ):
+        return item
+    now = changed_at or datetime.now(UTC)
+    return replace(
+        item,
+        status=SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED,
+        output_checksum_sha256=output_checksum_sha256,
+        revision=item.revision + 1,
+        updated_at=now,
+    )
+
+
+def acknowledge_manual_output(
+    item: SemiAutomaticSelectionRange,
+    *,
+    expected_revision: int,
+    source_index: int,
+    source_relative_path: str,
+    source_size_bytes: int,
+    source_checksum_sha256: str,
+    output_checksum_sha256: str,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRange:
+    """Bind a manually chosen staged source and its verified local output."""
+
+    _require_sha256(source_checksum_sha256, "source checksum")
+    _require_sha256(output_checksum_sha256, "output checksum")
+    if item.revision != expected_revision:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_CURSOR_STALE",
+            "The expected range changed after it was loaded.",
+        )
+    if source_index < 0 or source_size_bytes < 1 or not source_relative_path.strip():
+        raise SemiAutomaticSelectionError(
+            "SEMI_AUTOMATIC_SELECTION_SOURCE_INVALID",
+            "The manually selected source identity is invalid.",
+        )
+    if output_checksum_sha256 != source_checksum_sha256:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_OUTPUT_CHECKSUM_MISMATCH",
+            "The local output differs from the manually selected source bytes.",
+        )
+    if (
+        item.status is SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED
+        and item.source_index == source_index
+        and item.source_relative_path == source_relative_path
+        and item.source_size_bytes == source_size_bytes
+        and item.source_checksum_sha256 == source_checksum_sha256
+        and item.output_checksum_sha256 == output_checksum_sha256
+    ):
+        return item
+    selection_method = (
+        "manual-source-added-v1" if item.source_index is None else "manual-source-replaced-v1"
+    )
+    now = changed_at or datetime.now(UTC)
+    return replace(
+        item,
+        status=SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED,
+        source_index=source_index,
+        source_relative_path=source_relative_path,
+        source_size_bytes=source_size_bytes,
+        source_checksum_sha256=source_checksum_sha256,
+        group_first_source_index=None,
+        group_last_source_index=None,
+        range_confidence=None,
+        selection_method=selection_method,
+        output_checksum_sha256=output_checksum_sha256,
+        revision=item.revision + 1,
+        updated_at=now,
+    )
+
+
+def apply_range_status_transition(
+    run: SemiAutomaticSelectionRun,
+    *,
+    previous: SemiAutomaticSelectionRange,
+    current: SemiAutomaticSelectionRange,
+) -> SemiAutomaticSelectionRun:
+    """Keep durable run counters aligned with one range transition."""
+
+    if previous.run_id != run.id or current.run_id != run.id or previous.id != current.id:
+        raise ValueError("A range transition must belong to the supplied run.")
+    if previous == current:
+        return run
+    counters = dict(run.counters)
+    if previous.status is not current.status:
+        previous_key = _range_counter_key(previous.status)
+        current_key = _range_counter_key(current.status)
+        if counters.get(previous_key, 0) < 1:
+            raise ValueError("Run counters do not contain the previous range state.")
+        counters[previous_key] -= 1
+        counters[current_key] = counters.get(current_key, 0) + 1
+    return replace(
+        run,
+        counters=counters,
+        revision=run.revision + 1,
+        updated_at=current.updated_at,
+    )
+
+
+def expected_ranges_fingerprint(
+    ranges: tuple[SemiAutomaticSelectionRange, ...],
+) -> str:
+    payload = [
+        {"expectedIndex": item.expected_index, "start": item.range_start, "end": item.range_end}
+        for item in ranges
+    ]
+    return hashlib.sha256(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+
+def run_identity_key(
+    *,
+    source: SemiAutomaticSelectionSourceManifest,
+    first_sequence_number: int,
+    last_sequence_number: int,
+    direction: SemiAutomaticSelectionDirection,
+    recognizer_fingerprint: str,
+    grouping_policy_fingerprint: str,
+) -> str:
+    payload = {
+        "contractVersion": SEMI_AUTOMATIC_SELECTION_CONTRACT_VERSION,
+        "direction": direction.value,
+        "firstSequenceNumber": first_sequence_number,
+        "fullRangeSize": SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
+        "groupingPolicyFingerprint": grouping_policy_fingerprint,
+        "lastSequenceNumber": last_sequence_number,
+        "rangeConvention": SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION,
+        "recognizerFingerprint": recognizer_fingerprint,
+        "sourceFingerprint": source.source_fingerprint,
+        "sourceManifestChecksumSha256": source.manifest_checksum_sha256,
+        "sourceUploadId": str(source.upload_id),
+    }
+    return hashlib.sha256(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+
+def classify_filename_range_verification(
+    observation: dict[str, object],
+) -> dict[str, object]:
+    """Compare a persisted OCR observation with the filename expectation.
+
+    The filename is used only after the OCR result is durable.  It cannot
+    provide evidence for a range, nor can it repair an unreadable image.
+    """
+
+    relative_path = str(observation.get("sourceRelativePath", ""))
+    file_name = relative_path.replace("\\", "/").rsplit("/", 1)[-1]
+    match = _SEQUENCE_FILE_PATTERN.fullmatch(file_name)
+    observed_raw = observation.get("observedRange")
+    observed = (
+        None
+        if not isinstance(observed_raw, dict)
+        else {
+            "start": int(observed_raw["start"]),
+            "end": int(observed_raw["end"]),
+        }
+    )
+    expected = (
+        None
+        if match is None
+        else {"start": int(match.group("start")), "end": int(match.group("end"))}
+    )
+    diagnostics = observation.get("runtimeDiagnostics")
+    label_evidence = diagnostics.get("labelEvidence", []) if isinstance(diagnostics, dict) else []
+    anchor_positions = _matching_filename_verification_anchor_positions(
+        label_evidence,
+        observed,
+    )
+    if (
+        expected is None
+        or expected["end"] < expected["start"]
+        or expected["end"] - expected["start"] >= SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE
+    ):
+        verification_status = "invalid_filename"
+    elif observed is None or not _has_spread_filename_verification_proof(anchor_positions):
+        verification_status = "unreadable"
+    elif observed == expected:
+        verification_status = "verified"
+    else:
+        verification_status = "mismatch"
+    return {
+        "anchorPositions": sorted(anchor_positions),
+        "expectedRange": expected,
+        "observedRange": observed,
+        "reasonCodes": list(cast(list[object], observation.get("reasonCodes", []))),
+        "sourceChecksumSha256": str(observation.get("sourceChecksumSha256", "")),
+        "sourceIndex": _object_as_int(observation["sourceIndex"]),
+        "sourceRelativePath": relative_path,
+        "sourceSizeBytes": _object_as_int(observation["sourceSizeBytes"]),
+        "verificationStatus": verification_status,
+    }
+
+
+def _matching_filename_verification_anchor_positions(
+    label_evidence: object,
+    observed: dict[str, int] | None,
+) -> frozenset[int]:
+    if observed is None or not isinstance(label_evidence, list):
+        return frozenset()
+    positions: set[int] = set()
+    for raw in label_evidence:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            position = int(raw["positionIndex"])
+            number = int(raw["sequenceNumber"])
+            confidence = float(raw["confidence"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if (
+            position in _FILENAME_VERIFICATION_ANCHORS
+            and number == observed["start"] + position
+            and confidence >= 0.82
+        ):
+            positions.add(position)
+    return frozenset(positions)
+
+
+def _has_spread_filename_verification_proof(positions: frozenset[int]) -> bool:
+    if len(positions) < 3:
+        return False
+    rows = {position // 3 for position in positions}
+    columns = {position % 3 for position in positions}
+    return (
+        len(rows) >= 2
+        and len(columns) >= 2
+        and (4 in positions or {0, 8}.issubset(positions) or {2, 6}.issubset(positions))
+    )
+
+
+def _object_as_int(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        raise ValueError("Expected an integer-compatible observation value.")
+    return int(value)
+
+
+def _expected_ranges(
+    *,
+    run_id: UUID,
+    first_sequence_number: int,
+    last_sequence_number: int,
+    created_at: datetime,
+) -> tuple[SemiAutomaticSelectionRange, ...]:
+    items: list[SemiAutomaticSelectionRange] = []
+    start = first_sequence_number
+    while start <= last_sequence_number:
+        end = min(start + SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE - 1, last_sequence_number)
+        items.append(
+            SemiAutomaticSelectionRange(
+                id=uuid4(),
+                run_id=run_id,
+                expected_index=len(items),
+                range_start=start,
+                range_end=end,
+                status=SemiAutomaticSelectionRangeStatus.MISSING,
+                source_index=None,
+                source_relative_path=None,
+                source_size_bytes=None,
+                source_checksum_sha256=None,
+                group_first_source_index=None,
+                group_last_source_index=None,
+                range_confidence=None,
+                selection_method=None,
+                output_checksum_sha256=None,
+                revision=0,
+                created_at=created_at,
+                updated_at=created_at,
+            )
+        )
+        start = end + 1
+    return tuple(items)
+
+
+def _with_status(
+    run: SemiAutomaticSelectionRun,
+    status: SemiAutomaticSelectionRunStatus,
+    changed_at: datetime | None,
+) -> SemiAutomaticSelectionRun:
+    return replace(
+        run,
+        status=status,
+        revision=run.revision + 1,
+        updated_at=changed_at or datetime.now(UTC),
+    )
+
+
+def _invalid_run_transition(
+    run: SemiAutomaticSelectionRun,
+    target: SemiAutomaticSelectionRunStatus,
+) -> None:
+    raise SemiAutomaticSelectionConflictError(
+        "SEMI_AUTOMATIC_SELECTION_STATE_INVALID",
+        f"A {run.status.value} run cannot transition to {target.value}.",
+    )
+
+
+def _require_sha256(value: str, label: str) -> None:
+    if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+        raise ValueError(f"The {label} must be a lowercase SHA-256 value.")
+
+
+def _range_counter_key(status: SemiAutomaticSelectionRangeStatus) -> str:
+    return {
+        SemiAutomaticSelectionRangeStatus.MISSING: "missing",
+        SemiAutomaticSelectionRangeStatus.AUTO_SELECTED: "autoSelected",
+        SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED: "outputSynced",
+        SemiAutomaticSelectionRangeStatus.CONFLICT: "conflicts",
+    }[status]
+
+
+__all__ = [
+    "SEMI_AUTOMATIC_SELECTION_CONTRACT_VERSION",
+    "SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE",
+    "SEMI_AUTOMATIC_SELECTION_ORDERING_POLICY",
+    "SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION",
+    "SEMI_AUTOMATIC_SELECTION_WORKFLOW",
+    "SemiAutomaticSelectionConflictError",
+    "SemiAutomaticSelectionDirection",
+    "SemiAutomaticSelectionError",
+    "FilenameVerificationHistoryDeletion",
+    "SemiAutomaticSelectionNotFoundError",
+    "SemiAutomaticSelectionRange",
+    "SemiAutomaticSelectionRangeStatus",
+    "SemiAutomaticSelectionRun",
+    "SemiAutomaticSelectionRunStatus",
+    "SemiAutomaticSelectionSourceManifest",
+    "acknowledge_manual_output",
+    "acknowledge_output",
+    "apply_range_status_transition",
+    "begin_filename_verification_cleanup",
+    "block_filename_verification_cleanup",
+    "cancel_run",
+    "classify_filename_range_verification",
+    "complete_filename_verification_cleanup",
+    "create_semi_automatic_selection_run",
+    "expected_ranges_fingerprint",
+    "pause_run",
+    "resume_run",
+    "resume_filename_verification_cleanup",
+    "run_identity_key",
+]

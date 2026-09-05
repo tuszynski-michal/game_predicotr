@@ -1,0 +1,30 @@
+.scroller {
+  height: min(68vh, 780px);
+  min-height: 432px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-soft);
+}
+
+.content {
+  position: relative;
+  min-width: 100%;
+}
+
+.row {
+  position: absolute;
+  left: 0;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 0 8px;
+}
+
+@media (max-width: 820px) {
+  .scroller {
+    height: 62vh;
+    min-height: 360px;
+  }
+}

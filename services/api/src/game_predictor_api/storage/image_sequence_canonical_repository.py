@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from game_predictor_api.domain.image_sequence_canonical import (
     ImageSequenceCanonicalRepository,
 )
-from game_predictor_api.storage.models import ImageSequenceCanonicalModel
+from game_predictor_api.storage.models import GameModel, ImageSequenceCanonicalModel
 
 
 class SqlAlchemyImageSequenceCanonicalRepository(ImageSequenceCanonicalRepository):
@@ -49,6 +49,12 @@ class SqlAlchemyImageSequenceCanonicalRepository(ImageSequenceCanonicalRepositor
             self._session.rollback()
             return {}
         return {int(number): str(checksum) for number, checksum in rows}
+
+    def expected_layout_count(self, game_id: UUID) -> int | None:
+        value = self._session.scalar(
+            select(GameModel.expected_layout_count).where(GameModel.id == game_id)
+        )
+        return int(value) if value is not None else None
 
 
 __all__ = ["SqlAlchemyImageSequenceCanonicalRepository"]

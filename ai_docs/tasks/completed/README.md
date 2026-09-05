@@ -50,6 +50,13 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0278 — Purpose-scoped sesja, kod i writer lease](0278-remote-manual-selection-access-and-writer-lease.md)
 - [TASK-0279 — Osobna powierzchnia Reviewera i reuse ingressu](0279-remote-manual-selection-reviewer-ingress.md)
 
+## Wersja 0.10
+
+- [TASK-0307 — Kontrakty attested `seq_*` i wirtualnej geometrii](0307-v0-10-attested-virtual-geometry-contracts.md)
+- [TASK-0308 — Trwała proweniencja wirtualnej geometrii](0308-v0-10-virtual-geometry-provenance.md)
+- [TASK-0309 — Wirtualne komórki bezpośrednio ze źródła](0309-v0-10-virtual-cell-source-extraction.md)
+- [TASK-0391 — Bezpieczne usuwanie pustej historii browser stagingu](0391-delete-empty-browser-staging-history.md)
+
 ## Zawartość
 
 - [TASK-0001 — Architecture clarification](0001-architecture-clarification.md)

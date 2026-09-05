@@ -9,6 +9,22 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./repair": {
+      "types": "./src/repair.ts",
+      "default": "./src/repair.ts"
+    },
+    "./crop": {
+      "types": "./src/crop.ts",
+      "default": "./src/crop.ts"
+    },
+    "./auto-crop": {
+      "types": "./src/auto-crop.ts",
+      "default": "./src/auto-crop.ts"
+    },
+    "./crop-session": {
+      "types": "./src/crop-session.ts",
+      "default": "./src/crop-session.ts"
     }
   },
   "scripts": {

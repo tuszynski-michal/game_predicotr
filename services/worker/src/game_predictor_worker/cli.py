@@ -37,6 +37,12 @@ from game_predictor_api.storage.database import (
 )
 from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLaneRepository
 
+from game_predictor_worker.images.geometry_guard_report_reconstruction import (
+    GeometryGuardReportReconstructionHandler,
+)
+from game_predictor_worker.images.geometry_rollout_backfill import (
+    ImageGeometryRolloutBackfillHandler,
+)
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
 from game_predictor_worker.images.pending_grid_reinference import (
     PendingGridReinferenceHandler,
@@ -101,6 +107,10 @@ from game_predictor_worker.releases import (
     PowerShellAndroidReleaseBuilder,
     ReleaseWorkflowHandler,
     SqlAlchemyReleaseWorkflowStore,
+)
+from game_predictor_worker.semi_automatic_selection.job import (
+    SemiAutomaticImageSelectionJobHandler,
+    SemiAutomaticSelectionJobStore,
 )
 from game_predictor_worker.snapshots import (
     ProductionSnapshotArtifactPublisher,
@@ -301,7 +311,13 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 scan_workers=scan_workers,
                 scan_prefetch=DEFAULT_PARALLEL_SCAN_PREFETCH,
                 verification_workers=verification_workers,
-            )
+            ),
+            JobType.SEMI_AUTOMATIC_IMAGE_SELECTION: SemiAutomaticImageSelectionJobHandler(
+                SemiAutomaticSelectionJobStore(session_factory),
+                browser_upload_root=settings.import_root,
+                artifact_root=artifact_root,
+                repository_root=Path.cwd(),
+            ),
         }
         execution_slot = JobExecutionSlot.IMAGE_SELECTION
     else:
@@ -362,6 +378,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 artifact_root=artifact_root,
                 registration_workers=thread_budget,
             ),
+            GeometryGuardReportReconstructionHandler(
+                session_factory,
+                artifact_root,
+                repository_root=Path.cwd(),
+            ),
         )
         image_import_handler = ProductionImageImportWorkflow(
             session_factory,
@@ -408,6 +429,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
             ),
             JobType.IMAGE_SYMBOL_REVIEW_BULK: SymbolCellReviewBulkHandler(session_factory),
             JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(session_factory),
+            JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL: ImageGeometryRolloutBackfillHandler(
+                session_factory
+            ),
             JobType.STORAGE_GC: StorageGcHandler(
                 session_factory,
                 artifact_root,

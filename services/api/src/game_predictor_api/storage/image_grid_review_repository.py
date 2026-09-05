@@ -21,10 +21,13 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewError,
     ImageGridReviewListFilter,
     ImageGridReviewListItem,
+    ImageGridReviewSourceApprovalTarget,
     ImageGridReviewSourceAsset,
     ImageGridReviewState,
     ImageGridReviewView,
+    ImageGridSourceApprovalResult,
 )
+from game_predictor_api.storage.image_review_repository import acquire_image_sequence_locks
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
     symbol_cell_review_projection_is_available,
@@ -109,6 +112,7 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             game_id=review_filter.game_id,
             view=ImageGridReviewView.ALL,
             import_job_id=review_filter.import_job_id,
+            source_image_id=review_filter.source_image_id,
         )
         state_expression = _state_expression()
         rows = self._session.execute(
@@ -143,13 +147,15 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
         item, board, source, _sequence_number, _state = row
         return ImageGridReviewSourceAsset(
             review_item_id=item.id,
+            source_image_id=source.id,
             source_relative_path=source.relative_path,
             source_checksum_sha256=source.checksum_sha256,
-            source_width=source.width,
-            source_height=source.height,
+            source_width=source.oriented_width or source.width,
+            source_height=source.oriented_height or source.height,
             geometry_revision=board.geometry_revision,
             resolution_revision=item.resolution_revision,
             topology=_topology(board),
+            asset_mode=board.asset_mode,
         )
 
     def approve_grid_geometry(
@@ -196,8 +202,8 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
         if (
             source.checksum_sha256 != expected_source_checksum_sha256
-            or source.width != expected_source_width
-            or source.height != expected_source_height
+            or (source.oriented_width or source.width) != expected_source_width
+            or (source.oriented_height or source.height) != expected_source_height
         ):
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_SOURCE_DRIFT",
@@ -232,6 +238,91 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
         return ImageGridApprovalResult(item=_row_to_item(refreshed), changed=changed)
 
+    def approve_source_grid_geometry(
+        self,
+        *,
+        game_id: UUID,
+        source_image_id: UUID,
+        targets: tuple[ImageGridReviewSourceApprovalTarget, ...],
+        actor: str,
+    ) -> ImageGridSourceApprovalResult:
+        """Approve every current slot of one source as one all-or-nothing command.
+
+        The local reviewer deliberately hydrates all boards from one source image.
+        Their revision identities are a single snapshot, so validating and
+        mutating them one HTTP request at a time is inherently racy: the first
+        decision can invalidate identities held by the remaining requests.
+        Validate the complete source before invoking the coordinator for any
+        board, then let the surrounding request transaction commit them together.
+        """
+
+        review_filter = ImageGridReviewListFilter(
+            game_id=game_id,
+            view=ImageGridReviewView.ALL,
+            import_job_id=None,
+            source_image_id=source_image_id,
+        )
+        rows = tuple(
+            self._session.execute(
+                self._visible_statement(review_filter=review_filter)
+                .order_by(
+                    RecognizedBoardModel.position_index,
+                    ImageBoardSearchFastDocumentModel.sequence_number,
+                    ImageReviewItemModel.id,
+                )
+                .with_for_update(
+                    of=(
+                        ImageReviewItemModel,
+                        RecognizedBoardModel,
+                        SourceImageModel,
+                    )
+                )
+            ).all()
+        )
+        if not rows:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_NOT_FOUND",
+                "The current grid-review source has no active board slots in this game.",
+            )
+        current_items = tuple(_row_to_item(row) for row in rows)
+        expected_by_id = {target.review_item_id: target for target in targets}
+        current_ids = {item.review_item_id for item in current_items}
+        if set(expected_by_id) != current_ids:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
+                "The active board slots changed after this source image was loaded.",
+            )
+        for item in current_items:
+            target = expected_by_id[item.review_item_id]
+            _require_source_target_identity(item, target)
+            if item.state is ImageGridReviewState.NEEDS_CORRECTION:
+                raise ImageGridReviewError(
+                    "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED",
+                    "A source containing a current grid issue must be corrected before approval.",
+                )
+
+        acquire_image_sequence_locks(
+            self._session,
+            game_id=game_id,
+            sequence_numbers=[item.sequence_number for item in current_items],
+        )
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        changed: list[UUID] = []
+        for item in current_items:
+            if coordinator.approve_current_geometry(
+                game_id=game_id,
+                review_item_id=item.review_item_id,
+                expected_geometry_revision=item.geometry_revision,
+                actor=actor,
+                approved_at=datetime.now(UTC),
+            ):
+                changed.append(item.review_item_id)
+        self._session.flush()
+        return ImageGridSourceApprovalResult(
+            source_image_id=source_image_id,
+            approved_review_item_ids=tuple(changed),
+        )
+
     def _visible_statement(self, *, review_filter: ImageGridReviewListFilter) -> Select[Any]:
         document = ImageBoardSearchFastDocumentModel
         state_expression = _state_expression()
@@ -260,6 +351,10 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
         )
         if review_filter.import_job_id is not None:
             statement = statement.where(document.import_job_id == review_filter.import_job_id)
+        if review_filter.source_image_id is not None:
+            statement = statement.where(
+                RecognizedBoardModel.source_image_id == review_filter.source_image_id
+            )
         if review_filter.view is not ImageGridReviewView.ALL:
             statement = statement.where(state_expression == review_filter.view.value)
         return statement
@@ -340,6 +435,39 @@ def _topology(board: RecognizedBoardModel) -> BoardTopology:
     return BoardTopology(rows=board.grid_rows or 3, columns=board.grid_columns or 5)
 
 
+def _require_source_target_identity(
+    item: ImageGridReviewListItem,
+    target: ImageGridReviewSourceApprovalTarget,
+) -> None:
+    if item.resolution_revision != target.expected_resolution_revision:
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
+            "A board review item changed after the source was loaded.",
+        )
+    if item.geometry_revision != target.expected_geometry_revision:
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_GEOMETRY_REVISION_CONFLICT",
+            "A board geometry changed after the source was loaded.",
+        )
+    if (
+        item.source_checksum_sha256 != target.expected_source_checksum_sha256
+        or item.source_width != target.expected_source_width
+        or item.source_height != target.expected_source_height
+    ):
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_SOURCE_DRIFT",
+            "The source image identity changed after the grid review was loaded.",
+        )
+    if (
+        item.topology.rows != target.expected_grid_rows
+        or item.topology.columns != target.expected_grid_columns
+    ):
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_TOPOLOGY_CONFLICT",
+            "The board topology changed after the grid review was loaded.",
+        )
+
+
 def _row_to_item(row: Any) -> ImageGridReviewListItem:
     item, board, source, sequence_number, state = row
     return ImageGridReviewListItem(
@@ -347,17 +475,31 @@ def _row_to_item(row: Any) -> ImageGridReviewListItem:
         game_id=item.game_id,
         import_job_id=item.import_job_id,
         recognized_board_id=board.id,
+        source_image_id=board.source_image_id,
+        position_index=board.position_index,
         sequence_number=int(sequence_number),
         source_checksum_sha256=source.checksum_sha256,
-        source_width=source.width,
-        source_height=source.height,
+        source_width=source.oriented_width or source.width,
+        source_height=source.oriented_height or source.height,
         geometry_revision=board.geometry_revision,
         approved_geometry_revision=board.approved_geometry_revision,
         resolution_revision=item.resolution_revision,
         topology=_topology(board),
         geometry=dict(board.board_geometry),
+        asset_mode=board.asset_mode,
+        geometry_engine_name=board.geometry_engine_name,
+        geometry_engine_version=board.geometry_engine_version,
+        board_confidence=board.board_confidence,
+        reason_codes=_reason_codes(board.board_geometry),
         state=ImageGridReviewState(str(state)),
     )
+
+
+def _reason_codes(geometry: dict[str, object]) -> tuple[str, ...]:
+    raw = geometry.get("reasonCodes")
+    if not isinstance(raw, list):
+        return ()
+    return tuple(value for value in raw if isinstance(value, str) and value)
 
 
 __all__ = ["SqlAlchemyImageGridReviewRepository"]

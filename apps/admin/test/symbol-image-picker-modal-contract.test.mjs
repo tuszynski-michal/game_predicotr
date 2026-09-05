@@ -14,7 +14,7 @@ test('picker lists only approved candidates in pages of at most twenty and saves
   assert.match(source, /listApprovedSymbolReferenceCandidates/);
   assert.match(source, /expectedChecksumSha256: candidate\.cropChecksumSha256/);
   assert.match(source, /selectedBy: 'admin-local'/);
-  assert.match(source, /Najpierw zatwierdź planszę zawierającą ten symbol/);
+  assert.match(source, /Najpierw zatwierdź crop zawierający ten symbol/);
   assert.match(source, /Poprzednia/);
   assert.match(source, /Następna/);
   assert.doesNotMatch(source, /confidence/i);

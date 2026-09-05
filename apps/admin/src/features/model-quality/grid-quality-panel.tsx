@@ -34,6 +34,33 @@ function metric(
   return typeof value === 'number' ? value.toFixed(5) : '—';
 }
 
+function countMetric(
+  profile: GridCalibrationProfileResponse | null,
+  key:
+    | 'anchorSourceCount'
+    | 'completeSourceCount'
+    | 'evaluationActiveBoardCount'
+    | 'evaluationSourceCount'
+    | 'trainingCornerCount'
+    | 'trainingSourceCount'
+    | 'validationCornerCount'
+    | 'validationSourceCount',
+): string {
+  const value = profile?.gateMetrics[key];
+  return typeof value === 'number' ? String(value) : '—';
+}
+
+function rateMetric(
+  profile: GridCalibrationProfileResponse | null,
+  key:
+    | 'baselineFinalCellGridReadyRate'
+    | 'finalCellGridReadyRate'
+    | 'pageRegistrationReadyRate',
+): string {
+  const value = profile?.gateMetrics[key];
+  return typeof value === 'number' ? `${(value * 100).toFixed(2)}%` : '—';
+}
+
 export function GridQualityPanel({
   apiBaseUrl,
   client,
@@ -96,6 +123,8 @@ export function GridQualityPanel({
   }, [refresh]);
 
   const latest = profiles[0] ?? null;
+  const usesFullSourceGeometry =
+    typeof latest?.gateMetrics.trainingCornerCount === 'number';
   const activeId = activations[0]?.profileId ?? null;
   const rollbackId = activations[0]?.previousProfileId ?? null;
 
@@ -113,7 +142,11 @@ export function GridQualityPanel({
           ? 'Profil dla tej samej kohorty już istnieje; używam zapisanej wersji.'
           : result.response.profile.status === 'candidate_ready'
             ? 'Kandydat przeszedł bramkę. Aktywuj go osobną akcją.'
-            : 'Kandydat nie przeszedł bramki. Poprzedni profil pozostał bez zmian.',
+            : result.response.profile.rejectionReasons.includes(
+                  'END_TO_END_GATE_REPORT_REQUIRED',
+                )
+              ? 'Kohorta została zamrożona. Kandydat czeka na source-disjoint raport całego toru 3×3 → 3×5.'
+              : 'Kandydat nie przeszedł bramki. Poprzedni profil pozostał bez zmian.',
       );
       await refresh();
     }
@@ -132,7 +165,7 @@ export function GridQualityPanel({
     const result = await startPendingGridReinference(api, gameId);
     if (result.ok) {
       setNotice(
-        `Uruchomiono odświeżenie geometrii komórek v19 dla oczekujących plansz (job ${result.job.id}).`,
+        `Uruchomiono odświeżenie plikowych siatek symboli 3×5 modułem v19 (job ${result.job.id}).`,
       );
       setPendingPreview({ ...pendingPreview, recalculableBoardCount: 0 });
     } else {
@@ -194,8 +227,9 @@ export function GridQualityPanel({
       <header>
         <h3 id="grid-quality-title">Kalibracja siatki</h3>
         <p>
-          Niezależny profil powstaje wyłącznie z zaakceptowanych korekt. Nigdy
-          nie zmienia historycznych ani rozstrzygniętych plansz.
+          Profil powstaje z dziewięciu niezależnych quadów na zdjęciu — 36
+          ręcznie zatwierdzonych narożników. Zachowuje różne pochylenie każdej
+          planszy i nie zmienia historycznych wyników.
         </p>
       </header>
       <div className="modelQualityActions">
@@ -215,9 +249,10 @@ export function GridQualityPanel({
           <small>
             Oczekujące: {pendingPreview.pendingBoardCount}; już w v19:{' '}
             {pendingPreview.currentV19BoardCount}; chronione:{' '}
-            {pendingPreview.protectedBoardCount}; źródła częściowe:{' '}
-            {pendingPreview.partiallyResolvedSourceCount}; pominięte:{' '}
-            {pendingPreview.fullyResolvedSourceCount}. Silnik:{' '}
+            {pendingPreview.protectedBoardCount}; wirtualne v0.10 do ręcznej
+            walidacji lub korekty: {pendingPreview.unsupportedVirtualBoardCount}
+            ; źródła częściowe: {pendingPreview.partiallyResolvedSourceCount};
+            pominięte: {pendingPreview.fullyResolvedSourceCount}. Silnik:{' '}
             {pendingPreview.geometryVersion}; cropper:{' '}
             {pendingPreview.cropperVersion}.
           </small>
@@ -236,28 +271,74 @@ export function GridQualityPanel({
           <dt>Status bramki</dt>
           <dd>{latest?.status ?? '—'}</dd>
         </div>
-        <div>
-          <dt>Próbki walidacyjne</dt>
-          <dd>
-            {typeof latest?.gateMetrics.validationSampleCount === 'number'
-              ? latest.gateMetrics.validationSampleCount
-              : '—'}
-          </dd>
-        </div>
-        <div>
-          <dt>Średni błąd: baza → kandydat</dt>
-          <dd>
-            {metric(latest, 'baseline', 'meanNormalizedCornerError')} →{' '}
-            {metric(latest, 'candidate', 'meanNormalizedCornerError')}
-          </dd>
-        </div>
-        <div>
-          <dt>P95: baza → kandydat</dt>
-          <dd>
-            {metric(latest, 'baseline', 'p95NormalizedCornerError')} →{' '}
-            {metric(latest, 'candidate', 'p95NormalizedCornerError')}
-          </dd>
-        </div>
+        {usesFullSourceGeometry ? (
+          <>
+            <div>
+              <dt>Pełne źródła treningowe / walidacyjne</dt>
+              <dd>
+                {countMetric(latest, 'trainingSourceCount')} /{' '}
+                {countMetric(latest, 'validationSourceCount')}
+              </dd>
+            </div>
+            <div>
+              <dt>Narożniki treningowe / walidacyjne</dt>
+              <dd>
+                {countMetric(latest, 'trainingCornerCount')} /{' '}
+                {countMetric(latest, 'validationCornerCount')}
+              </dd>
+            </div>
+            <div>
+              <dt>Różnorodne kotwice 36-punktowe</dt>
+              <dd>
+                {countMetric(latest, 'anchorSourceCount')} z{' '}
+                {countMetric(latest, 'completeSourceCount')} źródeł
+              </dd>
+            </div>
+            <div>
+              <dt>Korpus końcowej bramki: źródła / plansze</dt>
+              <dd>
+                {countMetric(latest, 'evaluationSourceCount')} /{' '}
+                {countMetric(latest, 'evaluationActiveBoardCount')}
+              </dd>
+            </div>
+            <div>
+              <dt>Gotowa geometria stron 3×3</dt>
+              <dd>{rateMetric(latest, 'pageRegistrationReadyRate')}</dd>
+            </div>
+            <div>
+              <dt>Gotowe siatki symboli 3×5: baza → kandydat</dt>
+              <dd>
+                {rateMetric(latest, 'baselineFinalCellGridReadyRate')} →{' '}
+                {rateMetric(latest, 'finalCellGridReadyRate')}
+              </dd>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <dt>Próbki walidacyjne (profil historyczny)</dt>
+              <dd>
+                {typeof latest?.gateMetrics.validationSampleCount === 'number'
+                  ? latest.gateMetrics.validationSampleCount
+                  : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt>Średni błąd: baza → kandydat</dt>
+              <dd>
+                {metric(latest, 'baseline', 'meanNormalizedCornerError')} →{' '}
+                {metric(latest, 'candidate', 'meanNormalizedCornerError')}
+              </dd>
+            </div>
+            <div>
+              <dt>P95: baza → kandydat</dt>
+              <dd>
+                {metric(latest, 'baseline', 'p95NormalizedCornerError')} →{' '}
+                {metric(latest, 'candidate', 'p95NormalizedCornerError')}
+              </dd>
+            </div>
+          </>
+        )}
         <div>
           <dt>Geometria zaakceptowana</dt>
           <dd>{diagnostics?.acceptedGeometryCount ?? '—'}</dd>

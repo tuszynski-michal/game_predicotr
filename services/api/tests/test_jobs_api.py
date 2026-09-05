@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.jobs import (
     PAYOUT_ALGORITHM_VERSION,
+    ImageGeometryRolloutJobReference,
     ImageSelectionJobDeletionReference,
     JobService,
     LayoutImportRulesReference,
@@ -34,6 +35,13 @@ from game_predictor_worker.images.board_cell_geometry_contract import (
     BOARD_CELL_GEOMETRY_VERSION,
 )
 from game_predictor_worker.images.board_cell_geometry_crops import CROPPER_VERSION
+from game_predictor_worker.images.pipeline_contract import (
+    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+)
+from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+)
 from test_jobs_domain import MemoryJobRepository
 
 
@@ -82,6 +90,61 @@ def _create_validate_job(client: TestClient, game_id: UUID) -> dict[str, object]
     return cast(dict[str, object], response.json())
 
 
+def test_page_geometry_preflight_exposes_bounded_phase_progress() -> None:
+    created = create_job(
+        JobType.VALIDATE,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "source_selection_id": str(uuid4()),
+            "source_directory": r"C:\managed\browser-selection",
+            "source_manifest_sha256": "a" * 64,
+            "page_registration_profile": {
+                "policy": "verified-page-registration-v1",
+                "anchors": [],
+            },
+            "page_geometry_overrides": {},
+            "canonical_sequence_numbers": [],
+        },
+    )
+    job = replace(
+        created,
+        stage="page_geometry_auto_anchor_pass_1",
+        progress_current=2_801,
+        progress_total=2_801,
+        success_count=2_700,
+        checkpoint_payload={
+            "schema_version": 1,
+            "workflow": "page-geometry-preflight-v2-auto-anchor",
+            "source_selection_id": created.input_payload["source_selection_id"],
+            "source_manifest_sha256": "a" * 64,
+            "processed_source_count": 2_801,
+            "registered_source_count": 2_700,
+            "review_required_source_count": 101,
+            "complete": False,
+            "progress_phase": "auto_anchor_retry",
+            "phase_current": 25,
+            "phase_total": 118,
+            "auto_anchor_pass": 1,
+            "auto_anchor_pass_count": 2,
+        },
+    )
+
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+
+    assert response["progress"]["pageGeometryPreflight"] == {
+        "complete": False,
+        "geometryManifestChecksumSha256": None,
+        "phase": "auto_anchor_retry",
+        "phaseCurrent": 25,
+        "phaseTotal": 118,
+        "autoAnchorPass": 1,
+        "autoAnchorPassCount": 2,
+        "provisionalReviewRequired": 101,
+    }
+
+
 def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
     selection_run_id = uuid4()
     job = create_job(
@@ -109,6 +172,68 @@ def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
         "sourceDisplayName": "photos",
         "pipelineFingerprint": "a" * 64,
         "imageSelectionRunId": str(selection_run_id),
+    }
+
+
+def test_image_import_exposes_systemic_geometry_guard_progress() -> None:
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "import_kind": "image_directory",
+            "source_directory": r"C:\photos",
+            "pipeline_fingerprint": "a" * 64,
+        },
+        created_at=datetime(2026, 9, 4, tzinfo=UTC),
+    )
+    job = replace(
+        job,
+        checkpoint_payload={
+            "geometry_systemic_guard": {
+                "policyVersion": "image-geometry-systemic-guard-v1",
+                "required": True,
+                "passed": False,
+                "reportChecksumSha256": "b" * 64,
+                "reportRelativePath": "data/image-geometry-guards/report.json",
+                "sourceCount": 2_200,
+                "activeBoardCount": 19_800,
+                "sampleSourceCount": 25,
+                "sampleBoardCount": 225,
+                "pageRegistrationReadyRate": 1.0,
+                "finalCellGridReadyRate": 2 / 19_800,
+                "invariantViolationCount": 0,
+            },
+            "geometry_guard_resolution": {
+                "passed": True,
+                "manifestChecksumSha256": "c" * 64,
+                "correctedFullCount": 5,
+                "partialCount": 2,
+                "rejectedCount": 1,
+            },
+        },
+    )
+
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+
+    assert response["progress"]["geometrySystemicGuard"] == {
+        "policyVersion": "image-geometry-systemic-guard-v1",
+        "required": True,
+        "passed": False,
+        "reportChecksumSha256": "b" * 64,
+        "reportRelativePath": "data/image-geometry-guards/report.json",
+        "sourceCount": 2_200,
+        "activeBoardCount": 19_800,
+        "sampleSourceCount": 25,
+        "sampleBoardCount": 225,
+        "pageRegistrationReadyRate": 1.0,
+        "finalCellGridReadyRate": 2 / 19_800,
+        "invariantViolationCount": 0,
+        "resolutionApplied": True,
+        "resolutionManifestChecksumSha256": "c" * 64,
+        "correctedFullCount": 5,
+        "partialCount": 2,
+        "rejectedCount": 1,
     }
 
 
@@ -331,12 +456,221 @@ def test_verified_v19_full_import_is_pinned_to_the_job(tmp_path: Path) -> None:
     assert processing["gridRows"] == 3
     assert processing["gridColumns"] == 5
     assert processing["topologyRulesVersionId"] == str(_repository.topology_rules_version_id)
+    assert "image_geometry_rollout" not in pinned.input_payload
     assert (
         pinned.input_payload["pipeline_fingerprint"]
         != historical.input_payload["pipeline_fingerprint"]
     )
     response = JobResponse.from_domain(pinned).model_dump(mode="json", by_alias=True)
     assert response["inputPayload"]["boardCellProcessing"] == processing
+
+
+def test_new_browser_import_pins_systemic_geometry_guard_policy(tmp_path: Path) -> None:
+    _client_value, game_id, service, _repository = _client(tmp_path)
+    source = tmp_path / "browser"
+    source.mkdir()
+
+    job = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="browser",
+        pipeline_fingerprint="a" * 64,
+        source_manifest_sha256="b" * 64,
+        start_mode="rerun_current_models",
+        page_geometry_manifest={
+            "checksumSha256": "c" * 64,
+            "relativePath": "data/page-geometry-manifests/test.json",
+            "preflightJobId": str(uuid4()),
+        },
+        use_verified_board_cell_geometry=True,
+    )
+
+    assert job.input_payload["schema_version"] == 7
+    assert job.input_payload["geometry_systemic_guard_policy"] == {
+        "policyVersion": "image-geometry-systemic-guard-v1",
+        "minimumSourceCount": 100,
+        "minimumActiveBoardCount": 500,
+        "sampleSourceLimit": 25,
+        "minimumFinalCellGridReadyRate": 0.98,
+        "requireZeroInvariantViolations": True,
+    }
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+    assert response["inputPayload"]["geometrySystemicGuardPolicy"] == {
+        "policyVersion": "image-geometry-systemic-guard-v1",
+        "minimumSourceCount": 100,
+        "minimumActiveBoardCount": 500,
+        "sampleSourceLimit": 25,
+        "minimumFinalCellGridReadyRate": 0.98,
+        "requireZeroInvariantViolations": True,
+    }
+
+
+def test_browser_schema_v7_fingerprint_binds_guard_resolution_manifest(
+    tmp_path: Path,
+) -> None:
+    _client_value, game_id, service, repository = _client(tmp_path)
+    repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
+        geometry_mode="structured_lattice_v3",
+        cell_asset_mode="virtual_default",
+        revision=9,
+    )
+    source = tmp_path / "resolved-browser"
+    source.mkdir()
+    page_manifest = {
+        "checksumSha256": "c" * 64,
+        "relativePath": "data/page-geometry-manifests/test.json",
+        "preflightJobId": str(uuid4()),
+    }
+    common = {
+        "game_id": game_id,
+        "source_directory": source,
+        "source_display_name": "resolved-browser",
+        "pipeline_fingerprint": "a" * 64,
+        "source_manifest_sha256": "b" * 64,
+        "start_mode": "rerun_current_models",
+        "page_geometry_manifest": page_manifest,
+    }
+    without_resolution = service.create_image_import_job(selection_id=uuid4(), **common)
+    resolution = {
+        "id": str(uuid4()),
+        "checksumSha256": "d" * 64,
+        "relativePath": "data/image-geometry-guard-resolutions/dd/test.json",
+        "guardJobId": str(uuid4()),
+        "guardReportChecksumSha256": "e" * 64,
+        "sourceManifestChecksumSha256": "b" * 64,
+        "pageGeometryManifestChecksumSha256": "c" * 64,
+    }
+    with_resolution = service.create_image_import_job(
+        selection_id=uuid4(),
+        geometry_guard_resolution_manifest=resolution,
+        **common,
+    )
+
+    assert without_resolution.input_payload["schema_version"] == 7
+    assert with_resolution.input_payload["geometry_guard_resolution_manifest"] == resolution
+    assert (
+        with_resolution.input_payload["pipeline_fingerprint"]
+        != without_resolution.input_payload["pipeline_fingerprint"]
+    )
+
+
+def test_geometry_guard_report_reconstruction_job_is_pinned_to_source_import(
+    tmp_path: Path,
+) -> None:
+    _client_value, game_id, service, _repository = _client(tmp_path)
+    source = tmp_path / "legacy-guard"
+    source.mkdir()
+    selection_id = uuid4()
+    guard_job = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source,
+        source_display_name="legacy-guard",
+        pipeline_fingerprint="a" * 64,
+    )
+
+    reconstruction = service.create_geometry_guard_report_reconstruction_job(
+        game_id=game_id,
+        source_selection_id=selection_id,
+        source_guard_job_id=guard_job.id,
+        legacy_report_checksum_sha256="b" * 64,
+        source_manifest_checksum_sha256="c" * 64,
+        page_geometry_manifest_checksum_sha256="d" * 64,
+    )
+
+    assert reconstruction.job_type is JobType.VALIDATE
+    assert reconstruction.input_payload == {
+        "schema_version": 1,
+        "validation_kind": "image_geometry_guard_report_reconstruction",
+        "source_selection_id": str(selection_id),
+        "source_guard_job_id": str(guard_job.id),
+        "legacy_report_checksum_sha256": "b" * 64,
+        "source_manifest_checksum_sha256": "c" * 64,
+        "page_geometry_manifest_checksum_sha256": "d" * 64,
+    }
+    response = JobResponse.from_domain(reconstruction).model_dump(mode="json", by_alias=True)
+    assert response["inputPayload"]["validationKind"] == (
+        "image_geometry_guard_report_reconstruction"
+    )
+
+
+def test_per_game_virtual_geometry_rollout_is_immutably_pinned_to_new_jobs(
+    tmp_path: Path,
+) -> None:
+    _client_value, game_id, service, repository = _client(tmp_path)
+    source = tmp_path / "curated"
+    source.mkdir()
+    historical = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="legacy",
+        pipeline_fingerprint="a" * 64,
+    )
+    repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
+        geometry_mode="structured_shadow",
+        cell_asset_mode="virtual_shadow",
+        revision=7,
+    )
+
+    shadow = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="shadow",
+        pipeline_fingerprint="a" * 64,
+    )
+
+    legacy_rollout = historical.input_payload["image_geometry_rollout"]
+    shadow_rollout = shadow.input_payload["image_geometry_rollout"]
+    assert isinstance(legacy_rollout, dict)
+    assert isinstance(shadow_rollout, dict)
+    assert legacy_rollout["geometryMode"] == "legacy"
+    assert legacy_rollout["geometryEngineVersion"] == (STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION)
+    assert historical.input_payload["source_pipeline_fingerprint"] == "a" * 64
+    assert shadow_rollout["geometryMode"] == "structured_shadow"
+    assert shadow_rollout["cellAssetMode"] == "virtual_shadow"
+    assert shadow_rollout["rolloutRevision"] == 7
+    assert shadow_rollout["geometryEngineVersion"] == (STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION)
+    assert shadow_rollout["schemaVersion"] == "virtual-geometry-rollout-snapshot-v2"
+    candidate_geometry = shadow_rollout["candidateGeometry"]
+    assert isinstance(candidate_geometry, dict)
+    assert candidate_geometry["config"]["activationAllowed"] is False
+    assert candidate_geometry["config"]["maturity"] == "experimental_measurement_only"
+    assert candidate_geometry["config"]["configVersion"] == (
+        "structured-lattice-candidate-v3-config-v1"
+    )
+    assert "board_cell_processing" in shadow.input_payload
+    assert (
+        shadow.input_payload["pipeline_fingerprint"]
+        != historical.input_payload["pipeline_fingerprint"]
+    )
+    response = JobResponse.from_domain(shadow).model_dump(mode="json", by_alias=True)
+    assert response["inputPayload"]["imageGeometryRollout"] == shadow_rollout
+
+    repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
+        geometry_mode="structured_lattice_v3",
+        cell_asset_mode="virtual_default",
+        revision=8,
+    )
+    active = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="structured-v3",
+        pipeline_fingerprint="a" * 64,
+    )
+    active_rollout = active.input_payload["image_geometry_rollout"]
+    assert isinstance(active_rollout, dict)
+    assert active_rollout["schemaVersion"] == "virtual-geometry-rollout-snapshot-v3"
+    assert active_rollout["geometryMode"] == "structured_lattice_v3"
+    assert active_rollout["cellAssetMode"] == "virtual_default"
+    activation = active_rollout["activeLatticeGeometry"]
+    assert isinstance(activation, dict)
+    assert activation["config"]["activationAllowed"] is True
+    assert activation["config"]["maturity"] == "accepted_primary"
+    assert len(activation["config"]["acceptanceReportChecksumSha256"]) == 64
 
 
 def test_verified_v20_import_requires_rules_and_supported_topology(tmp_path: Path) -> None:
@@ -606,11 +940,13 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
     )
     assert {job.job_type for job in jobs} == set(JobType) - {
         JobType.IMAGE_SELECTION,
+        JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
         JobType.SYMBOL_TRAINING,
         JobType.IMAGE_SYMBOL_REINFERENCE,
         JobType.IMAGE_GRID_REINFERENCE,
         JobType.IMAGE_SYMBOL_REVIEW_BULK,
         JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+        JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL,
         JobType.STORAGE_GC,
         JobType.STORAGE_INVENTORY,
         JobType.STORAGE_PIPELINE_COMPACTION,
@@ -864,3 +1200,98 @@ def test_failed_job_retry_requeues_the_same_record(tmp_path: Path) -> None:
     assert retried.json()["id"] == str(job_id)
     assert retried.json()["status"] == "created"
     assert retried.json()["error"] is None
+
+
+def test_filename_verification_retry_resets_only_technical_job_progress(
+    tmp_path: Path,
+) -> None:
+    _client_instance, _game_id, service, repository = _client(tmp_path)
+    job = replace(
+        create_job(
+            JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+            game_id=None,
+            input_payload={
+                "schema_version": 2,
+                "selection_kind": "semi_automatic_image_selection",
+                "workflow_mode": "filename_verification",
+                "run_id": str(uuid4()),
+                "source_upload_id": str(uuid4()),
+                "source_manifest_checksum_sha256": "a" * 64,
+                "source_fingerprint": "b" * 64,
+                "source_count": 2_200,
+                "first_sequence_number": 1,
+                "last_sequence_number": 19_809,
+                "direction": "ascending",
+                "range_convention": "seq-inclusive-v1",
+                "full_range_size": 9,
+                "expected_ranges_fingerprint": "c" * 64,
+                "recognizer_fingerprint": "d" * 64,
+                "grouping_policy_fingerprint": "e" * 64,
+            },
+        ),
+        status=JobStatus.FAILED,
+        progress_current=2_200,
+        progress_total=2_200,
+        success_count=247,
+        review_count=1_953,
+        error_code="JOB_PROGRESS_REGRESSION",
+        error_message="Review count cannot decrease.",
+        finished_at=datetime.now(UTC),
+    )
+    repository.add_job(job)
+
+    retried = service.retry_job(job.id)
+
+    assert retried.id == job.id
+    assert retried.status is JobStatus.CREATED
+    assert retried.progress_current == 0
+    assert retried.progress_total is None
+    assert retried.success_count == 0
+    assert retried.review_count == 0
+    assert retried.error_code is None
+
+
+def test_historical_filename_verification_retry_resets_technical_job_progress(
+    tmp_path: Path,
+) -> None:
+    _client_instance, _game_id, service, repository = _client(tmp_path)
+    job = replace(
+        create_job(
+            JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+            game_id=None,
+            input_payload={
+                "schema_version": 1,
+                "selection_kind": "semi_automatic_image_selection",
+                "run_id": str(uuid4()),
+                "source_upload_id": str(uuid4()),
+                "source_manifest_checksum_sha256": "a" * 64,
+                "source_fingerprint": "b" * 64,
+                "source_count": 2_200,
+                "first_sequence_number": 1,
+                "last_sequence_number": 19_809,
+                "direction": "ascending",
+                "range_convention": "seq-inclusive-v1",
+                "full_range_size": 9,
+                "expected_ranges_fingerprint": "c" * 64,
+                "recognizer_fingerprint": RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+                "grouping_policy_fingerprint": "e" * 64,
+            },
+        ),
+        status=JobStatus.FAILED,
+        progress_current=2_200,
+        progress_total=2_200,
+        success_count=0,
+        review_count=2_200,
+        error_code="JOB_PROGRESS_REGRESSION",
+        error_message="Progress counters cannot decrease.",
+        finished_at=datetime.now(UTC),
+    )
+    repository.add_job(job)
+
+    retried = service.retry_job(job.id)
+
+    assert retried.status is JobStatus.CREATED
+    assert retried.progress_current == 0
+    assert retried.progress_total is None
+    assert retried.success_count == 0
+    assert retried.review_count == 0

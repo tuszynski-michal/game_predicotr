@@ -9,19 +9,21 @@ import random
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
+from io import BytesIO
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 import numpy as np
 import torch
 import torchvision  # type: ignore[import-untyped]
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from torch import Tensor, nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import functional as vision_functional  # type: ignore[import-untyped]
 
 from ..filesystem import long_path_aware
 from .dataset_split import DATASET_SPLIT_VERSION, build_symbol_dataset_split
+from .normalization import rgb_pixel_checksum_sha256
 
 CLASSIFIER_VERSION = "bootstrap-symbol-cnn-v1"
 ARCHITECTURE_VERSION = "small-symbol-cnn-v1"
@@ -73,6 +75,7 @@ class ClassifierSample:
     source_image_checksum: str
     symbol_code: str
     class_index: int
+    asset_checksum_kind: str = "sha256-bytes"
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,7 +272,26 @@ def prepare_training_data(
                 "SYMBOL_CLASSIFIER_ASSET_MISSING",
                 f"Cannot read asset for sample {sample_id}.",
             ) from error
-        if hashlib.sha256(asset_content).hexdigest() != asset_checksum:
+        asset_checksum_kind = str(sample.get("assetChecksumKind", "sha256-bytes"))
+        if asset_checksum_kind == "sha256-bytes":
+            observed_asset_checksum = hashlib.sha256(asset_content).hexdigest()
+        elif asset_checksum_kind == "rgb-pixel-v1":
+            try:
+                with Image.open(BytesIO(asset_content)) as image:
+                    observed_asset_checksum = rgb_pixel_checksum_sha256(
+                        np.asarray(image.convert("RGB"), dtype=np.uint8)
+                    )
+            except (OSError, UnidentifiedImageError) as error:
+                raise SymbolClassifierError(
+                    "SYMBOL_CLASSIFIER_ASSET_INVALID",
+                    f"Cannot decode asset for sample {sample_id}.",
+                ) from error
+        else:
+            raise SymbolClassifierError(
+                "SYMBOL_CLASSIFIER_ASSET_CHECKSUM_KIND_UNSUPPORTED",
+                f"Asset checksum kind is unsupported for sample {sample_id}.",
+            )
+        if observed_asset_checksum != asset_checksum:
             raise SymbolClassifierError(
                 "SYMBOL_CLASSIFIER_ASSET_DRIFT",
                 f"Asset checksum mismatch for sample {sample_id}.",
@@ -284,6 +306,7 @@ def prepare_training_data(
             ),
             symbol_code=symbol_code,
             class_index=class_indexes[symbol_code],
+            asset_checksum_kind=asset_checksum_kind,
         )
 
     split_samples: dict[str, tuple[ClassifierSample, ...]] = {}

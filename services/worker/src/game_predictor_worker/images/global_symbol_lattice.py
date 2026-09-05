@@ -43,6 +43,12 @@ class GlobalSymbolCandidate:
     area: int
     weight: float
     touches_border: bool
+    left: int | None = None
+    top: int | None = None
+    core_left: float | None = None
+    core_top: float | None = None
+    core_width: float | None = None
+    core_height: float | None = None
 
     def to_dict(self) -> dict[str, int | float | bool]:
         return {
@@ -113,8 +119,10 @@ def _bright_components(
         NDArray[np.uint8],
         cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), dtype=np.uint8)),
     )
-    count, _, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
-    raw: list[tuple[float, float, int, int, int, float, bool]] = []
+    count, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    raw: list[
+        tuple[float, float, int, int, int, float, bool, int, int, float, float, float, float]
+    ] = []
     for label in range(1, count):
         x = int(stats[label, cv2.CC_STAT_LEFT])
         y = int(stats[label, cv2.CC_STAT_TOP])
@@ -136,6 +144,11 @@ def _bright_components(
         weight = min(1.0, area / 1800.0)
         if touches_border:
             weight *= 0.65
+        component_y, component_x = np.where(labels == label)
+        core_left = float(np.percentile(component_x, 5.0))
+        core_right = float(np.percentile(component_x, 95.0))
+        core_top = float(np.percentile(component_y, 5.0))
+        core_bottom = float(np.percentile(component_y, 95.0))
         raw.append(
             (
                 float(centroids[label, 0]),
@@ -145,6 +158,12 @@ def _bright_components(
                 area,
                 weight,
                 touches_border,
+                x,
+                y,
+                core_left,
+                core_top,
+                max(1.0, core_right - core_left + 1.0),
+                max(1.0, core_bottom - core_top + 1.0),
             )
         )
     raw.sort(key=lambda value: (value[1], value[0], value[4]))
@@ -158,6 +177,12 @@ def _bright_components(
             area=value[4],
             weight=value[5],
             touches_border=value[6],
+            left=value[7],
+            top=value[8],
+            core_left=value[9],
+            core_top=value[10],
+            core_width=value[11],
+            core_height=value[12],
         )
         for index, value in enumerate(raw)
     )

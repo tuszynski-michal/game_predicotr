@@ -4,12 +4,14 @@ import type {
   ImageGridReviewItemResponse,
   ImageGridReviewPageResponse,
   ImageGridReviewView,
+  OperationalImageReviewResolutionCommand,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 
 import {
   GRID_REVIEW_PAGE_LIMIT,
+  GRID_REVIEW_SOURCE_PAGE_LIMIT,
   gridReviewApprovalCommand,
   gridReviewGeometryCommand,
   gridReviewGeometryPreviewCommand,
@@ -20,11 +22,14 @@ import type { OperationalReviewGeometryCorners } from '../operational-reviews/op
 export type GridReviewsClient = Pick<
   AdminApiClient,
   | 'approveImageGridReviewGeometry'
+  | 'approveImageGridReviewSourceGeometry'
   | 'createImageGridReviewGeometryRevision'
+  | 'createImageGridReviewSourceGeometryRevision'
   | 'getImageGridReviewSourceAsset'
   | 'imageGridReviewSourceAssetUrl'
   | 'listImageGridReviews'
   | 'previewImageGridReviewGeometry'
+  | 'resolveOperationalImageReviewItem'
 >;
 
 export type GridReviewActionFailure = {
@@ -45,11 +50,50 @@ export async function loadGridReviewPage(
   | { readonly ok: true; readonly page: ImageGridReviewPageResponse }
   | GridReviewActionFailure
 > {
+  return loadGridReviewList(api, {
+    ...input,
+    limit: GRID_REVIEW_PAGE_LIMIT,
+  });
+}
+
+export async function loadGridReviewSource(
+  api: GridReviewsClient,
+  input: {
+    readonly gameId: string;
+    readonly importJobId: string;
+    readonly sourceImageId: string;
+  },
+): Promise<
+  | { readonly ok: true; readonly page: ImageGridReviewPageResponse }
+  | GridReviewActionFailure
+> {
+  return loadGridReviewList(api, {
+    ...input,
+    limit: GRID_REVIEW_SOURCE_PAGE_LIMIT,
+    view: 'all',
+  });
+}
+
+async function loadGridReviewList(
+  api: GridReviewsClient,
+  input: {
+    readonly gameId: string;
+    readonly importJobId: string;
+    readonly limit: number;
+    readonly navigation?: GridReviewNavigation;
+    readonly sourceImageId?: string;
+    readonly view: ImageGridReviewView;
+  },
+): Promise<
+  | { readonly ok: true; readonly page: ImageGridReviewPageResponse }
+  | GridReviewActionFailure
+> {
   try {
     const result = await api.listImageGridReviews({
       gameId: input.gameId,
       importJobId: input.importJobId,
-      limit: GRID_REVIEW_PAGE_LIMIT,
+      limit: input.limit,
+      sourceImageId: input.sourceImageId,
       view: input.view,
       ...input.navigation,
     });
@@ -79,6 +123,74 @@ export async function approveGridReview(
       return failure(result.error, 'Nie udało się zatwierdzić cięcia siatki.');
     }
     return { item: result.data.item, ok: true as const };
+  } catch {
+    return disconnected();
+  }
+}
+
+export async function approveGridReviewSource(
+  api: GridReviewsClient,
+  items: readonly ImageGridReviewItemResponse[],
+) {
+  const first = items[0];
+  if (first === undefined) {
+    return {
+      error: 'Nie ma aktywnych plansz do zatwierdzenia.',
+      isConflict: false,
+      ok: false as const,
+    };
+  }
+  try {
+    const result = await api.approveImageGridReviewSourceGeometry(
+      first.gameId,
+      {
+        sourceImageId: first.sourceImageId,
+        targets: items.map((item) => ({
+          expectedGeometryRevision: item.geometryRevision,
+          expectedGridColumns: item.gridColumns,
+          expectedGridRows: item.gridRows,
+          expectedResolutionRevision: item.resolutionRevision,
+          expectedSourceChecksumSha256: item.sourceChecksumSha256,
+          expectedSourceHeight: item.sourceHeight,
+          expectedSourceWidth: item.sourceWidth,
+          reviewItemId: item.reviewItemId,
+        })),
+      },
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return failure(result.error, 'Nie udało się zatwierdzić całego zdjęcia.');
+    }
+    return { approval: result.data, ok: true as const };
+  } catch {
+    return disconnected();
+  }
+}
+
+export async function rejectGridReview(
+  api: GridReviewsClient,
+  item: ImageGridReviewItemResponse,
+) {
+  const command: OperationalImageReviewResolutionCommand = {
+    action: 'rejected',
+    expectedRevision: item.resolutionRevision,
+    geometryRevision: item.geometryRevision,
+    idempotencyKey: globalThis.crypto.randomUUID(),
+    rejectionReason: 'geometry_source_rejected',
+    resolvedBy: 'local-admin',
+  };
+  try {
+    const result = await api.resolveOperationalImageReviewItem(
+      item.reviewItemId,
+      { gameId: item.gameId, importJobId: item.importJobId },
+      command,
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return failure(
+        result.error,
+        'Nie udało się odrzucić planszy z tego źródła.',
+      );
+    }
+    return { ok: true as const };
   } catch {
     return disconnected();
   }
@@ -134,13 +246,79 @@ export async function saveGridReviewGeometry(
   }
 }
 
+export async function saveGridReviewSourceGeometry(
+  api: GridReviewsClient,
+  input: {
+    readonly items: readonly ImageGridReviewItemResponse[];
+    readonly cornersByReviewItemId: ReadonlyMap<
+      string,
+      OperationalReviewGeometryCorners
+    >;
+    readonly idempotencyKey: string;
+  },
+): Promise<
+  | {
+      readonly ok: true;
+    }
+  | GridReviewActionFailure
+> {
+  const first = input.items[0];
+  if (first === undefined) {
+    return {
+      error: 'Nie ma aktywnych plansz do zapisania.',
+      isConflict: false,
+      ok: false,
+    };
+  }
+  const targets = [] as Array<
+    Parameters<
+      typeof api.createImageGridReviewSourceGeometryRevision
+    >[2]['targets'][number]
+  >;
+  for (const item of input.items) {
+    const corners = input.cornersByReviewItemId.get(item.reviewItemId);
+    if (corners === undefined) {
+      return {
+        error: 'Wyznacz po cztery narożniki dla każdej planszy zdjęcia.',
+        isConflict: false,
+        ok: false,
+      };
+    }
+    targets.push({
+      ...gridReviewGeometryPreviewCommand(item, corners),
+      reviewItemId: item.reviewItemId,
+    });
+  }
+  try {
+    const result = await api.createImageGridReviewSourceGeometryRevision(
+      first.gameId,
+      { gameId: first.gameId, importJobId: first.importJobId },
+      {
+        idempotencyKey: input.idempotencyKey,
+        sourceImageId: first.sourceImageId,
+        targets,
+      },
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return failure(
+        result.error,
+        'Nie udało się zapisać geometrii wszystkich plansz zdjęcia.',
+      );
+    }
+    return { ok: true };
+  } catch {
+    return disconnected();
+  }
+}
+
 function failure(error: unknown, fallback: string): GridReviewActionFailure {
   return {
     error: apiErrorMessage(error, fallback),
     isConflict:
       hasCode(error, 'IMAGE_REVIEW_REVISION_CONFLICT') ||
       hasCode(error, 'IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT') ||
-      hasCode(error, 'IMAGE_GRID_REVIEW_CURSOR_INVALID'),
+      hasCode(error, 'IMAGE_GRID_REVIEW_CURSOR_INVALID') ||
+      hasCode(error, 'IMAGE_GRID_REVIEW_CURSOR_SCOPE_INVALID'),
     ok: false,
   };
 }

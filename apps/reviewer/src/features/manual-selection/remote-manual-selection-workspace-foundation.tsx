@@ -1,5 +1,6 @@
 'use client';
 
+import { rangeForStart } from '@game-predictor/manual-image-selection-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   inspectOperatorLocalOutputDirectory,
@@ -82,6 +83,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
   const [collectionName, setCollectionName] = useState('Zdjęcia');
   const [batchName, setBatchName] = useState('');
   const [firstLayout, setFirstLayout] = useState('1');
+  const [sequenceUpperBound, setSequenceUpperBound] = useState('');
   const [direction, setDirection] = useState<'ascending' | 'descending'>(
     'ascending',
   );
@@ -240,6 +242,12 @@ export function RemoteManualSelectionWorkspaceFoundation({
           restoredBatch.batchName ?? restoredBatch.sourceDirectoryName,
         );
         setFirstLayout(String(restoredBatch.firstLayout));
+        setSequenceUpperBound(
+          restoredBatch.sequenceUpperBound === null ||
+            restoredBatch.sequenceUpperBound === undefined
+            ? ''
+            : String(restoredBatch.sequenceUpperBound),
+        );
         setDirection(restoredBatch.direction);
       }
     },
@@ -529,6 +537,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
       hostRegistered: false,
       navigationStep: 1,
       nextRangeStart: parsedFirstLayout,
+      selectionComplete: false,
+      sequenceUpperBound: null,
       sourceTraversalSemantics: 'natural_v2',
       sessionId,
       sourceDirectoryName: indexed.sourceDirectoryName,
@@ -557,9 +567,15 @@ export function RemoteManualSelectionWorkspaceFoundation({
       );
       if (connection.resumed) {
         setFirstLayout(String(connection.batch.firstLayout));
+        setSequenceUpperBound(
+          connection.batch.sequenceUpperBound === null ||
+            connection.batch.sequenceUpperBound === undefined
+            ? ''
+            : String(connection.batch.sequenceUpperBound),
+        );
         setDirection(connection.batch.direction);
         setNotice(
-          `Wznowiono selekcję od zdjęcia ${connection.batch.cursorIndex + 1}; następny zakres to ${connection.batch.nextRangeStart}–${(connection.batch.nextRangeStart ?? connection.batch.firstLayout) + 8}.`,
+          `Wznowiono selekcję od zdjęcia ${connection.batch.cursorIndex + 1}; ${connection.batch.selectionComplete === true ? 'osiągnięto granicę numeracji' : `następny zakres to ${formatRemoteSelectionRange(connection.batch)}`}.`,
         );
         setStartScreenOutputParent(null);
         setShowStartScreen(false);
@@ -600,6 +616,12 @@ export function RemoteManualSelectionWorkspaceFoundation({
     setStartScreenSourceSelected(true);
     setBatchName(input.batch.batchName ?? input.batch.sourceDirectoryName);
     setFirstLayout(String(input.batch.firstLayout));
+    setSequenceUpperBound(
+      input.batch.sequenceUpperBound === null ||
+        input.batch.sequenceUpperBound === undefined
+        ? ''
+        : String(input.batch.sequenceUpperBound),
+    );
     setDirection(input.batch.direction);
     if (startScreenOutputParent !== null) {
       await connectStartScreenOutput(
@@ -631,12 +653,18 @@ export function RemoteManualSelectionWorkspaceFoundation({
     setStartScreenOutputParent(null);
     setStartScreenOutputSelected(true);
     setFirstLayout(String(connection.batch.firstLayout));
+    setSequenceUpperBound(
+      connection.batch.sequenceUpperBound === null ||
+        connection.batch.sequenceUpperBound === undefined
+        ? ''
+        : String(connection.batch.sequenceUpperBound),
+    );
     setDirection(connection.batch.direction);
     await refresh();
     if (connection.resumed) {
       setShowStartScreen(false);
       setNotice(
-        `Wznowiono selekcję od zdjęcia ${connection.batch.cursorIndex + 1}; następny zakres to ${connection.batch.nextRangeStart}–${(connection.batch.nextRangeStart ?? connection.batch.firstLayout) + 8}.`,
+        `Wznowiono selekcję od zdjęcia ${connection.batch.cursorIndex + 1}; ${connection.batch.selectionComplete === true ? 'osiągnięto granicę numeracji' : `następny zakres to ${formatRemoteSelectionRange(connection.batch)}`}.`,
       );
       return;
     }
@@ -727,6 +755,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
         fileCount: resumed.fileCount,
         firstLayout: resumed.firstLayout,
         nextRangeStart: resumed.nextRangeStart ?? resumed.firstLayout,
+        selectionComplete: resumed.selectionComplete === true,
+        sequenceUpperBound: resumed.sequenceUpperBound ?? null,
         sessionId: resumed.sessionId,
         sourceDirectoryName: resumed.sourceDirectoryName,
         sourceManifestChecksumSha256: resumed.sourceManifestChecksumSha256,
@@ -792,9 +822,15 @@ export function RemoteManualSelectionWorkspaceFoundation({
       const connection = await connectOutputParent(parent, session, batch);
       if (connection.resumed) {
         setFirstLayout(String(connection.batch.firstLayout));
+        setSequenceUpperBound(
+          connection.batch.sequenceUpperBound === null ||
+            connection.batch.sequenceUpperBound === undefined
+            ? ''
+            : String(connection.batch.sequenceUpperBound),
+        );
         setDirection(connection.batch.direction);
         setNotice(
-          `Wznowiono selekcję od zdjęcia ${connection.batch.cursorIndex + 1}; następny zakres to ${connection.batch.nextRangeStart}–${(connection.batch.nextRangeStart ?? connection.batch.firstLayout) + 8}.`,
+          `Wznowiono selekcję od zdjęcia ${connection.batch.cursorIndex + 1}; ${connection.batch.selectionComplete === true ? 'osiągnięto granicę numeracji' : `następny zakres to ${formatRemoteSelectionRange(connection.batch)}`}.`,
         );
       } else {
         setNotice(
@@ -823,14 +859,21 @@ export function RemoteManualSelectionWorkspaceFoundation({
     )
       return;
     const parsedFirstLayout = Number.parseInt(firstLayout, 10);
+    const parsedUpperBound =
+      sequenceUpperBound.trim() === ''
+        ? null
+        : Number.parseInt(sequenceUpperBound, 10);
     if (
       collectionName.trim() === '' ||
       batchName.trim() === '' ||
       !Number.isSafeInteger(parsedFirstLayout) ||
-      parsedFirstLayout < 1
+      parsedFirstLayout < 1 ||
+      (parsedUpperBound !== null &&
+        (!Number.isSafeInteger(parsedUpperBound) ||
+          parsedUpperBound < parsedFirstLayout))
     ) {
       setError(
-        'Podaj nazwy kolekcji i partii oraz dodatni pierwszy numer planszy.',
+        'Podaj nazwy kolekcji i partii, dodatni pierwszy numer oraz poprawny opcjonalny ostatni numer planszy.',
       );
       return;
     }
@@ -856,12 +899,20 @@ export function RemoteManualSelectionWorkspaceFoundation({
           fileCount: resumed.fileCount,
           firstLayout: resumed.firstLayout,
           nextRangeStart: resumed.nextRangeStart ?? resumed.firstLayout,
+          selectionComplete: resumed.selectionComplete === true,
+          sequenceUpperBound: resumed.sequenceUpperBound ?? null,
           sessionId: resumed.sessionId,
           sourceDirectoryName: resumed.sourceDirectoryName,
           sourceManifestChecksumSha256: resumed.sourceManifestChecksumSha256,
         });
         await store.saveBatch(resumed);
         setFirstLayout(String(resumed.firstLayout));
+        setSequenceUpperBound(
+          resumed.sequenceUpperBound === null ||
+            resumed.sequenceUpperBound === undefined
+            ? ''
+            : String(resumed.sequenceUpperBound),
+        );
         setDirection(resumed.direction);
         await refresh();
         setStartScreenOutputParent(null);
@@ -869,7 +920,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
         setStartScreenOutputSelected(false);
         setShowStartScreen(false);
         setNotice(
-          `Wznowiono selekcję od zdjęcia ${resumed.cursorIndex + 1}; następny zakres to ${resumed.nextRangeStart}–${(resumed.nextRangeStart ?? resumed.firstLayout) + 8}.`,
+          `Wznowiono selekcję od zdjęcia ${resumed.cursorIndex + 1}; ${resumed.selectionComplete === true ? 'osiągnięto granicę numeracji' : `następny zakres to ${formatRemoteSelectionRange(resumed)}`}.`,
         );
         return;
       }
@@ -883,6 +934,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
         direction,
         firstLayout: parsedFirstLayout,
         nextRangeStart: parsedFirstLayout,
+        selectionComplete: false,
+        sequenceUpperBound: parsedUpperBound,
         sourceTraversalSemantics: 'natural_v2',
         updatedAt: new Date().toISOString(),
       };
@@ -895,6 +948,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
         fileCount: configured.fileCount,
         firstLayout: configured.firstLayout,
         nextRangeStart: configuredWorkspace.nextRangeStart,
+        selectionComplete: configuredWorkspace.selectionComplete,
+        sequenceUpperBound: configured.sequenceUpperBound ?? null,
         sessionId: session.sessionId,
         sourceDirectoryName: configured.sourceDirectoryName,
         sourceManifestChecksumSha256: configured.sourceManifestChecksumSha256,
@@ -1334,6 +1389,16 @@ export function RemoteManualSelectionWorkspaceFoundation({
             />
           </label>
           <label>
+            Ostatnia plansza (opcjonalnie)
+            <input
+              min={firstLayout || '1'}
+              onChange={(event) => setSequenceUpperBound(event.target.value)}
+              placeholder="np. 500000"
+              type="number"
+              value={sequenceUpperBound}
+            />
+          </label>
+          <label>
             Kolejność
             <select
               onChange={(event) =>
@@ -1404,6 +1469,8 @@ async function writeBatchManifest(
     fileCount: batch.fileCount,
     firstLayout: batch.firstLayout,
     nextRangeStart: workspace.nextRangeStart,
+    selectionComplete: workspace.selectionComplete,
+    sequenceUpperBound: batch.sequenceUpperBound ?? null,
     sessionId,
     sourceDirectoryName: batch.sourceDirectoryName,
     sourceManifestChecksumSha256: batch.sourceManifestChecksumSha256,
@@ -1419,6 +1486,16 @@ function errorMessage(cause: unknown): string {
   return cause instanceof Error
     ? cause.message
     : 'Nie udało się przygotować lokalnego źródła.';
+}
+
+function formatRemoteSelectionRange(
+  batch: RemoteSelectionLocalBatchRecord,
+): string {
+  const range = rangeForStart(
+    batch.nextRangeStart ?? batch.firstLayout,
+    batch.sequenceUpperBound ?? null,
+  );
+  return `${range.start}–${range.end}`;
 }
 
 function isPickerCancelled(cause: unknown): boolean {

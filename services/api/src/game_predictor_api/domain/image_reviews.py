@@ -73,12 +73,26 @@ class ImageReviewCell:
     row_index: int
     column_index: int
     crop_sample_id: str
-    crop_relative_path: str
+    crop_relative_path: str | None
     crop_checksum_sha256: str
     predicted_symbol_code: str
     confidence: float
     alternatives: tuple[ImageReviewAlternative, ...]
-    current_symbol_code: str
+    current_symbol_code: str | None
+    # ``legacy_file`` cells name an immutable crop on disk.  Structured v0.10
+    # cells deliberately have no crop file: their exact pixels are rendered
+    # from the managed source and this provenance binds that render.  Keep the
+    # data on the shared current-cell boundary so downstream projections do not
+    # silently fall back to a legacy path-only contract.
+    asset_mode: str = "legacy_file"
+    source_geometry_revision_id: UUID | None = None
+    logical_cell_key: str | None = None
+    logical_cell_key_v2: str | None = None
+    render_identity_v2_sha256: str | None = None
+    render_spec: Mapping[str, object] | None = None
+    render_spec_checksum_sha256: str | None = None
+    rendered_pixel_checksum_sha256: str | None = None
+    extractor_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

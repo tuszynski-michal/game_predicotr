@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from datetime import datetime
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -22,16 +23,15 @@ from game_predictor_api.application.image_symbol_review_bulk_operations import (
 from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationResult,
 )
-from game_predictor_api.application.image_symbol_reviews import (
-    MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE,
-)
 from game_predictor_api.application.unreadable_board_reviews import (
+    SaveUnreadableBoardResult,
     UnreadableBoardReviewDetail,
     UnreadableBoardReviewPage,
 )
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewCounts,
+    SymbolCellReviewCountSnapshot,
     SymbolCellReviewFilterState,
     SymbolCellReviewListItem,
     SymbolCellReviewPage,
@@ -68,16 +68,81 @@ class SymbolCellReviewListItemResponse(ApiModel):
     crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
     crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     board_status: str
+    prediction_confidence: float | None = Field(default=None, ge=0, le=1)
+    asset_mode: Literal["legacy_file", "virtual_source"] = "legacy_file"
+    render_spec_checksum_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class SymbolCellReviewPageResponse(ApiModel):
-    items: tuple[SymbolCellReviewListItemResponse, ...] = Field(
-        max_length=MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE
-    )
-    counts: SymbolCellReviewCountsResponse
+    items: tuple[SymbolCellReviewListItemResponse, ...]
     catalog_revision: int = Field(ge=0)
     next_cursor: str | None
     previous_cursor: str | None
+
+
+class SymbolCellReviewCountSnapshotResponse(ApiModel):
+    counts: SymbolCellReviewCountsResponse
+    catalog_revision: int = Field(ge=0)
+
+
+class VirtualCellPreviewTargetRequest(ApiModel):
+    cell_review_id: UUID
+    expected_revision: int = Field(ge=0)
+    expected_render_spec_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class VirtualCellPreviewBatchRequest(ApiModel):
+    preview_size: int = Field(default=100, ge=32, le=256)
+    extraction_mode: Literal["direct_perspective_cell_v1"] = "direct_perspective_cell_v1"
+    cells: tuple[VirtualCellPreviewTargetRequest, ...] = Field(min_length=1, max_length=100)
+
+
+class VirtualCellPreviewTileResponse(ApiModel):
+    cell_review_id: UUID
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    width: int = Field(ge=1)
+    height: int = Field(ge=1)
+
+
+class VirtualCellPreviewBatchResponse(ApiModel):
+    batch_key: str = Field(pattern=r"^[a-f0-9]{64}$")
+    atlas_url: str
+    atlas_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    tiles: tuple[VirtualCellPreviewTileResponse, ...]
+    expires_at: datetime
+
+
+class SymbolCellPreviewTargetRequest(ApiModel):
+    cell_review_id: UUID
+    expected_revision: int = Field(ge=0)
+    expected_crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_render_spec_checksum_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[a-f0-9]{64}$",
+    )
+
+
+class SymbolCellPreviewBatchRequest(ApiModel):
+    preview_size: int = Field(default=100, ge=32, le=256)
+    renderer_mode: Literal["current", "structured_v0_10"] = "current"
+    cells: tuple[SymbolCellPreviewTargetRequest, ...] = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+
+class SymbolCellPreviewBatchResponse(ApiModel):
+    batch_key: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    atlas_url: str | None
+    atlas_checksum_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    tiles: tuple[VirtualCellPreviewTileResponse, ...]
+    expires_at: datetime | None
+    renderer_mode: Literal["current", "structured_v0_10"]
+    renderer_version: str
+    renderer_fingerprint_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    available_count: int = Field(ge=0)
+    unavailable_cell_review_ids: tuple[UUID, ...]
 
 
 class SymbolCellReviewProjectionStatusResponse(ApiModel):
@@ -126,11 +191,23 @@ class SymbolCellReviewBulkFilterSelectionRequest(ApiModel):
     kind: Literal["filter"]
     symbol_id: UUID | Literal["unknown"]
     state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL
+    min_confidence: float | None = Field(default=None, ge=0, le=1)
+    max_confidence: float | None = Field(default=None, ge=0, le=1)
     catalog_revision: int = Field(ge=0)
     excluded_cell_review_ids: tuple[UUID, ...] = Field(
         default=(),
         max_length=MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS,
     )
+
+    @model_validator(mode="after")
+    def validate_confidence_range(self) -> SymbolCellReviewBulkFilterSelectionRequest:
+        if (
+            self.min_confidence is not None
+            and self.max_confidence is not None
+            and self.min_confidence > self.max_confidence
+        ):
+            raise ValueError("minConfidence cannot be greater than maxConfidence.")
+        return self
 
 
 SymbolCellReviewBulkSelectionRequest = Annotated[
@@ -148,8 +225,15 @@ class SymbolCellReviewBulkOperationRequest(ApiModel):
     def validate_action_target(self) -> SymbolCellReviewBulkOperationRequest:
         if self.action is SymbolCellReviewAction.REASSIGN and self.target_symbol_id is None:
             raise ValueError("targetSymbolId is required for reassign.")
-        if self.action is not SymbolCellReviewAction.REASSIGN and self.target_symbol_id is not None:
-            raise ValueError("targetSymbolId is allowed only for reassign.")
+        if (
+            self.action
+            not in {
+                SymbolCellReviewAction.REASSIGN,
+                SymbolCellReviewAction.MARK_BLURRY,
+            }
+            and self.target_symbol_id is not None
+        ):
+            raise ValueError("targetSymbolId is allowed only for reassign or mark_blurry.")
         return self
 
 
@@ -202,8 +286,15 @@ class SymbolCellReviewMutationRequest(ApiModel):
     def validate_action_target(self) -> SymbolCellReviewMutationRequest:
         if self.action is SymbolCellReviewAction.REASSIGN and self.target_symbol_id is None:
             raise ValueError("targetSymbolId is required for reassign.")
-        if self.action is not SymbolCellReviewAction.REASSIGN and self.target_symbol_id is not None:
-            raise ValueError("targetSymbolId is allowed only for reassign.")
+        if (
+            self.action
+            not in {
+                SymbolCellReviewAction.REASSIGN,
+                SymbolCellReviewAction.MARK_BLURRY,
+            }
+            and self.target_symbol_id is not None
+        ):
+            raise ValueError("targetSymbolId is allowed only for reassign or mark_blurry.")
         return self
 
 
@@ -290,15 +381,42 @@ class ResolveUnreadableCellRequest(ApiModel):
     expected_crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class SaveUnreadableBoardCellRequest(ResolveUnreadableCellRequest):
+    """One exact visible cell decision supplied by the board workspace."""
+
+    cell_index: int = Field(ge=0, le=99)
+
+
+class SaveUnreadableBoardRequest(ApiModel):
+    """Full topology snapshot for one atomic pending-board save."""
+
+    cells: tuple[SaveUnreadableBoardCellRequest, ...] = Field(min_length=1, max_length=100)
+
+
+class SaveUnreadableBoardResponse(ApiModel):
+    review_item_id: UUID
+    sequence_number: int = Field(ge=1)
+    board_status: str
+    changed_cell_count: int = Field(ge=0, le=100)
+
+
 def to_symbol_cell_review_page_response(
     page: SymbolCellReviewPage,
 ) -> SymbolCellReviewPageResponse:
     return SymbolCellReviewPageResponse(
         items=tuple(_to_item_response(item) for item in page.items),
-        counts=_to_counts_response(page.counts),
         catalog_revision=page.catalog_revision,
         next_cursor=page.next_cursor,
         previous_cursor=page.previous_cursor,
+    )
+
+
+def to_symbol_cell_review_count_snapshot_response(
+    snapshot: SymbolCellReviewCountSnapshot,
+) -> SymbolCellReviewCountSnapshotResponse:
+    return SymbolCellReviewCountSnapshotResponse(
+        counts=_to_counts_response(snapshot.counts),
+        catalog_revision=snapshot.catalog_revision,
     )
 
 
@@ -376,6 +494,17 @@ def to_unreadable_board_review_detail_response(
     )
 
 
+def to_save_unreadable_board_response(
+    result: SaveUnreadableBoardResult,
+) -> SaveUnreadableBoardResponse:
+    return SaveUnreadableBoardResponse(
+        review_item_id=result.review_item_id,
+        sequence_number=result.sequence_number,
+        board_status=result.board_status,
+        changed_cell_count=result.changed_cell_count,
+    )
+
+
 def to_symbol_cell_review_projection_status_response(
     status: SymbolCellReviewProjectionStatus,
 ) -> SymbolCellReviewProjectionStatusResponse:
@@ -444,6 +573,8 @@ def to_symbol_cell_review_bulk_request(
         filter_selection=SymbolCellReviewBulkFilterSelection(
             symbol_id=symbol_id,
             state=selection.state,
+            min_confidence=selection.min_confidence,
+            max_confidence=selection.max_confidence,
             catalog_revision=selection.catalog_revision,
             excluded_cell_review_ids=selection.excluded_cell_review_ids,
         ),
@@ -519,10 +650,16 @@ def _to_item_response(item: SymbolCellReviewListItem) -> SymbolCellReviewListIte
         crop_sample_id=item.crop_sample_id,
         crop_checksum_sha256=item.crop_checksum_sha256,
         board_status=item.board_status,
+        prediction_confidence=item.prediction_confidence,
+        asset_mode=cast(Literal["legacy_file", "virtual_source"], item.asset_mode),
+        render_spec_checksum_sha256=item.render_spec_checksum_sha256,
     )
 
 
 __all__ = [
+    "SymbolCellPreviewBatchRequest",
+    "SymbolCellPreviewBatchResponse",
+    "SymbolCellPreviewTargetRequest",
     "SymbolCellReviewBulkExplicitSelectionRequest",
     "SymbolCellReviewBulkExplicitTargetRequest",
     "SymbolCellReviewBulkFilterSelectionRequest",
@@ -533,6 +670,7 @@ __all__ = [
     "SymbolCellReviewBulkPreviewResponse",
     "SymbolCellReviewBulkSelectionRequest",
     "SymbolCellReviewCountsResponse",
+    "SymbolCellReviewCountSnapshotResponse",
     "SymbolCellReviewListItemResponse",
     "SymbolCellReviewMutationRequest",
     "SymbolCellReviewMutationResponse",
@@ -540,6 +678,9 @@ __all__ = [
     "SymbolCellReviewProjectionStartResponse",
     "SymbolCellReviewProjectionStatusResponse",
     "ResolveUnreadableCellRequest",
+    "SaveUnreadableBoardCellRequest",
+    "SaveUnreadableBoardRequest",
+    "SaveUnreadableBoardResponse",
     "UnreadableBoardReviewDetailResponse",
     "UnreadableBoardReviewPageResponse",
     "UnreadableSymbolAssignmentRequest",
@@ -547,10 +688,12 @@ __all__ = [
     "to_symbol_cell_review_bulk_operation_response",
     "to_symbol_cell_review_bulk_preview_response",
     "to_symbol_cell_review_bulk_request",
+    "to_symbol_cell_review_count_snapshot_response",
     "to_symbol_cell_review_mutation_response",
     "to_symbol_cell_review_page_response",
     "to_symbol_cell_review_projection_start_response",
     "to_symbol_cell_review_projection_status_response",
     "to_unreadable_board_review_detail_response",
+    "to_save_unreadable_board_response",
     "to_unreadable_board_review_page_response",
 ]

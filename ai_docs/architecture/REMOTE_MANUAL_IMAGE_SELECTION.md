@@ -1,7 +1,7 @@
 ---
 title: Remote manual image selection architecture and implementation plan
 status: accepted
-last_updated: 2026-08-25
+last_updated: 2026-08-31
 ---
 
 # Zdalna ręczna selekcja zdjęć
@@ -41,6 +41,11 @@ flowchart LR
 - Poprawny istniejący manifest odtwarza kursor, następny zakres, kierunek i
   decyzje również pod nową access session. Identyfikatory zdjęć są ponownie
   mapowane na świeży IndexedDB po ordinalu i względnej ścieżce.
+- Manifest operator-local zapisuje `sourceTraversalSemantics=natural_v2`.
+  Brak pola oznacza rekord legacy: dla kierunku malejącego kursor jest
+  odbudowywany z następnego naturalnego ordinalu po ostatniej zaakceptowanej
+  decyzji i przy kolejnym zapisie otrzymuje aktualną semantykę. Decyzja
+  `skipped` zmienia zakres, ale nie jest kotwicą kursora zdjęć.
 - Ordinal źródłowego JPEG-a zawsze rośnie przy `→` oraz Enter i maleje przy
   `←`, niezależnie od kierunku numeracji plansz. Kierunek zmienia wyłącznie
   kolejne `rangeStart` po decyzji, dzięki czemu folder ułożony od wysokich do

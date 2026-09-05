@@ -311,6 +311,18 @@ class SymbolTrainingJobHandler:
                 updated_at=context.now(),
             )
             return
+        empty_splits = [
+            split
+            for split in ("train", "validation", "test", "regression")
+            if not getattr(data, split)
+        ]
+        if empty_splits:
+            raise JobHandlerError(
+                "TRAINING_DATASET_REQUIRED_SPLIT_EMPTY",
+                "The deterministic training dataset has no samples in required split(s): "
+                + ", ".join(empty_splits)
+                + ".",
+            )
         total = spec.configuration.epochs + CANDIDATE_STAGE_COUNT
         self._store.update(
             spec.iteration_id,
@@ -601,6 +613,7 @@ def _prepared_data(root: Path, artifact: Any) -> PreparedTrainingData:
                 source_image_checksum=str(row["sourceImageChecksumSha256"]),
                 symbol_code=code,
                 class_index=indexes[code],
+                asset_checksum_kind=str(row.get("assetChecksumKind", "sha256-bytes")),
             )
         )
     return PreparedTrainingData(

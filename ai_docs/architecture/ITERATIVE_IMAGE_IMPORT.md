@@ -70,6 +70,28 @@ snapshotami, pozostawiając poprzedni job audytowalny; identyczne żądanie jest
 idempotentne. Staging nie jest ponownie przesyłany, a kanoniczne numery są
 ponownie sprawdzane przed startem.
 
+Odczyt raportu stagingu rozwiązuje snapshot modelu symboli w trybie preview.
+Znane braki gotowości (`ACTIVATION_REQUIRED` lub `COMPATIBLE_MODEL_REQUIRED`)
+są częścią odpowiedzi, a nie błędem transportowym, dzięki czemu niezależny job
+geometrii może powstać przed treningiem. Utworzenie joba importu używa nadal
+rygorystycznego resolvera i nie może zapisać schema v5 bez zgodnego snapshotu.
+
+### Ponowne przetwarzanie z dokładną geometrią strony
+
+Nowy managed reprocess używa schema v6. API odczytuje manifest managed
+originals wybranego joba, a następnie przechodzi bounded, same-game łańcuch
+`managed_source_job_id` / `previous_job_id` do najbliższego przypiętego
+`PageGeometryManifestV1`. Oba artefakty są sprawdzane pod względem checksum,
+gry, browser stagingu, kompletnego inwentarza i disposition źródeł przed
+utworzeniem joba. Ich checksumy wchodzą do fingerprintu.
+
+Worker przed pipeline'em ponownie sprawdza manifest źródłowy oraz zgodność
+każdego wpisu geometrii. Schema v6 nie ma ścieżki bez manifestu strony:
+brak dowodu daje `IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED`, a drift,
+obca proweniencja lub niepełne pokrycie
+`IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE`. Schema v4 pozostaje
+obsługiwana wyłącznie jako historyczny kontrakt replayu.
+
 ### Jawnie przypięty adapter komórek v20
 
 Schema v5 może opcjonalnie zawierać snapshot
@@ -148,23 +170,209 @@ przez istniejący bounded bufor plansz.
 
 ## Kohorta i profil geometrii
 
-Kohorta jest game-scoped, kumulacyjna i niezmienna. Dla każdej zaakceptowanej
-planszy zapisuje źródło, pozycję, zatwierdzony numer, pierwotny quad detektora,
-finalny quad review i provenance pipeline'u.
+### Role geometrii planszy
 
-Profil stosuje odporne mediany znormalizowanych przesunięć narożników względem
-quada detektora. Korekty są grupowane według runu Selekcji Zdjęć i pozycji
-planszy, a próbki bez runu pozostają pełnoprawnym wejściem do fallbacku pozycji.
-Inferencja najpierw szuka zgodnego runu, a następnie fallbacku pozycji. Numer
-sekwencji nie bierze udziału w inferencji geometrii, ponieważ OCR jest
-późniejszym etapem pipeline'u; eliminuje to zależność cykliczną i ryzyko
-ukrytego przecieku błędu OCR do cięcia. Nieznana pozycja używa detektora.
+Structured source geometry schema v2 rozdziela trzy role: `analysisQuad`
+ogranicza lokalne wyszukiwanie, `boardFrameQuad` jest opcjonalnym dowodem
+zewnętrznej ramki, a `symbolGridQuad` opisuje granice układu symboli. W schema
+v2 `finalQuad` jest wyłącznie kompatybilnym aliasem `symbolGridQuad`.
+Renderer komórek nie może użyć `analysisQuad` ani `boardFrameQuad` jako
+zastępstwa brakującej siatki. Schema v1 nie serializuje nowych pól, dzięki
+czemu jej checksumy i historyczny replay pozostają niezmienne.
 
-Walidacja jest source-image-disjoint. Kandydat porównuje średni i p95
-znormalizowany błąd narożników oraz kompletność poprawnych projekcji quada z
-wynikiem bazowego detektora. Właściwe 15 cropów pozostaje deterministycznym
-wynikiem croppera i podlega manualnemu review. Rejestr aktywacji jest
-append-only i umożliwia rollback.
+Refiner v3 rektyfikuje każdy `analysisQuad` niezależnie, wykorzystuje
+wielopunktowy estimator v19 i chroni bboxy przypisanych komponentów przed
+przecięciem granicami komórek. Ochronny margines w przestrzeni analizy wynosi
+`max(4 px, 5% lokalnego odstępu osi)`. Niewystarczający dowód lub konflikt
+zawartości nie może zwrócić zewnętrznej ramki jako siatki zastępczej.
+
+Nowe joby `structured_shadow` przypinają checksum-bound konfigurację kandydata
+`structured-lattice-candidate-v3-config-v1`. Checkpointy detekcji i geometrii
+komórek zachowują identyczny `structuredGeometryCandidateV3`; każdy slot
+zapisuje oba quady, evidence estymatora, wynik content safety i zamknięty powód
+odroczenia. Kandydat ma `activationAllowed=false` i nie jest konsumowany przez
+produkcyjny cropper. Historyczne snapshoty konfiguracji v2 nadal wybierają
+`structuredGeometryCandidateV2`, więc retry nie zmienia adaptera.
+
+Read model kolejki może dołączyć pomiar v3 do bieżącej geometrii planszy.
+Reviewer rysuje `analysisQuad` jako cienki obrys diagnostyczny i proponowany
+`symbolGridQuad` jako siatkę edycyjną. Jeśli istnieje ręczna rewizja, jej quad
+wygrywa i pomiar shadow nie może jej zastąpić.
+
+Po odbiorze v3 nowa polityka `structured_lattice_v3` tworzy snapshot
+`virtual-geometry-rollout-snapshot-v3`. Snapshot zawiera dokładną konfigurację
+accepted-primary i SHA-256 niezmiennego raportu z 450 ręcznych plansz. Worker
+najpierw odtwarza przypiętą inicjalizację v2, następnie uruchamia lokalny
+refiner na każdym slocie i buduje role-aware source geometry schema v2.
+Wyłącznie slot `estimated` z przejściem content safety otrzymuje produkcyjny
+`finalQuad = symbolGridQuad`; odroczenie ma `finalQuad = null`, więc renderer
+nie może odziedziczyć zewnętrznej ramki. Stare snapshoty v1/v2 nie zawierają
+aktywnej konfiguracji i zachowują dotychczasową ścieżkę bit-for-bit.
+
+Kohorta jest game-scoped, kumulacyjna i niezmienna. Rekordy plansz nadal
+zachowują pierwotny i finalny quad, ale profil schema v2 grupuje je według
+źródła i kwalifikuje wyłącznie kompletny układ pozycji 0–8. Pełna próbka ma
+9 niezależnych quadów, 36 narożników, wspólną przestrzeń współrzędnych źródła
+oraz spójne wymiary. Niekompletne i nieuporządkowane źródła są raportowane, a
+nie uzupełniane średnią.
+
+Podział jest source-image-disjoint. Z części treningowej wybieranych jest do
+16 kotwic przez deterministyczny algorytm medoid + farthest point na wektorze
+72 znormalizowanych współrzędnych. Walidacyjne źródło nigdy nie staje się
+kotwicą. Lista checksum kotwic i jej polityka są częścią checksum-bound profilu
+i snapshotu joba.
+
+Na zdjęciu docelowym ORB estymuje osobną homografię względem najlepiej
+dopasowanej kotwicy. Homografia przenosi pełne 36 narożników, po czym każdy z
+dziewięciu quadów jest niezależnie dopasowany do czerwonych krawędzi. Runtime
+zatwierdza wynik tylko przy kompletnej kolejności 3 × 3 oraz przejściu bramek
+inlierów, reprojekcji i pokrycia krawędzi wszystkich plansz. Niepowodzenie jest
+`review_required`, bez fallbacku do czterech narożników strony lub globalnej
+mediany. Rejestr aktywacji jest append-only i umożliwia rollback.
+
+Rejestrator zwraca razem z wynikiem ograniczony ślad bramek wykonanych w tym
+samym przebiegu. Dla niepowodzenia manifest przechowuje najlepszą nieudaną
+próbę oraz najwyżej jedną reprezentatywną próbę na budżet ORB. Wartości
+nieobliczone są pomijane, a deskryptory, obrazy i czasy wykonania nie trafiają
+do manifestu. Kompatybilna metoda odczytu wyniku nadal zwraca wyłącznie
+geometrię albo `None`, więc konsumenci niezainteresowani diagnostyką zachowują
+dotychczasową semantykę.
+
+Wariant `verified-page-registration-v2-board-area-mask-v1` różni się wyłącznie
+ekstrakcją cech kotwicy. Z 36 zatwierdzonych narożników buduje convex hull,
+rozszerza go o 10% mediany wysokości planszy i skaluje do przestrzeni ORB 50%.
+Target nie otrzymuje maski, ponieważ jego położenie nie jest jeszcze znane.
+Cechy kotwic pozostają cache'owane w instancji rejestratora osobno dla
+budżetów 1000/1500/3000. V1 nadal wywołuje ORB bez maski i zachowuje swój
+payload oraz fingerprint.
+
+Start preflightu przyjmuje `pageRegistrationVariant` równy
+`standard_v0_10` albo `board_area_test`. Drugi wariant przypina politykę
+`page-geometry-preflight-v3-board-area-mask`, wersję maski, padding i profil
+rejestracji w payloadzie joba. Różny wariant daje różny input key na tym samym
+stagingu; identyczne ponowienie pozostaje idempotentne. Worker akceptuje tylko
+zgodną parę wersji preflightu i profilu rejestracji.
+
+Profile schema v1 zachowują historyczny algorytm medianowych przesunięć i są
+odtwarzane tylko przez już przypięte fingerprinty. Utworzenie nowej kohorty
+używa schema v2, dzięki czemu stary odrzucony profil nie blokuje kandydata
+opartego na 36 narożnikach.
+
+### Końcowa bramka profilu strony
+
+Komplet 36 narożników jest wejściem do kandydata, a nie dowodem gotowości do
+produkcji. Profil schema v2 otrzymuje `candidate_ready` dopiero po dołączeniu
+raportu `grid-profile-end-to-end-gate-report-v1`, utworzonego z wyników tych
+samych adapterów, które wykonują produkcyjną rejestrację strony, estymację
+siatki 3×5 oraz kontrolę 15 cropów.
+
+Korpus raportu jest rozłączny od źródeł treningowych i kotwic po checksumie.
+Ma co najmniej 100 źródeł, 500 aktywnych plansz, pięć niepustych bucketów
+jakości/kąta oraz pełne pokrycie wersjonowanego korpusu znanych regresji.
+Raport wiąże checksumę kohorty, checksumę korpusu, agregaty odroczeń i liczniki
+niezmienników checksumy, kolejności, topologii, overlapu i source support.
+
+Przejście wymaga co najmniej 98% plansz z końcową, gotową geometrią 3×5, zera
+naruszeń niezmienników oraz spadku nie większego niż 0,5 punktu procentowego
+wobec stabilnego baseline'u uruchomionego na identycznych źródłach. Brak,
+niepełność albo drift raportu jest wynikiem fail-closed. Nie obniża się progów
+`incomplete_lattice`, residualu ani source support.
+
+Kohorta i każda rewizja profilu pozostają niezmienne. Ponowna ewaluacja tej
+samej kohorty tworzy następny profil z inną checksumą raportu, zamiast
+nadpisywać poprzedni wynik. Aktywny profil schema v2 bez aktualnego raportu nie
+może zostać przypięty do nowego joba; job utworzony wcześniej zachowuje swój
+snapshot i replay.
+
+### Bramka systemowa przed materializacją dużego importu
+
+Po ingestowaniu managed originals, sprawdzeniu przypiętego manifestu strony i
+odfiltrowaniu źródeł kanonicznych worker oblicza rozmiar faktycznego pipeline'u.
+Dla co najmniej 100 źródeł albo 500 plansz wybiera deterministycznie do 25
+źródeł: granice, środek, równomierne pozycje oraz pierwszy reprezentant każdego
+dostępnego bucketu geometrii.
+
+API przypina `geometrySystemicGuardPolicy` wyłącznie do nowych browserowych
+importów i managed reprocessów, a checksumę polityki włącza do fingerprintu
+pipeline'u. Worker uruchamia bramkę tylko dla joba z tym dokładnym snapshotem.
+W ten sposób stary schema v5 bez polityki zachowuje replay, a nowy job nie może
+niepostrzeżenie ominąć bramki.
+
+Próba używa osobnej instancji `ProductionImageStageAdapterSuite` bez
+`BoardCellGeometryDeferredWriter`. Dzięki temu wykonuje produkcyjne discovery,
+normalizację, geometrię strony, fixed/structured geometrię komórek i finalne
+cropy, ale nie może zapisać kolejki ręcznej. Dopiero zaliczony raport pozwala
+wywołać `register_files` i uruchomić właściwy `ImageBatchHandler`.
+
+Raport `image-geometry-systemic-guard-v1` jest artefaktem append-only pod
+identyfikatorem joba. Jego fingerprint zawiera obie checksumy manifestów,
+fingerprint pipeline'u i listę próby. Checkpoint przechowuje checksumę raportu,
+pokrycie 3×3, skuteczność końcowej siatki 3×5 i liczbę naruszeń. Każdy późniejszy
+checkpoint zachowuje ten dowód, więc UI i restart widzą ten sam wynik.
+
+Nowe joby zapisują `image-geometry-systemic-guard-report-v2`. Każdy element
+`sources[].boards[]` ma deterministyczne `positionIndex` i `sequenceNumber`,
+status `ready|deferred`, pełną listę powodów oraz nieprzetworzone, JSON-owe
+dowody dostępne w produkcyjnych checkpointach. Raport nie uruchamia osobnego
+estymatora i nie tworzy rekordów domenowych. Adapter bramki jedynie zachowuje
+dane, które v1 redukował do liczników. Konwersja audytowa v1→v2 weryfikuje
+checksumę starego raportu i identyczność wybranych źródeł; jej wynik jest nowym
+content-addressed artefaktem, a nie mutacją joba historycznego.
+
+Konwersję uruchamia oddzielny `validate` job rodzaju
+`image_geometry_guard_report_reconstruction`. Jego wejście wiąże źródłowy
+failed import, staging i checksumy trzech niezmiennych dowodów. Handler ładuje
+istniejący managed-original manifest w trybie read-only, odtwarza produkcyjny
+adapter suite z historycznych snapshotów i wykonuje wyłącznie zapisaną próbkę.
+Raport trafia do
+`data/image-geometry-guards/derived/<prefix>/<report-sha256>.json`, a descriptor
+zostaje w checkpointcie joba rekonstrukcji.
+
+Repozytorium kolejki wyszukuje wyłącznie zakończony job rekonstrukcji o tym
+samym źródłowym jobie, stagingu i checksumie v1. Warstwa aplikacyjna ponownie
+sprawdza descriptor, content-addressed envelope, `derivedFrom...` i `jobId`.
+Pierwotny checkpoint oraz `data/image-geometry-guards/<source-job>.json` nie są
+aktualizowane.
+
+Rozliczenia operatora są przechowywane w
+`image_import_geometry_guard_decisions` jako append-only rewizje. Baza chroni
+zakres slotu, checksumy i rozłączną semantykę full/partial/rejected, a warstwa
+domenowa dodatkowo wymusza unikalną, rosnącą maskę komórek. Atomowy command
+może obejmować wiele slotów, lecz tylko jedną checksumę źródła.
+
+Zamknięty manifest rozliczeń jest zapisany w zarządzanej przestrzeni
+`data/image-geometry-guard-resolutions/<prefix>/<sha256>.json` oraz w rejestrze
+SQL. Nie jest zgodą na automatyczną mutację failed joba; stanowi przypinane
+wejście nowego browser-import schema v7.
+
+API wiąże descriptor manifestu rozliczeń z dokładnym stagingiem, manifestem
+źródeł i manifestem geometrii strony jeszcze przed utworzeniem joba. Worker
+nie ufa samemu descriptorowi: odczytuje artefakt wyłącznie z zarządzanej
+przestrzeni, sprawdza SHA-256, proweniencję, kolejność, numery sekwencji oraz
+checksumę każdej decyzji. Następnie zachowuje surowy wynik bramki i wykonuje
+osobną walidację skutecznego rozliczenia. Zbiór kluczy `(source checksum,
+positionIndex)` musi dokładnie odpowiadać odroczonym slotom raportu.
+
+`corrected_full` podmienia wyłącznie końcowy quad danego slotu i przechodzi
+pełny produkcyjny tor. `partial` używa tego samego quada, lecz renderer pomija
+indeksy z maski i utrwala sparse observations z zachowanymi logicznymi
+indeksami 0..14. Taki recognized board pozostaje niekanoniczny i nie blokuje
+ukończenia źródła. `rejected` jest usuwany z projekcji plansz przed renderem,
+więc nie powstaje recognized board ani crop. Historyczne schema v5 i
+reprocess schema v6 zachowują własne snapshoty i nie ładują manifestu v7.
+
+Admin pobiera jeden spójny projection kolejki: `boards` zawiera wszystkie
+sloty raportu dla źródeł z wyjątkami, `targets` tylko sloty `deferred`, a
+`decisions` najnowsze append-only rewizje. Dzięki temu zielone sloty pozostają
+kontekstem wizualnym i nie stają się przypadkowo celami mutacji. Obraz źródła
+jest serwowany wyłącznie po ponownym sprawdzeniu stagingu, rozmiaru i SHA-256.
+
+Podgląd decyzji jest czystą, ograniczoną operacją API: rektyfikuje wskazany
+quad do siatki 5×3 w pamięci, porównuje go z propozycją raportu, pomija komórki
+maski częściowej i zwraca małe JPEG data URLs. Nie zapisuje plików, obserwacji
+ani geometrii. Zapis decyzji oraz zamknięcie manifestu pozostają osobnymi
+operacjami, a zmiana rewizji po zamknięciu wymaga ponownego seal i nowej
+checksummy przypiętej do startu schema v7.
 
 ### Przyrostowe kotwice preflightu strony
 
@@ -174,6 +382,13 @@ profilu bazowego. Obejmuje wyłącznie wyniki kompletne, które przeszły
 zaostrzoną bramkę, ma ograniczenie dwóch przebiegów i 21 nowych kotwic na
 przebieg. Dzięki temu kolejne kąty kamery mogą zostać rozwiązane automatycznie,
 ale błąd nie propaguje się przez obniżanie bramek ani syntetyczną geometrię.
+
+Kotwica ręcznego cold-startu jest rozwiązywana względem niezmiennego manifestu
+bieżącego stagingu, zanim powstanie managed original. Loader używa kolejno
+pliku stagingowego o tej samej checksumie i historycznego content-addressed
+originalu. Ta kolejność dotyczy również pierwszej instancji rejestratora, nie
+tylko kolejnych przebiegów auto-kotwic. Brak źródła bieżącego i utrata
+historycznej kotwicy pozostają odrębnymi błędami fail-closed.
 
 Manifest końcowy jest również planem częściowego wykonania: `registered`
 wchodzi do pipeline'u, `review_required` pozostaje w stagingu do późniejszego
@@ -215,8 +430,26 @@ Końcowy raport rollout'u oraz przypięte checksumy benchmarków znajdują się 
 
 ## Model neuronowy — ścieżka awaryjna
 
-Jeżeli kalibracja nie osiąga akceptowalnej jakości, te same niezmienne kohorty
-stają się datasetem `image -> four corners`. Przyszły model otrzyma augmentacje
-perspektywy, ekspozycji i częściowych zasłonięć wyłącznie w train. Bramka
-porówna go z aktywną kalibracją na odseparowanych sesjach; aktywacja nadal
-pozostanie jawna i odwracalna.
+Jeżeli rejestracja 36-punktowa nie osiąga akceptowalnego pokrycia, te same
+niezmienne, kompletne źródła stają się datasetem `image -> 9 × 4 corners`.
+Prototyp keypointów pozostaje shadow-only do czasu osobnego odbioru jakości i
+wydajności. Nie wolno wracać do kontraktu `image -> four page corners`, bo nie
+opisuje niezależnego pochylenia dziewięciu plansz.
+
+## Test rejestracji obszaru plansz
+
+W formularzu preflightu operator może pozostawić `Standardowe v0.10` albo
+wybrać `Obszar plansz — testowe`. Wybór jest częścią niezmiennego wejścia runu;
+retry nie może go zmienić. Wariant testowy maskuje cechy kotwicy, ale nadal
+przeszukuje całe zdjęcie docelowe i nie uruchamia dodatkowego przebiegu.
+
+Odbiór ograniczony wykazał gorsze pokrycie i narzut 26,67%, dlatego wariant nie
+jest produkcyjnym domyślnym ustawieniem. Brak poprawy nie może prowadzić do
+obniżania bramek ani użycia syntetycznych quadów.
+
+Aby później porównać oryginał z ciaśniejszym katalogiem `cut`, należy utworzyć
+dwa oddzielne stagingi i dwa nowe preflighty z tym samym wariantem, profilem i
+wersją progów. Porównuje się źródła odpowiadające tym samym zakresom oraz raport
+przyczyn odrzucenia. Ponowne przetworzenie starego importu nadal korzysta z
+jego managed originals; pliki `cut` wymagają nowego importu i własnego
+fingerprintu.

@@ -24,6 +24,7 @@ from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
     GameSymbolModelActivationModel,
+    ImageGeometryRolloutStateModel,
     ImageReviewItemModel,
     ImageSymbolReviewCellModel,
     ImageSymbolReviewEventModel,
@@ -82,6 +83,17 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             expected_layout_count=expected_layout_count,
         )
         self._session.add(record)
+        self._flush_or_raise_conflict()
+        self._session.add(
+            ImageGeometryRolloutStateModel(
+                game_id=record.id,
+                geometry_mode="legacy",
+                cell_asset_mode="legacy_files",
+                revision=0,
+                backfill_status="not_started",
+                updated_by="system:catalog-game-create",
+            )
+        )
         self._flush_or_raise_conflict()
         self._session.refresh(record)
         return _to_game(record)

@@ -1,14 +1,13 @@
 'use client';
 
 import type {
-  ResolveUnreadableCellRequest,
+  SaveUnreadableBoardRequest,
   SymbolResponse,
-  UnreadableBoardReviewCellResponse,
   UnreadableBoardReviewDetailResponse,
   UnreadableBoardReviewPageResponse,
   UnreadableBoardReviewView,
 } from '@game-predictor/admin-api-client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
@@ -16,7 +15,7 @@ import {
   loadUnreadableBoardDetail,
   loadUnreadableBoardPage,
   loadUnreadableBoardSymbols,
-  resolveUnreadableCell,
+  saveUnreadableBoard,
 } from './unreadable-board-review-actions';
 import styles from './unreadable-board-review-workspace.module.css';
 
@@ -25,15 +24,25 @@ interface Props {
   readonly gameId: string;
 }
 
+const UNKNOWN_SELECTION = '__unknown__';
+
 function initialCellSelections(
   detail: UnreadableBoardReviewDetailResponse,
-  symbols: readonly SymbolResponse[],
 ): Record<number, string> {
   return Object.fromEntries(
     detail.cells.map((cell) => [
       cell.cellIndex,
-      cell.assignedSymbolId ?? symbols[0]?.id ?? '',
+      cell.assignedSymbolId ?? UNKNOWN_SELECTION,
     ]),
+  );
+}
+
+function hasPendingUnreadable(
+  detail: UnreadableBoardReviewDetailResponse,
+): boolean {
+  return detail.cells.some(
+    (cell) =>
+      cell.qualityIssue === 'unreadable' && cell.reviewState === 'pending',
   );
 }
 
@@ -42,6 +51,7 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
     () => createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl],
   );
+  const requestVersion = useRef(0);
   const [view, setView] = useState<UnreadableBoardReviewView>('pending');
   const [page, setPage] = useState<UnreadableBoardReviewPageResponse | null>(
     null,
@@ -56,25 +66,37 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
     readonly (string | undefined)[]
   >([undefined]);
   const [loading, setLoading] = useState(true);
-  const [savingCell, setSavingCell] = useState<number | null>(null);
+  const [savingBoard, setSavingBoard] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadPage = useCallback(
-    async (cursor?: string) => {
+    async ({
+      currentView,
+      cursor,
+    }: {
+      currentView: UnreadableBoardReviewView;
+      cursor?: string;
+    }) => {
+      const currentRequest = ++requestVersion.current;
       setLoading(true);
       setError(null);
-      const result = await loadUnreadableBoardPage(api, gameId, view, cursor);
+      setPage(null);
+      setDetail(null);
+      const result = await loadUnreadableBoardPage(
+        api,
+        gameId,
+        currentView,
+        cursor,
+      );
+      if (currentRequest !== requestVersion.current) return;
       if (!result.ok) {
         setError(result.error);
-        setPage(null);
-        setDetail(null);
         setLoading(false);
         return;
       }
       setPage(result.page);
       const first = result.page.items[0];
       if (first === undefined) {
-        setDetail(null);
         setLoading(false);
         return;
       }
@@ -83,16 +105,16 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
         gameId,
         first.reviewItemId,
       );
+      if (currentRequest !== requestVersion.current) return;
       if (detailResult.ok) {
         setDetail(detailResult.detail);
-        setSelectedByCell(initialCellSelections(detailResult.detail, symbols));
+        setSelectedByCell(initialCellSelections(detailResult.detail));
       } else {
         setError(detailResult.error);
-        setDetail(null);
       }
       setLoading(false);
     },
-    [api, gameId, symbols, view],
+    [api, gameId],
   );
 
   useEffect(() => {
@@ -112,83 +134,71 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
     void Promise.resolve().then(() => {
       if (cancelled) return;
       setCursorHistory([undefined]);
-      void loadPage();
+      void loadPage({ currentView: view });
     });
     return () => {
       cancelled = true;
     };
-  }, [loadPage]);
+  }, [loadPage, view]);
 
   async function openBoard(reviewItemId: string) {
+    const currentRequest = ++requestVersion.current;
     setLoading(true);
     setError(null);
     const result = await loadUnreadableBoardDetail(api, gameId, reviewItemId);
+    if (currentRequest !== requestVersion.current) return;
     if (result.ok) {
       setDetail(result.detail);
-      setSelectedByCell(initialCellSelections(result.detail, symbols));
-    } else setError(result.error);
+      setSelectedByCell(initialCellSelections(result.detail));
+    } else {
+      setError(result.error);
+    }
     setLoading(false);
   }
 
-  async function resolveCell(
-    cell: UnreadableBoardReviewCellResponse,
-    unknown: boolean,
-  ) {
-    if (detail === null || savingCell !== null) return;
-    const targetSymbolId = selectedByCell[cell.cellIndex];
-    if (!unknown && !targetSymbolId) return;
-    const assignment: ResolveUnreadableCellRequest['assignment'] = unknown
-      ? { kind: 'unknown' }
-      : { kind: 'symbol', symbolId: targetSymbolId };
-    setSavingCell(cell.cellIndex);
-    setError(null);
-    const result = await resolveUnreadableCell(
-      api,
-      gameId,
-      detail.reviewItemId,
-      cell.cellIndex,
-      {
-        assignment,
-        expectedCropChecksumSha256: cell.cropChecksumSha256,
-        expectedCropSampleId: cell.cropSampleId,
-        expectedGeometryRevision: cell.geometryRevision,
-        expectedRevision: cell.revision,
-      },
-    );
-    if (!result.ok) {
-      setError(result.error ?? 'Nie udało się zapisać decyzji.');
-      setSavingCell(null);
-      return;
-    }
-    const refreshed = await loadUnreadableBoardDetail(
-      api,
-      gameId,
-      detail.reviewItemId,
-    );
-    if (refreshed.ok) {
-      setDetail(refreshed.detail);
-      if (
-        view === 'pending' &&
-        !refreshed.detail.cells.some(
-          (candidate) =>
-            candidate.qualityIssue === 'unreadable' &&
-            candidate.reviewState === 'pending',
-        )
-      ) {
-        await loadPage(cursorHistory.at(-1));
-      }
-    } else {
-      await loadPage(cursorHistory.at(-1));
-    }
-    setSavingCell(null);
-  }
-
+  const canSave = detail !== null && hasPendingUnreadable(detail);
+  const busy = loading || savingBoard;
   const activeIndex =
     detail === null
       ? -1
       : (page?.items.findIndex(
           (item) => item.reviewItemId === detail.reviewItemId,
         ) ?? -1);
+
+  async function saveBoard() {
+    if (detail === null || !canSave || savingBoard) return;
+    const cells = detail.cells.map((cell) => {
+      const selected = selectedByCell[cell.cellIndex];
+      if (selected === undefined) return null;
+      return {
+        assignment:
+          selected === UNKNOWN_SELECTION
+            ? ({ kind: 'unknown' } as const)
+            : ({ kind: 'symbol', symbolId: selected } as const),
+        cellIndex: cell.cellIndex,
+        expectedCropChecksumSha256: cell.cropChecksumSha256,
+        expectedCropSampleId: cell.cropSampleId,
+        expectedGeometryRevision: cell.geometryRevision,
+        expectedRevision: cell.revision,
+      };
+    });
+    if (cells.some((cell) => cell === null)) {
+      setError('Wybierz symbol albo ? dla każdego pola planszy.');
+      return;
+    }
+    setSavingBoard(true);
+    setError(null);
+    const result = await saveUnreadableBoard(api, gameId, detail.reviewItemId, {
+      cells: cells as SaveUnreadableBoardRequest['cells'],
+    });
+    if (!result.ok) {
+      setError(result.error ?? 'Nie udało się zapisać planszy.');
+      setSavingBoard(false);
+      return;
+    }
+    await loadPage({ currentView: view, cursor: cursorHistory.at(-1) });
+    setSavingBoard(false);
+  }
 
   return (
     <section
@@ -200,14 +210,15 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
           <p className="eyebrow">Ręczne rozstrzygnięcie</p>
           <h3 id="unreadable-board-title">Weryfikacja symbolu na planszy</h3>
           <p>
-            Słaby crop pozostaje poza treningiem. Możesz przypisać rzeczywisty
-            symbol albo logiczne <strong>?</strong>.
+            Edytujesz całą planszę, a zapis jest atomowy. Wybór{' '}
+            <strong>?</strong> oznacza nieczytelny crop bez katalogowego symbolu
+            i wyklucza go z treningu.
           </p>
         </div>
         <label>
           Widok
           <select
-            disabled={savingCell !== null}
+            disabled={busy}
             onChange={(event) => {
               setCursorHistory([undefined]);
               setView(event.target.value as UnreadableBoardReviewView);
@@ -221,7 +232,7 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
       </header>
 
       {error !== null ? <p className={styles.error}>{error}</p> : null}
-      {loading && detail === null ? <p>Ładowanie kolejki…</p> : null}
+      {loading ? <p>Ładowanie kolejki…</p> : null}
       {!loading && page?.items.length === 0 ? (
         <div className={styles.empty}>
           <strong>Brak plansz w tym widoku</strong>
@@ -239,13 +250,17 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
               aria-current={
                 detail?.reviewItemId === item.reviewItemId ? 'true' : undefined
               }
-              disabled={savingCell !== null}
+              disabled={busy}
               key={item.reviewItemId}
               onClick={() => void openBoard(item.reviewItemId)}
               type="button"
             >
               <strong>Plansza {item.sequenceNumber}</strong>
-              <span>{item.pendingUnreadableCount} do ustalenia</span>
+              <span>
+                {view === 'pending'
+                  ? `${item.pendingUnreadableCount} do ustalenia`
+                  : `${item.unreadableCount} nieczytelnych`}
+              </span>
             </button>
           ))}
         </nav>
@@ -255,7 +270,7 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
         <>
           <div className={styles.boardHeader}>
             <button
-              disabled={activeIndex <= 0 || savingCell !== null}
+              disabled={activeIndex <= 0 || busy}
               onClick={() => {
                 const item = page?.items[activeIndex - 1];
                 if (item !== undefined) void openBoard(item.reviewItemId);
@@ -270,7 +285,7 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
                 page === null ||
                 activeIndex < 0 ||
                 activeIndex >= page.items.length - 1 ||
-                savingCell !== null
+                busy
               }
               onClick={() => {
                 const item = page?.items[activeIndex + 1];
@@ -289,7 +304,8 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
           >
             {detail.cells.map((cell) => {
               const unreadable = cell.qualityIssue === 'unreadable';
-              const pending = unreadable && cell.reviewState === 'pending';
+              const selected =
+                selectedByCell[cell.cellIndex] ?? UNKNOWN_SELECTION;
               return (
                 <article className={styles.cell} key={cell.cellReviewId}>
                   {/* The API already returns a checksum-bound 100 px thumbnail. */}
@@ -306,79 +322,72 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
                   <span className={styles.position}>
                     R{cell.rowIndex + 1} / K{cell.columnIndex + 1}
                   </span>
-                  {pending ? (
-                    <>
-                      <select
-                        aria-label={`Symbol pola ${cell.cellIndex + 1}`}
-                        disabled={savingCell !== null}
-                        onChange={(event) =>
-                          setSelectedByCell((current) => ({
-                            ...current,
-                            [cell.cellIndex]: event.target.value,
-                          }))
-                        }
-                        value={selectedByCell[cell.cellIndex] ?? ''}
-                      >
-                        {symbols.map((symbol) => (
-                          <option key={symbol.id} value={symbol.id}>
-                            {symbol.name}
-                          </option>
-                        ))}
-                      </select>
-                      <div className={styles.actions}>
-                        <button
-                          disabled={
-                            savingCell !== null ||
-                            !selectedByCell[cell.cellIndex]
-                          }
-                          onClick={() => void resolveCell(cell, false)}
-                          type="button"
-                        >
-                          {savingCell === cell.cellIndex
-                            ? 'Zapisywanie…'
-                            : 'Przypisz'}
-                        </button>
-                        <button
-                          disabled={savingCell !== null}
-                          onClick={() => void resolveCell(cell, true)}
-                          type="button"
-                        >
-                          Ustaw ?
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <strong>{cell.assignedSymbolName ?? '?'}</strong>
-                  )}
+                  <select
+                    aria-label={`Symbol pola ${cell.cellIndex + 1}`}
+                    disabled={!canSave || busy}
+                    onChange={(event) =>
+                      setSelectedByCell((current) => ({
+                        ...current,
+                        [cell.cellIndex]: event.target.value,
+                      }))
+                    }
+                    value={selected}
+                  >
+                    <option value={UNKNOWN_SELECTION}>?</option>
+                    {symbols.map((symbol) => (
+                      <option key={symbol.id} value={symbol.id}>
+                        {symbol.name}
+                      </option>
+                    ))}
+                  </select>
                   {unreadable ? (
                     <small>Nieczytelny · poza treningiem</small>
-                  ) : null}
+                  ) : (
+                    <small>Aktualny crop</small>
+                  )}
                 </article>
               );
             })}
+          </div>
+          <div className={styles.saveBar}>
+            <p>
+              {canSave
+                ? `Zapis obejmie wszystkie ${detail.cells.length} pól widocznych na tej planszy.`
+                : 'Ta plansza jest już rozstrzygnięta; w tym widoku pozostaje tylko do odczytu.'}
+            </p>
+            <button
+              disabled={!canSave || busy}
+              onClick={() => void saveBoard()}
+              type="button"
+            >
+              {savingBoard ? 'Zapisywanie…' : 'Zapisz i zatwierdź planszę'}
+            </button>
           </div>
         </>
       ) : null}
 
       <footer className={styles.pagination}>
         <button
-          disabled={cursorHistory.length <= 1 || savingCell !== null}
+          disabled={cursorHistory.length <= 1 || busy}
           onClick={() => {
             const nextHistory = cursorHistory.slice(0, -1);
             setCursorHistory(nextHistory);
-            void loadPage(nextHistory.at(-1));
+            void loadPage({
+              currentView: view,
+              cursor: nextHistory.at(-1),
+            });
           }}
           type="button"
         >
           Poprzednia strona
         </button>
         <button
-          disabled={page?.nextCursor == null || savingCell !== null}
+          disabled={page?.nextCursor == null || busy}
           onClick={() => {
             const cursor = page?.nextCursor;
             if (cursor === null || cursor === undefined) return;
             setCursorHistory((current) => [...current, cursor]);
-            void loadPage(cursor);
+            void loadPage({ currentView: view, cursor });
           }}
           type="button"
         >

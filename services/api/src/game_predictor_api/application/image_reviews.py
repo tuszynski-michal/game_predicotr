@@ -85,6 +85,7 @@ class PendingGridReinferencePreview:
     recalculable_board_count: int
     current_v19_board_count: int
     protected_board_count: int
+    unsupported_virtual_board_count: int
     pending_source_count: int
     partially_resolved_source_count: int
     fully_resolved_source_count: int

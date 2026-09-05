@@ -9,6 +9,9 @@ import type {
 } from './client';
 import { client } from './client.gen';
 import type {
+  AcknowledgeSemiAutomaticImageSelectionOutputData,
+  AcknowledgeSemiAutomaticImageSelectionOutputErrors,
+  AcknowledgeSemiAutomaticImageSelectionOutputResponses,
   ActivateGridProfileData,
   ActivateGridProfileErrors,
   ActivateGridProfileResponses,
@@ -24,6 +27,9 @@ import type {
   ApproveImageGridReviewGeometryData,
   ApproveImageGridReviewGeometryErrors,
   ApproveImageGridReviewGeometryResponses,
+  ApproveImageGridReviewSourceGeometryData,
+  ApproveImageGridReviewSourceGeometryErrors,
+  ApproveImageGridReviewSourceGeometryResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -51,6 +57,9 @@ import type {
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
+  CancelSemiAutomaticImageSelectionData,
+  CancelSemiAutomaticImageSelectionErrors,
+  CancelSemiAutomaticImageSelectionResponses,
   CloseReviewerWorkAssignmentData,
   CloseReviewerWorkAssignmentErrors,
   CloseReviewerWorkAssignmentResponses,
@@ -78,9 +87,15 @@ import type {
   CreateImageFolderImportData,
   CreateImageFolderImportErrors,
   CreateImageFolderImportResponses,
+  CreateImageGeometryGuardDecisionsData,
+  CreateImageGeometryGuardDecisionsErrors,
+  CreateImageGeometryGuardDecisionsResponses,
   CreateImageGridReviewGeometryRevisionData,
   CreateImageGridReviewGeometryRevisionErrors,
   CreateImageGridReviewGeometryRevisionResponses,
+  CreateImageGridReviewSourceGeometryRevisionData,
+  CreateImageGridReviewSourceGeometryRevisionErrors,
+  CreateImageGridReviewSourceGeometryRevisionResponses,
   CreateImageSelectionData,
   CreateImageSelectionErrors,
   CreateImageSelectionResponses,
@@ -123,21 +138,39 @@ import type {
   CreateRulesVersionData,
   CreateRulesVersionErrors,
   CreateRulesVersionResponses,
+  CreateSemiAutomaticImageSelectionData,
+  CreateSemiAutomaticImageSelectionErrors,
+  CreateSemiAutomaticImageSelectionResponses,
   CreateStorageGcPreviewData,
   CreateStorageGcPreviewErrors,
   CreateStorageGcPreviewResponses,
+  CreateSymbolCellPreviewBatchData,
+  CreateSymbolCellPreviewBatchErrors,
+  CreateSymbolCellPreviewBatchResponses,
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
   CreateSymbolTrainingData,
   CreateSymbolTrainingErrors,
   CreateSymbolTrainingResponses,
+  CreateVirtualCellPreviewBatchData,
+  CreateVirtualCellPreviewBatchErrors,
+  CreateVirtualCellPreviewBatchResponses,
+  DecideSemiAutomaticFilenameRangeVerificationData,
+  DecideSemiAutomaticFilenameRangeVerificationErrors,
+  DecideSemiAutomaticFilenameRangeVerificationResponses,
+  DeleteBoardSourceRangesData,
+  DeleteBoardSourceRangesErrors,
+  DeleteBoardSourceRangesResponses,
   DeleteCancelledImageSelectionJobData,
   DeleteCancelledImageSelectionJobErrors,
   DeleteCancelledImageSelectionJobResponses,
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
+  DeleteSemiAutomaticFilenameVerificationHistoryData,
+  DeleteSemiAutomaticFilenameVerificationHistoryErrors,
+  DeleteSemiAutomaticFilenameVerificationHistoryResponses,
   DeleteSymbolData,
   DeleteSymbolErrors,
   DeleteSymbolResponses,
@@ -194,9 +227,18 @@ import type {
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
+  GetImageGeometryGuardSourceAssetData,
+  GetImageGeometryGuardSourceAssetErrors,
+  GetImageGeometryGuardSourceAssetResponses,
+  GetImageGeometryRolloutStatusData,
+  GetImageGeometryRolloutStatusErrors,
+  GetImageGeometryRolloutStatusResponses,
   GetImageGridReviewSourceAssetData,
   GetImageGridReviewSourceAssetErrors,
   GetImageGridReviewSourceAssetResponses,
+  GetImageImportEnginePolicyData,
+  GetImageImportEnginePolicyErrors,
+  GetImageImportEnginePolicyResponses,
   GetImageJobOperationsData,
   GetImageJobOperationsErrors,
   GetImageJobOperationsResponses,
@@ -304,15 +346,32 @@ import type {
   GetRulesVersionData,
   GetRulesVersionErrors,
   GetRulesVersionResponses,
+  GetSemiAutomaticImageSelectionCapabilitiesData,
+  GetSemiAutomaticImageSelectionCapabilitiesResponses,
+  GetSemiAutomaticImageSelectionData,
+  GetSemiAutomaticImageSelectionDiagnosticsData,
+  GetSemiAutomaticImageSelectionDiagnosticsErrors,
+  GetSemiAutomaticImageSelectionDiagnosticsResponses,
+  GetSemiAutomaticImageSelectionErrors,
+  GetSemiAutomaticImageSelectionResponses,
+  GetSemiAutomaticImageSelectionSourceAssetData,
+  GetSemiAutomaticImageSelectionSourceAssetErrors,
+  GetSemiAutomaticImageSelectionSourceAssetResponses,
   GetStorageGcRunData,
   GetStorageGcRunErrors,
   GetStorageGcRunResponses,
+  GetSymbolCellPreviewAtlasData,
+  GetSymbolCellPreviewAtlasErrors,
+  GetSymbolCellPreviewAtlasResponses,
   GetSymbolCellReviewAssetData,
   GetSymbolCellReviewAssetErrors,
   GetSymbolCellReviewAssetResponses,
   GetSymbolCellReviewBulkOperationData,
   GetSymbolCellReviewBulkOperationErrors,
   GetSymbolCellReviewBulkOperationResponses,
+  GetSymbolCellReviewCountsData,
+  GetSymbolCellReviewCountsErrors,
+  GetSymbolCellReviewCountsResponses,
   GetSymbolCellReviewProjectionStatusData,
   GetSymbolCellReviewProjectionStatusErrors,
   GetSymbolCellReviewProjectionStatusResponses,
@@ -328,6 +387,9 @@ import type {
   GetUnreadableBoardReviewData,
   GetUnreadableBoardReviewErrors,
   GetUnreadableBoardReviewResponses,
+  GetVirtualCellPreviewAtlasData,
+  GetVirtualCellPreviewAtlasErrors,
+  GetVirtualCellPreviewAtlasResponses,
   HandoffImageSelectionData,
   HandoffImageSelectionErrors,
   HandoffImageSelectionResponses,
@@ -369,6 +431,9 @@ import type {
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
+  ListImageGeometryGuardBoardsData,
+  ListImageGeometryGuardBoardsErrors,
+  ListImageGeometryGuardBoardsResponses,
   ListImageGridReviewsData,
   ListImageGridReviewsErrors,
   ListImageGridReviewsResponses,
@@ -439,6 +504,15 @@ import type {
   ListRulesVersionSymbolsData,
   ListRulesVersionSymbolsErrors,
   ListRulesVersionSymbolsResponses,
+  ListSemiAutomaticFilenameRangeVerificationsData,
+  ListSemiAutomaticFilenameRangeVerificationsErrors,
+  ListSemiAutomaticFilenameRangeVerificationsResponses,
+  ListSemiAutomaticImageSelectionRangesData,
+  ListSemiAutomaticImageSelectionRangesErrors,
+  ListSemiAutomaticImageSelectionRangesResponses,
+  ListSemiAutomaticImageSelectionsData,
+  ListSemiAutomaticImageSelectionsErrors,
+  ListSemiAutomaticImageSelectionsResponses,
   ListSymbolCellReviewsData,
   ListSymbolCellReviewsErrors,
   ListSymbolCellReviewsResponses,
@@ -465,15 +539,30 @@ import type {
   OpenOnlineReviewerWorkData,
   OpenOnlineReviewerWorkErrors,
   OpenOnlineReviewerWorkResponses,
+  PauseSemiAutomaticImageSelectionData,
+  PauseSemiAutomaticImageSelectionErrors,
+  PauseSemiAutomaticImageSelectionResponses,
+  PlanBrowserImageSelectionUploadData,
+  PlanBrowserImageSelectionUploadErrors,
+  PlanBrowserImageSelectionUploadResponses,
+  PreviewBoardSourceCleanupData,
+  PreviewBoardSourceCleanupErrors,
+  PreviewBoardSourceCleanupResponses,
   PreviewGameLayoutDataResetData,
   PreviewGameLayoutDataResetErrors,
   PreviewGameLayoutDataResetResponses,
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
+  PreviewImageGeometryGuardDecisionData,
+  PreviewImageGeometryGuardDecisionErrors,
+  PreviewImageGeometryGuardDecisionResponses,
   PreviewImageGridReviewGeometryData,
   PreviewImageGridReviewGeometryErrors,
   PreviewImageGridReviewGeometryResponses,
+  PreviewImageImportEnginePolicyData,
+  PreviewImageImportEnginePolicyErrors,
+  PreviewImageImportEnginePolicyResponses,
   PreviewImageSelectionRangeRecoveryData,
   PreviewImageSelectionRangeRecoveryErrors,
   PreviewImageSelectionRangeRecoveryResponses,
@@ -567,6 +656,9 @@ import type {
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
+  ResumeSemiAutomaticImageSelectionData,
+  ResumeSemiAutomaticImageSelectionErrors,
+  ResumeSemiAutomaticImageSelectionResponses,
   RetryImageJobFileData,
   RetryImageJobFileErrors,
   RetryImageJobFileResponses,
@@ -585,6 +677,12 @@ import type {
   RollbackSymbolModelData,
   RollbackSymbolModelErrors,
   RollbackSymbolModelResponses,
+  SaveUnreadableBoardReviewData,
+  SaveUnreadableBoardReviewErrors,
+  SaveUnreadableBoardReviewResponses,
+  SealImageGeometryGuardResolutionManifestData,
+  SealImageGeometryGuardResolutionManifestErrors,
+  SealImageGeometryGuardResolutionManifestResponses,
   SearchGameBoardsData,
   SearchGameBoardsErrors,
   SearchGameBoardsResponses,
@@ -603,6 +701,12 @@ import type {
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
+  StartImageGeometryGuardReportReconstructionData,
+  StartImageGeometryGuardReportReconstructionErrors,
+  StartImageGeometryGuardReportReconstructionResponses,
+  StartImageGeometryRolloutBackfillData,
+  StartImageGeometryRolloutBackfillErrors,
+  StartImageGeometryRolloutBackfillResponses,
   StartLocalReviewerData,
   StartLocalReviewerErrors,
   StartLocalReviewerResponses,
@@ -642,6 +746,9 @@ import type {
   UpdateGameData,
   UpdateGameErrors,
   UpdateGameResponses,
+  UpdateImageImportEnginePolicyData,
+  UpdateImageImportEnginePolicyErrors,
+  UpdateImageImportEnginePolicyResponses,
   UpdatePaylineData,
   UpdatePaylineErrors,
   UpdatePaylineResponses,
@@ -873,6 +980,54 @@ export const searchGameBoards = <ThrowOnError extends boolean = false>(
   >({ url: '/api/v1/admin/games/{game_id}/board-search', ...options });
 
 /**
+ * Preview deletion of complete image-source ranges selected by board number
+ */
+export const previewBoardSourceCleanup = <ThrowOnError extends boolean = false>(
+  options: Options<PreviewBoardSourceCleanupData, ThrowOnError>,
+): RequestResult<
+  PreviewBoardSourceCleanupResponses,
+  PreviewBoardSourceCleanupErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewBoardSourceCleanupResponses,
+    PreviewBoardSourceCleanupErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-source-cleanup-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete complete image-source ranges and their dependent board data
+ */
+export const deleteBoardSourceRanges = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteBoardSourceRangesData, ThrowOnError>,
+): RequestResult<
+  DeleteBoardSourceRangesResponses,
+  DeleteBoardSourceRangesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteBoardSourceRangesResponses,
+    DeleteBoardSourceRangesErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-sources',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * List game dataset versions
  */
 export const listDatasetVersions = <ThrowOnError extends boolean = false>(
@@ -953,6 +1108,10 @@ export const createGridCalibrationCandidate = <
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles',
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -1081,6 +1240,177 @@ export const listImageGridReviews = <ThrowOnError extends boolean = false>(
     ListImageGridReviewsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/grid-reviews', ...options });
+
+/**
+ * Atomically approve every current board geometry of one source image
+ */
+export const approveImageGridReviewSourceGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApproveImageGridReviewSourceGeometryData, ThrowOnError>,
+): RequestResult<
+  ApproveImageGridReviewSourceGeometryResponses,
+  ApproveImageGridReviewSourceGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApproveImageGridReviewSourceGeometryResponses,
+    ApproveImageGridReviewSourceGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Atomically persist and approve manual geometry for every board of one source
+ */
+export const createImageGridReviewSourceGeometryRevision = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    CreateImageGridReviewSourceGeometryRevisionData,
+    ThrowOnError
+  >,
+): RequestResult<
+  CreateImageGridReviewSourceGeometryRevisionResponses,
+  CreateImageGridReviewSourceGeometryRevisionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateImageGridReviewSourceGeometryRevisionResponses,
+    CreateImageGridReviewSourceGeometryRevisionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get bounded virtual-geometry rollout validation status
+ */
+export const getImageGeometryRolloutStatus = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryRolloutStatusData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryRolloutStatusResponses,
+  GetImageGeometryRolloutStatusErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryRolloutStatusResponses,
+    GetImageGeometryRolloutStatusErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/image-geometry-rollout',
+    ...options,
+  });
+
+/**
+ * Start or resume bounded virtual-geometry rollout validation
+ */
+export const startImageGeometryRolloutBackfill = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartImageGeometryRolloutBackfillData, ThrowOnError>,
+): RequestResult<
+  StartImageGeometryRolloutBackfillResponses,
+  StartImageGeometryRolloutBackfillErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartImageGeometryRolloutBackfillResponses,
+    StartImageGeometryRolloutBackfillErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-geometry-rollout',
+    ...options,
+  });
+
+/**
+ * Get the safe engine policy for new image imports
+ */
+export const getImageImportEnginePolicy = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageImportEnginePolicyData, ThrowOnError>,
+): RequestResult<
+  GetImageImportEnginePolicyResponses,
+  GetImageImportEnginePolicyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageImportEnginePolicyResponses,
+    GetImageImportEnginePolicyErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/image-import-engine-policy',
+    ...options,
+  });
+
+/**
+ * Apply a previewed safe policy for future image imports
+ */
+export const updateImageImportEnginePolicy = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdateImageImportEnginePolicyData, ThrowOnError>,
+): RequestResult<
+  UpdateImageImportEnginePolicyResponses,
+  UpdateImageImportEnginePolicyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdateImageImportEnginePolicyResponses,
+    UpdateImageImportEnginePolicyErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-import-engine-policy',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview a safe per-game image engine policy change
+ */
+export const previewImageImportEnginePolicy = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewImageImportEnginePolicyData, ThrowOnError>,
+): RequestResult<
+  PreviewImageImportEnginePolicyResponses,
+  PreviewImageImportEnginePolicyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewImageImportEnginePolicyResponses,
+    PreviewImageImportEnginePolicyErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-import-engine-policy/preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * List durable board-cell geometry fallback items
@@ -1396,6 +1726,70 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Render a stable WebP atlas for current legacy or virtual symbol cells
+ */
+export const createSymbolCellPreviewBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateSymbolCellPreviewBatchData, ThrowOnError>,
+): RequestResult<
+  CreateSymbolCellPreviewBatchResponses,
+  CreateSymbolCellPreviewBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateSymbolCellPreviewBatchResponses,
+    CreateSymbolCellPreviewBatchErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-preview-batches',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one stable checksum-verified symbol preview atlas
+ */
+export const getSymbolCellPreviewAtlas = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolCellPreviewAtlasData, ThrowOnError>,
+): RequestResult<
+  GetSymbolCellPreviewAtlasResponses,
+  GetSymbolCellPreviewAtlasErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolCellPreviewAtlasResponses,
+    GetSymbolCellPreviewAtlasErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-preview-batches/{batch_key}/atlas',
+    ...options,
+  });
+
+/**
+ * Count one revision-bound symbol-cell review filter independently
+ */
+export const getSymbolCellReviewCounts = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolCellReviewCountsData, ThrowOnError>,
+): RequestResult<
+  GetSymbolCellReviewCountsResponses,
+  GetSymbolCellReviewCountsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolCellReviewCountsResponses,
+    GetSymbolCellReviewCountsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-counts',
+    ...options,
+  });
+
+/**
  * Start an idempotent local symbol-cell review operation
  */
 export const startSymbolCellReviewBulkOperation = <
@@ -1512,7 +1906,7 @@ export const startSymbolCellReviewProjectionBackfill = <
   });
 
 /**
- * List current symbol-cell reviews with bounded keyset pagination
+ * List current symbol-cell reviews with keyset pagination
  */
 export const listSymbolCellReviews = <ThrowOnError extends boolean = false>(
   options: Options<ListSymbolCellReviewsData, ThrowOnError>,
@@ -1958,6 +2352,30 @@ export const resolveUnreadableBoardReviewCell = <
   });
 
 /**
+ * Atomically save every visible symbol decision for one pending unreadable board
+ */
+export const saveUnreadableBoardReview = <ThrowOnError extends boolean = false>(
+  options: Options<SaveUnreadableBoardReviewData, ThrowOnError>,
+): RequestResult<
+  SaveUnreadableBoardReviewResponses,
+  SaveUnreadableBoardReviewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SaveUnreadableBoardReviewResponses,
+    SaveUnreadableBoardReviewErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}/save',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Freeze an immutable cumulative human-verified training cohort
  */
 export const freezeVerifiedTrainingCohort = <
@@ -2001,6 +2419,53 @@ export const previewVerifiedTrainingCohort = <
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/verified-training-cohorts/preview',
+    ...options,
+  });
+
+/**
+ * Render a bounded cached WebP atlas for current virtual symbol cells
+ */
+export const createVirtualCellPreviewBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateVirtualCellPreviewBatchData, ThrowOnError>,
+): RequestResult<
+  CreateVirtualCellPreviewBatchResponses,
+  CreateVirtualCellPreviewBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateVirtualCellPreviewBatchResponses,
+    CreateVirtualCellPreviewBatchErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one non-expired checksum-verified virtual preview atlas
+ */
+export const getVirtualCellPreviewAtlas = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetVirtualCellPreviewAtlasData, ThrowOnError>,
+): RequestResult<
+  GetVirtualCellPreviewAtlasResponses,
+  GetVirtualCellPreviewAtlasErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetVirtualCellPreviewAtlasResponses,
+    GetVirtualCellPreviewAtlasErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas',
     ...options,
   });
 
@@ -2065,6 +2530,32 @@ export const createBrowserImageSelection = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Filter fully imported seq_* sources before browser upload
+ */
+export const planBrowserImageSelectionUpload = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PlanBrowserImageSelectionUploadData, ThrowOnError>,
+): RequestResult<
+  PlanBrowserImageSelectionUploadResponses,
+  PlanBrowserImageSelectionUploadErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PlanBrowserImageSelectionUploadResponses,
+    PlanBrowserImageSelectionUploadErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/upload-plan',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -2159,6 +2650,155 @@ export const finalizeBrowserImageSelection = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize',
+    ...options,
+  });
+
+/**
+ * List board-level exceptions from a blocked large import
+ */
+export const listImageGeometryGuardBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListImageGeometryGuardBoardsData, ThrowOnError>,
+): RequestResult<
+  ListImageGeometryGuardBoardsResponses,
+  ListImageGeometryGuardBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListImageGeometryGuardBoardsResponses,
+    ListImageGeometryGuardBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/boards',
+    ...options,
+  });
+
+/**
+ * Append one atomic batch of board-level guard decisions
+ */
+export const createImageGeometryGuardDecisions = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateImageGeometryGuardDecisionsData, ThrowOnError>,
+): RequestResult<
+  CreateImageGeometryGuardDecisionsResponses,
+  CreateImageGeometryGuardDecisionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateImageGeometryGuardDecisionsResponses,
+    CreateImageGeometryGuardDecisionsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/decisions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Render transient crops for one full or partial guard decision
+ */
+export const previewImageGeometryGuardDecision = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewImageGeometryGuardDecisionData, ThrowOnError>,
+): RequestResult<
+  PreviewImageGeometryGuardDecisionResponses,
+  PreviewImageGeometryGuardDecisionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewImageGeometryGuardDecisionResponses,
+    PreviewImageGeometryGuardDecisionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Reconstruct immutable board diagnostics for a legacy guard report
+ */
+export const startImageGeometryGuardReportReconstruction = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    StartImageGeometryGuardReportReconstructionData,
+    ThrowOnError
+  >,
+): RequestResult<
+  StartImageGeometryGuardReportReconstructionResponses,
+  StartImageGeometryGuardReportReconstructionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartImageGeometryGuardReportReconstructionResponses,
+    StartImageGeometryGuardReportReconstructionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/report-reconstruction',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Seal all current decisions into an immutable import manifest
+ */
+export const sealImageGeometryGuardResolutionManifest = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SealImageGeometryGuardResolutionManifestData, ThrowOnError>,
+): RequestResult<
+  SealImageGeometryGuardResolutionManifestResponses,
+  SealImageGeometryGuardResolutionManifestErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SealImageGeometryGuardResolutionManifestResponses,
+    SealImageGeometryGuardResolutionManifestErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/resolution-manifests',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one checksum-bound staged source for guard review
+ */
+export const getImageGeometryGuardSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryGuardSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryGuardSourceAssetResponses,
+  GetImageGeometryGuardSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryGuardSourceAssetResponses,
+    GetImageGeometryGuardSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/sources/{source_checksum_sha256}/asset',
     ...options,
   });
 
@@ -4924,6 +5564,331 @@ export const updateRulesVersionSymbol = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List Runs
+ */
+export const listSemiAutomaticImageSelections = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListSemiAutomaticImageSelectionsData, ThrowOnError>,
+): RequestResult<
+  ListSemiAutomaticImageSelectionsResponses,
+  ListSemiAutomaticImageSelectionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSemiAutomaticImageSelectionsResponses,
+    ListSemiAutomaticImageSelectionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/semi-automatic-image-selections', ...options });
+
+/**
+ * Create Run
+ */
+export const createSemiAutomaticImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateSemiAutomaticImageSelectionData, ThrowOnError>,
+): RequestResult<
+  CreateSemiAutomaticImageSelectionResponses,
+  CreateSemiAutomaticImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateSemiAutomaticImageSelectionResponses,
+    CreateSemiAutomaticImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Capabilities
+ */
+export const getSemiAutomaticImageSelectionCapabilities = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    GetSemiAutomaticImageSelectionCapabilitiesData,
+    ThrowOnError
+  >,
+): RequestResult<
+  GetSemiAutomaticImageSelectionCapabilitiesResponses,
+  unknown,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetSemiAutomaticImageSelectionCapabilitiesResponses,
+    unknown,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/capabilities',
+    ...options,
+  });
+
+/**
+ * Get Run
+ */
+export const getSemiAutomaticImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSemiAutomaticImageSelectionData, ThrowOnError>,
+): RequestResult<
+  GetSemiAutomaticImageSelectionResponses,
+  GetSemiAutomaticImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSemiAutomaticImageSelectionResponses,
+    GetSemiAutomaticImageSelectionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}',
+    ...options,
+  });
+
+/**
+ * Cancel
+ */
+export const cancelSemiAutomaticImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CancelSemiAutomaticImageSelectionData, ThrowOnError>,
+): RequestResult<
+  CancelSemiAutomaticImageSelectionResponses,
+  CancelSemiAutomaticImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CancelSemiAutomaticImageSelectionResponses,
+    CancelSemiAutomaticImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/cancel',
+    ...options,
+  });
+
+/**
+ * Diagnostics
+ */
+export const getSemiAutomaticImageSelectionDiagnostics = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSemiAutomaticImageSelectionDiagnosticsData, ThrowOnError>,
+): RequestResult<
+  GetSemiAutomaticImageSelectionDiagnosticsResponses,
+  GetSemiAutomaticImageSelectionDiagnosticsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSemiAutomaticImageSelectionDiagnosticsResponses,
+    GetSemiAutomaticImageSelectionDiagnosticsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/diagnostics',
+    ...options,
+  });
+
+/**
+ * Permanently delete one fully cleaned filename verification history entry
+ */
+export const deleteSemiAutomaticFilenameVerificationHistory = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    DeleteSemiAutomaticFilenameVerificationHistoryData,
+    ThrowOnError
+  >,
+): RequestResult<
+  DeleteSemiAutomaticFilenameVerificationHistoryResponses,
+  DeleteSemiAutomaticFilenameVerificationHistoryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteSemiAutomaticFilenameVerificationHistoryResponses,
+    DeleteSemiAutomaticFilenameVerificationHistoryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verification-history',
+    ...options,
+  });
+
+/**
+ * List Filename Verifications
+ */
+export const listSemiAutomaticFilenameRangeVerifications = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    ListSemiAutomaticFilenameRangeVerificationsData,
+    ThrowOnError
+  >,
+): RequestResult<
+  ListSemiAutomaticFilenameRangeVerificationsResponses,
+  ListSemiAutomaticFilenameRangeVerificationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSemiAutomaticFilenameRangeVerificationsResponses,
+    ListSemiAutomaticFilenameRangeVerificationsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications',
+    ...options,
+  });
+
+/**
+ * Decide Filename Verification
+ */
+export const decideSemiAutomaticFilenameRangeVerification = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    DecideSemiAutomaticFilenameRangeVerificationData,
+    ThrowOnError
+  >,
+): RequestResult<
+  DecideSemiAutomaticFilenameRangeVerificationResponses,
+  DecideSemiAutomaticFilenameRangeVerificationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    DecideSemiAutomaticFilenameRangeVerificationResponses,
+    DecideSemiAutomaticFilenameRangeVerificationErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications/{source_index}/review-decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Pause
+ */
+export const pauseSemiAutomaticImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PauseSemiAutomaticImageSelectionData, ThrowOnError>,
+): RequestResult<
+  PauseSemiAutomaticImageSelectionResponses,
+  PauseSemiAutomaticImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PauseSemiAutomaticImageSelectionResponses,
+    PauseSemiAutomaticImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/pause',
+    ...options,
+  });
+
+/**
+ * List Ranges
+ */
+export const listSemiAutomaticImageSelectionRanges = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListSemiAutomaticImageSelectionRangesData, ThrowOnError>,
+): RequestResult<
+  ListSemiAutomaticImageSelectionRangesResponses,
+  ListSemiAutomaticImageSelectionRangesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSemiAutomaticImageSelectionRangesResponses,
+    ListSemiAutomaticImageSelectionRangesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges',
+    ...options,
+  });
+
+/**
+ * Acknowledge
+ */
+export const acknowledgeSemiAutomaticImageSelectionOutput = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    AcknowledgeSemiAutomaticImageSelectionOutputData,
+    ThrowOnError
+  >,
+): RequestResult<
+  AcknowledgeSemiAutomaticImageSelectionOutputResponses,
+  AcknowledgeSemiAutomaticImageSelectionOutputErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AcknowledgeSemiAutomaticImageSelectionOutputResponses,
+    AcknowledgeSemiAutomaticImageSelectionOutputErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges/{expected_index}/output-acknowledgements',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Resume
+ */
+export const resumeSemiAutomaticImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ResumeSemiAutomaticImageSelectionData, ThrowOnError>,
+): RequestResult<
+  ResumeSemiAutomaticImageSelectionResponses,
+  ResumeSemiAutomaticImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResumeSemiAutomaticImageSelectionResponses,
+    ResumeSemiAutomaticImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/resume',
+    ...options,
+  });
+
+/**
+ * Source Asset
+ */
+export const getSemiAutomaticImageSelectionSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSemiAutomaticImageSelectionSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetSemiAutomaticImageSelectionSourceAssetResponses,
+  GetSemiAutomaticImageSelectionSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSemiAutomaticImageSelectionSourceAssetResponses,
+    GetSemiAutomaticImageSelectionSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/sources/{source_index}/asset',
+    ...options,
   });
 
 /**

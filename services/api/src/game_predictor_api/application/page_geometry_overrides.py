@@ -11,7 +11,7 @@ from typing import Protocol, cast
 from uuid import UUID, uuid4
 
 from game_predictor_worker.images.geometry import Point, Quad
-from game_predictor_worker.images.page_geometry_registration import is_complete_ordered_grid
+from game_predictor_worker.images.page_geometry_registration import is_ordered_active_grid
 
 from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.domain.page_geometry_overrides import (
@@ -44,6 +44,7 @@ class PageGeometryOverrideService:
         source_checksum_sha256: str,
         image_width: int,
         image_height: int,
+        expected_board_count: int,
         final_quads: Sequence[Sequence[Mapping[str, object]]],
         actor: str,
     ) -> tuple[ImagePageGeometryOverride, bool]:
@@ -52,6 +53,7 @@ class PageGeometryOverrideService:
             final_quads,
             image_width=image_width,
             image_height=image_height,
+            expected_board_count=expected_board_count,
         )
         current = self._repository.get_current(
             game_id=game_id,
@@ -88,6 +90,7 @@ class PageGeometryOverrideService:
                 "decisionChecksumSha256": value.decision_checksum_sha256,
                 "imageHeight": value.image_height,
                 "imageWidth": value.image_width,
+                "expectedBoardCount": len(value.final_quads),
                 "overrideId": str(value.id),
                 "quads": value.final_quads,
                 "revision": value.revision,
@@ -100,11 +103,17 @@ def _parse_and_validate(
     *,
     image_width: int,
     image_height: int,
+    expected_board_count: int,
 ) -> PageGeometryQuads:
-    if image_width < 1 or image_height < 1 or len(raw_quads) != 9:
+    if (
+        image_width < 1
+        or image_height < 1
+        or not 1 <= expected_board_count <= 9
+        or len(raw_quads) != expected_board_count
+    ):
         raise JobError(
             "IMAGE_PAGE_GEOMETRY_INVALID",
-            "A page override must contain nine quads for a non-empty source image.",
+            "A page override must contain exactly the attested number of board quads.",
         )
     quads: list[Quad] = []
     canonical: list[tuple[dict[str, int], dict[str, int], dict[str, int], dict[str, int]]] = []
@@ -142,10 +151,15 @@ def _parse_and_validate(
                 tuple(json_points),
             )
         )
-    if not is_complete_ordered_grid(tuple(quads), image_width, image_height):
+    if not is_ordered_active_grid(
+        tuple(quads),
+        tuple(range(expected_board_count)),
+        image_width,
+        image_height,
+    ):
         raise JobError(
             "IMAGE_PAGE_GEOMETRY_INVALID",
-            "The corrected geometry must be a complete, ordered and non-overlapping 3x3 grid.",
+            "The corrected geometry must be an ordered and non-overlapping board prefix.",
         )
     return cast(PageGeometryQuads, tuple(canonical))
 

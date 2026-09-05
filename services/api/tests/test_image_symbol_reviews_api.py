@@ -30,6 +30,8 @@ from game_predictor_api.application.image_symbol_reviews import (
 )
 from game_predictor_api.application.unreadable_board_reviews import (
     ResolveUnreadableCellCommand,
+    SaveUnreadableBoardCommand,
+    SaveUnreadableBoardResult,
     UnreadableBoardReviewCell,
     UnreadableBoardReviewDetail,
     UnreadableBoardReviewListItem,
@@ -38,9 +40,11 @@ from game_predictor_api.application.unreadable_board_reviews import (
     UnreadableBoardReviewView,
 )
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellCropApprovalState,
     SymbolCellQualityIssue,
+    SymbolCellReviewAction,
     SymbolCellReviewAsset,
     SymbolCellReviewCounts,
     SymbolCellReviewError,
@@ -51,6 +55,11 @@ from game_predictor_api.domain.image_symbol_reviews import (
 )
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.main import create_app
+from game_predictor_worker.images.normalization import (
+    CanonicalSourceLoader,
+    rgb_pixel_checksum_sha256,
+)
+from game_predictor_worker.images.virtual_cell_extraction import source_direct_warp_rgb
 from PIL import Image
 
 
@@ -86,8 +95,8 @@ class MemorySymbolCellReviewRepository:
         self,
         *,
         review_filter: SymbolCellReviewListFilter,
-        after_key: tuple[int, int, str] | None,
-        before_key: tuple[int, int, str] | None,
+        after_key: tuple[int, int, UUID] | None,
+        before_key: tuple[int, int, UUID] | None,
         limit: int,
     ) -> SymbolCellReviewListSlice:
         self.filters.append(review_filter)
@@ -95,10 +104,27 @@ class MemorySymbolCellReviewRepository:
         filtered = tuple(
             item
             for item in self.items
-            if (item.assigned_symbol_id == review_filter.symbol_id)
+            if (
+                review_filter.include_all_symbols
+                or item.assigned_symbol_id == review_filter.symbol_id
+            )
             and (
                 review_filter.state is SymbolCellReviewFilterState.ALL
                 or item.review_state.value == review_filter.state.value
+            )
+            and (
+                review_filter.min_confidence is None
+                or (
+                    item.prediction_confidence is not None
+                    and item.prediction_confidence >= review_filter.min_confidence
+                )
+            )
+            and (
+                review_filter.max_confidence is None
+                or (
+                    item.prediction_confidence is not None
+                    and item.prediction_confidence <= review_filter.max_confidence
+                )
             )
         )
         if after_key is not None:
@@ -132,7 +158,30 @@ class MemorySymbolCellReviewRepository:
 
     def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts:
         visible = tuple(
-            item for item in self.items if item.assigned_symbol_id == review_filter.symbol_id
+            item
+            for item in self.items
+            if (
+                review_filter.include_all_symbols
+                or item.assigned_symbol_id == review_filter.symbol_id
+            )
+            and (
+                review_filter.state is SymbolCellReviewFilterState.ALL
+                or item.review_state.value == review_filter.state.value
+            )
+            and (
+                review_filter.min_confidence is None
+                or (
+                    item.prediction_confidence is not None
+                    and item.prediction_confidence >= review_filter.min_confidence
+                )
+            )
+            and (
+                review_filter.max_confidence is None
+                or (
+                    item.prediction_confidence is not None
+                    and item.prediction_confidence <= review_filter.max_confidence
+                )
+            )
         )
         approved = sum(item.review_state is SymbolCellReviewState.APPROVED for item in visible)
         pending = len(visible) - approved
@@ -144,6 +193,20 @@ class MemorySymbolCellReviewRepository:
         if game_id != self.game_id or self.asset_value is None:
             return None
         return self.asset_value if self.asset_value.cell_review_id == cell_review_id else None
+
+    def get_assets(
+        self,
+        *,
+        game_id: UUID,
+        cell_review_ids: tuple[UUID, ...],
+    ) -> tuple[SymbolCellReviewAsset, ...]:
+        if game_id != self.game_id or self.asset_value is None:
+            return ()
+        return tuple(
+            self.asset_value
+            for cell_review_id in cell_review_ids
+            if cell_review_id == self.asset_value.cell_review_id
+        )
 
 
 class MemorySymbolCellReviewBulkRepository:
@@ -242,9 +305,13 @@ class MemorySymbolCellReviewMutationRepository:
             assigned_symbol_id=command.target_symbol_id,
             has_grid_issue=False,
             quality_issue=(
-                SymbolCellQualityIssue.UNREADABLE
-                if command.action.value == "mark_unreadable"
-                else None
+                SymbolCellQualityIssue.BLURRY
+                if command.action.value == "mark_blurry"
+                else (
+                    SymbolCellQualityIssue.UNREADABLE
+                    if command.action.value == "mark_unreadable"
+                    else None
+                )
             ),
             board_status="pending",
             board_resolution_action=None,
@@ -315,6 +382,7 @@ class MemoryUnreadableBoardReviewRepository:
         self.board_id = uuid4()
         self.import_job_id = uuid4()
         self.commands: list[ResolveUnreadableCellCommand] = []
+        self.save_commands: list[SaveUnreadableBoardCommand] = []
 
     def require_ready_game(self, game_id: UUID) -> None:
         assert game_id == self.game_id
@@ -404,6 +472,15 @@ class MemoryUnreadableBoardReviewRepository:
             catalog_revision=19,
         )
 
+    def save_board(self, command: SaveUnreadableBoardCommand) -> SaveUnreadableBoardResult:
+        self.save_commands.append(command)
+        return SaveUnreadableBoardResult(
+            review_item_id=command.review_item_id,
+            sequence_number=41,
+            board_status="corrected",
+            changed_cell_count=len(command.cells),
+        )
+
 
 def _item(
     *,
@@ -412,6 +489,7 @@ def _item(
     sequence_number: int,
     cell_index: int,
     review_item_id: UUID,
+    prediction_confidence: float | None = None,
     state: SymbolCellReviewState = SymbolCellReviewState.PENDING,
 ) -> SymbolCellReviewListItem:
     return SymbolCellReviewListItem(
@@ -436,6 +514,7 @@ def _item(
         crop_sample_id="b" * 64,
         crop_checksum_sha256="a" * 64,
         board_status="pending",
+        prediction_confidence=prediction_confidence,
     )
 
 
@@ -481,6 +560,77 @@ def _client(
         ),
     )
     return TestClient(app)
+
+
+def _virtual_source_asset(
+    artifact_root: Path,
+    *,
+    cell_review_id: UUID,
+) -> SymbolCellReviewAsset:
+    source = Image.new("RGB", (160, 120), color=(50, 90, 140))
+    buffer = BytesIO()
+    source.save(buffer, format="JPEG", quality=95)
+    source_bytes = buffer.getvalue()
+    source_checksum = hashlib.sha256(source_bytes).hexdigest()
+    source_path = (
+        artifact_root / "data" / "originals" / source_checksum[:2] / f"{source_checksum}.jpg"
+    )
+    source_path.parent.mkdir(parents=True)
+    source_path.write_bytes(source_bytes)
+    loader = CanonicalSourceLoader()
+    frame = loader.load(source_path, expected_source_checksum_sha256=source_checksum)
+    quad = [
+        {"x": 20.0, "y": 20.0},
+        {"x": 139.0, "y": 20.0},
+        {"x": 139.0, "y": 99.0},
+        {"x": 20.0, "y": 99.0},
+    ]
+    rgb = source_direct_warp_rgb(
+        frame.rgb,
+        source_quad=tuple((point["x"], point["y"]) for point in quad),
+        output_width=64,
+        output_height=64,
+    )
+    pixel_checksum = rgb_pixel_checksum_sha256(rgb)
+    render_spec = {
+        "boardSlot": 0,
+        "cellIndex": 0,
+        "columnIndex": 0,
+        "configuration": {
+            "extractorVersion": "direct-perspective-cell-v1",
+            "outputHeight": 64,
+            "outputWidth": 64,
+        },
+        "coordinateSpace": "exif-normalized-rgb-pixels-v1",
+        "geometryFingerprintSha256": "a" * 64,
+        "geometryRevision": 0,
+        "logicalCellKeySha256": "b" * 64,
+        "paddedSourceQuad": quad,
+        "renderedPixelChecksumSha256": pixel_checksum,
+        "rowIndex": 0,
+        "schemaVersion": "virtual-cell-render-spec-v1",
+        "sourceChecksumSha256": source_checksum,
+    }
+    source_geometry_revision_id = uuid4()
+    return SymbolCellReviewAsset(
+        cell_review_id=cell_review_id,
+        crop_relative_path=None,
+        crop_checksum_sha256=pixel_checksum,
+        geometry_revision=0,
+        current_geometry_revision=0,
+        revision=2,
+        asset_mode="virtual_source",
+        source_checksum_sha256=source_checksum,
+        normalized_pixel_checksum_sha256=frame.source.normalized_pixel_checksum_sha256,
+        source_geometry_revision_id=source_geometry_revision_id,
+        current_source_geometry_revision_id=source_geometry_revision_id,
+        geometry_checksum_sha256="c" * 64,
+        logical_cell_key="b" * 64,
+        render_spec=render_spec,
+        render_spec_checksum_sha256=hashlib.sha256(canonical_json_bytes(render_spec)).hexdigest(),
+        rendered_pixel_checksum_sha256=pixel_checksum,
+        extractor_version="direct-perspective-cell-v1",
+    )
 
 
 def test_unreadable_board_endpoints_preserve_topology_and_assignment_kind(
@@ -535,6 +685,54 @@ def test_unreadable_board_endpoints_preserve_topology_and_assignment_kind(
     assert symbol.status_code == 200
     assert unreadable.commands[0].target_symbol_id is None
     assert unreadable.commands[1].target_symbol_id == symbol_id
+
+
+def test_unreadable_board_save_accepts_a_full_atomic_board_snapshot(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(),
+    )
+    unreadable = MemoryUnreadableBoardReviewRepository(game_id=game_id)
+    cells = [
+        {
+            "assignment": (
+                {"kind": "unknown"}
+                if index == 3
+                else {"kind": "symbol", "symbolId": str(symbol_id)}
+            ),
+            "cellIndex": index,
+            "expectedRevision": 2,
+            "expectedGeometryRevision": 1,
+            "expectedCropSampleId": "b" * 64,
+            "expectedCropChecksumSha256": "a" * 64,
+        }
+        for index in range(8)
+    ]
+    with _client(
+        repository,
+        artifact_root=tmp_path,
+        unreadable_repository=unreadable,
+    ) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/unreadable-board-reviews/"
+            f"{unreadable.review_item_id}/save",
+            json={"cells": cells},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "reviewItemId": str(unreadable.review_item_id),
+        "sequenceNumber": 41,
+        "boardStatus": "corrected",
+        "changedCellCount": 8,
+    }
+    assert len(unreadable.save_commands) == 1
+    saved = unreadable.save_commands[0]
+    assert [cell.cell_index for cell in saved.cells] == list(range(8))
+    assert saved.cells[3].target_symbol_id is None
+    assert saved.cells[4].target_symbol_id == symbol_id
 
 
 def test_projection_status_and_start_are_idempotent(tmp_path: Path) -> None:
@@ -620,6 +818,21 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
                 "beforeCursor": second.json()["previousCursor"],
             },
         )
+        counts = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-counts",
+            params={
+                "symbolId": str(symbol_id),
+                "catalogRevision": first.json()["catalogRevision"],
+            },
+        )
+        approved = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "state": "approved"},
+        )
+        all_symbols = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": "all", "state": "all"},
+        )
 
     assert first.status_code == 200
     assert second.status_code == 200
@@ -628,20 +841,44 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
     second_ids = [item["id"] for item in second.json()["items"]]
     assert len(set(first_ids).intersection(second_ids)) == 0
     assert [item["id"] for item in previous.json()["items"]] == first_ids
-    assert first.json()["counts"] == {"allCount": 3, "approvedCount": 1, "pendingCount": 2}
+    assert "counts" not in first.json()
+    assert counts.status_code == 200
+    assert counts.json() == {
+        "catalogRevision": 17,
+        "counts": {"allCount": 2, "approvedCount": 0, "pendingCount": 2},
+    }
     assert first.json()["items"][0]["cropSampleId"] == "b" * 64
-
-    with _client(repository, artifact_root=tmp_path) as client:
-        approved = client.get(
-            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
-            params={"symbolId": str(symbol_id), "state": "approved"},
-        )
-
     assert approved.status_code == 200
     assert [item["reviewState"] for item in approved.json()["items"]] == ["approved"]
+    assert all_symbols.status_code == 200
+    assert len(all_symbols.json()["items"]) == 3
+    assert repository.filters[-1].include_all_symbols is True
 
 
-def test_list_endpoint_supports_bounded_five_hundred_item_pages(tmp_path: Path) -> None:
+def test_counts_endpoint_rejects_a_stale_catalog_revision(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(),
+    )
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-counts",
+            params={
+                "symbolId": str(symbol_id),
+                "catalogRevision": 16,
+            },
+        )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "SYMBOL_CELL_REVIEW_CATALOG_REVISION_STALE"
+
+
+def test_list_endpoint_accepts_the_configured_maximum_and_rejects_a_larger_page(
+    tmp_path: Path,
+) -> None:
     game_id, symbol_id = uuid4(), uuid4()
     items = tuple(
         _item(
@@ -651,7 +888,7 @@ def test_list_endpoint_supports_bounded_five_hundred_item_pages(tmp_path: Path) 
             cell_index=index % 15,
             review_item_id=UUID(int=index + 1),
         )
-        for index in range(500)
+        for index in range(501)
     )
     repository = MemorySymbolCellReviewRepository(
         game_id=game_id,
@@ -660,19 +897,64 @@ def test_list_endpoint_supports_bounded_five_hundred_item_pages(tmp_path: Path) 
     )
 
     with _client(repository, artifact_root=tmp_path) as client:
-        accepted = client.get(
+        response = client.get(
             f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
-            params={"symbolId": str(symbol_id), "limit": 500},
+            params={"symbolId": str(symbol_id), "limit": 2_500},
         )
-        rejected = client.get(
+        oversized = client.get(
             f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
-            params={"symbolId": str(symbol_id), "limit": 501},
+            params={"symbolId": str(symbol_id), "limit": 2_501},
         )
 
-    assert accepted.status_code == 200
-    assert len(accepted.json()["items"]) == 500
-    assert repository.limits == [500]
-    assert rejected.status_code == 422
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 501
+    assert oversized.status_code == 422
+    assert repository.limits == [2_500]
+
+
+def test_list_endpoint_binds_confidence_filter_to_keyset_cursor(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    items = tuple(
+        _item(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            sequence_number=index,
+            cell_index=0,
+            prediction_confidence=confidence,
+            review_item_id=UUID(int=index),
+        )
+        for index, confidence in ((1, 0.2), (2, 0.55), (3, 0.65), (4, 0.95))
+    )
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=items,
+    )
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        first = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={
+                "symbolId": str(symbol_id),
+                "limit": 1,
+                "minConfidence": 0.5,
+                "maxConfidence": 0.8,
+            },
+        )
+        invalid_scope = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={
+                "symbolId": str(symbol_id),
+                "afterCursor": first.json()["nextCursor"],
+                "minConfidence": 0.8,
+            },
+        )
+
+    assert first.status_code == 200
+    assert [item["sequenceNumber"] for item in first.json()["items"]] == [2]
+    assert first.json()["items"][0]["predictionConfidence"] == 0.55
+    assert invalid_scope.status_code == 409
+    assert invalid_scope.json()["code"] == "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID"
 
 
 def test_list_endpoint_supports_unknown_and_rejects_cross_scope_cursor(tmp_path: Path) -> None:
@@ -785,6 +1067,20 @@ def test_asset_endpoint_rechecks_expected_and_file_checksum(tmp_path: Path) -> N
             f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/asset",
             params={"expectedCropChecksumSha256": "b" * 64},
         )
+        atlas_batch = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-preview-batches",
+            json={
+                "previewSize": 100,
+                "cells": [
+                    {
+                        "cellReviewId": str(item.cell_review_id),
+                        "expectedRevision": asset.revision,
+                        "expectedCropChecksumSha256": checksum,
+                    }
+                ],
+            },
+        )
+        atlas = client.get(atlas_batch.json()["atlasUrl"])
         crop.write_bytes(b"changed")
         changed_file = client.get(
             f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/asset",
@@ -802,6 +1098,171 @@ def test_asset_endpoint_rechecks_expected_and_file_checksum(tmp_path: Path) -> N
     assert stale.json()["code"] == "SYMBOL_CELL_REVIEW_CROP_DRIFT"
     assert changed_file.status_code == 409
     assert changed_file.json()["code"] == "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH"
+    assert atlas_batch.status_code == 200
+    assert atlas_batch.json()["rendererMode"] == "current"
+    assert atlas_batch.json()["rendererVersion"] == (
+        "symbol-review-current-crop-renderer-v2-edge-to-edge"
+    )
+    assert atlas_batch.json()["availableCount"] == 1
+    assert atlas_batch.json()["unavailableCellReviewIds"] == []
+    assert atlas.headers["cache-control"] == "private, immutable, max-age=31536000"
+
+
+def test_structured_v0_10_preview_never_falls_back_to_a_legacy_crop(tmp_path: Path) -> None:
+    crop = tmp_path / "data" / "crops" / "legacy.png"
+    crop.parent.mkdir(parents=True)
+    Image.new("RGB", (90, 70), color=(90, 40, 10)).save(crop, format="PNG")
+    checksum = hashlib.sha256(crop.read_bytes()).hexdigest()
+    game_id, symbol_id = uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=1,
+        cell_index=0,
+        review_item_id=UUID(int=1),
+    )
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(item,),
+        asset=SymbolCellReviewAsset(
+            cell_review_id=item.cell_review_id,
+            crop_relative_path="data/crops/legacy.png",
+            crop_checksum_sha256=checksum,
+            geometry_revision=0,
+            current_geometry_revision=0,
+        ),
+    )
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-preview-batches",
+            json={
+                "rendererMode": "structured_v0_10",
+                "cells": [
+                    {
+                        "cellReviewId": str(item.cell_review_id),
+                        "expectedRevision": 0,
+                        "expectedCropChecksumSha256": checksum,
+                    }
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["rendererMode"] == "structured_v0_10"
+    assert response.json()["rendererVersion"] == "symbol-review-structured-v0.10-renderer-v1"
+    assert response.json()["availableCount"] == 0
+    assert response.json()["batchKey"] is None
+    assert response.json()["atlasUrl"] is None
+    assert response.json()["tiles"] == []
+    assert response.json()["unavailableCellReviewIds"] == [str(item.cell_review_id)]
+
+
+def test_virtual_preview_batch_endpoint_uses_current_render_provenance(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=1,
+        cell_index=0,
+        review_item_id=UUID(int=1),
+    )
+    asset = _virtual_source_asset(tmp_path, cell_review_id=item.cell_review_id)
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(item,),
+        asset=asset,
+    )
+    body = {
+        "previewSize": 80,
+        "cells": [
+            {
+                "cellReviewId": str(item.cell_review_id),
+                "expectedRevision": asset.revision,
+                "expectedRenderSpecChecksumSha256": asset.render_spec_checksum_sha256,
+            }
+        ],
+    }
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        created = client.post(
+            f"/api/v1/admin/games/{game_id}/virtual-cell-preview-batches",
+            json=body,
+        )
+        atlas = client.get(created.json()["atlasUrl"])
+        legacy_route = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/asset",
+            params={
+                "expectedCropChecksumSha256": asset.crop_checksum_sha256,
+                "expectedRenderSpecChecksumSha256": asset.render_spec_checksum_sha256,
+            },
+        )
+        stale = client.post(
+            f"/api/v1/admin/games/{game_id}/virtual-cell-preview-batches",
+            json={
+                **body,
+                "cells": [{**body["cells"][0], "expectedRevision": asset.revision + 1}],
+            },
+        )
+        shared = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-preview-batches",
+            json={
+                "previewSize": 80,
+                "cells": [
+                    {
+                        "cellReviewId": str(item.cell_review_id),
+                        "expectedRevision": asset.revision,
+                        "expectedCropChecksumSha256": asset.crop_checksum_sha256,
+                        "expectedRenderSpecChecksumSha256": (asset.render_spec_checksum_sha256),
+                    }
+                ],
+            },
+        )
+        shared_atlas = client.get(shared.json()["atlasUrl"])
+        experimental = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-preview-batches",
+            json={
+                "rendererMode": "structured_v0_10",
+                "previewSize": 80,
+                "cells": [
+                    {
+                        "cellReviewId": str(item.cell_review_id),
+                        "expectedRevision": asset.revision,
+                        "expectedCropChecksumSha256": asset.crop_checksum_sha256,
+                        "expectedRenderSpecChecksumSha256": (asset.render_spec_checksum_sha256),
+                    }
+                ],
+            },
+        )
+
+    assert created.status_code == 200
+    assert created.json()["tiles"] == [
+        {
+            "cellReviewId": str(item.cell_review_id),
+            "x": 0,
+            "y": 0,
+            "width": 80,
+            "height": 80,
+        }
+    ]
+    assert atlas.status_code == 200
+    assert atlas.headers["content-type"] == "image/webp"
+    assert atlas.headers["cache-control"] == "private, max-age=900, must-revalidate"
+    assert legacy_route.status_code == 200
+    assert legacy_route.headers["content-type"] == "image/webp"
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "SYMBOL_CELL_REVIEW_CROP_DRIFT"
+    assert shared.status_code == 200
+    assert shared_atlas.headers["cache-control"] == ("private, immutable, max-age=31536000")
+    assert experimental.status_code == 200
+    assert experimental.json()["availableCount"] == 1
+    assert experimental.json()["rendererMode"] == "structured_v0_10"
+    assert (
+        experimental.json()["rendererFingerprintSha256"]
+        != shared.json()["rendererFingerprintSha256"]
+    )
 
 
 def test_single_cell_decision_applies_directly_without_bulk_job(tmp_path: Path) -> None:
@@ -886,6 +1347,86 @@ def test_single_cell_decision_routes_mark_unreadable_without_unknown_assignment(
     assert mutations.commands[0].target_symbol_id is None
 
 
+def test_single_cell_decision_routes_mark_blurry_as_a_quality_only_action(
+    tmp_path: Path,
+) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(item,),
+    )
+    mutations = MemorySymbolCellReviewMutationRepository()
+
+    with _client(
+        reviews,
+        artifact_root=tmp_path,
+        mutation_repository=mutations,
+    ) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/decision",
+            json={
+                "action": "mark_blurry",
+                "expectedRevision": item.revision,
+                "expectedGeometryRevision": item.geometry_revision,
+                "expectedCropSampleId": item.crop_sample_id,
+                "expectedCropChecksumSha256": item.crop_checksum_sha256,
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["qualityIssue"] == "blurry"
+    assert mutations.commands[0].action is SymbolCellReviewAction.MARK_BLURRY
+    assert mutations.commands[0].target_symbol_id is None
+
+
+def test_single_cell_decision_atomically_reassigns_a_blurry_crop(tmp_path: Path) -> None:
+    game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        items=(item,),
+    )
+    mutations = MemorySymbolCellReviewMutationRepository()
+
+    with _client(
+        reviews,
+        artifact_root=tmp_path,
+        mutation_repository=mutations,
+    ) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/decision",
+            json={
+                "action": "mark_blurry",
+                "expectedRevision": item.revision,
+                "expectedGeometryRevision": item.geometry_revision,
+                "expectedCropSampleId": item.crop_sample_id,
+                "expectedCropChecksumSha256": item.crop_checksum_sha256,
+                "targetSymbolId": str(target_symbol_id),
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["assignedSymbolId"] == str(target_symbol_id)
+    assert response.json()["qualityIssue"] == "blurry"
+    assert mutations.commands[0].action is SymbolCellReviewAction.MARK_BLURRY
+    assert mutations.commands[0].target_symbol_id == target_symbol_id
+
+
 def test_single_cell_decision_returns_conflict_for_stale_revision(tmp_path: Path) -> None:
     game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
     item = _item(
@@ -945,6 +1486,8 @@ def test_bulk_operation_endpoints_are_local_actor_bound_and_idempotent(tmp_path:
             "symbolId": str(source_symbol_id),
             "state": "pending",
             "catalogRevision": 17,
+            "minConfidence": 0.5,
+            "maxConfidence": 0.8,
             "excludedCellReviewIds": [],
         },
     }
@@ -976,6 +1519,10 @@ def test_bulk_operation_endpoints_are_local_actor_bound_and_idempotent(tmp_path:
     assert status.status_code == 200
     assert status.json()["pendingCount"] == 3
     assert {request.actor for request in bulk.requests} == {"local-admin"}
+    selection = bulk.requests[0].filter_selection
+    assert selection is not None
+    assert selection.min_confidence == 0.5
+    assert selection.max_confidence == 0.8
 
 
 def test_bulk_operation_rejects_approval_of_unknown_filter(tmp_path: Path) -> None:
@@ -1041,3 +1588,87 @@ def test_bulk_operation_accepts_mark_unreadable_action(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert response.json()["action"] == "mark_unreadable"
     assert bulk.requests[0].action.value == "mark_unreadable"
+
+
+def test_bulk_operation_accepts_mark_blurry_action(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(item,),
+    )
+    bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
+
+    with _client(reviews, artifact_root=tmp_path, bulk_repository=bulk) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview",
+            json={
+                "action": "mark_blurry",
+                "selection": {
+                    "kind": "explicit",
+                    "targets": [
+                        {
+                            "cellReviewId": str(item.cell_review_id),
+                            "expectedRevision": item.revision,
+                            "expectedGeometryRevision": item.geometry_revision,
+                            "expectedCropSampleId": item.crop_sample_id,
+                            "expectedCropChecksumSha256": item.crop_checksum_sha256,
+                        }
+                    ],
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "mark_blurry"
+    assert bulk.requests[0].action is SymbolCellReviewAction.MARK_BLURRY
+
+
+def test_bulk_blurry_operation_accepts_a_target_symbol(tmp_path: Path) -> None:
+    game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        items=(item,),
+    )
+    bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
+
+    with _client(reviews, artifact_root=tmp_path, bulk_repository=bulk) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview",
+            json={
+                "action": "mark_blurry",
+                "targetSymbolId": str(target_symbol_id),
+                "selection": {
+                    "kind": "explicit",
+                    "targets": [
+                        {
+                            "cellReviewId": str(item.cell_review_id),
+                            "expectedRevision": item.revision,
+                            "expectedGeometryRevision": item.geometry_revision,
+                            "expectedCropSampleId": item.crop_sample_id,
+                            "expectedCropChecksumSha256": item.crop_checksum_sha256,
+                        }
+                    ],
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["targetSymbolId"] == str(target_symbol_id)
+    assert bulk.requests[0].action is SymbolCellReviewAction.MARK_BLURRY
+    assert bulk.requests[0].target_symbol_id == target_symbol_id

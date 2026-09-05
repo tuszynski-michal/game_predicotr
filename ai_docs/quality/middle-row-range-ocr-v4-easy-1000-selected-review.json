@@ -1,0 +1,545 @@
+{
+  "contract": "middle-row-range-ocr-v4-selected-review-v1",
+  "reviews": [
+    {
+      "relativePath": "blazing 21400_009010.jpg",
+      "expectedRange": [
+        31519,
+        31527
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009042.jpg",
+      "expectedRange": [
+        31546,
+        31554
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009047.jpg",
+      "expectedRange": [
+        31555,
+        31563
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009062.jpg",
+      "expectedRange": [
+        31573,
+        31581
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009078.jpg",
+      "expectedRange": [
+        31591,
+        31599
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009095.jpg",
+      "expectedRange": [
+        31618,
+        31626
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009097.jpg",
+      "expectedRange": [
+        31627,
+        31635
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009122.jpg",
+      "expectedRange": [
+        31672,
+        31680
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009129.jpg",
+      "expectedRange": [
+        31681,
+        31689
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009133.jpg",
+      "expectedRange": [
+        31690,
+        31698
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009138.jpg",
+      "expectedRange": [
+        31699,
+        31707
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009155.jpg",
+      "expectedRange": [
+        31726,
+        31734
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009158.jpg",
+      "expectedRange": [
+        31735,
+        31743
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009182.jpg",
+      "expectedRange": [
+        31780,
+        31788
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009186.jpg",
+      "expectedRange": [
+        31789,
+        31797
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009192.jpg",
+      "expectedRange": [
+        31798,
+        31806
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009202.jpg",
+      "expectedRange": [
+        31807,
+        31815
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009249.jpg",
+      "expectedRange": [
+        31861,
+        31869
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009255.jpg",
+      "expectedRange": [
+        31870,
+        31878
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009293.jpg",
+      "expectedRange": [
+        31906,
+        31914
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009312.jpg",
+      "expectedRange": [
+        31915,
+        31923
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009316.jpg",
+      "expectedRange": [
+        31924,
+        31932
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009325.jpg",
+      "expectedRange": [
+        31933,
+        31941
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009336.jpg",
+      "expectedRange": [
+        31951,
+        31959
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009362.jpg",
+      "expectedRange": [
+        32005,
+        32013
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009467.jpg",
+      "expectedRange": [
+        32158,
+        32166
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009562.jpg",
+      "expectedRange": [
+        32194,
+        32202
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009651.jpg",
+      "expectedRange": [
+        32212,
+        32220
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009670.jpg",
+      "expectedRange": [
+        32239,
+        32247
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009674.jpg",
+      "expectedRange": [
+        32248,
+        32256
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009683.jpg",
+      "expectedRange": [
+        32266,
+        32274
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009688.jpg",
+      "expectedRange": [
+        32275,
+        32283
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009700.jpg",
+      "expectedRange": [
+        32284,
+        32292
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009716.jpg",
+      "expectedRange": [
+        32302,
+        32310
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009747.jpg",
+      "expectedRange": [
+        32347,
+        32355
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009761.jpg",
+      "expectedRange": [
+        32365,
+        32373
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009803.jpg",
+      "expectedRange": [
+        32446,
+        32454
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009810.jpg",
+      "expectedRange": [
+        32455,
+        32463
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009819.jpg",
+      "expectedRange": [
+        32473,
+        32481
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009851.jpg",
+      "expectedRange": [
+        32500,
+        32508
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009856.jpg",
+      "expectedRange": [
+        32509,
+        32517
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009867.jpg",
+      "expectedRange": [
+        32527,
+        32535
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009878.jpg",
+      "expectedRange": [
+        32545,
+        32553
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009890.jpg",
+      "expectedRange": [
+        32572,
+        32580
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009896.jpg",
+      "expectedRange": [
+        32581,
+        32589
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009904.jpg",
+      "expectedRange": [
+        32590,
+        32598
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009909.jpg",
+      "expectedRange": [
+        32599,
+        32607
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009916.jpg",
+      "expectedRange": [
+        32608,
+        32616
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009935.jpg",
+      "expectedRange": [
+        32644,
+        32652
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009937.jpg",
+      "expectedRange": [
+        32653,
+        32661
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009944.jpg",
+      "expectedRange": [
+        32662,
+        32670
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009966.jpg",
+      "expectedRange": [
+        32707,
+        32715
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009971.jpg",
+      "expectedRange": [
+        32716,
+        32724
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    },
+    {
+      "relativePath": "blazing 21400_009981.jpg",
+      "expectedRange": [
+        32734,
+        32742
+      ],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 """Local Admin HTTP surface for grid validation."""
 
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID
@@ -8,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse, Response
 
+from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import (
     DEFAULT_IMAGE_GRID_REVIEW_PAGE_SIZE,
     MAX_IMAGE_GRID_REVIEW_PAGE_SIZE,
@@ -17,6 +19,7 @@ from game_predictor_api.application.image_review_assets import (
     resolve_grid_review_source_asset,
 )
 from game_predictor_api.application.image_reviews import OperationalImageReviewService
+from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeometryService
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewError,
     ImageGridReviewSourceAsset,
@@ -24,6 +27,18 @@ from game_predictor_api.domain.image_grid_reviews import (
 )
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
 from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.image_geometry_rollout import (
+    ImageGeometryRolloutStartResponse,
+    ImageGeometryRolloutStatusResponse,
+    ImageImportEnginePolicyPreviewRequest,
+    ImageImportEnginePolicyPreviewResponse,
+    ImageImportEnginePolicyResponse,
+    ImageImportEnginePolicyUpdateRequest,
+    to_image_geometry_rollout_start_response,
+    to_image_geometry_rollout_status_response,
+    to_image_import_engine_policy_preview_response,
+    to_image_import_engine_policy_response,
+)
 from game_predictor_api.schemas.image_grid_reviews import (
     ImageGridReviewApprovalCommand,
     ImageGridReviewApprovalResponse,
@@ -31,13 +46,24 @@ from game_predictor_api.schemas.image_grid_reviews import (
     ImageGridReviewGeometryPreviewCommand,
     ImageGridReviewGeometryResponse,
     ImageGridReviewPageResponse,
+    ImageGridReviewSourceApprovalCommand,
+    ImageGridReviewSourceApprovalResponse,
+    ImageGridReviewSourceGeometryCommand,
+    ImageGridReviewSourceGeometryResponse,
     to_image_grid_review_approval_response,
     to_image_grid_review_geometry_response,
     to_image_grid_review_page_response,
+    to_image_grid_review_source_approval_response,
+    to_image_grid_review_source_approval_targets,
+    to_virtual_grid_review_geometry_response,
+    to_virtual_grid_review_source_geometry_commands,
+    to_virtual_grid_review_source_geometry_response,
 )
 
 ImageGridReviewServiceDependency = Callable[..., object]
 OperationalImageReviewServiceDependency = Callable[..., object]
+ImageGeometryRolloutServiceDependency = Callable[..., object]
+VirtualGridGeometryServiceDependency = Callable[..., object]
 _LOCAL_ADMIN_ACTOR = "local-admin"
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     404: {"model": ErrorResponse, "description": "Current grid review resource not found"},
@@ -49,11 +75,92 @@ ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
 def create_image_grid_reviews_router(
     service_dependency: ImageGridReviewServiceDependency,
     operational_service_dependency: OperationalImageReviewServiceDependency,
+    rollout_service_dependency: ImageGeometryRolloutServiceDependency,
+    virtual_geometry_service_dependency: VirtualGridGeometryServiceDependency,
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/admin", tags=["image-grid-reviews"])
     service_parameter = Depends(service_dependency)
     operational_service_parameter = Depends(operational_service_dependency)
+    rollout_service_parameter = Depends(rollout_service_dependency)
+    virtual_geometry_service_parameter = Depends(virtual_geometry_service_dependency)
+
+    @router.get(
+        "/games/{game_id}/image-import-engine-policy",
+        response_model=ImageImportEnginePolicyResponse,
+        operation_id="getImageImportEnginePolicy",
+        summary="Get the safe engine policy for new image imports",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_import_engine_policy(
+        game_id: UUID,
+        service: Annotated[ImageGeometryRolloutService, rollout_service_parameter],
+    ) -> ImageImportEnginePolicyResponse:
+        return to_image_import_engine_policy_response(service.engine_policy(game_id))
+
+    @router.post(
+        "/games/{game_id}/image-import-engine-policy/preview",
+        response_model=ImageImportEnginePolicyPreviewResponse,
+        operation_id="previewImageImportEnginePolicy",
+        summary="Preview a safe per-game image engine policy change",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_image_import_engine_policy(
+        game_id: UUID,
+        payload: ImageImportEnginePolicyPreviewRequest,
+        service: Annotated[ImageGeometryRolloutService, rollout_service_parameter],
+    ) -> ImageImportEnginePolicyPreviewResponse:
+        return to_image_import_engine_policy_preview_response(
+            service.preview_engine_policy(game_id, target=payload.target_policy)
+        )
+
+    @router.put(
+        "/games/{game_id}/image-import-engine-policy",
+        response_model=ImageImportEnginePolicyResponse,
+        operation_id="updateImageImportEnginePolicy",
+        summary="Apply a previewed safe policy for future image imports",
+        responses=ERROR_RESPONSES,
+    )
+    def update_image_import_engine_policy(
+        game_id: UUID,
+        payload: ImageImportEnginePolicyUpdateRequest,
+        service: Annotated[ImageGeometryRolloutService, rollout_service_parameter],
+    ) -> ImageImportEnginePolicyResponse:
+        return to_image_import_engine_policy_response(
+            service.apply_engine_policy(
+                game_id,
+                target=payload.target_policy,
+                expected_revision=payload.expected_revision,
+                preview_token=payload.preview_token,
+            )
+        )
+
+    @router.get(
+        "/games/{game_id}/image-geometry-rollout",
+        response_model=ImageGeometryRolloutStatusResponse,
+        operation_id="getImageGeometryRolloutStatus",
+        summary="Get bounded virtual-geometry rollout validation status",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_geometry_rollout_status(
+        game_id: UUID,
+        service: Annotated[ImageGeometryRolloutService, rollout_service_parameter],
+    ) -> ImageGeometryRolloutStatusResponse:
+        return to_image_geometry_rollout_status_response(service.status(game_id))
+
+    @router.post(
+        "/games/{game_id}/image-geometry-rollout",
+        response_model=ImageGeometryRolloutStartResponse,
+        status_code=202,
+        operation_id="startImageGeometryRolloutBackfill",
+        summary="Start or resume bounded virtual-geometry rollout validation",
+        responses=ERROR_RESPONSES,
+    )
+    def start_image_geometry_rollout_backfill(
+        game_id: UUID,
+        service: Annotated[ImageGeometryRolloutService, rollout_service_parameter],
+    ) -> ImageGeometryRolloutStartResponse:
+        return to_image_geometry_rollout_start_response(service.start(game_id))
 
     @router.get(
         "/games/{game_id}/grid-reviews",
@@ -67,6 +174,7 @@ def create_image_grid_reviews_router(
         service: Annotated[ImageGridReviewService, service_parameter],
         view: ImageGridReviewView = ImageGridReviewView.NEEDS_VALIDATION,
         import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
+        source_image_id: Annotated[UUID | None, Query(alias="sourceImageId")] = None,
         after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
         limit: Annotated[
@@ -82,6 +190,7 @@ def create_image_grid_reviews_router(
                 game_id=game_id,
                 view=view,
                 import_job_id=import_job_id,
+                source_image_id=source_image_id,
                 after_cursor=after_cursor,
                 before_cursor=before_cursor,
                 limit=limit,
@@ -145,6 +254,27 @@ def create_image_grid_reviews_router(
         )
 
     @router.post(
+        "/games/{game_id}/grid-reviews/source-geometry-approval",
+        response_model=ImageGridReviewSourceApprovalResponse,
+        operation_id="approveImageGridReviewSourceGeometry",
+        summary="Atomically approve every current board geometry of one source image",
+        responses=ERROR_RESPONSES,
+    )
+    def approve_image_grid_review_source_geometry(
+        game_id: UUID,
+        payload: ImageGridReviewSourceApprovalCommand,
+        service: Annotated[ImageGridReviewService, service_parameter],
+    ) -> ImageGridReviewSourceApprovalResponse:
+        return to_image_grid_review_source_approval_response(
+            service.approve_source(
+                game_id=game_id,
+                source_image_id=payload.source_image_id,
+                targets=to_image_grid_review_source_approval_targets(payload),
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        )
+
+    @router.post(
         "/image-reviews/{review_item_id}/geometry-preview",
         response_class=Response,
         operation_id="previewImageGridReviewGeometry",
@@ -162,30 +292,60 @@ def create_image_grid_reviews_router(
             OperationalImageReviewService,
             operational_service_parameter,
         ],
+        virtual_service: Annotated[
+            VirtualGridGeometryService,
+            virtual_geometry_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> Response:
         source = _require_expected_source(service, game_id, review_item_id, payload)
-        preview = operational_service.preview_geometry(
+        corners = tuple(ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners)
+        if source.asset_mode == "virtual_source":
+            virtual_preview = virtual_service.preview(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                review_item_id=review_item_id,
+                expected_geometry_revision=payload.expected_geometry_revision,
+                expected_resolution_revision=payload.expected_resolution_revision,
+                expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
+                expected_source_width=payload.expected_source_width,
+                expected_source_height=payload.expected_source_height,
+                expected_grid_rows=payload.expected_grid_rows,
+                expected_grid_columns=payload.expected_grid_columns,
+                corners=corners,
+            )
+            return Response(
+                content=virtual_preview.contact_sheet_png,
+                media_type="image/png",
+                headers={
+                    "Cache-Control": "no-store",
+                    "X-Board-Cell-Count": str(len(virtual_preview.cells)),
+                    "X-Board-Grid-Rows": str(source.topology.rows),
+                    "X-Board-Grid-Columns": str(source.topology.columns),
+                    "X-Board-Cell-Cropper-Version": virtual_preview.cropper_version,
+                },
+            )
+        legacy_preview = operational_service.preview_geometry(
             review_item_id,
             game_id=game_id,
             import_job_id=import_job_id,
             expected_geometry_revision=payload.expected_geometry_revision,
             expected_resolution_revision=payload.expected_resolution_revision,
-            corners=tuple(
-                ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
-            ),
+            corners=corners,
         )
         return Response(
-            content=preview.contact_sheet_png,
+            content=legacy_preview.contact_sheet_png,
             media_type="image/png",
             headers={
                 "Cache-Control": "no-store",
-                "X-Board-Cell-Count": str(len(preview.cells)),
+                "X-Board-Cell-Count": str(len(legacy_preview.cells)),
                 "X-Board-Grid-Rows": str(source.topology.rows),
                 "X-Board-Grid-Columns": str(source.topology.columns),
-                "X-Board-Cell-Cropper-Fingerprint-Sha256": preview.cropper_fingerprint_sha256,
-                "X-Board-Cell-Cropper-Version": preview.cropper_version,
+                "X-Board-Cell-Cropper-Fingerprint-Sha256": (
+                    legacy_preview.cropper_fingerprint_sha256
+                ),
+                "X-Board-Cell-Cropper-Version": legacy_preview.cropper_version,
             },
         )
 
@@ -204,10 +364,37 @@ def create_image_grid_reviews_router(
             OperationalImageReviewService,
             operational_service_parameter,
         ],
+        virtual_service: Annotated[
+            VirtualGridGeometryService,
+            virtual_geometry_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> ImageGridReviewGeometryResponse:
         source = _require_expected_source(service, game_id, review_item_id, payload)
+        corners = tuple(ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners)
+        if source.asset_mode == "virtual_source":
+            result = virtual_service.save(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                review_item_id=review_item_id,
+                idempotency_key=payload.idempotency_key,
+                expected_geometry_revision=payload.expected_geometry_revision,
+                expected_resolution_revision=payload.expected_resolution_revision,
+                expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
+                expected_source_width=payload.expected_source_width,
+                expected_source_height=payload.expected_source_height,
+                expected_grid_rows=payload.expected_grid_rows,
+                expected_grid_columns=payload.expected_grid_columns,
+                corners=corners,
+                actor=_LOCAL_ADMIN_ACTOR,
+                created_at=datetime.now(UTC),
+            )
+            return to_virtual_grid_review_geometry_response(
+                result,
+                grid_rows=source.topology.rows,
+                grid_columns=source.topology.columns,
+            )
         _item, revision, created = operational_service.correct_geometry(
             review_item_id,
             game_id=game_id,
@@ -215,9 +402,7 @@ def create_image_grid_reviews_router(
             idempotency_key=payload.idempotency_key,
             expected_geometry_revision=payload.expected_geometry_revision,
             expected_resolution_revision=payload.expected_resolution_revision,
-            corners=tuple(
-                ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
-            ),
+            corners=corners,
             corrected_by=_LOCAL_ADMIN_ACTOR,
         )
         return to_image_grid_review_geometry_response(
@@ -225,6 +410,63 @@ def create_image_grid_reviews_router(
             grid_rows=source.topology.rows,
             grid_columns=source.topology.columns,
             created=created,
+        )
+
+    @router.post(
+        "/games/{game_id}/grid-reviews/source-geometry-revisions",
+        response_model=ImageGridReviewSourceGeometryResponse,
+        operation_id="createImageGridReviewSourceGeometryRevision",
+        summary="Atomically persist and approve manual geometry for every board of one source",
+        responses=ERROR_RESPONSES,
+    )
+    def create_image_grid_review_source_geometry_revision(
+        game_id: UUID,
+        payload: ImageGridReviewSourceGeometryCommand,
+        service: Annotated[ImageGridReviewService, service_parameter],
+        virtual_service: Annotated[
+            VirtualGridGeometryService,
+            virtual_geometry_service_parameter,
+        ],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> ImageGridReviewSourceGeometryResponse:
+        if len({target.review_item_id for target in payload.targets}) != len(payload.targets):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_DUPLICATE",
+                "Manual source geometry cannot repeat a board target.",
+            )
+        sources = tuple(
+            _require_expected_source(service, game_id, target.review_item_id, target)
+            for target in payload.targets
+        )
+        if (
+            any(source.source_image_id != payload.source_image_id for source in sources)
+            or any(source.asset_mode != "virtual_source" for source in sources)
+            or any(
+                source.source_checksum_sha256 != sources[0].source_checksum_sha256
+                or source.source_width != sources[0].source_width
+                or source.source_height != sources[0].source_height
+                or source.topology != sources[0].topology
+                for source in sources[1:]
+            )
+        ):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
+                "Manual source geometry requires one complete current virtual source snapshot.",
+            )
+        first_source = sources[0]
+        result = virtual_service.save_source(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            commands=to_virtual_grid_review_source_geometry_commands(payload),
+            idempotency_key=payload.idempotency_key,
+            actor=_LOCAL_ADMIN_ACTOR,
+            created_at=datetime.now(UTC),
+        )
+        return to_virtual_grid_review_source_geometry_response(
+            result,
+            source_image_id=payload.source_image_id,
+            grid_rows=first_source.topology.rows,
+            grid_columns=first_source.topology.columns,
         )
 
     return router

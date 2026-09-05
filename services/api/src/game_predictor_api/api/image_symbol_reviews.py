@@ -25,8 +25,16 @@ from game_predictor_api.application.image_symbol_reviews import (
     SymbolCellReviewQueryService,
 )
 from game_predictor_api.application.unreadable_board_reviews import (
+    SaveUnreadableBoardCellCommand,
     UnreadableBoardReviewService,
     UnreadableBoardReviewView,
+)
+from game_predictor_api.application.virtual_cell_previews import (
+    SymbolCellPreviewTarget,
+    VirtualCellPreviewService,
+    VirtualCellPreviewTarget,
+    symbol_cell_preview_renderer_fingerprint,
+    symbol_cell_preview_renderer_version,
 )
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
@@ -36,11 +44,16 @@ from game_predictor_api.domain.image_symbol_reviews import (
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_symbol_reviews import (
     ResolveUnreadableCellRequest,
+    SaveUnreadableBoardRequest,
+    SaveUnreadableBoardResponse,
+    SymbolCellPreviewBatchRequest,
+    SymbolCellPreviewBatchResponse,
     SymbolCellReviewBulkOperationRequest,
     SymbolCellReviewBulkOperationResponse,
     SymbolCellReviewBulkOperationStartRequest,
     SymbolCellReviewBulkOperationStartResponse,
     SymbolCellReviewBulkPreviewResponse,
+    SymbolCellReviewCountSnapshotResponse,
     SymbolCellReviewMutationRequest,
     SymbolCellReviewMutationResponse,
     SymbolCellReviewPageResponse,
@@ -49,9 +62,14 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     UnreadableBoardReviewDetailResponse,
     UnreadableBoardReviewPageResponse,
     UnreadableSymbolAssignmentRequest,
+    VirtualCellPreviewBatchRequest,
+    VirtualCellPreviewBatchResponse,
+    VirtualCellPreviewTileResponse,
+    to_save_unreadable_board_response,
     to_symbol_cell_review_bulk_operation_response,
     to_symbol_cell_review_bulk_preview_response,
     to_symbol_cell_review_bulk_request,
+    to_symbol_cell_review_count_snapshot_response,
     to_symbol_cell_review_mutation_response,
     to_symbol_cell_review_page_response,
     to_symbol_cell_review_projection_start_response,
@@ -61,6 +79,7 @@ from game_predictor_api.schemas.image_symbol_reviews import (
 )
 
 SymbolCellReviewQueryServiceDependency = Callable[..., object]
+VirtualCellPreviewServiceDependency = Callable[..., object]
 SymbolCellReviewBulkOperationServiceDependency = Callable[..., object]
 SymbolCellReviewMutationServiceDependency = Callable[..., object]
 SymbolCellReviewBackfillServiceDependency = Callable[..., object]
@@ -75,6 +94,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
 
 def create_image_symbol_reviews_router(
     service_dependency: SymbolCellReviewQueryServiceDependency,
+    virtual_preview_service_dependency: VirtualCellPreviewServiceDependency,
     mutation_service_dependency: SymbolCellReviewMutationServiceDependency,
     bulk_operation_service_dependency: SymbolCellReviewBulkOperationServiceDependency,
     backfill_service_dependency: SymbolCellReviewBackfillServiceDependency,
@@ -83,6 +103,7 @@ def create_image_symbol_reviews_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/games", tags=["symbol-cell-reviews"])
     service_parameter = Depends(service_dependency)
+    virtual_preview_service_parameter = Depends(virtual_preview_service_dependency)
     mutation_service_parameter = Depends(mutation_service_dependency)
     bulk_operation_service_parameter = Depends(bulk_operation_service_dependency)
     backfill_service_parameter = Depends(backfill_service_dependency)
@@ -151,6 +172,42 @@ def create_image_symbol_reviews_router(
                 expected_crop_sample_id=request.expected_crop_sample_id,
                 expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
                 target_symbol_id=target_symbol_id,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        )
+
+    @router.post(
+        "/{game_id}/unreadable-board-reviews/{review_item_id}/save",
+        response_model=SaveUnreadableBoardResponse,
+        operation_id="saveUnreadableBoardReview",
+        summary="Atomically save every visible symbol decision for one pending unreadable board",
+        responses=ERROR_RESPONSES,
+    )
+    def save_unreadable_board_review(
+        game_id: UUID,
+        review_item_id: UUID,
+        request: SaveUnreadableBoardRequest,
+        service: Annotated[UnreadableBoardReviewService, unreadable_board_service_parameter],
+    ) -> SaveUnreadableBoardResponse:
+        return to_save_unreadable_board_response(
+            service.save(
+                game_id=game_id,
+                review_item_id=review_item_id,
+                cells=tuple(
+                    SaveUnreadableBoardCellCommand(
+                        cell_index=cell.cell_index,
+                        expected_revision=cell.expected_revision,
+                        expected_geometry_revision=cell.expected_geometry_revision,
+                        expected_crop_sample_id=cell.expected_crop_sample_id,
+                        expected_crop_checksum_sha256=cell.expected_crop_checksum_sha256,
+                        target_symbol_id=(
+                            cell.assignment.symbol_id
+                            if isinstance(cell.assignment, UnreadableSymbolAssignmentRequest)
+                            else None
+                        ),
+                    )
+                    for cell in request.cells
+                ),
                 actor=_LOCAL_ADMIN_ACTOR,
             )
         )
@@ -241,6 +298,17 @@ def create_image_symbol_reviews_router(
                 expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
                 actor=_LOCAL_ADMIN_ACTOR,
             )
+        elif request.action is SymbolCellReviewAction.MARK_BLURRY:
+            result = service.mark_blurry(
+                game_id=game_id,
+                cell_review_id=cell_review_id,
+                expected_revision=request.expected_revision,
+                expected_geometry_revision=request.expected_geometry_revision,
+                expected_crop_sample_id=request.expected_crop_sample_id,
+                expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
+                target_symbol_id=request.target_symbol_id,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
         elif request.action is SymbolCellReviewAction.MARK_UNREADABLE:
             result = service.mark_unreadable(
                 game_id=game_id,
@@ -314,7 +382,7 @@ def create_image_symbol_reviews_router(
         "/{game_id}/symbol-cell-reviews",
         response_model=SymbolCellReviewPageResponse,
         operation_id="listSymbolCellReviews",
-        summary="List current symbol-cell reviews with bounded keyset pagination",
+        summary="List current symbol-cell reviews with keyset pagination",
         responses=ERROR_RESPONSES,
     )
     def list_symbol_cell_reviews(
@@ -324,16 +392,51 @@ def create_image_symbol_reviews_router(
         state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL,
         after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
-        limit: Annotated[int, Query(ge=1, le=500)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
+        min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
+        max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+        limit: Annotated[int, Query(ge=1, le=2500)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPageResponse:
+        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_page_response(
             service.list(
                 game_id=game_id,
-                symbol_id=_parse_symbol_filter(symbol_id),
+                symbol_id=parsed_symbol_id,
                 state=state,
                 after_cursor=after_cursor,
                 before_cursor=before_cursor,
+                min_confidence=min_confidence,
+                max_confidence=max_confidence,
                 limit=limit,
+                include_all_symbols=include_all_symbols,
+            )
+        )
+
+    @router.get(
+        "/{game_id}/symbol-cell-review-counts",
+        response_model=SymbolCellReviewCountSnapshotResponse,
+        operation_id="getSymbolCellReviewCounts",
+        summary="Count one revision-bound symbol-cell review filter independently",
+        responses=ERROR_RESPONSES,
+    )
+    def get_symbol_cell_review_counts(
+        game_id: UUID,
+        service: Annotated[SymbolCellReviewQueryService, service_parameter],
+        symbol_id: Annotated[str, Query(alias="symbolId")],
+        catalog_revision: Annotated[int, Query(alias="catalogRevision", ge=0)],
+        state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.PENDING,
+        min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
+        max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+    ) -> SymbolCellReviewCountSnapshotResponse:
+        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
+        return to_symbol_cell_review_count_snapshot_response(
+            service.counts(
+                game_id=game_id,
+                symbol_id=parsed_symbol_id,
+                state=state,
+                expected_catalog_revision=catalog_revision,
+                min_confidence=min_confidence,
+                max_confidence=max_confidence,
+                include_all_symbols=include_all_symbols,
             )
         )
 
@@ -348,7 +451,11 @@ def create_image_symbol_reviews_router(
         game_id: UUID,
         cell_review_id: UUID,
         service: Annotated[SymbolCellReviewQueryService, service_parameter],
+        preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
         expected_crop_checksum_sha256: Annotated[str, Query(alias="expectedCropChecksumSha256")],
+        expected_render_spec_checksum_sha256: Annotated[
+            str | None, Query(alias="expectedRenderSpecChecksumSha256")
+        ] = None,
         thumbnail_size: Annotated[int, Query(alias="thumbnailSize", ge=32, le=256)] = 100,
     ) -> Response:
         asset = service.asset(
@@ -356,12 +463,183 @@ def create_image_symbol_reviews_router(
             cell_review_id=cell_review_id,
             expected_crop_checksum_sha256=expected_crop_checksum_sha256,
         )
+        if asset.asset_mode == "virtual_source":
+            if expected_render_spec_checksum_sha256 is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_PREVIEW_RENDER_SPEC_REQUIRED",
+                    "Virtual symbol-cell previews require expectedRenderSpecChecksumSha256.",
+                )
+            target = VirtualCellPreviewTarget(
+                cell_review_id=cell_review_id,
+                expected_revision=asset.revision,
+                expected_render_spec_checksum_sha256=expected_render_spec_checksum_sha256,
+            )
+            virtual_assets = service.virtual_preview_assets(game_id=game_id, targets=(target,))
+            batch = preview_service.render_batch(
+                game_id=game_id,
+                assets=virtual_assets,
+                preview_size=thumbnail_size,
+            )
+            content = preview_service.read_atlas(game_id=game_id, batch_key=batch.batch_key).content
+            return virtual_symbol_cell_review_thumbnail_response(content)
         _path, content = read_symbol_cell_review_asset(
             artifact_root,
-            asset.crop_relative_path,
+            _required_relative_path(asset.crop_relative_path),
             asset.crop_checksum_sha256,
         )
         return symbol_cell_review_thumbnail_response(content, thumbnail_size)
+
+    @router.post(
+        "/{game_id}/virtual-cell-preview-batches",
+        response_model=VirtualCellPreviewBatchResponse,
+        operation_id="createVirtualCellPreviewBatch",
+        summary="Render a bounded cached WebP atlas for current virtual symbol cells",
+        responses=ERROR_RESPONSES,
+    )
+    def create_virtual_cell_preview_batch(
+        game_id: UUID,
+        request: VirtualCellPreviewBatchRequest,
+        service: Annotated[SymbolCellReviewQueryService, service_parameter],
+        preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
+    ) -> VirtualCellPreviewBatchResponse:
+        targets = tuple(
+            VirtualCellPreviewTarget(
+                cell_review_id=cell.cell_review_id,
+                expected_revision=cell.expected_revision,
+                expected_render_spec_checksum_sha256=cell.expected_render_spec_checksum_sha256,
+            )
+            for cell in request.cells
+        )
+        assets = service.virtual_preview_assets(game_id=game_id, targets=targets)
+        batch = preview_service.render_batch(
+            game_id=game_id,
+            assets=assets,
+            preview_size=request.preview_size,
+        )
+        return VirtualCellPreviewBatchResponse(
+            batch_key=batch.batch_key,
+            atlas_url=(
+                f"/api/v1/admin/games/{game_id}/virtual-cell-preview-batches/"
+                f"{batch.batch_key}/atlas"
+            ),
+            atlas_checksum_sha256=batch.atlas_checksum_sha256,
+            tiles=tuple(
+                VirtualCellPreviewTileResponse(
+                    cell_review_id=tile.cell_review_id,
+                    x=tile.x,
+                    y=tile.y,
+                    width=tile.width,
+                    height=tile.height,
+                )
+                for tile in batch.tiles
+            ),
+            expires_at=batch.expires_at,
+        )
+
+    @router.post(
+        "/{game_id}/symbol-cell-preview-batches",
+        response_model=SymbolCellPreviewBatchResponse,
+        operation_id="createSymbolCellPreviewBatch",
+        summary="Render a stable WebP atlas for current legacy or virtual symbol cells",
+        responses=ERROR_RESPONSES,
+    )
+    def create_symbol_cell_preview_batch(
+        game_id: UUID,
+        request: SymbolCellPreviewBatchRequest,
+        service: Annotated[SymbolCellReviewQueryService, service_parameter],
+        preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
+    ) -> SymbolCellPreviewBatchResponse:
+        targets = tuple(
+            SymbolCellPreviewTarget(
+                cell_review_id=cell.cell_review_id,
+                expected_revision=cell.expected_revision,
+                expected_crop_checksum_sha256=cell.expected_crop_checksum_sha256,
+                expected_render_spec_checksum_sha256=(cell.expected_render_spec_checksum_sha256),
+            )
+            for cell in request.cells
+        )
+        assets = service.preview_assets(game_id=game_id, targets=targets)
+        renderer_version = symbol_cell_preview_renderer_version(request.renderer_mode)
+        renderer_fingerprint = symbol_cell_preview_renderer_fingerprint(request.renderer_mode)
+        unavailable = tuple(
+            asset.cell_review_id
+            for asset in assets
+            if request.renderer_mode == "structured_v0_10" and asset.asset_mode != "virtual_source"
+        )
+        unavailable_ids = set(unavailable)
+        renderable_assets = tuple(
+            asset for asset in assets if asset.cell_review_id not in unavailable_ids
+        )
+        if not renderable_assets:
+            return SymbolCellPreviewBatchResponse(
+                batch_key=None,
+                atlas_url=None,
+                atlas_checksum_sha256=None,
+                tiles=(),
+                expires_at=None,
+                renderer_mode=request.renderer_mode,
+                renderer_version=renderer_version,
+                renderer_fingerprint_sha256=renderer_fingerprint,
+                available_count=0,
+                unavailable_cell_review_ids=unavailable,
+            )
+        batch = preview_service.render_batch(
+            game_id=game_id,
+            assets=renderable_assets,
+            preview_size=request.preview_size,
+            renderer_mode=request.renderer_mode,
+        )
+        return SymbolCellPreviewBatchResponse(
+            batch_key=batch.batch_key,
+            atlas_url=(
+                f"/api/v1/admin/games/{game_id}/symbol-cell-preview-batches/{batch.batch_key}/atlas"
+            ),
+            atlas_checksum_sha256=batch.atlas_checksum_sha256,
+            tiles=tuple(
+                VirtualCellPreviewTileResponse(
+                    cell_review_id=tile.cell_review_id,
+                    x=tile.x,
+                    y=tile.y,
+                    width=tile.width,
+                    height=tile.height,
+                )
+                for tile in batch.tiles
+            ),
+            expires_at=batch.expires_at,
+            renderer_mode=batch.renderer_mode,
+            renderer_version=batch.renderer_version,
+            renderer_fingerprint_sha256=batch.renderer_fingerprint_sha256,
+            available_count=len(batch.tiles),
+            unavailable_cell_review_ids=unavailable,
+        )
+
+    @router.get(
+        "/{game_id}/symbol-cell-preview-batches/{batch_key}/atlas",
+        operation_id="getSymbolCellPreviewAtlas",
+        summary="Read one stable checksum-verified symbol preview atlas",
+        responses=ERROR_RESPONSES,
+    )
+    def get_symbol_cell_preview_atlas(
+        game_id: UUID,
+        batch_key: str,
+        preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
+    ) -> Response:
+        cached = preview_service.read_atlas(game_id=game_id, batch_key=batch_key)
+        return stable_symbol_cell_review_atlas_response(cached.content)
+
+    @router.get(
+        "/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas",
+        operation_id="getVirtualCellPreviewAtlas",
+        summary="Read one non-expired checksum-verified virtual preview atlas",
+        responses=ERROR_RESPONSES,
+    )
+    def get_virtual_cell_preview_atlas(
+        game_id: UUID,
+        batch_key: str,
+        preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
+    ) -> Response:
+        cached = preview_service.read_atlas(game_id=game_id, batch_key=batch_key)
+        return virtual_symbol_cell_review_thumbnail_response(cached.content)
 
     return router
 
@@ -445,15 +723,52 @@ def symbol_cell_review_thumbnail_response(content: bytes, size: int) -> Response
     )
 
 
-def _parse_symbol_filter(value: str) -> UUID | None:
+def virtual_symbol_cell_review_thumbnail_response(content: bytes) -> Response:
+    """Return a short-lived derived atlas; its cache key binds current provenance."""
+
+    return Response(
+        content=content,
+        media_type="image/webp",
+        headers={
+            "Cache-Control": "private, max-age=900, must-revalidate",
+            "Content-Length": str(len(content)),
+        },
+    )
+
+
+def stable_symbol_cell_review_atlas_response(content: bytes) -> Response:
+    """Return a content-addressed atlas reusable across page visits."""
+
+    return Response(
+        content=content,
+        media_type="image/webp",
+        headers={
+            "Cache-Control": "private, immutable, max-age=31536000",
+            "Content-Length": str(len(content)),
+        },
+    )
+
+
+def _required_relative_path(value: str | None) -> str:
+    if value is None:
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_ASSET_INVALID",
+            "A legacy symbol-cell crop has no relative path.",
+        )
+    return value
+
+
+def _parse_symbol_filter(value: str) -> tuple[UUID | None, bool]:
+    if value == "all":
+        return None, True
     if value == "unknown":
-        return None
+        return None, False
     try:
-        return UUID(value)
+        return UUID(value), False
     except ValueError as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_SYMBOL_FILTER_INVALID",
-            "symbolId must be an active symbol UUID or the literal unknown.",
+            "symbolId must be an active symbol UUID, all, or unknown.",
         ) from error
 
 

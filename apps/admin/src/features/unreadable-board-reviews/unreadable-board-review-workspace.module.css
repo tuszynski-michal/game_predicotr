@@ -5,7 +5,8 @@
 
 .header,
 .boardHeader,
-.pagination {
+.pagination,
+.saveBar {
   align-items: center;
   display: flex;
   gap: 1rem;
@@ -69,6 +70,17 @@
 .cell select {
   min-width: 0;
   width: 100%;
+}
+
+.saveBar {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.saveBar p {
+  margin: 0;
 }
 
 .position,

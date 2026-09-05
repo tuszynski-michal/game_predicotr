@@ -17,12 +17,14 @@ import {
   BOARD_SEARCH_COLUMNS,
   BOARD_SEARCH_ROWS,
   BOARD_SEARCH_UNKNOWN,
+  type BoardSearchEntryOrder,
   boardSearchPatternCellCount,
   createBoardSearchEditorState,
   placeBoardSearchUnknown,
   placeBoardSearchSymbol,
   resetBoardSearchEditor,
   selectBoardSearchCell,
+  selectBoardSearchEntryStart,
   selectedBoardSearchCells,
   undoBoardSearchEdit,
 } from './board-search-editor-state';
@@ -62,6 +64,8 @@ export function BoardSearchWorkspace({
   const [symbolsState, setSymbolsState] = useState<LoadState>('loading');
   const [symbolsError, setSymbolsError] = useState('');
   const [editor, setEditor] = useState(createBoardSearchEditorState);
+  const [entryOrder, setEntryOrder] =
+    useState<BoardSearchEntryOrder>('columns');
   const [scope, setScope] = useState<BoardSearchScope>('all_searchable');
   const [searchState, setSearchState] = useState<SearchState>({ kind: 'idle' });
   const symbolsRequestId = useRef(0);
@@ -126,13 +130,22 @@ export function BoardSearchWorkspace({
   }
 
   function placeSymbol(symbolCode: string) {
-    setEditor((current) => placeBoardSearchSymbol(current, symbolCode));
+    setEditor((current) =>
+      placeBoardSearchSymbol(current, symbolCode, entryOrder),
+    );
     setSearchState({ kind: 'idle' });
   }
 
   function placeUnknown() {
-    setEditor((current) => placeBoardSearchUnknown(current));
+    setEditor((current) => placeBoardSearchUnknown(current, entryOrder));
     setSearchState({ kind: 'idle' });
+  }
+
+  function changeEntryOrder(nextEntryOrder: BoardSearchEntryOrder) {
+    setEntryOrder(nextEntryOrder);
+    setEditor((current) =>
+      selectBoardSearchEntryStart(current, nextEntryOrder),
+    );
   }
 
   function undo() {
@@ -288,6 +301,32 @@ export function BoardSearchWorkspace({
                   : `${selectedCells.length} z 15 znanych pozycji${unknownCellCount > 0 ? ` · ${unknownCellCount} bez dowodu (?)` : ''}.`}
               </p>
             </header>
+            <fieldset className="boardSearchEntryOrder">
+              <legend>Kolejność wpisywania</legend>
+              <label>
+                <input
+                  checked={entryOrder === 'columns'}
+                  name="board-search-entry-order"
+                  onChange={() => changeEntryOrder('columns')}
+                  type="radio"
+                />
+                Kolumnami
+              </label>
+              <label>
+                <input
+                  checked={entryOrder === 'rows'}
+                  name="board-search-entry-order"
+                  onChange={() => changeEntryOrder('rows')}
+                  type="radio"
+                />
+                Wierszami
+              </label>
+              <small>
+                {entryOrder === 'columns'
+                  ? 'Od góry do dołu, następnie kolejna kolumna.'
+                  : 'Od lewej do prawej, następnie kolejny wiersz.'}
+              </small>
+            </fieldset>
             <div
               aria-label="Częściowy układ planszy 3 na 5"
               className="boardSearchGrid"

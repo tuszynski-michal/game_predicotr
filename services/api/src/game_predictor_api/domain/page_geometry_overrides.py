@@ -1,4 +1,4 @@
-"""Immutable human corrections for the complete 3 × 3 page geometry."""
+"""Immutable human corrections for an attested page geometry prefix."""
 
 from __future__ import annotations
 
@@ -13,17 +13,7 @@ type PageGeometryQuad = tuple[
     PageGeometryPoint,
     PageGeometryPoint,
 ]
-type PageGeometryQuads = tuple[
-    PageGeometryQuad,
-    PageGeometryQuad,
-    PageGeometryQuad,
-    PageGeometryQuad,
-    PageGeometryQuad,
-    PageGeometryQuad,
-    PageGeometryQuad,
-    PageGeometryQuad,
-    PageGeometryQuad,
-]
+type PageGeometryQuads = tuple[PageGeometryQuad, ...]
 
 
 @dataclass(frozen=True, slots=True)

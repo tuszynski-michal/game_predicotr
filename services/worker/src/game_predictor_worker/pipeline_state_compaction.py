@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 
@@ -61,12 +61,12 @@ class PipelineStateCompactionHandler:
                 "The pipeline compaction mode is invalid.",
             )
         checkpoint = job.checkpoint_payload or {}
-        start_index = int(checkpoint.get("checkpoint_index", 0))
-        compacted = int(checkpoint.get("compacted_count", 0))
-        compacted_bytes = int(checkpoint.get("compacted_bytes", 0))
-        conflicts = int(checkpoint.get("conflict_count", 0))
+        start_index = _non_negative_integer(checkpoint.get("checkpoint_index", 0))
+        compacted = _non_negative_integer(checkpoint.get("compacted_count", 0))
+        compacted_bytes = _non_negative_integer(checkpoint.get("compacted_bytes", 0))
+        conflicts = _non_negative_integer(checkpoint.get("conflict_count", 0))
         header, entries = _manifest_entries(manifest_path)
-        total = int(header["candidateCount"])
+        total = _non_negative_integer(header.get("candidateCount"))
         batch: list[Mapping[str, object]] = []
         for index, entry in enumerate(entries):
             if index < start_index:
@@ -273,15 +273,20 @@ def _compact_entry(
     return True, disposable_bytes if mode == "execute" else 0
 
 
-def _manifest_entries(path: Path):
+def _manifest_entries(
+    path: Path,
+) -> tuple[Mapping[str, object], Iterator[Mapping[str, object]]]:
     source = path.open("rb")
     try:
         first = source.readline()
-        header = json.loads(first)
-        if header.get("schemaVersion") != PIPELINE_COMPACTION_SCHEMA:
+        header_value = json.loads(first)
+        if (
+            not isinstance(header_value, Mapping)
+            or header_value.get("schemaVersion") != PIPELINE_COMPACTION_SCHEMA
+        ):
             raise ValueError
 
-        def entries():
+        def entries() -> Iterator[Mapping[str, object]]:
             try:
                 for raw in source:
                     value = json.loads(raw)
@@ -291,13 +296,22 @@ def _manifest_entries(path: Path):
             finally:
                 source.close()
 
-        return header, entries()
+        return header_value, entries()
     except (AttributeError, json.JSONDecodeError, ValueError) as error:
         source.close()
         raise JobHandlerError(
             "STORAGE_PIPELINE_COMPACTION_SOURCE_CHANGED",
             "The pipeline compaction manifest is invalid.",
         ) from error
+
+
+def _non_negative_integer(value: object) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise JobHandlerError(
+            "STORAGE_PIPELINE_COMPACTION_SOURCE_CHANGED",
+            "The pipeline compaction manifest counters are invalid.",
+        )
+    return value
 
 
 def _file_sha256(path: Path) -> str:

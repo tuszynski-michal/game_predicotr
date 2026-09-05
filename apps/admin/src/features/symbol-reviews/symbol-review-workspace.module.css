@@ -27,7 +27,7 @@
 
 .filters {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   padding: 16px;
   border: 1px solid var(--line);
@@ -52,7 +52,28 @@
   width: 100%;
 }
 
+.filters input {
+  width: 100%;
+}
+
+.filterActions {
+  display: grid;
+  align-content: end;
+  gap: 6px;
+}
+
+.filterActions button {
+  width: 100%;
+}
+
+.filterActions span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
 .filters fieldset {
+  grid-column: 1 / span 3;
   grid-template-columns: repeat(3, auto);
   align-content: end;
   align-items: center;
@@ -99,26 +120,24 @@
   white-space: nowrap;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 100px);
-  gap: 8px;
-}
-
 .card {
+  position: relative;
   display: grid;
   width: 100px;
   height: 100px;
   overflow: hidden;
   min-width: 0;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 12px;
-  background: var(--panel-soft);
+  background: transparent;
 }
 
 .cardSelected {
-  border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.cardSelected .cardToggle::after {
+  border-color: var(--accent);
 }
 
 .cardPending {
@@ -148,19 +167,39 @@
   outline-offset: -3px;
 }
 
+.cardToggle::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  content: '';
+  pointer-events: none;
+}
+
 .card img,
 .assetFallback {
   display: grid;
   width: 100px;
   height: 100px;
   place-items: center;
-  object-fit: contain;
-  background: #050b14;
+  object-fit: fill;
+  background: transparent;
+}
+
+.virtualPreview {
+  display: block;
+  width: 100px;
+  height: 100px;
+  background-color: transparent;
+  background-repeat: no-repeat;
 }
 
 .assetFallback {
   color: var(--muted);
-  font-size: 2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
 }
 
 .cardLoader {
@@ -179,8 +218,8 @@
 
 .cardBadge {
   position: absolute;
+  top: 4px;
   right: 4px;
-  bottom: 4px;
   max-width: calc(100% - 8px);
   padding: 2px 5px;
   overflow: hidden;
@@ -192,6 +231,22 @@
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
+}
+
+.sequenceNumber {
+  position: absolute;
+  z-index: 2;
+  bottom: 3px;
+  left: 3px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgb(5 11 20 / 55%);
+  color: #fff;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1.2;
   pointer-events: none;
 }
 
@@ -298,6 +353,15 @@
   max-width: 180px;
 }
 
+.qualityActions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
 .operationProgress {
   display: grid;
   gap: 4px;
@@ -400,6 +464,10 @@
 
   .filters {
     grid-template-columns: 1fr;
+  }
+
+  .filters fieldset {
+    grid-column: auto;
   }
 
   .summary,

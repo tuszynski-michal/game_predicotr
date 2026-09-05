@@ -124,6 +124,7 @@ class PendingGridReinferencePreviewResponse(ApiModel):
     recalculable_board_count: int = Field(ge=0)
     current_v19_board_count: int = Field(ge=0)
     protected_board_count: int = Field(ge=0)
+    unsupported_virtual_board_count: int = Field(ge=0)
     pending_source_count: int = Field(ge=0)
     partially_resolved_source_count: int = Field(ge=0)
     fully_resolved_source_count: int = Field(ge=0)
@@ -397,6 +398,7 @@ def to_pending_grid_reinference_preview_response(
         recalculable_board_count=preview.recalculable_board_count,
         current_v19_board_count=preview.current_v19_board_count,
         protected_board_count=preview.protected_board_count,
+        unsupported_virtual_board_count=preview.unsupported_virtual_board_count,
         pending_source_count=preview.pending_source_count,
         partially_resolved_source_count=preview.partially_resolved_source_count,
         fully_resolved_source_count=preview.fully_resolved_source_count,

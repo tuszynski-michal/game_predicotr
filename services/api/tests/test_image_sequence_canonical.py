@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 from game_predictor_api.domain.image_sequence_canonical import (
+    BrowserUploadPlanSource,
     ImageSequenceCanonicalService,
     parse_browser_sequence_manifest,
 )
@@ -10,11 +11,20 @@ from game_predictor_api.domain.jobs import JobConflictError
 
 
 class _Repository:
-    def __init__(self, numbers: set[int]) -> None:
+    def __init__(
+        self,
+        numbers: set[int],
+        *,
+        expected_layout_count: int | None = None,
+    ) -> None:
         self.numbers = numbers
+        self._expected_layout_count = expected_layout_count
 
     def canonical_numbers(self, _game_id):  # type: ignore[no-untyped-def]
         return set(self.numbers)
+
+    def expected_layout_count(self, _game_id):  # type: ignore[no-untyped-def]
+        return self._expected_layout_count
 
 
 def _touch(root: Path, name: str) -> None:
@@ -57,6 +67,16 @@ def test_preflight_rejects_overlapping_ranges(tmp_path: Path) -> None:
         service.preflight(game_id=uuid4(), source_directory=tmp_path)
 
     assert error.value.code == "IMAGE_SEQUENCE_PREFLIGHT_RANGE_OVERLAP"
+
+
+def test_preflight_rejects_an_invalid_seq_filename(tmp_path: Path) -> None:
+    _touch(tmp_path, "seq_1-10.jpg")
+    service = ImageSequenceCanonicalService(_Repository(set()))
+
+    with pytest.raises(JobConflictError) as error:
+        service.preflight(game_id=uuid4(), source_directory=tmp_path)
+
+    assert error.value.code == "IMAGE_SEQUENCE_PREFLIGHT_RANGE_INVALID"
 
 
 def test_preflight_reports_non_attested_folder(tmp_path: Path) -> None:
@@ -133,3 +153,67 @@ def test_manifest_rejects_mixed_attested_and_unattested_names() -> None:
         )
 
     assert error.value.code == "IMAGE_SEQUENCE_MANIFEST_INVALID"
+
+
+def test_preflight_accepts_a_bounded_final_sequence_page(tmp_path: Path) -> None:
+    _touch(tmp_path, "seq_499996-500000.jpg")
+    service = ImageSequenceCanonicalService(_Repository(set(), expected_layout_count=500_000))
+
+    result = service.preflight(game_id=uuid4(), source_directory=tmp_path)
+
+    assert result.attested_file_count == 1
+    assert result.new_sequence_count == 5
+    assert result.last_unresolved_sequence == 500_000
+
+
+def test_preflight_rejects_a_sequence_page_beyond_the_game_bound(
+    tmp_path: Path,
+) -> None:
+    _touch(tmp_path, "seq_499999-500007.jpg")
+    service = ImageSequenceCanonicalService(_Repository(set(), expected_layout_count=500_000))
+
+    with pytest.raises(JobConflictError) as error:
+        service.preflight(game_id=uuid4(), source_directory=tmp_path)
+
+    assert error.value.code == "IMAGE_SEQUENCE_PREFLIGHT_OUT_OF_BOUNDS"
+    assert error.value.details == {
+        "expectedLayoutCount": 500_000,
+        "fileName": "seq_499999-500007.jpg",
+        "rangeStart": 499_999,
+        "rangeEnd": 500_007,
+    }
+
+
+def test_browser_upload_plan_omits_only_fully_canonical_seq_sources() -> None:
+    service = ImageSequenceCanonicalService(_Repository(set(range(1, 10))))
+
+    plan = service.plan_browser_upload(
+        game_id=uuid4(),
+        files=(
+            BrowserUploadPlanSource(0, "seq_1-9.jpg", 10),
+            BrowserUploadPlanSource(1, "seq_10-18.jpg", 20),
+            BrowserUploadPlanSource(2, "photo.jpg", 30),
+        ),
+    )
+
+    assert plan.preflight.skipped_source_count == 1
+    assert plan.preflight.new_sequence_count == 9
+    assert [item.source_index for item in plan.files_to_upload] == [1, 2]
+    assert [
+        (item.source_index, item.sequence_range_start, item.sequence_range_end)
+        for item in plan.skipped_complete_sources
+    ] == [(0, 1, 9)]
+    assert plan.selected_total_bytes == 60
+    assert plan.upload_total_bytes == 50
+
+
+def test_browser_upload_plan_keeps_a_partially_missing_source() -> None:
+    service = ImageSequenceCanonicalService(_Repository({1, 2, 3}))
+
+    plan = service.plan_browser_upload(
+        game_id=uuid4(),
+        files=(BrowserUploadPlanSource(4, "folder/seq_1-9.jpeg", 10),),
+    )
+
+    assert plan.preflight.partial_source_count == 1
+    assert [item.source_index for item in plan.files_to_upload] == [4]

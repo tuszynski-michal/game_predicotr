@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Literal
 from uuid import UUID
 
-CleanupKind = Literal["mobile_release", "game_layout_data"]
+CleanupKind = Literal["mobile_release", "game_layout_data", "board_source_ranges"]
 
 
 class CleanupError(ValueError):
@@ -34,6 +34,30 @@ class CleanupConflictError(CleanupError):
 
 
 @dataclass(frozen=True, slots=True)
+class BoardSourceCleanupSelection:
+    """The explicit board numbers used to select whole image-source ranges."""
+
+    sequence_numbers: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        if not self.sequence_numbers:
+            raise CleanupError(
+                "CLEANUP_SEQUENCE_SELECTION_EMPTY",
+                "Select at least one board number for source cleanup.",
+            )
+        if any(number <= 0 for number in self.sequence_numbers):
+            raise CleanupError(
+                "CLEANUP_SEQUENCE_NUMBER_INVALID",
+                "Board numbers selected for cleanup must be positive.",
+            )
+        if tuple(sorted(set(self.sequence_numbers))) != self.sequence_numbers:
+            raise CleanupError(
+                "CLEANUP_SEQUENCE_SELECTION_NOT_CANONICAL",
+                "Board numbers selected for cleanup must be unique and sorted.",
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class CleanupCount:
     name: str
     count: int
@@ -49,6 +73,7 @@ class CleanupSnapshot:
     artifact_paths: tuple[str, ...]
     retained_shared_artifact_count: int
     blockers: tuple[str, ...]
+    warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +99,7 @@ class CleanupResult:
     deleted_artifact_count: int
     retained_shared_artifact_count: int
     already_completed: bool = False
+    quarantine_key: str | None = None
 
 
 def cleanup_preview(snapshot: CleanupSnapshot) -> CleanupPreview:
@@ -86,6 +112,7 @@ def cleanup_preview(snapshot: CleanupSnapshot) -> CleanupPreview:
         "retainedSharedArtifactCount": snapshot.retained_shared_artifact_count,
         "targetId": str(snapshot.target_id),
         "targetLabel": snapshot.target_label,
+        "warnings": list(snapshot.warnings),
     }
     canonical = json.dumps(
         payload,
@@ -100,6 +127,7 @@ def cleanup_preview(snapshot: CleanupSnapshot) -> CleanupPreview:
 
 
 __all__ = [
+    "BoardSourceCleanupSelection",
     "CleanupCommand",
     "CleanupConflictError",
     "CleanupCount",

@@ -22,6 +22,12 @@ zadanie odwołuje się do nich jawnie.
 ## Zasady nadrzędne
 
 - Nie rozszerzaj zakresu zadania bez wyraźnej potrzeby.
+- Implementuj wyłącznie task wskazany przez użytkownika. Nie rozpoczynaj
+  kolejnego taska, nawet jeżeli jego zależności są gotowe, bez osobnego
+  polecenia użytkownika.
+- Przed kodowaniem ponownie przeczytaj aktywny task oraz odpowiadające mu
+  fragmenty zaakceptowanego planu. Jeżeli zakres taska i plan są sprzeczne,
+  zgłoś konflikt przed implementacją.
 - Nie podejmuj ukrytych decyzji produktowych. Zapisz je jako pytanie, założenie albo decyzję.
 - Zachowuj deterministyczną kolejność układów. `sequence_number` jest częścią domeny, a nie technicznym identyfikatorem.
 - Nie uruchamiaj kalkulacji targetu, dopóki pozycja sekwencji nie jest jednoznacznie ustalona.
@@ -51,13 +57,30 @@ zadanie odwołuje się do nich jawnie.
 
 ### Wersjonowanie commitów
 
-- W aktywnym torze wersji `0.5` każdy kolejny commit zwiększa trzecią cyfrę
-  wersji o jeden: `v0.5.2`, `v0.5.3`, `v0.5.4` itd.
+- Każdy ukończony task otrzymuje osobny commit. Niezależna poprawka błędu
+  wykonana przed taskiem również wymaga osobnego commita.
+- Numer następnego commita wyznacz z najnowszego wersjonowanego commita w
+  bieżącym torze. Każdy kolejny commit zwiększa patch o jeden.
 - Numer patch jest przypisany do kolejności commitów, nie do liczby zadań w
   commicie. Nie wolno ponownie użyć ani pominąć numeru bez jawnej decyzji
   użytkownika.
-- Komunikat commita zaczyna się od pełnej wersji `v0.5.N`; po niej może zawierać
-  krótki opis zakresu.
+- Komunikat commita zaczyna się od pełnej bieżącej wersji `vX.Y.N`; po niej może
+  zawierać krótki opis zakresu.
+- Przed commitem sprawdź `git diff --cached --check`, staged statystykę i listę
+  staged plików. Po commicie sprawdź `git show --stat` oraz pozostały
+  `git status`.
+
+### Brudny worktree i zakres commita
+
+- Zmiany obecne przed rozpoczęciem taska należą do użytkownika, chyba że ich
+  pochodzenie jest jednoznacznie znane. Nie usuwaj ich, nie formatuj masowo i
+  nie dołączaj automatycznie do commita.
+- Jeżeli plik zawiera zarówno zmiany użytkownika, jak i bieżącego taska, dodaj
+  do indeksu wyłącznie właściwe hunki. Nie commituj całego pliku tylko dlatego,
+  że task zmienił jego fragment.
+- Zmiana API wymaga jednego spójnego pionu: backendu, OpenAPI, wygenerowanego
+  klienta, wrappera klienta i testu żądania. Nie utrzymuj ręcznie rozbieżnych
+  typów.
 
 ### Przed kodowaniem
 
@@ -74,6 +97,37 @@ zadanie odwołuje się do nich jawnie.
 - Używaj małych, czytelnych modułów i jawnych nazw domenowych.
 - Oddzielaj logikę domenową od transportu HTTP, UI i ORM.
 - Dla algorytmów używaj czystych funkcji z deterministycznymi wejściami i wyjściami.
+- Gdy nowe UI wymaga rozszerzenia istniejącego API, zgłoś tę konieczność
+  użytkownikowi przed zmianą i wybierz zgodne rozszerzenie istniejącego
+  kontraktu zamiast tworzyć równoległy endpoint lub model bez potrzeby.
+- Przy wydzielaniu wspólnego komponentu zachowaj domyślne zachowanie jego
+  istniejących konsumentów. Nowe opcje są opcjonalne, a poprzedni workflow musi
+  dostać test regresyjny.
+
+### Testy, benchmarki i regresje
+
+- Najpierw uruchamiaj testy skoncentrowane na zmienionym pionie, następnie jego
+  lint i typecheck, a dopiero potem szersze testy i build.
+- Nie uruchamiaj benchmarków, testów obciążeniowych, wielomilionowych fixture'ów
+  ani sztucznych danych bez wyraźnego polecenia użytkownika. Najpierw stosuj
+  analizę teoretyczną albo ograniczony test na istniejących danych.
+- Nie osłabiaj ani nie usuwaj testu wyłącznie po to, aby uzyskać zielony wynik.
+  Test można zmienić tylko, jeżeli świadomie zmienił się jego kontrakt.
+- Naprawa regresji otrzymuje test odtwarzający zgłoszony przypadek, w tym
+  restart, utraconą odpowiedź, konflikt rewizji albo wznowienie, jeżeli taki
+  scenariusz był przyczyną błędu.
+- Jeżeli pełna kontrola wykrywa wcześniejszy, niezwiązany błąd, nie rozszerzaj
+  automatycznie zakresu. Potwierdź jakość zmienionych modułów, opisz blocker i
+  pozostaw go poza commitem.
+
+### Trwałe workflowy i operacje danych
+
+- Dla workflowów opartych na jobach, manifestach, stagingu lub IndexedDB
+  weryfikuj zachowanie po restarcie procesu oraz po utracie odpowiedzi API.
+  Sukces wyłącznie w bieżącej sesji nie jest dowodem trwałości.
+- Implementacja mechanizmu destrukcyjnego nie jest zgodą na jego wykonanie na
+  danych użytkownika. Migracje destrukcyjne, GC, cleanupy i usuwanie danych
+  wymagają osobnego preview i jawnego potwierdzenia.
 
 ### Limity czasu i procesy długotrwałe
 
@@ -108,6 +162,10 @@ zadanie odwołuje się do nich jawnie.
    - jakie testy uruchomiono,
    - czego nie wykonano,
    - jakie są następne kroki lub ryzyka.
+7. Porównaj rezultat punkt po punkcie z Definition of Done taska oraz jego
+   zaakceptowanym planem.
+8. Po raporcie zatrzymaj się. Kontynuuj wyłącznie po osobnym poleceniu
+   użytkownika wskazującym następny task.
 
 ## Hierarchia źródeł prawdy
 

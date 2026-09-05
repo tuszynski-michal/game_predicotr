@@ -22,7 +22,10 @@ from game_predictor_api.domain.jobs import (
 DEFAULT_LEASE_DURATION = timedelta(seconds=60)
 DEFAULT_POLL_INTERVAL_SECONDS = 2.0
 MAX_LEASE_KEEPALIVE_INTERVAL_SECONDS = 15.0
-GENERAL_JOB_TYPES = frozenset(JobType) - {JobType.IMAGE_SELECTION}
+GENERAL_JOB_TYPES = frozenset(JobType) - {
+    JobType.IMAGE_SELECTION,
+    JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+}
 
 
 class JobExecutionResult(StrEnum):

@@ -221,6 +221,11 @@ Dla zadania widzi:
   zachowuje bezpieczny kontekst joba bez ujawniania ścieżki lokalnej; starsze
   joby mogą użyć wyłącznie nazwy ostatniego katalogu, jeżeli ma format zakresu,
 - etap i postęp,
+- dla preflightu geometrii osobny postęp bieżącej fazy: pierwszy przebieg,
+  dodatkowe dopasowanie z numerem przebiegu albo zapis manifestu; zakończenie
+  pierwszego przebiegu nie może pokazywać fałszywego `100%` całego joba,
+- dla aktywnego joba czytelny stan świeżości heartbeat: aktywna praca,
+  oczekiwanie na pierwszy sygnał albo ostrzeżenie o nieświeżym workerze,
 - liczbę elementów poprawnych, błędnych i wymagających review,
 - czas rozpoczęcia i zakończenia,
 - wersję kodu/modelu,
@@ -312,6 +317,12 @@ dowodu: pozostają widoczne w lokalnym wzorze i historii `Cofnij`, ale nie są
 wysyłane jako znana pozycja i nie wchodzą do denominatora. Wzór zawierający
 wyłącznie puste pola lub `?` nie może uruchomić wyszukiwania.
 
+Operator wybiera kolejność automatycznego przechodzenia pól: kolumnami albo
+wierszami. Domyślnie edytor przechodzi pierwszą kolumnę z góry na dół, a potem
+kolejne kolumny. Zmiana kolejności zachowuje zawartość wzoru i wybiera pierwsze
+wolne pole w nowym porządku. Wizualny układ oraz kanoniczne indeksy komórek
+pozostają row-major niezależnie od sposobu wprowadzania.
+
 Zapisane `?` w znalezionej planszy nie daje punktu, nie zwiększa liczby
 dokładnych dopasowań ani sprzeczności. Znany symbol zapytania zestawiony z `?`
 jest raportowany jako brak danych. Wyniki zachowują deterministyczną kolejność:
@@ -337,13 +348,39 @@ nie ze stałej 15. Autor decyzji pochodzi z lokalnego, uwierzytelnionego
 kontekstu Admin API.
 
 Lokalny Reviewer otwiera domyślnie ekran `Zatwierdzanie cięcia siatki` z jednym
-oryginalnym obrazem i canvasowym overlayem. Filtry mają kolejność `Do
+oryginalnym obrazem i canvasowym overlayem. Obraz otwiera się domyślnie przy
+powiększeniu 100%. Kliknięcie widocznej siatki wybiera odpowiadającą jej
+planszę; w trybie wyznaczania plansz osobno pozwala przełączać aktywny szkic bez
+zapisu ani zmiany jego punktów. Hit-test zawsze odpowiada geometrii aktualnie
+rysowanej na overlayu, także po lokalnym przesunięciu. Filtry mają kolejność `Do
 walidacji`, `Do poprawy`, `Wszystkie`. `Enter`, `F` i główny przycisk
-zatwierdzają bieżącą geometrię i przechodzą do następnego rekordu. Korekta
-pozwala wskazać kolejno LT, PT, PD i LD, przeciągać narożniki lub całą siatkę,
-cofać punkt, resetować szkic oraz obejrzeć dynamiczne `rows × columns` cropy
-przed atomowym zapisem i zatwierdzeniem rewizji. Ekran nie pozwala edytować
-symboli i nie zapisuje JPEG-a z overlayem.
+zatwierdzają bieżącą geometrię i przechodzą do następnego rekordu. Jeżeli jedno
+źródło zawiera wiele aktywnych plansz, `Zatwierdź całe zdjęcie` wysyła jeden
+checksum- i revision-bound rozkaz: zatwierdza cały bieżący komplet albo nie
+zatwierdza żadnej planszy. Korekta pozwala wskazać kolejno LT, PT, PD i LD,
+przeciągać narożniki lub całą siatkę, cofać punkt, resetować szkic oraz obejrzeć
+dynamiczne `rows × columns` cropy przed atomowym zapisem i zatwierdzeniem
+rewizji. `Zakończ edycję` pojedynczej planszy zachowuje kompletny albo częściowy
+szkic oraz panel A/B; ponowne wejście kontynuuje ten szkic. Do czasu zapisu albo
+jawnego `Resetuj do automatu` zwykłe zatwierdzenie, nawigacja i zmiana planszy
+są zablokowane. Dla `virtual_source` przycisk `Wyznacz plansze osobno`, obok `Zmień
+siatkę`, prowadzi przez cztery narożniki każdej aktywnej planszy w kolejności
+row-major; zapis jest dostępny dopiero po komplecie wszystkich slotów i tworzy
+jedną rewizję geometrii źródła. Lokalny szkic każdego slotu pozostaje widoczny
+po przełączeniu planszy oraz po wstrzymaniu i wznowieniu tego trybu, ale nie
+jest trwałą rewizją przed wspólnym zapisem. Ekran nie pozwala edytować symboli
+i nie zapisuje JPEG-a z overlayem. Globalny backfill rolloutu może być w toku,
+nie rozpocząć się albo zostać zablokowany przez inne źródło; sam w sobie nie
+blokuje lokalnej korekty kompletnego bieżącego źródła. Przed zapisem backend
+nadal checksum-bound waliduje dokładnie to źródło, jego topologię, rewizje,
+render spec oraz komplet komórek, więc niepełna proweniencja konkretnej planszy
+pozostaje fail-closed.
+Lokalny origin Reviewera dostaje wyłącznie scope-bound ścieżki szybkiego
+zatwierdzania i wspólnego zapisu geometrii źródła; nie otrzymuje dostępu do
+pozostałych mutacji panelu Admina. `127.0.0.1`, `localhost` i `[::1]` są
+równoważne wyłącznie jako spelling tego samego skonfigurowanego originu HTTP i
+portu lokalnego Reviewera; inny port oraz każdy origin LAN/publiczny pozostają
+odrzucone.
 
 Nowy workflow jest obowiązującym lokalnym widokiem. Zdalna sesja Reviewera
 zachowuje wąsko ograniczoną ścieżkę operacyjną i nie otrzymuje game-wide
@@ -359,47 +396,77 @@ stabilny `code`, kolejny `mobileCode` i `displayOrder`. Edycja nazwy nie może
 zmienić żadnego z tych identyfikatorów.
 
 Kafel symbolu bez zatwierdzonej grafiki pokazuje `?`. Kliknięcie kafla zawsze
-otwiera picker cropów, lecz picker pokazuje wyłącznie rzeczywiste cropy komórek
-z kanonicznych plansz `accepted/corrected` tej samej gry, zgodne z końcową
-decyzją człowieka i zatwierdzoną rewizją geometrii. Nie pokazuje pełnej planszy,
-confidence modelu, predykcji ani oczekujących, odrzuconych lub superseded
-źródeł. Propozycje są stronicowane po maksymalnie 20 i uporządkowane: ręcznie
-poprawiona geometria, numer sekwencji, indeks komórki, UUID obserwacji.
+otwiera picker cropów, który pokazuje aktualne cropy komórek zatwierdzone przez
+człowieka — pojedynczo albo wraz z całą planszą. Crop musi wskazywać aktywny
+symbol tej samej gry, nie mieć problemu jakości i mieć identyczną zatwierdzoną
+oraz bieżącą tożsamość. Nie pokazuje pełnej planszy, confidence modelu,
+predykcji, oczekujących, odrzuconych, superseded ani cropów zmienionych po
+zatwierdzeniu. Propozycje są stronicowane po maksymalnie 20 i uporządkowane:
+ręcznie poprawiona geometria, numer sekwencji, indeks komórki, UUID obserwacji.
 
-Wybór cropa jest checksum-bound i zapisuje jego niezmienione bajty jako trwałą,
-content-addressed referencję. Stary `image_path` bez takiej proweniencji nie
+Wybór cropa jest checksum-bound i zapisuje trwałą, content-addressed referencję.
+Legacy zachowuje niezmienione bajty, a crop v0.10 jest jednokrotnie
+materializowany jako pełny PNG. Stary `image_path` bez takiej proweniencji nie
 jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
-„Najpierw zatwierdź planszę zawierającą ten symbol”.
+„Najpierw zatwierdź crop zawierający ten symbol”.
 
 ### Weryfikacja symboli
 
 `Weryfikacja symboli` jest osobnym, wyłącznie lokalnym obszarem głównej
-nawigacji Admina. Operator wybiera grę, aktywny symbol (lub techniczne
-`Nierozpoznany (?)`) i stan `Wszystkie` / `Zatwierdzone` / `Oczekujące`.
+nawigacji Admina. Operator wybiera grę oraz zakres symbolu: wszystkie symbole,
+jeden aktywny symbol albo nierozpoznane `?`, a także radio `Stan weryfikacji`:
+`Wszystkie`, `Oczekujące` albo `Zatwierdzone`. Symbol docelowy akcji
+`Zmień symbol` pozostaje niezależnym wyborem. Nie istnieje status cropa
+`odrzucone`: `Zła siatka` i `Nieczytelny symbol` są odrębnymi problemami
+jakościowymi obsługiwanymi przez ich dedykowane kolejki.
 Widok korzysta z tego samego pojedynczego właściciela logicznego numeru co
 operacyjne review: kanoniczna plansza `accepted/corrected` ma pierwszeństwo,
 a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
 starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
-Pierwsza aktywna pozycja katalogu jest domyślna, a domyślny stan to
-`Oczekujące`. Widok pobiera jedną stronę maksymalnie 500 aktualnych cropów i
-udostępnia jawne przyciski poprzedniej/następnej strony. Nie wykonuje read-ahead,
-nie utrzymuje stron sąsiednich ani nie scala danych z cache aplikacji. Miniatury
-są ładowane leniwie spod checksum-bound lokalnego Admin API; brak jednego assetu
-pokazuje placeholder tylko tej karty. Natywny immutable cache miniaturek
-pozostaje, ponieważ ogranicza transfer i nie przechowuje metadanych stron w
-stanie aplikacji.
-Podsumowanie pokazuje numer strony, jej jednoznaczny zakres pozycji (np.
-`1–500`, `501–1000`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
-wybranego symbolu. Zakres ostatniej strony kończy się na rzeczywistej liczbie
+Gra oraz zakres symbolu są domyślnie niewybrane. Wejście do zakładki nie pobiera
+strony cropów. Operator wybiera rozmiar strony `500`, `1000`, `2000` albo
+`2500` metadanych; domyślnie jest to `500`. Pierwsza strona jest pobierana
+automatycznie dopiero po wskazaniu kombinacji obu pól. Zmiana gry ponownie
+czyści wybór symbolu; osobne akcje `Zatwierdź wybór` i `Zmień wybór` nie
+występują. Globalne liczniki nie należą
+do krytycznej ścieżki listy: są pobierane osobno dla gry i rewizji
+katalogu. Wolny albo niedostępny licznik nie blokuje oglądania ani decyzji, a
+spóźniona odpowiedź poprzedniej gry jest odrzucana. Zmiana ustawionej gry,
+symbolu albo rozmiaru strony czyści strony, miniatury, zaznaczenie i wirtualny
+viewport. Jeśli istnieje jawne zaznaczenie,
+operator najpierw potwierdza jego wyczyszczenie. Widok zachowuje jawne przyciski
+poprzedniej/następnej strony, prefetchuje wyłącznie jedną kolejną stronę i trzyma
+w pamięci najwyżej trzy najbliższe strony metadanych. Nie utrzymuje obrazów dla
+całej strony: DOM zawiera tylko karty viewportu i małego overscanu. Admin
+dzieli potwierdzoną stronę deterministycznie na atlasy po maksymalnie 100
+kart, wspólne dla `legacy_file` i `virtual_source`. Dla 500 cropów powstaje
+najwyżej pięć requestów obrazu, a dla 2500 — najwyżej 25: najpierw grupa
+zawierająca widoczny viewport, potem pozostałe grupy w kolejności. Klucz atlasu obejmuje rewizje, checksumy,
+tryby assetów i wersję renderera, dlatego powrót na stronę korzysta z tego
+samego content-addressed cache, a zmiana cropa nie może pokazać starego tile'a.
+Podsumowanie pokazuje numer strony i jej jednoznaczny zakres pozycji natychmiast
+po pobraniu metadanych, a następnie uzupełnia niezależnie pełne liczniki. Zakres zależy od
+zatwierdzonego limitu (np. `1–50`, `51–100`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
+wybranej gry. Zakres ostatniej strony kończy się na rzeczywistej liczbie
 wyników.
-Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Nazwa,
+Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Crop
+wypełnia cały tile bez dopisywanego czarnego płótna, a cienkie obramowanie jest
+nakładane na krawędź grafiki i nie zmniejsza jej powierzchni. Nazwa,
 numer planszy, pozycja i stan review nie zajmują miejsca w siatce. Po wysłaniu
 decyzji karta jest nieaktywna, przygaszona i pokazuje centralny spinner; poprawnie
 przypisany do innego symbolu crop znika przed odświeżeniem strony z serwera.
-Karta pobiera checksum-bound thumbnail WebP o maksymalnym rozmiarze 100 × 100,
-nie pełny crop ani base64 w odpowiedzi listy. Przeglądarka utrwala go przez
-content-addressed cache `immutable`.
+Numer planszy jest ponadto stale widoczny jako mały, kontrastowy overlay przy
+dolnej krawędzi samej grafiki. Nie powiększa kafelka ani nie przesuwa cropa;
+może użyć półprzezroczystego tła wyłącznie dla czytelności.
+Karta pokazuje tile 100 × 100 px ze wspólnego atlasu WebP, nie pełny crop ani
+base64 w odpowiedzi listy. Przeglądarka utrwala atlas przez content-addressed
+cache `immutable`.
+
+Widok nie ma przełącznika rendererów. Każda karta korzysta z bieżącej,
+checksum-bound tożsamości assetu zapisanej na komórce: `legacy_file` dla
+historycznego importu albo `virtual_source` dla produkcyjnego v0.10. Shadow nie
+jest źródłem decyzji i nie może być pokazany jako aktywny crop.
 Do czasu gotowości projekcji gra pokazuje
 kontrolowany stan przebudowy, a nie mylący pusty wynik. Stan pokazuje
 oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akcje
@@ -414,23 +481,39 @@ oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akc
   z kompletnej projekcji zachowuje odczyt oraz mutacje istniejących cropów także
   podczas przetwarzania; początkowy lub niekompletny backfill pozostaje
   fail-closed.
-  Zaznaczanie i masowe
-operacje działają bez pobierania całego wyniku do przeglądarki. Operator może
-zaznaczać pojedyncze karty albo całą bieżącą stronę; Admin nie oferuje
-zaznaczenia niewidocznego całego filtra. Zmiana gry, symbolu, stanu lub strony
-czyści zaznaczenie. Wysłana operacja masowa przechodzi do tła: jej dokładne
-targety pozostają wyszarzone ze spinnerem, ale operator może przejść na inną
-stronę i uruchomić kolejną niezależną operację. Zablokowane pozostają wyłącznie
-targety już wysłane oraz krótki foreground start/preview bieżącej decyzji.
+Zaznaczanie i masowe operacje działają bez pobierania całego wyniku do
+przeglądarki. Operator może zaznaczać pojedyncze karty albo całą bieżącą stronę
+jawnie do 10 000 pozycji. Game-wide widok nie udostępnia akcji `Zaznacz wyniki
+filtra`, ponieważ jego zakres może zawierać jednocześnie zwykłe, nierozpoznane i
+odrzucone jakościowo cropy o różnych dozwolonych mutacjach.
+Jawne zaznaczenie pozostaje aktywne przy przejściu między keysetowymi stronami,
+więc operator może zbudować jeden job z kilku stron wybranego rozmiaru. Czyści je
+wyłącznie jawna akcja, zmiana filtra albo skuteczne przekazanie operacji.
+Zmiana filtra przy zaznaczeniu wymaga potwierdzenia i czyści selection. Wysłana
+operacja masowa przechodzi do tła: jej dokładne widoczne targety pozostają
+wyszarzone ze spinnerem, ale operator może przejść na inną stronę i uruchomić
+kolejną niezależną operację. Zablokowane pozostają wyłącznie targety już wysłane
+oraz krótki foreground start/preview bieżącej decyzji.
 
 Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
-symbol`, `Zła siatka` i `Nieczytelny symbol`. `Zła siatka` kieruje pole do
-kolejki korekty geometrii, natomiast `Nieczytelny symbol` pozostawia je poza
-kolejką geometrii i poza kohortą treningową. Karta pokazuje zwięzły badge
-`Zła siatka`, `Nieczytelny`, `Nowy crop` albo `?`, gdy taki stan dotyczy
-bieżących pikseli. Każda akcja najpierw pokazuje niezmienny preview
+symbol`, checkbox `Niewyraźny` i jednoliniowe akcje `Nieczytelny / Zła siatka`.
+Checkbox `Niewyraźny` modyfikuje zatwierdzenie oraz zmianę symbolu: decyzja
+atomowo zachowuje albo przypisuje wskazany symbol jako zatwierdzony, ale
+wyklucza bieżący crop z kohort treningowych. Modyfikator jest resetowany po
+zmianie gry albo zakresu symbolu. `Zła siatka` kieruje pole do kolejki korekty
+geometrii, natomiast `Nieczytelny` pozostawia je poza kolejką geometrii i poza
+kohortą treningową. Dwa ostatnie stany są w game-wide widoku
+listy prezentowane jako `Nierozpoznany (?)`, a ich oryginalne przypisanie
+pozostaje w danych i audycie. Karta pokazuje zwięzły
+badge `Niewyraźny`, `Zła siatka · ?`, `Nieczytelny · ?`, `Nowy crop` albo `?`, gdy taki stan
+dotyczy bieżących pikseli. W widoku `Zatwierdzone` badge zatwierdzonego cropa,
+który nie spełnia aktualnych warunków kohorty treningowej, zawiera również
+tekst `Poza uczeniem` oraz przyczynę: problem jakości albo brak aktualnie
+zatwierdzonego, checksum-bound cropa. Podsumowanie pokazuje aktualną i całkowitą liczbę
+stron oraz jednoznaczny zakres pozycji. Każda akcja najpierw pokazuje niezmienny preview
 liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
-`Zatwierdź` jest niedostępne dla filtra technicznego `Nierozpoznany (?)`.
+`Zatwierdź` działa wyłącznie dla jawnie zaznaczonych cropów; walidacja backendu
+nadal odrzuca próbę zatwierdzenia nierozpoznanego przypisania.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
 polling każdej operacji nie wysyła nakładających się requestów. Pełny sukces
 usuwa jej targety z aktualnie wyświetlanej strony bez ponownego zapytania i bez
@@ -454,18 +537,27 @@ bounded i keysetowa, a wiele problematycznych komórek nadal tworzy jedną pozyc
 planszy.
 
 Plansza renderuje dokładnie `rows × columns` z przypiętej topologii i pokazuje
-crop, pozycję, bieżącą etykietę oraz jakość każdej komórki. Dla nierozwiązanego
-nieczytelnego pola operator wybiera aktywny symbol albo logiczne `?`. Zapis jest
-związany z rewizją komórki i geometrii, crop sample ID oraz SHA-256. Podczas
-zapisu pozostałe akcje są zablokowane, a konflikt wymaga ponownego pobrania
-bieżącej planszy.
+crop, pozycję, bieżącą etykietę oraz jakość każdej komórki. W widoku `Do
+ustalenia` operator może zmienić **każde** pole bieżącej planszy: wybiera
+aktywny symbol albo prezentowaną w UI akcję `?`, a następnie używa jednego
+przycisku `Zapisz i zatwierdź planszę`. UI wysyła pełny snapshot topologii;
+backend zapisuje go atomowo, więc nie może powstać częściowo poprawiona
+plansza. Zapis jest związany z rewizją komórki i geometrii, crop sample ID oraz
+SHA-256. Podczas zapisu pozostałe akcje są zablokowane, a konflikt wymaga
+ponownego pobrania bieżącej planszy. Widok `Wszystkie nieczytelne` ma charakter
+audytowy: przełączenie resetuje keyset i pobiera jego własną kolejkę, ale
+rozstrzygnięte plansze pozostają w nim tylko do odczytu.
 
 Rozwiązanie zachowuje `quality_issue = unreadable`, dlatego crop pozostaje poza
-treningiem niezależnie od wybranej etykiety. Ostatnia decyzja może domknąć
-planszę jako `corrected`; `?` pozostaje wartością domenową i nie tworzy symbolu
-katalogowego. Do wdrożenia snapshotu v4 w TASK 10 plansza zawierająca `?` nie
-jest publikowana do stagingu datasetu, ale zachowuje kanonicznego właściciela i
-pełny audyt decyzji.
+treningiem niezależnie od wybranej etykiety. Wybranie `?` również dla wcześniej
+zwykłego cropa oznacza go jako `unreadable`, dzięki czemu nie trafia do
+treningu. Ostatnia decyzja może domknąć planszę jako `corrected`; `?` jest
+wyłącznie reprezentacją UI wyniku bez przypisanego symbolu i nie tworzy symbolu
+katalogowego. Bieżące API zachowuje zgodność przez payload `{kind: unknown}`
+oraz legacy `NULL`, natomiast przyszły write model używa jawnego outcome v2.
+Snapshot v4 materializuje taki wynik jako sentinel `mobileCode = 0`, podczas
+gdy UI nadal pokazuje `?`; kanoniczny właściciel i pełny audyt decyzji pozostają
+zachowane.
 
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal
@@ -500,42 +592,21 @@ pełnych plansz i ma:
   komendzie i nie może prezentować sukcesu, jeżeli zwrócony job ma inny
   niezmienny snapshot; nieudana geometria nie wraca do v18, lecz tworzy trwałe
   odroczenie do końcowej korekty,
-- mieć własny proces i adres; panel Admin wybiera grę oraz gotowy import, pokazuje
-  dla niego liczniki wszystkich, oczekujących i zakończonych plansz, a przycisk
-  `Utwórz link online` uruchamia brakujący produkcyjny Reviewer,
-  kontrolowany tunel HTTPS i dopiero potem generuje ograniczoną sesję, link
-  oraz unikalny kod wejścia,
+- mieć własny proces i lokalny adres; panel Admin wybiera grę oraz gotowy
+  import i pokazuje dla niego liczniki wszystkich, oczekujących i zakończonych
+  plansz,
 - identyfikować import w dropdownie krótką datą i godziną, nazwą katalogu oraz
   krótkim statusem; techniczne ID wybranego joba jest widoczne osobno, a długa
   etykieta nie poszerza bez ograniczenia kontrolki,
-- mieć osobny przycisk `Otwórz lokalnie`, który uruchamia produkcyjny Reviewer
-  wyłącznie na `127.0.0.1`, otwiera wybraną grę oraz import i nie uruchamia
-  tunelu, nie tworzy sesji ani nie wymaga kodu; ten tryb działa wyłącznie dla
-  strony otwartej przez loopback; przygotowane synchronicznie okno ma otrzymać
-  zwrócony URL przed pomocniczym odświeżeniem overview, a błąd nawigacji ma
-  pozostawić właścicielowi widoczny link ręczny zamiast pustej karty
-  `about:blank`,
-- pokazywać jawny stan `online` / `wyłączone` / `problem` i udostępniać przycisk
-  `Zatrzymaj udostępnianie`, który unieważnia wyłącznie sesję i assignment
-  wybranego importu; współdzielony publiczny tunel pozostaje dostępny dla innych
-  aktywnych prac online i kończy się dopiero po ostatniej, a decyzje zapisane
-  wcześniej w audycie pozostają w bazie,
-- dopuszczać najwyżej trzy różne aktywne importy online; tryb lokalny nie zajmuje
-  tego limitu, a próba czwartego linku kończy się kontrolowanym komunikatem bez
-  utworzenia sesji,
-- pokazywać listę aktywnych prac wszystkich gotowych importów wybranej gry i
-  pozwalać zakończyć dokładnie wskazane przypisanie; lista po odświeżeniu nie
-  ujawnia kodu wejścia, bearer tokenu, fencing tokenu ani osobnego pola
-  identyfikatora sesji; publiczny URL może zawierać jego opaque identyfikator,
-- ujawniać kod wejścia wyłącznie bezpośrednio po utworzeniu nowej pracy online;
-  idempotentne ponowienie zwraca istniejące przypisanie bez ponownego pokazania
-  kodu,
-- nigdy nie publikować serwera developerskiego Reviewera ani pełnego Admina;
-  wykrycie procesu developerskiego na porcie Reviewera blokuje start z
-  czytelnym komunikatem,
-- przed pokazaniem danych przez publiczny origin wymagać poprawnego kodu.
-  Lokalna wersja pozostaje dostępna wyłącznie przez loopback i korzysta z
-  uprawnień lokalnego właściciela bez dodatkowego kodu,
+- mieć jeden przycisk `Otwórz lokalnie`, który bez tworzenia assignmentu,
+  sesji, kodu ani tunelu uruchamia albo ponownie wykorzystuje proces Reviewera
+  przez stały endpoint `reviewer-local/start`; dopiero po potwierdzeniu gotowego
+  targetu loopback na porcie `3001` ponawia nawigację przygotowanego okna na
+  wybraną grę i import; sekcja nie pokazuje kontrolek online, stanu ingressu,
+  aktywnych prac ani akcji kończenia pracy,
+- działać wyłącznie ze strony Admina otwartej przez loopback; zablokowane nowe
+  okno pozostawia właścicielowi widoczny, ręczny link do dokładnie tego samego
+  lokalnego scope'u,
 
 - kompaktowy header z grą, `sequence_number`, pozycją w kolejce, statusem,
   przełącznikiem `Widok planszy` / `Plansze kompletne`, nawigacją i małym
@@ -765,3 +836,50 @@ Import zdjęć i automatyczny build APK mogą być realizowane w kolejnych piona
 7. Generuje lub importuje 1000 layoutów.
 8. Widzi luki, błędy numeracji i duplikaty sygnatur.
 9. Publikuje niezmienną wersję datasetu i reguł.
+## Bezpieczne ustawienie silnika importu plansz
+
+Panel importu pokazuje ustawienie przypisane do wybranej gry. Operator może
+wybrać stabilny `v20 — geometria i cropy v19` albo pomiarowy silnik 0.10 w
+trybie shadow. Zapis korzysta z rewizjonowanego preview, nie zmienia istniejących
+jobów i czyści nieaktualny raport importu. Picker jest widoczny przed wyborem
+folderu i gotowego stagingu, a upload pozostaje zablokowany do czasu odczytania
+polityki gry. Zmiana silnika dla aktywnego stagingu automatycznie odtwarza jego
+raport bez ponownego przesyłania JPEG-ów.
+
+Dla obu bezpiecznych presetów Admin przygotowuje preflight geometrii przed
+odblokowaniem startu. W nowej grze brak profilu nie jest błędem
+technicznym: panel pokazuje źródła do korekty i instruuje operatora, aby
+poprawił jedną reprezentatywną stronę. Zapis uruchamia następny preflight z tą
+stroną jako kotwicą; tylko źródła z kompletną geometrią mogą zostać
+zaimportowane.
+
+Przed startem Admin pokazuje, czy źródłem geometrii jest dokładny manifest czy
+blokada, skróconą checksumę i identyfikator preflightu, pokrycie źródeł,
+fingerprint profilu strony, wersję silnika komórek oraz stan testu ochronnego.
+Dla dużego importu wynik ma początkowo jawny stan „oczekuje”, ponieważ jest
+liczony przez worker po bezpiecznym ingestowaniu oryginałów, ale przed
+materializacją domenową.
+
+Historia joba pokazuje zaliczony albo zablokowany raport z osobnymi
+skutecznościami 3×3 i 3×5. Launcher Reviewera nie sumuje tych domen: osobno
+wyświetla geometrię plansz ze stron 3×3 oraz kolejkę „Niepełne siatki symboli
+3×5 do ręcznej korekty”.
+# Wyjątki bramki geometrii przed importem
+
+Zablokowany duży import udostępnia kolejkę dokładnych plansz z raportu v2.
+Admin może pobrać wyłącznie zdjęcie należące do tej kolejki; API przy odczycie
+ponownie weryfikuje rozmiar i SHA-256 względem niezmiennego stagingu.
+
+Operator wybiera dla jednego lub kilku slotów tego samego zdjęcia korektę
+pełną, planszę częściową albo odrzucenie. Częściowość nie jest sugerowana
+automatycznie. API zwraca bieżące rewizje i liczbę nierozliczonych plansz, a
+akcja zamknięcia manifestu pozostaje niedostępna logicznie, dopóki licznik nie
+wynosi zero.
+# Pochodzenie geometrii w korekcie strony
+
+Ekran korekty musi jawnie rozróżniać wykrytą geometrię, ręczny zapis i roboczy
+szablon. Przy braku wyniku automatu pokazuje „Nie wykryto geometrii — ustaw
+plansze ręcznie”; domyślne prostokąty są wyłącznie pomocą edycyjną. Krótki
+powód jest widoczny bez rozwijania, a dostępne pomiary zapisanej próby znajdują
+się w szczegółach. Historyczny manifest bez diagnostyki pokazuje informację o
+jej braku i nadal pozwala zapisać ręczne 36 narożników.

@@ -5808,7 +5808,7 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 
 ## D-241 — Weryfikacja symboli utrzymuje jedną keysetową stronę 500 cropów
 
-- **Status:** accepted
+- **Status:** superseded by D-259
 - **Date:** 2026-08-27
 - **Decision:** Admin pokazuje jedną stronę maksymalnie 500 cropów, domyślnie w
   stanie `pending`. Nie prefetchuje i nie przechowuje stron sąsiednich. Operator
@@ -6068,6 +6068,481 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   dane spełniające zatwierdzoną politykę. Brak bezpiecznych kandydatów blokuje
   nowe zapisy zamiast usuwać dane chronione.
 
+## D-254 — `seq_*` przypina aktywne sloty, a komórka 0.10 jest wirtualna
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** `seq_<start>-<end>.jpg|jpeg` deklaruje dokładnie od jednej do
+  dziewięciu kolejnych plansz. Aktywne pozycje są wyłącznie row-major prefiksem
+  `0..N-1` strony 3 × 3. Geometria 0.10 używa współrzędnych RGB po jednym EXIF
+  transpose i wypukłych source quadów; nie wymaga prostokątów, rombów,
+  równoległości ani kątów prostych na zdjęciu. Komórka otrzymuje trwałą
+  logiczną tożsamość niezależną od geometrii oraz odrębną tożsamość renderowania
+  zależną od źródła, quada, topologii, rewizji i konfiguracji.
+- **Context:** obecne parsery i v20 znają zakresy `seq_*`, ale ich semantyka
+  aktywnych slotów nie była jednym wspólnym kontraktem, a trwały crop mieszał
+  dane logiczne z aktualnymi pikselami. Częściowa ostatnia strona i recrop
+  wymagają jawnych, deterministycznych reguł przed migracją oraz OpenCV.
+- **Safety:** TASK-0307 nie uruchamia nowego silnika, nie zmienia danych ani
+  HTTP i nie tworzy bitmap. Stare artefakty pozostają odtwarzalne. Kolejne
+  taski mogą podpiąć nową geometrię tylko za feature flagą i z kontrolą
+  proweniencji pikseli.
+- **Consequences:** parser API i worker używają jednej walidacji. Wirtualny
+  renderer może wyprowadzać każdą komórkę bezpośrednio ze źródła jednym
+  resamplingiem, zachowując oddzielnie wcześniejsze verified labels.
+- **Alternatives:** wykrywanie liczby plansz z obrazu, dopuszczanie dziur w
+  częściowej stronie oraz prostokątne ograniczenie quada odrzucono, ponieważ
+  stoją w sprzeczności z poświadczoną nazwą, kolejnością i perspektywą zdjęć.
+
+## D-255 — Wirtualny asset jest dual-schema i wdrażany per gra
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** geometria źródła jest append-only, a trwałe rekordy planszy,
+  komórki, review i kohorty deklarują `legacy_file` albo `virtual_source`.
+  Virtual nie przechowuje ścieżki cropa; wymaga source geometry, logical cell
+  key, render spec, wersji extractora i checksumy wynikowych pikseli. Osobny
+  rekord rolloutu per gra pozostaje domyślnie `legacy` / `legacy_files`.
+- **Context:** kolejne silniki mają renderować komórkę bezpośrednio z managed
+  original bez milionów trwałych plików, ale historyczne joby i review muszą
+  pozostać odtwarzalne podczas długiego rolloutu.
+- **Safety:** migracja 0082 jest addytywna. Constraints dużych tabel są
+  dodawane jako `NOT VALID`, więc unikają nieograniczonego skanu historycznych
+  rekordów, a nowe zapisy są sprawdzane od razu. Backfill rolloutów jest
+  idempotentny i bounded. Dotychczasowe read paths odrzucają virtual fail-closed
+  do czasu jawnego przełączenia.
+- **Consequences:** fizyczny downgrade jest bezpieczny przed pojawieniem się
+  source geometry lub aktywnego virtual mode. Później rollback oznacza zmianę
+  rolloutu gry na legacy i zachowanie proweniencji, nie destrukcyjne usunięcie
+  kolumn lub tabel.
+
+## D-256 — Wirtualna komórka używa jednego source-direct warpa bez trwałego pliku
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** `CanonicalSourceLoader` dekoduje zweryfikowany managed original
+  raz na bieżące wykonanie i stosuje EXIF dokładnie raz. Produkcyjny
+  `virtual-cell-renderer-source-direct-v1` wykonuje jeden warp źródło→komórka,
+  zwraca RGB w pamięci, render spec checksum oraz pixel checksum i nie zapisuje
+  PNG. Warianty bounding-box i rectified-board są wyłącznie diagnostyczne.
+- **Context:** trwałe cropy i pośrednie rastry zwiększają zajętość dysku, a
+  geometry-bound kontrakty TASK-0307/0308 pozwalają odtworzyć piksele z managed
+  original. Rollout wymaga jednak dowodu, że nowa ścieżka nie zmienia wejścia
+  obecnego modelu.
+- **Safety:** renderer waliduje kompletną partię, źródło, checksumy, wersję
+  konfiguracji i pokrycie przed pierwszym warpem. Historyczny v19 pozostaje
+  niezmieniony, a test wymaga dokładnej zgodności pikseli dla tej samej
+  geometrii. TASK-0309 nie aktywuje pipeline'u ani nie zapisuje virtual records.
+- **Consequences:** późniejszy task może podłączyć wariant B za rollout state,
+  nie kopiując binariów. Każda zmiana interpolacji, paddingu lub preprocessingu
+  musi otrzymać nową wersję render specu i osobną bramkę.
+
+## D-257 — Globalna homografia Structured OpenCV jest wyłącznie inicjalizacją
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** `structured-opencv-global-initialization-v1` wyznacza wyłącznie
+  początkowe ROI attested prefiksu slotów. Z profilem używa ORB/RANSAC na
+  zatwierdzonych anchorach; bez profilu wymaga zgodnego dowodu czerwonych ramek,
+  gradientów i LSD. Globalna homografia nie jest finalnym quadem planszy i nie
+  pozwala rozpocząć cropowania ani inferencji.
+- **Context:** historyczna rejestracja strony potrafiła dobrze przenosić układ
+  między kątami, ale wspólny wynik mieszał inicjalizację z ostatecznym dowodem
+  dziewięciu plansz. Częściowe strony potrzebują jawnego prefiksu bez
+  syntetyzowania pozostałych pozycji.
+- **Safety:** brak kompletnego dowodu zwraca `needs_manual_review` bez quadów.
+  Numer sekwencji nadal wynika wyłącznie z nazwy `seq_*`. TASK-0310 nie zmienia
+  aktywnego pipeline'u v20, bazy, UI ani danych użytkownika.
+- **Consequences:** TASK-0311 może wykonać niezależne lokalne dopasowanie każdej
+  aktywnej planszy w ograniczonym ROI. Profil i ścieżka cold-start mają wspólny,
+  checksum-bound kontrakt, ale żadna z nich nie może ominąć finalnych bramek.
+- **Alternatives:** uznanie przeniesionych quadów za finalne oraz syntetyzowanie
+  brakujących slotów odrzucono z powodu wcześniejszych false-successów i ryzyka
+  przesunięcia symboli.
+
+## D-258 — Finalna geometria wymaga niezależnego dowodu linii każdej planszy
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** każdy aktywny slot otrzymuje własne lokalne dopasowanie sześciu
+  pionowych i czterech poziomych linii. Tymczasowa rektyfikacja służy wyłącznie
+  analizie, a finalna homografia oraz quad są wyrażone w źródle bez wymagania
+  prostokąta. Automatyczny wynik wymaga wszystkich wersjonowanych hard gates;
+  confidence klasyfikatora symboli nie jest wejściem geometrii.
+- **Context:** globalna rejestracja dobrze inicjalizuje stronę, lecz wcześniejsze
+  false-successy przenosiły lub syntetyzowały błędne quady mimo czytelnego
+  obrazu. Krzywizna i perspektywa ekranu wymagają lokalnego dowodu osobno dla
+  każdej planszy.
+- **Safety:** jedna brakująca linia wewnętrzna może zostać wyprowadzona tylko z
+  kompletnych granic zewnętrznych, a minimum linii, przecięć, reprojekcja,
+  source support, row-major i overlap pozostają twardymi bramkami. Slot bez
+  dowodu trafia do review albo korekty, nigdy do automatycznego cropowania.
+- **Consequences:** wynik zawiera per-slot evidence, składowe confidence i
+  stabilne reason codes. TASK-0311 pozostaje bez integracji produkcyjnej, bazy,
+  API i UI; późniejszy rollout musi skonsumować dokładnie ten wersjonowany
+  kontrakt.
+- **Alternatives:** wspólna końcowa homografia strony, wymuszanie kątów prostych
+  w zdjęciu, ML/keypoint fallback i segmentacja zostały odrzucone w tym etapie.
+
+## D-259 — Weryfikacja symboli wirtualizuje strony i zamraża pełny filtr
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** lokalny Admin zachowuje jawne keysetowe strony po 500
+  metadanych, lecz renderuje wyłącznie viewport z małym overscanem przez
+  `@tanstack/react-virtual`. Trzyma najwyżej trzy najbliższe strony metadanych
+  oraz prefetchuje wyłącznie jedną następną stronę. Wirtualne assety są
+  pobierane atlasem dla najwyżej 100 aktualnie renderowanych komórek; klient nie
+  pobiera 10 000 obrazów ani pełnej listy ID.
+- **Context:** jednoczesne wyrenderowanie i pobranie miniaturek dla strony 500
+  cropów obciążało przeglądarkę mimo bounded keysetu. Poprzednia decyzja D-241
+  eliminowała każdy prefetch i snapshot filtra, co chroniło prostotę, ale
+  ograniczało płynność oraz bezpieczną operację na większym zbiorze.
+- **Safety:** cursor oraz snapshot wiążą grę, symbol, stan, przedział
+  confidence i rewizję katalogu. Zaznaczenie jawne pozostaje ograniczone do
+  10 000 targetów; `Zaznacz wyniki filtra` przekazuje wyłącznie ten snapshot i
+  maksymalnie 10 000 wykluczeń. Zmiana filtra po zaznaczeniu wymaga
+  potwierdzenia i czyści selection. Jedna jawna komórka nadal używa
+  synchronicznej, checksum-bound mutacji, większe zbiory zachowują trwały job.
+- **Consequences:** interfejs nie wraca do infinite scrolla ani offsetów;
+  nawigacja stron pozostaje widoczna i deterministyczna. Backend ogranicza
+  pojedynczy odczyt do 500, a confidence jest częścią scope cursorów i filtra
+  operacji masowej. Zdalny Reviewer nie dostaje nowych endpointów Admina.
+- **Alternatives:** renderowanie całych stron, pobieranie obrazów dla 10 000
+  targetów i lokalne materializowanie całego filtra odrzucono z powodu pamięci,
+  transferu oraz ryzyka starej rewizji katalogu.
+
+## D-260 — Rollout wirtualnej geometrii wymaga bounded walidacji przed zapisem
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** każda gra przechodzi trwały, wznawialny job walidacji
+  proweniencji źródeł `virtual_source`. Stan `ready` odblokowuje lokalny ręczny
+  zapis, który tworzy wyłącznie append-only source/board geometry i checksumy
+  renderowanych pikseli. Nie materializuje board ani cell PNG i nie promuje
+  automatycznie trybu rolloutu.
+- **Context:** pipeline potrafi już zapisać wirtualne wyniki i wyrenderować ich
+  bounded podglądy, ale ręczna korekta była fail-closed. Bez osobnej bramki
+  niepełna source geometry lub stara projekcja właściciela mogłaby doprowadzić
+  do zapisu przeciwko niewłaściwej planszy.
+- **Safety:** cursor jest ograniczony do gry, każda partia ma najwyżej 100
+  źródeł, a niekompletna proweniencja kończy się kontrolowanym `failed` z ID
+  źródła. Manualna transakcja ponownie blokuje sekwencję i sprawdza source,
+  topologię, rewizję oraz checksumy. Etykieta człowieka pozostaje, lecz nowy
+  crop nie jest treningowy do czasu ponownego zatwierdzenia pikseli.
+- **Consequences:** identyczny retry nie tworzy duplikatów, obecne rekordy
+  legacy pozostają niezmienione, a Reviewer może używać jednego workflow dla
+  obu asset modes po przejściu bramki gry.
+- **Alternatives:** automatyczna konwersja legacy, materializacja nowych PNG i
+  promocja gry po samym backfillu zostały odrzucone jako zbyt ryzykowne.
+
+## D-261 — Brak kompletnego raportu nie promuje rolloutu geometrii
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** `structured_default` / `virtual_default` jest dozwolone wyłącznie
+  po zaakceptowanym holdoucie obejmującym minimum 100 źródeł, 500 aktywnych
+  plansz, pięć bucketów oraz wszystkie historyczne failures i false-successy,
+  z board-level automatic correctness co najmniej 98%. Wynik 95–98% pozostaje
+  w `structured_review` / `virtual_shadow`, a wynik poniżej 95% utrzymuje
+  `legacy` / `legacy_files`. Brak raportu albo niegotowa walidacja proweniencji
+  nie zmienia bieżącego trybu i nie uruchamia TASK-0319.
+- **Context:** TASK-0317 wdrożył bounded walidację i ręczny zapis virtual, ale
+  jego Outcome jawnie potwierdza brak operacyjnego backfillu. Repozytorium nie
+  zawiera kompletnego raportu 0.10, więc wynik board-level nie może zostać
+  wyliczony bez zgadywania lub użycia danych niespełniających kontraktu.
+- **Safety:** polityka progów jest czysta i deterministyczna. Niepełny dowód
+  zwraca `insufficient_evidence` bez rekomendacji trybu. TASK-0318 nie mutuje
+  stanów gry, nie usuwa aliasów, legacy cropów, source geometry, canonical
+  ownership ani zweryfikowanych etykiet.
+- **Consequences:** kod 0.10 pozostaje dostępny per gra w trybach kontrolowanych,
+  lecz domyślny cutover jest wstrzymany do prawidłowego odbioru. Pełny rollback
+  tworzy nową rewizję `legacy/legacy_files` dla przyszłych jobów; nie przepisuje
+  snapshotów istniejących jobów i nie wykonuje downgrade'u 0082 po zapisaniu
+  danych virtual.
+- **Alternatives:** promocja po samym stanie `ready`, traktowanie braku raportu
+  jak `<95%` oraz usunięcie legacy po przejściu testów jednostkowych odrzucono,
+  ponieważ nie mierzą rzeczywistej poprawności plansz i osłabiają rollback.
+
+## D-262 — Wczesny fallback keypoint pozostaje eksperymentem shadow-only
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** bezpośrednie polecenie właściciela pozwala zaimplementować
+  bounded eksperyment `KeypointGeometryEngine` mimo braku raportu `<95%`, ale
+  nie pozwala aktywować go w produkcji. Model przewiduje `9 × 4` heatmaps i
+  obecność slotów, używa wyłącznie ręcznie zatwierdzonych quadów, splitu według
+  source family i ONNX Runtime CPU. Wynik zawsze przechodzi przez wspólny
+  refiner oraz istniejące hard gates.
+- **Context:** D-261 poprawnie zatrzymała automatyczny trigger TASK-0319 przy
+  `insufficient_evidence`. Jawne polecenie implementacji rozszerza zakres
+  bezpiecznego eksperymentu, nie stanowi jednak dowodu jakości ani decyzji o
+  zmianie rolloutu.
+- **Safety:** artefakt jest checksum-bound, manifest wydania ma
+  `shadowOnly=true` i `activationAllowed=false`, nieaktywne sloty nie są
+  syntetyzowane, a brak aktywnego slota kończy się fail-closed. Nie ma migracji,
+  endpointu, operacyjnego treningu ani połączenia z primary workflow.
+- **Consequences:** eksperyment można mierzyć na późniejszym, zaakceptowanym
+  holdoucie bez naruszania istniejących wyników. Aktywacja wymaga osobnego
+  zadania, rzeczywistego raportu, migracji stanu rolloutu i jawnej akceptacji.
+- **Alternatives:** uznanie polecenia za zgodę na produkcyjną aktywację,
+  automatyczny trening na danych użytkownika oraz osobny zestaw słabszych bramek
+  dla modelu odrzucono jako naruszające D-261 i granice bezpieczeństwa.
+
+## D-263 — Końcowa strona ręcznej selekcji jest ograniczona granicą gry
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** nowa lokalna i operator-local sesja ręcznej selekcji może
+  przypiąć `sequenceUpperBound`. Zakres pozostaje ciągły i ma najwyżej dziewięć
+  plansz, lecz końcowa strona kończy się na tej granicy. Bieżący writer zapisuje
+  schema v2 z liczbą aktywnych plansz i stanem terminalnym; fizyczna nazwa
+  `manual-image-selection-output-v1.json` pozostaje dla jednego źródła
+  wznowienia. Reader nadal obsługuje schema v1 jako pełne strony dziewięciu
+  plansz.
+- **Context:** rzeczywisty katalog kończył się na planszy `500000`, podczas gdy
+  historyczna arytmetyka bez granicy zapisała w manifeście `499996–500004` dla
+  fizycznego pliku `seq_499996-500000.jpg`.
+- **Safety:** niezgodny istniejący katalog jest tylko diagnozowany przez
+  read-only dry-run; system nie zmienia automatycznie manifestu ani JPEG-ów.
+  Preflight importu dodatkowo blokuje każdy zakres przekraczający
+  `games.expected_layout_count`.
+- **Consequences:** cofnięcie ostatniej decyzji ponownie otwiera zakończoną
+  sesję. Nie ma migracji bazy ani IndexedDB, a historyczny host-transfer nie
+  zmienia kontraktu.
+- **Alternatives:** sztuczne dopełnianie do dziewięciu, tworzenie drugiego pliku
+  manifestu oraz automatyczna naprawa starego katalogu odrzucono jako źródła
+  nieistniejących numerów, rozjazdu wznowienia lub ryzyka utraty danych.
+
+## D-264 — Tożsamość logicznej komórki jest związana z wystąpieniem źródła
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** `logical-cell-v2` jest wyliczany z niezmiennego wystąpienia
+  `importJobId + fileExecutionKey`, fingerprintu przypiętej topologii, slotu
+  planszy oraz pozycji komórki. Historyczny `logical-cell-v1` i `render-id-v1`
+  pozostają bitowo niezmienione i są emitowane równolegle w render specie.
+- **Context:** v1 używa checksummy JPEG-a, dlatego identyczne bajty w dwóch
+  niezależnych importach otrzymywały tę samą logiczną tożsamość mimo różnych
+  właścicieli i cykli życia. Checksum treści nie rozróżnia wystąpień domenowych.
+- **Safety:** fingerprint topologii obejmuje wersję reguł, `rows`, `columns` i
+  wersję semantyki slotów. Automatyczny i ręczny source-direct workflow
+  korzystają z tej samej pary occurrence. TASK-0321 nie wykonuje migracji,
+  backfillu ani przełączenia istniejącej kolumny `logical_cell_key`.
+- **Consequences:** recrop zachowuje logical v2, ale zmienia render identity v2;
+  identyczny JPEG w nowym jobie ma nowy logical v2. Addytywna trwałość klucza v2
+  w osobnej kolumnie i cutover odczytów wymagają osobnego zadania.
+- **Alternatives:** użycie samego SHA-256, losowego UUID renderu albo
+  przepisywanie kluczy v1 odrzucono odpowiednio z powodu kolizji wystąpień,
+  braku deterministycznego replayu i złamania kompatybilności historycznej.
+
+## D-265 — Znak zapytania nie jest wynikiem domenowym ani symbolem
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** przyszły write model używa rozłącznego
+  `symbol-verification-outcome-v2`: `unassigned`, `unknown`, `unreadable`,
+  `grid_issue`, `requires_review` albo `verified_symbol`. Wyłącznie
+  `verified_symbol` posiada realne `assigned_symbol_id`. Znak `?` jest
+  wyłącznie prezentacją UI wyniku bez symbolu.
+- **Context:** obecne połączenie `review_state`, `quality_issue` i nullable
+  `assigned_symbol_id` pozwalało opisywać zatwierdzony brak symbolu jako
+  „domenowe ?”, mimo że `?` nie jest rekordem katalogu ani klasą modelu.
+- **Safety:** TASK-0322 nie zmienia bazy ani HTTP. Fail-closed adapter mapuje
+  tylko jednoznaczne stany legacy; zatwierdzony NULL bez unreadable i pending
+  przypisanie człowieka kończą się stabilnym błędem do przyszłego raportu.
+  Predykcja modelu pozostaje osobną sugestią i nie staje się assignmentem.
+- **Consequences:** ręcznie potwierdzone `unreadable` jest terminalne, lecz bez
+  symbolu i bez kwalifikacji treningowej. `unknown` oraz `requires_review`
+  pozostają nierozwiązane. Realny symbol przy słabym cropie może być
+  `verified_symbol`, a niezależne quality issue nadal blokuje trening.
+- **Alternatives:** rekord symbolu `?`, sentinel UUID, traktowanie każdego NULL
+  jako zatwierdzonego unknown oraz natychmiastowe przepisywanie historii
+  odrzucono z powodu mieszania UI z domeną i ryzyka utraty znaczenia danych.
+
+## D-266 — Dalsza geometria wymaga read-only feasibility i wielu źródeł dowodu
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** przed zmianą produkcyjnych progów Structured OpenCV wymagany jest
+  niedestrukcyjny spike na 30–50 rzeczywistych zdjęciach. LSD pozostaje jednym
+  z dowodów, a nie wyłączną bramką; osobno mierzymy ramkę zewnętrzną, Hough,
+  profile gradientów, regularność układu i pomocnicze centra symboli. Gotowość
+  korpusu, wynik techniczny i zgoda na rollout są trzema osobnymi decyzjami.
+- **Context:** przebieg TASK-0323 na 43 zdjęciach jednej gry pokazał 323/324
+  prowizorycznie poprawnych projekcji znanego układu i 380/382 lokalnych
+  doprecyzowań startujących z ręcznej geometrii. Jednocześnie bieżące hard
+  gates odrzuciły wszystkie plansze, głównie z powodu braku kompletnego dowodu
+  linii wewnętrznych, a generyczna inicjalizacja bez profilu nie dostarczyła
+  finalnych quadów.
+- **Safety:** spike nie importuje storage/API, nie zapisuje bazy ani canonical,
+  nie zmienia fingerprintów produkcyjnych i nie promuje trybu gry. Raport ma
+  `rolloutAuthorized=false`, a niepełny korpus kończy się
+  `insufficient_corpus`, bez dopowiadania wyniku 95/98.
+- **Consequences:** następny korpus musi dodać co najmniej drugą grę, strony
+  częściowe, rozmycie i dwa kolejne historyczne false-success. Dalszy kierunek
+  może łączyć ramkę zewnętrzną, znany układ i regularność, ale nadal wymaga
+  niezależnej walidacji źródłowej i pełnej bramki cutoveru.
+- **Alternatives:** natychmiastowe luzowanie LSD, promowanie wyniku jednej gry,
+  traktowanie oracle jako produkcyjnej inicjalizacji oraz przejście od razu do
+  segmentacji/modelu odrzucono jako nieaudytowalne albo przedwczesne.
+
+## D-267 — Source revision posiada virtual quady, a plansza wybiera revision i slot
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** `image_source_geometry_revisions.board_geometries` jest
+  jedynym kanonicznym właścicielem finalnych quadów geometrii wirtualnej.
+  Bieżąca plansza wybiera geometrię przez
+  `recognized_boards.source_geometry_revision_id + position_index`.
+  `recognized_boards.board_geometry` jest projekcją kompatybilnościową,
+  `image_board_geometry_revisions` historią komendy/audytu, a
+  `cell_observations.render_spec` proweniencją dokładnego renderu cropa.
+- **Context:** migracja 0082 wprowadziła payloady source-level, wskaźnik
+  board-level i kilka historycznych kopii geometrii. Bez jawnego podziału ról
+  kopie mogły zostać potraktowane jako równorzędne źródła prawdy. Ręczna
+  korekta jednego slotu tworzy kompletny source snapshot, ale zmienia selektor
+  tylko tej planszy, dlatego kilka plansz jednego źródła może prawidłowo
+  wskazywać różne source revisions.
+- **Safety:** 0082 i 0083 pozostają niezmienione. TASK-0324 nie dodaje migracji,
+  nie wykonuje backfillu i nie zmienia write pathów ani danych użytkownika.
+  Legacy geometry i assety pozostają odtwarzalne. Następna korekta może być
+  wyłącznie addytywna, z dual read/write i raportem niejednoznaczności.
+- **Consequences:** active slots i snapshot topologii należą do source revision;
+  rollout pozostaje osobnym stanem operacyjnym zamrażanym przez job. Virtual
+  read path zawsze zaczyna od source revision i slotu. Projekcje muszą być
+  walidowane checksumowo, lecz nie stają się współwłaścicielem.
+- **Alternatives:** jeden globalny current source revision, uznanie
+  `recognized_boards.board_geometry` za właściciela, normalizacja każdego
+  slotu do osobnej tabeli oraz przeniesienie rolloutu do `games` odrzucono jako
+  odpowiednio: łamanie niezależnych korekt, dublowanie prawdy, nieuzasadnioną
+  komplikację transakcji i mieszanie polityki operacyjnej z domeną gry.
+
+## D-268 — Kontrakty v2 są utrwalane addytywnie bez reinterpretacji legacy
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** nowe source revisions zapisują fingerprint topologii i
+  wersjonowaną checksumę attestation. Virtual observations, current review,
+  eventy i zamrożone komórki kohort mogą równolegle przechowywać
+  `logical_cell_key_v2` oraz `render_identity_v2_sha256`. Jawny wynik
+  `symbol-verification-outcome-v2` korzysta z osobnego
+  `verified_symbol_id_v2`; legacy `assigned_symbol_id` pozostaje bez zmian,
+  ponieważ dla pending może zawierać sugestię modelu. Gotowość rolloutu jest
+  związana z rewizją polityki, SHA-256 dokładnego inputu i jobem walidującym.
+- **Context:** bez osobnego symbolu v2 constraint outcome błędnie
+  interpretowałby modelową sugestię jako zatwierdzoną etykietę albo wymagałby
+  przepisywania istniejących rekordów. Sama flaga `ready` rolloutu nie
+  dowodziła też, jaki snapshot został zweryfikowany.
+- **Safety:** migracja 0084 jest nullable i addytywna, a constraints są
+  dodawane jako `NOT VALID`; nie skanuje dużych tabel i nie uruchamia
+  backfillu. Nowe write pathy działają fail-closed. Bounded diagnostyka tylko
+  odczytuje próbkę historii, a przypadki niejednoznaczne pozostawia bez zmian.
+- **Consequences:** v1 i v2 są dual-write bez cutoveru odczytów. Fizyczny
+  downgrade po zapisaniu v2 jest blokowany; rollback jest operacyjny i
+  zachowuje kolumny. Osobne zadanie musi wykonać resumowalny backfill oraz
+  dopiero po raporcie zgodności przełączyć odczyty/indeksy.
+- **Alternatives:** nadpisanie `assigned_symbol_id`, heurystyczne mapowanie
+  całej historii w migracji oraz pozostawienie niezwiązanego `ready` odrzucono
+  z powodu utraty znaczenia danych, kosztu migracji i ryzyka stale rollout.
+
+## D-269 — Addytywne kontrakty v2 uzupełnia trwały bounded rollout job
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** istniejący `image_geometry_rollout_backfill` w general lane
+  uzupełnia kontrakty v2 partiami najwyżej 100 source images. Tożsamości są
+  wyprowadzane wyłącznie z checksummed legacy render specu oraz niezmiennego
+  occurrence/topology context. Current owners i zamrożone verified cohorts są
+  w scope; append-only eventy nie są przepisywane. Niejasny outcome lub
+  rozbieżna istniejąca wartość kończy przebieg fail-closed i blokuje `ready`.
+- **Context:** migracja 0084 celowo dodała nullable pola bez skanowania dużych
+  tabel. Cutover odczytów wymagał resumowalnego raportu zgodności, ale osobny
+  typ joba dublowałby już istniejącą trwałość, kursor i walidację rolloutu.
+- **Safety:** backfill nie odczytuje pikseli, nie renderuje assetów, nie zmienia
+  etykiet człowieka ani canonical ownership. Finalizacja ponownie sprawdza nowe
+  źródła i brakujące kontrakty. TASK-0326 nie uruchamia operacji na bazie
+  użytkownika i nie przełącza publicznych read pathów.
+- **Consequences:** schema joba 3 zapisuje wersję kontraktu, a wersje 1 i 2
+  pozostają odtwarzalne. Checkpoint zawiera liczniki czterech kategorii.
+  Zamrożone verified training cells są walidowane w swoim historycznym
+  geometry context, nawet gdy plansza nie jest bieżącym właścicielem sekwencji.
+- **Alternatives:** jednorazowy skrypt bez checkpointu, heurystyczne mapowanie
+  historii oraz nowy typ joba odrzucono odpowiednio z powodu braku recovery,
+  ryzyka fałszywych decyzji i dublowania infrastruktury.
+
+## D-270 — Render spec i checksum pikseli są niezależnymi dowodami
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** nowe renderowanie komórki używa addytywnego render specu v3,
+  który jawnie wiąże occurrence, topologię, geometrię, konfigurację oraz obie
+  generacje logical/render identity. Checksum specu identyfikuje przepis, a
+  checksuma RGB identyfikuje osobno wynik; checksuma pikseli nie jest polem
+  checksummowanego specu.
+- **Context:** spec v2 emitował poprawne identity v1/v2, ale część proweniencji
+  była dostępna wyłącznie pośrednio przez fingerprinty. Preview jednocześnie
+  oczekiwał checksummy pikseli wewnątrz specu, mimo że produkcyjny renderer
+  przechowywał ją obok. Tworzyło to rozbieżne kontrakty konsumentów.
+- **Safety:** v3 nie zmienia algorytmu warpu ani wynikowych pikseli. Historyczne
+  specy v1/v2 pozostają czytelne, a nowa walidacja dotyczy nowych renderów.
+  Nie zmieniono geometrii Structured OpenCV, rolloutu, bazy ani canonical.
+- **Consequences:** tamper occurrence/topologii/identity jest wykrywany nawet
+  po ponownym obliczeniu checksummy JSON. Preview waliduje spec przed renderem,
+  a dokładne piksele po renderze. Ten sam JPEG w dwóch importach zachowuje
+  checksumę pikseli, ale ma różne identity v2.
+- **Alternatives:** umieszczenie checksummy pikseli wewnątrz specu oraz
+  poleganie wyłącznie na zewnętrznych FK odrzucono jako odpowiednio cykliczne i
+  niewystarczające dla samosprawdzalnego replayu.
+
+## D-271 — Geometry config v2 pozostaje kandydatem wieloźródłowym bez aktywacji
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** konfiguracja Structured Geometry v2 jest addytywnym,
+  checksummowanym kontraktem `experimental_measurement_only`. Używa
+  adaptacyjnej skali, tolerancji reprojekcji względem przekątnej komórki i
+  triangulacji ramki zewnętrznej, znanego układu, regularności oraz sygnałów
+  linii. LSD jest dowodem pomocniczym: nie jest wyłącznym veto ani samodzielną
+  podstawą automatycznego wyniku.
+- **Context:** TASK-0323 pokazał dobry sygnał projekcji znanego układu i
+  lokalnego doprecyzowania, lecz wszystkie bieżące hard gates odrzucały wynik
+  głównie przez niepełne linie wewnętrzne. Korpus nie obejmuje drugiej gry,
+  stron częściowych, blur ani wymaganych false-success, więc nie pozwala
+  stroić produkcyjnych progów.
+- **Safety:** `activationAllowed=false`, profile gry należą do checksummy, a
+  tuning i evaluation muszą być rozłączne po źródłach. Homografia, source
+  support, alignment, row-major i overlap pozostają twardymi bramkami. TASK-0328
+  nie integruje v2 z pipeline'em, jobami ani stanem rolloutu.
+- **Consequences:** następny pion może porównać v2 w shadow/read-only dopiero po
+  rozszerzeniu korpusu zgodnie z D-266. Produkcyjne progi, zachowanie i
+  fingerprinty v1 pozostają niezmienione oraz odtwarzalne.
+- **Alternatives:** poluzowanie samych progów LSD, aktywacja na jednej grze,
+  stały downscale 50% i pikselowy próg reprojekcji odrzucono jako
+  niereprezentatywne albo zależne od rozdzielczości.
+
+## D-272 — Pomiar Geometry v2 jest przypiętym sidecarem bez własności geometrii
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** nowy job `structured_shadow` zamraża pełny config Geometry v2
+  i jego checksumę w addytywnym snapshocie rolloutu v2. Worker zapisuje
+  checksummowany `structuredGeometryCandidateV2`, ale używa finalnego quada v1
+  wyłącznie jako ROI pomiarowego i deklaruje brak autorytetu geometrii.
+- **Context:** config TASK-0328 wymagał rzeczywistego, odtwarzalnego pomiaru w
+  pipeline'ie, lecz korpus D-266 nadal nie pozwala na strojenie ani aktywację.
+  Samo dołączenie konfiguracji bez snapshotu prowadziłoby do driftu retry.
+- **Safety:** `activationAllowed=false`, config i profile gry należą do
+  checksummy joba, a sidecar jest związany z checksumą źródła, pikseli i wyniku
+  v1. Cropper, inferencja, review, canonical ownership i kohorty treningowe nie
+  odczytują decyzji v2. Snapshoty v1 oraz legacy fingerprint są niezmienione.
+- **Consequences:** pomiary można porównywać między jobami i odtwarzać po
+  restarcie, ale nie powstaje nowy source geometry owner ani automatyczny
+  rollout. Zmiana configu tworzy inny fingerprint nowego joba shadow.
+- **Alternatives:** globalny mutable config, zapis v2 jako source revision oraz
+  aktywacja `structured_default` odrzucono z powodu braku replayu albo danych
+  odbiorczych.
+
 ## Szablon nowej decyzji
 
 ```text
@@ -6100,3 +6575,1318 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - Consequences:
 - Supersedes:
 ```
+## D-273 — Silnik nowych importów jest bezpieczną polityką per gra
+
+- Status: accepted
+- Date: 2026-08-30
+
+Każda gra przechowuje osobne, rewizjonowane ustawienie silnika nowych importów.
+Publiczne w lokalnym Adminie są wyłącznie `verified_v19` oraz
+`structured_shadow`. Shadow nie może przejąć wyniku primary ani aktywować
+Geometry v2, klient nie może wymusić innego trybu w starcie importu, a zmiana
+ustawienia nie wpływa na już utworzone joby.
+
+## D-274 — Cold-start structured shadow nie wymaga historycznego profilu geometrii
+
+- Status: accepted
+- Date: 2026-08-30
+
+Historyczny preflight rejestracji stron pozostaje obowiązkowy wyłącznie dla
+`verified_v19`. Nowa gra ustawiona na `structured_shadow` nie ma jeszcze
+zatwierdzonych plansz, z których można zbudować profil, dlatego browser preflight
+jawnie oznacza geometrię jako niewymaganą i start nie przyjmuje legacy manifestu.
+Nie jest to promocja Geometry v2: kandydat strukturalny pozostaje pomiarem
+shadow, a wynik primary zachowuje dotychczasowe zabezpieczenia fail-closed.
+
+## D-275 — Cold-start geometrii powstaje z ręcznej kotwicy i nie omija primary
+
+- Status: accepted
+- Date: 2026-08-30
+- Supersedes: D-274 w zakresie pomijania manifestu geometrii
+
+Oba bezpieczne presety importu wymagają manifestu geometrii strony, ponieważ
+oba używają v20/v19 jako primary. Każda nowa gra może rozpocząć
+preflight z pustym profilem: wszystkie niepoświadczone źródła otrzymują
+kontrolowany stan `review_required`, a pierwsza ręczna korekta staje się
+niezmienną kotwicą następnego preflightu. Nierozwiązane źródła są pomijane
+fail-closed. Geometry v2 nadal działa wyłącznie jako pomiar shadow.
+
+## D-276 — Korekta ręcznej selekcji jest lokalnym workflow checksummowanym
+
+- Status: accepted
+- Date: 2026-08-30
+
+Korekta gotowego katalogu `seq_*` działa wyłącznie w lokalnym Adminie przez
+File System Access API. Repair manifest jest trwałym journalem granic, luk i
+operacji, a output manifest pozostaje jedynym źródłem aktywnych wyborów.
+Katalog bazowy jest tylko do odczytu, każda mutacja celu wymaga zgodności
+SHA-256, a JPEG-i nie trafiają do IndexedDB, API ani PostgreSQL. Repair trace
+może rozszerzyć dane rankera wyłącznie dla widocznego i nadal aktywnego fill;
+usunięta pozycja nie jest próbką treningową. Przywrócenie usunięcia zachowuje
+tylko jeden `File` w pamięci bieżącej karty i celowo nie działa po reloadzie.
+
+## D-277 — Usunięcie nieużywanego stagingu usuwa pustą historię prób
+
+- Status: accepted
+- Date: 2026-08-30
+
+Akcja `Usuń nieużywany staging` usuwa nie tylko katalog browser uploadu, lecz
+także powiązane puste joby preflightu/importu i niewspółdzielone checkpointy.
+Operacja jest fail-closed: aktywny job, rozpoznana plansza, pozycja review lub
+inna referencja blokuje kasowanie. Pliki stagingu są kwarantannowane przed
+transakcją i przywracane po jej odrzuceniu. Za usuwanie samej kopii stagingowej
+po poprawnym imporcie nadal odpowiada retencja/GC, bez kasowania audytu plansz.
+
+## D-278 — Geometria dziewięciu ramek zachowuje odstępy i jest wysyłana partiami
+
+- Status: accepted
+- Date: 2026-08-30
+
+Ręczna korekta pełnej strony nie dzieli już zewnętrznego quada na dziewięć
+stykających się pól. Każda plansza ma osobne linie krawędzi w siatce kontrolnej
+6 × 6, ponieważ rzeczywiste czerwone ramki są rozdzielone odstępami i mogą
+układać się po łuku ekranu. Cztery narożniki są wprowadzane kolejno LT, PT, PD,
+LD, a skrzyżowany obrys jest odrzucany przed API. Rewizje poszczególnych stron
+są zapisywane append-only, lecz nowy preflight powstaje dopiero po jawnej akcji
+wysłania całej zapisanej partii. Historyczne override'y pozostają dostępne do
+ponownej korekty zamiast być ukrywane lub nadpisywane.
+
+## D-279 — Półautomat wybiera wyłącznie po dowodzie zakresu
+
+- Status: accepted
+- Date: 2026-08-31
+
+Półautomatyczna selekcja zdjęć jest niezależna od gry i rozstrzyga wyłącznie,
+czy jeden JPEG dostarcza mocnego lokalnego dowodu dokładnego zakresu
+`seq_<start>-<end>`. Nie jest walidatorem plansz: nie uruchamia geometrii,
+detekcji ramek, croppera, inferencji symboli ani bramek ostrości, ekspozycji,
+okluzji lub jakości symboli. Zdjęcie z pewnym zakresem może być zapisane, a
+jego wartość wizualna jest oceniana później przez ręczny review.
+
+Zakresy są generowane przez wersjonowaną konwencję `seq-inclusive-v1`, a nie
+przez topologię gry. Jedyny twardy automat to poprawne dekodowanie źródła,
+checksummowana tożsamość i exact strong local proof zakresu z listy expected
+ranges. Brak dowodu pozostaje luką; nie jest wypełniany przez sąsiadów ani
+automatycznie zastępowany. Automatyczna zamiana istniejącego pliku jest
+zabroniona.
+
+## D-280 — Range-only OCR wykorzystuje wyłącznie lokalny proof etykiet
+
+- Status: accepted
+- Date: 2026-08-31
+
+Półautomat wykorzystuje istniejący Paddle/proof-first OCR przez osobny adapter
+RGB, który przekazuje pustą kolekcję plansz. Zapobiega to uruchomieniu tras
+zależnych od detekcji i geometrii bez kopiowania modelu OCR. Mocny dowód nadal
+wymaga pozycyjnych obserwacji i jest jedyną drogą do `exact_range`; confidence,
+ostrość i jakość plansz nie mogą zastąpić proof.
+
+Maksymalna seria źródeł bez proof jest wersjonowaną wartością wyliczoną z
+checksumowanego rzeczywistego korpusu, obecnie `160`. Jest to ograniczenie dla
+późniejszego grupowania, a nie podstawa do przypisywania zakresu.
+
+## D-281 — Półautomatyczna selekcja ma globalny run i istniejący selection lane
+
+- Status: accepted
+- Date: 2026-08-31
+
+Półautomatyczny wybór nie należy do gry, dlatego jego staging, run oraz job mają
+`gameId = null`. Trwałą tożsamość stanowi checksummowany manifest źródeł,
+granice, kierunek oraz fingerprinty wersjonowanych kontraktów. Identyczne
+żądanie zwraca ten sam run także po restarcie API.
+
+Nie powstaje nowy lane ani usługa. Job korzysta z istniejącego slotu selekcji
+zdjęć i jest wykluczony z general lane. Staging jest przypinany do joba w tej
+samej transakcji co run, aby GC nie mógł usunąć źródła pomiędzy requestem a
+uruchomieniem workera. Jedyna flaga rolloutowa znajduje się w API i domyślnie
+pozostaje wyłączona.
+
+## D-282 — Grupowanie zakresów jest strumieniowe, a wybór wymaga exact proof
+
+- Status: accepted
+- Date: 2026-08-31
+
+Handler półautomatycznej selekcji wykonuje range-only OCR najwyżej raz na JPEG,
+zapisuje checksummowany, wznawialny strumień obserwacji i nie materializuje
+całego źródła w pamięci. Przerwa bez dowodu może jedynie rozszerzyć granice
+grupy do wersjonowanego maksimum `160`; nie może utworzyć kandydata ani
+przypisać zakresu przez sąsiedztwo.
+
+Reprezentantem jest wyłącznie obserwacja `exact_range` tego samego zakresu,
+najbliższa środkowi grupy z deterministycznymi tie-breakami. Izolowane dowody,
+duplikaty i kolejność niemonotoniczna pozostają w audycie, a pierwszy trwały
+wybór oczekiwanego zakresu nie jest automatycznie zastępowany. Geometria,
+jakość zdjęcia i symbole nie uczestniczą w decyzji.
+
+## D-283 — Lokalny output jest journalowany przed potwierdzeniem serwera
+
+- Status: accepted
+- Date: 2026-08-31
+
+Półautomatyczny wybór kopiuje oryginalne bajty do katalogu operatora i nigdy
+automatycznie nie zastępuje istniejącej innej zawartości. Manifest outputu jest
+związany z dokładnym runem i przechowuje jedną operację oczekującą przed
+mutacją pliku. Po restarcie obecność oraz SHA-256 celu jednoznacznie decydują o
+wycofaniu, finalizacji albo konflikcie.
+
+Acknowledgement serwera następuje dopiero po ponownym odczycie lokalnego pliku.
+Uchwyty i mały stan widoku mogą być zapisane w IndexedDB, ale JPEG-i i Bloby
+pozostają poza nią. Identyczny plik jest chronionym sukcesem idempotentnym;
+odmienny plik wymaga późniejszej jawnej decyzji operatora.
+
+## D-284 — Ręczne źródło zakresu używa istniejącego acknowledgement
+
+- Status: accepted
+- Date: 2026-08-31
+
+Ręczne uzupełnienie luki i zastąpienie wyboru nie tworzą równoległego API ani
+drugiej tabeli. Istniejący endpoint acknowledgement przyjmuje opcjonalny
+`sourceIndex`, po czym serwer ponownie weryfikuje dokładny wpis niezmiennego
+stagingu, jego ścieżkę, rozmiar i SHA-256. Brak indeksu zachowuje kontrakt
+automatycznego wyboru.
+
+Frontend może zastąpić tylko lokalny plik należący do tego samego manifestu i
+zgodny z jego poprzednią checksummą. Dzięki temu ręczna korekta domyka tę samą
+listę expected ranges, zachowuje liczniki i audyt runu oraz nie pozwala
+potwierdzić dowolnego pliku spoza stagingu.
+
+## D-285 — Range-only OCR v2 rozszerza kandydatów bez osłabiania dowodu
+
+- Status: accepted
+- Date: 2026-08-31
+
+Nowe runy półautomatycznej selekcji używają osobnego adaptera
+`semi-automatic-range-only-ocr-v2`. Adapter dopuszcza mniejsze etykiety i
+sprawdza kandydatów progresywnie `12/24/36`, lecz zachowuje proof-first:
+minimum trzy zgodne pozycje, parę sąsiadującą i confidence co najmniej `0.90`.
+Brak takiego dowodu pozostaje luką niezależnie od surowej hipotezy OCR.
+
+V2 korzysta z dynamicznego lattice jednego JPEG-a. Stały viewport v10.20 został
+odrzucony dla tego workflowu, ponieważ na rzeczywistym korpusie przesuwał
+pozycje o jeden rząd. Historyczny v1 pozostaje niezmienny, a worker wybiera
+wersję wyłącznie z fingerprintu utrwalonego runu. Geometria plansz, cropper,
+symbole i expected range nie uczestniczą w rozpoznaniu.
+
+## D-286 — Podgląd strukturalny v0.10 jest read-only i nie ma fallbacku
+
+- Status: accepted
+- Date: 2026-09-01
+
+Weryfikacja symboli może renderować tę samą logiczną komórkę przez bieżący
+asset albo eksperymentalny renderer strukturalny v0.10. Tryb eksperymentalny
+nie ma portu do decyzji, zmiany jakości, tworzenia cropów ani uruchamiania joba;
+jego wybór nie zmienia również polityki silnika przypiętej do gry lub importu.
+
+Brak kompletnej proweniencji `virtual_source` jest jawną niedostępnością. Nie
+wolno zastąpić obrazu eksperymentalnego cropem legacy. Tryb, wersja i fingerprint
+renderera należą do content-addressed klucza atlasu, dzięki czemu cache A/B nie
+koliduje, a zmiana proweniencji tworzy nową tożsamość podglądu.
+
+## D-287 — Wygląd może planować OCR, ale nie może dowodzić zakresu
+
+- Status: accepted
+- Date: 2026-09-01
+
+Półautomat v3 używa taniego deskryptora wyglądu wyłącznie do wyboru źródeł,
+na których uruchamia kosztowny range-only OCR. Niezależna próba co najwyżej
+pięć źródeł ogranicza wpływ subtelnych zmian, a mocna granica może wywołać OCR
+wcześniej. Obraz pominięty przez scheduler pozostaje `unproven`: nie dziedziczy
+zakresu, nie może zostać wybrany i nie zwiększa siły dowodu grupy.
+
+Każda automatyczna kandydatura nadal wymaga dokładnie tego samego lokalnego
+dowodu trzech pozycji co v2. Fingerprint v3 obejmuje scheduler, a jego stan jest
+checkpointowany razem z groupingiem. Historyczne v1/v2 nie korzystają z tej
+optymalizacji i zachowują odtwarzalność.
+
+## D-288 — V4.1 wymaga exact proof trzech numerów środkowego rzędu
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+Przyszły wariant `semi-automatic-range-only-ocr-v4-middle-row-triple-v2`
+rozpoznaje wyłącznie trzy etykiety środkowego rzędu. Jedynym wynikiem
+automatycznym jest `exact` z trzech kolejnych wartości dopasowanych do dokładnie
+jednego wpisu `ExpectedRangeTable`; każdy inny przypadek jest reason-coded
+`unknown`. Nie wolno korygować znaków, uzupełniać wartości ani wyprowadzać
+zakresu z nazwy pliku, source index lub sąsiednich zdjęć.
+
+Locator stosuje EXIF dokładnie raz, używa bounded thumbnailu i lekkiego
+afinicznego lattice 3×3. Wersjonowane ROI może zostać rozszerzone wyłącznie w
+dół, gdy pierwszy przebieg nie obejmuje kompletnej siatki. Locked prior zawiera
+tylko położenie, skalę i pochylenie, nigdy wartości sekwencji. OCR otrzyma w
+TASK-0369 najwyżej trzy source-resolution cropy; board detection, geometria,
+cropper plansz i symbol inference pozostają zabronione.
+
+TASK-0368 tworzy wyłącznie czyste kontrakty i locator. Nie zmienia aktywnego
+fingerprintu nowych runów. V1–v3 są odtwarzalne bez zmian, a integracja runtime
+i rollout wymagają osobnych tasków oraz bramki zero false exact.
+
+## D-289 — Runtime v4.1 używa batcha sześciu źródeł i evidence span exact proof
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+Bounded pomiar rzeczywistego recognition-only Paddle dla batchów `1/3/6/12`
+wykazał najlepszy medianowy throughput dla sześciu źródeł. Batch trzy był ponad
+5% wolniejszy, dlatego produkcyjny kontrakt v4.1 przypina `sourceBatchSize=6`,
+wewnętrzny batch dziewięciu cropów i checkpoint po każdym pełnym source batchu.
+Wartość uczestniczy w fingerprintcie i nie może zmienić się po starcie runu.
+
+Unknown wewnątrz odcinka może połączyć dwa własne exact proof tego samego
+zakresu, ale nie rozszerza granic grupy ani nie może zostać reprezentantem.
+Środek liczony jest wyłącznie pomiędzy pierwszym i ostatnim exact proof, a wybór
+musi wskazywać źródło mające własny `MIDDLE_ROW_TRIPLE_EXACT`. Orientacja i
+pozycjowy lattice prior są utrwalane, lecz prior nie może zawierać ani dowodzić
+wartości numerów. Nowe runy pozostają na v3 do odbioru TASK-0370.
+
+## D-290 — Range-only OCR v4.1 pozostaje wyłączony po nieudanym coverage
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+V4.1 zachowuje zero false exact na checksum-bound challenge i frozen golden,
+osiąga ponad `4,8` źródła/s oraz wybiera wyłącznie reprezentantów mających
+własny exact proof. Nie spełnia jednak minimalnej jakości recall: frozen golden
+dał `26,3%` readable frame coverage i `35,3%` range group capture wobec bramek
+`50%` i `90%`.
+
+Wariant nie staje się domyślnym recognizerem. Nie wolno stroić go na frozen
+golden ani osłabiać exact proof. Następna iteracja musi dostać nowy fingerprint,
+użyć oddzielnego tuning setu, poprawić identyfikację środkowego rzędu i przejść
+nowy, wcześniej niewidziany holdout. Historyczne v1–v3 pozostają bez zmian.
+
+## D-291 — V5 rozdziela prowizoryczny proof rzędu od finalnego wyboru
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+Rozpoznanie jednej kolejnej trójki numerów z górnego, środkowego albo dolnego
+rzędu może utworzyć wyłącznie prowizoryczną obserwację zakresu. Nie może samo
+zapisać reprezentanta, niezależnie od confidence albo pozycji w sekwencji.
+
+Finalny wybór wymaga dwóch różnych, kompletnych rzędów własnego obrazu zgodnych
+z jednym oczekiwanym zakresem. Dodatkowy kompletny rząd z konfliktem,
+niejednoznacznym OCR albo niską pewnością odrzuca obraz jako możliwą klatkę
+przejściową. Rząd fizycznie niewidoczny lub przycięty nie jest dowodem ani
+vetem. Nazwa pliku, source index, sąsiednie obrazy i pozycjowy prior nie mogą
+uzupełniać brakującego proof.
+
+## D-292 — Lokalizator v5 wykrywa niezależne wiersze, nie pełną siatkę
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+`semi-automatic-range-only-ocr-v5-row-first-v1` zastępuje w swojej przyszłej
+ścieżce pełny, afiniczny wymóg 3×3 niezależnymi hipotezami trzech etykiet
+jednego poziomego wiersza. Dopuszcza dwa widoczne wiersze, lokalne pochylenie
+i wersjonowane, progresywne ROI. Kontrolka boczna połączona z numerem może być
+rozcięta wyłącznie w istniejącej dolinie pikseli; w razie braku takiej doliny
+lokalizator nie zgaduje podziału.
+
+Opcjonalny prior zawiera wyłącznie pozycje trzech rzędów i tylko mapuje crop do
+`top`/`middle`/`bottom`. Nie zawiera wartości, nazwy pliku, indeksu źródła ani
+ciągłości sekwencji i dlatego nigdy nie stanowi dowodu zakresu. OCR i finalna
+bramka dwóch zgodnych wierszy pozostają kolejnymi, osobnymi krokami.
+
+## D-293 — Runtime v5 checkpointuje wyłącznie pełny batch źródeł
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+Runtime v5 jest wybierany wyłącznie z utrwalonego fingerprintu contractu runu.
+Każdy obraz jest kanonizowany według EXIF dokładnie raz, bez dodatkowego OCR
+kalibracji orientacji. Sześć źródeł tworzy checkpointowalny batch, a
+source-direct cropy etykiet są kierowane do Paddle tylko w batchach nie
+większych niż dziewięć.
+
+Audit, grupowanie i checkpoint są zapisywane dopiero po ukończeniu całego
+batcha źródeł. Po restarcie odcinany jest wyłącznie niezatwierdzony suffix, a
+observation key wiąże run, checksumę źródła i fingerprint runtime'u. V5 ma
+własną wersję polityki grupowania oraz selektora, aby checkpoint nie był
+zgodny z v4.1 mimo wspólnej semantyki evidence span.
+
+## D-294 — V5 row-first pozostaje wyłączony po negatywnym odbiorze
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+Checksum-bound challenge (`19`) i wcześniej niewidziany frozen golden (`100`)
+zwróciły dla `semi-automatic-range-only-ocr-v5-row-first-v1` wyłącznie
+`unknown`. Wariant nie stworzył false exact ani nie uruchomił geometrii,
+croppera plansz/komórek lub inferencji symboli, lecz osiągnął `0%` readable
+coverage oraz `0%` group capture. Dominującym powodem jest
+`COMPLETE_ROW_UNVERIFIED`; inferencja OCR odpowiada za największą część czasu
+skanu.
+
+V5 nie staje się domyślnym adapterem i nie wolno stroić jego lokalizatora,
+cropów, preprocessingu, confidence ani dowodu na tych dwóch zamrożonych
+zbiorach. Kolejna próba wymaga nowego fingerprintu, rozłącznego tuningu oraz
+nowego, wcześniej niewidzianego holdoutu. V1–v4.1 i aktywny v3 pozostają
+odtwarzalne bez zmian.
+
+## D-295 — Odebrany v3 jest domyślnym półautomatem, warianty eksperymentalne pozostają wyłączone
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Po jawnej decyzji operatora lokalna instalacja domyślnie udostępnia
+półautomatyczną selekcję opartą na odebranym
+`semi-automatic-range-only-ocr-v3`. V3 zachowuje fail-closed proof, zero
+fałszywych przypisań na zaakceptowanych próbach, trwałe checkpointy oraz
+izolację od geometrii, croppera i inferencji symboli.
+
+Decyzja nie promuje odrzuconych v4.1 ani v5. Historyczny run zawsze wybiera
+adapter z utrwalonego fingerprintu, a konfiguracja środowiskowa nadal może
+jawnie wyłączyć cały workflow przez
+`GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION=false`.
+
+## D-296 — Weryfikacja symboli renderuje wyłącznie bieżący asset
+
+- **Status:** accepted; supersedes the UI part of D-286
+- **Date:** 2026-09-02
+
+Weryfikacja symboli nie udostępnia osobnego przełącznika podglądu A/B. Każda
+komórka jest renderowana według własnej, aktualnej i checksum-bound
+proweniencji: `legacy_file` dla historycznego wyniku albo `virtual_source` dla
+wyniku aktywnego silnika v0.10. Ten sam widok służy do decyzji operatora.
+
+Zakres listy jest wybierany jawnie: wszystkie symbole, jeden aktywny symbol lub
+nierozpoznane `?`. `symbolId=all` pozostaje kontraktem API, lecz nie jest już
+wymuszany przez UI. Historyczny shadow nie jest przedstawiany jako bieżący
+crop i nie może podszywać się pod aktywny wynik v0.10.
+
+## D-297 — Produkcyjny v0.10 jest jawną polityką per gra
+
+- **Status:** accepted; supersedes the selectable-shadow part of D-286
+- **Date:** 2026-09-02
+
+Operator może wybrać dla nowych importów stabilny tor v19 albo produkcyjny
+`structured_default / virtual_default`. Tryb `structured_shadow` pozostaje
+wyłącznie historycznym, odtwarzalnym pomiarem i nie jest oferowany jako silnik
+do nowych decyzji.
+
+Zmiana polityki gry nie przepisuje istniejących jobów, cropów ani decyzji.
+Każdy import zachowuje przypięty snapshot. Istniejące dane legacy mogą przejść
+na v0.10 wyłącznie przez jawne, nowe przetworzenie z managed originals; dopiero
+nowy wynik ma proweniencję `virtual_source` i może być bieżącym assetem review.
+
+## D-298 — Strona Weryfikacji symboli wymaga kompletnej pary filtrów
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Gra i zakres symbolu są na wejściu niewybrane. Lista nie wykonuje domyślnego
+odczytu, dopóki operator nie wskaże obu wartości. Kompletna para uruchamia
+pobranie automatycznie, bez osobnego zatwierdzania i bez trybu blokowania
+selectów. Zmiana gry zeruje zakres symbolu. Jeśli operator ma zaznaczone cropy,
+zmiana filtra nadal wymaga potwierdzenia ich wyczyszczenia, ale nie zmienia
+żadnej decyzji ani pliku.
+
+## D-299 — Grafika mobilna jest trwałą materializacją zatwierdzonego cropa
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Pojedynczo zatwierdzony, bieżący crop aktywnego symbolu jest wystarczającym
+źródłem grafiki katalogowej; nie wymaga zatwierdzenia całej planszy. Wybór
+pozostaje checksum-bound do tożsamości cropa, jego aktualnej geometrii oraz,
+dla v0.10, source-direct render provenance.
+
+Po decyzji katalog przechowuje wyłącznie fizyczną, content-addressed kopię:
+legacy zachowuje własne bajty cropa, a `virtual_source` materializuje pełny PNG
+w momencie wyboru. Aplikacja mobilna i katalog nie odczytują stagingu,
+odtwarzalnego cache atlasów ani dynamicznego renderera. Umożliwia to niezależny
+od procesu importu snapshot mobilny bez zapisywania binariów w tabelach domeny.
+
+## D-300 — Zweryfikowany manifest strony jest finalnym dowodem obrysu dla structured v2
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Nowe importy `structured_default` konsumują dokładne quady wpisu `registered`
+z checksum-bound `PageGeometryManifestV1`. Dla wersji
+`structured-opencv-independent-board-refinement-v2-pinned-preflight-v1` ten
+wynik jest finalnym dowodem zewnętrznego obrysu planszy, a nie tylko ROI do
+ponownego szukania linii wewnętrznych. Komórki 5×3 wynikają z przypiętej
+topologii; nie wolno wymagać wizualnych granic, których gra nie renderuje.
+
+Automatyczny wynik nadal wymaga zgodnej checksummy i wymiarów, kompletnego
+aktywnego prefiksu row-major, braku nakładania oraz pełnego source support dla
+padded cell quads. Niespełnienie tych warunków pozostaje korektą ręczną.
+Historyczne wykonania v1, ich fingerprinty i lokalne bramki linii pozostają
+niezmienne.
+
+## D-301 — Weryfikacja nazw nie jest selekcją zakresów
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Workflow `filename_verification` używa OCR wyłącznie do porównania widocznego
+zakresu z nazwą pliku `seq_*`. Po skanie nie wybiera reprezentanta, nie tworzy
+pliku outputu ani nie korzysta z inferencji zakresu przez sąsiednie zdjęcia.
+Brak dowodu, niezgodność lub niepoprawna nazwa trafiają wyłącznie do ręcznej
+decyzji.
+
+Ponowienie failed runu zachowuje checksummowane obserwacje OCR i resetuje tylko
+techniczny progres joba. Pozwala to odtworzyć błąd checkpointu bez kosztu oraz
+ryzyka ponownej analizy obrazu; dowolny historyczny output blokuje automatyczne
+cofnięcie błędnego wyboru fail-closed.
+
+## D-302 — Zakończona weryfikacja nazw usuwa wyłącznie własne dane robocze
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+`filename_verification` po pełnym automatycznym wyniku albo po wszystkich
+ręcznych decyzjach kończy się automatycznym, wznawialnym cleanupem. W historii
+pozostaje minimalne podsumowanie, natomiast browser staging, obserwacje OCR,
+raporty, checkpointy, ranges i decyzje pojedynczych plików są odtwarzalnymi
+danymi roboczymi i mogą zostać usunięte.
+
+Cleanup nigdy nie usuwa folderu operatora `seq_*`, źródeł lokalnych, ręcznej
+selekcji, cropów, modeli, danych gry, innych importów ani zasobu ze wspólną lub
+aktywną referencją. Każdy taki przypadek jest fail-closed jako
+`cleanup_blocked`; wznowienie nie powtarza OCR ani decyzji ręcznych.
+
+## D-303 — Rzeczywiste ekrany są bramką regresji OCR zakresów
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Rozpoznawanie zakresów i półautomatyczne grupowanie mają wspólny, mały,
+checksum-bound korpus rzeczywistych ekranów. Jego trzy czytelne przypadki
+sprawdzają coverage dokładnego odczytu, a klatka z dwoma widocznymi zakresami
+sprawdza, że automat nie tworzy false positive. Nazwy fixture'ów są neutralne,
+a panel zawierający `seq_*` jest z obrazu usunięty.
+
+Korpus może uruchamiać jedynie recognition-only OCR. Nie wolno użyć nazwy
+pliku, kolejności źródła, sąsiedniego zdjęcia ani etapów geometrii/plansz/
+symboli jako dowodu. Nie jest on treningiem ani samodzielnym holdoutem do
+rolloutu: nowy fingerprint wymaga dodatkowego, niezależnego odbioru.
+
+## D-304 — Recovery lokalnej korekty ma być deterministyczne i widoczne
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Pełna walidacja katalogu `seq_*` po reloadzie pozostaje fail-closed, ale jeden
+plik może być odczytany i hashowany tylko raz w ramach tej samej inspekcji.
+Wynik weryfikacji repair manifestu jest ponownie używany przy kontroli output
+manifestu. Długie lokalne kroki muszą mieć jawny stan UI.
+
+Asynchroniczne recovery z IndexedDB nie ma pierwszeństwa przed świadomym
+ręcznym wyborem katalogu: workspace numeruje próby recovery, unieważnia
+spóźnioną odpowiedź oraz od razu zapisuje nowy uchwyt. Dzięki temu restart lub
+zamknięcie karty nie może przywrócić starego katalogu po nowym wyborze
+operatora.
+
+## D-305 — Pięć anchorów lokalizuje cropy, lecz nie dowodzi zakresu
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Przyszły lokalizator `five-anchor-range-label-locator-v6` po jednokrotnej
+kanonizacji EXIF wyznacza pięć pełnych cropów w pozycjach `top_left`,
+`top_right`, `center`, `bottom_left`, `bottom_right`. Wersjonowany fallback
+viewportu i opcjonalne lokalne zawężenie komponentem są dozwolone wyłącznie dla
+lokalizacji pikseli. Nie czytają ani nie korygują cyfr, nie znają nazwy pliku,
+expected range, source indexu lub sąsiednich obrazów i nie tworzą wyniku
+`exact`.
+
+Brak kompletnego zestawu bounded cropów jest reason-coded `unknown`. Obecność
+pięciu cropów — także fallbacków — nie obniża późniejszej bramki OCR/proof.
+Adapter pozostaje oddzielony od geometrii, detekcji plansz, croppera i inferencji
+symboli. Historyczne fingerprinty v1–v5 pozostają odtwarzalne; ewentualny
+runtime v6 wymaga osobnego fingerprintu oraz wcześniej niewidzianego holdoutu.
+
+## D-306 — Exact v6 wymaga trzech rozpiętych anchorów i braku widocznego konfliktu
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Wszystkie pięć pozycji `top_left`, `top_right`, `center`, `bottom_left`,
+`bottom_right` jest weryfikowane wobec ich stałych slotów pełnej strony 3×3.
+Automatyczny wynik v6 nie wymaga pięciu udanych OCR: wymaga co najmniej trzech
+zgodnych, wysokiej pewności wartości obejmujących `center`, górę i dół strony.
+Takie rozpięcie pozwala tolerować pojedynczą nieczytelną etykietę bez inferowania
+jej wartości, a nadal wiąże proof z całą stroną, a nie pojedynczym wierszem.
+
+Każda dodatkowa, kompletna i czytelna liczba o wystarczającej pewności, która nie
+pasuje do kandydata zakresu, blokuje exact jako konflikt. Częściowe strony nie
+są automatycznie promowane. Puste, rozmyte, przycięte, nienumeryczne i słabe
+obserwacje nie mogą zostać poprawione fuzzy, nazwą `seq_*`, indeksem źródła ani
+sąsiadem. Pusty lub słaby dodatkowy anchor może pozostać bez dowodu wyłącznie
+wtedy, gdy trzy rozpięte potwierdzenia nadal istnieją; w każdym innym przypadku
+wynik jest reason-coded `unknown`. Decyzja definiuje wyłącznie czysty proof v6;
+runtime i rollout nadal wymagają osobnych zadań oraz holdoutu.
+
+## D-307 — Runtime v6 kończy się na source-local evidence
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Runtime pięciu anchorów używa pojedynczej kanonizacji EXIF, lokalizatora v6,
+lekkiej lokalnej bramki czytelności i istniejącego recognition-only adaptera
+Paddle. Bramka jakości jest fail-closed: gdy którykolwiek wymagany crop nie
+przechodzi, runtime nie wywołuje OCR dla tego źródła i zwraca `unknown`. Nie
+próbuje odgadywać rozmytej wartości z nazwy, źródłowego indeksu, sąsiada ani
+innej pozycji anchorów.
+
+Runtime nie mutuje stanu trwałego i nie jest automatycznie wybierany przez job.
+Jego osobny fingerprint oraz observation key pozwalają kolejnemu taskowi dodać
+go do rejestru bez zmiany zachowania rozpoczętych runów v1–v5. Do tego czasu
+komponent służy wyłącznie jako testowalny adapter runtime'u.
+
+## D-308 — Pięć anchorów v6 jest jawnym, izolowanym wariantem durable runu
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+`five_anchor_v6` jest jedyną nazwą klienta mapującą na fingerprint runtime'u
+pięciu anchorów. Klient nie może przesłać dowolnego fingerprintu; zamknięty
+rejestr capabilities opisuje v6 jako eksperymentalny, a `default_v3` pozostaje
+domyślnym wariantem zwykłej półautomatycznej selekcji. Weryfikacja nazw plików
+nie może uruchomić v6, ponieważ jest osobnym workflowem o trwałym kontrakcie v2.
+
+Fingerprint runtime'u v6 oraz osobny fingerprint grouping/selector są częścią
+tożsamości runu i checkpointu. Ten sam staging może więc bezpiecznie mieć
+niezależny run v3 i v6, ale identyczne żądanie v6 pozostaje idempotentne. Retry
+wybiera adapter tylko po fingerprintcie zapisanym w runie; drift fingerprintu
+runtime'u, batch size albo grouping policy kończy się fail-closed.
+
+Grupowanie używa wyłącznie source-local dowodów `exact` v6 i wybiera środek ich
+spanu. Unknown nie staje się dowodem ani nie jest interpolowany nazwą, indeksem
+źródła czy sąsiadem. Rejestracja nie wykonuje OCR, nie tworzy nowego joba na
+danych użytkownika i nie stanowi automatycznej promocji v6 do produkcyjnego
+rollout'u.
+
+## D-309 — Duża projekcja symboli odświeża statystyki przed terminalnym sukcesem
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+
+Autovacuum pozostaje włączony, ale jego harmonogram nie jest częścią gwarancji
+gotowości operatorskiego read modelu. Po dużym jednorazowym zasileniu może nie
+zdążyć wykonać `ANALYZE` przed pierwszym odczytem; planner traktuje wtedy
+setki tysięcy komórek jak pojedynczy rekord i wybiera kosztowny nested-loop.
+
+Dlatego finalizacja trwałego backfillu/reconciliacji Weryfikacji symboli
+odświeża statystyki tabel komórek, bieżących właścicieli, plansz, obserwacji i
+rewizji predykcji dokładnie raz, przed terminalnym sukcesem joba. Operacja nie
+usuwa danych i nie zastępuje autovacuum. Jej failure wycofuje finalizację, aby
+stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
+## D-310 — Gotowy model symboli wymaga aktywacji i zgodnego katalogu klas
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+- **Decision:** bootstrap modelu symboli jest dozwolony wyłącznie przed
+  powstaniem pierwszego kandydata `candidate_ready`. Gotowy kandydat bez
+  aktywacji blokuje nowy import i reinferencję. Aktywny snapshot oraz każda
+  predykcja modelu gry muszą używać dokładnych stabilnych kodów aktywnego
+  katalogu; kod spoza katalogu jest błędem integralności i nie może zostać
+  zapisany jako `?`. Pending-only reinferencja może odtwarzać crop
+  `virtual_source` z managed original tylko po checksum-bound walidacji pełnej
+  proweniencji renderu.
+- **Reason:** gra `777` miała poprawny kandydat iteracji 5, ale bez zdarzenia
+  aktywacji nowy structured import przypiął angielski bootstrap. Projekcja
+  zapisała 297 000 istniejących predykcji jako nierozpoznane, ponieważ kody
+  bootstrapu nie należały do polskiego katalogu gry.
+- **Consequences:** aktywacja pozostaje świadomą i audytowalną decyzją; system
+  nie zgaduje semantycznego mapowania kodów. Wadliwe pending dane można naprawić
+  bez uploadu i recropu, zachowując zatwierdzone decyzje człowieka.
+
+## D-311 — Wymiana zdjęcia usuwa całe źródło, a upload jest filtrowany przed transferem
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+- **Decision:** operator wskazuje numery plansz, lecz cleanup rozszerza wybór
+  wyłącznie do pełnych źródeł `seq_<start>-<end>`. Częściowy wybór tego samego
+  źródła jest blokowany. Cleanup kasuje graf zależny tylko od wybranych źródeł,
+  a zarządzane artefakty przenosi do durable kwarantanny związanej z preview
+  tokenem. Niezależny `candidate_ready` nie jest usuwany ani aktywowany; po
+  cleanupie import wymaga jego świadomej aktywacji. Przed browserowym stagingiem
+  Admin wywołuje read-only plan i nie wysyła JPEG-a, gdy cały jego zakres jest
+  już kanoniczny; częściowe źródło pozostaje niepodzielne.
+- **Reason:** pojedyncza plansza jest pochodną wspólnego zdjęcia. Jej niezależne
+  usunięcie pozostawia niejednoznaczną proweniencję oraz uniemożliwia prosty
+  reimport lepszej fotografii całego zakresu. Pomijanie gotowych zakresów przed
+  uploadem ogranicza transfer katalogów zawierających dziesiątki tysięcy zdjęć.
+- **Consequences:** cleanup ma preview, mocne potwierdzenie, blokady aktywnych
+  zależności i recovery po przerwanym procesie. Końcowy preflight importu nadal
+  jest źródłem prawdy, więc plan uploadu nie wprowadza race condition.
+
+## D-312 — Historia zakończonej weryfikacji nazw jest usuwana świadomie i bez katalogu operatora
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+- **Decision:** lokalny Admin może usunąć wyłącznie kompaktową historię runu
+  `filename_verification`, jeżeli jego job jest `completed` i trwały checkpoint
+  potwierdza zakończony cleanup. Akcja wymaga jawnego potwierdzenia, ponownie
+  sprawdza retencję stagingu, diagnostykę, output oraz obce referencje, a potem
+  atomowo usuwa run, job i ewentualne osierocone rekordy range/review.
+- **Reason:** po automatycznym cleanupie użytkownik nie potrzebuje wszystkich
+  lekkich wpisów historii, ale nie może przez przypadek naruszyć trwającego
+  workflowu ani lokalnych zdjęć.
+- **Consequences:** lokalny katalog `seq_*` oraz źródłowy katalog operatora
+  nigdy nie są usuwane tą ścieżką. Aktywny, failed, waiting-for-review,
+  `cleanup_pending` i `cleanup_blocked` pozostają niedostępne dla tej mutacji.
+
+## D-313 — Operacje całego źródła geometrii są atomowe
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+- **Decision:** lokalne zatwierdzenie oraz ręczne wyznaczenie wszystkich
+  aktywnych plansz jednego `source_image` wykonują pojedynczą, checksum- i
+  revision-bound transakcję. Ręczny komplet jest zbierany w kolejności
+  `position_index` row-major i tworzy jedną pełną rewizję geometrii źródła.
+- **Reason:** sekwencja pojedynczych żądań używała snapshotu sprzed pierwszej
+  mutacji; po zmianie wspólnej projekcji kolejne żądania mogły kończyć się
+  konfliktem, mimo pozornego sukcesu w UI.
+- **Consequences:** konflikt nie zapisuje części zdjęcia, a pojedyncza ręczna
+  korekta nadal zachowuje istniejącą ścieżkę. Zdalny Reviewer nie otrzymuje
+  nowych endpointów administracyjnych.
+
+## D-314 — Lokalny origin ma bezpieczne aliasy loopback
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+- **Decision:** porównanie originu lokalnego Admina i Reviewera akceptuje
+  `127.0.0.1`, `localhost` oraz `[::1]` jako równoważne wyłącznie przy tym
+  samym skonfigurowanym schemacie HTTP i porcie. Reviewer nadal wymaga swojej
+  zamkniętej allowlisty ścieżek mutacji; inny port, LAN i publiczny origin są
+  odrzucane.
+- **Reason:** operator może otworzyć ten sam lokalny Reviewer pod
+  `localhost:3001`, gdy konfiguracja API używa `127.0.0.1:3001`. Dosłowne
+  porównanie blokowało wtedy bezpieczny wspólny zapis geometrii źródła kodem
+  `ADMIN_ORIGIN_FORBIDDEN`.
+- **Consequences:** ten sam zbiór aliasów zasila CORS i middleware, więc
+  przeglądarka nie zatrzymuje dozwolonego POST na preflight przed kontrolą
+  uprawnień. Wygoda lokalnego wejścia nie zmienia granicy sieciowej ani nie
+  nadaje Reviewerowi pozostałych uprawnień Admina.
+
+### D-315 — Brak plikowych cropów rewizji wirtualnej jest SQL NULL
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** nullable `crop_artifacts` w
+  `image_board_geometry_revisions` używa semantyki PostgreSQL SQL NULL dla
+  rewizji `virtual_source`; JSON `null` nie jest równoważnym stanem.
+- **Rationale:** constraint `ck_image_board_geometry_revisions_asset`
+  rozdziela fizyczny manifest cropów `legacy_file` od checksum-bound
+  `virtual_render_spec`. Domyślne kodowanie `None` przez JSONB tworzyło JSON
+  `null` i odrzucało każdy poprawny zapis wirtualny.
+- **Consequences:** model ORM jawnie używa `none_as_null=True`; schemat i API
+  nie zmieniają się, a regresja jest sprawdzana procesorem dialektu PostgreSQL.
+
+### D-316 — Recrop `grid_issue` wraca do modelowej sugestii oczekującej
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** po zapisaniu nowej geometrii komórka oznaczona wcześniej jako
+  `grid_issue` traci problem jakości, pozostaje `pending` i otrzymuje ponownie
+  modelowe pochodzenie oraz przypisanie odpowiadające bieżącej predykcji.
+- **Rationale:** oznaczenie złej siatki nie zatwierdzało logicznej etykiety.
+  Zachowanie `assignment_source = human` po recropie tworzyło niedozwolony,
+  niejednoznaczny outcome v2 i blokowało całą atomową rewizję źródła.
+- **Consequences:** nowy crop nadal wymaga jawnej weryfikacji i jest wykluczony
+  z treningu; poprawiona geometria nie dziedziczy pozornej decyzji człowieka.
+
+### D-317 — Kolejność wpisywania nie zmienia tożsamości komórek wzoru
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** edytor wyszukiwania plansz domyślnie przechodzi pola
+  kolumnami, ale pozwala wybrać kolejność wierszową. Oba tryby zapisują wartości
+  pod tymi samymi kanonicznymi indeksami row-major.
+- **Rationale:** operatorowi często łatwiej przepisywać widoczny układ pionowo,
+  natomiast ranking i projekcja wyszukiwania muszą zachować jeden stabilny
+  kontrakt pozycji.
+- **Consequences:** przełącznik wpływa wyłącznie na następne aktywne pole w UI;
+  nie zmienia API, istniejącego wzoru ani semantyki wyników.
+
+### D-318 — Wybór planszy na źródle używa widocznej geometrii
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** lokalny edytor geometrii wybiera planszę przez hit-test quada
+  aktualnie rysowanego na canvasie. W trybie całego źródła kliknięcie innej
+  siatki najpierw przełącza aktywny szkic i nie jest jednocześnie gestem jego
+  modyfikacji.
+- **Rationale:** po przesunięciu szkicu jego automatyczny quad przestaje
+  odpowiadać temu, co widzi operator. Jeden gest nie może jednocześnie wybierać
+  innej planszy i dopisywać albo przesuwać punktu.
+- **Consequences:** wybór jest przewidywalny również przy zoomie i lokalnych
+  szkicach; sam klik nigdy nie zapisuje danych ani nie zmienia geometrii.
+
+### D-319 — Walidacja cięcia siatki nie tworzy pracy online ani lokalnego assignmentu
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** launcher `Zatwierdzanie cięcia siatki` otwiera Reviewer
+  bezpośrednio pod docelowym adresem loopback. Nie listuje, nie otwiera, nie
+  utrzymuje heartbeatów i nie zamyka reviewer work assignments oraz nie
+  oferuje linku online. Stały endpoint `reviewer-local/start` pozostaje
+  obowiązkowym lifecycle'em procesu i nie jest assignmentem: launcher wymaga
+  jego gotowej odpowiedzi, a następnie ponawia scoped nawigację.
+- **Rationale:** geometria jest workflowem wyłącznie lokalnym. Asynchroniczny
+  odczyt starego assignmentu powodował miganie `Utwórz link online`, a po
+  załadowaniu zastępował go niepotrzebną akcją `Zakończ pracę lokalną`.
+- **Consequences:** ekran ma jeden stabilny przycisk `Otwórz lokalnie`; osobny
+  purpose-scoped zdalny workflow ręcznej selekcji zdjęć pozostaje bez zmian.
+  Zatrzymany albo nieaktualny proces nie może pozostawić użytkownika na
+  `ERR_CONNECTION_REFUSED`.
+
+### D-320 — Profil siatki zachowuje 36 niezależnych narożników źródła
+
+- **Date:** 2026-09-03
+- **Status:** accepted
+- **Decision:** nowa kalibracja geometrii działa na kompletnym zdjęciu jako
+  dziewięciu niezależnych quadach w kolejności row-major. Źródło treningowe ma
+  36 narożników; walidacyjne źródła są rozłączne, a bounded zestaw kotwic jest
+  wybierany deterministycznie według różnorodności pełnej geometrii. Na obrazie
+  docelowym osobna homografia przenosi wszystkie quady, po czym każda plansza
+  przechodzi lokalne dopasowanie i hard gate czerwonej krawędzi.
+- **Reason:** medianowe przesunięcia czterech narożników pojedynczej pozycji
+  tracą zależność od kąta zdjęcia i niezależne pochylenie plansz. Ich metryka
+  p95 blokowała aktywację profilu rejestracji nawet wtedy, gdy kohorta zawierała
+  prawidłowe ręczne 36 punktów.
+- **Consequences:** kandydat schema v2 jest oceniany pod kątem kompletnego,
+  source-disjoint wejścia i uruchamia target-specific fail-closed registration.
+  Nie ma fallbacku do czterech narożników strony. Historyczny trainer i profile
+  schema v1 pozostają odtwarzalne dla już przypiętych jobów.
+### D-321 — Przygotowanie wybranych zdjęć używa poziomego cropa bez rektyfikacji
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** lokalny etap przed importem zapisuje pełnoszeroki pas pomiędzy
+  dwiema ręcznie zatwierdzonymi liniami do sąsiedniego katalogu `cut`. Stosuje
+  EXIF raz, nie skaluje i nie obraca obrazu oraz nie modyfikuje źródła.
+- **Reason:** usunięcie dużego tła zmniejsza liczbę pikseli i skupia dalszą
+  analizę na planszach. Globalny obrót lub homografia nie naprawia zakrzywienia
+  ekranu ani dziewięciu niezależnych perspektyw i dodałaby kolejne resamplowanie.
+- **Consequences:** użycie cropów wymaga nowego importu katalogu `cut`;
+  historyczny reprocess pozostaje związany z managed originals, a dokładna
+  geometria nadal należy do wersjonowanego modelu 36 narożników.
+
+### D-322 — Cięcie wybranych zdjęć zaczyna się od automatycznej propozycji
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** każde niezatwierdzone zdjęcie jest niezależnie analizowane na
+  ograniczonym podglądzie. Detektor proponuje pełnoszeroki pas na podstawie
+  zwartego panelu chromatycznego albo tekstury; człowiek akceptuje go lub
+  koryguje. Brak pewnego dowodu pozostaje edytowalnym pasem domyślnym.
+- **Reason:** stałe granice i dziedziczenie poprzedniego cropa czyniły workspace
+  ręcznym mimo umieszczenia w `Semi-auto selekcja`.
+- **Consequences:** detekcja nie tworzy pliku ani decyzji. Dopiero `F`/`→`
+  zapisuje źródłowy crop 1:1 do katalogu `cut`; przyjęte wyniki i manifest v1
+  zachowują dotychczasową trwałość.
+
+### D-323 — Przygotowanie cropów poprzedza szybki review
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** lokalna sesja najpierw sekwencyjnie materializuje wszystkie
+  brakujące cropy w `cut`, a następnie pokazuje te wyniki do szybkiej akceptacji.
+  Fizyczny wynik i decyzja operatora są niezależnymi stanami manifestu.
+- **Reason:** render pełnego JPEG-a i dwie kontrole SHA wykonywane po każdym
+  `F`/`→` blokowały szybkie przeklikiwanie katalogu.
+- **Consequences:** zwykła akceptacja zapisuje tylko manifest. Korekta ładuje
+  oryginał i zastępuje jeden własny crop. Przygotowanie pozostaje sekwencyjne,
+  wznawialne i oddaje sterowanie przeglądarce pomiędzy plikami.
+
+### D-324 — Reprocess v0.10 dziedziczy finalny manifest geometrii strony
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** każde nowe managed reprocess v0.10 przypina dokładny manifest
+  managed originals oraz zgodny `PageGeometryManifestV1` z tego samego,
+  ograniczonego łańcucha źródłowego. API i worker weryfikują oba dowody; brak
+  albo drift blokuje wykonanie bez fallbacku do aktywnego profilu siatki.
+- **Reason:** zachowanie samych 2200 JPEG-ów pozwoliło schema v4 zgubić finalny
+  preflight strony i zastąpić go profilem 36-punktowym, co utworzyło 19 798
+  fałszywych deferrals siatki 3×5.
+- **Consequences:** nowe ponowienia używają schema v6 i
+  `pinned_page_preflight`. Schema v4 oraz istniejące joby pozostają niezmienne
+  i odtwarzalne; operacje na danych historycznych nadal wymagają osobnej zgody.
+
+### D-325 — Profil strony przechodzi bramkę końcowej geometrii 3×5
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** profil schema v2 może otrzymać `candidate_ready` wyłącznie po
+  checksum-bound, source-disjoint ewaluacji całego produkcyjnego toru od
+  rejestracji dziewięciu plansz do 15 cropów każdej gotowej planszy. Kolejna
+  ewaluacja tej samej kohorty tworzy osobną niezmienną rewizję profilu.
+- **Reason:** kompletność 36 narożników dowodziła jedynie jakości wejścia
+  rejestracji. Profil mógł poprawnie znaleźć dziewięć plansz i jednocześnie
+  przesunąć ich obrysy na tyle, aby fixed v19 odrzucił 19 798 siatek 3×5.
+- **Consequences:** bieżąca polityka wymaga 100 źródeł, 500 plansz, pięciu
+  bucketów, 98% gotowych siatek, zera naruszeń niezmienników i maksymalnie
+  0,5 pp regresji względem baseline'u. Stare schema-v2 profile wymagają
+  ponownej walidacji dla nowych jobów; istniejące snapshoty pozostają
+  odtwarzalne. Progów fixed v19 nie obniża się.
+
+### D-326 — Duży import przechodzi próbę geometrii przed materializacją
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** każdy nowy import v0.10 od 100 źródeł lub 500 plansz wykonuje
+  checksum-bound, deterministyczną próbę pełnego toru 3×3 → 3×5 przed
+  `register_files`. Wynik poniżej 98% albo naruszenie niezmiennika kończy job
+  kodem `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION` bez zapisania kolejki pending.
+- **Reason:** poprawna rejestracja dziewięciu plansz nie dowodzi poprawności
+  końcowych 15 cropów. Ochrona wyłącznie na etapie aktywacji profilu nie chroni
+  historycznego snapshotu ani nietypowego korpusu konkretnego importu.
+- **Consequences:** próba do 25 źródeł używa produkcyjnych adapterów bez writerów
+  domenowych, a jej niezmienny raport wraca w progressie joba. Admin rozdziela
+  liczniki stron 3×3 i siatek 3×5. Ręczna korekta pojedynczej planszy nie uczy
+  profilu; jego kohorta nadal wymaga kompletnego, jawnie zatwierdzonego źródła
+  dziewięciu quadów. Nowe joby przypinają snapshot polityki do fingerprintu;
+  historyczne payloady bez niego zachowują niezmieniony replay.
+
+### D-327 — Lokalny review cropów używa shardów i atlasów
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** przygotowanie katalogu `cut` zapisuje mały journal i wyniki w
+  shardach po najwyżej 64 sloty, izoluje błąd pojedynczego źródła oraz pokazuje
+  wszystkie pozycje w progresywnym gridzie atlasów WebP po najwyżej 100 cropów.
+  Pełny oryginał jest otwierany tylko dla pozycji zaznaczonych do poprawy.
+- **Reason:** dwukrotny zapis wielomegabajtowego manifestu dla każdego JPEG-a
+  wyczerpywał zasoby przeglądarki pod koniec dużego katalogu, a fail-fast ukrywał
+  tysiące poprawnie przygotowanych wyników przez błąd pojedynczego pliku.
+- **Consequences:** migracja v1 nie renderuje ani nie hashuje istniejących
+  wyników. Błąd nie blokuje przeglądu, lecz musi zostać rozwiązany przed jego
+  zakończeniem. Atlasy są odtwarzalnym lokalnym cache'em, a wybór korekt jest
+  trwałą decyzją UI niezależną od fizycznej obecności cropa.
+
+### D-328 — Dostęp do lokalnej sesji cięcia wyłącznie po geście operatora
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** reload odtwarza tylko metadane sesji. Dostęp do utrwalonego
+  uchwytu katalogu, przygotowanie oraz atlas miniaturek wymagają jawnych akcji
+  operatora; wyjście zachowuje dane i anuluje kolejkę między plikami.
+- **Reason:** przeglądarka może odmówić `requestPermission` poza bezpośrednim
+  gestem użytkownika, a automatyczne dekodowanie tysięcy podglądów blokowało UI.
+- **Consequences:** wznowienie i wczytanie miniaturek są dwoma świadomymi
+  krokami. Poglądowe atlasy mogą używać niższej jakości niż finalne JPEG-i.
+
+### D-329 — Zakończenie edycji pojedynczej siatki zachowuje szkic
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** `Zakończ edycję` wyłącza manipulowanie narożnikami, ale nie
+  przywraca automatycznej geometrii. Kompletny albo częściowy szkic pozostaje
+  wejściem panelu A/B i można go wznowić. Do czasu zapisu albo jawnego resetu
+  blokowane są zatwierdzenie, nawigacja i zmiana aktywnej planszy.
+- **Reason:** wcześniejszy handler bezwarunkowo przypisywał `automaticCorners`
+  przy wejściu i wyjściu z edycji, więc nazwa akcji sugerowała zakończenie pracy,
+  a faktycznie bez ostrzeżenia usuwała wszystkie przesunięcia operatora.
+- **Consequences:** tylko `Resetuj do automatu` usuwa lokalne zmiany. Szkic nie
+  jest automatycznie zapisywany i nadal wymaga aktualnego porównania A/B przed
+  trwałym zapisem geometrii.
+
+### D-330 — Historyczny recrop v19 nie konwertuje wirtualnych siatek v0.10
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** pending-only recrop v19 obejmuje wyłącznie niezatwierdzone
+  `legacy_file`. `virtual_source` jest raportowany osobno, a nie konwertowany do
+  plikowych board/cell PNG. Nowy job symboli może użyć bootstrapu wyłącznie przy
+  dokładnie zgodnym katalogu klas.
+- **Reason:** zgłoszony job zakwalifikował 45 wirtualnych plansz, w tym 36
+  ręcznie zatwierdzonych, po czym worker odrzucił brak fizycznych board PNG.
+  Równoległa reinferencja symboli użyła niezgodnych kodów angielskiego
+  bootstrapu i zakończyła się pozornym sukcesem.
+- **Consequences:** zatwierdzona geometria ma dwuwarstwową ochronę, błędny job
+  nie jest tworzony, a nowa gra musi wytrenować i jawnie aktywować zgodny model.
+  Automatyczny metadata-only recrop wirtualny wymaga osobnego snapshotu i
+  bramki jakości zamiast ukrytej zmiany trybu assetów.
+
+### D-331 — Raport importu oddziela gotowość od autoryzacji startu
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** read-only raport browser stagingu i preflight geometrii są
+  dostępne bez aktywnego modelu symboli, ale zwracają jawny stan blokady. Start
+  importu nadal wymaga zgodnego snapshotu modelu gry i ponownej walidacji.
+- **Reason:** wspólny rygorystyczny resolver ukrywał raport i blokował niezależne
+  przygotowanie geometrii przed pierwszym treningiem nowej gry.
+- **Consequences:** checksum raportu obejmuje gotowość modelu; Admin blokuje
+  wyłącznie start i pokazuje dalsze kroki. Niezgodny globalny bootstrap nie jest
+  fallbackiem, a brak modelu nie tworzy joba importu.
+
+### D-332 — Repair manifest jest źródłem handoffu uzupełnionych luk
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** aktywne uzupełnienia są deterministycznie materializowane jako
+  pochodny manifest repairu i mogą utworzyć osobny inwentarz lokalnego
+  cropowania. Pełny katalog i uzupełnienia mają rozłączne katalogi wynikowe.
+- **Reason:** ręczne przepisywanie nazw grozi pominięciem lub przycięciem pliku,
+  który został później cofnięty, a drugi niezależny journal mógłby rozjechać się
+  z faktyczną zawartością katalogu `seq_*`.
+- **Consequences:** repair manifest nadal jest jedynym źródłem decyzji, handoff
+  można odtworzyć dla starej sesji, a cropowanie uzupełnień wymaga zgodności
+  nazwy, obecności i SHA-256 każdego pliku.
+
+### D-333 — Kohorta symboli v4 odtwarza cropy wirtualne z proweniencji
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** zatwierdzony `virtual_source` nie wymaga źródłowego pliku cropa.
+  Manifest kohorty v4 zamraża pełną proweniencję renderu, a worker materializuje
+  PNG datasetu z managed original. Typ checksumy assetu jawnie rozróżnia hash
+  bajtów legacy od checksumy pikselowej RGB v0.10.
+- **Reason:** produkcyjny kontrakt v0.10 celowo nie zapisuje tysięcy cropów, lecz
+  stary builder uznawał ich brak za `missingAsset` i blokował trening mimo
+  zatwierdzonych etykiet.
+- **Consequences:** źródło, geometria, render spec i wynikowe piksele są
+  sprawdzane fail-closed bez dublowania cropów. Historyczne kohorty v1–v3 i
+  plikowe assety zachowują dotychczasową semantykę oraz odtwarzalność.
+
+### D-334 — Auto-crop nie ufa klastrowi dotykającemu górnej krawędzi
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Decision:** polityka `selected-image-board-band-v2` zachowuje 7,5%
+  wysokości nad wykrytym panelem i 4,5% pod nim. Jeżeli górny padding
+  doprowadziłby do `topY = 0`, propozycja jest odrzucana i zastępowana
+  bezpiecznym pasem domyślnym. Miniatury atlasu v2 mają 144×96 px i pozostają
+  w jednym poziomym pasku.
+- **Reason:** zbyt ciasna górna granica obcinała kontekst plansz, a fałszywy
+  klaster przy początku obrazu tworzył nadmiernie wysoki crop utrudniający
+  późniejszą detekcję. Miniatury 120×80 px były za małe do szybkiej oceny.
+- **Consequences:** dolna granica pozostaje niezmieniona, błędny sygnał
+  krawędziowy nie jest maskowany clampem, a nowa wersja renderera zapobiega
+  użyciu starych atlasów z innym rozmiarem. Istniejące cropy nie są
+  automatycznie nadpisywane.
+### D-335 — Ramka planszy nie jest siatką symboli
+
+- **Status:** accepted
+- **Date:** 2026-09-04
+- **Decision:** kontrakt structured rozdziela obszar analizy, opcjonalną
+  zewnętrzną ramkę oraz końcowy `symbolGridQuad`. Wyłącznie ostatnia geometria
+  może wyprowadzać cropy komórek.
+- **Reason:** produkcyjny v0.10 v2 dzielił quad zewnętrznej ramki bez lokalnego
+  dopasowania, przez co granice komórek przecinały symbole mimo prawidłowej
+  lokalizacji dziewięciu plansz.
+- **Consequences:** nowe schema jest addytywne i wersjonowane; v1/v2 zachowują
+  replay, a brak dowodu wewnętrznej siatki wymaga ręcznej korekty zamiast
+  fallbacku do ramki.
+
+### D-336 — Refiner v3 chroni zawartość i nie ma geometrycznego fallbacku
+
+- **Status:** accepted
+- **Date:** 2026-09-04
+- **Decision:** structured v3 używa istniejącego estymatora v19 per plansza, a
+  następnie wymaga, aby bboxy wiarygodnych komponentów z ochronnym marginesem
+  mieściły się w przypisanych komórkach.
+- **Reason:** dopasowanie samych środków poprawia granice, lecz bez kontroli
+  rozmiaru komponentu nie dowodzi, że linia nie przecina widocznego symbolu.
+- **Consequences:** brak pełnego dowodu zwraca `needs_review`; adapter 3×5 nie
+  dzieli automatycznie ramki ani nie używa stałego offsetu.
+
+### D-337 — Kandydat siatki v3 pozostaje pomiarem shadow
+
+- **Status:** accepted
+- **Date:** 2026-09-04
+- **Decision:** nowe runy structured shadow przypinają refiner v3 jako
+  checksummowany kandydat bez uprawnienia do renderowania cropów. Historyczny
+  snapshot v2 nadal wybiera v2, a ręczna geometria zawsze wygrywa w read modelu.
+- **Reason:** wynik lokalnego estymatora musi zostać oceniony na rozłącznym
+  korpusie zanim zmieni piksele produkcyjne; jednocześnie operator potrzebuje
+  widzieć propozycję i dokładny powód odroczenia.
+- **Consequences:** checkpoint v3 jest trwały i widoczny w Reviewerze, ale
+  aktywacja oraz reprocess należą do osobnego TASK-0448. Brak
+  `symbolGridQuad` nie uruchamia fallbacku do zewnętrznej ramki.
+
+### D-338 — Aktywacja siatki v3 jest jawna, raport-bound i future-run only
+
+- **Status:** accepted
+- **Date:** 2026-09-04
+- **Decision:** wariant `structured_lattice_v3` może być wybrany per gra dla
+  nowych runów, jeżeli job przypnie accepted-primary config razem z SHA-256
+  raportu odbiorczego. Slot bez bezpiecznego `symbolGridQuad` nie ma
+  produkcyjnego `finalQuad`.
+- **Reason:** bounded odbiór na 450 ręcznych siatkach spełnił bramki pokrycia,
+  mediany, board-level p90 i niezmienników. Osobny tryb zachowuje replay v1/v2
+  i nie przełącza milcząco już istniejących gier.
+- **Consequences:** operator jawnie zmienia politykę gry po wdrożeniu migracji;
+  zmiana działa tylko dla nowych, idempotentnych runów. Historyczny reprocess
+  nadal odtwarza swój snapshot, a nie bieżącą politykę.
+
+### D-339 — Bramka dużego importu zachowuje diagnostykę każdej planszy
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** nowe raporty bramki używają schema v2 i zapisują dla każdego
+  slotu źródło, numer sekwencji, status, reason codes oraz dostępne geometrie i
+  evidence. Audytowa rekonstrukcja raportu v1 tworzy nowy wynik związany z
+  checksumą poprzednika i nie mutuje failed joba.
+- **Reason:** agregat 217/225 wskazuje skalę problemu, lecz bez board-level
+  proweniencji nie pozwala operatorowi bezpiecznie poprawić, oznaczyć jako
+  częściowe albo odrzucić dokładnych ośmiu plansz.
+- **Consequences:** próg 98% i invariants pozostają bez zmian; kolejny pion może
+  oprzeć append-only decyzje na checksumie źródła i slocie bez ponownego
+  zgadywania numerów.
+
+### D-340 — Niepełna plansza jest jawnym, niekanonicznym stanem
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** decyzje przedimportowe są append-only i checksum-bound.
+  `partial` zapisuje quad oraz maskę 1..14 niedostępnych komórek, natomiast
+  `rejected` nie zapisuje geometrii. Zamknięcie wymaga decyzji dla każdego
+  błędu raportu i tworzy nowy content-addressed manifest.
+- **Reason:** przycięcie lub zasłonięcie kilku pól nie może wymuszać fałszywych
+  cropów, ale nie powinno też blokować odzyskania widocznych symboli.
+- **Consequences:** `?` pozostaje prezentacją `source_unavailable`, nie etykietą
+  treningową. Plansza `pending_partial` nie może stać się kanonicznym layoutem;
+  jej materializacja należy do osobnego, manifest-bound importu v7.
+
+### D-341 — Schema v7 rozdziela surowy wynik bramki od jawnego rozliczenia
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** browser-import schema v7 przypina content-addressed manifest
+  decyzji i ponownie wykonuje produkcyjną próbę. Surowy raport oraz jego wynik
+  nie są przepisywane. Manifest musi dokładnie pokrywać wszystkie i tylko
+  odroczone sloty; pełne korekty przechodzą zwykłe invariants, `partial` tworzy
+  sparse observations i pozostaje niekanoniczny, a `rejected` nie tworzy
+  recognized board ani cropów.
+- **Reason:** wynik automatycznej bramki jest dowodem jakości algorytmu, podczas
+  gdy decyzja operatora jest osobnym dowodem obsługi wyjątku. Połączenie tych
+  pojęć ukrywałoby regresje albo pozwalało zastosować decyzję do innego źródła.
+- **Consequences:** fingerprint obejmuje manifest rozliczeń, a API i worker
+  fail-closed sprawdzają jego proweniencję oraz checksumy. Schema v5 i v6 nie
+  odczytują tego wejścia. Failed job pozostaje niezmiennym audytem, a wznowienie
+  wymaga utworzenia nowego joba po ręcznym zamknięciu manifestu.
+
+### D-342 — Rekonstrukcja raportu v1 jest osobnym jobem i artefaktem
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** board-level diagnostyka historycznego raportu v1 powstaje w
+  osobnym jobie `validate`, który odtwarza dokładną zapisaną próbkę przy użyciu
+  snapshotów źródłowego failed importu. Wynik jest content-addressed raportem
+  v2 z checksumą poprzednika; źródłowy job, checkpoint i raport nie są
+  modyfikowane.
+- **Reason:** agregat v1 nie wskazuje slotów, a retry failed importu zmieniałby
+  dowód regresji. Oddzielny job zapewnia postęp, retry, audyt i kontrolę driftu
+  bez ukrytej mutacji historii.
+- **Consequences:** kolejka decyzji widzi raport pochodny dopiero po zakończeniu
+  zgodnego joba rekonstrukcji. Worker nie może tworzyć brakującego managed
+  manifestu ani użyć aktualnych modeli. Identyczne polecenie prowadzi do tego
+  samego joba i immutable artefaktu.
+
+### D-343 — Podgląd wyjątków jest przejściowy, a wznowienie pozostaje jawne
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** Admin pokazuje wszystkie dziewięć slotów źródła, lecz mutować
+  pozwala wyłącznie cele `deferred`. Pełna i częściowa decyzja wymaga aktualnego
+  podglądu cropów A/B generowanego w pamięci; podgląd nie utrwala artefaktów.
+  Zamknięcie manifestu nie uruchamia importu.
+- **Reason:** operator potrzebuje sąsiedztwa planszy i obrazu końcowych komórek,
+  ale samo oglądanie nie może tworzyć danych ani maskować surowego wyniku
+  bramki. Oddzielna akcja startu chroni przed przypadkowym wznowieniem dużego
+  importu.
+- **Consequences:** zmiana quada lub maski unieważnia podgląd, a nowa rewizja
+  decyzji unieważnia manifest wybrany w bieżącym UI. Import schema v7 otrzymuje
+  ID i checksumę dopiero po ponownym jawnym seal.
+
+### D-344 — Auto-crop wymaga wielokolumnowego dowodu i rozszerza granice fail-safe
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka
+  `selected-image-board-band-v4-conservative-multicolumn` może wyznaczyć
+  automatyczny pas tylko na podstawie sygnału wspieranego przez co najmniej pięć
+  z dziewięciu pasów, w tym lewą, środkową i prawą część obrazu. Zawartość przy
+  granicy może wyłącznie rozszerzyć crop; brak dowodu daje pas `5–95%`.
+- **Reason:** profil jednowymiarowy mylił panel plansz z tabelą wypłat, światłem
+  obudowy albo lokalną teksturą i czasem wybierał zbyt wysoki lub prawie pełny
+  obraz.
+- **Consequences:** analiza używa podglądu do 512 px i dwóch niezależnych rodzin
+  dowodu bez OCR ani modelu ML. Istniejące cropy nie są automatycznie
+  przeliczane; trwała proweniencja i jawne przeliczenie nieprzejrzanych wyników
+  należą do następnego taska.
+
+### D-345 — Zmiana polityki auto-cropa istniejącej sesji wymaga jawnego przeliczenia
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** nowa sesja przypina v4 w małym journalu, a każdy wynik zapisuje
+  pełną proweniencję propozycji w swoim shardzie. Historyczny brak wersji jest
+  stanem legacy. Przejście na v4 następuje tylko przez akcję obejmującą
+  nieprzejrzane wyniki; review, ręczna korekta i zaznaczenie do poprawy chronią
+  plik przed zastąpieniem.
+- **Reason:** automatyczne użycie nowego detektora po restarcie mogłoby po cichu
+  wymieszać polityki w rozpoczętym katalogu albo nadpisać decyzję operatora.
+- **Consequences:** rozpoczęta historyczna sesja może być oglądana bez zmian,
+  lecz przygotowanie brakujących plików wymaga jawnego przejścia na v4. Każde
+  przeliczenie nadal sprawdza źródło i istniejący wynik checksumą oraz korzysta
+  z wznawialnego journalu.
+
+### D-346 — Wielofazowy preflight raportuje osobny monotoniczny licznik fazy
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** pierwszy przebieg rejestracji, każdy przebieg auto-anchor oraz
+  zapis manifestu mają jawny stan i własny licznik. Ogólne `current/total`
+  zachowuje dotychczasowy kontrakt źródeł, a malejąca liczba nierozpoznanych
+  pozostaje osobną wartością provisional.
+- **Reason:** pierwszy przebieg może osiągnąć `N/N`, gdy worker nadal przez
+  dłuższy czas analizuje nierozwiązane źródła. Ponowne użycie ogólnego licznika
+  powodowałoby regresję albo fałszywe `100%`.
+- **Consequences:** worker checkpointuje dodatkowy przebieg co najwyżej co 25
+  źródeł. Admin preferuje licznik fazy, a dla historycznego lub już
+  uruchomionego joba bez tych pól pokazuje stan indeterminowany oraz świeżość
+  heartbeat zamiast zgadywać procent.
+
+### D-347 — Auto-crop rozdziela niebieski panel plansz od panelu wypłat
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v5 zachowuje wielokolumnowy detektor v4 jako bramkę
+  ogólną, lecz przy wykrytym niebieskim panelu stosuje profil v3 do usunięcia
+  nadmiarowego panelu wypłat. Ma on pierwszeństwo tylko nad wynikiem popartym
+  wielokolumnowo, którego górna granica leży co najmniej 8% wysokości wyżej.
+  Brak dowodu automatycznie tworzy pozycję `Do poprawy`.
+- **Reason:** v4 potrafił połączyć pełnoszeroki, kolorowy panel wypłat z panelem
+  3×3 i zapisać niemal pełną wysokość zdjęcia. Jednocześnie stały, ciaśniejszy
+  fallback mógłby uciąć plansze na innym typie szafy.
+- **Consequences:** v4 pozostaje walidowany i odtwarzalny. V5 wymaga jawnego
+  przeliczenia istniejących nieprzejrzanych cropów; ręczne decyzje i poprawki
+  pozostają chronione checksum-bound journalem.
+
+### D-348 — Diagnostyka rejestracji powstaje w tym samym przebiegu
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** nieudany preflight zapisuje najlepszą osiągniętą bramkę i
+  ograniczone podsumowanie prób z wartości już obliczonych przez ORB/RANSAC.
+  Brak pomiaru jest pominięty, nie zastępowany zerem.
+- **Reason:** sam status `review_required` nie pozwala odróżnić złego
+  dopasowania od braku czerwonych krawędzi, a ponawianie analizy tylko dla
+  diagnostyki zwiększałoby koszt i mogłoby dać rozbieżny wynik.
+- **Consequences:** diagnostyka nie należy do fingerprintu decyzji, nie zawiera
+  obrazów ani deskryptorów i pozostaje opcjonalna dla historycznych manifestów.
+
+### D-349 — Roboczy szablon edytora nie jest geometrią automatyczną
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** źródło geometrii jest jawnym polem read modelu. Prostokąty
+  tworzone po braku wyniku detektora są oznaczone jako `manual_template`, a
+  zapisany ręczny override ma pierwszeństwo.
+- **Reason:** wizualnie poprawny komplet prostokątów sugerował operatorowi, że
+  automat znalazł błędną geometrię, choć faktycznie zwrócił brak wyniku.
+- **Consequences:** ekran pokazuje szablon jako pomoc do edycji i wyświetla
+  diagnostykę istniejącego manifestu bez uruchamiania workera.
+
+### D-350 — Maska ogranicza cechy kotwicy, nie obszar targetu
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** opcjonalny wariant ORB pobiera cechy wzorca z otoczki 36
+  zatwierdzonych narożników z paddingiem 10% mediany wysokości planszy. Zdjęcie
+  docelowe pozostaje przeszukiwane w całości.
+- **Reason:** reklama i obudowa wzorca mogą dominować dopasowanie, natomiast
+  ograniczenie nieznanego jeszcze targetu wymagałoby dodatkowego detektora lub
+  ryzykownego założenia o położeniu plansz.
+- **Consequences:** koszt i liczba przebiegów nie rosną, v1 zachowuje replay, a
+  wariant v2 musi zostać jawnie przypięty przez osobny kontrakt preflightu.
+
+### D-351 — Wariant rejestracji strony jest wyborem preflightu
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** `standard_v0_10` pozostaje domyślne, a `board_area_test` jest
+  jawnym wyborem operatora. Wersja preflightu i dokładny profil maski są
+  utrwalane w input payloadzie.
+- **Reason:** maskowanie zmienia dowód rejestracji konkretnego runu, ale nie
+  model symboli ani politykę silnika całej gry.
+- **Consequences:** input key rozdziela warianty, retry jest odtwarzalny, a
+  worker odrzuca nieznaną lub niespójną parę wersji fail-closed.
+
+### D-352 — Maskowana rejestracja nie zostaje ustawieniem domyślnym
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** `board_area_test` pozostaje jawnym wariantem eksperymentalnym,
+  a nowe preflighty nadal domyślnie używają `standard_v0_10`.
+- **Reason:** na 19 dostępnych source-disjoint ręcznych korektach maska obniżyła
+  pokrycie z 14 do 13 źródeł, lekko zwiększyła błąd narożników i zwiększyła
+  łączny czas o 26,67%. Nie spełniła bramek jakości ani narzutu.
+- **Consequences:** implementacja i replay pozostają dostępne do kontrolowanych
+  prób, ale aktywacja wymaga nowego, wystarczającego raportu. Późniejsze
+  porównanie oryginału z katalogiem `cut` używa oddzielnych runów i nie zmienia
+  istniejących managed originals.
+
+### D-353 — Niebieski panel jest niezależnym, wielopasmowym dowodem auto-cropa
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v6 może użyć niebieskiego panelu bez pomocniczego
+  kandydata ogólnego tylko po zgodnym wykryciu w lewej, środkowej i prawej
+  części obrazu. Górny padding wynosi 7,5% wysokości.
+- **Reason:** v5 ignorowała mocny panel, gdy ogólny detektor zwracał
+  `safe_wide`, oraz pozostawiała 12% obrazu nad panelem. Powodowało to pełne
+  lub zbyt wysokie cropy mimo czytelnego układu 3×3.
+- **Consequences:** koszt pozostaje bounded do jednego podglądu 512 px i bez
+  OCR. Niepełny sygnał nadal trafia do ręcznej korekty. Wyniki v4/v5 zachowują
+  proweniencję i wymagają jawnego przeliczenia.
+
+### D-354 — Ekspansja granicy auto-cropa jest jednokrokowa
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v7 może rozszerzyć każdą granicę o najwyżej jedną
+  strefę bezpieczeństwa 3%. Wiarygodny pas może mieć co najmniej 32% wysokości.
+- **Reason:** rekurencyjna ekspansja przechodziła z prawidłowo wykrytego panelu
+  plansz przez kolejne kolorowe wiersze panelu wypłat i kończyła niemal pełnym
+  obrazem. Rzeczywiste panele plansz zajmują około 35–38% wysokości.
+- **Consequences:** niewielki margines nadal chroni symbole, ale odległy panel
+  wypłat nie wpływa na crop. Polityki v4–v6 pozostają czytelne i odtwarzalne.
+
+### D-355 — Górna granica auto-cropa nie rozszerza się w stronę panelu wypłat
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v8 stosuje 3% paddingu nad najwcześniejszą lokalną
+  granicą panelu plansz i nie wykonuje górnej ekspansji. Minimalny wykryty pas
+  ma 28% wysokości; dolna ochrona pozostaje jednokrokowa.
+- **Reason:** próbka v7 była bezpieczna, lecz nadal zachowywała logo i zbyt dużo
+  nagłówka. Wielopasmowy 10. percentyl już uwzględnia pochylenie pierwszego
+  rzędu, więc dodatkowe 3% jest wystarczającym buforem.
+- **Consequences:** próbka 1080×1920 zaczyna się na `topY=648` zamiast 504,
+  zachowując cały pierwszy rząd. Wyniki v4–v7 pozostają odtwarzalne.
+
+### D-356 — Górny margines auto-cropa wynosi 4,5%
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v9 zwiększa górny padding z 3% do 4,5%, bez
+  przywracania górnej ekspansji.
+- **Reason:** przekrojowe próbki v8 pokazały, że 3% może pozostawiać pierwszy
+  rząd zbyt blisko krawędzi. Dodatkowe 1,5% daje niewielki zapas bez ponownego
+  włączania logo i panelu wypłat.
+- **Consequences:** dla próbki 1080×1920 górna granica przesuwa się z 648 na
+  618. Wyniki v4–v8 pozostają czytelne i nie są po cichu przeliczane.
+
+## D-357 — Górna granica lokalnego cropa korzysta z trzech plansz
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v10 może zastąpić wyłącznie górną granicę v9, gdy
+  lekka analiza 512 px znajdzie trzy podobne czerwone ramki tworzące pierwszy
+  rząd. Granica używa najwyższego punktu i bufora co najmniej 2% wysokości.
+- **Reason:** szeroki kolor panelu dobrze lokalizuje całość, ale panel wypłat i
+  zmienna wysokość niebieskiego tła przesuwają jego górną krawędź. Trzy ramki
+  są bezpośrednim dowodem położenia zawartości, którą trzeba zachować.
+- **Consequences:** dolna granica i fail-safe v9 pozostają bez zmian. Brak
+  pełnej trójki nigdy nie zaciska cropa. Polityki v4–v9 zachowują replay.

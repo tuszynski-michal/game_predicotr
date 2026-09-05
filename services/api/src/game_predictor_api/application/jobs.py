@@ -17,10 +17,41 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
     board_cell_recrop_snapshot,
 )
 from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
-from game_predictor_worker.images.pipeline_contract import CURRENT_NORMALIZATION_ADAPTER_VERSION
+from game_predictor_worker.images.page_geometry_registration import (
+    PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO,
+    PAGE_REGISTRATION_ANCHOR_MASK_VERSION,
+    PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
+    PAGE_REGISTRATION_THRESHOLDS_VERSION,
+    PAGE_REGISTRATION_VERSION,
+)
+from game_predictor_worker.images.pipeline_contract import (
+    CURRENT_NORMALIZATION_ADAPTER_VERSION,
+    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
+    SYMBOL_RGB_PREPROCESSING_VERSION,
+    VIRTUAL_CELL_RENDERER_VERSION,
+    CellAssetRolloutMode,
+    GeometryPipelineRolloutSnapshot,
+    GeometryRolloutMode,
+    StructuredGeometryActivationSnapshot,
+    StructuredGeometryCandidateSnapshot,
+    effective_pipeline_fingerprint,
+)
+from game_predictor_worker.images.structured_geometry import (
+    structured_lattice_active_config_payload,
+    structured_lattice_candidate_config_payload,
+)
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
+from game_predictor_api.application.managed_reprocess_evidence import (
+    ManagedReprocessEvidenceError,
+    resolve_managed_reprocess_evidence,
+)
 from game_predictor_api.domain.datasets import DatasetVersionStatus
+from game_predictor_api.domain.image_import_engine_policy import (
+    ImageImportEnginePolicySnapshot,
+    policy_from_rollout_modes,
+)
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -40,6 +71,21 @@ from game_predictor_api.domain.symbol_model_snapshots import (
 )
 
 PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
+# Must match migration 0091 and the immutable v2 recognizer contract.  This
+# module cannot import the workflow classifier without an application cycle.
+_LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINT = (
+    "8b876e8a7cdc25f0709bf27ece4e99b1c777231fa3fcef4aa31e617123825b0f"
+)
+_IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY: dict[str, object] = {
+    "policyVersion": "image-geometry-systemic-guard-v1",
+    "minimumSourceCount": 100,
+    "minimumActiveBoardCount": 500,
+    "sampleSourceLimit": 25,
+    "minimumFinalCellGridReadyRate": 0.98,
+    "requireZeroInvariantViolations": True,
+}
+_PAGE_REGISTRATION_VARIANTS = frozenset({"standard_v0_10", "board_area_test"})
+_BOARD_AREA_PREFLIGHT_POLICY_VERSION = "page-geometry-preflight-v3-board-area-mask"
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +99,13 @@ class BoardTopologyJobReference:
     rules_version_id: UUID
     rows: int
     columns: int
+
+
+@dataclass(frozen=True, slots=True)
+class ImageGeometryRolloutJobReference:
+    geometry_mode: str
+    cell_asset_mode: str
+    revision: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,6 +275,11 @@ class JobRepository(Protocol):
         game_id: UUID,
     ) -> BoardTopologyJobReference | None: ...
 
+    def get_image_geometry_rollout(
+        self,
+        game_id: UUID,
+    ) -> ImageGeometryRolloutJobReference | None: ...
+
     def get_layout_import_rules_reference(
         self,
         rules_version_id: UUID,
@@ -238,6 +296,13 @@ class JobRepository(Protocol):
     ) -> PayoutRulesReference | None: ...
 
     def add_job(self, job: Job) -> Job: ...
+
+    def add_source_bound_job(
+        self,
+        job: Job,
+        *,
+        source_selection_id: UUID,
+    ) -> Job: ...
 
     def get_job(self, job_id: UUID) -> Job | None: ...
 
@@ -296,6 +361,7 @@ class JobService:
         symbol_model_snapshot_resolver: SymbolModelSnapshotResolver | None = None,
         grid_profile_snapshot_resolver: GridProfileSnapshotResolver | None = None,
         *,
+        artifact_root: Path | None = None,
         page_geometry_override_snapshot_resolver: (
             PageGeometryOverrideSnapshotResolver | None
         ) = None,
@@ -305,9 +371,103 @@ class JobService:
         self._import_source_inspector = import_source_inspector
         self._symbol_model_snapshot_resolver = symbol_model_snapshot_resolver
         self._grid_profile_snapshot_resolver = grid_profile_snapshot_resolver
+        self._artifact_root = None if artifact_root is None else artifact_root.resolve()
         self._page_geometry_override_snapshot_resolver = page_geometry_override_snapshot_resolver
         self._deletion_artifact_store = deletion_artifact_store
         self._pending_deletion_quarantines: list[ImageSelectionDeletionQuarantine] = []
+
+    def current_image_import_engine_policy(
+        self, *, game_id: UUID
+    ) -> ImageImportEnginePolicySnapshot:
+        reference = self._repository.get_image_geometry_rollout(game_id)
+        geometry_mode = "legacy" if reference is None else reference.geometry_mode
+        cell_asset_mode = "legacy_files" if reference is None else reference.cell_asset_mode
+        revision = 0 if reference is None else reference.revision
+        try:
+            policy = policy_from_rollout_modes(geometry_mode, cell_asset_mode)
+        except ValueError as error:
+            raise JobError(
+                "IMAGE_ENGINE_POLICY_UNSUPPORTED_STATE",
+                "The game uses an image engine state that is not available for new imports.",
+            ) from error
+        return ImageImportEnginePolicySnapshot(
+            game_id=game_id,
+            policy=policy,
+            geometry_mode=geometry_mode,
+            cell_asset_mode=cell_asset_mode,
+            revision=revision,
+        )
+
+    def _pin_image_geometry_rollout(
+        self,
+        *,
+        game_id: UUID,
+        input_payload: dict[str, object],
+        effective_fingerprint: str,
+        symbol_model: SymbolModelJobSnapshot,
+    ) -> str:
+        getter = getattr(self._repository, "get_image_geometry_rollout", None)
+        reference = getter(game_id) if callable(getter) else None
+        snapshot = GeometryPipelineRolloutSnapshot(
+            geometry_mode=GeometryRolloutMode(
+                "legacy" if reference is None else reference.geometry_mode
+            ),
+            cell_asset_mode=CellAssetRolloutMode(
+                "legacy_files" if reference is None else reference.cell_asset_mode
+            ),
+            rollout_revision=0 if reference is None else reference.revision,
+            geometry_engine_version=(
+                STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
+                if reference is None or reference.geometry_mode == GeometryRolloutMode.LEGACY.value
+                else STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION
+            ),
+            virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+            preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+            candidate_geometry=(
+                StructuredGeometryCandidateSnapshot.from_config_payload(
+                    structured_lattice_candidate_config_payload()
+                )
+                if reference is not None
+                and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_SHADOW.value
+                else None
+            ),
+            active_lattice_geometry=(
+                StructuredGeometryActivationSnapshot.from_config_payload(
+                    structured_lattice_active_config_payload()
+                )
+                if reference is not None
+                and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
+                else None
+            ),
+        )
+        if not snapshot.is_legacy and "board_cell_processing" not in input_payload:
+            topology_reference = self._repository.get_or_pin_board_topology(game_id)
+            if topology_reference is None:
+                raise JobError(
+                    "GAME_BOARD_TOPOLOGY_REQUIRED",
+                    "A rules version must define board dimensions before boards can be imported.",
+                )
+            if (topology_reference.rows, topology_reference.columns) != (3, 5):
+                raise JobError(
+                    "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED",
+                    "The structured geometry adapter currently supports only 3x5 boards.",
+                )
+            processing = board_cell_processing_snapshot(
+                cell_output_size=symbol_model.input_size,
+                topology=BoardCellTopology(
+                    rows=topology_reference.rows,
+                    columns=topology_reference.columns,
+                    rules_version_id=str(topology_reference.rules_version_id),
+                ),
+            )
+            input_payload["board_cell_processing"] = processing
+            effective_fingerprint = hashlib.sha256(
+                (f"{effective_fingerprint}:{processing['configurationFingerprintSha256']}").encode(
+                    "ascii"
+                )
+            ).hexdigest()
+        input_payload["image_geometry_rollout"] = snapshot.to_payload()
+        return effective_pipeline_fingerprint(effective_fingerprint, snapshot)
 
     def create_job(
         self,
@@ -383,6 +543,7 @@ class JobService:
         start_mode: str | None = None,
         previous_job_id: UUID | None = None,
         page_geometry_manifest: dict[str, object] | None = None,
+        geometry_guard_resolution_manifest: dict[str, object] | None = None,
         use_verified_board_cell_geometry: bool = False,
     ) -> Job:
         if not self._repository.game_exists(game_id):
@@ -412,7 +573,7 @@ class JobService:
             f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}".encode("ascii")
         ).hexdigest()
         input_payload: dict[str, object] = {
-            "schema_version": 2 if start_mode is None else 5,
+            "schema_version": 2 if start_mode is None else 7,
             "import_kind": "image_directory",
             "source_selection_id": str(selection_id),
             "source_directory": str(resolved),
@@ -423,6 +584,11 @@ class JobService:
             "symbol_model": symbol_model.to_payload(),
         }
         if start_mode is not None:
+            if page_geometry_manifest is None:
+                raise JobError(
+                    "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED",
+                    "A new browser import requires a pinned page geometry manifest.",
+                )
             grid_profile = (
                 _baseline_grid_profile_snapshot()
                 if self._grid_profile_snapshot_resolver is None
@@ -437,7 +603,8 @@ class JobService:
             effective_pipeline_fingerprint = hashlib.sha256(
                 (
                     f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:{grid_fingerprint}:"
-                    f"{_page_geometry_manifest_fingerprint(page_geometry_manifest)}"
+                    f"{_page_geometry_manifest_fingerprint(page_geometry_manifest)}:"
+                    f"{_geometry_guard_resolution_manifest_fingerprint(geometry_guard_resolution_manifest)}"
                 ).encode("ascii")
             ).hexdigest()
             input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
@@ -448,6 +615,16 @@ class JobService:
             input_payload["grid_profile"] = grid_profile
             if page_geometry_manifest is not None:
                 input_payload["page_geometry_manifest"] = dict(page_geometry_manifest)
+            if geometry_guard_resolution_manifest is not None:
+                input_payload["geometry_guard_resolution_manifest"] = dict(
+                    geometry_guard_resolution_manifest
+                )
+            input_payload["geometry_systemic_guard_policy"] = dict(
+                _IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY
+            )
+            effective_pipeline_fingerprint = _bind_geometry_guard_policy(
+                effective_pipeline_fingerprint
+            )
         if use_verified_board_cell_geometry:
             topology_reference = self._repository.get_or_pin_board_topology(game_id)
             if topology_reference is None:
@@ -484,6 +661,19 @@ class JobService:
             ).hexdigest()
             input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
             input_payload["board_cell_processing"] = processing_snapshot
+        # The verified v19 board-cell path is the immutable v20 pipeline.
+        # It owns its geometry and crop snapshot in ``board_cell_processing``;
+        # querying the newer per-game virtual-geometry rollout here would both
+        # change that contract and make the historical v20 import depend on
+        # the v0.10 rollout tables.
+        if not use_verified_board_cell_geometry:
+            effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
+                game_id=game_id,
+                input_payload=input_payload,
+                effective_fingerprint=effective_pipeline_fingerprint,
+                symbol_model=symbol_model,
+            )
+        input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
         if canonical_sequence_numbers is not None:
@@ -615,28 +805,36 @@ class JobService:
                 f"{entry_start}:{entry_count}"
             ).encode("ascii")
         ).hexdigest()
+        input_payload: dict[str, object] = {
+            "schema_version": 3,
+            "import_kind": "image_directory",
+            "source_selection_id": str(source_id),
+            "source_directory": str(resolved),
+            "source_display_name": source_display_name,
+            "pipeline_fingerprint": effective_pipeline_fingerprint,
+            "source_pipeline_fingerprint": pipeline_fingerprint,
+            "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
+            "image_selection_run_id": str(image_selection_run_id),
+            "curated_image_import_source_id": str(source_id),
+            "curated_image_import_batch_id": str(batch_id),
+            "curated_manifest_relative_path": manifest_relative_path,
+            "curated_manifest_checksum_sha256": manifest_checksum_sha256,
+            "curated_manifest_entry_start": entry_start,
+            "curated_manifest_entry_count": entry_count,
+            "symbol_model": symbol_model.to_payload(),
+            "grid_profile": pinned_grid_profile,
+        }
+        effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
+            game_id=game_id,
+            input_payload=input_payload,
+            effective_fingerprint=effective_pipeline_fingerprint,
+            symbol_model=symbol_model,
+        )
+        input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         return self._persist_job(
             JobType.IMPORT,
             game_id=game_id,
-            input_payload={
-                "schema_version": 3,
-                "import_kind": "image_directory",
-                "source_selection_id": str(source_id),
-                "source_directory": str(resolved),
-                "source_display_name": source_display_name,
-                "pipeline_fingerprint": effective_pipeline_fingerprint,
-                "source_pipeline_fingerprint": pipeline_fingerprint,
-                "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
-                "image_selection_run_id": str(image_selection_run_id),
-                "curated_image_import_source_id": str(source_id),
-                "curated_image_import_batch_id": str(batch_id),
-                "curated_manifest_relative_path": manifest_relative_path,
-                "curated_manifest_checksum_sha256": manifest_checksum_sha256,
-                "curated_manifest_entry_start": entry_start,
-                "curated_manifest_entry_count": entry_count,
-                "symbol_model": symbol_model.to_payload(),
-                "grid_profile": pinned_grid_profile,
-            },
+            input_payload=input_payload,
             game_already_validated=True,
         )
 
@@ -663,6 +861,19 @@ class JobService:
                 "IMAGE_REPROCESS_SOURCE_ACTIVE",
                 "An active image import cannot be reprocessed.",
             )
+        if self._artifact_root is None:
+            raise JobConflictError(
+                "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED",
+                "Managed v0.10 reprocessing requires configured immutable artifacts.",
+            )
+        try:
+            evidence = resolve_managed_reprocess_evidence(
+                source,
+                artifact_root=self._artifact_root,
+                get_job=self._repository.get_job,
+            )
+        except ManagedReprocessEvidenceError as error:
+            raise JobConflictError(error.code, error.message) from error
         source_directory = source.input_payload.get("source_directory")
         if not isinstance(source_directory, str) or not source_directory:
             raise JobConflictError(
@@ -688,12 +899,15 @@ class JobService:
         effective_pipeline_fingerprint = hashlib.sha256(
             (
                 f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:"
-                f"{grid_fingerprint}:{source.id}"
+                f"{grid_fingerprint}:{source.id}:"
+                f"{evidence.managed_source_manifest_checksum_sha256}:"
+                f"{evidence.page_geometry_manifest['checksumSha256']}"
             ).encode("ascii")
         ).hexdigest()
         payload: dict[str, object] = {
-            "schema_version": 4,
+            "schema_version": 6,
             "import_kind": "image_directory",
+            "source_selection_id": str(evidence.source_selection_id),
             "source_directory": source_directory,
             "source_display_name": (
                 f"{source.input_payload.get('source_display_name') or 'Import obrazów'} "
@@ -703,6 +917,11 @@ class JobService:
             "source_pipeline_fingerprint": pipeline_fingerprint,
             "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
             "managed_source_job_id": str(source.id),
+            "managed_source_manifest_checksum_sha256": (
+                evidence.managed_source_manifest_checksum_sha256
+            ),
+            "source_manifest_sha256": evidence.source_manifest_sha256,
+            "page_geometry_manifest": evidence.page_geometry_manifest,
             "symbol_model": symbol_model.to_payload(),
             "grid_profile": grid_profile,
         }
@@ -741,9 +960,15 @@ class JobService:
         ).hexdigest()
         payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         payload["board_cell_processing"] = processing_snapshot
-        source_selection_id = source.input_payload.get("source_selection_id")
-        if source_selection_id is not None:
-            payload["source_selection_id"] = source_selection_id
+        payload["geometry_systemic_guard_policy"] = dict(_IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY)
+        effective_pipeline_fingerprint = _bind_geometry_guard_policy(effective_pipeline_fingerprint)
+        effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
+            game_id=source.game_id,
+            input_payload=payload,
+            effective_fingerprint=effective_pipeline_fingerprint,
+            symbol_model=symbol_model,
+        )
+        payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         image_selection_run_id = source.input_payload.get("image_selection_run_id")
         if image_selection_run_id is not None:
             payload["image_selection_run_id"] = image_selection_run_id
@@ -809,6 +1034,47 @@ class JobService:
                 "validation_kind": "layout_import",
                 "import_job_id": str(import_job_id),
                 "rules_version_id": str(rules_version_id),
+            },
+            game_already_validated=True,
+        )
+
+    def create_geometry_guard_report_reconstruction_job(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+        source_guard_job_id: UUID,
+        legacy_report_checksum_sha256: str,
+        source_manifest_checksum_sha256: str,
+        page_geometry_manifest_checksum_sha256: str,
+    ) -> Job:
+        source = self._repository.get_job(source_guard_job_id)
+        if source is None or source.job_type is not JobType.IMPORT:
+            raise JobNotFoundError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_JOB_NOT_FOUND",
+                "The source geometry guard import job does not exist.",
+            )
+        if source.game_id != game_id:
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_GAME_MISMATCH",
+                "The source geometry guard import belongs to another game.",
+            )
+        if source.input_payload.get("source_selection_id") != str(source_selection_id):
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_STAGING_MISMATCH",
+                "The source geometry guard import belongs to another browser staging.",
+            )
+        return self._persist_job(
+            JobType.VALIDATE,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 1,
+                "validation_kind": "image_geometry_guard_report_reconstruction",
+                "source_selection_id": str(source_selection_id),
+                "source_guard_job_id": str(source_guard_job_id),
+                "legacy_report_checksum_sha256": legacy_report_checksum_sha256,
+                "source_manifest_checksum_sha256": source_manifest_checksum_sha256,
+                "page_geometry_manifest_checksum_sha256": (page_geometry_manifest_checksum_sha256),
             },
             game_already_validated=True,
         )
@@ -931,6 +1197,19 @@ class JobService:
                 "A job with the same type and input already exists.",
                 details={"existingJobId": str(existing.id)},
             )
+        source_selection_id = input_payload.get("source_selection_id")
+        if isinstance(source_selection_id, str):
+            try:
+                selection_id = UUID(source_selection_id)
+            except ValueError as error:
+                raise JobError(
+                    "IMAGE_FOLDER_SELECTION_ID_INVALID",
+                    "The source selection identifier is invalid.",
+                ) from error
+            return self._repository.add_source_bound_job(
+                job,
+                source_selection_id=selection_id,
+            )
         return self._repository.add_job(job)
 
     def get_job(self, job_id: UUID) -> Job:
@@ -965,6 +1244,41 @@ class JobService:
             )
         return symbol.inference_fingerprint, fingerprint
 
+    def preview_image_import_model_fingerprints(
+        self, *, game_id: UUID
+    ) -> tuple[str | None, str, str | None]:
+        """Resolve report metadata without weakening the strict import snapshot gate."""
+
+        symbol_fingerprint: str | None
+        symbol_blocker_code: str | None = None
+        try:
+            symbol = (
+                bootstrap_symbol_model_snapshot()
+                if self._symbol_model_snapshot_resolver is None
+                else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+            )
+            symbol_fingerprint = symbol.inference_fingerprint
+        except JobConflictError as error:
+            if error.code not in {
+                "SYMBOL_MODEL_ACTIVATION_REQUIRED",
+                "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED",
+            }:
+                raise
+            symbol_fingerprint = None
+            symbol_blocker_code = error.code
+        grid = (
+            _baseline_grid_profile_snapshot()
+            if self._grid_profile_snapshot_resolver is None
+            else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
+        )
+        grid_fingerprint = grid.get("inferenceFingerprint")
+        if not isinstance(grid_fingerprint, str) or len(grid_fingerprint) != 64:
+            raise JobError(
+                "GRID_PROFILE_SNAPSHOT_INVALID",
+                "The active grid profile snapshot is invalid.",
+            )
+        return symbol_fingerprint, grid_fingerprint, symbol_blocker_code
+
     def create_page_geometry_preflight_job(
         self,
         *,
@@ -974,6 +1288,7 @@ class JobService:
         source_display_name: str,
         source_manifest_sha256: str,
         canonical_sequence_numbers: Sequence[int] = (),
+        page_registration_variant: str = "standard_v0_10",
     ) -> Job:
         """Create an idempotent verified-page geometry preflight.
 
@@ -992,6 +1307,12 @@ class JobService:
             raise JobError(
                 "IMAGE_PAGE_GEOMETRY_SOURCE_MANIFEST_INVALID",
                 "The browser source manifest checksum is invalid.",
+            )
+        if page_registration_variant not in _PAGE_REGISTRATION_VARIANTS:
+            raise JobError(
+                "IMAGE_PAGE_REGISTRATION_VARIANT_UNSUPPORTED",
+                "The selected page registration variant is not supported.",
+                details={"pageRegistrationVariant": page_registration_variant},
             )
         try:
             resolved = source_directory.resolve(strict=True)
@@ -1012,10 +1333,28 @@ class JobService:
         )
         registration = grid.get("pageRegistrationProfile")
         if not isinstance(registration, dict) or not registration.get("anchors"):
-            raise JobConflictError(
-                "IMAGE_PAGE_GEOMETRY_PROFILE_EMPTY",
-                "Create or activate a grid profile from reviewed pages before geometry preflight.",
-            )
+            registration = {
+                "schemaVersion": 1,
+                "policy": PAGE_REGISTRATION_VERSION,
+                "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
+                "anchors": [],
+            }
+        if page_registration_variant == "board_area_test":
+            registration = {
+                **registration,
+                "policy": PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
+                "anchorMaskVersion": PAGE_REGISTRATION_ANCHOR_MASK_VERSION,
+                "anchorMaskPaddingRatio": PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO,
+            }
+            preflight_policy_version = _BOARD_AREA_PREFLIGHT_POLICY_VERSION
+        else:
+            registration = {
+                key: value
+                for key, value in registration.items()
+                if key not in {"anchorMaskVersion", "anchorMaskPaddingRatio"}
+            }
+            registration["policy"] = PAGE_REGISTRATION_VERSION
+            preflight_policy_version = "page-geometry-preflight-v2-auto-anchor"
         overrides = (
             {}
             if self._page_geometry_override_snapshot_resolver is None
@@ -1032,7 +1371,7 @@ class JobService:
             input_payload={
                 "schema_version": 2,
                 "validation_kind": "page_geometry_preflight",
-                "preflight_policy_version": "page-geometry-preflight-v2-auto-anchor",
+                "preflight_policy_version": preflight_policy_version,
                 "source_selection_id": str(selection_id),
                 "source_directory": str(resolved),
                 "source_display_name": source_display_name,
@@ -1109,6 +1448,10 @@ class JobService:
         if (
             job.job_type is JobType.VALIDATE
             and job.input_payload.get("validation_kind") == "page_geometry_preflight"
+        ):
+            return self._repository.save_job(requeue_job_with_fresh_progress(job))
+        if job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION and _is_filename_verification_job(
+            job
         ):
             return self._repository.save_job(requeue_job_with_fresh_progress(job))
         return self._repository.save_job(requeue_job(job))
@@ -1195,6 +1538,32 @@ class JobService:
                 self._deletion_artifact_store.restore(quarantine)
 
 
+def _is_filename_verification_job(job: Job) -> bool:
+    # Migration 0091 materializes the workflow on historical v2 jobs.  A
+    # retry must rely on that durable classification rather than re-inferring
+    # it from a mutable recognizer configuration.
+    workflow_mode = job.input_payload.get("workflow_mode")
+    if workflow_mode in {"selection", "filename_verification"}:
+        return workflow_mode == "filename_verification"
+    recognizer_fingerprint = job.input_payload.get("recognizer_fingerprint")
+    return (
+        isinstance(recognizer_fingerprint, str)
+        and recognizer_fingerprint == _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINT
+    )
+
+
+def _bind_geometry_guard_policy(pipeline_fingerprint: str) -> str:
+    policy_checksum = hashlib.sha256(
+        json.dumps(
+            _IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("ascii")
+    ).hexdigest()
+    return hashlib.sha256(f"{pipeline_fingerprint}:{policy_checksum}".encode("ascii")).hexdigest()
+
+
 def _page_geometry_manifest_fingerprint(value: dict[str, object] | None) -> str:
     if value is None:
         return "page-geometry-manifest-none-v1"
@@ -1209,6 +1578,26 @@ def _page_geometry_manifest_fingerprint(value: dict[str, object] | None) -> str:
         raise JobError(
             "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
             "The pinned page geometry manifest descriptor is invalid.",
+        )
+    return checksum
+
+
+def _geometry_guard_resolution_manifest_fingerprint(
+    value: dict[str, object] | None,
+) -> str:
+    if value is None:
+        return "image-geometry-guard-resolution-none-v1"
+    checksum = value.get("checksumSha256")
+    path = value.get("relativePath")
+    if (
+        not isinstance(checksum, str)
+        or len(checksum) != 64
+        or not isinstance(path, str)
+        or not path
+    ):
+        raise JobError(
+            "IMAGE_GEOMETRY_GUARD_MANIFEST_INVALID",
+            "The pinned geometry guard resolution manifest descriptor is invalid.",
         )
     return checksum
 

@@ -6,6 +6,13 @@ last_updated: 2026-09-05
 
 # Current State
 
+### TASK-0469 — strukturalny v11 (nieaktywny)
+
+- Dodano osobny lokalizator pełnego 3×3: luminancja, tekstura, ograniczone
+  kandydatury i kontrola rzędów. Produkcyjny v10 pozostaje bez zmian.
+- Development: 1/5 układów, pozostałe odrzucone. Wynik nie stanowi odbioru;
+  bramki końcowe sprawdzimy po integracji 0470–0472.
+
 ### Referencje rzeczywistych błędów cropa — TASK-0468
 
 - Siedem oryginałów, 63 plansze i 63 obszary numerów; SHA-256, wizualne

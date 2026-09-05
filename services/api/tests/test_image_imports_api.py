@@ -1072,6 +1072,16 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
             unresolved_source_checksum: {
                 "sourceRelativePath": "new/seq_10-14.jpg",
                 "status": "review_required",
+                "reasonCode": "PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT",
+                "registrationDiagnostics": {
+                    "version": "page-registration-diagnostics-v1",
+                    "bestAttempt": {
+                        "featureCount": 1000,
+                        "reasonCode": "PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT",
+                        "meanRedEdgeCoverage": 0.68,
+                    },
+                    "attempts": [],
+                },
             },
         },
         "registeredSourceCount": 1,
@@ -1166,10 +1176,28 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
     assert payload["reviewRequiredSourceCount"] == 1
     manual = payload["sources"][0]
     assert manual["reviewReason"] == "manual_override"
+    assert manual["geometryOrigin"] == "manual_override"
     assert manual["existingFinalQuads"] == quads
     assert manual["existingOverrideRevision"] == 2
     assert manual["savedSincePreflight"] is True
-    assert payload["sources"][1]["reviewReason"] == "review_required"
+    unresolved = payload["sources"][1]
+    assert unresolved["reviewReason"] == "review_required"
+    assert unresolved["geometryOrigin"] == "manual_template"
+    assert unresolved["rejectionReasonCode"] == (
+        "PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT"
+    )
+    assert unresolved["registrationDiagnostics"]["bestAttempt"] == {
+        "anchorSourceChecksumSha256": None,
+        "featureCount": 1000,
+        "inlierCount": None,
+        "inlierRatio": None,
+        "matchCount": None,
+        "meanRedEdgeCoverage": 0.68,
+        "minimumBoardRedEdgeCoverage": None,
+        "p95ReprojectionError": None,
+        "reasonCode": "PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT",
+        "targetFeatureCount": None,
+    }
 
 
 def test_legacy_touching_page_grid_is_reopened_but_separated_frames_are_not() -> None:

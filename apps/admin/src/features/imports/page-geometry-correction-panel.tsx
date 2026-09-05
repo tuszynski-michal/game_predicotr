@@ -125,6 +125,42 @@ function pointText(point: Point) {
   return `${Math.round(point.x)},${Math.round(point.y)}`;
 }
 
+const GEOMETRY_REJECTION_LABELS: Readonly<Record<string, string>> = {
+  PAGE_GEOMETRY_BOOTSTRAP_ANCHOR_REQUIRED:
+    'Brakuje zweryfikowanej strony wzorcowej dla tego ujęcia.',
+  PAGE_GEOMETRY_HOMOGRAPHY_INVALID:
+    'Nie udało się wyznaczyć stabilnego przekształcenia perspektywy.',
+  PAGE_GEOMETRY_INLIER_EVIDENCE_INSUFFICIENT:
+    'Za mało dopasowanych punktów potwierdziło tę samą perspektywę.',
+  PAGE_GEOMETRY_MATCHES_INSUFFICIENT:
+    'Zdjęcie ma za mało zgodnych punktów ze stronami wzorcowymi.',
+  PAGE_GEOMETRY_QUADS_INVALID:
+    'Przeniesione obrysy plansz nie utworzyły poprawnej siatki 3 × 3.',
+  PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT:
+    'Co najmniej jedna plansza nie ma wystarczającego potwierdzenia czerwonej ramki.',
+  PAGE_GEOMETRY_REPROJECTION_ERROR_EXCESSIVE:
+    'Dopasowane punkty mają zbyt duży błąd po transformacji.',
+  PAGE_GEOMETRY_TARGET_FEATURES_INSUFFICIENT:
+    'Na zdjęciu znaleziono za mało stabilnych punktów obrazu.',
+};
+
+function rejectionLabel(reasonCode: string | null | undefined) {
+  if (reasonCode === null || reasonCode === undefined) {
+    return 'Szczegółowa przyczyna nie została zapisana.';
+  }
+  return (
+    GEOMETRY_REJECTION_LABELS[reasonCode] ?? `Powód techniczny: ${reasonCode}`
+  );
+}
+
+function diagnosticMetric(label: string, value: number | null | undefined) {
+  return value === null || value === undefined ? null : (
+    <li>
+      {label}: {Number.isInteger(value) ? value : value.toFixed(3)}
+    </li>
+  );
+}
+
 export function PageGeometryCorrectionPanel({
   api,
   apiBaseUrl,
@@ -686,6 +722,72 @@ export function PageGeometryCorrectionPanel({
                 ? ` · aktualizacja już zarejestrowanej geometrii r${source.existingOverrideRevision ?? '?'}`
                 : ' · odroczone zdjęcie — wymaga geometrii'}
             </p>
+            {source.geometryOrigin === 'manual_template' ? (
+              <div
+                className="geometryOriginNotice geometryOriginNoticeWarning"
+                role="status"
+              >
+                <strong>Nie wykryto geometrii — ustaw plansze ręcznie.</strong>
+                <p>
+                  Widoczne prostokąty są wyłącznie roboczym szablonem edytora, a
+                  nie wynikiem automatycznego wykrycia.{' '}
+                  {rejectionLabel(source.rejectionReasonCode)}
+                </p>
+                <details>
+                  <summary>Diagnostyka dopasowania</summary>
+                  {source.registrationDiagnostics?.bestAttempt ? (
+                    <ul>
+                      <li>
+                        Bramka:{' '}
+                        {source.registrationDiagnostics.bestAttempt.reasonCode}
+                      </li>
+                      {diagnosticMetric(
+                        'Budżet cech',
+                        source.registrationDiagnostics.bestAttempt.featureCount,
+                      )}
+                      {diagnosticMetric(
+                        'Dopasowania',
+                        source.registrationDiagnostics.bestAttempt.matchCount,
+                      )}
+                      {diagnosticMetric(
+                        'Inliery',
+                        source.registrationDiagnostics.bestAttempt.inlierCount,
+                      )}
+                      {diagnosticMetric(
+                        'Udział inlierów',
+                        source.registrationDiagnostics.bestAttempt.inlierRatio,
+                      )}
+                      {diagnosticMetric(
+                        'p95 reprojekcji',
+                        source.registrationDiagnostics.bestAttempt
+                          .p95ReprojectionError,
+                      )}
+                      {diagnosticMetric(
+                        'Średnie pokrycie ramek',
+                        source.registrationDiagnostics.bestAttempt
+                          .meanRedEdgeCoverage,
+                      )}
+                      {diagnosticMetric(
+                        'Najsłabsza ramka',
+                        source.registrationDiagnostics.bestAttempt
+                          .minimumBoardRedEdgeCoverage,
+                      )}
+                    </ul>
+                  ) : (
+                    <p>Szczegółowa przyczyna nie została zapisana.</p>
+                  )}
+                </details>
+              </div>
+            ) : source.geometryOrigin === 'manual_override' ? (
+              <p className="geometryOriginNotice">
+                Wczytano ręcznie zapisaną geometrię. Reset przywraca dokładnie
+                ten zapis.
+              </p>
+            ) : (
+              <p className="geometryOriginNotice">
+                Wczytano geometrię zaproponowaną automatycznie.
+              </p>
+            )}
             <p className="geometryInstructions">
               {source.reviewReason === 'manual_override'
                 ? 'To zdjęcie jest już uwzględnione w liczniku zarejestrowanych. Zapis zmieni jego obrys, ale nie zwiększy tego licznika.'

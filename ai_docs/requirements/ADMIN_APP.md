@@ -875,3 +875,11 @@ pełną, planszę częściową albo odrzucenie. Częściowość nie jest sugerow
 automatycznie. API zwraca bieżące rewizje i liczbę nierozliczonych plansz, a
 akcja zamknięcia manifestu pozostaje niedostępna logicznie, dopóki licznik nie
 wynosi zero.
+# Pochodzenie geometrii w korekcie strony
+
+Ekran korekty musi jawnie rozróżniać wykrytą geometrię, ręczny zapis i roboczy
+szablon. Przy braku wyniku automatu pokazuje „Nie wykryto geometrii — ustaw
+plansze ręcznie”; domyślne prostokąty są wyłącznie pomocą edycyjną. Krótki
+powód jest widoczny bez rozwijania, a dostępne pomiary zapisanej próby znajdują
+się w szczegółach. Historyczny manifest bez diagnostyki pokazuje informację o
+jej braku i nadal pozwala zapisać ręczne 36 narożników.

@@ -7775,3 +7775,15 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   diagnostyki zwiększałoby koszt i mogłoby dać rozbieżny wynik.
 - **Consequences:** diagnostyka nie należy do fingerprintu decyzji, nie zawiera
   obrazów ani deskryptorów i pozostaje opcjonalna dla historycznych manifestów.
+
+### D-349 — Roboczy szablon edytora nie jest geometrią automatyczną
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** źródło geometrii jest jawnym polem read modelu. Prostokąty
+  tworzone po braku wyniku detektora są oznaczone jako `manual_template`, a
+  zapisany ręczny override ma pierwszeństwo.
+- **Reason:** wizualnie poprawny komplet prostokątów sugerował operatorowi, że
+  automat znalazł błędną geometrię, choć faktycznie zwrócił brak wyniku.
+- **Consequences:** ekran pokazuje szablon jako pomoc do edycji i wyświetla
+  diagnostykę istniejącego manifestu bez uruchamiania workera.

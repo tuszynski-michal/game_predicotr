@@ -6,6 +6,16 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Pochodzenie geometrii w ekranie korekty — TASK-0459
+
+- Endpoint istniejącej kolejki zwraca `geometryOrigin`, opcjonalny reason code
+  i ograniczoną diagnostykę utrwaloną przez preflight.
+- Admin nazywa domyślne prostokąty roboczym szablonem i nie przedstawia ich
+  jako wyniku automatu. Ręczny override zachowuje pierwszeństwo i semantykę
+  dokładnego resetu.
+- Historyczne manifesty bez diagnostyki nadal otwierają edytor bez nowych
+  obliczeń.
+
 ### Diagnostyka odrzucenia geometrii strony — TASK-0458
 
 - Rejestrator rozróżnia zamknięte powody niepowodzenia od braku cech aż po

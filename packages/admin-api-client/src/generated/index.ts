@@ -1364,6 +1364,8 @@ export type {
   PageGeometryPoint,
   PageGeometryPreflightJobPayload,
   PageGeometryPreflightJobProgressResponse,
+  PageGeometryRegistrationAttemptDiagnostic,
+  PageGeometryRegistrationDiagnostics,
   PauseSemiAutomaticImageSelectionData,
   PauseSemiAutomaticImageSelectionError,
   PauseSemiAutomaticImageSelectionErrors,

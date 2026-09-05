@@ -2203,6 +2203,38 @@
             "title": "Expectedboardcount",
             "type": "integer"
           },
+          "geometryOrigin": {
+            "enum": [
+              "automatic",
+              "manual_override",
+              "manual_template"
+            ],
+            "title": "Geometryorigin",
+            "type": "string"
+          },
+          "registrationDiagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageGeometryRegistrationDiagnostics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejectionReasonCode": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejectionreasoncode"
+          },
           "reviewReason": {
             "default": "review_required",
             "enum": [
@@ -2256,7 +2288,8 @@
         "required": [
           "sourceChecksumSha256",
           "sourceRelativePath",
-          "expectedBoardCount"
+          "expectedBoardCount",
+          "geometryOrigin"
         ],
         "title": "BrowserPageGeometryReviewSourceResponse",
         "type": "object"
@@ -12369,6 +12402,162 @@
           "complete"
         ],
         "title": "PageGeometryPreflightJobProgressResponse",
+        "type": "object"
+      },
+      "PageGeometryRegistrationAttemptDiagnostic": {
+        "additionalProperties": false,
+        "properties": {
+          "anchorSourceChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchorsourcechecksumsha256"
+          },
+          "featureCount": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Featurecount",
+            "type": "integer"
+          },
+          "inlierCount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inliercount"
+          },
+          "inlierRatio": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inlierratio"
+          },
+          "matchCount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matchcount"
+          },
+          "meanRedEdgeCoverage": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meanrededgecoverage"
+          },
+          "minimumBoardRedEdgeCoverage": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimumboardrededgecoverage"
+          },
+          "p95ReprojectionError": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95Reprojectionerror"
+          },
+          "reasonCode": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Reasoncode",
+            "type": "string"
+          },
+          "targetFeatureCount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetfeaturecount"
+          }
+        },
+        "required": [
+          "reasonCode",
+          "featureCount"
+        ],
+        "title": "PageGeometryRegistrationAttemptDiagnostic",
+        "type": "object"
+      },
+      "PageGeometryRegistrationDiagnostics": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/PageGeometryRegistrationAttemptDiagnostic"
+            },
+            "maxItems": 3,
+            "title": "Attempts",
+            "type": "array"
+          },
+          "bestAttempt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageGeometryRegistrationAttemptDiagnostic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "const": "page-registration-diagnostics-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "attempts"
+        ],
+        "title": "PageGeometryRegistrationDiagnostics",
         "type": "object"
       },
       "PaylineCreate": {

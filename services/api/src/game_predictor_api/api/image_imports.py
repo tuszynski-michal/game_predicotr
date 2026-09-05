@@ -880,6 +880,16 @@ def create_image_imports_router(
             if not isinstance(source_relative_path, str) or not source_relative_path:
                 continue
             start, end = _attested_range_from_relative_path(source_relative_path)
+            raw_quads = raw.get("quads")
+            geometry_origin = (
+                "manual_override"
+                if isinstance(current_override, dict)
+                else "automatic"
+                if isinstance(raw_quads, list) and raw_quads
+                else "manual_template"
+            )
+            rejection_reason_code = raw.get("reasonCode")
+            registration_diagnostics = raw.get("registrationDiagnostics")
             sources.append(
                 BrowserPageGeometryReviewSourceResponse(
                     source_checksum_sha256=checksum,
@@ -892,9 +902,22 @@ def create_image_imports_router(
                     review_reason=(
                         "manual_override" if manual_review_required else "review_required"
                     ),
+                    geometry_origin=geometry_origin,
+                    rejection_reason_code=(
+                        rejection_reason_code
+                        if isinstance(rejection_reason_code, str)
+                        else None
+                    ),
+                    registration_diagnostics=(
+                        registration_diagnostics
+                        if isinstance(registration_diagnostics, dict)
+                        else None
+                    ),
                     existing_final_quads=(
                         current_override.get("quads")
                         if isinstance(current_override, dict)
+                        else raw_quads
+                        if geometry_origin == "automatic"
                         else None
                     ),
                     existing_override_revision=(

@@ -364,6 +364,27 @@ class ImageGeometryGuardResolutionManifestResponse(ApiModel):
         )
 
 
+class PageGeometryRegistrationAttemptDiagnostic(ApiModel):
+    reason_code: str = Field(min_length=1, max_length=128)
+    feature_count: int = Field(ge=0, le=10000)
+    anchor_source_checksum_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
+    target_feature_count: int | None = Field(default=None, ge=0)
+    match_count: int | None = Field(default=None, ge=0)
+    inlier_count: int | None = Field(default=None, ge=0)
+    inlier_ratio: float | None = Field(default=None, ge=0, le=1)
+    p95_reprojection_error: float | None = Field(default=None, ge=0)
+    mean_red_edge_coverage: float | None = Field(default=None, ge=0, le=1)
+    minimum_board_red_edge_coverage: float | None = Field(default=None, ge=0, le=1)
+
+
+class PageGeometryRegistrationDiagnostics(ApiModel):
+    version: Literal["page-registration-diagnostics-v1"]
+    best_attempt: PageGeometryRegistrationAttemptDiagnostic | None = None
+    attempts: list[PageGeometryRegistrationAttemptDiagnostic] = Field(max_length=3)
+
+
 class BrowserPageGeometryReviewSourceResponse(ApiModel):
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_relative_path: str = Field(min_length=1, max_length=2048)
@@ -371,6 +392,9 @@ class BrowserPageGeometryReviewSourceResponse(ApiModel):
     sequence_range_end: int | None = Field(default=None, ge=1)
     expected_board_count: int = Field(ge=1, le=9)
     review_reason: Literal["manual_override", "review_required"] = "review_required"
+    geometry_origin: Literal["automatic", "manual_override", "manual_template"]
+    rejection_reason_code: str | None = Field(default=None, min_length=1, max_length=128)
+    registration_diagnostics: PageGeometryRegistrationDiagnostics | None = None
     existing_final_quads: list[list[PageGeometryPoint]] | None = None
     existing_override_revision: int | None = Field(default=None, ge=1)
     saved_since_preflight: bool = False

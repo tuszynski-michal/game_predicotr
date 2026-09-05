@@ -6790,9 +6790,38 @@ div.imageJobInlineError {
 
 .pageGeometryControls > .curatedImportStatus,
 .pageGeometryControls > .geometryInstructions,
+.pageGeometryControls > .geometryOriginNotice,
 .pageGeometryControls > .pageGeometryNavigation,
 .pageGeometryControls > .pageGeometryZoom {
   grid-column: 1 / -1;
+}
+
+.geometryOriginNotice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(111, 224, 183, 0.3);
+  border-radius: 9px;
+  background: rgba(20, 74, 62, 0.22);
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.geometryOriginNoticeWarning {
+  border-color: rgba(255, 190, 87, 0.5);
+  background: rgba(82, 53, 8, 0.3);
+}
+
+.geometryOriginNotice p,
+.geometryOriginNotice ul {
+  margin: 6px 0 0;
+}
+
+.geometryOriginNotice summary {
+  margin-top: 7px;
+  cursor: pointer;
+  color: #ffd48a;
+  font-weight: 750;
 }
 
 .pageGeometryControls label {

@@ -1208,6 +1208,15 @@ export type BrowserPageGeometryReviewSourceResponse = {
    */
   expectedBoardCount: number;
   /**
+   * Geometryorigin
+   */
+  geometryOrigin: 'automatic' | 'manual_override' | 'manual_template';
+  registrationDiagnostics?: PageGeometryRegistrationDiagnostics | null;
+  /**
+   * Rejectionreasoncode
+   */
+  rejectionReasonCode?: string | null;
+  /**
    * Reviewreason
    */
   reviewReason?: 'manual_override' | 'review_required';
@@ -7000,6 +7009,67 @@ export type PageGeometryPreflightJobProgressResponse = {
    * Provisionalreviewrequired
    */
   provisionalReviewRequired?: number | null;
+};
+
+/**
+ * PageGeometryRegistrationAttemptDiagnostic
+ */
+export type PageGeometryRegistrationAttemptDiagnostic = {
+  /**
+   * Anchorsourcechecksumsha256
+   */
+  anchorSourceChecksumSha256?: string | null;
+  /**
+   * Featurecount
+   */
+  featureCount: number;
+  /**
+   * Inliercount
+   */
+  inlierCount?: number | null;
+  /**
+   * Inlierratio
+   */
+  inlierRatio?: number | null;
+  /**
+   * Matchcount
+   */
+  matchCount?: number | null;
+  /**
+   * Meanrededgecoverage
+   */
+  meanRedEdgeCoverage?: number | null;
+  /**
+   * Minimumboardrededgecoverage
+   */
+  minimumBoardRedEdgeCoverage?: number | null;
+  /**
+   * P95Reprojectionerror
+   */
+  p95ReprojectionError?: number | null;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
+  /**
+   * Targetfeaturecount
+   */
+  targetFeatureCount?: number | null;
+};
+
+/**
+ * PageGeometryRegistrationDiagnostics
+ */
+export type PageGeometryRegistrationDiagnostics = {
+  /**
+   * Attempts
+   */
+  attempts: Array<PageGeometryRegistrationAttemptDiagnostic>;
+  bestAttempt?: PageGeometryRegistrationAttemptDiagnostic | null;
+  /**
+   * Version
+   */
+  version: 'page-registration-diagnostics-v1';
 };
 
 /**

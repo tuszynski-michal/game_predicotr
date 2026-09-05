@@ -2885,6 +2885,12 @@ niezmienny manifest geometrii:
 - `GET /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-sources/{sourceChecksumSha256}/asset`,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-overrides`.
 
+Odpowiedź `review-sources` rozróżnia `geometryOrigin`: wynik automatyczny,
+bieżący ręczny override albo roboczy szablon edytora. Może dołączyć stabilny
+`rejectionReasonCode` i `registrationDiagnostics` z manifestu preflightu.
+Pola diagnostyczne są opcjonalne dla zgodności z manifestami historycznymi, a
+ich odczyt nie uruchamia ponownie detektora.
+
 Admin automatycznie wywołuje idempotentny endpoint geometrii po przygotowaniu
 raportu stagingu. Ponowne wejście odzyskuje istniejący job o tym samym wejściu,
 zamiast wymagać ręcznego przycisku startu.

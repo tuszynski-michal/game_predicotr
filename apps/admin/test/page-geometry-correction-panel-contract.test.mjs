@@ -75,3 +75,13 @@ test('geometry editor hides the system proposal while placing manual geometry an
   assert.match(panel, /potencjalny podział na\s*symbole 5 × 3/);
   assert.match(panel, /komplet \$\{expectedBoardCount\} edytowalnych plansz/);
 });
+
+test('geometry editor labels a fallback template and exposes stored diagnostics', () => {
+  assert.match(panel, /Nie wykryto geometrii — ustaw plansze ręcznie/);
+  assert.match(panel, /roboczym szablonem edytora/);
+  assert.match(panel, /Szczegółowa przyczyna nie została zapisana/);
+  assert.match(panel, /registrationDiagnostics\?\.bestAttempt/);
+  assert.match(panel, /geometryOrigin === 'manual_override'/);
+  assert.match(panel, /Reset przywraca dokładnie\s*ten zapis/s);
+  assert.match(styles, /\.geometryOriginNoticeWarning/);
+});

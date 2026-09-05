@@ -28,11 +28,11 @@ function boardPixel(x, y, variant = 'blue') {
   return bright ? [35, 95, 205] : [18, 45, 105];
 }
 
-test('uses a 512 px analysis budget and versions the wide blue-panel policy', () => {
+test('uses a 512 px analysis budget and versions bounded boundary expansion', () => {
   assert.equal(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, 512);
   assert.equal(
     SELECTED_IMAGE_AUTO_CROP_POLICY,
-    'selected-image-board-band-v6-wide-blue-board-panel',
+    'selected-image-board-band-v7-bounded-boundary-expansion',
   );
 });
 
@@ -227,6 +227,22 @@ test('expands a boundary outward when broad content remains in its safety strip'
   assert.equal(result.strategy, 'multicolumn_panel');
   assert.ok(result.crop.topY <= 500);
   assert.equal(result.evidence.boundaryExpanded, true);
+});
+
+test('does not recursively expand from the board panel through a paytable', () => {
+  const input = sample(180, 240, (x, y) => {
+    if (y >= 8 && y <= 75) return boardPixel(x, y, 'green');
+    if (y >= 88 && y <= 180) return boardPixel(x, y, 'green');
+    return [20, 18, 20];
+  });
+  const result = detectSelectedImageCropBand(input, {
+    width: 1440,
+    height: 1920,
+  });
+  assert.equal(result.strategy, 'multicolumn_panel');
+  assert.equal(result.evidence.boundaryExpanded, true);
+  assert.ok(result.crop.topY >= 450);
+  assert.ok(result.crop.bottomY <= 1650);
 });
 
 test('returns safe wide for a flat, blurred or otherwise unsupported image', () => {

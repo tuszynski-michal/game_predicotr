@@ -6,6 +6,18 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Ograniczona ekspansja granic lokalnego auto-cropa — TASK-0464
+
+- Polityka v7 rozszerza wykryty pas najwyżej o jeden krok bezpieczeństwa 3%,
+  więc szeroki sygnał panelu wypłat nie może już przesunąć górnej granicy aż do
+  krawędzi obrazu.
+- Minimalna wysokość wiarygodnego pasa wynosi 32%. Rzeczywisty
+  `seq_70363-70371.jpg` otrzymał `topY=504`, `bottomY=1224` przy rozmiarze
+  1080×1920 zamiast fallbacku 5–95%.
+- Lokalna kolejka brakujących katalogów `cut` działa rosnąco, pomija istniejące
+  odpowiedniki, zapisuje stan zgodny z kafelkowym review i zatrzyma się przed
+  naruszeniem rezerwy 30 GiB z marginesem 20%.
+
 ### Bezpieczniejsza górna granica lokalnego auto-cropa — TASK-0463
 
 - Polityka v6 wykrywa niebieski panel niezależnie w dziewięciu pasach i wymaga

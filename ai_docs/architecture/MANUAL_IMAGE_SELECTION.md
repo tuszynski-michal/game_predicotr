@@ -219,7 +219,7 @@ każdego wskazanego JPEG-a przed utworzeniem albo wznowieniem sesji. Dzięki
 osobnym nazwom katalogów manifest v1 nadal jednoznacznie wiąże swój inwentarz.
 
 Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
-wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka v6
+wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka v7
 dzieli środkowe 88% obrazu na dziewięć pasów i w każdym niezależnie znajduje
 długi klaster niebieskiego tła. Dopiero co najmniej pięć zgodnych klastrów,
 obejmujących lewą, środkową i prawą grupę, tworzy granicę panelu. Rozrzut
@@ -242,8 +242,9 @@ potraktowany jak zwykły gotowy wynik bez świadomego review.
 
 Lokalne granice są agregowane percentylami, więc pochylenie obrazu nie wymusza
 ciasnego cropa według jednego pasa. Padding pozostaje asymetryczny: 7,5% nad i
-4,5% pod panelem. Strefa bezpieczeństwa 3% odsuwa granicę na zewnątrz, jeżeli
-nadal przecina szeroko wspartą zawartość. Wynik niższy niż 40% wysokości jest
+4,5% pod panelem. Strefa bezpieczeństwa 3% odsuwa granicę na zewnątrz najwyżej
+raz, jeżeli nadal przecina szeroko wspartą zawartość. Nie przechodzi przez
+kolejne pasy panelu wypłat. Wynik niższy niż 32% wysokości jest
 odrzucany na rzecz `safe_wide`. Adapter mapuje granice proporcjonalnie na
 kanoniczne piksele źródła. Cache propozycji jest ograniczony do bieżącej sesji
 i związany z nazwą, rozmiarem oraz mtime źródła.
@@ -256,12 +257,12 @@ w operacji oczekującej, dlatego recovery po zapisie JPEG-a finalizuje dokładni
 ten sam wynik.
 
 Mały session journal przypina `preparationPolicyVersion`. Nowa sesja zaczyna z
-v6, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
+v7, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
 bez zgadywania wersji. Taka sesja nie przygotuje brakujących plików nową
 polityką, dopóki operator jawnie nie uruchomi przeliczenia. Recalculator
 wyprowadza zamknięty zbiór nazw z shardów i review state; chroni `reviewed`,
 `corrected` oraz `needs_correction`, a każdy dopuszczony wynik zastępuje przez
-istniejący checksum-bound journal. Po przypięciu v6 zwykłe wznowienie może
+istniejący checksum-bound journal. Po przypięciu v7 zwykłe wznowienie może
 przygotować pozostałe, dotąd brakujące wyniki.
 
 Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma

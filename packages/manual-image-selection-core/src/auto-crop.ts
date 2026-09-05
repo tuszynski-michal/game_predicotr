@@ -6,6 +6,8 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 
 export const SELECTED_IMAGE_AUTO_CROP_POLICY =
+  'selected-image-board-band-v7-bounded-boundary-expansion' as const;
+export const SELECTED_IMAGE_AUTO_CROP_V6_POLICY =
   'selected-image-board-band-v6-wide-blue-board-panel' as const;
 export const SELECTED_IMAGE_AUTO_CROP_V5_POLICY =
   'selected-image-board-band-v5-blue-priority-multicolumn' as const;
@@ -17,9 +19,11 @@ export const SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO = 0.075 as const;
 export const SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO = 0.045 as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_TOP_RATIO = 0.05 as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_BOTTOM_RATIO = 0.95 as const;
+const SELECTED_IMAGE_AUTO_CROP_MINIMUM_DETECTED_BAND_RATIO = 0.32;
 
 export type SelectedImageAutoCropPolicyVersion =
   | typeof SELECTED_IMAGE_AUTO_CROP_POLICY
+  | typeof SELECTED_IMAGE_AUTO_CROP_V6_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_V5_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_LEGACY_POLICY;
 
@@ -146,7 +150,10 @@ function detectMulticolumnPanel(
   [top, bottom] = expandPastBoundaryContent(top, bottom, broadContent, height);
   top = Math.max(0, top);
   bottom = Math.min(height, bottom + 1);
-  if ((bottom - top) / height < 0.4)
+  if (
+    (bottom - top) / height <
+    SELECTED_IMAGE_AUTO_CROP_MINIMUM_DETECTED_BAND_RATIO
+  )
     return safeWideProposal(source, width, height, {
       chromaticCandidateCount: chromaticCandidates.length,
       structuralCandidateCount: structuralCandidates.length,
@@ -237,11 +244,10 @@ function safeWideProposal(
 }
 
 /**
- * Preserve the reliable v3 signal for cabinets whose 3x3 board panel has a
- * blue background. The generic chromatic detector can otherwise merge that
- * panel with the colorful paytable above it and produce an almost full-height
- * crop. It may only narrow a proposal which already passed the multicolumn
- * gate; it never turns partial blue evidence into an automatic result.
+ * Preserve the reliable cabinet-specific signal for layouts whose 3x3 board
+ * panel has a blue background. The generic chromatic detector can otherwise
+ * merge that panel with the colorful paytable above it. Independent strip
+ * evidence must still cover the left, centre and right side of the image.
  */
 function detectBluePanel(
   sample: SelectedImageAutoCropSample,
@@ -692,22 +698,18 @@ function expandPastBoundaryContent(
   height: number,
 ): [number, number] {
   const safety = Math.max(1, Math.round(height * 0.03));
-  let top = Math.max(0, initialTop);
-  let bottom = Math.min(height - 1, initialBottom);
-  while (
-    top > 0 &&
-    contentRows.slice(top, Math.min(height, top + safety)).some(Boolean)
-  ) {
-    top = Math.max(0, top - safety);
-  }
-  while (
-    bottom < height - 1 &&
-    contentRows
-      .slice(Math.max(0, bottom - safety + 1), bottom + 1)
-      .some(Boolean)
-  ) {
-    bottom = Math.min(height - 1, bottom + safety);
-  }
+  const boundedTop = Math.max(0, initialTop);
+  const boundedBottom = Math.min(height - 1, initialBottom);
+  const top = contentRows
+    .slice(boundedTop, Math.min(height, boundedTop + safety))
+    .some(Boolean)
+    ? Math.max(0, boundedTop - safety)
+    : boundedTop;
+  const bottom = contentRows
+    .slice(Math.max(0, boundedBottom - safety + 1), boundedBottom + 1)
+    .some(Boolean)
+    ? Math.min(height - 1, boundedBottom + safety)
+    : boundedBottom;
   return [top, bottom];
 }
 

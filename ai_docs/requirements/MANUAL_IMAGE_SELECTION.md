@@ -559,7 +559,7 @@ sesja nie współdzielą inwentarza ani postępu.
 
 Automat dla każdego jeszcze niezatwierdzonego zdjęcia niezależnie analizuje
 ograniczoną kopię podglądową do 512 px i proponuje pas obejmujący zwarty panel
-plansz. Polityka `selected-image-board-band-v6-wide-blue-board-panel`
+plansz. Polityka `selected-image-board-band-v7-bounded-boundary-expansion`
 wyznacza niebieski panel niezależnie w dziewięciu pionowych pasach i wymaga
 zgodnych granic w co najmniej pięciu pasach oraz w lewej, środkowej i prawej
 części obrazu. Tak potwierdzony panel jest wystarczającym dowodem nawet wtedy,
@@ -578,7 +578,8 @@ pojedyncza tabela, światło albo dłoń nie mogą przesunąć całego cropa.
 Pochylenie jest uwzględniane przez lokalne granice pasów i bezpieczną
 obwiednię: 10. percentyl górnych granic minus 7,5% wysokości oraz 90. percentyl
 dolnych granic plus 4,5%. Mocny, szeroki sygnał w strefie 3% przy granicy
-rozszerza crop na zewnątrz. Kandydat niższy niż 40% obrazu nie jest używany.
+rozszerza crop na zewnątrz najwyżej o jeden taki krok; nie może rekurencyjnie
+przejść przez panel wypłat. Kandydat niższy niż 32% obrazu nie jest używany.
 Brak wystarczającego dowodu daje jawny `safe_wide` równy 5–95% wysokości i
 automatycznie kieruje plik do kolejki `Do poprawy`. Propozycja nie jest decyzją
 i zawsze pozostaje edytowalna dwiema liniami.
@@ -591,7 +592,7 @@ dwie ostatnie klasy. Wynik historyczny bez tej proweniencji pozostaje czytelny
 i nie jest automatycznie przeliczany.
 
 Jawna akcja `Przelicz nieprzejrzane nowym detektorem` może przełączyć
-rozpoczętą sesję na v6. Obejmuje wyłącznie wyniki nieprzejrzane, niepoprawione
+rozpoczętą sesję na bieżącą politykę. Obejmuje wyłącznie wyniki nieprzejrzane, niepoprawione
 ręcznie i niezaznaczone do poprawy, a następnie przygotowuje brakujące pliki.
 
 W widoku kafelkowym jeden przycisk przełącza `Zaznacz wszystkie` i `Odznacz

@@ -7840,3 +7840,15 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** koszt pozostaje bounded do jednego podglądu 512 px i bez
   OCR. Niepełny sygnał nadal trafia do ręcznej korekty. Wyniki v4/v5 zachowują
   proweniencję i wymagają jawnego przeliczenia.
+
+### D-354 — Ekspansja granicy auto-cropa jest jednokrokowa
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v7 może rozszerzyć każdą granicę o najwyżej jedną
+  strefę bezpieczeństwa 3%. Wiarygodny pas może mieć co najmniej 32% wysokości.
+- **Reason:** rekurencyjna ekspansja przechodziła z prawidłowo wykrytego panelu
+  plansz przez kolejne kolorowe wiersze panelu wypłat i kończyła niemal pełnym
+  obrazem. Rzeczywiste panele plansz zajmują około 35–38% wysokości.
+- **Consequences:** niewielki margines nadal chroni symbole, ale odległy panel
+  wypłat nie wpływa na crop. Polityki v4–v6 pozostają czytelne i odtwarzalne.

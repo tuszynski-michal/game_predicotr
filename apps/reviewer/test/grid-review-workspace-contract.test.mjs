@@ -103,11 +103,13 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /Resetuj do automatu/);
   assert.match(editor, /items\.map/);
   assert.match(editor, /positionIndex \+ 1/);
-  assert.match(editor, /showOverlay/);
+  assert.doesNotMatch(editor, /Ukryj overlay|Pokaż overlay|showOverlay/);
   assert.match(editor, /zoomPercent/);
   assert.match(editor, /useState\(100\)/);
   assert.match(editor, /currentGridGeometrySourceDrafts/);
   assert.match(editor, /beginDirectEditing/);
+  assert.match(editor, /sourceWide: sourceBatchEnabled/);
+  assert.match(editor, /draft: selectedDraft/);
   assert.match(editor, /hasPendingIndividualDraft/);
   assert.match(editor, /showDraftReview/);
   assert.doesNotMatch(editor, /Zmień siatkę/);

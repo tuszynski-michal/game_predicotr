@@ -6,6 +6,17 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0475 — bezpośredni gest edycji gotowej siatki ukończony
+
+- Naprawiono regresję, w której pierwszy gest tylko wybierał planszę i wymagał
+  ponownego złapania narożnika. Aktywny drag jest wiązany z konkretnym
+  slotem i szkicem, a uchwyt może zostać trafiony także tuż poza quadem.
+- Przełącznik `Ukryj/Pokaż overlay` jest usuwany; overlay pozostaje stale
+  widoczny jako powierzchnia wyboru i edycji.
+- „Niepełne siatki do ręcznej korekty” są osobną kolejką brakujących plansz
+  bieżącego importu i mogą pochodzić również z v0.10; nie oznaczają wyłącznie
+  historycznego v19/v20.
+
 ### TASK-0474 — bezpośrednia edycja gotowych siatek
 
 - Kliknięcie siatki lub pozycji planszy od razu otwiera edycję bez przycisku

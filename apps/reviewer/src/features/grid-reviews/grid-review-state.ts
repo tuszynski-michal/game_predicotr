@@ -316,6 +316,7 @@ export function gridGeometrySourceItemAtPoint(
   activeReviewItemId: string,
   activeDraft: GridGeometryDraft,
   point: OperationalImageReviewGeometryPoint,
+  cornerThreshold = 0,
 ): ImageGridReviewItemResponse | null {
   return (
     [...items].reverse().find((candidate) => {
@@ -330,7 +331,13 @@ export function gridGeometrySourceItemAtPoint(
             ? storedDraft
             : gridReviewCorners(candidate);
       return (
-        visibleCorners.length === 4 && pointInPolygon(point, visibleCorners)
+        visibleCorners.length === 4 &&
+        (pointInPolygon(point, visibleCorners) ||
+          visibleCorners.some(
+            (corner) =>
+              Math.hypot(corner.x - point.x, corner.y - point.y) <=
+              cornerThreshold,
+          ))
       );
     }) ?? null
   );

@@ -415,3 +415,37 @@ test('canvas hit testing selects the visible moved source draft', () => {
     null,
   );
 });
+
+test('canvas hit testing includes a corner handle slightly outside the quad', () => {
+  const corners = [
+    { x: 100, y: 100 },
+    { x: 200, y: 100 },
+    { x: 200, y: 200 },
+    { x: 100, y: 200 },
+  ];
+  const sourceItem = { ...item, geometry: { corners } };
+  const drafts = currentGridGeometrySourceDrafts([sourceItem]);
+
+  assert.equal(
+    gridGeometrySourceItemAtPoint(
+      [sourceItem],
+      drafts,
+      sourceItem.reviewItemId,
+      corners,
+      { x: 92, y: 92 },
+      12,
+    )?.reviewItemId,
+    sourceItem.reviewItemId,
+  );
+  assert.equal(
+    gridGeometrySourceItemAtPoint(
+      [sourceItem],
+      drafts,
+      sourceItem.reviewItemId,
+      corners,
+      { x: 80, y: 80 },
+      12,
+    ),
+    null,
+  );
+});

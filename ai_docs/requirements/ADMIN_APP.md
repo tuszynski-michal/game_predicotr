@@ -348,9 +348,10 @@ nie ze stałej 15. Autor decyzji pochodzi z lokalnego, uwierzytelnionego
 kontekstu Admin API.
 
 Lokalny Reviewer otwiera domyślnie ekran `Zatwierdzanie cięcia siatki` z jednym
-oryginalnym obrazem i canvasowym overlayem. Obraz otwiera się domyślnie przy
-powiększeniu 100%. Kliknięcie widocznej siatki wybiera odpowiadającą jej planszę
-i od razu rozpoczyna jej edycję, bez osobnego przycisku. Szkic obejmuje cały
+  oryginalnym obrazem i stale widocznym canvasowym overlayem. Obraz otwiera się
+  domyślnie przy powiększeniu 100%. Naciśnięcie widocznej siatki wybiera
+  odpowiadającą jej planszę, a ten sam gest może od razu przeciągnąć narożnik lub
+  cały quad, bez osobnego przycisku i bez przełącznika widoczności overlayu. Szkic obejmuje cały
 komplet aktywnych plansz źródła, dlatego przełączenie planszy nie usuwa
 wcześniejszej korekty. Hit-test zawsze odpowiada geometrii aktualnie rysowanej
 na overlayu, także po lokalnym przesunięciu. Filtry mają kolejność `Do

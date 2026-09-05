@@ -168,6 +168,13 @@ początku. Po materializacji Reviewer odświeża wyjątki, a zwykłą kolejkę p
 ponownie przy powrocie do zatwierdzania symboli, dzięki czemu nowy item przechodzi
 przez istniejący bounded bufor plansz.
 
+Lokalna walidacja kompletnych źródeł utrzymuje overlay stale widoczny, ponieważ
+jest on jednocześnie powierzchnią wyboru i edycji. Hit-test obejmuje wnętrze quada
+oraz bounded otoczenie jego uchwytów. Aktywny gest przechowuje identyfikator
+slotu i własny snapshot szkicu, dlatego pierwszy `pointerdown` może wybrać inną
+planszę i od razu przeciągnąć jej narożnik bez zapisania ruchu do poprzednio
+wybranego slotu.
+
 ## Kohorta i profil geometrii
 
 ### Role geometrii planszy

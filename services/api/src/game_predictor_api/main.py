@@ -36,6 +36,9 @@ from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.grid_calibration import GridCalibrationService
 from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
+from game_predictor_api.application.image_import_geometry_guard import (
+    ImageImportGeometryGuardService,
+)
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
@@ -249,6 +252,9 @@ from game_predictor_api.storage.image_geometry_rollout_backfill_repository impor
 from game_predictor_api.storage.image_grid_review_repository import (
     SqlAlchemyImageGridReviewRepository,
 )
+from game_predictor_api.storage.image_import_geometry_guard_repository import (
+    SqlAlchemyImageImportGeometryGuardRepository,
+)
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
 )
@@ -377,6 +383,7 @@ def create_app(
     symbol_model_registry_service_dependency: Callable[..., object] | None = None,
     grid_calibration_service_dependency: Callable[..., object] | None = None,
     page_geometry_override_service_dependency: Callable[..., object] | None = None,
+    image_import_geometry_guard_service_dependency: Callable[..., object] | None = None,
     board_cell_geometry_pending_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_host_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_access_service_dependency: Callable[..., object] | None = None,
@@ -426,6 +433,7 @@ def create_app(
             symbol_model_registry_service_dependency,
             grid_calibration_service_dependency,
             page_geometry_override_service_dependency,
+            image_import_geometry_guard_service_dependency,
             board_cell_geometry_pending_service_dependency,
             remote_manual_selection_host_service_dependency,
             remote_manual_selection_access_service_dependency,
@@ -1132,6 +1140,25 @@ def create_app(
         or default_page_geometry_override_service_dependency
     )
 
+    def default_image_import_geometry_guard_service_dependency() -> Iterator[
+        ImageImportGeometryGuardService
+    ]:
+        with session_factory() as session:
+            try:
+                yield ImageImportGeometryGuardService(
+                    SqlAlchemyImageImportGeometryGuardRepository(session),
+                    resolved_settings.artifact_root,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_import_geometry_guard_dependency = (
+        image_import_geometry_guard_service_dependency
+        or default_image_import_geometry_guard_service_dependency
+    )
+
     manual_board_cell_symbol_predictor = ManualBoardCellSymbolPredictor(
         Path(__file__).resolve().parents[4],
         resolved_settings.artifact_root,
@@ -1330,6 +1357,7 @@ def create_app(
             resolved_symbol_model_registry_dependency,
             resolved_grid_calibration_dependency,
             resolved_page_geometry_override_dependency,
+            resolved_image_import_geometry_guard_dependency,
             resolved_board_cell_geometry_pending_dependency,
             resolved_remote_manual_selection_host_dependency,
             resolved_remote_manual_selection_access_dependency,

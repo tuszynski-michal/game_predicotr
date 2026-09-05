@@ -2106,3 +2106,13 @@ kilka szczytów z późniejszym niższym szczytem i plateau (`game-1`, spin 0 =
 deterministyczność wejścia, ale nie zastępuje checksumy pliku SQLite z
 manifestu. Aktualny fingerprint wynosi
 `2b8345577ec949f102ae21992cef197e5c5756e184d43815a5dd527d25eb2b79`.
+# Rozliczenia bramki geometrii
+
+- `image_import_geometry_guard_decisions` — append-only rewizje decyzji dla
+  `(guard_job_id, source_checksum_sha256, position_index)`, związane również z
+  grą, stagingiem, raportem i numerem sekwencji.
+- `image_import_geometry_guard_resolution_manifests` — rejestr zamkniętych,
+  content-addressed manifestów najnowszych decyzji.
+- `recognized_boards.completeness_status` rozróżnia `complete` oraz
+  `pending_partial`; `unavailable_cell_indices` przechowuje logiczną maskę bez
+  tworzenia fałszywych `cell_observations`.

@@ -1356,3 +1356,17 @@ Agregaty i próg 98% nie zmieniają się. Historyczny raport v1 może zostać
 przeliczony do osobnego raportu diagnostycznego tylko z tych samych przypiętych
 snapshotów i dokładnie tej samej listy checksum; pierwotny artefakt joba nie
 jest nadpisywany.
+
+Odroczona plansza raportu v2 może otrzymać wyłącznie jawną, rewizjonowaną
+decyzję `corrected_full`, `partial` albo `rejected`. Decyzja jest związana z
+grą, browser stagingiem, checksumą raportu, checksumą i logiczną nazwą źródła,
+slotem oraz wynikającym z niego numerem sekwencji. Zapis wielu slotów jednego
+zdjęcia jest atomowy. `partial` wymaga pełnego quada siatki i uporządkowanej,
+unikalnej maski od 1 do 14 niedostępnych komórek; `rejected` nie może zawierać
+geometrii i wymaga powodu.
+
+Zamknięcie `ImageGeometryGuardResolutionManifestV1` jest możliwe dopiero po
+rozliczeniu wszystkich odroczonych slotów. Manifest zawiera wyłącznie najnowszą
+rewizję każdego slotu, obie checksumy manifestów wejściowych i checksumę
+raportu bramki. Jest content-addressed i append-only. Zmiana decyzji nie
+nadpisuje zamkniętego manifestu, lecz prowadzi do nowej checksumy.

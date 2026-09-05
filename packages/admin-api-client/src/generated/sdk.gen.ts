@@ -87,6 +87,9 @@ import type {
   CreateImageFolderImportData,
   CreateImageFolderImportErrors,
   CreateImageFolderImportResponses,
+  CreateImageGeometryGuardDecisionsData,
+  CreateImageGeometryGuardDecisionsErrors,
+  CreateImageGeometryGuardDecisionsResponses,
   CreateImageGridReviewGeometryRevisionData,
   CreateImageGridReviewGeometryRevisionErrors,
   CreateImageGridReviewGeometryRevisionResponses,
@@ -224,6 +227,9 @@ import type {
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
+  GetImageGeometryGuardSourceAssetData,
+  GetImageGeometryGuardSourceAssetErrors,
+  GetImageGeometryGuardSourceAssetResponses,
   GetImageGeometryRolloutStatusData,
   GetImageGeometryRolloutStatusErrors,
   GetImageGeometryRolloutStatusResponses,
@@ -425,6 +431,9 @@ import type {
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
+  ListImageGeometryGuardBoardsData,
+  ListImageGeometryGuardBoardsErrors,
+  ListImageGeometryGuardBoardsResponses,
   ListImageGridReviewsData,
   ListImageGridReviewsErrors,
   ListImageGridReviewsResponses,
@@ -668,6 +677,9 @@ import type {
   SaveUnreadableBoardReviewData,
   SaveUnreadableBoardReviewErrors,
   SaveUnreadableBoardReviewResponses,
+  SealImageGeometryGuardResolutionManifestData,
+  SealImageGeometryGuardResolutionManifestErrors,
+  SealImageGeometryGuardResolutionManifestResponses,
   SearchGameBoardsData,
   SearchGameBoardsErrors,
   SearchGameBoardsResponses,
@@ -2632,6 +2644,100 @@ export const finalizeBrowserImageSelection = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize',
+    ...options,
+  });
+
+/**
+ * List board-level exceptions from a blocked large import
+ */
+export const listImageGeometryGuardBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListImageGeometryGuardBoardsData, ThrowOnError>,
+): RequestResult<
+  ListImageGeometryGuardBoardsResponses,
+  ListImageGeometryGuardBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListImageGeometryGuardBoardsResponses,
+    ListImageGeometryGuardBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/boards',
+    ...options,
+  });
+
+/**
+ * Append one atomic batch of board-level guard decisions
+ */
+export const createImageGeometryGuardDecisions = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateImageGeometryGuardDecisionsData, ThrowOnError>,
+): RequestResult<
+  CreateImageGeometryGuardDecisionsResponses,
+  CreateImageGeometryGuardDecisionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateImageGeometryGuardDecisionsResponses,
+    CreateImageGeometryGuardDecisionsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/decisions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Seal all current decisions into an immutable import manifest
+ */
+export const sealImageGeometryGuardResolutionManifest = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SealImageGeometryGuardResolutionManifestData, ThrowOnError>,
+): RequestResult<
+  SealImageGeometryGuardResolutionManifestResponses,
+  SealImageGeometryGuardResolutionManifestErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SealImageGeometryGuardResolutionManifestResponses,
+    SealImageGeometryGuardResolutionManifestErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/resolution-manifests',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one checksum-bound staged source for guard review
+ */
+export const getImageGeometryGuardSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryGuardSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryGuardSourceAssetResponses,
+  GetImageGeometryGuardSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryGuardSourceAssetResponses,
+    GetImageGeometryGuardSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/sources/{source_checksum_sha256}/asset',
     ...options,
   });
 

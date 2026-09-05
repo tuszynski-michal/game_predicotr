@@ -7632,3 +7632,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** próg 98% i invariants pozostają bez zmian; kolejny pion może
   oprzeć append-only decyzje na checksumie źródła i slocie bez ponownego
   zgadywania numerów.
+
+### D-340 — Niepełna plansza jest jawnym, niekanonicznym stanem
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** decyzje przedimportowe są append-only i checksum-bound.
+  `partial` zapisuje quad oraz maskę 1..14 niedostępnych komórek, natomiast
+  `rejected` nie zapisuje geometrii. Zamknięcie wymaga decyzji dla każdego
+  błędu raportu i tworzy nowy content-addressed manifest.
+- **Reason:** przycięcie lub zasłonięcie kilku pól nie może wymuszać fałszywych
+  cropów, ale nie powinno też blokować odzyskania widocznych symboli.
+- **Consequences:** `?` pozostaje prezentacją `source_unavailable`, nie etykietą
+  treningową. Plansza `pending_partial` nie może stać się kanonicznym layoutem;
+  jej materializacja należy do osobnego, manifest-bound importu v7.

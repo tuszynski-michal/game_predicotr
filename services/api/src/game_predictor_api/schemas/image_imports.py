@@ -15,6 +15,11 @@ from game_predictor_api.application.iterative_image_imports import (
     CuratedImageImportProgress,
 )
 from game_predictor_api.domain.image_import_engine_policy import ImageImportEnginePolicy
+from game_predictor_api.domain.image_import_geometry_guard import (
+    ImageGeometryGuardBoardTarget,
+    ImageGeometryGuardDecision,
+    ImageGeometryGuardResolutionManifest,
+)
 from game_predictor_api.domain.image_sequence_canonical import (
     BrowserImageUploadPlan,
     ImageSequenceImportPreflight,
@@ -164,6 +169,143 @@ class BrowserPageGeometryPreflightResponse(ApiModel):
 class PageGeometryPoint(ApiModel):
     x: int = Field(ge=0)
     y: int = Field(ge=0)
+
+
+class ImageGeometryGuardBoardTargetResponse(ApiModel):
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_relative_path: str = Field(min_length=1, max_length=1000)
+    position_index: int = Field(ge=0, le=8)
+    sequence_number: int = Field(ge=1)
+    reason_codes: list[str]
+    page_geometry: dict[str, object] | None
+    analysis_quad: object | None
+    proposed_symbol_grid_quad: object | None
+    evidence: dict[str, object] | None
+
+    @classmethod
+    def from_domain(
+        cls, value: ImageGeometryGuardBoardTarget
+    ) -> "ImageGeometryGuardBoardTargetResponse":
+        return cls(
+            source_checksum_sha256=value.source_checksum_sha256,
+            source_relative_path=value.source_relative_path,
+            position_index=value.position_index,
+            sequence_number=value.sequence_number,
+            reason_codes=list(value.reason_codes),
+            page_geometry=value.page_geometry,
+            analysis_quad=value.analysis_quad,
+            proposed_symbol_grid_quad=value.proposed_symbol_grid_quad,
+            evidence=value.evidence,
+        )
+
+
+class ImageGeometryGuardDecisionResponse(ApiModel):
+    id: UUID
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_relative_path: str
+    position_index: int = Field(ge=0, le=8)
+    sequence_number: int = Field(ge=1)
+    revision: int = Field(ge=1)
+    disposition: Literal["corrected_full", "partial", "rejected"]
+    symbol_grid_quad: list[PageGeometryPoint] | None
+    unavailable_cell_indices: list[int]
+    reason: str | None
+    actor: str
+    decision_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    created_at: datetime
+
+    @classmethod
+    def from_domain(cls, value: ImageGeometryGuardDecision) -> "ImageGeometryGuardDecisionResponse":
+        return cls(
+            id=value.id,
+            source_checksum_sha256=value.source_checksum_sha256,
+            source_relative_path=value.source_relative_path,
+            position_index=value.position_index,
+            sequence_number=value.sequence_number,
+            revision=value.revision,
+            disposition=value.disposition.value,
+            symbol_grid_quad=(
+                None
+                if value.symbol_grid_quad is None
+                else [PageGeometryPoint(**point) for point in value.symbol_grid_quad]
+            ),
+            unavailable_cell_indices=list(value.unavailable_cell_indices),
+            reason=value.reason,
+            actor=value.actor,
+            decision_checksum_sha256=value.decision_checksum_sha256,
+            created_at=value.created_at,
+        )
+
+
+class ImageGeometryGuardQueueResponse(ApiModel):
+    game_id: UUID
+    browser_selection_id: UUID
+    guard_job_id: UUID
+    guard_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    page_geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    unresolved_count: int = Field(ge=0)
+    targets: list[ImageGeometryGuardBoardTargetResponse]
+    decisions: list[ImageGeometryGuardDecisionResponse]
+
+
+class ImageGeometryGuardDecisionItemCreate(ApiModel):
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    position_index: int = Field(ge=0, le=8)
+    sequence_number: int = Field(ge=1)
+    disposition: Literal["corrected_full", "partial", "rejected"]
+    symbol_grid_quad: (
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint] | None
+    ) = None
+    unavailable_cell_indices: list[int] = Field(default_factory=list, max_length=14)
+    reason: str | None = Field(default=None, max_length=200)
+
+
+class ImageGeometryGuardDecisionBatchCreate(ApiModel):
+    game_id: UUID
+    expected_guard_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    actor: str = Field(min_length=1, max_length=200)
+    decisions: list[ImageGeometryGuardDecisionItemCreate] = Field(min_length=1, max_length=9)
+
+
+class ImageGeometryGuardDecisionBatchResponse(ApiModel):
+    decisions: list[ImageGeometryGuardDecisionResponse]
+
+
+class ImageGeometryGuardManifestSealCreate(ApiModel):
+    game_id: UUID
+    expected_guard_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    actor: str = Field(min_length=1, max_length=200)
+
+
+class ImageGeometryGuardResolutionManifestResponse(ApiModel):
+    id: UUID
+    guard_job_id: UUID
+    guard_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    page_geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    manifest_relative_path: str
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    decision_count: int = Field(ge=1)
+    sealed_by: str
+    created_at: datetime
+
+    @classmethod
+    def from_domain(
+        cls, value: ImageGeometryGuardResolutionManifest
+    ) -> "ImageGeometryGuardResolutionManifestResponse":
+        return cls(
+            id=value.id,
+            guard_job_id=value.guard_job_id,
+            guard_report_checksum_sha256=value.guard_report_checksum_sha256,
+            source_manifest_checksum_sha256=value.source_manifest_checksum_sha256,
+            page_geometry_manifest_checksum_sha256=(value.page_geometry_manifest_checksum_sha256),
+            manifest_relative_path=value.manifest_relative_path,
+            manifest_checksum_sha256=value.manifest_checksum_sha256,
+            decision_count=value.decision_count,
+            sealed_by=value.sealed_by,
+            created_at=value.created_at,
+        )
 
 
 class BrowserPageGeometryReviewSourceResponse(ApiModel):

@@ -104,6 +104,8 @@ FILENAME_RANGE_VERIFICATION_HISTORY_REVISION = "0091_filename_range_verification
 FILENAME_VERIFICATION_CLEANUP_REVISION = "0092_filename_verification_cleanup"
 BOARD_SOURCE_CLEANUP_REVISION = "0093_board_source_cleanup"
 GRID_PROFILE_GATE_REVISIONS_REVISION = "0094_grid_profile_gate_revisions"
+STRUCTURED_LATTICE_V3_ROLLOUT_REVISION = "0095_structured_lattice_v3_rollout"
+PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION = "0096_preimport_geometry_guard_decisions"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -378,7 +380,11 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     filename_verification_cleanup = script.get_revision(FILENAME_VERIFICATION_CLEANUP_REVISION)
     board_source_cleanup = script.get_revision(BOARD_SOURCE_CLEANUP_REVISION)
     grid_profile_gate_revisions = script.get_revision(GRID_PROFILE_GATE_REVISIONS_REVISION)
-    assert script.get_heads() == [GRID_PROFILE_GATE_REVISIONS_REVISION]
+    structured_lattice_v3_rollout = script.get_revision(STRUCTURED_LATTICE_V3_ROLLOUT_REVISION)
+    preimport_geometry_guard_decisions = script.get_revision(
+        PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION
+    )
+    assert script.get_heads() == [PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION]
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert storage_capacity_guard is not None
@@ -429,6 +435,12 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert board_source_cleanup.down_revision == FILENAME_VERIFICATION_CLEANUP_REVISION
     assert grid_profile_gate_revisions is not None
     assert grid_profile_gate_revisions.down_revision == BOARD_SOURCE_CLEANUP_REVISION
+    assert structured_lattice_v3_rollout is not None
+    assert structured_lattice_v3_rollout.down_revision == GRID_PROFILE_GATE_REVISIONS_REVISION
+    assert preimport_geometry_guard_decisions is not None
+    assert (
+        preimport_geometry_guard_decisions.down_revision == STRUCTURED_LATTICE_V3_ROLLOUT_REVISION
+    )
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION

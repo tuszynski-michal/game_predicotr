@@ -859,3 +859,14 @@ Historia joba pokazuje zaliczony albo zablokowany raport z osobnymi
 skutecznościami 3×3 i 3×5. Launcher Reviewera nie sumuje tych domen: osobno
 wyświetla geometrię plansz ze stron 3×3 oraz kolejkę „Niepełne siatki symboli
 3×5 do ręcznej korekty”.
+# Wyjątki bramki geometrii przed importem
+
+Zablokowany duży import udostępnia kolejkę dokładnych plansz z raportu v2.
+Admin może pobrać wyłącznie zdjęcie należące do tej kolejki; API przy odczycie
+ponownie weryfikuje rozmiar i SHA-256 względem niezmiennego stagingu.
+
+Operator wybiera dla jednego lub kilku slotów tego samego zdjęcia korektę
+pełną, planszę częściową albo odrzucenie. Częściowość nie jest sugerowana
+automatycznie. API zwraca bieżące rewizje i liczbę nierozliczonych plansz, a
+akcja zamknięcia manifestu pozostaje niedostępna logicznie, dopóki licznik nie
+wynosi zero.

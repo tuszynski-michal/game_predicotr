@@ -1945,6 +1945,14 @@ class RecognizedBoardModel(Base):
             name="ck_recognized_boards_status",
         ),
         CheckConstraint(
+            "(completeness_status = 'complete' AND cardinality(unavailable_cell_indices) = 0) "
+            "OR (completeness_status = 'pending_partial' "
+            "AND cardinality(unavailable_cell_indices) BETWEEN 1 AND 14 "
+            "AND unavailable_cell_indices <@ "
+            "ARRAY[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]::smallint[])",
+            name="ck_recognized_boards_completeness",
+        ),
+        CheckConstraint(
             "geometry_revision >= 0",
             name="ck_recognized_boards_geometry_revision",
         ),
@@ -2012,6 +2020,12 @@ class RecognizedBoardModel(Base):
     board_relative_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     board_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     cells_prediction: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    completeness_status: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="complete", server_default=text("'complete'")
+    )
+    unavailable_cell_indices: Mapped[list[int]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False, default=list, server_default=text("'{}'")
+    )
     board_confidence: Mapped[float] = mapped_column(Float, nullable=False)
     pipeline_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     geometry_revision: Mapped[int] = mapped_column(
@@ -5866,5 +5880,132 @@ class BrowserSelectionRetentionModel(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ImageImportGeometryGuardDecisionModel(Base):
+    __tablename__ = "image_import_geometry_guard_decisions"
+    __table_args__ = (
+        CheckConstraint(
+            "position_index BETWEEN 0 AND 8 AND sequence_number > 0 AND revision > 0",
+            name="ck_image_import_guard_decisions_values",
+        ),
+        CheckConstraint(
+            "guard_report_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "decision_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_import_guard_decisions_checksums",
+        ),
+        CheckConstraint(
+            r"length(btrim(source_relative_path)) > 0 "
+            r"AND source_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)' "
+            "AND length(btrim(actor)) > 0",
+            name="ck_image_import_guard_decisions_text",
+        ),
+        CheckConstraint(
+            "(disposition = 'corrected_full' AND symbol_grid_quad IS NOT NULL "
+            "AND jsonb_typeof(symbol_grid_quad) = 'array' "
+            "AND jsonb_array_length(symbol_grid_quad) = 4 "
+            "AND cardinality(unavailable_cell_indices) = 0) OR "
+            "(disposition = 'partial' AND symbol_grid_quad IS NOT NULL "
+            "AND jsonb_typeof(symbol_grid_quad) = 'array' "
+            "AND jsonb_array_length(symbol_grid_quad) = 4 "
+            "AND cardinality(unavailable_cell_indices) BETWEEN 1 AND 14 "
+            "AND unavailable_cell_indices <@ "
+            "ARRAY[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]::smallint[]) OR "
+            "(disposition = 'rejected' AND symbol_grid_quad IS NULL "
+            "AND cardinality(unavailable_cell_indices) = 0 "
+            "AND length(btrim(reason)) > 0)",
+            name="ck_image_import_guard_decisions_disposition",
+        ),
+        UniqueConstraint(
+            "guard_job_id",
+            "source_checksum_sha256",
+            "position_index",
+            "revision",
+            name="uq_image_import_guard_decisions_revision",
+        ),
+        UniqueConstraint(
+            "guard_job_id",
+            "decision_checksum_sha256",
+            name="uq_image_import_guard_decisions_checksum",
+        ),
+        Index(
+            "ix_image_import_guard_decisions_current",
+            "guard_job_id",
+            "source_checksum_sha256",
+            "position_index",
+            "revision",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(ForeignKey("games.id", ondelete="RESTRICT"))
+    browser_selection_id: Mapped[UUID] = mapped_column(
+        ForeignKey("browser_selection_retention_states.upload_id", ondelete="RESTRICT")
+    )
+    guard_job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"))
+    guard_report_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    position_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    disposition: Mapped[str] = mapped_column(String(24), nullable=False)
+    symbol_grid_quad: Mapped[list[dict[str, int]] | None] = mapped_column(JSONB)
+    unavailable_cell_indices: Mapped[list[int]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False, default=list, server_default=text("'{}'")
+    )
+    reason: Mapped[str | None] = mapped_column(String(200))
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    decision_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ImageImportGeometryGuardResolutionManifestModel(Base):
+    __tablename__ = "image_import_geometry_guard_resolution_manifests"
+    __table_args__ = (
+        CheckConstraint(
+            r"decision_count > 0 AND length(btrim(sealed_by)) > 0 "
+            r"AND length(btrim(manifest_relative_path)) > 0 "
+            r"AND manifest_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_image_import_guard_resolution_manifest_values",
+        ),
+        CheckConstraint(
+            "guard_report_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "source_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "page_geometry_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_import_guard_resolution_manifest_checksums",
+        ),
+        UniqueConstraint(
+            "guard_job_id",
+            "manifest_checksum_sha256",
+            name="uq_image_import_guard_resolution_manifest_checksum",
+        ),
+        Index(
+            "ix_image_import_guard_resolution_manifest_guard",
+            "guard_job_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(ForeignKey("games.id", ondelete="RESTRICT"))
+    browser_selection_id: Mapped[UUID] = mapped_column(
+        ForeignKey("browser_selection_retention_states.upload_id", ondelete="RESTRICT")
+    )
+    guard_job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"))
+    guard_report_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    page_geometry_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    manifest_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    decision_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    sealed_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -15,6 +15,10 @@ from game_predictor_worker.images.pipeline_contract import (
 )
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from game_predictor_api.application.image_import_geometry_guard import (
+    ImageGeometryGuardDecisionCommand,
+    ImageImportGeometryGuardService,
+)
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
@@ -30,6 +34,9 @@ from game_predictor_api.application.page_geometry_overrides import (
     PageGeometryOverrideService,
 )
 from game_predictor_api.domain.image_import_engine_policy import ImageImportEnginePolicy
+from game_predictor_api.domain.image_import_geometry_guard import (
+    ImageGeometryGuardDisposition,
+)
 from game_predictor_api.domain.image_sequence_canonical import (
     BrowserUploadPlanSource,
     ImageSequenceCanonicalService,
@@ -58,6 +65,13 @@ from game_predictor_api.schemas.image_imports import (
     ImageFolderImportCreate,
     ImageFolderImportResponse,
     ImageFolderSelectionResponse,
+    ImageGeometryGuardBoardTargetResponse,
+    ImageGeometryGuardDecisionBatchCreate,
+    ImageGeometryGuardDecisionBatchResponse,
+    ImageGeometryGuardDecisionResponse,
+    ImageGeometryGuardManifestSealCreate,
+    ImageGeometryGuardQueueResponse,
+    ImageGeometryGuardResolutionManifestResponse,
     ImageSequenceImportPreflightResponse,
 )
 from game_predictor_api.schemas.jobs import JobResponse
@@ -260,6 +274,7 @@ def create_image_imports_router(
     iterative_import_service_dependency: Callable[..., object],
     image_sequence_canonical_service_dependency: Callable[..., object] | None = None,
     page_geometry_override_service_dependency: Callable[..., object] | None = None,
+    image_import_geometry_guard_service_dependency: Callable[..., object] | None = None,
     artifact_root: Path | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/image-imports", tags=["image-imports"])
@@ -276,6 +291,11 @@ def create_image_imports_router(
         None
         if page_geometry_override_service_dependency is None
         else Depends(page_geometry_override_service_dependency)
+    )
+    geometry_guard_parameter = (
+        None
+        if image_import_geometry_guard_service_dependency is None
+        else Depends(image_import_geometry_guard_service_dependency)
     )
     responses: dict[int | str, dict[str, object]] = {
         404: {"model": ErrorResponse, "description": "Game or folder not found"},
@@ -891,6 +911,186 @@ def create_image_imports_router(
                 "The staged page geometry source is unavailable.",
             )
         return FileResponse(path, media_type="image/jpeg", filename=source.relative_path)
+
+    @router.get(
+        "/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/boards",
+        response_model=ImageGeometryGuardQueueResponse,
+        operation_id="listImageGeometryGuardBoards",
+        summary="List board-level exceptions from a blocked large import",
+        responses=responses,
+    )
+    def list_image_geometry_guard_boards(
+        upload_id: UUID,
+        guard_job_id: UUID,
+        game_id: Annotated[UUID, Query()],
+        guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
+    ) -> ImageGeometryGuardQueueResponse:
+        if guard_service is None:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_REVIEW_UNAVAILABLE",
+                "Pre-import geometry guard review is not configured.",
+            )
+        queue = guard_service.queue(
+            game_id=game_id,
+            browser_selection_id=upload_id,
+            guard_job_id=guard_job_id,
+        )
+        return ImageGeometryGuardQueueResponse(
+            game_id=queue.game_id,
+            browser_selection_id=queue.browser_selection_id,
+            guard_job_id=queue.guard_job_id,
+            guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+            source_manifest_checksum_sha256=queue.source_manifest_checksum_sha256,
+            page_geometry_manifest_checksum_sha256=(queue.page_geometry_manifest_checksum_sha256),
+            unresolved_count=queue.unresolved_count,
+            targets=[
+                ImageGeometryGuardBoardTargetResponse.from_domain(value) for value in queue.targets
+            ],
+            decisions=[
+                ImageGeometryGuardDecisionResponse.from_domain(value) for value in queue.decisions
+            ],
+        )
+
+    @router.get(
+        "/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/sources/{source_checksum_sha256}/asset",
+        operation_id="getImageGeometryGuardSourceAsset",
+        summary="Read one checksum-bound staged source for guard review",
+        responses=responses,
+    )
+    def get_image_geometry_guard_source_asset(
+        upload_id: UUID,
+        guard_job_id: UUID,
+        source_checksum_sha256: str,
+        game_id: Annotated[UUID, Query()],
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
+    ) -> FileResponse:
+        if guard_service is None:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_REVIEW_UNAVAILABLE",
+                "Pre-import geometry guard review is not configured.",
+            )
+        queue = guard_service.queue(
+            game_id=game_id,
+            browser_selection_id=upload_id,
+            guard_job_id=guard_job_id,
+        )
+        if source_checksum_sha256 not in {item.source_checksum_sha256 for item in queue.targets}:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_NOT_IN_QUEUE",
+                "The source is not part of this guard review queue.",
+            )
+        ready = service.bind_ready_game(upload_id, game_id)
+        source = next(
+            (
+                item
+                for item in ready.manifest.files
+                if item.checksum_sha256 == source_checksum_sha256
+            ),
+            None,
+        )
+        if source is None:
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_MANIFEST_DRIFT",
+                "The guard source is absent from the immutable staging manifest.",
+            )
+        path = (ready.upload.path / source.stored_file_name).resolve()
+        root = ready.upload.path.resolve()
+        if not path.is_relative_to(root) or not path.is_file():
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_UNAVAILABLE",
+                "The staged guard source is unavailable.",
+            )
+        content = path.read_bytes()
+        if (
+            len(content) != source.size_bytes
+            or hashlib.sha256(content).hexdigest() != source.checksum_sha256
+        ):
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_DRIFT",
+                "The staged guard source differs from its immutable manifest.",
+            )
+        return FileResponse(path, media_type="image/jpeg", filename=source.relative_path)
+
+    @router.post(
+        "/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/decisions",
+        response_model=ImageGeometryGuardDecisionBatchResponse,
+        status_code=status.HTTP_201_CREATED,
+        operation_id="createImageGeometryGuardDecisions",
+        summary="Append one atomic batch of board-level guard decisions",
+        responses=responses,
+    )
+    def create_image_geometry_guard_decisions(
+        upload_id: UUID,
+        guard_job_id: UUID,
+        payload: ImageGeometryGuardDecisionBatchCreate,
+        guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
+    ) -> ImageGeometryGuardDecisionBatchResponse:
+        if guard_service is None:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_REVIEW_UNAVAILABLE",
+                "Pre-import geometry guard review is not configured.",
+            )
+        decisions = guard_service.save_decisions(
+            game_id=payload.game_id,
+            browser_selection_id=upload_id,
+            guard_job_id=guard_job_id,
+            expected_guard_report_checksum_sha256=(payload.expected_guard_report_checksum_sha256),
+            actor=payload.actor,
+            commands=tuple(
+                ImageGeometryGuardDecisionCommand(
+                    source_checksum_sha256=item.source_checksum_sha256,
+                    position_index=item.position_index,
+                    sequence_number=item.sequence_number,
+                    disposition=ImageGeometryGuardDisposition(item.disposition),
+                    symbol_grid_quad=(
+                        None
+                        if item.symbol_grid_quad is None
+                        else tuple(
+                            point.model_dump(mode="python", by_alias=True)
+                            for point in item.symbol_grid_quad
+                        )
+                    ),
+                    unavailable_cell_indices=tuple(item.unavailable_cell_indices),
+                    reason=item.reason,
+                )
+                for item in payload.decisions
+            ),
+        )
+        return ImageGeometryGuardDecisionBatchResponse(
+            decisions=[ImageGeometryGuardDecisionResponse.from_domain(value) for value in decisions]
+        )
+
+    @router.post(
+        "/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/resolution-manifests",
+        response_model=ImageGeometryGuardResolutionManifestResponse,
+        status_code=status.HTTP_201_CREATED,
+        operation_id="sealImageGeometryGuardResolutionManifest",
+        summary="Seal all current decisions into an immutable import manifest",
+        responses=responses,
+    )
+    def seal_image_geometry_guard_resolution_manifest(
+        upload_id: UUID,
+        guard_job_id: UUID,
+        payload: ImageGeometryGuardManifestSealCreate,
+        guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
+    ) -> ImageGeometryGuardResolutionManifestResponse:
+        if guard_service is None:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_REVIEW_UNAVAILABLE",
+                "Pre-import geometry guard review is not configured.",
+            )
+        return ImageGeometryGuardResolutionManifestResponse.from_domain(
+            guard_service.seal_manifest(
+                game_id=payload.game_id,
+                browser_selection_id=upload_id,
+                guard_job_id=guard_job_id,
+                expected_guard_report_checksum_sha256=(
+                    payload.expected_guard_report_checksum_sha256
+                ),
+                actor=payload.actor,
+            )
+        )
 
     @router.post(
         "/browser-selections/{upload_id}/page-geometry-overrides",

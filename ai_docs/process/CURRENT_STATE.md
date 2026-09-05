@@ -6,6 +6,17 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Append-only rozliczenia wyjątków przed importem — TASK-0450
+
+- Migracja `0096` dodaje rewizjonowane decyzje full/partial/rejected, rejestr
+  zamkniętych manifestów oraz stan kompletności planszy bez fałszywych
+  obserwacji komórek.
+- API listuje dokładną kolejkę z raportu v2, zapisuje atomowo wiele slotów
+  jednego zdjęcia i blokuje zamknięcie przy choć jednym nierozliczonym błędzie.
+- Obraz kolejki jest odczytywany tylko z właściwego stagingu i ponownie
+  sprawdzany przez rozmiar oraz SHA-256. Zamknięty manifest nie uruchamia jeszcze
+  importu; przypięcie go do schema v7 jest następnym taskiem.
+
 ### Diagnostyka plansz w bramce dużego importu — TASK-0449
 
 - Nowe raporty `image-geometry-systemic-guard-report-v2` zachowują wynik

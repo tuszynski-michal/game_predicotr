@@ -4689,6 +4689,504 @@
         "title": "ImageFolderSelectionResponse",
         "type": "object"
       },
+      "ImageGeometryGuardBoardTargetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "analysisQuad": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysisquad"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "pageGeometry": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pagegeometry"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "proposedSymbolGridQuad": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposedsymbolgridquad"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceRelativePath": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Sourcerelativepath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceChecksumSha256",
+          "sourceRelativePath",
+          "positionIndex",
+          "sequenceNumber",
+          "reasonCodes",
+          "pageGeometry",
+          "analysisQuad",
+          "proposedSymbolGridQuad",
+          "evidence"
+        ],
+        "title": "ImageGeometryGuardBoardTargetResponse",
+        "type": "object"
+      },
+      "ImageGeometryGuardDecisionBatchCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ImageGeometryGuardDecisionItemCreate"
+            },
+            "maxItems": 9,
+            "minItems": 1,
+            "title": "Decisions",
+            "type": "array"
+          },
+          "expectedGuardReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedguardreportchecksumsha256",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "expectedGuardReportChecksumSha256",
+          "actor",
+          "decisions"
+        ],
+        "title": "ImageGeometryGuardDecisionBatchCreate",
+        "type": "object"
+      },
+      "ImageGeometryGuardDecisionBatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ImageGeometryGuardDecisionResponse"
+            },
+            "title": "Decisions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decisions"
+        ],
+        "title": "ImageGeometryGuardDecisionBatchResponse",
+        "type": "object"
+      },
+      "ImageGeometryGuardDecisionItemCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {
+            "enum": [
+              "corrected_full",
+              "partial",
+              "rejected"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "symbolGridQuad": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolgridquad"
+          },
+          "unavailableCellIndices": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 14,
+            "title": "Unavailablecellindices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sourceChecksumSha256",
+          "positionIndex",
+          "sequenceNumber",
+          "disposition"
+        ],
+        "title": "ImageGeometryGuardDecisionItemCreate",
+        "type": "object"
+      },
+      "ImageGeometryGuardDecisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "decisionChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Decisionchecksumsha256",
+            "type": "string"
+          },
+          "disposition": {
+            "enum": [
+              "corrected_full",
+              "partial",
+              "rejected"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceRelativePath": {
+            "title": "Sourcerelativepath",
+            "type": "string"
+          },
+          "symbolGridQuad": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PageGeometryPoint"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolgridquad"
+          },
+          "unavailableCellIndices": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Unavailablecellindices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "sourceChecksumSha256",
+          "sourceRelativePath",
+          "positionIndex",
+          "sequenceNumber",
+          "revision",
+          "disposition",
+          "symbolGridQuad",
+          "unavailableCellIndices",
+          "reason",
+          "actor",
+          "decisionChecksumSha256",
+          "createdAt"
+        ],
+        "title": "ImageGeometryGuardDecisionResponse",
+        "type": "object"
+      },
+      "ImageGeometryGuardManifestSealCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expectedGuardReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedguardreportchecksumsha256",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "expectedGuardReportChecksumSha256",
+          "actor"
+        ],
+        "title": "ImageGeometryGuardManifestSealCreate",
+        "type": "object"
+      },
+      "ImageGeometryGuardQueueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "browserSelectionId": {
+            "format": "uuid",
+            "title": "Browserselectionid",
+            "type": "string"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ImageGeometryGuardDecisionResponse"
+            },
+            "title": "Decisions",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "guardJobId": {
+            "format": "uuid",
+            "title": "Guardjobid",
+            "type": "string"
+          },
+          "guardReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Guardreportchecksumsha256",
+            "type": "string"
+          },
+          "pageGeometryManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pagegeometrymanifestchecksumsha256",
+            "type": "string"
+          },
+          "sourceManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestchecksumsha256",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ImageGeometryGuardBoardTargetResponse"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "unresolvedCount": {
+            "minimum": 0.0,
+            "title": "Unresolvedcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId",
+          "browserSelectionId",
+          "guardJobId",
+          "guardReportChecksumSha256",
+          "sourceManifestChecksumSha256",
+          "pageGeometryManifestChecksumSha256",
+          "unresolvedCount",
+          "targets",
+          "decisions"
+        ],
+        "title": "ImageGeometryGuardQueueResponse",
+        "type": "object"
+      },
+      "ImageGeometryGuardResolutionManifestResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "decisionCount": {
+            "minimum": 1.0,
+            "title": "Decisioncount",
+            "type": "integer"
+          },
+          "guardJobId": {
+            "format": "uuid",
+            "title": "Guardjobid",
+            "type": "string"
+          },
+          "guardReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Guardreportchecksumsha256",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "manifestRelativePath": {
+            "title": "Manifestrelativepath",
+            "type": "string"
+          },
+          "pageGeometryManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pagegeometrymanifestchecksumsha256",
+            "type": "string"
+          },
+          "sealedBy": {
+            "title": "Sealedby",
+            "type": "string"
+          },
+          "sourceManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestchecksumsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "guardJobId",
+          "guardReportChecksumSha256",
+          "sourceManifestChecksumSha256",
+          "pageGeometryManifestChecksumSha256",
+          "manifestRelativePath",
+          "manifestChecksumSha256",
+          "decisionCount",
+          "sealedBy",
+          "createdAt"
+        ],
+        "title": "ImageGeometryGuardResolutionManifestResponse",
+        "type": "object"
+      },
       "ImageGeometryRolloutBackfillJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -27606,6 +28104,375 @@
           }
         ],
         "summary": "Finalize a browser-native image folder selection",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/boards": {
+      "get": {
+        "operationId": "listImageGeometryGuardBoards",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "guard_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Guard Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGeometryGuardQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "List board-level exceptions from a blocked large import",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/decisions": {
+      "post": {
+        "operationId": "createImageGeometryGuardDecisions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "guard_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Guard Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageGeometryGuardDecisionBatchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGeometryGuardDecisionBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Append one atomic batch of board-level guard decisions",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/resolution-manifests": {
+      "post": {
+        "operationId": "sealImageGeometryGuardResolutionManifest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "guard_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Guard Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageGeometryGuardManifestSealCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGeometryGuardResolutionManifestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Seal all current decisions into an immutable import manifest",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/sources/{source_checksum_sha256}/asset": {
+      "get": {
+        "operationId": "getImageGeometryGuardSourceAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "guard_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Guard Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_checksum_sha256",
+            "required": true,
+            "schema": {
+              "title": "Source Checksum Sha256",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "Read one checksum-bound staged source for guard review",
         "tags": [
           "image-imports"
         ]

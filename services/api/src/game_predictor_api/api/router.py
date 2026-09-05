@@ -90,6 +90,7 @@ def create_api_router(
     symbol_model_registry_service_dependency: Callable[..., object],
     grid_calibration_service_dependency: Callable[..., object],
     page_geometry_override_service_dependency: Callable[..., object],
+    image_import_geometry_guard_service_dependency: Callable[..., object],
     board_cell_geometry_pending_service_dependency: Callable[..., object],
     remote_manual_selection_host_service_dependency: Callable[..., object],
     remote_manual_selection_access_service_dependency: Callable[..., object],
@@ -169,6 +170,7 @@ def create_api_router(
             iterative_image_import_service_dependency,
             image_sequence_canonical_service_dependency,
             page_geometry_override_service_dependency,
+            image_import_geometry_guard_service_dependency,
             artifact_root,
         )
     )

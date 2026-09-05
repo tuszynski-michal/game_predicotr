@@ -296,6 +296,17 @@ dane, które v1 redukował do liczników. Konwersja audytowa v1→v2 weryfikuje
 checksumę starego raportu i identyczność wybranych źródeł; jej wynik jest nowym
 content-addressed artefaktem, a nie mutacją joba historycznego.
 
+Rozliczenia operatora są przechowywane w
+`image_import_geometry_guard_decisions` jako append-only rewizje. Baza chroni
+zakres slotu, checksumy i rozłączną semantykę full/partial/rejected, a warstwa
+domenowa dodatkowo wymusza unikalną, rosnącą maskę komórek. Atomowy command
+może obejmować wiele slotów, lecz tylko jedną checksumę źródła.
+
+Zamknięty manifest rozliczeń jest zapisany w zarządzanej przestrzeni
+`data/image-geometry-guard-resolutions/<prefix>/<sha256>.json` oraz w rejestrze
+SQL. Nie jest zgodą na automatyczną mutację failed joba; stanowi przyszłe,
+przypinane wejście nowego browser-import schema v7.
+
 ### Przyrostowe kotwice preflightu strony
 
 Preflight strony może zbudować tymczasową kohortę auto-kotwic dla jednego

@@ -513,7 +513,8 @@ def test_geometry_preflight_retries_unresolved_page_with_strict_auto_anchor(
     staged = tmp_path / str(selection_id)
     staged.mkdir()
     files = []
-    for index, intensity in enumerate((30, 220)):
+    intensities = (30, *range(150, 177))
+    for index, intensity in enumerate(intensities):
         source = staged / f"{index:08d}.jpg"
         Image.fromarray(np.full((120, 180, 3), intensity, dtype=np.uint8), mode="RGB").save(
             source,
@@ -598,7 +599,26 @@ def test_geometry_preflight_retries_unresolved_page_with_strict_auto_anchor(
     )
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["version"] == "page-geometry-preflight-v2-auto-anchor"
-    assert payload["registeredSourceCount"] == 2
+    assert payload["registeredSourceCount"] == len(intensities)
     assert payload["reviewRequiredSourceCount"] == 0
-    assert payload["automaticAnchorPasses"][0]["resolvedSourceCount"] == 1
-    assert [checkpoint["review_count"] for checkpoint in context.checkpoints] == [0, 0, 0]
+    assert payload["automaticAnchorPasses"][0]["resolvedSourceCount"] == len(intensities) - 1
+    retry_checkpoints = [
+        checkpoint
+        for checkpoint in context.checkpoints
+        if checkpoint["checkpoint_payload"].get("progress_phase") == "auto_anchor_retry"
+        and checkpoint["checkpoint_payload"].get("auto_anchor_pass") == 1
+    ]
+    phase_positions = [
+        checkpoint["checkpoint_payload"]["phase_current"] for checkpoint in retry_checkpoints
+    ]
+    assert phase_positions == [
+        0,
+        25,
+        27,
+    ]
+    assert all(
+        checkpoint["checkpoint_payload"]["phase_total"] == 27 for checkpoint in retry_checkpoints
+    )
+    assert context.checkpoints[-2]["stage"] == "page_geometry_manifest_writing"
+    assert context.checkpoints[-1]["stage"] == "page_geometry_manifest_ready"
+    assert all(checkpoint["review_count"] == 0 for checkpoint in context.checkpoints)

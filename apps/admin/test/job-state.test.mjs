@@ -12,6 +12,7 @@ import {
   imageImportAutomationTiming,
   isActiveJob,
   isImageImportJob,
+  jobActivityPresentation,
   jobContextLabel,
   jobSourceRangeLabel,
   jobErrorSummary,
@@ -209,6 +210,84 @@ test('formats determinate and unknown progress without hiding counts', () => {
   });
   assert.equal(jobProgressPercent(unknown), null);
   assert.match(jobProgressLabel(unknown), /250/);
+});
+
+test('shows real page geometry phase progress and a safe fallback for legacy checkpoints', () => {
+  const detailed = job({
+    heartbeatAt: '2026-09-05T13:24:30Z',
+    inputPayload: {
+      schemaVersion: 2,
+      validationKind: 'page_geometry_preflight',
+    },
+    progress: {
+      current: 2801,
+      failed: 0,
+      pageGeometryPreflight: {
+        autoAnchorPass: 1,
+        autoAnchorPassCount: 2,
+        complete: false,
+        geometryManifestChecksumSha256: null,
+        phase: 'auto_anchor_retry',
+        phaseCurrent: 25,
+        phaseTotal: 118,
+        provisionalReviewRequired: 101,
+      },
+      review: 0,
+      stage: 'page_geometry_auto_anchor_pass_1',
+      succeeded: 2700,
+      total: 2801,
+    },
+    status: 'processing',
+  });
+  assert.deepEqual(jobProgressPresentation(detailed), {
+    current: 25,
+    total: 118,
+    label: 'Dodatkowe dopasowanie 1/2: 25 / 118 zdjęć',
+  });
+  assert.equal(jobProgressPercent(detailed), (25 / 118) * 100);
+  assert.equal(
+    jobStageLabel(detailed.progress.stage),
+    'Dodatkowe dopasowanie geometrii — przebieg 1',
+  );
+  assert.deepEqual(
+    jobActivityPresentation(detailed, Date.parse('2026-09-05T13:24:41Z')),
+    { label: 'Worker aktywny · sygnał 11 s temu', state: 'active' },
+  );
+
+  const legacy = job({
+    inputPayload: detailed.inputPayload,
+    progress: {
+      current: 2801,
+      failed: 0,
+      pageGeometryPreflight: {
+        complete: false,
+        geometryManifestChecksumSha256: null,
+      },
+      review: 0,
+      stage: 'page_geometry_registering',
+      succeeded: 2683,
+      total: 2801,
+    },
+    status: 'processing',
+  });
+  assert.deepEqual(jobProgressPresentation(legacy), {
+    current: 0,
+    total: null,
+    label: 'Dodatkowe dopasowanie geometrii · zarejestrowano 2683 z 2801 zdjęć',
+  });
+  assert.equal(jobProgressPercent(legacy), null);
+});
+
+test('warns when a processing job heartbeat is stale', () => {
+  const processing = job({
+    heartbeatAt: '2026-09-05T13:20:00Z',
+    status: 'processing',
+  });
+  assert.deepEqual(
+    jobActivityPresentation(processing, Date.parse('2026-09-05T13:21:00Z')),
+    { label: 'Uwaga: brak świeżego sygnału workera od 60 s', state: 'stale' },
+  );
+  assert.equal(jobActivityPresentation(job({ status: 'completed' })), null);
 });
 
 test('labels the filename verification workflow without changing its technical job type', () => {

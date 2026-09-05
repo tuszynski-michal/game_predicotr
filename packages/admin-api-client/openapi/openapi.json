@@ -12271,6 +12271,30 @@
       "PageGeometryPreflightJobProgressResponse": {
         "additionalProperties": false,
         "properties": {
+          "autoAnchorPass": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Autoanchorpass"
+          },
+          "autoAnchorPassCount": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Autoanchorpasscount"
+          },
           "complete": {
             "title": "Complete",
             "type": "boolean"
@@ -12286,6 +12310,59 @@
               }
             ],
             "title": "Geometrymanifestchecksumsha256"
+          },
+          "phase": {
+            "anyOf": [
+              {
+                "enum": [
+                  "source_registration",
+                  "auto_anchor_retry",
+                  "manifest_write",
+                  "complete"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase"
+          },
+          "phaseCurrent": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phasecurrent"
+          },
+          "phaseTotal": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phasetotal"
+          },
+          "provisionalReviewRequired": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provisionalreviewrequired"
           }
         },
         "required": [

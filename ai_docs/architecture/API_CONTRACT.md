@@ -1634,6 +1634,29 @@ Kolejny claim zwiększa `attemptCount`. Pozostałe statusy zwracają
 `null` poza `processing`. Wewnętrzne `leaseToken`, `leaseOwner` oraz
 `checkpointPayload` nigdy nie są zwracane przez Admin API.
 
+Dla walidacji `page_geometry_preflight` obiekt `progress` zawiera addytywne
+`pageGeometryPreflight`. Historyczne checkpointy mogą zwrócić wyłącznie pola
+`complete` i checksummy. Nowe checkpointy podają dokładny postęp fazy:
+
+```json
+{
+  "complete": false,
+  "geometryManifestChecksumSha256": null,
+  "phase": "auto_anchor_retry",
+  "phaseCurrent": 25,
+  "phaseTotal": 118,
+  "autoAnchorPass": 1,
+  "autoAnchorPassCount": 2,
+  "provisionalReviewRequired": 101
+}
+```
+
+`phase` przyjmuje `source_registration`, `auto_anchor_retry`, `manifest_write`
+albo `complete`. Licznik fazy nie zastępuje monotonicznych agregatów całego
+joba. `provisionalReviewRequired` może maleć podczas dodatkowego dopasowania i
+dlatego nie jest wspólnym licznikiem `review`; ten ostatni otrzymuje wynik
+dopiero z niezmiennego manifestu końcowego.
+
 Dla joba `image_selection` obiekt `progress` zawiera dodatkowe pole
 `imageSelection`:
 

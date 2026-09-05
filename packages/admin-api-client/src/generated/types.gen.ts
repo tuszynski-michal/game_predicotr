@@ -6964,6 +6964,14 @@ export type PageGeometryPreflightJobPayload = {
  */
 export type PageGeometryPreflightJobProgressResponse = {
   /**
+   * Autoanchorpass
+   */
+  autoAnchorPass?: number | null;
+  /**
+   * Autoanchorpasscount
+   */
+  autoAnchorPassCount?: number | null;
+  /**
    * Complete
    */
   complete: boolean;
@@ -6971,6 +6979,27 @@ export type PageGeometryPreflightJobProgressResponse = {
    * Geometrymanifestchecksumsha256
    */
   geometryManifestChecksumSha256?: string | null;
+  /**
+   * Phase
+   */
+  phase?:
+    | 'source_registration'
+    | 'auto_anchor_retry'
+    | 'manifest_write'
+    | 'complete'
+    | null;
+  /**
+   * Phasecurrent
+   */
+  phaseCurrent?: number | null;
+  /**
+   * Phasetotal
+   */
+  phaseTotal?: number | null;
+  /**
+   * Provisionalreviewrequired
+   */
+  provisionalReviewRequired?: number | null;
 };
 
 /**

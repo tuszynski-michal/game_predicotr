@@ -90,6 +90,61 @@ def _create_validate_job(client: TestClient, game_id: UUID) -> dict[str, object]
     return cast(dict[str, object], response.json())
 
 
+def test_page_geometry_preflight_exposes_bounded_phase_progress() -> None:
+    created = create_job(
+        JobType.VALIDATE,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "source_selection_id": str(uuid4()),
+            "source_directory": r"C:\managed\browser-selection",
+            "source_manifest_sha256": "a" * 64,
+            "page_registration_profile": {
+                "policy": "verified-page-registration-v1",
+                "anchors": [],
+            },
+            "page_geometry_overrides": {},
+            "canonical_sequence_numbers": [],
+        },
+    )
+    job = replace(
+        created,
+        stage="page_geometry_auto_anchor_pass_1",
+        progress_current=2_801,
+        progress_total=2_801,
+        success_count=2_700,
+        checkpoint_payload={
+            "schema_version": 1,
+            "workflow": "page-geometry-preflight-v2-auto-anchor",
+            "source_selection_id": created.input_payload["source_selection_id"],
+            "source_manifest_sha256": "a" * 64,
+            "processed_source_count": 2_801,
+            "registered_source_count": 2_700,
+            "review_required_source_count": 101,
+            "complete": False,
+            "progress_phase": "auto_anchor_retry",
+            "phase_current": 25,
+            "phase_total": 118,
+            "auto_anchor_pass": 1,
+            "auto_anchor_pass_count": 2,
+        },
+    )
+
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+
+    assert response["progress"]["pageGeometryPreflight"] == {
+        "complete": False,
+        "geometryManifestChecksumSha256": None,
+        "phase": "auto_anchor_retry",
+        "phaseCurrent": 25,
+        "phaseTotal": 118,
+        "autoAnchorPass": 1,
+        "autoAnchorPassCount": 2,
+        "provisionalReviewRequired": 101,
+    }
+
+
 def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
     selection_run_id = uuid4()
     job = create_job(

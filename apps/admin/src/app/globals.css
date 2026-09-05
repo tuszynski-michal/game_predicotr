@@ -4095,6 +4095,25 @@ a:focus-visible {
   color: var(--muted);
 }
 
+.jobSummaryProgress .jobActivity {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jobSummaryProgress .jobActivity-active {
+  color: var(--success);
+}
+
+.jobSummaryProgress .jobActivity-waiting {
+  color: var(--warning);
+}
+
+.jobSummaryProgress .jobActivity-stale {
+  color: var(--danger);
+}
+
 .jobSummaryCreated {
   display: grid;
   gap: 3px;

@@ -665,12 +665,26 @@ class JobProgressResponse(ApiModel):
     )
 
 
+PageGeometryPreflightPhase = Literal[
+    "source_registration",
+    "auto_anchor_retry",
+    "manifest_write",
+    "complete",
+]
+
+
 class PageGeometryPreflightJobProgressResponse(ApiModel):
     complete: bool
     geometry_manifest_checksum_sha256: str | None = Field(
         default=None,
         pattern=r"^[0-9a-f]{64}$",
     )
+    phase: PageGeometryPreflightPhase | None = None
+    phase_current: int | None = Field(default=None, ge=0)
+    phase_total: int | None = Field(default=None, ge=0)
+    auto_anchor_pass: int | None = Field(default=None, ge=1)
+    auto_anchor_pass_count: int | None = Field(default=None, ge=1)
+    provisional_review_required: int | None = Field(default=None, ge=0)
 
 
 class JobErrorResponse(ApiModel):
@@ -770,10 +784,53 @@ def _page_geometry_preflight_progress(
     checksum = payload.get("geometry_manifest_checksum_sha256")
     if checksum is not None and (not isinstance(checksum, str) or len(checksum) != 64):
         return None
+    phase = payload.get("progress_phase")
+    if phase not in {
+        "source_registration",
+        "auto_anchor_retry",
+        "manifest_write",
+        "complete",
+    }:
+        phase = None
+    phase_current = _optional_nonnegative_int(payload.get("phase_current"))
+    phase_total = _optional_nonnegative_int(payload.get("phase_total"))
+    if phase is None or phase_current is None or phase_total is None or phase_current > phase_total:
+        phase = None
+        phase_current = None
+        phase_total = None
+    auto_anchor_pass = _optional_positive_int(payload.get("auto_anchor_pass"))
+    auto_anchor_pass_count = _optional_positive_int(payload.get("auto_anchor_pass_count"))
+    if (
+        phase != "auto_anchor_retry"
+        or auto_anchor_pass is None
+        or auto_anchor_pass_count is None
+        or auto_anchor_pass > auto_anchor_pass_count
+    ):
+        auto_anchor_pass = None
+        auto_anchor_pass_count = None
     return PageGeometryPreflightJobProgressResponse(
         complete=complete,
         geometry_manifest_checksum_sha256=checksum,
+        phase=cast(PageGeometryPreflightPhase | None, phase),
+        phase_current=phase_current,
+        phase_total=phase_total,
+        auto_anchor_pass=auto_anchor_pass,
+        auto_anchor_pass_count=auto_anchor_pass_count,
+        provisional_review_required=_optional_nonnegative_int(
+            payload.get("review_required_source_count")
+        ),
     )
+
+
+def _optional_nonnegative_int(value: object) -> int | None:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        return None
+    return value
+
+
+def _optional_positive_int(value: object) -> int | None:
+    parsed = _optional_nonnegative_int(value)
+    return parsed if parsed is not None and parsed > 0 else None
 
 
 def _board_cell_geometry_progress(job: Job) -> BoardCellGeometryJobProgressResponse | None:

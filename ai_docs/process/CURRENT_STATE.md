@@ -6,6 +6,18 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Rzeczywisty progres preflightu geometrii — TASK-0456
+
+- Preflight publikuje osobny licznik pierwszego przebiegu, każdego bounded
+  przebiegu auto-anchor i zapisu manifestu. Dodatkowe dopasowanie checkpointuje
+  co najwyżej co 25 źródeł bez naruszania monotonicznych liczników joba.
+- Monitor pokazuje numer i pasek bieżącej fazy oraz świeżość heartbeat workera.
+  Historyczny lub już uruchomiony job bez nowych pól nie udaje `100%`, lecz
+  pokazuje stan indeterminowany i liczbę zarejestrowanych zdjęć.
+- Nie zrestartowano usług ani nie zmieniono joba
+  `abf57847-478f-4469-8e06-6f3ad0ab0d5b`; zakończył się sam wynikiem 2751
+  zarejestrowanych i 50 do review, według kodu załadowanego przed poprawką.
+
 ### Trwała proweniencja i jawne przeliczanie auto-cropa — TASK-0455
 
 - Nowe wyniki v4 zapisują w shardzie klasę, confidence, lokalne granice,

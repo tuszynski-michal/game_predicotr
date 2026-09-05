@@ -7730,3 +7730,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   lecz przygotowanie brakujących plików wymaga jawnego przejścia na v4. Każde
   przeliczenie nadal sprawdza źródło i istniejący wynik checksumą oraz korzysta
   z wznawialnego journalu.
+
+### D-346 — Wielofazowy preflight raportuje osobny monotoniczny licznik fazy
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** pierwszy przebieg rejestracji, każdy przebieg auto-anchor oraz
+  zapis manifestu mają jawny stan i własny licznik. Ogólne `current/total`
+  zachowuje dotychczasowy kontrakt źródeł, a malejąca liczba nierozpoznanych
+  pozostaje osobną wartością provisional.
+- **Reason:** pierwszy przebieg może osiągnąć `N/N`, gdy worker nadal przez
+  dłuższy czas analizuje nierozwiązane źródła. Ponowne użycie ogólnego licznika
+  powodowałoby regresję albo fałszywe `100%`.
+- **Consequences:** worker checkpointuje dodatkowy przebieg co najwyżej co 25
+  źródeł. Admin preferuje licznik fazy, a dla historycznego lub już
+  uruchomionego joba bez tych pól pokazuje stan indeterminowany oraz świeżość
+  heartbeat zamiast zgadywać procent.

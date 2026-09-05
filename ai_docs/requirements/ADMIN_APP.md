@@ -221,6 +221,11 @@ Dla zadania widzi:
   zachowuje bezpieczny kontekst joba bez ujawniania ścieżki lokalnej; starsze
   joby mogą użyć wyłącznie nazwy ostatniego katalogu, jeżeli ma format zakresu,
 - etap i postęp,
+- dla preflightu geometrii osobny postęp bieżącej fazy: pierwszy przebieg,
+  dodatkowe dopasowanie z numerem przebiegu albo zapis manifestu; zakończenie
+  pierwszego przebiegu nie może pokazywać fałszywego `100%` całego joba,
+- dla aktywnego joba czytelny stan świeżości heartbeat: aktywna praca,
+  oczekiwanie na pierwszy sygnał albo ostrzeżenie o nieświeżym workerze,
 - liczbę elementów poprawnych, błędnych i wymagających review,
 - czas rozpoczęcia i zakończenia,
 - wersję kodu/modelu,

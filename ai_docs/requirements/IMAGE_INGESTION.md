@@ -647,6 +647,13 @@ przeszła zaostrzoną bramkę: co najmniej 60 inlierów, udział 0,35, p95 do
 planszy. Wynik ponowienia nadal musi przejść wszystkie pierwotne twarde progi;
 polityka nie syntetyzuje quadów ani nie obniża bramki końcowej.
 
+Pierwszy przebieg i każdy dodatkowy przebieg mają rozłączne liczniki fazy.
+Ponowienie nierozpoznanych źródeł zapisuje checkpoint przed startem, po każdej
+partii maksymalnie 25 ocenionych zdjęć oraz na końcu przebiegu. Ogólne liczniki
+joba pozostają monotoniczne, dlatego postęp fazy jest osobnym polem i nie
+udaje zakończenia po osiągnięciu `sourceCount/sourceCount` przez pierwszy
+przebieg. Zapis content-addressed manifestu ma własny jawny etap.
+
 Ukończony manifest może zawierać zarówno `registered`, jak i
 `review_required`. Import kopiuje i przekazuje do croppera wyłącznie źródła
 `registered`. Pozostałe źródła są bezpiecznie odroczone i mogą zostać ponowione

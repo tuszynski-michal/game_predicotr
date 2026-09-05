@@ -34,6 +34,10 @@ PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v2-auto-anchor"
 _CHECKPOINT_BATCH_SIZE = 25
 _AUTO_ANCHOR_MAX_PASSES = 2
 _AUTO_ANCHOR_LIMIT_PER_PASS = 21
+_PROGRESS_PHASE_SOURCE_REGISTRATION = "source_registration"
+_PROGRESS_PHASE_AUTO_ANCHOR_RETRY = "auto_anchor_retry"
+_PROGRESS_PHASE_MANIFEST_WRITE = "manifest_write"
+_PROGRESS_PHASE_COMPLETE = "complete"
 # Registration is CPU-bound but OpenCV runs most feature work outside the GIL.
 # Four pages remain the compatibility default for direct construction.  The
 # supervised general worker passes its bounded cooperative process budget.
@@ -87,6 +91,9 @@ class PageGeometryPreflightHandler:
                 registered=registered_count,
                 review_required=review_count,
                 complete=True,
+                phase=_PROGRESS_PHASE_COMPLETE,
+                phase_current=1,
+                phase_total=1,
             )
             return
 
@@ -162,12 +169,16 @@ class PageGeometryPreflightHandler:
                 registered=registered,
                 review_required=review_required,
                 complete=False,
+                phase=_PROGRESS_PHASE_SOURCE_REGISTRATION,
+                phase_current=processed,
+                phase_total=total,
             )
         auto_anchor_passes: list[dict[str, object]] = []
         if payload["preflightPolicyVersion"] == PAGE_GEOMETRY_PREFLIGHT_VERSION:
             entries, auto_anchor_passes = self._retry_with_verified_auto_anchors(
                 entries,
                 managed.originals,
+                context=context,
                 source_directory=managed.source_directory,
                 payload=payload,
                 base_profile=registration_profile,
@@ -184,6 +195,9 @@ class PageGeometryPreflightHandler:
                 registered=registered,
                 review_required=review_required,
                 complete=False,
+                phase=_PROGRESS_PHASE_MANIFEST_WRITE,
+                phase_current=0,
+                phase_total=1,
             )
         content = _manifest_bytes(
             job,
@@ -208,6 +222,9 @@ class PageGeometryPreflightHandler:
             registered=registered,
             review_required=review_required,
             complete=True,
+            phase=_PROGRESS_PHASE_COMPLETE,
+            phase_current=1,
+            phase_total=1,
         )
 
     def _evaluate_source(
@@ -291,6 +308,7 @@ class PageGeometryPreflightHandler:
         entries: dict[str, object],
         originals: Sequence[ManagedOriginal],
         *,
+        context: JobExecutionContext,
         source_directory: Path,
         payload: Mapping[str, object],
         base_profile: Mapping[str, object],
@@ -342,10 +360,30 @@ class PageGeometryPreflightHandler:
                 ),
             )
             resolved = 0
-            for original in originals:
-                current = entries.get(original.checksum_sha256)
-                if not isinstance(current, Mapping) or current.get("status") != "review_required":
-                    continue
+            unresolved = [
+                original
+                for original in originals
+                if isinstance(entries.get(original.checksum_sha256), Mapping)
+                and cast(Mapping[str, object], entries[original.checksum_sha256]).get("status")
+                == "review_required"
+            ]
+            _checkpoint(
+                context,
+                payload,
+                manifest_checksum=None,
+                manifest_relative_path=None,
+                processed=len(originals),
+                total=len(originals),
+                registered=_entry_status_count(entries, "registered"),
+                review_required=len(unresolved),
+                complete=False,
+                phase=_PROGRESS_PHASE_AUTO_ANCHOR_RETRY,
+                phase_current=0,
+                phase_total=len(unresolved),
+                auto_anchor_pass=pass_number,
+                auto_anchor_pass_count=_AUTO_ANCHOR_MAX_PASSES,
+            )
+            for retry_index, original in enumerate(unresolved, start=1):
                 checksum, entry, outcome = self._evaluate_source(
                     original,
                     source_directory=source_directory,
@@ -356,6 +394,23 @@ class PageGeometryPreflightHandler:
                     entry["automaticAnchorPass"] = pass_number
                     entries[checksum] = entry
                     resolved += 1
+                if retry_index % _CHECKPOINT_BATCH_SIZE == 0 or retry_index == len(unresolved):
+                    _checkpoint(
+                        context,
+                        payload,
+                        manifest_checksum=None,
+                        manifest_relative_path=None,
+                        processed=len(originals),
+                        total=len(originals),
+                        registered=_entry_status_count(entries, "registered"),
+                        review_required=_entry_status_count(entries, "review_required"),
+                        complete=False,
+                        phase=_PROGRESS_PHASE_AUTO_ANCHOR_RETRY,
+                        phase_current=retry_index,
+                        phase_total=len(unresolved),
+                        auto_anchor_pass=pass_number,
+                        auto_anchor_pass_count=_AUTO_ANCHOR_MAX_PASSES,
+                    )
             reports.append(
                 {
                     "pass": pass_number,
@@ -685,6 +740,11 @@ def _checkpoint(
     registered: int,
     review_required: int,
     complete: bool,
+    phase: str,
+    phase_current: int,
+    phase_total: int,
+    auto_anchor_pass: int | None = None,
+    auto_anchor_pass_count: int | None = None,
 ) -> None:
     value: dict[str, object] = {
         "schema_version": 1,
@@ -695,7 +755,13 @@ def _checkpoint(
         "registered_source_count": registered,
         "review_required_source_count": review_required,
         "complete": complete,
+        "progress_phase": phase,
+        "phase_current": phase_current,
+        "phase_total": phase_total,
     }
+    if auto_anchor_pass is not None and auto_anchor_pass_count is not None:
+        value["auto_anchor_pass"] = auto_anchor_pass
+        value["auto_anchor_pass_count"] = auto_anchor_pass_count
     if manifest_checksum is not None and manifest_relative_path is not None:
         value["geometry_manifest_checksum_sha256"] = manifest_checksum
         value["geometry_manifest_relative_path"] = manifest_relative_path
@@ -712,7 +778,19 @@ def _checkpoint(
     )
     context.checkpoint(
         checkpoint_payload=value,
-        stage=("page_geometry_manifest_ready" if complete else "page_geometry_registering"),
+        stage=(
+            "page_geometry_manifest_ready"
+            if complete
+            else (
+                f"page_geometry_auto_anchor_pass_{auto_anchor_pass}"
+                if phase == _PROGRESS_PHASE_AUTO_ANCHOR_RETRY
+                else (
+                    "page_geometry_manifest_writing"
+                    if phase == _PROGRESS_PHASE_MANIFEST_WRITE
+                    else "page_geometry_registering"
+                )
+            )
+        ),
         current=processed,
         total=total,
         success_count=registered,

@@ -37,6 +37,7 @@ import {
   imageImportAutomationTiming,
   isActiveJob,
   isImageImportJob,
+  jobActivityPresentation,
   jobContextLabel,
   jobErrorSummary,
   jobProgressLabel,
@@ -416,6 +417,7 @@ function JobCard({
   const automationTiming = imageImportAutomationTiming(job);
   const imageSelectionProgress = job.progress.imageSelection;
   const sourceRange = jobSourceRangeLabel(job);
+  const activity = jobActivityPresentation(job);
   const cancellationPending =
     job.status === 'processing' && job.cancelRequestedAt !== null;
 
@@ -454,6 +456,14 @@ function JobCard({
           >
             <span style={{ width: percent === null ? '35%' : `${percent}%` }} />
           </span>
+          {activity === null ? null : (
+            <small
+              className={`jobActivity jobActivity-${activity.state}`}
+              role="status"
+            >
+              {activity.label}
+            </small>
+          )}
         </span>
         <span className="jobSummaryCreated">
           <small>

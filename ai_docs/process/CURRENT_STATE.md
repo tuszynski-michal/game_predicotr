@@ -6,6 +6,16 @@ last_updated: 2026-09-04
 
 # Current State
 
+### Diagnostyka plansz w bramce dużego importu — TASK-0449
+
+- Nowe raporty `image-geometry-systemic-guard-report-v2` zachowują wynik
+  każdego slotu: logiczne źródło, numer sekwencji, status, reason codes,
+  geometrię strony, `analysisQuad`, `symbolGridQuad` i evidence.
+- Produkcyjny tor oraz próg 98% nie zmieniły się; raport wyłącznie zachowuje
+  dane, które schema v1 redukowało do agregatów.
+- Historyczny raport v1 można odtworzyć diagnostycznie wyłącznie z identycznej
+  listy przypiętych źródeł i poprawnej checksumy, bez zmiany failed joba.
+
 ### Większy górny margines automatycznego przycinania
 
 - Polityka lokalnego automatycznego cropa v3 pozostawia 12% wysokości nad

@@ -7617,3 +7617,18 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** operator jawnie zmienia politykę gry po wdrożeniu migracji;
   zmiana działa tylko dla nowych, idempotentnych runów. Historyczny reprocess
   nadal odtwarza swój snapshot, a nie bieżącą politykę.
+
+### D-339 — Bramka dużego importu zachowuje diagnostykę każdej planszy
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** nowe raporty bramki używają schema v2 i zapisują dla każdego
+  slotu źródło, numer sekwencji, status, reason codes oraz dostępne geometrie i
+  evidence. Audytowa rekonstrukcja raportu v1 tworzy nowy wynik związany z
+  checksumą poprzednika i nie mutuje failed joba.
+- **Reason:** agregat 217/225 wskazuje skalę problemu, lecz bez board-level
+  proweniencji nie pozwala operatorowi bezpiecznie poprawić, oznaczyć jako
+  częściowe albo odrzucić dokładnych ośmiu plansz.
+- **Consequences:** próg 98% i invariants pozostają bez zmian; kolejny pion może
+  oprzeć append-only decyzje na checksumie źródła i slocie bez ponownego
+  zgadywania numerów.

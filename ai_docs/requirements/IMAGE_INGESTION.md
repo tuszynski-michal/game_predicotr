@@ -1347,3 +1347,12 @@ aktualizuje profilu strony ani stałego algorytmu v19. Do jawnie tworzonej
 kohorty profilu strony może wejść wyłącznie kompletne, zatwierdzone źródło z
 dziewięcioma quadami row-major; istniejący hard gate 36 narożników pozostaje
 obowiązkowy.
+
+Od `image-geometry-systemic-guard-v2` raport zachowuje również wynik każdej
+planszy próby: logiczną nazwę źródła, checksumę, slot row-major, wynikający z
+poświadczonego zakresu numer sekwencji, status końcowej siatki, wszystkie kody
+odroczenia oraz dostępne geometrie strony, analizy, siatki symboli i evidence.
+Agregaty i próg 98% nie zmieniają się. Historyczny raport v1 może zostać
+przeliczony do osobnego raportu diagnostycznego tylko z tych samych przypiętych
+snapshotów i dokładnie tej samej listy checksum; pierwotny artefakt joba nie
+jest nadpisywany.

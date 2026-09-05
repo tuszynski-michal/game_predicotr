@@ -56,9 +56,7 @@ def test_report_aggregation_is_deterministic_and_preserves_production_counters()
     assert first["sourceCount"] == 100
     assert first["activeBoardCount"] == 900
     assert first["finalCellGridReadyBoardCount"] == 900
-    assert first["qualityAngleBucketCounts"] == {
-        f"bucket-{index}": 20 for index in range(5)
-    }
+    assert first["qualityAngleBucketCounts"] == {f"bucket-{index}": 20 for index in range(5)}
     assert first["knownRegressionCaseCount"] == 1
     assert first["coveredRegressionCaseCount"] == 1
 
@@ -101,9 +99,7 @@ def test_source_runner_executes_production_stage_contract_through_final_crops() 
         {
             "positionIndex": position,
             "cells": [
-                {"rowIndex": row, "columnIndex": column}
-                for row in range(3)
-                for column in range(5)
+                {"rowIndex": row, "columnIndex": column} for row in range(3) for column in range(5)
             ],
         }
         for position in range(9)
@@ -158,3 +154,6 @@ def test_source_runner_executes_production_stage_contract_through_final_crops() 
         "overlap": 0,
         "sourceSupport": 0,
     }
+    assert [item.position_index for item in result.board_results] == list(range(9))
+    assert [item.sequence_number for item in result.board_results] == list(range(1, 10))
+    assert {item.status for item in result.board_results} == {"ready"}

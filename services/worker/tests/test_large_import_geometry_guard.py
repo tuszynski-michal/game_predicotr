@@ -1,9 +1,12 @@
+import hashlib
 import json
 from pathlib import Path
 from uuid import UUID
 
 import pytest
 from game_predictor_worker.images.large_import_geometry_guard import (
+    LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA,
+    build_board_level_guard_report_from_legacy,
     guard_required,
     run_large_import_geometry_guard,
     select_representative_originals,
@@ -45,13 +48,48 @@ class _Suite:
             return {}
 
         def board_detection(context: ImageStageContext) -> dict[str, object]:
-            return {"boards": _boards(context, count=9)}
+            return {
+                "boards": [
+                    {**board, "geometry": {"quad": _quad(board["positionIndex"])}}
+                    for board in _boards(context, count=9)
+                ]
+            }
 
         def board_cell_geometry(context: ImageStageContext) -> dict[str, object]:
             return {
                 "gridRows": 3,
                 "gridColumns": 5,
-                "boards": [{**board, "status": "verified"} for board in _boards(context, count=9)],
+                "boards": [
+                    {
+                        **board,
+                        "status": (
+                            "verified"
+                            if board["positionIndex"] < self.final_board_count
+                            else "deferred"
+                        ),
+                        "reasonCode": (
+                            None
+                            if board["positionIndex"] < self.final_board_count
+                            else "incomplete_lattice"
+                        ),
+                    }
+                    for board in _boards(context, count=9)
+                ],
+                "structuredGeometry": {
+                    "boards": [
+                        {
+                            **board,
+                            "analysisQuad": _quad(board["positionIndex"]),
+                            "symbolGridQuad": (
+                                _quad(board["positionIndex"])
+                                if board["positionIndex"] < self.final_board_count
+                                else None
+                            ),
+                            "evidence": {"supportedIntersectionCount": 24},
+                        }
+                        for board in _boards(context, count=9)
+                    ]
+                },
             }
 
         def board_crops(context: ImageStageContext) -> dict[str, object]:
@@ -85,6 +123,16 @@ class _Suite:
 def _boards(context: ImageStageContext, *, count: int) -> list[dict[str, int]]:
     del context
     return [{"positionIndex": position} for position in range(count)]
+
+
+def _quad(position: int) -> list[dict[str, float]]:
+    left = float(position * 10)
+    return [
+        {"x": left, "y": 0.0},
+        {"x": left + 8.0, "y": 0.0},
+        {"x": left + 8.0, "y": 6.0},
+        {"x": left, "y": 6.0},
+    ]
 
 
 def _entries(originals: tuple[ManagedOriginal, ...]) -> dict[str, object]:
@@ -172,6 +220,71 @@ def test_guard_rejects_systemically_incomplete_final_grids(tmp_path: Path) -> No
     assert result.required and not result.passed
     assert result.page_registration_ready_rate == 1.0
     assert result.final_cell_grid_ready_rate == pytest.approx(8 / 9)
+    assert result.report_relative_path is not None
+    envelope = json.loads((tmp_path / result.report_relative_path).read_text(encoding="ascii"))
+    report = envelope["report"]
+    assert report["schemaVersion"] == LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA
+    failed = [
+        board
+        for source in report["sources"]
+        for board in source["boards"]
+        if board["status"] == "deferred"
+    ]
+    assert len(failed) == report["sampleSourceCount"]
+    assert failed[0]["positionIndex"] == 8
+    assert failed[0]["sequenceNumber"] == 9
+    assert failed[0]["reasonCodes"] == ["incomplete_lattice", "INCOMPLETE_LATTICE"]
+    assert failed[0]["pageGeometry"]["quad"] == _quad(8)
+    assert failed[0]["analysisQuad"] == _quad(8)
+    assert failed[0]["symbolGridQuad"] is None
+    assert failed[0]["evidence"] == {"supportedIntersectionCount": 24}
+
+
+def test_legacy_report_is_upgraded_without_mutation() -> None:
+    source = _original(0)
+    suite = _Suite(final_board_count=8)
+    from game_predictor_worker.images.grid_profile_end_to_end_gate import (
+        run_grid_profile_gate_source,
+    )
+    from game_predictor_worker.images.pipeline_contract import file_execution_key
+
+    result = run_grid_profile_gate_source(
+        suite=suite,
+        context=ImageStageContext(
+            job_id=UUID("44444444-4444-4444-4444-444444444444"),
+            file_execution_key=file_execution_key(source.checksum_sha256, "a" * 64),
+            source_checksum_sha256=source.checksum_sha256,
+            source_relative_path=source.source_relative_path,
+            pipeline_fingerprint="a" * 64,
+            previous_results={},
+            attested_sequence_range=(1, 9),
+        ),
+        quality_angle_bucket="nominal",
+        baseline_final_cell_grid_ready_board_count=9,
+    )
+    legacy = {
+        "jobId": "44444444-4444-4444-4444-444444444444",
+        "pageGeometryManifestChecksumSha256": "b" * 64,
+        "pipelineFingerprintSha256": "a" * 64,
+        "sourceManifestChecksumSha256": "c" * 64,
+        "selectedSourceChecksums": [source.checksum_sha256],
+        "sourceCount": 100,
+        "activeBoardCount": 900,
+    }
+    legacy_before = json.dumps(legacy, sort_keys=True)
+    legacy_checksum = hashlib.sha256(
+        json.dumps(legacy, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("ascii")
+    ).hexdigest()
+
+    upgraded = build_board_level_guard_report_from_legacy(
+        legacy_report=legacy,
+        legacy_report_checksum_sha256=legacy_checksum,
+        observations=(result,),
+    )
+
+    assert json.dumps(legacy, sort_keys=True) == legacy_before
+    assert upgraded["derivedFromReportChecksumSha256"] == legacy_checksum
+    assert upgraded["sources"][0]["boards"][8]["sequenceNumber"] == 9
 
 
 def test_guard_rejects_a_tampered_persisted_report(tmp_path: Path) -> None:

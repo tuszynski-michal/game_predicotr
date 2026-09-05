@@ -287,6 +287,15 @@ fingerprint pipeline'u i listę próby. Checkpoint przechowuje checksumę raport
 pokrycie 3×3, skuteczność końcowej siatki 3×5 i liczbę naruszeń. Każdy późniejszy
 checkpoint zachowuje ten dowód, więc UI i restart widzą ten sam wynik.
 
+Nowe joby zapisują `image-geometry-systemic-guard-report-v2`. Każdy element
+`sources[].boards[]` ma deterministyczne `positionIndex` i `sequenceNumber`,
+status `ready|deferred`, pełną listę powodów oraz nieprzetworzone, JSON-owe
+dowody dostępne w produkcyjnych checkpointach. Raport nie uruchamia osobnego
+estymatora i nie tworzy rekordów domenowych. Adapter bramki jedynie zachowuje
+dane, które v1 redukował do liczników. Konwersja audytowa v1→v2 weryfikuje
+checksumę starego raportu i identyczność wybranych źródeł; jej wynik jest nowym
+content-addressed artefaktem, a nie mutacją joba historycznego.
+
 ### Przyrostowe kotwice preflightu strony
 
 Preflight strony może zbudować tymczasową kohortę auto-kotwic dla jednego

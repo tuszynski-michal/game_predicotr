@@ -8,7 +8,7 @@ import os
 import tempfile
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import cast
 from uuid import UUID
@@ -16,6 +16,7 @@ from uuid import UUID
 from game_predictor_worker.jobs.runtime import JobHandlerError
 
 from .grid_profile_end_to_end_gate import (
+    GridProfileGateBoardResult,
     GridProfileGateSourceResult,
     ProductionGateAdapterSuite,
     run_grid_profile_gate_source,
@@ -24,7 +25,8 @@ from .pipeline_contract import file_execution_key
 from .pipeline_execution import ImageStageContext
 from .source_ingestion import ManagedOriginal
 
-LARGE_IMPORT_GEOMETRY_GUARD_VERSION = "image-geometry-systemic-guard-v1"
+LARGE_IMPORT_GEOMETRY_GUARD_VERSION = "image-geometry-systemic-guard-v2"
+LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA = "image-geometry-systemic-guard-report-v2"
 LARGE_IMPORT_MIN_SOURCE_COUNT = 100
 LARGE_IMPORT_MIN_BOARD_COUNT = 500
 LARGE_IMPORT_GUARD_SAMPLE_LIMIT = 25
@@ -203,6 +205,61 @@ def run_large_import_geometry_guard(
     )
 
 
+def build_board_level_guard_report_from_legacy(
+    *,
+    legacy_report: Mapping[str, object],
+    legacy_report_checksum_sha256: str,
+    observations: Sequence[GridProfileGateSourceResult],
+) -> dict[str, object]:
+    """Derive v2 diagnostics without changing the immutable v1 report."""
+
+    if _checksum(legacy_report) != legacy_report_checksum_sha256:
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_REPORT_DRIFT",
+            "The legacy geometry guard report checksum is invalid.",
+        )
+    selected = legacy_report.get("selectedSourceChecksums")
+    if not isinstance(selected, list) or any(not isinstance(value, str) for value in selected):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_REPORT_INVALID",
+            "The legacy geometry guard report has no selected-source snapshot.",
+        )
+    by_checksum = {item.source_checksum_sha256: item for item in observations}
+    if len(by_checksum) != len(observations) or set(by_checksum) != set(selected):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_REPORT_DRIFT",
+            "The reconstructed board diagnostics differ from the legacy source sample.",
+        )
+    ordered = tuple(by_checksum[checksum] for checksum in selected)
+    required_keys = (
+        "jobId",
+        "pageGeometryManifestChecksumSha256",
+        "pipelineFingerprintSha256",
+        "sourceManifestChecksumSha256",
+    )
+    input_payload = {key: legacy_report.get(key) for key in required_keys}
+    if any(not isinstance(value, str) or not value for value in input_payload.values()):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_REPORT_INVALID",
+            "The legacy geometry guard report is missing pinned inputs.",
+        )
+    input_payload.update(
+        {
+            "policyVersion": LARGE_IMPORT_GEOMETRY_GUARD_VERSION,
+            "selectedSourceChecksums": list(selected),
+            "derivedFromReportChecksumSha256": legacy_report_checksum_sha256,
+        }
+    )
+    input_fingerprint = _checksum(input_payload)
+    return _report(
+        input_payload=input_payload,
+        input_fingerprint=input_fingerprint,
+        source_count=_required_int(legacy_report, "sourceCount"),
+        active_board_count=_required_int(legacy_report, "activeBoardCount"),
+        observations=ordered,
+    )
+
+
 def _evaluate_source(
     original: ManagedOriginal,
     *,
@@ -215,7 +272,7 @@ def _evaluate_source(
     entry = geometry_entries.get(original.checksum_sha256)
     bucket = geometry_quality_angle_bucket(entry if isinstance(entry, Mapping) else {})
     try:
-        return run_grid_profile_gate_source(
+        result = run_grid_profile_gate_source(
             suite=suite,
             context=ImageStageContext(
                 job_id=job_id,
@@ -235,6 +292,7 @@ def _evaluate_source(
             quality_angle_bucket=bucket,
             baseline_final_cell_grid_ready_board_count=expected,
         )
+        return replace(result, source_relative_path=original.source_relative_path)
     except JobHandlerError as error:
         return GridProfileGateSourceResult(
             source_checksum_sha256=original.checksum_sha256,
@@ -251,6 +309,18 @@ def _evaluate_source(
                 "sourceSupport": 0,
             },
             deferral_reason_counts={error.code: expected},
+            source_relative_path=original.source_relative_path,
+            sequence_range_start=cast(int, original.sequence_range_start),
+            sequence_range_end=cast(int, original.sequence_range_end),
+            board_results=tuple(
+                GridProfileGateBoardResult(
+                    position_index=position,
+                    sequence_number=cast(int, original.sequence_range_start) + position,
+                    status="deferred",
+                    reason_codes=(error.code,),
+                )
+                for position in range(expected)
+            ),
         )
 
 
@@ -273,6 +343,7 @@ def _report(
     invariant_violation_count = sum(invariant_counts.values())
     return {
         **input_payload,
+        "schemaVersion": LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA,
         "inputFingerprintSha256": input_fingerprint,
         "sourceCount": source_count,
         "activeBoardCount": active_board_count,
@@ -291,12 +362,28 @@ def _report(
         "sources": [
             {
                 "sourceChecksumSha256": item.source_checksum_sha256,
+                "sourceRelativePath": item.source_relative_path,
+                "sequenceRangeStart": item.sequence_range_start,
+                "sequenceRangeEnd": item.sequence_range_end,
                 "qualityAngleBucket": item.quality_angle_bucket,
                 "activeBoardCount": item.active_board_count,
                 "pageRegistrationReadyBoardCount": (item.page_registration_ready_board_count),
                 "finalCellGridReadyBoardCount": item.final_cell_grid_ready_board_count,
                 "invariantViolationCounts": dict(item.invariant_violation_counts),
                 "deferralReasonCounts": dict(item.deferral_reason_counts),
+                "boards": [
+                    {
+                        "positionIndex": board.position_index,
+                        "sequenceNumber": board.sequence_number,
+                        "status": board.status,
+                        "reasonCodes": list(board.reason_codes),
+                        "pageGeometry": board.page_geometry,
+                        "analysisQuad": board.analysis_quad,
+                        "symbolGridQuad": board.symbol_grid_quad,
+                        "evidence": board.evidence,
+                    }
+                    for board in item.board_results
+                ],
             }
             for item in observations
         ],
@@ -412,7 +499,9 @@ def _checksum(value: object) -> str:
 
 __all__ = [
     "LARGE_IMPORT_GEOMETRY_GUARD_VERSION",
+    "LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA",
     "LargeImportGeometryGuardResult",
+    "build_board_level_guard_report_from_legacy",
     "geometry_quality_angle_bucket",
     "guard_required",
     "run_large_import_geometry_guard",

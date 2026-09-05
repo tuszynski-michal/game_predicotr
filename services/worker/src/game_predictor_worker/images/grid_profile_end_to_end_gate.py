@@ -28,6 +28,18 @@ class ProductionGateAdapterSuite(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class GridProfileGateBoardResult:
+    position_index: int
+    sequence_number: int
+    status: str
+    reason_codes: tuple[str, ...] = ()
+    page_geometry: Mapping[str, object] | None = None
+    analysis_quad: object | None = None
+    symbol_grid_quad: object | None = None
+    evidence: Mapping[str, object] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class GridProfileGateSourceResult:
     source_checksum_sha256: str
     quality_angle_bucket: str
@@ -39,6 +51,10 @@ class GridProfileGateSourceResult:
     deferral_reason_counts: Mapping[str, int] = field(default_factory=dict)
     known_regression_case_count: int = 0
     covered_regression_case_count: int = 0
+    source_relative_path: str | None = None
+    sequence_range_start: int | None = None
+    sequence_range_end: int | None = None
+    board_results: tuple[GridProfileGateBoardResult, ...] = ()
 
 
 def run_grid_profile_gate_source(
@@ -79,24 +95,23 @@ def run_grid_profile_gate_source(
     detection_positions = _positions(detection_boards)
     geometry_positions = _positions(geometry_boards)
     crop_positions = _positions(crop_boards)
+    detection_by_position = _by_position(detection_boards)
+    geometry_by_position = _by_position(geometry_boards)
+    structured_by_position = _by_position(
+        _mapping_sequence(_mapping_or_empty(geometry.get("structuredGeometry")).get("boards"))
+    )
     checksum_violations = int(
         discovery.get("sourceChecksumSha256") != context.source_checksum_sha256
     )
     ordering_violations = sum(
-        positions != expected_positions
-        for positions in (detection_positions, geometry_positions)
+        positions != expected_positions for positions in (detection_positions, geometry_positions)
     )
-    topology_violations = int(
-        geometry.get("gridRows") != 3 or geometry.get("gridColumns") != 5
-    )
+    topology_violations = int(geometry.get("gridRows") != 3 or geometry.get("gridColumns") != 5)
     final_positions: set[int] = set()
     for board in crop_boards:
         position = board.get("positionIndex")
         cells = _mapping_sequence(board.get("cells"))
-        identities = {
-            (cell.get("rowIndex"), cell.get("columnIndex"))
-            for cell in cells
-        }
+        identities = {(cell.get("rowIndex"), cell.get("columnIndex")) for cell in cells}
         if (
             not isinstance(position, int)
             or isinstance(position, bool)
@@ -139,19 +154,33 @@ def run_grid_profile_gate_source(
         if detection_positions == expected_positions and not checksum_violations
         else 0
     )
+    board_results = tuple(
+        _board_result(
+            position=position,
+            sequence_number=start + position,
+            ready=position in final_positions,
+            detection=detection_by_position.get(position),
+            geometry=geometry_by_position.get(position),
+            structured=structured_by_position.get(position),
+            deferred_reason=deferred_by_position.get(position),
+        )
+        for position in expected_positions
+    )
     return GridProfileGateSourceResult(
         source_checksum_sha256=context.source_checksum_sha256,
         quality_angle_bucket=quality_angle_bucket,
         active_board_count=expected_board_count,
         page_registration_ready_board_count=page_ready,
         final_cell_grid_ready_board_count=len(final_positions),
-        baseline_final_cell_grid_ready_board_count=(
-            baseline_final_cell_grid_ready_board_count
-        ),
+        baseline_final_cell_grid_ready_board_count=(baseline_final_cell_grid_ready_board_count),
         invariant_violation_counts=invariant_counts,
         deferral_reason_counts=dict(deferrals),
         known_regression_case_count=known_regression_case_count,
         covered_regression_case_count=covered_regression_case_count,
+        source_relative_path=context.source_relative_path,
+        sequence_range_start=start,
+        sequence_range_end=end,
+        board_results=board_results,
     )
 
 
@@ -228,14 +257,12 @@ def _validate_result(result: GridProfileGateSourceResult, seen: set[str]) -> Non
         result.covered_regression_case_count,
     )
     if any(
-        not isinstance(value, int) or isinstance(value, bool) or value < 0
-        for value in counters
+        not isinstance(value, int) or isinstance(value, bool) or value < 0 for value in counters
     ):
         raise GridProfileEndToEndGateError("Gate counters must be non-negative integers.")
     if (
         result.page_registration_ready_board_count > result.active_board_count
-        or result.final_cell_grid_ready_board_count
-        > result.page_registration_ready_board_count
+        or result.final_cell_grid_ready_board_count > result.page_registration_ready_board_count
         or result.baseline_final_cell_grid_ready_board_count > result.active_board_count
         or result.covered_regression_case_count > result.known_regression_case_count
     ):
@@ -244,6 +271,35 @@ def _validate_result(result: GridProfileGateSourceResult, seen: set[str]) -> Non
         raise GridProfileEndToEndGateError("Every production invariant requires a counter.")
     _validate_count_mapping(result.invariant_violation_counts)
     _validate_count_mapping(result.deferral_reason_counts)
+    if result.board_results:
+        if len(result.board_results) != result.active_board_count:
+            raise GridProfileEndToEndGateError(
+                "Board-level gate results must cover every active board."
+            )
+        positions = [item.position_index for item in result.board_results]
+        if positions != list(range(result.active_board_count)):
+            raise GridProfileEndToEndGateError(
+                "Board-level gate results must preserve row-major positions."
+            )
+        if result.sequence_range_start is None or result.sequence_range_end is None:
+            raise GridProfileEndToEndGateError(
+                "Board-level gate results require an attested sequence range."
+            )
+        if result.sequence_range_end - result.sequence_range_start + 1 != len(positions):
+            raise GridProfileEndToEndGateError(
+                "The board-level gate range does not match its positions."
+            )
+        for board in result.board_results:
+            if board.sequence_number != result.sequence_range_start + board.position_index:
+                raise GridProfileEndToEndGateError(
+                    "A board-level gate sequence number is not deterministic."
+                )
+            if board.status not in {"ready", "deferred"}:
+                raise GridProfileEndToEndGateError("A board-level gate status is invalid.")
+            if board.status == "deferred" and not board.reason_codes:
+                raise GridProfileEndToEndGateError(
+                    "A deferred board-level gate result requires a reason code."
+                )
 
 
 def _validate_count_mapping(value: Mapping[str, int]) -> None:
@@ -269,6 +325,74 @@ def _positions(values: Sequence[Mapping[str, object]]) -> list[int]:
     ]
 
 
+def _by_position(
+    values: Sequence[Mapping[str, object]],
+) -> dict[int, Mapping[str, object]]:
+    return {
+        position: value
+        for value in values
+        if isinstance((position := value.get("positionIndex")), int)
+        and not isinstance(position, bool)
+    }
+
+
+def _mapping_or_empty(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _board_result(
+    *,
+    position: int,
+    sequence_number: int,
+    ready: bool,
+    detection: Mapping[str, object] | None,
+    geometry: Mapping[str, object] | None,
+    structured: Mapping[str, object] | None,
+    deferred_reason: str | None,
+) -> GridProfileGateBoardResult:
+    detection = detection or {}
+    geometry = geometry or {}
+    structured = structured or {}
+    reason_values: list[str] = []
+    for value in (
+        geometry.get("reasonCode"),
+        geometry.get("estimatorFailureReason"),
+        deferred_reason,
+    ):
+        if isinstance(value, str) and value and value not in reason_values:
+            reason_values.append(value)
+    extra_reasons = geometry.get("reasonCodes")
+    if isinstance(extra_reasons, Sequence) and not isinstance(extra_reasons, str | bytes):
+        for value in extra_reasons:
+            if isinstance(value, str) and value and value not in reason_values:
+                reason_values.append(value)
+    if not ready and not reason_values:
+        reason_values.append("FINAL_CELL_GRID_OUTPUT_MISSING")
+    page_geometry = _mapping_or_empty(detection.get("geometry")) or None
+    cell_geometry = _mapping_or_empty(geometry.get("cellGeometry"))
+    evidence = _mapping_or_empty(structured.get("evidence"))
+    if not evidence:
+        evidence = _mapping_or_empty(cell_geometry.get("evidence"))
+    if not evidence:
+        evidence = _mapping_or_empty(geometry.get("diagnostics"))
+    analysis_quad = structured.get("analysisQuad")
+    if analysis_quad is None:
+        analysis_quad = cell_geometry.get("analysisQuad")
+    symbol_grid_quad = structured.get("symbolGridQuad") or structured.get("finalQuad")
+    if symbol_grid_quad is None:
+        symbol_grid_quad = cell_geometry.get("gridQuad") or cell_geometry.get("latticeBoundsQuad")
+    return GridProfileGateBoardResult(
+        position_index=position,
+        sequence_number=sequence_number,
+        status="ready" if ready else "deferred",
+        reason_codes=tuple(reason_values),
+        page_geometry=dict(page_geometry) if page_geometry is not None else None,
+        analysis_quad=analysis_quad,
+        symbol_grid_quad=symbol_grid_quad,
+        evidence=dict(evidence) if evidence else None,
+    )
+
+
 def _sha256_text(value: str) -> str:
     if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
         raise GridProfileEndToEndGateError("A gate checksum is not lowercase SHA-256.")
@@ -287,6 +411,7 @@ def _checksum(value: object) -> str:
 
 __all__ = [
     "GridProfileEndToEndGateError",
+    "GridProfileGateBoardResult",
     "GridProfileGateSourceResult",
     "build_grid_profile_end_to_end_gate_report",
     "run_grid_profile_gate_source",

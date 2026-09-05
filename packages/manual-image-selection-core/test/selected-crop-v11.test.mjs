@@ -4,7 +4,55 @@ import {
   selectStructuralLayout,
   detectStructuralLayout,
   luminance,
+  sameStructuralCandidate,
+  removeDilationHalo,
 } from '../src/auto-crop-v11.ts';
+
+test('dilation halo is not measured board support or a false row overlap', () => {
+  const first = removeDilationHalo(
+    { left: 16, top: 16, right: 124, bottom: 84 },
+    4,
+    4,
+  );
+  const second = removeDilationHalo(
+    { left: 16, top: 80, right: 124, bottom: 148 },
+    4,
+    4,
+  );
+  assert.deepEqual(first, { left: 20, top: 20, right: 120, bottom: 80 });
+  assert.ok(second.top > first.bottom);
+  assert.deepEqual(
+    removeDilationHalo(
+      { left: 0, top: 0, right: 100, bottom: 100 },
+      4,
+      4,
+      100,
+      100,
+    ),
+    { left: 0, top: 0, right: 100, bottom: 100 },
+  );
+});
+test('nested partial and multi-board components do not merge by containment', () => {
+  const board = { left: 20, top: 20, right: 120, bottom: 80 };
+  assert.equal(
+    sameStructuralCandidate(board, {
+      left: 20,
+      top: 20,
+      right: 240,
+      bottom: 100,
+    }),
+    false,
+  );
+  assert.equal(
+    sameStructuralCandidate(board, {
+      left: 22,
+      top: 21,
+      right: 118,
+      bottom: 79,
+    }),
+    true,
+  );
+});
 
 test('small cabinet buttons cannot substitute the missing third row', () => {
   const input = boards();

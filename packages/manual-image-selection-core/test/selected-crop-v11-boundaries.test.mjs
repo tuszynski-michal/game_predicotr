@@ -3,7 +3,29 @@ import test from 'node:test';
 import {
   boundStructuralCrop,
   validateStructuralEvidence,
+  findNumberRegions,
 } from '../src/auto-crop-v11-boundaries.ts';
+
+test('valid label is ranked after width validation, not hidden by a narrow fragment', () => {
+  const width = 180,
+    height = 180,
+    rgba = new Uint8ClampedArray(width * height * 4);
+  const paint = (left, top, right, bottom) => {
+    for (let y = top; y < bottom; y++)
+      for (let x = left; x < right; x++)
+        if ((x - left) % 4 < 2)
+          rgba.set([255, 255, 255, 255], (y * width + x) * 4);
+  };
+  // Narrow glare at the bottom passes row transitions but not label width.
+  paint(75, 116, 87, 120);
+  paint(55, 125, 115, 131);
+  const found = findNumberRegions({ width, height, rgba }, [
+    { left: 20, top: 20, right: 160, bottom: 120 },
+  ]);
+  assert.equal(found.length, 1);
+  assert.equal(found[0].top, 125);
+  assert.equal(found[0].bottom, 131);
+});
 import {
   requiredSelectedImageCropCorrections,
   effectiveSelectedImageCropCorrections,

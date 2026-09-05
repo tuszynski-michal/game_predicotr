@@ -57,23 +57,38 @@ export function findNumberRegions(
     }
     const candidates = bands.filter(
       (rows) =>
-        rows.length >= 2 && rows.at(-1)! - rows[0]! + 1 <= h(board) * 0.28,
+        rows.length >= 2 &&
+        rows.at(-1)! - rows[0]! + 1 <= h(board) * 0.28 &&
+        (rows[0]! + rows.at(-1)!) / 2 >= board.top + h(board) * 0.85,
     );
-    if (candidates.length !== 1) return [];
-    const rows = candidates[0]!,
-      top = rows[0]!,
-      bottom = rows.at(-1)! + 1;
-    let left = r,
-      right = l;
-    for (let y = top; y < bottom; y++)
-      for (let x = l; x < r; x++)
-        if (gray[y * sample.width + x]! >= 180) {
-          left = Math.min(left, x);
-          right = Math.max(right, x + 1);
-        }
-    if ((right - left) / (bottom - top) < 2 || right - left < w(board) * 0.25)
+    const boxes = candidates
+      .map((rows) => {
+        const top = rows[0]!,
+          bottom = rows.at(-1)! + 1;
+        let left = r,
+          right = l;
+        for (let y = top; y < bottom; y++)
+          for (let x = l; x < r; x++)
+            if (gray[y * sample.width + x]! >= 180) {
+              left = Math.min(left, x);
+              right = Math.max(right, x + 1);
+            }
+        return { left, top, right, bottom };
+      })
+      .filter((box) => w(box) / h(box) >= 2 && w(box) >= w(board) * 0.25);
+    boxes.sort(
+      (a, b) =>
+        Math.abs(a.bottom - board.bottom) - Math.abs(b.bottom - board.bottom),
+    );
+    if (!boxes.length) return [];
+    if (
+      boxes.length > 1 &&
+      Math.abs(boxes[1]!.bottom - board.bottom) -
+        Math.abs(boxes[0]!.bottom - board.bottom) <
+        3
+    )
       return [];
-    result.push({ left, top, right, bottom });
+    result.push(boxes[0]!);
   }
   return result;
 }

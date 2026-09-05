@@ -200,6 +200,13 @@ różne listy aktywnych `seq_*`.
 
 ## Architektura lokalnego przycinania wybranych zdjęć
 
+Poprawka TASK-0472 usuwa sztuczne halo dylatacji przed pomiarem bboxa; halo
+dotykające brzegu pozostaje konserwatywnie niepełnym wsparciem źródła.
+Scalanie wymaga pokrycia większego komponentu, nie tylko zawierania mniejszego.
+Kontrola szerokości i proporcji etykiet poprzedza ranking odległości od dolnej
+granicy. Zmiany identyfikuje fingerprint v11; wariant pozostaje nieaktywny po
+nieprzejściowej bramce, bez zmiany historycznych algorytmów v10.
+
 Eksperymentalny v11 (0469–0471, bez aktywacji) analizuje luminancję i strukturę
 całego 3×3. Wspólny sampler z kanonicznego RGBA ogranicza dłuższy bok do
 960/1600, a wynik zapisuje fingerprint i wykonane poziomy. Brak dziewięciu

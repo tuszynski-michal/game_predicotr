@@ -6,6 +6,17 @@ last_updated: 2026-09-05
 
 # Current State
 
+### TASK-0472 — poprawka detektora, druga bramka nadal nieprzejściowa
+
+- Poprawiono halo dylatacji, scalanie kandydatów i ranking etykiet w v11;
+  stara para regresyjna daje 2/2 poprawnych automatów.
+- Nowy niezależny zbiór: 5/10 poprawnych automatów, 1 z nadmiarem dolnego tła,
+  4 ręczne korekty. Nie osiągnięto >=90%; v11 nadal nieaktywny, task blocked.
+- 100 testów core/runner/Admin contract i oba typechecki OK. Bez zmian źródeł,
+  katalogów cut, geometrii v0.10 i aktywnych jobów. Szczegóły w raporcie jakości.
+- Odbiór dziesięciu zdjęć jest od teraz ujawniony; dalsze strojenie wymaga
+  kolejnego niezależnego materiału. Oryginałów gry literowej nadal brak.
+
 ### TASK-0472 — bramka jakości v11 nie przeszła; rollout zatrzymany
 
 - Holdout: 0/2 poprawnych automatów, 0 błędnych automatów, 2 incomplete_layout

@@ -111,3 +111,50 @@ nie jest kontrolowanym porównaniem wydajności. Odbiór gry literowej niepotwie
 Nie stroimy progów na holdout. Następna diagnoza powinna zbadać brakujące/łączone
 kandydatury plansz; nie wolno zastępować brakującego dowodu syntetycznymi obszarami.
 Zatrzymano rollout zgodnie z poleceniem użytkownika; CROP_V11_RELEASE_ENABLED=false.
+
+## Poprawka TASK-0472 — drugi odbiór nadal NIEPRZEJŚCIOWY
+
+Zmiany: usunięcie halo dylatacji z bboxów, odróżnienie zawierania od duplikatu,
+krawędzie bez minimalnej luminancji, promienie 2/3/4/5/6 oraz walidacja kształtu
+etykiety przed rankingiem. Przy krawędzi źródła halo pozostaje konserwatywne.
+Konfiguracja i `number-bands-v2-validated-before-ranking` zmieniają fingerprint.
+Budżet 960/1600, 96 kandydatów, pełne dziewięć plansz i obowiązek ręcznej korekty
+pozostają. Stare dwa przypadki dają teraz 2/2 poprawnych automatów; są to regresje,
+nie nowy niezależny odbiór.
+
+Przed uruchomieniem detektora wybrano medianowy plik z pierwszych dziesięciu
+numerycznie posortowanych katalogów nieużytych w pierwotnym corpusie.
+`selected-crop-v11-independent.mjs` zawiera SHA, wizualnie oznaczone ekstrema
+wszystkich plansz/numerów i przedziały linii w przestrzeni podglądu 360×640
+(tolerancja przedziałów 2 px). To oracle poziomego pasa, nie narożników plansz.
+Nie zmieniano go po zobaczeniu wyniku. Zdjęcia obejmują różne pochylenia,
+zasłonięcia i źródła 1080×1920 oraz 1520×2704; nadal tylko szatę owocową.
+
+| Źródło | Wynik |
+| --- | --- |
+| 9901–9909 | manual: incomplete_layout |
+| 32482–32490 | poprawny automat |
+| 105841–105849 | poprawny automat |
+| 123049–123057 | poprawny automat |
+| 138943–138951 | poprawny automat |
+| 163576–163584 | automat z nadmiarem tła pod planszami |
+| 189073–189081 | manual: number_regions_missing |
+| 235549–235557 | poprawny automat |
+| 260092–260100 | manual: incomplete_layout |
+| 273925–273933 | manual: incomplete_layout |
+
+Wynik 5/10 = 50%, 1 niedokładny automat, 4 manual. Zero odcięć plansz lub numerów
+w tej próbie, ale bramka >=90% poprawnych automatów oraz zero niedokładnych nie
+przeszła. Błędny crop ma dolną linię 270.77 px podglądu zamiast maksimum 267+2;
+nie rozszerzono referencji, by go zaliczyć. V11 nadal NIEAKTYWNY.
+
+Pierwszy pomiar około 0.28–1.05 s/zdjęcie (render JPEG w pamięci, bez zapisu).
+Nie jest to pomiar wydajności całego katalogu ani innych gier. Powtórny odczyt
+potwierdził identyczne decyzje. Replay v10 pozostał zgodny dla 7/7 źródeł.
+
+Odtworzenie: `node --experimental-strip-types scripts/check_crop_v11_independent.mjs
+"C:\Users\user\Documents\777"` (jedna linia). Skrypt nie zapisuje wynikowych JPEG-ów.
+Nowy zbiór jest już ujawniony; nie wolno używać go do strojenia, a następnie
+ponownie nazywać niezależnym. Odbiór gry literowej nadal niepotwierdzony.
+Kontrole: 100 testów core/runner/Admin, oba typechecki, format i build Admina OK.
+Nie wykonywano live QA ani pełnych testów pozostałych pionów aplikacji.

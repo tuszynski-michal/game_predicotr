@@ -558,6 +558,10 @@ potwierdzić pełne dziewięć plansz i numery oraz obie granice. Brak dowodu ma
 wymagać ręcznej korekty, której nie kasuje odznaczenie kafelków. Sam zapis JPEG
 nie jest testem jakości. Referencje: `ai_docs/quality/SELECTED_CROP_V11_REGRESSIONS.md`.
 
+TASK-0472: poprawka eksperymentalna jest zaimplementowana, ale pozostaje
+nieaktywna: niezależny odbiór dziesięciu zdjęć dał 50% poprawnych automatów,
+poniżej wymaganych 90%. Nie przedstawiać tej wersji jako gotowej produkcyjnie.
+
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
 przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do

@@ -5,11 +5,12 @@ export const CROP_V11_CONFIG = Object.freeze({
   levels: [960, 1600] as const,
   maxCandidates: 96,
   maxRows: 192,
-  luminanceThresholds: [95, 135, 175] as const,
-  dilationRadii: [2, 4, 6] as const,
+  luminanceThresholds: [0, 95, 135, 175] as const,
+  dilationRadii: [2, 3, 4, 5, 6] as const,
   paddingRatio: 0.15,
+  candidateBoundsVersion: 'undilated-support-v2',
 });
-export const CROP_V11_FINGERPRINT = `${CROP_V11_POLICY}|bilinear-rgba-v1|number-bands-v1|${JSON.stringify(CROP_V11_CONFIG)}`;
+export const CROP_V11_FINGERPRINT = `${CROP_V11_POLICY}|bilinear-rgba-v1|number-bands-v2-validated-before-ranking|${JSON.stringify(CROP_V11_CONFIG)}`;
 export interface CropBox {
   left: number;
   top: number;
@@ -54,6 +55,27 @@ function intersection(a: CropBox, b: CropBox): number {
 }
 function similar(a: CropBox, b: CropBox): boolean {
   return intersection(a, b) / Math.min(w(a) * h(a), w(b) * h(b)) > 0.65;
+}
+export function sameStructuralCandidate(a: CropBox, b: CropBox): boolean {
+  // Containment alone is not duplicate evidence: a larger component can include
+  // a label, an arrow or multiple boards. Do not grow the smaller one into it.
+  return intersection(a, b) / Math.max(w(a) * h(a), w(b) * h(b)) > 0.65;
+}
+export function removeDilationHalo(
+  box: CropBox,
+  rx: number,
+  ry: number,
+  width = Infinity,
+  height = Infinity,
+): CropBox {
+  // A clipped halo does not prove where source support ends. Keep the image
+  // boundary so the existing incomplete-source gate still rejects it.
+  return {
+    left: box.left === 0 ? 0 : box.left + rx,
+    top: box.top === 0 ? 0 : box.top + ry,
+    right: box.right === width ? width : box.right - rx,
+    bottom: box.bottom === height ? height : box.bottom - ry,
+  };
 }
 export function validateStructuralSample(s: StructuralSample): void {
   if (
@@ -201,11 +223,14 @@ export function detectStructuralCandidates(s: StructuralSample): {
     for (const radius of CROP_V11_CONFIG.dilationRadii) {
       const rx = Math.max(1, Math.round(radius * scale)),
         ry = Math.max(1, Math.round(radius * scale));
-      for (const box of components(
+      for (const expanded of components(
         dilate(mask, s.width, s.height, rx, ry),
         s.width,
         s.height,
       )) {
+        // Dilation joins nearby symbol edges; it must not enlarge the measured
+        // support. Keeping that synthetic halo makes adjacent rows overlap.
+        const box = removeDilationHalo(expanded, rx, ry, s.width, s.height);
         if (
           w(box) < s.width * 0.065 ||
           w(box) > s.width * 0.42 ||
@@ -217,7 +242,9 @@ export function detectStructuralCandidates(s: StructuralSample): {
           continue;
         const tiles = texture(gray, s.width, box);
         if (tiles < 7) continue;
-        const match = all.find((existing) => similar(existing, box));
+        const match = all.find((existing) =>
+          sameStructuralCandidate(existing, box),
+        );
         if (match) {
           // Retain the union as uncertainty, never select the tightest threshold box.
           match.left = Math.min(match.left, box.left);

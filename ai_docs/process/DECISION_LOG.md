@@ -7919,3 +7919,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** bez podmiany katalogów, zmiany domyślnej polityki i osłabiania
   dowodu dziewięciu plansz. Dalsza diagnoza ekstrakcji kandydatów wymaga osobnego
   polecenia. Odbiór innej szaty graficznej pozostaje niepotwierdzony.
+
+## D-360 — Niezależny odbiór po poprawce, bez dopasowania referencji do wyniku
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** użytkownik zlecił naprawę TASK-0472. Stare dwa przypadki po
+  analizie służą jako regresje; nowy odbiór obejmuje medianowy JPEG z pierwszych
+  dziesięciu niewykorzystanych katalogów posortowanych numerycznie. Adnotacje
+  obu linii i chronionego pasa powstały przed wykonaniem detektora.
+- **Evidence:** 2/2 starych poprawne, nowy odbiór 5/10 poprawnych, 1 nadmiar
+  dolnego tła, 4 manual. Nie osiągnięto 90%; bezpieczeństwo nie wystarcza bez
+  wymaganej użyteczności. Nie poszerzamy przedziałów referencji pod wynik.
+- **Consequences:** v11 nieaktywny; nowe zdjęcia są już ujawnione. Nie uznajemy
+  tej poprawki za zamknięcie taska ani zgodę na ponowne przeliczenie katalogów.

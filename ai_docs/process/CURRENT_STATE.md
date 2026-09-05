@@ -6,6 +6,13 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0477 — naprawa kolejki katalogowego przycinania
+
+- Runner przycinania ponownie rozpoznaje katalogi zaczynające się od numeru;
+  błędnie podwójnie zapisany regex nie zwraca już pustej listy.
+- Czysty filtr zachowuje kolejność numeryczną i pomija outputy `cut`, pliki oraz
+  symlinki. Kolejka katalogów 5–14 została uruchomiona po ukończeniu nr 4.
+
 ### TASK-0476 — filtr kohorty aktywnego modelu
 
 - `Weryfikacja symboli` ma dodatkowy stan `Kohorta aktywnego modelu`, który

@@ -4,6 +4,7 @@ import { processCropDirectory } from './lib/selected-crop-durable-runner.mjs';
 import { SELECTED_IMAGE_AUTO_CROP_POLICY } from '../packages/manual-image-selection-core/src/auto-crop.ts';
 import { CROP_V11_POLICY } from '../packages/manual-image-selection-core/src/auto-crop-v11.ts';
 import { CROP_V11_RELEASE_ENABLED } from '../packages/manual-image-selection-core/src/crop-preparation.ts';
+import { selectedCropSourceDirectories } from './lib/selected-crop-directory-order.mjs';
 const [
   parentArg,
   fromArg = '1',
@@ -24,18 +25,9 @@ if (
 )
   throw new Error('CROP_RUN_RANGE_INVALID');
 const parent = path.resolve(parentArg);
-const dirs = (await fs.readdir(parent, { withFileTypes: true }))
-  .filter(
-    (e) =>
-      e.isDirectory() &&
-      !e.isSymbolicLink() &&
-      !e.name.endsWith(' cut') &&
-      /^\\s*\\d+/.test(e.name),
-  )
-  .sort(
-    (a, b) =>
-      parseInt(a.name) - parseInt(b.name) || a.name.localeCompare(b.name),
-  );
+const dirs = selectedCropSourceDirectories(
+  await fs.readdir(parent, { withFileTypes: true }),
+);
 if (through > dirs.length) throw new Error('CROP_RUN_RANGE_INCOMPLETE');
 for (let index = from - 1; index < through; index++) {
   const dir = dirs[index];

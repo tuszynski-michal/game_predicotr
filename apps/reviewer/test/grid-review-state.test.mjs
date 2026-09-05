@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   addGridGeometryPoint,
   completeGridGeometrySourceDrafts,
+  currentGridGeometrySourceDrafts,
   emptyGridGeometrySourceDrafts,
   firstIncompleteGridGeometrySourceItem,
   GRID_CORNER_LABELS,
@@ -80,6 +81,27 @@ test('an individual draft stays pending until it exactly matches the automatic g
   assert.equal(
     gridGeometryDraftsEqual(automatic.slice(0, 3), automatic),
     false,
+  );
+});
+
+test('direct source editing starts from every current grid without synthetic gaps', () => {
+  const second = {
+    ...item,
+    positionIndex: 1,
+    reviewItemId: '66666666-6666-4666-8666-666666666666',
+    sequenceNumber: 92,
+  };
+  const drafts = currentGridGeometrySourceDrafts([second, item]);
+
+  assert.deepEqual(gridGeometrySourceDraft(drafts, item.reviewItemId), [
+    { x: 120, y: 80 },
+    { x: 1079, y: 80 },
+    { x: 1079, y: 719 },
+    { x: 120, y: 719 },
+  ]);
+  assert.equal(
+    completeGridGeometrySourceDrafts([second, item], drafts)?.length,
+    2,
   );
 });
 

@@ -16,7 +16,10 @@ import {
   rejectGridReview,
   type GridReviewsClient,
 } from './grid-review-actions';
-import { GridReviewEditor } from './grid-review-editor';
+import {
+  GridReviewEditor,
+  type GridReviewEditorHandle,
+} from './grid-review-editor';
 import {
   GRID_REVIEW_SOURCE_PAGE_LIMIT,
   GRID_REVIEW_VIEWS,
@@ -57,6 +60,7 @@ export function GridReviewWorkspace({
   const requestId = useRef(0);
   const submitLock = useRef(false);
   const navigationRef = useRef<GridReviewNavigation>({});
+  const editorRef = useRef<GridReviewEditorHandle>(null);
   const anchorItem = anchorPage?.items[0] ?? null;
   const sourceStats = useMemo(
     () => gridReviewSourceStats(sourceItems),
@@ -233,6 +237,23 @@ export function GridReviewWorkspace({
     submitLock.current = false;
   }, [api, loadPage, refreshAfterMutation, sourceItems]);
 
+  const submitCurrentSource = useCallback(async () => {
+    if (!editing) {
+      await approveSource();
+      return;
+    }
+    if (submitLock.current) return;
+    submitLock.current = true;
+    setSubmitting(true);
+    setError('');
+    setNotice('');
+    const result = await editorRef.current?.submitEdits();
+    if (result === 'saved') await refreshAfterMutation();
+    setSubmitting(false);
+    submitLock.current = false;
+    if (result === 'unchanged') await approveSource();
+  }, [approveSource, editing, refreshAfterMutation]);
+
   const rejectSource = useCallback(async () => {
     if (sourceItems.length === 0 || submitLock.current) return;
     if (!rejectConfirmation) {
@@ -265,12 +286,12 @@ export function GridReviewWorkspace({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.repeat || isGridReviewTypingTarget(event.target) || editing) {
+      if (event.repeat || isGridReviewTypingTarget(event.target)) {
         return;
       }
       if (event.key === 'Enter' || event.key.toLowerCase() === 'f') {
         event.preventDefault();
-        void approveSource();
+        void submitCurrentSource();
         return;
       }
       if (event.key === 'ArrowRight') {
@@ -284,7 +305,7 @@ export function GridReviewWorkspace({
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [approveSource, editing, moveSource]);
+  }, [moveSource, submitCurrentSource]);
 
   return (
     <div className="gridReviewWorkspace">
@@ -397,18 +418,18 @@ export function GridReviewWorkspace({
             key={anchorItem.sourceImageId}
             onEditingChange={setEditing}
             onSaved={() => {
-              setNotice(
-                'Zapisano geometrię i przechodzę do kolejnego zdjęcia.',
-              );
-              void refreshAfterMutation();
+              setNotice('Zapisano i zatwierdzono geometrię całego zdjęcia.');
             }}
             onSelect={setSelectedReviewItemId}
             selectedReviewItemId={selectedReviewItemId}
+            ref={editorRef}
           />
           <footer className="gridReviewActions">
             <button
               className="secondaryButton"
-              disabled={submitting || anchorPage?.previousCursor === null}
+              disabled={
+                submitting || editing || anchorPage?.previousCursor === null
+              }
               onClick={() => void moveSource('previous')}
               type="button"
             >
@@ -417,7 +438,7 @@ export function GridReviewWorkspace({
             <div className="gridReviewWholeImageActions">
               <button
                 className="dangerButton"
-                disabled={submitting}
+                disabled={submitting || editing}
                 onClick={() => void rejectSource()}
                 type="button"
               >
@@ -429,9 +450,10 @@ export function GridReviewWorkspace({
                 aria-label="Zatwierdź całe zdjęcie i przejdź do następnego"
                 className="primaryButton gridReviewApprove"
                 disabled={
-                  submitting || sourceStats.needsCorrectionBoards > 0 || editing
+                  submitting ||
+                  (sourceStats.needsCorrectionBoards > 0 && !editing)
                 }
-                onClick={() => void approveSource()}
+                onClick={() => void submitCurrentSource()}
                 type="button"
               >
                 {submitting
@@ -441,7 +463,9 @@ export function GridReviewWorkspace({
             </div>
             <button
               className="secondaryButton"
-              disabled={submitting || anchorPage?.nextCursor === null}
+              disabled={
+                submitting || editing || anchorPage?.nextCursor === null
+              }
               onClick={() => void moveSource('next')}
               type="button"
             >

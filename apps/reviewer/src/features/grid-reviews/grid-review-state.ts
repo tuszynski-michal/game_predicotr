@@ -155,6 +155,14 @@ export function emptyGridGeometrySourceDrafts(
   return new Map(items.map((item) => [item.reviewItemId, []] as const));
 }
 
+export function currentGridGeometrySourceDrafts(
+  items: readonly ImageGridReviewItemResponse[],
+): GridGeometrySourceDrafts {
+  return new Map(
+    items.map((item) => [item.reviewItemId, gridReviewCorners(item)] as const),
+  );
+}
+
 export function gridGeometrySourceDraft(
   drafts: GridGeometrySourceDrafts,
   reviewItemId: string,

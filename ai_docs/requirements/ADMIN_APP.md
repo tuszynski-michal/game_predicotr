@@ -349,22 +349,25 @@ kontekstu Admin API.
 
 Lokalny Reviewer otwiera domyślnie ekran `Zatwierdzanie cięcia siatki` z jednym
 oryginalnym obrazem i canvasowym overlayem. Obraz otwiera się domyślnie przy
-powiększeniu 100%. Kliknięcie widocznej siatki wybiera odpowiadającą jej
-planszę; w trybie wyznaczania plansz osobno pozwala przełączać aktywny szkic bez
-zapisu ani zmiany jego punktów. Hit-test zawsze odpowiada geometrii aktualnie
-rysowanej na overlayu, także po lokalnym przesunięciu. Filtry mają kolejność `Do
+powiększeniu 100%. Kliknięcie widocznej siatki wybiera odpowiadającą jej planszę
+i od razu rozpoczyna jej edycję, bez osobnego przycisku. Szkic obejmuje cały
+komplet aktywnych plansz źródła, dlatego przełączenie planszy nie usuwa
+wcześniejszej korekty. Hit-test zawsze odpowiada geometrii aktualnie rysowanej
+na overlayu, także po lokalnym przesunięciu. Filtry mają kolejność `Do
 walidacji`, `Do poprawy`, `Wszystkie`. `Enter`, `F` i główny przycisk
 zatwierdzają bieżącą geometrię i przechodzą do następnego rekordu. Jeżeli jedno
 źródło zawiera wiele aktywnych plansz, `Zatwierdź całe zdjęcie` wysyła jeden
-checksum- i revision-bound rozkaz: zatwierdza cały bieżący komplet albo nie
-zatwierdza żadnej planszy. Korekta pozwala wskazać kolejno LT, PT, PD i LD,
+checksum- i revision-bound rozkaz: bez zmian zatwierdza bieżący komplet, a z
+aktywnym szkicem atomowo zapisuje i zatwierdza geometrię wszystkich plansz albo
+nie zapisuje żadnej. `Enter` i `F` wykonują dokładnie tę samą akcję co główny
+przycisk. Korekta pozwala wskazać kolejno LT, PT, PD i LD,
 przeciągać narożniki lub całą siatkę, cofać punkt, resetować szkic oraz obejrzeć
 dynamiczne `rows × columns` cropy przed atomowym zapisem i zatwierdzeniem
-rewizji. `Zakończ edycję` pojedynczej planszy zachowuje kompletny albo częściowy
-szkic oraz panel A/B; ponowne wejście kontynuuje ten szkic. Do czasu zapisu albo
-jawnego `Resetuj do automatu` zwykłe zatwierdzenie, nawigacja i zmiana planszy
-są zablokowane. Dla `virtual_source` przycisk `Wyznacz plansze osobno`, obok `Zmień
-siatkę`, prowadzi przez cztery narożniki każdej aktywnej planszy w kolejności
+rewizji. Wstrzymanie edycji zachowuje kompletny albo częściowy szkic oraz panel
+A/B; ponowne wejście kontynuuje ten szkic. Do czasu zapisu albo jawnego resetu
+zwykłe zatwierdzenie i nawigacja są zablokowane.
+Dla `virtual_source` przycisk `Wyznacz plansze osobno` prowadzi przez cztery
+narożniki każdej aktywnej planszy w kolejności
 row-major; zapis jest dostępny dopiero po komplecie wszystkich slotów i tworzy
 jedną rewizję geometrii źródła. Lokalny szkic każdego slotu pozostaje widoczny
 po przełączeniu planszy oraz po wstrzymaniu i wznowieniu tego trybu, ale nie

@@ -6,6 +6,15 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0474 — bezpośrednia edycja gotowych siatek
+
+- Kliknięcie siatki lub pozycji planszy od razu otwiera edycję bez przycisku
+  `Zmień siatkę`; szkic zaczyna się od bieżących quadów całego źródła.
+- Korekty kolejnych plansz pozostają w jednej mapie, a `Enter`, `F` i
+  `Zatwierdź całe zdjęcie` kierują do jednego atomowego zapisu i zatwierdzenia.
+- Jawne wyznaczanie 36 narożników pozostaje dostępne i niekompletny komplet nie
+  może zostać zapisany. Nawigacja jest zablokowana przy niezapisanym szkicu.
+
 ### TASK-0472 — bezpieczeństwo v11 poprawione, precyzja nadal nie przechodzi
 
 - Wielorozdzielcze potwierdzenie numerów, ostrożna deduplikacja wariantów bbox,

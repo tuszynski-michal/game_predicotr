@@ -415,6 +415,14 @@ geometrii, checksumę i wymiary źródła oraz snapshot topologii. Edytor używa
 czterech narożników w kolejności LT, PT, PD, LD; linie wewnętrzne i cropy są
 wyprowadzane z topologii planszy. Nowy widok nie ładuje katalogu symboli.
 
+Dla kompletnego `virtual_source` klient inicjalizuje source-wide szkic z
+bieżących quadów wszystkich aktywnych slotów. Hit-test siatki jednocześnie
+wybiera slot i otwiera edycję; kolejne przełączenia modyfikują tę samą lokalną
+mapę szkiców. Bez zmian główna akcja korzysta z atomowego zatwierdzenia źródła,
+a po zmianie z atomowego `source-geometry-revisions`. W obu przypadkach
+`Enter`, `F` i przycisk są jednym wejściem komendy. Niekompletny tryb 36
+narożników pozostaje fail-closed, a nawigacja nie porzuca niezapisanego szkicu.
+
 Rollout pozostaje lokalny. Remote Reviewer nadal używa dotychczasowego,
 scope-bound API i jego proxy nie dopuszcza nowych game-wide endpointów.
 

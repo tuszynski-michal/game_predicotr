@@ -80,6 +80,8 @@ test('grid workspace groups active slots by source and guards whole-image action
   assert.match(workspace, /beforeCursor/);
   assert.match(workspace, /event\.key === 'Enter'/);
   assert.match(workspace, /event\.key\.toLowerCase\(\) === 'f'/);
+  assert.match(workspace, /submitCurrentSource/);
+  assert.match(workspace, /editorRef\.current\?\.submitEdits\(\)/);
   assert.match(workspace, /submitLock\.current/);
   assert.match(workspace, /moveSource\('next'\)/);
   assert.match(workspace, /approveSource/);
@@ -104,19 +106,20 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /showOverlay/);
   assert.match(editor, /zoomPercent/);
   assert.match(editor, /useState\(100\)/);
+  assert.match(editor, /currentGridGeometrySourceDrafts/);
+  assert.match(editor, /beginDirectEditing/);
   assert.match(editor, /hasPendingIndividualDraft/);
   assert.match(editor, /showDraftReview/);
-  assert.match(editor, /Kontynuuj edycję/);
+  assert.doesNotMatch(editor, /Zmień siatkę/);
   assert.match(
     editor,
-    /if \(editing\) \{[\s\S]*setEditing\(false\);[\s\S]*return;/,
-  );
-  assert.match(
-    editor,
-    /onEditingChange\(isEditing \|\| hasPendingIndividualDraft\)/,
+    /isEditing \|\| hasPendingIndividualDraft \|\| hasPendingSourceDraft/,
   );
   assert.match(editor, /gridGeometrySourceItemAtPoint/);
-  assert.match(editor, /Kliknij siatkę na zdjęciu, aby wybrać planszę/);
+  assert.match(
+    editor,
+    /Kliknij siatkę na zdjęciu, aby od razu wybrać i edytować planszę/,
+  );
   assert.match(editor, /A · Automat/);
   assert.match(editor, /B · Edycja/);
   assert.match(editor, /item\.gridColumns/);
@@ -128,14 +131,17 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /saveGridReviewGeometry/);
   assert.match(editor, /Wyznacz plansze osobno/);
   assert.match(editor, /Kontynuuj plansze osobno/);
-  assert.match(editor, /Wstrzymaj plansze osobno/);
+  assert.match(editor, /Wstrzymaj edycję plansz/);
   assert.match(editor, /firstIncompleteGridGeometrySourceItem/);
   assert.match(editor, /gridGeometryDraftAnchor/);
   assert.match(editor, /if \(anchor === null\)/);
   assert.match(editor, /completeGridGeometrySourceDrafts/);
   assert.match(editor, /saveGridReviewSourceGeometry/);
-  assert.match(editor, /Zapisz i zatwierdź/);
-  assert.doesNotMatch(editor, /setSourceDrafts\(emptyGridGeometrySourceDrafts/);
+  assert.match(editor, /Zatwierdź całe zdjęcie/);
+  assert.match(
+    editor,
+    /if \(!sourceRedefining\) \{[\s\S]*setSourceDrafts\(emptyGridGeometrySourceDrafts/,
+  );
   assert.doesNotMatch(editor, /upload|overlay.*(?:jpeg|jpg)/i);
 });
 

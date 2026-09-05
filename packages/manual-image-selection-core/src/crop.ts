@@ -4,6 +4,7 @@ import {
 } from '@game-predictor/manual-image-selection-core/repair';
 import type { SelectedImageAutoCropProposal } from './auto-crop.ts';
 import { validateStructuralEvidence } from '@game-predictor/manual-image-selection-core/auto-crop-v11-boundaries';
+import { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 
 export const SELECTED_IMAGE_CROP_SCHEMA_VERSION = 1 as const;
 export const SELECTED_IMAGE_CROP_RENDERER =
@@ -375,6 +376,13 @@ function validateSelectedImageAutoCropProposal(
     if (!proposal.structural || proposal.confidence !== null)
       throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
     validateStructuralEvidence(proposal.structural);
+    if (
+      proposal.preparationFingerprint !== CROP_V11_FINGERPRINT ||
+      !Array.isArray(proposal.analysisLevels) ||
+      !proposal.analysisLevels.every(Number.isInteger) ||
+      !['960', '960,1600'].includes(proposal.analysisLevels.join(','))
+    )
+      throw new Error('SELECTED_IMAGE_CROP_POLICY_UNSUPPORTED');
     if (
       ['width', 'height', 'topY', 'bottomY'].some(
         (key) =>

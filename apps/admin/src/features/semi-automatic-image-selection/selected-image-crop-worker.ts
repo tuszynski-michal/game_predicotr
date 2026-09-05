@@ -2,17 +2,19 @@ import {
   detectSelectedImageCropBand,
   SELECTED_IMAGE_AUTO_CROP_POLICY,
   SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH,
-  type SelectedImageAutoCropClassification,
-  type SelectedImageAutoCropStrategy,
+  type SelectedImageAutoCropProposal,
 } from '@game-predictor/manual-image-selection-core/auto-crop';
+import { SELECTED_IMAGE_CROP_JPEG_QUALITY } from '@game-predictor/manual-image-selection-core/crop';
 import {
-  SELECTED_IMAGE_CROP_JPEG_QUALITY,
-  type SelectedImageCropBand,
-} from '@game-predictor/manual-image-selection-core/crop';
+  prepareStructuralCrop,
+  assertCropPreparationPolicy,
+} from '@game-predictor/manual-image-selection-core/crop-preparation';
+import { CROP_V11_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 
 interface PrepareRequest {
   readonly id: number;
   readonly source: File;
+  readonly policy: string;
 }
 
 interface WorkerScope {
@@ -33,23 +35,19 @@ scope.onmessage = (event) => {
     );
 };
 
-async function prepare(request: PrepareRequest): Promise<{
-  readonly crop: SelectedImageCropBand;
-  readonly strategy: SelectedImageAutoCropStrategy;
-  readonly classification: SelectedImageAutoCropClassification;
-  readonly confidence: number | null;
-  readonly policyVersion: typeof SELECTED_IMAGE_AUTO_CROP_POLICY;
-  readonly evidence: ReturnType<typeof detectSelectedImageCropBand>['evidence'];
-  readonly blob: Blob;
-}> {
+async function prepare(
+  request: PrepareRequest,
+): Promise<SelectedImageAutoCropProposal & { readonly blob: Blob }> {
+  const policy = request.policy ?? SELECTED_IMAGE_AUTO_CROP_POLICY;
+  assertCropPreparationPolicy(policy);
   const bitmap = await createImageBitmap(request.source, {
     imageOrientation: 'from-image',
   });
   try {
-    const sampleWidth = Math.min(
-      SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH,
-      bitmap.width,
-    );
+    const sampleWidth =
+      policy === CROP_V11_POLICY
+        ? bitmap.width
+        : Math.min(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, bitmap.width);
     const sampleHeight = Math.max(
       1,
       Math.round((bitmap.height * sampleWidth) / bitmap.width),
@@ -63,10 +61,16 @@ async function prepare(request: PrepareRequest): Promise<{
       throw new Error('SELECTED_IMAGE_AUTO_CROP_CANVAS_UNAVAILABLE');
     sampleContext.drawImage(bitmap, 0, 0, sampleWidth, sampleHeight);
     const pixels = sampleContext.getImageData(0, 0, sampleWidth, sampleHeight);
-    const proposal = detectSelectedImageCropBand(
-      { width: sampleWidth, height: sampleHeight, rgba: pixels.data },
-      { width: bitmap.width, height: bitmap.height },
-    );
+    const proposal =
+      policy === CROP_V11_POLICY
+        ? await prepareStructuralCrop(
+            { width: sampleWidth, height: sampleHeight, rgba: pixels.data },
+            () => new Promise((resolve) => setTimeout(resolve, 0)),
+          )
+        : detectSelectedImageCropBand(
+            { width: sampleWidth, height: sampleHeight, rgba: pixels.data },
+            { width: bitmap.width, height: bitmap.height },
+          );
     const outputHeight = proposal.crop.bottomY - proposal.crop.topY;
     const outputCanvas = new OffscreenCanvas(bitmap.width, outputHeight);
     const outputContext = outputCanvas.getContext('2d', { alpha: false });

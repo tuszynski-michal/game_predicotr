@@ -6,6 +6,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./crop-preparation": {
+      "types": "./src/crop-preparation.ts",
+      "default": "./src/crop-preparation.ts"
+    },
     "./auto-crop-v11-boundaries": {
       "types": "./src/auto-crop-v11-boundaries.ts",
       "default": "./src/auto-crop-v11-boundaries.ts"

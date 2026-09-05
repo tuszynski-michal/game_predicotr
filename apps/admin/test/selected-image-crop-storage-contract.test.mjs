@@ -59,7 +59,10 @@ test('selected image crop save journals before writing and verifies the output',
 test('preparation prefers an off-main-thread worker with a safe fallback', () => {
   assert.match(source, /prepareSelectedImageCropInWorker/u);
   assert.match(source, /workerResult === null/u);
-  assert.match(source, /proposeSelectedImageCrop\(source\)/u);
+  assert.match(
+    source,
+    /proposeSelectedImageCrop\(\s*source,\s*current\.snapshot\.session\.preparationPolicyVersion!/u,
+  );
 });
 
 test('proposal provenance is persisted and historical sessions require an explicit v4 recalculation', () => {

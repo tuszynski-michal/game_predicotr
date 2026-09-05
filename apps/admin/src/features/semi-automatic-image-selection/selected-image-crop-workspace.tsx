@@ -10,6 +10,7 @@ import {
   type SelectedImageAutoCropProposal,
 } from '@game-predictor/manual-image-selection-core/auto-crop';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CROP_V11_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 import {
   effectiveSelectedImageCropCorrections,
   requiredSelectedImageCropCorrections,
@@ -128,7 +129,8 @@ export function SelectedImageCropWorkspace() {
   const policyRecalculationRequired =
     prepared !== null &&
     prepared.snapshot.session.preparationPolicyVersion !==
-      SELECTED_IMAGE_AUTO_CROP_POLICY;
+      SELECTED_IMAGE_AUTO_CROP_POLICY &&
+    prepared.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY;
   const applyPrepared = useCallback(
     (result: PreparedSelectedImageCropDirectory, requestedIndex: number) => {
       const index = Math.min(
@@ -215,7 +217,8 @@ export function SelectedImageCropWorkspace() {
       }
       if (
         result.snapshot.session.preparationPolicyVersion !==
-        SELECTED_IMAGE_AUTO_CROP_POLICY
+          SELECTED_IMAGE_AUTO_CROP_POLICY &&
+        result.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY
       ) {
         preparationAbortRef.current = null;
         setPreparationProgress(null);
@@ -315,12 +318,18 @@ export function SelectedImageCropWorkspace() {
     }
 
     let cancelled = false;
-    const key = `${currentFile.relativePath}:${currentFile.sizeBytes}:${currentFile.lastModifiedMs}`;
+    const key = `${prepared.snapshot.session.preparationPolicyVersion}:${currentFile.relativePath}:${currentFile.sizeBytes}:${currentFile.lastModifiedMs}`;
     let pending = proposalCacheRef.current.get(key);
     if (pending === undefined) {
       pending = currentFile.handle
         .getFile()
-        .then((file) => proposeSelectedImageCrop(file));
+        .then((file) =>
+          proposeSelectedImageCrop(
+            file,
+            prepared.snapshot.session.preparationPolicyVersion ??
+              SELECTED_IMAGE_AUTO_CROP_POLICY,
+          ),
+        );
       proposalCacheRef.current.set(key, pending);
     }
     queueMicrotask(() => {

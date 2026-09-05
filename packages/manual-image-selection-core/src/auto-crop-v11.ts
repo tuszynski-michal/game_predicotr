@@ -9,6 +9,7 @@ export const CROP_V11_CONFIG = Object.freeze({
   dilationRadii: [2, 4, 6] as const,
   paddingRatio: 0.15,
 });
+export const CROP_V11_FINGERPRINT = `${CROP_V11_POLICY}|bilinear-rgba-v1|number-bands-v1|${JSON.stringify(CROP_V11_CONFIG)}`;
 export interface CropBox {
   left: number;
   top: number;

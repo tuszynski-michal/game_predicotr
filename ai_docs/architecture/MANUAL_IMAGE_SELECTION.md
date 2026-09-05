@@ -200,6 +200,17 @@ różne listy aktywnych `seq_*`.
 
 ## Architektura lokalnego przycinania wybranych zdjęć
 
+Eksperymentalny v11 (0469–0471, bez aktywacji) analizuje luminancję i strukturę
+całego 3×3. Wspólny sampler z kanonicznego RGBA ogranicza dłuższy bok do
+960/1600, a wynik zapisuje fingerprint i wykonane poziomy. Brak dziewięciu
+obszarów numerów lub układu zwraca pełną wysokość i trwały obowiązek korekty.
+Obowiązek jest wyprowadzany z wyników i ręcznych decyzji, nie ze zbioru zaznaczeń.
+Node zapisuje `.crop-preparation-v11`: metadane, intencje per plik, shardy 64,
+blokadę właściciela i raport błędów. JPEG jest publikowany bez nadpisania,
+następnie weryfikowany SHA przed finalizacją. Browser przejmuje wyłącznie
+zakończony handoff; aktywna blokada lub intencja blokuje równoległy zapis.
+Stare katalogi z ręcznym stanem przeglądarki nie są mutowane przez Node.
+
 TASK-0468 ustanawia niezależny test-only oracle jakości poziomego pasa:
 SHA-256 źródeł, wizualne obwiednie plansz/numerów, przedziały linii i split po
 katalogach. Runner odtwarza v10 bez zapisu obrazów. Adnotacje nie są zależnością

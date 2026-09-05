@@ -79,6 +79,8 @@ export interface SelectedImageAutoCropProposal {
   readonly strategy: SelectedImageAutoCropStrategy;
   readonly classification: SelectedImageAutoCropClassification;
   readonly confidence: number | null;
+  readonly preparationFingerprint?: string;
+  readonly analysisLevels?: readonly number[];
   readonly structural?: import('./auto-crop-v11-boundaries.ts').StructuralCropEvidence;
   readonly policyVersion: SelectedImageAutoCropPolicyVersion;
   readonly evidence: SelectedImageAutoCropEvidence;

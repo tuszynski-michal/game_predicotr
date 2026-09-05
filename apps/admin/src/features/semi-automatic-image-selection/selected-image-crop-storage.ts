@@ -42,6 +42,11 @@ import { pickLocalDirectory } from '@/lib/local-directory-picker';
 import { readActiveFilledGapsManifest } from '@/features/manual-image-selection/manual-selection-repair-storage';
 
 import { prepareSelectedImageCropInWorker } from './selected-image-crop-worker-client';
+import {
+  prepareStructuralCrop,
+  assertCropPreparationPolicy,
+} from '@game-predictor/manual-image-selection-core/crop-preparation';
+import { CROP_V11_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 
 export const SELECTED_IMAGE_CROP_MANIFEST_NAME =
   'manual-image-crop-output-v1.json';
@@ -88,12 +93,17 @@ export interface SelectedImageCropPreparationResult {
 
 export async function proposeSelectedImageCrop(
   source: File,
+  policy: string = SELECTED_IMAGE_AUTO_CROP_POLICY,
 ): Promise<SelectedImageAutoCropProposal> {
+  assertCropPreparationPolicy(policy);
   const bitmap = await createImageBitmap(source, {
     imageOrientation: 'from-image',
   });
   try {
-    const width = Math.min(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, bitmap.width);
+    const width =
+      policy === CROP_V11_POLICY
+        ? bitmap.width
+        : Math.min(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, bitmap.width);
     const height = Math.max(
       1,
       Math.round((bitmap.height * width) / bitmap.width),
@@ -110,10 +120,15 @@ export async function proposeSelectedImageCrop(
     }
     context.drawImage(bitmap, 0, 0, width, height);
     const pixels = context.getImageData(0, 0, width, height);
-    return detectSelectedImageCropBand(
-      { width, height, rgba: pixels.data },
-      { width: bitmap.width, height: bitmap.height },
-    );
+    return policy === CROP_V11_POLICY
+      ? await prepareStructuralCrop(
+          { width, height, rgba: pixels.data },
+          yieldToBrowser,
+        )
+      : detectSelectedImageCropBand(
+          { width, height, rgba: pixels.data },
+          { width: bitmap.width, height: bitmap.height },
+        );
   } finally {
     bitmap.close();
   }
@@ -185,6 +200,7 @@ export async function prepareSelectedImageCropDirectory(
     await writeSelectedImageCropManifest(outputDirectory, manifest);
   }
 
+  await assertNodeCropHandoff(outputDirectory, manifest);
   let snapshot = await openSelectedImageCropSnapshot(
     outputDirectory,
     manifest,
@@ -411,7 +427,8 @@ export async function prepareAllSelectedImageCrops(
 ): Promise<SelectedImageCropPreparationResult> {
   if (
     prepared.snapshot.session.preparationPolicyVersion !==
-    SELECTED_IMAGE_AUTO_CROP_POLICY
+      SELECTED_IMAGE_AUTO_CROP_POLICY &&
+    prepared.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY
   ) {
     throw new Error('SELECTED_IMAGE_CROP_POLICY_RECALCULATION_REQUIRED');
   }
@@ -443,9 +460,15 @@ export async function prepareAllSelectedImageCrops(
       let proposal: SelectedImageAutoCropProposal;
       let workerRendered: SelectedImageCropRenderedFile | null = null;
       try {
-        const workerResult = await prepareSelectedImageCropInWorker(source);
+        const workerResult = await prepareSelectedImageCropInWorker(
+          source,
+          current.snapshot.session.preparationPolicyVersion!,
+        );
         if (workerResult === null) {
-          proposal = await proposeSelectedImageCrop(source);
+          proposal = await proposeSelectedImageCrop(
+            source,
+            current.snapshot.session.preparationPolicyVersion!,
+          );
         } else {
           proposal = workerResult.proposal;
           workerRendered = workerResult.rendered;
@@ -510,9 +533,16 @@ export async function recalculateUnreviewedSelectedImageCrops(
     if (signal?.aborted === true) break;
     try {
       const source = await sourceFile.handle.getFile();
-      const workerResult = await prepareSelectedImageCropInWorker(source);
+      const workerResult = await prepareSelectedImageCropInWorker(
+        source,
+        current.snapshot.session.preparationPolicyVersion!,
+      );
       const proposal =
-        workerResult?.proposal ?? (await proposeSelectedImageCrop(source));
+        workerResult?.proposal ??
+        (await proposeSelectedImageCrop(
+          source,
+          current.snapshot.session.preparationPolicyVersion!,
+        ));
       current = await saveSelectedImageCrop({
         prepared: current,
         sourceFile,
@@ -703,7 +733,17 @@ async function openSelectedImageCropSnapshot(
         ...migratedBase.session,
         preparationPolicyVersion: isNewSession
           ? SELECTED_IMAGE_AUTO_CROP_POLICY
-          : null,
+          : legacyManifest.entries.some(
+                (e) =>
+                  e.result?.autoCropProposal?.policyVersion === CROP_V11_POLICY,
+              ) &&
+              legacyManifest.entries.every(
+                (e) =>
+                  e.result === null ||
+                  e.result.autoCropProposal?.policyVersion === CROP_V11_POLICY,
+              )
+            ? CROP_V11_POLICY
+            : null,
       },
     };
     await writeJsonFile(stateDirectory, SESSION_NAME, migrated.session);
@@ -768,7 +808,8 @@ async function pinSelectedImageCropPreparationPolicy(
 ): Promise<PreparedSelectedImageCropDirectory> {
   if (
     prepared.snapshot.session.preparationPolicyVersion ===
-    SELECTED_IMAGE_AUTO_CROP_POLICY
+      SELECTED_IMAGE_AUTO_CROP_POLICY ||
+    prepared.snapshot.session.preparationPolicyVersion === CROP_V11_POLICY
   )
     return prepared;
   const session = {
@@ -1031,6 +1072,33 @@ export async function readCanonicalSelectedImageDimensions(
   }
 }
 
+async function assertNodeCropHandoff(
+  directory: FileSystemDirectoryHandle,
+  manifest: SelectedImageCropManifestV1,
+): Promise<void> {
+  if (!(await directoryContainsEntry(directory, '.crop-preparation-v11')))
+    return;
+  const state = await directory.getDirectoryHandle('.crop-preparation-v11');
+  const names = await listDirectoryEntryNames(state);
+  if (
+    names.includes('lock.json') ||
+    names.some((n) => n.startsWith('pending-'))
+  )
+    throw new Error('SELECTED_IMAGE_CROP_PREPARATION_NOT_FINISHED');
+  const handle = await state.getFileHandle('meta.json');
+  const meta = JSON.parse(await (await handle.getFile()).text()) as {
+    sourceDirectoryName?: string;
+    outputDirectoryName?: string;
+    inventoryHash?: string;
+  };
+  if (
+    meta.sourceDirectoryName !== manifest.sourceDirectoryName ||
+    meta.outputDirectoryName !== manifest.outputDirectoryName ||
+    meta.inventoryHash !== manifest.sourceInventoryChecksumSha256
+  )
+    throw new Error('SELECTED_IMAGE_CROP_OUTPUT_FOREIGN');
+}
+
 async function assertOwnedOutputContents(
   outputDirectory: FileSystemDirectoryHandle,
   manifest: SelectedImageCropManifestV1,
@@ -1038,6 +1106,7 @@ async function assertOwnedOutputContents(
   const allowed = new Set([
     SELECTED_IMAGE_CROP_MANIFEST_NAME.toLocaleLowerCase('en-US'),
     SELECTED_IMAGE_CROP_STATE_DIRECTORY.toLocaleLowerCase('en-US'),
+    '.crop-preparation-v11',
     ...manifest.entries
       .filter((entry) => entry.result !== null)
       .map((entry) => entry.fileName.toLocaleLowerCase('en-US')),

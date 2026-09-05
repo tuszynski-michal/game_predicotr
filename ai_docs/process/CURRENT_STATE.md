@@ -6,6 +6,15 @@ last_updated: 2026-09-05
 
 # Current State
 
+### TASK-0471 — wspólny transport i journal v11
+
+- Dodano wspólny sampler i fingerprint; worker/fallback otrzymują przypiętą
+  politykę. V11 nadal nieaktywny; następny krok to bramka 0472.
+- Node ma trwałą intencję per plik, no-clobber publikację, SHA, recovery
+  i ochronę przestrzeni źródłowej. Testy przerwań po 4 fazach przeszły.
+- 72 core, 18 Admin contract, 6 Node recovery, typecheck i scoped lint OK.
+  Pełny lint Admina blokują dwa stare błędy w geometry-guard-resolution-panel.
+
 ### TASK-0470 — granice i trwały obowiązek korekty
 
 - V11 ma dowód obu granic z obszarami numerów i buforem; niepewność daje

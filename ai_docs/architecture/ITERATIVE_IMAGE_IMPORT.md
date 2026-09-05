@@ -296,6 +296,21 @@ dane, które v1 redukował do liczników. Konwersja audytowa v1→v2 weryfikuje
 checksumę starego raportu i identyczność wybranych źródeł; jej wynik jest nowym
 content-addressed artefaktem, a nie mutacją joba historycznego.
 
+Konwersję uruchamia oddzielny `validate` job rodzaju
+`image_geometry_guard_report_reconstruction`. Jego wejście wiąże źródłowy
+failed import, staging i checksumy trzech niezmiennych dowodów. Handler ładuje
+istniejący managed-original manifest w trybie read-only, odtwarza produkcyjny
+adapter suite z historycznych snapshotów i wykonuje wyłącznie zapisaną próbkę.
+Raport trafia do
+`data/image-geometry-guards/derived/<prefix>/<report-sha256>.json`, a descriptor
+zostaje w checkpointcie joba rekonstrukcji.
+
+Repozytorium kolejki wyszukuje wyłącznie zakończony job rekonstrukcji o tym
+samym źródłowym jobie, stagingu i checksumie v1. Warstwa aplikacyjna ponownie
+sprawdza descriptor, content-addressed envelope, `derivedFrom...` i `jobId`.
+Pierwotny checkpoint oraz `data/image-geometry-guards/<source-job>.json` nie są
+aktualizowane.
+
 Rozliczenia operatora są przechowywane w
 `image_import_geometry_guard_decisions` jako append-only rewizje. Baza chroni
 zakres slotu, checksumy i rozłączną semantykę full/partial/rejected, a warstwa

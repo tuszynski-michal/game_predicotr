@@ -270,7 +270,11 @@ def test_legacy_report_requires_board_diagnostic_reconstruction(tmp_path: Path) 
     relative = repository.scope.job_checkpoint_payload["geometry_systemic_guard"][
         "reportRelativePath"
     ]
-    report = {"sources": []}
+    report = {
+        "jobId": str(JOB_ID),
+        "selectedSourceChecksums": [SOURCE_CHECKSUM],
+        "sources": [],
+    }
     checksum = payload_checksum(report)
     (tmp_path / relative).write_text(
         json.dumps({"report": report, "reportChecksumSha256": checksum}), encoding="ascii"
@@ -283,3 +287,63 @@ def test_legacy_report_requires_board_diagnostic_reconstruction(tmp_path: Path) 
         service.queue(game_id=GAME_ID, browser_selection_id=UPLOAD_ID, guard_job_id=JOB_ID)
 
     assert captured.value.code == "IMAGE_GEOMETRY_GUARD_BOARD_REPORT_REQUIRED"
+
+    reconstruction = service.report_reconstruction_input(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+    )
+    assert reconstruction.legacy_report_checksum_sha256 == checksum
+
+    derived = {
+        "schemaVersion": "image-geometry-systemic-guard-report-v2",
+        "derivedFromReportChecksumSha256": checksum,
+        "jobId": str(JOB_ID),
+        "sources": [
+            {
+                "sourceChecksumSha256": SOURCE_CHECKSUM,
+                "sourceRelativePath": "seq_20530-20538.jpg",
+                "boards": [
+                    {
+                        "positionIndex": 0,
+                        "sequenceNumber": 20530,
+                        "status": "deferred",
+                        "reasonCodes": ["incomplete_lattice"],
+                    }
+                ],
+            }
+        ],
+    }
+    derived_checksum = payload_checksum(derived)
+    derived_relative = (
+        f"data/image-geometry-guards/derived/{derived_checksum[:2]}/{derived_checksum}.json"
+    )
+    derived_path = tmp_path / derived_relative
+    derived_path.parent.mkdir(parents=True)
+    derived_path.write_text(
+        json.dumps({"report": derived, "reportChecksumSha256": derived_checksum}),
+        encoding="ascii",
+    )
+    repository.scope = ImageGeometryGuardScope(
+        game_id=repository.scope.game_id,
+        browser_selection_id=repository.scope.browser_selection_id,
+        browser_manifest_checksum_sha256=(repository.scope.browser_manifest_checksum_sha256),
+        job_input_payload=repository.scope.job_input_payload,
+        job_checkpoint_payload=repository.scope.job_checkpoint_payload,
+        derived_report_checkpoint={
+            "sourceGuardJobId": str(JOB_ID),
+            "legacyReportChecksumSha256": checksum,
+            "sourceManifestChecksumSha256": "b" * 64,
+            "pageGeometryManifestChecksumSha256": "c" * 64,
+            "reportChecksumSha256": derived_checksum,
+            "reportRelativePath": derived_relative,
+        },
+    )
+
+    queue = service.queue(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+    )
+    assert queue.guard_report_checksum_sha256 == derived_checksum
+    assert [(item.position_index, item.sequence_number) for item in queue.targets] == [(0, 20530)]

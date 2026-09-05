@@ -126,6 +126,18 @@ class ManagedOriginalStore:
         self._write_immutable(destination, content)
         return self._load_manifest(destination, relative_path, job)
 
+    def load_existing_manifest(self, job: Job) -> ManagedSourceManifest:
+        """Load a previously materialized manifest without creating any artifact."""
+
+        relative_path = f"data/originals/manifests/{job.id}.json"
+        destination = self._safe_path(relative_path)
+        if not destination.exists():
+            raise JobHandlerError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_MANIFEST_UNAVAILABLE",
+                "The source import managed-original manifest is unavailable.",
+            )
+        return self._load_manifest(destination, relative_path, job)
+
     def _managed_reprocess_manifest_bytes(self, job: Job) -> bytes:
         raw_source_job_id = job.input_payload.get("managed_source_job_id")
         try:
@@ -166,9 +178,7 @@ class ManagedOriginalStore:
                 "The source import manifest has different provenance.",
             )
         if job.input_payload.get("schema_version") == 6:
-            expected_checksum = job.input_payload.get(
-                "managed_source_manifest_checksum_sha256"
-            )
+            expected_checksum = job.input_payload.get("managed_source_manifest_checksum_sha256")
             if (
                 not isinstance(expected_checksum, str)
                 or not SHA256_PATTERN.fullmatch(expected_checksum)

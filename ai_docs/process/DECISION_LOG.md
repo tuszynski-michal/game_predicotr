@@ -7664,3 +7664,20 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   fail-closed sprawdzają jego proweniencję oraz checksumy. Schema v5 i v6 nie
   odczytują tego wejścia. Failed job pozostaje niezmiennym audytem, a wznowienie
   wymaga utworzenia nowego joba po ręcznym zamknięciu manifestu.
+
+### D-342 — Rekonstrukcja raportu v1 jest osobnym jobem i artefaktem
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** board-level diagnostyka historycznego raportu v1 powstaje w
+  osobnym jobie `validate`, który odtwarza dokładną zapisaną próbkę przy użyciu
+  snapshotów źródłowego failed importu. Wynik jest content-addressed raportem
+  v2 z checksumą poprzednika; źródłowy job, checkpoint i raport nie są
+  modyfikowane.
+- **Reason:** agregat v1 nie wskazuje slotów, a retry failed importu zmieniałby
+  dowód regresji. Oddzielny job zapewnia postęp, retry, audyt i kontrolę driftu
+  bez ukrytej mutacji historii.
+- **Consequences:** kolejka decyzji widzi raport pochodny dopiero po zakończeniu
+  zgodnego joba rekonstrukcji. Worker nie może tworzyć brakującego managed
+  manifestu ani użyć aktualnych modeli. Identyczne polecenie prowadzi do tego
+  samego joba i immutable artefaktu.

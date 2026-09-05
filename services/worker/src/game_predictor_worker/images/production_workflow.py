@@ -423,7 +423,7 @@ class ProductionImageImportWorkflow:
                 artifact_root=self._artifact_root,
                 job=job,
                 originals=manifest.originals,
-                source_manifest_checksum_sha256=manifest.checksum_sha256,
+                source_manifest_checksum_sha256=_browser_source_manifest_checksum(job),
                 page_geometry_manifest_checksum_sha256=_page_geometry_manifest_checksum(job),
             )
             if job.input_payload.get("geometry_guard_resolution_manifest") is not None
@@ -2429,6 +2429,20 @@ def _pipeline_fingerprint(job: Job) -> str:
         raise JobHandlerError(
             "IMAGE_IMPORT_PAYLOAD_INVALID",
             "The image import pipeline fingerprint is missing.",
+        )
+    return value
+
+
+def _browser_source_manifest_checksum(job: Job) -> str:
+    value = job.input_payload.get("source_manifest_sha256")
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise JobHandlerError(
+            "IMAGE_SEQUENCE_MANIFEST_INVALID",
+            "The browser import source manifest checksum is missing.",
         )
     return value
 

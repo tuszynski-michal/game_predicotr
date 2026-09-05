@@ -272,6 +272,15 @@ class ImageGeometryGuardDecisionBatchResponse(ApiModel):
     decisions: list[ImageGeometryGuardDecisionResponse]
 
 
+class ImageGeometryGuardReportReconstructionCreate(ApiModel):
+    game_id: UUID
+
+
+class ImageGeometryGuardReportReconstructionResponse(ApiModel):
+    created: bool
+    job: JobResponse
+
+
 class ImageGeometryGuardManifestSealCreate(ApiModel):
     game_id: UUID
     expected_guard_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

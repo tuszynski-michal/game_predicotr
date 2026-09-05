@@ -12,6 +12,7 @@ from game_predictor_worker.images.large_import_geometry_guard import (
     LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA,
     build_board_level_guard_report_from_legacy,
     guard_required,
+    reconstruct_board_level_guard_report_from_legacy,
     run_large_import_geometry_guard,
     select_representative_originals,
     validate_large_import_geometry_guard_resolutions,
@@ -344,6 +345,58 @@ def test_legacy_report_is_upgraded_without_mutation() -> None:
     assert json.dumps(legacy, sort_keys=True) == legacy_before
     assert upgraded["derivedFromReportChecksumSha256"] == legacy_checksum
     assert upgraded["sources"][0]["boards"][8]["sequenceNumber"] == 9
+
+
+def test_legacy_reconstruction_persists_a_content_addressed_v2_report(
+    tmp_path: Path,
+) -> None:
+    source = _original(0)
+    source_job_id = UUID("44444444-4444-4444-4444-444444444444")
+    legacy = {
+        "jobId": str(source_job_id),
+        "pageGeometryManifestChecksumSha256": "b" * 64,
+        "pipelineFingerprintSha256": "a" * 64,
+        "sourceManifestChecksumSha256": "c" * 64,
+        "selectedSourceChecksums": [source.checksum_sha256],
+        "sourceCount": 100,
+        "activeBoardCount": 900,
+    }
+    legacy_checksum = hashlib.sha256(
+        json.dumps(
+            legacy,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("ascii")
+    ).hexdigest()
+
+    first = reconstruct_board_level_guard_report_from_legacy(
+        artifact_root=tmp_path,
+        source_job_id=source_job_id,
+        pipeline_fingerprint_sha256="a" * 64,
+        legacy_report=legacy,
+        legacy_report_checksum_sha256=legacy_checksum,
+        originals=(source,),
+        geometry_entries=_entries((source,)),
+        suite=_Suite(final_board_count=8),
+    )
+    second = reconstruct_board_level_guard_report_from_legacy(
+        artifact_root=tmp_path,
+        source_job_id=source_job_id,
+        pipeline_fingerprint_sha256="a" * 64,
+        legacy_report=legacy,
+        legacy_report_checksum_sha256=legacy_checksum,
+        originals=(source,),
+        geometry_entries=_entries((source,)),
+        suite=_Suite(final_board_count=8),
+    )
+
+    assert second == first
+    assert first.report_checksum_sha256 in first.report_relative_path
+    envelope = json.loads((tmp_path / first.report_relative_path).read_text(encoding="ascii"))
+    assert envelope["reportChecksumSha256"] == first.report_checksum_sha256
+    assert envelope["report"]["derivedFromReportChecksumSha256"] == legacy_checksum
+    assert envelope["report"]["sources"][0]["boards"][8]["status"] == "deferred"
 
 
 def test_guard_rejects_a_tampered_persisted_report(tmp_path: Path) -> None:

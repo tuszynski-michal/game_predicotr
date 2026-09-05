@@ -14,6 +14,7 @@ from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardResolutionManifest,
     ImageGeometryGuardScope,
 )
+from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.storage.models import (
     BrowserSelectionRetentionModel,
     ImageImportGeometryGuardDecisionModel,
@@ -50,6 +51,44 @@ class SqlAlchemyImageImportGeometryGuardRepository:
         job, staging = row
         if job.input_payload.get("source_selection_id") != str(browser_selection_id):
             return None
+        source_guard_checkpoint = (
+            job.checkpoint_payload.get("geometry_systemic_guard")
+            if isinstance(job.checkpoint_payload, dict)
+            else None
+        )
+        source_guard_report_checksum = (
+            source_guard_checkpoint.get("reportChecksumSha256")
+            if isinstance(source_guard_checkpoint, dict)
+            else None
+        )
+        derived_report_checkpoint = None
+        reconstruction_jobs = self._session.scalars(
+            select(JobModel)
+            .where(
+                JobModel.game_id == game_id,
+                JobModel.job_type == JobType.VALIDATE,
+                JobModel.status == JobStatus.COMPLETED,
+            )
+            .order_by(JobModel.created_at.desc(), JobModel.id.desc())
+        ).all()
+        for reconstruction in reconstruction_jobs:
+            if (
+                reconstruction.input_payload.get("validation_kind")
+                != "image_geometry_guard_report_reconstruction"
+                or reconstruction.input_payload.get("source_guard_job_id") != str(guard_job_id)
+                or reconstruction.input_payload.get("source_selection_id")
+                != str(browser_selection_id)
+                or reconstruction.input_payload.get("legacy_report_checksum_sha256")
+                != source_guard_report_checksum
+                or not isinstance(reconstruction.checkpoint_payload, dict)
+            ):
+                continue
+            raw_checkpoint = reconstruction.checkpoint_payload.get(
+                "geometry_guard_report_reconstruction"
+            )
+            if isinstance(raw_checkpoint, dict):
+                derived_report_checkpoint = dict(raw_checkpoint)
+                break
         return ImageGeometryGuardScope(
             game_id=game_id,
             browser_selection_id=browser_selection_id,
@@ -58,6 +97,7 @@ class SqlAlchemyImageImportGeometryGuardRepository:
             job_checkpoint_payload=(
                 None if job.checkpoint_payload is None else dict(job.checkpoint_payload)
             ),
+            derived_report_checkpoint=derived_report_checkpoint,
         )
 
     def latest_decisions(self, *, guard_job_id: UUID) -> tuple[ImageGeometryGuardDecision, ...]:

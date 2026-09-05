@@ -6,6 +6,18 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Audytowa rekonstrukcja raportu bramki v1→v2 — TASK-0452
+
+- Osobny job walidacyjny odtwarza wyłącznie historyczną próbkę zapisaną w
+  raporcie v1, używając managed manifestu i wszystkich snapshotów failed
+  importu. Nie mutuje źródłowego joba, jego checkpointu ani raportu.
+- Wynik v2 jest content-addressed i jawnie wskazuje checksumę raportu v1.
+  Kolejka decyzji akceptuje tylko zakończoną rekonstrukcję zgodną z grą,
+  stagingiem, raportem oraz manifestami źródeł i geometrii strony.
+- Endpoint startu jest idempotentny względem wejścia joba. Wdrożenie nie
+  uruchamia automatycznie rekonstrukcji ani joba `86128f3c…`; to pozostaje
+  krokiem operatorskim po restarcie usług.
+
 ### Manifest-bound wykonanie rozliczeń w schema v7 — TASK-0451
 
 - Nowe browser-importy używają schema v7 i mogą przypiąć zamknięty manifest

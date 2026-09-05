@@ -5144,6 +5144,90 @@
         "title": "ImageGeometryGuardQueueResponse",
         "type": "object"
       },
+      "ImageGeometryGuardReportReconstructionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId"
+        ],
+        "title": "ImageGeometryGuardReportReconstructionCreate",
+        "type": "object"
+      },
+      "ImageGeometryGuardReportReconstructionJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "legacyReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Legacyreportchecksumsha256",
+            "type": "string"
+          },
+          "pageGeometryManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pagegeometrymanifestchecksumsha256",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceGuardJobId": {
+            "format": "uuid",
+            "title": "Sourceguardjobid",
+            "type": "string"
+          },
+          "sourceManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestchecksumsha256",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "validationKind": {
+            "const": "image_geometry_guard_report_reconstruction",
+            "title": "Validationkind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validationKind",
+          "sourceSelectionId",
+          "sourceGuardJobId",
+          "legacyReportChecksumSha256",
+          "sourceManifestChecksumSha256",
+          "pageGeometryManifestChecksumSha256"
+        ],
+        "title": "ImageGeometryGuardReportReconstructionJobPayload",
+        "type": "object"
+      },
+      "ImageGeometryGuardReportReconstructionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          }
+        },
+        "required": [
+          "created",
+          "job"
+        ],
+        "title": "ImageGeometryGuardReportReconstructionResponse",
+        "type": "object"
+      },
       "ImageGeometryGuardResolutionManifestJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -9601,6 +9685,9 @@
               },
               {
                 "$ref": "#/components/schemas/PageGeometryPreflightJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/ImageGeometryGuardReportReconstructionJobPayload"
               },
               {
                 "$ref": "#/components/schemas/PayoutJobPayload"
@@ -20287,6 +20374,9 @@
               },
               {
                 "$ref": "#/components/schemas/PageGeometryPreflightJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/ImageGeometryGuardReportReconstructionJobPayload"
               }
             ],
             "title": "Inputpayload"
@@ -28557,6 +28647,104 @@
           }
         ],
         "summary": "Append one atomic batch of board-level guard decisions",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/report-reconstruction": {
+      "post": {
+        "operationId": "startImageGeometryGuardReportReconstruction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "guard_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Guard Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageGeometryGuardReportReconstructionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGeometryGuardReportReconstructionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Reconstruct immutable board diagnostics for a legacy guard report",
         "tags": [
           "image-imports"
         ]

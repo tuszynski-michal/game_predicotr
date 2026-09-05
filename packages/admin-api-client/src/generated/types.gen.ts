@@ -2929,6 +2929,61 @@ export type ImageGeometryGuardQueueResponse = {
 };
 
 /**
+ * ImageGeometryGuardReportReconstructionCreate
+ */
+export type ImageGeometryGuardReportReconstructionCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * ImageGeometryGuardReportReconstructionJobPayload
+ */
+export type ImageGeometryGuardReportReconstructionJobPayload = {
+  /**
+   * Legacyreportchecksumsha256
+   */
+  legacyReportChecksumSha256: string;
+  /**
+   * Pagegeometrymanifestchecksumsha256
+   */
+  pageGeometryManifestChecksumSha256: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Sourceguardjobid
+   */
+  sourceGuardJobId: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  /**
+   * Validationkind
+   */
+  validationKind: 'image_geometry_guard_report_reconstruction';
+};
+
+/**
+ * ImageGeometryGuardReportReconstructionResponse
+ */
+export type ImageGeometryGuardReportReconstructionResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  job: JobResponse;
+};
+
+/**
  * ImageGeometryGuardResolutionManifestJobPayload
  */
 export type ImageGeometryGuardResolutionManifestJobPayload = {
@@ -5396,6 +5451,7 @@ export type JobResponse = {
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PageGeometryPreflightJobPayload
+    | ImageGeometryGuardReportReconstructionJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
@@ -11554,7 +11610,8 @@ export type ValidateJobCreate = {
   inputPayload:
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
-    | PageGeometryPreflightJobPayload;
+    | PageGeometryPreflightJobPayload
+    | ImageGeometryGuardReportReconstructionJobPayload;
   /**
    * Jobtype
    */
@@ -15985,6 +16042,54 @@ export type CreateImageGeometryGuardDecisionsResponses = {
 
 export type CreateImageGeometryGuardDecisionsResponse =
   CreateImageGeometryGuardDecisionsResponses[keyof CreateImageGeometryGuardDecisionsResponses];
+
+export type StartImageGeometryGuardReportReconstructionData = {
+  body: ImageGeometryGuardReportReconstructionCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Guard Job Id
+     */
+    guard_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/report-reconstruction';
+};
+
+export type StartImageGeometryGuardReportReconstructionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type StartImageGeometryGuardReportReconstructionError =
+  StartImageGeometryGuardReportReconstructionErrors[keyof StartImageGeometryGuardReportReconstructionErrors];
+
+export type StartImageGeometryGuardReportReconstructionResponses = {
+  /**
+   * Successful Response
+   */
+  201: ImageGeometryGuardReportReconstructionResponse;
+};
+
+export type StartImageGeometryGuardReportReconstructionResponse =
+  StartImageGeometryGuardReportReconstructionResponses[keyof StartImageGeometryGuardReportReconstructionResponses];
 
 export type SealImageGeometryGuardResolutionManifestData = {
   body: ImageGeometryGuardManifestSealCreate;

@@ -1033,6 +1033,47 @@ class JobService:
             game_already_validated=True,
         )
 
+    def create_geometry_guard_report_reconstruction_job(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+        source_guard_job_id: UUID,
+        legacy_report_checksum_sha256: str,
+        source_manifest_checksum_sha256: str,
+        page_geometry_manifest_checksum_sha256: str,
+    ) -> Job:
+        source = self._repository.get_job(source_guard_job_id)
+        if source is None or source.job_type is not JobType.IMPORT:
+            raise JobNotFoundError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_JOB_NOT_FOUND",
+                "The source geometry guard import job does not exist.",
+            )
+        if source.game_id != game_id:
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_GAME_MISMATCH",
+                "The source geometry guard import belongs to another game.",
+            )
+        if source.input_payload.get("source_selection_id") != str(source_selection_id):
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_STAGING_MISMATCH",
+                "The source geometry guard import belongs to another browser staging.",
+            )
+        return self._persist_job(
+            JobType.VALIDATE,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 1,
+                "validation_kind": "image_geometry_guard_report_reconstruction",
+                "source_selection_id": str(source_selection_id),
+                "source_guard_job_id": str(source_guard_job_id),
+                "legacy_report_checksum_sha256": legacy_report_checksum_sha256,
+                "source_manifest_checksum_sha256": source_manifest_checksum_sha256,
+                "page_geometry_manifest_checksum_sha256": (page_geometry_manifest_checksum_sha256),
+            },
+            game_already_validated=True,
+        )
+
     def create_payout_job(
         self,
         *,

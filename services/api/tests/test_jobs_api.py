@@ -500,6 +500,46 @@ def test_browser_schema_v7_fingerprint_binds_guard_resolution_manifest(
     )
 
 
+def test_geometry_guard_report_reconstruction_job_is_pinned_to_source_import(
+    tmp_path: Path,
+) -> None:
+    _client_value, game_id, service, _repository = _client(tmp_path)
+    source = tmp_path / "legacy-guard"
+    source.mkdir()
+    selection_id = uuid4()
+    guard_job = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source,
+        source_display_name="legacy-guard",
+        pipeline_fingerprint="a" * 64,
+    )
+
+    reconstruction = service.create_geometry_guard_report_reconstruction_job(
+        game_id=game_id,
+        source_selection_id=selection_id,
+        source_guard_job_id=guard_job.id,
+        legacy_report_checksum_sha256="b" * 64,
+        source_manifest_checksum_sha256="c" * 64,
+        page_geometry_manifest_checksum_sha256="d" * 64,
+    )
+
+    assert reconstruction.job_type is JobType.VALIDATE
+    assert reconstruction.input_payload == {
+        "schema_version": 1,
+        "validation_kind": "image_geometry_guard_report_reconstruction",
+        "source_selection_id": str(selection_id),
+        "source_guard_job_id": str(guard_job.id),
+        "legacy_report_checksum_sha256": "b" * 64,
+        "source_manifest_checksum_sha256": "c" * 64,
+        "page_geometry_manifest_checksum_sha256": "d" * 64,
+    }
+    response = JobResponse.from_domain(reconstruction).model_dump(mode="json", by_alias=True)
+    assert response["inputPayload"]["validationKind"] == (
+        "image_geometry_guard_report_reconstruction"
+    )
+
+
 def test_per_game_virtual_geometry_rollout_is_immutably_pinned_to_new_jobs(
     tmp_path: Path,
 ) -> None:

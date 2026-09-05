@@ -1357,6 +1357,20 @@ przeliczony do osobnego raportu diagnostycznego tylko z tych samych przypiętych
 snapshotów i dokładnie tej samej listy checksum; pierwotny artefakt joba nie
 jest nadpisywany.
 
+Rekonstrukcja v1→v2 jest osobnym jobem walidacyjnym. Job wskazuje źródłowy
+failed import, browser staging, checksumę raportu v1 oraz checksumy manifestu
+stagingu i geometrii strony. Worker może wyłącznie odczytać istniejący managed
+manifest źródłowego joba; nie tworzy nowego manifestu, nie kopiuje źródeł i nie
+zmienia checkpointu failed importu. Ponowne wykonanie dotyczy dokładnie listy
+`selectedSourceChecksums` zapisanej w v1 oraz historycznych snapshotów modelu,
+profilu, geometrii komórek i rolloutu.
+
+Wynik jest osobnym content-addressed raportem v2 z
+`derivedFromReportChecksumSha256`. Dopiero zakończony job rekonstrukcji o
+zgodnej proweniencji może zostać użyty przez kolejkę decyzji. Brak artefaktu,
+zmiana checksumy, inny staging lub manifest kończą odczyt fail-closed; nie ma
+fallbacku do zgadywania slotów z agregatów v1.
+
 Odroczona plansza raportu v2 może otrzymać wyłącznie jawną, rewizjonowaną
 decyzję `corrected_full`, `partial` albo `rejected`. Decyzja jest związana z
 grą, browser stagingiem, checksumą raportu, checksumą i logiczną nazwą źródła,

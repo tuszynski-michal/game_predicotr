@@ -380,6 +380,16 @@ class PageGeometryPreflightJobPayload(ApiModel):
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
 
 
+class ImageGeometryGuardReportReconstructionJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    validation_kind: Literal["image_geometry_guard_report_reconstruction"]
+    source_selection_id: UUID
+    source_guard_job_id: UUID
+    legacy_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    page_geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class PayoutJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     dataset_version_id: UUID
@@ -510,7 +520,10 @@ class ValidateJobCreate(ApiModel):
     job_type: Literal[JobType.VALIDATE]
     game_id: UUID
     input_payload: (
-        ValidateJobPayload | LayoutImportValidateJobPayload | PageGeometryPreflightJobPayload
+        ValidateJobPayload
+        | LayoutImportValidateJobPayload
+        | PageGeometryPreflightJobPayload
+        | ImageGeometryGuardReportReconstructionJobPayload
     )
 
 
@@ -555,6 +568,7 @@ JobPayloadResponse = (
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PageGeometryPreflightJobPayload
+    | ImageGeometryGuardReportReconstructionJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
@@ -947,6 +961,10 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
             return LayoutImportValidateJobPayload.model_validate(job.input_payload)
         if job.input_payload.get("validation_kind") == "page_geometry_preflight":
             return PageGeometryPreflightJobPayload.model_validate(job.input_payload)
+        if job.input_payload.get("validation_kind") == "image_geometry_guard_report_reconstruction":
+            return ImageGeometryGuardReportReconstructionJobPayload.model_validate(
+                job.input_payload
+            )
         return ValidateJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.PAYOUT:
         return PayoutJobPayload.model_validate(job.input_payload)

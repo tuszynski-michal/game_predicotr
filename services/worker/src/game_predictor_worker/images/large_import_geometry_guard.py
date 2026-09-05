@@ -83,6 +83,14 @@ class LargeImportGeometryGuardResolutionResult:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class ReconstructedLargeImportGeometryGuardReport:
+    report_checksum_sha256: str
+    report_relative_path: str
+    source_count: int
+    board_count: int
+
+
 def guard_required(originals: Sequence[ManagedOriginal]) -> bool:
     return (
         len(originals) >= LARGE_IMPORT_MIN_SOURCE_COUNT
@@ -348,7 +356,11 @@ def build_board_level_guard_report_from_legacy(
             "The legacy geometry guard report checksum is invalid.",
         )
     selected = legacy_report.get("selectedSourceChecksums")
-    if not isinstance(selected, list) or any(not isinstance(value, str) for value in selected):
+    if (
+        not isinstance(selected, list)
+        or not selected
+        or any(not isinstance(value, str) for value in selected)
+    ):
         raise JobHandlerError(
             "IMAGE_GEOMETRY_GUARD_REPORT_INVALID",
             "The legacy geometry guard report has no selected-source snapshot.",
@@ -386,6 +398,72 @@ def build_board_level_guard_report_from_legacy(
         source_count=_required_int(legacy_report, "sourceCount"),
         active_board_count=_required_int(legacy_report, "activeBoardCount"),
         observations=ordered,
+    )
+
+
+def reconstruct_board_level_guard_report_from_legacy(
+    *,
+    artifact_root: Path,
+    source_job_id: UUID,
+    pipeline_fingerprint_sha256: str,
+    legacy_report: Mapping[str, object],
+    legacy_report_checksum_sha256: str,
+    originals: Sequence[ManagedOriginal],
+    geometry_entries: Mapping[str, object],
+    suite: ProductionGateAdapterSuite,
+) -> ReconstructedLargeImportGeometryGuardReport:
+    """Run only the immutable legacy sample and persist a separate v2 report."""
+
+    selected = legacy_report.get("selectedSourceChecksums")
+    if not isinstance(selected, list) or any(not isinstance(value, str) for value in selected):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_REPORT_INVALID",
+            "The legacy geometry guard report has no selected-source snapshot.",
+        )
+    originals_by_checksum = {item.checksum_sha256: item for item in originals}
+    if len(originals_by_checksum) != len(originals) or any(
+        checksum not in originals_by_checksum for checksum in selected
+    ):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_REPORT_DRIFT",
+            "The legacy guard sample differs from the managed-original manifest.",
+        )
+    observations = tuple(
+        _evaluate_source(
+            originals_by_checksum[checksum],
+            geometry_entries=geometry_entries,
+            job_id=source_job_id,
+            pipeline_fingerprint_sha256=pipeline_fingerprint_sha256,
+            suite=suite,
+        )
+        for checksum in selected
+    )
+    report = build_board_level_guard_report_from_legacy(
+        legacy_report=legacy_report,
+        legacy_report_checksum_sha256=legacy_report_checksum_sha256,
+        observations=observations,
+    )
+    report_checksum = _checksum(report)
+    relative_path = PurePosixPath(
+        "data",
+        "image-geometry-guards",
+        "derived",
+        report_checksum[:2],
+        f"{report_checksum}.json",
+    ).as_posix()
+    path = artifact_root.resolve().joinpath(*PurePosixPath(relative_path).parts)
+    _write_immutable(
+        path,
+        _canonical_bytes(
+            {"report": report, "reportChecksumSha256": report_checksum},
+            pretty=True,
+        ),
+    )
+    return ReconstructedLargeImportGeometryGuardReport(
+        report_checksum_sha256=report_checksum,
+        report_relative_path=relative_path,
+        source_count=len(observations),
+        board_count=sum(item.active_board_count for item in observations),
     )
 
 
@@ -631,10 +709,12 @@ __all__ = [
     "LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA",
     "LargeImportGeometryGuardResult",
     "LargeImportGeometryGuardResolutionResult",
+    "ReconstructedLargeImportGeometryGuardReport",
     "build_board_level_guard_report_from_legacy",
     "geometry_quality_angle_bucket",
     "guard_required",
     "run_large_import_geometry_guard",
+    "reconstruct_board_level_guard_report_from_legacy",
     "validate_large_import_geometry_guard_resolutions",
     "select_representative_originals",
 ]

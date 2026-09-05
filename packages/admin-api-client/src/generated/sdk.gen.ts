@@ -698,6 +698,9 @@ import type {
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
+  StartImageGeometryGuardReportReconstructionData,
+  StartImageGeometryGuardReportReconstructionErrors,
+  StartImageGeometryGuardReportReconstructionResponses,
   StartImageGeometryRolloutBackfillData,
   StartImageGeometryRolloutBackfillErrors,
   StartImageGeometryRolloutBackfillResponses,
@@ -2687,6 +2690,35 @@ export const createImageGeometryGuardDecisions = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/decisions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Reconstruct immutable board diagnostics for a legacy guard report
+ */
+export const startImageGeometryGuardReportReconstruction = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    StartImageGeometryGuardReportReconstructionData,
+    ThrowOnError
+  >,
+): RequestResult<
+  StartImageGeometryGuardReportReconstructionResponses,
+  StartImageGeometryGuardReportReconstructionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartImageGeometryGuardReportReconstructionResponses,
+    StartImageGeometryGuardReportReconstructionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/report-reconstruction',
     ...options,
     headers: {
       'Content-Type': 'application/json',

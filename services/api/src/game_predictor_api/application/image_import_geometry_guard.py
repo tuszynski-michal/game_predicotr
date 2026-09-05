@@ -85,6 +85,14 @@ class ImageGeometryGuardDecisionCommand:
     reason: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class ImageGeometryGuardReportReconstructionInput:
+    source_guard_job_id: UUID
+    legacy_report_checksum_sha256: str
+    source_manifest_checksum_sha256: str
+    page_geometry_manifest_checksum_sha256: str
+
+
 class ImageImportGeometryGuardService:
     def __init__(self, repository: ImageGeometryGuardRepository, artifact_root: Path) -> None:
         self._repository = repository
@@ -102,7 +110,7 @@ class ImageImportGeometryGuardService:
             browser_selection_id=browser_selection_id,
             guard_job_id=guard_job_id,
         )
-        report, report_checksum = self._report(scope)
+        report, report_checksum = self._report(scope, guard_job_id=guard_job_id)
         targets = _targets(report)
         decisions = tuple(
             item
@@ -192,6 +200,42 @@ class ImageImportGeometryGuardService:
         except ImageGeometryGuardDecisionError as error:
             raise JobError("IMAGE_GEOMETRY_GUARD_DECISION_INVALID", str(error)) from error
         return self._repository.add_decisions(created)
+
+    def report_reconstruction_input(
+        self,
+        *,
+        game_id: UUID,
+        browser_selection_id: UUID,
+        guard_job_id: UUID,
+    ) -> ImageGeometryGuardReportReconstructionInput:
+        scope = self._scope(
+            game_id=game_id,
+            browser_selection_id=browser_selection_id,
+            guard_job_id=guard_job_id,
+        )
+        report, checksum = self._stored_report(scope)
+        if report.get("schemaVersion") == "image-geometry-systemic-guard-report-v2":
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_RECONSTRUCTION_NOT_REQUIRED",
+                "The geometry guard report already contains board-level diagnostics.",
+            )
+        selected = report.get("selectedSourceChecksums")
+        if (
+            not isinstance(selected, Sequence)
+            or isinstance(selected, str | bytes)
+            or not selected
+            or any(not isinstance(value, str) or not value for value in selected)
+        ):
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_REPORT_INVALID",
+                "The legacy geometry guard report has no selected-source snapshot.",
+            )
+        return ImageGeometryGuardReportReconstructionInput(
+            source_guard_job_id=guard_job_id,
+            legacy_report_checksum_sha256=checksum,
+            source_manifest_checksum_sha256=_source_manifest_checksum(scope),
+            page_geometry_manifest_checksum_sha256=_page_manifest_checksum(scope),
+        )
 
     def seal_manifest(
         self,
@@ -324,7 +368,7 @@ class ImageImportGeometryGuardService:
             )
         return scope
 
-    def _report(self, scope: ImageGeometryGuardScope) -> tuple[dict[str, object], str]:
+    def _stored_report(self, scope: ImageGeometryGuardScope) -> tuple[dict[str, object], str]:
         checkpoint = scope.job_checkpoint_payload
         guard = None if checkpoint is None else checkpoint.get("geometry_systemic_guard")
         if not isinstance(guard, Mapping):
@@ -358,12 +402,66 @@ class ImageImportGeometryGuardService:
                 "IMAGE_GEOMETRY_GUARD_REPORT_DRIFT",
                 "The persisted geometry guard report checksum changed.",
             )
-        if report.get("schemaVersion") != "image-geometry-systemic-guard-report-v2":
+        return report, expected_checksum
+
+    def _report(
+        self,
+        scope: ImageGeometryGuardScope,
+        *,
+        guard_job_id: UUID,
+    ) -> tuple[dict[str, object], str]:
+        report, expected_checksum = self._stored_report(scope)
+        if report.get("schemaVersion") == "image-geometry-systemic-guard-report-v2":
+            return report, expected_checksum
+        checkpoint = scope.derived_report_checkpoint
+        if not isinstance(checkpoint, Mapping):
             raise JobConflictError(
                 "IMAGE_GEOMETRY_GUARD_BOARD_REPORT_REQUIRED",
                 "Board-level diagnostics must be reconstructed before decisions can be made.",
             )
-        return report, expected_checksum
+        if (
+            checkpoint.get("sourceGuardJobId") != str(guard_job_id)
+            or checkpoint.get("legacyReportChecksumSha256") != expected_checksum
+            or checkpoint.get("sourceManifestChecksumSha256") != _source_manifest_checksum(scope)
+            or checkpoint.get("pageGeometryManifestChecksumSha256")
+            != _page_manifest_checksum(scope)
+        ):
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_REPORT_DRIFT",
+                "The reconstructed board report differs from the pinned legacy import.",
+            )
+        relative = checkpoint.get("reportRelativePath")
+        reconstructed_checksum = checkpoint.get("reportChecksumSha256")
+        if not isinstance(relative, str) or not isinstance(reconstructed_checksum, str):
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_REPORT_INVALID",
+                "The reconstructed board report checkpoint is invalid.",
+            )
+        path = _managed_path(self._artifact_root, relative, "image-geometry-guards")
+        try:
+            envelope = json.loads(path.read_bytes())
+        except (OSError, json.JSONDecodeError) as error:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_REPORT_UNAVAILABLE",
+                "The reconstructed board report is unavailable.",
+            ) from error
+        reconstructed = envelope.get("report") if isinstance(envelope, Mapping) else None
+        envelope_checksum = (
+            envelope.get("reportChecksumSha256") if isinstance(envelope, Mapping) else None
+        )
+        if (
+            not isinstance(reconstructed, Mapping)
+            or envelope_checksum != reconstructed_checksum
+            or payload_checksum(reconstructed) != reconstructed_checksum
+            or reconstructed.get("schemaVersion") != "image-geometry-systemic-guard-report-v2"
+            or reconstructed.get("derivedFromReportChecksumSha256") != expected_checksum
+            or reconstructed.get("jobId") != str(guard_job_id)
+        ):
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_REPORT_DRIFT",
+                "The reconstructed board report content changed.",
+            )
+        return dict(cast(Mapping[str, object], reconstructed)), reconstructed_checksum
 
 
 def _targets(report: Mapping[str, object]) -> tuple[ImageGeometryGuardBoardTarget, ...]:
@@ -502,5 +600,6 @@ def _write_immutable(root: Path, relative: str, payload: object) -> None:
 __all__ = [
     "ImageGeometryGuardDecisionCommand",
     "ImageGeometryGuardQueue",
+    "ImageGeometryGuardReportReconstructionInput",
     "ImageImportGeometryGuardService",
 ]

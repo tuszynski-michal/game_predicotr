@@ -80,6 +80,7 @@ class ImageGeometryGuardScope:
     browser_manifest_checksum_sha256: str
     job_input_payload: dict[str, object]
     job_checkpoint_payload: dict[str, object] | None
+    derived_report_checkpoint: dict[str, object] | None = None
 
 
 def create_guard_decision(

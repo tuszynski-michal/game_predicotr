@@ -37,6 +37,9 @@ from game_predictor_api.storage.database import (
 )
 from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLaneRepository
 
+from game_predictor_worker.images.geometry_guard_report_reconstruction import (
+    GeometryGuardReportReconstructionHandler,
+)
 from game_predictor_worker.images.geometry_rollout_backfill import (
     ImageGeometryRolloutBackfillHandler,
 )
@@ -374,6 +377,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
             PageGeometryPreflightHandler(
                 artifact_root=artifact_root,
                 registration_workers=thread_budget,
+            ),
+            GeometryGuardReportReconstructionHandler(
+                session_factory,
+                artifact_root,
+                repository_root=Path.cwd(),
             ),
         )
         image_import_handler = ProductionImageImportWorkflow(

@@ -71,6 +71,8 @@ from game_predictor_api.schemas.image_imports import (
     ImageGeometryGuardDecisionResponse,
     ImageGeometryGuardManifestSealCreate,
     ImageGeometryGuardQueueResponse,
+    ImageGeometryGuardReportReconstructionCreate,
+    ImageGeometryGuardReportReconstructionResponse,
     ImageGeometryGuardResolutionManifestResponse,
     ImageSequenceImportPreflightResponse,
 )
@@ -991,6 +993,56 @@ def create_image_imports_router(
             decisions=[
                 ImageGeometryGuardDecisionResponse.from_domain(value) for value in queue.decisions
             ],
+        )
+
+    @router.post(
+        "/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/report-reconstruction",
+        response_model=ImageGeometryGuardReportReconstructionResponse,
+        status_code=status.HTTP_201_CREATED,
+        operation_id="startImageGeometryGuardReportReconstruction",
+        summary="Reconstruct immutable board diagnostics for a legacy guard report",
+        responses=responses,
+    )
+    def start_image_geometry_guard_report_reconstruction(
+        upload_id: UUID,
+        guard_job_id: UUID,
+        payload: ImageGeometryGuardReportReconstructionCreate,
+        job_service: Annotated[JobService, job_parameter],
+        guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
+    ) -> ImageGeometryGuardReportReconstructionResponse:
+        if guard_service is None:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_REVIEW_UNAVAILABLE",
+                "Pre-import geometry guard review is not configured.",
+            )
+        reconstruction = guard_service.report_reconstruction_input(
+            game_id=payload.game_id,
+            browser_selection_id=upload_id,
+            guard_job_id=guard_job_id,
+        )
+        try:
+            job = job_service.create_geometry_guard_report_reconstruction_job(
+                game_id=payload.game_id,
+                source_selection_id=upload_id,
+                source_guard_job_id=reconstruction.source_guard_job_id,
+                legacy_report_checksum_sha256=(reconstruction.legacy_report_checksum_sha256),
+                source_manifest_checksum_sha256=(reconstruction.source_manifest_checksum_sha256),
+                page_geometry_manifest_checksum_sha256=(
+                    reconstruction.page_geometry_manifest_checksum_sha256
+                ),
+            )
+            created = True
+        except JobConflictError as error:
+            if error.code != "JOB_INPUT_ALREADY_EXISTS":
+                raise
+            existing_id = error.details.get("existingJobId")
+            if not isinstance(existing_id, str):
+                raise
+            job = job_service.get_job(UUID(existing_id))
+            created = False
+        return ImageGeometryGuardReportReconstructionResponse(
+            created=created,
+            job=JobResponse.from_domain(job),
         )
 
     @router.get(

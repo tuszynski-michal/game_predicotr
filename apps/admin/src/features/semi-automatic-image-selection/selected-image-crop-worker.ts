@@ -37,7 +37,7 @@ async function prepare(request: PrepareRequest): Promise<{
   readonly crop: SelectedImageCropBand;
   readonly strategy: SelectedImageAutoCropStrategy;
   readonly classification: SelectedImageAutoCropClassification;
-  readonly confidence: number;
+  readonly confidence: number | null;
   readonly policyVersion: typeof SELECTED_IMAGE_AUTO_CROP_POLICY;
   readonly evidence: ReturnType<typeof detectSelectedImageCropBand>['evidence'];
   readonly blob: Blob;

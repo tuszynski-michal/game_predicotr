@@ -6,6 +6,14 @@ last_updated: 2026-09-05
 
 # Current State
 
+### TASK-0470 — granice i trwały obowiązek korekty
+
+- V11 ma dowód obu granic z obszarami numerów i buforem; niepewność daje
+  pełny obraz, bez niekalibrowanego procentu confidence.
+- Obowiązkowe korekty wynikają z shardów, nie zaznaczeń: odznaczenie/reload
+  ich nie usuwa. Zapis ręczny zamyka obowiązek; globalne zakończenie jest blokowane.
+- 69 testów core, typecheck core/Admin OK. Domyślny v10 nadal bez zmian.
+
 ### TASK-0469 — strukturalny v11 (nieaktywny)
 
 - Dodano osobny lokalizator pełnego 3×3: luminancja, tekstura, ograniczone

@@ -28,6 +28,7 @@ export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_BOTTOM_RATIO = 0.95 as const;
 const SELECTED_IMAGE_AUTO_CROP_MINIMUM_DETECTED_BAND_RATIO = 0.28;
 
 export type SelectedImageAutoCropPolicyVersion =
+  | 'selected-image-board-band-v11-full-layout-structural'
   | typeof SELECTED_IMAGE_AUTO_CROP_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_V9_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_V8_POLICY
@@ -77,7 +78,8 @@ export interface SelectedImageAutoCropProposal {
   readonly crop: SelectedImageCropBand;
   readonly strategy: SelectedImageAutoCropStrategy;
   readonly classification: SelectedImageAutoCropClassification;
-  readonly confidence: number;
+  readonly confidence: number | null;
+  readonly structural?: import('./auto-crop-v11-boundaries.ts').StructuralCropEvidence;
   readonly policyVersion: SelectedImageAutoCropPolicyVersion;
   readonly evidence: SelectedImageAutoCropEvidence;
 }
@@ -188,7 +190,7 @@ function refineTopFromBoardRow(
     }),
     strategy: 'top_board_row_guided',
     classification: 'high_confidence',
-    confidence: Number(Math.max(0.9, baseline.confidence).toFixed(3)),
+    confidence: Number(Math.max(0.9, baseline.confidence ?? 0).toFixed(3)),
     evidence: {
       ...baseline.evidence,
       selectionBasis: 'top_board_row',

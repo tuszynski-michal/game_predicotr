@@ -3,6 +3,7 @@ import {
   type ParsedSequenceFile,
 } from '@game-predictor/manual-image-selection-core/repair';
 import type { SelectedImageAutoCropProposal } from './auto-crop.ts';
+import { validateStructuralEvidence } from '@game-predictor/manual-image-selection-core/auto-crop-v11-boundaries';
 
 export const SELECTED_IMAGE_CROP_SCHEMA_VERSION = 1 as const;
 export const SELECTED_IMAGE_CROP_RENDERER =
@@ -109,6 +110,7 @@ export function inheritSelectedImageCropBand(
 
 export function validateSelectedImageCropBand(
   crop: SelectedImageCropBand,
+  allowSmallBand = false,
 ): SelectedImageCropBand {
   assertDimensions(crop);
   if (
@@ -122,7 +124,9 @@ export function validateSelectedImageCropBand(
   }
   const minimumHeight = Math.max(
     SELECTED_IMAGE_CROP_MINIMUM_HEIGHT_PX,
-    Math.ceil(crop.height * SELECTED_IMAGE_CROP_MINIMUM_HEIGHT_RATIO),
+    allowSmallBand
+      ? 1
+      : Math.ceil(crop.height * SELECTED_IMAGE_CROP_MINIMUM_HEIGHT_RATIO),
   );
   if (crop.bottomY - crop.topY < minimumHeight) {
     throw new Error('SELECTED_IMAGE_CROP_TOO_SHORT');
@@ -236,7 +240,10 @@ export function validateSelectedImageCropManifest(
   validateSelectedImageCropSources(manifest.entries);
   for (const entry of manifest.entries) {
     if (entry.result !== null) {
-      validateSelectedImageCropBand(entry.result.crop);
+      validateSelectedImageCropBand(
+        entry.result.crop,
+        entry.result.autoCropProposal?.structural !== undefined,
+      );
       assertSha256(entry.result.sourceChecksumSha256);
       assertSha256(entry.result.outputChecksumSha256);
       if (entry.result.autoCropProposal !== undefined)
@@ -256,7 +263,10 @@ export function validateSelectedImageCropManifest(
     throw new Error('SELECTED_IMAGE_CROP_REVIEW_STATE_INVALID');
   }
   if (manifest.pendingOperation !== null) {
-    validateSelectedImageCropBand(manifest.pendingOperation.crop);
+    validateSelectedImageCropBand(
+      manifest.pendingOperation.crop,
+      manifest.pendingOperation.autoCropProposal?.structural !== undefined,
+    );
     assertSha256(manifest.pendingOperation.expectedSourceChecksumSha256);
     assertSha256(manifest.pendingOperation.expectedOutputChecksumSha256);
     if (manifest.pendingOperation.autoCropProposal !== undefined)
@@ -291,7 +301,11 @@ export function beginSelectedImageCropWrite(
   );
   if (entry === undefined)
     throw new Error('SELECTED_IMAGE_CROP_SOURCE_UNKNOWN');
-  validateSelectedImageCropBand(operation.crop);
+  validateSelectedImageCropBand(
+    operation.crop,
+    operation.autoCropProposal?.structural !== undefined ||
+      entry.result?.autoCropProposal?.structural !== undefined,
+  );
   assertSha256(operation.expectedSourceChecksumSha256);
   assertSha256(operation.expectedOutputChecksumSha256);
   const currentOutputChecksum = entry.result?.outputChecksumSha256 ?? null;
@@ -349,8 +363,28 @@ export function finalizeSelectedImageCropWrite(
 function validateSelectedImageAutoCropProposal(
   proposal: SelectedImageAutoCropProposal,
 ): void {
-  validateSelectedImageCropBand(proposal.crop);
+  validateSelectedImageCropBand(
+    proposal.crop,
+    proposal.structural !== undefined,
+  );
   const evidence = proposal.evidence;
+  if (
+    proposal.policyVersion ===
+    'selected-image-board-band-v11-full-layout-structural'
+  ) {
+    if (!proposal.structural || proposal.confidence !== null)
+      throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
+    validateStructuralEvidence(proposal.structural);
+    if (
+      ['width', 'height', 'topY', 'bottomY'].some(
+        (key) =>
+          proposal.crop[key as keyof SelectedImageCropBand] !==
+          proposal.structural!.crop[key as keyof SelectedImageCropBand],
+      )
+    )
+      throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
+    return;
+  }
   if (
     ![
       'selected-image-board-band-v4-conservative-multicolumn',
@@ -370,6 +404,7 @@ function validateSelectedImageAutoCropProposal(
       'multicolumn_panel',
       'safe_wide',
     ].includes(proposal.strategy) ||
+    proposal.confidence === null ||
     !Number.isFinite(proposal.confidence) ||
     proposal.confidence < 0 ||
     proposal.confidence > 1 ||

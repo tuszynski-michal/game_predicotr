@@ -72,6 +72,8 @@ export function selectedImageCropFileState(
   snapshot: SelectedImageCropSessionSnapshotV2,
   fileName: string,
 ): SelectedImageCropFileState {
+  if (requiredSelectedImageCropCorrections(snapshot).includes(fileName))
+    return 'needs_correction';
   if (snapshot.review.correctionFileNames.includes(fileName))
     return 'needs_correction';
   if (snapshot.review.correctedFileNames.includes(fileName)) return 'corrected';
@@ -85,10 +87,41 @@ export function selectedImageCropFileState(
   return 'queued';
 }
 
+export function requiredSelectedImageCropCorrections(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+): readonly string[] {
+  const resolved = new Set([
+    ...snapshot.review.reviewedFileNames,
+    ...snapshot.review.correctedFileNames,
+  ]);
+  return snapshot.shards.flatMap((shard) =>
+    Object.entries(shard.results)
+      .filter(
+        ([name, result]) =>
+          !resolved.has(name) &&
+          result.autoCropProposal?.structural?.status === 'needs_manual_crop',
+      )
+      .map(([name]) => name),
+  );
+}
+
+export function effectiveSelectedImageCropCorrections(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+): readonly string[] {
+  const names = new Set([
+    ...snapshot.review.correctionFileNames,
+    ...requiredSelectedImageCropCorrections(snapshot),
+  ]);
+  return snapshot.inventory.entries
+    .filter((entry) => names.has(entry.fileName))
+    .map((entry) => entry.fileName);
+}
+
 export function selectedImageCropRecalculationFileNames(
   snapshot: SelectedImageCropSessionSnapshotV2,
 ): readonly string[] {
   const protectedNames = new Set([
+    ...requiredSelectedImageCropCorrections(snapshot),
     ...snapshot.review.reviewedFileNames,
     ...snapshot.review.correctedFileNames,
     ...snapshot.review.correctionFileNames,

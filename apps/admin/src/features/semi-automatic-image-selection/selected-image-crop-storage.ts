@@ -17,6 +17,7 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 import {
   clearSelectedImageCropFailure,
+  requiredSelectedImageCropCorrections,
   materializeSelectedImageCropManifestV1,
   markSelectedImageCropCorrected,
   migrateSelectedImageCropManifestV1,
@@ -276,7 +277,7 @@ export async function renderSelectedImageCrop(
   source: File,
   crop: SelectedImageCropBand,
 ): Promise<SelectedImageCropRenderedFile> {
-  validateSelectedImageCropBand(crop);
+  validateSelectedImageCropBand(crop, true);
   const bitmap = await createImageBitmap(source, {
     imageOrientation: 'from-image',
   });
@@ -660,6 +661,7 @@ export async function completeSelectedImageCropReview(
     prepared.manifest.entries.some((entry) => entry.result === null) ||
     prepared.snapshot.session.failures.length > 0 ||
     prepared.snapshot.review.correctionFileNames.length > 0 ||
+    requiredSelectedImageCropCorrections(prepared.snapshot).length > 0 ||
     prepared.snapshot.session.pendingOperation !== null
   ) {
     throw new Error('SELECTED_IMAGE_CROP_REVIEW_INCOMPLETE');

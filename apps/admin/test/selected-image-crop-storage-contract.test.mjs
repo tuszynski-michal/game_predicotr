@@ -70,6 +70,12 @@ test('proposal provenance is persisted and historical sessions require an explic
   assert.match(source, /selectedImageCropRecalculationFileNames/u);
 });
 
+test('unsupported automatic crops are routed to the manual correction queue', () => {
+  assert.match(source, /synchronizeAutomaticCorrection/u);
+  assert.match(source, /proposal\.classification !== 'safe_wide'/u);
+  assert.match(source, /setSelectedImageCropCorrection\(\{/u);
+});
+
 test('output ownership rejects foreign files and source mutation', () => {
   assert.match(source, /SELECTED_IMAGE_CROP_OUTPUT_NOT_EMPTY/u);
   assert.match(source, /SELECTED_IMAGE_CROP_OUTPUT_FOREIGN/u);

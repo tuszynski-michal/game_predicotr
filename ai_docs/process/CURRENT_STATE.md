@@ -6,6 +6,24 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Przywrócenie właściwego pasa plansz w auto-cropie — TASK-0457
+
+- Polityka `selected-image-board-band-v5-blue-priority-multicolumn` zachowuje
+  wielokolumnowe zabezpieczenia v4, ale dla aktualnej niebieskiej szafy najpierw
+  izoluje szeroko wsparty panel 3×3. Pełnoszeroki panel wypłat nad planszami nie
+  rozszerza już górnej granicy cropa.
+- Kandydat niebieski może jedynie zawęzić wynik już poparty wielokolumnowo;
+  częściowy niebieski sygnał nie zastępuje `safe_wide`. Brak wiarygodnego
+  wyniku pozostawia `safe_wide`, lecz taki plik jest automatycznie kierowany do
+  `Do poprawy`.
+- Historyczne v4 pozostaje odtwarzalne. Przejście istniejącej sesji na v5 jest
+  jawne i obejmuje tylko nieprzejrzane, niepoprawiane wyniki.
+- Porównanie realnych preflightów potwierdziło wpływ wejścia: 2783 poprawne
+  cropy zakończyły się w 20 min 18 s bez review, a 2801 gorszych wejść wymagało
+  84 min 10 s i pozostawiło 50 zdjęć do review. Algorytm geometrii nie zmienił
+  się w TASK-0457; koszt wynikał z trudniejszych dopasowań i dodatkowych
+  przebiegów auto-anchor.
+
 ### Rzeczywisty progres preflightu geometrii — TASK-0456
 
 - Preflight publikuje osobny licznik pierwszego przebiegu, każdego bounded

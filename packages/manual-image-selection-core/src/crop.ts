@@ -352,12 +352,16 @@ function validateSelectedImageAutoCropProposal(
   validateSelectedImageCropBand(proposal.crop);
   const evidence = proposal.evidence;
   if (
-    proposal.policyVersion !==
-      'selected-image-board-band-v4-conservative-multicolumn' ||
+    ![
+      'selected-image-board-band-v4-conservative-multicolumn',
+      'selected-image-board-band-v5-blue-priority-multicolumn',
+    ].includes(proposal.policyVersion) ||
     !['high_confidence', 'conservative', 'safe_wide'].includes(
       proposal.classification,
     ) ||
-    !['multicolumn_panel', 'safe_wide'].includes(proposal.strategy) ||
+    !['blue_panel', 'multicolumn_panel', 'safe_wide'].includes(
+      proposal.strategy,
+    ) ||
     !Number.isFinite(proposal.confidence) ||
     proposal.confidence < 0 ||
     proposal.confidence > 1 ||
@@ -388,7 +392,11 @@ function validateSelectedImageAutoCropProposal(
         boundary.topRatio < 0 ||
         boundary.bottomRatio > 1 ||
         boundary.bottomRatio < boundary.topRatio,
-    )
+    ) ||
+    (evidence.selectionBasis !== undefined &&
+      !['blue_panel', 'multicolumn', 'safe_wide'].includes(
+        evidence.selectionBasis,
+      ))
   ) {
     throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
   }

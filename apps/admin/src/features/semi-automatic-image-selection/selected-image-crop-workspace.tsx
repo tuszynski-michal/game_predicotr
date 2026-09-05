@@ -216,7 +216,7 @@ export function SelectedImageCropWorkspace() {
         preparationAbortRef.current = null;
         setPreparationProgress(null);
         setNotice(
-          'To historyczna sesja. Użyj „Przelicz nieprzejrzane nowym detektorem”, aby jawnie przejść na v4 i przygotować brakujące pliki.',
+          'To sesja przypięta do starszej polityki. Użyj „Przelicz nieprzejrzane nowym detektorem”, aby jawnie przejść na v5 i przygotować brakujące pliki.',
         );
         return;
       }
@@ -598,7 +598,7 @@ export function SelectedImageCropWorkspace() {
       if (atlasesRequestedRef.current) void rebuildAtlases(result.prepared);
       setNotice(
         result.failures.length === 0
-          ? 'Nieprzejrzane cropy przeliczono detektorem v4.'
+          ? 'Nieprzejrzane cropy przeliczono detektorem v5.'
           : `Przeliczanie zakończone. Błędy: ${result.failures.length}.`,
       );
     } catch (cause) {
@@ -932,7 +932,7 @@ export function SelectedImageCropWorkspace() {
                   type="button"
                 >
                   {policyRecalculationRequired
-                    ? 'Przejdź na v4 i przelicz nieprzejrzane'
+                    ? 'Przejdź na v5 i przelicz nieprzejrzane'
                     : 'Przelicz nieprzejrzane nowym detektorem'}
                 </button>
                 <button

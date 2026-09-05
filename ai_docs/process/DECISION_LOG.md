@@ -7746,3 +7746,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   źródeł. Admin preferuje licznik fazy, a dla historycznego lub już
   uruchomionego joba bez tych pól pokazuje stan indeterminowany oraz świeżość
   heartbeat zamiast zgadywać procent.
+
+### D-347 — Auto-crop rozdziela niebieski panel plansz od panelu wypłat
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v5 zachowuje wielokolumnowy detektor v4 jako bramkę
+  ogólną, lecz przy wykrytym niebieskim panelu stosuje profil v3 do usunięcia
+  nadmiarowego panelu wypłat. Ma on pierwszeństwo tylko nad wynikiem popartym
+  wielokolumnowo, którego górna granica leży co najmniej 8% wysokości wyżej.
+  Brak dowodu automatycznie tworzy pozycję `Do poprawy`.
+- **Reason:** v4 potrafił połączyć pełnoszeroki, kolorowy panel wypłat z panelem
+  3×3 i zapisać niemal pełną wysokość zdjęcia. Jednocześnie stały, ciaśniejszy
+  fallback mógłby uciąć plansze na innym typie szafy.
+- **Consequences:** v4 pozostaje walidowany i odtwarzalny. V5 wymaga jawnego
+  przeliczenia istniejących nieprzejrzanych cropów; ręczne decyzje i poprawki
+  pozostają chronione checksum-bound journalem.

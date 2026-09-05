@@ -559,7 +559,13 @@ sesja nie współdzielą inwentarza ani postępu.
 
 Automat dla każdego jeszcze niezatwierdzonego zdjęcia niezależnie analizuje
 ograniczoną kopię podglądową do 512 px i proponuje pas obejmujący zwarty panel
-plansz. Polityka `selected-image-board-band-v4-conservative-multicolumn`
+plansz. Polityka `selected-image-board-band-v5-blue-priority-multicolumn`
+najpierw sprawdza niebieski panel używany przez aktualny typ szafy. Kandydat
+może zawęzić wyłącznie wynik już poparty wielokolumnowym dowodem, którego górna
+granica została rozszerzona ku panelowi wypłat. W przeciwnym przypadku korzysta
+z wielokolumnowego detektora v4. Dzięki temu kolorowy
+panel wypłat nad siatką nie może zostać połączony z właściwym panelem plansz.
+Historyczna polityka `selected-image-board-band-v4-conservative-multicolumn`
 dzieli środkowe 94% obrazu na dziewięć pasów i łączy niezależny sygnał koloru,
 nasycenia, kontrastu oraz powtarzalnych krawędzi. Automatyczna granica wymaga
 wsparcia w co najmniej pięciu pasach oraz w lewej, środkowej i prawej części;
@@ -569,8 +575,9 @@ Pochylenie jest uwzględniane przez lokalne granice pasów i bezpieczną
 obwiednię: 10. percentyl górnych granic minus 12% wysokości oraz 90. percentyl
 dolnych granic plus 4,5%. Mocny, szeroki sygnał w strefie 3% przy granicy
 rozszerza crop na zewnątrz. Kandydat niższy niż 40% obrazu nie jest używany.
-Brak wystarczającego dowodu daje jawny `safe_wide` równy 5–95% wysokości.
-Propozycja nie jest decyzją i zawsze pozostaje edytowalna dwiema liniami.
+Brak wystarczającego dowodu daje jawny `safe_wide` równy 5–95% wysokości i
+automatycznie kieruje plik do kolejki `Do poprawy`. Propozycja nie jest decyzją
+i zawsze pozostaje edytowalna dwiema liniami.
 
 Każdy nowy wynik zapisuje w swoim shardzie wersję polityki, klasę
 `high_confidence | conservative | safe_wide`, confidence, lokalne granice,
@@ -580,7 +587,7 @@ dwie ostatnie klasy. Wynik historyczny bez tej proweniencji pozostaje czytelny
 i nie jest automatycznie przeliczany.
 
 Jawna akcja `Przelicz nieprzejrzane nowym detektorem` może przełączyć
-rozpoczętą sesję na v4. Obejmuje wyłącznie wyniki nieprzejrzane, niepoprawione
+rozpoczętą sesję na v5. Obejmuje wyłącznie wyniki nieprzejrzane, niepoprawione
 ręcznie i niezaznaczone do poprawy, a następnie przygotowuje brakujące pliki.
 Każda zmiana ponownie sprawdza SHA-256 źródła i bieżącego wyniku oraz przechodzi
 przez ten sam journal co pojedyncza poprawka. Akcja nigdy nie zmienia wyników

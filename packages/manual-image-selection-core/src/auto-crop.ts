@@ -6,6 +6,8 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 
 export const SELECTED_IMAGE_AUTO_CROP_POLICY =
+  'selected-image-board-band-v5-blue-priority-multicolumn' as const;
+export const SELECTED_IMAGE_AUTO_CROP_LEGACY_POLICY =
   'selected-image-board-band-v4-conservative-multicolumn' as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH = 512 as const;
 /** Preserve more context above the detected board band for tilted cabinet screens. */
@@ -14,7 +16,12 @@ export const SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO = 0.045 as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_TOP_RATIO = 0.05 as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_BOTTOM_RATIO = 0.95 as const;
 
-export type SelectedImageAutoCropStrategy = 'multicolumn_panel' | 'safe_wide';
+export type SelectedImageAutoCropPolicyVersion =
+  | typeof SELECTED_IMAGE_AUTO_CROP_POLICY
+  | typeof SELECTED_IMAGE_AUTO_CROP_LEGACY_POLICY;
+
+export type SelectedImageAutoCropStrategy =
+  'blue_panel' | 'multicolumn_panel' | 'safe_wide';
 
 export type SelectedImageAutoCropClassification =
   'high_confidence' | 'conservative' | 'safe_wide';
@@ -42,6 +49,8 @@ export interface SelectedImageAutoCropEvidence {
   readonly evidenceIoU: number | null;
   readonly boundaryExpanded: boolean;
   readonly fallbackReason: SelectedImageAutoCropFallbackReason;
+  /** Absent on proposals persisted by policy v4. */
+  readonly selectionBasis?: 'blue_panel' | 'multicolumn' | 'safe_wide';
 }
 
 export interface SelectedImageAutoCropProposal {
@@ -49,9 +58,16 @@ export interface SelectedImageAutoCropProposal {
   readonly strategy: SelectedImageAutoCropStrategy;
   readonly classification: SelectedImageAutoCropClassification;
   readonly confidence: number;
-  readonly policyVersion: typeof SELECTED_IMAGE_AUTO_CROP_POLICY;
+  readonly policyVersion: SelectedImageAutoCropPolicyVersion;
   readonly evidence: SelectedImageAutoCropEvidence;
 }
+
+export type DetectedSelectedImageAutoCropProposal = Omit<
+  SelectedImageAutoCropProposal,
+  'policyVersion'
+> & {
+  readonly policyVersion: typeof SELECTED_IMAGE_AUTO_CROP_POLICY;
+};
 
 export interface SelectedImageAutoCropSample {
   readonly width: number;
@@ -84,8 +100,24 @@ const ANALYSIS_X_MARGIN_RATIO = 0.03;
 export function detectSelectedImageCropBand(
   sample: SelectedImageAutoCropSample,
   source: SelectedImageDimensions,
-): SelectedImageAutoCropProposal {
+): DetectedSelectedImageAutoCropProposal {
   assertSample(sample);
+  const bluePanel = detectBluePanel(sample, source);
+  const multicolumn = detectMulticolumnPanel(sample, source);
+  if (
+    bluePanel !== null &&
+    multicolumn.classification !== 'safe_wide' &&
+    multicolumn.crop.topY < bluePanel.crop.topY - source.height * 0.08
+  ) {
+    return bluePanel;
+  }
+  return multicolumn;
+}
+
+function detectMulticolumnPanel(
+  sample: SelectedImageAutoCropSample,
+  source: SelectedImageDimensions,
+): DetectedSelectedImageAutoCropProposal {
   const { width, height, rgba } = sample;
   const { chromatic, structural } = measureSignals(width, height, rgba);
   const chromaticCandidates = signalCandidates(chromatic, height, 0.075);
@@ -143,6 +175,7 @@ export function detectSelectedImageCropBand(
         selected,
         boundaryExpanded: top !== initialTop || bottom !== initialBottom,
         fallbackReason: null,
+        selectionBasis: 'multicolumn',
       }),
     };
   } catch {
@@ -163,7 +196,7 @@ function safeWideProposal(
     readonly structuralCandidateCount: number;
     readonly fallbackReason: Exclude<SelectedImageAutoCropFallbackReason, null>;
   },
-): SelectedImageAutoCropProposal {
+): DetectedSelectedImageAutoCropProposal {
   const evidence: SelectedImageAutoCropEvidence = {
     sampleWidth,
     sampleHeight,
@@ -175,6 +208,7 @@ function safeWideProposal(
     evidenceIoU: null,
     boundaryExpanded: false,
     fallbackReason: summary.fallbackReason,
+    selectionBasis: 'safe_wide',
   };
   try {
     return {
@@ -203,6 +237,150 @@ function safeWideProposal(
       evidence,
     };
   }
+}
+
+/**
+ * Preserve the reliable v3 signal for cabinets whose 3x3 board panel has a
+ * blue background. The generic chromatic detector can otherwise merge that
+ * panel with the colorful paytable above it and produce an almost full-height
+ * crop. It may only narrow a proposal which already passed the multicolumn
+ * gate; it never turns partial blue evidence into an automatic result.
+ */
+function detectBluePanel(
+  sample: SelectedImageAutoCropSample,
+  source: SelectedImageDimensions,
+): DetectedSelectedImageAutoCropProposal | null {
+  const { width, height, rgba } = sample;
+  const xStart = Math.floor(width * 0.04);
+  const xEnd = Math.ceil(width * 0.96);
+  const usableWidth = Math.max(1, xEnd - xStart);
+  const blueRows: number[] = [];
+  for (let y = 0; y < height; y += 1) {
+    let blue = 0;
+    for (let x = xStart; x < xEnd; x += 1) {
+      const offset = (y * width + x) * 4;
+      const red = rgba[offset] ?? 0;
+      const green = rgba[offset + 1] ?? 0;
+      const blueChannel = rgba[offset + 2] ?? 0;
+      const maximum = Math.max(red, green, blueChannel);
+      const minimum = Math.min(red, green, blueChannel);
+      if (
+        blueChannel >= 60 &&
+        blueChannel >= red * 1.12 &&
+        blueChannel >= green * 1.04 &&
+        maximum - minimum >= 28
+      ) {
+        blue += 1;
+      }
+    }
+    blueRows.push(blue / usableWidth);
+  }
+  const smoothed = smoothRows(
+    blueRows,
+    Math.max(1, Math.round(height * 0.008)),
+  );
+  const peak = Math.max(...smoothed);
+  if (peak < 0.18) return null;
+  const cluster = strongestRowCluster(
+    smoothed,
+    Math.max(0.09, peak * 0.32),
+    Math.max(1, Math.round(height * 0.035)),
+    Math.round(height * 0.14),
+  );
+  const topPadding = Math.round(
+    height * SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO,
+  );
+  if (cluster === null || cluster.start <= topPadding) return null;
+  const bottomPadding = Math.round(
+    height * SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO,
+  );
+  try {
+    return {
+      crop: validateSelectedImageCropBand({
+        ...source,
+        topY: Math.round(
+          ((cluster.start - topPadding) / height) * source.height,
+        ),
+        bottomY: Math.round(
+          (Math.min(height, cluster.end + 1 + bottomPadding) / height) *
+            source.height,
+        ),
+      }),
+      strategy: 'blue_panel',
+      classification: 'high_confidence',
+      confidence: Number(
+        clamp01(0.55 + cluster.mean * 0.7 + cluster.peak * 0.25).toFixed(3),
+      ),
+      policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
+      evidence: {
+        sampleWidth: width,
+        sampleHeight: height,
+        localBounds: [],
+        chromaticCandidateCount: 1,
+        structuralCandidateCount: 0,
+        chromaticSupportedStrips: [],
+        structuralSupportedStrips: [],
+        evidenceIoU: null,
+        boundaryExpanded: false,
+        fallbackReason: null,
+        selectionBasis: 'blue_panel',
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+interface RowCluster {
+  readonly start: number;
+  readonly end: number;
+  readonly mean: number;
+  readonly peak: number;
+}
+
+function strongestRowCluster(
+  values: readonly number[],
+  threshold: number,
+  allowedGap: number,
+  minimumLength: number,
+): RowCluster | null {
+  const clusters: RowCluster[] = [];
+  let start = -1;
+  let lastActive = -1;
+  for (let index = 0; index <= values.length; index += 1) {
+    const active = index < values.length && (values[index] ?? 0) >= threshold;
+    if (active) {
+      if (start < 0) start = index;
+      lastActive = index;
+    }
+    if (
+      start >= 0 &&
+      !active &&
+      (index - lastActive > allowedGap || index === values.length)
+    ) {
+      const end = lastActive;
+      if (end - start + 1 >= minimumLength) {
+        const segment = values.slice(start, end + 1);
+        clusters.push({
+          start,
+          end,
+          mean:
+            segment.reduce((total, value) => total + value, 0) / segment.length,
+          peak: Math.max(...segment),
+        });
+      }
+      start = -1;
+      lastActive = -1;
+    }
+  }
+  return (
+    clusters.sort((left, right) => {
+      const leftScore = (left.end - left.start + 1) * (left.mean + left.peak);
+      const rightScore =
+        (right.end - right.start + 1) * (right.mean + right.peak);
+      return rightScore - leftScore || left.start - right.start;
+    })[0] ?? null
+  );
 }
 
 function measureSignals(
@@ -411,6 +589,7 @@ function buildEvidence(input: {
   readonly selected: NonNullable<ReturnType<typeof selectEvidence>>;
   readonly boundaryExpanded: boolean;
   readonly fallbackReason: SelectedImageAutoCropFallbackReason;
+  readonly selectionBasis: 'multicolumn';
 }): SelectedImageAutoCropEvidence {
   const boundaries = (
     signal: SelectedImageAutoCropSignal,
@@ -441,6 +620,7 @@ function buildEvidence(input: {
         : Number(input.selected.evidenceIoU.toFixed(6)),
     boundaryExpanded: input.boundaryExpanded,
     fallbackReason: input.fallbackReason,
+    selectionBasis: input.selectionBasis,
   };
 }
 

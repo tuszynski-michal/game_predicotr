@@ -28,12 +28,45 @@ function boardPixel(x, y, variant = 'blue') {
   return bright ? [35, 95, 205] : [18, 45, 105];
 }
 
-test('uses a 512 px analysis budget and versions the multicolumn policy', () => {
+test('uses a 512 px analysis budget and versions the blue-priority policy', () => {
   assert.equal(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, 512);
   assert.equal(
     SELECTED_IMAGE_AUTO_CROP_POLICY,
-    'selected-image-board-band-v4-conservative-multicolumn',
+    'selected-image-board-band-v5-blue-priority-multicolumn',
   );
+});
+
+test('prefers the blue board panel over a full-width paytable above it', () => {
+  const input = sample(180, 240, (x, y) => {
+    if (y >= 20 && y <= 72) {
+      const bright = (x + y) % 8 < 4;
+      return bright ? [205, 70, 25] : [90, 18, 18];
+    }
+    if (y >= 92 && y <= 176) return boardPixel(x, y);
+    return [18, 16, 19];
+  });
+  const result = detectSelectedImageCropBand(input, {
+    width: 1440,
+    height: 1920,
+  });
+  assert.equal(result.strategy, 'blue_panel');
+  assert.equal(result.classification, 'high_confidence');
+  assert.equal(result.evidence.selectionBasis, 'blue_panel');
+  assert.ok(result.crop.topY >= 450);
+  assert.ok(result.crop.topY <= 600);
+  assert.ok(result.crop.bottomY >= 1400);
+  assert.ok(result.crop.bottomY <= 1560);
+});
+
+test('does not mistake narrow blue cabinet lights for a board panel', () => {
+  const input = sample(180, 240, (x, y) =>
+    (x < 12 || x > 168) && y >= 15 && y <= 220 ? [15, 45, 190] : [24, 22, 23],
+  );
+  const result = detectSelectedImageCropBand(input, {
+    width: 1440,
+    height: 1920,
+  });
+  assert.equal(result.strategy, 'safe_wide');
 });
 
 test('finds a tilted panel with independent support across the full width', () => {

@@ -468,6 +468,11 @@ export async function prepareAllSelectedImageCrops(
         current,
         sourceFile.fileName,
       );
+      current = await synchronizeAutomaticCorrection(
+        current,
+        sourceFile.fileName,
+        proposal,
+      );
       completed += 1;
     } catch (cause) {
       current = await persistPreparationFailure(
@@ -519,6 +524,11 @@ export async function recalculateUnreviewedSelectedImageCrops(
         current,
         sourceFile.fileName,
       );
+      current = await synchronizeAutomaticCorrection(
+        current,
+        sourceFile.fileName,
+        proposal,
+      );
     } catch (cause) {
       current = await persistPreparationFailure(
         current,
@@ -555,6 +565,19 @@ export async function recalculateUnreviewedSelectedImageCrops(
     undefined,
     signal,
   );
+}
+
+async function synchronizeAutomaticCorrection(
+  prepared: PreparedSelectedImageCropDirectory,
+  fileName: string,
+  proposal: SelectedImageAutoCropProposal,
+): Promise<PreparedSelectedImageCropDirectory> {
+  if (proposal.classification !== 'safe_wide') return prepared;
+  return setSelectedImageCropCorrection({
+    prepared,
+    fileName,
+    selected: true,
+  });
 }
 
 export async function setSelectedImageCropCorrection(input: {

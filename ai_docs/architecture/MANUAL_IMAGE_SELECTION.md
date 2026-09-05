@@ -219,12 +219,21 @@ każdego wskazanego JPEG-a przed utworzeniem albo wznowieniem sesji. Dzięki
 osobnym nazwom katalogów manifest v1 nadal jednoznacznie wiąże swój inwentarz.
 
 Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
-wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka v4
+wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka v5
+wykonuje bounded profil niebieskiego tła zgodny z sygnałem v3. Niebieski panel
+ma pierwszeństwo wyłącznie nad wynikiem już wspartym przez wielokolumnową
+bramkę, gdy jego górna granica zaczyna się co najmniej 8% wysokości wyżej. Taki
+układ wskazuje na połączenie siatki z panelem wypłat. Częściowy niebieski sygnał
+nie może zastąpić `safe_wide`.
+
+Jeżeli nie ma takiego kandydata, zachowana ścieżka wielokolumnowa v4
 analizuje środkowe 94% obrazu w dziewięciu pionowych pasach. Dla każdego pasa
 buduje wygładzone profile chromatyczne i strukturalne, a kandydat musi mieć
 wsparcie co najmniej pięciu pasów oraz wszystkich trzech grup szerokości.
 Zgodne kandydatury obu rodzin dowodu dają `high_confidence`; rozbieżność tworzy
 bezpieczną sumę `conservative`, natomiast brak dowodu zwraca `safe_wide` 5–95%.
+`safe_wide` jest automatycznie utrwalany w kolejce korekty i nie może zostać
+potraktowany jak zwykły gotowy wynik bez świadomego review.
 
 Lokalne granice są agregowane percentylami, więc pochylenie obrazu nie wymusza
 ciasnego cropa według jednego pasa. Padding pozostaje asymetryczny: 12% nad i
@@ -242,12 +251,12 @@ w operacji oczekującej, dlatego recovery po zapisie JPEG-a finalizuje dokładni
 ten sam wynik.
 
 Mały session journal przypina `preparationPolicyVersion`. Nowa sesja zaczyna z
-v4, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
+v5, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
 bez zgadywania wersji. Taka sesja nie przygotuje brakujących plików nową
 polityką, dopóki operator jawnie nie uruchomi przeliczenia. Recalculator
 wyprowadza zamknięty zbiór nazw z shardów i review state; chroni `reviewed`,
 `corrected` oraz `needs_correction`, a każdy dopuszczony wynik zastępuje przez
-istniejący checksum-bound journal. Po przypięciu v4 zwykłe wznowienie może
+istniejący checksum-bound journal. Po przypięciu v5 zwykłe wznowienie może
 przygotować pozostałe, dotąd brakujące wyniki.
 
 Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma

@@ -6,6 +6,15 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Opcjonalny wybór rejestracji obszaru plansz — TASK-0461
+
+- Start preflightu pozwala wybrać `Standardowe v0.10` albo eksperymentalne
+  `Obszar plansz — testowe`; ustawieniem domyślnym pozostaje wariant standardowy.
+- Wybór, wersja maski i padding są przypięte do payloadu, input key i manifestu.
+  Retry odtwarza tę samą wersję, a inny wariant na tym samym stagingu otrzymuje
+  odrębną tożsamość.
+- Historyczne workflow v1/v2 oraz istniejące decyzje nie są modyfikowane.
+
 ### Maskowane cechy kotwicy geometrii strony — TASK-0460
 
 - Rejestrator obsługuje opcjonalną politykę

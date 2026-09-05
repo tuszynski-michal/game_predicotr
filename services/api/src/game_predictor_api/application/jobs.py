@@ -18,6 +18,9 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
 )
 from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
 from game_predictor_worker.images.page_geometry_registration import (
+    PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO,
+    PAGE_REGISTRATION_ANCHOR_MASK_VERSION,
+    PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
     PAGE_REGISTRATION_THRESHOLDS_VERSION,
     PAGE_REGISTRATION_VERSION,
 )
@@ -81,6 +84,8 @@ _IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY: dict[str, object] = {
     "minimumFinalCellGridReadyRate": 0.98,
     "requireZeroInvariantViolations": True,
 }
+_PAGE_REGISTRATION_VARIANTS = frozenset({"standard_v0_10", "board_area_test"})
+_BOARD_AREA_PREFLIGHT_POLICY_VERSION = "page-geometry-preflight-v3-board-area-mask"
 
 
 @dataclass(frozen=True, slots=True)
@@ -1283,6 +1288,7 @@ class JobService:
         source_display_name: str,
         source_manifest_sha256: str,
         canonical_sequence_numbers: Sequence[int] = (),
+        page_registration_variant: str = "standard_v0_10",
     ) -> Job:
         """Create an idempotent verified-page geometry preflight.
 
@@ -1301,6 +1307,12 @@ class JobService:
             raise JobError(
                 "IMAGE_PAGE_GEOMETRY_SOURCE_MANIFEST_INVALID",
                 "The browser source manifest checksum is invalid.",
+            )
+        if page_registration_variant not in _PAGE_REGISTRATION_VARIANTS:
+            raise JobError(
+                "IMAGE_PAGE_REGISTRATION_VARIANT_UNSUPPORTED",
+                "The selected page registration variant is not supported.",
+                details={"pageRegistrationVariant": page_registration_variant},
             )
         try:
             resolved = source_directory.resolve(strict=True)
@@ -1327,6 +1339,22 @@ class JobService:
                 "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
                 "anchors": [],
             }
+        if page_registration_variant == "board_area_test":
+            registration = {
+                **registration,
+                "policy": PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
+                "anchorMaskVersion": PAGE_REGISTRATION_ANCHOR_MASK_VERSION,
+                "anchorMaskPaddingRatio": PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO,
+            }
+            preflight_policy_version = _BOARD_AREA_PREFLIGHT_POLICY_VERSION
+        else:
+            registration = {
+                key: value
+                for key, value in registration.items()
+                if key not in {"anchorMaskVersion", "anchorMaskPaddingRatio"}
+            }
+            registration["policy"] = PAGE_REGISTRATION_VERSION
+            preflight_policy_version = "page-geometry-preflight-v2-auto-anchor"
         overrides = (
             {}
             if self._page_geometry_override_snapshot_resolver is None
@@ -1343,7 +1371,7 @@ class JobService:
             input_payload={
                 "schema_version": 2,
                 "validation_kind": "page_geometry_preflight",
-                "preflight_policy_version": "page-geometry-preflight-v2-auto-anchor",
+                "preflight_policy_version": preflight_policy_version,
                 "source_selection_id": str(selection_id),
                 "source_directory": str(resolved),
                 "source_display_name": source_display_name,

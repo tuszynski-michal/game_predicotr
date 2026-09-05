@@ -46,6 +46,8 @@ export type ImageFolderImportClient = Pick<
   | 'updateImageImportEnginePolicy'
 >;
 
+export type PageRegistrationVariant = 'standard_v0_10' | 'board_area_test';
+
 type Failure = { readonly error: string; readonly ok: false };
 
 const UPLOAD_PROGRESS_PAINT_INTERVAL = 25;
@@ -361,6 +363,7 @@ export async function startBrowserPageGeometryPreflight(
   api: ImageFolderImportClient,
   uploadId: string,
   gameId: string,
+  pageRegistrationVariant: PageRegistrationVariant = 'standard_v0_10',
 ): Promise<
   | { readonly data: BrowserPageGeometryPreflightResponse; readonly ok: true }
   | Failure
@@ -368,6 +371,7 @@ export async function startBrowserPageGeometryPreflight(
   try {
     const result = await api.startBrowserPageGeometryPreflight(uploadId, {
       gameId,
+      pageRegistrationVariant,
     });
     if (result.error !== undefined || result.data === undefined) {
       return {

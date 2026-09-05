@@ -58,6 +58,7 @@ from game_predictor_api.schemas.image_imports import (
     BrowserImageUploadPlanResponse,
     BrowserPageGeometryOverrideCreate,
     BrowserPageGeometryOverrideResponse,
+    BrowserPageGeometryPreflightCreate,
     BrowserPageGeometryPreflightResponse,
     BrowserPageGeometryReviewSourceResponse,
     BrowserPageGeometryReviewSourcesResponse,
@@ -772,7 +773,7 @@ def create_image_imports_router(
     )
     def start_browser_page_geometry_preflight(
         upload_id: UUID,
-        payload: BrowserImageImportPreflightCreate,
+        payload: BrowserPageGeometryPreflightCreate,
         service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
         job_service: Annotated[JobService, job_parameter],
         canonical_service: object | None = canonical_parameter,
@@ -794,6 +795,7 @@ def create_image_imports_router(
                         )
                     )
                 ),
+                page_registration_variant=payload.page_registration_variant,
             )
             created = True
         except JobConflictError as error:

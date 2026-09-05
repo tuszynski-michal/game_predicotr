@@ -72,6 +72,9 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Gotowy staging do wznowienia/);
   assert.match(panelSource, /Rozpocznij import z raportu/);
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
+  assert.match(panelSource, /Standardowe v0\.10/);
+  assert.match(panelSource, /Obszar plansz — testowe/);
+  assert.match(panelSource, /pageRegistrationVariant/);
   assert.match(panelSource, /retryBrowserPageGeometryPreflight/);
   assert.match(panelSource, /geometryPreflightJob\?\.status === 'failed'/);
   assert.match(panelSource, /Ponów preflight/);

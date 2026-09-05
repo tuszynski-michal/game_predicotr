@@ -230,6 +230,7 @@ import type {
   BrowserImageImportStart,
   BrowserImageImportJobPayload,
   BrowserPageGeometryOverrideCreate,
+  BrowserPageGeometryPreflightCreate,
   BoardCellGeometryManualPreviewCommand,
   BoardCellGeometryManualResolutionCommand,
   BoardCellGeometryPendingStatus,
@@ -357,6 +358,7 @@ export type {
   BrowserImageImportStartResponse,
   BrowserPageGeometryOverrideCreate,
   BrowserPageGeometryOverrideResponse,
+  BrowserPageGeometryPreflightCreate,
   BrowserPageGeometryPreflightResponse,
   BrowserPageGeometryReviewSourceResponse,
   BrowserPageGeometryReviewSourcesResponse,
@@ -1104,7 +1106,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     startBrowserPageGeometryPreflight: (
       uploadId: string,
-      body: BrowserImageImportPreflightCreate,
+      body: BrowserPageGeometryPreflightCreate,
     ) =>
       startGeneratedBrowserPageGeometryPreflight({
         body,

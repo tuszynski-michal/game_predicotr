@@ -8,9 +8,33 @@ import {
   previewReadyBrowserImageImport,
   reprocessImageFolderImport,
   retryBrowserPageGeometryPreflight,
+  startBrowserPageGeometryPreflight,
   startReadyBrowserImageImport,
   uploadImageFolder,
 } from '../src/features/imports/image-folder-import-actions.ts';
+
+test('pins the selected page registration variant in the preflight request', async () => {
+  const calls = [];
+  const result = await startBrowserPageGeometryPreflight(
+    {
+      startBrowserPageGeometryPreflight: async (uploadId, body) => {
+        calls.push([uploadId, body]);
+        return { data: { created: true, job: { id: 'masked-job' } } };
+      },
+    },
+    'upload-1',
+    'game-1',
+    'board_area_test',
+  );
+
+  assert.deepEqual(calls, [
+    [
+      'upload-1',
+      { gameId: 'game-1', pageRegistrationVariant: 'board_area_test' },
+    ],
+  ]);
+  assert.equal(result.ok, true);
+});
 
 test('retries the existing failed page geometry preflight job', async () => {
   const calls = [];

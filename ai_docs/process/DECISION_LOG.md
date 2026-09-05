@@ -7800,3 +7800,15 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   ryzykownego założenia o położeniu plansz.
 - **Consequences:** koszt i liczba przebiegów nie rosną, v1 zachowuje replay, a
   wariant v2 musi zostać jawnie przypięty przez osobny kontrakt preflightu.
+
+### D-351 — Wariant rejestracji strony jest wyborem preflightu
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** `standard_v0_10` pozostaje domyślne, a `board_area_test` jest
+  jawnym wyborem operatora. Wersja preflightu i dokładny profil maski są
+  utrwalane w input payloadzie.
+- **Reason:** maskowanie zmienia dowód rejestracji konkretnego runu, ale nie
+  model symboli ani politykę silnika całej gry.
+- **Consequences:** input key rozdziela warianty, retry jest odtwarzalny, a
+  worker odrzuca nieznaną lub niespójną parę wersji fail-closed.

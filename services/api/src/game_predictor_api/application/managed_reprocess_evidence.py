@@ -19,6 +19,7 @@ _SOURCE_MANIFEST_CONTRACT = "image-source-ingestion-v1"
 _PAGE_MANIFEST_VERSIONS = {
     (1, "page-geometry-preflight-v1"),
     (2, "page-geometry-preflight-v2-auto-anchor"),
+    (2, "page-geometry-preflight-v3-board-area-mask"),
 }
 
 

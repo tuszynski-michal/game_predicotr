@@ -771,6 +771,27 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
         assert isinstance(profile, dict)
         assert profile["policy"] == "verified-page-registration-v1"
         assert profile["anchors"] == []
+        masked_geometry = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight",
+            json={
+                "gameId": str(game_id),
+                "pageRegistrationVariant": "board_area_test",
+            },
+        )
+        assert masked_geometry.status_code == 201, masked_geometry.text
+        assert masked_geometry.json()["created"] is True
+        masked_job = job_service.get_job(UUID(masked_geometry.json()["job"]["id"]))
+        masked_profile = masked_job.input_payload["page_registration_profile"]
+        assert isinstance(masked_profile, dict)
+        assert (
+            masked_job.input_payload["preflight_policy_version"]
+            == "page-geometry-preflight-v3-board-area-mask"
+        )
+        assert (
+            masked_profile["policy"]
+            == "verified-page-registration-v2-board-area-mask-v1"
+        )
+        assert masked_profile["anchorMaskPaddingRatio"] == 0.1
         geometry_checksum = "d" * 64
         lease_token = uuid4()
         geometry_job = start_job(

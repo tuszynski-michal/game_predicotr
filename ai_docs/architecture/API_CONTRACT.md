@@ -2891,6 +2891,13 @@ bieżący ręczny override albo roboczy szablon edytora. Może dołączyć stabi
 Pola diagnostyczne są opcjonalne dla zgodności z manifestami historycznymi, a
 ich odczyt nie uruchamia ponownie detektora.
 
+Start `geometry-preflight` przyjmuje opcjonalne
+`pageRegistrationVariant = standard_v0_10 | board_area_test`. Brak pola oznacza
+wariant standardowy. Wariant testowy ogranicza wyłącznie cechy kotwicy do
+obszaru plansz i zapisuje osobną wersję workflow w jobie oraz manifeście;
+nie zmienia modelu symboli ani lokalnego refinera siatki. Powtórzenie tej samej
+pary staging/wariant jest idempotentne, a inny wariant tworzy odrębny run.
+
 Admin automatycznie wywołuje idempotentny endpoint geometrii po przygotowaniu
 raportu stagingu. Ponowne wejście odzyskuje istniejący job o tym samym wejściu,
 zamiast wymagać ręcznego przycisku startu.

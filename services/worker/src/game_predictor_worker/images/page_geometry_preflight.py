@@ -18,6 +18,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
 from .page_geometry_registration import (
+    PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
     PAGE_REGISTRATION_VERSION,
     VerifiedPageRegistrar,
 )
@@ -31,6 +32,9 @@ from .source_ingestion import (
 PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION = 2
 LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v1"
 PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v2-auto-anchor"
+PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION = (
+    "page-geometry-preflight-v3-board-area-mask"
+)
 _CHECKPOINT_BATCH_SIZE = 25
 _AUTO_ANCHOR_MAX_PASSES = 2
 _AUTO_ANCHOR_LIMIT_PER_PASS = 21
@@ -174,7 +178,7 @@ class PageGeometryPreflightHandler:
                 phase_total=total,
             )
         auto_anchor_passes: list[dict[str, object]] = []
-        if payload["preflightPolicyVersion"] == PAGE_GEOMETRY_PREFLIGHT_VERSION:
+        if _uses_auto_anchors(cast(str, payload["preflightPolicyVersion"])):
             entries, auto_anchor_passes = self._retry_with_verified_auto_anchors(
                 entries,
                 managed.originals,
@@ -548,6 +552,27 @@ class PageGeometryPreflightHandler:
             ) from error
 
 
+def _uses_auto_anchors(preflight_policy_version: str) -> bool:
+    return preflight_policy_version in {
+        PAGE_GEOMETRY_PREFLIGHT_VERSION,
+        PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION,
+    }
+
+
+def _registration_policy_matches_preflight(
+    preflight_policy_version: object,
+    registration_policy_version: object,
+) -> bool:
+    expected = {
+        LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION: PAGE_REGISTRATION_VERSION,
+        PAGE_GEOMETRY_PREFLIGHT_VERSION: PAGE_REGISTRATION_VERSION,
+        PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION: (
+            PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION
+        ),
+    }
+    return expected.get(preflight_policy_version) == registration_policy_version
+
+
 def _input(job: Job) -> dict[str, object]:
     payload = job.input_payload
     required = {
@@ -588,7 +613,6 @@ def _input(job: Job) -> dict[str, object]:
         or not isinstance(checksum, str)
         or len(checksum) != 64
         or not isinstance(profile, Mapping)
-        or profile.get("policy") != PAGE_REGISTRATION_VERSION
         or not isinstance(overrides, Mapping)
         or not isinstance(canonical, list)
         or (
@@ -603,7 +627,9 @@ def _input(job: Job) -> dict[str, object]:
         not in {
             LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION,
             PAGE_GEOMETRY_PREFLIGHT_VERSION,
+            PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION,
         }
+        or not _registration_policy_matches_preflight(policy, profile.get("policy"))
         or any(
             not isinstance(value, int) or isinstance(value, bool) or value < 1
             for value in canonical
@@ -681,7 +707,7 @@ def _manifest_bytes(
         "registeredSourceCount": registered,
         "schemaVersion": (
             PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION
-            if version == PAGE_GEOMETRY_PREFLIGHT_VERSION
+            if _uses_auto_anchors(version)
             else 1
         ),
         "sourceCount": source_count,
@@ -689,7 +715,7 @@ def _manifest_bytes(
         "sourceSelectionId": payload["sourceSelectionId"],
         "version": version,
     }
-    if version == PAGE_GEOMETRY_PREFLIGHT_VERSION:
+    if _uses_auto_anchors(version):
         value["automaticAnchorPasses"] = list(auto_anchor_passes)
     return (json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
@@ -708,6 +734,10 @@ def _load_manifest(path: Path) -> Mapping[str, object]:
         not in {
             (1, LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION),
             (PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION, PAGE_GEOMETRY_PREFLIGHT_VERSION),
+            (
+                PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION,
+                PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION,
+            ),
         }
         or not isinstance(value.get("sourceCount"), int)
         or not isinstance(value.get("registeredSourceCount"), int)
@@ -775,7 +805,8 @@ def _checkpoint(
     # review outcome only with the immutable final manifest.
     published_review_count = (
         review_required
-        if complete or payload["preflightPolicyVersion"] != PAGE_GEOMETRY_PREFLIGHT_VERSION
+        if complete
+        or not _uses_auto_anchors(cast(str, payload["preflightPolicyVersion"]))
         else 0
     )
     context.checkpoint(
@@ -911,5 +942,6 @@ __all__ = [
     "LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION",
     "PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION",
     "PAGE_GEOMETRY_PREFLIGHT_VERSION",
+    "PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION",
     "PageGeometryPreflightHandler",
 ]

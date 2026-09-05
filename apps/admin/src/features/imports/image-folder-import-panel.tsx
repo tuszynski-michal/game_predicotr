@@ -37,6 +37,7 @@ import {
 import { BoardCellProcessingModePicker } from './board-cell-processing-mode-picker';
 import {
   type ImageFolderImportClient,
+  type PageRegistrationVariant,
   createImageFolderImport,
   filterImageFolderImportFiles,
   listReadyBrowserImageSelections,
@@ -180,6 +181,8 @@ export function ImageFolderImportPanel({
     useState<BrowserImageImportPreflightResponse | null>(null);
   const [geometryPreflightJob, setGeometryPreflightJob] =
     useState<JobResponse | null>(null);
+  const [pageRegistrationVariant, setPageRegistrationVariant] =
+    useState<PageRegistrationVariant>('standard_v0_10');
   const [geometryGuardResolutionManifest, setGeometryGuardResolutionManifest] =
     useState<ImageGeometryGuardResolutionManifestResponse | null>(null);
   const [enginePolicy, setEnginePolicy] =
@@ -425,6 +428,7 @@ export function ImageFolderImportPanel({
           api,
           result.uploadId,
           gameId,
+          pageRegistrationVariant,
         );
         if (!geometryResult.ok) {
           setError(geometryResult.error);
@@ -477,6 +481,7 @@ export function ImageFolderImportPanel({
           api,
           uploadId,
           gameId,
+          pageRegistrationVariant,
         );
         if (!geometryResult.ok) {
           setError(geometryResult.error);
@@ -671,6 +676,7 @@ export function ImageFolderImportPanel({
         api,
         readyUploadId,
         gameId,
+        pageRegistrationVariant,
       );
       if (!result.ok) {
         setError(result.error);
@@ -1329,6 +1335,21 @@ export function ImageFolderImportPanel({
       ) : null}
 
       <div className="importActionToolbar">
+        <label>
+          Dopasowanie geometrii zdjęcia
+          <select
+            disabled={busy}
+            onChange={(event) =>
+              setPageRegistrationVariant(
+                event.target.value as PageRegistrationVariant,
+              )
+            }
+            value={pageRegistrationVariant}
+          >
+            <option value="standard_v0_10">Standardowe v0.10</option>
+            <option value="board_area_test">Obszar plansz — testowe</option>
+          </select>
+        </label>
         <div className="importActionButtons">
           <button
             aria-busy={

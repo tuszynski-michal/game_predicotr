@@ -365,6 +365,7 @@ export type {
   BrowserImageUploadPlanSourceCreate,
   BrowserPageGeometryOverrideCreate,
   BrowserPageGeometryOverrideResponse,
+  BrowserPageGeometryPreflightCreate,
   BrowserPageGeometryPreflightResponse,
   BrowserPageGeometryReviewSourceResponse,
   BrowserPageGeometryReviewSourcesResponse,

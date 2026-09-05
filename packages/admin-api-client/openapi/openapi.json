@@ -2147,6 +2147,30 @@
         "title": "BrowserPageGeometryOverrideResponse",
         "type": "object"
       },
+      "BrowserPageGeometryPreflightCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "pageRegistrationVariant": {
+            "default": "standard_v0_10",
+            "enum": [
+              "standard_v0_10",
+              "board_area_test"
+            ],
+            "title": "Pageregistrationvariant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId"
+        ],
+        "title": "BrowserPageGeometryPreflightCreate",
+        "type": "object"
+      },
       "BrowserPageGeometryPreflightResponse": {
         "additionalProperties": false,
         "properties": {
@@ -12241,7 +12265,10 @@
           "preflightPolicyVersion": {
             "anyOf": [
               {
-                "const": "page-geometry-preflight-v2-auto-anchor",
+                "enum": [
+                  "page-geometry-preflight-v2-auto-anchor",
+                  "page-geometry-preflight-v3-board-area-mask"
+                ],
                 "type": "string"
               },
               {
@@ -29515,7 +29542,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BrowserImageImportPreflightCreate"
+                "$ref": "#/components/schemas/BrowserPageGeometryPreflightCreate"
               }
             }
           },

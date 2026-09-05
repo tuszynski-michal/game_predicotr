@@ -13,11 +13,13 @@ from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
 from game_predictor_worker.images.page_geometry_registration import (
+    PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
     PAGE_REGISTRATION_VERSION,
     PageRegistrationEvaluation,
     RegisteredPageGeometry,
 )
 from game_predictor_worker.images.source_ingestion import ManagedOriginalStore
+from game_predictor_worker.jobs.runtime import JobHandlerError
 from PIL import Image
 
 
@@ -31,6 +33,44 @@ class _Context:
             for key in ("current", "success_count", "failure_count", "review_count"):
                 assert int(kwargs[key]) >= int(previous[key]), f"{key} regressed"
         self.checkpoints.append(kwargs)
+
+
+def test_masked_preflight_policy_is_pinned_and_unknown_policy_fails_closed(
+    tmp_path: Path,
+) -> None:
+    base, _checksums = _cold_start_job(tmp_path, image_count=1)
+    masked = create_job(
+        JobType.VALIDATE,
+        game_id=base.game_id,
+        input_payload={
+            **base.input_payload,
+            "preflight_policy_version": "page-geometry-preflight-v3-board-area-mask",
+            "page_registration_profile": {
+                "schemaVersion": 1,
+                "policy": PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
+                "anchors": [],
+            },
+        },
+    )
+
+    normalized = preflight_module._input(masked)
+
+    assert (
+        normalized["preflightPolicyVersion"]
+        == "page-geometry-preflight-v3-board-area-mask"
+    )
+    with pytest.raises(JobHandlerError) as captured:
+        preflight_module._input(
+            create_job(
+                JobType.VALIDATE,
+                game_id=base.game_id,
+                input_payload={
+                    **base.input_payload,
+                    "preflight_policy_version": "page-geometry-preflight-v999",
+                },
+            )
+        )
+    assert captured.value.code == "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD"
 
 
 def test_geometry_preflight_validates_registration_worker_budget(tmp_path: Path) -> None:

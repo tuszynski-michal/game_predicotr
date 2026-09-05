@@ -541,6 +541,40 @@ def test_page_geometry_preflight_uses_atomic_source_bound_persistence(
     assert repository.source_bound_additions == [(job.id, selection_id)]
 
 
+def test_page_geometry_preflight_variant_changes_identity_and_repeats_idempotently(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+    arguments = {
+        "game_id": game_id,
+        "selection_id": selection_id,
+        "source_directory": tmp_path,
+        "source_display_name": "seq import",
+        "source_manifest_sha256": "a" * 64,
+    }
+
+    standard = service.create_page_geometry_preflight_job(**arguments)
+    masked = service.create_page_geometry_preflight_job(
+        **arguments,
+        page_registration_variant="board_area_test",
+    )
+
+    assert standard.input_key != masked.input_key
+    assert (
+        masked.input_payload["preflight_policy_version"]
+        == "page-geometry-preflight-v3-board-area-mask"
+    )
+    with pytest.raises(JobConflictError) as duplicate:
+        service.create_page_geometry_preflight_job(
+            **arguments,
+            page_registration_variant="board_area_test",
+        )
+    assert duplicate.value.code == "JOB_INPUT_ALREADY_EXISTS"
+
+
 def test_service_physically_deletes_cancelled_image_selection_job(
     tmp_path: Path,
 ) -> None:

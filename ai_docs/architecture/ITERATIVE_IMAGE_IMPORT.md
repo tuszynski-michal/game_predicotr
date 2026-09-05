@@ -246,6 +246,13 @@ Cechy kotwic pozostają cache'owane w instancji rejestratora osobno dla
 budżetów 1000/1500/3000. V1 nadal wywołuje ORB bez maski i zachowuje swój
 payload oraz fingerprint.
 
+Start preflightu przyjmuje `pageRegistrationVariant` równy
+`standard_v0_10` albo `board_area_test`. Drugi wariant przypina politykę
+`page-geometry-preflight-v3-board-area-mask`, wersję maski, padding i profil
+rejestracji w payloadzie joba. Różny wariant daje różny input key na tym samym
+stagingu; identyczne ponowienie pozostaje idempotentne. Worker akceptuje tylko
+zgodną parę wersji preflightu i profilu rejestracji.
+
 Profile schema v1 zachowują historyczny algorytm medianowych przesunięć i są
 odtwarzane tylko przez już przypięte fingerprinty. Utworzenie nowej kohorty
 używa schema v2, dzięki czemu stary odrzucony profil nie blokuje kandydata

@@ -1181,6 +1181,20 @@ export type BrowserPageGeometryOverrideResponse = {
 };
 
 /**
+ * BrowserPageGeometryPreflightCreate
+ */
+export type BrowserPageGeometryPreflightCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Pageregistrationvariant
+   */
+  pageRegistrationVariant?: 'standard_v0_10' | 'board_area_test';
+};
+
+/**
  * BrowserPageGeometryPreflightResponse
  */
 export type BrowserPageGeometryPreflightResponse = {
@@ -6941,7 +6955,10 @@ export type PageGeometryPreflightJobPayload = {
   /**
    * Preflightpolicyversion
    */
-  preflightPolicyVersion?: 'page-geometry-preflight-v2-auto-anchor' | null;
+  preflightPolicyVersion?:
+    | 'page-geometry-preflight-v2-auto-anchor'
+    | 'page-geometry-preflight-v3-board-area-mask'
+    | null;
   /**
    * Schemaversion
    */
@@ -16460,7 +16477,7 @@ export type GetImageGeometryGuardSourceAssetResponses = {
 };
 
 export type StartBrowserPageGeometryPreflightData = {
-  body: BrowserImageImportPreflightCreate;
+  body: BrowserPageGeometryPreflightCreate;
   path: {
     /**
      * Upload Id

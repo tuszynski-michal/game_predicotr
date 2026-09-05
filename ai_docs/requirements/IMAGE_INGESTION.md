@@ -652,6 +652,10 @@ jej dziewięciu niezależnych quadów, rozszerzonej o 10% mediany wysokości
 planszy. Maska działa w tej samej przestrzeni 50% co ORB i obejmuje odstępy
 między planszami. Obraz docelowy pozostaje przeszukiwany w całości. Wariant nie
 zwiększa budżetów cech, liczby fallbacków ani nie używa koloru tła jako dowodu.
+Operator może wybrać go jawnie jako `Obszar plansz — testowe` przed
+utworzeniem preflightu; `Standardowe v0.10` pozostaje wartością domyślną.
+Wybór jest częścią niezmiennego payloadu i tożsamości joba, więc retry nie
+może przełączyć wariantu.
 
 Od v0.7.5 polityka `page-geometry-preflight-v2-auto-anchor` wykonuje najwyżej
 dwa dodatkowe przebiegi wyłącznie dla nierozpoznanych źródeł. W każdym

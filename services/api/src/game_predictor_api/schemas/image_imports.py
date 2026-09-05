@@ -135,6 +135,13 @@ class BrowserImageImportPreflightCreate(ApiModel):
     game_id: UUID
 
 
+class BrowserPageGeometryPreflightCreate(ApiModel):
+    game_id: UUID
+    page_registration_variant: Literal["standard_v0_10", "board_area_test"] = (
+        "standard_v0_10"
+    )
+
+
 class BrowserCanonicalRange(ApiModel):
     sequence_range_start: int = Field(ge=1)
     sequence_range_end: int = Field(ge=1)

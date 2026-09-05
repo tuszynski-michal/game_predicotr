@@ -61,7 +61,13 @@ export function findNumberRegions(
     const l = Math.max(0, Math.floor(board.left + w(board) * 0.15)),
       r = Math.min(sample.width, Math.ceil(board.right - w(board) * 0.15));
     const t = Math.max(0, Math.floor(localTop + localHeight * 0.72)),
-      b = Math.min(sample.height, Math.ceil(localBottom + localHeight * 0.35));
+      b = Math.min(
+        sample.height,
+        Math.ceil(
+          localBottom +
+            localHeight * CROP_V11_CONFIG.numberSearchBelowBoardRatio,
+        ),
+      );
     const active: number[] = [];
     const transitionsByRow = new Map<number, number>();
     for (let y = t; y < b; y++) {
@@ -158,12 +164,15 @@ export function boundStructuralCrop(
     bottom: Math.ceil(b.bottom * sy),
   });
   const uncertainty = Math.ceil(2 * sy),
-    padding =
+    medianBoardHeight = median(layout.boards.map(h)),
+    topPadding =
       Math.ceil(
-        Math.max(
-          4,
-          median(layout.boards.map(h)) * CROP_V11_CONFIG.paddingRatio,
-        ) * sy,
+        Math.max(4, medianBoardHeight * CROP_V11_CONFIG.paddingRatio) * sy,
+      ) + uncertainty,
+    bottomPadding =
+      Math.ceil(
+        Math.max(4, medianBoardHeight * CROP_V11_CONFIG.bottomPaddingRatio) *
+          sy,
       ) + uncertainty;
   const base: StructuralCropEvidence = {
     policy: CROP_V11_POLICY,
@@ -174,7 +183,7 @@ export function boundStructuralCrop(
     candidateCount: layout.candidateCount,
     boards: layout.boards.map(map),
     labels: labels.map(map),
-    paddingPx: padding,
+    paddingPx: Math.max(topPadding, bottomPadding),
     localizationUncertaintyPx: uncertainty,
     crop: { ...source, topY: 0, bottomY: source.height },
   };
@@ -192,10 +201,27 @@ export function boundStructuralCrop(
     )
   )
     return { ...base, reason: 'source_support_incomplete' };
-  const topY = Math.max(0, Math.min(...all.map((b) => b.top)) - padding),
+  // A high threshold can retain only the lower, textured portion of every
+  // top-row board. The independently confirmed number band supplies a second
+  // lower edge: one median board height above it is a conservative estimate of
+  // the missing board top. This only expands the crop and cannot cut content.
+  const measuredTop = Math.min(...layout.boards.map((board) => board.top)),
+    recoveredTopCandidate = Math.min(
+      ...labels.map((label) => label.top - medianBoardHeight),
+    ),
+    recoveredTop = Math.floor(
+      (measuredTop - recoveredTopCandidate >=
+      medianBoardHeight * CROP_V11_CONFIG.topRecoveryMinimumGapRatio
+        ? recoveredTopCandidate
+        : measuredTop) * sy,
+    ),
+    topY = Math.max(
+      0,
+      Math.min(recoveredTop, ...all.map((b) => b.top)) - topPadding,
+    ),
     bottomY = Math.min(
       source.height,
-      Math.max(...all.map((b) => b.bottom)) + padding,
+      Math.max(...all.map((b) => b.bottom)) + bottomPadding,
     );
   return {
     ...base,

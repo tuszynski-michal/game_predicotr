@@ -196,3 +196,28 @@ Nowy zbiór jest odtąd ujawniony. Odbiór innej gry nadal niepotwierdzony.
 
 Kontrole: 101 testów core/runner/Admin contract, oba typechecki oraz format OK.
 Nie wykonano live QA ani pełnych testów niezwiązanych obszarów aplikacji.
+
+## Iteracja 2026-09-06 — zero odcięć, lecz precyzja nadal nieprzejściowa
+
+Po ujawnieniu poprzednich prób poprawiono wyłącznie wersjonowany v11: materialne
+nakładanie rzędów, deduplikację progowych bboxów jako fallback, ponowną analizę
+numerów 1600 px na układzie udowodnionym przy 960 px, ograniczony fallback
+perspektywy oraz konserwatywne odzyskanie górnej granicy z pasów numerów.
+Brakujące plansze nadal nie są syntetyzowane. V10 pozostaje bez zmian.
+
+Trzy ujawnione zbiory rozwojowe uzyskały odpowiednio 9/10, 7/7 i 10/10 bez
+niebezpiecznych cropów. Kolejne próby wybierano z innych pozycji w seriach i
+utrwalano wraz z SHA oraz ręcznymi przedziałami przed pierwszym uruchomieniem.
+Piąta próba ujawniła odcięcie górnego rzędu; po poprawce stała się materiałem
+rozwojowym, a nie holdoutem.
+
+Szósta próba: 9 automatów i 1 `incomplete_layout`. Wszystkie automaty zachowują
+plansze oraz numery, ale tylko 6/10 zdjęć spełnia równocześnie ścisłe przedziały
+góry i dołu. Trzy automaty pozostawiają nadmiar tła. Zatem kryterium >=90%
+poprawnych, precyzyjnych automatów nie przechodzi mimo poprawy bezpieczeństwa.
+Nie rozszerzono końcowych przedziałów po zobaczeniu wyniku. Release pozostaje
+`false`, a wszystkie nowe próbki są od tej chwili ujawnione.
+
+Następna diagnoza musi odróżniać prawdziwe pasy numerów dolnego rzędu od jasnych
+elementów obudowy. Nie wolno rozwiązać tego przez przycięcie poniżej potwierdzonego
+dowodu, osłabienie pełnego 3×3 ani ponowne nazwanie ujawnionych zdjęć holdoutem.

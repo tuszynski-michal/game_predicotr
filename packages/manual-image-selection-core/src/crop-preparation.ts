@@ -1,9 +1,14 @@
 import {
   CROP_V11_POLICY,
   CROP_V11_CONFIG,
+  type LayoutEvidence,
   type StructuralSample,
 } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
-import { detectStructuralCrop } from '@game-predictor/manual-image-selection-core/auto-crop-v11-boundaries';
+import {
+  boundStructuralCrop,
+  detectStructuralCrop,
+  findNumberRegions,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v11-boundaries';
 import {
   SELECTED_IMAGE_AUTO_CROP_POLICY,
   type SelectedImageAutoCropProposal,
@@ -60,11 +65,41 @@ export function sampleCanonicalCropImage(
     }
   return { width, height, rgba };
 }
+
+export function projectDetectedLayout(
+  layout: LayoutEvidence,
+  target: { width: number; height: number },
+): LayoutEvidence {
+  if (layout.status !== 'detected' || layout.boards.length !== 9)
+    throw new Error('CROP_V11_LAYOUT_NOT_DETECTED');
+  const sx = target.width / layout.analysisWidth;
+  const sy = target.height / layout.analysisHeight;
+  if (
+    !Number.isFinite(sx) ||
+    !Number.isFinite(sy) ||
+    Math.abs(sx / sy - 1) > 0.01
+  )
+    throw new Error('CROP_V11_COORDINATES_INVALID');
+  return {
+    ...layout,
+    analysisWidth: target.width,
+    analysisHeight: target.height,
+    boards: layout.boards.map((board) => ({
+      ...board,
+      left: board.left * sx,
+      top: board.top * sy,
+      right: board.right * sx,
+      bottom: board.bottom * sy,
+    })),
+  };
+}
+
 export async function prepareStructuralCrop(
   source: StructuralSample,
   yieldBetween: () => Promise<void> = () => Promise.resolve(),
 ): Promise<SelectedImageAutoCropProposal> {
   let result: ReturnType<typeof detectStructuralCrop> | undefined;
+  let retainedLayout: LayoutEvidence | undefined;
   const executed: number[] = [];
   for (const level of CROP_V11_CONFIG.levels) {
     if (executed.length && Math.max(source.width, source.height) <= 960) break;
@@ -75,6 +110,34 @@ export async function prepareStructuralCrop(
     });
     executed.push(level);
     if (result.status === 'detected') break;
+    if (retainedLayout) {
+      const projected = projectDetectedLayout(retainedLayout, sample);
+      const labels = findNumberRegions(sample, projected.boards);
+      const refined = boundStructuralCrop(projected, labels, {
+        width: source.width,
+        height: source.height,
+      });
+      if (refined.status === 'detected') {
+        result = refined;
+        break;
+      }
+    }
+    if (
+      result.reason === 'number_regions_missing' &&
+      result.boards.length === 9
+    )
+      retainedLayout = {
+        status: 'detected',
+        reason: 'complete_layout',
+        boards: result.boards.map((board) => ({
+          ...board,
+          support: 0,
+          textureTiles: 0,
+        })),
+        candidateCount: result.candidateCount,
+        analysisWidth: source.width,
+        analysisHeight: source.height,
+      };
     await yieldBetween();
   }
   if (!result) throw new Error('CROP_V11_RESULT_MISSING');

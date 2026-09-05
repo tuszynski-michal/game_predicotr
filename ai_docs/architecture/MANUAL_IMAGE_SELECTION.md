@@ -208,6 +208,14 @@ a dowód przejść ocenia się dla pasa zamiast odrzucać jego pełne białe wie
 Początkowy bufor wynosi 20% mediany wysokości. Fingerprint obejmuje tę zmianę
 i number-bands-v3-row-shear-complete-band. Wariant nadal nie przeszedł odbioru.
 
+Iteracja TASK-0472 zachowuje układ wykryty przy 960 px jako dowód lokalizacji,
+gdy dopiero etykiety wymagają analizy 1600 px. Warianty bbox tego samego położenia
+są redukowane wyłącznie po niejednoznacznym wyniku; odrębne układy nadal są
+odrzucane. Ograniczony fallback perspektywy nie tworzy brakujących plansz.
+Jeżeli wszystkie pasy numerów wskazują, że wykryte bboxy utraciły górę plansz,
+granica może zostać wyłącznie rozszerzona ku górze. Wszystkie te reguły należą
+do fingerprintu; ostatnia bramka precyzji nadal blokuje aktywację.
+
 Poprawka TASK-0472 usuwa sztuczne halo dylatacji przed pomiarem bboxa; halo
 dotykające brzegu pozostaje konserwatywnie niepełnym wsparciem źródła.
 Scalanie wymaga pokrycia większego komponentu, nie tylko zawierania mniejszego.

@@ -1,6 +1,6 @@
 # TASK-0472 — Odbiór v11
 ## Status
-blocked — third independent quality gate failed
+blocked — sixth independent quality gate failed strict precision
 ## Relevant docs
 - `ai_docs/quality/SELECTED_CROP_V11_REGRESSIONS.md`
 - `ai_docs/requirements/MANUAL_IMAGE_SELECTION.md`
@@ -13,6 +13,26 @@ automatów na czytelnych kompletnych źródłach. Raport osobno dla wyglądów g
 czasy/pamięć, testy core/Admin, lint/typecheck/format/build. Brak oryginałów
 innej gry ogranicza odbiór. Nie aktywować jeśli bramka nie przejdzie.
 ## Outcome
+### Iteracja 2026-09-06 — bezpieczeństwo poprawione, bramka nadal zablokowana
+
+- Rozdzielono nieznaczne nakładanie pochylonych rzędów od rzeczywistego
+  konfliktu oraz dodano deduplikację wariantów progowych dopiero po wykryciu
+  niejednoznaczności. Różne przestrzennie układy nadal kończą się manualnie.
+- Jeżeli poziom 960 wykrył pełne 3×3, lecz nie potwierdził numerów, poziom 1600
+  może ponownie zbadać etykiety na przeskalowanym, już udowodnionym układzie.
+  Nie uzupełnia to brakujących plansz i nie wykonuje trzeciego przebiegu.
+- Dodano ograniczony fallback perspektywy oraz odzyskanie górnej granicy z
+  położenia dziewięciu pasów numerów. Naprawiło to wykryte odcięcie górnego
+  rzędu; konfiguracja pozostaje częścią fingerprintu.
+- Ujawnione korpusy rozwojowe osiągają 9/10, 7/7 i 10/10. Piąta próba służyła
+  dalszej diagnozie. Szósta, zamrożona przed uruchomieniem, ma 9 automatów i
+  jeden manual; żaden automat nie odcina planszy ani numeru, ale tylko 6/10
+  mieści się w ścisłych przedziałach obu linii. Trzy bezpieczne wyniki zostawiają
+  za dużo tła. Bramka dokładności NIE przeszła.
+- `CROP_V11_RELEASE_ENABLED` pozostaje `false`. Nie zmieniono katalogów źródłowych,
+  katalogów cut, importów ani jobów. Brak oryginałów gry literowej nadal ogranicza
+  odbiór. Wszystkie nowe próby są ujawnione i nie mogą ponownie pełnić roli holdout.
+
 ### Iteracja v0.10.185
 
 - Dodano poziomo wydłużony element łączenia krawędzi (aspekty 1 i 2), bez

@@ -100,7 +100,7 @@ test('both boundaries use extrema including sloping bottom numbers and buffer', 
     height: 1920,
   });
   assert.equal(result.status, 'detected');
-  assert.equal(result.crop.topY, 372);
+  assert.equal(result.crop.topY, 360);
   assert.equal(result.crop.bottomY, 978);
   validateStructuralEvidence(result);
 });

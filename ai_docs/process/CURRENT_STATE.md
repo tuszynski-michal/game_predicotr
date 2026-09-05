@@ -1,10 +1,21 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-05
+last_updated: 2026-09-06
 ---
 
 # Current State
+
+### TASK-0472 — bezpieczeństwo v11 poprawione, precyzja nadal nie przechodzi
+
+- Wielorozdzielcze potwierdzenie numerów, ostrożna deduplikacja wariantów bbox,
+  fallback perspektywy i odzyskanie górnej granicy usunęły wykryte odcięcie.
+- Ujawnione korpusy rozwojowe: 9/10, 7/7 i 10/10. Najnowsza niezależna próba:
+  9 automatów, 1 manual, zero odcięć plansz/numerów, lecz tylko 6/10 cropów w
+  ścisłych przedziałach obu linii z powodu nadmiaru tła.
+- Bramka TASK-0472 nadal nie przeszła. V11 pozostaje nieaktywny; nie zmieniono
+  danych użytkownika. Następna praca dotyczy odróżnienia dolnych numerów od
+  elementów obudowy bez osłabiania obowiązkowej korekty.
 
 ### TASK-0473 — miniatury weryfikacji symbolu na planszy
 

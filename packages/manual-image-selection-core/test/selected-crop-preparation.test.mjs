@@ -5,6 +5,7 @@ import {
   sampleCanonicalCropImage,
   assertCropPreparationPolicy,
   CROP_V11_RELEASE_ENABLED,
+  projectDetectedLayout,
 } from '../src/crop-preparation.ts';
 test('shared sampler preserves full aspect ratio and is deterministic', () => {
   const source = {
@@ -17,6 +18,33 @@ test('shared sampler preserves full aspect ratio and is deterministic', () => {
   assert.equal(a.width, 540);
   assert.equal(a.height, 960);
   assert.deepEqual(a.rgba, b.rgba);
+});
+test('detected layout can refine label evidence at the next analysis level', () => {
+  const layout = {
+    status: 'detected',
+    reason: 'complete_layout',
+    boards: Array.from({ length: 9 }, (_, index) => ({
+      left: 20 + (index % 3) * 100,
+      top: 30 + Math.floor(index / 3) * 70,
+      right: 100 + (index % 3) * 100,
+      bottom: 80 + Math.floor(index / 3) * 70,
+      support: 1,
+      textureTiles: 9,
+    })),
+    candidateCount: 9,
+    analysisWidth: 400,
+    analysisHeight: 600,
+  };
+  const projected = projectDetectedLayout(layout, { width: 800, height: 1200 });
+  assert.equal(projected.analysisWidth, 800);
+  assert.deepEqual(projected.boards[0], {
+    left: 40,
+    top: 60,
+    right: 200,
+    bottom: 160,
+    support: 1,
+    textureTiles: 9,
+  });
 });
 test('full source on uncertainty; bounded progressive levels and no arbitrary confidence', async () => {
   const source = {

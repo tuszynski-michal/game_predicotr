@@ -4,6 +4,9 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { independentCropReferences } from '../packages/manual-image-selection-core/test/fixtures/selected-crop-v11-independent.mjs';
 import { thirdCropReferences } from '../packages/manual-image-selection-core/test/fixtures/selected-crop-v11-third.mjs';
+import { fourthCropReferences } from '../packages/manual-image-selection-core/test/fixtures/selected-crop-v11-fourth.mjs';
+import { fifthCropReferences } from '../packages/manual-image-selection-core/test/fixtures/selected-crop-v11-fifth.mjs';
+import { sixthCropReferences } from '../packages/manual-image-selection-core/test/fixtures/selected-crop-v11-sixth.mjs';
 import { renderCropSource } from './lib/selected-crop-durable-runner.mjs';
 import {
   CROP_V11_POLICY,
@@ -12,9 +15,17 @@ import {
 const deadline = setTimeout(() => process.exit(2), 120000);
 try {
   const rows = [];
-  for (const ref of process.argv[3] === 'third'
-    ? thirdCropReferences
-    : independentCropReferences) {
+  const selectedReferences =
+    process.argv[3] === 'third'
+      ? thirdCropReferences
+      : process.argv[3] === 'fourth'
+        ? fourthCropReferences
+        : process.argv[3] === 'fifth'
+          ? fifthCropReferences
+          : process.argv[3] === 'sixth'
+            ? sixthCropReferences
+            : independentCropReferences;
+  for (const ref of selectedReferences) {
     const bytes = await readFile(
       path.join(process.argv[2], ref.directory, ref.fileName),
     );

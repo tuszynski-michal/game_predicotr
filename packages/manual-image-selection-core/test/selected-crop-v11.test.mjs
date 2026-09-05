@@ -6,6 +6,9 @@ import {
   luminance,
   sameStructuralCandidate,
   removeDilationHalo,
+  crossRowBoxesConflict,
+  sameLayoutBoardLocation,
+  sameBoardCandidateCenter,
 } from '../src/auto-crop-v11.ts';
 
 test('dilation halo is not measured board support or a false row overlap', () => {
@@ -84,6 +87,66 @@ test('independent sloping boards form a full layout; no missing row is invented'
   assert.equal(
     selectStructuralLayout(boards().slice(0, 3), 600, 960).status,
     'needs_manual_crop',
+  );
+});
+test('tiny axis-aligned overlap from a sloping row is tolerated, material overlap is not', () => {
+  const upper = { left: 20, top: 20, right: 120, bottom: 82 };
+  assert.equal(
+    crossRowBoxesConflict(upper, {
+      left: 24,
+      top: 80,
+      right: 124,
+      bottom: 142,
+    }),
+    false,
+  );
+  assert.equal(
+    crossRowBoxesConflict(upper, {
+      left: 24,
+      top: 66,
+      right: 124,
+      bottom: 132,
+    }),
+    true,
+  );
+});
+
+test('layout alternatives at the same physical board position are equivalent', () => {
+  assert.equal(
+    sameLayoutBoardLocation(
+      { left: 100, top: 100, right: 200, bottom: 160 },
+      { left: 108, top: 105, right: 218, bottom: 170 },
+    ),
+    true,
+  );
+  assert.equal(
+    sameLayoutBoardLocation(
+      { left: 100, top: 100, right: 200, bottom: 160 },
+      { left: 160, top: 100, right: 260, bottom: 160 },
+    ),
+    false,
+  );
+});
+
+test('nested threshold variants share a board center but neighbours do not', () => {
+  const board = { left: 100, top: 100, right: 200, bottom: 160 };
+  assert.equal(
+    sameBoardCandidateCenter(board, {
+      left: 110,
+      top: 105,
+      right: 190,
+      bottom: 155,
+    }),
+    true,
+  );
+  assert.equal(
+    sameBoardCandidateCenter(board, {
+      left: 220,
+      top: 100,
+      right: 320,
+      bottom: 160,
+    }),
+    false,
   );
 });
 test('two complete layouts are ambiguous, not the first or brightest winner', () => {

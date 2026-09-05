@@ -5,9 +5,20 @@ export const CROP_V11_CONFIG = Object.freeze({
   levels: [960, 1600] as const,
   maxCandidates: 96,
   maxRows: 192,
+  minimumTextureTiles: 7,
   luminanceThresholds: [0, 95, 135, 175] as const,
   dilationRadii: [2, 3, 4, 5, 6] as const,
-  paddingRatio: 0.2,
+  paddingRatio: 0.3,
+  bottomPaddingRatio: 0.2,
+  maximumCrossRowOverlapRatio: 0.15,
+  minimumCrossRowCenterSpacingRatio: 0.8,
+  maximumBoardWidthRatio: 1.7,
+  maximumBoardHeightRatio: 1.8,
+  numberSearchBelowBoardRatio: 0.65,
+  crossLevelLabelRefinementVersion: 'scaled-detected-layout-v1',
+  perspectiveFallbackVersion: 'bounded-size-and-column-variance-v1',
+  topRecoveryFromNumberBandVersion: 'one-median-board-height-v1',
+  topRecoveryMinimumGapRatio: 0.3,
   dilationAspects: [1, 2] as const,
   candidateBoundsVersion: 'undilated-support-v2',
 });
@@ -54,8 +65,36 @@ function intersection(a: CropBox, b: CropBox): number {
     Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
   );
 }
-function similar(a: CropBox, b: CropBox): boolean {
-  return intersection(a, b) / Math.min(w(a) * h(a), w(b) * h(b)) > 0.65;
+export function crossRowBoxesConflict(a: CropBox, b: CropBox): boolean {
+  return (
+    intersection(a, b) / Math.min(w(a) * h(a), w(b) * h(b)) >
+    CROP_V11_CONFIG.maximumCrossRowOverlapRatio
+  );
+}
+export function sameLayoutBoardLocation(a: CropBox, b: CropBox): boolean {
+  const referenceWidth = Math.min(w(a), w(b));
+  const referenceHeight = Math.min(h(a), h(b));
+  return (
+    intersection(a, b) / Math.min(w(a) * h(a), w(b) * h(b)) > 0.65 ||
+    (referenceWidth > 0 &&
+      referenceHeight > 0 &&
+      Math.abs(cx(a) - cx(b)) <= referenceWidth * 0.45 &&
+      Math.abs(cy(a) - cy(b)) <= referenceHeight * 0.45 &&
+      Math.max(w(a), w(b)) / referenceWidth <= 2 &&
+      Math.max(h(a), h(b)) / referenceHeight <= 2)
+  );
+}
+export function sameBoardCandidateCenter(a: CropBox, b: CropBox): boolean {
+  const referenceWidth = Math.min(w(a), w(b));
+  const referenceHeight = Math.min(h(a), h(b));
+  return (
+    referenceWidth > 0 &&
+    referenceHeight > 0 &&
+    Math.abs(cx(a) - cx(b)) <= referenceWidth * 0.35 &&
+    Math.abs(cy(a) - cy(b)) <= referenceHeight * 0.35 &&
+    Math.max(w(a), w(b)) / referenceWidth <= 2 &&
+    Math.max(h(a), h(b)) / referenceHeight <= 2
+  );
 }
 export function sameStructuralCandidate(a: CropBox, b: CropBox): boolean {
   // Containment alone is not duplicate evidence: a larger component can include
@@ -243,7 +282,7 @@ export function detectStructuralCandidates(s: StructuralSample): {
           )
             continue;
           const tiles = texture(gray, s.width, box);
-          if (tiles < 7) continue;
+          if (tiles < CROP_V11_CONFIG.minimumTextureTiles) continue;
           const match = all.find((existing) =>
             sameStructuralCandidate(existing, box),
           );
@@ -269,6 +308,8 @@ export function selectStructuralLayout(
   candidates: readonly StructuralBoard[],
   width: number,
   height: number,
+  collapseThresholdVariants = false,
+  allowPerspectiveVariance = false,
 ): LayoutEvidence {
   const base = {
     boards: [] as StructuralBoard[],
@@ -283,7 +324,18 @@ export function selectStructuralLayout(
   });
   if (candidates.length > 96) return reject('candidate_budget_exceeded');
   if (candidates.length < 9) return reject('insufficient_boards');
-  const sorted = [...candidates].sort((a, b) => cx(a) - cx(b) || cy(a) - cy(b));
+  // Thresholds and dilation shapes can describe the same physical board with
+  // several nested boxes. Keep the strongest location before building row
+  // combinations; this is not permission to merge neighbouring boards.
+  const canonical = collapseThresholdVariants
+    ? candidates.filter(
+        (candidate, index) =>
+          !candidates
+            .slice(0, index)
+            .some((stronger) => sameBoardCandidateCenter(stronger, candidate)),
+      )
+    : candidates;
+  const sorted = [...canonical].sort((a, b) => cx(a) - cx(b) || cy(a) - cy(b));
   const rows: StructuralBoard[][] = [];
   for (let i = 0; i < sorted.length; i++)
     for (let j = i + 1; j < sorted.length; j++)
@@ -296,9 +348,16 @@ export function selectStructuralLayout(
           ];
         const mw = median(row.map(w)),
           mh = median(row.map(h));
+        const maximumWidthRatio = allowPerspectiveVariance
+            ? 2.1
+            : CROP_V11_CONFIG.maximumBoardWidthRatio,
+          maximumHeightRatio = allowPerspectiveVariance
+            ? 2.2
+            : CROP_V11_CONFIG.maximumBoardHeightRatio;
         if (
-          Math.max(...row.map(w)) / Math.min(...row.map(w)) > 1.7 ||
-          Math.max(...row.map(h)) / Math.min(...row.map(h)) > 1.8
+          Math.max(...row.map(w)) / Math.min(...row.map(w)) >
+            maximumWidthRatio ||
+          Math.max(...row.map(h)) / Math.min(...row.map(h)) > maximumHeightRatio
         )
           continue;
         const dx1 = cx(b) - cx(a),
@@ -330,7 +389,7 @@ export function selectStructuralLayout(
         if (
           new Set(flat).size !== 9 ||
           flat.some((a, idx) =>
-            flat.slice(idx + 1).some((b) => intersection(a, b) > 0),
+            flat.slice(idx + 1).some((b) => crossRowBoxesConflict(a, b)),
           )
         )
           continue;
@@ -338,9 +397,17 @@ export function selectStructuralLayout(
           mh = median(flat.map(h));
         // Cabinet buttons can form another row below the panel. Cross-row scale
         // consistency is required too, not only three similar objects per row.
+        const maximumWidthRatio = allowPerspectiveVariance
+            ? 2.1
+            : CROP_V11_CONFIG.maximumBoardWidthRatio,
+          maximumHeightRatio = allowPerspectiveVariance
+            ? 2.2
+            : CROP_V11_CONFIG.maximumBoardHeightRatio;
         if (
-          Math.max(...flat.map(w)) / Math.min(...flat.map(w)) > 1.7 ||
-          Math.max(...flat.map(h)) / Math.min(...flat.map(h)) > 1.8
+          Math.max(...flat.map(w)) / Math.min(...flat.map(w)) >
+            maximumWidthRatio ||
+          Math.max(...flat.map(h)) / Math.min(...flat.map(h)) >
+            maximumHeightRatio
         )
           continue;
         let valid = true;
@@ -351,25 +418,47 @@ export function selectStructuralLayout(
           const dy1 = cy(b) - cy(a),
             dy2 = cy(c) - cy(b);
           if (
-            dy1 < mh * 0.95 ||
-            dy2 < mh * 0.95 ||
+            dy1 < mh * CROP_V11_CONFIG.minimumCrossRowCenterSpacingRatio ||
+            dy2 < mh * CROP_V11_CONFIG.minimumCrossRowCenterSpacingRatio ||
             dy1 > mh * 2.4 ||
             dy2 > mh * 2.4 ||
-            Math.max(dy1, dy2) / Math.min(dy1, dy2) > 1.6 ||
-            Math.abs(cx(b) - cx(a)) > mw * 0.65 ||
-            Math.abs(cx(c) - cx(b)) > mw * 0.65
+            Math.max(dy1, dy2) / Math.min(dy1, dy2) >
+              (allowPerspectiveVariance ? 1.9 : 1.6) ||
+            Math.abs(cx(b) - cx(a)) >
+              mw * (allowPerspectiveVariance ? 0.85 : 0.65) ||
+            Math.abs(cx(c) - cx(b)) >
+              mw * (allowPerspectiveVariance ? 0.85 : 0.65)
           )
             valid = false;
         }
         if (
           valid &&
           !layouts.some((previous) =>
-            previous.every((box, idx) => similar(box, flat[idx]!)),
+            previous.every((box, idx) =>
+              sameLayoutBoardLocation(box, flat[idx]!),
+            ),
           )
         )
           layouts.push(flat);
-        if (layouts.length > 1) return reject('ambiguous_layout');
+        if (layouts.length > 1)
+          return collapseThresholdVariants
+            ? reject('ambiguous_layout')
+            : selectStructuralLayout(
+                candidates,
+                width,
+                height,
+                true,
+                allowPerspectiveVariance,
+              );
       }
+  if (layouts.length === 0 && !allowPerspectiveVariance)
+    return selectStructuralLayout(
+      candidates,
+      width,
+      height,
+      collapseThresholdVariants,
+      true,
+    );
   return layouts.length === 1
     ? {
         ...base,

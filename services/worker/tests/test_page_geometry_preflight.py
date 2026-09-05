@@ -14,6 +14,7 @@ from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
 from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_VERSION,
+    PageRegistrationEvaluation,
     RegisteredPageGeometry,
 )
 from game_predictor_worker.images.source_ingestion import ManagedOriginalStore
@@ -198,6 +199,9 @@ def test_manual_override_bootstraps_registration_for_remaining_pages(
                 mean_red_edge_coverage=0.9,
                 feature_count=1000,
             )
+
+        def evaluate(self, rgb):
+            return PageRegistrationEvaluation(self.register(rgb))
 
     monkeypatch.setattr(preflight_module, "VerifiedPageRegistrar", _Registrar)
     context = _Context()
@@ -569,6 +573,10 @@ def test_geometry_preflight_retries_unresolved_page_with_strict_auto_anchor(
                 mean_red_edge_coverage=0.9,
                 feature_count=1000,
             )
+
+        def evaluate(self, rgb):
+            result = self.register(rgb)
+            return PageRegistrationEvaluation(result)
 
     monkeypatch.setattr(preflight_module, "VerifiedPageRegistrar", _Registrar)
     job = create_job(

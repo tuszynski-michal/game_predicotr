@@ -230,6 +230,14 @@ inlierów, reprojekcji i pokrycia krawędzi wszystkich plansz. Niepowodzenie jes
 `review_required`, bez fallbacku do czterech narożników strony lub globalnej
 mediany. Rejestr aktywacji jest append-only i umożliwia rollback.
 
+Rejestrator zwraca razem z wynikiem ograniczony ślad bramek wykonanych w tym
+samym przebiegu. Dla niepowodzenia manifest przechowuje najlepszą nieudaną
+próbę oraz najwyżej jedną reprezentatywną próbę na budżet ORB. Wartości
+nieobliczone są pomijane, a deskryptory, obrazy i czasy wykonania nie trafiają
+do manifestu. Kompatybilna metoda odczytu wyniku nadal zwraca wyłącznie
+geometrię albo `None`, więc konsumenci niezainteresowani diagnostyką zachowują
+dotychczasową semantykę.
+
 Profile schema v1 zachowują historyczny algorytm medianowych przesunięć i są
 odtwarzane tylko przez już przypięte fingerprinty. Utworzenie nowej kohorty
 używa schema v2, dzięki czemu stary odrzucony profil nie blokuje kandydata

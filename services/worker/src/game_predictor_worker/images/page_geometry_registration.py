@@ -30,7 +30,18 @@ PAGE_REGISTRATION_THRESHOLDS_VERSION: Final = "verified-page-registration-thresh
 # for ordinary pages while keeping a valid page out of manual correction solely
 # because of an optimisation budget.
 PAGE_REGISTRATION_FEATURES_VERSION: Final = "orb-1000-1500-3000-fallback-v1"
+PAGE_REGISTRATION_DIAGNOSTICS_VERSION: Final = "page-registration-diagnostics-v1"
 _ORB_FEATURE_COUNTS: Final = (1000, 1500, 3000)
+
+_REJECTION_STAGE: Final = {
+    "PAGE_GEOMETRY_TARGET_FEATURES_INSUFFICIENT": 1,
+    "PAGE_GEOMETRY_MATCHES_INSUFFICIENT": 2,
+    "PAGE_GEOMETRY_HOMOGRAPHY_INVALID": 3,
+    "PAGE_GEOMETRY_INLIER_EVIDENCE_INSUFFICIENT": 4,
+    "PAGE_GEOMETRY_REPROJECTION_ERROR_EXCESSIVE": 5,
+    "PAGE_GEOMETRY_QUADS_INVALID": 6,
+    "PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT": 7,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +136,58 @@ class _MatchedAnchor:
     p95_reprojection_error: float
 
 
+@dataclass(frozen=True, slots=True)
+class PageRegistrationAttemptDiagnostic:
+    reason_code: str
+    feature_count: int
+    anchor_source_checksum_sha256: str | None = None
+    target_feature_count: int | None = None
+    match_count: int | None = None
+    inlier_count: int | None = None
+    inlier_ratio: float | None = None
+    p95_reprojection_error: float | None = None
+    mean_red_edge_coverage: float | None = None
+    minimum_board_red_edge_coverage: float | None = None
+
+    def to_payload(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "featureCount": self.feature_count,
+            "reasonCode": self.reason_code,
+        }
+        optional: tuple[tuple[str, object | None], ...] = (
+            ("anchorSourceChecksumSha256", self.anchor_source_checksum_sha256),
+            ("targetFeatureCount", self.target_feature_count),
+            ("matchCount", self.match_count),
+            ("inlierCount", self.inlier_count),
+            ("inlierRatio", _rounded(self.inlier_ratio)),
+            ("p95ReprojectionError", _rounded(self.p95_reprojection_error)),
+            ("meanRedEdgeCoverage", _rounded(self.mean_red_edge_coverage)),
+            ("minimumBoardRedEdgeCoverage", _rounded(self.minimum_board_red_edge_coverage)),
+        )
+        payload.update({key: value for key, value in optional if value is not None})
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class PageRegistrationEvaluation:
+    result: RegisteredPageGeometry | None
+    attempts: tuple[PageRegistrationAttemptDiagnostic, ...] = ()
+
+    def failure_payload(self) -> dict[str, object]:
+        best = _best_diagnostic(self.attempts)
+        bounded = _bounded_diagnostics(self.attempts)
+        return {
+            "reasonCode": (
+                best.reason_code if best is not None else "PAGE_GEOMETRY_REGISTRATION_UNAVAILABLE"
+            ),
+            "registrationDiagnostics": {
+                "version": PAGE_REGISTRATION_DIAGNOSTICS_VERSION,
+                "bestAttempt": best.to_payload() if best is not None else None,
+                "attempts": [attempt.to_payload() for attempt in bounded],
+            },
+        }
+
+
 class VerifiedPageRegistrar:
     """Register a page to a reviewed nine-board page profile.
 
@@ -156,20 +219,25 @@ class VerifiedPageRegistrar:
         return bool(self._anchors_by_feature_count[_ORB_FEATURE_COUNTS[0]])
 
     def register(self, target_rgb: NDArray[np.uint8]) -> RegisteredPageGeometry | None:
+        return self.evaluate(target_rgb).result
+
+    def evaluate(self, target_rgb: NDArray[np.uint8]) -> PageRegistrationEvaluation:
         if not self.available or not _valid_rgb(target_rgb):
-            return None
+            return PageRegistrationEvaluation(None)
         target_half = _half_gray(target_rgb)
         mask = _red_mask(target_rgb)
+        attempts: list[PageRegistrationAttemptDiagnostic] = []
         for feature_count in _ORB_FEATURE_COUNTS:
-            registered = self._register_with_feature_count(
+            registered, rejected = self._evaluate_with_feature_count(
                 target_half,
                 target_rgb=target_rgb,
                 red_mask=mask,
                 feature_count=feature_count,
             )
+            attempts.extend(rejected)
             if registered is not None:
-                return registered
-        return None
+                return PageRegistrationEvaluation(registered, tuple(attempts))
+        return PageRegistrationEvaluation(None, tuple(attempts))
 
     def initialize(
         self,
@@ -224,8 +292,27 @@ class VerifiedPageRegistrar:
         red_mask: NDArray[np.uint8],
         feature_count: int,
     ) -> RegisteredPageGeometry | None:
-        for candidate in self._matched_candidates(target_half, feature_count=feature_count):
-            registered = _finalize_registration(
+        return self._evaluate_with_feature_count(
+            target_half,
+            target_rgb=target_rgb,
+            red_mask=red_mask,
+            feature_count=feature_count,
+        )[0]
+
+    def _evaluate_with_feature_count(
+        self,
+        target_half: NDArray[np.uint8],
+        *,
+        target_rgb: NDArray[np.uint8],
+        red_mask: NDArray[np.uint8],
+        feature_count: int,
+    ) -> tuple[RegisteredPageGeometry | None, tuple[PageRegistrationAttemptDiagnostic, ...]]:
+        candidates, diagnostics = self._evaluate_matched_candidates(
+            target_half, feature_count=feature_count
+        )
+        rejected = list(diagnostics)
+        for candidate in candidates:
+            registered, diagnostic = _evaluate_final_registration(
                 candidate,
                 target_rgb=target_rgb,
                 red_mask=red_mask,
@@ -233,8 +320,10 @@ class VerifiedPageRegistrar:
                 feature_count=feature_count,
             )
             if registered is not None:
-                return registered
-        return None
+                return registered, tuple(rejected)
+            if diagnostic is not None:
+                rejected.append(diagnostic)
+        return None, tuple(rejected)
 
     def _matched_candidates(
         self,
@@ -242,25 +331,40 @@ class VerifiedPageRegistrar:
         *,
         feature_count: int,
     ) -> tuple[_MatchedAnchor, ...]:
+        return self._evaluate_matched_candidates(target_half, feature_count=feature_count)[0]
+
+    def _evaluate_matched_candidates(
+        self,
+        target_half: NDArray[np.uint8],
+        *,
+        feature_count: int,
+    ) -> tuple[tuple[_MatchedAnchor, ...], tuple[PageRegistrationAttemptDiagnostic, ...]]:
         anchors = self._anchors_for(feature_count)
         if not anchors:
-            return ()
+            return (), ()
         target_points, target_descriptors = _orb_features(target_half, feature_count=feature_count)
         if target_descriptors is None or len(target_points) < self._thresholds.minimum_inliers:
-            return ()
-        candidates = tuple(
-            matched
-            for anchor in anchors
-            if (
-                matched := _match_anchor(
-                    anchor,
-                    target_points=target_points,
-                    target_descriptors=target_descriptors,
-                    thresholds=self._thresholds,
-                )
+            return (), (
+                PageRegistrationAttemptDiagnostic(
+                    reason_code="PAGE_GEOMETRY_TARGET_FEATURES_INSUFFICIENT",
+                    feature_count=feature_count,
+                    target_feature_count=len(target_points),
+                ),
             )
-            is not None
-        )
+        candidates: list[_MatchedAnchor] = []
+        rejected: list[PageRegistrationAttemptDiagnostic] = []
+        for anchor in anchors:
+            matched, diagnostic = _evaluate_anchor_match(
+                anchor,
+                target_points=target_points,
+                target_descriptors=target_descriptors,
+                thresholds=self._thresholds,
+                feature_count=feature_count,
+            )
+            if matched is not None:
+                candidates.append(matched)
+            elif diagnostic is not None:
+                rejected.append(diagnostic)
         return tuple(
             sorted(
                 candidates,
@@ -271,7 +375,7 @@ class VerifiedPageRegistrar:
                     value.anchor.source_checksum_sha256,
                 ),
             )
-        )
+        ), tuple(rejected)
 
     def _anchors_for(self, feature_count: int) -> tuple[_Anchor, ...]:
         existing = self._anchors_by_feature_count.get(feature_count)
@@ -417,9 +521,32 @@ def _match_anchor(
     target_descriptors: NDArray[np.uint8],
     thresholds: PageRegistrationThresholds,
 ) -> _MatchedAnchor | None:
+    return _evaluate_anchor_match(
+        anchor,
+        target_points=target_points,
+        target_descriptors=target_descriptors,
+        thresholds=thresholds,
+        feature_count=0,
+    )[0]
+
+
+def _evaluate_anchor_match(
+    anchor: _Anchor,
+    *,
+    target_points: Sequence[cv2.KeyPoint],
+    target_descriptors: NDArray[np.uint8],
+    thresholds: PageRegistrationThresholds,
+    feature_count: int,
+) -> tuple[_MatchedAnchor | None, PageRegistrationAttemptDiagnostic | None]:
     matches = _ratio_matches(anchor.feature_descriptors, target_descriptors)
     if len(matches) < thresholds.minimum_inliers:
-        return None
+        return None, PageRegistrationAttemptDiagnostic(
+            reason_code="PAGE_GEOMETRY_MATCHES_INSUFFICIENT",
+            feature_count=feature_count,
+            anchor_source_checksum_sha256=anchor.source_checksum_sha256,
+            target_feature_count=len(target_points),
+            match_count=len(matches),
+        )
     source_points = cast(
         NDArray[np.float32],
         np.asarray(
@@ -437,13 +564,27 @@ def _match_anchor(
         2.0,
     )
     if homography is None or inlier_mask is None or not np.isfinite(homography).all():
-        return None
+        return None, PageRegistrationAttemptDiagnostic(
+            reason_code="PAGE_GEOMETRY_HOMOGRAPHY_INVALID",
+            feature_count=feature_count,
+            anchor_source_checksum_sha256=anchor.source_checksum_sha256,
+            target_feature_count=len(target_points),
+            match_count=len(matches),
+        )
     typed_homography = cast(NDArray[np.float64], homography)
     inliers = cast(NDArray[np.bool_], inlier_mask.reshape(-1).astype(bool))
     inlier_count = int(inliers.sum())
     inlier_ratio = inlier_count / len(matches)
     if inlier_count < thresholds.minimum_inliers or inlier_ratio < thresholds.minimum_inlier_ratio:
-        return None
+        return None, PageRegistrationAttemptDiagnostic(
+            reason_code="PAGE_GEOMETRY_INLIER_EVIDENCE_INSUFFICIENT",
+            feature_count=feature_count,
+            anchor_source_checksum_sha256=anchor.source_checksum_sha256,
+            target_feature_count=len(target_points),
+            match_count=len(matches),
+            inlier_count=inlier_count,
+            inlier_ratio=inlier_ratio,
+        )
     projected = cast(
         NDArray[np.float32],
         cv2.perspectiveTransform(source_points.reshape(-1, 1, 2), typed_homography).reshape(-1, 2),
@@ -451,7 +592,16 @@ def _match_anchor(
     errors = np.linalg.norm(projected[inliers] - destination_points[inliers], axis=1)
     p95 = float(np.percentile(errors, 95)) if len(errors) else float("inf")
     if p95 > thresholds.maximum_p95_reprojection_error:
-        return None
+        return None, PageRegistrationAttemptDiagnostic(
+            reason_code="PAGE_GEOMETRY_REPROJECTION_ERROR_EXCESSIVE",
+            feature_count=feature_count,
+            anchor_source_checksum_sha256=anchor.source_checksum_sha256,
+            target_feature_count=len(target_points),
+            match_count=len(matches),
+            inlier_count=inlier_count,
+            inlier_ratio=inlier_ratio,
+            p95_reprojection_error=p95,
+        )
     # Features were extracted at half resolution.  Convert the homography to
     # native source coordinates before applying it to reviewed native quads.
     scale_anchor = np.array([[0.5, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.0]])
@@ -460,12 +610,15 @@ def _match_anchor(
         NDArray[np.float64],
         scale_target_inverse @ typed_homography @ scale_anchor,
     )
-    return _MatchedAnchor(
-        anchor=anchor,
-        inlier_count=inlier_count,
-        inlier_ratio=inlier_ratio,
-        native_homography=native_homography,
-        p95_reprojection_error=p95,
+    return (
+        _MatchedAnchor(
+            anchor=anchor,
+            inlier_count=inlier_count,
+            inlier_ratio=inlier_ratio,
+            native_homography=native_homography,
+            p95_reprojection_error=p95,
+        ),
+        None,
     )
 
 
@@ -477,6 +630,23 @@ def _finalize_registration(
     thresholds: PageRegistrationThresholds,
     feature_count: int,
 ) -> RegisteredPageGeometry | None:
+    return _evaluate_final_registration(
+        match,
+        target_rgb=target_rgb,
+        red_mask=red_mask,
+        thresholds=thresholds,
+        feature_count=feature_count,
+    )[0]
+
+
+def _evaluate_final_registration(
+    match: _MatchedAnchor,
+    *,
+    target_rgb: NDArray[np.uint8],
+    red_mask: NDArray[np.uint8],
+    thresholds: PageRegistrationThresholds,
+    feature_count: int,
+) -> tuple[RegisteredPageGeometry | None, PageRegistrationAttemptDiagnostic | None]:
     # The former implementation inspected a 3 x 3 neighbourhood in Python
     # for every sampled edge point and every bounded snap candidate.  Dilating
     # once preserves that exact neighbourhood rule while leaving the actual
@@ -493,24 +663,77 @@ def _finalize_registration(
         for quad in match.anchor.quads
     )
     if not is_complete_ordered_grid(quads, target_rgb.shape[1], target_rgb.shape[0]):
-        return None
+        return None, PageRegistrationAttemptDiagnostic(
+            reason_code="PAGE_GEOMETRY_QUADS_INVALID",
+            feature_count=feature_count,
+            anchor_source_checksum_sha256=match.anchor.source_checksum_sha256,
+            inlier_count=match.inlier_count,
+            inlier_ratio=match.inlier_ratio,
+            p95_reprojection_error=match.p95_reprojection_error,
+        )
     coverage = tuple(_red_edge_coverage(red_neighbourhood, quad) for quad in quads)
     mean_coverage = sum(coverage) / len(coverage)
     if (
         mean_coverage < thresholds.minimum_mean_red_edge_coverage
         or min(coverage) < thresholds.minimum_board_red_edge_coverage
     ):
-        return None
-    return RegisteredPageGeometry(
-        anchor_source_checksum_sha256=match.anchor.source_checksum_sha256,
-        quads=quads,
-        board_red_edge_coverages=coverage,
-        inlier_count=match.inlier_count,
-        inlier_ratio=match.inlier_ratio,
-        p95_reprojection_error=match.p95_reprojection_error,
-        mean_red_edge_coverage=mean_coverage,
-        feature_count=feature_count,
+        return None, PageRegistrationAttemptDiagnostic(
+            reason_code="PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT",
+            feature_count=feature_count,
+            anchor_source_checksum_sha256=match.anchor.source_checksum_sha256,
+            inlier_count=match.inlier_count,
+            inlier_ratio=match.inlier_ratio,
+            p95_reprojection_error=match.p95_reprojection_error,
+            mean_red_edge_coverage=mean_coverage,
+            minimum_board_red_edge_coverage=min(coverage),
+        )
+    return (
+        RegisteredPageGeometry(
+            anchor_source_checksum_sha256=match.anchor.source_checksum_sha256,
+            quads=quads,
+            board_red_edge_coverages=coverage,
+            inlier_count=match.inlier_count,
+            inlier_ratio=match.inlier_ratio,
+            p95_reprojection_error=match.p95_reprojection_error,
+            mean_red_edge_coverage=mean_coverage,
+            feature_count=feature_count,
+        ),
+        None,
     )
+
+
+def _rounded(value: float | None) -> float | None:
+    if value is None or not np.isfinite(value):
+        return None
+    return round(value, 6)
+
+
+def _diagnostic_sort_key(value: PageRegistrationAttemptDiagnostic) -> tuple[object, ...]:
+    return (
+        _REJECTION_STAGE.get(value.reason_code, 0),
+        value.inlier_count if value.inlier_count is not None else -1,
+        value.inlier_ratio if value.inlier_ratio is not None else -1.0,
+        -(value.p95_reprojection_error or float("inf")),
+        -(value.feature_count),
+        value.anchor_source_checksum_sha256 or "",
+    )
+
+
+def _best_diagnostic(
+    attempts: Sequence[PageRegistrationAttemptDiagnostic],
+) -> PageRegistrationAttemptDiagnostic | None:
+    return max(attempts, key=_diagnostic_sort_key, default=None)
+
+
+def _bounded_diagnostics(
+    attempts: Sequence[PageRegistrationAttemptDiagnostic],
+) -> tuple[PageRegistrationAttemptDiagnostic, ...]:
+    by_feature_count: dict[int, PageRegistrationAttemptDiagnostic] = {}
+    for attempt in attempts:
+        current = by_feature_count.get(attempt.feature_count)
+        if current is None or _diagnostic_sort_key(attempt) > _diagnostic_sort_key(current):
+            by_feature_count[attempt.feature_count] = attempt
+    return tuple(by_feature_count[key] for key in sorted(by_feature_count))
 
 
 def _half_gray(rgb: NDArray[np.uint8]) -> NDArray[np.uint8]:
@@ -726,10 +949,13 @@ def _valid_rgb(value: object) -> bool:
 __all__ = [
     "DEFAULT_PAGE_REGISTRATION_THRESHOLDS",
     "PAGE_REGISTRATION_FEATURES_VERSION",
+    "PAGE_REGISTRATION_DIAGNOSTICS_VERSION",
     "PAGE_REGISTRATION_THRESHOLDS_VERSION",
     "PAGE_REGISTRATION_VERSION",
     "PageRegistrationThresholds",
     "PageRegistrationInitialization",
+    "PageRegistrationAttemptDiagnostic",
+    "PageRegistrationEvaluation",
     "RegisteredPageGeometry",
     "VerifiedPageRegistrar",
     "build_verified_page_registration_profile",

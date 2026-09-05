@@ -7762,3 +7762,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** v4 pozostaje walidowany i odtwarzalny. V5 wymaga jawnego
   przeliczenia istniejących nieprzejrzanych cropów; ręczne decyzje i poprawki
   pozostają chronione checksum-bound journalem.
+
+### D-348 — Diagnostyka rejestracji powstaje w tym samym przebiegu
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** nieudany preflight zapisuje najlepszą osiągniętą bramkę i
+  ograniczone podsumowanie prób z wartości już obliczonych przez ORB/RANSAC.
+  Brak pomiaru jest pominięty, nie zastępowany zerem.
+- **Reason:** sam status `review_required` nie pozwala odróżnić złego
+  dopasowania od braku czerwonych krawędzi, a ponawianie analizy tylko dla
+  diagnostyki zwiększałoby koszt i mogłoby dać rozbieżny wynik.
+- **Consequences:** diagnostyka nie należy do fingerprintu decyzji, nie zawiera
+  obrazów ani deskryptorów i pozostaje opcjonalna dla historycznych manifestów.

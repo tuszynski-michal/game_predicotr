@@ -6,6 +6,17 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Diagnostyka odrzucenia geometrii strony — TASK-0458
+
+- Rejestrator rozróżnia zamknięte powody niepowodzenia od braku cech aż po
+  niedostateczne pokrycie czerwonych ramek i zapisuje tylko pomiary faktycznie
+  wykonanych bramek.
+- Preflight zachowuje w tym samym content-addressed manifeście najlepszą
+  nieudaną próbę i najwyżej jedną próbę na budżet 1000/1500/3000. Nie wykonuje
+  dodatkowego ORB/RANSAC i nie zmienia decyzji rejestracji.
+- Historyczne manifesty bez diagnostyki pozostają poprawne. API i ekranowe
+  objaśnienie pochodzenia geometrii należą do TASK-0459.
+
 ### Przywrócenie właściwego pasa plansz w auto-cropie — TASK-0457
 
 - Polityka `selected-image-board-band-v5-blue-priority-multicolumn` zachowuje

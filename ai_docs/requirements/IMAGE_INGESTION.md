@@ -638,6 +638,14 @@ jest niezmiennym, content-addressed `PageGeometryManifestV1` przypiętym do
 joba. Nieudana strona trafia do `Korekty geometrii strony`, a nie do OCR,
 symboli ani technicznego `board_detection failed`.
 
+Nowe manifesty zachowują również ograniczoną diagnostykę nieudanej
+rejestracji. Powód rozróżnia brak cech lub dopasowań, błędną homografię,
+niewystarczające inliery, błąd reprojekcji, nieprawidłowe quady i brak pokrycia
+czerwonych krawędzi. Metryka jest obecna tylko wtedy, gdy została rzeczywiście
+obliczona; brak pomiaru nie jest zapisywany jako zero. Diagnostyka jest
+produktem tego samego przebiegu ORB/RANSAC i nie uruchamia dodatkowej analizy.
+Historyczny manifest bez szczegółów pozostaje poprawny.
+
 Od v0.7.5 polityka `page-geometry-preflight-v2-auto-anchor` wykonuje najwyżej
 dwa dodatkowe przebiegi wyłącznie dla nierozpoznanych źródeł. W każdym
 przebiegu może dodać najwyżej 21 perspektyw rozłożonych po naturalnej kolejności

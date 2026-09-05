@@ -279,8 +279,8 @@ class PageGeometryPreflightHandler:
                 },
                 "review_required",
             )
-        result = registrar.register(rgb)
-        if result is None:
+        evaluation = registrar.evaluate(rgb)
+        if evaluation.result is None:
             return (
                 original.checksum_sha256,
                 {
@@ -288,9 +288,11 @@ class PageGeometryPreflightHandler:
                     "sourceRelativePath": original.source_relative_path,
                     "imageHeight": int(rgb.shape[0]),
                     "imageWidth": int(rgb.shape[1]),
+                    **evaluation.failure_payload(),
                 },
                 "review_required",
             )
+        result = evaluation.result
         return (
             original.checksum_sha256,
             {

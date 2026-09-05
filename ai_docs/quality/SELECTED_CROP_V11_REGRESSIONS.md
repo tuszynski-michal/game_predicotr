@@ -2,7 +2,8 @@
 
 ## Metoda i ograniczenia
 
-Stan: materiał regresyjny gotowy; detektor v11 NIE został wdrożony ani odebrany.
+Stan: implementacja eksperymentalna 0469–0471 gotowa; odbiór 0472 NIE przeszedł.
+V11 pozostaje nieaktywny. Produkcyjny wariant i katalogi operatora bez zmian.
 
 Siedem oryginalnych JPEG-ów (63 plansze i 63 numery) obejrzano w kanonicznej
 orientacji. Ręcznie oznaczono zachowawcze bboxy i dopuszczalne przedziały linii.
@@ -81,6 +82,32 @@ detektora wymaga jawnego adaptera historycznego; nie może nazwać wyniku v11 wy
   automatów wśród czytelnych kompletnych źródeł; raport osobno dla wyglądów gry.
   Przekroczenie bramek blokuje aktywację, nie uzasadnia obniżenia ochrony.
 
-Każdy task osobno i jeden commit na polecenie. Bez zmian OCR, geometrii v0.10,
+Każdy task osobno; użytkownik zlecił całą serię ze stopem przy nieudanej bramce.
+Bez zmian OCR, geometrii v0.10,
 aktywnych jobów i istniejących importów. Przeliczenie/usunięcie katalogów dopiero
 po osobnym preview i potwierdzeniu. Próbki v11 muszą pochodzić z produkcyjnego kodu.
+
+## TASK-0472 — końcowa bramka 2026-09-05: NIEPRZEJŚCIE
+
+Uruchomiono read-only `scripts/check_selected_crop_v11_acceptance.mjs` z katalogiem
+`C:\Users\user\Documents\777` i argumentem `holdout`. Runner weryfikuje SHA źródeł,
+wykorzystuje wspólny renderCropSource i sprawdza wymiary wygenerowanego JPEG-a.
+Nie zapisuje cropów w katalogach. Polityka i pełny fingerprint są drukowane w raporcie.
+
+| Źródło | Automatyczna akceptacja | Przyczyna | Poziomy | Czas v11 |
+| --- | --- | --- | --- | --- |
+| 50410–50418 | nie | incomplete_layout | 960 / 1600 | 1712 ms |
+| 200575–200583 | nie | incomplete_layout | 960 / 1600 | 1797 ms |
+
+Oba wyniki zachowują pełne 1080×1920 i wymagają ręcznej korekty. Poprawne
+automaty: 0/2 = 0% wobec wymaganych 90%. Błędne automaty: 0, lecz brak akceptacji
+nie dowodzi skuteczności ochrony na reprezentatywnym materiale. Bramka odrzucona.
+
+Łączny czas v11 3509 ms, mediana raportowana przez runner 1712 ms, p95 1797 ms;
+przy dwóch próbkach nie są to wiarygodne estymatory czasu katalogu. Max RSS procesu
+168532 KiB obejmuje także baseline. Pomiar współbieżny z buildem Admina, więc
+nie jest kontrolowanym porównaniem wydajności. Odbiór gry literowej niepotwierdzony.
+
+Nie stroimy progów na holdout. Następna diagnoza powinna zbadać brakujące/łączone
+kandydatury plansz; nie wolno zastępować brakującego dowodu syntetycznymi obszarami.
+Zatrzymano rollout zgodnie z poleceniem użytkownika; CROP_V11_RELEASE_ENABLED=false.

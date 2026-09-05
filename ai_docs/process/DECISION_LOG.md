@@ -7906,3 +7906,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   stają się etykietami do uczenia narożników. Siedem przypadków odtwarza błędy,
   ale nie dowodzi skuteczności na innych grach. Produkcyjny v11 wymaga osobnego
   odbioru. Usuwanie lub ponowne przeliczenie katalogów wymaga osobnej zgody.
+
+## D-359 — Zatrzymanie rollout v11 po nieudanej bramce jakości
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** implementacja eksperymentalna pozostaje nieaktywna. Zgodnie
+  z poleceniem użytkownika zatrzymano dalsze strojenie po odbiorze TASK-0472.
+- **Evidence:** oba niezależne źródła holdout dały incomplete_layout, 0/2
+  poprawnych automatów wobec wymaganego minimum 90%. Zero błędnych akceptacji
+  przy zerowej liczbie akceptacji nie stanowi spełnienia bramki.
+- **Consequences:** bez podmiany katalogów, zmiany domyślnej polityki i osłabiania
+  dowodu dziewięciu plansz. Dalsza diagnoza ekstrakcji kandydatów wymaga osobnego
+  polecenia. Odbiór innej szaty graficznej pozostaje niepotwierdzony.

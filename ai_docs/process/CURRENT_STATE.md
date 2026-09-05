@@ -6,6 +6,18 @@ last_updated: 2026-09-05
 
 # Current State
 
+### TASK-0472 — bramka jakości v11 nie przeszła; rollout zatrzymany
+
+- Holdout: 0/2 poprawnych automatów, 0 błędnych automatów, 2 incomplete_layout
+  po analizach 960/1600. Nie osiągnięto wymaganych 90%; nie kontynuujemy strojenia.
+- V11 pozostaje nieaktywny. Katalogi, importy, OCR i aktywne joby bez zmian.
+- 72 core, 18 Admin contract, 7 Node recovery/EXIF, typecheck, scoped lint,
+  scoped format oraz produkcyjny build Admina OK. Pełny lint nadal ma dwa
+  wcześniejsze błędy w geometry-guard-resolution-panel.tsx, poza zakresem.
+- Task pozostaje blocked; raport w SELECTED_CROP_V11_REGRESSIONS.md.
+  Brak oryginałów gry literowej i live QA ogranicza odbiór. Dalsze prace tylko
+  po osobnym poleceniu, bez obniżania ochrony ani automatycznego przeliczenia danych.
+
 ### TASK-0471 — wspólny transport i journal v11
 
 - Dodano wspólny sampler i fingerprint; worker/fallback otrzymują przypiętą

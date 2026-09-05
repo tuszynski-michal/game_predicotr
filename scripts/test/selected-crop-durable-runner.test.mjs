@@ -9,6 +9,38 @@ import {
   renderCropSource,
 } from '../lib/selected-crop-durable-runner.mjs';
 import { CROP_V11_POLICY } from '../../packages/manual-image-selection-core/src/auto-crop-v11.ts';
+
+test(
+  'EXIF 1–8 canonicalized once, full fallback retains 1:1 dimensions and no orientation tag',
+  { timeout: 20000 },
+  async () => {
+    for (let orientation = 1; orientation <= 8; orientation++) {
+      const source = await sharp({
+        create: { width: 96, height: 160, channels: 3, background: '#333333' },
+      })
+        .withMetadata({ orientation })
+        .jpeg()
+        .toBuffer();
+      const { proposal, output } = await renderCropSource(
+        source,
+        CROP_V11_POLICY,
+      );
+      const expected =
+        orientation >= 5
+          ? { width: 160, height: 96 }
+          : { width: 96, height: 160 };
+      assert.deepEqual(
+        { width: proposal.crop.width, height: proposal.crop.height },
+        expected,
+      );
+      assert.equal(proposal.structural.status, 'needs_manual_crop');
+      const metadata = await sharp(output).metadata();
+      assert.equal(metadata.width, expected.width);
+      assert.equal(metadata.height, expected.height);
+      assert.equal(metadata.orientation, undefined);
+    }
+  },
+);
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'crop-v11-test-'));
   const source = path.join(root, 'picked');

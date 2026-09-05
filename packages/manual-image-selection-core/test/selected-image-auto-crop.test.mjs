@@ -28,12 +28,40 @@ function boardPixel(x, y, variant = 'blue') {
   return bright ? [35, 95, 205] : [18, 45, 105];
 }
 
-test('uses a 512 px analysis budget and versions the balanced top margin', () => {
+test('uses a 512 px analysis budget and versions the top-board-row policy', () => {
   assert.equal(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, 512);
   assert.equal(
     SELECTED_IMAGE_AUTO_CROP_POLICY,
-    'selected-image-board-band-v9-balanced-top-margin',
+    'selected-image-board-band-v10-top-board-row-guided',
   );
+});
+
+test('uses three aligned red board frames to refine a misleading high panel top', () => {
+  const input = sample(180, 240, (x, y) => {
+    if (y >= 18 && y <= 70) return [150, 35, 25];
+    if (y >= 88 && y <= 190) {
+      const board = [18, 52, 140];
+      const inTopBoard =
+        y >= 94 &&
+        y <= 116 &&
+        ((x >= 12 && x <= 52) ||
+          (x >= 70 && x <= 110) ||
+          (x >= 128 && x <= 168));
+      if (inTopBoard && (y <= 99 || y >= 111 || x % 12 <= 2))
+        return [155, 35, 28];
+      return board;
+    }
+    return [18, 16, 19];
+  });
+  const result = detectSelectedImageCropBand(input, {
+    width: 1440,
+    height: 1920,
+  });
+  assert.equal(result.strategy, 'top_board_row_guided');
+  assert.equal(result.evidence.selectionBasis, 'top_board_row');
+  assert.ok(result.crop.topY >= 680);
+  assert.ok(result.crop.topY <= 760);
+  assert.ok((result.evidence.topBoardRowCandidateCount ?? 0) >= 3);
 });
 
 test('prefers the blue board panel over a full-width paytable above it', () => {

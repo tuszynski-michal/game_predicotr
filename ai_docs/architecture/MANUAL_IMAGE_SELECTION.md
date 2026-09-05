@@ -219,7 +219,14 @@ każdego wskazanego JPEG-a przed utworzeniem albo wznowieniem sesji. Dzięki
 osobnym nazwom katalogów manifest v1 nadal jednoznacznie wiąże swój inwentarz.
 
 Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
-wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka v9
+wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka
+v10 buduje lekką maskę czerwonych ramek, łączy jej komponenty i szuka trzech
+podobnych kandydatów o rosnących współrzędnych X, zgodnych wysokościach oraz
+lokalnie wspólnej linii. Kandydaci muszą leżeć w ograniczonym sąsiedztwie
+górnej granicy uzyskanej z detektora panelu. Wynik wyznacza wyłącznie górę;
+dół oraz fail-safe nadal pochodzą z v9. Brak pełnego dowodu jest no-opem.
+
+Polityka v9
 dzieli środkowe 88% obrazu na dziewięć pasów i w każdym niezależnie znajduje
 długi klaster niebieskiego tła. Dopiero co najmniej pięć zgodnych klastrów,
 obejmujących lewą, środkową i prawą grupę, tworzy granicę panelu. Rozrzut
@@ -257,12 +264,12 @@ w operacji oczekującej, dlatego recovery po zapisie JPEG-a finalizuje dokładni
 ten sam wynik.
 
 Mały session journal przypina `preparationPolicyVersion`. Nowa sesja zaczyna z
-v9, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
+v10, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
 bez zgadywania wersji. Taka sesja nie przygotuje brakujących plików nową
 polityką, dopóki operator jawnie nie uruchomi przeliczenia. Recalculator
 wyprowadza zamknięty zbiór nazw z shardów i review state; chroni `reviewed`,
 `corrected` oraz `needs_correction`, a każdy dopuszczony wynik zastępuje przez
-istniejący checksum-bound journal. Po przypięciu v9 zwykłe wznowienie może
+istniejący checksum-bound journal. Po przypięciu v10 zwykłe wznowienie może
 przygotować pozostałe, dotąd brakujące wyniki.
 
 Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma

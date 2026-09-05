@@ -559,7 +559,13 @@ sesja nie współdzielą inwentarza ani postępu.
 
 Automat dla każdego jeszcze niezatwierdzonego zdjęcia niezależnie analizuje
 ograniczoną kopię podglądową do 512 px i proponuje pas obejmujący zwarty panel
-plansz. Polityka `selected-image-board-band-v9-balanced-top-margin`
+plansz. Polityka `selected-image-board-band-v10-top-board-row-guided`
+próbuje dodatkowo znaleźć trzy podobne, poziomo uporządkowane czerwone ramki
+plansz pierwszego rzędu. Ich najwyższa krawędź z buforem definiuje górę cropa;
+brak pełnej trójki nie zaciska wyniku i pozostawia bezpieczną propozycję
+szerokiego panelu v9.
+
+Historyczna polityka `selected-image-board-band-v9-balanced-top-margin`
 wyznacza niebieski panel niezależnie w dziewięciu pionowych pasach i wymaga
 zgodnych granic w co najmniej pięciu pasach oraz w lewej, środkowej i prawej
 części obrazu. Tak potwierdzony panel jest wystarczającym dowodem nawet wtedy,
@@ -575,7 +581,9 @@ nasycenia, kontrastu oraz powtarzalnych krawędzi. Automatyczna granica wymaga
 wsparcia w co najmniej pięciu pasach oraz w lewej, środkowej i prawej części;
 pojedyncza tabela, światło albo dłoń nie mogą przesunąć całego cropa.
 
-Pochylenie jest uwzględniane przez lokalne granice pasów i bezpieczną
+Pochylenie górnego rzędu jest uwzględniane przez wybór jego najwyższego punktu,
+więc pozioma linia nie przecina skrajnej planszy. Pochylenie całego panelu jest
+uwzględniane przez lokalne granice pasów i bezpieczną
 obwiednię: 10. percentyl górnych granic minus 4,5% wysokości oraz 90. percentyl
 dolnych granic plus 4,5%. Górna granica nie rozszerza się w stronę panelu
 wypłat. Mocny, szeroki sygnał przy dolnej granicy rozszerza crop na zewnątrz

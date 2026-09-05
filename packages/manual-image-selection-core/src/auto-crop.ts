@@ -6,6 +6,8 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 
 export const SELECTED_IMAGE_AUTO_CROP_POLICY =
+  'selected-image-board-band-v10-top-board-row-guided' as const;
+export const SELECTED_IMAGE_AUTO_CROP_V9_POLICY =
   'selected-image-board-band-v9-balanced-top-margin' as const;
 export const SELECTED_IMAGE_AUTO_CROP_V8_POLICY =
   'selected-image-board-band-v8-tight-top-boundary' as const;
@@ -27,6 +29,7 @@ const SELECTED_IMAGE_AUTO_CROP_MINIMUM_DETECTED_BAND_RATIO = 0.28;
 
 export type SelectedImageAutoCropPolicyVersion =
   | typeof SELECTED_IMAGE_AUTO_CROP_POLICY
+  | typeof SELECTED_IMAGE_AUTO_CROP_V9_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_V8_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_V7_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_V6_POLICY
@@ -34,7 +37,7 @@ export type SelectedImageAutoCropPolicyVersion =
   | typeof SELECTED_IMAGE_AUTO_CROP_LEGACY_POLICY;
 
 export type SelectedImageAutoCropStrategy =
-  'blue_panel' | 'multicolumn_panel' | 'safe_wide';
+  'top_board_row_guided' | 'blue_panel' | 'multicolumn_panel' | 'safe_wide';
 
 export type SelectedImageAutoCropClassification =
   'high_confidence' | 'conservative' | 'safe_wide';
@@ -63,7 +66,11 @@ export interface SelectedImageAutoCropEvidence {
   readonly boundaryExpanded: boolean;
   readonly fallbackReason: SelectedImageAutoCropFallbackReason;
   /** Absent on proposals persisted by policy v4. */
-  readonly selectionBasis?: 'blue_panel' | 'multicolumn' | 'safe_wide';
+  readonly selectionBasis?:
+    'top_board_row' | 'blue_panel' | 'multicolumn' | 'safe_wide';
+  /** Present only for the v10 top-board-row refinement. */
+  readonly topBoardRowCandidateCount?: number;
+  readonly topBoardRowTopRatio?: number | null;
 }
 
 export interface SelectedImageAutoCropProposal {
@@ -116,9 +123,257 @@ export function detectSelectedImageCropBand(
 ): DetectedSelectedImageAutoCropProposal {
   assertSample(sample);
   const bluePanel = detectBluePanel(sample, source);
-  const multicolumn = detectMulticolumnPanel(sample, source);
-  if (bluePanel !== null) return bluePanel;
-  return multicolumn;
+  const baseline = bluePanel ?? detectMulticolumnPanel(sample, source);
+  return refineTopFromBoardRow(sample, source, baseline);
+}
+
+interface BoardFrameCandidate {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * The broad panel remains the safe lower-bound detector.  V10 refines only
+ * the error-prone top edge from three independently visible top-row boards.
+ * Failure is deliberately a no-op, so it can never make a weak image tighter.
+ */
+function refineTopFromBoardRow(
+  sample: SelectedImageAutoCropSample,
+  source: SelectedImageDimensions,
+  baseline: DetectedSelectedImageAutoCropProposal,
+): DetectedSelectedImageAutoCropProposal {
+  const candidates = detectBoardFrameCandidates(sample);
+  const baselineTop =
+    (baseline.crop.topY / Math.max(1, source.height)) * sample.height;
+  const row = selectTopBoardRow(candidates, sample, baselineTop);
+  if (row === null) {
+    return {
+      ...baseline,
+      evidence: {
+        ...baseline.evidence,
+        topBoardRowCandidateCount: candidates.length,
+        topBoardRowTopRatio: null,
+      },
+    };
+  }
+  const medianHeight = percentile(
+    row.map((candidate) => candidate.height),
+    0.5,
+  );
+  const top = Math.max(
+    0,
+    Math.min(...row.map((candidate) => candidate.top)) -
+      Math.max(
+        3,
+        Math.round(medianHeight * 0.22),
+        Math.round(sample.height * 0.02),
+      ),
+  );
+  const topY = Math.round((top / sample.height) * source.height);
+  if (
+    topY >= baseline.crop.bottomY ||
+    baseline.crop.bottomY - topY <
+      source.height * SELECTED_IMAGE_AUTO_CROP_MINIMUM_DETECTED_BAND_RATIO
+  ) {
+    return baseline;
+  }
+  return {
+    ...baseline,
+    crop: validateSelectedImageCropBand({
+      ...source,
+      topY,
+      bottomY: baseline.crop.bottomY,
+    }),
+    strategy: 'top_board_row_guided',
+    classification: 'high_confidence',
+    confidence: Number(Math.max(0.9, baseline.confidence).toFixed(3)),
+    evidence: {
+      ...baseline.evidence,
+      selectionBasis: 'top_board_row',
+      topBoardRowCandidateCount: candidates.length,
+      topBoardRowTopRatio: Number((top / sample.height).toFixed(6)),
+    },
+  };
+}
+
+function detectBoardFrameCandidates(
+  sample: SelectedImageAutoCropSample,
+): readonly BoardFrameCandidate[] {
+  const { width, height, rgba } = sample;
+  const expanded = new Uint8Array(width * height);
+  for (let y = Math.floor(height * 0.16); y < Math.ceil(height * 0.8); y += 1) {
+    for (
+      let x = Math.floor(width * 0.02);
+      x < Math.ceil(width * 0.98);
+      x += 1
+    ) {
+      if (!isBoardFrameRed(rgba, (y * width + x) * 4)) continue;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        const py = y + dy;
+        if (py < 0 || py >= height) continue;
+        const start = Math.max(0, x - 3);
+        const end = Math.min(width - 1, x + 3);
+        expanded.fill(1, py * width + start, py * width + end + 1);
+      }
+    }
+  }
+  const visited = new Uint8Array(expanded.length);
+  const result: BoardFrameCandidate[] = [];
+  const queue: number[] = [];
+  for (let index = 0; index < expanded.length; index += 1) {
+    if (expanded[index] !== 1 || visited[index] === 1) continue;
+    visited[index] = 1;
+    queue.length = 0;
+    queue.push(index);
+    let head = 0;
+    let minX = width;
+    let maxX = 0;
+    let minY = height;
+    let maxY = 0;
+    while (head < queue.length) {
+      const current = queue[head++]!;
+      const x = current % width;
+      const y = Math.floor(current / width);
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+      const neighbours = [
+        current - 1,
+        current + 1,
+        current - width,
+        current + width,
+      ];
+      for (const neighbour of neighbours) {
+        if (neighbour < 0 || neighbour >= expanded.length) continue;
+        const nx = neighbour % width;
+        if (Math.abs(nx - x) > 1) continue;
+        if (expanded[neighbour] !== 1 || visited[neighbour] === 1) continue;
+        visited[neighbour] = 1;
+        queue.push(neighbour);
+      }
+    }
+    const candidateWidth = maxX - minX + 1;
+    const candidateHeight = maxY - minY + 1;
+    const aspect = candidateWidth / Math.max(1, candidateHeight);
+    const areaRatio = (candidateWidth * candidateHeight) / (width * height);
+    if (
+      candidateWidth >= width * 0.075 &&
+      candidateWidth <= width * 0.34 &&
+      candidateHeight >= height * 0.025 &&
+      candidateHeight <= height * 0.16 &&
+      aspect >= 1.05 &&
+      aspect <= 3.6 &&
+      areaRatio >= 0.0015 &&
+      areaRatio <= 0.06
+    ) {
+      result.push({
+        left: minX,
+        top: minY,
+        width: candidateWidth,
+        height: candidateHeight,
+      });
+    }
+  }
+  return result;
+}
+
+function selectTopBoardRow(
+  candidates: readonly BoardFrameCandidate[],
+  sample: SelectedImageAutoCropSample,
+  baselineTop: number,
+):
+  | readonly [BoardFrameCandidate, BoardFrameCandidate, BoardFrameCandidate]
+  | null {
+  const ordered = [...candidates].sort(
+    (left, right) => centreX(left) - centreX(right),
+  );
+  let best: {
+    readonly row: readonly [
+      BoardFrameCandidate,
+      BoardFrameCandidate,
+      BoardFrameCandidate,
+    ];
+    readonly score: number;
+  } | null = null;
+  for (let leftIndex = 0; leftIndex < ordered.length; leftIndex += 1) {
+    for (
+      let middleIndex = leftIndex + 1;
+      middleIndex < ordered.length;
+      middleIndex += 1
+    ) {
+      for (
+        let rightIndex = middleIndex + 1;
+        rightIndex < ordered.length;
+        rightIndex += 1
+      ) {
+        const left = ordered[leftIndex]!;
+        const middle = ordered[middleIndex]!;
+        const right = ordered[rightIndex]!;
+        if (!(
+          centreX(left) < centreX(middle) && centreX(middle) < centreX(right)
+        ))
+          continue;
+        const row = [left, middle, right] as const;
+        const leftGap = centreX(middle) - centreX(left);
+        const rightGap = centreX(right) - centreX(middle);
+        const span = centreX(right) - centreX(left);
+        if (
+          span < sample.width * 0.28 ||
+          span > sample.width * 0.72 ||
+          Math.min(leftGap, rightGap) < sample.width * 0.075 ||
+          Math.max(leftGap, rightGap) / Math.min(leftGap, rightGap) > 2.2
+        )
+          continue;
+        const centres = row.map(
+          (candidate) => candidate.top + candidate.height / 2,
+        );
+        const centreSpread = Math.max(...centres) - Math.min(...centres);
+        if (centreSpread > sample.height * 0.075) continue;
+        const widths = row.map((candidate) => candidate.width);
+        const heights = row.map((candidate) => candidate.height);
+        if (Math.max(...widths) / Math.max(1, Math.min(...widths)) > 1.75)
+          continue;
+        if (Math.max(...heights) / Math.max(1, Math.min(...heights)) > 1.8)
+          continue;
+        const rowTop = Math.min(...row.map((candidate) => candidate.top));
+        if (
+          rowTop <
+            Math.max(
+              sample.height * 0.16,
+              baselineTop - sample.height * 0.08,
+            ) ||
+          rowTop >
+            Math.min(sample.height * 0.68, baselineTop + sample.height * 0.24)
+        )
+          continue;
+        const score =
+          centreSpread +
+          Math.abs(rowTop - baselineTop) * 0.35 +
+          (Math.max(...widths) - Math.min(...widths)) * 0.2;
+        if (best === null || score < best.score) best = { row, score };
+      }
+    }
+  }
+  return best?.row ?? null;
+}
+
+function centreX(candidate: BoardFrameCandidate): number {
+  return candidate.left + candidate.width / 2;
+}
+
+function isBoardFrameRed(rgba: Uint8ClampedArray, offset: number): boolean {
+  const red = rgba[offset] ?? 0;
+  const green = rgba[offset + 1] ?? 0;
+  const blue = rgba[offset + 2] ?? 0;
+  return (
+    red >= 48 &&
+    red >= green * 1.16 &&
+    red >= blue * 1.08 &&
+    red - Math.min(green, blue) >= 18
+  );
 }
 
 function detectMulticolumnPanel(

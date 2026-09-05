@@ -7877,3 +7877,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   włączania logo i panelu wypłat.
 - **Consequences:** dla próbki 1080×1920 górna granica przesuwa się z 648 na
   618. Wyniki v4–v8 pozostają czytelne i nie są po cichu przeliczane.
+
+## D-357 — Górna granica lokalnego cropa korzysta z trzech plansz
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v10 może zastąpić wyłącznie górną granicę v9, gdy
+  lekka analiza 512 px znajdzie trzy podobne czerwone ramki tworzące pierwszy
+  rząd. Granica używa najwyższego punktu i bufora co najmniej 2% wysokości.
+- **Reason:** szeroki kolor panelu dobrze lokalizuje całość, ale panel wypłat i
+  zmienna wysokość niebieskiego tła przesuwają jego górną krawędź. Trzy ramki
+  są bezpośrednim dowodem położenia zawartości, którą trzeba zachować.
+- **Consequences:** dolna granica i fail-safe v9 pozostają bez zmian. Brak
+  pełnej trójki nigdy nie zaciska cropa. Polityki v4–v9 zachowują replay.

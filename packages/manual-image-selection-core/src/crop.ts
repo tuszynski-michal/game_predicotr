@@ -359,13 +359,17 @@ function validateSelectedImageAutoCropProposal(
       'selected-image-board-band-v7-bounded-boundary-expansion',
       'selected-image-board-band-v8-tight-top-boundary',
       'selected-image-board-band-v9-balanced-top-margin',
+      'selected-image-board-band-v10-top-board-row-guided',
     ].includes(proposal.policyVersion) ||
     !['high_confidence', 'conservative', 'safe_wide'].includes(
       proposal.classification,
     ) ||
-    !['blue_panel', 'multicolumn_panel', 'safe_wide'].includes(
-      proposal.strategy,
-    ) ||
+    ![
+      'top_board_row_guided',
+      'blue_panel',
+      'multicolumn_panel',
+      'safe_wide',
+    ].includes(proposal.strategy) ||
     !Number.isFinite(proposal.confidence) ||
     proposal.confidence < 0 ||
     proposal.confidence > 1 ||
@@ -398,9 +402,17 @@ function validateSelectedImageAutoCropProposal(
         boundary.bottomRatio < boundary.topRatio,
     ) ||
     (evidence.selectionBasis !== undefined &&
-      !['blue_panel', 'multicolumn', 'safe_wide'].includes(
+      !['top_board_row', 'blue_panel', 'multicolumn', 'safe_wide'].includes(
         evidence.selectionBasis,
-      ))
+      )) ||
+    (evidence.topBoardRowCandidateCount !== undefined &&
+      (!Number.isInteger(evidence.topBoardRowCandidateCount) ||
+        evidence.topBoardRowCandidateCount < 0)) ||
+    (evidence.topBoardRowTopRatio !== undefined &&
+      evidence.topBoardRowTopRatio !== null &&
+      (!Number.isFinite(evidence.topBoardRowTopRatio) ||
+        evidence.topBoardRowTopRatio < 0 ||
+        evidence.topBoardRowTopRatio > 1))
   ) {
     throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
   }

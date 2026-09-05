@@ -6,6 +6,19 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Górna granica prowadzona pierwszym rzędem plansz — TASK-0467
+
+- Polityka `selected-image-board-band-v10-top-board-row-guided` wykrywa trzy
+  podobne czerwone ramki pierwszego rzędu i ustawia poziomą granicę nad ich
+  najwyższym punktem z buforem 2% obrazu roboczego.
+- Brak pełnej, geometrycznie zgodnej trójki nie zaciska cropa: wynik bazowy v9
+  pozostaje bez zmian. Dolna granica nadal korzysta ze sprawdzonego detektora
+  panelu.
+- Dwie rzeczywiste, pochylone próbki dały odpowiednio `topY=589` i `topY=454`
+  przy obrazie 1080×1920, zachowując komplet wszystkich dziewięciu plansz.
+- Wznawialne narzędzie operatorskie zapisuje wyniki shardami po 64 pozycje i
+  publikuje zgodny manifest dopiero po ukończeniu katalogu.
+
 ### Zbalansowany górny margines lokalnego auto-cropa — TASK-0466
 
 - Polityka v9 zwiększa górny padding z 3% do 4,5%, pozostawiając około 29 px

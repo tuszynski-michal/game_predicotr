@@ -16,6 +16,7 @@ from game_predictor_api.application.iterative_image_imports import (
 )
 from game_predictor_api.domain.image_import_engine_policy import ImageImportEnginePolicy
 from game_predictor_api.domain.image_import_geometry_guard import (
+    ImageGeometryGuardBoardContext,
     ImageGeometryGuardBoardTarget,
     ImageGeometryGuardDecision,
     ImageGeometryGuardResolutionManifest,
@@ -199,6 +200,28 @@ class ImageGeometryGuardBoardTargetResponse(ApiModel):
         )
 
 
+class ImageGeometryGuardBoardContextResponse(ApiModel):
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_relative_path: str = Field(min_length=1, max_length=1000)
+    position_index: int = Field(ge=0, le=8)
+    sequence_number: int = Field(ge=1)
+    page_geometry: dict[str, object] | None
+    requires_decision: bool
+
+    @classmethod
+    def from_domain(
+        cls, value: ImageGeometryGuardBoardContext
+    ) -> "ImageGeometryGuardBoardContextResponse":
+        return cls(
+            source_checksum_sha256=value.source_checksum_sha256,
+            source_relative_path=value.source_relative_path,
+            position_index=value.position_index,
+            sequence_number=value.sequence_number,
+            page_geometry=value.page_geometry,
+            requires_decision=value.requires_decision,
+        )
+
+
 class ImageGeometryGuardDecisionResponse(ApiModel):
     id: UUID
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -245,6 +268,7 @@ class ImageGeometryGuardQueueResponse(ApiModel):
     source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     page_geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     unresolved_count: int = Field(ge=0)
+    boards: list[ImageGeometryGuardBoardContextResponse]
     targets: list[ImageGeometryGuardBoardTargetResponse]
     decisions: list[ImageGeometryGuardDecisionResponse]
 
@@ -270,6 +294,29 @@ class ImageGeometryGuardDecisionBatchCreate(ApiModel):
 
 class ImageGeometryGuardDecisionBatchResponse(ApiModel):
     decisions: list[ImageGeometryGuardDecisionResponse]
+
+
+class ImageGeometryGuardPreviewCreate(ApiModel):
+    game_id: UUID
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    position_index: int = Field(ge=0, le=8)
+    symbol_grid_quad: tuple[
+        PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint
+    ]
+    unavailable_cell_indices: list[int] = Field(default_factory=list, max_length=14)
+
+
+class ImageGeometryGuardCellPreviewResponse(ApiModel):
+    cell_index: int = Field(ge=0, le=14)
+    source_unavailable: bool
+    current_data_url: str | None
+    proposed_data_url: str | None
+
+
+class ImageGeometryGuardPreviewResponse(ApiModel):
+    image_width: int = Field(ge=1)
+    image_height: int = Field(ge=1)
+    cells: list[ImageGeometryGuardCellPreviewResponse] = Field(min_length=15, max_length=15)
 
 
 class ImageGeometryGuardReportReconstructionCreate(ApiModel):

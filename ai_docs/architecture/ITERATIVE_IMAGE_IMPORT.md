@@ -338,6 +338,19 @@ ukończenia źródła. `rejected` jest usuwany z projekcji plansz przed renderem
 więc nie powstaje recognized board ani crop. Historyczne schema v5 i
 reprocess schema v6 zachowują własne snapshoty i nie ładują manifestu v7.
 
+Admin pobiera jeden spójny projection kolejki: `boards` zawiera wszystkie
+sloty raportu dla źródeł z wyjątkami, `targets` tylko sloty `deferred`, a
+`decisions` najnowsze append-only rewizje. Dzięki temu zielone sloty pozostają
+kontekstem wizualnym i nie stają się przypadkowo celami mutacji. Obraz źródła
+jest serwowany wyłącznie po ponownym sprawdzeniu stagingu, rozmiaru i SHA-256.
+
+Podgląd decyzji jest czystą, ograniczoną operacją API: rektyfikuje wskazany
+quad do siatki 5×3 w pamięci, porównuje go z propozycją raportu, pomija komórki
+maski częściowej i zwraca małe JPEG data URLs. Nie zapisuje plików, obserwacji
+ani geometrii. Zapis decyzji oraz zamknięcie manifestu pozostają osobnymi
+operacjami, a zmiana rewizji po zamknięciu wymaga ponownego seal i nowej
+checksummy przypiętej do startu schema v7.
+
 ### Przyrostowe kotwice preflightu strony
 
 Preflight strony może zbudować tymczasową kohortę auto-kotwic dla jednego

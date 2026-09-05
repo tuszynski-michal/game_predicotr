@@ -13,6 +13,7 @@ from typing import Protocol, cast
 from uuid import UUID, uuid4
 
 from game_predictor_api.domain.image_import_geometry_guard import (
+    ImageGeometryGuardBoardContext,
     ImageGeometryGuardBoardTarget,
     ImageGeometryGuardDecision,
     ImageGeometryGuardDecisionError,
@@ -62,6 +63,7 @@ class ImageGeometryGuardQueue:
     guard_report_checksum_sha256: str
     source_manifest_checksum_sha256: str
     page_geometry_manifest_checksum_sha256: str
+    boards: tuple[ImageGeometryGuardBoardContext, ...]
     targets: tuple[ImageGeometryGuardBoardTarget, ...]
     decisions: tuple[ImageGeometryGuardDecision, ...]
 
@@ -111,6 +113,7 @@ class ImageImportGeometryGuardService:
             guard_job_id=guard_job_id,
         )
         report, report_checksum = self._report(scope, guard_job_id=guard_job_id)
+        boards = _boards(report)
         targets = _targets(report)
         decisions = tuple(
             item
@@ -124,6 +127,7 @@ class ImageImportGeometryGuardService:
             guard_report_checksum_sha256=report_checksum,
             source_manifest_checksum_sha256=_source_manifest_checksum(scope),
             page_geometry_manifest_checksum_sha256=_page_manifest_checksum(scope),
+            boards=boards,
             targets=targets,
             decisions=decisions,
         )
@@ -523,6 +527,66 @@ def _targets(report: Mapping[str, object]) -> tuple[ImageGeometryGuardBoardTarge
             )
     return tuple(
         sorted(targets, key=lambda item: (item.source_checksum_sha256, item.position_index))
+    )
+
+
+def _boards(report: Mapping[str, object]) -> tuple[ImageGeometryGuardBoardContext, ...]:
+    sources = report.get("sources")
+    if not isinstance(sources, Sequence) or isinstance(sources, str | bytes):
+        raise JobError("IMAGE_GEOMETRY_GUARD_REPORT_INVALID", "The report has no source list.")
+    result: list[ImageGeometryGuardBoardContext] = []
+    seen: set[tuple[str, int]] = set()
+    for raw_source in sources:
+        if not isinstance(raw_source, Mapping):
+            raise JobError("IMAGE_GEOMETRY_GUARD_REPORT_INVALID", "A report source is invalid.")
+        source_checksum = raw_source.get("sourceChecksumSha256")
+        source_path = raw_source.get("sourceRelativePath")
+        raw_boards = raw_source.get("boards")
+        if (
+            not isinstance(source_checksum, str)
+            or not isinstance(source_path, str)
+            or not isinstance(raw_boards, Sequence)
+            or isinstance(raw_boards, str | bytes)
+        ):
+            raise JobError("IMAGE_GEOMETRY_GUARD_REPORT_INVALID", "A report source is incomplete.")
+        for raw_board in raw_boards:
+            if not isinstance(raw_board, Mapping):
+                raise JobError("IMAGE_GEOMETRY_GUARD_REPORT_INVALID", "A report board is invalid.")
+            position = raw_board.get("positionIndex")
+            sequence_number = raw_board.get("sequenceNumber")
+            status = raw_board.get("status")
+            if (
+                not isinstance(position, int)
+                or isinstance(position, bool)
+                or not 0 <= position <= 8
+                or not isinstance(sequence_number, int)
+                or isinstance(sequence_number, bool)
+                or sequence_number < 1
+                or status not in {"ready", "deferred"}
+            ):
+                raise JobError("IMAGE_GEOMETRY_GUARD_REPORT_INVALID", "A report board is invalid.")
+            key = (source_checksum, position)
+            if key in seen:
+                raise JobError(
+                    "IMAGE_GEOMETRY_GUARD_REPORT_INVALID", "A report board occurs more than once."
+                )
+            seen.add(key)
+            result.append(
+                ImageGeometryGuardBoardContext(
+                    source_checksum_sha256=source_checksum,
+                    source_relative_path=source_path,
+                    position_index=position,
+                    sequence_number=sequence_number,
+                    page_geometry=(
+                        dict(raw_board["pageGeometry"])
+                        if isinstance(raw_board.get("pageGeometry"), Mapping)
+                        else None
+                    ),
+                    requires_decision=status == "deferred",
+                )
+            )
+    return tuple(
+        sorted(result, key=lambda item: (item.source_checksum_sha256, item.position_index))
     )
 
 

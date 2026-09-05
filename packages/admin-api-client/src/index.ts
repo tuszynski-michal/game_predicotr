@@ -24,6 +24,11 @@ import {
   createBrowserImageSelection as createGeneratedBrowserImageSelection,
   planBrowserImageSelectionUpload as planGeneratedBrowserImageSelectionUpload,
   createBrowserPageGeometryOverride as createGeneratedBrowserPageGeometryOverride,
+  createImageGeometryGuardDecisions as createGeneratedImageGeometryGuardDecisions,
+  previewImageGeometryGuardDecision as previewGeneratedImageGeometryGuardDecision,
+  listImageGeometryGuardBoards as listGeneratedImageGeometryGuardBoards,
+  sealImageGeometryGuardResolutionManifest as sealGeneratedImageGeometryGuardResolutionManifest,
+  startImageGeometryGuardReportReconstruction as startGeneratedImageGeometryGuardReportReconstruction,
   listReadyBrowserImageSelections as listGeneratedReadyBrowserImageSelections,
   previewReadyBrowserImageImport as previewGeneratedReadyBrowserImageImport,
   startReadyBrowserImageImport as startGeneratedReadyBrowserImageImport,
@@ -223,6 +228,7 @@ import type {
   BrowserImageUploadPlanResponse,
   BrowserImageImportPreflightCreate,
   BrowserImageImportStart,
+  BrowserImageImportJobPayload,
   BrowserPageGeometryOverrideCreate,
   BoardCellGeometryManualPreviewCommand,
   BoardCellGeometryManualResolutionCommand,
@@ -253,6 +259,13 @@ import type {
   ImageImportEnginePolicyPreviewRequest,
   ImageImportEnginePolicyResponse,
   ImageImportEnginePolicyUpdateRequest,
+  ImageGeometryGuardDecisionBatchCreate,
+  ImageGeometryGuardDecisionItemCreate,
+  ImageGeometryGuardBoardTargetResponse,
+  ImageGeometryGuardManifestSealCreate,
+  ImageGeometryGuardPreviewCreate,
+  PageGeometryPoint,
+  ResolvedBrowserImageImportJobPayload,
   ImageSelectionCreate,
   ImageSelectionDuplicateRangeCommand,
   ImageSelectionGroupDecisionCommand,
@@ -339,6 +352,7 @@ export type {
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
   BrowserImageImportPreflightResponse,
+  BrowserImageImportJobPayload,
   BrowserImageImportStart,
   BrowserImageImportStartResponse,
   BrowserPageGeometryOverrideCreate,
@@ -346,6 +360,18 @@ export type {
   BrowserPageGeometryPreflightResponse,
   BrowserPageGeometryReviewSourceResponse,
   BrowserPageGeometryReviewSourcesResponse,
+  ImageGeometryGuardDecisionBatchCreate,
+  ImageGeometryGuardDecisionBatchResponse,
+  ImageGeometryGuardDecisionItemCreate,
+  ImageGeometryGuardBoardTargetResponse,
+  ImageGeometryGuardManifestSealCreate,
+  ImageGeometryGuardPreviewCreate,
+  ImageGeometryGuardPreviewResponse,
+  ImageGeometryGuardQueueResponse,
+  ImageGeometryGuardReportReconstructionResponse,
+  ImageGeometryGuardResolutionManifestResponse,
+  PageGeometryPoint,
+  ResolvedBrowserImageImportJobPayload,
   BoardCellGeometryCorrectionContextResponse,
   BoardCellGeometryJobCountsResponse,
   BoardCellGeometryManualPreviewCommand,
@@ -1087,6 +1113,65 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           `image-import:${body.gameId}:page-geometry-preflight`,
         ),
         path: { upload_id: uploadId },
+      }),
+    listImageGeometryGuardBoards: (
+      uploadId: string,
+      guardJobId: string,
+      gameId: string,
+    ) =>
+      listGeneratedImageGeometryGuardBoards({
+        client,
+        path: { guard_job_id: guardJobId, upload_id: uploadId },
+        query: { game_id: gameId },
+      }),
+    createImageGeometryGuardDecisions: (
+      uploadId: string,
+      guardJobId: string,
+      body: ImageGeometryGuardDecisionBatchCreate,
+    ) =>
+      createGeneratedImageGeometryGuardDecisions({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-import:${body.gameId}:geometry-guard-decisions`,
+        ),
+        path: { guard_job_id: guardJobId, upload_id: uploadId },
+      }),
+    previewImageGeometryGuardDecision: (
+      uploadId: string,
+      guardJobId: string,
+      body: ImageGeometryGuardPreviewCreate,
+    ) =>
+      previewGeneratedImageGeometryGuardDecision({
+        body,
+        client,
+        path: { guard_job_id: guardJobId, upload_id: uploadId },
+      }),
+    startImageGeometryGuardReportReconstruction: (
+      uploadId: string,
+      guardJobId: string,
+      gameId: string,
+    ) =>
+      startGeneratedImageGeometryGuardReportReconstruction({
+        body: { gameId },
+        client,
+        headers: confirmedTargetHeaders(
+          `image-import:${gameId}:geometry-guard-report-reconstruction`,
+        ),
+        path: { guard_job_id: guardJobId, upload_id: uploadId },
+      }),
+    sealImageGeometryGuardResolutionManifest: (
+      uploadId: string,
+      guardJobId: string,
+      body: ImageGeometryGuardManifestSealCreate,
+    ) =>
+      sealGeneratedImageGeometryGuardResolutionManifest({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-import:${body.gameId}:geometry-guard-manifest`,
+        ),
+        path: { guard_job_id: guardJobId, upload_id: uploadId },
       }),
     listBrowserPageGeometryReviewSources: (
       uploadId: string,

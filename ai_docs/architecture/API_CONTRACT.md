@@ -2831,6 +2831,27 @@ ponownie używa rygorystycznego resolvera, więc niezgodność kończy się stab
 konfliktem bez utworzenia joba. Preflight geometrii pozostaje od tego resolvera
 niezależny.
 
+Failed duży import z kodem `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION` udostępnia
+checksum-bound workflow wyjątków:
+
+- `GET /browser-selections/{uploadId}/geometry-guards/{guardJobId}/boards`
+  zwraca wszystkie sloty źródeł, odroczone cele, najnowsze decyzje i liczbę
+  nierozliczonych pozycji,
+- `POST .../report-reconstruction` tworzy albo odzyskuje osobny job odtworzenia
+  historycznego raportu v1,
+- `GET .../sources/{sourceChecksumSha256}/asset` serwuje zweryfikowany JPEG
+  wyłącznie z właściwego stagingu,
+- `POST .../preview` przejściowo zwraca 15 cropów propozycja/korekta; komórki
+  częściowe mają `sourceUnavailable=true` i oba obrazy `null`,
+- `POST .../decisions` zapisuje append-only pojedynczą lub atomową
+  jednosource'ową partię,
+- `POST .../resolution-manifests` zamyka komplet najnowszych rewizji.
+
+Endpoint podglądu nie utrwala artefaktów. Start schema v7 przyjmuje jednocześnie
+`geometryGuardResolutionManifestId` i
+`geometryGuardResolutionManifestChecksumSha256`; podanie tylko jednego pola,
+drift raportu albo źródła blokują utworzenie joba bez fallbacku.
+
 ### Preflight geometrii strony browserowego stagingu
 
 Przed `start` importu `seq_*` Admin tworzy osobny job `validate` i czeka na

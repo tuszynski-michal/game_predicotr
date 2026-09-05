@@ -7681,3 +7681,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   zgodnego joba rekonstrukcji. Worker nie może tworzyć brakującego managed
   manifestu ani użyć aktualnych modeli. Identyczne polecenie prowadzi do tego
   samego joba i immutable artefaktu.
+
+### D-343 — Podgląd wyjątków jest przejściowy, a wznowienie pozostaje jawne
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** Admin pokazuje wszystkie dziewięć slotów źródła, lecz mutować
+  pozwala wyłącznie cele `deferred`. Pełna i częściowa decyzja wymaga aktualnego
+  podglądu cropów A/B generowanego w pamięci; podgląd nie utrwala artefaktów.
+  Zamknięcie manifestu nie uruchamia importu.
+- **Reason:** operator potrzebuje sąsiedztwa planszy i obrazu końcowych komórek,
+  ale samo oglądanie nie może tworzyć danych ani maskować surowego wyniku
+  bramki. Oddzielna akcja startu chroni przed przypadkowym wznowieniem dużego
+  importu.
+- **Consequences:** zmiana quada lub maski unieważnia podgląd, a nowa rewizja
+  decyzji unieważnia manifest wybrany w bieżącym UI. Import schema v7 otrzymuje
+  ID i checksumę dopiero po ponownym jawnym seal.

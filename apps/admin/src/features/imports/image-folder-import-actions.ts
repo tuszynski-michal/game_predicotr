@@ -25,6 +25,11 @@ export type ImageFolderImportClient = Pick<
   | 'startBrowserPageGeometryPreflight'
   | 'listBrowserPageGeometryReviewSources'
   | 'createBrowserPageGeometryOverride'
+  | 'listImageGeometryGuardBoards'
+  | 'createImageGeometryGuardDecisions'
+  | 'previewImageGeometryGuardDecision'
+  | 'startImageGeometryGuardReportReconstruction'
+  | 'sealImageGeometryGuardResolutionManifest'
   | 'cancelBrowserImageSelection'
   | 'getImageDatasetCompleteness'
   | 'getImageSequenceSourceSelection'
@@ -299,6 +304,8 @@ export async function startReadyBrowserImageImport(
   imageEnginePolicyRevision: number,
   symbolModelInferenceFingerprint?: string,
   gridProfileInferenceFingerprint?: string,
+  geometryGuardResolutionManifestId?: string,
+  geometryGuardResolutionManifestChecksumSha256?: string,
 ): Promise<
   | { readonly data: BrowserImageImportStartResponse; readonly ok: true }
   | Failure
@@ -320,6 +327,12 @@ export async function startReadyBrowserImageImport(
       ...(geometryManifestChecksumSha256 === undefined
         ? {}
         : { geometryManifestChecksumSha256 }),
+      ...(geometryGuardResolutionManifestId === undefined
+        ? {}
+        : { geometryGuardResolutionManifestId }),
+      ...(geometryGuardResolutionManifestChecksumSha256 === undefined
+        ? {}
+        : { geometryGuardResolutionManifestChecksumSha256 }),
       boardCellProcessingMode,
       imageEnginePolicy: boardCellProcessingMode,
       ...(imageEnginePolicyRevision === undefined

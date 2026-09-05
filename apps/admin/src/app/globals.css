@@ -6912,6 +6912,206 @@ div.imageJobInlineError {
   stroke-width: 6px;
 }
 
+.geometryGuardResolution {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  border-radius: 12px;
+  background: rgba(72, 18, 24, 0.14);
+}
+
+.geometryGuardResolution p,
+.geometryGuardResolution h4 {
+  margin: 0;
+}
+
+.geometryGuardSourceNav,
+.geometryGuardGroupButtons,
+.geometryGuardSeal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.geometryGuardWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.75fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.geometryGuardCanvas {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: #03070d;
+}
+
+.geometryGuardCanvas > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.geometryGuardCanvas > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.geometryGuardBoard {
+  fill: rgba(74, 222, 128, 0.05);
+  stroke: rgba(74, 222, 128, 0.74);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.geometryGuardBoardRequired {
+  cursor: pointer;
+  fill: rgba(248, 113, 113, 0.14);
+  stroke: #fb7185;
+  stroke-width: 3;
+}
+
+.geometryGuardBoardNumber,
+.geometryGuardCornerLabel {
+  fill: #fff;
+  font-size: 25px;
+  font-weight: 900;
+  paint-order: stroke;
+  pointer-events: none;
+  stroke: #0b1020;
+  stroke-width: 6px;
+  text-anchor: middle;
+}
+
+.geometryGuardGrid {
+  fill: rgba(250, 204, 21, 0.08);
+  stroke: #fde047;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.geometryGuardGridLine {
+  stroke: rgba(254, 240, 138, 0.88);
+  stroke-dasharray: 7 5;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.geometryGuardHandle {
+  cursor: grab;
+  fill: #fde047;
+  stroke: #111827;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.geometryGuardControls,
+.geometryGuardControls fieldset,
+.geometryGuardMask,
+.geometryGuardPreview {
+  display: grid;
+  gap: 10px;
+}
+
+.geometryGuardControls fieldset {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.geometryGuardControls label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.geometryGuardCellButtons {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(38px, 1fr));
+  gap: 5px;
+}
+
+.geometryGuardCellButtons button {
+  min-height: 42px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--text);
+  background: rgba(8, 17, 30, 0.72);
+}
+
+.geometryGuardCellButtons button[aria-pressed='true'] {
+  border-color: #fb7185;
+  color: #fecdd3;
+  background: rgba(190, 24, 93, 0.28);
+}
+
+.geometryGuardPreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(125px, 1fr));
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.geometryGuardPreviewGrid article {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  min-width: 125px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(4, 11, 20, 0.7);
+}
+
+.geometryGuardPreviewGrid article > strong {
+  grid-column: 1 / -1;
+}
+
+.geometryGuardPreviewGrid article div {
+  display: grid;
+  gap: 3px;
+}
+
+.geometryGuardPreviewGrid img {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+}
+
+.geometryGuardUnavailable {
+  grid-column: 1 / -1;
+  display: grid;
+  min-height: 76px;
+  place-items: center;
+  color: #fecdd3;
+  font-size: 2rem;
+  font-weight: 900;
+}
+
+.geometryGuardSeal {
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 900px) {
+  .geometryGuardWorkspace {
+    grid-template-columns: 1fr;
+  }
+}
+
 .curatedBatchHistory {
   display: grid;
   gap: 7px;

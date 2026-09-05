@@ -1401,3 +1401,12 @@ do kanonizacji. Plansza `rejected` nie tworzy `recognized_board`, cropów ani
 obserwacji. Import jest dozwolony dopiero wtedy, gdy manifest dokładnie
 rozlicza wszystkie i tylko te sloty, które odroczył przypięty raport, oraz
 ponowne wykonanie nie ujawnia nowych błędów.
+
+Kolejka rozliczeń zwraca również kontekst wszystkich slotów źródła, aby
+operator nie oceniał odroczonej planszy bez sąsiedztwa. Podgląd pełnej i
+częściowej decyzji jest obliczany przejściowo z checksum-bound JPEG-a i quada:
+zwraca dokładnie 15 logicznych pozycji, ale nie zapisuje cropów ani rekordów
+domenowych. Dla maski częściowej pozycja ma wyłącznie stan
+`source_unavailable` i nie zawiera obrazu. Każda zmiana geometrii lub maski
+unieważnia poprzedni podgląd, a zapis nowej rewizji unieważnia wcześniej
+wybrany manifest w stanie UI; operator musi jawnie zamknąć nowy manifest.

@@ -4713,6 +4713,59 @@
         "title": "ImageFolderSelectionResponse",
         "type": "object"
       },
+      "ImageGeometryGuardBoardContextResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "pageGeometry": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pagegeometry"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "requiresDecision": {
+            "title": "Requiresdecision",
+            "type": "boolean"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceRelativePath": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Sourcerelativepath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceChecksumSha256",
+          "sourceRelativePath",
+          "positionIndex",
+          "sequenceNumber",
+          "pageGeometry",
+          "requiresDecision"
+        ],
+        "title": "ImageGeometryGuardBoardContextResponse",
+        "type": "object"
+      },
       "ImageGeometryGuardBoardTargetResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4800,6 +4853,51 @@
           "evidence"
         ],
         "title": "ImageGeometryGuardBoardTargetResponse",
+        "type": "object"
+      },
+      "ImageGeometryGuardCellPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "currentDataUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentdataurl"
+          },
+          "proposedDataUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposeddataurl"
+          },
+          "sourceUnavailable": {
+            "title": "Sourceunavailable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "sourceUnavailable",
+          "currentDataUrl",
+          "proposedDataUrl"
+        ],
+        "title": "ImageGeometryGuardCellPreviewResponse",
         "type": "object"
       },
       "ImageGeometryGuardDecisionBatchCreate": {
@@ -5077,9 +5175,104 @@
         "title": "ImageGeometryGuardManifestSealCreate",
         "type": "object"
       },
+      "ImageGeometryGuardPreviewCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "symbolGridQuad": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/PageGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/PageGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/PageGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/PageGeometryPoint"
+              }
+            ],
+            "title": "Symbolgridquad",
+            "type": "array"
+          },
+          "unavailableCellIndices": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 14,
+            "title": "Unavailablecellindices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "sourceChecksumSha256",
+          "positionIndex",
+          "symbolGridQuad"
+        ],
+        "title": "ImageGeometryGuardPreviewCreate",
+        "type": "object"
+      },
+      "ImageGeometryGuardPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/ImageGeometryGuardCellPreviewResponse"
+            },
+            "maxItems": 15,
+            "minItems": 15,
+            "title": "Cells",
+            "type": "array"
+          },
+          "imageHeight": {
+            "minimum": 1.0,
+            "title": "Imageheight",
+            "type": "integer"
+          },
+          "imageWidth": {
+            "minimum": 1.0,
+            "title": "Imagewidth",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "imageWidth",
+          "imageHeight",
+          "cells"
+        ],
+        "title": "ImageGeometryGuardPreviewResponse",
+        "type": "object"
+      },
       "ImageGeometryGuardQueueResponse": {
         "additionalProperties": false,
         "properties": {
+          "boards": {
+            "items": {
+              "$ref": "#/components/schemas/ImageGeometryGuardBoardContextResponse"
+            },
+            "title": "Boards",
+            "type": "array"
+          },
           "browserSelectionId": {
             "format": "uuid",
             "title": "Browserselectionid",
@@ -5138,6 +5331,7 @@
           "sourceManifestChecksumSha256",
           "pageGeometryManifestChecksumSha256",
           "unresolvedCount",
+          "boards",
           "targets",
           "decisions"
         ],
@@ -28647,6 +28841,104 @@
           }
         ],
         "summary": "Append one atomic batch of board-level guard decisions",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/preview": {
+      "post": {
+        "operationId": "previewImageGeometryGuardDecision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "guard_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Guard Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageGeometryGuardPreviewCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGeometryGuardPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Render transient crops for one full or partial guard decision",
         "tags": [
           "image-imports"
         ]

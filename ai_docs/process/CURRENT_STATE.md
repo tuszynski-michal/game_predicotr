@@ -6,6 +6,18 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Workspace rozliczania wyjątków bramki — TASK-0453
+
+- Karta failed dużego importu pokazuje wszystkie dziewięć slotów źródła i
+  pozwala rozliczyć wyłącznie odroczone plansze jako pełne, częściowe albo
+  odrzucone. Historyczny raport v1 jest odtwarzany osobnym jawnym jobem.
+- Pełna/częściowa siatka ma edytowalny quad i przejściowy podgląd 15 cropów A/B.
+  Brakujące komórki częściowe są `source_unavailable`; podgląd niczego nie
+  zapisuje.
+- Zamknięty manifest jest przekazywany jako ID + SHA-256 do jawnie uruchamianego
+  schema-v7 importu. Nowa rewizja decyzji unieważnia wybór manifestu w UI;
+  failed job nie jest retry'owany ani mutowany automatycznie.
+
 ### Audytowa rekonstrukcja raportu bramki v1→v2 — TASK-0452
 
 - Osobny job walidacyjny odtwarza wyłącznie historyczną próbkę zapisaną w

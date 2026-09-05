@@ -554,6 +554,9 @@ import type {
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
+  PreviewImageGeometryGuardDecisionData,
+  PreviewImageGeometryGuardDecisionErrors,
+  PreviewImageGeometryGuardDecisionResponses,
   PreviewImageGridReviewGeometryData,
   PreviewImageGridReviewGeometryErrors,
   PreviewImageGridReviewGeometryResponses,
@@ -2690,6 +2693,32 @@ export const createImageGeometryGuardDecisions = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/decisions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Render transient crops for one full or partial guard decision
+ */
+export const previewImageGeometryGuardDecision = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewImageGeometryGuardDecisionData, ThrowOnError>,
+): RequestResult<
+  PreviewImageGeometryGuardDecisionResponses,
+  PreviewImageGeometryGuardDecisionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewImageGeometryGuardDecisionResponses,
+    PreviewImageGeometryGuardDecisionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/preview',
     ...options,
     headers: {
       'Content-Type': 'application/json',

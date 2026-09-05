@@ -2692,6 +2692,38 @@ export type ImageFolderSelectionResponse = {
 };
 
 /**
+ * ImageGeometryGuardBoardContextResponse
+ */
+export type ImageGeometryGuardBoardContextResponse = {
+  /**
+   * Pagegeometry
+   */
+  pageGeometry: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Requiresdecision
+   */
+  requiresDecision: boolean;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+};
+
+/**
  * ImageGeometryGuardBoardTargetResponse
  */
 export type ImageGeometryGuardBoardTargetResponse = {
@@ -2735,6 +2767,28 @@ export type ImageGeometryGuardBoardTargetResponse = {
    * Sourcerelativepath
    */
   sourceRelativePath: string;
+};
+
+/**
+ * ImageGeometryGuardCellPreviewResponse
+ */
+export type ImageGeometryGuardCellPreviewResponse = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Currentdataurl
+   */
+  currentDataUrl: string | null;
+  /**
+   * Proposeddataurl
+   */
+  proposedDataUrl: string | null;
+  /**
+   * Sourceunavailable
+   */
+  sourceUnavailable: boolean;
 };
 
 /**
@@ -2887,9 +2941,78 @@ export type ImageGeometryGuardManifestSealCreate = {
 };
 
 /**
+ * ImageGeometryGuardPreviewCreate
+ */
+export type ImageGeometryGuardPreviewCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Symbolgridquad
+   */
+  symbolGridQuad: [
+    PageGeometryPoint,
+    PageGeometryPoint,
+    PageGeometryPoint,
+    PageGeometryPoint,
+  ];
+  /**
+   * Unavailablecellindices
+   */
+  unavailableCellIndices?: Array<number>;
+};
+
+/**
+ * ImageGeometryGuardPreviewResponse
+ */
+export type ImageGeometryGuardPreviewResponse = {
+  /**
+   * Cells
+   */
+  cells: [
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+  ];
+  /**
+   * Imageheight
+   */
+  imageHeight: number;
+  /**
+   * Imagewidth
+   */
+  imageWidth: number;
+};
+
+/**
  * ImageGeometryGuardQueueResponse
  */
 export type ImageGeometryGuardQueueResponse = {
+  /**
+   * Boards
+   */
+  boards: Array<ImageGeometryGuardBoardContextResponse>;
   /**
    * Browserselectionid
    */
@@ -16042,6 +16165,54 @@ export type CreateImageGeometryGuardDecisionsResponses = {
 
 export type CreateImageGeometryGuardDecisionsResponse =
   CreateImageGeometryGuardDecisionsResponses[keyof CreateImageGeometryGuardDecisionsResponses];
+
+export type PreviewImageGeometryGuardDecisionData = {
+  body: ImageGeometryGuardPreviewCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Guard Job Id
+     */
+    guard_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/preview';
+};
+
+export type PreviewImageGeometryGuardDecisionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewImageGeometryGuardDecisionError =
+  PreviewImageGeometryGuardDecisionErrors[keyof PreviewImageGeometryGuardDecisionErrors];
+
+export type PreviewImageGeometryGuardDecisionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGeometryGuardPreviewResponse;
+};
+
+export type PreviewImageGeometryGuardDecisionResponse =
+  PreviewImageGeometryGuardDecisionResponses[keyof PreviewImageGeometryGuardDecisionResponses];
 
 export type StartImageGeometryGuardReportReconstructionData = {
   body: ImageGeometryGuardReportReconstructionCreate;

@@ -31,6 +31,13 @@ const workspaceSource = await readFile(
   new URL('../src/features/catalog/catalog-workspace.tsx', import.meta.url),
   'utf8',
 );
+const guardResolutionSource = await readFile(
+  new URL(
+    '../src/features/imports/geometry-guard-resolution-panel.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 test('distinguishes the active import operation from a disabled prerequisite', () => {
   assert.match(panelSource, /type ImportAction =/);
@@ -89,6 +96,21 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /utworzony — oczekuje na worker/);
   assert.match(panelSource, /Usuń nieużywany staging/);
   assert.match(panelSource, /Import plansz z folderu/);
+});
+
+test('requires explicit board resolutions and pins the sealed manifest to schema v7 start', () => {
+  assert.match(panelSource, /IMAGE_GEOMETRY_SYSTEMIC_REGRESSION/);
+  assert.match(panelSource, /Rozlicz problematyczne plansze/);
+  assert.match(panelSource, /geometryGuardResolutionManifest\?\.id/);
+  assert.match(actionsSource, /geometryGuardResolutionManifestChecksumSha256/);
+  assert.match(guardResolutionSource, /Odtwórz diagnostykę plansz/);
+  assert.match(guardResolutionSource, /Popraw pełną siatkę/);
+  assert.match(guardResolutionSource, /Oznacz jako częściową/);
+  assert.match(guardResolutionSource, /Odrzuć jako nieczytelną/);
+  assert.match(guardResolutionSource, /Generuj podgląd A\/B/);
+  assert.match(guardResolutionSource, /cropped_or_unreadable/);
+  assert.match(guardResolutionSource, /Zamknij manifest decyzji/);
+  assert.match(guardResolutionSource, /nie został uruchomiony automatycznie/);
 });
 
 test('offers stable v19, v0.10 v2 and accepted v0.10 v3 per game', () => {

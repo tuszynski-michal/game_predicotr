@@ -421,3 +421,39 @@ test('pins the cold-start geometry manifest for structured shadow', async () => 
   assert.equal(command.geometryPreflightJobId, 'geometry-job-shadow');
   assert.equal(command.geometryManifestChecksumSha256, 'c'.repeat(64));
 });
+
+test('pins an explicitly sealed geometry guard resolution manifest', async () => {
+  let command;
+  const result = await startReadyBrowserImageImport(
+    {
+      startReadyBrowserImageImport: async (_uploadId, body) => {
+        command = body;
+        return {
+          data: { created: true, job: { id: 'job-v7' }, preflight: {} },
+        };
+      },
+    },
+    'upload-v7',
+    'game-1',
+    'a'.repeat(64),
+    'b'.repeat(64),
+    'geometry-job-v7',
+    'c'.repeat(64),
+    'structured_lattice_v3',
+    3,
+    'd'.repeat(64),
+    'e'.repeat(64),
+    'resolution-manifest-1',
+    'f'.repeat(64),
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(
+    command.geometryGuardResolutionManifestId,
+    'resolution-manifest-1',
+  );
+  assert.equal(
+    command.geometryGuardResolutionManifestChecksumSha256,
+    'f'.repeat(64),
+  );
+});

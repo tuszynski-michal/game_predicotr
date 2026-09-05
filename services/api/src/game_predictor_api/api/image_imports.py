@@ -19,6 +19,9 @@ from game_predictor_api.application.image_import_geometry_guard import (
     ImageGeometryGuardDecisionCommand,
     ImageImportGeometryGuardService,
 )
+from game_predictor_api.application.image_import_geometry_guard_preview import (
+    render_image_geometry_guard_preview,
+)
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
@@ -65,11 +68,15 @@ from game_predictor_api.schemas.image_imports import (
     ImageFolderImportCreate,
     ImageFolderImportResponse,
     ImageFolderSelectionResponse,
+    ImageGeometryGuardBoardContextResponse,
     ImageGeometryGuardBoardTargetResponse,
+    ImageGeometryGuardCellPreviewResponse,
     ImageGeometryGuardDecisionBatchCreate,
     ImageGeometryGuardDecisionBatchResponse,
     ImageGeometryGuardDecisionResponse,
     ImageGeometryGuardManifestSealCreate,
+    ImageGeometryGuardPreviewCreate,
+    ImageGeometryGuardPreviewResponse,
     ImageGeometryGuardQueueResponse,
     ImageGeometryGuardReportReconstructionCreate,
     ImageGeometryGuardReportReconstructionResponse,
@@ -987,6 +994,9 @@ def create_image_imports_router(
             source_manifest_checksum_sha256=queue.source_manifest_checksum_sha256,
             page_geometry_manifest_checksum_sha256=(queue.page_geometry_manifest_checksum_sha256),
             unresolved_count=queue.unresolved_count,
+            boards=[
+                ImageGeometryGuardBoardContextResponse.from_domain(value) for value in queue.boards
+            ],
             targets=[
                 ImageGeometryGuardBoardTargetResponse.from_domain(value) for value in queue.targets
             ],
@@ -1153,6 +1163,104 @@ def create_image_imports_router(
         )
         return ImageGeometryGuardDecisionBatchResponse(
             decisions=[ImageGeometryGuardDecisionResponse.from_domain(value) for value in decisions]
+        )
+
+    @router.post(
+        "/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/preview",
+        response_model=ImageGeometryGuardPreviewResponse,
+        operation_id="previewImageGeometryGuardDecision",
+        summary="Render transient crops for one full or partial guard decision",
+        responses=responses,
+    )
+    def preview_image_geometry_guard_decision(
+        upload_id: UUID,
+        guard_job_id: UUID,
+        payload: ImageGeometryGuardPreviewCreate,
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
+    ) -> ImageGeometryGuardPreviewResponse:
+        if guard_service is None:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_REVIEW_UNAVAILABLE",
+                "Pre-import geometry guard review is not configured.",
+            )
+        queue = guard_service.queue(
+            game_id=payload.game_id,
+            browser_selection_id=upload_id,
+            guard_job_id=guard_job_id,
+        )
+        target = next(
+            (
+                item
+                for item in queue.targets
+                if item.source_checksum_sha256 == payload.source_checksum_sha256
+                and item.position_index == payload.position_index
+            ),
+            None,
+        )
+        if target is None:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_BOARD_NOT_IN_QUEUE",
+                "The board is not part of this guard review queue.",
+            )
+        ready = service.bind_ready_game(upload_id, payload.game_id)
+        source = next(
+            (
+                item
+                for item in ready.manifest.files
+                if item.checksum_sha256 == payload.source_checksum_sha256
+            ),
+            None,
+        )
+        if source is None:
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_MANIFEST_DRIFT",
+                "The guard source is absent from the immutable staging manifest.",
+            )
+        path = (ready.upload.path / source.stored_file_name).resolve()
+        root = ready.upload.path.resolve()
+        if not path.is_relative_to(root) or not path.is_file():
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_UNAVAILABLE",
+                "The staged guard source is unavailable.",
+            )
+        content = path.read_bytes()
+        if (
+            len(content) != source.size_bytes
+            or hashlib.sha256(content).hexdigest() != source.checksum_sha256
+        ):
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_SOURCE_DRIFT",
+                "The staged guard source differs from its immutable manifest.",
+            )
+        unavailable = tuple(sorted(set(payload.unavailable_cell_indices)))
+        if len(unavailable) != len(payload.unavailable_cell_indices) or any(
+            not 0 <= value < 15 for value in unavailable
+        ):
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_DECISION_INVALID",
+                "Unavailable cell indices must be unique.",
+            )
+        width, height, cells = render_image_geometry_guard_preview(
+            source_content=content,
+            symbol_grid_quad=tuple(
+                point.model_dump(mode="python", by_alias=True) for point in payload.symbol_grid_quad
+            ),
+            proposed_symbol_grid_quad=target.proposed_symbol_grid_quad,
+            unavailable_cell_indices=unavailable,
+        )
+        return ImageGeometryGuardPreviewResponse(
+            image_width=width,
+            image_height=height,
+            cells=[
+                ImageGeometryGuardCellPreviewResponse(
+                    cell_index=item.cell_index,
+                    source_unavailable=item.source_unavailable,
+                    current_data_url=item.current_data_url,
+                    proposed_data_url=item.proposed_data_url,
+                )
+                for item in cells
+            ],
         )
 
     @router.post(

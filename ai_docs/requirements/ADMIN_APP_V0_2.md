@@ -157,6 +157,17 @@ krok zamiast pustego formularza.
 - po pierwszym poprawnym imporcie odblokowują się `Symbole` i
   `Zatwierdzanie plansz`.
 
+Jeżeli bramka dużego importu zatrzyma staging, karta raportu udostępnia osobny
+workspace `Rozlicz problematyczne plansze`. Operator widzi pełne zdjęcie,
+wszystkie jego numerowane sloty i wyróżnienie tylko tych pozycji, które
+wymagają decyzji. Pełna lub częściowa korekta wymaga aktualnego podglądu 15
+cropów A/B; w trybie częściowym pola można przełączać pojedynczo, całymi
+rzędami albo kolumnami, a `?` oznacza wyłącznie `source_unavailable`.
+Odrzucenie może objąć atomowo kilka zaznaczonych plansz jednego zdjęcia.
+Zamknięcie manifestu i uruchomienie nowego importu są dwiema oddzielnymi,
+jawnymi akcjami; panel nigdy nie dobiera decyzji ani nie wznawia failed joba
+automatycznie.
+
 Techniczna wersja datasetu, staging, walidacja i raport integralności nadal
 istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layoutów`.
 

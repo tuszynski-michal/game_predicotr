@@ -37,6 +37,16 @@ class ImageGeometryGuardBoardTarget:
 
 
 @dataclass(frozen=True, slots=True)
+class ImageGeometryGuardBoardContext:
+    source_checksum_sha256: str
+    source_relative_path: str
+    position_index: int
+    sequence_number: int
+    page_geometry: dict[str, object] | None
+    requires_decision: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ImageGeometryGuardDecision:
     id: UUID
     game_id: UUID
@@ -270,6 +280,7 @@ def _checksum(value: object) -> str:
 
 __all__ = [
     "CELL_COUNT",
+    "ImageGeometryGuardBoardContext",
     "ImageGeometryGuardBoardTarget",
     "ImageGeometryGuardDecision",
     "ImageGeometryGuardDecisionError",

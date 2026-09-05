@@ -158,6 +158,8 @@ def test_queue_exposes_only_exact_deferred_boards(tmp_path: Path) -> None:
     queue = service.queue(game_id=GAME_ID, browser_selection_id=UPLOAD_ID, guard_job_id=JOB_ID)
 
     assert queue.unresolved_count == 3
+    assert len(queue.boards) == 9
+    assert [item.requires_decision for item in queue.boards[:4]] == [True, True, True, False]
     assert [item.sequence_number for item in queue.targets] == [20530, 20531, 20532]
     assert queue.targets[0].analysis_quad == list(_quad(0))
 

@@ -7865,3 +7865,15 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   rzędu, więc dodatkowe 3% jest wystarczającym buforem.
 - **Consequences:** próbka 1080×1920 zaczyna się na `topY=648` zamiast 504,
   zachowując cały pierwszy rząd. Wyniki v4–v7 pozostają odtwarzalne.
+
+### D-356 — Górny margines auto-cropa wynosi 4,5%
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v9 zwiększa górny padding z 3% do 4,5%, bez
+  przywracania górnej ekspansji.
+- **Reason:** przekrojowe próbki v8 pokazały, że 3% może pozostawiać pierwszy
+  rząd zbyt blisko krawędzi. Dodatkowe 1,5% daje niewielki zapas bez ponownego
+  włączania logo i panelu wypłat.
+- **Consequences:** dla próbki 1080×1920 górna granica przesuwa się z 648 na
+  618. Wyniki v4–v8 pozostają czytelne i nie są po cichu przeliczane.

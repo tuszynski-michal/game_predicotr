@@ -6,6 +6,8 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 
 export const SELECTED_IMAGE_AUTO_CROP_POLICY =
+  'selected-image-board-band-v9-balanced-top-margin' as const;
+export const SELECTED_IMAGE_AUTO_CROP_V8_POLICY =
   'selected-image-board-band-v8-tight-top-boundary' as const;
 export const SELECTED_IMAGE_AUTO_CROP_V7_POLICY =
   'selected-image-board-band-v7-bounded-boundary-expansion' as const;
@@ -17,7 +19,7 @@ export const SELECTED_IMAGE_AUTO_CROP_LEGACY_POLICY =
   'selected-image-board-band-v4-conservative-multicolumn' as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH = 512 as const;
 /** Keep context above the panel without retaining the paytable above it. */
-export const SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO = 0.03 as const;
+export const SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO = 0.045 as const;
 export const SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO = 0.045 as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_TOP_RATIO = 0.05 as const;
 export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_BOTTOM_RATIO = 0.95 as const;
@@ -25,6 +27,7 @@ const SELECTED_IMAGE_AUTO_CROP_MINIMUM_DETECTED_BAND_RATIO = 0.28;
 
 export type SelectedImageAutoCropPolicyVersion =
   | typeof SELECTED_IMAGE_AUTO_CROP_POLICY
+  | typeof SELECTED_IMAGE_AUTO_CROP_V8_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_V7_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_V6_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_V5_POLICY

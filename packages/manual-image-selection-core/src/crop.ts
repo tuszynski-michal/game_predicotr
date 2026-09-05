@@ -358,6 +358,7 @@ function validateSelectedImageAutoCropProposal(
       'selected-image-board-band-v6-wide-blue-board-panel',
       'selected-image-board-band-v7-bounded-boundary-expansion',
       'selected-image-board-band-v8-tight-top-boundary',
+      'selected-image-board-band-v9-balanced-top-margin',
     ].includes(proposal.policyVersion) ||
     !['high_confidence', 'conservative', 'safe_wide'].includes(
       proposal.classification,

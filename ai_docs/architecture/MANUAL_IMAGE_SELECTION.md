@@ -219,7 +219,7 @@ każdego wskazanego JPEG-a przed utworzeniem albo wznowieniem sesji. Dzięki
 osobnym nazwom katalogów manifest v1 nadal jednoznacznie wiąże swój inwentarz.
 
 Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
-wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka v8
+wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka v9
 dzieli środkowe 88% obrazu na dziewięć pasów i w każdym niezależnie znajduje
 długi klaster niebieskiego tła. Dopiero co najmniej pięć zgodnych klastrów,
 obejmujących lewą, środkową i prawą grupę, tworzy granicę panelu. Rozrzut
@@ -241,7 +241,7 @@ bezpieczną sumę `conservative`, natomiast brak dowodu zwraca `safe_wide` 5–9
 potraktowany jak zwykły gotowy wynik bez świadomego review.
 
 Lokalne granice są agregowane percentylami, więc pochylenie obrazu nie wymusza
-ciasnego cropa według jednego pasa. Padding pozostaje asymetryczny: 3% nad i
+ciasnego cropa według jednego pasa. Padding wynosi 4,5% nad i pod panelem.
 4,5% pod panelem. Górna granica nie jest rozszerzana w stronę panelu wypłat.
 Dolna strefa bezpieczeństwa 3% odsuwa granicę na zewnątrz najwyżej raz, jeżeli
 nadal przecina szeroko wspartą zawartość. Wynik niższy niż 28% wysokości jest
@@ -257,12 +257,12 @@ w operacji oczekującej, dlatego recovery po zapisie JPEG-a finalizuje dokładni
 ten sam wynik.
 
 Mały session journal przypina `preparationPolicyVersion`. Nowa sesja zaczyna z
-v8, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
+v9, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
 bez zgadywania wersji. Taka sesja nie przygotuje brakujących plików nową
 polityką, dopóki operator jawnie nie uruchomi przeliczenia. Recalculator
 wyprowadza zamknięty zbiór nazw z shardów i review state; chroni `reviewed`,
 `corrected` oraz `needs_correction`, a każdy dopuszczony wynik zastępuje przez
-istniejący checksum-bound journal. Po przypięciu v8 zwykłe wznowienie może
+istniejący checksum-bound journal. Po przypięciu v9 zwykłe wznowienie może
 przygotować pozostałe, dotąd brakujące wyniki.
 
 Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma

@@ -6,6 +6,16 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Zbalansowany górny margines lokalnego auto-cropa — TASK-0466
+
+- Polityka v9 zwiększa górny padding z 3% do 4,5%, pozostawiając około 29 px
+  dodatkowego zapasu przy obrazie 1920 px. Górna ekspansja nadal jest wyłączona.
+- Rzeczywisty `seq_70363-70371.jpg` otrzymał `topY=618`, `bottomY=1224` przy
+  1080×1920: pierwszy rząd ma bezpieczniejszy margines, a panel wypłat nadal
+  pozostaje poza wynikiem.
+- Cztery nieprzejrzane katalogi v8 bez ręcznych decyzji zostały usunięte przed
+  ponownym uruchomieniem, aby żaden katalog nie mieszał polityk.
+
 ### Ciaśniejsza górna granica lokalnego auto-cropa — TASK-0465
 
 - Polityka v8 używa 3% górnego paddingu i nie rozszerza górnej granicy w stronę

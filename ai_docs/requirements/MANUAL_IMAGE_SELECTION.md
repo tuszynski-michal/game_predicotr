@@ -559,7 +559,7 @@ sesja nie współdzielą inwentarza ani postępu.
 
 Automat dla każdego jeszcze niezatwierdzonego zdjęcia niezależnie analizuje
 ograniczoną kopię podglądową do 512 px i proponuje pas obejmujący zwarty panel
-plansz. Polityka `selected-image-board-band-v8-tight-top-boundary`
+plansz. Polityka `selected-image-board-band-v9-balanced-top-margin`
 wyznacza niebieski panel niezależnie w dziewięciu pionowych pasach i wymaga
 zgodnych granic w co najmniej pięciu pasach oraz w lewej, środkowej i prawej
 części obrazu. Tak potwierdzony panel jest wystarczającym dowodem nawet wtedy,
@@ -576,7 +576,7 @@ wsparcia w co najmniej pięciu pasach oraz w lewej, środkowej i prawej części
 pojedyncza tabela, światło albo dłoń nie mogą przesunąć całego cropa.
 
 Pochylenie jest uwzględniane przez lokalne granice pasów i bezpieczną
-obwiednię: 10. percentyl górnych granic minus 3% wysokości oraz 90. percentyl
+obwiednię: 10. percentyl górnych granic minus 4,5% wysokości oraz 90. percentyl
 dolnych granic plus 4,5%. Górna granica nie rozszerza się w stronę panelu
 wypłat. Mocny, szeroki sygnał przy dolnej granicy rozszerza crop na zewnątrz
 najwyżej o jeden krok 3%. Kandydat niższy niż 28% obrazu nie jest używany.

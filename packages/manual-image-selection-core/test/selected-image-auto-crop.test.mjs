@@ -28,11 +28,11 @@ function boardPixel(x, y, variant = 'blue') {
   return bright ? [35, 95, 205] : [18, 45, 105];
 }
 
-test('uses a 512 px analysis budget and versions the tight top boundary', () => {
+test('uses a 512 px analysis budget and versions the balanced top margin', () => {
   assert.equal(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, 512);
   assert.equal(
     SELECTED_IMAGE_AUTO_CROP_POLICY,
-    'selected-image-board-band-v8-tight-top-boundary',
+    'selected-image-board-band-v9-balanced-top-margin',
   );
 });
 
@@ -52,8 +52,8 @@ test('prefers the blue board panel over a full-width paytable above it', () => {
   assert.equal(result.strategy, 'blue_panel');
   assert.equal(result.classification, 'high_confidence');
   assert.equal(result.evidence.selectionBasis, 'blue_panel');
-  assert.ok(result.crop.topY >= 650);
-  assert.ok(result.crop.topY <= 710);
+  assert.ok(result.crop.topY >= 610);
+  assert.ok(result.crop.topY <= 680);
   assert.ok(result.crop.bottomY >= 1400);
   assert.ok(result.crop.bottomY <= 1560);
 });
@@ -119,8 +119,8 @@ test('prefers the dedicated detector for a tilted blue panel', () => {
   });
   assert.equal(result.strategy, 'blue_panel');
   assert.equal(result.classification, 'high_confidence');
-  assert.ok(result.crop.topY >= 500);
-  assert.ok(result.crop.topY <= 560);
+  assert.ok(result.crop.topY >= 470);
+  assert.ok(result.crop.topY <= 530);
   assert.ok(result.crop.bottomY >= 1450);
   assert.ok(result.confidence >= 0.8);
   assert.equal(result.evidence.fallbackReason, null);
@@ -196,8 +196,8 @@ test('keeps detecting a panel obscured by a hand-sized vertical region', () => {
     height: 1920,
   });
   assert.equal(result.strategy, 'multicolumn_panel');
-  assert.ok(result.crop.topY >= 500);
-  assert.ok(result.crop.topY <= 560);
+  assert.ok(result.crop.topY >= 450);
+  assert.ok(result.crop.topY <= 520);
   assert.ok(result.crop.bottomY >= 1480);
 });
 

@@ -304,8 +304,24 @@ może obejmować wiele slotów, lecz tylko jedną checksumę źródła.
 
 Zamknięty manifest rozliczeń jest zapisany w zarządzanej przestrzeni
 `data/image-geometry-guard-resolutions/<prefix>/<sha256>.json` oraz w rejestrze
-SQL. Nie jest zgodą na automatyczną mutację failed joba; stanowi przyszłe,
-przypinane wejście nowego browser-import schema v7.
+SQL. Nie jest zgodą na automatyczną mutację failed joba; stanowi przypinane
+wejście nowego browser-import schema v7.
+
+API wiąże descriptor manifestu rozliczeń z dokładnym stagingiem, manifestem
+źródeł i manifestem geometrii strony jeszcze przed utworzeniem joba. Worker
+nie ufa samemu descriptorowi: odczytuje artefakt wyłącznie z zarządzanej
+przestrzeni, sprawdza SHA-256, proweniencję, kolejność, numery sekwencji oraz
+checksumę każdej decyzji. Następnie zachowuje surowy wynik bramki i wykonuje
+osobną walidację skutecznego rozliczenia. Zbiór kluczy `(source checksum,
+positionIndex)` musi dokładnie odpowiadać odroczonym slotom raportu.
+
+`corrected_full` podmienia wyłącznie końcowy quad danego slotu i przechodzi
+pełny produkcyjny tor. `partial` używa tego samego quada, lecz renderer pomija
+indeksy z maski i utrwala sparse observations z zachowanymi logicznymi
+indeksami 0..14. Taki recognized board pozostaje niekanoniczny i nie blokuje
+ukończenia źródła. `rejected` jest usuwany z projekcji plansz przed renderem,
+więc nie powstaje recognized board ani crop. Historyczne schema v5 i
+reprocess schema v6 zachowują własne snapshoty i nie ładują manifestu v7.
 
 ### Przyrostowe kotwice preflightu strony
 

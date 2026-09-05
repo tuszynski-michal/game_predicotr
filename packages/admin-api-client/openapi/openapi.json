@@ -1542,6 +1542,30 @@
             "title": "Gameid",
             "type": "string"
           },
+          "geometryGuardResolutionManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryguardresolutionmanifestchecksumsha256"
+          },
+          "geometryGuardResolutionManifestId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryguardresolutionmanifestid"
+          },
           "geometryManifestChecksumSha256": {
             "anyOf": [
               {
@@ -5120,6 +5144,58 @@
         "title": "ImageGeometryGuardQueueResponse",
         "type": "object"
       },
+      "ImageGeometryGuardResolutionManifestJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "guardJobId": {
+            "format": "uuid",
+            "title": "Guardjobid",
+            "type": "string"
+          },
+          "guardReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Guardreportchecksumsha256",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "pageGeometryManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pagegeometrymanifestchecksumsha256",
+            "type": "string"
+          },
+          "relativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "sourceManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestchecksumsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "checksumSha256",
+          "relativePath",
+          "guardJobId",
+          "guardReportChecksumSha256",
+          "sourceManifestChecksumSha256",
+          "pageGeometryManifestChecksumSha256"
+        ],
+        "title": "ImageGeometryGuardResolutionManifestJobPayload",
+        "type": "object"
+      },
       "ImageGeometryGuardResolutionManifestResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5485,6 +5561,12 @@
             "title": "Activeboardcount",
             "type": "integer"
           },
+          "correctedFullCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Correctedfullcount",
+            "type": "integer"
+          },
           "finalCellGridReadyRate": {
             "maximum": 1.0,
             "minimum": 0.0,
@@ -5502,6 +5584,12 @@
             "title": "Pageregistrationreadyrate",
             "type": "number"
           },
+          "partialCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Partialcount",
+            "type": "integer"
+          },
           "passed": {
             "title": "Passed",
             "type": "boolean"
@@ -5510,6 +5598,12 @@
             "const": "image-geometry-systemic-guard-v1",
             "title": "Policyversion",
             "type": "string"
+          },
+          "rejectedCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Rejectedcount",
+            "type": "integer"
           },
           "reportChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -5525,6 +5619,23 @@
           "required": {
             "title": "Required",
             "type": "boolean"
+          },
+          "resolutionApplied": {
+            "default": false,
+            "title": "Resolutionapplied",
+            "type": "boolean"
+          },
+          "resolutionManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolutionmanifestchecksumsha256"
           },
           "sampleBoardCount": {
             "minimum": 0.0,
@@ -9463,6 +9574,9 @@
               },
               {
                 "$ref": "#/components/schemas/BrowserImageImportJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/ResolvedBrowserImageImportJobPayload"
               },
               {
                 "$ref": "#/components/schemas/CuratedImageImportJobPayload"
@@ -14269,6 +14383,164 @@
           "expectedCropChecksumSha256"
         ],
         "title": "ResolveUnreadableCellRequest",
+        "type": "object"
+      },
+      "ResolvedBrowserImageImportJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "boardCellProcessing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardCellProcessingJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "canonicalSequenceNumbers": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Canonicalsequencenumbers",
+            "type": "array"
+          },
+          "geometryGuardResolutionManifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometryGuardResolutionManifestJobPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geometrySystemicGuardPolicy": {
+            "$ref": "#/components/schemas/ImageGeometrySystemicGuardPolicyJobPayload"
+          },
+          "gridProfile": {
+            "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "imageGeometryRollout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometryRolloutJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "imageSelectionRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageselectionrunid"
+          },
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "normalizationAdapterVersion": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalizationadapterversion"
+          },
+          "pageGeometryManifest": {
+            "$ref": "#/components/schemas/PageGeometryManifestJobPayload"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "previousJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousjobid"
+          },
+          "schemaVersion": {
+            "const": 7,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcedirectory",
+            "type": "string"
+          },
+          "sourceDisplayName": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Sourcedisplayname",
+            "type": "string"
+          },
+          "sourceManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestsha256",
+            "type": "string"
+          },
+          "sourcePipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcepipelinefingerprint",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "startMode": {
+            "enum": [
+              "reuse_exact",
+              "rerun_current_models"
+            ],
+            "title": "Startmode",
+            "type": "string"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "importKind",
+          "sourceSelectionId",
+          "sourceDirectory",
+          "sourceDisplayName",
+          "pipelineFingerprint",
+          "sourcePipelineFingerprint",
+          "sourceManifestSha256",
+          "startMode",
+          "symbolModel",
+          "gridProfile",
+          "pageGeometryManifest",
+          "geometrySystemicGuardPolicy"
+        ],
+        "title": "ResolvedBrowserImageImportJobPayload",
         "type": "object"
       },
       "ReviewAlternative": {

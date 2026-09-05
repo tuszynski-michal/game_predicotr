@@ -62,6 +62,11 @@ class _Repository:
             None,
         )
 
+    def get_manifest_by_id(
+        self, *, manifest_id: UUID
+    ) -> ImageGeometryGuardResolutionManifest | None:
+        return next((item for item in self.manifests if item.id == manifest_id), None)
+
     def add_manifest(
         self, value: ImageGeometryGuardResolutionManifest
     ) -> ImageGeometryGuardResolutionManifest:
@@ -182,10 +187,19 @@ def test_mixed_decisions_are_append_only_and_seal_content_addressed_manifest(
         expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
         actor="local-admin",
     )
+    descriptor = service.require_manifest_descriptor(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        manifest_id=manifest.id,
+        expected_manifest_checksum_sha256=manifest.manifest_checksum_sha256,
+        source_manifest_checksum_sha256="b" * 64,
+        page_geometry_manifest_checksum_sha256="c" * 64,
+    )
 
     assert [item.revision for item in decisions] == [1, 1, 1]
     assert decisions[1].unavailable_cell_indices == (10, 11, 12, 13, 14)
     assert manifest.decision_count == 3
+    assert descriptor["checksumSha256"] == manifest.manifest_checksum_sha256
     assert repository.manifests == [manifest]
     assert (tmp_path / manifest.manifest_relative_path).is_file()
     assert (

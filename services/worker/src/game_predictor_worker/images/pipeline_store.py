@@ -506,6 +506,10 @@ class SqlAlchemyImagePipelineStore:
                     "cells": list(cast(Sequence[object], symbol["cells"])),
                     "modelVersion": model_version,
                 }
+                completeness_status = cast(str, cropped.get("completenessStatus", "complete"))
+                unavailable_cell_indices = list(
+                    cast(Sequence[int], cropped.get("unavailableCellIndices", []))
+                )
                 board_geometry = _recognized_board_geometry(
                     detected=detected,
                     cropped=cropped,
@@ -540,6 +544,8 @@ class SqlAlchemyImagePipelineStore:
                             None if virtual else cast(str, cropped["boardChecksumSha256"])
                         ),
                         cells_prediction=prediction,
+                        completeness_status=completeness_status,
+                        unavailable_cell_indices=unavailable_cell_indices,
                         board_confidence=float(cast(float, detected["confidence"])),
                         pipeline_fingerprint=candidate.execution.pipeline_fingerprint,
                         status="pending_review",
@@ -619,7 +625,8 @@ class SqlAlchemyImagePipelineStore:
                             ),
                             created_at=executed_at,
                         )
-                    projected_positions += 1
+                    if completeness_status == "complete":
+                        projected_positions += 1
             deferred_positions = _pending_board_geometry_count(
                 session,
                 job_id=job_id,
@@ -656,6 +663,7 @@ class SqlAlchemyImagePipelineStore:
                 )
                 .where(
                     RecognizedBoardModel.source_image_id == source.id,
+                    RecognizedBoardModel.completeness_status == "complete",
                     ImageReviewItemModel.status == "pending",
                 )
             )
@@ -786,6 +794,11 @@ class SqlAlchemyImagePipelineStore:
                     "IMAGE_REVIEW_BOARD_NOT_FOUND",
                     "The recognized board no longer exists.",
                 )
+            if board.completeness_status == "pending_partial" and action != "rejected":
+                raise ImagePipelineStoreError(
+                    "IMAGE_REVIEW_PARTIAL_BOARD_NONCANONICAL",
+                    "A partial board cannot be accepted as a canonical complete board.",
+                )
             if action != "rejected":
                 _require_active_symbol_codes(
                     session,
@@ -866,7 +879,10 @@ class SqlAlchemyImagePipelineStore:
                 .order_by(RecognizedBoardModel.position_index)
                 .with_for_update()
             ).all()
-            if any(item.status == "pending" for item, _board in rows):
+            if any(
+                item.status == "pending" and board.completeness_status == "complete"
+                for item, board in rows
+            ):
                 raise ImagePipelineStoreError(
                     "IMAGE_REVIEW_PENDING",
                     "A source cannot enter staging while a board is pending review.",
@@ -874,6 +890,8 @@ class SqlAlchemyImagePipelineStore:
             materialized = 0
             accepted = 0
             for item, board in rows:
+                if board.completeness_status == "pending_partial":
+                    continue
                 if item.status in {"rejected", "superseded"}:
                     continue
                 accepted += 1
@@ -911,6 +929,10 @@ class SqlAlchemyImagePipelineStore:
                         "An image staging row already has different accepted values.",
                     )
             source.status = "accepted" if accepted else "rejected"
+            if rows and all(
+                board.completeness_status == "pending_partial" for _item, board in rows
+            ):
+                source.status = "completed"
             if not rows:
                 source.status = "completed"
             source.processed_at = executed_at
@@ -1269,6 +1291,8 @@ def _require_same_board(
     expected_asset_mode = (
         "virtual_source" if cropped.get("assetMode") == "virtual_source" else "legacy_file"
     )
+    expected_completeness_status = cast(str, cropped.get("completenessStatus", "complete"))
+    expected_unavailable = list(cast(Sequence[int], cropped.get("unavailableCellIndices", [])))
     if (
         board.sequence_number_raw != sequence["rawText"]
         or board.sequence_number != sequence["normalizedNumber"]
@@ -1277,6 +1301,8 @@ def _require_same_board(
         or board.grid_rows != expected_grid_rows
         or board.grid_columns != expected_grid_columns
         or board.asset_mode != expected_asset_mode
+        or board.completeness_status != expected_completeness_status
+        or board.unavailable_cell_indices != expected_unavailable
         or board.board_relative_path != cropped.get("boardRelativePath")
         or board.board_checksum_sha256 != cropped.get("boardChecksumSha256")
         or board.geometry_engine_name != cropped.get("geometryEngineName")
@@ -1426,6 +1452,8 @@ def _upsert_review_item(
         "geometry": dict(board.board_geometry),
         "pipelineFingerprint": board.pipeline_fingerprint,
         "positionIndex": board.position_index,
+        "completenessStatus": board.completeness_status,
+        "unavailableCellIndices": list(board.unavailable_cell_indices),
         "sequence": dict(sequence),
         "sourceChecksumSha256": source.checksum_sha256,
         "sourceRelativePath": source.relative_path,

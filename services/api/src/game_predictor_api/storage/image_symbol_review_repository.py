@@ -1424,6 +1424,11 @@ class SymbolCellReviewWriteThroughCoordinator:
         if row is None:
             return False
         item, board, _source, _queue_item, _job = row
+        if board.completeness_status == "pending_partial":
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PARTIAL_BOARD_NONCANONICAL",
+                "A partial board cannot be approved as a complete layout.",
+            )
         locked_board = self._session.get(RecognizedBoardModel, board.id, with_for_update=True)
         if locked_board is None or locked_board.geometry_revision != expected_geometry_revision:
             raise SymbolCellReviewError(
@@ -1509,6 +1514,8 @@ class SymbolCellReviewWriteThroughCoordinator:
         if row is None:
             return False
         item, board, source, _queue_item, _job = row
+        if board.completeness_status == "pending_partial":
+            return False
         if item.status != "pending":
             return False
         sequence_number = _current_sequence_number(item=item, board=board)
@@ -1665,7 +1672,10 @@ class SymbolCellReviewWriteThroughCoordinator:
             )
         }
         topology = _board_topology(board)
-        if existing and set(existing) != set(range(topology.cell_count)):
+        expected_cell_indices = set(range(topology.cell_count)) - set(
+            board.unavailable_cell_indices
+        )
+        if existing and set(existing) != expected_cell_indices:
             if repair_incomplete_backfill and not any(
                 _is_human_cell_decision(cell) for cell in existing.values()
             ):
@@ -1719,11 +1729,21 @@ class SymbolCellReviewWriteThroughCoordinator:
             )
             return False
 
+        current_cells_by_index = {cell.cell_index: cell for cell in current_cells}
         geometry_changed = reason == "geometry_change" or any(
             cell.geometry_revision != board.geometry_revision
-            or cell.crop_checksum_sha256 != current_cells[cell.cell_index].crop_checksum_sha256
+            or cell.cell_index not in current_cells_by_index
+            or cell.crop_checksum_sha256
+            != current_cells_by_index[cell.cell_index].crop_checksum_sha256
             for cell in existing.values()
         )
+        if geometry_changed and board.completeness_status == "pending_partial":
+            self._mark_integrity_failure(
+                state,
+                "SYMBOL_CELL_REVIEW_PARTIAL_GEOMETRY_IMMUTABLE",
+                "A partial board cannot be recropped as a complete board.",
+            )
+            return False
         recropped_targets: dict[int, _CellProjection] = {}
         if geometry_changed and existing:
             symbol_code_by_id = {symbol_id: code for code, symbol_id in active_symbol_ids.items()}
@@ -1733,7 +1753,7 @@ class SymbolCellReviewWriteThroughCoordinator:
                         existing[index],
                         symbol_code_by_id=symbol_code_by_id,
                     )
-                    for index in range(topology.cell_count)
+                    for index in sorted(expected_cell_indices)
                 ),
                 current_cells=current_cells,
                 geometry_revision=board.geometry_revision,

@@ -196,6 +196,16 @@ class ImageGeometrySystemicGuardPolicyJobPayload(ApiModel):
     require_zero_invariant_violations: Literal[True]
 
 
+class ImageGeometryGuardResolutionManifestJobPayload(ApiModel):
+    id: UUID
+    checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    relative_path: str = Field(min_length=1, max_length=2048)
+    guard_job_id: UUID
+    guard_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    page_geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class BrowserImageImportJobPayload(ApiModel):
     schema_version: Literal[5]
     import_kind: Literal["image_directory"]
@@ -216,6 +226,29 @@ class BrowserImageImportJobPayload(ApiModel):
     board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
     image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
     geometry_systemic_guard_policy: ImageGeometrySystemicGuardPolicyJobPayload | None = None
+
+
+class ResolvedBrowserImageImportJobPayload(ApiModel):
+    schema_version: Literal[7]
+    import_kind: Literal["image_directory"]
+    source_selection_id: UUID
+    source_directory: str = Field(min_length=1, max_length=2048)
+    source_display_name: str = Field(min_length=1, max_length=255)
+    pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
+    source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    canonical_sequence_numbers: tuple[int, ...] = Field(default=())
+    start_mode: Literal["reuse_exact", "rerun_current_models"]
+    previous_job_id: UUID | None = None
+    image_selection_run_id: UUID | None = None
+    symbol_model: SymbolModelJobSnapshotPayload
+    grid_profile: GridProfileJobSnapshotPayload
+    page_geometry_manifest: PageGeometryManifestJobPayload
+    geometry_guard_resolution_manifest: ImageGeometryGuardResolutionManifestJobPayload | None = None
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
+    geometry_systemic_guard_policy: ImageGeometrySystemicGuardPolicyJobPayload
 
 
 class CuratedImageImportJobPayload(ApiModel):
@@ -513,6 +546,7 @@ JobPayloadResponse = (
     | LegacyImageImportJobPayload
     | ImageImportJobPayload
     | BrowserImageImportJobPayload
+    | ResolvedBrowserImageImportJobPayload
     | CuratedImageImportJobPayload
     | ManagedImageReprocessJobPayload
     | PinnedManagedImageReprocessJobPayload
@@ -585,6 +619,11 @@ class ImageGeometrySystemicGuardJobProgressResponse(ApiModel):
     page_registration_ready_rate: float = Field(ge=0, le=1)
     final_cell_grid_ready_rate: float = Field(ge=0, le=1)
     invariant_violation_count: int = Field(ge=0)
+    resolution_applied: bool = False
+    resolution_manifest_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    corrected_full_count: int = Field(default=0, ge=0)
+    partial_count: int = Field(default=0, ge=0)
+    rejected_count: int = Field(default=0, ge=0)
 
 
 class JobProgressResponse(ApiModel):
@@ -759,6 +798,8 @@ def _geometry_systemic_guard_progress(
         relative_path = raw["reportRelativePath"]
         if not isinstance(checksum, str) or not isinstance(relative_path, str):
             return None
+        resolution = job.checkpoint_payload.get("geometry_guard_resolution")
+        resolution_payload = resolution if isinstance(resolution, dict) else {}
         return ImageGeometrySystemicGuardJobProgressResponse(
             policy_version=raw["policyVersion"],
             required=raw["required"],
@@ -772,6 +813,13 @@ def _geometry_systemic_guard_progress(
             page_registration_ready_rate=_progress_float(raw["pageRegistrationReadyRate"]),
             final_cell_grid_ready_rate=_progress_float(raw["finalCellGridReadyRate"]),
             invariant_violation_count=_progress_integer(raw["invariantViolationCount"]),
+            resolution_applied=resolution_payload.get("passed") is True,
+            resolution_manifest_checksum_sha256=cast(
+                str | None, resolution_payload.get("manifestChecksumSha256")
+            ),
+            corrected_full_count=_progress_integer(resolution_payload.get("correctedFullCount", 0)),
+            partial_count=_progress_integer(resolution_payload.get("partialCount", 0)),
+            rejected_count=_progress_integer(resolution_payload.get("rejectedCount", 0)),
         )
     except (KeyError, TypeError, ValueError):
         return None
@@ -886,6 +934,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
                 return BrowserImageImportJobPayload.model_validate(job.input_payload)
             if job.input_payload.get("schema_version") == 6:
                 return PinnedManagedImageReprocessJobPayload.model_validate(job.input_payload)
+            if job.input_payload.get("schema_version") == 7:
+                return ResolvedBrowserImageImportJobPayload.model_validate(job.input_payload)
             return ImageImportJobPayload.model_validate(job.input_payload)
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:

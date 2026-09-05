@@ -2116,3 +2116,9 @@ manifestu. Aktualny fingerprint wynosi
 - `recognized_boards.completeness_status` rozróżnia `complete` oraz
   `pending_partial`; `unavailable_cell_indices` przechowuje logiczną maskę bez
   tworzenia fałszywych `cell_observations`.
+- Browser-import schema v7 przypina identyfikator, checksumę i ścieżkę
+  zamkniętego manifestu rozliczeń. `pending_partial` posiada wyłącznie
+  obserwacje komórek spoza maski, nie może zostać rozstrzygnięte jako pełna
+  plansza i nie tworzy stagingu layoutu. Decyzja `rejected` nie tworzy rekordu
+  `recognized_boards`; jej trwałym śladem pozostaje append-only decyzja i
+  zamknięty manifest.

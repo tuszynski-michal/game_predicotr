@@ -120,6 +120,12 @@ class SqlAlchemyImageImportGeometryGuardRepository:
         )
         return None if row is None else _manifest(row)
 
+    def get_manifest_by_id(
+        self, *, manifest_id: UUID
+    ) -> ImageGeometryGuardResolutionManifest | None:
+        row = self._session.get(ImageImportGeometryGuardResolutionManifestModel, manifest_id)
+        return None if row is None else _manifest(row)
+
     def add_manifest(
         self, value: ImageGeometryGuardResolutionManifest
     ) -> ImageGeometryGuardResolutionManifest:

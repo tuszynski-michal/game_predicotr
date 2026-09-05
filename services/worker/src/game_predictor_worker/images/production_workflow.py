@@ -76,6 +76,11 @@ from .board_cell_geometry_crops import (
 from .board_cell_geometry_deferred_writer import BoardCellGeometryDeferredWriter
 from .board_cell_geometry_estimator import estimate_board_cell_geometry
 from .geometry import ClassicalPageBoardDetector, Point, Quad
+from .geometry_guard_resolution import (
+    GeometryGuardBoardResolution,
+    GeometryGuardResolutionSet,
+    load_geometry_guard_resolutions,
+)
 from .large_import_geometry_guard import (
     LARGE_IMPORT_GEOMETRY_GUARD_VERSION,
     LARGE_IMPORT_GUARD_SAMPLE_LIMIT,
@@ -83,6 +88,7 @@ from .large_import_geometry_guard import (
     LARGE_IMPORT_MIN_READY_RATE,
     LARGE_IMPORT_MIN_SOURCE_COUNT,
     run_large_import_geometry_guard,
+    validate_large_import_geometry_guard_resolutions,
 )
 from .normalization import CanonicalSourceFrame, CanonicalSourceLoader, CanonicalSourceLoadError
 from .orchestration import ImageBatchHandler, ImageFileRegistration
@@ -269,6 +275,83 @@ def _activate_structured_lattice_v3(
     return payload
 
 
+def _apply_geometry_guard_resolutions(
+    structured: Mapping[str, object],
+    resolutions: Mapping[int, GeometryGuardBoardResolution],
+) -> dict[str, object]:
+    if not resolutions:
+        return dict(structured)
+    boards: list[dict[str, object]] = []
+    seen: set[int] = set()
+    reasons: set[str] = set()
+    for raw in _sequence(structured.get("boards"), "structuredGeometry.boards"):
+        board = dict(_mapping(raw, "structuredGeometry.board"))
+        position = _integer(board, "positionIndex")
+        resolution = resolutions.get(position)
+        if resolution is None:
+            reasons.update(cast(Sequence[str], board.get("reasonCodes", [])))
+            boards.append(board)
+            continue
+        if board.get("sequenceNumber") != resolution.sequence_number:
+            raise ImagePipelineExecutionError(
+                "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+                "A resolved board sequence differs from structured source geometry.",
+            )
+        seen.add(position)
+        common = {
+            "guardDecisionChecksumSha256": resolution.decision_checksum_sha256,
+            "guardResolutionDisposition": resolution.disposition,
+            "unavailableCellIndices": list(resolution.unavailable_cell_indices),
+        }
+        if resolution.disposition == "rejected":
+            board.update(
+                {
+                    **common,
+                    "disposition": BoardGeometryDisposition.NEEDS_MANUAL_CORRECTION.value,
+                    "finalQuad": None,
+                    "localLatticeStatus": "operator_rejected",
+                    "localLatticeVersion": "image-geometry-guard-resolution-v1",
+                    "reasonCodes": ["operator_rejected"],
+                    "symbolGridQuad": None,
+                }
+            )
+            reasons.add("operator_rejected")
+        else:
+            quad = [
+                dict(point)
+                for point in cast(tuple[dict[str, int], ...], resolution.symbol_grid_quad)
+            ]
+            board.update(
+                {
+                    **common,
+                    "disposition": BoardGeometryDisposition.AUTOMATIC.value,
+                    "finalQuad": quad,
+                    "localLatticeStatus": "human_reviewed",
+                    "localLatticeVersion": "image-geometry-guard-resolution-v1",
+                    "reasonCodes": [],
+                    "symbolGridQuad": quad,
+                }
+            )
+        boards.append(board)
+    if seen != set(resolutions):
+        raise ImagePipelineExecutionError(
+            "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+            "A resolved board slot is absent from structured source geometry.",
+        )
+    payload = dict(structured)
+    payload.update(
+        {
+            "boards": boards,
+            "guardResolutionApplied": True,
+            "reasonCodes": sorted(reasons),
+            "status": "ready" if not reasons else "needs_review",
+        }
+    )
+    payload.pop("resultChecksumSha256", None)
+    payload["resultChecksumSha256"] = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+    return payload
+
+
 class BoardCellGeometryDeferrer(Protocol):
     def defer(
         self,
@@ -335,6 +418,17 @@ class ProductionImageImportWorkflow:
             self._artifact_root,
             managed_manifest=manifest,
         )
+        geometry_guard_resolutions = (
+            load_geometry_guard_resolutions(
+                artifact_root=self._artifact_root,
+                job=job,
+                originals=manifest.originals,
+                source_manifest_checksum_sha256=manifest.checksum_sha256,
+                page_geometry_manifest_checksum_sha256=_page_geometry_manifest_checksum(job),
+            )
+            if job.input_payload.get("geometry_guard_resolution_manifest") is not None
+            else None
+        )
         unresolved_originals = _filter_canonical_originals(manifest.originals, job)
         canonical_skipped_count = len(manifest.originals) - len(unresolved_originals)
         pipeline_originals = unresolved_originals
@@ -379,6 +473,7 @@ class ProductionImageImportWorkflow:
         board_cell_processing = _board_cell_processing_snapshot(job)
         geometry_guard_policy = _geometry_systemic_guard_policy(job)
         geometry_guard = None
+        geometry_guard_resolution = None
         if board_cell_processing is not None and geometry_guard_policy is not None:
             guard_suite = ProductionImageStageAdapterSuite(
                 self._artifact_root,
@@ -404,11 +499,46 @@ class ProductionImageImportWorkflow:
                 geometry_entries=geometry_manifest,
                 suite=guard_suite,
             )
+            if geometry_guard_resolutions is not None:
+                resolved_guard_suite = ProductionImageStageAdapterSuite(
+                    self._artifact_root,
+                    repository_root=self._repository_root,
+                    symbol_model=_symbol_model_snapshot(job),
+                    grid_profile=_grid_profile_snapshot(job),
+                    page_registration_profile=_page_registration_profile_snapshot(job),
+                    page_geometry_manifest=geometry_manifest,
+                    image_selection_run_id=_image_selection_run_id(job),
+                    attested_sequence_ranges=attested_sequence_ranges,
+                    board_cell_processing=board_cell_processing,
+                    geometry_rollout=_geometry_rollout_snapshot(job),
+                    game_id=job.game_id,
+                    normalization_adapter_version=_normalization_adapter_version(job),
+                    geometry_guard_resolutions=geometry_guard_resolutions,
+                )
+                geometry_guard_resolution = validate_large_import_geometry_guard_resolutions(
+                    artifact_root=self._artifact_root,
+                    job_id=job.id,
+                    pipeline_fingerprint_sha256=_pipeline_fingerprint(job),
+                    originals=pipeline_originals,
+                    geometry_entries=geometry_manifest,
+                    raw_result=geometry_guard,
+                    resolutions=geometry_guard_resolutions,
+                    suite=resolved_guard_suite,
+                )
             if geometry_guard.required:
                 context.checkpoint(
                     checkpoint_payload={
                         "checkpoint_kind": "image-geometry-systemic-guard-v1",
                         "geometry_systemic_guard": geometry_guard.checkpoint_payload(),
+                        **(
+                            {
+                                "geometry_guard_resolution": (
+                                    geometry_guard_resolution.checkpoint_payload()
+                                )
+                            }
+                            if geometry_guard_resolution is not None
+                            else {}
+                        ),
                         "schema_version": 1,
                     },
                     stage="image_geometry_systemic_guard",
@@ -418,7 +548,7 @@ class ProductionImageImportWorkflow:
                     failure_count=job.failure_count,
                     review_count=job.review_count,
                 )
-                if not geometry_guard.passed:
+                if not geometry_guard.passed and geometry_guard_resolution is None:
                     ready_rate = geometry_guard.final_cell_grid_ready_rate or 0.0
                     raise JobHandlerError(
                         "IMAGE_GEOMETRY_SYSTEMIC_REGRESSION",
@@ -447,6 +577,7 @@ class ProductionImageImportWorkflow:
             geometry_rollout=_geometry_rollout_snapshot(job),
             game_id=job.game_id,
             normalization_adapter_version=_normalization_adapter_version(job),
+            geometry_guard_resolutions=geometry_guard_resolutions,
             board_cell_geometry_deferred_writer=(
                 self._board_cell_geometry_deferred_writer
                 if board_cell_processing is not None
@@ -468,7 +599,18 @@ class ProductionImageImportWorkflow:
             total=all_source_count + source_count,
             stage_prefix="image_pipeline",
             checkpoint_extras=(
-                {"geometry_systemic_guard": geometry_guard.checkpoint_payload()}
+                {
+                    "geometry_systemic_guard": geometry_guard.checkpoint_payload(),
+                    **(
+                        {
+                            "geometry_guard_resolution": (
+                                geometry_guard_resolution.checkpoint_payload()
+                            )
+                        }
+                        if geometry_guard_resolution is not None
+                        else {}
+                    ),
+                }
                 if geometry_guard is not None and geometry_guard.required
                 else None
             ),
@@ -661,6 +803,7 @@ class ProductionImageStageAdapterSuite:
         normalization_adapter_version: str = NORMALIZATION_ADAPTER_VERSION,
         geometry_rollout: GeometryPipelineRolloutSnapshot | None = None,
         game_id: UUID | None = None,
+        geometry_guard_resolutions: GeometryGuardResolutionSet | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
@@ -691,6 +834,7 @@ class ProductionImageStageAdapterSuite:
         self._board_cell_geometry_deferred_writer = board_cell_geometry_deferred_writer
         self._geometry_rollout = geometry_rollout or _legacy_geometry_rollout_snapshot()
         self._game_id = game_id
+        self._geometry_guard_resolutions = geometry_guard_resolutions
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
         # ``seq_*`` import.  Loading the fallback registration anchors in that
@@ -864,6 +1008,11 @@ class ProductionImageStageAdapterSuite:
     def board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
         if not self._geometry_rollout.is_legacy:
             structured, candidate_v2, candidate_v3 = self._detect_structured_geometry(context)
+            if self._geometry_guard_resolutions is not None:
+                structured = _apply_geometry_guard_resolutions(
+                    structured,
+                    self._geometry_guard_resolutions.for_source(context.source_checksum_sha256),
+                )
             if self._geometry_rollout.geometry_mode is not GeometryRolloutMode.STRUCTURED_SHADOW:
                 return {
                     "boards": [
@@ -1119,6 +1268,7 @@ class ProductionImageStageAdapterSuite:
         review_only = self._geometry_rollout.geometry_mode is GeometryRolloutMode.STRUCTURED_REVIEW
         for raw_board in _sequence(structured.get("boards"), "structuredGeometry.boards"):
             board = _mapping(raw_board, "structuredGeometry.board")
+            resolution_disposition = board.get("guardResolutionDisposition")
             automatic = board.get("disposition") == BoardGeometryDisposition.AUTOMATIC.value
             final_quad = board.get("finalQuad")
             common = {
@@ -1130,6 +1280,28 @@ class ProductionImageStageAdapterSuite:
                 "positionIndex": board.get("positionIndex"),
                 "sequenceNumber": board.get("sequenceNumber"),
             }
+            if resolution_disposition in {"corrected_full", "partial"}:
+                common.update(
+                    {
+                        "completenessStatus": (
+                            "pending_partial" if resolution_disposition == "partial" else "complete"
+                        ),
+                        "guardDecisionChecksumSha256": board.get("guardDecisionChecksumSha256"),
+                        "unavailableCellIndices": list(
+                            cast(Sequence[int], board.get("unavailableCellIndices", []))
+                        ),
+                    }
+                )
+            if resolution_disposition == "rejected":
+                projected.append(
+                    {
+                        **common,
+                        "cellGeometry": None,
+                        "reasonCode": "operator_rejected",
+                        "status": "rejected",
+                    }
+                )
+                continue
             if automatic and final_quad is not None and not review_only:
                 projected.append(
                     {
@@ -1365,6 +1537,12 @@ class ProductionImageStageAdapterSuite:
         boards: list[dict[str, object]] = []
         for position in sorted(by_position):
             board_renders = sorted(by_position[position], key=lambda value: value.cell_index)
+            structured_board = next(
+                _mapping(value, "structured board")
+                for value in _sequence(structured.get("boards"), "structuredGeometry.boards")
+                if _integer(_mapping(value, "structured board"), "positionIndex") == position
+            )
+            resolution_disposition = structured_board.get("guardResolutionDisposition")
             boards.append(
                 {
                     "assetMode": "virtual_source",
@@ -1392,6 +1570,12 @@ class ProductionImageStageAdapterSuite:
                     "gridColumns": self._board_topology.columns,
                     "gridRows": self._board_topology.rows,
                     "positionIndex": position,
+                    "completenessStatus": (
+                        "pending_partial" if resolution_disposition == "partial" else "complete"
+                    ),
+                    "unavailableCellIndices": list(
+                        cast(Sequence[int], structured_board.get("unavailableCellIndices", []))
+                    ),
                     "topologyRulesVersionId": self._board_topology.rules_version_id,
                 }
             )
@@ -1406,6 +1590,15 @@ class ProductionImageStageAdapterSuite:
                 }
                 for board in _boards(geometry_stage)
                 if board.get("status") == "deferred"
+            ],
+            "rejectedBoards": [
+                {
+                    "positionIndex": board["positionIndex"],
+                    "reasonCode": board["reasonCode"],
+                    "sequenceNumber": board["sequenceNumber"],
+                }
+                for board in _boards(geometry_stage)
+                if board.get("status") == "rejected"
             ],
             "geometryChecksumSha256": _text(structured, "resultChecksumSha256"),
             "rendererVersion": self._geometry_rollout.virtual_renderer_version,
@@ -1494,10 +1687,13 @@ class ProductionImageStageAdapterSuite:
                 symbol_grid_quad=final_quad,
             )
             cells.extend(
-                derive_virtual_cells(
+                cell
+                for cell in derive_virtual_cells(
                     geometry=virtual_geometry,
                     configuration=configuration,
                 )
+                if cell.cell_index
+                not in set(cast(Sequence[int], board.get("unavailableCellIndices", [])))
             )
         try:
             rendered = self._virtual_renderer.render(frame, tuple(cells))
@@ -1935,7 +2131,17 @@ class ProductionImageStageAdapterSuite:
         return [
             {
                 "cells": by_position[position],
+                "completenessStatus": next(
+                    str(board.get("completenessStatus", "complete"))
+                    for board in cropped_boards
+                    if _integer(board, "positionIndex") == position
+                ),
                 "positionIndex": position,
+                "unavailableCellIndices": next(
+                    list(cast(Sequence[int], board.get("unavailableCellIndices", [])))
+                    for board in cropped_boards
+                    if _integer(board, "positionIndex") == position
+                ),
             }
             for position in sorted(by_position)
         ]

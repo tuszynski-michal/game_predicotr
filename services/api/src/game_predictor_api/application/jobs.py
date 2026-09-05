@@ -538,6 +538,7 @@ class JobService:
         start_mode: str | None = None,
         previous_job_id: UUID | None = None,
         page_geometry_manifest: dict[str, object] | None = None,
+        geometry_guard_resolution_manifest: dict[str, object] | None = None,
         use_verified_board_cell_geometry: bool = False,
     ) -> Job:
         if not self._repository.game_exists(game_id):
@@ -567,7 +568,7 @@ class JobService:
             f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}".encode("ascii")
         ).hexdigest()
         input_payload: dict[str, object] = {
-            "schema_version": 2 if start_mode is None else 5,
+            "schema_version": 2 if start_mode is None else 7,
             "import_kind": "image_directory",
             "source_selection_id": str(selection_id),
             "source_directory": str(resolved),
@@ -578,6 +579,11 @@ class JobService:
             "symbol_model": symbol_model.to_payload(),
         }
         if start_mode is not None:
+            if page_geometry_manifest is None:
+                raise JobError(
+                    "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED",
+                    "A new browser import requires a pinned page geometry manifest.",
+                )
             grid_profile = (
                 _baseline_grid_profile_snapshot()
                 if self._grid_profile_snapshot_resolver is None
@@ -592,7 +598,8 @@ class JobService:
             effective_pipeline_fingerprint = hashlib.sha256(
                 (
                     f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:{grid_fingerprint}:"
-                    f"{_page_geometry_manifest_fingerprint(page_geometry_manifest)}"
+                    f"{_page_geometry_manifest_fingerprint(page_geometry_manifest)}:"
+                    f"{_geometry_guard_resolution_manifest_fingerprint(geometry_guard_resolution_manifest)}"
                 ).encode("ascii")
             ).hexdigest()
             input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
@@ -603,6 +610,10 @@ class JobService:
             input_payload["grid_profile"] = grid_profile
             if page_geometry_manifest is not None:
                 input_payload["page_geometry_manifest"] = dict(page_geometry_manifest)
+            if geometry_guard_resolution_manifest is not None:
+                input_payload["geometry_guard_resolution_manifest"] = dict(
+                    geometry_guard_resolution_manifest
+                )
             input_payload["geometry_systemic_guard_policy"] = dict(
                 _IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY
             )
@@ -1498,6 +1509,26 @@ def _page_geometry_manifest_fingerprint(value: dict[str, object] | None) -> str:
         raise JobError(
             "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
             "The pinned page geometry manifest descriptor is invalid.",
+        )
+    return checksum
+
+
+def _geometry_guard_resolution_manifest_fingerprint(
+    value: dict[str, object] | None,
+) -> str:
+    if value is None:
+        return "image-geometry-guard-resolution-none-v1"
+    checksum = value.get("checksumSha256")
+    path = value.get("relativePath")
+    if (
+        not isinstance(checksum, str)
+        or len(checksum) != 64
+        or not isinstance(path, str)
+        or not path
+    ):
+        raise JobError(
+            "IMAGE_GEOMETRY_GUARD_MANIFEST_INVALID",
+            "The pinned geometry guard resolution manifest descriptor is invalid.",
         )
     return checksum
 

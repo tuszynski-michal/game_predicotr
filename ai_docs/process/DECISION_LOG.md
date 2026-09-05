@@ -7646,3 +7646,21 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** `?` pozostaje prezentacją `source_unavailable`, nie etykietą
   treningową. Plansza `pending_partial` nie może stać się kanonicznym layoutem;
   jej materializacja należy do osobnego, manifest-bound importu v7.
+
+### D-341 — Schema v7 rozdziela surowy wynik bramki od jawnego rozliczenia
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** browser-import schema v7 przypina content-addressed manifest
+  decyzji i ponownie wykonuje produkcyjną próbę. Surowy raport oraz jego wynik
+  nie są przepisywane. Manifest musi dokładnie pokrywać wszystkie i tylko
+  odroczone sloty; pełne korekty przechodzą zwykłe invariants, `partial` tworzy
+  sparse observations i pozostaje niekanoniczny, a `rejected` nie tworzy
+  recognized board ani cropów.
+- **Reason:** wynik automatycznej bramki jest dowodem jakości algorytmu, podczas
+  gdy decyzja operatora jest osobnym dowodem obsługi wyjątku. Połączenie tych
+  pojęć ukrywałoby regresje albo pozwalało zastosować decyzję do innego źródła.
+- **Consequences:** fingerprint obejmuje manifest rozliczeń, a API i worker
+  fail-closed sprawdzają jego proweniencję oraz checksumy. Schema v5 i v6 nie
+  odczytują tego wejścia. Failed job pozostaje niezmiennym audytem, a wznowienie
+  wymaga utworzenia nowego joba po ręcznym zamknięciu manifestu.

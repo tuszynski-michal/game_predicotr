@@ -4,12 +4,17 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from game_predictor_worker.images.geometry_guard_resolution import (
+    GeometryGuardBoardResolution,
+    GeometryGuardResolutionSet,
+)
 from game_predictor_worker.images.large_import_geometry_guard import (
     LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA,
     build_board_level_guard_report_from_legacy,
     guard_required,
     run_large_import_geometry_guard,
     select_representative_originals,
+    validate_large_import_geometry_guard_resolutions,
 )
 from game_predictor_worker.images.pipeline_execution import (
     FunctionImageStageAdapter,
@@ -238,6 +243,60 @@ def test_guard_rejects_systemically_incomplete_final_grids(tmp_path: Path) -> No
     assert failed[0]["analysisQuad"] == _quad(8)
     assert failed[0]["symbolGridQuad"] is None
     assert failed[0]["evidence"] == {"supportedIntersectionCount": 24}
+
+
+def test_exact_resolution_manifest_allows_only_reproduced_full_corrections(
+    tmp_path: Path,
+) -> None:
+    originals = tuple(_original(index) for index in range(56))
+    job_id = UUID("55555555-5555-5555-5555-555555555555")
+    raw = run_large_import_geometry_guard(
+        artifact_root=tmp_path,
+        job_id=job_id,
+        pipeline_fingerprint_sha256="a" * 64,
+        source_manifest_checksum_sha256="b" * 64,
+        page_geometry_manifest_checksum_sha256="c" * 64,
+        originals=originals,
+        geometry_entries=_entries(originals),
+        suite=_Suite(final_board_count=8),
+    )
+    selected = select_representative_originals(originals, _entries(originals))
+    resolutions = GeometryGuardResolutionSet(
+        manifest_id=UUID("66666666-6666-6666-6666-666666666666"),
+        manifest_checksum_sha256="d" * 64,
+        guard_job_id=UUID("77777777-7777-7777-7777-777777777777"),
+        guard_report_checksum_sha256="e" * 64,
+        decisions=tuple(
+            GeometryGuardBoardResolution(
+                source_checksum_sha256=original.checksum_sha256,
+                source_relative_path=original.source_relative_path,
+                position_index=8,
+                sequence_number=original.sequence_range_end or 0,
+                disposition="corrected_full",
+                symbol_grid_quad=tuple(
+                    {"x": int(point["x"]), "y": int(point["y"])} for point in _quad(8)
+                ),
+                unavailable_cell_indices=(),
+                decision_checksum_sha256="f" * 64,
+            )
+            for original in selected
+        ),
+    )
+
+    result = validate_large_import_geometry_guard_resolutions(
+        artifact_root=tmp_path,
+        job_id=job_id,
+        pipeline_fingerprint_sha256="a" * 64,
+        originals=originals,
+        geometry_entries=_entries(originals),
+        raw_result=raw,
+        resolutions=resolutions,
+        suite=_Suite(final_board_count=9),
+    )
+
+    assert result.passed
+    assert result.corrected_full_count == len(selected)
+    assert result.partial_count == result.rejected_count == 0
 
 
 def test_legacy_report_is_upgraded_without_mutation() -> None:

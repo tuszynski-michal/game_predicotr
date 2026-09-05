@@ -70,6 +70,16 @@ test('presents every lifecycle value as explicit text', () => {
   assert.equal(jobStageLabel(null), 'Etap nie został jeszcze rozpoczęty');
 });
 
+test('labels attested sequence assignment for browser import schema v7', () => {
+  assert.equal(
+    jobStageLabel('image_pipeline:sequence_ocr', {
+      schemaVersion: 7,
+      importKind: 'image_directory',
+    }),
+    'Przypisanie numerów z nazwy pliku — OCR pominięty',
+  );
+});
+
 test('labels image import and geometry preflight jobs with their source range', () => {
   const importJob = job({
     inputPayload: {

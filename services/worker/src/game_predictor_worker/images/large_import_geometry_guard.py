@@ -15,6 +15,7 @@ from uuid import UUID
 
 from game_predictor_worker.jobs.runtime import JobHandlerError
 
+from .geometry_guard_resolution import GeometryGuardResolutionSet
 from .grid_profile_end_to_end_gate import (
     GridProfileGateBoardResult,
     GridProfileGateSourceResult,
@@ -25,7 +26,7 @@ from .pipeline_contract import file_execution_key
 from .pipeline_execution import ImageStageContext
 from .source_ingestion import ManagedOriginal
 
-LARGE_IMPORT_GEOMETRY_GUARD_VERSION = "image-geometry-systemic-guard-v2"
+LARGE_IMPORT_GEOMETRY_GUARD_VERSION = "image-geometry-systemic-guard-v1"
 LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA = "image-geometry-systemic-guard-report-v2"
 LARGE_IMPORT_MIN_SOURCE_COUNT = 100
 LARGE_IMPORT_MIN_BOARD_COUNT = 500
@@ -61,6 +62,24 @@ class LargeImportGeometryGuardResult:
             "pageRegistrationReadyRate": self.page_registration_ready_rate,
             "finalCellGridReadyRate": self.final_cell_grid_ready_rate,
             "invariantViolationCount": self.invariant_violation_count,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LargeImportGeometryGuardResolutionResult:
+    passed: bool
+    corrected_full_count: int
+    partial_count: int
+    rejected_count: int
+    manifest_checksum_sha256: str
+
+    def checkpoint_payload(self) -> dict[str, object]:
+        return {
+            "passed": self.passed,
+            "correctedFullCount": self.corrected_full_count,
+            "partialCount": self.partial_count,
+            "rejectedCount": self.rejected_count,
+            "manifestChecksumSha256": self.manifest_checksum_sha256,
         }
 
 
@@ -202,6 +221,116 @@ def run_large_import_geometry_guard(
         page_registration_ready_rate=page_rate,
         final_cell_grid_ready_rate=final_rate,
         invariant_violation_count=invariant_violation_count,
+    )
+
+
+def validate_large_import_geometry_guard_resolutions(
+    *,
+    artifact_root: Path,
+    job_id: UUID,
+    pipeline_fingerprint_sha256: str,
+    originals: Sequence[ManagedOriginal],
+    geometry_entries: Mapping[str, object],
+    raw_result: LargeImportGeometryGuardResult,
+    resolutions: GeometryGuardResolutionSet,
+    suite: ProductionGateAdapterSuite,
+) -> LargeImportGeometryGuardResolutionResult:
+    if not raw_result.required or raw_result.report_relative_path is None:
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+            "A resolution manifest cannot be applied without a required guard report.",
+        )
+    path = artifact_root.resolve().joinpath(*PurePosixPath(raw_result.report_relative_path).parts)
+    try:
+        envelope = json.loads(path.read_bytes())
+    except (OSError, json.JSONDecodeError) as error:
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_REPORT_INVALID",
+            "The raw geometry guard report is unavailable.",
+        ) from error
+    report = envelope.get("report") if isinstance(envelope, Mapping) else None
+    if (
+        not isinstance(report, Mapping)
+        or _checksum(report) != raw_result.report_checksum_sha256
+        or _required_int(report, "invariantViolationCount") != 0
+    ):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+            "A resolution manifest cannot override raw invariant violations.",
+        )
+    deferred_keys = {
+        (cast(str, source["sourceChecksumSha256"]), cast(int, board["positionIndex"]))
+        for source in cast(Sequence[Mapping[str, object]], report.get("sources", []))
+        for board in cast(Sequence[Mapping[str, object]], source.get("boards", []))
+        if board.get("status") == "deferred"
+    }
+    if deferred_keys != resolutions.keys:
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+            "The resolution manifest does not exactly cover the raw board failures.",
+        )
+    selected_checksums = report.get("selectedSourceChecksums")
+    if not isinstance(selected_checksums, list):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_REPORT_INVALID",
+            "The raw geometry guard report has no selected-source list.",
+        )
+    by_checksum = {item.checksum_sha256: item for item in originals}
+    observations = tuple(
+        _evaluate_source(
+            by_checksum[checksum],
+            geometry_entries=geometry_entries,
+            job_id=job_id,
+            pipeline_fingerprint_sha256=pipeline_fingerprint_sha256,
+            suite=suite,
+        )
+        for checksum in selected_checksums
+        if isinstance(checksum, str) and checksum in by_checksum
+    )
+    if len(observations) != len(selected_checksums):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+            "The raw guard sample differs from the current source manifest.",
+        )
+    boards = {
+        (source.source_checksum_sha256, board.position_index): board
+        for source in observations
+        for board in source.board_results
+    }
+    if any(sum(source.invariant_violation_counts.values()) for source in observations):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+            "Resolved geometry introduced a production invariant violation.",
+        )
+    if any(board.status != "ready" for key, board in boards.items() if key not in resolutions.keys):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+            "Resolved execution introduced a new board-level geometry failure.",
+        )
+    for decision in resolutions.decisions:
+        board = boards.get((decision.source_checksum_sha256, decision.position_index))
+        expected = "ready" if decision.disposition == "corrected_full" else "deferred"
+        expected_reason = {
+            "partial": "operator_partial",
+            "rejected": "operator_rejected",
+        }.get(decision.disposition)
+        if (
+            board is None
+            or board.status != expected
+            or (expected_reason is not None and expected_reason not in board.reason_codes)
+        ):
+            raise JobHandlerError(
+                "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+                "A resolved board did not reproduce its pinned production disposition.",
+            )
+    return LargeImportGeometryGuardResolutionResult(
+        passed=True,
+        corrected_full_count=sum(
+            item.disposition == "corrected_full" for item in resolutions.decisions
+        ),
+        partial_count=sum(item.disposition == "partial" for item in resolutions.decisions),
+        rejected_count=sum(item.disposition == "rejected" for item in resolutions.decisions),
+        manifest_checksum_sha256=resolutions.manifest_checksum_sha256,
     )
 
 
@@ -501,9 +630,11 @@ __all__ = [
     "LARGE_IMPORT_GEOMETRY_GUARD_VERSION",
     "LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA",
     "LargeImportGeometryGuardResult",
+    "LargeImportGeometryGuardResolutionResult",
     "build_board_level_guard_report_from_legacy",
     "geometry_quality_angle_bucket",
     "guard_required",
     "run_large_import_geometry_guard",
+    "validate_large_import_geometry_guard_resolutions",
     "select_representative_originals",
 ]

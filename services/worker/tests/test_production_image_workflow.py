@@ -34,6 +34,9 @@ from game_predictor_worker.images.geometry import (
     DetectionResult,
     Point,
 )
+from game_predictor_worker.images.geometry_guard_resolution import (
+    GeometryGuardBoardResolution,
+)
 from game_predictor_worker.images.large_import_geometry_guard import (
     LargeImportGeometryGuardResult,
 )
@@ -58,6 +61,7 @@ from game_predictor_worker.images.production_workflow import (
     NORMALIZATION_ADAPTER_VERSION,
     ProductionImageImportWorkflow,
     ProductionImageStageAdapterSuite,
+    _apply_geometry_guard_resolutions,
     _attested_sequence_payload,
     _calibrated_quad,
     _expected_board_count,
@@ -102,6 +106,70 @@ class _ProgressRecorder:
             failure_count=int(values["failure_count"]),
             review_count=int(values["review_count"]),
         )
+
+
+def test_guard_resolutions_override_only_exact_structured_slots() -> None:
+    structured = {
+        "boards": [
+            {
+                "positionIndex": position,
+                "sequenceNumber": 100 + position,
+                "disposition": "needs_manual_correction",
+                "finalQuad": None,
+                "reasonCodes": ["incomplete_lattice"],
+                "symbolGridQuad": None,
+            }
+            for position in range(3)
+        ],
+        "reasonCodes": ["incomplete_lattice"],
+        "status": "needs_review",
+    }
+    quad = (
+        {"x": 10, "y": 20},
+        {"x": 110, "y": 20},
+        {"x": 110, "y": 80},
+        {"x": 10, "y": 80},
+    )
+    resolutions = {
+        0: GeometryGuardBoardResolution(
+            source_checksum_sha256="a" * 64,
+            source_relative_path="seq_100-108.jpg",
+            position_index=0,
+            sequence_number=100,
+            disposition="corrected_full",
+            symbol_grid_quad=quad,
+            unavailable_cell_indices=(),
+            decision_checksum_sha256="b" * 64,
+        ),
+        1: GeometryGuardBoardResolution(
+            source_checksum_sha256="a" * 64,
+            source_relative_path="seq_100-108.jpg",
+            position_index=1,
+            sequence_number=101,
+            disposition="partial",
+            symbol_grid_quad=quad,
+            unavailable_cell_indices=(10, 11, 12, 13, 14),
+            decision_checksum_sha256="c" * 64,
+        ),
+        2: GeometryGuardBoardResolution(
+            source_checksum_sha256="a" * 64,
+            source_relative_path="seq_100-108.jpg",
+            position_index=2,
+            sequence_number=102,
+            disposition="rejected",
+            symbol_grid_quad=None,
+            unavailable_cell_indices=(),
+            decision_checksum_sha256="d" * 64,
+        ),
+    }
+
+    result = _apply_geometry_guard_resolutions(structured, resolutions)
+
+    assert result["boards"][0]["disposition"] == "automatic"
+    assert result["boards"][1]["unavailableCellIndices"] == [10, 11, 12, 13, 14]
+    assert result["boards"][2]["reasonCodes"] == ["operator_rejected"]
+    assert result["status"] == "needs_review"
+    assert len(result["resultChecksumSha256"]) == 64
 
 
 def test_systemic_geometry_guard_fails_before_file_registration(

@@ -152,6 +152,8 @@ revisions.
 | ręczna korekta legacy | historyczna board geometry revision i jej assety | `recognized_boards` materializuje bieżący stan; brak fałszywej source revision virtual |
 | preview | brak trwałego właściciela | wynik efemeryczny związany z oczekiwanym źródłem, rewizją i topologią |
 | trening | brak zmiany geometrii | manifest kohorty wskazuje zatwierdzoną rewizję i checksumy cropów |
+| decyzja `partial` bramki importu | source revision zachowuje quad slotu i maskę niedostępnych pól | renderer i observations obejmują tylko dostępne logiczne indeksy; brak kanonicznego layoutu |
+| decyzja `rejected` bramki importu | brak właściciela geometrii planszy w projekcji importu | audyt pozostaje w append-only decyzji i zamkniętym manifeście; brak recognized board oraz cropów |
 
 Każdy zapis planszy blokuje i waliduje w kolejności: gra, wystąpienie źródła,
 sekwencja, review item/plansza, komórki. Zmiana jednej planszy jest atomowa dla

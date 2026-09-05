@@ -1370,3 +1370,20 @@ rozliczeniu wszystkich odroczonych slotów. Manifest zawiera wyłącznie najnows
 rewizję każdego slotu, obie checksumy manifestów wejściowych i checksumę
 raportu bramki. Jest content-addressed i append-only. Zmiana decyzji nie
 nadpisuje zamkniętego manifestu, lecz prowadzi do nowej checksumy.
+
+Nowy browser-import z raportem rozliczeń używa schema v7. Start przyjmuje
+jednocześnie identyfikator i SHA-256 zamkniętego manifestu albo nie przyjmuje
+żadnego z nich. API przed utworzeniem joba sprawdza grę, staging oraz checksumy
+manifestów źródeł i geometrii strony. Fingerprint joba obejmuje manifest
+rozliczeń, a worker ponownie weryfikuje content-addressed artefakt, przypięte
+źródła, sloty, numery sekwencji i checksumy decyzji. Każdy drift kończy job
+bez fallbacku.
+
+Surowy raport bramki pozostaje niezmieniony. Pełna korekta musi przejść
+normalne invariants 3×3 → 3×5. Plansza `partial` tworzy cropy i obserwacje
+wyłącznie dla logicznych indeksów spoza maski `unavailableCellIndices`, ma stan
+`pending_partial` i nie może zostać zaakceptowana jako pełny layout ani wejść
+do kanonizacji. Plansza `rejected` nie tworzy `recognized_board`, cropów ani
+obserwacji. Import jest dozwolony dopiero wtedy, gdy manifest dokładnie
+rozlicza wszystkie i tylko te sloty, które odroczył przypięty raport, oraz
+ponowne wykonanie nie ujawnia nowych błędów.

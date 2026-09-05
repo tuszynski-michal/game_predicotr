@@ -108,10 +108,41 @@ def run_grid_profile_gate_source(
     )
     topology_violations = int(geometry.get("gridRows") != 3 or geometry.get("gridColumns") != 5)
     final_positions: set[int] = set()
+    partial_positions: set[int] = set()
     for board in crop_boards:
         position = board.get("positionIndex")
         cells = _mapping_sequence(board.get("cells"))
         identities = {(cell.get("rowIndex"), cell.get("columnIndex")) for cell in cells}
+        raw_unavailable = board.get("unavailableCellIndices", [])
+        unavailable = (
+            tuple(raw_unavailable)
+            if isinstance(raw_unavailable, Sequence)
+            and not isinstance(raw_unavailable, str | bytes)
+            else ()
+        )
+        unavailable_valid = (
+            unavailable == tuple(sorted(set(unavailable)))
+            if all(
+                isinstance(value, int) and not isinstance(value, bool) and 0 <= value < 15
+                for value in unavailable
+            )
+            else False
+        )
+        available_identities = {
+            (index // 5, index % 5)
+            for index in range(15)
+            if unavailable_valid and index not in set(unavailable)
+        }
+        explicit_partial = (
+            board.get("completenessStatus") == "pending_partial"
+            and unavailable_valid
+            and 1 <= len(unavailable) <= 14
+            and identities == available_identities
+            and len(cells) == 15 - len(unavailable)
+        )
+        if explicit_partial and isinstance(position, int):
+            partial_positions.add(position)
+            continue
         if (
             not isinstance(position, int)
             or isinstance(position, bool)
@@ -138,6 +169,8 @@ def run_grid_profile_gate_source(
         reason = board.get("reasonCode") or board.get("estimatorFailureReason")
         if isinstance(position, int) and isinstance(reason, str):
             deferred_by_position[position] = reason
+    for position in partial_positions:
+        deferred_by_position[position] = "operator_partial"
     missing_positions = set(expected_positions) - final_positions
     for position in sorted(missing_positions):
         deferrals[deferred_by_position.get(position, "FINAL_CELL_GRID_OUTPUT_MISSING")] += 1

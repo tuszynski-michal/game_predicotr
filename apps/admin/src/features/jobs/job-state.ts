@@ -152,7 +152,7 @@ export function jobStageLabel(
     stage.endsWith('sequence_ocr') &&
     inputPayload !== undefined &&
     'schemaVersion' in inputPayload &&
-    inputPayload.schemaVersion === 5
+    (inputPayload.schemaVersion === 5 || inputPayload.schemaVersion === 7)
   ) {
     return 'Przypisanie numerów z nazwy pliku — OCR pominięty';
   }

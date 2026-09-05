@@ -683,14 +683,14 @@ def _board_cells(board: Mapping[str, object]) -> None:
     if not isinstance(raw_cells, Sequence) or isinstance(raw_cells, str | bytes):
         _invalid("Board crop cells must be an array.")
     cells = cast(Sequence[object], raw_cells)
-    if len(cells) != BOARD_CELL_COUNT:
-        _invalid("Every cropped board must contain exactly 15 cells.")
-    for index, item in enumerate(cells):
-        cell = _mapping(item, f"cells[{index}]")
+    available_indices = _available_cell_indices(board, len(cells), "cropped board")
+    for ordinal, item in enumerate(cells):
+        cell = _mapping(item, f"cells[{ordinal}]")
         row = _nonnegative_integer(cell.get("rowIndex"), "rowIndex")
         column = _nonnegative_integer(cell.get("columnIndex"), "columnIndex")
-        if row != index // BOARD_COLUMNS or column != index % BOARD_COLUMNS:
-            _invalid("Board cells must be complete and row-major.")
+        index = row * BOARD_COLUMNS + column
+        if index != available_indices[ordinal]:
+            _invalid("Board cells must match the declared row-major availability mask.")
         _sha256(cell.get("cropChecksumSha256"), "crop checksum")
         if cell.get("assetMode") == "virtual_source":
             _sha256(cell.get("logicalCellKeySha256"), "logical cell key")
@@ -716,14 +716,14 @@ def _symbol_cells(board: Mapping[str, object]) -> None:
     if not isinstance(raw_cells, Sequence) or isinstance(raw_cells, str | bytes):
         _invalid("Symbol prediction cells must be an array.")
     cells = cast(Sequence[object], raw_cells)
-    if len(cells) != BOARD_CELL_COUNT:
-        _invalid("Every symbol prediction must contain exactly 15 cells.")
-    for index, item in enumerate(cells):
-        cell = _mapping(item, f"cells[{index}]")
+    available_indices = _available_cell_indices(board, len(cells), "symbol prediction")
+    for ordinal, item in enumerate(cells):
+        cell = _mapping(item, f"cells[{ordinal}]")
         row = _nonnegative_integer(cell.get("rowIndex"), "rowIndex")
         column = _nonnegative_integer(cell.get("columnIndex"), "columnIndex")
-        if row != index // BOARD_COLUMNS or column != index % BOARD_COLUMNS:
-            _invalid("Symbol predictions must be complete and row-major.")
+        index = row * BOARD_COLUMNS + column
+        if index != available_indices[ordinal]:
+            _invalid("Symbol predictions must match the declared row-major availability mask.")
         code = cell.get("symbolCode")
         if not isinstance(code, str) or not code.strip():
             _invalid("Predicted symbolCode must be non-empty.")
@@ -735,6 +735,34 @@ def _symbol_cells(board: Mapping[str, object]) -> None:
             or not 1 <= len(alternatives) <= 3
         ):
             _invalid("Symbol alternatives must contain one to three values.")
+
+
+def _available_cell_indices(
+    board: Mapping[str, object], cell_count: int, label: str
+) -> tuple[int, ...]:
+    completeness = board.get("completenessStatus", "complete")
+    raw_unavailable = board.get("unavailableCellIndices", [])
+    if not isinstance(raw_unavailable, Sequence) or isinstance(raw_unavailable, str | bytes):
+        _invalid(f"The {label} unavailable-cell mask must be an array.")
+    unavailable = tuple(
+        _nonnegative_integer(value, f"{label} unavailable cell index") for value in raw_unavailable
+    )
+    if unavailable != tuple(sorted(set(unavailable))) or any(
+        value >= BOARD_CELL_COUNT for value in unavailable
+    ):
+        _invalid(f"The {label} unavailable-cell mask is invalid.")
+    if completeness == "complete":
+        if unavailable or cell_count != BOARD_CELL_COUNT:
+            _invalid(f"A complete {label} must contain exactly 15 cells.")
+    elif completeness == "pending_partial":
+        if not 1 <= len(unavailable) <= BOARD_CELL_COUNT - 1:
+            _invalid(f"A partial {label} must declare between 1 and 14 unavailable cells.")
+        if cell_count != BOARD_CELL_COUNT - len(unavailable):
+            _invalid(f"A partial {label} must contain every available cell exactly once.")
+    else:
+        _invalid(f"The {label} completeness status is invalid.")
+    unavailable_set = set(unavailable)
+    return tuple(index for index in range(BOARD_CELL_COUNT) if index not in unavailable_set)
 
 
 def _same_positions(
@@ -818,8 +846,7 @@ def _structured_candidate_v3(
     if (
         candidate.get("candidateRole") != "measurement_only"
         or candidate.get("activationAllowed") is not False
-        or candidate.get("configVersion")
-        != "structured-lattice-candidate-v3-config-v1"
+        or candidate.get("configVersion") != "structured-lattice-candidate-v3-config-v1"
         or candidate.get("geometryOriginPolicy")
         != "frame_conditioned_symbol_lattice_without_crop_authority"
     ):
@@ -957,8 +984,13 @@ def _board_cell_geometry(
                 _invalid("Deferred board-cell geometry requires a reasonCode.")
             if not isinstance(estimator_reason, str) or not estimator_reason.strip():
                 _invalid("Deferred board-cell geometry requires an estimatorFailureReason.")
+        elif status == "rejected":
+            if board.get("cellGeometry") is not None:
+                _invalid("A rejected board cannot contain cell geometry.")
+            if board.get("reasonCode") != "operator_rejected":
+                _invalid("A rejected board requires the operator_rejected reason.")
         else:
-            _invalid("Board-cell geometry status must be verified or deferred.")
+            _invalid("Board-cell geometry status must be verified, deferred or rejected.")
 
 
 def _v20_crop_positions(
@@ -984,6 +1016,11 @@ def _v20_crop_positions(
         for item in geometry_boards
         if item.get("status") == "deferred"
     ]
+    rejected_geometry_positions = [
+        _nonnegative_integer(item.get("positionIndex"), "board_cell_geometry.positionIndex")
+        for item in geometry_boards
+        if item.get("status") == "rejected"
+    ]
     deferred = _sequence_mappings(payload.get("deferredBoards", []), "deferredBoards")
     deferred_positions: list[int] = []
     for item in deferred:
@@ -996,11 +1033,17 @@ def _v20_crop_positions(
         _nonnegative_integer(item.get("positionIndex"), "board_crops.positionIndex")
         for item in boards
     ]
+    rejected = _sequence_mappings(payload.get("rejectedBoards", []), "rejectedBoards")
+    rejected_positions = [
+        _nonnegative_integer(item.get("positionIndex"), "rejectedBoards.positionIndex")
+        for item in rejected
+    ]
     if payload.get("assetMode") == "virtual_source":
-        combined = sorted([*crop_positions, *deferred_positions])
+        combined = sorted([*crop_positions, *deferred_positions, *rejected_positions])
         if (
             crop_positions != verified_geometry_positions
             or deferred_positions != deferred_geometry_positions
+            or rejected_positions != rejected_geometry_positions
             or combined != all_geometry_positions
             or len(combined) != len(set(combined))
         ):

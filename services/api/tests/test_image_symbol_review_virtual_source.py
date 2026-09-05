@@ -115,6 +115,39 @@ def test_virtual_source_materializer_keeps_current_render_provenance() -> None:
     }
 
 
+def test_partial_virtual_source_materializes_only_available_cells() -> None:
+    board_id = uuid4()
+    source_geometry_revision_id = uuid4()
+    unavailable = (2, 7, 12, 13, 14)
+    observations = tuple(
+        value
+        for index, value in enumerate(_virtual_observations(board_id, source_geometry_revision_id))
+        if index not in unavailable
+    )
+
+    cells = materialize_current_image_review_cells(
+        item=SimpleNamespace(resolved_value=None),
+        board=SimpleNamespace(
+            id=board_id,
+            asset_mode="virtual_source",
+            grid_rows=3,
+            grid_columns=5,
+            geometry_revision=0,
+            completeness_status="pending_partial",
+            unavailable_cell_indices=list(unavailable),
+        ),
+        source=SimpleNamespace(),
+        queue_item=SimpleNamespace(),
+        job=SimpleNamespace(),
+        observations=observations,
+        geometry_revision=None,
+    )
+
+    assert [cell.cell_index for cell in cells] == [
+        index for index in range(15) if index not in unavailable
+    ]
+
+
 def test_operational_item_uses_complete_manual_virtual_geometry_revision() -> None:
     board_id = uuid4()
     game_id = uuid4()
@@ -186,16 +219,13 @@ def test_operational_item_uses_complete_manual_virtual_geometry_revision() -> No
 
 
 def test_virtual_board_identity_uses_geometry_checksum() -> None:
-    assert (
-        _current_board_identity_checksum(
-            SimpleNamespace(
-                asset_mode="virtual_source",
-                geometry_checksum_sha256=_sha(11_000),
-                board_checksum_sha256=None,
-            )
+    assert _current_board_identity_checksum(
+        SimpleNamespace(
+            asset_mode="virtual_source",
+            geometry_checksum_sha256=_sha(11_000),
+            board_checksum_sha256=None,
         )
-        == _sha(11_000)
-    )
+    ) == _sha(11_000)
 
 
 def test_approving_virtual_source_cell_persists_approved_render_provenance() -> None:

@@ -292,6 +292,42 @@ def test_structured_crops_allow_a_fully_deferred_source() -> None:
     assert validate_stage_payload("board_crops", payload, context) == payload
 
 
+def test_structured_crops_allow_exact_partial_mask_and_rejected_slot() -> None:
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256=CHECKSUM,
+        source_relative_path="batch/page.jpg",
+        pipeline_fingerprint=PIPELINE,
+        previous_results={
+            "board_cell_geometry": {
+                "boards": [
+                    {"positionIndex": 0, "status": "verified"},
+                    {"positionIndex": 1, "status": "rejected"},
+                ]
+            }
+        },
+    )
+    partial = _virtual_board(0)
+    partial["completenessStatus"] = "pending_partial"
+    partial["unavailableCellIndices"] = [10, 11, 12, 13, 14]
+    partial["cells"] = cast(list[dict[str, object]], partial["cells"])[:10]
+    payload = {
+        "assetMode": "virtual_source",
+        "boards": [partial],
+        "deferredBoards": [],
+        "rejectedBoards": [
+            {
+                "positionIndex": 1,
+                "reasonCode": "operator_rejected",
+                "sequenceNumber": 2,
+            }
+        ],
+    }
+
+    assert validate_stage_payload("board_crops", payload, context) == payload
+
+
 def _adapters() -> list[FakeAdapter]:
     return [
         FakeAdapter(

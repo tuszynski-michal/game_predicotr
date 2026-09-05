@@ -577,6 +577,7 @@ def create_image_imports_router(
         service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
         job_service: Annotated[JobService, job_parameter],
         canonical_service: object | None = canonical_parameter,
+        guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
     ) -> BrowserImageImportStartResponse:
         ready = service.bind_ready_game(upload_id, payload.game_id)
         if ready.manifest.checksum_sha256 != payload.manifest_checksum_sha256:
@@ -638,7 +639,7 @@ def create_image_imports_router(
         # job while preserving the old job for auditability.
         requested_mode = payload.start_mode
         rerun = requested_mode == "rerun_current_models" or existing is None
-        if existing is not None and existing.input_payload.get("schema_version") != 5:
+        if existing is not None and existing.input_payload.get("schema_version") != 7:
             rerun = True
         requested_v19 = preflight.image_engine_policy is ImageImportEnginePolicy.VERIFIED_V19
         if existing is not None and (
@@ -652,6 +653,46 @@ def create_image_imports_router(
             preflight_job_id=payload.geometry_preflight_job_id,
             expected_checksum=payload.geometry_manifest_checksum_sha256,
         )
+        manifest_id = payload.geometry_guard_resolution_manifest_id
+        manifest_checksum = payload.geometry_guard_resolution_manifest_checksum_sha256
+        if (manifest_id is None) != (manifest_checksum is None):
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_MANIFEST_REFERENCE_INVALID",
+                "The resolution manifest id and checksum must be provided together.",
+            )
+        resolution_manifest = None
+        if manifest_id is not None and manifest_checksum is not None:
+            if preflight.image_engine_policy is not ImageImportEnginePolicy.STRUCTURED_LATTICE_V3:
+                raise JobError(
+                    "IMAGE_GEOMETRY_GUARD_ENGINE_INCOMPATIBLE",
+                    "Guard resolutions require the structured_lattice_v3 engine snapshot.",
+                )
+            if guard_service is None:
+                raise JobError(
+                    "IMAGE_GEOMETRY_GUARD_REVIEW_UNAVAILABLE",
+                    "Pre-import geometry guard review is not configured.",
+                )
+            if geometry_manifest is None:
+                raise JobError(
+                    "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED",
+                    "A resolution manifest requires a pinned page geometry manifest.",
+                )
+            resolution_manifest = guard_service.require_manifest_descriptor(
+                game_id=payload.game_id,
+                browser_selection_id=upload_id,
+                manifest_id=manifest_id,
+                expected_manifest_checksum_sha256=manifest_checksum,
+                source_manifest_checksum_sha256=ready.manifest.checksum_sha256,
+                page_geometry_manifest_checksum_sha256=cast(
+                    str, geometry_manifest["checksumSha256"]
+                ),
+            )
+        if (
+            existing is not None
+            and existing.input_payload.get("geometry_guard_resolution_manifest")
+            != resolution_manifest
+        ):
+            rerun = True
         if rerun:
             canonical_numbers = (
                 sorted(
@@ -674,6 +715,7 @@ def create_image_imports_router(
                     start_mode="rerun_current_models",
                     previous_job_id=None if existing is None else existing.id,
                     page_geometry_manifest=geometry_manifest,
+                    geometry_guard_resolution_manifest=resolution_manifest,
                     use_verified_board_cell_geometry=requested_v19,
                 )
                 created = True

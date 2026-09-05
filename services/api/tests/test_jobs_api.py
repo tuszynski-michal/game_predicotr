@@ -148,7 +148,14 @@ def test_image_import_exposes_systemic_geometry_guard_progress() -> None:
                 "pageRegistrationReadyRate": 1.0,
                 "finalCellGridReadyRate": 2 / 19_800,
                 "invariantViolationCount": 0,
-            }
+            },
+            "geometry_guard_resolution": {
+                "passed": True,
+                "manifestChecksumSha256": "c" * 64,
+                "correctedFullCount": 5,
+                "partialCount": 2,
+                "rejectedCount": 1,
+            },
         },
     )
 
@@ -167,6 +174,11 @@ def test_image_import_exposes_systemic_geometry_guard_progress() -> None:
         "pageRegistrationReadyRate": 1.0,
         "finalCellGridReadyRate": 2 / 19_800,
         "invariantViolationCount": 0,
+        "resolutionApplied": True,
+        "resolutionManifestChecksumSha256": "c" * 64,
+        "correctedFullCount": 5,
+        "partialCount": 2,
+        "rejectedCount": 1,
     }
 
 
@@ -419,7 +431,7 @@ def test_new_browser_import_pins_systemic_geometry_guard_policy(tmp_path: Path) 
         use_verified_board_cell_geometry=True,
     )
 
-    assert job.input_payload["schema_version"] == 5
+    assert job.input_payload["schema_version"] == 7
     assert job.input_payload["geometry_systemic_guard_policy"] == {
         "policyVersion": "image-geometry-systemic-guard-v1",
         "minimumSourceCount": 100,
@@ -437,6 +449,55 @@ def test_new_browser_import_pins_systemic_geometry_guard_policy(tmp_path: Path) 
         "minimumFinalCellGridReadyRate": 0.98,
         "requireZeroInvariantViolations": True,
     }
+
+
+def test_browser_schema_v7_fingerprint_binds_guard_resolution_manifest(
+    tmp_path: Path,
+) -> None:
+    _client_value, game_id, service, repository = _client(tmp_path)
+    repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
+        geometry_mode="structured_lattice_v3",
+        cell_asset_mode="virtual_default",
+        revision=9,
+    )
+    source = tmp_path / "resolved-browser"
+    source.mkdir()
+    page_manifest = {
+        "checksumSha256": "c" * 64,
+        "relativePath": "data/page-geometry-manifests/test.json",
+        "preflightJobId": str(uuid4()),
+    }
+    common = {
+        "game_id": game_id,
+        "source_directory": source,
+        "source_display_name": "resolved-browser",
+        "pipeline_fingerprint": "a" * 64,
+        "source_manifest_sha256": "b" * 64,
+        "start_mode": "rerun_current_models",
+        "page_geometry_manifest": page_manifest,
+    }
+    without_resolution = service.create_image_import_job(selection_id=uuid4(), **common)
+    resolution = {
+        "id": str(uuid4()),
+        "checksumSha256": "d" * 64,
+        "relativePath": "data/image-geometry-guard-resolutions/dd/test.json",
+        "guardJobId": str(uuid4()),
+        "guardReportChecksumSha256": "e" * 64,
+        "sourceManifestChecksumSha256": "b" * 64,
+        "pageGeometryManifestChecksumSha256": "c" * 64,
+    }
+    with_resolution = service.create_image_import_job(
+        selection_id=uuid4(),
+        geometry_guard_resolution_manifest=resolution,
+        **common,
+    )
+
+    assert without_resolution.input_payload["schema_version"] == 7
+    assert with_resolution.input_payload["geometry_guard_resolution_manifest"] == resolution
+    assert (
+        with_resolution.input_payload["pipeline_fingerprint"]
+        != without_resolution.input_payload["pipeline_fingerprint"]
+    )
 
 
 def test_per_game_virtual_geometry_rollout_is_immutably_pinned_to_new_jobs(

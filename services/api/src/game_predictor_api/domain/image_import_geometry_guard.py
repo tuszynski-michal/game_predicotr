@@ -201,9 +201,11 @@ def resolution_manifest_payload(
         "pageGeometryManifestChecksumSha256": page_geometry_manifest_checksum_sha256,
         "decisions": [
             {
+                "actor": item.actor,
                 "decisionChecksumSha256": item.decision_checksum_sha256,
                 "disposition": item.disposition.value,
                 "positionIndex": item.position_index,
+                "reason": item.reason,
                 "revision": item.revision,
                 "sequenceNumber": item.sequence_number,
                 "sourceChecksumSha256": item.source_checksum_sha256,

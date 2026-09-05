@@ -45,6 +45,10 @@ class ImageGeometryGuardRepository(Protocol):
         self, *, guard_job_id: UUID, manifest_checksum_sha256: str
     ) -> ImageGeometryGuardResolutionManifest | None: ...
 
+    def get_manifest_by_id(
+        self, *, manifest_id: UUID
+    ) -> ImageGeometryGuardResolutionManifest | None: ...
+
     def add_manifest(
         self, value: ImageGeometryGuardResolutionManifest
     ) -> ImageGeometryGuardResolutionManifest: ...
@@ -266,6 +270,44 @@ class ImageImportGeometryGuardService:
                 "The manifest actor is required.",
             )
         return self._repository.add_manifest(value)
+
+    def require_manifest_descriptor(
+        self,
+        *,
+        game_id: UUID,
+        browser_selection_id: UUID,
+        manifest_id: UUID,
+        expected_manifest_checksum_sha256: str,
+        source_manifest_checksum_sha256: str,
+        page_geometry_manifest_checksum_sha256: str,
+    ) -> dict[str, object]:
+        value = self._repository.get_manifest_by_id(manifest_id=manifest_id)
+        if value is None:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_MANIFEST_NOT_FOUND",
+                "The sealed geometry guard resolution manifest does not exist.",
+            )
+        if (
+            value.game_id != game_id
+            or value.browser_selection_id != browser_selection_id
+            or value.manifest_checksum_sha256 != expected_manifest_checksum_sha256
+            or value.source_manifest_checksum_sha256 != source_manifest_checksum_sha256
+            or value.page_geometry_manifest_checksum_sha256
+            != page_geometry_manifest_checksum_sha256
+        ):
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+                "The sealed geometry guard resolution manifest does not match this import.",
+            )
+        return {
+            "id": str(value.id),
+            "checksumSha256": value.manifest_checksum_sha256,
+            "relativePath": value.manifest_relative_path,
+            "guardJobId": str(value.guard_job_id),
+            "guardReportChecksumSha256": value.guard_report_checksum_sha256,
+            "sourceManifestChecksumSha256": value.source_manifest_checksum_sha256,
+            "pageGeometryManifestChecksumSha256": (value.page_geometry_manifest_checksum_sha256),
+        }
 
     def _scope(
         self, *, game_id: UUID, browser_selection_id: UUID, guard_job_id: UUID

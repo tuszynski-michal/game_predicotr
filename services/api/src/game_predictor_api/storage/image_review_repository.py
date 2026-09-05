@@ -2623,10 +2623,20 @@ def _virtual_current_cells_from_records(
     rows = board.grid_rows or 3
     columns = board.grid_columns or 5
     cell_count = rows * columns
-    if len(observations) != cell_count:
+    completeness_status = getattr(board, "completeness_status", "complete")
+    unavailable = tuple(getattr(board, "unavailable_cell_indices", ()))
+    available_indices = tuple(index for index in range(cell_count) if index not in set(unavailable))
+    if (completeness_status == "complete" and (unavailable or len(observations) != cell_count)) or (
+        completeness_status == "pending_partial"
+        and (
+            not 1 <= len(unavailable) < cell_count
+            or unavailable != tuple(sorted(set(unavailable)))
+            or len(observations) != len(available_indices)
+        )
+    ):
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_CELL_COUNT_INVALID",
-            "The virtual review item does not contain every configured cell observation.",
+            "The virtual review item does not match its declared availability mask.",
         )
     resolved = cast(Mapping[str, object] | None, item.resolved_value)
     raw_symbols = None if resolved is None else resolved.get("symbolCodes")
@@ -2643,20 +2653,23 @@ def _virtual_current_cells_from_records(
         cell_count=cell_count,
     )
     cells: list[ImageReviewCell] = []
-    for index, observation in enumerate(observations):
+    for ordinal, observation in enumerate(observations):
         expected_index = observation.row_index * columns + observation.column_index
-        if expected_index != index or observation.asset_mode != "virtual_source":
+        if (
+            expected_index != available_indices[ordinal]
+            or observation.asset_mode != "virtual_source"
+        ):
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_CELL_ORDER_INVALID",
-                "The virtual review cells are not a complete row-major board.",
+                "The virtual review cells do not match the declared row-major availability mask.",
             )
         prediction = (
-            prediction_override[index]
-            if prediction_override is not None and len(prediction_override) == cell_count
+            prediction_override[ordinal]
+            if prediction_override is not None and len(prediction_override) == len(observations)
             else cast(Mapping[str, object], observation.prediction)
         )
         symbol_code, confidence, alternatives = _validated_cell_prediction(prediction)
-        revision_cell = revised_cells.get(index)
+        revision_cell = revised_cells.get(expected_index)
         if revision_cell is None:
             sample_id = hashlib.sha256(
                 canonical_json_bytes(
@@ -2710,7 +2723,7 @@ def _virtual_current_cells_from_records(
         cells.append(
             ImageReviewCell(
                 observation_id=observation.id,
-                cell_index=index,
+                cell_index=expected_index,
                 row_index=observation.row_index,
                 column_index=observation.column_index,
                 crop_sample_id=sample_id,
@@ -2720,7 +2733,9 @@ def _virtual_current_cells_from_records(
                 confidence=confidence,
                 alternatives=alternatives,
                 current_symbol_code=(
-                    resolved_symbols[index] if resolved_symbols is not None else symbol_code
+                    resolved_symbols[expected_index]
+                    if resolved_symbols is not None
+                    else symbol_code
                 ),
                 asset_mode="virtual_source",
                 source_geometry_revision_id=source_geometry_revision_id,

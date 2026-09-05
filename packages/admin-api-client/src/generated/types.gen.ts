@@ -850,6 +850,14 @@ export type BrowserImageImportStart = {
    */
   gameId: string;
   /**
+   * Geometryguardresolutionmanifestchecksumsha256
+   */
+  geometryGuardResolutionManifestChecksumSha256?: string | null;
+  /**
+   * Geometryguardresolutionmanifestid
+   */
+  geometryGuardResolutionManifestId?: string | null;
+  /**
    * Geometrymanifestchecksumsha256
    */
   geometryManifestChecksumSha256?: string | null;
@@ -2921,6 +2929,40 @@ export type ImageGeometryGuardQueueResponse = {
 };
 
 /**
+ * ImageGeometryGuardResolutionManifestJobPayload
+ */
+export type ImageGeometryGuardResolutionManifestJobPayload = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Guardjobid
+   */
+  guardJobId: string;
+  /**
+   * Guardreportchecksumsha256
+   */
+  guardReportChecksumSha256: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Pagegeometrymanifestchecksumsha256
+   */
+  pageGeometryManifestChecksumSha256: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+};
+
+/**
  * ImageGeometryGuardResolutionManifestResponse
  */
 export type ImageGeometryGuardResolutionManifestResponse = {
@@ -3123,6 +3165,10 @@ export type ImageGeometrySystemicGuardJobProgressResponse = {
    */
   activeBoardCount: number;
   /**
+   * Correctedfullcount
+   */
+  correctedFullCount?: number;
+  /**
    * Finalcellgridreadyrate
    */
   finalCellGridReadyRate: number;
@@ -3135,6 +3181,10 @@ export type ImageGeometrySystemicGuardJobProgressResponse = {
    */
   pageRegistrationReadyRate: number;
   /**
+   * Partialcount
+   */
+  partialCount?: number;
+  /**
    * Passed
    */
   passed: boolean;
@@ -3142,6 +3192,10 @@ export type ImageGeometrySystemicGuardJobProgressResponse = {
    * Policyversion
    */
   policyVersion: 'image-geometry-systemic-guard-v1';
+  /**
+   * Rejectedcount
+   */
+  rejectedCount?: number;
   /**
    * Reportchecksumsha256
    */
@@ -3154,6 +3208,14 @@ export type ImageGeometrySystemicGuardJobProgressResponse = {
    * Required
    */
   required: boolean;
+  /**
+   * Resolutionapplied
+   */
+  resolutionApplied?: boolean;
+  /**
+   * Resolutionmanifestchecksumsha256
+   */
+  resolutionManifestChecksumSha256?: string | null;
   /**
    * Sampleboardcount
    */
@@ -5325,6 +5387,7 @@ export type JobResponse = {
     | LegacyImageImportJobPayload
     | ImageImportJobPayload
     | BrowserImageImportJobPayload
+    | ResolvedBrowserImageImportJobPayload
     | CuratedImageImportJobPayload
     | ManagedImageReprocessJobPayload
     | PinnedManagedImageReprocessJobPayload
@@ -8107,6 +8170,71 @@ export type ResolveUnreadableCellRequest = {
    * Expectedrevision
    */
   expectedRevision: number;
+};
+
+/**
+ * ResolvedBrowserImageImportJobPayload
+ */
+export type ResolvedBrowserImageImportJobPayload = {
+  boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
+  /**
+   * Canonicalsequencenumbers
+   */
+  canonicalSequenceNumbers?: Array<number>;
+  geometryGuardResolutionManifest?: ImageGeometryGuardResolutionManifestJobPayload | null;
+  geometrySystemicGuardPolicy: ImageGeometrySystemicGuardPolicyJobPayload;
+  gridProfile: GridProfileJobSnapshotPayload;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
+  /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId?: string | null;
+  /**
+   * Importkind
+   */
+  importKind: 'image_directory';
+  /**
+   * Normalizationadapterversion
+   */
+  normalizationAdapterVersion?: string | null;
+  pageGeometryManifest: PageGeometryManifestJobPayload;
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Previousjobid
+   */
+  previousJobId?: string | null;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 7;
+  /**
+   * Sourcedirectory
+   */
+  sourceDirectory: string;
+  /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName: string;
+  /**
+   * Sourcemanifestsha256
+   */
+  sourceManifestSha256: string;
+  /**
+   * Sourcepipelinefingerprint
+   */
+  sourcePipelineFingerprint: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  /**
+   * Startmode
+   */
+  startMode: 'reuse_exact' | 'rerun_current_models';
+  symbolModel: SymbolModelJobSnapshotPayload;
 };
 
 /**

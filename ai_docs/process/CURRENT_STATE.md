@@ -1,10 +1,22 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-04
+last_updated: 2026-09-05
 ---
 
 # Current State
+
+### Manifest-bound wykonanie rozliczeń w schema v7 — TASK-0451
+
+- Nowe browser-importy używają schema v7 i mogą przypiąć zamknięty manifest
+  decyzji bramki. API i worker sprawdzają grę, staging, oba manifesty wejściowe,
+  artefakt content-addressed, sloty, numery sekwencji i checksumy decyzji.
+- Surowy wynik bramki pozostaje audytem. Pełne korekty ponownie przechodzą
+  invariants, częściowe plansze tworzą wyłącznie dostępne cropy i pozostają
+  niekanoniczne, a odrzucone nie tworzą recognized board ani cropów.
+- Historyczne schema v5 i reprocess schema v6 zachowują replay. Interfejs
+  rozliczania oraz operatorskie wznowienie joba `86128f3c…` pozostają osobnymi
+  krokami; bieżący failed job nie został zmieniony ani ponowiony.
 
 ### Append-only rozliczenia wyjątków przed importem — TASK-0450
 
@@ -14,8 +26,8 @@ last_updated: 2026-09-04
 - API listuje dokładną kolejkę z raportu v2, zapisuje atomowo wiele slotów
   jednego zdjęcia i blokuje zamknięcie przy choć jednym nierozliczonym błędzie.
 - Obraz kolejki jest odczytywany tylko z właściwego stagingu i ponownie
-  sprawdzany przez rozmiar oraz SHA-256. Zamknięty manifest nie uruchamia jeszcze
-  importu; przypięcie go do schema v7 jest następnym taskiem.
+  sprawdzany przez rozmiar oraz SHA-256. Zamknięty manifest może zostać
+  przypięty do nowego schema-v7 importu, ale nigdy nie uruchamia go samoczynnie.
 
 ### Diagnostyka plansz w bramce dużego importu — TASK-0449
 

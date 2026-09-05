@@ -356,6 +356,10 @@ class BrowserImageImportStart(ApiModel):
     grid_profile_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     geometry_preflight_job_id: UUID | None = None
     geometry_manifest_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    geometry_guard_resolution_manifest_id: UUID | None = None
+    geometry_guard_resolution_manifest_checksum_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
     board_cell_processing_mode: (
         Literal[
             "verified_v19",

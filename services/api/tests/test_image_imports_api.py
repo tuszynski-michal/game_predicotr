@@ -507,6 +507,13 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             "geometryPreflightJobId": str(geometry_job.id),
             "geometryManifestChecksumSha256": geometry_checksum,
         }
+        invalid_resolution_reference = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json={
+                **start_payload,
+                "geometryGuardResolutionManifestId": str(uuid4()),
+            },
+        )
         started = client.post(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
             json=start_payload,
@@ -525,6 +532,12 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
 
     assert started.status_code == 201
     assert started.json()["created"] is True
+    assert started.json()["job"]["inputPayload"]["schemaVersion"] == 7
+    assert invalid_resolution_reference.status_code == 422
+    assert (
+        invalid_resolution_reference.json()["code"]
+        == "IMAGE_GEOMETRY_GUARD_MANIFEST_REFERENCE_INVALID"
+    )
     assert replay.status_code == 201, replay.text
     assert replay.json()["created"] is False
     assert replay.json()["job"]["id"] == started.json()["job"]["id"]

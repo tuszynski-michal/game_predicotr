@@ -6,6 +6,9 @@ import pytest
 from game_predictor_worker.images import page_geometry_registration
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.page_geometry_registration import (
+    PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO,
+    PAGE_REGISTRATION_ANCHOR_MASK_VERSION,
+    PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
     PAGE_REGISTRATION_FEATURES_VERSION,
     PAGE_REGISTRATION_VERSION,
     VerifiedPageRegistrar,
@@ -368,3 +371,81 @@ def test_v2_profile_pins_the_selected_36_corner_anchor_order() -> None:
         "c" * 64,
         "a" * 64,
     ]
+
+
+def test_board_area_registration_masks_only_anchor_features(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    anchor, quads = _page()
+    original = page_geometry_registration._orb_features
+    masks: list[np.ndarray | None] = []
+
+    def observed(
+        image: np.ndarray,
+        *,
+        feature_count: int,
+        mask: np.ndarray | None = None,
+    ):
+        masks.append(mask)
+        return original(image, feature_count=feature_count, mask=mask)
+
+    monkeypatch.setattr(page_geometry_registration, "_orb_features", observed)
+    registrar = VerifiedPageRegistrar(
+        {
+            **_profile(quads),
+            "policy": PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
+            "anchorMaskVersion": PAGE_REGISTRATION_ANCHOR_MASK_VERSION,
+            "anchorMaskPaddingRatio": PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO,
+        },
+        load_anchor_rgb=lambda _checksum: anchor,
+    )
+
+    result = registrar.register(anchor)
+
+    assert result is not None
+    assert masks[0] is not None
+    assert masks[1] is None
+    assert result.registration_version == PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION
+    assert result.to_payload()["anchorMaskVersion"] == PAGE_REGISTRATION_ANCHOR_MASK_VERSION
+
+
+def test_board_area_mask_covers_all_boards_and_excludes_remote_background() -> None:
+    _image, quads = _page()
+
+    mask = page_geometry_registration._board_area_anchor_mask((310, 380), quads)
+
+    assert mask.shape == (310, 380)
+    assert mask[5, 5] == 0
+    for quad in quads:
+        center_x = round(sum(point.x for point in quad) / 8)
+        center_y = round(sum(point.y for point in quad) / 8)
+        assert mask[center_y, center_x] == 255
+
+
+def test_masked_profile_pins_mask_policy_without_changing_v1_profile() -> None:
+    _image, quads = _page()
+
+    def samples(source: str) -> list[dict[str, object]]:
+        return [
+            {
+                "sourceChecksumSha256": source,
+                "positionIndex": position,
+                "imageWidth": 760,
+                "imageHeight": 620,
+                "finalQuad": [point.to_dict() for point in quad],
+            }
+            for position, quad in enumerate(quads)
+        ]
+
+    manifest = {"samples": samples("a" * 64)}
+    legacy = build_verified_page_registration_profile(manifest)
+    masked = build_verified_page_registration_profile(
+        manifest,
+        registration_version=PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
+    )
+
+    assert legacy["policy"] == PAGE_REGISTRATION_VERSION
+    assert "anchorMaskVersion" not in legacy
+    assert masked["policy"] == PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION
+    assert masked["anchorMaskVersion"] == PAGE_REGISTRATION_ANCHOR_MASK_VERSION
+    assert masked["anchorMaskPaddingRatio"] == PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO

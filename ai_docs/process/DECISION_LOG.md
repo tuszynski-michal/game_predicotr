@@ -7787,3 +7787,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   automat znalazł błędną geometrię, choć faktycznie zwrócił brak wyniku.
 - **Consequences:** ekran pokazuje szablon jako pomoc do edycji i wyświetla
   diagnostykę istniejącego manifestu bez uruchamiania workera.
+
+### D-350 — Maska ogranicza cechy kotwicy, nie obszar targetu
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** opcjonalny wariant ORB pobiera cechy wzorca z otoczki 36
+  zatwierdzonych narożników z paddingiem 10% mediany wysokości planszy. Zdjęcie
+  docelowe pozostaje przeszukiwane w całości.
+- **Reason:** reklama i obudowa wzorca mogą dominować dopasowanie, natomiast
+  ograniczenie nieznanego jeszcze targetu wymagałoby dodatkowego detektora lub
+  ryzykownego założenia o położeniu plansz.
+- **Consequences:** koszt i liczba przebiegów nie rosną, v1 zachowuje replay, a
+  wariant v2 musi zostać jawnie przypięty przez osobny kontrakt preflightu.

@@ -238,6 +238,14 @@ do manifestu. Kompatybilna metoda odczytu wyniku nadal zwraca wyłącznie
 geometrię albo `None`, więc konsumenci niezainteresowani diagnostyką zachowują
 dotychczasową semantykę.
 
+Wariant `verified-page-registration-v2-board-area-mask-v1` różni się wyłącznie
+ekstrakcją cech kotwicy. Z 36 zatwierdzonych narożników buduje convex hull,
+rozszerza go o 10% mediany wysokości planszy i skaluje do przestrzeni ORB 50%.
+Target nie otrzymuje maski, ponieważ jego położenie nie jest jeszcze znane.
+Cechy kotwic pozostają cache'owane w instancji rejestratora osobno dla
+budżetów 1000/1500/3000. V1 nadal wywołuje ORB bez maski i zachowuje swój
+payload oraz fingerprint.
+
 Profile schema v1 zachowują historyczny algorytm medianowych przesunięć i są
 odtwarzane tylko przez już przypięte fingerprinty. Utworzenie nowej kohorty
 używa schema v2, dzięki czemu stary odrzucony profil nie blokuje kandydata

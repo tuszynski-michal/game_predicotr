@@ -20,7 +20,12 @@ from numpy.typing import NDArray
 from .geometry import Point, Quad
 
 PAGE_REGISTRATION_VERSION: Final = "verified-page-registration-v1"
+PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION: Final = (
+    "verified-page-registration-v2-board-area-mask-v1"
+)
 PAGE_REGISTRATION_THRESHOLDS_VERSION: Final = "verified-page-registration-thresholds-v1"
+PAGE_REGISTRATION_ANCHOR_MASK_VERSION: Final = "board-area-convex-hull-mask-v1"
+PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO: Final = 0.10
 # Registration starts with the 1,000-feature profile used by the overwhelming
 # majority of pages.  A small, visually clear cluster of strongly oblique pages
 # does not retain enough distinct ORB features at that budget, even though it
@@ -66,9 +71,12 @@ class RegisteredPageGeometry:
     p95_reprojection_error: float
     mean_red_edge_coverage: float
     feature_count: int
+    registration_version: str = PAGE_REGISTRATION_VERSION
+    anchor_mask_version: str | None = None
+    anchor_mask_padding_ratio: float | None = None
 
     def to_payload(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "anchorSourceChecksumSha256": self.anchor_source_checksum_sha256,
             "boardRedEdgeCoverages": [round(value, 6) for value in self.board_red_edge_coverages],
             "featureCount": self.feature_count,
@@ -78,9 +86,14 @@ class RegisteredPageGeometry:
             "meanRedEdgeCoverage": round(self.mean_red_edge_coverage, 6),
             "p95ReprojectionError": round(self.p95_reprojection_error, 6),
             "quads": [[point.to_dict() for point in quad] for quad in self.quads],
-            "registrationVersion": PAGE_REGISTRATION_VERSION,
+            "registrationVersion": self.registration_version,
             "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
         }
+        if self.anchor_mask_version is not None:
+            payload["anchorMaskVersion"] = self.anchor_mask_version
+        if self.anchor_mask_padding_ratio is not None:
+            payload["anchorMaskPaddingRatio"] = self.anchor_mask_padding_ratio
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,9 +113,12 @@ class PageRegistrationInitialization:
     inlier_ratio: float
     p95_reprojection_error: float
     feature_count: int
+    registration_version: str = PAGE_REGISTRATION_VERSION
+    anchor_mask_version: str | None = None
+    anchor_mask_padding_ratio: float | None = None
 
     def to_payload(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "activeBoardSlots": list(self.active_board_slots),
             "anchorSourceChecksumSha256": self.anchor_source_checksum_sha256,
             "featureCount": self.feature_count,
@@ -114,9 +130,14 @@ class PageRegistrationInitialization:
             ],
             "nativeHomography": [list(row) for row in self.native_homography],
             "p95ReprojectionError": round(self.p95_reprojection_error, 6),
-            "registrationVersion": PAGE_REGISTRATION_VERSION,
+            "registrationVersion": self.registration_version,
             "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
         }
+        if self.anchor_mask_version is not None:
+            payload["anchorMaskVersion"] = self.anchor_mask_version
+        if self.anchor_mask_padding_ratio is not None:
+            payload["anchorMaskPaddingRatio"] = self.anchor_mask_padding_ratio
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,6 +227,7 @@ class VerifiedPageRegistrar:
         self._thresholds = thresholds
         self._load_anchor_rgb = load_anchor_rgb
         self._profile = profile
+        self._registration_version = _profile_registration_version(profile)
         self._anchors_by_feature_count: dict[int, tuple[_Anchor, ...]] = {}
         self._anchors_by_feature_count[_ORB_FEATURE_COUNTS[0]] = _anchors_from_profile(
             profile,
@@ -281,6 +303,9 @@ class VerifiedPageRegistrar:
                     inlier_ratio=candidate.inlier_ratio,
                     p95_reprojection_error=candidate.p95_reprojection_error,
                     feature_count=feature_count,
+                    registration_version=self._registration_version,
+                    anchor_mask_version=self._anchor_mask_version,
+                    anchor_mask_padding_ratio=self._anchor_mask_padding_ratio,
                 )
         return None
 
@@ -318,6 +343,9 @@ class VerifiedPageRegistrar:
                 red_mask=red_mask,
                 thresholds=self._thresholds,
                 feature_count=feature_count,
+                registration_version=self._registration_version,
+                anchor_mask_version=self._anchor_mask_version,
+                anchor_mask_padding_ratio=self._anchor_mask_padding_ratio,
             )
             if registered is not None:
                 return registered, tuple(rejected)
@@ -390,11 +418,28 @@ class VerifiedPageRegistrar:
         self._anchors_by_feature_count[feature_count] = anchors
         return anchors
 
+    @property
+    def _anchor_mask_version(self) -> str | None:
+        return (
+            PAGE_REGISTRATION_ANCHOR_MASK_VERSION
+            if self._registration_version == PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION
+            else None
+        )
+
+    @property
+    def _anchor_mask_padding_ratio(self) -> float | None:
+        return (
+            PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO
+            if self._registration_version == PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION
+            else None
+        )
+
 
 def build_verified_page_registration_profile(
     geometry_manifest: Mapping[str, object],
     *,
     anchor_source_checksums: Sequence[str] | None = None,
+    registration_version: str = PAGE_REGISTRATION_VERSION,
 ) -> dict[str, object]:
     """Extract complete, independently reviewed 3 x 3 pages as anchors.
 
@@ -407,7 +452,7 @@ def build_verified_page_registration_profile(
     if not isinstance(raw_samples, list):
         return {
             "schemaVersion": 1,
-            "policy": PAGE_REGISTRATION_VERSION,
+            "policy": registration_version,
             "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
             "anchors": [],
         }
@@ -462,13 +507,28 @@ def build_verified_page_registration_profile(
         selection_policy = "geometry-medoid-farthest-point-16-v1"
     return {
         "schemaVersion": schema_version,
-        "policy": PAGE_REGISTRATION_VERSION,
+        "policy": registration_version,
         "featuresVersion": PAGE_REGISTRATION_FEATURES_VERSION,
         "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
         "anchorSelectionPolicy": selection_policy,
         "cornerCountPerAnchor": 36,
         "anchors": anchors,
+        **(
+            {
+                "anchorMaskVersion": PAGE_REGISTRATION_ANCHOR_MASK_VERSION,
+                "anchorMaskPaddingRatio": PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO,
+            }
+            if registration_version == PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION
+            else {}
+        ),
     }
+
+
+def _profile_registration_version(profile: Mapping[str, object] | None) -> str:
+    if not isinstance(profile, Mapping):
+        return ""
+    value = profile.get("policy")
+    return value if isinstance(value, str) else ""
 
 
 def _anchors_from_profile(
@@ -478,7 +538,11 @@ def _anchors_from_profile(
     minimum_inliers: int,
     feature_count: int,
 ) -> tuple[_Anchor, ...]:
-    if not isinstance(profile, Mapping) or profile.get("policy") != PAGE_REGISTRATION_VERSION:
+    registration_version = _profile_registration_version(profile)
+    if registration_version not in {
+        PAGE_REGISTRATION_VERSION,
+        PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
+    }:
         return ()
     raw_anchors = profile.get("anchors")
     if not isinstance(raw_anchors, Sequence) or isinstance(raw_anchors, str | bytes):
@@ -500,7 +564,18 @@ def _anchors_from_profile(
             continue
         if not _valid_rgb(image):
             continue
-        points, descriptors = _orb_features(_half_gray(image), feature_count=feature_count)
+        half_gray = _half_gray(image)
+        if registration_version == PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION:
+            points, descriptors = _orb_features(
+                half_gray,
+                feature_count=feature_count,
+                mask=_board_area_anchor_mask(
+                    half_gray.shape,
+                    cast(tuple[Quad, ...], quads),
+                ),
+            )
+        else:
+            points, descriptors = _orb_features(half_gray, feature_count=feature_count)
         if descriptors is None or len(points) < minimum_inliers:
             continue
         anchors.append(
@@ -629,6 +704,9 @@ def _finalize_registration(
     red_mask: NDArray[np.uint8],
     thresholds: PageRegistrationThresholds,
     feature_count: int,
+    registration_version: str = PAGE_REGISTRATION_VERSION,
+    anchor_mask_version: str | None = None,
+    anchor_mask_padding_ratio: float | None = None,
 ) -> RegisteredPageGeometry | None:
     return _evaluate_final_registration(
         match,
@@ -636,6 +714,9 @@ def _finalize_registration(
         red_mask=red_mask,
         thresholds=thresholds,
         feature_count=feature_count,
+        registration_version=registration_version,
+        anchor_mask_version=anchor_mask_version,
+        anchor_mask_padding_ratio=anchor_mask_padding_ratio,
     )[0]
 
 
@@ -646,6 +727,9 @@ def _evaluate_final_registration(
     red_mask: NDArray[np.uint8],
     thresholds: PageRegistrationThresholds,
     feature_count: int,
+    registration_version: str = PAGE_REGISTRATION_VERSION,
+    anchor_mask_version: str | None = None,
+    anchor_mask_padding_ratio: float | None = None,
 ) -> tuple[RegisteredPageGeometry | None, PageRegistrationAttemptDiagnostic | None]:
     # The former implementation inspected a 3 x 3 neighbourhood in Python
     # for every sampled edge point and every bounded snap candidate.  Dilating
@@ -697,6 +781,9 @@ def _evaluate_final_registration(
             p95_reprojection_error=match.p95_reprojection_error,
             mean_red_edge_coverage=mean_coverage,
             feature_count=feature_count,
+            registration_version=registration_version,
+            anchor_mask_version=anchor_mask_version,
+            anchor_mask_padding_ratio=anchor_mask_padding_ratio,
         ),
         None,
     )
@@ -744,15 +831,53 @@ def _half_gray(rgb: NDArray[np.uint8]) -> NDArray[np.uint8]:
     return cast(NDArray[np.uint8], cv2.cvtColor(half, cv2.COLOR_RGB2GRAY))
 
 
+def _board_area_anchor_mask(
+    half_shape: Sequence[int],
+    quads: Sequence[Quad],
+) -> NDArray[np.uint8]:
+    height, width = int(half_shape[0]), int(half_shape[1])
+    mask = np.zeros((height, width), dtype=np.uint8)
+    native_heights = [
+        (
+            np.hypot(quad[3].x - quad[0].x, quad[3].y - quad[0].y)
+            + np.hypot(quad[2].x - quad[1].x, quad[2].y - quad[1].y)
+        )
+        / 2.0
+        for quad in quads
+    ]
+    padding = max(
+        1,
+        int(
+            round(
+                float(np.median(native_heights))
+                * PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO
+                / 2
+            )
+        ),
+    )
+    points = np.asarray(
+        [(round(point.x * 0.5), round(point.y * 0.5)) for quad in quads for point in quad],
+        dtype=np.int32,
+    )
+    hull = cv2.convexHull(points)
+    cv2.fillConvexPoly(mask, hull, 255)
+    kernel_size = padding * 2 + 1
+    return cast(
+        NDArray[np.uint8],
+        cv2.dilate(mask, np.ones((kernel_size, kernel_size), dtype=np.uint8)),
+    )
+
+
 def _orb_features(
     image: NDArray[np.uint8],
     *,
     feature_count: int,
+    mask: NDArray[np.uint8] | None = None,
 ) -> tuple[Sequence[cv2.KeyPoint], NDArray[np.uint8] | None]:
     orb = cv2.ORB_create(nfeatures=feature_count, fastThreshold=7)  # type: ignore[attr-defined]
     return cast(
         tuple[Sequence[cv2.KeyPoint], NDArray[np.uint8] | None],
-        orb.detectAndCompute(image, None),
+        orb.detectAndCompute(image, mask),
     )
 
 
@@ -948,6 +1073,9 @@ def _valid_rgb(value: object) -> bool:
 
 __all__ = [
     "DEFAULT_PAGE_REGISTRATION_THRESHOLDS",
+    "PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO",
+    "PAGE_REGISTRATION_ANCHOR_MASK_VERSION",
+    "PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION",
     "PAGE_REGISTRATION_FEATURES_VERSION",
     "PAGE_REGISTRATION_DIAGNOSTICS_VERSION",
     "PAGE_REGISTRATION_THRESHOLDS_VERSION",

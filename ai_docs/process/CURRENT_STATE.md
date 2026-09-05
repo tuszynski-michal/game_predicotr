@@ -6,6 +6,16 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Maskowane cechy kotwicy geometrii strony — TASK-0460
+
+- Rejestrator obsługuje opcjonalną politykę
+  `verified-page-registration-v2-board-area-mask-v1`, która ogranicza ORB
+  kotwicy do otoczki pełnych 36 ręcznie zatwierdzonych narożników.
+- Obraz docelowy nadal jest analizowany w całości, a budżety 1000/1500/3000 i
+  wszystkie dotychczasowe bramki pozostają bez zmian.
+- Wariant nie jest jeszcze dostępny w API ani domyślny; wybór i trwałe
+  przypięcie należą do TASK-0461.
+
 ### Pochodzenie geometrii w ekranie korekty — TASK-0459
 
 - Endpoint istniejącej kolejki zwraca `geometryOrigin`, opcjonalny reason code

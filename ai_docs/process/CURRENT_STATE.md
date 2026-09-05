@@ -6,6 +6,16 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Wielokolumnowy auto-crop wybranych zdjęć — TASK-0454
+
+- Polityka `selected-image-board-band-v4-conservative-multicolumn` analizuje
+  podgląd do 512 px w dziewięciu pasach i wymaga szerokiego dowodu z lewej,
+  środka i prawej strony.
+- Kolor i struktura są niezależnymi rodzinami dowodu. Zgodność daje wynik
+  pewny, rozbieżność bezpieczną sumę zachowawczą, a brak dowodu pas `5–95%`.
+- Lokalne granice uwzględniają pochylenie, a zawartość przy granicy może tylko
+  rozszerzyć crop. Istniejące pliki `cut` i sesje nie są przeliczane.
+
 ### Workspace rozliczania wyjątków bramki — TASK-0453
 
 - Karta failed dużego importu pokazuje wszystkie dziewięć slotów źródła i

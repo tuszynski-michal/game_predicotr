@@ -2,6 +2,8 @@ import {
   detectSelectedImageCropBand,
   SELECTED_IMAGE_AUTO_CROP_POLICY,
   SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH,
+  type SelectedImageAutoCropClassification,
+  type SelectedImageAutoCropStrategy,
 } from '@game-predictor/manual-image-selection-core/auto-crop';
 import {
   SELECTED_IMAGE_CROP_JPEG_QUALITY,
@@ -33,7 +35,8 @@ scope.onmessage = (event) => {
 
 async function prepare(request: PrepareRequest): Promise<{
   readonly crop: SelectedImageCropBand;
-  readonly strategy: 'chromatic_panel' | 'texture_band' | 'safe_default';
+  readonly strategy: SelectedImageAutoCropStrategy;
+  readonly classification: SelectedImageAutoCropClassification;
   readonly confidence: number;
   readonly policyVersion: typeof SELECTED_IMAGE_AUTO_CROP_POLICY;
   readonly blob: Blob;

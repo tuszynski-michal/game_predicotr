@@ -219,14 +219,20 @@ każdego wskazanego JPEG-a przed utworzeniem albo wznowieniem sesji. Dzięki
 osobnym nazwom katalogów manifest v1 nadal jednoznacznie wiąże swój inwentarz.
 
 Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
-wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 256 px. Wybiera
-najsilniejszy pionowy klaster panelu chromatycznego, następnie klaster tekstury,
-a w przypadku braku dowodu zwraca jawny pas domyślny. Adapter mapuje granice
-proporcjonalnie na kanoniczne piksele źródła. Polityka v3 stosuje asymetryczny
-padding 12% nad i 4,5% pod klastrem. Klaster, którego górny padding dotknąłby
-zera, jest traktowany jako fałszywy sygnał krawędziowy i zastępowany bezpiecznym
-pasem domyślnym. Cache propozycji jest ograniczony do bieżącej sesji i związany
-z nazwą, rozmiarem oraz mtime źródła.
+wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka v4
+analizuje środkowe 94% obrazu w dziewięciu pionowych pasach. Dla każdego pasa
+buduje wygładzone profile chromatyczne i strukturalne, a kandydat musi mieć
+wsparcie co najmniej pięciu pasów oraz wszystkich trzech grup szerokości.
+Zgodne kandydatury obu rodzin dowodu dają `high_confidence`; rozbieżność tworzy
+bezpieczną sumę `conservative`, natomiast brak dowodu zwraca `safe_wide` 5–95%.
+
+Lokalne granice są agregowane percentylami, więc pochylenie obrazu nie wymusza
+ciasnego cropa według jednego pasa. Padding pozostaje asymetryczny: 12% nad i
+4,5% pod panelem. Strefa bezpieczeństwa 3% odsuwa granicę na zewnątrz, jeżeli
+nadal przecina szeroko wspartą zawartość. Wynik niższy niż 40% wysokości jest
+odrzucany na rzecz `safe_wide`. Adapter mapuje granice proporcjonalnie na
+kanoniczne piksele źródła. Cache propozycji jest ograniczony do bieżącej sesji
+i związany z nazwą, rozmiarem oraz mtime źródła.
 
 Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma
 szerokość obrazu kanonicznego i wysokość wybranego pasa, a `drawImage` kopiuje

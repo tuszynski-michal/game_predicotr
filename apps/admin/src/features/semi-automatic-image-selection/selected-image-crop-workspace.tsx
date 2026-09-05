@@ -1063,13 +1063,11 @@ function proposalLabel(
 ): string {
   if (detecting) return 'Automat wykrywa obszar plansz…';
   if (proposal === null) return 'Zapisane cięcie';
-  if (proposal.strategy === 'safe_default')
+  if (proposal.classification === 'safe_wide')
     return 'Brak pewnej granicy — sprawdź i przesuń linie';
-  const strategy =
-    proposal.strategy === 'chromatic_panel'
-      ? 'wykryty panel plansz'
-      : 'wykryty obszar szczegółów';
-  return `Automatyczna propozycja · ${strategy} · ${Math.round(proposal.confidence * 100)}%`;
+  const quality =
+    proposal.classification === 'high_confidence' ? 'pewna' : 'zachowawcza';
+  return `Automatyczna propozycja wielokolumnowa · ${quality} · ${Math.round(proposal.confidence * 100)}%`;
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

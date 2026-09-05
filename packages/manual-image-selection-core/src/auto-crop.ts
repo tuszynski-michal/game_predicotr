@@ -6,18 +6,23 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 
 export const SELECTED_IMAGE_AUTO_CROP_POLICY =
-  'selected-image-board-band-v3' as const;
-export const SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH = 256 as const;
+  'selected-image-board-band-v4-conservative-multicolumn' as const;
+export const SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH = 512 as const;
 /** Preserve more context above the detected board band for tilted cabinet screens. */
 export const SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO = 0.12 as const;
 export const SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO = 0.045 as const;
+export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_TOP_RATIO = 0.05 as const;
+export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_BOTTOM_RATIO = 0.95 as const;
 
-export type SelectedImageAutoCropStrategy =
-  'chromatic_panel' | 'texture_band' | 'safe_default';
+export type SelectedImageAutoCropStrategy = 'multicolumn_panel' | 'safe_wide';
+
+export type SelectedImageAutoCropClassification =
+  'high_confidence' | 'conservative' | 'safe_wide';
 
 export interface SelectedImageAutoCropProposal {
   readonly crop: SelectedImageCropBand;
   readonly strategy: SelectedImageAutoCropStrategy;
+  readonly classification: SelectedImageAutoCropClassification;
   readonly confidence: number;
   readonly policyVersion: typeof SELECTED_IMAGE_AUTO_CROP_POLICY;
 }
@@ -28,202 +33,392 @@ export interface SelectedImageAutoCropSample {
   readonly rgba: Uint8ClampedArray;
 }
 
-interface RowCluster {
+interface SignalCandidate {
   readonly start: number;
   readonly end: number;
-  readonly mean: number;
-  readonly peak: number;
+  readonly localBounds: readonly LocalBoundary[];
+  readonly score: number;
+  readonly supportedStrips: readonly number[];
 }
+
+interface LocalBoundary {
+  readonly top: number;
+  readonly bottom: number;
+}
+
+interface SignalGrid {
+  readonly scoresByStrip: readonly (readonly number[])[];
+  readonly activeByStrip: readonly (readonly boolean[])[];
+}
+
+const STRIP_COUNT = 9;
+const REQUIRED_STRIP_COUNT = 5;
+const ANALYSIS_X_MARGIN_RATIO = 0.03;
 
 export function detectSelectedImageCropBand(
   sample: SelectedImageAutoCropSample,
   source: SelectedImageDimensions,
 ): SelectedImageAutoCropProposal {
   assertSample(sample);
-  const defaultCrop = createDefaultSelectedImageCropBand(source);
-  const blueRows: number[] = [];
-  const textureRows: number[] = [];
   const { width, height, rgba } = sample;
-  const xStart = Math.floor(width * 0.04);
-  const xEnd = Math.ceil(width * 0.96);
-  const usableWidth = Math.max(1, xEnd - xStart);
+  const { chromatic, structural } = measureSignals(width, height, rgba);
+  const chromaticCandidates = signalCandidates(chromatic, height, 0.075);
+  const structuralCandidates = signalCandidates(structural, height, 0.085);
+  const selected = selectEvidence(chromaticCandidates, structuralCandidates);
+  if (selected === null) return safeWideProposal(source);
 
-  for (let y = 0; y < height; y += 1) {
-    let blue = 0;
-    let textured = 0;
-    for (let x = xStart; x < xEnd; x += 1) {
-      const offset = (y * width + x) * 4;
-      const red = rgba[offset] ?? 0;
-      const green = rgba[offset + 1] ?? 0;
-      const blueChannel = rgba[offset + 2] ?? 0;
-      const maximum = Math.max(red, green, blueChannel);
-      const minimum = Math.min(red, green, blueChannel);
-      if (
-        blueChannel >= 60 &&
-        blueChannel >= red * 1.12 &&
-        blueChannel >= green * 1.04 &&
-        maximum - minimum >= 28
-      ) {
-        blue += 1;
-      }
-      if (x > xStart && y > 0) {
-        const leftOffset = offset - 4;
-        const upperOffset = offset - width * 4;
-        const luminance = luminanceAt(rgba, offset);
-        const contrast =
-          Math.abs(luminance - luminanceAt(rgba, leftOffset)) +
-          Math.abs(luminance - luminanceAt(rgba, upperOffset));
-        if (contrast >= 42) textured += 1;
-      }
-    }
-    blueRows.push(blue / usableWidth);
-    textureRows.push(textured / usableWidth);
-  }
-
-  const smoothBlue = smoothRows(
-    blueRows,
-    Math.max(1, Math.round(height * 0.008)),
+  const localBounds = selected.candidates.flatMap(
+    (candidate) => candidate.localBounds,
   );
-  const bluePeak = Math.max(...smoothBlue);
-  if (bluePeak >= 0.18) {
-    const threshold = Math.max(0.09, bluePeak * 0.32);
-    const cluster = strongestCluster(
-      smoothBlue,
-      threshold,
-      Math.max(1, Math.round(height * 0.035)),
-      Math.round(height * 0.14),
-    );
-    if (cluster !== null) {
-      return proposalFromCluster(
-        cluster,
-        sample,
-        source,
-        'chromatic_panel',
-        clamp01(0.55 + cluster.mean * 0.7 + cluster.peak * 0.25),
-      );
-    }
-  }
+  let top =
+    percentile(
+      localBounds.map((boundary) => boundary.top),
+      0.1,
+    ) - Math.round(height * SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO);
+  let bottom =
+    percentile(
+      localBounds.map((boundary) => boundary.bottom),
+      0.9,
+    ) + Math.round(height * SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO);
+  const broadContent = broadContentRows(chromatic, structural, height);
+  [top, bottom] = expandPastBoundaryContent(top, bottom, broadContent, height);
+  top = Math.max(0, top);
+  bottom = Math.min(height, bottom + 1);
+  if ((bottom - top) / height < 0.4) return safeWideProposal(source);
 
-  const smoothTexture = smoothRows(
-    textureRows,
-    Math.max(1, Math.round(height * 0.012)),
-  );
-  const textureThreshold = Math.max(0.08, percentile(smoothTexture, 0.58));
-  const textureCluster = strongestCluster(
-    smoothTexture,
-    textureThreshold,
-    Math.max(1, Math.round(height * 0.025)),
-    Math.round(height * 0.2),
-  );
-  if (textureCluster !== null && textureCluster.peak >= 0.13) {
-    return proposalFromCluster(
-      textureCluster,
-      sample,
-      source,
-      'texture_band',
-      clamp01(0.38 + textureCluster.mean * 0.8),
-    );
+  try {
+    return {
+      crop: validateSelectedImageCropBand({
+        ...source,
+        topY: Math.round((top / height) * source.height),
+        bottomY: Math.round((bottom / height) * source.height),
+      }),
+      strategy: 'multicolumn_panel',
+      classification: selected.classification,
+      confidence: Number(selected.confidence.toFixed(3)),
+      policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
+    };
+  } catch {
+    return safeWideProposal(source);
   }
-
-  return {
-    crop: defaultCrop,
-    strategy: 'safe_default',
-    confidence: 0,
-    policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
-  };
 }
 
-function proposalFromCluster(
-  cluster: RowCluster,
-  sample: SelectedImageAutoCropSample,
+function safeWideProposal(
   source: SelectedImageDimensions,
-  strategy: Exclude<SelectedImageAutoCropStrategy, 'safe_default'>,
-  confidence: number,
 ): SelectedImageAutoCropProposal {
-  const topPadding = Math.round(
-    sample.height * SELECTED_IMAGE_AUTO_CROP_TOP_PADDING_RATIO,
-  );
-  if (cluster.start <= topPadding) {
+  try {
+    return {
+      crop: validateSelectedImageCropBand({
+        ...source,
+        topY: Math.floor(
+          source.height * SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_TOP_RATIO,
+        ),
+        bottomY: Math.ceil(
+          source.height * SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_BOTTOM_RATIO,
+        ),
+      }),
+      strategy: 'safe_wide',
+      classification: 'safe_wide',
+      confidence: 0,
+      policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
+    };
+  } catch {
     return {
       crop: createDefaultSelectedImageCropBand(source),
-      strategy: 'safe_default',
+      strategy: 'safe_wide',
+      classification: 'safe_wide',
       confidence: 0,
       policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
     };
   }
-  const bottomPadding = Math.round(
-    sample.height * SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO,
-  );
-  const topRatio = (cluster.start - topPadding) / sample.height;
-  const bottomRatio =
-    Math.min(sample.height, cluster.end + 1 + bottomPadding) / sample.height;
-  let crop: SelectedImageCropBand;
-  try {
-    crop = validateSelectedImageCropBand({
-      ...source,
-      topY: Math.round(topRatio * source.height),
-      bottomY: Math.round(bottomRatio * source.height),
-    });
-  } catch {
-    crop = createDefaultSelectedImageCropBand(source);
-    return {
-      crop,
-      strategy: 'safe_default',
-      confidence: 0,
-      policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
-    };
+}
+
+function measureSignals(
+  width: number,
+  height: number,
+  rgba: Uint8ClampedArray,
+): { readonly chromatic: SignalGrid; readonly structural: SignalGrid } {
+  const xStart = Math.floor(width * ANALYSIS_X_MARGIN_RATIO);
+  const xEnd = Math.ceil(width * (1 - ANALYSIS_X_MARGIN_RATIO));
+  const usableWidth = Math.max(STRIP_COUNT, xEnd - xStart);
+  const chromaticScores = emptySignalScores(height);
+  const structuralScores = emptySignalScores(height);
+  for (let strip = 0; strip < STRIP_COUNT; strip += 1) {
+    const stripStart = xStart + Math.floor((usableWidth * strip) / STRIP_COUNT);
+    const stripEnd =
+      xStart + Math.floor((usableWidth * (strip + 1)) / STRIP_COUNT);
+    const stripWidth = Math.max(1, stripEnd - stripStart);
+    for (let y = 0; y < height; y += 1) {
+      let chromatic = 0;
+      let legacyBlue = 0;
+      let edgeCount = 0;
+      let contrastTotal = 0;
+      for (let x = stripStart; x < stripEnd; x += 1) {
+        const offset = (y * width + x) * 4;
+        const red = rgba[offset] ?? 0;
+        const green = rgba[offset + 1] ?? 0;
+        const blue = rgba[offset + 2] ?? 0;
+        const maximum = Math.max(red, green, blue);
+        const minimum = Math.min(red, green, blue);
+        if (maximum >= 48 && maximum - minimum >= 30) chromatic += 1;
+        if (
+          blue >= 60 &&
+          blue >= red * 1.12 &&
+          blue >= green * 1.04 &&
+          maximum - minimum >= 28
+        ) {
+          legacyBlue += 1;
+        }
+        if (x > stripStart && y > 0) {
+          const luminance = luminanceAt(rgba, offset);
+          const contrast =
+            Math.abs(luminance - luminanceAt(rgba, offset - 4)) +
+            Math.abs(luminance - luminanceAt(rgba, offset - width * 4));
+          contrastTotal += Math.min(96, contrast) / 96;
+          if (contrast >= 38) edgeCount += 1;
+        }
+      }
+      chromaticScores[strip]![y] = Math.min(
+        1,
+        chromatic / stripWidth + (legacyBlue / stripWidth) * 0.15,
+      );
+      structuralScores[strip]![y] =
+        (edgeCount / stripWidth) * 0.65 + (contrastTotal / stripWidth) * 0.35;
+    }
   }
   return {
-    crop,
-    strategy,
-    confidence: Number(confidence.toFixed(3)),
-    policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
+    chromatic: activateSignalGrid(chromaticScores, height, 0.055),
+    structural: activateSignalGrid(structuralScores, height, 0.05),
   };
 }
 
-function strongestCluster(
-  values: readonly number[],
-  threshold: number,
+function emptySignalScores(height: number): number[][] {
+  return Array.from({ length: STRIP_COUNT }, () =>
+    Array.from({ length: height }, () => 0),
+  );
+}
+
+function activateSignalGrid(
+  scores: readonly (readonly number[])[],
+  height: number,
+  floor: number,
+): SignalGrid {
+  const radius = Math.max(1, Math.round(height * 0.008));
+  const smoothed = scores.map((rows) => smoothRows(rows, radius));
+  return {
+    scoresByStrip: smoothed,
+    activeByStrip: smoothed.map((rows) => {
+      const threshold = Math.max(floor, percentile(rows, 0.7) * 0.78);
+      return rows.map((value) => value >= threshold);
+    }),
+  };
+}
+
+function signalCandidates(
+  signal: SignalGrid,
+  height: number,
+  minimumScore: number,
+): SignalCandidate[] {
+  const support = Array.from({ length: height }, (_, row) =>
+    signal.activeByStrip.reduce(
+      (total, strip) => total + (strip[row] === true ? 1 : 0),
+      0,
+    ),
+  );
+  const clusters = booleanClusters(
+    support.map((count) => count >= REQUIRED_STRIP_COUNT),
+    Math.max(1, Math.round(height * 0.025)),
+    Math.max(2, Math.round(height * 0.08)),
+  );
+  return clusters.flatMap(({ start, end }) => {
+    const supportedStrips = signal.activeByStrip.flatMap((rows, strip) =>
+      rows.slice(start, end + 1).some(Boolean) ? [strip] : [],
+    );
+    if (!hasWideSupport(supportedStrips)) return [];
+    const localBounds = supportedStrips.map((strip) => {
+      const rows = signal.activeByStrip[strip]!;
+      let top = start;
+      let bottom = end;
+      while (top <= end && rows[top] !== true) top += 1;
+      while (bottom >= start && rows[bottom] !== true) bottom -= 1;
+      return { top, bottom };
+    });
+    const meanSupport =
+      support.slice(start, end + 1).reduce((sum, value) => sum + value, 0) /
+      ((end - start + 1) * STRIP_COUNT);
+    const meanSignal =
+      supportedStrips.reduce((total, strip) => {
+        const rows = signal.scoresByStrip[strip]!.slice(start, end + 1);
+        return (
+          total + rows.reduce((sum, value) => sum + value, 0) / rows.length
+        );
+      }, 0) / supportedStrips.length;
+    const score = meanSupport * 0.65 + meanSignal * 0.35;
+    return score >= minimumScore
+      ? [{ start, end, localBounds, score, supportedStrips }]
+      : [];
+  });
+}
+
+function selectEvidence(
+  chromatic: readonly SignalCandidate[],
+  structural: readonly SignalCandidate[],
+): {
+  readonly candidates: readonly SignalCandidate[];
+  readonly classification: Exclude<
+    SelectedImageAutoCropClassification,
+    'safe_wide'
+  >;
+  readonly confidence: number;
+} | null {
+  let bestPair: {
+    readonly chromatic: SignalCandidate;
+    readonly structural: SignalCandidate;
+    readonly iou: number;
+  } | null = null;
+  for (const color of chromatic) {
+    for (const structure of structural) {
+      const iou = intervalIoU(color, structure);
+      if (
+        bestPair === null ||
+        iou > bestPair.iou ||
+        (iou === bestPair.iou &&
+          color.score + structure.score >
+            bestPair.chromatic.score + bestPair.structural.score)
+      ) {
+        bestPair = { chromatic: color, structural: structure, iou };
+      }
+    }
+  }
+  if (bestPair !== null && bestPair.iou >= 0.65) {
+    return {
+      candidates: [bestPair.chromatic, bestPair.structural],
+      classification: 'high_confidence',
+      confidence: clamp01(
+        0.72 +
+          bestPair.iou * 0.18 +
+          (bestPair.chromatic.score + bestPair.structural.score) * 0.1,
+      ),
+    };
+  }
+  const strongestColor = strongestCandidate(chromatic);
+  const strongestStructure = strongestCandidate(structural);
+  if (strongestColor === null && strongestStructure === null) return null;
+  const candidates = [strongestColor, strongestStructure].filter(
+    (candidate): candidate is SignalCandidate => candidate !== null,
+  );
+  return {
+    candidates,
+    classification: 'conservative',
+    confidence: clamp01(
+      0.42 +
+        (candidates.reduce((total, candidate) => total + candidate.score, 0) /
+          candidates.length) *
+          0.35,
+    ),
+  };
+}
+
+function broadContentRows(
+  chromatic: SignalGrid,
+  structural: SignalGrid,
+  height: number,
+): readonly boolean[] {
+  return Array.from({ length: height }, (_, row) => {
+    const activeStrips = Array.from({ length: STRIP_COUNT }, (_, strip) =>
+      chromatic.activeByStrip[strip]![row] === true ||
+      structural.activeByStrip[strip]![row] === true
+        ? strip
+        : -1,
+    ).filter((strip) => strip >= 0);
+    return hasWideSupport(activeStrips);
+  });
+}
+
+function expandPastBoundaryContent(
+  initialTop: number,
+  initialBottom: number,
+  contentRows: readonly boolean[],
+  height: number,
+): [number, number] {
+  const safety = Math.max(1, Math.round(height * 0.03));
+  let top = Math.max(0, initialTop);
+  let bottom = Math.min(height - 1, initialBottom);
+  while (
+    top > 0 &&
+    contentRows.slice(top, Math.min(height, top + safety)).some(Boolean)
+  ) {
+    top = Math.max(0, top - safety);
+  }
+  while (
+    bottom < height - 1 &&
+    contentRows
+      .slice(Math.max(0, bottom - safety + 1), bottom + 1)
+      .some(Boolean)
+  ) {
+    bottom = Math.min(height - 1, bottom + safety);
+  }
+  return [top, bottom];
+}
+
+function booleanClusters(
+  active: readonly boolean[],
   allowedGap: number,
   minimumLength: number,
-): RowCluster | null {
-  const clusters: RowCluster[] = [];
+): Array<{ readonly start: number; readonly end: number }> {
+  const clusters: Array<{ start: number; end: number }> = [];
   let start = -1;
   let lastActive = -1;
-  for (let index = 0; index <= values.length; index += 1) {
-    const active = index < values.length && (values[index] ?? 0) >= threshold;
-    if (active) {
+  for (let index = 0; index <= active.length; index += 1) {
+    if (active[index] === true) {
       if (start < 0) start = index;
       lastActive = index;
     }
     if (
       start >= 0 &&
-      !active &&
-      (index - lastActive > allowedGap || index === values.length)
+      active[index] !== true &&
+      (index - lastActive > allowedGap || index === active.length)
     ) {
-      const end = lastActive;
-      if (end - start + 1 >= minimumLength) {
-        const segment = values.slice(start, end + 1);
-        clusters.push({
-          start,
-          end,
-          mean:
-            segment.reduce((total, value) => total + value, 0) / segment.length,
-          peak: Math.max(...segment),
-        });
-      }
+      if (lastActive - start + 1 >= minimumLength)
+        clusters.push({ start, end: lastActive });
       start = -1;
       lastActive = -1;
     }
   }
+  return clusters;
+}
+
+function hasWideSupport(strips: readonly number[]): boolean {
+  const unique = new Set(strips);
   return (
-    clusters.sort((left, right) => {
-      const leftScore = (left.end - left.start + 1) * (left.mean + left.peak);
-      const rightScore =
-        (right.end - right.start + 1) * (right.mean + right.peak);
-      return rightScore - leftScore || left.start - right.start;
-    })[0] ?? null
+    unique.size >= REQUIRED_STRIP_COUNT &&
+    [0, 1, 2].some((strip) => unique.has(strip)) &&
+    [3, 4, 5].some((strip) => unique.has(strip)) &&
+    [6, 7, 8].some((strip) => unique.has(strip))
   );
+}
+
+function strongestCandidate(
+  candidates: readonly SignalCandidate[],
+): SignalCandidate | null {
+  return (
+    [...candidates].sort(
+      (left, right) =>
+        right.score - left.score ||
+        right.end - right.start - (left.end - left.start) ||
+        left.start - right.start,
+    )[0] ?? null
+  );
+}
+
+function intervalIoU(left: SignalCandidate, right: SignalCandidate): number {
+  const intersection = Math.max(
+    0,
+    Math.min(left.end, right.end) - Math.max(left.start, right.start) + 1,
+  );
+  const union =
+    Math.max(left.end, right.end) - Math.min(left.start, right.start) + 1;
+  return union === 0 ? 0 : intersection / union;
 }
 
 function smoothRows(values: readonly number[], radius: number): number[] {

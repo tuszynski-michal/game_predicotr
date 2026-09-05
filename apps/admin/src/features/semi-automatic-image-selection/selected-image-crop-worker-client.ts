@@ -36,6 +36,7 @@ export async function prepareSelectedImageCropInWorker(
         readonly result?: {
           readonly crop: SelectedImageAutoCropProposal['crop'];
           readonly strategy: SelectedImageAutoCropProposal['strategy'];
+          readonly classification: SelectedImageAutoCropProposal['classification'];
           readonly confidence: number;
           readonly policyVersion: SelectedImageAutoCropProposal['policyVersion'];
           readonly blob: Blob;
@@ -58,6 +59,7 @@ export async function prepareSelectedImageCropInWorker(
         proposal: {
           crop: result.crop,
           strategy: result.strategy,
+          classification: result.classification,
           confidence: result.confidence,
           policyVersion: result.policyVersion,
         },

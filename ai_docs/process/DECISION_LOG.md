@@ -7697,3 +7697,20 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** zmiana quada lub maski unieważnia podgląd, a nowa rewizja
   decyzji unieważnia manifest wybrany w bieżącym UI. Import schema v7 otrzymuje
   ID i checksumę dopiero po ponownym jawnym seal.
+
+### D-344 — Auto-crop wymaga wielokolumnowego dowodu i rozszerza granice fail-safe
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka
+  `selected-image-board-band-v4-conservative-multicolumn` może wyznaczyć
+  automatyczny pas tylko na podstawie sygnału wspieranego przez co najmniej pięć
+  z dziewięciu pasów, w tym lewą, środkową i prawą część obrazu. Zawartość przy
+  granicy może wyłącznie rozszerzyć crop; brak dowodu daje pas `5–95%`.
+- **Reason:** profil jednowymiarowy mylił panel plansz z tabelą wypłat, światłem
+  obudowy albo lokalną teksturą i czasem wybierał zbyt wysoki lub prawie pełny
+  obraz.
+- **Consequences:** analiza używa podglądu do 512 px i dwóch niezależnych rodzin
+  dowodu bez OCR ani modelu ML. Istniejące cropy nie są automatycznie
+  przeliczane; trwała proweniencja i jawne przeliczenie nieprzejrzanych wyników
+  należą do następnego taska.

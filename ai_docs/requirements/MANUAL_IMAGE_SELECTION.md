@@ -558,13 +558,19 @@ osobnego katalogu `<nazwa źródła> filled-gaps cut`, dlatego pełna i ogranicz
 sesja nie współdzielą inwentarza ani postępu.
 
 Automat dla każdego jeszcze niezatwierdzonego zdjęcia niezależnie analizuje
-ograniczoną kopię podglądową i proponuje pas obejmujący zwarty panel plansz.
-Najpierw wykorzystuje sygnał chromatyczny panelu, a następnie ogólny sygnał
-szczegółów; brak pewnego wyniku daje jawny, bezpieczny pas domyślny. Propozycja
-nie jest decyzją i zawsze pozostaje edytowalna dwiema liniami. Górny margines
-wynosi 12% wysokości, dolny 4,5%. Kandydat, którego górny margines doszedłby
-do początku obrazu, jest odrzucany na rzecz pasa domyślnego zamiast emitować
-`topY = 0`.
+ograniczoną kopię podglądową do 512 px i proponuje pas obejmujący zwarty panel
+plansz. Polityka `selected-image-board-band-v4-conservative-multicolumn`
+dzieli środkowe 94% obrazu na dziewięć pasów i łączy niezależny sygnał koloru,
+nasycenia, kontrastu oraz powtarzalnych krawędzi. Automatyczna granica wymaga
+wsparcia w co najmniej pięciu pasach oraz w lewej, środkowej i prawej części;
+pojedyncza tabela, światło albo dłoń nie mogą przesunąć całego cropa.
+
+Pochylenie jest uwzględniane przez lokalne granice pasów i bezpieczną
+obwiednię: 10. percentyl górnych granic minus 12% wysokości oraz 90. percentyl
+dolnych granic plus 4,5%. Mocny, szeroki sygnał w strefie 3% przy granicy
+rozszerza crop na zewnątrz. Kandydat niższy niż 40% obrazu nie jest używany.
+Brak wystarczającego dowodu daje jawny `safe_wide` równy 5–95% wysokości.
+Propozycja nie jest decyzją i zawsze pozostaje edytowalna dwiema liniami.
 
 Narzędzie usuwa wyłącznie obszar nad górną i pod dolną przeciąganą linią.
 Zachowuje pełną szerokość, kanoniczną orientację EXIF, perspektywę oraz

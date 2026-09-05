@@ -127,7 +127,7 @@ POST /api/v1/admin/games/{gameId}/symbol-cell-review-projection
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
   ?symbolId={UUID|all|unknown}
-  &state=all|approved|pending
+  &state=all|approved|pending|active_model_cohort
   &minConfidence=0..1
   &maxConfidence=0..1
   &afterCursor=...
@@ -157,6 +157,14 @@ GET /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}
 POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/cells/{cellIndex}/resolve
 POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/save
 ```
+
+Stan `active_model_cohort` jest rozwiązywany przez najnowsze zdarzenie
+`game_symbol_model_activations` dla gry. Odczyt wymaga zgodności identyfikatora
+komórki, checksummy cropa, trybu assetu oraz wirtualnej proweniencji z zamrożoną
+komórką kohorty. Cursor v5 zawiera identyfikator rozwiązanej kohorty, dlatego
+aktywacja innego modelu unieważnia wcześniejszą paginację. Brak aktywacji daje
+pustą stronę i zerowe liczniki. Operacje masowe obejmujące cały taki filtr są
+odrzucane; jawna lista checksum-bound targetów pozostaje dozwolona.
 
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
 Dla projekcji `ready` jawne wywołanie zachowuje gotowy odczyt podczas

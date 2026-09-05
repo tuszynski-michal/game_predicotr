@@ -40,6 +40,8 @@ class SymbolCellReviewListSlice:
 class SymbolCellReviewQueryRepository(Protocol):
     def require_ready_game(self, game_id: UUID) -> int: ...
 
+    def active_model_cohort_id(self, game_id: UUID) -> UUID | None: ...
+
     def list_items(
         self,
         *,
@@ -95,6 +97,12 @@ class SymbolCellReviewQueryService:
                 "SYMBOL_CELL_REVIEW_CURSOR_DIRECTION_CONFLICT",
                 "Use either afterCursor or beforeCursor, not both.",
             )
+        catalog_revision = self._repository.require_ready_game(game_id)
+        model_cohort_id = (
+            self._repository.active_model_cohort_id(game_id)
+            if state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
+            else None
+        )
         review_filter = SymbolCellReviewListFilter(
             game_id=game_id,
             symbol_id=symbol_id,
@@ -102,6 +110,7 @@ class SymbolCellReviewQueryService:
             min_confidence=min_confidence,
             max_confidence=max_confidence,
             include_all_symbols=include_all_symbols,
+            model_cohort_id=model_cohort_id,
         )
         after_key = (
             decode_symbol_cell_review_cursor(
@@ -121,7 +130,6 @@ class SymbolCellReviewQueryService:
             if before_cursor
             else None
         )
-        catalog_revision = self._repository.require_ready_game(game_id)
         page_slice = self._repository.list_items(
             review_filter=review_filter,
             after_key=after_key,
@@ -163,6 +171,12 @@ class SymbolCellReviewQueryService:
         max_confidence: float | None = None,
         include_all_symbols: bool = False,
     ) -> SymbolCellReviewCountSnapshot:
+        catalog_revision = self._repository.require_ready_game(game_id)
+        model_cohort_id = (
+            self._repository.active_model_cohort_id(game_id)
+            if state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
+            else None
+        )
         review_filter = SymbolCellReviewListFilter(
             game_id=game_id,
             symbol_id=symbol_id,
@@ -170,8 +184,8 @@ class SymbolCellReviewQueryService:
             min_confidence=min_confidence,
             max_confidence=max_confidence,
             include_all_symbols=include_all_symbols,
+            model_cohort_id=model_cohort_id,
         )
-        catalog_revision = self._repository.require_ready_game(game_id)
         if catalog_revision != expected_catalog_revision:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_CATALOG_REVISION_STALE",

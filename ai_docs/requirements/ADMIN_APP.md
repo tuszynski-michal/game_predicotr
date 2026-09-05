@@ -419,7 +419,11 @@ jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
 `Weryfikacja symboli` jest osobnym, wyłącznie lokalnym obszarem głównej
 nawigacji Admina. Operator wybiera grę oraz zakres symbolu: wszystkie symbole,
 jeden aktywny symbol albo nierozpoznane `?`, a także radio `Stan weryfikacji`:
-`Wszystkie`, `Oczekujące` albo `Zatwierdzone`. Symbol docelowy akcji
+`Wszystkie`, `Oczekujące`, `Zatwierdzone` albo `Kohorta aktywnego modelu`.
+Ostatni wariant pokazuje wyłącznie bieżące, zatwierdzone cropy należące do
+niezmiennej kohorty modelu wskazanego przez najnowszą aktywację wybranej gry.
+Crop zmieniony od zamrożenia kohorty jest wykluczony; brak aktywnego modelu daje
+pusty wynik, bez podstawienia najnowszej nieaktywnej kohorty. Symbol docelowy akcji
 `Zmień symbol` pozostaje niezależnym wyborem. Nie istnieje status cropa
 `odrzucone`: `Zła siatka` i `Nieczytelny symbol` są odrębnymi problemami
 jakościowymi obsługiwanymi przez ich dedykowane kolejki.

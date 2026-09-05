@@ -10886,7 +10886,8 @@ export type SymbolCellReviewCountsResponse = {
  *
  * A bounded read filter for current symbol-cell review state.
  */
-export type SymbolCellReviewFilterState = 'all' | 'approved' | 'pending';
+export type SymbolCellReviewFilterState =
+  'all' | 'active_model_cohort' | 'approved' | 'pending';
 
 /**
  * SymbolCellReviewListItemResponse

@@ -68,6 +68,7 @@ class SymbolCellReviewFilterState(StrEnum):
     """A bounded read filter for current symbol-cell review state."""
 
     ALL = "all"
+    ACTIVE_MODEL_COHORT = "active_model_cohort"
     APPROVED = "approved"
     PENDING = "pending"
 
@@ -108,12 +109,21 @@ class SymbolCellReviewListFilter:
     min_confidence: float | None = None
     max_confidence: float | None = None
     include_all_symbols: bool = False
+    model_cohort_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if self.include_all_symbols and self.symbol_id is not None:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_SYMBOL_FILTER_INVALID",
                 "A game-wide crop filter cannot also select one symbol.",
+            )
+        if (
+            self.state is not SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
+            and self.model_cohort_id is not None
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_MODEL_COHORT_SCOPE_INVALID",
+                "A model cohort id is valid only for the active-model cohort filter.",
             )
         for name, value in (
             ("min_confidence", self.min_confidence),
@@ -816,8 +826,18 @@ def encode_symbol_cell_review_cursor(
         "minConfidence": review_filter.min_confidence,
         "state": review_filter.state.value,
         "symbolId": _symbol_cell_review_filter_scope(review_filter),
-        "version": 4 if review_filter.include_all_symbols else 3,
+        "version": (
+            5
+            if review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
+            else 4
+            if review_filter.include_all_symbols
+            else 3
+        ),
     }
+    if review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT:
+        payload["modelCohortId"] = (
+            None if review_filter.model_cohort_id is None else str(review_filter.model_cohort_id)
+        )
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
@@ -841,6 +861,9 @@ def decode_symbol_cell_review_cursor(
         parsed_state = SymbolCellReviewFilterState(payload["state"])
         parsed_min_confidence = payload.get("minConfidence")
         parsed_max_confidence = payload.get("maxConfidence")
+        parsed_model_cohort_id = (
+            None if payload.get("modelCohortId") is None else UUID(payload["modelCohortId"])
+        )
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
@@ -848,7 +871,13 @@ def decode_symbol_cell_review_cursor(
         ) from error
 
     expected_symbol = _symbol_cell_review_filter_scope(review_filter)
-    expected_versions = {4} if review_filter.include_all_symbols else {2, 3}
+    expected_versions = (
+        {5}
+        if review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
+        else {4}
+        if review_filter.include_all_symbols
+        else {2, 3}
+    )
     if (
         payload.get("version") not in expected_versions
         or parsed_game_id != review_filter.game_id
@@ -857,6 +886,7 @@ def decode_symbol_cell_review_cursor(
         or parsed_direction is not direction
         or parsed_min_confidence != review_filter.min_confidence
         or parsed_max_confidence != review_filter.max_confidence
+        or parsed_model_cohort_id != review_filter.model_cohort_id
     ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",

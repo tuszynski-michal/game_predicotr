@@ -963,6 +963,21 @@ export function SymbolReviewWorkspace({
             />
             Zatwierdzone
           </label>
+          <label>
+            <input
+              checked={filters.state === 'active_model_cohort'}
+              disabled={interactionBusy}
+              name="symbol-review-state"
+              onChange={() =>
+                requestFilterChange({
+                  ...filters,
+                  state: 'active_model_cohort',
+                })
+              }
+              type="radio"
+            />
+            Kohorta aktywnego modelu
+          </label>
         </fieldset>
       </div>
 

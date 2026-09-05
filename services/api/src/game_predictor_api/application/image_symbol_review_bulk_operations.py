@@ -76,6 +76,11 @@ class SymbolCellReviewBulkFilterSelection:
                 "SYMBOL_CELL_REVIEW_BULK_CATALOG_REVISION_INVALID",
                 "The filter catalog revision cannot be negative.",
             )
+        if self.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_BULK_MODEL_COHORT_REQUIRES_EXPLICIT_SELECTION",
+                "Model-cohort review operations require explicit checksum-bound crop targets.",
+            )
         for name, value in (
             ("min_confidence", self.min_confidence),
             ("max_confidence", self.max_confidence),

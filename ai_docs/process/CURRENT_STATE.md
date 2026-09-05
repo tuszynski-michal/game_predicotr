@@ -6,6 +6,16 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0476 — filtr kohorty aktywnego modelu
+
+- `Weryfikacja symboli` ma dodatkowy stan `Kohorta aktywnego modelu`, który
+  pokazuje bieżące cropy dokładnie zgodne z niezmienną kohortą najnowszej
+  aktywacji modelu wybranej gry.
+- Członkostwo jest związane checksumą i proweniencją, a cursor v5 również
+  identyfikatorem kohorty. Brak aktywnego modelu daje pusty wynik.
+- Operacja masowa na całym filtrze jest fail-closed; jawnie zaznaczone cropy
+  nadal korzystają z istniejących checksum-bound decyzji.
+
 ### TASK-0475 — bezpośredni gest edycji gotowej siatki ukończony
 
 - Naprawiono regresję, w której pierwszy gest tylko wybierał planszę i wymagał

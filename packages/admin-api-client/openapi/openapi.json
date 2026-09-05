@@ -19106,6 +19106,7 @@
         "description": "A bounded read filter for current symbol-cell review state.",
         "enum": [
           "all",
+          "active_model_cohort",
           "approved",
           "pending"
         ],

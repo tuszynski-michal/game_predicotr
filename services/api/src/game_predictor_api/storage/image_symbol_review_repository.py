@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Any, TypedDict, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import Float, String, and_, delete, func, or_, select
+from sqlalchemy import Float, String, and_, delete, false, func, or_, select
 from sqlalchemy import cast as sql_cast
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session, aliased
@@ -83,6 +83,7 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
+    GameSymbolModelActivationModel,
     ImageBoardGeometryReviewEventModel,
     ImageBoardGeometryRevisionModel,
     ImageBoardSearchFastDocumentModel,
@@ -97,6 +98,8 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
     SymbolModel,
+    SymbolModelIterationModel,
+    VerifiedTrainingCohortCellModel,
 )
 
 _ACTIVE_REVIEW_STATUSES = frozenset({"pending", "accepted", "corrected"})
@@ -233,6 +236,23 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 },
             )
         return int(state.catalog_revision)
+
+    def active_model_cohort_id(self, game_id: UUID) -> UUID | None:
+        return cast(
+            UUID | None,
+            self._session.scalar(
+                select(SymbolModelIterationModel.cohort_id)
+                .join(
+                    GameSymbolModelActivationModel,
+                    GameSymbolModelActivationModel.model_iteration_id
+                    == SymbolModelIterationModel.id,
+                )
+                .where(GameSymbolModelActivationModel.game_id == game_id)
+                .where(SymbolModelIterationModel.game_id == game_id)
+                .order_by(GameSymbolModelActivationModel.activation_number.desc())
+                .limit(1)
+            ),
+        )
 
     def list_items(
         self,
@@ -452,8 +472,10 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 statement = statement.where(cell.assigned_symbol_id.is_(None))
             else:
                 statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
-        if review_filter.state is not SymbolCellReviewFilterState.ALL:
-            statement = statement.where(cell.review_state == review_filter.state.value)
+        statement = _apply_symbol_cell_review_state_filter(
+            statement,
+            review_filter=review_filter,
+        )
         return statement
 
     def _visible_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
@@ -503,8 +525,10 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                     cell.assigned_symbol_id == review_filter.symbol_id,
                     cell.quality_issue.is_(None),
                 )
-        if review_filter.state is not SymbolCellReviewFilterState.ALL:
-            statement = statement.where(cell.review_state == review_filter.state.value)
+        statement = _apply_symbol_cell_review_state_filter(
+            statement,
+            review_filter=review_filter,
+        )
         confidence_is_required = (
             include_prediction_confidence
             or review_filter.min_confidence is not None
@@ -528,6 +552,39 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         if review_filter.max_confidence is not None:
             statement = statement.where(confidence <= review_filter.max_confidence)
         return statement
+
+
+def _apply_symbol_cell_review_state_filter(
+    statement: Select[Any],
+    *,
+    review_filter: SymbolCellReviewListFilter,
+) -> Select[Any]:
+    cell = ImageSymbolReviewCellModel
+    if review_filter.state is SymbolCellReviewFilterState.ALL:
+        return statement
+    if review_filter.state is not SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT:
+        return statement.where(cell.review_state == review_filter.state.value)
+    if review_filter.model_cohort_id is None:
+        return statement.where(false())
+    cohort_cell = VerifiedTrainingCohortCellModel
+    return statement.join(
+        cohort_cell,
+        and_(
+            cohort_cell.cohort_id == review_filter.model_cohort_id,
+            cohort_cell.cell_review_id == cell.id,
+            cohort_cell.crop_checksum_sha256 == cell.crop_checksum_sha256,
+            cohort_cell.asset_mode == cell.asset_mode,
+            cohort_cell.source_geometry_revision_id.is_not_distinct_from(
+                cell.source_geometry_revision_id
+            ),
+            cohort_cell.render_spec_checksum_sha256.is_not_distinct_from(
+                cell.render_spec_checksum_sha256
+            ),
+            cohort_cell.rendered_pixel_checksum_sha256.is_not_distinct_from(
+                cell.rendered_pixel_checksum_sha256
+            ),
+        ),
+    ).where(cell.review_state == SymbolCellReviewState.APPROVED.value)
 
 
 class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepository):

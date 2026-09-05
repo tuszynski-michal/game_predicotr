@@ -40,6 +40,8 @@ test('loads crops only after selecting both a game and a symbol scope', () => {
   assert.match(source, /name="symbol-review-state"/);
   assert.match(source, /state: 'pending'/);
   assert.match(source, /state: 'approved'/);
+  assert.match(source, /state: 'active_model_cohort'/);
+  assert.match(source, /Kohorta aktywnego modelu/);
   assert.doesNotMatch(source, /Zatwierdź wybór/);
   assert.doesNotMatch(source, /Zmień wybór/);
   assert.doesNotMatch(source, /filtersConfirmed/);

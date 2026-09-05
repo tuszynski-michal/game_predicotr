@@ -72,12 +72,16 @@ class MemorySymbolCellReviewRepository:
         items: tuple[SymbolCellReviewListItem, ...],
         asset: SymbolCellReviewAsset | None = None,
         ready: bool = True,
+        active_model_cohort_id: UUID | None = None,
+        active_model_cohort_cell_ids: frozenset[UUID] = frozenset(),
     ) -> None:
         self.game_id = game_id
         self.symbol_id = symbol_id
         self.items = tuple(sorted(items, key=lambda item: item.cursor_key))
         self.asset_value = asset
         self.ready = ready
+        self.active_cohort_id = active_model_cohort_id
+        self.active_model_cohort_cell_ids = active_model_cohort_cell_ids
         self.filters: list[SymbolCellReviewListFilter] = []
         self.limits: list[int] = []
 
@@ -90,6 +94,11 @@ class MemorySymbolCellReviewRepository:
                 "The symbol-cell review projection is not ready for this game.",
             )
         return 17
+
+    def active_model_cohort_id(self, game_id: UUID) -> UUID | None:
+        if game_id != self.game_id:
+            raise SymbolCellReviewError("GAME_NOT_FOUND", "The selected game does not exist.")
+        return self.active_cohort_id
 
     def list_items(
         self,
@@ -108,9 +117,10 @@ class MemorySymbolCellReviewRepository:
                 review_filter.include_all_symbols
                 or item.assigned_symbol_id == review_filter.symbol_id
             )
-            and (
-                review_filter.state is SymbolCellReviewFilterState.ALL
-                or item.review_state.value == review_filter.state.value
+            and _matches_memory_review_state(
+                item,
+                review_filter,
+                active_model_cohort_cell_ids=self.active_model_cohort_cell_ids,
             )
             and (
                 review_filter.min_confidence is None
@@ -164,9 +174,10 @@ class MemorySymbolCellReviewRepository:
                 review_filter.include_all_symbols
                 or item.assigned_symbol_id == review_filter.symbol_id
             )
-            and (
-                review_filter.state is SymbolCellReviewFilterState.ALL
-                or item.review_state.value == review_filter.state.value
+            and _matches_memory_review_state(
+                item,
+                review_filter,
+                active_model_cohort_cell_ids=self.active_model_cohort_cell_ids,
             )
             and (
                 review_filter.min_confidence is None
@@ -207,6 +218,23 @@ class MemorySymbolCellReviewRepository:
             for cell_review_id in cell_review_ids
             if cell_review_id == self.asset_value.cell_review_id
         )
+
+
+def _matches_memory_review_state(
+    item: SymbolCellReviewListItem,
+    review_filter: SymbolCellReviewListFilter,
+    *,
+    active_model_cohort_cell_ids: frozenset[UUID],
+) -> bool:
+    if review_filter.state is SymbolCellReviewFilterState.ALL:
+        return True
+    if review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT:
+        return (
+            review_filter.model_cohort_id is not None
+            and item.cell_review_id in active_model_cohort_cell_ids
+            and item.review_state is SymbolCellReviewState.APPROVED
+        )
+    return item.review_state.value == review_filter.state.value
 
 
 class MemorySymbolCellReviewBulkRepository:
@@ -856,6 +884,91 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
     assert all_symbols.status_code == 200
     assert len(all_symbols.json()["items"]) == 3
     assert repository.filters[-1].include_all_symbols is True
+
+
+def test_list_endpoint_filters_the_active_model_cohort(tmp_path: Path) -> None:
+    game_id, symbol_id, cohort_id = uuid4(), uuid4(), uuid4()
+    cohort_item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=1,
+        cell_index=0,
+        review_item_id=UUID(int=1),
+        state=SymbolCellReviewState.APPROVED,
+    )
+    outside_item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=2,
+        cell_index=0,
+        review_item_id=UUID(int=2),
+        state=SymbolCellReviewState.APPROVED,
+    )
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(cohort_item, outside_item),
+        active_model_cohort_id=cohort_id,
+        active_model_cohort_cell_ids=frozenset({cohort_item.cell_review_id}),
+    )
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={
+                "symbolId": "all",
+                "state": "active_model_cohort",
+            },
+        )
+        counts = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-counts",
+            params={
+                "symbolId": "all",
+                "state": "active_model_cohort",
+                "catalogRevision": 17,
+            },
+        )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == [str(cohort_item.cell_review_id)]
+    assert counts.status_code == 200
+    assert counts.json()["counts"] == {
+        "allCount": 1,
+        "approvedCount": 1,
+        "pendingCount": 0,
+    }
+    assert repository.filters[-1].model_cohort_id == cohort_id
+    assert repository.filters[-1].include_all_symbols is True
+
+
+def test_list_endpoint_returns_empty_cohort_without_an_active_model(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    approved = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=1,
+        cell_index=0,
+        review_item_id=UUID(int=1),
+        state=SymbolCellReviewState.APPROVED,
+    )
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(approved,),
+    )
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={
+                "symbolId": "all",
+                "state": "active_model_cohort",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+    assert repository.filters[-1].model_cohort_id is None
 
 
 def test_counts_endpoint_rejects_a_stale_catalog_revision(tmp_path: Path) -> None:
@@ -1550,6 +1663,37 @@ def test_bulk_operation_rejects_approval_of_unknown_filter(tmp_path: Path) -> No
 
     assert response.status_code == 422
     assert response.json()["code"] == "SYMBOL_CELL_REVIEW_BULK_UNKNOWN_APPROVAL_FORBIDDEN"
+
+
+def test_bulk_operation_requires_explicit_targets_for_active_model_cohort(
+    tmp_path: Path,
+) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    reviews = MemorySymbolCellReviewRepository(game_id=game_id, symbol_id=symbol_id, items=())
+    bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
+
+    with _client(reviews, artifact_root=tmp_path, bulk_repository=bulk) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview",
+            json={
+                "action": "reassign",
+                "targetSymbolId": str(symbol_id),
+                "selection": {
+                    "kind": "filter",
+                    "symbolId": "unknown",
+                    "state": "active_model_cohort",
+                    "catalogRevision": 17,
+                    "excludedCellReviewIds": [],
+                },
+            },
+        )
+
+    assert response.status_code == 422
+    assert (
+        response.json()["code"]
+        == "SYMBOL_CELL_REVIEW_BULK_MODEL_COHORT_REQUIRES_EXPLICIT_SELECTION"
+    )
+    assert bulk.requests == []
 
 
 def test_bulk_operation_accepts_mark_unreadable_action(tmp_path: Path) -> None:

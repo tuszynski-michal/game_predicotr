@@ -103,6 +103,42 @@ def test_symbol_review_cursor_v4_binds_the_game_wide_scope() -> None:
     )
 
 
+def test_symbol_review_cursor_v5_binds_the_active_model_cohort() -> None:
+    cohort_id = UUID(int=4)
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT,
+        include_all_symbols=True,
+        model_cohort_id=cohort_id,
+    )
+    key = (123, 4, UUID(int=3))
+
+    encoded = encode_symbol_cell_review_cursor(
+        review_filter=review_filter,
+        direction=SymbolCellReviewCursorDirection.AFTER,
+        key=key,
+    )
+    payload = _cursor_payload(encoded)
+
+    assert payload["version"] == 5
+    assert payload["modelCohortId"] == str(cohort_id)
+    assert (
+        decode_symbol_cell_review_cursor(
+            encoded,
+            review_filter=review_filter,
+            direction=SymbolCellReviewCursorDirection.AFTER,
+        )
+        == key
+    )
+    with pytest.raises(SymbolCellReviewError, match="does not belong"):
+        decode_symbol_cell_review_cursor(
+            encoded,
+            review_filter=replace(review_filter, model_cohort_id=UUID(int=5)),
+            direction=SymbolCellReviewCursorDirection.AFTER,
+        )
+
+
 def _sha(seed: int) -> str:
     return f"{seed:064x}"
 

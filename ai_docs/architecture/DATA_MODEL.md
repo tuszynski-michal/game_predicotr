@@ -1173,6 +1173,14 @@ specu wirtualnego assetu. Klient przechowuje co najwyżej trzy strony metadanych
 atlas maksymalnie 100 widocznych komórek pozostaje odtwarzalnym cache'em working
 i nie ma encji domenowej.
 
+Filtr kohorty aktywnego modelu nie tworzy projekcji ani kopii cropów. Łączy
+najnowsze zdarzenie `game_symbol_model_activations` przez
+`symbol_model_iterations.cohort_id` z `verified_training_cohort_cells` i
+bieżącymi `image_symbol_review_cells`. Członkostwo jest ważne wyłącznie przy
+zgodnym `cell_review_id`, crop checksum, `asset_mode` oraz null-safe zgodnej
+proweniencji `virtual_source`. Dzięki temu historyczny sample nie może udawać
+aktualnego cropa po zmianie geometrii lub renderera.
+
 Nowy import z aktywnym pipeline'em geometrii przypina tę samą topologię w
 jobowym snapshotcie, fingerprintcie croppera i content-addressed manifeście
 odroczenia. `recognized_boards.grid_rows/grid_columns` zapisują wymiary użyte

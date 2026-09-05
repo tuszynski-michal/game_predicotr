@@ -28,11 +28,11 @@ function boardPixel(x, y, variant = 'blue') {
   return bright ? [35, 95, 205] : [18, 45, 105];
 }
 
-test('uses a 512 px analysis budget and versions bounded boundary expansion', () => {
+test('uses a 512 px analysis budget and versions the tight top boundary', () => {
   assert.equal(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, 512);
   assert.equal(
     SELECTED_IMAGE_AUTO_CROP_POLICY,
-    'selected-image-board-band-v7-bounded-boundary-expansion',
+    'selected-image-board-band-v8-tight-top-boundary',
   );
 });
 
@@ -52,8 +52,8 @@ test('prefers the blue board panel over a full-width paytable above it', () => {
   assert.equal(result.strategy, 'blue_panel');
   assert.equal(result.classification, 'high_confidence');
   assert.equal(result.evidence.selectionBasis, 'blue_panel');
-  assert.ok(result.crop.topY >= 550);
-  assert.ok(result.crop.topY <= 650);
+  assert.ok(result.crop.topY >= 650);
+  assert.ok(result.crop.topY <= 710);
   assert.ok(result.crop.bottomY >= 1400);
   assert.ok(result.crop.bottomY <= 1560);
 });
@@ -119,7 +119,8 @@ test('prefers the dedicated detector for a tilted blue panel', () => {
   });
   assert.equal(result.strategy, 'blue_panel');
   assert.equal(result.classification, 'high_confidence');
-  assert.ok(result.crop.topY <= 500);
+  assert.ok(result.crop.topY >= 500);
+  assert.ok(result.crop.topY <= 560);
   assert.ok(result.crop.bottomY >= 1450);
   assert.ok(result.confidence >= 0.8);
   assert.equal(result.evidence.fallbackReason, null);
@@ -179,7 +180,8 @@ test('uses a conservative union when chromatic and structural bands disagree', (
   });
   assert.equal(result.strategy, 'multicolumn_panel');
   assert.equal(result.classification, 'conservative');
-  assert.ok(result.crop.topY <= 250);
+  assert.ok(result.crop.topY >= 250);
+  assert.ok(result.crop.topY <= 400);
   assert.ok(result.crop.bottomY >= 1480);
 });
 
@@ -194,7 +196,8 @@ test('keeps detecting a panel obscured by a hand-sized vertical region', () => {
     height: 1920,
   });
   assert.equal(result.strategy, 'multicolumn_panel');
-  assert.ok(result.crop.topY <= 500);
+  assert.ok(result.crop.topY >= 500);
+  assert.ok(result.crop.topY <= 560);
   assert.ok(result.crop.bottomY >= 1480);
 });
 
@@ -214,7 +217,7 @@ test('keeps black bars and a local glare outside the crop decision', () => {
   assert.ok(result.crop.bottomY <= 1700);
 });
 
-test('expands a boundary outward when broad content remains in its safety strip', () => {
+test('keeps the top tight while expanding a supported bottom boundary', () => {
   const input = sample(180, 240, (x, y) => {
     if (y >= 60 && y <= 70) return boardPixel(x, y, 'green');
     if (y >= 82 && y <= 184) return boardPixel(x, y, 'green');
@@ -225,7 +228,7 @@ test('expands a boundary outward when broad content remains in its safety strip'
     height: 1920,
   });
   assert.equal(result.strategy, 'multicolumn_panel');
-  assert.ok(result.crop.topY <= 500);
+  assert.ok(result.crop.topY >= 500);
   assert.equal(result.evidence.boundaryExpanded, true);
 });
 

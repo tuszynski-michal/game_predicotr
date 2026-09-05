@@ -7852,3 +7852,16 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   obrazem. Rzeczywiste panele plansz zajmują około 35–38% wysokości.
 - **Consequences:** niewielki margines nadal chroni symbole, ale odległy panel
   wypłat nie wpływa na crop. Polityki v4–v6 pozostają czytelne i odtwarzalne.
+
+### D-355 — Górna granica auto-cropa nie rozszerza się w stronę panelu wypłat
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** polityka v8 stosuje 3% paddingu nad najwcześniejszą lokalną
+  granicą panelu plansz i nie wykonuje górnej ekspansji. Minimalny wykryty pas
+  ma 28% wysokości; dolna ochrona pozostaje jednokrokowa.
+- **Reason:** próbka v7 była bezpieczna, lecz nadal zachowywała logo i zbyt dużo
+  nagłówka. Wielopasmowy 10. percentyl już uwzględnia pochylenie pierwszego
+  rzędu, więc dodatkowe 3% jest wystarczającym buforem.
+- **Consequences:** próbka 1080×1920 zaczyna się na `topY=648` zamiast 504,
+  zachowując cały pierwszy rząd. Wyniki v4–v7 pozostają odtwarzalne.

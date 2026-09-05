@@ -6,6 +6,16 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Ciaśniejsza górna granica lokalnego auto-cropa — TASK-0465
+
+- Polityka v8 używa 3% górnego paddingu i nie rozszerza górnej granicy w stronę
+  panelu wypłat. Jednokrokowa ochrona dolnej granicy pozostaje bez zmian.
+- Rzeczywista próbka `seq_70363-70371.jpg` otrzymała `topY=648`,
+  `bottomY=1224` przy rozmiarze 1080×1920. Pierwszy rząd plansz pozostaje
+  widoczny, a logo i panel wypłat zostały usunięte.
+- Istniejące wyniki v7 nie zostały automatycznie nadpisane; ich ponowne
+  przeliczenie wymaga jawnej decyzji operatora po obejrzeniu próbki.
+
 ### Ograniczona ekspansja granic lokalnego auto-cropa — TASK-0464
 
 - Polityka v7 rozszerza wykryty pas najwyżej o jeden krok bezpieczeństwa 3%,

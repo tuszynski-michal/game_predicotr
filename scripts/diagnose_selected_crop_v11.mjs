@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import { cropQualityReferences } from '../packages/manual-image-selection-core/test/fixtures/selected-crop-quality.mjs';
+import { independentCropReferences } from '../packages/manual-image-selection-core/test/fixtures/selected-crop-v11-independent.mjs';
 import { sampleCanonicalCropImage } from '../packages/manual-image-selection-core/src/crop-preparation.ts';
 import {
   detectStructuralLayout,
@@ -11,7 +12,13 @@ import {
 import { findNumberRegions } from '../packages/manual-image-selection-core/src/auto-crop-v11-boundaries.ts';
 const deadline = setTimeout(() => process.exit(2), 120000);
 try {
-  for (const ref of cropQualityReferences) {
+  for (const ref of [
+    ...cropQualityReferences,
+    ...independentCropReferences.map((r) => ({
+      ...r,
+      id: r.fileName.match(/\d+/)[0],
+    })),
+  ]) {
     if (process.argv[3] && ref.id !== process.argv[3]) continue;
     const decoded = await sharp(
       await readFile(path.join(process.argv[2], ref.directory, ref.fileName)),

@@ -6,6 +6,15 @@ last_updated: 2026-09-05
 
 # Current State
 
+### TASK-0472 — trzecia iteracja: 90% regresji, nieprzejściowy nowy odbiór
+
+- Poziome łączenie krawędzi i analiza pochylonych etykiet dały 9/10 poprawnych
+  automatów w znanej próbie, bez błędnych cięć. Bufor v11 wynosi teraz 20%.
+- Niezależne 7 nowych katalogów: 5 poprawnych, 1 granica ponad referencją dolną,
+  1 manual. Nie spełnia bramki. V11 nieaktywny, task pozostaje blocked.
+- 101 testów i typecheck core/Admin OK. Bez zmian źródeł, cut, importów i jobów.
+  Szczegóły i zamrożone referencje opisuje raport SELECTED_CROP_V11_REGRESSIONS.
+
 ### TASK-0472 — poprawka detektora, druga bramka nadal nieprzejściowa
 
 - Poprawiono halo dylatacji, scalanie kandydatów i ranking etykiet w v11;

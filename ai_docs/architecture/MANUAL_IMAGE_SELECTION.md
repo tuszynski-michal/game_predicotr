@@ -200,6 +200,14 @@ różne listy aktywnych `seq_*`.
 
 ## Architektura lokalnego przycinania wybranych zdjęć
 
+Iteracja v0.10.185 dodaje ograniczony poziomy wariant dylatacji (aspekt 2)
+obok izotropowego. Numery są analizowane w lokalnym układzie nachylenia rzędu,
+wyznaczonym z potwierdzonych obszarów plansz. Obszar wyszukiwania i wynik muszą
+być mapowane spójnie; JPEG nie jest obracany. Cały jasny pas jest zachowywany,
+a dowód przejść ocenia się dla pasa zamiast odrzucać jego pełne białe wiersze.
+Początkowy bufor wynosi 20% mediany wysokości. Fingerprint obejmuje tę zmianę
+i number-bands-v3-row-shear-complete-band. Wariant nadal nie przeszedł odbioru.
+
 Poprawka TASK-0472 usuwa sztuczne halo dylatacji przed pomiarem bboxa; halo
 dotykające brzegu pozostaje konserwatywnie niepełnym wsparciem źródła.
 Scalanie wymaga pokrycia większego komponentu, nie tylko zawierania mniejszego.

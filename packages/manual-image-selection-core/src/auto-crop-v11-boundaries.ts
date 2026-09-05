@@ -33,21 +33,47 @@ export function findNumberRegions(
 ): CropBox[] {
   const gray = luminance(sample),
     result: CropBox[] = [];
-  for (const board of boards) {
+  for (const [index, board] of boards.entries()) {
+    const row = boards.slice(
+      Math.floor(index / 3) * 3,
+      Math.floor(index / 3) * 3 + 3,
+    );
+    const first = row[0]!,
+      last = row.at(-1)!;
+    const slope =
+      boards.length === 9
+        ? (last.top + last.bottom - (first.top + first.bottom)) /
+          (last.left + last.right - (first.left + first.right))
+        : 0;
+    if (!Number.isFinite(slope) || Math.abs(slope) > 0.6) return [];
+    const center = (board.left + board.right) / 2;
+    const tiltExtent = (Math.abs(slope) * w(board)) / 2;
+    const localTop = board.top + tiltExtent,
+      localBottom = board.bottom - tiltExtent;
+    const localHeight = localBottom - localTop;
+    if (localHeight <= 0) return [];
+    const pixel = (x: number, y: number) => {
+      const sourceY = Math.round(y + slope * (x - center));
+      return sourceY >= 0 && sourceY < sample.height
+        ? gray[sourceY * sample.width + x]!
+        : 0;
+    };
     const l = Math.max(0, Math.floor(board.left + w(board) * 0.15)),
       r = Math.min(sample.width, Math.ceil(board.right - w(board) * 0.15));
-    const t = Math.max(0, Math.floor(board.top + h(board) * 0.72)),
-      b = Math.min(sample.height, Math.ceil(board.bottom + h(board) * 0.35));
+    const t = Math.max(0, Math.floor(localTop + localHeight * 0.72)),
+      b = Math.min(sample.height, Math.ceil(localBottom + localHeight * 0.35));
     const active: number[] = [];
+    const transitionsByRow = new Map<number, number>();
     for (let y = t; y < b; y++) {
       let n = 0,
         transitions = 0;
       for (let x = l + 1; x < r; x++) {
-        const bright = gray[y * sample.width + x]! >= 180;
+        const bright = pixel(x, y) >= 180;
         n += Number(bright);
-        if (bright !== gray[y * sample.width + x - 1]! >= 180) transitions++;
+        if (bright !== pixel(x - 1, y) >= 180) transitions++;
       }
-      if (n / (r - l) >= 0.12 && transitions >= 6) active.push(y);
+      transitionsByRow.set(y, transitions);
+      if (n / (r - l) >= 0.12) active.push(y);
     }
     const bands: number[][] = [];
     for (const y of active) {
@@ -58,8 +84,9 @@ export function findNumberRegions(
     const candidates = bands.filter(
       (rows) =>
         rows.length >= 2 &&
+        rows.some((y) => (transitionsByRow.get(y) ?? 0) >= 6) &&
         rows.at(-1)! - rows[0]! + 1 <= h(board) * 0.28 &&
-        (rows[0]! + rows.at(-1)!) / 2 >= board.top + h(board) * 0.85,
+        (rows[0]! + rows.at(-1)!) / 2 >= localTop + localHeight * 0.85,
     );
     const boxes = candidates
       .map((rows) => {
@@ -69,7 +96,7 @@ export function findNumberRegions(
           right = l;
         for (let y = top; y < bottom; y++)
           for (let x = l; x < r; x++)
-            if (gray[y * sample.width + x]! >= 180) {
+            if (pixel(x, y) >= 180) {
               left = Math.min(left, x);
               right = Math.max(right, x + 1);
             }
@@ -78,17 +105,29 @@ export function findNumberRegions(
       .filter((box) => w(box) / h(box) >= 2 && w(box) >= w(board) * 0.25);
     boxes.sort(
       (a, b) =>
-        Math.abs(a.bottom - board.bottom) - Math.abs(b.bottom - board.bottom),
+        Math.abs(a.bottom - localBottom) - Math.abs(b.bottom - localBottom),
     );
     if (!boxes.length) return [];
     if (
       boxes.length > 1 &&
-      Math.abs(boxes[1]!.bottom - board.bottom) -
-        Math.abs(boxes[0]!.bottom - board.bottom) <
+      Math.abs(boxes[1]!.bottom - localBottom) -
+        Math.abs(boxes[0]!.bottom - localBottom) <
         3
     )
       return [];
-    result.push(boxes[0]!);
+    const chosen = boxes[0]!;
+    const ys = [
+      slope * (chosen.left - center),
+      slope * (chosen.right - center),
+    ];
+    result.push({
+      ...chosen,
+      top: Math.max(0, Math.floor(chosen.top + Math.min(...ys))),
+      bottom: Math.min(
+        sample.height,
+        Math.ceil(chosen.bottom + Math.max(...ys)),
+      ),
+    });
   }
   return result;
 }

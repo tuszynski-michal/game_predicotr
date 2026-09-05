@@ -559,8 +559,9 @@ wymagać ręcznej korekty, której nie kasuje odznaczenie kafelków. Sam zapis J
 nie jest testem jakości. Referencje: `ai_docs/quality/SELECTED_CROP_V11_REGRESSIONS.md`.
 
 TASK-0472: poprawka eksperymentalna jest zaimplementowana, ale pozostaje
-nieaktywna: niezależny odbiór dziesięciu zdjęć dał 50% poprawnych automatów,
-poniżej wymaganych 90%. Nie przedstawiać tej wersji jako gotowej produkcyjnie.
+nieaktywna: kolejny niezależny odbiór siedmiu zdjęć dał 5 poprawnych automatów,
+jeden niepoprawny i jeden manual, mimo 90% na znanych regresjach. Nie przedstawiać
+tej wersji jako gotowej produkcyjnie; obowiązuje niezależna bramka jakości.
 
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i

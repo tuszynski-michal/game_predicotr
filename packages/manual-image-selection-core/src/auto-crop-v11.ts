@@ -7,10 +7,11 @@ export const CROP_V11_CONFIG = Object.freeze({
   maxRows: 192,
   luminanceThresholds: [0, 95, 135, 175] as const,
   dilationRadii: [2, 3, 4, 5, 6] as const,
-  paddingRatio: 0.15,
+  paddingRatio: 0.2,
+  dilationAspects: [1, 2] as const,
   candidateBoundsVersion: 'undilated-support-v2',
 });
-export const CROP_V11_FINGERPRINT = `${CROP_V11_POLICY}|bilinear-rgba-v1|number-bands-v2-validated-before-ranking|${JSON.stringify(CROP_V11_CONFIG)}`;
+export const CROP_V11_FINGERPRINT = `${CROP_V11_POLICY}|bilinear-rgba-v1|number-bands-v3-row-shear-complete-band|${JSON.stringify(CROP_V11_CONFIG)}`;
 export interface CropBox {
   left: number;
   top: number;
@@ -220,42 +221,43 @@ export function detectStructuralCandidates(s: StructuralSample): {
               20,
         );
       }
-    for (const radius of CROP_V11_CONFIG.dilationRadii) {
-      const rx = Math.max(1, Math.round(radius * scale)),
-        ry = Math.max(1, Math.round(radius * scale));
-      for (const expanded of components(
-        dilate(mask, s.width, s.height, rx, ry),
-        s.width,
-        s.height,
-      )) {
-        // Dilation joins nearby symbol edges; it must not enlarge the measured
-        // support. Keeping that synthetic halo makes adjacent rows overlap.
-        const box = removeDilationHalo(expanded, rx, ry, s.width, s.height);
-        if (
-          w(box) < s.width * 0.065 ||
-          w(box) > s.width * 0.42 ||
-          h(box) < s.height * 0.018 ||
-          h(box) > s.height * 0.19 ||
-          w(box) / h(box) < 1.15 ||
-          w(box) / h(box) > 4.2
-        )
-          continue;
-        const tiles = texture(gray, s.width, box);
-        if (tiles < 7) continue;
-        const match = all.find((existing) =>
-          sameStructuralCandidate(existing, box),
-        );
-        if (match) {
-          // Retain the union as uncertainty, never select the tightest threshold box.
-          match.left = Math.min(match.left, box.left);
-          match.top = Math.min(match.top, box.top);
-          match.right = Math.max(match.right, box.right);
-          match.bottom = Math.max(match.bottom, box.bottom);
-          match.support++;
-          match.textureTiles = Math.min(match.textureTiles, tiles);
-        } else all.push({ ...box, textureTiles: tiles, support: 1 });
+    for (const aspect of CROP_V11_CONFIG.dilationAspects)
+      for (const radius of CROP_V11_CONFIG.dilationRadii) {
+        const rx = Math.max(1, Math.round(radius * scale * aspect)),
+          ry = Math.max(1, Math.round((radius * scale) / aspect));
+        for (const expanded of components(
+          dilate(mask, s.width, s.height, rx, ry),
+          s.width,
+          s.height,
+        )) {
+          // Dilation joins nearby symbol edges; it must not enlarge the measured
+          // support. Keeping that synthetic halo makes adjacent rows overlap.
+          const box = removeDilationHalo(expanded, rx, ry, s.width, s.height);
+          if (
+            w(box) < s.width * 0.065 ||
+            w(box) > s.width * 0.42 ||
+            h(box) < s.height * 0.018 ||
+            h(box) > s.height * 0.19 ||
+            w(box) / h(box) < 1.15 ||
+            w(box) / h(box) > 4.2
+          )
+            continue;
+          const tiles = texture(gray, s.width, box);
+          if (tiles < 7) continue;
+          const match = all.find((existing) =>
+            sameStructuralCandidate(existing, box),
+          );
+          if (match) {
+            // Retain the union as uncertainty, never select the tightest threshold box.
+            match.left = Math.min(match.left, box.left);
+            match.top = Math.min(match.top, box.top);
+            match.right = Math.max(match.right, box.right);
+            match.bottom = Math.max(match.bottom, box.bottom);
+            match.support++;
+            match.textureTiles = Math.min(match.textureTiles, tiles);
+          } else all.push({ ...box, textureTiles: tiles, support: 1 });
+        }
       }
-    }
   }
   all.sort((a, b) => b.support - a.support || a.top - b.top || a.left - b.left);
   return {

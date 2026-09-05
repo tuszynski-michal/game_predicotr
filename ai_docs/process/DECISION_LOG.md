@@ -7933,3 +7933,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   wymaganej użyteczności. Nie poszerzamy przedziałów referencji pod wynik.
 - **Consequences:** v11 nieaktywny; nowe zdjęcia są już ujawnione. Nie uznajemy
   tej poprawki za zamknięcie taska ani zgodę na ponowne przeliczenie katalogów.
+
+## D-361 — Nachylone etykiety i zachowanie niezależnej bramki
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** na kolejne zlecenie naprawy wdrożono poziomą dylatację oraz
+  analizę etykiet w nachyleniu rzędu, bez obracania zapisywanego zdjęcia.
+  Początkowy bufor zwiększono z 15% do 20% dla ochrony skrajnych numerów;
+  zamrożonych przedziałów jakości nie poszerzano pod wynik.
+- **Evidence:** znana próba osiągnęła 9/10, ale nowa próba 5/7, jeden wynik
+  za ciasny względem chronionego dołu i jeden manual. Nie osiągnięto odbioru.
+- **Consequences:** release=false, task otwarty. Nie przedstawiamy wyniku
+  rozwojowego jako potwierdzenia jakości produkcyjnej; gra literowa nadal
+  nie ma potwierdzonego odbioru. Katalogi operatora pozostają bez zmian.

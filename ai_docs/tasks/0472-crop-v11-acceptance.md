@@ -1,6 +1,6 @@
 # TASK-0472 — Odbiór v11
 ## Status
-blocked — second quality gate failed
+blocked — third independent quality gate failed
 ## Relevant docs
 - `ai_docs/quality/SELECTED_CROP_V11_REGRESSIONS.md`
 - `ai_docs/requirements/MANUAL_IMAGE_SELECTION.md`
@@ -13,6 +13,27 @@ automatów na czytelnych kompletnych źródłach. Raport osobno dla wyglądów g
 czasy/pamięć, testy core/Admin, lint/typecheck/format/build. Brak oryginałów
 innej gry ogranicza odbiór. Nie aktywować jeśli bramka nie przejdzie.
 ## Outcome
+### Iteracja v0.10.185
+
+- Dodano poziomo wydłużony element łączenia krawędzi (aspekty 1 i 2), bez
+  syntetycznych brakujących plansz i bez zmiany budżetów 960/1600, 96 kandydatów.
+- Analiza etykiety używa nachylenia wykrytego rzędu. Zakres wyszukiwania jest
+  przeliczany do tej samej przestrzeni; wynik wraca do współrzędnych źródła.
+  Dowód przejść dotyczy całego pasa, więc pełne białe wiersze pogrubionych cyfr
+  nie znikają. Nie obracamy wyniku JPEG. Bufor początkowy zwiększono 15%→20%.
+- Znana dziesiątka: 9/10 poprawnych, zero błędnych automatów, 1 manual.
+- Zamrożona przed oceną nowa próba z siedmiu pozostałych katalogów: 5/7
+  poprawnych, 1 z dolną linią ponad chronionym zakresem referencji, 1 manual.
+  Bramka NIE przeszła; nie aktywowano v11 ani nie zakończono zadania.
+- 101 testów core/runner/Admin i typecheck obu pionów OK. Dodano test nachylenia,
+  zachowania pełnych pasów cyfr i mapowania ich obwiedni. Zmiana oczekiwanego
+  paddingu w teście wynika z jawnej konfiguracji 20%, nie zmiany referencji zdjęć.
+- Produkcyjny build Admina i format zmienionych plików przeszły. Pełny lint
+  niezwiązanych modułów nie był ponawiany; znane wcześniejsze błędy poza zakresem.
+- Nie zmieniono istniejących katalogów, OCR, geometrii ani jobów. Brak odbioru
+  gry literowej pozostaje ograniczeniem. Nowe 7 zdjęć jest już ujawnione;
+  nie wolno przedstawiać ich ponownie jako holdout po dalszym strojeniu.
+
 ### Iteracja naprawcza — v0.10.184
 
 Usunięto sztuczny margines dylatacji z pomiaru wsparcia planszy (z ochroną

@@ -3,6 +3,7 @@ import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import sharp from 'sharp';
+import { independentCropReferences } from '../packages/manual-image-selection-core/test/fixtures/selected-crop-v11-independent.mjs';
 const deadline = setTimeout(() => process.exit(2), 120000);
 try {
   const root = process.argv[2],
@@ -15,6 +16,8 @@ try {
     '45163 - 70371',
     '200575 - 222912',
   ]);
+  if (process.argv[4] === 'third')
+    for (const ref of independentCropReferences) excluded.add(ref.directory);
   const dirs = (await readdir(root, { withFileTypes: true }))
     .filter(
       (d) =>

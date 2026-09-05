@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { independentCropReferences } from '../packages/manual-image-selection-core/test/fixtures/selected-crop-v11-independent.mjs';
+import { thirdCropReferences } from '../packages/manual-image-selection-core/test/fixtures/selected-crop-v11-third.mjs';
 import { renderCropSource } from './lib/selected-crop-durable-runner.mjs';
 import {
   CROP_V11_POLICY,
@@ -11,7 +12,9 @@ import {
 const deadline = setTimeout(() => process.exit(2), 120000);
 try {
   const rows = [];
-  for (const ref of independentCropReferences) {
+  for (const ref of process.argv[3] === 'third'
+    ? thirdCropReferences
+    : independentCropReferences) {
     const bytes = await readFile(
       path.join(process.argv[2], ref.directory, ref.fileName),
     );

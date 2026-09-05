@@ -158,3 +158,41 @@ Nowy zbiór jest już ujawniony; nie wolno używać go do strojenia, a następni
 ponownie nazywać niezależnym. Odbiór gry literowej nadal niepotwierdzony.
 Kontrole: 100 testów core/runner/Admin, oba typechecki, format i build Admina OK.
 Nie wykonywano live QA ani pełnych testów pozostałych pionów aplikacji.
+
+## Iteracja v0.10.185 — wynik rozwojowy 90%, niezależny odbiór nieprzejściowy
+
+Nowa ścieżka łączenia krawędzi ma aspekty 1/2, a analiza numerów uwzględnia
+nachylenie rzędu, pełne białe wiersze cyfr i powrót obwiedni do pikseli źródła.
+Bufor wzrósł z początkowych 15% do 20%. Konfigurację zamrożono przed odczytem
+wyników nowej próby. Znany corpus 10 zdjęć dał 9 poprawnych automatów i jeden
+manual (189073), bez błędnych automatów. Jest to wynik rozwojowy, nie holdout.
+
+Nowa próba to medianowe JPEG-i ze WSZYSTKICH siedmiu pozostałych niewykorzystanych
+katalogów. Nie odrzucono żadnego po zobaczeniu wyniku. Referencje poziomego pasa
+oznaczono wizualnie przed wykonaniem detektora w podglądach 360×640 i utrwalono
+z SHA w `selected-crop-v11-third.mjs`. Ten sam oracle, tolerancja 2 px wyłącznie
+dla przedziałów linii; zachowanie chronionej zawartości sprawdzane oddzielnie.
+
+| Źródło | Wynik | Linie w podglądzie 360×640 |
+| --- | --- | --- |
+| 359632–359640 | poprawny | 171 / 333.67 |
+| 383716–383724 | dół ponad chronioną referencją | 167.57 / 326.39 |
+| 400141–400149 | poprawny | 164.02 / 319.29 |
+| 425170–425178 | poprawny | 150.77 / 315.74 |
+| 445744–445752 | poprawny | 150.77 / 322.37 |
+| 465400–465408 | poprawny | 161.42 / 324.02 |
+| 488530–488538 | manual: incomplete_layout | pełne źródło |
+
+Wynik 5/7 = 71.43%, jeden niepoprawny automat, jeden manual. Chroniony dół dla
+383716 wynosi 330; nie zmieniono referencji, żeby zaliczyć wynik 326.39.
+Brak cropa samej reklamy nie wystarcza do przejścia bramki. Release pozostaje false.
+Pomiar na tym materiale 0.61–2.88 s/zdjęcie, około 9.96 s łącznie; obejmuje render
+w pamięci, bez zapisu cropów, i nie stanowi obietnicy czasu dużego katalogu.
+
+Odtworzenie (jedna komenda):
+`node --experimental-strip-types scripts/check_crop_v11_independent.mjs "C:\Users\user\Documents\777" third`.
+Wyniki trafiają na stdout. Obrazy w katalogach źródłowych i cut nie są zmieniane.
+Nowy zbiór jest odtąd ujawniony. Odbiór innej gry nadal niepotwierdzony.
+
+Kontrole: 101 testów core/runner/Admin contract, oba typechecki oraz format OK.
+Nie wykonano live QA ani pełnych testów niezwiązanych obszarów aplikacji.

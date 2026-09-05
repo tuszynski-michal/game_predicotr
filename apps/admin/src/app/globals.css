@@ -1987,6 +1987,21 @@ nav {
   background: var(--accent);
 }
 
+.selectedImageCropTileBadge.isCertain {
+  color: #052e22;
+  background: #6ee7b7;
+}
+
+.selectedImageCropTileBadge.isConservative {
+  color: #2e2100;
+  background: #fde68a;
+}
+
+.selectedImageCropTileBadge.isWide {
+  color: #450a0a;
+  background: #fecaca;
+}
+
 .manualImageSelectionViewer:fullscreen .manualImageSelectionImageFrame {
   min-height: 0;
   height: auto;

@@ -234,6 +234,22 @@ odrzucany na rzecz `safe_wide`. Adapter mapuje granice proporcjonalnie na
 kanoniczne piksele źródła. Cache propozycji jest ograniczony do bieżącej sesji
 i związany z nazwą, rozmiarem oraz mtime źródła.
 
+Proweniencja propozycji jest częścią `SelectedImageCropResult` w shardzie, a
+nie osobnym globalnym plikiem. Zawiera dokładną politykę, klasę, confidence,
+lokalne granice obu rodzin sygnału, wykorzystane pasy, IoU, informację o
+rozszerzeniu granicy i reason code fallbacku. Ta sama proweniencja znajduje się
+w operacji oczekującej, dlatego recovery po zapisie JPEG-a finalizuje dokładnie
+ten sam wynik.
+
+Mały session journal przypina `preparationPolicyVersion`. Nowa sesja zaczyna z
+v4, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
+bez zgadywania wersji. Taka sesja nie przygotuje brakujących plików nową
+polityką, dopóki operator jawnie nie uruchomi przeliczenia. Recalculator
+wyprowadza zamknięty zbiór nazw z shardów i review state; chroni `reviewed`,
+`corrected` oraz `needs_correction`, a każdy dopuszczony wynik zastępuje przez
+istniejący checksum-bound journal. Po przypięciu v4 zwykłe wznowienie może
+przygotować pozostałe, dotąd brakujące wyniki.
+
 Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma
 szerokość obrazu kanonicznego i wysokość wybranego pasa, a `drawImage` kopiuje
 ten obszar w skali 1:1. Wynik jest JPEG-em jakości 0.98. Operacja przebiega jako

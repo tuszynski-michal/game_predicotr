@@ -572,6 +572,20 @@ rozszerza crop na zewnątrz. Kandydat niższy niż 40% obrazu nie jest używany.
 Brak wystarczającego dowodu daje jawny `safe_wide` równy 5–95% wysokości.
 Propozycja nie jest decyzją i zawsze pozostaje edytowalna dwiema liniami.
 
+Każdy nowy wynik zapisuje w swoim shardzie wersję polityki, klasę
+`high_confidence | conservative | safe_wide`, confidence, lokalne granice,
+użyte rodziny sygnału oraz powód fallbacku. Kafelki pokazują odpowiednio
+`Pewne`, `Zachowawcze` albo `Szerokie — sprawdź`, a filtr `Niepewne` obejmuje
+dwie ostatnie klasy. Wynik historyczny bez tej proweniencji pozostaje czytelny
+i nie jest automatycznie przeliczany.
+
+Jawna akcja `Przelicz nieprzejrzane nowym detektorem` może przełączyć
+rozpoczętą sesję na v4. Obejmuje wyłącznie wyniki nieprzejrzane, niepoprawione
+ręcznie i niezaznaczone do poprawy, a następnie przygotowuje brakujące pliki.
+Każda zmiana ponownie sprawdza SHA-256 źródła i bieżącego wyniku oraz przechodzi
+przez ten sam journal co pojedyncza poprawka. Akcja nigdy nie zmienia wyników
+zaakceptowanych przez operatora.
+
 Narzędzie usuwa wyłącznie obszar nad górną i pod dolną przeciąganą linią.
 Zachowuje pełną szerokość, kanoniczną orientację EXIF, perspektywę oraz
 rozdzielczość 1:1 wybranego pasa. Nie wykonuje obrotu, homografii, prostowania

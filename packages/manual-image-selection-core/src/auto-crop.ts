@@ -19,12 +19,38 @@ export type SelectedImageAutoCropStrategy = 'multicolumn_panel' | 'safe_wide';
 export type SelectedImageAutoCropClassification =
   'high_confidence' | 'conservative' | 'safe_wide';
 
+export type SelectedImageAutoCropSignal = 'chromatic' | 'structural';
+
+export type SelectedImageAutoCropFallbackReason =
+  'no_wide_evidence' | 'crop_too_short' | 'invalid_bounds' | null;
+
+export interface SelectedImageAutoCropLocalBoundary {
+  readonly signal: SelectedImageAutoCropSignal;
+  readonly stripIndex: number;
+  readonly topRatio: number;
+  readonly bottomRatio: number;
+}
+
+export interface SelectedImageAutoCropEvidence {
+  readonly sampleWidth: number;
+  readonly sampleHeight: number;
+  readonly localBounds: readonly SelectedImageAutoCropLocalBoundary[];
+  readonly chromaticCandidateCount: number;
+  readonly structuralCandidateCount: number;
+  readonly chromaticSupportedStrips: readonly number[];
+  readonly structuralSupportedStrips: readonly number[];
+  readonly evidenceIoU: number | null;
+  readonly boundaryExpanded: boolean;
+  readonly fallbackReason: SelectedImageAutoCropFallbackReason;
+}
+
 export interface SelectedImageAutoCropProposal {
   readonly crop: SelectedImageCropBand;
   readonly strategy: SelectedImageAutoCropStrategy;
   readonly classification: SelectedImageAutoCropClassification;
   readonly confidence: number;
   readonly policyVersion: typeof SELECTED_IMAGE_AUTO_CROP_POLICY;
+  readonly evidence: SelectedImageAutoCropEvidence;
 }
 
 export interface SelectedImageAutoCropSample {
@@ -65,7 +91,12 @@ export function detectSelectedImageCropBand(
   const chromaticCandidates = signalCandidates(chromatic, height, 0.075);
   const structuralCandidates = signalCandidates(structural, height, 0.085);
   const selected = selectEvidence(chromaticCandidates, structuralCandidates);
-  if (selected === null) return safeWideProposal(source);
+  if (selected === null)
+    return safeWideProposal(source, width, height, {
+      chromaticCandidateCount: chromaticCandidates.length,
+      structuralCandidateCount: structuralCandidates.length,
+      fallbackReason: 'no_wide_evidence',
+    });
 
   const localBounds = selected.candidates.flatMap(
     (candidate) => candidate.localBounds,
@@ -81,10 +112,17 @@ export function detectSelectedImageCropBand(
       0.9,
     ) + Math.round(height * SELECTED_IMAGE_AUTO_CROP_BOTTOM_PADDING_RATIO);
   const broadContent = broadContentRows(chromatic, structural, height);
+  const initialTop = top;
+  const initialBottom = bottom;
   [top, bottom] = expandPastBoundaryContent(top, bottom, broadContent, height);
   top = Math.max(0, top);
   bottom = Math.min(height, bottom + 1);
-  if ((bottom - top) / height < 0.4) return safeWideProposal(source);
+  if ((bottom - top) / height < 0.4)
+    return safeWideProposal(source, width, height, {
+      chromaticCandidateCount: chromaticCandidates.length,
+      structuralCandidateCount: structuralCandidates.length,
+      fallbackReason: 'crop_too_short',
+    });
 
   try {
     return {
@@ -97,15 +135,47 @@ export function detectSelectedImageCropBand(
       classification: selected.classification,
       confidence: Number(selected.confidence.toFixed(3)),
       policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
+      evidence: buildEvidence({
+        width,
+        height,
+        chromaticCandidates,
+        structuralCandidates,
+        selected,
+        boundaryExpanded: top !== initialTop || bottom !== initialBottom,
+        fallbackReason: null,
+      }),
     };
   } catch {
-    return safeWideProposal(source);
+    return safeWideProposal(source, width, height, {
+      chromaticCandidateCount: chromaticCandidates.length,
+      structuralCandidateCount: structuralCandidates.length,
+      fallbackReason: 'invalid_bounds',
+    });
   }
 }
 
 function safeWideProposal(
   source: SelectedImageDimensions,
+  sampleWidth: number,
+  sampleHeight: number,
+  summary: {
+    readonly chromaticCandidateCount: number;
+    readonly structuralCandidateCount: number;
+    readonly fallbackReason: Exclude<SelectedImageAutoCropFallbackReason, null>;
+  },
 ): SelectedImageAutoCropProposal {
+  const evidence: SelectedImageAutoCropEvidence = {
+    sampleWidth,
+    sampleHeight,
+    localBounds: [],
+    chromaticCandidateCount: summary.chromaticCandidateCount,
+    structuralCandidateCount: summary.structuralCandidateCount,
+    chromaticSupportedStrips: [],
+    structuralSupportedStrips: [],
+    evidenceIoU: null,
+    boundaryExpanded: false,
+    fallbackReason: summary.fallbackReason,
+  };
   try {
     return {
       crop: validateSelectedImageCropBand({
@@ -121,6 +191,7 @@ function safeWideProposal(
       classification: 'safe_wide',
       confidence: 0,
       policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
+      evidence,
     };
   } catch {
     return {
@@ -129,6 +200,7 @@ function safeWideProposal(
       classification: 'safe_wide',
       confidence: 0,
       policyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
+      evidence,
     };
   }
 }
@@ -265,6 +337,9 @@ function selectEvidence(
   structural: readonly SignalCandidate[],
 ): {
   readonly candidates: readonly SignalCandidate[];
+  readonly chromatic: SignalCandidate | null;
+  readonly structural: SignalCandidate | null;
+  readonly evidenceIoU: number | null;
   readonly classification: Exclude<
     SelectedImageAutoCropClassification,
     'safe_wide'
@@ -293,6 +368,9 @@ function selectEvidence(
   if (bestPair !== null && bestPair.iou >= 0.65) {
     return {
       candidates: [bestPair.chromatic, bestPair.structural],
+      chromatic: bestPair.chromatic,
+      structural: bestPair.structural,
+      evidenceIoU: bestPair.iou,
       classification: 'high_confidence',
       confidence: clamp01(
         0.72 +
@@ -309,6 +387,12 @@ function selectEvidence(
   );
   return {
     candidates,
+    chromatic: strongestColor,
+    structural: strongestStructure,
+    evidenceIoU:
+      strongestColor === null || strongestStructure === null
+        ? null
+        : intervalIoU(strongestColor, strongestStructure),
     classification: 'conservative',
     confidence: clamp01(
       0.42 +
@@ -316,6 +400,47 @@ function selectEvidence(
           candidates.length) *
           0.35,
     ),
+  };
+}
+
+function buildEvidence(input: {
+  readonly width: number;
+  readonly height: number;
+  readonly chromaticCandidates: readonly SignalCandidate[];
+  readonly structuralCandidates: readonly SignalCandidate[];
+  readonly selected: NonNullable<ReturnType<typeof selectEvidence>>;
+  readonly boundaryExpanded: boolean;
+  readonly fallbackReason: SelectedImageAutoCropFallbackReason;
+}): SelectedImageAutoCropEvidence {
+  const boundaries = (
+    signal: SelectedImageAutoCropSignal,
+    candidate: SignalCandidate | null,
+  ): readonly SelectedImageAutoCropLocalBoundary[] =>
+    candidate === null
+      ? []
+      : candidate.localBounds.map((boundary, index) => ({
+          signal,
+          stripIndex: candidate.supportedStrips[index] ?? index,
+          topRatio: Number((boundary.top / input.height).toFixed(6)),
+          bottomRatio: Number((boundary.bottom / input.height).toFixed(6)),
+        }));
+  return {
+    sampleWidth: input.width,
+    sampleHeight: input.height,
+    localBounds: [
+      ...boundaries('chromatic', input.selected.chromatic),
+      ...boundaries('structural', input.selected.structural),
+    ],
+    chromaticCandidateCount: input.chromaticCandidates.length,
+    structuralCandidateCount: input.structuralCandidates.length,
+    chromaticSupportedStrips: input.selected.chromatic?.supportedStrips ?? [],
+    structuralSupportedStrips: input.selected.structural?.supportedStrips ?? [],
+    evidenceIoU:
+      input.selected.evidenceIoU === null
+        ? null
+        : Number(input.selected.evidenceIoU.toFixed(6)),
+    boundaryExpanded: input.boundaryExpanded,
+    fallbackReason: input.fallbackReason,
   };
 }
 

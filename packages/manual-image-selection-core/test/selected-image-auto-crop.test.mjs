@@ -51,6 +51,11 @@ test('finds a tilted panel with independent support across the full width', () =
   assert.ok(result.crop.topY <= 420);
   assert.ok(result.crop.bottomY >= 1450);
   assert.ok(result.confidence >= 0.8);
+  assert.equal(result.evidence.fallbackReason, null);
+  assert.equal(result.evidence.sampleWidth, 180);
+  assert.ok(result.evidence.localBounds.length >= 10);
+  assert.ok(result.evidence.chromaticSupportedStrips.length >= 5);
+  assert.ok(result.evidence.structuralSupportedStrips.length >= 5);
 });
 
 test('does not let a local paytable or side light move the full crop', () => {
@@ -161,6 +166,8 @@ test('returns safe wide for a flat, blurred or otherwise unsupported image', () 
   assert.equal(result.strategy, 'safe_wide');
   assert.equal(result.classification, 'safe_wide');
   assert.equal(result.confidence, 0);
+  assert.equal(result.evidence.fallbackReason, 'no_wide_evidence');
+  assert.deepEqual(result.evidence.localBounds, []);
   assert.deepEqual(result.crop, {
     width: 1440,
     height: 1920,

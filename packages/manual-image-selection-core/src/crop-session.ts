@@ -32,6 +32,8 @@ export interface SelectedImageCropSessionV2 {
   readonly currentIndex: number;
   readonly pendingOperation: SelectedImageCropPendingOperation | null;
   readonly failures: readonly SelectedImageCropPreparationFailure[];
+  /** Null or absent identifies a historical session that predates policy pinning. */
+  readonly preparationPolicyVersion?: string | null;
   readonly updatedAt: string;
 }
 
@@ -83,6 +85,25 @@ export function selectedImageCropFileState(
   return 'queued';
 }
 
+export function selectedImageCropRecalculationFileNames(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+): readonly string[] {
+  const protectedNames = new Set([
+    ...snapshot.review.reviewedFileNames,
+    ...snapshot.review.correctedFileNames,
+    ...snapshot.review.correctionFileNames,
+  ]);
+  const preparedNames = new Set(
+    snapshot.shards.flatMap((shard) => Object.keys(shard.results)),
+  );
+  return snapshot.inventory.entries
+    .map((entry) => entry.fileName)
+    .filter(
+      (fileName) =>
+        preparedNames.has(fileName) && !protectedNames.has(fileName),
+    );
+}
+
 export function migrateSelectedImageCropManifestV1(
   manifest: SelectedImageCropManifestV1,
 ): SelectedImageCropSessionSnapshotV2 {
@@ -104,6 +125,7 @@ export function migrateSelectedImageCropManifestV1(
       currentIndex: manifest.currentIndex,
       pendingOperation: manifest.pendingOperation,
       failures: [],
+      preparationPolicyVersion: null,
       updatedAt: manifest.updatedAt,
     },
     review: {

@@ -5,7 +5,10 @@ import {
   validateSelectedImageCropBand,
   type SelectedImageCropBand,
 } from '@game-predictor/manual-image-selection-core/crop';
-import type { SelectedImageAutoCropProposal } from '@game-predictor/manual-image-selection-core/auto-crop';
+import {
+  SELECTED_IMAGE_AUTO_CROP_POLICY,
+  type SelectedImageAutoCropProposal,
+} from '@game-predictor/manual-image-selection-core/auto-crop';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -27,6 +30,7 @@ import {
   prepareAllSelectedImageCrops,
   prepareSelectedImageCropDirectory,
   proposeSelectedImageCrop,
+  recalculateUnreviewedSelectedImageCrops,
   saveSelectedImageCrop,
   setSelectedImageCropCorrection,
   type PreparedSelectedImageCropDirectory,
@@ -71,7 +75,7 @@ export function SelectedImageCropWorkspace() {
   const [atlasesRequested, setAtlasesRequested] = useState(false);
   const [atlasesLoading, setAtlasesLoading] = useState(false);
   const [reviewFilter, setReviewFilter] = useState<
-    'all' | 'correction' | 'failed'
+    'all' | 'uncertain' | 'correction' | 'failed'
   >('all');
   const [correctionMode, setCorrectionMode] = useState(false);
   const [initialView, setInitialView] = useState(EMPTY_VIEW);
@@ -117,6 +121,10 @@ export function SelectedImageCropWorkspace() {
   const failures = prepared?.snapshot.session.failures ?? [];
   const done =
     prepared?.snapshot.review.completedAt !== null && prepared !== null;
+  const policyRecalculationRequired =
+    prepared !== null &&
+    prepared.snapshot.session.preparationPolicyVersion !==
+      SELECTED_IMAGE_AUTO_CROP_POLICY;
   const applyPrepared = useCallback(
     (result: PreparedSelectedImageCropDirectory, requestedIndex: number) => {
       const index = Math.min(
@@ -198,6 +206,17 @@ export function SelectedImageCropWorkspace() {
           result.snapshot.review.completedAt === null
             ? 'Wszystkie cropy są przygotowane. Miniaturki wczytasz na żądanie.'
             : 'Przegląd jest zakończony. Możesz wybrać inny katalog.',
+        );
+        return;
+      }
+      if (
+        result.snapshot.session.preparationPolicyVersion !==
+        SELECTED_IMAGE_AUTO_CROP_POLICY
+      ) {
+        preparationAbortRef.current = null;
+        setPreparationProgress(null);
+        setNotice(
+          'To historyczna sesja. Użyj „Przelicz nieprzejrzane nowym detektorem”, aby jawnie przejść na v4 i przygotować brakujące pliki.',
         );
         return;
       }
@@ -542,8 +561,53 @@ export function SelectedImageCropWorkspace() {
       if (reviewFilter === 'correction')
         return correctionFileNames.has(entry.fileName);
       if (reviewFilter === 'failed') return failureNames.has(entry.fileName);
+      if (reviewFilter === 'uncertain')
+        return (
+          entry.result?.autoCropProposal?.classification === 'conservative' ||
+          entry.result?.autoCropProposal?.classification === 'safe_wide'
+        );
       return true;
     });
+
+  async function recalculateUnreviewed() {
+    if (prepared === null || preparationProgress !== null || busy) return;
+    preparationAbortRef.current?.abort();
+    const controller = new AbortController();
+    preparationAbortRef.current = controller;
+    setPreparationProgress({ completed: 0, total: images.length });
+    setError('');
+    setNotice(
+      'Przeliczam wyłącznie nieprzejrzane i niepoprawiane ręcznie cropy…',
+    );
+    try {
+      const result = await recalculateUnreviewedSelectedImageCrops(
+        prepared,
+        (progress) => {
+          if (controller.signal.aborted) return;
+          setPrepared(progress.prepared);
+          setPreparationProgress({
+            completed: progress.completed,
+            total: progress.total,
+          });
+        },
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
+      setPrepared(result.prepared);
+      setPreparationProgress(null);
+      if (atlasesRequestedRef.current) void rebuildAtlases(result.prepared);
+      setNotice(
+        result.failures.length === 0
+          ? 'Nieprzejrzane cropy przeliczono detektorem v4.'
+          : `Przeliczanie zakończone. Błędy: ${result.failures.length}.`,
+      );
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setPreparationProgress(null);
+        setError(errorMessage(cause));
+      }
+    }
+  }
 
   async function toggleCorrection(fileName: string) {
     if (prepared === null || busy) return;
@@ -828,6 +892,17 @@ export function SelectedImageCropWorkspace() {
                   </button>
                   <button
                     className={
+                      reviewFilter === 'uncertain'
+                        ? 'primaryButton'
+                        : 'secondaryButton'
+                    }
+                    onClick={() => setReviewFilter('uncertain')}
+                    type="button"
+                  >
+                    Niepewne
+                  </button>
+                  <button
+                    className={
                       reviewFilter === 'correction'
                         ? 'primaryButton'
                         : 'secondaryButton'
@@ -850,6 +925,16 @@ export function SelectedImageCropWorkspace() {
                   </button>
                 </div>
                 <strong>Zaznaczone: {correctionFileNames.size}</strong>
+                <button
+                  className="secondaryButton"
+                  disabled={busy || preparationProgress !== null || done}
+                  onClick={() => void recalculateUnreviewed()}
+                  type="button"
+                >
+                  {policyRecalculationRequired
+                    ? 'Przejdź na v4 i przelicz nieprzejrzane'
+                    : 'Przelicz nieprzejrzane nowym detektorem'}
+                </button>
                 <button
                   className="secondaryButton"
                   disabled={atlasesLoading || preparedCount === 0}
@@ -962,7 +1047,11 @@ export function SelectedImageCropWorkspace() {
                         <span className="selectedImageCropTileBadge isCorrected">
                           Poprawiony
                         </span>
-                      ) : null}
+                      ) : (
+                        <ProposalBadge
+                          proposal={entry.result?.autoCropProposal ?? null}
+                        />
+                      )}
                     </button>
                   );
                 })}
@@ -974,6 +1063,27 @@ export function SelectedImageCropWorkspace() {
       {notice !== '' ? <p className="noticeMessage">{notice}</p> : null}
       {error !== '' ? <p className="errorMessage">{error}</p> : null}
     </section>
+  );
+}
+
+function ProposalBadge({
+  proposal,
+}: {
+  readonly proposal: SelectedImageAutoCropProposal | null;
+}) {
+  if (proposal === null) return null;
+  if (proposal.classification === 'high_confidence')
+    return <span className="selectedImageCropTileBadge isCertain">Pewne</span>;
+  if (proposal.classification === 'conservative')
+    return (
+      <span className="selectedImageCropTileBadge isConservative">
+        Zachowawcze
+      </span>
+    );
+  return (
+    <span className="selectedImageCropTileBadge isWide">
+      Szerokie — sprawdź
+    </span>
   );
 }
 

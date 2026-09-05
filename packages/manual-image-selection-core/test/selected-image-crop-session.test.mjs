@@ -8,6 +8,7 @@ import {
   migrateSelectedImageCropManifestV1,
   recordSelectedImageCropFailure,
   selectedImageCropFileState,
+  selectedImageCropRecalculationFileNames,
   selectedImageCropShardIndex,
   updateSelectedImageCropCorrections,
 } from '../src/crop-session.ts';
@@ -143,4 +144,24 @@ test('derives every durable file state without duplicating it in shards', () => 
   assert.equal(selectedImageCropFileState(snapshot, preparedName), 'prepared');
   assert.equal(selectedImageCropFileState(snapshot, failedName), 'failed');
   assert.equal(selectedImageCropFileState(snapshot, queuedName), 'queued');
+});
+
+test('recalculates only prepared results untouched by review or correction', () => {
+  const migrated = migrateSelectedImageCropManifestV1(manifest(6));
+  const preparedNames = migrated.inventory.entries
+    .slice(0, 4)
+    .map((entry) => entry.fileName);
+  const snapshot = {
+    ...migrated,
+    review: {
+      ...migrated.review,
+      reviewedFileNames: [preparedNames[0]],
+      correctionFileNames: [preparedNames[1]],
+      correctedFileNames: [preparedNames[2]],
+    },
+  };
+  assert.deepEqual(selectedImageCropRecalculationFileNames(snapshot), [
+    preparedNames[3],
+  ]);
+  assert.equal(migrated.session.preparationPolicyVersion, null);
 });

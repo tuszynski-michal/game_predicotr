@@ -39,6 +39,7 @@ export async function prepareSelectedImageCropInWorker(
           readonly classification: SelectedImageAutoCropProposal['classification'];
           readonly confidence: number;
           readonly policyVersion: SelectedImageAutoCropProposal['policyVersion'];
+          readonly evidence: SelectedImageAutoCropProposal['evidence'];
           readonly blob: Blob;
         };
         readonly error?: string;
@@ -62,6 +63,7 @@ export async function prepareSelectedImageCropInWorker(
           classification: result.classification,
           confidence: result.confidence,
           policyVersion: result.policyVersion,
+          evidence: result.evidence,
         },
         rendered: {
           blob: result.blob,

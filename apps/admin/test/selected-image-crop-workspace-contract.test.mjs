@@ -48,6 +48,11 @@ test('crop review provides an atlas grid and opens only selected corrections in 
   assert.match(workspace, /setSelectedImageCropCorrection/u);
   assert.match(workspace, /Ponów błędne/u);
   assert.match(workspace, /Zatwierdź i zakończ przegląd/u);
+  assert.match(workspace, /Przelicz nieprzejrzane nowym detektorem/u);
+  assert.match(workspace, /Niepewne/u);
+  assert.match(workspace, /Pewne/u);
+  assert.match(workspace, /Zachowawcze/u);
+  assert.match(workspace, /Szerokie — sprawdź/u);
 });
 
 test('shared viewer overlay is optional and preserves existing image rendering', () => {

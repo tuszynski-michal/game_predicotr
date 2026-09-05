@@ -167,6 +167,86 @@ test('journals and deterministically recovers a crop write', () => {
   assert.equal(completed.pendingOperation, null);
 });
 
+test('persists automatic proposal provenance and preserves it on manual correction', () => {
+  const manifest = createSelectedImageCropManifest({
+    sourceDirectoryName: 'picked',
+    outputDirectoryName: 'picked cut',
+    sourceInventoryChecksumSha256: HASH_A,
+    entries: [
+      {
+        fileName: 'seq_1-9.jpg',
+        sizeBytes: 10,
+        lastModifiedMs: 1,
+        rangeStart: 1,
+        rangeEnd: 9,
+      },
+    ],
+    now: '2026-09-05T10:00:00.000Z',
+  });
+  const proposal = {
+    crop: { width: 1440, height: 1920, topY: 200, bottomY: 1700 },
+    strategy: 'multicolumn_panel',
+    classification: 'conservative',
+    confidence: 0.71,
+    policyVersion: 'selected-image-board-band-v4-conservative-multicolumn',
+    evidence: {
+      sampleWidth: 360,
+      sampleHeight: 480,
+      localBounds: [
+        {
+          signal: 'chromatic',
+          stripIndex: 0,
+          topRatio: 0.2,
+          bottomRatio: 0.8,
+        },
+      ],
+      chromaticCandidateCount: 1,
+      structuralCandidateCount: 1,
+      chromaticSupportedStrips: [0, 1, 2, 3, 4],
+      structuralSupportedStrips: [0, 1, 2, 3, 4],
+      evidenceIoU: 0.7,
+      boundaryExpanded: false,
+      fallbackReason: null,
+    },
+  };
+  const automatic = finalizeSelectedImageCropWrite(
+    beginSelectedImageCropWrite(
+      manifest,
+      {
+        kind: 'write_crop',
+        fileName: 'seq_1-9.jpg',
+        expectedSourceChecksumSha256: HASH_A,
+        expectedOutputChecksumSha256: HASH_B,
+        crop: proposal.crop,
+        startedAt: '2026-09-05T10:01:00.000Z',
+        replacesOutputChecksumSha256: null,
+        markReviewed: false,
+        autoCropProposal: proposal,
+      },
+      '2026-09-05T10:01:00.000Z',
+    ),
+    '2026-09-05T10:02:00.000Z',
+  );
+  assert.deepEqual(automatic.entries[0].result?.autoCropProposal, proposal);
+  const corrected = finalizeSelectedImageCropWrite(
+    beginSelectedImageCropWrite(
+      automatic,
+      {
+        kind: 'write_crop',
+        fileName: 'seq_1-9.jpg',
+        expectedSourceChecksumSha256: HASH_A,
+        expectedOutputChecksumSha256: HASH_A,
+        crop: { ...proposal.crop, topY: 180 },
+        startedAt: '2026-09-05T10:03:00.000Z',
+        replacesOutputChecksumSha256: HASH_B,
+      },
+      '2026-09-05T10:03:00.000Z',
+    ),
+    '2026-09-05T10:04:00.000Z',
+  );
+  assert.deepEqual(corrected.entries[0].result?.autoCropProposal, proposal);
+});
+
 test('uses a separate compatible output for the filled-gaps handoff', () => {
   const manifest = createSelectedImageCropManifest({
     sourceDirectoryName: 'picked',

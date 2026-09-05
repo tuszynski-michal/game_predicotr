@@ -62,6 +62,14 @@ test('preparation prefers an off-main-thread worker with a safe fallback', () =>
   assert.match(source, /proposeSelectedImageCrop\(source\)/u);
 });
 
+test('proposal provenance is persisted and historical sessions require an explicit v4 recalculation', () => {
+  assert.match(source, /autoCropProposal: proposal/u);
+  assert.match(source, /preparationPolicyVersion/u);
+  assert.match(source, /SELECTED_IMAGE_CROP_POLICY_RECALCULATION_REQUIRED/u);
+  assert.match(source, /recalculateUnreviewedSelectedImageCrops/u);
+  assert.match(source, /selectedImageCropRecalculationFileNames/u);
+});
+
 test('output ownership rejects foreign files and source mutation', () => {
   assert.match(source, /SELECTED_IMAGE_CROP_OUTPUT_NOT_EMPTY/u);
   assert.match(source, /SELECTED_IMAGE_CROP_OUTPUT_FOREIGN/u);

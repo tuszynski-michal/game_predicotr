@@ -2,6 +2,7 @@ import {
   sortAndValidateSequenceFiles,
   type ParsedSequenceFile,
 } from '@game-predictor/manual-image-selection-core/repair';
+import type { SelectedImageAutoCropProposal } from './auto-crop.ts';
 
 export const SELECTED_IMAGE_CROP_SCHEMA_VERSION = 1 as const;
 export const SELECTED_IMAGE_CROP_RENDERER =
@@ -38,6 +39,8 @@ export interface SelectedImageCropResult {
   readonly sourceChecksumSha256: string;
   readonly outputChecksumSha256: string;
   readonly acceptedAt: string;
+  /** Absent on historical results created before proposal provenance v4. */
+  readonly autoCropProposal?: SelectedImageAutoCropProposal;
 }
 
 export interface SelectedImageCropManifestEntry extends SelectedImageCropSourceEntry {
@@ -53,6 +56,7 @@ export interface SelectedImageCropPendingOperation {
   readonly startedAt: string;
   readonly replacesOutputChecksumSha256: string | null;
   readonly markReviewed?: boolean;
+  readonly autoCropProposal?: SelectedImageAutoCropProposal;
 }
 
 export interface SelectedImageCropManifestV1 {
@@ -235,6 +239,8 @@ export function validateSelectedImageCropManifest(
       validateSelectedImageCropBand(entry.result.crop);
       assertSha256(entry.result.sourceChecksumSha256);
       assertSha256(entry.result.outputChecksumSha256);
+      if (entry.result.autoCropProposal !== undefined)
+        validateSelectedImageAutoCropProposal(entry.result.autoCropProposal);
     }
   }
   const reviewedFileNames = selectedImageCropReviewedFileNames(manifest);
@@ -253,6 +259,10 @@ export function validateSelectedImageCropManifest(
     validateSelectedImageCropBand(manifest.pendingOperation.crop);
     assertSha256(manifest.pendingOperation.expectedSourceChecksumSha256);
     assertSha256(manifest.pendingOperation.expectedOutputChecksumSha256);
+    if (manifest.pendingOperation.autoCropProposal !== undefined)
+      validateSelectedImageAutoCropProposal(
+        manifest.pendingOperation.autoCropProposal,
+      );
   }
   return manifest;
 }
@@ -308,6 +318,8 @@ export function finalizeSelectedImageCropWrite(
   );
   if (index < 0) throw new Error('SELECTED_IMAGE_CROP_SOURCE_UNKNOWN');
   const entries = [...manifest.entries];
+  const autoCropProposal =
+    pending.autoCropProposal ?? entries[index]!.result?.autoCropProposal;
   entries[index] = {
     ...entries[index]!,
     result: {
@@ -316,6 +328,7 @@ export function finalizeSelectedImageCropWrite(
       sourceChecksumSha256: pending.expectedSourceChecksumSha256,
       outputChecksumSha256: pending.expectedOutputChecksumSha256,
       acceptedAt: now,
+      ...(autoCropProposal === undefined ? {} : { autoCropProposal }),
     },
   };
   const reviewedFileNames = new Set(
@@ -331,6 +344,54 @@ export function finalizeSelectedImageCropWrite(
     pendingOperation: null,
     updatedAt: now,
   };
+}
+
+function validateSelectedImageAutoCropProposal(
+  proposal: SelectedImageAutoCropProposal,
+): void {
+  validateSelectedImageCropBand(proposal.crop);
+  const evidence = proposal.evidence;
+  if (
+    proposal.policyVersion !==
+      'selected-image-board-band-v4-conservative-multicolumn' ||
+    !['high_confidence', 'conservative', 'safe_wide'].includes(
+      proposal.classification,
+    ) ||
+    !['multicolumn_panel', 'safe_wide'].includes(proposal.strategy) ||
+    !Number.isFinite(proposal.confidence) ||
+    proposal.confidence < 0 ||
+    proposal.confidence > 1 ||
+    evidence === null ||
+    typeof evidence !== 'object' ||
+    !Number.isInteger(evidence.sampleWidth) ||
+    !Number.isInteger(evidence.sampleHeight) ||
+    evidence.sampleWidth <= 0 ||
+    evidence.sampleHeight <= 0 ||
+    !Number.isInteger(evidence.chromaticCandidateCount) ||
+    !Number.isInteger(evidence.structuralCandidateCount) ||
+    evidence.chromaticCandidateCount < 0 ||
+    evidence.structuralCandidateCount < 0 ||
+    !Array.isArray(evidence.localBounds) ||
+    !Array.isArray(evidence.chromaticSupportedStrips) ||
+    !Array.isArray(evidence.structuralSupportedStrips) ||
+    ![null, 'no_wide_evidence', 'crop_too_short', 'invalid_bounds'].includes(
+      evidence.fallbackReason,
+    ) ||
+    evidence.localBounds.some(
+      (boundary) =>
+        !['chromatic', 'structural'].includes(boundary.signal) ||
+        !Number.isInteger(boundary.stripIndex) ||
+        boundary.stripIndex < 0 ||
+        boundary.stripIndex > 8 ||
+        !Number.isFinite(boundary.topRatio) ||
+        !Number.isFinite(boundary.bottomRatio) ||
+        boundary.topRatio < 0 ||
+        boundary.bottomRatio > 1 ||
+        boundary.bottomRatio < boundary.topRatio,
+    )
+  ) {
+    throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
+  }
 }
 
 export function selectedImageCropReviewedFileNames(

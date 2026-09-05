@@ -7714,3 +7714,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   dowodu bez OCR ani modelu ML. Istniejące cropy nie są automatycznie
   przeliczane; trwała proweniencja i jawne przeliczenie nieprzejrzanych wyników
   należą do następnego taska.
+
+### D-345 — Zmiana polityki auto-cropa istniejącej sesji wymaga jawnego przeliczenia
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** nowa sesja przypina v4 w małym journalu, a każdy wynik zapisuje
+  pełną proweniencję propozycji w swoim shardzie. Historyczny brak wersji jest
+  stanem legacy. Przejście na v4 następuje tylko przez akcję obejmującą
+  nieprzejrzane wyniki; review, ręczna korekta i zaznaczenie do poprawy chronią
+  plik przed zastąpieniem.
+- **Reason:** automatyczne użycie nowego detektora po restarcie mogłoby po cichu
+  wymieszać polityki w rozpoczętym katalogu albo nadpisać decyzję operatora.
+- **Consequences:** rozpoczęta historyczna sesja może być oglądana bez zmian,
+  lecz przygotowanie brakujących plików wymaga jawnego przejścia na v4. Każde
+  przeliczenie nadal sprawdza źródło i istniejący wynik checksumą oraz korzysta
+  z wznawialnego journalu.

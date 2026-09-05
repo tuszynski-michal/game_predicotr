@@ -39,6 +39,7 @@ async function prepare(request: PrepareRequest): Promise<{
   readonly classification: SelectedImageAutoCropClassification;
   readonly confidence: number;
   readonly policyVersion: typeof SELECTED_IMAGE_AUTO_CROP_POLICY;
+  readonly evidence: ReturnType<typeof detectSelectedImageCropBand>['evidence'];
   readonly blob: Blob;
 }> {
   const bitmap = await createImageBitmap(request.source, {

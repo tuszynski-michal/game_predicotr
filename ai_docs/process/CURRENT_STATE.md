@@ -6,6 +6,18 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Trwała proweniencja i jawne przeliczanie auto-cropa — TASK-0455
+
+- Nowe wyniki v4 zapisują w shardzie klasę, confidence, lokalne granice,
+  rodziny sygnału, IoU, rozszerzenie granicy i reason code fallbacku. Operacja
+  oczekująca zachowuje te same dane na potrzeby recovery.
+- Historyczna sesja bez przypiętej polityki pozostaje czytelna, ale nie miesza
+  automatycznie starych wyników z v4. Operator może jawnie przeliczyć wyłącznie
+  nieprzejrzane i niepoprawiane wyniki; checksum-bound journal chroni źródła,
+  bieżące JPEG-i oraz decyzje ręczne.
+- Grid pokazuje badge `Pewne`, `Zachowawcze`, `Szerokie — sprawdź` i filtr
+  `Niepewne`. Nie wykonano przeliczenia żadnego katalogu użytkownika.
+
 ### Wielokolumnowy auto-crop wybranych zdjęć — TASK-0454
 
 - Polityka `selected-image-board-band-v4-conservative-multicolumn` analizuje

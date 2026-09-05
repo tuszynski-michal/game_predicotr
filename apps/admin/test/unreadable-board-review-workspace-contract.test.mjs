@@ -26,6 +26,10 @@ test('renders the whole topology and exposes both unreadable resolutions', () =>
 });
 
 test('binds each decision to the exact crop revision and checksum', () => {
+  assert.match(
+    source,
+    /cell\.cropChecksumSha256,\s+cell\.renderSpecChecksumSha256/,
+  );
   assert.match(source, /expectedCropChecksumSha256: cell\.cropChecksumSha256/);
   assert.match(source, /expectedCropSampleId: cell\.cropSampleId/);
   assert.match(source, /expectedGeometryRevision: cell\.geometryRevision/);

@@ -317,6 +317,7 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
                       gameId,
                       cell.cellReviewId,
                       cell.cropChecksumSha256,
+                      cell.renderSpecChecksumSha256,
                     )}
                   />
                   <span className={styles.position}>

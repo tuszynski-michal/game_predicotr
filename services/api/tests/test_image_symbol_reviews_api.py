@@ -447,6 +447,7 @@ class MemoryUnreadableBoardReviewRepository:
                     geometry_revision=1,
                     crop_sample_id="b" * 64,
                     crop_checksum_sha256="a" * 64,
+                    render_spec_checksum_sha256="c" * 64 if index == 3 else None,
                 )
                 for index in range(8)
             ),
@@ -681,6 +682,8 @@ def test_unreadable_board_endpoints_preserve_topology_and_assignment_kind(
     assert detail.json()["gridRows"] == 2
     assert detail.json()["gridColumns"] == 4
     assert len(detail.json()["cells"]) == 8
+    assert detail.json()["cells"][3]["renderSpecChecksumSha256"] == "c" * 64
+    assert detail.json()["cells"][0]["renderSpecChecksumSha256"] is None
     assert unknown.status_code == 200
     assert symbol.status_code == 200
     assert unreadable.commands[0].target_symbol_id is None

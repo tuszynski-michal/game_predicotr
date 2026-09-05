@@ -11699,6 +11699,10 @@ export type UnreadableBoardReviewCellResponse = {
    */
   qualityIssue: string | null;
   /**
+   * Renderspecchecksumsha256
+   */
+  renderSpecChecksumSha256?: string | null;
+  /**
    * Reviewstate
    */
   reviewState: string;

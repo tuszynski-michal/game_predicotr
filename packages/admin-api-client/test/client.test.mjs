@@ -2321,6 +2321,22 @@ test('symbol cell review client binds the keyset filter and checksum asset URL',
     client.symbolCellReviewAssetUrl(gameId, cellReviewId, checksum),
     `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/symbol-cell-reviews/${cellReviewId}/asset?expectedCropChecksumSha256=${checksum}&thumbnailSize=100`,
   );
+  const virtualUrl = new URL(
+    client.symbolCellReviewAssetUrl(
+      gameId,
+      cellReviewId,
+      checksum,
+      'b'.repeat(64),
+    ),
+  );
+  assert.equal(
+    virtualUrl.searchParams.get('expectedCropChecksumSha256'),
+    checksum,
+  );
+  assert.equal(
+    virtualUrl.searchParams.get('expectedRenderSpecChecksumSha256'),
+    'b'.repeat(64),
+  );
 });
 
 test('symbol cell review client reads and starts durable projection preparation', async () => {

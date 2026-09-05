@@ -53,6 +53,7 @@ class UnreadableBoardReviewCell:
     geometry_revision: int
     crop_sample_id: str
     crop_checksum_sha256: str
+    render_spec_checksum_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

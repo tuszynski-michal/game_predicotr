@@ -529,6 +529,10 @@ toolbara: jest stały około 50 px od lewego i dolnego brzegu viewportu.
 
 ### Weryfikacja symbolu na planszy
 
+Miniatury wirtualne przekazują aktualne `renderSpecChecksumSha256` z detailu
+obok checksummy cropa. Dla plikowych cropów pole jest null i zachowuje się
+dotychczasowy adres. Nie wolno omijać walidacji tożsamości renderowania.
+
 Sekcja w obrębie wybranej gry rozwiązuje cropy oznaczone jako nieczytelne w
 kontekście całej logicznej planszy. Domyślny widok `Do ustalenia` zawiera tylko
 bieżących właścicieli mających co najmniej jedno `unreadable + pending`;

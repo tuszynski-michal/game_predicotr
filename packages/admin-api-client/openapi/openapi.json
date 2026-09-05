@@ -20616,6 +20616,18 @@
             ],
             "title": "Qualityissue"
           },
+          "renderSpecChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Renderspecchecksumsha256"
+          },
           "reviewState": {
             "title": "Reviewstate",
             "type": "string"

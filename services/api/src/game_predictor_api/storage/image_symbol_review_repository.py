@@ -1122,6 +1122,7 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
                     geometry_revision=int(cell_row.geometry_revision),
                     crop_sample_id=cell_row.crop_sample_id,
                     crop_checksum_sha256=cell_row.crop_checksum_sha256,
+                    render_spec_checksum_sha256=cell_row.render_spec_checksum_sha256,
                 )
                 for cell_row, symbol in rows
             ),

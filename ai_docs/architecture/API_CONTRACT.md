@@ -264,6 +264,12 @@ rozwiązane nieczytelne pola. Lista używa keysetu
 `(sequence_number, review_item_id)`, a detail zwraca wszystkie komórki bieżącej
 topologii, nie tylko nieczytelne.
 
+Każda komórka detailu zawiera opcjonalne `renderSpecChecksumSha256`, pobrane
+z bieżącej projekcji. Klient przekazuje je jako
+`expectedRenderSpecChecksumSha256` do istniejącego endpointu assetu. Jest
+wymagane dla virtual_source; legacy_file zachowuje null. Odczyt nie zmienia
+decyzji ani rewizji cropów.
+
 Lista zwykłej weryfikacji cropów mapuje `grid_issue` i `unreadable` jako
 tymczasowy filtr techniczny `unknown`: nie zwraca ich pod historycznie
 przypisanym symbolem, a zwraca pod `symbolId=unknown` z pustym przypisaniem.

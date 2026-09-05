@@ -6,6 +6,21 @@ last_updated: 2026-09-05
 
 # Current State
 
+### TASK-0473 — miniatury weryfikacji symbolu na planszy
+
+- Naprawiono brak render-spec checksum w odpowiedzi detailu i URL miniatury
+  virtual_source. Testy kontraktu, typecheck, scoped lint/mypy, OpenAPI i build
+  przeszły. Bez migracji i bez restartowania workera. Odbiór działającego panelu
+  niepotwierdzony: lokalny request API przekroczył 8 s.
+- Osobna diagnoza brakujących slotów: gra `siedem` / `777 v0.2`, import
+  `888f9927-b3e1-42b1-8708-1c28b0b5f656`: 602 odroczone plansze w 435 źródłach.
+  Dla 3565–3573 slot 1 / numer 3566 ma
+  `SYMBOL_LATTICE_INSUFFICIENT_COVERAGE`. Stage `board_crops.deferredBoards`
+  zachowuje slot, ale recognized_boards i kolejka geometrii go nie prezentują.
+  Nie jest to błąd numeracji nazw ani kanonicznego właściciela. Naprawa
+  przekazania odroczonych slotów do edytora pozostaje otwarta; nie tworzyć
+  fikcyjnego cropa ani automatycznie zatwierdzonego quada.
+
 ### TASK-0472 — trzecia iteracja: 90% regresji, nieprzejściowy nowy odbiór
 
 - Poziome łączenie krawędzi i analiza pochylonych etykiet dały 9/10 poprawnych

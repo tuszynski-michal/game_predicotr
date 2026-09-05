@@ -2092,11 +2092,18 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       gameId: string,
       cellReviewId: string,
       expectedCropChecksumSha256: string,
+      expectedRenderSpecChecksumSha256?: string | null,
     ) => {
       const query = new URLSearchParams({
         expectedCropChecksumSha256,
         thumbnailSize: '100',
       });
+      if (expectedRenderSpecChecksumSha256 != null) {
+        query.set(
+          'expectedRenderSpecChecksumSha256',
+          expectedRenderSpecChecksumSha256,
+        );
+      }
       return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-reviews/${encodeURIComponent(cellReviewId)}/asset?${query.toString()}`;
     },
     listUnreadableBoardReviews: (options: ListUnreadableBoardReviewsOptions) =>

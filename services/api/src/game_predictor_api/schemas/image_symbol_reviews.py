@@ -345,6 +345,7 @@ class UnreadableBoardReviewCellResponse(ApiModel):
     geometry_revision: int = Field(ge=0)
     crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
     crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    render_spec_checksum_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class UnreadableBoardReviewDetailResponse(ApiModel):
@@ -488,6 +489,7 @@ def to_unreadable_board_review_detail_response(
                 geometry_revision=cell.geometry_revision,
                 crop_sample_id=cell.crop_sample_id,
                 crop_checksum_sha256=cell.crop_checksum_sha256,
+                render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
             )
             for cell in detail.cells
         ),

@@ -6,14 +6,27 @@ last_updated: 2026-09-05
 
 # Current State
 
+### Referencje rzeczywistych błędów cropa — TASK-0468
+
+- Siedem oryginałów, 63 plansze i 63 obszary numerów; SHA-256, wizualne
+  obwiednie, przedziały obu linii z tolerancją 8 px i podział po katalogach.
+- Read-only replay v10 odtwarza trzy błędy: obudowę pod planszami, reklamę
+  zamiast plansz i pozostawiony panel górny. `80074–80082` daje 0–538 px
+  z high_confidence mimo usunięcia wszystkich plansz.
+- 61 testów core i typecheck przeszły. Produkcyjny detektor i katalogi cut
+  pozostają bez zmian. Następny task: 0469.
+- Gra literowa nie ma odnalezionego oryginału; odbiór niepotwierdzony. Mały,
+  celowo trudny corpus nie jest pomiarem skuteczności całej populacji.
+- Raport: `ai_docs/quality/SELECTED_CROP_V11_REGRESSIONS.md`.
+
 ### Górna granica prowadzona pierwszym rzędem plansz — TASK-0467
 
 - Polityka `selected-image-board-band-v10-top-board-row-guided` wykrywa trzy
   podobne czerwone ramki pierwszego rzędu i ustawia poziomą granicę nad ich
   najwyższym punktem z buforem 2% obrazu roboczego.
 - Brak pełnej, geometrycznie zgodnej trójki nie zaciska cropa: wynik bazowy v9
-  pozostaje bez zmian. Dolna granica nadal korzysta ze sprawdzonego detektora
-  panelu.
+  pozostaje bez zmian. Dolna granica korzysta ze starego detektora panelu;
+  TASK-0468 potwierdził, że nie jest on wystarczająco wiarygodny.
 - Dwie rzeczywiste, pochylone próbki dały odpowiednio `topY=589` i `topY=454`
   przy obrazie 1080×1920, zachowując komplet wszystkich dziewięciu plansz.
 - Wznawialne narzędzie operatorskie zapisuje wyniki shardami po 64 pozycje i

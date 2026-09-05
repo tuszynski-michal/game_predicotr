@@ -7890,3 +7890,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   są bezpośrednim dowodem położenia zawartości, którą trzeba zachować.
 - **Consequences:** dolna granica i fail-safe v9 pozostają bez zmian. Brak
   pełnej trójki nigdy nie zaciska cropa. Polityki v4–v9 zachowują replay.
+
+## D-358 — Pełny dowód układu i niezależne referencje jakości cropa
+
+- **Status:** accepted
+- **Date:** 2026-09-05
+- **Decision:** przyjęty plan 0468–0472 wprowadza lokalny v11 potwierdzający
+  dziewięć plansz i numery bez zależności od koloru oraz obie granice cropa.
+  Niepewność wymaga ręcznej korekty; OCR i serwer pozostają poza zakresem.
+- **Evidence:** TASK-0468 odtworzył `80074–80082`: pas 0–538 z high_confidence
+  nie zawiera żadnej planszy. Trzy czerwone ramki nie są wystarczającym dowodem;
+  wcześniejsze uzasadnienie D-357 w tym zakresie zostało obalone.
+- **Consequences:** historycznych wyników nie zmieniamy. Referencje wizualne
+  są niezależne od detektora, checksum-bound i podzielone po katalogach; nie
+  stają się etykietami do uczenia narożników. Siedem przypadków odtwarza błędy,
+  ale nie dowodzi skuteczności na innych grach. Produkcyjny v11 wymaga osobnego
+  odbioru. Usuwanie lub ponowne przeliczenie katalogów wymaga osobnej zgody.

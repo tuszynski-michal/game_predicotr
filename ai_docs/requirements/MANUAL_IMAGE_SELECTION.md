@@ -551,6 +551,13 @@ podkatalog zawierający poprawnie nazwane JPEG-i
 `seq_<start>-<end>.jpg|jpeg`. Narzędzie tworzy obok katalog
 `<nazwa źródła> cut`; źródła nigdy nie są modyfikowane.
 
+Uwaga jakościowa TASK-0468: opis v10 poniżej dokumentuje obecną implementację,
+nie gwarancję wykrycia plansz. Rzeczywiste regresje wykazały crop samej reklamy
+z `high_confidence` i niepoprawny dół. Wdrożenie v11 (0469–0472) musi niezależnie
+potwierdzić pełne dziewięć plansz i numery oraz obie granice. Brak dowodu ma
+wymagać ręcznej korekty, której nie kasuje odznaczenie kafelków. Sam zapis JPEG
+nie jest testem jakości. Referencje: `ai_docs/quality/SELECTED_CROP_V11_REGRESSIONS.md`.
+
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
 przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do

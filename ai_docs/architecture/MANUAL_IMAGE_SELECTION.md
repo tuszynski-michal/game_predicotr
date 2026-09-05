@@ -200,6 +200,13 @@ różne listy aktywnych `seq_*`.
 
 ## Architektura lokalnego przycinania wybranych zdjęć
 
+TASK-0468 ustanawia niezależny test-only oracle jakości poziomego pasa:
+SHA-256 źródeł, wizualne obwiednie plansz/numerów, przedziały linii i split po
+katalogach. Runner odtwarza v10 bez zapisu obrazów. Adnotacje nie są zależnością
+detektora ani referencją do treningu narożników. Opis v10 poniżej jest opisem
+implementacji z wykrytymi regresjami, nie potwierdzeniem jej bezpieczeństwa.
+V11 pozostaje do wdrożenia w kolejnych taskach; brak nowych kontraktów API.
+
 `SelectedImageCropWorkspace` jest lokalnym konsumentem współdzielonego
 `ManualImageViewer`. Viewer zachowuje ograniczone okno Object URL, zoom,
 fullscreen i scroll; opcjonalny overlay renderuje dwie poziome linie bez

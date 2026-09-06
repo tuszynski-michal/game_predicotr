@@ -6,6 +6,17 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0492 — fałszywie pewne lokalne cropy
+
+- Wspólna ocena dowodu kieruje do korekty także high_confidence z fallbackiem
+  granicy. UI i restart zachowują obowiązek; decyzje operatora są chronione.
+- Odczyt zapisanych 305 korekt: stara reguła safe_wide obejmowała 41, nowa
+  obejmuje 285. To dobrane błędne przypadki, nie skuteczność całego katalogu
+  ani pomiar false positives. 20 pozostałych błędów nadal wymaga analizy.
+- Nie poprawiono jeszcze lokalizacji granic; v11/v12 nadal nieaktywne.
+  Oryginały i ręczne linie są dostępne do następnego odbioru. Nie zmieniono
+  żadnego katalogu cut ani procesu importu.
+
 ### Instrukcje planowania i przekazania wykonawcy
 
 - AGENTS wymaga odczytu PLAN_STANDARD przed planowaniem i implementacją planu.

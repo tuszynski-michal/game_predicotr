@@ -16,6 +16,15 @@ const viewer = await readFile(
   ),
   'utf8',
 );
+
+test('bad boundary evidence cannot appear certain or disappear from the uncertainty filter', () => {
+  assert.match(
+    workspace,
+    /selectedImageCropReviewReason\(entry\.result\?\.autoCropProposal\)/u,
+  );
+  assert.match(workspace, /Granice do sprawdzenia/u);
+  assert.match(workspace, /Niepotwierdzone granice — wymagana korekta/u);
+});
 const parentWorkspace = await readFile(
   new URL(
     '../src/features/semi-automatic-image-selection/semi-automatic-selection-workspace.tsx',

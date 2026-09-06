@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   clearSelectedImageCropFailure,
+  selectedImageCropReviewReason,
+  requiredSelectedImageCropCorrections,
   materializeSelectedImageCropManifestV1,
   markSelectedImageCropCorrected,
   migrateSelectedImageCropManifestV1,
@@ -16,6 +18,63 @@ import {
 
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
+
+test('top-row confidence cannot hide a persisted failed bottom-boundary proof', () => {
+  const proposal = {
+    classification: 'high_confidence',
+    evidence: { fallbackReason: 'no_wide_evidence' },
+  };
+  assert.equal(selectedImageCropReviewReason(proposal), 'no_wide_evidence');
+  const snapshot = migrateSelectedImageCropManifestV1(manifest(3));
+  const name = snapshot.inventory.entries[0].fileName;
+  snapshot.review.reviewedFileNames = [];
+  snapshot.shards[0].results[name].autoCropProposal = proposal;
+  const restored = JSON.parse(JSON.stringify(snapshot));
+  restored.review = replaceSelectedImageCropCorrections(restored.review, []);
+  assert.deepEqual(requiredSelectedImageCropCorrections(restored), [name]);
+  assert.equal(selectedImageCropFileState(restored, name), 'needs_correction');
+  restored.review = markSelectedImageCropCorrected(restored.review, name);
+  assert.deepEqual(requiredSelectedImageCropCorrections(restored), []);
+  assert.deepEqual(snapshot.shards[0].results[name].autoCropProposal, proposal);
+});
+
+test('review decisions override warnings but conflict cannot become an automatic success', () => {
+  assert.equal(
+    selectedImageCropReviewReason({
+      structural: { status: 'detected' },
+      registration: {
+        status: 'needs_manual_crop',
+        reason: 'structural_registration_conflict',
+      },
+    }),
+    'structural_registration_conflict',
+  );
+  assert.equal(
+    selectedImageCropReviewReason({
+      structural: { status: 'detected' },
+      registration: {
+        status: 'needs_manual_crop',
+        reason: 'insufficient_matches',
+      },
+    }),
+    null,
+  );
+  assert.equal(
+    selectedImageCropReviewReason({
+      classification: 'conservative',
+      evidence: { fallbackReason: null },
+    }),
+    'unconfirmed_crop_boundaries',
+  );
+  assert.equal(
+    selectedImageCropReviewReason({
+      classification: 'high_confidence',
+      evidence: { fallbackReason: null },
+    }),
+    null,
+  );
+  assert.equal(selectedImageCropReviewReason(undefined), null);
+});
 
 function manifest(count = 130) {
   return {

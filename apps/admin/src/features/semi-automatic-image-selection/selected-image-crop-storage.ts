@@ -17,6 +17,7 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 import {
   clearSelectedImageCropFailure,
+  selectedImageCropReviewReason,
   requiredSelectedImageCropCorrections,
   materializeSelectedImageCropManifestV1,
   markSelectedImageCropCorrected,
@@ -800,7 +801,9 @@ async function synchronizeAutomaticCorrection(
   fileName: string,
   proposal: SelectedImageAutoCropProposal,
 ): Promise<PreparedSelectedImageCropDirectory> {
+  const reviewReason = selectedImageCropReviewReason(proposal);
   if (
+    reviewReason === null &&
     proposal.policyVersion === CROP_V12_POLICY &&
     (proposal.structural?.status === 'detected' ||
       proposal.registration?.status === 'registered')
@@ -811,7 +814,7 @@ async function synchronizeAutomaticCorrection(
       selected: false,
     });
   }
-  if (proposal.classification !== 'safe_wide') return prepared;
+  if (reviewReason === null) return prepared;
   return setSelectedImageCropCorrection({
     prepared,
     fileName,

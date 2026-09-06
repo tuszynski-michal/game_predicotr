@@ -83,7 +83,11 @@ test('proposal provenance is persisted and historical sessions require an explic
 
 test('unsupported automatic crops are routed to the manual correction queue', () => {
   assert.match(source, /synchronizeAutomaticCorrection/u);
-  assert.match(source, /proposal\.classification !== 'safe_wide'/u);
+  assert.match(
+    source,
+    /const reviewReason = selectedImageCropReviewReason\(proposal\)/u,
+  );
+  assert.match(source, /if \(reviewReason === null\) return prepared/u);
   assert.match(source, /setSelectedImageCropCorrection\(\{/u);
 });
 

@@ -554,6 +554,13 @@ jedynym źródłem wybranych pozytywów; usunięte wpisy nie mogą trafić do im
 ani kohorty treningowej.
 ## Przycinanie wybranych zdjęć przed importem
 
+TASK-0492: ocena przeglądu nie ufa samej etykiecie high_confidence.
+Zapisany fallback granicy, klasa zachowawcza/szeroka albo jawny konflikt
+struktury z rejestracją wymaga korekty także po restarcie i odznaczeniu
+wszystkich. UI, filtr niepewnych i obowiązkowa kolejka używają jednej reguły.
+Ręcznie przejrzane lub poprawione wyniki pozostają rozstrzygnięte. To naprawa
+wykrywania niepewności, nie poprawa lokalizacji ani aktywacja v11/v12.
+
 Pod `Semi-auto selekcja` działa lokalna karta `Przytnij wybrane zdjęcia`.
 Operator wskazuje katalog nadrzędny z prawem zapisu i wybiera jego bezpośredni
 podkatalog zawierający poprawnie nazwane JPEG-i

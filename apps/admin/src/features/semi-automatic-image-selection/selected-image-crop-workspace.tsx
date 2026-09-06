@@ -15,6 +15,7 @@ import { CROP_V12_POLICY } from '@game-predictor/manual-image-selection-core/aut
 import {
   effectiveSelectedImageCropCorrections,
   requiredSelectedImageCropCorrections,
+  selectedImageCropReviewReason,
 } from '@game-predictor/manual-image-selection-core/crop-session';
 
 import {
@@ -579,8 +580,7 @@ export function SelectedImageCropWorkspace() {
       if (reviewFilter === 'failed') return failureNames.has(entry.fileName);
       if (reviewFilter === 'uncertain')
         return (
-          entry.result?.autoCropProposal?.classification === 'conservative' ||
-          entry.result?.autoCropProposal?.classification === 'safe_wide'
+          selectedImageCropReviewReason(entry.result?.autoCropProposal) !== null
         );
       return true;
     });
@@ -1122,6 +1122,12 @@ function ProposalBadge({
   readonly proposal: SelectedImageAutoCropProposal | null;
 }) {
   if (proposal === null) return null;
+  if (selectedImageCropReviewReason(proposal) !== null)
+    return (
+      <span className="selectedImageCropTileBadge isWide">
+        Granice do sprawdzenia
+      </span>
+    );
   if (proposal.structural)
     return (
       <span className="selectedImageCropTileBadge isConservative">
@@ -1231,6 +1237,9 @@ function proposalLabel(
 ): string {
   if (detecting) return 'Automat wykrywa obszar plansz…';
   if (proposal === null) return 'Zapisane cięcie';
+  const reviewReason = selectedImageCropReviewReason(proposal);
+  if (reviewReason !== null)
+    return `Niepotwierdzone granice — wymagana korekta · ${reviewReason}`;
   if (proposal.registration?.status === 'registered')
     return `Obszar przeniesiony z kotwicy ${proposal.registration.anchorSourceName} · ${proposal.registration.inlierCount} zgodnych punktów`;
   if (proposal.registration?.status === 'needs_manual_crop')

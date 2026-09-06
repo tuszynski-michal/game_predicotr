@@ -4,6 +4,27 @@ import type {
   SelectedImageCropResult,
   SelectedImageCropSourceEntry,
 } from './crop.ts';
+import type { SelectedImageAutoCropProposal } from './auto-crop.ts';
+
+/** Review policy only: never changes persisted detector pixels or fingerprints. */
+export function selectedImageCropReviewReason(
+  proposal: SelectedImageAutoCropProposal | null | undefined,
+): string | null {
+  if (!proposal) return null;
+  if (proposal.registration?.reason === 'structural_registration_conflict')
+    return 'structural_registration_conflict';
+  if (proposal.registration?.status === 'registered') return null;
+  if (proposal.structural)
+    return proposal.structural.status === 'detected'
+      ? null
+      : proposal.structural.reason;
+  // V10 can promote a top-row refinement to high_confidence while retaining
+  // the unverified lower boundary and fallback evidence from its baseline.
+  if (proposal.evidence.fallbackReason) return proposal.evidence.fallbackReason;
+  if (proposal.classification !== 'high_confidence')
+    return 'unconfirmed_crop_boundaries';
+  return null;
+}
 
 export const SELECTED_IMAGE_CROP_SESSION_SCHEMA_VERSION = 2 as const;
 export const SELECTED_IMAGE_CROP_RESULT_SHARD_SIZE = 64 as const;
@@ -99,8 +120,7 @@ export function requiredSelectedImageCropCorrections(
       .filter(
         ([name, result]) =>
           !resolved.has(name) &&
-          result.autoCropProposal?.structural?.status === 'needs_manual_crop' &&
-          result.autoCropProposal?.registration?.status !== 'registered',
+          selectedImageCropReviewReason(result.autoCropProposal) !== null,
       )
       .map(([name]) => name),
   );

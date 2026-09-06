@@ -237,6 +237,30 @@ def test_image_import_exposes_systemic_geometry_guard_progress() -> None:
     }
 
 
+def test_image_import_exposes_source_progress_separately_from_sample() -> None:
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "import_kind": "image_directory",
+            "source_directory": "C:/photos",
+            "pipeline_fingerprint": "a" * 64,
+        },
+    )
+    counts = {
+        "sourceTotal": 2200,
+        "pipelineTotal": 2199,
+        "processedSources": 300,
+        "succeededSources": 100,
+        "failedSources": 2,
+        "reviewSources": 198,
+    }
+    job = replace(job, checkpoint_payload={"image_import_progress": counts})
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+    assert response["progress"]["imageImport"] == counts
+
+
 def test_pending_grid_reinference_pins_the_accepted_v19_recrop_snapshot(
     tmp_path: Path,
 ) -> None:

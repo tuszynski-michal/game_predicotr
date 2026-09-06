@@ -215,8 +215,10 @@ def test_approved_folder_token_creates_one_typed_image_job(tmp_path: Path) -> No
     assert replay.json()["code"] == "IMAGE_FOLDER_SELECTION_INVALID"
 
 
+@pytest.mark.parametrize("manual", [False, True])
 def test_terminal_image_import_without_preflight_cannot_start_v0_10_reprocess(
     tmp_path: Path,
+    manual: bool,
 ) -> None:
     source = tmp_path / "photos"
     source.mkdir()
@@ -234,7 +236,10 @@ def test_terminal_image_import_without_preflight_cannot_start_v0_10_reprocess(
         )
         source_job_id = created.json()["job"]["id"]
         cancelled = client.post(f"/api/v1/admin/jobs/{source_job_id}/cancel")
-        reprocessed = client.post(f"/api/v1/admin/image-imports/{source_job_id}/reprocess")
+        reprocessed = client.post(
+            f"/api/v1/admin/image-imports/{source_job_id}/reprocess",
+            params={"continueWithManualGeometry": str(manual).lower()},
+        )
 
     assert cancelled.status_code == 200
     assert reprocessed.status_code == 409

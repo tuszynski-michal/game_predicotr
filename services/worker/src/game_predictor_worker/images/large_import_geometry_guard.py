@@ -77,6 +77,11 @@ class LargeImportGeometryGuardResult:
             "pageRegistrationReadyRate": self.page_registration_ready_rate,
             "finalCellGridReadyRate": self.final_cell_grid_ready_rate,
             "invariantViolationCount": self.invariant_violation_count,
+            **(
+                {"qualityWarningOnly": not self.passed and self.allows_import}
+                if self.policy_version == MANUAL_REVIEW_GEOMETRY_GUARD_VERSION
+                else {}
+            ),
         }
 
 

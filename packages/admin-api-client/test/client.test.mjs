@@ -637,6 +637,12 @@ test('generated client reprocesses a managed image import with explicit confirma
     captured.headers.get('X-Admin-Target'),
     `image-import:${sourceJobId}:reprocess`,
   );
+  assert.equal(new URL(captured.url).search, '');
+  await client.reprocessManagedImageImport(sourceJobId, true);
+  assert.equal(
+    new URL(captured.url).searchParams.get('continueWithManualGeometry'),
+    'true',
+  );
 });
 
 test('generated client uploads a browser-native folder selection', async () => {

@@ -261,6 +261,22 @@ test('reprocesses an import from its managed originals', async () => {
   assert.deepEqual(result, { job, ok: true });
 });
 
+test('manual continuation is an explicit flag on the managed reprocess action', async () => {
+  let args;
+  const result = await reprocessImageFolderImport(
+    {
+      reprocessManagedImageImport: async (...values) => {
+        args = values;
+        return { data: { job: { id: 'continued' } } };
+      },
+    },
+    'failed-import',
+    true,
+  );
+  assert.deepEqual(args, ['failed-import', true]);
+  assert.equal(result.job.id, 'continued');
+});
+
 test('creates an image import only from the approved selection token', async () => {
   let body;
   const job = {

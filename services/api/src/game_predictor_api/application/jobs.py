@@ -875,6 +875,7 @@ class JobService:
         source_job_id: UUID,
         *,
         pipeline_fingerprint: str,
+        continue_with_manual_geometry: bool = False,
     ) -> Job:
         """Create a new import pinned to an earlier job's managed originals."""
 
@@ -912,6 +913,85 @@ class JobService:
                 "IMAGE_REPROCESS_SOURCE_INVALID",
                 "The source image import has no managed source provenance.",
             )
+        if continue_with_manual_geometry:
+            if (
+                source.status is not JobStatus.FAILED
+                or source.error_code != "IMAGE_GEOMETRY_SYSTEMIC_REGRESSION"
+            ):
+                raise JobConflictError(
+                    "IMAGE_REPROCESS_MANUAL_CONTINUATION_NOT_AVAILABLE",
+                    "Manual continuation requires an import stopped by its geometry quality guard.",
+                )
+            required_snapshots = (
+                "symbol_model",
+                "grid_profile",
+                "board_cell_processing",
+                "image_geometry_rollout",
+            )
+            if any(
+                not isinstance(source.input_payload.get(key), dict) for key in required_snapshots
+            ):
+                raise JobConflictError(
+                    "IMAGE_REPROCESS_PINNED_SNAPSHOTS_REQUIRED",
+                    "Manual continuation requires the original model and geometry snapshots.",
+                )
+            continuation: dict[str, object] = {
+                key: source.input_payload[key] for key in required_snapshots
+            }
+            for key in ("normalization_adapter_version", "image_selection_run_id"):
+                if key in source.input_payload:
+                    continuation[key] = source.input_payload[key]
+            continuation.update(
+                {
+                    "schema_version": 6,
+                    "import_kind": "image_directory",
+                    "source_selection_id": str(evidence.source_selection_id),
+                    "source_directory": source_directory,
+                    "source_display_name": str(
+                        source.input_payload.get("source_display_name") or "Import obrazów"
+                    )[:210]
+                    + " (kontynuacja z ręczną korektą)",
+                    "source_pipeline_fingerprint": source.input_payload.get(
+                        "source_pipeline_fingerprint", source.input_payload["pipeline_fingerprint"]
+                    ),
+                    "managed_source_job_id": str(source.id),
+                    "managed_source_manifest_checksum_sha256": (
+                        evidence.managed_source_manifest_checksum_sha256
+                    ),
+                    "source_manifest_sha256": evidence.source_manifest_sha256,
+                    "page_geometry_manifest": evidence.page_geometry_manifest,
+                    "geometry_systemic_guard_policy": dict(_IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY),
+                }
+            )
+            fingerprint = hashlib.sha256(
+                json.dumps(
+                    {
+                        **continuation,
+                        "sourceRunFingerprint": source.input_payload["pipeline_fingerprint"],
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                ).encode("ascii")
+            ).hexdigest()
+            continuation["pipeline_fingerprint"] = fingerprint
+            try:
+                return self._persist_job(
+                    JobType.IMPORT,
+                    game_id=source.game_id,
+                    input_payload=continuation,
+                    game_already_validated=True,
+                )
+            except JobConflictError as error:
+                if error.code != "JOB_INPUT_ALREADY_EXISTS":
+                    raise
+                key = create_job(
+                    JobType.IMPORT, game_id=source.game_id, input_payload=continuation
+                ).input_key
+                existing = self._repository.get_job_by_input_key(key)
+                if existing is None:
+                    raise
+                return existing
         symbol_model = (
             bootstrap_symbol_model_snapshot()
             if self._symbol_model_snapshot_resolver is None

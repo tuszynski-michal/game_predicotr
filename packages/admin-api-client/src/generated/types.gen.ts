@@ -3456,6 +3456,10 @@ export type ImageGeometrySystemicGuardJobProgressResponse = {
     | 'image-geometry-systemic-guard-v1'
     | 'image-geometry-systemic-guard-v2-manual-review';
   /**
+   * Qualitywarningonly
+   */
+  qualityWarningOnly?: boolean | null;
+  /**
    * Rejectedcount
    */
   rejectedCount?: number;
@@ -4278,6 +4282,36 @@ export type ImageImportJobPayload = {
    */
   sourceSelectionId?: string | null;
   symbolModel: SymbolModelJobSnapshotPayload;
+};
+
+/**
+ * ImageImportPipelineProgressResponse
+ */
+export type ImageImportPipelineProgressResponse = {
+  /**
+   * Failedsources
+   */
+  failedSources: number;
+  /**
+   * Pipelinetotal
+   */
+  pipelineTotal: number;
+  /**
+   * Processedsources
+   */
+  processedSources: number;
+  /**
+   * Reviewsources
+   */
+  reviewSources: number;
+  /**
+   * Sourcetotal
+   */
+  sourceTotal: number;
+  /**
+   * Succeededsources
+   */
+  succeededSources: number;
 };
 
 /**
@@ -5609,6 +5643,7 @@ export type JobProgressResponse = {
    */
   failed: number;
   geometrySystemicGuard?: ImageGeometrySystemicGuardJobProgressResponse | null;
+  imageImport?: ImageImportPipelineProgressResponse | null;
   imageSelection?: ImageSelectionJobProgressResponse | null;
   pageGeometryPreflight?: PageGeometryPreflightJobProgressResponse | null;
   /**
@@ -17153,7 +17188,12 @@ export type ReprocessManagedImageImportData = {
      */
     source_job_id: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * Continuewithmanualgeometry
+     */
+    continueWithManualGeometry?: boolean;
+  };
   url: '/api/v1/admin/image-imports/{source_job_id}/reprocess';
 };
 

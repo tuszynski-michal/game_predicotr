@@ -6,6 +6,19 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0491 — kontynuacja importu i raport ręcznej korekty
+
+- Seria 0489–0491 jest zaimplementowana. Niska skuteczność nowych importów
+  jest ostrzeżeniem; integralność i bramki pojedynczej siatki pozostają wymagane.
+- Przy błędzie `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION` operator wybiera
+  `Kontynuuj z ręczną korektą`. Powstaje nowy idempotentny run z tymi samymi
+  managed originals, manifestem strony i snapshotami modeli, bez uploadu.
+- Raport rozdziela postęp zdjęć od liczników siatek. Rozwiń `Siatki i ręczna
+  korekta`, następnie `Popraw siatki`, aby otworzyć pełne źródła do edycji.
+- Nie uruchomiono importu, nie zmieniono istniejących jobów i nie restartowano
+  usług. Migracja bazy nie jest potrzebna. Usługi muszą korzystać z nowego kodu.
+- Testy i ograniczenia odbioru opisuje Outcome TASK-0491.
+
 ### TASK-0490 — pełne sloty i trwały szkic ręcznej geometrii
 
 - Nazwa wyznacza 9 slotów; krótszy zakres tylko na końcu skonfigurowanej gry.

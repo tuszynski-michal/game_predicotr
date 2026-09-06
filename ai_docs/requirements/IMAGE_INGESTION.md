@@ -1498,6 +1498,15 @@ zostać automatycznie promowany. Szczegóły znajdują się w
 
 ### Obowiązkowe sloty ręcznej geometrii źródła
 
+TASK-0491: zatrzymany progiem jakości import można kontynuować akcją
+`Kontynuuj z ręczną korektą`, bez ponownego uploadu i preflightu, jeżeli
+utrwalone artefakty są dostępne i zgodne. Kontynuacja nie wybiera najnowszych
+modeli: zachowuje snapshoty źródłowego joba i tworzy nowy idempotentny run.
+Gotowe cropy są dostępne niezależnie od odroczonych slotów; nierozwiązane
+pozycje pozostawiają proces w waiting_for_review. Raport pokazuje osobno
+zdjęcia, gotowe siatki, sloty do korekty i błędy techniczne.
+`Popraw siatki` otwiera pełne źródła z obowiązkowymi slotami.
+
 Lokalne zatwierdzanie geometrii całego zdjęcia obejmuje wszystkie pozycje
 wynikające z poświadczonego zakresu `seq_<start>-<end>` i aktywnych slotów
 bieżącej rewizji geometrii źródła. Typowy zakres dziewięciu numerów zawsze

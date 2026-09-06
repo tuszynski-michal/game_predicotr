@@ -475,7 +475,17 @@ def test_pipeline_progress_does_not_count_source_ingestion_as_success() -> None:
             "review_count": 0,
         },
         {
-            "checkpoint_payload": {"workflow_phase": "image_pipeline"},
+            "checkpoint_payload": {
+                "workflow_phase": "image_pipeline",
+                "image_import_progress": {
+                    "sourceTotal": 2200,
+                    "pipelineTotal": 2200,
+                    "processedSources": 2200,
+                    "succeededSources": 0,
+                    "failedSources": 2200,
+                    "reviewSources": 0,
+                },
+            },
             "stage": "image_pipeline:manual_review",
             "current": 4_400,
             "total": 4_400,

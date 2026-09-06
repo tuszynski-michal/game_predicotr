@@ -6,6 +6,24 @@ last_updated: 2026-08-24
 
 # Kontrakty API i danych mobilnych
 
+## Kontynuacja importu z ręczną geometrią — TASK-0491
+
+Istniejący `POST /api/v1/admin/image-imports/{sourceJobId}/reprocess`
+przyjmuje opcjonalne `continueWithManualGeometry=true` (domyślnie false).
+Wariant wymaga failed joba z `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION` i zgodnych
+managed originals oraz manifestu strony. Kopiuje przypięte snapshoty źródła,
+zmienia politykę na v2 manual-review i tworzy nową tożsamość runu. Powtórzenie
+zwraca istniejący run, również po utracie odpowiedzi. Inne błędy nie są
+zamieniane na korektę geometrii. Obowiązuje istniejące lokalne potwierdzenie.
+
+Job progress ma opcjonalne `imageImport` z osobnymi licznikami zdjęć:
+sourceTotal, pipelineTotal, processedSources, succeededSources, failedSources,
+reviewSources. Nie wolno utożsamiać tych liczb z liczbą plansz ani dodawać do
+nich próbki jakościowej. `qualityWarningOnly` w postępie guardu v2 oznacza
+ostrzeżenie zamiast blokady. Stare odpowiedzi bez tych pól pozostają czytelne.
+Liczniki siatek pobiera istniejąca kolejka review na jawne rozwinięcie raportu;
+nie dodano endpointu, rodzaju joba ani migracji.
+
 ## Wykluczenie źródła z browser importu
 
 `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/geometry-preflights/{preflightJobId}/source-exclusions`

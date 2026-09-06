@@ -13,6 +13,7 @@ import type {
   ImageSequenceSourceSelectionResponse,
   ImageImportEnginePolicyResponse,
   ManagedImageReprocessJobPayload,
+  PinnedManagedImageReprocessJobPayload,
   BrowserImageImportJobPayload,
   ResolvedBrowserImageImportJobPayload,
   ImageGeometryGuardResolutionManifestResponse,
@@ -51,6 +52,7 @@ import {
 import { sortReadyBoardImports } from './image-folder-import-state';
 import { PageGeometryCorrectionPanel } from './page-geometry-correction-panel';
 import { GeometryGuardResolutionPanel } from './geometry-guard-resolution-panel';
+import { ImportGeometryReviewSummary } from './import-geometry-review-summary';
 
 interface ImageFolderImportPanelProps {
   readonly apiBaseUrl: string;
@@ -66,7 +68,8 @@ type ImageImportJob = JobResponse & {
     | BrowserImageImportJobPayload
     | ResolvedBrowserImageImportJobPayload
     | CuratedImageImportJobPayload
-    | ManagedImageReprocessJobPayload;
+    | ManagedImageReprocessJobPayload
+    | PinnedManagedImageReprocessJobPayload;
 };
 
 type ImportAction =
@@ -109,6 +112,15 @@ function curatedBatchTiming(job: JobResponse, imageCount: number) {
 }
 
 function imageImportOutcome(job: ImageImportJob) {
+  const progress = job.progress.imageImport;
+  if (progress)
+    return {
+      failedImages: progress.failedSources,
+      pipelineImages: progress.processedSources,
+      reviewBoards: progress.reviewSources,
+      sourceCount: progress.pipelineTotal,
+      succeededImages: progress.succeededSources,
+    };
   const totalWork = job.progress.total;
   if (totalWork === null || totalWork < 2 || totalWork % 2 !== 0) return null;
   const sourceCount = totalWork / 2;
@@ -840,13 +852,17 @@ export function ImageFolderImportPanel({
     }
   }
 
-  async function reprocessImport(sourceJob: ImageImportJob) {
+  async function reprocessImport(sourceJob: ImageImportJob, manual = false) {
     if (busy) return;
     setActiveAction('reprocess-import');
     setError('');
     setFeedback('');
     try {
-      const result = await reprocessImageFolderImport(api, sourceJob.id);
+      const result = await reprocessImageFolderImport(
+        api,
+        sourceJob.id,
+        manual,
+      );
       if (!result.ok) {
         setError(result.error);
         return;
@@ -1661,8 +1677,12 @@ export function ImageFolderImportPanel({
                       Test ochronny:{' '}
                       {job.progress.geometrySystemicGuard.passed
                         ? 'zaliczony'
-                        : 'zablokowany'}{' '}
-                      · 3×3{' '}
+                        : job.progress.geometrySystemicGuard.qualityWarningOnly
+                          ? 'ostrzeżenie — import jest kontynuowany, niepewne siatki do ręcznej korekty'
+                          : 'zablokowany'}{' '}
+                      · próbka{' '}
+                      {job.progress.geometrySystemicGuard.sampleBoardCount}{' '}
+                      plansz · 3×3{' '}
                       {(
                         job.progress.geometrySystemicGuard
                           .pageRegistrationReadyRate * 100
@@ -1686,14 +1706,30 @@ export function ImageFolderImportPanel({
                     <span>
                       Pipeline zdjęć: {outcome.pipelineImages}/
                       {outcome.sourceCount} · poprawne {outcome.succeededImages}{' '}
-                      · błędy {outcome.failedImages} · plansze do review{' '}
-                      {outcome.reviewBoards}
+                      · błędy techniczne zdjęć {outcome.failedImages} · zdjęcia
+                      do review {outcome.reviewBoards}
                     </span>
                   )}
                   {outcome !== null && outcome.failedImages > 0 ? (
                     <small role="alert">
                       Wynik jest niekompletny: część zdjęć nie utworzyła plansz.
                     </small>
+                  ) : null}
+                  <ImportGeometryReviewSummary
+                    api={api}
+                    gameId={gameId}
+                    jobId={job.id}
+                  />
+                  {job.status === 'failed' &&
+                  job.error?.code === 'IMAGE_GEOMETRY_SYSTEMIC_REGRESSION' ? (
+                    <button
+                      className="primaryButton"
+                      disabled={busy}
+                      onClick={() => void reprocessImport(job, true)}
+                      type="button"
+                    >
+                      Kontynuuj z ręczną korektą
+                    </button>
                   ) : null}
                   {!['created', 'processing'].includes(job.status) ? (
                     <button

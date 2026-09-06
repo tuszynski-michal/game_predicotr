@@ -4,7 +4,7 @@ import hashlib
 import json
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, Query, Response, status
@@ -947,7 +947,7 @@ def create_image_imports_router(
                 continue
             start, end = _attested_range_from_relative_path(source_relative_path)
             raw_quads = raw.get("quads")
-            geometry_origin = (
+            geometry_origin: Literal["automatic", "manual_override", "manual_template"] = (
                 "manual_override"
                 if isinstance(current_override, dict)
                 else "automatic"
@@ -1630,10 +1630,12 @@ def create_image_imports_router(
     def reprocess_import(
         source_job_id: UUID,
         job_service: Annotated[JobService, job_parameter],
+        continue_with_manual_geometry: bool = Query(False, alias="continueWithManualGeometry"),
     ) -> ImageFolderImportResponse:
         job = job_service.create_managed_image_reprocess_job(
             source_job_id,
             pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
+            **({"continue_with_manual_geometry": True} if continue_with_manual_geometry else {}),
         )
         return ImageFolderImportResponse(job=JobResponse.from_domain(job))
 

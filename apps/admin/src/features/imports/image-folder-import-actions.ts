@@ -41,6 +41,8 @@ export type ImageFolderImportClient = Pick<
   | 'getJob'
   | 'retryJob'
   | 'reprocessManagedImageImport'
+  | 'listImageGridReviews'
+  | 'startLocalReviewer'
   | 'selectImageSequenceSource'
   | 'getImageImportEnginePolicy'
   | 'previewImageImportEnginePolicy'
@@ -458,9 +460,13 @@ export async function createImageFolderImport(
 export async function reprocessImageFolderImport(
   api: ImageFolderImportClient,
   sourceJobId: string,
+  continueWithManualGeometry = false,
 ): Promise<{ readonly job: JobResponse; readonly ok: true } | Failure> {
   try {
-    const result = await api.reprocessManagedImageImport(sourceJobId);
+    const result = await api.reprocessManagedImageImport(
+      sourceJobId,
+      continueWithManualGeometry,
+    );
     if (result.error !== undefined || result.data === undefined) {
       return {
         error: apiErrorMessage(

@@ -10,6 +10,11 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
 ## D-367 — Import z ręczną korektą zamiast bramki skuteczności
 
+Kontynuacja TASK-0491 jest jawną akcją tworzącą nowy run. Zachowuje snapshoty
+modeli i manifest geometrii źródła, również tryb cold-start bez inferencji.
+Nie wiąże idempotencji z aktualną wersją uruchomionego serwera. Raport
+oddziela zdjęcia od slotów; szczegóły siatek ładuje na żądanie operatora.
+
 - **Status:** accepted
 - **Date:** 2026-09-06
 - **Decision:** nowa polityka `image-geometry-systemic-guard-v2-manual-review`

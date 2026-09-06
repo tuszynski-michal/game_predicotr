@@ -787,6 +787,20 @@ class _ProgressWindowContext:
                 **self._checkpoint_extras,
                 **checkpoint_payload,
                 "workflow_phase": self._stage_prefix,
+                **(
+                    {
+                        "image_import_progress": {
+                            "sourceTotal": self._current_offset,
+                            "pipelineTotal": self._total - self._current_offset,
+                            "processedSources": current,
+                            "succeededSources": success_count,
+                            "failedSources": failure_count,
+                            "reviewSources": review_count,
+                        }
+                    }
+                    if self._stage_prefix == "image_pipeline"
+                    else {}
+                ),
             },
             stage=f"{self._stage_prefix}:{stage}",
             current=max(previous.progress_current, self._current_offset + current),

@@ -1042,6 +1042,7 @@ export type {
   ImageImportEnginePolicyResponse,
   ImageImportEnginePolicyUpdateRequest,
   ImageImportJobPayload,
+  ImageImportPipelineProgressResponse,
   ImageJobFileErrorResponse,
   ImageJobFileResponse,
   ImageJobFileRetryRequest,

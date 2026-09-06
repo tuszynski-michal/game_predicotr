@@ -495,6 +495,18 @@ opisuje niezależnego pochylenia dziewięciu plansz.
 
 ## Test rejestracji obszaru plansz
 
+Kontynuacja po progu skuteczności (TASK-0491) korzysta z istniejącego managed
+reprocess, lecz zachowuje wszystkie snapshoty i manifest strony źródła.
+Fingerprint nowego runu obejmuje nową politykę i źródłowy fingerprint, nie
+chwilowy fingerprint serwera podczas ponownego kliknięcia. Unikalność input
+key oraz odczyt istniejącego joba zapewniają idempotencję utraconej odpowiedzi.
+Nie wykonuje się automatycznej kontynuacji ani zmiany starego joba.
+
+Wyniki pipeline mają osobne liczniki zdjęć, niezależne od etapowego progresu
+monotonicznego. Liczniki plansz pochodzą z istniejącego repozytorium review.
+Ręczna korekta nadal używa rewizji źródła i atomowej materializacji slotów,
+bez tworzenia równoległych logicznych komórek.
+
 W formularzu preflightu operator może pozostawić `Standardowe v0.10` albo
 wybrać `Obszar plansz — testowe`. Wybór jest częścią niezmiennego wejścia runu;
 retry nie może go zmienić. Wariant testowy maskuje cechy kotwicy, ale nadal

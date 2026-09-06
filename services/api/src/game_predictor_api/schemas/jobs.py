@@ -646,11 +646,21 @@ class ImageGeometrySystemicGuardJobProgressResponse(ApiModel):
     page_registration_ready_rate: float = Field(ge=0, le=1)
     final_cell_grid_ready_rate: float = Field(ge=0, le=1)
     invariant_violation_count: int = Field(ge=0)
+    quality_warning_only: bool | None = Field(default=None, exclude_if=lambda value: value is None)
     resolution_applied: bool = False
     resolution_manifest_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     corrected_full_count: int = Field(default=0, ge=0)
     partial_count: int = Field(default=0, ge=0)
     rejected_count: int = Field(default=0, ge=0)
+
+
+class ImageImportPipelineProgressResponse(ApiModel):
+    source_total: int = Field(ge=0)
+    pipeline_total: int = Field(ge=0)
+    processed_sources: int = Field(ge=0)
+    succeeded_sources: int = Field(ge=0)
+    failed_sources: int = Field(ge=0)
+    review_sources: int = Field(ge=0)
 
 
 class JobProgressResponse(ApiModel):
@@ -660,6 +670,10 @@ class JobProgressResponse(ApiModel):
     succeeded: int
     failed: int
     review: int
+    image_import: ImageImportPipelineProgressResponse | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     image_selection: ImageSelectionJobProgressResponse | None = Field(
         default=None,
         exclude_if=lambda value: value is None,
@@ -770,6 +784,7 @@ class JobResponse(ApiModel):
                 page_geometry_preflight=_page_geometry_preflight_progress(job),
                 board_cell_geometry=_board_cell_geometry_progress(job),
                 geometry_systemic_guard=_geometry_systemic_guard_progress(job),
+                image_import=_image_import_progress(job),
             ),
             error=error,
             worker_version=job.worker_version,
@@ -869,6 +884,18 @@ def _board_cell_geometry_progress(job: Job) -> BoardCellGeometryJobProgressRespo
         return None
 
 
+def _image_import_progress(job: Job) -> ImageImportPipelineProgressResponse | None:
+    if job.job_type is not JobType.IMPORT or not job.checkpoint_payload:
+        return None
+    raw = job.checkpoint_payload.get("image_import_progress")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return ImageImportPipelineProgressResponse.model_validate(raw)
+    except ValueError:
+        return None
+
+
 def _geometry_systemic_guard_progress(
     job: Job,
 ) -> ImageGeometrySystemicGuardJobProgressResponse | None:
@@ -897,6 +924,7 @@ def _geometry_systemic_guard_progress(
             page_registration_ready_rate=_progress_float(raw["pageRegistrationReadyRate"]),
             final_cell_grid_ready_rate=_progress_float(raw["finalCellGridReadyRate"]),
             invariant_violation_count=_progress_integer(raw["invariantViolationCount"]),
+            quality_warning_only=raw.get("qualityWarningOnly"),
             resolution_applied=resolution_payload.get("passed") is True,
             resolution_manifest_checksum_sha256=cast(
                 str | None, resolution_payload.get("manifestChecksumSha256")

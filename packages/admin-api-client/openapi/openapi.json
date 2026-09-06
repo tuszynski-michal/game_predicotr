@@ -6027,6 +6027,17 @@
             "title": "Policyversion",
             "type": "string"
           },
+          "qualityWarningOnly": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualitywarningonly"
+          },
           "rejectedCount": {
             "default": 0,
             "minimum": 0.0,
@@ -7537,6 +7548,51 @@
           "symbolModel"
         ],
         "title": "ImageImportJobPayload",
+        "type": "object"
+      },
+      "ImageImportPipelineProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "failedSources": {
+            "minimum": 0.0,
+            "title": "Failedsources",
+            "type": "integer"
+          },
+          "pipelineTotal": {
+            "minimum": 0.0,
+            "title": "Pipelinetotal",
+            "type": "integer"
+          },
+          "processedSources": {
+            "minimum": 0.0,
+            "title": "Processedsources",
+            "type": "integer"
+          },
+          "reviewSources": {
+            "minimum": 0.0,
+            "title": "Reviewsources",
+            "type": "integer"
+          },
+          "sourceTotal": {
+            "minimum": 0.0,
+            "title": "Sourcetotal",
+            "type": "integer"
+          },
+          "succeededSources": {
+            "minimum": 0.0,
+            "title": "Succeededsources",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sourceTotal",
+          "pipelineTotal",
+          "processedSources",
+          "succeededSources",
+          "failedSources",
+          "reviewSources"
+        ],
+        "title": "ImageImportPipelineProgressResponse",
         "type": "object"
       },
       "ImageJobFileErrorResponse": {
@@ -9913,6 +9969,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/ImageGeometrySystemicGuardJobProgressResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "imageImport": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageImportPipelineProgressResponse"
               },
               {
                 "type": "null"
@@ -30787,6 +30853,16 @@
               "format": "uuid",
               "title": "Source Job Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "continueWithManualGeometry",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Continuewithmanualgeometry",
+              "type": "boolean"
             }
           }
         ],

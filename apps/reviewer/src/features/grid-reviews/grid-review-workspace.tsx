@@ -34,17 +34,19 @@ export function GridReviewWorkspace({
   client,
   gameId,
   importJobId,
+  initialView = 'needs_validation',
 }: {
   readonly apiBaseUrl: string;
   readonly client?: GridReviewsClient;
   readonly gameId: string;
   readonly importJobId: string;
+  readonly initialView?: ImageGridReviewView;
 }) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
   );
-  const [view, setView] = useState<ImageGridReviewView>('needs_validation');
+  const [view, setView] = useState<ImageGridReviewView>(initialView);
   const [anchorPage, setAnchorPage] =
     useState<ImageGridReviewPageResponse | null>(null);
   const [sourceItems, setSourceItems] = useState<

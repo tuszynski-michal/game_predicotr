@@ -128,6 +128,13 @@ export function LocalReviewerWorkspace({
           client={api}
           gameId={gameId}
           importJobId={importJobId}
+          initialView={
+            typeof window !== 'undefined' &&
+            new URLSearchParams(window.location.search).get('gridView') ===
+              'needs_correction'
+              ? 'needs_correction'
+              : 'needs_validation'
+          }
         />
       ) : (
         <OperationalReviewWorkspace

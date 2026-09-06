@@ -10,6 +10,7 @@ from game_predictor_api.application.jobs import JobService
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
+    JobStatus,
     JobType,
     checkpoint_job,
     complete_job,
@@ -17,6 +18,7 @@ from game_predictor_api.domain.jobs import (
     request_job_cancellation,
     start_job,
 )
+from game_predictor_api.domain.symbol_model_snapshots import cold_start_unclassified_symbol_snapshot
 from game_predictor_api.schemas.jobs import JobResponse
 from test_jobs_domain import MemoryJobRepository
 
@@ -221,6 +223,59 @@ def test_managed_reprocess_v6_pins_exact_source_and_page_manifests(tmp_path: Pat
         "requireZeroInvariantViolations": True,
     }
     assert JobResponse.from_domain(job).input_payload.schema_version == 6
+
+
+def test_manual_continuation_reuses_exact_snapshots_and_is_idempotent(tmp_path: Path) -> None:
+    repository, source, _checksum, descriptor = _arrange_source_with_evidence(tmp_path)
+    service = JobService(repository, artifact_root=tmp_path / "artifacts")
+    baseline = service.create_managed_image_reprocess_job(source.id, pipeline_fingerprint="d" * 64)
+    payload = {
+        **source.input_payload,
+        **{
+            key: baseline.input_payload[key]
+            for key in (
+                "grid_profile",
+                "board_cell_processing",
+                "image_geometry_rollout",
+                "normalization_adapter_version",
+            )
+        },
+        "symbol_model": cold_start_unclassified_symbol_snapshot(("lemon", "cherry")).to_payload(),
+    }
+    source = replace(
+        source,
+        input_payload=payload,
+        status=JobStatus.FAILED,
+        error_code="IMAGE_GEOMETRY_SYSTEMIC_REGRESSION",
+    )
+    repository.items[source.id] = source
+    first = service.create_managed_image_reprocess_job(
+        source.id, pipeline_fingerprint="e" * 64, continue_with_manual_geometry=True
+    )
+    second = service.create_managed_image_reprocess_job(
+        source.id, pipeline_fingerprint="f" * 64, continue_with_manual_geometry=True
+    )
+    assert first.id == second.id and first.id != source.id
+    assert first.input_payload["page_geometry_manifest"] == descriptor
+    for key in ("symbol_model", "grid_profile", "image_geometry_rollout", "board_cell_processing"):
+        assert first.input_payload[key] == source.input_payload[key]
+    assert first.input_payload["geometry_systemic_guard_policy"]["policyVersion"].endswith(
+        "manual-review"
+    )
+    assert repository.items[source.id] == source
+    assert JobResponse.from_domain(first).input_payload.schema_version == 6
+
+
+def test_manual_continuation_does_not_hide_other_failures(tmp_path: Path) -> None:
+    repository, source, _checksum, _descriptor = _arrange_source_with_evidence(tmp_path)
+    source = replace(source, status=JobStatus.FAILED, error_code="SOURCE_CHECKSUM_MISMATCH")
+    repository.items[source.id] = source
+    service = JobService(repository, artifact_root=tmp_path / "artifacts")
+    with pytest.raises(JobConflictError) as error:
+        service.create_managed_image_reprocess_job(
+            source.id, pipeline_fingerprint="d" * 64, continue_with_manual_geometry=True
+        )
+    assert error.value.code == "IMAGE_REPROCESS_MANUAL_CONTINUATION_NOT_AVAILABLE"
 
 
 def test_managed_reprocess_v6_resolves_page_manifest_through_v4_lineage(tmp_path: Path) -> None:

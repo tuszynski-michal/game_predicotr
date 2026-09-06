@@ -406,6 +406,7 @@ export type {
   CuratedImageImportSourceCreate,
   CuratedImageImportSourceResponse,
   ManagedImageReprocessJobPayload,
+  PinnedManagedImageReprocessJobPayload,
   DatasetLayoutPageResponse,
   DatasetLayoutResponse,
   DatasetVersionResponse,
@@ -1442,13 +1443,19 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(`image-import:${body.gameId}`),
       }),
-    reprocessManagedImageImport: (sourceJobId: string) =>
+    reprocessManagedImageImport: (
+      sourceJobId: string,
+      continueWithManualGeometry = false,
+    ) =>
       reprocessGeneratedManagedImageImport({
         client,
         headers: confirmedTargetHeaders(
           `image-import:${sourceJobId}:reprocess`,
         ),
         path: { source_job_id: sourceJobId },
+        query: continueWithManualGeometry
+          ? { continueWithManualGeometry: true }
+          : undefined,
       }),
     registerCuratedImageImportSource: (body: CuratedImageImportSourceCreate) =>
       registerGeneratedCuratedImageImportSource({

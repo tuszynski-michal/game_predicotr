@@ -1,10 +1,23 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-06
+last_updated: 2026-09-07
 ---
 
 # Current State
+
+### TASK-0500 — zoptymalizowane liczniki Weryfikacji symboli
+
+- Baza operatora zawiera 7 518 540 komórek; największa gra ma 6 304 230
+  rekordów i 6 220 575 bieżących widocznych komórek.
+- Szeroki licznik gry bez confidence nie wykonuje już lookupu
+  `recognized_boards` dla każdej komórki ani `GROUP BY`. Korzysta z inwariantu
+  gotowej projekcji, kanonicznego właściciela i dwóch agregatów `FILTER`.
+- Produkcyjna ścieżka z limitem 15 s zakończyła rzeczywisty odczyt w 4,669 s,
+  zwracając dokładnie 38 542 zatwierdzone i 6 182 033 oczekujące komórki.
+- Wąskie filtry symbolu, `?`, confidence i kohorty zachowują pełną bramkę
+  geometrii, ponieważ pomiary nie wykazały dla nich korzyści z szerokiego planu.
+  Lista również pozostaje bez zmian.
 
 ### TASK-0499 — przerywanie SQL po rozłączeniu klienta
 

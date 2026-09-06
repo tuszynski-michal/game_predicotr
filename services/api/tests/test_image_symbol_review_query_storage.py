@@ -129,6 +129,87 @@ def test_active_model_cohort_filter_without_an_activation_is_empty() -> None:
     assert "verified_training_cohort_cells" not in sql
 
 
+def test_counts_use_conditional_aggregates_without_per_cell_geometry_lookup() -> None:
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ALL,
+        include_all_symbols=True,
+    )
+
+    sql = _compiled(repository._count_statement(review_filter=review_filter))
+
+    assert sql.count("count(*) FILTER") == 2
+    assert "image_board_search_fast_documents" in sql
+    assert "recognized_boards" not in sql
+    assert "GROUP BY" not in sql
+
+
+def test_list_keeps_the_current_geometry_guard() -> None:
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ALL,
+        include_all_symbols=True,
+    )
+
+    sql = _compiled(repository._list_statement(review_filter=review_filter))
+
+    assert "JOIN recognized_boards" in sql
+    assert (
+        "image_symbol_review_cells.geometry_revision = recognized_boards.geometry_revision" in sql
+    )
+
+
+def test_count_statement_preserves_symbol_quality_and_confidence_filters() -> None:
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=UUID(int=2),
+        state=SymbolCellReviewFilterState.PENDING,
+        min_confidence=0.4,
+        max_confidence=0.8,
+    )
+
+    sql = _compiled(repository._count_statement(review_filter=review_filter))
+
+    assert "image_symbol_review_cells.assigned_symbol_id" in sql
+    assert "image_symbol_review_cells.quality_issue IS NULL" in sql
+    assert "image_symbol_review_cells.review_state = 'pending'" in sql
+    assert "image_symbol_prediction_revisions" in sql
+    assert "cell_observations" in sql
+    assert "JOIN recognized_boards" in sql
+    assert ">= 0.4" in sql
+    assert "<= 0.8" in sql
+
+
+def test_count_statement_preserves_unknown_and_active_cohort_filters() -> None:
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
+    unknown_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ALL,
+    )
+    cohort_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT,
+        include_all_symbols=True,
+        model_cohort_id=UUID(int=3),
+    )
+
+    unknown_sql = _compiled(repository._count_statement(review_filter=unknown_filter))
+    cohort_sql = _compiled(repository._count_statement(review_filter=cohort_filter))
+
+    assert "image_symbol_review_cells.assigned_symbol_id IS NULL" in unknown_sql
+    assert "image_symbol_review_cells.quality_issue IN ('grid_issue', 'unreadable')" in unknown_sql
+    assert "JOIN verified_training_cohort_cells" in cohort_sql
+    assert "JOIN recognized_boards" in cohort_sql
+    assert "image_symbol_review_cells.review_state = 'approved'" in cohort_sql
+
+
 def test_bounded_read_sets_a_transaction_local_parameterized_timeout() -> None:
     session = _ExecuteSession()
     repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))

@@ -1,12 +1,30 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-06
+last_updated: 2026-09-07
 ---
 
 # Decision Log
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
+
+## D-370 — Szeroki licznik symboli ufa gotowej projekcji
+
+- **Status:** accepted
+- **Date:** 2026-09-07
+- **Decision:** licznik całej gry bez filtra confidence zachowuje kanonicznego
+  właściciela z `image_board_search_fast_documents`, lecz nie powtarza kontroli
+  `recognized_boards.geometry_revision` dla każdej komórki projekcji `ready`.
+  Stany są wyliczane jednym zapytaniem z dwoma `COUNT(*) FILTER`. Filtry
+  symbolu, `?`, confidence i aktywnej kohorty oraz wszystkie listy zachowują
+  pełny join bieżącej geometrii.
+- **Reason:** finalizacja `ready` już sprawdza kompletność i aktualność geometrii,
+  a write-through atomowo aktualizuje komórki albo oznacza projekcję jako
+  niegotową. Redundantny lookup 6,2 mln widocznych komórek wydłużał count do
+  około 18–29 s; wąska ścieżka kończy się w 4,669 s i zwraca identyczne wartości.
+- **Consequences:** szeroki licznik mieści się w limicie 15 s bez cache, triggera
+  ani migracji. Zmiana inwariantu projekcji wymaga ponownego audytu tej ścieżki;
+  selektywne filtry nie mogą przejść na nią bez osobnego pomiaru.
 
 ## D-369 — Ewaluacja symboli wymaga pokrycia każdej klasy
 

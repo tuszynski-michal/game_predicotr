@@ -454,6 +454,11 @@ anulowania i przerywa odpowiadające mu zapytanie PostgreSQL z executora
 niezależnego od puli query. Kolejne etapy sprawdzają sygnał przed SQL, a
 fizyczny cancel jest ponawiany do końca query. Request kończy pracę wątku i
 operacji cancel przed zwolnieniem własnej sesji, także po powtórnym anulowaniu.
+Szeroki licznik całej gry bez filtra confidence korzysta z gotowej projekcji i
+kanonicznego właściciela planszy, a stany wylicza jednym agregatem warunkowym
+bez sortowania i lookupu geometrii dla każdej komórki. Filtry pojedynczego
+symbolu, `?`, confidence oraz aktywnej kohorty zachowują pełną kontrolę bieżącej
+rewizji geometrii i dotychczasową selektywność indeksów.
 Zmiana ustawionej gry,
 symbolu albo rozmiaru strony czyści strony, miniatury, zaznaczenie i wirtualny
 viewport. Jeśli istnieje jawne zaznaczenie,

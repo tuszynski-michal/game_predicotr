@@ -426,23 +426,14 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         )
 
     def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts:
-        cell = ImageSymbolReviewCellModel
         self._raise_if_read_cancelled()
-        rows = self._session.execute(
-            self._base_visible_statement(
-                review_filter=review_filter,
-                include_prediction_confidence=False,
-            )
-            .with_only_columns(cell.review_state, func.count(cell.id))
-            .group_by(cell.review_state)
-        ).all()
-        by_state = {str(state): int(count) for state, count in rows}
-        approved_count = by_state.get(SymbolCellReviewState.APPROVED.value, 0)
-        pending_count = by_state.get(SymbolCellReviewState.PENDING.value, 0)
+        approved_count, pending_count = self._session.execute(
+            self._count_statement(review_filter=review_filter)
+        ).one()
         return SymbolCellReviewCounts(
-            all_count=approved_count + pending_count,
-            approved_count=approved_count,
-            pending_count=pending_count,
+            all_count=int(approved_count) + int(pending_count),
+            approved_count=int(approved_count),
+            pending_count=int(pending_count),
         )
 
     def get_asset(
@@ -578,34 +569,53 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             include_prediction_confidence=True,
         )
 
+    def _count_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
+        """Aggregate a ready current-owner projection with the narrowest safe joins."""
+
+        cell = ImageSymbolReviewCellModel
+        game_wide_without_confidence = (
+            review_filter.include_all_symbols
+            and review_filter.state is not SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
+            and review_filter.min_confidence is None
+            and review_filter.max_confidence is None
+        )
+        return self._base_visible_statement(
+            review_filter=review_filter,
+            include_prediction_confidence=False,
+            require_current_geometry=not game_wide_without_confidence,
+        ).with_only_columns(
+            func.count().filter(cell.review_state == SymbolCellReviewState.APPROVED.value),
+            func.count().filter(cell.review_state == SymbolCellReviewState.PENDING.value),
+            maintain_column_froms=True,
+        )
+
     def _base_visible_statement(
         self,
         *,
         review_filter: SymbolCellReviewListFilter,
         include_prediction_confidence: bool,
+        require_current_geometry: bool = True,
     ) -> Select[Any]:
         cell = ImageSymbolReviewCellModel
         document = ImageBoardSearchFastDocumentModel
         prediction_revision = ImageSymbolPredictionRevisionModel
         observation = CellObservationModel
-        statement = (
-            select(cell)
-            .join(
-                document,
-                and_(
-                    document.game_id == cell.game_id,
-                    document.sequence_number == cell.sequence_number,
-                    document.review_item_id == cell.review_item_id,
-                    document.recognized_board_id == cell.recognized_board_id,
-                    document.import_job_id == cell.import_job_id,
-                ),
-            )
-            .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
-            .where(
-                cell.game_id == review_filter.game_id,
-                cell.geometry_revision == RecognizedBoardModel.geometry_revision,
-            )
+        statement = select(cell).join(
+            document,
+            and_(
+                document.game_id == cell.game_id,
+                document.sequence_number == cell.sequence_number,
+                document.review_item_id == cell.review_item_id,
+                document.recognized_board_id == cell.recognized_board_id,
+                document.import_job_id == cell.import_job_id,
+            ),
         )
+        if require_current_geometry:
+            statement = statement.join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == cell.recognized_board_id,
+            ).where(cell.geometry_revision == RecognizedBoardModel.geometry_revision)
+        statement = statement.where(cell.game_id == review_filter.game_id)
         if not review_filter.include_all_symbols:
             if review_filter.symbol_id is None:
                 statement = statement.where(

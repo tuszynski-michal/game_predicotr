@@ -47,6 +47,11 @@ import {
   type GridGeometryDragTarget,
   type GridGeometryDraft,
 } from './grid-review-state';
+import {
+  gridDraftKey,
+  restoreGridDraft,
+  serializeGridDraft,
+} from './grid-review-draft-storage';
 
 interface GridReviewEditorProps {
   readonly api: GridReviewsClient;
@@ -152,6 +157,62 @@ function GridReviewEditorContent({
   );
   const [zoomPercent, setZoomPercent] = useState(100);
   const [error, setError] = useState('');
+  const draftLoadedRef = useRef(false);
+  const draftSavedRef = useRef(false);
+  useEffect(() => {
+    if (draftLoadedRef.current) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        const restored = restoreGridDraft(
+          items,
+          localStorage.getItem(gridDraftKey(items)),
+        );
+        if (restored) {
+          setSourceDrafts(restored);
+          setModifiedSourceItems(new Set(restored.keys()));
+          setSourceEditing(true);
+          setSourceRedefining(true);
+        }
+      } catch {
+        setError('Nie można odczytać lokalnego szkicu geometrii.');
+      }
+      draftLoadedRef.current = true;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
+  useEffect(() => {
+    if (
+      !draftLoadedRef.current ||
+      draftSavedRef.current ||
+      (!sourceRedefining && modifiedSourceItems.size === 0)
+    )
+      return;
+    try {
+      localStorage.setItem(
+        gridDraftKey(items),
+        serializeGridDraft(items, sourceDrafts),
+      );
+    } catch {
+      queueMicrotask(() =>
+        setError(
+          'Nie udało się utrwalić szkicu. Nie odświeżaj strony przed zapisem.',
+        ),
+      );
+    }
+  }, [items, sourceDrafts, sourceRedefining, modifiedSourceItems]);
+
+  function clearSavedDraft() {
+    draftSavedRef.current = true;
+    try {
+      localStorage.removeItem(gridDraftKey(items));
+    } catch {
+      /* Revisions reject stale drafts. */
+    }
+  }
   const sourceAssetItem = items[0] ?? item;
   const sourceUrl = api.imageGridReviewSourceAssetUrl(
     sourceAssetItem.slotId,
@@ -605,6 +666,7 @@ function GridReviewEditorContent({
         setError(result.error);
         return 'invalid';
       }
+      clearSavedDraft();
       onSaved();
       return 'saved';
     }
@@ -622,6 +684,7 @@ function GridReviewEditorContent({
       setError(result.error);
       return 'invalid';
     }
+    clearSavedDraft();
     onSaved();
     return 'saved';
   }

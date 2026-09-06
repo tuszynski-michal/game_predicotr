@@ -222,6 +222,18 @@ class ImageSequenceCanonicalService:
                         "rangeEnd": end,
                     },
                 )
+        for range_path, start, end, _checksum in ranges:
+            if end - start + 1 != 9 and end != expected_layout_count:
+                raise JobConflictError(
+                    "IMAGE_SEQUENCE_PREFLIGHT_SHORT_RANGE_NOT_TERMINAL",
+                    "A shorter seq_* range is allowed only at the configured end of the game.",
+                    details={
+                        "fileName": PurePosixPath(str(range_path).replace("\\", "/")).name,
+                        "rangeStart": start,
+                        "rangeEnd": end,
+                        "expectedLayoutCount": expected_layout_count,
+                    },
+                )
         canonical = self._repository.canonical_numbers(game_id)
         canonical_sources = self.canonical_source_checksums(game_id)
         unresolved: list[int] = []

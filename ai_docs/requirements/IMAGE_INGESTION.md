@@ -1377,6 +1377,13 @@ Historyczne fingerprinty oraz zachowanie silnika v1 nie zmieniają się.
 
 ### Ochrona dużego importu przed regresją geometrii
 
+TASK-0490: numery i liczba slotów pochodzą wyłącznie z nazwy `seq_start-end`.
+Krótki zakres jest dozwolony tylko przy skonfigurowanym końcu gry; również
+browserowy plan uploadu odrzuca krótszy zakres wewnętrzny. Brak geometrii nie
+zmniejsza liczby slotów. Edytor łączy aktualne i odroczone sloty, oferuje
+szablony bez cropów i zapisuje pełne źródło atomowo. Szkic lokalny zachowuje
+również niedokończone narożniki; zmiana checksumy lub rewizji unieważnia szkic.
+
 Import v0.10 obejmujący co najmniej 100 nierozwiązanych źródeł albo 500
 aktywnych plansz musi przed rejestracją plików pipeline'u wykonać
 deterministyczną próbę maksymalnie 25 źródeł. Próba obejmuje początek, środek i

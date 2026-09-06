@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
+import pytest
 from game_predictor_api.application.virtual_grid_geometry import (
     PreparedVirtualGridGeometry,
     PreparedVirtualGridGeometrySource,
@@ -324,8 +325,10 @@ def test_virtual_source_save_requires_and_persists_all_nine_row_major_slots(
     )
 
 
+@pytest.mark.parametrize("all_deferred", [False, True])
 def test_virtual_source_save_accepts_one_deferred_slot_only_as_part_of_complete_source(
     tmp_path: Path,
+    all_deferred: bool,
 ) -> None:
     service, context = _fixture(tmp_path)
     repository = service._repository  # noqa: SLF001 - application port fixture
@@ -335,7 +338,7 @@ def test_virtual_source_save_accepts_one_deferred_slot_only_as_part_of_complete_
     )
     contexts = []
     for position in range(9):
-        pending_id = uuid4() if position == 5 else None
+        pending_id = uuid4() if position == 5 or all_deferred else None
         contexts.append(
             replace(
                 context,

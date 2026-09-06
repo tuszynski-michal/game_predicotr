@@ -308,6 +308,11 @@ snapshot i replay.
 
 ### Bramka systemowa przed materializacją dużego importu
 
+Walidacja krótkiego zakresu jest wykonywana w `ImageSequenceCanonicalService`
+przed uploadem/preflightem, z `expected_layout_count` gry. Nie zmienia replay
+istniejących runów. Szkic lokalnego Reviewera przechowuje tylko współrzędne
+slotów i tożsamość rewizji, bez obrazów; po atomowym zapisie jest usuwany.
+
 TASK-0489: nowe runy używają `image-geometry-systemic-guard-v2-manual-review`.
 Próg próbki jest informacyjny; `allows_import` rozróżnia go od błędu
 integralności. Raport v2 pozostaje niezmiennym artefaktem przypiętym do runu.

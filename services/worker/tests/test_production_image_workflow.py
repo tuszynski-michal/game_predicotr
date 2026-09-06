@@ -2122,8 +2122,12 @@ def test_cold_start_symbol_projection_creates_unknowns_without_invoking_onnx(
     assert {cell["confidence"] for cell in cells} == {0.0}
 
 
+@pytest.mark.parametrize("start,end", [(1234, 1242), (499996, 500000)])
 def test_manual_import_defers_every_unregistered_source_slot_without_crops(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    start: int,
+    end: int,
 ) -> None:
     deferred = []
     suite = ProductionImageStageAdapterSuite(
@@ -2158,7 +2162,7 @@ def test_manual_import_defers_every_unregistered_source_slot_without_crops(
         source_relative_path="unused.jpg",
         pipeline_fingerprint="d" * 64,
         previous_results={},
-        attested_sequence_range=(1234, 1242),
+        attested_sequence_range=(start, end),
     )
     detection = suite.board_detection(context)
     context = replace(context, previous_results={"board_detection": detection})
@@ -2167,11 +2171,11 @@ def test_manual_import_defers_every_unregistered_source_slot_without_crops(
     context = replace(context, previous_results={"board_cell_geometry": geometry})
     crops = suite.board_crops(context)
     assert crops["boards"] == []
-    assert len(crops["deferredBoards"]) == 9
-    assert [item["sequence_number"] for item in deferred] == list(range(1234, 1243))
+    assert len(crops["deferredBoards"]) == end - start + 1
+    assert [item["sequence_number"] for item in deferred] == list(range(start, end + 1))
     assert all("geometry" not in board for board in detection["boards"])
     source_geometry = geometry["structuredGeometry"]
-    assert source_geometry["activeBoardSlots"] == list(range(9))
+    assert source_geometry["activeBoardSlots"] == list(range(end - start + 1))
     assert all(board["finalQuad"] is None for board in source_geometry["boards"])
     assert source_geometry["status"] != "ready"
 

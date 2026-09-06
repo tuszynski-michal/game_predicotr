@@ -166,6 +166,24 @@ def test_preflight_accepts_a_bounded_final_sequence_page(tmp_path: Path) -> None
     assert result.last_unresolved_sequence == 500_000
 
 
+@pytest.mark.parametrize("bound", [None, 500_000])
+def test_preflight_rejects_short_internal_range(tmp_path: Path, bound: int | None) -> None:
+    _touch(tmp_path, "seq_1234-1241.jpg")
+    service = ImageSequenceCanonicalService(_Repository(set(), expected_layout_count=bound))
+    with pytest.raises(JobConflictError) as error:
+        service.preflight(game_id=uuid4(), source_directory=tmp_path)
+    assert error.value.code == "IMAGE_SEQUENCE_PREFLIGHT_SHORT_RANGE_NOT_TERMINAL"
+
+
+def test_upload_plan_rejects_short_internal_range_before_upload() -> None:
+    service = ImageSequenceCanonicalService(_Repository(set(), expected_layout_count=500_000))
+    with pytest.raises(JobConflictError) as error:
+        service.plan_browser_upload(
+            game_id=uuid4(), files=(BrowserUploadPlanSource(0, "seq_1234-1241.jpg", 10),)
+        )
+    assert error.value.code == "IMAGE_SEQUENCE_PREFLIGHT_SHORT_RANGE_NOT_TERMINAL"
+
+
 def test_preflight_rejects_a_sequence_page_beyond_the_game_bound(
     tmp_path: Path,
 ) -> None:

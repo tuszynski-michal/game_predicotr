@@ -6,6 +6,14 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0490 — pełne sloty i trwały szkic ręcznej geometrii
+
+- Nazwa wyznacza 9 slotów; krótszy zakres tylko na końcu skonfigurowanej gry.
+  Upload plan i preflight blokują krótki zakres wewnętrzny.
+- Regresje potwierdzają atomowy zapis jednej lub wszystkich odroczonych
+  plansz. Lokalne szkice przetrwają reload, o ile źródło i rewizje są zgodne.
+- API/worker/Reviewer testowane; bez zmiany stagingów. Pozostaje pion 0491.
+
 ### TASK-0489 — import z odroczeniem niepewnych geometrii
 
 - Nowe runy przypinają `image-geometry-systemic-guard-v2-manual-review`:

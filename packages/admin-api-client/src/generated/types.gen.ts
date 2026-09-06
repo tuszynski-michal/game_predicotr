@@ -823,6 +823,10 @@ export type BrowserImageImportPreflightResponse = {
    */
   symbolModelReady: boolean;
   /**
+   * Unclassifiedcoldstartallowed
+   */
+  unclassifiedColdStartAllowed?: boolean;
+  /**
    * Uploadid
    */
   uploadId: string;
@@ -11539,6 +11543,10 @@ export type SymbolModelJobSnapshotPayload = {
    * Inferencefingerprint
    */
   inferenceFingerprint: string;
+  /**
+   * Inferencemode
+   */
+  inferenceMode?: 'model' | 'unclassified';
   /**
    * Inputsize
    */

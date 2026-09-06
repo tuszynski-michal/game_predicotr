@@ -8012,3 +8012,18 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** crop może mieć przypisany poprawny symbol i jednocześnie
   pozostać oznaczony jako `Nieczytelny · poza uczeniem`. UI planszy pokazuje tę
   informację tekstem oraz warstwą wizualną. Historia pozostaje append-only.
+
+## D-366 — Pierwszy import materializuje niewiadome bez fałszywej inferencji
+
+- **Status:** accepted
+- **Date:** 2026-09-06
+- **Decision:** gra bez zatwierdzonych komórek, kohort, iteracji i aktywacji
+  może wykonać jawny import `cold-start-unclassified`. Wszystkie poprawnie
+  wyrenderowane komórki trafiają jako pending `?` z confidence `0`, bez
+  uruchamiania ONNX i bez zapisu rewizji predykcji.
+- **Rationale:** nowa gra potrzebuje cropów, aby operator zbudował pierwszą
+  kohortę, ale użycie niezgodnego bootstrapu tworzyłoby fałszywe etykiety.
+- **Consequences:** po treningu i aktywacji istniejąca pending-only
+  reinferencja aktualizuje te same logiczne cropy. Jakakolwiek historia
+  zatwierdzeń lub uczenia wyłącza wyjątek i przywraca rygorystyczną bramkę
+  zgodnego modelu.

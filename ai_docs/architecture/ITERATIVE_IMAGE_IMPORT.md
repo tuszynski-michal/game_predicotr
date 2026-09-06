@@ -83,8 +83,13 @@ ponownie sprawdzane przed startem.
 Odczyt raportu stagingu rozwiązuje snapshot modelu symboli w trybie preview.
 Znane braki gotowości (`ACTIVATION_REQUIRED` lub `COMPATIBLE_MODEL_REQUIRED`)
 są częścią odpowiedzi, a nie błędem transportowym, dzięki czemu niezależny job
-geometrii może powstać przed treningiem. Utworzenie joba importu używa nadal
-rygorystycznego resolvera i nie może zapisać schema v5 bez zgodnego snapshotu.
+geometrii może powstać przed treningiem. Dla całkowicie pustej historii gry
+resolver może wystawić deterministyczny snapshot
+`cold-start-unclassified-v1` z `inferenceMode=unclassified`. Snapshot zawiera
+dokładny katalog klas i fingerprint, ale nie wskazuje wykonywalnego ONNX.
+Worker omija adapter modelu, materializuje `?`/`0` dla każdego cropa i nie
+tworzy rewizji predykcji. Pozostałe przypadki nadal przechodzą rygorystyczny
+resolver zgodnego modelu.
 
 ### Ponowne przetwarzanie z dokładną geometrią strony
 

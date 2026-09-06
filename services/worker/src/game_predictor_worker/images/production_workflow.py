@@ -2026,9 +2026,15 @@ class ProductionImageStageAdapterSuite:
     def symbol_inference(self, context: ImageStageContext) -> Mapping[str, object]:
         cropped_payload = _previous(context, "board_crops")
         cropped_boards = _boards(cropped_payload)
-        boards = self._infer_symbol_boards(context, cropped_boards)
+        unclassified = self._symbol_model_snapshot.inference_mode == "unclassified"
+        boards = (
+            self._unclassified_symbol_boards(cropped_boards)
+            if unclassified
+            else self._infer_symbol_boards(context, cropped_boards)
+        )
         projected: dict[str, object] = {
             "boards": boards,
+            "inferenceMode": self._symbol_model_snapshot.inference_mode,
             "modelIterationId": (
                 None
                 if self._symbol_model_snapshot.iteration_id is None
@@ -2042,17 +2048,51 @@ class ProductionImageStageAdapterSuite:
         }
         virtual_shadow = cropped_payload.get("virtualShadow")
         if isinstance(virtual_shadow, Mapping):
+            shadow_boards = _boards(cast(Mapping[str, object], virtual_shadow))
             projected["virtualShadow"] = {
-                "boards": self._infer_symbol_boards(
-                    context,
-                    _boards(cast(Mapping[str, object], virtual_shadow)),
-                    force_virtual=True,
+                "boards": (
+                    self._unclassified_symbol_boards(shadow_boards)
+                    if unclassified
+                    else self._infer_symbol_boards(
+                        context,
+                        shadow_boards,
+                        force_virtual=True,
+                    )
                 ),
                 "geometryChecksumSha256": virtual_shadow.get("geometryChecksumSha256"),
+                "inferenceMode": self._symbol_model_snapshot.inference_mode,
                 "modelVersion": self._symbol_model_snapshot.model_version,
                 "modelChecksumSha256": self._symbol_model_snapshot.onnx_checksum_sha256,
             }
         return projected
+
+    @staticmethod
+    def _unclassified_symbol_boards(
+        cropped_boards: Sequence[Mapping[str, object]],
+    ) -> list[dict[str, object]]:
+        return [
+            {
+                "cells": [
+                    {
+                        "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
+                        "columnIndex": _integer(cell, "columnIndex"),
+                        "confidence": 0.0,
+                        "rowIndex": _integer(cell, "rowIndex"),
+                        "symbolCode": "?",
+                    }
+                    for cell in (
+                        _mapping(value, "cell")
+                        for value in _sequence(board.get("cells"), "cells")
+                    )
+                ],
+                "completenessStatus": str(board.get("completenessStatus", "complete")),
+                "positionIndex": _integer(board, "positionIndex"),
+                "unavailableCellIndices": list(
+                    cast(Sequence[int], board.get("unavailableCellIndices", []))
+                ),
+            }
+            for board in cropped_boards
+        ]
 
     def _infer_symbol_boards(
         self,
@@ -2157,6 +2197,11 @@ class ProductionImageStageAdapterSuite:
         return self._artifacts.load_rgb(f"originals/{checksum_sha256[:2]}/{checksum_sha256}.jpg")
 
     def _symbol_adapter(self) -> LocalSymbolOnnxAdapter:
+        if self._symbol_model_snapshot.inference_mode == "unclassified":
+            raise JobHandlerError(
+                "IMAGE_SYMBOL_MODEL_UNCLASSIFIED_NO_ONNX",
+                "The cold-start unclassified import must not invoke an ONNX model.",
+            )
         if self._symbol_model is None:
             root = (
                 self._repository_root

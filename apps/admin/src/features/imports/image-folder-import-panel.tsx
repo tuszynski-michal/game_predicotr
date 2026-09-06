@@ -137,6 +137,9 @@ function symbolModelReadinessText(
   ) {
     return `gotowy · ${shortChecksum(preflight.symbolModelInferenceFingerprint)}`;
   }
+  if (preflight.unclassifiedColdStartAllowed) {
+    return 'pierwszy import — cropy trafią jako oczekujące ?';
+  }
   return preflight.symbolModelBlockerCode === 'SYMBOL_MODEL_ACTIVATION_REQUIRED'
     ? 'blokada — aktywuj gotowego kandydata'
     : 'blokada — wytrenuj i aktywuj model gry';
@@ -146,6 +149,9 @@ function symbolModelNextStep(
   preflight: BrowserImageImportPreflightResponse,
 ): string | null {
   if (preflight.symbolModelReady) return null;
+  if (preflight.unclassifiedColdStartAllowed) {
+    return 'Gra nie ma jeszcze zatwierdzonych cropów ani modelu. Pierwszy import utworzy plansze i komórki jako oczekujące „?”. Po ich zatwierdzeniu wytrenuj i aktywuj model, a następnie uruchom reinferencję.';
+  }
   return preflight.symbolModelBlockerCode === 'SYMBOL_MODEL_ACTIVATION_REQUIRED'
     ? 'Raport i geometria są dostępne, ale start importu wymaga aktywacji gotowego kandydata modelu symboli.'
     : 'Raport i geometria są dostępne, ale przed startem importu zatwierdź aktualne cropy w Ulepszaniu modelu symboli, wybierz „Ulepsz rozpoznawanie”, a następnie aktywuj model tej gry.';
@@ -500,7 +506,8 @@ export function ImageFolderImportPanel({
       busy ||
       readyUploadId === null ||
       preflight === null ||
-      !preflight.symbolModelReady ||
+      (!preflight.symbolModelReady &&
+        !preflight.unclassifiedColdStartAllowed) ||
       (preflight.geometryPreflightRequired &&
         (geometryPreflightJob?.status !== 'completed' ||
           geometryManifestChecksum === null)) ||
@@ -1346,7 +1353,8 @@ export function ImageFolderImportPanel({
                 (readyUploadId !== null ||
                   selection?.selectionToken == null)) ||
               (preflight !== null &&
-                (!preflight.symbolModelReady ||
+                ((!preflight.symbolModelReady &&
+                  !preflight.unclassifiedColdStartAllowed) ||
                   (preflight.geometryPreflightRequired &&
                     (geometryPreflightJob?.status !== 'completed' ||
                       geometryManifestChecksum === null)) ||
@@ -1367,9 +1375,11 @@ export function ImageFolderImportPanel({
                   ? 'Importuj rozpoznane strony'
                   : geometryGuardResolutionManifest !== null
                     ? 'Rozpocznij nowy import z rozliczeniami'
-                    : boardCellProcessingMode === 'verified_v19'
-                      ? 'Rozpocznij import v20 z raportu'
-                      : 'Rozpocznij import z raportu'}
+                    : preflight.unclassifiedColdStartAllowed
+                      ? 'Rozpocznij pierwszy import bez modelu'
+                      : boardCellProcessingMode === 'verified_v19'
+                        ? 'Rozpocznij import v20 z raportu'
+                        : 'Rozpocznij import z raportu'}
           </button>
           <input
             accept=".jpg,.jpeg,image/jpeg"

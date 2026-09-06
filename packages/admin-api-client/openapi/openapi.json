@@ -1475,6 +1475,11 @@
             "title": "Symbolmodelready",
             "type": "boolean"
           },
+          "unclassifiedColdStartAllowed": {
+            "default": false,
+            "title": "Unclassifiedcoldstartallowed",
+            "type": "boolean"
+          },
           "uploadId": {
             "format": "uuid",
             "title": "Uploadid",
@@ -20347,6 +20352,15 @@
           "inferenceFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Inferencefingerprint",
+            "type": "string"
+          },
+          "inferenceMode": {
+            "default": "model",
+            "enum": [
+              "model",
+              "unclassified"
+            ],
+            "title": "Inferencemode",
             "type": "string"
           },
           "inputSize": {

@@ -344,6 +344,10 @@ class JobRepository(Protocol):
 class SymbolModelSnapshotResolver(Protocol):
     def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot: ...
 
+    def resolve_unclassified_cold_start(
+        self, *, game_id: UUID
+    ) -> SymbolModelJobSnapshot | None: ...
+
 
 class GridProfileSnapshotResolver(Protocol):
     def resolve(self, *, game_id: UUID) -> dict[str, object]: ...
@@ -548,6 +552,7 @@ class JobService:
         page_geometry_manifest: dict[str, object] | None = None,
         geometry_guard_resolution_manifest: dict[str, object] | None = None,
         use_verified_board_cell_geometry: bool = False,
+        allow_unclassified_symbol_cold_start: bool = False,
     ) -> Job:
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
@@ -567,10 +572,9 @@ class JobService:
                 "IMAGE_FOLDER_NOT_DIRECTORY",
                 "The selected image source must be a directory.",
             )
-        symbol_model = (
-            bootstrap_symbol_model_snapshot()
-            if self._symbol_model_snapshot_resolver is None
-            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        symbol_model = self._resolve_import_symbol_snapshot(
+            game_id=game_id,
+            allow_unclassified_cold_start=allow_unclassified_symbol_cold_start,
         )
         effective_pipeline_fingerprint = hashlib.sha256(
             f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}".encode("ascii")
@@ -693,6 +697,29 @@ class JobService:
             input_payload=input_payload,
             game_already_validated=True,
         )
+
+    def _resolve_import_symbol_snapshot(
+        self,
+        *,
+        game_id: UUID,
+        allow_unclassified_cold_start: bool,
+    ) -> SymbolModelJobSnapshot:
+        if self._symbol_model_snapshot_resolver is None:
+            return bootstrap_symbol_model_snapshot()
+        try:
+            return self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        except JobConflictError as error:
+            if (
+                not allow_unclassified_cold_start
+                or error.code != "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED"
+            ):
+                raise
+            snapshot = self._symbol_model_snapshot_resolver.resolve_unclassified_cold_start(
+                game_id=game_id
+            )
+            if snapshot is None:
+                raise
+            return snapshot
 
     def create_pending_symbol_reinference_job(self, *, game_id: UUID) -> Job:
         """Create an explicit job that may update pending symbol predictions only."""
@@ -1251,11 +1278,12 @@ class JobService:
 
     def preview_image_import_model_fingerprints(
         self, *, game_id: UUID
-    ) -> tuple[str | None, str, str | None]:
+    ) -> tuple[str | None, str, str | None, bool]:
         """Resolve report metadata without weakening the strict import snapshot gate."""
 
         symbol_fingerprint: str | None
         symbol_blocker_code: str | None = None
+        unclassified_cold_start_allowed = False
         try:
             symbol = (
                 bootstrap_symbol_model_snapshot()
@@ -1271,6 +1299,19 @@ class JobService:
                 raise
             symbol_fingerprint = None
             symbol_blocker_code = error.code
+            if (
+                error.code == "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED"
+                and self._symbol_model_snapshot_resolver is not None
+            ):
+                cold_start_resolver = getattr(
+                    self._symbol_model_snapshot_resolver,
+                    "resolve_unclassified_cold_start",
+                    None,
+                )
+                unclassified_cold_start_allowed = bool(
+                    callable(cold_start_resolver)
+                    and cold_start_resolver(game_id=game_id) is not None
+                )
         grid = (
             _baseline_grid_profile_snapshot()
             if self._grid_profile_snapshot_resolver is None
@@ -1282,7 +1323,12 @@ class JobService:
                 "GRID_PROFILE_SNAPSHOT_INVALID",
                 "The active grid profile snapshot is invalid.",
             )
-        return symbol_fingerprint, grid_fingerprint, symbol_blocker_code
+        return (
+            symbol_fingerprint,
+            grid_fingerprint,
+            symbol_blocker_code,
+            unclassified_cold_start_allowed,
+        )
 
     def create_page_geometry_preflight_job(
         self,

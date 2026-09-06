@@ -598,20 +598,25 @@ class SqlAlchemyImagePipelineStore:
                 )
                 changed_review_item_ids.update(ownership_changes)
                 if review_item.status == "pending":
-                    _append_prediction_revision(
-                        session,
-                        game_id=job.game_id,
-                        job_id=job_id,
-                        review_item=review_item,
-                        board=board,
-                        crop_board=cropped,
-                        symbol_board=symbol,
-                        symbol_payload=symbol_payload,
-                        created_at=executed_at,
-                    )
+                    if symbol_payload.get("inferenceMode") != "unclassified":
+                        _append_prediction_revision(
+                            session,
+                            game_id=job.game_id,
+                            job_id=job_id,
+                            review_item=review_item,
+                            board=board,
+                            crop_board=cropped,
+                            symbol_board=symbol,
+                            symbol_payload=symbol_payload,
+                            created_at=executed_at,
+                        )
                     shadow_crop = virtual_shadow_crops.get(position)
                     shadow_symbol = virtual_shadow_symbols.get(position)
-                    if shadow_crop is not None and shadow_symbol is not None:
+                    if (
+                        symbol_payload.get("inferenceMode") != "unclassified"
+                        and shadow_crop is not None
+                        and shadow_symbol is not None
+                    ):
                         _append_prediction_revision(
                             session,
                             game_id=job.game_id,

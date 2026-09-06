@@ -53,6 +53,7 @@ class SymbolModelJobSnapshotPayload(ApiModel):
     input_size: int = Field(ge=16)
     temperature: float = Field(gt=0)
     inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    inference_mode: Literal["model", "unclassified"] = "model"
 
 
 class BoardCellProcessingJobSnapshotPayload(ApiModel):

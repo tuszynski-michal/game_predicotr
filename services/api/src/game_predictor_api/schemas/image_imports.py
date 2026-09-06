@@ -151,6 +151,7 @@ class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     symbol_model_ready: bool
+    unclassified_cold_start_allowed: bool = False
     symbol_model_blocker_code: (
         Literal[
             "SYMBOL_MODEL_ACTIVATION_REQUIRED",

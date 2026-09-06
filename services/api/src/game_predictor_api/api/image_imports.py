@@ -399,6 +399,7 @@ def create_image_imports_router(
             symbol_fingerprint,
             grid_fingerprint,
             symbol_blocker_code,
+            unclassified_cold_start_allowed,
         ) = job_service.preview_image_import_model_fingerprints(game_id=game_id)
         engine_policy = job_service.current_image_import_engine_policy(game_id=game_id)
         payload["imageEnginePolicy"] = engine_policy.policy.value
@@ -409,6 +410,7 @@ def create_image_imports_router(
         payload["geometryPreflightRequired"] = True
         payload["operatorExcludedSourceCount"] = len(exclusions)
         payload["symbolModelReady"] = symbol_fingerprint is not None
+        payload["unclassifiedColdStartAllowed"] = unclassified_cold_start_allowed
         payload["symbolModelBlockerCode"] = symbol_blocker_code
         checksum = hashlib.sha256(
             json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
@@ -630,9 +632,21 @@ def create_image_imports_router(
             job_service=job_service,
             override_service=override_service,
         )
-        current_symbol, current_grid = job_service.current_image_import_model_fingerprints(
-            game_id=payload.game_id
-        )
+        (
+            current_symbol,
+            current_grid,
+            current_symbol_blocker,
+            current_unclassified_cold_start_allowed,
+        ) = job_service.preview_image_import_model_fingerprints(game_id=payload.game_id)
+        if (
+            current_symbol is None
+            and not current_unclassified_cold_start_allowed
+            and current_symbol_blocker is not None
+        ):
+            raise JobConflictError(
+                current_symbol_blocker,
+                "A compatible symbol model must be activated before this import can start.",
+            )
         if (
             payload.symbol_model_inference_fingerprint is not None
             and payload.symbol_model_inference_fingerprint != current_symbol
@@ -766,6 +780,10 @@ def create_image_imports_router(
                     page_geometry_manifest=geometry_manifest,
                     geometry_guard_resolution_manifest=resolution_manifest,
                     use_verified_board_cell_geometry=requested_v19,
+                    allow_unclassified_symbol_cold_start=(
+                        preflight.unclassified_cold_start_allowed
+                        and current_unclassified_cold_start_allowed
+                    ),
                 )
                 created = True
             except JobConflictError as error:

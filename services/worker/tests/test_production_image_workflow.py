@@ -17,6 +17,7 @@ from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
+    cold_start_unclassified_symbol_snapshot,
 )
 from game_predictor_worker.images.board_cell_geometry_activation import (
     board_cell_processing_snapshot,
@@ -2050,6 +2051,56 @@ def test_v20_empty_verified_set_never_invokes_symbol_model(
     )
 
     assert result["boards"] == []
+
+
+def test_cold_start_symbol_projection_creates_unknowns_without_invoking_onnx(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suite = ProductionImageStageAdapterSuite(
+        tmp_path / "artifacts",
+        repository_root=Path.cwd(),
+        symbol_model=cold_start_unclassified_symbol_snapshot(("CYTRYNA", "WISNIA")),
+    )
+
+    def unexpected_model() -> object:
+        raise AssertionError("cold-start import must not invoke ONNX")
+
+    monkeypatch.setattr(suite, "_symbol_adapter", unexpected_model)
+    result = suite.symbol_inference(
+        ImageStageContext(
+            job_id=uuid4(),
+            file_execution_key="f" * 64,
+            source_checksum_sha256="c" * 64,
+            source_relative_path="unused.jpg",
+            pipeline_fingerprint="d" * 64,
+            previous_results={
+                "board_crops": {
+                    "boards": [
+                        {
+                            "positionIndex": 0,
+                            "cells": [
+                                {
+                                    "columnIndex": column,
+                                    "rowIndex": row,
+                                    "cropRelativePath": f"cells/{row}-{column}.png",
+                                }
+                                for row in range(3)
+                                for column in range(5)
+                            ],
+                        }
+                    ]
+                }
+            },
+        )
+    )
+
+    assert result["inferenceMode"] == "unclassified"
+    assert result["modelVersion"] == "cold-start-unclassified-v1"
+    cells = result["boards"][0]["cells"]
+    assert len(cells) == 15
+    assert {cell["symbolCode"] for cell in cells} == {"?"}
+    assert {cell["confidence"] for cell in cells} == {0.0}
 
 
 def _candidate_snapshot() -> SymbolModelJobSnapshot:

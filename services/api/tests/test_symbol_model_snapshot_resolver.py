@@ -52,6 +52,20 @@ class _Session:
         return self.iteration
 
 
+class _ColdStartHistorySession(_Session):
+    def __init__(self, blocked_call: int) -> None:
+        super().__init__(
+            None,
+            None,
+            catalog_codes=("CYTRYNA", "SIEDEM", "WISNIA"),
+        )
+        self._blocked_call = blocked_call
+
+    def scalar(self, _statement: object) -> object | None:
+        self._scalar_calls += 1
+        return object() if self._scalar_calls == self._blocked_call else None
+
+
 def _resolver_fixture(
     tmp_path: Path,
 ) -> tuple[
@@ -182,6 +196,39 @@ def test_resolver_rejects_bootstrap_that_does_not_match_the_game_catalog(
         resolver.resolve(game_id=uuid4())
 
     assert error.value.code == "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED"
+
+
+def test_resolver_allows_unclassified_snapshot_for_empty_incompatible_game(
+    tmp_path: Path,
+) -> None:
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _Session(
+            None,
+            None,
+            catalog_codes=("CYTRYNA", "SIEDEM", "WISNIA"),
+        ),  # type: ignore[arg-type]
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    snapshot = resolver.resolve_unclassified_cold_start(game_id=uuid4())
+
+    assert snapshot is not None
+    assert snapshot.inference_mode == "unclassified"
+    assert snapshot.class_codes == ("CYTRYNA", "SIEDEM", "WISNIA")
+    assert snapshot.model_version == "cold-start-unclassified-v1"
+
+
+@pytest.mark.parametrize("blocked_call", (1, 2, 3, 4))
+def test_resolver_blocks_unclassified_snapshot_for_any_existing_training_history(
+    tmp_path: Path,
+    blocked_call: int,
+) -> None:
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _ColdStartHistorySession(blocked_call),  # type: ignore[arg-type]
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    assert resolver.resolve_unclassified_cold_start(game_id=uuid4()) is None
 
 
 def test_resolver_keeps_compatible_bootstrap_for_legacy_catalog(tmp_path: Path) -> None:

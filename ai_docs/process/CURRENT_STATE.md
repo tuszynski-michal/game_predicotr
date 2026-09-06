@@ -6,6 +6,19 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0488 — pierwszy import symboli bez zgodnego modelu
+
+- Całkowicie nowa gra może po preflighcie geometrii uruchomić jawny import
+  `cold-start-unclassified`. Worker tworzy zwykłe plansze i cropy, ale zapisuje
+  je jako oczekujące `?` z confidence `0`, bez otwierania ONNX i bez udawanej
+  rewizji predykcji.
+- Tryb jest dostępny wyłącznie bez zatwierdzonych komórek, kohort, iteracji i
+  aktywacji. Stan jest ponownie sprawdzany przy starcie i objęty checksumą
+  raportu; kandydat oczekujący na aktywację nadal blokuje import.
+- Po ręcznym opisaniu części cropów operator może wytrenować i aktywować model,
+  a następnie przeliczyć oczekujące na tych samych cropach bez duplikowania
+  assetów.
+
 ### TASK-0487 — odzyskanie luk malejącej korekty selekcji
 
 - Naprawiono interpretację malejącego output manifestu: `firstLayout` nie jest

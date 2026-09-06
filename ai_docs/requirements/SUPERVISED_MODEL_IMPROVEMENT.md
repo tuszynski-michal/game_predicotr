@@ -46,11 +46,13 @@ gry. Dane różnych gier nie są łączone bez nowej decyzji architektonicznej,
 ponieważ gry mogą mieć inne katalogi symboli i inne warunki obrazu.
 
 Raport browserowego importu może być odczytany przed pierwszym treningiem, aby
-operator mógł ocenić zakresy i przygotować geometrię. Taki raport jawnie
-pokazuje brak gotowego modelu i nie jest autoryzacją startu importu. Start
-inferencji nadal wymaga wytrenowanego oraz aktywnego snapshotu zgodnego z
-bieżącym katalogiem symboli danej gry; niezgodny globalny bootstrap nie może go
-zastąpić.
+operator mógł ocenić zakresy i przygotować geometrię. Gdy gra nie ma jeszcze
+zatwierdzonych komórek, kohorty, iteracji ani aktywacji, jawny cold-start może
+utworzyć cropy jako oczekujące `?`. Nie jest to inferencja: nie uruchamia modelu
+i nie zapisuje rewizji predykcji. Operator przypisuje część cropów, buduje z
+nich kohortę, trenuje i aktywuje model, a następnie uruchamia istniejącą
+pending-only reinferencję na tych samych cropach. Niezgodny globalny bootstrap
+nigdy nie zastępuje modelu gry.
 
 ## Kohorta treningowa
 

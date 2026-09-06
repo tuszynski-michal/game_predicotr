@@ -18,11 +18,14 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
     bootstrap_symbol_model_snapshot,
+    cold_start_unclassified_symbol_snapshot,
 )
 from game_predictor_api.storage.models import (
     GameSymbolModelActivationModel,
+    ImageSymbolReviewCellModel,
     SymbolModel,
     SymbolModelIterationModel,
+    VerifiedTrainingCohortModel,
 )
 
 
@@ -144,6 +147,45 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
             input_size=input_size,
             temperature=float(temperature),
         )
+
+    def resolve_unclassified_cold_start(
+        self, *, game_id: UUID
+    ) -> SymbolModelJobSnapshot | None:
+        """Return a no-ONNX snapshot only for a genuinely untrained game."""
+
+        active_catalog_codes = tuple(
+            self._session.scalars(
+                select(SymbolModel.code)
+                .where(
+                    SymbolModel.game_id == game_id,
+                    SymbolModel.status == SymbolStatus.ACTIVE,
+                )
+                .order_by(SymbolModel.code)
+            )
+        )
+        blockers = (
+            select(ImageSymbolReviewCellModel.id)
+            .where(
+                ImageSymbolReviewCellModel.game_id == game_id,
+                ImageSymbolReviewCellModel.review_state == "approved",
+            )
+            .limit(1),
+            select(VerifiedTrainingCohortModel.id)
+            .where(VerifiedTrainingCohortModel.game_id == game_id)
+            .limit(1),
+            select(SymbolModelIterationModel.id)
+            .where(SymbolModelIterationModel.game_id == game_id)
+            .limit(1),
+            select(GameSymbolModelActivationModel.id)
+            .where(GameSymbolModelActivationModel.game_id == game_id)
+            .limit(1),
+        )
+        if any(self._session.scalar(statement) is not None for statement in blockers):
+            return None
+        try:
+            return cold_start_unclassified_symbol_snapshot(active_catalog_codes)
+        except ValueError:
+            return None
 
     def _managed_path(self, relative_path: str | None) -> Path:
         if relative_path is None:

@@ -1312,9 +1312,17 @@ manifestu. Raport pokazuje nowe i kanonicznie użyte ponownie numery, pominięte
 nierozwiązany numer. Raport jest operacją read-only: brak aktywnego modelu
 symboli zgodnego z katalogiem gry nie blokuje raportu ani osobnego preflightu
 geometrii. W takim przypadku raport zwraca `symbolModelReady=false`, stabilny
-`symbolModelBlockerCode` oraz brak fingerprintu modelu. Dopiero jawna akcja
-startu przekazuje obie checksumy; backend ponownie wykonuje preflight, wymaga
-zgodnego aktywnego snapshotu modelu symboli i odrzuca nieaktualny raport.
+`symbolModelBlockerCode` oraz brak fingerprintu modelu. Dla gry bez
+zatwierdzonych komórek, kohort, iteracji i aktywacji raport może dodatkowo
+zwrócić `unclassifiedColdStartAllowed=true`. Jawny pierwszy import tworzy wtedy
+plansze i cropy, ale każdą komórkę materializuje jako oczekujące `?` z
+confidence `0`, bez uruchamiania ONNX i bez rewizji predykcji modelu. W każdym
+innym stanie start wymaga zgodnego aktywnego snapshotu modelu symboli.
+
+Jawna akcja startu przekazuje obie checksumy; backend ponownie wykonuje
+preflight i odrzuca nieaktualny raport. Stan dopuszczenia cold-startu jest
+częścią checksummy, więc równoległa aktywacja albo utworzenie historii treningu
+nie może cicho zmienić trybu importu.
 Powtórzenie
 tej samej akcji dla tego samego stagingu zwraca istniejący job (`created=false`)
 i nie tworzy duplikatu.

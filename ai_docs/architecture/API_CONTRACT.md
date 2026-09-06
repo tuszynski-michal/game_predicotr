@@ -2865,7 +2865,8 @@ trwałym stagingiem:
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/preflight`
   przyjmuje `gameId` i zwraca raport zakresów, `preflightChecksumSha256` oraz
   jawne `symbolModelReady`, `symbolModelBlockerCode` i opcjonalny
-  `symbolModelInferenceFingerprint`,
+  `symbolModelInferenceFingerprint`. Pole `unclassifiedColdStartAllowed`
+  wskazuje, że całkowicie nowa gra może wykonać pierwszy import bez inferencji,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/start`
   przyjmuje `gameId`, `manifestChecksumSha256` i checksumę preflightu.
 
@@ -2878,7 +2879,9 @@ kontraktów.
 Preflight raportowy nie tworzy importu i nie wymaga gotowego modelu symboli.
 Znany brak aktywnego lub zgodnego modelu wraca jako HTTP 200 z
 `symbolModelReady=false`; checksum raportu obejmuje ten stan. Endpoint `start`
-ponownie używa rygorystycznego resolvera, więc niezgodność kończy się stabilnym
+ponownie sprawdza rygorystyczny resolver. Tylko gdy oba odczyty potwierdzą
+`unclassifiedColdStartAllowed`, może przypiąć snapshot bez modelu i utworzyć
+pending `?`; w pozostałych przypadkach niezgodność kończy się stabilnym
 konfliktem bez utworzenia joba. Preflight geometrii pozostaje od tego resolvera
 niezależny.
 

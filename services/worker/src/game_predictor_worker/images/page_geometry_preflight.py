@@ -32,9 +32,7 @@ from .source_ingestion import (
 PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION = 2
 LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v1"
 PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v2-auto-anchor"
-PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION = (
-    "page-geometry-preflight-v3-board-area-mask"
-)
+PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION = "page-geometry-preflight-v3-board-area-mask"
 _CHECKPOINT_BATCH_SIZE = 25
 _AUTO_ANCHOR_MAX_PASSES = 2
 _AUTO_ANCHOR_LIMIT_PER_PASS = 21
@@ -121,9 +119,15 @@ class PageGeometryPreflightHandler:
         originals_by_checksum = {
             original.checksum_sha256: original for original in managed.originals
         }
+        available_override_anchor_checksums = set(originals_by_checksum)
+        raw_overrides = cast(Mapping[str, object], payload["pageGeometryOverrides"])
+        for checksum in raw_overrides:
+            if _is_sha256(checksum) and self._managed_anchor_path(checksum).is_file():
+                available_override_anchor_checksums.add(checksum)
         registration_profile = _profile_with_manual_override_anchors(
             cast(Mapping[str, object], payload["pageRegistrationProfile"]),
-            cast(Mapping[str, object], payload["pageGeometryOverrides"]),
+            raw_overrides,
+            available_checksums=available_override_anchor_checksums,
         )
         registrar = VerifiedPageRegistrar(
             registration_profile,
@@ -444,13 +448,7 @@ class PageGeometryPreflightHandler:
         return self._load_anchor_rgb(checksum_sha256)
 
     def _load_anchor_rgb(self, checksum_sha256: str) -> np.ndarray:
-        path = (
-            self._artifact_root
-            / "data"
-            / "originals"
-            / checksum_sha256[:2]
-            / f"{checksum_sha256}.jpg"
-        )
+        path = self._managed_anchor_path(checksum_sha256)
         try:
             with Image.open(path) as image:
                 image.load()
@@ -460,6 +458,15 @@ class PageGeometryPreflightHandler:
                 "IMAGE_PAGE_GEOMETRY_ANCHOR_UNAVAILABLE",
                 "A reviewed geometry anchor image is unavailable.",
             ) from error
+
+    def _managed_anchor_path(self, checksum_sha256: str) -> Path:
+        return (
+            self._artifact_root
+            / "data"
+            / "originals"
+            / checksum_sha256[:2]
+            / f"{checksum_sha256}.jpg"
+        )
 
     @staticmethod
     def _override(
@@ -563,12 +570,12 @@ def _registration_policy_matches_preflight(
     preflight_policy_version: object,
     registration_policy_version: object,
 ) -> bool:
+    if not isinstance(preflight_policy_version, str):
+        return False
     expected = {
         LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION: PAGE_REGISTRATION_VERSION,
         PAGE_GEOMETRY_PREFLIGHT_VERSION: PAGE_REGISTRATION_VERSION,
-        PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION: (
-            PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION
-        ),
+        PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION: (PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION),
     }
     return expected.get(preflight_policy_version) == registration_policy_version
 
@@ -706,9 +713,7 @@ def _manifest_bytes(
         "skippedHumanResolvedSourceCount": skipped_human_resolved,
         "registeredSourceCount": registered,
         "schemaVersion": (
-            PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION
-            if _uses_auto_anchors(version)
-            else 1
+            PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION if _uses_auto_anchors(version) else 1
         ),
         "sourceCount": source_count,
         "sourceManifestChecksumSha256": payload["sourceManifestChecksumSha256"],
@@ -805,8 +810,7 @@ def _checkpoint(
     # review outcome only with the immutable final manifest.
     published_review_count = (
         review_required
-        if complete
-        or not _uses_auto_anchors(cast(str, payload["preflightPolicyVersion"]))
+        if complete or not _uses_auto_anchors(cast(str, payload["preflightPolicyVersion"]))
         else 0
     )
     context.checkpoint(
@@ -861,8 +865,16 @@ def _entry_status_count(entries: Mapping[str, object], status: str) -> int:
 def _profile_with_manual_override_anchors(
     profile: Mapping[str, object],
     overrides: Mapping[str, object],
+    *,
+    available_checksums: set[str],
 ) -> dict[str, object]:
-    """Use reviewed page overrides as immutable cold-start registration anchors."""
+    """Use only resolvable reviewed overrides as optional cold-start anchors.
+
+    Explicit anchors already present in the base profile remain mandatory and
+    are deliberately not filtered here.  Game-wide manual overrides are an
+    optional source of extra anchors: cleanup of their old staging must not
+    prevent an unrelated new staging from reaching manual review.
+    """
 
     raw_anchors = profile.get("anchors")
     anchors = (
@@ -876,7 +888,11 @@ def _profile_with_manual_override_anchors(
         if isinstance(value.get("sourceChecksumSha256"), str)
     }
     for checksum, raw in sorted(overrides.items()):
-        if checksum in known_checksums or not isinstance(raw, Mapping):
+        if (
+            checksum in known_checksums
+            or checksum not in available_checksums
+            or not isinstance(raw, Mapping)
+        ):
             continue
         width = raw.get("imageWidth")
         height = raw.get("imageHeight")
@@ -906,6 +922,14 @@ def _profile_with_manual_override_anchors(
         )
         known_checksums.add(checksum)
     return {**profile, "anchors": anchors}
+
+
+def _is_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 def _strong_auto_anchor(entry: Mapping[str, object]) -> bool:

@@ -698,7 +698,13 @@ checksum-bound stagingu, a `data/originals` pozostaje źródłem kotwic
 historycznych. Nie kopiuje to całego stagingu do managed storage. Brak pliku
 bieżącego źródła daje `IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE`, natomiast brak
 wymaganej kotwicy historycznej nadal daje
-`IMAGE_PAGE_GEOMETRY_ANCHOR_UNAVAILABLE` bez fallbacku geometrii.
+`IMAGE_PAGE_GEOMETRY_ANCHOR_UNAVAILABLE` bez fallbacku geometrii. Kotwice
+jawnie należące do bazowego profilu są wymagane. Game-wide ręczne override'y
+są natomiast opcjonalnym rozszerzeniem profilu: preflight dołącza je tylko,
+gdy checksum-bound JPEG jest dostępny w bieżącym stagingu albo managed
+originals. Osierocony override po cleanupie starego stagingu jest pomijany i
+nie może blokować nowego importu; brak dowodu nadal daje `review_required`, a
+nie syntetyczną geometrię.
 
 Alternatywny tryb `Wyznacz N plansz osobno` pozwala ominąć modelowanie całej
 strony i krzywizny. Operator wskazuje po cztery narożniki LT, PT, PD, LD dla

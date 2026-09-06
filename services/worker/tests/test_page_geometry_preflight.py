@@ -55,10 +55,7 @@ def test_masked_preflight_policy_is_pinned_and_unknown_policy_fails_closed(
 
     normalized = preflight_module._input(masked)
 
-    assert (
-        normalized["preflightPolicyVersion"]
-        == "page-geometry-preflight-v3-board-area-mask"
-    )
+    assert normalized["preflightPolicyVersion"] == "page-geometry-preflight-v3-board-area-mask"
     with pytest.raises(JobHandlerError) as captured:
         preflight_module._input(
             create_job(
@@ -374,6 +371,46 @@ def test_missing_historical_profile_anchor_remains_fail_closed(tmp_path: Path) -
         )  # type: ignore[arg-type]
 
     assert error.value.code == "IMAGE_PAGE_GEOMETRY_ANCHOR_UNAVAILABLE"
+
+
+def test_missing_optional_historical_override_anchor_is_skipped(tmp_path: Path) -> None:
+    _image, quads = _page()
+    initial_job, checksums = _cold_start_job(tmp_path, image_count=1)
+    historical_checksum = "b" * 64
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial_job.game_id,
+        input_payload={
+            **initial_job.input_payload,
+            "page_geometry_overrides": {
+                historical_checksum: {
+                    "decisionChecksumSha256": "c" * 64,
+                    "imageHeight": 480,
+                    "imageWidth": 680,
+                    "overrideId": str(uuid4()),
+                    "quads": quads,
+                    "revision": 1,
+                }
+            },
+        },
+    )
+    context = _Context()
+
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(
+        context,
+        job,
+    )  # type: ignore[arg-type]
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = (tmp_path / "artifacts") / Path(
+        *checkpoint["geometry_manifest_relative_path"].split("/")
+    )
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["registeredSourceCount"] == 0
+    assert payload["reviewRequiredSourceCount"] == 1
+    assert payload["entries"][checksums[0]]["reasonCode"] == (
+        "PAGE_GEOMETRY_BOOTSTRAP_ANCHOR_REQUIRED"
+    )
 
 
 def test_manual_override_registers_attested_five_board_final_page(tmp_path: Path) -> None:

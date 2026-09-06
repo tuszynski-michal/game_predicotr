@@ -395,7 +395,12 @@ bieżącego stagingu, zanim powstanie managed original. Loader używa kolejno
 pliku stagingowego o tej samej checksumie i historycznego content-addressed
 originalu. Ta kolejność dotyczy również pierwszej instancji rejestratora, nie
 tylko kolejnych przebiegów auto-kotwic. Brak źródła bieżącego i utrata
-historycznej kotwicy pozostają odrębnymi błędami fail-closed.
+historycznej kotwicy przypiętej do bazowego profilu pozostają odrębnymi błędami
+fail-closed. Ręczne override'y zbierane game-wide są tylko opcjonalnymi
+kotwicami rozszerzającymi: do profilu wykonania trafiają wyłącznie wtedy, gdy
+ich JPEG można rozwiązać z bieżącego stagingu albo managed originals. Dzięki
+temu cleanup starego stagingu nie unieruchamia nowych preflightów, a brak
+wszystkich dostępnych kotwic nadal prowadzi do `review_required` bez fallbacku.
 
 Manifest końcowy jest również planem częściowego wykonania: `registered`
 wchodzi do pipeline'u, `review_required` pozostaje w stagingu do późniejszego

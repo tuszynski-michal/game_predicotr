@@ -5588,3 +5588,16 @@ Worker backfillu/reconciliacji odświeża teraz statystyki zamkniętej listy tab
 raz po kompletnej finalizacji i przed terminalnym sukcesem. Nie wykonuje
 `VACUUM FULL`, nie zmienia danych domenowych ani treningowych i jest no-op poza
 PostgreSQL. Nie ma potrzeby ponownie importować 19 000 plansz.
+
+### TASK-0481 — odporność preflightu na osierocone opcjonalne kotwice
+
+Jawnie przypięte kotwice bazowego profilu rejestracji pozostają wymagane i
+fail-closed. Game-wide ręczne override'y są natomiast opcjonalnymi kotwicami:
+preflight dołącza je tylko, gdy checksum-bound JPEG istnieje w bieżącym
+stagingu albo managed originals. Cleanup starego stagingu nie blokuje już
+niepowiązanego nowego importu, a brak dowodu nadal kończy konkretne źródło jako
+`review_required` bez syntetycznej geometrii.
+
+Rzeczywisty job `1681dd2a-27b8-425d-b2f2-192be89e0b07` wznowiono na tym samym
+stagingu bez ponownego uploadu. Zakończył się wynikiem 2531 zarejestrowanych
+źródeł i 80 źródeł wymagających ręcznej korekty, bez technicznych błędów.

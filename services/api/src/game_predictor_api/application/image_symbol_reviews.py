@@ -50,6 +50,8 @@ class SymbolCellReviewQueryRepository(Protocol):
 
     def cancel_active_read(self) -> bool: ...
 
+    def mark_active_read_cancelled(self) -> None: ...
+
     def require_ready_game(self, game_id: UUID) -> int: ...
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None: ...
@@ -100,6 +102,11 @@ class SymbolCellReviewQueryService:
         """Cancel this request-scoped repository read, if it has reached PostgreSQL."""
 
         return self._repository.cancel_active_read()
+
+    def mark_active_read_cancelled(self) -> None:
+        """Prevent this request-scoped repository from starting more SQL."""
+
+        self._repository.mark_active_read_cancelled()
 
     def list(
         self,

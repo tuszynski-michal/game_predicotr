@@ -8,15 +8,18 @@ last_updated: 2026-09-06
 
 ### TASK-0499 — przerywanie SQL po rozłączeniu klienta
 
-- Endpointy listy i liczników Weryfikacji symboli wykonują synchroniczne query
-  poza pętlą ASGI i obserwują rozłączenie klienta co najwyżej co 50 ms.
+- Dodatkowy audyt `gpt-6-astra high` wykrył i usunął cztery wyścigi pierwszej
+  wersji: niewidoczny disconnect za `BaseHTTPMiddleware`, współdzielony limiter
+  query/cancel, nieskuteczny cancel pomiędzy instrukcjami SQL oraz przedwczesny
+  teardown po wielokrotnym `Task.cancel()`.
+- Endpointy listy i liczników wykonują query poza pętlą ASGI i czekają na
+  właściwy komunikat `http.disconnect` przez middleware.
 - Request-scoped repozytorium wiąże aktywny `bounded_read` z dokładnym
-  połączeniem psycopg. Disconnect uruchamia `cancel_safe()`; wyścig przed
-  rejestracją połączenia jest obsłużony ponowieniem, a zakończone połączenie nie
-  może zostać anulowane później.
-- Zwolnienie sesji następuje dopiero po zakończeniu wątku query. Limity 5/15 s i
-  kontrakt HTTP z TASK-0498 pozostają bez zmian. Optymalizacja licznika pozostaje
-  TASK-0500.
+  połączeniem psycopg oraz trwałym sygnałem anulowania. `cancel_safe()` działa w
+  osobnym executorze i jest ponawiane, a kolejne etapy sprawdzają sygnał przed
+  SQL. Zwolnienie sesji następuje dopiero po zakończeniu wątku query nawet przy
+  powtórnym anulowaniu requestu. Limity 5/15 s pozostają niezależne;
+  optymalizacja licznika pozostaje TASK-0500.
 
 ### TASK-0498 — serwerowe limity odczytów Weryfikacji symboli
 

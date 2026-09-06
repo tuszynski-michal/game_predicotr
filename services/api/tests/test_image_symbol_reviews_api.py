@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import replace
@@ -11,6 +12,7 @@ from threading import Event
 from typing import cast
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi import Request
 from fastapi.testclient import TestClient
 from game_predictor_api.api.image_symbol_reviews import _run_disconnect_cancellable_query
@@ -62,12 +64,17 @@ from game_predictor_api.domain.image_symbol_reviews import (
 )
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.main import create_app
+from game_predictor_api.security.local_admin import (
+    AppendOnlyAdminAuditLog,
+    LocalAdminSecurityMiddleware,
+)
 from game_predictor_worker.images.normalization import (
     CanonicalSourceLoader,
     rgb_pixel_checksum_sha256,
 )
 from game_predictor_worker.images.virtual_cell_extraction import source_direct_warp_rgb
 from PIL import Image
+from starlette.responses import PlainTextResponse
 
 
 def _disconnected_request() -> Request:
@@ -80,11 +87,26 @@ def _disconnected_request() -> Request:
     )
 
 
+def _connected_request() -> Request:
+    async def receive() -> dict[str, str]:
+        await asyncio.Future()
+        raise AssertionError("unreachable")
+
+    return Request(
+        {"type": "http", "method": "GET", "path": "/", "headers": []},
+        receive,
+    )
+
+
 class _DisconnectCancellableService:
     def __init__(self, *, succeed_on_attempt: int) -> None:
         self.succeed_on_attempt = succeed_on_attempt
         self.cancel_attempts = 0
+        self.mark_attempts = 0
         self.release = Event()
+
+    def mark_active_read_cancelled(self) -> None:
+        self.mark_attempts += 1
 
     def cancel_active_read(self) -> bool:
         self.cancel_attempts += 1
@@ -137,7 +159,7 @@ def test_completed_query_does_not_send_a_database_cancel() -> None:
 
     result = asyncio.run(
         _run_disconnect_cancellable_query(
-            _disconnected_request(),
+            _connected_request(),
             cast(SymbolCellReviewQueryService, service),
             lambda: "completed",
         )
@@ -145,6 +167,137 @@ def test_completed_query_does_not_send_a_database_cancel() -> None:
 
     assert result == "completed"
     assert service.cancel_attempts == 0
+    assert service.mark_attempts == 0
+
+
+def test_disconnect_is_observed_through_local_admin_security_middleware() -> None:
+    service = _DisconnectCancellableService(succeed_on_attempt=1)
+
+    async def inner_app(scope: object, receive: object, send: object) -> None:
+        request = Request(scope, receive)  # type: ignore[arg-type]
+
+        def query() -> str:
+            assert service.release.wait(timeout=1.0)
+            return "cancelled"
+
+        result = await _run_disconnect_cancellable_query(
+            request,
+            cast(SymbolCellReviewQueryService, service),
+            query,
+        )
+        await PlainTextResponse(result)(scope, receive, send)  # type: ignore[arg-type]
+
+    async def scenario() -> None:
+        app = LocalAdminSecurityMiddleware(
+            inner_app,
+            admin_origin="http://127.0.0.1:3000",
+            reviewer_origin="http://127.0.0.1:3001",
+            audit_log=cast(AppendOnlyAdminAuditLog, object()),
+        )
+        messages = iter(
+            (
+                {"type": "http.request", "body": b"", "more_body": False},
+                {"type": "http.disconnect"},
+            )
+        )
+
+        async def receive() -> dict[str, object]:
+            return next(messages)
+
+        sent: list[dict[str, object]] = []
+
+        async def send(message: dict[str, object]) -> None:
+            sent.append(message)
+
+        await app(
+            {
+                "type": "http",
+                "asgi": {"version": "3.0"},
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/api/v1/admin/games/1/symbol-cell-reviews",
+                "raw_path": b"/api/v1/admin/games/1/symbol-cell-reviews",
+                "query_string": b"",
+                "root_path": "",
+                "headers": [],
+                "client": ("127.0.0.1", 12345),
+                "server": ("127.0.0.1", 8000),
+            },
+            receive,
+            send,
+        )
+
+    asyncio.run(scenario())
+
+    assert service.mark_attempts >= 1
+    assert service.cancel_attempts >= 1
+
+
+def test_cancel_uses_an_executor_independent_from_the_query_thread_limiter() -> None:
+    service = _DisconnectCancellableService(succeed_on_attempt=1)
+
+    def query() -> str:
+        assert service.release.wait(timeout=1.0)
+        return "cancelled"
+
+    async def scenario() -> str:
+        from anyio import to_thread as anyio_to_thread
+
+        limiter = anyio_to_thread.current_default_thread_limiter()
+        previous_tokens = limiter.total_tokens
+        limiter.total_tokens = 1
+        try:
+            return await asyncio.wait_for(
+                _run_disconnect_cancellable_query(
+                    _disconnected_request(),
+                    cast(SymbolCellReviewQueryService, service),
+                    query,
+                ),
+                timeout=1.0,
+            )
+        finally:
+            limiter.total_tokens = previous_tokens
+
+    assert asyncio.run(scenario()) == "cancelled"
+    assert service.cancel_attempts >= 1
+
+
+def test_repeated_task_cancellation_waits_for_the_query_worker() -> None:
+    service = _DisconnectCancellableService(succeed_on_attempt=10_000)
+    worker_started = Event()
+    worker_release = Event()
+    worker_finished = Event()
+
+    def query() -> str:
+        worker_started.set()
+        assert worker_release.wait(timeout=2.0)
+        worker_finished.set()
+        return "finished"
+
+    async def scenario() -> None:
+        task = asyncio.create_task(
+            _run_disconnect_cancellable_query(
+                _connected_request(),
+                cast(SymbolCellReviewQueryService, service),
+                query,
+            )
+        )
+        assert await asyncio.to_thread(worker_started.wait, 1.0)
+        task.cancel()
+        await asyncio.sleep(0)
+        task.cancel()
+        await asyncio.sleep(0.05)
+        assert not task.done()
+        assert not worker_finished.is_set()
+        worker_release.set()
+        started = time.monotonic()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, timeout=1.0)
+        assert time.monotonic() - started < 1.0
+        assert worker_finished.is_set()
+
+    asyncio.run(scenario())
 
 
 class MemorySymbolCellReviewRepository:
@@ -181,6 +334,9 @@ class MemorySymbolCellReviewRepository:
 
     def cancel_active_read(self) -> bool:
         return False
+
+    def mark_active_read_cancelled(self) -> None:
+        return None
 
     def require_ready_game(self, game_id: UUID) -> int:
         if game_id != self.game_id:

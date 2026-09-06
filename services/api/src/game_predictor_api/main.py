@@ -1463,7 +1463,10 @@ def create_app(
             "SYMBOL_CELL_REVIEW_BULK_TARGET_STALE",
         }:
             status_code = 409
-        elif error.code == "SYMBOL_CELL_REVIEW_QUERY_TIMEOUT":
+        elif error.code in {
+            "SYMBOL_CELL_REVIEW_QUERY_TIMEOUT",
+            "SYMBOL_CELL_REVIEW_QUERY_CANCELLED",
+        }:
             status_code = 503
         return JSONResponse(
             status_code=status_code,

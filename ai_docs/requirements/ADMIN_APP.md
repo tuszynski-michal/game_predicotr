@@ -447,9 +447,13 @@ requesty; identyfikator requestu i zakres filtra pozostają dodatkową ochroną
 przed klientem ignorującym sygnał. Świadome anulowanie nie jest prezentowane
 jako awaria połączenia. Backend ogranicza pojedyncze zapytanie strony do 5
 sekund, a liczników do 15 sekund. Przekroczenie limitu zwraca kontrolowany błąd
-i nie może bezterminowo zajmować połączenia z pulą. Rozłączenie klienta podczas
-odczytu listy albo liczników przerywa również odpowiadające mu zapytanie
-PostgreSQL; request kończy pracę wątku zapytania przed zwolnieniem własnej sesji.
+i nie może bezterminowo zajmować połączenia z pulą. Rozłączenie klienta jest
+odczytywane jako właściwy komunikat ASGI `http.disconnect`, również za lokalnym
+middleware. Odczyt listy albo liczników utrwala request-scoped sygnał
+anulowania i przerywa odpowiadające mu zapytanie PostgreSQL z executora
+niezależnego od puli query. Kolejne etapy sprawdzają sygnał przed SQL, a
+fizyczny cancel jest ponawiany do końca query. Request kończy pracę wątku i
+operacji cancel przed zwolnieniem własnej sesji, także po powtórnym anulowaniu.
 Zmiana ustawionej gry,
 symbolu albo rozmiaru strony czyści strony, miniatury, zaznaczenie i wirtualny
 viewport. Jeśli istnieje jawne zaznaczenie,

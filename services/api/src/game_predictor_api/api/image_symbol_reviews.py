@@ -8,7 +8,7 @@ from contextlib import suppress
 from functools import partial
 from io import BytesIO
 from pathlib import Path, PurePosixPath
-from typing import Annotated, cast
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -97,10 +97,68 @@ ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
 }
 QUERY_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     **ERROR_RESPONSES,
-    503: {"model": ErrorResponse, "description": "Symbol-cell review query timed out"},
+    503: {
+        "model": ErrorResponse,
+        "description": "Symbol-cell review query timed out or was cancelled",
+    },
 }
-_DISCONNECT_POLL_INTERVAL_SECONDS = 0.05
+_DISCONNECT_CANCEL_RETRY_SECONDS = 0.05
 LOGGER = logging.getLogger(__name__)
+
+
+async def _wait_for_http_disconnect(request: Request) -> None:
+    """Wait for the transport event through Starlette's middleware receive wrapper."""
+
+    while True:
+        message = await request.receive()
+        if message["type"] == "http.disconnect":
+            return
+
+
+async def _cancel_until_query_finishes[QueryResult](
+    service: SymbolCellReviewQueryService,
+    query_task: asyncio.Task[QueryResult],
+) -> None:
+    """Keep sending physical cancellation until the request-owned SQL worker exits."""
+
+    service.mark_active_read_cancelled()
+    cancellation_failure_logged = False
+    while not query_task.done():
+        try:
+            # Do not compete for the AnyIO token occupied by run_in_threadpool(query).
+            await asyncio.to_thread(service.cancel_active_read)
+        except Exception:  # noqa: BLE001 - statement_timeout remains the final bound.
+            if not cancellation_failure_logged:
+                cancellation_failure_logged = True
+                LOGGER.warning(
+                    "symbol_cell_review_disconnect_cancel_failed",
+                    exc_info=True,
+                )
+        if not query_task.done():
+            await asyncio.wait(
+                {query_task},
+                timeout=_DISCONNECT_CANCEL_RETRY_SECONDS,
+            )
+    # Retrieve the worker result without propagating it from teardown. Endpoint code
+    # will return or re-raise it only when its own request task is still alive.
+    with suppress(Exception, asyncio.CancelledError):
+        query_task.result()
+
+
+async def _await_cleanup_despite_cancellation(cleanup_task: asyncio.Task[None]) -> bool:
+    """Wait for teardown under repeated Task.cancel(), returning whether one arrived."""
+
+    cancellation_seen = False
+    while not cleanup_task.done():
+        try:
+            await asyncio.shield(cleanup_task)
+        except asyncio.CancelledError:
+            cancellation_seen = True
+            current_task = asyncio.current_task()
+            if current_task is not None:
+                current_task.uncancel()
+    cleanup_task.result()
+    return cancellation_seen
 
 
 async def _run_disconnect_cancellable_query[QueryResult](
@@ -111,47 +169,30 @@ async def _run_disconnect_cancellable_query[QueryResult](
     """Run synchronous SQL off-loop and interrupt it after an ASGI disconnect."""
 
     query_task = asyncio.create_task(run_in_threadpool(query))
-    disconnected = False
-    cancellation_sent = False
-    cancellation_failed = False
+    disconnect_task = asyncio.create_task(_wait_for_http_disconnect(request))
+    cleanup_task: asyncio.Task[None] | None = None
     try:
-        while not query_task.done():
-            done, _pending = await asyncio.wait(
-                {query_task},
-                timeout=_DISCONNECT_POLL_INTERVAL_SECONDS,
-            )
-            if query_task in done:
-                break
-            if (
-                (disconnected or await request.is_disconnected())
-                and not cancellation_sent
-                and not cancellation_failed
-            ):
-                disconnected = True
-                # The worker may still be acquiring its connection. Retry so
-                # an early disconnect cannot leave a later query orphaned.
-                try:
-                    cancellation_sent = await run_in_threadpool(service.cancel_active_read)
-                except Exception:  # noqa: BLE001 - SQL timeout still bounds the detached read.
-                    cancellation_failed = True
-                    LOGGER.warning(
-                        "symbol_cell_review_disconnect_cancel_failed",
-                        exc_info=True,
-                    )
-        return cast(QueryResult, await query_task)
+        done, _pending = await asyncio.wait(
+            {query_task, disconnect_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if query_task in done:
+            return query_task.result()
+        cleanup_task = asyncio.create_task(_cancel_until_query_finishes(service, query_task))
+        cancelled_during_cleanup = await _await_cleanup_despite_cancellation(cleanup_task)
+        if cancelled_during_cleanup:
+            raise asyncio.CancelledError
+        return query_task.result()
     except asyncio.CancelledError:
-        # Keep the request-scoped Session alive until its worker stops using it.
-        # The statement timeout remains the final upper bound if cancel fails.
-        try:
-            await run_in_threadpool(service.cancel_active_read)
-        except Exception:  # noqa: BLE001 - SQL timeout still bounds dependency teardown.
-            LOGGER.warning(
-                "symbol_cell_review_task_cancel_failed",
-                exc_info=True,
-            )
-        with suppress(Exception, asyncio.CancelledError):
-            await asyncio.shield(query_task)
+        if cleanup_task is None:
+            cleanup_task = asyncio.create_task(_cancel_until_query_finishes(service, query_task))
+        await _await_cleanup_despite_cancellation(cleanup_task)
         raise
+    finally:
+        if not disconnect_task.done():
+            disconnect_task.cancel()
+        with suppress(Exception, asyncio.CancelledError):
+            await disconnect_task
 
 
 def create_image_symbol_reviews_router(

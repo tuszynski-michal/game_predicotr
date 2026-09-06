@@ -209,12 +209,19 @@ połączeń. SQLSTATE `57014` jest mapowany na HTTP 503 z kodem
 nadpisać lokalnymi zmiennymi środowiskowymi opisanymi w instrukcji operatorskiej.
 
 Endpointy listy i liczników wykonują synchroniczny use case w threadpoolu oraz
-monitorują sygnał `http.disconnect`. Repozytorium requestu rejestruje aktywne
-driver connection wyłącznie na czas `bounded_read`; po rozłączeniu wywołuje
-thread-safe `psycopg.Connection.cancel_safe()`. Wczesny disconnect jest
-sprawdzany ponownie do chwili rejestracji połączenia albo zakończenia query.
-API czeka na zakończenie wątku przed zamknięciem sesji, więc anulowanie nie może
-zostać omyłkowo wysłane do następnego użytkownika pooled connection.
+czekają na właściwy komunikat ASGI `http.disconnect`; nie polegają na
+natychmiastowym pollingu `Request.is_disconnected()`, który za
+`BaseHTTPMiddleware` może nie wykonać receive. Repozytorium requestu rejestruje
+aktywne driver connection wyłącznie na czas `bounded_read`; po rozłączeniu
+utrwala sygnał zakazujący kolejnych instrukcji SQL i wywołuje thread-safe
+`psycopg.Connection.cancel_safe()` w executorze niezależnym od limitera query.
+Fizyczny cancel jest ponawiany do zakończenia query, ponieważ pakiet wysłany
+pomiędzy instrukcjami może nie mieć efektu. API jest odporne na powtórne
+`Task.cancel()` i czeka na zakończenie wątku oraz cancel przed zamknięciem sesji,
+więc sygnał nie może zostać omyłkowo wysłany do następnego użytkownika pooled
+connection. Transportowe anulowanie PostgreSQL jest rozpoznawane jako
+`SYMBOL_CELL_REVIEW_QUERY_CANCELLED`; limit czasu nadal używa
+`SYMBOL_CELL_REVIEW_QUERY_TIMEOUT`.
 `statement_timeout` pozostaje niezależną górną granicą, również gdy transportowe
 anulowanie nie powiedzie się.
 

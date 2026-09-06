@@ -8,7 +8,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from threading import Lock
+from threading import Event, Lock
 from typing import Any, Protocol, TypedDict, cast
 from uuid import UUID, uuid4
 
@@ -231,11 +231,14 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         self._session = session
         self._active_read_lock = Lock()
         self._active_read_connection: _SafeCancelableDriverConnection | None = None
+        self._active_read_operation: str | None = None
+        self._read_cancel_requested = Event()
 
     @contextmanager
     def bounded_read(self, *, timeout_ms: int, operation: str) -> Iterator[None]:
         if timeout_ms <= 0:
             raise ValueError("Symbol-cell review statement timeout must be positive.")
+        self._raise_if_read_cancelled(operation=operation)
         sqlalchemy_connection = self._session.connection()
         driver_connection = cast(
             _SafeCancelableDriverConnection,
@@ -245,15 +248,20 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             if self._active_read_connection is not None:
                 raise RuntimeError("A symbol-cell review read is already active in this session.")
             self._active_read_connection = driver_connection
+            self._active_read_operation = operation
         try:
+            self._raise_if_read_cancelled(operation=operation)
             self._session.execute(
                 text("SELECT set_config('statement_timeout', :timeout, true)"),
                 {"timeout": f"{timeout_ms}ms"},
             )
+            self._raise_if_read_cancelled(operation=operation)
             yield
         except DBAPIError as error:
             if _database_error_sqlstate(error) != "57014":
                 raise
+            if self._read_cancel_requested.is_set():
+                raise self._cancelled_error(operation=operation) from error
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_QUERY_TIMEOUT",
                 "The symbol-cell review query exceeded its server-side time limit.",
@@ -263,6 +271,12 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             with self._active_read_lock:
                 if self._active_read_connection is driver_connection:
                     self._active_read_connection = None
+                    self._active_read_operation = None
+
+    def mark_active_read_cancelled(self) -> None:
+        """Persist transport cancellation for every remaining SQL stage."""
+
+        self._read_cancel_requested.set()
 
     def cancel_active_read(self) -> bool:
         """Thread-safely interrupt only the PostgreSQL read owned by this request."""
@@ -274,14 +288,28 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             connection.cancel_safe(timeout=1.0)
             return True
 
+    def _raise_if_read_cancelled(self, *, operation: str | None = None) -> None:
+        if self._read_cancel_requested.is_set():
+            raise self._cancelled_error(operation=operation)
+
+    def _cancelled_error(self, *, operation: str | None = None) -> SymbolCellReviewError:
+        return SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_QUERY_CANCELLED",
+            "The symbol-cell review query was cancelled after the client disconnected.",
+            details={"operation": operation or self._active_read_operation or "unknown"},
+        )
+
     def require_ready_game(self, game_id: UUID) -> int:
+        self._raise_if_read_cancelled()
         if self._session.get(GameModel, game_id) is None:
             raise SymbolCellReviewError(
                 "GAME_NOT_FOUND",
                 "The selected game does not exist.",
                 details={"gameId": str(game_id)},
             )
+        self._raise_if_read_cancelled()
         state = self._session.get(ImageSymbolReviewStateModel, game_id)
+        self._raise_if_read_cancelled()
         projection_available = symbol_cell_review_projection_is_available(
             self._session,
             game_id=game_id,
@@ -299,6 +327,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         return int(state.catalog_revision)
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None:
+        self._raise_if_read_cancelled()
         return cast(
             UUID | None,
             self._session.scalar(
@@ -332,6 +361,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         visible_ids: list[UUID] = []
         seek_batch_size = max(limit + 1, 1_000)
         while len(visible_ids) < limit + 1:
+            self._raise_if_read_cancelled()
             batch_statement = statement
             if seek_key is not None:
                 batch_statement = batch_statement.where(
@@ -348,6 +378,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             if not candidate_rows:
                 break
             candidate_ids = tuple(cast(UUID, row[0]) for row in candidate_rows)
+            self._raise_if_read_cancelled()
             current_ids = {
                 cast(UUID, row[0])
                 for row in self._session.execute(
@@ -375,6 +406,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             has_previous = after_key is not None and bool(page_ids)
         if not page_ids:
             return SymbolCellReviewListSlice(items=(), has_previous=False, has_next=False)
+        self._raise_if_read_cancelled()
         hydrated_rows = self._session.execute(
             self._list_statement(review_filter=review_filter).where(
                 ImageSymbolReviewCellModel.id.in_(page_ids)
@@ -395,6 +427,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
 
     def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts:
         cell = ImageSymbolReviewCellModel
+        self._raise_if_read_cancelled()
         rows = self._session.execute(
             self._base_visible_statement(
                 review_filter=review_filter,

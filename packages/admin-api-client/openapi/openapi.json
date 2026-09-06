@@ -25833,7 +25833,7 @@
                 }
               }
             },
-            "description": "Symbol-cell review query timed out"
+            "description": "Symbol-cell review query timed out or was cancelled"
           }
         },
         "summary": "Count one revision-bound symbol-cell review filter independently",
@@ -26392,7 +26392,7 @@
                 }
               }
             },
-            "description": "Symbol-cell review query timed out"
+            "description": "Symbol-cell review query timed out or was cancelled"
           }
         },
         "summary": "List current symbol-cell reviews with keyset pagination",

@@ -154,6 +154,41 @@ def test_active_bounded_read_can_cancel_only_its_driver_connection() -> None:
     assert driver_connection.cancel_timeouts == [1.0]
 
 
+def test_transport_cancel_between_statements_prevents_the_next_query() -> None:
+    session = _ExecuteSession()
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ALL,
+        include_all_symbols=True,
+    )
+
+    with repository.bounded_read(timeout_ms=15_000, operation="counts"):
+        repository.mark_active_read_cancelled()
+        with pytest.raises(SymbolCellReviewError) as raised:
+            repository.counts(review_filter=review_filter)
+
+    assert raised.value.code == "SYMBOL_CELL_REVIEW_QUERY_CANCELLED"
+    assert len(session.calls) == 1
+
+
+def test_postgres_query_cancel_is_distinguished_from_statement_timeout() -> None:
+    session = _ExecuteSession()
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))
+    cancelled = DBAPIError("SELECT slow", {}, _DatabaseFailure("57014"), False)
+
+    with (
+        pytest.raises(SymbolCellReviewError) as raised,
+        repository.bounded_read(timeout_ms=15_000, operation="counts"),
+    ):
+        repository.mark_active_read_cancelled()
+        raise cancelled
+
+    assert raised.value.code == "SYMBOL_CELL_REVIEW_QUERY_CANCELLED"
+    assert raised.value.details == {"operation": "counts"}
+
+
 def test_bounded_read_translates_only_postgres_query_cancellation() -> None:
     session = _ExecuteSession()
     repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))

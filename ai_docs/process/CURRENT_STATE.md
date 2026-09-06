@@ -6,6 +6,20 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0479 — czteropunktowa rejestracja pasa plansz
+
+- Dodano testowy wariant v12, który przenosi czteropunktowy obrys całego układu
+  3×3 między bliskimi zdjęciami przez deterministyczne dopasowanie cech i
+  bounded affine RANSAC. Nie wymaga 36 narożników i nie zmienia v10/v11.
+- Browser i runner utrwalają źródło kotwicy, cztery punkty, fingerprint oraz
+  metryki dowodu. Słabe, odbite lub przestrzennie niepełne dopasowanie pozostaje
+  obowiązkową korektą; jawne przeliczenie nie nadpisuje ręcznych wyników.
+- Odczytowy odbiór 30 ujawnionych, source-disjoint referencji: 29 automatów,
+  1 manual, 29/29 bez odcięcia plansz lub numerów (96,7% całej próby), lecz
+  tylko 16/29 w ścisłym przedziale obu linii. V12 pozostaje niedomyślnym trybem
+  testowym do czasu szerszego odbioru ciasności i innej szaty graficznej.
+- Nie przeliczono ani nie zmieniono istniejącego katalogu 2200 cropów.
+
 ### TASK-0478 — obowiązkowe deferred w geometrii całego zdjęcia
 
 - Lokalna kolejka `Zatwierdzanie cięcia siatki` zwraca teraz zarówno istniejące

@@ -234,6 +234,24 @@ następnie weryfikowany SHA przed finalizacją. Browser przejmuje wyłącznie
 zakończony handoff; aktywna blokada lub intencja blokuje równoległy zapis.
 Stare katalogi z ręcznym stanem przeglądarki nie są mutowane przez Node.
 
+Eksperymentalny v12 (TASK-0479) dokłada rejestrację całego pasa plansz bez
+modelowania 36 narożników. Silna obserwacja v11 jest redukowana do czterech
+punktów zewnętrznego obrysu 3×3 wraz z medianą wysokości planszy i checksumą
+źródła. Na obrazie kanonicznym EXIF do 640 px deterministyczny deskryptor
+BRIEF-like i ograniczony affine RANSAC dopasowują sąsiedni kadr. Kontrakt
+dowodu zapisuje kotwicę, liczbę dopasowań i inlierów, pokryte ćwiartki, p90
+residualu oraz przeniesiony obrys. Dodatnia skala, ograniczony shear, pokrycie
+co najmniej trzech ćwiartek i limity residualu są bramkami fail-closed.
+
+Web Worker otrzymuje najwyżej jeden ograniczony obraz kotwicy i jeden obraz
+docelowy; po pierwszym przebiegu browser ponawia wyłącznie nierozwiązane wpisy,
+jeżeli przygotowanie późniejszego zdjęcia dostarczyło bliższą silną kotwicę.
+Rejestracja nigdy nie jest samodzielnym dowodem numeru ani kolejności pliku.
+Gdy struktura bieżącego zdjęcia również jest pełna, finalny pas jest przecięciem
+obu bezpiecznych propozycji i nadal musi zawierać wszystkie 18 chronionych
+obszarów plansz i etykiet. Fingerprint obejmuje pełną konfigurację cech,
+RANSAC-u i marginesu; replay v10/v11 pozostaje niezmieniony.
+
 TASK-0468 ustanawia niezależny test-only oracle jakości poziomego pasa:
 SHA-256 źródeł, wizualne obwiednie plansz/numerów, przedziały linii i split po
 katalogach. Runner odtwarza v10 bez zapisu obrazów. Adnotacje nie są zależnością

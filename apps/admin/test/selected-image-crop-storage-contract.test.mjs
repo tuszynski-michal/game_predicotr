@@ -65,6 +65,14 @@ test('preparation prefers an off-main-thread worker with a safe fallback', () =>
   );
 });
 
+test('four-point registration reuses a bounded neighbouring anchor and retries only unresolved crops', () => {
+  assert.match(source, /CROP_V12_POLICY/u);
+  assert.match(source, /findNearestPreparedCropAnchor/u);
+  assert.match(source, /fourPointAnchorFromStructuralEvidence/u);
+  assert.match(source, /proposal\.registration\?\.status !== 'registered'/u);
+  assert.match(source, /sourceChecksumSha256/u);
+});
+
 test('proposal provenance is persisted and historical sessions require an explicit v4 recalculation', () => {
   assert.match(source, /autoCropProposal: proposal/u);
   assert.match(source, /preparationPolicyVersion/u);

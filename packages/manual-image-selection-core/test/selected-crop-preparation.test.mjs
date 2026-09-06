@@ -5,6 +5,7 @@ import {
   sampleCanonicalCropImage,
   assertCropPreparationPolicy,
   CROP_V11_RELEASE_ENABLED,
+  CROP_V12_RELEASE_ENABLED,
   projectDetectedLayout,
 } from '../src/crop-preparation.ts';
 test('shared sampler preserves full aspect ratio and is deterministic', () => {
@@ -65,4 +66,5 @@ test('unknown policy fails closed and experimental release is not activated', ()
     /POLICY_UNSUPPORTED/,
   );
   assert.equal(CROP_V11_RELEASE_ENABLED, false);
+  assert.equal(CROP_V12_RELEASE_ENABLED, false);
 });

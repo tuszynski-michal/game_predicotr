@@ -28,6 +28,7 @@ export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_BOTTOM_RATIO = 0.95 as const;
 const SELECTED_IMAGE_AUTO_CROP_MINIMUM_DETECTED_BAND_RATIO = 0.28;
 
 export type SelectedImageAutoCropPolicyVersion =
+  | 'selected-image-board-band-v12-four-point-anchor-registration'
   | 'selected-image-board-band-v11-full-layout-structural'
   | typeof SELECTED_IMAGE_AUTO_CROP_POLICY
   | typeof SELECTED_IMAGE_AUTO_CROP_V9_POLICY
@@ -82,6 +83,7 @@ export interface SelectedImageAutoCropProposal {
   readonly preparationFingerprint?: string;
   readonly analysisLevels?: readonly number[];
   readonly structural?: import('./auto-crop-v11-boundaries.ts').StructuralCropEvidence;
+  readonly registration?: import('./auto-crop-v12-registration.ts').FourPointRegistrationEvidence;
   readonly policyVersion: SelectedImageAutoCropPolicyVersion;
   readonly evidence: SelectedImageAutoCropEvidence;
 }

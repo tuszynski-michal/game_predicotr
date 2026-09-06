@@ -7964,3 +7964,22 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** typowy `seq_*` wymaga dziewięciu ręcznych geometrii; ostatni
   krótszy zakres wymaga dokładnie własnej liczby pozycji. Istniejące stagingi i
   joby nie są automatycznie przeliczane.
+
+## D-363 — Czteropunktowy obrys całego 3×3 jako kotwica cropa
+
+- **Status:** accepted
+- **Date:** 2026-09-06
+- **Decision:** lokalny wariant v12 opisuje wiarygodny układ dziewięciu plansz
+  czterema zewnętrznymi punktami i przenosi go na bliskie zdjęcia przez
+  deterministyczną rejestrację. Nie wymaga ani nie symuluje 36 narożników.
+- **Safety:** dopasowanie wymaga ograniczonego residualu, dodatniej skali,
+  pokrycia co najmniej trzech ćwiartek i braku odbicia. Pełny dowód strukturalny
+  bieżącego obrazu ogranicza wynik; konflikt albo brak dowodu daje ręczną
+  korektę zamiast podejrzanego cropa.
+- **Evidence:** na 30 ujawnionych referencjach wariant dał 29 automatów i jeden
+  manual; żaden automat nie odciął planszy ani numeru. Tylko 16/29 wyników było
+  jednocześnie w ścisłym przedziale obu linii, więc wariant pozostaje jawnie
+  testowy i niedomyślny.
+- **Consequences:** istniejące wyniki v10/v11 i katalogi użytkownika pozostają
+  bez zmian. Szersza aktywacja wymaga osobnej decyzji po odbiorze ciasności i
+  materiału z innej gry.

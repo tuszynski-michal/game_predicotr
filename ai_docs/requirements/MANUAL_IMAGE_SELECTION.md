@@ -564,6 +564,18 @@ lub numer, ale tylko 6/10 wyników mieści się w ścisłych przedziałach obu l
 trzy bezpieczne wyniki zachowują za dużo tła, a jeden wymaga korekty. Nie
 przedstawiać tej wersji jako gotowej produkcyjnie; obowiązuje pełna bramka jakości.
 
+TASK-0479 dodaje osobny wariant testowy
+`selected-image-board-band-v12-four-point-anchor-registration`. Nie wymaga on
+36 narożników: kotwica opisuje czterema punktami zewnętrzny obrys całego
+potwierdzonego układu 3×3. Ograniczona rejestracja przenosi ten obrys na bliskie
+zdjęcie, a poziomy crop wynika z jego skrajnych punktów i wersjonowanego
+marginesu. Dopasowanie wymaga niezależnych cech w co najmniej trzech częściach
+obrazu, poprawnej skali, małego residualu i braku odbicia. Słaby albo sprzeczny
+wynik pozostaje obowiązkową korektą; nie wolno używać samego sąsiedztwa plików
+jako dowodu. Gdy bieżące zdjęcie ma również pełny dowód strukturalny, wynik
+używa ciaśniejszego wspólnego pasa, który nadal chroni wszystkie plansze i
+numery. Wariant nie jest domyślny przed odrębną decyzją o aktywacji.
+
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
 przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do
@@ -615,6 +627,9 @@ i nie jest automatycznie przeliczany.
 Jawna akcja `Przelicz nieprzejrzane nowym detektorem` może przełączyć
 rozpoczętą sesję na bieżącą politykę. Obejmuje wyłącznie wyniki nieprzejrzane, niepoprawione
 ręcznie i niezaznaczone do poprawy, a następnie przygotowuje brakujące pliki.
+W bieżącym trybie testowym akcja przypina v12 w stanie sesji. Gotowe i ręcznie
+poprawione wyniki nie są po cichu nadpisywane, a istniejący katalog `cut` nie
+jest przeliczany bez tej jawnej akcji.
 
 W widoku kafelkowym jeden przycisk przełącza `Zaznacz wszystkie` i `Odznacz
 wszystkie`. Działa na przygotowanych wynikach bieżącego filtra, zachowuje

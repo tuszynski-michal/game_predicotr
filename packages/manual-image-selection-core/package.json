@@ -18,6 +18,10 @@
       "types": "./src/auto-crop-v11.ts",
       "default": "./src/auto-crop-v11.ts"
     },
+    "./auto-crop-v12-registration": {
+      "types": "./src/auto-crop-v12-registration.ts",
+      "default": "./src/auto-crop-v12-registration.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"

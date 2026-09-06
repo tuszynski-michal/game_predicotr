@@ -2,6 +2,7 @@
 
 import type { SelectedImageAutoCropProposal } from '@game-predictor/manual-image-selection-core/auto-crop';
 import { SELECTED_IMAGE_AUTO_CROP_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop';
+import type { FourPointCropAnchor } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 
 import type { SelectedImageCropRenderedFile } from './selected-image-crop-storage';
 
@@ -17,6 +18,10 @@ let nextRequestId = 1;
 export async function prepareSelectedImageCropInWorker(
   source: File,
   policy: string = SELECTED_IMAGE_AUTO_CROP_POLICY,
+  anchor?: {
+    readonly source: File;
+    readonly descriptor: FourPointCropAnchor;
+  } | null,
 ): Promise<WorkerResult | null> {
   if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined')
     return null;
@@ -47,6 +52,7 @@ export async function prepareSelectedImageCropInWorker(
           readonly classification: SelectedImageAutoCropProposal['classification'];
           readonly confidence: number | null;
           readonly structural?: SelectedImageAutoCropProposal['structural'];
+          readonly registration?: SelectedImageAutoCropProposal['registration'];
           readonly preparationFingerprint?: string;
           readonly analysisLevels?: readonly number[];
           readonly policyVersion: SelectedImageAutoCropProposal['policyVersion'];
@@ -82,6 +88,7 @@ export async function prepareSelectedImageCropInWorker(
                 analysisLevels: result.analysisLevels,
               }
             : {}),
+          ...(result.registration ? { registration: result.registration } : {}),
         },
         rendered: {
           blob: result.blob,
@@ -105,6 +112,6 @@ export async function prepareSelectedImageCropInWorker(
     };
     worker.addEventListener('message', onMessage);
     worker.addEventListener('error', onError);
-    worker.postMessage({ id, source, policy });
+    worker.postMessage({ id, source, policy, anchor: anchor ?? null });
   });
 }

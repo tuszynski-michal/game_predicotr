@@ -13,14 +13,110 @@ import {
   SELECTED_IMAGE_AUTO_CROP_POLICY,
   type SelectedImageAutoCropProposal,
 } from '@game-predictor/manual-image-selection-core/auto-crop';
+import {
+  CROP_V12_FINGERPRINT,
+  CROP_V12_POLICY,
+  cropFromRegisteredBoardBand,
+  registerFourPointBoardBand,
+  type FourPointCropAnchor,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 
 // Activation is a separate quality decision. No hidden shadow/default switch.
 export const CROP_V11_RELEASE_ENABLED = false;
+// V12 is activated only after its independent precision gate succeeds.
+export const CROP_V12_RELEASE_ENABLED = false;
+export { CROP_V12_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 export { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 import { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 export function assertCropPreparationPolicy(policy: string): void {
-  if (policy !== SELECTED_IMAGE_AUTO_CROP_POLICY && policy !== CROP_V11_POLICY)
+  if (
+    policy !== SELECTED_IMAGE_AUTO_CROP_POLICY &&
+    policy !== CROP_V11_POLICY &&
+    policy !== CROP_V12_POLICY
+  )
     throw new Error('SELECTED_IMAGE_CROP_POLICY_UNSUPPORTED');
+}
+
+export interface FourPointCropPreparationAnchor {
+  readonly descriptor: FourPointCropAnchor;
+  readonly image: StructuralSample;
+}
+
+export async function prepareFourPointRegisteredCrop(
+  source: StructuralSample,
+  anchor: FourPointCropPreparationAnchor | null,
+  yieldBetween: () => Promise<void> = () => Promise.resolve(),
+): Promise<SelectedImageAutoCropProposal> {
+  const structural = await prepareStructuralCrop(source, yieldBetween);
+  if (anchor === null) {
+    return {
+      ...structural,
+      policyVersion: CROP_V12_POLICY,
+      preparationFingerprint: CROP_V12_FINGERPRINT,
+    };
+  }
+  await yieldBetween();
+  const registration = registerFourPointBoardBand({
+    anchor: anchor.descriptor,
+    anchorImage: anchor.image,
+    targetImage: source,
+    structuralCrossCheck: structural.structural?.status === 'detected',
+  });
+  const crop = cropFromRegisteredBoardBand({
+    evidence: registration,
+    sourceWidth: source.width,
+    sourceHeight: source.height,
+    anchorMedianBoardHeight: anchor.descriptor.medianBoardHeight,
+  });
+  const currentEvidence = structural.structural;
+  const currentContent = currentEvidence
+    ? [...currentEvidence.boards, ...currentEvidence.labels]
+    : [];
+  const protectsCurrentEvidence =
+    crop !== null &&
+    (currentEvidence?.status !== 'detected' ||
+      (currentContent.length === 18 &&
+        crop.topY <= Math.min(...currentContent.map((box) => box.top)) - 4 &&
+        crop.bottomY >=
+          Math.max(...currentContent.map((box) => box.bottom)) + 4));
+  if (
+    registration.status !== 'registered' ||
+    crop === null ||
+    !protectsCurrentEvidence
+  ) {
+    const retainedRegistration =
+      registration.status === 'registered' && !protectsCurrentEvidence
+        ? {
+            ...registration,
+            status: 'needs_manual_crop' as const,
+            reason: 'structural_registration_conflict' as const,
+            registeredBoardBand: null,
+          }
+        : registration;
+    return {
+      ...structural,
+      policyVersion: CROP_V12_POLICY,
+      preparationFingerprint: CROP_V12_FINGERPRINT,
+      registration: retainedRegistration,
+    };
+  }
+  const consensusCrop =
+    currentEvidence?.status === 'detected'
+      ? {
+          ...crop,
+          topY: Math.max(crop.topY, structural.crop.topY),
+          bottomY: Math.min(crop.bottomY, structural.crop.bottomY),
+        }
+      : crop;
+  return {
+    ...structural,
+    crop: consensusCrop,
+    policyVersion: CROP_V12_POLICY,
+    preparationFingerprint: CROP_V12_FINGERPRINT,
+    registration,
+    classification: 'conservative',
+    strategy: 'multicolumn_panel',
+  };
 }
 // Same deterministic sampler for Canvas pixels and Node pixels. EXIF has already
 // been applied by the decoder; this module never rotates or stretches the source.

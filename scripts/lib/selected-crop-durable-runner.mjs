@@ -7,11 +7,17 @@ import {
   SELECTED_IMAGE_AUTO_CROP_POLICY,
 } from '../../packages/manual-image-selection-core/src/auto-crop.ts';
 import {
+  prepareFourPointRegisteredCrop,
   prepareStructuralCrop,
   assertCropPreparationPolicy,
   CROP_V11_FINGERPRINT,
 } from '../../packages/manual-image-selection-core/src/crop-preparation.ts';
 import { CROP_V11_POLICY } from '../../packages/manual-image-selection-core/src/auto-crop-v11.ts';
+import {
+  CROP_V12_FINGERPRINT,
+  CROP_V12_POLICY,
+  fourPointAnchorFromStructuralEvidence,
+} from '../../packages/manual-image-selection-core/src/auto-crop-v12-registration.ts';
 import { validateSelectedImageCropSources } from '../../packages/manual-image-selection-core/src/crop.ts';
 export const sha256 = (bytes) =>
   createHash('sha256').update(bytes).digest('hex');
@@ -69,15 +75,39 @@ async function verifyResult(source, output, result) {
   if (sha256(await fs.readFile(output)) !== result.outputChecksumSha256)
     throw new Error('CROP_OUTPUT_CHANGED');
 }
-export async function renderCropSource(bytes, policy) {
-  assertCropPreparationPolicy(policy);
+async function decodeCropSource(bytes) {
   const decoded = await sharp(bytes)
     .rotate()
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
+  return {
+    decoded,
+    sample: {
+      width: decoded.info.width,
+      height: decoded.info.height,
+      rgba: new Uint8ClampedArray(decoded.data),
+    },
+  };
+}
+
+export async function renderCropSource(bytes, policy, anchor = null) {
+  assertCropPreparationPolicy(policy);
+  const { decoded, sample: decodedSample } = await decodeCropSource(bytes);
   let proposal;
-  if (policy === CROP_V11_POLICY)
+  if (policy === CROP_V12_POLICY) {
+    const preparedAnchor =
+      anchor === null
+        ? null
+        : {
+            descriptor: anchor.descriptor,
+            image: (await decodeCropSource(anchor.bytes)).sample,
+          };
+    proposal = await prepareFourPointRegisteredCrop(
+      decodedSample,
+      preparedAnchor,
+    );
+  } else if (policy === CROP_V11_POLICY)
     proposal = await prepareStructuralCrop({
       width: decoded.info.width,
       height: decoded.info.height,
@@ -210,9 +240,11 @@ export async function processCropDirectory(
       inventoryHash,
       policy,
       fingerprint:
-        policy === CROP_V11_POLICY
-          ? CROP_V11_FINGERPRINT
-          : SELECTED_IMAGE_AUTO_CROP_POLICY,
+        policy === CROP_V12_POLICY
+          ? CROP_V12_FINGERPRINT
+          : policy === CROP_V11_POLICY
+            ? CROP_V11_FINGERPRINT
+            : SELECTED_IMAGE_AUTO_CROP_POLICY,
     };
     const existing = await optionalJson(metaPath);
     if (existing && JSON.stringify(existing) !== JSON.stringify(meta))
@@ -221,6 +253,7 @@ export async function processCropDirectory(
     const results = new Map(),
       failures = [],
       blocked = new Set();
+    let anchor = null;
     const journalFile = (index) => path.join(state, `pending-${index}.json`);
     const partFile = (index) => path.join(state, `output-${index}.part`);
     const shardFile = (index) =>
@@ -289,6 +322,21 @@ export async function processCropDirectory(
       try {
         if (results.has(file.fileName)) {
           await verifyResult(input, target, results.get(file.fileName));
+          if (
+            policy === CROP_V12_POLICY &&
+            results.get(file.fileName)?.autoCropProposal?.structural?.status ===
+              'detected'
+          ) {
+            const existingResult = results.get(file.fileName);
+            anchor = {
+              bytes: await fs.readFile(input),
+              descriptor: fourPointAnchorFromStructuralEvidence({
+                sourceName: file.fileName,
+                sourceChecksumSha256: existingResult.sourceChecksumSha256,
+                evidence: existingResult.autoCropProposal.structural,
+              }),
+            };
+          }
           continue;
         }
         if (await exists(target)) throw new Error('CROP_OUTPUT_UNTRACKED');
@@ -300,7 +348,11 @@ export async function processCropDirectory(
         await safe(input);
         const bytes = await fs.readFile(input),
           sourceHash = sha256(bytes);
-        const { proposal, output: bytesOut } = await render(bytes, policy);
+        const { proposal, output: bytesOut } = await render(
+          bytes,
+          policy,
+          anchor,
+        );
         checkTime();
         if (proposal.policyVersion !== policy)
           throw new Error('CROP_POLICY_MISMATCH');
@@ -336,6 +388,19 @@ export async function processCropDirectory(
         await hook('publish', file.fileName);
         await verifyResult(input, target, result);
         results.set(file.fileName, result);
+        if (
+          policy === CROP_V12_POLICY &&
+          proposal.structural?.status === 'detected'
+        ) {
+          anchor = {
+            bytes,
+            descriptor: fourPointAnchorFromStructuralEvidence({
+              sourceName: file.fileName,
+              sourceChecksumSha256: sourceHash,
+              evidence: proposal.structural,
+            }),
+          };
+        }
         await saveShard(index);
         await hook('shard', file.fileName);
         await fs.unlink(journal);

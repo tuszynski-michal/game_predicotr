@@ -99,7 +99,8 @@ export function requiredSelectedImageCropCorrections(
       .filter(
         ([name, result]) =>
           !resolved.has(name) &&
-          result.autoCropProposal?.structural?.status === 'needs_manual_crop',
+          result.autoCropProposal?.structural?.status === 'needs_manual_crop' &&
+          result.autoCropProposal?.registration?.status !== 'registered',
       )
       .map(([name]) => name),
   );

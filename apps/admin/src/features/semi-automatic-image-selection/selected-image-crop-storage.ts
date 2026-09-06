@@ -43,10 +43,21 @@ import { readActiveFilledGapsManifest } from '@/features/manual-image-selection/
 
 import { prepareSelectedImageCropInWorker } from './selected-image-crop-worker-client';
 import {
+  prepareFourPointRegisteredCrop,
   prepareStructuralCrop,
   assertCropPreparationPolicy,
 } from '@game-predictor/manual-image-selection-core/crop-preparation';
 import { CROP_V11_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
+import {
+  CROP_V12_POLICY,
+  fourPointAnchorFromStructuralEvidence,
+  type FourPointCropAnchor,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
+
+interface BrowserCropAnchor {
+  readonly source: File;
+  readonly descriptor: FourPointCropAnchor;
+}
 
 export const SELECTED_IMAGE_CROP_MANIFEST_NAME =
   'manual-image-crop-output-v1.json';
@@ -91,9 +102,14 @@ export interface SelectedImageCropPreparationResult {
   readonly failures: readonly SelectedImageCropPreparationFailure[];
 }
 
+function cropPreparationAborted(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted === true;
+}
+
 export async function proposeSelectedImageCrop(
   source: File,
   policy: string = SELECTED_IMAGE_AUTO_CROP_POLICY,
+  anchor: BrowserCropAnchor | null = null,
 ): Promise<SelectedImageAutoCropProposal> {
   assertCropPreparationPolicy(policy);
   const bitmap = await createImageBitmap(source, {
@@ -101,7 +117,7 @@ export async function proposeSelectedImageCrop(
   });
   try {
     const width =
-      policy === CROP_V11_POLICY
+      policy === CROP_V11_POLICY || policy === CROP_V12_POLICY
         ? bitmap.width
         : Math.min(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, bitmap.width);
     const height = Math.max(
@@ -120,6 +136,51 @@ export async function proposeSelectedImageCrop(
     }
     context.drawImage(bitmap, 0, 0, width, height);
     const pixels = context.getImageData(0, 0, width, height);
+    if (policy === CROP_V12_POLICY) {
+      let anchorBitmap: ImageBitmap | null = null;
+      try {
+        const preparedAnchor =
+          anchor === null
+            ? null
+            : await (async () => {
+                anchorBitmap = await createImageBitmap(anchor.source, {
+                  imageOrientation: 'from-image',
+                });
+                const anchorCanvas = document.createElement('canvas');
+                anchorCanvas.width = anchorBitmap.width;
+                anchorCanvas.height = anchorBitmap.height;
+                const anchorContext = anchorCanvas.getContext('2d', {
+                  alpha: false,
+                  willReadFrequently: true,
+                });
+                if (anchorContext === null)
+                  throw new Error(
+                    'SELECTED_IMAGE_AUTO_CROP_CANVAS_UNAVAILABLE',
+                  );
+                anchorContext.drawImage(anchorBitmap, 0, 0);
+                return {
+                  descriptor: anchor.descriptor,
+                  image: {
+                    width: anchorBitmap.width,
+                    height: anchorBitmap.height,
+                    rgba: anchorContext.getImageData(
+                      0,
+                      0,
+                      anchorBitmap.width,
+                      anchorBitmap.height,
+                    ).data,
+                  },
+                };
+              })();
+        return await prepareFourPointRegisteredCrop(
+          { width, height, rgba: pixels.data },
+          preparedAnchor,
+          yieldToBrowser,
+        );
+      } finally {
+        if (anchorBitmap !== null) (anchorBitmap as ImageBitmap).close();
+      }
+    }
     return policy === CROP_V11_POLICY
       ? await prepareStructuralCrop(
           { width, height, rgba: pixels.data },
@@ -428,7 +489,8 @@ export async function prepareAllSelectedImageCrops(
   if (
     prepared.snapshot.session.preparationPolicyVersion !==
       SELECTED_IMAGE_AUTO_CROP_POLICY &&
-    prepared.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY
+    prepared.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY &&
+    prepared.snapshot.session.preparationPolicyVersion !== CROP_V12_POLICY
   ) {
     throw new Error('SELECTED_IMAGE_CROP_POLICY_RECALCULATION_REQUIRED');
   }
@@ -453,6 +515,7 @@ export async function prepareAllSelectedImageCrops(
       failures: current.snapshot.session.failures,
     });
   emit(null);
+  let anchor = await findNearestPreparedCropAnchor(current, missing[0] ?? null);
   for (const sourceFile of missing) {
     if (signal?.aborted === true) break;
     try {
@@ -463,11 +526,13 @@ export async function prepareAllSelectedImageCrops(
         const workerResult = await prepareSelectedImageCropInWorker(
           source,
           current.snapshot.session.preparationPolicyVersion!,
+          anchor,
         );
         if (workerResult === null) {
           proposal = await proposeSelectedImageCrop(
             source,
             current.snapshot.session.preparationPolicyVersion!,
+            anchor,
           );
         } else {
           proposal = workerResult.proposal;
@@ -498,6 +563,7 @@ export async function prepareAllSelectedImageCrops(
         sourceFile.fileName,
         proposal,
       );
+      anchor = cropAnchorFromSavedResult(current, sourceFile, source) ?? anchor;
       completed += 1;
     } catch (cause) {
       current = await persistPreparationFailure(
@@ -508,6 +574,68 @@ export async function prepareAllSelectedImageCrops(
     }
     if (!signal?.aborted) emit(sourceFile.fileName);
     await yieldToBrowser();
+  }
+  if (
+    signal?.aborted !== true &&
+    current.snapshot.session.preparationPolicyVersion === CROP_V12_POLICY
+  ) {
+    const unresolved = missing.filter((sourceFile) => {
+      const proposal = current.manifest.entries.find(
+        (entry) => entry.fileName === sourceFile.fileName,
+      )?.result?.autoCropProposal;
+      return (
+        proposal?.structural?.status === 'needs_manual_crop' &&
+        proposal.registration?.status !== 'registered'
+      );
+    });
+    for (const sourceFile of unresolved) {
+      if (cropPreparationAborted(signal)) break;
+      const nearbyAnchor = await findNearestPreparedCropAnchor(
+        current,
+        sourceFile,
+      );
+      if (nearbyAnchor === null) continue;
+      try {
+        const source = await sourceFile.handle.getFile();
+        const workerResult = await prepareSelectedImageCropInWorker(
+          source,
+          CROP_V12_POLICY,
+          nearbyAnchor,
+        );
+        const proposal =
+          workerResult?.proposal ??
+          (await proposeSelectedImageCrop(
+            source,
+            CROP_V12_POLICY,
+            nearbyAnchor,
+          ));
+        if (proposal.registration?.status !== 'registered') continue;
+        current = await saveSelectedImageCrop({
+          prepared: current,
+          sourceFile,
+          crop: proposal.crop,
+          markReviewed: false,
+          autoCropProposal: proposal,
+          render:
+            workerResult === null
+              ? undefined
+              : async () => workerResult.rendered,
+        });
+        current = await synchronizeAutomaticCorrection(
+          current,
+          sourceFile.fileName,
+          proposal,
+        );
+        emit(sourceFile.fileName);
+      } catch (cause) {
+        current = await persistPreparationFailure(
+          current,
+          sourceFile.fileName,
+          preparationError(stageFromError(cause), cause),
+        );
+      }
+      await yieldToBrowser();
+    }
   }
   return { prepared: current, failures: current.snapshot.session.failures };
 }
@@ -529,6 +657,10 @@ export async function recalculateUnreviewedSelectedImageCrops(
   ).length;
   const actionTotal = candidates.length + missingCount;
   let completed = 0;
+  let anchor = await findNearestPreparedCropAnchor(
+    current,
+    candidates[0] ?? null,
+  );
   for (const sourceFile of candidates) {
     if (signal?.aborted === true) break;
     try {
@@ -536,12 +668,14 @@ export async function recalculateUnreviewedSelectedImageCrops(
       const workerResult = await prepareSelectedImageCropInWorker(
         source,
         current.snapshot.session.preparationPolicyVersion!,
+        anchor,
       );
       const proposal =
         workerResult?.proposal ??
         (await proposeSelectedImageCrop(
           source,
           current.snapshot.session.preparationPolicyVersion!,
+          anchor,
         ));
       current = await saveSelectedImageCrop({
         prepared: current,
@@ -561,6 +695,7 @@ export async function recalculateUnreviewedSelectedImageCrops(
         sourceFile.fileName,
         proposal,
       );
+      anchor = cropAnchorFromSavedResult(current, sourceFile, source) ?? anchor;
     } catch (cause) {
       current = await persistPreparationFailure(
         current,
@@ -578,6 +713,67 @@ export async function recalculateUnreviewedSelectedImageCrops(
       failures: current.snapshot.session.failures,
     });
     await yieldToBrowser();
+  }
+  if (
+    signal?.aborted !== true &&
+    current.snapshot.session.preparationPolicyVersion === CROP_V12_POLICY
+  ) {
+    const unresolved = candidates.filter((sourceFile) => {
+      const proposal = current.manifest.entries.find(
+        (entry) => entry.fileName === sourceFile.fileName,
+      )?.result?.autoCropProposal;
+      return (
+        proposal?.structural?.status === 'needs_manual_crop' &&
+        proposal.registration?.status !== 'registered'
+      );
+    });
+    for (const sourceFile of unresolved) {
+      if (cropPreparationAborted(signal)) break;
+      const nearbyAnchor = await findNearestPreparedCropAnchor(
+        current,
+        sourceFile,
+      );
+      if (nearbyAnchor === null) continue;
+      try {
+        const source = await sourceFile.handle.getFile();
+        const workerResult = await prepareSelectedImageCropInWorker(
+          source,
+          CROP_V12_POLICY,
+          nearbyAnchor,
+        );
+        const proposal =
+          workerResult?.proposal ??
+          (await proposeSelectedImageCrop(
+            source,
+            CROP_V12_POLICY,
+            nearbyAnchor,
+          ));
+        if (proposal.registration?.status !== 'registered') continue;
+        current = await saveSelectedImageCrop({
+          prepared: current,
+          sourceFile,
+          crop: proposal.crop,
+          markReviewed: false,
+          autoCropProposal: proposal,
+          render:
+            workerResult === null
+              ? undefined
+              : async () => workerResult.rendered,
+        });
+        current = await synchronizeAutomaticCorrection(
+          current,
+          sourceFile.fileName,
+          proposal,
+        );
+      } catch (cause) {
+        current = await persistPreparationFailure(
+          current,
+          sourceFile.fileName,
+          preparationError(stageFromError(cause), cause),
+        );
+      }
+      await yieldToBrowser();
+    }
   }
   if (signal?.aborted === true)
     return { prepared: current, failures: current.snapshot.session.failures };
@@ -604,12 +800,73 @@ async function synchronizeAutomaticCorrection(
   fileName: string,
   proposal: SelectedImageAutoCropProposal,
 ): Promise<PreparedSelectedImageCropDirectory> {
+  if (
+    proposal.policyVersion === CROP_V12_POLICY &&
+    (proposal.structural?.status === 'detected' ||
+      proposal.registration?.status === 'registered')
+  ) {
+    return setSelectedImageCropCorrection({
+      prepared,
+      fileName,
+      selected: false,
+    });
+  }
   if (proposal.classification !== 'safe_wide') return prepared;
   return setSelectedImageCropCorrection({
     prepared,
     fileName,
     selected: true,
   });
+}
+
+function cropAnchorFromSavedResult(
+  prepared: PreparedSelectedImageCropDirectory,
+  sourceFile: SelectedImageCropSourceFile,
+  source: File,
+): BrowserCropAnchor | null {
+  const result = prepared.manifest.entries.find(
+    (entry) => entry.fileName === sourceFile.fileName,
+  )?.result;
+  const evidence = result?.autoCropProposal?.structural;
+  if (
+    result === null ||
+    result === undefined ||
+    evidence?.status !== 'detected'
+  )
+    return null;
+  return {
+    source,
+    descriptor: fourPointAnchorFromStructuralEvidence({
+      sourceName: sourceFile.fileName,
+      sourceChecksumSha256: result.sourceChecksumSha256,
+      evidence,
+    }),
+  };
+}
+
+async function findNearestPreparedCropAnchor(
+  prepared: PreparedSelectedImageCropDirectory,
+  target: SelectedImageCropSourceFile | null,
+): Promise<BrowserCropAnchor | null> {
+  if (target === null) return null;
+  const targetIndex = prepared.sourceFiles.findIndex(
+    (source) => source.fileName === target.fileName,
+  );
+  const ordered = prepared.sourceFiles
+    .map((source, index) => ({ source, index }))
+    .sort(
+      (left, right) =>
+        Math.abs(left.index - targetIndex) -
+        Math.abs(right.index - targetIndex),
+    );
+  for (const candidate of ordered) {
+    const result = prepared.manifest.entries[candidate.index]?.result;
+    if (result?.autoCropProposal?.structural?.status !== 'detected') continue;
+    const file = await candidate.source.handle.getFile();
+    const anchor = cropAnchorFromSavedResult(prepared, candidate.source, file);
+    if (anchor !== null) return anchor;
+  }
+  return null;
 }
 
 export async function setSelectedImageCropCorrection(input: {
@@ -734,16 +991,30 @@ async function openSelectedImageCropSnapshot(
         preparationPolicyVersion: isNewSession
           ? SELECTED_IMAGE_AUTO_CROP_POLICY
           : legacyManifest.entries.some(
-                (e) =>
-                  e.result?.autoCropProposal?.policyVersion === CROP_V11_POLICY,
+                (entry) =>
+                  entry.result?.autoCropProposal?.policyVersion ===
+                  CROP_V12_POLICY,
               ) &&
               legacyManifest.entries.every(
-                (e) =>
-                  e.result === null ||
-                  e.result.autoCropProposal?.policyVersion === CROP_V11_POLICY,
+                (entry) =>
+                  entry.result === null ||
+                  entry.result.autoCropProposal?.policyVersion ===
+                    CROP_V12_POLICY,
               )
-            ? CROP_V11_POLICY
-            : null,
+            ? CROP_V12_POLICY
+            : legacyManifest.entries.some(
+                  (e) =>
+                    e.result?.autoCropProposal?.policyVersion ===
+                    CROP_V11_POLICY,
+                ) &&
+                legacyManifest.entries.every(
+                  (e) =>
+                    e.result === null ||
+                    e.result.autoCropProposal?.policyVersion ===
+                      CROP_V11_POLICY,
+                )
+              ? CROP_V11_POLICY
+              : null,
       },
     };
     await writeJsonFile(stateDirectory, SESSION_NAME, migrated.session);
@@ -809,13 +1080,14 @@ async function pinSelectedImageCropPreparationPolicy(
   if (
     prepared.snapshot.session.preparationPolicyVersion ===
       SELECTED_IMAGE_AUTO_CROP_POLICY ||
-    prepared.snapshot.session.preparationPolicyVersion === CROP_V11_POLICY
+    prepared.snapshot.session.preparationPolicyVersion === CROP_V11_POLICY ||
+    prepared.snapshot.session.preparationPolicyVersion === CROP_V12_POLICY
   )
     return prepared;
   const session = {
     ...prepared.snapshot.session,
     revision: prepared.snapshot.session.revision + 1,
-    preparationPolicyVersion: SELECTED_IMAGE_AUTO_CROP_POLICY,
+    preparationPolicyVersion: CROP_V12_POLICY,
     updatedAt: new Date().toISOString(),
   };
   await writeSelectedImageCropSession(prepared.outputDirectory, session);

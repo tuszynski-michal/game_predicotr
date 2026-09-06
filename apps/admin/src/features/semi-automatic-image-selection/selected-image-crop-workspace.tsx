@@ -11,6 +11,7 @@ import {
 } from '@game-predictor/manual-image-selection-core/auto-crop';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CROP_V11_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
+import { CROP_V12_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 import {
   effectiveSelectedImageCropCorrections,
   requiredSelectedImageCropCorrections,
@@ -130,7 +131,8 @@ export function SelectedImageCropWorkspace() {
     prepared !== null &&
     prepared.snapshot.session.preparationPolicyVersion !==
       SELECTED_IMAGE_AUTO_CROP_POLICY &&
-    prepared.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY;
+    prepared.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY &&
+    prepared.snapshot.session.preparationPolicyVersion !== CROP_V12_POLICY;
   const applyPrepared = useCallback(
     (result: PreparedSelectedImageCropDirectory, requestedIndex: number) => {
       const index = Math.min(
@@ -218,7 +220,8 @@ export function SelectedImageCropWorkspace() {
       if (
         result.snapshot.session.preparationPolicyVersion !==
           SELECTED_IMAGE_AUTO_CROP_POLICY &&
-        result.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY
+        result.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY &&
+        result.snapshot.session.preparationPolicyVersion !== CROP_V12_POLICY
       ) {
         preparationAbortRef.current = null;
         setPreparationProgress(null);
@@ -1228,6 +1231,10 @@ function proposalLabel(
 ): string {
   if (detecting) return 'Automat wykrywa obszar plansz…';
   if (proposal === null) return 'Zapisane cięcie';
+  if (proposal.registration?.status === 'registered')
+    return `Obszar przeniesiony z kotwicy ${proposal.registration.anchorSourceName} · ${proposal.registration.inlierCount} zgodnych punktów`;
+  if (proposal.registration?.status === 'needs_manual_crop')
+    return `Wymaga ręcznego cięcia · ${proposal.registration.reason}`;
   if (proposal.structural)
     return proposal.structural.status === 'detected'
       ? 'Pełny układ i numery · v11 testowe'

@@ -3,7 +3,11 @@ import path from 'node:path';
 import { processCropDirectory } from './lib/selected-crop-durable-runner.mjs';
 import { SELECTED_IMAGE_AUTO_CROP_POLICY } from '../packages/manual-image-selection-core/src/auto-crop.ts';
 import { CROP_V11_POLICY } from '../packages/manual-image-selection-core/src/auto-crop-v11.ts';
-import { CROP_V11_RELEASE_ENABLED } from '../packages/manual-image-selection-core/src/crop-preparation.ts';
+import { CROP_V12_POLICY } from '../packages/manual-image-selection-core/src/auto-crop-v12-registration.ts';
+import {
+  CROP_V11_RELEASE_ENABLED,
+  CROP_V12_RELEASE_ENABLED,
+} from '../packages/manual-image-selection-core/src/crop-preparation.ts';
 import { selectedCropSourceDirectories } from './lib/selected-crop-directory-order.mjs';
 const [
   parentArg,
@@ -15,6 +19,8 @@ if (!parentArg)
   throw new Error('Usage: <parent> <from-index> <through-index> [policy]');
 if (policy === CROP_V11_POLICY && !CROP_V11_RELEASE_ENABLED)
   throw new Error('CROP_V11_ACCEPTANCE_REQUIRED');
+if (policy === CROP_V12_POLICY && !CROP_V12_RELEASE_ENABLED)
+  throw new Error('CROP_V12_ACCEPTANCE_REQUIRED');
 const from = Number(fromArg),
   through = Number(throughArg);
 if (

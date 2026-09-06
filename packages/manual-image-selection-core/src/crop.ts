@@ -5,6 +5,11 @@ import {
 import type { SelectedImageAutoCropProposal } from './auto-crop.ts';
 import { validateStructuralEvidence } from '@game-predictor/manual-image-selection-core/auto-crop-v11-boundaries';
 import { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
+import {
+  CROP_V12_FINGERPRINT,
+  CROP_V12_POLICY,
+  validateFourPointRegistrationEvidence,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 
 export const SELECTED_IMAGE_CROP_SCHEMA_VERSION = 1 as const;
 export const SELECTED_IMAGE_CROP_RENDERER =
@@ -369,6 +374,39 @@ function validateSelectedImageAutoCropProposal(
     proposal.structural !== undefined,
   );
   const evidence = proposal.evidence;
+  if (proposal.policyVersion === CROP_V12_POLICY) {
+    if (
+      !proposal.structural ||
+      proposal.confidence !== null ||
+      proposal.preparationFingerprint !== CROP_V12_FINGERPRINT ||
+      !Array.isArray(proposal.analysisLevels) ||
+      !proposal.analysisLevels.every(Number.isInteger) ||
+      !['960', '960,1600'].includes(proposal.analysisLevels.join(','))
+    )
+      throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
+    validateStructuralEvidence(proposal.structural);
+    if (proposal.registration !== undefined)
+      validateFourPointRegistrationEvidence(proposal.registration);
+    const registered = proposal.registration?.status === 'registered';
+    if (
+      !registered &&
+      ['width', 'height', 'topY', 'bottomY'].some(
+        (key) =>
+          proposal.crop[key as keyof SelectedImageCropBand] !==
+          proposal.structural!.crop[key as keyof SelectedImageCropBand],
+      )
+    )
+      throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
+    if (registered) {
+      const band = proposal.registration!.registeredBoardBand!;
+      if (
+        Math.min(...band.map((point) => point.y)) < proposal.crop.topY ||
+        Math.max(...band.map((point) => point.y)) > proposal.crop.bottomY
+      )
+        throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
+    }
+    return;
+  }
   if (
     proposal.policyVersion ===
     'selected-image-board-band-v11-full-layout-structural'

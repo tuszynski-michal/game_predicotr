@@ -124,13 +124,20 @@ treningiem. Historyczne przypisanie, którego nie da się uzupełnić nowymi
 źródłami do pełnego podziału, nie jest poprawną kotwicą stabilności i w nowej
 iteracji zostaje odbudowane deterministycznie.
 
-Implementacja `verified-symbol-training-dataset-v1` przypisuje całą rodzinę
-źródła przez stabilny hash checksumy oryginału. Domyślny podział wynosi
-65% train, 15% validation, 10% test i 10% regression. Seed, wersja polityki
-splitu oraz wersja transformacji wchodzą do manifestu. Dzięki przypisaniu
-niezależnemu od liczby rekordów nowe iteracje nie przenoszą starszych źródeł
-między splitami. Regression jest rozłączny z train, a niskie pokrycie klasy
-jest jawnym advisory zamiast ukrytego przetasowania danych.
+Historyczna polityka `source-family-balanced-split-v2` przypisuje całą rodzinę
+źródła przez stabilny hash checksumy oryginału i pozostaje niezmienna dla
+replay istniejących iteracji. Nowe iteracje używają
+`source-family-class-stratified-split-v3`: repozytorium zbiera liczność symboli
+dla każdej rodziny, najpierw zapewnia pokrycie każdej klasy w czterech
+splitach, a następnie deterministycznie równoważy liczbę rodzin do proporcji
+65/15/10/10. Rodzina nadal należy dokładnie do jednego splitu.
+
+Przypisania v3 są częścią konfiguracji i fingerprintu. Builder nie może dla
+brakującego przypisania wrócić do hashowania; kończy się stabilnym błędem.
+Manifest raportuje brak pokrycia jako failed quality gate, a worker powtarza
+kontrolę na odtworzonych próbkach przed pierwszą epoką. Jeżeli klasa nie ma
+czterech niezależnych rodzin, iteracja zostaje kontrolowanie odrzucona. Seed,
+wersja polityki splitu i transformacji pozostają częścią manifestu.
 
 ## Artefakty
 

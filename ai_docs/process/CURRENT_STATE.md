@@ -6,6 +6,19 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0496 — klasowo stratyfikowany podział treningu symboli
+
+- Przyczyną odrzucenia iteracji `e0467571-2e55-4267-9142-d9f45a1387c9` nie był
+  brak danych ani błędne predykcje: test zawierał tylko `ARBUZ` i `SIEDEM`, a
+  pozostałych sześć klas bez supportu obniżyło macro recall z faktycznego 1,0
+  do 0,25.
+- Nowe iteracje używają source-disjoint splitu v3 uwzględniającego klasy.
+  Każda aktywna klasa musi wystąpić w train, validation, test i regression;
+  niespełnienie warunku zatrzymuje iterację przed treningiem.
+- Odrzucony kandydat pozostaje niezmienny. Operator powinien ponownie wybrać
+  `Ulepsz rozpoznawanie`; nowa kohorta obejmie również zatwierdzenia dodane po
+  zamrożeniu poprzednich 768 próbek.
+
 ### TASK-0495 — odtwarzanie gotowego manifestu rozliczeń
 
 - Kolejka problematycznych plansz zwraca aktualny zamknięty manifest wyłącznie

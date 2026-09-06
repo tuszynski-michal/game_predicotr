@@ -86,6 +86,13 @@ wyłącznie w celu reprodukcji istniejących iteracji.
 - polityka `source-family-balanced-split-v2` gwarantuje niezależne, niepuste
   zbiory przy co najmniej czterech źródłach; przypisania źródeł są zapisywane
   w konfiguracji i pozostają stabilne po rozszerzeniu kohorty,
+- nowe iteracje używają polityki `source-family-class-stratified-split-v3`:
+  każda aktywna klasa musi występować w niezależnych rodzinach źródłowych w
+  train, validation, test i regression; brak pokrycia zatrzymuje iterację przed
+  pierwszą epoką zamiast zaniżać macro recall klasami bez próbek,
+- przypisania v3 są deterministyczne, utrwalone w konfiguracji i mogą być
+  dziedziczone wyłącznie z wcześniejszej iteracji używającej tej samej polityki;
+  historyczne v2 pozostaje niezmienne i odtwarzalne,
 - źródła muszą być wyprowadzane zarówno z historycznych pełnych plansz, jak i
   z pojedynczo zatwierdzonych cropów; pusty wymagany split blokuje dataset przed
   rozpoczęciem pierwszej epoki,
@@ -98,8 +105,8 @@ wyłącznie w celu reprodukcji istniejących iteracji.
   zastępować jej cropem legacy ani bieżącą geometrią,
 - stały zestaw kontrolny nie może zostać włączony do treningu kolejnej wersji,
 - raport pokazuje liczność per symbol, źródło i część podziału,
-- brak wymaganej reprezentacji klasy blokuje promocję albo wymaga jawnego
-  zaakceptowania ograniczenia przez właściciela.
+- brak wymaganej reprezentacji klasy blokuje rozpoczęcie treningu v3; nie można
+  go obejść ręczną aktywacją kandydata ocenionego na niepełnym teście.
 
 ## Read-only diagnoza residuali przed kolejną iteracją
 

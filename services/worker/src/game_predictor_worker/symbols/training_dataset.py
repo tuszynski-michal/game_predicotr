@@ -33,6 +33,8 @@ from game_predictor_worker.images.virtual_cell_extraction import (
 TRAINING_DATASET_SCHEMA_VERSION = 1
 TRAINING_DATASET_VERSION = "verified-symbol-training-dataset-v1"
 TRAINING_SPLIT_POLICY_VERSION = "source-family-balanced-split-v2"
+CLASS_STRATIFIED_SPLIT_POLICY_VERSION = "source-family-class-stratified-split-v3"
+CLASS_STRATIFIED_SPLIT_SEED = "game-predictor-symbol-split-v3"
 DEFAULT_SPLIT_SEED = "game-predictor-m6.6-symbol-split-v1"
 MIN_RECOMMENDED_SAMPLES_PER_SYMBOL = 10
 
@@ -521,6 +523,106 @@ def build_balanced_source_assignments(
     return tuple((source, assignments[source]) for source in unique)
 
 
+def build_class_stratified_source_assignments(
+    source_symbol_counts: Mapping[str, Mapping[str, int]],
+    *,
+    seed: str = CLASS_STRATIFIED_SPLIT_SEED,
+    existing: Mapping[str, SplitName] | None = None,
+) -> tuple[tuple[str, SplitName], ...]:
+    """Assign whole source families while preserving every class in every split.
+
+    Coverage is established before ratio balancing.  The feasibility guard keeps
+    enough distinct families for the splits that still need a class, so a common
+    class cannot consume the last source of a rarer one.  If the input cannot
+    provide four independent families for a class, the returned deterministic
+    assignment is rejected by the dataset gate before training starts.
+    """
+
+    profiles = {
+        source: {code: int(count) for code, count in counts.items() if int(count) > 0}
+        for source, counts in source_symbol_counts.items()
+        if source
+    }
+    unique = tuple(sorted(profiles))
+    assignments: dict[str, SplitName] = {
+        source: split
+        for source, split in dict(existing or {}).items()
+        if source in profiles and split in SPLIT_ORDER
+    }
+    pending: set[str] = set(unique) - assignments.keys()
+    class_codes = tuple(sorted({code for counts in profiles.values() for code in counts}))
+
+    def covered(split: SplitName) -> set[str]:
+        return {
+            code
+            for source, assigned in assignments.items()
+            if assigned == split
+            for code in profiles[source]
+        }
+
+    coverage_order: tuple[SplitName, ...] = ("regression", "test", "validation", "train")
+    for split_index, split in enumerate(coverage_order):
+        missing = set(class_codes) - covered(split)
+        while missing and pending:
+            later_splits = coverage_order[split_index + 1 :]
+
+            def feasible(source: str, future_splits: tuple[SplitName, ...] = later_splits) -> bool:
+                remaining = pending - {source}
+                for code in class_codes:
+                    required = sum(code not in covered(later) for later in future_splits)
+                    available = sum(code in profiles[item] for item in remaining)
+                    if available < required:
+                        return False
+                return True
+
+            candidates = [source for source in pending if missing.intersection(profiles[source])]
+            feasible_candidates = [source for source in candidates if feasible(source)]
+            ranked_pool = feasible_candidates or candidates
+            if not ranked_pool:
+                break
+            source = min(
+                ranked_pool,
+                key=lambda item: (
+                    -len(missing.intersection(profiles[item])),
+                    -sum(
+                        1 / max(1, sum(code in profile for profile in profiles.values()))
+                        for code in missing.intersection(profiles[item])
+                    ),
+                    hashlib.sha256(f"{seed}\0coverage\0{split}\0{item}".encode()).hexdigest(),
+                    item,
+                ),
+            )
+            assignments[source] = split
+            pending.remove(source)
+            missing -= profiles[source].keys()
+
+    total = len(unique)
+    raw_targets = {
+        split: total * ratio / 10_000 for split, ratio in TrainingDatasetConfig().split_ratios()
+    }
+    targets = {split: int(raw_targets[split]) for split in SPLIT_ORDER}
+    for split in sorted(
+        SPLIT_ORDER,
+        key=lambda item: (-(raw_targets[item] - targets[item]), SPLIT_ORDER.index(item)),
+    )[: total - sum(targets.values())]:
+        targets[split] += 1
+    if total >= len(SPLIT_ORDER):
+        for split in SPLIT_ORDER:
+            targets[split] = max(1, targets[split])
+    counts = Counter(assignments.values())
+    for source in sorted(
+        pending,
+        key=lambda item: hashlib.sha256(f"{seed}\0balance\0{item}".encode()).hexdigest(),
+    ):
+        split = max(
+            SPLIT_ORDER,
+            key=lambda item: (targets[item] - counts[item], -SPLIT_ORDER.index(item)),
+        )
+        assignments[source] = split
+        counts[split] += 1
+    return tuple((source, assignments[source]) for source in unique)
+
+
 def _source_split(
     source_family: str,
     config: TrainingDatasetConfig,
@@ -528,6 +630,12 @@ def _source_split(
     for source, split in config.source_assignments:
         if source == source_family:
             return split
+    if config.split_policy_version == CLASS_STRATIFIED_SPLIT_POLICY_VERSION:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_SOURCE_ASSIGNMENT_MISSING",
+            "The class-stratified dataset requires a persisted split assignment "
+            f"for source family {source_family}.",
+        )
     bucket = (
         int.from_bytes(
             hashlib.sha256(
@@ -827,6 +935,7 @@ def _manifest(
 
     symbol_stats: list[dict[str, object]] = []
     advisories: list[dict[str, object]] = []
+    missing_class_coverage: list[dict[str, object]] = []
     for code in sorted(catalog):
         current = [sample for sample in samples if sample.symbol_code == code]
         split_counts = {
@@ -853,13 +962,13 @@ def _manifest(
             )
         missing_splits = [split for split, count in split_counts.items() if count == 0]
         if current and missing_splits:
-            advisories.append(
-                {
-                    "code": "TRAINING_DATASET_SYMBOL_SPLIT_COVERAGE_LOW",
-                    "missingSplits": missing_splits,
-                    "symbolCode": code,
-                }
-            )
+            finding: dict[str, object] = {
+                "code": "TRAINING_DATASET_SYMBOL_SPLIT_COVERAGE_LOW",
+                "missingSplits": missing_splits,
+                "symbolCode": code,
+            }
+            advisories.append(finding)
+            missing_class_coverage.append(finding)
 
     split_reports: list[dict[str, object]] = []
     for split in SPLIT_ORDER:
@@ -905,9 +1014,15 @@ def _manifest(
         "gameCode": game_code,
         "gameId": game_id,
         "qualityGate": {
+            "missingClassCoverage": missing_class_coverage,
             "regressionSamplesInTrain": 0,
             "sourceFamilyLeakageCount": 0,
-            "status": "passed",
+            "status": (
+                "failed"
+                if config.split_policy_version == CLASS_STRATIFIED_SPLIT_POLICY_VERSION
+                and missing_class_coverage
+                else "passed"
+            ),
         },
         "sampleCount": len(samples),
         "samples": sample_rows,
@@ -1039,7 +1154,7 @@ def _observed_dataset_asset_checksum(sample: _Sample, path: Path) -> str:
             "TRAINING_DATASET_ARTIFACT_INCOMPLETE",
             "An existing virtual dataset crop is not a decodable image.",
         ) from error
-    return cast(str, rgb_pixel_checksum_sha256(rgb))
+    return rgb_pixel_checksum_sha256(rgb)
 
 
 def _verify_existing(
@@ -1206,11 +1321,14 @@ def build_cumulative_training_dataset(
 
 
 __all__ = [
+    "CLASS_STRATIFIED_SPLIT_POLICY_VERSION",
+    "CLASS_STRATIFIED_SPLIT_SEED",
     "DEFAULT_TRAINING_DATASET_CONFIG",
     "TRAINING_DATASET_SCHEMA_VERSION",
     "TRAINING_DATASET_VERSION",
     "TRAINING_SPLIT_POLICY_VERSION",
     "build_balanced_source_assignments",
+    "build_class_stratified_source_assignments",
     "TrainingDatasetArtifact",
     "TrainingDatasetBuildError",
     "TrainingDatasetConfig",

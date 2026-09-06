@@ -13,6 +13,7 @@ from game_predictor_worker.images.normalization import (
     rgb_pixel_checksum_sha256,
 )
 from game_predictor_worker.symbols import (
+    CLASS_STRATIFIED_SPLIT_POLICY_VERSION,
     TrainingDatasetBuildError,
     TrainingDatasetConfig,
     TrainingSymbol,
@@ -458,6 +459,26 @@ def test_existing_source_assignments_stay_stable_when_cohort_grows(
         sample["sourceFamily"]: sample["split"] for sample in large.manifest["samples"]
     }
     assert all(large_assignment[source] == split for source, split in small_assignment.items())
+
+
+def test_class_stratified_build_requires_every_persisted_source_assignment(
+    work_root: Path,
+) -> None:
+    cohort_path, cohort_checksum = _cohort(work_root, source_count=4)
+
+    with pytest.raises(TrainingDatasetBuildError) as error:
+        build_cumulative_training_dataset(
+            cohort_path=cohort_path,
+            expected_cohort_checksum_sha256=cohort_checksum,
+            artifact_root=work_root,
+            game_code="fixture-game",
+            symbols=_symbols(),
+            config=TrainingDatasetConfig(
+                split_policy_version=CLASS_STRATIFIED_SPLIT_POLICY_VERSION,
+            ),
+        )
+
+    assert error.value.code == "TRAINING_DATASET_SOURCE_ASSIGNMENT_MISSING"
 
 
 def test_build_stops_on_crop_checksum_mismatch(work_root: Path) -> None:

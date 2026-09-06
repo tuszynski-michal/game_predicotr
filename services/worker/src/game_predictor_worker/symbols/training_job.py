@@ -49,7 +49,10 @@ from game_predictor_worker.symbols.candidate_gate import (
     SymbolCandidateGateResult,
     build_symbol_candidate,
 )
-from game_predictor_worker.symbols.training_dataset import TrainingDatasetConfig
+from game_predictor_worker.symbols.training_dataset import (
+    CLASS_STRATIFIED_SPLIT_POLICY_VERSION,
+    TrainingDatasetConfig,
+)
 
 TRAINING_WORKFLOW = "symbol_training"
 CHECKPOINT_SCHEMA_VERSION = 1
@@ -298,6 +301,31 @@ class SymbolTrainingJobHandler:
                 "SYMBOL_TRAINING_COHORT_DRIFT", "Built dataset uses another cohort."
             )
         data = _prepared_data(self._store.artifact_root, dataset)
+        if spec.dataset_config.split_policy_version == CLASS_STRATIFIED_SPLIT_POLICY_VERSION:
+            missing_class_coverage = {
+                split: [
+                    code
+                    for class_index, code in enumerate(data.class_codes)
+                    if class_index not in {sample.class_index for sample in getattr(data, split)}
+                ]
+                for split in ("train", "validation", "test", "regression")
+            }
+            missing_class_coverage = {
+                split: codes for split, codes in missing_class_coverage.items() if codes
+            }
+            if missing_class_coverage:
+                self._store.update(
+                    spec.iteration_id,
+                    status=SymbolModelIterationStatus.REJECTED,
+                    gate_metrics={
+                        "missingClassCoverage": missing_class_coverage,
+                        "splitPolicyVersion": spec.dataset_config.split_policy_version,
+                        "trainingStarted": False,
+                    },
+                    rejection_reasons=("SYMBOL_TRAINING_EVALUATION_CLASS_COVERAGE_INSUFFICIENT",),
+                    updated_at=context.now(),
+                )
+                return
         source_family_count = int(getattr(dataset, "source_family_count", 4))
         if source_family_count < 4:
             self._store.update(

@@ -8,6 +8,24 @@ last_updated: 2026-09-06
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-369 — Ewaluacja symboli wymaga pokrycia każdej klasy
+
+- **Status:** accepted
+- **Date:** 2026-09-06
+- **Decision:** nowe iteracje używają wersjonowanej polityki
+  `source-family-class-stratified-split-v3`. Całe rodziny źródłowe pozostają
+  rozłączne, a każda aktywna klasa musi mieć próbki w train, validation, test
+  i regression przed rozpoczęciem treningu.
+- **Reason:** poprzedni podział v2 zapewniał jedynie niepuste splity. Iteracja z
+  768 próbkami uzyskała 10/10 poprawnych predykcji testowych, lecz test zawierał
+  tylko dwie z ośmiu klas i macro recall został fałszywie obniżony do 0,25.
+- **Safety:** przypisania są deterministyczne i utrwalone; brak jawnego
+  przypisania lub pokrycia kończy się fail-closed przed epoką 1. Historyczne v2
+  oraz odrzucone raporty nie są przepisywane ani ręcznie aktywowane.
+- **Consequences:** po wdrożeniu potrzebna jest nowa iteracja od początku.
+  Klasa z mniej niż czterema niezależnymi rodzinami blokuje trening do czasu
+  uzupełnienia materiału.
+
 ## D-368 — Gotowość rozliczonego importu jest odtwarzana z API
 
 - **Status:** accepted

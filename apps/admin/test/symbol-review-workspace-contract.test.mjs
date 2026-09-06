@@ -186,6 +186,11 @@ test('retains previews for the active page while locally hiding decided cards', 
     movePageSource,
     /setPreviewAvailability\(emptyPreviewAvailability\(\)\)/,
   );
+  assert.match(source, /items=\{activePagePreviewItems\}/);
+  assert.match(source, /hiddenCellIds\.has\(item\.id\)/);
+  assert.match(source, /className=\{styles\.cardVacancy\}/);
+  assert.match(styles, /\.cardVacancy\s*\{[\s\S]*?visibility:\s*hidden;/);
+  assert.doesNotMatch(source, /items=\{currentItems\}/);
 });
 
 test('explains when an approved crop is excluded from training', () => {

@@ -525,7 +525,10 @@ nadal odrzuca próbę zatwierdzenia nierozpoznanego przypisania.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
 polling każdej operacji nie wysyła nakładających się requestów. Pełny sukces
 usuwa jej targety z aktualnie wyświetlanej strony bez ponownego zapytania i bez
-uzupełniania strony kolejnymi rekordami. Konflikt lub częściowy błąd pozostawia
+uzupełniania strony kolejnymi rekordami. Ukryty target pozostawia w
+wirtualizowanej siatce niewidoczne miejsce tej samej wielkości do następnej
+nawigacji, dzięki czemu pozostałe karty nie zmieniają wiersza, nie są
+demontowane i zachowują już wyświetlony atlas. Konflikt lub częściowy błąd pozostawia
 targety widoczne, ponieważ zbiorcza odpowiedź nie wskazuje bezpiecznie ich
 indywidualnego wyniku. Ponowna nawigacja naturalnie pobiera aktualny keyset.
 Lokalne ukrycie targetu nie może ponownie uruchamiać ładowania atlasów ani

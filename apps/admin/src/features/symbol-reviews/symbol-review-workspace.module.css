@@ -132,6 +132,13 @@
   background: transparent;
 }
 
+.cardVacancy {
+  display: block;
+  width: 100px;
+  height: 100px;
+  visibility: hidden;
+}
+
 .cardSelected {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent);
 }

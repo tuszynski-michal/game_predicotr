@@ -1095,23 +1095,31 @@ export function SymbolReviewWorkspace({
               <SymbolReviewEmpty />
             ) : (
               <SymbolReviewVirtualGrid
-                items={currentItems}
+                items={activePagePreviewItems}
                 onVisibleItemsChange={handleVisibleItemsChange}
                 pageNumber={currentPageNumber}
-                renderCard={(item) => (
-                  <SymbolReviewCard
-                    disabled={interactionBusy || pendingCellIds.has(item.id)}
-                    item={item}
-                    key={item.id}
-                    onToggle={() => toggleItem(item)}
-                    pending={pendingCellIds.has(item.id)}
-                    previewTile={virtualPreviewTiles[item.id]}
-                    previewUnavailable={previewAvailability.unavailableCellReviewIds.has(
-                      item.id,
-                    )}
-                    selected={isSymbolReviewItemSelected(selection, item)}
-                  />
-                )}
+                renderCard={(item) =>
+                  hiddenCellIds.has(item.id) ? (
+                    <span
+                      aria-hidden="true"
+                      className={styles.cardVacancy}
+                      key={item.id}
+                    />
+                  ) : (
+                    <SymbolReviewCard
+                      disabled={interactionBusy || pendingCellIds.has(item.id)}
+                      item={item}
+                      key={item.id}
+                      onToggle={() => toggleItem(item)}
+                      pending={pendingCellIds.has(item.id)}
+                      previewTile={virtualPreviewTiles[item.id]}
+                      previewUnavailable={previewAvailability.unavailableCellReviewIds.has(
+                        item.id,
+                      )}
+                      selected={isSymbolReviewItemSelected(selection, item)}
+                    />
+                  )
+                }
                 scopeKey={`${filters.gameId ?? ''}:${filters.symbolId ?? ''}:${filters.pageSize}`}
               />
             )}

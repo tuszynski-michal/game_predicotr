@@ -6,6 +6,15 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0485 — stabilne miejsca kafli Weryfikacji symboli
+
+- Lokalnie ukryty target pozostawia niewidoczne miejsce w niezmiennym
+  snapshotcie aktywnej strony. Pozostałe karty nie przesuwają się pomiędzy
+  wierszami wirtualizatora, zachowują swoje klucze React i zamontowane podglądy
+  atlasów podczas kolejnych decyzji.
+- Wybór i operacje nadal obejmują wyłącznie widoczne, nieukryte cropy, a zmiana
+  strony, filtra albo gry nadal usuwa pamięciową mapę tile.
+
 ### TASK-0484 — zachowanie podglądów aktywnej strony symboli
 
 - Ładowanie atlasów jest związane z niezmiennym snapshotem pobranej strony, a

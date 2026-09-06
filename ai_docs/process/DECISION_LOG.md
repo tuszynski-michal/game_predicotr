@@ -8,6 +8,17 @@ last_updated: 2026-08-24
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-367 — Import z ręczną korektą zamiast bramki skuteczności
+
+- **Status:** accepted
+- **Date:** 2026-09-06
+- **Decision:** nowa polityka `image-geometry-systemic-guard-v2-manual-review`
+  kontynuuje import przy niskiej lub zerowej gotowości próbki. Nie zmienia
+  estymatora v0.10 v3 ani progów pojedynczej siatki.
+- **Consequences:** niepewne sloty są trwale odroczone, bez fikcyjnych cropów;
+  błędy integralności nadal blokują. Historyczny retry zachowuje przypiętą
+  politykę. Zlecenie obejmuje 0489–0491, bez uruchamiania importów użytkownika.
+
 ## D-001 — Monorepo
 
 - **Status:** accepted

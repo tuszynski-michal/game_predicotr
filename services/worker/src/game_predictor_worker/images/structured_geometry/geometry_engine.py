@@ -572,6 +572,45 @@ def _validated_board_result(
     )
 
 
+def manual_source_geometry_result(
+    request: StructuredGeometryInitializationRequest,
+) -> SourceGeometryResult:
+    """Persist attested slots without running a detector or inventing quads."""
+    version = "manual-source-geometry-required-v1"
+    checksum = hashlib.sha256(version.encode("ascii")).hexdigest()
+    reasons = ("IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW",)
+    initialization = GlobalInitializationResult(
+        status=GlobalInitializationStatus.NEEDS_MANUAL_REVIEW,
+        method=GlobalInitializationMethod.PINNED_PAGE_PREFLIGHT,
+        engine_id=STRUCTURED_GEOMETRY_ENGINE_ID,
+        engine_version=version,
+        config_checksum_sha256=checksum,
+        source_checksum_sha256=request.source_checksum_sha256,
+        normalized_pixel_checksum_sha256=request.normalized_pixel_checksum_sha256,
+        canonical_width=request.canonical_width,
+        canonical_height=request.canonical_height,
+        topology_rows=request.topology.rows,
+        topology_columns=request.topology.columns,
+        topology_rules_version_id=request.topology_rules_version_id,
+        active_board_slots=request.active_board_slots,
+        homography=None,
+        slots=(),
+        metrics=(),
+        reason_codes=reasons,
+    )
+    return _source_result(
+        request,
+        initialization=initialization,
+        boards=tuple(
+            _uninitialized_board_result(slot) for slot in request.attested_range.active_slots
+        ),
+        reason_codes=reasons,
+        engine_id=STRUCTURED_GEOMETRY_ENGINE_ID,
+        engine_version=version,
+        config_checksum_sha256=checksum,
+    )
+
+
 def _source_result(
     request: StructuredGeometryInitializationRequest,
     *,

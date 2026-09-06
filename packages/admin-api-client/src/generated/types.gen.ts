@@ -3452,7 +3452,9 @@ export type ImageGeometrySystemicGuardJobProgressResponse = {
   /**
    * Policyversion
    */
-  policyVersion: 'image-geometry-systemic-guard-v1';
+  policyVersion:
+    | 'image-geometry-systemic-guard-v1'
+    | 'image-geometry-systemic-guard-v2-manual-review';
   /**
    * Rejectedcount
    */
@@ -3502,7 +3504,7 @@ export type ImageGeometrySystemicGuardPolicyJobPayload = {
   /**
    * Minimumfinalcellgridreadyrate
    */
-  minimumFinalCellGridReadyRate: 0.98;
+  minimumFinalCellGridReadyRate: number;
   /**
    * Minimumsourcecount
    */
@@ -3510,7 +3512,9 @@ export type ImageGeometrySystemicGuardPolicyJobPayload = {
   /**
    * Policyversion
    */
-  policyVersion: 'image-geometry-systemic-guard-v1';
+  policyVersion:
+    | 'image-geometry-systemic-guard-v1'
+    | 'image-geometry-systemic-guard-v2-manual-review';
   /**
    * Requirezeroinvariantviolations
    */

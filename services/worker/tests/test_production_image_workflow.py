@@ -173,9 +173,11 @@ def test_guard_resolutions_override_only_exact_structured_slots() -> None:
     assert len(result["resultChecksumSha256"]) == 64
 
 
+@pytest.mark.parametrize("manual_policy", [False, True])
 def test_systemic_geometry_guard_fails_before_file_registration(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    manual_policy: bool,
 ) -> None:
     originals = tuple(
         ManagedOriginal(
@@ -202,6 +204,8 @@ def test_systemic_geometry_guard_fails_before_file_registration(
         def register_files(self, *_args: object, **_kwargs: object) -> None:
             nonlocal registered
             registered = True
+            if manual_policy:
+                raise RuntimeError("continued to registration")
 
     class _Context(_ProgressRecorder):
         def now(self):  # type: ignore[no-untyped-def]
@@ -260,8 +264,13 @@ def test_systemic_geometry_guard_fails_before_file_registration(
             sample_source_count=25,
             sample_board_count=225,
             page_registration_ready_rate=1.0,
-            final_cell_grid_ready_rate=0.01,
+            final_cell_grid_ready_rate=218 / 225,
             invariant_violation_count=0,
+            policy_version=(
+                "image-geometry-systemic-guard-v2-manual-review"
+                if manual_policy
+                else "image-geometry-systemic-guard-v1"
+            ),
         ),
     )
     context = _Context()
@@ -274,7 +283,11 @@ def test_systemic_geometry_guard_fails_before_file_registration(
             "source_directory": str(tmp_path),
             "pipeline_fingerprint": "a" * 64,
             "geometry_systemic_guard_policy": {
-                "policyVersion": "image-geometry-systemic-guard-v1",
+                "policyVersion": (
+                    "image-geometry-systemic-guard-v2-manual-review"
+                    if manual_policy
+                    else "image-geometry-systemic-guard-v1"
+                ),
                 "minimumSourceCount": 100,
                 "minimumActiveBoardCount": 500,
                 "sampleSourceLimit": 25,
@@ -283,6 +296,12 @@ def test_systemic_geometry_guard_fails_before_file_registration(
             },
         },
     )
+
+    if manual_policy:
+        with pytest.raises(RuntimeError, match="continued to registration"):
+            workflow(context, context.job)
+        assert registered
+        return
 
     with pytest.raises(JobHandlerError) as captured:
         workflow(context, context.job)
@@ -2101,6 +2120,60 @@ def test_cold_start_symbol_projection_creates_unknowns_without_invoking_onnx(
     assert len(cells) == 15
     assert {cell["symbolCode"] for cell in cells} == {"?"}
     assert {cell["confidence"] for cell in cells} == {0.0}
+
+
+def test_manual_import_defers_every_unregistered_source_slot_without_crops(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deferred = []
+    suite = ProductionImageStageAdapterSuite(
+        tmp_path,
+        repository_root=Path.cwd(),
+        board_cell_processing=board_cell_processing_snapshot(
+            cell_output_size=32,
+            topology=BoardCellTopology(rows=3, columns=5, rules_version_id=str(uuid4())),
+        ),
+        page_geometry_manifest={"c" * 64: {"status": "review_required"}},
+        manual_geometry_import=True,
+        board_cell_geometry_deferred_writer=SimpleNamespace(
+            defer=lambda _context, **kwargs: deferred.append(kwargs)
+        ),
+    )
+    monkeypatch.setattr(
+        suite,
+        "_canonical_source",
+        lambda _context: SimpleNamespace(
+            source=SimpleNamespace(
+                source_checksum_sha256="c" * 64,
+                normalized_pixel_checksum_sha256="e" * 64,
+                width=1000,
+                height=800,
+            )
+        ),
+    )
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256="c" * 64,
+        source_relative_path="unused.jpg",
+        pipeline_fingerprint="d" * 64,
+        previous_results={},
+        attested_sequence_range=(1234, 1242),
+    )
+    detection = suite.board_detection(context)
+    context = replace(context, previous_results={"board_detection": detection})
+    geometry = suite.board_cell_geometry(context)
+    suite.persist_board_cell_geometry_deferrals(context, geometry)
+    context = replace(context, previous_results={"board_cell_geometry": geometry})
+    crops = suite.board_crops(context)
+    assert crops["boards"] == []
+    assert len(crops["deferredBoards"]) == 9
+    assert [item["sequence_number"] for item in deferred] == list(range(1234, 1243))
+    assert all("geometry" not in board for board in detection["boards"])
+    source_geometry = geometry["structuredGeometry"]
+    assert source_geometry["activeBoardSlots"] == list(range(9))
+    assert all(board["finalQuad"] is None for board in source_geometry["boards"])
+    assert source_geometry["status"] != "ready"
 
 
 def _candidate_snapshot() -> SymbolModelJobSnapshot:

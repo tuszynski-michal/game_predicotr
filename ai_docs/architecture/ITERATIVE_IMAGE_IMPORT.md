@@ -308,6 +308,14 @@ snapshot i replay.
 
 ### Bramka systemowa przed materializacją dużego importu
 
+TASK-0489: nowe runy używają `image-geometry-systemic-guard-v2-manual-review`.
+Próg próbki jest informacyjny; `allows_import` rozróżnia go od błędu
+integralności. Raport v2 pozostaje niezmiennym artefaktem przypiętym do runu.
+Jawne `review_required` manifestu strony tworzy sloty bez quadów, odracza je
+przez istniejący writer i nie uruchamia croppera ani modelu dla tych slotów.
+Historyczna polityka v1 nadal pomija niezarejestrowane źródła i blokuje import
+poniżej 98%. Poniższy opis twardej bramki dotyczy tego historycznego wariantu.
+
 Po ingestowaniu managed originals, sprawdzeniu przypiętego manifestu strony i
 odfiltrowaniu źródeł kanonicznych worker oblicza rozmiar faktycznego pipeline'u.
 Dla co najmniej 100 źródeł albo 500 plansz wybiera deterministycznie do 25

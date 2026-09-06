@@ -488,7 +488,7 @@ def test_new_browser_import_pins_systemic_geometry_guard_policy(tmp_path: Path) 
 
     assert job.input_payload["schema_version"] == 7
     assert job.input_payload["geometry_systemic_guard_policy"] == {
-        "policyVersion": "image-geometry-systemic-guard-v1",
+        "policyVersion": "image-geometry-systemic-guard-v2-manual-review",
         "minimumSourceCount": 100,
         "minimumActiveBoardCount": 500,
         "sampleSourceLimit": 25,
@@ -497,7 +497,7 @@ def test_new_browser_import_pins_systemic_geometry_guard_policy(tmp_path: Path) 
     }
     response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
     assert response["inputPayload"]["geometrySystemicGuardPolicy"] == {
-        "policyVersion": "image-geometry-systemic-guard-v1",
+        "policyVersion": "image-geometry-systemic-guard-v2-manual-review",
         "minimumSourceCount": 100,
         "minimumActiveBoardCount": 500,
         "sampleSourceLimit": 25,

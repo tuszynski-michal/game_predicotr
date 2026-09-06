@@ -87,6 +87,7 @@ from .large_import_geometry_guard import (
     LARGE_IMPORT_MIN_BOARD_COUNT,
     LARGE_IMPORT_MIN_READY_RATE,
     LARGE_IMPORT_MIN_SOURCE_COUNT,
+    MANUAL_REVIEW_GEOMETRY_GUARD_VERSION,
     run_large_import_geometry_guard,
     validate_large_import_geometry_guard_resolutions,
 )
@@ -144,6 +145,7 @@ from .structured_geometry import (
     structured_lattice_active_config_payload,
     structured_lattice_candidate_config_payload,
 )
+from .structured_geometry.geometry_engine import manual_source_geometry_result
 from .symbol_model_release import build_symbol_predictions
 from .symbol_onnx import (
     LocalSymbolOnnxAdapter,
@@ -431,11 +433,17 @@ class ProductionImageImportWorkflow:
         )
         unresolved_originals = _filter_canonical_originals(manifest.originals, job)
         canonical_skipped_count = len(manifest.originals) - len(unresolved_originals)
-        pipeline_originals = unresolved_originals
-        pipeline_originals = _filter_registered_geometry_originals(
-            pipeline_originals,
-            geometry_manifest,
+        geometry_guard_policy = _geometry_systemic_guard_policy(job)
+        manual_geometry_import = (
+            geometry_guard_policy is not None
+            and geometry_guard_policy["policyVersion"] == MANUAL_REVIEW_GEOMETRY_GUARD_VERSION
         )
+        pipeline_originals = unresolved_originals
+        if not manual_geometry_import:
+            pipeline_originals = _filter_registered_geometry_originals(
+                pipeline_originals,
+                geometry_manifest,
+            )
         deferred_geometry_count = len(unresolved_originals) - len(pipeline_originals)
         source_count = len(pipeline_originals)
         if not pipeline_originals:
@@ -477,6 +485,7 @@ class ProductionImageImportWorkflow:
         if board_cell_processing is not None and geometry_guard_policy is not None:
             guard_suite = ProductionImageStageAdapterSuite(
                 self._artifact_root,
+                manual_geometry_import=manual_geometry_import,
                 repository_root=self._repository_root,
                 symbol_model=_symbol_model_snapshot(job),
                 grid_profile=_grid_profile_snapshot(job),
@@ -498,6 +507,7 @@ class ProductionImageImportWorkflow:
                 originals=pipeline_originals,
                 geometry_entries=geometry_manifest,
                 suite=guard_suite,
+                policy_version=str(geometry_guard_policy["policyVersion"]),
             )
             if geometry_guard_resolutions is not None:
                 resolved_guard_suite = ProductionImageStageAdapterSuite(
@@ -548,7 +558,7 @@ class ProductionImageImportWorkflow:
                     failure_count=job.failure_count,
                     review_count=job.review_count,
                 )
-                if not geometry_guard.passed and geometry_guard_resolution is None:
+                if not geometry_guard.allows_import and geometry_guard_resolution is None:
                     ready_rate = geometry_guard.final_cell_grid_ready_rate or 0.0
                     raise JobHandlerError(
                         "IMAGE_GEOMETRY_SYSTEMIC_REGRESSION",
@@ -566,6 +576,7 @@ class ProductionImageImportWorkflow:
         )
         adapters = ProductionImageStageAdapterSuite(
             self._artifact_root,
+            manual_geometry_import=manual_geometry_import,
             repository_root=self._repository_root,
             symbol_model=_symbol_model_snapshot(job),
             grid_profile=_grid_profile_snapshot(job),
@@ -804,6 +815,7 @@ class ProductionImageStageAdapterSuite:
         geometry_rollout: GeometryPipelineRolloutSnapshot | None = None,
         game_id: UUID | None = None,
         geometry_guard_resolutions: GeometryGuardResolutionSet | None = None,
+        manual_geometry_import: bool = False,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
@@ -835,6 +847,7 @@ class ProductionImageStageAdapterSuite:
         self._geometry_rollout = geometry_rollout or _legacy_geometry_rollout_snapshot()
         self._game_id = game_id
         self._geometry_guard_resolutions = geometry_guard_resolutions
+        self._manual_geometry_import = manual_geometry_import
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
         # ``seq_*`` import.  Loading the fallback registration anchors in that
@@ -1006,6 +1019,40 @@ class ProductionImageStageAdapterSuite:
         }
 
     def board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
+        entry = self._page_geometry_manifest.get(context.source_checksum_sha256)
+        if (
+            self._manual_geometry_import
+            and isinstance(entry, Mapping)
+            and entry.get("status") == "review_required"
+        ):
+            frame = self._canonical_source(context)
+            if context.attested_sequence_range is None:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_BOARD_CELL_SEQUENCE_UNATTESTED", "A filename range is required."
+                )
+            start, end = context.attested_sequence_range
+            if self._board_topology.rules_version_id is None:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID", "Pinned topology is required."
+                )
+            structured = manual_source_geometry_result(
+                StructuredGeometryInitializationRequest.for_frame(
+                    frame,
+                    topology=DomainBoardTopology(
+                        rows=self._board_topology.rows, columns=self._board_topology.columns
+                    ),
+                    topology_rules_version_id=UUID(self._board_topology.rules_version_id),
+                    attested_range=AttestedSequenceRange(start=start, end=end),
+                )
+            ).to_payload()
+            return {
+                "manualGeometryRequired": True,
+                "structuredGeometry": structured,
+                "boards": [
+                    {"positionIndex": position, "sequenceNumber": start + position}
+                    for position in range(end - start + 1)
+                ],
+            }
         if not self._geometry_rollout.is_legacy:
             structured, candidate_v2, candidate_v3 = self._detect_structured_geometry(context)
             if self._geometry_guard_resolutions is not None:
@@ -1139,6 +1186,23 @@ class ProductionImageStageAdapterSuite:
     def board_cell_geometry(self, context: ImageStageContext) -> Mapping[str, object]:
         """Estimate all nine lattices and persist only fail-closed deferrals."""
 
+        detection = _previous(context, "board_detection")
+        if self._manual_geometry_import and detection.get("manualGeometryRequired") is True:
+            return {
+                "manualGeometryRequired": True,
+                "structuredGeometry": detection["structuredGeometry"],
+                "gridRows": self._board_topology.rows,
+                "gridColumns": self._board_topology.columns,
+                "boards": [
+                    {
+                        **board,
+                        "status": "deferred",
+                        "reasonCode": "IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW",
+                        "estimatorFailureReason": "INCOMPLETE_LATTICE",
+                    }
+                    for board in _boards(detection)
+                ],
+            }
         if not self._geometry_rollout.is_legacy:
             if self._geometry_rollout.geometry_mode is GeometryRolloutMode.STRUCTURED_SHADOW:
                 legacy = self._legacy_board_cell_geometry(context)
@@ -1340,6 +1404,15 @@ class ProductionImageStageAdapterSuite:
         }
 
     def board_crops(self, context: ImageStageContext) -> Mapping[str, object]:
+        geometry_stage = (
+            _previous(context, "board_cell_geometry") if self._board_cell_processing else {}
+        )
+        if self._manual_geometry_import and geometry_stage.get("manualGeometryRequired") is True:
+            return {
+                "assetMode": "virtual_source",
+                "boards": [],
+                "deferredBoards": list(_boards(geometry_stage)),
+            }
         if not self._geometry_rollout.is_legacy:
             return self._board_crops_structured(context)
         if self._board_cell_processing:
@@ -2081,8 +2154,7 @@ class ProductionImageStageAdapterSuite:
                         "symbolCode": "?",
                     }
                     for cell in (
-                        _mapping(value, "cell")
-                        for value in _sequence(board.get("cells"), "cells")
+                        _mapping(value, "cell") for value in _sequence(board.get("cells"), "cells")
                     )
                 ],
                 "completenessStatus": str(board.get("completenessStatus", "complete")),
@@ -2746,7 +2818,8 @@ def _geometry_systemic_guard_policy(job: Job) -> Mapping[str, object] | None:
         "minimumFinalCellGridReadyRate": LARGE_IMPORT_MIN_READY_RATE,
         "requireZeroInvariantViolations": True,
     }
-    if not isinstance(value, Mapping) or dict(value) != expected:
+    manual_expected = {**expected, "policyVersion": MANUAL_REVIEW_GEOMETRY_GUARD_VERSION}
+    if not isinstance(value, Mapping) or dict(value) not in (expected, manual_expected):
         raise JobHandlerError(
             "IMAGE_GEOMETRY_GUARD_POLICY_INVALID",
             "The pinned systemic geometry guard policy is invalid.",

@@ -1390,12 +1390,22 @@ checksumę managed originals, checksumę manifestu strony, fingerprint pipeline'
 i uporządkowaną listę źródeł. Jest zapisywany niezmiennie i ponownie używany po
 restarcie lub retry.
 
-Gotowość poniżej 98% albo dowolne naruszenie checksumy, kolejności, topologii,
+W historycznej polityce `image-geometry-systemic-guard-v1` gotowość poniżej
+98% albo dowolne naruszenie checksumy, kolejności, topologii,
 overlapu lub source support kończy job kodem
 `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION`. Błąd występuje przed materializacją
 plików domenowych i przed zapisem `board_cell_geometry_pending`, dlatego
 systemowa regresja nie tworzy tysięcy pozycji ręcznej korekty. Małe importy
 zachowują dotychczasowy przepływ.
+
+Nowe importy przypinają `image-geometry-systemic-guard-v2-manual-review`.
+Próg 98% jest w niej ostrzeżeniem; nawet zerowa gotowość nie zatrzymuje
+katalogu. Bezpieczne plansze są przetwarzane, a odroczone sloty (także całe
+niezarejestrowane zdjęcia) trafiają do trwałej kolejki ręcznej geometrii.
+Lokalne odrzucenie overlapu/source support nie zezwala na crop; wymaga korekty.
+Naruszenia checksumy, kolejności i topologii oraz techniczne wyjątki pozostają
+blokujące. Wynik `passed` nadal opisuje jakość próbki, nie zakończenie importu.
+Wersja polityki nie jest wersją schematu raportu. Historyczny retry pozostaje v1.
 
 Ręczna korekta jednej planszy zmienia wyłącznie jej audytowaną geometrię. Nie
 aktualizuje profilu strony ani stałego algorytmu v19. Do jawnie tworzonej

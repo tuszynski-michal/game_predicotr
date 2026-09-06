@@ -10,6 +10,7 @@ from game_predictor_worker.images.geometry_guard_resolution import (
 )
 from game_predictor_worker.images.large_import_geometry_guard import (
     LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA,
+    MANUAL_REVIEW_GEOMETRY_GUARD_VERSION,
     build_board_level_guard_report_from_legacy,
     guard_required,
     reconstruct_board_level_guard_report_from_legacy,
@@ -244,6 +245,54 @@ def test_guard_rejects_systemically_incomplete_final_grids(tmp_path: Path) -> No
     assert failed[0]["analysisQuad"] == _quad(8)
     assert failed[0]["symbolGridQuad"] is None
     assert failed[0]["evidence"] == {"supportedIntersectionCount": 24}
+
+
+@pytest.mark.parametrize("ready", [0, 8])
+def test_manual_policy_continues_low_quality_and_replays_report(tmp_path: Path, ready: int) -> None:
+    originals = tuple(_original(index) for index in range(56))
+    suite = _Suite(final_board_count=ready)
+    kwargs = dict(
+        artifact_root=tmp_path,
+        job_id=UUID("33333333-3333-3333-3333-333333333333"),
+        pipeline_fingerprint_sha256="a" * 64,
+        source_manifest_checksum_sha256="b" * 64,
+        page_geometry_manifest_checksum_sha256="c" * 64,
+        originals=originals,
+        geometry_entries=_entries(originals),
+        suite=suite,
+        policy_version=MANUAL_REVIEW_GEOMETRY_GUARD_VERSION,
+    )
+    result = run_large_import_geometry_guard(**kwargs)
+    assert not result.passed
+    assert result.allows_import
+    assert result.checkpoint_payload()["policyVersion"] == MANUAL_REVIEW_GEOMETRY_GUARD_VERSION
+    calls = suite.calls
+    assert run_large_import_geometry_guard(**kwargs) == result
+    assert suite.calls == calls
+
+
+def test_manual_policy_does_not_hide_technical_errors(tmp_path: Path, monkeypatch) -> None:
+    def fail(**_kwargs):
+        raise JobHandlerError("SOURCE_CHECKSUM_MISMATCH", "Changed original")
+
+    monkeypatch.setattr(
+        "game_predictor_worker.images.large_import_geometry_guard.run_grid_profile_gate_source",
+        fail,
+    )
+    originals = tuple(_original(index) for index in range(56))
+    with pytest.raises(JobHandlerError) as error:
+        run_large_import_geometry_guard(
+            artifact_root=tmp_path,
+            job_id=UUID("33333333-3333-3333-3333-333333333333"),
+            pipeline_fingerprint_sha256="a" * 64,
+            source_manifest_checksum_sha256="b" * 64,
+            page_geometry_manifest_checksum_sha256="c" * 64,
+            originals=originals,
+            geometry_entries=_entries(originals),
+            suite=_Suite(),
+            policy_version=MANUAL_REVIEW_GEOMETRY_GUARD_VERSION,
+        )
+    assert error.value.code == "SOURCE_CHECKSUM_MISMATCH"
 
 
 def test_exact_resolution_manifest_allows_only_reproduced_full_corrections(

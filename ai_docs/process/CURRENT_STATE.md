@@ -6,6 +6,16 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0489 — import z odroczeniem niepewnych geometrii
+
+- Nowe runy przypinają `image-geometry-systemic-guard-v2-manual-review`:
+  wynik próbki poniżej 98% nie blokuje; integralność nadal jest wymagana.
+- Zdjęcia `review_required` zachowują wszystkie sloty, bez quadów i cropów,
+  z trwałą rewizją źródła potrzebną do ręcznej edycji.
+- Historyczne retry pozostają bez zmian. Testy API/workera, Ruff i mypy
+  przeszły; następne w zatwierdzonej serii są 0490 i 0491. Żaden import
+  użytkownika nie został uruchomiony ani zmieniony.
+
 ### TASK-0488 — pierwszy import symboli bez zgodnego modelu
 
 - Całkowicie nowa gra może po preflighcie geometrii uruchomić jawny import

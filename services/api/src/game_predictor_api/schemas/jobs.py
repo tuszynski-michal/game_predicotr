@@ -189,11 +189,13 @@ class PageGeometryManifestJobPayload(ApiModel):
 
 
 class ImageGeometrySystemicGuardPolicyJobPayload(ApiModel):
-    policy_version: Literal["image-geometry-systemic-guard-v1"]
+    policy_version: Literal[
+        "image-geometry-systemic-guard-v1", "image-geometry-systemic-guard-v2-manual-review"
+    ]
     minimum_source_count: Literal[100]
     minimum_active_board_count: Literal[500]
     sample_source_limit: Literal[25]
-    minimum_final_cell_grid_ready_rate: Literal[0.98]
+    minimum_final_cell_grid_ready_rate: float = Field(ge=0.98, le=0.98)
     require_zero_invariant_violations: Literal[True]
 
 
@@ -630,7 +632,9 @@ class BoardCellGeometryJobProgressResponse(ApiModel):
 
 
 class ImageGeometrySystemicGuardJobProgressResponse(ApiModel):
-    policy_version: Literal["image-geometry-systemic-guard-v1"]
+    policy_version: Literal[
+        "image-geometry-systemic-guard-v1", "image-geometry-systemic-guard-v2-manual-review"
+    ]
     required: bool
     passed: bool
     report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

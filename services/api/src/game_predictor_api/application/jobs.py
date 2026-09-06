@@ -77,7 +77,7 @@ _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINT = (
     "8b876e8a7cdc25f0709bf27ece4e99b1c777231fa3fcef4aa31e617123825b0f"
 )
 _IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY: dict[str, object] = {
-    "policyVersion": "image-geometry-systemic-guard-v1",
+    "policyVersion": "image-geometry-systemic-guard-v2-manual-review",
     "minimumSourceCount": 100,
     "minimumActiveBoardCount": 500,
     "sampleSourceLimit": 25,

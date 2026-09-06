@@ -27,6 +27,7 @@ from .pipeline_execution import ImageStageContext
 from .source_ingestion import ManagedOriginal
 
 LARGE_IMPORT_GEOMETRY_GUARD_VERSION = "image-geometry-systemic-guard-v1"
+MANUAL_REVIEW_GEOMETRY_GUARD_VERSION = "image-geometry-systemic-guard-v2-manual-review"
 LARGE_IMPORT_GEOMETRY_GUARD_REPORT_SCHEMA = "image-geometry-systemic-guard-report-v2"
 LARGE_IMPORT_MIN_SOURCE_COUNT = 100
 LARGE_IMPORT_MIN_BOARD_COUNT = 500
@@ -47,10 +48,24 @@ class LargeImportGeometryGuardResult:
     page_registration_ready_rate: float | None
     final_cell_grid_ready_rate: float | None
     invariant_violation_count: int
+    policy_version: str = LARGE_IMPORT_GEOMETRY_GUARD_VERSION
+    blocking_invariant_violation_count: int | None = None
+
+    @property
+    def allows_import(self) -> bool:
+        return self.passed or (
+            self.policy_version == MANUAL_REVIEW_GEOMETRY_GUARD_VERSION
+            and (
+                self.blocking_invariant_violation_count
+                if self.blocking_invariant_violation_count is not None
+                else self.invariant_violation_count
+            )
+            == 0
+        )
 
     def checkpoint_payload(self) -> dict[str, object]:
         return {
-            "policyVersion": LARGE_IMPORT_GEOMETRY_GUARD_VERSION,
+            "policyVersion": self.policy_version,
             "required": self.required,
             "passed": self.passed,
             "reportChecksumSha256": self.report_checksum_sha256,
@@ -155,7 +170,15 @@ def run_large_import_geometry_guard(
     originals: Sequence[ManagedOriginal],
     geometry_entries: Mapping[str, object],
     suite: ProductionGateAdapterSuite,
+    policy_version: str = LARGE_IMPORT_GEOMETRY_GUARD_VERSION,
 ) -> LargeImportGeometryGuardResult:
+    if policy_version not in (
+        LARGE_IMPORT_GEOMETRY_GUARD_VERSION,
+        MANUAL_REVIEW_GEOMETRY_GUARD_VERSION,
+    ):
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_GUARD_POLICY_INVALID", "Unknown geometry guard policy."
+        )
     source_count = len(originals)
     active_board_count = sum(_board_count(original) for original in originals)
     if not guard_required(originals):
@@ -171,13 +194,14 @@ def run_large_import_geometry_guard(
             page_registration_ready_rate=None,
             final_cell_grid_ready_rate=None,
             invariant_violation_count=0,
+            policy_version=policy_version,
         )
     selected = select_representative_originals(originals, geometry_entries)
     input_payload = {
         "jobId": str(job_id),
         "pageGeometryManifestChecksumSha256": page_geometry_manifest_checksum_sha256,
         "pipelineFingerprintSha256": pipeline_fingerprint_sha256,
-        "policyVersion": LARGE_IMPORT_GEOMETRY_GUARD_VERSION,
+        "policyVersion": policy_version,
         "selectedSourceChecksums": [item.checksum_sha256 for item in selected],
         "sourceManifestChecksumSha256": source_manifest_checksum_sha256,
     }
@@ -193,6 +217,7 @@ def run_large_import_geometry_guard(
                 job_id=job_id,
                 pipeline_fingerprint_sha256=pipeline_fingerprint_sha256,
                 suite=suite,
+                propagate_errors=policy_version == MANUAL_REVIEW_GEOMETRY_GUARD_VERSION,
             )
             for original in selected
         )
@@ -215,6 +240,16 @@ def run_large_import_geometry_guard(
     page_ready_count = _required_int(report, "pageRegistrationReadyBoardCount")
     final_ready_count = _required_int(report, "finalCellGridReadyBoardCount")
     invariant_violation_count = _required_int(report, "invariantViolationCount")
+    blocking_count = invariant_violation_count
+    if policy_version == MANUAL_REVIEW_GEOMETRY_GUARD_VERSION:
+        counts = report.get("invariantViolationCounts")
+        if not isinstance(counts, dict):
+            raise JobHandlerError(
+                "IMAGE_GEOMETRY_GUARD_REPORT_INVALID", "Missing invariant counts."
+            )
+        blocking_count = sum(
+            _required_int(counts, key) for key in ("checksum", "ordering", "topology")
+        )
     page_rate = page_ready_count / sample_board_count if sample_board_count else 0.0
     final_rate = final_ready_count / sample_board_count if sample_board_count else 0.0
     return LargeImportGeometryGuardResult(
@@ -229,6 +264,8 @@ def run_large_import_geometry_guard(
         page_registration_ready_rate=page_rate,
         final_cell_grid_ready_rate=final_rate,
         invariant_violation_count=invariant_violation_count,
+        policy_version=policy_version,
+        blocking_invariant_violation_count=blocking_count,
     )
 
 
@@ -474,6 +511,7 @@ def _evaluate_source(
     job_id: UUID,
     pipeline_fingerprint_sha256: str,
     suite: ProductionGateAdapterSuite,
+    propagate_errors: bool = False,
 ) -> GridProfileGateSourceResult:
     expected = _board_count(original)
     entry = geometry_entries.get(original.checksum_sha256)
@@ -499,8 +537,20 @@ def _evaluate_source(
             quality_angle_bucket=bucket,
             baseline_final_cell_grid_ready_board_count=expected,
         )
-        return replace(result, source_relative_path=original.source_relative_path)
+        return replace(
+            result,
+            source_relative_path=original.source_relative_path,
+            page_registration_ready_board_count=(
+                0
+                if propagate_errors
+                and isinstance(entry, Mapping)
+                and entry.get("status") == "review_required"
+                else result.page_registration_ready_board_count
+            ),
+        )
     except JobHandlerError as error:
+        if propagate_errors:
+            raise
         return GridProfileGateSourceResult(
             source_checksum_sha256=original.checksum_sha256,
             quality_angle_bucket=bucket,

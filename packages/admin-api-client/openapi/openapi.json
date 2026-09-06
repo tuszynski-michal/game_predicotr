@@ -6020,7 +6020,10 @@
             "type": "boolean"
           },
           "policyVersion": {
-            "const": "image-geometry-systemic-guard-v1",
+            "enum": [
+              "image-geometry-systemic-guard-v1",
+              "image-geometry-systemic-guard-v2-manual-review"
+            ],
             "title": "Policyversion",
             "type": "string"
           },
@@ -6104,7 +6107,8 @@
             "type": "integer"
           },
           "minimumFinalCellGridReadyRate": {
-            "const": 0.98,
+            "maximum": 0.98,
+            "minimum": 0.98,
             "title": "Minimumfinalcellgridreadyrate",
             "type": "number"
           },
@@ -6114,7 +6118,10 @@
             "type": "integer"
           },
           "policyVersion": {
-            "const": "image-geometry-systemic-guard-v1",
+            "enum": [
+              "image-geometry-systemic-guard-v1",
+              "image-geometry-systemic-guard-v2-manual-review"
+            ],
             "title": "Policyversion",
             "type": "string"
           },

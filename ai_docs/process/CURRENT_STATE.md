@@ -6,6 +6,24 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0480 — odbiór zmian 5–6 września i poprawka efektów geometrii
+
+- Na działającym lokalnym panelu potwierdzono filtr `Kohorta aktywnego modelu`;
+  dla gry `777 v0.2` zwrócił 948 checksum-bound cropów na dwóch stronach wraz z
+  miniaturami. Pozostałe uzgodnione zmiany Weryfikacji symboli również są
+  widoczne. Brak filtra w wcześniej otwartej karcie był starym stanem klienta,
+  nie brakiem implementacji.
+- Audyt commitów i ukończonych tasków z 5–6 września nie wykazał pominiętego
+  wdrożenia w zamkniętym zakresie. V11 pozostaje świadomie nieaktywne z powodu
+  nieprzejściowej bramki jakości TASK-0472; testowe v12 nie zmienia domyślnego
+  workflow.
+- Naprawiono dwa błędy pełnego ESLint w panelu geometry guard: refresh i wybór
+  początkowego celu są odroczone do anulowalnych callbacków, więc zmiana
+  kontekstu nie zostawia spóźnionych aktualizacji stanu.
+- Odbiór: 410 testów Admina, 51 klienta API, 84 lokalnego crop core i 81 API,
+  pełny lint/typecheck Admina, OpenAPI oraz produkcyjny build — wszystkie
+  zielone. Nie zmieniono stagingów, danych ani aktywnych jobów.
+
 ### TASK-0479 — czteropunktowa rejestracja pasa plansz
 
 - Dodano testowy wariant v12, który przenosi czteropunktowy obrys całego układu

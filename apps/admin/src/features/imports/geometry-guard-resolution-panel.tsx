@@ -155,7 +155,8 @@ export function GeometryGuardResolutionPanel({
   }, [api, gameId, guardJobId, uploadId]);
 
   useEffect(() => {
-    void refresh();
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
   }, [refresh]);
 
   useEffect(() => {
@@ -212,17 +213,20 @@ export function GeometryGuardResolutionPanel({
     const first = sourceTargets[0] ?? null;
     const target = first;
     if (target === null) return;
-    setActivePosition(target.positionIndex);
-    setSelectedPositions([target.positionIndex]);
-    const existing = decisions.get(
-      `${target.sourceChecksumSha256}:${target.positionIndex}`,
-    );
-    const existingQuad = guardQuadFromUnknown(existing?.symbolGridQuad);
-    setDisposition(existing?.disposition ?? 'corrected_full');
-    setQuad(existingQuad ?? initialGuardQuad(target));
-    setUnavailable(existing?.unavailableCellIndices ?? []);
-    setPreview(null);
-    setImageSize(null);
+    const timer = window.setTimeout(() => {
+      setActivePosition(target.positionIndex);
+      setSelectedPositions([target.positionIndex]);
+      const existing = decisions.get(
+        `${target.sourceChecksumSha256}:${target.positionIndex}`,
+      );
+      const existingQuad = guardQuadFromUnknown(existing?.symbolGridQuad);
+      setDisposition(existing?.disposition ?? 'corrected_full');
+      setQuad(existingQuad ?? initialGuardQuad(target));
+      setUnavailable(existing?.unavailableCellIndices ?? []);
+      setPreview(null);
+      setImageSize(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [decisions, sourceChecksum, sourceTargets]);
 
   function chooseBoard(positionIndex: number, multiple: boolean) {

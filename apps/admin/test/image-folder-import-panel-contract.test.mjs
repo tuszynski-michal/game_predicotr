@@ -116,6 +116,15 @@ test('requires explicit board resolutions and pins the sealed manifest to schema
   assert.match(guardResolutionSource, /nie został uruchomiony automatycznie/);
 });
 
+test('defers geometry guard effect initialization and cancels stale callbacks', () => {
+  assert.ok(
+    (guardResolutionSource.match(/window\.setTimeout/g) ?? []).length >= 2,
+  );
+  assert.ok(
+    (guardResolutionSource.match(/window\.clearTimeout/g) ?? []).length >= 2,
+  );
+});
+
 test('offers stable v19, v0.10 v2 and accepted v0.10 v3 per game', () => {
   assert.match(modePickerSource, /wyłącznie nowych importów tej gry/);
   assert.match(modePickerSource, /v20 — geometria i cropy v19/);

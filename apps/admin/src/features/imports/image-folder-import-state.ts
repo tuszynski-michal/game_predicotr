@@ -1,5 +1,24 @@
 import type { BrowserReadySelectionResponse } from '@game-predictor/admin-api-client';
 
+interface ReadyImportStartState {
+  readonly geometryGuardResolutionManifestAvailable: boolean;
+  readonly geometryGuardResolutionRequired: boolean;
+  readonly geometryManifestAvailable: boolean;
+  readonly geometryPreflightCompleted: boolean;
+  readonly geometryPreflightRequired: boolean;
+  readonly symbolModelAvailable: boolean;
+}
+
+export function canStartReadyImport(state: ReadyImportStartState): boolean {
+  return (
+    state.symbolModelAvailable &&
+    (!state.geometryPreflightRequired ||
+      (state.geometryPreflightCompleted && state.geometryManifestAvailable)) &&
+    (!state.geometryGuardResolutionRequired ||
+      state.geometryGuardResolutionManifestAvailable)
+  );
+}
+
 function leadingRangeStart(displayName: string): number | null {
   const match = /^\s*(\d+)\s*-/.exec(displayName);
   if (match === null) return null;

@@ -160,6 +160,11 @@ test('requires explicit board resolutions and pins the sealed manifest to schema
   assert.match(guardResolutionSource, /cropped_or_unreadable/);
   assert.match(guardResolutionSource, /Zamknij manifest decyzji/);
   assert.match(guardResolutionSource, /nie został uruchomiony automatycznie/);
+  assert.match(guardResolutionSource, /currentResolutionManifest \?\? null/);
+  assert.match(guardResolutionSource, /pageGeometryPreflightJob \?\? null/);
+  assert.match(panelSource, /handlePersistedGuardContextLoaded/);
+  assert.match(panelSource, /keepsPersistedGuardContext/);
+  assert.match(panelSource, /canStartReadyImport/);
 });
 
 test('defers geometry guard effect initialization and cancels stale callbacks', () => {

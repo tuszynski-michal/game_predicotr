@@ -6,7 +6,7 @@ import json
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
@@ -66,6 +66,8 @@ class ImageGeometryGuardQueue:
     boards: tuple[ImageGeometryGuardBoardContext, ...]
     targets: tuple[ImageGeometryGuardBoardTarget, ...]
     decisions: tuple[ImageGeometryGuardDecision, ...]
+    page_geometry_preflight_job_id: UUID | None = None
+    current_resolution_manifest: ImageGeometryGuardResolutionManifest | None = None
 
     @property
     def unresolved_count(self) -> int:
@@ -120,7 +122,7 @@ class ImageImportGeometryGuardService:
             for item in self._repository.latest_decisions(guard_job_id=guard_job_id)
             if item.guard_report_checksum_sha256 == report_checksum
         )
-        return ImageGeometryGuardQueue(
+        queue = ImageGeometryGuardQueue(
             game_id=game_id,
             browser_selection_id=browser_selection_id,
             guard_job_id=guard_job_id,
@@ -130,7 +132,33 @@ class ImageImportGeometryGuardService:
             boards=boards,
             targets=targets,
             decisions=decisions,
+            page_geometry_preflight_job_id=_page_manifest_preflight_job_id(scope),
         )
+        if queue.unresolved_count:
+            return queue
+        try:
+            payload = _resolution_payload(queue)
+        except ImageGeometryGuardDecisionError:
+            return queue
+        current = self._repository.get_manifest_by_checksum(
+            guard_job_id=guard_job_id,
+            manifest_checksum_sha256=payload_checksum(payload),
+        )
+        if current is None:
+            return queue
+        if (
+            current.game_id != game_id
+            or current.browser_selection_id != browser_selection_id
+            or current.guard_report_checksum_sha256 != report_checksum
+            or current.source_manifest_checksum_sha256 != queue.source_manifest_checksum_sha256
+            or current.page_geometry_manifest_checksum_sha256
+            != queue.page_geometry_manifest_checksum_sha256
+        ):
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+                "The current geometry guard resolution manifest has incompatible provenance.",
+            )
+        return replace(queue, current_resolution_manifest=current)
 
     def save_decisions(
         self,
@@ -281,24 +309,8 @@ class ImageImportGeometryGuardService:
                 "Every failed board must have an explicit decision before sealing.",
                 details={"unresolvedCount": queue.unresolved_count},
             )
-        target_keys = {(item.source_checksum_sha256, item.position_index) for item in queue.boards}
-        decisions = tuple(
-            item
-            for item in queue.decisions
-            if (item.source_checksum_sha256, item.position_index) in target_keys
-        )
         try:
-            payload = resolution_manifest_payload(
-                game_id=game_id,
-                browser_selection_id=browser_selection_id,
-                guard_job_id=guard_job_id,
-                guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
-                source_manifest_checksum_sha256=queue.source_manifest_checksum_sha256,
-                page_geometry_manifest_checksum_sha256=(
-                    queue.page_geometry_manifest_checksum_sha256
-                ),
-                decisions=decisions,
-            )
+            payload = _resolution_payload(queue)
         except ImageGeometryGuardDecisionError as error:
             raise JobError("IMAGE_GEOMETRY_GUARD_MANIFEST_INVALID", str(error)) from error
         checksum = payload_checksum(payload)
@@ -323,7 +335,7 @@ class ImageImportGeometryGuardService:
             page_geometry_manifest_checksum_sha256=(queue.page_geometry_manifest_checksum_sha256),
             manifest_relative_path=relative_path,
             manifest_checksum_sha256=checksum,
-            decision_count=len(decisions),
+            decision_count=len(cast(list[object], payload["decisions"])),
             sealed_by=actor.strip(),
             created_at=datetime.now(UTC),
         )
@@ -632,6 +644,43 @@ def _page_manifest_checksum(scope: ImageGeometryGuardScope) -> str:
             "The guard job has no pinned page geometry manifest.",
         )
     return value
+
+
+def _page_manifest_preflight_job_id(scope: ImageGeometryGuardScope) -> UUID | None:
+    descriptor = scope.job_input_payload.get("page_geometry_manifest")
+    if not isinstance(descriptor, Mapping):
+        return None
+    value = descriptor.get("preflightJobId", descriptor.get("preflight_job_id"))
+    if value is None:
+        return None
+    try:
+        return UUID(str(value))
+    except ValueError as error:
+        raise JobError(
+            "IMAGE_GEOMETRY_GUARD_PAGE_MANIFEST_INVALID",
+            "The pinned page geometry manifest has an invalid preflight job id.",
+        ) from error
+
+
+def _resolution_payload(queue: ImageGeometryGuardQueue) -> dict[str, object]:
+    board_keys = {(item.source_checksum_sha256, item.position_index) for item in queue.boards}
+    decisions = tuple(
+        item
+        for item in queue.decisions
+        if (item.source_checksum_sha256, item.position_index) in board_keys
+    )
+    return cast(
+        dict[str, object],
+        resolution_manifest_payload(
+            game_id=queue.game_id,
+            browser_selection_id=queue.browser_selection_id,
+            guard_job_id=queue.guard_job_id,
+            guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+            source_manifest_checksum_sha256=queue.source_manifest_checksum_sha256,
+            page_geometry_manifest_checksum_sha256=queue.page_geometry_manifest_checksum_sha256,
+            decisions=decisions,
+        ),
+    )
 
 
 def _managed_path(root: Path, relative: str, namespace: str) -> Path:

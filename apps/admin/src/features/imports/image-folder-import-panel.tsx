@@ -49,7 +49,10 @@ import {
   startReadyBrowserImageImport,
   uploadImageFolder,
 } from './image-folder-import-actions';
-import { sortReadyBoardImports } from './image-folder-import-state';
+import {
+  canStartReadyImport,
+  sortReadyBoardImports,
+} from './image-folder-import-state';
 import { PageGeometryCorrectionPanel } from './page-geometry-correction-panel';
 import { GeometryGuardResolutionPanel } from './geometry-guard-resolution-panel';
 import { ImportGeometryReviewSummary } from './import-geometry-review-summary';
@@ -246,6 +249,43 @@ export function ImageFolderImportPanel({
           }) ?? null),
     [jobs, readyUploadId],
   );
+  const handleGuardManifestInvalidated = useCallback(() => {
+    setGeometryGuardResolutionManifest(null);
+  }, []);
+  const handleGuardManifestSealed = useCallback(
+    (manifest: ImageGeometryGuardResolutionManifestResponse) => {
+      setGeometryGuardResolutionManifest(manifest);
+      setFeedback(
+        'Manifest decyzji został przypięty. Import nadal wymaga jawnego kliknięcia przycisku startu.',
+      );
+    },
+    [],
+  );
+  const handlePersistedGuardContextLoaded = useCallback(
+    (
+      manifest: ImageGeometryGuardResolutionManifestResponse | null,
+      pageGeometryPreflightJob: JobResponse | null,
+    ) => {
+      setGeometryGuardResolutionManifest(manifest);
+      if (pageGeometryPreflightJob !== null) {
+        setGeometryPreflightJob(pageGeometryPreflightJob);
+      }
+    },
+    [],
+  );
+  const readyImportStartAllowed =
+    preflight !== null &&
+    canStartReadyImport({
+      geometryGuardResolutionManifestAvailable:
+        geometryGuardResolutionManifest !== null,
+      geometryGuardResolutionRequired: failedGeometryGuardJob !== null,
+      geometryManifestAvailable: geometryManifestChecksum !== null,
+      geometryPreflightCompleted: geometryPreflightJob?.status === 'completed',
+      geometryPreflightRequired: preflight.geometryPreflightRequired,
+      symbolModelAvailable:
+        preflight.symbolModelReady ||
+        (preflight.unclassifiedColdStartAllowed ?? false),
+    });
   const refreshJobs = useCallback(async () => {
     const [
       jobsResult,
@@ -474,6 +514,7 @@ export function ImageFolderImportPanel({
     setError('');
     setFeedback('Sprawdzanie gotowego stagingu i decyzji kanonicznych…');
     try {
+      const keepsPersistedGuardContext = readyUploadId === uploadId;
       const result = await previewReadyBrowserImageImport(
         api,
         uploadId,
@@ -485,10 +526,14 @@ export function ImageFolderImportPanel({
       }
       setReadyUploadId(uploadId);
       setPreflight(result.data);
-      setGeometryGuardResolutionManifest(null);
+      if (!keepsPersistedGuardContext) {
+        setGeometryGuardResolutionManifest(null);
+      }
       const modelNextStep = symbolModelNextStep(result.data);
       if (result.data.geometryPreflightRequired) {
-        setGeometryPreflightJob(null);
+        if (!keepsPersistedGuardContext) {
+          setGeometryPreflightJob(null);
+        }
         const geometryFeedback =
           'Raport jest gotowy. Kliknij „Przygotuj geometrię stron”, aby jawnie uruchomić albo przywrócić analizę.';
         setFeedback(
@@ -518,13 +563,7 @@ export function ImageFolderImportPanel({
       busy ||
       readyUploadId === null ||
       preflight === null ||
-      (!preflight.symbolModelReady &&
-        !preflight.unclassifiedColdStartAllowed) ||
-      (preflight.geometryPreflightRequired &&
-        (geometryPreflightJob?.status !== 'completed' ||
-          geometryManifestChecksum === null)) ||
-      (failedGeometryGuardJob !== null &&
-        geometryGuardResolutionManifest === null)
+      !readyImportStartAllowed
     ) {
       return;
     }
@@ -1311,15 +1350,13 @@ export function ImageFolderImportPanel({
                                 apiBaseUrl={apiBaseUrl}
                                 gameId={gameId}
                                 guardJobId={failedGeometryGuardJob.id}
-                                onManifestInvalidated={() =>
-                                  setGeometryGuardResolutionManifest(null)
+                                onManifestInvalidated={
+                                  handleGuardManifestInvalidated
                                 }
-                                onManifestSealed={(manifest) => {
-                                  setGeometryGuardResolutionManifest(manifest);
-                                  setFeedback(
-                                    'Manifest decyzji został przypięty. Import nadal wymaga jawnego kliknięcia przycisku startu.',
-                                  );
-                                }}
+                                onManifestSealed={handleGuardManifestSealed}
+                                onPersistedContextLoaded={
+                                  handlePersistedGuardContextLoaded
+                                }
                                 uploadId={ready.uploadId}
                               />
                             </details>
@@ -1368,14 +1405,7 @@ export function ImageFolderImportPanel({
               (preflight === null &&
                 (readyUploadId !== null ||
                   selection?.selectionToken == null)) ||
-              (preflight !== null &&
-                ((!preflight.symbolModelReady &&
-                  !preflight.unclassifiedColdStartAllowed) ||
-                  (preflight.geometryPreflightRequired &&
-                    (geometryPreflightJob?.status !== 'completed' ||
-                      geometryManifestChecksum === null)) ||
-                  (failedGeometryGuardJob !== null &&
-                    geometryGuardResolutionManifest === null)))
+              (preflight !== null && !readyImportStartAllowed)
             }
             onClick={() =>
               void (preflight === null ? startImport() : startReadyImport())

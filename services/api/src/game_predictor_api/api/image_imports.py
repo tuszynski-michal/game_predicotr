@@ -1062,6 +1062,7 @@ def create_image_imports_router(
         upload_id: UUID,
         guard_job_id: UUID,
         game_id: Annotated[UUID, Query()],
+        job_service: Annotated[JobService, job_parameter],
         guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
     ) -> ImageGeometryGuardQueueResponse:
         if guard_service is None:
@@ -1073,6 +1074,11 @@ def create_image_imports_router(
             game_id=game_id,
             browser_selection_id=upload_id,
             guard_job_id=guard_job_id,
+        )
+        page_geometry_preflight_job = (
+            None
+            if queue.page_geometry_preflight_job_id is None
+            else job_service.get_job(queue.page_geometry_preflight_job_id)
         )
         return ImageGeometryGuardQueueResponse(
             game_id=queue.game_id,
@@ -1091,6 +1097,18 @@ def create_image_imports_router(
             decisions=[
                 ImageGeometryGuardDecisionResponse.from_domain(value) for value in queue.decisions
             ],
+            page_geometry_preflight_job=(
+                None
+                if page_geometry_preflight_job is None
+                else JobResponse.from_domain(page_geometry_preflight_job)
+            ),
+            current_resolution_manifest=(
+                None
+                if queue.current_resolution_manifest is None
+                else ImageGeometryGuardResolutionManifestResponse.from_domain(
+                    queue.current_resolution_manifest
+                )
+            ),
         )
 
     @router.post(

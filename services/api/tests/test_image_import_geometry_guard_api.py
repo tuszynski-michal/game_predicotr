@@ -1,4 +1,5 @@
 import hashlib
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID
@@ -13,6 +14,7 @@ from game_predictor_api.application.image_import_geometry_guard import (
 from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardBoardContext,
     ImageGeometryGuardBoardTarget,
+    ImageGeometryGuardResolutionManifest,
 )
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from PIL import Image
@@ -23,6 +25,15 @@ JOB_ID = UUID("33333333-3333-3333-3333-333333333333")
 
 
 class _GuardService:
+    def __init__(
+        self,
+        *,
+        page_geometry_preflight_job_id: UUID | None = None,
+        current_resolution_manifest: ImageGeometryGuardResolutionManifest | None = None,
+    ) -> None:
+        self.page_geometry_preflight_job_id = page_geometry_preflight_job_id
+        self.current_resolution_manifest = current_resolution_manifest
+
     def queue(self, **_kwargs: object) -> ImageGeometryGuardQueue:
         return ImageGeometryGuardQueue(
             game_id=GAME_ID,
@@ -59,6 +70,8 @@ class _GuardService:
                 ),
             ),
             decisions=(),
+            page_geometry_preflight_job_id=self.page_geometry_preflight_job_id,
+            current_resolution_manifest=self.current_resolution_manifest,
         )
 
     def report_reconstruction_input(
@@ -94,9 +107,14 @@ class _JobService:
         )
         return self.job
 
+    def get_job(self, _job_id: UUID) -> Job:
+        assert self.job is not None
+        return self.job
+
 
 class _PreviewGuardService(_GuardService):
     def __init__(self, checksum: str) -> None:
+        super().__init__()
         self.checksum = checksum
 
     def queue(self, **_kwargs: object) -> ImageGeometryGuardQueue:
@@ -150,6 +168,8 @@ class _PreviewGuardService(_GuardService):
                 ),
             ),
             decisions=(),
+            page_geometry_preflight_job_id=base.page_geometry_preflight_job_id,
+            current_resolution_manifest=base.current_resolution_manifest,
         )
 
 
@@ -161,26 +181,53 @@ def _preview_quad() -> list[dict[str, int]]:
         {"x": 0, "y": 179},
     ]
 
-    def get_job(self, _job_id: UUID) -> Job:
-        assert self.job is not None
-        return self.job
-
 
 def _unused() -> object:
     return object()
 
 
 def test_board_exception_queue_is_exposed_by_the_http_contract(tmp_path: Path) -> None:
+    job_service = _JobService()
+    job_service.job = create_job(
+        JobType.VALIDATE,
+        game_id=GAME_ID,
+        input_payload={
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "source_selection_id": str(UPLOAD_ID),
+            "source_directory": str(tmp_path),
+            "source_display_name": "fixture",
+            "source_manifest_sha256": "b" * 64,
+            "page_registration_profile": {},
+        },
+    )
+    manifest = ImageGeometryGuardResolutionManifest(
+        id=UUID("55555555-5555-5555-5555-555555555555"),
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        guard_report_checksum_sha256="a" * 64,
+        source_manifest_checksum_sha256="b" * 64,
+        page_geometry_manifest_checksum_sha256="c" * 64,
+        manifest_relative_path="data/image-geometry-guard-resolutions/ee/fixture.json",
+        manifest_checksum_sha256="e" * 64,
+        decision_count=1,
+        sealed_by="local-owner",
+        created_at=datetime(2026, 9, 6, tzinfo=UTC),
+    )
     app = FastAPI()
     app.include_router(
         create_image_imports_router(
             _unused,
             _unused,
+            lambda: job_service,
             _unused,
             _unused,
             _unused,
-            _unused,
-            lambda: _GuardService(),
+            lambda: _GuardService(
+                page_geometry_preflight_job_id=job_service.job.id,
+                current_resolution_manifest=manifest,
+            ),
             tmp_path,
         )
     )
@@ -221,6 +268,8 @@ def test_board_exception_queue_is_exposed_by_the_http_contract(tmp_path: Path) -
         }
     ]
     assert payload["decisions"] == []
+    assert payload["pageGeometryPreflightJob"]["id"] == str(job_service.job.id)
+    assert payload["currentResolutionManifest"]["id"] == str(manifest.id)
 
 
 def test_legacy_report_reconstruction_is_started_as_a_separate_job(tmp_path: Path) -> None:

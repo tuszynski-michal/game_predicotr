@@ -5466,6 +5466,16 @@
             "title": "Browserselectionid",
             "type": "string"
           },
+          "currentResolutionManifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometryGuardResolutionManifestResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "decisions": {
             "items": {
               "$ref": "#/components/schemas/ImageGeometryGuardDecisionResponse"
@@ -5492,6 +5502,16 @@
             "pattern": "^[0-9a-f]{64}$",
             "title": "Pagegeometrymanifestchecksumsha256",
             "type": "string"
+          },
+          "pageGeometryPreflightJob": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sourceManifestChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -5521,7 +5541,9 @@
           "unresolvedCount",
           "boards",
           "targets",
-          "decisions"
+          "decisions",
+          "pageGeometryPreflightJob",
+          "currentResolutionManifest"
         ],
         "title": "ImageGeometryGuardQueueResponse",
         "type": "object"

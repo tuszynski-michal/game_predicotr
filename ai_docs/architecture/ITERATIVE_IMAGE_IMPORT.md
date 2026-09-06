@@ -416,6 +416,13 @@ ani geometrii. Zapis decyzji oraz zamknięcie manifestu pozostają osobnymi
 operacjami, a zmiana rewizji po zamknięciu wymaga ponownego seal i nowej
 checksummy przypiętej do startu schema v7.
 
+Odczyt kolejki wylicza checksumę manifestu z bieżących, najnowszych rewizji i
+zwraca istniejący zamknięty manifest wyłącznie przy dokładnym dopasowaniu.
+Razem z nim zwraca job preflightu wskazany przez przypięty descriptor geometrii
+strony. Admin odtwarza oba warunki po reloadzie lub ponownym `Pokaż raport`;
+stan pamięciowy nie jest źródłem prawdy o gotowości startu. Zmiana decyzji
+powoduje inną checksumę i tym samym fail-closed unieważnia poprzedni manifest.
+
 ### Przyrostowe kotwice preflightu strony
 
 Preflight strony może zbudować tymczasową kohortę auto-kotwic dla jednego

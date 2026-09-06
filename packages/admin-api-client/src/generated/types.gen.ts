@@ -3118,6 +3118,7 @@ export type ImageGeometryGuardQueueResponse = {
    * Browserselectionid
    */
   browserSelectionId: string;
+  currentResolutionManifest: ImageGeometryGuardResolutionManifestResponse | null;
   /**
    * Decisions
    */
@@ -3138,6 +3139,7 @@ export type ImageGeometryGuardQueueResponse = {
    * Pagegeometrymanifestchecksumsha256
    */
   pageGeometryManifestChecksumSha256: string;
+  pageGeometryPreflightJob: JobResponse | null;
   /**
    * Sourcemanifestchecksumsha256
    */

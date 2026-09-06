@@ -1,12 +1,26 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-08-24
+last_updated: 2026-09-06
 ---
 
 # Decision Log
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
+
+## D-368 — Gotowość rozliczonego importu jest odtwarzana z API
+
+- **Status:** accepted
+- **Date:** 2026-09-06
+- **Decision:** kolejka bramki geometrii wylicza aktualny manifest z najnowszych
+  rewizji decyzji i zwraca go razem z przypiętym jobem preflightu strony.
+  Admin nie traktuje pamięci karty jako źródła gotowości importu.
+- **Reason:** zamknięty manifest i preflight były trwałe, lecz `Pokaż raport`
+  zerowało ich lokalne referencje, przez co poprawnie rozliczony import wracał
+  wizualnie do stanu oczekiwania i miał zablokowany start.
+- **Consequences:** reload odtwarza kompletne, zgodne wejście schema v7 bez
+  ponownego liczenia. Każda nowsza rewizja zmienia checksumę, więc stary
+  manifest nie może odblokować importu.
 
 ## D-367 — Import z ręczną korektą zamiast bramki skuteczności
 

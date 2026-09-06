@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { sortReadyBoardImports } from '../src/features/imports/image-folder-import-state.ts';
+import {
+  canStartReadyImport,
+  sortReadyBoardImports,
+} from '../src/features/imports/image-folder-import-state.ts';
 
 function staging(displayName, uploadId) {
   return {
@@ -45,5 +48,29 @@ test('uses a deterministic name and id fallback for equal or non-range names', (
   assert.deepEqual(
     ordered.map((item) => item.uploadId),
     ['range-a', 'range-b', 'a', 'c', 'b'],
+  );
+});
+
+test('allows a guarded ready import only after both durable manifests are restored', () => {
+  const restored = {
+    geometryGuardResolutionManifestAvailable: true,
+    geometryGuardResolutionRequired: true,
+    geometryManifestAvailable: true,
+    geometryPreflightCompleted: true,
+    geometryPreflightRequired: true,
+    symbolModelAvailable: true,
+  };
+
+  assert.equal(canStartReadyImport(restored), true);
+  assert.equal(
+    canStartReadyImport({
+      ...restored,
+      geometryGuardResolutionManifestAvailable: false,
+    }),
+    false,
+  );
+  assert.equal(
+    canStartReadyImport({ ...restored, geometryPreflightCompleted: false }),
+    false,
   );
 });

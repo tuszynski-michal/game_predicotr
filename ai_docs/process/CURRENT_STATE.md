@@ -6,6 +6,16 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0495 — odtwarzanie gotowego manifestu rozliczeń
+
+- Kolejka problematycznych plansz zwraca aktualny zamknięty manifest wyłącznie
+  wtedy, gdy jego checksuma odpowiada najnowszym rewizjom decyzji.
+- Razem z manifestem API zwraca przypięty job preflightu geometrii. Admin
+  odtwarza oba warunki po reloadzie i `Pokaż raport`, więc gotowy manifest nie
+  wraca do stanu `do zatwierdzenia`, a spełniony start nie pozostaje disabled.
+- Zmiana decyzji nadal unieważnia manifest fail-closed; import nie uruchamia się
+  automatycznie.
+
 ### TASK-0494 — uproszczony edytor bramki geometrii
 
 - Korekta widocznej siatki nie wymaga już osobnego podglądu cropów A/B.

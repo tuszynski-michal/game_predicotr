@@ -2908,7 +2908,10 @@ checksum-bound workflow wyjątków:
 
 - `GET /browser-selections/{uploadId}/geometry-guards/{guardJobId}/boards`
   zwraca wszystkie edytowalne sloty źródeł wraz z końcową siatką, odroczone
-  cele, najnowsze decyzje i liczbę nierozliczonych pozycji,
+  cele, najnowsze decyzje i liczbę nierozliczonych pozycji. Pole
+  `currentResolutionManifest` zawiera wyłącznie manifest zgodny z najnowszymi
+  rewizjami, a `pageGeometryPreflightJob` odtwarza przypięty job geometrii;
+  oba pola są nullable i nie uruchamiają żadnej operacji,
 - `POST .../report-reconstruction` tworzy albo odzyskuje osobny job odtworzenia
   historycznego raportu v1,
 - `GET .../sources/{sourceChecksumSha256}/asset` serwuje zweryfikowany JPEG
@@ -2924,6 +2927,8 @@ Endpoint podglądu nie utrwala artefaktów. Start schema v7 przyjmuje jednocześ
 `geometryGuardResolutionManifestId` i
 `geometryGuardResolutionManifestChecksumSha256`; podanie tylko jednego pola,
 drift raportu albo źródła blokują utworzenie joba bez fallbacku.
+Ponowne pobranie kolejki jest właściwą ścieżką odzyskania gotowości po reloadzie;
+klient nie utrwala identyfikatora manifestu jako samodzielnego źródła prawdy.
 
 ### Preflight geometrii strony browserowego stagingu
 

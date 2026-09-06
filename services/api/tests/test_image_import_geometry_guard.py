@@ -21,6 +21,7 @@ from game_predictor_api.domain.jobs import JobConflictError, JobError
 GAME_ID = UUID("11111111-1111-1111-1111-111111111111")
 UPLOAD_ID = UUID("22222222-2222-2222-2222-222222222222")
 JOB_ID = UUID("33333333-3333-3333-3333-333333333333")
+PREFLIGHT_JOB_ID = UUID("44444444-4444-4444-4444-444444444444")
 REPORT_CHECKSUM = "d" * 64
 SOURCE_CHECKSUM = "a" * 64
 
@@ -110,7 +111,10 @@ def _service(tmp_path: Path) -> tuple[ImageImportGeometryGuardService, _Reposito
         browser_manifest_checksum_sha256="b" * 64,
         job_input_payload={
             "source_manifest_sha256": "b" * 64,
-            "page_geometry_manifest": {"checksumSha256": "c" * 64},
+            "page_geometry_manifest": {
+                "checksumSha256": "c" * 64,
+                "preflightJobId": str(PREFLIGHT_JOB_ID),
+            },
         },
         job_checkpoint_payload={
             "geometry_systemic_guard": {
@@ -232,6 +236,55 @@ def test_mixed_decisions_are_append_only_and_seal_content_addressed_manifest(
         )
         == manifest
     )
+
+
+def test_queue_restores_only_the_manifest_matching_latest_decisions(tmp_path: Path) -> None:
+    service, _repository = _service(tmp_path)
+    queue = service.queue(game_id=GAME_ID, browser_selection_id=UPLOAD_ID, guard_job_id=JOB_ID)
+    assert queue.page_geometry_preflight_job_id == PREFLIGHT_JOB_ID
+    assert queue.current_resolution_manifest is None
+
+    service.save_decisions(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        actor="local-admin",
+        commands=tuple(
+            _command(position, ImageGeometryGuardDisposition.CORRECTED_FULL)
+            for position in (0, 1, 2)
+        ),
+    )
+    manifest = service.seal_manifest(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        actor="local-admin",
+    )
+
+    restored = service.queue(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+    )
+    assert restored.current_resolution_manifest == manifest
+
+    service.save_decisions(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        actor="local-admin",
+        commands=(_command(0, ImageGeometryGuardDisposition.CORRECTED_FULL),),
+    )
+
+    changed = service.queue(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+    )
+    assert changed.current_resolution_manifest is None
 
 
 def test_manifest_includes_optional_ready_board_override(tmp_path: Path) -> None:

@@ -173,7 +173,10 @@ zdjęcie` są sąsiednimi, lecz niezależnymi akcjami; nawigacja nigdy nie zapis
 Odrzucenie może objąć atomowo kilka wybranych plansz jednego zdjęcia.
 Zamknięcie manifestu i uruchomienie nowego importu są dwiema oddzielnymi,
 jawnymi akcjami; panel nigdy nie dobiera decyzji ani nie wznawia failed joba
-automatycznie.
+automatycznie. Ponowne otwarcie albo odświeżenie raportu odtwarza aktualny
+zamknięty manifest i przypięty preflight geometrii z API. Gotowość nie może
+zależeć wyłącznie od pamięci karty; nowa rewizja decyzji ponownie blokuje start
+do czasu jawnego zamknięcia nowego manifestu.
 
 Techniczna wersja datasetu, staging, walidacja i raport integralności nadal
 istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layoutów`.

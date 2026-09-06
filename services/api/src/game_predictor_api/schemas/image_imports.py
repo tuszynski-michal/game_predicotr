@@ -275,6 +275,36 @@ class ImageGeometryGuardDecisionResponse(ApiModel):
         )
 
 
+class ImageGeometryGuardResolutionManifestResponse(ApiModel):
+    id: UUID
+    guard_job_id: UUID
+    guard_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    page_geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    manifest_relative_path: str
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    decision_count: int = Field(ge=1)
+    sealed_by: str
+    created_at: datetime
+
+    @classmethod
+    def from_domain(
+        cls, value: ImageGeometryGuardResolutionManifest
+    ) -> "ImageGeometryGuardResolutionManifestResponse":
+        return cls(
+            id=value.id,
+            guard_job_id=value.guard_job_id,
+            guard_report_checksum_sha256=value.guard_report_checksum_sha256,
+            source_manifest_checksum_sha256=value.source_manifest_checksum_sha256,
+            page_geometry_manifest_checksum_sha256=(value.page_geometry_manifest_checksum_sha256),
+            manifest_relative_path=value.manifest_relative_path,
+            manifest_checksum_sha256=value.manifest_checksum_sha256,
+            decision_count=value.decision_count,
+            sealed_by=value.sealed_by,
+            created_at=value.created_at,
+        )
+
+
 class ImageGeometryGuardQueueResponse(ApiModel):
     game_id: UUID
     browser_selection_id: UUID
@@ -286,6 +316,8 @@ class ImageGeometryGuardQueueResponse(ApiModel):
     boards: list[ImageGeometryGuardBoardContextResponse]
     targets: list[ImageGeometryGuardBoardTargetResponse]
     decisions: list[ImageGeometryGuardDecisionResponse]
+    page_geometry_preflight_job: JobResponse | None
+    current_resolution_manifest: ImageGeometryGuardResolutionManifestResponse | None
 
 
 class ImageGeometryGuardDecisionItemCreate(ApiModel):
@@ -347,36 +379,6 @@ class ImageGeometryGuardManifestSealCreate(ApiModel):
     game_id: UUID
     expected_guard_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     actor: str = Field(min_length=1, max_length=200)
-
-
-class ImageGeometryGuardResolutionManifestResponse(ApiModel):
-    id: UUID
-    guard_job_id: UUID
-    guard_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    page_geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    manifest_relative_path: str
-    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    decision_count: int = Field(ge=1)
-    sealed_by: str
-    created_at: datetime
-
-    @classmethod
-    def from_domain(
-        cls, value: ImageGeometryGuardResolutionManifest
-    ) -> "ImageGeometryGuardResolutionManifestResponse":
-        return cls(
-            id=value.id,
-            guard_job_id=value.guard_job_id,
-            guard_report_checksum_sha256=value.guard_report_checksum_sha256,
-            source_manifest_checksum_sha256=value.source_manifest_checksum_sha256,
-            page_geometry_manifest_checksum_sha256=(value.page_geometry_manifest_checksum_sha256),
-            manifest_relative_path=value.manifest_relative_path,
-            manifest_checksum_sha256=value.manifest_checksum_sha256,
-            decision_count=value.decision_count,
-            sealed_by=value.sealed_by,
-            created_at=value.created_at,
-        )
 
 
 class PageGeometryRegistrationAttemptDiagnostic(ApiModel):

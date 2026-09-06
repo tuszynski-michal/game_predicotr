@@ -39,6 +39,10 @@ interface GeometryGuardResolutionPanelProps {
   readonly gameId: string;
   readonly guardJobId: string;
   readonly onManifestInvalidated: () => void;
+  readonly onPersistedContextLoaded: (
+    manifest: ImageGeometryGuardResolutionManifestResponse | null,
+    pageGeometryPreflightJob: JobResponse | null,
+  ) => void;
   readonly onManifestSealed: (
     manifest: ImageGeometryGuardResolutionManifestResponse,
   ) => void;
@@ -103,6 +107,7 @@ export function GeometryGuardResolutionPanel({
   gameId,
   guardJobId,
   onManifestInvalidated,
+  onPersistedContextLoaded,
   onManifestSealed,
   uploadId,
 }: GeometryGuardResolutionPanelProps) {
@@ -159,6 +164,10 @@ export function GeometryGuardResolutionPanel({
       }
       setNeedsReconstruction(false);
       setQueue(result.data);
+      onPersistedContextLoaded(
+        result.data.currentResolutionManifest ?? null,
+        result.data.pageGeometryPreflightJob ?? null,
+      );
       const resultDecisions = new Map(
         result.data.decisions.map((item) => [
           boardKey(item.sourceChecksumSha256, item.positionIndex),
@@ -192,7 +201,7 @@ export function GeometryGuardResolutionPanel({
     } finally {
       setLoading(false);
     }
-  }, [api, gameId, guardJobId, uploadId]);
+  }, [api, gameId, guardJobId, onPersistedContextLoaded, uploadId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 0);

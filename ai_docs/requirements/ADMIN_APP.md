@@ -440,7 +440,12 @@ czyści wybór symbolu; osobne akcje `Zatwierdź wybór` i `Zmień wybór` nie
 występują. Globalne liczniki nie należą
 do krytycznej ścieżki listy: są pobierane osobno dla gry i rewizji
 katalogu. Wolny albo niedostępny licznik nie blokuje oglądania ani decyzji, a
-spóźniona odpowiedź poprzedniej gry jest odrzucana. Zmiana ustawionej gry,
+spóźniona odpowiedź poprzedniej gry jest odrzucana. Workspace utrzymuje po
+jednym aktywnym odczycie strony, prefetchu i liczników. Zmiana gry, symbolu,
+stanu, confidence, rozmiaru strony albo kursora aktywnie anuluje nieaktualne
+requesty; identyfikator requestu i zakres filtra pozostają dodatkową ochroną
+przed klientem ignorującym sygnał. Świadome anulowanie nie jest prezentowane
+jako awaria połączenia. Zmiana ustawionej gry,
 symbolu albo rozmiaru strony czyści strony, miniatury, zaznaczenie i wirtualny
 viewport. Jeśli istnieje jawne zaznaczenie,
 operator najpierw potwierdza jego wyczyszczenie. Widok zachowuje jawne przyciski

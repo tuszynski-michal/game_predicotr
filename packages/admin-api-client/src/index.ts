@@ -733,6 +733,7 @@ export interface ListSymbolCellReviewsOptions {
   readonly limit?: number;
   readonly maxConfidence?: number;
   readonly minConfidence?: number;
+  readonly signal?: AbortSignal;
 }
 
 export interface GetSymbolCellReviewCountsOptions {
@@ -742,6 +743,7 @@ export interface GetSymbolCellReviewCountsOptions {
   readonly minConfidence?: number;
   readonly state?: SymbolCellReviewFilterState;
   readonly symbolId: string | 'unknown';
+  readonly signal?: AbortSignal;
 }
 
 export interface ListUnreadableBoardReviewsOptions {
@@ -2075,6 +2077,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             ? {}
             : { minConfidence: options.minConfidence }),
         },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
     getSymbolCellReviewCounts: (options: GetSymbolCellReviewCountsOptions) =>
       getGeneratedSymbolCellReviewCounts({
@@ -2091,6 +2094,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             ? {}
             : { minConfidence: options.minConfidence }),
         },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
     createVirtualCellPreviewBatch: (
       gameId: string,

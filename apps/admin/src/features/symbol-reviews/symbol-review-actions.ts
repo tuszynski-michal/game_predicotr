@@ -95,6 +95,7 @@ export interface LoadSymbolReviewPageOptions {
   readonly limit: number;
   readonly maxConfidence?: number;
   readonly minConfidence?: number;
+  readonly signal?: AbortSignal;
   readonly state: SymbolCellReviewFilterState;
   readonly symbolId: string | 'all' | 'unknown';
 }
@@ -104,6 +105,7 @@ export interface LoadSymbolReviewCountsOptions {
   readonly gameId: string;
   readonly maxConfidence?: number;
   readonly minConfidence?: number;
+  readonly signal?: AbortSignal;
   readonly state: SymbolCellReviewFilterState;
   readonly symbolId: string | 'all' | 'unknown';
 }
@@ -113,15 +115,18 @@ export type SymbolReviewCountsResult =
       readonly ok: true;
       readonly snapshot: SymbolCellReviewCountSnapshotResponse;
     }
-  | { readonly error: string; readonly ok: false };
+  | { readonly aborted: true; readonly ok: false }
+  | { readonly aborted?: false; readonly error: string; readonly ok: false };
 
 export type SymbolReviewPageResult =
   | { readonly ok: true; readonly page: SymbolCellReviewPageResponse }
   | {
+      readonly aborted?: false;
       readonly error: string;
       readonly isProjectionRebuilding: boolean;
       readonly ok: false;
-    };
+    }
+  | { readonly aborted: true; readonly ok: false };
 
 export async function loadSymbolReviewGames(
   api: SymbolReviewClient,
@@ -214,6 +219,9 @@ export async function loadSymbolReviewPage(
     }
     return { ok: true, page: result.data };
   } catch {
+    if (options.signal?.aborted === true) {
+      return { aborted: true, ok: false };
+    }
     return {
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',
       isProjectionRebuilding: false,
@@ -239,6 +247,9 @@ export async function loadSymbolReviewCounts(
     }
     return { ok: true, snapshot: result.data };
   } catch {
+    if (options.signal?.aborted === true) {
+      return { aborted: true, ok: false };
+    }
     return {
       error: 'Nie udało się pobrać liczników weryfikacji.',
       ok: false,

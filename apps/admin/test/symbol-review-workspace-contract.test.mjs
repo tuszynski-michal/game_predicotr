@@ -225,6 +225,16 @@ test('renders metadata before independent revision-bound counts finish', () => {
   assert.doesNotMatch(source, /currentPage\.counts/);
 });
 
+test('actively cancels stale page, prefetch, and count reads', () => {
+  assert.match(source, /SymbolReviewRequestCoordinator/);
+  assert.match(source, /requestCoordinator\.begin\('page'\)/);
+  assert.match(source, /requestCoordinator\.begin\('prefetch'\)/);
+  assert.match(source, /requestCoordinator\.begin\('counts'\)/);
+  assert.match(source, /signal: controller\.signal/);
+  assert.match(source, /requestCoordinator\.cancelAll\(\)/);
+  assert.match(source, /result\.aborted === true/);
+});
+
 test('uses only the current persisted crop renderer', () => {
   assert.match(source, /previewAnchorCellId\.current,\s*'current'/);
   assert.doesNotMatch(source, /Aktualne cropy v20\/v19/);

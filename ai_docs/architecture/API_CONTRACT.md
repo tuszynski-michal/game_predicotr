@@ -193,6 +193,12 @@ aktywacja innego modelu unieważnia wcześniejszą paginację. Brak aktywacji da
 pustą stronę i zerowe liczniki. Operacje masowe obejmujące cały taki filtr są
 odrzucane; jawna lista checksum-bound targetów pozostaje dozwolona.
 
+Klient Admina przekazuje standardowy `AbortSignal` do odczytu strony i
+liczników. Jeden workspace utrzymuje najwyżej jeden aktywny request każdego
+rodzaju i anuluje poprzedni przy zmianie scope'u lub kursora. To ogranicza
+niepotrzebne połączenia po stronie przeglądarki; przerwanie zapytania SQL po
+rozłączeniu klienta jest osobną odpowiedzialnością backendu.
+
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
 Dla projekcji `ready` jawne wywołanie zachowuje gotowy odczyt podczas
 oczekiwania joba w kolejce. Dopiero worker po przejęciu joba przełącza stan do

@@ -2345,6 +2345,43 @@ test('symbol cell review client binds the keyset filter and checksum asset URL',
   );
 });
 
+test('symbol cell review client forwards abort signals for list and count reads', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const pageController = new AbortController();
+  const countsController = new AbortController();
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        catalogRevision: 2,
+        counts: { allCount: 1, approvedCount: 0, pendingCount: 1 },
+        items: [],
+        nextCursor: null,
+        previousCursor: null,
+      });
+    },
+  });
+
+  await client.listSymbolCellReviews({
+    gameId,
+    signal: pageController.signal,
+    symbolId: 'unknown',
+  });
+  await client.getSymbolCellReviewCounts({
+    catalogRevision: 2,
+    gameId,
+    signal: countsController.signal,
+    symbolId: 'unknown',
+  });
+
+  pageController.abort();
+  countsController.abort();
+  assert.equal(requests[0].signal.aborted, true);
+  assert.equal(requests[1].signal.aborted, true);
+});
+
 test('symbol cell review client reads and starts durable projection preparation', async () => {
   const requests = [];
   const gameId = '22222222-2222-4222-8222-222222222222';

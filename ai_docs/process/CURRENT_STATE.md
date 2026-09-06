@@ -6,6 +6,16 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0497 — anulowanie nieaktualnych odczytów Weryfikacji symboli
+
+- Lista, prefetch następnej strony i liczniki mają niezależne, pojedyncze
+  kanały `AbortController`; rozpoczęcie nowszego odczytu anuluje poprzedni.
+- Zmiana gry, symbolu, stanu, confidence, limitu, kursora, jawny reload oraz
+  unmount przerywają nieaktualne odczyty. Request ID i scope nadal chronią UI,
+  gdy niestandardowy klient zignoruje sygnał.
+- Świadome anulowanie jest ciche. Nie zmieniono backendu, OpenAPI ani zapytań
+  SQL; serwerowe timeouty i anulowanie SQL należą do kolejnych tasków planu.
+
 ### TASK-0496 — klasowo stratyfikowany podział treningu symboli
 
 - Przyczyną odrzucenia iteracji `e0467571-2e55-4267-9142-d9f45a1387c9` nie był

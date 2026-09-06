@@ -176,6 +176,82 @@ test('loads counts independently and binds them to the page catalog revision', a
   if (result.ok) assert.equal(result.snapshot.counts.pendingCount, 1);
 });
 
+test('forwards abort signals to page and counts reads', async () => {
+  const pageController = new AbortController();
+  const countsController = new AbortController();
+  let pageRequest;
+  let countsRequest;
+  const api = client({
+    getSymbolCellReviewCounts: async (options) => {
+      countsRequest = options;
+      return {
+        data: {
+          catalogRevision: 7,
+          counts: { allCount: 3, approvedCount: 2, pendingCount: 1 },
+        },
+      };
+    },
+    listSymbolCellReviews: async (options) => {
+      pageRequest = options;
+      return { data: page };
+    },
+  });
+
+  await loadSymbolReviewPage(api, {
+    gameId,
+    limit: 500,
+    signal: pageController.signal,
+    state: 'all',
+    symbolId: 'unknown',
+  });
+  await loadSymbolReviewCounts(api, {
+    catalogRevision: 7,
+    gameId,
+    signal: countsController.signal,
+    state: 'all',
+    symbolId: 'unknown',
+  });
+
+  assert.equal(pageRequest.signal, pageController.signal);
+  assert.equal(countsRequest.signal, countsController.signal);
+});
+
+test('treats aborted page and counts reads as silent cancellation', async () => {
+  const pageController = new AbortController();
+  const countsController = new AbortController();
+  pageController.abort();
+  countsController.abort();
+  const api = client({
+    getSymbolCellReviewCounts: async () => {
+      throw new Error('aborted');
+    },
+    listSymbolCellReviews: async () => {
+      throw new Error('aborted');
+    },
+  });
+
+  assert.deepEqual(
+    await loadSymbolReviewPage(api, {
+      gameId,
+      limit: 500,
+      signal: pageController.signal,
+      state: 'all',
+      symbolId: 'unknown',
+    }),
+    { aborted: true, ok: false },
+  );
+  assert.deepEqual(
+    await loadSymbolReviewCounts(api, {
+      catalogRevision: 7,
+      gameId,
+      signal: countsController.signal,
+      state: 'all',
+      symbolId: 'unknown',
+    }),
+    { aborted: true, ok: false },
+  );
+});
+
 test('a counts failure remains separate from a successful metadata page', async () => {
   const api = client({
     getSymbolCellReviewCounts: async () => ({

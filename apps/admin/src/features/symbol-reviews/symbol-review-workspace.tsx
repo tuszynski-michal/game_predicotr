@@ -31,6 +31,7 @@ import {
   type LoadSymbolReviewPageOptions,
   type SymbolReviewClient,
 } from './symbol-review-actions';
+import { SymbolReviewRequestCoordinator } from './symbol-review-request-coordinator';
 import {
   createSymbolReviewBulkCommand,
   getSymbolReviewBulkOperation,
@@ -133,6 +134,10 @@ export function SymbolReviewWorkspace({
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
+  );
+  const requestCoordinator = useMemo(
+    () => new SymbolReviewRequestCoordinator(),
+    [],
   );
   const [workspace, dispatch] = useReducer(
     symbolReviewWorkspaceReducer,
@@ -253,50 +258,60 @@ export function SymbolReviewWorkspace({
     operationDialog !== null ||
     paging;
 
-  const applyFilters = useCallback((nextFilters: SymbolReviewFilters) => {
-    const previousFilters = filtersRef.current;
-    filtersRef.current = nextFilters;
-    pageRequestId.current += 1;
-    countsRequestId.current += 1;
-    pagePositionRef.current = { number: 1 };
-    setError('');
-    setSelection(createEmptySymbolReviewSelection());
-    setHiddenCellIds(new Set());
-    setVisibleItems([]);
-    previewAnchorCellId.current = null;
-    setCountsState('idle');
-    setCountsSnapshot(null);
-    setCountsCatalogRevision(null);
-    setVirtualPreviewTiles({});
-    setPreviewAvailability(emptyPreviewAvailability());
-    setReassignTargetSymbolId(null);
-    setMarkBlurry(false);
-    if (previousFilters.gameId !== nextFilters.gameId) {
-      setSymbols([]);
-      setSymbolsState(nextFilters.gameId === null ? 'ready' : 'loading');
-      setProjectionStatus(null);
-      setProjectionState(nextFilters.gameId === null ? 'ready' : 'loading');
-    }
-    setPageState(asPageFilters(nextFilters) === null ? 'ready' : 'loading');
-    dispatch({ filters: nextFilters, type: 'filters_changed' });
-  }, []);
+  const applyFilters = useCallback(
+    (nextFilters: SymbolReviewFilters) => {
+      const previousFilters = filtersRef.current;
+      requestCoordinator.cancelAll();
+      filtersRef.current = nextFilters;
+      pageRequestId.current += 1;
+      countsRequestId.current += 1;
+      pagingRef.current = false;
+      setPaging(false);
+      pagePositionRef.current = { number: 1 };
+      setError('');
+      setSelection(createEmptySymbolReviewSelection());
+      setHiddenCellIds(new Set());
+      setVisibleItems([]);
+      previewAnchorCellId.current = null;
+      setCountsState('idle');
+      setCountsSnapshot(null);
+      setCountsCatalogRevision(null);
+      setVirtualPreviewTiles({});
+      setPreviewAvailability(emptyPreviewAvailability());
+      setReassignTargetSymbolId(null);
+      setMarkBlurry(false);
+      if (previousFilters.gameId !== nextFilters.gameId) {
+        setSymbols([]);
+        setSymbolsState(nextFilters.gameId === null ? 'ready' : 'loading');
+        setProjectionStatus(null);
+        setProjectionState(nextFilters.gameId === null ? 'ready' : 'loading');
+      }
+      setPageState(asPageFilters(nextFilters) === null ? 'ready' : 'loading');
+      dispatch({ filters: nextFilters, type: 'filters_changed' });
+    },
+    [requestCoordinator],
+  );
 
   const reloadWorkspace = useCallback(() => {
     const currentFilters = filtersRef.current;
+    requestCoordinator.cancelAll();
     setError('');
     setGamesState('loading');
     setSymbolsState(currentFilters.gameId === null ? 'ready' : 'loading');
     setProjectionState(currentFilters.gameId === null ? 'ready' : 'loading');
     setProjectionStatus(null);
     setPageState('ready');
+    pageRequestId.current += 1;
     countsRequestId.current += 1;
+    pagingRef.current = false;
+    setPaging(false);
     setCountsState('idle');
     setCountsSnapshot(null);
     setCountsCatalogRevision(null);
     pagePositionRef.current = { number: 1 };
     dispatch({ type: 'clear_page' });
     setReloadRevision((revision) => revision + 1);
-  }, []);
+  }, [requestCoordinator]);
 
   const requestFilterChange = useCallback(
     (nextFilters: SymbolReviewFilters) => {
@@ -314,6 +329,13 @@ export function SymbolReviewWorkspace({
     const timerId = window.setTimeout(() => setToast(null), 4_000);
     return () => window.clearTimeout(timerId);
   }, [toast]);
+
+  useEffect(
+    () => () => {
+      requestCoordinator.cancelAll();
+    },
+    [requestCoordinator],
+  );
 
   useEffect(() => {
     const requestId = ++gamesRequestId.current;
@@ -442,12 +464,19 @@ export function SymbolReviewWorkspace({
     }
     const requestId = ++pageRequestId.current;
     const position = pagePositionRef.current;
+    const controller = requestCoordinator.begin('page');
     void loadSymbolReviewPage(api, {
       ...pageFilters,
       ...symbolReviewPageCursorOptions(position),
+      signal: controller.signal,
     }).then((result) => {
-      if (requestId !== pageRequestId.current) return;
+      const isCurrent =
+        requestId === pageRequestId.current &&
+        requestCoordinator.isCurrent('page', controller);
+      requestCoordinator.finish('page', controller);
+      if (!isCurrent) return;
       if (!result.ok) {
+        if (result.aborted === true) return;
         setPageState('error');
         setError(result.error);
         return;
@@ -459,7 +488,17 @@ export function SymbolReviewWorkspace({
       setHiddenCellIds(new Set());
       setPageState('ready');
     });
-  }, [api, filters, projectionStatus?.status, reloadRevision]);
+    return () => {
+      pageRequestId.current += 1;
+      requestCoordinator.cancelIfCurrent('page', controller);
+    };
+  }, [
+    api,
+    filters,
+    projectionStatus?.status,
+    reloadRevision,
+    requestCoordinator,
+  ]);
 
   useEffect(() => {
     const pageFilters = asPageFilters(filters);
@@ -470,6 +509,7 @@ export function SymbolReviewWorkspace({
       countsCatalogRevision ?? currentPage.catalogRevision;
     const requestId = ++countsRequestId.current;
     const filterScope = symbolReviewFilterScope(pageFilters);
+    const controller = requestCoordinator.begin('counts');
     void loadSymbolReviewCounts(api, {
       catalogRevision,
       gameId: pageFilters.gameId,
@@ -477,15 +517,17 @@ export function SymbolReviewWorkspace({
       minConfidence: pageFilters.minConfidence,
       state: pageFilters.state,
       symbolId: pageFilters.symbolId,
+      signal: controller.signal,
     }).then((result) => {
-      if (
+      const isStale =
         requestId !== countsRequestId.current ||
         symbolReviewFilterScope(asPageFilters(filtersRef.current)) !==
-          filterScope
-      ) {
-        return;
-      }
+          filterScope ||
+        !requestCoordinator.isCurrent('counts', controller);
+      requestCoordinator.finish('counts', controller);
+      if (isStale) return;
       if (!result.ok) {
+        if (result.aborted === true) return;
         setCountsSnapshot(null);
         setCountsState('error');
         return;
@@ -495,8 +537,9 @@ export function SymbolReviewWorkspace({
     });
     return () => {
       countsRequestId.current += 1;
+      requestCoordinator.cancelIfCurrent('counts', controller);
     };
-  }, [api, countsCatalogRevision, currentPage, filters]);
+  }, [api, countsCatalogRevision, currentPage, filters, requestCoordinator]);
 
   useEffect(() => {
     const pageFilters = asPageFilters(filters);
@@ -514,18 +557,28 @@ export function SymbolReviewWorkspace({
     if (findCachedSymbolReviewPage(workspace, position.number) !== null) {
       return;
     }
-    let cancelled = false;
+    const controller = requestCoordinator.begin('prefetch');
     void loadSymbolReviewPage(api, {
       ...pageFilters,
       ...symbolReviewPageCursorOptions(position),
+      signal: controller.signal,
     }).then((result) => {
-      if (cancelled || !result.ok) return;
+      const isCurrent = requestCoordinator.isCurrent('prefetch', controller);
+      requestCoordinator.finish('prefetch', controller);
+      if (!isCurrent || !result.ok) return;
       dispatch({ page: result.page, position, type: 'page_prefetched' });
     });
     return () => {
-      cancelled = true;
+      requestCoordinator.cancelIfCurrent('prefetch', controller);
     };
-  }, [api, currentPage, currentPageNumber, filters, workspace]);
+  }, [
+    api,
+    currentPage,
+    currentPageNumber,
+    filters,
+    requestCoordinator,
+    workspace,
+  ]);
 
   const hasVisibleItems = visibleItems.length > 0;
   const handleVisibleItemsChange = useCallback(
@@ -600,6 +653,9 @@ export function SymbolReviewWorkspace({
             };
       const cached = findCachedSymbolReviewPage(workspace, position.number);
       if (cached !== null) {
+        requestCoordinator.cancelAll();
+        pageRequestId.current += 1;
+        countsRequestId.current += 1;
         setVisibleItems([]);
         previewAnchorCellId.current = null;
         setVirtualPreviewTiles({});
@@ -618,13 +674,31 @@ export function SymbolReviewWorkspace({
       pagingRef.current = true;
       setPaging(true);
       setError('');
+      requestCoordinator.cancel('prefetch');
+      requestCoordinator.cancel('counts');
+      countsRequestId.current += 1;
+      const requestId = ++pageRequestId.current;
+      const controller = requestCoordinator.begin('page');
       const result = await loadSymbolReviewPage(api, {
         ...pageFilters,
         ...symbolReviewPageCursorOptions(position),
+        signal: controller.signal,
       });
+      const isCurrent =
+        requestId === pageRequestId.current &&
+        requestCoordinator.isCurrent('page', controller);
+      requestCoordinator.finish('page', controller);
+      if (!isCurrent) {
+        if (requestId === pageRequestId.current) {
+          pagingRef.current = false;
+          setPaging(false);
+        }
+        return;
+      }
       pagingRef.current = false;
       setPaging(false);
       if (!result.ok) {
+        if (result.aborted === true) return;
         setError(result.error);
         return;
       }
@@ -638,7 +712,14 @@ export function SymbolReviewWorkspace({
       setCountsSnapshot(null);
       setCountsCatalogRevision(result.page.catalogRevision);
     },
-    [api, currentPage, currentPageNumber, filters, workspace],
+    [
+      api,
+      currentPage,
+      currentPageNumber,
+      filters,
+      requestCoordinator,
+      workspace,
+    ],
   );
 
   async function prepareProjection() {

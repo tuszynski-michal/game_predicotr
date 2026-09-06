@@ -2779,6 +2779,16 @@ export type ImageFolderSelectionResponse = {
  */
 export type ImageGeometryGuardBoardContextResponse = {
   /**
+   * Analysisquad
+   */
+  analysisQuad: unknown | null;
+  /**
+   * Evidence
+   */
+  evidence: {
+    [key: string]: unknown;
+  } | null;
+  /**
    * Pagegeometry
    */
   pageGeometry: {
@@ -2788,6 +2798,10 @@ export type ImageGeometryGuardBoardContextResponse = {
    * Positionindex
    */
   positionIndex: number;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
   /**
    * Requiresdecision
    */
@@ -2804,6 +2818,10 @@ export type ImageGeometryGuardBoardContextResponse = {
    * Sourcerelativepath
    */
   sourceRelativePath: string;
+  /**
+   * Symbolgridquad
+   */
+  symbolGridQuad: unknown | null;
 };
 
 /**

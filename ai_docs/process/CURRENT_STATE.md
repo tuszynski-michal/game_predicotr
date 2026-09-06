@@ -6,6 +6,20 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0493 — wieloplanszowa korekta bramki importu
+
+- Workspace `Rozlicz problematyczne plansze` zachowuje osobny szkic każdej
+  planszy bieżącego zdjęcia. Zielone i czerwone sloty są edytowalne, a
+  przejście do innej planszy lub zdjęcia nie zapisuje zmian.
+- `Zapisz decyzję` utrwala atomowo wszystkie zmienione szkice źródła;
+  istniejąca decyzja może otrzymać kolejną append-only rewizję. Nowe manifesty
+  v2 obejmują wymagane decyzje i opcjonalne korekty zielonych slotów; v1 nadal
+  jest odczytywany.
+- Panel ma zoom 75–300%, większy viewport i zwarty boczny panel. Dla gry
+  `new-siedem` odczyt bazy nie wykazał zapisanej decyzji guard, więc nie było
+  rekordu do destrukcyjnego cofnięcia; po wdrożeniu każdy zapisany slot można
+  ponownie edytować.
+
 ### TASK-0492 — fałszywie pewne lokalne cropy
 
 - Wspólna ocena dowodu kieruje do korekty także high_confidence z fallbackiem

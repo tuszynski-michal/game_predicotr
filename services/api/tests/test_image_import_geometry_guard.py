@@ -164,6 +164,24 @@ def test_queue_exposes_only_exact_deferred_boards(tmp_path: Path) -> None:
     assert queue.targets[0].analysis_quad == list(_quad(0))
 
 
+def test_ready_board_can_receive_an_explicit_operator_correction(tmp_path: Path) -> None:
+    service, repository = _service(tmp_path)
+    queue = service.queue(game_id=GAME_ID, browser_selection_id=UPLOAD_ID, guard_job_id=JOB_ID)
+
+    decisions = service.save_decisions(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        actor="local-admin",
+        commands=(_command(4, ImageGeometryGuardDisposition.CORRECTED_FULL),),
+    )
+
+    assert decisions[0].position_index == 4
+    assert decisions[0].sequence_number == 20534
+    assert repository.decisions == list(decisions)
+
+
 def test_mixed_decisions_are_append_only_and_seal_content_addressed_manifest(
     tmp_path: Path,
 ) -> None:
@@ -214,6 +232,35 @@ def test_mixed_decisions_are_append_only_and_seal_content_addressed_manifest(
         )
         == manifest
     )
+
+
+def test_manifest_includes_optional_ready_board_override(tmp_path: Path) -> None:
+    service, _repository = _service(tmp_path)
+    queue = service.queue(game_id=GAME_ID, browser_selection_id=UPLOAD_ID, guard_job_id=JOB_ID)
+    service.save_decisions(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        actor="local-admin",
+        commands=tuple(
+            _command(position, ImageGeometryGuardDisposition.CORRECTED_FULL)
+            for position in (0, 1, 2, 4)
+        ),
+    )
+
+    manifest = service.seal_manifest(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        actor="local-admin",
+    )
+    payload = json.loads((tmp_path / manifest.manifest_relative_path).read_text(encoding="ascii"))
+
+    assert payload["schemaVersion"] == "ImageGeometryGuardResolutionManifestV2"
+    assert [item["positionIndex"] for item in payload["decisions"]] == [0, 1, 2, 4]
+    assert manifest.decision_count == 4
 
 
 def test_manifest_refuses_unresolved_board(tmp_path: Path) -> None:

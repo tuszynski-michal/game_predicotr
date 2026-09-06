@@ -1443,19 +1443,23 @@ zgodnej proweniencji może zostać użyty przez kolejkę decyzji. Brak artefaktu
 zmiana checksumy, inny staging lub manifest kończą odczyt fail-closed; nie ma
 fallbacku do zgadywania slotów z agregatów v1.
 
-Odroczona plansza raportu v2 może otrzymać wyłącznie jawną, rewizjonowaną
-decyzję `corrected_full`, `partial` albo `rejected`. Decyzja jest związana z
+Każda plansza raportu v2 może otrzymać jawną, rewizjonowaną decyzję
+`corrected_full`, `partial` albo `rejected`. Jest ona obowiązkowa dla slotu
+odroczonego i opcjonalna dla slotu, który operator poprawia mimo pozytywnego
+wyniku automatu. Decyzja jest związana z
 grą, browser stagingiem, checksumą raportu, checksumą i logiczną nazwą źródła,
 slotem oraz wynikającym z niego numerem sekwencji. Zapis wielu slotów jednego
 zdjęcia jest atomowy. `partial` wymaga pełnego quada siatki i uporządkowanej,
 unikalnej maski od 1 do 14 niedostępnych komórek; `rejected` nie może zawierać
 geometrii i wymaga powodu.
 
-Zamknięcie `ImageGeometryGuardResolutionManifestV1` jest możliwe dopiero po
-rozliczeniu wszystkich odroczonych slotów. Manifest zawiera wyłącznie najnowszą
-rewizję każdego slotu, obie checksumy manifestów wejściowych i checksumę
-raportu bramki. Jest content-addressed i append-only. Zmiana decyzji nie
-nadpisuje zamkniętego manifestu, lecz prowadzi do nowej checksumy.
+Zamknięcie nowego `ImageGeometryGuardResolutionManifestV2` jest możliwe dopiero
+po rozliczeniu wszystkich odroczonych slotów. Manifest zawiera najnowszą
+rewizję każdego obowiązkowego slotu oraz każdej jawnie poprawionej zielonej
+planszy, obie checksumy manifestów wejściowych i checksumę raportu bramki. Jest
+content-addressed i append-only. Zmiana decyzji nie nadpisuje zamkniętego
+manifestu, lecz prowadzi do nowej checksumy. Historyczny manifest v1 pozostaje
+odczytywalny.
 
 Nowy browser-import z raportem rozliczeń używa schema v7. Start przyjmuje
 jednocześnie identyfikator i SHA-256 zamkniętego manifestu albo nie przyjmuje
@@ -1470,12 +1474,14 @@ normalne invariants 3×3 → 3×5. Plansza `partial` tworzy cropy i obserwacje
 wyłącznie dla logicznych indeksów spoza maski `unavailableCellIndices`, ma stan
 `pending_partial` i nie może zostać zaakceptowana jako pełny layout ani wejść
 do kanonizacji. Plansza `rejected` nie tworzy `recognized_board`, cropów ani
-obserwacji. Import jest dozwolony dopiero wtedy, gdy manifest dokładnie
-rozlicza wszystkie i tylko te sloty, które odroczył przypięty raport, oraz
-ponowne wykonanie nie ujawnia nowych błędów.
+obserwacji. Import jest dozwolony dopiero wtedy, gdy manifest rozlicza wszystkie
+sloty odroczone przez przypięty raport, nie wskazuje żadnego slotu spoza raportu
+oraz ponowne wykonanie nie ujawnia nowych błędów. Dodatkowe jawne korekty slotów
+gotowych są stosowane przez ten sam checksum-bound mechanizm.
 
-Kolejka rozliczeń zwraca również kontekst wszystkich slotów źródła, aby
-operator nie oceniał odroczonej planszy bez sąsiedztwa. Podgląd pełnej i
+Kolejka rozliczeń zwraca również edytowalny kontekst wszystkich slotów źródła,
+w tym końcowy `symbolGridQuad`, aby operator nie oceniał odroczonej planszy bez
+sąsiedztwa i mógł poprawić fałszywie pozytywny wynik. Podgląd pełnej i
 częściowej decyzji jest obliczany przejściowo z checksum-bound JPEG-a i quada:
 zwraca dokładnie 15 logicznych pozycji, ale nie zapisuje cropów ani rekordów
 domenowych. Dla maski częściowej pozycja ma wyłącznie stan

@@ -1286,7 +1286,16 @@ def create_image_imports_router(
             ),
             None,
         )
-        if target is None:
+        board = next(
+            (
+                item
+                for item in queue.boards
+                if item.source_checksum_sha256 == payload.source_checksum_sha256
+                and item.position_index == payload.position_index
+            ),
+            None,
+        )
+        if target is None and board is None:
             raise JobError(
                 "IMAGE_GEOMETRY_GUARD_BOARD_NOT_IN_QUEUE",
                 "The board is not part of this guard review queue.",
@@ -1334,7 +1343,9 @@ def create_image_imports_router(
             symbol_grid_quad=tuple(
                 point.model_dump(mode="python", by_alias=True) for point in payload.symbol_grid_quad
             ),
-            proposed_symbol_grid_quad=target.proposed_symbol_grid_quad,
+            proposed_symbol_grid_quad=(
+                target.proposed_symbol_grid_quad if target is not None else board.symbol_grid_quad
+            ),
             unavailable_cell_indices=unavailable,
         )
         return ImageGeometryGuardPreviewResponse(

@@ -8043,3 +8043,21 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   reinferencja aktualizuje te same logiczne cropy. Jakakolwiek historia
   zatwierdzeń lub uczenia wyłącza wyjątek i przywraca rygorystyczną bramkę
   zgodnego modelu.
+
+## D-367 — Operator może poprawić także pozytywny slot bramki importu
+
+- **Status:** accepted
+- **Date:** 2026-09-06
+- **Decision:** wszystkie sloty źródła w raporcie bramki są edytowalne.
+  `deferred` nadal wymaga decyzji przed zamknięciem manifestu, natomiast slot
+  `ready` może otrzymać opcjonalną, jawną korektę operatora.
+- **Rationale:** wynik próbki może mieć fałszywie pozytywną siatkę widoczną
+  dopiero podczas oceny sąsiedniej planszy. Ograniczenie zapisu do czerwonych
+  slotów uniemożliwiało naprawę takiego wyniku przed nowym importem.
+- **Safety:** korekta pozostaje związana z checksumą raportu, źródła, slotem i
+  numerem. Zielonego slotu nie dodaje się automatycznie; zapis jest jawny,
+  append-only i objęty aktualnym podglądem A/B. Manifest musi pokryć wszystkie
+  deferred i nie może wskazać slotu spoza przypiętego raportu.
+- **Consequences:** nowe manifesty używają schema v2, loader zachowuje v1, a
+  nawigacja w Adminie przechowuje tylko lokalny szkic i nigdy nie zapisuje go
+  bez przycisku `Zapisz decyzję`.

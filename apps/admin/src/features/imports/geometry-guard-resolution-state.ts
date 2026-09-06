@@ -1,4 +1,5 @@
 import type {
+  ImageGeometryGuardBoardContextResponse,
   ImageGeometryGuardBoardTargetResponse,
   PageGeometryPoint,
 } from '@game-predictor/admin-api-client';
@@ -37,10 +38,16 @@ export function guardQuadFromUnknown(value: unknown): GuardQuad | null {
 }
 
 export function initialGuardQuad(
-  target: ImageGeometryGuardBoardTargetResponse,
+  target:
+    | ImageGeometryGuardBoardTargetResponse
+    | ImageGeometryGuardBoardContextResponse,
 ): GuardQuad | null {
   return (
-    guardQuadFromUnknown(target.proposedSymbolGridQuad) ??
+    guardQuadFromUnknown(
+      'proposedSymbolGridQuad' in target
+        ? target.proposedSymbolGridQuad
+        : target.symbolGridQuad,
+    ) ??
     guardQuadFromUnknown(target.analysisQuad) ??
     guardQuadFromUnknown(target.pageGeometry)
   );

@@ -320,16 +320,17 @@ def test_exact_resolution_manifest_allows_only_reproduced_full_corrections(
             GeometryGuardBoardResolution(
                 source_checksum_sha256=original.checksum_sha256,
                 source_relative_path=original.source_relative_path,
-                position_index=8,
-                sequence_number=original.sequence_range_end or 0,
+                position_index=position,
+                sequence_number=(original.sequence_range_start or 0) + position,
                 disposition="corrected_full",
                 symbol_grid_quad=tuple(
-                    {"x": int(point["x"]), "y": int(point["y"])} for point in _quad(8)
+                    {"x": int(point["x"]), "y": int(point["y"])} for point in _quad(position)
                 ),
                 unavailable_cell_indices=(),
                 decision_checksum_sha256="f" * 64,
             )
             for original in selected
+            for position in (0, 8)
         ),
     )
 
@@ -345,7 +346,7 @@ def test_exact_resolution_manifest_allows_only_reproduced_full_corrections(
     )
 
     assert result.passed
-    assert result.corrected_full_count == len(selected)
+    assert result.corrected_full_count == len(selected) * 2
     assert result.partial_count == result.rejected_count == 0
 
 

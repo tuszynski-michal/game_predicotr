@@ -2907,8 +2907,8 @@ Failed duży import z kodem `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION` udostępnia
 checksum-bound workflow wyjątków:
 
 - `GET /browser-selections/{uploadId}/geometry-guards/{guardJobId}/boards`
-  zwraca wszystkie sloty źródeł, odroczone cele, najnowsze decyzje i liczbę
-  nierozliczonych pozycji,
+  zwraca wszystkie edytowalne sloty źródeł wraz z końcową siatką, odroczone
+  cele, najnowsze decyzje i liczbę nierozliczonych pozycji,
 - `POST .../report-reconstruction` tworzy albo odzyskuje osobny job odtworzenia
   historycznego raportu v1,
 - `GET .../sources/{sourceChecksumSha256}/asset` serwuje zweryfikowany JPEG
@@ -2916,7 +2916,8 @@ checksum-bound workflow wyjątków:
 - `POST .../preview` przejściowo zwraca 15 cropów propozycja/korekta; komórki
   częściowe mają `sourceUnavailable=true` i oba obrazy `null`,
 - `POST .../decisions` zapisuje append-only pojedynczą lub atomową
-  jednosource'ową partię,
+  jednosource'ową partię; obowiązkowe są cele odroczone, ale operator może
+  jawnie skorygować również gotowy slot z tego samego raportu,
 - `POST .../resolution-manifests` zamyka komplet najnowszych rewizji.
 
 Endpoint podglądu nie utrwala artefaktów. Start schema v7 przyjmuje jednocześnie

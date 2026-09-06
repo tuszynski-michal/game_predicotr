@@ -102,7 +102,11 @@ def load_geometry_guard_resolutions(
         _invalid("The geometry guard resolution artifact checksum changed.")
     value = cast(Mapping[str, object], payload)
     if (
-        value.get("schemaVersion") != "ImageGeometryGuardResolutionManifestV1"
+        value.get("schemaVersion")
+        not in {
+            "ImageGeometryGuardResolutionManifestV1",
+            "ImageGeometryGuardResolutionManifestV2",
+        }
         or value.get("gameId") != str(job.game_id)
         or value.get("browserSelectionId") != job.input_payload.get("source_selection_id")
         or value.get("guardJobId") != str(guard_job_id)

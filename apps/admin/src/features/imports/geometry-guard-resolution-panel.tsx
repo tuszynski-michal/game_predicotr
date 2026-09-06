@@ -4,6 +4,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import type {
+  ImageGeometryGuardBoardContextResponse,
+  ImageGeometryGuardDecisionResponse,
   ImageGeometryGuardDecisionItemCreate,
   ImageGeometryGuardPreviewResponse,
   ImageGeometryGuardQueueResponse,
@@ -45,8 +47,34 @@ interface GeometryGuardResolutionPanelProps {
 }
 
 type Disposition = 'corrected_full' | 'partial' | 'rejected';
+interface BoardDraft {
+  readonly disposition: Disposition;
+  readonly dirty: boolean;
+  readonly preview: ImageGeometryGuardPreviewResponse | null;
+  readonly quad: GuardQuad | null;
+  readonly unavailable: readonly number[];
+}
+
 const ACTOR = 'local-owner';
 const CORNER_LABELS = ['LT', 'PT', 'PD', 'LD'] as const;
+
+function boardKey(sourceChecksum: string, positionIndex: number) {
+  return `${sourceChecksum}:${positionIndex}`;
+}
+
+function initialBoardDraft(
+  board: ImageGeometryGuardBoardContextResponse,
+  decision: ImageGeometryGuardDecisionResponse | undefined,
+): BoardDraft {
+  return {
+    disposition: decision?.disposition ?? 'corrected_full',
+    dirty: false,
+    preview: null,
+    quad:
+      guardQuadFromUnknown(decision?.symbolGridQuad) ?? initialGuardQuad(board),
+    unavailable: decision?.unavailableCellIndices ?? [],
+  };
+}
 
 function errorCode(error: unknown): string | null {
   return typeof error === 'object' &&
@@ -94,11 +122,10 @@ export function GeometryGuardResolutionPanel({
     [],
   );
   const [activePosition, setActivePosition] = useState<number | null>(null);
-  const [disposition, setDisposition] = useState<Disposition>('corrected_full');
-  const [quad, setQuad] = useState<GuardQuad | null>(null);
-  const [unavailable, setUnavailable] = useState<readonly number[]>([]);
-  const [preview, setPreview] =
-    useState<ImageGeometryGuardPreviewResponse | null>(null);
+  const [drafts, setDrafts] = useState<ReadonlyMap<string, BoardDraft>>(
+    () => new Map(),
+  );
+  const [zoomPercent, setZoomPercent] = useState(100);
   const [imageSize, setImageSize] = useState<{
     readonly width: number;
     readonly height: number;
@@ -135,6 +162,22 @@ export function GeometryGuardResolutionPanel({
       }
       setNeedsReconstruction(false);
       setQueue(result.data);
+      const resultDecisions = new Map(
+        result.data.decisions.map((item) => [
+          boardKey(item.sourceChecksumSha256, item.positionIndex),
+          item,
+        ]),
+      );
+      setDrafts((current) => {
+        const next = new Map(current);
+        for (const board of result.data.boards) {
+          const key = boardKey(board.sourceChecksumSha256, board.positionIndex);
+          const previous = next.get(key);
+          if (previous?.dirty) continue;
+          next.set(key, initialBoardDraft(board, resultDecisions.get(key)));
+        }
+        return next;
+      });
       const firstChecksum =
         result.data.targets[0]?.sourceChecksumSha256 ?? null;
       setSourceChecksum((current) =>
@@ -196,13 +239,13 @@ export function GeometryGuardResolutionPanel({
       ) ?? [],
     [queue, sourceChecksum],
   );
-  const activeTarget =
-    sourceTargets.find((item) => item.positionIndex === activePosition) ?? null;
+  const activeBoard =
+    sourceBoards.find((item) => item.positionIndex === activePosition) ?? null;
   const decisions = useMemo(
     () =>
       new Map(
         queue?.decisions.map((item) => [
-          `${item.sourceChecksumSha256}:${item.positionIndex}`,
+          boardKey(item.sourceChecksumSha256, item.positionIndex),
           item,
         ]) ?? [],
       ),
@@ -210,24 +253,37 @@ export function GeometryGuardResolutionPanel({
   );
 
   useEffect(() => {
-    const first = sourceTargets[0] ?? null;
-    const target = first;
-    if (target === null) return;
+    const first = sourceTargets[0] ?? sourceBoards[0] ?? null;
+    if (first === null) return;
     const timer = window.setTimeout(() => {
-      setActivePosition(target.positionIndex);
-      setSelectedPositions([target.positionIndex]);
-      const existing = decisions.get(
-        `${target.sourceChecksumSha256}:${target.positionIndex}`,
-      );
-      const existingQuad = guardQuadFromUnknown(existing?.symbolGridQuad);
-      setDisposition(existing?.disposition ?? 'corrected_full');
-      setQuad(existingQuad ?? initialGuardQuad(target));
-      setUnavailable(existing?.unavailableCellIndices ?? []);
-      setPreview(null);
+      setActivePosition(first.positionIndex);
+      setSelectedPositions([first.positionIndex]);
       setImageSize(null);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [decisions, sourceChecksum, sourceTargets]);
+  }, [sourceChecksum, sourceTargets, sourceBoards]);
+
+  const activeDraft =
+    activeBoard === null
+      ? null
+      : (drafts.get(
+          boardKey(activeBoard.sourceChecksumSha256, activeBoard.positionIndex),
+        ) ?? null);
+
+  function updateDraft(
+    positionIndex: number,
+    update: (draft: BoardDraft) => BoardDraft,
+  ) {
+    if (sourceChecksum === null) return;
+    const key = boardKey(sourceChecksum, positionIndex);
+    setDrafts((current) => {
+      const value = current.get(key);
+      if (value === undefined) return current;
+      const next = new Map(current);
+      next.set(key, update(value));
+      return next;
+    });
+  }
 
   function chooseBoard(positionIndex: number, multiple: boolean) {
     if (multiple) {
@@ -241,24 +297,17 @@ export function GeometryGuardResolutionPanel({
     }
     setSelectedPositions([positionIndex]);
     setActivePosition(positionIndex);
-    const target = sourceTargets.find(
-      (item) => item.positionIndex === positionIndex,
-    );
-    if (target === undefined) return;
-    const existing = decisions.get(
-      `${target.sourceChecksumSha256}:${positionIndex}`,
-    );
-    setDisposition(existing?.disposition ?? 'corrected_full');
-    setQuad(
-      guardQuadFromUnknown(existing?.symbolGridQuad) ??
-        initialGuardQuad(target),
-    );
-    setUnavailable(existing?.unavailableCellIndices ?? []);
-    setPreview(null);
   }
 
   function updateCorner(event: PointerEvent<SVGSVGElement>) {
-    if (draggingCorner === null || imageSize === null || quad === null) return;
+    if (
+      draggingCorner === null ||
+      imageSize === null ||
+      activeBoard === null ||
+      activeDraft?.quad === null ||
+      activeDraft === null
+    )
+      return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const point = {
       x: Math.max(
@@ -280,14 +329,17 @@ export function GeometryGuardResolutionPanel({
         ),
       ),
     };
-    setQuad((current) =>
-      current === null
-        ? current
-        : (current.map((value, index) =>
-            index === draggingCorner ? point : value,
-          ) as unknown as GuardQuad),
-    );
-    setPreview(null);
+    updateDraft(activeBoard.positionIndex, (current) => ({
+      ...current,
+      dirty: true,
+      preview: null,
+      quad:
+        current.quad === null
+          ? null
+          : (current.quad.map((value, index) =>
+              index === draggingCorner ? point : value,
+            ) as unknown as GuardQuad),
+    }));
   }
 
   async function startReconstruction() {
@@ -340,11 +392,17 @@ export function GeometryGuardResolutionPanel({
   }
 
   async function renderPreview() {
-    if (activeTarget === null || quad === null || disposition === 'rejected')
+    if (
+      activeBoard === null ||
+      activeDraft === null ||
+      activeDraft.quad === null ||
+      activeDraft.disposition === 'rejected'
+    )
       return;
     if (
-      disposition === 'partial' &&
-      (unavailable.length < 1 || unavailable.length > 14)
+      activeDraft.disposition === 'partial' &&
+      (activeDraft.unavailable.length < 1 ||
+        activeDraft.unavailable.length > 14)
     ) {
       setError('Plansza częściowa wymaga od 1 do 14 niedostępnych pól.');
       return;
@@ -357,9 +415,9 @@ export function GeometryGuardResolutionPanel({
         guardJobId,
         {
           gameId,
-          positionIndex: activeTarget.positionIndex,
-          sourceChecksumSha256: activeTarget.sourceChecksumSha256,
-          symbolGridQuad: quad.map((point) => ({
+          positionIndex: activeBoard.positionIndex,
+          sourceChecksumSha256: activeBoard.sourceChecksumSha256,
+          symbolGridQuad: activeDraft.quad.map((point) => ({
             x: Math.round(point.x),
             y: Math.round(point.y),
           })) as [
@@ -369,7 +427,9 @@ export function GeometryGuardResolutionPanel({
             PageGeometryPoint,
           ],
           unavailableCellIndices:
-            disposition === 'partial' ? [...unavailable] : [],
+            activeDraft.disposition === 'partial'
+              ? [...activeDraft.unavailable]
+              : [],
         },
       );
       if (result.error !== undefined || result.data === undefined)
@@ -379,7 +439,12 @@ export function GeometryGuardResolutionPanel({
             'Nie udało się przygotować podglądu cropów.',
           ),
         );
-      else setPreview(result.data);
+      else
+        updateDraft(activeBoard.positionIndex, (current) => ({
+          ...current,
+          dirty: true,
+          preview: result.data ?? null,
+        }));
     } catch {
       setError('Połączenie z podglądem cropów zostało przerwane.');
     } finally {
@@ -388,47 +453,57 @@ export function GeometryGuardResolutionPanel({
   }
 
   async function saveDecision() {
-    if (queue === null || activeTarget === null || saving) return;
-    let payload: ImageGeometryGuardDecisionItemCreate[];
-    if (disposition === 'rejected') {
-      payload = sourceTargets
-        .filter((item) => selectedPositions.includes(item.positionIndex))
-        .map((item) => ({
-          disposition: 'rejected',
-          positionIndex: item.positionIndex,
-          reason: 'cropped_or_unreadable',
-          sequenceNumber: item.sequenceNumber,
-          sourceChecksumSha256: item.sourceChecksumSha256,
-        }));
-    } else {
-      if (quad === null || preview === null) {
-        setError(
-          'Przed zapisem pełnej lub częściowej siatki wygeneruj aktualny podgląd A/B.',
-        );
-        return;
-      }
-      payload = [
-        {
-          disposition,
-          positionIndex: activeTarget.positionIndex,
-          sequenceNumber: activeTarget.sequenceNumber,
-          sourceChecksumSha256: activeTarget.sourceChecksumSha256,
-          symbolGridQuad: quad.map((point) => ({
-            x: Math.round(point.x),
-            y: Math.round(point.y),
-          })) as [
-            PageGeometryPoint,
-            PageGeometryPoint,
-            PageGeometryPoint,
-            PageGeometryPoint,
-          ],
-          unavailableCellIndices:
-            disposition === 'partial' ? [...unavailable] : [],
-        },
-      ];
+    if (queue === null || sourceChecksum === null || saving) return;
+    const changed = sourceBoards
+      .map((board) => ({
+        board,
+        draft: drafts.get(boardKey(sourceChecksum, board.positionIndex)),
+      }))
+      .filter(
+        (item): item is { board: typeof item.board; draft: BoardDraft } =>
+          item.draft?.dirty === true,
+      );
+    const withoutPreview = changed.find(
+      ({ draft }) =>
+        draft.disposition !== 'rejected' &&
+        (draft.quad === null || draft.preview === null),
+    );
+    if (withoutPreview !== undefined) {
+      setActivePosition(withoutPreview.board.positionIndex);
+      setSelectedPositions([withoutPreview.board.positionIndex]);
+      setError(
+        `Plansza ${withoutPreview.board.sequenceNumber} wymaga aktualnego podglądu A/B przed zapisem.`,
+      );
+      return;
     }
+    const payload: ImageGeometryGuardDecisionItemCreate[] = changed.map(
+      ({ board, draft }) => ({
+        disposition: draft.disposition,
+        positionIndex: board.positionIndex,
+        reason:
+          draft.disposition === 'rejected'
+            ? 'cropped_or_unreadable'
+            : undefined,
+        sequenceNumber: board.sequenceNumber,
+        sourceChecksumSha256: board.sourceChecksumSha256,
+        symbolGridQuad:
+          draft.disposition === 'rejected' || draft.quad === null
+            ? undefined
+            : (draft.quad.map((point) => ({
+                x: Math.round(point.x),
+                y: Math.round(point.y),
+              })) as [
+                PageGeometryPoint,
+                PageGeometryPoint,
+                PageGeometryPoint,
+                PageGeometryPoint,
+              ]),
+        unavailableCellIndices:
+          draft.disposition === 'partial' ? [...draft.unavailable] : [],
+      }),
+    );
     if (payload.length === 0) {
-      setError('Zaznacz co najmniej jedną planszę z tego zdjęcia.');
+      setError('Na tym zdjęciu nie ma niezapisanych zmian.');
       return;
     }
     setSaving(true);
@@ -454,7 +529,7 @@ export function GeometryGuardResolutionPanel({
       else {
         onManifestInvalidated();
         setFeedback(
-          `Zapisano ${result.data.decisions.length} decyzji. Historia poprzednich rewizji pozostała zachowana.`,
+          `Zapisano atomowo ${result.data.decisions.length} zmienionych plansz. Historia poprzednich rewizji pozostała zachowana.`,
         );
         await refresh();
       }
@@ -544,7 +619,12 @@ export function GeometryGuardResolutionPanel({
         ) : null}
       </section>
     );
-  if (queue === null || sourceChecksum === null || activeTarget === null)
+  if (
+    queue === null ||
+    sourceChecksum === null ||
+    activeBoard === null ||
+    activeDraft === null
+  )
     return (
       <p className="curatedImportStatus">
         Brak plansz wymagających rozliczenia.
@@ -560,8 +640,12 @@ export function GeometryGuardResolutionPanel({
     gameId,
   );
   const existing = decisions.get(
-    `${sourceChecksum}:${activeTarget.positionIndex}`,
+    boardKey(sourceChecksum, activeBoard.positionIndex),
   );
+  const dirtyCount = sourceBoards.filter(
+    (board) =>
+      drafts.get(boardKey(sourceChecksum, board.positionIndex))?.dirty === true,
+  ).length;
   return (
     <section
       className="geometryGuardResolution"
@@ -572,7 +656,7 @@ export function GeometryGuardResolutionPanel({
           <h3>Rozlicz problematyczne plansze</h3>
           <p>
             Źródło {activeSourceIndex + 1}/{sources.length}:{' '}
-            {activeTarget.sourceRelativePath}. Wszystkie 9 slotów są widoczne;
+            {activeBoard.sourceRelativePath}. Każdą siatkę można poprawić;
             czerwone wymagają decyzji.
           </p>
         </div>
@@ -609,144 +693,184 @@ export function GeometryGuardResolutionPanel({
         >
           Następne zdjęcie
         </button>
+        <span className="geometryGuardZoom" aria-label="Powiększenie zdjęcia">
+          <button
+            className="secondaryButton"
+            disabled={saving || zoomPercent <= 75}
+            onClick={() => setZoomPercent((value) => Math.max(75, value - 25))}
+            type="button"
+          >
+            −
+          </button>
+          <strong>{zoomPercent}%</strong>
+          <button
+            className="secondaryButton"
+            disabled={saving || zoomPercent >= 300}
+            onClick={() => setZoomPercent((value) => Math.min(300, value + 25))}
+            type="button"
+          >
+            +
+          </button>
+        </span>
       </div>
       <div className="geometryGuardWorkspace">
-        <div className="geometryGuardCanvas">
-          <img
-            alt={`Źródło wyjątków: ${activeTarget.sourceRelativePath}`}
-            onLoad={(event) =>
-              setImageSize({
-                width: event.currentTarget.naturalWidth,
-                height: event.currentTarget.naturalHeight,
-              })
-            }
-            onError={() =>
-              setError(
-                'Nie udało się wczytać checksumowanego zdjęcia ze stagingu.',
-              )
-            }
-            src={imageUrl}
-          />
-          {imageSize !== null ? (
-            <svg
-              onPointerMove={updateCorner}
-              onPointerUp={() => setDraggingCorner(null)}
-              viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
-            >
-              {sourceBoards.map((board) => {
-                const boardQuad = guardQuadFromUnknown(board.pageGeometry);
-                if (boardQuad === null) return null;
-                return (
-                  <g
-                    key={board.positionIndex}
-                    onClick={() =>
-                      board.requiresDecision &&
-                      chooseBoard(board.positionIndex, false)
-                    }
-                  >
-                    <polygon
-                      className={
-                        board.requiresDecision
-                          ? 'geometryGuardBoard geometryGuardBoardRequired'
-                          : 'geometryGuardBoard'
-                      }
-                      points={points(boardQuad)}
-                    />
-                    <text
-                      className="geometryGuardBoardNumber"
-                      x={(boardQuad[0].x + boardQuad[2].x) / 2}
-                      y={(boardQuad[0].y + boardQuad[2].y) / 2}
+        <div className="geometryGuardCanvasViewport">
+          <div
+            className="geometryGuardCanvas"
+            style={{ width: `${zoomPercent}%` }}
+          >
+            <img
+              alt={`Źródło wyjątków: ${activeBoard.sourceRelativePath}`}
+              onLoad={(event) =>
+                setImageSize({
+                  width: event.currentTarget.naturalWidth,
+                  height: event.currentTarget.naturalHeight,
+                })
+              }
+              onError={() =>
+                setError(
+                  'Nie udało się wczytać checksumowanego zdjęcia ze stagingu.',
+                )
+              }
+              src={imageUrl}
+            />
+            {imageSize !== null ? (
+              <svg
+                onPointerMove={updateCorner}
+                onPointerUp={() => setDraggingCorner(null)}
+                viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
+              >
+                {sourceBoards.map((board) => {
+                  const boardDraft = drafts.get(
+                    boardKey(sourceChecksum, board.positionIndex),
+                  );
+                  const boardQuad =
+                    boardDraft?.quad ??
+                    guardQuadFromUnknown(board.symbolGridQuad) ??
+                    guardQuadFromUnknown(board.pageGeometry);
+                  if (boardQuad === null) return null;
+                  return (
+                    <g
+                      key={board.positionIndex}
+                      onClick={() => chooseBoard(board.positionIndex, false)}
                     >
-                      {board.positionIndex + 1}
-                    </text>
-                  </g>
-                );
-              })}
-              {quad !== null ? (
-                <g>
-                  {
-                    <polygon
-                      className="geometryGuardGrid"
-                      points={points(quad)}
-                    />
-                  }
-                  {guardGridLines(quad).map((line, index) => (
-                    <line
-                      className="geometryGuardGridLine"
-                      key={index}
-                      x1={line[0].x}
-                      x2={line[1].x}
-                      y1={line[0].y}
-                      y2={line[1].y}
-                    />
-                  ))}
-                  {quad.map((point, index) => (
-                    <g key={CORNER_LABELS[index]}>
-                      <circle
-                        className="geometryGuardHandle"
-                        cx={point.x}
-                        cy={point.y}
-                        onPointerDown={(event) => {
-                          event.stopPropagation();
-                          event.currentTarget.ownerSVGElement?.setPointerCapture(
-                            event.pointerId,
-                          );
-                          setDraggingCorner(index);
-                        }}
-                        r={7}
+                      <polygon
+                        className={`geometryGuardBoard${
+                          board.requiresDecision
+                            ? ' geometryGuardBoardRequired'
+                            : ''
+                        }${
+                          board.positionIndex === activeBoard.positionIndex
+                            ? ' geometryGuardBoardActive'
+                            : ''
+                        }${boardDraft?.dirty ? ' geometryGuardBoardDirty' : ''}`}
+                        points={points(boardQuad)}
                       />
                       <text
-                        className="geometryGuardCornerLabel"
-                        x={point.x + 9}
-                        y={point.y - 9}
+                        className="geometryGuardBoardNumber"
+                        x={(boardQuad[0].x + boardQuad[2].x) / 2}
+                        y={(boardQuad[0].y + boardQuad[2].y) / 2}
                       >
-                        {CORNER_LABELS[index]}
+                        {board.positionIndex + 1}
                       </text>
                     </g>
-                  ))}
-                </g>
-              ) : null}
-            </svg>
-          ) : null}
+                  );
+                })}
+                {activeDraft.quad !== null ? (
+                  <g>
+                    {
+                      <polygon
+                        className="geometryGuardGrid"
+                        points={points(activeDraft.quad)}
+                      />
+                    }
+                    {guardGridLines(activeDraft.quad).map((line, index) => (
+                      <line
+                        className="geometryGuardGridLine"
+                        key={index}
+                        x1={line[0].x}
+                        x2={line[1].x}
+                        y1={line[0].y}
+                        y2={line[1].y}
+                      />
+                    ))}
+                    {activeDraft.quad.map((point, index) => (
+                      <g key={CORNER_LABELS[index]}>
+                        <circle
+                          className="geometryGuardHandle"
+                          cx={point.x}
+                          cy={point.y}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            event.currentTarget.ownerSVGElement?.setPointerCapture(
+                              event.pointerId,
+                            );
+                            setDraggingCorner(index);
+                          }}
+                          r={7}
+                        />
+                        <text
+                          className="geometryGuardCornerLabel"
+                          x={point.x + 9}
+                          y={point.y - 9}
+                        >
+                          {CORNER_LABELS[index]}
+                        </text>
+                      </g>
+                    ))}
+                  </g>
+                ) : null}
+              </svg>
+            ) : null}
+          </div>
         </div>
         <div className="geometryGuardControls">
           <fieldset>
-            <legend>Plansze wymagające decyzji</legend>
-            {sourceTargets.map((target) => {
+            <legend>Plansze na zdjęciu</legend>
+            {sourceBoards.map((board) => {
               const decision = decisions.get(
-                `${sourceChecksum}:${target.positionIndex}`,
+                boardKey(sourceChecksum, board.positionIndex),
+              );
+              const boardDraft = drafts.get(
+                boardKey(sourceChecksum, board.positionIndex),
               );
               return (
-                <label key={target.positionIndex}>
+                <label key={board.positionIndex}>
                   <input
-                    checked={selectedPositions.includes(target.positionIndex)}
+                    checked={selectedPositions.includes(board.positionIndex)}
                     onChange={() =>
                       chooseBoard(
-                        target.positionIndex,
-                        disposition === 'rejected',
+                        board.positionIndex,
+                        activeDraft.disposition === 'rejected',
                       )
                     }
                     type="checkbox"
                   />{' '}
-                  #{target.positionIndex + 1} · {target.sequenceNumber}{' '}
+                  #{board.positionIndex + 1} · {board.sequenceNumber}{' '}
                   {decision
                     ? `· ${decision.disposition} r${decision.revision}`
-                    : '· nierozliczona'}
+                    : board.requiresDecision
+                      ? '· wymaga decyzji'
+                      : '· wynik automatu'}
+                  {boardDraft?.dirty ? ' · zmieniona' : ''}
                 </label>
               );
             })}
           </fieldset>
           <fieldset>
-            <legend>Decyzja dla planszy {activeTarget.sequenceNumber}</legend>
+            <legend>Decyzja dla planszy {activeBoard.sequenceNumber}</legend>
             <label>
               <input
-                checked={disposition === 'corrected_full'}
+                checked={activeDraft.disposition === 'corrected_full'}
                 onChange={() => {
-                  chooseBoard(activeTarget.positionIndex, false);
-                  setDisposition('corrected_full');
-                  setUnavailable([]);
-                  setPreview(null);
-                  setSelectedPositions([activeTarget.positionIndex]);
+                  updateDraft(activeBoard.positionIndex, (current) => ({
+                    ...current,
+                    dirty: true,
+                    disposition: 'corrected_full',
+                    preview: null,
+                    unavailable: [],
+                  }));
+                  setSelectedPositions([activeBoard.positionIndex]);
                 }}
                 type="radio"
               />{' '}
@@ -754,12 +878,15 @@ export function GeometryGuardResolutionPanel({
             </label>
             <label>
               <input
-                checked={disposition === 'partial'}
+                checked={activeDraft.disposition === 'partial'}
                 onChange={() => {
-                  chooseBoard(activeTarget.positionIndex, false);
-                  setDisposition('partial');
-                  setPreview(null);
-                  setSelectedPositions([activeTarget.positionIndex]);
+                  updateDraft(activeBoard.positionIndex, (current) => ({
+                    ...current,
+                    dirty: true,
+                    disposition: 'partial',
+                    preview: null,
+                  }));
+                  setSelectedPositions([activeBoard.positionIndex]);
                 }}
                 type="radio"
               />{' '}
@@ -767,10 +894,21 @@ export function GeometryGuardResolutionPanel({
             </label>
             <label>
               <input
-                checked={disposition === 'rejected'}
+                checked={activeDraft.disposition === 'rejected'}
                 onChange={() => {
-                  setDisposition('rejected');
-                  setPreview(null);
+                  const positions = selectedPositions.includes(
+                    activeBoard.positionIndex,
+                  )
+                    ? selectedPositions
+                    : [activeBoard.positionIndex];
+                  for (const position of positions) {
+                    updateDraft(position, (current) => ({
+                      ...current,
+                      dirty: true,
+                      disposition: 'rejected',
+                      preview: null,
+                    }));
+                  }
                 }}
                 type="radio"
               />{' '}
@@ -778,10 +916,12 @@ export function GeometryGuardResolutionPanel({
             </label>
           </fieldset>
           <p className="curatedImportStatus">
-            Powody bramki: {activeTarget.reasonCodes.join(', ')}
+            {activeBoard.requiresDecision
+              ? `Powody bramki: ${activeBoard.reasonCodes.join(', ')}`
+              : 'Plansza przeszła automat, ale możesz jawnie poprawić jej siatkę.'}
             {existing ? ` · ostatnia rewizja ${existing.revision}` : ''}
           </p>
-          {disposition === 'partial' ? (
+          {activeDraft.disposition === 'partial' ? (
             <div className="geometryGuardMask">
               <p>
                 Kliknij brakujące pola (1–14). „?” oznacza source_unavailable.
@@ -789,15 +929,22 @@ export function GeometryGuardResolutionPanel({
               <div className="geometryGuardCellButtons">
                 {Array.from({ length: 15 }, (_, index) => (
                   <button
-                    aria-pressed={unavailable.includes(index)}
+                    aria-pressed={activeDraft.unavailable.includes(index)}
                     key={index}
                     onClick={() => {
-                      setUnavailable(toggleUnavailableCell(unavailable, index));
-                      setPreview(null);
+                      updateDraft(activeBoard.positionIndex, (current) => ({
+                        ...current,
+                        dirty: true,
+                        preview: null,
+                        unavailable: toggleUnavailableCell(
+                          current.unavailable,
+                          index,
+                        ),
+                      }));
                     }}
                     type="button"
                   >
-                    {unavailable.includes(index) ? '?' : index + 1}
+                    {activeDraft.unavailable.includes(index) ? '?' : index + 1}
                   </button>
                 ))}
               </div>
@@ -807,16 +954,18 @@ export function GeometryGuardResolutionPanel({
                     className="secondaryButton"
                     key={`r${row}`}
                     onClick={() => {
-                      setUnavailable(
-                        toggleUnavailableGroup(
-                          unavailable,
+                      updateDraft(activeBoard.positionIndex, (current) => ({
+                        ...current,
+                        dirty: true,
+                        preview: null,
+                        unavailable: toggleUnavailableGroup(
+                          current.unavailable,
                           Array.from(
                             { length: 5 },
                             (_value, column) => row * 5 + column,
                           ),
                         ),
-                      );
-                      setPreview(null);
+                      }));
                     }}
                     type="button"
                   >
@@ -828,14 +977,15 @@ export function GeometryGuardResolutionPanel({
                     className="secondaryButton"
                     key={`c${column}`}
                     onClick={() => {
-                      setUnavailable(
-                        toggleUnavailableGroup(unavailable, [
-                          column,
-                          column + 5,
-                          column + 10,
-                        ]),
-                      );
-                      setPreview(null);
+                      updateDraft(activeBoard.positionIndex, (current) => ({
+                        ...current,
+                        dirty: true,
+                        preview: null,
+                        unavailable: toggleUnavailableGroup(
+                          current.unavailable,
+                          [column, column + 5, column + 10],
+                        ),
+                      }));
                     }}
                     type="button"
                   >
@@ -846,10 +996,10 @@ export function GeometryGuardResolutionPanel({
             </div>
           ) : null}
           <div className="importActionButtons">
-            {disposition !== 'rejected' ? (
+            {activeDraft.disposition !== 'rejected' ? (
               <button
                 className="secondaryButton"
-                disabled={saving || quad === null}
+                disabled={saving || activeDraft.quad === null}
                 onClick={() => void renderPreview()}
                 type="button"
               >
@@ -858,26 +1008,20 @@ export function GeometryGuardResolutionPanel({
             ) : null}
             <button
               className="primaryButton"
-              disabled={
-                saving || (disposition !== 'rejected' && preview === null)
-              }
+              disabled={saving || dirtyCount === 0}
               onClick={() => void saveDecision()}
               type="button"
             >
-              {saving
-                ? 'Zapisywanie…'
-                : disposition === 'rejected' && selectedPositions.length > 1
-                  ? `Odrzuć ${selectedPositions.length} plansze`
-                  : 'Zapisz decyzję'}
+              {saving ? 'Zapisywanie…' : `Zapisz decyzję (${dirtyCount})`}
             </button>
           </div>
         </div>
       </div>
-      {preview !== null ? (
+      {activeDraft.preview !== null ? (
         <section className="geometryGuardPreview">
           <h4>Podgląd 15 cropów A/B</h4>
           <div className="geometryGuardPreviewGrid">
-            {preview.cells.map((cell) => (
+            {activeDraft.preview.cells.map((cell) => (
               <article key={cell.cellIndex}>
                 <strong>{cell.cellIndex + 1}</strong>
                 {cell.sourceUnavailable ? (

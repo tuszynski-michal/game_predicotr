@@ -134,6 +134,13 @@ test('requires explicit board resolutions and pins the sealed manifest to schema
   assert.match(guardResolutionSource, /Oznacz jako częściową/);
   assert.match(guardResolutionSource, /Odrzuć jako nieczytelną/);
   assert.match(guardResolutionSource, /Generuj podgląd A\/B/);
+  assert.match(guardResolutionSource, /Plansze na zdjęciu/);
+  assert.match(guardResolutionSource, /Zapisz decyzję \(\$\{dirtyCount\}\)/);
+  assert.match(guardResolutionSource, /zoomPercent/);
+  assert.doesNotMatch(
+    guardResolutionSource,
+    /board\.requiresDecision\s*&&\s*chooseBoard/,
+  );
   assert.match(guardResolutionSource, /cropped_or_unreadable/);
   assert.match(guardResolutionSource, /Zamknij manifest decyzji/);
   assert.match(guardResolutionSource, /nie został uruchomiony automatycznie/);

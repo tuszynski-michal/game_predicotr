@@ -314,10 +314,16 @@ def validate_large_import_geometry_guard_resolutions(
         for board in cast(Sequence[Mapping[str, object]], source.get("boards", []))
         if board.get("status") == "deferred"
     }
-    if deferred_keys != resolutions.keys:
+    report_keys = {
+        (cast(str, source["sourceChecksumSha256"]), cast(int, board["positionIndex"]))
+        for source in cast(Sequence[Mapping[str, object]], report.get("sources", []))
+        for board in cast(Sequence[Mapping[str, object]], source.get("boards", []))
+    }
+    if not deferred_keys.issubset(resolutions.keys) or not resolutions.keys.issubset(report_keys):
         raise JobHandlerError(
             "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
-            "The resolution manifest does not exactly cover the raw board failures.",
+            "The resolution manifest must cover every raw board failure and may only "
+            "override boards from the pinned report.",
         )
     selected_checksums = report.get("selectedSourceChecksums")
     if not isinstance(selected_checksums, list):

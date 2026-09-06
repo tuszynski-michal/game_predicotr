@@ -4863,6 +4863,27 @@
       "ImageGeometryGuardBoardContextResponse": {
         "additionalProperties": false,
         "properties": {
+          "analysisQuad": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysisquad"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
           "pageGeometry": {
             "anyOf": [
               {
@@ -4880,6 +4901,13 @@
             "minimum": 0.0,
             "title": "Positionindex",
             "type": "integer"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
           },
           "requiresDecision": {
             "title": "Requiresdecision",
@@ -4900,6 +4928,15 @@
             "minLength": 1,
             "title": "Sourcerelativepath",
             "type": "string"
+          },
+          "symbolGridQuad": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolgridquad"
           }
         },
         "required": [
@@ -4907,7 +4944,11 @@
           "sourceRelativePath",
           "positionIndex",
           "sequenceNumber",
+          "reasonCodes",
           "pageGeometry",
+          "analysisQuad",
+          "symbolGridQuad",
+          "evidence",
           "requiresDecision"
         ],
         "title": "ImageGeometryGuardBoardContextResponse",

@@ -42,7 +42,11 @@ class ImageGeometryGuardBoardContext:
     source_relative_path: str
     position_index: int
     sequence_number: int
+    reason_codes: tuple[str, ...]
     page_geometry: dict[str, object] | None
+    analysis_quad: object | None
+    symbol_grid_quad: object | None
+    evidence: dict[str, object] | None
     requires_decision: bool
 
 
@@ -203,7 +207,7 @@ def resolution_manifest_payload(
     if not ordered:
         raise ImageGeometryGuardDecisionError("A resolution manifest cannot be empty.")
     return {
-        "schemaVersion": "ImageGeometryGuardResolutionManifestV1",
+        "schemaVersion": "ImageGeometryGuardResolutionManifestV2",
         "gameId": str(game_id),
         "browserSelectionId": str(browser_selection_id),
         "guardJobId": str(guard_job_id),

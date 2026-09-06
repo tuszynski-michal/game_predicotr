@@ -212,7 +212,11 @@ class ImageGeometryGuardBoardContextResponse(ApiModel):
     source_relative_path: str = Field(min_length=1, max_length=1000)
     position_index: int = Field(ge=0, le=8)
     sequence_number: int = Field(ge=1)
+    reason_codes: list[str]
     page_geometry: dict[str, object] | None
+    analysis_quad: object | None
+    symbol_grid_quad: object | None
+    evidence: dict[str, object] | None
     requires_decision: bool
 
     @classmethod
@@ -224,7 +228,11 @@ class ImageGeometryGuardBoardContextResponse(ApiModel):
             source_relative_path=value.source_relative_path,
             position_index=value.position_index,
             sequence_number=value.sequence_number,
+            reason_codes=list(value.reason_codes),
             page_geometry=value.page_geometry,
+            analysis_quad=value.analysis_quad,
+            symbol_grid_quad=value.symbol_grid_quad,
+            evidence=value.evidence,
             requires_decision=value.requires_decision,
         )
 

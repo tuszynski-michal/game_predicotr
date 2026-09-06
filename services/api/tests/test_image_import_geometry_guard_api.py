@@ -37,7 +37,11 @@ class _GuardService:
                     source_relative_path="seq_20530-20538.jpg",
                     position_index=2,
                     sequence_number=20532,
+                    reason_codes=("incomplete_lattice",),
                     page_geometry={"quad": []},
+                    analysis_quad=[],
+                    symbol_grid_quad=None,
+                    evidence={"supportedIntersectionCount": 12},
                     requires_decision=True,
                 ),
             ),
@@ -112,8 +116,24 @@ class _PreviewGuardService(_GuardService):
                     source_relative_path=board.source_relative_path,
                     position_index=board.position_index,
                     sequence_number=board.sequence_number,
+                    reason_codes=board.reason_codes,
                     page_geometry={"quad": _preview_quad()},
+                    analysis_quad=_preview_quad(),
+                    symbol_grid_quad=_preview_quad(),
+                    evidence=board.evidence,
                     requires_decision=True,
+                ),
+                ImageGeometryGuardBoardContext(
+                    source_checksum_sha256=self.checksum,
+                    source_relative_path=board.source_relative_path,
+                    position_index=3,
+                    sequence_number=20533,
+                    reason_codes=(),
+                    page_geometry={"quad": _preview_quad()},
+                    analysis_quad=_preview_quad(),
+                    symbol_grid_quad=_preview_quad(),
+                    evidence={"supportedIntersectionCount": 15},
+                    requires_decision=False,
                 ),
             ),
             targets=(
@@ -179,7 +199,11 @@ def test_board_exception_queue_is_exposed_by_the_http_contract(tmp_path: Path) -
             "sourceRelativePath": "seq_20530-20538.jpg",
             "positionIndex": 2,
             "sequenceNumber": 20532,
+            "reasonCodes": ["incomplete_lattice"],
             "pageGeometry": {"quad": []},
+            "analysisQuad": [],
+            "symbolGridQuad": None,
+            "evidence": {"supportedIntersectionCount": 12},
             "requiresDecision": True,
         }
     ]
@@ -284,3 +308,54 @@ def test_guard_decision_preview_reads_exact_staging_bytes_and_returns_fifteen_ce
         "currentDataUrl": None,
         "proposedDataUrl": None,
     }
+
+
+def test_guard_decision_preview_accepts_ready_board_from_same_review_source(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "source.jpg"
+    Image.new("RGB", (300, 180), color=(160, 30, 20)).save(source_path, format="JPEG")
+    content = source_path.read_bytes()
+    checksum = hashlib.sha256(content).hexdigest()
+    browser_service = SimpleNamespace(
+        bind_ready_game=lambda _upload_id, _game_id: SimpleNamespace(
+            upload=SimpleNamespace(path=tmp_path),
+            manifest=SimpleNamespace(
+                files=(
+                    SimpleNamespace(
+                        checksum_sha256=checksum,
+                        relative_path="seq_20530-20538.jpg",
+                        size_bytes=len(content),
+                        stored_file_name=source_path.name,
+                    ),
+                )
+            ),
+        )
+    )
+    app = FastAPI()
+    app.include_router(
+        create_image_imports_router(
+            _unused,
+            lambda: browser_service,
+            _unused,
+            _unused,
+            _unused,
+            _unused,
+            lambda: _PreviewGuardService(checksum),
+            tmp_path,
+        )
+    )
+
+    response = TestClient(app).post(
+        f"/admin/image-imports/browser-selections/{UPLOAD_ID}/geometry-guards/{JOB_ID}/preview",
+        json={
+            "gameId": str(GAME_ID),
+            "sourceChecksumSha256": checksum,
+            "positionIndex": 3,
+            "symbolGridQuad": _preview_quad(),
+            "unavailableCellIndices": [],
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["cells"]) == 15

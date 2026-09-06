@@ -172,6 +172,21 @@ class ImageImportGeometryGuardService:
         targets = {
             (item.source_checksum_sha256, item.position_index): item for item in queue.targets
         }
+        for board in queue.boards:
+            targets.setdefault(
+                (board.source_checksum_sha256, board.position_index),
+                ImageGeometryGuardBoardTarget(
+                    source_checksum_sha256=board.source_checksum_sha256,
+                    source_relative_path=board.source_relative_path,
+                    position_index=board.position_index,
+                    sequence_number=board.sequence_number,
+                    reason_codes=board.reason_codes,
+                    page_geometry=board.page_geometry,
+                    analysis_quad=board.analysis_quad,
+                    proposed_symbol_grid_quad=board.symbol_grid_quad,
+                    evidence=board.evidence,
+                ),
+            )
         current = {
             (item.source_checksum_sha256, item.position_index): item for item in queue.decisions
         }
@@ -266,7 +281,7 @@ class ImageImportGeometryGuardService:
                 "Every failed board must have an explicit decision before sealing.",
                 details={"unresolvedCount": queue.unresolved_count},
             )
-        target_keys = {(item.source_checksum_sha256, item.position_index) for item in queue.targets}
+        target_keys = {(item.source_checksum_sha256, item.position_index) for item in queue.boards}
         decisions = tuple(
             item
             for item in queue.decisions
@@ -577,9 +592,17 @@ def _boards(report: Mapping[str, object]) -> tuple[ImageGeometryGuardBoardContex
                     source_relative_path=source_path,
                     position_index=position,
                     sequence_number=sequence_number,
+                    reason_codes=tuple(cast(Sequence[str], raw_board.get("reasonCodes", []))),
                     page_geometry=(
                         dict(raw_board["pageGeometry"])
                         if isinstance(raw_board.get("pageGeometry"), Mapping)
+                        else None
+                    ),
+                    analysis_quad=raw_board.get("analysisQuad"),
+                    symbol_grid_quad=raw_board.get("symbolGridQuad"),
+                    evidence=(
+                        dict(raw_board["evidence"])
+                        if isinstance(raw_board.get("evidence"), Mapping)
                         else None
                     ),
                     requires_decision=status == "deferred",

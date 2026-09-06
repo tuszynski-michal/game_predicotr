@@ -29,6 +29,18 @@ test('starts from the proposed symbol grid before broader board geometry', () =>
   assert.deepEqual(guardQuadFromUnknown({ quad }), quad);
 });
 
+test('starts an editable ready board from its final symbol grid', () => {
+  const board = {
+    analysisQuad: quad.map((point) => ({ x: point.x + 50, y: point.y })),
+    pageGeometry: {
+      quad: quad.map((point) => ({ x: point.x + 100, y: point.y })),
+    },
+    symbolGridQuad: quad,
+  };
+
+  assert.deepEqual(initialGuardQuad(board), quad);
+});
+
 test('builds four columns and three rows in the editable perspective quad', () => {
   const lines = guardGridLines(quad);
 

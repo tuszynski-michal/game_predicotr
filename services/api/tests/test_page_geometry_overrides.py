@@ -6,12 +6,16 @@ from game_predictor_api.application.page_geometry_overrides import (
     PageGeometryOverrideService,
 )
 from game_predictor_api.domain.jobs import JobError
-from game_predictor_api.domain.page_geometry_overrides import ImagePageGeometryOverride
+from game_predictor_api.domain.page_geometry_overrides import (
+    ImagePageGeometryOverride,
+    ImagePageSourceExclusion,
+)
 
 
 class MemoryPageGeometryOverrideRepository:
     def __init__(self) -> None:
         self.values: list[ImagePageGeometryOverride] = []
+        self.exclusions: list[ImagePageSourceExclusion] = []
 
     def get_current(
         self,
@@ -39,6 +43,30 @@ class MemoryPageGeometryOverrideRepository:
 
     def append(self, value: ImagePageGeometryOverride) -> ImagePageGeometryOverride:
         self.values.append(value)
+        return value
+
+    def get_exclusion(
+        self, *, browser_selection_id: UUID, source_checksum_sha256: str
+    ) -> ImagePageSourceExclusion | None:
+        return next(
+            (
+                value
+                for value in self.exclusions
+                if value.browser_selection_id == browser_selection_id
+                and value.source_checksum_sha256 == source_checksum_sha256
+            ),
+            None,
+        )
+
+    def list_exclusions(
+        self, *, browser_selection_id: UUID
+    ) -> tuple[ImagePageSourceExclusion, ...]:
+        return tuple(
+            value for value in self.exclusions if value.browser_selection_id == browser_selection_id
+        )
+
+    def append_exclusion(self, value: ImagePageSourceExclusion) -> ImagePageSourceExclusion:
+        self.exclusions.append(value)
         return value
 
 
@@ -138,3 +166,34 @@ def test_page_geometry_override_rejects_count_different_from_attested_range() ->
         )
 
     assert error.value.code == "IMAGE_PAGE_GEOMETRY_INVALID"
+
+
+def test_page_source_exclusion_is_staging_scoped_and_idempotent() -> None:
+    repository = MemoryPageGeometryOverrideRepository()
+    service = PageGeometryOverrideService(repository)
+    game_id = uuid4()
+    staging_id = uuid4()
+    values = {
+        "game_id": game_id,
+        "browser_selection_id": staging_id,
+        "geometry_preflight_job_id": uuid4(),
+        "source_manifest_checksum_sha256": "a" * 64,
+        "geometry_manifest_checksum_sha256": "b" * 64,
+        "source_checksum_sha256": "c" * 64,
+        "source_relative_path": "cut/seq_10-18.jpg",
+        "actor": "local-owner",
+    }
+
+    first, created = service.exclude_source(**values)
+    replay, replay_created = service.exclude_source(**values)
+
+    assert created is True
+    assert replay_created is False
+    assert replay.id == first.id
+    assert service.exclusion_snapshot(browser_selection_id=staging_id) == {
+        "c" * 64: {
+            "decisionChecksumSha256": first.decision_checksum_sha256,
+            "sourceRelativePath": "cut/seq_10-18.jpg",
+        }
+    }
+    assert service.exclusion_snapshot(browser_selection_id=uuid4()) == {}

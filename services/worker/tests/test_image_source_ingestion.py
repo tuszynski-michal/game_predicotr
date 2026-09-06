@@ -243,6 +243,61 @@ def test_browser_manifest_preserves_seq_name_while_copying_physical_file(
     assert managed_path.read_bytes() == content
 
 
+def test_browser_manifest_omits_checksum_bound_source_exclusion(tmp_path: Path) -> None:
+    upload_root = tmp_path / "imports"
+    browser_service = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None, clock=lambda: NOW),
+        upload_root,
+        max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    contents: list[bytes] = []
+    for color in ((255, 0, 0), (0, 255, 0)):
+        stream = BytesIO()
+        Image.new("RGB", (32, 24), color).save(stream, "JPEG")
+        contents.append(stream.getvalue())
+    upload = browser_service.begin(
+        display_name="1-18",
+        expected_file_count=2,
+        expected_total_bytes=sum(map(len, contents)),
+    )
+    for index, content in enumerate(contents):
+        browser_service.upload_file(
+            upload.upload_id,
+            index,
+            relative_path=f"1-18/seq_{index * 9 + 1}-{index * 9 + 9}.jpg",
+            content=content,
+        )
+    browser_service.finalize(upload.upload_id)
+    excluded_checksum = hashlib.sha256(contents[0]).hexdigest()
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 7,
+            "import_kind": "image_directory",
+            "source_selection_id": str(upload.upload_id),
+            "source_directory": str(upload.path.resolve()),
+            "source_display_name": "1-18",
+            "pipeline_fingerprint": FINGERPRINT,
+            "source_exclusions": {
+                excluded_checksum: {
+                    "decisionChecksumSha256": "d" * 64,
+                    "sourceRelativePath": "1-18/seq_1-9.jpg",
+                }
+            },
+        },
+        created_at=NOW,
+    )
+
+    manifest = ManagedOriginalStore(tmp_path / "artifacts").load_or_create_manifest(
+        job, source_directory=upload.path
+    )
+
+    assert [item.source_relative_path for item in manifest.originals] == ["1-18/seq_10-18.jpg"]
+    assert manifest.originals[0].checksum_sha256 == hashlib.sha256(contents[1]).hexdigest()
+
+
 def test_managed_reprocess_clones_manifest_after_original_folder_was_removed(
     tmp_path: Path,
 ) -> None:
@@ -290,9 +345,7 @@ def test_managed_reprocess_v6_rejects_changed_source_manifest(tmp_path: Path) ->
     source_job = _job(source)
     store = ManagedOriginalStore(artifact_root)
     ImageSourceIngestionHandler(store)(RecordingContext(), source_job)  # type: ignore[arg-type]
-    source_manifest = (
-        artifact_root / "data" / "originals" / "manifests" / f"{source_job.id}.json"
-    )
+    source_manifest = artifact_root / "data" / "originals" / "manifests" / f"{source_job.id}.json"
     expected_checksum = hashlib.sha256(source_manifest.read_bytes()).hexdigest()
     reprocess_job = create_job(
         JobType.IMPORT,

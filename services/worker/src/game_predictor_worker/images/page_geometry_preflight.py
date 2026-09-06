@@ -592,7 +592,7 @@ def _input(job: Job) -> dict[str, object]:
         "page_geometry_overrides",
         "canonical_sequence_numbers",
     }
-    optional = {"preflight_policy_version", "source_display_name"}
+    optional = {"preflight_policy_version", "source_display_name", "source_exclusions"}
     policy = payload.get("preflight_policy_version", LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION)
     payload_keys = frozenset(payload)
     if (
@@ -614,6 +614,7 @@ def _input(job: Job) -> dict[str, object]:
     overrides = payload.get("page_geometry_overrides")
     canonical = payload.get("canonical_sequence_numbers")
     source_display_name = payload.get("source_display_name")
+    source_exclusions = payload.get("source_exclusions", {})
     if (
         not isinstance(selection, str)
         or not isinstance(directory, str)
@@ -622,6 +623,7 @@ def _input(job: Job) -> dict[str, object]:
         or not isinstance(profile, Mapping)
         or not isinstance(overrides, Mapping)
         or not isinstance(canonical, list)
+        or not isinstance(source_exclusions, Mapping)
         or (
             source_display_name is not None
             and (
@@ -654,6 +656,7 @@ def _input(job: Job) -> dict[str, object]:
         "pageGeometryOverrides": dict(overrides),
         "canonicalSequenceNumbers": set(canonical),
         "preflightPolicyVersion": policy,
+        "sourceExclusions": dict(source_exclusions),
     }
 
 

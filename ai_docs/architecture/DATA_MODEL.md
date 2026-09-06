@@ -6,6 +6,15 @@ last_updated: 2026-08-24
 
 # Model danych
 
+## image_page_source_exclusions
+
+Addytywna tabela przechowuje jedną append-only decyzję dla pary
+`browser_selection_id + source_checksum_sha256`. Rekord wiąże `game_id`,
+preflight i checksumy obu manifestów, ścieżkę źródła, aktora, checksumę decyzji
+oraz czas utworzenia. FK stagingu używa `ON DELETE CASCADE`, ponieważ po
+zakończeniu lifecycle'u stagingu decyzja nie ma samodzielnej wartości
+historycznej. Nie jest to zapis fizycznego usunięcia JPEG-a.
+
 Model rozdziela kanoniczne dane administracyjne PostgreSQL od generowanego, niezmiennego SQLite dla mobile. Nazwy i dokładne typy zostaną utrwalone migracjami Alembic; poniższe reguły integralności są obowiązkowe.
 
 Audyt ochrony lokalnego Admina nie jest tabelą domenową. Jest append-only

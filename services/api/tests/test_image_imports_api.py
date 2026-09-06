@@ -787,10 +787,7 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
             masked_job.input_payload["preflight_policy_version"]
             == "page-geometry-preflight-v3-board-area-mask"
         )
-        assert (
-            masked_profile["policy"]
-            == "verified-page-registration-v2-board-area-mask-v1"
-        )
+        assert masked_profile["policy"] == "verified-page-registration-v2-board-area-mask-v1"
         assert masked_profile["anchorMaskPaddingRatio"] == 0.1
         geometry_checksum = "d" * 64
         lease_token = uuid4()
@@ -1173,6 +1170,9 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
                 }
             }
 
+        def exclusion_snapshot(self, *, browser_selection_id: UUID) -> dict[str, object]:
+            return {}
+
     client = TestClient(
         create_app(
             ApiSettings.from_environment(
@@ -1204,9 +1204,7 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
     unresolved = payload["sources"][1]
     assert unresolved["reviewReason"] == "review_required"
     assert unresolved["geometryOrigin"] == "manual_template"
-    assert unresolved["rejectionReasonCode"] == (
-        "PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT"
-    )
+    assert unresolved["rejectionReasonCode"] == ("PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT")
     assert unresolved["registrationDiagnostics"]["bestAttempt"] == {
         "anchorSourceChecksumSha256": None,
         "featureCount": 1000,

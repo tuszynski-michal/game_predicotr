@@ -25,6 +25,7 @@ export type ImageFolderImportClient = Pick<
   | 'startBrowserPageGeometryPreflight'
   | 'listBrowserPageGeometryReviewSources'
   | 'createBrowserPageGeometryOverride'
+  | 'excludeBrowserPageGeometrySource'
   | 'listImageGeometryGuardBoards'
   | 'createImageGeometryGuardDecisions'
   | 'previewImageGeometryGuardDecision'

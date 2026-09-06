@@ -3170,6 +3170,56 @@ class ImagePageGeometryOverrideModel(Base):
     )
 
 
+class ImagePageSourceExclusionModel(Base):
+    """Checksum-bound exclusion of one source from one browser staging."""
+
+    __tablename__ = "image_page_source_exclusions"
+    __table_args__ = (
+        CheckConstraint(
+            "source_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "geometry_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "decision_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_page_source_exclusions_checksums",
+        ),
+        CheckConstraint(
+            "length(btrim(source_relative_path)) > 0 "
+            "AND source_relative_path !~ '(^/|(^|/)\\.\\.(/|$)|\\\\)' "
+            "AND length(btrim(actor)) > 0",
+            name="ck_image_page_source_exclusions_text",
+        ),
+        UniqueConstraint(
+            "browser_selection_id",
+            "source_checksum_sha256",
+            name="uq_image_page_source_exclusions_source",
+        ),
+        Index(
+            "ix_image_page_source_exclusions_selection",
+            "browser_selection_id",
+            "source_checksum_sha256",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    browser_selection_id: Mapped[UUID] = mapped_column(
+        ForeignKey("browser_selection_retention_states.upload_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    geometry_preflight_job_id: Mapped[UUID] = mapped_column(nullable=False)
+    source_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    geometry_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    decision_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ImageBoardGeometryPendingModel(Base):
     """A board for which verified cell geometry is not yet available."""
 

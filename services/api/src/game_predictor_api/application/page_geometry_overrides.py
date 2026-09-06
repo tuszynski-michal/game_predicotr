@@ -16,6 +16,7 @@ from game_predictor_worker.images.page_geometry_registration import is_ordered_a
 from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.domain.page_geometry_overrides import (
     ImagePageGeometryOverride,
+    ImagePageSourceExclusion,
     PageGeometryQuads,
 )
 
@@ -31,6 +32,16 @@ class PageGeometryOverrideRepository(Protocol):
     def list_current(self, *, game_id: UUID) -> tuple[ImagePageGeometryOverride, ...]: ...
 
     def append(self, value: ImagePageGeometryOverride) -> ImagePageGeometryOverride: ...
+
+    def get_exclusion(
+        self, *, browser_selection_id: UUID, source_checksum_sha256: str
+    ) -> ImagePageSourceExclusion | None: ...
+
+    def list_exclusions(
+        self, *, browser_selection_id: UUID
+    ) -> tuple[ImagePageSourceExclusion, ...]: ...
+
+    def append_exclusion(self, value: ImagePageSourceExclusion) -> ImagePageSourceExclusion: ...
 
 
 class PageGeometryOverrideService:
@@ -94,6 +105,87 @@ class PageGeometryOverrideService:
                 "overrideId": str(value.id),
                 "quads": value.final_quads,
                 "revision": value.revision,
+            }
+        return dict(sorted(entries.items()))
+
+    def exclude_source(
+        self,
+        *,
+        game_id: UUID,
+        browser_selection_id: UUID,
+        geometry_preflight_job_id: UUID,
+        source_manifest_checksum_sha256: str,
+        geometry_manifest_checksum_sha256: str,
+        source_checksum_sha256: str,
+        source_relative_path: str,
+        actor: str,
+    ) -> tuple[ImagePageSourceExclusion, bool]:
+        for checksum_value, code in (
+            (source_manifest_checksum_sha256, "IMAGE_SEQUENCE_MANIFEST_INVALID"),
+            (geometry_manifest_checksum_sha256, "IMAGE_PAGE_GEOMETRY_MANIFEST_STALE"),
+            (source_checksum_sha256, "IMAGE_PAGE_GEOMETRY_SOURCE_INVALID"),
+        ):
+            if re.fullmatch(r"[0-9a-f]{64}", checksum_value) is None:
+                raise JobError(code, "The source exclusion checksum is invalid.")
+        normalized_path = source_relative_path.strip().replace("\\", "/")
+        if (
+            not normalized_path
+            or normalized_path.startswith("/")
+            or ".." in normalized_path.split("/")
+        ):
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_SOURCE_INVALID",
+                "The source exclusion path is invalid.",
+            )
+        if not actor.strip():
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_ACTOR_REQUIRED",
+                "A non-empty actor is required for a source exclusion.",
+            )
+        payload = {
+            "browserSelectionId": str(browser_selection_id),
+            "gameId": str(game_id),
+            "geometryManifestChecksumSha256": geometry_manifest_checksum_sha256,
+            "geometryPreflightJobId": str(geometry_preflight_job_id),
+            "sourceChecksumSha256": source_checksum_sha256,
+            "sourceManifestChecksumSha256": source_manifest_checksum_sha256,
+            "sourceRelativePath": normalized_path,
+        }
+        checksum = hashlib.sha256(
+            json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("ascii")
+        ).hexdigest()
+        current = self._repository.get_exclusion(
+            browser_selection_id=browser_selection_id,
+            source_checksum_sha256=source_checksum_sha256,
+        )
+        if current is not None:
+            if current.decision_checksum_sha256 != checksum:
+                raise JobError(
+                    "IMAGE_PAGE_SOURCE_EXCLUSION_CONFLICT",
+                    "This staged source already has a different exclusion decision.",
+                )
+            return current, False
+        exclusion = ImagePageSourceExclusion(
+            id=uuid4(),
+            game_id=game_id,
+            browser_selection_id=browser_selection_id,
+            geometry_preflight_job_id=geometry_preflight_job_id,
+            source_manifest_checksum_sha256=source_manifest_checksum_sha256,
+            geometry_manifest_checksum_sha256=geometry_manifest_checksum_sha256,
+            source_checksum_sha256=source_checksum_sha256,
+            source_relative_path=normalized_path,
+            actor=actor.strip(),
+            decision_checksum_sha256=checksum,
+            created_at=datetime.now(UTC),
+        )
+        return self._repository.append_exclusion(exclusion), True
+
+    def exclusion_snapshot(self, *, browser_selection_id: UUID) -> dict[str, object]:
+        entries: dict[str, object] = {}
+        for value in self._repository.list_exclusions(browser_selection_id=browser_selection_id):
+            entries[value.source_checksum_sha256] = {
+                "decisionChecksumSha256": value.decision_checksum_sha256,
+                "sourceRelativePath": value.source_relative_path,
             }
         return dict(sorted(entries.items()))
 

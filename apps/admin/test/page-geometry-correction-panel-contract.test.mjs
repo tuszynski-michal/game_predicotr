@@ -85,3 +85,16 @@ test('geometry editor labels a fallback template and exposes stored diagnostics'
   assert.match(panel, /Reset przywraca dokładnie\s*ten zapis/s);
   assert.match(styles, /\.geometryOriginNoticeWarning/);
 });
+
+test('geometry editor can exclude a checksum-bound source from the import', () => {
+  assert.match(panel, /Usuń z importu/);
+  assert.match(panel, /excludeBrowserPageGeometrySource/);
+  assert.match(panel, /globalThis\.confirm/);
+  assert.match(panel, /sourceChecksumSha256: source\.sourceChecksumSha256/);
+  assert.match(panel, /sourceRelativePath: source\.sourceRelativePath/);
+  assert.match(
+    panel,
+    /geometryManifestChecksumSha256: geometryManifestChecksum/,
+  );
+  assert.match(panel, /nie zostanie skopiowane ani przetworzone/);
+});

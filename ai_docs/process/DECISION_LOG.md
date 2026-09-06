@@ -7983,3 +7983,18 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** istniejące wyniki v10/v11 i katalogi użytkownika pozostają
   bez zmian. Szersza aktywacja wymaga osobnej decyzji po odbiorze ciasności i
   materiału z innej gry.
+
+## D-364 — Wykluczenie źródła zamiast mutowania browser stagingu
+
+- **Status:** accepted
+- **Date:** 2026-09-06
+- **Decision:** zdjęcie odrzucone w korekcie geometrii jest wykluczane przez
+  append-only decyzję związaną z grą, stagingiem, ścieżką i SHA-256. Niezmienny
+  manifest oraz JPEG stagingu nie są kasowane ani przepisywane.
+- **Rationale:** fizyczne usunięcie źródła złamałoby checksumę manifestu, retry
+  i odtwarzalność preflightu. Snapshot wykluczeń może zostać przypięty do
+  fingerprintu joba i jednoznacznie odfiltrowany przed managed originals.
+- **Consequences:** wykluczone źródło znika z bieżącego raportu i nie wchodzi do
+  nowego importu. Poprawiony plik wymaga nowego stagingu; inna checksuma nie
+  dziedziczy decyzji. Zastąpienie już kanonicznej planszy pozostaje odrębnym
+  workflowem TASK-0305.

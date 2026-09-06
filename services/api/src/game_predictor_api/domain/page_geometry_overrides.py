@@ -30,8 +30,26 @@ class ImagePageGeometryOverride:
     created_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class ImagePageSourceExclusion:
+    """One checksum-bound source intentionally omitted from a browser import."""
+
+    id: UUID
+    game_id: UUID
+    browser_selection_id: UUID
+    geometry_preflight_job_id: UUID
+    source_manifest_checksum_sha256: str
+    geometry_manifest_checksum_sha256: str
+    source_checksum_sha256: str
+    source_relative_path: str
+    actor: str
+    decision_checksum_sha256: str
+    created_at: datetime
+
+
 __all__ = [
     "ImagePageGeometryOverride",
+    "ImagePageSourceExclusion",
     "PageGeometryPoint",
     "PageGeometryQuad",
     "PageGeometryQuads",

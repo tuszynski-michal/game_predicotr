@@ -352,6 +352,8 @@ class GridProfileSnapshotResolver(Protocol):
 class PageGeometryOverrideSnapshotResolver(Protocol):
     def snapshot(self, *, game_id: UUID) -> dict[str, object]: ...
 
+    def exclusion_snapshot(self, *, browser_selection_id: UUID) -> dict[str, object]: ...
+
 
 class JobService:
     def __init__(
@@ -540,6 +542,7 @@ class JobService:
         image_selection_run_id: UUID | None = None,
         canonical_sequence_numbers: Sequence[int] | None = None,
         source_manifest_sha256: str | None = None,
+        source_exclusions: dict[str, object] | None = None,
         start_mode: str | None = None,
         previous_job_id: UUID | None = None,
         page_geometry_manifest: dict[str, object] | None = None,
@@ -604,11 +607,13 @@ class JobService:
                 (
                     f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:{grid_fingerprint}:"
                     f"{_page_geometry_manifest_fingerprint(page_geometry_manifest)}:"
-                    f"{_geometry_guard_resolution_manifest_fingerprint(geometry_guard_resolution_manifest)}"
+                    f"{_geometry_guard_resolution_manifest_fingerprint(geometry_guard_resolution_manifest)}:"
+                    f"{_source_exclusions_fingerprint(source_exclusions)}"
                 ).encode("ascii")
             ).hexdigest()
             input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
             input_payload["start_mode"] = start_mode
+            input_payload["source_exclusions"] = dict(source_exclusions or {})
             input_payload["previous_job_id"] = (
                 None if previous_job_id is None else str(previous_job_id)
             )
@@ -1365,6 +1370,18 @@ class JobService:
                 "IMAGE_PAGE_GEOMETRY_OVERRIDE_SNAPSHOT_INVALID",
                 "The page geometry override snapshot is invalid.",
             )
+        exclusions = (
+            {}
+            if self._page_geometry_override_snapshot_resolver is None
+            else self._page_geometry_override_snapshot_resolver.exclusion_snapshot(
+                browser_selection_id=selection_id
+            )
+        )
+        if not isinstance(exclusions, dict):
+            raise JobError(
+                "IMAGE_PAGE_SOURCE_EXCLUSION_SNAPSHOT_INVALID",
+                "The page source exclusion snapshot is invalid.",
+            )
         return self._persist_job(
             JobType.VALIDATE,
             game_id=game_id,
@@ -1378,6 +1395,7 @@ class JobService:
                 "source_manifest_sha256": source_manifest_sha256,
                 "page_registration_profile": registration,
                 "page_geometry_overrides": overrides,
+                "source_exclusions": exclusions,
                 "canonical_sequence_numbers": sorted(
                     {int(number) for number in canonical_sequence_numbers if int(number) > 0}
                 ),
@@ -1600,6 +1618,16 @@ def _geometry_guard_resolution_manifest_fingerprint(
             "The pinned geometry guard resolution manifest descriptor is invalid.",
         )
     return checksum
+
+
+def _source_exclusions_fingerprint(value: dict[str, object] | None) -> str:
+    canonical = json.dumps(
+        value or {},
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def _baseline_grid_profile_snapshot() -> dict[str, object]:

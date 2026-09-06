@@ -41,6 +41,7 @@ from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardDisposition,
 )
 from game_predictor_api.domain.image_sequence_canonical import (
+    BrowserSequenceManifest,
     BrowserUploadPlanSource,
     ImageSequenceCanonicalService,
 )
@@ -62,6 +63,8 @@ from game_predictor_api.schemas.image_imports import (
     BrowserPageGeometryPreflightResponse,
     BrowserPageGeometryReviewSourceResponse,
     BrowserPageGeometryReviewSourcesResponse,
+    BrowserPageSourceExclusionCreate,
+    BrowserPageSourceExclusionResponse,
     BrowserReadySelectionResponse,
     CuratedImageImportBatchCreate,
     CuratedImageImportSourceCreate,
@@ -83,6 +86,7 @@ from game_predictor_api.schemas.image_imports import (
     ImageGeometryGuardReportReconstructionResponse,
     ImageGeometryGuardResolutionManifestResponse,
     ImageSequenceImportPreflightResponse,
+    PageGeometryRegistrationDiagnostics,
 )
 from game_predictor_api.schemas.jobs import JobResponse
 
@@ -344,6 +348,7 @@ def create_image_imports_router(
         service: BrowserImageSelectionService,
         canonical_service: object | None,
         job_service: JobService,
+        override_service: PageGeometryOverrideService | None,
     ) -> BrowserImageImportPreflightResponse:
         if canonical_service is None:
             raise JobError(
@@ -356,9 +361,27 @@ def create_image_imports_router(
                 "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
                 "The staged folder belongs to a different game.",
             )
+        exclusions = (
+            {}
+            if override_service is None
+            else override_service.exclusion_snapshot(browser_selection_id=upload_id)
+        )
+        filtered_files = tuple(
+            item for item in ready.manifest.files if item.checksum_sha256 not in exclusions
+        )
+        if not filtered_files:
+            raise JobConflictError(
+                "IMAGE_PAGE_SOURCE_EXCLUSION_LAST_SOURCE",
+                "At least one staged source must remain in the import.",
+            )
+        filtered_manifest = BrowserSequenceManifest(
+            files=filtered_files,
+            warnings=ready.manifest.warnings,
+            checksum_sha256=ready.manifest.checksum_sha256,
+        )
         result = cast(ImageSequenceCanonicalService, canonical_service).preflight(
             game_id=game_id,
-            manifest=ready.manifest,
+            manifest=filtered_manifest,
         )
         _validate_skipped_canonical_ranges(
             canonical_service=cast(ImageSequenceCanonicalService, canonical_service),
@@ -384,6 +407,7 @@ def create_image_imports_router(
         # structured production path uses it as immutable source provenance;
         # switching the game policy must never bypass the reviewed page gate.
         payload["geometryPreflightRequired"] = True
+        payload["operatorExcludedSourceCount"] = len(exclusions)
         payload["symbolModelReady"] = symbol_fingerprint is not None
         payload["symbolModelBlockerCode"] = symbol_blocker_code
         checksum = hashlib.sha256(
@@ -564,6 +588,7 @@ def create_image_imports_router(
         service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
         job_service: Annotated[JobService, job_parameter],
         canonical_service: object | None = canonical_parameter,
+        override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
     ) -> BrowserImageImportPreflightResponse:
         return browser_preflight(
             upload_id=upload_id,
@@ -571,6 +596,7 @@ def create_image_imports_router(
             service=service,
             canonical_service=canonical_service,
             job_service=job_service,
+            override_service=override_service,
         )
 
     @router.post(
@@ -588,6 +614,7 @@ def create_image_imports_router(
         job_service: Annotated[JobService, job_parameter],
         canonical_service: object | None = canonical_parameter,
         guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
+        override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
     ) -> BrowserImageImportStartResponse:
         ready = service.bind_ready_game(upload_id, payload.game_id)
         if ready.manifest.checksum_sha256 != payload.manifest_checksum_sha256:
@@ -601,6 +628,7 @@ def create_image_imports_router(
             service=service,
             canonical_service=canonical_service,
             job_service=job_service,
+            override_service=override_service,
         )
         current_symbol, current_grid = job_service.current_image_import_model_fingerprints(
             game_id=payload.game_id
@@ -648,8 +676,18 @@ def create_image_imports_router(
         # pinned to bootstrap models. In that case create one fresh, model-pinned
         # job while preserving the old job for auditability.
         requested_mode = payload.start_mode
+        source_exclusions = (
+            {}
+            if override_service is None
+            else override_service.exclusion_snapshot(browser_selection_id=upload_id)
+        )
         rerun = requested_mode == "rerun_current_models" or existing is None
         if existing is not None and existing.input_payload.get("schema_version") != 7:
+            rerun = True
+        if (
+            existing is not None
+            and existing.input_payload.get("source_exclusions", {}) != source_exclusions
+        ):
             rerun = True
         requested_v19 = preflight.image_engine_policy is ImageImportEnginePolicy.VERIFIED_V19
         if existing is not None and (
@@ -722,6 +760,7 @@ def create_image_imports_router(
                     pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
                     canonical_sequence_numbers=canonical_numbers,
                     source_manifest_sha256=ready.manifest.checksum_sha256,
+                    source_exclusions=source_exclusions,
                     start_mode="rerun_current_models",
                     previous_job_id=None if existing is None else existing.id,
                     page_geometry_manifest=geometry_manifest,
@@ -848,8 +887,15 @@ def create_image_imports_router(
         current_overrides = (
             {} if override_service is None else override_service.snapshot(game_id=game_id)
         )
+        current_exclusions = (
+            {}
+            if override_service is None
+            else override_service.exclusion_snapshot(browser_selection_id=upload_id)
+        )
         sources: list[BrowserPageGeometryReviewSourceResponse] = []
         for checksum, raw in sorted(entries.items()):
+            if checksum in current_exclusions:
+                continue
             if not isinstance(raw, dict):
                 continue
             current_override = current_overrides.get(checksum)
@@ -906,12 +952,10 @@ def create_image_imports_router(
                     ),
                     geometry_origin=geometry_origin,
                     rejection_reason_code=(
-                        rejection_reason_code
-                        if isinstance(rejection_reason_code, str)
-                        else None
+                        rejection_reason_code if isinstance(rejection_reason_code, str) else None
                     ),
                     registration_diagnostics=(
-                        registration_diagnostics
+                        PageGeometryRegistrationDiagnostics.model_validate(registration_diagnostics)
                         if isinstance(registration_diagnostics, dict)
                         else None
                     ),
@@ -950,6 +994,7 @@ def create_image_imports_router(
             skipped_human_resolved_source_count=cast(
                 int, manifest["skippedHumanResolvedSourceCount"]
             ),
+            operator_excluded_source_count=len(current_exclusions),
             sources=sources,
         )
 
@@ -1389,6 +1434,92 @@ def create_image_imports_router(
             id=value.id,
             revision=value.revision,
             decision_checksum_sha256=value.decision_checksum_sha256,
+        )
+
+    @router.post(
+        "/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/source-exclusions",
+        response_model=BrowserPageSourceExclusionResponse,
+        status_code=status.HTTP_201_CREATED,
+        operation_id="excludeBrowserPageGeometrySource",
+        summary="Exclude one checksum-bound staged photo from a future image import",
+        responses=responses,
+    )
+    def exclude_browser_page_geometry_source(
+        upload_id: UUID,
+        preflight_job_id: UUID,
+        payload: BrowserPageSourceExclusionCreate,
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        job_service: Annotated[JobService, job_parameter],
+        override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
+    ) -> BrowserPageSourceExclusionResponse:
+        if override_service is None or resolved_artifact_root is None:
+            raise JobError(
+                "IMAGE_PAGE_SOURCE_EXCLUSION_UNAVAILABLE",
+                "Page source exclusions are not configured.",
+            )
+        ready = service.bind_ready_game(upload_id, payload.game_id)
+        descriptor = _geometry_manifest_descriptor(
+            job_service=job_service,
+            game_id=payload.game_id,
+            upload_id=upload_id,
+            preflight_job_id=preflight_job_id,
+            expected_checksum=payload.geometry_manifest_checksum_sha256,
+        )
+        if descriptor is None:
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_MANIFEST_UNAVAILABLE",
+                "The page geometry manifest is unavailable.",
+            )
+        source = next(
+            (
+                item
+                for item in ready.manifest.files
+                if item.checksum_sha256 == payload.source_checksum_sha256
+            ),
+            None,
+        )
+        if source is None or source.relative_path != payload.source_relative_path:
+            raise JobConflictError(
+                "IMAGE_PAGE_GEOMETRY_SOURCE_NOT_IN_STAGING",
+                "The source exclusion does not match this staging.",
+            )
+        manifest = _load_page_geometry_manifest(resolved_artifact_root, descriptor)
+        entries = manifest.get("entries")
+        raw_entry = (
+            entries.get(payload.source_checksum_sha256) if isinstance(entries, dict) else None
+        )
+        if (
+            not isinstance(raw_entry, dict)
+            or raw_entry.get("sourceRelativePath") != source.relative_path
+        ):
+            raise JobConflictError(
+                "IMAGE_PAGE_GEOMETRY_SOURCE_NOT_IN_PREFLIGHT",
+                "The source exclusion does not match this geometry preflight.",
+            )
+        current = override_service.exclusion_snapshot(browser_selection_id=upload_id)
+        if payload.source_checksum_sha256 not in current and len(current) + 1 >= len(
+            ready.manifest.files
+        ):
+            raise JobConflictError(
+                "IMAGE_PAGE_SOURCE_EXCLUSION_LAST_SOURCE",
+                "At least one staged source must remain in the import.",
+            )
+        value, created = override_service.exclude_source(
+            game_id=payload.game_id,
+            browser_selection_id=upload_id,
+            geometry_preflight_job_id=preflight_job_id,
+            source_manifest_checksum_sha256=ready.manifest.checksum_sha256,
+            geometry_manifest_checksum_sha256=payload.geometry_manifest_checksum_sha256,
+            source_checksum_sha256=payload.source_checksum_sha256,
+            source_relative_path=payload.source_relative_path,
+            actor=payload.actor,
+        )
+        count = len(override_service.exclusion_snapshot(browser_selection_id=upload_id))
+        return BrowserPageSourceExclusionResponse(
+            created=created,
+            id=value.id,
+            decision_checksum_sha256=value.decision_checksum_sha256,
+            operator_excluded_source_count=count,
         )
 
     @router.post(

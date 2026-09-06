@@ -780,6 +780,10 @@ export type BrowserImageImportPreflightResponse = {
    */
   newSequenceCount: number;
   /**
+   * Operatorexcludedsourcecount
+   */
+  operatorExcludedSourceCount?: number;
+  /**
    * Partialsourcecount
    */
   partialSourceCount: number;
@@ -1266,6 +1270,10 @@ export type BrowserPageGeometryReviewSourcesResponse = {
   geometryManifestChecksumSha256: string;
   job: JobResponse;
   /**
+   * Operatorexcludedsourcecount
+   */
+  operatorExcludedSourceCount?: number;
+  /**
    * Registeredsourcecount
    */
   registeredSourceCount: number;
@@ -1281,6 +1289,54 @@ export type BrowserPageGeometryReviewSourcesResponse = {
    * Sources
    */
   sources: Array<BrowserPageGeometryReviewSourceResponse>;
+};
+
+/**
+ * BrowserPageSourceExclusionCreate
+ */
+export type BrowserPageSourceExclusionCreate = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Geometrymanifestchecksumsha256
+   */
+  geometryManifestChecksumSha256: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+};
+
+/**
+ * BrowserPageSourceExclusionResponse
+ */
+export type BrowserPageSourceExclusionResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Decisionchecksumsha256
+   */
+  decisionChecksumSha256: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Operatorexcludedsourcecount
+   */
+  operatorExcludedSourceCount: number;
 };
 
 /**
@@ -6990,6 +7046,14 @@ export type PageGeometryPreflightJobPayload = {
    */
   sourceDisplayName?: string | null;
   /**
+   * Sourceexclusions
+   */
+  sourceExclusions?: {
+    [key: string]: {
+      [key: string]: string;
+    };
+  };
+  /**
    * Sourcemanifestsha256
    */
   sourceManifestSha256: string;
@@ -8531,6 +8595,14 @@ export type ResolvedBrowserImageImportJobPayload = {
    * Sourcedisplayname
    */
   sourceDisplayName: string;
+  /**
+   * Sourceexclusions
+   */
+  sourceExclusions?: {
+    [key: string]: {
+      [key: string]: string;
+    };
+  };
   /**
    * Sourcemanifestsha256
    */
@@ -16591,6 +16663,54 @@ export type ListBrowserPageGeometryReviewSourcesResponses = {
 
 export type ListBrowserPageGeometryReviewSourcesResponse =
   ListBrowserPageGeometryReviewSourcesResponses[keyof ListBrowserPageGeometryReviewSourcesResponses];
+
+export type ExcludeBrowserPageGeometrySourceData = {
+  body: BrowserPageSourceExclusionCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Preflight Job Id
+     */
+    preflight_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/source-exclusions';
+};
+
+export type ExcludeBrowserPageGeometrySourceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ExcludeBrowserPageGeometrySourceError =
+  ExcludeBrowserPageGeometrySourceErrors[keyof ExcludeBrowserPageGeometrySourceErrors];
+
+export type ExcludeBrowserPageGeometrySourceResponses = {
+  /**
+   * Successful Response
+   */
+  201: BrowserPageSourceExclusionResponse;
+};
+
+export type ExcludeBrowserPageGeometrySourceResponse =
+  ExcludeBrowserPageGeometrySourceResponses[keyof ExcludeBrowserPageGeometrySourceResponses];
 
 export type CreateBrowserPageGeometryOverrideData = {
   body: BrowserPageGeometryOverrideCreate;

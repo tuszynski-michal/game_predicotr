@@ -555,6 +555,49 @@ def test_browser_schema_v7_fingerprint_binds_guard_resolution_manifest(
     )
 
 
+def test_browser_schema_v7_fingerprint_binds_page_source_exclusions(
+    tmp_path: Path,
+) -> None:
+    _client_value, game_id, service, repository = _client(tmp_path)
+    repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
+        geometry_mode="structured_lattice_v3",
+        cell_asset_mode="virtual_default",
+        revision=9,
+    )
+    source = tmp_path / "source-exclusion-browser"
+    source.mkdir()
+    common = {
+        "game_id": game_id,
+        "source_directory": source,
+        "source_display_name": "source-exclusion-browser",
+        "pipeline_fingerprint": "a" * 64,
+        "source_manifest_sha256": "b" * 64,
+        "start_mode": "rerun_current_models",
+        "page_geometry_manifest": {
+            "checksumSha256": "c" * 64,
+            "relativePath": "data/page-geometry-manifests/test.json",
+            "preflightJobId": str(uuid4()),
+        },
+    }
+    without_exclusion = service.create_image_import_job(selection_id=uuid4(), **common)
+    exclusions = {
+        "d" * 64: {
+            "decisionChecksumSha256": "e" * 64,
+            "sourceRelativePath": "cut/seq_1-9.jpg",
+        }
+    }
+    with_exclusion = service.create_image_import_job(
+        selection_id=uuid4(), source_exclusions=exclusions, **common
+    )
+
+    assert without_exclusion.input_payload["source_exclusions"] == {}
+    assert with_exclusion.input_payload["source_exclusions"] == exclusions
+    assert (
+        without_exclusion.input_payload["pipeline_fingerprint"]
+        != with_exclusion.input_payload["pipeline_fingerprint"]
+    )
+
+
 def test_geometry_guard_report_reconstruction_job_is_pinned_to_source_import(
     tmp_path: Path,
 ) -> None:

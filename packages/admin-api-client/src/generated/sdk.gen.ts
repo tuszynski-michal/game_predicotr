@@ -183,6 +183,9 @@ import type {
   DownloadMobileReleaseApkData,
   DownloadMobileReleaseApkErrors,
   DownloadMobileReleaseApkResponses,
+  ExcludeBrowserPageGeometrySourceData,
+  ExcludeBrowserPageGeometrySourceErrors,
+  ExcludeBrowserPageGeometrySourceResponses,
   FinalizeBrowserImageSelectionData,
   FinalizeBrowserImageSelectionErrors,
   FinalizeBrowserImageSelectionResponses,
@@ -2847,6 +2850,32 @@ export const listBrowserPageGeometryReviewSources = <
   >({
     url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/review-sources',
     ...options,
+  });
+
+/**
+ * Exclude one checksum-bound staged photo from a future image import
+ */
+export const excludeBrowserPageGeometrySource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ExcludeBrowserPageGeometrySourceData, ThrowOnError>,
+): RequestResult<
+  ExcludeBrowserPageGeometrySourceResponses,
+  ExcludeBrowserPageGeometrySourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ExcludeBrowserPageGeometrySourceResponses,
+    ExcludeBrowserPageGeometrySourceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/source-exclusions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

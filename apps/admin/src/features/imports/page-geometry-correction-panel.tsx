@@ -43,7 +43,9 @@ import {
 
 type GeometryCorrectionClient = Pick<
   AdminApiClient,
-  'createBrowserPageGeometryOverride' | 'listBrowserPageGeometryReviewSources'
+  | 'createBrowserPageGeometryOverride'
+  | 'excludeBrowserPageGeometrySource'
+  | 'listBrowserPageGeometryReviewSources'
 >;
 
 type Point = PageGeometryPoint;
@@ -214,8 +216,10 @@ export function PageGeometryCorrectionPanel({
   >(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [excluding, setExcluding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [geometryManifestChecksum, setGeometryManifestChecksum] = useState('');
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
 
@@ -240,6 +244,7 @@ export function PageGeometryCorrectionPanel({
       setSavedCount(
         result.data.sources.filter((item) => item.savedSincePreflight).length,
       );
+      setGeometryManifestChecksum(result.data.geometryManifestChecksumSha256);
       setSources(
         result.data.sources.filter((item) => !item.savedSincePreflight),
       );
@@ -650,6 +655,57 @@ export function PageGeometryCorrectionPanel({
     }
   }
 
+  async function excludeCurrentSource() {
+    if (source === null || saving || submitting || excluding) return;
+    const confirmed = globalThis.confirm(
+      `Usunąć ${source.sourceRelativePath} z tego importu? Zdjęcie pozostanie w bezpiecznym stagingu, ale nie zostanie skopiowane ani przetworzone. Poprawioną wersję będzie można przesłać w nowym imporcie.`,
+    );
+    if (!confirmed) return;
+    setExcluding(true);
+    setError('');
+    setFeedback('Wykluczam zdjęcie z importu…');
+    try {
+      const result = await api.excludeBrowserPageGeometrySource(
+        uploadId,
+        preflightJobId,
+        {
+          actor: 'local-owner',
+          gameId,
+          geometryManifestChecksumSha256: geometryManifestChecksum,
+          sourceChecksumSha256: source.sourceChecksumSha256,
+          sourceRelativePath: source.sourceRelativePath,
+        },
+      );
+      if (result.error !== undefined || result.data === undefined) {
+        setError(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się usunąć zdjęcia z importu.',
+          ),
+        );
+        return;
+      }
+      setSources((current) =>
+        current.filter(
+          (item) => item.sourceChecksumSha256 !== source.sourceChecksumSha256,
+        ),
+      );
+      if (source.savedSincePreflight) {
+        setSavedCount((current) => Math.max(0, current - 1));
+      }
+      setSourceIndex((current) =>
+        Math.min(current, Math.max(0, sources.length - 2)),
+      );
+      setFeedback(
+        'Zdjęcie zostało wykluczone. Nie trafi do importu ani jego raportu roboczego.',
+      );
+    } catch {
+      setError('Nie udało się połączyć z lokalnym API wykluczeń importu.');
+    } finally {
+      setExcluding(false);
+    }
+  }
+
   return (
     <section
       className="pageGeometryCorrection"
@@ -883,6 +939,14 @@ export function PageGeometryCorrectionPanel({
                 type="button"
               >
                 {saving ? 'Zapisywanie…' : 'Zapisz i przejdź dalej'}
+              </button>
+              <button
+                className="dangerButton"
+                disabled={saving || submitting || excluding}
+                onClick={() => void excludeCurrentSource()}
+                type="button"
+              >
+                {excluding ? 'Usuwanie…' : 'Usuń z importu'}
               </button>
               <button
                 className="secondaryButton"

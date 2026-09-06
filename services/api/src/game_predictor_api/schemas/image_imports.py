@@ -137,9 +137,7 @@ class BrowserImageImportPreflightCreate(ApiModel):
 
 class BrowserPageGeometryPreflightCreate(ApiModel):
     game_id: UUID
-    page_registration_variant: Literal["standard_v0_10", "board_area_test"] = (
-        "standard_v0_10"
-    )
+    page_registration_variant: Literal["standard_v0_10", "board_area_test"] = "standard_v0_10"
 
 
 class BrowserCanonicalRange(ApiModel):
@@ -165,6 +163,7 @@ class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
     image_engine_policy: ImageImportEnginePolicy
     image_engine_policy_revision: int = Field(ge=0)
     geometry_preflight_required: bool
+    operator_excluded_source_count: int = Field(default=0, ge=0)
     upload_plan_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     skipped_canonical_ranges: list["BrowserCanonicalRange"] = Field(default_factory=list)
 
@@ -374,9 +373,7 @@ class ImageGeometryGuardResolutionManifestResponse(ApiModel):
 class PageGeometryRegistrationAttemptDiagnostic(ApiModel):
     reason_code: str = Field(min_length=1, max_length=128)
     feature_count: int = Field(ge=0, le=10000)
-    anchor_source_checksum_sha256: str | None = Field(
-        default=None, pattern=r"^[0-9a-f]{64}$"
-    )
+    anchor_source_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     target_feature_count: int | None = Field(default=None, ge=0)
     match_count: int | None = Field(default=None, ge=0)
     inlier_count: int | None = Field(default=None, ge=0)
@@ -413,6 +410,7 @@ class BrowserPageGeometryReviewSourcesResponse(ApiModel):
     registered_source_count: int = Field(ge=0)
     review_required_source_count: int = Field(ge=0)
     skipped_human_resolved_source_count: int = Field(ge=0)
+    operator_excluded_source_count: int = Field(default=0, ge=0)
     sources: list[BrowserPageGeometryReviewSourceResponse]
 
 
@@ -432,6 +430,21 @@ class BrowserPageGeometryOverrideResponse(ApiModel):
     id: UUID
     revision: int = Field(ge=1)
     decision_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class BrowserPageSourceExclusionCreate(ApiModel):
+    game_id: UUID
+    geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_relative_path: str = Field(min_length=1, max_length=1000)
+    actor: str = Field(min_length=1, max_length=200)
+
+
+class BrowserPageSourceExclusionResponse(ApiModel):
+    created: bool
+    id: UUID
+    decision_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    operator_excluded_source_count: int = Field(ge=1)
 
 
 class BrowserImageImportStart(ApiModel):

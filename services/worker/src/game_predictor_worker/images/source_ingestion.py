@@ -643,10 +643,41 @@ def _browser_manifest_bytes(job: Job, source: Path) -> bytes:
             "IMAGE_SEQUENCE_MANIFEST_INVALID",
             "The browser staging folder does not match the job source selection.",
         )
+    raw_exclusions = job.input_payload.get("source_exclusions", {})
+    if not isinstance(raw_exclusions, dict):
+        raise JobHandlerError(
+            "IMAGE_PAGE_SOURCE_EXCLUSIONS_INVALID",
+            "The pinned page source exclusions are invalid.",
+        )
+    exclusions: dict[str, str] = {}
+    for checksum, raw in raw_exclusions.items():
+        relative_path = raw.get("sourceRelativePath") if isinstance(raw, dict) else None
+        decision_checksum = raw.get("decisionChecksumSha256") if isinstance(raw, dict) else None
+        if (
+            not isinstance(checksum, str)
+            or len(checksum) != 64
+            or not isinstance(relative_path, str)
+            or not relative_path
+            or not isinstance(decision_checksum, str)
+            or len(decision_checksum) != 64
+        ):
+            raise JobHandlerError(
+                "IMAGE_PAGE_SOURCE_EXCLUSIONS_INVALID",
+                "The pinned page source exclusions are invalid.",
+            )
+        exclusions[checksum] = relative_path
+    manifest_sources = {item.checksum_sha256: item.relative_path for item in browser_manifest.files}
+    if any(manifest_sources.get(checksum) != path for checksum, path in exclusions.items()):
+        raise JobHandlerError(
+            "IMAGE_PAGE_SOURCE_EXCLUSIONS_STALE",
+            "A pinned page source exclusion does not match the browser manifest.",
+        )
     originals: list[dict[str, object]] = []
     images: list[SourceImage] = []
     seen_checksums: set[str] = set()
     for item in browser_manifest.files:
+        if item.checksum_sha256 in exclusions:
+            continue
         physical = _safe_source_path(source, item.stored_file_name)
         try:
             stat = physical.stat()
@@ -698,12 +729,20 @@ def _browser_manifest_bytes(job: Job, source: Path) -> bytes:
                 }
             )
         originals.append(entry)
+    if not originals:
+        raise JobHandlerError(
+            "IMAGE_PAGE_SOURCE_EXCLUSION_LAST_SOURCE",
+            "At least one staged source must remain in the import.",
+        )
     source_manifest = SourceManifest(
         images=tuple(images),
         issues=(),
         ignored_file_count=0,
     )
-    if browser_manifest.files[0].sequence_range is not None:
+    included_sources = tuple(
+        item for item in browser_manifest.files if item.checksum_sha256 not in exclusions
+    )
+    if included_sources[0].sequence_range is not None:
         originals.sort(
             key=lambda item: (
                 cast(int, item["sequenceRangeStart"]),
@@ -717,8 +756,15 @@ def _browser_manifest_bytes(job: Job, source: Path) -> bytes:
         "gameId": None if job.game_id is None else str(job.game_id),
         "jobId": str(job.id),
         "originals": originals,
+        "operatorExcludedSources": [
+            {
+                "checksumSha256": checksum,
+                "sourceRelativePath": exclusions[checksum],
+            }
+            for checksum in sorted(exclusions)
+        ],
         "sequenceRangeSource": (
-            "filename" if browser_manifest.files[0].sequence_range is not None else None
+            "filename" if included_sources[0].sequence_range is not None else None
         ),
         "sequenceRangeWarnings": [{"code": warning} for warning in browser_manifest.warnings],
         "schemaVersion": 1,

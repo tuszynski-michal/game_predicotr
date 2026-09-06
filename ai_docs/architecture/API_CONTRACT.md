@@ -6,6 +6,15 @@ last_updated: 2026-08-24
 
 # Kontrakty API i danych mobilnych
 
+## Wykluczenie źródła z browser importu
+
+`POST /api/v1/admin/image-imports/browser-selections/{uploadId}/geometry-preflights/{preflightJobId}/source-exclusions`
+przyjmuje grę, checksumę manifestu geometrii, checksumę i ścieżkę źródła oraz
+aktora. Operacja jest potwierdzana przez lokalny nagłówek celu, idempotentna dla
+tej samej decyzji i fail-closed dla obcego stagingu, manifestu lub pliku. Lista
+źródeł korekty zwraca `operatorExcludedSourceCount` i nie zwraca wykluczonych
+pozycji.
+
 ## Granica systemu
 
 HTTP API służy wyłącznie lokalnemu panelowi administracyjnemu. Aplikacja Android nie wywołuje żadnego endpointu i nie potrzebuje serwera do matching ani Target.

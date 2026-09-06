@@ -24,6 +24,7 @@ import {
   createBrowserImageSelection as createGeneratedBrowserImageSelection,
   planBrowserImageSelectionUpload as planGeneratedBrowserImageSelectionUpload,
   createBrowserPageGeometryOverride as createGeneratedBrowserPageGeometryOverride,
+  excludeBrowserPageGeometrySource as excludeGeneratedBrowserPageGeometrySource,
   createImageGeometryGuardDecisions as createGeneratedImageGeometryGuardDecisions,
   previewImageGeometryGuardDecision as previewGeneratedImageGeometryGuardDecision,
   listImageGeometryGuardBoards as listGeneratedImageGeometryGuardBoards,
@@ -230,6 +231,7 @@ import type {
   BrowserImageImportStart,
   BrowserImageImportJobPayload,
   BrowserPageGeometryOverrideCreate,
+  BrowserPageSourceExclusionCreate,
   BrowserPageGeometryPreflightCreate,
   BoardCellGeometryManualPreviewCommand,
   BoardCellGeometryManualResolutionCommand,
@@ -358,6 +360,8 @@ export type {
   BrowserImageImportStartResponse,
   BrowserPageGeometryOverrideCreate,
   BrowserPageGeometryOverrideResponse,
+  BrowserPageSourceExclusionCreate,
+  BrowserPageSourceExclusionResponse,
   BrowserPageGeometryPreflightCreate,
   BrowserPageGeometryPreflightResponse,
   BrowserPageGeometryReviewSourceResponse,
@@ -1209,6 +1213,19 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           `image-import:${body.gameId}:page-geometry-override`,
         ),
         path: { upload_id: uploadId },
+      }),
+    excludeBrowserPageGeometrySource: (
+      uploadId: string,
+      preflightJobId: string,
+      body: BrowserPageSourceExclusionCreate,
+    ) =>
+      excludeGeneratedBrowserPageGeometrySource({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-import:${body.gameId}:page-source-exclusion`,
+        ),
+        path: { preflight_job_id: preflightJobId, upload_id: uploadId },
       }),
     cancelBrowserImageSelection: (uploadId: string) =>
       cancelGeneratedBrowserImageSelection({

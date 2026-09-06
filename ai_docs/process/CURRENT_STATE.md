@@ -6,6 +6,18 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0482 — wykluczenie błędnego zdjęcia przed importem
+
+- `Korekta geometrii strony` udostępnia potwierdzaną akcję `Usuń z importu`.
+  Decyzja jest związana z grą, stagingiem, ścieżką i SHA-256 źródła; poprawiony
+  JPEG o nowej zawartości nie dziedziczy wykluczenia.
+- Niezmienny staging pozostaje fizycznie bez zmian. Bieżąca kolejka i raport
+  pomijają wykluczone źródło, a nowy job przypina snapshot decyzji do inputu i
+  fingerprintu. Worker nie kopiuje go do managed originals ani nie wykonuje na
+  nim geometrii, cropów lub inferencji.
+- Migracja addytywna `0097_page_source_exclusions` została zastosowana. Nie
+  zmieniono istniejących importów ani aktywnych jobów.
+
 ### TASK-0480 — odbiór zmian 5–6 września i poprawka efektów geometrii
 
 - Na działającym lokalnym panelu potwierdzono filtr `Kohorta aktywnego modelu`;

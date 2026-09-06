@@ -7,6 +7,16 @@ release: "0.7"
 
 # Architektura iteracyjnego importu
 
+## Wykluczenia źródeł przed managed originals
+
+`image_page_source_exclusions` przechowuje staging-scoped, checksum-bound
+decyzje operatora. API waliduje przynależność źródła do niezmiennego manifestu
+i ukończonego preflightu. Bieżący snapshot jest częścią fingerprintu nowego
+joba. Loader browser manifestu sprawdza ścieżkę oraz checksumę każdej decyzji i
+usuwa źródło przed utworzeniem managed manifestu; dalsza geometria, cropy i
+inferencja widzą już wyłącznie pozostałe pliki. Sam staging pozostaje niezmienny
+i może zostać usunięty dopiero przez dotychczasowy lifecycle retencji.
+
 ## Przepływ
 
 ```text

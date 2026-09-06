@@ -1406,6 +1406,12 @@
             "title": "Newsequencecount",
             "type": "integer"
           },
+          "operatorExcludedSourceCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Operatorexcludedsourcecount",
+            "type": "integer"
+          },
           "partialSourceCount": {
             "minimum": 0.0,
             "title": "Partialsourcecount",
@@ -2329,6 +2335,12 @@
           "job": {
             "$ref": "#/components/schemas/JobResponse"
           },
+          "operatorExcludedSourceCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Operatorexcludedsourcecount",
+            "type": "integer"
+          },
           "registeredSourceCount": {
             "minimum": 0.0,
             "title": "Registeredsourcecount",
@@ -2361,6 +2373,79 @@
           "sources"
         ],
         "title": "BrowserPageGeometryReviewSourcesResponse",
+        "type": "object"
+      },
+      "BrowserPageSourceExclusionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "geometryManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Geometrymanifestchecksumsha256",
+            "type": "string"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceRelativePath": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Sourcerelativepath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "geometryManifestChecksumSha256",
+          "sourceChecksumSha256",
+          "sourceRelativePath",
+          "actor"
+        ],
+        "title": "BrowserPageSourceExclusionCreate",
+        "type": "object"
+      },
+      "BrowserPageSourceExclusionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "decisionChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Decisionchecksumsha256",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "operatorExcludedSourceCount": {
+            "minimum": 1.0,
+            "title": "Operatorexcludedsourcecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "id",
+          "decisionChecksumSha256",
+          "operatorExcludedSourceCount"
+        ],
+        "title": "BrowserPageSourceExclusionResponse",
         "type": "object"
       },
       "BrowserReadySelectionResponse": {
@@ -12364,6 +12449,16 @@
             ],
             "title": "Sourcedisplayname"
           },
+          "sourceExclusions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Sourceexclusions",
+            "type": "object"
+          },
           "sourceManifestSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Sourcemanifestsha256",
@@ -15134,6 +15229,16 @@
             "minLength": 1,
             "title": "Sourcedisplayname",
             "type": "string"
+          },
+          "sourceExclusions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Sourceexclusions",
+            "type": "object"
           },
           "sourceManifestSha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -29765,6 +29870,104 @@
           }
         },
         "summary": "List pages requiring full-page geometry correction",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/source-exclusions": {
+      "post": {
+        "operationId": "excludeBrowserPageGeometrySource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "preflight_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Preflight Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserPageSourceExclusionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserPageSourceExclusionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Exclude one checksum-bound staged photo from a future image import",
         "tags": [
           "image-imports"
         ]

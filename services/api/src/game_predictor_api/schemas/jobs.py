@@ -238,6 +238,7 @@ class ResolvedBrowserImageImportJobPayload(ApiModel):
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     normalization_adapter_version: str | None = Field(default=None, max_length=150)
     source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_exclusions: dict[str, dict[str, str]] = Field(default_factory=dict)
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
     start_mode: Literal["reuse_exact", "rerun_current_models"]
     previous_job_id: UUID | None = None
@@ -383,6 +384,7 @@ class PageGeometryPreflightJobPayload(ApiModel):
     source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     page_registration_profile: dict[str, object]
     page_geometry_overrides: dict[str, object] = Field(default_factory=dict)
+    source_exclusions: dict[str, dict[str, str]] = Field(default_factory=dict)
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
 
 

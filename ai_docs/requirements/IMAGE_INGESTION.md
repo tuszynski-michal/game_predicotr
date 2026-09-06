@@ -6,6 +6,16 @@ last_updated: 2026-08-23
 
 # Import i rozpoznawanie zdjęć
 
+## Wykluczenie błędnego źródła przed importem
+
+Operator może z kolejki `Korekta geometrii strony` wykluczyć JPEG, którego
+lokalny crop jest niepoprawny. Operacja wymaga potwierdzenia i nie mutuje
+niezmiennego browser stagingu. Decyzja jest związana z konkretną grą,
+stagingiem, ścieżką oraz checksumą pliku. Źródło musi zniknąć z aktywnego
+raportu, managed originals i wszystkich dalszych etapów nowego importu.
+Poprawiony JPEG o innej checksummie może wejść przez nowy import. Co najmniej
+jedno źródło musi pozostać w stagingu.
+
 ## Cel
 
 Przetworzyć duży katalog zdjęć wykonanych telefonem, wyodrębnić z każdego zdjęcia do 9 layoutów, odczytać ich numery oraz rozpoznać symbole w komórkach. Zdjęcia i wycinki pozostają po stronie administracyjnej i nigdy nie trafiają do snapshotu mobilnego.

@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import cast
 from uuid import UUID
 
+import pytest
 from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellReviewError,
     SymbolCellReviewFilterState,
     SymbolCellReviewListFilter,
 )
@@ -11,6 +13,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewQueryRepository,
 )
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 
@@ -22,6 +25,20 @@ class _ScalarSession:
     def scalar(self, statement: object) -> UUID | None:
         self.statement = statement
         return self.result
+
+
+class _ExecuteSession:
+    def __init__(self) -> None:
+        self.calls: list[tuple[object, object | None]] = []
+
+    def execute(self, statement: object, parameters: object | None = None) -> None:
+        self.calls.append((statement, parameters))
+
+
+class _DatabaseFailure(Exception):
+    def __init__(self, sqlstate: str) -> None:
+        super().__init__(sqlstate)
+        self.sqlstate = sqlstate
 
 
 def _compiled(statement: object) -> str:
@@ -88,3 +105,44 @@ def test_active_model_cohort_filter_without_an_activation_is_empty() -> None:
 
     assert "false" in sql.lower()
     assert "verified_training_cohort_cells" not in sql
+
+
+def test_bounded_read_sets_a_transaction_local_parameterized_timeout() -> None:
+    session = _ExecuteSession()
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))
+
+    with repository.bounded_read(timeout_ms=5_000, operation="list"):
+        pass
+
+    statement, parameters = session.calls[0]
+    assert str(statement) == "SELECT set_config('statement_timeout', :timeout, true)"
+    assert parameters == {"timeout": "5000ms"}
+
+
+def test_bounded_read_translates_only_postgres_query_cancellation() -> None:
+    session = _ExecuteSession()
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))
+    timeout = DBAPIError("SELECT slow", {}, _DatabaseFailure("57014"), False)
+
+    with (
+        pytest.raises(SymbolCellReviewError) as raised,
+        repository.bounded_read(timeout_ms=15_000, operation="counts"),
+    ):
+        raise timeout
+
+    assert raised.value.code == "SYMBOL_CELL_REVIEW_QUERY_TIMEOUT"
+    assert raised.value.details == {"operation": "counts", "timeoutMs": 15_000}
+
+
+def test_bounded_read_does_not_mask_an_unrelated_database_error() -> None:
+    session = _ExecuteSession()
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))
+    database_error = DBAPIError("SELECT broken", {}, _DatabaseFailure("XX000"), False)
+
+    with (
+        pytest.raises(DBAPIError) as raised,
+        repository.bounded_read(timeout_ms=5_000, operation="list"),
+    ):
+        raise database_error
+
+    assert raised.value is database_error

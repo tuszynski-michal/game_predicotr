@@ -35,6 +35,8 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.remote_selection_materialization_lease_seconds == 60
     assert settings.remote_selection_materialization_max_attempts == 5
     assert settings.remote_selection_materialization_max_actions_per_cycle == 4
+    assert settings.symbol_review_page_statement_timeout_ms == 5_000
+    assert settings.symbol_review_counts_statement_timeout_ms == 15_000
 
 
 @pytest.mark.parametrize(
@@ -156,6 +158,14 @@ def test_defaults_are_loopback_only() -> None:
             {"GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT": "1001"},
             "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT",
         ),
+        (
+            {"GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS": "0"},
+            "GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS",
+        ),
+        (
+            {"GAME_PREDICTOR_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS": "invalid"},
+            "GAME_PREDICTOR_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS",
+        ),
     ],
 )
 def test_rejects_non_local_or_invalid_configuration(
@@ -255,3 +265,15 @@ def test_remote_transfer_limits_are_configurable() -> None:
     assert settings.remote_selection_materialization_max_actions_per_cycle == 6
     assert settings.remote_selection_recovery_enabled is False
     assert settings.remote_selection_recovery_limit == 25
+
+
+def test_symbol_review_statement_timeouts_are_configurable() -> None:
+    settings = ApiSettings.from_environment(
+        {
+            "GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS": "7000",
+            "GAME_PREDICTOR_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS": "19000",
+        }
+    )
+
+    assert settings.symbol_review_page_statement_timeout_ms == 7_000
+    assert settings.symbol_review_counts_statement_timeout_ms == 19_000

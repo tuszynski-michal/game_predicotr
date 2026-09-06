@@ -16,6 +16,8 @@ _DEFAULT_BROWSER_LAYOUT_IMPORT_MAX_BYTES = 20 * 1024 * 1024 * 1024
 _DEFAULT_IMAGE_SELECTION_MAX_BYTES = 128 * 1024 * 1024 * 1024
 _DEFAULT_REMOTE_SELECTION_MAX_FILE_BYTES = 32 * 1024 * 1024
 _DEFAULT_REMOTE_SELECTION_MAX_SESSION_BYTES = 20 * 1024 * 1024 * 1024
+_DEFAULT_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS = 5_000
+_DEFAULT_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS = 15_000
 _DEFAULT_REVIEW_CROP_ROOT = Path("artifacts/m5-reviewed-manual-merge-v16-full-preflight")
 _DEFAULT_REVIEW_SOURCE_ROOT = Path("examples/imgs")
 
@@ -58,6 +60,10 @@ class ApiSettings:
     remote_selection_materialization_max_actions_per_cycle: int = 4
     remote_selection_recovery_enabled: bool = True
     remote_selection_recovery_limit: int = 100
+    symbol_review_page_statement_timeout_ms: int = _DEFAULT_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS
+    symbol_review_counts_statement_timeout_ms: int = (
+        _DEFAULT_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS
+    )
     application_name: str = "Game Predictor Admin API"
     version: str = "0.1.0"
 
@@ -218,6 +224,20 @@ class ApiSettings:
             raise ConfigurationError(
                 "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT cannot exceed 1000."
             )
+        symbol_review_page_statement_timeout_ms = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS",
+                str(_DEFAULT_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS),
+            ),
+            variable_name=("GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS"),
+        )
+        symbol_review_counts_statement_timeout_ms = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS",
+                str(_DEFAULT_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS),
+            ),
+            variable_name=("GAME_PREDICTOR_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS"),
+        )
         return cls(
             host=host,
             port=port,
@@ -229,9 +249,7 @@ class ApiSettings:
             import_max_bytes=import_max_bytes,
             browser_layout_import_max_bytes=browser_layout_import_max_bytes,
             image_selection_max_bytes=image_selection_max_bytes,
-            semi_automatic_image_selection_enabled=(
-                semi_automatic_image_selection_enabled
-            ),
+            semi_automatic_image_selection_enabled=(semi_automatic_image_selection_enabled),
             storage_warning_gib=storage_warning_gib,
             storage_automatic_gc_gib=storage_automatic_gc_gib,
             storage_target_gib=storage_target_gib,
@@ -263,6 +281,8 @@ class ApiSettings:
             ),
             remote_selection_recovery_enabled=remote_selection_recovery_enabled,
             remote_selection_recovery_limit=remote_selection_recovery_limit,
+            symbol_review_page_statement_timeout_ms=(symbol_review_page_statement_timeout_ms),
+            symbol_review_counts_statement_timeout_ms=(symbol_review_counts_statement_timeout_ms),
         )
 
 

@@ -14494,6 +14494,10 @@ export type GetSymbolCellReviewCountsErrors = {
    * Invalid symbol-cell review query
    */
   422: ErrorResponse;
+  /**
+   * Symbol-cell review query timed out
+   */
+  503: ErrorResponse;
 };
 
 export type GetSymbolCellReviewCountsError =
@@ -14776,6 +14780,10 @@ export type ListSymbolCellReviewsErrors = {
    * Invalid symbol-cell review query
    */
   422: ErrorResponse;
+  /**
+   * Symbol-cell review query timed out
+   */
+  503: ErrorResponse;
 };
 
 export type ListSymbolCellReviewsError =

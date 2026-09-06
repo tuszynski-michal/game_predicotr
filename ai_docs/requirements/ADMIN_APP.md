@@ -445,7 +445,9 @@ jednym aktywnym odczycie strony, prefetchu i liczników. Zmiana gry, symbolu,
 stanu, confidence, rozmiaru strony albo kursora aktywnie anuluje nieaktualne
 requesty; identyfikator requestu i zakres filtra pozostają dodatkową ochroną
 przed klientem ignorującym sygnał. Świadome anulowanie nie jest prezentowane
-jako awaria połączenia. Zmiana ustawionej gry,
+jako awaria połączenia. Backend ogranicza pojedyncze zapytanie strony do 5
+sekund, a liczników do 15 sekund. Przekroczenie limitu zwraca kontrolowany błąd
+i nie może bezterminowo zajmować połączenia z pulą. Zmiana ustawionej gry,
 symbolu albo rozmiaru strony czyści strony, miniatury, zaznaczenie i wirtualny
 viewport. Jeśli istnieje jawne zaznaczenie,
 operator najpierw potwierdza jego wyczyszczenie. Widok zachowuje jawne przyciski

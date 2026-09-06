@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
@@ -74,6 +76,7 @@ class MemorySymbolCellReviewRepository:
         ready: bool = True,
         active_model_cohort_id: UUID | None = None,
         active_model_cohort_cell_ids: frozenset[UUID] = frozenset(),
+        bounded_read_error: SymbolCellReviewError | None = None,
     ) -> None:
         self.game_id = game_id
         self.symbol_id = symbol_id
@@ -84,6 +87,15 @@ class MemorySymbolCellReviewRepository:
         self.active_model_cohort_cell_ids = active_model_cohort_cell_ids
         self.filters: list[SymbolCellReviewListFilter] = []
         self.limits: list[int] = []
+        self.bounded_reads: list[tuple[int, str]] = []
+        self.bounded_read_error = bounded_read_error
+
+    @contextmanager
+    def bounded_read(self, *, timeout_ms: int, operation: str) -> Iterator[None]:
+        self.bounded_reads.append((timeout_ms, operation))
+        if self.bounded_read_error is not None:
+            raise self.bounded_read_error
+        yield
 
     def require_ready_game(self, game_id: UUID) -> int:
         if game_id != self.game_id:
@@ -884,6 +896,38 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
     assert all_symbols.status_code == 200
     assert len(all_symbols.json()["items"]) == 3
     assert repository.filters[-1].include_all_symbols is True
+    assert (5_000, "list") in repository.bounded_reads
+    assert (15_000, "counts") in repository.bounded_reads
+
+
+def test_query_service_uses_its_configured_page_and_count_timeouts() -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(),
+    )
+    service = SymbolCellReviewQueryService(
+        repository,
+        page_statement_timeout_ms=7_000,
+        counts_statement_timeout_ms=19_000,
+    )
+
+    service.list(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        state=SymbolCellReviewFilterState.ALL,
+        after_cursor=None,
+        before_cursor=None,
+    )
+    service.counts(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        state=SymbolCellReviewFilterState.ALL,
+        expected_catalog_revision=17,
+    )
+
+    assert repository.bounded_reads == [(7_000, "list"), (19_000, "counts")]
 
 
 def test_list_endpoint_filters_the_active_model_cohort(tmp_path: Path) -> None:
@@ -990,6 +1034,33 @@ def test_counts_endpoint_rejects_a_stale_catalog_revision(tmp_path: Path) -> Non
 
     assert response.status_code == 409
     assert response.json()["code"] == "SYMBOL_CELL_REVIEW_CATALOG_REVISION_STALE"
+
+
+def test_list_endpoint_returns_a_stable_service_unavailable_timeout(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(),
+        bounded_read_error=SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_QUERY_TIMEOUT",
+            "The symbol-cell review query exceeded its server-side time limit.",
+            details={"operation": "list", "timeoutMs": 5_000},
+        ),
+    )
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id)},
+        )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "code": "SYMBOL_CELL_REVIEW_QUERY_TIMEOUT",
+        "message": "The symbol-cell review query exceeded its server-side time limit.",
+        "details": {"operation": "list", "timeoutMs": 5_000},
+    }
 
 
 def test_list_endpoint_accepts_the_configured_maximum_and_rejects_a_larger_page(

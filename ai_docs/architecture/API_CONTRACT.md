@@ -199,6 +199,15 @@ rodzaju i anuluje poprzedni przy zmianie scope'u lub kursora. To ogranicza
 niepotrzebne połączenia po stronie przeglądarki; przerwanie zapytania SQL po
 rozłączeniu klienta jest osobną odpowiedzialnością backendu.
 
+Use case listy ustawia transakcyjny PostgreSQL `statement_timeout=5000ms`, a
+use case liczników `statement_timeout=15000ms`, zanim sprawdzi gotowość
+projekcji i wykona właściwy odczyt. Ustawienie jest parametryzowane przez
+`set_config(..., true)`, więc wygasa wraz z transakcją i nie wycieka przez pulę
+połączeń. SQLSTATE `57014` jest mapowany na HTTP 503 z kodem
+`SYMBOL_CELL_REVIEW_QUERY_TIMEOUT` oraz bezpiecznymi szczegółami `operation` i
+`timeoutMs`; pozostałe błędy bazy zachowują własną obsługę. Limity można
+nadpisać lokalnymi zmiennymi środowiskowymi opisanymi w instrukcji operatorskiej.
+
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
 Dla projekcji `ready` jawne wywołanie zachowuje gotowy odczyt podczas
 oczekiwania joba w kolejce. Dopiero worker po przejęciu joba przełącza stan do

@@ -25824,6 +25824,16 @@
               }
             },
             "description": "Invalid symbol-cell review query"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Symbol-cell review query timed out"
           }
         },
         "summary": "Count one revision-bound symbol-cell review filter independently",
@@ -26373,6 +26383,16 @@
               }
             },
             "description": "Invalid symbol-cell review query"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Symbol-cell review query timed out"
           }
         },
         "summary": "List current symbol-cell reviews with keyset pagination",

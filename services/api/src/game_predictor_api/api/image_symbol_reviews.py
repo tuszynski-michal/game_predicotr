@@ -90,6 +90,10 @@ ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     409: {"model": ErrorResponse, "description": "Cursor, readiness, or crop conflict"},
     422: {"model": ErrorResponse, "description": "Invalid symbol-cell review query"},
 }
+QUERY_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
+    **ERROR_RESPONSES,
+    503: {"model": ErrorResponse, "description": "Symbol-cell review query timed out"},
+}
 
 
 def create_image_symbol_reviews_router(
@@ -383,7 +387,7 @@ def create_image_symbol_reviews_router(
         response_model=SymbolCellReviewPageResponse,
         operation_id="listSymbolCellReviews",
         summary="List current symbol-cell reviews with keyset pagination",
-        responses=ERROR_RESPONSES,
+        responses=QUERY_ERROR_RESPONSES,
     )
     def list_symbol_cell_reviews(
         game_id: UUID,
@@ -416,7 +420,7 @@ def create_image_symbol_reviews_router(
         response_model=SymbolCellReviewCountSnapshotResponse,
         operation_id="getSymbolCellReviewCounts",
         summary="Count one revision-bound symbol-cell review filter independently",
-        responses=ERROR_RESPONSES,
+        responses=QUERY_ERROR_RESPONSES,
     )
     def get_symbol_cell_review_counts(
         game_id: UUID,

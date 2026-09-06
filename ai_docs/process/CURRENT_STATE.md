@@ -6,6 +6,17 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0498 — serwerowe limity odczytów Weryfikacji symboli
+
+- Cały use case listy ma transakcyjny PostgreSQL `statement_timeout` 5 s, a
+  liczników 15 s. Ustawienie `SET LOCAL` nie wycieka do kolejnego requestu z puli.
+- SQLSTATE `57014` zwraca kontrolowane HTTP 503
+  `SYMBOL_CELL_REVIEW_QUERY_TIMEOUT` z nazwą operacji i limitem; inne błędy
+  bazy nie są maskowane.
+- Limity są dodatnią konfiguracją środowiskową. Nie zmieniono schematu bazy;
+  natychmiastowe anulowanie SQL po rozłączeniu oraz optymalizacja liczników
+  pozostają kolejnymi taskami planu.
+
 ### TASK-0497 — anulowanie nieaktualnych odczytów Weryfikacji symboli
 
 - Lista, prefetch następnej strony i liczniki mają niezależne, pojedyncze

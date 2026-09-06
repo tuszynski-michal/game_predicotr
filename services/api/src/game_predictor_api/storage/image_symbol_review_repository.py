@@ -5,14 +5,16 @@ from __future__ import annotations
 import hashlib
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, TypedDict, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import Float, String, and_, delete, false, func, or_, select
+from sqlalchemy import Float, String, and_, delete, false, func, or_, select, text
 from sqlalchemy import cast as sql_cast
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql import ColumnElement, Select
 
@@ -132,6 +134,15 @@ def _iter_cell_insert_chunks(
         yield values[offset : offset + _MAX_CELL_ROWS_PER_INSERT]
 
 
+def _database_error_sqlstate(error: DBAPIError) -> str | None:
+    original = error.orig
+    sqlstate = getattr(original, "sqlstate", None)
+    if isinstance(sqlstate, str):
+        return sqlstate
+    pgcode = getattr(original, "pgcode", None)
+    return pgcode if isinstance(pgcode, str) else None
+
+
 class SymbolCellReviewBackfillError(RuntimeError):
     """Controlled integrity failure preventing a game from becoming ready."""
 
@@ -212,6 +223,25 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
 
     def __init__(self, session: Session) -> None:
         self._session = session
+
+    @contextmanager
+    def bounded_read(self, *, timeout_ms: int, operation: str) -> Iterator[None]:
+        if timeout_ms <= 0:
+            raise ValueError("Symbol-cell review statement timeout must be positive.")
+        try:
+            self._session.execute(
+                text("SELECT set_config('statement_timeout', :timeout, true)"),
+                {"timeout": f"{timeout_ms}ms"},
+            )
+            yield
+        except DBAPIError as error:
+            if _database_error_sqlstate(error) != "57014":
+                raise
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_QUERY_TIMEOUT",
+                "The symbol-cell review query exceeded its server-side time limit.",
+                details={"operation": operation, "timeoutMs": timeout_ms},
+            ) from error
 
     def require_ready_game(self, game_id: UUID) -> int:
         if self._session.get(GameModel, game_id) is None:

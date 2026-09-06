@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
@@ -26,6 +27,8 @@ from game_predictor_api.domain.image_symbol_reviews import (
 
 DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE = 500
 MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE = 2_500
+DEFAULT_SYMBOL_CELL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS = 5_000
+DEFAULT_SYMBOL_CELL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS = 15_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +41,13 @@ class SymbolCellReviewListSlice:
 
 
 class SymbolCellReviewQueryRepository(Protocol):
+    def bounded_read(
+        self,
+        *,
+        timeout_ms: int,
+        operation: str,
+    ) -> AbstractContextManager[None]: ...
+
     def require_ready_game(self, game_id: UUID) -> int: ...
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None: ...
@@ -71,8 +81,18 @@ class SymbolCellReviewQueryRepository(Protocol):
 class SymbolCellReviewQueryService:
     """Keep HTTP parsing and database pagination outside the domain layer."""
 
-    def __init__(self, repository: SymbolCellReviewQueryRepository) -> None:
+    def __init__(
+        self,
+        repository: SymbolCellReviewQueryRepository,
+        *,
+        page_statement_timeout_ms: int = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS,
+        counts_statement_timeout_ms: int = DEFAULT_SYMBOL_CELL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS,
+    ) -> None:
+        if page_statement_timeout_ms <= 0 or counts_statement_timeout_ms <= 0:
+            raise ValueError("Symbol-cell review statement timeouts must be positive.")
         self._repository = repository
+        self._page_statement_timeout_ms = page_statement_timeout_ms
+        self._counts_statement_timeout_ms = counts_statement_timeout_ms
 
     def list(
         self,
@@ -86,6 +106,35 @@ class SymbolCellReviewQueryService:
         max_confidence: float | None = None,
         limit: int = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
         include_all_symbols: bool = False,
+    ) -> SymbolCellReviewPage:
+        with self._repository.bounded_read(
+            timeout_ms=self._page_statement_timeout_ms,
+            operation="list",
+        ):
+            return self._list(
+                game_id=game_id,
+                symbol_id=symbol_id,
+                state=state,
+                after_cursor=after_cursor,
+                before_cursor=before_cursor,
+                min_confidence=min_confidence,
+                max_confidence=max_confidence,
+                limit=limit,
+                include_all_symbols=include_all_symbols,
+            )
+
+    def _list(
+        self,
+        *,
+        game_id: UUID,
+        symbol_id: UUID | None,
+        state: SymbolCellReviewFilterState,
+        after_cursor: str | None,
+        before_cursor: str | None,
+        min_confidence: float | None,
+        max_confidence: float | None,
+        limit: int,
+        include_all_symbols: bool,
     ) -> SymbolCellReviewPage:
         if not 1 <= limit <= MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE:
             raise SymbolCellReviewError(
@@ -170,6 +219,31 @@ class SymbolCellReviewQueryService:
         min_confidence: float | None = None,
         max_confidence: float | None = None,
         include_all_symbols: bool = False,
+    ) -> SymbolCellReviewCountSnapshot:
+        with self._repository.bounded_read(
+            timeout_ms=self._counts_statement_timeout_ms,
+            operation="counts",
+        ):
+            return self._counts(
+                game_id=game_id,
+                symbol_id=symbol_id,
+                state=state,
+                expected_catalog_revision=expected_catalog_revision,
+                min_confidence=min_confidence,
+                max_confidence=max_confidence,
+                include_all_symbols=include_all_symbols,
+            )
+
+    def _counts(
+        self,
+        *,
+        game_id: UUID,
+        symbol_id: UUID | None,
+        state: SymbolCellReviewFilterState,
+        expected_catalog_revision: int,
+        min_confidence: float | None,
+        max_confidence: float | None,
+        include_all_symbols: bool,
     ) -> SymbolCellReviewCountSnapshot:
         catalog_revision = self._repository.require_ready_game(game_id)
         model_cohort_id = (
@@ -380,6 +454,8 @@ class SymbolCellReviewQueryService:
 
 
 __all__ = [
+    "DEFAULT_SYMBOL_CELL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS",
+    "DEFAULT_SYMBOL_CELL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS",
     "DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE",
     "MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE",
     "SymbolCellReviewListSlice",

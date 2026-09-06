@@ -511,7 +511,13 @@ def create_app(
         with session_factory() as session:
             try:
                 yield SymbolCellReviewQueryService(
-                    SqlAlchemySymbolCellReviewQueryRepository(session)
+                    SqlAlchemySymbolCellReviewQueryRepository(session),
+                    page_statement_timeout_ms=(
+                        resolved_settings.symbol_review_page_statement_timeout_ms
+                    ),
+                    counts_statement_timeout_ms=(
+                        resolved_settings.symbol_review_counts_statement_timeout_ms
+                    ),
                 )
                 session.commit()
             except BaseException:
@@ -1457,6 +1463,8 @@ def create_app(
             "SYMBOL_CELL_REVIEW_BULK_TARGET_STALE",
         }:
             status_code = 409
+        elif error.code == "SYMBOL_CELL_REVIEW_QUERY_TIMEOUT":
+            status_code = 503
         return JSONResponse(
             status_code=status_code,
             content={"code": error.code, "message": error.message, "details": error.details},

@@ -1,15 +1,20 @@
 """Local Admin API for bounded, checksum-bound symbol-cell review reads."""
 
+import asyncio
 import hashlib
+import logging
 from collections.abc import Callable
+from contextlib import suppress
+from functools import partial
 from io import BytesIO
 from pathlib import Path, PurePosixPath
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse, Response
 from PIL import Image, UnidentifiedImageError
+from starlette.concurrency import run_in_threadpool
 
 from game_predictor_api.application.image_symbol_review_backfill import (
     SymbolCellReviewBackfillService,
@@ -94,6 +99,59 @@ QUERY_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     **ERROR_RESPONSES,
     503: {"model": ErrorResponse, "description": "Symbol-cell review query timed out"},
 }
+_DISCONNECT_POLL_INTERVAL_SECONDS = 0.05
+LOGGER = logging.getLogger(__name__)
+
+
+async def _run_disconnect_cancellable_query[QueryResult](
+    request: Request,
+    service: SymbolCellReviewQueryService,
+    query: Callable[[], QueryResult],
+) -> QueryResult:
+    """Run synchronous SQL off-loop and interrupt it after an ASGI disconnect."""
+
+    query_task = asyncio.create_task(run_in_threadpool(query))
+    disconnected = False
+    cancellation_sent = False
+    cancellation_failed = False
+    try:
+        while not query_task.done():
+            done, _pending = await asyncio.wait(
+                {query_task},
+                timeout=_DISCONNECT_POLL_INTERVAL_SECONDS,
+            )
+            if query_task in done:
+                break
+            if (
+                (disconnected or await request.is_disconnected())
+                and not cancellation_sent
+                and not cancellation_failed
+            ):
+                disconnected = True
+                # The worker may still be acquiring its connection. Retry so
+                # an early disconnect cannot leave a later query orphaned.
+                try:
+                    cancellation_sent = await run_in_threadpool(service.cancel_active_read)
+                except Exception:  # noqa: BLE001 - SQL timeout still bounds the detached read.
+                    cancellation_failed = True
+                    LOGGER.warning(
+                        "symbol_cell_review_disconnect_cancel_failed",
+                        exc_info=True,
+                    )
+        return cast(QueryResult, await query_task)
+    except asyncio.CancelledError:
+        # Keep the request-scoped Session alive until its worker stops using it.
+        # The statement timeout remains the final upper bound if cancel fails.
+        try:
+            await run_in_threadpool(service.cancel_active_read)
+        except Exception:  # noqa: BLE001 - SQL timeout still bounds dependency teardown.
+            LOGGER.warning(
+                "symbol_cell_review_task_cancel_failed",
+                exc_info=True,
+            )
+        with suppress(Exception, asyncio.CancelledError):
+            await asyncio.shield(query_task)
+        raise
 
 
 def create_image_symbol_reviews_router(
@@ -389,8 +447,9 @@ def create_image_symbol_reviews_router(
         summary="List current symbol-cell reviews with keyset pagination",
         responses=QUERY_ERROR_RESPONSES,
     )
-    def list_symbol_cell_reviews(
+    async def list_symbol_cell_reviews(
         game_id: UUID,
+        request: Request,
         service: Annotated[SymbolCellReviewQueryService, service_parameter],
         symbol_id: Annotated[str, Query(alias="symbolId")],
         state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL,
@@ -402,16 +461,21 @@ def create_image_symbol_reviews_router(
     ) -> SymbolCellReviewPageResponse:
         parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_page_response(
-            service.list(
-                game_id=game_id,
-                symbol_id=parsed_symbol_id,
-                state=state,
-                after_cursor=after_cursor,
-                before_cursor=before_cursor,
-                min_confidence=min_confidence,
-                max_confidence=max_confidence,
-                limit=limit,
-                include_all_symbols=include_all_symbols,
+            await _run_disconnect_cancellable_query(
+                request,
+                service,
+                partial(
+                    service.list,
+                    game_id=game_id,
+                    symbol_id=parsed_symbol_id,
+                    state=state,
+                    after_cursor=after_cursor,
+                    before_cursor=before_cursor,
+                    min_confidence=min_confidence,
+                    max_confidence=max_confidence,
+                    limit=limit,
+                    include_all_symbols=include_all_symbols,
+                ),
             )
         )
 
@@ -422,8 +486,9 @@ def create_image_symbol_reviews_router(
         summary="Count one revision-bound symbol-cell review filter independently",
         responses=QUERY_ERROR_RESPONSES,
     )
-    def get_symbol_cell_review_counts(
+    async def get_symbol_cell_review_counts(
         game_id: UUID,
+        request: Request,
         service: Annotated[SymbolCellReviewQueryService, service_parameter],
         symbol_id: Annotated[str, Query(alias="symbolId")],
         catalog_revision: Annotated[int, Query(alias="catalogRevision", ge=0)],
@@ -433,14 +498,19 @@ def create_image_symbol_reviews_router(
     ) -> SymbolCellReviewCountSnapshotResponse:
         parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_count_snapshot_response(
-            service.counts(
-                game_id=game_id,
-                symbol_id=parsed_symbol_id,
-                state=state,
-                expected_catalog_revision=catalog_revision,
-                min_confidence=min_confidence,
-                max_confidence=max_confidence,
-                include_all_symbols=include_all_symbols,
+            await _run_disconnect_cancellable_query(
+                request,
+                service,
+                partial(
+                    service.counts,
+                    game_id=game_id,
+                    symbol_id=parsed_symbol_id,
+                    state=state,
+                    expected_catalog_revision=catalog_revision,
+                    min_confidence=min_confidence,
+                    max_confidence=max_confidence,
+                    include_all_symbols=include_all_symbols,
+                ),
             )
         )
 

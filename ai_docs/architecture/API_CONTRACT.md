@@ -208,6 +208,16 @@ połączeń. SQLSTATE `57014` jest mapowany na HTTP 503 z kodem
 `timeoutMs`; pozostałe błędy bazy zachowują własną obsługę. Limity można
 nadpisać lokalnymi zmiennymi środowiskowymi opisanymi w instrukcji operatorskiej.
 
+Endpointy listy i liczników wykonują synchroniczny use case w threadpoolu oraz
+monitorują sygnał `http.disconnect`. Repozytorium requestu rejestruje aktywne
+driver connection wyłącznie na czas `bounded_read`; po rozłączeniu wywołuje
+thread-safe `psycopg.Connection.cancel_safe()`. Wczesny disconnect jest
+sprawdzany ponownie do chwili rejestracji połączenia albo zakończenia query.
+API czeka na zakończenie wątku przed zamknięciem sesji, więc anulowanie nie może
+zostać omyłkowo wysłane do następnego użytkownika pooled connection.
+`statement_timeout` pozostaje niezależną górną granicą, również gdy transportowe
+anulowanie nie powiedzie się.
+
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
 Dla projekcji `ready` jawne wywołanie zachowuje gotowy odczyt podczas
 oczekiwania joba w kolejce. Dopiero worker po przejęciu joba przełącza stan do

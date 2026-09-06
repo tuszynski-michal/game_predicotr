@@ -8,7 +8,8 @@ from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, TypedDict, cast
+from threading import Lock
+from typing import Any, Protocol, TypedDict, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import Float, String, and_, delete, false, func, or_, select, text
@@ -114,6 +115,11 @@ _TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES = (
     SymbolCellQualityIssue.GRID_ISSUE.value,
     SymbolCellQualityIssue.UNREADABLE.value,
 )
+
+
+class _SafeCancelableDriverConnection(Protocol):
+    def cancel_safe(self, *, timeout: float = 30.0) -> None: ...
+
 
 BackfillRow = tuple[
     ImageBoardSearchFastDocumentModel,
@@ -223,11 +229,22 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
 
     def __init__(self, session: Session) -> None:
         self._session = session
+        self._active_read_lock = Lock()
+        self._active_read_connection: _SafeCancelableDriverConnection | None = None
 
     @contextmanager
     def bounded_read(self, *, timeout_ms: int, operation: str) -> Iterator[None]:
         if timeout_ms <= 0:
             raise ValueError("Symbol-cell review statement timeout must be positive.")
+        sqlalchemy_connection = self._session.connection()
+        driver_connection = cast(
+            _SafeCancelableDriverConnection,
+            sqlalchemy_connection.connection.driver_connection,
+        )
+        with self._active_read_lock:
+            if self._active_read_connection is not None:
+                raise RuntimeError("A symbol-cell review read is already active in this session.")
+            self._active_read_connection = driver_connection
         try:
             self._session.execute(
                 text("SELECT set_config('statement_timeout', :timeout, true)"),
@@ -242,6 +259,20 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 "The symbol-cell review query exceeded its server-side time limit.",
                 details={"operation": operation, "timeoutMs": timeout_ms},
             ) from error
+        finally:
+            with self._active_read_lock:
+                if self._active_read_connection is driver_connection:
+                    self._active_read_connection = None
+
+    def cancel_active_read(self) -> bool:
+        """Thread-safely interrupt only the PostgreSQL read owned by this request."""
+
+        with self._active_read_lock:
+            connection = self._active_read_connection
+            if connection is None:
+                return False
+            connection.cancel_safe(timeout=1.0)
+            return True
 
     def require_ready_game(self, game_id: UUID) -> int:
         if self._session.get(GameModel, game_id) is None:

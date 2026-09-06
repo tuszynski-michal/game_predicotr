@@ -6,6 +6,18 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0499 — przerywanie SQL po rozłączeniu klienta
+
+- Endpointy listy i liczników Weryfikacji symboli wykonują synchroniczne query
+  poza pętlą ASGI i obserwują rozłączenie klienta co najwyżej co 50 ms.
+- Request-scoped repozytorium wiąże aktywny `bounded_read` z dokładnym
+  połączeniem psycopg. Disconnect uruchamia `cancel_safe()`; wyścig przed
+  rejestracją połączenia jest obsłużony ponowieniem, a zakończone połączenie nie
+  może zostać anulowane później.
+- Zwolnienie sesji następuje dopiero po zakończeniu wątku query. Limity 5/15 s i
+  kontrakt HTTP z TASK-0498 pozostają bez zmian. Optymalizacja licznika pozostaje
+  TASK-0500.
+
 ### TASK-0498 — serwerowe limity odczytów Weryfikacji symboli
 
 - Cały use case listy ma transakcyjny PostgreSQL `statement_timeout` 5 s, a

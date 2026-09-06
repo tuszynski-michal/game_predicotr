@@ -48,6 +48,8 @@ class SymbolCellReviewQueryRepository(Protocol):
         operation: str,
     ) -> AbstractContextManager[None]: ...
 
+    def cancel_active_read(self) -> bool: ...
+
     def require_ready_game(self, game_id: UUID) -> int: ...
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None: ...
@@ -93,6 +95,11 @@ class SymbolCellReviewQueryService:
         self._repository = repository
         self._page_statement_timeout_ms = page_statement_timeout_ms
         self._counts_statement_timeout_ms = counts_statement_timeout_ms
+
+    def cancel_active_read(self) -> bool:
+        """Cancel this request-scoped repository read, if it has reached PostgreSQL."""
+
+        return self._repository.cancel_active_read()
 
     def list(
         self,

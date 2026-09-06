@@ -28,11 +28,33 @@ class _ScalarSession:
 
 
 class _ExecuteSession:
-    def __init__(self) -> None:
+    def __init__(self, driver_connection: object | None = None) -> None:
         self.calls: list[tuple[object, object | None]] = []
+        self.driver_connection = driver_connection or _CancelableConnection()
 
     def execute(self, statement: object, parameters: object | None = None) -> None:
         self.calls.append((statement, parameters))
+
+    def connection(self) -> _SqlAlchemyConnection:
+        return _SqlAlchemyConnection(self.driver_connection)
+
+
+class _CancelableConnection:
+    def __init__(self) -> None:
+        self.cancel_timeouts: list[float] = []
+
+    def cancel_safe(self, *, timeout: float = 30.0) -> None:
+        self.cancel_timeouts.append(timeout)
+
+
+class _ConnectionFairy:
+    def __init__(self, driver_connection: object) -> None:
+        self.driver_connection = driver_connection
+
+
+class _SqlAlchemyConnection:
+    def __init__(self, driver_connection: object) -> None:
+        self.connection = _ConnectionFairy(driver_connection)
 
 
 class _DatabaseFailure(Exception):
@@ -117,6 +139,19 @@ def test_bounded_read_sets_a_transaction_local_parameterized_timeout() -> None:
     statement, parameters = session.calls[0]
     assert str(statement) == "SELECT set_config('statement_timeout', :timeout, true)"
     assert parameters == {"timeout": "5000ms"}
+
+
+def test_active_bounded_read_can_cancel_only_its_driver_connection() -> None:
+    driver_connection = _CancelableConnection()
+    session = _ExecuteSession(driver_connection)
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))
+
+    assert repository.cancel_active_read() is False
+    with repository.bounded_read(timeout_ms=5_000, operation="list"):
+        assert repository.cancel_active_read() is True
+    assert repository.cancel_active_read() is False
+
+    assert driver_connection.cancel_timeouts == [1.0]
 
 
 def test_bounded_read_translates_only_postgres_query_cancellation() -> None:

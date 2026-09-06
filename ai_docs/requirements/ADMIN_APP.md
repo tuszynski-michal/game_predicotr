@@ -447,7 +447,10 @@ requesty; identyfikator requestu i zakres filtra pozostają dodatkową ochroną
 przed klientem ignorującym sygnał. Świadome anulowanie nie jest prezentowane
 jako awaria połączenia. Backend ogranicza pojedyncze zapytanie strony do 5
 sekund, a liczników do 15 sekund. Przekroczenie limitu zwraca kontrolowany błąd
-i nie może bezterminowo zajmować połączenia z pulą. Zmiana ustawionej gry,
+i nie może bezterminowo zajmować połączenia z pulą. Rozłączenie klienta podczas
+odczytu listy albo liczników przerywa również odpowiadające mu zapytanie
+PostgreSQL; request kończy pracę wątku zapytania przed zwolnieniem własnej sesji.
+Zmiana ustawionej gry,
 symbolu albo rozmiaru strony czyści strony, miniatury, zaznaczenie i wirtualny
 viewport. Jeśli istnieje jawne zaznaczenie,
 operator najpierw potwierdza jego wyczyszczenie. Widok zachowuje jawne przyciski

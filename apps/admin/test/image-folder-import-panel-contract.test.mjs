@@ -131,11 +131,27 @@ test('requires explicit board resolutions and pins the sealed manifest to schema
   assert.match(actionsSource, /geometryGuardResolutionManifestChecksumSha256/);
   assert.match(guardResolutionSource, /Odtwórz diagnostykę plansz/);
   assert.match(guardResolutionSource, /Popraw pełną siatkę/);
-  assert.match(guardResolutionSource, /Oznacz jako częściową/);
-  assert.match(guardResolutionSource, /Odrzuć jako nieczytelną/);
-  assert.match(guardResolutionSource, /Generuj podgląd A\/B/);
-  assert.match(guardResolutionSource, /Plansze na zdjęciu/);
+  assert.match(guardResolutionSource, /Częściowa/);
+  assert.match(guardResolutionSource, /Odrzuć/);
+  assert.doesNotMatch(guardResolutionSource, /Generuj podgląd A\/B/);
+  assert.doesNotMatch(guardResolutionSource, /Plansze na zdjęciu/);
+  assert.doesNotMatch(
+    guardResolutionSource,
+    /previewImageGeometryGuardDecision/,
+  );
+  assert.match(guardResolutionSource, /geometryGuardDecisionPanel/);
   assert.match(guardResolutionSource, /Zapisz decyzję \(\$\{dirtyCount\}\)/);
+  assert.ok(
+    guardResolutionSource.indexOf('Zapisz decyzję (${dirtyCount})') <
+      guardResolutionSource.indexOf('Następne zdjęcie'),
+  );
+  const nextPhotoLabel = guardResolutionSource.indexOf('Następne zdjęcie');
+  const nextPhotoButton = guardResolutionSource.slice(
+    guardResolutionSource.lastIndexOf('<button', nextPhotoLabel),
+    nextPhotoLabel,
+  );
+  assert.match(nextPhotoButton, /setSourceChecksum/);
+  assert.doesNotMatch(nextPhotoButton, /saveDecision/);
   assert.match(guardResolutionSource, /zoomPercent/);
   assert.doesNotMatch(
     guardResolutionSource,

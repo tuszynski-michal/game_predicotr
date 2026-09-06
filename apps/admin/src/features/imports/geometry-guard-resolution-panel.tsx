@@ -7,7 +7,6 @@ import type {
   ImageGeometryGuardBoardContextResponse,
   ImageGeometryGuardDecisionResponse,
   ImageGeometryGuardDecisionItemCreate,
-  ImageGeometryGuardPreviewResponse,
   ImageGeometryGuardQueueResponse,
   ImageGeometryGuardResolutionManifestResponse,
   JobResponse,
@@ -50,7 +49,6 @@ type Disposition = 'corrected_full' | 'partial' | 'rejected';
 interface BoardDraft {
   readonly disposition: Disposition;
   readonly dirty: boolean;
-  readonly preview: ImageGeometryGuardPreviewResponse | null;
   readonly quad: GuardQuad | null;
   readonly unavailable: readonly number[];
 }
@@ -69,7 +67,6 @@ function initialBoardDraft(
   return {
     disposition: decision?.disposition ?? 'corrected_full',
     dirty: false,
-    preview: null,
     quad:
       guardQuadFromUnknown(decision?.symbolGridQuad) ?? initialGuardQuad(board),
     unavailable: decision?.unavailableCellIndices ?? [],
@@ -332,7 +329,6 @@ export function GeometryGuardResolutionPanel({
     updateDraft(activeBoard.positionIndex, (current) => ({
       ...current,
       dirty: true,
-      preview: null,
       quad:
         current.quad === null
           ? null
@@ -391,67 +387,6 @@ export function GeometryGuardResolutionPanel({
     }
   }
 
-  async function renderPreview() {
-    if (
-      activeBoard === null ||
-      activeDraft === null ||
-      activeDraft.quad === null ||
-      activeDraft.disposition === 'rejected'
-    )
-      return;
-    if (
-      activeDraft.disposition === 'partial' &&
-      (activeDraft.unavailable.length < 1 ||
-        activeDraft.unavailable.length > 14)
-    ) {
-      setError('Plansza częściowa wymaga od 1 do 14 niedostępnych pól.');
-      return;
-    }
-    setSaving(true);
-    setError('');
-    try {
-      const result = await api.previewImageGeometryGuardDecision(
-        uploadId,
-        guardJobId,
-        {
-          gameId,
-          positionIndex: activeBoard.positionIndex,
-          sourceChecksumSha256: activeBoard.sourceChecksumSha256,
-          symbolGridQuad: activeDraft.quad.map((point) => ({
-            x: Math.round(point.x),
-            y: Math.round(point.y),
-          })) as [
-            PageGeometryPoint,
-            PageGeometryPoint,
-            PageGeometryPoint,
-            PageGeometryPoint,
-          ],
-          unavailableCellIndices:
-            activeDraft.disposition === 'partial'
-              ? [...activeDraft.unavailable]
-              : [],
-        },
-      );
-      if (result.error !== undefined || result.data === undefined)
-        setError(
-          apiErrorMessage(
-            result.error,
-            'Nie udało się przygotować podglądu cropów.',
-          ),
-        );
-      else
-        updateDraft(activeBoard.positionIndex, (current) => ({
-          ...current,
-          dirty: true,
-          preview: result.data ?? null,
-        }));
-    } catch {
-      setError('Połączenie z podglądem cropów zostało przerwane.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function saveDecision() {
     if (queue === null || sourceChecksum === null || saving) return;
     const changed = sourceBoards
@@ -463,16 +398,14 @@ export function GeometryGuardResolutionPanel({
         (item): item is { board: typeof item.board; draft: BoardDraft } =>
           item.draft?.dirty === true,
       );
-    const withoutPreview = changed.find(
-      ({ draft }) =>
-        draft.disposition !== 'rejected' &&
-        (draft.quad === null || draft.preview === null),
+    const withoutGeometry = changed.find(
+      ({ draft }) => draft.disposition !== 'rejected' && draft.quad === null,
     );
-    if (withoutPreview !== undefined) {
-      setActivePosition(withoutPreview.board.positionIndex);
-      setSelectedPositions([withoutPreview.board.positionIndex]);
+    if (withoutGeometry !== undefined) {
+      setActivePosition(withoutGeometry.board.positionIndex);
+      setSelectedPositions([withoutGeometry.board.positionIndex]);
       setError(
-        `Plansza ${withoutPreview.board.sequenceNumber} wymaga aktualnego podglądu A/B przed zapisem.`,
+        `Plansza ${withoutGeometry.board.sequenceNumber} wymaga ustawienia pełnej geometrii przed zapisem.`,
       );
       return;
     }
@@ -683,16 +616,6 @@ export function GeometryGuardResolutionPanel({
         >
           Poprzednie zdjęcie
         </button>
-        <button
-          className="secondaryButton"
-          disabled={saving || activeSourceIndex >= sources.length - 1}
-          onClick={() =>
-            setSourceChecksum(sources[activeSourceIndex + 1] ?? sourceChecksum)
-          }
-          type="button"
-        >
-          Następne zdjęcie
-        </button>
         <span className="geometryGuardZoom" aria-label="Powiększenie zdjęcia">
           <button
             className="secondaryButton"
@@ -752,7 +675,12 @@ export function GeometryGuardResolutionPanel({
                   return (
                     <g
                       key={board.positionIndex}
-                      onClick={() => chooseBoard(board.positionIndex, false)}
+                      onClick={(event) =>
+                        chooseBoard(
+                          board.positionIndex,
+                          event.ctrlKey || event.metaKey,
+                        )
+                      }
                     >
                       <polygon
                         className={`geometryGuardBoard${
@@ -824,237 +752,164 @@ export function GeometryGuardResolutionPanel({
             ) : null}
           </div>
         </div>
-        <div className="geometryGuardControls">
-          <fieldset>
-            <legend>Plansze na zdjęciu</legend>
-            {sourceBoards.map((board) => {
-              const decision = decisions.get(
-                boardKey(sourceChecksum, board.positionIndex),
-              );
-              const boardDraft = drafts.get(
-                boardKey(sourceChecksum, board.positionIndex),
-              );
-              return (
-                <label key={board.positionIndex}>
-                  <input
-                    checked={selectedPositions.includes(board.positionIndex)}
-                    onChange={() =>
-                      chooseBoard(
-                        board.positionIndex,
-                        activeDraft.disposition === 'rejected',
-                      )
-                    }
-                    type="checkbox"
-                  />{' '}
-                  #{board.positionIndex + 1} · {board.sequenceNumber}{' '}
-                  {decision
-                    ? `· ${decision.disposition} r${decision.revision}`
-                    : board.requiresDecision
-                      ? '· wymaga decyzji'
-                      : '· wynik automatu'}
-                  {boardDraft?.dirty ? ' · zmieniona' : ''}
-                </label>
-              );
-            })}
-          </fieldset>
-          <fieldset>
-            <legend>Decyzja dla planszy {activeBoard.sequenceNumber}</legend>
-            <label>
-              <input
-                checked={activeDraft.disposition === 'corrected_full'}
-                onChange={() => {
-                  updateDraft(activeBoard.positionIndex, (current) => ({
+      </div>
+      <section className="geometryGuardDecisionPanel">
+        <fieldset className="geometryGuardDecisionChoices">
+          <legend>Decyzja dla planszy {activeBoard.sequenceNumber}</legend>
+          <label>
+            <input
+              checked={activeDraft.disposition === 'corrected_full'}
+              onChange={() => {
+                updateDraft(activeBoard.positionIndex, (current) => ({
+                  ...current,
+                  dirty: true,
+                  disposition: 'corrected_full',
+                  unavailable: [],
+                }));
+                setSelectedPositions([activeBoard.positionIndex]);
+              }}
+              type="radio"
+            />
+            Popraw pełną siatkę
+          </label>
+          <label>
+            <input
+              checked={activeDraft.disposition === 'partial'}
+              onChange={() => {
+                updateDraft(activeBoard.positionIndex, (current) => ({
+                  ...current,
+                  dirty: true,
+                  disposition: 'partial',
+                }));
+                setSelectedPositions([activeBoard.positionIndex]);
+              }}
+              type="radio"
+            />
+            Częściowa
+          </label>
+          <label>
+            <input
+              checked={activeDraft.disposition === 'rejected'}
+              onChange={() => {
+                const positions = selectedPositions.includes(
+                  activeBoard.positionIndex,
+                )
+                  ? selectedPositions
+                  : [activeBoard.positionIndex];
+                for (const position of positions) {
+                  updateDraft(position, (current) => ({
                     ...current,
                     dirty: true,
-                    disposition: 'corrected_full',
-                    preview: null,
-                    unavailable: [],
+                    disposition: 'rejected',
                   }));
-                  setSelectedPositions([activeBoard.positionIndex]);
-                }}
-                type="radio"
-              />{' '}
-              Popraw pełną siatkę
-            </label>
-            <label>
-              <input
-                checked={activeDraft.disposition === 'partial'}
-                onChange={() => {
-                  updateDraft(activeBoard.positionIndex, (current) => ({
-                    ...current,
-                    dirty: true,
-                    disposition: 'partial',
-                    preview: null,
-                  }));
-                  setSelectedPositions([activeBoard.positionIndex]);
-                }}
-                type="radio"
-              />{' '}
-              Oznacz jako częściową
-            </label>
-            <label>
-              <input
-                checked={activeDraft.disposition === 'rejected'}
-                onChange={() => {
-                  const positions = selectedPositions.includes(
-                    activeBoard.positionIndex,
-                  )
-                    ? selectedPositions
-                    : [activeBoard.positionIndex];
-                  for (const position of positions) {
-                    updateDraft(position, (current) => ({
+                }
+              }}
+              type="radio"
+            />
+            Odrzuć
+          </label>
+        </fieldset>
+        <p className="geometryGuardDecisionStatus">
+          #{activeBoard.positionIndex + 1} ·{' '}
+          {activeBoard.requiresDecision
+            ? `wymaga decyzji · ${activeBoard.reasonCodes.join(', ')}`
+            : 'wynik automatu — możesz poprawić'}
+          {existing ? ` · rewizja ${existing.revision}` : ''}
+          {activeDraft.dirty ? ' · zmieniona' : ''}
+        </p>
+        {activeDraft.disposition === 'partial' ? (
+          <div className="geometryGuardMask">
+            <p>Kliknij brakujące pola (1–14). „?” oznacza brak źródła.</p>
+            <div className="geometryGuardCellButtons">
+              {Array.from({ length: 15 }, (_, index) => (
+                <button
+                  aria-pressed={activeDraft.unavailable.includes(index)}
+                  key={index}
+                  onClick={() => {
+                    updateDraft(activeBoard.positionIndex, (current) => ({
                       ...current,
                       dirty: true,
-                      disposition: 'rejected',
-                      preview: null,
+                      unavailable: toggleUnavailableCell(
+                        current.unavailable,
+                        index,
+                      ),
                     }));
-                  }
-                }}
-                type="radio"
-              />{' '}
-              Odrzuć jako nieczytelną
-            </label>
-          </fieldset>
-          <p className="curatedImportStatus">
-            {activeBoard.requiresDecision
-              ? `Powody bramki: ${activeBoard.reasonCodes.join(', ')}`
-              : 'Plansza przeszła automat, ale możesz jawnie poprawić jej siatkę.'}
-            {existing ? ` · ostatnia rewizja ${existing.revision}` : ''}
-          </p>
-          {activeDraft.disposition === 'partial' ? (
-            <div className="geometryGuardMask">
-              <p>
-                Kliknij brakujące pola (1–14). „?” oznacza source_unavailable.
-              </p>
-              <div className="geometryGuardCellButtons">
-                {Array.from({ length: 15 }, (_, index) => (
-                  <button
-                    aria-pressed={activeDraft.unavailable.includes(index)}
-                    key={index}
-                    onClick={() => {
-                      updateDraft(activeBoard.positionIndex, (current) => ({
-                        ...current,
-                        dirty: true,
-                        preview: null,
-                        unavailable: toggleUnavailableCell(
-                          current.unavailable,
-                          index,
-                        ),
-                      }));
-                    }}
-                    type="button"
-                  >
-                    {activeDraft.unavailable.includes(index) ? '?' : index + 1}
-                  </button>
-                ))}
-              </div>
-              <div className="geometryGuardGroupButtons">
-                {Array.from({ length: 3 }, (_, row) => (
-                  <button
-                    className="secondaryButton"
-                    key={`r${row}`}
-                    onClick={() => {
-                      updateDraft(activeBoard.positionIndex, (current) => ({
-                        ...current,
-                        dirty: true,
-                        preview: null,
-                        unavailable: toggleUnavailableGroup(
-                          current.unavailable,
-                          Array.from(
-                            { length: 5 },
-                            (_value, column) => row * 5 + column,
-                          ),
-                        ),
-                      }));
-                    }}
-                    type="button"
-                  >
-                    Rząd {row + 1}
-                  </button>
-                ))}
-                {Array.from({ length: 5 }, (_, column) => (
-                  <button
-                    className="secondaryButton"
-                    key={`c${column}`}
-                    onClick={() => {
-                      updateDraft(activeBoard.positionIndex, (current) => ({
-                        ...current,
-                        dirty: true,
-                        preview: null,
-                        unavailable: toggleUnavailableGroup(
-                          current.unavailable,
-                          [column, column + 5, column + 10],
-                        ),
-                      }));
-                    }}
-                    type="button"
-                  >
-                    Kol. {column + 1}
-                  </button>
-                ))}
-              </div>
+                  }}
+                  type="button"
+                >
+                  {activeDraft.unavailable.includes(index) ? '?' : index + 1}
+                </button>
+              ))}
             </div>
-          ) : null}
-          <div className="importActionButtons">
-            {activeDraft.disposition !== 'rejected' ? (
-              <button
-                className="secondaryButton"
-                disabled={saving || activeDraft.quad === null}
-                onClick={() => void renderPreview()}
-                type="button"
-              >
-                Generuj podgląd A/B
-              </button>
-            ) : null}
-            <button
-              className="primaryButton"
-              disabled={saving || dirtyCount === 0}
-              onClick={() => void saveDecision()}
-              type="button"
-            >
-              {saving ? 'Zapisywanie…' : `Zapisz decyzję (${dirtyCount})`}
-            </button>
+            <div className="geometryGuardGroupButtons">
+              {Array.from({ length: 3 }, (_, row) => (
+                <button
+                  className="secondaryButton"
+                  key={`r${row}`}
+                  onClick={() => {
+                    updateDraft(activeBoard.positionIndex, (current) => ({
+                      ...current,
+                      dirty: true,
+                      unavailable: toggleUnavailableGroup(
+                        current.unavailable,
+                        Array.from(
+                          { length: 5 },
+                          (_value, column) => row * 5 + column,
+                        ),
+                      ),
+                    }));
+                  }}
+                  type="button"
+                >
+                  Rząd {row + 1}
+                </button>
+              ))}
+              {Array.from({ length: 5 }, (_, column) => (
+                <button
+                  className="secondaryButton"
+                  key={`c${column}`}
+                  onClick={() => {
+                    updateDraft(activeBoard.positionIndex, (current) => ({
+                      ...current,
+                      dirty: true,
+                      unavailable: toggleUnavailableGroup(current.unavailable, [
+                        column,
+                        column + 5,
+                        column + 10,
+                      ]),
+                    }));
+                  }}
+                  type="button"
+                >
+                  Kol. {column + 1}
+                </button>
+              ))}
+            </div>
           </div>
+        ) : null}
+        <div className="geometryGuardDecisionActions">
+          <button
+            className="primaryButton"
+            disabled={saving || dirtyCount === 0}
+            onClick={() => void saveDecision()}
+            type="button"
+          >
+            {saving ? 'Zapisywanie…' : `Zapisz decyzję (${dirtyCount})`}
+          </button>
+          <button
+            className="secondaryButton"
+            disabled={saving || activeSourceIndex >= sources.length - 1}
+            onClick={() =>
+              setSourceChecksum(
+                sources[activeSourceIndex + 1] ?? sourceChecksum,
+              )
+            }
+            type="button"
+          >
+            Następne zdjęcie
+          </button>
         </div>
-      </div>
-      {activeDraft.preview !== null ? (
-        <section className="geometryGuardPreview">
-          <h4>Podgląd 15 cropów A/B</h4>
-          <div className="geometryGuardPreviewGrid">
-            {activeDraft.preview.cells.map((cell) => (
-              <article key={cell.cellIndex}>
-                <strong>{cell.cellIndex + 1}</strong>
-                {cell.sourceUnavailable ? (
-                  <span className="geometryGuardUnavailable">?</span>
-                ) : (
-                  <>
-                    <div>
-                      <small>Propozycja</small>
-                      {cell.proposedDataUrl ? (
-                        <img
-                          alt={`Propozycja pola ${cell.cellIndex + 1}`}
-                          src={cell.proposedDataUrl}
-                        />
-                      ) : (
-                        <span>brak</span>
-                      )}
-                    </div>
-                    <div>
-                      <small>Po korekcie</small>
-                      {cell.currentDataUrl ? (
-                        <img
-                          alt={`Korekta pola ${cell.cellIndex + 1}`}
-                          src={cell.currentDataUrl}
-                        />
-                      ) : null}
-                    </div>
-                  </>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      </section>
       <footer className="geometryGuardSeal">
         <p>
           {queue.unresolvedCount === 0

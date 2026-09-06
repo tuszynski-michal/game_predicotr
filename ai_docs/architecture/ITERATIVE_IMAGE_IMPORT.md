@@ -402,11 +402,15 @@ sloty raportu dla źródeł z wyjątkami wraz z geometrią potrzebną do edycji,
 append-only rewizje. Czerwone sloty muszą otrzymać decyzję, natomiast zielone
 mogą dostać jawną korektę operatora. Edytor trzyma oddzielny szkic każdego
 slotu i wysyła jedną atomową partię dopiero po kliknięciu zapisu; nawigacja nie
-jest operacją mutującą. Obraz źródła jest serwowany wyłącznie po ponownym
-sprawdzeniu stagingu, rozmiaru i SHA-256.
+jest operacją mutującą. Planszę wybiera się na overlayu pełnego zdjęcia;
+minimalistyczne kontrolki pod viewerem nie zajmują jego szerokości. Frontend
+nie wymaga osobnego podglądu A/B przed zapisem widocznej geometrii. Obraz
+źródła jest serwowany wyłącznie po ponownym sprawdzeniu stagingu, rozmiaru i
+SHA-256.
 
-Podgląd decyzji jest czystą, ograniczoną operacją API: rektyfikuje wskazany
-quad do siatki 5×3 w pamięci, porównuje go z propozycją raportu, pomija komórki
+Diagnostyczny podgląd decyzji pozostaje czystą, ograniczoną operacją API i nie
+jest częścią wymaganej ścieżki Admina. Rektyfikuje wskazany quad do siatki 5×3
+w pamięci, porównuje go z propozycją raportu, pomija komórki
 maski częściowej i zwraca małe JPEG data URLs. Nie zapisuje plików, obserwacji
 ani geometrii. Zapis decyzji oraz zamknięcie manifestu pozostają osobnymi
 operacjami, a zmiana rewizji po zamknięciu wymaga ponownego seal i nowej

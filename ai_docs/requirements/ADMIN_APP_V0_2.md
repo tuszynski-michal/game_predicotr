@@ -164,12 +164,16 @@ wymagają decyzji. Każdy widoczny slot jest wybieralny i edytowalny, również
 gdy automat uznał go za poprawny albo ma już zapisaną decyzję. Przełączanie
 plansz i zdjęć zachowuje lokalne szkice, ale nie zapisuje ich; dopiero
 `Zapisz decyzję` utrwala atomowo wszystkie zmienione sloty bieżącego zdjęcia.
-Pełna lub częściowa korekta wymaga aktualnego podglądu 15 cropów A/B; w trybie
+Widoczny overlay pełnego zdjęcia jest podstawą korekty i zapis nie wymaga
+osobnego generowania 15 cropów A/B. Planszę wybiera się bezpośrednio na
+obrazie, a małe kontrolki decyzji znajdują się pod viewerem. W trybie
 częściowym pola można przełączać pojedynczo, całymi rzędami albo kolumnami, a
-`?` oznacza wyłącznie `source_unavailable`. Odrzucenie może objąć atomowo kilka
-zaznaczonych plansz jednego zdjęcia. Zamknięcie manifestu i uruchomienie nowego
-importu są dwiema oddzielnymi, jawnymi akcjami; panel nigdy nie dobiera decyzji
-ani nie wznawia failed joba automatycznie.
+`?` oznacza wyłącznie `source_unavailable`. `Zapisz decyzję` oraz `Następne
+zdjęcie` są sąsiednimi, lecz niezależnymi akcjami; nawigacja nigdy nie zapisuje.
+Odrzucenie może objąć atomowo kilka wybranych plansz jednego zdjęcia.
+Zamknięcie manifestu i uruchomienie nowego importu są dwiema oddzielnymi,
+jawnymi akcjami; panel nigdy nie dobiera decyzji ani nie wznawia failed joba
+automatycznie.
 
 Techniczna wersja datasetu, staging, walidacja i raport integralności nadal
 istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layoutów`.

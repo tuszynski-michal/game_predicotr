@@ -7013,10 +7013,7 @@ div.imageJobInlineError {
 }
 
 .geometryGuardWorkspace {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(220px, 0.52fr);
-  gap: 14px;
-  align-items: start;
+  min-width: 0;
 }
 
 .geometryGuardCanvasViewport {
@@ -7109,28 +7106,73 @@ div.imageJobInlineError {
   vector-effect: non-scaling-stroke;
 }
 
-.geometryGuardControls,
-.geometryGuardControls fieldset,
 .geometryGuardMask,
-.geometryGuardPreview {
+.geometryGuardDecisionPanel {
   display: grid;
   gap: 10px;
 }
 
-.geometryGuardControls fieldset {
-  margin: 0;
-  padding: 8px;
+.geometryGuardDecisionPanel {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
+  background: rgba(4, 11, 20, 0.54);
 }
 
-.geometryGuardControls label {
+.geometryGuardDecisionChoices {
   display: flex;
-  align-items: flex-start;
-  gap: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.geometryGuardDecisionChoices legend {
+  float: left;
+  margin-right: 10px;
+  padding: 0;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.geometryGuardDecisionChoices label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.geometryGuardDecisionChoices input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.geometryGuardDecisionStatus {
+  overflow: hidden;
   color: var(--muted);
   font-size: 0.72rem;
-  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.geometryGuardDecisionActions {
+  display: flex;
+  gap: 7px;
+  justify-content: flex-end;
+}
+
+.geometryGuardDecisionActions button {
+  min-height: 34px;
+  padding: 6px 10px;
 }
 
 .geometryGuardCellButtons {
@@ -7153,49 +7195,6 @@ div.imageJobInlineError {
   background: rgba(190, 24, 93, 0.28);
 }
 
-.geometryGuardPreviewGrid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(125px, 1fr));
-  gap: 8px;
-  overflow-x: auto;
-}
-
-.geometryGuardPreviewGrid article {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
-  min-width: 125px;
-  padding: 7px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(4, 11, 20, 0.7);
-}
-
-.geometryGuardPreviewGrid article > strong {
-  grid-column: 1 / -1;
-}
-
-.geometryGuardPreviewGrid article div {
-  display: grid;
-  gap: 3px;
-}
-
-.geometryGuardPreviewGrid img {
-  display: block;
-  width: 100%;
-  border-radius: 4px;
-}
-
-.geometryGuardUnavailable {
-  grid-column: 1 / -1;
-  display: grid;
-  min-height: 76px;
-  place-items: center;
-  color: #fecdd3;
-  font-size: 2rem;
-  font-weight: 900;
-}
-
 .geometryGuardSeal {
   justify-content: space-between;
   padding-top: 12px;
@@ -7203,8 +7202,20 @@ div.imageJobInlineError {
 }
 
 @media (max-width: 900px) {
-  .geometryGuardWorkspace {
+  .geometryGuardDecisionPanel {
     grid-template-columns: 1fr;
+  }
+
+  .geometryGuardDecisionStatus {
+    white-space: normal;
+  }
+
+  .geometryGuardDecisionActions {
+    justify-content: stretch;
+  }
+
+  .geometryGuardDecisionActions button {
+    flex: 1;
   }
 }
 

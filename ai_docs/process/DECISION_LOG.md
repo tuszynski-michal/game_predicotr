@@ -8061,3 +8061,18 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** nowe manifesty używają schema v2, loader zachowuje v1, a
   nawigacja w Adminie przechowuje tylko lokalny szkic i nigdy nie zapisuje go
   bez przycisku `Zapisz decyzję`.
+
+## D-368 — Overlay pełnego zdjęcia jest wystarczającym podglądem korekty guard
+
+- **Status:** accepted
+- **Date:** 2026-09-06
+- **Decision:** Admin nie wymaga wygenerowania 15 cropów A/B przed zapisem
+  korekty bramki importu. Operator ocenia i przesuwa siatkę bezpośrednio na
+  powiększalnym, checksumowanym zdjęciu. Diagnostyczny endpoint preview
+  pozostaje dostępny w API, ale nie jest częścią obowiązkowej ścieżki UI.
+- **Rationale:** dodatkowy request i osobna galeria powielały informację
+  widoczną na overlayu, blokowały szybkie rozliczanie wielu plansz i nie
+  uczestniczyły w kontrakcie zapisu decyzji.
+- **Safety:** zapis nadal wymaga kompletnego quada dla decyzji full/partial,
+  aktualnej checksummy raportu oraz jawnego kliknięcia `Zapisz decyzję`.
+  Przejście do następnego zdjęcia nie zapisuje szkicu.

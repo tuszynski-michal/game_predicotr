@@ -6,6 +6,14 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0494 — uproszczony edytor bramki geometrii
+
+- Korekta widocznej siatki nie wymaga już osobnego podglądu cropów A/B.
+- Lista `Plansze na zdjęciu` została usunięta; wszystkie siatki wybiera się
+  bezpośrednio na pełnoszerokim overlayu.
+- Minimalistyczna decyzja znajduje się pod zdjęciem, a `Zapisz decyzję` oraz
+  `Następne zdjęcie` są obok siebie i pozostają niezależnymi akcjami.
+
 ### TASK-0493 — wieloplanszowa korekta bramki importu
 
 - Workspace `Rozlicz problematyczne plansze` zachowuje osobny szkic każdej

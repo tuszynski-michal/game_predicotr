@@ -307,19 +307,35 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
               const selected =
                 selectedByCell[cell.cellIndex] ?? UNKNOWN_SELECTION;
               return (
-                <article className={styles.cell} key={cell.cellReviewId}>
-                  {/* The API already returns a checksum-bound 100 px thumbnail. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    alt={`Pole ${cell.rowIndex + 1}/${cell.columnIndex + 1}`}
-                    loading="lazy"
-                    src={api.symbolCellReviewAssetUrl(
-                      gameId,
-                      cell.cellReviewId,
-                      cell.cropChecksumSha256,
-                      cell.renderSpecChecksumSha256,
-                    )}
-                  />
+                <article
+                  className={`${styles.cell} ${unreadable ? styles.cellUnreadable : ''}`}
+                  key={cell.cellReviewId}
+                >
+                  <div className={styles.imageFrame}>
+                    {/* The API already returns a checksum-bound 100 px thumbnail. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      alt={`Pole ${cell.rowIndex + 1}/${cell.columnIndex + 1}`}
+                      loading="lazy"
+                      src={api.symbolCellReviewAssetUrl(
+                        gameId,
+                        cell.cellReviewId,
+                        cell.cropChecksumSha256,
+                        cell.renderSpecChecksumSha256,
+                      )}
+                    />
+                    {unreadable ? (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          className={styles.unreadableShade}
+                        />
+                        <strong className={styles.unreadableBadge}>
+                          Nieczytelny
+                        </strong>
+                      </>
+                    ) : null}
+                  </div>
                   <span className={styles.position}>
                     R{cell.rowIndex + 1} / K{cell.columnIndex + 1}
                   </span>

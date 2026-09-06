@@ -310,6 +310,11 @@ a w stagingu datasetu materializuje odpowiadającą komórkę jako sentinel
 aktualne. Sentinel nie jest dozwolony w katalogu symboli ani w planszy
 wprowadzanej przez gracza.
 
+Ta sama reguła obowiązuje bez względu na endpoint zapisu: zwykłe mutation i
+operacja masowa `approve`/`reassign` zachowują istniejące `unreadable` dla tej
+samej checksummy cropa. Zmiana etykiety nie jest dowodem poprawy pikseli i nie
+może wyczyścić jakości.
+
 ### Trwałe operacje masowe weryfikacji cropów
 
 ```text

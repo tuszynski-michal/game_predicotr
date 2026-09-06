@@ -571,6 +571,13 @@ Snapshot v4 materializuje taki wynik jako sentinel `mobileCode = 0`, podczas
 gdy UI nadal pokazuje `?`; kanoniczny właściciel i pełny audyt decyzji pozostają
 zachowane.
 
+Nieczytelność jest związana z bieżącymi pikselami, a nie z etykietą. Dlatego
+również późniejsze `Zatwierdź` lub `Zmień symbol` w zwykłej `Weryfikacji
+symboli` zachowuje `quality_issue = unreadable`; jawna zmiana nazwy nie może
+przypadkiem ponownie dopuścić cropa do treningu. W pełnym widoku planszy każde
+takie pole ma widoczny badge `Nieczytelny` i lekką szarą warstwę na obrazie,
+także gdy operator przypisał mu konkretny symbol.
+
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal
 wyświetla dokładne liczniki blokujących zależności. Panel nie oferuje

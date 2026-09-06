@@ -441,6 +441,35 @@ def test_unreadable_crop_can_be_resolved_as_unknown_without_becoming_training_da
     )
 
 
+def test_ordinary_label_decisions_keep_existing_unreadable_pixels_out_of_training() -> None:
+    review = approve_symbol_cell_review(
+        _mapped_reviews()[0],
+        active_symbol_codes=("cherry", "wild"),
+    ).review
+    unreadable = mark_symbol_cell_unreadable(review).review
+
+    approved = approve_symbol_cell_review(
+        unreadable,
+        active_symbol_codes=("cherry", "wild"),
+    ).review
+    reassigned = reassign_symbol_cell_review(
+        approved,
+        target_symbol_code="wild",
+        active_symbol_codes=("cherry", "wild"),
+    ).review
+
+    assert approved.review_state is SymbolCellReviewState.APPROVED
+    assert approved.quality_issue is SymbolCellQualityIssue.UNREADABLE
+    assert reassigned.assigned_symbol_code == "wild"
+    assert reassigned.quality_issue is SymbolCellQualityIssue.UNREADABLE
+    assert not is_symbol_cell_training_eligible(
+        reassigned,
+        active_symbol_codes=("cherry", "wild"),
+        is_current_owner=True,
+        asset_checksum_verified=True,
+    )
+
+
 def test_blurry_crop_keeps_recognized_symbol_but_is_not_training_eligible() -> None:
     review = _mapped_reviews()[0]
 

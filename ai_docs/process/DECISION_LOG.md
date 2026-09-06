@@ -7998,3 +7998,17 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   nowego importu. Poprawiony plik wymaga nowego stagingu; inna checksuma nie
   dziedziczy decyzji. Zastąpienie już kanonicznej planszy pozostaje odrębnym
   workflowem TASK-0305.
+
+## D-365 — Nieczytelność pozostaje właściwością bieżących pikseli
+
+- **Status:** accepted
+- **Date:** 2026-09-06
+- **Decision:** zwykłe zatwierdzenie lub zmiana przypisanego symbolu zachowuje
+  `quality_issue=unreadable` dla tej samej tożsamości cropa. Zmiana etykiety nie
+  stanowi dowodu, że piksele stały się czytelne.
+- **Rationale:** wyzerowanie jakości podczas `approve` albo `reassign`
+  pozwalałoby przypadkiem włączyć mylący crop do treningu, mimo że planszowy
+  workflow świadomie zachowuje nieczytelność po rozpoznaniu logicznego symbolu.
+- **Consequences:** crop może mieć przypisany poprawny symbol i jednocześnie
+  pozostać oznaczony jako `Nieczytelny · poza uczeniem`. UI planszy pokazuje tę
+  informację tekstem oraz warstwą wizualną. Historia pozostaje append-only.

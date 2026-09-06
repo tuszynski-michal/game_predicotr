@@ -698,8 +698,7 @@ export function SymbolReviewWorkspace({
         return;
       }
       setSelection(createEmptySymbolReviewSelection());
-      setPageState('loading');
-      setReloadRevision((revision) => revision + 1);
+      setHiddenCellIds((current) => new Set([...current, target.cellReviewId]));
       setCountsState('loading');
       setCountsSnapshot(null);
       setCountsCatalogRevision(result.value.catalogRevision);
@@ -746,7 +745,7 @@ export function SymbolReviewWorkspace({
 
   const finishOperation = useCallback(
     (
-      _tracked: TrackedSymbolReviewOperation,
+      tracked: TrackedSymbolReviewOperation,
       operation: SymbolCellReviewBulkOperationResponse,
     ) => {
       const completelyApplied =
@@ -755,8 +754,9 @@ export function SymbolReviewWorkspace({
         operation.conflictCount === 0 &&
         operation.failedCount === 0;
       if (completelyApplied) {
-        setPageState('loading');
-        setReloadRevision((revision) => revision + 1);
+        setHiddenCellIds(
+          (current) => new Set([...current, ...tracked.submittedCellIds]),
+        );
       }
       if (
         operation.catalogRevision !== null &&
@@ -1227,9 +1227,7 @@ function SymbolReviewCard({
             role="status"
           />
         ) : null}
-        <span className={styles.sequenceNumber}>
-          {item.sequenceNumber}
-        </span>
+        <span className={styles.sequenceNumber}>{item.sequenceNumber}</span>
         {badge !== null ? (
           <span className={styles.cardBadge}>{badge}</span>
         ) : null}

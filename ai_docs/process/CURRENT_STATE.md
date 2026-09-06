@@ -6,6 +6,20 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0483 — stabilna weryfikacja symboli i ochrona nieczytelnych cropów
+
+- Pojedyncza oraz w pełni udana masowa decyzja usuwa dokładne targety z
+  bieżącego ekranu bez ponownego pobierania i bez uzupełniania strony. Konflikt
+  albo częściowy błąd nadal pozostawia crop widoczny.
+- `approve` i `reassign` zachowują związane z pikselami
+  `quality_issue=unreadable`, więc późniejsza zmiana etykiety nie może dopuścić
+  cropa do treningu. Widok całej planszy pokazuje na nim badge `Nieczytelny` i
+  delikatną szarą warstwę.
+- Odczytowy audyt gry `777 v0.2` znalazł 45 bieżących cropów, które kiedykolwiek
+  miały `unreadable` dla tej samej checksummy; wszystkie 45 nadal jest
+  chronionych, a zero utraciło status lub spełnia warunki udziału w treningu.
+  Dane gry nie zostały zmienione.
+
 ### TASK-0482 — wykluczenie błędnego zdjęcia przed importem
 
 - `Korekta geometrii strony` udostępnia potwierdzaną akcję `Usuń z importu`.

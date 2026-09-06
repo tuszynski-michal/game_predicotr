@@ -522,9 +522,10 @@ def approve_symbol_cell_review(
     """Approve the exact current crop without changing its assigned symbol."""
 
     _require_active_symbol(review.assigned_symbol_code, active_symbol_codes)
+    retained_quality_issue = _retained_quality_issue_after_label_decision(review)
     if (
         review.review_state is SymbolCellReviewState.APPROVED
-        and review.quality_issue is None
+        and review.quality_issue is retained_quality_issue
         and review.crop_approval_state
         in {
             SymbolCellCropApprovalState.CURRENT,
@@ -537,7 +538,7 @@ def approve_symbol_cell_review(
             review,
             review_state=SymbolCellReviewState.APPROVED,
             has_grid_issue=False,
-            quality_issue=None,
+            quality_issue=retained_quality_issue,
             approved_crop=SymbolCellApprovedCropIdentity.from_crop(review.crop),
             assignment_source=SymbolCellAssignmentSource.HUMAN,
             revision=review.revision + 1,
@@ -556,10 +557,11 @@ def reassign_symbol_cell_review(
 
     target = _normalize_symbol_code(target_symbol_code)
     _require_active_symbol(target, active_symbol_codes)
+    retained_quality_issue = _retained_quality_issue_after_label_decision(review)
     if (
         review.review_state is SymbolCellReviewState.APPROVED
         and review.assigned_symbol_code == target
-        and review.quality_issue is None
+        and review.quality_issue is retained_quality_issue
         and review.crop_approval_state
         in {
             SymbolCellCropApprovalState.CURRENT,
@@ -573,13 +575,23 @@ def reassign_symbol_cell_review(
             assigned_symbol_code=target,
             review_state=SymbolCellReviewState.APPROVED,
             has_grid_issue=False,
-            quality_issue=None,
+            quality_issue=retained_quality_issue,
             approved_crop=SymbolCellApprovedCropIdentity.from_crop(review.crop),
             assignment_source=SymbolCellAssignmentSource.HUMAN,
             revision=review.revision + 1,
         ),
         changed=True,
     )
+
+
+def _retained_quality_issue_after_label_decision(
+    review: SymbolCellReview,
+) -> SymbolCellQualityIssue | None:
+    """Keep pixel-bound unreadability while allowing other issues to be resolved."""
+
+    if review.quality_issue is SymbolCellQualityIssue.UNREADABLE:
+        return SymbolCellQualityIssue.UNREADABLE
+    return None
 
 
 def mark_symbol_cell_grid_issue(review: SymbolCellReview) -> SymbolCellReviewTransition:

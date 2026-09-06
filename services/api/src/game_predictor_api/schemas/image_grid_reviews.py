@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometrySaveResult,
@@ -18,6 +18,7 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewCounts,
     ImageGridReviewListItem,
     ImageGridReviewPage,
+    ImageGridReviewSlotKind,
     ImageGridReviewSourceApprovalTarget,
     ImageGridReviewState,
     ImageGridReviewView,
@@ -37,10 +38,13 @@ Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 
 class ImageGridReviewItemResponse(ApiModel):
-    review_item_id: UUID
+    slot_id: UUID
+    slot_kind: ImageGridReviewSlotKind
+    review_item_id: UUID | None
     game_id: UUID
     import_job_id: UUID
-    recognized_board_id: UUID
+    recognized_board_id: UUID | None
+    pending_geometry_id: UUID | None
     source_image_id: UUID
     position_index: int = Field(ge=0, le=8)
     sequence_number: int = Field(ge=1)
@@ -168,7 +172,14 @@ class ImageGridReviewGeometryCommand(ImageGridReviewGeometryPreviewCommand):
 
 
 class ImageGridReviewSourceGeometryTargetCommand(ImageGridReviewGeometryPreviewCommand):
-    review_item_id: UUID
+    review_item_id: UUID | None = None
+    pending_geometry_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_slot_identity(self) -> ImageGridReviewSourceGeometryTargetCommand:
+        if (self.review_item_id is None) == (self.pending_geometry_id is None):
+            raise ValueError("exactly one of reviewItemId or pendingGeometryId is required")
+        return self
 
 
 class ImageGridReviewSourceGeometryCommand(ApiModel):
@@ -231,15 +242,16 @@ def to_image_grid_review_item_response(
 ) -> ImageGridReviewItemResponse:
     geometry = dict(item.geometry)
     symbol_grid_quad = (
-        geometry["symbolGridQuad"]
-        if "symbolGridQuad" in geometry
-        else geometry.get("quad")
+        geometry["symbolGridQuad"] if "symbolGridQuad" in geometry else geometry.get("quad")
     )
     return ImageGridReviewItemResponse(
+        slot_id=item.slot_id,
+        slot_kind=item.slot_kind,
         review_item_id=item.review_item_id,
         game_id=item.game_id,
         import_job_id=item.import_job_id,
         recognized_board_id=item.recognized_board_id,
+        pending_geometry_id=item.pending_geometry_id,
         source_image_id=item.source_image_id,
         position_index=item.position_index,
         sequence_number=item.sequence_number,
@@ -483,6 +495,7 @@ def to_virtual_grid_review_source_geometry_commands(
     return tuple(
         VirtualGridGeometrySourceCommand(
             review_item_id=target.review_item_id,
+            pending_geometry_id=target.pending_geometry_id,
             expected_geometry_revision=target.expected_geometry_revision,
             expected_resolution_revision=target.expected_resolution_revision,
             expected_source_checksum_sha256=target.expected_source_checksum_sha256,

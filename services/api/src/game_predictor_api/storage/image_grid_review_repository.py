@@ -21,6 +21,7 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewError,
     ImageGridReviewListFilter,
     ImageGridReviewListItem,
+    ImageGridReviewSlotKind,
     ImageGridReviewSourceApprovalTarget,
     ImageGridReviewSourceAsset,
     ImageGridReviewState,
@@ -34,8 +35,10 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.models import (
     GameModel,
+    ImageBoardGeometryPendingModel,
     ImageBoardSearchFastDocumentModel,
     ImageReviewItemModel,
+    ImageSourceGeometryRevisionModel,
     ImageSymbolReviewCellModel,
     ImageSymbolReviewStateModel,
     RecognizedBoardModel,
@@ -71,34 +74,54 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
     ) -> ImageGridReviewListSlice:
         if after_key is not None and before_key is not None:
             raise ValueError("only one grid review keyset direction is allowed")
-        statement = self._visible_statement(review_filter=review_filter)
+        current_statement = self._visible_statement(review_filter=review_filter)
+        pending_statement = self._pending_statement(review_filter=review_filter)
         sequence_number, review_item_key = _order_columns()
+        pending_sequence, pending_key = _pending_order_columns()
         if before_key is not None:
-            rows = self._session.execute(
-                statement.where(_before_key(before_key))
+            current_rows = self._session.execute(
+                current_statement.where(_before_key(before_key))
                 .order_by(sequence_number.desc(), review_item_key.desc())
                 .limit(limit + 1)
             ).all()
-            has_previous = len(rows) > limit
-            visible = tuple(reversed(rows[:limit]))
-            has_next = bool(visible) and self._has_after(
-                review_filter=review_filter,
-                key=_row_to_item(visible[-1]).cursor_key,
+            pending_rows = self._session.execute(
+                pending_statement.where(_pending_before_key(before_key))
+                .order_by(pending_sequence.desc(), pending_key.desc())
+                .limit(limit + 1)
+            ).all()
+            candidates = sorted(
+                (
+                    *(_row_to_item(row) for row in current_rows),
+                    *(_pending_row_to_item(row) for row in pending_rows),
+                ),
+                key=lambda item: item.cursor_key,
+                reverse=True,
             )
+            has_previous = len(candidates) > limit
+            visible = tuple(reversed(candidates[:limit]))
+            has_next = bool(visible)
         else:
             if after_key is not None:
-                statement = statement.where(_after_key(after_key))
-            rows = self._session.execute(
-                statement.order_by(sequence_number, review_item_key).limit(limit + 1)
+                current_statement = current_statement.where(_after_key(after_key))
+                pending_statement = pending_statement.where(_pending_after_key(after_key))
+            current_rows = self._session.execute(
+                current_statement.order_by(sequence_number, review_item_key).limit(limit + 1)
             ).all()
-            has_next = len(rows) > limit
-            visible = tuple(rows[:limit])
-            has_previous = bool(visible) and self._has_before(
-                review_filter=review_filter,
-                key=_row_to_item(visible[0]).cursor_key,
+            pending_rows = self._session.execute(
+                pending_statement.order_by(pending_sequence, pending_key).limit(limit + 1)
+            ).all()
+            candidates = sorted(
+                (
+                    *(_row_to_item(row) for row in current_rows),
+                    *(_pending_row_to_item(row) for row in pending_rows),
+                ),
+                key=lambda item: item.cursor_key,
             )
+            has_next = len(candidates) > limit
+            visible = tuple(candidates[:limit])
+            has_previous = after_key is not None and bool(visible)
         return ImageGridReviewListSlice(
-            items=tuple(_row_to_item(row) for row in visible),
+            items=visible,
             has_previous=has_previous,
             has_next=has_next,
         )
@@ -121,9 +144,19 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             .group_by(state_expression)
         ).all()
         counts = {str(state): int(count) for state, count in rows}
+        pending_count = int(
+            self._session.scalar(
+                self._pending_statement(review_filter=unrestricted).with_only_columns(
+                    func.count(ImageBoardGeometryPendingModel.id)
+                )
+            )
+            or 0
+        )
         return ImageGridReviewCounts(
             needs_validation=counts.get(ImageGridReviewState.NEEDS_VALIDATION.value, 0),
-            needs_correction=counts.get(ImageGridReviewState.NEEDS_CORRECTION.value, 0),
+            needs_correction=(
+                counts.get(ImageGridReviewState.NEEDS_CORRECTION.value, 0) + pending_count
+            ),
             approved=counts.get(ImageGridReviewState.APPROVED.value, 0),
         )
 
@@ -143,7 +176,30 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             ).where(ImageReviewItemModel.id == review_item_id)
         ).one_or_none()
         if row is None:
-            return None
+            pending_row = self._session.execute(
+                self._pending_statement(
+                    review_filter=ImageGridReviewListFilter(
+                        game_id=game_id,
+                        view=ImageGridReviewView.ALL,
+                        import_job_id=None,
+                    )
+                ).where(ImageBoardGeometryPendingModel.id == review_item_id)
+            ).one_or_none()
+            if pending_row is None:
+                return None
+            pending, source, _source_geometry = pending_row
+            return ImageGridReviewSourceAsset(
+                review_item_id=pending.id,
+                source_image_id=source.id,
+                source_relative_path=source.relative_path,
+                source_checksum_sha256=source.checksum_sha256,
+                source_width=source.oriented_width or source.width,
+                source_height=source.oriented_height or source.height,
+                geometry_revision=pending.expected_geometry_revision,
+                resolution_revision=pending.expected_review_resolution_revision,
+                topology=BoardTopology(rows=3, columns=5),
+                asset_mode="virtual_source",
+            )
         item, board, source, _sequence_number, _state = row
         return ImageGridReviewSourceAsset(
             review_item_id=item.id,
@@ -286,14 +342,17 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
         current_items = tuple(_row_to_item(row) for row in rows)
         expected_by_id = {target.review_item_id: target for target in targets}
-        current_ids = {item.review_item_id for item in current_items}
+        current_ids = {
+            _require_current_review_item_id(item) for item in current_items
+        }
         if set(expected_by_id) != current_ids:
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
                 "The active board slots changed after this source image was loaded.",
             )
         for item in current_items:
-            target = expected_by_id[item.review_item_id]
+            review_item_id = _require_current_review_item_id(item)
+            target = expected_by_id[review_item_id]
             _require_source_target_identity(item, target)
             if item.state is ImageGridReviewState.NEEDS_CORRECTION:
                 raise ImageGridReviewError(
@@ -309,14 +368,15 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
         coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
         changed: list[UUID] = []
         for item in current_items:
+            review_item_id = _require_current_review_item_id(item)
             if coordinator.approve_current_geometry(
                 game_id=game_id,
-                review_item_id=item.review_item_id,
+                review_item_id=review_item_id,
                 expected_geometry_revision=item.geometry_revision,
                 actor=actor,
                 approved_at=datetime.now(UTC),
             ):
-                changed.append(item.review_item_id)
+                changed.append(review_item_id)
         self._session.flush()
         return ImageGridSourceApprovalResult(
             source_image_id=source_image_id,
@@ -357,6 +417,53 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
         if review_filter.view is not ImageGridReviewView.ALL:
             statement = statement.where(state_expression == review_filter.view.value)
+        return statement
+
+    def _pending_statement(self, *, review_filter: ImageGridReviewListFilter) -> Select[Any]:
+        latest_geometry_id = (
+            select(ImageSourceGeometryRevisionModel.id)
+            .where(
+                ImageSourceGeometryRevisionModel.game_id == review_filter.game_id,
+                ImageSourceGeometryRevisionModel.source_image_id
+                == ImageBoardGeometryPendingModel.source_image_id,
+            )
+            .order_by(ImageSourceGeometryRevisionModel.revision.desc())
+            .limit(1)
+            .correlate(ImageBoardGeometryPendingModel)
+            .scalar_subquery()
+        )
+        statement = (
+            select(
+                ImageBoardGeometryPendingModel,
+                SourceImageModel,
+                ImageSourceGeometryRevisionModel,
+            )
+            .join(
+                SourceImageModel,
+                SourceImageModel.id == ImageBoardGeometryPendingModel.source_image_id,
+            )
+            .join(
+                ImageSourceGeometryRevisionModel,
+                ImageSourceGeometryRevisionModel.id == latest_geometry_id,
+            )
+            .where(
+                ImageBoardGeometryPendingModel.game_id == review_filter.game_id,
+                ImageBoardGeometryPendingModel.status == "pending",
+            )
+        )
+        if review_filter.import_job_id is not None:
+            statement = statement.where(
+                ImageBoardGeometryPendingModel.import_job_id == review_filter.import_job_id
+            )
+        if review_filter.source_image_id is not None:
+            statement = statement.where(
+                ImageBoardGeometryPendingModel.source_image_id == review_filter.source_image_id
+            )
+        if review_filter.view not in {
+            ImageGridReviewView.ALL,
+            ImageGridReviewView.NEEDS_CORRECTION,
+        }:
+            statement = statement.where(literal(False))
         return statement
 
     def _has_after(
@@ -471,10 +578,13 @@ def _require_source_target_identity(
 def _row_to_item(row: Any) -> ImageGridReviewListItem:
     item, board, source, sequence_number, state = row
     return ImageGridReviewListItem(
+        slot_id=item.id,
+        slot_kind=ImageGridReviewSlotKind.CURRENT_REVIEW,
         review_item_id=item.id,
         game_id=item.game_id,
         import_job_id=item.import_job_id,
         recognized_board_id=board.id,
+        pending_geometry_id=None,
         source_image_id=board.source_image_id,
         position_index=board.position_index,
         sequence_number=int(sequence_number),
@@ -493,6 +603,116 @@ def _row_to_item(row: Any) -> ImageGridReviewListItem:
         reason_codes=_reason_codes(board.board_geometry),
         state=ImageGridReviewState(str(state)),
     )
+
+
+def _require_current_review_item_id(item: ImageGridReviewListItem) -> UUID:
+    if item.review_item_id is None:
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_SLOT_IDENTITY_INVALID",
+            "A current grid-review item is missing its review identity.",
+        )
+    return item.review_item_id
+
+
+def _pending_row_to_item(row: Any) -> ImageGridReviewListItem:
+    pending, source, source_geometry = row
+    position = int(pending.position_index)
+    geometries = tuple(source_geometry.board_geometries or ())
+    raw_geometry = geometries[position] if position < len(geometries) else {}
+    geometry = dict(raw_geometry) if isinstance(raw_geometry, dict) else {}
+    suggested = _pending_suggested_quad(
+        geometry,
+        position_index=position,
+        source_width=int(source.oriented_width or source.width),
+        source_height=int(source.oriented_height or source.height),
+    )
+    geometry.update(
+        {
+            "manualGeometryRequired": True,
+            "manualTemplateQuad": suggested,
+            "sourceQuad": suggested,
+        }
+    )
+    reason_codes = (
+        "IMAGE_GRID_REVIEW_DEFERRED_SLOT",
+        str(pending.reason_code),
+    )
+    return ImageGridReviewListItem(
+        slot_id=pending.id,
+        slot_kind=ImageGridReviewSlotKind.DEFERRED_GEOMETRY,
+        review_item_id=None,
+        game_id=pending.game_id,
+        import_job_id=pending.import_job_id,
+        recognized_board_id=None,
+        pending_geometry_id=pending.id,
+        source_image_id=pending.source_image_id,
+        position_index=position,
+        sequence_number=int(pending.sequence_number),
+        source_checksum_sha256=source.checksum_sha256,
+        source_width=int(source.oriented_width or source.width),
+        source_height=int(source.oriented_height or source.height),
+        geometry_revision=int(pending.expected_geometry_revision),
+        approved_geometry_revision=None,
+        resolution_revision=int(pending.expected_review_resolution_revision),
+        topology=BoardTopology(rows=3, columns=5),
+        geometry=geometry,
+        asset_mode="virtual_source",
+        geometry_engine_name=str(source_geometry.engine_kind),
+        geometry_engine_version=str(source_geometry.engine_version),
+        board_confidence=0.0,
+        reason_codes=reason_codes,
+        state=ImageGridReviewState.NEEDS_CORRECTION,
+    )
+
+
+def _pending_suggested_quad(
+    geometry: dict[str, object],
+    *,
+    position_index: int,
+    source_width: int,
+    source_height: int,
+) -> list[dict[str, int]]:
+    for key in ("symbolGridQuad", "finalQuad", "analysisQuad", "initialQuad", "quad"):
+        value = geometry.get(key)
+        if (
+            isinstance(value, list | tuple)
+            and len(value) == 4
+            and all(
+                isinstance(point, dict)
+                and isinstance(point.get("x"), int | float)
+                and isinstance(point.get("y"), int | float)
+                for point in value
+            )
+        ):
+            return [
+                {"x": round(float(point["x"])), "y": round(float(point["y"]))} for point in value
+            ]
+    row, column = divmod(position_index, 3)
+    left = round(source_width * (0.08 + column * 0.29))
+    right = round(source_width * (0.34 + column * 0.29))
+    top = round(source_height * (0.20 + row * 0.23))
+    bottom = round(source_height * (0.39 + row * 0.23))
+    return [
+        {"x": left, "y": top},
+        {"x": min(source_width - 1, right), "y": top},
+        {"x": min(source_width - 1, right), "y": min(source_height - 1, bottom)},
+        {"x": left, "y": min(source_height - 1, bottom)},
+    ]
+
+
+def _pending_order_columns() -> tuple[Any, Any]:
+    return (
+        ImageBoardGeometryPendingModel.sequence_number,
+        ImageBoardGeometryPendingModel.id.cast(String),
+    )
+
+
+def _pending_after_key(key: tuple[int, str]) -> Any:
+    return tuple_(*_pending_order_columns()) > tuple_(literal(key[0]), literal(key[1]))
+
+
+def _pending_before_key(key: tuple[int, str]) -> Any:
+    return tuple_(*_pending_order_columns()) < tuple_(literal(key[0]), literal(key[1]))
 
 
 def _reason_codes(geometry: dict[str, object]) -> tuple[str, ...]:

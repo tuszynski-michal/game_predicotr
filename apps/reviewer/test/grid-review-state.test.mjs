@@ -46,6 +46,9 @@ const item = {
   recognizedBoardId: '33333333-3333-4333-8333-333333333333',
   resolutionRevision: 7,
   reviewItemId: '44444444-4444-4444-8444-444444444444',
+  pendingGeometryId: null,
+  slotId: '44444444-4444-4444-8444-444444444444',
+  slotKind: 'current_review',
   sequenceNumber: 91,
   sourceChecksumSha256: 'a'.repeat(64),
   sourceHeight: 800,
@@ -89,11 +92,12 @@ test('direct source editing starts from every current grid without synthetic gap
     ...item,
     positionIndex: 1,
     reviewItemId: '66666666-6666-4666-8666-666666666666',
+    slotId: '66666666-6666-4666-8666-666666666666',
     sequenceNumber: 92,
   };
   const drafts = currentGridGeometrySourceDrafts([second, item]);
 
-  assert.deepEqual(gridGeometrySourceDraft(drafts, item.reviewItemId), [
+  assert.deepEqual(gridGeometrySourceDraft(drafts, item.slotId), [
     { x: 120, y: 80 },
     { x: 1079, y: 80 },
     { x: 1079, y: 719 },
@@ -250,6 +254,7 @@ test('source statistics and slot ordering stay deterministic for one image', () 
     geometryRevision: 0,
     positionIndex: 2,
     reviewItemId: '66666666-6666-4666-8666-666666666666',
+    slotId: '66666666-6666-4666-8666-666666666666',
     sequenceNumber: 93,
     state: 'needs_correction',
   };
@@ -259,6 +264,7 @@ test('source statistics and slot ordering stay deterministic for one image', () 
     geometryRevision: 4,
     positionIndex: 1,
     reviewItemId: '77777777-7777-4777-8777-777777777777',
+    slotId: '77777777-7777-4777-8777-777777777777',
     sequenceNumber: 92,
     state: 'approved',
   };
@@ -283,6 +289,7 @@ test('source manual geometry completes exactly nine slots in row-major order', (
     ...item,
     positionIndex,
     reviewItemId: `00000000-0000-4000-8000-00000000000${positionIndex}`,
+    slotId: `00000000-0000-4000-8000-00000000000${positionIndex}`,
     sequenceNumber: 100 + positionIndex,
   }));
   let drafts = emptyGridGeometrySourceDrafts(sourceItems);
@@ -294,11 +301,7 @@ test('source manual geometry completes exactly nine slots in row-major order', (
       { x: 50, y: 40 },
       { x: 10, y: 40 },
     ];
-    drafts = replaceGridGeometrySourceDraft(
-      drafts,
-      sourceItem.reviewItemId,
-      draft,
-    );
+    drafts = replaceGridGeometrySourceDraft(drafts, sourceItem.slotId, draft);
   }
 
   const completed = completeGridGeometrySourceDrafts(sourceItems, drafts);
@@ -310,10 +313,41 @@ test('source manual geometry completes exactly nine slots in row-major order', (
     nextIncompleteGridGeometrySourceItem(
       sourceItems,
       drafts,
-      sourceItems[8].reviewItemId,
+      sourceItems[8].slotId,
     ),
     null,
   );
+});
+
+test('a deferred filename slot remains the ninth mandatory manual draft', () => {
+  const sourceItems = Array.from({ length: 9 }, (_, positionIndex) => {
+    const slotId = `30000000-0000-4000-8000-00000000000${positionIndex}`;
+    return {
+      ...item,
+      positionIndex,
+      sequenceNumber: 1234 + positionIndex,
+      slotId,
+      ...(positionIndex === 5
+        ? {
+            pendingGeometryId: slotId,
+            reviewItemId: null,
+            slotKind: 'deferred_geometry',
+            state: 'needs_correction',
+          }
+        : { reviewItemId: slotId }),
+    };
+  });
+  const drafts = currentGridGeometrySourceDrafts(sourceItems);
+  const completed = completeGridGeometrySourceDrafts(sourceItems, drafts);
+
+  assert.equal(sourceItems[5].sequenceNumber, 1239);
+  assert.equal(sourceItems[5].reviewItemId, null);
+  assert.equal(completed?.length, 9);
+  assert.deepEqual(
+    completed?.map(({ item: sourceItem }) => sourceItem.positionIndex),
+    [0, 1, 2, 3, 4, 5, 6, 7, 8],
+  );
+  assert.equal(gridReviewSourceStats(sourceItems).needsCorrectionBoards, 1);
 });
 
 test('pausing source geometry preserves completed drafts and resumes at the next row-major slot', () => {
@@ -322,12 +356,14 @@ test('pausing source geometry preserves completed drafts and resumes at the next
       ...item,
       positionIndex: 0,
       reviewItemId: '10000000-0000-4000-8000-000000000001',
+      slotId: '10000000-0000-4000-8000-000000000001',
       sequenceNumber: 100,
     },
     {
       ...item,
       positionIndex: 1,
       reviewItemId: '10000000-0000-4000-8000-000000000002',
+      slotId: '10000000-0000-4000-8000-000000000002',
       sequenceNumber: 101,
     },
   ];
@@ -339,22 +375,19 @@ test('pausing source geometry preserves completed drafts and resumes at the next
   ];
   const drafts = replaceGridGeometrySourceDraft(
     emptyGridGeometrySourceDrafts(sourceItems),
-    sourceItems[0].reviewItemId,
+    sourceItems[0].slotId,
     firstCorners,
   );
 
   assert.deepEqual(
-    gridGeometrySourceDraft(drafts, sourceItems[0].reviewItemId),
+    gridGeometrySourceDraft(drafts, sourceItems[0].slotId),
     firstCorners,
   );
   assert.equal(
-    firstIncompleteGridGeometrySourceItem(sourceItems, drafts)?.reviewItemId,
-    sourceItems[1].reviewItemId,
+    firstIncompleteGridGeometrySourceItem(sourceItems, drafts)?.slotId,
+    sourceItems[1].slotId,
   );
-  assert.deepEqual(
-    gridGeometrySourceDraft(drafts, sourceItems[1].reviewItemId),
-    [],
-  );
+  assert.deepEqual(gridGeometrySourceDraft(drafts, sourceItems[1].slotId), []);
 });
 
 test('canvas hit testing selects the visible moved source draft', () => {
@@ -373,6 +406,7 @@ test('canvas hit testing selects the visible moved source draft', () => {
     ...item,
     positionIndex: 1,
     reviewItemId: '20000000-0000-4000-8000-000000000002',
+    slotId: '20000000-0000-4000-8000-000000000002',
     geometry: {
       corners: [
         { x: 200, y: 200 },
@@ -390,7 +424,7 @@ test('canvas hit testing selects the visible moved source draft', () => {
   ];
   const drafts = replaceGridGeometrySourceDraft(
     emptyGridGeometrySourceDrafts([firstItem, secondItem]),
-    secondItem.reviewItemId,
+    secondItem.slotId,
     movedCorners,
   );
 
@@ -398,17 +432,17 @@ test('canvas hit testing selects the visible moved source draft', () => {
     gridGeometrySourceItemAtPoint(
       [firstItem, secondItem],
       drafts,
-      firstItem.reviewItemId,
+      firstItem.slotId,
       gridReviewCorners(firstItem),
       { x: 450, y: 450 },
-    )?.reviewItemId,
-    secondItem.reviewItemId,
+    )?.slotId,
+    secondItem.slotId,
   );
   assert.equal(
     gridGeometrySourceItemAtPoint(
       [firstItem, secondItem],
       drafts,
-      firstItem.reviewItemId,
+      firstItem.slotId,
       gridReviewCorners(firstItem),
       { x: 250, y: 250 },
     ),
@@ -430,18 +464,18 @@ test('canvas hit testing includes a corner handle slightly outside the quad', ()
     gridGeometrySourceItemAtPoint(
       [sourceItem],
       drafts,
-      sourceItem.reviewItemId,
+      sourceItem.slotId,
       corners,
       { x: 92, y: 92 },
       12,
-    )?.reviewItemId,
-    sourceItem.reviewItemId,
+    )?.slotId,
+    sourceItem.slotId,
   );
   assert.equal(
     gridGeometrySourceItemAtPoint(
       [sourceItem],
       drafts,
-      sourceItem.reviewItemId,
+      sourceItem.slotId,
       corners,
       { x: 80, y: 80 },
       12,

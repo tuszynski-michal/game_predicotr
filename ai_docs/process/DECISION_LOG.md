@@ -7947,3 +7947,20 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** release=false, task otwarty. Nie przedstawiamy wyniku
   rozwojowego jako potwierdzenia jakości produkcyjnej; gra literowa nadal
   nie ma potwierdzonego odbioru. Katalogi operatora pozostają bez zmian.
+
+## D-362 — Deferred jest obowiązkowym slotem źródła, nie nieistniejącą planszą
+
+- **Status:** accepted
+- **Date:** 2026-09-06
+- **Decision:** lokalny edytor geometrii łączy istniejące review plansz z
+  nierozwiązanymi rekordami `image_board_geometry_pending`. Tożsamość UI i API
+  jest jawnie rozdzielona na `current_review` oraz `deferred_geometry`.
+- **Rationale:** zakres nazwy i rewizja geometrii źródła są źródłem prawdy o
+  liczbie pozycji. Pominięcie deferred powodowało niemożliwy do zapisania
+  komplet 8/9 i konflikt aktywnych slotów.
+- **Safety:** deferred dostaje edytowalny szablon, ale nie `recognized_board`,
+  crop ani automatyczną akceptację. Dopiero poprawny render wszystkich pozycji
+  pozwala jednej transakcji zmaterializować brakujący slot.
+- **Consequences:** typowy `seq_*` wymaga dziewięciu ręcznych geometrii; ostatni
+  krótszy zakres wymaga dokładnie własnej liczby pozycji. Istniejące stagingi i
+  joby nie są automatycznie przeliczane.

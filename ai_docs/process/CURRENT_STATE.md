@@ -6,6 +6,20 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0478 — obowiązkowe deferred w geometrii całego zdjęcia
+
+- Lokalna kolejka `Zatwierdzanie cięcia siatki` zwraca teraz zarówno istniejące
+  review plansz, jak i nierozwiązane sloty `image_board_geometry_pending`.
+- Liczba pozycji źródła wynika z poświadczonego zakresu i aktywnych slotów
+  rewizji geometrii źródła: zwykle jest to dziewięć, a krótszy komplet jest
+  dozwolony wyłącznie dla rzeczywiście krótszego zakresu końcowego.
+- Deferred otrzymuje wyłącznie edytowalny szablon roboczy i stan obowiązkowej
+  korekty. Odczyt kolejki nie tworzy `recognized_board`, cropów ani akceptacji.
+- Atomowy zapis renderuje wszystkie sloty przed transakcją, zapisuje jedną
+  nową rewizję geometrii źródła i dopiero wtedy materializuje brakującą planszę
+  wraz z 15 wirtualnymi komórkami. Nie zmieniono istniejących stagingów ani
+  aktywnych jobów.
+
 ### TASK-0477 — naprawa kolejki katalogowego przycinania
 
 - Runner przycinania ponownie rozpoznaje katalogi zaczynające się od numeru;
@@ -65,9 +79,9 @@ last_updated: 2026-09-06
   Dla 3565–3573 slot 1 / numer 3566 ma
   `SYMBOL_LATTICE_INSUFFICIENT_COVERAGE`. Stage `board_crops.deferredBoards`
   zachowuje slot, ale recognized_boards i kolejka geometrii go nie prezentują.
-  Nie jest to błąd numeracji nazw ani kanonicznego właściciela. Naprawa
-  przekazania odroczonych slotów do edytora pozostaje otwarta; nie tworzyć
-  fikcyjnego cropa ani automatycznie zatwierdzonego quada.
+  Nie jest to błąd numeracji nazw ani kanonicznego właściciela. Przekazanie
+  odroczonych slotów do edytora zostało domknięte w TASK-0478 bez tworzenia
+  fikcyjnego cropa ani automatycznie zatwierdzonego quada podczas odczytu.
 
 ### TASK-0472 — trzecia iteracja: 90% regresji, nieprzejściowy nowy odbiór
 

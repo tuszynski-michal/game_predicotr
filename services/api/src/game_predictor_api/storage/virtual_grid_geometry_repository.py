@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
 from typing import Any, cast
 from uuid import UUID
@@ -29,10 +30,14 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     optional_verification_outcome_value,
     verification_outcome_value,
 )
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
 from game_predictor_api.storage.image_geometry_v2_repository import (
     ImageGeometryPersistenceError,
     SourceGeometryRevisionInput,
     SqlAlchemyImageSourceGeometryRepository,
+    StoredSourceGeometryRevision,
 )
 from game_predictor_api.storage.image_review_repository import (
     acquire_image_review_sequence_locks,
@@ -42,6 +47,8 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
 )
 from game_predictor_api.storage.models import (
+    CellObservationModel,
+    ImageBoardGeometryPendingModel,
     ImageBoardGeometryReviewEventModel,
     ImageBoardGeometryRevisionModel,
     ImageBoardSearchFastDocumentModel,
@@ -55,6 +62,9 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
     SymbolModel,
 )
+from game_predictor_api.storage.pending_sequence_ownership import (
+    create_owned_pending_review_item,
+)
 
 
 class SqlAlchemyVirtualGridGeometryRepository:
@@ -66,8 +76,22 @@ class SqlAlchemyVirtualGridGeometryRepository:
         *,
         game_id: UUID,
         import_job_id: UUID,
-        review_item_id: UUID,
+        review_item_id: UUID | None,
+        pending_geometry_id: UUID | None,
     ) -> VirtualGridGeometryContext:
+        if (review_item_id is None) == (pending_geometry_id is None):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SLOT_IDENTITY_INVALID",
+                "A manual source slot requires exactly one current or deferred identity.",
+            )
+        if pending_geometry_id is not None:
+            return self._pending_context(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                pending_geometry_id=pending_geometry_id,
+                lock=False,
+            )
+        assert review_item_id is not None
         row = self._current_row(
             game_id=game_id,
             import_job_id=import_job_id,
@@ -84,6 +108,11 @@ class SqlAlchemyVirtualGridGeometryRepository:
         created_at: datetime,
     ) -> VirtualGridGeometrySaveResult:
         context = prepared.context
+        if context.review_item_id is None or context.pending_geometry_id is not None:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_DEFERRED_SOURCE_REQUIRED",
+                "A deferred board slot must be saved with every slot of its source image.",
+            )
         acquire_image_review_sequence_locks(
             self._session,
             game_id=context.game_id,
@@ -249,29 +278,47 @@ class SqlAlchemyVirtualGridGeometryRepository:
             game_id=base_context.game_id,
             sequence_numbers=[entry.context.sequence_number for entry in entries],
         )
-        locked_rows = tuple(
-            self._current_row(
-                game_id=entry.context.game_id,
-                import_job_id=entry.context.import_job_id,
-                review_item_id=entry.context.review_item_id,
-                lock=True,
-            )
-            for entry in entries
-        )
-        current_contexts = tuple(self._context_from_row(row) for row in locked_rows)
-        _require_current_source_batch(
-            expected_entries=entries,
-            current_contexts=current_contexts,
-        )
-        for row in locked_rows:
-            item = row[0]
-            if item.status == "superseded":
-                raise ImageGridReviewError(
-                    "IMAGE_REVIEW_SUPERSEDED",
-                    "A superseded source cannot receive a manual virtual geometry revision.",
+        locked_rows: dict[UUID, tuple[Any, ...]] = {}
+        locked_pending: dict[UUID, ImageBoardGeometryPendingModel] = {}
+        current_contexts: list[VirtualGridGeometryContext] = []
+        for entry in entries:
+            context = entry.context
+            if context.pending_geometry_id is not None:
+                current = self._pending_context(
+                    game_id=context.game_id,
+                    import_job_id=context.import_job_id,
+                    pending_geometry_id=context.pending_geometry_id,
+                    lock=True,
                 )
-
-        review_item_ids = tuple(entry.context.review_item_id for entry in entries)
+                pending = self._session.get(
+                    ImageBoardGeometryPendingModel,
+                    context.pending_geometry_id,
+                )
+                assert pending is not None
+                locked_pending[context.target_id] = pending
+                if current.review_item_id is not None:
+                    locked_rows[context.target_id] = self._current_row(
+                        game_id=context.game_id,
+                        import_job_id=context.import_job_id,
+                        review_item_id=current.review_item_id,
+                        lock=True,
+                    )
+            else:
+                assert context.review_item_id is not None
+                row = self._current_row(
+                    game_id=context.game_id,
+                    import_job_id=context.import_job_id,
+                    review_item_id=context.review_item_id,
+                    lock=True,
+                )
+                locked_rows[context.target_id] = row
+                current = self._context_from_row(row)
+            current_contexts.append(current)
+        review_item_ids = tuple(
+            context.review_item_id
+            for context in current_contexts
+            if context.review_item_id is not None
+        )
         prior_records = tuple(
             self._session.scalars(
                 select(ImageBoardGeometryRevisionModel)
@@ -284,10 +331,20 @@ class SqlAlchemyVirtualGridGeometryRepository:
         )
         if prior_records:
             prior_by_item = {record.review_item_id: record for record in prior_records}
-            if set(prior_by_item) != set(review_item_ids) or any(
-                prior_by_item[entry.context.review_item_id].command_sha256
-                != entry.command.command_sha256
-                for entry in entries
+            current_by_target = {
+                expected.context.target_id: current
+                for expected, current in zip(entries, current_contexts, strict=True)
+            }
+            if (
+                len(review_item_ids) != len(entries)
+                or set(prior_by_item) != set(review_item_ids)
+                or any(
+                    prior_by_item[_require_review_item_id(
+                        current_by_target[entry.context.target_id]
+                    )].command_sha256
+                    != entry.command.command_sha256
+                    for entry in entries
+                )
             ):
                 raise ImageGridReviewError(
                     "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",
@@ -295,11 +352,29 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 )
             return VirtualGridGeometrySourceSaveResult(
                 revisions=tuple(
-                    _revision_from_model(prior_by_item[entry.context.review_item_id])
+                    _revision_from_model(
+                        prior_by_item[
+                            _require_review_item_id(
+                                current_by_target[entry.context.target_id]
+                            )
+                        ]
+                    )
                     for entry in entries
                 ),
                 created=False,
             )
+
+        _require_current_source_batch(
+            expected_entries=entries,
+            current_contexts=tuple(current_contexts),
+        )
+        for row in locked_rows.values():
+            item = row[0]
+            if item.status == "superseded":
+                raise ImageGridReviewError(
+                    "IMAGE_REVIEW_SUPERSEDED",
+                    "A superseded source cannot receive a manual virtual geometry revision.",
+                )
 
         try:
             stored_source_geometry = SqlAlchemyImageSourceGeometryRepository(self._session).append(
@@ -322,7 +397,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
                         if base_context.global_initialization is None
                         else dict(base_context.global_initialization)
                     ),
-                    board_geometries=prepared.board_geometries,
+                    board_geometries=tuple(
+                        dict(value) for value in prepared.board_geometries
+                    ),
                     engine_kind="manual_v1",
                     engine_version="manual-source-geometry-v1",
                     geometry_source="manual",
@@ -337,27 +414,30 @@ class SqlAlchemyVirtualGridGeometryRepository:
             raise ImageGridReviewError(error.code, str(error)) from error
 
         records: list[ImageBoardGeometryRevisionModel] = []
-        for entry, row in zip(entries, locked_rows, strict=True):
+        changed_review_item_ids: set[UUID] = set()
+        for entry in entries:
+            pending = locked_pending.get(entry.context.target_id)
+            if pending is not None and pending.status == "pending":
+                record, review_item_ids = self._materialize_pending_source_slot(
+                    pending=pending,
+                    entry=entry,
+                    stored_source_geometry=stored_source_geometry,
+                    idempotency_key=idempotency_key,
+                    created_at=created_at,
+                )
+                changed_review_item_ids.update(review_item_ids)
+                records.append(record)
+                continue
+            row = locked_rows[entry.context.target_id]
             item, board, _source, _source_geometry, _rollout, _document = row
             revision_number = board.geometry_revision + 1
-            record = ImageBoardGeometryRevisionModel(
+            record = self._geometry_revision_record(
+                entry=entry,
                 review_item_id=item.id,
                 recognized_board_id=board.id,
-                revision=revision_number,
-                idempotency_key=idempotency_key,
-                command_sha256=entry.command.command_sha256,
-                corners=[{"x": point.x, "y": point.y} for point in entry.command.corners],
-                geometry=dict(entry.board_geometry),
-                asset_mode="virtual_source",
+                revision_number=revision_number,
                 source_geometry_revision_id=stored_source_geometry.id,
-                geometry_checksum_sha256=prepared.source_geometry_checksum_sha256,
-                virtual_render_spec=dict(entry.virtual_render_spec),
-                virtual_render_spec_checksum_sha256=(entry.virtual_render_spec_checksum_sha256),
-                board_relative_path=None,
-                board_checksum_sha256=None,
-                cropper_version=entry.cropper_version,
-                crop_artifacts=None,
-                corrected_by=entry.command.corrected_by,
+                idempotency_key=idempotency_key,
                 created_at=created_at,
             )
             self._session.add(record)
@@ -371,20 +451,14 @@ class SqlAlchemyVirtualGridGeometryRepository:
             board.geometry_checksum_sha256 = prepared.source_geometry_checksum_sha256
             board.geometry_engine_name = "manual_v1"
             board.geometry_engine_version = "manual-source-geometry-v1"
-            self._session.add(
-                ImageBoardGeometryReviewEventModel(
-                    review_item_id=item.id,
-                    recognized_board_id=board.id,
-                    geometry_revision=revision_number,
-                    grid_rows=entry.context.topology.rows,
-                    grid_columns=entry.context.topology.columns,
-                    board_checksum_sha256=prepared.source_geometry_checksum_sha256,
-                    action="geometry_saved",
-                    previous_approved_geometry_revision=previous_approved_geometry_revision,
-                    approved_geometry_revision=revision_number,
-                    actor=entry.command.corrected_by,
-                    created_at=created_at,
-                )
+            self._append_geometry_event(
+                entry=entry,
+                review_item_id=item.id,
+                recognized_board_id=board.id,
+                revision_number=revision_number,
+                source_geometry_checksum_sha256=prepared.source_geometry_checksum_sha256,
+                previous_approved_geometry_revision=previous_approved_geometry_revision,
+                created_at=created_at,
             )
             self._replace_current_cells(
                 context=entry.context,
@@ -396,15 +470,225 @@ class SqlAlchemyVirtualGridGeometryRepository:
             )
             records.append(record)
 
-        locked_rows[0][2].processed_at = created_at
+        source = self._session.get(SourceImageModel, base_context.source_image_id)
+        assert source is not None
+        source.processed_at = created_at
         self._session.flush()
-        SymbolCellReviewWriteThroughCoordinator(self._session).synchronize_after_cell_mutation(
-            game_id=base_context.game_id
-        )
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        for review_item_id in changed_review_item_ids:
+            coordinator.synchronize_after_geometry_change(
+                game_id=base_context.game_id,
+                review_item_id=review_item_id,
+                actor=entries[0].command.corrected_by,
+            )
+        coordinator.synchronize_after_cell_mutation(game_id=base_context.game_id)
         return VirtualGridGeometrySourceSaveResult(
             revisions=tuple(_revision_from_model(record) for record in records),
             created=True,
         )
+
+    def _geometry_revision_record(
+        self,
+        *,
+        entry: PreparedVirtualGridGeometry,
+        review_item_id: UUID,
+        recognized_board_id: UUID,
+        revision_number: int,
+        source_geometry_revision_id: UUID,
+        idempotency_key: UUID,
+        created_at: datetime,
+    ) -> ImageBoardGeometryRevisionModel:
+        return ImageBoardGeometryRevisionModel(
+            review_item_id=review_item_id,
+            recognized_board_id=recognized_board_id,
+            revision=revision_number,
+            idempotency_key=idempotency_key,
+            command_sha256=entry.command.command_sha256,
+            corners=[{"x": point.x, "y": point.y} for point in entry.command.corners],
+            geometry=dict(entry.board_geometry),
+            asset_mode="virtual_source",
+            source_geometry_revision_id=source_geometry_revision_id,
+            geometry_checksum_sha256=entry.source_geometry_checksum_sha256,
+            virtual_render_spec=dict(entry.virtual_render_spec),
+            virtual_render_spec_checksum_sha256=entry.virtual_render_spec_checksum_sha256,
+            board_relative_path=None,
+            board_checksum_sha256=None,
+            cropper_version=entry.cropper_version,
+            crop_artifacts=None,
+            corrected_by=entry.command.corrected_by,
+            created_at=created_at,
+        )
+
+    def _append_geometry_event(
+        self,
+        *,
+        entry: PreparedVirtualGridGeometry,
+        review_item_id: UUID,
+        recognized_board_id: UUID,
+        revision_number: int,
+        source_geometry_checksum_sha256: str,
+        previous_approved_geometry_revision: int | None,
+        created_at: datetime,
+    ) -> None:
+        self._session.add(
+            ImageBoardGeometryReviewEventModel(
+                review_item_id=review_item_id,
+                recognized_board_id=recognized_board_id,
+                geometry_revision=revision_number,
+                grid_rows=entry.context.topology.rows,
+                grid_columns=entry.context.topology.columns,
+                board_checksum_sha256=source_geometry_checksum_sha256,
+                action="geometry_saved",
+                previous_approved_geometry_revision=previous_approved_geometry_revision,
+                approved_geometry_revision=revision_number,
+                actor=entry.command.corrected_by,
+                created_at=created_at,
+            )
+        )
+
+    def _materialize_pending_source_slot(
+        self,
+        *,
+        pending: ImageBoardGeometryPendingModel,
+        entry: PreparedVirtualGridGeometry,
+        stored_source_geometry: StoredSourceGeometryRevision,
+        idempotency_key: UUID,
+        created_at: datetime,
+    ) -> tuple[ImageBoardGeometryRevisionModel, tuple[UUID, ...]]:
+        context = entry.context
+        source = self._session.get(SourceImageModel, context.source_image_id)
+        job = self._session.get(JobModel, context.import_job_id)
+        if source is None or job is None or pending.id != context.pending_geometry_id:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
+                "The deferred source slot changed before manual geometry was saved.",
+            )
+        predictions = [
+            {
+                "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
+                "columnIndex": cell.column_index,
+                "confidence": 0.0,
+                "rowIndex": cell.row_index,
+                "symbolCode": "?",
+            }
+            for cell in entry.cells
+        ]
+        revision_number = context.geometry_revision + 1
+        board = RecognizedBoardModel(
+            id=context.recognized_board_id,
+            source_image_id=context.source_image_id,
+            position_index=context.position_index,
+            sequence_number_raw=str(context.sequence_number),
+            sequence_number=context.sequence_number,
+            sequence_confidence=1.0,
+            board_geometry=dict(entry.board_geometry),
+            asset_mode="virtual_source",
+            source_geometry_revision_id=stored_source_geometry.id,
+            geometry_engine_name="manual_v1",
+            geometry_engine_version="manual-source-geometry-v1",
+            geometry_checksum_sha256=entry.source_geometry_checksum_sha256,
+            board_relative_path=None,
+            board_checksum_sha256=None,
+            cells_prediction={"cells": predictions, "modelVersion": "manual-unclassified-v1"},
+            completeness_status="complete",
+            unavailable_cell_indices=[],
+            board_confidence=0.0,
+            pipeline_fingerprint=context.pipeline_fingerprint,
+            geometry_revision=revision_number,
+            grid_rows=context.topology.rows,
+            grid_columns=context.topology.columns,
+            approved_geometry_revision=revision_number,
+            geometry_approved_at=created_at,
+            geometry_approved_by=entry.command.corrected_by,
+            status="pending_review",
+            created_at=created_at,
+        )
+        self._session.add(board)
+        self._session.flush()
+        for cell, prediction in zip(entry.cells, predictions, strict=True):
+            self._session.add(
+                CellObservationModel(
+                    recognized_board_id=board.id,
+                    row_index=cell.row_index,
+                    column_index=cell.column_index,
+                    asset_mode="virtual_source",
+                    source_geometry_revision_id=stored_source_geometry.id,
+                    logical_cell_key=cell.logical_cell_key,
+                    logical_cell_key_v2=cell.logical_cell_key_v2,
+                    render_identity_v2_sha256=cell.render_identity_v2_sha256,
+                    render_spec=dict(cell.render_spec),
+                    render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
+                    rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
+                    extractor_version=cell.extractor_version,
+                    crop_relative_path=None,
+                    crop_checksum_sha256=cell.crop_checksum_sha256,
+                    cropper_version=entry.cropper_version,
+                    prediction=prediction,
+                    created_at=created_at,
+                )
+            )
+        snapshot = {
+            "assetMode": "virtual_source",
+            "boardChecksumSha256": None,
+            "boardRelativePath": None,
+            "cells": predictions,
+            "geometry": dict(entry.board_geometry),
+            "geometryChecksumSha256": entry.source_geometry_checksum_sha256,
+            "geometryEngineName": "manual_v1",
+            "geometryEngineVersion": "manual-source-geometry-v1",
+            "pipelineFingerprint": context.pipeline_fingerprint,
+            "positionIndex": context.position_index,
+            "sequence": {
+                "confidence": 1.0,
+                "normalizedNumber": context.sequence_number,
+                "positionIndex": context.position_index,
+                "rawText": str(context.sequence_number),
+                "reviewReasons": [],
+                "sequenceSource": "filename",
+            },
+            "sourceChecksumSha256": source.checksum_sha256,
+            "sourceRelativePath": source.relative_path,
+        }
+        review, ownership_changes = create_owned_pending_review_item(
+            self._session,
+            board=board,
+            game_id=context.game_id,
+            import_job=job,
+            snapshot=snapshot,
+            created_at=created_at,
+            resolution_revision=context.resolution_revision,
+        )
+        record = self._geometry_revision_record(
+            entry=entry,
+            review_item_id=review.id,
+            recognized_board_id=board.id,
+            revision_number=revision_number,
+            source_geometry_revision_id=stored_source_geometry.id,
+            idempotency_key=idempotency_key,
+            created_at=created_at,
+        )
+        self._session.add(record)
+        self._append_geometry_event(
+            entry=entry,
+            review_item_id=review.id,
+            recognized_board_id=board.id,
+            revision_number=revision_number,
+            source_geometry_checksum_sha256=entry.source_geometry_checksum_sha256,
+            previous_approved_geometry_revision=None,
+            created_at=created_at,
+        )
+        pending.recognized_board_id = board.id
+        pending.review_item_id = review.id
+        pending.status = "resolved"
+        pending.resolved_geometry_revision = revision_number
+        pending.resolved_at = created_at
+        pending.updated_at = created_at
+        source.status = "waiting_for_review" if review.status == "pending" else "completed"
+        self._session.flush()
+        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_items(
+            ownership_changes
+        )
+        return record, tuple({review.id, *ownership_changes})
 
     def _replace_current_cells(
         self,
@@ -530,6 +814,175 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     actor=actor,
                 )
             )
+
+    def _pending_context(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        pending_geometry_id: UUID,
+        lock: bool,
+    ) -> VirtualGridGeometryContext:
+        statement = select(ImageBoardGeometryPendingModel).where(
+            ImageBoardGeometryPendingModel.id == pending_geometry_id,
+            ImageBoardGeometryPendingModel.game_id == game_id,
+            ImageBoardGeometryPendingModel.import_job_id == import_job_id,
+        )
+        if lock:
+            statement = statement.with_for_update()
+        pending = self._session.scalar(statement)
+        if pending is None:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_ITEM_NOT_FOUND",
+                "The deferred source slot no longer exists in this scope.",
+            )
+        if pending.status == "resolved" and pending.review_item_id is not None:
+            current = self._context_from_row(
+                self._current_row(
+                    game_id=game_id,
+                    import_job_id=import_job_id,
+                    review_item_id=pending.review_item_id,
+                    lock=lock,
+                )
+            )
+            return replace(current, pending_geometry_id=pending.id)
+        if pending.status != "pending":
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
+                "The deferred source slot changed after the page was loaded.",
+            )
+        source = self._session.get(SourceImageModel, pending.source_image_id)
+        job = self._session.get(JobModel, import_job_id)
+        geometry = self._session.scalar(
+            select(ImageSourceGeometryRevisionModel)
+            .where(
+                ImageSourceGeometryRevisionModel.game_id == game_id,
+                ImageSourceGeometryRevisionModel.source_image_id == pending.source_image_id,
+            )
+            .order_by(ImageSourceGeometryRevisionModel.revision.desc())
+            .limit(1)
+        )
+        if (
+            source is None
+            or job is None
+            or job.game_id != game_id
+            or source.import_job_id != import_job_id
+            or geometry is None
+            or source.checksum_sha256 != pending.source_checksum_sha256
+            or source.raw_width is None
+            or source.raw_height is None
+            or source.oriented_width is None
+            or source.oriented_height is None
+            or source.normalized_pixel_checksum_sha256 is None
+            or source.normalization_adapter_version is None
+            or geometry.source_checksum_sha256 != source.checksum_sha256
+            or geometry.active_board_slots != list(range(len(geometry.board_geometries)))
+            or pending.position_index not in geometry.active_board_slots
+            or geometry.sequence_range_start + pending.position_index != pending.sequence_number
+        ):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_VIRTUAL_PROVENANCE_INVALID",
+                "The deferred board slot has incomplete virtual source provenance.",
+            )
+        configuration = self._pending_render_configuration(
+            source_image_id=source.id,
+            import_job_id=import_job_id,
+            job=job,
+        )
+        return VirtualGridGeometryContext(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            review_item_id=None,
+            recognized_board_id=pending.id,
+            pending_geometry_id=pending.id,
+            source_image_id=source.id,
+            file_execution_key=source.file_execution_key,
+            position_index=int(pending.position_index),
+            sequence_number=int(pending.sequence_number),
+            source_relative_path=source.relative_path,
+            source_checksum_sha256=source.checksum_sha256,
+            raw_width=int(source.raw_width),
+            raw_height=int(source.raw_height),
+            oriented_width=int(source.oriented_width),
+            oriented_height=int(source.oriented_height),
+            exif_orientation=source.exif_orientation,
+            normalized_pixel_checksum_sha256=source.normalized_pixel_checksum_sha256,
+            normalization_adapter_version=source.normalization_adapter_version,
+            pipeline_fingerprint=pending.pipeline_fingerprint_sha256,
+            resolution_revision=int(pending.expected_review_resolution_revision),
+            geometry_revision=int(pending.expected_geometry_revision),
+            topology=BoardTopology(rows=3, columns=5),
+            topology_rules_version_id=geometry.topology_rules_version_id,
+            source_geometry_revision_id=geometry.id,
+            source_geometry_revision=int(geometry.revision),
+            sequence_range_start=int(geometry.sequence_range_start),
+            sequence_range_end=int(geometry.sequence_range_end),
+            active_board_slots=tuple(int(value) for value in geometry.active_board_slots),
+            global_initialization=(
+                None
+                if geometry.global_initialization is None
+                else dict(geometry.global_initialization)
+            ),
+            board_geometries=tuple(dict(value) for value in geometry.board_geometries),
+            render_configuration=configuration,
+        )
+
+    def _pending_render_configuration(
+        self,
+        *,
+        source_image_id: UUID,
+        import_job_id: UUID,
+        job: JobModel,
+    ) -> DirectCellRenderConfiguration:
+        render_spec = self._session.scalar(
+            select(ImageSymbolReviewCellModel.render_spec)
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageSymbolReviewCellModel.recognized_board_id,
+            )
+            .where(
+                ImageSymbolReviewCellModel.asset_mode == "virtual_source",
+                RecognizedBoardModel.source_image_id == source_image_id,
+            )
+            .order_by(ImageSymbolReviewCellModel.cell_index)
+            .limit(1)
+        )
+        if render_spec is None:
+            render_spec = self._session.scalar(
+                select(ImageSymbolReviewCellModel.render_spec)
+                .where(
+                    ImageSymbolReviewCellModel.asset_mode == "virtual_source",
+                    ImageSymbolReviewCellModel.import_job_id == import_job_id,
+                )
+                .limit(1)
+            )
+        if render_spec is not None:
+            return _configuration(render_spec)
+        from game_predictor_worker.images.pipeline_contract import GeometryPipelineRolloutSnapshot
+        from game_predictor_worker.images.virtual_cell_extraction import (
+            VIRTUAL_CELL_INTERPOLATION_VERSION,
+        )
+
+        from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
+
+        try:
+            model = SymbolModelJobSnapshot.from_payload(job.input_payload.get("symbol_model"))
+            rollout = GeometryPipelineRolloutSnapshot.from_payload(
+                job.input_payload.get("image_geometry_rollout")
+            )
+        except (ValueError, TypeError) as error:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_RENDER_CONFIGURATION_INVALID",
+                "The deferred slot has no pinned virtual render configuration.",
+            ) from error
+        return DirectCellRenderConfiguration(
+            extractor_version=rollout.virtual_renderer_version,
+            preprocessing_version=rollout.preprocessing_version,
+            interpolation=VIRTUAL_CELL_INTERPOLATION_VERSION,
+            output_width=model.input_size,
+            output_height=model.input_size,
+            padding_fraction=0.08,
+        )
 
     def _current_row(
         self,
@@ -668,6 +1121,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             import_job_id=source.import_job_id,
             review_item_id=item.id,
             recognized_board_id=board.id,
+            pending_geometry_id=None,
             source_image_id=source.id,
             file_execution_key=source.file_execution_key,
             position_index=int(board.position_index),
@@ -681,6 +1135,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             exif_orientation=source.exif_orientation,
             normalized_pixel_checksum_sha256=source.normalized_pixel_checksum_sha256,
             normalization_adapter_version=source.normalization_adapter_version,
+            pipeline_fingerprint=board.pipeline_fingerprint,
             resolution_revision=int(item.resolution_revision),
             geometry_revision=int(board.geometry_revision),
             topology=topology,
@@ -721,6 +1176,15 @@ def _configuration(value: object) -> DirectCellRenderConfiguration:
             "IMAGE_GRID_REVIEW_RENDER_CONFIGURATION_INVALID",
             "A virtual review cell has an invalid render configuration.",
         ) from error
+
+
+def _require_review_item_id(context: VirtualGridGeometryContext) -> UUID:
+    if context.review_item_id is None:
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_SLOT_IDENTITY_INVALID",
+            "A materialized grid-review slot is missing its review identity.",
+        )
+    return context.review_item_id
 
 
 def _require_same_context(

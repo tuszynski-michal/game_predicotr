@@ -83,7 +83,7 @@ export function orderGridReviewSourceItems(
     (left, right) =>
       left.positionIndex - right.positionIndex ||
       left.sequenceNumber - right.sequenceNumber ||
-      left.reviewItemId.localeCompare(right.reviewItemId),
+      left.slotId.localeCompare(right.slotId),
   );
 }
 
@@ -152,22 +152,22 @@ export function addGridGeometryPoint(
 export function emptyGridGeometrySourceDrafts(
   items: readonly ImageGridReviewItemResponse[],
 ): GridGeometrySourceDrafts {
-  return new Map(items.map((item) => [item.reviewItemId, []] as const));
+  return new Map(items.map((item) => [item.slotId, []] as const));
 }
 
 export function currentGridGeometrySourceDrafts(
   items: readonly ImageGridReviewItemResponse[],
 ): GridGeometrySourceDrafts {
   return new Map(
-    items.map((item) => [item.reviewItemId, gridReviewCorners(item)] as const),
+    items.map((item) => [item.slotId, gridReviewCorners(item)] as const),
   );
 }
 
 export function gridGeometrySourceDraft(
   drafts: GridGeometrySourceDrafts,
-  reviewItemId: string,
+  slotId: string,
 ): GridGeometryDraft {
-  return drafts.get(reviewItemId) ?? [];
+  return drafts.get(slotId) ?? [];
 }
 
 /**
@@ -183,11 +183,11 @@ export function gridGeometryDraftAnchor(
 
 export function replaceGridGeometrySourceDraft(
   drafts: GridGeometrySourceDrafts,
-  reviewItemId: string,
+  slotId: string,
   draft: GridGeometryDraft,
 ): GridGeometrySourceDrafts {
   const next = new Map(drafts);
-  next.set(reviewItemId, draft);
+  next.set(slotId, draft);
   return next;
 }
 
@@ -201,7 +201,7 @@ export function completeGridGeometrySourceDrafts(
     }[]
   | null {
   const values = orderGridReviewSourceItems(items).map((item) => {
-    const draft = gridGeometrySourceDraft(drafts, item.reviewItemId);
+    const draft = gridGeometrySourceDraft(drafts, item.slotId);
     return {
       corners:
         draft.length === 4 ? (draft as OperationalReviewGeometryCorners) : null,
@@ -219,18 +219,16 @@ export function completeGridGeometrySourceDrafts(
 export function nextIncompleteGridGeometrySourceItem(
   items: readonly ImageGridReviewItemResponse[],
   drafts: GridGeometrySourceDrafts,
-  afterReviewItemId: string,
+  afterSlotId: string,
 ): ImageGridReviewItemResponse | null {
   const ordered = orderGridReviewSourceItems(items);
-  const startIndex = ordered.findIndex(
-    (item) => item.reviewItemId === afterReviewItemId,
-  );
+  const startIndex = ordered.findIndex((item) => item.slotId === afterSlotId);
   if (startIndex < 0) return null;
   for (let offset = 1; offset <= ordered.length; offset += 1) {
     const candidate = ordered[(startIndex + offset) % ordered.length];
     if (
       candidate !== undefined &&
-      gridGeometrySourceDraft(drafts, candidate.reviewItemId).length < 4
+      gridGeometrySourceDraft(drafts, candidate.slotId).length < 4
     ) {
       return candidate;
     }
@@ -245,7 +243,7 @@ export function firstIncompleteGridGeometrySourceItem(
   return (
     orderGridReviewSourceItems(items).find(
       (candidate) =>
-        gridGeometrySourceDraft(drafts, candidate.reviewItemId).length < 4,
+        gridGeometrySourceDraft(drafts, candidate.slotId).length < 4,
     ) ?? null
   );
 }
@@ -320,12 +318,9 @@ export function gridGeometrySourceItemAtPoint(
 ): ImageGridReviewItemResponse | null {
   return (
     [...items].reverse().find((candidate) => {
-      const storedDraft = gridGeometrySourceDraft(
-        drafts,
-        candidate.reviewItemId,
-      );
+      const storedDraft = gridGeometrySourceDraft(drafts, candidate.slotId);
       const visibleCorners =
-        candidate.reviewItemId === activeReviewItemId
+        candidate.slotId === activeReviewItemId
           ? activeDraft
           : storedDraft.length > 0
             ? storedDraft

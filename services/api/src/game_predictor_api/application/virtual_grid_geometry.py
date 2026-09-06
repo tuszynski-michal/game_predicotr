@@ -53,8 +53,9 @@ VIRTUAL_MANUAL_RENDER_MANIFEST_VERSION = "virtual-board-render-manifest-v2-dual-
 class VirtualGridGeometryContext:
     game_id: UUID
     import_job_id: UUID
-    review_item_id: UUID
+    review_item_id: UUID | None
     recognized_board_id: UUID
+    pending_geometry_id: UUID | None
     source_image_id: UUID
     file_execution_key: str
     position_index: int
@@ -68,6 +69,7 @@ class VirtualGridGeometryContext:
     exif_orientation: int | None
     normalized_pixel_checksum_sha256: str
     normalization_adapter_version: str
+    pipeline_fingerprint: str
     resolution_revision: int
     geometry_revision: int
     topology: BoardTopology
@@ -82,9 +84,13 @@ class VirtualGridGeometryContext:
     render_configuration: DirectCellRenderConfiguration
 
     @property
+    def target_id(self) -> UUID:
+        return self.pending_geometry_id or cast(UUID, self.review_item_id)
+
+    @property
     def source_asset(self) -> ImageGridReviewSourceAsset:
         return ImageGridReviewSourceAsset(
-            review_item_id=self.review_item_id,
+            review_item_id=self.target_id,
             source_image_id=self.source_image_id,
             source_relative_path=self.source_relative_path,
             source_checksum_sha256=self.source_checksum_sha256,
@@ -160,7 +166,8 @@ class VirtualGridGeometrySaveResult:
 class VirtualGridGeometrySourceCommand:
     """One exact board command inside an all-or-nothing source correction."""
 
-    review_item_id: UUID
+    review_item_id: UUID | None
+    pending_geometry_id: UUID | None
     expected_geometry_revision: int
     expected_resolution_revision: int
     expected_source_checksum_sha256: str
@@ -169,6 +176,10 @@ class VirtualGridGeometrySourceCommand:
     expected_grid_rows: int
     expected_grid_columns: int
     corners: tuple[ImageReviewGeometryPoint, ...]
+
+    @property
+    def target_id(self) -> UUID:
+        return self.pending_geometry_id or cast(UUID, self.review_item_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,7 +201,8 @@ class VirtualGridGeometryRepository(Protocol):
         *,
         game_id: UUID,
         import_job_id: UUID,
-        review_item_id: UUID,
+        review_item_id: UUID | None,
+        pending_geometry_id: UUID | None,
     ) -> VirtualGridGeometryContext: ...
 
     def save_virtual_geometry_revision(
@@ -334,7 +346,7 @@ class VirtualGridGeometryService:
                 "IMAGE_GRID_REVIEW_SOURCE_TARGETS_EMPTY",
                 "Manual source geometry requires at least one board command.",
             )
-        if len({command.review_item_id for command in commands}) != len(commands):
+        if len({command.target_id for command in commands}) != len(commands):
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_SOURCE_TARGETS_DUPLICATE",
                 "Manual source geometry cannot repeat a board command.",
@@ -358,6 +370,7 @@ class VirtualGridGeometryService:
                 game_id=game_id,
                 import_job_id=import_job_id,
                 review_item_id=source_command.review_item_id,
+                pending_geometry_id=source_command.pending_geometry_id,
             )
             _require_expected_context(
                 context,
@@ -441,7 +454,7 @@ class VirtualGridGeometryService:
                     engine_kind=GeometryEngineKind.MANUAL_V1,
                     symbol_grid_quad=quad,
                 )
-                rendered_by_item[context.review_item_id] = tuple(
+                rendered_by_item[context.target_id] = tuple(
                     renderer.render(
                         frame,
                         derive_virtual_cells(
@@ -485,7 +498,7 @@ class VirtualGridGeometryService:
         for context, command, quad in prepared_inputs:
             cells = tuple(
                 _cell_from_render(context.recognized_board_id, render)
-                for render in rendered_by_item[context.review_item_id]
+                for render in rendered_by_item[context.target_id]
             )
             render_manifest: dict[str, object] = {
                 "assetMode": "virtual_source",
@@ -565,6 +578,7 @@ class VirtualGridGeometryService:
             game_id=game_id,
             import_job_id=import_job_id,
             review_item_id=review_item_id,
+            pending_geometry_id=None,
         )
         _require_expected_context(
             context,

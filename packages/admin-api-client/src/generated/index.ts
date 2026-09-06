@@ -1019,6 +1019,7 @@ export type {
   ImageGridReviewGeometryRevisionResponse,
   ImageGridReviewItemResponse,
   ImageGridReviewPageResponse,
+  ImageGridReviewSlotKind,
   ImageGridReviewSourceApprovalCommand,
   ImageGridReviewSourceApprovalResponse,
   ImageGridReviewSourceApprovalTargetRequest,

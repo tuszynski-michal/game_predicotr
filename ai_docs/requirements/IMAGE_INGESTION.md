@@ -1449,3 +1449,24 @@ pokrycie spadło z 14/19 do 13/19, mediana błędu wzrosła z 6,20 px do 6,36 px
 a łączny czas wzrósł o 26,67%. Wariant pozostaje eksperymentalny i nie może
 zostać automatycznie promowany. Szczegóły znajdują się w
 `ai_docs/quality/BOARD_AREA_REGISTRATION_ACCEPTANCE.md`.
+
+### Obowiązkowe sloty ręcznej geometrii źródła
+
+Lokalne zatwierdzanie geometrii całego zdjęcia obejmuje wszystkie pozycje
+wynikające z poświadczonego zakresu `seq_<start>-<end>` i aktywnych slotów
+bieżącej rewizji geometrii źródła. Typowy zakres dziewięciu numerów zawsze
+udostępnia dziewięć pozycji row-major, nawet gdy automat odroczył jedną lub
+więcej plansz przed utworzeniem `recognized_board`. Mniej pozycji jest
+dozwolone wyłącznie dla nazwy, której zakres faktycznie zawiera mniej niż
+dziewięć numerów.
+
+Odroczony slot ma jawną tożsamość, numer sekwencji i edytowalny szablon quada.
+Szablon jest wyłącznie pomocą operatora: nie stanowi automatycznego dowodu, nie
+tworzy cropów i nie zatwierdza geometrii. Slotu nie można pominąć ani odrzucić
+z poziomu zwykłej akcji planszy.
+
+Zapis jest dozwolony dopiero dla kompletnego zestawu pozycji źródła. System
+najpierw waliduje i renderuje wszystkie siatki 3×5, a następnie w jednej
+transakcji zapisuje wspólną rewizję źródła, aktualizuje istniejące plansze i
+materializuje brakujące plansze oraz ich wirtualne komórki. Awaria dowolnego
+renderu lub zapisu pozostawia deferred bez częściowych cropów.

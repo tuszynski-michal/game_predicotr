@@ -155,6 +155,9 @@ test('whole-image approval and source manual geometry use one explicit atomic re
   );
   assert.match(actions, /approveImageGridReviewSourceGeometry/);
   assert.match(actions, /createImageGridReviewSourceGeometryRevision/);
+  assert.match(actions, /pendingGeometryId: item\.pendingGeometryId/);
+  assert.match(actions, /cornersByReviewItemId\.get\(item\.slotId\)/);
+  assert.match(editor, /value\.item\.slotId/);
 });
 
 test('source-scoped client request is explicit and cannot spill into remote reviewer access', () => {

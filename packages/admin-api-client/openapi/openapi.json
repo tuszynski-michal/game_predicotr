@@ -6683,6 +6683,18 @@
             ],
             "title": "Locallatticeversion"
           },
+          "pendingGeometryId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pendinggeometryid"
+          },
           "positionIndex": {
             "maximum": 8.0,
             "minimum": 0.0,
@@ -6697,9 +6709,16 @@
             "type": "array"
           },
           "recognizedBoardId": {
-            "format": "uuid",
-            "title": "Recognizedboardid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognizedboardid"
           },
           "resolutionRevision": {
             "minimum": 0.0,
@@ -6707,14 +6726,29 @@
             "type": "integer"
           },
           "reviewItemId": {
-            "format": "uuid",
-            "title": "Reviewitemid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewitemid"
           },
           "sequenceNumber": {
             "minimum": 1.0,
             "title": "Sequencenumber",
             "type": "integer"
+          },
+          "slotId": {
+            "format": "uuid",
+            "title": "Slotid",
+            "type": "string"
+          },
+          "slotKind": {
+            "$ref": "#/components/schemas/ImageGridReviewSlotKind"
           },
           "sourceChecksumSha256": {
             "pattern": "^[a-f0-9]{64}$",
@@ -6768,10 +6802,13 @@
           }
         },
         "required": [
+          "slotId",
+          "slotKind",
           "reviewItemId",
           "gameId",
           "importJobId",
           "recognizedBoardId",
+          "pendingGeometryId",
           "sourceImageId",
           "positionIndex",
           "sequenceNumber",
@@ -6860,6 +6897,14 @@
         ],
         "title": "ImageGridReviewPageResponse",
         "type": "object"
+      },
+      "ImageGridReviewSlotKind": {
+        "enum": [
+          "current_review",
+          "deferred_geometry"
+        ],
+        "title": "ImageGridReviewSlotKind",
+        "type": "string"
       },
       "ImageGridReviewSourceApprovalCommand": {
         "additionalProperties": false,
@@ -7091,10 +7136,29 @@
             "title": "Expectedsourcewidth",
             "type": "integer"
           },
+          "pendingGeometryId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pendinggeometryid"
+          },
           "reviewItemId": {
-            "format": "uuid",
-            "title": "Reviewitemid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewitemid"
           }
         },
         "required": [
@@ -7105,8 +7169,7 @@
           "expectedSourceWidth",
           "expectedSourceHeight",
           "expectedGridRows",
-          "expectedGridColumns",
-          "reviewItemId"
+          "expectedGridColumns"
         ],
         "title": "ImageGridReviewSourceGeometryTargetCommand",
         "type": "object"

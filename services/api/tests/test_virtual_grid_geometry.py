@@ -33,7 +33,7 @@ from PIL import Image
 class MemoryVirtualGridGeometryRepository:
     def __init__(self, context: VirtualGridGeometryContext) -> None:
         self.context = context
-        self.contexts = {context.review_item_id: context}
+        self.contexts = {context.target_id: context}
         self.saved: list[PreparedVirtualGridGeometry] = []
 
     def virtual_geometry_context(
@@ -41,9 +41,10 @@ class MemoryVirtualGridGeometryRepository:
         *,
         game_id: UUID,
         import_job_id: UUID,
-        review_item_id: UUID,
+        review_item_id: UUID | None,
+        pending_geometry_id: UUID | None,
     ) -> VirtualGridGeometryContext:
-        context = self.contexts[review_item_id]
+        context = self.contexts[pending_geometry_id or review_item_id]
         assert game_id == context.game_id
         assert import_job_id == context.import_job_id
         return context
@@ -59,7 +60,7 @@ class MemoryVirtualGridGeometryRepository:
         return VirtualGridGeometrySaveResult(
             revision=VirtualGridGeometryRevision(
                 id=uuid4(),
-                review_item_id=prepared.context.review_item_id,
+                review_item_id=prepared.context.target_id,
                 recognized_board_id=prepared.context.recognized_board_id,
                 revision=prepared.context.geometry_revision + 1,
                 idempotency_key=idempotency_key,
@@ -116,6 +117,7 @@ def _fixture(tmp_path: Path) -> tuple[VirtualGridGeometryService, VirtualGridGeo
         import_job_id=uuid4(),
         review_item_id=uuid4(),
         recognized_board_id=uuid4(),
+        pending_geometry_id=None,
         source_image_id=uuid4(),
         file_execution_key="f" * 64,
         position_index=0,
@@ -129,6 +131,7 @@ def _fixture(tmp_path: Path) -> tuple[VirtualGridGeometryService, VirtualGridGeo
         exif_orientation=frame.source.exif_orientation,
         normalized_pixel_checksum_sha256=frame.source.normalized_pixel_checksum_sha256,
         normalization_adapter_version=frame.source.normalization_adapter_version,
+        pipeline_fingerprint="f" * 64,
         resolution_revision=0,
         geometry_revision=0,
         topology=BoardTopology(rows=3, columns=5),
@@ -237,6 +240,7 @@ def test_virtual_source_save_renders_one_complete_source_without_png(tmp_path: P
         commands=(
             VirtualGridGeometrySourceCommand(
                 review_item_id=context.review_item_id,
+                pending_geometry_id=None,
                 expected_geometry_revision=context.geometry_revision,
                 expected_resolution_revision=context.resolution_revision,
                 expected_source_checksum_sha256=context.source_checksum_sha256,
@@ -283,7 +287,7 @@ def test_virtual_source_save_requires_and_persists_all_nine_row_major_slots(
         )
         for position in range(9)
     )
-    repository.contexts = {entry.review_item_id: entry for entry in contexts}
+    repository.contexts = {entry.target_id: entry for entry in contexts}
 
     result = service.save_source(
         game_id=context.game_id,
@@ -291,6 +295,7 @@ def test_virtual_source_save_requires_and_persists_all_nine_row_major_slots(
         commands=tuple(
             VirtualGridGeometrySourceCommand(
                 review_item_id=entry.review_item_id,
+                pending_geometry_id=None,
                 expected_geometry_revision=entry.geometry_revision,
                 expected_resolution_revision=entry.resolution_revision,
                 expected_source_checksum_sha256=entry.source_checksum_sha256,
@@ -317,6 +322,62 @@ def test_virtual_source_save_requires_and_persists_all_nine_row_major_slots(
         == tuple(range(9))
         for prepared in repository.saved
     )
+
+
+def test_virtual_source_save_accepts_one_deferred_slot_only_as_part_of_complete_source(
+    tmp_path: Path,
+) -> None:
+    service, context = _fixture(tmp_path)
+    repository = service._repository  # noqa: SLF001 - application port fixture
+    assert isinstance(repository, MemoryVirtualGridGeometryRepository)
+    board_geometries = tuple(
+        {"positionIndex": position, "sequenceNumber": 1234 + position} for position in range(9)
+    )
+    contexts = []
+    for position in range(9):
+        pending_id = uuid4() if position == 5 else None
+        contexts.append(
+            replace(
+                context,
+                review_item_id=None if pending_id is not None else uuid4(),
+                recognized_board_id=pending_id or uuid4(),
+                pending_geometry_id=pending_id,
+                position_index=position,
+                sequence_number=1234 + position,
+                sequence_range_start=1234,
+                sequence_range_end=1242,
+                active_board_slots=tuple(range(9)),
+                board_geometries=board_geometries,
+            )
+        )
+    repository.contexts = {entry.target_id: entry for entry in contexts}
+
+    result = service.save_source(
+        game_id=context.game_id,
+        import_job_id=context.import_job_id,
+        commands=tuple(
+            VirtualGridGeometrySourceCommand(
+                review_item_id=entry.review_item_id,
+                pending_geometry_id=entry.pending_geometry_id,
+                expected_geometry_revision=entry.geometry_revision,
+                expected_resolution_revision=entry.resolution_revision,
+                expected_source_checksum_sha256=entry.source_checksum_sha256,
+                expected_source_width=entry.oriented_width,
+                expected_source_height=entry.oriented_height,
+                expected_grid_rows=entry.topology.rows,
+                expected_grid_columns=entry.topology.columns,
+                corners=_cell_corners(entry.position_index),
+            )
+            for entry in contexts
+        ),
+        idempotency_key=uuid4(),
+        actor="local-admin",
+        created_at=datetime(2026, 9, 6, tzinfo=UTC),
+    )
+
+    assert len(result.revisions) == 9
+    assert result.revisions[5].review_item_id == contexts[5].pending_geometry_id
+    assert len(repository.saved) == 9
 
 
 def _cell_corners(position_index: int) -> tuple[ImageReviewGeometryPoint, ...]:

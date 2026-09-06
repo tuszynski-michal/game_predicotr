@@ -50,7 +50,7 @@ export function GridReviewWorkspace({
   const [sourceItems, setSourceItems] = useState<
     readonly ImageGridReviewItemResponse[]
   >([]);
-  const [selectedReviewItemId, setSelectedReviewItemId] = useState<string>('');
+  const [selectedSlotId, setSelectedSlotId] = useState<string>('');
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -76,7 +76,7 @@ export function GridReviewWorkspace({
       if (sourceItem === undefined) {
         setAnchorPage(anchor);
         setSourceItems([]);
-        setSelectedReviewItemId('');
+        setSelectedSlotId('');
         return true;
       }
       const sourceResult = await loadGridReviewSource(api, {
@@ -92,10 +92,10 @@ export function GridReviewWorkspace({
       const items = orderGridReviewSourceItems(sourceResult.page.items);
       setAnchorPage(anchor);
       setSourceItems(items);
-      setSelectedReviewItemId((current) =>
-        items.some((candidate) => candidate.reviewItemId === current)
+      setSelectedSlotId((current) =>
+        items.some((candidate) => candidate.slotId === current)
           ? current
-          : (items[0]?.reviewItemId ?? ''),
+          : (items[0]?.slotId ?? ''),
       );
       return true;
     },
@@ -420,8 +420,8 @@ export function GridReviewWorkspace({
             onSaved={() => {
               setNotice('Zapisano i zatwierdzono geometrię całego zdjęcia.');
             }}
-            onSelect={setSelectedReviewItemId}
-            selectedReviewItemId={selectedReviewItemId}
+            onSelect={setSelectedSlotId}
+            selectedReviewItemId={selectedSlotId}
             ref={editorRef}
           />
           <footer className="gridReviewActions">

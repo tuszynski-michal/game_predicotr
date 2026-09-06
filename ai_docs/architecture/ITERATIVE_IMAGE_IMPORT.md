@@ -433,6 +433,15 @@ narożników pozostaje fail-closed, a nawigacja nie porzuca niezapisanego szkicu
 Rollout pozostaje lokalny. Remote Reviewer nadal używa dotychczasowego,
 scope-bound API i jego proxy nie dopuszcza nowych game-wide endpointów.
 
+Nierozwiązany `image_board_geometry_pending` nie znika z widoku całego źródła.
+Jest łączony z istniejącymi planszami według `position_index`, otrzymuje
+edytowalny quad roboczy i blokuje zwykłe zatwierdzenie do chwili kompletnego
+zapisu. Wspólna komenda najpierw renderuje wszystkie pozycje w pamięci, a
+dopiero potem w jednej transakcji zapisuje rewizję źródła, aktualizuje obecne
+plansze i materializuje deferred wraz z 15 wirtualnymi komórkami. Dzięki temu
+nie istnieje stan pośredni z ośmioma zapisanymi planszami i częściowo utworzonym
+dziewiątym slotem.
+
 ## Obserwowalność
 
 Każdy etap pipeline'u zapisuje czas wykonania. Raport skali agreguje czas,

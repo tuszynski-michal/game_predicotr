@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
@@ -27,6 +28,7 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewError,
     ImageGridReviewListFilter,
     ImageGridReviewListItem,
+    ImageGridReviewSlotKind,
     ImageGridReviewSourceApprovalTarget,
     ImageGridReviewSourceAsset,
     ImageGridReviewState,
@@ -46,12 +48,44 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.schemas.image_grid_reviews import (
+    ImageGridReviewSourceGeometryTargetCommand,
     to_image_grid_review_geometry_response,
     to_image_grid_review_item_response,
 )
+from pydantic import ValidationError
 
 SOURCE_BYTES = b"source"
 SHA = hashlib.sha256(SOURCE_BYTES).hexdigest()
+
+
+def test_source_geometry_target_requires_exactly_one_slot_identity() -> None:
+    common = {
+        "corners": [
+            {"x": 1, "y": 1},
+            {"x": 10, "y": 1},
+            {"x": 10, "y": 10},
+            {"x": 1, "y": 10},
+        ],
+        "expectedGeometryRevision": 0,
+        "expectedResolutionRevision": 0,
+        "expectedSourceChecksumSha256": SHA,
+        "expectedSourceWidth": 20,
+        "expectedSourceHeight": 20,
+        "expectedGridRows": 3,
+        "expectedGridColumns": 5,
+    }
+    pending_id = uuid4()
+    target = ImageGridReviewSourceGeometryTargetCommand.model_validate(
+        {**common, "pendingGeometryId": pending_id}
+    )
+    assert target.pending_geometry_id == pending_id
+    assert target.review_item_id is None
+    with pytest.raises(ValidationError):
+        ImageGridReviewSourceGeometryTargetCommand.model_validate(common)
+    with pytest.raises(ValidationError):
+        ImageGridReviewSourceGeometryTargetCommand.model_validate(
+            {**common, "pendingGeometryId": pending_id, "reviewItemId": uuid4()}
+        )
 
 
 class MemoryGridReviewRepository(ImageGridReviewRepository):
@@ -336,11 +370,15 @@ def _item(
     source_image_id: UUID | None = None,
     position_index: int = 0,
 ) -> ImageGridReviewListItem:
+    review_item_id = uuid4()
     return ImageGridReviewListItem(
-        review_item_id=uuid4(),
+        slot_id=review_item_id,
+        slot_kind=ImageGridReviewSlotKind.CURRENT_REVIEW,
+        review_item_id=review_item_id,
         game_id=game_id,
         import_job_id=import_job_id,
         recognized_board_id=uuid4(),
+        pending_geometry_id=None,
         source_image_id=source_image_id or uuid4(),
         position_index=position_index,
         sequence_number=sequence_number,

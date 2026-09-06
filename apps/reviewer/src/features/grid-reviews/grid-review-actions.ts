@@ -113,6 +113,13 @@ export async function approveGridReview(
   api: GridReviewsClient,
   item: ImageGridReviewItemResponse,
 ) {
+  if (item.reviewItemId === null) {
+    return {
+      error: 'Brakująca plansza wymaga zapisania geometrii całego zdjęcia.',
+      isConflict: false,
+      ok: false as const,
+    };
+  }
   try {
     const result = await api.approveImageGridReviewGeometry(
       item.reviewItemId,
@@ -140,6 +147,14 @@ export async function approveGridReviewSource(
       ok: false as const,
     };
   }
+  if (items.some((item) => item.reviewItemId === null)) {
+    return {
+      error:
+        'Brakujące plansze wymagają zapisania kompletnej geometrii zdjęcia.',
+      isConflict: false,
+      ok: false as const,
+    };
+  }
   try {
     const result = await api.approveImageGridReviewSourceGeometry(
       first.gameId,
@@ -153,7 +168,7 @@ export async function approveGridReviewSource(
           expectedSourceChecksumSha256: item.sourceChecksumSha256,
           expectedSourceHeight: item.sourceHeight,
           expectedSourceWidth: item.sourceWidth,
-          reviewItemId: item.reviewItemId,
+          reviewItemId: item.reviewItemId!,
         })),
       },
     );
@@ -170,6 +185,13 @@ export async function rejectGridReview(
   api: GridReviewsClient,
   item: ImageGridReviewItemResponse,
 ) {
+  if (item.reviewItemId === null) {
+    return {
+      error: 'Brakującej planszy nie można pominąć. Wyznacz jej geometrię.',
+      isConflict: false,
+      ok: false as const,
+    };
+  }
   const command: OperationalImageReviewResolutionCommand = {
     action: 'rejected',
     expectedRevision: item.resolutionRevision,
@@ -201,6 +223,13 @@ export async function previewGridReviewGeometry(
   item: ImageGridReviewItemResponse,
   corners: OperationalReviewGeometryCorners,
 ) {
+  if (item.reviewItemId === null) {
+    return {
+      error: 'Podgląd powstanie po zapisaniu kompletnej geometrii zdjęcia.',
+      isConflict: false,
+      ok: false as const,
+    };
+  }
   try {
     const result = await api.previewImageGridReviewGeometry(
       item.reviewItemId,
@@ -231,6 +260,13 @@ export async function saveGridReviewGeometry(
     }
   | GridReviewActionFailure
 > {
+  if (item.reviewItemId === null) {
+    return {
+      error: 'Brakującą planszę zapisz razem z kompletem plansz zdjęcia.',
+      isConflict: false,
+      ok: false,
+    };
+  }
   try {
     const result = await api.createImageGridReviewGeometryRevision(
       item.reviewItemId,
@@ -276,7 +312,7 @@ export async function saveGridReviewSourceGeometry(
     >[2]['targets'][number]
   >;
   for (const item of input.items) {
-    const corners = input.cornersByReviewItemId.get(item.reviewItemId);
+    const corners = input.cornersByReviewItemId.get(item.slotId);
     if (corners === undefined) {
       return {
         error: 'Wyznacz po cztery narożniki dla każdej planszy zdjęcia.',
@@ -286,6 +322,7 @@ export async function saveGridReviewSourceGeometry(
     }
     targets.push({
       ...gridReviewGeometryPreviewCommand(item, corners),
+      pendingGeometryId: item.pendingGeometryId,
       reviewItemId: item.reviewItemId,
     });
   }

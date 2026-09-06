@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
+from game_predictor_api.storage.image_grid_review_repository import _pending_row_to_item
 from game_predictor_api.storage.models import ImageBoardGeometryRevisionModel
 from game_predictor_api.storage.virtual_grid_geometry_repository import (
     SqlAlchemyVirtualGridGeometryRepository,
@@ -74,6 +75,47 @@ def test_virtual_recrop_resets_grid_issue_to_pending_model_suggestion() -> None:
     assert cell.assigned_symbol_id == predicted_symbol_id
 
 
+def test_deferred_slot_is_exposed_as_required_manual_template() -> None:
+    pending_id = uuid4()
+    source_id = uuid4()
+    item = _pending_row_to_item(
+        (
+            SimpleNamespace(
+                id=pending_id,
+                game_id=uuid4(),
+                import_job_id=uuid4(),
+                source_image_id=source_id,
+                position_index=5,
+                sequence_number=1239,
+                expected_geometry_revision=0,
+                expected_review_resolution_revision=0,
+                reason_code="incomplete_lattice",
+            ),
+            SimpleNamespace(
+                id=source_id,
+                checksum_sha256="a" * 64,
+                width=1080,
+                height=1920,
+                oriented_width=1080,
+                oriented_height=1920,
+            ),
+            SimpleNamespace(
+                board_geometries=[{} for _ in range(9)],
+                engine_kind="structured",
+                engine_version="v0.10",
+            ),
+        )
+    )
+
+    assert item.slot_id == pending_id
+    assert item.review_item_id is None
+    assert item.pending_geometry_id == pending_id
+    assert item.position_index == 5
+    assert item.sequence_number == 1239
+    assert item.geometry["manualGeometryRequired"] is True
+    assert len(item.geometry["manualTemplateQuad"]) == 4
+
+
 def _complete_current_virtual_row(*, backfill_status: str) -> tuple[object, ...]:
     game_id = uuid4()
     import_job_id = uuid4()
@@ -92,6 +134,7 @@ def _complete_current_virtual_row(*, backfill_status: str) -> tuple[object, ...]
             grid_columns=5,
             position_index=0,
             geometry_revision=0,
+            pipeline_fingerprint="d" * 64,
         ),
         SimpleNamespace(
             id=uuid4(),

@@ -3827,6 +3827,10 @@ export type ImageGridReviewItemResponse = {
    */
   localLatticeVersion?: string | null;
   /**
+   * Pendinggeometryid
+   */
+  pendingGeometryId: string | null;
+  /**
    * Positionindex
    */
   positionIndex: number;
@@ -3837,7 +3841,7 @@ export type ImageGridReviewItemResponse = {
   /**
    * Recognizedboardid
    */
-  recognizedBoardId: string;
+  recognizedBoardId: string | null;
   /**
    * Resolutionrevision
    */
@@ -3845,11 +3849,16 @@ export type ImageGridReviewItemResponse = {
   /**
    * Reviewitemid
    */
-  reviewItemId: string;
+  reviewItemId: string | null;
   /**
    * Sequencenumber
    */
   sequenceNumber: number;
+  /**
+   * Slotid
+   */
+  slotId: string;
+  slotKind: ImageGridReviewSlotKind;
   /**
    * Sourcechecksumsha256
    */
@@ -3907,6 +3916,11 @@ export type ImageGridReviewPageResponse = {
   previousCursor: string | null;
   view: ImageGridReviewView;
 };
+
+/**
+ * ImageGridReviewSlotKind
+ */
+export type ImageGridReviewSlotKind = 'current_review' | 'deferred_geometry';
 
 /**
  * ImageGridReviewSourceApprovalCommand
@@ -4058,9 +4072,13 @@ export type ImageGridReviewSourceGeometryTargetCommand = {
    */
   expectedSourceWidth: number;
   /**
+   * Pendinggeometryid
+   */
+  pendingGeometryId?: string | null;
+  /**
    * Reviewitemid
    */
-  reviewItemId: string;
+  reviewItemId?: string | null;
 };
 
 /**

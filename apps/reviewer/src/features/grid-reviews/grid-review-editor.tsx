@@ -67,19 +67,19 @@ interface ActiveDrag {
   readonly imageHeight: number;
   readonly imageWidth: number;
   readonly lastPoint: { readonly x: number; readonly y: number };
-  readonly reviewItemId: string;
+  readonly slotId: string;
   readonly sourceWide: boolean;
   readonly target: Exclude<GridGeometryDragTarget, null>;
 }
 
 interface GridGeometryItemDraft {
   readonly corners: GridGeometryDraft;
-  readonly reviewItemId: string;
+  readonly slotId: string;
 }
 
 interface GridReviewCellSelection {
   readonly cellIndex: number;
-  readonly reviewItemId: string;
+  readonly slotId: string;
 }
 
 export const GridReviewEditor = forwardRef<
@@ -90,9 +90,8 @@ export const GridReviewEditor = forwardRef<
   ref,
 ) {
   const item =
-    items.find(
-      (candidate) => candidate.reviewItemId === selectedReviewItemId,
-    ) ?? items[0];
+    items.find((candidate) => candidate.slotId === selectedReviewItemId) ??
+    items[0];
   if (item === undefined) return null;
 
   return (
@@ -128,7 +127,7 @@ function GridReviewEditorContent({
   const latticeReason = useMemo(() => gridReviewLatticeReason(item), [item]);
   const [draft, setDraft] = useState<GridGeometryItemDraft>(() => ({
     corners: automaticCorners,
-    reviewItemId: item.reviewItemId,
+    slotId: item.slotId,
   }));
   const [editing, setEditing] = useState(false);
   const [sourceEditing, setSourceEditing] = useState(false);
@@ -149,24 +148,21 @@ function GridReviewEditorContent({
     'edited',
   );
   const [selectedCell, setSelectedCell] = useState<GridReviewCellSelection>(
-    () => ({ cellIndex: 0, reviewItemId: item.reviewItemId }),
+    () => ({ cellIndex: 0, slotId: item.slotId }),
   );
   const [zoomPercent, setZoomPercent] = useState(100);
   const [error, setError] = useState('');
   const sourceAssetItem = items[0] ?? item;
   const sourceUrl = api.imageGridReviewSourceAssetUrl(
-    sourceAssetItem.reviewItemId,
+    sourceAssetItem.slotId,
     sourceAssetItem.gameId,
     sourceAssetItem.sourceChecksumSha256,
   );
-  const storedSourceDraft = gridGeometrySourceDraft(
-    sourceDrafts,
-    item.reviewItemId,
-  );
+  const storedSourceDraft = gridGeometrySourceDraft(sourceDrafts, item.slotId);
   const currentItemDraft =
-    draft.reviewItemId === item.reviewItemId ? draft.corners : automaticCorners;
+    draft.slotId === item.slotId ? draft.corners : automaticCorners;
   const hasPendingIndividualDraft =
-    draft.reviewItemId === item.reviewItemId &&
+    draft.slotId === item.slotId &&
     !gridGeometryDraftsEqual(draft.corners, automaticCorners);
   const activeDraft =
     sourceEditing ||
@@ -176,11 +172,11 @@ function GridReviewEditorContent({
   const draftKey = sourceEditing
     ? JSON.stringify(
         items.map((candidate) => [
-          candidate.reviewItemId,
-          gridGeometrySourceDraft(sourceDrafts, candidate.reviewItemId),
+          candidate.slotId,
+          gridGeometrySourceDraft(sourceDrafts, candidate.slotId),
         ]),
       )
-    : JSON.stringify([item.reviewItemId, activeDraft]);
+    : JSON.stringify([item.slotId, activeDraft]);
   const completeCorners = asCompleteCorners(activeDraft);
   const completeSourceDrafts = useMemo(
     () => completeGridGeometrySourceDrafts(items, sourceDrafts),
@@ -189,9 +185,7 @@ function GridReviewEditorContent({
   const previewIsCurrent = draftPreviewUrl !== null && previewKey === draftKey;
   const cellCount = item.gridRows * item.gridColumns;
   const selectedCellIndex =
-    selectedCell.reviewItemId === item.reviewItemId
-      ? selectedCell.cellIndex
-      : 0;
+    selectedCell.slotId === item.slotId ? selectedCell.cellIndex : 0;
   const shownPreviewUrl =
     previewMode === 'automatic' ? autoPreviewUrl : draftPreviewUrl;
   const sourceBatchEnabled = items.every(
@@ -207,8 +201,8 @@ function GridReviewEditorContent({
       ? 0
       : items.filter(
           (candidate) =>
-            gridGeometrySourceDraft(sourceDrafts, candidate.reviewItemId)
-              .length === 4,
+            gridGeometrySourceDraft(sourceDrafts, candidate.slotId).length ===
+            4,
         ).length;
 
   useEffect(() => {
@@ -241,14 +235,14 @@ function GridReviewEditorContent({
     if (context === null) return;
     context.drawImage(image, 0, 0);
     for (const candidate of items) {
-      const selected = candidate.reviewItemId === item.reviewItemId;
+      const selected = candidate.slotId === item.slotId;
       const candidateAnalysisCorners = gridReviewAnalysisCorners(candidate);
       if (candidateAnalysisCorners !== null) {
         drawAnalysisOverlay(context, candidateAnalysisCorners, selected);
       }
       const storedCandidateDraft = gridGeometrySourceDraft(
         sourceDrafts,
-        candidate.reviewItemId,
+        candidate.slotId,
       );
       const corners = selected
         ? (completeCorners ?? activeDraft)
@@ -267,7 +261,7 @@ function GridReviewEditorContent({
   }, [
     completeCorners,
     activeDraft,
-    item.reviewItemId,
+    item.slotId,
     items,
     selectedCellIndex,
     sourceDrafts,
@@ -299,14 +293,14 @@ function GridReviewEditorContent({
   }, []);
 
   const beginDirectEditing = useCallback(
-    (reviewItemId: string) => {
+    (slotId: string) => {
       if (sourceBatchEnabled) {
         setEditing(false);
         setSourceEditing(true);
       } else {
         setEditing(true);
       }
-      onSelect(reviewItemId);
+      onSelect(slotId);
       invalidatePreview();
     },
     [invalidatePreview, onSelect, sourceBatchEnabled],
@@ -314,19 +308,19 @@ function GridReviewEditorContent({
 
   const replaceSourceItemDraft = useCallback(
     (
-      reviewItemId: string,
+      slotId: string,
       next: GridGeometryDraft,
       baseline: OperationalReviewGeometryCorners,
     ) => {
       setSourceDrafts((current) =>
-        replaceGridGeometrySourceDraft(current, reviewItemId, next),
+        replaceGridGeometrySourceDraft(current, slotId, next),
       );
       setModifiedSourceItems((current) => {
         const updated = new Set(current);
         if (gridGeometryDraftsEqual(next, baseline)) {
-          updated.delete(reviewItemId);
+          updated.delete(slotId);
         } else {
-          updated.add(reviewItemId);
+          updated.add(slotId);
         }
         return updated;
       });
@@ -338,16 +332,16 @@ function GridReviewEditorContent({
   const replaceActiveDraft = useCallback(
     (next: GridGeometryDraft) => {
       if (sourceEditing) {
-        replaceSourceItemDraft(item.reviewItemId, next, automaticCorners);
+        replaceSourceItemDraft(item.slotId, next, automaticCorners);
       } else {
-        setDraft({ corners: next, reviewItemId: item.reviewItemId });
+        setDraft({ corners: next, slotId: item.slotId });
         invalidatePreview();
       }
     },
     [
       automaticCorners,
       invalidatePreview,
-      item.reviewItemId,
+      item.slotId,
       replaceSourceItemDraft,
       sourceEditing,
     ],
@@ -374,22 +368,22 @@ function GridReviewEditorContent({
       const selected = gridGeometrySourceItemAtPoint(
         items,
         sourceDrafts,
-        item.reviewItemId,
+        item.slotId,
         activeDraft,
         pointer.point,
         cornerThreshold,
       );
       if (selected === null) return;
       const selectedDraft =
-        gridGeometrySourceDraft(sourceDrafts, selected.reviewItemId).length > 0
-          ? gridGeometrySourceDraft(sourceDrafts, selected.reviewItemId)
+        gridGeometrySourceDraft(sourceDrafts, selected.slotId).length > 0
+          ? gridGeometrySourceDraft(sourceDrafts, selected.slotId)
           : gridReviewCorners(selected);
       const target = gridGeometryDragTarget(
         selectedDraft,
         pointer.point,
         cornerThreshold,
       );
-      beginDirectEditing(selected.reviewItemId);
+      beginDirectEditing(selected.slotId);
       if (target !== null) {
         event.preventDefault();
         dragRef.current = {
@@ -398,7 +392,7 @@ function GridReviewEditorContent({
           imageHeight: selected.sourceHeight,
           imageWidth: selected.sourceWidth,
           lastPoint: pointer.point,
-          reviewItemId: selected.reviewItemId,
+          slotId: selected.slotId,
           sourceWide: sourceBatchEnabled,
           target,
         };
@@ -410,15 +404,15 @@ function GridReviewEditorContent({
       const selected = gridGeometrySourceItemAtPoint(
         items,
         sourceDrafts,
-        item.reviewItemId,
+        item.slotId,
         activeDraft,
         pointer.point,
         cornerThreshold,
       );
       if (selected === null) return;
       const selectedDraft =
-        gridGeometrySourceDraft(sourceDrafts, selected.reviewItemId).length > 0
-          ? gridGeometrySourceDraft(sourceDrafts, selected.reviewItemId)
+        gridGeometrySourceDraft(sourceDrafts, selected.slotId).length > 0
+          ? gridGeometrySourceDraft(sourceDrafts, selected.slotId)
           : gridReviewCorners(selected);
       const target = gridGeometryDragTarget(
         selectedDraft,
@@ -426,8 +420,8 @@ function GridReviewEditorContent({
         cornerThreshold,
       );
       if (target === null) return;
-      if (selected.reviewItemId !== item.reviewItemId) {
-        onSelect(selected.reviewItemId);
+      if (selected.slotId !== item.slotId) {
+        onSelect(selected.slotId);
       }
       event.preventDefault();
       dragRef.current = {
@@ -436,7 +430,7 @@ function GridReviewEditorContent({
         imageHeight: selected.sourceHeight,
         imageWidth: selected.sourceWidth,
         lastPoint: pointer.point,
-        reviewItemId: selected.reviewItemId,
+        slotId: selected.slotId,
         sourceWide: true,
         target,
       };
@@ -447,13 +441,13 @@ function GridReviewEditorContent({
       const selected = gridGeometrySourceItemAtPoint(
         items,
         sourceDrafts,
-        item.reviewItemId,
+        item.slotId,
         activeDraft,
         pointer.point,
         cornerThreshold,
       );
-      if (selected !== null && selected.reviewItemId !== item.reviewItemId) {
-        onSelect(selected.reviewItemId);
+      if (selected !== null && selected.slotId !== item.slotId) {
+        onSelect(selected.slotId);
         return;
       }
     }
@@ -469,15 +463,15 @@ function GridReviewEditorContent({
       if (sourceEditing && next.length === 4) {
         const nextDrafts = replaceGridGeometrySourceDraft(
           sourceDrafts,
-          item.reviewItemId,
+          item.slotId,
           next,
         );
         const following = nextIncompleteGridGeometrySourceItem(
           items,
           nextDrafts,
-          item.reviewItemId,
+          item.slotId,
         );
-        if (following !== null) onSelect(following.reviewItemId);
+        if (following !== null) onSelect(following.slotId);
       }
       return;
     }
@@ -493,7 +487,7 @@ function GridReviewEditorContent({
       imageHeight: item.sourceHeight,
       imageWidth: item.sourceWidth,
       lastPoint: pointer.point,
-      reviewItemId: item.reviewItemId,
+      slotId: item.slotId,
       sourceWide: sourceEditing,
       target,
     };
@@ -524,13 +518,9 @@ function GridReviewEditorContent({
             active.imageHeight,
           );
     if (active.sourceWide) {
-      replaceSourceItemDraft(
-        active.reviewItemId,
-        next,
-        active.automaticCorners,
-      );
+      replaceSourceItemDraft(active.slotId, next, active.automaticCorners);
     } else {
-      setDraft({ corners: next, reviewItemId: active.reviewItemId });
+      setDraft({ corners: next, slotId: active.slotId });
     }
     dragRef.current = { ...active, draft: next, lastPoint: pointer.point };
     invalidatePreview();
@@ -603,7 +593,7 @@ function GridReviewEditorContent({
       const result = await saveGridReviewSourceGeometry(api, {
         cornersByReviewItemId: new Map(
           completeSourceDrafts.map((value) => [
-            value.item.reviewItemId,
+            value.item.slotId,
             value.corners,
           ]),
         ),
@@ -695,7 +685,7 @@ function GridReviewEditorContent({
                       sourceDrafts,
                     );
                     if (next !== null) {
-                      onSelect(next.reviewItemId);
+                      onSelect(next.slotId);
                     }
                   }
                   invalidatePreview();
@@ -725,6 +715,13 @@ function GridReviewEditorContent({
             {item.localLatticeStatus === 'estimated'
               ? 'bezpieczna propozycja siatki'
               : `wymaga korekty${latticeReason ? ` · ${latticeReason}` : ''}`}
+          </p>
+        ) : null}
+        {item.slotKind === 'deferred_geometry' ? (
+          <p className="reviewerAccessError" role="status">
+            Automat nie utworzył tej planszy. Slot #{item.positionIndex + 1} ·{' '}
+            {item.sequenceNumber} jest obowiązkowy — popraw roboczy szablon i
+            zapisz komplet plansz zdjęcia.
           </p>
         ) : null}
         {loadingSource ? <p>Wczytywanie obrazu…</p> : null}
@@ -761,26 +758,25 @@ function GridReviewEditorContent({
         >
           {items.map((candidate) => (
             <button
-              aria-pressed={candidate.reviewItemId === item.reviewItemId}
+              aria-pressed={candidate.slotId === item.slotId}
               className={
-                candidate.reviewItemId === item.reviewItemId
-                  ? 'isSelected'
-                  : undefined
+                candidate.slotId === item.slotId ? 'isSelected' : undefined
               }
-              key={candidate.reviewItemId}
+              key={candidate.slotId}
               disabled={
-                hasPendingIndividualDraft &&
-                candidate.reviewItemId !== item.reviewItemId
+                hasPendingIndividualDraft && candidate.slotId !== item.slotId
               }
-              onClick={() => beginDirectEditing(candidate.reviewItemId)}
+              onClick={() => beginDirectEditing(candidate.slotId)}
               type="button"
             >
               #{candidate.positionIndex + 1} · {candidate.sequenceNumber} ·{' '}
               {candidate.state === 'approved'
                 ? 'zatwierdzona'
-                : candidate.state === 'needs_correction'
-                  ? 'do poprawy'
-                  : 'do walidacji'}
+                : candidate.slotKind === 'deferred_geometry'
+                  ? 'obowiązkowa ręczna geometria'
+                  : candidate.state === 'needs_correction'
+                    ? 'do poprawy'
+                    : 'do walidacji'}
             </button>
           ))}
         </div>
@@ -906,7 +902,7 @@ function GridReviewEditorContent({
                       onClick={() =>
                         setSelectedCell({
                           cellIndex: index,
-                          reviewItemId: item.reviewItemId,
+                          slotId: item.slotId,
                         })
                       }
                       style={cropBackgroundStyle(

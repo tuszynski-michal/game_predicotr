@@ -30,6 +30,11 @@ class ImageGridReviewCursorDirection(StrEnum):
     BEFORE = "before"
 
 
+class ImageGridReviewSlotKind(StrEnum):
+    CURRENT_REVIEW = "current_review"
+    DEFERRED_GEOMETRY = "deferred_geometry"
+
+
 class ImageGridReviewError(ValueError):
     """Stable geometry-review failure for later persistence and HTTP adapters."""
 
@@ -63,10 +68,13 @@ class ImageGridReviewListFilter:
 
 @dataclass(frozen=True, slots=True)
 class ImageGridReviewListItem:
-    review_item_id: UUID
+    slot_id: UUID
+    slot_kind: ImageGridReviewSlotKind
+    review_item_id: UUID | None
     game_id: UUID
     import_job_id: UUID
-    recognized_board_id: UUID
+    recognized_board_id: UUID | None
+    pending_geometry_id: UUID | None
     source_image_id: UUID
     position_index: int
     sequence_number: int
@@ -87,7 +95,7 @@ class ImageGridReviewListItem:
 
     @property
     def cursor_key(self) -> tuple[int, str]:
-        return self.sequence_number, str(self.review_item_id)
+        return self.sequence_number, str(self.slot_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -304,6 +312,7 @@ __all__ = [
     "ImageGridReviewListFilter",
     "ImageGridReviewListItem",
     "ImageGridReviewPage",
+    "ImageGridReviewSlotKind",
     "ImageGridReviewSourceAsset",
     "ImageGridReviewState",
     "ImageGridReviewView",

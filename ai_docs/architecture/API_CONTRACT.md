@@ -3029,3 +3029,18 @@ kohorty i raportu zwraca istniejącą rewizję (`created=false`). Profil schema 
 bez bieżącej polityki raportu zwraca
 `GRID_PROFILE_END_TO_END_REVALIDATION_REQUIRED` przy próbie użycia w nowym
 snapshotcie.
+
+### Deferred w kolejce geometrii całego zdjęcia
+
+`GET /api/v1/admin/games/{gameId}/grid-reviews` może zwrócić dwa rodzaje slotu:
+`current_review` oraz `deferred_geometry`. Każdy element ma stabilne `slotId` i
+`slotKind`. Dla current ustawione są `reviewItemId` i `recognizedBoardId`; dla
+deferred ustawione jest `pendingGeometryId`, a identyfikatory jeszcze
+nieistniejącej planszy i review pozostają `null`.
+
+`POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-revisions`
+przyjmuje dla każdego targetu dokładnie jedno z `reviewItemId` albo
+`pendingGeometryId`. Lista musi dokładnie pokrywać wszystkie aktywne pozycje
+jednej rewizji źródła w kolejności row-major. Polecenie pozostaje atomowe i
+idempotentne; deferred jest materializowany dopiero po poprawnym renderze
+pełnego zestawu.

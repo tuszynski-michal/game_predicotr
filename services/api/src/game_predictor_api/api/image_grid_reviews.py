@@ -422,38 +422,21 @@ def create_image_grid_reviews_router(
     def create_image_grid_review_source_geometry_revision(
         game_id: UUID,
         payload: ImageGridReviewSourceGeometryCommand,
-        service: Annotated[ImageGridReviewService, service_parameter],
         virtual_service: Annotated[
             VirtualGridGeometryService,
             virtual_geometry_service_parameter,
         ],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> ImageGridReviewSourceGeometryResponse:
-        if len({target.review_item_id for target in payload.targets}) != len(payload.targets):
+        target_ids = tuple(
+            target.pending_geometry_id or target.review_item_id for target in payload.targets
+        )
+        if len(set(target_ids)) != len(target_ids):
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_SOURCE_TARGETS_DUPLICATE",
                 "Manual source geometry cannot repeat a board target.",
             )
-        sources = tuple(
-            _require_expected_source(service, game_id, target.review_item_id, target)
-            for target in payload.targets
-        )
-        if (
-            any(source.source_image_id != payload.source_image_id for source in sources)
-            or any(source.asset_mode != "virtual_source" for source in sources)
-            or any(
-                source.source_checksum_sha256 != sources[0].source_checksum_sha256
-                or source.source_width != sources[0].source_width
-                or source.source_height != sources[0].source_height
-                or source.topology != sources[0].topology
-                for source in sources[1:]
-            )
-        ):
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
-                "Manual source geometry requires one complete current virtual source snapshot.",
-            )
-        first_source = sources[0]
+        first_target = payload.targets[0]
         result = virtual_service.save_source(
             game_id=game_id,
             import_job_id=import_job_id,
@@ -465,8 +448,8 @@ def create_image_grid_reviews_router(
         return to_virtual_grid_review_source_geometry_response(
             result,
             source_image_id=payload.source_image_id,
-            grid_rows=first_source.topology.rows,
-            grid_columns=first_source.topology.columns,
+            grid_rows=first_target.expected_grid_rows,
+            grid_columns=first_target.expected_grid_columns,
         )
 
     return router

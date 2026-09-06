@@ -89,6 +89,8 @@ implementacyjnym.
 - [Decision log](process/DECISION_LOG.md)
 - [Current state](process/CURRENT_STATE.md)
 - [Task template](process/TASK_TEMPLATE.md)
+- [Standard planów](process/PLAN_STANDARD.md) — obowiązkowy odczyt przed
+  planowaniem, aktualizacją lub wykonaniem planu.
 - [Test strategy](quality/TEST_STRATEGY.md)
 - [Version 0.3 Mobile acceptance](quality/V0_3_MOBILE_ACCEPTANCE.md)
 - [Board-cell geometry v19 rollout closure](quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md)

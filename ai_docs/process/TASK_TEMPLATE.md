@@ -18,6 +18,16 @@ Jednozdaniowy, mierzalny rezultat.
 
 Krótko wyjaśnij, dlaczego zadanie jest potrzebne.
 
+## Dependencies / entry conditions
+
+Poprzednie zadania, wymagane artefakty i warunki startu. Odróżnij fakty
+od założeń; wskaż niewiadome blokujące zależny fragment.
+
+## Recommended execution
+
+Model + wspierany poziom rozumowania, uzasadnienie i warunek eskalacji
+według PLAN_STANDARD.md; albo odwołanie do rekomendacji wspólnej planu.
+
 ## Relevant docs
 
 - `AGENTS.md`
@@ -39,17 +49,29 @@ Krótko wyjaśnij, dlaczego zadanie jest potrzebne.
 
 ## Technical notes
 
-Decyzje lokalne i ograniczenia. Nie powtarzaj pełnej architektury.
+Aktualne zachowanie → wymagane zachowanie. Kolejne kroki implementacji,
+rozstrzygnięte kontrakty i odpowiedzialności, źródła prawdy, walidacja,
+zapis/transakcje, błędy i przypadki brzegowe. Dla trudnej logiki przykład
+wejście → wynik. Wskaż zachowanie chronione i niedozwolone skróty.
+Nie powtarzaj pełnej architektury; pomiń pola nieistotne dla ryzyka zadania.
 
 ## Expected files
 
-- `path/to/file`
+- Istniejące: sprawdzona ścieżka + symbol do zmiany.
+- Nowe: jawnie oznaczona proponowana ścieżka + symbol.
+
+## Test cases
+
+- Scenariusz, dane wejściowe → oczekiwany wynik; regresje i przypadki błędów.
 
 ## Verification
 
 ```powershell
-# konkretne komendy
+# sprawdzone komendy, katalog uruchomienia i timeout
 ```
+
+Podaj kryteria zaliczenia i warunek zakończenia; testy planowane nie są
+wynikami wykonania. Istotna rozbieżność wymaga aktualizacji planu.
 
 ## Risks / open questions
 

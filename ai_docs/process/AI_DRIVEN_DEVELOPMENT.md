@@ -27,7 +27,8 @@ Dobre zadanie:
 
 ### 1. Select
 
-Wybierz następne zadanie zgodne z `CURRENT_STATE.md` i aktywnym milestone'em.
+Realizuj zadanie wskazane przez użytkownika; CURRENT_STATE i milestone
+określają kontekst, nie zgodę na automatyczne rozpoczęcie następnego taska.
 
 ### 2. Read
 
@@ -40,7 +41,11 @@ Przeczytaj tylko:
 
 ### 3. Plan
 
-Agent zapisuje krótki plan w zadaniu lub raporcie. Jeżeli odkryje sprzeczność, zatrzymuje implementację części zależnej i aktualizuje `Open questions` albo `Decision log`.
+Przed planowaniem lub wykonaniem planu przeczytaj w całości
+`ai_docs/process/PLAN_STANDARD.md`. Użyj TASK_TEMPLATE.md, rozstrzygnij decyzje
+i zarekomenduj model wykonawczy. Samo planowanie nie upoważnia do implementacji
+ani automatycznego zapisu pliku; obowiązują warunki opisane w standardzie.
+Sprzeczność blokuje zależny fragment, a nie uzasadnia zgadywania.
 
 ### 4. Implement
 

@@ -21,6 +21,15 @@ zadanie odwołuje się do nich jawnie.
 
 ## Zasady nadrzędne
 
+- Przed tworzeniem, aktualizacją lub wykonywaniem planu przeczytaj w całości
+  `ai_docs/process/PLAN_STANDARD.md`. Zastosuj jego kontrolę jakości oraz
+  `ai_docs/process/TASK_TEMPLATE.md`; sam link nie zastępuje odczytu.
+- Z użytkownikiem komunikuj się i przedstawiaj plany po polsku, chyba że
+  poprosi inaczej. Instrukcje zapisuj w języku edytowanego dokumentu; nie
+  tłumacz przy okazji identyfikatorów, kodu ani istniejącej dokumentacji.
+- Plan ma zawierać rekomendowany model wykonawczy i poziom rozumowania
+  z krótkim uzasadnieniem, dobierane według PLAN_STANDARD, nie stały ranking.
+
 - Nie rozszerzaj zakresu zadania bez wyraźnej potrzeby.
 - Implementuj wyłącznie task wskazany przez użytkownika. Nie rozpoczynaj
   kolejnego taska, nawet jeżeli jego zależności są gotowe, bez osobnego

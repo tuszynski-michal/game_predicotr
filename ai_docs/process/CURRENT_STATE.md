@@ -6,6 +6,13 @@ last_updated: 2026-09-06
 
 # Current State
 
+### Instrukcje planowania i przekazania wykonawcy
+
+- AGENTS wymaga odczytu PLAN_STANDARD przed planowaniem i implementacją planu.
+  Standard i szablon obejmują zweryfikowane symbole, decyzje, błędy, testy
+  oraz dynamiczną rekomendację modelu i poziomu rozumowania, bez stałego rankingu.
+- Zmieniono wyłącznie instrukcje i dokumentację procesu; bez zmian aplikacji.
+
 ### TASK-0491 — kontynuacja importu i raport ręcznej korekty
 
 - Seria 0489–0491 jest zaimplementowana. Niska skuteczność nowych importów

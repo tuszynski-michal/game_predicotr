@@ -872,8 +872,10 @@ folderu i gotowego stagingu, a upload pozostaje zablokowany do czasu odczytania
 polityki gry. Zmiana silnika dla aktywnego stagingu automatycznie odtwarza jego
 raport bez ponownego przesyłania JPEG-ów.
 
-Dla obu bezpiecznych presetów Admin przygotowuje preflight geometrii przed
-odblokowaniem startu. W nowej grze brak profilu nie jest błędem
+Dla obu bezpiecznych presetów Admin wymaga preflightu geometrii przed
+odblokowaniem startu, ale nie uruchamia go podczas uploadu ani otwierania
+raportu. Te akcje wyłącznie pokazują raport i wymagania; dopiero jawne
+`Przygotuj geometrię stron` tworzy albo przywraca idempotentny job. W nowej grze brak profilu nie jest błędem
 technicznym: panel pokazuje źródła do korekty i instruuje operatora, aby
 poprawił jedną reprezentatywną stronę. Zapis uruchamia następny preflight z tą
 stroną jako kotwicą; tylko źródła z kompletną geometrią mogą zostać

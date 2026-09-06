@@ -6,6 +6,17 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0486 — jawne uruchamianie preflightu geometrii
+
+- Zakończenie browserowego uploadu oraz `Pokaż raport` wyłącznie pobierają
+  raport. Preflight geometrii powstaje lub jest przywracany dopiero po jawnym
+  `Przygotuj geometrię stron`.
+- Lista gotowych stagingów opisuje teraz, że pokazuje fizyczne kopie gotowe do
+  wznowienia, a nie historię zakończonych importów z zakładki Joby.
+- Odczytowa diagnoza stagingu `6b9de344…` wykazała aktywny preflight oraz
+  istniejący import z wynikami; akcja `Usuń nieużywany staging` prawidłowo nie
+  może go usunąć podczas aktywnego wykorzystania.
+
 ### TASK-0485 — stabilne miejsca kafli Weryfikacji symboli
 
 - Lokalnie ukryty target pozostawia niewidoczne miejsce w niezmiennym

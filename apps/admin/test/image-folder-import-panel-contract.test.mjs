@@ -101,6 +101,27 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Import plansz z folderu/);
 });
 
+test('starts page geometry only after the explicit operator action', () => {
+  const uploadFlow = panelSource.slice(
+    panelSource.indexOf('async function chooseFolder'),
+    panelSource.indexOf('async function prepareReadyImport'),
+  );
+  const reportFlow = panelSource.slice(
+    panelSource.indexOf('async function prepareReadyImport'),
+    panelSource.indexOf('async function startReadyImport'),
+  );
+  const explicitFlow = panelSource.slice(
+    panelSource.indexOf('async function startGeometryPreflight'),
+    panelSource.indexOf('async function retryGeometryPreflight'),
+  );
+
+  assert.doesNotMatch(uploadFlow, /startBrowserPageGeometryPreflight/);
+  assert.doesNotMatch(reportFlow, /startBrowserPageGeometryPreflight/);
+  assert.match(explicitFlow, /startBrowserPageGeometryPreflight/);
+  assert.match(panelSource, /Kliknij „Przygotuj geometrię stron”/);
+  assert.match(panelSource, /historia zakończonych importów pozostaje w/);
+});
+
 test('requires explicit board resolutions and pins the sealed manifest to schema v7 start', () => {
   assert.match(panelSource, /IMAGE_GEOMETRY_SYSTEMIC_REGRESSION/);
   assert.match(panelSource, /Rozlicz problematyczne plansze/);

@@ -424,17 +424,10 @@ export function ImageFolderImportPanel({
       }
       setPreflight(preflightResult.data);
       if (preflightResult.data.geometryPreflightRequired) {
-        const geometryResult = await startBrowserPageGeometryPreflight(
-          api,
-          result.uploadId,
-          gameId,
-          pageRegistrationVariant,
+        setGeometryPreflightJob(null);
+        setFeedback(
+          'Raport jest gotowy. Kliknij „Przygotuj geometrię stron”, aby jawnie uruchomić analizę.',
         );
-        if (!geometryResult.ok) {
-          setError(geometryResult.error);
-          return;
-        }
-        setGeometryPreflightJob(geometryResult.data.job);
       } else {
         setGeometryPreflightJob(null);
         setFeedback(
@@ -477,20 +470,9 @@ export function ImageFolderImportPanel({
       setGeometryGuardResolutionManifest(null);
       const modelNextStep = symbolModelNextStep(result.data);
       if (result.data.geometryPreflightRequired) {
-        const geometryResult = await startBrowserPageGeometryPreflight(
-          api,
-          uploadId,
-          gameId,
-          pageRegistrationVariant,
-        );
-        if (!geometryResult.ok) {
-          setError(geometryResult.error);
-          return;
-        }
-        setGeometryPreflightJob(geometryResult.data.job);
-        const geometryFeedback = geometryResult.data.created
-          ? 'Raport jest gotowy. Automatyczne przygotowanie geometrii oczekuje na worker.'
-          : 'Raport jest gotowy. Przywrócono istniejący preflight geometrii.';
+        setGeometryPreflightJob(null);
+        const geometryFeedback =
+          'Raport jest gotowy. Kliknij „Przygotuj geometrię stron”, aby jawnie uruchomić albo przywrócić analizę.';
         setFeedback(
           modelNextStep === null
             ? geometryFeedback
@@ -1092,7 +1074,9 @@ export function ImageFolderImportPanel({
               <h3 id="ready-layout-staging-title">Import plansz z manifestu</h3>
               <p>
                 Staging pozostaje dostępny po restarcie API i nie wymaga
-                ponownego uploadu.
+                ponownego uploadu. Lista obejmuje tylko fizyczne stagingi gotowe
+                do wznowienia; historia zakończonych importów pozostaje w
+                zakładce Joby.
               </p>
             </div>
           </header>

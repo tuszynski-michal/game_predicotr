@@ -667,6 +667,11 @@ utworzeniem preflightu; `Standardowe v0.10` pozostaje wartością domyślną.
 Wybór jest częścią niezmiennego payloadu i tożsamości joba, więc retry nie
 może przełączyć wariantu.
 
+Odczyt raportu stagingu i zakończenie browserowego uploadu nie tworzą joba
+preflightu. Operator uruchamia kosztowną rejestrację jawnie po sprawdzeniu
+raportu i wariantu. Ponowne użycie tej samej komendy zachowuje idempotencję i
+może przywrócić istniejący job bez ponownego przeliczania.
+
 Od v0.7.5 polityka `page-geometry-preflight-v2-auto-anchor` wykonuje najwyżej
 dwa dodatkowe przebiegi wyłącznie dla nierozpoznanych źródeł. W każdym
 przebiegu może dodać najwyżej 21 perspektyw rozłożonych po naturalnej kolejności

@@ -164,6 +164,30 @@ test('removes successful targets locally without reloading or refilling the page
   assert.doesNotMatch(bulkFinish, /setPageState\('loading'\)/);
 });
 
+test('retains previews for the active page while locally hiding decided cards', () => {
+  assert.match(
+    source,
+    /activePagePreviewItems = useMemo\([\s\S]*?currentPage\?\.items \?\? \[\]/,
+  );
+  assert.match(
+    source,
+    /loadSymbolReviewPreviewAtlases\([\s\S]*?activePagePreviewItems/,
+  );
+  assert.match(
+    source,
+    /\[api, activePagePreviewItems, filters\.gameId, hasVisibleItems\]/,
+  );
+
+  const movePageStart = source.indexOf('const movePage = useCallback');
+  const movePageEnd = source.indexOf('async function prepareProjection');
+  const movePageSource = source.slice(movePageStart, movePageEnd);
+  assert.match(movePageSource, /setVirtualPreviewTiles\(\{\}\)/);
+  assert.match(
+    movePageSource,
+    /setPreviewAvailability\(emptyPreviewAvailability\(\)\)/,
+  );
+});
+
 test('explains when an approved crop is excluded from training', () => {
   assert.match(source, /item\.reviewState === 'approved'/);
   assert.match(source, /Niewyraźny · poza uczeniem/);

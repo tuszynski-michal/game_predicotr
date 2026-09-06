@@ -209,6 +209,10 @@ export function SymbolReviewWorkspace({
       (currentPage?.items ?? []).filter((item) => !hiddenCellIds.has(item.id)),
     [currentPage?.items, hiddenCellIds],
   );
+  const activePagePreviewItems = useMemo(
+    () => currentPage?.items ?? [],
+    [currentPage?.items],
+  );
   const activeGame = games.find((game) => game.id === filters.gameId) ?? null;
   const trackedOperations = useMemo(
     () => Object.values(activeOperations),
@@ -543,7 +547,7 @@ export function SymbolReviewWorkspace({
     void loadSymbolReviewPreviewAtlases(
       api,
       filters.gameId,
-      currentItems,
+      activePagePreviewItems,
       previewAnchorCellId.current,
       'current',
       (tiles, availability) => {
@@ -576,7 +580,7 @@ export function SymbolReviewWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [api, currentItems, filters.gameId, hasVisibleItems]);
+  }, [api, activePagePreviewItems, filters.gameId, hasVisibleItems]);
 
   const movePage = useCallback(
     async (direction: -1 | 1) => {

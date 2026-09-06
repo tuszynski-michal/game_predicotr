@@ -528,6 +528,10 @@ usuwa jej targety z aktualnie wyświetlanej strony bez ponownego zapytania i bez
 uzupełniania strony kolejnymi rekordami. Konflikt lub częściowy błąd pozostawia
 targety widoczne, ponieważ zbiorcza odpowiedź nie wskazuje bezpiecznie ich
 indywidualnego wyniku. Ponowna nawigacja naturalnie pobiera aktualny keyset.
+Lokalne ukrycie targetu nie może ponownie uruchamiać ładowania atlasów ani
+usuwać gotowych miniaturek pozostałych kart. Pamięciowa mapa tile obejmuje
+wyłącznie aktywną stronę i jest czyszczona natychmiast przy zmianie strony,
+filtra albo gry; odtwarzalny cache HTTP/serwera pozostaje niezależny.
 Jedna jawnie zaznaczona karta jest wyjątkiem od workflow masowego: Admin wysyła
 bezpośrednią, checksum-bound decyzję i nie tworzy joba. Po sukcesie czyści
 zaznaczenie, pokazuje krótki komunikat i usuwa kartę bez uzupełniania strony;

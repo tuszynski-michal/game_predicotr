@@ -6,6 +6,15 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0484 — zachowanie podglądów aktywnej strony symboli
+
+- Ładowanie atlasów jest związane z niezmiennym snapshotem pobranej strony, a
+  nie z lokalną listą kart pomniejszaną po każdej udanej decyzji. Pozostałe
+  miniatury nie znikają i nie są ponownie pobierane po zmianie symbolu.
+- React przechowuje tile wyłącznie aktualnie otwartej strony. Nawigacja, zmiana
+  filtra albo gry usuwa referencje poprzedniej strony; trwały cache atlasów
+  pozostaje odtwarzalny i checksum-bound.
+
 ### TASK-0483 — stabilna weryfikacja symboli i ochrona nieczytelnych cropów
 
 - Pojedyncza oraz w pełni udana masowa decyzja usuwa dokładne targety z

@@ -174,6 +174,14 @@ co najwyżej jedną operację oczekującą. Każda mutacja ma trzy fazy:
 2. dokładna zmiana jednego pliku przez uchwyt katalogu;
 3. ponowny odczyt, kontrola SHA-256 i finalizacja obu manifestów.
 
+Reader naprawia historyczne zawężenie granic przez monotoniczną sumę dowodów:
+dotychczasowe granice, aktualne i zapisane aktywne zakresy, `deletedRanges`,
+operacje zakończone i operację oczekującą. Output malejący wnosi także minimum
+i maksimum wszystkich `items`; jego `firstLayout` nie jest interpretowany jako
+minimum kolekcji. Poszerzenie zwiększa rewizję repair manifestu, zapisuje ją
+podczas jawnej inspekcji i synchronizuje stan zakończenia output manifestu.
+Żaden dowód nie może automatycznie zawęzić istniejących granic.
+
 Reconciler po reloadzie rozstrzyga stan na podstawie pliku, rozmiaru i
 checksummy. Obcy lub zmieniony cel pozostaje fail-closed. Katalog bazowy fill
 jest zawsze read-only, a zapisany JPEG zachowuje oryginalne bajty. Delete undo

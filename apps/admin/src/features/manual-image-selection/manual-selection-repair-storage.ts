@@ -95,19 +95,54 @@ export async function inspectRepairDirectory(
     repairManifest,
     parsed,
   );
+  const boundsWereRecovered =
+    reconciled.collectionStart !== bounds.start ||
+    reconciled.collectionEnd !== bounds.end;
+  const boundedManifest: ManualSelectionRepairManifest = boundsWereRecovered
+    ? {
+        ...reconciled,
+        collectionEnd: bounds.end,
+        collectionStart: bounds.start,
+        revision: reconciled.revision + 1,
+        updatedAt: new Date().toISOString(),
+      }
+    : reconciled;
+  if (boundsWereRecovered)
+    await writeRepairManifest(directory, boundedManifest);
+  const verifiedManifest = await attachVerifiedOutputChecksums(
+    directory,
+    boundedManifest,
+    outputManifest,
+    parsed,
+  );
+  const gaps = findSequenceGaps(
+    {
+      end: verifiedManifest.collectionEnd,
+      start: verifiedManifest.collectionStart,
+    },
+    verifiedManifest.activeFiles,
+    verifiedManifest.deletedRanges,
+  );
+  const outputNeedsSynchronization =
+    outputManifest !== null &&
+    (outputManifest.schemaVersion !== 2 ||
+      outputManifest.selectionComplete !== (gaps.length === 0) ||
+      outputManifest.sequenceUpperBound !== verifiedManifest.collectionEnd);
+  const synchronizedOutput = outputNeedsSynchronization
+    ? await synchronizeOutputManifest(
+        directory,
+        outputManifest,
+        verifiedManifest,
+      )
+    : outputManifest;
   return {
     directory,
     files: parsed.map((file) => ({
       ...file,
       handle: handles.get(file.fileName.toLocaleLowerCase('en-US'))!,
     })),
-    outputManifest,
-    repairManifest: await attachVerifiedOutputChecksums(
-      directory,
-      reconciled,
-      outputManifest,
-      parsed,
-    ),
+    outputManifest: synchronizedOutput,
+    repairManifest: verifiedManifest,
   };
 }
 
@@ -538,13 +573,17 @@ export function outputBounds(
   manifest: ManualSelectionOutputManifest | null,
 ): SequenceRange | null {
   if (manifest === null) return null;
-  if (manifest.schemaVersion === 2 && manifest.sequenceUpperBound !== null) {
-    return { end: manifest.sequenceUpperBound, start: manifest.firstLayout };
-  }
-  if (manifest.items.length === 0) return null;
+  const starts = [
+    manifest.firstLayout,
+    ...manifest.items.map((item) => item.rangeStart),
+  ];
+  const ends = manifest.items.map((item) => item.rangeEnd);
+  if (manifest.schemaVersion === 2 && manifest.sequenceUpperBound !== null)
+    ends.push(manifest.sequenceUpperBound);
+  if (ends.length === 0) return null;
   return {
-    end: Math.max(...manifest.items.map((item) => item.rangeEnd)),
-    start: manifest.firstLayout,
+    end: Math.max(...ends),
+    start: Math.min(...starts),
   };
 }
 

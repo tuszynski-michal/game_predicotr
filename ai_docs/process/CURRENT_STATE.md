@@ -6,6 +6,18 @@ last_updated: 2026-09-06
 
 # Current State
 
+### TASK-0487 — odzyskanie luk malejącej korekty selekcji
+
+- Naprawiono interpretację malejącego output manifestu: `firstLayout` nie jest
+  już dolną granicą całej kolekcji. Granice są monotonicznie wyprowadzane z
+  plików, usuniętych zakresów i historii repairu, a odzysk zostaje zapisany.
+- Katalog `437742 - 412605` ma faktyczny zakres `412597–437742`: 2794 logiczne
+  pozycje, 2547 JPEG-ów oraz 247 dokładnych luk. Repair manifest został
+  skorygowany do rewizji 248, output ma `selectionComplete=false`; JPEG-ów nie
+  zmieniono.
+- Testy regresyjne obejmują istniejący uszkodzony manifest, malejący output i
+  synchronizację stanu zakończenia.
+
 ### TASK-0486 — jawne uruchamianie preflightu geometrii
 
 - Zakończenie browserowego uploadu oraz `Pokaż raport` wyłącznie pobierają

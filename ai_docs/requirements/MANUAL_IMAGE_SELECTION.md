@@ -515,6 +515,15 @@ katalogu `seq_*` i rekurencyjnego listowania katalogu bazowego UI pokazuje
 aktualną fazę; ręczne wskazanie katalogu unieważnia spóźnione recovery i jest
 natychmiast utrwalane w IndexedDB.
 
+Granice kolekcji są monotoniczne również dla selekcji malejącej. Inspekcja
+wyznacza je z sumy utrwalonego zakresu, wszystkich aktywnych nazw `seq_*`,
+znanych usunięć i historii operacji. `firstLayout` malejącego output manifestu
+jest początkiem pierwszej decyzji, a nie dolną granicą całego katalogu. Jeżeli
+historyczny repair manifest został przez ten błąd zawężony, jawne ponowne
+wybranie katalogu poszerza i utrwala jego granice bez zmiany JPEG-ów oraz
+synchronizuje `selectionComplete`; nie wolno zawężać zakresu po usunięciu
+pliku skrajnego.
+
 ### Trwałość i instrukcja operatora
 
 Repair manifest jest journalem intencji `fill`, `undo_fill`, `delete` i

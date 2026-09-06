@@ -121,18 +121,36 @@ export function deriveCollectionBounds(input: {
   readonly outputBounds: SequenceRange | null;
   readonly files: readonly ParsedSequenceFile[];
 }): SequenceRange {
+  const evidence: SequenceRange[] = [...input.files];
+  if (input.outputBounds !== null) evidence.push(input.outputBounds);
   if (input.repairManifest !== null) {
-    return {
-      end: input.repairManifest.collectionEnd,
-      start: input.repairManifest.collectionStart,
-    };
+    evidence.push(
+      {
+        end: input.repairManifest.collectionEnd,
+        start: input.repairManifest.collectionStart,
+      },
+      ...input.repairManifest.activeFiles,
+      ...input.repairManifest.deletedRanges,
+      ...input.repairManifest.operations.map((operation) => ({
+        end: operation.rangeEnd,
+        start: operation.rangeStart,
+      })),
+    );
+    if (input.repairManifest.pendingOperation !== null) {
+      evidence.push({
+        end: input.repairManifest.pendingOperation.rangeEnd,
+        start: input.repairManifest.pendingOperation.rangeStart,
+      });
+    }
   }
-  if (input.outputBounds !== null) return input.outputBounds;
-  if (input.files.length === 0) throw new Error('SEQUENCE_COLLECTION_EMPTY');
-  return {
-    end: input.files[input.files.length - 1]!.end,
-    start: input.files[0]!.start,
-  };
+  if (evidence.length === 0) throw new Error('SEQUENCE_COLLECTION_EMPTY');
+  let start = evidence[0]!.start;
+  let end = evidence[0]!.end;
+  for (const range of evidence.slice(1)) {
+    start = Math.min(start, range.start);
+    end = Math.max(end, range.end);
+  }
+  return { end, start };
 }
 
 export function findSequenceGaps(

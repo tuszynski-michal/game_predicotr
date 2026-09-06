@@ -74,6 +74,28 @@ test('preserves manifest bounds after deleting edge files', () => {
   ]);
 });
 
+test('widens corrupted repair bounds from active and deleted range evidence', () => {
+  const files = sortAndValidateSequenceFiles(['seq_1-9.jpg', 'seq_28-36.jpg']);
+  const corrupted = createRepairManifest({
+    bounds: { end: 36, start: 28 },
+    files,
+    now: '2026-09-06T00:00:00.000Z',
+    repairKey: 'repair-descending',
+    selectedDirectoryName: 'descending',
+  });
+  assert.deepEqual(
+    deriveCollectionBounds({
+      files,
+      outputBounds: null,
+      repairManifest: {
+        ...corrupted,
+        deletedRanges: [{ end: 27, start: 19 }],
+      },
+    }),
+    { end: 36, start: 1 },
+  );
+});
+
 test('keeps exact known deletions and splits unknown long gaps from the left', () => {
   const files = sortAndValidateSequenceFiles(['seq_1-9.jpg', 'seq_40-48.jpg']);
   assert.deepEqual(

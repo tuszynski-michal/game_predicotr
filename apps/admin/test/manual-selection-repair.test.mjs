@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   deleteRepairFile,
   inspectRepairDirectory,
+  outputBounds,
   readActiveFilledGapsManifest,
   readRepairManifest,
   writeRepairManifest,
@@ -82,6 +83,129 @@ test('inspects only top-level seq JPEGs and ignores non-image artifacts', async 
   );
   assert.equal(snapshot.repairManifest.collectionStart, 1);
   assert.equal(snapshot.repairManifest.collectionEnd, 18);
+});
+
+test('derives descending output bounds from every persisted item', () => {
+  assert.deepEqual(
+    outputBounds({
+      direction: 'descending',
+      firstLayout: 28,
+      gameId: 'local',
+      items: [
+        {
+          activeBoardCount: 9,
+          imageChecksum: 'a'.repeat(64),
+          imagePath: 'source/high.jpg',
+          outputName: 'seq_28-36.jpg',
+          rangeEnd: 36,
+          rangeStart: 28,
+        },
+        {
+          activeBoardCount: 9,
+          imageChecksum: 'b'.repeat(64),
+          imagePath: 'source/low.jpg',
+          outputName: 'seq_1-9.jpg',
+          rangeEnd: 9,
+          rangeStart: 1,
+        },
+      ],
+      schemaVersion: 2,
+      selectionComplete: true,
+      sequenceUpperBound: 36,
+      sessionKey: 'descending-session',
+      sourceDirectoryName: 'source',
+      updatedAt: '2026-09-06T00:00:00.000Z',
+    }),
+    { end: 36, start: 1 },
+  );
+});
+
+test('inspection persists widened bounds for an existing corrupted repair manifest', async () => {
+  const low = new File(['low'], 'seq_1-9.jpg', { type: 'image/jpeg' });
+  const high = new File(['high'], 'seq_28-36.jpg', { type: 'image/jpeg' });
+  const directory = new MemoryDirectoryHandle('descending', [low, high]);
+  const corrupted = {
+    activeFiles: [
+      {
+        checksumSha256: null,
+        end: 9,
+        fileName: 'seq_1-9.jpg',
+        start: 1,
+      },
+      {
+        checksumSha256: null,
+        end: 36,
+        fileName: 'seq_28-36.jpg',
+        start: 28,
+      },
+    ],
+    collectionEnd: 36,
+    collectionStart: 28,
+    deletedRanges: [{ end: 27, start: 19 }],
+    operations: [],
+    pendingOperation: null,
+    repairKey: 'repair-descending',
+    revision: 7,
+    schemaVersion: 'manual-image-selection-repair-v1',
+    selectedDirectoryName: 'descending',
+    updatedAt: '2026-09-06T00:00:00.000Z',
+  };
+  const handle = await directory.getFileHandle(
+    'manual-image-selection-repair-v1.json',
+    { create: true },
+  );
+  const writable = await handle.createWritable();
+  await writable.write(JSON.stringify(corrupted));
+  await writable.close();
+  const outputHandle = await directory.getFileHandle(
+    'manual-image-selection-output-v1.json',
+    { create: true },
+  );
+  const outputWritable = await outputHandle.createWritable();
+  await outputWritable.write(
+    JSON.stringify({
+      direction: 'descending',
+      firstLayout: 28,
+      gameId: 'local',
+      items: [
+        {
+          activeBoardCount: 9,
+          imageChecksum: await sha256Hex(low),
+          imagePath: 'source/low.jpg',
+          outputName: 'seq_1-9.jpg',
+          rangeEnd: 9,
+          rangeStart: 1,
+        },
+        {
+          activeBoardCount: 9,
+          imageChecksum: await sha256Hex(high),
+          imagePath: 'source/high.jpg',
+          outputName: 'seq_28-36.jpg',
+          rangeEnd: 36,
+          rangeStart: 28,
+        },
+      ],
+      schemaVersion: 2,
+      selectionComplete: true,
+      sequenceUpperBound: 36,
+      sessionKey: 'descending-session',
+      sourceDirectoryName: 'source',
+      updatedAt: '2026-09-06T00:00:00.000Z',
+    }),
+  );
+  await outputWritable.close();
+
+  const snapshot = await inspectRepairDirectory(directory);
+
+  assert.equal(snapshot.repairManifest.collectionStart, 1);
+  assert.equal(snapshot.repairManifest.collectionEnd, 36);
+  assert.equal(snapshot.repairManifest.revision, 8);
+  assert.equal((await readRepairManifest(directory)).collectionStart, 1);
+  assert.equal(snapshot.outputManifest.selectionComplete, false);
+  assert.equal(
+    JSON.parse(await (await outputHandle.getFile()).text()).selectionComplete,
+    false,
+  );
 });
 
 test('blocks a malformed top-level JPEG before creating repair state', async () => {

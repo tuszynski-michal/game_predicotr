@@ -21,6 +21,26 @@ Brak kandydata nie usuwa slotów z istniejącej pełnej kolejki ręcznej.
 Ten fundament nie udostępnia silnika do importu; uruchomienie i odbiór
 pozostają zależnymi TASK-0512–0515. Standardowy v3 nie zmienia wyników.
 
+### Lokalne dopasowanie propozycji — TASK-0512
+
+Wewnętrzny wariant v4 najpierw wywołuje niezmieniony v3. Kompletny wynik jest
+zwracany bez zmian. Tylko odrzucenie i zgodna boczna kandydatura pozwalają na
+jeden dodatkowy przebieg 500×300. Wyjątek v3 `SYMBOL_GRID_QUAD_OUT_OF_BOUNDS`
+jest zapisywany jako ten sam jawny powód odrzucenia; nie clampujemy wejścia.
+
+Nowy przebieg wymaga wszystkich trzech rzędów, co najmniej trzech kolumn,
+dziewięciu inlierów oraz ochrony dziewięciu wiarygodnych komponentów. Badane
+są najwyżej trzy początki indeksowania kolumn; brak jednoznacznego wyniku
+pozostawia ręczną korektę. Maska komórek jest wyliczana przez ten sam kontrakt
+SourceQuad co renderer, z właściwych obszarów przed paddingiem 0,08.
+
+Propozycja `pending_partial` nie jest decyzją człowieka i nie ma uprawnienia
+do automatycznego renderowania. Po potwierdzeniu istniejąca ręczna ścieżka
+może renderować wyłącznie dostępne pola. Kwalifikacja obowiązkowo wyklucza
+geometrię z uczenia i kotwic. Góra/dół poza źródłem dają
+`source_vertical_crop_defect`, nie akceptację bocznej niepełności.
+Publiczne uruchomienie nadal wymaga TASK-0513–0515 i końcowej bramki jakości.
+
 ## Wykluczenie błędnego źródła przed importem
 
 Operator może z kolejki `Korekta geometrii strony` wykluczyć JPEG, którego

@@ -33,6 +33,17 @@ rejestracji, a nie zezwoleniem na inferencję lub syntetyzowanie brakujących
 pikseli. Brak pełnej planszy albo pionowego podparcia odrzuca propozycję.
 Wariant standardowy oraz publiczna bramka NOT_ENABLED pozostają bez zmian.
 
+### Propozycja lokalna nie daje uprawnień ręcznej rewizji (TASK-0512)
+
+Adapter v4 zachowuje pełny wynik v3, a boczny wynik jest wyłącznie propozycją
+do potwierdzenia. Nie zdejmujemy zabezpieczenia 0506 zabraniającego renderu
+automatycznej częściowej geometrii. Maska i kwalifikacja są te same co dla
+ręcznej korekty; dostępne cropy po zatwierdzeniu nie mają zmienionych indeksów.
+Nowy bounded fit używa lokalnego deterministycznego próbkowania, a nie
+globalnego `cv2.setRNGSeed`, aby nie zmieniać kolejnych pełnych obliczeń v3.
+Konserwatywna bramka zgodności obszaru wyszukiwania służy potwierdzeniu indeksu,
+nie podstawieniu ramki zamiast siatki. Brak pokrycia nie uzasadnia jej osłabienia.
+
 ## D-373 — Niedostępna komórka zachowuje historię, nie bieżący obraz
 
 - **Status:** accepted (TASK-0508, plan 0505–0509).

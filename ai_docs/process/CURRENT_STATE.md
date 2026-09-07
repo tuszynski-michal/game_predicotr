@@ -6,6 +6,18 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0512 — lokalna propozycja bocznie niepełnej siatki
+
+- Izolowany v4 najpierw wywołuje v3 i zachowuje jego pełny wynik. Boczne
+  odrzucenie ze zgodną kandydaturą ma jeden maskowany przebieg 500×300.
+- Fit i najwyżej trzy algebraiczne hipotezy indeksów są deterministyczne,
+  bez modyfikacji globalnego RNG. Maski pochodzą z kontraktu renderera 0506.
+- 103 testy v4/v3/rejestracji/masek/renderera passed (10,34 s), Ruff i scoped
+  mypy passed; niezależny audyt gpt-6-astra high zaakceptowany bez P0–P3.
+- Wynik pending_partial pozostaje niepotwierdzoną propozycją. Render tylko
+  po jawnym potwierdzeniu istniejącą ręczną ścieżką; publiczny dispatch zamknięty.
+- Nie zmieniono detektora v3, jobów, stagingów, usług ani bazy.
+
 ### TASK-0511 — boczna propozycja rejestracji
 
 - Rejestrator zachowuje opt-in `analysisQuads` i dowód dopasowania po bocznym

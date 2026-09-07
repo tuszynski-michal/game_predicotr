@@ -40,6 +40,32 @@ odrzucają kandydaturę. Jeżeli zwykły wynik zostanie znaleziony w dalszej
 istniejącej próbie, ma pierwszeństwo. Integracja nowego manifestu jest
 oddzielnym TASK-0513; historyczne manifesty nie są rozszerzane w miejscu.
 
+## Wewnętrzny adapter lateral lattice v4 (TASK-0512)
+
+`lattice_refinement_v4` nie modyfikuje refinerów v19/v3. Najpierw wywołuje v3,
+a potem opcjonalnie analizuje odrzucony slot związany z kandydaturą 0511.
+Wiązanie kandydatury z checksumą źródła jest odpowiedzialnością wersjonowanego
+manifestu/runu (0513); lokalny adapter porównuje przypiętą politykę, slot i quad.
+
+Analiza ma bitmapę 500×300 i osobną maskę rzeczywistego podparcia źródłem.
+Niepodparte próbki nie stają się kandydatami symboli. Bbox komponentu wraz
+z obwódką musi być całkowicie podparty. Są to dane analizy, nie cropy.
+Jeden deterministyczny RANSAC ocenia maksymalnie 256 czteropunktowych podzbiorów
+z lokalnym RNG i wykonuje jeden refit konsensusu. Nie zmienia globalnego RNG
+OpenCV ani stanu następnego wywołania v3. Hipotezy początków kolumn wynikają
+z algebraicznego przesunięcia tej samej macierzy, bez powtórnego dopasowania.
+
+Polityka lateral-partial-v1 konserwatywnie wymaga zgodności indeksowania z
+obszarem wyszukiwania: maksymalnie 45 px różnicy narożników w analizie 500×300,
+nie zewnętrznego quada jako wyniku awaryjnego. Progi area 0,55–1,15, spacing,
+residual 10 px i ochrona bbox pozostają zgodne z bramkami lokalnej geometrii.
+Brak dowodu, większa niepewność lub konkurencyjne hipotezy oznaczają review.
+
+Wynik przechowuje `automaticPartialProposal` obok `symbolGridQuad`, a nie
+ręczną rewizję. Domenowy guard VirtualBoardGeometry nadal zabrania renderu
+automatycznej częściowej planszy; jawne potwierdzenie przechodzi istniejącą
+ścieżką ręcznej kwalifikacji. Nie wprowadzamy równoległego mechanizmu maski.
+
 ## Szkice ręcznej kwalifikacji (TASK-0507)
 
 Szkic przeglądarki nie jest rewizją źródła. Przechowuje tylko współrzędne,

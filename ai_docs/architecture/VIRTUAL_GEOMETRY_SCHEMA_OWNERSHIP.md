@@ -22,6 +22,24 @@ dostępności, ale nie staje się decyzją operatora ani zatwierdzoną kotwicą.
 Publiczne uruchomienie oraz worker są fail-closed do wdrożenia detektora
 i zaliczenia bramki jakości. Ten fundament nie wymaga migracji bazy.
 
+## Boczne kandydatury rejestracji (TASK-0511)
+
+Opcjonalny wynik `lateral-page-registration-candidate-v1` jest dowodem do
+lokalnego przeszukania, nie rewizją geometrii. Ma `analysisQuads`, jawne
+aktywne sloty, kotwicę, homografię i checksumę przypiętej polityki v4.
+Nie emituje `quads` ani `finalQuad` i pozostawia wynik rejestracji odrzucony.
+Nie wolno uczynić go auto-kotwicą ani renderować bez lokalnego dopasowania.
+
+Kandydat powstaje wyłącznie w istniejącym przebiegu po dopasowaniu ORB/RANSAC,
+przy bocznym braku podparcia źródłem. Progi inlierów, reprojekcji i czerwonych
+krawędzi pozostają niezmienione. Walidacja wypukłości, kolejności i overlapu
+wykorzystuje ten sam algorytm w przesuniętej przestrzeni współrzędnych, bez
+alokacji powiększonej bitmapy. Oryginalna i dopasowana propozycja muszą mieć
+pełne podparcie pionowe; horyzont homografii oraz całkiem brakująca plansza
+odrzucają kandydaturę. Jeżeli zwykły wynik zostanie znaleziony w dalszej
+istniejącej próbie, ma pierwszeństwo. Integracja nowego manifestu jest
+oddzielnym TASK-0513; historyczne manifesty nie są rozszerzane w miejscu.
+
 ## Szkice ręcznej kwalifikacji (TASK-0507)
 
 Szkic przeglądarki nie jest rewizją źródła. Przechowuje tylko współrzędne,

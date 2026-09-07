@@ -23,6 +23,16 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   adaptera i końcowej bramki. Żądanie nie może po cichu uruchomić v3.
 - Ta decyzja nie autoryzuje reimportu, migracji, restartów ani aktywacji.
 
+### Dowód bocznego obszaru wyszukiwania (TASK-0511)
+
+Kandydaturę zachowujemy w tej samej próbie rejestracji wyłącznie po spełnieniu
+dotychczasowych bramek poza poziomym podparciem źródła. Nie wykonujemy
+ponownego initialize/register. `analysisQuads` zachowują pierwotne projekcje
+bez clampowania; nie są finalną siatką. Czerwone krawędzie są nadal dowodem
+rejestracji, a nie zezwoleniem na inferencję lub syntetyzowanie brakujących
+pikseli. Brak pełnej planszy albo pionowego podparcia odrzuca propozycję.
+Wariant standardowy oraz publiczna bramka NOT_ENABLED pozostają bez zmian.
+
 ## D-373 — Niedostępna komórka zachowuje historię, nie bieżący obraz
 
 - **Status:** accepted (TASK-0508, plan 0505–0509).

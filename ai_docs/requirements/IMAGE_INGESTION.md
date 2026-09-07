@@ -6,6 +6,21 @@ last_updated: 2026-08-23
 
 # Import i rozpoznawanie zdjęć
 
+## Kandydat bocznej geometrii v0.10.4 — fundament TASK-0511
+
+Opt-in rejestracja może zachować wiarygodny obrys wychodzący poza lewy lub
+prawy bok jako propozycję obszaru wyszukiwania. Nie jest to automatycznie
+zatwierdzona siatka ani wynik `registered`. Wymaga późniejszego dopasowania
+lokalnego, maski komórek i ręcznego potwierdzenia. Liczba aktywnych slotów
+pochodzi z poświadczonego zakresu nazwy, a nie liczby znalezionych figur.
+
+Nie zwiększa się liczba przebiegów ORB/RANSAC ani nie osłabia progów dowodu.
+Ucięcie pionowe, całkowity brak planszy, overlap, zaburzona kolejność lub
+błędna homografia pozostawiają ręczną korektę bez syntetycznego cropa.
+Brak kandydata nie usuwa slotów z istniejącej pełnej kolejki ręcznej.
+Ten fundament nie udostępnia silnika do importu; uruchomienie i odbiór
+pozostają zależnymi TASK-0512–0515. Standardowy v3 nie zmienia wyników.
+
 ## Wykluczenie błędnego źródła przed importem
 
 Operator może z kolejki `Korekta geometrii strony` wykluczyć JPEG, którego

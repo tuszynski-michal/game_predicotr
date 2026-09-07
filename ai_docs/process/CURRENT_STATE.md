@@ -6,6 +6,17 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0511 — boczna propozycja rejestracji
+
+- Rejestrator zachowuje opt-in `analysisQuads` i dowód dopasowania po bocznym
+  odrzuceniu, w tych samych próbach ORB/RANSAC. To nie `registered` ani crop.
+- Bez zmiany publicznej dostępności v4, geometrii v3, aktywnych jobów czy
+  manifestów; lokalny estimator i uruchomienie pozostają TASK-0512/0513.
+- 86 testów rejestracji/preflightu/structured/kontraktu passed (13,37 s),
+  Ruff, scoped mypy i niezależny audyt gpt-6-astra high passed bez findings.
+- Red coverage pozostaje bez obniżenia progów, więc znaczne boczne ucięcie
+  może nadal wymagać ręcznej korekty. Nie deklarujemy jeszcze pokrycia danych.
+
 ### TASK-0510 — kontrakt testowego silnika v0.10.4
 
 - Rozszerzenie per-run `geometryEngineVariant` nie zmienia polityki gry.

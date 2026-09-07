@@ -18,6 +18,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .geometry import Point, Quad
+from .lateral_partial_contract import LateralPartialGeometrySnapshot
 
 PAGE_REGISTRATION_VERSION: Final = "verified-page-registration-v1"
 PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION: Final = (
@@ -193,11 +194,12 @@ class PageRegistrationAttemptDiagnostic:
 class PageRegistrationEvaluation:
     result: RegisteredPageGeometry | None
     attempts: tuple[PageRegistrationAttemptDiagnostic, ...] = ()
+    lateral_candidate: LateralPageRegistrationCandidate | None = None
 
     def failure_payload(self) -> dict[str, object]:
         best = _best_diagnostic(self.attempts)
         bounded = _bounded_diagnostics(self.attempts)
-        return {
+        payload: dict[str, object] = {
             "reasonCode": (
                 best.reason_code if best is not None else "PAGE_GEOMETRY_REGISTRATION_UNAVAILABLE"
             ),
@@ -206,6 +208,30 @@ class PageRegistrationEvaluation:
                 "bestAttempt": best.to_payload() if best is not None else None,
                 "attempts": [attempt.to_payload() for attempt in bounded],
             },
+        }
+        if self.lateral_candidate is not None:
+            payload["lateralRegistrationCandidate"] = self.lateral_candidate.to_payload()
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class LateralPageRegistrationCandidate:
+    """Search evidence only: never a registered page or an accepted symbol grid."""
+
+    initialization: PageRegistrationInitialization
+    policy_checksum_sha256: str
+    board_red_edge_coverages: tuple[float, ...]
+
+    def to_payload(self) -> dict[str, object]:
+        payload = self.initialization.to_payload()
+        payload["analysisQuads"] = payload.pop("initializationQuads")
+        return {
+            **payload,
+            "version": "lateral-page-registration-candidate-v1",
+            "origin": "automatic_search_proposal",
+            "policyChecksumSha256": self.policy_checksum_sha256,
+            "requiresLocalRefinement": True,
+            "boardRedEdgeCoverages": [round(value, 6) for value in self.board_red_edge_coverages],
         }
 
 
@@ -243,23 +269,51 @@ class VerifiedPageRegistrar:
     def register(self, target_rgb: NDArray[np.uint8]) -> RegisteredPageGeometry | None:
         return self.evaluate(target_rgb).result
 
-    def evaluate(self, target_rgb: NDArray[np.uint8]) -> PageRegistrationEvaluation:
+    def evaluate(
+        self,
+        target_rgb: NDArray[np.uint8],
+        *,
+        lateral_partial_policy: LateralPartialGeometrySnapshot | None = None,
+        active_board_slots: Sequence[int] = tuple(range(9)),
+    ) -> PageRegistrationEvaluation:
+        slots = tuple(active_board_slots)
+        if lateral_partial_policy is not None and (
+            not 1 <= len(slots) <= 9
+            or any(type(slot) is not int for slot in slots)
+            or slots != tuple(range(len(slots)))
+        ):
+            raise ValueError("Lateral registration requires an attested row-major prefix.")
         if not self.available or not _valid_rgb(target_rgb):
             return PageRegistrationEvaluation(None)
         target_half = _half_gray(target_rgb)
         mask = _red_mask(target_rgb)
         attempts: list[PageRegistrationAttemptDiagnostic] = []
+        lateral_candidates: list[LateralPageRegistrationCandidate] = []
         for feature_count in _ORB_FEATURE_COUNTS:
             registered, rejected = self._evaluate_with_feature_count(
                 target_half,
                 target_rgb=target_rgb,
                 red_mask=mask,
                 feature_count=feature_count,
+                lateral_partial_policy=lateral_partial_policy,
+                active_board_slots=slots,
+                lateral_candidates=lateral_candidates,
             )
             attempts.extend(rejected)
             if registered is not None:
                 return PageRegistrationEvaluation(registered, tuple(attempts))
-        return PageRegistrationEvaluation(None, tuple(attempts))
+        best = min(
+            lateral_candidates,
+            key=lambda item: (
+                -item.initialization.inlier_count,
+                -item.initialization.inlier_ratio,
+                item.initialization.p95_reprojection_error,
+                item.initialization.anchor_source_checksum_sha256,
+                item.initialization.feature_count,
+            ),
+            default=None,
+        )
+        return PageRegistrationEvaluation(None, tuple(attempts), best)
 
     def initialize(
         self,
@@ -331,6 +385,9 @@ class VerifiedPageRegistrar:
         target_rgb: NDArray[np.uint8],
         red_mask: NDArray[np.uint8],
         feature_count: int,
+        lateral_partial_policy: LateralPartialGeometrySnapshot | None = None,
+        active_board_slots: tuple[int, ...] = tuple(range(9)),
+        lateral_candidates: list[LateralPageRegistrationCandidate] | None = None,
     ) -> tuple[RegisteredPageGeometry | None, tuple[PageRegistrationAttemptDiagnostic, ...]]:
         candidates, diagnostics = self._evaluate_matched_candidates(
             target_half, feature_count=feature_count
@@ -346,6 +403,9 @@ class VerifiedPageRegistrar:
                 registration_version=self._registration_version,
                 anchor_mask_version=self._anchor_mask_version,
                 anchor_mask_padding_ratio=self._anchor_mask_padding_ratio,
+                lateral_partial_policy=lateral_partial_policy,
+                active_board_slots=active_board_slots,
+                lateral_candidates=lateral_candidates,
             )
             if registered is not None:
                 return registered, tuple(rejected)
@@ -539,7 +599,7 @@ def _anchors_from_profile(
     feature_count: int,
 ) -> tuple[_Anchor, ...]:
     registration_version = _profile_registration_version(profile)
-    if registration_version not in {
+    if profile is None or registration_version not in {
         PAGE_REGISTRATION_VERSION,
         PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
     }:
@@ -730,6 +790,9 @@ def _evaluate_final_registration(
     registration_version: str = PAGE_REGISTRATION_VERSION,
     anchor_mask_version: str | None = None,
     anchor_mask_padding_ratio: float | None = None,
+    lateral_partial_policy: LateralPartialGeometrySnapshot | None = None,
+    active_board_slots: tuple[int, ...] = tuple(range(9)),
+    lateral_candidates: list[LateralPageRegistrationCandidate] | None = None,
 ) -> tuple[RegisteredPageGeometry | None, PageRegistrationAttemptDiagnostic | None]:
     # The former implementation inspected a 3 x 3 neighbourhood in Python
     # for every sampled edge point and every bounded snap candidate.  Dilating
@@ -739,14 +802,33 @@ def _evaluate_final_registration(
         NDArray[np.uint8],
         cv2.dilate(red_mask, np.ones((3, 3), dtype=np.uint8)),
     )
+    projected_quads = tuple(
+        _transform_quad(quad, match.native_homography) for quad in match.anchor.quads
+    )
     quads = tuple(
         _snap_quad_to_red_edges(
             red_neighbourhood,
-            _transform_quad(quad, match.native_homography),
+            quad,
         )
-        for quad in match.anchor.quads
+        for quad in projected_quads
     )
     if not is_complete_ordered_grid(quads, target_rgb.shape[1], target_rgb.shape[0]):
+        if lateral_partial_policy is not None and lateral_candidates is not None:
+            candidate = _lateral_search_candidate(
+                match,
+                projected_quads=projected_quads,
+                quads=quads,
+                red_neighbourhood=red_neighbourhood,
+                thresholds=thresholds,
+                feature_count=feature_count,
+                policy=lateral_partial_policy,
+                active_board_slots=active_board_slots,
+                registration_version=registration_version,
+                anchor_mask_version=anchor_mask_version,
+                anchor_mask_padding_ratio=anchor_mask_padding_ratio,
+            )
+            if candidate is not None:
+                lateral_candidates.append(candidate)
         return None, PageRegistrationAttemptDiagnostic(
             reason_code="PAGE_GEOMETRY_QUADS_INVALID",
             feature_count=feature_count,
@@ -787,6 +869,99 @@ def _evaluate_final_registration(
         ),
         None,
     )
+
+
+def _lateral_search_candidate(
+    match: _MatchedAnchor,
+    *,
+    projected_quads: tuple[Quad, ...],
+    quads: tuple[Quad, ...],
+    red_neighbourhood: NDArray[np.uint8],
+    thresholds: PageRegistrationThresholds,
+    feature_count: int,
+    policy: LateralPartialGeometrySnapshot,
+    active_board_slots: tuple[int, ...],
+    registration_version: str,
+    anchor_mask_version: str | None,
+    anchor_mask_padding_ratio: float | None,
+) -> LateralPageRegistrationCandidate | None:
+    """Retain only the source-support exception; all other proof remains mandatory."""
+
+    height, width = red_neighbourhood.shape
+    homography = match.native_homography
+    if (
+        not np.isfinite(homography).all()
+        or abs(float(homography[2, 2])) < 1e-12
+        or abs(float(np.linalg.det(homography / homography[2, 2]))) < 1e-12
+        or match.inlier_count < thresholds.minimum_inliers
+        or not np.isfinite(match.inlier_ratio)
+        or match.inlier_ratio < thresholds.minimum_inlier_ratio
+        or not np.isfinite(match.p95_reprojection_error)
+        or match.p95_reprojection_error > thresholds.maximum_p95_reprojection_error
+    ):
+        return None
+    # A homography horizon through the page cannot be repaired by clipping a
+    # resulting polygon. Inspect denominator signs in the original anchor.
+    denominators = np.asarray(
+        [
+            homography[2] @ np.asarray([point.x, point.y, 1.0])
+            for slot in active_board_slots
+            for point in match.anchor.quads[slot]
+        ]
+    )
+    if not (np.all(denominators > 1e-9) or np.all(denominators < -1e-9)):
+        return None
+    active_projected = tuple(projected_quads[slot] for slot in active_board_slots)
+    active_quads = tuple(quads[slot] for slot in active_board_slots)
+    # Check raw and snapped proposals: a red snap must not conceal a vertical
+    # cut or move an unsupported board back into a superficially valid page.
+    if not all(
+        _is_lateral_ordered_grid(values, active_board_slots, width, height)
+        for values in (active_projected, active_quads)
+    ):
+        return None
+    coverage = tuple(_red_edge_coverage(red_neighbourhood, quad) for quad in active_quads)
+    if (
+        min(coverage) < thresholds.minimum_board_red_edge_coverage
+        or sum(coverage) / len(coverage) < thresholds.minimum_mean_red_edge_coverage
+    ):
+        return None
+    return LateralPageRegistrationCandidate(
+        initialization=PageRegistrationInitialization(
+            anchor_source_checksum_sha256=match.anchor.source_checksum_sha256,
+            active_board_slots=active_board_slots,
+            initialization_quads=active_projected,
+            native_homography=_homography_payload(homography),
+            inlier_count=match.inlier_count,
+            inlier_ratio=match.inlier_ratio,
+            p95_reprojection_error=match.p95_reprojection_error,
+            feature_count=feature_count,
+            registration_version=registration_version,
+            anchor_mask_version=anchor_mask_version,
+            anchor_mask_padding_ratio=anchor_mask_padding_ratio,
+        ),
+        policy_checksum_sha256=policy.checksum_sha256,
+        board_red_edge_coverages=coverage,
+    )
+
+
+def _is_lateral_ordered_grid(
+    quads: tuple[Quad, ...], slots: tuple[int, ...], width: int, height: int
+) -> bool:
+    if not 1 <= len(slots) <= 9 or len(quads) != len(slots):
+        return False
+    points = [point for quad in quads for point in quad]
+    if not all(np.isfinite(point.x) and np.isfinite(point.y) for point in points):
+        return False
+    if not any(point.x < 0 or point.x >= width for point in points):
+        return False
+    # No whole missing board and no excessive extrapolation. The same existing
+    # order, convexity, area and overlap validator runs in a translated canvas;
+    # no image allocation or invented pixels are involved.
+    if any(max(p.x for p in quad) <= 0 or min(p.x for p in quad) >= width for quad in quads):
+        return False
+    translated = tuple(cast(Quad, tuple(Point(p.x + width, p.y) for p in quad)) for quad in quads)
+    return is_ordered_active_grid(translated, slots, width * 3, height)
 
 
 def _rounded(value: float | None) -> float | None:
@@ -849,9 +1024,7 @@ def _board_area_anchor_mask(
         1,
         int(
             round(
-                float(np.median(native_heights))
-                * PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO
-                / 2
+                float(np.median(native_heights)) * PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO / 2
             )
         ),
     )
@@ -1082,6 +1255,7 @@ __all__ = [
     "PAGE_REGISTRATION_VERSION",
     "PageRegistrationThresholds",
     "PageRegistrationInitialization",
+    "LateralPageRegistrationCandidate",
     "PageRegistrationAttemptDiagnostic",
     "PageRegistrationEvaluation",
     "RegisteredPageGeometry",

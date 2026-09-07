@@ -1,0 +1,1864 @@
+{
+  "backupRequirements": {
+    "artifacts": "copy and verify retained whole-board images before deleting operational review",
+    "classification": "blocked",
+    "database": "consistent PostgreSQL backup before cleanup execution",
+    "minimumTransitionalBytes": 25989394598,
+    "operatorDirectoryIncluded": false
+  },
+  "blockers": [
+    {
+      "code": "ARCHIVE_MIGRATION_REQUIRED",
+      "reason": "Board search still resolves images through operational review records."
+    }
+  ],
+  "boardSearchArchive": {
+    "removalRange": {
+      "classification": "delete",
+      "documents": 45151,
+      "end": 45162,
+      "start": 1
+    },
+    "retainedRange": {
+      "classification": "preserve",
+      "documents": 369554,
+      "end": 499995,
+      "metadataChecksumMismatches": 0,
+      "missingBoardLinks": 0,
+      "missingBoardPaths": 0,
+      "missingReviewLinks": 0,
+      "start": 45163
+    }
+  },
+  "database": {
+    "dependencyEdges": [
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "browser_selection_retention_states"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "browser_selection_retention_states"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_source_geometry_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "cell_observations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "cell_observations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "curated_image_import_sources",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "curated_image_import_batches"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "curated_image_import_batches"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "curated_image_import_sources"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_selection_runs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "curated_image_import_sources"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "dataset_versions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "dataset_versions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "game_grid_profile_activations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "grid_calibration_profiles",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "game_grid_profile_activations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "grid_calibration_profiles",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "game_grid_profile_activations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "game_symbol_model_activations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbol_model_iterations",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "game_symbol_model_activations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbol_model_iterations",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "game_symbol_model_activations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "rules_versions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "games"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "grid_calibration_profiles"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "grid_geometry_cohorts",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "grid_calibration_profiles"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "grid_geometry_cohorts"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_geometry_pending"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_geometry_pending"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_geometry_pending"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_geometry_pending"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "source_images",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_geometry_pending"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_geometry_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_geometry_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_geometry_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_source_geometry_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_geometry_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_geometry_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_search_candidates"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_search_candidates"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_search_candidates"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_search_candidates"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_search_fast_documents"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_board_search_candidates",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_search_fast_documents"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_board_search_projection_states"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_geometry_rollout_states"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_geometry_rollout_states"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "source_images",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_geometry_rollout_states"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "browser_selection_retention_states",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_import_geometry_guard_decisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_import_geometry_guard_decisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_import_geometry_guard_decisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "browser_selection_retention_states",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_import_geometry_guard_resolution_manifests"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_import_geometry_guard_resolution_manifests"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_import_geometry_guard_resolution_manifests"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_file_executions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_import_job_files"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_import_job_files"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_layout_staging_rows"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_layout_staging_rows"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_layout_staging_rows"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_page_geometry_overrides"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "browser_selection_retention_states",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_page_source_exclusions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_page_source_exclusions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_file_executions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_pipeline_stage_results"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_file_executions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_pipeline_terminal_manifests"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_review_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_review_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_review_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_review_queue_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_review_queue_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_review_queue_states"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_review_resolution_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_selection_groups",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_selection_candidates"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_selection_runs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_selection_candidates"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_selection_runs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_selection_groups"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_selection_candidates",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_selection_manual_decisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_selection_groups",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_selection_manual_decisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_selection_runs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_selection_manual_decisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_selection_runs"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_selection_runs"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_sequence_alternatives"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_sequence_alternatives"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_sequence_canonical"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_sequence_canonical"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_sequence_canonical"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_sequence_canonical"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "source_images",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_sequence_canonical"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_sequence_source_override_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_sequence_source_override_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_source_geometry_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "rules_versions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_source_geometry_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "source_images",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_source_geometry_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_prediction_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_prediction_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_prediction_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_prediction_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbol_model_iterations",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_prediction_revisions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_bulk_operations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_bulk_operations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_bulk_operations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_bulk_operations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_bulk_targets"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_symbol_review_bulk_operations",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_bulk_targets"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_symbol_review_cells",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_bulk_targets"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_bulk_targets"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_source_geometry_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_source_geometry_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_symbol_prediction_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_source_geometry_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_source_geometry_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_source_geometry_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_source_geometry_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_symbol_review_bulk_operations",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_symbol_review_cells",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_symbol_review_states"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_verified_cohort_exports"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "image_verified_cohort_exports"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "jobs"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "layout_import_normalized_rows"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "layout_import_rows",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "layout_import_normalized_rows"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "rules_versions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "layout_import_normalized_rows"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "layout_import_rows"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "layouts",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "layout_payouts"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "rules_versions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "layout_payouts"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "dataset_versions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "layouts"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "dataset_versions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "mobile_release_games"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "mobile_release_games"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "mobile_releases",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "mobile_release_games"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "rules_versions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "mobile_release_games"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "mobile_releases"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "rules_versions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "paylines"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "rules_version_symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "payout_rules"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_source_geometry_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "recognized_boards"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "source_images",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "recognized_boards"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_batches",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_audit_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_sessions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_audit_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_collections",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_batches"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_sessions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_batches"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_sessions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_collections"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_batches",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_files"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_files",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_host_actions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_transfers",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_host_actions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_batches",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_operations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_files",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_operations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "remote_manual_selection_files",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "remote_manual_selection_transfers"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "representative_ranking_activations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "representative_ranking_iterations",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "representative_ranking_activations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "representative_ranking_iterations",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "representative_ranking_activations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "representative_ranking_cohorts"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "representative_ranking_cohorts",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "representative_ranking_iterations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "review_batches"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "review_feedback_exports"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "review_batches",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "review_feedback_exports"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "review_batches",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "review_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "review_resolutions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "reviewer_access_sessions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "reviewer_access_audit_events"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "reviewer_access_sessions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "reviewer_access_sessions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "reviewer_work_assignments"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "reviewer_work_assignments"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "reviewer_access_sessions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "reviewer_work_assignments"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "rules_versions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "rules_version_symbols"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "rules_version_symbols"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "rules_versions"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "semi_automatic_image_selection_runs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "semi_automatic_filename_verification_reviews"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "semi_automatic_image_selection_runs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "semi_automatic_image_selection_ranges"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "semi_automatic_image_selection_runs"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_file_executions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "source_images"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "source_images"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "storage_gc_runs"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "symbol_model_iterations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "symbol_model_iterations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "verified_training_cohorts",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "symbol_model_iterations"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "cell_observations",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "symbol_reference_images"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "symbol_reference_images"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "symbol_reference_images"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "symbol_reference_images"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "symbols",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "symbol_reference_images"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "symbols"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_source_geometry_revisions",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_symbol_review_cells",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "source_images",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "verified_training_cohorts",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_cells"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "image_review_items",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "jobs",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "recognized_boards",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "source_images",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "verified_training_cohorts",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohort_items"
+      },
+      {
+        "classification": "blocked",
+        "dependsOn": "games",
+        "reason": "foreign_key_dependency_requires_owned_row_resolution",
+        "table": "verified_training_cohorts"
+      }
+    ],
+    "directGameTables": [
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 90112,
+        "legacyRows": 7,
+        "protectedRows": 4,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "browser_selection_retention_states"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 32768,
+        "legacyRows": 0,
+        "protectedRows": 0,
+        "reason": "no_legacy_rows",
+        "table": "curated_image_import_sources"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 32768,
+        "legacyRows": 0,
+        "protectedRows": 0,
+        "reason": "no_legacy_rows",
+        "table": "dataset_versions"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 81920,
+        "legacyRows": 1,
+        "protectedRows": 0,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "game_grid_profile_activations"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 81920,
+        "legacyRows": 1,
+        "protectedRows": 1,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "game_symbol_model_activations"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 131072,
+        "legacyRows": 1,
+        "protectedRows": 0,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "grid_calibration_profiles"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 139264,
+        "legacyRows": 1,
+        "protectedRows": 0,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "grid_geometry_cohorts"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 79855616,
+        "legacyRows": 34795,
+        "protectedRows": 2045,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "sequenceSplit": {
+          "delete": 3232,
+          "preserve": 31563
+        },
+        "table": "image_board_geometry_pending"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 2765324288,
+        "legacyRows": 414705,
+        "protectedRows": 67597,
+        "reason": "split_by_sequence_and_archive_migration_required",
+        "sequenceSplit": {
+          "delete": 45151,
+          "preserve": 369554
+        },
+        "table": "image_board_search_candidates"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 375644160,
+        "legacyRows": 414705,
+        "protectedRows": 67597,
+        "reason": "split_by_sequence_and_archive_migration_required",
+        "sequenceSplit": {
+          "delete": 45151,
+          "preserve": 369554
+        },
+        "table": "image_board_search_fast_documents"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 32768,
+        "legacyRows": 1,
+        "protectedRows": 1,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "image_board_search_projection_states"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 49152,
+        "legacyRows": 1,
+        "protectedRows": 1,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "image_geometry_rollout_states"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 147456,
+        "legacyRows": 0,
+        "protectedRows": 43,
+        "reason": "no_legacy_rows",
+        "sequenceSplit": {
+          "delete": 0,
+          "preserve": 0
+        },
+        "table": "image_import_geometry_guard_decisions"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 65536,
+        "legacyRows": 0,
+        "protectedRows": 1,
+        "reason": "no_legacy_rows",
+        "table": "image_import_geometry_guard_resolution_manifests"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 204800,
+        "legacyRows": 0,
+        "protectedRows": 5,
+        "reason": "no_legacy_rows",
+        "table": "image_page_geometry_overrides"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 65536,
+        "legacyRows": 0,
+        "protectedRows": 3,
+        "reason": "no_legacy_rows",
+        "table": "image_page_source_exclusions"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 2109628416,
+        "legacyRows": 580105,
+        "protectedRows": 67597,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "sequenceSplit": {
+          "delete": 111163,
+          "preserve": 468942
+        },
+        "table": "image_review_items"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 155648,
+        "legacyRows": 0,
+        "protectedRows": 0,
+        "reason": "no_legacy_rows",
+        "table": "image_selection_runs"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 360448,
+        "legacyRows": 427,
+        "protectedRows": 0,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "sequenceSplit": {
+          "delete": 334,
+          "preserve": 93
+        },
+        "table": "image_sequence_alternatives"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 360448,
+        "legacyRows": 584,
+        "protectedRows": 0,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "sequenceSplit": {
+          "delete": 521,
+          "preserve": 63
+        },
+        "table": "image_sequence_canonical"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 24576,
+        "legacyRows": 0,
+        "protectedRows": 0,
+        "reason": "no_legacy_rows",
+        "sequenceSplit": {
+          "delete": 0,
+          "preserve": 0
+        },
+        "table": "image_sequence_source_override_events"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 116531200,
+        "legacyRows": 0,
+        "protectedRows": 7738,
+        "reason": "no_legacy_rows",
+        "table": "image_source_geometry_revisions"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 2184478720,
+        "legacyRows": 19745,
+        "protectedRows": 67597,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "image_symbol_prediction_revisions"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 524288,
+        "legacyRows": 60,
+        "protectedRows": 45,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "image_symbol_review_bulk_operations"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 15244910592,
+        "legacyRows": 6304230,
+        "protectedRows": 1013955,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "sequenceSplit": {
+          "delete": 677265,
+          "preserve": 5626965
+        },
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 106496,
+        "legacyRows": 1,
+        "protectedRows": 1,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "image_symbol_review_states"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 32768,
+        "legacyRows": 0,
+        "protectedRows": 0,
+        "reason": "no_legacy_rows",
+        "table": "image_verified_cohort_exports"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 1835008,
+        "legacyRows": 136,
+        "protectedRows": 59,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "jobs"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 16384,
+        "legacyRows": 0,
+        "protectedRows": 0,
+        "reason": "no_legacy_rows",
+        "table": "mobile_release_games"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 40960,
+        "legacyRows": 0,
+        "protectedRows": 0,
+        "reason": "no_legacy_rows",
+        "table": "representative_ranking_activations"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 40960,
+        "legacyRows": 0,
+        "protectedRows": 0,
+        "reason": "no_legacy_rows",
+        "table": "representative_ranking_cohorts"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 24576,
+        "legacyRows": 0,
+        "protectedRows": 0,
+        "reason": "no_legacy_rows",
+        "table": "review_batches"
+      },
+      {
+        "classification": "preserve",
+        "globalRelationBytes": 32768,
+        "legacyRows": 0,
+        "protectedRows": 0,
+        "reason": "no_legacy_rows",
+        "table": "review_feedback_exports"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 98304,
+        "legacyRows": 9,
+        "protectedRows": 0,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "reviewer_access_sessions"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 98304,
+        "legacyRows": 34,
+        "protectedRows": 0,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "reviewer_work_assignments"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 57344,
+        "legacyRows": 2,
+        "protectedRows": 1,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "rules_versions"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 335872,
+        "legacyRows": 3,
+        "protectedRows": 2,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "symbol_model_iterations"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 49152,
+        "legacyRows": 8,
+        "protectedRows": 0,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "sequenceSplit": {
+          "delete": 8,
+          "preserve": 0
+        },
+        "table": "symbol_reference_images"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 81920,
+        "legacyRows": 8,
+        "protectedRows": 8,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "symbols"
+      },
+      {
+        "classification": "blocked",
+        "globalRelationBytes": 81920,
+        "legacyRows": 1,
+        "protectedRows": 1,
+        "reason": "legacy_rows_require_an_approved_cleanup_policy",
+        "table": "verified_training_cohorts"
+      }
+    ],
+    "jobs": {
+      "active": 0,
+      "byStatus": {
+        "cancelled": 4,
+        "completed": 96,
+        "failed": 6,
+        "waiting_for_review": 30
+      },
+      "classification": "delete"
+    }
+  },
+  "fingerprint": "2250d49f71cd937218222dae3dd62f108ffd7cc5992f3eb4a315a69ad19d19e4",
+  "managedFiles": {
+    "pathColumns": [
+      {
+        "classification": "blocked",
+        "column": "managed_manifest_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "browser_selection_retention_states"
+      },
+      {
+        "classification": "blocked",
+        "column": "crop_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "cell_observations"
+      },
+      {
+        "classification": "blocked",
+        "column": "manifest_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "curated_image_import_sources"
+      },
+      {
+        "classification": "blocked",
+        "column": "processing_manifest_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_board_geometry_pending"
+      },
+      {
+        "classification": "blocked",
+        "column": "source_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_board_geometry_pending"
+      },
+      {
+        "classification": "blocked",
+        "column": "board_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_board_geometry_revisions"
+      },
+      {
+        "classification": "blocked",
+        "column": "source_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_import_geometry_guard_decisions"
+      },
+      {
+        "classification": "blocked",
+        "column": "manifest_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_import_geometry_guard_resolution_manifests"
+      },
+      {
+        "classification": "blocked",
+        "column": "source_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_import_job_files"
+      },
+      {
+        "classification": "blocked",
+        "column": "source_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_page_source_exclusions"
+      },
+      {
+        "classification": "blocked",
+        "column": "source_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_selection_candidates"
+      },
+      {
+        "classification": "blocked",
+        "column": "output_manifest_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_selection_runs"
+      },
+      {
+        "classification": "blocked",
+        "column": "source_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_sequence_alternatives"
+      },
+      {
+        "classification": "blocked",
+        "column": "crop_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_symbol_review_cells"
+      },
+      {
+        "classification": "blocked",
+        "column": "artifact_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "image_verified_cohort_exports"
+      },
+      {
+        "classification": "blocked",
+        "column": "audit_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "layout_payouts"
+      },
+      {
+        "classification": "blocked",
+        "column": "apk_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "mobile_releases"
+      },
+      {
+        "classification": "blocked",
+        "column": "snapshot_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "mobile_releases"
+      },
+      {
+        "classification": "blocked",
+        "column": "board_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "recognized_boards"
+      },
+      {
+        "classification": "blocked",
+        "column": "final_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "remote_manual_selection_files"
+      },
+      {
+        "classification": "blocked",
+        "column": "temp_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "remote_manual_selection_files"
+      },
+      {
+        "classification": "blocked",
+        "column": "image_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "remote_manual_selection_operations"
+      },
+      {
+        "classification": "blocked",
+        "column": "temp_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "remote_manual_selection_transfers"
+      },
+      {
+        "classification": "blocked",
+        "column": "artifact_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "representative_ranking_cohorts"
+      },
+      {
+        "classification": "blocked",
+        "column": "model_artifact_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "representative_ranking_iterations"
+      },
+      {
+        "classification": "blocked",
+        "column": "board_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "review_items"
+      },
+      {
+        "classification": "blocked",
+        "column": "source_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "semi_automatic_image_selection_ranges"
+      },
+      {
+        "classification": "blocked",
+        "column": "diagnostics_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "semi_automatic_image_selection_runs"
+      },
+      {
+        "classification": "blocked",
+        "column": "manifest_relative_path",
+        "ownership": "indirect",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "storage_gc_runs"
+      },
+      {
+        "classification": "blocked",
+        "column": "candidate_manifest_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "symbol_model_iterations"
+      },
+      {
+        "classification": "blocked",
+        "column": "checkpoint_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "symbol_model_iterations"
+      },
+      {
+        "classification": "blocked",
+        "column": "dataset_manifest_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "symbol_model_iterations"
+      },
+      {
+        "classification": "blocked",
+        "column": "gate_report_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "symbol_model_iterations"
+      },
+      {
+        "classification": "blocked",
+        "column": "image_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "symbol_reference_images"
+      },
+      {
+        "classification": "blocked",
+        "column": "image_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "symbols"
+      },
+      {
+        "classification": "blocked",
+        "column": "artifact_relative_path",
+        "ownership": "direct_game",
+        "reason": "physical_path_requires_reference_ownership_resolution",
+        "table": "verified_training_cohorts"
+      }
+    ],
+    "retainedBoardImages": {
+      "checked": 369554,
+      "counts": {
+        "verified": 369554
+      },
+      "failureExamples": [],
+      "mode": "full",
+      "verifiedBytes": 25989394598
+    }
+  },
+  "schemaVersion": "legacy-game-cleanup-preview-v1",
+  "scope": {
+    "artifactRoot": "C:\\Users\\user\\Documents\\game_predicotr\\artifacts",
+    "excludedOperatorRoot": {
+      "classification": "preserve",
+      "path": "C:\\Users\\user\\Documents\\777",
+      "reason": "operator_owned_directory_never_scanned"
+    },
+    "legacy": {
+      "code": "777",
+      "id": "80f3c7ec-6110-4e20-a263-2675ee5b15d6",
+      "name": "777 v0.1",
+      "status": "draft"
+    },
+    "protected": {
+      "code": "new-siedem",
+      "id": "03d64bfe-4d29-47dd-9153-76bd99b3b5d9",
+      "name": "777",
+      "status": "draft"
+    },
+    "removalRange": {
+      "end": 45162,
+      "start": 1
+    }
+  },
+  "totals": {
+    "blockers": 1,
+    "directLegacyRows": 7769571,
+    "directProtectedRows": 1294302,
+    "retainedBoardDocuments": 369554
+  }
+}

@@ -6,6 +6,20 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0502 — inwentarz odchudzenia starej gry
+
+- Read-only preview jest przypięty do starej gry `777 v0.1`, chronionej gry
+  `new-siedem` oraz zakresu `1–45162`; inna tożsamość kończy się fail-closed.
+- Wykryto 7 769 571 bezpośrednich rekordów starej gry. Zakres `1–45162`
+  obejmuje 45 151 fast documents, a przyszłe archiwum musi zachować 369 554
+  plansze `45163–499995`.
+- Wszystkie 369 554 obrazy archiwum zostały odczytane i mają zgodną SHA-256;
+  zajmują 25 989 394 598 B. Katalog `C:\Users\user\Documents\777` nie był
+  skanowany ani zmieniany.
+- Cleanup pozostaje zablokowany przez `ARCHIVE_MIGRATION_REQUIRED`, ponieważ
+  wyszukiwanie nadal rozwiązuje obrazy przez operacyjne review. Preview nie
+  usuwa danych i przed użyciem wymaga niezależnego review `gpt-6-astra high`.
+
 ### TASK-0501 — jednoznaczna mapa modeli dla tasków planu
 
 - Ostatnią sekcją każdego planu jest teraz tabela `Przypisanie modeli do

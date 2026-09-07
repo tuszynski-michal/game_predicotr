@@ -1428,8 +1428,17 @@ def create_app(
         status_code = 422
         if error.code == "GAME_NOT_FOUND":
             status_code = 404
-        elif error.code == "BOARD_SEARCH_PROJECTION_INCOMPLETE":
+        elif error.code in {
+            "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
+            "BOARD_SEARCH_ARCHIVE_ASSET_REVISION_CONFLICT",
+            "BOARD_SEARCH_ARCHIVE_ASSET_PATH_UNSAFE",
+            "BOARD_SEARCH_ARCHIVE_ASSET_MEDIA_TYPE_UNSUPPORTED",
+            "BOARD_SEARCH_ARCHIVE_ASSET_CHECKSUM_DRIFT",
+            "BOARD_SEARCH_PROJECTION_INCOMPLETE",
+        }:
             status_code = 409
+        elif error.code == "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND":
+            status_code = 404
         return JSONResponse(
             status_code=status_code,
             content={"code": error.code, "message": error.message, "details": {}},

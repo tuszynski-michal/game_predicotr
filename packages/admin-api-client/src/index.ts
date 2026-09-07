@@ -74,6 +74,7 @@ import {
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
   getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
+  getArchivedBoardSearchAsset as getGeneratedArchivedBoardSearchAsset,
   getImageImportEnginePolicy as getGeneratedImageImportEnginePolicy,
   previewImageImportEnginePolicy as previewGeneratedImageImportEnginePolicy,
   updateImageImportEnginePolicy as updateGeneratedImageImportEnginePolicy,
@@ -237,6 +238,7 @@ import type {
   BoardCellGeometryManualResolutionCommand,
   BoardCellGeometryPendingStatus,
   BoardSearchResponse,
+  BoardSearchAssetMode,
   BoardSearchResultResponse,
   BoardSearchScoreResponse,
   BoardSearchScope,
@@ -392,6 +394,7 @@ export type {
   BoardCellGeometryPendingResponse,
   BoardCellGeometryPendingStatus,
   BoardSearchResponse,
+  BoardSearchAssetMode,
   BoardSearchResultResponse,
   BoardSearchScoreResponse,
   BoardSearchScope,
@@ -1612,6 +1615,24 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
       }),
+    getArchivedBoardSearchAsset: (
+      gameId: string,
+      sequenceNumber: number,
+      expectedBoardChecksumSha256: string,
+    ) =>
+      getGeneratedArchivedBoardSearchAsset({
+        client,
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+        query: { expectedBoardChecksumSha256 },
+      }),
+    archivedBoardSearchAssetUrl: (
+      gameId: string,
+      sequenceNumber: number,
+      expectedBoardChecksumSha256: string,
+    ) => {
+      const query = new URLSearchParams({ expectedBoardChecksumSha256 });
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/board-search/archive-assets/${sequenceNumber}?${query.toString()}`;
+    },
     getImageSequenceSourceSelection: (gameId: string, sequenceNumber: number) =>
       getGeneratedImageSequenceSourceSelection({
         client,

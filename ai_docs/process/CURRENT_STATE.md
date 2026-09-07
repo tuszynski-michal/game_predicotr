@@ -6,6 +6,19 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0503 — niezależne archiwum wyszukiwania starej gry
+
+- Migracja 0098 dodała zamrożone dokumenty oraz fail-closed stan archiwum bez
+  FK do review, recognized boards, importów i jobów.
+- Builder przypięty do preview TASK-0502 zapisał i ponownie porównał 369 554
+  dokumenty zakresu `45163–499995`; fingerprint archiwum to
+  `7053d7ac8db72583fd930d66289a8951b2bdfba96f62be5e2ef5f8431e7f15ff`.
+- Wyszukiwanie `777 v0.1` działa już z `assetMode=legacy_archive`, a obrazy są
+  odczytywane bezpośrednio po numerze i oczekiwanej SHA-256. Nowa gra nadal
+  korzysta z `operational_review`.
+- Żaden rekord ani plik operacyjny nie został usunięty. Następny cleanup musi
+  chronić ścieżki gotowego archiwum i wymaga nowego preview oraz osobnej zgody.
+
 ### TASK-0502 — inwentarz odchudzenia starej gry
 
 - Read-only preview jest przypięty do starej gry `777 v0.1`, chronionej gry

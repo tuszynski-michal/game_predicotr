@@ -5076,6 +5076,99 @@ class ImageBoardSearchProjectionStateModel(Base):
     )
 
 
+class LegacyBoardSearchArchiveDocumentModel(Base):
+    """Frozen search evidence and whole-board asset reference for one sequence."""
+
+    __tablename__ = "legacy_board_search_archive_documents"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_legacy_board_search_archive_documents_sequence_positive",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'corrected')",
+            name="ck_legacy_board_search_archive_documents_status",
+        ),
+        CheckConstraint(
+            "board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_legacy_board_search_archive_documents_checksum",
+        ),
+        CheckConstraint(
+            r"length(btrim(board_relative_path)) > 0 "
+            r"AND board_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_legacy_board_search_archive_documents_path",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    board_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
+    primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_1_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_2_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_3_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_4_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class LegacyBoardSearchArchiveStateModel(Base):
+    """Fail-closed activation marker for a frozen board-search archive."""
+
+    __tablename__ = "legacy_board_search_archive_states"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('building', 'ready', 'failed')",
+            name="ck_legacy_board_search_archive_states_status",
+        ),
+        CheckConstraint(
+            "sequence_start > 0 AND sequence_end >= sequence_start AND document_count >= 0",
+            name="ck_legacy_board_search_archive_states_range",
+        ),
+        CheckConstraint(
+            "source_preview_fingerprint ~ '^[0-9a-f]{64}$' "
+            "AND archive_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_legacy_board_search_archive_states_fingerprints",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    sequence_start: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sequence_end: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    document_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    source_preview_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    archive_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
 class ImageSequenceAlternativeModel(Base):
     """A skipped source for an already canonical sequence."""
 

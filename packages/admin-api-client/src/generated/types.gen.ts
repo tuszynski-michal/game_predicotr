@@ -526,6 +526,11 @@ export type BoardCellRecropJobSnapshotPayload = {
 };
 
 /**
+ * BoardSearchAssetMode
+ */
+export type BoardSearchAssetMode = 'operational_review' | 'legacy_archive';
+
+/**
  * BoardSearchResponse
  */
 export type BoardSearchResponse = {
@@ -548,6 +553,7 @@ export type BoardSearchResponse = {
  * BoardSearchResultResponse
  */
 export type BoardSearchResultResponse = {
+  assetMode: BoardSearchAssetMode;
   /**
    * Boardchecksumsha256
    */
@@ -555,15 +561,15 @@ export type BoardSearchResultResponse = {
   /**
    * Importjobid
    */
-  importJobId: string;
+  importJobId: string | null;
   /**
    * Recognizedboardid
    */
-  recognizedBoardId: string;
+  recognizedBoardId: string | null;
   /**
    * Reviewitemid
    */
-  reviewItemId: string;
+  reviewItemId: string | null;
   score: BoardSearchScoreResponse;
   /**
    * Sequencenumber
@@ -12860,6 +12866,52 @@ export type SearchGameBoardsResponses = {
 
 export type SearchGameBoardsResponse =
   SearchGameBoardsResponses[keyof SearchGameBoardsResponses];
+
+export type GetArchivedBoardSearchAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query: {
+    /**
+     * Expectedboardchecksumsha256
+     */
+    expectedBoardChecksumSha256: string;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}';
+};
+
+export type GetArchivedBoardSearchAssetErrors = {
+  /**
+   * Game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Board-search projection not ready
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid partial board query
+   */
+  422: ErrorResponse;
+};
+
+export type GetArchivedBoardSearchAssetError =
+  GetArchivedBoardSearchAssetErrors[keyof GetArchivedBoardSearchAssetErrors];
+
+export type GetArchivedBoardSearchAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type PreviewBoardSourceCleanupData = {
   body: BoardSourceCleanupPreviewRequest;

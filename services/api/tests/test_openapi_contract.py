@@ -101,6 +101,17 @@ def test_board_search_openapi_exposes_the_read_only_partial_pattern_contract() -
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/BoardSearchResponse"
     }
+    archive_operation = schema["paths"][
+        "/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}"
+    ]["get"]
+    assert archive_operation["operationId"] == "getArchivedBoardSearchAsset"
+    archive_parameters = {
+        parameter["name"]: parameter for parameter in archive_operation["parameters"]
+    }
+    assert archive_parameters["sequence_number"]["schema"]["minimum"] == 1
+    assert archive_parameters["expectedBoardChecksumSha256"]["schema"]["pattern"] == (
+        "^[a-f0-9]{64}$"
+    )
     assert set(operation["responses"]).issuperset({"404", "409", "422"})
 
 

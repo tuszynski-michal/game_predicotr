@@ -2845,4 +2845,14 @@ test('board search builds only a scoped board-crop asset URL for a result', () =
     ),
     'http://127.0.0.1:8000/api/v1/admin/image-review-items/22222222-2222-4222-8222-222222222222/assets/board?gameId=11111111-1111-4111-8111-111111111111&importJobId=33333333-3333-4333-8333-333333333333',
   );
+
+  assert.equal(
+    client.archivedBoardSearchAssetUrl(
+      '11111111-1111-4111-8111-111111111111',
+      45163,
+      'a'.repeat(64),
+    ),
+    'http://127.0.0.1:8000/api/v1/admin/games/11111111-1111-4111-8111-111111111111/board-search/archive-assets/45163?expectedBoardChecksumSha256=' +
+      'a'.repeat(64),
+  );
 });

@@ -39,6 +39,7 @@ type SearchState =
 
 type BoardSearchClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
+  | 'archivedBoardSearchAssetUrl'
   | 'listSymbols'
   | 'searchGameBoards'
   | 'symbolImageAssetUrl'

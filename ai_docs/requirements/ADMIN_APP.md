@@ -327,7 +327,15 @@ Zapisane `?` w znalezionej planszy nie daje punktu, nie zwiększa liczby
 dokładnych dopasowań ani sprzeczności. Znany symbol zapytania zestawiony z `?`
 jest raportowany jako brak danych. Wyniki zachowują deterministyczną kolejność:
 score, liczba exact, ważone alternatywy, mniej sprzeczności, zatwierdzony status,
-`sequence_number` i UUID.
+`sequence_number` i stabilna tożsamość źródła.
+
+Gra może zostać przełączona na zamrożone archiwum wyszukiwania dopiero po
+pełnym, checksumowanym backfillu. Wynik archiwalny zachowuje ten sam ranking i
+obraz całej planszy, ale nie ujawnia ani nie wymaga identyfikatora review,
+recognized board, importu lub joba. Admin wybiera adres obrazu według jawnego
+`assetMode`; checksum-bound odczyt archiwalny nie może wrócić do assetu
+operacyjnego jako fallback. Częściowe albo nieudane archiwum blokuje odczyt tej
+gry zamiast mieszać dwa źródła.
 
 ### Walidacja cięcia siatki 0.9
 

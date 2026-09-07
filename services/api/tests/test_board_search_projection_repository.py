@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import cast
 from unittest.mock import MagicMock
 from uuid import UUID
 
+import pytest
+from game_predictor_api.domain.board_search import (
+    BoardSearchError,
+    BoardSearchQueryCell,
+    BoardSearchScope,
+)
 from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
@@ -12,8 +19,11 @@ from game_predictor_api.storage.board_search_projection_repository import (
 )
 from game_predictor_api.storage.models import (
     CellObservationModel,
+    GameModel,
+    ImageBoardSearchProjectionStateModel,
     ImageReviewItemModel,
     JobModel,
+    LegacyBoardSearchArchiveStateModel,
     RecognizedBoardModel,
     SourceImageModel,
 )
@@ -176,3 +186,86 @@ def test_rebuild_writes_fast_documents_directly_from_candidates() -> None:
     assert "insert into image_board_search_fast_documents" in sql
     assert "image_board_search_candidates" in sql
     assert "image_board_search_documents" not in sql
+
+
+def _search_session(*, archive_status: str | None) -> MagicMock:
+    session = MagicMock()
+
+    def get(model: object, _identity: object) -> object | None:
+        if model is GameModel:
+            return object()
+        if model is LegacyBoardSearchArchiveStateModel:
+            return None if archive_status is None else SimpleNamespace(status=archive_status)
+        if model is ImageBoardSearchProjectionStateModel:
+            return SimpleNamespace(
+                status="ready",
+                candidate_count=1,
+                document_count=1,
+                skipped_review_item_count=0,
+                failure_message=None,
+                game_id=UUID(int=2),
+            )
+        raise AssertionError(f"Unexpected model lookup: {model}")
+
+    session.get.side_effect = get
+    symbols = MagicMock()
+    symbols.tuples.return_value = [("cherry", 1)]
+    results = MagicMock()
+    results.all.return_value = []
+    session.execute.side_effect = [symbols, results]
+    return session
+
+
+def test_ready_archive_search_does_not_join_operational_review_tables() -> None:
+    session = _search_session(archive_status="ready")
+    repository = SqlAlchemyBoardSearchProjectionRepository(session)
+
+    assert (
+        repository.search(
+            game_id=UUID(int=2),
+            query=(BoardSearchQueryCell(0, "cherry"),),
+            scope=BoardSearchScope.ALL_SEARCHABLE,
+            limit=10,
+        )
+        == ()
+    )
+
+    sql = str(session.execute.call_args_list[1].args[0].compile(dialect=postgresql.dialect()))
+    assert "legacy_board_search_archive_documents" in sql
+    assert "image_board_search_fast_documents" not in sql
+    assert "image_review_items" not in sql
+    assert "recognized_boards" not in sql
+
+
+def test_missing_archive_preserves_operational_fast_document_search() -> None:
+    session = _search_session(archive_status=None)
+    repository = SqlAlchemyBoardSearchProjectionRepository(session)
+
+    assert (
+        repository.search(
+            game_id=UUID(int=2),
+            query=(BoardSearchQueryCell(0, "cherry"),),
+            scope=BoardSearchScope.ALL_SEARCHABLE,
+            limit=10,
+        )
+        == ()
+    )
+
+    sql = str(session.execute.call_args_list[1].args[0].compile(dialect=postgresql.dialect()))
+    assert "image_board_search_fast_documents" in sql
+    assert "legacy_board_search_archive_documents" not in sql
+
+
+def test_partial_archive_fails_closed_instead_of_falling_back() -> None:
+    session = _search_session(archive_status="building")
+    repository = SqlAlchemyBoardSearchProjectionRepository(session)
+
+    with pytest.raises(BoardSearchError) as error:
+        repository.search(
+            game_id=UUID(int=2),
+            query=(BoardSearchQueryCell(0, "cherry"),),
+            scope=BoardSearchScope.ALL_SEARCHABLE,
+            limit=10,
+        )
+    assert error.value.code == "BOARD_SEARCH_ARCHIVE_INCOMPLETE"
+    session.execute.assert_not_called()

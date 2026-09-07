@@ -204,6 +204,9 @@ import type {
   GetApprovedSymbolReferenceCandidateAssetData,
   GetApprovedSymbolReferenceCandidateAssetErrors,
   GetApprovedSymbolReferenceCandidateAssetResponses,
+  GetArchivedBoardSearchAssetData,
+  GetArchivedBoardSearchAssetErrors,
+  GetArchivedBoardSearchAssetResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
@@ -981,6 +984,27 @@ export const searchGameBoards = <ThrowOnError extends boolean = false>(
     SearchGameBoardsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/board-search', ...options });
+
+/**
+ * Read one checksum-bound board image from a frozen search archive
+ */
+export const getArchivedBoardSearchAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetArchivedBoardSearchAssetData, ThrowOnError>,
+): RequestResult<
+  GetArchivedBoardSearchAssetResponses,
+  GetArchivedBoardSearchAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetArchivedBoardSearchAssetResponses,
+    GetArchivedBoardSearchAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}',
+    ...options,
+  });
 
 /**
  * Preview deletion of complete image-source ranges selected by board number

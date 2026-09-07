@@ -2062,6 +2062,21 @@ deterministycznie z kandydatów i fast documents. Obrazy nadal są assetami
 filesystemu powiązanymi przez `review_item_id` i checksumę; żadna z tych tabel
 nie przechowuje JPEG-a.
 
+Od migracji 0098 gra przeznaczona do odchudzenia może mieć niezależny,
+zamrożony read model `legacy_board_search_archive_documents`. Klucz pozostaje
+`(game_id, sequence_number)`, a dokument kopiuje wyłącznie status, bezpośrednią
+ścieżkę i checksumę całej planszy, znane pozycje oraz pięć tablic kodów
+mobilnych. Nie ma FK do kandydata, review, recognized board, importu ani joba;
+jedyną relacją jest zachowywana gra. Bitmapa nadal nie trafia do PostgreSQL.
+
+`legacy_board_search_archive_states` jest fail-closed znacznikiem aktywacji.
+Runtime używa archiwum wyłącznie dla `ready`; samo istnienie stanu `building`
+albo `failed` zabrania fallbacku do projekcji operacyjnej. Fingerprint preview,
+fingerprint wszystkich dokumentów, zakres i licznik pozwalają porównać
+archiwum ze źródłem przed późniejszym cleanupem. Ścieżki wskazane przez gotowe
+archiwum stają się trwałymi referencjami storage i nie mogą zostać usunięte
+wraz z operacyjnym grafem danych.
+
 ## Własność geometrii wirtualnej
 
 Migracja 0082 wprowadziła addytywne nośniki geometrii source-level. Ich

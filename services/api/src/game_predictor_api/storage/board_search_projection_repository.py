@@ -16,6 +16,8 @@ from sqlalchemy.sql.elements import ColumnElement
 from game_predictor_api.domain.board_search import (
     BOARD_SEARCH_ALTERNATIVE_WEIGHTS,
     BOARD_SEARCH_CELL_COUNT,
+    BoardSearchArchiveAssetReference,
+    BoardSearchAssetMode,
     BoardSearchCandidate,
     BoardSearchError,
     BoardSearchProjectionPayload,
@@ -37,6 +39,8 @@ from game_predictor_api.storage.models import (
     ImageSequenceCanonicalModel,
     ImageSymbolPredictionRevisionModel,
     JobModel,
+    LegacyBoardSearchArchiveDocumentModel,
+    LegacyBoardSearchArchiveStateModel,
     RecognizedBoardModel,
     SourceImageModel,
     SymbolModel,
@@ -247,12 +251,35 @@ class SqlAlchemyBoardSearchProjectionRepository:
     ) -> tuple[BoardSearchResult, ...]:
         if self._session.get(GameModel, game_id) is None:
             raise BoardSearchError("GAME_NOT_FOUND", "The selected game does not exist.")
-        state = self.state_for_game(game_id)
-        if state is None or state.status != "ready":
-            raise BoardSearchError(
-                "BOARD_SEARCH_PROJECTION_INCOMPLETE",
-                "The board-search projection is not ready for this game.",
+        archive_state = self._session.get(LegacyBoardSearchArchiveStateModel, game_id)
+        document: Any
+        identity_columns: tuple[Any, Any, Any]
+        identity_sort: Any
+        if archive_state is None:
+            state = self.state_for_game(game_id)
+            if state is None or state.status != "ready":
+                raise BoardSearchError(
+                    "BOARD_SEARCH_PROJECTION_INCOMPLETE",
+                    "The board-search projection is not ready for this game.",
+                )
+            document = ImageBoardSearchFastDocumentModel
+            asset_mode = BoardSearchAssetMode.OPERATIONAL_REVIEW
+            identity_columns = (
+                document.review_item_id,
+                document.recognized_board_id,
+                document.import_job_id,
             )
+            identity_sort = document.review_item_id
+        else:
+            if archive_state.status != "ready":
+                raise BoardSearchError(
+                    "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
+                    "The frozen board-search archive is not ready for this game.",
+                )
+            document = LegacyBoardSearchArchiveDocumentModel
+            asset_mode = BoardSearchAssetMode.LEGACY_ARCHIVE
+            identity_columns = (literal(None), literal(None), literal(None))
+            identity_sort = document.board_checksum_sha256
         active_mobile_codes: dict[str, int] = {
             code: int(mobile_code)
             for code, mobile_code in self._session.execute(
@@ -273,7 +300,6 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 "Every board-search symbol must be active in the selected game.",
             )
 
-        document = ImageBoardSearchFastDocumentModel
         mobile_codes_by_cell = {
             cell.cell_index: int(active_mobile_codes[cell.symbol_code])
             for cell in query
@@ -307,9 +333,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
         )
         statement = (
             select(
-                document.review_item_id,
-                document.recognized_board_id,
-                document.import_job_id,
+                *identity_columns,
                 document.sequence_number,
                 document.status,
                 document.board_checksum_sha256,
@@ -328,12 +352,13 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 mismatch.asc(),
                 status_priority.asc(),
                 document.sequence_number.asc(),
-                document.review_item_id.asc(),
+                identity_sort.asc(),
             )
             .limit(limit)
         )
         return tuple(
             BoardSearchResult(
+                asset_mode=asset_mode,
                 review_item_id=review_item_id,
                 recognized_board_id=recognized_board_id,
                 import_job_id=import_job_id,
@@ -363,6 +388,38 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 mismatch_count,
                 unknown_count,
             ) in self._session.execute(statement).all()
+        )
+
+    def archive_asset(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        expected_checksum_sha256: str,
+    ) -> BoardSearchArchiveAssetReference:
+        state = self._session.get(LegacyBoardSearchArchiveStateModel, game_id)
+        if state is None or state.status != "ready":
+            raise BoardSearchError(
+                "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
+                "The frozen board-search archive is not ready for this game.",
+            )
+        document = self._session.get(
+            LegacyBoardSearchArchiveDocumentModel,
+            (game_id, sequence_number),
+        )
+        if document is None:
+            raise BoardSearchError(
+                "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND",
+                "The archived board image does not exist.",
+            )
+        if document.board_checksum_sha256 != expected_checksum_sha256:
+            raise BoardSearchError(
+                "BOARD_SEARCH_ARCHIVE_ASSET_REVISION_CONFLICT",
+                "The archived board image revision has changed.",
+            )
+        return BoardSearchArchiveAssetReference(
+            relative_path=document.board_relative_path,
+            checksum_sha256=document.board_checksum_sha256,
         )
 
     def reconcile_review_item(self, review_item_id: UUID) -> None:
@@ -925,7 +982,11 @@ def _payload_from_candidate(
 
 
 def _search_score_expressions(
-    candidate: type[ImageBoardSearchCandidateModel] | type[ImageBoardSearchFastDocumentModel],
+    candidate: (
+        type[ImageBoardSearchCandidateModel]
+        | type[ImageBoardSearchFastDocumentModel]
+        | type[LegacyBoardSearchArchiveDocumentModel]
+    ),
     query: Sequence[BoardSearchQueryCell],
     *,
     mobile_codes_by_cell: Mapping[int, int],
@@ -1016,7 +1077,9 @@ def _search_score_expressions(
 
 
 def _positive_evidence_expression(
-    document: type[ImageBoardSearchFastDocumentModel],
+    document: (
+        type[ImageBoardSearchFastDocumentModel] | type[LegacyBoardSearchArchiveDocumentModel]
+    ),
     query: Sequence[BoardSearchQueryCell],
     *,
     mobile_codes_by_cell: Mapping[int, int],

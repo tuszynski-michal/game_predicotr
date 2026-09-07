@@ -127,9 +127,10 @@ zwraca deterministycznie wybrany dokument logicznej planszy dla każdego numeru
 sekwencji (accepted/corrected albo oczekujący), a `approved_only` ogranicza
 wyniki do decyzji accepted/corrected.
 
-Każdy wynik zawiera identyfikatory źródłowej pozycji review i planszy,
-`sequenceNumber`, status, checksumę cropu oraz rozkład punktów (`score`, exact,
-alternatywa, mismatch i unknown). Odpowiedź nie zawiera danych binarnych obrazu.
+Każdy wynik zawiera `sequenceNumber`, status, checksumę cropu oraz rozkład
+punktów (`score`, exact, alternatywa, mismatch i unknown). Wynik operacyjny
+zawiera także identyfikatory źródłowej pozycji review i planszy. Odpowiedź nie
+zawiera danych binarnych obrazu.
 Niespójny wzór zwraca `422` (`BOARD_SEARCH_QUERY_EMPTY`,
 `BOARD_SEARCH_CELL_INVALID`, `BOARD_SEARCH_CELL_DUPLICATE` lub
 `BOARD_SEARCH_SYMBOL_INVALID`); nieistniejąca gra `404 GAME_NOT_FOUND`, a
@@ -140,6 +141,22 @@ Ranking czyta wyłącznie gotowy, wąski read model aktualnej planszy per
 zwraca danych binarnych. Ten szczegół nie zmienia OpenAPI, lecz gwarantuje, że
 endpoint zachowuje kontrakt czasu odpowiedzi także dla częstych symboli, dla
 których indeks tokenowy nie zmniejsza wystarczająco liczby kandydatów.
+
+Wynik zawiera `assetMode=operational_review|legacy_archive`. Dla trybu
+operacyjnego identyfikatory `reviewItemId`, `recognizedBoardId` i `importJobId`
+są wymagane. Dla zamrożonego archiwum wszystkie trzy są `null`, ponieważ ich
+rekordy mogą zostać później usunięte. Obraz archiwalny jest odczytywany przez:
+
+```text
+GET /api/v1/admin/games/{gameId}/board-search/archive-assets/{sequenceNumber}
+  ?expectedBoardChecksumSha256={sha256}
+```
+
+Endpoint sprawdza stan `ready`, dokładną checksumę dokumentu, bezpieczną
+ścieżkę wewnątrz zarządzanego `artifact_root/data`, typ obrazu oraz SHA-256
+pliku. Brak, drift albo częściowy stan nie korzysta z operacyjnego fallbacku.
+Gry bez stanu archiwum nadal używają dotychczasowego fast documentu oraz
+operacyjnego assetu bez zmiany semantyki.
 
 Algorytm `partial-board-ranking-v2-unknown-missing-evidence` traktuje zapisane
 `NULL`/`?` analogicznie: zero punktów i zero twardych niedopasowań. Remisy są

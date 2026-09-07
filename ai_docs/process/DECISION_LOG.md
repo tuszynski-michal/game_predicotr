@@ -8126,3 +8126,24 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** zapis nadal wymaga kompletnego quada dla decyzji full/partial,
   aktualnej checksummy raportu oraz jawnego kliknięcia `Zapisz decyzję`.
   Przejście do następnego zdjęcia nie zapisuje szkicu.
+
+## D-369 — Archiwum wyszukiwania nie zależy od operacyjnego review
+
+- **Status:** accepted
+- **Date:** 2026-09-07
+- **Decision:** zachowywany zakres starej gry może zostać zamrożony w
+  `legacy_board_search_archive_documents`. Dokument ma bezpośrednią ścieżkę i
+  checksumę obrazu oraz zwarty dowód symboli, ale nie ma FK do review,
+  recognized board, importu ani joba. Runtime przełącza całą grę dopiero po
+  stanie `ready` i nie miesza archiwum z fast documents.
+- **Rationale:** stara gra ma tymczasowo służyć wyłącznie do wyszukiwania
+  plansz, a zależność od wielomilionowego grafu review uniemożliwiała jego
+  usunięcie. Kopiowanie 24,2 GiB identycznych, niezmiennych plików nie daje
+  dodatkowej wartości; gotowy dokument przejmuje ich trwałą referencję.
+- **Safety:** builder jest przypięty do dwóch UUID, zakresu i fingerprintu
+  pełnego preview, a przed `ready` porównuje fingerprint 369 554 dokumentów.
+  Asset jest checksum-bound i fail-closed. Task nie usuwa danych; przyszły
+  cleanup musi jawnie chronić każdą ścieżkę archiwum.
+- **Consequences:** API zwraca `assetMode`; archiwalne wyniki mają operacyjne
+  UUID ustawione na `null`. Gry bez gotowego archiwum zachowują dotychczasowy
+  read path.

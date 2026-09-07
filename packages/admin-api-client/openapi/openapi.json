@@ -2142,6 +2142,22 @@
             "title": "Imagewidth",
             "type": "integer"
           },
+          "slotQualifications": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GeometryQualificationPayload"
+                },
+                "maxItems": 9,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slotqualifications"
+          },
           "sourceChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Sourcechecksumsha256",
@@ -2180,6 +2196,20 @@
             "minimum": 1.0,
             "title": "Revision",
             "type": "integer"
+          },
+          "slotQualifications": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GeometryQualificationPayload"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slotqualifications"
           }
         },
         "required": [
@@ -2264,6 +2294,20 @@
               }
             ],
             "title": "Existingoverriderevision"
+          },
+          "existingSlotQualifications": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GeometryQualificationPayload"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existingslotqualifications"
           },
           "expectedBoardCount": {
             "maximum": 9.0,
@@ -4119,6 +4163,62 @@
         "title": "GeometryCohortResponse",
         "type": "object"
       },
+      "GeometryQualificationPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "completenessStatus": {
+            "enum": [
+              "complete",
+              "pending_partial"
+            ],
+            "title": "Completenessstatus",
+            "type": "string"
+          },
+          "excludeFromGeometryTraining": {
+            "title": "Excludefromgeometrytraining",
+            "type": "boolean"
+          },
+          "exclusionReason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "missing_pixels",
+                  "manual_exclusion"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclusionreason"
+          },
+          "unavailableCellIndices": {
+            "items": {
+              "maximum": 14.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "maxItems": 15,
+            "title": "Unavailablecellindices",
+            "type": "array"
+          },
+          "version": {
+            "const": "manual-geometry-qualification-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "completenessStatus",
+          "unavailableCellIndices",
+          "excludeFromGeometryTraining",
+          "exclusionReason"
+        ],
+        "title": "GeometryQualificationPayload",
+        "type": "object"
+      },
       "GridCalibrationProfileResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5188,6 +5288,16 @@
             "title": "Disposition",
             "type": "string"
           },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "positionIndex": {
             "maximum": 8.0,
             "minimum": 0.0,
@@ -5247,7 +5357,7 @@
             "items": {
               "type": "integer"
             },
-            "maxItems": 14,
+            "maxItems": 15,
             "title": "Unavailablecellindices",
             "type": "array"
           }
@@ -5286,6 +5396,16 @@
             ],
             "title": "Disposition",
             "type": "string"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "format": "uuid",
@@ -6454,6 +6574,16 @@
             "title": "Expectedsourcewidth",
             "type": "integer"
           },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "idempotencyKey": {
             "format": "uuid",
             "title": "Idempotencykey",
@@ -6532,6 +6662,16 @@
             "exclusiveMinimum": 0.0,
             "title": "Expectedsourcewidth",
             "type": "integer"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -6654,6 +6794,16 @@
               }
             ],
             "title": "Geometrychecksumsha256"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "gridColumns": {
             "exclusiveMinimum": 0.0,
@@ -6844,6 +6994,16 @@
               }
             ],
             "title": "Geometryengineversion"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "geometryRevision": {
             "minimum": 0.0,
@@ -7339,6 +7499,16 @@
             "exclusiveMinimum": 0.0,
             "title": "Expectedsourcewidth",
             "type": "integer"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "pendingGeometryId": {
             "anyOf": [

@@ -1953,6 +1953,22 @@ class RecognizedBoardModel(Base):
     __tablename__ = "recognized_boards"
     __table_args__ = (
         CheckConstraint(
+            "geometry_qualification IS NULL OR ((jsonb_typeof(geometry_qualification) = "
+            "'object' AND geometry_qualification->>'version' = "
+            "'manual-geometry-qualification-v1' AND "
+            "geometry_qualification->>'completenessStatus' = completeness_status AND "
+            "geometry_qualification->'unavailableCellIndices' = "
+            "to_jsonb(unavailable_cell_indices) AND ((completeness_status = "
+            "'pending_partial' AND geometry_qualification->'excludeFromGeometryTraining' "
+            "= 'true'::jsonb AND geometry_qualification->>'exclusionReason' = "
+            "'missing_pixels') OR (completeness_status = 'complete' AND "
+            "((geometry_qualification->'excludeFromGeometryTraining' = 'true'::jsonb AND "
+            "geometry_qualification->>'exclusionReason' = 'manual_exclusion') OR "
+            "(geometry_qualification->'excludeFromGeometryTraining' = 'false'::jsonb AND "
+            "geometry_qualification->'exclusionReason' = 'null'::jsonb))))) IS TRUE)",
+            name="ck_recognized_boards_qualification",
+        ),
+        CheckConstraint(
             "position_index BETWEEN 0 AND 8",
             name="ck_recognized_boards_position",
         ),
@@ -1988,7 +2004,7 @@ class RecognizedBoardModel(Base):
         CheckConstraint(
             "(completeness_status = 'complete' AND cardinality(unavailable_cell_indices) = 0) "
             "OR (completeness_status = 'pending_partial' "
-            "AND cardinality(unavailable_cell_indices) BETWEEN 1 AND 14 "
+            "AND cardinality(unavailable_cell_indices) BETWEEN 1 AND 15 "
             "AND unavailable_cell_indices <@ "
             "ARRAY[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]::smallint[])",
             name="ck_recognized_boards_completeness",
@@ -2063,6 +2079,9 @@ class RecognizedBoardModel(Base):
     cells_prediction: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     completeness_status: Mapped[str] = mapped_column(
         String(24), nullable=False, default="complete", server_default=text("'complete'")
+    )
+    geometry_qualification: Mapped[dict[str, object] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
     )
     unavailable_cell_indices: Mapped[list[int]] = mapped_column(
         ARRAY(SmallInteger), nullable=False, default=list, server_default=text("'{}'")
@@ -3166,6 +3185,12 @@ class ImagePageGeometryOverrideModel(Base):
     __tablename__ = "image_page_geometry_overrides"
     __table_args__ = (
         CheckConstraint(
+            "slot_qualifications IS NULL OR (CASE WHEN jsonb_typeof(slot_qualifications) "
+            "= 'array' THEN jsonb_array_length(slot_qualifications) = "
+            "jsonb_array_length(final_quads) ELSE false END)",
+            name="ck_page_override_slot_qualifications",
+        ),
+        CheckConstraint(
             "image_width > 0 AND image_height > 0 AND revision > 0",
             name="ck_image_page_geometry_overrides_values",
         ),
@@ -3201,6 +3226,9 @@ class ImagePageGeometryOverrideModel(Base):
     image_width: Mapped[int] = mapped_column(Integer, nullable=False)
     image_height: Mapped[int] = mapped_column(Integer, nullable=False)
     final_quads: Mapped[list[list[dict[str, int]]]] = mapped_column(JSONB, nullable=False)
+    slot_qualifications: Mapped[list[dict[str, object]] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     actor: Mapped[str] = mapped_column(String(200), nullable=False)
     decision_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -6072,6 +6100,23 @@ class ImageImportGeometryGuardDecisionModel(Base):
     __tablename__ = "image_import_geometry_guard_decisions"
     __table_args__ = (
         CheckConstraint(
+            "geometry_qualification IS NULL OR ((jsonb_typeof(geometry_qualification) = "
+            "'object' AND geometry_qualification->>'version' = "
+            "'manual-geometry-qualification-v1' AND "
+            "geometry_qualification->'unavailableCellIndices' = "
+            "to_jsonb(unavailable_cell_indices) AND ((disposition = 'partial' AND "
+            "geometry_qualification->>'completenessStatus' = 'pending_partial' AND "
+            "geometry_qualification->'excludeFromGeometryTraining' = 'true'::jsonb AND "
+            "geometry_qualification->>'exclusionReason' = 'missing_pixels') OR "
+            "(disposition = 'corrected_full' AND "
+            "geometry_qualification->>'completenessStatus' = 'complete' AND "
+            "((geometry_qualification->'excludeFromGeometryTraining' = 'true'::jsonb AND "
+            "geometry_qualification->>'exclusionReason' = 'manual_exclusion') OR "
+            "(geometry_qualification->'excludeFromGeometryTraining' = 'false'::jsonb AND "
+            "geometry_qualification->'exclusionReason' = 'null'::jsonb))))) IS TRUE)",
+            name="ck_guard_decisions_qualification",
+        ),
+        CheckConstraint(
             "position_index BETWEEN 0 AND 8 AND sequence_number > 0 AND revision > 0",
             name="ck_image_import_guard_decisions_values",
         ),
@@ -6095,7 +6140,7 @@ class ImageImportGeometryGuardDecisionModel(Base):
             "(disposition = 'partial' AND symbol_grid_quad IS NOT NULL "
             "AND jsonb_typeof(symbol_grid_quad) = 'array' "
             "AND jsonb_array_length(symbol_grid_quad) = 4 "
-            "AND cardinality(unavailable_cell_indices) BETWEEN 1 AND 14 "
+            "AND cardinality(unavailable_cell_indices) BETWEEN 1 AND 15 "
             "AND unavailable_cell_indices <@ "
             "ARRAY[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]::smallint[]) OR "
             "(disposition = 'rejected' AND symbol_grid_quad IS NULL "
@@ -6137,6 +6182,9 @@ class ImageImportGeometryGuardDecisionModel(Base):
     sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     disposition: Mapped[str] = mapped_column(String(24), nullable=False)
+    geometry_qualification: Mapped[dict[str, object] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
     symbol_grid_quad: Mapped[list[dict[str, int]] | None] = mapped_column(JSONB)
     unavailable_cell_indices: Mapped[list[int]] = mapped_column(
         ARRAY(SmallInteger), nullable=False, default=list, server_default=text("'{}'")

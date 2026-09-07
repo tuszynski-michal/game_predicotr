@@ -13,6 +13,10 @@ from uuid import UUID, uuid4
 from game_predictor_worker.images.geometry import Point, Quad
 from game_predictor_worker.images.page_geometry_registration import is_ordered_active_grid
 
+from game_predictor_api.domain.geometry_qualification import (
+    GeometryQualificationError,
+    parse_slot_qualifications,
+)
 from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.domain.page_geometry_overrides import (
     ImagePageGeometryOverride,
@@ -58,8 +62,21 @@ class PageGeometryOverrideService:
         expected_board_count: int,
         final_quads: Sequence[Sequence[Mapping[str, object]]],
         actor: str,
+        slot_qualifications: object = None,
     ) -> tuple[ImagePageGeometryOverride, bool]:
-        checksum = _checksum(source_checksum_sha256, image_width, image_height, final_quads)
+        try:
+            qualifications = parse_slot_qualifications(
+                slot_qualifications, expected_board_count=expected_board_count
+            )
+        except GeometryQualificationError as error:
+            raise JobError(error.code, str(error)) from error
+        checksum = _checksum(
+            source_checksum_sha256,
+            image_width,
+            image_height,
+            final_quads,
+            None if qualifications is None else [item.to_dict() for item in qualifications],
+        )
         parsed = _parse_and_validate(
             final_quads,
             image_width=image_width,
@@ -70,6 +87,15 @@ class PageGeometryOverrideService:
             game_id=game_id,
             source_checksum_sha256=source_checksum_sha256,
         )
+        if (
+            current is not None
+            and current.slot_qualifications is not None
+            and qualifications is None
+        ):
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_QUALIFICATION_REQUIRED",
+                "A qualified page revision requires explicit slot qualifications on every update.",
+            )
         if current is not None and current.decision_checksum_sha256 == checksum:
             return current, False
         if not actor.strip():
@@ -88,6 +114,7 @@ class PageGeometryOverrideService:
             actor=actor.strip(),
             decision_checksum_sha256=checksum,
             created_at=datetime.now(UTC),
+            slot_qualifications=qualifications,
         )
         return self._repository.append(value), True
 
@@ -96,7 +123,7 @@ class PageGeometryOverrideService:
 
         entries: dict[str, object] = {}
         for value in self._repository.list_current(game_id=game_id):
-            entries[value.source_checksum_sha256] = {
+            entry: dict[str, object] = {
                 "actor": value.actor,
                 "decisionChecksumSha256": value.decision_checksum_sha256,
                 "imageHeight": value.image_height,
@@ -106,6 +133,9 @@ class PageGeometryOverrideService:
                 "quads": value.final_quads,
                 "revision": value.revision,
             }
+            if value.slot_qualifications is not None:
+                entry["slotQualifications"] = [item.to_dict() for item in value.slot_qualifications]
+            entries[value.source_checksum_sha256] = entry
         return dict(sorted(entries.items()))
 
     def exclude_source(
@@ -261,18 +291,21 @@ def _checksum(
     image_width: int,
     image_height: int,
     final_quads: Sequence[Sequence[Mapping[str, object]]],
+    slot_qualifications: list[dict[str, object]] | None = None,
 ) -> str:
     if re.fullmatch(r"[0-9a-f]{64}", source_checksum_sha256) is None:
         raise JobError(
             "IMAGE_PAGE_GEOMETRY_SOURCE_INVALID",
             "The page geometry source checksum is invalid.",
         )
-    payload = {
+    payload: dict[str, object] = {
         "imageHeight": image_height,
         "imageWidth": image_width,
         "quads": final_quads,
         "sourceChecksumSha256": source_checksum_sha256,
     }
+    if slot_qualifications is not None:
+        payload["slotQualifications"] = slot_qualifications
     canonical = json.dumps(
         payload,
         ensure_ascii=True,

@@ -10,6 +10,8 @@ from enum import StrEnum
 from pathlib import PurePosixPath
 from uuid import UUID, uuid4
 
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
+
 CELL_COUNT = 15
 
 
@@ -69,6 +71,7 @@ class ImageGeometryGuardDecision:
     actor: str
     decision_checksum_sha256: str
     created_at: datetime
+    geometry_qualification: GeometryQualification | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +114,7 @@ def create_guard_decision(
     reason: str | None,
     actor: str,
     created_at: datetime | None = None,
+    geometry_qualification: GeometryQualification | None = None,
 ) -> ImageGeometryGuardDecision:
     _sha256(guard_report_checksum_sha256)
     _sha256(target.source_checksum_sha256)
@@ -125,7 +129,7 @@ def create_guard_decision(
         normalized_reason = None
     unavailable = tuple(sorted(set(unavailable_cell_indices)))
     if unavailable != unavailable_cell_indices or any(
-        not 0 <= value < CELL_COUNT for value in unavailable
+        type(value) is not int or not 0 <= value < CELL_COUNT for value in unavailable
     ):
         raise ImageGeometryGuardDecisionError(
             "Unavailable cell indices must be unique, sorted and between 0 and 14."
@@ -137,9 +141,10 @@ def create_guard_decision(
                 "A full correction requires a four-point grid and all 15 cells."
             )
     elif disposition is ImageGeometryGuardDisposition.PARTIAL:
-        if quad is None or not 1 <= len(unavailable) <= 14:
+        maximum = 15 if geometry_qualification is not None else 14
+        if quad is None or not 1 <= len(unavailable) <= maximum:
             raise ImageGeometryGuardDecisionError(
-                "A partial board requires geometry and between 1 and 14 unavailable cells."
+                f"A partial board requires geometry and between 1 and {maximum} unavailable cells."
             )
     elif disposition is ImageGeometryGuardDisposition.REJECTED and (
         quad is not None or unavailable or normalized_reason is None
@@ -147,7 +152,14 @@ def create_guard_decision(
         raise ImageGeometryGuardDecisionError(
             "A rejected board requires a reason and cannot carry crop geometry."
         )
-    payload = {
+    if geometry_qualification is not None and (
+        disposition is ImageGeometryGuardDisposition.REJECTED
+        or geometry_qualification.unavailable_cell_indices != unavailable
+        or (geometry_qualification.completeness_status == "pending_partial")
+        != (disposition is ImageGeometryGuardDisposition.PARTIAL)
+    ):
+        raise ImageGeometryGuardDecisionError("Geometry qualification conflicts with the decision.")
+    payload: dict[str, object] = {
         "actor": normalized_actor,
         "browserSelectionId": str(browser_selection_id),
         "disposition": disposition.value,
@@ -163,6 +175,8 @@ def create_guard_decision(
         "symbolGridQuad": quad,
         "unavailableCellIndices": list(unavailable),
     }
+    if geometry_qualification is not None:
+        payload["geometryQualification"] = geometry_qualification.to_dict()
     return ImageGeometryGuardDecision(
         id=uuid4(),
         game_id=game_id,
@@ -181,6 +195,7 @@ def create_guard_decision(
         actor=normalized_actor,
         decision_checksum_sha256=_checksum(payload),
         created_at=created_at or datetime.now(UTC),
+        geometry_qualification=geometry_qualification,
     )
 
 
@@ -207,7 +222,11 @@ def resolution_manifest_payload(
     if not ordered:
         raise ImageGeometryGuardDecisionError("A resolution manifest cannot be empty.")
     return {
-        "schemaVersion": "ImageGeometryGuardResolutionManifestV2",
+        "schemaVersion": (
+            "ImageGeometryGuardResolutionManifestV3"
+            if any(item.geometry_qualification is not None for item in ordered)
+            else "ImageGeometryGuardResolutionManifestV2"
+        ),
         "gameId": str(game_id),
         "browserSelectionId": str(browser_selection_id),
         "guardJobId": str(guard_job_id),
@@ -227,6 +246,11 @@ def resolution_manifest_payload(
                 "sourceRelativePath": item.source_relative_path,
                 "symbolGridQuad": item.symbol_grid_quad,
                 "unavailableCellIndices": list(item.unavailable_cell_indices),
+                **(
+                    {"geometryQualification": item.geometry_qualification.to_dict()}
+                    if item.geometry_qualification is not None
+                    else {}
+                ),
             }
             for item in ordered
         ],

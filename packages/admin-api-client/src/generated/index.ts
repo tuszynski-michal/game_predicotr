@@ -666,6 +666,7 @@ export type {
   GenerateMockDatasetResponses,
   GeometryCohortDiagnosticsResponse,
   GeometryCohortResponse,
+  GeometryQualificationPayload,
   GetApprovedSymbolReferenceCandidateAssetData,
   GetApprovedSymbolReferenceCandidateAssetError,
   GetApprovedSymbolReferenceCandidateAssetErrors,

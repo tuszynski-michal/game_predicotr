@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from game_predictor_api.domain.geometry_qualification import parse_slot_qualifications
 from game_predictor_api.domain.page_geometry_overrides import (
     ImagePageGeometryOverride,
     ImagePageSourceExclusion,
@@ -62,6 +63,11 @@ class SqlAlchemyPageGeometryOverrideRepository:
             image_width=value.image_width,
             image_height=value.image_height,
             final_quads=[list(quad) for quad in value.final_quads],
+            slot_qualifications=(
+                None
+                if value.slot_qualifications is None
+                else [item.to_dict() for item in value.slot_qualifications]
+            ),
             revision=value.revision,
             actor=value.actor,
             decision_checksum_sha256=value.decision_checksum_sha256,
@@ -123,6 +129,9 @@ def _to_domain(row: ImagePageGeometryOverrideModel) -> ImagePageGeometryOverride
         actor=row.actor,
         decision_checksum_sha256=row.decision_checksum_sha256,
         created_at=row.created_at,
+        slot_qualifications=parse_slot_qualifications(
+            row.slot_qualifications, expected_board_count=len(row.final_quads)
+        ),
     )
 
 

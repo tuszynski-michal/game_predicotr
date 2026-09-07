@@ -35,6 +35,25 @@ class _Context:
         self.checkpoints.append(kwargs)
 
 
+def test_legacy_preflight_never_silently_ignores_qualified_slots(tmp_path: Path) -> None:
+    from game_predictor_api.domain.geometry_qualification import GeometryQualification
+
+    initial, checksums = _cold_start_job(tmp_path, image_count=1)
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial.game_id,
+        input_payload={
+            **initial.input_payload,
+            "page_geometry_overrides": {
+                checksums[0]: {"slotQualifications": [GeometryQualification().to_dict()] * 9}
+            },
+        },
+    )
+    with pytest.raises(JobHandlerError) as error:
+        preflight_module._input(job)  # noqa: SLF001 - pinned payload boundary
+    assert error.value.code == "IMAGE_PAGE_GEOMETRY_QUALIFICATION_NOT_ENABLED"
+
+
 def test_masked_preflight_policy_is_pinned_and_unknown_policy_fails_closed(
     tmp_path: Path,
 ) -> None:

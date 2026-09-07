@@ -109,9 +109,37 @@ PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION = "0096_preimport_geometry_guard_dec
 PAGE_SOURCE_EXCLUSIONS_REVISION = "0097_page_source_exclusions"
 LEGACY_BOARD_SEARCH_ARCHIVE_REVISION = "0098_legacy_board_search_archive"
 LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION = "0099_legacy_game_operational_cleanup"
+MANUAL_GEOMETRY_QUALIFICATION_REVISION = "0100_manual_geometry_qualification"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
+
+
+def test_manual_qualification_migration_is_additive_and_downgrade_protects_decisions() -> None:
+    output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=output),
+        f"{LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION}:{MANUAL_GEOMETRY_QUALIFICATION_REVISION}",
+        sql=True,
+    )
+    sql = output.getvalue().lower()
+    assert "add column slot_qualifications jsonb" in sql
+    assert sql.count("add column geometry_qualification jsonb") == 2
+    assert "between 1 and 15" in sql
+    assert "delete from" not in sql
+    assert "update recognized_boards" not in sql
+    downgrade = StringIO()
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade),
+        f"{MANUAL_GEOMETRY_QUALIFICATION_REVISION}:{LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION}",
+        sql=True,
+    )
+    rollback = downgrade.getvalue().lower()
+    assert rollback.index("lock table image_page_geometry_overrides") < rollback.index("do $$")
+    assert "image_source_geometry_revisions in access exclusive mode" in rollback
+    assert rollback.index("manual_geometry_qualification_downgrade_has_data") < rollback.index(
+        "drop column"
+    )
 
 
 def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
@@ -390,7 +418,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
     legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
     legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
-    assert script.get_heads() == [LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION]
+    assert script.get_heads() == [MANUAL_GEOMETRY_QUALIFICATION_REVISION]
+    qualification = script.get_revision(MANUAL_GEOMETRY_QUALIFICATION_REVISION)
+    assert qualification is not None
+    assert qualification.down_revision == LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert storage_capacity_guard is not None

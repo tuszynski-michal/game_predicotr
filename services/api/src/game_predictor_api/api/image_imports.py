@@ -47,6 +47,7 @@ from game_predictor_api.domain.image_sequence_canonical import (
 )
 from game_predictor_api.domain.jobs import JobConflictError, JobError, JobStatus, JobType
 from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.geometry_qualification import GeometryQualificationPayload
 from game_predictor_api.schemas.image_imports import (
     BrowserImageImportPreflightCreate,
     BrowserImageImportPreflightResponse,
@@ -991,6 +992,11 @@ def create_image_imports_router(
                         else None
                     ),
                     saved_since_preflight=saved_since_preflight,
+                    existing_slot_qualifications=(
+                        current_override.get("slotQualifications")
+                        if isinstance(current_override, dict)
+                        else None
+                    ),
                 )
             )
         sources.sort(
@@ -1262,6 +1268,11 @@ def create_image_imports_router(
                         )
                     ),
                     unavailable_cell_indices=tuple(item.unavailable_cell_indices),
+                    geometry_qualification=(
+                        None
+                        if item.geometry_qualification is None
+                        else item.geometry_qualification.to_domain()
+                    ),
                     reason=item.reason,
                 )
                 for item in payload.decisions
@@ -1470,6 +1481,11 @@ def create_image_imports_router(
             image_width=width,
             image_height=height,
             expected_board_count=expected_board_count,
+            slot_qualifications=(
+                None
+                if payload.slot_qualifications is None
+                else [item.model_dump(by_alias=True) for item in payload.slot_qualifications]
+            ),
             final_quads=tuple(
                 tuple(point.model_dump(by_alias=True) for point in quad)
                 for quad in payload.final_quads
@@ -1481,6 +1497,14 @@ def create_image_imports_router(
             id=value.id,
             revision=value.revision,
             decision_checksum_sha256=value.decision_checksum_sha256,
+            slot_qualifications=(
+                None
+                if value.slot_qualifications is None
+                else [
+                    GeometryQualificationPayload.model_validate(item.to_dict())
+                    for item in value.slot_qualifications
+                ]
+            ),
         )
 
     @router.post(

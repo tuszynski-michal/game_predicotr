@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.application.image_import_geometry_guard import (
     ImageGeometryGuardDecisionCommand,
     ImageImportGeometryGuardService,
 )
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardDecision,
     ImageGeometryGuardDisposition,
@@ -24,6 +27,111 @@ JOB_ID = UUID("33333333-3333-3333-3333-333333333333")
 PREFLIGHT_JOB_ID = UUID("44444444-4444-4444-4444-444444444444")
 REPORT_CHECKSUM = "d" * 64
 SOURCE_CHECKSUM = "a" * 64
+
+
+def test_new_partial_contract_preserves_all_missing_cells_and_uses_new_manifest(
+    tmp_path: Path,
+) -> None:
+    service, repository = _service(tmp_path)
+    qualification = GeometryQualification(
+        "pending_partial", tuple(range(15)), True, "missing_pixels"
+    )
+    command = replace(
+        _command(0, ImageGeometryGuardDisposition.PARTIAL),
+        unavailable_cell_indices=tuple(range(15)),
+        geometry_qualification=qualification,
+    )
+    queue = service.queue(game_id=GAME_ID, browser_selection_id=UPLOAD_ID, guard_job_id=JOB_ID)
+    results = service.save_decisions(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        actor="local-owner",
+        commands=(command,),
+    )
+    assert results[0].geometry_qualification == qualification
+    assert results[0].unavailable_cell_indices == tuple(range(15))
+    assert repository.latest_decisions(guard_job_id=JOB_ID)[0] == results[0]
+    from game_predictor_api.domain.image_import_geometry_guard import resolution_manifest_payload
+
+    payload = resolution_manifest_payload(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        source_manifest_checksum_sha256="b" * 64,
+        page_geometry_manifest_checksum_sha256="c" * 64,
+        decisions=results,
+    )
+    assert payload["schemaVersion"] == "ImageGeometryGuardResolutionManifestV3"
+    assert payload["decisions"][0]["geometryQualification"] == qualification.to_dict()
+    # This foundation may persist decisions, but cannot pass them to the old renderer.
+    checksum = payload_checksum(payload)
+    relative = f"data/image-geometry-guard-resolutions/{checksum}.json"
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    manifest = ImageGeometryGuardResolutionManifest(
+        id=uuid4(),
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        source_manifest_checksum_sha256="b" * 64,
+        page_geometry_manifest_checksum_sha256="c" * 64,
+        manifest_relative_path=relative,
+        manifest_checksum_sha256=checksum,
+        decision_count=1,
+        sealed_by="local-owner",
+        created_at=datetime.now(UTC),
+    )
+    repository.add_manifest(manifest)
+    with pytest.raises(JobConflictError) as unsupported:
+        service.require_manifest_descriptor(
+            game_id=GAME_ID,
+            browser_selection_id=UPLOAD_ID,
+            manifest_id=manifest.id,
+            expected_manifest_checksum_sha256=checksum,
+            source_manifest_checksum_sha256="b" * 64,
+            page_geometry_manifest_checksum_sha256="c" * 64,
+        )
+    assert unsupported.value.code == "IMAGE_GEOMETRY_GUARD_QUALIFICATION_NOT_ENABLED"
+    with pytest.raises(JobError):
+        service.save_decisions(
+            game_id=GAME_ID,
+            browser_selection_id=UPLOAD_ID,
+            guard_job_id=JOB_ID,
+            expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+            actor="local-owner",
+            commands=(replace(command, geometry_qualification=None),),
+        )
+
+
+def test_legacy_update_cannot_remove_manual_training_exclusion(tmp_path: Path) -> None:
+    service, repository = _service(tmp_path)
+    queue = service.queue(game_id=GAME_ID, browser_selection_id=UPLOAD_ID, guard_job_id=JOB_ID)
+    command = replace(
+        _command(0, ImageGeometryGuardDisposition.CORRECTED_FULL),
+        geometry_qualification=GeometryQualification(
+            exclude_from_geometry_training=True, exclusion_reason="manual_exclusion"
+        ),
+    )
+    arguments = dict(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        actor="local-owner",
+    )
+    service.save_decisions(**arguments, commands=(command,))
+    with pytest.raises(JobConflictError) as missing:
+        service.save_decisions(
+            **arguments, commands=(replace(command, geometry_qualification=None),)
+        )
+    assert missing.value.code == "IMAGE_GEOMETRY_GUARD_QUALIFICATION_REQUIRED"
+    assert len(repository.decisions) == 1
+    assert repository.decisions[0].geometry_qualification == command.geometry_qualification
 
 
 class _Repository:

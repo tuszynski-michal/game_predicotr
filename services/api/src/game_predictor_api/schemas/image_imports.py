@@ -26,6 +26,7 @@ from game_predictor_api.domain.image_sequence_canonical import (
     ImageSequenceImportPreflight,
 )
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.geometry_qualification import GeometryQualificationPayload
 from game_predictor_api.schemas.jobs import JobResponse
 
 
@@ -251,6 +252,7 @@ class ImageGeometryGuardDecisionResponse(ApiModel):
     actor: str
     decision_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     created_at: datetime
+    geometry_qualification: GeometryQualificationPayload | None = None
 
     @classmethod
     def from_domain(cls, value: ImageGeometryGuardDecision) -> "ImageGeometryGuardDecisionResponse":
@@ -268,6 +270,13 @@ class ImageGeometryGuardDecisionResponse(ApiModel):
                 else [PageGeometryPoint(**point) for point in value.symbol_grid_quad]
             ),
             unavailable_cell_indices=list(value.unavailable_cell_indices),
+            geometry_qualification=(
+                None
+                if value.geometry_qualification is None
+                else GeometryQualificationPayload.model_validate(
+                    value.geometry_qualification.to_dict()
+                )
+            ),
             reason=value.reason,
             actor=value.actor,
             decision_checksum_sha256=value.decision_checksum_sha256,
@@ -328,7 +337,8 @@ class ImageGeometryGuardDecisionItemCreate(ApiModel):
     symbol_grid_quad: (
         tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint] | None
     ) = None
-    unavailable_cell_indices: list[int] = Field(default_factory=list, max_length=14)
+    unavailable_cell_indices: list[int] = Field(default_factory=list, max_length=15)
+    geometry_qualification: GeometryQualificationPayload | None = None
     reason: str | None = Field(default=None, max_length=200)
 
 
@@ -412,6 +422,7 @@ class BrowserPageGeometryReviewSourceResponse(ApiModel):
     registration_diagnostics: PageGeometryRegistrationDiagnostics | None = None
     existing_final_quads: list[list[PageGeometryPoint]] | None = None
     existing_override_revision: int | None = Field(default=None, ge=1)
+    existing_slot_qualifications: list[GeometryQualificationPayload] | None = None
     saved_since_preflight: bool = False
 
 
@@ -434,6 +445,9 @@ class BrowserPageGeometryOverrideCreate(ApiModel):
         tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint]
     ] = Field(min_length=1, max_length=9)
     actor: str = Field(min_length=1, max_length=200)
+    slot_qualifications: list[GeometryQualificationPayload] | None = Field(
+        default=None, min_length=1, max_length=9
+    )
 
 
 class BrowserPageGeometryOverrideResponse(ApiModel):
@@ -441,6 +455,7 @@ class BrowserPageGeometryOverrideResponse(ApiModel):
     id: UUID
     revision: int = Field(ge=1)
     decision_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    slot_qualifications: list[GeometryQualificationPayload] | None = None
 
 
 class BrowserPageSourceExclusionCreate(ApiModel):

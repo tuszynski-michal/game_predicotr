@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
+
 type PageGeometryPoint = dict[str, int]
 type PageGeometryQuad = tuple[
     PageGeometryPoint,
@@ -28,6 +30,7 @@ class ImagePageGeometryOverride:
     actor: str
     decision_checksum_sha256: str
     created_at: datetime
+    slot_qualifications: tuple[GeometryQualification, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)

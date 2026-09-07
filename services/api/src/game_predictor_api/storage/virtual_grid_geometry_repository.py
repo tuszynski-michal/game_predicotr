@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime
 from typing import Any, cast
@@ -21,6 +22,7 @@ from game_predictor_api.application.virtual_grid_geometry import (
 )
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_geometry_v2 import DirectCellRenderConfiguration
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
@@ -210,6 +212,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
         board.geometry_approved_at = created_at
         board.geometry_approved_by = prepared.command.corrected_by
         board.board_geometry = dict(prepared.board_geometry)
+        _project_geometry_qualification(board, prepared.board_geometries[context.position_index])
         board.source_geometry_revision_id = stored_source_geometry.id
         board.geometry_checksum_sha256 = prepared.source_geometry_checksum_sha256
         board.geometry_engine_name = "manual_v1"
@@ -339,9 +342,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 len(review_item_ids) != len(entries)
                 or set(prior_by_item) != set(review_item_ids)
                 or any(
-                    prior_by_item[_require_review_item_id(
-                        current_by_target[entry.context.target_id]
-                    )].command_sha256
+                    prior_by_item[
+                        _require_review_item_id(current_by_target[entry.context.target_id])
+                    ].command_sha256
                     != entry.command.command_sha256
                     for entry in entries
                 )
@@ -354,9 +357,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 revisions=tuple(
                     _revision_from_model(
                         prior_by_item[
-                            _require_review_item_id(
-                                current_by_target[entry.context.target_id]
-                            )
+                            _require_review_item_id(current_by_target[entry.context.target_id])
                         ]
                     )
                     for entry in entries
@@ -397,9 +398,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                         if base_context.global_initialization is None
                         else dict(base_context.global_initialization)
                     ),
-                    board_geometries=tuple(
-                        dict(value) for value in prepared.board_geometries
-                    ),
+                    board_geometries=tuple(dict(value) for value in prepared.board_geometries),
                     engine_kind="manual_v1",
                     engine_version="manual-source-geometry-v1",
                     geometry_source="manual",
@@ -447,6 +446,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
             board.geometry_approved_at = created_at
             board.geometry_approved_by = entry.command.corrected_by
             board.board_geometry = dict(entry.board_geometry)
+            _project_geometry_qualification(
+                board, prepared.board_geometries[entry.context.position_index]
+            )
             board.source_geometry_revision_id = stored_source_geometry.id
             board.geometry_checksum_sha256 = prepared.source_geometry_checksum_sha256
             board.geometry_engine_name = "manual_v1"
@@ -603,6 +605,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             status="pending_review",
             created_at=created_at,
         )
+        _project_geometry_qualification(board, entry.board_geometries[context.position_index])
         self._session.add(board)
         self._session.flush()
         for cell, prediction in zip(entry.cells, predictions, strict=True):
@@ -1259,6 +1262,29 @@ def _event_previous(cell: ImageSymbolReviewCellModel) -> dict[str, Any]:
         "approved_crop_checksum_sha256": cell.approved_crop_checksum_sha256,
         "approved_geometry_revision": cell.approved_geometry_revision,
     }
+
+
+def _project_geometry_qualification(
+    board: RecognizedBoardModel, source_slot: Mapping[str, object]
+) -> None:
+    """The immutable source slot, not a UI projection, owns the decision."""
+    raw = source_slot.get("geometryQualification")
+    if raw is None:
+        if board.geometry_qualification is not None:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_QUALIFICATION_CONFLICT",
+                "A legacy revision cannot silently discard explicit geometry qualification.",
+            )
+        return
+    qualification = GeometryQualification.from_dict(raw)
+    if board.board_geometry.get("geometryQualification") != qualification.to_dict():
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_QUALIFICATION_CONFLICT",
+            "Board projection differs from its source geometry qualification.",
+        )
+    board.geometry_qualification = qualification.to_dict()
+    board.completeness_status = qualification.completeness_status
+    board.unavailable_cell_indices = list(qualification.unavailable_cell_indices)
 
 
 def _reset_grid_issue_after_virtual_recrop(

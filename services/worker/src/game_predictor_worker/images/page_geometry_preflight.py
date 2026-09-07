@@ -612,6 +612,13 @@ def _input(job: Job) -> dict[str, object]:
     checksum = payload.get("source_manifest_sha256")
     profile = payload.get("page_registration_profile")
     overrides = payload.get("page_geometry_overrides")
+    if isinstance(overrides, Mapping) and any(
+        isinstance(value, Mapping) and "slotQualifications" in value for value in overrides.values()
+    ):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_QUALIFICATION_NOT_ENABLED",
+            "Qualified overrides require the partial-geometry and anchor-qualification rollout.",
+        )
     canonical = payload.get("canonical_sequence_numbers")
     source_display_name = payload.get("source_display_name")
     source_exclusions = payload.get("source_exclusions", {})

@@ -356,6 +356,7 @@ import type {
 } from './generated/types.gen';
 
 export type {
+  GeometryQualificationPayload,
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
   BrowserImageImportPreflightResponse,

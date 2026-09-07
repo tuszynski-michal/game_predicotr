@@ -1,15 +1,22 @@
 from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from game_predictor_api.api.image_imports import create_image_imports_router
 from game_predictor_api.application.page_geometry_overrides import (
     PageGeometryOverrideService,
 )
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.domain.page_geometry_overrides import (
     ImagePageGeometryOverride,
     ImagePageSourceExclusion,
 )
+from PIL import Image
 
 
 class MemoryPageGeometryOverrideRepository:
@@ -85,6 +92,98 @@ def _quads() -> tuple[tuple[dict[str, int], ...], ...]:
                 )
             )
     return tuple(result)
+
+
+def test_slot_decisions_survive_retry_and_change_revision_without_changing_quads() -> None:
+    repository = MemoryPageGeometryOverrideRepository()
+    service = PageGeometryOverrideService(repository)
+    game_id = uuid4()
+    arguments = dict(
+        game_id=game_id,
+        source_checksum_sha256="a" * 64,
+        image_width=320,
+        image_height=320,
+        expected_board_count=9,
+        final_quads=_quads(),
+        actor="local-owner",
+    )
+    legacy, _ = service.save(**arguments)
+    assert legacy.slot_qualifications is None
+    assert "slotQualifications" not in service.snapshot(game_id=game_id)["a" * 64]
+    decisions = [GeometryQualification().to_dict() for _ in range(9)]
+    decisions[5] = GeometryQualification(
+        "pending_partial", tuple(range(15)), True, "missing_pixels"
+    ).to_dict()
+    first, created = service.save(**arguments, slot_qualifications=decisions)
+    restored, duplicate = PageGeometryOverrideService(repository).save(
+        **arguments, slot_qualifications=decisions
+    )
+    assert created and not duplicate
+    assert first == restored
+    assert first.revision == 2
+    assert first.final_quads == legacy.final_quads
+    assert first.decision_checksum_sha256 != legacy.decision_checksum_sha256
+    assert service.snapshot(game_id=game_id)["a" * 64]["slotQualifications"] == decisions
+    with pytest.raises(JobError) as missing:
+        PageGeometryOverrideService(repository).save(**arguments)
+    assert missing.value.code == "IMAGE_PAGE_GEOMETRY_QUALIFICATION_REQUIRED"
+    assert len(repository.values) == 2
+    assert service.snapshot(game_id=game_id)["a" * 64]["slotQualifications"] == decisions
+
+
+def test_page_override_http_roundtrip_preserves_slot_metadata(tmp_path: Path) -> None:
+    source_path = tmp_path / "source.jpg"
+    Image.new("RGB", (320, 320)).save(source_path)
+    game_id, upload_id = uuid4(), uuid4()
+    ready = SimpleNamespace(
+        upload=SimpleNamespace(path=tmp_path),
+        manifest=SimpleNamespace(
+            files=[
+                SimpleNamespace(
+                    checksum_sha256="a" * 64,
+                    stored_file_name="source.jpg",
+                    relative_path="seq_1-9.jpg",
+                )
+            ]
+        ),
+    )
+    browser = SimpleNamespace(bind_ready_game=lambda *_: ready)
+    repository = MemoryPageGeometryOverrideRepository()
+    service = PageGeometryOverrideService(repository)
+    app = FastAPI()
+    app.include_router(
+        create_image_imports_router(
+            lambda: None,
+            lambda: browser,
+            lambda: None,
+            lambda: None,
+            page_geometry_override_service_dependency=lambda: service,
+            image_sequence_canonical_service_dependency=lambda: None,
+            image_import_geometry_guard_service_dependency=lambda: None,
+        )
+    )
+    decisions = [GeometryQualification().to_dict() for _ in range(9)]
+    decisions[5] = GeometryQualification(
+        "pending_partial", (0, 1), True, "missing_pixels"
+    ).to_dict()
+    body = {
+        "gameId": str(game_id),
+        "sourceChecksumSha256": "a" * 64,
+        "imageWidth": 320,
+        "imageHeight": 320,
+        "finalQuads": _quads(),
+        "actor": "local-owner",
+        "slotQualifications": decisions,
+    }
+    client = TestClient(app)
+    endpoint = f"/admin/image-imports/browser-selections/{upload_id}/page-geometry-overrides"
+    response = client.post(endpoint, json=body)
+    assert response.status_code == 201, response.text
+    assert response.json()["slotQualifications"] == decisions
+    repeated = client.post(endpoint, json=body)
+    assert repeated.json()["id"] == response.json()["id"]
+    assert repeated.json()["created"] is False
+    assert len(repository.values) == 1
 
 
 def test_page_geometry_override_is_idempotent_and_pinned_in_snapshot() -> None:

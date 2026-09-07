@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
 from uuid import UUID, uuid4
 
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardBoardContext,
     ImageGeometryGuardBoardTarget,
@@ -87,6 +88,7 @@ class ImageGeometryGuardDecisionCommand:
     symbol_grid_quad: tuple[dict[str, int], ...] | None
     unavailable_cell_indices: tuple[int, ...]
     reason: str | None
+    geometry_qualification: GeometryQualification | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +231,16 @@ class ImageImportGeometryGuardService:
                         "The selected board no longer matches the immutable guard report.",
                     )
                 previous = current.get(key)
+                if (
+                    previous is not None
+                    and previous.geometry_qualification is not None
+                    and command.geometry_qualification is None
+                    and command.disposition != "rejected"
+                ):
+                    raise JobConflictError(
+                        "IMAGE_GEOMETRY_GUARD_QUALIFICATION_REQUIRED",
+                        "A qualified board decision requires explicit qualification on update.",
+                    )
                 created.append(
                     create_guard_decision(
                         game_id=game_id,
@@ -240,6 +252,7 @@ class ImageImportGeometryGuardService:
                         disposition=command.disposition,
                         symbol_grid_quad=command.symbol_grid_quad,
                         unavailable_cell_indices=command.unavailable_cell_indices,
+                        geometry_qualification=command.geometry_qualification,
                         reason=command.reason,
                         actor=actor,
                     )
@@ -373,6 +386,29 @@ class ImageImportGeometryGuardService:
             raise JobConflictError(
                 "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
                 "The sealed geometry guard resolution manifest does not match this import.",
+            )
+        path = _managed_path(
+            self._artifact_root, value.manifest_relative_path, "image-geometry-guard-resolutions"
+        )
+        try:
+            payload = json.loads(path.read_bytes())
+        except (OSError, json.JSONDecodeError) as error:
+            raise JobError(
+                "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+                "The sealed geometry guard manifest is unavailable.",
+            ) from error
+        if (
+            not isinstance(payload, dict)
+            or payload_checksum(payload) != expected_manifest_checksum_sha256
+        ):
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
+                "The sealed geometry guard manifest checksum changed.",
+            )
+        if payload.get("schemaVersion") == "ImageGeometryGuardResolutionManifestV3":
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_QUALIFICATION_NOT_ENABLED",
+                "Qualified decisions require the partial-geometry renderer and training rollout.",
             )
         return {
             "id": str(value.id),

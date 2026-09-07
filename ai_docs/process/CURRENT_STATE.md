@@ -6,6 +6,29 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0505 — odebrany fundament kwalifikacji geometrii
+
+- Wersjonowany kontrakt, zapis/odczyt page overrides i guard obsługują
+  kompletność, maskę 15/15 i wykluczenie geometrii. Brak nowych pól zachowuje
+  historyczne checksumy. Rozszerzono istniejące API, OpenAPI oraz klienta.
+- Migracja 0100 jest przygotowana, lecz **nie została zastosowana**. Dodaje
+  nullable metadane, zgodność projekcji i bezpieczne ograniczenia maski;
+  rollback nie usuwa nowych decyzji. Nie uruchamiano cleanupu ani usług.
+- To nie jest jeszcze działająca funkcja w edytorze. Nowe pola nie są
+  wystawione w UI; dotychczasowy zapis Grid Review i konsumenci preflightu/
+  importu odmawiają nowych metadanych do integracji TASK-0506–0508.
+- Przeszło 177 testów API/workera, 53 testy klienta, OpenAPI i typecheck
+  klienta; 12 read-only prób nowych CHECK w PostgreSQL, bez danych aplikacji.
+  Globalny format check wykrywa 35 wcześniejszych problemów poza zmianą.
+  Mypy zmienionych źródeł wskazuje dwa wcześniejsze błędy (guard payload cast
+  oraz opcjonalny board w preview); nowych błędów typu nie pozostawiono.
+- Niezależny review `gpt-6-astra high` przeszedł po naprawie utraty kwalifikacji
+  przez stary formularz page/guard i wyścigu downgrade. Audyt: 41 testów;
+  dodatkowy odbiór page/guard/migracji: 80 testów, Ruff passed. To odbiór
+  foundation, nie całego workflow. Kanoniczny roundtrip Grid Review i zdjęcie
+  bramek są jawnym zakresem TASK-0508. Użytkownik zlecił serię 0505–0509
+  z audytami; dalej 0506. Opcjonalny v0.10.4 wymaga analizy po tej serii.
+
 ### Zależność TASK-0505 — utrwalenie istniejącej migracji 0099
 
 - Za osobną zgodą operatora do Git trafia wyłącznie addytywna migracja

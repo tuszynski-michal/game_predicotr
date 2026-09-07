@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardDecision,
     ImageGeometryGuardDisposition,
@@ -139,6 +140,11 @@ class SqlAlchemyImageImportGeometryGuardRepository:
                         else [dict(point) for point in value.symbol_grid_quad]
                     ),
                     unavailable_cell_indices=list(value.unavailable_cell_indices),
+                    geometry_qualification=(
+                        None
+                        if value.geometry_qualification is None
+                        else value.geometry_qualification.to_dict()
+                    ),
                     reason=value.reason,
                     actor=value.actor,
                     decision_checksum_sha256=value.decision_checksum_sha256,
@@ -210,6 +216,11 @@ def _decision(row: ImageImportGeometryGuardDecisionModel) -> ImageGeometryGuardD
             else tuple(dict(point) for point in row.symbol_grid_quad)
         ),
         unavailable_cell_indices=tuple(row.unavailable_cell_indices),
+        geometry_qualification=(
+            None
+            if row.geometry_qualification is None
+            else GeometryQualification.from_dict(row.geometry_qualification)
+        ),
         reason=row.reason,
         actor=row.actor,
         decision_checksum_sha256=row.decision_checksum_sha256,

@@ -709,6 +709,11 @@ def _require_expected_context(
     source_height: int,
     topology: BoardTopology,
 ) -> None:
+    if context.board_geometries[context.position_index].get("geometryQualification") is not None:
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_QUALIFICATION_NOT_ENABLED",
+            "Qualified source revisions require the partial-geometry reconciliation rollout.",
+        )
     if (
         context.geometry_revision != command.expected_geometry_revision
         or context.resolution_revision != command.expected_resolution_revision

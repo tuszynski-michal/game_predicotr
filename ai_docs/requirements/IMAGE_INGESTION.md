@@ -1450,7 +1450,9 @@ wyniku automatu. Decyzja jest związana z
 grą, browser stagingiem, checksumą raportu, checksumą i logiczną nazwą źródła,
 slotem oraz wynikającym z niego numerem sekwencji. Zapis wielu slotów jednego
 zdjęcia jest atomowy. `partial` wymaga pełnego quada siatki i uporządkowanej,
-unikalnej maski od 1 do 14 niedostępnych komórek; `rejected` nie może zawierać
+unikalnej maski od 1 do 14 niedostępnych komórek w historycznym kontrakcie;
+nowy jawny kontrakt kwalifikacji opisany poniżej dopuszcza również 15/15.
+`rejected` nie może zawierać
 geometrii i wymaga powodu.
 
 Zamknięcie nowego `ImageGeometryGuardResolutionManifestV2` jest możliwe dopiero
@@ -1488,6 +1490,28 @@ domenowych. Dla maski częściowej pozycja ma wyłącznie stan
 `source_unavailable` i nie zawiera obrazu. Każda zmiana geometrii lub maski
 unieważnia poprzedni podgląd, a zapis nowej rewizji unieważnia wcześniej
 wybrany manifest w stanie UI; operator musi jawnie zamknąć nowy manifest.
+
+### Kontrakt ręcznej kompletności i kwalifikacji (TASK-0505–0509)
+
+`manual-geometry-qualification-v1` opisuje każdy aktywny slot: `completenessStatus`,
+`unavailableCellIndices`, `excludeFromGeometryTraining` i `exclusionReason`.
+Kolejność listy `slotQualifications` odpowiada dokładnie kolejności quadów
+i numerów z nazwy źródła; nie można pominąć niewidocznej planszy.
+
+- `complete`: pusta maska, domyślnie bez wykluczenia; operator może jawnie
+  wykluczyć niepewną geometrię z powodem `manual_exclusion`.
+- `pending_partial`: uporządkowana, unikalna maska 1–15 niedostępnych pól,
+  obowiązkowe wykluczenie z powodem `missing_pixels`.
+- Brak samej ozdobnej ramki nie wymusza niepełności. Widoczne symbole nadal
+  podlegają osobnemu zatwierdzaniu i kwalifikacji do treningu symboli.
+
+W TASK-0505 zapis/odczyt metadanych jest fundamentem, nie aktywacją całego
+workflow. Nowe decyzje guard zamykają `ImageGeometryGuardResolutionManifestV3`.
+Stary importer odmawia jego uruchomienia; stary preflight nie może zignorować
+`slotQualifications`, a dotychczasowy zapis Grid Review odmawia przyjęcia
+nowej kwalifikacji. Jawne błędy `*_QUALIFICATION_NOT_ENABLED` chronią dane do
+integracji renderowania, kotwic i reconciliacji w TASK-0506–0508.
+Historyczne żądania i manifesty bez nowych pól działają bez zmian.
 
 ### Opcjonalna rejestracja ograniczona do obszaru plansz
 

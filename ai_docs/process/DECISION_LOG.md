@@ -8147,3 +8147,20 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Consequences:** API zwraca `assetMode`; archiwalne wyniki mają operacyjne
   UUID ustawione na `null`. Gry bez gotowego archiwum zachowują dotychczasowy
   read path.
+
+## D-371 — Kwalifikacja geometrii jest wersjonowaną częścią decyzji slotu
+
+- **Status:** accepted (plan TASK-0505–0509).
+- **Date:** 2026-09-07.
+- **Decision:** `manual-geometry-qualification-v1` używa istniejących
+  `pending_partial` i `unavailableCellIndices`, dopuszcza maskę 15/15 i wiąże
+  niepełność z obowiązkowym wykluczeniem `missing_pixels`. Kompletna, lecz
+  niepewna siatka może mieć niezależne `manual_exclusion`.
+- **Ownership:** rewizja geometrii wraz z decyzją slotu jest właścicielem;
+  `recognized_boards` przechowuje sprawdzaną projekcję, nie nową decyzję.
+- **Compatibility:** brak metadanych zachowuje historyczne checksumy.
+  Foundation TASK-0505 zapisuje i odczytuje metadane, ale nie włącza nowych
+  konsumentów przed TASK-0506–0508. Stary writer/worker odmawia interpretacji
+  nowego kontraktu zamiast tracić maskę lub dopuszczać wykluczone kotwice.
+- **Safety:** brak zmian detektora, OCR i aktywnych profili. Dane geometrii
+  i symbole mają odrębne kryteria treningowe. Downgrade nie usuwa oznaczeń.

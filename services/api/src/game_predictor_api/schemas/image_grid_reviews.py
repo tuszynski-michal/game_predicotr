@@ -30,6 +30,7 @@ from game_predictor_api.domain.image_reviews import (
     crop_sample_id,
 )
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.geometry_qualification import GeometryQualificationPayload
 from game_predictor_api.schemas.image_reviews import (
     OperationalImageReviewGeometryPoint,
 )
@@ -38,6 +39,7 @@ Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 
 class ImageGridReviewItemResponse(ApiModel):
+    geometry_qualification: GeometryQualificationPayload | None = None
     slot_id: UUID
     slot_kind: ImageGridReviewSlotKind
     review_item_id: UUID | None
@@ -152,6 +154,7 @@ class ImageGridReviewSourceApprovalResponse(ApiModel):
 
 
 class ImageGridReviewGeometryPreviewCommand(ApiModel):
+    geometry_qualification: GeometryQualificationPayload | None = None
     expected_geometry_revision: int = Field(ge=0)
     expected_resolution_revision: int = Field(ge=0)
     corners: tuple[
@@ -200,6 +203,7 @@ class ImageGridReviewGeometryCellResponse(ApiModel):
 
 
 class ImageGridReviewGeometryRevisionResponse(ApiModel):
+    geometry_qualification: GeometryQualificationPayload | None = None
     id: UUID
     review_item_id: UUID
     recognized_board_id: UUID
@@ -245,6 +249,11 @@ def to_image_grid_review_item_response(
         geometry["symbolGridQuad"] if "symbolGridQuad" in geometry else geometry.get("quad")
     )
     return ImageGridReviewItemResponse(
+        geometry_qualification=(
+            GeometryQualificationPayload.model_validate(geometry["geometryQualification"])
+            if geometry.get("geometryQualification") is not None
+            else None
+        ),
         slot_id=item.slot_id,
         slot_kind=item.slot_kind,
         review_item_id=item.review_item_id,

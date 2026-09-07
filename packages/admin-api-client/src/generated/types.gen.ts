@@ -1167,6 +1167,10 @@ export type BrowserPageGeometryOverrideCreate = {
    */
   imageWidth: number;
   /**
+   * Slotqualifications
+   */
+  slotQualifications?: Array<GeometryQualificationPayload> | null;
+  /**
    * Sourcechecksumsha256
    */
   sourceChecksumSha256: string;
@@ -1192,6 +1196,10 @@ export type BrowserPageGeometryOverrideResponse = {
    * Revision
    */
   revision: number;
+  /**
+   * Slotqualifications
+   */
+  slotQualifications?: Array<GeometryQualificationPayload> | null;
 };
 
 /**
@@ -1231,6 +1239,10 @@ export type BrowserPageGeometryReviewSourceResponse = {
    * Existingoverriderevision
    */
   existingOverrideRevision?: number | null;
+  /**
+   * Existingslotqualifications
+   */
+  existingSlotQualifications?: Array<GeometryQualificationPayload> | null;
   /**
    * Expectedboardcount
    */
@@ -2312,6 +2324,32 @@ export type GeometryCohortResponse = {
 };
 
 /**
+ * GeometryQualificationPayload
+ */
+export type GeometryQualificationPayload = {
+  /**
+   * Completenessstatus
+   */
+  completenessStatus: 'complete' | 'pending_partial';
+  /**
+   * Excludefromgeometrytraining
+   */
+  excludeFromGeometryTraining: boolean;
+  /**
+   * Exclusionreason
+   */
+  exclusionReason: 'missing_pixels' | 'manual_exclusion' | null;
+  /**
+   * Unavailablecellindices
+   */
+  unavailableCellIndices: Array<number>;
+  /**
+   * Version
+   */
+  version: 'manual-geometry-qualification-v1';
+};
+
+/**
  * GridCalibrationProfileResponse
  */
 export type GridCalibrationProfileResponse = {
@@ -2938,6 +2976,7 @@ export type ImageGeometryGuardDecisionItemCreate = {
    * Disposition
    */
   disposition: 'corrected_full' | 'partial' | 'rejected';
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Positionindex
    */
@@ -2991,6 +3030,7 @@ export type ImageGeometryGuardDecisionResponse = {
    * Disposition
    */
   disposition: 'corrected_full' | 'partial' | 'rejected';
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Id
    */
@@ -3691,6 +3731,7 @@ export type ImageGridReviewGeometryCommand = {
    * Expectedsourcewidth
    */
   expectedSourceWidth: number;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Idempotencykey
    */
@@ -3740,6 +3781,7 @@ export type ImageGridReviewGeometryPreviewCommand = {
    * Expectedsourcewidth
    */
   expectedSourceWidth: number;
+  geometryQualification?: GeometryQualificationPayload | null;
 };
 
 /**
@@ -3802,6 +3844,7 @@ export type ImageGridReviewGeometryRevisionResponse = {
    * Geometrychecksumsha256
    */
   geometryChecksumSha256?: string | null;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Gridcolumns
    */
@@ -3896,6 +3939,7 @@ export type ImageGridReviewItemResponse = {
    * Geometryengineversion
    */
   geometryEngineVersion: string | null;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Geometryrevision
    */
@@ -4165,6 +4209,7 @@ export type ImageGridReviewSourceGeometryTargetCommand = {
    * Expectedsourcewidth
    */
   expectedSourceWidth: number;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Pendinggeometryid
    */

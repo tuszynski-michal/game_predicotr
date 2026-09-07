@@ -45,6 +45,30 @@ logicznego właściciela numeru sekwencji. Nie wybierają geometrii wewnątrz
 
 ## Reguły własności
 
+### Wersjonowana kwalifikacja ręcznej geometrii
+
+Kontrakt `manual-geometry-qualification-v1` jest metadanymi decyzji, nie nowym
+algorytmem geometrii. W rewizji źródła właścicielem jest
+`board_geometries[position_index].geometryQualification`; przed importem
+odpowiada mu append-only `image_page_geometry_overrides.slot_qualifications`
+lub decyzja guard. `recognized_boards.geometry_qualification` jest wyłącznie
+zgodną projekcją wraz z istniejącymi `completeness_status` i maską.
+Nie wolno usunąć kwalifikacji przez zapis historycznego kontraktu.
+
+Migracja 0100 dodaje nullable JSONB bez backfillu dawnych rewizji i rozszerza
+ograniczenia maski do 15. SQL NULL pozostaje SQL NULL, nie JSON `null`.
+Nowe CHECK constraints są `NOT VALID`: nie skanują danych historycznych przy
+wdrożeniu, ale obowiązują dla nowych zapisów. Semantykę nowego payloadu oraz
+kompletność listy slotów sprawdza wspólny czysty model domenowy.
+Downgrade zatrzymuje się przed utratą dowolnej nowej kwalifikacji albo maski
+15/15. Wdrożenie ma limit blokady 5 s i statement timeout 120 s; przekroczenie
+kończy migrację rollbackiem, nie oczekiwaniem bez końca.
+
+Brak nowych pól nie zmienia bajtów ani checksum historycznych payloadów.
+Nowy payload wchodzi do checksum decyzji i wymaga nowej wersji manifestu guard.
+Aktywacja konsumentów oraz wykluczenie kohort/kotwic należą do TASK-0506–0508;
+foundation nie może przekazać oznaczeń do starego konsumenta, który je zignoruje.
+
 ### Source geometry revision
 
 Jedynym właścicielem finalnych quadów geometrii wirtualnej jest

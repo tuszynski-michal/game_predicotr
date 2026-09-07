@@ -428,6 +428,11 @@ def create_image_grid_reviews_router(
         ],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> ImageGridReviewSourceGeometryResponse:
+        if any(target.geometry_qualification is not None for target in payload.targets):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_QUALIFICATION_NOT_ENABLED",
+                "Qualified source revisions require the partial-geometry reconciliation rollout.",
+            )
         target_ids = tuple(
             target.pending_geometry_id or target.review_item_id for target in payload.targets
         )
@@ -461,6 +466,11 @@ def _require_expected_source(
     review_item_id: UUID,
     payload: ImageGridReviewGeometryPreviewCommand,
 ) -> ImageGridReviewSourceAsset:
+    if payload.geometry_qualification is not None:
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_QUALIFICATION_NOT_ENABLED",
+            "Qualified source revisions require the partial-geometry reconciliation rollout.",
+        )
     source = service.source_asset(
         game_id=game_id,
         review_item_id=review_item_id,

@@ -57,6 +57,34 @@ const item = {
   state: 'needs_validation',
 };
 
+test('partial editing allows a bounded surrounding area without changing normal editing', () => {
+  const corners = [
+    { x: 10, y: 10 },
+    { x: 90, y: 10 },
+    { x: 90, y: 90 },
+    { x: 10, y: 90 },
+  ];
+  assert.deepEqual(
+    moveGridGeometryCorner(corners, 0, { x: -20, y: -30 }, 100, 100)[0],
+    { x: 0, y: 0 },
+  );
+  assert.deepEqual(
+    moveGridGeometryCorner(corners, 0, { x: -20, y: -30 }, 100, 100, true)[0],
+    { x: -20, y: -30 },
+  );
+  assert.deepEqual(
+    moveGridGeometryCorner(corners, 0, { x: -500, y: 700 }, 100, 100, true)[0],
+    { x: -100, y: 200 },
+  );
+  assert.deepEqual(
+    addGridGeometryPoint([], { x: -20, y: -30 }, 100, 100, true),
+    [{ x: -20, y: -30 }],
+  );
+  const moved = moveGridGeometry(corners, { x: -100, y: -50 }, 100, 100, true);
+  assert.deepEqual(moved[0], { x: -90, y: -40 });
+  assert.equal(moved[1].x - moved[0].x, 80);
+});
+
 test('grid workflow exposes the three accepted filters in operator order', () => {
   assert.deepEqual(
     GRID_REVIEW_VIEWS.map(({ label, value }) => [value, label]),

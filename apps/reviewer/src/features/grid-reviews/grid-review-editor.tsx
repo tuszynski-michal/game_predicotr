@@ -54,6 +54,7 @@ import {
 } from './grid-review-draft-storage';
 
 interface GridReviewEditorProps {
+  readonly allowOutsideSource?: boolean;
   readonly api: GridReviewsClient;
   readonly items: readonly ImageGridReviewItemResponse[];
   readonly onEditingChange: (editing: boolean) => void;
@@ -91,7 +92,15 @@ export const GridReviewEditor = forwardRef<
   GridReviewEditorHandle,
   GridReviewEditorProps
 >(function GridReviewEditor(
-  { api, items, onEditingChange, onSaved, onSelect, selectedReviewItemId },
+  {
+    api,
+    items,
+    onEditingChange,
+    onSaved,
+    onSelect,
+    selectedReviewItemId,
+    allowOutsideSource = false,
+  },
   ref,
 ) {
   const item =
@@ -101,6 +110,7 @@ export const GridReviewEditor = forwardRef<
 
   return (
     <GridReviewEditorContent
+      allowOutsideSource={allowOutsideSource}
       api={api}
       editorRef={ref}
       item={item}
@@ -113,6 +123,7 @@ export const GridReviewEditor = forwardRef<
 });
 
 function GridReviewEditorContent({
+  allowOutsideSource = false,
   api,
   editorRef,
   item,
@@ -294,6 +305,13 @@ function GridReviewEditorContent({
     canvas.height = image.naturalHeight;
     const context = canvas.getContext('2d');
     if (context === null) return;
+    if (allowOutsideSource) {
+      context.fillStyle = '#555';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      // Virtual surrounding area; no 9x larger bitmap allocation.
+      context.scale(1 / 3, 1 / 3);
+      context.translate(image.naturalWidth, image.naturalHeight);
+    }
     context.drawImage(image, 0, 0);
     for (const candidate of items) {
       const selected = candidate.slotId === item.slotId;
@@ -320,6 +338,7 @@ function GridReviewEditorContent({
       });
     }
   }, [
+    allowOutsideSource,
     completeCorners,
     activeDraft,
     item.slotId,
@@ -411,12 +430,20 @@ function GridReviewEditorContent({
   function sourcePoint(event: ReactPointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
     if (canvas === null) return null;
-    return operationalReviewPointInCanvas(
+    const located = operationalReviewPointInCanvas(
       { x: event.clientX, y: event.clientY },
       canvas.getBoundingClientRect(),
       canvas.width,
       canvas.height,
     );
+    if (located === null || !allowOutsideSource) return located;
+    return {
+      point: {
+        x: located.point.x * 3 - canvas.width,
+        y: located.point.y * 3 - canvas.height,
+      },
+      scale: located.scale / 3,
+    };
   }
 
   function pointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -519,6 +546,7 @@ function GridReviewEditorContent({
         pointer.point,
         item.sourceWidth,
         item.sourceHeight,
+        allowOutsideSource,
       );
       replaceActiveDraft(next);
       if (sourceEditing && next.length === 4) {
@@ -568,6 +596,7 @@ function GridReviewEditorContent({
             pointer.point,
             active.imageWidth,
             active.imageHeight,
+            allowOutsideSource,
           )
         : moveGridGeometry(
             active.draft,
@@ -577,6 +606,7 @@ function GridReviewEditorContent({
             },
             active.imageWidth,
             active.imageHeight,
+            allowOutsideSource,
           );
     if (active.sourceWide) {
       replaceSourceItemDraft(active.slotId, next, active.automaticCorners);

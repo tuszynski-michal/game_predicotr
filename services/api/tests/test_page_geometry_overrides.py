@@ -184,6 +184,19 @@ def test_page_override_http_roundtrip_preserves_slot_metadata(tmp_path: Path) ->
     assert repeated.json()["id"] == response.json()["id"]
     assert repeated.json()["created"] is False
     assert len(repository.values) == 1
+    # Signed corners are legal only on explicitly partial slots. The server expands the mask.
+    clipped = list(_quads())
+    clipped[0] = tuple({"x": p["x"], "y": p["y"] - 15} for p in clipped[0])
+    decisions[0] = GeometryQualification("pending_partial", (0,), True, "missing_pixels").to_dict()
+    body["finalQuads"] = clipped
+    partial = client.post(endpoint, json=body)
+    assert partial.status_code == 201, partial.text
+    assert partial.json()["slotQualifications"][0]["unavailableCellIndices"] == list(range(5))
+    decisions[0] = GeometryQualification().to_dict()
+    with pytest.raises(JobError) as refused:
+        client.post(endpoint, json=body)
+    assert refused.value.code == "IMAGE_PAGE_GEOMETRY_INVALID"
+    assert len(repository.values) == 2
 
 
 def test_page_geometry_override_is_idempotent_and_pinned_in_snapshot() -> None:

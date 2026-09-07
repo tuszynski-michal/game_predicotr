@@ -2108,16 +2108,16 @@
               "minItems": 4,
               "prefixItems": [
                 {
-                  "$ref": "#/components/schemas/PageGeometryPoint"
+                  "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                 },
                 {
-                  "$ref": "#/components/schemas/PageGeometryPoint"
+                  "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                 },
                 {
-                  "$ref": "#/components/schemas/PageGeometryPoint"
+                  "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                 },
                 {
-                  "$ref": "#/components/schemas/PageGeometryPoint"
+                  "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                 }
               ],
               "type": "array"
@@ -2271,7 +2271,7 @@
               {
                 "items": {
                   "items": {
-                    "$ref": "#/components/schemas/PageGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   "type": "array"
                 },
@@ -11343,6 +11343,26 @@
           "gridProfile"
         ],
         "title": "ManagedImageReprocessJobPayload",
+        "type": "object"
+      },
+      "ManualSourceGeometryPoint": {
+        "additionalProperties": false,
+        "description": "Signed coordinates; enclosing commands enforce qualified source bounds.",
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "ManualSourceGeometryPoint",
         "type": "object"
       },
       "MobileReleaseApkResponse": {

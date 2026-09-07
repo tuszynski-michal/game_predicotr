@@ -54,6 +54,7 @@ type PageCorners = PageGeometryCorners;
 type CorrectionMode = 'curve' | 'page' | number;
 
 interface PageGeometryCorrectionPanelProps {
+  readonly allowOutsideSource?: boolean;
   readonly api: GeometryCorrectionClient;
   readonly apiBaseUrl: string;
   readonly gameId: string;
@@ -164,6 +165,7 @@ function diagnosticMetric(label: string, value: number | null | undefined) {
 }
 
 export function PageGeometryCorrectionPanel({
+  allowOutsideSource = false,
   api,
   apiBaseUrl,
   gameId,
@@ -424,8 +426,16 @@ export function PageGeometryCorrectionPanel({
     const point = relativePoint(event);
     if (point === null) return;
     const bounded = {
-      x: clamp(point.x, 0, imageSize.width - 1),
-      y: clamp(point.y, 0, imageSize.height - 1),
+      x: clamp(
+        point.x,
+        allowOutsideSource ? -imageSize.width : 0,
+        allowOutsideSource ? 2 * imageSize.width : imageSize.width - 1,
+      ),
+      y: clamp(
+        point.y,
+        allowOutsideSource ? -imageSize.height : 0,
+        allowOutsideSource ? 2 * imageSize.height : imageSize.height - 1,
+      ),
     };
     if (boardCornerPlacement !== null) {
       const next = appendPageGeometryBoardCorner(
@@ -517,8 +527,16 @@ export function PageGeometryCorrectionPanel({
   function updatePoint(next: Point) {
     if (dragging === null || imageSize === null || pageCorners === null) return;
     const point = {
-      x: clamp(next.x, 0, imageSize.width - 1),
-      y: clamp(next.y, 0, imageSize.height - 1),
+      x: clamp(
+        next.x,
+        allowOutsideSource ? -imageSize.width : 0,
+        allowOutsideSource ? 2 * imageSize.width : imageSize.width - 1,
+      ),
+      y: clamp(
+        next.y,
+        allowOutsideSource ? -imageSize.height : 0,
+        allowOutsideSource ? 2 * imageSize.height : imageSize.height - 1,
+      ),
     };
     if (dragging.kind === 'page') {
       setPageCorners((current) => {
@@ -563,16 +581,18 @@ export function PageGeometryCorrectionPanel({
   function relativePoint(event: PointerEvent<SVGSVGElement>): Point | null {
     if (imageSize === null) return null;
     const rect = event.currentTarget.getBoundingClientRect();
-    return pageGeometryPointFromRenderedCanvas({
+    const point = pageGeometryPointFromRenderedCanvas({
       clientX: event.clientX,
       clientY: event.clientY,
-      imageHeight: imageSize.height,
-      imageWidth: imageSize.width,
+      imageHeight: imageSize.height * (allowOutsideSource ? 3 : 1),
+      imageWidth: imageSize.width * (allowOutsideSource ? 3 : 1),
       renderedHeight: rect.height,
       renderedLeft: rect.left,
       renderedTop: rect.top,
       renderedWidth: rect.width,
     });
+    if (point === null || !allowOutsideSource) return point;
+    return { x: point.x - imageSize.width, y: point.y - imageSize.height };
   }
 
   function beginDrag(
@@ -1037,6 +1057,7 @@ export function PageGeometryCorrectionPanel({
                   : {
                       height: `${zoomedCanvasSize.height}px`,
                       width: `${zoomedCanvasSize.width}px`,
+                      background: allowOutsideSource ? '#555' : undefined,
                     }
               }
             >
@@ -1051,6 +1072,17 @@ export function PageGeometryCorrectionPanel({
                     )
                   }
                   src={imageUrl}
+                  style={
+                    allowOutsideSource
+                      ? {
+                          position: 'absolute',
+                          left: '33.333333%',
+                          top: '33.333333%',
+                          width: '33.333333%',
+                          height: '33.333333%',
+                        }
+                      : undefined
+                  }
                 />
               ) : null}
               {imageSize !== null && pageCorners !== null ? (
@@ -1062,7 +1094,11 @@ export function PageGeometryCorrectionPanel({
                     if (point !== null) updatePoint(point);
                   }}
                   onPointerUp={() => setDragging(null)}
-                  viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
+                  viewBox={
+                    allowOutsideSource
+                      ? `${-imageSize.width} ${-imageSize.height} ${3 * imageSize.width} ${3 * imageSize.height}`
+                      : `0 0 ${imageSize.width} ${imageSize.height}`
+                  }
                 >
                   {!manualPlacementActive
                     ? quads.map((quad, index) => (

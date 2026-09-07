@@ -18,7 +18,7 @@ test('page override wrapper preserves complete slot decisions and the 15/15 mask
     imageHeight: 320,
     finalQuads: [
       [
-        { x: 0, y: 0 },
+        { x: -10, y: -20 },
         { x: 20, y: 0 },
         { x: 20, y: 20 },
         { x: 0, y: 20 },

@@ -69,6 +69,15 @@ Nowy payload wchodzi do checksum decyzji i wymaga nowej wersji manifestu guard.
 Aktywacja konsumentów oraz wykluczenie kohort/kotwic należą do TASK-0506–0508;
 foundation nie może przekazać oznaczeń do starego konsumenta, który je zignoruje.
 
+TASK-0506: kwalifikowana ręczna geometria 3×5 dopuszcza narożniki w zakresie
+jednej dodatkowej szerokości/wysokości po każdej stronie źródła. Automaska
+korzysta z projekcji właściwych komórek, przed zastosowaniem parametrów cropa;
+brakujące indeksy nie tworzą VirtualCell ani pikseli. Maska ręczna może tylko
+rozszerzyć automaskę. Tolerancja numeryczna 1e-6 px chroni przed błędami float
+na brzegu i dotyczy wyłącznie nowego kontraktu. Stare walidacje i fingerprinty
+bez kwalifikacji pozostają niezmienione. UI otoczenie jest transformacją
+współrzędnych, nie powiększeniem bitmapy źródła lub renderera.
+
 ### Source geometry revision
 
 Jedynym właścicielem finalnych quadów geometrii wirtualnej jest

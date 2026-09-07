@@ -1342,6 +1342,7 @@ export type {
   ListWorkerLanesResponse,
   ListWorkerLanesResponses,
   ManagedImageReprocessJobPayload,
+  ManualSourceGeometryPoint,
   MobileReleaseApkResponse,
   MobileReleaseBuildResponse,
   MobileReleaseCreate,

@@ -10,6 +10,13 @@ from game_predictor_api.domain.geometry_qualification import GeometryQualificati
 from game_predictor_api.schemas.catalog import ApiModel
 
 
+class ManualSourceGeometryPoint(ApiModel):
+    """Signed coordinates; enclosing commands enforce qualified source bounds."""
+
+    x: StrictInt
+    y: StrictInt
+
+
 class GeometryQualificationPayload(ApiModel):
     version: Literal["manual-geometry-qualification-v1"]
     completeness_status: Literal["complete", "pending_partial"]

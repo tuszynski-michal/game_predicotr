@@ -6,6 +6,18 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0506 — podparcie ręcznej geometrii i obszar edycji
+
+- Nowy ręczny kontrakt dopuszcza quady poza zdjęciem w ograniczeniu -W..2W,
+  -H..2H. Właściwe komórki poza źródłem automatycznie rozszerzają maskę;
+  nie są renderowane, także dla 15/15. Historyczny automat bez zmian.
+- Page override zapisuje signed współrzędne i wynikową maskę. Edytory dostały
+  opcjonalne szare otoczenie bez powiększania bitmapy; podłączenie kontrolek
+  to 0507, importer/kanoniczne rewizje/read model to 0508.
+- Audyt `gpt-6-astra high`: naprawiony roundoff przy brzegu zdjęcia, brak
+  dalszych blockerów fundamentu. 36 testów Python, 16 Reviewera, 53 klienta;
+  oba typecheck, mypy, Ruff i OpenAPI passed. Bez migracji i operacji na danych.
+
 ### TASK-0505 — odebrany fundament kwalifikacji geometrii
 
 - Wersjonowany kontrakt, zapis/odczyt page overrides i guard obsługują

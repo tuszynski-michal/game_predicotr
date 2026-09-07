@@ -8,7 +8,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import cast
+from typing import NoReturn, cast
 
 import cv2
 import numpy as np
@@ -17,6 +17,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     BOARD_TOPOLOGY_FINGERPRINT_VERSION,
     SOURCE_COORDINATE_SPACE,
     SOURCE_OCCURRENCE_ID_VERSION,
+    SOURCE_SUPPORT_EPSILON,
     VIRTUAL_CELL_LOGICAL_ID_V2_VERSION,
     VIRTUAL_CELL_LOGICAL_ID_VERSION,
     VIRTUAL_CELL_RENDER_ID_V2_VERSION,
@@ -205,13 +206,28 @@ class VirtualCellRenderer:
                     "A virtual-cell batch cannot contain the same logical field twice.",
                 )
             logical_ids.add(cell.logical_id_sha256)
+            if cell.geometry.geometry_qualification is not None:
+                if cell.cell_index in cell.geometry.geometry_qualification.unavailable_cell_indices:
+                    raise VirtualCellExtractionError(
+                        "IMAGE_VIRTUAL_CELL_UNAVAILABLE",
+                        "An unavailable logical cell must never be rendered.",
+                    )
+                _require_full_source_support(
+                    cell.source_quad, frame=frame, tolerance=SOURCE_SUPPORT_EPSILON
+                )
             geometry_key = cell.geometry.geometry_fingerprint_sha256
             transform = board_transforms.get(geometry_key)
             if transform is None:
                 transform = _canonical_board_to_source_transform(cell)
                 board_transforms[geometry_key] = transform
             padded_quad = _padded_cell_quad(cell, transform)
-            _require_full_source_support(padded_quad, frame=frame)
+            _require_full_source_support(
+                padded_quad,
+                frame=frame,
+                tolerance=SOURCE_SUPPORT_EPSILON
+                if cell.geometry.geometry_qualification is not None
+                else 0.0,
+            )
             prepared.append((cell, padded_quad))
         return tuple(prepared)
 
@@ -444,13 +460,18 @@ def _padded_cell_quad(
     )
 
 
-def _require_full_source_support(quad: SourceQuad, *, frame: CanonicalSourceFrame) -> None:
+def _require_full_source_support(
+    quad: SourceQuad, *, frame: CanonicalSourceFrame, tolerance: float = 0.0
+) -> None:
     points = np.asarray(_quad_coordinates(quad), dtype=np.float32)
     if (
         not bool(np.isfinite(points).all())
         or cv2.contourArea(points) <= 4.0
         or any(
-            x < 0.0 or x > frame.source.width - 1 or y < 0.0 or y > frame.source.height - 1
+            x < -tolerance
+            or x > frame.source.width - 1 + tolerance
+            or y < -tolerance
+            or y > frame.source.height - 1 + tolerance
             for x, y in _quad_coordinates(quad)
         )
     ):
@@ -618,16 +639,16 @@ def _require_mapping(value: object, label: str) -> Mapping[str, object]:
 def _require_sha256(value: object, label: str) -> str:
     if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
         _render_spec_invalid(f"Virtual render {label} must be a SHA-256 digest.")
-    return cast(str, value)
+    return value
 
 
 def _require_integer(value: object, label: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         _render_spec_invalid(f"Virtual render {label} must be a non-negative integer.")
-    return cast(int, value)
+    return value
 
 
-def _render_spec_invalid(message: str) -> None:
+def _render_spec_invalid(message: str) -> NoReturn:
     raise VirtualCellExtractionError("IMAGE_VIRTUAL_CELL_RENDER_SPEC_INVALID", message)
 
 

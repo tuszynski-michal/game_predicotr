@@ -13,9 +13,18 @@ from uuid import UUID, uuid4
 from game_predictor_worker.images.geometry import Point, Quad
 from game_predictor_worker.images.page_geometry_registration import is_ordered_active_grid
 
+from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_qualification import (
+    GeometryQualification,
     GeometryQualificationError,
     parse_slot_qualifications,
+)
+from game_predictor_api.domain.image_geometry_v2 import (
+    ImageGeometryContractError,
+    SourceImageBounds,
+    SourcePoint,
+    SourceQuad,
+    resolve_manual_geometry_qualification,
 )
 from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.domain.page_geometry_overrides import (
@@ -70,18 +79,37 @@ class PageGeometryOverrideService:
             )
         except GeometryQualificationError as error:
             raise JobError(error.code, str(error)) from error
+        parsed = _parse_and_validate(
+            final_quads,
+            image_width=image_width,
+            image_height=image_height,
+            expected_board_count=expected_board_count,
+            qualifications=qualifications,
+        )
+        if qualifications is not None:
+            try:
+                qualifications = tuple(
+                    resolve_manual_geometry_qualification(
+                        SourceQuad(
+                            cast(
+                                tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                                tuple(SourcePoint(**point) for point in quad),
+                            )
+                        ),
+                        source=SourceImageBounds(image_width, image_height),
+                        topology=BoardTopology(3, 5),
+                        qualification=qualification,
+                    )
+                    for quad, qualification in zip(parsed, qualifications, strict=True)
+                )
+            except ImageGeometryContractError as error:
+                raise JobError(error.code, str(error)) from error
         checksum = _checksum(
             source_checksum_sha256,
             image_width,
             image_height,
             final_quads,
             None if qualifications is None else [item.to_dict() for item in qualifications],
-        )
-        parsed = _parse_and_validate(
-            final_quads,
-            image_width=image_width,
-            image_height=image_height,
-            expected_board_count=expected_board_count,
         )
         current = self._repository.get_current(
             game_id=game_id,
@@ -226,6 +254,7 @@ def _parse_and_validate(
     image_width: int,
     image_height: int,
     expected_board_count: int,
+    qualifications: tuple[GeometryQualification, ...] | None = None,
 ) -> PageGeometryQuads:
     if (
         image_width < 1
@@ -239,7 +268,7 @@ def _parse_and_validate(
         )
     quads: list[Quad] = []
     canonical: list[tuple[dict[str, int], dict[str, int], dict[str, int], dict[str, int]]] = []
-    for raw_quad in raw_quads:
+    for slot, raw_quad in enumerate(raw_quads):
         if len(raw_quad) != 4:
             raise JobError(
                 "IMAGE_PAGE_GEOMETRY_INVALID",
@@ -261,6 +290,23 @@ def _parse_and_validate(
                 )
             points.append(Point(x, y))
             json_points.append({"x": x, "y": y})
+        partial = (
+            qualifications is not None
+            and qualifications[slot].completeness_status == "pending_partial"
+        )
+        if any(
+            not (-image_width if partial else 0)
+            <= point.x
+            <= (2 * image_width if partial else image_width - 1)
+            or not (-image_height if partial else 0)
+            <= point.y
+            <= (2 * image_height if partial else image_height - 1)
+            for point in points
+        ):
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_INVALID",
+                "The slot corners exceed their permitted source bounds.",
+            )
         quads.append(cast(Quad, tuple(points)))
         canonical.append(
             cast(
@@ -273,11 +319,22 @@ def _parse_and_validate(
                 tuple(json_points),
             )
         )
+    allow_partial = qualifications is not None and any(
+        q.completeness_status == "pending_partial" for q in qualifications
+    )
+    validation_quads = (
+        tuple(
+            cast(Quad, tuple(Point(p.x + image_width, p.y + image_height) for p in quad))
+            for quad in quads
+        )
+        if allow_partial
+        else tuple(quads)
+    )
     if not is_ordered_active_grid(
-        tuple(quads),
+        validation_quads,
         tuple(range(expected_board_count)),
-        image_width,
-        image_height,
+        3 * image_width + 1 if allow_partial else image_width,
+        3 * image_height + 1 if allow_partial else image_height,
     ):
         raise JobError(
             "IMAGE_PAGE_GEOMETRY_INVALID",

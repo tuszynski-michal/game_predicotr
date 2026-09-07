@@ -141,11 +141,17 @@ export function addGridGeometryPoint(
   point: OperationalImageReviewGeometryPoint,
   imageWidth: number,
   imageHeight: number,
+  allowOutsideSource = false,
 ): GridGeometryDraft {
   if (draft.length >= 4) return draft;
   return [
     ...draft,
-    clampOperationalReviewGeometryPoint(point, imageWidth, imageHeight),
+    boundedGridGeometryPoint(
+      point,
+      imageWidth,
+      imageHeight,
+      allowOutsideSource,
+    ),
   ];
 }
 
@@ -260,11 +266,17 @@ export function moveGridGeometryCorner(
   point: OperationalImageReviewGeometryPoint,
   imageWidth: number,
   imageHeight: number,
+  allowOutsideSource = false,
 ): GridGeometryDraft {
   if (draft.length !== 4 || index < 0 || index >= 4) return draft;
   return draft.map((candidate, candidateIndex) =>
     candidateIndex === index
-      ? clampOperationalReviewGeometryPoint(point, imageWidth, imageHeight)
+      ? boundedGridGeometryPoint(
+          point,
+          imageWidth,
+          imageHeight,
+          allowOutsideSource,
+        )
       : candidate,
   );
 }
@@ -274,6 +286,7 @@ export function moveGridGeometry(
   delta: OperationalImageReviewGeometryPoint,
   imageWidth: number,
   imageHeight: number,
+  allowOutsideSource = false,
 ): GridGeometryDraft {
   if (draft.length !== 4) return draft;
   const minX = Math.min(...draft.map((point) => point.x));
@@ -281,13 +294,39 @@ export function moveGridGeometry(
   const minY = Math.min(...draft.map((point) => point.y));
   const maxY = Math.max(...draft.map((point) => point.y));
   const boundedDelta = {
-    x: Math.max(-minX, Math.min(imageWidth - 1 - maxX, delta.x)),
-    y: Math.max(-minY, Math.min(imageHeight - 1 - maxY, delta.y)),
+    x: Math.max(
+      (allowOutsideSource ? -imageWidth : 0) - minX,
+      Math.min(
+        (allowOutsideSource ? 2 * imageWidth : imageWidth - 1) - maxX,
+        delta.x,
+      ),
+    ),
+    y: Math.max(
+      (allowOutsideSource ? -imageHeight : 0) - minY,
+      Math.min(
+        (allowOutsideSource ? 2 * imageHeight : imageHeight - 1) - maxY,
+        delta.y,
+      ),
+    ),
   };
   return draft.map((point) => ({
     x: Math.round(point.x + boundedDelta.x),
     y: Math.round(point.y + boundedDelta.y),
   }));
+}
+
+function boundedGridGeometryPoint(
+  point: OperationalImageReviewGeometryPoint,
+  width: number,
+  height: number,
+  allowOutside: boolean,
+): OperationalImageReviewGeometryPoint {
+  if (!allowOutside)
+    return clampOperationalReviewGeometryPoint(point, width, height);
+  return {
+    x: Math.round(Math.max(-width, Math.min(2 * width, point.x))),
+    y: Math.round(Math.max(-height, Math.min(2 * height, point.y))),
+  };
 }
 
 export function gridGeometryDragTarget(

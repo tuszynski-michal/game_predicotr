@@ -1152,7 +1152,12 @@ export type BrowserPageGeometryOverrideCreate = {
    * Finalquads
    */
   finalQuads: Array<
-    [PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint]
+    [
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+    ]
   >;
   /**
    * Gameid
@@ -1234,7 +1239,7 @@ export type BrowserPageGeometryReviewSourceResponse = {
   /**
    * Existingfinalquads
    */
-  existingFinalQuads?: Array<Array<PageGeometryPoint>> | null;
+  existingFinalQuads?: Array<Array<ManualSourceGeometryPoint>> | null;
   /**
    * Existingoverriderevision
    */
@@ -6279,6 +6284,22 @@ export type ManagedImageReprocessJobPayload = {
    */
   sourceSelectionId?: string | null;
   symbolModel: SymbolModelJobSnapshotPayload;
+};
+
+/**
+ * ManualSourceGeometryPoint
+ *
+ * Signed coordinates; enclosing commands enforce qualified source bounds.
+ */
+export type ManualSourceGeometryPoint = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
 };
 
 /**

@@ -19,8 +19,10 @@ from pathlib import PurePosixPath
 from uuid import UUID
 
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 
 MAX_PAGE_BOARD_SLOTS = 9
+SOURCE_SUPPORT_EPSILON = 1e-6
 PAGE_BOARD_COLUMNS = 3
 SOURCE_COORDINATE_SPACE = "exif-normalized-rgb-pixels-v1"
 VIRTUAL_CELL_LOGICAL_ID_VERSION = "virtual-cell-logical-id-v1"
@@ -317,6 +319,23 @@ class SourceOccurrence:
 
 
 @dataclass(frozen=True, slots=True)
+class SourceImageBounds:
+    """Pixel dimensions for validation without inventing source provenance."""
+
+    width: int
+    height: int
+
+    def __post_init__(self) -> None:
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 1
+            for value in (self.width, self.height)
+        ):
+            raise ImageGeometryContractError(
+                "IMAGE_GEOMETRY_SOURCE_DIMENSIONS_INVALID", "Source dimensions must be positive."
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class SourcePoint:
     x: float
     y: float
@@ -374,14 +393,35 @@ class SourceQuad:
                 "A source quadrilateral must be convex and non-self-intersecting.",
             )
 
-    def require_within(self, source: NormalizedSourceImage) -> None:
+    def require_within(
+        self, source: NormalizedSourceImage | SourceImageBounds, *, tolerance: float = 0.0
+    ) -> None:
         if any(
-            point.x < 0 or point.x > source.width or point.y < 0 or point.y > source.height
+            point.x < -tolerance
+            or point.x > source.width + tolerance
+            or point.y < -tolerance
+            or point.y > source.height + tolerance
             for point in self.corners
         ):
             raise ImageGeometryContractError(
                 "IMAGE_GEOMETRY_QUAD_OUT_OF_BOUNDS",
                 "A source quadrilateral must lie inside the EXIF-normalized source image.",
+            )
+
+    def require_manual_edit_bounds(self, source: NormalizedSourceImage | SourceImageBounds) -> None:
+        if _cross(self.corners[0], self.corners[1], self.corners[2]) <= 0:
+            raise ImageGeometryContractError(
+                "IMAGE_GEOMETRY_QUAD_ORDER_INVALID",
+                "Manual corners must use clockwise image order.",
+            )
+        if any(
+            not -source.width <= point.x <= 2 * source.width
+            or not -source.height <= point.y <= 2 * source.height
+            for point in self.corners
+        ):
+            raise ImageGeometryContractError(
+                "IMAGE_GEOMETRY_MANUAL_EDIT_BOUNDS_EXCEEDED",
+                "Manual corners may extend by at most one source width and height on each side.",
             )
 
     def cell_quad(
@@ -426,6 +466,7 @@ class VirtualBoardGeometry:
     geometry_version: str
     engine_kind: GeometryEngineKind
     symbol_grid_quad: SourceQuad
+    geometry_qualification: GeometryQualification | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -442,7 +483,30 @@ class VirtualBoardGeometry:
                 "IMAGE_GEOMETRY_VERSION_INVALID",
                 "A virtual board geometry requires a versioned geometry engine contract.",
             )
-        self.symbol_grid_quad.require_within(self.source)
+        qualification = self.geometry_qualification
+        if qualification is None:
+            self.symbol_grid_quad.require_within(self.source)
+        else:
+            if self.topology.rows != 3 or self.topology.columns != 5:
+                raise ImageGeometryContractError(
+                    "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED", "Qualified grids require topology 3x5."
+                )
+            if self.engine_kind != GeometryEngineKind.MANUAL_V1:
+                raise ImageGeometryContractError(
+                    "IMAGE_GEOMETRY_QUALIFICATION_ENGINE_UNSUPPORTED",
+                    "Explicit manual qualification is not an automatic geometry fallback.",
+                )
+            self.symbol_grid_quad.require_manual_edit_bounds(self.source)
+            outside = unavailable_source_cell_indices(
+                self.symbol_grid_quad, source=self.source, topology=self.topology
+            )
+            if not set(outside).issubset(qualification.unavailable_cell_indices):
+                raise ImageGeometryContractError(
+                    "IMAGE_GEOMETRY_UNAVAILABLE_MASK_INCOMPLETE",
+                    "Every cell outside the source must remain unavailable.",
+                )
+            if qualification.completeness_status == "complete":
+                self.symbol_grid_quad.require_within(self.source)
 
     @property
     def topology_fingerprint_sha256(self) -> str:
@@ -453,7 +517,7 @@ class VirtualBoardGeometry:
 
     @property
     def geometry_fingerprint_sha256(self) -> str:
-        payload = {
+        payload: dict[str, object] = {
             "engineKind": self.engine_kind.value,
             "geometryRevision": self.geometry_revision,
             "geometryVersion": self.geometry_version,
@@ -466,6 +530,8 @@ class VirtualBoardGeometry:
                 "rulesVersionId": str(self.topology_rules_version_id),
             },
         }
+        if self.geometry_qualification is not None:
+            payload["geometryQualification"] = self.geometry_qualification.to_dict()
         return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
 
@@ -535,7 +601,12 @@ class VirtualCell:
             row_index=self.row_index,
             column_index=self.column_index,
         )
-        self.source_quad.require_within(self.geometry.source)
+        self.source_quad.require_within(
+            self.geometry.source,
+            tolerance=SOURCE_SUPPORT_EPSILON
+            if self.geometry.geometry_qualification is not None
+            else 0.0,
+        )
         expected = self.geometry.symbol_grid_quad.cell_quad(
             topology=self.geometry.topology,
             row_index=self.row_index,
@@ -612,10 +683,15 @@ def derive_virtual_cells(
     geometry: VirtualBoardGeometry,
     configuration: DirectCellRenderConfiguration,
 ) -> tuple[VirtualCell, ...]:
-    """Derive exactly ``rows × columns`` virtual cells in deterministic row-major order."""
+    """Derive available cells, preserving their original row-major logical indices."""
 
     cells: list[VirtualCell] = []
     for cell_index in range(geometry.topology.cell_count):
+        if (
+            geometry.geometry_qualification is not None
+            and cell_index in geometry.geometry_qualification.unavailable_cell_indices
+        ):
+            continue
         row_index, column_index = geometry.topology.coordinates(cell_index)
         cells.append(
             VirtualCell(
@@ -632,6 +708,51 @@ def derive_virtual_cells(
             )
         )
     return tuple(cells)
+
+
+def unavailable_source_cell_indices(
+    quad: SourceQuad, *, source: NormalizedSourceImage | SourceImageBounds, topology: BoardTopology
+) -> tuple[int, ...]:
+    """Classify actual cell footprints, not the renderer's inset/padding.
+
+    Projective grid cells use the same square-to-quad transform as VirtualCell.
+    All corners of a convex footprint must be inside the source pixel centres.
+    No unavailable cell is instantiated or rendered, including the 15/15 case.
+    """
+    missing: list[int] = []
+    for index in range(topology.cell_count):
+        row, column = topology.coordinates(index)
+        cell = quad.cell_quad(topology=topology, row_index=row, column_index=column)
+        if any(
+            point.x < -SOURCE_SUPPORT_EPSILON
+            or point.x > source.width - 1 + SOURCE_SUPPORT_EPSILON
+            or point.y < -SOURCE_SUPPORT_EPSILON
+            or point.y > source.height - 1 + SOURCE_SUPPORT_EPSILON
+            for point in cell.corners
+        ):
+            missing.append(index)
+    return tuple(missing)
+
+
+def resolve_manual_geometry_qualification(
+    quad: SourceQuad,
+    *,
+    source: NormalizedSourceImage | SourceImageBounds,
+    topology: BoardTopology,
+    qualification: GeometryQualification,
+) -> GeometryQualification:
+    """Merge mandatory pixel unavailability with the explicit operator mask."""
+    quad.require_manual_edit_bounds(source)
+    automatic = unavailable_source_cell_indices(quad, source=source, topology=topology)
+    if automatic and qualification.completeness_status != "pending_partial":
+        raise ImageGeometryContractError(
+            "IMAGE_GEOMETRY_PARTIAL_DECLARATION_REQUIRED",
+            "A grid outside the source must be explicitly declared partial.",
+        )
+    missing = tuple(sorted(set(automatic) | set(qualification.unavailable_cell_indices)))
+    if missing:
+        return GeometryQualification("pending_partial", missing, True, "missing_pixels")
+    return qualification
 
 
 def _slot_payload(slot: ActiveBoardSlot) -> dict[str, int]:

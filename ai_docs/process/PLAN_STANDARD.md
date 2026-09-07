@@ -64,7 +64,32 @@ Jedno zadanie oznacza spójną zmianę, nie pojedynczy plik ani ogólnik
 „zaktualizuj backend i frontend”. Ma być wykonalne w nowej sesji wraz
 z instrukcjami repo, bez odtwarzania historii rozmowy. Nieistotne pola pomijaj.
 
-W każdym planie dodaj krótkie **Rekomendowane wykonanie**:
+Ostatnią sekcją każdego planu musi być **Przypisanie modeli do zadań** z tabelą:
+
+| Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
+|---|---|---|---|---|
+
+Tabela jest źródłem prawdy dla przypisania wykonawczego i podlega regułom:
+
+- zawiera dokładnie jeden jawny wiersz dla każdego taska planu, w tej samej
+  kolejności; nie wolno pomijać taska ani używać skrótów „ten sam model”,
+  „jak wyżej” lub wspólnego wiersza dla kilku tasków;
+- plan bez numerowanych tasków zawiera jeden wiersz opisujący całe zadanie;
+- każdy wiersz podaje dokładną nazwę modelu dostępnego w bieżącym środowisku,
+  dokładny wspierany poziom rozumowania, krótkie uzasadnienie oraz informację,
+  czy wymagany jest niezależny review; wymagany review wskazuje również model
+  i poziom rozumowania;
+- sekcja `Recommended execution` taska rozwija uzasadnienie i warunek
+  eskalacji, ale jej model i poziom rozumowania muszą odpowiadać końcowej tabeli
+  zaakceptowanego planu; rozbieżność blokuje rozpoczęcie taska do czasu spójnej
+  aktualizacji planu i taska;
+- przypisanie jest wskazówką wykonawczą, a nie zgodą na automatyczną zmianę
+  modelu, uruchomienie agentów lub delegowanie pracy;
+- gdy przypisany model albo poziom nie jest dostępny, wykonawca zatrzymuje task
+  i aktualizuje rekomendację w planie oraz tasku zamiast wybierać niejawny
+  zamiennik.
+
+Przy tworzeniu tabeli:
 
 - konkretny model i wspierany poziom rozumowania, jedno–dwa zdania
   uzasadnienia oraz warunek ponownej analizy lub review mocniejszym modelem;
@@ -75,9 +100,8 @@ W każdym planie dodaj krótkie **Rekomendowane wykonanie**:
   lub oficjalnej dokumentacji. Jeżeli nie można ich potwierdzić, oznacz
   rekomendację jako warunkową. Nie zapisuj tu stałych nazw modeli, rankingu,
   cen ani listy poziomów rozumowania;
-- dla zadań o różnym ryzyku podaj odstępstwa per task; w pozostałych odwołaj
-  się do rekomendacji wspólnej. To wskazówka dla użytkownika, nie zgoda na
-  automatyczną zmianę modelu, uruchomienie agentów lub delegowanie pracy.
+- dla zadań o różnym ryzyku dobierz różne konfiguracje; nawet gdy konfiguracja
+  się powtarza, wpisz ją jawnie w każdym wierszu.
 
 ## Bramka jakości planu
 
@@ -86,7 +110,8 @@ brak sprzeczności, potwierdzone pliki/symbole/polecenia, źródła prawdy,
 zachowanie błędów, zależności i ochronę zachowania poza zakresem.
 Nie ukrywaj decyzji pod „dostosuj odpowiednio”; jawnie wskaż niewiadome.
 Dla większego planu dodaj mapę wymaganie → task → test/kryterium.
-Zakończ odbiorem całego przepływu, ryzykami i zakresem wyłączonym.
+Zakończ odbiorem całego przepływu, ryzykami i zakresem wyłączonym, a następnie
+obowiązkową tabelą `Przypisanie modeli do zadań` jako ostatnią sekcją planu.
 Wyraźnie oddziel testy planowane od faktycznie uruchomionych i zaliczonych.
 
 ## Wykonanie w nowej sesji lub innym modelu

@@ -6,6 +6,18 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0501 — jednoznaczna mapa modeli dla tasków planu
+
+- Ostatnią sekcją każdego planu jest teraz tabela `Przypisanie modeli do
+  zadań`, zawierająca dla każdego taska dokładny model, reasoning, uzasadnienie
+  i wymagany dodatkowy review.
+- Ogólne rekomendacje oraz skróty „ten sam model” i „jak wyżej” nie spełniają
+  standardu. Plan bez numerowanych tasków otrzymuje jeden wiersz dla całego
+  wykonania.
+- Końcowa tabela planu jest źródłem prawdy dla przypisania, a sekcja
+  `Recommended execution` taska musi być z nią zgodna. Rozbieżność albo
+  niedostępność konfiguracji blokuje rozpoczęcie taska do czasu aktualizacji.
+
 ### TASK-0500 — zoptymalizowane liczniki Weryfikacji symboli
 
 - Baza operatora zawiera 7 518 540 komórek; największa gra ma 6 304 230

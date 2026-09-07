@@ -25,8 +25,12 @@ od założeń; wskaż niewiadome blokujące zależny fragment.
 
 ## Recommended execution
 
-Model + wspierany poziom rozumowania, uzasadnienie i warunek eskalacji
-według PLAN_STANDARD.md; albo odwołanie do rekomendacji wspólnej planu.
+Dokładny model + wspierany poziom rozumowania, uzasadnienie i warunek eskalacji
+według PLAN_STANDARD.md. Model oraz reasoning muszą odpowiadać wierszowi tego
+taska w końcowej tabeli `Przypisanie modeli do zadań` zaakceptowanego planu.
+Nie używaj odwołania „ten sam model” ani „jak wyżej”. Rozbieżność lub
+niedostępność przypisanej konfiguracji blokuje rozpoczęcie taska do czasu
+spójnej aktualizacji planu i taska.
 
 ## Relevant docs
 

@@ -27,8 +27,12 @@ zadanie odwołuje się do nich jawnie.
 - Z użytkownikiem komunikuj się i przedstawiaj plany po polsku, chyba że
   poprosi inaczej. Instrukcje zapisuj w języku edytowanego dokumentu; nie
   tłumacz przy okazji identyfikatorów, kodu ani istniejącej dokumentacji.
-- Plan ma zawierać rekomendowany model wykonawczy i poziom rozumowania
-  z krótkim uzasadnieniem, dobierane według PLAN_STANDARD, nie stały ranking.
+- Ostatnią sekcją każdego planu musi być `Przypisanie modeli do zadań` z
+  kompletną tabelą `Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy
+review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
+  wspieranym poziomem rozumowania; nie wolno zastępować wpisu odwołaniem typu
+  „ten sam model”. Szczegółowe reguły doboru i zgodności określa
+  `ai_docs/process/PLAN_STANDARD.md`.
 
 - Nie rozszerzaj zakresu zadania bez wyraźnej potrzeby.
 - Implementuj wyłącznie task wskazany przez użytkownika. Nie rozpoczynaj

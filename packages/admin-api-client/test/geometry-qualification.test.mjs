@@ -26,6 +26,7 @@ test('page override wrapper preserves complete slot decisions and the 15/15 mask
     ],
     actor: 'local-owner',
     slotQualifications: [qualification],
+    expectedOverrideRevision: 3,
   };
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000',

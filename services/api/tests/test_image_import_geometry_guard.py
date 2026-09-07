@@ -134,6 +134,40 @@ def test_legacy_update_cannot_remove_manual_training_exclusion(tmp_path: Path) -
     assert repository.decisions[0].geometry_qualification == command.geometry_qualification
 
 
+def test_explicit_decision_revision_supports_lost_response_and_rejects_stale_changes(
+    tmp_path: Path,
+) -> None:
+    service, repository = _service(tmp_path)
+    queue = service.queue(game_id=GAME_ID, browser_selection_id=UPLOAD_ID, guard_job_id=JOB_ID)
+    command = replace(
+        _command(0, ImageGeometryGuardDisposition.CORRECTED_FULL), expected_decision_revision=0
+    )
+    arguments = dict(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        guard_job_id=JOB_ID,
+        expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        actor="local-owner",
+    )
+    saved = service.save_decisions(**arguments, commands=(command,))
+    assert service.save_decisions(**arguments, commands=(command,)) == saved
+    assert len(repository.decisions) == 1
+    with pytest.raises(JobConflictError) as conflict:
+        service.save_decisions(
+            **arguments,
+            commands=(
+                replace(
+                    command,
+                    geometry_qualification=GeometryQualification(
+                        exclude_from_geometry_training=True, exclusion_reason="manual_exclusion"
+                    ),
+                ),
+            ),
+        )
+    assert conflict.value.code == "IMAGE_GEOMETRY_GUARD_DECISION_REVISION_CONFLICT"
+    assert len(repository.decisions) == 1
+
+
 class _Repository:
     def __init__(self, scope: ImageGeometryGuardScope) -> None:
         self.scope = scope

@@ -26,7 +26,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     SourceQuad,
     resolve_manual_geometry_qualification,
 )
-from game_predictor_api.domain.jobs import JobError
+from game_predictor_api.domain.jobs import JobConflictError, JobError
 from game_predictor_api.domain.page_geometry_overrides import (
     ImagePageGeometryOverride,
     ImagePageSourceExclusion,
@@ -72,6 +72,7 @@ class PageGeometryOverrideService:
         final_quads: Sequence[Sequence[Mapping[str, object]]],
         actor: str,
         slot_qualifications: object = None,
+        expected_override_revision: int | None = None,
     ) -> tuple[ImagePageGeometryOverride, bool]:
         try:
             qualifications = parse_slot_qualifications(
@@ -126,6 +127,13 @@ class PageGeometryOverrideService:
             )
         if current is not None and current.decision_checksum_sha256 == checksum:
             return current, False
+        if expected_override_revision is not None and expected_override_revision != (
+            0 if current is None else current.revision
+        ):
+            raise JobConflictError(
+                "IMAGE_PAGE_GEOMETRY_REVISION_CONFLICT",
+                "The page geometry changed after this draft was opened. Reload or reset the draft.",
+            )
         if not actor.strip():
             raise JobError(
                 "IMAGE_PAGE_GEOMETRY_ACTOR_REQUIRED",

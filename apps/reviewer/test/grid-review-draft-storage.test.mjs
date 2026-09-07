@@ -4,6 +4,8 @@ import {
   gridDraftKey,
   serializeGridDraft,
   restoreGridDraft,
+  restoreGridFlags,
+  GridDraftRevisionConflict,
 } from '../src/features/grid-reviews/grid-review-draft-storage.ts';
 
 const items = Array.from({ length: 9 }, (_, i) => ({
@@ -26,14 +28,18 @@ test('reload restores all nine drafts including unfinished corners', () => {
 });
 test('changed source revision, removed slot and invalid coordinates reject draft', () => {
   const text = serializeGridDraft(items, drafts);
-  assert.equal(
-    restoreGridDraft(
-      [{ ...items[0], geometryRevision: 2 }, ...items.slice(1)],
-      text,
-    ),
-    null,
+  assert.throws(
+    () =>
+      restoreGridDraft(
+        [{ ...items[0], geometryRevision: 2 }, ...items.slice(1)],
+        text,
+      ),
+    GridDraftRevisionConflict,
   );
-  assert.equal(restoreGridDraft(items.slice(1), text), null);
+  assert.throws(
+    () => restoreGridDraft(items.slice(1), text),
+    GridDraftRevisionConflict,
+  );
   const changed = new Map(drafts);
   changed.set(items[0].slotId, [{ x: 1001, y: 0 }]);
   assert.equal(
@@ -41,4 +47,26 @@ test('changed source revision, removed slot and invalid coordinates reject draft
     null,
   );
   assert.equal(restoreGridDraft(items, '{'), null);
+});
+
+test('partial drafts persist signed corners and independent exclusions; invalid scope conflicts', () => {
+  const flags = new Map(
+    items.map((item) => [
+      item.slotId,
+      { partial: true, exclude: true, manualUnavailable: [0, 1] },
+    ]),
+  );
+  const changed = new Map(drafts);
+  changed.set(items[0].slotId, [{ x: -100, y: 1600 }]);
+  const text = serializeGridDraft(items, changed, flags);
+  assert.deepEqual(restoreGridDraft(items, text), changed);
+  assert.deepEqual(restoreGridFlags(items, text), flags);
+  assert.throws(
+    () =>
+      restoreGridDraft(
+        [{ ...items[0], geometryRevision: 2 }, ...items.slice(1)],
+        text,
+      ),
+    GridDraftRevisionConflict,
+  );
 });

@@ -9,6 +9,7 @@
     "start": "next start --hostname 127.0.0.1 --port 3001",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test test/*.test.mjs",
+    "test:geometry": "tsx --tsconfig tsconfig.json --test test-interactions/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,6 +20,8 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "jsdom": "20.0.3",
+    "tsx": "4.23.1",
     "@types/node": "24.13.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.3",

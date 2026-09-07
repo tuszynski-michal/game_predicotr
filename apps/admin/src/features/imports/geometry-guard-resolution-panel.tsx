@@ -13,6 +13,12 @@ import type {
   PageGeometryPoint,
 } from '@game-predictor/admin-api-client';
 import {
+  automaticUnavailableGridCells,
+  manualGridCellPolygons,
+  manualGridQualification,
+  manualGridVerticalCropWarning,
+} from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
+import {
   type PointerEvent,
   useCallback,
   useEffect,
@@ -24,6 +30,14 @@ import { resolveAdminApiBaseUrl } from '@/config/admin-api';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 
 import type { ImageFolderImportClient } from './image-folder-import-actions';
+import {
+  clearGuardDraft,
+  clearCommittedGuardDraft,
+  guardDraftKey,
+  readGuardDraft,
+  writeGuardDraft,
+  type GuardBoardDraft,
+} from './geometry-guard-draft-storage';
 import {
   type GuardQuad,
   guardGridLines,
@@ -49,13 +63,7 @@ interface GeometryGuardResolutionPanelProps {
   readonly uploadId: string;
 }
 
-type Disposition = 'corrected_full' | 'partial' | 'rejected';
-interface BoardDraft {
-  readonly disposition: Disposition;
-  readonly dirty: boolean;
-  readonly quad: GuardQuad | null;
-  readonly unavailable: readonly number[];
-}
+type BoardDraft = GuardBoardDraft;
 
 const ACTOR = 'local-owner';
 const CORNER_LABELS = ['LT', 'PT', 'PD', 'LD'] as const;
@@ -69,6 +77,10 @@ function initialBoardDraft(
   decision: ImageGeometryGuardDecisionResponse | undefined,
 ): BoardDraft {
   return {
+    baseRevision: decision?.revision ?? 0,
+    excludeGeometry:
+      decision?.geometryQualification?.excludeFromGeometryTraining ??
+      decision?.disposition === 'partial',
     disposition: decision?.disposition ?? 'corrected_full',
     dirty: false,
     quad:
@@ -101,7 +113,18 @@ function points(quad: GuardQuad) {
   return quad.map((point) => `${point.x},${point.y}`).join(' ');
 }
 
-export function GeometryGuardResolutionPanel({
+export function GeometryGuardResolutionPanel(
+  props: GeometryGuardResolutionPanelProps,
+) {
+  return (
+    <GeometryGuardResolutionPanelContent
+      key={`${props.gameId}:${props.uploadId}:${props.guardJobId}`}
+      {...props}
+    />
+  );
+}
+
+function GeometryGuardResolutionPanelContent({
   api,
   apiBaseUrl,
   gameId,
@@ -135,6 +158,10 @@ export function GeometryGuardResolutionPanel({
   const [draggingCorner, setDraggingCorner] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [draftConflict, setDraftConflict] = useState(false);
+  const [loadedSourceChecksum, setLoadedSourceChecksum] = useState<
+    string | null
+  >(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -264,7 +291,6 @@ export function GeometryGuardResolutionPanel({
     const timer = window.setTimeout(() => {
       setActivePosition(first.positionIndex);
       setSelectedPositions([first.positionIndex]);
-      setImageSize(null);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [sourceChecksum, sourceTargets, sourceBoards]);
@@ -275,18 +301,56 @@ export function GeometryGuardResolutionPanel({
       : (drafts.get(
           boardKey(activeBoard.sourceChecksumSha256, activeBoard.positionIndex),
         ) ?? null);
+  const outsideSource = sourceBoards.some(
+    (board) =>
+      drafts.get(boardKey(board.sourceChecksumSha256, board.positionIndex))
+        ?.disposition === 'partial',
+  );
+  const automaticUnavailable =
+    imageSize && activeDraft?.quad
+      ? automaticUnavailableGridCells(
+          activeDraft.quad,
+          imageSize.width,
+          imageSize.height,
+        )
+      : [];
+  const activeUnavailable = [
+    ...new Set([...automaticUnavailable, ...(activeDraft?.unavailable ?? [])]),
+  ];
 
   function updateDraft(
     positionIndex: number,
     update: (draft: BoardDraft) => BoardDraft,
   ) {
-    if (sourceChecksum === null) return;
+    if (
+      sourceChecksum === null ||
+      loadedSourceChecksum !== sourceChecksum ||
+      draftConflict ||
+      saving
+    )
+      return;
     const key = boardKey(sourceChecksum, positionIndex);
     setDrafts((current) => {
       const value = current.get(key);
       if (value === undefined) return current;
       const next = new Map(current);
-      next.set(key, update(value));
+      const updated = update(value);
+      next.set(key, updated);
+      try {
+        writeGuardDraft(
+          localStorage,
+          guardDraftKey(gameId, uploadId, guardJobId, sourceChecksum),
+          positionIndex,
+          updated,
+        );
+      } catch {
+        queueMicrotask(() => {
+          setDraftConflict(true);
+          setError(
+            'Nie udało się utrwalić szkicu rozliczenia. Nie odświeżaj strony.',
+          );
+        });
+      }
       return next;
     });
   }
@@ -317,20 +381,30 @@ export function GeometryGuardResolutionPanel({
     const bounds = event.currentTarget.getBoundingClientRect();
     const point = {
       x: Math.max(
-        0,
+        activeDraft.disposition === 'partial' ? -imageSize.width : 0,
         Math.min(
-          imageSize.width - 1,
+          activeDraft.disposition === 'partial'
+            ? imageSize.width * 2
+            : imageSize.width - 1,
           Math.round(
-            ((event.clientX - bounds.left) / bounds.width) * imageSize.width,
+            ((event.clientX - bounds.left) / bounds.width) *
+              imageSize.width *
+              (outsideSource ? 3 : 1) -
+              (outsideSource ? imageSize.width : 0),
           ),
         ),
       ),
       y: Math.max(
-        0,
+        activeDraft.disposition === 'partial' ? -imageSize.height : 0,
         Math.min(
-          imageSize.height - 1,
+          activeDraft.disposition === 'partial'
+            ? imageSize.height * 2
+            : imageSize.height - 1,
           Math.round(
-            ((event.clientY - bounds.top) / bounds.height) * imageSize.height,
+            ((event.clientY - bounds.top) / bounds.height) *
+              imageSize.height *
+              (outsideSource ? 3 : 1) -
+              (outsideSource ? imageSize.height : 0),
           ),
         ),
       ),
@@ -397,7 +471,15 @@ export function GeometryGuardResolutionPanel({
   }
 
   async function saveDecision() {
-    if (queue === null || sourceChecksum === null || saving) return;
+    if (
+      queue === null ||
+      sourceChecksum === null ||
+      saving ||
+      !imageSize ||
+      draftConflict ||
+      loadedSourceChecksum !== sourceChecksum
+    )
+      return;
     const changed = sourceBoards
       .map((board) => ({
         board,
@@ -418,9 +500,28 @@ export function GeometryGuardResolutionPanel({
       );
       return;
     }
-    const payload: ImageGeometryGuardDecisionItemCreate[] = changed.map(
-      ({ board, draft }) => ({
+    let payload: ImageGeometryGuardDecisionItemCreate[];
+    try {
+      payload = changed.map(({ board, draft }) => ({
         disposition: draft.disposition,
+        expectedDecisionRevision: draft.baseRevision,
+        geometryQualification:
+          draft.disposition === 'rejected' ||
+          (draft.disposition === 'corrected_full' &&
+            !draft.excludeGeometry &&
+            !decisions.get(boardKey(sourceChecksum, board.positionIndex))
+              ?.geometryQualification)
+            ? undefined
+            : manualGridQualification(
+                {
+                  partial: draft.disposition === 'partial',
+                  exclude: draft.excludeGeometry,
+                  manualUnavailable: draft.unavailable,
+                },
+                draft.quad ?? [],
+                imageSize.width,
+                imageSize.height,
+              ),
         positionIndex: board.positionIndex,
         reason:
           draft.disposition === 'rejected'
@@ -441,9 +542,25 @@ export function GeometryGuardResolutionPanel({
                 PageGeometryPoint,
               ]),
         unavailableCellIndices:
-          draft.disposition === 'partial' ? [...draft.unavailable] : [],
-      }),
-    );
+          draft.disposition === 'partial'
+            ? [
+                ...new Set([
+                  ...draft.unavailable,
+                  ...automaticUnavailableGridCells(
+                    draft.quad ?? [],
+                    imageSize.width,
+                    imageSize.height,
+                  ),
+                ]),
+              ].sort((a, b) => a - b)
+            : [],
+      }));
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Sprawdź oznaczenia plansz.',
+      );
+      return;
+    }
     if (payload.length === 0) {
       setError('Na tym zdjęciu nie ma niezapisanych zmian.');
       return;
@@ -469,6 +586,31 @@ export function GeometryGuardResolutionPanel({
           ),
         );
       else {
+        const savedDecisions = result.data.decisions;
+        setDrafts((current) => {
+          const next = new Map(current);
+          for (const decision of savedDecisions) {
+            const key = boardKey(
+                decision.sourceChecksumSha256,
+                decision.positionIndex,
+              ),
+              previous = next.get(key);
+            if (previous)
+              next.set(key, {
+                ...previous,
+                dirty: false,
+                baseRevision: decision.revision,
+              });
+          }
+          return next;
+        });
+        for (const { board, draft } of changed)
+          clearCommittedGuardDraft(
+            localStorage,
+            guardDraftKey(gameId, uploadId, guardJobId, sourceChecksum),
+            board.positionIndex,
+            draft,
+          );
         onManifestInvalidated();
         setFeedback(
           `Zapisano atomowo ${result.data.decisions.length} zmienionych plansz. Historia poprzednich rewizji pozostała zachowana.`,
@@ -649,29 +791,99 @@ export function GeometryGuardResolutionPanel({
         <div className="geometryGuardCanvasViewport">
           <div
             className="geometryGuardCanvas"
-            style={{ width: `${zoomPercent}%` }}
+            style={{
+              width: `${zoomPercent}%`,
+              background: outsideSource ? '#555' : undefined,
+              aspectRatio:
+                outsideSource && imageSize
+                  ? `${imageSize.width} / ${imageSize.height}`
+                  : undefined,
+            }}
           >
             <img
               alt={`Źródło wyjątków: ${activeBoard.sourceRelativePath}`}
-              onLoad={(event) =>
-                setImageSize({
-                  width: event.currentTarget.naturalWidth,
-                  height: event.currentTarget.naturalHeight,
-                })
-              }
+              onLoad={(event) => {
+                const width = event.currentTarget.naturalWidth,
+                  height = event.currentTarget.naturalHeight;
+                setImageSize({ width, height });
+                setLoadedSourceChecksum(sourceChecksum);
+                setDraftConflict(false);
+                try {
+                  const restored = sourceBoards.map(
+                    (board) =>
+                      [
+                        boardKey(sourceChecksum, board.positionIndex),
+                        readGuardDraft(
+                          localStorage,
+                          guardDraftKey(
+                            gameId,
+                            uploadId,
+                            guardJobId,
+                            sourceChecksum,
+                          ),
+                          board.positionIndex,
+                          decisions.get(
+                            boardKey(sourceChecksum, board.positionIndex),
+                          )?.revision ?? 0,
+                          width,
+                          height,
+                        ),
+                      ] as const,
+                  );
+                  setDrafts((current) => {
+                    const next = new Map(current);
+                    for (const [key, value] of restored)
+                      if (value) next.set(key, value);
+                    return next;
+                  });
+                } catch (cause) {
+                  setDraftConflict(true);
+                  setError(
+                    cause instanceof Error
+                      ? cause.message
+                      : 'Nie można odczytać szkicu.',
+                  );
+                }
+              }}
               onError={() =>
                 setError(
                   'Nie udało się wczytać checksumowanego zdjęcia ze stagingu.',
                 )
               }
               src={imageUrl}
+              style={
+                outsideSource && imageSize
+                  ? {
+                      position: 'absolute',
+                      left: '33.333333%',
+                      top: '33.333333%',
+                      width: '33.333333%',
+                      height: '33.333333%',
+                    }
+                  : undefined
+              }
             />
-            {imageSize !== null ? (
+            {imageSize !== null && loadedSourceChecksum === sourceChecksum ? (
               <svg
                 onPointerMove={updateCorner}
                 onPointerUp={() => setDraggingCorner(null)}
-                viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
+                viewBox={
+                  outsideSource
+                    ? `${-imageSize.width} ${-imageSize.height} ${imageSize.width * 3} ${imageSize.height * 3}`
+                    : `0 0 ${imageSize.width} ${imageSize.height}`
+                }
               >
+                <defs>
+                  <pattern
+                    id="guard-partial-hatch"
+                    width="12"
+                    height="12"
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <rect width="12" height="12" fill="#7779" />
+                    <path d="M0 12L12 0" stroke="#ddd" strokeWidth="2" />
+                  </pattern>
+                </defs>
                 {sourceBoards.map((board) => {
                   const boardDraft = drafts.get(
                     boardKey(sourceChecksum, board.positionIndex),
@@ -715,13 +927,30 @@ export function GeometryGuardResolutionPanel({
                 })}
                 {activeDraft.quad !== null ? (
                   <g>
+                    {activeUnavailable.map((index) => (
+                      <polygon
+                        key={index}
+                        points={(
+                          manualGridCellPolygons(activeDraft.quad!)[index] ?? []
+                        )
+                          .map((point) => `${point.x},${point.y}`)
+                          .join(' ')}
+                        fill="url(#guard-partial-hatch)"
+                        pointerEvents="none"
+                      />
+                    ))}
                     {
                       <polygon
                         className="geometryGuardGrid"
                         points={points(activeDraft.quad)}
                       />
                     }
-                    {guardGridLines(activeDraft.quad).map((line, index) => (
+                    {guardGridLines(
+                      activeDraft.quad,
+                      activeDraft.disposition === 'partial' ||
+                        activeDraft.excludeGeometry ||
+                        !!existing?.geometryQualification,
+                    ).map((line, index) => (
                       <line
                         className="geometryGuardGridLine"
                         key={index}
@@ -763,6 +992,47 @@ export function GeometryGuardResolutionPanel({
         </div>
       </div>
       <section className="geometryGuardDecisionPanel">
+        {imageSize &&
+        activeDraft.quad &&
+        manualGridVerticalCropWarning(activeDraft.quad, imageSize.height) ? (
+          <p role="status">
+            Brak góry lub dołu planszy: popraw wcześniejsze przycięcie zdjęcia.
+            Częściowa geometria nie nadaje się do uczenia ani kotwic.
+          </p>
+        ) : null}
+        {draftConflict || dirtyCount > 0 ? (
+          <button
+            type="button"
+            disabled={saving || loadedSourceChecksum !== sourceChecksum}
+            onClick={() => {
+              if (saving || loadedSourceChecksum !== sourceChecksum) return;
+              for (const board of sourceBoards)
+                clearGuardDraft(
+                  localStorage,
+                  guardDraftKey(gameId, uploadId, guardJobId, sourceChecksum),
+                  board.positionIndex,
+                );
+              setDrafts((current) => {
+                const next = new Map(current);
+                for (const board of sourceBoards)
+                  next.set(
+                    boardKey(sourceChecksum, board.positionIndex),
+                    initialBoardDraft(
+                      board,
+                      decisions.get(
+                        boardKey(sourceChecksum, board.positionIndex),
+                      ),
+                    ),
+                  );
+                return next;
+              });
+              setDraftConflict(false);
+              setError('');
+            }}
+          >
+            Resetuj szkice zdjęcia do zapisanych decyzji
+          </button>
+        ) : null}
         <fieldset className="geometryGuardDecisionChoices">
           <legend>Decyzja dla planszy {activeBoard.sequenceNumber}</legend>
           <label>
@@ -818,6 +1088,28 @@ export function GeometryGuardResolutionPanel({
             Odrzuć
           </label>
         </fieldset>
+        <label>
+          <input
+            type="checkbox"
+            checked={
+              activeDraft.disposition === 'partial' ||
+              activeDraft.excludeGeometry
+            }
+            disabled={saving || activeDraft.disposition !== 'corrected_full'}
+            onChange={(event) =>
+              updateDraft(activeBoard.positionIndex, (value) => ({
+                ...value,
+                dirty: true,
+                excludeGeometry: event.target.checked,
+              }))
+            }
+          />{' '}
+          Nie używaj do uczenia geometrii
+        </label>
+        <small>
+          {' '}
+          Dotyczy następnych kohort i kotwic. Nie zmienia już aktywnego profilu.
+        </small>
         <p className="geometryGuardDecisionStatus">
           #{activeBoard.positionIndex + 1} ·{' '}
           {activeBoard.requiresDecision
@@ -828,11 +1120,15 @@ export function GeometryGuardResolutionPanel({
         </p>
         {activeDraft.disposition === 'partial' ? (
           <div className="geometryGuardMask">
-            <p>Kliknij brakujące pola (1–14). „?” oznacza brak źródła.</p>
+            <p>
+              Dostępne {15 - activeUnavailable.length}/15. Kliknij brakujące
+              pola (1–15). „?” oznacza brak źródła.
+            </p>
             <div className="geometryGuardCellButtons">
               {Array.from({ length: 15 }, (_, index) => (
                 <button
-                  aria-pressed={activeDraft.unavailable.includes(index)}
+                  aria-pressed={activeUnavailable.includes(index)}
+                  disabled={saving || automaticUnavailable.includes(index)}
                   key={index}
                   onClick={() => {
                     updateDraft(activeBoard.positionIndex, (current) => ({
@@ -846,7 +1142,7 @@ export function GeometryGuardResolutionPanel({
                   }}
                   type="button"
                 >
-                  {activeDraft.unavailable.includes(index) ? '?' : index + 1}
+                  {activeUnavailable.includes(index) ? '?' : index + 1}
                 </button>
               ))}
             </div>

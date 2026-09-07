@@ -2,6 +2,16 @@
 
 import type { ImageGridReviewItemResponse } from '@game-predictor/admin-api-client';
 import {
+  completeManualGridFlags,
+  manualGridCellPolygons,
+  manualGridFlagsFromQualification,
+  manualGridQualification,
+  manualGridUnavailable,
+  manualGridVerticalCropWarning,
+  automaticUnavailableGridCells,
+  type ManualGridFlags,
+} from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
+import {
   forwardRef,
   type ForwardedRef,
   type PointerEvent as ReactPointerEvent,
@@ -49,8 +59,11 @@ import {
 } from './grid-review-state';
 import {
   gridDraftKey,
+  gridDraftRevisionKey,
   restoreGridDraft,
   serializeGridDraft,
+  restoreGridFlags,
+  GridDraftRevisionConflict,
 } from './grid-review-draft-storage';
 
 interface GridReviewEditorProps {
@@ -68,6 +81,7 @@ export interface GridReviewEditorHandle {
 }
 
 interface ActiveDrag {
+  readonly allowOutsideSource?: boolean;
   readonly automaticCorners: OperationalReviewGeometryCorners;
   readonly draft: GridGeometryDraft;
   readonly imageHeight: number;
@@ -110,6 +124,7 @@ export const GridReviewEditor = forwardRef<
 
   return (
     <GridReviewEditorContent
+      key={`${item.gameId}:${item.importJobId}:${item.sourceImageId}`}
       allowOutsideSource={allowOutsideSource}
       api={api}
       editorRef={ref}
@@ -123,7 +138,7 @@ export const GridReviewEditor = forwardRef<
 });
 
 function GridReviewEditorContent({
-  allowOutsideSource = false,
+  allowOutsideSource: outsideSourceOverride = false,
   api,
   editorRef,
   item,
@@ -168,26 +183,62 @@ function GridReviewEditorContent({
   );
   const [zoomPercent, setZoomPercent] = useState(100);
   const [error, setError] = useState('');
+  const [draftConflict, setDraftConflict] = useState(false);
+  const [qualificationFlags, setQualificationFlags] = useState<
+    ReadonlyMap<string, ManualGridFlags>
+  >(
+    () =>
+      new Map(
+        items.map((candidate) => [
+          candidate.slotId,
+          manualGridFlagsFromQualification(candidate.geometryQualification),
+        ]),
+      ),
+  );
+  const flags = qualificationFlags.get(item.slotId) ?? completeManualGridFlags;
+  const qualificationChanged = items.some(
+    (candidate) =>
+      JSON.stringify(
+        qualificationFlags.get(candidate.slotId) ?? completeManualGridFlags,
+      ) !==
+      JSON.stringify(
+        manualGridFlagsFromQualification(candidate.geometryQualification),
+      ),
+  );
+  const allowOutsideSource =
+    outsideSourceOverride ||
+    [...qualificationFlags.values()].some((value) => value.partial);
   const draftLoadedRef = useRef(false);
   const draftSavedRef = useRef(false);
+  const loadedRevisionRef = useRef(gridDraftRevisionKey(items));
   useEffect(() => {
     if (draftLoadedRef.current) return;
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
       try {
-        const restored = restoreGridDraft(
-          items,
-          localStorage.getItem(gridDraftKey(items)),
-        );
+        const storedText = localStorage.getItem(gridDraftKey(items));
+        const restored = restoreGridDraft(items, storedText);
+        if (storedText !== null && restored === null)
+          throw new Error('Uszkodzony szkic. Resetuj do zapisanej geometrii.');
         if (restored) {
+          const restoredFlags = restoreGridFlags(
+            items,
+            localStorage.getItem(gridDraftKey(items)),
+          );
+          if (restoredFlags.size) setQualificationFlags(restoredFlags);
           setSourceDrafts(restored);
           setModifiedSourceItems(new Set(restored.keys()));
           setSourceEditing(true);
           setSourceRedefining(true);
         }
-      } catch {
-        setError('Nie można odczytać lokalnego szkicu geometrii.');
+      } catch (cause) {
+        setDraftConflict(true);
+        setError(
+          cause instanceof GridDraftRevisionConflict
+            ? cause.message
+            : 'Nie można odczytać lokalnego szkicu geometrii. Resetuj szkic przed zapisem.',
+        );
       }
       draftLoadedRef.current = true;
     });
@@ -198,14 +249,18 @@ function GridReviewEditorContent({
   useEffect(() => {
     if (
       !draftLoadedRef.current ||
+      loadedRevisionRef.current !== gridDraftRevisionKey(items) ||
+      draftConflict ||
       draftSavedRef.current ||
-      (!sourceRedefining && modifiedSourceItems.size === 0)
+      (!sourceRedefining &&
+        modifiedSourceItems.size === 0 &&
+        !qualificationChanged)
     )
       return;
     try {
       localStorage.setItem(
         gridDraftKey(items),
-        serializeGridDraft(items, sourceDrafts),
+        serializeGridDraft(items, sourceDrafts, qualificationFlags),
       );
     } catch {
       queueMicrotask(() =>
@@ -214,12 +269,24 @@ function GridReviewEditorContent({
         ),
       );
     }
-  }, [items, sourceDrafts, sourceRedefining, modifiedSourceItems]);
+  }, [
+    items,
+    sourceDrafts,
+    sourceRedefining,
+    modifiedSourceItems,
+    qualificationFlags,
+    draftConflict,
+    qualificationChanged,
+  ]);
 
-  function clearSavedDraft() {
+  function clearSavedDraft(submittedText: string | null) {
     draftSavedRef.current = true;
     try {
-      localStorage.removeItem(gridDraftKey(items));
+      if (
+        submittedText !== null &&
+        localStorage.getItem(gridDraftKey(items)) === submittedText
+      )
+        localStorage.removeItem(gridDraftKey(items));
     } catch {
       /* Revisions reject stale drafts. */
     }
@@ -265,7 +332,44 @@ function GridReviewEditorContent({
   );
   const isEditing = editing || sourceEditing;
   const hasPendingSourceDraft =
-    sourceRedefining || modifiedSourceItems.size > 0;
+    sourceRedefining || modifiedSourceItems.size > 0 || qualificationChanged;
+  const currentRevisionKey = gridDraftRevisionKey(items);
+  useEffect(() => {
+    if (loadedRevisionRef.current === currentRevisionKey) return;
+    queueMicrotask(() => {
+      if (
+        !draftSavedRef.current &&
+        (hasPendingSourceDraft || hasPendingIndividualDraft)
+      ) {
+        setDraftConflict(true);
+        setError(
+          'Geometria została zmieniona w innym oknie. Resetuj lokalny szkic przed zapisem.',
+        );
+        return;
+      }
+      loadedRevisionRef.current = currentRevisionKey;
+      draftSavedRef.current = false;
+      setSourceDrafts(currentGridGeometrySourceDrafts(items));
+      setQualificationFlags(
+        new Map(
+          items.map((candidate) => [
+            candidate.slotId,
+            manualGridFlagsFromQualification(candidate.geometryQualification),
+          ]),
+        ),
+      );
+      setModifiedSourceItems(new Set());
+      setSourceRedefining(false);
+      setSourceEditing(false);
+      setDraft({ corners: gridReviewCorners(item), slotId: item.slotId });
+    });
+  }, [
+    currentRevisionKey,
+    items,
+    item,
+    hasPendingSourceDraft,
+    hasPendingIndividualDraft,
+  ]);
   const showDraftReview =
     isEditing || hasPendingIndividualDraft || hasPendingSourceDraft;
   const sourceEditingProgress =
@@ -329,6 +433,12 @@ function GridReviewEditorContent({
           ? storedCandidateDraft
           : gridReviewCorners(candidate);
       drawBoardOverlay(context, {
+        unavailable: manualGridUnavailable(
+          qualificationFlags.get(candidate.slotId) ?? completeManualGridFlags,
+          corners,
+          candidate.sourceWidth,
+          candidate.sourceHeight,
+        ),
         cellIndex: selected ? selectedCellIndex : null,
         corners,
         gridColumns: candidate.gridColumns,
@@ -338,6 +448,7 @@ function GridReviewEditorContent({
       });
     }
   }, [
+    qualificationFlags,
     allowOutsideSource,
     completeCorners,
     activeDraft,
@@ -406,7 +517,7 @@ function GridReviewEditorContent({
       });
       invalidatePreview();
     },
-    [invalidatePreview],
+    [invalidatePreview, setSourceDrafts, setModifiedSourceItems],
   );
 
   const replaceActiveDraft = useCallback(
@@ -447,7 +558,13 @@ function GridReviewEditorContent({
   }
 
   function pointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
-    if (saving || loadingPreview) return;
+    if (
+      saving ||
+      loadingPreview ||
+      draftConflict ||
+      loadedRevisionRef.current !== currentRevisionKey
+    )
+      return;
     const pointer = sourcePoint(event);
     if (pointer === null) return;
     const cornerThreshold = 44 / pointer.scale;
@@ -475,6 +592,9 @@ function GridReviewEditorContent({
       if (target !== null) {
         event.preventDefault();
         dragRef.current = {
+          allowOutsideSource:
+            outsideSourceOverride ||
+            qualificationFlags.get(selected.slotId)?.partial,
           automaticCorners: gridReviewCorners(selected),
           draft: selectedDraft,
           imageHeight: selected.sourceHeight,
@@ -513,6 +633,9 @@ function GridReviewEditorContent({
       }
       event.preventDefault();
       dragRef.current = {
+        allowOutsideSource:
+          outsideSourceOverride ||
+          qualificationFlags.get(selected.slotId)?.partial,
         automaticCorners: gridReviewCorners(selected),
         draft: selectedDraft,
         imageHeight: selected.sourceHeight,
@@ -546,7 +669,7 @@ function GridReviewEditorContent({
         pointer.point,
         item.sourceWidth,
         item.sourceHeight,
-        allowOutsideSource,
+        outsideSourceOverride || flags.partial,
       );
       replaceActiveDraft(next);
       if (sourceEditing && next.length === 4) {
@@ -571,6 +694,7 @@ function GridReviewEditorContent({
     );
     if (target === null) return;
     dragRef.current = {
+      allowOutsideSource: outsideSourceOverride || flags.partial,
       automaticCorners,
       draft: activeDraft,
       imageHeight: item.sourceHeight,
@@ -596,7 +720,7 @@ function GridReviewEditorContent({
             pointer.point,
             active.imageWidth,
             active.imageHeight,
-            allowOutsideSource,
+            active.allowOutsideSource,
           )
         : moveGridGeometry(
             active.draft,
@@ -606,7 +730,7 @@ function GridReviewEditorContent({
             },
             active.imageWidth,
             active.imageHeight,
-            allowOutsideSource,
+            active.allowOutsideSource,
           );
     if (active.sourceWide) {
       replaceSourceItemDraft(active.slotId, next, active.automaticCorners);
@@ -667,7 +791,17 @@ function GridReviewEditorContent({
   }
 
   async function save(): Promise<'invalid' | 'saved' | 'unchanged'> {
-    if (saving) return 'invalid';
+    if (
+      saving ||
+      draftConflict ||
+      loadedRevisionRef.current !== currentRevisionKey
+    )
+      return 'invalid';
+    const submittedDraftText = serializeGridDraft(
+      items,
+      sourceDrafts,
+      qualificationFlags,
+    );
     if (
       (sourceEditing && !hasPendingSourceDraft) ||
       (editing && !hasPendingIndividualDraft)
@@ -677,6 +811,26 @@ function GridReviewEditorContent({
     if (sourceEditing || hasPendingSourceDraft) {
       if (completeSourceDrafts === null) {
         setError('Wyznacz po cztery narożniki dla każdej planszy zdjęcia.');
+        return 'invalid';
+      }
+      let qualificationBySlotId;
+      try {
+        qualificationBySlotId = new Map(
+          completeSourceDrafts.map(({ item: candidate, corners }) => [
+            candidate.slotId,
+            manualGridQualification(
+              qualificationFlags.get(candidate.slotId) ??
+                completeManualGridFlags,
+              corners,
+              candidate.sourceWidth,
+              candidate.sourceHeight,
+            ),
+          ]),
+        );
+      } catch (cause) {
+        setError(
+          cause instanceof Error ? cause.message : 'Sprawdź oznaczenia plansz.',
+        );
         return 'invalid';
       }
       setSaving(true);
@@ -690,13 +844,19 @@ function GridReviewEditorContent({
         ),
         idempotencyKey: globalThis.crypto.randomUUID(),
         items,
+        qualificationBySlotId:
+          [...qualificationFlags.values()].some(
+            (value) => value.partial || value.exclude,
+          ) || items.some((candidate) => candidate.geometryQualification)
+            ? qualificationBySlotId
+            : undefined,
       });
       setSaving(false);
       if (!result.ok) {
         setError(result.error);
         return 'invalid';
       }
-      clearSavedDraft();
+      clearSavedDraft(submittedDraftText);
       onSaved();
       return 'saved';
     }
@@ -714,7 +874,7 @@ function GridReviewEditorContent({
       setError(result.error);
       return 'invalid';
     }
-    clearSavedDraft();
+    clearSavedDraft(submittedDraftText);
     onSaved();
     return 'saved';
   }
@@ -727,6 +887,24 @@ function GridReviewEditorContent({
   );
   const selectedRow = Math.floor(selectedCellIndex / item.gridColumns);
   const selectedColumn = selectedCellIndex % item.gridColumns;
+  const unavailable = manualGridUnavailable(
+    flags,
+    activeDraft,
+    item.sourceWidth,
+    item.sourceHeight,
+  );
+  const automaticUnavailable = automaticUnavailableGridCells(
+    activeDraft,
+    item.sourceWidth,
+    item.sourceHeight,
+  );
+  function updateFlags(next: ManualGridFlags) {
+    setQualificationFlags((previous) =>
+      new Map(previous).set(item.slotId, next),
+    );
+    setSourceEditing(true);
+    setModifiedSourceItems((previous) => new Set([...previous, item.slotId]));
+  }
 
   return (
     <section className="gridReviewEditor">
@@ -873,6 +1051,109 @@ function GridReviewEditorContent({
             </button>
           ))}
         </div>
+        {sourceBatchEnabled ? (
+          <fieldset
+            disabled={saving || draftConflict}
+            style={{ border: 0, fontSize: '0.85rem' }}
+          >
+            <legend>
+              Plansza {item.positionIndex + 1} · dostępne{' '}
+              {cellCount - unavailable.length}/{cellCount}
+            </legend>
+            {manualGridVerticalCropWarning(activeDraft, item.sourceHeight) ? (
+              <p role="status">
+                Brak góry lub dołu planszy: sprawdź wcześniejsze przycięcie
+                zdjęcia. Zalecana poprawa pliku źródłowego; tej geometrii nie
+                używamy do uczenia ani kotwic.
+              </p>
+            ) : null}
+            <label>
+              <input
+                type="checkbox"
+                checked={flags.partial}
+                onChange={(event) =>
+                  updateFlags({
+                    ...flags,
+                    partial: event.target.checked,
+                    exclude: event.target.checked || flags.exclude,
+                    manualUnavailable: event.target.checked
+                      ? flags.manualUnavailable
+                      : [],
+                  })
+                }
+              />{' '}
+              Niepełna plansza
+            </label>{' '}
+            <label>
+              <input
+                type="checkbox"
+                checked={flags.partial || flags.exclude}
+                disabled={flags.partial}
+                onChange={(event) =>
+                  updateFlags({ ...flags, exclude: event.target.checked })
+                }
+              />{' '}
+              Nie używaj do uczenia geometrii
+            </label>
+            {flags.partial ? (
+              <div aria-label="Niedostępne pola">
+                {Array.from({ length: 15 }, (_, index) => (
+                  <label key={index}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Pole ${index + 1} poza zdjęciem`}
+                      checked={unavailable.includes(index)}
+                      disabled={automaticUnavailable.includes(index)}
+                      onChange={(event) =>
+                        updateFlags({
+                          ...flags,
+                          manualUnavailable: event.target.checked
+                            ? [...flags.manualUnavailable, index]
+                            : flags.manualUnavailable.filter(
+                                (value) => value !== index,
+                              ),
+                        })
+                      }
+                    />
+                    {index + 1}{' '}
+                  </label>
+                ))}
+              </div>
+            ) : null}
+            <small>
+              Wykluczenie wpływa na kolejne uczenie i kotwice, nie zmienia już
+              aktywnego profilu.
+            </small>
+          </fieldset>
+        ) : null}
+        {draftConflict ? (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => {
+              localStorage.removeItem(gridDraftKey(items));
+              loadedRevisionRef.current = currentRevisionKey;
+              draftSavedRef.current = false;
+              setSourceDrafts(currentGridGeometrySourceDrafts(items));
+              setQualificationFlags(
+                new Map(
+                  items.map((candidate) => [
+                    candidate.slotId,
+                    manualGridFlagsFromQualification(
+                      candidate.geometryQualification,
+                    ),
+                  ]),
+                ),
+              );
+              setModifiedSourceItems(new Set());
+              setSourceRedefining(false);
+              setDraftConflict(false);
+              setError('');
+            }}
+          >
+            Resetuj konfliktowy szkic do zapisanej geometrii
+          </button>
+        ) : null}
         {isEditing ? (
           <div className="gridReviewEditControls">
             <p>
@@ -907,6 +1188,12 @@ function GridReviewEditorContent({
                 disabled={saving}
                 onClick={() => {
                   replaceActiveDraft(sourceRedefining ? [] : automaticCorners);
+                  if (sourceBatchEnabled)
+                    updateFlags(
+                      manualGridFlagsFromQualification(
+                        item.geometryQualification,
+                      ),
+                    );
                 }}
                 type="button"
               >
@@ -1048,6 +1335,7 @@ function drawBoardOverlay(
     readonly gridRows: number;
     readonly label: string;
     readonly selected: boolean;
+    readonly unavailable?: readonly number[];
   },
 ) {
   const width = context.canvas.width;
@@ -1076,6 +1364,35 @@ function drawBoardOverlay(
     context.fill();
   }
   context.stroke();
+  if (completeCorners !== null) {
+    for (const index of input.unavailable ?? []) {
+      const polygon = manualGridCellPolygons(completeCorners)[index];
+      if (!polygon) continue;
+      context.save();
+      context.beginPath();
+      context.moveTo(polygon[0]!.x, polygon[0]!.y);
+      polygon.slice(1).forEach((point) => context.lineTo(point.x, point.y));
+      context.closePath();
+      context.fillStyle = 'rgba(120,120,120,0.65)';
+      context.fill();
+      context.clip();
+      context.strokeStyle = '#ccc';
+      const xs = polygon.map((p) => p.x),
+        ys = polygon.map((p) => p.y);
+      const lowX = Math.min(...xs),
+        highX = Math.max(...xs),
+        lowY = Math.min(...ys),
+        highY = Math.max(...ys);
+      for (
+        let x = lowX - (highY - lowY);
+        x < highX;
+        x += Math.max(5, width / 150)
+      ) {
+        drawLine(context, { x, y: lowY }, { x: x + highY - lowY, y: highY });
+      }
+      context.restore();
+    }
+  }
   if (completeCorners !== null) {
     for (let column = 0; column <= input.gridColumns; column += 1) {
       const ratio = column / input.gridColumns;

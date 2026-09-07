@@ -6,6 +6,19 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0507 — edytory, nawigacja i trwałe szkice
+
+- Page correction, guard i Grid Review mają kontrolki kompletności oraz
+  niezależnego wykluczenia z uczenia. Brakujące pola pokazują maskę i licznik;
+  pionowe ucięcie ostrzega o błędzie wcześniejszego przycinania źródła.
+- Nawigacja nie zapisuje API; szkice odtwarzają narożniki i oznaczenia.
+  CAS chroni bazowe rewizje, a cleanup po sukcesie nie usuwa szkicu drugiej
+  karty. Reset dostępny także dla zwykłego zmienionego szkicu guard.
+- Testy interakcji, helperów, API i klienta przeszły; nowy pion jest nadal
+  zabezpieczony bramkami konsumentów do TASK-0508. To nie aktywacja pełnej
+  funkcji ani v0.10.4. Migracja 0100 nie została zastosowana; bez restartów
+  i operacji na danych operatora. Odbiór wizualny na urządzeniu pozostaje 0509.
+
 ### TASK-0506 — podparcie ręcznej geometrii i obszar edycji
 
 - Nowy ręczny kontrakt dopuszcza quady poza zdjęciem w ograniczeniu -W..2W,

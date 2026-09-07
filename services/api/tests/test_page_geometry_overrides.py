@@ -131,6 +131,33 @@ def test_slot_decisions_survive_retry_and_change_revision_without_changing_quads
     assert service.snapshot(game_id=game_id)["a" * 64]["slotQualifications"] == decisions
 
 
+def test_page_revision_conflict_and_lost_response_preserve_newer_decision() -> None:
+    repository = MemoryPageGeometryOverrideRepository()
+    arguments = dict(
+        game_id=uuid4(),
+        source_checksum_sha256="a" * 64,
+        image_width=320,
+        image_height=320,
+        expected_board_count=9,
+        final_quads=_quads(),
+        actor="owner",
+        expected_override_revision=0,
+    )
+    first, created = PageGeometryOverrideService(repository).save(**arguments)
+    replay, created_again = PageGeometryOverrideService(repository).save(**arguments)
+    assert created and not created_again and replay == first
+    decisions = [
+        GeometryQualification(
+            exclude_from_geometry_training=True, exclusion_reason="manual_exclusion"
+        ).to_dict()
+        for _ in range(9)
+    ]
+    with pytest.raises(JobError) as error:
+        PageGeometryOverrideService(repository).save(**arguments, slot_qualifications=decisions)
+    assert error.value.code == "IMAGE_PAGE_GEOMETRY_REVISION_CONFLICT"
+    assert len(repository.values) == 1
+
+
 def test_page_override_http_roundtrip_preserves_slot_metadata(tmp_path: Path) -> None:
     source_path = tmp_path / "source.jpg"
     Image.new("RGB", (320, 320)).save(source_path)

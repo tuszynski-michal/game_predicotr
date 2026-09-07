@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
@@ -15,7 +16,7 @@ from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardResolutionManifest,
     ImageGeometryGuardScope,
 )
-from game_predictor_api.domain.jobs import JobStatus, JobType
+from game_predictor_api.domain.jobs import JobConflictError, JobStatus, JobType
 from game_predictor_api.storage.models import (
     BrowserSelectionRetentionModel,
     ImageImportGeometryGuardDecisionModel,
@@ -118,6 +119,23 @@ class SqlAlchemyImageImportGeometryGuardRepository:
         return tuple(latest[key] for key in sorted(latest))
 
     def add_decisions(
+        self, values: Sequence[ImageGeometryGuardDecision]
+    ) -> tuple[ImageGeometryGuardDecision, ...]:
+        try:
+            with self._session.begin_nested():
+                return self._add_decisions(values)
+        except IntegrityError as error:
+            if getattr(getattr(error.orig, "diag", None), "constraint_name", None) not in {
+                "uq_image_import_guard_decisions_revision",
+                "uq_image_import_guard_decisions_checksum",
+            }:
+                raise
+            raise JobConflictError(
+                "IMAGE_GEOMETRY_GUARD_DECISION_REVISION_CONFLICT",
+                "A concurrent editor saved this source. Retry or reload the decision draft.",
+            ) from error
+
+    def _add_decisions(
         self, values: Sequence[ImageGeometryGuardDecision]
     ) -> tuple[ImageGeometryGuardDecision, ...]:
         for value in values:

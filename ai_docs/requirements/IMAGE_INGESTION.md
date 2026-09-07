@@ -1513,6 +1513,19 @@ nowej kwalifikacji. Jawne błędy `*_QUALIFICATION_NOT_ENABLED` chronią dane do
 integracji renderowania, kotwic i reconciliacji w TASK-0506–0508.
 Historyczne żądania i manifesty bez nowych pól działają bez zmian.
 
+TASK-0507: edytory przechowują lokalnie szkice współrzędnych i kwalifikacji,
+bez obrazów, związane ze źródłem, kontekstem i bazową rewizją. Nawigacja
+nie zapisuje decyzji API. Jawny zapis obejmuje zmienione sloty; reset wraca
+do zapisanej bazy, a konflikt rewizji wymaga rozliczenia szkicu. Potwierdzenie
+zapisu nie usuwa nowszego szkicu drugiej karty. Kontrolki nie zdejmują bramek
+konsumentów: odbiór pełnego przepływu pozostaje w TASK-0508–0509.
+
+Operator potwierdził, że rzeczywiste niepełne źródła mogą mieć ucięty lewy
+lub prawy bok. Brak góry albo dołu planszy oznacza błąd wcześniejszego
+przycinania zdjęcia. Edytor ostrzega o potrzebie poprawienia źródła; ręczne
+rozliczenie brakujących pikseli nie uznaje takiego zdjęcia za poprawnie
+przygotowany materiał i nie kwalifikuje go do uczenia geometrii lub kotwic.
+
 ### Opcjonalna rejestracja ograniczona do obszaru plansz
 
 Preflight v0.10 może jawnie przypiąć wariant `board_area_test`, który pobiera

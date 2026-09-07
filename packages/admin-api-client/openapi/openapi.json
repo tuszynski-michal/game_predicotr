@@ -2102,6 +2102,18 @@
             "title": "Actor",
             "type": "string"
           },
+          "expectedOverrideRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedoverriderevision"
+          },
           "finalQuads": {
             "items": {
               "maxItems": 4,
@@ -5287,6 +5299,18 @@
             ],
             "title": "Disposition",
             "type": "string"
+          },
+          "expectedDecisionRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expecteddecisionrevision"
           },
           "geometryQualification": {
             "anyOf": [

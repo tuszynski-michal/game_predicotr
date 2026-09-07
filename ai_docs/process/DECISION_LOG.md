@@ -8,6 +8,19 @@ last_updated: 2026-09-07
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-372 — Szkic nie zastępuje rewizji, a pionowe ucięcie wymaga poprawy źródła
+
+- **Status:** accepted
+- **Date:** 2026-09-07
+- **Decision:** lokalne szkice geometrii zachowują bazową rewizję i wszystkie
+  oznaczenia. Nawigacja jest bez zapisu; jawny zapis używa CAS oraz zachowuje
+  szkic innej karty przy potwierdzeniu. Reset przywraca bazę, nie cofa historii.
+- **Operator clarification:** lewy/prawy bok może być niepełnym źródłem;
+  brak góry lub dołu plansz oznacza błąd wcześniejszego przycięcia. Pokazujemy
+  ostrzeżenie i zalecenie poprawy źródła. Nie utożsamiamy ręcznego rozliczenia
+  brakujących pól z akceptacją jakości auto-cropa ani materiału geometrii.
+- **Scope:** TASK-0507 nie zmienia detektora ani istniejących importów.
+
 ## D-370 — Szeroki licznik symboli ufa gotowej projekcji
 
 - **Status:** accepted

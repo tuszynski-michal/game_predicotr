@@ -6,6 +6,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./manual-grid-qualification": {
+      "types": "./src/manual-grid-qualification.ts",
+      "default": "./src/manual-grid-qualification.ts"
+    },
     "./crop-preparation": {
       "types": "./src/crop-preparation.ts",
       "default": "./src/crop-preparation.ts"

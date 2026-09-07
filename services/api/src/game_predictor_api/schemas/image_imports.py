@@ -333,6 +333,7 @@ class ImageGeometryGuardQueueResponse(ApiModel):
 
 
 class ImageGeometryGuardDecisionItemCreate(ApiModel):
+    expected_decision_revision: int | None = Field(default=None, ge=0)
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     position_index: int = Field(ge=0, le=8)
     sequence_number: int = Field(ge=1)
@@ -440,6 +441,7 @@ class BrowserPageGeometryReviewSourcesResponse(ApiModel):
 
 
 class BrowserPageGeometryOverrideCreate(ApiModel):
+    expected_override_revision: int | None = Field(default=None, ge=0)
     game_id: UUID
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     image_width: int = Field(ge=1)

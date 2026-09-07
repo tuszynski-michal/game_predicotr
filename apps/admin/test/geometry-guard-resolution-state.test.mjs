@@ -64,3 +64,17 @@ test('toggles individual, row and column source-unavailable masks deterministica
   );
   assert.deepEqual(toggleUnavailableGroup([0, 5, 10], [0, 5, 10]), []);
 });
+
+test('qualified grids follow projective cell boundaries without changing legacy interpolation', () => {
+  const perspective = [
+    { x: 0, y: 0 },
+    { x: 300, y: 0 },
+    { x: 200, y: 200 },
+    { x: 100, y: 200 },
+  ];
+  const legacy = guardGridLines(perspective);
+  const projective = guardGridLines(perspective, true);
+  assert.equal(projective.length, 6);
+  assert.ok(Math.abs(legacy[4][0].y - 200 / 3) < 1e-8);
+  assert.ok(Math.abs(projective[4][0].y - 120) < 1e-8);
+});

@@ -10,6 +10,25 @@ import type {
 } from '@game-predictor/admin-api-client';
 import { fitManualImageToViewport } from '@game-predictor/manual-image-selection-core';
 import {
+  automaticUnavailableGridCells,
+  completeManualGridFlags,
+  manualGridCellPolygons,
+  manualGridFlagsFromQualification,
+  manualGridQualification,
+  manualGridUnavailable,
+  manualGridVerticalCropWarning,
+  type ManualGridFlags,
+} from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
+import {
+  clearPageGeometryDraft,
+  clearCommittedPageGeometryDraft,
+  readPageGeometryDraft,
+  writePageGeometryDraft,
+  serializePageGeometryDraft,
+  pageGeometryDraftKey,
+  type PageGeometryDraftScope,
+} from './page-geometry-draft-storage';
+import {
   type PointerEvent,
   useCallback,
   useEffect,
@@ -164,8 +183,19 @@ function diagnosticMetric(label: string, value: number | null | undefined) {
   );
 }
 
-export function PageGeometryCorrectionPanel({
-  allowOutsideSource = false,
+export function PageGeometryCorrectionPanel(
+  props: PageGeometryCorrectionPanelProps,
+) {
+  return (
+    <PageGeometryCorrectionPanelContent
+      key={`${props.gameId}:${props.uploadId}:${props.preflightJobId}`}
+      {...props}
+    />
+  );
+}
+
+function PageGeometryCorrectionPanelContent({
+  allowOutsideSource: outsideSourceOverride = false,
   api,
   apiBaseUrl,
   gameId,
@@ -224,6 +254,17 @@ export function PageGeometryCorrectionPanel({
   const [geometryManifestChecksum, setGeometryManifestChecksum] = useState('');
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [qualificationFlags, setQualificationFlags] = useState<
+    readonly ManualGridFlags[]
+  >([]);
+  const [draftConflict, setDraftConflict] = useState(false);
+  const loadedDraftKey = useRef<string | null>(null);
+  const lastPersistedDraft = useRef<string | null>(null);
+  const [loadedSourceChecksum, setLoadedSourceChecksum] = useState<
+    string | null
+  >(null);
+  const allowOutsideSource =
+    outsideSourceOverride || qualificationFlags.some((value) => value.partial);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -269,6 +310,22 @@ export function PageGeometryCorrectionPanel({
   }, [refresh]);
 
   const source = sources[sourceIndex] ?? null;
+  const draftScope = useMemo<PageGeometryDraftScope | null>(
+    () =>
+      source && imageSize
+        ? {
+            gameId,
+            uploadId,
+            preflightJobId,
+            checksum: source.sourceChecksumSha256,
+            revision: source.existingOverrideRevision ?? 0,
+            width: imageSize.width,
+            height: imageSize.height,
+            count: source.expectedBoardCount,
+          }
+        : null,
+    [source, imageSize, gameId, uploadId, preflightJobId],
+  );
   const expectedBoardCount = source?.expectedBoardCount ?? PAGE_BOARD_COUNT;
   const deferredSourceCount = sources.filter(
     (item) => item.reviewReason === 'review_required',
@@ -313,6 +370,44 @@ export function PageGeometryCorrectionPanel({
           ),
     [boardCornerPlacement, expectedBoardCount],
   );
+  useEffect(() => {
+    if (
+      !draftScope ||
+      !pageCorners ||
+      draftConflict ||
+      quads.length !== draftScope.count ||
+      qualificationFlags.length !== draftScope.count ||
+      loadedDraftKey.current !== pageGeometryDraftKey(draftScope)
+    )
+      return;
+    try {
+      const draft = {
+        quads,
+        pageCorners,
+        flags: qualificationFlags,
+        cornerPlacement,
+        boardCornerPlacement,
+      };
+      const ownText = serializePageGeometryDraft(draftScope, draft);
+      if (lastPersistedDraft.current === ownText) return;
+      writePageGeometryDraft(localStorage, draftScope, draft);
+      lastPersistedDraft.current = ownText;
+    } catch {
+      queueMicrotask(() =>
+        setError(
+          'Nie udało się utrwalić szkicu. Nie odświeżaj strony przed zapisem.',
+        ),
+      );
+    }
+  }, [
+    draftScope,
+    pageCorners,
+    draftConflict,
+    quads,
+    qualificationFlags,
+    cornerPlacement,
+    boardCornerPlacement,
+  ]);
   const activeBoardPlacementIndex = Math.min(
     placedBoardQuads.length,
     expectedBoardCount - 1,
@@ -362,6 +457,7 @@ export function PageGeometryCorrectionPanel({
       existingQuads.map((quad, index) => [index, quad] as const),
     );
     setImageSize({ height, width });
+    setLoadedSourceChecksum(source?.sourceChecksumSha256 ?? null);
     setInitialPageCorners(corners);
     setInitialBoardOverrides(overrides);
     setPageCorners(corners);
@@ -371,10 +467,50 @@ export function PageGeometryCorrectionPanel({
     setBoardOverrides(overrides);
     setCorrectionMode('page');
     setDragging(null);
+    const baseFlags = Array.from({ length: expectedBoardCount }, (_, i) =>
+      manualGridFlagsFromQualification(source?.existingSlotQualifications?.[i]),
+    );
+    setQualificationFlags(baseFlags);
+    setDraftConflict(false);
+    loadedDraftKey.current = null;
+    if (source) {
+      const scope: PageGeometryDraftScope = {
+        gameId,
+        uploadId,
+        preflightJobId,
+        checksum: source.sourceChecksumSha256,
+        revision: source.existingOverrideRevision ?? 0,
+        width,
+        height,
+        count: source.expectedBoardCount,
+      };
+      try {
+        const restored = readPageGeometryDraft(localStorage, scope);
+        if (restored) {
+          setPageCorners(restored.pageCorners);
+          setBoardOverrides(
+            new Map(restored.quads.map((quad, i) => [i, quad])),
+          );
+          setQualificationFlags(restored.flags);
+          setCornerPlacement(restored.cornerPlacement);
+          setBoardCornerPlacement(restored.boardCornerPlacement);
+        }
+        loadedDraftKey.current = pageGeometryDraftKey(scope);
+      } catch (cause) {
+        setDraftConflict(true);
+        setError(
+          cause instanceof Error ? cause.message : 'Nie można odczytać szkicu.',
+        );
+      }
+    }
   }
 
   function resetCurrentGeometry() {
-    if (initialPageCorners === null) return;
+    if (
+      initialPageCorners === null ||
+      loadedSourceChecksum !== source?.sourceChecksumSha256
+    )
+      return;
     setPageCorners(initialPageCorners);
     setCornerPlacement(null);
     setBoardCornerPlacement(null);
@@ -382,6 +518,19 @@ export function PageGeometryCorrectionPanel({
     setBoardOverrides(initialBoardOverrides);
     setCorrectionMode('page');
     setDragging(null);
+    setQualificationFlags(
+      Array.from({ length: expectedBoardCount }, (_, i) =>
+        manualGridFlagsFromQualification(
+          source?.existingSlotQualifications?.[i],
+        ),
+      ),
+    );
+    if (draftScope) {
+      clearPageGeometryDraft(localStorage, draftScope);
+      loadedDraftKey.current = pageGeometryDraftKey(draftScope);
+    }
+    setDraftConflict(false);
+    setError('');
     setFeedback('Przywrócono geometrię widoczną przy otwarciu zdjęcia.');
   }
 
@@ -610,6 +759,9 @@ export function PageGeometryCorrectionPanel({
       source === null ||
       imageSize === null ||
       quads.length !== expectedBoardCount ||
+      draftConflict ||
+      !draftScope ||
+      loadedDraftKey.current !== pageGeometryDraftKey(draftScope) ||
       saving
     )
       return;
@@ -617,6 +769,15 @@ export function PageGeometryCorrectionPanel({
     setError('');
     setFeedback('Zapisuję korektę całej strony…');
     try {
+      const submittedDraftText = pageCorners
+        ? serializePageGeometryDraft(draftScope, {
+            quads,
+            pageCorners,
+            flags: qualificationFlags,
+            cornerPlacement,
+            boardCornerPlacement,
+          })
+        : null;
       const finalQuads = quads.map((quad) =>
         quad.map((point) => ({
           x: Math.round(point.x),
@@ -630,6 +791,19 @@ export function PageGeometryCorrectionPanel({
         imageHeight: imageSize.height,
         imageWidth: imageSize.width,
         sourceChecksumSha256: source.sourceChecksumSha256,
+        slotQualifications:
+          qualificationFlags.some((flags) => flags.partial || flags.exclude) ||
+          source.existingSlotQualifications
+            ? quads.map((quad, i) =>
+                manualGridQualification(
+                  qualificationFlags[i] ?? completeManualGridFlags,
+                  quad,
+                  imageSize.width,
+                  imageSize.height,
+                ),
+              )
+            : undefined,
+        expectedOverrideRevision: source.existingOverrideRevision ?? 0,
       });
       if (result.error !== undefined || result.data === undefined) {
         setError(
@@ -646,6 +820,12 @@ export function PageGeometryCorrectionPanel({
           : 'Zapisano geometrię odroczonego zdjęcia. Po wysłaniu partii i ukończeniu preflightu przejdzie ono do zarejestrowanych.',
       );
       setSavedCount((current) => current + 1);
+      clearCommittedPageGeometryDraft(
+        localStorage,
+        draftScope,
+        submittedDraftText,
+      );
+      loadedDraftKey.current = null;
       setSources((current) =>
         current.filter(
           (item) => item.sourceChecksumSha256 !== source.sourceChecksumSha256,
@@ -654,8 +834,12 @@ export function PageGeometryCorrectionPanel({
       setSourceIndex((current) =>
         Math.min(current, Math.max(0, sources.length - 2)),
       );
-    } catch {
-      setError('Nie udało się zapisać korekty geometrii strony.');
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Nie udało się zapisać korekty geometrii strony.',
+      );
     } finally {
       setSaving(false);
     }
@@ -1085,7 +1269,9 @@ export function PageGeometryCorrectionPanel({
                   }
                 />
               ) : null}
-              {imageSize !== null && pageCorners !== null ? (
+              {imageSize !== null &&
+              pageCorners !== null &&
+              loadedSourceChecksum === source.sourceChecksumSha256 ? (
                 <svg
                   aria-label="Nakładka geometrii strony"
                   onPointerDown={placeNextCorner}
@@ -1100,6 +1286,17 @@ export function PageGeometryCorrectionPanel({
                       : `0 0 ${imageSize.width} ${imageSize.height}`
                   }
                 >
+                  <defs>
+                    <pattern
+                      id="partial-cell-hatch"
+                      width="12"
+                      height="12"
+                      patternUnits="userSpaceOnUse"
+                    >
+                      <rect width="12" height="12" fill="#7779" />
+                      <path d="M0 12L12 0" stroke="#ddd" strokeWidth="2" />
+                    </pattern>
+                  </defs>
                   {!manualPlacementActive
                     ? quads.map((quad, index) => (
                         <polygon
@@ -1109,6 +1306,10 @@ export function PageGeometryCorrectionPanel({
                               : 'pageGeometryBoard'
                           }
                           key={index}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            setCorrectionMode(index);
+                          }}
                           points={quad.map(pointText).join(' ')}
                         />
                       ))
@@ -1135,6 +1336,23 @@ export function PageGeometryCorrectionPanel({
                         x2={line[1].x}
                         y1={line[0].y}
                         y2={line[1].y}
+                      />
+                    )),
+                  )}
+                  {quads.flatMap((quad, i) =>
+                    manualGridUnavailable(
+                      qualificationFlags[i] ?? completeManualGridFlags,
+                      quad,
+                      imageSize.width,
+                      imageSize.height,
+                    ).map((cellIndex) => (
+                      <polygon
+                        key={`partial-${i}-${cellIndex}`}
+                        points={(manualGridCellPolygons(quad)[cellIndex] ?? [])
+                          .map(pointText)
+                          .join(' ')}
+                        fill="url(#partial-cell-hatch)"
+                        pointerEvents="none"
                       />
                     )),
                   )}
@@ -1252,6 +1470,106 @@ export function PageGeometryCorrectionPanel({
               ) : null}
             </div>
           </div>
+          {typeof correctionMode === 'number' &&
+          imageSize &&
+          loadedSourceChecksum === source.sourceChecksumSha256
+            ? (() => {
+                const index = correctionMode,
+                  quad = quads[index] ?? [];
+                const flags =
+                  qualificationFlags[index] ?? completeManualGridFlags;
+                const unavailable = manualGridUnavailable(
+                  flags,
+                  quad,
+                  imageSize.width,
+                  imageSize.height,
+                );
+                const automatic = automaticUnavailableGridCells(
+                  quad,
+                  imageSize.width,
+                  imageSize.height,
+                );
+                const update = (next: ManualGridFlags) =>
+                  setQualificationFlags((previous) =>
+                    previous.map((value, i) => (i === index ? next : value)),
+                  );
+                return (
+                  <fieldset
+                    disabled={saving || draftConflict}
+                    style={{ border: 0, fontSize: '0.85rem' }}
+                  >
+                    <legend>
+                      Plansza {index + 1} · dostępne {15 - unavailable.length}
+                      /15
+                    </legend>
+                    {manualGridVerticalCropWarning(quad, imageSize.height) ? (
+                      <p role="status">
+                        Brak góry lub dołu planszy: sprawdź wcześniejsze
+                        przycięcie zdjęcia. Zalecana poprawa pliku źródłowego;
+                        tej geometrii nie używamy do uczenia ani kotwic.
+                      </p>
+                    ) : null}
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={flags.partial}
+                        onChange={(event) =>
+                          update({
+                            ...flags,
+                            partial: event.target.checked,
+                            exclude: event.target.checked || flags.exclude,
+                            manualUnavailable: event.target.checked
+                              ? flags.manualUnavailable
+                              : [],
+                          })
+                        }
+                      />{' '}
+                      Niepełna plansza
+                    </label>{' '}
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={flags.partial || flags.exclude}
+                        disabled={flags.partial}
+                        onChange={(event) =>
+                          update({ ...flags, exclude: event.target.checked })
+                        }
+                      />{' '}
+                      Nie używaj do uczenia geometrii
+                    </label>
+                    {flags.partial ? (
+                      <div>
+                        {Array.from({ length: 15 }, (_, i) => (
+                          <label key={i}>
+                            <input
+                              type="checkbox"
+                              aria-label={`Pole ${i + 1} poza zdjęciem`}
+                              checked={unavailable.includes(i)}
+                              disabled={automatic.includes(i)}
+                              onChange={(event) =>
+                                update({
+                                  ...flags,
+                                  manualUnavailable: event.target.checked
+                                    ? [...flags.manualUnavailable, i]
+                                    : flags.manualUnavailable.filter(
+                                        (value) => value !== i,
+                                      ),
+                                })
+                              }
+                            />
+                            {i + 1}{' '}
+                          </label>
+                        ))}
+                      </div>
+                    ) : null}
+                    <small>
+                      Zmiana dotyczy kolejnego uczenia i kotwic, nie już
+                      aktywnego profilu.
+                    </small>
+                  </fieldset>
+                );
+              })()
+            : null}
         </div>
       ) : null}
     </section>

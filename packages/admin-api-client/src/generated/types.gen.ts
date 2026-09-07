@@ -1149,6 +1149,10 @@ export type BrowserPageGeometryOverrideCreate = {
    */
   actor: string;
   /**
+   * Expectedoverriderevision
+   */
+  expectedOverrideRevision?: number | null;
+  /**
    * Finalquads
    */
   finalQuads: Array<
@@ -2981,6 +2985,10 @@ export type ImageGeometryGuardDecisionItemCreate = {
    * Disposition
    */
   disposition: 'corrected_full' | 'partial' | 'rejected';
+  /**
+   * Expecteddecisionrevision
+   */
+  expectedDecisionRevision?: number | null;
   geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Positionindex

@@ -89,6 +89,7 @@ class ImageGeometryGuardDecisionCommand:
     unavailable_cell_indices: tuple[int, ...]
     reason: str | None
     geometry_qualification: GeometryQualification | None = None
+    expected_decision_revision: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -221,6 +222,7 @@ class ImageImportGeometryGuardService:
             (item.source_checksum_sha256, item.position_index): item for item in queue.decisions
         }
         created: list[ImageGeometryGuardDecision] = []
+        replayed: list[ImageGeometryGuardDecision] = []
         try:
             for command in commands:
                 key = (command.source_checksum_sha256, command.position_index)
@@ -241,25 +243,50 @@ class ImageImportGeometryGuardService:
                         "IMAGE_GEOMETRY_GUARD_QUALIFICATION_REQUIRED",
                         "A qualified board decision requires explicit qualification on update.",
                     )
-                created.append(
-                    create_guard_decision(
-                        game_id=game_id,
-                        browser_selection_id=browser_selection_id,
-                        guard_job_id=guard_job_id,
-                        guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
-                        target=target,
-                        revision=1 if previous is None else previous.revision + 1,
-                        disposition=command.disposition,
-                        symbol_grid_quad=command.symbol_grid_quad,
-                        unavailable_cell_indices=command.unavailable_cell_indices,
-                        geometry_qualification=command.geometry_qualification,
-                        reason=command.reason,
-                        actor=actor,
-                    )
+                value = create_guard_decision(
+                    game_id=game_id,
+                    browser_selection_id=browser_selection_id,
+                    guard_job_id=guard_job_id,
+                    guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+                    target=target,
+                    revision=(
+                        command.expected_decision_revision + 1
+                        if command.expected_decision_revision is not None
+                        else 1
+                        if previous is None
+                        else previous.revision + 1
+                    ),
+                    disposition=command.disposition,
+                    symbol_grid_quad=command.symbol_grid_quad,
+                    unavailable_cell_indices=command.unavailable_cell_indices,
+                    geometry_qualification=command.geometry_qualification,
+                    reason=command.reason,
+                    actor=actor,
                 )
+                if (
+                    previous is not None
+                    and previous.decision_checksum_sha256 == value.decision_checksum_sha256
+                ):
+                    replayed.append(previous)
+                    continue
+                if (
+                    command.expected_decision_revision is not None
+                    and command.expected_decision_revision
+                    != (0 if previous is None else previous.revision)
+                ):
+                    raise JobConflictError(
+                        "IMAGE_GEOMETRY_GUARD_DECISION_REVISION_CONFLICT",
+                        "The board decision changed after this draft was opened.",
+                    )
+                created.append(value)
         except ImageGeometryGuardDecisionError as error:
             raise JobError("IMAGE_GEOMETRY_GUARD_DECISION_INVALID", str(error)) from error
-        return self._repository.add_decisions(created)
+        written = self._repository.add_decisions(created) if created else ()
+        results = {
+            (item.source_checksum_sha256, item.position_index): item
+            for item in (*written, *replayed)
+        }
+        return tuple(results[key] for key in command_keys)
 
     def report_reconstruction_input(
         self,

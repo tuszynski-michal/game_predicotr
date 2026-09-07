@@ -6,6 +6,19 @@ last_updated: 2026-08-30
 
 # Virtual geometry schema ownership
 
+## Szkice ręcznej kwalifikacji (TASK-0507)
+
+Szkic przeglądarki nie jest rewizją źródła. Przechowuje tylko współrzędne,
+oznaczenia i bazową rewizję w kontekście gry/importu/preflightu/SHA zdjęcia.
+API page override i guard przyjmują opcjonalny expected revision; niezgodny
+zapis kończy się konfliktem. Identyczny, już utrwalony wynik może być zwrócony
+przy ponowieniu po utracie odpowiedzi. Constraint konflikt równoległych
+rewizji jest tłumaczony w savepoincie, bez nadpisania zwycięskiej decyzji.
+Usuwanie lokalnego szkicu po sukcesie porównuje własny wysłany stan z
+aktualnym storage; nie usuwa szkicu drugiej karty ani nowszej rewizji.
+Nawigacja nie zapisuje API. Nowe flagi nadal wymagają integracji konsumentów
+TASK-0508, przed zdjęciem bramek `QUALIFICATION_NOT_ENABLED`.
+
 ## Cel i granica decyzji
 
 Ten dokument ustala jednego właściciela każdego elementu geometrii po

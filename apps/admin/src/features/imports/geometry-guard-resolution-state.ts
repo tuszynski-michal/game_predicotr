@@ -3,6 +3,7 @@ import type {
   ImageGeometryGuardBoardTargetResponse,
   PageGeometryPoint,
 } from '@game-predictor/admin-api-client';
+import { manualGridCellPolygons } from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
 
 export type GuardQuad = readonly [
   PageGeometryPoint,
@@ -55,7 +56,22 @@ export function initialGuardQuad(
 
 export function guardGridLines(
   quad: GuardQuad,
+  projective = false,
 ): readonly (readonly [PageGeometryPoint, PageGeometryPoint])[] {
+  if (projective) {
+    const cells = manualGridCellPolygons(quad);
+    if (cells.length !== 15) return [];
+    return [
+      ...Array.from(
+        { length: 4 },
+        (_, i) => [cells[i]![1]!, cells[10 + i]![2]!] as const,
+      ),
+      ...Array.from(
+        { length: 2 },
+        (_, i) => [cells[i * 5]![3]!, cells[i * 5 + 4]![2]!] as const,
+      ),
+    ];
+  }
   const lines: Array<readonly [PageGeometryPoint, PageGeometryPoint]> = [];
   for (let column = 1; column < 5; column += 1) {
     lines.push([

@@ -1255,6 +1255,7 @@ def create_image_imports_router(
             actor=payload.actor,
             commands=tuple(
                 ImageGeometryGuardDecisionCommand(
+                    expected_decision_revision=item.expected_decision_revision,
                     source_checksum_sha256=item.source_checksum_sha256,
                     position_index=item.position_index,
                     sequence_number=item.sequence_number,
@@ -1476,6 +1477,7 @@ def create_image_imports_router(
                 "The correction does not match the attested board count for this source.",
             )
         value, created = override_service.save(
+            expected_override_revision=payload.expected_override_revision,
             game_id=payload.game_id,
             source_checksum_sha256=payload.source_checksum_sha256,
             image_width=width,

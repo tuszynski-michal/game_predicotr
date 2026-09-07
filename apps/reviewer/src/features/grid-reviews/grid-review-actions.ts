@@ -4,6 +4,7 @@ import type {
   ImageGridReviewItemResponse,
   ImageGridReviewPageResponse,
   ImageGridReviewView,
+  GeometryQualificationPayload,
   OperationalImageReviewResolutionCommand,
 } from '@game-predictor/admin-api-client';
 
@@ -291,6 +292,10 @@ export async function saveGridReviewSourceGeometry(
       OperationalReviewGeometryCorners
     >;
     readonly idempotencyKey: string;
+    readonly qualificationBySlotId?: ReadonlyMap<
+      string,
+      GeometryQualificationPayload
+    >;
   },
 ): Promise<
   | {
@@ -322,6 +327,11 @@ export async function saveGridReviewSourceGeometry(
     }
     targets.push({
       ...gridReviewGeometryPreviewCommand(item, corners),
+      ...(input.qualificationBySlotId
+        ? {
+            geometryQualification: input.qualificationBySlotId.get(item.slotId),
+          }
+        : {}),
       pendingGeometryId: item.pendingGeometryId,
       reviewItemId: item.reviewItemId,
     });

@@ -6,9 +6,11 @@ from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.geometry_qualification import parse_slot_qualifications
+from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.domain.page_geometry_overrides import (
     ImagePageGeometryOverride,
     ImagePageSourceExclusion,
@@ -73,8 +75,19 @@ class SqlAlchemyPageGeometryOverrideRepository:
             decision_checksum_sha256=value.decision_checksum_sha256,
             created_at=value.created_at,
         )
-        self._session.add(row)
-        self._session.flush()
+        try:
+            with self._session.begin_nested():
+                self._session.add(row)
+                self._session.flush()
+        except IntegrityError as error:
+            if getattr(getattr(error.orig, "diag", None), "constraint_name", None) != (
+                "uq_image_page_geometry_overrides_revision"
+            ):
+                raise
+            raise JobConflictError(
+                "IMAGE_PAGE_GEOMETRY_REVISION_CONFLICT",
+                "A concurrent editor saved this source revision. Reload before changing it.",
+            ) from error
         return _to_domain(row)
 
     def get_exclusion(

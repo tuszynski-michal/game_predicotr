@@ -1380,7 +1380,6 @@ export type {
   OperationalImageReviewResolutionEventResponse,
   OperationalImageReviewResolutionResponse,
   PageGeometryManifestJobPayload,
-  PageGeometryPoint,
   PageGeometryPreflightJobPayload,
   PageGeometryPreflightJobProgressResponse,
   PageGeometryRegistrationAttemptDiagnostic,

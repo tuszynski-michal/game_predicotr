@@ -5357,16 +5357,16 @@
                 "minItems": 4,
                 "prefixItems": [
                   {
-                    "$ref": "#/components/schemas/PageGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/PageGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/PageGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/PageGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   }
                 ],
                 "type": "array"
@@ -5476,7 +5476,7 @@
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/PageGeometryPoint"
+                  "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                 },
                 "type": "array"
               },
@@ -5548,6 +5548,16 @@
             "title": "Gameid",
             "type": "string"
           },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "positionIndex": {
             "maximum": 8.0,
             "minimum": 0.0,
@@ -5564,16 +5574,16 @@
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/PageGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/PageGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/PageGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/PageGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Symbolgridquad",
@@ -5583,7 +5593,7 @@
             "items": {
               "type": "integer"
             },
-            "maxItems": 14,
+            "maxItems": 15,
             "title": "Unavailablecellindices",
             "type": "array"
           }
@@ -6548,16 +6558,16 @@
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Corners",
@@ -6637,16 +6647,16 @@
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Corners",
@@ -6753,7 +6763,6 @@
             "items": {
               "$ref": "#/components/schemas/ImageGridReviewGeometryCellResponse"
             },
-            "minItems": 1,
             "title": "Cells",
             "type": "array"
           },
@@ -6767,16 +6776,16 @@
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Corners",
@@ -6918,16 +6927,16 @@
                 "minItems": 4,
                 "prefixItems": [
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   }
                 ],
                 "type": "array"
@@ -6967,16 +6976,16 @@
                 "minItems": 4,
                 "prefixItems": [
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   }
                 ],
                 "type": "array"
@@ -7168,16 +7177,16 @@
                 "minItems": 4,
                 "prefixItems": [
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   },
                   {
-                    "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
                   }
                 ],
                 "type": "array"
@@ -7474,16 +7483,16 @@
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Corners",
@@ -11915,9 +11924,16 @@
             "type": "string"
           },
           "observationId": {
-            "format": "uuid",
-            "title": "Observationid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observationid"
           },
           "predictedSymbolCode": {
             "maxLength": 64,
@@ -12754,27 +12770,6 @@
           "preflightJobId"
         ],
         "title": "PageGeometryManifestJobPayload",
-        "type": "object"
-      },
-      "PageGeometryPoint": {
-        "additionalProperties": false,
-        "properties": {
-          "x": {
-            "minimum": 0.0,
-            "title": "X",
-            "type": "integer"
-          },
-          "y": {
-            "minimum": 0.0,
-            "title": "Y",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "x",
-          "y"
-        ],
-        "title": "PageGeometryPoint",
         "type": "object"
       },
       "PageGeometryPreflightJobPayload": {

@@ -49,6 +49,7 @@ def test_new_partial_contract_preserves_all_missing_cells_and_uses_new_manifest(
         expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
         actor="local-owner",
         commands=(command,),
+        source_dimensions=(300, 180),
     )
     assert results[0].geometry_qualification == qualification
     assert results[0].unavailable_cell_indices == tuple(range(15))
@@ -66,7 +67,7 @@ def test_new_partial_contract_preserves_all_missing_cells_and_uses_new_manifest(
     )
     assert payload["schemaVersion"] == "ImageGeometryGuardResolutionManifestV3"
     assert payload["decisions"][0]["geometryQualification"] == qualification.to_dict()
-    # This foundation may persist decisions, but cannot pass them to the old renderer.
+    # V3 metadata is now consumed by the version-aware partial renderer.
     checksum = payload_checksum(payload)
     relative = f"data/image-geometry-guard-resolutions/{checksum}.json"
     path = tmp_path / relative
@@ -87,16 +88,15 @@ def test_new_partial_contract_preserves_all_missing_cells_and_uses_new_manifest(
         created_at=datetime.now(UTC),
     )
     repository.add_manifest(manifest)
-    with pytest.raises(JobConflictError) as unsupported:
-        service.require_manifest_descriptor(
-            game_id=GAME_ID,
-            browser_selection_id=UPLOAD_ID,
-            manifest_id=manifest.id,
-            expected_manifest_checksum_sha256=checksum,
-            source_manifest_checksum_sha256="b" * 64,
-            page_geometry_manifest_checksum_sha256="c" * 64,
-        )
-    assert unsupported.value.code == "IMAGE_GEOMETRY_GUARD_QUALIFICATION_NOT_ENABLED"
+    descriptor = service.require_manifest_descriptor(
+        game_id=GAME_ID,
+        browser_selection_id=UPLOAD_ID,
+        manifest_id=manifest.id,
+        expected_manifest_checksum_sha256=checksum,
+        source_manifest_checksum_sha256="b" * 64,
+        page_geometry_manifest_checksum_sha256="c" * 64,
+    )
+    assert descriptor["checksumSha256"] == checksum
     with pytest.raises(JobError):
         service.save_decisions(
             game_id=GAME_ID,
@@ -123,6 +123,7 @@ def test_legacy_update_cannot_remove_manual_training_exclusion(tmp_path: Path) -
         guard_job_id=JOB_ID,
         expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
         actor="local-owner",
+        source_dimensions=(300, 180),
     )
     service.save_decisions(**arguments, commands=(command,))
     with pytest.raises(JobConflictError) as missing:
@@ -148,6 +149,7 @@ def test_explicit_decision_revision_supports_lost_response_and_rejects_stale_cha
         guard_job_id=JOB_ID,
         expected_guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
         actor="local-owner",
+        source_dimensions=(300, 180),
     )
     saved = service.save_decisions(**arguments, commands=(command,))
     assert service.save_decisions(**arguments, commands=(command,)) == saved

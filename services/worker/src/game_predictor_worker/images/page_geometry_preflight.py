@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 
 import numpy as np
+from game_predictor_api.domain.geometry_qualification import page_anchor_exclusion_reason
 from game_predictor_api.domain.jobs import Job, JobType
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -503,6 +504,11 @@ class PageGeometryPreflightHandler:
             "quads": list(quads),
             "registrationVersion": "manual-page-geometry-override-v1",
             "thresholdsVersion": "manual-page-geometry-override-v1",
+            **(
+                {"slotQualifications": raw["slotQualifications"]}
+                if "slotQualifications" in raw
+                else {}
+            ),
         }
 
     def _existing_output(self, job: Job) -> Path | None:
@@ -612,13 +618,6 @@ def _input(job: Job) -> dict[str, object]:
     checksum = payload.get("source_manifest_sha256")
     profile = payload.get("page_registration_profile")
     overrides = payload.get("page_geometry_overrides")
-    if isinstance(overrides, Mapping) and any(
-        isinstance(value, Mapping) and "slotQualifications" in value for value in overrides.values()
-    ):
-        raise JobHandlerError(
-            "IMAGE_PAGE_GEOMETRY_QUALIFICATION_NOT_ENABLED",
-            "Qualified overrides require the partial-geometry and anchor-qualification rollout.",
-        )
     canonical = payload.get("canonical_sequence_numbers")
     source_display_name = payload.get("source_display_name")
     source_exclusions = payload.get("source_exclusions", {})
@@ -892,6 +891,19 @@ def _profile_with_manual_override_anchors(
         if isinstance(raw_anchors, Sequence) and not isinstance(raw_anchors, str | bytes)
         else []
     )
+    # Only a new snapshot containing explicit qualifications can remove an
+    # excluded override from the frozen profile's anchor candidates. Old
+    # jobs without those fields keep their exact historical anchor list.
+    anchors = [
+        anchor
+        for anchor in anchors
+        if not (
+            isinstance(
+                (override := overrides.get(str(anchor.get("sourceChecksumSha256")))), Mapping
+            )
+            and _anchor_qualification_reason(override) is not None
+        )
+    ]
     known_checksums = {
         value.get("sourceChecksumSha256")
         for value in anchors
@@ -903,6 +915,8 @@ def _profile_with_manual_override_anchors(
             or checksum not in available_checksums
             or not isinstance(raw, Mapping)
         ):
+            continue
+        if _anchor_qualification_reason(raw) is not None:
             continue
         width = raw.get("imageWidth")
         height = raw.get("imageHeight")
@@ -942,7 +956,19 @@ def _is_sha256(value: object) -> bool:
     )
 
 
+def _anchor_qualification_reason(entry: Mapping[str, object]) -> str | None:
+    raw = entry.get("slotQualifications")
+    if raw is None:
+        return None
+    quads = entry.get("quads")
+    count = len(quads) if isinstance(quads, Sequence) and not isinstance(quads, str | bytes) else 0
+    reason = page_anchor_exclusion_reason(raw, expected_board_count=count)
+    return "incomplete_anchor" if count != 9 else reason
+
+
 def _strong_auto_anchor(entry: Mapping[str, object]) -> bool:
+    if _anchor_qualification_reason(entry) is not None:
+        return False
     coverages = entry.get("boardRedEdgeCoverages")
     quads = entry.get("quads")
     return (

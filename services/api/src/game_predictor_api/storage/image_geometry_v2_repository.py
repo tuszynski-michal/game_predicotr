@@ -8,7 +8,9 @@ and can only be stored after the source coordinate metadata is complete.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -16,10 +18,19 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.geometry_qualification import (
+    GeometryQualification,
+    GeometryQualificationError,
+)
 from game_predictor_api.domain.image_geometry_v2 import (
     SEQUENCE_ATTESTATION_SCHEMA_VERSION,
     SOURCE_COORDINATE_SPACE,
+    ImageGeometryContractError,
+    SourceImageBounds,
+    SourcePoint,
+    SourceQuad,
     board_topology_fingerprint_sha256,
+    resolve_manual_geometry_qualification,
     sequence_attestation_checksum_sha256,
 )
 from game_predictor_api.storage.models import (
@@ -235,6 +246,54 @@ class SqlAlchemyImageSourceGeometryRepository:
                 "IMAGE_GEOMETRY_PROVENANCE_INVALID",
                 "Source geometry requires a versioned engine and actor.",
             )
+        for position, geometry in enumerate(value.board_geometries):
+            raw = geometry.get("geometryQualification")
+            if raw is None:
+                continue
+            try:
+                qualification = GeometryQualification.from_dict(raw)
+                points = geometry.get("symbolGridQuad", geometry.get("finalQuad"))
+                if (
+                    not isinstance(points, list | tuple)
+                    or len(points) != 4
+                    or not all(isinstance(p, Mapping) for p in points)
+                ):
+                    raise GeometryQualificationError("Qualified geometry requires a complete quad.")
+                quad = SourceQuad(
+                    cast(
+                        tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                        tuple(SourcePoint(x=p["x"], y=p["y"]) for p in points),
+                    )
+                )
+                resolved = resolve_manual_geometry_qualification(
+                    quad,
+                    source=SourceImageBounds(value.oriented_width, value.oriented_height),
+                    topology=BoardTopology(3, 5),
+                    qualification=qualification,
+                )
+                if (
+                    resolved != qualification
+                    or geometry.get("positionIndex") != position
+                    or geometry.get("sequenceNumber") != value.sequence_range_start + position
+                ):
+                    raise GeometryQualificationError(
+                        "Qualified slot identity or source mask is inconsistent."
+                    )
+                if (
+                    geometry.get("unavailableCellIndices")
+                    != list(qualification.unavailable_cell_indices)
+                    or geometry.get("completenessStatus") != qualification.completeness_status
+                ):
+                    raise GeometryQualificationError("Qualified slot projections disagree.")
+            except (
+                GeometryQualificationError,
+                ImageGeometryContractError,
+                TypeError,
+                KeyError,
+            ) as error:
+                raise ImageGeometryPersistenceError(
+                    "IMAGE_GEOMETRY_QUALIFICATION_INVALID", str(error)
+                ) from error
 
     @staticmethod
     def _validate_source_metadata(

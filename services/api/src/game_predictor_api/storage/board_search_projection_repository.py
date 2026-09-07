@@ -28,10 +28,15 @@ from game_predictor_api.domain.board_search import (
     select_board_search_document,
 )
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.geometry_qualification import (
+    GeometryQualification,
+    GeometryQualificationError,
+)
 from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
+    ImageBoardGeometryRevisionModel,
     ImageBoardSearchCandidateModel,
     ImageBoardSearchFastDocumentModel,
     ImageBoardSearchProjectionStateModel,
@@ -731,6 +736,27 @@ def _payloads_from_rows(
     ):
         latest_predictions[revision.review_item_id] = list(revision.predictions)
 
+    qualified_board_ids = [
+        board.id
+        for _item, board, _source, _job in rows
+        if board.geometry_qualification is not None and board.geometry_revision > 0
+    ]
+    current_geometry: dict[UUID, ImageBoardGeometryRevisionModel] = {}
+    if qualified_board_ids:
+        for geometry_record in session.scalars(
+            select(ImageBoardGeometryRevisionModel)
+            .join(
+                RecognizedBoardModel,
+                (RecognizedBoardModel.id == ImageBoardGeometryRevisionModel.recognized_board_id)
+                & (
+                    RecognizedBoardModel.geometry_revision
+                    == ImageBoardGeometryRevisionModel.revision
+                ),
+            )
+            .where(RecognizedBoardModel.id.in_(qualified_board_ids))
+        ):
+            current_geometry[geometry_record.recognized_board_id] = geometry_record
+
     payloads: list[BoardSearchProjectionPayload] = []
     for item, board, source, job in rows:
         payload = _payload_from_records(
@@ -740,6 +766,7 @@ def _payloads_from_rows(
             job=job,
             observations=observations_by_board[board.id],
             prediction_override=latest_predictions.get(item.id),
+            geometry_revision=current_geometry.get(board.id),
         )
         if payload is not None:
             payloads.append(payload)
@@ -754,6 +781,7 @@ def _payload_from_records(
     job: JobModel,
     observations: Sequence[CellObservationModel],
     prediction_override: Sequence[Mapping[str, object]] | None,
+    geometry_revision: ImageBoardGeometryRevisionModel | None = None,
 ) -> BoardSearchProjectionPayload | None:
     if item.status not in _SEARCHABLE_STATUSES or job.game_id is None:
         return None
@@ -786,7 +814,13 @@ def _payload_from_records(
             raw_predictions = tuple(
                 cast(Mapping[str, object], observation.prediction) for observation in observations
             )
-        parsed = _parse_pending_predictions(raw_predictions)
+        parsed = (
+            _qualified_pending_predictions(
+                board, observations, prediction_override, geometry_revision
+            )
+            if board.geometry_qualification is not None
+            else _parse_pending_predictions(raw_predictions)
+        )
         if parsed is None:
             return None
         primary, alternatives = parsed
@@ -815,6 +849,80 @@ def _payload_from_records(
         board_confidence=board.board_confidence,
         sequence_confidence=board.sequence_confidence,
         source_pixel_count=source.width * source.height,
+    )
+
+
+def _qualified_pending_predictions(
+    board: RecognizedBoardModel,
+    observations: Sequence[CellObservationModel],
+    predictions: Sequence[Mapping[str, object]] | None,
+    revision: ImageBoardGeometryRevisionModel | None,
+) -> tuple[tuple[str | None, ...], tuple[tuple[str | None, ...], ...]] | None:
+    """Keep logical positions, never treat masked or superseded pixels as evidence."""
+    try:
+        qualification = GeometryQualification.from_dict(board.geometry_qualification)
+    except GeometryQualificationError:
+        return None
+    if (
+        qualification.completeness_status != board.completeness_status
+        or qualification.unavailable_cell_indices != tuple(board.unavailable_cell_indices)
+    ):
+        return None
+    unavailable = set(qualification.unavailable_cell_indices)
+    by_index: dict[int, Mapping[str, object]] = {}
+    current_specs: dict[int, object] = {}
+    if board.geometry_revision > 0:
+        manifest = None if revision is None else revision.virtual_render_spec
+        if not isinstance(manifest, Mapping) or not isinstance(manifest.get("cells"), list):
+            return None
+        for cell in cast(list[object], manifest["cells"]):
+            if not isinstance(cell, Mapping) or type(cell.get("cellIndex")) is not int:
+                return None
+            index = cast(int, cell["cellIndex"])
+            if index in current_specs:
+                return None
+            current_specs[index] = cell.get("renderSpecChecksumSha256")
+        if set(current_specs) != set(range(15)) - unavailable:
+            return None
+    else:
+        for observation in observations:
+            index = observation.row_index * 5 + observation.column_index
+            if (
+                index in by_index
+                or not 0 <= observation.row_index < 3
+                or not 0 <= observation.column_index < 5
+            ):
+                return None
+            by_index[index] = observation.prediction
+        if set(by_index) != set(range(15)) - unavailable:
+            return None
+    if predictions is not None:
+        seen: set[int] = set()
+        for prediction in predictions:
+            row, column = prediction.get("rowIndex"), prediction.get("columnIndex")
+            if (
+                type(row) is not int
+                or type(column) is not int
+                or not 0 <= row < 3
+                or not 0 <= column < 5
+            ):
+                return None
+            index = row * 5 + column
+            if index in seen:
+                return None
+            seen.add(index)
+            if index in unavailable:
+                continue
+            virtual = prediction.get("virtualCell")
+            if board.geometry_revision > 0 and (
+                not isinstance(virtual, Mapping)
+                or virtual.get("renderSpecChecksumSha256") != current_specs[index]
+            ):
+                continue
+            by_index[index] = prediction
+    empty: Mapping[str, object] = {"symbolCode": None, "alternatives": []}
+    return _parse_pending_predictions(
+        tuple(empty if index in unavailable else by_index.get(index, empty) for index in range(15))
     )
 
 

@@ -30,9 +30,11 @@ from game_predictor_api.domain.image_reviews import (
     crop_sample_id,
 )
 from game_predictor_api.schemas.catalog import ApiModel
-from game_predictor_api.schemas.geometry_qualification import GeometryQualificationPayload
-from game_predictor_api.schemas.image_reviews import (
-    OperationalImageReviewGeometryPoint,
+from game_predictor_api.schemas.geometry_qualification import (
+    GeometryQualificationPayload,
+)
+from game_predictor_api.schemas.geometry_qualification import (
+    ManualSourceGeometryPoint as OperationalImageReviewGeometryPoint,
 )
 
 Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
@@ -169,6 +171,22 @@ class ImageGridReviewGeometryPreviewCommand(ApiModel):
     expected_grid_rows: int = Field(gt=0)
     expected_grid_columns: int = Field(gt=0)
 
+    @model_validator(mode="after")
+    def validate_signed_source_points(self) -> ImageGridReviewGeometryPreviewCommand:
+        partial = (
+            self.geometry_qualification is not None
+            and self.geometry_qualification.completeness_status == "pending_partial"
+        )
+        for point in self.corners:
+            if not partial and (point.x < 0 or point.y < 0):
+                raise ValueError("signed corners require explicitly partial geometry")
+            if partial and not (
+                -self.expected_source_width <= point.x <= 2 * self.expected_source_width
+                and -self.expected_source_height <= point.y <= 2 * self.expected_source_height
+            ):
+                raise ValueError("manual geometry exceeds source editing bounds")
+        return self
+
 
 class ImageGridReviewGeometryCommand(ImageGridReviewGeometryPreviewCommand):
     idempotency_key: UUID
@@ -225,7 +243,7 @@ class ImageGridReviewGeometryRevisionResponse(ApiModel):
     cropper_version: str
     grid_rows: int = Field(gt=0)
     grid_columns: int = Field(gt=0)
-    cells: tuple[ImageGridReviewGeometryCellResponse, ...] = Field(min_length=1)
+    cells: tuple[ImageGridReviewGeometryCellResponse, ...]
     corrected_by: str
     created_at: datetime
 
@@ -448,6 +466,11 @@ def to_virtual_grid_review_geometry_response(
     revision = result.revision
     return ImageGridReviewGeometryResponse(
         geometry_revision=ImageGridReviewGeometryRevisionResponse(
+            geometry_qualification=GeometryQualificationPayload.model_validate(
+                revision.geometry_qualification.to_dict()
+            )
+            if revision.geometry_qualification is not None
+            else None,
             id=revision.id,
             review_item_id=revision.review_item_id,
             recognized_board_id=revision.recognized_board_id,
@@ -503,6 +526,9 @@ def to_virtual_grid_review_source_geometry_commands(
 ) -> tuple[VirtualGridGeometrySourceCommand, ...]:
     return tuple(
         VirtualGridGeometrySourceCommand(
+            geometry_qualification=target.geometry_qualification.to_domain()
+            if target.geometry_qualification is not None
+            else None,
             review_item_id=target.review_item_id,
             pending_geometry_id=target.pending_geometry_id,
             expected_geometry_revision=target.expected_geometry_revision,

@@ -528,6 +528,11 @@ def validate_stage_payload(
             allow_sparse=BOARD_CELL_GEOMETRY_STAGE in context.previous_results,
         )
         _same_positions(context, "board_crops", boards)
+        crop_boards = _mapping(context.previous_results["board_crops"], "board_crops")["boards"]
+        for crop_board, symbol_board in zip(
+            cast(Sequence[Mapping[str, object]], crop_boards), boards, strict=True
+        ):
+            require_matching_symbol_cells(crop_board, symbol_board)
         model_version = payload.get("modelVersion")
         if not isinstance(model_version, str) or not model_version.strip():
             _invalid("symbol_inference.modelVersion must be non-empty.")
@@ -740,6 +745,11 @@ def _symbol_cells(board: Mapping[str, object]) -> None:
 def _available_cell_indices(
     board: Mapping[str, object], cell_count: int, label: str
 ) -> tuple[int, ...]:
+    from game_predictor_api.domain.geometry_qualification import (
+        GeometryQualification,
+        GeometryQualificationError,
+    )
+
     completeness = board.get("completenessStatus", "complete")
     raw_unavailable = board.get("unavailableCellIndices", [])
     if not isinstance(raw_unavailable, Sequence) or isinstance(raw_unavailable, str | bytes):
@@ -751,18 +761,60 @@ def _available_cell_indices(
         value >= BOARD_CELL_COUNT for value in unavailable
     ):
         _invalid(f"The {label} unavailable-cell mask is invalid.")
+    raw_qualification = board.get("geometryQualification")
+    if raw_qualification is not None:
+        try:
+            qualification = GeometryQualification.from_dict(raw_qualification)
+        except GeometryQualificationError as error:
+            _invalid(str(error))
+        if (
+            qualification.completeness_status != completeness
+            or qualification.unavailable_cell_indices != unavailable
+        ):
+            _invalid(f"The {label} qualification conflicts with its availability projection.")
     if completeness == "complete":
         if unavailable or cell_count != BOARD_CELL_COUNT:
             _invalid(f"A complete {label} must contain exactly 15 cells.")
     elif completeness == "pending_partial":
-        if not 1 <= len(unavailable) <= BOARD_CELL_COUNT - 1:
-            _invalid(f"A partial {label} must declare between 1 and 14 unavailable cells.")
+        maximum_missing = (
+            BOARD_CELL_COUNT if raw_qualification is not None else BOARD_CELL_COUNT - 1
+        )
+        if not 1 <= len(unavailable) <= maximum_missing:
+            _invalid(
+                f"A partial {label} must declare between 1 and {maximum_missing} unavailable cells."
+            )
         if cell_count != BOARD_CELL_COUNT - len(unavailable):
             _invalid(f"A partial {label} must contain every available cell exactly once.")
     else:
         _invalid(f"The {label} completeness status is invalid.")
     unavailable_set = set(unavailable)
     return tuple(index for index in range(BOARD_CELL_COUNT) if index not in unavailable_set)
+
+
+def require_matching_symbol_cells(
+    crop_board: Mapping[str, object], symbol_board: Mapping[str, object]
+) -> None:
+    """Do not associate predictions by ordinal when availability or identity changed."""
+    for key, default in (
+        ("completenessStatus", "complete"),
+        ("unavailableCellIndices", []),
+        ("geometryQualification", None),
+    ):
+        if crop_board.get(key, default) != symbol_board.get(key, default):
+            _invalid("Crop and symbol availability metadata must match.")
+
+    def identities(board: Mapping[str, object]) -> list[tuple[object, object]]:
+        cells = board.get("cells")
+        if not isinstance(cells, Sequence) or isinstance(cells, str | bytes):
+            _invalid("Crop and symbol cells must be arrays.")
+        return [
+            (cell.get("rowIndex"), cell.get("columnIndex"))
+            for value in cells
+            for cell in [_mapping(value, "cell identity")]
+        ]
+
+    if identities(crop_board) != identities(symbol_board):
+        _invalid("Crop and symbol cell coordinates must match exactly.")
 
 
 def _same_positions(

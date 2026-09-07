@@ -18,10 +18,12 @@ from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometrySourceSaveResult,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_geometry_v2 import (
     DirectCellRenderConfiguration,
     SourceOccurrence,
 )
+from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
 from game_predictor_worker.images.normalization import CanonicalSourceLoader
 from game_predictor_worker.images.virtual_cell_extraction import (
@@ -36,6 +38,10 @@ class MemoryVirtualGridGeometryRepository:
         self.context = context
         self.contexts = {context.target_id: context}
         self.saved: list[PreparedVirtualGridGeometry] = []
+        self.replays: dict[tuple[UUID, UUID], VirtualGridGeometryRevision] = {}
+
+    def virtual_geometry_replay(self, *, context, idempotency_key):
+        return self.replays.get((context.target_id, idempotency_key))
 
     def virtual_geometry_context(
         self,
@@ -199,6 +205,47 @@ def test_virtual_preview_renders_all_cells_without_persisting_png(tmp_path: Path
     assert tuple(path for path in tmp_path.rglob("*") if path.is_file()) == files_before
 
 
+@pytest.mark.parametrize("all_missing", [False, True])
+def test_qualified_partial_preview_keeps_slots_without_rendering_missing_pixels(
+    tmp_path: Path, all_missing: bool
+) -> None:
+    service, context = _fixture(tmp_path)
+    qualification = GeometryQualification(
+        "pending_partial", tuple(range(15)) if all_missing else (0,), True, "missing_pixels"
+    )
+    corners = tuple(ImageReviewGeometryPoint(point.x - 12, point.y) for point in _corners())
+    kwargs = dict(
+        game_id=context.game_id,
+        import_job_id=context.import_job_id,
+        review_item_id=context.review_item_id,
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        expected_source_checksum_sha256=context.source_checksum_sha256,
+        expected_source_width=context.oriented_width,
+        expected_source_height=context.oriented_height,
+        expected_grid_rows=3,
+        expected_grid_columns=5,
+        corners=corners,
+        geometry_qualification=qualification,
+    )
+    preview = service.preview(**kwargs)
+    assert len(preview.cells) == (0 if all_missing else 12)
+    assert not {cell.cell_index for cell in preview.cells} & {0, 5, 10}
+    assert preview.contact_sheet_png.startswith(b"\x89PNG")
+    service.save(**kwargs, idempotency_key=uuid4(), actor="operator", created_at=datetime.now(UTC))
+    prepared = service._repository.saved[0]
+    expected_mask = list(range(15)) if all_missing else [0, 5, 10]
+    assert (
+        prepared.board_geometries[0]["geometryQualification"]["unavailableCellIndices"]
+        == expected_mask
+    )
+    assert (
+        prepared.board_geometry["geometryQualification"]
+        == prepared.board_geometries[0]["geometryQualification"]
+    )
+    assert prepared.virtual_render_spec["configuration"] == context.render_configuration.to_dict()
+
+
 def test_virtual_save_delegates_only_checksum_bound_metadata(tmp_path: Path) -> None:
     service, context = _fixture(tmp_path)
     repository = service._repository  # noqa: SLF001 - inspect the application port in a unit test
@@ -229,6 +276,48 @@ def test_virtual_save_delegates_only_checksum_bound_metadata(tmp_path: Path) -> 
     assert isinstance(repository, MemoryVirtualGridGeometryRepository)
     assert len(repository.saved) == 1
     assert not any(path.suffix == ".png" for path in (tmp_path / "data").rglob("*"))
+
+
+def test_virtual_save_replays_after_lost_response_without_rendering_or_old_cas_error(
+    tmp_path, monkeypatch
+):
+    service, context = _fixture(tmp_path)
+    repository = service._repository
+    key = uuid4()
+    kwargs = dict(
+        game_id=context.game_id,
+        import_job_id=context.import_job_id,
+        review_item_id=context.review_item_id,
+        idempotency_key=key,
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        expected_source_checksum_sha256=context.source_checksum_sha256,
+        expected_source_width=context.oriented_width,
+        expected_source_height=context.oriented_height,
+        expected_grid_rows=3,
+        expected_grid_columns=5,
+        corners=_corners(),
+        geometry_qualification=GeometryQualification("complete", (), True, "manual_exclusion"),
+        actor="local-admin",
+        created_at=datetime.now(UTC),
+    )
+    first = service.save(**kwargs)
+    repository.replays[(context.target_id, key)] = first.revision
+    repository.contexts[context.target_id] = replace(
+        context, geometry_revision=1, resolution_revision=1
+    )
+    monkeypatch.setattr(service, "_prepare", lambda **_: pytest.fail("Replay must not render"))
+    replay = service.save(**kwargs)
+    assert not replay.created and replay.revision == first.revision and len(repository.saved) == 1
+    with pytest.raises(ImageGridReviewError, match="another command"):
+        service.save(
+            **{
+                **kwargs,
+                "geometry_qualification": GeometryQualification("complete", (), False, None),
+            }
+        )
+    with pytest.raises(ImageGridReviewError, match="source identity"):
+        service.save(**{**kwargs, "expected_source_checksum_sha256": "0" * 64})
 
 
 def test_virtual_source_save_renders_one_complete_source_without_png(tmp_path: Path) -> None:
@@ -267,6 +356,7 @@ def test_virtual_source_save_renders_one_complete_source_without_png(tmp_path: P
 
 def test_virtual_source_save_requires_and_persists_all_nine_row_major_slots(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     service, context = _fixture(tmp_path)
     repository = service._repository  # noqa: SLF001 - application port fixture
@@ -290,25 +380,27 @@ def test_virtual_source_save_requires_and_persists_all_nine_row_major_slots(
     )
     repository.contexts = {entry.target_id: entry for entry in contexts}
 
+    commands = tuple(
+        VirtualGridGeometrySourceCommand(
+            review_item_id=entry.review_item_id,
+            pending_geometry_id=None,
+            expected_geometry_revision=entry.geometry_revision,
+            expected_resolution_revision=entry.resolution_revision,
+            expected_source_checksum_sha256=entry.source_checksum_sha256,
+            expected_source_width=entry.oriented_width,
+            expected_source_height=entry.oriented_height,
+            expected_grid_rows=entry.topology.rows,
+            expected_grid_columns=entry.topology.columns,
+            corners=_cell_corners(entry.position_index),
+        )
+        for entry in contexts
+    )
+    key = uuid4()
     result = service.save_source(
         game_id=context.game_id,
         import_job_id=context.import_job_id,
-        commands=tuple(
-            VirtualGridGeometrySourceCommand(
-                review_item_id=entry.review_item_id,
-                pending_geometry_id=None,
-                expected_geometry_revision=entry.geometry_revision,
-                expected_resolution_revision=entry.resolution_revision,
-                expected_source_checksum_sha256=entry.source_checksum_sha256,
-                expected_source_width=entry.oriented_width,
-                expected_source_height=entry.oriented_height,
-                expected_grid_rows=entry.topology.rows,
-                expected_grid_columns=entry.topology.columns,
-                corners=_cell_corners(entry.position_index),
-            )
-            for entry in contexts
-        ),
-        idempotency_key=uuid4(),
+        commands=commands,
+        idempotency_key=key,
         actor="local-admin",
         created_at=datetime(2026, 9, 3, tzinfo=UTC),
     )
@@ -323,6 +415,30 @@ def test_virtual_source_save_requires_and_persists_all_nine_row_major_slots(
         == tuple(range(9))
         for prepared in repository.saved
     )
+    for entry, prior in zip(contexts, result.revisions, strict=True):
+        repository.replays[(entry.target_id, key)] = prior
+        repository.contexts[entry.target_id] = replace(
+            entry, geometry_revision=1, resolution_revision=1
+        )
+    monkeypatch.setattr(
+        service, "_prepare_source", lambda **_: pytest.fail("Retry must not render")
+    )
+    kwargs = dict(
+        game_id=context.game_id,
+        import_job_id=context.import_job_id,
+        idempotency_key=key,
+        actor="local-admin",
+        created_at=datetime(2026, 9, 3, tzinfo=UTC),
+    )
+    replay = service.save_source(commands=commands, **kwargs)
+    assert replay.revisions == result.revisions and not replay.created
+    with pytest.raises(ImageGridReviewError, match="every active slot"):
+        service.save_source(commands=commands[:-1], **kwargs)
+    repository.replays[(contexts[0].target_id, key)] = replace(
+        result.revisions[0], source_geometry_revision_id=uuid4()
+    )
+    with pytest.raises(ImageGridReviewError, match="every active slot"):
+        service.save_source(commands=commands, **kwargs)
 
 
 @pytest.mark.parametrize("all_deferred", [False, True])

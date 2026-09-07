@@ -3,6 +3,52 @@ import test from 'node:test';
 
 import { createAdminApiClient } from '../src/index.ts';
 
+test('qualified guard commands retain signed corners and all-missing mask', async () => {
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(await request.clone().json());
+      return Response.json({ decisions: [], cells: [] });
+    },
+  });
+  const geometryQualification = {
+    version: 'manual-geometry-qualification-v1',
+    completenessStatus: 'pending_partial',
+    unavailableCellIndices: Array.from({ length: 15 }, (_, i) => i),
+    excludeFromGeometryTraining: true,
+    exclusionReason: 'missing_pixels',
+  };
+  const slot = {
+    sourceChecksumSha256: 'a'.repeat(64),
+    positionIndex: 0,
+    sequenceNumber: 1,
+    disposition: 'partial',
+    geometryQualification,
+    unavailableCellIndices: geometryQualification.unavailableCellIndices,
+    symbolGridQuad: [
+      { x: -10, y: 0 },
+      { x: 0, y: 0 },
+      { x: 0, y: 100 },
+      { x: -10, y: 100 },
+    ],
+  };
+  const body = {
+    gameId: 'game',
+    expectedGuardReportChecksumSha256: 'b'.repeat(64),
+    actor: 'operator',
+    decisions: [slot],
+  };
+  await client.createImageGeometryGuardDecisions('staging', 'guard', body);
+  await client.previewImageGeometryGuardDecision('staging', 'guard', {
+    gameId: 'game',
+    ...slot,
+  });
+  assert.deepEqual(requests[0], body);
+  assert.deepEqual(requests[1].geometryQualification, geometryQualification);
+  assert.equal(requests[1].symbolGridQuad[0].x, -10);
+});
+
 test('generated client previews, starts and reads durable symbol review operations', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

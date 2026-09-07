@@ -11,6 +11,7 @@ from game_predictor_api.domain.board_search import (
     BoardSearchQueryCell,
     BoardSearchScope,
 )
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
@@ -173,6 +174,79 @@ def test_incomplete_pending_predictions_do_not_create_search_evidence() -> None:
     )
 
     assert payload is None
+
+
+@pytest.mark.parametrize("missing", [(0, 5, 10), tuple(range(15))])
+def test_qualified_pending_projection_preserves_every_logical_position(missing) -> None:
+    item, board, source, job = _records(status="pending")
+    board.geometry_revision = 0
+    board.geometry_qualification = GeometryQualification(
+        "pending_partial", missing, True, "missing_pixels"
+    ).to_dict()
+    board.completeness_status = "pending_partial"
+    board.unavailable_cell_indices = list(missing)
+    observations = [
+        CellObservationModel(
+            row_index=index // 5,
+            column_index=index % 5,
+            prediction={"symbolCode": f"symbol-{index}", "alternatives": []},
+        )
+        for index in range(15)
+        if index not in missing
+    ]
+    payload = _payload_from_records(
+        item=item,
+        board=board,
+        source=source,
+        job=job,
+        observations=observations,
+        prediction_override=None,
+    )
+    assert payload is not None
+    assert payload.candidate.primary_symbol_codes == tuple(
+        None if i in missing else f"symbol-{i}" for i in range(15)
+    )
+    assert all(payload.candidate.alternative_symbol_codes[i] == () for i in missing)
+
+
+def test_qualified_revised_projection_never_reuses_original_pixel_predictions() -> None:
+    from game_predictor_api.storage.models import ImageBoardGeometryRevisionModel
+
+    item, board, source, job = _records(status="pending")
+    board.geometry_revision = 2
+    board.geometry_qualification = GeometryQualification(
+        "pending_partial", (0,), True, "missing_pixels"
+    ).to_dict()
+    board.completeness_status, board.unavailable_cell_indices = "pending_partial", [0]
+    revision = ImageBoardGeometryRevisionModel(
+        virtual_render_spec={
+            "cells": [
+                {"cellIndex": i, "renderSpecChecksumSha256": f"{i:064x}"} for i in range(1, 15)
+            ]
+        }
+    )
+    predictions = [
+        {
+            "rowIndex": i // 5,
+            "columnIndex": i % 5,
+            "symbolCode": "old",
+            "alternatives": [],
+            "virtualCell": {"renderSpecChecksumSha256": "f" * 64},
+        }
+        for i in range(15)
+    ]
+    predictions[7]["virtualCell"] = {"renderSpecChecksumSha256": f"{7:064x}"}
+    payload = _payload_from_records(
+        item=item,
+        board=board,
+        source=source,
+        job=job,
+        observations=(),
+        prediction_override=predictions,
+        geometry_revision=revision,
+    )
+    assert payload is not None
+    assert payload.candidate.primary_symbol_codes == (None,) * 7 + ("old",) + (None,) * 7
 
 
 def test_rebuild_writes_fast_documents_directly_from_candidates() -> None:

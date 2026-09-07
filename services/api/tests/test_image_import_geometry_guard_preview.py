@@ -6,6 +6,7 @@ import pytest
 from game_predictor_api.application.image_import_geometry_guard_preview import (
     render_image_geometry_guard_preview,
 )
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.jobs import JobError
 
 
@@ -65,3 +66,30 @@ def test_preview_rejects_geometry_outside_checksum_bound_source() -> None:
         )
 
     assert captured.value.code == "IMAGE_GEOMETRY_GUARD_PREVIEW_GEOMETRY_INVALID"
+
+
+@pytest.mark.parametrize("all_missing", [False, True])
+def test_qualified_preview_does_not_render_unavailable_pixels(monkeypatch, all_missing):
+    quad = tuple({"x": p["x"] - 30, "y": p["y"]} for p in _quad())
+    mask = tuple(range(15)) if all_missing else (0,)
+    qualification = GeometryQualification("pending_partial", mask, True, "missing_pixels")
+    original = cv2.warpPerspective
+    calls = []
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(cv2, "warpPerspective", counted)
+    width, height, cells = render_image_geometry_guard_preview(
+        source_content=_jpeg(),
+        symbol_grid_quad=quad,
+        proposed_symbol_grid_quad=None,
+        unavailable_cell_indices=mask,
+        geometry_qualification=qualification,
+    )
+    assert (width, height) == (300, 180)
+    missing = tuple(range(15)) if all_missing else (0, 5, 10)
+    assert tuple(cell.cell_index for cell in cells if cell.source_unavailable) == missing
+    assert len(calls) == 15 - len(missing)
+    assert all(cell.current_data_url is None for cell in cells if cell.source_unavailable)

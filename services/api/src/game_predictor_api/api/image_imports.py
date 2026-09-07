@@ -3,6 +3,7 @@
 import hashlib
 import json
 from collections.abc import Callable
+from io import BytesIO
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Literal, cast
 from uuid import UUID
@@ -1240,6 +1241,7 @@ def create_image_imports_router(
         upload_id: UUID,
         guard_job_id: UUID,
         payload: ImageGeometryGuardDecisionBatchCreate,
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
         guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
     ) -> ImageGeometryGuardDecisionBatchResponse:
         if guard_service is None:
@@ -1247,12 +1249,36 @@ def create_image_imports_router(
                 "IMAGE_GEOMETRY_GUARD_REVIEW_UNAVAILABLE",
                 "Pre-import geometry guard review is not configured.",
             )
+        dimensions = None
+        if any(item.geometry_qualification is not None for item in payload.decisions):
+            checksums = {item.source_checksum_sha256 for item in payload.decisions}
+            if len(checksums) != 1:
+                raise JobError(
+                    "IMAGE_GEOMETRY_GUARD_DECISION_SOURCE_MIXED",
+                    "One atomic decision command may target only one source image.",
+                )
+            content = _guard_source_content(
+                service, upload_id, payload.game_id, next(iter(checksums))
+            )
+            try:
+                with Image.open(BytesIO(content)) as source_image:
+                    width, height = source_image.size
+                    dimensions = (
+                        (height, width)
+                        if source_image.getexif().get(274, 1) in (5, 6, 7, 8)
+                        else (width, height)
+                    )
+            except (OSError, UnidentifiedImageError, ValueError) as error:
+                raise JobError(
+                    "IMAGE_GEOMETRY_GUARD_SOURCE_UNAVAILABLE", "The source header cannot be read."
+                ) from error
         decisions = guard_service.save_decisions(
             game_id=payload.game_id,
             browser_selection_id=upload_id,
             guard_job_id=guard_job_id,
             expected_guard_report_checksum_sha256=(payload.expected_guard_report_checksum_sha256),
             actor=payload.actor,
+            **({"source_dimensions": dimensions} if dimensions is not None else {}),
             commands=tuple(
                 ImageGeometryGuardDecisionCommand(
                     expected_decision_revision=item.expected_decision_revision,
@@ -1374,9 +1400,16 @@ def create_image_imports_router(
                 point.model_dump(mode="python", by_alias=True) for point in payload.symbol_grid_quad
             ),
             proposed_symbol_grid_quad=(
-                target.proposed_symbol_grid_quad if target is not None else board.symbol_grid_quad
+                target.proposed_symbol_grid_quad
+                if target is not None
+                else (None if board is None else board.symbol_grid_quad)
             ),
             unavailable_cell_indices=unavailable,
+            geometry_qualification=(
+                None
+                if payload.geometry_qualification is None
+                else payload.geometry_qualification.to_domain()
+            ),
         )
         return ImageGeometryGuardPreviewResponse(
             image_width=width,
@@ -1760,6 +1793,30 @@ def create_image_imports_router(
         )
 
     return router
+
+
+def _guard_source_content(
+    service: BrowserImageSelectionService, upload_id: UUID, game_id: UUID, checksum: str
+) -> bytes:
+    ready = service.bind_ready_game(upload_id, game_id)
+    source = next((item for item in ready.manifest.files if item.checksum_sha256 == checksum), None)
+    if source is None:
+        raise JobConflictError(
+            "IMAGE_GEOMETRY_GUARD_SOURCE_MANIFEST_DRIFT",
+            "The guard source is absent from the immutable staging manifest.",
+        )
+    path = (ready.upload.path / source.stored_file_name).resolve()
+    if not path.is_relative_to(ready.upload.path.resolve()) or not path.is_file():
+        raise JobError(
+            "IMAGE_GEOMETRY_GUARD_SOURCE_UNAVAILABLE", "The staged source is unavailable."
+        )
+    content = path.read_bytes()
+    if len(content) != source.size_bytes or hashlib.sha256(content).hexdigest() != checksum:
+        raise JobConflictError(
+            "IMAGE_GEOMETRY_GUARD_SOURCE_DRIFT",
+            "The staged guard source differs from its immutable manifest.",
+        )
+    return content
 
 
 __all__ = ["create_image_imports_router"]

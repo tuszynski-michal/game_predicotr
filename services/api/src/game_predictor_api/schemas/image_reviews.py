@@ -39,7 +39,7 @@ class OperationalImageReviewAlternativeResponse(ApiModel):
 
 
 class OperationalImageReviewCellResponse(ApiModel):
-    observation_id: UUID
+    observation_id: UUID | None
     cell_index: int = Field(ge=0, lt=IMAGE_REVIEW_CELL_COUNT)
     row_index: int = Field(ge=0, lt=3)
     column_index: int = Field(ge=0, lt=5)
@@ -326,7 +326,7 @@ def to_operational_item_response(
                 crop_sample_id=cell.crop_sample_id,
                 crop_checksum_sha256=cell.crop_checksum_sha256,
                 predicted_symbol_code=cell.predicted_symbol_code,
-                current_symbol_code=cell.current_symbol_code,
+                current_symbol_code=cell.current_symbol_code or "?",
                 confidence=cell.confidence,
                 alternatives=tuple(
                     OperationalImageReviewAlternativeResponse(

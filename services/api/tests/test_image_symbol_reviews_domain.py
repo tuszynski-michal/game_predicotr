@@ -441,6 +441,25 @@ def test_unreadable_crop_can_be_resolved_as_unknown_without_becoming_training_da
     )
 
 
+def test_qualified_revision_preserves_only_still_available_identical_pixels():
+    old = tuple(
+        approve_symbol_cell_review(review, active_symbol_codes=("cherry",)).review
+        for review in _mapped_reviews()
+    )
+    result = invalidate_symbol_cell_reviews_for_geometry(
+        existing_reviews=old,
+        current_cells=_current_cells(),
+        geometry_revision=1,
+        cropper_version="board-cell-crops-v19",
+        unavailable_cell_indices=(),
+        unchanged_available_indices=frozenset(range(1, 15)),
+    )
+    assert result[0].review_state is SymbolCellReviewState.PENDING  # reappearing cell
+    assert all(review.review_state is SymbolCellReviewState.APPROVED for review in result[1:])
+    assert all(review.approved_crop.geometry_revision == 1 for review in result[1:])
+    assert all(review.approved_crop.geometry_revision == 0 for review in old)
+
+
 def test_ordinary_label_decisions_keep_existing_unreadable_pixels_out_of_training() -> None:
     review = approve_symbol_cell_review(
         _mapped_reviews()[0],

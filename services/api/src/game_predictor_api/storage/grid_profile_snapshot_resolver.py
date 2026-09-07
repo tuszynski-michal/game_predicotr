@@ -9,13 +9,14 @@ from uuid import UUID
 from game_predictor_worker.images.page_geometry_registration import (
     build_verified_page_registration_profile,
 )
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.jobs import (
     GridProfileSnapshotResolver,
     _baseline_grid_profile_snapshot,
 )
+from game_predictor_api.domain.geometry_qualification import geometry_training_exclusion_reason
 from game_predictor_api.domain.grid_calibration import (
     GridProfileStatus,
     grid_profile_end_to_end_gate_is_current,
@@ -25,6 +26,9 @@ from game_predictor_api.storage.models import (
     GameGridProfileActivationModel,
     GridCalibrationProfileModel,
     GridGeometryCohortModel,
+    JobModel,
+    RecognizedBoardModel,
+    SourceImageModel,
 )
 
 
@@ -103,6 +107,54 @@ class SqlAlchemyGridProfileSnapshotResolver(GridProfileSnapshotResolver):
                     "GRID_PROFILE_ACTIVE_ANCHOR_DRIFT",
                     "The active 36-corner anchor set differs from its immutable cohort.",
                 )
+        # Qualification affects a new page-registration snapshot, never the
+        # frozen calibration/profile bytes or an already pinned job.
+        raw_anchors = registration_profile.get("anchors")
+        if isinstance(raw_anchors, list):
+            checksums = tuple(
+                anchor["sourceChecksumSha256"]
+                for anchor in raw_anchors
+                if isinstance(anchor, dict) and isinstance(anchor.get("sourceChecksumSha256"), str)
+            )
+            excluded: set[str] = set()
+            if checksums:
+                for checksum, board in self._session.execute(
+                    select(SourceImageModel.checksum_sha256, RecognizedBoardModel)
+                    .join(
+                        RecognizedBoardModel,
+                        RecognizedBoardModel.source_image_id == SourceImageModel.id,
+                    )
+                    .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                    .where(
+                        JobModel.game_id == game_id,
+                        SourceImageModel.checksum_sha256.in_(checksums),
+                        or_(
+                            RecognizedBoardModel.geometry_qualification.is_not(None),
+                            RecognizedBoardModel.completeness_status == "pending_partial",
+                        ),
+                    )
+                ):
+                    geometry = dict(board.board_geometry)
+                    if board.geometry_qualification is not None:
+                        geometry["geometryQualification"] = board.geometry_qualification
+                    if (
+                        geometry_training_exclusion_reason(
+                            geometry,
+                            completeness_status=board.completeness_status,
+                            unavailable_cell_indices=tuple(board.unavailable_cell_indices),
+                        )
+                        is not None
+                    ):
+                        excluded.add(checksum)
+            if excluded:
+                registration_profile = {
+                    **registration_profile,
+                    "anchors": [
+                        anchor
+                        for anchor in raw_anchors
+                        if anchor.get("sourceChecksumSha256") not in excluded
+                    ],
+                }
         value: dict[str, object] = {
             "profileId": str(profile.id),
             "profileVersion": f"grid-calibration-v{profile.profile_number}",

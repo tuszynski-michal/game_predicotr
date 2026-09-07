@@ -93,6 +93,29 @@ współrzędnych, nie powiększeniem bitmapy źródła lub renderera.
 
 ### Source geometry revision
 
+TASK-0508: migracja 0101 dodaje `image_symbol_review_cells.source_available`
+z domyślnym `true`, bez backfillu obrazów. Niedostępne pola zachowują swoje
+ID, poprzednią tożsamość cropa i FK audytu; predykaty list/liczników/operacji
+oraz kwalifikacji treningu wyłączają je z bieżącej projekcji. Kwalifikowana
+rewizja wymaga dokładnego zbioru dostępnych indeksów; 0 obrazów jest poprawne
+wyłącznie dla jawnej maski 15/15. Pierwotne observations pozostają niezmienne.
+
+Zapis virtual geometry wspólnie aktualizuje maskę, selektor, dostępne review
+cells i fast search document; odrzuca niekompletną synchronizację zamiast
+zapisać resolved deferred bez obrazów. Licznik otrzymuje deltę maksymalnie
+dziewięciu właścicieli sekwencji. Stan przed pierwszym backfillem powstaje
+tylko podczas zapisu jako `rebuilding`; preview czyta istniejącą proweniencję
+i nie mutuje bazy. Rozpoznawanie kwalifikowanych pending plansz jest dostępne
+przez jawny refresh również po zakończeniu importu.
+
+Kwalifikacja nie zmienia wersji automatycznego detektora. Ręczny override
+przenosi pełny source snapshot i maski do nowego importu; signed współrzędne
+są sprawdzane względem rzeczywistej kanonicznej orientacji EXIF. Guard v3
+i nowe source overrides są obsługiwane przez worker; nie wolno ich zapisać
+jako stary kontrakt bez kwalifikacji. Wykluczony slot odrzuca kotwicę całego
+źródła; pewne plansze mogą kalibrować niezależnie. Profile, snapshoty starych
+jobów i frozen crops nie są przepisywane.
+
 Jedynym właścicielem finalnych quadów geometrii wirtualnej jest
 `image_source_geometry_revisions.board_geometries[position_index]`.
 

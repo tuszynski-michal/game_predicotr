@@ -112,6 +112,9 @@ def test_override_repository_roundtrip_after_new_repository_instance() -> None:
         slot_qualifications=values,
     )
     session = Mock()
+    from contextlib import nullcontext
+
+    session.begin_nested.return_value = nullcontext()
     SqlAlchemyPageGeometryOverrideRepository(session).append(value)
     stored = session.add.call_args.args[0]
     # Exercise SQLAlchemy JSON serialization, not a shared in-memory domain object.
@@ -164,8 +167,9 @@ def test_guard_database_projection_roundtrips_complete_exclusion() -> None:
     assert result.unavailable_cell_indices == ()
 
 
-def test_old_grid_writer_rejects_new_metadata_before_loading_or_mutating() -> None:
+def test_legacy_grid_writer_cannot_silently_discard_qualification() -> None:
     service = Mock()
+    service.source_asset.return_value.asset_mode = "legacy_file"
     command = ImageGridReviewGeometryPreviewCommand.model_validate(
         {
             "expectedGeometryRevision": 0,
@@ -181,5 +185,5 @@ def test_old_grid_writer_rejects_new_metadata_before_loading_or_mutating() -> No
     )
     with pytest.raises(ImageGridReviewError) as error:
         _require_expected_source(service, uuid4(), uuid4(), command)
-    assert error.value.code == "IMAGE_GRID_REVIEW_QUALIFICATION_NOT_ENABLED"
-    assert service.mock_calls == []
+    assert error.value.code == "IMAGE_GRID_REVIEW_QUALIFICATION_UNSUPPORTED"
+    service.source_asset.assert_called_once()

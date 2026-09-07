@@ -2626,12 +2626,17 @@ def _virtual_current_cells_from_records(
     completeness_status = getattr(board, "completeness_status", "complete")
     unavailable = tuple(getattr(board, "unavailable_cell_indices", ()))
     available_indices = tuple(index for index in range(cell_count) if index not in set(unavailable))
-    if (completeness_status == "complete" and (unavailable or len(observations) != cell_count)) or (
+    qualified = getattr(board, "geometry_qualification", None) is not None
+    qualified_revision = qualified and board.geometry_revision > 0
+    if (
+        completeness_status == "complete"
+        and (unavailable or (not qualified_revision and len(observations) != cell_count))
+    ) or (
         completeness_status == "pending_partial"
         and (
-            not 1 <= len(unavailable) < cell_count
+            not 1 <= len(unavailable) <= (cell_count if qualified else cell_count - 1)
             or unavailable != tuple(sorted(set(unavailable)))
-            or len(observations) != len(available_indices)
+            or (not qualified_revision and len(observations) != len(available_indices))
         )
     ):
         raise ImageReviewConflictError(
@@ -2653,11 +2658,21 @@ def _virtual_current_cells_from_records(
         cell_count=cell_count,
     )
     cells: list[ImageReviewCell] = []
-    for ordinal, observation in enumerate(observations):
-        expected_index = observation.row_index * columns + observation.column_index
-        if (
-            expected_index != available_indices[ordinal]
-            or observation.asset_mode != "virtual_source"
+    observations_by_index = {
+        observation.row_index * columns + observation.column_index: observation
+        for observation in observations
+    }
+    if len(observations_by_index) != len(observations) or (
+        not qualified_revision and tuple(observations_by_index) != available_indices
+    ):
+        raise ImageReviewConflictError(
+            "IMAGE_REVIEW_CELL_ORDER_INVALID",
+            "The original observations are not the declared row-major sequence.",
+        )
+    for ordinal, expected_index in enumerate(available_indices):
+        observation = observations_by_index.get(expected_index)
+        if (observation is None and not qualified_revision) or (
+            observation is not None and observation.asset_mode != "virtual_source"
         ):
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_CELL_ORDER_INVALID",
@@ -2665,12 +2680,41 @@ def _virtual_current_cells_from_records(
             )
         prediction = (
             prediction_override[ordinal]
-            if prediction_override is not None and len(prediction_override) == len(observations)
-            else cast(Mapping[str, object], observation.prediction)
+            if prediction_override is not None
+            and len(prediction_override) == len(available_indices)
+            else {
+                "symbolCode": "?",
+                "confidence": 0.0,
+                "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
+            }
+            if qualified_revision
+            else cast(
+                Mapping[str, object], observation.prediction if observation is not None else {}
+            )
         )
-        symbol_code, confidence, alternatives = _validated_cell_prediction(prediction)
         revision_cell = revised_cells.get(expected_index)
+        if qualified_revision:
+            provenance = prediction.get("virtualCell")
+            if (
+                revision_cell is None
+                or not isinstance(provenance, Mapping)
+                or provenance.get("renderSpecChecksumSha256")
+                != revision_cell.get("renderSpecChecksumSha256")
+                or prediction.get("rowIndex") != expected_index // columns
+                or prediction.get("columnIndex") != expected_index % columns
+            ):
+                prediction = {
+                    "symbolCode": "?",
+                    "confidence": 0.0,
+                    "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
+                }
+        symbol_code, confidence, alternatives = _validated_cell_prediction(prediction)
         if revision_cell is None:
+            if observation is None or qualified_revision:
+                raise ImageReviewConflictError(
+                    "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
+                    "The qualified current cell has no render provenance.",
+                )
             sample_id = hashlib.sha256(
                 canonical_json_bytes(
                     {
@@ -2722,10 +2766,10 @@ def _virtual_current_cells_from_records(
             )
         cells.append(
             ImageReviewCell(
-                observation_id=observation.id,
+                observation_id=observation.id if observation is not None else None,
                 cell_index=expected_index,
-                row_index=observation.row_index,
-                column_index=observation.column_index,
+                row_index=expected_index // columns,
+                column_index=expected_index % columns,
                 crop_sample_id=sample_id,
                 crop_relative_path=None,
                 crop_checksum_sha256=crop_checksum,
@@ -2770,7 +2814,10 @@ def _virtual_geometry_cells(
             "The current virtual geometry revision is incomplete.",
         )
     raw_cells = geometry_revision.virtual_render_spec.get("cells")
-    if not isinstance(raw_cells, list | tuple) or len(raw_cells) != cell_count:
+    expected_indices = set(range(cell_count))
+    if getattr(board, "geometry_qualification", None) is not None:
+        expected_indices -= set(board.unavailable_cell_indices)
+    if not isinstance(raw_cells, list | tuple) or len(raw_cells) != len(expected_indices):
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
             "The current virtual geometry revision does not contain every cell render.",
@@ -2783,7 +2830,7 @@ def _virtual_geometry_cells(
                 "A current virtual geometry cell is invalid.",
             )
         cells[cast(int, raw["cellIndex"])] = raw
-    if set(cells) != set(range(cell_count)):
+    if set(cells) != expected_indices:
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
             "The current virtual geometry cells are not complete row-major renders.",

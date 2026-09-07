@@ -116,3 +116,25 @@ def qualification_from_geometry(
         exclude_from_geometry_training=completeness_status == "pending_partial",
         exclusion_reason="missing_pixels" if completeness_status == "pending_partial" else None,
     )
+
+
+def geometry_training_exclusion_reason(
+    geometry: Mapping[str, object],
+    *,
+    completeness_status: str = "complete",
+    unavailable_cell_indices: tuple[int, ...] = (),
+) -> GeometryExclusionReason | None:
+    """Eligibility for a new cohort; never edits an already frozen profile."""
+    qualification = qualification_from_geometry(
+        geometry,
+        completeness_status=completeness_status,
+        unavailable_cell_indices=unavailable_cell_indices,
+    )
+    return qualification.exclusion_reason
+
+
+def page_anchor_exclusion_reason(raw: object, *, expected_board_count: int = 9) -> str | None:
+    qualifications = parse_slot_qualifications(raw, expected_board_count=expected_board_count)
+    if qualifications is not None and any(q.exclude_from_geometry_training for q in qualifications):
+        return "incomplete_anchor"
+    return None

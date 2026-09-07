@@ -134,7 +134,13 @@ def create_guard_decision(
         raise ImageGeometryGuardDecisionError(
             "Unavailable cell indices must be unique, sorted and between 0 and 14."
         )
-    quad = _quad(symbol_grid_quad)
+    quad = _quad(
+        symbol_grid_quad,
+        signed=(
+            geometry_qualification is not None
+            and geometry_qualification.completeness_status == "pending_partial"
+        ),
+    )
     if disposition is ImageGeometryGuardDisposition.CORRECTED_FULL:
         if quad is None or unavailable:
             raise ImageGeometryGuardDecisionError(
@@ -263,6 +269,8 @@ def payload_checksum(value: object) -> str:
 
 def _quad(
     value: tuple[dict[str, int], ...] | None,
+    *,
+    signed: bool = False,
 ) -> tuple[dict[str, int], ...] | None:
     if value is None:
         return None
@@ -278,10 +286,11 @@ def _quad(
             or isinstance(x, bool)
             or not isinstance(y, int)
             or isinstance(y, bool)
-            or x < 0
-            or y < 0
+            or (not signed and (x < 0 or y < 0))
         ):
-            raise ImageGeometryGuardDecisionError("Grid coordinates must be non-negative integers.")
+            raise ImageGeometryGuardDecisionError(
+                "Grid coordinates must be integers in the permitted source space."
+            )
         points.append({"x": x, "y": y})
     return tuple(points)
 

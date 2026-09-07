@@ -2,8 +2,10 @@ import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 from uuid import UUID
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from game_predictor_api.api.image_imports import create_image_imports_router
@@ -11,12 +13,13 @@ from game_predictor_api.application.image_import_geometry_guard import (
     ImageGeometryGuardQueue,
     ImageGeometryGuardReportReconstructionInput,
 )
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardBoardContext,
     ImageGeometryGuardBoardTarget,
     ImageGeometryGuardResolutionManifest,
 )
-from game_predictor_api.domain.jobs import Job, JobType, create_job
+from game_predictor_api.domain.jobs import Job, JobError, JobType, create_job
 from PIL import Image
 
 GAME_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -408,3 +411,77 @@ def test_guard_decision_preview_accepts_ready_board_from_same_review_source(
 
     assert response.status_code == 200
     assert len(response.json()["cells"]) == 15
+
+
+@pytest.mark.parametrize("tamper", (None, "bytes", "size"))
+def test_qualified_save_uses_verified_exif_header_and_never_saves_tampered_source(tmp_path, tamper):
+    path = tmp_path / "source.jpg"
+    exif = Image.Exif()
+    exif[274] = 6
+    Image.new("RGB", (300, 180)).save(path, exif=exif)
+    original = path.read_bytes()
+    checksum = hashlib.sha256(original).hexdigest()
+    if tamper == "bytes":
+        path.write_bytes(original[:-1] + bytes([original[-1] ^ 1]))
+    browser = SimpleNamespace(
+        bind_ready_game=lambda *_: SimpleNamespace(
+            upload=SimpleNamespace(path=tmp_path),
+            manifest=SimpleNamespace(
+                files=(
+                    SimpleNamespace(
+                        checksum_sha256=checksum,
+                        relative_path="seq_1-9.jpg",
+                        stored_file_name=path.name,
+                        size_bytes=len(original) + (1 if tamper == "size" else 0),
+                    ),
+                )
+            ),
+        )
+    )
+    guard = Mock()
+    guard.save_decisions.return_value = ()
+    app = FastAPI()
+    app.include_router(
+        create_image_imports_router(
+            _unused,
+            lambda: browser,
+            _unused,
+            _unused,
+            _unused,
+            _unused,
+            lambda: guard,
+            tmp_path,
+        )
+    )
+    payload = dict(
+        gameId=str(GAME_ID),
+        expectedGuardReportChecksumSha256="a" * 64,
+        actor="operator",
+        decisions=[
+            dict(
+                sourceChecksumSha256=checksum,
+                positionIndex=0,
+                sequenceNumber=1,
+                disposition="partial",
+                unavailableCellIndices=[0, 5, 10],
+                symbolGridQuad=[
+                    {"x": x, "y": y} for x, y in ((-10, 10), (150, 10), (150, 200), (-10, 200))
+                ],
+                geometryQualification=GeometryQualification(
+                    "pending_partial", (0, 5, 10), True, "missing_pixels"
+                ).to_dict(),
+            )
+        ],
+    )
+    client = TestClient(app)
+    url = f"/admin/image-imports/browser-selections/{UPLOAD_ID}/geometry-guards/{JOB_ID}/decisions"
+    if tamper:
+        with pytest.raises(JobError):
+            client.post(url, json=payload)
+        guard.save_decisions.assert_not_called()
+    else:
+        response = client.post(url, json=payload)
+        assert response.status_code == 201, response.text
+        assert guard.save_decisions.call_args.kwargs["source_dimensions"] == (180, 300)
+        command = guard.save_decisions.call_args.kwargs["commands"][0]
+        assert command.symbol_grid_quad[0]["x"] == -10

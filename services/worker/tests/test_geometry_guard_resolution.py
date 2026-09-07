@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardBoardTarget,
     ImageGeometryGuardDisposition,
@@ -38,7 +39,7 @@ def _quad() -> tuple[dict[str, int], ...]:
     )
 
 
-def _fixture(tmp_path: Path):  # type: ignore[no-untyped-def]
+def _fixture(tmp_path: Path, *, qualification=None, quad=None):  # type: ignore[no-untyped-def]
     original = ManagedOriginal(
         checksum_sha256=SOURCE_CHECKSUM,
         source_relative_path="seq_20530-20538.jpg",
@@ -67,10 +68,13 @@ def _fixture(tmp_path: Path):  # type: ignore[no-untyped-def]
         target=target,
         revision=1,
         disposition=ImageGeometryGuardDisposition.PARTIAL,
-        symbol_grid_quad=_quad(),
-        unavailable_cell_indices=(10, 11, 12, 13, 14),
+        symbol_grid_quad=_quad() if quad is None else quad,
+        unavailable_cell_indices=(10, 11, 12, 13, 14)
+        if qualification is None
+        else qualification.unavailable_cell_indices,
         reason=None,
         actor="local-admin",
+        geometry_qualification=qualification,
     )
     payload = resolution_manifest_payload(
         game_id=GAME_ID,
@@ -143,3 +147,22 @@ def test_loader_rejects_tampered_decision(tmp_path: Path) -> None:
         )
 
     assert captured.value.code == "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE"
+
+
+def test_guard_v3_reads_signed_all_missing_slot_with_exact_qualification(tmp_path):
+    qualification = GeometryQualification(
+        "pending_partial", tuple(range(15)), True, "missing_pixels"
+    )
+    quad = tuple({"x": point["x"] - 150, "y": point["y"]} for point in _quad())
+    job, original, _ = _fixture(tmp_path, qualification=qualification, quad=quad)
+    result = load_geometry_guard_resolutions(
+        artifact_root=tmp_path,
+        job=job,
+        originals=(original,),
+        source_manifest_checksum_sha256=SOURCE_MANIFEST_CHECKSUM,
+        page_geometry_manifest_checksum_sha256=PAGE_MANIFEST_CHECKSUM,
+    )
+    decision = result.for_source(SOURCE_CHECKSUM)[2]
+    assert decision.symbol_grid_quad == quad
+    assert decision.geometry_qualification == qualification
+    assert decision.sequence_number == 20532

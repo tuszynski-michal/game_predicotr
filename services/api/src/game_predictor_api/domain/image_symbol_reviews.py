@@ -470,6 +470,7 @@ def map_current_symbol_cell_reviews(
     cropper_version: str,
     assignment_source: SymbolCellAssignmentSource,
     topology: BoardTopology = LEGACY_IMAGE_BOARD_TOPOLOGY,
+    unavailable_cell_indices: tuple[int, ...] | None = None,
 ) -> tuple[SymbolCellReview, ...]:
     """Map current operational crops into topology-bound cell-review state.
 
@@ -480,7 +481,9 @@ def map_current_symbol_cell_reviews(
     different crop identities.
     """
 
-    _validate_complete_cells(cells, topology=topology)
+    _validate_complete_cells(
+        cells, topology=topology, unavailable_cell_indices=unavailable_cell_indices
+    )
     if geometry_revision < 0:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_GEOMETRY_REVISION_INVALID",
@@ -713,13 +716,30 @@ def invalidate_symbol_cell_reviews_for_geometry(
     geometry_revision: int,
     cropper_version: str,
     topology: BoardTopology = LEGACY_IMAGE_BOARD_TOPOLOGY,
+    unavailable_cell_indices: tuple[int, ...] | None = None,
+    unchanged_available_indices: frozenset[int] = frozenset(),
 ) -> tuple[SymbolCellReview, ...]:
     """Apply new crop identities while preserving only safe logical decisions."""
 
-    _validate_complete_symbol_cell_reviews(existing_reviews, topology=topology)
+    qualified = unavailable_cell_indices is not None
+    if not qualified:
+        _validate_complete_symbol_cell_reviews(existing_reviews, topology=topology)
+    elif len({review.cell_index for review in existing_reviews}) != len(existing_reviews) or any(
+        not 0 <= review.cell_index < topology.cell_count for review in existing_reviews
+    ):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
+            "Qualified source history has invalid or repeated logical cells.",
+        )
     previous_geometry_revisions = {review.crop.geometry_revision for review in existing_reviews}
-    if len(previous_geometry_revisions) != 1 or geometry_revision != (
-        next(iter(previous_geometry_revisions)) + 1
+    if (
+        not qualified
+        and (
+            len(previous_geometry_revisions) != 1
+            or geometry_revision != (next(iter(previous_geometry_revisions)) + 1)
+        )
+    ) or (
+        qualified and any(revision >= geometry_revision for revision in previous_geometry_revisions)
     ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_GEOMETRY_REVISION_INVALID",
@@ -731,11 +751,41 @@ def invalidate_symbol_cell_reviews_for_geometry(
         cropper_version=cropper_version,
         assignment_source=SymbolCellAssignmentSource.MODEL,
         topology=topology,
+        unavailable_cell_indices=unavailable_cell_indices,
     )
     by_index = {review.cell_index: review for review in existing_reviews}
     updated: list[SymbolCellReview] = []
     for current in mapped:
-        previous = by_index[current.cell_index]
+        previous = by_index.get(current.cell_index)
+        if previous is None:
+            updated.append(current)
+            continue
+        if qualified:
+            if (
+                current.cell_index in unchanged_available_indices
+                and current.crop.crop_checksum_sha256 == previous.crop.crop_checksum_sha256
+                and previous.quality_issue is not SymbolCellQualityIssue.GRID_ISSUE
+            ):
+                updated.append(
+                    replace(
+                        previous,
+                        crop=current.crop,
+                        approved_crop=(
+                            SymbolCellApprovedCropIdentity.from_crop(current.crop)
+                            if previous.review_state is SymbolCellReviewState.APPROVED
+                            else previous.approved_crop
+                        ),
+                        revision=previous.revision + 1,
+                    )
+                )
+                continue
+            old_approval = previous.approved_crop
+            if old_approval is None and previous.review_state is SymbolCellReviewState.APPROVED:
+                old_approval = SymbolCellApprovedCropIdentity.from_crop(previous.crop)
+            updated.append(
+                replace(current, approved_crop=old_approval, revision=previous.revision + 1)
+            )
+            continue
         if previous.quality_issue is SymbolCellQualityIssue.GRID_ISSUE:
             updated.append(replace(current, revision=previous.revision + 1))
             continue
@@ -939,6 +989,7 @@ def _validate_complete_cells(
     cells: Sequence[ImageReviewCell],
     *,
     topology: BoardTopology,
+    unavailable_cell_indices: tuple[int, ...] | None = None,
 ) -> None:
     indexes = sorted(cell.cell_index for cell in cells)
     try:
@@ -951,7 +1002,15 @@ def _validate_complete_cells(
         coordinates_are_valid = True
     except BoardTopologyError:
         coordinates_are_valid = False
-    if indexes != list(range(topology.cell_count)) or not coordinates_are_valid:
+    missing = set(unavailable_cell_indices or ())
+    if any(type(index) is not int or not 0 <= index < topology.cell_count for index in missing):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE", "Invalid unavailable cell mask."
+        )
+    if (
+        indexes != [index for index in range(topology.cell_count) if index not in missing]
+        or not coordinates_are_valid
+    ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
             "Current symbol-cell mapping requires every configured row-major index exactly once.",

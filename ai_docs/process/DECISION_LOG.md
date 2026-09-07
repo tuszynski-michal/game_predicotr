@@ -8,6 +8,33 @@ last_updated: 2026-09-07
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-373 — Niedostępna komórka zachowuje historię, nie bieżący obraz
+
+- **Status:** accepted (TASK-0508, plan 0505–0509).
+- **Date:** 2026-09-07.
+- **Decision:** `source_available` jest addytywną projekcją dostępności
+  bieżącej komórki. Rewizja źródła i kwalifikacja slotu pozostają właścicielem
+  maski. Nie usuwamy rekordów z historycznymi FK ani zamrożonych kohort.
+- **Reads:** listy, liczniki (również szeroki D-370), mutacje, trening i
+  backfill pomijają niedostępne obrazy. Slot pozostaje nawet przy 15/15
+  brakujących polach; nie tworzymy obrazu ani inferencji brakujących pikseli.
+  Nowe widoczne pola nie wymagają fikcyjnego observation ID.
+- **Revisions:** kwalifikowany zapis synchronizuje geometrię i dostępne pola
+  w jednej transakcji. Błąd projekcji przerywa także materializację deferred.
+  Te same wciąż dostępne piksele zachowują decyzję; zmienione lub ponownie
+  dostępne pola wracają do pending. Stare zatwierdzenia pozostają w historii.
+- **Concurrency:** initializer blokuje grę przed sekwencjami, ale nie blokuje
+  istniejącego state przed sekwencją/planszą. Nie resetuje backfillu i nie
+  deklaruje `ready`. Replay źródła wymaga wszystkich slotów i jednej wspólnej
+  historycznej rewizji/checksumy, bez ponownego renderu.
+- **Training:** niepełne i ręcznie wykluczone sloty odpadają z nowych kohort
+  geometrii; wykluczony slot dyskwalifikuje kotwicę strony. Nowe snapshoty
+  filtrują kotwice profilu według obecnych wykluczeń, bez zmiany profilu
+  i starych jobów. To nie odtrenowanie aktywnego modelu.
+- **Deployment:** migracje 0100 i 0101 poprzedzają uruchomienie nowego kodu;
+  nie zostały wykonane w implementacji. Legacy assets odmawiają nowej
+  kwalifikacji zamiast ją ignorować. Brak zmian detektora, OCR i auto-cropa.
+
 ## D-372 — Szkic nie zastępuje rewizji, a pionowe ucięcie wymaga poprawy źródła
 
 - **Status:** accepted

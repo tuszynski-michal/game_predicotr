@@ -12,6 +12,7 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
 )
 from game_predictor_api.domain.board_topology import BoardTopology as DomainBoardTopology
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_geometry_v2 import SourcePoint, SourceQuad
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.domain.symbol_model_snapshots import (
@@ -1726,6 +1727,116 @@ def test_structured_lattice_v3_renders_virtual_crops_from_its_symbol_grid(
         == (structured_lattice_active_config_payload()["localLatticeVersion"])
     )
     assert not list((artifact_root / "data").rglob("*.png"))
+
+
+@pytest.mark.parametrize("all_missing", [False, True])
+def test_qualified_manual_page_keeps_all_slots_without_detector_or_missing_pixel_inference(
+    tmp_path,
+    monkeypatch,
+    all_missing,
+):
+    artifact_root = tmp_path / "artifacts"
+    relative, _ = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / relative
+    checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    with Image.open(source_path) as image:
+        width, height = image.size
+    qualifications, quads = [], []
+    for position in range(9):
+        column, row = position % 3, position // 3
+        left, top = column * width // 3 + 5, row * height // 3 + 5
+        right, bottom = left + width // 4, top + height // 4
+        if position == 0:
+            left = -width // 20
+        quads.append(
+            [
+                {"x": left, "y": top},
+                {"x": right, "y": top},
+                {"x": right, "y": bottom},
+                {"x": left, "y": bottom},
+            ]
+        )
+        missing = tuple(range(15)) if all_missing else (0, 5, 10) if position == 0 else ()
+        qualifications.append(
+            GeometryQualification(
+                "pending_partial" if missing else "complete",
+                missing,
+                bool(missing),
+                "missing_pixels" if missing else None,
+            ).to_dict()
+        )
+    snapshot = _candidate_snapshot()
+    options = dict(
+        repository_root=Path.cwd(),
+        symbol_model=snapshot,
+        attested_sequence_ranges={checksum: (1, 9)},
+        board_cell_processing=board_cell_processing_snapshot(
+            cell_output_size=snapshot.input_size,
+            topology=BoardCellTopology(
+                rows=3, columns=5, rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04"
+            ),
+        ),
+        geometry_rollout=_structured_active_lattice_rollout(),
+        page_geometry_manifest={
+            checksum: {
+                "status": "registered",
+                "quads": quads,
+                "registrationVersion": "manual-page-geometry-override-v1",
+                "slotQualifications": qualifications,
+            }
+        },
+    )
+    suite = ProductionImageStageAdapterSuite(artifact_root, **options)
+
+    def unexpected(*_args, **_kwargs):
+        raise AssertionError("Manual geometry must not call the detector or v3 estimator")
+
+    monkeypatch.setattr(suite, "_structured_engine", unexpected)
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.evaluate_structured_lattice_shadow_v3",
+        unexpected,
+    )
+    base = dict(
+        job_id=uuid4(),
+        file_execution_key="e" * 64,
+        source_checksum_sha256=checksum,
+        source_relative_path=relative,
+        pipeline_fingerprint="d" * 64,
+        attested_sequence_range=(1, 9),
+    )
+    results = {}
+    for stage, execute in (
+        ("normalization", suite.normalization),
+        ("board_detection", suite.board_detection),
+        ("board_cell_geometry", suite.board_cell_geometry),
+        ("board_crops", suite.board_crops),
+        ("sequence_ocr", suite.sequence_ocr),
+    ):
+        context = ImageStageContext(**base, previous_results=results)
+        results[stage] = dict(execute(context))
+        validate_stage_payload(stage, results[stage], context)
+    crops = results["board_crops"]["boards"]
+    assert len(crops) == 9
+    assert sum(len(board["cells"]) for board in crops) == (0 if all_missing else 132)
+    assert [board["geometryQualification"] for board in crops] == qualifications
+    restarted = ProductionImageStageAdapterSuite(artifact_root, **options)
+    context = ImageStageContext(**base, previous_results=results)
+    assert restarted.board_crops(context) == results["board_crops"]
+    symbols = suite._unclassified_symbol_boards(crops)
+    validate_stage_payload(
+        "symbol_inference",
+        {
+            "boards": symbols,
+            "modelVersion": "test",
+            "modelManifestChecksumSha256": "e" * 64,
+            "inferenceMode": "unclassified",
+        },
+        context,
+    )
+    assert len(symbols) == 9 and all("geometryQualification" in board for board in symbols)
+    if all_missing:
+        monkeypatch.setattr(suite, "_symbol_adapter", unexpected)
+        assert len(suite._infer_symbol_boards(context, crops)) == 9
 
 
 def test_structured_default_renders_one_virtual_batch_and_restarts_without_png(

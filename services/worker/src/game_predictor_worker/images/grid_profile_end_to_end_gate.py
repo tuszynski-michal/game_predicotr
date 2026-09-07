@@ -133,10 +133,26 @@ def run_grid_profile_gate_source(
             for index in range(15)
             if unavailable_valid and index not in set(unavailable)
         }
+        raw_qualification = board.get("geometryQualification")
+        qualified_partial = False
+        if raw_qualification is not None:
+            from game_predictor_api.domain.geometry_qualification import (
+                GeometryQualification,
+                GeometryQualificationError,
+            )
+
+            try:
+                qualification = GeometryQualification.from_dict(raw_qualification)
+                qualified_partial = (
+                    qualification.completeness_status == "pending_partial"
+                    and qualification.unavailable_cell_indices == unavailable
+                )
+            except GeometryQualificationError:
+                topology_violations += 1
         explicit_partial = (
             board.get("completenessStatus") == "pending_partial"
             and unavailable_valid
-            and 1 <= len(unavailable) <= 14
+            and 1 <= len(unavailable) <= (15 if qualified_partial else 14)
             and identities == available_identities
             and len(cells) == 15 - len(unavailable)
         )

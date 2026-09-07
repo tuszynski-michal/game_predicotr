@@ -24,6 +24,7 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
 )
 from game_predictor_api.domain.board_topology import BoardTopology as DomainBoardTopology
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_geometry_v2 import (
     AttestedSequenceRange,
     DirectCellRenderConfiguration,
@@ -300,12 +301,18 @@ def _apply_geometry_guard_resolutions(
                 "A resolved board sequence differs from structured source geometry.",
             )
         seen.add(position)
-        common = {
+        common: dict[str, object] = {
             "guardDecisionChecksumSha256": resolution.decision_checksum_sha256,
             "guardResolutionDisposition": resolution.disposition,
             "unavailableCellIndices": list(resolution.unavailable_cell_indices),
         }
+        if resolution.geometry_qualification is not None:
+            common["geometryQualification"] = resolution.geometry_qualification.to_dict()
+            common["completenessStatus"] = resolution.geometry_qualification.completeness_status
         if resolution.disposition == "rejected":
+            # Rejection withdraws this slot's geometry, not its immutable history.
+            board.pop("geometryQualification", None)
+            board.pop("completenessStatus", None)
             board.update(
                 {
                     **common,
@@ -319,6 +326,14 @@ def _apply_geometry_guard_resolutions(
             )
             reasons.add("operator_rejected")
         else:
+            if (
+                board.get("geometryQualification") is not None
+                and resolution.geometry_qualification is None
+            ):
+                raise ImagePipelineExecutionError(
+                    "IMAGE_GEOMETRY_GUARD_QUALIFICATION_REQUIRED",
+                    "A correction cannot discard an existing slot qualification.",
+                )
             quad = [
                 dict(point)
                 for point in cast(tuple[dict[str, int], ...], resolution.symbol_grid_quad)
@@ -1358,6 +1373,8 @@ class ProductionImageStageAdapterSuite:
                 "positionIndex": board.get("positionIndex"),
                 "sequenceNumber": board.get("sequenceNumber"),
             }
+            if "geometryQualification" in board:
+                common["geometryQualification"] = board["geometryQualification"]
             if resolution_disposition in {"corrected_full", "partial"}:
                 common.update(
                     {
@@ -1412,7 +1429,11 @@ class ProductionImageStageAdapterSuite:
             "configurationFingerprintSha256": _text(structured, "configChecksumSha256"),
             "gridColumns": self._board_topology.columns,
             "gridRows": self._board_topology.rows,
-            "processingVersion": self._geometry_rollout.geometry_engine_version,
+            "processingVersion": (
+                _text(structured, "engineVersion")
+                if structured.get("qualificationPolicy") is not None
+                else self._geometry_rollout.geometry_engine_version
+            ),
             "structuredGeometry": structured,
             "topologyRulesVersionId": self._board_topology.rules_version_id,
         }
@@ -1622,8 +1643,15 @@ class ProductionImageStageAdapterSuite:
                 )
             by_position.setdefault(board_slot, []).append(render)
         boards: list[dict[str, object]] = []
-        for position in sorted(by_position):
-            board_renders = sorted(by_position[position], key=lambda value: value.cell_index)
+        active_positions = sorted(
+            _integer(board, "positionIndex")
+            for board in _boards(geometry_stage)
+            if board.get("status") == "verified"
+        )
+        for position in active_positions:
+            board_renders = sorted(
+                by_position.get(position, ()), key=lambda value: value.cell_index
+            )
             structured_board = next(
                 _mapping(value, "structured board")
                 for value in _sequence(structured.get("boards"), "structuredGeometry.boards")
@@ -1664,6 +1692,11 @@ class ProductionImageStageAdapterSuite:
                         cast(Sequence[int], structured_board.get("unavailableCellIndices", []))
                     ),
                     "topologyRulesVersionId": self._board_topology.rules_version_id,
+                    **(
+                        {"geometryQualification": structured_board["geometryQualification"]}
+                        if "geometryQualification" in structured_board
+                        else {}
+                    ),
                 }
             )
         return {
@@ -1770,8 +1803,17 @@ class ProductionImageStageAdapterSuite:
                 topology_rules_version_id=UUID(topology_rules_version),
                 geometry_revision=geometry_revision,
                 geometry_version=geometry_version,
-                engine_kind=GeometryEngineKind.STRUCTURED_OPENCV_V1,
+                engine_kind=(
+                    GeometryEngineKind.MANUAL_V1
+                    if "geometryQualification" in board
+                    else GeometryEngineKind.STRUCTURED_OPENCV_V1
+                ),
                 symbol_grid_quad=final_quad,
+                geometry_qualification=(
+                    GeometryQualification.from_dict(board["geometryQualification"])
+                    if "geometryQualification" in board
+                    else None
+                ),
             )
             cells.extend(
                 cell
@@ -1877,6 +1919,32 @@ class ProductionImageStageAdapterSuite:
             start=context.attested_sequence_range[0],
             end=context.attested_sequence_range[1],
         )
+        manual_entry = self._page_geometry_manifest.get(context.source_checksum_sha256)
+        if isinstance(manual_entry, Mapping) and "slotQualifications" in manual_entry:
+            from .qualified_manual_geometry import apply_qualified_page_override
+
+            base = manual_source_geometry_result(
+                StructuredGeometryInitializationRequest.for_frame(
+                    frame,
+                    topology=topology,
+                    topology_rules_version_id=UUID(self._board_topology.rules_version_id),
+                    attested_range=attested,
+                )
+            ).to_payload()
+            base["rolloutMode"] = self._geometry_rollout.geometry_mode.value
+            return (
+                apply_qualified_page_override(
+                    base,
+                    manual_entry,
+                    width=frame.source.width,
+                    height=frame.source.height,
+                    start=attested.start,
+                    count=attested.board_count,
+                    topology=topology,
+                ),
+                None,
+                None,
+            )
         pinned_initial_quads: tuple[SourceQuad, ...] | None = None
         pinned_geometry_checksum: str | None = None
         geometry_profile: Mapping[str, object] | None = self._page_registration_profile or None
@@ -2173,6 +2241,11 @@ class ProductionImageStageAdapterSuite:
                 ],
                 "completenessStatus": str(board.get("completenessStatus", "complete")),
                 "positionIndex": _integer(board, "positionIndex"),
+                **(
+                    {"geometryQualification": board["geometryQualification"]}
+                    if "geometryQualification" in board
+                    else {}
+                ),
                 "unavailableCellIndices": list(
                     cast(Sequence[int], board.get("unavailableCellIndices", []))
                 ),
@@ -2218,7 +2291,12 @@ class ProductionImageStageAdapterSuite:
                 else:
                     images.append(self._artifacts.load_rgb(_text(cell, "cropRelativePath")))
                 cell_metadata.append((position, cell))
-        if not images and not self._board_cell_processing:
+        accounted_empty = bool(cropped_boards) and all(
+            isinstance(board.get("geometryQualification"), Mapping)
+            and board.get("unavailableCellIndices") == list(range(self._board_topology.cell_count))
+            for board in cropped_boards
+        )
+        if not images and not self._board_cell_processing and not accounted_empty:
             raise ImagePipelineExecutionError(
                 "IMAGE_SYMBOL_INPUT_EMPTY",
                 "The image pipeline produced no cell crops for symbol inference.",
@@ -2245,7 +2323,9 @@ class ProductionImageStageAdapterSuite:
             )
         else:
             predictions = ()
-        by_position: dict[int, list[dict[str, object]]] = {}
+        by_position: dict[int, list[dict[str, object]]] = {
+            _integer(board, "positionIndex"): [] for board in cropped_boards
+        }
         for (position, cell), prediction in zip(cell_metadata, predictions, strict=True):
             by_position.setdefault(position, []).append(
                 {
@@ -2257,6 +2337,15 @@ class ProductionImageStageAdapterSuite:
         return [
             {
                 "cells": by_position[position],
+                **next(
+                    (
+                        {"geometryQualification": board["geometryQualification"]}
+                        for board in cropped_boards
+                        if _integer(board, "positionIndex") == position
+                        and "geometryQualification" in board
+                    ),
+                    {},
+                ),
                 "completenessStatus": next(
                     str(board.get("completenessStatus", "complete"))
                     for board in cropped_boards

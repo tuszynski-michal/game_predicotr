@@ -4,11 +4,22 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
+from io import BytesIO
 from typing import cast
 
 import cv2
 import numpy as np
+from PIL import Image, ImageOps, UnidentifiedImageError
 
+from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.image_geometry_v2 import (
+    ImageGeometryContractError,
+    SourceImageBounds,
+    SourcePoint,
+    SourceQuad,
+    resolve_manual_geometry_qualification,
+)
 from game_predictor_api.domain.jobs import JobError
 
 CELL_WIDTH = 96
@@ -31,7 +42,12 @@ def render_image_geometry_guard_preview(
     symbol_grid_quad: tuple[dict[str, int], ...],
     proposed_symbol_grid_quad: object | None,
     unavailable_cell_indices: tuple[int, ...],
+    geometry_qualification: GeometryQualification | None = None,
 ) -> tuple[int, int, tuple[ImageGeometryGuardCellPreview, ...]]:
+    if geometry_qualification is not None:
+        return _qualified_preview(
+            source_content, symbol_grid_quad, unavailable_cell_indices, geometry_qualification
+        )
     encoded = np.frombuffer(source_content, dtype=np.uint8)
     image = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
     if image is None:
@@ -58,6 +74,62 @@ def render_image_geometry_guard_preview(
             )
         )
     return image_width, image_height, tuple(cells)
+
+
+def _qualified_preview(
+    content: bytes,
+    points: tuple[dict[str, int], ...],
+    unavailable: tuple[int, ...],
+    qualification: GeometryQualification,
+) -> tuple[int, int, tuple[ImageGeometryGuardCellPreview, ...]]:
+    try:
+        with Image.open(BytesIO(content)) as source:
+            image = cv2.cvtColor(
+                np.asarray(ImageOps.exif_transpose(source).convert("RGB")), cv2.COLOR_RGB2BGR
+            )
+        height, width = image.shape[:2]
+        quad = SourceQuad(
+            cast(
+                tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                tuple(SourcePoint(x=p["x"], y=p["y"]) for p in points),
+            )
+        )
+        topology = BoardTopology(3, 5)
+        if unavailable != qualification.unavailable_cell_indices:
+            raise JobError("IMAGE_GEOMETRY_GUARD_DECISION_INVALID", "Preview masks disagree.")
+        resolved = resolve_manual_geometry_qualification(
+            quad,
+            source=SourceImageBounds(width, height),
+            topology=topology,
+            qualification=qualification,
+        )
+    except (OSError, UnidentifiedImageError) as error:
+        raise JobError(
+            "IMAGE_GEOMETRY_GUARD_SOURCE_UNAVAILABLE", "The staged source cannot be decoded."
+        ) from error
+    except ImageGeometryContractError as error:
+        raise JobError(error.code, str(error)) from error
+    cells: list[ImageGeometryGuardCellPreview] = []
+    destination = np.asarray(
+        ((0, 0), (CELL_WIDTH - 1, 0), (CELL_WIDTH - 1, CELL_HEIGHT - 1), (0, CELL_HEIGHT - 1)),
+        dtype=np.float32,
+    )
+    for index in range(15):
+        if index in resolved.unavailable_cell_indices:
+            cells.append(ImageGeometryGuardCellPreview(index, True, None, None))
+            continue
+        cell = quad.cell_quad(topology=topology, row_index=index // 5, column_index=index % 5)
+        source_points = np.asarray([(point.x, point.y) for point in cell.corners], dtype=np.float32)
+        transform = cv2.getPerspectiveTransform(source_points, destination)
+        pixels = cv2.warpPerspective(
+            image,
+            transform,
+            (CELL_WIDTH, CELL_HEIGHT),
+            flags=cv2.INTER_CUBIC,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
+        cells.append(ImageGeometryGuardCellPreview(index, False, _jpeg_data_url(pixels), None))
+    return width, height, tuple(cells)
 
 
 def _render_grid(image: np.ndarray, quad: tuple[dict[str, int], ...]) -> tuple[np.ndarray, ...]:

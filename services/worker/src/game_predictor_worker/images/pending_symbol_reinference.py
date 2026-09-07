@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import cast
@@ -17,6 +17,10 @@ from uuid import UUID
 
 import cv2
 import numpy as np
+from game_predictor_api.domain.geometry_qualification import (
+    GeometryQualification,
+    GeometryQualificationError,
+)
 from game_predictor_api.domain.jobs import Job, JobStatus
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
@@ -40,7 +44,7 @@ from game_predictor_api.storage.models import (
 )
 from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_worker.images.normalization import (
@@ -155,6 +159,7 @@ class PendingSymbolReinferenceHandler:
                     snapshot=snapshot,
                     adapter=adapter,
                     source_loader=source_loader,
+                    geometry_qualification=board.geometry_qualification,
                 )
                 with self._session_factory() as session, session.begin():
                     locked = session.scalar(
@@ -162,7 +167,18 @@ class PendingSymbolReinferenceHandler:
                         .where(ImageReviewItemModel.id == item.id)
                         .with_for_update()
                     )
-                    if locked is None or locked.status != "pending":
+                    current_board = session.scalar(
+                        select(RecognizedBoardModel)
+                        .where(RecognizedBoardModel.id == board.id)
+                        .with_for_update()
+                    )
+                    if (
+                        locked is None
+                        or locked.status != "pending"
+                        or current_board is None
+                        or current_board.geometry_revision != board.geometry_revision
+                        or current_board.geometry_qualification != board.geometry_qualification
+                    ):
                         skipped += 1
                     else:
                         existing = session.scalar(
@@ -241,7 +257,13 @@ class PendingSymbolReinferenceHandler:
                     )
                     .where(
                         JobModel.game_id == game_id,
-                        JobModel.status == JobStatus.WAITING_FOR_REVIEW,
+                        or_(
+                            JobModel.status == JobStatus.WAITING_FOR_REVIEW,
+                            and_(
+                                JobModel.status == JobStatus.COMPLETED,
+                                RecognizedBoardModel.geometry_qualification.is_not(None),
+                            ),
+                        ),
                         ImageReviewItemModel.status == "pending",
                     )
                     .order_by(
@@ -263,6 +285,7 @@ class PendingSymbolReinferenceHandler:
         snapshot: SymbolModelJobSnapshot,
         adapter: LocalSymbolOnnxAdapter,
         source_loader: CanonicalSourceLoader,
+        geometry_qualification: Mapping[str, object] | None = None,
     ) -> tuple[list[dict[str, object]], str]:
         with self._session_factory() as session:
             observations = session.scalars(
@@ -278,7 +301,10 @@ class PendingSymbolReinferenceHandler:
                         ImageBoardGeometryRevisionModel.revision == geometry_revision,
                     )
                 )
-        if len(observations) != 15:
+        expected_indices = _available_indices(geometry_qualification)
+        if len(observations) != len(expected_indices) and not (
+            geometry_qualification is not None and revised is not None
+        ):
             raise JobHandlerError(
                 "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
                 "A pending board does not contain 15 immutable crops.",
@@ -292,15 +318,20 @@ class PendingSymbolReinferenceHandler:
                 revised=revised,
                 source=source,
                 source_loader=source_loader,
+                expected_indices=expected_indices,
             )
         else:
             crops = self._legacy_crops(observations=observations, revised=revised)
         crops.sort(key=lambda crop: (crop.row_index, crop.column_index))
-        if len(crops) != 15:
+        if [(crop.row_index, crop.column_index) for crop in crops] != [
+            (index // 5, index % 5) for index in expected_indices
+        ]:
             raise JobHandlerError(
                 "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
                 "A pending board does not contain 15 crops.",
             )
+        if not crops:
+            return [], hashlib.sha256(b"[]").hexdigest()
         tensors: list[NDArray[np.float32]] = []
         checksums: list[str] = []
         for crop in crops:
@@ -346,7 +377,7 @@ class PendingSymbolReinferenceHandler:
     def _legacy_crops(
         self,
         *,
-        observations: list[CellObservationModel],
+        observations: Sequence[CellObservationModel],
         revised: ImageBoardGeometryRevisionModel | None,
     ) -> list[_ReinferenceCrop]:
         raw_crops: list[tuple[str, str, int, int]] = []
@@ -410,12 +441,17 @@ class PendingSymbolReinferenceHandler:
     def _render_virtual_crops(
         self,
         *,
-        observations: list[CellObservationModel],
+        observations: Sequence[CellObservationModel],
         revised: ImageBoardGeometryRevisionModel | None,
         source: SourceImageModel,
         source_loader: CanonicalSourceLoader,
+        expected_indices: tuple[int, ...] = tuple(range(15)),
     ) -> list[_ReinferenceCrop]:
-        records = _virtual_records(observations=observations, revised=revised)
+        records = _virtual_records(
+            observations=observations, revised=revised, expected_indices=expected_indices
+        )
+        if not records:
+            return []
         source_path = _managed_source_path(self._artifact_root, source.checksum_sha256)
         try:
             frame = source_loader.load(
@@ -467,8 +503,9 @@ def _managed_source_path(root: Path, checksum_sha256: str) -> Path:
 
 def _virtual_records(
     *,
-    observations: list[CellObservationModel],
+    observations: Sequence[CellObservationModel],
     revised: ImageBoardGeometryRevisionModel | None,
+    expected_indices: tuple[int, ...] = tuple(range(15)),
 ) -> list[_PersistedVirtualCell]:
     raw_records: list[Mapping[str, object]] = []
     extractor_version: str | None = None
@@ -478,7 +515,7 @@ def _virtual_records(
         if (
             revised.asset_mode != "virtual_source"
             or not isinstance(raw_cells, list)
-            or len(raw_cells) != 15
+            or len(raw_cells) != len(expected_indices)
         ):
             raise JobHandlerError(
                 "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
@@ -565,14 +602,26 @@ def _virtual_records(
             )
         )
     records.sort(key=lambda record: record.cell_index)
-    if [record.cell_index for record in records] != list(range(15)) or [
+    if [record.cell_index for record in records] != list(expected_indices) or [
         (record.row_index, record.column_index) for record in records
-    ] != [(index // 5, index % 5) for index in range(15)]:
+    ] != [(index // 5, index % 5) for index in expected_indices]:
         raise JobHandlerError(
             "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
             "Pending virtual cells are not a complete row-major 3 by 5 grid.",
         )
     return records
+
+
+def _available_indices(raw: Mapping[str, object] | None) -> tuple[int, ...]:
+    if raw is None:
+        return tuple(range(15))
+    try:
+        qualification = GeometryQualification.from_dict(raw)
+    except GeometryQualificationError as error:
+        raise JobHandlerError("IMAGE_GEOMETRY_QUALIFICATION_INVALID", str(error)) from error
+    return tuple(
+        index for index in range(15) if index not in qualification.unavailable_cell_indices
+    )
 
 
 def _checkpoint_payload(*, processed: int, skipped: int) -> dict[str, object]:

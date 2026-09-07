@@ -3011,10 +3011,10 @@ export type ImageGeometryGuardDecisionItemCreate = {
    */
   symbolGridQuad?:
     | [
-        PageGeometryPoint,
-        PageGeometryPoint,
-        PageGeometryPoint,
-        PageGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
       ]
     | null;
   /**
@@ -3075,7 +3075,7 @@ export type ImageGeometryGuardDecisionResponse = {
   /**
    * Symbolgridquad
    */
-  symbolGridQuad: Array<PageGeometryPoint> | null;
+  symbolGridQuad: Array<ManualSourceGeometryPoint> | null;
   /**
    * Unavailablecellindices
    */
@@ -3108,6 +3108,7 @@ export type ImageGeometryGuardPreviewCreate = {
    * Gameid
    */
   gameId: string;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Positionindex
    */
@@ -3120,10 +3121,10 @@ export type ImageGeometryGuardPreviewCreate = {
    * Symbolgridquad
    */
   symbolGridQuad: [
-    PageGeometryPoint,
-    PageGeometryPoint,
-    PageGeometryPoint,
-    PageGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Unavailablecellindices
@@ -3711,10 +3712,10 @@ export type ImageGridReviewGeometryCommand = {
    * Source-image outer corners in row-major winding
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedgeometryrevision
@@ -3761,10 +3762,10 @@ export type ImageGridReviewGeometryPreviewCommand = {
    * Source-image outer corners in row-major winding
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedgeometryrevision
@@ -3832,10 +3833,10 @@ export type ImageGridReviewGeometryRevisionResponse = {
    * Corners
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Correctedby
@@ -3905,10 +3906,10 @@ export type ImageGridReviewItemResponse = {
    */
   analysisQuad?:
     | [
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
       ]
     | null;
   /**
@@ -3928,10 +3929,10 @@ export type ImageGridReviewItemResponse = {
    */
   boardFrameQuad?:
     | [
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
       ]
     | null;
   /**
@@ -4032,10 +4033,10 @@ export type ImageGridReviewItemResponse = {
    */
   symbolGridQuad?:
     | [
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
       ]
     | null;
 };
@@ -4189,10 +4190,10 @@ export type ImageGridReviewSourceGeometryTargetCommand = {
    * Source-image outer corners in row-major winding
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedgeometryrevision
@@ -6624,7 +6625,7 @@ export type OperationalImageReviewCellResponse = {
   /**
    * Observationid
    */
-  observationId: string;
+  observationId: string | null;
   /**
    * Predictedsymbolcode
    */
@@ -7133,20 +7134,6 @@ export type PageGeometryManifestJobPayload = {
    * Relativepath
    */
   relativePath: string;
-};
-
-/**
- * PageGeometryPoint
- */
-export type PageGeometryPoint = {
-  /**
-   * X
-   */
-  x: number;
-  /**
-   * Y
-   */
-  y: number;
 };
 
 /**

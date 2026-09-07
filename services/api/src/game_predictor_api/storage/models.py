@@ -2440,6 +2440,9 @@ class ImageSymbolReviewCellModel(Base):
     """Current human-review state for one checksum-bound symbol crop."""
 
     __tablename__ = "image_symbol_review_cells"
+    source_available: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
     __table_args__ = (
         CheckConstraint(
             "sequence_number > 0 AND cell_index BETWEEN 0 AND 14 "

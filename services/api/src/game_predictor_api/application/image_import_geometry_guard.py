@@ -12,7 +12,15 @@ from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
 from uuid import UUID, uuid4
 
+from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.image_geometry_v2 import (
+    ImageGeometryContractError,
+    SourceImageBounds,
+    SourcePoint,
+    SourceQuad,
+    resolve_manual_geometry_qualification,
+)
 from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardBoardContext,
     ImageGeometryGuardBoardTarget,
@@ -172,6 +180,7 @@ class ImageImportGeometryGuardService:
         expected_guard_report_checksum_sha256: str,
         commands: tuple[ImageGeometryGuardDecisionCommand, ...],
         actor: str,
+        source_dimensions: tuple[int, int] | None = None,
     ) -> tuple[ImageGeometryGuardDecision, ...]:
         queue = self.queue(
             game_id=game_id,
@@ -225,6 +234,34 @@ class ImageImportGeometryGuardService:
         replayed: list[ImageGeometryGuardDecision] = []
         try:
             for command in commands:
+                if command.geometry_qualification is not None:
+                    if source_dimensions is None or command.symbol_grid_quad is None:
+                        raise JobError(
+                            "IMAGE_GEOMETRY_GUARD_SOURCE_BOUNDS_REQUIRED",
+                            "Qualified decisions require checksum-bound source dimensions.",
+                        )
+                    try:
+                        qualification = resolve_manual_geometry_qualification(
+                            SourceQuad(
+                                cast(
+                                    tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                                    tuple(
+                                        SourcePoint(x=p["x"], y=p["y"])
+                                        for p in command.symbol_grid_quad
+                                    ),
+                                )
+                            ),
+                            source=SourceImageBounds(*source_dimensions),
+                            topology=BoardTopology(3, 5),
+                            qualification=command.geometry_qualification,
+                        )
+                    except ImageGeometryContractError as error:
+                        raise JobError(error.code, str(error)) from error
+                    command = replace(
+                        command,
+                        geometry_qualification=qualification,
+                        unavailable_cell_indices=qualification.unavailable_cell_indices,
+                    )
                 key = (command.source_checksum_sha256, command.position_index)
                 target = targets.get(key)
                 if target is None or target.sequence_number != command.sequence_number:
@@ -431,11 +468,6 @@ class ImageImportGeometryGuardService:
             raise JobConflictError(
                 "IMAGE_GEOMETRY_GUARD_MANIFEST_INCOMPATIBLE",
                 "The sealed geometry guard manifest checksum changed.",
-            )
-        if payload.get("schemaVersion") == "ImageGeometryGuardResolutionManifestV3":
-            raise JobConflictError(
-                "IMAGE_GEOMETRY_GUARD_QUALIFICATION_NOT_ENABLED",
-                "Qualified decisions require the partial-geometry renderer and training rollout.",
             )
         return {
             "id": str(value.id),
@@ -732,17 +764,14 @@ def _resolution_payload(queue: ImageGeometryGuardQueue) -> dict[str, object]:
         for item in queue.decisions
         if (item.source_checksum_sha256, item.position_index) in board_keys
     )
-    return cast(
-        dict[str, object],
-        resolution_manifest_payload(
-            game_id=queue.game_id,
-            browser_selection_id=queue.browser_selection_id,
-            guard_job_id=queue.guard_job_id,
-            guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
-            source_manifest_checksum_sha256=queue.source_manifest_checksum_sha256,
-            page_geometry_manifest_checksum_sha256=queue.page_geometry_manifest_checksum_sha256,
-            decisions=decisions,
-        ),
+    return resolution_manifest_payload(
+        game_id=queue.game_id,
+        browser_selection_id=queue.browser_selection_id,
+        guard_job_id=queue.guard_job_id,
+        guard_report_checksum_sha256=queue.guard_report_checksum_sha256,
+        source_manifest_checksum_sha256=queue.source_manifest_checksum_sha256,
+        page_geometry_manifest_checksum_sha256=queue.page_geometry_manifest_checksum_sha256,
+        decisions=decisions,
     )
 
 

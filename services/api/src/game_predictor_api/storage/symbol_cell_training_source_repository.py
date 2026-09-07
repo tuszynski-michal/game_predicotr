@@ -104,6 +104,8 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                    AND d.sequence_number = c.sequence_number
                    AND d.review_item_id = c.review_item_id
                   WHERE c.game_id = :game_id
+                    AND c.source_available = true
+                    AND c.geometry_revision = rb.geometry_revision
                     AND c.review_state = 'approved'
                     AND c.quality_issue IS NULL
                     AND c.approved_crop_sample_id = c.crop_sample_id
@@ -182,6 +184,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                    AND d.review_item_id = c.review_item_id
                   LEFT JOIN symbols s ON s.id = c.assigned_symbol_id
                   WHERE c.game_id = :game_id
+                    AND c.source_available = true
                 )
                 SELECT
                   count(*) FILTER (

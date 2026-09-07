@@ -10,6 +10,10 @@ from pathlib import Path, PurePosixPath
 from typing import Never, cast
 from uuid import UUID
 
+from game_predictor_api.domain.geometry_qualification import (
+    GeometryQualification,
+    GeometryQualificationError,
+)
 from game_predictor_api.domain.image_import_geometry_guard import payload_checksum
 from game_predictor_api.domain.jobs import Job
 
@@ -30,6 +34,7 @@ class GeometryGuardBoardResolution:
     symbol_grid_quad: tuple[dict[str, int], ...] | None
     unavailable_cell_indices: tuple[int, ...]
     decision_checksum_sha256: str
+    geometry_qualification: GeometryQualification | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +111,7 @@ def load_geometry_guard_resolutions(
         not in {
             "ImageGeometryGuardResolutionManifestV1",
             "ImageGeometryGuardResolutionManifestV2",
+            "ImageGeometryGuardResolutionManifestV3",
         }
         or value.get("gameId") != str(job.game_id)
         or value.get("browserSelectionId") != job.input_payload.get("source_selection_id")
@@ -131,6 +137,8 @@ def load_geometry_guard_resolutions(
             browser_selection_id=cast(str, job.input_payload.get("source_selection_id")),
             guard_job_id=guard_job_id,
             guard_report_checksum_sha256=expected_report_checksum,
+            qualified_manifest=value.get("schemaVersion")
+            == "ImageGeometryGuardResolutionManifestV3",
         )
         if isinstance(item, Mapping)
         else _invalid("A geometry guard resolution decision is invalid.")
@@ -156,6 +164,7 @@ def _decision(
     browser_selection_id: str,
     guard_job_id: UUID,
     guard_report_checksum_sha256: str,
+    qualified_manifest: bool = False,
 ) -> GeometryGuardBoardResolution:
     checksum = _sha256(value.get("sourceChecksumSha256"), "source checksum")
     original = originals.get(checksum)
@@ -174,11 +183,32 @@ def _decision(
     if disposition not in {"corrected_full", "partial", "rejected"}:
         _invalid("A geometry guard decision has an unsupported disposition.")
     unavailable = _unavailable(value.get("unavailableCellIndices"))
-    quad = _quad(value.get("symbolGridQuad"))
+    raw_qualification = value.get("geometryQualification")
+    if raw_qualification is not None and not qualified_manifest:
+        _invalid("An old guard manifest cannot carry new qualification semantics.")
+    try:
+        qualification = (
+            None
+            if raw_qualification is None
+            else GeometryQualification.from_dict(raw_qualification)
+        )
+    except GeometryQualificationError as error:
+        _invalid(str(error))
+    if qualification is not None and (
+        disposition == "rejected"
+        or qualification.unavailable_cell_indices != unavailable
+        or (qualification.completeness_status == "pending_partial") != (disposition == "partial")
+    ):
+        _invalid("The guard qualification conflicts with its disposition or mask.")
+    quad = _quad(
+        value.get("symbolGridQuad"), signed=qualification is not None and disposition == "partial"
+    )
     if disposition == "corrected_full" and (quad is None or unavailable):
         _invalid("A full correction must provide all 15 cells.")
-    if disposition == "partial" and (quad is None or not 1 <= len(unavailable) <= 14):
-        _invalid("A partial correction must identify between 1 and 14 unavailable cells.")
+    if disposition == "partial" and (
+        quad is None or not 1 <= len(unavailable) <= (15 if qualification is not None else 14)
+    ):
+        _invalid("A partial correction must identify a supported unavailable-cell mask.")
     if disposition == "rejected" and (quad is not None or unavailable):
         _invalid("A rejected board cannot carry crop geometry.")
     revision = _integer(value.get("revision"), "decision revision", minimum=1)
@@ -207,6 +237,11 @@ def _decision(
             "sourceRelativePath": original.source_relative_path,
             "symbolGridQuad": quad,
             "unavailableCellIndices": list(unavailable),
+            **(
+                {"geometryQualification": qualification.to_dict()}
+                if qualification is not None
+                else {}
+            ),
         }
     )
     if decision_checksum != expected_decision_checksum:
@@ -220,10 +255,11 @@ def _decision(
         symbol_grid_quad=quad,
         unavailable_cell_indices=unavailable,
         decision_checksum_sha256=decision_checksum,
+        geometry_qualification=qualification,
     )
 
 
-def _quad(value: object) -> tuple[dict[str, int], ...] | None:
+def _quad(value: object, *, signed: bool = False) -> tuple[dict[str, int], ...] | None:
     if value is None:
         return None
     if not isinstance(value, Sequence) or isinstance(value, str | bytes) or len(value) != 4:
@@ -232,8 +268,9 @@ def _quad(value: object) -> tuple[dict[str, int], ...] | None:
     for raw in value:
         if not isinstance(raw, Mapping) or set(raw) != {"x", "y"}:
             _invalid("A resolved symbol-grid point is invalid.")
-        x = _integer(raw.get("x"), "grid x", minimum=0)
-        y = _integer(raw.get("y"), "grid y", minimum=0)
+        # Source-dependent -W..2W bounds are checked by the shared renderer.
+        x = _integer(raw.get("x"), "grid x", minimum=-(2**31) if signed else 0)
+        y = _integer(raw.get("y"), "grid y", minimum=-(2**31) if signed else 0)
         points.append({"x": x, "y": y})
     return tuple(points)
 

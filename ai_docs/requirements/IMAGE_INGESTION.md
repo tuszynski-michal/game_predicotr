@@ -1505,20 +1505,25 @@ i numerów z nazwy źródła; nie można pominąć niewidocznej planszy.
 - Brak samej ozdobnej ramki nie wymusza niepełności. Widoczne symbole nadal
   podlegają osobnemu zatwierdzaniu i kwalifikacji do treningu symboli.
 
-W TASK-0505 zapis/odczyt metadanych jest fundamentem, nie aktywacją całego
-workflow. Nowe decyzje guard zamykają `ImageGeometryGuardResolutionManifestV3`.
-Stary importer odmawia jego uruchomienia; stary preflight nie może zignorować
-`slotQualifications`, a dotychczasowy zapis Grid Review odmawia przyjęcia
-nowej kwalifikacji. Jawne błędy `*_QUALIFICATION_NOT_ENABLED` chronią dane do
-integracji renderowania, kotwic i reconciliacji w TASK-0506–0508.
+TASK-0508 domyka fundament TASK-0505: guard v3, kwalifikowane page overrides
+i ręczne rewizje virtual geometry mają wspólną interpretację maski. Dostępne
+symbole są renderowane i rozpoznawane; brakujące nie otrzymują sztucznych
+obrazów. Slot i numer planszy pozostają także przy 15/15 niedostępnych polach.
+Legacy assets odmawiają nowej kwalifikacji zamiast zapisywać ją częściowo.
 Historyczne żądania i manifesty bez nowych pól działają bez zmian.
+
+Nowe kohorty geometrii i kotwice wykluczają niepełne oraz ręcznie wykluczone
+sloty. Nie oznacza to odtrenowania aktywnego modelu ani automatycznego
+wykluczenia widocznych, niezależnie zatwierdzonych symboli. Zmienione piksele
+nie dziedziczą zatwierdzeń; historia pozostaje dostępna. Nowy kod wymaga
+migracji 0100 i 0101 przed startem usług; implementacja nie wykonuje reimportu.
 
 TASK-0507: edytory przechowują lokalnie szkice współrzędnych i kwalifikacji,
 bez obrazów, związane ze źródłem, kontekstem i bazową rewizją. Nawigacja
 nie zapisuje decyzji API. Jawny zapis obejmuje zmienione sloty; reset wraca
 do zapisanej bazy, a konflikt rewizji wymaga rozliczenia szkicu. Potwierdzenie
-zapisu nie usuwa nowszego szkicu drugiej karty. Kontrolki nie zdejmują bramek
-konsumentów: odbiór pełnego przepływu pozostaje w TASK-0508–0509.
+zapisu nie usuwa nowszego szkicu drugiej karty. Integracja konsumentów jest
+częścią TASK-0508, a odbiór całego przepływu pozostaje w TASK-0509.
 
 Operator potwierdził, że rzeczywiste niepełne źródła mogą mieć ucięty lewy
 lub prawy bok. Brak góry albo dołu planszy oznacza błąd wcześniejszego

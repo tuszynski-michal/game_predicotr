@@ -303,6 +303,9 @@ def create_image_grid_reviews_router(
         corners = tuple(ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners)
         if source.asset_mode == "virtual_source":
             virtual_preview = virtual_service.preview(
+                geometry_qualification=payload.geometry_qualification.to_domain()
+                if payload.geometry_qualification is not None
+                else None,
                 game_id=game_id,
                 import_job_id=import_job_id,
                 review_item_id=review_item_id,
@@ -375,6 +378,9 @@ def create_image_grid_reviews_router(
         corners = tuple(ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners)
         if source.asset_mode == "virtual_source":
             result = virtual_service.save(
+                geometry_qualification=payload.geometry_qualification.to_domain()
+                if payload.geometry_qualification is not None
+                else None,
                 game_id=game_id,
                 import_job_id=import_job_id,
                 review_item_id=review_item_id,
@@ -428,11 +434,6 @@ def create_image_grid_reviews_router(
         ],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> ImageGridReviewSourceGeometryResponse:
-        if any(target.geometry_qualification is not None for target in payload.targets):
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_QUALIFICATION_NOT_ENABLED",
-                "Qualified source revisions require the partial-geometry reconciliation rollout.",
-            )
         target_ids = tuple(
             target.pending_geometry_id or target.review_item_id for target in payload.targets
         )
@@ -466,16 +467,17 @@ def _require_expected_source(
     review_item_id: UUID,
     payload: ImageGridReviewGeometryPreviewCommand,
 ) -> ImageGridReviewSourceAsset:
-    if payload.geometry_qualification is not None:
-        raise ImageGridReviewError(
-            "IMAGE_GRID_REVIEW_QUALIFICATION_NOT_ENABLED",
-            "Qualified source revisions require the partial-geometry reconciliation rollout.",
-        )
     source = service.source_asset(
         game_id=game_id,
         review_item_id=review_item_id,
         expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
     )
+    if payload.geometry_qualification is not None and source.asset_mode != "virtual_source":
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_QUALIFICATION_UNSUPPORTED",
+            "Qualified geometry requires a managed virtual source; "
+            "legacy assets remain read-compatible.",
+        )
     if (
         source.source_width != payload.expected_source_width
         or source.source_height != payload.expected_source_height

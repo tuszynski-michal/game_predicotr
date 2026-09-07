@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.grid_calibration import GridCalibrationRepository
+from game_predictor_api.domain.geometry_qualification import geometry_training_exclusion_reason
 from game_predictor_api.domain.grid_calibration import (
     GeometryCohort,
     GeometryCohortDiagnostics,
@@ -163,6 +164,10 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
                 corrected += 1
             else:
                 accepted += 1
+            exclusion = _training_exclusion(board)
+            if exclusion is not None:
+                reasons[exclusion] += 1
+                continue
             detected = (
                 None
                 if stage is None
@@ -336,6 +341,8 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
         ).all()
         output: list[VerifiedGeometrySample] = []
         for review, board, source, job, stage, _document in rows:
+            if _training_exclusion(board) is not None:
+                continue
             run_id = _uuid(job.input_payload.get("image_selection_run_id"))
             detected = _detected_quad(stage.result_payload, board.position_index)
             final = _quad(
@@ -440,6 +447,17 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             )
             + 1
         )
+
+
+def _training_exclusion(board: RecognizedBoardModel) -> str | None:
+    geometry = dict(board.board_geometry)
+    if board.geometry_qualification is not None:
+        geometry["geometryQualification"] = board.geometry_qualification
+    return geometry_training_exclusion_reason(
+        geometry,
+        completeness_status=board.completeness_status,
+        unavailable_cell_indices=tuple(board.unavailable_cell_indices or ()),
+    )
 
 
 def _detected_quad(payload: Mapping[str, object], position: int) -> NormalizedQuad | None:

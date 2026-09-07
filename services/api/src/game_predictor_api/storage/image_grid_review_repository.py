@@ -342,9 +342,7 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
         current_items = tuple(_row_to_item(row) for row in rows)
         expected_by_id = {target.review_item_id: target for target in targets}
-        current_ids = {
-            _require_current_review_item_id(item) for item in current_items
-        }
+        current_ids = {_require_current_review_item_id(item) for item in current_items}
         if set(expected_by_id) != current_ids:
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
@@ -507,6 +505,7 @@ def _current_grid_issue_exists() -> Any:
             cell.recognized_board_id == RecognizedBoardModel.id,
             cell.geometry_revision == RecognizedBoardModel.geometry_revision,
             cell.quality_issue == "grid_issue",
+            cell.source_available.is_(True),
         )
     )
 

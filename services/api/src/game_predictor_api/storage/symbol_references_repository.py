@@ -276,6 +276,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                 review_cell.game_id == game_id,
                 review_cell.assigned_symbol_id == symbol_id,
                 review_cell.review_state == "approved",
+                review_cell.source_available.is_(True),
                 review_cell.quality_issue.is_(None),
                 review_cell.approved_crop_sample_id == review_cell.crop_sample_id,
                 review_cell.approved_crop_checksum_sha256 == review_cell.crop_checksum_sha256,

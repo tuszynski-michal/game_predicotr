@@ -328,6 +328,37 @@ def test_structured_crops_allow_exact_partial_mask_and_rejected_slot() -> None:
     assert validate_stage_payload("board_crops", payload, context) == payload
 
 
+@pytest.mark.parametrize("different_mask", [False, True])
+def test_symbol_stage_rejects_same_count_with_different_cell_identity(different_mask: bool) -> None:
+    crop = _virtual_board(0)
+    crop.update(completenessStatus="pending_partial", unavailableCellIndices=[0])
+    crop["cells"] = cast(list[dict[str, object]], crop["cells"])[1:]
+    symbols = {
+        "positionIndex": 0,
+        "completenessStatus": "pending_partial",
+        "unavailableCellIndices": [14] if different_mask else [0],
+        "cells": _symbol_cells()[:14],
+    }
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256=CHECKSUM,
+        source_relative_path="seq_1-9.jpg",
+        pipeline_fingerprint=PIPELINE,
+        previous_results={"board_crops": {"boards": [crop]}},
+    )
+    from game_predictor_worker.images.pipeline_execution import require_matching_symbol_cells
+
+    with pytest.raises(ImagePipelineExecutionError):
+        require_matching_symbol_cells(crop, symbols)
+    with pytest.raises(ImagePipelineExecutionError):
+        validate_stage_payload(
+            "symbol_inference",
+            {"boards": [symbols], "modelVersion": "test", "modelManifestChecksumSha256": "e" * 64},
+            context,
+        )
+
+
 def _adapters() -> list[FakeAdapter]:
     return [
         FakeAdapter(

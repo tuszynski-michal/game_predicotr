@@ -12,6 +12,8 @@ from enum import StrEnum
 from typing import cast
 from uuid import UUID
 
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
+
 IMAGE_REVIEW_CELL_COUNT = 15
 MAX_IMAGE_REVIEW_ALTERNATIVES = 4
 MAX_IMAGE_REVIEW_PAGE_SIZE = 50
@@ -68,7 +70,7 @@ class ImageReviewAlternative:
 
 @dataclass(frozen=True, slots=True)
 class ImageReviewCell:
-    observation_id: UUID
+    observation_id: UUID | None
     cell_index: int
     row_index: int
     column_index: int
@@ -271,6 +273,7 @@ class ValidatedImageReviewGeometryCommand:
     expected_resolution_revision: int
     corrected_by: str
     command_sha256: str
+    geometry_qualification: GeometryQualification | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -359,6 +362,7 @@ def validate_image_review_geometry_command(
     expected_geometry_revision: int,
     expected_resolution_revision: int,
     corrected_by: str,
+    geometry_qualification: GeometryQualification | None = None,
 ) -> ValidatedImageReviewGeometryCommand:
     actor = corrected_by.strip()
     if not actor or len(actor) > 200:
@@ -404,18 +408,21 @@ def validate_image_review_geometry_command(
             "Corners must be ordered top-left, top-right, bottom-right, bottom-left "
             "and form a convex board with non-trivial area.",
         )
-    command_value = {
+    command_value: dict[str, object] = {
         "correctedBy": actor,
         "corners": [{"x": point.x, "y": point.y} for point in quad],
         "expectedGeometryRevision": expected_geometry_revision,
         "expectedResolutionRevision": expected_resolution_revision,
     }
+    if geometry_qualification is not None:
+        command_value["geometryQualification"] = geometry_qualification.to_dict()
     return ValidatedImageReviewGeometryCommand(
         corners=quad,
         expected_geometry_revision=expected_geometry_revision,
         expected_resolution_revision=expected_resolution_revision,
         corrected_by=actor,
         command_sha256=hashlib.sha256(canonical_image_review_bytes(command_value)).hexdigest(),
+        geometry_qualification=geometry_qualification,
     )
 
 

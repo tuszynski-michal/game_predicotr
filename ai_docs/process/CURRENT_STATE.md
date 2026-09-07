@@ -6,6 +6,25 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0508 — częściowe rewizje, projekcja symboli i ochrona uczenia
+
+- Guard v3 oraz kwalifikowane ręczne override'y działają w nowych ścieżkach
+  importu bez zmiany automatycznego detektora. Pełna→partial→partial oraz
+  15/15 zachowują sloty i historię komórek; render dotyczy tylko dostępnych pól.
+- Addytywna migracja 0101 dodaje source_available: historyczne FK pozostają,
+  niedostępne obrazy nie wchodzą do list/liczników/treningu. Kwalifikowany
+  zapis przerywa transakcję przy niekompletnej projekcji także nowych slotów.
+- Wykluczenia dotyczą nowych kohort i kotwic, również snapshotu tworzonego
+  ze starego profilu. Nie odtrenowują aktywnego modelu. Niezmienione dostępne
+  piksele zachowują decyzję; nowe obrazy wracają do pending.
+- Audyt gpt-6-astra high: zaakceptowany po poprawie atomowości materializacji,
+  kolejności locków, scope replay i signed HTTP guard. 175 testów API,
+  96 workera, 54 klienta passed; mypy 33 źródeł, oba web typecheck i Ruff
+  passed. Końcowy odbiór integracyjny/buildy pozostają w TASK-0509.
+- **0100/0101 nie zastosowano**, bez restartów, cleanupu, zmian jobów i zdjęć.
+  Legacy asset writer jawnie nie obsługuje nowej kwalifikacji. v0.10.4 nie
+  został dodany; warunkowa analiza nastąpi po odbiorze planu.
+
 ### TASK-0507 — edytory, nawigacja i trwałe szkice
 
 - Page correction, guard i Grid Review mają kontrolki kompletności oraz

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.storage.grid_profile_snapshot_resolver import (
     SqlAlchemyGridProfileSnapshotResolver,
 )
@@ -58,6 +59,7 @@ def test_v2_snapshot_pins_the_exact_selected_36_corner_anchors() -> None:
     cohort = SimpleNamespace(game_id=game_id, manifest_payload={"schemaVersion": 2})
     session = Mock()
     session.scalar.return_value = activation
+    session.execute.return_value = ()
 
     def get(model: object, identity: object) -> object | None:
         if model is GridCalibrationProfileModel and identity == profile_id:
@@ -86,6 +88,32 @@ def test_v2_snapshot_pins_the_exact_selected_36_corner_anchors() -> None:
     )
     assert snapshot["pageRegistrationProfile"] == registration_profile
     assert isinstance(snapshot["inferenceFingerprint"], str)
+
+    session.execute.return_value = [
+        (
+            selected[0],
+            SimpleNamespace(
+                board_geometry={},
+                completeness_status="complete",
+                unavailable_cell_indices=[],
+                geometry_qualification=GeometryQualification(
+                    "complete", (), True, "manual_exclusion"
+                ).to_dict(),
+            ),
+        )
+    ]
+    with patch(
+        "game_predictor_api.storage.grid_profile_snapshot_resolver.build_verified_page_registration_profile",
+        return_value=registration_profile,
+    ):
+        excluded_snapshot = repository.resolve(game_id=game_id)
+    assert len(registration_profile["anchors"]) == 2
+    assert excluded_snapshot["pageRegistrationProfile"]["anchors"] == [
+        {"sourceChecksumSha256": selected[1]}
+    ]
+    assert excluded_snapshot["inferenceFingerprint"] != snapshot["inferenceFingerprint"]
+    assert profile.profile_payload == payload
+    assert profile.profile_checksum_sha256 == payload_checksum
 
 
 def test_active_v2_profile_without_current_end_to_end_gate_is_blocked_for_new_jobs() -> None:

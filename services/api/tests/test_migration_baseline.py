@@ -110,9 +110,36 @@ PAGE_SOURCE_EXCLUSIONS_REVISION = "0097_page_source_exclusions"
 LEGACY_BOARD_SEARCH_ARCHIVE_REVISION = "0098_legacy_board_search_archive"
 LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION = "0099_legacy_game_operational_cleanup"
 MANUAL_GEOMETRY_QUALIFICATION_REVISION = "0100_manual_geometry_qualification"
+SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION = "0101_symbol_cell_source_availability"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
+
+
+def test_source_availability_migration_preserves_history_and_guards_downgrade() -> None:
+    output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=output),
+        f"{MANUAL_GEOMETRY_QUALIFICATION_REVISION}:{SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION}",
+        sql=True,
+    )
+    sql = output.getvalue().lower()
+    assert "add column source_available boolean default true not null" in sql
+    assert "delete from" not in sql
+    assert "update image_symbol_review_cells" not in sql
+    downgrade = StringIO()
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade),
+        f"{SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION}:{MANUAL_GEOMETRY_QUALIFICATION_REVISION}",
+        sql=True,
+    )
+    sql = downgrade.getvalue().lower()
+    assert (
+        sql.index("access exclusive mode")
+        < sql.index("where not source_available")
+        < sql.index("drop column source_available")
+    )
+    assert "raise exception" in sql
 
 
 def test_manual_qualification_migration_is_additive_and_downgrade_protects_decisions() -> None:
@@ -418,7 +445,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
     legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
     legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
-    assert script.get_heads() == [MANUAL_GEOMETRY_QUALIFICATION_REVISION]
+    assert script.get_heads() == [SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION]
+    availability = script.get_revision(SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION)
+    assert availability is not None
+    assert availability.down_revision == MANUAL_GEOMETRY_QUALIFICATION_REVISION
     qualification = script.get_revision(MANUAL_GEOMETRY_QUALIFICATION_REVISION)
     assert qualification is not None
     assert qualification.down_revision == LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION

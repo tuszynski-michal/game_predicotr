@@ -688,6 +688,7 @@ def _visible_cells_statement(
         .where(
             cell.game_id == game_id,
             cell.geometry_revision == RecognizedBoardModel.geometry_revision,
+            cell.source_available.is_(True),
         )
     )
     if selection is None:

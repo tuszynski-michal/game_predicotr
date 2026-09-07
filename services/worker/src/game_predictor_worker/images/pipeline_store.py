@@ -66,6 +66,7 @@ from .pipeline_execution import (
     ContinuityIssue,
     StoredImageStageResult,
     continuity_issues,
+    require_matching_symbol_cells,
 )
 
 
@@ -294,9 +295,13 @@ class SqlAlchemyImagePipelineStore:
                             cast(Mapping[str, object], structured["globalInitialization"])
                         ),
                         board_geometries=boards,
-                        engine_kind="structured_opencv_v1",
+                        engine_kind="manual_v1"
+                        if structured.get("geometrySource") == "manual"
+                        else "structured_opencv_v1",
                         engine_version=cast(str, structured["engineVersion"]),
-                        geometry_source="auto",
+                        geometry_source="manual"
+                        if structured.get("geometrySource") == "manual"
+                        else "auto",
                         status=(
                             "accepted"
                             if structured["status"] == "ready"
@@ -545,6 +550,18 @@ class SqlAlchemyImagePipelineStore:
                         ),
                         cells_prediction=prediction,
                         completeness_status=completeness_status,
+                        geometry_qualification=cast(
+                            dict[str, object] | None, cropped.get("geometryQualification")
+                        ),
+                        **(
+                            {
+                                "approved_geometry_revision": 0,
+                                "geometry_approved_at": executed_at,
+                                "geometry_approved_by": "system:import-qualified-manual-geometry",
+                            }
+                            if cropped.get("geometryQualification") is not None
+                            else {}
+                        ),
                         unavailable_cell_indices=unavailable_cell_indices,
                         board_confidence=float(cast(float, detected["confidence"])),
                         pipeline_fingerprint=candidate.execution.pipeline_fingerprint,
@@ -565,6 +582,7 @@ class SqlAlchemyImagePipelineStore:
                         prediction=prediction,
                     )
                 cropper_version = cast(str, cropped["cropperVersion"])
+                require_matching_symbol_cells(cropped, symbol)
                 crop_cells = cast(Sequence[object], cropped["cells"])
                 symbol_cells = cast(Sequence[object], symbol["cells"])
                 for crop_value, prediction_value in zip(
@@ -1307,6 +1325,7 @@ def _require_same_board(
         or board.grid_columns != expected_grid_columns
         or board.asset_mode != expected_asset_mode
         or board.completeness_status != expected_completeness_status
+        or board.geometry_qualification != cropped.get("geometryQualification")
         or board.unavailable_cell_indices != expected_unavailable
         or board.board_relative_path != cropped.get("boardRelativePath")
         or board.board_checksum_sha256 != cropped.get("boardChecksumSha256")
@@ -1330,6 +1349,8 @@ def _recognized_board_geometry(
     sequence: Mapping[str, object],
 ) -> dict[str, object]:
     geometry = dict(cast(Mapping[str, object], detected["geometry"]))
+    if "geometryQualification" in cropped:
+        geometry["geometryQualification"] = cropped["geometryQualification"]
     sequence_label_quad = sequence.get("sequenceLabelQuad")
     if sequence_label_quad is not None:
         geometry["sequenceLabelQuad"] = sequence_label_quad

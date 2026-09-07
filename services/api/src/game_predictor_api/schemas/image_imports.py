@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from game_predictor_api.application.image_imports import (
     BrowserReadySelection,
@@ -249,7 +249,7 @@ class ImageGeometryGuardDecisionResponse(ApiModel):
     sequence_number: int = Field(ge=1)
     revision: int = Field(ge=1)
     disposition: Literal["corrected_full", "partial", "rejected"]
-    symbol_grid_quad: list[PageGeometryPoint] | None
+    symbol_grid_quad: list[ManualSourceGeometryPoint] | None
     unavailable_cell_indices: list[int]
     reason: str | None
     actor: str
@@ -270,7 +270,7 @@ class ImageGeometryGuardDecisionResponse(ApiModel):
             symbol_grid_quad=(
                 None
                 if value.symbol_grid_quad is None
-                else [PageGeometryPoint(**point) for point in value.symbol_grid_quad]
+                else [ManualSourceGeometryPoint(**point) for point in value.symbol_grid_quad]
             ),
             unavailable_cell_indices=list(value.unavailable_cell_indices),
             geometry_qualification=(
@@ -339,11 +339,23 @@ class ImageGeometryGuardDecisionItemCreate(ApiModel):
     sequence_number: int = Field(ge=1)
     disposition: Literal["corrected_full", "partial", "rejected"]
     symbol_grid_quad: (
-        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint] | None
+        tuple[
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+        ]
+        | None
     ) = None
     unavailable_cell_indices: list[int] = Field(default_factory=list, max_length=15)
     geometry_qualification: GeometryQualificationPayload | None = None
     reason: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def require_qualification_for_signed_quad(self) -> "ImageGeometryGuardDecisionItemCreate":
+        if self.symbol_grid_quad is not None:
+            _validate_guard_signed_quad(self.symbol_grid_quad, self.geometry_qualification)
+        return self
 
 
 class ImageGeometryGuardDecisionBatchCreate(ApiModel):
@@ -362,9 +374,30 @@ class ImageGeometryGuardPreviewCreate(ApiModel):
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     position_index: int = Field(ge=0, le=8)
     symbol_grid_quad: tuple[
-        PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ]
-    unavailable_cell_indices: list[int] = Field(default_factory=list, max_length=14)
+    unavailable_cell_indices: list[int] = Field(default_factory=list, max_length=15)
+    geometry_qualification: GeometryQualificationPayload | None = None
+
+    @model_validator(mode="after")
+    def require_qualification_for_empty_preview(self) -> "ImageGeometryGuardPreviewCreate":
+        _validate_guard_signed_quad(self.symbol_grid_quad, self.geometry_qualification)
+        if len(self.unavailable_cell_indices) == 15 and self.geometry_qualification is None:
+            raise ValueError("All-missing preview requires geometry qualification.")
+        return self
+
+
+def _validate_guard_signed_quad(
+    points: tuple[ManualSourceGeometryPoint, ...],
+    qualification: GeometryQualificationPayload | None,
+) -> None:
+    if any(point.x < 0 or point.y < 0 for point in points) and (
+        qualification is None or qualification.completeness_status != "pending_partial"
+    ):
+        raise ValueError("Signed corners require explicitly partial geometry.")
 
 
 class ImageGeometryGuardCellPreviewResponse(ApiModel):

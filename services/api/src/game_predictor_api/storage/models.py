@@ -150,6 +150,47 @@ class CleanupOperationModel(Base):
     )
 
 
+class LegacyGameOperationalCleanupReceiptModel(Base):
+    __tablename__ = "legacy_game_operational_cleanup_receipts"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('executing', 'completed', 'failed')",
+            name="ck_legacy_game_operational_cleanup_receipts_status",
+        ),
+        CheckConstraint(
+            "preview_fingerprint ~ '^[0-9a-f]{64}$' "
+            "AND schema_fingerprint ~ '^[0-9a-f]{64}$' "
+            "AND archive_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_legacy_game_operational_cleanup_receipts_fingerprints",
+        ),
+        UniqueConstraint(
+            "legacy_game_id",
+            name="uq_legacy_game_operational_cleanup_receipts_game",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    legacy_game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    protected_game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    preview_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    schema_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    archive_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    confirmation_target: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    initial_counts: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    deleted_counts: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    managed_artifact_summary: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class SymbolModel(Base):
     __tablename__ = "symbols"
     __table_args__ = (

@@ -106,6 +106,9 @@ BOARD_SOURCE_CLEANUP_REVISION = "0093_board_source_cleanup"
 GRID_PROFILE_GATE_REVISIONS_REVISION = "0094_grid_profile_gate_revisions"
 STRUCTURED_LATTICE_V3_ROLLOUT_REVISION = "0095_structured_lattice_v3_rollout"
 PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION = "0096_preimport_geometry_guard_decisions"
+PAGE_SOURCE_EXCLUSIONS_REVISION = "0097_page_source_exclusions"
+LEGACY_BOARD_SEARCH_ARCHIVE_REVISION = "0098_legacy_board_search_archive"
+LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION = "0099_legacy_game_operational_cleanup"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -384,7 +387,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     preimport_geometry_guard_decisions = script.get_revision(
         PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION
     )
-    assert script.get_heads() == [PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION]
+    page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
+    legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
+    legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
+    assert script.get_heads() == [LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION]
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert storage_capacity_guard is not None
@@ -441,6 +447,12 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert (
         preimport_geometry_guard_decisions.down_revision == STRUCTURED_LATTICE_V3_ROLLOUT_REVISION
     )
+    assert page_source_exclusions is not None
+    assert page_source_exclusions.down_revision == PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION
+    assert legacy_board_search_archive is not None
+    assert legacy_board_search_archive.down_revision == PAGE_SOURCE_EXCLUSIONS_REVISION
+    assert legacy_game_operational_cleanup is not None
+    assert legacy_game_operational_cleanup.down_revision == LEGACY_BOARD_SEARCH_ARCHIVE_REVISION
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
@@ -1902,3 +1914,44 @@ def test_verified_training_cohort_cells_migration_adds_v2_sample_projection() ->
 
     downgrade_sql = downgrade_output.getvalue().lower()
     assert "drop table verified_training_cohort_cells" in downgrade_sql
+
+
+def test_legacy_game_operational_cleanup_migration_adds_durable_receipt() -> None:
+    script = ScriptDirectory.from_config(create_alembic_config())
+    revision = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
+    assert revision is not None
+    assert revision.down_revision == "0098_legacy_board_search_archive"
+
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION}:0098_legacy_board_search_archive",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table legacy_game_operational_cleanup_receipts" in upgrade_sql
+    assert "uq_legacy_game_operational_cleanup_receipts_game" in upgrade_sql
+    assert "managed_artifact_summary" in upgrade_sql
+    assert (
+        "drop table legacy_game_operational_cleanup_receipts" in downgrade_output.getvalue().lower()
+    )
+
+
+def test_legacy_cleanup_receipt_upgrade_does_not_modify_operational_data() -> None:
+    output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=output),
+        f"{LEGACY_BOARD_SEARCH_ARCHIVE_REVISION}:{LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION}",
+        sql=True,
+    )
+    sql = output.getvalue().lower()
+    assert sql.count("create table ") == 1
+    assert "create table legacy_game_operational_cleanup_receipts" in sql
+    assert "delete from" not in sql
+    assert "truncate " not in sql
+    assert "drop table" not in sql
+    assert "insert into" not in sql
+    assert "on delete restrict" in sql

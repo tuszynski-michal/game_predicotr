@@ -6,6 +6,20 @@ last_updated: 2026-09-07
 
 # Current State
 
+### Zależność TASK-0505 — utrwalenie istniejącej migracji 0099
+
+- Za osobną zgodą operatora do Git trafia wyłącznie addytywna migracja
+  `0099_legacy_game_operational_cleanup`, jej model receipt i testy schematu.
+  Migracja była już obecna w lokalnej bazie po przerwanym TASK-0504.
+- Uporządkowanie łańcucha rewizji nie uruchamia cleanupu ani nie oznacza
+  ukończenia TASK-0504. Skrypt usuwania, jego testy i preview pozostają poza
+  commitem. Nie usuwamy danych ani plików i nie restartujemy usług.
+- Odbiór: 63 testy migracji w trybie offline SQL, Ruff i izolowana kontrola
+  typów modelu (`--follow-imports=silent`) przeszły. Zwykły mypy uruchomiony
+  na modelu zgłasza 48 wcześniejszych błędów w 20 zależnych modułach
+  (m.in. importy workera bez `py.typed`); nie naprawiamy ich w tym commicie.
+  Nowy kontrakt niepełnych plansz pozostaje zakresem TASK-0505–0509.
+
 ### TASK-0503 — niezależne archiwum wyszukiwania starej gry
 
 - Migracja 0098 dodała zamrożone dokumenty oraz fail-closed stan archiwum bez

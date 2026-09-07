@@ -75,6 +75,7 @@ def _configuration():
         (((10, 60), (260, 60), (260, 210), (10, 210)), tuple(range(10, 15))),
         (((-20, 20), (230, 20), (230, 170), (-20, 170)), (0, 5, 10)),
         (((70, 20), (320, 20), (320, 170), (70, 170)), (4, 9, 14)),
+        (((-20, 20), (280, 20), (320, 170), (20, 170)), (0, 5, 9, 14)),
         (((-280, 0), (-30, 0), (-30, 150), (-280, 150)), tuple(range(15))),
     ],
 )
@@ -124,6 +125,33 @@ def test_automatic_mask_cannot_be_cleared_and_manual_mask_only_extends(frame):
             topology=BoardTopology(3, 5),
             qualification=GeometryQualification(),
         )
+
+
+def test_missing_decorative_frame_or_crop_padding_does_not_mark_visible_grid_partial(frame):
+    # The human grid touches the left source edge. Any decorative margin to
+    # its left is absent, but every proper cell is present in the photo.
+    quad = _quad(((0, 20), (250, 20), (250, 170), (0, 170)))
+    qualification = resolve_manual_geometry_qualification(
+        quad,
+        source=frame.source,
+        topology=BoardTopology(3, 5),
+        qualification=GeometryQualification(),
+    )
+    assert qualification.completeness_status == "complete"
+    assert qualification.unavailable_cell_indices == ()
+    assert not qualification.exclude_from_geometry_training
+    cells = derive_virtual_cells(
+        geometry=_geometry(frame, quad, qualification), configuration=_configuration()
+    )
+    assert len(VirtualCellRenderer().render(frame, cells)) == 15
+    excluded = resolve_manual_geometry_qualification(
+        quad,
+        source=frame.source,
+        topology=BoardTopology(3, 5),
+        qualification=GeometryQualification("complete", (), True, "manual_exclusion"),
+    )
+    assert excluded.completeness_status == "complete" and excluded.unavailable_cell_indices == ()
+    assert excluded.exclude_from_geometry_training
 
 
 def test_historical_and_automatic_geometries_do_not_gain_outside_support(frame):

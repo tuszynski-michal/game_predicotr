@@ -6,6 +6,25 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0509 — odbiór inżynierski serii niepełnych plansz
+
+- Zakończono implementację 0505–0508 i niezależne audyty. Odbiór 0509:
+  182 testy API, 120 workera, dodatkowa grupa 13 z dokładną maską dwóch rogów,
+  samą ramką i końcowymi slotami; 431 Admina, 183 Reviewera, 6 interakcji,
+  54 klienta. Oba buildy, lint/typecheck, OpenAPI i mypy 41 źródeł zaliczone.
+- Globalny format check zgłasza wcześniejsze pliki poza zakresem; format
+  zmienionych plików passed. Obcego next-env Admina i cleanupu nie commitowano.
+- Trzy istniejące JPEG-i sprawdzono wyłącznie odczytowo na protokole krawędzi:
+  po 12 dostępnych renderów na bok, identyczny replay i niezmieniona SHA.
+  To nie pomiar jakości automatycznego wykrywania plansz.
+- Raport: `ai_docs/quality/PARTIAL_GEOMETRY_ACCEPTANCE.md`, w tym instrukcja
+  testowania. Odbiór na urządzeniu i rzeczywista konkurencja PostgreSQL
+  pozostają jawnie niezweryfikowane. **Migracje 0100/0101 niezastosowane**,
+  usług nie restartowano, danych/importów/profili nie zmieniono.
+- Warunkowy v0.10.4: automatyczne boczne partial nie jest lekkim dodatkiem
+  bez wpływu na estimator. Audyt potwierdza potrzebę osobnego eksperymentu
+  geometrii i anotowanych danych. Nie dodano ani nie aktywowano nowego silnika.
+
 ### TASK-0508 — częściowe rewizje, projekcja symboli i ochrona uczenia
 
 - Guard v3 oraz kwalifikowane ręczne override'y działają w nowych ścieżkach

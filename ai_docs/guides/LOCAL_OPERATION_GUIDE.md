@@ -1,10 +1,35 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-08-24
+last_updated: 2026-09-07
 ---
 
 # Lokalne uruchamianie i instalacja
+
+## Wdrożenie obsługi niepełnych plansz (TASK-0505–0509)
+
+Kod od v0.10.224 wymaga migracji `0100_manual_geometry_qualification` oraz
+`0101_symbol_cell_source_availability`. Nie startuj nowego workera/API na
+starym schemacie. Zaczekaj na bezpieczne zakończenie aktywnych jobów,
+zatrzymaj usługi, wykonaj `npm run db:migrate` i potwierdź `npm run db:current`,
+a następnie uruchom usługi według poniższych instrukcji. Implementacja
+tasków nie wykonała tych operacji na danych operatora.
+
+W ręcznej korekcie Importu Plansz i Zatwierdzaniu cięcia siatki:
+
+- `Niepełna plansza` pozwala wysunąć narożniki poza zdjęcie; brakujące pola
+  otrzymują maskę, a geometria nie trafia do nowych kohort i kotwic.
+- `Nie używaj do uczenia geometrii` można zaznaczyć niezależnie na kompletnej,
+  lecz niepewnej siatce. Nie wyklucza to automatycznie widocznych symboli.
+- Nawigacja nie zapisuje decyzji. `Zapisz i przejdź dalej`, `Zapisz decyzję`
+  lub `Zatwierdź całe zdjęcie (Enter / F)` są jawnymi akcjami zapisu.
+- Boczne przycięcie może być rzeczywistym brakiem źródła. Ucięta góra/dół
+  sygnalizuje błąd auto-cropa i zaleca poprawienie źródłowego zdjęcia.
+
+Pełne kroki testu, wyniki i ograniczenia:
+[odbiór niepełnej geometrii](../quality/PARTIAL_GEOMETRY_ACCEPTANCE.md).
+Nie dodano eksperymentalnego automatu v0.10.4; braki są wyliczane z ręcznego
+quada, nie samodzielnie odgadywane przez model.
 
 Instrukcja jest przeznaczona dla właściciela projektu i zakłada Windows
 PowerShell oraz repozytorium:

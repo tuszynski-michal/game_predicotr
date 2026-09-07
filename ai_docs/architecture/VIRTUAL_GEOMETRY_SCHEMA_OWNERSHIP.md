@@ -6,6 +6,22 @@ last_updated: 2026-08-30
 
 # Virtual geometry schema ownership
 
+## Opt-in snapshot v0.10.4 (TASK-0510)
+
+`geometryEngineVariant` jest żądaniem rozszerzenia pojedynczego runu, nie
+wartością globalnego `image_geometry_rollout_states.geometry_mode`. Nowy
+`virtual-geometry-rollout-snapshot-v4` zawiera niezmienione `activeLatticeGeometry`
+bazy v3 oraz `lateralPartialGeometry` z pełną wersjonowaną polityką i checksumą.
+Checksum całego rolloutu oraz fingerprint pipeline'u obejmują rozszerzenie.
+Stare schematy nie emitują nowego pola; pole v4 pod historyczną wersją jest
+odrzucane. Retry czyta przypięty payload, a nie aktualne ustawienie gry.
+
+`automatic-lateral-partial-proposal-v1` jawnie deklaruje `automatic_proposal`
+i obowiązek ręcznego potwierdzenia. Używa istniejącej maski/kwalifikacji
+dostępności, ale nie staje się decyzją operatora ani zatwierdzoną kotwicą.
+Publiczne uruchomienie oraz worker są fail-closed do wdrożenia detektora
+i zaliczenia bramki jakości. Ten fundament nie wymaga migracji bazy.
+
 ## Szkice ręcznej kwalifikacji (TASK-0507)
 
 Szkic przeglądarki nie jest rewizją źródła. Przechowuje tylko współrzędne,

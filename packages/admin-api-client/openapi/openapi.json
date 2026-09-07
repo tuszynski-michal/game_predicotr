@@ -170,6 +170,63 @@
         "title": "ApprovedSymbolReferenceSelectionCommand",
         "type": "object"
       },
+      "AutomaticPartialGeometryProposalPayload": {
+        "additionalProperties": false,
+        "description": "Machine provenance wraps existing availability, never a human decision.",
+        "properties": {
+          "geometryQualification": {
+            "$ref": "#/components/schemas/GeometryQualificationPayload"
+          },
+          "origin": {
+            "const": "automatic_proposal",
+            "title": "Origin",
+            "type": "string"
+          },
+          "policyChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Policychecksumsha256",
+            "type": "string"
+          },
+          "policyVersion": {
+            "const": "structured-lattice-v4-lateral-partial-v1",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 9.0,
+            "minimum": 1.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "requiresManualConfirmation": {
+            "const": true,
+            "title": "Requiresmanualconfirmation",
+            "type": "boolean"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "version": {
+            "const": "automatic-lateral-partial-proposal-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "origin",
+          "sourceChecksumSha256",
+          "positionIndex",
+          "policyVersion",
+          "policyChecksumSha256",
+          "requiresManualConfirmation",
+          "geometryQualification"
+        ],
+        "title": "AutomaticPartialGeometryProposalPayload",
+        "type": "object"
+      },
       "BoardCellGeometryCorrectionContextResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1586,6 +1643,17 @@
             "title": "Gameid",
             "type": "string"
           },
+          "geometryEngineVariant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryEngineVariant"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional per-run engine extension; never changes the game policy. Gated until acceptance."
+          },
           "geometryGuardResolutionManifestChecksumSha256": {
             "anyOf": [
               {
@@ -2278,6 +2346,21 @@
       "BrowserPageGeometryReviewSourceResponse": {
         "additionalProperties": false,
         "properties": {
+          "automaticPartialProposals": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AutomaticPartialGeometryProposalPayload"
+                },
+                "maxItems": 9,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automaticpartialproposals"
+          },
           "existingFinalQuads": {
             "anyOf": [
               {
@@ -4175,6 +4258,13 @@
         "title": "GeometryCohortResponse",
         "type": "object"
       },
+      "GeometryEngineVariant": {
+        "enum": [
+          "structured_lattice_v4_partial_sides"
+        ],
+        "title": "GeometryEngineVariant",
+        "type": "string"
+      },
       "GeometryQualificationPayload": {
         "additionalProperties": false,
         "properties": {
@@ -6055,6 +6145,16 @@
             "title": "Geometrymode",
             "type": "string"
           },
+          "lateralPartialGeometry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LateralPartialGeometryJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "preprocessingVersion": {
             "maxLength": 255,
             "minLength": 1,
@@ -6070,7 +6170,8 @@
             "enum": [
               "virtual-geometry-rollout-snapshot-v1",
               "virtual-geometry-rollout-snapshot-v2",
-              "virtual-geometry-rollout-snapshot-v3"
+              "virtual-geometry-rollout-snapshot-v3",
+              "virtual-geometry-rollout-snapshot-v4"
             ],
             "title": "Schemaversion",
             "type": "string"
@@ -10623,6 +10724,117 @@
         ],
         "title": "JobType",
         "type": "string"
+      },
+      "LateralPartialGeometryJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "analysisHeight": {
+            "const": 300,
+            "title": "Analysisheight",
+            "type": "integer"
+          },
+          "analysisWidth": {
+            "const": 500,
+            "title": "Analysiswidth",
+            "type": "integer"
+          },
+          "checksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "excludeFromGeometryTraining": {
+            "const": true,
+            "title": "Excludefromgeometrytraining",
+            "type": "boolean"
+          },
+          "excludeFromPageAnchors": {
+            "const": true,
+            "title": "Excludefrompageanchors",
+            "type": "boolean"
+          },
+          "maximumAdditionalPasses": {
+            "const": 1,
+            "title": "Maximumadditionalpasses",
+            "type": "integer"
+          },
+          "minimumInliers": {
+            "const": 9,
+            "title": "Minimuminliers",
+            "type": "integer"
+          },
+          "minimumVisibleColumns": {
+            "const": 3,
+            "title": "Minimumvisiblecolumns",
+            "type": "integer"
+          },
+          "minimumVisibleRows": {
+            "const": 3,
+            "title": "Minimumvisiblerows",
+            "type": "integer"
+          },
+          "policyVersion": {
+            "const": "structured-lattice-v4-lateral-partial-v1",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "proposalVersion": {
+            "const": "automatic-lateral-partial-proposal-v1",
+            "title": "Proposalversion",
+            "type": "string"
+          },
+          "requiresManualConfirmation": {
+            "const": true,
+            "title": "Requiresmanualconfirmation",
+            "type": "boolean"
+          },
+          "schemaVersion": {
+            "const": "lateral-partial-geometry-snapshot-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "topologyColumns": {
+            "const": 5,
+            "title": "Topologycolumns",
+            "type": "integer"
+          },
+          "topologyRows": {
+            "const": 3,
+            "title": "Topologyrows",
+            "type": "integer"
+          },
+          "variant": {
+            "const": "structured_lattice_v4_partial_sides",
+            "title": "Variant",
+            "type": "string"
+          },
+          "verticalClippingAllowed": {
+            "const": false,
+            "title": "Verticalclippingallowed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "variant",
+          "policyVersion",
+          "proposalVersion",
+          "topologyRows",
+          "topologyColumns",
+          "analysisWidth",
+          "analysisHeight",
+          "maximumAdditionalPasses",
+          "minimumVisibleRows",
+          "minimumVisibleColumns",
+          "minimumInliers",
+          "verticalClippingAllowed",
+          "requiresManualConfirmation",
+          "excludeFromGeometryTraining",
+          "excludeFromPageAnchors",
+          "checksumSha256"
+        ],
+        "title": "LateralPartialGeometryJobSnapshotPayload",
+        "type": "object"
       },
       "LayoutImportDuplicateSequenceGroupResponse": {
         "additionalProperties": false,

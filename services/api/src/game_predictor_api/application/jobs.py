@@ -17,6 +17,12 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
     board_cell_recrop_snapshot,
 )
 from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
+from game_predictor_worker.images.lateral_partial_contract import (
+    GeometryEngineVariant,
+    LateralPartialContractError,
+    LateralPartialGeometrySnapshot,
+    require_geometry_engine_variant_available,
+)
 from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO,
     PAGE_REGISTRATION_ANCHOR_MASK_VERSION,
@@ -411,9 +417,19 @@ class JobService:
         input_payload: dict[str, object],
         effective_fingerprint: str,
         symbol_model: SymbolModelJobSnapshot,
+        geometry_engine_variant: GeometryEngineVariant | None = None,
     ) -> str:
         getter = getattr(self._repository, "get_image_geometry_rollout", None)
         reference = getter(game_id) if callable(getter) else None
+        if geometry_engine_variant is not None and (
+            geometry_engine_variant is not GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+            or reference is None
+            or reference.geometry_mode != GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
+        ):
+            raise JobError(
+                "IMAGE_LATERAL_PARTIAL_BASELINE_INVALID",
+                "The per-run partial variant requires the accepted structured lattice v3 baseline.",
+            )
         snapshot = GeometryPipelineRolloutSnapshot(
             geometry_mode=GeometryRolloutMode(
                 "legacy" if reference is None else reference.geometry_mode
@@ -444,6 +460,9 @@ class JobService:
                 if reference is not None
                 and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
                 else None
+            ),
+            lateral_partial_geometry=(
+                LateralPartialGeometrySnapshot() if geometry_engine_variant is not None else None
             ),
         )
         if not snapshot.is_legacy and "board_cell_processing" not in input_payload:
@@ -553,7 +572,13 @@ class JobService:
         geometry_guard_resolution_manifest: dict[str, object] | None = None,
         use_verified_board_cell_geometry: bool = False,
         allow_unclassified_symbol_cold_start: bool = False,
+        geometry_engine_variant: GeometryEngineVariant | None = None,
     ) -> Job:
+        # Do not persist an executable v4 job before its detector and acceptance.
+        try:
+            require_geometry_engine_variant_available(geometry_engine_variant)
+        except LateralPartialContractError as error:
+            raise JobError(error.code, str(error)) from error
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
                 "GAME_NOT_FOUND",
@@ -681,6 +706,7 @@ class JobService:
                 input_payload=input_payload,
                 effective_fingerprint=effective_pipeline_fingerprint,
                 symbol_model=symbol_model,
+                geometry_engine_variant=geometry_engine_variant,
             )
         input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         if image_selection_run_id is not None:

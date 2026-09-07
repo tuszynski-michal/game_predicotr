@@ -108,11 +108,32 @@ class StructuredGeometryActivationJobSnapshotPayload(ApiModel):
     config: dict[str, object]
 
 
+class LateralPartialGeometryJobSnapshotPayload(ApiModel):
+    schema_version: Literal["lateral-partial-geometry-snapshot-v1"]
+    variant: Literal["structured_lattice_v4_partial_sides"]
+    policy_version: Literal["structured-lattice-v4-lateral-partial-v1"]
+    proposal_version: Literal["automatic-lateral-partial-proposal-v1"]
+    topology_rows: Literal[3]
+    topology_columns: Literal[5]
+    analysis_width: Literal[500]
+    analysis_height: Literal[300]
+    maximum_additional_passes: Literal[1]
+    minimum_visible_rows: Literal[3]
+    minimum_visible_columns: Literal[3]
+    minimum_inliers: Literal[9]
+    vertical_clipping_allowed: Literal[False]
+    requires_manual_confirmation: Literal[True]
+    exclude_from_geometry_training: Literal[True]
+    exclude_from_page_anchors: Literal[True]
+    checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
     schema_version: Literal[
         "virtual-geometry-rollout-snapshot-v1",
         "virtual-geometry-rollout-snapshot-v2",
         "virtual-geometry-rollout-snapshot-v3",
+        "virtual-geometry-rollout-snapshot-v4",
     ]
     geometry_mode: Literal[
         "legacy",
@@ -136,6 +157,9 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
         default=None,
         exclude_if=lambda value: value is None,
     )
+    lateral_partial_geometry: LateralPartialGeometryJobSnapshotPayload | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def validate_candidate_geometry_scope(self) -> Self:
@@ -145,10 +169,24 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
         if has_candidate and self.geometry_mode != "structured_shadow":
             raise ValueError("candidate geometry config is allowed only in structured shadow")
         has_activation = self.active_lattice_geometry is not None
-        if has_activation != (self.schema_version == "virtual-geometry-rollout-snapshot-v3"):
+        if has_activation != (
+            self.schema_version
+            in {"virtual-geometry-rollout-snapshot-v3", "virtual-geometry-rollout-snapshot-v4"}
+        ):
             raise ValueError("rollout snapshot v3 requires one active lattice config")
         if has_activation and self.geometry_mode != "structured_lattice_v3":
             raise ValueError("active lattice config is allowed only in structured lattice v3")
+        has_partial = self.lateral_partial_geometry is not None
+        if has_partial != (self.schema_version == "virtual-geometry-rollout-snapshot-v4"):
+            raise ValueError("rollout snapshot v4 requires one lateral partial policy")
+        if has_partial:
+            from game_predictor_worker.images.pipeline_contract import (
+                GeometryPipelineRolloutSnapshot,
+            )
+
+            GeometryPipelineRolloutSnapshot.from_payload(
+                self.model_dump(mode="json", by_alias=True, exclude_none=True)
+            )
         return self
 
 

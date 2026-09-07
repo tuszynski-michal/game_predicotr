@@ -1,0 +1,128 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+from game_predictor_api.application.jobs import ImageGeometryRolloutJobReference, JobService
+from game_predictor_api.domain.jobs import JobError
+from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
+from game_predictor_api.schemas.geometry_qualification import (
+    AutomaticPartialGeometryProposalPayload,
+)
+from game_predictor_api.schemas.image_imports import BrowserImageImportStart
+from game_predictor_api.schemas.jobs import ImageGeometryRolloutJobSnapshotPayload
+from game_predictor_worker.images.lateral_partial_contract import (
+    GeometryEngineVariant,
+    LateralPartialGeometrySnapshot,
+)
+from game_predictor_worker.images.pipeline_contract import GeometryPipelineRolloutSnapshot
+from pydantic import ValidationError
+from test_image_imports_api import _client
+from test_jobs_domain import MemoryJobRepository
+
+VARIANT = GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+
+
+def test_per_run_snapshot_does_not_mutate_game_policy() -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    reference = ImageGeometryRolloutJobReference(
+        geometry_mode="structured_lattice_v3", cell_asset_mode="virtual_default", revision=12
+    )
+    repository.image_geometry_rollout = reference
+    service = JobService(repository)
+    payload: dict[str, object] = {}
+    fingerprint = service._pin_image_geometry_rollout(
+        game_id=game_id,
+        input_payload=payload,
+        effective_fingerprint="a" * 64,
+        symbol_model=bootstrap_symbol_model_snapshot(),
+        geometry_engine_variant=VARIANT,
+    )
+    original = json.dumps(payload, sort_keys=True)
+    repository.image_geometry_rollout = None
+    snapshot = GeometryPipelineRolloutSnapshot.from_payload(payload["image_geometry_rollout"])
+    assert snapshot.rollout_revision == 12
+    assert snapshot.lateral_partial_geometry == LateralPartialGeometrySnapshot()
+    assert fingerprint != "a" * 64
+    assert json.dumps(payload, sort_keys=True) == original
+    wire = ImageGeometryRolloutJobSnapshotPayload.model_validate(snapshot.to_payload())
+    assert wire.model_dump(mode="json", by_alias=True, exclude_none=True) == snapshot.to_payload()
+    assert not repository.items
+
+
+def test_create_service_gate_precedes_files_and_persistence(tmp_path: Path) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    with pytest.raises(JobError) as error:
+        JobService(repository).create_image_import_job(
+            game_id=game_id,
+            selection_id=uuid4(),
+            source_directory=tmp_path / "not-created",
+            source_display_name="v4",
+            pipeline_fingerprint="a" * 64,
+            geometry_engine_variant=VARIANT,
+        )
+    assert error.value.code == "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED"
+    assert not repository.items
+
+
+@pytest.mark.parametrize(
+    "variant,status,code",
+    [(VARIANT.value, 409, "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED"), ("unknown-v4", 422, None)],
+)
+def test_http_gate_precedes_staging_binding(
+    tmp_path: Path, variant: str, status: int, code: str | None
+) -> None:
+    client, game_id = _client(tmp_path, None)
+    with client:
+        response = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{uuid4()}/start",
+            json={
+                "gameId": str(game_id),
+                "manifestChecksumSha256": "a" * 64,
+                "preflightChecksumSha256": "b" * 64,
+                "geometryEngineVariant": variant,
+            },
+        )
+    assert response.status_code == status
+    if code:
+        assert response.json()["code"] == code
+
+
+def test_omitted_variant_does_not_serialize_into_old_request() -> None:
+    request = BrowserImageImportStart(
+        game_id=uuid4(), manifest_checksum_sha256="a" * 64, preflight_checksum_sha256="b" * 64
+    )
+    assert "geometryEngineVariant" not in request.model_dump(mode="json", by_alias=True)
+
+
+def test_automatic_partial_provenance_is_not_a_human_decision() -> None:
+    raw = {
+        "version": "automatic-lateral-partial-proposal-v1",
+        "origin": "automatic_proposal",
+        "sourceChecksumSha256": "a" * 64,
+        "positionIndex": 3,
+        "policyVersion": "structured-lattice-v4-lateral-partial-v1",
+        "policyChecksumSha256": LateralPartialGeometrySnapshot().checksum_sha256,
+        "requiresManualConfirmation": True,
+        "geometryQualification": {
+            "version": "manual-geometry-qualification-v1",
+            "completenessStatus": "pending_partial",
+            "unavailableCellIndices": [0, 5, 10],
+            "excludeFromGeometryTraining": True,
+            "exclusionReason": "missing_pixels",
+        },
+    }
+    result = AutomaticPartialGeometryProposalPayload.model_validate(raw)
+    assert result.geometry_qualification.to_domain().completeness_status == "pending_partial"
+    assert result.requires_manual_confirmation
+    for key, value in [
+        ("origin", "manual_override"),
+        ("requiresManualConfirmation", False),
+        ("policyChecksumSha256", "b" * 64),
+    ]:
+        with pytest.raises(ValidationError):
+            AutomaticPartialGeometryProposalPayload.model_validate({**raw, key: value})

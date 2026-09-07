@@ -106,6 +106,43 @@ export type ApprovedSymbolReferenceSelectionCommand = {
 };
 
 /**
+ * AutomaticPartialGeometryProposalPayload
+ *
+ * Machine provenance wraps existing availability, never a human decision.
+ */
+export type AutomaticPartialGeometryProposalPayload = {
+  geometryQualification: GeometryQualificationPayload;
+  /**
+   * Origin
+   */
+  origin: 'automatic_proposal';
+  /**
+   * Policychecksumsha256
+   */
+  policyChecksumSha256: string;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'structured-lattice-v4-lateral-partial-v1';
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Requiresmanualconfirmation
+   */
+  requiresManualConfirmation: true;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Version
+   */
+  version: 'automatic-lateral-partial-proposal-v1';
+};
+
+/**
  * BoardCellGeometryCorrectionContextResponse
  */
 export type BoardCellGeometryCorrectionContextResponse = {
@@ -864,6 +901,10 @@ export type BrowserImageImportStart = {
    */
   gameId: string;
   /**
+   * Optional per-run engine extension; never changes the game policy. Gated until acceptance.
+   */
+  geometryEngineVariant?: GeometryEngineVariant | null;
+  /**
    * Geometryguardresolutionmanifestchecksumsha256
    */
   geometryGuardResolutionManifestChecksumSha256?: string | null;
@@ -1240,6 +1281,10 @@ export type BrowserPageGeometryPreflightResponse = {
  * BrowserPageGeometryReviewSourceResponse
  */
 export type BrowserPageGeometryReviewSourceResponse = {
+  /**
+   * Automaticpartialproposals
+   */
+  automaticPartialProposals?: Array<AutomaticPartialGeometryProposalPayload> | null;
   /**
    * Existingfinalquads
    */
@@ -2333,6 +2378,11 @@ export type GeometryCohortResponse = {
 };
 
 /**
+ * GeometryEngineVariant
+ */
+export type GeometryEngineVariant = 'structured_lattice_v4_partial_sides';
+
+/**
  * GeometryQualificationPayload
  */
 export type GeometryQualificationPayload = {
@@ -3410,6 +3460,7 @@ export type ImageGeometryRolloutJobSnapshotPayload = {
     | 'structured_review'
     | 'structured_default'
     | 'structured_lattice_v3';
+  lateralPartialGeometry?: LateralPartialGeometryJobSnapshotPayload | null;
   /**
    * Preprocessingversion
    */
@@ -3424,7 +3475,8 @@ export type ImageGeometryRolloutJobSnapshotPayload = {
   schemaVersion:
     | 'virtual-geometry-rollout-snapshot-v1'
     | 'virtual-geometry-rollout-snapshot-v2'
-    | 'virtual-geometry-rollout-snapshot-v3';
+    | 'virtual-geometry-rollout-snapshot-v3'
+    | 'virtual-geometry-rollout-snapshot-v4';
   /**
    * Virtualrendererversion
    */
@@ -5868,6 +5920,80 @@ export type JobType =
   | 'storage_gc'
   | 'storage_inventory'
   | 'storage_pipeline_compaction';
+
+/**
+ * LateralPartialGeometryJobSnapshotPayload
+ */
+export type LateralPartialGeometryJobSnapshotPayload = {
+  /**
+   * Analysisheight
+   */
+  analysisHeight: 300;
+  /**
+   * Analysiswidth
+   */
+  analysisWidth: 500;
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Excludefromgeometrytraining
+   */
+  excludeFromGeometryTraining: true;
+  /**
+   * Excludefrompageanchors
+   */
+  excludeFromPageAnchors: true;
+  /**
+   * Maximumadditionalpasses
+   */
+  maximumAdditionalPasses: 1;
+  /**
+   * Minimuminliers
+   */
+  minimumInliers: 9;
+  /**
+   * Minimumvisiblecolumns
+   */
+  minimumVisibleColumns: 3;
+  /**
+   * Minimumvisiblerows
+   */
+  minimumVisibleRows: 3;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'structured-lattice-v4-lateral-partial-v1';
+  /**
+   * Proposalversion
+   */
+  proposalVersion: 'automatic-lateral-partial-proposal-v1';
+  /**
+   * Requiresmanualconfirmation
+   */
+  requiresManualConfirmation: true;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'lateral-partial-geometry-snapshot-v1';
+  /**
+   * Topologycolumns
+   */
+  topologyColumns: 5;
+  /**
+   * Topologyrows
+   */
+  topologyRows: 3;
+  /**
+   * Variant
+   */
+  variant: 'structured_lattice_v4_partial_sides';
+  /**
+   * Verticalclippingallowed
+   */
+  verticalClippingAllowed: false;
+};
 
 /**
  * LayoutImportDuplicateSequenceGroupResponse

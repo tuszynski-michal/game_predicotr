@@ -1340,6 +1340,17 @@ przed bieżącą grą i blokuje próbę startu. Po skopiowaniu oryginałów work
 logiczny zakres do audytu oraz fizyczny plik do bezpiecznego kopiowania.
 ### Polityka silnika per gra
 
+TASK-0510 dodaje odrębny kontrakt per-run `geometryEngineVariant` o wartości
+`structured_lattice_v4_partial_sides`. Nie zmienia on ustawienia gry ani
+historycznego joba. Snapshot v4 przypina dokładną bazę pełnych plansz v3 oraz
+wersję `structured-lattice-v4-lateral-partial-v1`, parametry i checksumę
+rozszerzenia. Brak wyboru zachowuje dotychczasowe payloady i fingerprinty.
+Na etapie fundamentu nowy start oraz wykonanie są jawnie blokowane kodem
+`IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED`; detekcja i udostępnienie wymagają
+TASK-0511–0515. Odpowiedź korekty może zawierać `automaticPartialProposals`,
+oddzielone od ręcznych override'ów i wymagające potwierdzenia. Istniejąca maska
+`pending_partial` opisuje dostępność, lecz nie nadaje decyzji pochodzenia ręcznego.
+
 - Każda gra ma serwerowe, rewizjonowane ustawienie używane wyłącznie przy
   tworzeniu nowych importów.
 - Dla nowych importów dostępne są dwa presety operatorskie: `verified_v19`

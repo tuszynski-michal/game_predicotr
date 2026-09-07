@@ -12,6 +12,11 @@ from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import cast
 
+from game_predictor_worker.images.lateral_partial_contract import (
+    LateralPartialContractError,
+    LateralPartialGeometrySnapshot,
+)
+
 PIPELINE_MANIFEST_VERSION = "image-pipeline-manifest-v1"
 PIPELINE_ENVELOPE_VERSION = "image-pipeline-manifest-envelope-v1"
 FILE_EXECUTION_KEY_VERSION = "image-file-execution-v1"
@@ -34,6 +39,7 @@ CURRENT_NORMALIZATION_ADAPTER_VERSION = "image-normalization-v2-in-memory-source
 VIRTUAL_GEOMETRY_ROLLOUT_VERSION = "virtual-geometry-rollout-snapshot-v1"
 VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2 = "virtual-geometry-rollout-snapshot-v2"
 VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3 = "virtual-geometry-rollout-snapshot-v3"
+VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V4 = "virtual-geometry-rollout-snapshot-v4"
 STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_VERSION = "structured-geometry-candidate-snapshot-v1"
 STRUCTURED_GEOMETRY_ACTIVATION_SNAPSHOT_VERSION = "structured-geometry-activation-snapshot-v1"
 STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION = "structured-opencv-independent-board-refinement-v1"
@@ -254,8 +260,18 @@ class GeometryPipelineRolloutSnapshot:
     preprocessing_version: str
     candidate_geometry: StructuredGeometryCandidateSnapshot | None = None
     active_lattice_geometry: StructuredGeometryActivationSnapshot | None = None
+    lateral_partial_geometry: LateralPartialGeometrySnapshot | None = None
 
     def __post_init__(self) -> None:
+        if self.lateral_partial_geometry is not None and (
+            not isinstance(self.lateral_partial_geometry, LateralPartialGeometrySnapshot)
+            or self.geometry_mode is not GeometryRolloutMode.STRUCTURED_LATTICE_V3
+            or self.active_lattice_geometry is None
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_LATERAL_PARTIAL_BASELINE_INVALID",
+                "The partial extension requires the exact accepted full-board v3 baseline.",
+            )
         if self.rollout_revision < 0 or any(
             not value.strip()
             for value in (
@@ -326,7 +342,9 @@ class GeometryPipelineRolloutSnapshot:
             "preprocessingVersion": self.preprocessing_version,
             "rolloutRevision": self.rollout_revision,
             "schemaVersion": (
-                VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3
+                VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V4
+                if self.lateral_partial_geometry is not None
+                else VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3
                 if self.active_lattice_geometry is not None
                 else VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2
                 if self.candidate_geometry is not None
@@ -338,6 +356,8 @@ class GeometryPipelineRolloutSnapshot:
             payload["candidateGeometry"] = self.candidate_geometry.to_payload()
         if self.active_lattice_geometry is not None:
             payload["activeLatticeGeometry"] = self.active_lattice_geometry.to_payload()
+        if self.lateral_partial_geometry is not None:
+            payload["lateralPartialGeometry"] = self.lateral_partial_geometry.to_payload()
         if include_checksum:
             payload["checksumSha256"] = self.checksum_sha256
         return payload
@@ -350,6 +370,7 @@ class GeometryPipelineRolloutSnapshot:
             VIRTUAL_GEOMETRY_ROLLOUT_VERSION,
             VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2,
             VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3,
+            VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V4,
         }:
             raise ImagePipelineContractError(
                 "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
@@ -362,9 +383,26 @@ class GeometryPipelineRolloutSnapshot:
         )
         active_lattice_geometry = (
             StructuredGeometryActivationSnapshot.from_payload(payload.get("activeLatticeGeometry"))
-            if schema_version == VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3
+            if schema_version
+            in {VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V3, VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V4}
             else None
         )
+        if (
+            "lateralPartialGeometry" in payload
+            and schema_version != VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V4
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID",
+                "A partial extension must not masquerade as a historical rollout snapshot.",
+            )
+        try:
+            lateral_partial_geometry = (
+                LateralPartialGeometrySnapshot.from_payload(payload.get("lateralPartialGeometry"))
+                if schema_version == VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V4
+                else None
+            )
+        except LateralPartialContractError as error:
+            raise ImagePipelineContractError(error.code, str(error)) from error
         rollout_revision = payload.get("rolloutRevision")
         if not isinstance(rollout_revision, int) or isinstance(rollout_revision, bool):
             raise ImagePipelineContractError(
@@ -394,6 +432,7 @@ class GeometryPipelineRolloutSnapshot:
                 ),
                 candidate_geometry=candidate_geometry,
                 active_lattice_geometry=active_lattice_geometry,
+                lateral_partial_geometry=lateral_partial_geometry,
             )
         except (TypeError, ValueError) as error:
             raise ImagePipelineContractError(

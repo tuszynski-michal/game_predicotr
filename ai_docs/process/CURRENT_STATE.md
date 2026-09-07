@@ -6,6 +6,23 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0510 — kontrakt testowego silnika v0.10.4
+
+- Rozszerzenie per-run `geometryEngineVariant` nie zmienia polityki gry.
+  Snapshot v4 przypina bazę v3 i pełną politykę lateral-partial-v1.
+- Jawna proweniencja automatycznej propozycji jest oddzielona od ręcznej
+  decyzji. Pełne źródłowe sloty i istniejąca maska pending_partial pozostają.
+- Foundation: publiczny start i worker zwracają NOT_ENABLED. Nie jest to
+  działający detektor ani dostępna opcja importu; integracja to TASK-0511–0515.
+- Skupione kontrole: 136 testów API/workera, 55 klienta, jego typecheck,
+  Ruff oraz scoped mypy 8 źródeł passed. Stare hashe porównane z HEAD.
+  OpenAPI i niezależny audyt gpt-6-astra high passed (bez P0–P2); uwagę P3
+  domknięto stałymi golden SHA v1/v2/v3 i ponownymi 25 testami kontraktu.
+  Bez restartu, migracji i danych.
+- Historyczne wpisy 0505–0509 opisują stan wdrożenia w momencie tamtych zadań;
+  nie są bieżącym potwierdzeniem numeru migracji lokalnej bazy. Task 0510
+  nie wykonuje ani nie zmienia migracji 0100–0102.
+
 ### TASK-0509 — odbiór inżynierski serii niepełnych plansz
 
 - Zakończono implementację 0505–0508 i niezależne audyty. Odbiór 0509:

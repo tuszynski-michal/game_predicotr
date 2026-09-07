@@ -8,6 +8,21 @@ last_updated: 2026-09-07
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-374 — v0.10.4 jest rozszerzeniem runu, nie zmianą polityki gry
+
+- **Status:** accepted (TASK-0510, plan TASK-0510–0515).
+- **Date:** 2026-09-07.
+- **Decision:** `geometryEngineVariant=structured_lattice_v4_partial_sides`
+  przypina osobną politykę i checksumę w rollout snapshot v4 wraz z dokładną
+  bazą pełnych plansz v3. Nie zmienia enum ani rekordu polityki gry. Brak pola
+  zachowuje bajty i fingerprinty historycznych snapshotów v1/v2/v3.
+- Automatyczna propozycja ma osobną proweniencję i wymaga potwierdzenia.
+  Wykorzystuje istniejącą maskę pending_partial oraz obowiązkowe wykluczenie
+  geometrii, ale nie tworzy decyzji człowieka ani nowej rodziny kwalifikacji.
+- Foundation nie uruchamia v4: start i worker są fail-closed do wdrożenia
+  adaptera i końcowej bramki. Żądanie nie może po cichu uruchomić v3.
+- Ta decyzja nie autoryzuje reimportu, migracji, restartów ani aktywacji.
+
 ## D-373 — Niedostępna komórka zachowuje historię, nie bieżący obraz
 
 - **Status:** accepted (TASK-0508, plan 0505–0509).

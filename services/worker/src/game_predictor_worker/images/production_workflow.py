@@ -2683,9 +2683,15 @@ def _geometry_rollout_snapshot(job: Job) -> GeometryPipelineRolloutSnapshot:
     if value is None:
         return _legacy_geometry_rollout_snapshot()
     try:
-        return GeometryPipelineRolloutSnapshot.from_payload(value)
+        snapshot = GeometryPipelineRolloutSnapshot.from_payload(value)
     except ImagePipelineContractError as error:
         raise JobHandlerError(error.code, str(error)) from error
+    if snapshot.lateral_partial_geometry is not None:
+        raise JobHandlerError(
+            "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED",
+            "v0.10.4 cannot execute before its detector and quality gate are accepted.",
+        )
+    return snapshot
 
 
 def _symbol_model_snapshot(job: Job) -> SymbolModelJobSnapshot:

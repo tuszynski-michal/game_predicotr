@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
+from game_predictor_worker.images.lateral_partial_contract import GeometryEngineVariant
 from pydantic import Field, model_validator
 
 from game_predictor_api.application.image_imports import (
@@ -27,6 +28,7 @@ from game_predictor_api.domain.image_sequence_canonical import (
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.geometry_qualification import (
+    AutomaticPartialGeometryProposalPayload,
     GeometryQualificationPayload,
     ManualSourceGeometryPoint,
 )
@@ -461,6 +463,9 @@ class BrowserPageGeometryReviewSourceResponse(ApiModel):
     existing_override_revision: int | None = Field(default=None, ge=1)
     existing_slot_qualifications: list[GeometryQualificationPayload] | None = None
     saved_since_preflight: bool = False
+    automatic_partial_proposals: list[AutomaticPartialGeometryProposalPayload] | None = Field(
+        default=None, max_length=9, exclude_if=lambda value: value is None
+    )
 
 
 class BrowserPageGeometryReviewSourcesResponse(ApiModel):
@@ -517,6 +522,14 @@ class BrowserPageSourceExclusionResponse(ApiModel):
 
 
 class BrowserImageImportStart(ApiModel):
+    geometry_engine_variant: GeometryEngineVariant | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "Optional per-run engine extension; never changes the game policy. "
+            "Gated until acceptance."
+        ),
+    )
     game_id: UUID
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

@@ -10,6 +10,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, Query, Response, status
 from fastapi.responses import FileResponse
+from game_predictor_worker.images.lateral_partial_contract import (
+    LateralPartialContractError,
+    require_geometry_engine_variant_available,
+)
 from game_predictor_worker.images.pipeline_contract import (
     current_pipeline_manifest,
     pipeline_fingerprint,
@@ -620,6 +624,11 @@ def create_image_imports_router(
         guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
         override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
     ) -> BrowserImageImportStartResponse:
+        # Gate before binding staging or selecting/reusing any historical job.
+        try:
+            require_geometry_engine_variant_available(payload.geometry_engine_variant)
+        except LateralPartialContractError as error:
+            raise JobConflictError(error.code, str(error)) from error
         ready = service.bind_ready_game(upload_id, payload.game_id)
         if ready.manifest.checksum_sha256 != payload.manifest_checksum_sha256:
             raise JobConflictError(
@@ -781,6 +790,7 @@ def create_image_imports_router(
                     previous_job_id=None if existing is None else existing.id,
                     page_geometry_manifest=geometry_manifest,
                     geometry_guard_resolution_manifest=resolution_manifest,
+                    geometry_engine_variant=payload.geometry_engine_variant,
                     use_verified_board_cell_geometry=requested_v19,
                     allow_unclassified_symbol_cold_start=(
                         preflight.unclassified_cold_start_allowed

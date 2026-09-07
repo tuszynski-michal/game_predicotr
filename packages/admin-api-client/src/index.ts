@@ -1114,6 +1114,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       body: BrowserImageImportStart,
     ) =>
       startGeneratedReadyBrowserImageImport({
+        // Preserve the optional per-run geometryEngineVariant; it does not
+        // replace imageEnginePolicy or trigger a separate game-policy write.
         body,
         client,
         headers: confirmedTargetHeaders(`image-import:${body.gameId}`),

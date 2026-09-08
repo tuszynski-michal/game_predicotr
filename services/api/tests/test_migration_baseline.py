@@ -445,7 +445,7 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
     legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
     legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
-    assert script.get_heads() == [SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION]
+    assert script.get_heads() == ["0104_game_deletion_access_paths"]
     availability = script.get_revision(SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION)
     assert availability is not None
     assert availability.down_revision == MANUAL_GEOMETRY_QUALIFICATION_REVISION
@@ -1555,7 +1555,7 @@ def test_catalog_migration_generates_games_symbols_constraints_and_downgrade() -
     upgrade_output = StringIO()
     downgrade_output = StringIO()
 
-    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.upgrade(create_alembic_config(output_buffer=upgrade_output), CATALOG_REVISION, sql=True)
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
         f"{CATALOG_REVISION}:{BASELINE_REVISION}",
@@ -1579,7 +1579,7 @@ def test_rules_migration_generates_constraints_and_downgrade() -> None:
     upgrade_output = StringIO()
     downgrade_output = StringIO()
 
-    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.upgrade(create_alembic_config(output_buffer=upgrade_output), RULES_REVISION, sql=True)
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
         f"{RULES_REVISION}:{CATALOG_REVISION}",
@@ -1603,7 +1603,9 @@ def test_paylines_migration_generates_array_constraints_and_downgrade() -> None:
     upgrade_output = StringIO()
     downgrade_output = StringIO()
 
-    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output), PAYLINES_REVISION, sql=True
+    )
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
         f"{PAYLINES_REVISION}:{RULES_REVISION}",
@@ -1626,7 +1628,7 @@ def test_symbol_payout_migration_generates_constraints_and_downgrade() -> None:
     upgrade_output = StringIO()
     downgrade_output = StringIO()
 
-    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.upgrade(create_alembic_config(output_buffer=upgrade_output), PAYOUTS_REVISION, sql=True)
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
         f"{PAYOUTS_REVISION}:{PAYLINES_REVISION}",
@@ -1653,7 +1655,7 @@ def test_dataset_staging_migration_generates_constraints_and_downgrade() -> None
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        DATASETS_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1706,7 +1708,7 @@ def test_jobs_migration_generates_enums_constraints_indexes_and_downgrade() -> N
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        JOBS_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1736,7 +1738,7 @@ def test_job_leases_migration_generates_fencing_and_checkpoint_schema() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        JOB_LEASES_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1764,7 +1766,7 @@ def test_layout_payouts_migration_generates_versioned_results_and_audit() -> Non
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        LAYOUT_PAYOUTS_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1790,7 +1792,7 @@ def test_mobile_releases_migration_generates_immutable_selections() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        MOBILE_RELEASES_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1823,7 +1825,7 @@ def test_layout_import_staging_migration_generates_isolated_rows() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        LAYOUT_IMPORT_STAGING_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1849,7 +1851,7 @@ def test_layout_import_normalization_migration_generates_staging_and_indexes() -
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        LAYOUT_IMPORT_NORMALIZATION_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1876,7 +1878,7 @@ def test_layout_import_publication_migration_adds_unique_source_job() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        LAYOUT_IMPORT_PUBLICATION_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1899,7 +1901,7 @@ def test_review_batches_migration_adds_immutable_whole_layout_storage() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        REVIEW_BATCHES_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1930,7 +1932,7 @@ def test_review_feedback_migration_adds_audit_and_immutable_exports() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        REVIEW_FEEDBACK_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1959,7 +1961,7 @@ def test_verified_training_cohort_cells_migration_adds_v2_sample_projection() ->
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        VERIFIED_TRAINING_COHORT_CELLS_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1985,7 +1987,11 @@ def test_legacy_game_operational_cleanup_migration_adds_durable_receipt() -> Non
 
     upgrade_output = StringIO()
     downgrade_output = StringIO()
-    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION,
+        sql=True,
+    )
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
         f"{LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION}:0098_legacy_board_search_archive",

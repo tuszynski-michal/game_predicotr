@@ -68,3 +68,63 @@ Przed późniejszym GC trzeba ponownie sprawdzić własność, współdzielone r
 i katalogi dozwolone. Nie wolno bezpośrednio kasować ścieżek z journalu.
 `C:\Users\user\Documents\777`, archiwum SQLite i dane `new-siedem` są chronione.
 `game_data_v2`, partycje oraz migracja nowej gry należą do kolejnych zadań.
+
+## Reference-aware GC po `database_done`
+
+Podgląd fizycznych managed assets jest osobną operacją tylko do odczytu:
+
+```powershell
+$env:PYTHONPATH = "services/api/src"
+.venv\Scripts\python.exe scripts\preview_legacy_game_managed_asset_gc.py `
+  --output artifacts\legacy-game-gc-preview\777-v0.1-preview.json
+```
+
+Podgląd odczytuje wszystkie tekstowe kolumny `*path*`, znane zagnieżdżone
+manifesty JSON oraz ich domknięcie. Dla cropów chroni cały checksum-bound
+katalog źródła, jeśli choć jeden jego plik ma żywą referencję. Nie wykonuje
+kasowania i nie zapisuje PostgreSQL.
+
+Wynik składa się z małego pliku JSON i szczegółowego JSONL. Przed fizycznym GC
+należy sprawdzić oba SHA-256, ponownie zweryfikować brak aktywnych jobów i
+otrzymać osobne potwierdzenie dokładnego preview. Katalog operatora
+`C:\Users\user\Documents\777` oraz archiwum `legacy-chat-search` nie są
+kandydatami i pozostają chronione.
+
+Po podaniu dokładnego potwierdzenia GC wykonuje się w ograniczonych,
+wznawialnych porcjach:
+
+```powershell
+$env:PYTHONPATH = "services/api/src"
+.venv\Scripts\python.exe scripts\preview_legacy_game_managed_asset_gc.py `
+  --output artifacts\legacy-game-gc-preview\777-v0.1-preview.json `
+  --execute `
+  --managed-data-root artifacts\data.detached-20260908-legacy-reset `
+  --expected-preview-sha256 "<sha256 z aktualnego preview>" `
+  --confirmation "DELETE MANAGED ASSETS 777 v0.1 <sha256 z aktualnego preview>; PRESERVE new-siedem AND C:\Users\user\Documents\777" `
+  --max-records 250 `
+  --max-seconds 90
+```
+
+Każda invokacja ponownie blokuje zapisy do tabel zawierających ścieżki, sprawdza
+terminalny receipt, brak aktywnych jobów, tożsamość `new-siedem` oraz domknięcie
+żywych manifestów. Zmiana referencji albo zawartości kandydata blokuje kasowanie.
+Przed fizycznym usunięciem plik lub katalog jest atomowo przenoszony do
+kwarantanny powiązanej z SHA preview. Receipt `.execution.json` pozwala wznowić
+operację po awarii pomiędzy przeniesieniem, usunięciem i zapisem kursora.
+
+Jeżeli po rozpoczęciu GC cały katalog `data` został bezpiecznie odłączony,
+`--managed-data-root` może wskazać wyłącznie regularny, bezpośredni katalog
+`artifacts\data.detached-*`. Aktywny `artifacts\data` musi wtedy istnieć i być
+pusty. Wybrany katalog zostaje trwale przypięty w receipcie; retry z innym
+katalogiem jest blokowany. Logiczne ścieżki preview nadal mają prefiks `data/`,
+więc samo odłączenie nie zmienia ich fingerprintów.
+
+Pozostawiony plik `.execution.json.tmp` jest odzyskiwany wyłącznie, gdy opisuje
+ten sam następny rekord. Gdy źródło nadal istnieje, zamiar jest uznawany za
+niezrealizowany. Gdy źródło zostało już atomowo przeniesione do kwarantanny,
+pending jest promowany do głównego receiptu. Obecność celu w obu miejscach albo
+w żadnym blokuje operację.
+
+Status `executing` oznacza, że trzeba powtórzyć identyczną komendę. Dopiero
+`done` oznacza zakończenie całego GC. Nie generować nowego preview w trakcie
+rozpoczętego wykonania i nie usuwać ręcznie katalogu kwarantanny ani receiptu.

@@ -29,6 +29,31 @@ last_updated: 2026-09-08
   przypięcie właściwych rewizji zamiast full-head. Baseline: 65 passed.
   Ograniczony test 0105 offline i cały tor online przechodzą; nie osłabiono 0104.
 
+### TASK-0517 — baza starej gry usunięta, częściowy GC bezpiecznie zatrzymany
+
+- `777 v0.1` (`80f3c7ec-6110-4e20-a263-2675ee5b15d6`) osiągnęła terminalny
+  receipt `database_done`: 81 etapów i 10549 zatwierdzonych porcji.
+- `new-siedem` pozostaje obecne, brak aktywnych jobów starej gry, a zachowane
+  archiwum 414705 układów ma niezmieniony SHA-256
+  `0e1d18a6f9ffe22860c6956f8f5761909df45021465643817c8cbf2426314c5e`.
+- Read-only reference-aware GC preview chroni 80640 żywych ścieżek i wskazuje
+  9599508 osieroconych plików (104,888 GiB). Preview SHA-256:
+  `c4cce437b5f84df95f0ea07e6b68d4f8dffe2696e495c82badeb92946d2b2b2b`.
+- Fizyczny GC przetworzył 15700 rekordów JSONL: 2258144 plików i
+  21271550497 bajtów (19,811 GiB). Receipt ma status `executing`, bez pending.
+  Operacja została zatrzymana przez operatora i nie jest obecnie uruchomiona.
+- Pozostałe managed assets znajdują się w odłączonym katalogu
+  `artifacts/data.detached-20260908-legacy-reset`; aktywny `artifacts/data` jest
+  pusty. Katalog `C:\Users\user\Documents\777` i archiwum czatowe są poza
+  zakresem.
+- Executor GC jest gotowy jako ograniczona do 120 s, wznawialna operacja z
+  atomowym przenoszeniem do kwarantanny, trwałym kursorem i blokadą zapisów do
+  tabel ścieżek. Obsługuje jawnie przypięty katalog `data.detached-*`, blokuje
+  wznowienie przy niepustym aktywnym `data`, wiąże katalog z receiptem i
+  odzyskuje przerwany zapis intention/rename. Wznowienie wymaga nowej dokładnej
+  zgody dla istniejącego SHA; dryf referencji, plików, tożsamości gry lub
+  aktywny job zatrzymuje porcję przed usunięciem.
+
 ### TASK-0528 — półautomatyczna selekcja bez stagingu zdjęć
 
 - Nowe runy `selection` wybierają katalog przez kontrolowany lokalny picker i

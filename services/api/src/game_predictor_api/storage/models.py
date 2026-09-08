@@ -2573,6 +2573,10 @@ class ImageSymbolReviewCellModel(Base):
             "cell_index",
             postgresql_where=text("quality_issue = 'unreadable'"),
         ),
+        Index(
+            "ix_image_symbol_review_cells_prediction_revision_id",
+            "prediction_revision_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

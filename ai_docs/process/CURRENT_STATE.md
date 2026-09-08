@@ -6,6 +6,17 @@ last_updated: 2026-09-08
 
 # Current State
 
+### Prerequisite TASK-0516 — indeks FK zapisany w torze migracji
+
+- Lokalny odczyt 2026-09-08 potwierdził head bazy
+  `0102_index_symbol_review_prediction_revision`, dotąd poza Git.
+- Do toru włączono wyłącznie istniejącą migrację indeksu FK predykcji,
+  odpowiadającą deklarację ORM oraz test offline. Nie wykonano migracji ani
+  cleanupu. Pozostałe zmiany przerwanego TASK-0504 są poza zakresem.
+- TASK-0516 przygotowuje porcjowane transakcje i trwały checkpoint. Stara gra
+  nadal istnieje; wykonanie usuwania w TASK-0517 wymaga aktualnego preview
+  i osobnego potwierdzenia. `new-siedem` oraz katalog operatora są chronione.
+
 ### TASK-0515 — real-corpus gate v0.10.4 zaliczony
 
 - 32 unikalne realne źródła (5 current manual page overrides z managed

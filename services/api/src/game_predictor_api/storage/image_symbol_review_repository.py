@@ -83,6 +83,10 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     optional_verification_outcome_value,
     verification_outcome_value,
 )
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageRouter,
+    GameStorageSchema,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -189,6 +193,18 @@ def symbol_cell_review_projection_is_available(
         )
     ).all()
     return any(job.input_payload.get("preserve_ready_projection") is True for job in jobs)
+
+
+def _uses_logical_current_cell_identity(session: Session, game_id: UUID) -> bool:
+    """V2 keeps one mutable current row per logical board position.
+
+    Legacy public storage can contain rows for superseded review items and
+    therefore continues to resolve visibility through the fast-document owner.
+    A V2 partition has no such history: immutable transitions live in the
+    event table while the cell row follows the canonical owner atomically.
+    """
+
+    return GameStorageRouter().describe(session, game_id).store_schema is GameStorageSchema.V2
 
 
 @dataclass(frozen=True, slots=True)
@@ -1850,14 +1866,21 @@ class SymbolCellReviewWriteThroughCoordinator:
             )
             return False
 
+        existing_statement = select(ImageSymbolReviewCellModel).order_by(
+            ImageSymbolReviewCellModel.cell_index
+        )
+        if _uses_logical_current_cell_identity(self._session, game_id):
+            existing_statement = existing_statement.where(
+                ImageSymbolReviewCellModel.game_id == game_id,
+                ImageSymbolReviewCellModel.sequence_number == sequence_number,
+            )
+        else:
+            existing_statement = existing_statement.where(
+                ImageSymbolReviewCellModel.review_item_id == review_item_id
+            )
         existing = {
             cell.cell_index: cell
-            for cell in self._session.scalars(
-                select(ImageSymbolReviewCellModel)
-                .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
-                .order_by(ImageSymbolReviewCellModel.cell_index)
-                .with_for_update()
-            )
+            for cell in self._session.scalars(existing_statement.with_for_update())
         }
         topology = _board_topology(board)
         expected_cell_indices = set(range(topology.cell_count)) - set(
@@ -2019,8 +2042,25 @@ class SymbolCellReviewWriteThroughCoordinator:
                 if cell.source_available is not available:
                     cell.source_available = available
                     changed = True
+                if not available and (
+                    cell.import_job_id != source.import_job_id
+                    or cell.review_item_id != item.id
+                    or cell.recognized_board_id != board.id
+                ):
+                    cell.import_job_id = source.import_job_id
+                    cell.review_item_id = item.id
+                    cell.recognized_board_id = board.id
+                    cell.sequence_number = sequence_number
+                    cell.revision += 1
+                    cell.last_reviewed_by = actor
+                    changed = True
         for review_cell in current_cells:
             existing_cell = existing.get(review_cell.cell_index)
+            owner_changed = existing_cell is not None and (
+                existing_cell.import_job_id != source.import_job_id
+                or existing_cell.review_item_id != item.id
+                or existing_cell.recognized_board_id != board.id
+            )
             prediction_symbol_id = active_symbol_ids.get(review_cell.predicted_symbol_code)
             if geometry_changed and existing_cell is not None:
                 target = recropped_targets[review_cell.cell_index]
@@ -2105,6 +2145,8 @@ class SymbolCellReviewWriteThroughCoordinator:
                     **_projection_approved_asset_kwargs(_empty_approved_asset_projection()),
                 )
                 event_action = None
+            if owner_changed and event_action is None:
+                event_action = "board_synchronized"
             if (
                 qualified
                 and existing_cell is not None
@@ -2182,6 +2224,9 @@ class SymbolCellReviewWriteThroughCoordinator:
                 cropper_version=cropper_version,
                 prediction_revision_id=prediction_revision_id,
                 target=target,
+                import_job_id=source.import_job_id,
+                review_item_id=item.id,
+                recognized_board_id=board.id,
                 sequence_number=sequence_number,
                 geometry_revision=board.geometry_revision,
             ):
@@ -2192,6 +2237,9 @@ class SymbolCellReviewWriteThroughCoordinator:
                     cropper_version=cropper_version,
                     prediction_revision_id=prediction_revision_id,
                     target=target,
+                    import_job_id=source.import_job_id,
+                    review_item_id=item.id,
+                    recognized_board_id=board.id,
                     sequence_number=sequence_number,
                     geometry_revision=board.geometry_revision,
                     actor=actor,
@@ -3103,6 +3151,9 @@ def _cell_matches_projection(
     cropper_version: str,
     prediction_revision_id: UUID | None,
     target: _CellProjection,
+    import_job_id: UUID,
+    review_item_id: UUID,
+    recognized_board_id: UUID,
     sequence_number: int,
     geometry_revision: int,
 ) -> bool:
@@ -3114,7 +3165,10 @@ def _cell_matches_projection(
         assignment_source=target.assignment_source,
     )
     return (
-        cell.sequence_number == sequence_number
+        cell.import_job_id == import_job_id
+        and cell.review_item_id == review_item_id
+        and cell.recognized_board_id == recognized_board_id
+        and cell.sequence_number == sequence_number
         and cell.crop_sample_id == review_cell.crop_sample_id
         and cell.crop_relative_path == review_cell.crop_relative_path
         and cell.asset_mode == review_cell.asset_mode
@@ -3155,10 +3209,16 @@ def _apply_cell_projection(
     cropper_version: str,
     prediction_revision_id: UUID | None,
     target: _CellProjection,
+    import_job_id: UUID,
+    review_item_id: UUID,
+    recognized_board_id: UUID,
     sequence_number: int,
     geometry_revision: int,
     actor: str,
 ) -> None:
+    cell.import_job_id = import_job_id
+    cell.review_item_id = review_item_id
+    cell.recognized_board_id = recognized_board_id
     cell.sequence_number = sequence_number
     cell.crop_sample_id = review_cell.crop_sample_id
     cell.crop_relative_path = review_cell.crop_relative_path

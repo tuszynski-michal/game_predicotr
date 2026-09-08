@@ -6,6 +6,19 @@ last_updated: 2026-09-08
 
 # Current State
 
+### TASK-0520 — bieżąca projekcja komórek V2
+
+- `game_data_v2.image_symbol_review_cells` ma po migracji 0107 dokładnie jeden
+  wiersz na `(game_id, sequence_number, cell_index)`.
+- Repozytorium V2 aktualizuje stabilny wiersz przy zmianie kanonicznego
+  właściciela; legacy zachowuje dotychczasowe wiersze historyczne i owner join.
+- Historia pozostaje w `image_symbol_review_events`. Niedostępne źródło nie jest
+  widocznym cropem i nie trafia do treningu.
+- Migracji nie zastosowano na bazie użytkownika i nie wykonano backfillu
+  `new-siedem`. Skoncentrowane testy: 22 passed; Ruff passed. Bezpośredni mypy
+  jednego modułu ujawnia istniejące braki stubów workera i wcześniejszy błąd
+  `application/jobs.py`, niezwiązane z tym taskiem.
+
 ### TASK-0518 — pusty schemat v2 i audyt zakończone
 
 - Przygotowano migrację 0105 i zamrożony manifest 65 tabel `LIST(game_id)`.

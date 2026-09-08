@@ -1131,7 +1131,8 @@ staje się `ready`, dopóki każdy aktualnie wybrany
 właściciel z `image_board_search_fast_documents` nie ma dokładnie 15 komórek z
 bieżącą rewizją geometrii i aktualną tożsamością cropa.
 
-`image_symbol_review_cells` ma unikalny klucz `(review_item_id, cell_index)` i
+W historycznym `public` `image_symbol_review_cells` ma unikalny klucz
+`(review_item_id, cell_index)` i
 zapisuje grę, import, planszę, dodatni `sequence_number`, pozycję row-major
 `0..14`, `crop_sample_id`, bezpieczną ścieżkę, SHA-256, rewizję geometrii,
 wersję croppera, sugestię modelu oraz opcjonalnie przypisany aktywny symbol.
@@ -1141,6 +1142,17 @@ symbolu, natomiast jawne rozwiązanie pola `unreadable` może zatwierdzić domen
 `pending`.
 Indeksy wspierają przyszłe listowanie po grze/symbolu/stanie i filtrowanie
 plansz mających problem siatki.
+
+W `game_data_v2` ta sama tabela jest jedyną bieżącą projekcją i dodatkowo ma
+unikalność `(game_id, sequence_number, cell_index)`. Wiersz ma stabilną
+tożsamość logicznej pozycji: reprocessing i zmiana kanonicznego właściciela
+atomowo przepinają identyfikatory importu, review itemu, planszy, render i stan,
+zamiast dopisywać drugi widoczny rekord. Poprzednie przejścia pozostają w
+`image_symbol_review_events`; nie powstaje druga tabela o tej odpowiedzialności.
+Komórka bez podparcia źródłem nie jest listowana ani kwalifikowana treningowo i
+nie otrzymuje sztucznego cropa. Legacy nadal rozwiązuje bieżącego właściciela
+przez `image_board_search_fast_documents`, dzięki czemu jego replay pozostaje
+niezmieniony.
 
 `image_symbol_review_events` jest append-only audytem przyszłych akcji komórki.
 Zapisuje oba stany, przypisania, dokładną tożsamość cropa, rewizje, aktora oraz

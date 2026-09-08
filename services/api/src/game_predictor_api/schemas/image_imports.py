@@ -139,6 +139,7 @@ class BrowserReadySelectionResponse(ApiModel):
 
 class BrowserImageImportPreflightCreate(ApiModel):
     game_id: UUID
+    geometry_engine_variant: GeometryEngineVariant | None = None
 
 
 class BrowserPageGeometryPreflightCreate(ApiModel):
@@ -168,6 +169,7 @@ class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
         | None
     ) = None
     symbol_model_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    symbol_model_snapshot_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     grid_profile_inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     image_engine_policy: ImageImportEnginePolicy
     image_engine_policy_revision: int = Field(ge=0)
@@ -175,6 +177,16 @@ class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
     operator_excluded_source_count: int = Field(default=0, ge=0)
     upload_plan_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     skipped_canonical_ranges: list["BrowserCanonicalRange"] = Field(default_factory=list)
+    geometry_engine_variant: GeometryEngineVariant | None = None
+    geometry_engine_variant_enabled: bool = True
+    geometry_engine_variant_blocker_code: str | None = None
+    geometry_engine_variant_blocker_message: str | None = None
+    page_registration_variant: Literal["standard_v0_10", "board_area_test"] | None = None
+    geometry_preflight_job: JobResponse | None = None
+    geometry_preflight_artifact_ready: bool = False
+    geometry_preflight_artifact_blocker_code: str | None = None
+    geometry_preflight_artifact_blocker_message: str | None = None
+    existing_import_job: JobResponse | None = None
 
 
 class BrowserPageGeometryPreflightResponse(ApiModel):
@@ -537,6 +549,7 @@ class BrowserImageImportStart(ApiModel):
     preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     start_mode: Literal["reuse_exact", "rerun_current_models"] = "reuse_exact"
     symbol_model_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    symbol_model_snapshot_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     grid_profile_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     geometry_preflight_job_id: UUID | None = None
     geometry_manifest_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")

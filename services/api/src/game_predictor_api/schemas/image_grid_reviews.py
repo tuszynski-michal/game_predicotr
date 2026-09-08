@@ -31,6 +31,7 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.geometry_qualification import (
+    AutomaticPartialGeometryProposalPayload,
     GeometryQualificationPayload,
 )
 from game_predictor_api.schemas.geometry_qualification import (
@@ -42,6 +43,7 @@ Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 class ImageGridReviewItemResponse(ApiModel):
     geometry_qualification: GeometryQualificationPayload | None = None
+    automatic_partial_proposal: AutomaticPartialGeometryProposalPayload | None = None
     slot_id: UUID
     slot_kind: ImageGridReviewSlotKind
     review_item_id: UUID | None
@@ -103,6 +105,10 @@ class ImageGridReviewCountsResponse(ApiModel):
     needs_correction: int = Field(ge=0)
     approved: int = Field(ge=0)
     total: int = Field(ge=0)
+    full_grids: int = Field(default=0, ge=0)
+    lateral_partial_proposals: int = Field(default=0, ge=0)
+    confirmed_partial_grids: int = Field(default=0, ge=0)
+    manual_correction: int = Field(default=0, ge=0)
 
 
 class ImageGridReviewPageResponse(ApiModel):
@@ -272,6 +278,13 @@ def to_image_grid_review_item_response(
             if geometry.get("geometryQualification") is not None
             else None
         ),
+        automatic_partial_proposal=(
+            AutomaticPartialGeometryProposalPayload.model_validate(
+                geometry["automaticPartialProposal"]
+            )
+            if geometry.get("automaticPartialProposal") is not None
+            else None
+        ),
         slot_id=item.slot_id,
         slot_kind=item.slot_kind,
         review_item_id=item.review_item_id,
@@ -337,6 +350,14 @@ def to_image_grid_review_counts_response(
         needs_correction=counts.needs_correction,
         approved=counts.approved,
         total=counts.total,
+        full_grids=(
+            counts.needs_validation + counts.approved
+            if counts.full_grids is None
+            else counts.full_grids
+        ),
+        lateral_partial_proposals=counts.lateral_partial_proposals,
+        confirmed_partial_grids=counts.confirmed_partial_grids,
+        manual_correction=counts.manual_correction,
     )
 
 

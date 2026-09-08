@@ -990,9 +990,9 @@ function GridReviewEditorContent({
         ) : null}
         {item.slotKind === 'deferred_geometry' ? (
           <p className="reviewerAccessError" role="status">
-            Automat nie utworzył tej planszy. Slot #{item.positionIndex + 1} ·{' '}
-            {item.sequenceNumber} jest obowiązkowy — popraw roboczy szablon i
-            zapisz komplet plansz zdjęcia.
+            {item.automaticPartialProposal
+              ? `Automatyczna propozycja v0.10.4 · slot #${item.positionIndex + 1} · ${item.sequenceNumber}. Brakujące pola (${item.automaticPartialProposal.geometryQualification.unavailableCellIndices.join(', ') || 'brak'}) są poza zdjęciem; propozycja wymaga ręcznego potwierdzenia.`
+              : `Automat nie utworzył tej planszy. Slot #${item.positionIndex + 1} · ${item.sequenceNumber} jest obowiązkowy — popraw roboczy szablon i zapisz komplet plansz zdjęcia.`}
           </p>
         ) : null}
         {loadingSource ? <p>Wczytywanie obrazu…</p> : null}

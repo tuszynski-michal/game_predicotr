@@ -56,6 +56,13 @@ interface GeometryGuardResolutionPanelProps {
   readonly onPersistedContextLoaded: (
     manifest: ImageGeometryGuardResolutionManifestResponse | null,
     pageGeometryPreflightJob: JobResponse | null,
+    identity: {
+      readonly browserSelectionId: string;
+      readonly gameId: string;
+      readonly guardJobId: string;
+      readonly pageGeometryManifestChecksumSha256: string;
+      readonly sourceManifestChecksumSha256: string;
+    },
   ) => void;
   readonly onManifestSealed: (
     manifest: ImageGeometryGuardResolutionManifestResponse,
@@ -194,6 +201,15 @@ function GeometryGuardResolutionPanelContent({
       onPersistedContextLoaded(
         result.data.currentResolutionManifest ?? null,
         result.data.pageGeometryPreflightJob ?? null,
+        {
+          browserSelectionId: result.data.browserSelectionId,
+          gameId: result.data.gameId,
+          guardJobId: result.data.guardJobId,
+          pageGeometryManifestChecksumSha256:
+            result.data.pageGeometryManifestChecksumSha256,
+          sourceManifestChecksumSha256:
+            result.data.sourceManifestChecksumSha256,
+        },
       );
       const resultDecisions = new Map(
         result.data.decisions.map((item) => [

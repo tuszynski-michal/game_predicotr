@@ -103,6 +103,13 @@ class ImageGridReviewCounts:
     needs_validation: int
     needs_correction: int
     approved: int
+    full_grids: int | None = None
+    lateral_partial_proposals: int = 0
+    confirmed_partial_grids: int = 0
+
+    @property
+    def manual_correction(self) -> int:
+        return max(0, self.needs_correction - self.lateral_partial_proposals)
 
     @property
     def total(self) -> int:

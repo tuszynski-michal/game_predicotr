@@ -6,9 +6,10 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import String, and_, case, exists, func, literal, select, tuple_
+from sqlalchemy import String, and_, case, exists, func, literal, or_, select, tuple_
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Select
+from sqlalchemy.sql.elements import ColumnElement
 
 from game_predictor_api.application.image_grid_reviews import (
     ImageGridReviewListSlice,
@@ -44,6 +45,17 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
 )
+
+
+def _confirmed_partial_expression() -> ColumnElement[bool]:
+    """Classify persisted partials even after the proposal was accepted."""
+
+    return or_(
+        RecognizedBoardModel.completeness_status == "pending_partial",
+        func.cardinality(RecognizedBoardModel.unavailable_cell_indices) > 0,
+        RecognizedBoardModel.geometry_qualification.op("->>")("completenessStatus")
+        == "pending_partial",
+    )
 
 
 class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
@@ -152,12 +164,45 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
             or 0
         )
+        proposal_expression = ImageSourceGeometryRevisionModel.board_geometries.op("->")(
+            ImageBoardGeometryPendingModel.position_index
+        ).op("->")("automaticPartialProposal")
+        lateral_partial_proposals = int(
+            self._session.scalar(
+                self._pending_statement(review_filter=unrestricted)
+                .with_only_columns(func.count(ImageBoardGeometryPendingModel.id))
+                .where(func.jsonb_typeof(proposal_expression) == "object")
+            )
+            or 0
+        )
+        needs_validation = counts.get(ImageGridReviewState.NEEDS_VALIDATION.value, 0)
+        approved = counts.get(ImageGridReviewState.APPROVED.value, 0)
+        needs_correction = (
+            counts.get(ImageGridReviewState.NEEDS_CORRECTION.value, 0) + pending_count
+        )
+        current_statement = self._visible_statement(review_filter=unrestricted)
+        current_count = int(
+            self._session.scalar(
+                current_statement.with_only_columns(func.count(ImageReviewItemModel.id))
+            )
+            or 0
+        )
+        partial_expression = _confirmed_partial_expression()
+        confirmed_partial_grids = int(
+            self._session.scalar(
+                current_statement.with_only_columns(func.count(ImageReviewItemModel.id)).where(
+                    partial_expression
+                )
+            )
+            or 0
+        )
         return ImageGridReviewCounts(
-            needs_validation=counts.get(ImageGridReviewState.NEEDS_VALIDATION.value, 0),
-            needs_correction=(
-                counts.get(ImageGridReviewState.NEEDS_CORRECTION.value, 0) + pending_count
-            ),
-            approved=counts.get(ImageGridReviewState.APPROVED.value, 0),
+            needs_validation=needs_validation,
+            needs_correction=needs_correction,
+            approved=approved,
+            full_grids=max(0, current_count - confirmed_partial_grids),
+            lateral_partial_proposals=lateral_partial_proposals,
+            confirmed_partial_grids=confirmed_partial_grids,
         )
 
     def get_grid_review_source_asset(

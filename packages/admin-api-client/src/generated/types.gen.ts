@@ -771,6 +771,7 @@ export type BrowserImageImportPreflightCreate = {
    * Gameid
    */
   gameId: string;
+  geometryEngineVariant?: GeometryEngineVariant | null;
 };
 
 /**
@@ -789,6 +790,7 @@ export type BrowserImageImportPreflightResponse = {
    * Displayname
    */
   displayName: string;
+  existingImportJob?: JobResponse | null;
   /**
    * Firstunresolvedsequence
    */
@@ -797,6 +799,32 @@ export type BrowserImageImportPreflightResponse = {
    * Gameid
    */
   gameId: string;
+  geometryEngineVariant?: GeometryEngineVariant | null;
+  /**
+   * Geometryenginevariantblockercode
+   */
+  geometryEngineVariantBlockerCode?: string | null;
+  /**
+   * Geometryenginevariantblockermessage
+   */
+  geometryEngineVariantBlockerMessage?: string | null;
+  /**
+   * Geometryenginevariantenabled
+   */
+  geometryEngineVariantEnabled?: boolean;
+  /**
+   * Geometrypreflightartifactblockercode
+   */
+  geometryPreflightArtifactBlockerCode?: string | null;
+  /**
+   * Geometrypreflightartifactblockermessage
+   */
+  geometryPreflightArtifactBlockerMessage?: string | null;
+  /**
+   * Geometrypreflightartifactready
+   */
+  geometryPreflightArtifactReady?: boolean;
+  geometryPreflightJob?: JobResponse | null;
   /**
    * Geometrypreflightrequired
    */
@@ -826,6 +854,10 @@ export type BrowserImageImportPreflightResponse = {
    * Operatorexcludedsourcecount
    */
   operatorExcludedSourceCount?: number;
+  /**
+   * Pageregistrationvariant
+   */
+  pageRegistrationVariant?: 'standard_v0_10' | 'board_area_test' | null;
   /**
    * Partialsourcecount
    */
@@ -865,6 +897,10 @@ export type BrowserImageImportPreflightResponse = {
    * Symbolmodelready
    */
   symbolModelReady: boolean;
+  /**
+   * Symbolmodelsnapshotfingerprint
+   */
+  symbolModelSnapshotFingerprint?: string | null;
   /**
    * Unclassifiedcoldstartallowed
    */
@@ -945,6 +981,10 @@ export type BrowserImageImportStart = {
    * Symbolmodelinferencefingerprint
    */
   symbolModelInferenceFingerprint?: string | null;
+  /**
+   * Symbolmodelsnapshotfingerprint
+   */
+  symbolModelSnapshotFingerprint?: string | null;
 };
 
 /**
@@ -2388,6 +2428,29 @@ export type GeometryCohortResponse = {
 export type GeometryEngineVariant = 'structured_lattice_v4_partial_sides';
 
 /**
+ * GeometryEngineVariantCapabilityResponse
+ */
+export type GeometryEngineVariantCapabilityResponse = {
+  /**
+   * Blockercode
+   */
+  blockerCode?: string | null;
+  /**
+   * Blockermessage
+   */
+  blockerMessage?: string | null;
+  /**
+   * Enabled
+   */
+  enabled: boolean;
+  /**
+   * Label
+   */
+  label: string;
+  variant: GeometryEngineVariant;
+};
+
+/**
  * GeometryQualificationPayload
  */
 export type GeometryQualificationPayload = {
@@ -3720,6 +3783,22 @@ export type ImageGridReviewCountsResponse = {
    */
   approved: number;
   /**
+   * Confirmedpartialgrids
+   */
+  confirmedPartialGrids?: number;
+  /**
+   * Fullgrids
+   */
+  fullGrids?: number;
+  /**
+   * Lateralpartialproposals
+   */
+  lateralPartialProposals?: number;
+  /**
+   * Manualcorrection
+   */
+  manualCorrection?: number;
+  /**
    * Needscorrection
    */
   needsCorrection: number;
@@ -3977,6 +4056,7 @@ export type ImageGridReviewItemResponse = {
    * Assetmode
    */
   assetMode: string;
+  automaticPartialProposal?: AutomaticPartialGeometryProposalPayload | null;
   /**
    * Boardconfidence
    */
@@ -4347,6 +4427,10 @@ export type ImageImportEnginePolicyResponse = {
    * Gameid
    */
   gameId: string;
+  /**
+   * Geometryenginevariants
+   */
+  geometryEngineVariants?: Array<GeometryEngineVariantCapabilityResponse>;
   /**
    * Geometrymode
    */

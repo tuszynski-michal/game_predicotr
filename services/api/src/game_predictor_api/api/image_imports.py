@@ -53,7 +53,10 @@ from game_predictor_api.domain.image_sequence_canonical import (
 )
 from game_predictor_api.domain.jobs import JobConflictError, JobError, JobStatus, JobType
 from game_predictor_api.schemas.catalog import ErrorResponse
-from game_predictor_api.schemas.geometry_qualification import GeometryQualificationPayload
+from game_predictor_api.schemas.geometry_qualification import (
+    AutomaticPartialGeometryProposalPayload,
+    GeometryQualificationPayload,
+)
 from game_predictor_api.schemas.image_imports import (
     BrowserImageImportPreflightCreate,
     BrowserImageImportPreflightResponse,
@@ -96,6 +99,33 @@ from game_predictor_api.schemas.image_imports import (
     PageGeometryRegistrationDiagnostics,
 )
 from game_predictor_api.schemas.jobs import JobResponse
+
+
+def _image_import_preflight_checksum(
+    *,
+    payload: dict[str, object],
+    geometry_engine_variant: GeometryEngineVariant | None,
+    symbol_model_inference_fingerprint: str | None,
+    symbol_model_snapshot_fingerprint: str | None,
+) -> str:
+    checksum_payload = payload
+    if (
+        geometry_engine_variant is not None
+        and symbol_model_inference_fingerprint is None
+        and symbol_model_snapshot_fingerprint is not None
+    ):
+        checksum_payload = {
+            **payload,
+            "symbolModelSnapshotFingerprint": symbol_model_snapshot_fingerprint,
+        }
+    return hashlib.sha256(
+        json.dumps(
+            checksum_payload,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("ascii")
+    ).hexdigest()
 
 
 def _validate_skipped_canonical_ranges(
@@ -356,6 +386,7 @@ def create_image_imports_router(
         canonical_service: object | None,
         job_service: JobService,
         override_service: PageGeometryOverrideService | None,
+        geometry_engine_variant: GeometryEngineVariant | None = None,
     ) -> BrowserImageImportPreflightResponse:
         if canonical_service is None:
             raise JobError(
@@ -407,6 +438,7 @@ def create_image_imports_router(
             grid_fingerprint,
             symbol_blocker_code,
             unclassified_cold_start_allowed,
+            symbol_snapshot_fingerprint,
         ) = job_service.preview_image_import_model_fingerprints(game_id=game_id)
         engine_policy = job_service.current_image_import_engine_policy(game_id=game_id)
         payload["imageEnginePolicy"] = engine_policy.policy.value
@@ -415,15 +447,88 @@ def create_image_imports_router(
         # structured production path uses it as immutable source provenance;
         # switching the game policy must never bypass the reviewed page gate.
         payload["geometryPreflightRequired"] = True
+        if geometry_engine_variant is not None:
+            payload["geometryEngineVariant"] = geometry_engine_variant.value
         payload["operatorExcludedSourceCount"] = len(exclusions)
         payload["symbolModelReady"] = symbol_fingerprint is not None
         payload["unclassifiedColdStartAllowed"] = unclassified_cold_start_allowed
         payload["symbolModelBlockerCode"] = symbol_blocker_code
-        checksum = hashlib.sha256(
-            json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
-                "ascii"
+        checksum = _image_import_preflight_checksum(
+            payload=payload,
+            geometry_engine_variant=geometry_engine_variant,
+            symbol_model_inference_fingerprint=symbol_fingerprint,
+            symbol_model_snapshot_fingerprint=symbol_snapshot_fingerprint,
+        )
+        payload.pop("geometryEngineVariant", None)
+        variant_enabled = True
+        variant_blocker_code: str | None = None
+        variant_blocker_message: str | None = None
+        try:
+            require_geometry_engine_variant_available(geometry_engine_variant)
+        except LateralPartialContractError as error:
+            variant_enabled = False
+            variant_blocker_code = error.code
+            variant_blocker_message = str(error)
+        geometry_preflight = job_service.get_page_geometry_preflight_by_source_selection(
+            game_id=game_id,
+            source_selection_id=upload_id,
+            source_manifest_sha256=ready.manifest.checksum_sha256,
+            geometry_engine_variant=geometry_engine_variant,
+        )
+        artifact_ready = False
+        artifact_blocker_code: str | None = "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED"
+        artifact_blocker_message: str | None = (
+            "Przygotuj jawnie preflight geometrii dla wybranego silnika."
+        )
+        page_registration_variant: Literal["standard_v0_10", "board_area_test"] | None = None
+        if geometry_preflight is not None:
+            page_registration_variant = (
+                "board_area_test"
+                if geometry_preflight.input_payload.get("preflight_policy_version")
+                == "page-geometry-preflight-v3-board-area-mask"
+                else "standard_v0_10"
             )
-        ).hexdigest()
+            checkpoint = geometry_preflight.checkpoint_payload
+            artifact_ready = (
+                geometry_preflight.status is JobStatus.COMPLETED
+                and isinstance(checkpoint, dict)
+                and checkpoint.get("complete") is True
+                and isinstance(checkpoint.get("geometry_manifest_checksum_sha256"), str)
+                and isinstance(checkpoint.get("geometry_manifest_relative_path"), str)
+            )
+            if artifact_ready:
+                artifact_blocker_code = None
+                artifact_blocker_message = None
+            elif geometry_preflight.status in {JobStatus.CREATED, JobStatus.PROCESSING}:
+                artifact_blocker_code = "IMAGE_PAGE_GEOMETRY_PREFLIGHT_IN_PROGRESS"
+                artifact_blocker_message = "Preflight geometrii jest w trakcie wykonywania."
+            elif geometry_preflight.status is JobStatus.WAITING_FOR_REVIEW:
+                artifact_blocker_code = "IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED"
+                artifact_blocker_message = (
+                    "Preflight wymaga ręcznej korekty geometrii przed wznowieniem."
+                )
+            elif geometry_preflight.status is JobStatus.FAILED:
+                artifact_blocker_code = (
+                    geometry_preflight.error_code or "IMAGE_PAGE_GEOMETRY_PREFLIGHT_FAILED"
+                )
+                artifact_blocker_message = (
+                    geometry_preflight.error_message or "Preflight geometrii zakończył się błędem."
+                )
+            else:
+                artifact_blocker_code = "IMAGE_PAGE_GEOMETRY_PREFLIGHT_INCOMPLETE"
+                artifact_blocker_message = (
+                    "Preflight nie ma kompletnego, niezmiennego manifestu geometrii."
+                )
+        existing_import = job_service.get_image_import_run_by_source_selection(
+            game_id=game_id,
+            source_selection_id=upload_id,
+            source_manifest_sha256=ready.manifest.checksum_sha256,
+            engine_policy=engine_policy,
+            symbol_model_inference_fingerprint=symbol_fingerprint,
+            symbol_model_snapshot_fingerprint=symbol_snapshot_fingerprint,
+            grid_profile_inference_fingerprint=grid_fingerprint,
+            geometry_engine_variant=geometry_engine_variant,
+        )
         return BrowserImageImportPreflightResponse(
             **payload,
             upload_id=upload_id,
@@ -431,7 +536,22 @@ def create_image_imports_router(
             manifest_checksum_sha256=ready.manifest.checksum_sha256,
             preflight_checksum_sha256=checksum,
             symbol_model_inference_fingerprint=symbol_fingerprint,
+            symbol_model_snapshot_fingerprint=symbol_snapshot_fingerprint,
             grid_profile_inference_fingerprint=grid_fingerprint,
+            geometry_engine_variant=geometry_engine_variant,
+            geometry_engine_variant_enabled=variant_enabled,
+            geometry_engine_variant_blocker_code=variant_blocker_code,
+            geometry_engine_variant_blocker_message=variant_blocker_message,
+            page_registration_variant=page_registration_variant,
+            geometry_preflight_job=(
+                None if geometry_preflight is None else JobResponse.from_domain(geometry_preflight)
+            ),
+            geometry_preflight_artifact_ready=artifact_ready,
+            geometry_preflight_artifact_blocker_code=artifact_blocker_code,
+            geometry_preflight_artifact_blocker_message=artifact_blocker_message,
+            existing_import_job=(
+                None if existing_import is None else JobResponse.from_domain(existing_import)
+            ),
         )
 
     @router.post(
@@ -606,6 +726,7 @@ def create_image_imports_router(
             canonical_service=canonical_service,
             job_service=job_service,
             override_service=override_service,
+            geometry_engine_variant=payload.geometry_engine_variant,
         )
 
     @router.post(
@@ -652,12 +773,14 @@ def create_image_imports_router(
             canonical_service=canonical_service,
             job_service=job_service,
             override_service=override_service,
+            geometry_engine_variant=payload.geometry_engine_variant,
         )
         (
             current_symbol,
             current_grid,
             current_symbol_blocker,
             current_unclassified_cold_start_allowed,
+            current_symbol_snapshot,
         ) = job_service.preview_image_import_model_fingerprints(game_id=payload.game_id)
         if (
             current_symbol is None
@@ -669,11 +792,18 @@ def create_image_imports_router(
                 "A compatible symbol model must be activated before this import can start.",
             )
         if (
-            payload.symbol_model_inference_fingerprint is not None
-            and payload.symbol_model_inference_fingerprint != current_symbol
-        ) or (
-            payload.grid_profile_inference_fingerprint is not None
-            and payload.grid_profile_inference_fingerprint != current_grid
+            (
+                payload.symbol_model_inference_fingerprint is not None
+                and payload.symbol_model_inference_fingerprint != current_symbol
+            )
+            or (
+                payload.symbol_model_snapshot_fingerprint is not None
+                and payload.symbol_model_snapshot_fingerprint != current_symbol_snapshot
+            )
+            or (
+                payload.grid_profile_inference_fingerprint is not None
+                and payload.grid_profile_inference_fingerprint != current_grid
+            )
         ):
             raise JobConflictError(
                 "IMAGE_SEQUENCE_MODEL_SNAPSHOT_STALE",
@@ -1039,6 +1169,14 @@ def create_image_imports_router(
                     existing_slot_qualifications=(
                         current_override.get("slotQualifications")
                         if isinstance(current_override, dict)
+                        else None
+                    ),
+                    automatic_partial_proposals=(
+                        [
+                            AutomaticPartialGeometryProposalPayload.model_validate(proposal)
+                            for proposal in raw.get("automaticPartialProposals", [])
+                        ]
+                        if isinstance(raw.get("automaticPartialProposals"), list)
                         else None
                     ),
                 )

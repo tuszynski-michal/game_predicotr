@@ -982,6 +982,19 @@ function PageGeometryCorrectionPanelContent({
                 ? ` · aktualizacja już zarejestrowanej geometrii r${source.existingOverrideRevision ?? '?'}`
                 : ' · odroczone zdjęcie — wymaga geometrii'}
             </p>
+            {source.automaticPartialProposals?.length ? (
+              <p className="geometryOriginNotice" role="status">
+                Pochodzenie: automatyczna propozycja v0.10.4 · sloty{' '}
+                {source.automaticPartialProposals
+                  .map(
+                    (proposal) =>
+                      `${proposal.positionIndex} (brakujące komórki: ${proposal.geometryQualification.unavailableCellIndices.join(', ') || 'brak'})`,
+                  )
+                  .join(' · ')}
+                . Wszystkie sloty z nazwy pliku pozostają widoczne i wymagają
+                ręcznego potwierdzenia.
+              </p>
+            ) : null}
             {source.geometryOrigin === 'manual_template' ? (
               <div
                 className="geometryOriginNotice geometryOriginNoticeWarning"

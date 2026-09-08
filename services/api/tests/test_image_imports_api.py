@@ -14,6 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.api.image_imports import (
     _geometry_manifest_descriptor,
+    _image_import_preflight_checksum,
     _uses_touching_page_grid,
 )
 from game_predictor_api.application import controlled_folder_picker as folder_picker_module
@@ -30,6 +31,10 @@ from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionHostService,
 )
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.image_import_engine_policy import (
+    ImageImportEnginePolicy,
+    ImageImportEnginePolicySnapshot,
+)
 from game_predictor_api.domain.image_sequence_canonical import (
     ImageSequenceCanonicalService,
 )
@@ -43,14 +48,159 @@ from game_predictor_api.domain.jobs import (
     start_job,
 )
 from game_predictor_api.domain.symbol_model_snapshots import (
+    SymbolModelJobSnapshot,
+    bootstrap_symbol_model_snapshot,
     cold_start_unclassified_symbol_snapshot,
 )
 from game_predictor_api.main import create_app
+from game_predictor_worker.images.lateral_partial_contract import (
+    GeometryEngineVariant,
+    LateralPartialGeometrySnapshot,
+)
+from game_predictor_worker.images.pipeline_contract import (
+    CellAssetRolloutMode,
+    GeometryPipelineRolloutSnapshot,
+    GeometryRolloutMode,
+    StructuredGeometryActivationSnapshot,
+)
+from game_predictor_worker.images.structured_geometry import (
+    structured_lattice_active_config_payload,
+)
 from PIL import Image
 from test_image_selections import MemoryImageSelectionRepository
 from test_jobs_domain import MemoryJobRepository
 
 NOW = datetime(2026, 7, 31, 12, 0, tzinfo=UTC)
+
+
+def test_legacy_cold_start_preflight_checksum_keeps_the_golden_bytes() -> None:
+    payload: dict[str, object] = {
+        "geometryPreflightRequired": True,
+        "schemaVersion": 1,
+        "symbolModelBlockerCode": "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED",
+        "symbolModelReady": False,
+        "unclassifiedColdStartAllowed": True,
+    }
+
+    checksum = _image_import_preflight_checksum(
+        payload=payload,
+        geometry_engine_variant=None,
+        symbol_model_inference_fingerprint=None,
+        symbol_model_snapshot_fingerprint="s" * 64,
+    )
+
+    assert checksum == "4bf26fa30ff859f84459da60a54c3696a1e17c9dfd62b7e01d1e4a2ad43d9202"
+    assert "symbolModelSnapshotFingerprint" not in payload
+
+
+def test_v4_replay_lookup_requires_exact_manifest_policy_fingerprints_and_variant() -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+    policy = ImageImportEnginePolicySnapshot(
+        game_id=game_id,
+        policy=ImageImportEnginePolicy.STRUCTURED_LATTICE_V3,
+        geometry_mode="structured_lattice_v3",
+        cell_asset_mode="virtual_default",
+        revision=4,
+    )
+    symbol = bootstrap_symbol_model_snapshot()
+    rollout = GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.STRUCTURED_LATTICE_V3,
+        cell_asset_mode=CellAssetRolloutMode.VIRTUAL_DEFAULT,
+        rollout_revision=4,
+        geometry_engine_version="structured-opencv-pinned-preflight-v1",
+        virtual_renderer_version="virtual-cell-renderer-v1",
+        preprocessing_version="symbol-rgb-v1",
+        active_lattice_geometry=StructuredGeometryActivationSnapshot.from_config_payload(
+            structured_lattice_active_config_payload()
+        ),
+        lateral_partial_geometry=LateralPartialGeometrySnapshot(),
+    ).to_payload()
+
+    def import_job(**overrides: object):
+        payload: dict[str, object] = {
+            "schema_version": 1,
+            "source_selection_id": str(selection_id),
+            "source_manifest_sha256": "a" * 64,
+            "image_geometry_rollout": rollout,
+            "symbol_model": symbol.to_payload(),
+            "grid_profile": {"inferenceFingerprint": "g" * 64},
+        }
+        payload.update(overrides)
+        return create_job(JobType.IMPORT, game_id=game_id, input_payload=payload, created_at=NOW)
+
+    exact = repository.add_job(import_job())
+    repository.add_job(import_job(source_manifest_sha256="x" * 64))
+    repository.add_job(import_job(symbol_model={"inferenceFingerprint": "z" * 64}))
+    repository.add_job(
+        import_job(
+            image_geometry_rollout={
+                **rollout,
+                "lateralPartialGeometry": {"variant": "structured_lattice_v4_partial_sides"},
+            }
+        )
+    )
+
+    found = service.get_image_import_run_by_source_selection(
+        game_id=game_id,
+        source_selection_id=selection_id,
+        source_manifest_sha256="a" * 64,
+        engine_policy=policy,
+        symbol_model_inference_fingerprint=symbol.inference_fingerprint,
+        symbol_model_snapshot_fingerprint=symbol.inference_fingerprint,
+        grid_profile_inference_fingerprint="g" * 64,
+        geometry_engine_variant=GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
+    )
+
+    assert found is not None
+    assert found.id == exact.id
+
+
+def test_v4_preflight_lookup_rejects_an_arbitrary_lateral_mapping() -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+    base = {
+        "schema_version": 2,
+        "validation_kind": "page_geometry_preflight",
+        "source_selection_id": str(selection_id),
+        "source_manifest_sha256": "a" * 64,
+    }
+    exact = repository.add_job(
+        create_job(
+            JobType.VALIDATE,
+            game_id=game_id,
+            input_payload={
+                **base,
+                "lateral_partial_geometry": LateralPartialGeometrySnapshot().to_payload(),
+            },
+            created_at=NOW,
+        )
+    )
+    repository.add_job(
+        create_job(
+            JobType.VALIDATE,
+            game_id=game_id,
+            input_payload={
+                **base,
+                "lateral_partial_geometry": {"variant": "structured_lattice_v4_partial_sides"},
+            },
+            created_at=NOW,
+        )
+    )
+
+    found = service.get_page_geometry_preflight_by_source_selection(
+        game_id=game_id,
+        source_selection_id=selection_id,
+        source_manifest_sha256="a" * 64,
+        geometry_engine_variant=GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
+    )
+
+    assert found is not None
+    assert found.id == exact.id
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-native folder picker")
@@ -446,6 +596,35 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         assert report["symbolModelReady"] is True
         assert report["symbolModelBlockerCode"] is None
         assert len(report["symbolModelInferenceFingerprint"]) == 64
+        assert report["geometryPreflightJob"] is None
+        assert report["geometryPreflightArtifactReady"] is False
+        assert (
+            report["geometryPreflightArtifactBlockerCode"]
+            == "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED"
+        )
+        assert report["existingImportJob"] is None
+
+        jobs_before_v4_report = tuple(
+            repository.list_jobs(status=None, job_type=None, game_id=game_id, limit=100)
+        )
+        v4_report = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight",
+            json={
+                "gameId": str(game_id),
+                "geometryEngineVariant": "structured_lattice_v4_partial_sides",
+            },
+        )
+        assert v4_report.status_code == 200
+        assert v4_report.json()["geometryEngineVariantEnabled"] is False
+        assert (
+            v4_report.json()["geometryEngineVariantBlockerCode"]
+            == "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED"
+        )
+        assert v4_report.json()["preflightChecksumSha256"] != report["preflightChecksumSha256"]
+        assert (
+            tuple(repository.list_jobs(status=None, job_type=None, game_id=game_id, limit=100))
+            == jobs_before_v4_report
+        )
 
         missing_geometry = client.post(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
@@ -513,6 +692,15 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
                 finished_at=NOW + timedelta(seconds=2),
             )
         )
+
+        replayed_report = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight",
+            json={"gameId": str(game_id)},
+        )
+        assert replayed_report.status_code == 200
+        assert replayed_report.json()["geometryPreflightJob"]["id"] == str(geometry_job.id)
+        assert replayed_report.json()["geometryPreflightArtifactReady"] is True
+        assert replayed_report.json()["geometryPreflightArtifactBlockerCode"] is None
 
         start_payload = {
             "gameId": str(game_id),
@@ -735,6 +923,9 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
         ).json()
         assert preflight["symbolModelReady"] is False
         assert preflight["unclassifiedColdStartAllowed"] is True
+        cold_start = cold_start_unclassified_symbol_snapshot(("CYTRYNA", "WISNIA"))
+        assert preflight["symbolModelInferenceFingerprint"] is None
+        assert preflight["symbolModelSnapshotFingerprint"] == cold_start.inference_fingerprint
 
         geometry_checksum = "d" * 64
         geometry_job = create_job(
@@ -799,13 +990,66 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
                 "preflightChecksumSha256": preflight["preflightChecksumSha256"],
                 "geometryPreflightJobId": str(geometry_job.id),
                 "geometryManifestChecksumSha256": geometry_checksum,
+                "symbolModelSnapshotFingerprint": cold_start.inference_fingerprint,
             },
+        )
+
+        started_job = repository.get_job(UUID(started.json()["job"]["id"]))
+        assert started_job is not None
+        assert (
+            SymbolModelJobSnapshot.from_payload(
+                started_job.input_payload["symbol_model"]
+            ).inference_fingerprint
+            == cold_start.inference_fingerprint
+        )
+        assert started_job.input_payload["source_selection_id"] == upload_id
+        assert (
+            started_job.input_payload["source_manifest_sha256"]
+            == preflight["manifestChecksumSha256"]
+        )
+        assert (
+            started_job.input_payload["grid_profile"]["inferenceFingerprint"]
+            == preflight["gridProfileInferenceFingerprint"]
+        )
+        current_policy = job_service.current_image_import_engine_policy(game_id=game_id)
+        assert current_policy.policy is ImageImportEnginePolicy.VERIFIED_V19
+        assert "image_geometry_rollout" not in started_job.input_payload
+        repository.add_job(
+            create_job(
+                JobType.IMPORT,
+                game_id=game_id,
+                input_payload={
+                    **started_job.input_payload,
+                    "symbol_model": {
+                        "inferenceFingerprint": cold_start.inference_fingerprint,
+                    },
+                },
+                created_at=NOW + timedelta(seconds=3),
+            )
+        )
+        exact_replay = job_service.get_image_import_run_by_source_selection(
+            game_id=game_id,
+            source_selection_id=UUID(upload_id),
+            source_manifest_sha256=preflight["manifestChecksumSha256"],
+            engine_policy=current_policy,
+            symbol_model_inference_fingerprint=None,
+            symbol_model_snapshot_fingerprint=cold_start.inference_fingerprint,
+            grid_profile_inference_fingerprint=preflight["gridProfileInferenceFingerprint"],
+            geometry_engine_variant=None,
+        )
+        assert exact_replay is not None, started_job.input_payload
+        assert exact_replay.id == started_job.id
+        replayed = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight",
+            json={"gameId": str(game_id)},
         )
 
     assert started.status_code == 201, started.text
     snapshot = started.json()["job"]["inputPayload"]["symbolModel"]
     assert snapshot["inferenceMode"] == "unclassified"
     assert snapshot["modelVersion"] == "cold-start-unclassified-v1"
+    assert replayed.status_code == 200
+    assert replayed.json()["existingImportJob"]["id"] == started.json()["job"]["id"]
 
 
 def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(

@@ -1415,6 +1415,16 @@
             "format": "uuid",
             "title": "Gameid",
             "type": "string"
+          },
+          "geometryEngineVariant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryEngineVariant"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1440,6 +1450,16 @@
             "title": "Displayname",
             "type": "string"
           },
+          "existingImportJob": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "firstUnresolvedSequence": {
             "anyOf": [
               {
@@ -1456,6 +1476,80 @@
             "format": "uuid",
             "title": "Gameid",
             "type": "string"
+          },
+          "geometryEngineVariant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryEngineVariant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geometryEngineVariantBlockerCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryenginevariantblockercode"
+          },
+          "geometryEngineVariantBlockerMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryenginevariantblockermessage"
+          },
+          "geometryEngineVariantEnabled": {
+            "default": true,
+            "title": "Geometryenginevariantenabled",
+            "type": "boolean"
+          },
+          "geometryPreflightArtifactBlockerCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrypreflightartifactblockercode"
+          },
+          "geometryPreflightArtifactBlockerMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrypreflightartifactblockermessage"
+          },
+          "geometryPreflightArtifactReady": {
+            "default": false,
+            "title": "Geometrypreflightartifactready",
+            "type": "boolean"
+          },
+          "geometryPreflightJob": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "geometryPreflightRequired": {
             "title": "Geometrypreflightrequired",
@@ -1501,6 +1595,21 @@
             "minimum": 0.0,
             "title": "Operatorexcludedsourcecount",
             "type": "integer"
+          },
+          "pageRegistrationVariant": {
+            "anyOf": [
+              {
+                "enum": [
+                  "standard_v0_10",
+                  "board_area_test"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pageregistrationvariant"
           },
           "partialSourceCount": {
             "minimum": 0.0,
@@ -1564,6 +1673,18 @@
           "symbolModelReady": {
             "title": "Symbolmodelready",
             "type": "boolean"
+          },
+          "symbolModelSnapshotFingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolmodelsnapshotfingerprint"
           },
           "unclassifiedColdStartAllowed": {
             "default": false,
@@ -1766,6 +1887,18 @@
               }
             ],
             "title": "Symbolmodelinferencefingerprint"
+          },
+          "symbolModelSnapshotFingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolmodelsnapshotfingerprint"
           }
         },
         "required": [
@@ -4287,6 +4420,51 @@
         "title": "GeometryEngineVariant",
         "type": "string"
       },
+      "GeometryEngineVariantCapabilityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blockerCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blockercode"
+          },
+          "blockerMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blockermessage"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "variant": {
+            "$ref": "#/components/schemas/GeometryEngineVariant"
+          }
+        },
+        "required": [
+          "variant",
+          "label",
+          "enabled"
+        ],
+        "title": "GeometryEngineVariantCapabilityResponse",
+        "type": "object"
+      },
       "GeometryQualificationPayload": {
         "additionalProperties": false,
         "properties": {
@@ -6608,6 +6786,30 @@
             "title": "Approved",
             "type": "integer"
           },
+          "confirmedPartialGrids": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Confirmedpartialgrids",
+            "type": "integer"
+          },
+          "fullGrids": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Fullgrids",
+            "type": "integer"
+          },
+          "lateralPartialProposals": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Lateralpartialproposals",
+            "type": "integer"
+          },
+          "manualCorrection": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Manualcorrection",
+            "type": "integer"
+          },
           "needsCorrection": {
             "minimum": 0.0,
             "title": "Needscorrection",
@@ -7085,6 +7287,16 @@
           "assetMode": {
             "title": "Assetmode",
             "type": "string"
+          },
+          "automaticPartialProposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutomaticPartialGeometryProposalPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "boardConfidence": {
             "maximum": 1.0,
@@ -7784,6 +7996,13 @@
             "format": "uuid",
             "title": "Gameid",
             "type": "string"
+          },
+          "geometryEngineVariants": {
+            "items": {
+              "$ref": "#/components/schemas/GeometryEngineVariantCapabilityResponse"
+            },
+            "title": "Geometryenginevariants",
+            "type": "array"
           },
           "geometryMode": {
             "title": "Geometrymode",

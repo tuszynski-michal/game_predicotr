@@ -15,10 +15,12 @@ export function ImportGeometryReviewSummary({
   api,
   gameId,
   jobId,
+  technicalErrorCount,
 }: {
   readonly api: ImageFolderImportClient;
   readonly gameId: string;
   readonly jobId: string;
+  readonly technicalErrorCount: number;
 }) {
   const [counts, setCounts] = useState<
     ImageGridReviewPageResponse['counts'] | null
@@ -97,8 +99,10 @@ export function ImportGeometryReviewSummary({
       <summary>Siatki i ręczna korekta</summary>
       {counts ? (
         <p>
-          Gotowe siatki: {counts.approved + counts.needsValidation} · do
-          ręcznego ustawienia: {counts.needsCorrection}
+          Pełne siatki: {counts.fullGrids} · boczne partiale do potwierdzenia:{' '}
+          {counts.lateralPartialProposals} · potwierdzone partiale:{' '}
+          {counts.confirmedPartialGrids} · ręczne ustawienie:{' '}
+          {counts.manualCorrection} · błędy techniczne: {technicalErrorCount}
         </p>
       ) : null}
       <button

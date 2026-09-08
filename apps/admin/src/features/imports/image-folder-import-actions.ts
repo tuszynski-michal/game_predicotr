@@ -6,6 +6,8 @@ import type {
   BrowserImageUploadPlanResponse,
   BrowserPageGeometryPreflightResponse,
   BrowserReadySelectionResponse,
+  GeometryEngineVariant,
+  ImageGeometryGuardResolutionManifestResponse,
   ImageFolderSelectionResponse,
   JobResponse,
 } from '@game-predictor/admin-api-client';
@@ -50,6 +52,249 @@ export type ImageFolderImportClient = Pick<
 >;
 
 export type PageRegistrationVariant = 'standard_v0_10' | 'board_area_test';
+export const LATERAL_PARTIAL_VARIANT: GeometryEngineVariant =
+  'structured_lattice_v4_partial_sides';
+
+export function replayGeometryPreflightProgress(
+  report: BrowserImageImportPreflightResponse,
+  job: JobResponse,
+  expectedJobId: string,
+): BrowserImageImportPreflightResponse {
+  if (job.id !== expectedJobId || !geometryPreflightMatchesReport(job, report))
+    return report;
+  const completed =
+    job.status === 'completed' &&
+    job.progress.pageGeometryPreflight?.geometryManifestChecksumSha256 !==
+      undefined;
+  return {
+    ...report,
+    geometryPreflightArtifactBlockerCode: completed
+      ? null
+      : report.geometryPreflightArtifactBlockerCode,
+    geometryPreflightArtifactBlockerMessage: completed
+      ? null
+      : report.geometryPreflightArtifactBlockerMessage,
+    geometryPreflightArtifactReady: completed,
+    geometryPreflightJob: job,
+  };
+}
+
+export function geometryPreflightMatchesReport(
+  job: JobResponse,
+  report: BrowserImageImportPreflightResponse,
+): boolean {
+  const payload = jobPayload(job);
+  const lateral = payload.lateralPartialGeometry;
+  const expectsLateral =
+    report.geometryEngineVariant === LATERAL_PARTIAL_VARIANT;
+  return (
+    job.jobType === 'validate' &&
+    job.gameId === report.gameId &&
+    payload.validationKind === 'page_geometry_preflight' &&
+    payload.sourceSelectionId === report.uploadId &&
+    payload.sourceManifestSha256 === report.manifestChecksumSha256 &&
+    payload.managedSourceJobId === undefined &&
+    (expectsLateral
+      ? typeof lateral === 'object' &&
+        lateral !== null &&
+        (lateral as Record<string, unknown>).variant ===
+          LATERAL_PARTIAL_VARIANT &&
+        (lateral as Record<string, unknown>).policyVersion ===
+          'structured-lattice-v4-lateral-partial-v1'
+      : lateral === undefined)
+  );
+}
+
+export interface PersistedGuardContextIdentity {
+  readonly browserSelectionId: string;
+  readonly gameId: string;
+  readonly guardJobId: string;
+  readonly pageGeometryManifestChecksumSha256: string;
+  readonly sourceManifestChecksumSha256: string;
+}
+
+export interface ActiveGuardReportIdentity {
+  readonly gameId: string;
+  readonly geometryEngineVariant?: GeometryEngineVariant;
+  readonly preflight: BrowserImageImportPreflightResponse | null;
+  readonly readyUploadId: string | null;
+}
+
+export function persistedGuardContextIdentityStatusFromLatest(input: {
+  readonly activeGuardJobIdRef: { readonly current: string | null };
+  readonly activeReportIdentityRef: {
+    readonly current: ActiveGuardReportIdentity;
+  };
+  readonly identity: PersistedGuardContextIdentity;
+  readonly manifest: ImageGeometryGuardResolutionManifestResponse | null;
+  readonly pageGeometryPreflightJob: JobResponse | null;
+}): 'foreign' | 'match' | 'stale' | 'v4_rebind_forbidden' {
+  const current = input.activeReportIdentityRef.current;
+  if (current.preflight === null || current.readyUploadId === null) {
+    return 'stale';
+  }
+  return persistedGuardContextIdentityStatus({
+    currentGameId: current.gameId,
+    currentGuardJobId: input.activeGuardJobIdRef.current,
+    currentUploadId: current.readyUploadId,
+    geometryEngineVariant: current.geometryEngineVariant,
+    identity: input.identity,
+    manifest: input.manifest,
+    pageGeometryPreflightJob: input.pageGeometryPreflightJob,
+    report: current.preflight,
+  });
+}
+
+export function persistedGuardContextIdentityStatus(input: {
+  readonly currentGameId: string;
+  readonly currentGuardJobId: string | null;
+  readonly currentUploadId: string;
+  readonly geometryEngineVariant?: GeometryEngineVariant;
+  readonly identity: PersistedGuardContextIdentity;
+  readonly manifest: ImageGeometryGuardResolutionManifestResponse | null;
+  readonly pageGeometryPreflightJob: JobResponse | null;
+  readonly report: BrowserImageImportPreflightResponse;
+}): 'foreign' | 'match' | 'stale' | 'v4_rebind_forbidden' {
+  if (
+    input.identity.gameId !== input.currentGameId ||
+    input.identity.browserSelectionId !== input.currentUploadId ||
+    (input.report.geometryEngineVariant ?? undefined) !==
+      input.geometryEngineVariant
+  ) {
+    return 'stale';
+  }
+  if (input.geometryEngineVariant === LATERAL_PARTIAL_VARIANT) {
+    return 'v4_rebind_forbidden';
+  }
+  if (
+    input.currentGuardJobId === null ||
+    input.identity.guardJobId !== input.currentGuardJobId
+  ) {
+    return 'stale';
+  }
+  if (
+    input.identity.sourceManifestChecksumSha256 !==
+      input.report.manifestChecksumSha256 ||
+    (input.manifest !== null &&
+      (input.manifest.sourceManifestChecksumSha256 !==
+        input.report.manifestChecksumSha256 ||
+        input.manifest.guardJobId !== input.identity.guardJobId ||
+        input.manifest.pageGeometryManifestChecksumSha256 !==
+          input.identity.pageGeometryManifestChecksumSha256))
+  ) {
+    return 'foreign';
+  }
+  if (input.pageGeometryPreflightJob === null) {
+    return input.manifest === null ? 'match' : 'foreign';
+  }
+  const payload = jobPayload(input.pageGeometryPreflightJob);
+  const checksum =
+    input.pageGeometryPreflightJob.progress.pageGeometryPreflight
+      ?.geometryManifestChecksumSha256;
+  return payload.sourceSelectionId === input.currentUploadId &&
+    input.pageGeometryPreflightJob.gameId === input.currentGameId &&
+    payload.sourceManifestSha256 === input.report.manifestChecksumSha256 &&
+    checksum === input.identity.pageGeometryManifestChecksumSha256 &&
+    payload.lateralPartialGeometry === undefined
+    ? 'match'
+    : 'foreign';
+}
+
+export function pageRegistrationVariantFromJob(
+  job: JobResponse | undefined,
+): string {
+  if (job === undefined) return 'brak przypiętego snapshotu';
+  const payload = jobPayload(job);
+  return payload.preflightPolicyVersion ===
+    'page-geometry-preflight-v3-board-area-mask'
+    ? 'board_area_test'
+    : payload.validationKind === 'page_geometry_preflight'
+      ? 'standard_v0_10'
+      : 'nieznany snapshot';
+}
+
+export function imageImportJobMatchesReportIdentity(
+  job: JobResponse,
+  gameId: string,
+  uploadId: string,
+  report: BrowserImageImportPreflightResponse,
+  variant: GeometryEngineVariant | undefined,
+): boolean {
+  const payload = jobPayload(job);
+  const rollout = payload.imageGeometryRollout;
+  const lateral =
+    typeof rollout === 'object' && rollout !== null
+      ? (rollout as Record<string, unknown>).lateralPartialGeometry
+      : undefined;
+  const variantMatches =
+    variant === LATERAL_PARTIAL_VARIANT
+      ? typeof lateral === 'object' &&
+        lateral !== null &&
+        (lateral as Record<string, unknown>).variant === variant &&
+        (lateral as Record<string, unknown>).policyVersion ===
+          'structured-lattice-v4-lateral-partial-v1'
+      : lateral === undefined;
+  const symbol = payload.symbolModel;
+  const grid = payload.gridProfile;
+  const symbolMatches = symbolSnapshotMatchesReport(symbol, report);
+  const rolloutMatches =
+    (typeof rollout === 'object' &&
+      rollout !== null &&
+      (rollout as Record<string, unknown>).rolloutRevision ===
+        report.imageEnginePolicyRevision) ||
+    (rollout === undefined &&
+      report.imageEnginePolicy === 'verified_v19' &&
+      report.imageEnginePolicyRevision === 0 &&
+      variant === undefined);
+  return (
+    job.gameId === gameId &&
+    payload.sourceSelectionId === uploadId &&
+    payload.sourceManifestSha256 === report.manifestChecksumSha256 &&
+    rolloutMatches &&
+    symbolMatches &&
+    typeof grid === 'object' &&
+    grid !== null &&
+    (grid as Record<string, unknown>).inferenceFingerprint ===
+      report.gridProfileInferenceFingerprint &&
+    variantMatches
+  );
+}
+
+export function symbolSnapshotMatchesReport(
+  value: unknown,
+  report: BrowserImageImportPreflightResponse,
+): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const snapshot = value as Record<string, unknown>;
+  if (
+    typeof report.symbolModelSnapshotFingerprint !== 'string' ||
+    snapshot.inferenceFingerprint !== report.symbolModelSnapshotFingerprint
+  ) {
+    return false;
+  }
+  if (report.symbolModelInferenceFingerprint !== null) {
+    return (
+      snapshot.inferenceFingerprint ===
+        report.symbolModelInferenceFingerprint &&
+      snapshot.inferenceMode !== 'unclassified'
+    );
+  }
+  const classCodes = snapshot.classCodes;
+  return (
+    report.unclassifiedColdStartAllowed === true &&
+    snapshot.inferenceMode === 'unclassified' &&
+    snapshot.modelVersion === 'cold-start-unclassified-v1' &&
+    snapshot.onnxRelativePath ===
+      'unclassified/cold-start-unclassified-v1.no-onnx' &&
+    snapshot.storageRoot === 'repository' &&
+    snapshot.inputSize === 64 &&
+    snapshot.temperature === 1 &&
+    snapshot.iterationId === undefined &&
+    Array.isArray(classCodes) &&
+    classCodes.length >= 2 &&
+    classCodes.every((code) => typeof code === 'string' && code.length > 0)
+  );
+}
 
 type Failure = { readonly error: string; readonly ok: false };
 
@@ -271,6 +516,7 @@ export async function previewReadyBrowserImageImport(
   api: ImageFolderImportClient,
   uploadId: string,
   gameId: string,
+  geometryEngineVariant?: GeometryEngineVariant,
 ): Promise<
   | { readonly data: BrowserImageImportPreflightResponse; readonly ok: true }
   | Failure
@@ -278,6 +524,7 @@ export async function previewReadyBrowserImageImport(
   try {
     const result = await api.previewReadyBrowserImageImport(uploadId, {
       gameId,
+      ...(geometryEngineVariant === undefined ? {} : { geometryEngineVariant }),
     });
     if (result.error !== undefined || result.data === undefined) {
       return {
@@ -311,6 +558,8 @@ export async function startReadyBrowserImageImport(
   gridProfileInferenceFingerprint?: string,
   geometryGuardResolutionManifestId?: string,
   geometryGuardResolutionManifestChecksumSha256?: string,
+  geometryEngineVariant?: GeometryEngineVariant,
+  symbolModelSnapshotFingerprint?: string,
 ): Promise<
   | { readonly data: BrowserImageImportStartResponse; readonly ok: true }
   | Failure
@@ -338,6 +587,10 @@ export async function startReadyBrowserImageImport(
       ...(geometryGuardResolutionManifestChecksumSha256 === undefined
         ? {}
         : { geometryGuardResolutionManifestChecksumSha256 }),
+      ...(geometryEngineVariant === undefined ? {} : { geometryEngineVariant }),
+      ...(symbolModelSnapshotFingerprint === undefined
+        ? {}
+        : { symbolModelSnapshotFingerprint }),
       boardCellProcessingMode,
       imageEnginePolicy: boardCellProcessingMode,
       ...(imageEnginePolicyRevision === undefined
@@ -367,6 +620,8 @@ export async function startBrowserPageGeometryPreflight(
   uploadId: string,
   gameId: string,
   pageRegistrationVariant: PageRegistrationVariant = 'standard_v0_10',
+  geometryEngineVariant?: GeometryEngineVariant,
+  managedSourceJobId?: string,
 ): Promise<
   | { readonly data: BrowserPageGeometryPreflightResponse; readonly ok: true }
   | Failure
@@ -375,6 +630,8 @@ export async function startBrowserPageGeometryPreflight(
     const result = await api.startBrowserPageGeometryPreflight(uploadId, {
       gameId,
       pageRegistrationVariant,
+      ...(geometryEngineVariant === undefined ? {} : { geometryEngineVariant }),
+      ...(managedSourceJobId === undefined ? {} : { managedSourceJobId }),
     });
     if (result.error !== undefined || result.data === undefined) {
       return {
@@ -461,12 +718,24 @@ export async function reprocessImageFolderImport(
   api: ImageFolderImportClient,
   sourceJobId: string,
   continueWithManualGeometry = false,
+  options?: {
+    readonly geometryEngineVariant?: GeometryEngineVariant;
+    readonly geometryManifestChecksumSha256?: string;
+    readonly geometryPreflightJobId?: string;
+  },
 ): Promise<{ readonly job: JobResponse; readonly ok: true } | Failure> {
   try {
-    const result = await api.reprocessManagedImageImport(
-      sourceJobId,
-      continueWithManualGeometry,
-    );
+    const result =
+      options === undefined
+        ? await api.reprocessManagedImageImport(
+            sourceJobId,
+            continueWithManualGeometry,
+          )
+        : await api.reprocessManagedImageImport(
+            sourceJobId,
+            continueWithManualGeometry,
+            options,
+          );
     if (result.error !== undefined || result.data === undefined) {
       return {
         error: apiErrorMessage(
@@ -483,4 +752,147 @@ export async function reprocessImageFolderImport(
       ok: false,
     };
   }
+}
+
+function jobPayload(job: JobResponse): Record<string, unknown> {
+  return job.inputPayload as unknown as Record<string, unknown>;
+}
+
+export function findManagedV4GeometryPreflight(
+  sourceJob: JobResponse,
+  candidates: readonly JobResponse[],
+  pageRegistrationVariant?: PageRegistrationVariant,
+): JobResponse | null {
+  const source = jobPayload(sourceJob);
+  const sourceSelectionId = source.sourceSelectionId;
+  const sourceManifestSha256 = source.sourceManifestSha256;
+  if (
+    typeof sourceSelectionId !== 'string' ||
+    typeof sourceManifestSha256 !== 'string'
+  ) {
+    return null;
+  }
+  return (
+    candidates.find((candidate) => {
+      const payload = jobPayload(candidate);
+      const lateral = payload.lateralPartialGeometry;
+      const pageVariantMatches =
+        pageRegistrationVariant === undefined ||
+        (pageRegistrationVariant === 'board_area_test'
+          ? payload.preflightPolicyVersion ===
+            'page-geometry-preflight-v3-board-area-mask'
+          : payload.validationKind === 'page_geometry_preflight' &&
+            payload.preflightPolicyVersion !==
+              'page-geometry-preflight-v3-board-area-mask');
+      return (
+        candidate.jobType === 'validate' &&
+        candidate.gameId === sourceJob.gameId &&
+        payload.validationKind === 'page_geometry_preflight' &&
+        payload.sourceSelectionId === sourceSelectionId &&
+        payload.sourceManifestSha256 === sourceManifestSha256 &&
+        payload.managedSourceJobId === sourceJob.id &&
+        typeof lateral === 'object' &&
+        lateral !== null &&
+        (lateral as Record<string, unknown>).variant ===
+          LATERAL_PARTIAL_VARIANT &&
+        (lateral as Record<string, unknown>).policyVersion ===
+          'structured-lattice-v4-lateral-partial-v1' &&
+        pageVariantMatches
+      );
+    }) ?? null
+  );
+}
+
+export async function reprocessManagedV4OrPrepare(
+  api: ImageFolderImportClient,
+  sourceJob: JobResponse,
+  candidates: readonly JobResponse[],
+  pageRegistrationVariant: PageRegistrationVariant,
+): Promise<
+  | {
+      readonly job: JobResponse;
+      readonly kind: 'preflight_created' | 'preflight_waiting' | 'reprocessed';
+      readonly ok: true;
+    }
+  | Failure
+> {
+  const payload = jobPayload(sourceJob);
+  const sourceSelectionId = payload.sourceSelectionId;
+  if (
+    typeof sourceSelectionId !== 'string' ||
+    typeof sourceJob.gameId !== 'string'
+  ) {
+    return {
+      error: 'Zachowany import nie ma tożsamości źródłowego stagingu.',
+      ok: false,
+    };
+  }
+  let preflight = findManagedV4GeometryPreflight(
+    sourceJob,
+    candidates,
+    pageRegistrationVariant,
+  );
+  if (preflight?.status === 'created' || preflight?.status === 'processing') {
+    const refreshed = await api.getJob(preflight.id);
+    if (refreshed.error !== undefined || refreshed.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          refreshed.error,
+          'Nie udało się odświeżyć statusu przypiętego preflightu v0.10.4.',
+        ),
+        ok: false,
+      };
+    }
+    const exactRefreshed = findManagedV4GeometryPreflight(
+      sourceJob,
+      [refreshed.data],
+      pageRegistrationVariant,
+    );
+    if (exactRefreshed?.id !== preflight.id) {
+      return {
+        error:
+          'Odświeżony preflight nie pasuje do źródła i wariantu managed-original.',
+        ok: false,
+      };
+    }
+    preflight = exactRefreshed;
+  }
+  if (preflight?.status === 'completed') {
+    const checksum =
+      preflight.progress.pageGeometryPreflight?.geometryManifestChecksumSha256;
+    if (typeof checksum !== 'string') {
+      return {
+        error: 'Zakończony preflight nie ma niezmiennego manifestu geometrii.',
+        ok: false,
+      };
+    }
+    const result = await reprocessImageFolderImport(api, sourceJob.id, false, {
+      geometryEngineVariant: LATERAL_PARTIAL_VARIANT,
+      geometryManifestChecksumSha256: checksum,
+      geometryPreflightJobId: preflight.id,
+    });
+    return result.ok
+      ? { job: result.job, kind: 'reprocessed', ok: true }
+      : result;
+  }
+  if (preflight?.status === 'created' || preflight?.status === 'processing') {
+    return { job: preflight, kind: 'preflight_waiting', ok: true };
+  }
+  if (preflight?.status === 'failed') {
+    const retried = await retryBrowserPageGeometryPreflight(api, preflight.id);
+    return retried.ok
+      ? { job: retried.data, kind: 'preflight_created', ok: true }
+      : retried;
+  }
+  const prepared = await startBrowserPageGeometryPreflight(
+    api,
+    sourceSelectionId,
+    sourceJob.gameId,
+    pageRegistrationVariant,
+    LATERAL_PARTIAL_VARIANT,
+    sourceJob.id,
+  );
+  return prepared.ok
+    ? { job: prepared.data.job, kind: 'preflight_created', ok: true }
+    : prepared;
 }

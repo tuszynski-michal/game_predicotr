@@ -124,6 +124,47 @@ test('starts page geometry only after the explicit operator action', () => {
   assert.match(panelSource, /historia zakończonych importów pozostaje w/);
 });
 
+test('shows gated v0.10.4 readiness and replays a report without dispatch', () => {
+  assert.match(panelSource, /v0\.10\.4 — testowy, niepełne boki/);
+  assert.match(panelSource, /Przetwórz w v0\.10\.4/);
+  assert.match(panelSource, /geometryEngineVariants/);
+  assert.match(panelSource, /geometryEngineVariantEnabled/);
+  assert.match(panelSource, /geometryPreflightArtifactBlockerMessage/);
+  assert.match(panelSource, /existingImportJob/);
+  assert.match(panelSource, /localStorage/);
+  assert.match(panelSource, /Wersja silnika siatki/);
+  assert.match(panelSource, /Wariant dopasowania geometrii zdjęcia/);
+  assert.match(panelSource, /Wersja modelu symboli/);
+  const reportFlow = panelSource.slice(
+    panelSource.indexOf('async function prepareReadyImport'),
+    panelSource.indexOf('async function startReadyImport'),
+  );
+  assert.doesNotMatch(reportFlow, /startBrowserPageGeometryPreflight/);
+  assert.doesNotMatch(reportFlow, /startReadyBrowserImageImport/);
+});
+
+test('keeps managed preflight state outside the active browser report', () => {
+  const managedFlow = panelSource.slice(
+    panelSource.indexOf('async function reprocessManagedV4'),
+    panelSource.indexOf('async function inspectSequence'),
+  );
+  assert.doesNotMatch(managedFlow, /setGeometryPreflightJob\(/);
+  assert.match(panelSource, /geometryPreflightMatchesReport/);
+  assert.match(panelSource, /activeBrowserGeometryPreflightJob/);
+});
+
+test('routes delayed guard results through the latest job ref', () => {
+  assert.match(panelSource, /activeGuardJobIdRef/);
+  assert.match(panelSource, /persistedGuardContextIdentityStatusFromLatest/);
+  assert.doesNotMatch(
+    panelSource.slice(
+      panelSource.indexOf('const handlePersistedGuardContextLoaded'),
+      panelSource.indexOf('const readyImportStartAllowed'),
+    ),
+    /failedGeometryGuardJob\?\.id/,
+  );
+});
+
 test('requires explicit board resolutions and pins the sealed manifest to schema v7 start', () => {
   assert.match(panelSource, /IMAGE_GEOMETRY_SYSTEMIC_REGRESSION/);
   assert.match(panelSource, /Rozlicz problematyczne plansze/);

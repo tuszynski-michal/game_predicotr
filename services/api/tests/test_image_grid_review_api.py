@@ -49,13 +49,50 @@ from game_predictor_api.domain.image_reviews import (
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.schemas.image_grid_reviews import (
     ImageGridReviewSourceGeometryTargetCommand,
+    to_image_grid_review_counts_response,
     to_image_grid_review_geometry_response,
     to_image_grid_review_item_response,
 )
+from game_predictor_api.storage.image_grid_review_repository import (
+    _confirmed_partial_expression,
+)
 from pydantic import ValidationError
+from sqlalchemy.dialects import postgresql
 
 SOURCE_BYTES = b"source"
 SHA = hashlib.sha256(SOURCE_BYTES).hexdigest()
+
+
+def test_counts_keep_an_accepted_partial_out_of_full_grids() -> None:
+    response = to_image_grid_review_counts_response(
+        ImageGridReviewCounts(
+            needs_validation=1,
+            needs_correction=2,
+            approved=2,
+            full_grids=2,
+            lateral_partial_proposals=1,
+            confirmed_partial_grids=1,
+        )
+    )
+
+    assert response.full_grids == 2
+    assert response.lateral_partial_proposals == 1
+    assert response.confirmed_partial_grids == 1
+    assert response.manual_correction == 1
+
+
+def test_confirmed_partial_sql_uses_mask_and_persisted_qualification() -> None:
+    sql = str(
+        _confirmed_partial_expression().compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+
+    assert "completeness_status" in sql
+    assert "unavailable_cell_indices" in sql
+    assert "geometry_qualification" in sql
+    assert "completenessStatus" in sql
 
 
 def test_source_geometry_target_requires_exactly_one_slot_identity() -> None:
@@ -532,6 +569,17 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
     )
 
     assert current.json()["policy"] == "verified_v19"
+    assert current.json()["geometryEngineVariants"] == [
+        {
+            "variant": "structured_lattice_v4_partial_sides",
+            "label": "v0.10.4 — testowy, niepełne boki",
+            "enabled": False,
+            "blockerCode": "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED",
+            "blockerMessage": (
+                "v0.10.4 is unavailable until its real-data quality gate is accepted."
+            ),
+        }
+    ]
     assert preview.json()["changesExistingJobs"] is False
     assert applied.status_code == 200
     assert applied.json()["policy"] == "structured_shadow"
@@ -587,6 +635,10 @@ def test_grid_review_api_lists_keyset_page_and_approves_exact_revision(tmp_path:
         "needsCorrection": 1,
         "approved": 0,
         "total": 3,
+        "fullGrids": 2,
+        "lateralPartialProposals": 0,
+        "confirmedPartialGrids": 0,
+        "manualCorrection": 1,
     }
     second = client.get(
         f"/api/v1/admin/games/{items[0].game_id}/grid-reviews",

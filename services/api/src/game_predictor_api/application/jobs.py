@@ -1498,12 +1498,13 @@ class JobService:
 
     def preview_image_import_model_fingerprints(
         self, *, game_id: UUID
-    ) -> tuple[str | None, str, str | None, bool]:
+    ) -> tuple[str | None, str, str | None, bool, str | None]:
         """Resolve report metadata without weakening the strict import snapshot gate."""
 
         symbol_fingerprint: str | None
         symbol_blocker_code: str | None = None
         unclassified_cold_start_allowed = False
+        symbol_snapshot_fingerprint: str | None = None
         try:
             symbol = (
                 bootstrap_symbol_model_snapshot()
@@ -1511,6 +1512,7 @@ class JobService:
                 else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
             )
             symbol_fingerprint = symbol.inference_fingerprint
+            symbol_snapshot_fingerprint = symbol.inference_fingerprint
         except JobConflictError as error:
             if error.code not in {
                 "SYMBOL_MODEL_ACTIVATION_REQUIRED",
@@ -1528,10 +1530,12 @@ class JobService:
                     "resolve_unclassified_cold_start",
                     None,
                 )
-                unclassified_cold_start_allowed = bool(
-                    callable(cold_start_resolver)
-                    and cold_start_resolver(game_id=game_id) is not None
+                cold_start = (
+                    cold_start_resolver(game_id=game_id) if callable(cold_start_resolver) else None
                 )
+                unclassified_cold_start_allowed = cold_start is not None
+                if cold_start is not None:
+                    symbol_snapshot_fingerprint = cold_start.inference_fingerprint
         grid = (
             _baseline_grid_profile_snapshot()
             if self._grid_profile_snapshot_resolver is None
@@ -1548,6 +1552,7 @@ class JobService:
             grid_fingerprint,
             symbol_blocker_code,
             unclassified_cold_start_allowed,
+            symbol_snapshot_fingerprint,
         )
 
     def require_lateral_browser_source_history(
@@ -1785,6 +1790,123 @@ class JobService:
             limit=10_000,
         ):
             if job.input_payload.get("source_selection_id") == str(source_selection_id):
+                return job
+        return None
+
+    def get_image_import_run_by_source_selection(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+        source_manifest_sha256: str,
+        engine_policy: ImageImportEnginePolicySnapshot,
+        symbol_model_inference_fingerprint: str | None,
+        symbol_model_snapshot_fingerprint: str | None,
+        grid_profile_inference_fingerprint: str,
+        geometry_engine_variant: GeometryEngineVariant | None,
+    ) -> Job | None:
+        """Replay the newest run for one staging and one explicit engine variant."""
+
+        expected_lateral = (
+            LateralPartialGeometrySnapshot().to_payload()
+            if geometry_engine_variant is not None
+            else None
+        )
+        if symbol_model_snapshot_fingerprint is None:
+            return None
+        for job in self._repository.list_jobs(
+            status=None,
+            job_type=JobType.IMPORT,
+            game_id=game_id,
+            limit=10_000,
+        ):
+            if job.input_payload.get("source_selection_id") != str(source_selection_id):
+                continue
+            if job.input_payload.get("source_manifest_sha256") != source_manifest_sha256:
+                continue
+            symbol_model = job.input_payload.get("symbol_model")
+            grid_profile = job.input_payload.get("grid_profile")
+            try:
+                symbol_snapshot = SymbolModelJobSnapshot.from_payload(symbol_model)
+            except (TypeError, ValueError):
+                continue
+            if (
+                symbol_snapshot.inference_fingerprint != symbol_model_snapshot_fingerprint
+                or (
+                    symbol_model_inference_fingerprint is None
+                    and symbol_snapshot.inference_mode != "unclassified"
+                )
+                or (
+                    symbol_model_inference_fingerprint is not None
+                    and (
+                        symbol_snapshot.inference_mode != "model"
+                        or symbol_snapshot.inference_fingerprint
+                        != symbol_model_inference_fingerprint
+                    )
+                )
+                or not isinstance(grid_profile, Mapping)
+                or grid_profile.get("inferenceFingerprint") != grid_profile_inference_fingerprint
+            ):
+                continue
+            rollout = job.input_payload.get("image_geometry_rollout")
+            if rollout is None:
+                if (
+                    engine_policy.geometry_mode != GeometryRolloutMode.LEGACY.value
+                    or engine_policy.cell_asset_mode != CellAssetRolloutMode.LEGACY_FILES.value
+                    or engine_policy.revision != 0
+                    or expected_lateral is not None
+                ):
+                    continue
+            else:
+                try:
+                    snapshot = GeometryPipelineRolloutSnapshot.from_payload(rollout)
+                except (TypeError, ValueError):
+                    continue
+                if (
+                    snapshot.geometry_mode.value != engine_policy.geometry_mode
+                    or snapshot.cell_asset_mode.value != engine_policy.cell_asset_mode
+                    or snapshot.rollout_revision != engine_policy.revision
+                    or (
+                        None
+                        if snapshot.lateral_partial_geometry is None
+                        else snapshot.lateral_partial_geometry.to_payload()
+                    )
+                    != expected_lateral
+                ):
+                    continue
+            return job
+        return None
+
+    def get_page_geometry_preflight_by_source_selection(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+        source_manifest_sha256: str,
+        geometry_engine_variant: GeometryEngineVariant | None,
+    ) -> Job | None:
+        """Replay a compatible preflight without dispatching any work."""
+
+        expected_lateral = (
+            LateralPartialGeometrySnapshot().to_payload()
+            if geometry_engine_variant is not None
+            else None
+        )
+        for job in self._repository.list_jobs(
+            status=None,
+            job_type=JobType.VALIDATE,
+            game_id=game_id,
+            limit=10_000,
+        ):
+            payload = job.input_payload
+            if (
+                payload.get("validation_kind") != "page_geometry_preflight"
+                or payload.get("source_selection_id") != str(source_selection_id)
+                or payload.get("source_manifest_sha256") != source_manifest_sha256
+            ):
+                continue
+            lateral = payload.get("lateral_partial_geometry")
+            if lateral == expected_lateral:
                 return job
         return None
 

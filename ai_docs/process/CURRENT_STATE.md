@@ -1,10 +1,44 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-08
 ---
 
 # Current State
+
+### TASK-0514 — Admin v0.10.4 gotowy do niezależnego review
+
+- Admin pokazuje per-run wariant `v0.10.4 — testowy, niepełne boki`, ale
+  respektuje readiness zwracany przez tę samą backendową bramkę co mutacje.
+  Publiczny `LATERAL_PARTIAL_RELEASED` pozostaje `False`, więc wariant nie
+  jest dostępny do uruchomienia przed odbiorem TASK-0515.
+- `Pokaż raport` nie tworzy joba: odtwarza zgodny staging, run i preflight po
+  game/staging/manifest/variant. Brak artefaktu ma jawny kod, opis i osobną
+  akcję przygotowania; legacy checksum pozostaje bez pola wariantu.
+- Managed-original v4 działa także po usunięciu browser stagingu: przygotowuje
+  preflight z `managedSourceJobId`, a run przypina dokładny job i checksum
+  manifestu. Jego stan jest odizolowany od otwartego raportu browser stagingu;
+  ponowiona akcja odczytuje aktualny status cached created/processing joba i
+  odblokowuje tylko zgodny start po ukończeniu preflightu, bez ponownego
+  otwierania lub zmiany raportu browserowego. Błąd odczytu nie uruchamia runu.
+- Guard v3 jest wiązany ściśle z game, stagingiem, manifestami, jobem i rewizją;
+  callback zawsze odczytuje bieżące refy, więc odpowiedź sprzed zmiany joba lub
+  rewizji jest ignorowana, a obce evidence lub próba rebindu do v4 ma jawny
+  blocker.
+- Cold-start replay wymaga dokładnego, zapisanego unclassified symbol snapshotu
+  mimo publicznego fingerprintu `null`; obcy model nie pasuje, a zwykły legacy
+  checksum i readiness pozostają bitowo zgodne wstecznie. Fingerprint snapshotu
+  uczestniczy w checksumie dopiero dla jawnie wybranego wariantu v4.
+- Raport rozdziela silnik siatki, wariant rejestracji strony i model symboli,
+  a liczniki pełne/propozycje partial/manual/techniczne. Edytory pokazują
+  pochodzenie automatycznej propozycji i dokładną maskę niedostępnych komórek.
+- Focused API 47, Admin 445, Reviewer 183, klient 57 i interakcje 39 passed;
+  oba web buildy/typecheck/lint, OpenAPI i Ruff passed. Root Python typecheck
+  jest blokowany przed analizą źródeł przez niezwiązany dirty skrypt cleanupu
+  widziany pod dwiema nazwami modułu; source-only retry przerwano po 60 s bez
+  wyniku.
+- Zadanie nie jest jeszcze commitowane: oczekuje na wymagany niezależny review
+  `gpt-6-astra high`. Bez migracji, restartu, reimportu i zmian danych.
 
 ### TASK-0513 — trwały run v4
 

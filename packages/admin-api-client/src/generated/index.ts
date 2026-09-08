@@ -668,6 +668,7 @@ export type {
   GeometryCohortDiagnosticsResponse,
   GeometryCohortResponse,
   GeometryEngineVariant,
+  GeometryEngineVariantCapabilityResponse,
   GeometryQualificationPayload,
   GetApprovedSymbolReferenceCandidateAssetData,
   GetApprovedSymbolReferenceCandidateAssetError,

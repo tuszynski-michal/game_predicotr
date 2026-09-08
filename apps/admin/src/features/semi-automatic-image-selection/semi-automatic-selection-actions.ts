@@ -22,6 +22,7 @@ const NATURAL_PATH_ORDER = new Intl.Collator('en', {
 
 interface BrowserFileHandle {
   readonly kind: 'file';
+  readonly name?: string;
   getFile(): Promise<File>;
 }
 
@@ -36,6 +37,18 @@ export interface SemiAutomaticSourceFile {
   readonly file: File;
   readonly handle: FileSystemFileHandle;
   readonly relativePath: string;
+}
+
+export interface SemiAutomaticReviewSourceFile {
+  readonly handle: FileSystemFileHandle;
+  readonly relativePath: string;
+}
+
+export interface SemiAutomaticLocalSourceSelection {
+  readonly displayName: string;
+  readonly path: string;
+  readonly selectionToken: string;
+  readonly supportedFileCount: number;
 }
 
 export interface SemiAutomaticSelectionUploadProgress {
@@ -58,8 +71,125 @@ export type SemiAutomaticSelectionClient = Pick<
   | 'createSemiAutomaticImageSelection'
   | 'finalizeBrowserImageSelection'
   | 'getBrowserImageSelection'
+  | 'getSemiAutomaticImageSelectionSourceAsset'
+  | 'listSemiAutomaticImageSelectionSources'
+  | 'selectSemiAutomaticImageSelectionSourceFolder'
   | 'uploadBrowserImageSelectionFile'
 >;
+
+export async function selectSemiAutomaticLocalSource(
+  api: SemiAutomaticSelectionClient,
+): Promise<SemiAutomaticLocalSourceSelection | null> {
+  const result = await api.selectSemiAutomaticImageSelectionSourceFolder();
+  if (result.error !== undefined || result.data === undefined) {
+    throw new Error(
+      apiErrorMessage(
+        result.error,
+        'Nie udało się wybrać katalogu źródłowego.',
+      ),
+    );
+  }
+  if (result.data.status === 'cancelled') return null;
+  const path = result.data.path;
+  const selectionToken = result.data.selectionToken;
+  const supportedFileCount = result.data.supportedFileCount;
+  if (
+    path === null ||
+    path === undefined ||
+    selectionToken === null ||
+    selectionToken === undefined ||
+    supportedFileCount === undefined ||
+    supportedFileCount < 1
+  ) {
+    throw new Error('Wybrany katalog nie zawiera plików JPEG.');
+  }
+  const displayName = path.split(/[\\/]/u).filter(Boolean).at(-1) ?? path;
+  return { displayName, path, selectionToken, supportedFileCount };
+}
+
+export async function createSemiAutomaticSelectionFromLocalSource(input: {
+  readonly api: SemiAutomaticSelectionClient;
+  readonly direction: 'ascending' | 'descending';
+  readonly firstSequenceNumber: number;
+  readonly lastSequenceNumber: number;
+  readonly recognizerVariant: 'default_v3' | 'five_anchor_v6';
+  readonly source: SemiAutomaticLocalSourceSelection;
+}): Promise<SemiAutomaticSelectionCreateResponse> {
+  const result = await input.api.createSemiAutomaticImageSelection({
+    direction: input.direction,
+    firstSequenceNumber: input.firstSequenceNumber,
+    lastSequenceNumber: input.lastSequenceNumber,
+    mode: 'selection',
+    recognizerVariant: input.recognizerVariant,
+    selectionToken: input.source.selectionToken,
+  });
+  if (result.error !== undefined || result.data === undefined) {
+    throw new Error(
+      apiErrorMessage(
+        result.error,
+        'Nie udało się utworzyć półautomatycznego procesu selekcji.',
+      ),
+    );
+  }
+  return result.data;
+}
+
+export async function loadSemiAutomaticReviewSourceFiles(
+  api: SemiAutomaticSelectionClient,
+  runId: string,
+): Promise<readonly SemiAutomaticReviewSourceFile[]> {
+  const files: SemiAutomaticReviewSourceFile[] = [];
+  let afterSourceIndex: number | undefined;
+  do {
+    const page = await api.listSemiAutomaticImageSelectionSources(
+      runId,
+      afterSourceIndex,
+    );
+    if (page.error !== undefined || page.data === undefined) {
+      throw new Error(
+        apiErrorMessage(
+          page.error,
+          'Nie udało się odczytać listy zdjęć źródłowych.',
+        ),
+      );
+    }
+    for (const source of page.data.items) {
+      files.push({
+        handle: {
+          kind: 'file',
+          name: source.relativePath.split('/').at(-1),
+          async getFile(): Promise<File> {
+            const asset = await api.getSemiAutomaticImageSelectionSourceAsset(
+              runId,
+              source.sourceIndex,
+              source.checksumSha256,
+            );
+            if (asset.error !== undefined || asset.data === undefined) {
+              throw new Error('Nie udało się odczytać zdjęcia źródłowego.');
+            }
+            const blob = toBlob(asset.data);
+            if (blob === null) {
+              throw new Error(
+                'Odpowiedź zdjęcia źródłowego jest nieprawidłowa.',
+              );
+            }
+            return new File(
+              [blob],
+              source.relativePath.split('/').at(-1) ?? 'source.jpg',
+              {
+                lastModified: 0,
+                type: blob.type || 'image/jpeg',
+              },
+            );
+          },
+        } as unknown as FileSystemFileHandle,
+        relativePath: source.relativePath,
+      });
+    }
+    afterSourceIndex = page.data.nextAfterSourceIndex ?? undefined;
+  } while (afterSourceIndex !== undefined);
+  return files;
+}
 
 export type SemiAutomaticSelectionUploadResult =
   | {
@@ -102,8 +232,7 @@ export async function uploadSemiAutomaticSelectionFolder(input: {
   readonly files: readonly SemiAutomaticSourceFile[];
   readonly firstSequenceNumber: number;
   readonly lastSequenceNumber: number;
-  readonly mode?: 'selection' | 'filename_verification';
-  readonly recognizerVariant?: 'default_v3' | 'five_anchor_v6';
+  readonly mode: 'filename_verification';
   readonly onProgress?: (
     progress: SemiAutomaticSelectionUploadProgress,
   ) => void;
@@ -267,8 +396,7 @@ export async function uploadSemiAutomaticSelectionFolder(input: {
       direction: input.direction,
       firstSequenceNumber: input.firstSequenceNumber,
       lastSequenceNumber: input.lastSequenceNumber,
-      mode: input.mode ?? 'selection',
-      recognizerVariant: input.recognizerVariant ?? 'default_v3',
+      mode: input.mode,
       uploadId,
     });
     if (created.error !== undefined || created.data === undefined) {
@@ -316,4 +444,15 @@ async function collectDirectoryFiles(
       relativePath,
     });
   }
+}
+
+function toBlob(value: unknown): Blob | null {
+  if (value instanceof Blob) return value;
+  if (value instanceof ArrayBuffer) return new Blob([value]);
+  if (ArrayBuffer.isView(value)) {
+    const bytes = new Uint8Array(value.byteLength);
+    bytes.set(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
+    return new Blob([bytes]);
+  }
+  return null;
 }

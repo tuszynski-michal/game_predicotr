@@ -6,6 +6,28 @@ last_updated: 2026-09-08
 
 # Current State
 
+### TASK-0528 — półautomatyczna selekcja bez stagingu zdjęć
+
+- Nowe runy `selection` wybierają katalog przez kontrolowany lokalny picker i
+  tworzą schema v3 z content-addressed manifestem metadanych. JPEG-i pozostają
+  w katalogu użytkownika; nie są kopiowane do `browser-selections` ani
+  `data/originals` i nie podlegają cleanupowi aplikacji.
+- Worker oraz endpoint assetu rozwiązują źródło z przypiętego rootu i przed
+  użyciem sprawdzają indeks, ścieżkę, rozmiar oraz SHA-256. Zmiana pliku lub
+  manifestu kończy się fail-closed.
+- Admin nie wywołuje już create/upload/finalize browser stagingu dla
+  półautomatycznego wyboru. Po utworzeniu runu pobiera stronicowane metadane, a
+  konkretny JPEG dopiero na potrzeby review lub zapisu zaakceptowanego wyniku.
+- Przygotowanie review zapisuje tylko mały manifest. Automatyczny kandydat ma
+  akcje `Zatwierdź i zapisz` oraz `Zmień źródło`; żaden JPEG nie trafia do
+  katalogu wynikowego przed jawną decyzją operatora.
+- Historyczne schema v1/v2 i `filename_verification` nadal działają na
+  dotychczasowym stagingu. Nie dodano migracji bazy i nie usunięto żadnych
+  istniejących danych.
+- Skoncentrowane testy API/workera: 36 passed; pełne testy Admina: 447 passed;
+  scoped Ruff i mypy, typecheck klienta i Admina, OpenAPI drift check, lint oraz
+  produkcyjny build Admina passed.
+
 ### TASK-0527 — półautomat korzysta z rzeczywistej pojemności stagingu
 
 - Browser staging o celu `semi_automatic_selection` nie uruchamia już

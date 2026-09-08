@@ -17,7 +17,10 @@ import {
   writeOriginalOutputBytes,
   writeSemiAutomaticSelectionOutputManifest,
 } from '../src/features/semi-automatic-image-selection/semi-automatic-selection-output-storage.ts';
-import { synchronizeSemiAutomaticSelectionOutput } from '../src/features/semi-automatic-image-selection/semi-automatic-selection-output-sync.ts';
+import {
+  prepareSemiAutomaticSelectionOutputReview,
+  synchronizeSemiAutomaticSelectionOutput,
+} from '../src/features/semi-automatic-image-selection/semi-automatic-selection-output-sync.ts';
 import {
   loadAllSemiAutomaticSelectionRanges,
   manualEditSourceStartIndex,
@@ -54,6 +57,66 @@ test('serializes a run-bound manifest deterministically and rejects a foreign ru
       ),
     /SEMI_AUTOMATIC_SELECTION_OUTPUT_MANIFEST_FOREIGN/,
   );
+});
+
+test('prepares review metadata without writing the automatic JPEG', async () => {
+  const source = new Blob(['automatic-source']);
+  const checksum = await sha256Hex(source);
+  const directory = new MemoryDirectory('selected');
+
+  const prepared = await prepareSemiAutomaticSelectionOutputReview({
+    directory,
+    now: incrementingClock(),
+    ranges: [rangeResponse({ checksum, size: source.size })],
+    run: runResponse(),
+  });
+
+  assert.equal(prepared.manifest.status, 'review_mode');
+  assert.equal(prepared.manifest.selections.length, 0);
+  assert.equal(await directory.text('seq_1-9.jpg'), undefined);
+  assert.ok(
+    await directory.text('semi-automatic-image-selection-output-v1.json'),
+  );
+});
+
+test('writes an automatic JPEG only after the operator accepts it', async () => {
+  const source = new Blob(['automatic-source']);
+  const checksum = await sha256Hex(source);
+  const range = rangeResponse({ checksum, size: source.size });
+  const directory = new MemoryDirectory('selected');
+  const prepared = await prepareSemiAutomaticSelectionOutputReview({
+    directory,
+    now: incrementingClock(),
+    ranges: [range],
+    run: runResponse(),
+  });
+  const accepted = await writeManualSemiAutomaticSelection({
+    acceptAutomaticSource: true,
+    client: {
+      acknowledgeSemiAutomaticImageSelectionOutput: async () => ({
+        data: {
+          ...range,
+          outputChecksumSha256: checksum,
+          revision: 2,
+          status: 'output_synced',
+        },
+      }),
+    },
+    directory,
+    manifest: prepared.manifest,
+    now: incrementingClock(),
+    operationId: () => 'automatic-accept',
+    range,
+    runId: 'run-1',
+    source: {
+      file: source,
+      relativePath: range.sourceRelativePath,
+      sourceIndex: range.sourceIndex,
+    },
+  });
+
+  assert.equal(accepted.manifest.selections[0]?.status, 'AUTO_SELECTED');
+  assert.equal(await directory.text('seq_1-9.jpg'), 'automatic-source');
 });
 
 test('writes original bytes idempotently and never overwrites different content', async () => {
@@ -290,6 +353,11 @@ test('keeps only directory handles and small UI state in the local record', () =
   });
   assert.equal(record?.runId, 'run-1');
   assert.equal('blob' in record, false);
+  assert.equal(
+    validateLocalSessionRecord({ ...record, sourceDirectory: null })
+      ?.sourceDirectory,
+    null,
+  );
   assert.throws(
     () =>
       validateLocalSessionRecord({

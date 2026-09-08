@@ -51,7 +51,7 @@ test('adds a standalone semi-automatic workspace rather than a game section', ()
   assert.doesNotMatch(workspaceSource, /gameId=/);
 });
 
-test('configures the global upload only through capabilities and range bounds', () => {
+test('configures the direct local source through capabilities and range bounds', () => {
   assert.match(
     workspaceSource,
     /getSemiAutomaticImageSelectionCapabilities\(\)/,
@@ -74,23 +74,19 @@ test('offers the experimental five-anchor OCR only as an explicit run variant', 
     workspaceSource,
     /Wariant testowy: tworzy osobny, checksum-bound run/,
   );
-  assert.match(
-    actionsSource,
-    /recognizerVariant: input\.recognizerVariant \?\? 'default_v3'/,
-  );
+  assert.match(actionsSource, /recognizerVariant: input\.recognizerVariant/);
 });
 
-test('uploads JPEGs to the global staging purpose with bounded recovery', () => {
-  assert.match(actionsSource, /purpose: 'semi_automatic_selection'/);
-  assert.match(actionsSource, /gameId: null/);
-  assert.match(actionsSource, /MAX_UPLOAD_CONCURRENCY = 4/);
-  assert.match(actionsSource, /MAX_FILE_ATTEMPTS = 3/);
-  assert.match(actionsSource, /jpe\?g\$\/iu/);
-  assert.match(actionsSource, /createSemiAutomaticImageSelection/);
-  assert.match(workspaceSource, /Ponów brakujące pliki/);
-  assert.match(workspaceSource, /Anuluj staging/);
-  assert.match(workspaceSource, /uploadedFiles/);
-  assert.match(workspaceSource, /uploadedBytes/);
+test('starts selection from a metadata manifest without creating browser staging', () => {
+  assert.match(actionsSource, /selectSemiAutomaticImageSelectionSourceFolder/);
+  assert.match(actionsSource, /selectionToken: input\.source\.selectionToken/);
+  assert.match(actionsSource, /listSemiAutomaticImageSelectionSources/);
+  assert.match(workspaceSource, /createSemiAutomaticSelectionFromLocalSource/);
+  assert.match(workspaceSource, /Źródła nie będą kopiowane do stagingu/);
+  assert.doesNotMatch(workspaceSource, /createBrowserImageSelection/);
+  assert.doesNotMatch(workspaceSource, /uploadBrowserImageSelectionFile/);
+  assert.doesNotMatch(workspaceSource, /Ponów brakujące pliki/);
+  assert.doesNotMatch(workspaceSource, /Anuluj staging/);
 });
 
 test('polls one active run and hands terminal analysis to the review workspace', () => {
@@ -101,7 +97,7 @@ test('polls one active run and hands terminal analysis to the review workspace',
   assert.match(workspaceSource, /Wznów analizę/);
   assert.match(workspaceSource, /Anuluj run/);
   assert.match(workspaceSource, /<SemiAutomaticSelectionReviewWorkspace/);
-  assert.match(workspaceSource, /collectSemiAutomaticSourceFiles/);
+  assert.match(workspaceSource, /loadSemiAutomaticReviewSourceFiles/);
 });
 
 test('reviews a complete range snapshot and locks source editing to one target range', () => {
@@ -119,6 +115,15 @@ test('reviews a complete range snapshot and locks source editing to one target r
   assert.match(reviewWorkspaceSource, /viewer\.imageViewportRef\.current/);
   assert.match(reviewWorkspaceSource, /isFormInteractionTarget/);
   assert.match(reviewWorkspaceSource, /event\.key === 'Enter'/);
+  assert.match(reviewWorkspaceSource, /Zatwierdź i zapisz/);
+  assert.match(
+    reviewWorkspaceSource,
+    /prepareSemiAutomaticSelectionOutputReview/,
+  );
+  assert.doesNotMatch(
+    reviewWorkspaceSource,
+    /synchronizeSemiAutomaticSelectionOutput/,
+  );
   assert.match(reviewWorkspaceSource, /event\.key\.toLowerCase\(\) === 'f'/);
   assert.match(reviewWorkspaceSource, /event\.key === 'Escape'/);
   assert.match(reviewWorkspaceSource, /Luka — wybierz zdjęcie/);

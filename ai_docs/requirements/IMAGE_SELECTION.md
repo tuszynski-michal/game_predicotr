@@ -1103,17 +1103,18 @@ danych użytkownika przez samo wdrożenie.
 
 ## Trwały globalny run półautomatycznej selekcji — TASK-0352
 
-- Workflow nie należy do gry: staging, run i job mają `gameId = null`.
-- Browser staging ma osobny purpose `semi_automatic_selection`, naturalną
-  kolejność względnych ścieżek oraz niezmienną checksummę finalnego manifestu.
-  Purpose gry, zmiana manifestu, zmiana JPEG-a albo błędna check­summa assetu
-  blokują odczyt fail-closed.
-- Rozpoczęcie browser stagingu `semi_automatic_selection` nie rezerwuje miejsca
-  według estymacji przyszłych cropów i artefaktów zarządzanych, ponieważ ten
-  etap tylko kopiuje źródła do stagingu i wybiera reprezentantów. Nadal
-  obowiązują: limit liczby i zadeklarowanego rozmiaru plików oraz kontrola, że
-  na fizycznym woluminie stagingu mieści się cały upload i pozostaje co
-  najmniej 512 MiB wolnego miejsca.
+- Workflow nie należy do gry: run i job mają `gameId = null`, a źródło jest
+  globalne.
+- Nowy workflow `selection` wybiera katalog przez kontrolowany picker lokalnego
+  Admin API. API zapisuje wyłącznie mały, content-addressed manifest zawierający
+  katalog bazowy, naturalną kolejność ścieżek, rozmiary i SHA-256; nie kopiuje
+  JPEG-ów do `browser-selections` ani do `data/originals`.
+- Worker i checksum-bound endpoint assetu czytają oryginały bezpośrednio z
+  katalogu. Brak pliku, zmiana rozmiaru lub checksummy oraz ucieczka ścieżki
+  blokują odczyt fail-closed. Katalog użytkownika nie podlega GC ani cleanupowi.
+- Historyczne runy schema v1/v2 oraz `filename_verification` nadal korzystają z
+  browser stagingu `semi_automatic_selection`; ich replay i cleanup pozostają
+  bez zmian.
 - Start wymaga pełnych granic sekwencji i kierunku. Tworzy z góry wszystkie
   oczekiwane zakresy `seq-inclusive-v1`, w tym krótszy zakres końcowy.
 - Idempotencja obejmuje upload, manifest, fingerprint źródła, granice,
@@ -1228,9 +1229,11 @@ danych użytkownika przez samo wdrożenie.
 
 ## Lokalny output półautomatycznej selekcji — TASK-0354
 
-- Automatycznie wybrany JPEG jest kopiowany do katalogu operatora pod nazwą
-  `seq_<start>-<end>.jpg` bez zmiany bajtów. Przed zapisem i po ponownym
-  odczycie celu musi zgadzać się SHA-256 oraz rozmiar źródła.
+- Automatycznie wybrany JPEG jest najpierw pokazywany operatorowi. Dopiero jawne
+  `Zatwierdź i zapisz` kopiuje go do katalogu pod nazwą
+  `seq_<start>-<end>.jpg` bez zmiany bajtów; alternatywnie operator wskazuje
+  inne źródło. Przed zapisem i po ponownym odczycie celu musi zgadzać się
+  SHA-256 oraz rozmiar źródła.
 - `semi-automatic-image-selection-output-v1.json` wiąże katalog z dokładnym
   runem, manifestem źródeł, granicami, fingerprintami algorytmów, wyborami,
   lukami, konfliktami, checkpointem oraz co najwyżej jedną operacją oczekującą.
@@ -1251,13 +1254,14 @@ danych użytkownika przez samo wdrożenie.
   zdjęć`. Nie jest ona sekcją wybranej gry i nie wymaga `gameId`.
 - Konfigurator przyjmuje dwa lokalne katalogi: rekurencyjnie skanowane źródło
   JPEG oraz katalog docelowy przyszłego outputu. Widoczny wybór katalogów,
-  granic sekwencji i kierunku poprzedza każdy upload.
+  granic sekwencji i kierunku poprzedza utworzenie runu.
 - Pierwsza i ostatnia plansza są dodatnie i rosnące. Liczba oczekiwanych
   zakresów jest wyliczana wyłącznie z `fullRangeSize` przekazanego przez
   capabilities API; ostatni zakres może być krótszy.
-- Upload używa globalnego stagingu `semi_automatic_selection` i pokazuje
-  potwierdzone przez API pliki oraz bajty. Błąd pojedynczego pliku umożliwia
-  bounded retry albo jawne anulowanie stagingu.
+- Start `selection` przekazuje jednorazowy token lokalnego katalogu i nie
+  wywołuje endpointów create/upload/finalize browser stagingu. Po utworzeniu
+  runu Admin pobiera stronicowaną listę metadanych, a konkretny JPEG ładuje
+  checksum-bound dopiero do podglądu lub zapisu wyniku.
 - Widok odpyta jeden aktywny run bez nakładających się requestów, pokazuje
   etap, procent, źródła, skan, wybory, luki, konflikty i błędy oraz udostępnia
   pause/resume/cancel na istniejących endpointach.
@@ -1270,11 +1274,12 @@ danych użytkownika przez samo wdrożenie.
 ## Przegląd i ręczna edycja źródeł — TASK-0356
 
 - Przed pierwszym review Admin pobiera wszystkie oczekiwane zakresy
-  keysetowo i synchronizuje automatyczne wybory z lokalnym katalogiem.
+  keysetowo i przygotowuje mały manifest decyzji bez zapisywania JPEG-ów.
   Niepełny, obcy albo nieciągły snapshot jest blokowany przed mutacją plików.
 - `REVIEW MODE` nawiguje po zablokowanych zakresach. `←` i `→` zmieniają
-  zakres, a `F` otwiera edycję jego źródła. Zakres bez wyboru przechodzi od
-  razu do `EDIT SOURCE MODE`.
+  zakres, `Enter` albo przycisk zatwierdza i zapisuje bieżący wybór, a `F`
+  otwiera edycję jego źródła. Zakres bez wyboru przechodzi od razu do
+  `EDIT SOURCE MODE`.
 - `EDIT SOURCE MODE` nie zmienia aktywnego zakresu. `←` i `→` przeglądają
   źródłowe JPEG-i, `Enter` albo `F` zapisuje bieżący JPEG, a `Escape` anuluje
   edycję. Skróty nie przejmują zdarzeń z kontrolek formularza.
@@ -1282,7 +1287,8 @@ danych użytkownika przez samo wdrożenie.
   poprzedniego wyboru powiększonego o jeden, z fallbackiem `0` i ograniczeniem
   do końca katalogu.
 - Ręczne dodanie albo zastąpienie zapisuje oryginalne bajty i wymaga zgodności
-  SHA-256, rozmiaru, rewizji zakresu oraz tożsamości źródła ze stagingiem.
+  SHA-256, rozmiaru, rewizji zakresu oraz tożsamości źródła z przypiętym
+  manifestem lokalnym albo historycznym stagingiem.
   Istniejący obcy plik nie jest nadpisywany. Lokalny journal umożliwia recovery
   po przerwaniu przed acknowledgement API.
 ## Wejście z lokalnego katalogu `cut`

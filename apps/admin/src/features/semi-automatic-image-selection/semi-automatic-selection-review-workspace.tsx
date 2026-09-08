@@ -12,12 +12,12 @@ import {
   useManualImageViewer,
 } from '@/features/manual-image-selection/manual-image-viewer';
 
-import type { SemiAutomaticSourceFile } from './semi-automatic-selection-actions.ts';
+import type { SemiAutomaticReviewSourceFile } from './semi-automatic-selection-actions.ts';
 import type {
   SemiAutomaticOutputDirectoryHandle,
   SemiAutomaticSelectionLocalUiState,
 } from './semi-automatic-selection-output-storage.ts';
-import { synchronizeSemiAutomaticSelectionOutput } from './semi-automatic-selection-output-sync.ts';
+import { prepareSemiAutomaticSelectionOutputReview } from './semi-automatic-selection-output-sync.ts';
 import type { SemiAutomaticSelectionOutputManifestV1 } from './semi-automatic-selection-output.ts';
 import {
   isFormInteractionTarget,
@@ -42,7 +42,7 @@ interface Props {
   ) => Promise<void>;
   readonly outputDirectory: SemiAutomaticOutputDirectoryHandle;
   readonly run: SemiAutomaticSelectionRunResponse;
-  readonly sourceFiles: readonly SemiAutomaticSourceFile[];
+  readonly sourceFiles: readonly SemiAutomaticReviewSourceFile[];
 }
 
 type WorkspaceMode = 'idle' | 'syncing_output' | 'review' | 'edit_source';
@@ -65,7 +65,6 @@ export function SemiAutomaticSelectionReviewWorkspace({
     initialUi?.activeExpectedIndex ?? 0,
   );
   const [sourceIndex, setSourceIndex] = useState(0);
-  const [syncProgress, setSyncProgress] = useState({ processed: 0, total: 0 });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -100,6 +99,7 @@ export function SemiAutomaticSelectionReviewWorkspace({
       if (mode === 'review') {
         if (event.key === 'ArrowLeft') moveExpectedRange(-1);
         else if (event.key === 'ArrowRight') moveExpectedRange(1);
+        else if (event.key === 'Enter') void acceptSource(true);
         else if (event.key.toLowerCase() === 'f') enterEditSource();
         else return;
       } else if (event.key === 'ArrowLeft') {
@@ -148,38 +148,31 @@ export function SemiAutomaticSelectionReviewWorkspace({
     }
     setBusy(true);
     setError('');
-    setNotice('Synchronizuję automatyczne wybory z katalogiem docelowym…');
+    setNotice('Przygotowuję wybory do ręcznego zatwierdzenia…');
     try {
       const snapshot = await loadAllSemiAutomaticSelectionRanges(
         client,
         run.id,
       );
-      setSyncProgress({ processed: 0, total: snapshot.length });
-      const synchronized = await synchronizeSemiAutomaticSelectionOutput({
-        client,
+      const prepared = await prepareSemiAutomaticSelectionOutputReview({
         directory: outputDirectory,
-        onProgress: (processed, total) => setSyncProgress({ processed, total }),
         ranges: snapshot,
         run,
       });
-      const refreshed = await loadAllSemiAutomaticSelectionRanges(
-        client,
-        run.id,
-      );
       const requestedIndex = Math.min(
         Math.max(initialUi?.activeExpectedIndex ?? 0, 0),
-        Math.max(0, refreshed.length - 1),
+        Math.max(0, snapshot.length - 1),
       );
-      setRanges(refreshed);
-      setManifest(synchronized.manifest);
+      setRanges(snapshot);
+      setManifest(prepared.manifest);
       setActiveExpectedIndex(requestedIndex);
-      const nextMode = hasSource(refreshed[requestedIndex])
+      const nextMode = hasSource(snapshot[requestedIndex])
         ? 'review'
         : 'edit_source';
       setMode(nextMode);
       setSourceIndex(
         manualEditSourceStartIndex(
-          refreshed,
+          snapshot,
           requestedIndex,
           sourceFiles.length,
         ),
@@ -192,12 +185,12 @@ export function SemiAutomaticSelectionReviewWorkspace({
           scrollTop: viewer.imageViewportRef.current?.scrollTop ?? 0,
           zoomPercent: initialUi?.zoomPercent ?? 100,
         },
-        synchronized.manifestChecksumSha256,
+        prepared.manifestChecksumSha256,
       );
       setNotice(
-        synchronized.gapCount === 0
-          ? 'Wszystkie zakresy mają zdjęcie. Możesz przejrzeć lub zastąpić każdy wybór.'
-          : `Do ręcznego uzupełnienia pozostało ${synchronized.gapCount.toLocaleString('pl-PL')} zakresów.`,
+        prepared.gapCount === 0
+          ? 'Każdy automatyczny wybór czeka na zatwierdzenie lub zmianę. Plik zapisze się dopiero po decyzji.'
+          : `Automatyczne wybory czekają na zatwierdzenie; ${prepared.gapCount.toLocaleString('pl-PL')} zakresów wymaga wskazania zdjęcia.`,
       );
     } catch (cause) {
       setError(
@@ -241,10 +234,10 @@ export function SemiAutomaticSelectionReviewWorkspace({
     );
   }
 
-  async function acceptSource(): Promise<void> {
+  async function acceptSource(acceptAutomaticSource = false): Promise<void> {
     if (
       busy ||
-      mode !== 'edit_source' ||
+      (mode !== 'edit_source' && mode !== 'review') ||
       activeRange === null ||
       manifest === null
     )
@@ -256,6 +249,7 @@ export function SemiAutomaticSelectionReviewWorkspace({
     try {
       const currentFile = await source.handle.getFile();
       const saved = await writeManualSemiAutomaticSelection({
+        acceptAutomaticSource,
         client,
         directory: outputDirectory,
         manifest,
@@ -289,9 +283,11 @@ export function SemiAutomaticSelectionReviewWorkspace({
         saved.manifestChecksumSha256,
       );
       setNotice(
-        activeSelection === null
-          ? 'Luka została uzupełniona i zweryfikowana.'
-          : 'Źródło zakresu zostało bezpiecznie zastąpione.',
+        acceptAutomaticSource
+          ? 'Wybór został zatwierdzony i zapisany.'
+          : hasSource(activeRange)
+            ? 'Źródło zakresu zostało bezpiecznie zastąpione.'
+            : 'Luka została uzupełniona i zweryfikowana.',
       );
     } catch (cause) {
       setError(
@@ -305,10 +301,6 @@ export function SemiAutomaticSelectionReviewWorkspace({
   }
 
   if (mode === 'idle' || mode === 'syncing_output') {
-    const percentage =
-      syncProgress.total === 0
-        ? 0
-        : (syncProgress.processed / syncProgress.total) * 100;
     return (
       <section
         className="semiAutomaticSelectionReview"
@@ -318,22 +310,10 @@ export function SemiAutomaticSelectionReviewWorkspace({
           <p className="eyebrow">3. Weryfikacja wyborów</p>
           <h2>Sprawdź zakresy i uzupełnij luki</h2>
           <p>
-            Najpierw zapiszę automatyczne wybory jako niezmienione JPEG-i, a
-            następnie pokażę wszystkie zakresy po kolei.
+            Najpierw pokażę każdy automatyczny wybór. JPEG zostanie zapisany
+            dopiero po zatwierdzeniu albo wskazaniu innego zdjęcia.
           </p>
         </div>
-        {syncProgress.total > 0 ? (
-          <div className="semiAutomaticSelectionRunProgress">
-            <div>
-              <strong>
-                {syncProgress.processed.toLocaleString('pl-PL')} /{' '}
-                {syncProgress.total.toLocaleString('pl-PL')} zakresów
-              </strong>
-              <span>{percentage.toFixed(1)}%</span>
-            </div>
-            <progress max={100} value={percentage} />
-          </div>
-        ) : null}
         {error !== '' ? (
           <p className="feedbackBanner feedbackBannerError" role="alert">
             {error}
@@ -400,7 +380,7 @@ export function SemiAutomaticSelectionReviewWorkspace({
         imageCount={sourceFiles.length}
         navigationStepLabel={
           mode === 'review'
-            ? '←/→: zakres · F: zmień źródło'
+            ? '←/→: zakres · Enter: zatwierdź · F: zmień źródło'
             : '←/→: zdjęcie · Enter/F: zapisz · Esc: anuluj'
         }
         nextDisabled={
@@ -420,14 +400,24 @@ export function SemiAutomaticSelectionReviewWorkspace({
         state={viewer}
         toolbarStart={
           mode === 'review' ? (
-            <button
-              className="primaryButton"
-              disabled={busy || activeRange === null}
-              onClick={enterEditSource}
-              type="button"
-            >
-              Zmień źródło (F)
-            </button>
+            <div className="semiAutomaticSelectionActions">
+              <button
+                className="primaryButton"
+                disabled={busy || activeRange === null}
+                onClick={() => void acceptSource(true)}
+                type="button"
+              >
+                {busy ? 'Zapisywanie…' : 'Zatwierdź i zapisz'}
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={busy || activeRange === null}
+                onClick={enterEditSource}
+                type="button"
+              >
+                Zmień źródło (F)
+              </button>
+            </div>
           ) : (
             <div className="semiAutomaticSelectionActions">
               <button

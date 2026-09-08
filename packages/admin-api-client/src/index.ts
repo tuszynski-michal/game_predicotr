@@ -159,6 +159,7 @@ import {
   listSemiAutomaticFilenameRangeVerifications as listGeneratedSemiAutomaticFilenameRangeVerifications,
   listSemiAutomaticImageSelections as listGeneratedSemiAutomaticImageSelections,
   listSemiAutomaticImageSelectionRanges as listGeneratedSemiAutomaticImageSelectionRanges,
+  listSemiAutomaticImageSelectionSources as listGeneratedSemiAutomaticImageSelectionSources,
   listSymbols as listGeneratedSymbols,
   listSymbolCellReviews as listGeneratedSymbolCellReviews,
   listUnreadableBoardReviews as listGeneratedUnreadableBoardReviews,
@@ -207,6 +208,7 @@ import {
   saveUnreadableBoardReview as saveGeneratedUnreadableBoardReview,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
+  selectSemiAutomaticImageSelectionSourceFolder as selectGeneratedSemiAutomaticImageSelectionSourceFolder,
   selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
   selectApprovedSymbolReferenceCandidate as selectGeneratedApprovedSymbolReferenceCandidate,
@@ -343,6 +345,8 @@ import type {
   SemiAutomaticSelectionRangeResponse,
   SemiAutomaticSelectionRunResponse,
   SemiAutomaticSelectionRunPageResponse,
+  SemiAutomaticSelectionSourceItemResponse,
+  SemiAutomaticSelectionSourcePageResponse,
   StorageGcRunCreate,
   VirtualCellPreviewBatchRequest,
   VirtualCellPreviewTileResponse,
@@ -592,6 +596,8 @@ export type {
   SemiAutomaticSelectionRangeResponse,
   SemiAutomaticSelectionRunResponse,
   SemiAutomaticSelectionRunPageResponse,
+  SemiAutomaticSelectionSourceItemResponse,
+  SemiAutomaticSelectionSourcePageResponse,
   SymbolCellReviewFilterState,
   SymbolCellReviewListItemResponse,
   SymbolCellReviewMutationRequest,
@@ -802,6 +808,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     getHealth: () => getGeneratedHealth({ client }),
     getSemiAutomaticImageSelectionCapabilities: () =>
       getGeneratedSemiAutomaticImageSelectionCapabilities({ client }),
+    selectSemiAutomaticImageSelectionSourceFolder: () =>
+      selectGeneratedSemiAutomaticImageSelectionSourceFolder({
+        client,
+        headers: confirmedTargetHeaders(
+          'semi-automatic-selection:source-folder',
+        ),
+      }),
     createSemiAutomaticImageSelection: (body: SemiAutomaticSelectionCreate) =>
       createGeneratedSemiAutomaticImageSelection({ body, client }),
     getSemiAutomaticImageSelection: (runId: string) =>
@@ -830,6 +843,21 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(afterExpectedIndex === undefined
             ? {}
             : { after_expected_index: afterExpectedIndex }),
+          limit,
+        },
+      }),
+    listSemiAutomaticImageSelectionSources: (
+      runId: string,
+      afterSourceIndex?: number,
+      limit = 500,
+    ) =>
+      listGeneratedSemiAutomaticImageSelectionSources({
+        client,
+        path: { run_id: runId },
+        query: {
+          ...(afterSourceIndex === undefined
+            ? {}
+            : { after_source_index: afterSourceIndex }),
           limit,
         },
       }),

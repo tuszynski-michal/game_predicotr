@@ -518,6 +518,9 @@ import type {
   ListSemiAutomaticImageSelectionRangesResponses,
   ListSemiAutomaticImageSelectionsData,
   ListSemiAutomaticImageSelectionsErrors,
+  ListSemiAutomaticImageSelectionSourcesData,
+  ListSemiAutomaticImageSelectionSourcesErrors,
+  ListSemiAutomaticImageSelectionSourcesResponses,
   ListSemiAutomaticImageSelectionsResponses,
   ListSymbolCellReviewsData,
   ListSymbolCellReviewsErrors,
@@ -704,6 +707,9 @@ import type {
   SelectRemoteManualSelectionHostBaseData,
   SelectRemoteManualSelectionHostBaseErrors,
   SelectRemoteManualSelectionHostBaseResponses,
+  SelectSemiAutomaticImageSelectionSourceFolderData,
+  SelectSemiAutomaticImageSelectionSourceFolderErrors,
+  SelectSemiAutomaticImageSelectionSourceFolderResponses,
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
@@ -5688,6 +5694,31 @@ export const getSemiAutomaticImageSelectionCapabilities = <
   });
 
 /**
+ * Open the controlled local source-folder picker without staging images
+ */
+export const selectSemiAutomaticImageSelectionSourceFolder = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    SelectSemiAutomaticImageSelectionSourceFolderData,
+    ThrowOnError
+  >,
+): RequestResult<
+  SelectSemiAutomaticImageSelectionSourceFolderResponses,
+  SelectSemiAutomaticImageSelectionSourceFolderErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    SelectSemiAutomaticImageSelectionSourceFolderResponses,
+    SelectSemiAutomaticImageSelectionSourceFolderErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/source-folder',
+    ...options,
+  });
+
+/**
  * Get Run
  */
 export const getSemiAutomaticImageSelection = <
@@ -5920,6 +5951,27 @@ export const resumeSemiAutomaticImageSelection = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/resume',
+    ...options,
+  });
+
+/**
+ * List Sources
+ */
+export const listSemiAutomaticImageSelectionSources = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListSemiAutomaticImageSelectionSourcesData, ThrowOnError>,
+): RequestResult<
+  ListSemiAutomaticImageSelectionSourcesResponses,
+  ListSemiAutomaticImageSelectionSourcesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSemiAutomaticImageSelectionSourcesResponses,
+    ListSemiAutomaticImageSelectionSourcesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/sources',
     ...options,
   });
 

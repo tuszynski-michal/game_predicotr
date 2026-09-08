@@ -56,7 +56,7 @@ export interface SemiAutomaticSelectionLocalUiState {
 
 export interface SemiAutomaticSelectionLocalSessionRecord {
   readonly runId: string;
-  readonly sourceDirectory: SemiAutomaticSourceDirectoryHandle;
+  readonly sourceDirectory: SemiAutomaticSourceDirectoryHandle | null;
   readonly outputDirectory: SemiAutomaticOutputDirectoryHandle;
   readonly outputManifestChecksumSha256: string | null;
   readonly ui: SemiAutomaticSelectionLocalUiState;
@@ -297,8 +297,12 @@ export async function restoreSemiAutomaticSelectionLocalSession(
     return null;
   }
   if (record === null) return null;
-  const sourceGranted = await ensurePermission(record.sourceDirectory, 'read');
-  if (!sourceGranted) return null;
+  if (
+    record.sourceDirectory !== null &&
+    !(await ensurePermission(record.sourceDirectory, 'read'))
+  ) {
+    return null;
+  }
   const outputGranted = await ensurePermission(
     record.outputDirectory,
     'readwrite',
@@ -335,7 +339,8 @@ export function validateLocalSessionRecord(
     typeof value.runId !== 'string' ||
     value.runId.length === 0 ||
     !('sourceDirectory' in value) ||
-    !isSourceDirectoryHandle(value.sourceDirectory) ||
+    (value.sourceDirectory !== null &&
+      !isSourceDirectoryHandle(value.sourceDirectory)) ||
     !('outputDirectory' in value) ||
     !isOutputDirectoryHandle(value.outputDirectory) ||
     !('outputManifestChecksumSha256' in value) ||

@@ -247,6 +247,83 @@ def _ready_staging(tmp_path: Path) -> tuple[BrowserImageSelectionService, UUID, 
     return service, upload.upload_id, first
 
 
+def test_local_selection_source_creates_metadata_manifest_without_browser_staging(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    first = _jpeg((10, 20, 30))
+    second = _jpeg((40, 50, 60))
+    (source_root / "photo-1.jpg").write_bytes(first)
+    (source_root / "photo-2.jpg").write_bytes(second)
+    folder_selection = ImageFolderSelectionService(lambda: source_root)
+    staging_root = tmp_path / "imports"
+    staging = BrowserImageSelectionService(
+        folder_selection,
+        staging_root,
+        max_bytes=1024 * 1024,
+        photo_selection_max_bytes=1024 * 1024,
+    )
+    service = SemiAutomaticImageSelectionService(
+        MemorySemiAutomaticSelectionRepository(),
+        staging,
+        enabled=True,
+        artifact_root=tmp_path / "artifacts",
+        folder_selection=folder_selection,
+    )
+
+    selected = service.select_local_source()
+    assert selected is not None
+    run, created = service.create(
+        selection_token=selected.selection_token,
+        first_sequence_number=1,
+        last_sequence_number=18,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+
+    assert created is True
+    assert run.job.input_payload["schema_version"] == 3
+    assert run.job.input_payload["source_kind"] == "local_folder"
+    assert not any((staging_root / "browser-selections").iterdir())
+    sources = service.list_sources(
+        run.id,
+        after_source_index=None,
+        limit=500,
+    )
+    assert [item.relative_path for item in sources] == ["photo-1.jpg", "photo-2.jpg"]
+    asset, name = service.source_asset(
+        run.id,
+        0,
+        expected_checksum_sha256=sources[0].checksum_sha256,
+    )
+    assert asset == source_root / "photo-1.jpg"
+    assert name == "photo-1.jpg"
+    assert asset.read_bytes() == first
+    app = FastAPI()
+    app.include_router(
+        create_semi_automatic_image_selections_router(lambda: service),
+        prefix="/api/v1",
+    )
+    client = TestClient(app)
+    source_page = client.get(f"/api/v1/admin/semi-automatic-image-selections/{run.id}/sources")
+    source_response = client.get(
+        f"/api/v1/admin/semi-automatic-image-selections/{run.id}/sources/0/asset",
+        params={"expected_checksum_sha256": sources[0].checksum_sha256},
+    )
+    assert source_page.status_code == 200
+    assert source_page.json()["items"][0]["relativePath"] == "photo-1.jpg"
+    assert source_response.status_code == 200
+    assert source_response.content == first
+    (source_root / "photo-1.jpg").write_bytes(second)
+    with pytest.raises(SemiAutomaticSelectionConflictError) as changed:
+        service.source_asset(
+            run.id,
+            0,
+            expected_checksum_sha256=sources[0].checksum_sha256,
+        )
+    assert changed.value.code == "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED"
+
+
 def test_global_staging_and_run_survive_service_recreation(tmp_path: Path) -> None:
     staging, upload_id, first_jpeg = _ready_staging(tmp_path)
     ready = staging.get_ready_source_selection(

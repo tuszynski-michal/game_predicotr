@@ -10128,7 +10128,7 @@ export type SemiAutomaticImageSelectionJobPayload = {
   /**
    * Schemaversion
    */
-  schemaVersion?: 1 | 2;
+  schemaVersion?: 1 | 2 | 3;
   /**
    * Selectionkind
    */
@@ -10142,9 +10142,17 @@ export type SemiAutomaticImageSelectionJobPayload = {
    */
   sourceFingerprint: string;
   /**
+   * Sourcekind
+   */
+  sourceKind?: 'local_folder' | null;
+  /**
    * Sourcemanifestchecksumsha256
    */
   sourceManifestChecksumSha256: string;
+  /**
+   * Sourcemanifestrelativepath
+   */
+  sourceManifestRelativePath?: string | null;
   /**
    * Sourceuploadid
    */
@@ -10204,6 +10212,10 @@ export type SemiAutomaticSelectionCapabilitiesResponse = {
    */
   selectionRecognizerVariants: Array<SemiAutomaticSelectionRecognizerVariantResponse>;
   /**
+   * Sourcemode
+   */
+  sourceMode?: 'local_folder';
+  /**
    * Stagingpurpose
    */
   stagingPurpose: 'semi_automatic_selection';
@@ -10231,9 +10243,13 @@ export type SemiAutomaticSelectionCreate = {
    */
   recognizerVariant?: 'default_v3' | 'five_anchor_v6';
   /**
+   * Selectiontoken
+   */
+  selectionToken?: string | null;
+  /**
    * Uploadid
    */
-  uploadId: string;
+  uploadId?: string | null;
 };
 
 /**
@@ -10542,6 +10558,42 @@ export type SemiAutomaticSelectionRunStatus =
   | 'completed'
   | 'failed'
   | 'cancelled';
+
+/**
+ * SemiAutomaticSelectionSourceItemResponse
+ */
+export type SemiAutomaticSelectionSourceItemResponse = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+};
+
+/**
+ * SemiAutomaticSelectionSourcePageResponse
+ */
+export type SemiAutomaticSelectionSourcePageResponse = {
+  /**
+   * Items
+   */
+  items: Array<SemiAutomaticSelectionSourceItemResponse>;
+  /**
+   * Nextaftersourceindex
+   */
+  nextAfterSourceIndex?: number | null;
+};
 
 /**
  * SemiAutomaticSelectionSourceResponse
@@ -22860,6 +22912,45 @@ export type GetSemiAutomaticImageSelectionCapabilitiesResponses = {
 export type GetSemiAutomaticImageSelectionCapabilitiesResponse =
   GetSemiAutomaticImageSelectionCapabilitiesResponses[keyof GetSemiAutomaticImageSelectionCapabilitiesResponses];
 
+export type SelectSemiAutomaticImageSelectionSourceFolderData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/source-folder';
+};
+
+export type SelectSemiAutomaticImageSelectionSourceFolderErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type SelectSemiAutomaticImageSelectionSourceFolderError =
+  SelectSemiAutomaticImageSelectionSourceFolderErrors[keyof SelectSemiAutomaticImageSelectionSourceFolderErrors];
+
+export type SelectSemiAutomaticImageSelectionSourceFolderResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageFolderSelectionResponse;
+};
+
+export type SelectSemiAutomaticImageSelectionSourceFolderResponse =
+  SelectSemiAutomaticImageSelectionSourceFolderResponses[keyof SelectSemiAutomaticImageSelectionSourceFolderResponses];
+
 export type GetSemiAutomaticImageSelectionData = {
   body?: never;
   path: {
@@ -23313,6 +23404,55 @@ export type ResumeSemiAutomaticImageSelectionResponses = {
 
 export type ResumeSemiAutomaticImageSelectionResponse =
   ResumeSemiAutomaticImageSelectionResponses[keyof ResumeSemiAutomaticImageSelectionResponses];
+
+export type ListSemiAutomaticImageSelectionSourcesData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: {
+    /**
+     * After Source Index
+     */
+    after_source_index?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/sources';
+};
+
+export type ListSemiAutomaticImageSelectionSourcesErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type ListSemiAutomaticImageSelectionSourcesError =
+  ListSemiAutomaticImageSelectionSourcesErrors[keyof ListSemiAutomaticImageSelectionSourcesErrors];
+
+export type ListSemiAutomaticImageSelectionSourcesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionSourcePageResponse;
+};
+
+export type ListSemiAutomaticImageSelectionSourcesResponse =
+  ListSemiAutomaticImageSelectionSourcesResponses[keyof ListSemiAutomaticImageSelectionSourcesResponses];
 
 export type GetSemiAutomaticImageSelectionSourceAssetData = {
   body?: never;

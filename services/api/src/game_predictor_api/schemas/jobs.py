@@ -371,11 +371,13 @@ class ImageSelectionJobPayload(ApiModel):
 
 
 class SemiAutomaticImageSelectionJobPayload(ApiModel):
-    schema_version: Literal[1, 2] = 1
+    schema_version: Literal[1, 2, 3] = 1
     selection_kind: Literal["semi_automatic_image_selection"]
     workflow_mode: Literal["selection", "filename_verification"] | None = None
     run_id: UUID
     source_upload_id: UUID
+    source_kind: Literal["local_folder"] | None = None
+    source_manifest_relative_path: str | None = None
     source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_count: int = Field(ge=1)
@@ -390,10 +392,19 @@ class SemiAutomaticImageSelectionJobPayload(ApiModel):
 
     @model_validator(mode="after")
     def validate_workflow_mode(self) -> Self:
-        if self.schema_version == 2 and self.workflow_mode is None:
-            raise ValueError("schema v2 requires workflowMode")
+        if self.schema_version in {2, 3} and self.workflow_mode is None:
+            raise ValueError("schema v2/v3 requires workflowMode")
         if self.schema_version == 1 and self.workflow_mode is not None:
-            raise ValueError("workflowMode is only valid for schema v2")
+            raise ValueError("workflowMode is only valid for schema v2/v3")
+        if self.schema_version == 3:
+            if (
+                self.workflow_mode != "selection"
+                or self.source_kind != "local_folder"
+                or not self.source_manifest_relative_path
+            ):
+                raise ValueError("schema v3 requires a local selection source manifest")
+        elif self.source_kind is not None or self.source_manifest_relative_path is not None:
+            raise ValueError("local source fields are only valid for schema v3")
         return self
 
 

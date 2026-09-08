@@ -43,6 +43,55 @@ export interface SemiAutomaticSelectionOutputSyncResult {
   readonly writtenCount: number;
 }
 
+export async function prepareSemiAutomaticSelectionOutputReview(input: {
+  readonly directory: SemiAutomaticOutputDirectoryHandle;
+  readonly ranges: readonly SemiAutomaticSelectionRangeResponse[];
+  readonly run: SemiAutomaticSelectionRunResponse;
+  readonly now?: () => string;
+}): Promise<{
+  readonly gapCount: number;
+  readonly manifest: SemiAutomaticSelectionOutputManifestV1;
+  readonly manifestChecksumSha256: string;
+}> {
+  const now = input.now ?? (() => new Date().toISOString());
+  const run = toRunIdentity(input.run);
+  const ranges = validateCompleteRangeSnapshot(input.run, input.ranges);
+  let manifest = await readSemiAutomaticSelectionOutputManifest(
+    input.directory,
+  );
+  if (manifest === null) {
+    manifest = createSemiAutomaticSelectionOutputManifest({
+      now: now(),
+      outputDirectoryName: input.directory.name,
+      run,
+    });
+  } else {
+    assertSemiAutomaticManifestMatchesRun(manifest, run, input.directory.name);
+  }
+  manifest = await reconcilePendingOperation(
+    input.directory,
+    manifest,
+    ranges,
+    now,
+  );
+  const gaps = ranges
+    .filter(
+      (range) => range.status === 'missing' || range.status === 'conflict',
+    )
+    .map((range) => range.expectedIndex);
+  const allAcknowledged = ranges.every(
+    (range) => range.status === 'output_synced',
+  );
+  manifest = updateSemiAutomaticOutputSummary(manifest, {
+    gaps,
+    now: now(),
+    status: allAcknowledged ? 'completed' : 'review_mode',
+  });
+  const manifestChecksumSha256 =
+    await writeSemiAutomaticSelectionOutputManifest(input.directory, manifest);
+  return { gapCount: gaps.length, manifest, manifestChecksumSha256 };
+}
+
 export async function synchronizeSemiAutomaticSelectionOutput(input: {
   readonly client: SemiAutomaticSelectionOutputSyncClient;
   readonly directory: SemiAutomaticOutputDirectoryHandle;

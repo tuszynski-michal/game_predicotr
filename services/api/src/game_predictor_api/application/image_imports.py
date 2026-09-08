@@ -154,7 +154,11 @@ class ImageFolderSelectionService:
         self._lock = Lock()
         self._picker_lock = Lock()
 
-    def select(self) -> SelectedImageFolder | None:
+    def select(
+        self,
+        *,
+        purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT,
+    ) -> SelectedImageFolder | None:
         if not self._picker_lock.acquire(blocking=False):
             raise JobConflictError(
                 "IMAGE_FOLDER_PICKER_ALREADY_OPEN",
@@ -164,7 +168,7 @@ class ImageFolderSelectionService:
             path = self._picker()
         finally:
             self._picker_lock.release()
-        return None if path is None else self.approve(path)
+        return None if path is None else self.approve(path, purpose=purpose)
 
     def approve(
         self,
@@ -187,11 +191,12 @@ class ImageFolderSelectionService:
                 "Photo-selection staging requires a game and an input manifest.",
             )
         if purpose is ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION and (
-            game_id is not None or input_manifest_sha256 is None
+            game_id is not None or (managed and input_manifest_sha256 is None)
         ):
             raise JobError(
                 "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
-                "Semi-automatic selection staging must be global and finalized.",
+                "Semi-automatic selection sources must be global; managed staging "
+                "must be finalized.",
             )
         now = self._clock()
         stable_selection_id = selection_id or uuid4()
@@ -312,6 +317,48 @@ class ImageFolderSelectionService:
                 "The selected image folder no longer resolves to the approved path.",
             )
         return selected
+
+    def get_for_semi_automatic_selection(self, selection_token: str) -> SelectedImageFolder:
+        """Return one approved local source folder without consuming its token."""
+
+        now = self._clock()
+        with self._lock:
+            self._remove_expired(now)
+            selected = self._selections.get(selection_token)
+        if selected is None:
+            raise JobError(
+                "IMAGE_FOLDER_SELECTION_INVALID",
+                "The folder selection is missing or expired.",
+            )
+        if (
+            selected.purpose is not ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION
+            or selected.game_id is not None
+            or selected.managed
+        ):
+            raise JobError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
+                "The selected folder is not an approved local semi-automatic source.",
+            )
+        resolved, _count = inspect_image_folder(selected.path)
+        if resolved != selected.path:
+            raise JobError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The selected local source folder changed after approval.",
+            )
+        return selected
+
+    def consume_semi_automatic_selection(
+        self,
+        selection_token: str,
+        *,
+        selection_id: UUID,
+    ) -> None:
+        """Forget only the matching short-lived authorization token."""
+
+        with self._lock:
+            selected = self._selections.get(selection_token)
+            if selected is not None and selected.selection_id == selection_id:
+                self._selections.pop(selection_token, None)
 
     def create_image_selection_run(
         self,

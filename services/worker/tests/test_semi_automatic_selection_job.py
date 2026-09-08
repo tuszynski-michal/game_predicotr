@@ -50,6 +50,10 @@ from game_predictor_worker.semi_automatic_selection.job import (
     SelectionApplyOutcome,
     SemiAutomaticImageSelectionJobHandler,
 )
+from game_predictor_worker.semi_automatic_selection.local_source_manifest import (
+    build_local_source_manifest,
+    write_local_source_manifest,
+)
 from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (
     FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION,
     MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
@@ -712,6 +716,66 @@ def test_handler_scans_once_selects_middle_and_resumes_without_ocr(tmp_path: Pat
         resumed_handler(_Context(), run.job)  # type: ignore[arg-type]
 
 
+def test_handler_reads_schema_v3_sources_directly_without_browser_staging(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "local-source"
+    source_root.mkdir()
+    for index in range(4):
+        (source_root / f"photo-{index + 1}.jpg").write_bytes(
+            _jpeg((10 + index, 20 + index, 30 + index))
+        )
+    selection_id = uuid4()
+    local_manifest = build_local_source_manifest(
+        source_root,
+        selection_id=selection_id,
+        display_name="local-source",
+    )
+    artifact_root = tmp_path / "artifacts"
+    relative_manifest = write_local_source_manifest(artifact_root, local_manifest)
+    run, ranges = create_semi_automatic_selection_run(
+        source=SemiAutomaticSelectionSourceManifest(
+            upload_id=selection_id,
+            display_name=local_manifest.display_name,
+            manifest_checksum_sha256=local_manifest.checksum_sha256,
+            source_fingerprint=local_manifest.source_fingerprint,
+            source_count=len(local_manifest.sources),
+            source_total_bytes=local_manifest.total_bytes,
+        ),
+        first_sequence_number=1,
+        last_sequence_number=18,
+        direction=ApiDirection.ASCENDING,
+        recognizer_fingerprint=RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+        grouping_policy_fingerprint=grouping_policy_fingerprint(),
+        workflow_mode=SemiAutomaticSelectionWorkflowMode.SELECTION,
+        local_source_manifest_relative_path=relative_manifest,
+    )
+    store = _MemoryStore(run, ranges)
+    recognizer = _ScriptedRecognizer(
+        [
+            _exact(1, 9, 0.91),
+            _exact(1, 9, 0.96),
+            _exact(10, 18, 0.95),
+            _exact(10, 18, 0.92),
+        ],
+        fingerprint=RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+    )
+    handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        recognizer_factory=lambda _path, _contract: recognizer,
+    )
+
+    with pytest.raises(_WaitForReview):
+        handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert recognizer.calls == 4
+    assert store.run.counters["autoSelected"] == 2
+    assert not (tmp_path / "imports" / "browser-selections").exists()
+
+
 def test_filename_verification_finishes_without_selection_or_progress_regression(
     tmp_path: Path,
 ) -> None:
@@ -797,9 +861,7 @@ def test_filename_verification_with_only_matching_files_cleans_working_data(
     assert store.run.checkpoint["cleanup"] == "completed"
     assert store.run.diagnostics_relative_path is None
     assert store.ranges == {}
-    assert not (
-        tmp_path / "imports" / "browser-selections" / str(run.source.upload_id)
-    ).exists()
+    assert not (tmp_path / "imports" / "browser-selections" / str(run.source.upload_id)).exists()
     assert not (
         tmp_path / "artifacts" / "exports" / "semi-automatic-selection" / str(run.id)
     ).exists()
@@ -834,9 +896,7 @@ def test_filename_cleanup_blocks_without_deleting_staging_on_unsafe_artifact(
 
     assert error.value.code == "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED"
     assert store.run.status is SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED
-    assert (
-        tmp_path / "imports" / "browser-selections" / str(run.source.upload_id)
-    ).is_dir()
+    assert (tmp_path / "imports" / "browser-selections" / str(run.source.upload_id)).is_dir()
 
 
 def test_handler_resumes_a_paused_scan_from_the_next_source(tmp_path: Path) -> None:

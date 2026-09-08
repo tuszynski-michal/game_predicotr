@@ -743,6 +743,7 @@ def create_app(
                     default_browser_image_selection_service,
                     enabled=resolved_settings.semi_automatic_image_selection_enabled,
                     artifact_root=resolved_settings.artifact_root,
+                    folder_selection=default_image_folder_selection_service,
                 )
                 session.commit()
             except BaseException:

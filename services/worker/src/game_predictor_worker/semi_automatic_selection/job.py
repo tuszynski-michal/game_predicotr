@@ -66,6 +66,7 @@ from .five_anchor_range_runtime import (
     FiveAnchorBatchRuntime,
     FiveAnchorSourcePayload,
 )
+from .local_source_manifest import LocalSourceManifestError, load_local_source_manifest
 from .middle_row_grouping import (
     FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION,
     FIVE_ANCHOR_GROUPING_VERSION,
@@ -597,8 +598,39 @@ class SemiAutomaticImageSelectionJobHandler:
                 return
             if run.status is SemiAutomaticSelectionRunStatus.PAUSED:
                 context.wait_for_review()
-            source_root = _safe_child(self._browser_root, str(run.source.upload_id))
-            sources = _load_staged_sources(source_root, run)
+            if payload.schema_version == 3:
+                relative_manifest = payload.source_manifest_relative_path
+                if payload.source_kind != "local_folder" or relative_manifest is None:
+                    raise JobHandlerError(
+                        "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                        "The local source contract is incomplete.",
+                    )
+                try:
+                    local_manifest = load_local_source_manifest(
+                        self._artifact_root,
+                        relative_path=relative_manifest,
+                        expected_checksum_sha256=run.source.manifest_checksum_sha256,
+                        expected_selection_id=run.source.upload_id,
+                    )
+                except LocalSourceManifestError as error:
+                    raise JobHandlerError(error.code, str(error)) from error
+                source_root = local_manifest.source_root
+                sources = tuple(
+                    _StagedSource(identity=source, stored_file_name=source.relative_path)
+                    for source in local_manifest.sources
+                )
+                if (
+                    local_manifest.source_fingerprint != run.source.source_fingerprint
+                    or len(sources) != run.source.source_count
+                    or local_manifest.total_bytes != run.source.source_total_bytes
+                ):
+                    raise JobHandlerError(
+                        "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                        "The local source manifest differs from its durable run.",
+                    )
+            else:
+                source_root = _safe_child(self._browser_root, str(run.source.upload_id))
+                sources = _load_staged_sources(source_root, run)
             audit = SemiAutomaticSelectionAudit(self._artifact_root, run.id)
             checkpoint = _normalize_checkpoint(run.checkpoint)
             audit.reconcile(
@@ -1243,9 +1275,7 @@ class SemiAutomaticImageSelectionJobHandler:
             else (
                 ROW_FIRST_EVIDENCE_SELECTOR_VERSION
                 if is_row_first_v5
-                else (
-                    FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION if is_five_anchor_v6 else None
-                )
+                else (FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION if is_five_anchor_v6 else None)
             )
         )
         for selection in audit.iter_group_selections(
@@ -1551,8 +1581,7 @@ class SemiAutomaticImageSelectionJobHandler:
                 if run.recognizer_fingerprint == ROW_FIRST_RECOGNIZER_CONTRACT_FINGERPRINT_V5
                 else (
                     five_anchor_grouping_policy_fingerprint()
-                    if run.recognizer_fingerprint
-                    == FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6
+                    if run.recognizer_fingerprint == FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6
                     else grouping_policy_fingerprint()
                 )
             )
@@ -2213,8 +2242,7 @@ def _assert_filename_verification_cleanup_references(
         session.scalars(
             select(SemiAutomaticImageSelectionRunModel.id)
             .where(
-                SemiAutomaticImageSelectionRunModel.source_upload_id
-                == run_record.source_upload_id,
+                SemiAutomaticImageSelectionRunModel.source_upload_id == run_record.source_upload_id,
                 SemiAutomaticImageSelectionRunModel.id != run_record.id,
             )
             .with_for_update()

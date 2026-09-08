@@ -6,7 +6,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
 from uuid import UUID
 
@@ -15,6 +15,14 @@ from game_predictor_worker.semi_automatic_selection.engine import (
 )
 from game_predictor_worker.semi_automatic_selection.five_anchor_range_runtime import (
     FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6,
+)
+from game_predictor_worker.semi_automatic_selection.local_source_manifest import (
+    LocalSourceManifest,
+    LocalSourceManifestError,
+    build_local_source_manifest,
+    load_local_source_manifest,
+    resolve_local_source_asset,
+    write_local_source_manifest,
 )
 from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (
     five_anchor_grouping_policy_fingerprint,
@@ -26,7 +34,10 @@ from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
 
 from game_predictor_api.application.image_imports import (
     BrowserImageSelectionService,
+    BrowserReadySource,
+    ImageFolderSelectionService,
     ImageSelectionPurpose,
+    SelectedImageFolder,
 )
 from game_predictor_api.domain.jobs import JobStatus, request_job_cancellation, requeue_job
 from game_predictor_api.domain.semi_automatic_image_selections import (
@@ -170,11 +181,13 @@ class SemiAutomaticImageSelectionService:
         *,
         enabled: bool,
         artifact_root: Path | None = None,
+        folder_selection: ImageFolderSelectionService | None = None,
     ) -> None:
         self._repository = repository
         self._staging = staging
         self._enabled = enabled
         self._artifact_root = None if artifact_root is None else artifact_root.resolve()
+        self._folder_selection = folder_selection
 
     def capabilities(self) -> dict[str, object]:
         return {
@@ -186,6 +199,7 @@ class SemiAutomaticImageSelectionService:
             "minimumSequenceNumber": 1,
             "maximumBoardsPerRange": SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
             "stagingPurpose": ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION.value,
+            "sourceMode": "local_folder",
             "recognizerFingerprint": SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT,
             "selectionRecognizerVariants": [
                 {"id": variant, **values}
@@ -197,10 +211,24 @@ class SemiAutomaticImageSelectionService:
             "groupingPolicyFingerprint": SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT,
         }
 
+    def select_local_source(self) -> SelectedImageFolder | None:
+        if not self._enabled:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_DISABLED",
+                "Semi-automatic image selection is disabled by the server rollout gate.",
+            )
+        if self._folder_selection is None:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_LOCAL_SOURCE_UNAVAILABLE",
+                "The controlled local source picker is unavailable.",
+            )
+        return self._folder_selection.select(purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION)
+
     def create(
         self,
         *,
-        upload_id: UUID,
+        upload_id: UUID | None = None,
+        selection_token: str | None = None,
         first_sequence_number: int,
         last_sequence_number: int,
         direction: SemiAutomaticSelectionDirection,
@@ -241,18 +269,39 @@ class SemiAutomaticImageSelectionService:
                 if recognizer_variant == SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT
                 else SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT
             )
-        ready = self._staging.get_ready_source_selection(
-            upload_id,
-            purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
-        )
-        source = SemiAutomaticSelectionSourceManifest(
-            upload_id=ready.upload_id,
-            display_name=ready.display_name,
-            manifest_checksum_sha256=ready.manifest_checksum_sha256,
-            source_fingerprint=ready.source_fingerprint,
-            source_count=len(ready.sources),
-            source_total_bytes=ready.total_bytes,
-        )
+        if selection_token is not None:
+            if mode != SEMI_AUTOMATIC_SELECTION_MODE or upload_id is not None:
+                raise SemiAutomaticSelectionError(
+                    "SEMI_AUTOMATIC_SELECTION_LOCAL_SOURCE_REQUIRED",
+                    "A local source token can be used only by the selection workflow.",
+                )
+            source, local_manifest_path, local_selection = self._prepare_local_source(
+                selection_token
+            )
+        else:
+            if upload_id is None:
+                raise SemiAutomaticSelectionError(
+                    (
+                        "SEMI_AUTOMATIC_SELECTION_LOCAL_SOURCE_REQUIRED"
+                        if mode == SEMI_AUTOMATIC_SELECTION_MODE
+                        else "SEMI_AUTOMATIC_SELECTION_STAGING_REQUIRED"
+                    ),
+                    "The requested workflow has no finalized source.",
+                )
+            ready = self._staging.get_ready_source_selection(
+                upload_id,
+                purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+            )
+            source = SemiAutomaticSelectionSourceManifest(
+                upload_id=ready.upload_id,
+                display_name=ready.display_name,
+                manifest_checksum_sha256=ready.manifest_checksum_sha256,
+                source_fingerprint=ready.source_fingerprint,
+                source_count=len(ready.sources),
+                source_total_bytes=ready.total_bytes,
+            )
+            local_manifest_path = None
+            local_selection = None
         identity_key = run_identity_key(
             source=source,
             first_sequence_number=first_sequence_number,
@@ -263,6 +312,7 @@ class SemiAutomaticImageSelectionService:
         )
         existing = self._repository.find_by_identity(identity_key)
         if existing is not None:
+            self._consume_local_selection(selection_token, local_selection)
             return existing, False
         run, ranges = create_semi_automatic_selection_run(
             source=source,
@@ -272,15 +322,65 @@ class SemiAutomaticImageSelectionService:
             workflow_mode=SemiAutomaticSelectionWorkflowMode(mode),
             recognizer_fingerprint=recognizer_fingerprint,
             grouping_policy_fingerprint=grouping_policy,
+            local_source_manifest_relative_path=local_manifest_path,
         )
         try:
             stored = self._repository.add(run, ranges, identity_key=identity_key)
+            self._consume_local_selection(selection_token, local_selection)
             return stored, True
         except SemiAutomaticSelectionConflictError:
             concurrent = self._repository.find_by_identity(identity_key)
             if concurrent is None:
                 raise
+            self._consume_local_selection(selection_token, local_selection)
             return concurrent, False
+
+    def _consume_local_selection(
+        self,
+        selection_token: str | None,
+        selection: SelectedImageFolder | None,
+    ) -> None:
+        if (
+            selection_token is not None
+            and selection is not None
+            and self._folder_selection is not None
+        ):
+            self._folder_selection.consume_semi_automatic_selection(
+                selection_token,
+                selection_id=selection.selection_id,
+            )
+
+    def _prepare_local_source(
+        self,
+        selection_token: str,
+    ) -> tuple[SemiAutomaticSelectionSourceManifest, str, SelectedImageFolder]:
+        if self._folder_selection is None or self._artifact_root is None:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_LOCAL_SOURCE_UNAVAILABLE",
+                "The local source manifest store is unavailable.",
+            )
+        selected = self._folder_selection.get_for_semi_automatic_selection(selection_token)
+        try:
+            manifest = build_local_source_manifest(
+                selected.path,
+                selection_id=selected.selection_id,
+                display_name=selected.display_name,
+            )
+            relative_path = write_local_source_manifest(self._artifact_root, manifest)
+        except LocalSourceManifestError as error:
+            raise SemiAutomaticSelectionError(error.code, str(error)) from error
+        return (
+            SemiAutomaticSelectionSourceManifest(
+                upload_id=selected.selection_id,
+                display_name=manifest.display_name,
+                manifest_checksum_sha256=manifest.checksum_sha256,
+                source_fingerprint=manifest.source_fingerprint,
+                source_count=len(manifest.sources),
+                source_total_bytes=manifest.total_bytes,
+            ),
+            relative_path,
+            selected,
+        )
 
     def list_filename_verification_items(
         self,
@@ -571,16 +671,13 @@ class SemiAutomaticImageSelectionService:
                 output_checksum_sha256=output_checksum_sha256,
             )
         else:
-            ready = self._staging.get_ready_source_selection(
-                run.source.upload_id,
-                purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
-            )
-            if source_index < 0 or source_index >= len(ready.sources):
+            sources = self._source_entries(run)
+            if source_index < 0 or source_index >= len(sources):
                 raise SemiAutomaticSelectionNotFoundError(
                     "SEMI_AUTOMATIC_SELECTION_SOURCE_NOT_FOUND",
-                    "The requested staged source does not exist.",
+                    "The requested source does not exist.",
                 )
-            source = ready.sources[source_index]
+            source = sources[source_index]
             if source.checksum_sha256 != expected_source_checksum_sha256:
                 raise SemiAutomaticSelectionConflictError(
                     "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
@@ -607,12 +704,96 @@ class SemiAutomaticImageSelectionService:
         expected_checksum_sha256: str,
     ) -> tuple[Path, str]:
         run = self.get(run_id)
+        local_manifest = self._local_source_manifest(run)
+        if local_manifest is not None:
+            try:
+                path, source = resolve_local_source_asset(
+                    local_manifest,
+                    source_index=source_index,
+                    expected_checksum_sha256=expected_checksum_sha256,
+                )
+            except LocalSourceManifestError as error:
+                raise SemiAutomaticSelectionConflictError(error.code, str(error)) from error
+            return path, PurePosixPath(source.relative_path).name
         return self._staging.get_ready_source_asset(
             run.source.upload_id,
             purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
             source_index=source_index,
             expected_checksum_sha256=expected_checksum_sha256,
         )
+
+    def list_sources(
+        self,
+        run_id: UUID,
+        *,
+        after_source_index: int | None,
+        limit: int,
+    ) -> tuple[BrowserReadySource, ...]:
+        if limit < 1 or limit > 500:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_PAGE_INVALID",
+                "The source page limit must be between 1 and 500.",
+            )
+        run = self.get(run_id)
+        sources = self._source_entries(run)
+        first = 0 if after_source_index is None else after_source_index + 1
+        return sources[first : first + limit]
+
+    def _source_entries(self, run: SemiAutomaticSelectionRun) -> tuple[BrowserReadySource, ...]:
+        local_manifest = self._local_source_manifest(run)
+        if local_manifest is not None:
+            return tuple(
+                BrowserReadySource(
+                    source_index=source.source_index,
+                    relative_path=source.relative_path,
+                    stored_file_name=source.relative_path,
+                    size_bytes=source.size_bytes,
+                    checksum_sha256=source.checksum_sha256,
+                )
+                for source in local_manifest.sources
+            )
+        return self._staging.get_ready_source_selection(
+            run.source.upload_id,
+            purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+        ).sources
+
+    def _local_source_manifest(
+        self,
+        run: SemiAutomaticSelectionRun,
+    ) -> LocalSourceManifest | None:
+        payload = run.job.input_payload
+        if payload.get("schema_version") != 3:
+            return None
+        if self._artifact_root is None:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_MANIFEST_UNAVAILABLE",
+                "The local source manifest store is unavailable.",
+            )
+        relative_path = payload.get("source_manifest_relative_path")
+        if payload.get("source_kind") != "local_folder" or not isinstance(relative_path, str):
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The local source contract is invalid.",
+            )
+        try:
+            manifest = load_local_source_manifest(
+                self._artifact_root,
+                relative_path=relative_path,
+                expected_checksum_sha256=run.source.manifest_checksum_sha256,
+                expected_selection_id=run.source.upload_id,
+            )
+        except LocalSourceManifestError as error:
+            raise SemiAutomaticSelectionError(error.code, str(error)) from error
+        if (
+            manifest.source_fingerprint != run.source.source_fingerprint
+            or len(manifest.sources) != run.source.source_count
+            or manifest.total_bytes != run.source.source_total_bytes
+        ):
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The local source manifest differs from the durable run.",
+            )
+        return manifest
 
     def _locked(self, run_id: UUID) -> SemiAutomaticSelectionRun:
         run = self._repository.get(run_id, for_update=True)

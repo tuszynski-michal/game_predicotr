@@ -108,7 +108,7 @@ class SemiAutomaticSelectionSourceManifest:
 
     def __post_init__(self) -> None:
         if not self.display_name.strip() or self.source_count < 1 or self.source_total_bytes < 1:
-            raise ValueError("A source manifest requires non-empty staged JPEGs.")
+            raise ValueError("A source manifest requires non-empty JPEGs.")
         _require_sha256(self.manifest_checksum_sha256, "manifest checksum")
         _require_sha256(self.source_fingerprint, "source fingerprint")
 
@@ -207,6 +207,7 @@ def create_semi_automatic_selection_run(
     workflow_mode: SemiAutomaticSelectionWorkflowMode = (
         SemiAutomaticSelectionWorkflowMode.SELECTION
     ),
+    local_source_manifest_relative_path: str | None = None,
     created_at: datetime | None = None,
 ) -> tuple[SemiAutomaticSelectionRun, tuple[SemiAutomaticSelectionRange, ...]]:
     if first_sequence_number < 1 or last_sequence_number < first_sequence_number:
@@ -226,7 +227,7 @@ def create_semi_automatic_selection_run(
     )
     expected_fingerprint = expected_ranges_fingerprint(ranges)
     payload: dict[str, object] = {
-        "schema_version": 2,
+        "schema_version": 3 if local_source_manifest_relative_path is not None else 2,
         "selection_kind": SEMI_AUTOMATIC_SELECTION_WORKFLOW,
         "workflow_mode": workflow_mode.value,
         "run_id": str(run_id),
@@ -243,6 +244,13 @@ def create_semi_automatic_selection_run(
         "recognizer_fingerprint": recognizer_fingerprint,
         "grouping_policy_fingerprint": grouping_policy_fingerprint,
     }
+    if local_source_manifest_relative_path is not None:
+        payload.update(
+            {
+                "source_kind": "local_folder",
+                "source_manifest_relative_path": local_source_manifest_relative_path,
+            }
+        )
     job = create_job(
         JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
         game_id=None,

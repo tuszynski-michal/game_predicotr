@@ -1748,23 +1748,33 @@ benchmarku algorytmu i I/O, nie nowej infrastruktury.
 
 Migracja `0087_semi_automatic_image_selection` dodaje addytywne tabele
 `semi_automatic_image_selection_runs` i
-`semi_automatic_image_selection_ranges`. Run wskazuje globalny upload i
-dedykowany job, ale nie ma `game_id`. Oczekiwane zakresy są prealokowane w
+`semi_automatic_image_selection_ranges`. Run wskazuje stabilny identyfikator
+źródła i dedykowany job, ale nie ma `game_id`. Dla schema v1/v2 identyfikator
+oznacza globalny upload, a dla schema v3 — wybór lokalnego katalogu. Oczekiwane zakresy są prealokowane w
 porządku rosnącego `expected_index`, co pozwala późniejszemu scannerowi
 zapisywać wyniki bez materializowania listy w pamięci.
 
 `identity_key` jest unikalnym SHA-256 całego kontraktu wejściowego. Repozytorium
-tworzy job, run, zakresy i przypięcie browser stagingu w jednej transakcji.
+tworzy job, run i zakresy w jednej transakcji. Historyczny wariant stagingowy
+przypina także browser staging w tej samej transakcji.
 Jest to celowe: osobna transakcja retencji nie widziałaby jeszcze
 niezatwierdzonego joba i mogłaby pozostawić gotowy staging bez trwałej
 zależności.
 
-Globalny staging korzysta z fizycznych nazw `00000001.jpg`, ale jego publiczną
+Globalny staging schema v1/v2 korzysta z fizycznych nazw `00000001.jpg`, ale jego publiczną
 tożsamością pozostają naturalnie posortowana `relativePath`, rozmiar i SHA-256.
 Finalizacja zapisuje checksummę manifestu także w metrykach uploadu. Każdy
 ponowny odczyt porównuje oba zapisy i ponownie weryfikuje wszystkie JPEG-i.
 
-`BrowserImageSelectionService` rozdziela dwa rodzaje ochrony pojemności.
+Nowy schema v3 przechowuje pod `data/exports/semi-automatic-selection-sources`
+wyłącznie kanoniczny manifest JSON: `sourceRoot`, `relativePath`, `sizeBytes`,
+SHA-256 i naturalną kolejność. JPEG-i pozostają w katalogu operatora. Loader
+rozwiązuje każdą ścieżkę pod zatwierdzonym rootem i ponownie sprawdza rozmiar
+oraz SHA-256 przed OCR i przed wydaniem assetu. Ten katalog nie jest zasobem
+zarządzanym, nie jest liczony jako staging i nigdy nie jest celem cleanupu.
+
+`BrowserImageSelectionService` rozdziela dwa rodzaje ochrony pojemności dla
+historycznych runów i `filename_verification`.
 Konserwatywny `ImageWriteCapacityGuard`, uwzględniający przyszłe managed
 artifacts, chroni `layout_import` i `photo_selection`, lecz nie jest wywoływany
 dla `semi_automatic_selection`, który na tym etapie tworzy wyłącznie kopię
@@ -1808,9 +1818,10 @@ Formatowanie lokalnego outputu pozostaje oddzielone do TASK-0354.
 ## Lokalna synchronizacja outputu — TASK-0354
 
 Admin posiada framework-free manifest domenowy, adapter File System Access API
-oraz koordynator synchronizacji. Koordynator przyjmuje kompletny, keysetowo
-pobrany snapshot oczekiwanych zakresów i ponownie sprawdza jego indeksy,
-granice oraz nazwy przed pierwszą mutacją katalogu.
+oraz koordynator zapisu. Przygotowanie review przyjmuje kompletny, keysetowo
+pobrany snapshot oczekiwanych zakresów, ponownie sprawdza jego indeksy, granice
+oraz nazwy i zapisuje tylko manifest — bez automatycznego kopiowania JPEG-ów.
+Każdy właściwy zapis następuje dopiero po jawnej akceptacji albo zmianie źródła.
 
 Każdy zapis ma kolejność journalową: utrwalenie pending operation, pobranie
 checksum-bound assetu, sprawdzenie źródła, zapis oryginalnego Bloba, read-back,
@@ -1835,17 +1846,18 @@ i nie otrzymuje `gameId`. Pobiera `capabilities` przed odblokowaniem formularza;
 flaga `enabled` pozostaje kontrolą serwera, a UI jest wyłącznie jej wiernym
 klientem.
 
-Folder źródłowy jest skanowany rekurencyjnie przez File System Access API i
-sortowany naturalnie po `relativePath`. Wyłącznie `.jpg` i `.jpeg` trafiają do
-browserowego stagingu globalnego z `purpose=semi_automatic_selection` oraz
-`gameId=null`. Upload ma maksymalnie cztery równoległe transfery i trzy próby
-na plik. Liczniki postępu są aktualizowane tylko potwierdzonym stanem API;
-poprawna odpowiedź finalizacji tworzy lub idempotentnie odzyskuje globalny run.
+Folder źródłowy wybiera kontrolowany Windows picker lokalnego Admin API.
+Serwis skanuje rekurencyjnie wyłącznie `.jpg` i `.jpeg`, sortuje je naturalnie
+po `relativePath`, hashuje i tworzy schema v3 bez uploadu obrazów. Admin po
+utworzeniu runu pobiera metadane stronami po 500; `ManualImageViewer` używa
+lekkiego uchwytu, który pobiera checksum-bound asset dopiero dla otwieranego
+JPEG-a. Stary browser upload pozostaje wyłącznie dla `filename_verification`
+oraz replayu schema v1/v2.
 
-Wybrane uchwyty katalogów są zapisywane wyłącznie w istniejącym operator-local
-store razem z `runId` i drobnym stanem UI. Nie zapisuje się Blobów ani JPEG-ów
-w IndexedDB. Lokalny klucz przeglądarki umożliwia po reloadzie ponowny odczyt
-runu i wznowienie jego monitorowania.
+Uchwyt katalogu wynikowego jest zapisywany wyłącznie w istniejącym
+operator-local store razem z `runId` i drobnym stanem UI. Uchwyt źródła nie
+jest potrzebny w przeglądarce; API odtwarza listę z manifestu. Nie zapisuje się
+Blobów ani JPEG-ów w IndexedDB.
 
 Polling jest sekwencyjny: następny timeout powstaje dopiero po zakończeniu
 poprzedniego odczytu runu. Ma interwał 2 s oraz lokalny limit 45 minut, a
@@ -1855,10 +1867,12 @@ się na widocznym postępie analizy.
 
 ## Przegląd i edycja źródła zakresu — TASK-0356
 
-`SemiAutomaticSelectionReviewWorkspace` przejmuje ukończony run dopiero po
-ponownym zebraniu lokalnych uchwytów źródła i celu. Najpierw pobiera wszystkie
-zakresy stronami po 500, weryfikuje ciągłość `expectedIndex`, a następnie używa
-koordynatora TASK-0354 do journalowanej synchronizacji automatycznych wyborów.
+`SemiAutomaticSelectionReviewWorkspace` przejmuje ukończony run po odtworzeniu
+katalogu celu i stronicowanej listy źródeł z API. Najpierw pobiera wszystkie
+zakresy stronami po 500, weryfikuje ciągłość `expectedIndex` i przygotowuje
+manifest review. Dla automatycznego kandydata pokazuje `Zatwierdź i zapisz`
+oraz `Zmień źródło`; dopiero pierwsza z tych decyzji uruchamia journalowany
+zapis jednego JPEG-a.
 
 Review i edycja są dwoma jawnymi trybami. Review zmienia wyłącznie aktywny
 expected range. Edycja blokuje ten range, a nawigację przekazuje źródłowym
@@ -1868,8 +1882,8 @@ dokładnie zapisanym `sourceIndex`.
 
 Ręczna mutacja rozszerza istniejące acknowledgement o opcjonalny
 `sourceIndex`; nie powstaje nowy endpoint ani tabela. Serwis ponownie ładuje
-poświadczony staging, wiąże indeks z względną ścieżką, rozmiarem i SHA-256 oraz
-odrzuca drift źródła. Lokalny zapis może zastąpić wyłącznie plik, którego
+manifest lokalny schema v3 albo historyczny staging, wiąże indeks z względną
+ścieżką, rozmiarem i SHA-256 oraz odrzuca drift źródła. Lokalny zapis może zastąpić wyłącznie plik, którego
 bieżąca check­summa odpowiada poprzedniemu wyborowi tego samego manifestu.
 Zmiana metadanych przy niezmienionym statusie zakresu nadal zwiększa rewizję
 runu, ale nie zmienia liczników statusów.

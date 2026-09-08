@@ -8308,3 +8308,24 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** `layout_import` i `photo_selection` nadal przechodzą przez
   konserwatywny guard. Wyjątek jest zamknięty do jednego enum purpose; nie
   tłumi błędów i nie zmienia polityki GC ani progów pojemności.
+
+## D-373 — Nowa półautomatyczna selekcja czyta lokalne źródło bez stagingu
+
+- **Status:** accepted
+- **Date:** 2026-09-08
+- **Decision:** nowe runy workflowu `selection` używają schema v3 i małego,
+  content-addressed manifestu lokalnego katalogu. JPEG-i nie są kopiowane do
+  `browser-selections` ani `data/originals`; worker i endpoint podglądu czytają
+  je bezpośrednio, zawsze przez przypiętą ścieżkę, rozmiar i SHA-256.
+- **Rationale:** półautomat ma wybrać reprezentanta, pokazać go operatorowi i
+  zapisać wyłącznie zaakceptowany lub ręcznie zastąpiony plik. Kopia wszystkich
+  dziesiątek tysięcy wejść zużywała miejsce bez wartości domenowej.
+- **Safety:** manifest jest trwały, naturalnie uporządkowany i checksum-bound.
+  Zmiana, brak albo ucieczka ścieżki blokują OCR i asset fail-closed. Katalog
+  użytkownika nie jest objęty GC ani cleanupem. Historyczne schema v1/v2 oraz
+  `filename_verification` nadal korzystają z browser stagingu.
+- **Consequences:** pole SQL `source_upload_id` zachowuje zgodność i dla schema
+  v3 przechowuje stabilny `sourceSelectionId`. Admin nie musi utrwalać uchwytu
+  źródłowego w IndexedDB; po restarcie odtwarza listę źródeł z API. D-281 i
+  D-372 pozostają obowiązujące dla historycznego stagingu i weryfikacji nazw,
+  ale nie opisują wejścia nowych runów `selection`.

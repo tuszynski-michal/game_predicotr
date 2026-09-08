@@ -14,6 +14,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionWorkflowMode,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.image_imports import ImageFolderSelectionResponse
 from game_predictor_api.schemas.semi_automatic_image_selections import (
     FilenameRangeVerificationItemResponse,
     FilenameRangeVerificationPageResponse,
@@ -29,6 +30,8 @@ from game_predictor_api.schemas.semi_automatic_image_selections import (
     SemiAutomaticSelectionRangeResponse,
     SemiAutomaticSelectionRunPageResponse,
     SemiAutomaticSelectionRunResponse,
+    SemiAutomaticSelectionSourceItemResponse,
+    SemiAutomaticSelectionSourcePageResponse,
     to_filename_verification_history_deletion_response,
     to_filename_verification_review_response,
     to_range_response,
@@ -62,6 +65,23 @@ def create_semi_automatic_image_selections_router(
         return SemiAutomaticSelectionCapabilitiesResponse.model_validate(service.capabilities())
 
     @router.post(
+        "/source-folder",
+        response_model=ImageFolderSelectionResponse,
+        operation_id="selectSemiAutomaticImageSelectionSourceFolder",
+        summary="Open the controlled local source-folder picker without staging images",
+        responses=ERROR_RESPONSES,
+    )
+    def select_source_folder(
+        service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
+    ) -> ImageFolderSelectionResponse:
+        selected = service.select_local_source()
+        return (
+            ImageFolderSelectionResponse.cancelled()
+            if selected is None
+            else ImageFolderSelectionResponse.selected(selected)
+        )
+
+    @router.post(
         "",
         response_model=SemiAutomaticSelectionCreateResponse,
         operation_id="createSemiAutomaticImageSelection",
@@ -73,6 +93,7 @@ def create_semi_automatic_image_selections_router(
     ) -> SemiAutomaticSelectionCreateResponse:
         run, created = service.create(
             upload_id=payload.upload_id,
+            selection_token=payload.selection_token,
             first_sequence_number=payload.first_sequence_number,
             last_sequence_number=payload.last_sequence_number,
             direction=payload.direction,
@@ -114,6 +135,39 @@ def create_semi_automatic_image_selections_router(
         service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
     ) -> SemiAutomaticSelectionRunResponse:
         return to_run_response(service.get(run_id))
+
+    @router.get(
+        "/{run_id}/sources",
+        response_model=SemiAutomaticSelectionSourcePageResponse,
+        operation_id="listSemiAutomaticImageSelectionSources",
+        responses=ERROR_RESPONSES,
+    )
+    def list_sources(
+        run_id: UUID,
+        service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
+        after_source_index: Annotated[int | None, Query(ge=0)] = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 500,
+    ) -> SemiAutomaticSelectionSourcePageResponse:
+        items = service.list_sources(
+            run_id,
+            after_source_index=after_source_index,
+            limit=limit,
+        )
+        responses = [
+            SemiAutomaticSelectionSourceItemResponse(
+                source_index=item.source_index,
+                relative_path=item.relative_path,
+                size_bytes=item.size_bytes,
+                checksum_sha256=item.checksum_sha256,
+            )
+            for item in items
+        ]
+        return SemiAutomaticSelectionSourcePageResponse(
+            items=responses,
+            next_after_source_index=(
+                responses[-1].source_index if len(responses) == limit else None
+            ),
+        )
 
     @router.get(
         "/{run_id}/ranges",

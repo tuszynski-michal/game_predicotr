@@ -42,6 +42,7 @@ class SemiAutomaticSelectionCapabilitiesResponse(ApiModel):
     minimum_sequence_number: Literal[1]
     maximum_boards_per_range: Literal[9]
     staging_purpose: Literal["semi_automatic_selection"]
+    source_mode: Literal["local_folder"] = "local_folder"
     recognizer_fingerprint: Sha256
     selection_recognizer_variants: list[SemiAutomaticSelectionRecognizerVariantResponse]
     filename_verification_recognizer_fingerprint: Sha256
@@ -49,7 +50,8 @@ class SemiAutomaticSelectionCapabilitiesResponse(ApiModel):
 
 
 class SemiAutomaticSelectionCreate(ApiModel):
-    upload_id: UUID
+    upload_id: UUID | None = None
+    selection_token: str | None = Field(default=None, min_length=32, max_length=200)
     first_sequence_number: int = Field(ge=1)
     last_sequence_number: int = Field(ge=1)
     direction: SemiAutomaticSelectionDirection = SemiAutomaticSelectionDirection.ASCENDING
@@ -109,6 +111,18 @@ class SemiAutomaticSelectionSourceResponse(ApiModel):
     source_fingerprint: Sha256
     source_count: int = Field(ge=1)
     source_total_bytes: int = Field(ge=1)
+
+
+class SemiAutomaticSelectionSourceItemResponse(ApiModel):
+    source_index: int = Field(ge=0)
+    relative_path: str = Field(min_length=1)
+    size_bytes: int = Field(ge=1)
+    checksum_sha256: Sha256
+
+
+class SemiAutomaticSelectionSourcePageResponse(ApiModel):
+    items: list[SemiAutomaticSelectionSourceItemResponse]
+    next_after_source_index: int | None = Field(default=None, ge=0)
 
 
 class SemiAutomaticSelectionRunResponse(ApiModel):

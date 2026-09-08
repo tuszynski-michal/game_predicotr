@@ -3088,12 +3088,27 @@ schema v4 pozostają czytelne bez zmiany wire contractu.
 
 ### Ręczne źródło półautomatycznego zakresu
 
+`POST /api/v1/admin/semi-automatic-image-selections/source-folder` otwiera
+kontrolowany lokalny picker i zwraca krótko żyjący `selectionToken`, ścieżkę
+oraz liczbę JPEG-ów. Nie tworzy browser stagingu. `POST
+/api/v1/admin/semi-automatic-image-selections` dla nowego workflowu `selection`
+przyjmuje ten token zamiast `uploadId`, hashuje źródła i tworzy job schema v3 z
+`sourceKind=local_folder` oraz ścieżką małego manifestu metadanych.
+
+`GET /api/v1/admin/semi-automatic-image-selections/{runId}/sources` zwraca
+stronicowaną, naturalnie uporządkowaną listę `sourceIndex`, `relativePath`,
+`sizeBytes` i `checksumSha256`. Istniejący endpoint assetu obsługuje zarówno
+manifest lokalny schema v3, jak i historyczny browser staging. Przy lokalnym
+źródle każdorazowo sprawdza pozostawanie ścieżki pod zatwierdzonym rootem,
+rozmiar oraz SHA-256; katalog ani JPEG-i nie są zarządzane i nie podlegają GC.
+
 `POST /api/v1/admin/semi-automatic-image-selections/{runId}/ranges/{expectedIndex}/output-acknowledgements`
 zachowuje dotychczasowy payload automatycznego wyboru i opcjonalnie przyjmuje
-`sourceIndex`. Jeżeli indeks jest obecny, backend ponownie odczytuje gotowy
-staging runu i wymaga zgodności indeksu, checksummy źródła, checksummy outputu
-oraz oczekiwanej rewizji zakresu. Nie można w ten sposób potwierdzić pliku
-spoza źródłowego manifestu ani zmienionego JPEG-a.
+`sourceIndex`. Jeżeli indeks jest obecny, backend ponownie odczytuje przypięty
+manifest lokalny albo gotowy staging historycznego runu i wymaga zgodności
+indeksu, checksummy źródła, checksummy outputu oraz oczekiwanej rewizji
+zakresu. Nie można w ten sposób potwierdzić pliku spoza źródłowego manifestu
+ani zmienionego JPEG-a.
 
 ### Historia weryfikacji zakresów nazw plików
 

@@ -17,15 +17,13 @@ import {
 } from '@/features/jobs/job-state';
 
 import {
-  cancelSemiAutomaticSelectionUpload,
-  collectSemiAutomaticSourceFiles,
+  createSemiAutomaticSelectionFromLocalSource,
+  loadSemiAutomaticReviewSourceFiles,
   pickSemiAutomaticOutputDirectory,
-  pickSemiAutomaticSourceDirectory,
-  uploadSemiAutomaticSelectionFolder,
-  type BrowserDirectoryHandle,
-  type ResumableSemiAutomaticSelectionUpload,
+  selectSemiAutomaticLocalSource,
+  type SemiAutomaticLocalSourceSelection,
+  type SemiAutomaticReviewSourceFile,
   type SemiAutomaticSelectionClient,
-  type SemiAutomaticSelectionUploadProgress,
 } from './semi-automatic-selection-actions.ts';
 import {
   IndexedDbSemiAutomaticSelectionLocalSessionStore,
@@ -36,12 +34,6 @@ import {
 import { SemiAutomaticSelectionReviewWorkspace } from './semi-automatic-selection-review-workspace';
 import { SelectedImageCropWorkspace } from './selected-image-crop-workspace';
 
-const EMPTY_UPLOAD_PROGRESS: SemiAutomaticSelectionUploadProgress = {
-  totalBytes: 0,
-  totalFiles: 0,
-  uploadedBytes: 0,
-  uploadedFiles: 0,
-};
 const RUN_STORAGE_KEY = 'game-predictor:semi-automatic-selection:last-run';
 const POLL_INTERVAL_MS = 2_000;
 const POLL_MAX_DURATION_MS = 45 * 60 * 1_000;
@@ -57,8 +49,10 @@ interface SemiAutomaticSelectionWorkspaceProps {
       | 'getSemiAutomaticImageSelectionCapabilities'
       | 'getSemiAutomaticImageSelectionSourceAsset'
       | 'listSemiAutomaticImageSelectionRanges'
+      | 'listSemiAutomaticImageSelectionSources'
       | 'pauseSemiAutomaticImageSelection'
       | 'resumeSemiAutomaticImageSelection'
+      | 'selectSemiAutomaticImageSelectionSourceFolder'
     >;
 }
 
@@ -76,10 +70,10 @@ export function SemiAutomaticSelectionWorkspace({
   );
   const [capabilities, setCapabilities] =
     useState<SemiAutomaticSelectionCapabilitiesResponse | null>(null);
-  const [sourceDirectory, setSourceDirectory] =
-    useState<BrowserDirectoryHandle | null>(null);
+  const [sourceSelection, setSourceSelection] =
+    useState<SemiAutomaticLocalSourceSelection | null>(null);
   const [sourceFiles, setSourceFiles] = useState<
-    Awaited<ReturnType<typeof collectSemiAutomaticSourceFiles>>
+    readonly SemiAutomaticReviewSourceFile[]
   >([]);
   const [outputDirectory, setOutputDirectory] =
     useState<SemiAutomaticOutputDirectoryHandle | null>(null);
@@ -94,9 +88,6 @@ export function SemiAutomaticSelectionWorkspace({
   const [run, setRun] = useState<SemiAutomaticSelectionRunResponse | null>(
     null,
   );
-  const [resume, setResume] =
-    useState<ResumableSemiAutomaticSelectionUpload | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(EMPTY_UPLOAD_PROGRESS);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -112,13 +103,6 @@ export function SemiAutomaticSelectionWorkspace({
     validBounds && capabilities !== null
       ? Math.floor((last - first) / capabilities.fullRangeSize) + 1
       : null;
-  const uploadPercentage =
-    uploadProgress.totalBytes === 0
-      ? 0
-      : Math.min(
-          100,
-          (uploadProgress.uploadedBytes / uploadProgress.totalBytes) * 100,
-        );
   const capabilitiesLoading = capabilities === null && error === '';
 
   useEffect(() => {
@@ -162,26 +146,26 @@ export function SemiAutomaticSelectionWorkspace({
       setFirstSequenceNumber(String(result.data.firstSequenceNumber));
       setLastSequenceNumber(String(result.data.lastSequenceNumber));
       setDirection(result.data.direction);
+      const restoredFiles = await loadSemiAutomaticReviewSourceFiles(
+        api,
+        result.data.id,
+      );
+      if (cancelled) return;
+      setSourceFiles(restoredFiles);
       const restored = await restoreSemiAutomaticSelectionLocalSession(
         localSessionStore,
         runId,
       );
       if (cancelled || restored === null) return;
-      setSourceDirectory(restored.sourceDirectory as BrowserDirectoryHandle);
       setOutputDirectory(restored.outputDirectory);
       setRestoredUi(restored.ui);
-      const restoredFiles = await collectSemiAutomaticSourceFiles(
-        restored.sourceDirectory as BrowserDirectoryHandle,
-      );
-      if (cancelled) return;
-      setSourceFiles(restoredFiles);
       setNotice(
-        'Przywrócono run i lokalne foldery. Analiza może być dalej monitorowana.',
+        'Przywrócono run i katalog wyniku. Analiza może być dalej monitorowana.',
       );
     })().catch(() => {
       if (!cancelled) {
         setNotice(
-          'Przywrócono identyfikator runu, ale lokalne foldery wymagają ponownego wskazania.',
+          'Przywrócono identyfikator runu, ale katalog wyniku wymaga ponownego wskazania.',
         );
       }
     });
@@ -231,27 +215,19 @@ export function SemiAutomaticSelectionWorkspace({
     setSourceLoading(true);
     setError('');
     try {
-      const directory = await pickSemiAutomaticSourceDirectory();
-      const files = await collectSemiAutomaticSourceFiles(directory);
-      if (files.length === 0) {
-        setError('Wybrany folder nie zawiera plików JPEG.');
-        return;
-      }
-      setSourceDirectory(directory);
-      setSourceFiles(files);
-      setResume(null);
-      setUploadProgress(EMPTY_UPLOAD_PROGRESS);
+      const source = await selectSemiAutomaticLocalSource(api);
+      if (source === null) return;
+      setSourceSelection(source);
+      setSourceFiles([]);
       setNotice(
-        `Znaleziono ${files.length.toLocaleString('pl-PL')} JPEG-ów. Zdjęcia zostaną wysłane wyłącznie do lokalnego Admin API.`,
+        `Znaleziono ${source.supportedFileCount.toLocaleString('pl-PL')} JPEG-ów. Źródła nie będą kopiowane do stagingu.`,
       );
     } catch (cause) {
-      if (!isPickerCancellation(cause)) {
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : 'Nie udało się odczytać katalogu źródłowego.',
-        );
-      }
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Nie udało się odczytać katalogu źródłowego.',
+      );
     } finally {
       setSourceLoading(false);
     }
@@ -275,15 +251,11 @@ export function SemiAutomaticSelectionWorkspace({
     }
   }
 
-  async function startUpload(
-    activeResume = resume,
-    activeSourceDirectory = sourceDirectory,
-    activeSourceFiles = sourceFiles,
-  ): Promise<void> {
+  async function startAnalysis(): Promise<void> {
     if (
       busy ||
       capabilities?.enabled !== true ||
-      activeSourceDirectory === null ||
+      sourceSelection === null ||
       outputDirectory === null ||
       first === null ||
       last === null ||
@@ -293,32 +265,28 @@ export function SemiAutomaticSelectionWorkspace({
     }
     setBusy(true);
     setError('');
-    setNotice('Tworzę staging i przesyłam JPEG-i do lokalnego Admin API…');
+    setNotice('Tworzę manifest źródła bez kopiowania zdjęć do stagingu…');
     try {
-      const result = await uploadSemiAutomaticSelectionFolder({
+      const result = await createSemiAutomaticSelectionFromLocalSource({
         api,
         direction,
-        files: activeSourceFiles,
         firstSequenceNumber: first,
         lastSequenceNumber: last,
-        onProgress: setUploadProgress,
         recognizerVariant,
-        resume: activeResume,
-        sourceDirectory: activeSourceDirectory,
+        source: sourceSelection,
       });
-      if (!result.ok) {
-        setError(result.error);
-        setResume(result.resume);
-        return;
-      }
-      setResume(null);
-      setRun(result.created.run);
-      window.localStorage.setItem(RUN_STORAGE_KEY, result.created.run.id);
+      const files = await loadSemiAutomaticReviewSourceFiles(
+        api,
+        result.run.id,
+      );
+      setSourceFiles(files);
+      setRun(result.run);
+      window.localStorage.setItem(RUN_STORAGE_KEY, result.run.id);
       await localSessionStore.save({
         outputDirectory,
         outputManifestChecksumSha256: null,
-        runId: result.created.run.id,
-        sourceDirectory: activeSourceDirectory,
+        runId: result.run.id,
+        sourceDirectory: null,
         ui: {
           activeExpectedIndex: null,
           mode: 'configuration',
@@ -336,34 +304,16 @@ export function SemiAutomaticSelectionWorkspace({
         zoomPercent: 100,
       });
       setNotice(
-        result.created.created
+        result.created
           ? 'Run został utworzony. Worker rozpozna wyłącznie zakresy widoczne na zdjęciach.'
-          : 'Przywrócono istniejący run dla dokładnie tego samego stagingu i zakresu.',
+          : 'Przywrócono istniejący run dla dokładnie tego samego źródła i zakresu.',
       );
-    } catch {
-      setError('Nie udało się rozpocząć półautomatycznej selekcji.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function resumeUpload(): Promise<void> {
-    if (resume === null) return;
-    setSourceDirectory(resume.sourceDirectory);
-    setSourceFiles(resume.files);
-    await startUpload(resume, resume.sourceDirectory, resume.files);
-  }
-
-  async function cancelUpload(): Promise<void> {
-    if (resume === null || busy) return;
-    setBusy(true);
-    try {
-      await cancelSemiAutomaticSelectionUpload(api, resume);
-      setResume(null);
-      setUploadProgress(EMPTY_UPLOAD_PROGRESS);
-      setNotice('Niedokończony staging został anulowany.');
-    } catch {
-      setError('Nie udało się anulować niedokończonego stagingu.');
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Nie udało się rozpocząć półautomatycznej selekcji.',
+      );
     } finally {
       setBusy(false);
     }
@@ -406,8 +356,7 @@ export function SemiAutomaticSelectionWorkspace({
       ui: SemiAutomaticSelectionLocalUiState,
       outputManifestChecksumSha256: string | null,
     ): Promise<void> => {
-      if (run === null || sourceDirectory === null || outputDirectory === null)
-        return;
+      if (run === null || outputDirectory === null) return;
       const current = await localSessionStore.load(run.id);
       await localSessionStore.save({
         outputDirectory,
@@ -416,13 +365,13 @@ export function SemiAutomaticSelectionWorkspace({
           current?.outputManifestChecksumSha256 ??
           null,
         runId: run.id,
-        sourceDirectory,
+        sourceDirectory: null,
         ui,
         updatedAt: new Date().toISOString(),
       });
       setRestoredUi(ui);
     },
-    [localSessionStore, outputDirectory, run, sourceDirectory],
+    [localSessionStore, outputDirectory, run],
   );
 
   return (
@@ -573,9 +522,9 @@ export function SemiAutomaticSelectionWorkspace({
             >
               {sourceLoading
                 ? 'Odczytywanie źródła…'
-                : sourceDirectory === null
+                : sourceSelection === null
                   ? 'Wybierz katalog źródłowy'
-                  : `Źródło: ${sourceDirectory.name}`}
+                  : `Źródło: ${sourceSelection.displayName}`}
             </button>
             <button
               className="secondaryButton"
@@ -592,9 +541,11 @@ export function SemiAutomaticSelectionWorkspace({
           </div>
         </div>
         <p className="semiAutomaticSelectionSummary">
-          {sourceFiles.length > 0
-            ? `${sourceFiles.length.toLocaleString('pl-PL')} JPEG-ów w źródle.`
-            : 'Wybierz katalog ze zdjęciami JPG/JPEG.'}{' '}
+          {sourceSelection !== null
+            ? `${sourceSelection.supportedFileCount.toLocaleString('pl-PL')} JPEG-ów w źródle.`
+            : run !== null && sourceFiles.length > 0
+              ? `${sourceFiles.length.toLocaleString('pl-PL')} JPEG-ów w źródle.`
+              : 'Wybierz katalog ze zdjęciami JPG/JPEG.'}{' '}
           {expectedRangeCount === null
             ? 'Podaj poprawny zakres, aby wyliczyć oczekiwane grupy.'
             : `Powstanie ${expectedRangeCount.toLocaleString('pl-PL')} oczekiwanych zakresów po maksymalnie ${capabilities?.fullRangeSize ?? 9} plansz.`}
@@ -607,56 +558,16 @@ export function SemiAutomaticSelectionWorkspace({
             sourceLoading ||
             capabilitiesLoading ||
             capabilities?.enabled !== true ||
-            sourceDirectory === null ||
+            sourceSelection === null ||
             outputDirectory === null ||
-            sourceFiles.length === 0 ||
             !validBounds
           }
-          onClick={() => void startUpload()}
+          onClick={() => void startAnalysis()}
           type="button"
         >
-          {busy ? 'Przygotowywanie runu…' : 'Prześlij i rozpocznij analizę'}
+          {busy ? 'Przygotowywanie runu…' : 'Rozpocznij analizę'}
         </button>
       </section>
-
-      {uploadProgress.totalFiles > 0 ? (
-        <section
-          className="semiAutomaticSelectionUpload"
-          aria-label="Postęp uploadu"
-        >
-          <div>
-            <strong>
-              {uploadProgress.uploadedFiles.toLocaleString('pl-PL')} /{' '}
-              {uploadProgress.totalFiles.toLocaleString('pl-PL')} plików
-            </strong>
-            <span>
-              {formatBytes(uploadProgress.uploadedBytes)} /{' '}
-              {formatBytes(uploadProgress.totalBytes)}
-            </span>
-          </div>
-          <progress max={100} value={uploadPercentage} />
-          {resume !== null ? (
-            <div className="semiAutomaticSelectionActions">
-              <button
-                className="primaryButton"
-                disabled={busy}
-                onClick={() => void resumeUpload()}
-                type="button"
-              >
-                Ponów brakujące pliki
-              </button>
-              <button
-                className="secondaryButton"
-                disabled={busy}
-                onClick={() => void cancelUpload()}
-                type="button"
-              >
-                Anuluj staging
-              </button>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
 
       {run !== null ? (
         <section
@@ -755,7 +666,6 @@ export function SemiAutomaticSelectionWorkspace({
       ) : null}
       {run !== null &&
       outputDirectory !== null &&
-      sourceDirectory !== null &&
       sourceFiles.length > 0 &&
       [
         'analysis_complete',
@@ -812,13 +722,6 @@ function parsePositiveInteger(value: string): number | null {
   if (!/^\d+$/u.test(value.trim())) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 1 ? parsed : null;
-}
-
-function formatBytes(value: number): string {
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 ** 2) return `${(value / 1024).toFixed(1)} KiB`;
-  if (value < 1024 ** 3) return `${(value / 1024 ** 2).toFixed(1)} MiB`;
-  return `${(value / 1024 ** 3).toFixed(2)} GiB`;
 }
 
 function isPickerCancellation(cause: unknown): boolean {

@@ -96,6 +96,7 @@ export async function writeManualSemiAutomaticSelection(input: {
   readonly range: SemiAutomaticSelectionRangeResponse;
   readonly runId: string;
   readonly source: ManualSemiAutomaticSource;
+  readonly acceptAutomaticSource?: boolean;
   readonly now?: () => string;
   readonly operationId?: () => string;
 }): Promise<{
@@ -115,6 +116,15 @@ export async function writeManualSemiAutomaticSelection(input: {
     sizeBytes: input.source.file.size,
     sourceIndex: input.source.sourceIndex,
   };
+  if (
+    input.acceptAutomaticSource === true &&
+    (input.range.sourceIndex !== source.sourceIndex ||
+      input.range.sourceRelativePath !== source.relativePath ||
+      input.range.sourceSizeBytes !== source.sizeBytes ||
+      input.range.sourceChecksumSha256 !== source.checksumSha256)
+  ) {
+    throw new Error('SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED');
+  }
   let manifest = beginSemiAutomaticOutputOperation(
     input.manifest,
     {
@@ -126,7 +136,11 @@ export async function writeManualSemiAutomaticSelection(input: {
       rangeEnd: input.range.rangeEnd,
       rangeStart: input.range.rangeStart,
       selectionStatus:
-        previous === undefined ? 'MANUALLY_ADDED' : 'MANUALLY_REPLACED',
+        input.acceptAutomaticSource === true
+          ? 'AUTO_SELECTED'
+          : previous === undefined
+            ? 'MANUALLY_ADDED'
+            : 'MANUALLY_REPLACED',
       source,
       startedAt: now(),
     },
@@ -170,10 +184,18 @@ export async function writeManualSemiAutomaticSelection(input: {
   const gaps = manifest.gaps.filter(
     (expectedIndex) => expectedIndex !== input.range.expectedIndex,
   );
+  const expectedRangeCount =
+    Math.floor(
+      (manifest.lastSequenceNumber - manifest.firstSequenceNumber) /
+        manifest.fullRangeSize,
+    ) + 1;
   manifest = updateSemiAutomaticOutputSummary(manifest, {
     gaps,
     now: now(),
-    status: gaps.length === 0 ? 'completed' : 'review_mode',
+    status:
+      gaps.length === 0 && manifest.selections.length === expectedRangeCount
+        ? 'completed'
+        : 'review_mode',
   });
   const manifestChecksumSha256 =
     await writeSemiAutomaticSelectionOutputManifest(input.directory, manifest);

@@ -8,6 +8,27 @@ last_updated: 2026-09-08
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-376 — Trwałe porcje przed usunięciem legacy i migracją partycji
+
+- **Status:** accepted — zakres zaakceptowanego TASK-0516.
+- **Date:** 2026-09-08.
+- Osobny maintenance receipt i journal nie zależą FK od usuwanej gry.
+  Każda porcja ma własny commit, ograniczenie liczby/bajtów i trwały cursor.
+  Nie wykorzystujemy jednego `engine.begin()` dla całego purge ani globalnej
+  listy milionów identyfikatorów.
+- Zachowujemy wyłącznie wcześniej utworzone lokalne archiwum układów do czatu.
+  Exact streamed digest układów oraz katalog symboli muszą odpowiadać bazie
+  przed rozpoczęciem; kolejne porcje przypinają zapisany dowód. To zastępuje
+  zachowanie archiwum operacyjnego PostgreSQL z przerwanego TASK-0504.
+- Queue items i puste queue states usuwa istniejący trigger review; nie wolno
+  wyprzedzić go generycznym child-first. Liczniki obejmują jego rzeczywiste efekty.
+- Blokada zapisów działa po restarcie, sprawdza OLD/NEW i blokuje ścieżkę rodziców
+  przed zmianą własności. Fingerprint zawiera politykę, FK, indeksy, triggery,
+  funkcje i katalog constraints. Nieznany drift zatrzymuje wznowienie.
+- Same migracje niczego nie usuwają. Wykonanie TASK-0517, GC, wdrożenie indeksów
+  na bazie użytkownika i późniejsza migracja `new-siedem` wymagają właściwego
+  preview/potwierdzenia. `Documents/777` pozostaje poza zakresem.
+
 ## D-375 — v0.10.4 udostępnione wyłącznie jako testowy wariant per-run
 
 - **Status:** accepted (TASK-0515).

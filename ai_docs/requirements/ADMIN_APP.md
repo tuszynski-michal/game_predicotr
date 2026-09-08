@@ -13,6 +13,21 @@ kontraktu `0.1` przed rozpoczęciem zadań `0.2`.
 
 ## Forma aplikacji
 
+### Usuwanie starej gry przed partycjonowaniem — TASK-0516
+
+Utrzymaniowa komenda usuwania `777 v0.1` jest odrębna od zwykłych akcji Admina.
+Domyślnie wykonuje wyłącznie preview. Wykonanie wymaga zgodnego fingerprintu,
+potwierdzenia dokładnej tożsamości gry i sprawdzonego lokalnego archiwum układów
+do wyszukiwania na czacie. Porównuje jego zawartość i symbole z PostgreSQL przed
+pierwszym usunięciem. Nie dotyka katalogu operatora `Documents/777`.
+
+Postęp przedstawia wyłącznie zatwierdzone porcje, bieżący etap i rzeczywiste
+liczby usuniętych rekordów. Nie pokazuje procentu opartego na nieznanym totalu.
+Awaria pozostawia wznawialny checkpoint i trwałą blokadę zapisów usuwanej gry;
+nie blokuje w ten sposób innych gier. `database_done` oznacza zakończenie części
+bazodanowej, nie wykonanie GC plików. Implementacja nie autoryzuje wykonania
+operacji na danych. Szczegóły: `../process/RESUMABLE_LEGACY_DELETION.md`.
+
 Panel jest lokalną aplikacją webową uruchamianą na Windows. Korzysta z lokalnego Admin API i PostgreSQL. Nie jest usługą, z którą łączy się aplikacja mobilna.
 
 Lokalny Admin nie ma pozornego ekranu logowania dla jednego właściciela

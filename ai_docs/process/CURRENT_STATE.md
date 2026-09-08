@@ -6,6 +6,29 @@ last_updated: 2026-09-08
 
 # Current State
 
+### TASK-0516 — mechanizm porcjowanego usuwania gotowy, wykonanie wstrzymane
+
+- Nowa komenda `scripts/delete_legacy_game_resumable.py` domyślnie wykonuje
+  preview; nie importuje dawnych, niecommitowanych skryptów cleanupu.
+- Porcje mają własne transakcje, cursor, journal artefaktów i rzeczywiste
+  liczniki, także efektów triggerów. Fence sprawdza OLD/NEW i własność rodziców.
+  Terminalny checkpoint powstaje w tym samym commicie co usunięcie `games`.
+- Przygotowano, ale **nie zastosowano na bazie użytkownika**, migracje 0103
+  (receipt/fence) i 0104 (136 brakujących prefiksów indeksów FK/keyset).
+  Indeksy wymagają osobnego okna i oceny miejsca przed wdrożeniem.
+- Końcowy audyt `gpt-6-astra high`: brak otwartych P0/P1 po naprawie wyścigu
+  właścicieli, grupowania parentów, dowodu archiwum i terminalnego restartu.
+- Izolowany PostgreSQL: transakcyjny rollback, restart/lost response, queue,
+  ochrona nowej gry i wspólnych executions; testy jednostkowe obejmują byte-cut
+  i zbyt duży rekord. Ruff/scoped mypy oraz format zmienionych plików passed.
+- Odczytowe porównanie istniejącego SQLite potwierdziło zgodność wszystkich
+  **414705** układów i katalogu symboli z bazą. Archiwum ma 19808256 bajtów.
+- Nie usunięto gry, plików ani danych; nie wykonano restartów. Partycje v2,
+  `new-siedem` i dalsze TASK-0517–0526 nie są wdrożone. Następna bramka wymaga
+  aktualnego preview i osobnego potwierdzenia operacji.
+- Instrukcja: `RESUMABLE_LEGACY_DELETION.md`; audyt i ograniczenia:
+  `../quality/TASK_0516_RESUMABLE_DELETION_REVIEW.md`.
+
 ### Prerequisite TASK-0516 — indeks FK zapisany w torze migracji
 
 - Lokalny odczyt 2026-09-08 potwierdził head bazy

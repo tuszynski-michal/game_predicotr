@@ -6,6 +6,35 @@ last_updated: 2026-08-24
 
 # Model danych
 
+## game_deletion_operations / game_deletion_batches — TASK-0516
+
+Maintenance-only receipt nie ma FK do `games`, dlatego przeżywa usunięcie gry.
+Przechowuje przypiętą politykę własności, fingerprint katalogu SQL, dowód zgodności
+archiwum SQLite, etap, hierarchiczny cursor, zatwierdzone liczniki oraz błąd.
+Porcja zapisuje usunięcie, referencje artefaktów i checkpoint w jednej transakcji.
+Usunięcie ostatniego rekordu `games` zapisuje atomowo `database_done`.
+
+Porcja zawiera do 2000 rekordów i 8 MiB zdekompresowanego JSON; przejście po
+prefiksach właścicieli wykonuje najwyżej 64 zapytania selekcji. Grupuje rodziców,
+aby nie tworzyć transakcji dla każdej pojedynczej komórki. Globalne executions,
+stage results i terminal manifests pozostają wspólne i wymagają późniejszego,
+reference-aware GC. Dziennik jest zbiorem kandydatur, nie zgodą na kasowanie plików.
+
+Migracja 0103 instaluje fence OLD/NEW, bez aktywowania go. Receipt aktywuje go
+trwale; identyfikator bieżącej transakcji dopuszcza wyłącznie zapisy wykonawcy
+(w tym istniejące triggery kolejki). Rodzice pośredniej własności są blokowani
+`FOR SHARE`, aby przeniesienie rodzica nie ominęło fence. Nieobsługiwany snapshot
+izolacji lub nieznana zależność powoduje jawne odrzucenie. Limity PostgreSQL 18:
+lock 2 s, statement 15 s, idle transaction 20 s, cała transakcja 30 s.
+
+Migracja 0104 zawiera zamrożone 136 brakujących prefiksów FK/keyset. Buduje
+indeksy concurrent z limitem 120 s na indeks; po przerwaniu rozpoznaje zgodny
+gotowy indeks albo odbudowuje wyłącznie zgodny invalid. Konflikt nazwy blokuje
+operację. Stosuje się ją jawnie po ocenie miejsca i okna utrzymaniowego, nie jako
+ukryty efekt startu aplikacji. Nie są to partycje `game_data_v2`.
+
+Szczegóły operacyjne: `../process/RESUMABLE_LEGACY_DELETION.md`.
+
 ## image_page_source_exclusions
 
 Addytywna tabela przechowuje jedną append-only decyzję dla pary

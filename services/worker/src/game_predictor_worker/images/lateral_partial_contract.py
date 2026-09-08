@@ -12,8 +12,9 @@ LATERAL_PARTIAL_POLICY_VERSION = "structured-lattice-v4-lateral-partial-v1"
 LATERAL_PARTIAL_SNAPSHOT_VERSION = "lateral-partial-geometry-snapshot-v1"
 AUTOMATIC_PARTIAL_PROPOSAL_VERSION = "automatic-lateral-partial-proposal-v1"
 # Release is a reviewed code decision, never an environment/client override.
-# TASK-0515 may enable this only after its real-data acceptance gate.
-LATERAL_PARTIAL_RELEASED = False
+# TASK-0515 accepted the checksum-bound real-image gate. This remains a
+# deliberately explicit code release decision, not an environment override.
+LATERAL_PARTIAL_RELEASED = True
 
 
 class GeometryEngineVariant(StrEnum):

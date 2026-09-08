@@ -1,10 +1,34 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-08
 ---
 
 # Lokalne uruchamianie i instalacja
+
+## Testowy wariant v0.10.4 po odbiorze TASK-0515
+
+W Adminie można jawnie wybrać `v0.10.4 — testowy, niepełne boki` dla nowego
+runu. Nie jest to ustawienie domyślne ani zmiana polityki gry. Najpierw otwórz
+raport, przygotuj zgodny preflight dla tego samego stagingu/managed source i
+manifestu, a dopiero potem uruchom reprocessing. Brak zgodnego artefaktu,
+checksumy lub dozwolonego guard rebindu ma pozostać blockerem.
+
+Po wykonaniu runu przejrzyj każdą automatyczną propozycję partial w istniejącym
+edytorze. Sprawdź pochodzenie, quad, maskę niedostępnych indeksów i widoczne
+kolumny. Dopiero jawne potwierdzenie pozwala istniejącej ścieżce renderować
+dostępne pola; propozycja sama nie zapisuje decyzji człowieka. Górne/dolne
+ucięcie, brak planszy i ambiguous wymagają korekty ręcznej lub źródła.
+
+Powtórzenie bramki bez odczytu bazy:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\evaluate_lateral_partial_v4.py --timing-repeats 5
+```
+
+Oczekuj `acceptancePassed: true` i wszystkich pól `gates` równych `true`.
+Szczegóły korpusu, coverage i ograniczeń:
+[odbiór v0.10.4](../quality/LATERAL_PARTIAL_V4_ACCEPTANCE.md).
 
 ## Wdrożenie obsługi niepełnych plansz (TASK-0505–0509)
 
@@ -28,8 +52,9 @@ W ręcznej korekcie Importu Plansz i Zatwierdzaniu cięcia siatki:
 
 Pełne kroki testu, wyniki i ograniczenia:
 [odbiór niepełnej geometrii](../quality/PARTIAL_GEOMETRY_ACCEPTANCE.md).
-Nie dodano eksperymentalnego automatu v0.10.4; braki są wyliczane z ręcznego
-quada, nie samodzielnie odgadywane przez model.
+Eksperymentalny v0.10.4 jest od TASK-0515 dostępny wyłącznie jako jawny wariant
+testowy. Braki nadal są wyliczane z geometrii i podparcia źródłowego, a każda
+propozycja wymaga ręcznego potwierdzenia.
 
 Instrukcja jest przeznaczona dla właściciela projektu i zakłada Windows
 PowerShell oraz repozytorium:

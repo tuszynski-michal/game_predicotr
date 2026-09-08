@@ -573,11 +573,9 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
         {
             "variant": "structured_lattice_v4_partial_sides",
             "label": "v0.10.4 — testowy, niepełne boki",
-            "enabled": False,
-            "blockerCode": "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED",
-            "blockerMessage": (
-                "v0.10.4 is unavailable until its real-data quality gate is accepted."
-            ),
+            "enabled": True,
+            "blockerCode": None,
+            "blockerMessage": None,
         }
     ]
     assert preview.json()["changesExistingJobs"] is False

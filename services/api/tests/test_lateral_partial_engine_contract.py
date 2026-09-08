@@ -13,6 +13,7 @@ from game_predictor_api.schemas.geometry_qualification import (
 )
 from game_predictor_api.schemas.image_imports import BrowserImageImportStart
 from game_predictor_api.schemas.jobs import ImageGeometryRolloutJobSnapshotPayload
+from game_predictor_worker.images import lateral_partial_contract as contract
 from game_predictor_worker.images.lateral_partial_contract import (
     GeometryEngineVariant,
     LateralPartialGeometrySnapshot,
@@ -25,7 +26,8 @@ from test_jobs_domain import MemoryJobRepository
 VARIANT = GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
 
 
-def test_reprocess_http_variant_reaches_release_gate_without_mutation(tmp_path):
+def test_reprocess_http_variant_reaches_closed_gate_without_mutation(tmp_path, monkeypatch):
+    monkeypatch.setattr(contract, "LATERAL_PARTIAL_RELEASED", False)
     client, _game_id = _client(tmp_path, None)
     source = uuid4()
     with client:
@@ -66,7 +68,10 @@ def test_per_run_snapshot_does_not_mutate_game_policy() -> None:
     assert not repository.items
 
 
-def test_create_service_gate_precedes_files_and_persistence(tmp_path: Path) -> None:
+def test_create_service_gate_precedes_files_and_persistence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(contract, "LATERAL_PARTIAL_RELEASED", False)
     game_id = uuid4()
     repository = MemoryJobRepository(game_id)
     with pytest.raises(JobError) as error:
@@ -87,8 +92,13 @@ def test_create_service_gate_precedes_files_and_persistence(tmp_path: Path) -> N
     [(VARIANT.value, 409, "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED"), ("unknown-v4", 422, None)],
 )
 def test_http_gate_precedes_staging_binding(
-    tmp_path: Path, variant: str, status: int, code: str | None
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    variant: str,
+    status: int,
+    code: str | None,
 ) -> None:
+    monkeypatch.setattr(contract, "LATERAL_PARTIAL_RELEASED", False)
     client, game_id = _client(tmp_path, None)
     with client:
         response = client.post(

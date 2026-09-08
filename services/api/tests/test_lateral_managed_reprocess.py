@@ -194,6 +194,7 @@ def test_managed_preflight_http_never_touches_browser_files(tmp_path, monkeypatc
 @pytest.mark.parametrize("entrypoint", ["browser", "managed"])
 def test_public_import_entrypoints_cannot_drop_guard_history(tmp_path, monkeypatch, entrypoint):
     from unittest.mock import Mock
+
     from fastapi.testclient import TestClient
     from game_predictor_api.config import ApiSettings
     from game_predictor_api.main import create_app
@@ -204,11 +205,13 @@ def test_public_import_entrypoints_cannot_drop_guard_history(tmp_path, monkeypat
     service = JobService(repository, artifact_root=root)
     browser = Mock()
     browser.bind_ready_game.side_effect = AssertionError("Guard must fail before browser access")
-    client = TestClient(create_app(
-        ApiSettings.from_environment({"GAME_PREDICTOR_ARTIFACT_ROOT": str(root)}),
-        job_service_dependency=lambda: service,
-        browser_image_selection_service_dependency=lambda: browser,
-    ))
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment({"GAME_PREDICTOR_ARTIFACT_ROOT": str(root)}),
+            job_service_dependency=lambda: service,
+            browser_image_selection_service_dependency=lambda: browser,
+        )
+    )
     variant = contract.GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES.value
     with client:
         for _ in range(2):
@@ -216,13 +219,19 @@ def test_public_import_entrypoints_cannot_drop_guard_history(tmp_path, monkeypat
                 response = client.post(
                     "/api/v1/admin/image-imports/browser-selections/"
                     f"{source.input_payload['source_selection_id']}/start",
-                    json={"gameId": str(source.game_id), "manifestChecksumSha256": "b" * 64,
-                        "preflightChecksumSha256": "c" * 64, "geometryEngineVariant": variant},
+                    json={
+                        "gameId": str(source.game_id),
+                        "manifestChecksumSha256": "b" * 64,
+                        "preflightChecksumSha256": "c" * 64,
+                        "geometryEngineVariant": variant,
+                    },
                 )
             else:
-                response = client.post(f"/api/v1/admin/image-imports/{source.id}/reprocess",
+                response = client.post(
+                    f"/api/v1/admin/image-imports/{source.id}/reprocess",
                     params={"geometryEngineVariant": variant},
-                    headers={"X-Admin-Target": f"image-import:{source.id}:reprocess"})
+                    headers={"X-Admin-Target": f"image-import:{source.id}:reprocess"},
+                )
             assert response.status_code == 409, response.text
             assert response.json()["code"] == "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED"
     assert len(repository.items) == count
@@ -232,12 +241,17 @@ def test_public_import_entrypoints_cannot_drop_guard_history(tmp_path, monkeypat
 def test_browser_rerun_preserves_lineage_without_cascading_identities(tmp_path, monkeypatch):
     repository, source, descriptor, root = _setup(tmp_path, monkeypatch)
     service = JobService(repository, artifact_root=root)
-    options = dict(game_id=source.game_id,
+    options = dict(
+        game_id=source.game_id,
         selection_id=UUID(source.input_payload["source_selection_id"]),
-        source_directory=tmp_path, source_display_name="v4", pipeline_fingerprint="d" * 64,
-        source_manifest_sha256="b" * 64, page_geometry_manifest=descriptor,
+        source_directory=tmp_path,
+        source_display_name="v4",
+        pipeline_fingerprint="d" * 64,
+        source_manifest_sha256="b" * 64,
+        page_geometry_manifest=descriptor,
         start_mode="rerun_current_models",
-        geometry_engine_variant=contract.GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES)
+        geometry_engine_variant=contract.GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
+    )
     first = service.create_image_import_job(**options)
     assert first.input_payload["previous_job_id"] == str(source.id)
     with pytest.raises(JobConflictError) as duplicate:

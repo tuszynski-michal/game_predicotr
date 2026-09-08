@@ -1,12 +1,28 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-08
 ---
 
 # Decision Log
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
+
+## D-375 — v0.10.4 udostępnione wyłącznie jako testowy wariant per-run
+
+- **Status:** accepted (TASK-0515).
+- **Date:** 2026-09-08.
+- **Decision:** `LATERAL_PARTIAL_RELEASED=True` otwiera istniejący jawny wybór
+  `structured_lattice_v4_partial_sides`. Nie zmienia domyślnego v3, polityki
+  gry, istniejących snapshotów ani obowiązku ręcznego potwierdzenia.
+- **Evidence:** checksum-bound korpus 32 realnych źródeł dał 72 pełne plansze,
+  84 scenariusze boczne i 96 negatywów. Brak regresji/shift/missing-pixel oraz
+  brak dodatniego narzutu (-0,3978%) potwierdza immutable raport
+  `lateral-partial-v4-real-acceptance-v1`.
+- **Safety:** decyzja jest stałą kodu, nie ustawieniem środowiska lub klienta.
+  Drift korpusu, polityki albo raportu unieważnia dowód. Guard rebind i ręczny
+  ownership pozostają fail-closed; nie autoryzuje to migracji, reimportu,
+  restartu ani mutacji istniejących danych.
 
 ### Trwałe przepięcie v4 i ochrona rozliczeń — TASK-0513
 

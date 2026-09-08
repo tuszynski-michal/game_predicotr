@@ -1,0 +1,1644 @@
+{
+  "boardSources": [
+    {
+      "actor": "owner",
+      "boardPosition": 0,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 110.6161,
+          "y": 406.8158
+        },
+        {
+          "x": 299.1164,
+          "y": 389.1366
+        },
+        {
+          "x": 303.2552,
+          "y": 495.9641
+        },
+        {
+          "x": 115.1311,
+          "y": 508.0011
+        }
+      ],
+      "relativePath": "5983122166590934317.jpg",
+      "sequenceNumber": 1,
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 6,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 194.2997,
+          "y": 627.5071
+        },
+        {
+          "x": 354.9577,
+          "y": 618.8564
+        },
+        {
+          "x": 359.849,
+          "y": 703.1067
+        },
+        {
+          "x": 199.191,
+          "y": 703.8589
+        }
+      ],
+      "relativePath": "5983122166590934318.jpg",
+      "sequenceNumber": 16,
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 8,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 657.7501,
+          "y": 657.5887
+        },
+        {
+          "x": 847.6564,
+          "y": 662.677
+        },
+        {
+          "x": 844.422,
+          "y": 758.8907
+        },
+        {
+          "x": 649.8951,
+          "y": 753.34
+        }
+      ],
+      "relativePath": "5983122166590934319.jpg",
+      "sequenceNumber": 27,
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 4,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 417.4869,
+          "y": 540.1128
+        },
+        {
+          "x": 641.7396,
+          "y": 533.6469
+        },
+        {
+          "x": 653.5991,
+          "y": 644.1063
+        },
+        {
+          "x": 422.3385,
+          "y": 651.6499
+        }
+      ],
+      "relativePath": "5983122166590934320.jpg",
+      "sequenceNumber": 32,
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 0,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 164.3623,
+          "y": 370.6562
+        },
+        {
+          "x": 322.4922,
+          "y": 368.2061
+        },
+        {
+          "x": 326.6903,
+          "y": 456.4075
+        },
+        {
+          "x": 161.9134,
+          "y": 456.0575
+        }
+      ],
+      "relativePath": "5983122166590934321.jpg",
+      "sequenceNumber": 37,
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 4,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 367.4727,
+          "y": 438.612
+        },
+        {
+          "x": 556.1117,
+          "y": 449.0671
+        },
+        {
+          "x": 553.0622,
+          "y": 539.6775
+        },
+        {
+          "x": 356.5813,
+          "y": 534.45
+        }
+      ],
+      "relativePath": "5983122166590934323.jpg",
+      "sequenceNumber": 59,
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 2,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 617.8546,
+          "y": 424.315
+        },
+        {
+          "x": 771.4364,
+          "y": 448.4428
+        },
+        {
+          "x": 765.4891,
+          "y": 532.3657
+        },
+        {
+          "x": 613.3066,
+          "y": 515.2314
+        }
+      ],
+      "relativePath": "5983122166590934324.jpg",
+      "sequenceNumber": 66,
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 1,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 363.1042,
+          "y": 375.214
+        },
+        {
+          "x": 559.2857,
+          "y": 387.6981
+        },
+        {
+          "x": 557.3671,
+          "y": 489.0118
+        },
+        {
+          "x": 357.3482,
+          "y": 477.9681
+        }
+      ],
+      "relativePath": "5983122166590934325.jpg",
+      "sequenceNumber": 74,
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 7,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 347.8665,
+          "y": 742.0287
+        },
+        {
+          "x": 536.8795,
+          "y": 743.8579
+        },
+        {
+          "x": 537.7948,
+          "y": 830.7471
+        },
+        {
+          "x": 346.0358,
+          "y": 832.1191
+        }
+      ],
+      "relativePath": "5983122166590934326.jpg",
+      "sequenceNumber": 89,
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 5,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 616.4594,
+          "y": 584.568
+        },
+        {
+          "x": 772.257,
+          "y": 596.3338
+        },
+        {
+          "x": 769.3174,
+          "y": 675.7534
+        },
+        {
+          "x": 612.4175,
+          "y": 662.8845
+        }
+      ],
+      "relativePath": "5983122166590934327.jpg",
+      "sequenceNumber": 96,
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 3,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 92.3747,
+          "y": 579.0863
+        },
+        {
+          "x": 267.4424,
+          "y": 573.9968
+        },
+        {
+          "x": 273.7088,
+          "y": 660.1272
+        },
+        {
+          "x": 95.1163,
+          "y": 662.8677
+        }
+      ],
+      "relativePath": "5983122166590934328.jpg",
+      "sequenceNumber": 103,
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "sourceFamily": "blazing-hot-7-deluxe-session-1",
+      "width": 960
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 3,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 112.0127,
+          "y": 497.7615
+        },
+        {
+          "x": 241.1517,
+          "y": 503.661
+        },
+        {
+          "x": 236.4343,
+          "y": 577.9949
+        },
+        {
+          "x": 107.0005,
+          "y": 567.6708
+        }
+      ],
+      "relativePath": "5998913674711600660.jpg",
+      "sequenceNumber": 112,
+      "sourceChecksumSha256": "5c0bb74db2ba30cf55c14a66d6caaa3b345070a57309fe36016d7c5cd03539d5",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 7,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 260.1439,
+          "y": 717.8188
+        },
+        {
+          "x": 400.995,
+          "y": 723.6171
+        },
+        {
+          "x": 400.6539,
+          "y": 790.1278
+        },
+        {
+          "x": 258.0976,
+          "y": 783.3062
+        }
+      ],
+      "relativePath": "5998913674711600662.jpg",
+      "sequenceNumber": 134,
+      "sourceChecksumSha256": "1db1cb1032deec475afc786a7ecee68cdc7c5f64468e03fdd0985eab737025b9",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 2,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 486.4302,
+          "y": 505.8671
+        },
+        {
+          "x": 618.4471,
+          "y": 525.9499
+        },
+        {
+          "x": 611.0212,
+          "y": 595.8269
+        },
+        {
+          "x": 478.4542,
+          "y": 578.2201
+        }
+      ],
+      "relativePath": "5998913674711600667.jpg",
+      "sequenceNumber": 174,
+      "sourceChecksumSha256": "6994f551402b852001f0c9ef85ce714c580c641494b4cb45cc94d77c27478886",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 3,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 115.3596,
+          "y": 516.3446
+        },
+        {
+          "x": 239.3961,
+          "y": 520.0354
+        },
+        {
+          "x": 242.8021,
+          "y": 590.7285
+        },
+        {
+          "x": 110.8182,
+          "y": 587.3216
+        }
+      ],
+      "relativePath": "5998913674711600670.jpg",
+      "sequenceNumber": 202,
+      "sourceChecksumSha256": "8aa3c1d9584dc54d02e70ab30d95269ab76ec2386998323d36059c7793ebf6a4",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 0,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 142.4722,
+          "y": 444.6848
+        },
+        {
+          "x": 271.796,
+          "y": 447.1423
+        },
+        {
+          "x": 267.4306,
+          "y": 520.3191
+        },
+        {
+          "x": 143.0178,
+          "y": 518.4077
+        }
+      ],
+      "relativePath": "5998913674711600672.jpg",
+      "sequenceNumber": 217,
+      "sourceChecksumSha256": "392bc7344ee725c92adf6726886d18ac2180e6e844b6bfc4e5e6404fa104a22a",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 8,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 432.8493,
+          "y": 665.791
+        },
+        {
+          "x": 561.6076,
+          "y": 678.0256
+        },
+        {
+          "x": 557.9376,
+          "y": 741.0338
+        },
+        {
+          "x": 427.0384,
+          "y": 729.1051
+        }
+      ],
+      "relativePath": "5998913674711600673.jpg",
+      "sequenceNumber": 234,
+      "sourceChecksumSha256": "217333e4c699131384b94a3963d5036b48da06eb8727536d526d4f4a50883738",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 5,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 483.5229,
+          "y": 621.2131
+        },
+        {
+          "x": 615.3286,
+          "y": 638.3095
+        },
+        {
+          "x": 611.5266,
+          "y": 700.3629
+        },
+        {
+          "x": 479.0872,
+          "y": 684.8496
+        }
+      ],
+      "relativePath": "5998913674711600674.jpg",
+      "sequenceNumber": 240,
+      "sourceChecksumSha256": "4e8e3c768b44223293ba6b6b5e0644947cc3af59646a9cc72c2ea0bca5f1db5f",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 5,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 486.9867,
+          "y": 610.9142
+        },
+        {
+          "x": 618.5284,
+          "y": 630.4544
+        },
+        {
+          "x": 613.8748,
+          "y": 694.658
+        },
+        {
+          "x": 478.9205,
+          "y": 680.3905
+        }
+      ],
+      "relativePath": "5998913674711600676.jpg",
+      "sequenceNumber": 258,
+      "sourceChecksumSha256": "f524ae844edfc456964484037bc68bb651fb183b8eb635da6fca0dcae71c5a4d",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 6,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 116.4054,
+          "y": 663.7891
+        },
+        {
+          "x": 233.8477,
+          "y": 666.3251
+        },
+        {
+          "x": 234.4109,
+          "y": 728.0326
+        },
+        {
+          "x": 115.5605,
+          "y": 725.2149
+        }
+      ],
+      "relativePath": "5998913674711600677.jpg",
+      "sequenceNumber": 268,
+      "sourceChecksumSha256": "901cafa1bc6afb04fffa199b67f8aae2b058b162f6af8c5e0875c50791bd3661",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 1,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 282.0,
+          "y": 462.0
+        },
+        {
+          "x": 429.0,
+          "y": 467.0
+        },
+        {
+          "x": 421.3203,
+          "y": 536.7845
+        },
+        {
+          "x": 282.2405,
+          "y": 531.9336
+        }
+      ],
+      "relativePath": "5998913674711600678.jpg",
+      "sequenceNumber": 272,
+      "sourceChecksumSha256": "99f0031c3d42e207017111fc0ad28ba6a77e4cecb2154df8f03fed1410e09a79",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 7,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 259.8661,
+          "y": 655.3777
+        },
+        {
+          "x": 402.6556,
+          "y": 662.2461
+        },
+        {
+          "x": 399.9096,
+          "y": 731.2737
+        },
+        {
+          "x": 259.8661,
+          "y": 723.375
+        }
+      ],
+      "relativePath": "5998913674711600679.jpg",
+      "sequenceNumber": 287,
+      "sourceChecksumSha256": "e619bdb538b2d6336092c584ad555ac17409e9a9aa9d3c28fa49f2ef938762a9",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 6,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 111.9917,
+          "y": 650.5928
+        },
+        {
+          "x": 236.2988,
+          "y": 650.8834
+        },
+        {
+          "x": 237.1701,
+          "y": 718.0253
+        },
+        {
+          "x": 110.8299,
+          "y": 717.7346
+        }
+      ],
+      "relativePath": "5998913674711600680.jpg",
+      "sequenceNumber": 295,
+      "sourceChecksumSha256": "7934727e81d0fa0dfc7bc03285650572c4917ead0bea664576c6815cc95a5d8a",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 8,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 492.2931,
+          "y": 673.6092
+        },
+        {
+          "x": 627.5797,
+          "y": 679.855
+        },
+        {
+          "x": 626.0175,
+          "y": 745.4356
+        },
+        {
+          "x": 491.6682,
+          "y": 738.5653
+        }
+      ],
+      "relativePath": "5998913674711600681.jpg",
+      "sequenceNumber": 306,
+      "sourceChecksumSha256": "c1b69b0bbc9c2b8937663a9df585d47ddf14ca5c4c71f2701fbf64f2fbe47f0c",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 2,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 485.731,
+          "y": 289.7525
+        },
+        {
+          "x": 624.5072,
+          "y": 306.7871
+        },
+        {
+          "x": 623.5435,
+          "y": 385.8534
+        },
+        {
+          "x": 475.7725,
+          "y": 367.5331
+        }
+      ],
+      "relativePath": "5998913674711600682.jpg",
+      "sequenceNumber": 309,
+      "sourceChecksumSha256": "df0481e000709e97e414c896a8bab495e7abd9c3042669b9b341225a34d97526",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 4,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 296.863,
+          "y": 491.465
+        },
+        {
+          "x": 426.9788,
+          "y": 493.2074
+        },
+        {
+          "x": 427.2693,
+          "y": 561.1589
+        },
+        {
+          "x": 294.2491,
+          "y": 555.0607
+        }
+      ],
+      "relativePath": "5998913674711600687.jpg",
+      "sequenceNumber": 356,
+      "sourceChecksumSha256": "a10c15ea533fb546307d6bc08fe96e5989fd5d4d1f9db4dfbab3d3046ade6962",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    },
+    {
+      "actor": "owner",
+      "boardPosition": 1,
+      "height": 1280,
+      "quad": [
+        {
+          "x": 262.2682,
+          "y": 321.4855
+        },
+        {
+          "x": 401.0246,
+          "y": 325.895
+        },
+        {
+          "x": 404.171,
+          "y": 397.0766
+        },
+        {
+          "x": 262.5829,
+          "y": 395.5018
+        }
+      ],
+      "relativePath": "5998913674711600689.jpg",
+      "sequenceNumber": 371,
+      "sourceChecksumSha256": "97f056b7ac29bd24156a4a46ae5723da2eb0758882bcb8c60c8c38de3024cb83",
+      "sourceFamily": "blazing-hot-7-deluxe-session-2",
+      "width": 720
+    }
+  ],
+  "corpusChecksumSha256": "edb75cd8a55027903174076223f36d1ba94e96c74e165677abd3e86985aec519",
+  "corpusVersion": "lateral-partial-v4-real-corpus-v1",
+  "manualReference": "current-local-owner-page-geometry-override",
+  "scenarioPolicy": {
+    "ambiguous": "real-middle-three-columns-with-half-cell-search-offset",
+    "full": "all-nine-reviewed-boards",
+    "lateral": "one-complete-logical-column-removed-left-and-right",
+    "missing": "reviewed-board-completely-outside-horizontal-source-support",
+    "vertical": "one-complete-logical-row-removed-from-top"
+  },
+  "sourceDisjointByChecksum": true,
+  "sources": [
+    {
+      "actor": "local-owner",
+      "decisionChecksumSha256": "65d3ccc3853ad6e139aafe37d1ae25fa06f2621c87f8f6b9fd9fccecabd7f901",
+      "gameId": "03d64bfe-4d29-47dd-9153-76bd99b3b5d9",
+      "height": 574,
+      "quads": [
+        [
+          {
+            "x": 181,
+            "y": 57
+          },
+          {
+            "x": 317,
+            "y": 53
+          },
+          {
+            "x": 314,
+            "y": 130
+          },
+          {
+            "x": 171,
+            "y": 128
+          }
+        ],
+        [
+          {
+            "x": 373,
+            "y": 55
+          },
+          {
+            "x": 532,
+            "y": 59
+          },
+          {
+            "x": 537,
+            "y": 136
+          },
+          {
+            "x": 368,
+            "y": 132
+          }
+        ],
+        [
+          {
+            "x": 596,
+            "y": 62
+          },
+          {
+            "x": 751,
+            "y": 74
+          },
+          {
+            "x": 755,
+            "y": 149
+          },
+          {
+            "x": 593,
+            "y": 140
+          }
+        ],
+        [
+          {
+            "x": 164,
+            "y": 182
+          },
+          {
+            "x": 306,
+            "y": 182
+          },
+          {
+            "x": 302,
+            "y": 265
+          },
+          {
+            "x": 156,
+            "y": 261
+          }
+        ],
+        [
+          {
+            "x": 361,
+            "y": 183
+          },
+          {
+            "x": 530,
+            "y": 191
+          },
+          {
+            "x": 529,
+            "y": 274
+          },
+          {
+            "x": 357,
+            "y": 266
+          }
+        ],
+        [
+          {
+            "x": 593,
+            "y": 192
+          },
+          {
+            "x": 753,
+            "y": 206
+          },
+          {
+            "x": 757,
+            "y": 282
+          },
+          {
+            "x": 594,
+            "y": 276
+          }
+        ],
+        [
+          {
+            "x": 146,
+            "y": 317
+          },
+          {
+            "x": 293,
+            "y": 325
+          },
+          {
+            "x": 288,
+            "y": 410
+          },
+          {
+            "x": 138,
+            "y": 403
+          }
+        ],
+        [
+          {
+            "x": 351,
+            "y": 325
+          },
+          {
+            "x": 525,
+            "y": 330
+          },
+          {
+            "x": 523,
+            "y": 423
+          },
+          {
+            "x": 346,
+            "y": 415
+          }
+        ],
+        [
+          {
+            "x": 591,
+            "y": 336
+          },
+          {
+            "x": 757,
+            "y": 343
+          },
+          {
+            "x": 760,
+            "y": 429
+          },
+          {
+            "x": 585,
+            "y": 425
+          }
+        ]
+      ],
+      "reviewRevision": 1,
+      "sourceChecksumSha256": "34f09a4763e064a909b2616a94daddbd18ba245725f36c585d1e7dd715d88afa",
+      "sourceFamily": "34f09a4763e064a909b2616a94daddbd18ba245725f36c585d1e7dd715d88afa",
+      "width": 1080
+    },
+    {
+      "actor": "local-owner",
+      "decisionChecksumSha256": "ef11a550ef78f18684c08e2486f15dea7cb7c760b74c509223e73eb6e4e7a89c",
+      "gameId": "03d64bfe-4d29-47dd-9153-76bd99b3b5d9",
+      "height": 751,
+      "quads": [
+        [
+          {
+            "x": 272,
+            "y": 161
+          },
+          {
+            "x": 418,
+            "y": 170
+          },
+          {
+            "x": 408,
+            "y": 251
+          },
+          {
+            "x": 260,
+            "y": 240
+          }
+        ],
+        [
+          {
+            "x": 473,
+            "y": 174
+          },
+          {
+            "x": 634,
+            "y": 195
+          },
+          {
+            "x": 626,
+            "y": 278
+          },
+          {
+            "x": 465,
+            "y": 258
+          }
+        ],
+        [
+          {
+            "x": 688,
+            "y": 208
+          },
+          {
+            "x": 837,
+            "y": 243
+          },
+          {
+            "x": 831,
+            "y": 322
+          },
+          {
+            "x": 683,
+            "y": 289
+          }
+        ],
+        [
+          {
+            "x": 252,
+            "y": 296
+          },
+          {
+            "x": 397,
+            "y": 309
+          },
+          {
+            "x": 388,
+            "y": 391
+          },
+          {
+            "x": 240,
+            "y": 376
+          }
+        ],
+        [
+          {
+            "x": 457,
+            "y": 314
+          },
+          {
+            "x": 619,
+            "y": 334
+          },
+          {
+            "x": 611,
+            "y": 418
+          },
+          {
+            "x": 446,
+            "y": 397
+          }
+        ],
+        [
+          {
+            "x": 677,
+            "y": 345
+          },
+          {
+            "x": 824,
+            "y": 374
+          },
+          {
+            "x": 819,
+            "y": 454
+          },
+          {
+            "x": 670,
+            "y": 428
+          }
+        ],
+        [
+          {
+            "x": 232,
+            "y": 434
+          },
+          {
+            "x": 380,
+            "y": 448
+          },
+          {
+            "x": 372,
+            "y": 531
+          },
+          {
+            "x": 221,
+            "y": 515
+          }
+        ],
+        [
+          {
+            "x": 437,
+            "y": 454
+          },
+          {
+            "x": 605,
+            "y": 475
+          },
+          {
+            "x": 595,
+            "y": 559
+          },
+          {
+            "x": 428,
+            "y": 537
+          }
+        ],
+        [
+          {
+            "x": 665,
+            "y": 485
+          },
+          {
+            "x": 816,
+            "y": 510
+          },
+          {
+            "x": 811,
+            "y": 591
+          },
+          {
+            "x": 654,
+            "y": 565
+          }
+        ]
+      ],
+      "reviewRevision": 1,
+      "sourceChecksumSha256": "567ccc8bfc43356624c6b9559f37642f97410bf61c28a695a0eca43f0abebde6",
+      "sourceFamily": "567ccc8bfc43356624c6b9559f37642f97410bf61c28a695a0eca43f0abebde6",
+      "width": 1080
+    },
+    {
+      "actor": "local-owner",
+      "decisionChecksumSha256": "6960bad62cd260fd6fe32fb9ff2b66cea03c6fc795eab39c6c1c54f82ab05488",
+      "gameId": "03d64bfe-4d29-47dd-9153-76bd99b3b5d9",
+      "height": 802,
+      "quads": [
+        [
+          {
+            "x": 273,
+            "y": 161
+          },
+          {
+            "x": 419,
+            "y": 169
+          },
+          {
+            "x": 411,
+            "y": 251
+          },
+          {
+            "x": 264,
+            "y": 241
+          }
+        ],
+        [
+          {
+            "x": 479,
+            "y": 175
+          },
+          {
+            "x": 637,
+            "y": 195
+          },
+          {
+            "x": 631,
+            "y": 277
+          },
+          {
+            "x": 470,
+            "y": 256
+          }
+        ],
+        [
+          {
+            "x": 694,
+            "y": 209
+          },
+          {
+            "x": 838,
+            "y": 242
+          },
+          {
+            "x": 833,
+            "y": 319
+          },
+          {
+            "x": 686,
+            "y": 287
+          }
+        ],
+        [
+          {
+            "x": 254,
+            "y": 297
+          },
+          {
+            "x": 402,
+            "y": 308
+          },
+          {
+            "x": 393,
+            "y": 390
+          },
+          {
+            "x": 246,
+            "y": 377
+          }
+        ],
+        [
+          {
+            "x": 460,
+            "y": 313
+          },
+          {
+            "x": 624,
+            "y": 335
+          },
+          {
+            "x": 616,
+            "y": 418
+          },
+          {
+            "x": 450,
+            "y": 395
+          }
+        ],
+        [
+          {
+            "x": 683,
+            "y": 345
+          },
+          {
+            "x": 831,
+            "y": 376
+          },
+          {
+            "x": 823,
+            "y": 454
+          },
+          {
+            "x": 672,
+            "y": 426
+          }
+        ],
+        [
+          {
+            "x": 235,
+            "y": 434
+          },
+          {
+            "x": 384,
+            "y": 448
+          },
+          {
+            "x": 374,
+            "y": 530
+          },
+          {
+            "x": 225,
+            "y": 514
+          }
+        ],
+        [
+          {
+            "x": 443,
+            "y": 454
+          },
+          {
+            "x": 608,
+            "y": 475
+          },
+          {
+            "x": 599,
+            "y": 558
+          },
+          {
+            "x": 433,
+            "y": 538
+          }
+        ],
+        [
+          {
+            "x": 667,
+            "y": 484
+          },
+          {
+            "x": 819,
+            "y": 510
+          },
+          {
+            "x": 812,
+            "y": 590
+          },
+          {
+            "x": 659,
+            "y": 567
+          }
+        ]
+      ],
+      "reviewRevision": 1,
+      "sourceChecksumSha256": "cf3482ff4a49c8df7a0bcd8cdb7b1f8c3baad6d39ed590998554d39b6ee622e6",
+      "sourceFamily": "cf3482ff4a49c8df7a0bcd8cdb7b1f8c3baad6d39ed590998554d39b6ee622e6",
+      "width": 1080
+    },
+    {
+      "actor": "local-owner",
+      "decisionChecksumSha256": "0f1409977a63533dc4de19af39af33a36bfdf8a5976da08b44ef7befff11acf4",
+      "gameId": "03d64bfe-4d29-47dd-9153-76bd99b3b5d9",
+      "height": 739,
+      "quads": [
+        [
+          {
+            "x": 273,
+            "y": 157
+          },
+          {
+            "x": 417,
+            "y": 167
+          },
+          {
+            "x": 406,
+            "y": 246
+          },
+          {
+            "x": 262,
+            "y": 238
+          }
+        ],
+        [
+          {
+            "x": 474,
+            "y": 172
+          },
+          {
+            "x": 633,
+            "y": 193
+          },
+          {
+            "x": 625,
+            "y": 277
+          },
+          {
+            "x": 464,
+            "y": 253
+          }
+        ],
+        [
+          {
+            "x": 690,
+            "y": 207
+          },
+          {
+            "x": 831,
+            "y": 239
+          },
+          {
+            "x": 826,
+            "y": 317
+          },
+          {
+            "x": 680,
+            "y": 284
+          }
+        ],
+        [
+          {
+            "x": 252,
+            "y": 293
+          },
+          {
+            "x": 398,
+            "y": 303
+          },
+          {
+            "x": 388,
+            "y": 385
+          },
+          {
+            "x": 241,
+            "y": 374
+          }
+        ],
+        [
+          {
+            "x": 455,
+            "y": 308
+          },
+          {
+            "x": 618,
+            "y": 331
+          },
+          {
+            "x": 610,
+            "y": 414
+          },
+          {
+            "x": 445,
+            "y": 392
+          }
+        ],
+        [
+          {
+            "x": 675,
+            "y": 342
+          },
+          {
+            "x": 822,
+            "y": 372
+          },
+          {
+            "x": 817,
+            "y": 453
+          },
+          {
+            "x": 667,
+            "y": 423
+          }
+        ],
+        [
+          {
+            "x": 231,
+            "y": 428
+          },
+          {
+            "x": 379,
+            "y": 441
+          },
+          {
+            "x": 371,
+            "y": 526
+          },
+          {
+            "x": 220,
+            "y": 511
+          }
+        ],
+        [
+          {
+            "x": 438,
+            "y": 449
+          },
+          {
+            "x": 602,
+            "y": 471
+          },
+          {
+            "x": 592,
+            "y": 554
+          },
+          {
+            "x": 428,
+            "y": 533
+          }
+        ],
+        [
+          {
+            "x": 662,
+            "y": 481
+          },
+          {
+            "x": 813,
+            "y": 506
+          },
+          {
+            "x": 806,
+            "y": 588
+          },
+          {
+            "x": 655,
+            "y": 563
+          }
+        ]
+      ],
+      "reviewRevision": 1,
+      "sourceChecksumSha256": "cff6aec06739bc0cd4951657791d10f727931a581301022054012cadd339010c",
+      "sourceFamily": "cff6aec06739bc0cd4951657791d10f727931a581301022054012cadd339010c",
+      "width": 1080
+    },
+    {
+      "actor": "local-owner",
+      "decisionChecksumSha256": "44bad95ac221347cd1f86f6d750fd0b1e93e2b322f2abbed75cde96befb0ba39",
+      "gameId": "03d64bfe-4d29-47dd-9153-76bd99b3b5d9",
+      "height": 599,
+      "quads": [
+        [
+          {
+            "x": 158,
+            "y": 9
+          },
+          {
+            "x": 298,
+            "y": 35
+          },
+          {
+            "x": 279,
+            "y": 115
+          },
+          {
+            "x": 141,
+            "y": 90
+          }
+        ],
+        [
+          {
+            "x": 349,
+            "y": 47
+          },
+          {
+            "x": 509,
+            "y": 82
+          },
+          {
+            "x": 493,
+            "y": 161
+          },
+          {
+            "x": 335,
+            "y": 126
+          }
+        ],
+        [
+          {
+            "x": 565,
+            "y": 99
+          },
+          {
+            "x": 718,
+            "y": 145
+          },
+          {
+            "x": 706,
+            "y": 220
+          },
+          {
+            "x": 551,
+            "y": 176
+          }
+        ],
+        [
+          {
+            "x": 126,
+            "y": 146
+          },
+          {
+            "x": 265,
+            "y": 173
+          },
+          {
+            "x": 249,
+            "y": 255
+          },
+          {
+            "x": 108,
+            "y": 228
+          }
+        ],
+        [
+          {
+            "x": 318,
+            "y": 184
+          },
+          {
+            "x": 480,
+            "y": 217
+          },
+          {
+            "x": 466,
+            "y": 299
+          },
+          {
+            "x": 302,
+            "y": 267
+          }
+        ],
+        [
+          {
+            "x": 540,
+            "y": 232
+          },
+          {
+            "x": 697,
+            "y": 273
+          },
+          {
+            "x": 687,
+            "y": 354
+          },
+          {
+            "x": 528,
+            "y": 314
+          }
+        ],
+        [
+          {
+            "x": 93,
+            "y": 284
+          },
+          {
+            "x": 234,
+            "y": 312
+          },
+          {
+            "x": 218,
+            "y": 395
+          },
+          {
+            "x": 77,
+            "y": 367
+          }
+        ],
+        [
+          {
+            "x": 288,
+            "y": 322
+          },
+          {
+            "x": 451,
+            "y": 357
+          },
+          {
+            "x": 435,
+            "y": 443
+          },
+          {
+            "x": 271,
+            "y": 410
+          }
+        ],
+        [
+          {
+            "x": 515,
+            "y": 372
+          },
+          {
+            "x": 677,
+            "y": 407
+          },
+          {
+            "x": 665,
+            "y": 492
+          },
+          {
+            "x": 500,
+            "y": 456
+          }
+        ]
+      ],
+      "reviewRevision": 1,
+      "sourceChecksumSha256": "ead3e4efc618d7c7e9574266f64558bb4e3d7a8a5a42fdf1383dff1c3a5e91f1",
+      "sourceFamily": "ead3e4efc618d7c7e9574266f64558bb4e3d7a8a5a42fdf1383dff1c3a5e91f1",
+      "width": 1080
+    }
+  ],
+  "tuningSourceChecksumsSha256": []
+}

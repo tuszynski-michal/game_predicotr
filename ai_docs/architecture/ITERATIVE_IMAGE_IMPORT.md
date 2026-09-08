@@ -1,11 +1,20 @@
 ---
 title: Iterative image import architecture
 status: accepted
-last_updated: 2026-08-23
+last_updated: 2026-09-08
 release: "0.7"
 ---
 
 # Architektura iteracyjnego importu
+
+## Testowy run v0.10.4 po odbiorze TASK-0515
+
+Operator może jawnie wybrać
+`geometryEngineVariant=structured_lattice_v4_partial_sides` dla nowego runu po
+przygotowaniu zgodnego preflightu. Raport odbioru jest immutable i przypina
+checksumy korpusu/polityki; nie jest dynamiczną flagą środowiskową. Domyślna
+ścieżka nadal tworzy snapshot v3, a automatyczny partial pozostaje propozycją
+do ręcznego potwierdzenia bez renderowania brakujących pól.
 
 ## Wykluczenia źródeł przed managed originals
 

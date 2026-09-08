@@ -509,10 +509,22 @@ def _evaluate_origin(
     )
     if not missing or len(missing) == 15:
         return None, "lateral_source_support_required"
+    missing_by_row = tuple(
+        tuple(column for column in range(5) if row * 5 + column in missing) for row in range(3)
+    )
+    available_columns = tuple(column for column in range(5) if column not in missing_by_row[0])
+    if (
+        len(set(missing_by_row)) != 1
+        or len(available_columns) < 3
+        or available_columns != tuple(range(available_columns[0], available_columns[-1] + 1))
+    ):
+        return None, "lateral_unavailable_mask_inconsistent"
     assigned: list[int | None] = [None] * 15
     for row, column, candidate in values:
         assigned[row * 5 + column + offset] = candidate.candidate_index
     slots = tuple((values[index][0], values[index][1] + offset) for index in selected)
+    if any(row * 5 + column in missing for row, column in slots):
+        return None, "lateral_inlier_source_support_inconsistent"
     ideal_centres = np.asarray(
         [((column + 0.5) * 100, (row + 0.5) * 100) for row in range(3) for column in range(5)],
         dtype=np.float64,

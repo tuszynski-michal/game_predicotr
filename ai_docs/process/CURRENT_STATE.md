@@ -6,12 +6,29 @@ last_updated: 2026-09-08
 
 # Current State
 
-### TASK-0514 — Admin v0.10.4 gotowy do niezależnego review
+### TASK-0515 — real-corpus gate v0.10.4 zaliczony
+
+- 32 unikalne realne źródła (5 current manual page overrides z managed
+  originals oraz 27 zaakceptowanych board refs M5) dały 252 deterministyczne
+  scenariusze: 72 pełne, 84 boczne i 96 negatywów.
+- Pełne v3/v4 mają identyczne coverage 70/70 i payload dla wszystkich sukcesów.
+  Odzyskano 15 lewych i 19 prawych propozycji; 50 pozostało jawnie manualnych.
+  Indeks błędów ma 0 wpisów: brak shift, missing-pixel crop i akceptacji
+  vertical/ambiguous/missing; checksumy źródeł nie zmieniły się.
+- Parowany pomiar 5×: mediana v3/v4 62,05305/62,39175 ms, p95
+  101,401/97,412 ms, łączna różnica -0,3978% przy limicie narzutu 10%.
+- `LATERAL_PARTIAL_RELEASED=True` udostępnia istniejący wariant wyłącznie jako
+  jawny test per-run. v3 nadal jest domyślny, a partial wymaga ręcznego
+  potwierdzenia i nie renderuje brakujących pikseli.
+- Nie wykonano migracji, importu, reprocessingu, restartu ani mutacji danych.
+  Szczegóły: `ai_docs/quality/LATERAL_PARTIAL_V4_ACCEPTANCE.md`.
+
+### TASK-0514 — Admin v0.10.4
 
 - Admin pokazuje per-run wariant `v0.10.4 — testowy, niepełne boki`, ale
   respektuje readiness zwracany przez tę samą backendową bramkę co mutacje.
-  Publiczny `LATERAL_PARTIAL_RELEASED` pozostaje `False`, więc wariant nie
-  jest dostępny do uruchomienia przed odbiorem TASK-0515.
+  Odbiór TASK-0515 otworzył ten sam gate; wariant jest teraz dostępny tylko
+  jako jawny wybór testowy.
 - `Pokaż raport` nie tworzy joba: odtwarza zgodny staging, run i preflight po
   game/staging/manifest/variant. Brak artefaktu ma jawny kod, opis i osobną
   akcję przygotowania; legacy checksum pozostaje bez pola wariantu.
@@ -37,8 +54,8 @@ last_updated: 2026-09-08
   jest blokowany przed analizą źródeł przez niezwiązany dirty skrypt cleanupu
   widziany pod dwiema nazwami modułu; source-only retry przerwano po 60 s bez
   wyniku.
-- Zadanie nie jest jeszcze commitowane: oczekuje na wymagany niezależny review
-  `gpt-6-astra high`. Bez migracji, restartu, reimportu i zmian danych.
+- Zadanie zostało ukończone i commitowane w `v0.10.230`. Bez migracji,
+  restartu, reimportu i zmian danych.
 
 ### TASK-0513 — trwały run v4
 

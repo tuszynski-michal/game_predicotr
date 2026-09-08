@@ -21,15 +21,13 @@ from game_predictor_api.schemas.geometry_qualification import (
 )
 from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
 from game_predictor_worker.images.geometry import Point
+from game_predictor_worker.images.global_symbol_lattice import GlobalSymbolCandidate
 from game_predictor_worker.images.lateral_partial_contract import LateralPartialGeometrySnapshot
 from game_predictor_worker.images.page_geometry_registration import (
     LateralPageRegistrationCandidate,
     PageRegistrationInitialization,
 )
 from game_predictor_worker.images.structured_geometry import lattice_refinement_v4 as v4
-from game_predictor_worker.images.structured_geometry.lattice_refinement_v3 import (
-    refine_structured_symbol_lattice_v3,
-)
 from game_predictor_worker.images.virtual_cell_extraction import VirtualCellRenderer
 from test_manual_partial_geometry import _configuration, _geometry
 from test_structured_geometry_global_initialization import _frame
@@ -85,6 +83,39 @@ def _refine(source, quad, candidate=True):
     )
 
 
+def _evaluate_origin_with_missing(monkeypatch, missing, *, offset=1):
+    candidates = tuple(
+        GlobalSymbolCandidate(
+            candidate_index=index,
+            x=float(column * 100 + 50),
+            y=float(row * 100 + 50),
+            width=40,
+            height=40,
+            area=1600,
+            weight=1.0,
+            touches_border=False,
+        )
+        for index, (row, column) in enumerate(
+            (row, column) for row in range(3) for column in range(3)
+        )
+    )
+    values = tuple((index // 3, index % 3, candidate) for index, candidate in enumerate(candidates))
+    monkeypatch.setattr(v4, "unavailable_source_cell_indices", lambda *args, **kwargs: missing)
+    return v4._evaluate_origin(
+        np.eye(3, dtype=np.float64),
+        values=values,
+        selected=tuple(range(9)),
+        offset=offset,
+        candidates=candidates,
+        analysis_to_source=np.diag((499 / 500, 299 / 300, 1.0)),
+        source_shape=(300, 500, 3),
+        p95=0.0,
+        policy=POLICY,
+        source_checksum_sha256="b" * 64,
+        position_index=0,
+    )
+
+
 @pytest.mark.parametrize(
     "side,expected",
     [
@@ -109,18 +140,23 @@ def test_lateral_partial_preserves_original_cell_indices(side, expected) -> None
 
 def test_complete_v3_result_remains_identical_without_a_second_detector(monkeypatch) -> None:
     source, quad = _source(_board())
-    cv2.setRNGSeed(12345)
-    expected = refine_structured_symbol_lattice_v3(
-        source, analysis_quad=quad, board_frame_quad=quad, topology=TOPOLOGY
-    )
+    baselines = []
+    real_v3 = v4.refine_structured_symbol_lattice_v3
+
+    def captured_v3(*args, **kwargs):
+        baseline = real_v3(*args, **kwargs)
+        baselines.append(baseline)
+        return baseline
+
+    monkeypatch.setattr(v4, "refine_structured_symbol_lattice_v3", captured_v3)
     monkeypatch.setattr(
         v4, "_fit_lateral_lattice", lambda *a, **k: pytest.fail("partial pass on full board")
     )
-    cv2.setRNGSeed(12345)
     result = _refine(source, quad)
     assert result.status == "full"
-    assert result.baseline == expected
-    assert result.to_payload() == expected.to_payload()
+    assert len(baselines) == 1
+    assert result.baseline is baselines[0]
+    assert result.to_payload() == baselines[0].to_payload()
     assert result.additional_passes == 0
 
 
@@ -131,6 +167,28 @@ def test_failed_v3_without_registration_does_not_run_extra_pass(monkeypatch) -> 
     assert result.status == "needs_review"
     assert result.reason_code == "lateral_registration_unavailable"
     assert result.additional_passes == 0
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        (0, 5),
+        (0, 1, 2, 5, 6, 7, 10, 11, 12),
+        (2, 7, 12),
+    ],
+)
+def test_lateral_origin_rejects_inconsistent_or_unsafe_available_columns(
+    monkeypatch, missing
+) -> None:
+    proposal, reason = _evaluate_origin_with_missing(monkeypatch, missing)
+    assert proposal is None
+    assert reason == "lateral_unavailable_mask_inconsistent"
+
+
+def test_lateral_origin_rejects_an_inlier_in_an_unavailable_cell(monkeypatch) -> None:
+    proposal, reason = _evaluate_origin_with_missing(monkeypatch, (0, 5, 10), offset=0)
+    assert proposal is None
+    assert reason == "lateral_inlier_source_support_inconsistent"
 
 
 @pytest.mark.parametrize("side", ["top", "bottom"])

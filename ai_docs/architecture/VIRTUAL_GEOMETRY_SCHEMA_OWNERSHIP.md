@@ -1,10 +1,18 @@
 ---
 title: Virtual geometry schema ownership
 status: accepted
-last_updated: 2026-08-30
+last_updated: 2026-09-08
 ---
 
 # Virtual geometry schema ownership
+
+## Finalna bramka wariantu v0.10.4 (TASK-0515)
+
+`LATERAL_PARTIAL_RELEASED` jest teraz `True` na podstawie immutable raportu
+związanego checksumami korpusu i polityki. Jest to pozwolenie na istniejący,
+jawny wariant per-run, a nie nowy stan schematu, flaga środowiskowa ani zmiana
+domyślnej polityki gry. Snapshot v4, provenance automatycznej propozycji i
+obowiązek ręcznego potwierdzenia pozostają bez zmian. Nie dodano migracji.
 
 ## Opt-in snapshot v0.10.4 (TASK-0510)
 

@@ -615,11 +615,8 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             },
         )
         assert v4_report.status_code == 200
-        assert v4_report.json()["geometryEngineVariantEnabled"] is False
-        assert (
-            v4_report.json()["geometryEngineVariantBlockerCode"]
-            == "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED"
-        )
+        assert v4_report.json()["geometryEngineVariantEnabled"] is True
+        assert v4_report.json()["geometryEngineVariantBlockerCode"] is None
         assert v4_report.json()["preflightChecksumSha256"] != report["preflightChecksumSha256"]
         assert (
             tuple(repository.list_jobs(status=None, job_type=None, game_id=game_id, limit=100))

@@ -1,10 +1,25 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-08-23
+last_updated: 2026-09-08
 ---
 
 # Import i rozpoznawanie zdjęć
+
+## Odbiór i testowe udostępnienie v0.10.4 — TASK-0515
+
+Checksum-bound odbiór na 32 realnych źródłach zaliczył wszystkie bramki:
+72 pełne plansze bez regresji v3, 84 cropy boczne z odzyskiem lewej i prawej
+strony, 96 negatywów oraz narzut pełnych obrazów poniżej 10%. Wariant
+`structured_lattice_v4_partial_sides` jest dostępny jako jawny wybór nowego
+runu. Brak wyboru nadal oznacza v3; nie zmienia się polityka gry ani istniejący
+snapshot.
+
+Udostępnienie nie nadaje propozycji prawa do renderowania lub zapisu decyzji.
+Każdy `pending_partial` nadal wymaga ręcznego potwierdzenia i zachowuje dokładną
+maskę oraz pochodzenie. Pionowe, ambiguous i missing pozostają fail-closed.
+Dowód, metryki i ograniczenia opisuje
+`ai_docs/quality/LATERAL_PARTIAL_V4_ACCEPTANCE.md`.
 
 ## Kandydat bocznej geometrii v0.10.4 — fundament TASK-0511
 
@@ -18,8 +33,8 @@ Nie zwiększa się liczba przebiegów ORB/RANSAC ani nie osłabia progów dowodu
 Ucięcie pionowe, całkowity brak planszy, overlap, zaburzona kolejność lub
 błędna homografia pozostawiają ręczną korektę bez syntetycznego cropa.
 Brak kandydata nie usuwa slotów z istniejącej pełnej kolejki ręcznej.
-Ten fundament nie udostępnia silnika do importu; uruchomienie i odbiór
-pozostają zależnymi TASK-0512–0515. Standardowy v3 nie zmienia wyników.
+Ten fundament sam nie udostępniał silnika do importu; późniejsze TASK-0512–0515
+domknęły fit, trwały run, UI i bramkę. Standardowy v3 nie zmienia wyników.
 
 ### Lokalne dopasowanie propozycji — TASK-0512
 
@@ -39,7 +54,7 @@ do automatycznego renderowania. Po potwierdzeniu istniejąca ręczna ścieżka
 może renderować wyłącznie dostępne pola. Kwalifikacja obowiązkowo wyklucza
 geometrię z uczenia i kotwic. Góra/dół poza źródłem dają
 `source_vertical_crop_defect`, nie akceptację bocznej niepełności.
-Publiczne uruchomienie nadal wymaga TASK-0513–0515 i końcowej bramki jakości.
+Testowe uruchomienie zostało dopuszczone przez końcową bramkę TASK-0515.
 
 ## Wykluczenie błędnego źródła przed importem
 
@@ -61,8 +76,8 @@ kontynuują przetwarzanie; niezakończone decyzje pozostawiają waiting_for_revi
 Ograniczenie: run ze związanymi z wcześniejszym preflightem rozliczeniami
 `geometry_guard_resolution_manifest` nie może ich po cichu pominąć. v4 zwraca
 `IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED`, również dla decyzji przodka runu,
-zanim powstanie nowy job. W tym etapie nie przepinamy takich decyzji na inne
-dowody automatycznie. Dostępność publiczna nadal wymaga końcowej bramki 0515.
+zanim powstanie nowy job. Nie przepinamy takich decyzji na inne dowody
+automatycznie; ograniczenie pozostaje po testowym udostępnieniu TASK-0515.
 
 Operator może z kolejki `Korekta geometrii strony` wykluczyć JPEG, którego
 lokalny crop jest niepoprawny. Operacja wymaga potwierdzenia i nie mutuje

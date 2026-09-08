@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-08-24
+last_updated: 2026-09-08
 ---
 
 # Kontrakty API i danych mobilnych
@@ -19,8 +19,9 @@ użyć już istniejących managed originals bez bind/verify browser stagingu.
 Serwis sprawdza grę, staging, rodzaj/status źródłowego joba i checksumę inventory;
 worker sprawdza także JPEG-i. Nie ma równoległego endpointu ani nowego job type.
 
-Stare żądania pozostają bez nowej polityki. Publiczny gate pozostaje zamknięty
-do końcowego odbioru 0515. Nieobsługiwane przepięcie ręcznych manifestów guard
+Stare żądania pozostają bez nowej polityki. Po zaliczeniu odbioru TASK-0515
+capability raportuje wariant jako dostępny, ale klient musi wybrać go jawnie
+dla konkretnego runu. Nieobsługiwane przepięcie ręcznych manifestów guard nadal
 zwraca `IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED` bez tworzenia nowego runu.
 
 ## Kontynuacja importu z ręczną geometrią — TASK-0491

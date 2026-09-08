@@ -5,6 +5,7 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
+from game_predictor_worker.images import lateral_partial_contract as contract
 from game_predictor_worker.images.lateral_partial_contract import (
     GeometryEngineVariant,
     LateralPartialContractError,
@@ -115,7 +116,8 @@ def test_partial_extension_requires_full_board_baseline() -> None:
         )
 
 
-def test_unimplemented_variant_never_dispatches_to_v3() -> None:
+def test_closed_release_gate_never_dispatches_to_v3(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(contract, "LATERAL_PARTIAL_RELEASED", False)
     raw = replace(
         _active_lattice_rollout(), lateral_partial_geometry=LateralPartialGeometrySnapshot()
     ).to_payload()

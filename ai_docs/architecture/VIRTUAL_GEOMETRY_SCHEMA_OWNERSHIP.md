@@ -8,6 +8,32 @@ last_updated: 2026-08-30
 
 ## Opt-in snapshot v0.10.4 (TASK-0510)
 
+### Trwałe źródła i własność przy reprocessingu (TASK-0513)
+
+Istniejący job/import i preflight otrzymują opt-in rozszerzenia, bez migracji.
+Manifest przypina politykę, source selection, SHA browser inventory, quady oraz
+dowód lateral do checksumy pojedynczego źródła. Loader nie wykonuje detekcji.
+Powtórzenie tego samego requestu jest idempotentne, stary run pozostaje niezmienny.
+
+Preflight z `managed_source_job_id` i SHA managed inventory nie odczytuje plików
+browser stagingu. Weryfikuje oryginały i wykorzystuje ich istniejące ścieżki;
+tylko mały manifest pochodzenia jest klonowany pod nowy job. Restart odtwarza
+przypięte wejście. Stary descriptor strony nie jest wymagany przy jawnym nowym.
+
+Projekcja v4 rezerwuje wszystkie sekwencje przed blokadą źródła; lease joba
+nadal jest sprawdzany w transakcji. Edytor i deferred writer stosują również
+sequence → source, a wspólny state katalogu symboli jest blokowany później.
+Mutacja symboli blokuje sequence i bieżące rows przed state; eliminuje to cykl
+state → sequence wobec workerowego sequence → source → state.
+Wybór pending ownera blokuje tylko mutowane review i board; nie blokuje
+niezmiennego JobModel używanego wyłącznie do porównania kolejności importów.
+Nie zmienia się reguła legacy newest-import-wins dla niechronionych wyników.
+
+Pod sequence lock v4 nie zastępuje ręcznych geometrii, kwalifikacji, masek ani
+decyzji symboli. Odrzucenie jest wiązane również z SHA źródła. Rozliczenie guard
+bez recognized_board wymaga osobnego przepięcia niezmiennego manifestu;
+aktualnie fail-closed przed tworzeniem runu, zamiast utraty odrzucenia/partiala.
+
 `geometryEngineVariant` jest żądaniem rozszerzenia pojedynczego runu, nie
 wartością globalnego `image_geometry_rollout_states.geometry_mode`. Nowy
 `virtual-geometry-rollout-snapshot-v4` zawiera niezmienione `activeLatticeGeometry`

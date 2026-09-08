@@ -1260,6 +1260,11 @@ export type BrowserPageGeometryPreflightCreate = {
    * Gameid
    */
   gameId: string;
+  geometryEngineVariant?: GeometryEngineVariant | null;
+  /**
+   * Managedsourcejobid
+   */
+  managedSourceJobId?: string | null;
   /**
    * Pageregistrationvariant
    */
@@ -7270,6 +7275,15 @@ export type PageGeometryPreflightJobPayload = {
    * Canonicalsequencenumbers
    */
   canonicalSequenceNumbers?: Array<number>;
+  lateralPartialGeometry?: LateralPartialGeometryJobSnapshotPayload | null;
+  /**
+   * Managedsourcejobid
+   */
+  managedSourceJobId?: string | null;
+  /**
+   * Managedsourcemanifestchecksumsha256
+   */
+  managedSourceManifestChecksumSha256?: string | null;
   /**
    * Pagegeometryoverrides
    */
@@ -17460,6 +17474,18 @@ export type ReprocessManagedImageImportData = {
      * Continuewithmanualgeometry
      */
     continueWithManualGeometry?: boolean;
+    /**
+     * Geometryenginevariant
+     */
+    geometryEngineVariant?: GeometryEngineVariant | null;
+    /**
+     * Geometrypreflightjobid
+     */
+    geometryPreflightJobId?: string | null;
+    /**
+     * Geometrymanifestchecksumsha256
+     */
+    geometryManifestChecksumSha256?: string | null;
   };
   url: '/api/v1/admin/image-imports/{source_job_id}/reprocess';
 };

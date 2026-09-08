@@ -1053,6 +1053,10 @@ class ProductionImageStageAdapterSuite:
             self._manual_geometry_import
             and isinstance(entry, Mapping)
             and entry.get("status") == "review_required"
+            and not (
+                self._geometry_rollout.lateral_partial_geometry is not None
+                and entry.get("lateralRegistrationCandidate") is not None
+            )
         ):
             frame = self._canonical_source(context)
             if context.attested_sequence_range is None:
@@ -1945,6 +1949,12 @@ class ProductionImageStageAdapterSuite:
                 None,
                 None,
             )
+        if (
+            self._geometry_rollout.lateral_partial_geometry is not None
+            and isinstance(manual_entry, Mapping)
+            and manual_entry.get("lateralRegistrationCandidate") is not None
+        ):
+            return self._detect_lateral_proposals(frame, attested, manual_entry), None, None
         pinned_initial_quads: tuple[SourceQuad, ...] | None = None
         pinned_geometry_checksum: str | None = None
         geometry_profile: Mapping[str, object] | None = self._page_registration_profile or None
@@ -2070,6 +2080,92 @@ class ProductionImageStageAdapterSuite:
             game_id=self._game_id,
         )
         return payload, candidate_v2.to_payload(), None
+
+    def _detect_lateral_proposals(
+        self,
+        frame: CanonicalSourceFrame,
+        attested: AttestedSequenceRange,
+        entry: Mapping[str, object],
+    ) -> dict[str, object]:
+        from .lateral_partial_artifact import lateral_candidate_from_entry
+        from .lateral_partial_contract import LateralPartialContractError
+        from .structured_geometry.lattice_refinement_v4 import refine_structured_symbol_lattice_v4
+
+        policy = self._geometry_rollout.lateral_partial_geometry
+        assert policy is not None and self._board_topology.rules_version_id is not None
+        try:
+            candidate = lateral_candidate_from_entry(
+                entry,
+                width=frame.source.width,
+                height=frame.source.height,
+                board_count=attested.board_count,
+                policy=policy,
+            )
+        except LateralPartialContractError as error:
+            raise ImagePipelineExecutionError(error.code, str(error)) from error
+        assert candidate is not None
+        payload = manual_source_geometry_result(
+            StructuredGeometryInitializationRequest.for_frame(
+                frame,
+                topology=DomainBoardTopology(rows=3, columns=5),
+                topology_rules_version_id=UUID(self._board_topology.rules_version_id),
+                attested_range=attested,
+            )
+        ).to_payload()
+        boards = cast(list[dict[str, object]], payload["boards"])
+        reasons: set[str] = set()
+        for position, raw_quad in enumerate(candidate.initialization.initialization_quads):
+            quad = SourceQuad(
+                corners=cast(
+                    tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                    tuple(SourcePoint(x=float(p.x), y=float(p.y)) for p in raw_quad),
+                )
+            )
+            result = refine_structured_symbol_lattice_v4(
+                frame.rgb,
+                analysis_quad=quad,
+                board_frame_quad=None,
+                topology=self._board_topology,
+                source_checksum_sha256=frame.source.source_checksum_sha256,
+                position_index=position,
+                lateral_candidate=candidate,
+                policy=policy,
+            )
+            measured = result.to_payload()
+            full = result.status == "full"
+            reason = result.reason_code or (
+                "lateral_partial_confirmation_required"
+                if result.proposal
+                else "insufficient_lattice_evidence"
+            )
+            board = boards[position]
+            board.update(measured)
+            board.update(
+                {
+                    "disposition": BoardGeometryDisposition.AUTOMATIC.value
+                    if full
+                    else BoardGeometryDisposition.NEEDS_MANUAL_REVIEW.value,
+                    "finalQuad": measured.get("symbolGridQuad") if full else None,
+                    "reasonCodes": [] if full else [reason],
+                }
+            )
+            if not full:
+                reasons.add(reason)
+        payload.update(
+            {
+                "boards": boards,
+                "geometrySource": "auto",
+                "engineVersion": "structured-lattice-v4-lateral-partial-v1",
+                "rolloutMode": self._geometry_rollout.geometry_mode.value,
+                "lateralPartialGeometry": policy.to_payload(),
+                "configChecksumSha256": self._geometry_rollout.checksum_sha256,
+                "status": "needs_review" if reasons else "ready",
+                "reasonCodes": sorted(reasons),
+            }
+        )
+        payload.pop("resultChecksumSha256", None)
+        payload["resultChecksumSha256"] = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+        return payload
 
     def _structured_engine(self) -> StructuredOpenCvGeometryEngine:
         if self._structured_geometry_engine is None:
@@ -2687,10 +2783,18 @@ def _geometry_rollout_snapshot(job: Job) -> GeometryPipelineRolloutSnapshot:
     except ImagePipelineContractError as error:
         raise JobHandlerError(error.code, str(error)) from error
     if snapshot.lateral_partial_geometry is not None:
-        raise JobHandlerError(
-            "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED",
-            "v0.10.4 cannot execute before its detector and quality gate are accepted.",
+        from .lateral_partial_contract import (
+            GeometryEngineVariant,
+            LateralPartialContractError,
+            require_geometry_engine_variant_available,
         )
+
+        try:
+            require_geometry_engine_variant_available(
+                GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+            )
+        except LateralPartialContractError as error:
+            raise JobHandlerError(error.code, str(error)) from error
     return snapshot
 
 
@@ -2891,6 +2995,21 @@ def _page_geometry_manifest(
     entries = value.get("entries")
     if not isinstance(entries, Mapping):
         raise _page_manifest_error(job, "The pinned page geometry manifest has no source entries.")
+    rollout = _geometry_rollout_snapshot(job)
+    if rollout.lateral_partial_geometry is not None:
+        from .lateral_partial_artifact import require_lateral_manifest
+        from .lateral_partial_contract import LateralPartialContractError
+
+        try:
+            require_lateral_manifest(
+                value,
+                game_id=str(job.game_id),
+                source_selection_id=str(job.input_payload.get("source_selection_id")),
+                source_manifest_sha256=str(job.input_payload.get("source_manifest_sha256")),
+                policy=rollout.lateral_partial_geometry,
+            )
+        except LateralPartialContractError as error:
+            raise JobHandlerError(error.code, str(error)) from error
     if job.input_payload.get("schema_version") == 6:
         if managed_manifest is None:
             raise _page_manifest_error(job, "The managed source manifest is unavailable.")

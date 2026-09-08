@@ -2309,6 +2309,28 @@
             "title": "Gameid",
             "type": "string"
           },
+          "geometryEngineVariant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryEngineVariant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "managedSourceJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managedsourcejobid"
+          },
           "pageRegistrationVariant": {
             "default": "standard_v0_10",
             "enum": [
@@ -12994,6 +13016,40 @@
             },
             "title": "Canonicalsequencenumbers",
             "type": "array"
+          },
+          "lateralPartialGeometry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LateralPartialGeometryJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "managedSourceJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managedsourcejobid"
+          },
+          "managedSourceManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managedsourcemanifestchecksumsha256"
           },
           "pageGeometryOverrides": {
             "additionalProperties": true,
@@ -31476,6 +31532,55 @@
               "default": false,
               "title": "Continuewithmanualgeometry",
               "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "geometryEngineVariant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GeometryEngineVariant"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Geometryenginevariant"
+            }
+          },
+          {
+            "in": "query",
+            "name": "geometryPreflightJobId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Geometrypreflightjobid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "geometryManifestChecksumSha256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Geometrymanifestchecksumsha256"
             }
           }
         ],

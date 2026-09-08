@@ -8,6 +8,7 @@ import os
 import tempfile
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from typing import cast
 
@@ -18,6 +19,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
+from .lateral_partial_contract import LateralPartialContractError, LateralPartialGeometrySnapshot
 from .page_geometry_registration import (
     PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
     PAGE_REGISTRATION_VERSION,
@@ -81,6 +83,25 @@ class PageGeometryPreflightHandler:
         output = self._existing_output(job)
         if output is not None:
             manifest = _load_manifest(output)
+            if "lateralPartialGeometry" in payload:
+                from .lateral_partial_artifact import require_lateral_manifest
+
+                checkpoint = cast(Mapping[str, object], job.checkpoint_payload)
+                if hashlib.sha256(output.read_bytes()).hexdigest() != checkpoint.get(
+                    "geometry_manifest_checksum_sha256"
+                ):
+                    raise JobHandlerError(
+                        "IMAGE_PAGE_GEOMETRY_MANIFEST_DRIFT", "The completed v4 manifest changed."
+                    )
+                require_lateral_manifest(
+                    manifest,
+                    game_id=str(job.game_id),
+                    source_selection_id=cast(str, payload["sourceSelectionId"]),
+                    source_manifest_sha256=cast(str, payload["sourceManifestChecksumSha256"]),
+                    policy=LateralPartialGeometrySnapshot.from_payload(
+                        payload["lateralPartialGeometry"]
+                    ),
+                )
             source_count = _manifest_count(manifest, "sourceCount")
             registered_count = _manifest_count(manifest, "registeredSourceCount")
             review_count = _manifest_count(manifest, "reviewRequiredSourceCount")
@@ -101,15 +122,54 @@ class PageGeometryPreflightHandler:
             return
 
         source_directory = Path(cast(str, payload["sourceDirectory"]))
-        _verify_browser_source_manifest(
-            source_directory,
-            expected_checksum=cast(str, payload["sourceManifestChecksumSha256"]),
-        )
+        managed_reprepare = "managed_source_job_id" in job.input_payload
+        if managed_reprepare:
+            from uuid import UUID
+
+            managed_id = UUID(str(job.input_payload["managed_source_job_id"]))
+            source_manifest = (
+                self._artifact_root / "data" / "originals" / "manifests" / f"{managed_id}.json"
+            )
+            if (
+                not source_manifest.is_file()
+                or hashlib.sha256(source_manifest.read_bytes()).hexdigest()
+                != job.input_payload["managed_source_manifest_checksum_sha256"]
+            ):
+                raise JobHandlerError(
+                    "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE",
+                    "The pinned managed original inventory changed before preflight.",
+                )
+        if not managed_reprepare:
+            _verify_browser_source_manifest(
+                source_directory,
+                expected_checksum=cast(str, payload["sourceManifestChecksumSha256"]),
+            )
         try:
             managed = self._originals.load_or_create_manifest(
-                job,
+                replace(job, input_payload={**job.input_payload, "schema_version": 6})
+                if managed_reprepare
+                else job,
                 source_directory=source_directory,
             )
+            if managed_reprepare:
+                # Reuse only checksum-verified managed JPEGs. No browser path or
+                # temporary image copy is needed, including after restart.
+                for original in managed.originals:
+                    path = self._artifact_root / original.managed_relative_path
+                    if not path.is_file():
+                        raise JobHandlerError(
+                            "IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE",
+                            "A managed JPEG needed for preflight is unavailable.",
+                        )
+                    self._originals.ensure_original(managed, original)
+                managed = replace(
+                    managed,
+                    source_directory=self._artifact_root,
+                    originals=tuple(
+                        replace(item, source_storage_relative_path=item.managed_relative_path)
+                        for item in managed.originals
+                    ),
+                )
         except JobHandlerError as error:
             if error.code != "IMAGE_SOURCE_UNAVAILABLE":
                 raise
@@ -288,7 +348,16 @@ class PageGeometryPreflightHandler:
                 },
                 "review_required",
             )
-        evaluation = registrar.evaluate(rgb)
+        partial_policy = payload.get("lateralPartialGeometry")
+        evaluation = (
+            registrar.evaluate(rgb)
+            if partial_policy is None
+            else registrar.evaluate(
+                rgb,
+                lateral_partial_policy=LateralPartialGeometrySnapshot.from_payload(partial_policy),
+                active_board_slots=tuple(range(_expected_board_count(original))),
+            )
+        )
         if evaluation.result is None:
             return (
                 original.checksum_sha256,
@@ -598,7 +667,14 @@ def _input(job: Job) -> dict[str, object]:
         "page_geometry_overrides",
         "canonical_sequence_numbers",
     }
-    optional = {"preflight_policy_version", "source_display_name", "source_exclusions"}
+    optional = {
+        "preflight_policy_version",
+        "source_display_name",
+        "source_exclusions",
+        "lateral_partial_geometry",
+        "managed_source_job_id",
+        "managed_source_manifest_checksum_sha256",
+    }
     policy = payload.get("preflight_policy_version", LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION)
     payload_keys = frozenset(payload)
     if (
@@ -654,7 +730,7 @@ def _input(job: Job) -> dict[str, object]:
             "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
             "The page geometry preflight source or profile is invalid.",
         )
-    return {
+    result: dict[str, object] = {
         "sourceSelectionId": selection,
         "sourceDirectory": directory,
         "sourceManifestChecksumSha256": checksum,
@@ -664,6 +740,28 @@ def _input(job: Job) -> dict[str, object]:
         "preflightPolicyVersion": policy,
         "sourceExclusions": dict(source_exclusions),
     }
+    if "lateral_partial_geometry" in payload:
+        try:
+            result["lateralPartialGeometry"] = LateralPartialGeometrySnapshot.from_payload(
+                payload["lateral_partial_geometry"]
+            ).to_payload()
+        except LateralPartialContractError as error:
+            raise JobHandlerError(error.code, str(error)) from error
+    if any(
+        key in payload
+        for key in ("managed_source_job_id", "managed_source_manifest_checksum_sha256")
+    ):
+        from uuid import UUID
+
+        try:
+            UUID(str(payload.get("managed_source_job_id")))
+            if "lateralPartialGeometry" not in result or not _is_sha256(
+                payload.get("managed_source_manifest_checksum_sha256")
+            ):
+                raise ValueError("Managed preflight requires a pinned policy and checksum.")
+        except ValueError as error:
+            raise JobHandlerError("INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD", str(error)) from error
+    return result
 
 
 def _load_source_rgb(root: Path, relative_path: str) -> np.ndarray:
@@ -731,6 +829,8 @@ def _manifest_bytes(
     }
     if _uses_auto_anchors(version):
         value["automaticAnchorPasses"] = list(auto_anchor_passes)
+    if "lateralPartialGeometry" in payload:
+        value["lateralPartialGeometry"] = payload["lateralPartialGeometry"]
     return (json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 

@@ -373,13 +373,27 @@ class SqlAlchemyImagePipelineStore:
                 lease_token=lease_token,
                 checked_at=executed_at,
             )
-            source = _locked_source(session, job_id, candidate.execution.file_execution_key)
             job = session.get(JobModel, job_id)
             if job is None or job.game_id is None:
                 raise ImagePipelineStoreError(
                     "IMAGE_PIPELINE_GAME_MISSING",
                     "The image import job has no game projection.",
                 )
+            from game_predictor_api.storage.lateral_reprocess_protection import (
+                lock_lateral_sequences,
+            )
+
+            lock_lateral_sequences(
+                session,
+                job=job,
+                sequence_numbers=(
+                    value
+                    for item in sequences.values()
+                    if isinstance(value := item.get("normalizedNumber"), int)
+                    and not isinstance(value, bool)
+                ),
+            )
+            source = _locked_source(session, job_id, candidate.execution.file_execution_key)
             geometry_checksum = _virtual_geometry_checksum(crop_payload)
             source_geometry = (
                 session.scalar(
@@ -405,6 +419,18 @@ class SqlAlchemyImagePipelineStore:
                 sequence = sequences[position]
                 symbol = symbols[position]
                 sequence_number = sequence.get("normalizedNumber")
+                if isinstance(sequence_number, int) and not isinstance(sequence_number, bool):
+                    from game_predictor_api.storage.lateral_reprocess_protection import (
+                        has_protected_lateral_owner,
+                    )
+
+                    if has_protected_lateral_owner(
+                        session,
+                        job=job,
+                        sequence_number=sequence_number,
+                        source_checksum_sha256=candidate.execution.source_checksum_sha256,
+                    ):
+                        continue
                 canonical = None
                 if isinstance(sequence_number, int) and not isinstance(sequence_number, bool):
                     normalized_sequence_number = sequence_number

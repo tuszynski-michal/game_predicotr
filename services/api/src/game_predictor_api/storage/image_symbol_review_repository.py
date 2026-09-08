@@ -745,7 +745,6 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             SqlAlchemyOperationalImageReviewRepository,
         )
 
-        state = self._require_ready_state(game_id)
         probes = self._probe_board_cells(commands)
         review_item_ids = {probe.review_item_id for probe in probes}
         sequence_numbers = {probe.sequence_number for probe in probes}
@@ -764,6 +763,10 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         # Lock rows again after advisory locks; their current owner may have
         # changed while the deterministic sequence lock was being acquired.
         rows = self._locked_current_rows(commands)
+        # The worker and geometry editor lock sequences/source rows before the
+        # shared catalog state. Taking state first deadlocks against a worker
+        # that is finishing another board while this mutation waits on its source.
+        state = self._require_ready_state(game_id)
         row_by_cell_id = {row[0].id: row for row in rows}
         if set(row_by_cell_id) != {command.cell_review_id for command in commands}:
             raise SymbolCellReviewError(

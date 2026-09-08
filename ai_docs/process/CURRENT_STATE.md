@@ -6,6 +6,22 @@ last_updated: 2026-09-07
 
 # Current State
 
+### TASK-0513 — trwały run v4
+
+- Implementacja spina istniejący preflight, manifest, adapter i reprocessing.
+  Managed originals pozwalają jawnie przygotować preflight po zwolnieniu
+  browser stagingu; źródła są sprawdzane checksumowo, bez nowego uploadu.
+- 82 skupione testy API/workera passed, w tym restart, brak stagingu,
+  integralność, odroczenie partiala i rzeczywiste wejścia transakcji lock-order;
+  57 testów klienta, OpenAPI, Ruff i scoped mypy również passed.
+- Audyt wykrył cykle locków oraz brak managed reprepare / ochrony rejected.
+  Poprawiono je i ograniczono incumbent FOR UPDATE do mutowanych review/board;
+  końcowy re-review zaakceptował bramkę bez findings P0–P2.
+- Guard manifest związany ze starym preflight SHA wymaga jawnego przepięcia;
+  obecny v4 fail-closed przed runem, nie gubi rejected/manual/partial decyzji.
+- Publiczny release gate nadal false. Nie wykonano migracji, restartu,
+  reimportu danych ani zmiany aktywnych jobów; UI/odbiór to TASK-0514/0515.
+
 ### TASK-0512 — lokalna propozycja bocznie niepełnej siatki
 
 - Izolowany v4 najpierw wywołuje v3 i zachowuje jego pełny wynik. Boczne

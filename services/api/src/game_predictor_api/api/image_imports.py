@@ -11,6 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Body, Depends, Header, Query, Response, status
 from fastapi.responses import FileResponse
 from game_predictor_worker.images.lateral_partial_contract import (
+    GeometryEngineVariant,
     LateralPartialContractError,
     require_geometry_engine_variant_available,
 )
@@ -629,6 +630,15 @@ def create_image_imports_router(
             require_geometry_engine_variant_available(payload.geometry_engine_variant)
         except LateralPartialContractError as error:
             raise JobConflictError(error.code, str(error)) from error
+        if payload.geometry_engine_variant is not None:
+            job_service.require_lateral_browser_source_history(
+                game_id=payload.game_id, source_selection_id=upload_id
+            )
+            if payload.geometry_guard_resolution_manifest_id is not None:
+                raise JobConflictError(
+                    "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED",
+                    "v0.10.4 cannot silently rebind a v3 guard resolution manifest.",
+                )
         ready = service.bind_ready_game(upload_id, payload.game_id)
         if ready.manifest.checksum_sha256 != payload.manifest_checksum_sha256:
             raise JobConflictError(
@@ -706,7 +716,11 @@ def create_image_imports_router(
             if override_service is None
             else override_service.exclusion_snapshot(browser_selection_id=upload_id)
         )
-        rerun = requested_mode == "rerun_current_models" or existing is None
+        rerun = (
+            requested_mode == "rerun_current_models"
+            or existing is None
+            or payload.geometry_engine_variant is not None
+        )
         if existing is not None and existing.input_payload.get("schema_version") != 7:
             rerun = True
         if (
@@ -787,7 +801,9 @@ def create_image_imports_router(
                     source_manifest_sha256=ready.manifest.checksum_sha256,
                     source_exclusions=source_exclusions,
                     start_mode="rerun_current_models",
-                    previous_job_id=None if existing is None else existing.id,
+                    previous_job_id=None
+                    if existing is None or payload.geometry_engine_variant is not None
+                    else existing.id,
                     page_geometry_manifest=geometry_manifest,
                     geometry_guard_resolution_manifest=resolution_manifest,
                     geometry_engine_variant=payload.geometry_engine_variant,
@@ -847,14 +863,29 @@ def create_image_imports_router(
         job_service: Annotated[JobService, job_parameter],
         canonical_service: object | None = canonical_parameter,
     ) -> BrowserPageGeometryPreflightResponse:
-        ready = service.bind_ready_game(upload_id, payload.game_id)
+        try:
+            require_geometry_engine_variant_available(payload.geometry_engine_variant)
+        except LateralPartialContractError as error:
+            raise JobConflictError(error.code, str(error)) from error
+        if payload.managed_source_job_id is not None:
+            managed_job = job_service.get_job(payload.managed_source_job_id)
+            source_directory = Path(str(managed_job.input_payload.get("source_directory", "")))
+            source_name = str(
+                managed_job.input_payload.get("source_display_name", "Import obrazów")
+            )
+            source_checksum = str(managed_job.input_payload.get("source_manifest_sha256", ""))
+        else:
+            ready = service.bind_ready_game(upload_id, payload.game_id)
+            source_directory = ready.upload.path
+            source_name = ready.upload.display_name
+            source_checksum = ready.manifest.checksum_sha256
         try:
             job = job_service.create_page_geometry_preflight_job(
                 game_id=payload.game_id,
                 selection_id=upload_id,
-                source_directory=ready.upload.path,
-                source_display_name=ready.upload.display_name,
-                source_manifest_sha256=ready.manifest.checksum_sha256,
+                source_directory=source_directory,
+                source_display_name=source_name,
+                source_manifest_sha256=source_checksum,
                 canonical_sequence_numbers=(
                     ()
                     if canonical_service is None
@@ -865,6 +896,8 @@ def create_image_imports_router(
                     )
                 ),
                 page_registration_variant=payload.page_registration_variant,
+                managed_source_job_id=payload.managed_source_job_id,
+                geometry_engine_variant=payload.geometry_engine_variant,
             )
             created = True
         except JobConflictError as error:
@@ -876,7 +909,7 @@ def create_image_imports_router(
                 raise
             job = job_service.get_job(UUID(existing_id))
             created = False
-        if not created:
+        if not created and payload.managed_source_job_id is None:
             service.mark_in_use(upload_id, game_id=payload.game_id, job_id=job.id)
         return BrowserPageGeometryPreflightResponse(
             created=created,
@@ -1729,12 +1762,53 @@ def create_image_imports_router(
         source_job_id: UUID,
         job_service: Annotated[JobService, job_parameter],
         continue_with_manual_geometry: bool = Query(False, alias="continueWithManualGeometry"),
+        geometry_engine_variant: Annotated[
+            GeometryEngineVariant | None, Query(alias="geometryEngineVariant")
+        ] = None,
+        geometry_preflight_job_id: Annotated[
+            UUID | None, Query(alias="geometryPreflightJobId")
+        ] = None,
+        geometry_manifest_checksum_sha256: Annotated[
+            str | None, Query(alias="geometryManifestChecksumSha256")
+        ] = None,
     ) -> ImageFolderImportResponse:
-        job = job_service.create_managed_image_reprocess_job(
-            source_job_id,
-            pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
-            **({"continue_with_manual_geometry": True} if continue_with_manual_geometry else {}),
-        )
+        descriptor = None
+        if (geometry_preflight_job_id is None) != (geometry_manifest_checksum_sha256 is None):
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED",
+                "Provide preflight ID and checksum together.",
+            )
+        if geometry_preflight_job_id is not None:
+            source = job_service.get_job(source_job_id)
+            if source.game_id is None:
+                raise JobError("IMAGE_REPROCESS_SOURCE_TYPE_INVALID", "The source has no game.")
+            try:
+                selection_id = UUID(str(source.input_payload.get("source_selection_id")))
+            except ValueError as error:
+                raise JobError(
+                    "IMAGE_REPROCESS_SOURCE_INVALID", "The source staging is unknown."
+                ) from error
+            descriptor = _geometry_manifest_descriptor(
+                job_service=job_service,
+                game_id=source.game_id,
+                upload_id=selection_id,
+                preflight_job_id=geometry_preflight_job_id,
+                expected_checksum=geometry_manifest_checksum_sha256,
+            )
+        if geometry_engine_variant is not None or descriptor is not None:
+            job = job_service.create_managed_image_reprocess_job(
+                source_job_id,
+                pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
+                continue_with_manual_geometry=continue_with_manual_geometry,
+                geometry_engine_variant=geometry_engine_variant,
+                page_geometry_manifest=descriptor,
+            )
+        else:
+            job = job_service.create_managed_image_reprocess_job(
+                source_job_id,
+                pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
+                continue_with_manual_geometry=continue_with_manual_geometry,
+            )
         return ImageFolderImportResponse(job=JobResponse.from_domain(job))
 
     @router.post(

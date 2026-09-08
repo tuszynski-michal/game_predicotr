@@ -25,6 +25,19 @@ from test_jobs_domain import MemoryJobRepository
 VARIANT = GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
 
 
+def test_reprocess_http_variant_reaches_release_gate_without_mutation(tmp_path):
+    client, _game_id = _client(tmp_path, None)
+    source = uuid4()
+    with client:
+        response = client.post(
+            f"/api/v1/admin/image-imports/{source}/reprocess",
+            params={"geometryEngineVariant": VARIANT.value},
+            headers={"X-Admin-Target": f"image-import:{source}:reprocess"},
+        )
+    assert response.status_code == 409
+    assert response.json()["code"] == "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED"
+
+
 def test_per_run_snapshot_does_not_mutate_game_policy() -> None:
     game_id = uuid4()
     repository = MemoryJobRepository(game_id)

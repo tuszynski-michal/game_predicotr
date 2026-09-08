@@ -425,6 +425,11 @@ class PageGeometryPreflightJobPayload(ApiModel):
     source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     page_registration_profile: dict[str, object]
     page_geometry_overrides: dict[str, object] = Field(default_factory=dict)
+    lateral_partial_geometry: LateralPartialGeometryJobSnapshotPayload | None = None
+    managed_source_job_id: UUID | None = None
+    managed_source_manifest_checksum_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
     source_exclusions: dict[str, dict[str, str]] = Field(default_factory=dict)
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
 

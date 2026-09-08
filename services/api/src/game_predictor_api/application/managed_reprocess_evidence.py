@@ -45,11 +45,35 @@ class _ManagedOriginalEvidence:
     expected_board_count: int
 
 
+def resolve_managed_preflight_source(
+    source: Job,
+    *,
+    artifact_root: Path,
+    game_id: UUID,
+    selection_id: UUID,
+) -> tuple[str, str]:
+    """Pin source inventory without requiring an old page geometry artifact."""
+    if (
+        source.job_type is not JobType.IMPORT
+        or source.game_id != game_id
+        or source.input_payload.get("import_kind") != "image_directory"
+        or source.input_payload.get("source_selection_id") != str(selection_id)
+        or source.status in {JobStatus.CREATED, JobStatus.PROCESSING}
+    ):
+        raise _incompatible("The managed preflight source belongs to another game or staging.")
+    browser_checksum = source.input_payload.get("source_manifest_sha256")
+    if not isinstance(browser_checksum, str) or _SHA256.fullmatch(browser_checksum) is None:
+        raise _incompatible("The managed preflight has no attested browser source checksum.")
+    checksum, _ = _load_managed_source_manifest(artifact_root.resolve(), source)
+    return checksum, browser_checksum
+
+
 def resolve_managed_reprocess_evidence(
     source: Job,
     *,
     artifact_root: Path,
     get_job: Callable[[UUID], Job | None],
+    page_geometry_manifest: Mapping[str, object] | None = None,
 ) -> ManagedReprocessEvidence:
     """Resolve immutable source and page manifests without heuristic fallback."""
 
@@ -65,12 +89,14 @@ def resolve_managed_reprocess_evidence(
             raise _incompatible("The managed reprocess lineage crosses a game boundary.")
 
         descriptor = lineage_job.input_payload.get("page_geometry_manifest")
-        if descriptor is not None:
+        if descriptor is not None or page_geometry_manifest is not None:
             return _validate_page_geometry_evidence(
                 root,
                 source=source,
                 lineage_job=lineage_job,
-                descriptor=descriptor,
+                descriptor=page_geometry_manifest
+                if page_geometry_manifest is not None
+                else descriptor,
                 originals=originals,
                 managed_checksum=managed_checksum,
                 get_job=get_job,
@@ -195,8 +221,7 @@ def _validate_page_geometry_evidence(
         manifest.get("gameId") != str(source.game_id)
         or manifest.get("sourceSelectionId") != str(source_selection_id)
         or manifest.get("sourceManifestChecksumSha256") != source_manifest_sha256
-        or (manifest.get("schemaVersion"), manifest.get("version"))
-        not in _PAGE_MANIFEST_VERSIONS
+        or (manifest.get("schemaVersion"), manifest.get("version")) not in _PAGE_MANIFEST_VERSIONS
     ):
         raise _incompatible("The page-geometry manifest has different source provenance.")
 

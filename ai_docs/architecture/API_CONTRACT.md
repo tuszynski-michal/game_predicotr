@@ -6,6 +6,23 @@ last_updated: 2026-08-24
 
 # Kontrakty API i danych mobilnych
 
+## Reprocessing testowego v0.10.4 — TASK-0513
+
+Istniejący `POST /api/v1/admin/image-imports/{sourceJobId}/reprocess`
+przyjmuje `geometryEngineVariant=structured_lattice_v4_partial_sides` oraz parę
+`geometryPreflightJobId` / `geometryManifestChecksumSha256`. Para wskazuje
+jawnie przygotowany kompatybilny manifest. Sam odczyt raportu nie uruchamia joba.
+
+Istniejący `POST .../browser-selections/{uploadId}/geometry-preflight` przyjmuje
+`geometryEngineVariant` i opcjonalny `managedSourceJobId`. Ten ostatni pozwala
+użyć już istniejących managed originals bez bind/verify browser stagingu.
+Serwis sprawdza grę, staging, rodzaj/status źródłowego joba i checksumę inventory;
+worker sprawdza także JPEG-i. Nie ma równoległego endpointu ani nowego job type.
+
+Stare żądania pozostają bez nowej polityki. Publiczny gate pozostaje zamknięty
+do końcowego odbioru 0515. Nieobsługiwane przepięcie ręcznych manifestów guard
+zwraca `IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED` bez tworzenia nowego runu.
+
 ## Kontynuacja importu z ręczną geometrią — TASK-0491
 
 Istniejący `POST /api/v1/admin/image-imports/{sourceJobId}/reprocess`

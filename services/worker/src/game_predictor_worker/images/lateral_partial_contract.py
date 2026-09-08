@@ -11,6 +11,9 @@ from enum import StrEnum
 LATERAL_PARTIAL_POLICY_VERSION = "structured-lattice-v4-lateral-partial-v1"
 LATERAL_PARTIAL_SNAPSHOT_VERSION = "lateral-partial-geometry-snapshot-v1"
 AUTOMATIC_PARTIAL_PROPOSAL_VERSION = "automatic-lateral-partial-proposal-v1"
+# Release is a reviewed code decision, never an environment/client override.
+# TASK-0515 may enable this only after its real-data acceptance gate.
+LATERAL_PARTIAL_RELEASED = False
 
 
 class GeometryEngineVariant(StrEnum):
@@ -83,7 +86,7 @@ class LateralPartialGeometrySnapshot:
 
 
 def require_geometry_engine_variant_available(variant: GeometryEngineVariant | str | None) -> None:
-    """Foundation fail-closed gate, removed only with accepted v4 integration."""
+    """Explicit release gate, independent of the immutable run policy."""
     if variant is None:
         return
     try:
@@ -93,7 +96,9 @@ def require_geometry_engine_variant_available(variant: GeometryEngineVariant | s
             "IMAGE_GEOMETRY_ENGINE_VARIANT_UNSUPPORTED",
             "The requested geometry engine variant is unknown.",
         ) from error
+    if LATERAL_PARTIAL_RELEASED:
+        return
     raise LateralPartialContractError(
         "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED",
-        "v0.10.4 is a contract-only experiment until its detector and quality gate are accepted.",
+        "v0.10.4 is unavailable until its real-data quality gate is accepted.",
     )

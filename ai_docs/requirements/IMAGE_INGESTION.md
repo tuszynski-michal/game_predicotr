@@ -43,6 +43,27 @@ Publiczne uruchomienie nadal wymaga TASK-0513–0515 i końcowej bramki jakości
 
 ## Wykluczenie błędnego źródła przed importem
 
+### Trwały, opcjonalny run v0.10.4 — TASK-0513
+
+Nowy run przypina rozszerzenie polityki i manifest bocznych kandydatur do gry,
+stagingu, checksumy listy źródeł oraz konkretnych obrazów. Stary preflight bez
+tej polityki wymaga jawnego przygotowania nowego artefaktu. Można użyć
+checksum-bound managed originals również po usunięciu browser stagingu;
+brak lub zmiana managed JPEG-a pozostaje błędem integralności, nie geometrii.
+
+Powtórzenie tego samego żądania zwraca ten sam run. Ręczna geometria, maski,
+wykluczenia i decyzje symboli chronią aktualnego właściciela sekwencji.
+Jawnie odrzucona plansza jest chroniona dla zgodnej checksumy źródła.
+Nie ma automatycznego renderowania niepotwierdzonego partiala: zapisuje się
+propozycja oraz odroczony slot do istniejącej ręcznej kolejki. Pełne sloty
+kontynuują przetwarzanie; niezakończone decyzje pozostawiają waiting_for_review.
+
+Ograniczenie: run ze związanymi z wcześniejszym preflightem rozliczeniami
+`geometry_guard_resolution_manifest` nie może ich po cichu pominąć. v4 zwraca
+`IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED`, również dla decyzji przodka runu,
+zanim powstanie nowy job. W tym etapie nie przepinamy takich decyzji na inne
+dowody automatycznie. Dostępność publiczna nadal wymaga końcowej bramki 0515.
+
 Operator może z kolejki `Korekta geometrii strony` wykluczyć JPEG, którego
 lokalny crop jest niepoprawny. Operacja wymaga potwierdzenia i nie mutuje
 niezmiennego browser stagingu. Decyzja jest związana z konkretną grą,

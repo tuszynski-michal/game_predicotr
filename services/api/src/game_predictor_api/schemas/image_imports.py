@@ -144,6 +144,8 @@ class BrowserImageImportPreflightCreate(ApiModel):
 class BrowserPageGeometryPreflightCreate(ApiModel):
     game_id: UUID
     page_registration_variant: Literal["standard_v0_10", "board_area_test"] = "standard_v0_10"
+    geometry_engine_variant: GeometryEngineVariant | None = None
+    managed_source_job_id: UUID | None = None
 
 
 class BrowserCanonicalRange(ApiModel):

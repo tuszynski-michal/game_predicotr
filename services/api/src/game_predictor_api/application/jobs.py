@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
@@ -579,6 +579,33 @@ class JobService:
             require_geometry_engine_variant_available(geometry_engine_variant)
         except LateralPartialContractError as error:
             raise JobError(error.code, str(error)) from error
+        if geometry_engine_variant is not None:
+            if geometry_guard_resolution_manifest is not None:
+                raise JobConflictError(
+                    "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED",
+                    "v0.10.4 cannot silently rebind a v3 guard resolution manifest.",
+                )
+            existing = self.require_lateral_browser_source_history(
+                game_id=game_id, source_selection_id=selection_id
+            )
+            if existing is not None:
+                previous_rollout = existing.input_payload.get("image_geometry_rollout")
+                if (
+                    isinstance(previous_rollout, Mapping)
+                    and previous_rollout.get("lateralPartialGeometry") is not None
+                ):
+                    # Keep the original lineage on retries, not the newly
+                    # created v4 job, or every click would create another run.
+                    previous = existing.input_payload.get("previous_job_id")
+                    previous_job_id = UUID(str(previous)) if previous is not None else None
+                else:
+                    previous_job_id = existing.id
+            self._require_lateral_preflight(
+                page_geometry_manifest,
+                game_id=game_id,
+                selection_id=selection_id,
+                source_manifest_sha256=source_manifest_sha256,
+            )
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
                 "GAME_NOT_FOUND",
@@ -747,6 +774,56 @@ class JobService:
                 raise
             return snapshot
 
+    def _require_lateral_preflight(
+        self,
+        descriptor: object,
+        *,
+        game_id: UUID,
+        selection_id: UUID,
+        source_manifest_sha256: str | None,
+    ) -> None:
+        from game_predictor_worker.images.lateral_partial_artifact import load_lateral_manifest
+
+        if self._artifact_root is None or source_manifest_sha256 is None:
+            raise JobConflictError(
+                "IMAGE_LATERAL_PARTIAL_PREFLIGHT_REQUIRED",
+                "v0.10.4 requires a compatible immutable preflight; no upload is required.",
+            )
+        try:
+            load_lateral_manifest(
+                self._artifact_root,
+                descriptor,
+                game_id=str(game_id),
+                source_selection_id=str(selection_id),
+                source_manifest_sha256=source_manifest_sha256,
+                policy=LateralPartialGeometrySnapshot(),
+            )
+            if not isinstance(descriptor, Mapping):
+                raise ValueError("Invalid descriptor.")
+            preflight = self._repository.get_job(UUID(str(descriptor.get("preflightJobId"))))
+            if (
+                preflight is None
+                or preflight.game_id != game_id
+                or preflight.status is not JobStatus.COMPLETED
+                or preflight.input_payload.get("source_selection_id") != str(selection_id)
+                or preflight.input_payload.get("source_manifest_sha256") != source_manifest_sha256
+                or preflight.input_payload.get("lateral_partial_geometry")
+                != LateralPartialGeometrySnapshot().to_payload()
+                or not isinstance(preflight.checkpoint_payload, Mapping)
+                or preflight.checkpoint_payload.get("geometry_manifest_checksum_sha256")
+                != descriptor.get("checksumSha256")
+            ):
+                raise JobConflictError(
+                    "IMAGE_LATERAL_PARTIAL_PREFLIGHT_REQUIRED",
+                    "The preflight did not pin v0.10.4 evidence.",
+                )
+        except LateralPartialContractError as error:
+            raise JobConflictError(error.code, str(error)) from error
+        except JobConflictError:
+            raise
+        except ValueError as error:
+            raise JobConflictError("IMAGE_LATERAL_PARTIAL_ARTIFACT_INVALID", str(error)) from error
+
     def create_pending_symbol_reinference_job(self, *, game_id: UUID) -> Job:
         """Create an explicit job that may update pending symbol predictions only."""
 
@@ -902,8 +979,23 @@ class JobService:
         *,
         pipeline_fingerprint: str,
         continue_with_manual_geometry: bool = False,
+        geometry_engine_variant: GeometryEngineVariant | None = None,
+        page_geometry_manifest: Mapping[str, object] | None = None,
     ) -> Job:
         """Create a new import pinned to an earlier job's managed originals."""
+
+        try:
+            require_geometry_engine_variant_available(geometry_engine_variant)
+        except LateralPartialContractError as error:
+            raise JobConflictError(error.code, str(error)) from error
+        if geometry_engine_variant is not None and continue_with_manual_geometry:
+            raise JobConflictError(
+                "IMAGE_REPROCESS_MODE_CONFLICT", "Choose a new engine or historical continuation."
+            )
+        if page_geometry_manifest is not None and geometry_engine_variant is None:
+            raise JobConflictError(
+                "IMAGE_REPROCESS_MODE_CONFLICT", "A replacement preflight requires v0.10.4."
+            )
 
         source = self.get_job(source_job_id)
         if (
@@ -920,6 +1012,8 @@ class JobService:
                 "IMAGE_REPROCESS_SOURCE_ACTIVE",
                 "An active image import cannot be reprocessed.",
             )
+        if geometry_engine_variant is not None:
+            self._require_no_unreplayed_guard_decisions(source)
         if self._artifact_root is None:
             raise JobConflictError(
                 "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED",
@@ -930,9 +1024,17 @@ class JobService:
                 source,
                 artifact_root=self._artifact_root,
                 get_job=self._repository.get_job,
+                page_geometry_manifest=page_geometry_manifest,
             )
         except ManagedReprocessEvidenceError as error:
             raise JobConflictError(error.code, error.message) from error
+        if geometry_engine_variant is not None:
+            self._require_lateral_preflight(
+                evidence.page_geometry_manifest,
+                game_id=source.game_id,
+                selection_id=evidence.source_selection_id,
+                source_manifest_sha256=evidence.source_manifest_sha256,
+            )
         source_directory = source.input_payload.get("source_directory")
         if not isinstance(source_directory, str) or not source_directory:
             raise JobConflictError(
@@ -1105,17 +1207,29 @@ class JobService:
             input_payload=payload,
             effective_fingerprint=effective_pipeline_fingerprint,
             symbol_model=symbol_model,
+            geometry_engine_variant=geometry_engine_variant,
         )
         payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         image_selection_run_id = source.input_payload.get("image_selection_run_id")
         if image_selection_run_id is not None:
             payload["image_selection_run_id"] = image_selection_run_id
-        return self._persist_job(
-            JobType.IMPORT,
-            game_id=source.game_id,
-            input_payload=payload,
-            game_already_validated=True,
-        )
+        try:
+            return self._persist_job(
+                JobType.IMPORT,
+                game_id=source.game_id,
+                input_payload=payload,
+                game_already_validated=True,
+            )
+        except JobConflictError as error:
+            if geometry_engine_variant is None or error.code != "JOB_INPUT_ALREADY_EXISTS":
+                raise
+            key = create_job(
+                JobType.IMPORT, game_id=source.game_id, input_payload=payload
+            ).input_key
+            existing = self._repository.get_job_by_input_key(key)
+            if existing is None:
+                raise
+            return existing
 
     def create_layout_import_validation_job(
         self,
@@ -1436,6 +1550,47 @@ class JobService:
             unclassified_cold_start_allowed,
         )
 
+    def require_lateral_browser_source_history(
+        self, *, game_id: UUID, source_selection_id: UUID
+    ) -> Job | None:
+        source = self.get_image_import_by_source_selection(
+            game_id=game_id, source_selection_id=source_selection_id
+        )
+        if source is not None:
+            self._require_no_unreplayed_guard_decisions(source)
+        return source
+
+    def _require_no_unreplayed_guard_decisions(self, source: Job) -> None:
+        # Guard artifacts bind the previous page geometry checksum and the v3
+        # snapshot. Never drop rejected/manual/partial decisions while replacing
+        # that evidence with a v4 preflight. They require explicit rebinding.
+        seen: set[UUID] = set()
+        current: Job | None = source
+        while current is not None and current.id not in seen:
+            seen.add(current.id)
+            if current.input_payload.get("geometry_guard_resolution_manifest") is not None:
+                raise JobConflictError(
+                    "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED",
+                    "The source has pinned manual guard decisions. Rebind their source-bound "
+                    "resolution manifest before running v0.10.4; no decisions were changed.",
+                )
+            parent = current.input_payload.get(
+                "managed_source_job_id"
+            ) or current.input_payload.get("previous_job_id")
+            if parent is None:
+                return
+            try:
+                current = self._repository.get_job(UUID(str(parent)))
+            except ValueError as error:
+                raise JobConflictError(
+                    "IMAGE_REPROCESS_SOURCE_INVALID", "Managed source lineage is invalid."
+                ) from error
+            if current is None or current.game_id != source.game_id or len(seen) >= 32:
+                break
+        raise JobConflictError(
+            "IMAGE_REPROCESS_SOURCE_INVALID", "Managed source lineage cannot be verified."
+        )
+
     def create_page_geometry_preflight_job(
         self,
         *,
@@ -1446,6 +1601,8 @@ class JobService:
         source_manifest_sha256: str,
         canonical_sequence_numbers: Sequence[int] = (),
         page_registration_variant: str = "standard_v0_10",
+        geometry_engine_variant: GeometryEngineVariant | None = None,
+        managed_source_job_id: UUID | None = None,
     ) -> Job:
         """Create an idempotent verified-page geometry preflight.
 
@@ -1453,6 +1610,11 @@ class JobService:
         the later import can therefore reject stale geometry instead of silently
         returning to the heuristic detector.
         """
+
+        try:
+            require_geometry_engine_variant_available(geometry_engine_variant)
+        except LateralPartialContractError as error:
+            raise JobConflictError(error.code, str(error)) from error
 
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
@@ -1471,14 +1633,40 @@ class JobService:
                 "The selected page registration variant is not supported.",
                 details={"pageRegistrationVariant": page_registration_variant},
             )
+        managed_input: dict[str, object] = {}
+        if managed_source_job_id is not None:
+            if geometry_engine_variant is None or self._artifact_root is None:
+                raise JobConflictError(
+                    "IMAGE_LATERAL_PARTIAL_MANAGED_PREFLIGHT_INVALID",
+                    "Managed preflight preparation requires the explicit v0.10.4 variant.",
+                )
+            from .managed_reprocess_evidence import resolve_managed_preflight_source
+
+            try:
+                managed_checksum, browser_checksum = resolve_managed_preflight_source(
+                    self.get_job(managed_source_job_id),
+                    artifact_root=self._artifact_root,
+                    game_id=game_id,
+                    selection_id=selection_id,
+                )
+            except ManagedReprocessEvidenceError as error:
+                raise JobConflictError(error.code, error.message) from error
+            if browser_checksum != source_manifest_sha256:
+                raise JobConflictError(
+                    "IMAGE_LATERAL_PARTIAL_ARTIFACT_INVALID", "Managed source checksum differs."
+                )
+            managed_input = {
+                "managed_source_job_id": str(managed_source_job_id),
+                "managed_source_manifest_checksum_sha256": managed_checksum,
+            }
         try:
-            resolved = source_directory.resolve(strict=True)
+            resolved = source_directory.resolve(strict=not bool(managed_input))
         except OSError as error:
             raise JobError(
                 "IMAGE_FOLDER_NOT_FOUND",
                 "The staged image folder does not exist or is unavailable.",
             ) from error
-        if not resolved.is_dir():
+        if not managed_input and not resolved.is_dir():
             raise JobError(
                 "IMAGE_FOLDER_NOT_DIRECTORY",
                 "The staged image source must be a directory.",
@@ -1547,6 +1735,12 @@ class JobService:
                 "source_manifest_sha256": source_manifest_sha256,
                 "page_registration_profile": registration,
                 "page_geometry_overrides": overrides,
+                **managed_input,
+                **(
+                    {"lateral_partial_geometry": LateralPartialGeometrySnapshot().to_payload()}
+                    if geometry_engine_variant is not None
+                    else {}
+                ),
                 "source_exclusions": exclusions,
                 "canonical_sequence_numbers": sorted(
                     {int(number) for number in canonical_sequence_numbers if int(number) > 0}

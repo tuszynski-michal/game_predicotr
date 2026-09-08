@@ -226,6 +226,7 @@ import {
   unlockReviewerSession as unlockGeneratedReviewerSession,
 } from './generated/sdk.gen';
 import type {
+  ReprocessManagedImageImportData,
   BrowserImageSelectionCreate,
   BrowserImageUploadPlanResponse,
   BrowserImageImportPreflightCreate,
@@ -1458,6 +1459,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     reprocessManagedImageImport: (
       sourceJobId: string,
       continueWithManualGeometry = false,
+      options?: NonNullable<ReprocessManagedImageImportData['query']>,
     ) =>
       reprocessGeneratedManagedImageImport({
         client,
@@ -1465,9 +1467,15 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           `image-import:${sourceJobId}:reprocess`,
         ),
         path: { source_job_id: sourceJobId },
-        query: continueWithManualGeometry
-          ? { continueWithManualGeometry: true }
-          : undefined,
+        query:
+          options || continueWithManualGeometry
+            ? {
+                ...options,
+                ...(continueWithManualGeometry
+                  ? { continueWithManualGeometry: true }
+                  : {}),
+              }
+            : undefined,
       }),
     registerCuratedImageImportSource: (body: CuratedImageImportSourceCreate) =>
       registerGeneratedCuratedImageImportSource({

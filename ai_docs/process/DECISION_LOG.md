@@ -8,6 +8,21 @@ last_updated: 2026-09-07
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+### Trwałe przepięcie v4 i ochrona rozliczeń — TASK-0513
+
+- **Status:** accepted (zakres planu TASK-0513, audit fixes).
+- **Date:** 2026-09-08.
+- Preflight/reprocess korzysta z istniejącego job type; managed originals są
+  przypięte checksumą i działają bez browser JPEG-ów. Publiczny gate pozostaje
+  false do końcowej bramki, nie jest przełącznikiem klienta ani środowiska.
+- Pod sekwencyjnymi lockami chronimy istniejące decyzje człowieka. Kolejność
+  sequence → source/rows → symbol state jest wspólna z writerami UI; v4 pobiera
+  wszystkie sequence locks przed source, aby uniknąć cyklicznego oczekiwania.
+- Nie przepinamy guard manifestu z innego preflight SHA automatycznie. Brak
+  zgodnego replay rozliczeń zatrzymuje start nowego runu jawnym błędem, nawet
+  gdy decyzja rejected nie utworzyła recognized_board. To ograniczenie odbioru,
+  nie deklaracja pełnego wsparcia przepinania wszystkich historycznych decyzji.
+
 ## D-374 — v0.10.4 jest rozszerzeniem runu, nie zmianą polityki gry
 
 - **Status:** accepted (TASK-0510, plan TASK-0510–0515).

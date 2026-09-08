@@ -6,6 +6,29 @@ last_updated: 2026-09-08
 
 # Current State
 
+### TASK-0518 — pusty schemat v2 i audyt zakończone
+
+- Przygotowano migrację 0105 i zamrożony manifest 65 tabel `LIST(game_id)`.
+  Obserwacje, review, zdarzenia, bulk targets, kohorty oraz zależne metadane
+  mają wspólny game_id w PK/FK i indeksy relacji.
+- `jobs` pozostaje wspólnym koordynatorem w public: globalna unikalność lane
+  jest zachowana. V2 wiąże joby, symbole i reguły composite `(game_id,id)`.
+- Registry lokalizacji/generacji oraz checkpoint migracji jest trwały.
+  Brak partycji domyślnej. Nie przełączono aplikacji, nie skopiowano danych
+  i nie uruchomiono migracji na bazie użytkownika.
+- Założenie operacyjne: odłączone managed assets i puste `artifacts/data`
+  pozostają bez zmian; API/workery nie są uruchamiane. Import/trening wymaga
+  zakończenia dalszych zadań routingu, projekcji i migracji.
+- Po poprawce audytu P2 i niezależnej naprawie historycznego harnessu:
+  73 passed (49,04 s), w tym 4 integracyjne PostgreSQL; format/Ruff/mypy passed.
+  Każdy test PG ma własną bazę, a downgrade sprawdza dokładny blocker registry
+  lub danych gry. Niezależny re-review zakończył się bez findings P0–P3.
+- Pełna zgodność kolumn/CHECK z torem migracji; v2 dodatkowo poprawia nawiasy
+  previous/current asset provenance eventu, zgodnie z ORM i modelem danych.
+- Wcześniejszy błąd 16 historycznych testów offline naprawiono osobno przez
+  przypięcie właściwych rewizji zamiast full-head. Baseline: 65 passed.
+  Ograniczony test 0105 offline i cały tor online przechodzą; nie osłabiono 0104.
+
 ### TASK-0528 — półautomatyczna selekcja bez stagingu zdjęć
 
 - Nowe runy `selection` wybierają katalog przez kontrolowany lokalny picker i

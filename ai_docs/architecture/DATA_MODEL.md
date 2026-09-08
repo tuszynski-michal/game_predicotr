@@ -6,6 +6,24 @@ last_updated: 2026-08-24
 
 # Model danych
 
+## game_data_v2 — pusty schemat partycjonowany TASK-0518
+
+Migracja 0105 przygotowuje 65 parentów `LIST(game_id)`, bez partycji domyślnej,
+kopiowania danych ani przełączenia routingu. Każda tabela ma jawnego właściciela,
+klucze z prefiksem gry oraz same-game composite FK z indeksami. Metadane zależne
+od danych gry znajdują się w tym samym magazynie. Globalny koordynator `jobs`
+pozostaje publiczny, aby zachować `UNIQUE(execution_slot)`; dane v2 wiążą go
+przez `(game_id, id)`, tak samo jak wspólne symbole i wersje reguł.
+
+Rejestry `game_storage_locations`, `game_storage_migrations`,
+`game_storage_table_progress` oraz `game_storage_table_manifest` przechowują
+lokalizację, generację i trwały checkpoint przypięty do wersji kontraktu.
+Schemat jest celowo write-closed do TASK-0519: nie zainstalowano partycji ani
+legacy triggerów odwołujących się do publicznych danych historycznych.
+
+Pełna mapa własności, zależności, kontrakt create/migrate/delete i ograniczenia
+rollbacku: [GAME_DATA_V2_OWNERSHIP.md](GAME_DATA_V2_OWNERSHIP.md).
+
 ## game_deletion_operations / game_deletion_batches — TASK-0516
 
 Maintenance-only receipt nie ma FK do `games`, dlatego przeżywa usunięcie gry.

@@ -8,6 +8,23 @@ last_updated: 2026-09-08
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-377 — Zamknięty schemat game_data_v2 i wspólny koordynator jobów
+
+- **Status:** accepted — techniczne doprecyzowanie zaakceptowanego TASK-0518.
+- **Date:** 2026-09-08.
+- Wszystkie 65 game-owned tabel (również zależne małe metadane) ma LIST(game_id)
+  i composite FK w jednym magazynie. Nie ma domyślnej partycji ani FK v2 do
+  historycznych publicznych kopii danych gry.
+- Wspólny katalog i globalne content-addressed executions pozostają w public.
+  `jobs` również pozostaje wspólny: globalne UNIQUE(execution_slot) nie może być
+  zastąpione unikalnością per partycja. `(game_id,id)` wiąże dane v2 z jobem,
+  symbolem i wersją reguł tej samej gry.
+- Manifest v1 i DDL 0105 są zamrożone. Schemat jest przygotowaniem write-closed,
+  nie aktywacją: tworzenie partycji/routing i schema-aware triggery wymagają
+  następnego zadania. Downgrade jest dopuszczony wyłącznie dla pustego schematu
+  i pustych rejestrów operacyjnych, pod blokadami i bez CASCADE.
+- Mapa właścicielska: `../architecture/GAME_DATA_V2_OWNERSHIP.md`.
+
 ## D-376 — Trwałe porcje przed usunięciem legacy i migracją partycji
 
 - **Status:** accepted — zakres zaakceptowanego TASK-0516.

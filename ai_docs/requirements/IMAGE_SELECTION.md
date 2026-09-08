@@ -1108,6 +1108,12 @@ danych użytkownika przez samo wdrożenie.
   kolejność względnych ścieżek oraz niezmienną checksummę finalnego manifestu.
   Purpose gry, zmiana manifestu, zmiana JPEG-a albo błędna check­summa assetu
   blokują odczyt fail-closed.
+- Rozpoczęcie browser stagingu `semi_automatic_selection` nie rezerwuje miejsca
+  według estymacji przyszłych cropów i artefaktów zarządzanych, ponieważ ten
+  etap tylko kopiuje źródła do stagingu i wybiera reprezentantów. Nadal
+  obowiązują: limit liczby i zadeklarowanego rozmiaru plików oraz kontrola, że
+  na fizycznym woluminie stagingu mieści się cały upload i pozostaje co
+  najmniej 512 MiB wolnego miejsca.
 - Start wymaga pełnych granic sekwencji i kierunku. Tworzy z góry wszystkie
   oczekiwane zakresy `seq-inclusive-v1`, w tym krótszy zakres końcowy.
 - Idempotencja obejmuje upload, manifest, fingerprint źródła, granice,

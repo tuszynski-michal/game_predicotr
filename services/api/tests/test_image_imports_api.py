@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from threading import Event
+from types import SimpleNamespace
 from typing import NoReturn
 from uuid import UUID, uuid4
 
@@ -71,6 +72,18 @@ from test_image_selections import MemoryImageSelectionRepository
 from test_jobs_domain import MemoryJobRepository
 
 NOW = datetime(2026, 7, 31, 12, 0, tzinfo=UTC)
+
+
+class RejectingImageWriteCapacityGuard:
+    def __init__(self) -> None:
+        self.calls: list[int] = []
+
+    def check_image_write(self, input_bytes: int) -> object:
+        self.calls.append(input_bytes)
+        raise JobConflictError(
+            "STORAGE_CAPACITY_INSUFFICIENT",
+            "Future managed artifacts would exceed the configured reserve.",
+        )
 
 
 def test_legacy_cold_start_preflight_checksum_keeps_the_golden_bytes() -> None:
@@ -2234,6 +2247,97 @@ def test_photo_selection_staging_enforces_separate_file_and_byte_limits(
         "maximumBytes": 2048,
         "purpose": "photo_selection",
     }
+
+
+def test_semi_automatic_staging_skips_managed_artifact_capacity_estimate(
+    tmp_path: Path,
+) -> None:
+    capacity_guard = RejectingImageWriteCapacityGuard()
+    service = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None, clock=lambda: NOW),
+        tmp_path / "imports",
+        max_bytes=2048,
+        photo_selection_max_bytes=2048,
+        clock=lambda: NOW,
+        capacity_guard=capacity_guard,
+    )
+
+    upload = service.begin(
+        display_name="Semi-automatic source",
+        expected_file_count=1,
+        expected_total_bytes=1024,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+
+    assert upload.path.is_dir()
+    assert capacity_guard.calls == []
+
+
+@pytest.mark.parametrize(
+    ("purpose", "game_id"),
+    [
+        (ImageSelectionPurpose.LAYOUT_IMPORT, None),
+        (ImageSelectionPurpose.PHOTO_SELECTION, uuid4()),
+    ],
+)
+def test_managed_artifact_capacity_estimate_still_protects_managed_workflows(
+    tmp_path: Path,
+    purpose: ImageSelectionPurpose,
+    game_id: UUID | None,
+) -> None:
+    capacity_guard = RejectingImageWriteCapacityGuard()
+    service = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None, clock=lambda: NOW),
+        tmp_path / "imports",
+        max_bytes=2048,
+        photo_selection_max_bytes=2048,
+        clock=lambda: NOW,
+        capacity_guard=capacity_guard,
+    )
+
+    with pytest.raises(JobConflictError) as raised:
+        service.begin(
+            display_name="Managed workflow source",
+            expected_file_count=1,
+            expected_total_bytes=1024,
+            purpose=purpose,
+            game_id=game_id,
+        )
+
+    assert raised.value.code == "STORAGE_CAPACITY_INSUFFICIENT"
+    assert capacity_guard.calls == [1024]
+
+
+def test_semi_automatic_staging_keeps_physical_free_space_reserve(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None, clock=lambda: NOW),
+        tmp_path / "imports",
+        max_bytes=2048,
+        photo_selection_max_bytes=2048,
+        clock=lambda: NOW,
+        capacity_guard=RejectingImageWriteCapacityGuard(),
+    )
+    monkeypatch.setattr(
+        image_imports_module.shutil,
+        "disk_usage",
+        lambda _path: SimpleNamespace(
+            free=image_imports_module.MIN_FREE_SPACE_RESERVE_BYTES,
+        ),
+    )
+
+    with pytest.raises(JobError) as raised:
+        service.begin(
+            display_name="Semi-automatic source",
+            expected_file_count=1,
+            expected_total_bytes=1,
+            purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+        )
+
+    assert raised.value.code == "IMAGE_BROWSER_SELECTION_DISK_SPACE_INSUFFICIENT"
+    assert not any((tmp_path / "imports" / "browser-selections").iterdir())
 
 
 def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(

@@ -502,7 +502,10 @@ class BrowserImageSelectionService:
         now = self._clock()
         with self._lock:
             self._remove_expired(now)
-        if self._capacity_guard is not None:
+        if (
+            self._capacity_guard is not None
+            and purpose is not ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION
+        ):
             self._capacity_guard.check_image_write(expected_total_bytes)
         upload_id = uuid4()
         upload_path = self._upload_root / str(upload_id)

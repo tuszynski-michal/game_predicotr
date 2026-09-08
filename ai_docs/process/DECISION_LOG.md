@@ -8292,3 +8292,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   nowego kontraktu zamiast tracić maskę lub dopuszczać wykluczone kotwice.
 - **Safety:** brak zmian detektora, OCR i aktywnych profili. Dane geometrii
   i symbole mają odrębne kryteria treningowe. Downgrade nie usuwa oznaczeń.
+
+## D-372 — Półautomat rezerwuje miejsce tylko dla swoich rzeczywistych danych
+
+- **Status:** accepted
+- **Date:** 2026-09-08
+- **Decision:** browser staging `semi_automatic_selection` pomija
+  `ImageWriteCapacityGuard`, którego estymacja obejmuje przyszłe managed
+  artifacts. Limity uploadu i fizyczna kontrola wolnego miejsca dla całego
+  stagingu z rezerwą 512 MiB pozostają obowiązkowe.
+- **Rationale:** półautomat wybiera reprezentatywne JPEG-i i nie tworzy na
+  etapie uploadu cropów, plansz ani symboli. Mnożnik kosztu pełnego pipeline'u
+  powodował fałszywe `STORAGE_CAPACITY_INSUFFICIENT` mimo wystarczającego
+  miejsca na źródła.
+- **Safety:** `layout_import` i `photo_selection` nadal przechodzą przez
+  konserwatywny guard. Wyjątek jest zamknięty do jednego enum purpose; nie
+  tłumi błędów i nie zmienia polityki GC ani progów pojemności.

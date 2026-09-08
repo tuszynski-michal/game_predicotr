@@ -1764,6 +1764,15 @@ tożsamością pozostają naturalnie posortowana `relativePath`, rozmiar i SHA-2
 Finalizacja zapisuje checksummę manifestu także w metrykach uploadu. Każdy
 ponowny odczyt porównuje oba zapisy i ponownie weryfikuje wszystkie JPEG-i.
 
+`BrowserImageSelectionService` rozdziela dwa rodzaje ochrony pojemności.
+Konserwatywny `ImageWriteCapacityGuard`, uwzględniający przyszłe managed
+artifacts, chroni `layout_import` i `photo_selection`, lecz nie jest wywoływany
+dla `semi_automatic_selection`, który na tym etapie tworzy wyłącznie kopię
+źródeł w browser stagingu. Wspólna kontrola `disk_usage` pozostaje wykonywana
+przed utworzeniem katalogu dla każdego purpose i wymaga zadeklarowanych bajtów
+uploadu oraz stałej rezerwy 512 MiB. Dzięki temu półautomat nie jest blokowany
+kosztem nieistniejących cropów, ale nadal nie może zapełnić woluminu stagingu.
+
 Nowy `JobType.SEMI_AUTOMATIC_IMAGE_SELECTION` jest wyłączony z general lane i
 ma slot `IMAGE_SELECTION = 2`. Rollout kontroluje jedna flaga API, domyślnie
 wyłączona.

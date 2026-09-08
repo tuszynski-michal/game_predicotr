@@ -3065,10 +3065,16 @@ korekty zawiera `expectedBoardCount` wyliczony przez backend z poświadczonego
 zakresu `seq_*`. Endpoint zapisu wylicza go ponownie z manifestu stagingu i
 zwraca `IMAGE_PAGE_GEOMETRY_BOARD_COUNT_CHANGED`, jeżeli liczba quadów klienta
 nie odpowiada źródłu.
-Operacje obrazowe mogą zwrócić `STORAGE_CAPACITY_INSUFFICIENT`, jeśli ich
-konserwatywna estymacja narusza twardą rezerwę woluminu. Poniżej progu
-automatycznego GC system tworzy jeden idempotentny run `automatic`; trwający
-pipeline pokazuje etap `waiting_for_storage` zamiast kończyć się błędem.
+Operacje obrazowe materializujące zarządzane artefakty mogą zwrócić
+`STORAGE_CAPACITY_INSUFFICIENT`, jeśli ich konserwatywna estymacja narusza
+twardą rezerwę woluminu. Browser staging o purpose
+`semi_automatic_selection` jest wyłączony z tej estymacji, ponieważ stage'uje
+źródła do wyboru i nie tworzy cropów. Nadal może zwrócić
+`IMAGE_BROWSER_SELECTION_DISK_SPACE_INSUFFICIENT`, gdy zadeklarowany upload
+wraz z rezerwą 512 MiB nie mieści się fizycznie na woluminie stagingu. Poniżej
+progu automatycznego GC system tworzy jeden idempotentny run `automatic`;
+trwający pipeline pokazuje etap `waiting_for_storage` zamiast kończyć się
+błędem.
 
 `POST /api/v1/admin/image-imports/{sourceJobId}/reprocess` tworzy dla nowych
 wykonań payload schema v6. Odpowiedź zawiera `managedSourceJobId`, checksumę

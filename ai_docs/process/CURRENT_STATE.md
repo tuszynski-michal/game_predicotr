@@ -6,6 +6,22 @@ last_updated: 2026-09-08
 
 # Current State
 
+### TASK-0527 — półautomat korzysta z rzeczywistej pojemności stagingu
+
+- Browser staging o celu `semi_automatic_selection` nie uruchamia już
+  konserwatywnej estymacji przyszłych cropów i artefaktów, których ten workflow
+  nie tworzy. Usunięto tym samym nieadekwatny blocker
+  `STORAGE_CAPACITY_INSUFFICIENT` dla rozpoczęcia półautomatu.
+- Nadal obowiązują limit wejścia oraz fizyczna kontrola miejsca na cały upload
+  z rezerwą 512 MiB; jej błąd pozostaje
+  `IMAGE_BROWSER_SELECTION_DISK_SPACE_INSUFFICIENT`.
+- `layout_import` i `photo_selection` nadal bez zmian korzystają z pełnego
+  capacity guardu. Nie zmieniono API, OpenAPI, progów GC ani istniejących
+  stagingów.
+- Testy API i półautomatu: 57 passed; Ruff i scoped mypy zmienionego modułu
+  passed. Standardowy import-following mypy nadal ujawnia wcześniejsze braki
+  `py.typed` w workerze i wcześniejszy `no-any-return` w `jobs.py`.
+
 ### TASK-0516 — mechanizm porcjowanego usuwania gotowy, wykonanie wstrzymane
 
 - Nowa komenda `scripts/delete_legacy_game_resumable.py` domyślnie wykonuje

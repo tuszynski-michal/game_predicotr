@@ -20,6 +20,10 @@ from game_predictor_api.domain.catalog import (
     SymbolUsageSummary,
     stable_code_stem_from_name,
 )
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageLocation,
+    GameStorageRouter,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -55,18 +59,34 @@ _CONFLICTS = {
 
 
 class SqlAlchemyCatalogRepository(CatalogRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, storage_router: GameStorageRouter | None = None) -> None:
         self._session = session
+        self._storage_router = storage_router
 
     def list_games(self) -> list[Game]:
         records = self._session.scalars(
             select(GameModel).order_by(GameModel.created_at, GameModel.id)
         )
-        return [_to_game(record) for record in records]
+        materialized = list(records)
+        locations = (
+            self._storage_router.describe_many(
+                self._session, tuple(record.id for record in materialized)
+            )
+            if self._storage_router is not None
+            else {}
+        )
+        return [_to_game(record, locations.get(record.id)) for record in materialized]
 
     def get_game(self, game_id: UUID) -> Game | None:
         record = self._session.get(GameModel, game_id)
-        return None if record is None else _to_game(record)
+        if record is None:
+            return None
+        location = (
+            self._storage_router.describe(self._session, game_id)
+            if self._storage_router is not None
+            else None
+        )
+        return _to_game(record, location)
 
     def add_game(
         self,
@@ -84,6 +104,11 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         )
         self._session.add(record)
         self._flush_or_raise_conflict()
+        location = (
+            self._storage_router.register_legacy(self._session, record.id)
+            if self._storage_router is not None
+            else None
+        )
         self._session.add(
             ImageGeometryRolloutStateModel(
                 game_id=record.id,
@@ -96,7 +121,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         )
         self._flush_or_raise_conflict()
         self._session.refresh(record)
-        return _to_game(record)
+        return _to_game(record, location)
 
     def save_game(self, game: Game) -> Game:
         record = self._session.get(GameModel, game.id)
@@ -107,7 +132,12 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record.expected_layout_count = game.expected_layout_count
         record.updated_at = datetime.now(UTC)
         self._flush_or_raise_conflict()
-        return _to_game(record)
+        location = (
+            self._storage_router.describe(self._session, game.id)
+            if self._storage_router is not None
+            else None
+        )
+        return _to_game(record, location)
 
     def list_symbols(self, game_id: UUID) -> list[Symbol]:
         records = self._session.execute(
@@ -363,7 +393,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             raise CatalogConflictError(code, message) from error
 
 
-def _to_game(record: GameModel) -> Game:
+def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> Game:
     return Game(
         id=record.id,
         code=record.code,
@@ -372,6 +402,11 @@ def _to_game(record: GameModel) -> Game:
         expected_layout_count=record.expected_layout_count,
         created_at=record.created_at,
         updated_at=record.updated_at,
+        storage_version=(storage.storage_version if storage is not None else "legacy-public-v1"),
+        storage_schema=(storage.store_schema.value if storage is not None else "public"),
+        storage_generation=(storage.generation if storage is not None else 1),
+        storage_status=(storage.status.value if storage is not None else "active"),
+        storage_write_available=(storage.write_available if storage is not None else True),
     )
 
 

@@ -240,6 +240,12 @@ from game_predictor_api.storage.database import (
 from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageRouter,
+    GameStorageRoutingError,
+    game_id_from_path,
+    game_storage_scope,
+)
 from game_predictor_api.storage.grid_calibration_repository import (
     SqlAlchemyGridCalibrationRepository,
 )
@@ -448,7 +454,7 @@ def create_app(
     def default_catalog_service_dependency() -> Iterator[CatalogService]:
         with session_factory() as session:
             try:
-                yield CatalogService(SqlAlchemyCatalogRepository(session))
+                yield CatalogService(SqlAlchemyCatalogRepository(session, GameStorageRouter()))
                 session.commit()
             except BaseException:
                 session.rollback()
@@ -1297,6 +1303,17 @@ def create_app(
             }
         ],
     )
+
+    @application.middleware("http")
+    async def bind_game_storage_request(
+        request: Request, call_next: Callable[[Request], Any]
+    ) -> Any:
+        game_id = game_id_from_path(request.url.path)
+        if game_id is None:
+            return await call_next(request)
+        with game_storage_scope(game_id):
+            return await call_next(request)
+
     application.add_middleware(
         CORSMiddleware,
         allow_origins=sorted(
@@ -1419,6 +1436,25 @@ def create_app(
                 "message": error.message,
                 "details": error.details,
             },
+        )
+
+    @application.exception_handler(GameStorageRoutingError)
+    async def handle_game_storage_routing_error(
+        _request: Request,
+        error: GameStorageRoutingError,
+    ) -> JSONResponse:
+        status_code = 409
+        if error.code == "GAME_NOT_FOUND":
+            status_code = 404
+        elif error.code in {
+            "GAME_STORAGE_LOCATION_INVALID",
+            "GAME_STORAGE_SESSION_SCOPE_CONFLICT",
+            "GAME_STORAGE_TABLE_NOT_OWNED",
+        }:
+            status_code = 500
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
         )
 
     @application.exception_handler(BoardSearchError)

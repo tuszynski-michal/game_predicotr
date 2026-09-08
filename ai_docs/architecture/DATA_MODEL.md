@@ -18,8 +18,19 @@ przez `(game_id, id)`, tak samo jak wspólne symbole i wersje reguł.
 Rejestry `game_storage_locations`, `game_storage_migrations`,
 `game_storage_table_progress` oraz `game_storage_table_manifest` przechowują
 lokalizację, generację i trwały checkpoint przypięty do wersji kontraktu.
-Schemat jest celowo write-closed do TASK-0519: nie zainstalowano partycji ani
-legacy triggerów odwołujących się do publicznych danych historycznych.
+TASK-0519 dodał transakcyjny router i write fence. Schemat nadal nie ma partycji
+konkretnych gier ani danych: samo zastosowanie migracji 0106 nie wykonuje
+cutoveru. Registry wybiera `public` albo `game_data_v2`, generację i stan;
+operacje zapisu utrzymują współdzieloną blokadę advisory gry oraz blokadę wiersza
+registry aż do commit/rollback. Migrator musi uzyskać wyłączną blokadę advisory
+tego samego klucza przed utworzeniem registry albo zmianą generacji.
+
+W `game_data_v2` każda tabela ma wymuszony scope `game_id` przez transakcyjny
+GUC oraz RLS. Jest to dodatkowa ochrona raw SQL; nie zastępuje jawnego filtra
+gry. Router ustawia `search_path` i scope wyłącznie lokalnie dla transakcji,
+czyści przypięcie po jej zakończeniu i nie pozwala jednej transakcji przełączyć
+na inną grę. Nieznana wersja registry, maintenance lub nieaktualna generacja
+kończą operację fail-closed.
 
 Pełna mapa własności, zależności, kontrakt create/migrate/delete i ograniczenia
 rollbacku: [GAME_DATA_V2_OWNERSHIP.md](GAME_DATA_V2_OWNERSHIP.md).

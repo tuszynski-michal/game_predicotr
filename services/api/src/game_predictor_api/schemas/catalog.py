@@ -77,6 +77,11 @@ class GameResponse(ApiModel):
     expected_layout_count: int
     created_at: datetime
     updated_at: datetime
+    storage_version: str
+    storage_schema: str
+    storage_generation: int = Field(ge=1)
+    storage_status: str
+    storage_write_available: bool
 
 
 class SymbolCreate(ApiModel):

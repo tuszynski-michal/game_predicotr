@@ -4198,6 +4198,27 @@
           "status": {
             "$ref": "#/components/schemas/GameStatus"
           },
+          "storageGeneration": {
+            "minimum": 1.0,
+            "title": "Storagegeneration",
+            "type": "integer"
+          },
+          "storageSchema": {
+            "title": "Storageschema",
+            "type": "string"
+          },
+          "storageStatus": {
+            "title": "Storagestatus",
+            "type": "string"
+          },
+          "storageVersion": {
+            "title": "Storageversion",
+            "type": "string"
+          },
+          "storageWriteAvailable": {
+            "title": "Storagewriteavailable",
+            "type": "boolean"
+          },
           "updatedAt": {
             "format": "date-time",
             "title": "Updatedat",
@@ -4211,7 +4232,12 @@
           "status",
           "expectedLayoutCount",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "storageVersion",
+          "storageSchema",
+          "storageGeneration",
+          "storageStatus",
+          "storageWriteAvailable"
         ],
         "title": "GameResponse",
         "type": "object"

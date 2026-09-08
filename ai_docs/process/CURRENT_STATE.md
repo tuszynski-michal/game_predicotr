@@ -6165,3 +6165,17 @@ niepowiązanego nowego importu, a brak dowodu nadal kończy konkretne źródło 
 Rzeczywisty job `1681dd2a-27b8-425d-b2f2-192be89e0b07` wznowiono na tym samym
 stagingu bez ponownego uploadu. Zakończył się wynikiem 2531 zarejestrowanych
 źródeł i 80 źródeł wymagających ręcznej korekty, bez technicznych błędów.
+
+### TASK-0519 — routing magazynu gry i write fence
+
+Dodano jeden transakcyjny adapter wyboru `public` / `game_data_v2`. Requesty
+gry, handlery workerów oraz operacje z jawnym parametrem `game_id` przypinają
+lokalizację i generację. Zapis utrzymuje `FOR SHARE` registry do commit/rollback;
+maintenance oraz nieaktualna generacja są fail-closed. Ponowne użycie sesji po
+zakończeniu transakcji rozwiązuje registry od nowa.
+
+Migracja 0106 instaluje transaction-local scope, RLS na 65 parentach oraz
+schema-aware triggery review. Nie tworzy partycji, nie kopiuje danych i nie
+przełącza żadnej gry. Katalog Admina pokazuje wersję, generację i tryb tylko do
+odczytu. Lokalna baza użytkownika pozostaje bez zastosowania migracji i bez
+restartu usług; następny task nie został rozpoczęty.

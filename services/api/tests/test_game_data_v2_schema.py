@@ -79,7 +79,10 @@ def test_offline_upgrade_is_additive_and_has_no_default_partition() -> None:
             f"uq_v2_{table}_game_id_id UNIQUE (game_id, id)" in sql
         )
     assert "REFERENCES public.jobs (id)" not in sql
-    assert ScriptDirectory.from_config(config(StringIO())).get_current_head() == REVISION
+    script = ScriptDirectory.from_config(config(StringIO()))
+    revision = script.get_revision(REVISION)
+    assert revision is not None
+    assert revision.down_revision == PREVIOUS
 
 
 def test_downgrade_locks_checks_and_never_cascades() -> None:

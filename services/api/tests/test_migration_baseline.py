@@ -445,7 +445,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
     legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
     legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
-    assert script.get_heads() == ["0105_partitioned_game_storage"]
+    assert script.get_heads() == ["0106_game_storage_routing_fence"]
+    routing_fence = script.get_revision("0106_game_storage_routing_fence")
+    assert routing_fence is not None
+    assert routing_fence.down_revision == "0105_partitioned_game_storage"
     partitioned_storage = script.get_revision("0105_partitioned_game_storage")
     assert partitioned_storage is not None
     assert partitioned_storage.down_revision == "0104_game_deletion_access_paths"

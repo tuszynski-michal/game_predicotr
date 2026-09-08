@@ -643,6 +643,12 @@ function GameRow({
           <small className="gameLayoutGoal">
             Cel: {game.expectedLayoutCount.toLocaleString('pl-PL')} plansz
           </small>
+          <small className="gameStorageState">
+            Magazyn: {game.storageVersion} · generacja {game.storageGeneration}
+            {!game.storageWriteAvailable
+              ? ` · tryb tylko do odczytu (${game.storageStatus})`
+              : ''}
+          </small>
         </div>
       </button>
 
@@ -660,7 +666,7 @@ function GameRow({
           <button
             className="dangerButton"
             data-testid={`game-archive-confirm-${game.id}`}
-            disabled={archivePending}
+            disabled={archivePending || !game.storageWriteAvailable}
             onClick={onArchiveConfirm}
             type="button"
           >
@@ -672,7 +678,13 @@ function GameRow({
           <button
             className="secondaryButton"
             data-testid={`game-edit-${game.id}`}
+            disabled={!game.storageWriteAvailable}
             onClick={onEdit}
+            title={
+              game.storageWriteAvailable
+                ? undefined
+                : 'Dane gry są chwilowo tylko do odczytu podczas prac nad magazynem.'
+            }
             type="button"
           >
             Edytuj
@@ -681,6 +693,7 @@ function GameRow({
             <button
               className="textButton"
               data-testid={`game-archive-${game.id}`}
+              disabled={!game.storageWriteAvailable}
               onClick={onArchive}
               type="button"
             >
@@ -690,7 +703,7 @@ function GameRow({
             <button
               className="secondaryButton"
               data-testid={`game-restore-${game.id}`}
-              disabled={restorePending}
+              disabled={restorePending || !game.storageWriteAvailable}
               onClick={onRestore}
               type="button"
             >

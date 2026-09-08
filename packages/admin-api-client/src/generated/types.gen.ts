@@ -2303,6 +2303,26 @@ export type GameResponse = {
   name: string;
   status: GameStatus;
   /**
+   * Storagegeneration
+   */
+  storageGeneration: number;
+  /**
+   * Storageschema
+   */
+  storageSchema: string;
+  /**
+   * Storagestatus
+   */
+  storageStatus: string;
+  /**
+   * Storageversion
+   */
+  storageVersion: string;
+  /**
+   * Storagewriteavailable
+   */
+  storageWriteAvailable: boolean;
+  /**
    * Updatedat
    */
   updatedAt: string;

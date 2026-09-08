@@ -163,10 +163,14 @@ Nie zmienia to historycznej migracji ani danych w public.
 0105 tworzy pusty schemat i wpisy definicji manifestu. Nie zakłada partycji,
 nie rejestruje gier, nie kopiuje danych, nie przestawia routingu i nie dotyka
 plików. Brak partycji powoduje jawny błąd PostgreSQL `no partition ... found`.
-Schema pozostaje write-closed: import/trening i tworzenie partycji użytkownika
-nie są dopuszczone przed TASK-0519 (routing, fence oraz schema-aware triggery
-kolejki, append-only i write-through). Legacy triggery nie są kopiowane do v2,
-bo zawierają referencje do publicznych danych historycznych.
+Migracja 0106 dostarcza routing, write fence, transaction-local scope, RLS oraz
+schema-aware triggery kolejki. Nie tworzy partycji i nie przełącza żadnej gry.
+Każdy write pobiera współdzieloną blokadę advisory gry i registry; cutover
+zmieniający status lub generację wymaga wyłącznej blokady advisory tego samego
+klucza. Obejmuje to także legacy fallback bez wpisu registry. Stary job zachowuje payload i checkpoint,
+ale po wznowieniu rozwiązuje aktualną lokalizację gry. Legacy triggery nie są
+kopiowane bezpośrednio do v2, bo zawierają referencje do publicznych danych
+historycznych; ich odpowiedniki z 0106 jawnie rozdzielają schematy.
 
 Downgrade najpierw blokuje wszystkie objęte tabele i sprawdza pustkę. Jakiekolwiek
 dane v2, location, migration lub checkpoint zatrzymują rollback; nie używa

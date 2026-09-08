@@ -6,6 +6,19 @@ last_updated: 2026-09-08
 
 # Kontrakty API i danych mobilnych
 
+## Stan magazynu gry — TASK-0519
+
+Każdy `GameResponse` zawiera `storageVersion`, `storageSchema`,
+`storageGeneration`, `storageStatus` i `storageWriteAvailable`. Brak wpisu w
+registry jest kompatybilnym stanem historycznym `legacy-public-v1`, `public`,
+generacja 1 i zapis dostępny.
+
+Mutacja gry w stanie `migrating`, `deleting` albo `blocked` zwraca
+`GAME_STORAGE_WRITE_UNAVAILABLE`. Żądanie przypięte do nieaktualnej generacji
+zwraca `GAME_STORAGE_GENERATION_STALE`. Scope jest transakcyjny; odpowiedź nie
+ujawnia fizycznych nazw partycji. Odczyt katalogu nie uruchamia migracji ani
+tworzenia partycji.
+
 ## Reprocessing testowego v0.10.4 — TASK-0513
 
 Istniejący `POST /api/v1/admin/image-imports/{sourceJobId}/reprocess`

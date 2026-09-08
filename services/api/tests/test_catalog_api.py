@@ -178,6 +178,11 @@ def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols()
         game_id = game["id"]
         assert game["name"] == "Blazing Hot"
         assert game["status"] == "draft"
+        assert game["storageVersion"] == "legacy-public-v1"
+        assert game["storageSchema"] == "public"
+        assert game["storageGeneration"] == 1
+        assert game["storageStatus"] == "active"
+        assert game["storageWriteAvailable"] is True
 
         game_update = client.patch(
             f"/api/v1/admin/games/{game_id}",

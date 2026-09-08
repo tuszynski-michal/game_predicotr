@@ -31,3 +31,13 @@ test('game card keeps the stable code compact and separates the layout goal', ()
   assert.match(source, /className="gameStableCode"/);
   assert.match(source, /className="gameLayoutGoal"/);
 });
+
+test('game card exposes storage maintenance and disables mutations', () => {
+  assert.match(source, /Magazyn: \{game\.storageVersion\}/);
+  assert.match(source, /tryb tylko do odczytu/);
+  assert.match(source, /disabled=\{!game\.storageWriteAvailable\}/);
+  assert.match(
+    source,
+    /disabled=\{restorePending \|\| !game\.storageWriteAvailable\}/,
+  );
+});

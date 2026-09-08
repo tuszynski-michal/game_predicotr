@@ -20,6 +20,7 @@ from game_predictor_api.domain.jobs import (
     start_job,
     wait_for_review,
 )
+from game_predictor_api.storage.game_storage_routing import current_game_storage_scope
 from game_predictor_worker.jobs.runtime import (
     JobExecutionContext,
     JobExecutionResult,
@@ -321,6 +322,21 @@ def test_worker_claims_oldest_checkpoints_and_completes() -> None:
     assert store.jobs[second.id].status is JobStatus.CREATED
 
 
+def test_worker_scopes_only_the_game_handler_execution() -> None:
+    clock = MutableClock()
+    job = _job(clock)
+    store = MemoryWorkerJobStore([job])
+
+    def handler(_context: JobExecutionContext, claimed: Job) -> None:
+        scope = current_game_storage_scope()
+        assert scope is not None
+        assert scope.game_id == claimed.game_id
+
+    assert current_game_storage_scope() is None
+    assert _worker(store, clock, handler).run_once() is JobExecutionResult.COMPLETED
+    assert current_game_storage_scope() is None
+
+
 def test_worker_runs_bounded_auxiliary_work_before_domain_job_claim() -> None:
     clock = MutableClock()
     store = MemoryWorkerJobStore([])
@@ -430,9 +446,7 @@ def test_waiting_for_storage_requeues_with_checkpoint_and_releases_slot() -> Non
     store = MemoryWorkerJobStore([job])
 
     def handler(context: JobExecutionContext, _job: Job) -> None:
-        context.wait_for_storage(
-            checkpoint_payload={"schema_version": 1, "cursor": 12}
-        )
+        context.wait_for_storage(checkpoint_payload={"schema_version": 1, "cursor": 12})
 
     assert _worker(store, clock, handler).run_once() is JobExecutionResult.WAITING_FOR_STORAGE
     deferred = store.jobs[job.id]

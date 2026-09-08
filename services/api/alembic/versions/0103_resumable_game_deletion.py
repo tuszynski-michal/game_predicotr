@@ -27,6 +27,9 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    op.execute("SET LOCAL lock_timeout = '2s'")
+    op.execute("SET LOCAL statement_timeout = '30s'")
+    op.execute("SET LOCAL idle_in_transaction_session_timeout = '45s'")
     op.create_table(
         "game_deletion_operations",
         sa.Column("game_id", sa.Uuid(), primary_key=True),  # intentionally no games FK

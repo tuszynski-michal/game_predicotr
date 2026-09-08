@@ -37,7 +37,7 @@ def _cursor_payload(value: str) -> dict[str, object]:
     return json.loads(base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)))
 
 
-def test_symbol_review_cursor_v3_uses_uuid_key_and_accepts_scoped_v2() -> None:
+def test_symbol_review_cursor_v6_binds_generation_and_uses_stable_cell_key() -> None:
     review_filter = SymbolCellReviewListFilter(
         game_id=UUID(int=1),
         symbol_id=UUID(int=2),
@@ -51,11 +51,12 @@ def test_symbol_review_cursor_v3_uses_uuid_key_and_accepts_scoped_v2() -> None:
         key=key,
     )
     payload = _cursor_payload(encoded)
-    legacy_payload = {**payload, "version": 2}
+    legacy_payload = {**payload, "version": 5}
     legacy_raw = json.dumps(legacy_payload, separators=(",", ":"), sort_keys=True).encode()
     legacy = base64.urlsafe_b64encode(legacy_raw).decode().rstrip("=")
 
-    assert payload["version"] == 3
+    assert payload["version"] == 6
+    assert payload["storageGeneration"] == 1
     assert payload["key"] == [123, 4, str(UUID(int=3))]
     assert (
         decode_symbol_cell_review_cursor(
@@ -65,22 +66,21 @@ def test_symbol_review_cursor_v3_uses_uuid_key_and_accepts_scoped_v2() -> None:
         )
         == key
     )
-    assert (
+    with pytest.raises(SymbolCellReviewError, match="does not belong"):
         decode_symbol_cell_review_cursor(
             legacy,
             review_filter=review_filter,
             direction=SymbolCellReviewCursorDirection.AFTER,
         )
-        == key
-    )
 
 
-def test_symbol_review_cursor_v4_binds_the_game_wide_scope() -> None:
+def test_symbol_review_cursor_v6_binds_the_game_wide_scope_and_generation() -> None:
     review_filter = SymbolCellReviewListFilter(
         game_id=UUID(int=1),
         symbol_id=None,
         state=SymbolCellReviewFilterState.ALL,
         include_all_symbols=True,
+        storage_generation=7,
     )
     key = (123, 4, UUID(int=3))
 
@@ -91,7 +91,8 @@ def test_symbol_review_cursor_v4_binds_the_game_wide_scope() -> None:
     )
     payload = _cursor_payload(encoded)
 
-    assert payload["version"] == 4
+    assert payload["version"] == 6
+    assert payload["storageGeneration"] == 7
     assert payload["symbolId"] == "all"
     assert (
         decode_symbol_cell_review_cursor(
@@ -101,9 +102,15 @@ def test_symbol_review_cursor_v4_binds_the_game_wide_scope() -> None:
         )
         == key
     )
+    with pytest.raises(SymbolCellReviewError, match="does not belong"):
+        decode_symbol_cell_review_cursor(
+            encoded,
+            review_filter=replace(review_filter, storage_generation=8),
+            direction=SymbolCellReviewCursorDirection.AFTER,
+        )
 
 
-def test_symbol_review_cursor_v5_binds_the_active_model_cohort() -> None:
+def test_symbol_review_cursor_v6_binds_the_active_model_cohort() -> None:
     cohort_id = UUID(int=4)
     review_filter = SymbolCellReviewListFilter(
         game_id=UUID(int=1),
@@ -121,7 +128,7 @@ def test_symbol_review_cursor_v5_binds_the_active_model_cohort() -> None:
     )
     payload = _cursor_payload(encoded)
 
-    assert payload["version"] == 5
+    assert payload["version"] == 6
     assert payload["modelCohortId"] == str(cohort_id)
     assert (
         decode_symbol_cell_review_cursor(

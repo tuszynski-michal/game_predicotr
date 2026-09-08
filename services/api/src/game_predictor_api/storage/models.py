@@ -2472,6 +2472,11 @@ class ImageSymbolReviewCellModel(Base):
             name="ck_image_symbol_review_cells_revisions",
         ),
         CheckConstraint(
+            "prediction_confidence IS NULL OR "
+            "(prediction_confidence >= 0 AND prediction_confidence <= 1)",
+            name="ck_image_symbol_review_cells_prediction_confidence",
+        ),
+        CheckConstraint(
             "review_state IN ('pending', 'approved')",
             name="ck_image_symbol_review_cells_state",
         ),
@@ -2615,6 +2620,7 @@ class ImageSymbolReviewCellModel(Base):
     geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     cropper_version: Mapped[str] = mapped_column(String(150), nullable=False)
     prediction_symbol_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    prediction_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     prediction_revision_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("image_symbol_prediction_revisions.id", ondelete="RESTRICT"), nullable=True
     )

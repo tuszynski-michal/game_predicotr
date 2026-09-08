@@ -34,6 +34,7 @@ from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationService,
 )
 from game_predictor_api.application.image_symbol_reviews import (
+    SymbolCellReviewCatalogState,
     SymbolCellReviewListSlice,
     SymbolCellReviewQueryService,
 )
@@ -338,7 +339,7 @@ class MemorySymbolCellReviewRepository:
     def mark_active_read_cancelled(self) -> None:
         return None
 
-    def require_ready_game(self, game_id: UUID) -> int:
+    def require_ready_game(self, game_id: UUID) -> SymbolCellReviewCatalogState:
         if game_id != self.game_id:
             raise SymbolCellReviewError("GAME_NOT_FOUND", "The selected game does not exist.")
         if not self.ready:
@@ -346,7 +347,11 @@ class MemorySymbolCellReviewRepository:
                 "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
                 "The symbol-cell review projection is not ready for this game.",
             )
-        return 17
+        return SymbolCellReviewCatalogState(
+            catalog_revision=17,
+            storage_generation=1,
+            uses_current_projection=False,
+        )
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None:
         if game_id != self.game_id:

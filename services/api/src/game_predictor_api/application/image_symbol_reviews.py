@@ -40,6 +40,15 @@ class SymbolCellReviewListSlice:
     has_next: bool
 
 
+@dataclass(frozen=True, slots=True)
+class SymbolCellReviewCatalogState:
+    """Revision and physical storage identity for one bounded read scope."""
+
+    catalog_revision: int
+    storage_generation: int
+    uses_current_projection: bool
+
+
 class SymbolCellReviewQueryRepository(Protocol):
     def bounded_read(
         self,
@@ -52,7 +61,7 @@ class SymbolCellReviewQueryRepository(Protocol):
 
     def mark_active_read_cancelled(self) -> None: ...
 
-    def require_ready_game(self, game_id: UUID) -> int: ...
+    def require_ready_game(self, game_id: UUID) -> SymbolCellReviewCatalogState: ...
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None: ...
 
@@ -160,7 +169,7 @@ class SymbolCellReviewQueryService:
                 "SYMBOL_CELL_REVIEW_CURSOR_DIRECTION_CONFLICT",
                 "Use either afterCursor or beforeCursor, not both.",
             )
-        catalog_revision = self._repository.require_ready_game(game_id)
+        catalog = self._repository.require_ready_game(game_id)
         model_cohort_id = (
             self._repository.active_model_cohort_id(game_id)
             if state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
@@ -174,6 +183,8 @@ class SymbolCellReviewQueryService:
             max_confidence=max_confidence,
             include_all_symbols=include_all_symbols,
             model_cohort_id=model_cohort_id,
+            storage_generation=catalog.storage_generation,
+            uses_current_projection=catalog.uses_current_projection,
         )
         after_key = (
             decode_symbol_cell_review_cursor(
@@ -202,7 +213,7 @@ class SymbolCellReviewQueryService:
         items = page_slice.items
         return SymbolCellReviewPage(
             items=items,
-            catalog_revision=catalog_revision,
+            catalog_revision=catalog.catalog_revision,
             next_cursor=(
                 encode_symbol_cell_review_cursor(
                     review_filter=review_filter,
@@ -259,7 +270,7 @@ class SymbolCellReviewQueryService:
         max_confidence: float | None,
         include_all_symbols: bool,
     ) -> SymbolCellReviewCountSnapshot:
-        catalog_revision = self._repository.require_ready_game(game_id)
+        catalog = self._repository.require_ready_game(game_id)
         model_cohort_id = (
             self._repository.active_model_cohort_id(game_id)
             if state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
@@ -273,19 +284,21 @@ class SymbolCellReviewQueryService:
             max_confidence=max_confidence,
             include_all_symbols=include_all_symbols,
             model_cohort_id=model_cohort_id,
+            storage_generation=catalog.storage_generation,
+            uses_current_projection=catalog.uses_current_projection,
         )
-        if catalog_revision != expected_catalog_revision:
+        if catalog.catalog_revision != expected_catalog_revision:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_CATALOG_REVISION_STALE",
                 "The symbol-cell review catalog changed after the page was loaded.",
                 details={
-                    "actualCatalogRevision": catalog_revision,
+                    "actualCatalogRevision": catalog.catalog_revision,
                     "expectedCatalogRevision": expected_catalog_revision,
                 },
             )
         return SymbolCellReviewCountSnapshot(
             counts=self._repository.counts(review_filter=review_filter),
-            catalog_revision=catalog_revision,
+            catalog_revision=catalog.catalog_revision,
         )
 
     def asset(

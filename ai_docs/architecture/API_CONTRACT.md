@@ -6,6 +6,18 @@ last_updated: 2026-09-08
 
 # Kontrakty API i danych mobilnych
 
+## Cursor listy Weryfikacji symboli — TASK-0521
+
+Nieprzezroczysty cursor listy ma wersję 6 i jest związany z `gameId`, generacją
+fizycznego magazynu, kierunkiem, filtrem symbolu/`?`/wszystkich, stanem,
+confidence oraz identyfikatorem aktywnej kohorty. Zmiana któregokolwiek elementu
+zwraca istniejący kontrolowany błąd scope i wymaga od klienta odświeżenia od
+pierwszej strony. Klucz pozycji wykorzystuje stabilny identyfikator bieżącej
+komórki, nie zmienny identyfikator właściciela planszy.
+
+Odpowiedź strony pozostaje metadanymi bez binariów i ciężkiego render spec.
+Asset lub atlas jest pobierany osobno wyłącznie dla komórek widocznej strony.
+
 ## Stan magazynu gry — TASK-0519
 
 Każdy `GameResponse` zawiera `storageVersion`, `storageSchema`,

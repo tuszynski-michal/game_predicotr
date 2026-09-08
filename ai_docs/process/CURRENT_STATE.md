@@ -6,6 +6,20 @@ last_updated: 2026-09-08
 
 # Current State
 
+### TASK-0521 — indeksowana lista Weryfikacji symboli
+
+- V2 listuje bez `image_board_search_fast_documents`, historycznych
+  `cell_observations` i JSON-owych rewizji predykcji. Confidence jest częścią
+  bieżącej projekcji i jest utrzymywane przez writer/backfill.
+- Migracja 0108 dodaje kolumnę oraz indeksy wszystkich/symbol+stan/`?`/
+  confidence/aktywnej kohorty. Nie zastosowano jej na bazie użytkownika.
+- Cursor v6 korzysta z `(sequence, cell, cell_review_id)` i jest związany z
+  generacją storage oraz kompletem filtrów. Metadane strony nie pobierają
+  ciężkiego render spec; assety pozostają osobnym odczytem.
+- Skupione testy domeny, zapytań, API i migracji: 139 passed. Ruff i scoped
+  mypy passed. Pełny mypy nadal ma wcześniejsze brakujące `py.typed` workera i
+  wcześniejszy `jobs.py:no-any-return`.
+
 ### TASK-0520 — bieżąca projekcja komórek V2
 
 - `game_data_v2.image_symbol_review_cells` ma po migracji 0107 dokładnie jeden

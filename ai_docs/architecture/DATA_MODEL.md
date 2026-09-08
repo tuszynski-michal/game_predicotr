@@ -6,6 +6,21 @@ last_updated: 2026-08-24
 
 # Model danych
 
+## Indeksowana bieżąca projekcja symboli — TASK-0521
+
+Migracja 0108 dodaje do obu fizycznych wariantów
+`image_symbol_review_cells.prediction_confidence`, ale tylko ścieżka V2 opiera
+na tej kolumnie filtrowanie listy. Writer i backfill utrzymują ją atomowo z
+bieżącym cropem. Legacy zachowuje odczyt confidence z rewizji/obserwacji, aby
+nie wykonywać kosztownego backfillu danych przeznaczonych do usunięcia.
+
+V2 ma indeksy listy wszystkich komórek, symbol+stan, syntetycznego `?`,
+confidence oraz aktywnej kohorty. Stabilny porządek projekcji to
+`(sequence_number, cell_index, image_symbol_review_cells.id)`; zmiana
+kanonicznego właściciela aktualizuje rekord zamiast zmieniać jego pozycję.
+Zapytanie V2 nie odtwarza właściciela przez historyczne fast documents,
+observations ani prediction revisions.
+
 ## game_data_v2 — pusty schemat partycjonowany TASK-0518
 
 Migracja 0105 przygotowuje 65 parentów `LIST(game_id)`, bez partycji domyślnej,

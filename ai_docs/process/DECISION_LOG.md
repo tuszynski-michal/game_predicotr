@@ -8,6 +8,18 @@ last_updated: 2026-09-08
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-378 — Lista symboli czyta bieżącą projekcję partycji gry
+
+- **Status:** accepted (TASK-0521).
+- **Date:** 2026-09-09.
+- V2 materializuje confidence razem z bieżącą komórką i listuje bez owner join
+  oraz bez historycznych JSON-ów. Legacy zachowuje dotychczasową ścieżkę.
+- Keyset opiera się na stabilnym id rekordu projekcji, a cursor wiąże także
+  generację storage. Cutover lub zmiana filtrów powoduje kontrolowane
+  odświeżenie, nigdy kontynuację kursora w innym fizycznym zbiorze.
+- Indeksy powstają na partycjonowanym parentcie V2; TASK-0523 odpowiada za
+  sprawdzenie ich obecności na fizycznej partycji przed aktywacją gry.
+
 ## D-377 — Zamknięty schemat game_data_v2 i wspólny koordynator jobów
 
 - **Status:** accepted — techniczne doprecyzowanie zaakceptowanego TASK-0518.

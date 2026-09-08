@@ -163,6 +163,59 @@ def test_list_keeps_the_current_geometry_guard() -> None:
     )
 
 
+def test_v2_list_uses_only_the_current_projection_and_materialized_confidence() -> None:
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=UUID(int=2),
+        state=SymbolCellReviewFilterState.PENDING,
+        min_confidence=0.4,
+        uses_current_projection=True,
+        storage_generation=2,
+    )
+
+    sql = _compiled(repository._list_statement(review_filter=review_filter))
+
+    assert "image_board_search_fast_documents" not in sql
+    assert "cell_observations" not in sql
+    assert "image_symbol_prediction_revisions" not in sql
+    assert "recognized_boards" not in sql
+    assert "image_symbol_review_cells.prediction_confidence" in sql
+    assert "JOIN image_review_items" in sql
+
+
+def test_v2_seek_orders_by_the_stable_cell_projection_identity() -> None:
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ALL,
+        include_all_symbols=True,
+        uses_current_projection=True,
+        storage_generation=2,
+    )
+
+    sql = _compiled(repository._candidate_seek_statement(review_filter=review_filter))
+
+    assert "image_symbol_review_cells.id" in sql
+    assert "image_board_search_fast_documents" not in sql
+
+
+def test_legacy_seek_does_not_create_a_cartesian_confidence_scan() -> None:
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=UUID(int=2),
+        state=SymbolCellReviewFilterState.ALL,
+        min_confidence=0.4,
+    )
+
+    sql = _compiled(repository._candidate_seek_statement(review_filter=review_filter))
+
+    assert "cell_observations" not in sql
+    assert "image_symbol_prediction_revisions" not in sql
+
+
 def test_count_statement_preserves_symbol_quality_and_confidence_filters() -> None:
     repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
     review_filter = SymbolCellReviewListFilter(

@@ -110,8 +110,15 @@ class SymbolCellReviewListFilter:
     max_confidence: float | None = None
     include_all_symbols: bool = False
     model_cohort_id: UUID | None = None
+    storage_generation: int = 1
+    uses_current_projection: bool = False
 
     def __post_init__(self) -> None:
+        if self.storage_generation < 1:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_STORAGE_GENERATION_INVALID",
+                "The symbol-cell review storage generation must be positive.",
+            )
         if self.include_all_symbols and self.symbol_id is not None:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_SYMBOL_FILTER_INVALID",
@@ -196,7 +203,7 @@ class SymbolCellReviewListItem:
 
     @property
     def cursor_key(self) -> tuple[int, int, UUID]:
-        return (self.sequence_number, self.cell_index, self.review_item_id)
+        return (self.sequence_number, self.cell_index, self.cell_review_id)
 
     @property
     def is_unknown(self) -> bool:
@@ -887,14 +894,9 @@ def encode_symbol_cell_review_cursor(
         "maxConfidence": review_filter.max_confidence,
         "minConfidence": review_filter.min_confidence,
         "state": review_filter.state.value,
+        "storageGeneration": review_filter.storage_generation,
         "symbolId": _symbol_cell_review_filter_scope(review_filter),
-        "version": (
-            5
-            if review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
-            else 4
-            if review_filter.include_all_symbols
-            else 3
-        ),
+        "version": 6,
     }
     if review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT:
         payload["modelCohortId"] = (
@@ -923,6 +925,7 @@ def decode_symbol_cell_review_cursor(
         parsed_state = SymbolCellReviewFilterState(payload["state"])
         parsed_min_confidence = payload.get("minConfidence")
         parsed_max_confidence = payload.get("maxConfidence")
+        parsed_storage_generation = payload["storageGeneration"]
         parsed_model_cohort_id = (
             None if payload.get("modelCohortId") is None else UUID(payload["modelCohortId"])
         )
@@ -933,21 +936,24 @@ def decode_symbol_cell_review_cursor(
         ) from error
 
     expected_symbol = _symbol_cell_review_filter_scope(review_filter)
-    expected_versions = (
-        {5}
-        if review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
-        else {4}
-        if review_filter.include_all_symbols
-        else {2, 3}
-    )
     if (
-        payload.get("version") not in expected_versions
+        not isinstance(parsed_storage_generation, int)
+        or isinstance(parsed_storage_generation, bool)
+        or parsed_storage_generation < 1
+    ):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
+            "The symbol-cell review cursor storage generation is invalid.",
+        )
+    if (
+        payload.get("version") != 6
         or parsed_game_id != review_filter.game_id
         or parsed_symbol_id != expected_symbol
         or parsed_state is not review_filter.state
         or parsed_direction is not direction
         or parsed_min_confidence != review_filter.min_confidence
         or parsed_max_confidence != review_filter.max_confidence
+        or parsed_storage_generation != review_filter.storage_generation
         or parsed_model_cohort_id != review_filter.model_cohort_id
     ):
         raise SymbolCellReviewError(
@@ -970,13 +976,13 @@ def decode_symbol_cell_review_cursor(
             "The symbol-cell review cursor key is invalid.",
         )
     try:
-        review_item_id = UUID(key[2])
+        cell_review_id = UUID(key[2])
     except ValueError as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
-            "The symbol-cell review cursor item identity is invalid.",
+            "The symbol-cell review cursor cell identity is invalid.",
         ) from error
-    return key[0], key[1], review_item_id
+    return key[0], key[1], cell_review_id
 
 
 def _symbol_cell_review_filter_scope(review_filter: SymbolCellReviewListFilter) -> str:

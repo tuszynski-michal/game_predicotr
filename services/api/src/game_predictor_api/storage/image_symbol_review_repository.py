@@ -16,7 +16,7 @@ from sqlalchemy import Float, String, and_, delete, false, func, or_, select, te
 from sqlalchemy import cast as sql_cast
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, load_only
 from sqlalchemy.sql import ColumnElement, Select
 
 from game_predictor_api.application.image_reviews import OperationalImageReviewService
@@ -26,6 +26,7 @@ from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationResult,
 )
 from game_predictor_api.application.image_symbol_reviews import (
+    SymbolCellReviewCatalogState,
     SymbolCellReviewListSlice,
     SymbolCellReviewQueryRepository,
 )
@@ -315,7 +316,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             details={"operation": operation or self._active_read_operation or "unknown"},
         )
 
-    def require_ready_game(self, game_id: UUID) -> int:
+    def require_ready_game(self, game_id: UUID) -> SymbolCellReviewCatalogState:
         self._raise_if_read_cancelled()
         if self._session.get(GameModel, game_id) is None:
             raise SymbolCellReviewError(
@@ -340,7 +341,12 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                     "gameId": str(game_id),
                 },
             )
-        return int(state.catalog_revision)
+        location = GameStorageRouter().describe(self._session, game_id)
+        return SymbolCellReviewCatalogState(
+            catalog_revision=int(state.catalog_revision),
+            storage_generation=location.generation,
+            uses_current_projection=location.store_schema is GameStorageSchema.V2,
+        )
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None:
         self._raise_if_read_cancelled()
@@ -371,7 +377,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         if after_key is not None and before_key is not None:
             raise ValueError("only one symbol-cell review keyset direction is allowed")
         statement = self._candidate_seek_statement(review_filter=review_filter)
-        sequence, cell_index, review_item_key = _symbol_cell_review_order_columns()
+        sequence, cell_index, cell_key = _symbol_cell_review_order_columns()
         seek_key = before_key if before_key is not None else after_key
         descending = before_key is not None
         visible_ids: list[UUID] = []
@@ -388,24 +394,28 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             batch_statement = batch_statement.order_by(
                 sequence.desc() if descending else sequence,
                 cell_index.desc() if descending else cell_index,
-                review_item_key.desc() if descending else review_item_key,
+                cell_key.desc() if descending else cell_key,
             ).limit(seek_batch_size)
             candidate_rows = self._session.execute(batch_statement).all()
             if not candidate_rows:
                 break
             candidate_ids = tuple(cast(UUID, row[0]) for row in candidate_rows)
             self._raise_if_read_cancelled()
-            current_ids = {
-                cast(UUID, row[0])
-                for row in self._session.execute(
-                    self._base_visible_statement(
-                        review_filter=review_filter,
-                        include_prediction_confidence=False,
-                    )
-                    .with_only_columns(ImageSymbolReviewCellModel.id)
-                    .where(ImageSymbolReviewCellModel.id.in_(candidate_ids))
-                ).all()
-            }
+            current_ids = (
+                set(candidate_ids)
+                if review_filter.uses_current_projection
+                else {
+                    cast(UUID, row[0])
+                    for row in self._session.execute(
+                        self._base_visible_statement(
+                            review_filter=review_filter,
+                            include_prediction_confidence=False,
+                        )
+                        .with_only_columns(ImageSymbolReviewCellModel.id)
+                        .where(ImageSymbolReviewCellModel.id.in_(candidate_ids))
+                    ).all()
+                }
+            )
             visible_ids.extend(cell_id for cell_id in candidate_ids if cell_id in current_ids)
             last = candidate_rows[-1]
             seek_key = (int(last[1]), int(last[2]), cast(UUID, last[3]))
@@ -472,16 +482,16 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         cell = ImageSymbolReviewCellModel
         document = ImageBoardSearchFastDocumentModel
         source_geometry = ImageSourceGeometryRevisionModel
-        rows = self._session.execute(
-            select(
-                cell,
-                RecognizedBoardModel.geometry_revision,
-                RecognizedBoardModel.source_geometry_revision_id,
-                SourceImageModel.checksum_sha256,
-                source_geometry.normalized_pixel_checksum_sha256,
-                source_geometry.geometry_checksum_sha256,
-            )
-            .join(
+        statement = select(
+            cell,
+            RecognizedBoardModel.geometry_revision,
+            RecognizedBoardModel.source_geometry_revision_id,
+            SourceImageModel.checksum_sha256,
+            source_geometry.normalized_pixel_checksum_sha256,
+            source_geometry.geometry_checksum_sha256,
+        )
+        if not _uses_logical_current_cell_identity(self._session, game_id):
+            statement = statement.join(
                 document,
                 and_(
                     document.game_id == cell.game_id,
@@ -491,7 +501,10 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                     document.import_job_id == cell.import_job_id,
                 ),
             )
-            .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
+        rows = self._session.execute(
+            statement.join(
+                RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id
+            )
             .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
             .outerjoin(
                 source_geometry,
@@ -540,16 +553,53 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
     def _list_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
         cell = ImageSymbolReviewCellModel
         assigned_symbol = aliased(SymbolModel)
-        return (
+        board_status = (
+            ImageReviewItemModel.status
+            if review_filter.uses_current_projection
+            else ImageBoardSearchFastDocumentModel.status
+        )
+        statement = (
             self._visible_statement(review_filter=review_filter)
             .add_columns(
-                ImageBoardSearchFastDocumentModel.status.label("board_status"),
+                board_status.label("board_status"),
                 assigned_symbol.id.label("assigned_symbol_id"),
                 assigned_symbol.code.label("assigned_symbol_code"),
                 assigned_symbol.name.label("assigned_symbol_name"),
-                _prediction_confidence_expression().label("prediction_confidence"),
+                _prediction_confidence_expression(review_filter).label("prediction_confidence"),
             )
             .outerjoin(assigned_symbol, assigned_symbol.id == cell.assigned_symbol_id)
+        )
+        if review_filter.uses_current_projection:
+            statement = statement.join(
+                ImageReviewItemModel, ImageReviewItemModel.id == cell.review_item_id
+            )
+        return statement.options(
+            load_only(
+                cell.id,
+                cell.review_item_id,
+                cell.recognized_board_id,
+                cell.import_job_id,
+                cell.sequence_number,
+                cell.cell_index,
+                cell.row_index,
+                cell.column_index,
+                cell.assigned_symbol_id,
+                cell.prediction_symbol_code,
+                cell.review_state,
+                cell.quality_issue,
+                cell.revision,
+                cell.geometry_revision,
+                cell.crop_sample_id,
+                cell.crop_relative_path,
+                cell.crop_checksum_sha256,
+                cell.cropper_version,
+                cell.asset_mode,
+                cell.render_spec_checksum_sha256,
+                cell.assignment_source,
+                cell.approved_crop_sample_id,
+                cell.approved_crop_checksum_sha256,
+                cell.approved_geometry_revision,
+            )
         )
 
     def _candidate_seek_statement(
@@ -564,20 +614,34 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             cell.id,
             cell.sequence_number,
             cell.cell_index,
-            cell.review_item_id,
+            cell.id,
         ).where(
             cell.game_id == review_filter.game_id,
             cell.source_available.is_(True),
         )
         if not review_filter.include_all_symbols:
             if review_filter.symbol_id is None:
-                statement = statement.where(cell.assigned_symbol_id.is_(None))
+                statement = statement.where(
+                    or_(
+                        cell.assigned_symbol_id.is_(None),
+                        cell.quality_issue.in_(_TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES),
+                    )
+                )
             else:
-                statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
+                statement = statement.where(
+                    cell.assigned_symbol_id == review_filter.symbol_id,
+                    cell.quality_issue.is_(None),
+                )
         statement = _apply_symbol_cell_review_state_filter(
             statement,
             review_filter=review_filter,
         )
+        if review_filter.uses_current_projection:
+            confidence = _prediction_confidence_expression(review_filter)
+            if review_filter.min_confidence is not None:
+                statement = statement.where(confidence >= review_filter.min_confidence)
+            if review_filter.max_confidence is not None:
+                statement = statement.where(confidence <= review_filter.max_confidence)
         return statement
 
     def _visible_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
@@ -617,17 +681,19 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         document = ImageBoardSearchFastDocumentModel
         prediction_revision = ImageSymbolPredictionRevisionModel
         observation = CellObservationModel
-        statement = select(cell).join(
-            document,
-            and_(
-                document.game_id == cell.game_id,
-                document.sequence_number == cell.sequence_number,
-                document.review_item_id == cell.review_item_id,
-                document.recognized_board_id == cell.recognized_board_id,
-                document.import_job_id == cell.import_job_id,
-            ),
-        )
-        if require_current_geometry:
+        statement = select(cell)
+        if not review_filter.uses_current_projection:
+            statement = statement.join(
+                document,
+                and_(
+                    document.game_id == cell.game_id,
+                    document.sequence_number == cell.sequence_number,
+                    document.review_item_id == cell.review_item_id,
+                    document.recognized_board_id == cell.recognized_board_id,
+                    document.import_job_id == cell.import_job_id,
+                ),
+            )
+        if require_current_geometry and not review_filter.uses_current_projection:
             statement = statement.join(
                 RecognizedBoardModel,
                 RecognizedBoardModel.id == cell.recognized_board_id,
@@ -657,7 +723,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             or review_filter.min_confidence is not None
             or review_filter.max_confidence is not None
         )
-        if confidence_is_required:
+        if confidence_is_required and not review_filter.uses_current_projection:
             statement = statement.outerjoin(
                 prediction_revision,
                 prediction_revision.id == cell.prediction_revision_id,
@@ -669,7 +735,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                     observation.column_index == cell.column_index,
                 ),
             )
-        confidence = _prediction_confidence_expression()
+        confidence = _prediction_confidence_expression(review_filter)
         if review_filter.min_confidence is not None:
             statement = statement.where(confidence >= review_filter.min_confidence)
         if review_filter.max_confidence is not None:
@@ -2192,6 +2258,7 @@ class SymbolCellReviewWriteThroughCoordinator:
                         prediction_symbol_code=_known_symbol_code(
                             review_cell.predicted_symbol_code
                         ),
+                        prediction_confidence=review_cell.confidence,
                         prediction_revision_id=prediction_revision_id,
                         assigned_symbol_id=target.assigned_symbol_id,
                         review_state=target.review_state,
@@ -2718,7 +2785,7 @@ def _locked_board_reviews(
 
 def _symbol_cell_review_order_columns() -> tuple[Any, Any, Any]:
     cell = ImageSymbolReviewCellModel
-    return cell.sequence_number, cell.cell_index, cell.review_item_id
+    return cell.sequence_number, cell.cell_index, cell.id
 
 
 def _symbol_cell_review_after_key(key: tuple[int, int, UUID]) -> ColumnElement[bool]:
@@ -2779,8 +2846,10 @@ def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
     )
 
 
-def _prediction_confidence_expression() -> ColumnElement[float | None]:
-    """Read the latest review confidence without materialising a new projection.
+def _prediction_confidence_expression(
+    review_filter: SymbolCellReviewListFilter,
+) -> ColumnElement[float | None]:
+    """Read confidence from the current V2 projection or legacy sources.
 
     Pending reinference stores the current per-cell confidence in the linked
     prediction revision. Legacy rows retain it in ``cell_observations``.  The
@@ -2789,6 +2858,8 @@ def _prediction_confidence_expression() -> ColumnElement[float | None]:
     """
 
     cell = ImageSymbolReviewCellModel
+    if review_filter.uses_current_projection:
+        return cast(ColumnElement[float | None], cell.prediction_confidence)
     revision = ImageSymbolPredictionRevisionModel
     observation = CellObservationModel
     revision_confidence = sql_cast(
@@ -3184,6 +3255,7 @@ def _cell_matches_projection(
         and cell.geometry_revision == geometry_revision
         and cell.cropper_version == cropper_version
         and cell.prediction_symbol_code == _known_symbol_code(review_cell.predicted_symbol_code)
+        and cell.prediction_confidence == review_cell.confidence
         and cell.prediction_revision_id == prediction_revision_id
         and cell.assigned_symbol_id == target.assigned_symbol_id
         and cell.review_state == target.review_state
@@ -3235,6 +3307,7 @@ def _apply_cell_projection(
     cell.geometry_revision = geometry_revision
     cell.cropper_version = cropper_version
     cell.prediction_symbol_code = _known_symbol_code(review_cell.predicted_symbol_code)
+    cell.prediction_confidence = review_cell.confidence
     cell.prediction_revision_id = prediction_revision_id
     cell.assigned_symbol_id = target.assigned_symbol_id
     cell.review_state = target.review_state
@@ -3715,6 +3788,9 @@ class SqlAlchemyImageSymbolReviewRepository:
                         "geometry_revision": review.crop.geometry_revision,
                         "cropper_version": review.crop.cropper_version,
                         "prediction_symbol_code": review.predicted_symbol_code,
+                        "prediction_confidence": current_cells_by_index[
+                            review.cell_index
+                        ].confidence,
                         "prediction_revision_id": (
                             None if prediction_revision is None else prediction_revision.id
                         ),

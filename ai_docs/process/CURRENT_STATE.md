@@ -6,6 +6,20 @@ last_updated: 2026-09-08
 
 # Current State
 
+### TASK-0523 — cykl życia partycji gry
+
+- Migracja 0110 dodaje trwały receipt provision/delete bez FK do gry. Każde
+  wywołanie wykonuje najwyżej jedną partycję manifestu i zapisuje checkpoint.
+- Provisioning waliduje nazwę, parent, UUID bound i kolumny, ustawia per-partition
+  autovacuum oraz wykonuje ANALYZE. Location V2 staje się aktywne dopiero po
+  kompletnym zestawie 65 partycji.
+- Delete zamyka zapisy tym samym advisory fence, wyznacza kolejność z FK,
+  odłącza i usuwa partycje bez CASCADE, a katalog usuwa dopiero na końcu.
+  Wspólna lub obca referencja blokuje transakcję zamiast kasować wspólne dane.
+- Izolowany PostgreSQL: dwie gry utworzone, restart między każdym krokiem,
+  jedna usunięta bez naruszenia drugiej. Migracji ani lifecycle nie wykonano na
+  bazie użytkownika.
+
 ### TASK-0522 — dokładne liczniki Weryfikacji symboli
 
 - Podstawowe liczniki V2 (`wszystkie`, konkretny symbol, `?` oraz stany) są

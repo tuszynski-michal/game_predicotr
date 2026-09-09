@@ -149,6 +149,22 @@ manifestu dopuszcza tylko tabelę klasy game. Cursor ma limit 64 KiB. Jeden
 nieterminalny migration receipt na grę blokuje niezależny konkurencyjny run;
 failed jest wznawiany, nie traktowany jako zwolnienie blokady.
 
+Migracja 0110 dodaje osobny `game_storage_lifecycle_operations`, którego receipt
+nie ma FK do usuwanej gry. Provisioning i delete zapisują po jednej tabeli
+zamrożonego manifestu na transakcję. Prefiks `completed_tables` musi dokładnie
+odpowiadać bieżącej kolejności; restart kontynuuje od `next_table_index`, a dryf
+checkpointu blokuje operację. Partycje mają deterministyczną nazwę, jawny parent
+i pojedynczy bound UUID. Po utworzeniu sprawdzane są kolumny, ustawienia
+autovacuum oraz `ANALYZE`; dopiero kompletny zestaw aktywuje location V2.
+
+Delete uzyskuje ten sam wyłączny advisory fence, ustawia location na `deleting`
+i wyznacza kolejność dzieci-przed-rodzicami z FK parentów oraz ich partycji.
+Każda tabela jest najpierw odłączana od parenta, następnie usuwana bez
+`CASCADE`. Po ostatniej partycji w jednej transakcji usuwane są małe rekordy
+katalogu, location i gra. Referencje z public/shared nie są obchodzone: FK lub
+dryf zatrzymuje finalizację. Fizyczny GC plików pozostaje osobnym, zatwierdzanym
+i reference-aware etapem operatorskim.
+
 ## Bezpieczeństwo wdrożenia
 
 Audyt porównuje wszystkie domenowe kolumny oraz CHECK constraints z pełnym torem

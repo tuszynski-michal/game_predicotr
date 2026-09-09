@@ -8,6 +8,19 @@ last_updated: 2026-09-08
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-379 — Lifecycle partycji jest manifest-bound i checkpointowany per tabela
+
+- **Status:** accepted (TASK-0523).
+- **Date:** 2026-09-09.
+- Provisioning i usuwanie wykonują najwyżej jedną tabelę manifestu w jednej
+  transakcji, a receipt niezależny od FK gry przechowuje ukończony prefiks.
+- Istniejąca nazwa, parent albo bound muszą odpowiadać deterministycznej
+  tożsamości partycji; dryf blokuje operację. Aktywna lokalizacja V2 powstaje
+  dopiero po walidacji całego zestawu.
+- Usuwanie najpierw zamyka zapisy, wyznacza kolejność z rzeczywistych FK parentów
+  i partycji, odłącza partycję, a następnie usuwa ją bez `CASCADE`. Katalog gry
+  jest usuwany dopiero po wszystkich partycjach; obce referencje blokują commit.
+
 ## D-378 — Lista symboli czyta bieżącą projekcję partycji gry
 
 - **Status:** accepted (TASK-0521).

@@ -482,11 +482,13 @@ anulowania i przerywa odpowiadające mu zapytanie PostgreSQL z executora
 niezależnego od puli query. Kolejne etapy sprawdzają sygnał przed SQL, a
 fizyczny cancel jest ponawiany do końca query. Request kończy pracę wątku i
 operacji cancel przed zwolnieniem własnej sesji, także po powtórnym anulowaniu.
-Szeroki licznik całej gry bez filtra confidence korzysta z gotowej projekcji i
-kanonicznego właściciela planszy, a stany wylicza jednym agregatem warunkowym
-bez sortowania i lookupu geometrii dla każdej komórki. Filtry pojedynczego
-symbolu, `?`, confidence oraz aktywnej kohorty zachowują pełną kontrolę bieżącej
-rewizji geometrii i dotychczasową selektywność indeksów.
+W magazynie V2 podstawowe liczniki całej gry, pojedynczego symbolu i `?` są
+utrzymywane transakcyjnie razem z bieżącą projekcją komórek. Delta zawsze wynika
+ze stanu przed i po zapisie, dlatego retry i operacja zbiorcza nie mogą naliczyć
+tej samej zmiany ponownie. Podczas checkpointowanej rekonstrukcji API zwraca
+jawną niedostępność licznika, nigdy pozorne zero. Confidence i aktywna kohorta
+pozostają dokładnymi, ograniczonymi czasowo zapytaniami po indeksach. Magazyn
+legacy zachowuje dotychczasową ścieżkę agregatu SQL.
 Zmiana ustawionej gry,
 symbolu albo rozmiaru strony czyści strony, miniatury, zaznaczenie i wirtualny
 viewport. Jeśli istnieje jawne zaznaczenie,

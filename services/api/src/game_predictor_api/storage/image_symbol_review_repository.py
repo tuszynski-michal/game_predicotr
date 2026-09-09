@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -120,6 +120,99 @@ _TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES = (
     SymbolCellQualityIssue.GRID_ISSUE.value,
     SymbolCellQualityIssue.UNREADABLE.value,
 )
+_COUNT_SCOPE_ALL = "all"
+_COUNT_SCOPE_UNKNOWN = "unknown"
+_COUNT_STATES = (
+    SymbolCellReviewState.APPROVED.value,
+    SymbolCellReviewState.PENDING.value,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _CountedCellState:
+    source_available: bool
+    assigned_symbol_id: UUID | None
+    review_state: str
+    quality_issue: str | None
+
+    @classmethod
+    def from_model(cls, cell: ImageSymbolReviewCellModel) -> _CountedCellState:
+        return cls(
+            source_available=cell.source_available,
+            assigned_symbol_id=cell.assigned_symbol_id,
+            review_state=cell.review_state,
+            quality_issue=_quality_issue_from_model(cell),
+        )
+
+
+def _count_scope_keys(cell: _CountedCellState | None) -> tuple[str, ...]:
+    if cell is None or not cell.source_available or cell.review_state not in _COUNT_STATES:
+        return ()
+    if cell.assigned_symbol_id is None or cell.quality_issue in (
+        _TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES
+    ):
+        return (_COUNT_SCOPE_ALL, _COUNT_SCOPE_UNKNOWN)
+    if cell.quality_issue is None:
+        return (_COUNT_SCOPE_ALL, f"symbol:{cell.assigned_symbol_id}")
+    return (_COUNT_SCOPE_ALL,)
+
+
+def _count_deltas(
+    before: Sequence[_CountedCellState],
+    after: Sequence[_CountedCellState],
+) -> Counter[tuple[str, str]]:
+    delta: Counter[tuple[str, str]] = Counter()
+    for sign, cells in ((-1, before), (1, after)):
+        for cell in cells:
+            for scope in _count_scope_keys(cell):
+                delta[(scope, cell.review_state)] += sign
+    return delta
+
+
+def _apply_count_delta_payload(
+    payload: Mapping[str, object],
+    deltas: Mapping[tuple[str, str], int],
+) -> dict[str, object]:
+    updated: dict[str, object] = {
+        str(scope): dict(cast(Mapping[str, object], counts))
+        for scope, counts in payload.items()
+        if isinstance(scope, str) and isinstance(counts, Mapping)
+    }
+    for (scope, review_state), delta in sorted(deltas.items()):
+        if delta == 0:
+            continue
+        counts = cast(dict[str, object], updated.setdefault(scope, {}))
+        current = counts.get(review_state, 0)
+        if not isinstance(current, int) or isinstance(current, bool):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_COUNT_PROJECTION_INVALID",
+                "The stored symbol review count projection is invalid.",
+            )
+        next_count = current + delta
+        if next_count < 0:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_COUNT_PROJECTION_NEGATIVE",
+                "A symbol review mutation would make an exact count negative.",
+                details={"scope": scope, "state": review_state},
+            )
+        counts[review_state] = next_count
+    return updated
+
+
+def _apply_count_deltas(
+    state: ImageSymbolReviewStateModel,
+    *,
+    before: Sequence[_CountedCellState] = (),
+    after: Sequence[_CountedCellState] = (),
+) -> bool:
+    if state.count_projection_status not in {"ready", "rebuilding"}:
+        return False
+    deltas = _count_deltas(before, after)
+    if not any(deltas.values()):
+        return False
+    state.count_projection = _apply_count_delta_payload(state.count_projection, deltas)
+    state.count_projection_revision += 1
+    return True
 
 
 class _SafeCancelableDriverConnection(Protocol):
@@ -453,6 +546,44 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
 
     def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts:
         self._raise_if_read_cancelled()
+        scope = self._basic_count_scope(review_filter)
+        if scope is not None:
+            state = self._session.get(ImageSymbolReviewStateModel, review_filter.game_id)
+            if state is None or state.count_projection_status != "ready":
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_COUNTS_UNAVAILABLE",
+                    "Exact symbol review counts are being prepared for this game.",
+                    details={
+                        "status": (
+                            "unavailable" if state is None else state.count_projection_status
+                        )
+                    },
+                )
+            raw_counts = state.count_projection.get(scope, {})
+            if not isinstance(raw_counts, Mapping):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_COUNT_PROJECTION_INVALID",
+                    "The stored symbol review count projection is invalid.",
+                )
+            approved_count = raw_counts.get(SymbolCellReviewState.APPROVED.value, 0)
+            pending_count = raw_counts.get(SymbolCellReviewState.PENDING.value, 0)
+            if any(
+                not isinstance(value, int) or isinstance(value, bool) or value < 0
+                for value in (approved_count, pending_count)
+            ):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_COUNT_PROJECTION_INVALID",
+                    "The stored symbol review count projection is invalid.",
+                )
+            if review_filter.state is SymbolCellReviewFilterState.APPROVED:
+                pending_count = 0
+            elif review_filter.state is SymbolCellReviewFilterState.PENDING:
+                approved_count = 0
+            return SymbolCellReviewCounts(
+                all_count=approved_count + pending_count,
+                approved_count=approved_count,
+                pending_count=pending_count,
+            )
         approved_count, pending_count = self._session.execute(
             self._count_statement(review_filter=review_filter)
         ).one()
@@ -461,6 +592,21 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             approved_count=int(approved_count),
             pending_count=int(pending_count),
         )
+
+    @staticmethod
+    def _basic_count_scope(review_filter: SymbolCellReviewListFilter) -> str | None:
+        if (
+            not review_filter.uses_current_projection
+            or review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
+            or review_filter.min_confidence is not None
+            or review_filter.max_confidence is not None
+        ):
+            return None
+        if review_filter.include_all_symbols:
+            return _COUNT_SCOPE_ALL
+        if review_filter.symbol_id is None:
+            return _COUNT_SCOPE_UNKNOWN
+        return f"symbol:{review_filter.symbol_id}"
 
     def get_asset(
         self,
@@ -872,6 +1018,10 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             )
 
         symbol_codes, symbol_ids = self._active_symbols(game_id)
+        count_before = tuple(
+            _CountedCellState.from_model(row_by_cell_id[command.cell_review_id][0])
+            for command in commands
+        )
         changed_by_cell_id: dict[UUID, bool] = {}
         for command in commands:
             cell = row_by_cell_id[command.cell_review_id][0]
@@ -900,6 +1050,14 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                     actor=command.actor.strip(),
                     operation_id=command.operation_id,
                 )
+        _apply_count_deltas(
+            state,
+            before=count_before,
+            after=tuple(
+                _CountedCellState.from_model(row_by_cell_id[command.cell_review_id][0])
+                for command in commands
+            ),
+        )
         self._session.flush()
 
         current_board_reviews = self._locked_current_board_reviews(
@@ -1948,6 +2106,9 @@ class SymbolCellReviewWriteThroughCoordinator:
             cell.cell_index: cell
             for cell in self._session.scalars(existing_statement.with_for_update())
         }
+        count_before = tuple(
+            _CountedCellState.from_model(cell) for cell in existing.values()
+        )
         topology = _board_topology(board)
         expected_cell_indices = set(range(topology.cell_count)) - set(
             board.unavailable_cell_indices
@@ -2322,6 +2483,24 @@ class SymbolCellReviewWriteThroughCoordinator:
 
         if changed:
             self._session.flush()
+            current_count_statement = select(ImageSymbolReviewCellModel).where(
+                ImageSymbolReviewCellModel.game_id == game_id
+            )
+            if _uses_logical_current_cell_identity(self._session, game_id):
+                current_count_statement = current_count_statement.where(
+                    ImageSymbolReviewCellModel.sequence_number == sequence_number
+                )
+            else:
+                current_count_statement = current_count_statement.where(
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id
+                )
+            count_after = tuple(
+                _CountedCellState.from_model(cell)
+                for cell in self._session.scalars(
+                    current_count_statement.order_by(ImageSymbolReviewCellModel.cell_index)
+                )
+            )
+            _apply_count_deltas(state, before=count_before, after=count_after)
             self._touch_catalog_revision(state)
         return changed
 
@@ -3360,6 +3539,12 @@ class SqlAlchemyImageSymbolReviewRepository:
                 invalid_geometry_count=0,
                 last_review_item_id=None,
                 failure_message=None,
+                count_projection_status="rebuilding",
+                count_projection={},
+                count_projection_revision=0,
+                count_rebuild_cursor=None,
+                count_rebuild_accumulator={},
+                count_projection_failure_message=None,
             )
             self._session.add(state)
         else:
@@ -3378,6 +3563,84 @@ class SqlAlchemyImageSymbolReviewRepository:
             )
         self._session.flush()
         return self._report_from_state(state, sample_problem_review_item_ids=missing)
+
+    def start_count_rebuild(self, game_id: UUID) -> None:
+        """Fence writes and reset only the per-game count reconstruction state."""
+
+        state = self._session.get(ImageSymbolReviewStateModel, game_id, with_for_update=True)
+        if state is None or state.status != "ready":
+            raise SymbolCellReviewBackfillError(
+                "SYMBOL_CELL_REVIEW_COUNT_REBUILD_NOT_READY",
+                "The current symbol-cell projection must be ready before counts are rebuilt.",
+            )
+        state.status = "rebuilding"
+        state.count_projection_status = "rebuilding"
+        state.count_rebuild_cursor = None
+        state.count_rebuild_accumulator = {}
+        state.count_projection_failure_message = None
+        self._session.flush()
+
+    def rebuild_count_projection_next_batch(
+        self,
+        game_id: UUID,
+        *,
+        batch_size: int = 5_000,
+    ) -> bool:
+        """Resume a keyset count rebuild; return True after atomic publication."""
+
+        if not 1 <= batch_size <= 10_000:
+            raise ValueError("batch_size must be between 1 and 10000")
+        state = self._session.get(ImageSymbolReviewStateModel, game_id, with_for_update=True)
+        if state is None or state.count_projection_status != "rebuilding":
+            raise SymbolCellReviewBackfillError(
+                "SYMBOL_CELL_REVIEW_COUNT_REBUILD_NOT_STARTED",
+                "Start the symbol review count rebuild before processing a batch.",
+            )
+        statement = (
+            select(
+                ImageSymbolReviewCellModel.id,
+                ImageSymbolReviewCellModel.source_available,
+                ImageSymbolReviewCellModel.assigned_symbol_id,
+                ImageSymbolReviewCellModel.review_state,
+                ImageSymbolReviewCellModel.quality_issue,
+            )
+            .where(ImageSymbolReviewCellModel.game_id == game_id)
+            .order_by(ImageSymbolReviewCellModel.id)
+            .limit(batch_size)
+        )
+        if state.count_rebuild_cursor is not None:
+            statement = statement.where(
+                ImageSymbolReviewCellModel.id > state.count_rebuild_cursor
+            )
+        rows = self._session.execute(statement).all()
+        if not rows:
+            state.count_projection = dict(state.count_rebuild_accumulator)
+            state.count_projection_revision += 1
+            state.count_projection_status = "ready"
+            state.count_rebuild_cursor = None
+            state.count_rebuild_accumulator = {}
+            state.count_projection_failure_message = None
+            state.status = "ready"
+            state.catalog_revision += 1
+            self._session.flush()
+            return True
+        states = tuple(
+            _CountedCellState(
+                source_available=bool(row[1]),
+                assigned_symbol_id=cast(UUID | None, row[2]),
+                review_state=str(row[3]),
+                quality_issue=cast(str | None, row[4]),
+            )
+            for row in rows
+        )
+        deltas = _count_deltas((), states)
+        state.count_rebuild_accumulator = _apply_count_delta_payload(
+            state.count_rebuild_accumulator,
+            deltas,
+        )
+        state.count_rebuild_cursor = cast(UUID, rows[-1][0])
+        self._session.flush()
+        return False
 
     def backfill_next_batch(
         self,
@@ -3421,13 +3684,30 @@ class SqlAlchemyImageSymbolReviewRepository:
 
         for chunk in _iter_cell_insert_chunks(values):
             statement = postgresql_insert(ImageSymbolReviewCellModel).values(chunk)
-            self._session.execute(
+            inserted = self._session.execute(
                 statement.on_conflict_do_nothing(
                     index_elements=[
                         ImageSymbolReviewCellModel.review_item_id,
                         ImageSymbolReviewCellModel.cell_index,
                     ]
+                ).returning(
+                    ImageSymbolReviewCellModel.source_available,
+                    ImageSymbolReviewCellModel.assigned_symbol_id,
+                    ImageSymbolReviewCellModel.review_state,
+                    ImageSymbolReviewCellModel.quality_issue,
                 )
+            ).all()
+            _apply_count_deltas(
+                state,
+                after=tuple(
+                    _CountedCellState(
+                        source_available=bool(row[0]),
+                        assigned_symbol_id=cast(UUID | None, row[1]),
+                        review_state=str(row[2]),
+                        quality_issue=cast(str | None, row[3]),
+                    )
+                    for row in inserted
+                ),
             )
         state.last_review_item_id = rows[-1][1].id
         state.processed_review_item_count += len(rows)
@@ -3532,6 +3812,9 @@ class SqlAlchemyImageSymbolReviewRepository:
             return self._report_from_state(state, sample_problem_review_item_ids=problem_ids)
 
         state.status = "ready"
+        if state.count_projection_status == "rebuilding":
+            state.count_projection_status = "ready"
+            state.count_projection_failure_message = None
         state.catalog_revision += 1
         state.cell_count = self._current_selected_cell_count(game_id)
         state.missing_sequence_count = 0

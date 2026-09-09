@@ -285,16 +285,17 @@ connection. Transportowe anulowanie PostgreSQL jest rozpoznawane jako
 `statement_timeout` pozostaje niezależną górną granicą, również gdy transportowe
 anulowanie nie powiedzie się.
 
-Endpoint liczników ma dwie ścieżki wykonania. Szeroki filtr całej gry bez
-confidence opiera aktualność geometrii na wcześniej zweryfikowanym stanie
-projekcji `ready`, zachowuje join do
-`image_board_search_fast_documents` jako kanonicznego właściciela i wylicza
-`approved/pending` przez dwa `COUNT(*) FILTER` bez `GROUP BY`. Nie wykonuje
-powtarzanego lookupu `recognized_boards` dla każdej komórki. Filtry symbolu,
-syntetycznego `?`, confidence i `active_model_cohort` zachowują join bieżącej
-geometrii; ich selektywne plany były szybsze i nie wolno rozszerzać na nie
-szerokiej ścieżki bez osobnego pomiaru. Zapytanie listy zawsze zachowuje pełną
-bramkę geometrii.
+Endpoint liczników ma dwie ścieżki wykonania. Dla V2 podstawowe zakresy całej
+gry, pojedynczego symbolu i syntetycznego `?` odczytują małą projekcję
+`approved/pending` z `image_symbol_review_states`; nie skanują tabeli komórek.
+Projekcja jest aktualizowana pod blokadą stanu gry zagregowaną deltą ze stanów
+przed/po, a backfill liczy wyłącznie wiersze faktycznie zwrócone przez
+`ON CONFLICT DO NOTHING ... RETURNING`. Rekonstrukcja używa keysetowego
+checkpointu UUID, blokuje zapisy przez stan `rebuilding` i publikuje wynik
+atomowo. W tym czasie odczyt zwraca
+`SYMBOL_CELL_REVIEW_COUNTS_UNAVAILABLE`. Filtry confidence i
+`active_model_cohort` nadal wykonują dokładny, indeksowany SQL w limicie czasu.
+Legacy zachowuje agregat `COUNT(*) FILTER` oraz kanoniczny owner join.
 
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
 Dla projekcji `ready` jawne wywołanie zachowuje gotowy odczyt podczas

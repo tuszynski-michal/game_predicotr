@@ -11,6 +11,9 @@ from game_predictor_api.domain.image_symbol_reviews import (
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewQueryRepository,
+    _apply_count_delta_payload,
+    _count_deltas,
+    _CountedCellState,
 )
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import DBAPIError
@@ -37,6 +40,19 @@ class _ExecuteSession:
 
     def connection(self) -> _SqlAlchemyConnection:
         return _SqlAlchemyConnection(self.driver_connection)
+
+
+class _CountProjectionSession:
+    def __init__(self, state: object | None) -> None:
+        self.state = state
+        self.execute_called = False
+
+    def get(self, _model: object, _identity: object) -> object | None:
+        return self.state
+
+    def execute(self, _statement: object) -> None:
+        self.execute_called = True
+        raise AssertionError("a basic V2 count must not scan symbol cells")
 
 
 class _CancelableConnection:
@@ -199,6 +215,83 @@ def test_v2_seek_orders_by_the_stable_cell_projection_identity() -> None:
 
     assert "image_symbol_review_cells.id" in sql
     assert "image_board_search_fast_documents" not in sql
+
+
+def test_v2_basic_counts_use_the_exact_projection_without_cell_sql() -> None:
+    state = type(
+        "State",
+        (),
+        {
+            "count_projection_status": "ready",
+            "count_projection": {"unknown": {"approved": 7, "pending": 3}},
+        },
+    )()
+    session = _CountProjectionSession(state)
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ALL,
+        uses_current_projection=True,
+        storage_generation=2,
+    )
+
+    counts = repository.counts(review_filter=review_filter)
+
+    assert (counts.all_count, counts.approved_count, counts.pending_count) == (10, 7, 3)
+    assert session.execute_called is False
+
+
+def test_v2_basic_counts_are_unavailable_during_reconstruction() -> None:
+    state = type(
+        "State",
+        (),
+        {"count_projection_status": "rebuilding", "count_projection": {}},
+    )()
+    repository = SqlAlchemySymbolCellReviewQueryRepository(
+        cast(Session, _CountProjectionSession(state))
+    )
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ALL,
+        include_all_symbols=True,
+        uses_current_projection=True,
+        storage_generation=2,
+    )
+
+    with pytest.raises(SymbolCellReviewError) as raised:
+        repository.counts(review_filter=review_filter)
+
+    assert raised.value.code == "SYMBOL_CELL_REVIEW_COUNTS_UNAVAILABLE"
+    assert raised.value.details == {"status": "rebuilding"}
+
+
+def test_count_delta_is_aggregated_from_before_and_after_states() -> None:
+    symbol_id = UUID(int=9)
+    before = (
+        _CountedCellState(True, None, "pending", None),
+        _CountedCellState(True, symbol_id, "pending", None),
+    )
+    after = (
+        _CountedCellState(True, symbol_id, "approved", None),
+        _CountedCellState(True, symbol_id, "pending", "blurry"),
+    )
+
+    payload = _apply_count_delta_payload(
+        {
+            "all": {"approved": 0, "pending": 2},
+            "unknown": {"approved": 0, "pending": 1},
+            f"symbol:{symbol_id}": {"approved": 0, "pending": 1},
+        },
+        _count_deltas(before, after),
+    )
+
+    assert payload == {
+        "all": {"approved": 1, "pending": 1},
+        "unknown": {"approved": 0, "pending": 0},
+        f"symbol:{symbol_id}": {"approved": 1, "pending": 0},
+    }
 
 
 def test_legacy_seek_does_not_create_a_cartesian_confidence_scan() -> None:

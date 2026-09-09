@@ -48,6 +48,8 @@ from game_predictor_api.storage.image_review_repository import (
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
+    _apply_count_deltas,
+    _CountedCellState,
 )
 from game_predictor_api.storage.models import (
     CellObservationModel,
@@ -890,6 +892,12 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "IMAGE_GRID_REVIEW_CELLS_INCOMPLETE",
                 "Manual virtual geometry requires every current symbol-cell projection.",
             )
+        count_state = self._session.get(
+            ImageSymbolReviewStateModel,
+            context.game_id,
+            with_for_update=True,
+        )
+        count_before = tuple(_CountedCellState.from_model(cell) for cell in cells)
         if len(prepared.cells) != context.topology.cell_count:
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_VIRTUAL_CELLS_INCOMPLETE",
@@ -985,6 +993,12 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     operation_id=None,
                     actor=actor,
                 )
+            )
+        if count_state is not None:
+            _apply_count_deltas(
+                count_state,
+                before=count_before,
+                after=tuple(_CountedCellState.from_model(cell) for cell in cells),
             )
 
     def _pending_context(

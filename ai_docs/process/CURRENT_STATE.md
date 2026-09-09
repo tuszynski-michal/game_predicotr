@@ -6,6 +6,19 @@ last_updated: 2026-09-08
 
 # Current State
 
+### TASK-0522 — dokładne liczniki Weryfikacji symboli
+
+- Podstawowe liczniki V2 (`wszystkie`, konkretny symbol, `?` oraz stany) są
+  małą transakcyjną projekcją, odczytywaną bez skanu tabeli komórek.
+- Pojedyncze, zbiorcze i recropowe zapisy stosują zagregowaną deltę przed/po;
+  idempotentny retry daje deltę zero. Backfill liczy wyłącznie rzeczywiście
+  wstawione wiersze przez `RETURNING`.
+- Rekonstrukcja per gra używa keysetowego checkpointu i w czasie pracy zwraca
+  `SYMBOL_CELL_REVIEW_COUNTS_UNAVAILABLE`, nie zero. Confidence i kohorta nadal
+  korzystają z dokładnego ograniczonego SQL.
+- Migracja 0109 dodaje projekcję i checkpoint w `public` oraz `game_data_v2`;
+  nie została zastosowana na bazie użytkownika.
+
 ### TASK-0521 — indeksowana lista Weryfikacji symboli
 
 - V2 listuje bez `image_board_search_fast_documents`, historycznych

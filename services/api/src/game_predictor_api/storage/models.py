@@ -2399,6 +2399,14 @@ class ImageSymbolReviewStateModel(Base):
             "AND invalid_geometry_count >= 0",
             name="ck_image_symbol_review_states_counts",
         ),
+        CheckConstraint(
+            "count_projection_status IN ('unavailable', 'rebuilding', 'ready', 'failed')",
+            name="ck_image_symbol_review_states_count_projection_status",
+        ),
+        CheckConstraint(
+            "count_projection_revision >= 0",
+            name="ck_image_symbol_review_states_count_projection_revision",
+        ),
     )
 
     game_id: Mapped[UUID] = mapped_column(
@@ -2425,6 +2433,22 @@ class ImageSymbolReviewStateModel(Base):
     )
     last_review_item_id: Mapped[UUID | None] = mapped_column(nullable=True)
     failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    count_projection_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="unavailable", server_default=text("'unavailable'")
+    )
+    count_projection: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+    count_projection_revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    count_rebuild_cursor: Mapped[UUID | None] = mapped_column(nullable=True)
+    count_rebuild_accumulator: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+    count_projection_failure_message: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

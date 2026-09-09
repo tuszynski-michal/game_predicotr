@@ -33,9 +33,12 @@ przez `(game_id, id)`, tak samo jak wspólne symbole i wersje reguł.
 Rejestry `game_storage_locations`, `game_storage_migrations`,
 `game_storage_table_progress` oraz `game_storage_table_manifest` przechowują
 lokalizację, generację i trwały checkpoint przypięty do wersji kontraktu.
-TASK-0519 dodał transakcyjny router i write fence. Schemat nadal nie ma partycji
-konkretnych gier ani danych: samo zastosowanie migracji 0106 nie wykonuje
-cutoveru. Registry wybiera `public` albo `game_data_v2`, generację i stan;
+TASK-0519 dodał transakcyjny router i write fence, a TASK-0525 wykonał
+greenfield cutover po potwierdzonym usunięciu wszystkich gier. Baza użytkownika
+ma migracje do 0110, 65 pustych parentów oraz obowiązkowy provisioning 65
+partycji każdej przyszłej gry. Registry nowej gry wskazuje wyłącznie
+`game_data_v2` generacji 2; brak registry jest kontrolowanym stanem `blocked`,
+nie zgodą na legacy fallback. Registry wybiera schemat, generację i stan;
 operacje zapisu utrzymują współdzieloną blokadę advisory gry oraz blokadę wiersza
 registry aż do commit/rollback. Migrator musi uzyskać wyłączną blokadę advisory
 tego samego klucza przed utworzeniem registry albo zmianą generacji.
@@ -46,6 +49,11 @@ gry. Router ustawia `search_path` i scope wyłącznie lokalnie dla transakcji,
 czyści przypięcie po jej zakończeniu i nie pozwala jednej transakcji przełączyć
 na inną grę. Nieznana wersja registry, maintenance lub nieaktualna generacja
 kończą operację fail-closed.
+
+Tworzenie gry zapisuje katalog, location `migrating` i receipt w jednej
+transakcji, po czym wykonuje najwyżej jeden element manifestu na kolejną
+transakcję. Domyślna `image_geometry_rollout_states` powstaje dopiero po
+utworzeniu wszystkich partycji i przed atomową aktywacją location.
 
 Pełna mapa własności, zależności, kontrakt create/migrate/delete i ograniczenia
 rollbacku: [GAME_DATA_V2_OWNERSHIP.md](GAME_DATA_V2_OWNERSHIP.md).

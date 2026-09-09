@@ -8371,3 +8371,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   źródłowego w IndexedDB; po restarcie odtwarza listę źródeł z API. D-281 i
   D-372 pozostają obowiązujące dla historycznego stagingu i weryfikacji nazw,
   ale nie opisują wejścia nowych runów `selection`.
+
+## D-374 — Nowe gry wymagają kompletnego magazynu V2
+
+- **Status:** accepted
+- **Date:** 2026-09-09
+- **Decision:** po usunięciu wszystkich gier produkcyjny PostgreSQL nie tworzy
+  location legacy. Utworzenie gry zakłada location `game_data_v2` generacji 2
+  w stanie `migrating`, wznawia provisioning 65 partycji i zwraca gotową grę
+  dopiero po przejściu do `active`. Brak registry blokuje data-plane.
+- **Rationale:** pusty katalog pozwala na jednoznaczny cutover bez migratora i
+  dual-write. Generacja 2 zachowuje invariant, że generacja 1 oznacza wyłącznie
+  historyczny public store.
+- **Safety:** katalog, registry i receipt powstają atomowo; partycje mają
+  trwałe checkpointy. Domyślna polityka geometrii trafia do V2 przed aktywacją.
+- **Consequences:** identyczne ponowienie przerwanego create wznawia operację.
+  Pierwsza rzeczywista gra wymaga osobnej decyzji i odbioru TASK-0526.

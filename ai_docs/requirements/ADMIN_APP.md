@@ -53,6 +53,12 @@ lub `blocked` wyświetla jawny tryb tylko do odczytu i blokuje mutacje katalogu;
 wybór gry i bezpieczne odczyty pozostają dostępne. Backend pozostaje źródłem
 prawdy i niezależnie od UI odrzuca zapis objęty maintenance.
 
+Po greenfield cutoverze nowa gra jest dostępna do dalszej konfiguracji dopiero,
+gdy API zakończy obowiązkowy provisioning V2 i zwróci
+`storageWriteAvailable=true`. Brak registry jest pokazywany jako `blocked`, a
+nie jako gotowy legacy magazyn. Pusty katalog jest poprawnym stanem ekranu i
+nie blokuje globalnych workflowów niezależnych od gry.
+
 Liczba rzędów i kolumn musi być dodatnia. W M1 konfiguracja testowa ma 3 rzędy i 5 kolumn. Zmiana wymiarów po utworzeniu danych wymaga nowej wersji reguł i datasetu; nie jest zwykłą edycją opublikowanej wersji.
 
 Pierwszy pion interfejsu pokazuje osobne stany ładowania, pustego katalogu i

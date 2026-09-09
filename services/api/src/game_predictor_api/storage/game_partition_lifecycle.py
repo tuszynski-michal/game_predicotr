@@ -12,6 +12,7 @@ from typing import Any, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
 from game_predictor_api.storage.game_data_v2_manifest_v1 import (
@@ -50,6 +51,19 @@ class GamePartitionLifecycleReceipt:
     failure_code: str | None
 
 
+class _LifecycleControlPlane:
+    """Execute lifecycle SQL on the caller transaction without data-plane routing."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def execute(self, statement: Any, parameters: Mapping[str, object] | None = None) -> Any:
+        return self.connection().execute(statement, parameters or {})
+
+    def connection(self) -> Connection:
+        return self._session.connection()
+
+
 def partition_name(game_id: UUID, table_name: str) -> str:
     _require_manifest_table(table_name)
     suffix = hashlib.sha256(table_name.encode("ascii")).hexdigest()[:12]
@@ -60,7 +74,10 @@ class GamePartitionLifecycleRepository:
     """Execute one DDL/checkpoint step per caller-owned transaction."""
 
     def __init__(self, session: Session) -> None:
-        self._session = session
+        # Partition DDL and its registry receipt are the trusted control plane.
+        # They must not be rebound through the game data-plane while the
+        # location is intentionally still `migrating`.
+        self._session = _LifecycleControlPlane(session)
 
     def start_or_resume(
         self,
@@ -78,6 +95,7 @@ class GamePartitionLifecycleRepository:
             return completed
         if kind is GamePartitionLifecycleKind.PROVISION:
             self._require_catalog_game(game_id)
+            self._open_v2_location_for_provision(game_id)
         else:
             self._close_writes_for_delete(game_id)
         operation_id = uuid4()
@@ -203,22 +221,23 @@ class GamePartitionLifecycleRepository:
     def _finalize(self, receipt: GamePartitionLifecycleReceipt) -> None:
         if receipt.kind is GamePartitionLifecycleKind.PROVISION:
             self._require_all_partitions(receipt.game_id)
+            self._ensure_default_geometry_policy(receipt.game_id)
             location = self._session.execute(
                 text(
-                    """INSERT INTO public.game_storage_locations
-                    (game_id, store_schema, generation, manifest_version, status, revision)
-                    VALUES (:game_id, 'game_data_v2', 1, :version, 'active', 0)
-                    ON CONFLICT (game_id) DO UPDATE SET
-                      store_schema = EXCLUDED.store_schema,
-                      manifest_version = EXCLUDED.manifest_version,
-                      status = 'active', revision = game_storage_locations.revision + 1
-                    WHERE game_storage_locations.store_schema = 'game_data_v2'
-                      AND game_storage_locations.status <> 'deleting'
-                    RETURNING store_schema, status"""
+                    """UPDATE public.game_storage_locations
+                    SET status = 'active', revision = revision + 1, updated_at = now()
+                    WHERE game_id = :game_id AND store_schema = 'game_data_v2'
+                      AND generation = 2 AND manifest_version = :version
+                      AND status = 'migrating'
+                    RETURNING store_schema, generation, status"""
                 ),
                 {"game_id": receipt.game_id, "version": VERSION},
             ).one_or_none()
-            if location is None or tuple(map(str, location)) != ("game_data_v2", "active"):
+            if location is None or tuple(map(str, location)) != (
+                "game_data_v2",
+                "2",
+                "active",
+            ):
                 raise GamePartitionLifecycleError(
                     "GAME_PARTITION_LOCATION_CONFLICT",
                     "An existing storage location cannot be replaced by V2 provisioning.",
@@ -315,6 +334,55 @@ class GamePartitionLifecycleRepository:
                 "GAME_PARTITION_DONE_RECEIPT_DRIFT",
                 "A completed delete receipt still has a game catalog row.",
             )
+
+    def _open_v2_location_for_provision(self, game_id: UUID) -> None:
+        location = self._session.execute(
+            text(
+                """INSERT INTO public.game_storage_locations
+                (game_id, store_schema, generation, manifest_version, status, revision)
+                VALUES (:game_id, 'game_data_v2', 2, :version, 'migrating', 0)
+                ON CONFLICT (game_id) DO NOTHING
+                RETURNING store_schema, generation, manifest_version, status"""
+            ),
+            {"game_id": game_id, "version": VERSION},
+        ).one_or_none()
+        if location is None:
+            location = self._session.execute(
+                text(
+                    """SELECT store_schema, generation, manifest_version, status
+                    FROM public.game_storage_locations WHERE game_id = :game_id FOR UPDATE"""
+                ),
+                {"game_id": game_id},
+            ).one_or_none()
+        if location is None or tuple(map(str, location)) != (
+            "game_data_v2",
+            "2",
+            VERSION,
+            "migrating",
+        ):
+            raise GamePartitionLifecycleError(
+                "GAME_PARTITION_LOCATION_CONFLICT",
+                "The game storage location is not a resumable V2 provisioning state.",
+            )
+
+    def _ensure_default_geometry_policy(self, game_id: UUID) -> None:
+        self._session.execute(
+            text("SELECT set_config('game_predictor.game_id', :game_id, true)"),
+            {"game_id": str(game_id)},
+        )
+        self._session.execute(
+            text("SELECT set_config('game_predictor.storage_generation', '2', true)")
+        )
+        self._session.execute(
+            text(
+                """INSERT INTO game_data_v2.image_geometry_rollout_states
+                (game_id, geometry_mode, cell_asset_mode, revision, backfill_status, updated_by)
+                VALUES (:game_id, 'legacy', 'legacy_files', 0, 'not_started',
+                        'system:catalog-game-create')
+                ON CONFLICT (game_id) DO NOTHING"""
+            ),
+            {"game_id": game_id},
+        )
 
     def _close_writes_for_delete(self, game_id: UUID) -> None:
         self._acquire_exclusive_game_fence(game_id)

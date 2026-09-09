@@ -183,8 +183,9 @@ Migracja 0106 dostarcza routing, write fence, transaction-local scope, RLS oraz
 schema-aware triggery kolejki. Nie tworzy partycji i nie przełącza żadnej gry.
 Każdy write pobiera współdzieloną blokadę advisory gry i registry; cutover
 zmieniający status lub generację wymaga wyłącznej blokady advisory tego samego
-klucza. Obejmuje to także legacy fallback bez wpisu registry. Stary job zachowuje payload i checkpoint,
-ale po wznowieniu rozwiązuje aktualną lokalizację gry. Legacy triggery nie są
+klucza. Po greenfield cutoverze brak registry jest błędem i nie uruchamia
+legacy fallbacku. Stary job zachowuje payload i checkpoint, ale po wznowieniu
+rozwiązuje aktualną lokalizację gry. Legacy triggery nie są
 kopiowane bezpośrednio do v2, bo zawierają referencje do publicznych danych
 historycznych; ich odpowiedniki z 0106 jawnie rozdzielają schematy.
 
@@ -192,3 +193,16 @@ Downgrade najpierw blokuje wszystkie objęte tabele i sprawdza pustkę. Jakiekol
 dane v2, location, migration lub checkpoint zatrzymują rollback; nie używa
 CASCADE. Jest odwróceniem wyłącznie pustego wdrożenia, nie rollbackiem migracji
 użytkownika. Dodatkowe nieznane zależności także blokują DROP.
+
+## Greenfield cutover
+
+TASK-0525 zastosował migracje 0105–0110 po audycie pustego katalogu. Nowa gra
+otrzymuje location `game_data_v2`, generację 2 i status `migrating` w tej samej
+transakcji co pierwszy receipt provisioningu. Każda z 65 partycji jest
+tworzona i checkpointowana oddzielnie. Dopiero pełna walidacja manifestu oraz
+zapis domyślnej polityki geometrii do partycji gry przełączają location na
+`active`.
+
+Brak location dla istniejącej gry jest dryfem i blokuje data-plane. Nie wolno
+już tworzyć produkcyjnego registry `public` ani kierować nowej gry do legacy.
+Puste historyczne tabele i migracje pozostają do osobnego planu ich usunięcia.

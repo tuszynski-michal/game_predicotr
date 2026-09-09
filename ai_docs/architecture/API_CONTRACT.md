@@ -21,15 +21,23 @@ Asset lub atlas jest pobierany osobno wyłącznie dla komórek widocznej strony.
 ## Stan magazynu gry — TASK-0519
 
 Każdy `GameResponse` zawiera `storageVersion`, `storageSchema`,
-`storageGeneration`, `storageStatus` i `storageWriteAvailable`. Brak wpisu w
-registry jest kompatybilnym stanem historycznym `legacy-public-v1`, `public`,
-generacja 1 i zapis dostępny.
+`storageGeneration`, `storageStatus` i `storageWriteAvailable`. Po greenfield
+cutoverze TASK-0525 brak wpisu w registry dla istniejącej gry jest stanem
+kontrolowanie zablokowanym: katalog pokazuje `game_data_v2`, generację 2,
+`blocked` i `storageWriteAvailable=false`, a operacja game-scoped zwraca
+`GAME_STORAGE_LOCATION_MISSING`. Nie ma fallbacku do `public`.
 
 Mutacja gry w stanie `migrating`, `deleting` albo `blocked` zwraca
 `GAME_STORAGE_WRITE_UNAVAILABLE`. Żądanie przypięte do nieaktualnej generacji
 zwraca `GAME_STORAGE_GENERATION_STALE`. Scope jest transakcyjny; odpowiedź nie
 ujawnia fizycznych nazw partycji. Odczyt katalogu nie uruchamia migracji ani
 tworzenia partycji.
+
+Utworzenie gry w PostgreSQL inicjuje wznawialny provisioning. Wpis katalogowy,
+registry `game_data_v2` generacji 2 ze statusem `migrating` oraz receipt powstają
+atomowo. Odpowiedź `201` jest zwracana dopiero po zweryfikowaniu wszystkich 65
+partycji, zapisaniu domyślnej polityki geometrii w V2 i przejściu registry do
+`active`. Ponowienie identycznego żądania w stanie `migrating` wznawia receipt.
 
 ## Reprocessing testowego v0.10.4 — TASK-0513
 

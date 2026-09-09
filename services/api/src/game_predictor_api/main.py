@@ -240,6 +240,7 @@ from game_predictor_api.storage.database import (
 from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
+from game_predictor_api.storage.game_partition_lifecycle import GamePartitionLifecycleError
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageRouter,
     GameStorageRoutingError,
@@ -1452,6 +1453,17 @@ def create_app(
             "GAME_STORAGE_TABLE_NOT_OWNED",
         }:
             status_code = 500
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
+    @application.exception_handler(GamePartitionLifecycleError)
+    async def handle_game_partition_lifecycle_error(
+        _request: Request,
+        error: GamePartitionLifecycleError,
+    ) -> JSONResponse:
+        status_code = 404 if error.code == "GAME_NOT_FOUND" else 409
         return JSONResponse(
             status_code=status_code,
             content={"code": error.code, "message": error.message, "details": error.details},

@@ -1,10 +1,26 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-08
+last_updated: 2026-09-09
 ---
 
 # Current State
+
+### TASK-0525 — greenfield cutover na V2 zakończony
+
+- Baza użytkownika jest na rewizji 0110 i ma zgodny manifest oraz 65/65
+  partycjonowanych parentów `game_data_v2`; katalog gier, locations i partycje
+  konkretnych gier pozostają puste.
+- Produkcyjne utworzenie gry obowiązkowo zakłada location V2 generacji 2 w
+  stanie `migrating`, wznawia provisioning po jednej partycji na transakcję i
+  aktywuje zapis dopiero po komplecie oraz inicjalizacji polityki geometrii.
+- Brak registry nie korzysta już z legacy fallbacku: katalog pokazuje `blocked`,
+  a data-plane zwraca `GAME_STORAGE_LOCATION_MISSING`.
+- Izolowany PostgreSQL potwierdził 65 partycji, rekord inicjalizacyjny wyłącznie
+  w V2 i poprawny routing. Admin 448 passed; API/routing/lifecycle, Ruff, scoped
+  mypy, OpenAPI i formatowanie przeszły.
+- Pierwsza rzeczywista gra nie została utworzona. TASK-0526 wymaga osobnej,
+  jawnej decyzji użytkownika o jej utworzeniu i tożsamości.
 
 ### TASK-0524 — pusty katalog gier potwierdzony
 
@@ -17,8 +33,8 @@ last_updated: 2026-09-08
 - Managed assets nie zostały usunięte. Katalog
   `C:\Users\user\Documents\777` oraz archiwum SQLite `777 v0.1` pozostają
   dostępne. GC wymaga nowego preview i osobnej zgody.
-- Baza użytkownika pozostaje na rewizji 0104; `game_data_v2` nie jest jeszcze
-  zastosowany. Następny krok to kontrolowany greenfield cutover TASK-0525.
+- Historyczny stan przed TASK-0525: baza była na rewizji 0104. Greenfield
+  cutover i migracje do 0110 zostały następnie zakończone.
 
 ### TASK-0523 — cykl życia partycji gry
 

@@ -49,6 +49,15 @@ def test_unknown_raw_table_is_rejected() -> None:
     assert raised.value.code == "GAME_STORAGE_TABLE_NOT_OWNED"
 
 
+def test_missing_greenfield_registry_is_visible_but_not_writable() -> None:
+    location = GameStorageRouter._from_row(uuid4(), None)
+
+    assert location.store_schema is GameStorageSchema.V2
+    assert location.generation == 2
+    assert location.status is GameStorageStatus.BLOCKED
+    assert location.write_available is False
+
+
 @pytest.mark.parametrize(
     ("store_schema", "generation"),
     [("public", 2), ("game_data_v2", 1)],

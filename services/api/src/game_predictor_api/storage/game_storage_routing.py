@@ -150,18 +150,14 @@ class GameStorageRouter:
         return {game_id: self._from_row(game_id, found.get(game_id)) for game_id in game_ids}
 
     def register_legacy(self, session: Session, game_id: UUID) -> GameStorageLocation:
-        """Create the generation-1 registry row for a newly created legacy game."""
+        """Retain the offline test adapter; PostgreSQL is V2-only after cutover."""
 
         connection = session.connection()
         if connection.dialect.name == "postgresql":
-            connection.exec_driver_sql(
-                """
-                INSERT INTO public.game_storage_locations (
-                    game_id, store_schema, generation, manifest_version, status, revision
-                ) VALUES (%s, 'public', 1, %s, 'active', 0)
-                ON CONFLICT (game_id) DO NOTHING
-                """,
-                (game_id, VERSION),
+            raise GameStorageRoutingError(
+                "GAME_STORAGE_LEGACY_WRITE_DISABLED",
+                "New PostgreSQL games must use provisioned V2 storage.",
+                details={"gameId": str(game_id)},
             )
         return self.bind(
             session,
@@ -252,10 +248,7 @@ class GameStorageRouter:
             .mappings()
             .one_or_none()
         )
-        if row is None and lock_for_write:
-            # The advisory fence prevents a conforming migrator from installing
-            # a registry row between the legacy fallback and commit. This row
-            # lock additionally proves that the catalog owner still exists.
+        if row is None:
             exists = connection.exec_driver_sql(
                 "SELECT id FROM public.games WHERE id = %s FOR KEY SHARE", (game_id,)
             ).one_or_none()
@@ -265,6 +258,11 @@ class GameStorageRouter:
                     "Game does not exist.",
                     details={"gameId": str(game_id)},
                 )
+            raise GameStorageRoutingError(
+                "GAME_STORAGE_LOCATION_MISSING",
+                "The game does not have a provisioned storage location.",
+                details={"gameId": str(game_id)},
+            )
         return self._from_row(game_id, row)
 
     @staticmethod
@@ -284,7 +282,7 @@ class GameStorageRouter:
         game_id: UUID, row: RowMapping | Mapping[str, object] | None
     ) -> GameStorageLocation:
         if row is None:
-            return GameStorageRouter._legacy(game_id)
+            return GameStorageRouter._unavailable(game_id)
         try:
             schema = GameStorageSchema(str(row["store_schema"]))
             status = GameStorageStatus(str(row["status"]))
@@ -333,6 +331,19 @@ class GameStorageRouter:
             generation=1,
             manifest_version=VERSION,
             status=GameStorageStatus.ACTIVE,
+            revision=0,
+        )
+
+    @staticmethod
+    def _unavailable(game_id: UUID) -> GameStorageLocation:
+        """Catalog projection for a corrupt/missing greenfield registry row."""
+
+        return GameStorageLocation(
+            game_id=game_id,
+            store_schema=GameStorageSchema.V2,
+            generation=2,
+            manifest_version=VERSION,
+            status=GameStorageStatus.BLOCKED,
             revision=0,
         )
 

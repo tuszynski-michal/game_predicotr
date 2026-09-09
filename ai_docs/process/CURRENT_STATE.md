@@ -6,6 +6,20 @@ last_updated: 2026-09-08
 
 # Current State
 
+### TASK-0524 — pusty katalog gier potwierdzony
+
+- Po wiążącym preview i dokładnym potwierdzeniu usunięto ostatnią grę `777`
+  (`new-siedem`) oraz 2 479 490 należących do niej rekordów.
+- Receipt ma status `database_done` i 1 947 zatwierdzonych partii. Końcowy
+  audyt wykazał `games = 0`, brak bezpośrednich rekordów z `game_id` oraz brak
+  zależnych rekordów należących do gry. Globalne joby bez właściciela gry
+  pozostały zachowane.
+- Managed assets nie zostały usunięte. Katalog
+  `C:\Users\user\Documents\777` oraz archiwum SQLite `777 v0.1` pozostają
+  dostępne. GC wymaga nowego preview i osobnej zgody.
+- Baza użytkownika pozostaje na rewizji 0104; `game_data_v2` nie jest jeszcze
+  zastosowany. Następny krok to kontrolowany greenfield cutover TASK-0525.
+
 ### TASK-0523 — cykl życia partycji gry
 
 - Migracja 0110 dodaje trwały receipt provision/delete bez FK do gry. Każde

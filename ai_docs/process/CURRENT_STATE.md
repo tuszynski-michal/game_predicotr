@@ -16,6 +16,15 @@ last_updated: 2026-09-13
   rzeczywistym managed-original importem nadal nie może zastąpić raportu
   stagingu.
 
+### Niezależna naprawa — zgodna polityka silnika raportu i startu
+
+- Odczyt polityki silnika przez `JobService` jawnie wiąże magazyn gry przed
+  `Session.get`, którego parametr klucza głównego nie pozwala automatycznemu
+  routerowi wskazać partycji V2. Raport i start odczytują dzięki temu tę samą
+  politykę oraz rewizję.
+- Izolowany PostgreSQL otwiera nową, nieskopowaną sesję i potwierdza odczyt
+  `structured_lattice_v3`, rewizji 1, wyłącznie z partycji V2.
+
 ### TASK-0525 — greenfield cutover na V2 zakończony
 
 - Baza użytkownika jest na rewizji 0110 i ma zgodny manifest oraz 65/65

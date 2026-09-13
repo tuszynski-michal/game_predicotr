@@ -24,6 +24,10 @@ from game_predictor_api.domain.jobs import (
     JobType,
 )
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+)
 from game_predictor_api.storage.models import (
     BrowserSelectionRetentionModel,
     CuratedImageImportSourceModel,
@@ -41,8 +45,13 @@ from game_predictor_api.storage.models import (
 
 
 class SqlAlchemyJobRepository(JobRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        storage_router: GameStorageRouter | None = None,
+    ) -> None:
         self._session = session
+        self._storage_router = storage_router or GameStorageRouter()
 
     def game_exists(self, game_id: UUID) -> bool:
         return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None
@@ -80,6 +89,13 @@ class SqlAlchemyJobRepository(JobRepository):
         self,
         game_id: UUID,
     ) -> ImageGeometryRolloutJobReference | None:
+        # Session.get has only a primary-key parameter, so the session event
+        # cannot infer a game store. Bind explicitly before this V2-owned read.
+        self._storage_router.bind(
+            self._session,
+            game_id,
+            intent=GameStorageIntent.READ,
+        )
         record = self._session.get(ImageGeometryRolloutStateModel, game_id)
         if record is None:
             return None

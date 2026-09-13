@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.page_geometry_overrides import PageGeometryOverrideService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.storage.database import GameStorageSession
@@ -22,6 +23,8 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageSchema,
     game_storage_scope,
 )
+from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
+from game_predictor_api.storage.models import ImageGeometryRolloutStateModel
 from game_predictor_api.storage.page_geometry_override_repository import (
     SqlAlchemyPageGeometryOverrideRepository,
 )
@@ -203,6 +206,59 @@ def test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session(database: Eng
             connection.scalar(
                 text(
                     "SELECT count(*) FROM public.image_page_geometry_overrides "
+                    "WHERE game_id=:game_id"
+                ),
+                {"game_id": game_id},
+            )
+            == 0
+        )
+
+
+def test_import_policy_reads_v2_rollout_in_a_new_unscoped_session(database: Engine) -> None:
+    """The report and start must pin the same per-game engine policy."""
+
+    with database.begin() as connection:
+        game_id = _game(connection, code="import-policy-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        connection.exec_driver_sql(
+            "CREATE TABLE game_data_v2.image_geometry_rollout_states_g_"
+            f"{game_id.hex} PARTITION OF game_data_v2.image_geometry_rollout_states "
+            f"FOR VALUES IN ('{game_id}')"
+        )
+
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with game_storage_scope(game_id), factory.begin() as session:
+        session.add(
+            ImageGeometryRolloutStateModel(
+                game_id=game_id,
+                geometry_mode="structured_lattice_v3",
+                cell_asset_mode="virtual_default",
+                revision=1,
+                backfill_status="not_started",
+                updated_by="test-owner",
+            )
+        )
+
+    # Browser preflight and Start open separate, unscoped API sessions.
+    with factory.begin() as session:
+        policy = JobService(SqlAlchemyJobRepository(session)).current_image_import_engine_policy(
+            game_id=game_id
+        )
+
+    assert policy.policy.value == "structured_lattice_v3"
+    assert policy.revision == 1
+    with database.connect() as connection:
+        assert (
+            connection.scalar(
+                text(
+                    "SELECT count(*) FROM public.image_geometry_rollout_states "
                     "WHERE game_id=:game_id"
                 ),
                 {"game_id": game_id},

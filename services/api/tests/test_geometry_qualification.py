@@ -112,10 +112,11 @@ def test_override_repository_roundtrip_after_new_repository_instance() -> None:
         slot_qualifications=values,
     )
     session = Mock()
+    storage_router = Mock()
     from contextlib import nullcontext
 
     session.begin_nested.return_value = nullcontext()
-    SqlAlchemyPageGeometryOverrideRepository(session).append(value)
+    SqlAlchemyPageGeometryOverrideRepository(session, storage_router=storage_router).append(value)
     stored = session.add.call_args.args[0]
     # Exercise SQLAlchemy JSON serialization, not a shared in-memory domain object.
     column = ImagePageGeometryOverrideModel.__table__.c.slot_qualifications.type
@@ -123,10 +124,11 @@ def test_override_repository_roundtrip_after_new_repository_instance() -> None:
     read = column.result_processor(postgresql.dialect(), None)
     stored.slot_qualifications = read(bind(stored.slot_qualifications))
     session.scalar.return_value = stored
-    restored = SqlAlchemyPageGeometryOverrideRepository(session).get_current(
-        game_id=value.game_id, source_checksum_sha256=value.source_checksum_sha256
-    )
+    restored = SqlAlchemyPageGeometryOverrideRepository(
+        session, storage_router=storage_router
+    ).get_current(game_id=value.game_id, source_checksum_sha256=value.source_checksum_sha256)
     assert restored == value
+    assert storage_router.bind.call_count == 2
     assert bind(None) is None
 
 

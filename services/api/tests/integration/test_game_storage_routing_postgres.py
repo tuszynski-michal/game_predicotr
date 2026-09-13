@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.page_geometry_overrides import PageGeometryOverrideService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.storage.database import GameStorageSession
 from game_predictor_api.storage.game_data_v2_manifest_v1 import GAME_TABLES, VERSION
@@ -20,6 +21,9 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageRoutingError,
     GameStorageSchema,
     game_storage_scope,
+)
+from game_predictor_api.storage.page_geometry_override_repository import (
+    SqlAlchemyPageGeometryOverrideRepository,
 )
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
@@ -141,6 +145,70 @@ def test_router_selects_v2_and_default_injects_exact_game(database: Engine) -> N
         location = GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
         assert location.store_schema is GameStorageSchema.V2
         assert session.scalar(text("SELECT game_id FROM image_geometry_rollout_states")) == game_id
+
+
+def test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session(database: Engine) -> None:
+    """A saved correction must survive reopening the report after V2 cutover."""
+
+    with database.begin() as connection:
+        game_id = _game(connection, code="geometry-snapshot-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        connection.exec_driver_sql(
+            "CREATE TABLE game_data_v2.image_page_geometry_overrides_g_"
+            f"{game_id.hex} PARTITION OF game_data_v2.image_page_geometry_overrides "
+            f"FOR VALUES IN ('{game_id}')"
+        )
+
+    quads = tuple(
+        (
+            {"x": column * 100 + 5, "y": row * 100 + 5},
+            {"x": column * 100 + 95, "y": row * 100 + 5},
+            {"x": column * 100 + 95, "y": row * 100 + 95},
+            {"x": column * 100 + 5, "y": row * 100 + 95},
+        )
+        for row in range(3)
+        for column in range(3)
+    )
+    source_checksum = "a" * 64
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+
+    with factory.begin() as session:
+        writer = PageGeometryOverrideService(SqlAlchemyPageGeometryOverrideRepository(session))
+        saved, created = writer.save(
+            game_id=game_id,
+            source_checksum_sha256=source_checksum,
+            image_width=320,
+            image_height=320,
+            expected_board_count=9,
+            final_quads=quads,
+            actor="test-owner",
+        )
+        assert created is True
+
+    # The report opens a separate API session and has no /games/{id} path scope.
+    with factory.begin() as session:
+        report = PageGeometryOverrideService(SqlAlchemyPageGeometryOverrideRepository(session))
+        snapshot = report.snapshot(game_id=game_id)
+
+    assert snapshot[source_checksum]["decisionChecksumSha256"] == saved.decision_checksum_sha256
+    with database.connect() as connection:
+        assert (
+            connection.scalar(
+                text(
+                    "SELECT count(*) FROM public.image_page_geometry_overrides "
+                    "WHERE game_id=:game_id"
+                ),
+                {"game_id": game_id},
+            )
+            == 0
+        )
 
 
 def test_write_status_generation_and_transaction_lock_are_fail_closed(database: Engine) -> None:

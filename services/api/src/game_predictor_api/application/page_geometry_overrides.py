@@ -47,11 +47,18 @@ class PageGeometryOverrideRepository(Protocol):
     def append(self, value: ImagePageGeometryOverride) -> ImagePageGeometryOverride: ...
 
     def get_exclusion(
-        self, *, browser_selection_id: UUID, source_checksum_sha256: str
+        self,
+        *,
+        game_id: UUID,
+        browser_selection_id: UUID,
+        source_checksum_sha256: str,
     ) -> ImagePageSourceExclusion | None: ...
 
     def list_exclusions(
-        self, *, browser_selection_id: UUID
+        self,
+        *,
+        game_id: UUID,
+        browser_selection_id: UUID,
     ) -> tuple[ImagePageSourceExclusion, ...]: ...
 
     def append_exclusion(self, value: ImagePageSourceExclusion) -> ImagePageSourceExclusion: ...
@@ -221,6 +228,7 @@ class PageGeometryOverrideService:
             json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("ascii")
         ).hexdigest()
         current = self._repository.get_exclusion(
+            game_id=game_id,
             browser_selection_id=browser_selection_id,
             source_checksum_sha256=source_checksum_sha256,
         )
@@ -246,9 +254,12 @@ class PageGeometryOverrideService:
         )
         return self._repository.append_exclusion(exclusion), True
 
-    def exclusion_snapshot(self, *, browser_selection_id: UUID) -> dict[str, object]:
+    def exclusion_snapshot(self, *, game_id: UUID, browser_selection_id: UUID) -> dict[str, object]:
         entries: dict[str, object] = {}
-        for value in self._repository.list_exclusions(browser_selection_id=browser_selection_id):
+        for value in self._repository.list_exclusions(
+            game_id=game_id,
+            browser_selection_id=browser_selection_id,
+        ):
             entries[value.source_checksum_sha256] = {
                 "decisionChecksumSha256": value.decision_checksum_sha256,
                 "sourceRelativePath": value.source_relative_path,

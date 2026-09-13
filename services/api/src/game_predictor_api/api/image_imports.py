@@ -402,7 +402,10 @@ def create_image_imports_router(
         exclusions = (
             {}
             if override_service is None
-            else override_service.exclusion_snapshot(browser_selection_id=upload_id)
+            else override_service.exclusion_snapshot(
+                game_id=game_id,
+                browser_selection_id=upload_id,
+            )
         )
         filtered_files = tuple(
             item for item in ready.manifest.files if item.checksum_sha256 not in exclusions
@@ -844,7 +847,10 @@ def create_image_imports_router(
         source_exclusions = (
             {}
             if override_service is None
-            else override_service.exclusion_snapshot(browser_selection_id=upload_id)
+            else override_service.exclusion_snapshot(
+                game_id=payload.game_id,
+                browser_selection_id=upload_id,
+            )
         )
         rerun = (
             requested_mode == "rerun_current_models"
@@ -1083,7 +1089,10 @@ def create_image_imports_router(
         current_exclusions = (
             {}
             if override_service is None
-            else override_service.exclusion_snapshot(browser_selection_id=upload_id)
+            else override_service.exclusion_snapshot(
+                game_id=game_id,
+                browser_selection_id=upload_id,
+            )
         )
         sources: list[BrowserPageGeometryReviewSourceResponse] = []
         for checksum, raw in sorted(entries.items()):
@@ -1783,7 +1792,10 @@ def create_image_imports_router(
                 "IMAGE_PAGE_GEOMETRY_SOURCE_NOT_IN_PREFLIGHT",
                 "The source exclusion does not match this geometry preflight.",
             )
-        current = override_service.exclusion_snapshot(browser_selection_id=upload_id)
+        current = override_service.exclusion_snapshot(
+            game_id=payload.game_id,
+            browser_selection_id=upload_id,
+        )
         if payload.source_checksum_sha256 not in current and len(current) + 1 >= len(
             ready.manifest.files
         ):
@@ -1801,7 +1813,12 @@ def create_image_imports_router(
             source_relative_path=payload.source_relative_path,
             actor=payload.actor,
         )
-        count = len(override_service.exclusion_snapshot(browser_selection_id=upload_id))
+        count = len(
+            override_service.exclusion_snapshot(
+                game_id=payload.game_id,
+                browser_selection_id=upload_id,
+            )
+        )
         return BrowserPageSourceExclusionResponse(
             created=created,
             id=value.id,

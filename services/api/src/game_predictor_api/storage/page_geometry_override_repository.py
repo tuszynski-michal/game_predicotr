@@ -16,6 +16,10 @@ from game_predictor_api.domain.page_geometry_overrides import (
     ImagePageSourceExclusion,
     PageGeometryQuads,
 )
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+)
 from game_predictor_api.storage.models import (
     ImagePageGeometryOverrideModel,
     ImagePageSourceExclusionModel,
@@ -23,8 +27,18 @@ from game_predictor_api.storage.models import (
 
 
 class SqlAlchemyPageGeometryOverrideRepository:
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        storage_router: GameStorageRouter | None = None,
+    ) -> None:
         self._session = session
+        self._storage_router = storage_router or GameStorageRouter()
+
+    def _bind(self, game_id: UUID, *, intent: GameStorageIntent) -> None:
+        """Route every correction read to the same store as its writes."""
+
+        self._storage_router.bind(self._session, game_id, intent=intent)
 
     def get_current(
         self,
@@ -32,6 +46,7 @@ class SqlAlchemyPageGeometryOverrideRepository:
         game_id: UUID,
         source_checksum_sha256: str,
     ) -> ImagePageGeometryOverride | None:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         row = self._session.scalar(
             select(ImagePageGeometryOverrideModel)
             .where(
@@ -44,6 +59,7 @@ class SqlAlchemyPageGeometryOverrideRepository:
         return None if row is None else _to_domain(row)
 
     def list_current(self, *, game_id: UUID) -> tuple[ImagePageGeometryOverride, ...]:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         rows = self._session.scalars(
             select(ImagePageGeometryOverrideModel)
             .where(ImagePageGeometryOverrideModel.game_id == game_id)
@@ -58,6 +74,7 @@ class SqlAlchemyPageGeometryOverrideRepository:
         return tuple(current[key] for key in sorted(current))
 
     def append(self, value: ImagePageGeometryOverride) -> ImagePageGeometryOverride:
+        self._bind(value.game_id, intent=GameStorageIntent.WRITE)
         row = ImagePageGeometryOverrideModel(
             id=value.id,
             game_id=value.game_id,
@@ -91,8 +108,13 @@ class SqlAlchemyPageGeometryOverrideRepository:
         return _to_domain(row)
 
     def get_exclusion(
-        self, *, browser_selection_id: UUID, source_checksum_sha256: str
+        self,
+        *,
+        game_id: UUID,
+        browser_selection_id: UUID,
+        source_checksum_sha256: str,
     ) -> ImagePageSourceExclusion | None:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         row = self._session.scalar(
             select(ImagePageSourceExclusionModel).where(
                 ImagePageSourceExclusionModel.browser_selection_id == browser_selection_id,
@@ -102,8 +124,12 @@ class SqlAlchemyPageGeometryOverrideRepository:
         return None if row is None else _exclusion_to_domain(row)
 
     def list_exclusions(
-        self, *, browser_selection_id: UUID
+        self,
+        *,
+        game_id: UUID,
+        browser_selection_id: UUID,
     ) -> tuple[ImagePageSourceExclusion, ...]:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         rows = self._session.scalars(
             select(ImagePageSourceExclusionModel)
             .where(ImagePageSourceExclusionModel.browser_selection_id == browser_selection_id)
@@ -112,6 +138,7 @@ class SqlAlchemyPageGeometryOverrideRepository:
         return tuple(_exclusion_to_domain(row) for row in rows)
 
     def append_exclusion(self, value: ImagePageSourceExclusion) -> ImagePageSourceExclusion:
+        self._bind(value.game_id, intent=GameStorageIntent.WRITE)
         row = ImagePageSourceExclusionModel(
             id=value.id,
             game_id=value.game_id,

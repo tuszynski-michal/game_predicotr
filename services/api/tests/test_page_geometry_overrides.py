@@ -53,23 +53,30 @@ class MemoryPageGeometryOverrideRepository:
         return value
 
     def get_exclusion(
-        self, *, browser_selection_id: UUID, source_checksum_sha256: str
+        self,
+        *,
+        game_id: UUID,
+        browser_selection_id: UUID,
+        source_checksum_sha256: str,
     ) -> ImagePageSourceExclusion | None:
         return next(
             (
                 value
                 for value in self.exclusions
-                if value.browser_selection_id == browser_selection_id
+                if value.game_id == game_id
+                and value.browser_selection_id == browser_selection_id
                 and value.source_checksum_sha256 == source_checksum_sha256
             ),
             None,
         )
 
     def list_exclusions(
-        self, *, browser_selection_id: UUID
+        self, *, game_id: UUID, browser_selection_id: UUID
     ) -> tuple[ImagePageSourceExclusion, ...]:
         return tuple(
-            value for value in self.exclusions if value.browser_selection_id == browser_selection_id
+            value
+            for value in self.exclusions
+            if value.game_id == game_id and value.browser_selection_id == browser_selection_id
         )
 
     def append_exclusion(self, value: ImagePageSourceExclusion) -> ImagePageSourceExclusion:
@@ -329,10 +336,10 @@ def test_page_source_exclusion_is_staging_scoped_and_idempotent() -> None:
     assert created is True
     assert replay_created is False
     assert replay.id == first.id
-    assert service.exclusion_snapshot(browser_selection_id=staging_id) == {
+    assert service.exclusion_snapshot(game_id=game_id, browser_selection_id=staging_id) == {
         "c" * 64: {
             "decisionChecksumSha256": first.decision_checksum_sha256,
             "sourceRelativePath": "cut/seq_10-18.jpg",
         }
     }
-    assert service.exclusion_snapshot(browser_selection_id=uuid4()) == {}
+    assert service.exclusion_snapshot(game_id=game_id, browser_selection_id=uuid4()) == {}

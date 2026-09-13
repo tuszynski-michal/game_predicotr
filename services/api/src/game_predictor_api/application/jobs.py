@@ -362,7 +362,9 @@ class GridProfileSnapshotResolver(Protocol):
 class PageGeometryOverrideSnapshotResolver(Protocol):
     def snapshot(self, *, game_id: UUID) -> dict[str, object]: ...
 
-    def exclusion_snapshot(self, *, browser_selection_id: UUID) -> dict[str, object]: ...
+    def exclusion_snapshot(
+        self, *, game_id: UUID, browser_selection_id: UUID
+    ) -> dict[str, object]: ...
 
 
 class JobService:
@@ -1719,7 +1721,7 @@ class JobService:
             {}
             if self._page_geometry_override_snapshot_resolver is None
             else self._page_geometry_override_snapshot_resolver.exclusion_snapshot(
-                browser_selection_id=selection_id
+                game_id=game_id, browser_selection_id=selection_id
             )
         )
         if not isinstance(exclusions, dict):

@@ -559,6 +559,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             image_folder_selection_service_dependency=lambda: selection_service,
             browser_image_selection_service_dependency=lambda: browser_service,
             image_sequence_canonical_service_dependency=lambda: canonical_service,
+            page_geometry_override_service_dependency=lambda: None,
         )
     )
     total_bytes = sum(len(value) for value in image_bytes)
@@ -803,6 +804,7 @@ def test_browser_report_and_geometry_preflight_remain_available_without_symbol_m
             image_folder_selection_service_dependency=lambda: selection_service,
             browser_image_selection_service_dependency=lambda: browser_service,
             image_sequence_canonical_service_dependency=lambda: canonical_service,
+            page_geometry_override_service_dependency=lambda: None,
         )
     )
 
@@ -904,6 +906,7 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
             image_sequence_canonical_service_dependency=lambda: ImageSequenceCanonicalService(
                 _BrowserCanonicalRepository()
             ),
+            page_geometry_override_service_dependency=lambda: None,
         )
     )
 
@@ -1113,6 +1116,7 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
             image_folder_selection_service_dependency=lambda: selection_service,
             browser_image_selection_service_dependency=lambda: browser_service,
             image_sequence_canonical_service_dependency=lambda: canonical_service,
+            page_geometry_override_service_dependency=lambda: None,
         )
     )
 
@@ -1347,6 +1351,7 @@ def test_browser_preflight_rejects_a_stale_range_skipped_before_upload(
             image_folder_selection_service_dependency=lambda: selection_service,
             browser_image_selection_service_dependency=lambda: browser_service,
             image_sequence_canonical_service_dependency=lambda: canonical_service,
+            page_geometry_override_service_dependency=lambda: None,
         )
     )
     stream = BytesIO()
@@ -1574,7 +1579,9 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
                 }
             }
 
-        def exclusion_snapshot(self, *, browser_selection_id: UUID) -> dict[str, object]:
+        def exclusion_snapshot(
+            self, *, game_id: UUID, browser_selection_id: UUID
+        ) -> dict[str, object]:
             return {}
 
     client = TestClient(

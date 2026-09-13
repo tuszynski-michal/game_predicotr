@@ -93,7 +93,8 @@ export function geometryPreflightMatchesReport(
     payload.validationKind === 'page_geometry_preflight' &&
     payload.sourceSelectionId === report.uploadId &&
     payload.sourceManifestSha256 === report.manifestChecksumSha256 &&
-    payload.managedSourceJobId === undefined &&
+    (payload.managedSourceJobId === undefined ||
+      payload.managedSourceJobId === null) &&
     (expectsLateral
       ? typeof lateral === 'object' &&
         lateral !== null &&

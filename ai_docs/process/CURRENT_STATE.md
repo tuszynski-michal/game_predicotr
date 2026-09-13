@@ -1,10 +1,20 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-09
+last_updated: 2026-09-13
 ---
 
 # Current State
+
+### Niezależna naprawa — odzyskanie gotowego preflightu browserowego
+
+- Panel Admin traktuje `managedSourceJobId: null` z wygenerowanego kontraktu
+  API jako brak źródłowego joba zarządzanego. Ukończony preflight zwykłego
+  browserowego stagingu jest dzięki temu ponownie przypinany do raportu i
+  odblokowuje pierwszy import bez modelu, jeżeli pozostałe bramki są spełnione.
+- Test regresji odtwarza rzeczywistą odpowiedź API z `null`; job powiązany z
+  rzeczywistym managed-original importem nadal nie może zastąpić raportu
+  stagingu.
 
 ### TASK-0525 — greenfield cutover na V2 zakończony
 

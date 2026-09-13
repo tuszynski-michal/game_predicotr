@@ -316,7 +316,9 @@ test('does not mutate browser report state when managed preflight refresh fails'
 test('completed preflight replay unlocks the current report and ignores a stale response', () => {
   const managed = managedV4Preflight();
   const browserPayload = { ...managed.inputPayload };
-  delete browserPayload.managedSourceJobId;
+  // The API serializes the optional source as null for a browser staging.
+  // It must remain distinct from a non-null managed-original job id.
+  browserPayload.managedSourceJobId = null;
   const completed = {
     ...managed,
     inputPayload: browserPayload,

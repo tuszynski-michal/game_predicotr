@@ -77,6 +77,7 @@ interface PageGeometryCorrectionPanelProps {
   readonly api: GeometryCorrectionClient;
   readonly apiBaseUrl: string;
   readonly gameId: string;
+  readonly onPendingSourceCountChange?: (count: number) => void;
   readonly onSubmitSaved: () => Promise<void>;
   readonly preflightJobId: string;
   readonly uploadId: string;
@@ -199,6 +200,7 @@ function PageGeometryCorrectionPanelContent({
   api,
   apiBaseUrl,
   gameId,
+  onPendingSourceCountChange,
   onSubmitSaved,
   preflightJobId,
   uploadId,
@@ -284,20 +286,20 @@ function PageGeometryCorrectionPanelContent({
         );
         return;
       }
-      setSavedCount(
-        result.data.sources.filter((item) => item.savedSincePreflight).length,
+      const pendingSources = result.data.sources.filter(
+        (item) => !item.savedSincePreflight,
       );
+      setSavedCount(result.data.sources.length - pendingSources.length);
       setGeometryManifestChecksum(result.data.geometryManifestChecksumSha256);
-      setSources(
-        result.data.sources.filter((item) => !item.savedSincePreflight),
-      );
+      setSources(pendingSources);
+      onPendingSourceCountChange?.(pendingSources.length);
       setSourceIndex(0);
     } catch {
       setError('Nie udało się połączyć z lokalnym API korekty geometrii.');
     } finally {
       setLoading(false);
     }
-  }, [api, gameId, preflightJobId, uploadId]);
+  }, [api, gameId, onPendingSourceCountChange, preflightJobId, uploadId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -826,11 +828,11 @@ function PageGeometryCorrectionPanelContent({
         submittedDraftText,
       );
       loadedDraftKey.current = null;
-      setSources((current) =>
-        current.filter(
-          (item) => item.sourceChecksumSha256 !== source.sourceChecksumSha256,
-        ),
+      const remainingSources = sources.filter(
+        (item) => item.sourceChecksumSha256 !== source.sourceChecksumSha256,
       );
+      setSources(remainingSources);
+      onPendingSourceCountChange?.(remainingSources.length);
       setSourceIndex((current) =>
         Math.min(current, Math.max(0, sources.length - 2)),
       );
@@ -889,11 +891,11 @@ function PageGeometryCorrectionPanelContent({
         );
         return;
       }
-      setSources((current) =>
-        current.filter(
-          (item) => item.sourceChecksumSha256 !== source.sourceChecksumSha256,
-        ),
+      const remainingSources = sources.filter(
+        (item) => item.sourceChecksumSha256 !== source.sourceChecksumSha256,
       );
+      setSources(remainingSources);
+      onPendingSourceCountChange?.(remainingSources.length);
       if (source.savedSincePreflight) {
         setSavedCount((current) => Math.max(0, current - 1));
       }

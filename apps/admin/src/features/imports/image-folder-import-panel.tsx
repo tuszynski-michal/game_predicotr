@@ -228,6 +228,11 @@ export function ImageFolderImportPanel({
     useState<BrowserImageImportPreflightResponse | null>(null);
   const [geometryPreflightJob, setGeometryPreflightJob] =
     useState<JobResponse | null>(null);
+  const [pendingGeometryCorrectionState, setPendingGeometryCorrectionState] =
+    useState<{
+      readonly jobId: string;
+      readonly count: number;
+    } | null>(null);
   const [pageRegistrationVariant, setPageRegistrationVariant] =
     useState<PageRegistrationVariant>('standard_v0_10');
   const [geometryEngineVariant, setGeometryEngineVariant] = useState<
@@ -523,6 +528,21 @@ export function ImageFolderImportPanel({
 
   const geometryPreflightJobId = activeBrowserGeometryPreflightJob?.id;
   const geometryPreflightJobStatus = activeBrowserGeometryPreflightJob?.status;
+  const visibleGeometryCorrectionCount =
+    pendingGeometryCorrectionState !== null &&
+    pendingGeometryCorrectionState.jobId === geometryPreflightJobId
+      ? pendingGeometryCorrectionState.count
+      : (geometryPreflightJob?.progress.review ?? 0);
+  const handlePendingGeometryCorrectionCountChange = useCallback(
+    (count: number) => {
+      if (geometryPreflightJobId === undefined) return;
+      setPendingGeometryCorrectionState({
+        count,
+        jobId: geometryPreflightJobId,
+      });
+    },
+    [geometryPreflightJobId],
+  );
 
   useEffect(() => {
     if (
@@ -1717,8 +1737,7 @@ export function ImageFolderImportPanel({
                               {geometryPreflightJob.progress.total ?? '—'} ·
                               zarejestrowane zdjęcia{' '}
                               {geometryPreflightJob.progress.succeeded} ·
-                              odroczone zdjęcia{' '}
-                              {geometryPreflightJob.progress.review}
+                              odroczone zdjęcia {visibleGeometryCorrectionCount}
                             </span>
                           ) : null}
                           {geometryPreflightJob?.status === 'completed' &&
@@ -1726,7 +1745,7 @@ export function ImageFolderImportPanel({
                             <details>
                               <summary>
                                 Ręczna korekta zdjęć geometrii — zostaw na
-                                koniec ({geometryPreflightJob.progress.review})
+                                koniec ({visibleGeometryCorrectionCount})
                               </summary>
                               <p className="curatedImportStatus">
                                 Każda pozycja oznacza jedno zdjęcie zawierające
@@ -1740,6 +1759,9 @@ export function ImageFolderImportPanel({
                                 api={api}
                                 apiBaseUrl={apiBaseUrl}
                                 gameId={gameId}
+                                onPendingSourceCountChange={
+                                  handlePendingGeometryCorrectionCountChange
+                                }
                                 onSubmitSaved={
                                   rerunGeometryPreflightAfterCorrection
                                 }

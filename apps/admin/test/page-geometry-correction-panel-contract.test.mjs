@@ -44,6 +44,21 @@ test('saving a correction is separated from submitting the saved batch', () => {
   assert.match(panel, /nie zwiększy tego licznika/);
 });
 
+test('reports the current pending-source count after refresh, save, and exclusion', () => {
+  assert.match(
+    panel,
+    /onPendingSourceCountChange\?: \(count: number\) => void/,
+  );
+  assert.match(
+    panel,
+    /onPendingSourceCountChange\?\.\(pendingSources\.length\)/,
+  );
+  assert.match(
+    panel,
+    /onPendingSourceCountChange\?\.\(remainingSources\.length\)/,
+  );
+});
+
 test('geometry editor uses the manual-selection fit model and bounded zoom', () => {
   assert.match(panel, /fitManualImageToViewport/);
   assert.match(panel, /MIN_GEOMETRY_ZOOM = 1/);

@@ -103,6 +103,20 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Import plansz z folderu/);
 });
 
+test('shows the live geometry-correction queue count after a saved source leaves it', () => {
+  assert.match(panelSource, /pendingGeometryCorrectionState/);
+  assert.match(panelSource, /visibleGeometryCorrectionCount/);
+  assert.match(
+    panelSource,
+    /onPendingSourceCountChange=\{\s*handlePendingGeometryCorrectionCountChange\s*\}/,
+  );
+  assert.match(
+    panelSource,
+    /odroczone zdjęcia\s+\{visibleGeometryCorrectionCount\}/,
+  );
+  assert.match(panelSource, /koniec \(\{visibleGeometryCorrectionCount\}\)/);
+});
+
 test('starts page geometry only after the explicit operator action', () => {
   const uploadFlow = panelSource.slice(
     panelSource.indexOf('async function chooseFolder'),

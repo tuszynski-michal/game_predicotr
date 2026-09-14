@@ -1586,10 +1586,19 @@ function PageGeometryCorrectionPanelContent({
                         />
                         Nie używaj do uczenia geometrii
                       </label>
-                      <small className="pageGeometryQualificationNote">
-                        Zmiana dotyczy kolejnego uczenia i kotwic, nie już
-                        aktywnego profilu.
-                      </small>
+                      <label className="pageGeometryQualificationCheck pageGeometryQualificationNote">
+                        <input
+                          type="checkbox"
+                          checked
+                          disabled
+                          readOnly
+                          aria-label="Zmiana dotyczy kolejnego uczenia i kotwic"
+                        />
+                        <small>
+                          Zmiana dotyczy kolejnego uczenia i kotwic, nie już
+                          aktywnego profilu.
+                        </small>
+                      </label>
                     </div>
                     {flags.partial ? (
                       <div className="pageGeometryQualificationCells">

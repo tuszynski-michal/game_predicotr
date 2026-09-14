@@ -6845,8 +6845,11 @@ div.imageJobInlineError {
 
 .pageGeometryQualificationCheck input {
   flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
+  width: 11px;
+  min-width: 11px;
+  height: 11px;
+  min-height: 11px;
+  padding: 0;
   margin: 0;
 }
 
@@ -6854,6 +6857,15 @@ div.imageJobInlineError {
   min-width: 0;
   color: var(--muted);
   line-height: 1.35;
+}
+
+.pageGeometryQualificationNote input:disabled {
+  opacity: 1;
+}
+
+.pageGeometryQualificationNote small {
+  color: inherit;
+  font: inherit;
 }
 
 .pageGeometryQualificationCells {

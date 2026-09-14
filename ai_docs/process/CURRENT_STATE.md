@@ -10,8 +10,14 @@ last_updated: 2026-09-14
 
 - Kontrolki `Niepełna plansza`, `Nie używaj do uczenia geometrii` oraz opis
   wpływu decyzji są wyrównane w jednym wierszu. Checkboxy są po lewej stronie
-  etykiet z odstępem 10 px, a wybór pól częściowych ma układ 5 kolumn × 3
-  wiersze.
+  etykiet z odstępem 10 px, mają 11 × 11 px (około 30% mniej niż wcześniej),
+  a wybór pól częściowych ma układ 5 kolumn × 3 wiersze. Opis wpływu decyzji ma
+  zaznaczony, tylko informacyjny checkbox: kwalifikacja zmienia przyszłe uczenie
+  i kotwice, a nie aktywny profil.
+- Obsługa niepełnych plansz z serii `v0.10.221–v0.10.231` jest obecna także na
+  `origin/version-0.10`: niepełna geometria nie wchodzi do kohort geometrii ani
+  kotwic, natomiast dostępne i ręcznie zatwierdzone cropy symboli pozostają
+  kandydatami do kolejnego uczenia; pola `source_unavailable` są pomijane.
 
 ### Niezależna korekta UI — mniejszy margines poza źródłem geometrii
 

@@ -67,6 +67,12 @@ function button(text) {
     node.textContent.includes(text),
   );
 }
+function checkbox(text) {
+  const label = [...document.querySelectorAll('label')].find((node) =>
+    node.textContent.includes(text),
+  );
+  return label?.querySelector('input[type=checkbox]');
+}
 async function click(node) {
   assert.ok(node);
   await act(async () =>
@@ -124,12 +130,17 @@ test('navigation never writes; flags survive remount; reset before next image lo
   await imageLoaded();
   await selectFirst();
   let checks = document.querySelectorAll('input[type=checkbox]');
-  assert.equal(checks.length, 2);
-  await click(checks[1]);
+  assert.equal(checks.length, 3);
   assert.equal(
-    document.querySelectorAll('input[type=checkbox]')[1].checked,
+    checkbox('Zmiana dotyczy kolejnego uczenia i kotwic').checked,
     true,
   );
+  assert.equal(
+    checkbox('Zmiana dotyczy kolejnego uczenia i kotwic').disabled,
+    true,
+  );
+  await click(checkbox('Nie używaj do uczenia geometrii'));
+  assert.equal(checkbox('Nie używaj do uczenia geometrii').checked, true);
   await click(button('Następna'));
   await click(button('Reset'));
   await click(button('Zapisz i przejdź dalej'));
@@ -139,10 +150,7 @@ test('navigation never writes; flags survive remount; reset before next image lo
   await click(button('Poprzednia'));
   await imageLoaded();
   await selectFirst();
-  assert.equal(
-    document.querySelectorAll('input[type=checkbox]')[1].checked,
-    true,
-  );
+  assert.equal(checkbox('Nie używaj do uczenia geometrii').checked, true);
   await act(async () => root.unmount());
   root = createRoot(document.getElementById('root'));
   await act(async () =>
@@ -150,10 +158,7 @@ test('navigation never writes; flags survive remount; reset before next image lo
   );
   await imageLoaded();
   await selectFirst();
-  assert.equal(
-    document.querySelectorAll('input[type=checkbox]')[1].checked,
-    true,
-  );
+  assert.equal(checkbox('Nie używaj do uczenia geometrii').checked, true);
   const draftKey = `page-geometry-draft-v1:game:upload:preflight:${sources[0].sourceChecksumSha256}:1`;
   const otherTabText = localStorage.getItem(draftKey) + ' ';
   localStorage.setItem(draftKey, otherTabText);
@@ -201,11 +206,8 @@ test('partial checkbox allows signed corners and automatically protects cells; r
   );
   await imageLoaded();
   await selectFirst();
-  await click(document.querySelector('input[type=checkbox]'));
-  assert.equal(
-    document.querySelectorAll('input[type=checkbox]')[1].disabled,
-    true,
-  );
+  await click(checkbox('Niepełna plansza'));
+  assert.equal(checkbox('Nie używaj do uczenia geometrii').disabled, true);
   const svg = document.querySelector('svg[aria-label]');
   const corner = svg.querySelector('circle');
   await act(async () =>
@@ -217,7 +219,7 @@ test('partial checkbox allows signed corners and automatically protects cells; r
     svg.dispatchEvent(
       new dom.window.MouseEvent('pointermove', {
         bubbles: true,
-        clientX: 100,
+        clientX: 0,
         clientY: 108,
       }),
     ),
@@ -227,9 +229,9 @@ test('partial checkbox allows signed corners and automatically protects cells; r
       new dom.window.MouseEvent('pointerup', { bubbles: true }),
     ),
   );
-  const autoFields = [...document.querySelectorAll('input[aria-label]')].filter(
-    (node) => node.disabled && node.checked,
-  );
+  const autoFields = [
+    ...document.querySelectorAll('input[aria-label^="Pole "]'),
+  ].filter((node) => node.disabled && node.checked);
   assert.ok(autoFields.length > 0);
   await click(button('Zapisz i przejdź dalej'));
   assert.equal(writes.length, 1);

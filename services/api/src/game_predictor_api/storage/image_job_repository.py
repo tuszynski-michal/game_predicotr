@@ -34,6 +34,10 @@ from game_predictor_api.domain.jobs import (
     create_job,
     requeue_job,
 )
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+)
 from game_predictor_api.storage.job_repository import (
     SqlAlchemyJobRepository,
     apply_job_to_record,
@@ -318,11 +322,17 @@ class SqlAlchemyImageJobOperationsRepository(
             job.job_type is not JobType.IMPORT
             or job.input_payload.get("import_kind") != "image_directory"
             or not isinstance(job.input_payload.get("pipeline_fingerprint"), str)
+            or job.game_id is None
         ):
             raise JobConflictError(
                 "IMAGE_JOB_KIND_INVALID",
                 "Image operations require an image_directory import job.",
             )
+        GameStorageRouter().bind(
+            self._session,
+            job.game_id,
+            intent=GameStorageIntent.WRITE if for_update else GameStorageIntent.READ,
+        )
         return job
 
     def _operations(

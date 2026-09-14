@@ -6,6 +6,15 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0531 — routing operacji plików joba do V2
+
+- Repozytorium raportu i retry plików najpierw odczytuje współdzielony job, a
+  następnie wiąże sesję z jego `game_id`: `READ` dla raportu i `WRITE` dla
+  retry. Endpoint nie szuka już asocjacji gry V2 w legacy `public`.
+- Izolowany PostgreSQL potwierdził nieskopowany retry po samym `job_id` i
+  execution key, przejście pliku `failed → processing` oraz widoczność obu
+  asocjacji V2.
+
 ### TASK-0530 — idempotentny zapis indeksu plansz w V2
 
 - Projekcja `image_board_search_candidates` dobiera klucz konfliktu do

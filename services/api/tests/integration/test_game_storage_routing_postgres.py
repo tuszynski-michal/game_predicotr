@@ -32,9 +32,14 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageSchema,
     game_storage_scope,
 )
+from game_predictor_api.storage.image_job_repository import (
+    SqlAlchemyImageJobOperationsRepository,
+)
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
+    ImageFileExecutionModel,
     ImageGeometryRolloutStateModel,
+    ImageImportJobFileModel,
     ImageReviewItemModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -44,7 +49,7 @@ from game_predictor_api.storage.page_geometry_override_repository import (
 )
 from game_predictor_worker.images.orchestration import ImageFileRegistration
 from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, create_engine, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import sessionmaker
@@ -353,6 +358,42 @@ def test_image_batch_registration_uses_v2_composite_identity(database: Engine) -
     assert {row.game_id for row in rows} == {game_id}
     assert {row.job_id for row in rows} == {job.id}
     assert [row.order_index for row in rows] == [0, 1]
+
+    failed_key = rows[0].file_execution_key
+    with game_storage_scope(game_id), factory.begin() as session:
+        association = session.scalar(
+            select(ImageImportJobFileModel).where(
+                ImageImportJobFileModel.job_id == job.id,
+                ImageImportJobFileModel.file_execution_key == failed_key,
+            )
+        )
+        execution = session.get(ImageFileExecutionModel, failed_key)
+        assert association is not None and execution is not None
+        association.workflow_status = "failed"
+        association.failed_stage = "discovery"
+        association.error_code = "IMAGE_STAGE_EXECUTION_FAILED"
+        association.error_message = "test failure"
+        association.last_failed_at = registered_at
+        execution.status = "failed"
+        execution.failed_stage = "discovery"
+        execution.error_code = "IMAGE_STAGE_EXECUTION_FAILED"
+        execution.error_message = "test failure"
+        execution.last_failed_at = registered_at
+
+    with factory.begin() as session:
+        operations = SqlAlchemyImageJobOperationsRepository(session).retry_file(
+            job.id,
+            file_execution_key=failed_key,
+            expected_stage="discovery",
+            retried_at=registered_at,
+            file_limit=10,
+        )
+
+    assert operations.total == 2
+    assert operations.failed == 0
+    assert {item.file_execution_key for item in operations.files} == {
+        row.file_execution_key for row in rows
+    }
 
 
 def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engine) -> None:

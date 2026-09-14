@@ -1,10 +1,22 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-13
+last_updated: 2026-09-14
 ---
 
 # Current State
+
+### TASK-0529 — zapis powiązań importu zdjęć zgodny z V2
+
+- Produkcyjne dane gry pozostają wyłącznie w `game_data_v2`; wspólny katalog,
+  joby i content-addressed `image_file_executions` pozostają celowo w `public`.
+- Rejestracja pojedyncza i zbiorcza zapisuje `image_import_job_files` w V2 z
+  jawnym `game_id` oraz pełnym konfliktem
+  `(game_id, job_id, file_execution_key)`. Usuwa to błąd PostgreSQL 42P10,
+  który zatrzymał import po systemowej bramce geometrii.
+- Izolowany PostgreSQL potwierdził idempotentny retry, brak duplikatów, brak
+  wpisów w legacy `public.image_import_job_files` i pozostawienie wspólnych
+  wykonań w `public.image_file_executions`.
 
 ### Niezależna naprawa — odzyskanie gotowego preflightu browserowego
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -14,6 +15,7 @@ from alembic.config import Config
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.page_geometry_overrides import PageGeometryOverrideService
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.storage.database import GameStorageSession
 from game_predictor_api.storage.game_data_v2_manifest_v1 import GAME_TABLES, VERSION
 from game_predictor_api.storage.game_storage_routing import (
@@ -28,6 +30,8 @@ from game_predictor_api.storage.models import ImageGeometryRolloutStateModel
 from game_predictor_api.storage.page_geometry_override_repository import (
     SqlAlchemyPageGeometryOverrideRepository,
 )
+from game_predictor_worker.images.orchestration import ImageFileRegistration
+from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
@@ -265,6 +269,78 @@ def test_import_policy_reads_v2_rollout_in_a_new_unscoped_session(database: Engi
             )
             == 0
         )
+
+
+def test_image_batch_registration_uses_v2_composite_identity(database: Engine) -> None:
+    pipeline_fingerprint = "f" * 64
+    registered_at = datetime(2026, 9, 14, tzinfo=UTC)
+    with database.begin() as connection:
+        game_id = _game(connection, code="image-batch-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        connection.exec_driver_sql(
+            "CREATE TABLE game_data_v2.image_import_job_files_g_"
+            f"{game_id.hex} PARTITION OF game_data_v2.image_import_job_files "
+            f"FOR VALUES IN ('{game_id}')"
+        )
+
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with factory.begin() as session:
+        job = SqlAlchemyJobRepository(session).add_job(
+            create_job(
+                JobType.IMPORT,
+                game_id=game_id,
+                input_payload={
+                    "schema_version": 1,
+                    "import_kind": "image_directory",
+                    "pipeline_fingerprint": pipeline_fingerprint,
+                },
+                created_at=registered_at,
+            )
+        )
+
+    registrations = tuple(
+        ImageFileRegistration(
+            source_checksum_sha256=str(index) * 64,
+            source_relative_path=f"source-{index}.jpg",
+            order_index=index - 1,
+        )
+        for index in (1, 2)
+    )
+    store = SqlAlchemyImageBatchStore(factory)
+    with game_storage_scope(game_id):
+        store.register_files(
+            job.id,
+            registrations=registrations,
+            pipeline_fingerprint=pipeline_fingerprint,
+            registered_at=registered_at,
+        )
+        store.register_files(
+            job.id,
+            registrations=registrations,
+            pipeline_fingerprint=pipeline_fingerprint,
+            registered_at=registered_at,
+        )
+
+    with database.connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM public.image_file_executions")) == 2
+        assert connection.scalar(text("SELECT count(*) FROM public.image_import_job_files")) == 0
+        rows = connection.execute(
+            text(
+                "SELECT game_id, job_id, file_execution_key, order_index "
+                "FROM game_data_v2.image_import_job_files ORDER BY order_index"
+            )
+        ).all()
+    assert len(rows) == 2
+    assert {row.game_id for row in rows} == {game_id}
+    assert {row.job_id for row in rows} == {job.id}
+    assert [row.order_index for row in rows] == [0, 1]
 
 
 def test_write_status_generation_and_transaction_lock_are_fail_closed(database: Engine) -> None:

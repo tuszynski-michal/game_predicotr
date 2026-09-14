@@ -33,6 +33,10 @@ from game_predictor_api.domain.geometry_qualification import (
     GeometryQualificationError,
 )
 from game_predictor_api.domain.jobs import JobStatus
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageRouter,
+    GameStorageSchema,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -98,8 +102,12 @@ class SqlAlchemyBoardSearchProjectionRepository:
             for payload in payloads
         ]
         insert_statement = postgresql_insert(ImageBoardSearchCandidateModel).values(values)
+        location = GameStorageRouter().describe(self._session, payloads[0].game_id)
+        conflict_columns = [ImageBoardSearchCandidateModel.review_item_id]
+        if location.store_schema is GameStorageSchema.V2:
+            conflict_columns.insert(0, ImageBoardSearchCandidateModel.game_id)
         update_statement = insert_statement.on_conflict_do_update(
-            index_elements=[ImageBoardSearchCandidateModel.review_item_id],
+            index_elements=conflict_columns,
             set_={
                 key: getattr(insert_statement.excluded, key)
                 for key in values[0]

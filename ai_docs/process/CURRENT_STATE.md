@@ -6,6 +6,16 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0530 — idempotentny zapis indeksu plansz w V2
+
+- Projekcja `image_board_search_candidates` dobiera klucz konfliktu do
+  fizycznego magazynu gry. Dla `game_data_v2` używa
+  `(game_id, review_item_id)`, a adapter legacy zachowuje `review_item_id`.
+- Usunięto PostgreSQL 42P10, który po poprawnej inferencji symboli `?`
+  wycofywał zapis plansz i oznaczał każde źródło jako błędne.
+- Izolowany test PostgreSQL potwierdził pierwszy zapis, idempotentną
+  aktualizację tego samego kandydata oraz brak wpisu w legacy `public`.
+
 ### TASK-0529 — zapis powiązań importu zdjęć zgodny z V2
 
 - Produkcyjne dane gry pozostają wyłącznie w `game_data_v2`; wspólny katalog,

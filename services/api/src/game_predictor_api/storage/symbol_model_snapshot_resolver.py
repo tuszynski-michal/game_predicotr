@@ -20,6 +20,7 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     bootstrap_symbol_model_snapshot,
     cold_start_unclassified_symbol_snapshot,
 )
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.models import (
     GameSymbolModelActivationModel,
     ImageSymbolReviewCellModel,
@@ -35,6 +36,10 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
         self._artifact_root = artifact_root.resolve()
 
     def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
+        with game_storage_scope(game_id):
+            return self._resolve_in_game_storage(game_id=game_id)
+
+    def _resolve_in_game_storage(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
         active_catalog_codes = tuple(
             self._session.scalars(
                 select(SymbolModel.code)
@@ -148,7 +153,11 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
             temperature=float(temperature),
         )
 
-    def resolve_unclassified_cold_start(
+    def resolve_unclassified_cold_start(self, *, game_id: UUID) -> SymbolModelJobSnapshot | None:
+        with game_storage_scope(game_id):
+            return self._resolve_unclassified_cold_start_in_game_storage(game_id=game_id)
+
+    def _resolve_unclassified_cold_start_in_game_storage(
         self, *, game_id: UUID
     ) -> SymbolModelJobSnapshot | None:
         """Return a no-ONNX snapshot only for a genuinely untrained game."""

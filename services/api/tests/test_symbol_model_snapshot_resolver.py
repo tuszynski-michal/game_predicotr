@@ -3,11 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.domain.symbol_model_snapshots import SymbolModelStorageRoot
+from game_predictor_api.storage.game_storage_routing import current_game_storage_scope
 from game_predictor_api.storage.models import (
     GameSymbolModelActivationModel,
     SymbolModelIterationModel,
@@ -64,6 +65,22 @@ class _ColdStartHistorySession(_Session):
     def scalar(self, _statement: object) -> object | None:
         self._scalar_calls += 1
         return object() if self._scalar_calls == self._blocked_call else None
+
+
+class _ScopeCheckingSession(_ColdStartHistorySession):
+    def __init__(self, game_id: UUID) -> None:
+        super().__init__(blocked_call=3)
+        self._game_id = game_id
+
+    def scalar(self, statement: object) -> object | None:
+        scope = current_game_storage_scope()
+        assert scope is not None and scope.game_id == self._game_id
+        return super().scalar(statement)
+
+    def scalars(self, statement: object) -> tuple[str, ...]:
+        scope = current_game_storage_scope()
+        assert scope is not None and scope.game_id == self._game_id
+        return super().scalars(statement)
 
 
 def _resolver_fixture(
@@ -229,6 +246,16 @@ def test_resolver_blocks_unclassified_snapshot_for_any_existing_training_history
     )
 
     assert resolver.resolve_unclassified_cold_start(game_id=uuid4()) is None
+
+
+def test_resolver_scopes_all_cold_start_history_reads_to_the_game() -> None:
+    game_id = uuid4()
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _ScopeCheckingSession(game_id),  # type: ignore[arg-type]
+        artifact_root=Path("artifacts"),
+    )
+
+    assert resolver.resolve_unclassified_cold_start(game_id=game_id) is None
 
 
 def test_resolver_keeps_compatible_bootstrap_for_legacy_catalog(tmp_path: Path) -> None:

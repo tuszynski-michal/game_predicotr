@@ -6,6 +6,13 @@ last_updated: 2026-09-14
 
 # Current State
 
+### Niezależna naprawa — cold-start importu korzysta z magazynu gry V2
+
+- Resolver snapshotu modelu sam wiąże scope magazynu gry przed odczytem katalogu,
+  kohort, iteracji i aktywacji. Endpoint browserowego stagingu nie ma gry w
+  ścieżce URL, więc bez tego scope mógł błędnie odczytać pusty legacy store i
+  udostępnić `Rozpocznij pierwszy import bez modelu` dla gry z kandydatem.
+
 ### Niezależna korekta UI — bezpośrednie przejście strony wyboru symboli
 
 - Dół sekcji `Weryfikacja symboli` ma pole `Przejdź do strony`, walidowane

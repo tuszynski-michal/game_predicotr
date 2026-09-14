@@ -12,6 +12,9 @@ from uuid import UUID, uuid4
 
 from game_predictor_worker.images.geometry import Point, Quad
 from game_predictor_worker.images.page_geometry_registration import is_ordered_active_grid
+from game_predictor_worker.images.partial_grid_learning import (
+    build_partial_grid_training_profile,
+)
 
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_qualification import (
@@ -180,6 +183,12 @@ class PageGeometryOverrideService:
                 entry["slotQualifications"] = [item.to_dict() for item in value.slot_qualifications]
             entries[value.source_checksum_sha256] = entry
         return dict(sorted(entries.items()))
+
+    def partial_grid_training_profile(self, *, game_id: UUID) -> dict[str, object] | None:
+        """Build the next immutable partial-only profile from current human revisions."""
+
+        profile = build_partial_grid_training_profile(self.snapshot(game_id=game_id))
+        return None if profile is None else profile.to_payload()
 
     def exclude_source(
         self,

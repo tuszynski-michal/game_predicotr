@@ -277,6 +277,63 @@ def test_page_geometry_override_is_idempotent_and_pinned_in_snapshot() -> None:
     }
 
 
+def test_partial_training_profile_uses_only_latest_opted_in_source_revisions() -> None:
+    game_id = uuid4()
+    repository = MemoryPageGeometryOverrideRepository()
+    service = PageGeometryOverrideService(repository)
+    mask = (0, 5, 10)
+
+    def decisions(*, opted_in: bool) -> list[dict[str, object]]:
+        values = [
+            GeometryQualification(version="manual-geometry-qualification-v2").to_dict()
+            for _ in range(9)
+        ]
+        values[0] = GeometryQualification(
+            completeness_status="pending_partial",
+            unavailable_cell_indices=mask,
+            exclude_from_geometry_training=True,
+            exclusion_reason="missing_pixels",
+            include_in_partial_grid_training=opted_in,
+            version="manual-geometry-qualification-v2",
+        ).to_dict()
+        return values
+
+    for source_checksum in ("a" * 64, "b" * 64, "c" * 64):
+        service.save(
+            game_id=game_id,
+            source_checksum_sha256=source_checksum,
+            image_width=320,
+            image_height=320,
+            expected_board_count=9,
+            final_quads=_quads(),
+            actor="local-owner",
+            slot_qualifications=decisions(opted_in=True),
+        )
+
+    ready = service.partial_grid_training_profile(game_id=game_id)
+    assert ready is not None
+    assert ready["sampleCount"] == 3
+    assert ready["sourceCount"] == 3
+    assert ready["readyPatternCount"] == 1
+
+    service.save(
+        game_id=game_id,
+        source_checksum_sha256="c" * 64,
+        image_width=320,
+        image_height=320,
+        expected_board_count=9,
+        final_quads=_quads(),
+        actor="local-owner",
+        slot_qualifications=decisions(opted_in=False),
+    )
+
+    current = service.partial_grid_training_profile(game_id=game_id)
+    assert current is not None
+    assert current["sampleCount"] == 2
+    assert current["sourceCount"] == 2
+    assert current["readyPatternCount"] == 0
+
+
 def test_page_geometry_override_accepts_attested_five_board_final_page() -> None:
     game_id = uuid4()
     checksum = "b" * 64

@@ -2155,7 +2155,7 @@ class ProductionImageStageAdapterSuite:
             {
                 "boards": boards,
                 "geometrySource": "auto",
-                "engineVersion": "structured-lattice-v4-lateral-partial-v1",
+                "engineVersion": policy.policy_version,
                 "rolloutMode": self._geometry_rollout.geometry_mode.value,
                 "lateralPartialGeometry": policy.to_payload(),
                 "configChecksumSha256": self._geometry_rollout.checksum_sha256,

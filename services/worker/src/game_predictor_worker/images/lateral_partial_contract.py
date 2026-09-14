@@ -8,9 +8,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
+from .partial_grid_learning import PartialGridLearningError, PartialGridTrainingProfile
+
 LATERAL_PARTIAL_POLICY_VERSION = "structured-lattice-v4-lateral-partial-v1"
 LATERAL_PARTIAL_SNAPSHOT_VERSION = "lateral-partial-geometry-snapshot-v1"
 AUTOMATIC_PARTIAL_PROPOSAL_VERSION = "automatic-lateral-partial-proposal-v1"
+LATERAL_PARTIAL_POLICY_VERSION_V2 = "structured-lattice-v4-lateral-partial-v2"
+LATERAL_PARTIAL_SNAPSHOT_VERSION_V2 = "lateral-partial-geometry-snapshot-v2"
+AUTOMATIC_PARTIAL_PROPOSAL_VERSION_V2 = "automatic-lateral-partial-proposal-v2"
 # Release is a reviewed code decision, never an environment/client override.
 # TASK-0515 accepted the checksum-bound real-image gate. This remains a
 # deliberately explicit code release decision, not an environment override.
@@ -35,12 +40,34 @@ class LateralPartialGeometrySnapshot:
     defaults during retry. This contract does not authorize pipeline dispatch.
     """
 
+    training_profile: PartialGridTrainingProfile | None = None
+
+    @property
+    def policy_version(self) -> str:
+        return (
+            LATERAL_PARTIAL_POLICY_VERSION
+            if self.training_profile is None
+            else LATERAL_PARTIAL_POLICY_VERSION_V2
+        )
+
+    @property
+    def proposal_version(self) -> str:
+        return (
+            AUTOMATIC_PARTIAL_PROPOSAL_VERSION
+            if self.training_profile is None
+            else AUTOMATIC_PARTIAL_PROPOSAL_VERSION_V2
+        )
+
     def to_payload(self, *, include_checksum: bool = True) -> dict[str, object]:
         payload: dict[str, object] = {
-            "schemaVersion": LATERAL_PARTIAL_SNAPSHOT_VERSION,
+            "schemaVersion": (
+                LATERAL_PARTIAL_SNAPSHOT_VERSION
+                if self.training_profile is None
+                else LATERAL_PARTIAL_SNAPSHOT_VERSION_V2
+            ),
             "variant": GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES.value,
-            "policyVersion": LATERAL_PARTIAL_POLICY_VERSION,
-            "proposalVersion": AUTOMATIC_PARTIAL_PROPOSAL_VERSION,
+            "policyVersion": self.policy_version,
+            "proposalVersion": self.proposal_version,
             "topologyRows": 3,
             "topologyColumns": 5,
             "analysisWidth": 500,
@@ -54,6 +81,8 @@ class LateralPartialGeometrySnapshot:
             "excludeFromGeometryTraining": True,
             "excludeFromPageAnchors": True,
         }
+        if self.training_profile is not None:
+            payload["partialGridTrainingProfile"] = self.training_profile.to_payload()
         if include_checksum:
             payload["checksumSha256"] = self.checksum_sha256
         return payload
@@ -67,7 +96,28 @@ class LateralPartialGeometrySnapshot:
 
     @classmethod
     def from_payload(cls, value: object) -> LateralPartialGeometrySnapshot:
-        snapshot = cls()
+        if not isinstance(value, Mapping):
+            raise LateralPartialContractError(
+                "IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID",
+                "Incomplete or unknown partial policy fields.",
+            )
+        if value.get("schemaVersion") == LATERAL_PARTIAL_SNAPSHOT_VERSION:
+            snapshot = cls()
+        elif value.get("schemaVersion") == LATERAL_PARTIAL_SNAPSHOT_VERSION_V2:
+            try:
+                profile = PartialGridTrainingProfile.from_payload(
+                    value.get("partialGridTrainingProfile")
+                )
+            except PartialGridLearningError as error:
+                raise LateralPartialContractError(
+                    "IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID", str(error)
+                ) from error
+            snapshot = cls(training_profile=profile)
+        else:
+            raise LateralPartialContractError(
+                "IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID",
+                "Incomplete or unknown partial policy fields.",
+            )
         expected = snapshot.to_payload()
         if not isinstance(value, Mapping) or set(value) != set(expected):
             raise LateralPartialContractError(

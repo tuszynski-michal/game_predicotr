@@ -1,4 +1,5 @@
 import {
+  completeManualGridFlags,
   validManualGridFlags,
   type ManualGridFlags,
 } from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
@@ -119,5 +120,11 @@ export function readPageGeometryDraft(
     )
   )
     throw new Error('Uszkodzony szkic geometrii. Resetuj do stanu serwera.');
-  return draft;
+  return {
+    ...draft,
+    flags: draft.flags.map((value) => ({
+      ...completeManualGridFlags,
+      ...value,
+    })),
+  };
 }

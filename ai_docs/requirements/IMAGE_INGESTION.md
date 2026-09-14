@@ -1600,6 +1600,24 @@ wykluczenia widocznych, niezależnie zatwierdzonych symboli. Zmienione piksele
 nie dziedziczą zatwierdzeń; historia pozostaje dostępna. Nowy kod wymaga
 migracji 0100 i 0101 przed startem usług; implementacja nie wykonuje reimportu.
 
+`manual-geometry-qualification-v2` dodaje niezależne pole
+`includeInPartialGridTraining`. Operator może je zaznaczyć wyłącznie dla
+`pending_partial`, gdy maska opisuje jedną albo dwie pełne kolumny utracone z
+lewego lub prawego boku. Taka próbka nadal ma obowiązkowe
+`excludeFromGeometryTraining=true` i nie może być kotwicą strony. Pole jest
+jawną zgodą wyłącznie na osobną pulę niepełnych siatek; odznaczenie go w
+najnowszej rewizji usuwa zdjęcie z następnego profilu bez kasowania historii.
+
+Pierwsza wersja osobnego algorytmu tworzy deterministyczny profil częstości
+masek. Wzorzec jest gotowy po trzech różnych checksumach źródła; wiele plansz
+z jednego zdjęcia zwiększa liczbę próbek, ale nie spełnia samodzielnie tej
+bramki. Profil może tylko rozstrzygnąć między kilkoma propozycjami, które już
+przeszły bramki obrazu, geometrii i ochrony widocznych symboli. Remis, mniej
+niż trzy źródła albo brak zgodnego wzorca pozostawia wynik do ręcznej korekty.
+Automatyczna propozycja zawsze pozostaje `pending_partial`, ma
+`requiresManualConfirmation=true` i trafia do istniejącej dodatkowej kolejki
+weryfikacji geometrii.
+
 TASK-0507: edytory przechowują lokalnie szkice współrzędnych i kwalifikacji,
 bez obrazów, związane ze źródłem, kontekstem i bazową rewizją. Nawigacja
 nie zapisuje decyzji API. Jawny zapis obejmuje zmienione sloty; reset wraca

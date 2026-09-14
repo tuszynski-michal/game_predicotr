@@ -188,7 +188,10 @@
             "type": "string"
           },
           "policyVersion": {
-            "const": "structured-lattice-v4-lateral-partial-v1",
+            "enum": [
+              "structured-lattice-v4-lateral-partial-v1",
+              "structured-lattice-v4-lateral-partial-v2"
+            ],
             "title": "Policyversion",
             "type": "string"
           },
@@ -208,8 +211,23 @@
             "title": "Sourcechecksumsha256",
             "type": "string"
           },
+          "trainingProfileChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingprofilechecksumsha256"
+          },
           "version": {
-            "const": "automatic-lateral-partial-proposal-v1",
+            "enum": [
+              "automatic-lateral-partial-proposal-v1",
+              "automatic-lateral-partial-proposal-v2"
+            ],
             "title": "Version",
             "type": "string"
           }
@@ -2673,6 +2691,24 @@
             "title": "Operatorexcludedsourcecount",
             "type": "integer"
           },
+          "partialGridReadyPatternCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Partialgridreadypatterncount",
+            "type": "integer"
+          },
+          "partialGridTrainingSampleCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Partialgridtrainingsamplecount",
+            "type": "integer"
+          },
+          "partialGridTrainingSourceCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Partialgridtrainingsourcecount",
+            "type": "integer"
+          },
           "registeredSourceCount": {
             "minimum": 0.0,
             "title": "Registeredsourcecount",
@@ -4521,6 +4557,17 @@
             ],
             "title": "Exclusionreason"
           },
+          "includeInPartialGridTraining": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Includeinpartialgridtraining"
+          },
           "unavailableCellIndices": {
             "items": {
               "maximum": 14.0,
@@ -4532,7 +4579,10 @@
             "type": "array"
           },
           "version": {
-            "const": "manual-geometry-qualification-v1",
+            "enum": [
+              "manual-geometry-qualification-v1",
+              "manual-geometry-qualification-v2"
+            ],
             "title": "Version",
             "type": "string"
           }
@@ -11040,13 +11090,29 @@
             "title": "Minimumvisiblerows",
             "type": "integer"
           },
+          "partialGridTrainingProfile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialGridTrainingJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "policyVersion": {
-            "const": "structured-lattice-v4-lateral-partial-v1",
+            "enum": [
+              "structured-lattice-v4-lateral-partial-v1",
+              "structured-lattice-v4-lateral-partial-v2"
+            ],
             "title": "Policyversion",
             "type": "string"
           },
           "proposalVersion": {
-            "const": "automatic-lateral-partial-proposal-v1",
+            "enum": [
+              "automatic-lateral-partial-proposal-v1",
+              "automatic-lateral-partial-proposal-v2"
+            ],
             "title": "Proposalversion",
             "type": "string"
           },
@@ -11056,7 +11122,10 @@
             "type": "boolean"
           },
           "schemaVersion": {
-            "const": "lateral-partial-geometry-snapshot-v1",
+            "enum": [
+              "lateral-partial-geometry-snapshot-v1",
+              "lateral-partial-geometry-snapshot-v2"
+            ],
             "title": "Schemaversion",
             "type": "string"
           },
@@ -13639,6 +13708,103 @@
           "attempts"
         ],
         "title": "PageGeometryRegistrationDiagnostics",
+        "type": "object"
+      },
+      "PartialGridPatternJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "sampleCount": {
+            "minimum": 1.0,
+            "title": "Samplecount",
+            "type": "integer"
+          },
+          "sourceCount": {
+            "minimum": 1.0,
+            "title": "Sourcecount",
+            "type": "integer"
+          },
+          "unavailableCellIndices": {
+            "items": {
+              "maximum": 14.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Unavailablecellindices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "unavailableCellIndices",
+          "sampleCount",
+          "sourceCount",
+          "ready"
+        ],
+        "title": "PartialGridPatternJobSnapshotPayload",
+        "type": "object"
+      },
+      "PartialGridTrainingJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "minimumDistinctSourceCount": {
+            "const": 3,
+            "title": "Minimumdistinctsourcecount",
+            "type": "integer"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/PartialGridPatternJobSnapshotPayload"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Patterns",
+            "type": "array"
+          },
+          "policyVersion": {
+            "const": "lateral-missing-column-majority-v1",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "readyPatternCount": {
+            "minimum": 0.0,
+            "title": "Readypatterncount",
+            "type": "integer"
+          },
+          "sampleCount": {
+            "minimum": 1.0,
+            "title": "Samplecount",
+            "type": "integer"
+          },
+          "schemaVersion": {
+            "const": "partial-grid-training-profile-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "sourceCount": {
+            "minimum": 1.0,
+            "title": "Sourcecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "policyVersion",
+          "minimumDistinctSourceCount",
+          "sampleCount",
+          "sourceCount",
+          "readyPatternCount",
+          "patterns",
+          "checksumSha256"
+        ],
+        "title": "PartialGridTrainingJobSnapshotPayload",
         "type": "object"
       },
       "PaylineCreate": {

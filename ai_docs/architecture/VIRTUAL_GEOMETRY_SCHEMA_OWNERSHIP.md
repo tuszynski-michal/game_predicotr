@@ -317,10 +317,18 @@ revisions.
 | trening | brak zmiany geometrii | manifest kohorty wskazuje zatwierdzoną rewizję i checksumy cropów |
 | decyzja `partial` bramki importu | source revision zachowuje quad slotu i maskę niedostępnych pól | renderer i observations obejmują tylko dostępne logiczne indeksy; brak kanonicznego layoutu |
 | decyzja `rejected` bramki importu | brak właściciela geometrii planszy w projekcji importu | audyt pozostaje w append-only decyzji i zamkniętym manifeście; brak recognized board oraz cropów |
+| opt-in do uczenia niepełnych siatek | najnowsza `image_page_geometry_overrides.slot_qualifications` z kwalifikacją v2 | profil jest deterministyczną pochodną bieżących rewizji; nie powstaje drugi mutable owner ani wpis w zwykłej kohorcie geometrii |
 
 Każdy zapis planszy blokuje i waliduje w kolejności: gra, wystąpienie źródła,
 sekwencja, review item/plansza, komórki. Zmiana jednej planszy jest atomowa dla
 jej selektora, obserwacji, review, canonical i projekcji wyszukiwania.
+
+Osobny profil niepełnych siatek jest snapshotem joba, a nie aktywnym modelem
+gry. Buduje się go z najnowszych page override'ów oznaczonych
+`includeInPartialGridTraining=true`, grupuje boczne maski pełnych kolumn i
+wiąże payload checksumą. Preflight przypina cały profil, a import i retry
+odczytują dokładnie ten snapshot. Zapis kolejnej ręcznej rewizji może zmienić
+dopiero nowy preflight; nie zmienia już uruchomionego ani historycznego joba.
 
 ## Odpowiedzi na pytania schema ownership
 

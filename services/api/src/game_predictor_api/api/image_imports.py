@@ -1086,6 +1086,11 @@ def create_image_imports_router(
         current_overrides = (
             {} if override_service is None else override_service.snapshot(game_id=game_id)
         )
+        partial_profile = (
+            None
+            if override_service is None
+            else override_service.partial_grid_training_profile(game_id=game_id)
+        )
         current_exclusions = (
             {}
             if override_service is None
@@ -1210,6 +1215,15 @@ def create_image_imports_router(
                 int, manifest["skippedHumanResolvedSourceCount"]
             ),
             operator_excluded_source_count=len(current_exclusions),
+            partial_grid_training_sample_count=(
+                0 if partial_profile is None else cast(int, partial_profile["sampleCount"])
+            ),
+            partial_grid_training_source_count=(
+                0 if partial_profile is None else cast(int, partial_profile["sourceCount"])
+            ),
+            partial_grid_ready_pattern_count=(
+                0 if partial_profile is None else cast(int, partial_profile["readyPatternCount"])
+            ),
             sources=sources,
         )
 
@@ -1709,7 +1723,7 @@ def create_image_imports_router(
             slot_qualifications=(
                 None
                 if payload.slot_qualifications is None
-                else [item.model_dump(by_alias=True) for item in payload.slot_qualifications]
+                else [item.to_domain().to_dict() for item in payload.slot_qualifications]
             ),
             final_quads=tuple(
                 tuple(point.model_dump(by_alias=True) for point in quad)

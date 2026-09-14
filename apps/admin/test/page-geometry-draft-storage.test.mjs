@@ -26,7 +26,12 @@ const quad = [
 ];
 const draft = {
   quads: Array(9).fill(quad),
-  flags: Array(9).fill({ partial: true, exclude: true, manualUnavailable: [] }),
+  flags: Array(9).fill({
+    partial: true,
+    exclude: true,
+    includeInPartialGridTraining: false,
+    manualUnavailable: [],
+  }),
   pageCorners: quad,
   cornerPlacement: null,
   boardCornerPlacement: [{ x: -10, y: 20 }],

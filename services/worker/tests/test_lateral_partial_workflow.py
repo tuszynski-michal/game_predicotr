@@ -17,6 +17,10 @@ from game_predictor_worker.images.lateral_partial_contract import (
     LateralPartialGeometrySnapshot,
 )
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
+from game_predictor_worker.images.partial_grid_learning import (
+    PartialGridPattern,
+    PartialGridTrainingProfile,
+)
 from game_predictor_worker.images.pipeline_execution import (
     ImageStageContext,
     validate_stage_payload,
@@ -30,12 +34,13 @@ from test_structured_lattice_refinement_v4 import _candidate, _crop
 POLICY = LateralPartialGeometrySnapshot()
 
 
-def _entry(source, quad):
+def _entry(source, quad, *, policy=POLICY):
+    candidate = replace(_candidate(quad), policy_checksum_sha256=policy.checksum_sha256)
     return {
         "status": "review_required",
         "imageWidth": source.shape[1],
         "imageHeight": source.shape[0],
-        "lateralRegistrationCandidate": _candidate(quad).to_payload(),
+        "lateralRegistrationCandidate": candidate.to_payload(),
     }
 
 
@@ -122,7 +127,8 @@ def test_managed_preflight_uses_verified_originals_after_browser_release(tmp_pat
 
 
 @pytest.mark.parametrize("side", ["left", "right"])
-def test_real_partial_pass_persists_proposal_without_render_after_restart(tmp_path, side):
+@pytest.mark.parametrize("learned", [False, True])
+def test_real_partial_pass_persists_proposal_without_render_after_restart(tmp_path, side, learned):
     rgb, quad = _crop(side)
     relative = "data/original.jpg"
     path = tmp_path / relative
@@ -131,6 +137,16 @@ def test_real_partial_pass_persists_proposal_without_render_after_restart(tmp_pa
     checksum = hashlib.sha256(path.read_bytes()).hexdigest()
     snapshot = _candidate_snapshot()
     topology = BoardCellTopology(rows=3, columns=5, rules_version_id=str(uuid4()))
+    mask = (0, 5, 10) if side == "left" else (4, 9, 14)
+    policy = (
+        LateralPartialGeometrySnapshot(
+            PartialGridTrainingProfile(
+                (PartialGridPattern(mask, sample_count=3, source_count=3),), 3
+            )
+        )
+        if learned
+        else POLICY
+    )
     options = dict(
         repository_root=Path.cwd(),
         symbol_model=snapshot,
@@ -139,9 +155,9 @@ def test_real_partial_pass_persists_proposal_without_render_after_restart(tmp_pa
             cell_output_size=snapshot.input_size, topology=topology
         ),
         geometry_rollout=replace(
-            _structured_active_lattice_rollout(), lateral_partial_geometry=POLICY
+            _structured_active_lattice_rollout(), lateral_partial_geometry=policy
         ),
-        page_geometry_manifest={checksum: _entry(rgb, quad)},
+        page_geometry_manifest={checksum: _entry(rgb, quad, policy=policy)},
         manual_geometry_import=True,
     )
     suite = ProductionImageStageAdapterSuite(tmp_path, **options)
@@ -165,6 +181,20 @@ def test_real_partial_pass_persists_proposal_without_render_after_restart(tmp_pa
         validate_stage_payload(stage, results[stage], context)
     board = results["board_detection"]["structuredGeometry"]["boards"][0]
     assert board["automaticPartialProposal"]["requiresManualConfirmation"] is True
+    assert board["automaticPartialProposal"]["version"] == (
+        "automatic-lateral-partial-proposal-v2"
+        if learned
+        else "automatic-lateral-partial-proposal-v1"
+    )
+    qualification = board["automaticPartialProposal"]["geometryQualification"]
+    if learned:
+        assert qualification["includeInPartialGridTraining"] is False
+        assert (
+            board["automaticPartialProposal"]["trainingProfileChecksumSha256"]
+            == policy.training_profile.checksum_sha256
+        )
+    else:
+        assert "includeInPartialGridTraining" not in qualification
     assert board["finalQuad"] is None
     assert board["symbolGridQuad"] is not None
     assert results["board_crops"]["boards"] == []

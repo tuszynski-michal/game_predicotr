@@ -9,7 +9,11 @@ from typing import Literal, cast
 import cv2
 import numpy as np
 from game_predictor_api.domain.board_topology import LEGACY_IMAGE_BOARD_TOPOLOGY
-from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.geometry_qualification import (
+    GEOMETRY_QUALIFICATION_VERSION,
+    GEOMETRY_QUALIFICATION_VERSION_V1,
+    GeometryQualification,
+)
 from game_predictor_api.domain.image_geometry_v2 import (
     ImageGeometryContractError,
     SourceImageBounds,
@@ -24,10 +28,13 @@ from ..board_cell_geometry_estimator import BoardCellGeometryEstimate, _failure,
 from ..global_symbol_lattice import GlobalSymbolCandidate, detect_global_symbol_candidates
 from ..lateral_partial_contract import (
     AUTOMATIC_PARTIAL_PROPOSAL_VERSION,
+    AUTOMATIC_PARTIAL_PROPOSAL_VERSION_V2,
     LATERAL_PARTIAL_POLICY_VERSION,
+    LATERAL_PARTIAL_POLICY_VERSION_V2,
     LateralPartialGeometrySnapshot,
 )
 from ..page_geometry_registration import LateralPageRegistrationCandidate
+from ..partial_grid_learning import PartialGridTrainingProfile
 from ..symbol_grid_refinement import SymbolGridRefinementError
 from .lattice_refinement_v3 import (
     LatticeContentSafetyResult,
@@ -57,12 +64,28 @@ class LateralLatticeProposal:
     p95_residual_px: float
     column_offset: int
     content_safety: LatticeContentSafetyResult
+    policy_version: str = LATERAL_PARTIAL_POLICY_VERSION
+    proposal_version: str = AUTOMATIC_PARTIAL_PROPOSAL_VERSION
+    training_profile_checksum_sha256: str | None = None
 
     def __post_init__(self) -> None:
+        learned = self.policy_version == LATERAL_PARTIAL_POLICY_VERSION_V2
+        expected_proposal_version = (
+            AUTOMATIC_PARTIAL_PROPOSAL_VERSION_V2 if learned else AUTOMATIC_PARTIAL_PROPOSAL_VERSION
+        )
+        expected_qualification_version = (
+            GEOMETRY_QUALIFICATION_VERSION if learned else GEOMETRY_QUALIFICATION_VERSION_V1
+        )
         if (
             self.qualification.completeness_status != "pending_partial"
             or not self.qualification.exclude_from_geometry_training
-            or self.policy_checksum_sha256 != LateralPartialGeometrySnapshot().checksum_sha256
+            or self.policy_version
+            not in {LATERAL_PARTIAL_POLICY_VERSION, LATERAL_PARTIAL_POLICY_VERSION_V2}
+            or self.proposal_version != expected_proposal_version
+            or self.qualification.version != expected_qualification_version
+            or learned != (self.training_profile_checksum_sha256 is not None)
+            or len(self.policy_checksum_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in self.policy_checksum_sha256)
             or type(self.position_index) is not int
             or not 0 <= self.position_index < 9
             or len(self.source_checksum_sha256) != 64
@@ -74,21 +97,34 @@ class LateralLatticeProposal:
             or not 0 <= self.p95_residual_px <= _MAX_P95_RESIDUAL
             or self.content_safety.status != "passed"
             or self.content_safety.protected_candidate_count < _MIN_INLIERS
+            or (
+                self.training_profile_checksum_sha256 is not None
+                and (
+                    len(self.training_profile_checksum_sha256) != 64
+                    or any(
+                        character not in "0123456789abcdef"
+                        for character in self.training_profile_checksum_sha256
+                    )
+                )
+            )
         ):
             raise ValueError("An automatic lateral proposal requires complete guarded evidence.")
 
     def metadata_payload(self) -> dict[str, object]:
         """The automatic provenance contract is separate from manual decisions."""
-        return {
-            "version": AUTOMATIC_PARTIAL_PROPOSAL_VERSION,
+        payload: dict[str, object] = {
+            "version": self.proposal_version,
             "origin": "automatic_proposal",
             "sourceChecksumSha256": self.source_checksum_sha256,
             "positionIndex": self.position_index + 1,
-            "policyVersion": LATERAL_PARTIAL_POLICY_VERSION,
+            "policyVersion": self.policy_version,
             "policyChecksumSha256": self.policy_checksum_sha256,
             "requiresManualConfirmation": True,
             "geometryQualification": self.qualification.to_dict(),
         }
+        if self.training_profile_checksum_sha256 is not None:
+            payload["trainingProfileChecksumSha256"] = self.training_profile_checksum_sha256
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +135,7 @@ class StructuredLatticeRefinementV4:
     reason_code: str | None = None
     additional_passes: int = 0
     hypothesis_count: int = 0
+    policy_version: str = LATERAL_PARTIAL_POLICY_VERSION
 
     def __post_init__(self) -> None:
         if (self.status == "full") != (self.baseline.status == "estimated"):
@@ -113,7 +150,7 @@ class StructuredLatticeRefinementV4:
             # Full boards retain the exact serialized v3 semantics as well.
             return self.baseline.to_payload()
         return {
-            "localLatticeVersion": LATERAL_PARTIAL_POLICY_VERSION,
+            "localLatticeVersion": self.policy_version,
             "localLatticeStatus": self.status,
             "analysisQuad": self.baseline.analysis_quad.to_dict(),
             "symbolGridQuad": None
@@ -168,11 +205,17 @@ def refine_structured_symbol_lattice_v4(
     height, width = source_rgb.shape[:2]
     if _vertical_clip(analysis_quad, height):
         return StructuredLatticeRefinementV4(
-            "source_preparation_error", baseline, reason_code="source_vertical_crop_defect"
+            "source_preparation_error",
+            baseline,
+            reason_code="source_vertical_crop_defect",
+            policy_version=policy.policy_version,
         )
     if lateral_candidate is None:
         return StructuredLatticeRefinementV4(
-            "needs_review", baseline, reason_code="lateral_registration_unavailable"
+            "needs_review",
+            baseline,
+            reason_code="lateral_registration_unavailable",
+            policy_version=policy.policy_version,
         )
     if lateral_candidate.policy_checksum_sha256 != policy.checksum_sha256:
         raise ValueError("Lateral registration belongs to a different pinned policy.")
@@ -188,7 +231,10 @@ def refine_structured_symbol_lattice_v4(
         raise ValueError("Lateral analysis quad differs from the attested registration proposal.")
     if not any(point.x < 0 or point.x > width - 1 for point in analysis_quad.corners):
         return StructuredLatticeRefinementV4(
-            "needs_review", baseline, reason_code="lateral_source_support_required"
+            "needs_review",
+            baseline,
+            reason_code="lateral_source_support_required",
+            policy_version=policy.policy_version,
         )
     proposals, reason, hypotheses = _fit_lateral_lattice(
         source_rgb,
@@ -197,6 +243,8 @@ def refine_structured_symbol_lattice_v4(
         position_index=position_index,
         policy=policy,
     )
+    if len(proposals) > 1 and policy.training_profile is not None:
+        proposals = _select_learned_proposals(proposals, policy.training_profile)
     if len(proposals) != 1:
         return StructuredLatticeRefinementV4(
             "source_preparation_error"
@@ -206,6 +254,7 @@ def refine_structured_symbol_lattice_v4(
             reason_code="ambiguous_column_indices" if len(proposals) > 1 else reason,
             additional_passes=1,
             hypothesis_count=hypotheses,
+            policy_version=policy.policy_version,
         )
     return StructuredLatticeRefinementV4(
         "pending_partial",
@@ -213,7 +262,25 @@ def refine_structured_symbol_lattice_v4(
         proposal=proposals[0],
         additional_passes=1,
         hypothesis_count=hypotheses,
+        policy_version=policy.policy_version,
     )
+
+
+def _select_learned_proposals(
+    proposals: list[LateralLatticeProposal],
+    profile: PartialGridTrainingProfile,
+) -> list[LateralLatticeProposal]:
+    selected_mask = profile.select_mask(
+        tuple(proposal.qualification.unavailable_cell_indices for proposal in proposals)
+    )
+    if selected_mask is None:
+        return proposals
+    selected = [
+        proposal
+        for proposal in proposals
+        if proposal.qualification.unavailable_cell_indices == selected_mask
+    ]
+    return selected if len(selected) == 1 else proposals
 
 
 def _supported_analysis(
@@ -570,7 +637,18 @@ def _evaluate_origin(
         return None, safety.reason_code or "insufficient_protected_lateral_content"
     return LateralLatticeProposal(
         quad,
-        GeometryQualification("pending_partial", missing, True, "missing_pixels"),
+        GeometryQualification(
+            "pending_partial",
+            missing,
+            True,
+            "missing_pixels",
+            False,
+            (
+                GEOMETRY_QUALIFICATION_VERSION
+                if policy.training_profile is not None
+                else GEOMETRY_QUALIFICATION_VERSION_V1
+            ),
+        ),
         source_checksum_sha256,
         position_index,
         policy.checksum_sha256,
@@ -578,6 +656,9 @@ def _evaluate_origin(
         p95,
         offset,
         safety,
+        policy.policy_version,
+        policy.proposal_version,
+        None if policy.training_profile is None else policy.training_profile.checksum_sha256,
     ), None
 
 

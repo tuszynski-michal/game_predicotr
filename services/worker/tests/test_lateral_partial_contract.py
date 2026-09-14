@@ -12,6 +12,10 @@ from game_predictor_worker.images.lateral_partial_contract import (
     LateralPartialGeometrySnapshot,
     require_geometry_engine_variant_available,
 )
+from game_predictor_worker.images.partial_grid_learning import (
+    PartialGridPattern,
+    PartialGridTrainingProfile,
+)
 from game_predictor_worker.images.pipeline_contract import (
     GeometryPipelineRolloutSnapshot,
     GeometryRolloutMode,
@@ -30,6 +34,19 @@ def test_partial_policy_roundtrip_and_detached_payload() -> None:
     assert LateralPartialGeometrySnapshot.from_payload(json.loads(json.dumps(raw))) == policy
     raw["minimumInliers"] = 0
     assert policy.to_payload()["minimumInliers"] == 9
+
+
+def test_learned_partial_policy_v2_roundtrip_and_checksum_binding() -> None:
+    profile = PartialGridTrainingProfile(
+        (PartialGridPattern((0, 5, 10), sample_count=3, source_count=3),), 3
+    )
+    policy = LateralPartialGeometrySnapshot(training_profile=profile)
+    raw = json.loads(json.dumps(policy.to_payload()))
+    assert raw["schemaVersion"] == "lateral-partial-geometry-snapshot-v2"
+    assert LateralPartialGeometrySnapshot.from_payload(raw) == policy
+    raw["partialGridTrainingProfile"]["patterns"][0]["sourceCount"] = 4
+    with pytest.raises(LateralPartialContractError):
+        LateralPartialGeometrySnapshot.from_payload(raw)
 
 
 @pytest.mark.parametrize(

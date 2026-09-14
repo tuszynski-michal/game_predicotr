@@ -532,6 +532,7 @@ function GeometryGuardResolutionPanelContent({
                 {
                   partial: draft.disposition === 'partial',
                   exclude: draft.excludeGeometry,
+                  includeInPartialGridTraining: false,
                   manualUnavailable: draft.unavailable,
                 },
                 draft.quad ?? [],

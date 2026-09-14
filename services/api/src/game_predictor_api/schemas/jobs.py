@@ -108,11 +108,36 @@ class StructuredGeometryActivationJobSnapshotPayload(ApiModel):
     config: dict[str, object]
 
 
+class PartialGridPatternJobSnapshotPayload(ApiModel):
+    unavailable_cell_indices: list[Annotated[int, Field(ge=0, le=14)]]
+    sample_count: int = Field(ge=1)
+    source_count: int = Field(ge=1)
+    ready: bool
+
+
+class PartialGridTrainingJobSnapshotPayload(ApiModel):
+    schema_version: Literal["partial-grid-training-profile-v1"]
+    policy_version: Literal["lateral-missing-column-majority-v1"]
+    minimum_distinct_source_count: Literal[3]
+    sample_count: int = Field(ge=1)
+    source_count: int = Field(ge=1)
+    ready_pattern_count: int = Field(ge=0)
+    patterns: list[PartialGridPatternJobSnapshotPayload] = Field(min_length=1, max_length=4)
+    checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class LateralPartialGeometryJobSnapshotPayload(ApiModel):
-    schema_version: Literal["lateral-partial-geometry-snapshot-v1"]
+    schema_version: Literal[
+        "lateral-partial-geometry-snapshot-v1", "lateral-partial-geometry-snapshot-v2"
+    ]
     variant: Literal["structured_lattice_v4_partial_sides"]
-    policy_version: Literal["structured-lattice-v4-lateral-partial-v1"]
-    proposal_version: Literal["automatic-lateral-partial-proposal-v1"]
+    policy_version: Literal[
+        "structured-lattice-v4-lateral-partial-v1",
+        "structured-lattice-v4-lateral-partial-v2",
+    ]
+    proposal_version: Literal[
+        "automatic-lateral-partial-proposal-v1", "automatic-lateral-partial-proposal-v2"
+    ]
     topology_rows: Literal[3]
     topology_columns: Literal[5]
     analysis_width: Literal[500]
@@ -125,7 +150,21 @@ class LateralPartialGeometryJobSnapshotPayload(ApiModel):
     requires_manual_confirmation: Literal[True]
     exclude_from_geometry_training: Literal[True]
     exclude_from_page_anchors: Literal[True]
+    partial_grid_training_profile: PartialGridTrainingJobSnapshotPayload | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_snapshot(self) -> Self:
+        from game_predictor_worker.images.lateral_partial_contract import (
+            LateralPartialGeometrySnapshot,
+        )
+
+        LateralPartialGeometrySnapshot.from_payload(
+            self.model_dump(mode="json", by_alias=True, exclude_none=True)
+        )
+        return self
 
 
 class ImageGeometryRolloutJobSnapshotPayload(ApiModel):

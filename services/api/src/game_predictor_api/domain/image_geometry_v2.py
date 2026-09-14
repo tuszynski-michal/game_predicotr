@@ -751,7 +751,14 @@ def resolve_manual_geometry_qualification(
         )
     missing = tuple(sorted(set(automatic) | set(qualification.unavailable_cell_indices)))
     if missing:
-        return GeometryQualification("pending_partial", missing, True, "missing_pixels")
+        return GeometryQualification(
+            "pending_partial",
+            missing,
+            True,
+            "missing_pixels",
+            qualification.include_in_partial_grid_training,
+            qualification.version,
+        )
     return qualification
 
 

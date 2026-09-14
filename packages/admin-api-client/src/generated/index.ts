@@ -1395,6 +1395,8 @@ export type {
   PageGeometryPreflightJobProgressResponse,
   PageGeometryRegistrationAttemptDiagnostic,
   PageGeometryRegistrationDiagnostics,
+  PartialGridPatternJobSnapshotPayload,
+  PartialGridTrainingJobSnapshotPayload,
   PauseSemiAutomaticImageSelectionData,
   PauseSemiAutomaticImageSelectionError,
   PauseSemiAutomaticImageSelectionErrors,

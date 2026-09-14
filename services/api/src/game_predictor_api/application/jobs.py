@@ -30,6 +30,7 @@ from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_THRESHOLDS_VERSION,
     PAGE_REGISTRATION_VERSION,
 )
+from game_predictor_worker.images.partial_grid_learning import PartialGridTrainingProfile
 from game_predictor_worker.images.pipeline_contract import (
     CURRENT_NORMALIZATION_ADAPTER_VERSION,
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
@@ -366,6 +367,8 @@ class PageGeometryOverrideSnapshotResolver(Protocol):
         self, *, game_id: UUID, browser_selection_id: UUID
     ) -> dict[str, object]: ...
 
+    def partial_grid_training_profile(self, *, game_id: UUID) -> dict[str, object] | None: ...
+
 
 class JobService:
     def __init__(
@@ -389,6 +392,18 @@ class JobService:
         self._page_geometry_override_snapshot_resolver = page_geometry_override_snapshot_resolver
         self._deletion_artifact_store = deletion_artifact_store
         self._pending_deletion_quarantines: list[ImageSelectionDeletionQuarantine] = []
+
+    def _current_lateral_partial_policy(self, *, game_id: UUID) -> LateralPartialGeometrySnapshot:
+        resolver = self._page_geometry_override_snapshot_resolver
+        method = (
+            None if resolver is None else getattr(resolver, "partial_grid_training_profile", None)
+        )
+        payload = method(game_id=game_id) if callable(method) else None
+        return LateralPartialGeometrySnapshot(
+            training_profile=(
+                None if payload is None else PartialGridTrainingProfile.from_payload(payload)
+            )
+        )
 
     def current_image_import_engine_policy(
         self, *, game_id: UUID
@@ -420,6 +435,7 @@ class JobService:
         effective_fingerprint: str,
         symbol_model: SymbolModelJobSnapshot,
         geometry_engine_variant: GeometryEngineVariant | None = None,
+        lateral_partial_geometry: LateralPartialGeometrySnapshot | None = None,
     ) -> str:
         getter = getattr(self._repository, "get_image_geometry_rollout", None)
         reference = getter(game_id) if callable(getter) else None
@@ -464,7 +480,9 @@ class JobService:
                 else None
             ),
             lateral_partial_geometry=(
-                LateralPartialGeometrySnapshot() if geometry_engine_variant is not None else None
+                (lateral_partial_geometry or self._current_lateral_partial_policy(game_id=game_id))
+                if geometry_engine_variant is not None
+                else None
             ),
         )
         if not snapshot.is_legacy and "board_cell_processing" not in input_payload:
@@ -581,6 +599,7 @@ class JobService:
             require_geometry_engine_variant_available(geometry_engine_variant)
         except LateralPartialContractError as error:
             raise JobError(error.code, str(error)) from error
+        lateral_partial_geometry: LateralPartialGeometrySnapshot | None = None
         if geometry_engine_variant is not None:
             if geometry_guard_resolution_manifest is not None:
                 raise JobConflictError(
@@ -602,7 +621,7 @@ class JobService:
                     previous_job_id = UUID(str(previous)) if previous is not None else None
                 else:
                     previous_job_id = existing.id
-            self._require_lateral_preflight(
+            lateral_partial_geometry = self._require_lateral_preflight(
                 page_geometry_manifest,
                 game_id=game_id,
                 selection_id=selection_id,
@@ -736,6 +755,7 @@ class JobService:
                 effective_fingerprint=effective_pipeline_fingerprint,
                 symbol_model=symbol_model,
                 geometry_engine_variant=geometry_engine_variant,
+                lateral_partial_geometry=lateral_partial_geometry,
             )
         input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         if image_selection_run_id is not None:
@@ -783,7 +803,7 @@ class JobService:
         game_id: UUID,
         selection_id: UUID,
         source_manifest_sha256: str | None,
-    ) -> None:
+    ) -> LateralPartialGeometrySnapshot:
         from game_predictor_worker.images.lateral_partial_artifact import load_lateral_manifest
 
         if self._artifact_root is None or source_manifest_sha256 is None:
@@ -792,25 +812,28 @@ class JobService:
                 "v0.10.4 requires a compatible immutable preflight; no upload is required.",
             )
         try:
+            if not isinstance(descriptor, Mapping):
+                raise ValueError("Invalid descriptor.")
+            preflight = self._repository.get_job(UUID(str(descriptor.get("preflightJobId"))))
+            if preflight is None:
+                raise ValueError("The preflight job is missing.")
+            policy = LateralPartialGeometrySnapshot.from_payload(
+                preflight.input_payload.get("lateral_partial_geometry")
+            )
             load_lateral_manifest(
                 self._artifact_root,
                 descriptor,
                 game_id=str(game_id),
                 source_selection_id=str(selection_id),
                 source_manifest_sha256=source_manifest_sha256,
-                policy=LateralPartialGeometrySnapshot(),
+                policy=policy,
             )
-            if not isinstance(descriptor, Mapping):
-                raise ValueError("Invalid descriptor.")
-            preflight = self._repository.get_job(UUID(str(descriptor.get("preflightJobId"))))
             if (
-                preflight is None
-                or preflight.game_id != game_id
+                preflight.game_id != game_id
                 or preflight.status is not JobStatus.COMPLETED
                 or preflight.input_payload.get("source_selection_id") != str(selection_id)
                 or preflight.input_payload.get("source_manifest_sha256") != source_manifest_sha256
-                or preflight.input_payload.get("lateral_partial_geometry")
-                != LateralPartialGeometrySnapshot().to_payload()
+                or preflight.input_payload.get("lateral_partial_geometry") != policy.to_payload()
                 or not isinstance(preflight.checkpoint_payload, Mapping)
                 or preflight.checkpoint_payload.get("geometry_manifest_checksum_sha256")
                 != descriptor.get("checksumSha256")
@@ -819,6 +842,7 @@ class JobService:
                     "IMAGE_LATERAL_PARTIAL_PREFLIGHT_REQUIRED",
                     "The preflight did not pin v0.10.4 evidence.",
                 )
+            return policy
         except LateralPartialContractError as error:
             raise JobConflictError(error.code, str(error)) from error
         except JobConflictError:
@@ -1717,6 +1741,7 @@ class JobService:
                 "IMAGE_PAGE_GEOMETRY_OVERRIDE_SNAPSHOT_INVALID",
                 "The page geometry override snapshot is invalid.",
             )
+        partial_policy = self._current_lateral_partial_policy(game_id=game_id)
         exclusions = (
             {}
             if self._page_geometry_override_snapshot_resolver is None
@@ -1744,7 +1769,7 @@ class JobService:
                 "page_geometry_overrides": overrides,
                 **managed_input,
                 **(
-                    {"lateral_partial_geometry": LateralPartialGeometrySnapshot().to_payload()}
+                    {"lateral_partial_geometry": partial_policy.to_payload()}
                     if geometry_engine_variant is not None
                     else {}
                 ),
@@ -1810,7 +1835,7 @@ class JobService:
         """Replay the newest run for one staging and one explicit engine variant."""
 
         expected_lateral = (
-            LateralPartialGeometrySnapshot().to_payload()
+            self._current_lateral_partial_policy(game_id=game_id).to_payload()
             if geometry_engine_variant is not None
             else None
         )
@@ -1890,7 +1915,7 @@ class JobService:
         """Replay a compatible preflight without dispatching any work."""
 
         expected_lateral = (
-            LateralPartialGeometrySnapshot().to_payload()
+            self._current_lateral_partial_policy(game_id=game_id).to_payload()
             if geometry_engine_variant is not None
             else None
         )

@@ -1,12 +1,31 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-08
+last_updated: 2026-09-14
 ---
 
 # Decision Log
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
+
+## D-380 — Niepełne siatki uczą osobny profil bocznych masek
+
+- **Status:** accepted
+- **Date:** 2026-09-14
+- **Decision:** `manual-geometry-qualification-v2` wprowadza jawny opt-in do
+  oddzielnej puli bocznie uciętych siatek. Profil wylicza się z najnowszych
+  page override'ów, wymaga trzech różnych źródeł dla wzorca i jest przypinany
+  z checksumą do preflightu oraz joba.
+- **Rationale:** niepełna geometria nie może zanieczyszczać normalnego uczenia
+  ani kotwic, ale ręcznie potwierdzone maski mogą bezpiecznie rozstrzygać
+  wieloznaczność istniejącego algorytmu bocznego.
+- **Safety:** profil wybiera tylko spośród hipotez, które przeszły dotychczasowe
+  bramki obrazu, geometrii i treści. Nie zatwierdza wyniku: propozycja pozostaje
+  `pending_partial`, jest wykluczona ze zwykłego treningu i kotwic oraz wymaga
+  ręcznej weryfikacji. Snapshot v1 zachowuje historyczny replay.
+- **Consequences:** pierwsza wersja jest deterministycznym modelem
+  statystycznym masek, bez sieci neuronowej. Nowsza ręczna rewizja z wyłączonym
+  opt-inem wpływa na kolejny preflight, ale nie mutuje aktywnego profilu joba.
 
 ## D-379 — Lifecycle partycji jest manifest-bound i checkpointowany per tabela
 

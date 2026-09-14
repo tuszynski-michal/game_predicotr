@@ -2,6 +2,7 @@
 export interface ManualGridFlags {
   readonly partial: boolean;
   readonly exclude: boolean;
+  readonly includeInPartialGridTraining: boolean;
   readonly manualUnavailable: readonly number[];
 }
 
@@ -10,6 +11,7 @@ export type ManualGridPoint = { readonly x: number; readonly y: number };
 export const completeManualGridFlags: ManualGridFlags = {
   partial: false,
   exclude: false,
+  includeInPartialGridTraining: false,
   manualUnavailable: [],
 };
 
@@ -109,13 +111,27 @@ export function manualGridQualification(
         : 'Siatka wychodzi poza zdjęcie. Oznacz ją jako niepełną lub popraw narożniki.',
     );
   }
+  if (flags.includeInPartialGridTraining && !flags.partial) {
+    throw new Error(
+      'Tylko niepełna plansza może wejść do oddzielnego uczenia przyciętych siatek.',
+    );
+  }
+  if (
+    flags.includeInPartialGridTraining &&
+    !isLateralPartialTrainingMask(unavailable)
+  ) {
+    throw new Error(
+      'Oddzielne uczenie obsługuje teraz tylko jedną lub dwie pełne kolumny ucięte z lewej albo prawej strony.',
+    );
+  }
   return {
-    version: 'manual-geometry-qualification-v1' as const,
+    version: 'manual-geometry-qualification-v2' as const,
     completenessStatus: flags.partial
       ? ('pending_partial' as const)
       : ('complete' as const),
     unavailableCellIndices: [...unavailable],
     excludeFromGeometryTraining: flags.partial || flags.exclude,
+    includeInPartialGridTraining: flags.includeInPartialGridTraining,
     exclusionReason: flags.partial
       ? ('missing_pixels' as const)
       : flags.exclude
@@ -124,19 +140,43 @@ export function manualGridQualification(
   };
 }
 
+function isLateralPartialTrainingMask(indices: readonly number[]): boolean {
+  const normalized = [...new Set(indices)].sort((a, b) => a - b);
+  const columns = new Set(
+    Array.from({ length: 5 }, (_, column) => column).filter((column) =>
+      Array.from({ length: 3 }, (_, row) => row * 5 + column).every((index) =>
+        normalized.includes(index),
+      ),
+    ),
+  );
+  const expected = Array.from(columns)
+    .flatMap((column) => [column, column + 5, column + 10])
+    .sort((a, b) => a - b);
+  return (
+    JSON.stringify(normalized) === JSON.stringify(expected) &&
+    (JSON.stringify([...columns]) === JSON.stringify([0]) ||
+      JSON.stringify([...columns]) === JSON.stringify([4]) ||
+      JSON.stringify([...columns]) === JSON.stringify([0, 1]) ||
+      JSON.stringify([...columns]) === JSON.stringify([3, 4]))
+  );
+}
+
 export function validManualGridFlags(value: unknown): value is ManualGridFlags {
   if (!value || typeof value !== 'object') return false;
   const raw = value as ManualGridFlags;
   return (
     typeof raw.partial === 'boolean' &&
     typeof raw.exclude === 'boolean' &&
+    (raw.includeInPartialGridTraining === undefined ||
+      typeof raw.includeInPartialGridTraining === 'boolean') &&
     Array.isArray(raw.manualUnavailable) &&
     raw.manualUnavailable.length <= 15 &&
     raw.manualUnavailable.every(
       (i) => Number.isInteger(i) && i >= 0 && i < 15,
     ) &&
     new Set(raw.manualUnavailable).size === raw.manualUnavailable.length &&
-    (raw.partial || raw.manualUnavailable.length === 0)
+    (raw.partial || raw.manualUnavailable.length === 0) &&
+    (raw.partial || raw.includeInPartialGridTraining !== true)
   );
 }
 
@@ -145,6 +185,7 @@ export function manualGridFlagsFromQualification(
     | {
         readonly completenessStatus: string;
         readonly excludeFromGeometryTraining: boolean;
+        readonly includeInPartialGridTraining?: boolean | null;
         readonly unavailableCellIndices: readonly number[];
       }
     | null
@@ -154,6 +195,9 @@ export function manualGridFlagsFromQualification(
     ? {
         partial: value.completenessStatus === 'pending_partial',
         exclude: value.excludeFromGeometryTraining,
+        includeInPartialGridTraining:
+          value.completenessStatus === 'pending_partial' &&
+          value.includeInPartialGridTraining === true,
         manualUnavailable: [...value.unavailableCellIndices],
       }
     : completeManualGridFlags;

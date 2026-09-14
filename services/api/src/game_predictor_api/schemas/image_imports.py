@@ -489,6 +489,9 @@ class BrowserPageGeometryReviewSourcesResponse(ApiModel):
     review_required_source_count: int = Field(ge=0)
     skipped_human_resolved_source_count: int = Field(ge=0)
     operator_excluded_source_count: int = Field(default=0, ge=0)
+    partial_grid_training_sample_count: int = Field(default=0, ge=0)
+    partial_grid_training_source_count: int = Field(default=0, ge=0)
+    partial_grid_ready_pattern_count: int = Field(default=0, ge=0)
     sources: list[BrowserPageGeometryReviewSourceResponse]
 
 

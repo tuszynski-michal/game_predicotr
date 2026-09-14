@@ -6,14 +6,30 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0533 — osobny profil uczenia niepełnych siatek
+
+- Trzeci checkbox pod ręczną geometrią zapisuje
+  `includeInPartialGridTraining` wyłącznie dla jednej lub dwóch pełnych kolumn
+  uciętych z boku. Niepełna plansza nadal jest obowiązkowo wykluczona ze
+  zwykłego uczenia geometrii i kotwic stron.
+- Z najnowszych rewizji page override powstaje osobny, checksum-bound profil
+  częstości masek. Wzorzec staje się gotowy po trzech różnych zdjęciach;
+  odznaczenie opt-inu w nowszej rewizji usuwa źródło z kolejnego profilu.
+- Nowy preflight przypina profil v2, a import i retry odtwarzają jego dokładny
+  snapshot. Profil może wyłącznie rozstrzygnąć wieloznaczne hipotezy, które
+  przeszły istniejące bramki. Wynik pozostaje niepełną propozycją wymagającą
+  dodatkowej ręcznej weryfikacji.
+- Raport korekty pokazuje liczbę próbek, różnych zdjęć i gotowych wzorców.
+  Historyczne kwalifikacje oraz snapshoty v1 zachowują zgodny odczyt.
+
 ### Niezależna korekta UI — zwarte kwalifikacje geometrii planszy
 
 - Kontrolki `Niepełna plansza`, `Nie używaj do uczenia geometrii` oraz opis
   wpływu decyzji są wyrównane w jednym wierszu. Checkboxy są po lewej stronie
   etykiet z odstępem 10 px, mają 11 × 11 px (około 30% mniej niż wcześniej),
-  a wybór pól częściowych ma układ 5 kolumn × 3 wiersze. Opis wpływu decyzji ma
-  zaznaczony, tylko informacyjny checkbox: kwalifikacja zmienia przyszłe uczenie
-  i kotwice, a nie aktywny profil.
+  a wybór pól częściowych ma układ 5 kolumn × 3 wiersze. Trzeci checkbox jest
+  teraz jawnym opt-inem do osobnej puli niepełnych siatek; zmiana obowiązuje
+  dopiero w kolejnym profilu i nie mutuje już aktywnego joba.
 - Obsługa niepełnych plansz z serii `v0.10.221–v0.10.231` jest obecna także na
   `origin/version-0.10`: niepełna geometria nie wchodzi do kohort geometrii ani
   kotwic, natomiast dostępne i ręcznie zatwierdzone cropy symboli pozostają

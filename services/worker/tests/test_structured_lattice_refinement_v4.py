@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
 import pytest
 from game_predictor_api.domain.geometry_qualification import (
+    GeometryQualification,
     geometry_training_exclusion_reason,
     page_anchor_exclusion_reason,
 )
@@ -26,6 +28,10 @@ from game_predictor_worker.images.lateral_partial_contract import LateralPartial
 from game_predictor_worker.images.page_geometry_registration import (
     LateralPageRegistrationCandidate,
     PageRegistrationInitialization,
+)
+from game_predictor_worker.images.partial_grid_learning import (
+    PartialGridPattern,
+    PartialGridTrainingProfile,
 )
 from game_predictor_worker.images.structured_geometry import lattice_refinement_v4 as v4
 from game_predictor_worker.images.virtual_cell_extraction import VirtualCellRenderer
@@ -114,6 +120,27 @@ def _evaluate_origin_with_missing(monkeypatch, missing, *, offset=1):
         source_checksum_sha256="b" * 64,
         position_index=0,
     )
+
+
+def test_learned_profile_only_resolves_one_supported_ambiguous_mask() -> None:
+    left = (0, 5, 10)
+    right = (4, 9, 14)
+    proposals = [
+        SimpleNamespace(
+            qualification=GeometryQualification("pending_partial", left, True, "missing_pixels")
+        ),
+        SimpleNamespace(
+            qualification=GeometryQualification("pending_partial", right, True, "missing_pixels")
+        ),
+    ]
+    insufficient = PartialGridTrainingProfile(
+        (PartialGridPattern(left, sample_count=2, source_count=2),), 2
+    )
+    assert v4._select_learned_proposals(proposals, insufficient) == proposals
+    learned = PartialGridTrainingProfile(
+        (PartialGridPattern(left, sample_count=3, source_count=3),), 3
+    )
+    assert v4._select_learned_proposals(proposals, learned) == [proposals[0]]
 
 
 @pytest.mark.parametrize(

@@ -53,7 +53,12 @@ test('partial drafts persist signed corners and independent exclusions; invalid 
   const flags = new Map(
     items.map((item) => [
       item.slotId,
-      { partial: true, exclude: true, manualUnavailable: [0, 1] },
+      {
+        partial: true,
+        exclude: true,
+        includeInPartialGridTraining: false,
+        manualUnavailable: [0, 1],
+      },
     ]),
   );
   const changed = new Map(drafts);

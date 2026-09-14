@@ -132,11 +132,11 @@ test('navigation never writes; flags survive remount; reset before next image lo
   let checks = document.querySelectorAll('input[type=checkbox]');
   assert.equal(checks.length, 3);
   assert.equal(
-    checkbox('Zmiana dotyczy kolejnego uczenia i kotwic').checked,
-    true,
+    checkbox('Użyj w oddzielnym uczeniu niepełnych siatek').checked,
+    false,
   );
   assert.equal(
-    checkbox('Zmiana dotyczy kolejnego uczenia i kotwic').disabled,
+    checkbox('Użyj w oddzielnym uczeniu niepełnych siatek').disabled,
     true,
   );
   await click(checkbox('Nie używaj do uczenia geometrii'));
@@ -176,7 +176,7 @@ test('navigation never writes; flags survive remount; reset before next image lo
   await act(async () => root.unmount());
 });
 
-test('partial checkbox allows signed corners and automatically protects cells; reset keeps server untouched', async () => {
+test('partial training checkbox saves one complete lateral missing column', async () => {
   localStorage.clear();
   const writes = [];
   const props = {
@@ -208,37 +208,37 @@ test('partial checkbox allows signed corners and automatically protects cells; r
   await selectFirst();
   await click(checkbox('Niepełna plansza'));
   assert.equal(checkbox('Nie używaj do uczenia geometrii').disabled, true);
-  const svg = document.querySelector('svg[aria-label]');
-  const corner = svg.querySelector('circle');
-  await act(async () =>
-    corner.dispatchEvent(
-      new dom.window.MouseEvent('pointerdown', { bubbles: true }),
-    ),
+  assert.equal(
+    checkbox('Użyj w oddzielnym uczeniu niepełnych siatek').disabled,
+    false,
   );
-  await act(async () =>
-    svg.dispatchEvent(
-      new dom.window.MouseEvent('pointermove', {
-        bubbles: true,
-        clientX: 0,
-        clientY: 108,
-      }),
-    ),
+  await click(checkbox('Użyj w oddzielnym uczeniu niepełnych siatek'));
+  await click(
+    document.querySelector('input[aria-label="Pole 1 poza zdjęciem"]'),
   );
-  await act(async () =>
-    svg.dispatchEvent(
-      new dom.window.MouseEvent('pointerup', { bubbles: true }),
-    ),
+  await click(
+    document.querySelector('input[aria-label="Pole 6 poza zdjęciem"]'),
   );
-  const autoFields = [
-    ...document.querySelectorAll('input[aria-label^="Pole "]'),
-  ].filter((node) => node.disabled && node.checked);
-  assert.ok(autoFields.length > 0);
+  await click(
+    document.querySelector('input[aria-label="Pole 11 poza zdjęciem"]'),
+  );
   await click(button('Zapisz i przejdź dalej'));
   assert.equal(writes.length, 1);
   assert.equal(
     writes[0].slotQualifications[0].completenessStatus,
     'pending_partial',
   );
-  assert.ok(writes[0].finalQuads[0][0].x < 0);
+  assert.equal(
+    writes[0].slotQualifications[0].includeInPartialGridTraining,
+    true,
+  );
+  assert.equal(
+    writes[0].slotQualifications[0].excludeFromGeometryTraining,
+    true,
+  );
+  assert.deepEqual(
+    writes[0].slotQualifications[0].unavailableCellIndices,
+    [0, 5, 10],
+  );
   await act(async () => root.unmount());
 });

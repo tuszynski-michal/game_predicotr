@@ -6,7 +6,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, cast
 
-GEOMETRY_QUALIFICATION_VERSION = "manual-geometry-qualification-v1"
+type GeometryQualificationVersion = Literal[
+    "manual-geometry-qualification-v1", "manual-geometry-qualification-v2"
+]
+GEOMETRY_QUALIFICATION_VERSION_V1: GeometryQualificationVersion = "manual-geometry-qualification-v1"
+GEOMETRY_QUALIFICATION_VERSION: GeometryQualificationVersion = "manual-geometry-qualification-v2"
 type CompletenessStatus = Literal["complete", "pending_partial"]
 type GeometryExclusionReason = Literal["missing_pixels", "manual_exclusion"]
 
@@ -21,6 +25,8 @@ class GeometryQualification:
     unavailable_cell_indices: tuple[int, ...] = ()
     exclude_from_geometry_training: bool = False
     exclusion_reason: GeometryExclusionReason | None = None
+    include_in_partial_grid_training: bool = False
+    version: GeometryQualificationVersion = GEOMETRY_QUALIFICATION_VERSION_V1
 
     def __post_init__(self) -> None:
         indices = self.unavailable_cell_indices
@@ -28,6 +34,12 @@ class GeometryQualification:
             not isinstance(self.completeness_status, str)
             or self.completeness_status not in {"complete", "pending_partial"}
             or type(self.exclude_from_geometry_training) is not bool
+            or type(self.include_in_partial_grid_training) is not bool
+            or self.version
+            not in {
+                GEOMETRY_QUALIFICATION_VERSION_V1,
+                GEOMETRY_QUALIFICATION_VERSION,
+            }
             or not isinstance(indices, tuple)
             or any(type(index) is not int or not 0 <= index < 15 for index in indices)
             or indices != tuple(sorted(set(indices)))
@@ -42,36 +54,55 @@ class GeometryQualification:
                 raise GeometryQualificationError(
                     "Partial geometry requires missing cells and mandatory training exclusion."
                 )
+            if self.include_in_partial_grid_training and not _is_lateral_partial_mask(indices):
+                raise GeometryQualificationError(
+                    "Partial-grid training accepts only one or two complete lateral columns."
+                )
         elif indices or self.exclusion_reason != (
             "manual_exclusion" if self.exclude_from_geometry_training else None
         ):
             raise GeometryQualificationError(
                 "Complete geometry requires an empty mask and a consistent exclusion reason."
             )
+        if self.include_in_partial_grid_training and self.version != GEOMETRY_QUALIFICATION_VERSION:
+            raise GeometryQualificationError(
+                "Partial-grid training opt-in requires geometry qualification v2."
+            )
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "version": GEOMETRY_QUALIFICATION_VERSION,
+        payload: dict[str, object] = {
+            "version": self.version,
             "completenessStatus": self.completeness_status,
             "unavailableCellIndices": list(self.unavailable_cell_indices),
             "excludeFromGeometryTraining": self.exclude_from_geometry_training,
             "exclusionReason": self.exclusion_reason,
         }
+        if self.version == GEOMETRY_QUALIFICATION_VERSION:
+            payload["includeInPartialGridTraining"] = self.include_in_partial_grid_training
+        return payload
 
     @classmethod
     def from_dict(cls, raw: object) -> GeometryQualification:
-        keys = {
+        base_keys = {
             "version",
             "completenessStatus",
             "unavailableCellIndices",
             "excludeFromGeometryTraining",
             "exclusionReason",
         }
-        if not isinstance(raw, Mapping) or set(raw) != keys:
+        if not isinstance(raw, Mapping):
             raise GeometryQualificationError(
                 "Geometry qualification fields are incomplete or unknown."
             )
-        if raw["version"] != GEOMETRY_QUALIFICATION_VERSION:
+        version = raw.get("version")
+        keys = base_keys | (
+            {"includeInPartialGridTraining"} if version == GEOMETRY_QUALIFICATION_VERSION else set()
+        )
+        if set(raw) != keys:
+            raise GeometryQualificationError(
+                "Geometry qualification fields are incomplete or unknown."
+            )
+        if version not in {GEOMETRY_QUALIFICATION_VERSION_V1, GEOMETRY_QUALIFICATION_VERSION}:
             raise GeometryQualificationError("Unsupported geometry qualification version.")
         indices = raw["unavailableCellIndices"]
         if not isinstance(indices, Sequence) or isinstance(indices, str | bytes):
@@ -81,7 +112,28 @@ class GeometryQualification:
             unavailable_cell_indices=tuple(indices),
             exclude_from_geometry_training=raw["excludeFromGeometryTraining"],
             exclusion_reason=raw["exclusionReason"],
+            include_in_partial_grid_training=(
+                raw["includeInPartialGridTraining"]
+                if version == GEOMETRY_QUALIFICATION_VERSION
+                else False
+            ),
+            version=cast(GeometryQualificationVersion, version),
         )
+
+
+def _is_lateral_partial_mask(indices: tuple[int, ...]) -> bool:
+    missing_columns = {
+        column for column in range(5) if all(row * 5 + column in indices for row in range(3))
+    }
+    expected = tuple(row * 5 + column for row in range(3) for column in sorted(missing_columns))
+    return (
+        indices == tuple(sorted(expected))
+        and len(missing_columns) in {1, 2}
+        and (
+            missing_columns == set(range(len(missing_columns)))
+            or missing_columns == set(range(5 - len(missing_columns), 5))
+        )
+    )
 
 
 def parse_slot_qualifications(

@@ -88,15 +88,11 @@ const MIN_GEOMETRY_ZOOM = 1;
 const MAX_GEOMETRY_ZOOM = 30;
 const GEOMETRY_ZOOM_STEP = 0.25;
 const OUTSIDE_SOURCE_AREA_RATIO = 0.3;
-const OUTSIDE_SOURCE_VIEWPORT_SCALE = Math.sqrt(
-  1 + OUTSIDE_SOURCE_AREA_RATIO,
-);
-const OUTSIDE_SOURCE_MARGIN_RATIO =
-  (OUTSIDE_SOURCE_VIEWPORT_SCALE - 1) / 2;
+const OUTSIDE_SOURCE_VIEWPORT_SCALE = Math.sqrt(1 + OUTSIDE_SOURCE_AREA_RATIO);
+const OUTSIDE_SOURCE_MARGIN_RATIO = (OUTSIDE_SOURCE_VIEWPORT_SCALE - 1) / 2;
 const OUTSIDE_SOURCE_IMAGE_START_PERCENT =
   (OUTSIDE_SOURCE_MARGIN_RATIO / OUTSIDE_SOURCE_VIEWPORT_SCALE) * 100;
-const OUTSIDE_SOURCE_IMAGE_SIZE_PERCENT =
-  100 / OUTSIDE_SOURCE_VIEWPORT_SCALE;
+const OUTSIDE_SOURCE_IMAGE_SIZE_PERCENT = 100 / OUTSIDE_SOURCE_VIEWPORT_SCALE;
 const CORNER_LABELS = ['LT', 'PT', 'PD', 'LD'] as const;
 const CORNER_NAMES = [
   'lewy górny',
@@ -272,6 +268,11 @@ function PageGeometryCorrectionPanelContent({
   const [submitting, setSubmitting] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [geometryManifestChecksum, setGeometryManifestChecksum] = useState('');
+  const [partialTrainingPool, setPartialTrainingPool] = useState({
+    readyPatterns: 0,
+    samples: 0,
+    sources: 0,
+  });
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [qualificationFlags, setQualificationFlags] = useState<
@@ -309,6 +310,11 @@ function PageGeometryCorrectionPanelContent({
       );
       setSavedCount(result.data.sources.length - pendingSources.length);
       setGeometryManifestChecksum(result.data.geometryManifestChecksumSha256);
+      setPartialTrainingPool({
+        readyPatterns: result.data.partialGridReadyPatternCount ?? 0,
+        samples: result.data.partialGridTrainingSampleCount ?? 0,
+        sources: result.data.partialGridTrainingSourceCount ?? 0,
+      });
       setSources(pendingSources);
       onPendingSourceCountChange?.(pendingSources.length);
       setSourceIndex(0);
@@ -959,6 +965,12 @@ function PageGeometryCorrectionPanelContent({
             zapisanym w nazwie; zostaną one utworzone dopiero w imporcie po
             zakończeniu preflightu geometrii.
           </p>
+          <p>
+            Oddzielna pula niepełnych siatek: {partialTrainingPool.samples}{' '}
+            próbek z {partialTrainingPool.sources} zdjęć; gotowe wzorce:{' '}
+            {partialTrainingPool.readyPatterns}. Wzorzec wymaga co najmniej 3
+            różnych zdjęć.
+          </p>
         </div>
         <div className="pageGeometryCorrectionHeaderActions">
           <button
@@ -1567,6 +1579,9 @@ function PageGeometryCorrectionPanelContent({
                               ...flags,
                               partial: event.target.checked,
                               exclude: event.target.checked || flags.exclude,
+                              includeInPartialGridTraining: event.target.checked
+                                ? flags.includeInPartialGridTraining
+                                : false,
                               manualUnavailable: event.target.checked
                                 ? flags.manualUnavailable
                                 : [],
@@ -1589,14 +1604,19 @@ function PageGeometryCorrectionPanelContent({
                       <label className="pageGeometryQualificationCheck pageGeometryQualificationNote">
                         <input
                           type="checkbox"
-                          checked
-                          disabled
-                          readOnly
-                          aria-label="Zmiana dotyczy kolejnego uczenia i kotwic"
+                          checked={flags.includeInPartialGridTraining}
+                          disabled={!flags.partial}
+                          onChange={(event) =>
+                            update({
+                              ...flags,
+                              includeInPartialGridTraining:
+                                event.target.checked,
+                            })
+                          }
                         />
                         <small>
-                          Zmiana dotyczy kolejnego uczenia i kotwic, nie już
-                          aktywnego profilu.
+                          Użyj w oddzielnym uczeniu niepełnych siatek. Zmiana
+                          dotyczy kolejnego uczenia, nie już aktywnego profilu.
                         </small>
                       </label>
                     </div>

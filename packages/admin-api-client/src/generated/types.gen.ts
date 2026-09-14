@@ -123,7 +123,9 @@ export type AutomaticPartialGeometryProposalPayload = {
   /**
    * Policyversion
    */
-  policyVersion: 'structured-lattice-v4-lateral-partial-v1';
+  policyVersion:
+    | 'structured-lattice-v4-lateral-partial-v1'
+    | 'structured-lattice-v4-lateral-partial-v2';
   /**
    * Positionindex
    */
@@ -137,9 +139,15 @@ export type AutomaticPartialGeometryProposalPayload = {
    */
   sourceChecksumSha256: string;
   /**
+   * Trainingprofilechecksumsha256
+   */
+  trainingProfileChecksumSha256?: string | null;
+  /**
    * Version
    */
-  version: 'automatic-lateral-partial-proposal-v1';
+  version:
+    | 'automatic-lateral-partial-proposal-v1'
+    | 'automatic-lateral-partial-proposal-v2';
 };
 
 /**
@@ -1395,6 +1403,18 @@ export type BrowserPageGeometryReviewSourcesResponse = {
    */
   operatorExcludedSourceCount?: number;
   /**
+   * Partialgridreadypatterncount
+   */
+  partialGridReadyPatternCount?: number;
+  /**
+   * Partialgridtrainingsamplecount
+   */
+  partialGridTrainingSampleCount?: number;
+  /**
+   * Partialgridtrainingsourcecount
+   */
+  partialGridTrainingSourceCount?: number;
+  /**
    * Registeredsourcecount
    */
   registeredSourceCount: number;
@@ -2487,13 +2507,18 @@ export type GeometryQualificationPayload = {
    */
   exclusionReason: 'missing_pixels' | 'manual_exclusion' | null;
   /**
+   * Includeinpartialgridtraining
+   */
+  includeInPartialGridTraining?: boolean | null;
+  /**
    * Unavailablecellindices
    */
   unavailableCellIndices: Array<number>;
   /**
    * Version
    */
-  version: 'manual-geometry-qualification-v1';
+  version:
+    'manual-geometry-qualification-v1' | 'manual-geometry-qualification-v2';
 };
 
 /**
@@ -6070,14 +6095,19 @@ export type LateralPartialGeometryJobSnapshotPayload = {
    * Minimumvisiblerows
    */
   minimumVisibleRows: 3;
+  partialGridTrainingProfile?: PartialGridTrainingJobSnapshotPayload | null;
   /**
    * Policyversion
    */
-  policyVersion: 'structured-lattice-v4-lateral-partial-v1';
+  policyVersion:
+    | 'structured-lattice-v4-lateral-partial-v1'
+    | 'structured-lattice-v4-lateral-partial-v2';
   /**
    * Proposalversion
    */
-  proposalVersion: 'automatic-lateral-partial-proposal-v1';
+  proposalVersion:
+    | 'automatic-lateral-partial-proposal-v1'
+    | 'automatic-lateral-partial-proposal-v2';
   /**
    * Requiresmanualconfirmation
    */
@@ -6085,7 +6115,9 @@ export type LateralPartialGeometryJobSnapshotPayload = {
   /**
    * Schemaversion
    */
-  schemaVersion: 'lateral-partial-geometry-snapshot-v1';
+  schemaVersion:
+    | 'lateral-partial-geometry-snapshot-v1'
+    | 'lateral-partial-geometry-snapshot-v2';
   /**
    * Topologycolumns
    */
@@ -7543,6 +7575,66 @@ export type PageGeometryRegistrationDiagnostics = {
    * Version
    */
   version: 'page-registration-diagnostics-v1';
+};
+
+/**
+ * PartialGridPatternJobSnapshotPayload
+ */
+export type PartialGridPatternJobSnapshotPayload = {
+  /**
+   * Ready
+   */
+  ready: boolean;
+  /**
+   * Samplecount
+   */
+  sampleCount: number;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Unavailablecellindices
+   */
+  unavailableCellIndices: Array<number>;
+};
+
+/**
+ * PartialGridTrainingJobSnapshotPayload
+ */
+export type PartialGridTrainingJobSnapshotPayload = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Minimumdistinctsourcecount
+   */
+  minimumDistinctSourceCount: 3;
+  /**
+   * Patterns
+   */
+  patterns: Array<PartialGridPatternJobSnapshotPayload>;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'lateral-missing-column-majority-v1';
+  /**
+   * Readypatterncount
+   */
+  readyPatternCount: number;
+  /**
+   * Samplecount
+   */
+  sampleCount: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'partial-grid-training-profile-v1';
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
 };
 
 /**

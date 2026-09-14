@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -17,6 +18,10 @@ from game_predictor_worker.images import lateral_partial_contract as contract
 from game_predictor_worker.images.lateral_partial_contract import (
     GeometryEngineVariant,
     LateralPartialGeometrySnapshot,
+)
+from game_predictor_worker.images.partial_grid_learning import (
+    PartialGridPattern,
+    PartialGridTrainingProfile,
 )
 from game_predictor_worker.images.pipeline_contract import GeometryPipelineRolloutSnapshot
 from pydantic import ValidationError
@@ -66,6 +71,33 @@ def test_per_run_snapshot_does_not_mutate_game_policy() -> None:
     wire = ImageGeometryRolloutJobSnapshotPayload.model_validate(snapshot.to_payload())
     assert wire.model_dump(mode="json", by_alias=True, exclude_none=True) == snapshot.to_payload()
     assert not repository.items
+
+
+def test_new_run_pins_separate_partial_training_profile() -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
+        geometry_mode="structured_lattice_v3",
+        cell_asset_mode="virtual_default",
+        revision=12,
+    )
+    profile = PartialGridTrainingProfile(
+        (PartialGridPattern((0, 5, 10), sample_count=3, source_count=3),), 3
+    )
+    resolver = SimpleNamespace(partial_grid_training_profile=lambda **_: profile.to_payload())
+    service = JobService(repository, page_geometry_override_snapshot_resolver=resolver)
+    payload: dict[str, object] = {}
+    service._pin_image_geometry_rollout(
+        game_id=game_id,
+        input_payload=payload,
+        effective_fingerprint="a" * 64,
+        symbol_model=bootstrap_symbol_model_snapshot(),
+        geometry_engine_variant=VARIANT,
+    )
+    snapshot = GeometryPipelineRolloutSnapshot.from_payload(payload["image_geometry_rollout"])
+    assert snapshot.lateral_partial_geometry is not None
+    assert snapshot.lateral_partial_geometry.training_profile == profile
+    assert snapshot.lateral_partial_geometry.to_payload()["schemaVersion"].endswith("v2")
 
 
 def test_create_service_gate_precedes_files_and_persistence(
@@ -147,5 +179,39 @@ def test_automatic_partial_provenance_is_not_a_human_decision() -> None:
         ("requiresManualConfirmation", False),
         ("policyChecksumSha256", "b" * 64),
     ]:
+        with pytest.raises(ValidationError):
+            AutomaticPartialGeometryProposalPayload.model_validate({**raw, key: value})
+
+
+def test_learned_automatic_proposal_keeps_manual_confirmation() -> None:
+    profile = PartialGridTrainingProfile(
+        (PartialGridPattern((0, 5, 10), sample_count=3, source_count=3),), 3
+    )
+    policy = LateralPartialGeometrySnapshot(training_profile=profile)
+    raw = {
+        "version": "automatic-lateral-partial-proposal-v2",
+        "origin": "automatic_proposal",
+        "sourceChecksumSha256": "a" * 64,
+        "positionIndex": 3,
+        "policyVersion": policy.policy_version,
+        "policyChecksumSha256": policy.checksum_sha256,
+        "trainingProfileChecksumSha256": profile.checksum_sha256,
+        "requiresManualConfirmation": True,
+        "geometryQualification": {
+            "version": "manual-geometry-qualification-v2",
+            "completenessStatus": "pending_partial",
+            "unavailableCellIndices": [0, 5, 10],
+            "excludeFromGeometryTraining": True,
+            "includeInPartialGridTraining": False,
+            "exclusionReason": "missing_pixels",
+        },
+    }
+    proposal = AutomaticPartialGeometryProposalPayload.model_validate(raw)
+    assert proposal.requires_manual_confirmation is True
+    assert proposal.geometry_qualification.include_in_partial_grid_training is False
+    for key, value in (
+        ("version", "automatic-lateral-partial-proposal-v1"),
+        ("policyVersion", "structured-lattice-v4-lateral-partial-v1"),
+    ):
         with pytest.raises(ValidationError):
             AutomaticPartialGeometryProposalPayload.model_validate({**raw, key: value})

@@ -68,7 +68,7 @@ test('outside core creates automatic mask; partial declarations and full missing
     /Niepełną|niepełną/,
   );
   const result = manualGridQualification(
-    { partial: true, exclude: false, manualUnavailable: [14] },
+    { ...completeManualGridFlags, partial: true, manualUnavailable: [14] },
     shifted,
     300,
     200,
@@ -79,7 +79,7 @@ test('outside core creates automatic mask; partial declarations and full missing
   assert.throws(
     () =>
       manualGridQualification(
-        { partial: true, exclude: true, manualUnavailable: [] },
+        { ...completeManualGridFlags, partial: true, exclude: true },
         quad,
         300,
         200,
@@ -91,6 +91,7 @@ test('outside core creates automatic mask; partial declarations and full missing
       {
         partial: true,
         exclude: true,
+        includeInPartialGridTraining: false,
         manualUnavailable: Array.from({ length: 15 }, (_, i) => i),
       },
       quad,
@@ -98,6 +99,47 @@ test('outside core creates automatic mask; partial declarations and full missing
       200,
     ).unavailableCellIndices.length,
     15,
+  );
+});
+test('partial-grid opt-in uses v2 and only accepts partial geometry', () => {
+  const learned = manualGridQualification(
+    {
+      ...completeManualGridFlags,
+      partial: true,
+      includeInPartialGridTraining: true,
+      manualUnavailable: [0, 5, 10],
+    },
+    quad,
+    300,
+    200,
+  );
+  assert.equal(learned.version, 'manual-geometry-qualification-v2');
+  assert.equal(learned.includeInPartialGridTraining, true);
+  assert.equal(learned.excludeFromGeometryTraining, true);
+  assert.throws(
+    () =>
+      manualGridQualification(
+        { ...completeManualGridFlags, includeInPartialGridTraining: true },
+        quad,
+        300,
+        200,
+      ),
+    /Tylko niepełna/,
+  );
+  assert.throws(
+    () =>
+      manualGridQualification(
+        {
+          ...completeManualGridFlags,
+          partial: true,
+          includeInPartialGridTraining: true,
+          manualUnavailable: [0],
+        },
+        quad,
+        300,
+        200,
+      ),
+    /pełne kolumny/,
   );
 });
 test('uncertain decoration excludes geometry without removing visible symbols', () => {

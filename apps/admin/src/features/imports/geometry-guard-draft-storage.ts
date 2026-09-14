@@ -83,6 +83,7 @@ export function readGuardDraft(
     !validManualGridFlags({
       partial: raw.disposition === 'partial' || raw.disposition === 'rejected',
       exclude: raw.excludeGeometry,
+      includeInPartialGridTraining: false,
       manualUnavailable: raw.unavailable,
     }) ||
     !(

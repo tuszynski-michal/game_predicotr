@@ -459,6 +459,13 @@ ponowienia lub ręcznej korekty. Kolejny import ze świeżym manifestem ponownie
 wykorzystuje rejestr kanoniczny, więc wcześniej zatwierdzone plansze nie są
 przetwarzane drugi raz.
 
+Nowy preflight wariantu bocznie niepełnych siatek przypina również opcjonalny
+`partial-grid-training-profile-v1`, wyliczony z bieżących ręcznych opt-inów.
+Profil nie poszerza zbioru analizowanych obrazów ani nie obniża bramek. Gdy
+stary algorytm zwróci kilka bezpiecznych bocznych hipotez, jedyny gotowy
+wzorzec o najwyższym poparciu może wskazać jedną z nich. Wynik nadal trafia do
+ręcznej weryfikacji, a retry używa profilu z joba zamiast aktualnego stanu gry.
+
 ## Walidacja geometrii w Reviewerze
 
 Etap OCR zachowuje quad obszaru etykiety numeru. Reviewer pobiera checksum-bound

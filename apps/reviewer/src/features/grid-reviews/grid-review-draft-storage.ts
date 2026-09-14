@@ -1,6 +1,7 @@
 import type { ImageGridReviewItemResponse } from '@game-predictor/admin-api-client';
 import type { GridGeometrySourceDrafts } from './grid-review-state.ts';
 import {
+  completeManualGridFlags,
   validManualGridFlags,
   type ManualGridFlags,
 } from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
@@ -123,7 +124,7 @@ export function restoreGridFlags(
       !validManualGridFlags(pair[1])
     )
       throw new Error('Nieprawidłowe oznaczenia szkicu.');
-    result.set(pair[0], pair[1]);
+    result.set(pair[0], { ...completeManualGridFlags, ...pair[1] });
   }
   return result;
 }

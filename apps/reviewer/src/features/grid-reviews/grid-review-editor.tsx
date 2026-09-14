@@ -1076,6 +1076,9 @@ function GridReviewEditorContent({
                     ...flags,
                     partial: event.target.checked,
                     exclude: event.target.checked || flags.exclude,
+                    includeInPartialGridTraining: event.target.checked
+                      ? flags.includeInPartialGridTraining
+                      : false,
                     manualUnavailable: event.target.checked
                       ? flags.manualUnavailable
                       : [],

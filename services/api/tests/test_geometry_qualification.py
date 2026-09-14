@@ -6,8 +6,11 @@ from uuid import uuid4
 import pytest
 from game_predictor_api.api.image_grid_reviews import _require_expected_source
 from game_predictor_api.domain.geometry_qualification import (
+    GEOMETRY_QUALIFICATION_VERSION,
     GeometryQualification,
     GeometryQualificationError,
+    geometry_training_exclusion_reason,
+    page_anchor_exclusion_reason,
     parse_slot_qualifications,
     qualification_from_geometry,
 )
@@ -189,3 +192,33 @@ def test_legacy_grid_writer_cannot_silently_discard_qualification() -> None:
         _require_expected_source(service, uuid4(), uuid4(), command)
     assert error.value.code == "IMAGE_GRID_REVIEW_QUALIFICATION_UNSUPPORTED"
     service.source_asset.assert_called_once()
+
+
+def test_v2_partial_training_opt_in_roundtrips_and_rejects_non_lateral_masks() -> None:
+    value = GeometryQualification(
+        "pending_partial",
+        (0, 5, 10),
+        True,
+        "missing_pixels",
+        True,
+        GEOMETRY_QUALIFICATION_VERSION,
+    )
+    assert GeometryQualification.from_dict(value.to_dict()) == value
+    assert GeometryQualificationPayload.model_validate(value.to_dict()).to_domain() == value
+    assert value.to_dict()["includeInPartialGridTraining"] is True
+    assert (
+        geometry_training_exclusion_reason({"geometryQualification": value.to_dict()})
+        == "missing_pixels"
+    )
+    assert page_anchor_exclusion_reason([value.to_dict()], expected_board_count=1) == (
+        "incomplete_anchor"
+    )
+    with pytest.raises(GeometryQualificationError):
+        GeometryQualification(
+            "pending_partial",
+            (0, 1, 2),
+            True,
+            "missing_pixels",
+            True,
+            GEOMETRY_QUALIFICATION_VERSION,
+        )

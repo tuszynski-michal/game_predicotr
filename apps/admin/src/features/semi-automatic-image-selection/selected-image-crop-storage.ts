@@ -46,6 +46,7 @@ import { readActiveFilledGapsManifest } from '@/features/manual-image-selection/
 
 import { prepareSelectedImageCropInWorker } from './selected-image-crop-worker-client';
 import {
+  ACTIVE_SELECTED_IMAGE_CROP_POLICY,
   prepareFourPointRegisteredCrop,
   prepareStructuralCrop,
   assertCropPreparationPolicy,
@@ -111,7 +112,7 @@ function cropPreparationAborted(signal: AbortSignal | undefined): boolean {
 
 export async function proposeSelectedImageCrop(
   source: File,
-  policy: string = SELECTED_IMAGE_AUTO_CROP_POLICY,
+  policy: string = ACTIVE_SELECTED_IMAGE_CROP_POLICY,
   anchor: BrowserCropAnchor | null = null,
 ): Promise<SelectedImageAutoCropProposal> {
   assertCropPreparationPolicy(policy);
@@ -1016,7 +1017,7 @@ async function openSelectedImageCropSnapshot(
       session: {
         ...migratedBase.session,
         preparationPolicyVersion: isNewSession
-          ? SELECTED_IMAGE_AUTO_CROP_POLICY
+          ? ACTIVE_SELECTED_IMAGE_CROP_POLICY
           : legacyManifest.entries.some(
                 (entry) =>
                   entry.result?.autoCropProposal?.policyVersion ===

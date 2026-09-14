@@ -6,6 +6,17 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0536 — v12 jako główny silnik cropów
+
+- Jawnie zaakceptowany przez operatora v12 jest aktywną polityką nowych sesji
+  `Przytnij wybrane zdjęcia`, browserowego workera i lokalnego runnera.
+- Nowa sesja przypina v12 w `session-v2.json` przed pierwszym wynikiem.
+  Istniejące sesje zachowują własną wersję i nie są przeliczane po restarcie;
+  ich migracja pozostaje jawną akcją.
+- Fingerprint, progi, reguła bufora oraz fail-closed ręczna kolejka nie zostały
+  zmienione. V11 pozostaje wyłączony. Formalny niezależny holdout v12 nie został
+  przedstawiony jako zaliczony.
+
 ### TASK-0535 — zbiorcze podglądy korekt cropów
 
 - Wznawialny audyt `D:\777` klasyfikuje wszystkie bezpośrednie katalogi

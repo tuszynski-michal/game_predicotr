@@ -8,6 +8,26 @@ last_updated: 2026-09-14
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-382 — V12 jest głównym silnikiem nowych sesji cropów
+
+- **Status:** accepted
+- **Date:** 2026-09-14
+- **Decision:** po jawnej ocenie podglądów przez operatora polityka
+  `selected-image-board-band-v12-four-point-anchor-registration` staje się
+  domyślna dla nowych sesji `Przytnij wybrane zdjęcia` i lokalnego runnera.
+  Rozpoczęte sesje zachowują wersję przypiętą w trwałym snapshotcie.
+- **Rationale:** rzeczywiste przebiegi dały 177/177 automatów bez błędów oraz
+  63/67 automatów z czterema bezpiecznymi pełnymi obrazami skierowanymi do
+  ręcznej oceny. Operator uznał rezultat za wystarczający do użycia głównego.
+- **Safety:** nie zmieniamy fingerprintu, progów ani bramek obrazu. Brak pełnego
+  dowodu nadal działa fail-closed. Aktywacja nie przelicza istniejących
+  katalogów, nie nadpisuje ręcznych cropów i nie oznacza zaliczenia formalnej
+  niezależnej bramki jakości na nieujawnionym zbiorze.
+- **Consequences:** nowe sesje przypinają v12 przed pierwszym zapisem, a UI,
+  worker i Node używają jednego źródła aktywnej polityki. V10 pozostaje czytelny
+  dla wznowień, v11 pozostaje niewydany, a przejście starej sesji wymaga jawnej
+  akcji przeliczenia.
+
 ## D-381 — Pełne 3×3 wystarcza do automatycznego cropa
 
 - **Status:** accepted

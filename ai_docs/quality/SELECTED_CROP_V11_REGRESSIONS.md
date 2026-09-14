@@ -271,3 +271,12 @@ Przykładowy `128269 - 149634 cut` ma zapis końcowej akceptacji, 25 ręcznie
 poprawionych cropów i brak nierozstrzygniętej kolejki. Późniejszy repair usunął
 26 innych sekwencji z katalogu, dlatego nie wolno odtwarzać ich jako korekt
 cropa. Pełna klasyfikacja znajduje się w zbiorczym raporcie pod `D:\777`.
+
+## TASK-0536 — jawna aktywacja v12
+
+Po obejrzeniu wyników TASK-0534 i TASK-0535 operator jawnie zdecydował o
+ustawieniu v12 jako głównego silnika. Jest to świadoma decyzja eksploatacyjna na
+podstawie rzeczywistych katalogów, a nie deklaracja zaliczenia niezależnego
+holdoutu. Fingerprint i bramki pozostają bez zmian; cztery nieudowodnione
+przypadki nadal kończą się pełnym obrazem w ręcznej kolejce. Aktywacja dotyczy
+nowych sesji. Istniejące snapshoty i dane operatora nie są przeliczane.

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  ACTIVE_SELECTED_IMAGE_CROP_POLICY,
   prepareStructuralCrop,
   sampleCanonicalCropImage,
   assertCropPreparationPolicy,
@@ -8,6 +9,7 @@ import {
   CROP_V12_RELEASE_ENABLED,
   projectDetectedLayout,
 } from '../src/crop-preparation.ts';
+import { CROP_V12_POLICY } from '../src/auto-crop-v12-registration.ts';
 test('shared sampler preserves full aspect ratio and is deterministic', () => {
   const source = {
     width: 1080,
@@ -60,11 +62,12 @@ test('full source on uncertainty; bounded progressive levels and no arbitrary co
   assert.equal(result.crop.bottomY, 1000);
   assert.ok(result.preparationFingerprint.includes('bilinear-rgba-v1'));
 });
-test('unknown policy fails closed and experimental release is not activated', () => {
+test('unknown policy fails closed and v12 is the active released policy', () => {
   assert.throws(
     () => assertCropPreparationPolicy('future-v99'),
     /POLICY_UNSUPPORTED/,
   );
   assert.equal(CROP_V11_RELEASE_ENABLED, false);
-  assert.equal(CROP_V12_RELEASE_ENABLED, false);
+  assert.equal(CROP_V12_RELEASE_ENABLED, true);
+  assert.equal(ACTIVE_SELECTED_IMAGE_CROP_POLICY, CROP_V12_POLICY);
 });

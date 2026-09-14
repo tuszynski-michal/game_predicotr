@@ -10,6 +10,7 @@ import {
   prepareFourPointRegisteredCrop,
   prepareStructuralCrop,
   assertCropPreparationPolicy,
+  ACTIVE_SELECTED_IMAGE_CROP_POLICY,
   CROP_V11_FINGERPRINT,
 } from '../../packages/manual-image-selection-core/src/crop-preparation.ts';
 import { CROP_V11_POLICY } from '../../packages/manual-image-selection-core/src/auto-crop-v11.ts';
@@ -144,7 +145,7 @@ export async function renderCropSource(bytes, policy, anchor = null) {
  * hook is a crash-test seam; never sourced from user manifests. */
 export async function processCropDirectory(
   sourcePath,
-  policy = SELECTED_IMAGE_AUTO_CROP_POLICY,
+  policy = ACTIVE_SELECTED_IMAGE_CROP_POLICY,
   {
     hook = async () => {},
     render = renderCropSource,

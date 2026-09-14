@@ -1,11 +1,11 @@
 import {
   detectSelectedImageCropBand,
-  SELECTED_IMAGE_AUTO_CROP_POLICY,
   SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH,
   type SelectedImageAutoCropProposal,
 } from '@game-predictor/manual-image-selection-core/auto-crop';
 import { SELECTED_IMAGE_CROP_JPEG_QUALITY } from '@game-predictor/manual-image-selection-core/crop';
 import {
+  ACTIVE_SELECTED_IMAGE_CROP_POLICY,
   prepareFourPointRegisteredCrop,
   prepareStructuralCrop,
   assertCropPreparationPolicy,
@@ -47,7 +47,7 @@ scope.onmessage = (event) => {
 async function prepare(
   request: PrepareRequest,
 ): Promise<SelectedImageAutoCropProposal & { readonly blob: Blob }> {
-  const policy = request.policy ?? SELECTED_IMAGE_AUTO_CROP_POLICY;
+  const policy = request.policy ?? ACTIVE_SELECTED_IMAGE_CROP_POLICY;
   assertCropPreparationPolicy(policy);
   const bitmap = await createImageBitmap(request.source, {
     imageOrientation: 'from-image',

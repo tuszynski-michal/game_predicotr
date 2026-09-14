@@ -245,6 +245,15 @@ oraz automatycznej kolejki korekt. Każdy przebieg zachowuje własny journal i
 raport, a raport zbiorczy jest zapisywany atomowo po każdej sesji. Awaria jednej
 sesji nie ukrywa wyniku pozostałych i daje niezerowy kod końcowy.
 
+TASK-0536 ustanawia
+`crop-preparation.ts:ACTIVE_SELECTED_IMAGE_CROP_POLICY` pojedynczym źródłem
+domyślnej polityki i wskazuje v12. `openSelectedImageCropSnapshot` zapisuje tę
+wartość wyłącznie przy tworzeniu nowej sesji. Odczyt istniejącego
+`session-v2.json` zachowuje przypiętą wersję, więc restart nie przelicza ani nie
+nadpisuje JPEG-ów i decyzji operatora. Browserowy worker, jego fallback oraz
+runner Node przyjmują aktywną stałą jako domyślną, lecz jawny argument i snapshot
+sesji nadal mają pierwszeństwo. V11 pozostaje niewydany.
+
 Iteracja v0.10.185 dodaje ograniczony poziomy wariant dylatacji (aspekt 2)
 obok izotropowego. Numery są analizowane w lokalnym układzie nachylenia rzędu,
 wyznaczonym z potwierdzonych obszarów plansz. Obszar wyszukiwania i wynik muszą
@@ -280,7 +289,7 @@ następnie weryfikowany SHA przed finalizacją. Browser przejmuje wyłącznie
 zakończony handoff; aktywna blokada lub intencja blokuje równoległy zapis.
 Stare katalogi z ręcznym stanem przeglądarki nie są mutowane przez Node.
 
-Eksperymentalny v12 (TASK-0479) dokłada rejestrację całego pasa plansz bez
+Aktywny v12 (TASK-0479, aktywacja TASK-0536) dokłada rejestrację całego pasa plansz bez
 modelowania 36 narożników. Silna obserwacja v11 jest redukowana do czterech
 punktów zewnętrznego obrysu 3×3 wraz z medianą wysokości planszy i checksumą
 źródła. Na obrazie kanonicznym EXIF do 640 px deterministyczny deskryptor

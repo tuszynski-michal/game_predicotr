@@ -103,6 +103,27 @@ test('explicit v12 upgrade can recalculate automatic warnings without touching o
   assert.match(source, /preparationPolicyVersion: CROP_V12_POLICY/u);
 });
 
+test('new crop sessions pin the active policy while existing snapshots retain their stored policy', () => {
+  assert.match(source, /ACTIVE_SELECTED_IMAGE_CROP_POLICY/u);
+  assert.match(
+    source,
+    /preparationPolicyVersion: isNewSession\s*\? ACTIVE_SELECTED_IMAGE_CROP_POLICY/u,
+  );
+  const existingSnapshotStart = source.indexOf(
+    'const storedSession = await requiredJsonFile',
+  );
+  const existingSnapshotEnd = source.indexOf(
+    'return { inventory: existingInventory, session, review, shards };',
+    existingSnapshotStart,
+  );
+  assert.ok(existingSnapshotStart >= 0);
+  assert.ok(existingSnapshotEnd > existingSnapshotStart);
+  assert.doesNotMatch(
+    source.slice(existingSnapshotStart, existingSnapshotEnd),
+    /ACTIVE_SELECTED_IMAGE_CROP_POLICY/u,
+  );
+});
+
 test('unsupported automatic crops are routed to the manual correction queue', () => {
   assert.match(source, /synchronizeAutomaticCorrection/u);
   assert.match(

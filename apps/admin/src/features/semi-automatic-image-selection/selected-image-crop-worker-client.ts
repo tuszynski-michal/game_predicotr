@@ -1,7 +1,7 @@
 'use client';
 
 import type { SelectedImageAutoCropProposal } from '@game-predictor/manual-image-selection-core/auto-crop';
-import { SELECTED_IMAGE_AUTO_CROP_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop';
+import { ACTIVE_SELECTED_IMAGE_CROP_POLICY } from '@game-predictor/manual-image-selection-core/crop-preparation';
 import type { FourPointCropAnchor } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 
 import type { SelectedImageCropRenderedFile } from './selected-image-crop-storage';
@@ -17,7 +17,7 @@ let nextRequestId = 1;
 
 export async function prepareSelectedImageCropInWorker(
   source: File,
-  policy: string = SELECTED_IMAGE_AUTO_CROP_POLICY,
+  policy: string = ACTIVE_SELECTED_IMAGE_CROP_POLICY,
   anchor?: {
     readonly source: File;
     readonly descriptor: FourPointCropAnchor;

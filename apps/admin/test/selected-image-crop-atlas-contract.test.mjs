@@ -16,6 +16,13 @@ const worker = await readFile(
   ),
   'utf8',
 );
+const workerRuntime = await readFile(
+  new URL(
+    '../src/features/semi-automatic-image-selection/selected-image-crop-worker.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const styles = await readFile(
   new URL('../src/app/globals.css', import.meta.url),
   'utf8',
@@ -64,9 +71,15 @@ test('crop tiles use selection borders without status badges', () => {
   assert.doesNotMatch(styles, /selectedImageCropTileBadge/u);
 });
 
-test('crop worker is recycled and has an explicit unsupported-browser fallback', () => {
+test('crop worker is recycled, defaults to the active policy and has an explicit unsupported-browser fallback', () => {
   assert.match(worker, /typeof Worker === 'undefined'/u);
   assert.match(worker, /typeof OffscreenCanvas === 'undefined'/u);
   assert.match(worker, /requestCount >= 128/u);
   assert.match(worker, /activeWorker\?\.terminate\(\)/u);
+  assert.match(worker, /policy: string = ACTIVE_SELECTED_IMAGE_CROP_POLICY/u);
+  assert.match(
+    workerRuntime,
+    /request\.policy \?\? ACTIVE_SELECTED_IMAGE_CROP_POLICY/u,
+  );
+  assert.match(workspace, /ACTIVE_SELECTED_IMAGE_CROP_POLICY/u);
 });

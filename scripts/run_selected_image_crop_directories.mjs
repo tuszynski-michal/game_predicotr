@@ -1,10 +1,10 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { processCropDirectory } from './lib/selected-crop-durable-runner.mjs';
-import { SELECTED_IMAGE_AUTO_CROP_POLICY } from '../packages/manual-image-selection-core/src/auto-crop.ts';
 import { CROP_V11_POLICY } from '../packages/manual-image-selection-core/src/auto-crop-v11.ts';
 import { CROP_V12_POLICY } from '../packages/manual-image-selection-core/src/auto-crop-v12-registration.ts';
 import {
+  ACTIVE_SELECTED_IMAGE_CROP_POLICY,
   CROP_V11_RELEASE_ENABLED,
   CROP_V12_RELEASE_ENABLED,
 } from '../packages/manual-image-selection-core/src/crop-preparation.ts';
@@ -13,7 +13,7 @@ const [
   parentArg,
   fromArg = '1',
   throughArg = '1',
-  policy = SELECTED_IMAGE_AUTO_CROP_POLICY,
+  policy = ACTIVE_SELECTED_IMAGE_CROP_POLICY,
 ] = process.argv.slice(2);
 if (!parentArg)
   throw new Error('Usage: <parent> <from-index> <through-index> [policy]');

@@ -567,7 +567,7 @@ podkatalog zawierający poprawnie nazwane JPEG-i
 `seq_<start>-<end>.jpg|jpeg`. Narzędzie tworzy obok katalog
 `<nazwa źródła> cut`; źródła nigdy nie są modyfikowane.
 
-Uwaga jakościowa TASK-0468: opis v10 poniżej dokumentuje obecną implementację,
+Uwaga jakościowa TASK-0468: opis v10 poniżej dokumentuje historyczną implementację,
 nie gwarancję wykrycia plansz. Rzeczywiste regresje wykazały crop samej reklamy
 z `high_confidence` i niepoprawny dół. Wdrożenie v11 (0469–0472) musi niezależnie
 potwierdzić pełne dziewięć plansz. Gdy wykryto kompletne 3×3, osobne
@@ -610,13 +610,21 @@ obok. Każda zakwalifikowana sesja otrzymuje osobny
 operator-only pozostają bez zmian. Zbiorczy raport pokazuje również powód
 pominięcia każdej pozostałej sesji.
 
+TASK-0536: po jawnej akceptacji operatora v12 jest głównym silnikiem wszystkich
+nowych sesji `Przytnij wybrane zdjęcia` oraz domyślną polityką lokalnego runnera
+katalogowego. Nowa sesja przypina dokładny identyfikator v12 przed pierwszym
+cropem. Sesja już rozpoczęta zachowuje własną zapisaną politykę i wyniki;
+przejście z v10/v11 albo nieobsługiwanej wersji wymaga jawnego przeliczenia.
+Aktywacja nie zmienia fingerprintu, progów ani reguł kolejki ręcznej: słaby,
+niepełny lub sprzeczny dowód nadal pozostawia pełny obraz do poprawy.
+
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
 przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do
 osobnego katalogu `<nazwa źródła> filled-gaps cut`, dlatego pełna i ograniczona
 sesja nie współdzielą inwentarza ani postępu.
 
-Automat dla każdego jeszcze niezatwierdzonego zdjęcia niezależnie analizuje
+Historyczny automat v10 dla każdego jeszcze niezatwierdzonego zdjęcia analizuje
 ograniczoną kopię podglądową do 512 px i proponuje pas obejmujący zwarty panel
 plansz. Polityka `selected-image-board-band-v10-top-board-row-guided`
 próbuje dodatkowo znaleźć trzy podobne, poziomo uporządkowane czerwone ramki

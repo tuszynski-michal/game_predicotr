@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CROP_V11_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 import { CROP_V12_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
+import { ACTIVE_SELECTED_IMAGE_CROP_POLICY } from '@game-predictor/manual-image-selection-core/crop-preparation';
 import {
   effectiveSelectedImageCropCorrections,
   requiredSelectedImageCropCorrections,
@@ -332,7 +333,7 @@ export function SelectedImageCropWorkspace() {
           proposeSelectedImageCrop(
             file,
             prepared.snapshot.session.preparationPolicyVersion ??
-              SELECTED_IMAGE_AUTO_CROP_POLICY,
+              ACTIVE_SELECTED_IMAGE_CROP_POLICY,
           ),
         );
       proposalCacheRef.current.set(key, pending);

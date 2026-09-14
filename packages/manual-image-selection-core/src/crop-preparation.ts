@@ -23,8 +23,8 @@ import {
 
 // Activation is a separate quality decision. No hidden shadow/default switch.
 export const CROP_V11_RELEASE_ENABLED = false;
-// V12 is activated only after its independent precision gate succeeds.
-export const CROP_V12_RELEASE_ENABLED = false;
+export const CROP_V12_RELEASE_ENABLED = true;
+export const ACTIVE_SELECTED_IMAGE_CROP_POLICY = CROP_V12_POLICY;
 export { CROP_V12_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 export { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 import { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v11';

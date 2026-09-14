@@ -9,6 +9,7 @@ import {
   renderCropSource,
 } from '../lib/selected-crop-durable-runner.mjs';
 import { CROP_V11_POLICY } from '../../packages/manual-image-selection-core/src/auto-crop-v11.ts';
+import { ACTIVE_SELECTED_IMAGE_CROP_POLICY } from '../../packages/manual-image-selection-core/src/crop-preparation.ts';
 
 test(
   'EXIF 1–8 canonicalized once, full fallback retains 1:1 dimensions and no orientation tag',
@@ -61,6 +62,22 @@ async function fixture(t) {
   });
   return source;
 }
+test(
+  'default durable run uses the active crop policy',
+  { timeout: 15000 },
+  async (t) => {
+    const source = await fixture(t);
+    const policies = [];
+    const result = await processCropDirectory(source, undefined, {
+      render: async (bytes, policy, anchor) => {
+        policies.push(policy);
+        return renderCropSource(bytes, policy, anchor);
+      },
+    });
+    assert.equal(result.prepared, 1);
+    assert.deepEqual(policies, [ACTIVE_SELECTED_IMAGE_CROP_POLICY]);
+  },
+);
 for (const phase of ['intent', 'part', 'publish', 'shard'])
   test(
     `restart after ${phase} preserves exactly one verified output`,

@@ -1,4 +1,5 @@
 import type {
+  GeometryQualificationPayload,
   ImageGridReviewApprovalCommand,
   ImageGridReviewGeometryCommand,
   ImageGridReviewGeometryPreviewCommand,
@@ -90,11 +91,16 @@ export function orderGridReviewSourceItems(
 export function gridReviewCorners(
   item: ImageGridReviewItemResponse,
 ): OperationalReviewGeometryCorners {
+  const allowSignedCoordinates =
+    gridReviewQualification(item)?.completenessStatus === 'pending_partial';
   if (item.geometryRevision === 0) {
-    const symbolGrid = parseTypedCorners(item.symbolGridQuad);
+    const symbolGrid = parseTypedCorners(
+      item.symbolGridQuad,
+      allowSignedCoordinates,
+    );
     if (symbolGrid !== null) return symbolGrid;
   }
-  const parsed = parseCorners(item.geometry);
+  const parsed = parseCorners(item.geometry, allowSignedCoordinates);
   if (parsed !== null) return parsed;
   const insetX = Math.max(1, Math.round(item.sourceWidth * 0.1));
   const insetY = Math.max(1, Math.round(item.sourceHeight * 0.1));
@@ -113,7 +119,10 @@ export function gridReviewAnalysisCorners(
   item: ImageGridReviewItemResponse,
 ): OperationalReviewGeometryCorners | null {
   if (item.geometryRevision > 0) return null;
-  return parseTypedCorners(item.analysisQuad);
+  return parseTypedCorners(
+    item.analysisQuad,
+    gridReviewQualification(item)?.completenessStatus === 'pending_partial',
+  );
 }
 
 export function gridReviewLatticeReason(
@@ -159,6 +168,33 @@ export function emptyGridGeometrySourceDrafts(
   items: readonly ImageGridReviewItemResponse[],
 ): GridGeometrySourceDrafts {
   return new Map(items.map((item) => [item.slotId, []] as const));
+}
+
+export function gridReviewRequiresManualGeometry(
+  item: ImageGridReviewItemResponse,
+): boolean {
+  return item.geometry.manualGeometryRequired === true;
+}
+
+export function gridReviewQualification(
+  item: ImageGridReviewItemResponse,
+): GeometryQualificationPayload | undefined {
+  return (
+    item.geometryQualification ??
+    item.automaticPartialProposal?.geometryQualification ??
+    undefined
+  );
+}
+
+export function requiredGridGeometrySourceDrafts(
+  items: readonly ImageGridReviewItemResponse[],
+): GridGeometrySourceDrafts {
+  return new Map(
+    items.map((item) => [
+      item.slotId,
+      gridReviewRequiresManualGeometry(item) ? [] : gridReviewCorners(item),
+    ]),
+  );
 }
 
 export function currentGridGeometrySourceDrafts(
@@ -423,6 +459,7 @@ function expectedGridReviewIdentity(item: ImageGridReviewItemResponse) {
 
 function parseCorners(
   geometry: Readonly<Record<string, unknown>>,
+  allowSignedCoordinates = false,
 ): OperationalReviewGeometryCorners | null {
   const raw =
     geometry.latticeBoundsQuad ??
@@ -430,15 +467,15 @@ function parseCorners(
     geometry.quad ??
     geometry.corners;
   if (!Array.isArray(raw) || raw.length !== 4) return null;
-  const parsed = raw.map(parsePoint);
+  const parsed = raw.map((point) => parsePoint(point, allowSignedCoordinates));
   return parsed.every((point) => point !== null)
     ? (parsed as OperationalReviewGeometryCorners)
     : null;
 }
 
-function parseTypedCorners(value: unknown) {
+function parseTypedCorners(value: unknown, allowSignedCoordinates = false) {
   if (!Array.isArray(value) || value.length !== 4) return null;
-  const parsed = value.map(parsePoint);
+  const parsed = value.map((point) => parsePoint(point, allowSignedCoordinates));
   return parsed.every((point) => point !== null)
     ? (parsed as OperationalReviewGeometryCorners)
     : null;
@@ -446,22 +483,23 @@ function parseTypedCorners(value: unknown) {
 
 function parsePoint(
   value: unknown,
+  allowSignedCoordinates = false,
 ): OperationalImageReviewGeometryPoint | null {
   if (Array.isArray(value) && value.length === 2) {
-    return finitePoint(value[0], value[1]);
+    return finitePoint(value[0], value[1], allowSignedCoordinates);
   }
   if (typeof value !== 'object' || value === null) return null;
   const candidate = value as { readonly x?: unknown; readonly y?: unknown };
-  return finitePoint(candidate.x, candidate.y);
+  return finitePoint(candidate.x, candidate.y, allowSignedCoordinates);
 }
 
-function finitePoint(x: unknown, y: unknown) {
+function finitePoint(x: unknown, y: unknown, allowSignedCoordinates = false) {
   return typeof x === 'number' &&
     Number.isFinite(x) &&
-    x >= 0 &&
+    (allowSignedCoordinates || x >= 0) &&
     typeof y === 'number' &&
     Number.isFinite(y) &&
-    y >= 0
+    (allowSignedCoordinates || y >= 0)
     ? { x: Math.round(x), y: Math.round(y) }
     : null;
 }

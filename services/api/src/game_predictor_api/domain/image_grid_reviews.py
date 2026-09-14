@@ -109,7 +109,7 @@ class ImageGridReviewCounts:
 
     @property
     def manual_correction(self) -> int:
-        return max(0, self.needs_correction - self.lateral_partial_proposals)
+        return self.needs_correction
 
     @property
     def total(self) -> int:

@@ -55,6 +55,7 @@ from game_predictor_api.schemas.image_grid_reviews import (
 )
 from game_predictor_api.storage.image_grid_review_repository import (
     _confirmed_partial_expression,
+    _pending_automatic_proposal_expression,
 )
 from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
@@ -63,11 +64,11 @@ SOURCE_BYTES = b"source"
 SHA = hashlib.sha256(SOURCE_BYTES).hexdigest()
 
 
-def test_counts_keep_an_accepted_partial_out_of_full_grids() -> None:
+def test_counts_separate_automatic_partial_validation_from_manual_correction() -> None:
     response = to_image_grid_review_counts_response(
         ImageGridReviewCounts(
-            needs_validation=1,
-            needs_correction=2,
+            needs_validation=2,
+            needs_correction=1,
             approved=2,
             full_grids=2,
             lateral_partial_proposals=1,
@@ -79,6 +80,20 @@ def test_counts_keep_an_accepted_partial_out_of_full_grids() -> None:
     assert response.lateral_partial_proposals == 1
     assert response.confirmed_partial_grids == 1
     assert response.manual_correction == 1
+
+
+def test_pending_automatic_proposal_sql_requires_metadata_and_four_corner_grid() -> None:
+    sql = str(
+        _pending_automatic_proposal_expression().compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+
+    assert "automaticPartialProposal" in sql
+    assert "symbolGridQuad" in sql
+    assert "jsonb_array_length" in sql
+    assert "CASE WHEN" in sql
 
 
 def test_confirmed_partial_sql_uses_mask_and_persisted_qualification() -> None:

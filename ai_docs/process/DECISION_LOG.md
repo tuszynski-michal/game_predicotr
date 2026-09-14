@@ -8444,3 +8444,19 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   trwałe checkpointy. Domyślna polityka geometrii trafia do V2 przed aktywacją.
 - **Consequences:** identyczne ponowienie przerwanego create wznawia operację.
   Pierwsza rzeczywista gra wymaga osobnej decyzji i odbioru TASK-0526.
+
+## D-383 — Automatyczna niepełna siatka jest propozycją do walidacji
+
+- **Status:** accepted (TASK-0537).
+- **Date:** 2026-09-14.
+- **Decision:** odroczony slot z kanonicznym `automaticPartialProposal` i
+  poprawnym czteropunktowym `symbolGridQuad` należy do `needs_validation` i
+  pokazuje gotową nakładkę. `needs_correction` oraz ręczne wskazywanie są
+  zarezerwowane dla slotów bez poprawnej siatki.
+- **Materialization:** jawne potwierdzenie operatora używa atomowego zapisu
+  geometrii całego źródła i przenosi istniejący quad, identyfikator pending oraz
+  kwalifikację `pending_partial`. Źródło mieszane zachowuje wszystkie gotowe
+  siatki i wymaga uzupełnienia tylko brakujących.
+- **Safety:** propozycja nie jest automatycznie akceptowana. Zachowuje maskę,
+  wykluczenie ze zwykłego uczenia geometrii i kotwic oraz osobną proweniencję;
+  detektor i jego progi pozostają bez zmian.

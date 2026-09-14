@@ -107,6 +107,14 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /zoomPercent/);
   assert.match(editor, /useState\(100\)/);
   assert.match(editor, /currentGridGeometrySourceDrafts/);
+  assert.match(
+    editor,
+    /manualGridFlagsFromQualification\(gridReviewQualification\(candidate\)\)/,
+  );
+  assert.doesNotMatch(
+    editor,
+    /manualGridFlagsFromQualification\(candidate\.geometryQualification\)/,
+  );
   assert.match(editor, /beginDirectEditing/);
   assert.match(editor, /sourceWide: sourceBatchEnabled/);
   assert.match(editor, /draft: selectedDraft/);
@@ -131,7 +139,7 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /setPreviewKey\(requestedPreviewKey\)/);
   assert.doesNotMatch(editor, /setPreviewKey\(requestedCornersKey\)/);
   assert.match(editor, /saveGridReviewGeometry/);
-  assert.match(editor, /Wyznacz plansze osobno/);
+  assert.match(editor, /Uzupełnij brakujące plansze/);
   assert.match(editor, /Kontynuuj plansze osobno/);
   assert.match(editor, /Wstrzymaj edycję plansz/);
   assert.match(editor, /firstIncompleteGridGeometrySourceItem/);
@@ -142,7 +150,12 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /Zatwierdź całe zdjęcie/);
   assert.match(
     editor,
-    /if \(!sourceRedefining\) \{[\s\S]*setSourceDrafts\(emptyGridGeometrySourceDrafts/,
+    /draftsForNavigation =\s*requiredGridGeometrySourceDrafts\(items\)/,
+  );
+  assert.match(editor, /setSourceDrafts\(draftsForNavigation\)/);
+  assert.match(
+    editor,
+    /firstIncompleteGridGeometrySourceItem\(\s*items,\s*draftsForNavigation/,
   );
   assert.doesNotMatch(editor, /upload|overlay.*(?:jpeg|jpg)/i);
 });
@@ -155,6 +168,8 @@ test('whole-image approval and source manual geometry use one explicit atomic re
   );
   assert.match(actions, /approveImageGridReviewSourceGeometry/);
   assert.match(actions, /createImageGridReviewSourceGeometryRevision/);
+  assert.match(actions, /gridReviewQualification/);
+  assert.match(actions, /gridReviewCorners/);
   assert.match(actions, /pendingGeometryId: item\.pendingGeometryId/);
   assert.match(actions, /cornersByReviewItemId\.get\(item\.slotId\)/);
   assert.match(editor, /value\.item\.slotId/);

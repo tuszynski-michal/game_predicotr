@@ -1616,7 +1616,17 @@ przeszły bramki obrazu, geometrii i ochrony widocznych symboli. Remis, mniej
 niż trzy źródła albo brak zgodnego wzorca pozostawia wynik do ręcznej korekty.
 Automatyczna propozycja zawsze pozostaje `pending_partial`, ma
 `requiresManualConfirmation=true` i trafia do istniejącej dodatkowej kolejki
-weryfikacji geometrii.
+weryfikacji geometrii. Jeżeli zawiera poprawny czteropunktowy
+`symbolGridQuad`, kolejka pokazuje tę siatkę na zdjęciu i klasyfikuje pozycję
+jako `needs_validation`. Operator może ją potwierdzić bez ponownego wskazywania
+narożników; potwierdzenie atomowo materializuje propozycję razem z maską oraz
+kwalifikacją wykluczającą ją ze zwykłego uczenia geometrii i kotwic. Samo
+wyświetlenie nakładki nie jest renderem domenowym ani automatyczną akceptacją.
+
+Do `needs_correction` trafiają wyłącznie odroczone sloty bez poprawnej
+automatycznej siatki. W źródle mieszanym rozpoczęcie ręcznego uzupełniania
+zachowuje siatki automatyczne i wcześniej zapisane, a zeruje tylko sloty bez
+wyniku algorytmu.
 
 TASK-0507: edytory przechowują lokalnie szkice współrzędnych i kwalifikacji,
 bez obrazów, związane ze źródłem, kontekstem i bazową rewizją. Nawigacja

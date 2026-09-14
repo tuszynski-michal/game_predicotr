@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -55,6 +56,27 @@ def _confirmed_partial_expression() -> ColumnElement[bool]:
         func.cardinality(RecognizedBoardModel.unavailable_cell_indices) > 0,
         RecognizedBoardModel.geometry_qualification.op("->>")("completenessStatus")
         == "pending_partial",
+    )
+
+
+def _pending_automatic_proposal_expression() -> ColumnElement[bool]:
+    """A proposal is reviewable only when it also carries a four-corner grid."""
+
+    geometry = ImageSourceGeometryRevisionModel.board_geometries.op("->")(
+        ImageBoardGeometryPendingModel.position_index
+    )
+    proposal = geometry.op("->")("automaticPartialProposal")
+    symbol_grid = geometry.op("->")("symbolGridQuad")
+    symbol_grid_length = case(
+        (
+            func.jsonb_typeof(symbol_grid) == "array",
+            func.jsonb_array_length(symbol_grid),
+        ),
+        else_=0,
+    )
+    return and_(
+        func.jsonb_typeof(proposal) == "object",
+        symbol_grid_length == 4,
     )
 
 
@@ -164,21 +186,24 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
             or 0
         )
-        proposal_expression = ImageSourceGeometryRevisionModel.board_geometries.op("->")(
-            ImageBoardGeometryPendingModel.position_index
-        ).op("->")("automaticPartialProposal")
+        automatic_proposal = _pending_automatic_proposal_expression()
         lateral_partial_proposals = int(
             self._session.scalar(
                 self._pending_statement(review_filter=unrestricted)
                 .with_only_columns(func.count(ImageBoardGeometryPendingModel.id))
-                .where(func.jsonb_typeof(proposal_expression) == "object")
+                .where(automatic_proposal)
             )
             or 0
         )
-        needs_validation = counts.get(ImageGridReviewState.NEEDS_VALIDATION.value, 0)
+        needs_validation = (
+            counts.get(ImageGridReviewState.NEEDS_VALIDATION.value, 0)
+            + lateral_partial_proposals
+        )
         approved = counts.get(ImageGridReviewState.APPROVED.value, 0)
         needs_correction = (
-            counts.get(ImageGridReviewState.NEEDS_CORRECTION.value, 0) + pending_count
+            counts.get(ImageGridReviewState.NEEDS_CORRECTION.value, 0)
+            + pending_count
+            - lateral_partial_proposals
         )
         current_statement = self._visible_statement(review_filter=unrestricted)
         current_count = int(
@@ -502,10 +527,12 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             statement = statement.where(
                 ImageBoardGeometryPendingModel.source_image_id == review_filter.source_image_id
             )
-        if review_filter.view not in {
-            ImageGridReviewView.ALL,
-            ImageGridReviewView.NEEDS_CORRECTION,
-        }:
+        automatic_proposal = _pending_automatic_proposal_expression()
+        if review_filter.view is ImageGridReviewView.NEEDS_VALIDATION:
+            statement = statement.where(automatic_proposal)
+        elif review_filter.view is ImageGridReviewView.NEEDS_CORRECTION:
+            statement = statement.where(~automatic_proposal)
+        elif review_filter.view is not ImageGridReviewView.ALL:
             statement = statement.where(literal(False))
         return statement
 
@@ -664,19 +691,19 @@ def _pending_row_to_item(row: Any) -> ImageGridReviewListItem:
     geometries = tuple(source_geometry.board_geometries or ())
     raw_geometry = geometries[position] if position < len(geometries) else {}
     geometry = dict(raw_geometry) if isinstance(raw_geometry, dict) else {}
-    suggested = _pending_suggested_quad(
+    automatic_quad = _pending_automatic_quad(geometry)
+    suggested = automatic_quad or _pending_suggested_quad(
         geometry,
         position_index=position,
         source_width=int(source.oriented_width or source.width),
         source_height=int(source.oriented_height or source.height),
     )
-    geometry.update(
-        {
-            "manualGeometryRequired": True,
-            "manualTemplateQuad": suggested,
-            "sourceQuad": suggested,
-        }
-    )
+    geometry["manualGeometryRequired"] = automatic_quad is None
+    geometry["sourceQuad"] = suggested
+    if automatic_quad is None:
+        geometry["manualTemplateQuad"] = suggested
+    else:
+        geometry.pop("manualTemplateQuad", None)
     reason_codes = (
         "IMAGE_GRID_REVIEW_DEFERRED_SLOT",
         str(pending.reason_code),
@@ -705,8 +732,35 @@ def _pending_row_to_item(row: Any) -> ImageGridReviewListItem:
         geometry_engine_version=str(source_geometry.engine_version),
         board_confidence=0.0,
         reason_codes=reason_codes,
-        state=ImageGridReviewState.NEEDS_CORRECTION,
+        state=(
+            ImageGridReviewState.NEEDS_VALIDATION
+            if automatic_quad is not None
+            else ImageGridReviewState.NEEDS_CORRECTION
+        ),
     )
+
+
+def _pending_automatic_quad(geometry: dict[str, object]) -> list[dict[str, int]] | None:
+    if not isinstance(geometry.get("automaticPartialProposal"), dict):
+        return None
+    value = geometry.get("symbolGridQuad")
+    if (
+        not isinstance(value, list | tuple)
+        or len(value) != 4
+        or not all(
+            isinstance(point, dict)
+            and type(point.get("x")) in {int, float}
+            and type(point.get("y")) in {int, float}
+            and math.isfinite(float(point["x"]))
+            and math.isfinite(float(point["y"]))
+            for point in value
+        )
+    ):
+        return None
+    return [
+        {"x": round(float(point["x"])), "y": round(float(point["y"]))}
+        for point in value
+    ]
 
 
 def _pending_suggested_quad(

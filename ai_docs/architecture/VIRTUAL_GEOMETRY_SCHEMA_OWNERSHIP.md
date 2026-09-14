@@ -100,6 +100,20 @@ ręczną rewizję. Domenowy guard VirtualBoardGeometry nadal zabrania renderu
 automatycznej częściowej planszy; jawne potwierdzenie przechodzi istniejącą
 ścieżką ręcznej kwalifikacji. Nie wprowadzamy równoległego mechanizmu maski.
 
+Projekcja kolejki review rozdziela obecność gotowej geometrii od jej braku.
+Odroczony slot z kanoniczną propozycją i poprawnym czteropunktowym
+`symbolGridQuad` ma stan `needs_validation`, `manualGeometryRequired=false` i
+udostępnia quad jako nakładkę startową. Współrzędne bocznej siatki mogą być
+ujemne, ponieważ brakująca kolumna leży poza źródłem. Slot bez poprawnego quada
+pozostaje `needs_correction` i dostaje ręczny szablon.
+
+Potwierdzenie źródła zawierającego automatyczną propozycję używa istniejącego
+atomowego zapisu geometrii całego źródła. Przenosi quad, `pendingGeometryId` i
+kwalifikację `pending_partial`; dopiero utworzona rewizja jest decyzją
+operatora. Edycja źródła mieszanego zachowuje wszystkie dostępne quady i
+otwiera ręczne wskazywanie tylko dla slotów z
+`manualGeometryRequired=true`.
+
 ## Szkice ręcznej kwalifikacji (TASK-0507)
 
 Szkic przeglądarki nie jest rewizją źródła. Przechowuje tylko współrzędne,

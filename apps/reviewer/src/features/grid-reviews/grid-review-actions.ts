@@ -8,17 +8,19 @@ import type {
   OperationalImageReviewResolutionCommand,
 } from '@game-predictor/admin-api-client';
 
-import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 
 import {
   GRID_REVIEW_PAGE_LIMIT,
   GRID_REVIEW_SOURCE_PAGE_LIMIT,
   gridReviewApprovalCommand,
+  gridReviewCorners,
+  gridReviewQualification,
   gridReviewGeometryCommand,
   gridReviewGeometryPreviewCommand,
   type GridReviewNavigation,
-} from './grid-review-state';
-import type { OperationalReviewGeometryCorners } from '../operational-reviews/operational-review-state';
+} from './grid-review-state.ts';
+import type { OperationalReviewGeometryCorners } from '../operational-reviews/operational-review-state.ts';
 
 export type GridReviewsClient = Pick<
   AdminApiClient,
@@ -148,13 +150,44 @@ export async function approveGridReviewSource(
       ok: false as const,
     };
   }
-  if (items.some((item) => item.reviewItemId === null)) {
+  const pendingItems = items.filter((item) => item.reviewItemId === null);
+  if (
+    pendingItems.some(
+      (item) =>
+        item.automaticPartialProposal == null || item.symbolGridQuad == null,
+    )
+  ) {
     return {
       error:
         'Brakujące plansze wymagają zapisania kompletnej geometrii zdjęcia.',
       isConflict: false,
       ok: false as const,
     };
+  }
+  if (pendingItems.length > 0) {
+    const qualifications = new Map(
+      items.flatMap((item) => {
+        const qualification = gridReviewQualification(item);
+        return qualification === undefined
+          ? []
+          : ([[item.slotId, qualification]] as const);
+      }),
+    );
+    const result = await saveGridReviewSourceGeometry(api, {
+      cornersByReviewItemId: new Map(
+        items.map((item) => [item.slotId, gridReviewCorners(item)]),
+      ),
+      idempotencyKey: globalThis.crypto.randomUUID(),
+      items,
+      qualificationBySlotId:
+        qualifications.size > 0 ? qualifications : undefined,
+    });
+    return result.ok
+      ? {
+          approval: { changedCount: result.changedCount },
+          ok: true as const,
+        }
+      : result;
   }
   try {
     const result = await api.approveImageGridReviewSourceGeometry(
@@ -299,6 +332,7 @@ export async function saveGridReviewSourceGeometry(
   },
 ): Promise<
   | {
+      readonly changedCount: number;
       readonly ok: true;
     }
   | GridReviewActionFailure
@@ -352,7 +386,12 @@ export async function saveGridReviewSourceGeometry(
         'Nie udało się zapisać geometrii wszystkich plansz zdjęcia.',
       );
     }
-    return { ok: true };
+    return {
+      changedCount: result.data.created
+        ? result.data.geometryRevisions.length
+        : 0,
+      ok: true,
+    };
   } catch {
     return disconnected();
   }

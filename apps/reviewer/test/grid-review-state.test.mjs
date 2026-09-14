@@ -18,6 +18,7 @@ import {
   gridReviewApprovalCommand,
   gridReviewCorners,
   gridReviewLatticeReason,
+  gridReviewQualification,
   gridReviewGeometryCommand,
   gridReviewGeometryPreviewCommand,
   gridReviewSourceStats,
@@ -26,6 +27,7 @@ import {
   moveGridGeometryCorner,
   nextIncompleteGridGeometrySourceItem,
   replaceGridGeometrySourceDraft,
+  requiredGridGeometrySourceDrafts,
   undoGridGeometryPoint,
 } from '../src/features/grid-reviews/grid-review-state.ts';
 
@@ -376,6 +378,56 @@ test('a deferred filename slot remains the ninth mandatory manual draft', () => 
     [0, 1, 2, 3, 4, 5, 6, 7, 8],
   );
   assert.equal(gridReviewSourceStats(sourceItems).needsCorrectionBoards, 1);
+});
+
+test('manual completion clears only slots for which the algorithm has no grid', () => {
+  const automaticQuad = [
+    { x: -20, y: 80 },
+    { x: 300, y: 80 },
+    { x: 300, y: 500 },
+    { x: -20, y: 500 },
+  ];
+  const proposed = {
+    ...item,
+    automaticPartialProposal: {
+      geometryQualification: {
+        completenessStatus: 'pending_partial',
+        excludeFromGeometryTraining: true,
+        exclusionReason: 'missing_pixels',
+        unavailableCellIndices: [0, 5, 10],
+        version: 'manual-geometry-qualification-v1',
+      },
+    },
+    geometry: { manualGeometryRequired: false },
+    geometryRevision: 0,
+    pendingGeometryId: '80000000-0000-4000-8000-000000000001',
+    reviewItemId: null,
+    slotId: '80000000-0000-4000-8000-000000000001',
+    slotKind: 'deferred_geometry',
+    state: 'needs_validation',
+    symbolGridQuad: automaticQuad,
+  };
+  const missing = {
+    ...item,
+    geometry: { manualGeometryRequired: true },
+    pendingGeometryId: '80000000-0000-4000-8000-000000000002',
+    positionIndex: 1,
+    reviewItemId: null,
+    slotId: '80000000-0000-4000-8000-000000000002',
+    slotKind: 'deferred_geometry',
+    state: 'needs_correction',
+    symbolGridQuad: null,
+  };
+
+  const drafts = requiredGridGeometrySourceDrafts([proposed, missing]);
+
+  assert.deepEqual(gridGeometrySourceDraft(drafts, proposed.slotId), automaticQuad);
+  assert.deepEqual(gridGeometrySourceDraft(drafts, missing.slotId), []);
+  assert.equal(firstIncompleteGridGeometrySourceItem([proposed, missing], drafts), missing);
+  assert.deepEqual(
+    gridReviewQualification(proposed),
+    proposed.automaticPartialProposal.geometryQualification,
+  );
 });
 
 test('pausing source geometry preserves completed drafts and resumes at the next row-major slot', () => {

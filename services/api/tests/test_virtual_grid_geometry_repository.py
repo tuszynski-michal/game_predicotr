@@ -232,6 +232,100 @@ def test_deferred_slot_is_exposed_as_required_manual_template() -> None:
     assert item.sequence_number == 1239
     assert item.geometry["manualGeometryRequired"] is True
     assert len(item.geometry["manualTemplateQuad"]) == 4
+    assert item.state.value == "needs_correction"
+
+
+def test_deferred_automatic_partial_is_exposed_as_validation_grid() -> None:
+    pending_id = uuid4()
+    source_id = uuid4()
+    proposal_quad = [
+        {"x": -30, "y": 100},
+        {"x": 300, "y": 100},
+        {"x": 300, "y": 500},
+        {"x": -30, "y": 500},
+    ]
+    board_geometries = [{} for _ in range(9)]
+    board_geometries[5] = {
+        "automaticPartialProposal": {"origin": "automatic_proposal"},
+        "symbolGridQuad": proposal_quad,
+    }
+
+    item = _pending_row_to_item(
+        (
+            SimpleNamespace(
+                id=pending_id,
+                game_id=uuid4(),
+                import_job_id=uuid4(),
+                source_image_id=source_id,
+                position_index=5,
+                sequence_number=1239,
+                expected_geometry_revision=0,
+                expected_review_resolution_revision=0,
+                reason_code="partial_lattice_requires_confirmation",
+            ),
+            SimpleNamespace(
+                id=source_id,
+                checksum_sha256="a" * 64,
+                width=1080,
+                height=1920,
+                oriented_width=1080,
+                oriented_height=1920,
+            ),
+            SimpleNamespace(
+                board_geometries=board_geometries,
+                engine_kind="structured",
+                engine_version="v0.10",
+            ),
+        )
+    )
+
+    assert item.geometry["manualGeometryRequired"] is False
+    assert item.geometry["sourceQuad"] == proposal_quad
+    assert "manualTemplateQuad" not in item.geometry
+    assert item.state.value == "needs_validation"
+
+
+def test_deferred_proposal_metadata_without_grid_stays_manual() -> None:
+    pending_id = uuid4()
+    source_id = uuid4()
+    board_geometries = [{} for _ in range(9)]
+    board_geometries[0] = {
+        "automaticPartialProposal": {"origin": "automatic_proposal"},
+        "symbolGridQuad": None,
+    }
+
+    item = _pending_row_to_item(
+        (
+            SimpleNamespace(
+                id=pending_id,
+                game_id=uuid4(),
+                import_job_id=uuid4(),
+                source_image_id=source_id,
+                position_index=0,
+                sequence_number=1,
+                expected_geometry_revision=0,
+                expected_review_resolution_revision=0,
+                reason_code="incomplete_lattice",
+            ),
+            SimpleNamespace(
+                id=source_id,
+                checksum_sha256="a" * 64,
+                width=1080,
+                height=1920,
+                oriented_width=1080,
+                oriented_height=1920,
+            ),
+            SimpleNamespace(
+                board_geometries=board_geometries,
+                engine_kind="structured",
+                engine_version="v0.10",
+            ),
+        )
+    )
+
+    assert item.geometry["manualGeometryRequired"] is True
+    assert len(item.geometry["manualTemplateQuad"]) == 4
+    assert item.state.value == "needs_correction"
 
 
 def _complete_current_virtual_row(*, backfill_status: str) -> tuple[object, ...]:

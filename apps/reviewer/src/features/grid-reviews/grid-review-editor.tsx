@@ -39,7 +39,6 @@ import {
   addGridGeometryPoint,
   completeGridGeometrySourceDrafts,
   currentGridGeometrySourceDrafts,
-  emptyGridGeometrySourceDrafts,
   firstIncompleteGridGeometrySourceItem,
   GRID_CORNER_LABELS,
   gridGeometryDraftAnchor,
@@ -50,6 +49,9 @@ import {
   gridReviewAnalysisCorners,
   gridReviewCorners,
   gridReviewLatticeReason,
+  gridReviewQualification,
+  gridReviewRequiresManualGeometry,
+  requiredGridGeometrySourceDrafts,
   moveGridGeometry,
   moveGridGeometryCorner,
   nextIncompleteGridGeometrySourceItem,
@@ -191,7 +193,7 @@ function GridReviewEditorContent({
       new Map(
         items.map((candidate) => [
           candidate.slotId,
-          manualGridFlagsFromQualification(candidate.geometryQualification),
+          manualGridFlagsFromQualification(gridReviewQualification(candidate)),
         ]),
       ),
   );
@@ -202,7 +204,7 @@ function GridReviewEditorContent({
         qualificationFlags.get(candidate.slotId) ?? completeManualGridFlags,
       ) !==
       JSON.stringify(
-        manualGridFlagsFromQualification(candidate.geometryQualification),
+        manualGridFlagsFromQualification(gridReviewQualification(candidate)),
       ),
   );
   const allowOutsideSource =
@@ -330,6 +332,9 @@ function GridReviewEditorContent({
   const sourceBatchEnabled = items.every(
     (candidate) => candidate.assetMode === 'virtual_source',
   );
+  const manualGeometryCount = items.filter(
+    gridReviewRequiresManualGeometry,
+  ).length;
   const isEditing = editing || sourceEditing;
   const hasPendingSourceDraft =
     sourceRedefining || modifiedSourceItems.size > 0 || qualificationChanged;
@@ -354,7 +359,7 @@ function GridReviewEditorContent({
         new Map(
           items.map((candidate) => [
             candidate.slotId,
-            manualGridFlagsFromQualification(candidate.geometryQualification),
+            manualGridFlagsFromQualification(gridReviewQualification(candidate)),
           ]),
         ),
       );
@@ -847,7 +852,7 @@ function GridReviewEditorContent({
         qualificationBySlotId:
           [...qualificationFlags.values()].some(
             (value) => value.partial || value.exclude,
-          ) || items.some((candidate) => candidate.geometryQualification)
+          ) || items.some((candidate) => gridReviewQualification(candidate))
             ? qualificationBySlotId
             : undefined,
       });
@@ -945,15 +950,18 @@ function GridReviewEditorContent({
                   if (sourceEditing) {
                     setSourceEditing(false);
                   } else {
+                    let draftsForNavigation = sourceDrafts;
                     if (!sourceRedefining) {
-                      setSourceDrafts(emptyGridGeometrySourceDrafts(items));
+                      draftsForNavigation =
+                        requiredGridGeometrySourceDrafts(items);
+                      setSourceDrafts(draftsForNavigation);
                       setModifiedSourceItems(new Set());
                       setSourceRedefining(true);
                     }
                     setSourceEditing(true);
                     const next = firstIncompleteGridGeometrySourceItem(
                       items,
-                      sourceDrafts,
+                      draftsForNavigation,
                     );
                     if (next !== null) {
                       onSelect(next.slotId);
@@ -967,7 +975,9 @@ function GridReviewEditorContent({
                   ? 'Wstrzymaj edycję plansz'
                   : sourceRedefining && sourceEditingProgress > 0
                     ? 'Kontynuuj plansze osobno'
-                    : 'Wyznacz plansze osobno'}
+                    : manualGeometryCount > 0
+                      ? `Uzupełnij brakujące plansze (${manualGeometryCount})`
+                      : 'Edytuj plansze osobno'}
               </button>
             ) : null}
           </div>
@@ -983,9 +993,11 @@ function GridReviewEditorContent({
         {item.localLatticeVersion ? (
           <p className="gridReviewMetadata">
             Dopasowanie lokalne: {item.localLatticeVersion} ·{' '}
-            {item.localLatticeStatus === 'estimated'
-              ? 'bezpieczna propozycja siatki'
-              : `wymaga korekty${latticeReason ? ` · ${latticeReason}` : ''}`}
+            {item.automaticPartialProposal
+              ? 'automatyczna propozycja siatki do potwierdzenia'
+              : item.localLatticeStatus === 'estimated'
+                ? 'bezpieczna propozycja siatki'
+                : `wymaga korekty${latticeReason ? ` · ${latticeReason}` : ''}`}
           </p>
         ) : null}
         {item.slotKind === 'deferred_geometry' ? (
@@ -1044,7 +1056,9 @@ function GridReviewEditorContent({
               {candidate.state === 'approved'
                 ? 'zatwierdzona'
                 : candidate.slotKind === 'deferred_geometry'
-                  ? 'obowiązkowa ręczna geometria'
+                  ? candidate.automaticPartialProposal
+                    ? 'automatyczna siatka do walidacji'
+                    : 'obowiązkowa ręczna geometria'
                   : candidate.state === 'needs_correction'
                     ? 'do poprawy'
                     : 'do walidacji'}
@@ -1171,7 +1185,7 @@ function GridReviewEditorContent({
             {sourceEditing ? (
               <p className="mutedText">
                 {sourceRedefining
-                  ? `Ręcznie ustawiono ${sourceEditingProgress}/${items.length} plansz w kolejności wierszami.`
+                  ? `Gotowe siatki ${sourceEditingProgress}/${items.length}. Uzupełnij tylko plansze bez wyniku algorytmu.`
                   : `Zmieniono ${modifiedSourceItems.size}/${items.length} plansz. Zatwierdź całe zdjęcie, aby zapisać komplet.`}
               </p>
             ) : null}

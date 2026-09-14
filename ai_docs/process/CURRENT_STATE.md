@@ -6,6 +6,19 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0537 — automatyczne niepełne siatki trafiają do walidacji
+
+- Niepełna plansza z poprawnym automatycznym `symbolGridQuad` jest od razu
+  pokazana z nałożoną siatką w `Do walidacji`; nadal wymaga jawnego
+  potwierdzenia operatora.
+- Potwierdzenie całego zdjęcia atomowo materializuje propozycję z maską i
+  kwalifikacją `pending_partial`, więc plansza pozostaje wykluczona ze zwykłego
+  uczenia geometrii i kotwic.
+- `Do poprawy` i ręczne wskazywanie obejmują tylko sloty bez poprawnego wyniku
+  algorytmu. Źródło mieszane zachowuje automatyczne i wcześniej zapisane
+  siatki, także gdy boczny quad ma współrzędne poza obrazem.
+- Nie zmieniono detektora, jego progów, jobów ani danych użytkownika.
+
 ### TASK-0536 — v12 jako główny silnik cropów
 
 - Jawnie zaakceptowany przez operatora v12 jest aktywną polityką nowych sesji

@@ -103,6 +103,18 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Import plansz z folderu/);
 });
 
+test('refreshes an open report when symbol-model readiness changes', () => {
+  const refreshFlow = panelSource.slice(
+    panelSource.indexOf('async function refreshStatus'),
+    panelSource.indexOf('async function reprocessImport'),
+  );
+
+  assert.match(refreshFlow, /previewReadyBrowserImageImport/);
+  assert.match(refreshFlow, /refreshedReport/);
+  assert.match(refreshFlow, /symbolModelNextStep/);
+  assert.match(refreshFlow, /Status importu i raport modelu zostały odświeżone/);
+});
+
 test('shows the live geometry-correction queue count after a saved source leaves it', () => {
   assert.match(panelSource, /pendingGeometryCorrectionState/);
   assert.match(panelSource, /visibleGeometryCorrectionCount/);

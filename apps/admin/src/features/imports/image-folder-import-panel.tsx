@@ -1147,11 +1147,35 @@ export function ImageFolderImportPanel({
     setError('');
     try {
       await refreshJobs();
-      if (geometryPreflightJobId !== undefined) {
-        const result = await api.getJob(geometryPreflightJobId);
+      let refreshedReport: BrowserImageImportPreflightResponse | null = null;
+      if (readyUploadId !== null && preflight !== null) {
+        const reportResult = await previewReadyBrowserImageImport(
+          api,
+          readyUploadId,
+          gameId,
+          geometryEngineVariant,
+        );
+        if (!reportResult.ok) {
+          setError(reportResult.error);
+          return;
+        }
+        refreshedReport = reportResult.data;
+        setPreflight(refreshedReport);
+        setGeometryPreflightJob(
+          refreshedReport.geometryPreflightJob ?? null,
+        );
+        if (refreshedReport.pageRegistrationVariant != null) {
+          setPageRegistrationVariant(refreshedReport.pageRegistrationVariant);
+        }
+      }
+      const refreshedGeometryPreflightJobId =
+        refreshedReport?.geometryPreflightJob?.id ?? geometryPreflightJobId;
+      if (refreshedGeometryPreflightJobId !== undefined) {
+        const result = await api.getJob(refreshedGeometryPreflightJobId);
         if (result.error === undefined && result.data !== undefined) {
           const updated = result.data;
-          const activeReport = activeReportIdentityRef.current.preflight;
+          const activeReport =
+            refreshedReport ?? activeReportIdentityRef.current.preflight;
           if (
             activeReport === null ||
             !geometryPreflightMatchesReport(updated, activeReport)
@@ -1172,12 +1196,18 @@ export function ImageFolderImportPanel({
               : replayGeometryPreflightProgress(
                   current,
                   updated,
-                  geometryPreflightJobId,
+                  refreshedGeometryPreflightJobId,
                 ),
           );
         }
       }
-      setFeedback('Status importu został odświeżony.');
+      const modelNextStep =
+        refreshedReport === null ? null : symbolModelNextStep(refreshedReport);
+      setFeedback(
+        modelNextStep === null
+          ? 'Status importu i raport modelu zostały odświeżone.'
+          : `Status importu i raport modelu zostały odświeżone. ${modelNextStep}`,
+      );
     } catch {
       setError('Nie udało się odświeżyć statusu importu.');
     } finally {
@@ -1933,7 +1963,10 @@ export function ImageFolderImportPanel({
               </div>
               <div>
                 <dt>Odśwież status</dt>
-                <dd>Aktualizuje kompletność i listę ostatnich importów.</dd>
+                <dd>
+                  Aktualizuje kompletność, ostatnie importy i otwarty raport
+                  modelu.
+                </dd>
               </div>
             </dl>
           </div>

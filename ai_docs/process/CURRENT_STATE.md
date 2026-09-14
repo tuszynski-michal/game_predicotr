@@ -6,6 +6,15 @@ last_updated: 2026-09-14
 
 # Current State
 
+### Niezależna korekta UI — aktualny stan modelu w raporcie stagingu
+
+- `Odśwież status` odtwarza teraz także otwarty raport stagingu, w tym bieżący
+  snapshot modelu symboli. Raport utworzony przed ręcznymi oznaczeniami nie
+  zachowuje już błędnej etykiety `Rozpocznij pierwszy import bez modelu` po
+  pojawieniu się kohorty lub gotowego kandydata.
+- Gdy gotowy kandydat nie został jeszcze aktywowany, ekran wskazuje wymaganą
+  aktywację zamiast sugerować cold-start; samo odświeżenie nie aktywuje modelu.
+
 ### Niezależna naprawa — ponowne przeliczanie symboli `?`
 
 - Akcja `Przelicz oczekujące` wybiera teraz plansze mające co najmniej jedną

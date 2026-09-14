@@ -1942,6 +1942,11 @@ class JobService:
             job
         ):
             return self._repository.save_job(requeue_job_with_fresh_progress(job))
+        if (
+            job.job_type is JobType.IMPORT
+            and job.input_payload.get("import_kind") == "image_directory"
+        ):
+            return self._repository.save_job(requeue_job_with_fresh_progress(job))
         return self._repository.save_job(requeue_job(job))
 
     def delete_cancelled_image_selection_job(

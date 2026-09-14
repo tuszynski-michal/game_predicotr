@@ -563,6 +563,12 @@ postępu joba nadal występują w tej samej bezpiecznej kolejności. Dzięki tem
 liczba pełnych skanów jednego uruchomienia jest stała zamiast proporcjonalna do
 liczby zdjęć razy liczbę etapów.
 
+Ponowienie całego `image_directory` joba zachowuje trwałe checkpointy plików,
+ale rozpoczyna techniczną projekcję postępu joba od zera. Jest ona odbudowywana
+z asocjacji plików przy wejściu do handlera, dlatego selektywne cofnięcie pliku
+z `failed` do `processing` nie narusza monotoniczności liczników między
+oddzielnymi próbami tego samego joba.
+
 Handler najpierw rewaliduje pliki, które już na wejściu oczekiwały na review, a
 następnie kończy pliki `processing`. Świeże przejście po `symbol_inference`
 wykonuje pierwszą kontrolę `manual_review` na projekcji pozostającej w bieżącym

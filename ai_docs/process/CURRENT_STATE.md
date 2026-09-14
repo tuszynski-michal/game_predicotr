@@ -6,6 +6,21 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0532 — retry importu zdjęć odbudowuje postęp joba
+
+- Retry `import/image_directory` zachowuje UUID, input payload i trwałe
+  checkpointy per plik, a zeruje wyłącznie odtwarzane agregaty oraz checkpoint
+  joba.
+- Worker rozpoczyna nową próbę od snapshotu `image_import_job_files`, więc
+  selektywne ponowienie plików nie powoduje fałszywego
+  `JOB_PROGRESS_REGRESSION` względem liczników poprzedniej próby.
+- Regresja serwisu i domenowy test resetu postępu przeszły. Rzeczywisty job
+  `1a1cff95-436e-4054-ae1f-8ef4565cd7b0` osiągnął `waiting_for_review` jako
+  próba 4: `4400/4400`, 2200 źródeł do review i 0 błędów.
+- W V2 zapisano 2200 źródeł, 19380 kompletnych plansz `pending_review` oraz
+  290700 komórek. Wcześniej wstrzymany preflight geometrii
+  `a9914e16-588e-4bf8-84ac-73f90d1cd644` wznowiono jako próbę 6.
+
 ### TASK-0531 — routing operacji plików joba do V2
 
 - Repozytorium raportu i retry plików najpierw odczytuje współdzielony job, a

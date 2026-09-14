@@ -1865,6 +1865,12 @@ ten sam file key, wcześniejsze immutable stage results oraz checkpoint. Job
 `created`; aktywny lub terminalny job zwraca konflikt. Odpowiedzią jest
 odświeżony kontrakt operations.
 
+`POST /api/v1/admin/jobs/{jobId}/retry` dla `import/image_directory` zachowuje
+ten sam job, input payload oraz checkpointy per plik, ale czyści odtwarzane
+agregaty i checkpoint joba. Worker ponownie wylicza je z
+`image_import_job_files`; selektywny retry pliku nie może przez to wywołać
+fałszywego `JOB_PROGRESS_REGRESSION` względem agregatów poprzedniej próby.
+
 ### GET `/api/v1/admin/image-storage`
 
 Zwraca ostatni trwały, read-only inwentarz zarządzanych przestrzeni `staging`,

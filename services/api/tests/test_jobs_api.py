@@ -1269,6 +1269,51 @@ def test_failed_job_retry_requeues_the_same_record(tmp_path: Path) -> None:
     assert retried.json()["error"] is None
 
 
+def test_image_directory_retry_resets_only_technical_job_progress() -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+    input_payload: dict[str, object] = {
+        "schema_version": 1,
+        "import_kind": "image_directory",
+        "source_selection_id": str(uuid4()),
+        "source_directory": "browser-selections/example",
+        "source_display_name": "1-19809",
+        "pipeline_fingerprint": "a" * 64,
+    }
+    job = replace(
+        create_job(
+            JobType.IMPORT,
+            game_id=game_id,
+            input_payload=input_payload,
+        ),
+        status=JobStatus.FAILED,
+        progress_current=2_343,
+        progress_total=4_400,
+        success_count=2_200,
+        failure_count=143,
+        review_count=0,
+        checkpoint_payload={"schemaVersion": 1, "phase": "image_pipeline"},
+        error_code="JOB_PROGRESS_REGRESSION",
+        error_message="Progress counters cannot decrease.",
+        finished_at=datetime.now(UTC),
+    )
+    repository.add_job(job)
+
+    retried = service.retry_job(job.id)
+
+    assert retried.id == job.id
+    assert retried.status is JobStatus.CREATED
+    assert retried.input_payload == input_payload
+    assert retried.progress_current == 0
+    assert retried.progress_total is None
+    assert retried.success_count == 0
+    assert retried.failure_count == 0
+    assert retried.review_count == 0
+    assert retried.checkpoint_payload is None
+    assert retried.error_code is None
+
+
 def test_filename_verification_retry_resets_only_technical_job_progress(
     tmp_path: Path,
 ) -> None:

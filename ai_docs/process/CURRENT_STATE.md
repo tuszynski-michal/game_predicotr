@@ -6,6 +6,22 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0534 — v12 przelicza automatyczne korekty cropów
+
+- Sekcja `Przytnij wybrane zdjęcia` ma osobną akcję dla automatycznie
+  wymaganych korekt. Przypina ona v12 także w sesji v10, nie rusza pozycji
+  oznaczonych tylko ręcznie ani wyników przejrzanych, poprawionych lub jawnie
+  zaakceptowanych.
+- Ponowna rejestracja próbuje do trzech najbliższych silnych kotwic i zachowuje
+  obowiązek korekty, jeżeli żadna nie przejdzie bramek obrazu.
+- Pełne 3×3 jest wystarczającym dowodem bez osobnego potwierdzenia numerów.
+  Przy braku pełnego pasa etykiet dół cropa otrzymuje bufor 65% mediany
+  wysokości planszy; taki wynik nie może być kotwicą dla kolejnych zdjęć.
+- Niedestrukcyjny przebieg katalogu `248176 - 272016 cut` przetworzył 177/177
+  pozycji do osobnego `cut v12 board-buffer preview`: 166 strukturalnie (35 z
+  buforem), 11 przez rejestrację, 0 ręcznych i 0 błędów. Wejściowy katalog i
+  jego stan nie zostały zmienione.
+
 ### TASK-0533 — osobny profil uczenia niepełnych siatek
 
 - Trzeci checkbox pod ręczną geometrią zapisuje

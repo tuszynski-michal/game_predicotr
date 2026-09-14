@@ -104,14 +104,31 @@ test('both boundaries use extrema including sloping bottom numbers and buffer', 
   assert.equal(result.crop.bottomY, 978);
   validateStructuralEvidence(result);
 });
-test('missing labels and incomplete source support retain the FULL original', () => {
+test('nine boards use a versioned bottom buffer without requiring number regions', () => {
+  const result = boundStructuralCrop(layout, labels.slice(0, 8), {
+    width: 1080,
+    height: 1920,
+  });
+  assert.equal(result.status, 'detected');
+  assert.equal(result.reason, 'complete_layout_board_buffer');
+  assert.equal(result.crop.topY, 360);
+  assert.equal(result.crop.bottomY, 1002);
+  validateStructuralEvidence(result);
+});
+test('incomplete board layout and incomplete source support retain the FULL original', () => {
   for (const result of [
-    boundStructuralCrop(layout, labels.slice(0, 8), {
-      width: 1080,
-      height: 1920,
-    }),
     boundStructuralCrop(
       { ...layout, status: 'needs_manual_crop', reason: 'incomplete_layout' },
+      [],
+      { width: 1080, height: 1920 },
+    ),
+    boundStructuralCrop(
+      {
+        ...layout,
+        boards: boards.map((board, index) =>
+          index === 0 ? { ...board, left: 0 } : board,
+        ),
+      },
       [],
       { width: 1080, height: 1920 },
     ),
@@ -131,10 +148,15 @@ test('missing labels and incomplete source support retain the FULL original', ()
   }
 });
 test('required correction survives deselection and JSON restart; explicit review resolves it', () => {
-  const structural = boundStructuralCrop(layout, [], {
-    width: 1080,
-    height: 1920,
-  });
+  const structural = {
+    ...boundStructuralCrop(layout, [], {
+      width: 1080,
+      height: 1920,
+    }),
+    status: 'needs_manual_crop',
+    reason: 'number_regions_missing',
+    crop: { width: 1080, height: 1920, topY: 0, bottomY: 1920 },
+  };
   let snapshot = {
     inventory: { entries: [{ fileName: 'seq_1-9.jpg' }] },
     shards: [

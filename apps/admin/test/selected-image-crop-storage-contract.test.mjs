@@ -80,6 +80,9 @@ test('four-point registration reuses a bounded neighbouring anchor and retries o
   assert.match(source, /fourPointAnchorFromStructuralEvidence/u);
   assert.match(source, /proposal\.registration\?\.status !== 'registered'/u);
   assert.match(source, /sourceChecksumSha256/u);
+  assert.match(source, /findNearestPreparedCropAnchors/u);
+  assert.match(source, /for \(const anchor of anchors\)/u);
+  assert.match(source, /structural\.labels\.length !== 9/u);
 });
 
 test('proposal provenance is persisted and historical sessions require an explicit v4 recalculation', () => {
@@ -88,6 +91,16 @@ test('proposal provenance is persisted and historical sessions require an explic
   assert.match(source, /SELECTED_IMAGE_CROP_POLICY_RECALCULATION_REQUIRED/u);
   assert.match(source, /recalculateUnreviewedSelectedImageCrops/u);
   assert.match(source, /selectedImageCropRecalculationFileNames/u);
+});
+
+test('explicit v12 upgrade can recalculate automatic warnings without touching operator-only selections', () => {
+  assert.match(source, /recalculateAutomaticCorrectionSelectedImageCrops/u);
+  assert.match(
+    source,
+    /selectedImageCropAutomaticCorrectionRecalculationFileNames/u,
+  );
+  assert.match(source, /preparationPolicyVersion === CROP_V12_POLICY/u);
+  assert.match(source, /preparationPolicyVersion: CROP_V12_POLICY/u);
 });
 
 test('unsupported automatic crops are routed to the manual correction queue', () => {

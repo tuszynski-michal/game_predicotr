@@ -1,3 +1,4 @@
+import { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 import type {
   CropBox,
   StructuralSample,
@@ -39,7 +40,7 @@ export const CROP_V12_CONFIG = Object.freeze({
   algorithmVersion: 'oriented-brief-affine-ransac-v1',
 });
 
-export const CROP_V12_FINGERPRINT = `${CROP_V12_POLICY}|${JSON.stringify(CROP_V12_CONFIG)}`;
+export const CROP_V12_FINGERPRINT = `${CROP_V12_POLICY}|structural:${CROP_V11_FINGERPRINT}|${JSON.stringify(CROP_V12_CONFIG)}`;
 
 export interface CropPoint {
   readonly x: number;

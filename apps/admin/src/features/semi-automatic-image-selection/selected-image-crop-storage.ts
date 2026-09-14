@@ -25,6 +25,7 @@ import {
   migrateSelectedImageCropManifestV1,
   recordSelectedImageCropFailure,
   replaceSelectedImageCropCorrections,
+  selectedImageCropAutomaticCorrectionRecalculationFileNames,
   selectedImageCropRecalculationFileNames,
   selectedImageCropShardIndex,
   updateSelectedImageCropCorrections,
@@ -517,7 +518,9 @@ export async function prepareAllSelectedImageCrops(
       failures: current.snapshot.session.failures,
     });
   emit(null);
-  let anchor = await findNearestPreparedCropAnchor(current, missing[0] ?? null);
+  let anchor =
+    (await findNearestPreparedCropAnchors(current, missing[0] ?? null, 1))[0] ??
+    null;
   for (const sourceFile of missing) {
     if (signal?.aborted === true) break;
     try {
@@ -592,43 +595,13 @@ export async function prepareAllSelectedImageCrops(
     });
     for (const sourceFile of unresolved) {
       if (cropPreparationAborted(signal)) break;
-      const nearbyAnchor = await findNearestPreparedCropAnchor(
-        current,
-        sourceFile,
-      );
-      if (nearbyAnchor === null) continue;
       try {
-        const source = await sourceFile.handle.getFile();
-        const workerResult = await prepareSelectedImageCropInWorker(
-          source,
-          CROP_V12_POLICY,
-          nearbyAnchor,
-        );
-        const proposal =
-          workerResult?.proposal ??
-          (await proposeSelectedImageCrop(
-            source,
-            CROP_V12_POLICY,
-            nearbyAnchor,
-          ));
-        if (proposal.registration?.status !== 'registered') continue;
-        current = await saveSelectedImageCrop({
-          prepared: current,
-          sourceFile,
-          crop: proposal.crop,
-          markReviewed: false,
-          autoCropProposal: proposal,
-          render:
-            workerResult === null
-              ? undefined
-              : async () => workerResult.rendered,
-        });
-        current = await synchronizeAutomaticCorrection(
+        const retried = await retrySelectedImageCropWithPreparedAnchors(
           current,
-          sourceFile.fileName,
-          proposal,
+          sourceFile,
         );
-        emit(sourceFile.fileName);
+        current = retried.prepared;
+        if (retried.changed) emit(sourceFile.fileName);
       } catch (cause) {
         current = await persistPreparationFailure(
           current,
@@ -647,22 +620,52 @@ export async function recalculateUnreviewedSelectedImageCrops(
   onProgress?: (progress: SelectedImageCropPreparationProgress) => void,
   signal?: AbortSignal,
 ): Promise<SelectedImageCropPreparationResult> {
-  let current = await pinSelectedImageCropPreparationPolicy(prepared);
-  const recalculationNames = new Set(
-    selectedImageCropRecalculationFileNames(current.snapshot),
+  return recalculateSelectedImageCropCandidates(
+    prepared,
+    selectedImageCropRecalculationFileNames(prepared.snapshot),
+    true,
+    onProgress,
+    signal,
   );
+}
+
+export async function recalculateAutomaticCorrectionSelectedImageCrops(
+  prepared: PreparedSelectedImageCropDirectory,
+  onProgress?: (progress: SelectedImageCropPreparationProgress) => void,
+  signal?: AbortSignal,
+): Promise<SelectedImageCropPreparationResult> {
+  return recalculateSelectedImageCropCandidates(
+    prepared,
+    selectedImageCropAutomaticCorrectionRecalculationFileNames(
+      prepared.snapshot,
+    ),
+    false,
+    onProgress,
+    signal,
+  );
+}
+
+async function recalculateSelectedImageCropCandidates(
+  prepared: PreparedSelectedImageCropDirectory,
+  fileNames: readonly string[],
+  prepareMissing: boolean,
+  onProgress?: (progress: SelectedImageCropPreparationProgress) => void,
+  signal?: AbortSignal,
+): Promise<SelectedImageCropPreparationResult> {
+  let current = await pinSelectedImageCropPreparationPolicy(prepared);
+  const recalculationNames = new Set(fileNames);
   const candidates = current.sourceFiles.filter((source) => {
     return recalculationNames.has(source.fileName);
   });
-  const missingCount = current.manifest.entries.filter(
-    (entry) => entry.result === null,
-  ).length;
+  const missingCount = prepareMissing
+    ? current.manifest.entries.filter((entry) => entry.result === null).length
+    : 0;
   const actionTotal = candidates.length + missingCount;
   let completed = 0;
-  let anchor = await findNearestPreparedCropAnchor(
-    current,
-    candidates[0] ?? null,
-  );
+  let anchor =
+    (
+      await findNearestPreparedCropAnchors(current, candidates[0] ?? null, 1)
+    )[0] ?? null;
   for (const sourceFile of candidates) {
     if (signal?.aborted === true) break;
     try {
@@ -731,42 +734,10 @@ export async function recalculateUnreviewedSelectedImageCrops(
     });
     for (const sourceFile of unresolved) {
       if (cropPreparationAborted(signal)) break;
-      const nearbyAnchor = await findNearestPreparedCropAnchor(
-        current,
-        sourceFile,
-      );
-      if (nearbyAnchor === null) continue;
       try {
-        const source = await sourceFile.handle.getFile();
-        const workerResult = await prepareSelectedImageCropInWorker(
-          source,
-          CROP_V12_POLICY,
-          nearbyAnchor,
-        );
-        const proposal =
-          workerResult?.proposal ??
-          (await proposeSelectedImageCrop(
-            source,
-            CROP_V12_POLICY,
-            nearbyAnchor,
-          ));
-        if (proposal.registration?.status !== 'registered') continue;
-        current = await saveSelectedImageCrop({
-          prepared: current,
-          sourceFile,
-          crop: proposal.crop,
-          markReviewed: false,
-          autoCropProposal: proposal,
-          render:
-            workerResult === null
-              ? undefined
-              : async () => workerResult.rendered,
-        });
-        current = await synchronizeAutomaticCorrection(
-          current,
-          sourceFile.fileName,
-          proposal,
-        );
+        current = (
+          await retrySelectedImageCropWithPreparedAnchors(current, sourceFile)
+        ).prepared;
       } catch (cause) {
         current = await persistPreparationFailure(
           current,
@@ -777,7 +748,7 @@ export async function recalculateUnreviewedSelectedImageCrops(
       await yieldToBrowser();
     }
   }
-  if (signal?.aborted === true)
+  if (signal?.aborted === true || !prepareMissing)
     return { prepared: current, failures: current.snapshot.session.failures };
   const preparedBeforeMissing = current.manifest.entries.filter(
     (entry) => entry.result !== null,
@@ -835,7 +806,8 @@ function cropAnchorFromSavedResult(
   if (
     result === null ||
     result === undefined ||
-    evidence?.status !== 'detected'
+    evidence?.status !== 'detected' ||
+    evidence.labels.length !== 9
   )
     return null;
   return {
@@ -848,11 +820,12 @@ function cropAnchorFromSavedResult(
   };
 }
 
-async function findNearestPreparedCropAnchor(
+async function findNearestPreparedCropAnchors(
   prepared: PreparedSelectedImageCropDirectory,
   target: SelectedImageCropSourceFile | null,
-): Promise<BrowserCropAnchor | null> {
-  if (target === null) return null;
+  limit = 3,
+): Promise<readonly BrowserCropAnchor[]> {
+  if (target === null) return [];
   const targetIndex = prepared.sourceFiles.findIndex(
     (source) => source.fileName === target.fileName,
   );
@@ -863,14 +836,56 @@ async function findNearestPreparedCropAnchor(
         Math.abs(left.index - targetIndex) -
         Math.abs(right.index - targetIndex),
     );
+  const anchors: BrowserCropAnchor[] = [];
   for (const candidate of ordered) {
     const result = prepared.manifest.entries[candidate.index]?.result;
-    if (result?.autoCropProposal?.structural?.status !== 'detected') continue;
+    if (
+      result?.autoCropProposal?.structural?.status !== 'detected' ||
+      result.autoCropProposal.structural.labels.length !== 9
+    )
+      continue;
     const file = await candidate.source.handle.getFile();
     const anchor = cropAnchorFromSavedResult(prepared, candidate.source, file);
-    if (anchor !== null) return anchor;
+    if (anchor !== null) anchors.push(anchor);
+    if (anchors.length >= limit) break;
   }
-  return null;
+  return anchors;
+}
+
+async function retrySelectedImageCropWithPreparedAnchors(
+  prepared: PreparedSelectedImageCropDirectory,
+  sourceFile: SelectedImageCropSourceFile,
+): Promise<{ prepared: PreparedSelectedImageCropDirectory; changed: boolean }> {
+  const anchors = await findNearestPreparedCropAnchors(prepared, sourceFile);
+  if (anchors.length === 0) return { prepared, changed: false };
+  const source = await sourceFile.handle.getFile();
+  for (const anchor of anchors) {
+    const workerResult = await prepareSelectedImageCropInWorker(
+      source,
+      CROP_V12_POLICY,
+      anchor,
+    );
+    const proposal =
+      workerResult?.proposal ??
+      (await proposeSelectedImageCrop(source, CROP_V12_POLICY, anchor));
+    if (proposal.registration?.status !== 'registered') continue;
+    let updated = await saveSelectedImageCrop({
+      prepared,
+      sourceFile,
+      crop: proposal.crop,
+      markReviewed: false,
+      autoCropProposal: proposal,
+      render:
+        workerResult === null ? undefined : async () => workerResult.rendered,
+    });
+    updated = await synchronizeAutomaticCorrection(
+      updated,
+      sourceFile.fileName,
+      proposal,
+    );
+    return { prepared: updated, changed: true };
+  }
+  return { prepared, changed: false };
 }
 
 export async function setSelectedImageCropCorrection(input: {
@@ -1090,12 +1105,7 @@ async function openSelectedImageCropSnapshot(
 async function pinSelectedImageCropPreparationPolicy(
   prepared: PreparedSelectedImageCropDirectory,
 ): Promise<PreparedSelectedImageCropDirectory> {
-  if (
-    prepared.snapshot.session.preparationPolicyVersion ===
-      SELECTED_IMAGE_AUTO_CROP_POLICY ||
-    prepared.snapshot.session.preparationPolicyVersion === CROP_V11_POLICY ||
-    prepared.snapshot.session.preparationPolicyVersion === CROP_V12_POLICY
-  )
+  if (prepared.snapshot.session.preparationPolicyVersion === CROP_V12_POLICY)
     return prepared;
   const session = {
     ...prepared.snapshot.session,

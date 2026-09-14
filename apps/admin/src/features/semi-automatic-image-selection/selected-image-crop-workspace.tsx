@@ -36,6 +36,7 @@ import {
   prepareAllSelectedImageCrops,
   prepareSelectedImageCropDirectory,
   proposeSelectedImageCrop,
+  recalculateAutomaticCorrectionSelectedImageCrops,
   recalculateUnreviewedSelectedImageCrops,
   replaceSelectedImageCropCorrectionSelection,
   saveSelectedImageCrop,
@@ -122,6 +123,9 @@ export function SelectedImageCropWorkspace() {
   const correctionFileNames = new Set(
     prepared ? effectiveSelectedImageCropCorrections(prepared.snapshot) : [],
   );
+  const automaticCorrectionCount = prepared
+    ? requiredSelectedImageCropCorrections(prepared.snapshot).length
+    : 0;
   const failures = prepared?.snapshot.session.failures ?? [];
   const done =
     prepared?.snapshot.review.completedAt !== null && prepared !== null;
@@ -590,7 +594,7 @@ export function SelectedImageCropWorkspace() {
       correctionFileNames.has(fileName),
     );
 
-  async function recalculateUnreviewed() {
+  async function recalculateUnreviewed(automaticCorrections = false) {
     if (prepared === null || preparationProgress !== null || busy) return;
     preparationAbortRef.current?.abort();
     const controller = new AbortController();
@@ -601,7 +605,10 @@ export function SelectedImageCropWorkspace() {
       'Przeliczam wyłącznie nieprzejrzane i niepoprawiane ręcznie cropy…',
     );
     try {
-      const result = await recalculateUnreviewedSelectedImageCrops(
+      const recalculate = automaticCorrections
+        ? recalculateAutomaticCorrectionSelectedImageCrops
+        : recalculateUnreviewedSelectedImageCrops;
+      const result = await recalculate(
         prepared,
         (progress) => {
           if (controller.signal.aborted) return;
@@ -619,7 +626,9 @@ export function SelectedImageCropWorkspace() {
       if (atlasesRequestedRef.current) void rebuildAtlases(result.prepared);
       setNotice(
         result.failures.length === 0
-          ? 'Nieprzejrzane cropy przeliczono najnowszym detektorem.'
+          ? automaticCorrections
+            ? 'Automatyczne korekty przeliczono detektorem v12.'
+            : 'Nieprzejrzane cropy przeliczono najnowszym detektorem.'
           : `Przeliczanie zakończone. Błędy: ${result.failures.length}.`,
       );
     } catch (cause) {
@@ -972,15 +981,23 @@ export function SelectedImageCropWorkspace() {
                 </div>
                 <strong>
                   Do poprawy: {correctionFileNames.size} · obowiązkowe:{' '}
-                  {prepared
-                    ? requiredSelectedImageCropCorrections(prepared.snapshot)
-                        .length
-                    : 0}
+                  {automaticCorrectionCount}
                 </strong>
                 <p className="selectedImageCropSelectionHint">
                   Kliknij pojedynczą miniaturkę: obramowanie oznacza poprawkę, a
                   ponowne kliknięcie potwierdza, że zdjęcie jest dobre.
                 </p>
+                {automaticCorrectionCount > 0 ? (
+                  <button
+                    className="secondaryButton"
+                    disabled={busy || preparationProgress !== null || done}
+                    onClick={() => void recalculateUnreviewed(true)}
+                    type="button"
+                  >
+                    Przelicz automatyczne do poprawy ({automaticCorrectionCount}
+                    )
+                  </button>
+                ) : null}
                 <button
                   className="secondaryButton"
                   disabled={busy || preparationProgress !== null || done}

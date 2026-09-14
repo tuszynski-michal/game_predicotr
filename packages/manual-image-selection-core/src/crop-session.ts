@@ -164,6 +164,20 @@ export function selectedImageCropRecalculationFileNames(
     );
 }
 
+/**
+ * Automatic warnings may be recalculated by an explicit detector-upgrade
+ * action. A file selected only by the operator has no persisted detector
+ * reason and remains protected.
+ */
+export function selectedImageCropAutomaticCorrectionRecalculationFileNames(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+): readonly string[] {
+  const required = new Set(requiredSelectedImageCropCorrections(snapshot));
+  return snapshot.inventory.entries
+    .map((entry) => entry.fileName)
+    .filter((fileName) => required.has(fileName));
+}
+
 export function migrateSelectedImageCropManifestV1(
   manifest: SelectedImageCropManifestV1,
 ): SelectedImageCropSessionSnapshotV2 {

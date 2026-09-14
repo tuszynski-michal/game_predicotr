@@ -58,6 +58,8 @@ test('crop review provides an atlas grid and opens only selected corrections in 
   assert.match(workspace, /Ponów błędne/u);
   assert.match(workspace, /Zatwierdź i zakończ przegląd/u);
   assert.match(workspace, /Przelicz nieprzejrzane nowym detektorem/u);
+  assert.match(workspace, /Przelicz automatyczne do poprawy/u);
+  assert.match(workspace, /recalculateAutomaticCorrectionSelectedImageCrops/u);
   assert.match(workspace, /Niepewne/u);
   assert.match(workspace, /Zaznacz wszystkie/u);
   assert.match(workspace, /Odznacz wszystkie/u);

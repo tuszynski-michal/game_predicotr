@@ -15,6 +15,7 @@ export interface StructuralCropEvidence {
   status: 'detected' | 'needs_manual_crop';
   reason:
     | LayoutEvidence['reason']
+    | 'complete_layout_board_buffer'
     | 'number_regions_missing'
     | 'source_support_incomplete';
   analysisWidth: number;
@@ -188,11 +189,13 @@ export function boundStructuralCrop(
     crop: { ...source, topY: 0, bottomY: source.height },
   };
   if (layout.status !== 'detected') return base;
-  if (labels.length !== 9) return { ...base, reason: 'number_regions_missing' };
-  const all = [...base.boards, ...base.labels];
+  const completeNumberBand = labels.length === 9;
+  const protectedBoxes = completeNumberBand
+    ? [...base.boards, ...base.labels]
+    : base.boards;
   if (
     base.boards.length !== 9 ||
-    all.some(
+    protectedBoxes.some(
       (b) =>
         b.left <= 0 ||
         b.top <= 0 ||
@@ -201,6 +204,35 @@ export function boundStructuralCrop(
     )
   )
     return { ...base, reason: 'source_support_incomplete' };
+  if (!completeNumberBand) {
+    const boardOnlyBottomPadding =
+        Math.ceil(
+          Math.max(
+            4,
+            medianBoardHeight * CROP_V11_CONFIG.boardOnlyBottomPaddingRatio,
+          ) * sy,
+        ) + uncertainty,
+      topY = Math.max(
+        0,
+        Math.min(...base.boards.map((board) => board.top)) - topPadding,
+      ),
+      bottomY = Math.min(
+        source.height,
+        Math.max(
+          Math.max(...base.boards.map((board) => board.bottom)) +
+            boardOnlyBottomPadding,
+          ...base.labels.map((label) => label.bottom + bottomPadding),
+        ),
+      );
+    return {
+      ...base,
+      status: 'detected',
+      reason: 'complete_layout_board_buffer',
+      paddingPx: Math.max(topPadding, boardOnlyBottomPadding),
+      crop: { ...source, topY, bottomY },
+    };
+  }
+  const all = [...base.boards, ...base.labels];
   // A high threshold can retain only the lower, textured portion of every
   // top-row board. The independently confirmed number band supplies a second
   // lower edge: one median board height above it is a conservative estimate of
@@ -255,6 +287,7 @@ export function validateStructuralEvidence(
     !['detected', 'needs_manual_crop'].includes(value.status) ||
     ![
       'complete_layout',
+      'complete_layout_board_buffer',
       'insufficient_boards',
       'incomplete_layout',
       'ambiguous_layout',
@@ -320,9 +353,13 @@ export function validateStructuralEvidence(
     fail();
   if (
     value.status === 'detected' &&
-    (value.reason !== 'complete_layout' ||
+    (!['complete_layout', 'complete_layout_board_buffer'].includes(
+      value.reason,
+    ) ||
       value.boards.length !== 9 ||
-      value.labels.length !== 9 ||
+      (value.reason === 'complete_layout' && value.labels.length !== 9) ||
+      (value.reason === 'complete_layout_board_buffer' &&
+        value.labels.length === 9) ||
       all.some((b) => b.top < c.topY || b.bottom > c.bottomY))
   )
     fail();

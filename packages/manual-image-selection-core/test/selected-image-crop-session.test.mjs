@@ -11,6 +11,7 @@ import {
   recordSelectedImageCropFailure,
   replaceSelectedImageCropCorrections,
   selectedImageCropFileState,
+  selectedImageCropAutomaticCorrectionRecalculationFileNames,
   selectedImageCropRecalculationFileNames,
   selectedImageCropShardIndex,
   updateSelectedImageCropCorrections,
@@ -268,4 +269,40 @@ test('recalculates only prepared results untouched by review or correction', () 
     preparedNames[3],
   ]);
   assert.equal(migrated.session.preparationPolicyVersion, null);
+});
+
+test('recalculates automatic correction warnings but protects operator-only selections', () => {
+  const migrated = migrateSelectedImageCropManifestV1(manifest(6));
+  const names = migrated.inventory.entries.map((entry) => entry.fileName);
+  migrated.review = {
+    ...migrated.review,
+    reviewedFileNames: [],
+    correctedFileNames: [],
+    acceptedSuggestionFileNames: [],
+    correctionFileNames: [names[0], names[1]],
+  };
+  migrated.shards[0].results[names[0]].autoCropProposal = {
+    classification: 'high_confidence',
+    evidence: { fallbackReason: 'crop_too_short' },
+  };
+  migrated.shards[0].results[names[1]].autoCropProposal = {
+    classification: 'high_confidence',
+    evidence: { fallbackReason: null },
+  };
+  migrated.shards[0].results[names[2]].autoCropProposal = {
+    classification: 'conservative',
+    evidence: { fallbackReason: null },
+  };
+  migrated.review.reviewedFileNames = [names[2]];
+
+  assert.deepEqual(
+    selectedImageCropAutomaticCorrectionRecalculationFileNames(migrated),
+    [names[0]],
+  );
+
+  migrated.review.acceptedSuggestionFileNames = [names[0]];
+  assert.deepEqual(
+    selectedImageCropAutomaticCorrectionRecalculationFileNames(migrated),
+    [],
+  );
 });

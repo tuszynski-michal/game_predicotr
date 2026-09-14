@@ -10,6 +10,7 @@ export const CROP_V11_CONFIG = Object.freeze({
   dilationRadii: [2, 3, 4, 5, 6] as const,
   paddingRatio: 0.3,
   bottomPaddingRatio: 0.2,
+  boardOnlyBottomPaddingRatio: 0.65,
   maximumCrossRowOverlapRatio: 0.15,
   minimumCrossRowCenterSpacingRatio: 0.8,
   maximumBoardWidthRatio: 1.7,

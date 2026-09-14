@@ -218,6 +218,25 @@ manifestów JPEG. Istniejące reviewed/corrected nadal rozwiązują obowiązek.
 Konflikt struktura/rejestracja ma pierwszeństwo przed pozytywnym statusem
 jednego z tych źródeł.
 
+TASK-0534 rozdziela automatyczne ostrzeżenie od wyboru operatora. Czysta funkcja
+`selectedImageCropAutomaticCorrectionRecalculationFileNames` zwraca w porządku
+inwentarza tylko nierozstrzygnięte wyniki z trwałym powodem detektora. Jawna
+akcja przypina v12 nawet w rozpoczętej sesji v10 i nie przygotowuje przy okazji
+pozostałych brakujących plików. Drugi przebieg rejestracji próbuje najwyżej trzy
+najbliższe silne kotwice, kolejno według odległości w inwentarzu; każda nadal
+przechodzi pełne bramki obrazu v12. Brak poprawnej rejestracji zachowuje wynik
+ręczny. Bezpośrednio wykryty pełny układ 3×3 nie wymaga kompletnej detekcji
+numerów: crop kończy się po dolnej planszy plus 65% mediany wysokości planszy i
+nie jest ponownie zwężany przez rejestrację. Taki wynik nie jest źródłem kotwicy;
+kotwice nadal wymagają dziewięciu plansz i dziewięciu etykiet.
+
+Niedestrukcyjny runner odbiorczy czyta tę samą zamkniętą listę z review i
+shardów, sprawdza checksumę źródła względem starego wyniku, a następnie zapisuje
+wyłącznie te cropy do osobnego katalogu. Pojedynczy journal, shardy wyniku i
+atomowa publikacja przez rename pozwalają wznowić przerwany przebieg także na
+woluminie bez obsługi twardych linków. Raport oraz lokalny HTML są pochodnymi;
+wejściowy katalog `cut` pozostaje tylko do odczytu.
+
 Iteracja v0.10.185 dodaje ograniczony poziomy wariant dylatacji (aspekt 2)
 obok izotropowego. Numery są analizowane w lokalnym układzie nachylenia rzędu,
 wyznaczonym z potwierdzonych obszarów plansz. Obszar wyszukiwania i wynik muszą
@@ -243,8 +262,9 @@ nieprzejściowej bramce, bez zmiany historycznych algorytmów v10.
 
 Eksperymentalny v11 (0469–0471, bez aktywacji) analizuje luminancję i strukturę
 całego 3×3. Wspólny sampler z kanonicznego RGBA ogranicza dłuższy bok do
-960/1600, a wynik zapisuje fingerprint i wykonane poziomy. Brak dziewięciu
-obszarów numerów lub układu zwraca pełną wysokość i trwały obowiązek korekty.
+960/1600, a wynik zapisuje fingerprint i wykonane poziomy. Brak kompletnego
+układu zwraca pełną wysokość i trwały obowiązek korekty. Kompletne 3×3 bez
+pełnego pasa numerów używa wersjonowanego dolnego bufora zamiast bramki OCR.
 Obowiązek jest wyprowadzany z wyników i ręcznych decyzji, nie ze zbioru zaznaczeń.
 Node zapisuje `.crop-preparation-v11`: metadane, intencje per plik, shardy 64,
 blokadę właściciela i raport błędów. JPEG jest publikowany bez nadpisania,
@@ -267,8 +287,10 @@ jeżeli przygotowanie późniejszego zdjęcia dostarczyło bliższą silną kotw
 Rejestracja nigdy nie jest samodzielnym dowodem numeru ani kolejności pliku.
 Gdy struktura bieżącego zdjęcia również jest pełna, finalny pas jest przecięciem
 obu bezpiecznych propozycji i nadal musi zawierać wszystkie 18 chronionych
-obszarów plansz i etykiet. Fingerprint obejmuje pełną konfigurację cech,
-RANSAC-u i marginesu; replay v10/v11 pozostaje niezmieniony.
+obszarów plansz i etykiet. Wyjątkiem jest bezpośredni wynik
+`complete_layout_board_buffer`, który zostaje zachowany bez rejestracji.
+Fingerprint v12 zawiera fingerprint strukturalnego v11 oraz pełną konfigurację
+cech, RANSAC-u i marginesu; replay v10 pozostaje niezmieniony.
 
 TASK-0468 ustanawia niezależny test-only oracle jakości poziomego pasa:
 SHA-256 źródeł, wizualne obwiednie plansz/numerów, przedziały linii i split po

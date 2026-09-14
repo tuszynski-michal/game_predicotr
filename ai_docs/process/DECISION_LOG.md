@@ -8,6 +8,24 @@ last_updated: 2026-09-14
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-381 — Pełne 3×3 wystarcza do automatycznego cropa
+
+- **Status:** accepted
+- **Date:** 2026-09-14
+- **Decision:** bezpośrednio wykryte dziewięć plansz jest wystarczającym dowodem
+  cropa. Numery nie są osobną bramką akceptacji; przy niepełnej detekcji ich
+  pasów dolna granica dostaje bufor 65% mediany wysokości planszy.
+- **Rationale:** dwa poprawne układy 3×3 pozostawały pełnymi obrazami wyłącznie
+  z powodu `number_regions_missing`, mimo że bezpieczny margines zachowuje
+  numery i pozwala usunąć panel wypłat oraz dół obudowy.
+- **Safety:** układ nadal musi zawierać dokładnie dziewięć plansz, mieścić się w
+  źródle i przejść walidację strukturalną. Wynik oparty na buforze nie może być
+  kotwicą rejestracji dla innych zdjęć. Fingerprint v11 i zależny fingerprint
+  v12 obejmują tę regułę.
+- **Consequences:** `number_regions_missing` pozostaje poprawnym historycznym
+  reason code, lecz nowe kompletne układy zapisują
+  `complete_layout_board_buffer` i nie trafiają do obowiązkowej korekty.
+
 ## D-380 — Niepełne siatki uczą osobny profil bocznych masek
 
 - **Status:** accepted

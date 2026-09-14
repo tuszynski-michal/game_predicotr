@@ -55,6 +55,13 @@ export async function prepareFourPointRegisteredCrop(
       preparationFingerprint: CROP_V12_FINGERPRINT,
     };
   }
+  if (structural.structural?.reason === 'complete_layout_board_buffer') {
+    return {
+      ...structural,
+      policyVersion: CROP_V12_POLICY,
+      preparationFingerprint: CROP_V12_FINGERPRINT,
+    };
+  }
   await yieldBetween();
   const registration = registerFourPointBoardBand({
     anchor: anchor.descriptor,

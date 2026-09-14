@@ -102,6 +102,11 @@ test('versions the deterministic registration contract separately from v11', () 
     'selected-image-board-band-v12-four-point-anchor-registration',
   );
   assert.match(CROP_V12_FINGERPRINT, /oriented-brief-affine-ransac-v1/);
+  assert.match(
+    CROP_V12_FINGERPRINT,
+    /selected-image-board-band-v11-full-layout-structural/,
+  );
+  assert.match(CROP_V12_FINGERPRINT, /boardOnlyBottomPaddingRatio/);
 });
 
 test('rejects non-finite persisted registration metrics', () => {

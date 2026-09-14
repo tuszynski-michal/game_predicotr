@@ -570,7 +570,9 @@ podkatalog zawierający poprawnie nazwane JPEG-i
 Uwaga jakościowa TASK-0468: opis v10 poniżej dokumentuje obecną implementację,
 nie gwarancję wykrycia plansz. Rzeczywiste regresje wykazały crop samej reklamy
 z `high_confidence` i niepoprawny dół. Wdrożenie v11 (0469–0472) musi niezależnie
-potwierdzić pełne dziewięć plansz i numery oraz obie granice. Brak dowodu ma
+potwierdzić pełne dziewięć plansz. Gdy wykryto kompletne 3×3, osobne
+potwierdzenie numerów nie jest wymagane: dolna granica musi zachować
+wersjonowany bufor 65% mediany wysokości planszy. Brak dowodu pełnego układu ma
 wymagać ręcznej korekty, której nie kasuje odznaczenie kafelków. Sam zapis JPEG
 nie jest testem jakości. Referencje: `ai_docs/quality/SELECTED_CROP_V11_REGRESSIONS.md`.
 
@@ -591,6 +593,13 @@ wynik pozostaje obowiązkową korektą; nie wolno używać samego sąsiedztwa pl
 jako dowodu. Gdy bieżące zdjęcie ma również pełny dowód strukturalny, wynik
 używa ciaśniejszego wspólnego pasa, który nadal chroni wszystkie plansze i
 numery. Wariant nie jest domyślny przed odrębną decyzją o aktywacji.
+
+TASK-0534: jawne przeliczenie automatycznych korekt używa reguły
+`complete_layout_board_buffer`. Dziewięć plansz mieszczących się w źródle jest
+wystarczającym dowodem cropa nawet bez dziewięciu wykrytych pasów numerów.
+Niepełny, niejednoznaczny albo dotykający krawędzi układ nadal pozostaje do
+korekty. Wynik z samym buforem nie staje się kotwicą rejestracji dla innych
+zdjęć; kotwica nadal wymaga kompletu etykiet.
 
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
@@ -641,11 +650,14 @@ dwie ostatnie klasy. Wynik historyczny bez tej proweniencji pozostaje czytelny
 i nie jest automatycznie przeliczany.
 
 Jawna akcja `Przelicz nieprzejrzane nowym detektorem` może przełączyć
-rozpoczętą sesję na bieżącą politykę. Obejmuje wyłącznie wyniki nieprzejrzane, niepoprawione
-ręcznie i niezaznaczone do poprawy, a następnie przygotowuje brakujące pliki.
-W bieżącym trybie testowym akcja przypina v12 w stanie sesji. Gotowe i ręcznie
-poprawione wyniki nie są po cichu nadpisywane, a istniejący katalog `cut` nie
-jest przeliczany bez tej jawnej akcji.
+rozpoczętą sesję na bieżącą politykę. Obejmuje wyłącznie wyniki nieprzejrzane,
+niepoprawione ręcznie i niezaznaczone do poprawy, a następnie przygotowuje
+brakujące pliki. Osobna akcja `Przelicz automatyczne do poprawy` obejmuje
+wyłącznie nierozstrzygnięte wyniki, dla których zapisany dowód detektora sam
+wymaga korekty. Crop oznaczony tylko decyzją operatora, bez automatycznego
+powodu, pozostaje chroniony. W bieżącym trybie testowym obie akcje przypinają
+v12 w stanie sesji. Gotowe i ręcznie poprawione wyniki nie są po cichu
+nadpisywane, a istniejący katalog `cut` nie jest przeliczany bez jawnej akcji.
 
 W widoku kafelkowym jeden przycisk przełącza `Zaznacz wszystkie` i `Odznacz
 wszystkie`. Działa na przygotowanych wynikach bieżącego filtra, zachowuje

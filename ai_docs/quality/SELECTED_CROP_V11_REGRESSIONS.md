@@ -221,3 +221,29 @@ Nie rozszerzono końcowych przedziałów po zobaczeniu wyniku. Release pozostaje
 Następna diagnoza musi odróżniać prawdziwe pasy numerów dolnego rzędu od jasnych
 elementów obudowy. Nie wolno rozwiązać tego przez przycięcie poniżej potwierdzonego
 dowodu, osłabienie pełnego 3×3 ani ponowne nazwanie ujawnionych zdjęć holdoutem.
+
+## TASK-0534 — przeliczenie 177 automatycznych korekt przez v12
+
+Na jawne polecenie operatora odczytano zamkniętą listę 177 automatycznie
+wymaganych korekt z sesji `248176 - 272016 cut`. Nie zmieniono jej JPEG-ów,
+review ani shardów. Po decyzji, że pełne 3×3 wystarcza bez osobnego
+potwierdzenia numerów, wznawialny runner zapisał końcowy katalog
+`248176 - 272016 cut v12 board-buffer preview` oraz zweryfikował niezmienność
+wejściowego stanu checksumą
+`79e622a48ef681014a273e2731507c1cd3e951f7ff59514fc1763c0592557f57`.
+
+- 177/177 źródeł otrzymało wynik, bez błędów zapisu;
+- 166 cropów ma bezpośredni pełny dowód strukturalny, w tym 35 używa
+  `complete_layout_board_buffer`;
+- 11 cropów przeszło rejestrację z pobliskiej silnej kotwicy;
+- 177 wyników jest automatycznych, 0 pozostaje ręcznych;
+- średnia wysokość końcowego cropa wynosi 519,37 px, a zakres 392–658 px;
+- dla 35 wyników z buforem średnia wynosi 541,77 px, zakres 452–642 px.
+
+Oględziny obu wcześniejszych wyjątków (`seq_248617-248625.jpg` i
+`seq_248824-248832.jpg`) oraz najniższego i najwyższych cropów z buforem
+potwierdziły zachowanie dziewięciu plansz i numerów przy usunięciu panelu wypłat
+oraz dołu obudowy. Walidator dowodu potwierdza zawarcie wszystkich wykrytych
+plansz w każdym automatycznym cropie. Ten katalog jest ujawnionym materiałem
+rozwojowym i nie zastępuje niezależnej bramki aktywacji v12 dla wszystkich
+nowych sesji.

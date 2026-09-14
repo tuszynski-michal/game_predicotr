@@ -6811,6 +6811,68 @@ div.imageJobInlineError {
   min-height: 38px;
 }
 
+.pageGeometryQualification {
+  display: grid;
+  gap: 10px;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 0.85rem;
+}
+
+.pageGeometryQualification legend {
+  padding: 0;
+  color: var(--text);
+  font-weight: 750;
+}
+
+.pageGeometryQualificationRow {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 10px 20px;
+}
+
+.pageGeometryQualificationCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.pageGeometryQualificationCheck input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.pageGeometryQualificationNote {
+  min-width: 0;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.pageGeometryQualificationCells {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px 12px;
+  max-width: 440px;
+}
+
+@media (max-width: 900px) {
+  .pageGeometryQualificationRow {
+    grid-template-columns: repeat(2, minmax(0, max-content));
+  }
+
+  .pageGeometryQualificationNote {
+    grid-column: 1 / -1;
+  }
+}
+
 .pageGeometryNavigation {
   display: flex;
   flex-wrap: wrap;

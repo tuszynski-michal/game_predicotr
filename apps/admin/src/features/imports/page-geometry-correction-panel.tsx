@@ -1543,8 +1543,8 @@ function PageGeometryCorrectionPanelContent({
                   );
                 return (
                   <fieldset
+                    className="pageGeometryQualification"
                     disabled={saving || draftConflict}
-                    style={{ border: 0, fontSize: '0.85rem' }}
                   >
                     <legend>
                       Plansza {index + 1} · dostępne {15 - unavailable.length}
@@ -1557,38 +1557,47 @@ function PageGeometryCorrectionPanelContent({
                         tej geometrii nie używamy do uczenia ani kotwic.
                       </p>
                     ) : null}
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={flags.partial}
-                        onChange={(event) =>
-                          update({
-                            ...flags,
-                            partial: event.target.checked,
-                            exclude: event.target.checked || flags.exclude,
-                            manualUnavailable: event.target.checked
-                              ? flags.manualUnavailable
-                              : [],
-                          })
-                        }
-                      />{' '}
-                      Niepełna plansza
-                    </label>{' '}
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={flags.partial || flags.exclude}
-                        disabled={flags.partial}
-                        onChange={(event) =>
-                          update({ ...flags, exclude: event.target.checked })
-                        }
-                      />{' '}
-                      Nie używaj do uczenia geometrii
-                    </label>
+                    <div className="pageGeometryQualificationRow">
+                      <label className="pageGeometryQualificationCheck">
+                        <input
+                          type="checkbox"
+                          checked={flags.partial}
+                          onChange={(event) =>
+                            update({
+                              ...flags,
+                              partial: event.target.checked,
+                              exclude: event.target.checked || flags.exclude,
+                              manualUnavailable: event.target.checked
+                                ? flags.manualUnavailable
+                                : [],
+                            })
+                          }
+                        />
+                        Niepełna plansza
+                      </label>
+                      <label className="pageGeometryQualificationCheck">
+                        <input
+                          type="checkbox"
+                          checked={flags.partial || flags.exclude}
+                          disabled={flags.partial}
+                          onChange={(event) =>
+                            update({ ...flags, exclude: event.target.checked })
+                          }
+                        />
+                        Nie używaj do uczenia geometrii
+                      </label>
+                      <small className="pageGeometryQualificationNote">
+                        Zmiana dotyczy kolejnego uczenia i kotwic, nie już
+                        aktywnego profilu.
+                      </small>
+                    </div>
                     {flags.partial ? (
-                      <div>
+                      <div className="pageGeometryQualificationCells">
                         {Array.from({ length: 15 }, (_, i) => (
-                          <label key={i}>
+                          <label
+                            className="pageGeometryQualificationCheck"
+                            key={i}
+                          >
                             <input
                               type="checkbox"
                               aria-label={`Pole ${i + 1} poza zdjęciem`}
@@ -1605,15 +1614,11 @@ function PageGeometryCorrectionPanelContent({
                                 })
                               }
                             />
-                            {i + 1}{' '}
+                            {i + 1}
                           </label>
                         ))}
                       </div>
                     ) : null}
-                    <small>
-                      Zmiana dotyczy kolejnego uczenia i kotwic, nie już
-                      aktywnego profilu.
-                    </small>
                   </fieldset>
                 );
               })()

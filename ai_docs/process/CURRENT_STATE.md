@@ -6,6 +6,13 @@ last_updated: 2026-09-14
 
 # Current State
 
+### Niezależna korekta UI — zwarte kwalifikacje geometrii planszy
+
+- Kontrolki `Niepełna plansza`, `Nie używaj do uczenia geometrii` oraz opis
+  wpływu decyzji są wyrównane w jednym wierszu. Checkboxy są po lewej stronie
+  etykiet z odstępem 10 px, a wybór pól częściowych ma układ 5 kolumn × 3
+  wiersze.
+
 ### Niezależna korekta UI — mniejszy margines poza źródłem geometrii
 
 - Po zaznaczeniu `Niepełna plansza` szare pole poza zdjęciem ma teraz 30%

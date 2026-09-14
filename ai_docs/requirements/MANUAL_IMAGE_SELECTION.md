@@ -601,6 +601,15 @@ Niepełny, niejednoznaczny albo dotykający krawędzi układ nadal pozostaje do
 korekty. Wynik z samym buforem nie staje się kotwicą rejestracji dla innych
 zdjęć; kotwica nadal wymaga kompletu etykiet.
 
+TASK-0535: zbiorczy przebieg pod wskazanym katalogiem nadrzędnym kwalifikuje
+wyłącznie bezpośrednie katalogi `* cut`, które mają komplet zapisanych wyników,
+brak pending/failures, brak końcowej akceptacji i co najmniej jedną
+nierozstrzygniętą automatyczną korektę. Dokładny katalog źródłowy musi istnieć
+obok. Każda zakwalifikowana sesja otrzymuje osobny
+`<nazwa cut> v12 board-buffer preview`; sesje zaakceptowane, nieukończone i
+operator-only pozostają bez zmian. Zbiorczy raport pokazuje również powód
+pominięcia każdej pozostałej sesji.
+
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
 przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do

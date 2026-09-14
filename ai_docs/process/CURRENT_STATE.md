@@ -6,6 +6,23 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0535 — zbiorcze podglądy korekt cropów
+
+- Wznawialny audyt `D:\777` klasyfikuje wszystkie bezpośrednie katalogi
+  `* cut` na zaakceptowane, nieukończone, bez stanu, bez automatycznych korekt,
+  bez źródła albo gotowe do przeliczenia. Ręczne decyzje nie są kandydatami.
+- Warunek spełniły `149626 - 177561 cut` i `248176 - 272016 cut`. Pierwszy
+  otrzymał nowy katalog podglądu: 67/67 wyników, 63 automatyczne, 4 ręczne,
+  0 błędów. Drugi został bezpiecznie zweryfikowany i wznowiony: 177/177
+  automatycznych, 0 ręcznych, 0 błędów.
+- `128269 - 149634 cut` nie został przeliczony: trwały review ma
+  `completedAt` z 14.09.2026 05:46:29, 2373/2373 przejrzanych, 25 ręcznie
+  poprawionych i 0 nierozstrzygniętych korekt. Późniejszy repair usunął 26
+  osobnych sekwencji; batch nie odtwarza ich i nie zmienia zaakceptowanego
+  crop-review.
+- Nieukończone sesje pozostają pominięte. Raport zbiorczy zapisano jako
+  `D:\777\selected-crop-v12-board-buffer-batch-report.json`.
+
 ### TASK-0534 — v12 przelicza automatyczne korekty cropów
 
 - Sekcja `Przytnij wybrane zdjęcia` ma osobną akcję dla automatycznie

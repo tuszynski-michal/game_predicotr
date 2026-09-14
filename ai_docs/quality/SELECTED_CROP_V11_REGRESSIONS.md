@@ -247,3 +247,27 @@ oraz dołu obudowy. Walidator dowodu potwierdza zawarcie wszystkich wykrytych
 plansz w każdym automatycznym cropie. Ten katalog jest ujawnionym materiałem
 rozwojowym i nie zastępuje niezależnej bramki aktywacji v12 dla wszystkich
 nowych sesji.
+
+## TASK-0535 — odbiór zbiorczego przebiegu katalogów
+
+Audyt bezpośrednich katalogów `* cut` pod `D:\777` znalazł dwie zakończone,
+niezaakceptowane sesje z automatycznymi korektami i źródłem. Wznowienie
+`248176 - 272016` potwierdziło poprzedni raport bez zmiany wyniku. Nowy przebieg
+`149626 - 177561 cut v12 board-buffer preview` dał:
+
+- 67/67 zapisanych JPEG-ów i 0 błędów;
+- 53 wyniki strukturalne, w tym 12 z buforem;
+- 10 wyników rejestrowanych;
+- 63 wyniki automatyczne oraz 4 pełne obrazy z `incomplete_layout`.
+
+Cztery wyniki ręczne (`seq_158410-158418.jpg`, `seq_172540-172548.jpg`,
+`seq_173665-173673.jpg`, `seq_173710-173718.jpg`) zawierają widoczne 3×3, ale
+nie przeszły istniejącej bramki strukturalnej ani trzech prób rejestracji.
+Pozostały szerokie, więc przebieg nie odciął treści bez dowodu. Checksum stanu
+wejściowego to
+`0443aca6c58baef683abbe7a949049ec83842959de24160f0a0bbe57957e75b3`.
+
+Przykładowy `128269 - 149634 cut` ma zapis końcowej akceptacji, 25 ręcznie
+poprawionych cropów i brak nierozstrzygniętej kolejki. Późniejszy repair usunął
+26 innych sekwencji z katalogu, dlatego nie wolno odtwarzać ich jako korekt
+cropa. Pełna klasyfikacja znajduje się w zbiorczym raporcie pod `D:\777`.

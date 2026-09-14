@@ -237,6 +237,14 @@ atomowa publikacja przez rename pozwalają wznowić przerwany przebieg także na
 woluminie bez obsługi twardych linków. Raport oraz lokalny HTML są pochodnymi;
 wejściowy katalog `cut` pozostaje tylko do odczytu.
 
+TASK-0535 dodaje nad tym runnerem sekwencyjny audyt wielu katalogów. Skanowane
+są tylko bezpośrednie, niesymlinkowane katalogi z dokładnym sufiksem ` cut`.
+Kwalifikacja odtwarza snapshot v2 ze wszystkich shardów i porównuje dokładny
+zbiór wyników z inventory przed sprawdzeniem pending, failures, `completedAt`
+oraz automatycznej kolejki korekt. Każdy przebieg zachowuje własny journal i
+raport, a raport zbiorczy jest zapisywany atomowo po każdej sesji. Awaria jednej
+sesji nie ukrywa wyniku pozostałych i daje niezerowy kod końcowy.
+
 Iteracja v0.10.185 dodaje ograniczony poziomy wariant dylatacji (aspekt 2)
 obok izotropowego. Numery są analizowane w lokalnym układzie nachylenia rzędu,
 wyznaczonym z potwierdzonych obszarów plansz. Obszar wyszukiwania i wynik muszą

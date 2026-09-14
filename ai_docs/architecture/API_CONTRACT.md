@@ -1815,6 +1815,12 @@ joba. `provisionalReviewRequired` może maleć podczas dodatkowego dopasowania i
 dlatego nie jest wspólnym licznikiem `review`; ten ostatni otrzymuje wynik
 dopiero z niezmiennego manifestu końcowego.
 
+Admin odtwarza opis postępu kafelka stagingu z `pageGeometryPreflight`, także
+gdy globalne `current/total` osiągnęło już `N/N`. Przed statusem `completed`
+prezentuje `provisionalReviewRequired` jako liczbę jeszcze nierozstrzygniętą;
+etykietę odroczonych zdjęć stosuje dopiero do końcowego `review`. Bramka startu
+importu nadal wymaga ukończonego joba oraz checksummy manifestu geometrii.
+
 Dla joba `image_selection` obiekt `progress` zawiera dodatkowe pole
 `imageSelection`:
 

@@ -115,16 +115,17 @@ test('refreshes an open report when symbol-model readiness changes', () => {
   assert.match(refreshFlow, /Status importu i raport modelu zostały odświeżone/);
 });
 
-test('shows the live geometry-correction queue count after a saved source leaves it', () => {
+test('shows the real geometry phase and distinguishes provisional from final counts', () => {
   assert.match(panelSource, /pendingGeometryCorrectionState/);
   assert.match(panelSource, /visibleGeometryCorrectionCount/);
+  assert.match(panelSource, /jobProgressLabel\(geometryPreflightJob\)/);
   assert.match(
     panelSource,
-    /onPendingSourceCountChange=\{\s*handlePendingGeometryCorrectionCountChange\s*\}/,
+    /pageGeometryPreflightOutcomeLabel\(\s*geometryPreflightJob,\s*visibleGeometryCorrectionCount/,
   );
   assert.match(
     panelSource,
-    /odroczone zdjęcia\s+\{visibleGeometryCorrectionCount\}/,
+    /onPendingSourceCountChange=\{\s*handlePendingGeometryCorrectionCountChange\s*\}/,
   );
   assert.match(panelSource, /koniec \(\{visibleGeometryCorrectionCount\}\)/);
 });

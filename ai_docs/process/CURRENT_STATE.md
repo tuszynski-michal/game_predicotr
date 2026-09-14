@@ -6,6 +6,18 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0539 — rzeczywisty etap preflightu geometrii w stagingu
+
+- Kafelek stagingu używa teraz fazy `pageGeometryPreflight`, więc po globalnym
+  `N/N` nadal pokazuje dodatkowe dopasowanie lub zapis manifestu zamiast
+  sugerować zakończenie całego joba.
+- Podczas pracy pokazuje `provisionalReviewRequired` jako liczbę zdjęć jeszcze
+  nierozstrzygniętych. Ostateczne „odroczone zdjęcia” pojawia się dopiero po
+  statusie `completed`; historyczny checkpoint bez fazy nie deklaruje wyniku.
+- Job `d633a302-7cc1-4472-8349-5f8c8b883ab2` zakończył się bez błędu:
+  2664/2664 źródła, 2660 zarejestrowanych i 4 odroczone. Bramka importu nadal
+  wymaga ukończonego joba i checksummy końcowego manifestu.
+
 ### TASK-0538 — odzyskanie pustej sesji przygotowania cropów
 
 - Katalog `348256 - 371007 cut` miał 2528 wpisów, 0 wyników i pusty review,

@@ -30,6 +30,7 @@ import {
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import { jobProgressLabel } from '@/features/jobs/job-state';
 
 import {
   boardCellProcessingJobLabel,
@@ -59,6 +60,7 @@ import {
 } from './image-folder-import-actions';
 import {
   canStartReadyImport,
+  pageGeometryPreflightOutcomeLabel,
   sortReadyBoardImports,
 } from './image-folder-import-state';
 import { PageGeometryCorrectionPanel } from './page-geometry-correction-panel';
@@ -1763,11 +1765,13 @@ export function ImageFolderImportPanel({
                           {geometryPreflightJob !== null ? (
                             <span className="curatedImportStatus">
                               Geometria zdjęć: {geometryPreflightJob.status} ·{' '}
-                              {geometryPreflightJob.progress.current}/
-                              {geometryPreflightJob.progress.total ?? '—'} ·
+                              {jobProgressLabel(geometryPreflightJob)} ·
                               zarejestrowane zdjęcia{' '}
                               {geometryPreflightJob.progress.succeeded} ·
-                              odroczone zdjęcia {visibleGeometryCorrectionCount}
+                              {pageGeometryPreflightOutcomeLabel(
+                                geometryPreflightJob,
+                                visibleGeometryCorrectionCount,
+                              )}
                             </span>
                           ) : null}
                           {geometryPreflightJob?.status === 'completed' &&

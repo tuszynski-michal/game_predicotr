@@ -759,6 +759,13 @@ joba pozostają monotoniczne, dlatego postęp fazy jest osobnym polem i nie
 udaje zakończenia po osiągnięciu `sourceCount/sourceCount` przez pierwszy
 przebieg. Zapis content-addressed manifestu ma własny jawny etap.
 
+Kafelek browser stagingu pokazuje ten osobny postęp fazy jako pierwszy
+przebieg, dodatkowe dopasowanie albo zapis manifestu. Dopóki preflight nie ma
+statusu `completed`, liczba `provisionalReviewRequired` jest opisana jako
+jeszcze nierozstrzygnięta. Dopiero po zapisaniu końcowego manifestu panel
+pokazuje ostateczną liczbę odroczonych zdjęć. Osiągnięcie globalnego `N/N` nie
+odblokowuje importu samo w sobie.
+
 Ukończony manifest może zawierać zarówno `registered`, jak i
 `review_required`. Import kopiuje i przekazuje do croppera wyłącznie źródła
 `registered`. Pozostałe źródła są bezpiecznie odroczone i mogą zostać ponowione

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   canStartReadyImport,
+  pageGeometryPreflightOutcomeLabel,
   sortReadyBoardImports,
 } from '../src/features/imports/image-folder-import-state.ts';
 
@@ -72,5 +73,54 @@ test('allows a guarded ready import only after both durable manifests are restor
   assert.equal(
     canStartReadyImport({ ...restored, geometryPreflightCompleted: false }),
     false,
+  );
+});
+
+test('labels an active auto-anchor result as provisional', () => {
+  assert.equal(
+    pageGeometryPreflightOutcomeLabel(
+      {
+        status: 'processing',
+        progress: {
+          pageGeometryPreflight: {
+            phase: 'auto_anchor_retry',
+            provisionalReviewRequired: 7,
+          },
+        },
+      },
+      0,
+    ),
+    'jeszcze nierozstrzygnięte zdjęcia 7',
+  );
+});
+
+test('labels the correction queue as final only after preflight completion', () => {
+  assert.equal(
+    pageGeometryPreflightOutcomeLabel(
+      {
+        status: 'completed',
+        progress: {
+          pageGeometryPreflight: {
+            phase: 'complete',
+            provisionalReviewRequired: 4,
+          },
+        },
+      },
+      4,
+    ),
+    'odroczone zdjęcia 4',
+  );
+});
+
+test('does not claim a final count for a legacy active checkpoint', () => {
+  assert.equal(
+    pageGeometryPreflightOutcomeLabel(
+      {
+        status: 'processing',
+        progress: {},
+      },
+      0,
+    ),
+    'wynik końcowy jeszcze niegotowy',
   );
 });

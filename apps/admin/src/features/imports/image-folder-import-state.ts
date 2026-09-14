@@ -1,4 +1,7 @@
-import type { BrowserReadySelectionResponse } from '@game-predictor/admin-api-client';
+import type {
+  BrowserReadySelectionResponse,
+  JobResponse,
+} from '@game-predictor/admin-api-client';
 
 interface ReadyImportStartState {
   readonly geometryGuardResolutionManifestAvailable: boolean;
@@ -17,6 +20,23 @@ export function canStartReadyImport(state: ReadyImportStartState): boolean {
     (!state.geometryGuardResolutionRequired ||
       state.geometryGuardResolutionManifestAvailable)
   );
+}
+
+export function pageGeometryPreflightOutcomeLabel(
+  job: Pick<JobResponse, 'progress' | 'status'>,
+  visibleGeometryCorrectionCount: number,
+): string {
+  if (job.status === 'completed') {
+    return `odroczone zdjęcia ${visibleGeometryCorrectionCount.toLocaleString('pl-PL')}`;
+  }
+
+  const provisionalReviewRequired =
+    job.progress.pageGeometryPreflight?.provisionalReviewRequired;
+  if (typeof provisionalReviewRequired === 'number') {
+    return `jeszcze nierozstrzygnięte zdjęcia ${provisionalReviewRequired.toLocaleString('pl-PL')}`;
+  }
+
+  return 'wynik końcowy jeszcze niegotowy';
 }
 
 function leadingRangeStart(displayName: string): number | null {

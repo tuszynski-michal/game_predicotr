@@ -4,6 +4,7 @@ import {
   beginSelectedImageCropWrite,
   createSelectedImageCropManifest,
   finalizeSelectedImageCropWrite,
+  finalizeRecoveredSelectedImageCropWrite,
   rollbackSelectedImageCropWrite,
   selectedImageCropRecoveryAction,
   validateSelectedImageCropBand,
@@ -1152,8 +1153,35 @@ async function recoverSelectedImageCropSnapshot(
   );
   const manifest = materializeSelectedImageCropManifestV1(snapshot);
   const action = selectedImageCropRecoveryAction(manifest, observed);
-  if (action === 'block_conflicting_output')
-    throw new Error('SELECTED_IMAGE_CROP_RECOVERY_CONFLICT');
+  if (action === 'block_conflicting_output') {
+    const finalized = finalizeRecoveredSelectedImageCropWrite(
+      manifest,
+      observed!,
+      new Date().toISOString(),
+    );
+    const finalizedSnapshot = snapshotWithFinalizedResult(
+      snapshot,
+      finalized,
+      pending.fileName,
+    );
+    const review = updateSelectedImageCropCorrections(
+      finalizedSnapshot.review,
+      pending.fileName,
+      true,
+    );
+    const recovered = {
+      ...finalizedSnapshot,
+      review,
+    };
+    await writeSelectedImageCropResultShard(
+      outputDirectory,
+      recovered,
+      pending.fileName,
+    );
+    await writeSelectedImageCropReview(outputDirectory, recovered.review);
+    await writeSelectedImageCropSession(outputDirectory, recovered.session);
+    return recovered;
+  }
   if (action === 'rollback_missing_output') {
     const rolledBack = rollbackSelectedImageCropWrite(
       manifest,

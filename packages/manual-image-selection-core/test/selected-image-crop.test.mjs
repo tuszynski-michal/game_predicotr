@@ -7,6 +7,7 @@ import {
   createDefaultSelectedImageCropBand,
   createSelectedImageCropManifest,
   finalizeSelectedImageCropWrite,
+  finalizeRecoveredSelectedImageCropWrite,
   inheritSelectedImageCropBand,
   selectedImageCropReviewedFileNames,
   selectedImageCropRecoveryAction,
@@ -159,6 +160,13 @@ test('journals and deterministically recovers a crop write', () => {
     selectedImageCropRecoveryAction(pending, HASH_A),
     'block_conflicting_output',
   );
+  const adopted = finalizeRecoveredSelectedImageCropWrite(
+    pending,
+    HASH_A,
+    '2026-09-04T10:02:00.000Z',
+  );
+  assert.equal(adopted.pendingOperation, null);
+  assert.equal(adopted.entries[0].result?.outputChecksumSha256, HASH_A);
   const completed = finalizeSelectedImageCropWrite(
     pending,
     '2026-09-04T10:02:00.000Z',

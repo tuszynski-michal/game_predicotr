@@ -333,6 +333,38 @@ export function finalizeSelectedImageCropWrite(
   const pending = manifest.pendingOperation;
   if (pending === null)
     throw new Error('SELECTED_IMAGE_CROP_OPERATION_MISSING');
+  return finalizeSelectedImageCropWriteWithOutputChecksum(
+    manifest,
+    pending.expectedOutputChecksumSha256,
+    now,
+  );
+}
+
+/**
+ * Keep a completed file after an interrupted browser write, but require the
+ * caller to route it back through manual review before it can be trusted.
+ */
+export function finalizeRecoveredSelectedImageCropWrite(
+  manifest: SelectedImageCropManifestV1,
+  observedOutputChecksumSha256: string,
+  now: string,
+): SelectedImageCropManifestV1 {
+  assertSha256(observedOutputChecksumSha256);
+  return finalizeSelectedImageCropWriteWithOutputChecksum(
+    manifest,
+    observedOutputChecksumSha256,
+    now,
+  );
+}
+
+function finalizeSelectedImageCropWriteWithOutputChecksum(
+  manifest: SelectedImageCropManifestV1,
+  outputChecksumSha256: string,
+  now: string,
+): SelectedImageCropManifestV1 {
+  const pending = manifest.pendingOperation;
+  if (pending === null)
+    throw new Error('SELECTED_IMAGE_CROP_OPERATION_MISSING');
   const index = manifest.entries.findIndex(
     (entry) => entry.fileName === pending.fileName,
   );
@@ -346,7 +378,7 @@ export function finalizeSelectedImageCropWrite(
       status: 'accepted',
       crop: pending.crop,
       sourceChecksumSha256: pending.expectedSourceChecksumSha256,
-      outputChecksumSha256: pending.expectedOutputChecksumSha256,
+      outputChecksumSha256,
       acceptedAt: now,
       ...(autoCropProposal === undefined ? {} : { autoCropProposal }),
     },

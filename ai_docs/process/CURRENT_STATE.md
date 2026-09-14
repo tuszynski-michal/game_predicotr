@@ -6,6 +6,15 @@ last_updated: 2026-09-14
 
 # Current State
 
+### Niezależna naprawa — odzyskanie przerwanego przycięcia zdjęcia
+
+- Przy ponownym otwarciu `Przytnij wybrane zdjęcia` plik JPEG zapisany przed
+  zamknięciem przeglądarki, lecz różniący się od checkpointu, pozostaje w
+  katalogu wyjściowym. Sesja domyka jego zapis atomowo i kieruje wyłącznie ten
+  plik z powrotem do ręcznej korekty.
+- Usunięto blokadę `SELECTED_IMAGE_CROP_RECOVERY_CONFLICT`; nie ma automatycznego
+  usuwania ani nadpisywania pliku o niezgodnej sumie kontrolnej.
+
 ### Niezależna korekta UI — kafelki przycinania zdjęć
 
 - Kafelki podglądu w `Przytnij wybrane zdjęcia` nie pokazują już plakietek

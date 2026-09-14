@@ -56,6 +56,15 @@ test('selected image crop save journals before writing and verifies the output',
   assert.ok(verification < finalization);
 });
 
+test('interrupted conflicting output is retained and sent back to correction', () => {
+  assert.match(source, /finalizeRecoveredSelectedImageCropWrite/u);
+  assert.match(
+    source,
+    /updateSelectedImageCropCorrections\([\s\S]*pending\.fileName[\s\S]*true/u,
+  );
+  assert.doesNotMatch(source, /SELECTED_IMAGE_CROP_RECOVERY_CONFLICT/u);
+});
+
 test('preparation prefers an off-main-thread worker with a safe fallback', () => {
   assert.match(source, /prepareSelectedImageCropInWorker/u);
   assert.match(source, /workerResult === null/u);

@@ -1,7 +1,7 @@
 ---
 title: Local manual image selection architecture
 status: accepted
-last_updated: 2026-08-30
+last_updated: 2026-09-14
 ---
 
 # Architektura lokalnej ręcznej selekcji
@@ -211,10 +211,12 @@ różne listy aktywnych `seq_*`.
 TASK-0492: `crop-session.ts:selectedImageCropReviewReason` ocenia zapisany
 dowód niezależnie od klasy confidence. V10 może zachować fallback dołu przy
 pozornie pewnym górnym rzędzie; taki wynik wymaga korekty. Ta sama funkcja
-steruje storage, obowiązkiem po reloadzie, badge oraz filtrem UI. Nie zmienia
-historycznych współrzędnych, fingerprintów ani manifestów JPEG. Istniejące
-reviewed/corrected nadal rozwiązują obowiązek. Konflikt struktura/rejestracja
-ma pierwszeństwo przed pozytywnym statusem jednego z tych źródeł.
+steruje storage, obowiązkiem po reloadzie oraz filtrem UI. Status nie jest
+wyświetlany jako plakietka na miniaturze; kafelek zachowuje obramowanie wyboru,
+błędu i fokusu. Nie zmienia historycznych współrzędnych, fingerprintów ani
+manifestów JPEG. Istniejące reviewed/corrected nadal rozwiązują obowiązek.
+Konflikt struktura/rejestracja ma pierwszeństwo przed pozytywnym statusem
+jednego z tych źródeł.
 
 Iteracja v0.10.185 dodaje ograniczony poziomy wariant dylatacji (aspekt 2)
 obok izotropowego. Numery są analizowane w lokalnym układzie nachylenia rzędu,

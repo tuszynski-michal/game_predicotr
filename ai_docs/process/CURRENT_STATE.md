@@ -6,6 +6,12 @@ last_updated: 2026-09-14
 
 # Current State
 
+### Niezależna korekta UI — kafelki przycinania zdjęć
+
+- Kafelki podglądu w `Przytnij wybrane zdjęcia` nie pokazują już plakietek
+  statusu. Pozostają obramowania wyboru, błędu i fokusu; filtry oraz kolejka
+  korekt działają bez zmiany.
+
 ### TASK-0532 — retry importu zdjęć odbudowuje postęp joba
 
 - Retry `import/image_directory` zachowuje UUID, input payload i trwałe

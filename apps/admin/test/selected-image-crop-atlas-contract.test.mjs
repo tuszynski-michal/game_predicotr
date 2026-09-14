@@ -20,6 +20,13 @@ const styles = await readFile(
   new URL('../src/app/globals.css', import.meta.url),
   'utf8',
 );
+const workspace = await readFile(
+  new URL(
+    '../src/features/semi-automatic-image-selection/selected-image-crop-workspace.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 test('local review atlases contain at most one hundred deterministic thumbnails', () => {
   assert.match(atlas, /ATLAS_BATCH_SIZE = 100/u);
@@ -46,6 +53,15 @@ test('larger crop thumbnails stay in one horizontally scrollable row', () => {
     styles,
     /\.selectedImageCropTilePlaceholder\s*\{[\s\S]*?width:\s*144px;[\s\S]*?height:\s*96px;/u,
   );
+});
+
+test('crop tiles use selection borders without status badges', () => {
+  assert.match(
+    styles,
+    /\.selectedImageCropTile\.isSelected\s*\{[\s\S]*?border-color:/u,
+  );
+  assert.doesNotMatch(workspace, /selectedImageCropTileBadge/u);
+  assert.doesNotMatch(styles, /selectedImageCropTileBadge/u);
 });
 
 test('crop worker is recycled and has an explicit unsupported-browser fallback', () => {

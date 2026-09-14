@@ -17,13 +17,13 @@ const viewer = await readFile(
   'utf8',
 );
 
-test('bad boundary evidence cannot appear certain or disappear from the uncertainty filter', () => {
+test('bad boundary evidence remains in the uncertainty filter without a preview badge', () => {
   assert.match(
     workspace,
     /selectedImageCropReviewReason\(entry\.result\?\.autoCropProposal\)/u,
   );
-  assert.match(workspace, /Granice do sprawdzenia/u);
   assert.match(workspace, /Niepotwierdzone granice — wymagana korekta/u);
+  assert.doesNotMatch(workspace, /selectedImageCropTileBadge/u);
 });
 const parentWorkspace = await readFile(
   new URL(
@@ -59,9 +59,6 @@ test('crop review provides an atlas grid and opens only selected corrections in 
   assert.match(workspace, /Zatwierdź i zakończ przegląd/u);
   assert.match(workspace, /Przelicz nieprzejrzane nowym detektorem/u);
   assert.match(workspace, /Niepewne/u);
-  assert.match(workspace, /Pewne/u);
-  assert.match(workspace, /Zachowawcze/u);
-  assert.match(workspace, /Szerokie — sprawdź/u);
   assert.match(workspace, /Zaznacz wszystkie/u);
   assert.match(workspace, /Odznacz wszystkie/u);
   assert.match(workspace, /replaceSelectedImageCropCorrectionSelection/u);

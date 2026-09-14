@@ -122,9 +122,6 @@ export function SelectedImageCropWorkspace() {
   const correctionFileNames = new Set(
     prepared ? effectiveSelectedImageCropCorrections(prepared.snapshot) : [],
   );
-  const correctedFileNames = new Set(
-    prepared?.snapshot.review.correctedFileNames ?? [],
-  );
   const failures = prepared?.snapshot.session.failures ?? [];
   const done =
     prepared?.snapshot.review.completedAt !== null && prepared !== null;
@@ -1089,19 +1086,6 @@ export function SelectedImageCropWorkspace() {
                       <span className="selectedImageCropTileLabel">
                         {entry.fileName}
                       </span>
-                      {selected ? (
-                        <span className="selectedImageCropTileBadge">
-                          Do poprawy
-                        </span>
-                      ) : correctedFileNames.has(entry.fileName) ? (
-                        <span className="selectedImageCropTileBadge isCorrected">
-                          Poprawiony
-                        </span>
-                      ) : (
-                        <ProposalBadge
-                          proposal={entry.result?.autoCropProposal ?? null}
-                        />
-                      )}
                     </button>
                   );
                 })}
@@ -1113,41 +1097,6 @@ export function SelectedImageCropWorkspace() {
       {notice !== '' ? <p className="noticeMessage">{notice}</p> : null}
       {error !== '' ? <p className="errorMessage">{error}</p> : null}
     </section>
-  );
-}
-
-function ProposalBadge({
-  proposal,
-}: {
-  readonly proposal: SelectedImageAutoCropProposal | null;
-}) {
-  if (proposal === null) return null;
-  if (selectedImageCropReviewReason(proposal) !== null)
-    return (
-      <span className="selectedImageCropTileBadge isWide">
-        Granice do sprawdzenia
-      </span>
-    );
-  if (proposal.structural)
-    return (
-      <span className="selectedImageCropTileBadge isConservative">
-        {proposal.structural.status === 'detected'
-          ? 'Układ wykryty'
-          : 'Wymaga ręcznego cięcia'}
-      </span>
-    );
-  if (proposal.classification === 'high_confidence')
-    return <span className="selectedImageCropTileBadge isCertain">Pewne</span>;
-  if (proposal.classification === 'conservative')
-    return (
-      <span className="selectedImageCropTileBadge isConservative">
-        Zachowawcze
-      </span>
-    );
-  return (
-    <span className="selectedImageCropTileBadge isWide">
-      Szerokie — sprawdź
-    </span>
   );
 }
 

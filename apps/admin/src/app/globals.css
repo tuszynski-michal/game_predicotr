@@ -1970,38 +1970,6 @@ nav {
   white-space: nowrap;
 }
 
-.selectedImageCropTileBadge {
-  position: absolute;
-  top: 0.35rem;
-  right: 0.35rem;
-  padding: 0.2rem 0.4rem;
-  color: #1f1300;
-  font-size: 0.7rem;
-  font-weight: 800;
-  background: #fbbf24;
-  border-radius: 999px;
-}
-
-.selectedImageCropTileBadge.isCorrected {
-  color: #052e22;
-  background: var(--accent);
-}
-
-.selectedImageCropTileBadge.isCertain {
-  color: #052e22;
-  background: #6ee7b7;
-}
-
-.selectedImageCropTileBadge.isConservative {
-  color: #2e2100;
-  background: #fde68a;
-}
-
-.selectedImageCropTileBadge.isWide {
-  color: #450a0a;
-  background: #fecaca;
-}
-
 .manualImageSelectionViewer:fullscreen .manualImageSelectionImageFrame {
   min-height: 0;
   height: auto;

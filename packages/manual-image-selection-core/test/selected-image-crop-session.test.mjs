@@ -38,6 +38,28 @@ test('top-row confidence cannot hide a persisted failed bottom-boundary proof', 
   assert.deepEqual(snapshot.shards[0].results[name].autoCropProposal, proposal);
 });
 
+test('operator can accept one automatic warning without sending it to correction', () => {
+  const snapshot = migrateSelectedImageCropManifestV1(manifest(3));
+  const name = snapshot.inventory.entries[0].fileName;
+  snapshot.review.reviewedFileNames = [];
+  snapshot.shards[0].results[name].autoCropProposal = {
+    classification: 'conservative',
+    evidence: { fallbackReason: null },
+  };
+
+  const accepted = updateSelectedImageCropCorrections(
+    snapshot.review,
+    name,
+    false,
+    true,
+  );
+  const restored = { ...snapshot, review: accepted };
+
+  assert.deepEqual(requiredSelectedImageCropCorrections(restored), []);
+  assert.deepEqual(accepted.acceptedSuggestionFileNames, [name]);
+  assert.equal(selectedImageCropFileState(restored, name), 'reviewed');
+});
+
 test('review decisions override warnings but conflict cannot become an automatic success', () => {
   assert.equal(
     selectedImageCropReviewReason({

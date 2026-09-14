@@ -62,6 +62,8 @@ export interface SelectedImageCropReviewV2 {
   readonly schemaVersion: typeof SELECTED_IMAGE_CROP_SESSION_SCHEMA_VERSION;
   readonly reviewedFileNames: readonly string[];
   readonly correctionFileNames: readonly string[];
+  /** Operator accepted an automatic warning without changing the crop. */
+  readonly acceptedSuggestionFileNames?: readonly string[];
   readonly correctionCursor: number;
   readonly correctedFileNames: readonly string[];
   readonly completedAt: string | null;
@@ -99,6 +101,8 @@ export function selectedImageCropFileState(
     return 'needs_correction';
   if (snapshot.review.correctedFileNames.includes(fileName)) return 'corrected';
   if (snapshot.review.reviewedFileNames.includes(fileName)) return 'reviewed';
+  if ((snapshot.review.acceptedSuggestionFileNames ?? []).includes(fileName))
+    return 'reviewed';
   if (snapshot.session.failures.some((item) => item.fileName === fileName))
     return 'failed';
   if (snapshot.session.pendingOperation?.fileName === fileName)
@@ -114,6 +118,7 @@ export function requiredSelectedImageCropCorrections(
   const resolved = new Set([
     ...snapshot.review.reviewedFileNames,
     ...snapshot.review.correctedFileNames,
+    ...(snapshot.review.acceptedSuggestionFileNames ?? []),
   ]);
   return snapshot.shards.flatMap((shard) =>
     Object.entries(shard.results)
@@ -145,6 +150,7 @@ export function selectedImageCropRecalculationFileNames(
     ...requiredSelectedImageCropCorrections(snapshot),
     ...snapshot.review.reviewedFileNames,
     ...snapshot.review.correctedFileNames,
+    ...(snapshot.review.acceptedSuggestionFileNames ?? []),
     ...snapshot.review.correctionFileNames,
   ]);
   const preparedNames = new Set(
@@ -186,6 +192,7 @@ export function migrateSelectedImageCropManifestV1(
       schemaVersion: 2,
       reviewedFileNames: [...reviewed],
       correctionFileNames: [],
+      acceptedSuggestionFileNames: [],
       correctionCursor: 0,
       correctedFileNames: [],
       completedAt:
@@ -274,13 +281,18 @@ export function updateSelectedImageCropCorrections(
   review: SelectedImageCropReviewV2,
   fileName: string,
   selected: boolean,
+  acceptAutomaticSuggestion = false,
 ): SelectedImageCropReviewV2 {
   const names = new Set(review.correctionFileNames);
+  const acceptedSuggestions = new Set(review.acceptedSuggestionFileNames ?? []);
   if (selected) names.add(fileName);
   else names.delete(fileName);
+  if (selected) acceptedSuggestions.delete(fileName);
+  else if (acceptAutomaticSuggestion) acceptedSuggestions.add(fileName);
   return {
     ...review,
     correctionFileNames: [...names],
+    acceptedSuggestionFileNames: [...acceptedSuggestions],
     correctionCursor: Math.min(
       review.correctionCursor,
       Math.max(0, names.size - 1),
@@ -292,11 +304,19 @@ export function updateSelectedImageCropCorrections(
 export function replaceSelectedImageCropCorrections(
   review: SelectedImageCropReviewV2,
   fileNames: readonly string[],
+  automaticSuggestionFileNames: readonly string[] = [],
 ): SelectedImageCropReviewV2 {
   const unique = [...new Set(fileNames)];
+  const selected = new Set(unique);
+  const acceptedSuggestions = new Set(review.acceptedSuggestionFileNames ?? []);
+  for (const fileName of unique) acceptedSuggestions.delete(fileName);
+  for (const fileName of automaticSuggestionFileNames) {
+    if (!selected.has(fileName)) acceptedSuggestions.add(fileName);
+  }
   return {
     ...review,
     correctionFileNames: unique,
+    acceptedSuggestionFileNames: [...acceptedSuggestions],
     correctionCursor: Math.min(
       review.correctionCursor,
       Math.max(0, unique.length - 1),
@@ -313,13 +333,16 @@ export function markSelectedImageCropCorrected(
     (name) => name !== fileName,
   );
   const corrected = new Set(review.correctedFileNames);
+  const acceptedSuggestions = new Set(review.acceptedSuggestionFileNames ?? []);
   corrected.add(fileName);
+  acceptedSuggestions.delete(fileName);
   const reviewed = new Set(review.reviewedFileNames);
   reviewed.add(fileName);
   return {
     ...review,
     reviewedFileNames: [...reviewed],
     correctionFileNames: corrections,
+    acceptedSuggestionFileNames: [...acceptedSuggestions],
     correctedFileNames: [...corrected],
     correctionCursor: Math.min(
       review.correctionCursor,

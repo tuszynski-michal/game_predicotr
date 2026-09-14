@@ -882,6 +882,12 @@ export async function setSelectedImageCropCorrection(input: {
     input.prepared.snapshot.review,
     input.fileName,
     input.selected,
+    !input.selected &&
+      selectedImageCropReviewReason(
+        input.prepared.manifest.entries.find(
+          (entry) => entry.fileName === input.fileName,
+        )?.result?.autoCropProposal,
+      ) !== null,
   );
   await writeSelectedImageCropReview(input.prepared.outputDirectory, review);
   return {
@@ -906,6 +912,7 @@ export async function clearSelectedImageCropCorrections(
 export async function replaceSelectedImageCropCorrectionSelection(input: {
   readonly prepared: PreparedSelectedImageCropDirectory;
   readonly fileNames: readonly string[];
+  readonly automaticSuggestionFileNames?: readonly string[];
 }): Promise<PreparedSelectedImageCropDirectory> {
   const preparedNames = new Set(
     input.prepared.manifest.entries
@@ -917,6 +924,7 @@ export async function replaceSelectedImageCropCorrectionSelection(input: {
   const review = replaceSelectedImageCropCorrections(
     input.prepared.snapshot.review,
     input.fileNames,
+    input.automaticSuggestionFileNames,
   );
   await writeSelectedImageCropReview(input.prepared.outputDirectory, review);
   return {
@@ -1062,6 +1070,7 @@ async function openSelectedImageCropSnapshot(
   );
   const review: SelectedImageCropReviewV2 = {
     ...storedReview,
+    acceptedSuggestionFileNames: storedReview.acceptedSuggestionFileNames ?? [],
     correctedFileNames: storedReview.correctedFileNames ?? [],
   };
   const resultsDirectory =

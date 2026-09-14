@@ -15,6 +15,13 @@ last_updated: 2026-09-14
 - Usunięto blokadę `SELECTED_IMAGE_CROP_RECOVERY_CONFLICT`; nie ma automatycznego
   usuwania ani nadpisywania pliku o niezgodnej sumie kontrolnej.
 
+### Niezależna korekta UI — pojedyncze potwierdzanie przycięć
+
+- Kliknięcie pojedynczej miniaturki dodaje ją do ręcznej poprawki albo ją z niej
+  usuwa. Dla automatycznej sugestii drugie kliknięcie zapisuje trwałe
+  potwierdzenie operatora, że crop jest poprawny, i nie kieruje go ponownie do
+  korekty ani przeliczenia.
+
 ### Niezależna korekta UI — kafelki przycinania zdjęć
 
 - Kafelki podglądu w `Przytnij wybrane zdjęcia` nie pokazują już plakietek

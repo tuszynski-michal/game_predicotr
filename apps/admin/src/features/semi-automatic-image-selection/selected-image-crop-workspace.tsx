@@ -716,10 +716,17 @@ export function SelectedImageCropWorkspace() {
       const ordered = prepared.manifest.entries.flatMap((entry) =>
         selected.has(entry.fileName) ? [entry.fileName] : [],
       );
+      const automaticSuggestionFileNames = visibleEntries.flatMap(
+        ({ entry }) =>
+          selectedImageCropReviewReason(entry.result?.autoCropProposal) === null
+            ? []
+            : [entry.fileName],
+      );
       setPrepared(
         await replaceSelectedImageCropCorrectionSelection({
           prepared,
           fileNames: ordered,
+          automaticSuggestionFileNames,
         }),
       );
     } catch (cause) {
@@ -970,6 +977,10 @@ export function SelectedImageCropWorkspace() {
                         .length
                     : 0}
                 </strong>
+                <p className="selectedImageCropSelectionHint">
+                  Kliknij pojedynczą miniaturkę: obramowanie oznacza poprawkę, a
+                  ponowne kliknięcie potwierdza, że zdjęcie jest dobre.
+                </p>
                 <button
                   className="secondaryButton"
                   disabled={busy || preparationProgress !== null || done}
@@ -1058,7 +1069,7 @@ export function SelectedImageCropWorkspace() {
                       onClick={() => void toggleCorrection(entry.fileName)}
                       title={
                         failure === undefined
-                          ? entry.fileName
+                          ? `${entry.fileName}: ${selected ? 'usuń z poprawki' : 'zaznacz do poprawy'}`
                           : `${entry.fileName}: ${failure.stage} — ${failure.code}`
                       }
                       type="button"

@@ -64,6 +64,13 @@ test('crop review provides an atlas grid and opens only selected corrections in 
   assert.match(workspace, /replaceSelectedImageCropCorrectionSelection/u);
 });
 
+test('each thumbnail can accept or select one automatic crop suggestion', () => {
+  assert.match(workspace, /Kliknij pojedynczą miniaturkę/u);
+  assert.match(workspace, /automaticSuggestionFileNames/u);
+  assert.match(workspace, /zaznacz do poprawy/u);
+  assert.match(workspace, /usuń z poprawki/u);
+});
+
 test('shared viewer overlay is optional and preserves existing image rendering', () => {
   assert.match(viewer, /readonly imageOverlay\?: ReactNode/u);
   assert.match(viewer, /\{imageOverlay\}/u);

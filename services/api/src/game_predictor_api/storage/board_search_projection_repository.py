@@ -449,6 +449,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 ImageBoardSearchCandidateModel.game_id == game_id,
                 ImageBoardSearchCandidateModel.sequence_number == sequence_number,
             )
+            .execution_options(populate_existing=True)
         ).all()
         payloads = tuple(_payload_from_candidate(record) for record, _job in rows)
         canonical_review_item_id = self._session.scalar(

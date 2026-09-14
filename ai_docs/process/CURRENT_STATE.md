@@ -6,6 +6,28 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0541 — aktualny kandydat w szybkim indeksie wyszukiwania plansz
+
+- Przyczyną braku dokładnego wyniku dla sekwencji 12 był stary stan obiektu ORM
+  po `INSERT ... ON CONFLICT DO UPDATE`. Kandydat miał prawidłowe 15 symboli,
+  lecz reconcile kopiował wcześniejsze puste tablice z identity map do
+  `image_board_search_fast_documents`.
+- `reconcile_sequence()` odświeża teraz wcześniej załadowanego kandydata z
+  bazy. Regresja PostgreSQL odtwarza upsert pustego kandydata do pełnego układu
+  i potwierdza 15 kodów oraz 15 znanych pozycji w fast documencie.
+- Setowy `UPDATE` naprawił 19 377 pochodnych dokumentów gry bez zmiany symboli,
+  review, obrazów ani kandydatów. Audyt końcowy wykazał 0 rozbieżności.
+- Pełny układ operatora zwraca teraz sekwencję 12 jako pierwszy wynik: 100%,
+  15 exact, 0 alternative, 0 mismatch i 0 unknown. Kolejność wprowadzania
+  kolumnami zachowuje kanoniczne indeksy i nie była przyczyną błędu.
+- API i ogólny worker działają z nowym kodem; ponowny audyt po ich przeładowaniu
+  nadal wykazał 0 niespójnych dokumentów. Restart workera ujawnił, że niejawne
+  odzyskanie aktywnego importu może jeszcze trafić w `JOB_PROGRESS_REGRESSION`.
+  Standardowy retry zachował UUID, manifest i checkpointy plików, wyzerował
+  agregat joba, a po ukończeniu preflightu `70363 - 93861 cut` jako 2611/2611
+  import `117829 - 128268 cut` wznowił próbę 3. Licznik wzrósł do 1444/2320,
+  status pozostał `processing`, a błąd był pusty.
+
 ### TASK-0540 — zgodna tożsamość preflightu niepełnych boków v2
 
 - Admin rozpoznaje teraz bieżący snapshot

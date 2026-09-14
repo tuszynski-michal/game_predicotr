@@ -2133,6 +2133,13 @@ jednego właściciela dla `game_id + sequence_number`. Obie projekcje są
 aktualizowane w tej samej transakcji co import, nowa predykcja, korekta
 geometrii lub decyzja review.
 
+Po upsercie istniejącego kandydata synchronizator musi ponownie zasilić jego
+obiekt ORM z aktualnego wiersza bazy przed wyborem canonical owner i zapisaniem
+fast documentu. Sam `INSERT ... ON CONFLICT DO UPDATE` nie odświeża obiektu,
+który był już obecny w identity map sesji SQLAlchemy; bez jawnego
+`populate_existing` szybki indeks mógłby dostać wcześniejsze tablice kodów i
+znanych pozycji mimo poprawnego kandydata.
+
 `image_board_search_fast_documents` jest wąskim, fizycznym read modelem
 wyłącznie aktualnie wybranego dokumentu. Zachowuje identyfikatory planszy,
 status, checksumę, znane pozycje oraz pięć tablic kodów mobilnych 3 × 5

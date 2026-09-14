@@ -37,12 +37,14 @@ from game_predictor_api.storage.image_job_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
+    ImageBoardSearchCandidateModel,
     ImageFileExecutionModel,
     ImageGeometryRolloutStateModel,
     ImageImportJobFileModel,
     ImageReviewItemModel,
     RecognizedBoardModel,
     SourceImageModel,
+    SymbolModel,
 )
 from game_predictor_api.storage.page_geometry_override_repository import (
     SqlAlchemyPageGeometryOverrideRepository,
@@ -418,6 +420,7 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
             "image_review_queue_items",
             "image_review_items",
             "image_board_search_candidates",
+            "image_board_search_fast_documents",
         ):
             connection.exec_driver_sql(
                 f"CREATE TABLE game_data_v2.{table_name}_g_{game_id.hex} "
@@ -449,6 +452,16 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
     file_execution_key = execution.file_execution_key
 
     with game_storage_scope(game_id), factory.begin() as session:
+        session.add(
+            SymbolModel(
+                game_id=game_id,
+                mobile_code=3,
+                code="CYTRYNA",
+                name="Cytryna",
+                is_wildcard=False,
+                display_order=0,
+            )
+        )
         source = SourceImageModel(
             import_job_id=job.id,
             file_execution_key=file_execution_key,
@@ -491,7 +504,7 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
         session.add(review)
         session.flush()
 
-        def payload(status: str) -> BoardSearchProjectionPayload:
+        def payload(status: str, symbol_code: str | None = None) -> BoardSearchProjectionPayload:
             return BoardSearchProjectionPayload(
                 game_id=game_id,
                 import_job_id=job.id,
@@ -500,7 +513,7 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
                     review_item_id=review.id,
                     sequence_number=1,
                     status=status,
-                    primary_symbol_codes=(None,) * 15,
+                    primary_symbol_codes=(symbol_code,) * 15,
                     alternative_symbol_codes=((),) * 15,
                 ),
                 board_checksum_sha256="a" * 64,
@@ -511,7 +524,11 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
 
         repository = SqlAlchemyBoardSearchProjectionRepository(session)
         repository.upsert_candidate(payload("pending"))
-        repository.upsert_candidate(payload("accepted"))
+        loaded_candidate = session.get(ImageBoardSearchCandidateModel, review.id)
+        assert loaded_candidate is not None
+        assert loaded_candidate.primary_symbol_mobile_codes == [None] * 15
+        repository.upsert_candidate(payload("accepted", "CYTRYNA"))
+        repository.reconcile_sequence(game_id, 1)
 
     with database.connect() as connection:
         assert (
@@ -534,6 +551,16 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
             )
             == "accepted"
         )
+        fast_document = connection.execute(
+            text(
+                "SELECT known_evidence_positions, primary_symbol_mobile_codes "
+                "FROM game_data_v2.image_board_search_fast_documents "
+                "WHERE game_id=:game_id AND sequence_number=1"
+            ),
+            {"game_id": game_id},
+        ).one()
+        assert fast_document.known_evidence_positions == [str(index) for index in range(15)]
+        assert fast_document.primary_symbol_mobile_codes == [3] * 15
         assert (
             connection.scalar(text("SELECT count(*) FROM public.image_board_search_candidates"))
             == 0

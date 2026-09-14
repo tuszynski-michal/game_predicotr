@@ -414,11 +414,12 @@ class OperationalImageReviewService:
         game_id: UUID,
         import_job_id: UUID,
     ) -> ImageReviewItem:
-        item = self._repository.get_item(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-        )
+        with game_storage_scope(game_id):
+            item = self._repository.get_item(
+                review_item_id,
+                game_id=game_id,
+                import_job_id=import_job_id,
+            )
         if item is None:
             raise ImageReviewNotFoundError(
                 "IMAGE_REVIEW_ITEM_NOT_FOUND",

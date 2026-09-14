@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.image_reviews import OperationalImageReviewService
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.page_geometry_overrides import PageGeometryOverrideService
 from game_predictor_api.config import ApiSettings
@@ -19,6 +20,7 @@ from game_predictor_api.domain.board_search import (
     BoardSearchCandidate,
     BoardSearchProjectionPayload,
 )
+from game_predictor_api.domain.image_reviews import ImageReviewNotFoundError
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
@@ -35,8 +37,12 @@ from game_predictor_api.storage.game_storage_routing import (
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
 )
+from game_predictor_api.storage.image_review_repository import (
+    SqlAlchemyOperationalImageReviewRepository,
+)
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
+    CellObservationModel,
     ImageBoardSearchCandidateModel,
     ImageFileExecutionModel,
     ImageGeometryRolloutStateModel,
@@ -563,6 +569,153 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
         assert fast_document.primary_symbol_mobile_codes == [3] * 15
         assert (
             connection.scalar(text("SELECT count(*) FROM public.image_board_search_candidates"))
+            == 0
+        )
+
+
+def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
+    database: Engine,
+) -> None:
+    now = datetime(2026, 9, 14, tzinfo=UTC)
+    source_checksum = "b" * 64
+    pipeline_fingerprint = "c" * 64
+    with database.begin() as connection:
+        game_id = _game(connection, code="operational-review-item-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        for table_name in (
+            "image_import_job_files",
+            "source_images",
+            "recognized_boards",
+            "cell_observations",
+            "image_review_queue_states",
+            "image_review_items",
+            "image_review_queue_items",
+        ):
+            connection.exec_driver_sql(
+                f"CREATE TABLE game_data_v2.{table_name}_g_{game_id.hex} "
+                f"PARTITION OF game_data_v2.{table_name} FOR VALUES IN ('{game_id}')"
+            )
+
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with factory.begin() as session:
+        job = SqlAlchemyJobRepository(session).add_job(
+            create_job(
+                JobType.IMPORT,
+                game_id=game_id,
+                input_payload={
+                    "schema_version": 1,
+                    "import_kind": "image_directory",
+                    "pipeline_fingerprint": pipeline_fingerprint,
+                },
+                created_at=now,
+            )
+        )
+    execution = SqlAlchemyImageBatchStore(factory).register_file(
+        job.id,
+        source_checksum_sha256=source_checksum,
+        pipeline_fingerprint=pipeline_fingerprint,
+        source_relative_path="originals/review.jpg",
+        order_index=0,
+        registered_at=now,
+    )
+
+    with game_storage_scope(game_id), factory.begin() as session:
+        source = SourceImageModel(
+            import_job_id=job.id,
+            file_execution_key=execution.file_execution_key,
+            relative_path="originals/review.jpg",
+            checksum_sha256=source_checksum,
+            width=500,
+            height=300,
+            status="waiting_for_review",
+            created_at=now,
+        )
+        session.add(source)
+        session.flush()
+        board = RecognizedBoardModel(
+            source_image_id=source.id,
+            position_index=0,
+            sequence_number_raw="12",
+            sequence_number=12,
+            sequence_confidence=1.0,
+            board_geometry={"source": "v2-review-asset-test"},
+            board_relative_path="boards/review.png",
+            board_checksum_sha256="d" * 64,
+            cells_prediction={"cells": []},
+            board_confidence=1.0,
+            pipeline_fingerprint=pipeline_fingerprint,
+            status="pending_review",
+            created_at=now,
+        )
+        session.add(board)
+        session.flush()
+        review = ImageReviewItemModel(
+            game_id=game_id,
+            import_job_id=job.id,
+            sequence_number=12,
+            recognized_board_id=board.id,
+            status="pending",
+            snapshot={"sequenceNumber": 12},
+            resolution_revision=0,
+            created_at=now,
+        )
+        session.add(review)
+        session.flush()
+        session.add_all(
+            CellObservationModel(
+                recognized_board_id=board.id,
+                row_index=index // 5,
+                column_index=index % 5,
+                crop_relative_path=f"cells/review-{index}.png",
+                crop_checksum_sha256=f"{index + 1:064x}",
+                cropper_version="v2-review-asset-test",
+                prediction={
+                    "symbolCode": "?",
+                    "confidence": 0.0,
+                    "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
+                },
+                created_at=now,
+            )
+            for index in range(15)
+        )
+        review_item_id = review.id
+
+    # Asset endpoints begin in a fresh session and carry gameId only in query.
+    with factory() as session:
+        service = OperationalImageReviewService(SqlAlchemyOperationalImageReviewRepository(session))
+        loaded = service.get_item(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=job.id,
+        )
+
+    assert loaded.id == review_item_id
+    assert loaded.game_id == game_id
+    assert loaded.import_job_id == job.id
+    assert loaded.board_relative_path == "boards/review.png"
+    assert len(loaded.cells) == 15
+    with factory() as session:
+        service = OperationalImageReviewService(SqlAlchemyOperationalImageReviewRepository(session))
+        with pytest.raises(ImageReviewNotFoundError) as wrong_job:
+            service.get_item(
+                review_item_id,
+                game_id=game_id,
+                import_job_id=uuid4(),
+            )
+    assert wrong_job.value.code == "IMAGE_REVIEW_ITEM_NOT_FOUND"
+    with database.connect() as connection:
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM public.image_review_items WHERE id=:review_item_id"),
+                {"review_item_id": review_item_id},
+            )
             == 0
         )
 

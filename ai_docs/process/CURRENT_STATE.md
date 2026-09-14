@@ -6,6 +6,21 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0542 — podgląd operacyjnej planszy z magazynu V2
+
+- Przyczyną komunikatu o niedostępnym cropie w `Wyszukaj plansze` był odczyt
+  `OperationalImageReviewService.get_item` bez scope'u magazynu. Endpoint
+  assetu otrzymywał `gameId` wyłącznie w query, więc middleware nie wiązał
+  sesji z `game_data_v2` i zwracał fałszywe `IMAGE_REVIEW_ITEM_NOT_FOUND`.
+- Serwis wiąże teraz cały odczyt elementu z `game_storage_scope(game_id)`.
+  Wspólna poprawka obejmuje podgląd źródła, planszy i komórek oraz odczyt
+  pojedynczego elementu; walidacja `game + import job + item` pozostaje
+  fail-closed.
+- Dla rzeczywistego wyniku sekwencji 12 potwierdzono rekord V2, zgodny JPEG
+  279998 B oraz odpowiedź endpointu `200 image/jpeg`. Izolowana regresja
+  PostgreSQL odtwarza odczyt z nowej, nieskopowanej sesji i brak dostępu dla
+  błędnego import joba.
+
 ### TASK-0541 — aktualny kandydat w szybkim indeksie wyszukiwania plansz
 
 - Przyczyną braku dokładnego wyniku dla sekwencji 12 był stary stan obiektu ORM

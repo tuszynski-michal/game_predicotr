@@ -2038,6 +2038,14 @@ POST /api/v1/admin/image-review-items/{reviewItemId}/geometry-preview
 POST /api/v1/admin/image-review-items/{reviewItemId}/geometry-revisions
 ```
 
+Odczyt pojedynczego elementu oraz jego assetów ustanawia scope magazynu na
+podstawie obowiązkowego `gameId` z query przed pierwszym zapytaniem o dane
+game-owned. Jest to wymagane również wtedy, gdy ścieżka URL nie zawiera UUID
+gry: `reviewItemId` nie może powodować niejawnego odczytu z `public` ani z
+magazynu innej gry. Kontekst `gameId + importJobId + reviewItemId` pozostaje
+sprawdzany łącznie, a brak zgodności zwraca kontrolowane
+`IMAGE_REVIEW_ITEM_NOT_FOUND`.
+
 TASK-0124 rozszerza grupę o kontrolę kompletności i wybór źródła:
 
 ```text

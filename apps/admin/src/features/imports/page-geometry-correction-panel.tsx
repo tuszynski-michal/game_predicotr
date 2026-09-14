@@ -87,6 +87,16 @@ const HANDLE_SCREEN_RADIUS = 7;
 const MIN_GEOMETRY_ZOOM = 1;
 const MAX_GEOMETRY_ZOOM = 30;
 const GEOMETRY_ZOOM_STEP = 0.25;
+const OUTSIDE_SOURCE_AREA_RATIO = 0.3;
+const OUTSIDE_SOURCE_VIEWPORT_SCALE = Math.sqrt(
+  1 + OUTSIDE_SOURCE_AREA_RATIO,
+);
+const OUTSIDE_SOURCE_MARGIN_RATIO =
+  (OUTSIDE_SOURCE_VIEWPORT_SCALE - 1) / 2;
+const OUTSIDE_SOURCE_IMAGE_START_PERCENT =
+  (OUTSIDE_SOURCE_MARGIN_RATIO / OUTSIDE_SOURCE_VIEWPORT_SCALE) * 100;
+const OUTSIDE_SOURCE_IMAGE_SIZE_PERCENT =
+  100 / OUTSIDE_SOURCE_VIEWPORT_SCALE;
 const CORNER_LABELS = ['LT', 'PT', 'PD', 'LD'] as const;
 const CORNER_NAMES = [
   'lewy górny',
@@ -97,6 +107,14 @@ const CORNER_NAMES = [
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, Math.round(value)));
+}
+
+function outsideSourceMinimum(size: number) {
+  return -size * OUTSIDE_SOURCE_MARGIN_RATIO;
+}
+
+function outsideSourceMaximum(size: number) {
+  return size * (1 + OUTSIDE_SOURCE_MARGIN_RATIO);
 }
 
 function initialCorners(width: number, height: number): PageCorners {
@@ -579,13 +597,17 @@ function PageGeometryCorrectionPanelContent({
     const bounded = {
       x: clamp(
         point.x,
-        allowOutsideSource ? -imageSize.width : 0,
-        allowOutsideSource ? 2 * imageSize.width : imageSize.width - 1,
+        allowOutsideSource ? outsideSourceMinimum(imageSize.width) : 0,
+        allowOutsideSource
+          ? outsideSourceMaximum(imageSize.width)
+          : imageSize.width - 1,
       ),
       y: clamp(
         point.y,
-        allowOutsideSource ? -imageSize.height : 0,
-        allowOutsideSource ? 2 * imageSize.height : imageSize.height - 1,
+        allowOutsideSource ? outsideSourceMinimum(imageSize.height) : 0,
+        allowOutsideSource
+          ? outsideSourceMaximum(imageSize.height)
+          : imageSize.height - 1,
       ),
     };
     if (boardCornerPlacement !== null) {
@@ -680,13 +702,17 @@ function PageGeometryCorrectionPanelContent({
     const point = {
       x: clamp(
         next.x,
-        allowOutsideSource ? -imageSize.width : 0,
-        allowOutsideSource ? 2 * imageSize.width : imageSize.width - 1,
+        allowOutsideSource ? outsideSourceMinimum(imageSize.width) : 0,
+        allowOutsideSource
+          ? outsideSourceMaximum(imageSize.width)
+          : imageSize.width - 1,
       ),
       y: clamp(
         next.y,
-        allowOutsideSource ? -imageSize.height : 0,
-        allowOutsideSource ? 2 * imageSize.height : imageSize.height - 1,
+        allowOutsideSource ? outsideSourceMinimum(imageSize.height) : 0,
+        allowOutsideSource
+          ? outsideSourceMaximum(imageSize.height)
+          : imageSize.height - 1,
       ),
     };
     if (dragging.kind === 'page') {
@@ -735,15 +761,22 @@ function PageGeometryCorrectionPanelContent({
     const point = pageGeometryPointFromRenderedCanvas({
       clientX: event.clientX,
       clientY: event.clientY,
-      imageHeight: imageSize.height * (allowOutsideSource ? 3 : 1),
-      imageWidth: imageSize.width * (allowOutsideSource ? 3 : 1),
+      imageHeight:
+        imageSize.height *
+        (allowOutsideSource ? OUTSIDE_SOURCE_VIEWPORT_SCALE : 1),
+      imageWidth:
+        imageSize.width *
+        (allowOutsideSource ? OUTSIDE_SOURCE_VIEWPORT_SCALE : 1),
       renderedHeight: rect.height,
       renderedLeft: rect.left,
       renderedTop: rect.top,
       renderedWidth: rect.width,
     });
     if (point === null || !allowOutsideSource) return point;
-    return { x: point.x - imageSize.width, y: point.y - imageSize.height };
+    return {
+      x: point.x - imageSize.width * OUTSIDE_SOURCE_MARGIN_RATIO,
+      y: point.y - imageSize.height * OUTSIDE_SOURCE_MARGIN_RATIO,
+    };
   }
 
   function beginDrag(
@@ -1275,10 +1308,10 @@ function PageGeometryCorrectionPanelContent({
                     allowOutsideSource
                       ? {
                           position: 'absolute',
-                          left: '33.333333%',
-                          top: '33.333333%',
-                          width: '33.333333%',
-                          height: '33.333333%',
+                          left: `${OUTSIDE_SOURCE_IMAGE_START_PERCENT}%`,
+                          top: `${OUTSIDE_SOURCE_IMAGE_START_PERCENT}%`,
+                          width: `${OUTSIDE_SOURCE_IMAGE_SIZE_PERCENT}%`,
+                          height: `${OUTSIDE_SOURCE_IMAGE_SIZE_PERCENT}%`,
                         }
                       : undefined
                   }
@@ -1297,7 +1330,7 @@ function PageGeometryCorrectionPanelContent({
                   onPointerUp={() => setDragging(null)}
                   viewBox={
                     allowOutsideSource
-                      ? `${-imageSize.width} ${-imageSize.height} ${3 * imageSize.width} ${3 * imageSize.height}`
+                      ? `${outsideSourceMinimum(imageSize.width)} ${outsideSourceMinimum(imageSize.height)} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.width} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.height}`
                       : `0 0 ${imageSize.width} ${imageSize.height}`
                   }
                 >

@@ -6,6 +6,12 @@ last_updated: 2026-09-14
 
 # Current State
 
+### Niezależna korekta UI — mniejszy margines poza źródłem geometrii
+
+- Po zaznaczeniu `Niepełna plansza` szare pole poza zdjęciem ma teraz 30%
+  powierzchni źródła, zamiast ośmiokrotności jego powierzchni. Widok,
+  hit-test i zakres przeciągania narożników używają tego samego marginesu.
+
 ### Niezależna naprawa — cold-start importu korzysta z magazynu gry V2
 
 - Resolver snapshotu modelu sam wiąże scope magazynu gry przed odczytem katalogu,

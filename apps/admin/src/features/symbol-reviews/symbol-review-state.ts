@@ -124,6 +124,17 @@ export function symbolReviewPageRange(
   };
 }
 
+export function parseSymbolReviewPageNumber(
+  value: string,
+  totalPageCount: number,
+): number | null {
+  if (!/^[1-9]\d*$/u.test(value)) return null;
+  const pageNumber = Number(value);
+  return Number.isSafeInteger(pageNumber) && pageNumber <= totalPageCount
+    ? pageNumber
+    : null;
+}
+
 export function symbolReviewWorkspaceReducer(
   state: SymbolReviewWorkspaceState,
   action: SymbolReviewWorkspaceAction,

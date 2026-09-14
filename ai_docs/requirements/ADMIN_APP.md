@@ -502,7 +502,11 @@ operator najpierw potwierdza jego wyczyszczenie. Widok zachowuje jawne przyciski
 poprzedniej/następnej strony, prefetchuje wyłącznie jedną kolejną stronę i trzyma
 w pamięci najwyżej trzy najbliższe strony metadanych. Nie utrzymuje obrazów dla
 całej strony: DOM zawiera tylko karty viewportu i małego overscanu. Admin
-dzieli potwierdzoną stronę deterministycznie na atlasy po maksymalnie 100
+pokazuje na dole także pole jednoznacznego numeru strony. Po wskazaniu liczby z
+zakresu znanego z licznika przechodzi do tej strony po cursorach; pobiera tylko
+metadane stron potrzebnych do dojścia, nie zmienia filtrów ani zaznaczenia i nie
+rozszerza okna trzech stron cache.
+Admin dzieli potwierdzoną stronę deterministycznie na atlasy po maksymalnie 100
 kart, wspólne dla `legacy_file` i `virtual_source`. Dla 500 cropów powstaje
 najwyżej pięć requestów obrazu, a dla 2500 — najwyżej 25: najpierw grupa
 zawierająca widoczny viewport, potem pozostałe grupy w kolejności. Klucz atlasu obejmuje rewizje, checksumy,

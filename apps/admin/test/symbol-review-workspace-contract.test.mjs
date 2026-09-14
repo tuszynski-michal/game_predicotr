@@ -120,6 +120,23 @@ test('keeps an explicit selection across page navigation and tracks every submit
   assert.match(source, /Object\.keys\(selection\.targetsById\)/);
 });
 
+test('allows a direct, validated jump to a numbered review page', () => {
+  const jumpFlow = source.slice(
+    source.indexOf('const goToPage'),
+    source.indexOf('async function prepareProjection'),
+  );
+
+  assert.match(source, /Przejdź do strony/);
+  assert.match(source, /aria-label="Numer strony"/);
+  assert.match(source, /parseSymbolReviewPageNumber/);
+  assert.match(jumpFlow, /loadSymbolReviewPage/);
+  assert.match(jumpFlow, /while \(pageNumber !== targetPageNumber\)/);
+  assert.doesNotMatch(
+    jumpFlow,
+    /setSelection\(createEmptySymbolReviewSelection\(\)\)/,
+  );
+});
+
 test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.doesNotMatch(source, /className=\{styles\.cardBody\}/);
   assert.match(source, /Zapisywanie zmiany/);

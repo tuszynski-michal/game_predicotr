@@ -59,6 +59,7 @@ import {
   DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
   findCachedSymbolReviewPage,
   isSymbolReviewPageSize,
+  parseSymbolReviewPageNumber,
   SYMBOL_REVIEW_PAGE_SIZES,
   symbolReviewFiltersReady,
   symbolReviewPageRange,
@@ -163,6 +164,7 @@ export function SymbolReviewWorkspace({
   const [projectionState, setProjectionState] = useState<LoadState>('ready');
   const [projectionStarting, setProjectionStarting] = useState(false);
   const [paging, setPaging] = useState(false);
+  const [requestedPageNumber, setRequestedPageNumber] = useState('1');
   const [reloadRevision, setReloadRevision] = useState(0);
   const [directPendingCellIds, setDirectPendingCellIds] = useState<
     ReadonlySet<string>
@@ -276,6 +278,7 @@ export function SymbolReviewWorkspace({
       setCountsState('idle');
       setCountsSnapshot(null);
       setCountsCatalogRevision(null);
+      setRequestedPageNumber('1');
       setVirtualPreviewTiles({});
       setPreviewAvailability(emptyPreviewAvailability());
       setReassignTargetSymbolId(null);
@@ -308,6 +311,7 @@ export function SymbolReviewWorkspace({
     setCountsState('idle');
     setCountsSnapshot(null);
     setCountsCatalogRevision(null);
+    setRequestedPageNumber('1');
     pagePositionRef.current = { number: 1 };
     dispatch({ type: 'clear_page' });
     setReloadRevision((revision) => revision + 1);
@@ -661,6 +665,7 @@ export function SymbolReviewWorkspace({
         setVirtualPreviewTiles({});
         setPreviewAvailability(emptyPreviewAvailability());
         pagePositionRef.current = position;
+        setRequestedPageNumber(String(position.number));
         dispatch({
           page: cached.page,
           position: cached.position,
@@ -703,6 +708,7 @@ export function SymbolReviewWorkspace({
         return;
       }
       pagePositionRef.current = position;
+      setRequestedPageNumber(String(position.number));
       setVisibleItems([]);
       previewAnchorCellId.current = null;
       setVirtualPreviewTiles({});
@@ -721,6 +727,109 @@ export function SymbolReviewWorkspace({
       workspace,
     ],
   );
+
+  const goToPage = useCallback(async () => {
+    const pageFilters = asPageFilters(filters);
+    if (pagingRef.current || pageFilters === null || currentPage === null) {
+      return;
+    }
+    if (currentFilteredCount === null) {
+      setError('Poczekaj na wczytanie liczby stron przed przejściem.');
+      return;
+    }
+    const targetPageNumber = parseSymbolReviewPageNumber(
+      requestedPageNumber,
+      totalPageCount,
+    );
+    if (targetPageNumber === null) {
+      setError(`Podaj numer strony od 1 do ${totalPageCount}.`);
+      return;
+    }
+    if (targetPageNumber === currentPageNumber) return;
+
+    pagingRef.current = true;
+    setPaging(true);
+    setError('');
+    requestCoordinator.cancel('prefetch');
+    requestCoordinator.cancel('counts');
+    countsRequestId.current += 1;
+    const requestId = ++pageRequestId.current;
+    const controller = requestCoordinator.begin('page');
+    let page = currentPage;
+    let pageNumber = currentPageNumber;
+    let position = workspace.currentPage?.position ?? { number: pageNumber };
+    try {
+      while (pageNumber !== targetPageNumber) {
+        const direction = targetPageNumber > pageNumber ? 1 : -1;
+        const cursor =
+          direction === 1 ? page.nextCursor : page.previousCursor;
+        if (cursor === null) {
+          setError('Wyniki zmieniły się przed osiągnięciem wskazanej strony.');
+          return;
+        }
+        position =
+          direction === 1
+            ? { afterCursor: cursor, number: pageNumber + 1 }
+            : { beforeCursor: cursor, number: pageNumber - 1 };
+        const cached = findCachedSymbolReviewPage(workspace, position.number);
+        if (cached !== null) {
+          page = cached.page;
+          pageNumber = cached.position.number;
+          position = cached.position;
+          continue;
+        }
+        const result = await loadSymbolReviewPage(api, {
+          ...pageFilters,
+          ...symbolReviewPageCursorOptions(position),
+          signal: controller.signal,
+        });
+        if (
+          requestId !== pageRequestId.current ||
+          !requestCoordinator.isCurrent('page', controller)
+        ) {
+          return;
+        }
+        if (!result.ok) {
+          if (result.aborted !== true) setError(result.error);
+          return;
+        }
+        page = result.page;
+        pageNumber = position.number;
+      }
+      if (
+        requestId !== pageRequestId.current ||
+        !requestCoordinator.isCurrent('page', controller)
+      ) {
+        return;
+      }
+      pagePositionRef.current = position;
+      setRequestedPageNumber(String(position.number));
+      setVisibleItems([]);
+      previewAnchorCellId.current = null;
+      setVirtualPreviewTiles({});
+      setPreviewAvailability(emptyPreviewAvailability());
+      dispatch({ page, position, type: 'page_loaded' });
+      setCountsState('loading');
+      setCountsSnapshot(null);
+      setCountsCatalogRevision(page.catalogRevision);
+    } finally {
+      requestCoordinator.finish('page', controller);
+      if (requestId === pageRequestId.current) {
+        pagingRef.current = false;
+        setPaging(false);
+      }
+    }
+  }, [
+    api,
+    currentFilteredCount,
+    currentPage,
+    currentPageNumber,
+    filters,
+    requestedPageNumber,
+    requestCoordinator,
+    totalPageCount,
+    workspace,
+  ]);
 
   async function prepareProjection() {
     if (filters.gameId === null || projectionStarting) return;
@@ -1220,6 +1329,36 @@ export function SymbolReviewWorkspace({
                   ? 'Wczytywanie strony…'
                   : `Strona ${currentPageNumber} · maks. ${filters.pageSize} symboli`}
               </span>
+              <form
+                className={styles.paginationJump}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void goToPage();
+                }}
+              >
+                <label>
+                  Przejdź do strony
+                  <input
+                    aria-label="Numer strony"
+                    disabled={interactionBusy || currentFilteredCount === null}
+                    inputMode="numeric"
+                    min={1}
+                    max={totalPageCount}
+                    onChange={(event) =>
+                      setRequestedPageNumber(event.target.value)
+                    }
+                    type="number"
+                    value={requestedPageNumber}
+                  />
+                </label>
+                <button
+                  className="secondaryButton"
+                  disabled={interactionBusy || currentFilteredCount === null}
+                  type="submit"
+                >
+                  Przejdź
+                </button>
+              </form>
               <button
                 className="secondaryButton"
                 disabled={interactionBusy || currentPage.nextCursor === null}

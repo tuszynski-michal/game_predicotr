@@ -6,6 +6,13 @@ last_updated: 2026-09-14
 
 # Current State
 
+### Niezależna korekta UI — bezpośrednie przejście strony wyboru symboli
+
+- Dół sekcji `Weryfikacja symboli` ma pole `Przejdź do strony`, walidowane
+  względem aktualnej liczby stron. Przejście utrzymuje filtry i zaznaczenia;
+  dla keysetowego API odczytuje wyłącznie metadane stron koniecznych do dojścia
+  do wskazanego numeru, z zachowaniem trzech stron cache.
+
 ### Niezależna korekta UI — aktualny stan modelu w raporcie stagingu
 
 - `Odśwież status` odtwarza teraz także otwarty raport stagingu, w tym bieżący

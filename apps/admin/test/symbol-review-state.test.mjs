@@ -7,6 +7,7 @@ import {
   isSymbolReviewPageSize,
   MAX_SYMBOL_REVIEW_CACHED_PAGES,
   MAX_SYMBOL_REVIEW_PAGE_SIZE,
+  parseSymbolReviewPageNumber,
   SYMBOL_REVIEW_PAGE_SIZES,
   symbolReviewConfidenceRange,
   symbolReviewFiltersReady,
@@ -150,6 +151,15 @@ test('reports the one-based range represented by the confirmed page size', () =>
     end: 2_500,
   });
   assert.equal(symbolReviewPageRange(1, 0, 100, 0), null);
+});
+
+test('accepts only a one-based page number within the known result range', () => {
+  assert.equal(parseSymbolReviewPageNumber('1', 12), 1);
+  assert.equal(parseSymbolReviewPageNumber('12', 12), 12);
+  assert.equal(parseSymbolReviewPageNumber('', 12), null);
+  assert.equal(parseSymbolReviewPageNumber('0', 12), null);
+  assert.equal(parseSymbolReviewPageNumber('2.5', 12), null);
+  assert.equal(parseSymbolReviewPageNumber('13', 12), null);
 });
 
 test('maps stable confidence bands to the API range snapshot', () => {

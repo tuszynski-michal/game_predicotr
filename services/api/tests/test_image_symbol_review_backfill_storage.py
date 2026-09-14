@@ -15,6 +15,7 @@ from game_predictor_api.storage.image_symbol_review_backfill_repository import (
     SqlAlchemySymbolCellReviewBackfillRepository,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
+    _backfill_cell_conflict_columns,
     _iter_cell_insert_chunks,
 )
 
@@ -26,6 +27,40 @@ def test_backfill_splits_two_hundred_boards_below_postgresql_parameter_limit() -
 
     assert [len(chunk) for chunk in chunks] == [1_000, 1_000, 1_000]
     assert [value for chunk in chunks for value in chunk] == values
+
+
+def test_backfill_conflict_target_matches_the_v2_partition_unique_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = MagicMock()
+    game_id = uuid4()
+    monkeypatch.setattr(
+        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
+        lambda _session, _game_id: True,
+    )
+
+    columns = _backfill_cell_conflict_columns(session, game_id)
+
+    assert columns == (
+        "game_id",
+        "review_item_id",
+        "cell_index",
+    )
+
+
+def test_backfill_conflict_target_keeps_the_legacy_unique_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = MagicMock()
+    game_id = uuid4()
+    monkeypatch.setattr(
+        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
+        lambda _session, _game_id: False,
+    )
+
+    columns = _backfill_cell_conflict_columns(session, game_id)
+
+    assert columns == ("review_item_id", "cell_index")
 
 
 def test_storage_metrics_keep_database_sizes_when_data_directory_is_inaccessible(

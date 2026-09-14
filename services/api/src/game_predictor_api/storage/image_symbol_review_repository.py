@@ -301,6 +301,17 @@ def _uses_logical_current_cell_identity(session: Session, game_id: UUID) -> bool
     return GameStorageRouter().describe(session, game_id).store_schema is GameStorageSchema.V2
 
 
+def _backfill_cell_conflict_columns(
+    session: Session,
+    game_id: UUID,
+) -> tuple[str, ...]:
+    """Match the physical uniqueness rule of the selected game store."""
+
+    if _uses_logical_current_cell_identity(session, game_id):
+        return ("game_id", "review_item_id", "cell_index")
+    return ("review_item_id", "cell_index")
+
+
 @dataclass(frozen=True, slots=True)
 class SymbolCellReviewBackfillReport:
     game_id: UUID
@@ -3686,10 +3697,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             statement = postgresql_insert(ImageSymbolReviewCellModel).values(chunk)
             inserted = self._session.execute(
                 statement.on_conflict_do_nothing(
-                    index_elements=[
-                        ImageSymbolReviewCellModel.review_item_id,
-                        ImageSymbolReviewCellModel.cell_index,
-                    ]
+                    index_elements=_backfill_cell_conflict_columns(self._session, game_id)
                 ).returning(
                     ImageSymbolReviewCellModel.source_available,
                     ImageSymbolReviewCellModel.assigned_symbol_id,

@@ -103,12 +103,13 @@ test('explicit v12 upgrade can recalculate automatic warnings without touching o
   assert.match(source, /preparationPolicyVersion: CROP_V12_POLICY/u);
 });
 
-test('new crop sessions pin the active policy while existing snapshots retain their stored policy', () => {
+test('pristine initialization pins the active policy without relying on a racy manifest-existed flag', () => {
   assert.match(source, /ACTIVE_SELECTED_IMAGE_CROP_POLICY/u);
   assert.match(
     source,
-    /preparationPolicyVersion: isNewSession\s*\? ACTIVE_SELECTED_IMAGE_CROP_POLICY/u,
+    /preparationPolicyVersion: canAdoptActiveSelectedImageCropPolicy\(\s*migratedWithoutPolicy,\s*\)\s*\? ACTIVE_SELECTED_IMAGE_CROP_POLICY/u,
   );
+  assert.doesNotMatch(source, /isNewSession/u);
   const existingSnapshotStart = source.indexOf(
     'const storedSession = await requiredJsonFile',
   );
@@ -122,6 +123,24 @@ test('new crop sessions pin the active policy while existing snapshots retain th
     source.slice(existingSnapshotStart, existingSnapshotEnd),
     /ACTIVE_SELECTED_IMAGE_CROP_POLICY/u,
   );
+});
+
+test('a pristine versionless snapshot adopts v12 before the first prepared crop', () => {
+  const preparationStart = source.indexOf(
+    'export async function prepareAllSelectedImageCrops',
+  );
+  const preparationEnd = source.indexOf(
+    'export async function recalculateUnreviewedSelectedImageCrops',
+    preparationStart,
+  );
+  const preparation = source.slice(preparationStart, preparationEnd);
+
+  assert.match(preparation, /canAdoptActiveSelectedImageCropPolicy/u);
+  assert.match(
+    preparation,
+    /current = await pinSelectedImageCropPreparationPolicy\(current\)/u,
+  );
+  assert.match(preparation, /const missing = current\.sourceFiles/u);
 });
 
 test('unsupported automatic crops are routed to the manual correction queue', () => {

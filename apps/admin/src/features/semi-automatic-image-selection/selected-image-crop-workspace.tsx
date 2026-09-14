@@ -14,6 +14,7 @@ import { CROP_V11_POLICY } from '@game-predictor/manual-image-selection-core/aut
 import { CROP_V12_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 import { ACTIVE_SELECTED_IMAGE_CROP_POLICY } from '@game-predictor/manual-image-selection-core/crop-preparation';
 import {
+  canAdoptActiveSelectedImageCropPolicy,
   effectiveSelectedImageCropCorrections,
   requiredSelectedImageCropCorrections,
   selectedImageCropReviewReason,
@@ -135,7 +136,8 @@ export function SelectedImageCropWorkspace() {
     prepared.snapshot.session.preparationPolicyVersion !==
       SELECTED_IMAGE_AUTO_CROP_POLICY &&
     prepared.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY &&
-    prepared.snapshot.session.preparationPolicyVersion !== CROP_V12_POLICY;
+    prepared.snapshot.session.preparationPolicyVersion !== CROP_V12_POLICY &&
+    !canAdoptActiveSelectedImageCropPolicy(prepared.snapshot);
   const applyPrepared = useCallback(
     (result: PreparedSelectedImageCropDirectory, requestedIndex: number) => {
       const index = Math.min(
@@ -224,7 +226,8 @@ export function SelectedImageCropWorkspace() {
         result.snapshot.session.preparationPolicyVersion !==
           SELECTED_IMAGE_AUTO_CROP_POLICY &&
         result.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY &&
-        result.snapshot.session.preparationPolicyVersion !== CROP_V12_POLICY
+        result.snapshot.session.preparationPolicyVersion !== CROP_V12_POLICY &&
+        !canAdoptActiveSelectedImageCropPolicy(result.snapshot)
       ) {
         preparationAbortRef.current = null;
         setPreparationProgress(null);

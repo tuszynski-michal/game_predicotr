@@ -17,6 +17,7 @@ import {
   type SelectedImageCropSourceEntry,
 } from '@game-predictor/manual-image-selection-core/crop';
 import {
+  canAdoptActiveSelectedImageCropPolicy,
   clearSelectedImageCropFailure,
   selectedImageCropReviewReason,
   requiredSelectedImageCropCorrections,
@@ -269,7 +270,6 @@ export async function prepareSelectedImageCropDirectory(
   let snapshot = await openSelectedImageCropSnapshot(
     outputDirectory,
     manifest,
-    existingManifest === null,
   );
   snapshot = await recoverSelectedImageCropSnapshot(outputDirectory, snapshot);
   manifest = materializeSelectedImageCropManifestV1(snapshot);
@@ -490,18 +490,20 @@ export async function prepareAllSelectedImageCrops(
   onlyFileNames?: ReadonlySet<string>,
   signal?: AbortSignal,
 ): Promise<SelectedImageCropPreparationResult> {
-  if (
-    prepared.snapshot.session.preparationPolicyVersion !==
-      SELECTED_IMAGE_AUTO_CROP_POLICY &&
-    prepared.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY &&
-    prepared.snapshot.session.preparationPolicyVersion !== CROP_V12_POLICY
-  ) {
-    throw new Error('SELECTED_IMAGE_CROP_POLICY_RECALCULATION_REQUIRED');
-  }
   let current = prepared;
-  const missing = prepared.sourceFiles.filter(
+  if (
+    current.snapshot.session.preparationPolicyVersion !==
+      SELECTED_IMAGE_AUTO_CROP_POLICY &&
+    current.snapshot.session.preparationPolicyVersion !== CROP_V11_POLICY &&
+    current.snapshot.session.preparationPolicyVersion !== CROP_V12_POLICY
+  ) {
+    if (!canAdoptActiveSelectedImageCropPolicy(current.snapshot))
+      throw new Error('SELECTED_IMAGE_CROP_POLICY_RECALCULATION_REQUIRED');
+    current = await pinSelectedImageCropPreparationPolicy(current);
+  }
+  const missing = current.sourceFiles.filter(
     (source) =>
-      prepared.manifest.entries.find(
+      current.manifest.entries.find(
         (entry) => entry.fileName === source.fileName,
       )?.result === null &&
       (onlyFileNames === undefined || onlyFileNames.has(source.fileName)),
@@ -1001,7 +1003,6 @@ export async function completeSelectedImageCropReview(
 async function openSelectedImageCropSnapshot(
   outputDirectory: FileSystemDirectoryHandle,
   legacyManifest: SelectedImageCropManifestV1,
-  isNewSession: boolean,
 ): Promise<SelectedImageCropSessionSnapshotV2> {
   const stateDirectory = await outputDirectory.getDirectoryHandle(
     SELECTED_IMAGE_CROP_STATE_DIRECTORY,
@@ -1012,13 +1013,12 @@ async function openSelectedImageCropSnapshot(
   >(stateDirectory, INVENTORY_NAME);
   if (existingInventory === null) {
     const migratedBase = migrateSelectedImageCropManifestV1(legacyManifest);
-    const migrated: SelectedImageCropSessionSnapshotV2 = {
+    const migratedWithoutPolicy: SelectedImageCropSessionSnapshotV2 = {
       ...migratedBase,
       session: {
         ...migratedBase.session,
-        preparationPolicyVersion: isNewSession
-          ? ACTIVE_SELECTED_IMAGE_CROP_POLICY
-          : legacyManifest.entries.some(
+        preparationPolicyVersion:
+          legacyManifest.entries.some(
                 (entry) =>
                   entry.result?.autoCropProposal?.policyVersion ===
                   CROP_V12_POLICY,
@@ -1043,6 +1043,17 @@ async function openSelectedImageCropSnapshot(
                 )
               ? CROP_V11_POLICY
               : null,
+      },
+    };
+    const migrated: SelectedImageCropSessionSnapshotV2 = {
+      ...migratedWithoutPolicy,
+      session: {
+        ...migratedWithoutPolicy.session,
+        preparationPolicyVersion: canAdoptActiveSelectedImageCropPolicy(
+          migratedWithoutPolicy,
+        )
+          ? ACTIVE_SELECTED_IMAGE_CROP_POLICY
+          : migratedWithoutPolicy.session.preparationPolicyVersion,
       },
     };
     await writeJsonFile(stateDirectory, SESSION_NAME, migrated.session);

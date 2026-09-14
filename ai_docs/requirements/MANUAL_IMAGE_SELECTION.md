@@ -618,6 +618,15 @@ przejście z v10/v11 albo nieobsługiwanej wersji wymaga jawnego przeliczenia.
 Aktywacja nie zmienia fingerprintu, progów ani reguł kolejki ręcznej: słaby,
 niepełny lub sprzeczny dowód nadal pozostawia pełny obraz do poprawy.
 
+TASK-0538: całkowicie pusty snapshot bez `preparationPolicyVersion` może
+przypiąć aktywny v12 przed pierwszym wynikiem i od razu rozpocząć
+przygotowanie. Warunek obejmuje puste shardy oraz brak pending, failures,
+decyzji review i `completedAt`. Dowolny trwały ślad pracy zachowuje blokadę
+historycznej sesji i wymaga jawnego przeliczenia. Recovery nie usuwa ani nie
+nadpisuje JPEG-ów. Inicjalizacja nie może opierać decyzji o wersji na samej
+obecności manifestu, ponieważ może on już istnieć, gdy równoległe otwarcie nadal
+czeka na utworzenie inwentarza i shardów.
+
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
 przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do

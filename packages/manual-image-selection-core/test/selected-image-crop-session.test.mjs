@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  canAdoptActiveSelectedImageCropPolicy,
   clearSelectedImageCropFailure,
   selectedImageCropReviewReason,
   requiredSelectedImageCropCorrections,
@@ -19,6 +20,97 @@ import {
 
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
+
+test('only a completely pristine versionless crop snapshot may adopt the active policy', () => {
+  const migrated = migrateSelectedImageCropManifestV1(manifest(3));
+  const pristine = {
+    ...migrated,
+    session: {
+      ...migrated.session,
+      currentIndex: 0,
+      failures: [],
+      pendingOperation: null,
+      preparationPolicyVersion: null,
+    },
+    review: {
+      ...migrated.review,
+      acceptedSuggestionFileNames: [],
+      completedAt: null,
+      correctedFileNames: [],
+      correctionFileNames: [],
+      reviewedFileNames: [],
+    },
+    shards: migrated.shards.map((shard) => ({ ...shard, results: {} })),
+  };
+
+  assert.equal(canAdoptActiveSelectedImageCropPolicy(pristine), true);
+  assert.equal(
+    canAdoptActiveSelectedImageCropPolicy({
+      ...pristine,
+      session: { ...pristine.session, preparationPolicyVersion: 'known-v10' },
+    }),
+    false,
+  );
+  assert.equal(
+    canAdoptActiveSelectedImageCropPolicy({
+      ...pristine,
+      session: {
+        ...pristine.session,
+        failures: [
+          {
+            code: 'BROKEN_JPEG',
+            failedAt: '2026-09-14T18:00:00.000Z',
+            fileName: pristine.inventory.entries[0].fileName,
+            stage: 'decode',
+          },
+        ],
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    canAdoptActiveSelectedImageCropPolicy({
+      ...pristine,
+      session: { ...pristine.session, pendingOperation: { kind: 'write_crop' } },
+    }),
+    false,
+  );
+  assert.equal(
+    canAdoptActiveSelectedImageCropPolicy({
+      ...pristine,
+      shards: migrated.shards,
+    }),
+    false,
+  );
+  for (const field of [
+    'reviewedFileNames',
+    'correctionFileNames',
+    'acceptedSuggestionFileNames',
+    'correctedFileNames',
+  ]) {
+    assert.equal(
+      canAdoptActiveSelectedImageCropPolicy({
+        ...pristine,
+        review: {
+          ...pristine.review,
+          [field]: [pristine.inventory.entries[0].fileName],
+        },
+      }),
+      false,
+      field,
+    );
+  }
+  assert.equal(
+    canAdoptActiveSelectedImageCropPolicy({
+      ...pristine,
+      review: {
+        ...pristine.review,
+        completedAt: '2026-09-14T18:00:00.000Z',
+      },
+    }),
+    false,
+  );
+});
 
 test('top-row confidence cannot hide a persisted failed bottom-boundary proof', () => {
   const proposal = {

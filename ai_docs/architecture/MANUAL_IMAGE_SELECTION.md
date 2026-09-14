@@ -248,11 +248,21 @@ sesji nie ukrywa wyniku pozostałych i daje niezerowy kod końcowy.
 TASK-0536 ustanawia
 `crop-preparation.ts:ACTIVE_SELECTED_IMAGE_CROP_POLICY` pojedynczym źródłem
 domyślnej polityki i wskazuje v12. `openSelectedImageCropSnapshot` zapisuje tę
-wartość wyłącznie przy tworzeniu nowej sesji. Odczyt istniejącego
+wartość wyłącznie dla domenowo pustego snapshotu. Odczyt istniejącego
 `session-v2.json` zachowuje przypiętą wersję, więc restart nie przelicza ani nie
 nadpisuje JPEG-ów i decyzji operatora. Browserowy worker, jego fallback oraz
 runner Node przyjmują aktywną stałą jako domyślną, lecz jawny argument i snapshot
 sesji nadal mają pierwszeństwo. V11 pozostaje niewydany.
+
+TASK-0538 domyka przerwanie lub konkurencyjne otwarcie pomiędzy publikacją
+pustego manifestu v1 a przypięciem polityki w session journalu. Czysta
+klasyfikacja pełnego snapshotu pozwala przyjąć aktywny v12 tylko wtedy, gdy
+polityka jest nieobecna, wszystkie shardy wyników i listy review są puste oraz
+nie ma failure, pending ani `completedAt`. Ta sama klasyfikacja działa już w
+inicjalizacji snapshotu, więc nie zależy od podatnej na wyścig informacji, czy
+dane wywołanie utworzyło pusty manifest. Adapter najpierw trwale zapisuje
+wersję, a dopiero potem przygotowuje pierwszy JPEG. Dowolny ślad pracy zachowuje
+historyczną blokadę i wymaga jawnego przeliczenia.
 
 Iteracja v0.10.185 dodaje ograniczony poziomy wariant dylatacji (aspekt 2)
 obok izotropowego. Numery są analizowane w lokalnym układzie nachylenia rzędu,
@@ -380,12 +390,14 @@ w operacji oczekującej, dlatego recovery po zapisie JPEG-a finalizuje dokładni
 ten sam wynik.
 
 Mały session journal przypina `preparationPolicyVersion`. Nowa sesja zaczyna z
-v10, natomiast brak pola w historycznym stanie jest interpretowany jako legacy,
-bez zgadywania wersji. Taka sesja nie przygotuje brakujących plików nową
-polityką, dopóki operator jawnie nie uruchomi przeliczenia. Recalculator
+aktywnym v12. Brak pola w niepustym historycznym stanie jest interpretowany
+jako legacy, bez zgadywania wersji. Taka sesja nie przygotuje brakujących
+plików nową polityką, dopóki operator jawnie nie uruchomi przeliczenia.
+Całkowicie pusty snapshot może przypiąć aktywną politykę bez reprocessu.
+Recalculator
 wyprowadza zamknięty zbiór nazw z shardów i review state; chroni `reviewed`,
 `corrected` oraz `needs_correction`, a każdy dopuszczony wynik zastępuje przez
-istniejący checksum-bound journal. Po przypięciu v10 zwykłe wznowienie może
+istniejący checksum-bound journal. Po przypięciu polityki zwykłe wznowienie może
 przygotować pozostałe, dotąd brakujące wyniki.
 
 Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma

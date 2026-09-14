@@ -6,6 +6,20 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0538 — odzyskanie pustej sesji przygotowania cropów
+
+- Katalog `348256 - 371007 cut` miał 2528 wpisów, 0 wyników i pusty review,
+  ale brak przypiętej polityki zatrzymywał automat oraz blokował kafelki na
+  `Przygotowano 0 / 2528`.
+- Pusta sesja bez polityki, wyników, decyzji, błędów i pending może teraz
+  trwale przypiąć aktywny v12 przed pierwszym cropem i od razu rozpocząć
+  przygotowanie. Licznik nadal rośnie dopiero po zweryfikowanym zapisie wyniku.
+- Powtórzenie po usunięciu katalogu ujawniło wyścig dwóch otwarć w oknie między
+  manifestem a inwentarzem. Inicjalizacja również używa teraz pełnego snapshotu
+  i nie wyznacza polityki na podstawie samego istnienia manifestu.
+- Jakikolwiek trwały ślad pracy zachowuje dotychczasową blokadę i wymaga jawnej
+  akcji przeliczenia. Nie zmieniono detektora, progów ani fingerprintu.
+
 ### TASK-0537 — automatyczne niepełne siatki trafiają do walidacji
 
 - Niepełna plansza z poprawnym automatycznym `symbolGridQuad` jest od razu

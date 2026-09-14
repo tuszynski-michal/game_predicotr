@@ -82,6 +82,26 @@ export interface SelectedImageCropSessionSnapshotV2 {
   readonly shards: readonly SelectedImageCropResultShardV2[];
 }
 
+/**
+ * A versionless snapshot may adopt today's active detector only before any
+ * durable work or operator decision exists.
+ */
+export function canAdoptActiveSelectedImageCropPolicy(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+): boolean {
+  return (
+    snapshot.session.preparationPolicyVersion == null &&
+    snapshot.session.pendingOperation === null &&
+    snapshot.session.failures.length === 0 &&
+    snapshot.shards.every((shard) => Object.keys(shard.results).length === 0) &&
+    snapshot.review.reviewedFileNames.length === 0 &&
+    snapshot.review.correctionFileNames.length === 0 &&
+    (snapshot.review.acceptedSuggestionFileNames ?? []).length === 0 &&
+    snapshot.review.correctedFileNames.length === 0 &&
+    snapshot.review.completedAt === null
+  );
+}
+
 export type SelectedImageCropFileState =
   | 'queued'
   | 'processing'

@@ -8460,3 +8460,22 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** propozycja nie jest automatycznie akceptowana. Zachowuje maskę,
   wykluczenie ze zwykłego uczenia geometrii i kotwic oraz osobną proweniencję;
   detektor i jego progi pozostają bez zmian.
+
+## D-384 — Pusty snapshot cropów może przyjąć aktywną politykę
+
+- **Status:** accepted (TASK-0538).
+- **Date:** 2026-09-14.
+- **Decision:** wersjonowana sesja bez `preparationPolicyVersion` może
+  automatycznie przypiąć aktywny v12 wyłącznie przed powstaniem jakiegokolwiek
+  wyniku, błędu, pending albo decyzji review.
+- **Rationale:** przerwanie lub konkurencyjne otwarcie w krótkim oknie między
+  publikacją pustego manifestu a inicjalizacją journalu pozostawiało poprawny,
+  lecz nieruchomy stan `0 / N`. Pusty snapshot nie ma danych zależnych od
+  wcześniejszej polityki, więc przypięcie nie jest przeliczeniem.
+- **Consequence:** migracja/inicjalizacja i późniejsze wznowienie stosują tę
+  samą klasyfikację pełnego snapshotu; samo istnienie manifestu nie rozstrzyga,
+  czy aktywna polityka może zostać przypięta.
+- **Safety:** klasyfikacja obejmuje wszystkie shardy i listy review. Dowolny
+  trwały ślad pracy zachowuje wersję lub blokadę historyczną; automatyczne
+  przypięcie nie usuwa, nie nadpisuje i nie renderuje JPEG-a przed zapisem
+  wersji w session journalu.

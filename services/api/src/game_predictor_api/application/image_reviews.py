@@ -53,6 +53,7 @@ from game_predictor_api.domain.image_reviews import (
     validate_image_review_geometry_command,
     validate_image_review_resolution,
 )
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +129,8 @@ class OperationalImageReviewRepository(Protocol):
     ) -> ImageReviewPage: ...
 
     def canonical_pending_count(self, game_id: UUID) -> int: ...
+
+    def pending_symbol_reinference_count(self, game_id: UUID) -> int: ...
 
     def game_counts(self, game_id: UUID) -> ImageReviewCounts: ...
 
@@ -386,8 +389,15 @@ class OperationalImageReviewService:
     def canonical_pending_count(self, game_id: UUID) -> int:
         return self._repository.canonical_pending_count(game_id)
 
+    def pending_symbol_reinference_count(self, game_id: UUID) -> int:
+        """Count the boards the pending-symbol worker will actually revisit."""
+
+        with game_storage_scope(game_id):
+            return self._repository.pending_symbol_reinference_count(game_id)
+
     def game_counts(self, game_id: UUID) -> ImageReviewCounts:
-        return self._repository.game_counts(game_id)
+        with game_storage_scope(game_id):
+            return self._repository.game_counts(game_id)
 
     def pending_grid_reinference_preview(self, game_id: UUID) -> PendingGridReinferencePreview:
         return self._repository.pending_grid_reinference_preview(

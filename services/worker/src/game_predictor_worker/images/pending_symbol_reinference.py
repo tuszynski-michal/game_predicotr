@@ -35,9 +35,9 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 from game_predictor_api.storage.models import (
     CellObservationModel,
     ImageBoardGeometryRevisionModel,
-    ImageBoardSearchFastDocumentModel,
     ImageReviewItemModel,
     ImageSymbolPredictionRevisionModel,
+    ImageSymbolReviewCellModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -174,13 +174,39 @@ class PendingSymbolReinferenceHandler:
                     )
                     if (
                         locked is None
-                        or locked.status != "pending"
                         or current_board is None
                         or current_board.geometry_revision != board.geometry_revision
                         or current_board.geometry_qualification != board.geometry_qualification
                     ):
                         skipped += 1
                     else:
+                        pending_cell = session.scalar(
+                            select(ImageSymbolReviewCellModel.id)
+                            .where(
+                                ImageSymbolReviewCellModel.game_id == job.game_id,
+                                ImageSymbolReviewCellModel.review_item_id == item.id,
+                                ImageSymbolReviewCellModel.geometry_revision
+                                == current_board.geometry_revision,
+                                ImageSymbolReviewCellModel.source_available.is_(True),
+                                ImageSymbolReviewCellModel.review_state == "pending",
+                            )
+                            .limit(1)
+                            .with_for_update()
+                        )
+                        if pending_cell is None:
+                            skipped += 1
+                            context.checkpoint(
+                                checkpoint_payload=_checkpoint_payload(
+                                    processed=processed, skipped=skipped
+                                ),
+                                stage="symbol_reinference",
+                                current=processed + skipped,
+                                total=total,
+                                success_count=processed,
+                                failure_count=0,
+                                review_count=0,
+                            )
+                            continue
                         existing = session.scalar(
                             select(ImageSymbolPredictionRevisionModel).where(
                                 ImageSymbolPredictionRevisionModel.review_item_id == item.id,
@@ -252,11 +278,20 @@ class PendingSymbolReinferenceHandler:
                     )
                     .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
                     .join(
-                        ImageBoardSearchFastDocumentModel,
-                        ImageBoardSearchFastDocumentModel.review_item_id == ImageReviewItemModel.id,
+                        ImageSymbolReviewCellModel,
+                        and_(
+                            ImageSymbolReviewCellModel.review_item_id == ImageReviewItemModel.id,
+                            ImageSymbolReviewCellModel.recognized_board_id
+                            == RecognizedBoardModel.id,
+                        ),
                     )
                     .where(
-                        JobModel.game_id == game_id,
+                        ImageSymbolReviewCellModel.game_id == game_id,
+                        ImageSymbolReviewCellModel.source_available.is_(True),
+                        ImageSymbolReviewCellModel.review_state == "pending",
+                        ImageSymbolReviewCellModel.geometry_revision
+                        == RecognizedBoardModel.geometry_revision,
+                        ImageReviewItemModel.status.in_(("pending", "accepted", "corrected")),
                         or_(
                             JobModel.status == JobStatus.WAITING_FOR_REVIEW,
                             and_(
@@ -264,8 +299,8 @@ class PendingSymbolReinferenceHandler:
                                 RecognizedBoardModel.geometry_qualification.is_not(None),
                             ),
                         ),
-                        ImageReviewItemModel.status == "pending",
                     )
+                    .distinct()
                     .order_by(
                         SourceImageModel.id,
                         ImageReviewItemModel.created_at,

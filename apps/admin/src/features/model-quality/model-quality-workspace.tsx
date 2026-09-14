@@ -626,7 +626,7 @@ export function ModelQualityWorkspace({
             >
               {recalculating
                 ? 'Przeliczanie…'
-                : `Przelicz oczekujące (${pendingPreview?.pendingCount ?? '…'})`}
+                : `Przelicz oczekujące plansze (${pendingPreview?.pendingCount ?? '…'})`}
             </button>
           </div>
         ) : (

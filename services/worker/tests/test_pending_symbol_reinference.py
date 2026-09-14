@@ -29,7 +29,9 @@ def test_explicit_reinference_includes_qualified_pending_from_completed_import(t
     )
     assert "geometry_qualification IS NOT NULL" in query
     assert "completed" in query and "waiting_for_review" in query
-    assert "image_review_items.status = 'pending'" in query
+    assert "image_symbol_review_cells.review_state = 'pending'" in query
+    assert "image_review_items.status IN ('pending', 'accepted', 'corrected')" in query
+    assert "image_board_search_fast_documents" not in query
 
 
 def test_pending_symbol_checkpoint_uses_the_runtime_schema() -> None:

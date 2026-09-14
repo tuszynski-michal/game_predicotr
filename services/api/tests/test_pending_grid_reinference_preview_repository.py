@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from typing import Any, cast
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 from game_predictor_api.storage.image_review_repository import (
     SqlAlchemyOperationalImageReviewRepository,
 )
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
 
@@ -53,3 +55,21 @@ def test_preview_protects_approved_geometry_and_separates_virtual_sources() -> N
     assert preview.unsupported_virtual_board_count == 1
     assert preview.current_v19_board_count == 1
     assert preview.recalculable_board_count == 1
+
+
+def test_pending_symbol_reinference_count_includes_boards_with_pending_cells() -> None:
+    session = MagicMock()
+    session.scalar.return_value = 19380
+    repository = SqlAlchemyOperationalImageReviewRepository(cast(Session, session))
+
+    assert repository.pending_symbol_reinference_count(uuid4()) == 19380
+
+    statement = session.scalar.call_args.args[0]
+    query = str(
+        statement.compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    assert "image_symbol_review_cells.review_state = 'pending'" in query
+    assert "image_review_items.status IN ('pending', 'accepted', 'corrected')" in query

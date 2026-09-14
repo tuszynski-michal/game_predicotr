@@ -620,6 +620,47 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             or 0
         )
 
+    def pending_symbol_reinference_count(self, game_id: UUID) -> int:
+        """Count the same pending-symbol boards selected by the reinference job.
+
+        The mutable state belongs to individual symbol cells.  A board may have
+        an accepted geometry while its cells still carry the bootstrap `?`, so
+        the parent board status must not be used as the pending predicate.
+        """
+
+        return int(
+            self._session.scalar(
+                select(func.count(ImageSymbolReviewCellModel.review_item_id.distinct()))
+                .select_from(ImageSymbolReviewCellModel)
+                .join(
+                    ImageReviewItemModel,
+                    ImageReviewItemModel.id == ImageSymbolReviewCellModel.review_item_id,
+                )
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                )
+                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                .where(
+                    ImageSymbolReviewCellModel.game_id == game_id,
+                    ImageSymbolReviewCellModel.source_available.is_(True),
+                    ImageSymbolReviewCellModel.review_state == "pending",
+                    ImageSymbolReviewCellModel.geometry_revision
+                    == RecognizedBoardModel.geometry_revision,
+                    ImageReviewItemModel.status.in_(("pending", "accepted", "corrected")),
+                    or_(
+                        JobModel.status == JobStatus.WAITING_FOR_REVIEW,
+                        and_(
+                            JobModel.status == JobStatus.COMPLETED,
+                            RecognizedBoardModel.geometry_qualification.is_not(None),
+                        ),
+                    ),
+                )
+            )
+            or 0
+        )
+
     def get_item(
         self,
         review_item_id: UUID,

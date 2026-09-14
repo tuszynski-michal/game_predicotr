@@ -6,6 +6,16 @@ last_updated: 2026-09-14
 
 # Current State
 
+### Niezależna naprawa — ponowne przeliczanie symboli `?`
+
+- Akcja `Przelicz oczekujące` wybiera teraz plansze mające co najmniej jedną
+  bieżącą komórkę symbolu w stanie `pending` (`?`), także gdy geometria planszy
+  została już zaakceptowana lub skorygowana.
+- Podgląd oraz wykonawca joba stosują ten sam wybór i liczą plansze, nie komórki;
+  kolejne uruchomienie nie nadpisuje ręcznych decyzji dla symboli.
+- Kandydat modelu nadal wymaga osobnego potwierdzenia aktywacji przed utworzeniem
+  joba ponownego przeliczania.
+
 ### Niezależna naprawa — odzyskanie przerwanego przycięcia zdjęcia
 
 - Przy ponownym otwarciu `Przytnij wybrane zdjęcia` plik JPEG zapisany przed

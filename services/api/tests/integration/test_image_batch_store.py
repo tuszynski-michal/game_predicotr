@@ -3581,6 +3581,7 @@ def test_pending_reinference_excludes_cancelled_imports(
             active_record.status = JobStatus.WAITING_FOR_REVIEW
             cancelled_record.status = JobStatus.CANCELLED
 
+            active_board_id: UUID | None = None
             for index, job in enumerate((active_job, cancelled_job), start=1):
                 file_execution_key = f"{index:064x}"
                 session.add(
@@ -3608,7 +3609,7 @@ def test_pending_reinference_excludes_cancelled_imports(
                     )
                 )
                 session.flush()
-                _add_review_projection_source(
+                review_item_id, board_id = _add_review_projection_source(
                     session,
                     job_id=job.id,
                     file_execution_key=file_execution_key,
@@ -3616,9 +3617,50 @@ def test_pending_reinference_excludes_cancelled_imports(
                     source_name=f"scope-{index}.jpg",
                     position_index=0,
                     sequence_number=index,
-                    status="pending",
+                    status="accepted",
                     created_at=now,
                 )
+                if job.id == active_job.id:
+                    active_board_id = board_id
+                session.add(
+                    ImageSymbolReviewCellModel(
+                        game_id=game.id,
+                        import_job_id=job.id,
+                        review_item_id=review_item_id,
+                        recognized_board_id=board_id,
+                        sequence_number=index,
+                        cell_index=0,
+                        row_index=0,
+                        column_index=0,
+                        crop_sample_id=f"{index * 1000:064x}",
+                        crop_relative_path=f"crops/scope-{index}-0.png",
+                        crop_checksum_sha256=f"{index * 1000 + 1:064x}",
+                        geometry_revision=0,
+                        cropper_version="projection-test-cropper",
+                        prediction_symbol_code=None,
+                        prediction_confidence=None,
+                        assigned_symbol_id=None,
+                        review_state="pending",
+                        quality_issue=None,
+                        verification_outcome=None,
+                        verified_symbol_id_v2=None,
+                        assignment_source="model",
+                        revision=0,
+                        last_reviewed_by="projection-test",
+                        last_reviewed_at=now,
+                        created_at=now,
+                    )
+                )
+            assert active_board_id is not None
+            active_board = session.get(RecognizedBoardModel, active_board_id)
+            assert active_board is not None
+            active_board.geometry_qualification = {
+                "version": "manual-geometry-qualification-v1",
+                "completenessStatus": "complete",
+                "unavailableCellIndices": [],
+                "excludeFromGeometryTraining": False,
+                "exclusionReason": None,
+            }
             session.commit()
 
         with Session(engine) as session:
@@ -3629,10 +3671,11 @@ def test_pending_reinference_excludes_cancelled_imports(
                 cropper_version="board-cell-crops-v19-test",
                 audit_report_checksum_sha256="a" * 64,
             )
-            assert review_repository.canonical_pending_count(game.id) == 1
-            assert preview.pending_board_count == 1
-            assert preview.recalculable_board_count == 1
-            assert preview.pending_source_count == 1
+            assert review_repository.canonical_pending_count(game.id) == 0
+            assert review_repository.pending_symbol_reinference_count(game.id) == 1
+            assert preview.pending_board_count == 0
+            assert preview.recalculable_board_count == 0
+            assert preview.pending_source_count == 0
 
         grid_rows = PendingGridReinferenceHandler(session_factory, tmp_path)._pending_v19_rows(
             game.id
@@ -3642,7 +3685,7 @@ def test_pending_reinference_excludes_cancelled_imports(
             tmp_path,
             REPOSITORY_ROOT,
         )._pending_rows(game.id)
-        assert [row.import_job_id for row in grid_rows] == [active_job.id]
+        assert grid_rows == []
         assert [row[2].import_job_id for row in symbol_rows] == [active_job.id]
     finally:
         engine.dispose()

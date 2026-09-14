@@ -61,6 +61,7 @@ import {
 import {
   canStartReadyImport,
   pageGeometryPreflightOutcomeLabel,
+  readyBoardImportLifecycleLabel,
   sortReadyBoardImports,
 } from './image-folder-import-state';
 import { PageGeometryCorrectionPanel } from './page-geometry-correction-panel';
@@ -427,7 +428,7 @@ export function ImageFolderImportPanel({
       api.listJobs({
         gameId,
         jobType: 'import',
-        limit: 20,
+        limit: 200,
       }),
       api.getImageDatasetCompleteness(gameId),
       api.listCuratedImageImportSources(gameId),
@@ -436,7 +437,7 @@ export function ImageFolderImportPanel({
       api.listJobs({
         gameId,
         jobType: 'validate',
-        limit: 100,
+        limit: 200,
       }),
     ]);
     if (jobsResult.error === undefined && jobsResult.data !== undefined) {
@@ -1560,13 +1561,22 @@ export function ImageFolderImportPanel({
           <ul className="importCompactList">
             {readySelections.map((ready) => {
               const active = ready.uploadId === readyUploadId;
+              const lifecycleLabel = readyBoardImportLifecycleLabel({
+                geometryPreflightJobs,
+                importJobs: jobs,
+                reportPrepared:
+                  preflight?.uploadId === ready.uploadId &&
+                  preflight.manifestChecksumSha256 ===
+                    ready.manifestChecksumSha256,
+                selection: ready,
+              });
               return (
                 <li key={ready.uploadId}>
                   <strong>{ready.displayName}</strong>
                   <span>
                     {ready.uploadedFileCount.toLocaleString('pl-PL')} plików ·{' '}
                     {(ready.expectedTotalBytes / 1_000_000).toFixed(1)} MB ·{' '}
-                    staging {ready.uploadId.slice(0, 8)}
+                    staging {ready.uploadId.slice(0, 8)} · {lifecycleLabel}
                   </span>
                   <div className="importActionButtons">
                     <button

@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   canStartReadyImport,
   pageGeometryPreflightOutcomeLabel,
+  readyBoardImportLifecycleLabel,
   sortReadyBoardImports,
 } from '../src/features/imports/image-folder-import-state.ts';
 
@@ -21,6 +22,43 @@ function staging(displayName, uploadId) {
     uploadedBytes: 1,
     uploadedFileCount: 1,
   };
+}
+
+function job({
+  checksum = 'a'.repeat(64),
+  geometryManifestChecksum,
+  jobType,
+  sourceSelectionId = 'upload-1',
+  status,
+}) {
+  return {
+    gameId: 'game-1',
+    inputPayload: {
+      importKind: jobType === 'import' ? 'image_directory' : undefined,
+      sourceManifestSha256: checksum,
+      sourceSelectionId,
+      validationKind:
+        jobType === 'validate' ? 'page_geometry_preflight' : undefined,
+    },
+    jobType,
+    progress: {
+      pageGeometryPreflight:
+        geometryManifestChecksum === undefined
+          ? undefined
+          : { geometryManifestChecksumSha256: geometryManifestChecksum },
+    },
+    status,
+  };
+}
+
+function lifecycle(overrides = {}) {
+  return readyBoardImportLifecycleLabel({
+    geometryPreflightJobs: [],
+    importJobs: [],
+    reportPrepared: false,
+    selection: staging('1-10', 'upload-1'),
+    ...overrides,
+  });
 }
 
 test('orders ready board imports by the leading numeric range', () => {
@@ -73,6 +111,74 @@ test('allows a guarded ready import only after both durable manifests are restor
   assert.equal(
     canStartReadyImport({ ...restored, geometryPreflightCompleted: false }),
     false,
+  );
+});
+
+test('labels a staging by its highest durable import stage', () => {
+  assert.equal(lifecycle(), 'oczekuje na operację · załadowano folder');
+  assert.equal(
+    lifecycle({ reportPrepared: true }),
+    'oczekuje na operację · przygotowano preflight',
+  );
+  assert.equal(
+    lifecycle({
+      geometryPreflightJobs: [
+        job({ jobType: 'validate', status: 'processing' }),
+      ],
+    }),
+    'oczekuje na operację · przygotowano preflight',
+  );
+  assert.equal(
+    lifecycle({
+      geometryPreflightJobs: [
+        job({ jobType: 'validate', status: 'completed' }),
+      ],
+    }),
+    'oczekuje na operację · przygotowano preflight',
+  );
+  assert.equal(
+    lifecycle({
+      geometryPreflightJobs: [
+        job({
+          geometryManifestChecksum: 'g'.repeat(64),
+          jobType: 'validate',
+          status: 'completed',
+        }),
+      ],
+    }),
+    'oczekuje na operację · przygotowano siatkę',
+  );
+});
+
+test('labels symbol-cut imports waiting for review or completed as ready', () => {
+  for (const status of ['waiting_for_review', 'completed']) {
+    assert.equal(
+      lifecycle({ importJobs: [job({ jobType: 'import', status })] }),
+      'gotowy',
+    );
+  }
+});
+
+test('does not advance a staging from a foreign id or manifest checksum', () => {
+  assert.equal(
+    lifecycle({
+      geometryPreflightJobs: [
+        job({
+          geometryManifestChecksum: 'g'.repeat(64),
+          jobType: 'validate',
+          sourceSelectionId: 'upload-2',
+          status: 'completed',
+        }),
+      ],
+      importJobs: [
+        job({
+          checksum: 'b'.repeat(64),
+          jobType: 'import',
+          status: 'waiting_for_review',
+        }),
+      ],
+    }),
+    'oczekuje na operację · załadowano folder',
   );
 });
 

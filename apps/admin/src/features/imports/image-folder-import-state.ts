@@ -12,6 +12,68 @@ interface ReadyImportStartState {
   readonly symbolModelAvailable: boolean;
 }
 
+interface ReadyBoardImportLifecycleState {
+  readonly geometryPreflightJobs: readonly JobResponse[];
+  readonly importJobs: readonly JobResponse[];
+  readonly reportPrepared: boolean;
+  readonly selection: Pick<
+    BrowserReadySelectionResponse,
+    'manifestChecksumSha256' | 'uploadId'
+  >;
+}
+
+function jobMatchesReadySelection(
+  job: JobResponse,
+  selection: ReadyBoardImportLifecycleState['selection'],
+): boolean {
+  const payload = job.inputPayload as unknown as Record<string, unknown>;
+  return (
+    payload.sourceSelectionId === selection.uploadId &&
+    payload.sourceManifestSha256 === selection.manifestChecksumSha256
+  );
+}
+
+export function readyBoardImportLifecycleLabel(
+  state: ReadyBoardImportLifecycleState,
+): string {
+  const readyImportExists = state.importJobs.some((job) => {
+    const payload = job.inputPayload as unknown as Record<string, unknown>;
+    return (
+      job.jobType === 'import' &&
+      payload.importKind === 'image_directory' &&
+      jobMatchesReadySelection(job, state.selection) &&
+      ['waiting_for_review', 'completed'].includes(job.status)
+    );
+  });
+  if (readyImportExists) return 'gotowy';
+
+  const matchingGeometryJobs = state.geometryPreflightJobs.filter(
+    (job) => {
+      const payload = job.inputPayload as unknown as Record<string, unknown>;
+      return (
+        job.jobType === 'validate' &&
+        payload.validationKind === 'page_geometry_preflight' &&
+        jobMatchesReadySelection(job, state.selection)
+      );
+    },
+  );
+  const geometryReady = matchingGeometryJobs.some(
+    (job) =>
+      job.status === 'completed' &&
+      typeof job.progress.pageGeometryPreflight
+        ?.geometryManifestChecksumSha256 === 'string' &&
+      job.progress.pageGeometryPreflight.geometryManifestChecksumSha256.length >
+        0,
+  );
+  if (geometryReady) {
+    return 'oczekuje na operację · przygotowano siatkę';
+  }
+  if (state.reportPrepared || matchingGeometryJobs.length > 0) {
+    return 'oczekuje na operację · przygotowano preflight';
+  }
+  return 'oczekuje na operację · załadowano folder';
+}
+
 export function canStartReadyImport(state: ReadyImportStartState): boolean {
   return (
     state.symbolModelAvailable &&

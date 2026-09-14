@@ -664,6 +664,10 @@ pełnych plansz i ma:
 - prezentować gotowe stagingi w `Import plansz` według liczbowego początku
   zakresu z nazwy katalogu; nazwy bez prefiksu `<liczba>-` są umieszczane za
   zakresami w stabilnej kolejności,
+- przy liczbie plików, rozmiarze i skrócie ID stagingu pokazywać jego najwyższy
+  trwały etap: `załadowano folder`, `przygotowano preflight`, `przygotowano
+  siatkę` albo `gotowy`; ostatni stan oznacza, że zgodny import zakończył cięcie
+  zdjęć na symbole i oczekuje na review albo został już zakończony,
 - działać jako osobna aplikacja przeglądarkowa `Reviewer`, a nie sekcja
   właściwego panelu administracyjnego,
 - pokazywać gotowy staging plansz bieżącej gry jako etap poprzedzający import;

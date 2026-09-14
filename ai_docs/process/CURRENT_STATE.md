@@ -6,6 +6,20 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0543 — etap gotowego stagingu importu plansz
+
+- Lista `Import plansz z manifestu` pokazuje teraz po liczbie plików, rozmiarze
+  i skrócie stagingu jego najwyższy osiągnięty etap: załadowany folder,
+  przygotowany preflight, przygotowaną siatkę albo `gotowy`.
+- Stan wynika po odświeżeniu z checksum-bound historii jobów. `Gotowy` oznacza
+  zgodny import w `waiting_for_review` albo `completed`, czyli zdjęcia zostały
+  już pocięte na symbole; job obcego stagingu albo starego manifestu nie może
+  podnieść etapu.
+- Rzeczywisty staging `c2547b09` jest rozpoznawany jako `gotowy` na podstawie
+  joba importu `ae86a7cc-8921-45a0-ab55-68ff4d8feedd` w
+  `waiting_for_review`. Pełny zestaw 466 testów Admina, lint i typecheck są
+  zielone.
+
 ### TASK-0542 — podgląd operacyjnej planszy z magazynu V2
 
 - Przyczyną komunikatu o niedostępnym cropie w `Wyszukaj plansze` był odczyt

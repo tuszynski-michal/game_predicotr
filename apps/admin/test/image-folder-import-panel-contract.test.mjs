@@ -70,6 +70,11 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /previewReadyBrowserImageImport/);
   assert.match(panelSource, /startReadyBrowserImageImport/);
   assert.match(panelSource, /Gotowy staging do wznowienia/);
+  assert.match(panelSource, /readyBoardImportLifecycleLabel/);
+  assert.match(
+    panelSource,
+    /staging \{ready\.uploadId\.slice\(0, 8\)\} · \{lifecycleLabel\}/,
+  );
   assert.match(panelSource, /Rozpocznij import z raportu/);
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
   assert.match(panelSource, /Standardowe v0\.10/);

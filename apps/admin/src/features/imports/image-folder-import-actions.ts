@@ -54,6 +54,20 @@ export type ImageFolderImportClient = Pick<
 export type PageRegistrationVariant = 'standard_v0_10' | 'board_area_test';
 export const LATERAL_PARTIAL_VARIANT: GeometryEngineVariant =
   'structured_lattice_v4_partial_sides';
+const LATERAL_PARTIAL_POLICY_VERSIONS = new Set([
+  'structured-lattice-v4-lateral-partial-v1',
+  'structured-lattice-v4-lateral-partial-v2',
+]);
+
+function isSupportedLateralPartialGeometry(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const snapshot = value as Record<string, unknown>;
+  return (
+    snapshot.variant === LATERAL_PARTIAL_VARIANT &&
+    typeof snapshot.policyVersion === 'string' &&
+    LATERAL_PARTIAL_POLICY_VERSIONS.has(snapshot.policyVersion)
+  );
+}
 
 export function replayGeometryPreflightProgress(
   report: BrowserImageImportPreflightResponse,
@@ -96,12 +110,7 @@ export function geometryPreflightMatchesReport(
     (payload.managedSourceJobId === undefined ||
       payload.managedSourceJobId === null) &&
     (expectsLateral
-      ? typeof lateral === 'object' &&
-        lateral !== null &&
-        (lateral as Record<string, unknown>).variant ===
-          LATERAL_PARTIAL_VARIANT &&
-        (lateral as Record<string, unknown>).policyVersion ===
-          'structured-lattice-v4-lateral-partial-v1'
+      ? isSupportedLateralPartialGeometry(lateral)
       : lateral === undefined)
   );
 }
@@ -229,11 +238,7 @@ export function imageImportJobMatchesReportIdentity(
       : undefined;
   const variantMatches =
     variant === LATERAL_PARTIAL_VARIANT
-      ? typeof lateral === 'object' &&
-        lateral !== null &&
-        (lateral as Record<string, unknown>).variant === variant &&
-        (lateral as Record<string, unknown>).policyVersion ===
-          'structured-lattice-v4-lateral-partial-v1'
+      ? isSupportedLateralPartialGeometry(lateral)
       : lateral === undefined;
   const symbol = payload.symbolModel;
   const grid = payload.gridProfile;
@@ -792,12 +797,7 @@ export function findManagedV4GeometryPreflight(
         payload.sourceSelectionId === sourceSelectionId &&
         payload.sourceManifestSha256 === sourceManifestSha256 &&
         payload.managedSourceJobId === sourceJob.id &&
-        typeof lateral === 'object' &&
-        lateral !== null &&
-        (lateral as Record<string, unknown>).variant ===
-          LATERAL_PARTIAL_VARIANT &&
-        (lateral as Record<string, unknown>).policyVersion ===
-          'structured-lattice-v4-lateral-partial-v1' &&
+        isSupportedLateralPartialGeometry(lateral) &&
         pageVariantMatches
       );
     }) ?? null

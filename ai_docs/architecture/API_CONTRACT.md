@@ -3064,6 +3064,14 @@ niezmienny manifest geometrii:
 - `GET /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-sources/{sourceChecksumSha256}/asset`,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-overrides`.
 
+Tożsamość preflightu wybranego wariantu bocznych niepełnych plansz wymaga
+zgodności gry, stagingu, manifestu źródeł, wariantu
+`structured_lattice_v4_partial_sides` oraz znanej polityki snapshotu. Admin
+odtwarza zarówno historyczne `structured-lattice-v4-lateral-partial-v1`, jak i
+bieżące `structured-lattice-v4-lateral-partial-v2`; nieznana wersja nadal jest
+odrzucana. Ta sama reguła obowiązuje przy dopasowaniu istniejącego importu i
+preflightu managed originals.
+
 Odpowiedź `review-sources` rozróżnia `geometryOrigin`: wynik automatyczny,
 bieżący ręczny override albo roboczy szablon edytora. Może dołączyć stabilny
 `rejectionReasonCode` i `registrationDiagnostics` z manifestu preflightu.

@@ -1421,8 +1421,11 @@ logiczny zakres do audytu oraz fizyczny plik do bezpiecznego kopiowania.
 TASK-0510 dodaje odrębny kontrakt per-run `geometryEngineVariant` o wartości
 `structured_lattice_v4_partial_sides`. Nie zmienia on ustawienia gry ani
 historycznego joba. Snapshot v4 przypina dokładną bazę pełnych plansz v3 oraz
-wersję `structured-lattice-v4-lateral-partial-v1`, parametry i checksumę
-rozszerzenia. Brak wyboru zachowuje dotychczasowe payloady i fingerprinty.
+wersjonowaną politykę rozszerzenia, parametry i checksumę. Historyczna polityka
+`structured-lattice-v4-lateral-partial-v1` pozostaje odtwarzalna, a nowe
+preflighty z oddzielnym profilem uczenia niepełnych siatek używają
+`structured-lattice-v4-lateral-partial-v2`. Brak wyboru zachowuje dotychczasowe
+payloady i fingerprinty.
 Na etapie fundamentu nowy start oraz wykonanie są jawnie blokowane kodem
 `IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED`; detekcja i udostępnienie wymagają
 TASK-0511–0515. Odpowiedź korekty może zawierać `automaticPartialProposals`,

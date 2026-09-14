@@ -163,13 +163,16 @@ const managedSourceJob = {
   status: 'completed',
 };
 
-function managedV4Preflight(status = 'completed') {
+function managedV4Preflight(
+  status = 'completed',
+  policyVersion = 'structured-lattice-v4-lateral-partial-v1',
+) {
   return {
     gameId: 'game-1',
     id: 'preflight-managed-v4',
     inputPayload: {
       lateralPartialGeometry: {
-        policyVersion: 'structured-lattice-v4-lateral-partial-v1',
+        policyVersion,
         variant: 'structured_lattice_v4_partial_sides',
       },
       managedSourceJobId: 'source-run',
@@ -234,7 +237,10 @@ test('starts managed v0.10.4 only with the exact completed preflight manifest', 
         gameId: 'another-game',
         id: 'foreign-preflight',
       },
-      managedV4Preflight(),
+      managedV4Preflight(
+        'completed',
+        'structured-lattice-v4-lateral-partial-v2',
+      ),
     ],
     'standard_v0_10',
   );
@@ -350,6 +356,54 @@ test('completed preflight replay unlocks the current report and ignores a stale 
     replayGeometryPreflightProgress(report, managed, managed.id),
     report,
     'managed preflight B must not replace browser report A',
+  );
+});
+
+test('browser preflight identity accepts lateral policy v1 and v2 only', () => {
+  const report = {
+    gameId: 'game-1',
+    geometryEngineVariant: 'structured_lattice_v4_partial_sides',
+    manifestChecksumSha256: 'a'.repeat(64),
+    uploadId: 'upload-deleted-from-browser',
+  };
+  const browserPreflight = (policyVersion) => {
+    const managed = managedV4Preflight('processing', policyVersion);
+    return {
+      ...managed,
+      inputPayload: {
+        ...managed.inputPayload,
+        managedSourceJobId: null,
+      },
+    };
+  };
+
+  assert.equal(
+    geometryPreflightMatchesReport(
+      browserPreflight('structured-lattice-v4-lateral-partial-v1'),
+      report,
+    ),
+    true,
+  );
+  assert.equal(
+    geometryPreflightMatchesReport(
+      browserPreflight('structured-lattice-v4-lateral-partial-v2'),
+      report,
+    ),
+    true,
+  );
+  assert.equal(
+    geometryPreflightMatchesReport(
+      browserPreflight('structured-lattice-v4-lateral-partial-v3'),
+      report,
+    ),
+    false,
+  );
+  assert.equal(
+    geometryPreflightMatchesReport(
+      browserPreflight('structured-lattice-v4-lateral-partial-v2'),
+      { ...report, geometryEngineVariant: undefined },
+    ),
+    false,
   );
 });
 
@@ -500,6 +554,51 @@ test('run identity and history registration use exact pinned snapshots', () => {
       'upload-1',
       report,
       undefined,
+    ),
+    false,
+  );
+  const lateralJob = {
+    ...job,
+    inputPayload: {
+      ...job.inputPayload,
+      imageGeometryRollout: {
+        lateralPartialGeometry: {
+          policyVersion: 'structured-lattice-v4-lateral-partial-v2',
+          variant: 'structured_lattice_v4_partial_sides',
+        },
+        rolloutRevision: 4,
+      },
+    },
+  };
+  assert.equal(
+    imageImportJobMatchesReportIdentity(
+      lateralJob,
+      'game-1',
+      'upload-1',
+      report,
+      'structured_lattice_v4_partial_sides',
+    ),
+    true,
+  );
+  assert.equal(
+    imageImportJobMatchesReportIdentity(
+      {
+        ...lateralJob,
+        inputPayload: {
+          ...lateralJob.inputPayload,
+          imageGeometryRollout: {
+            ...lateralJob.inputPayload.imageGeometryRollout,
+            lateralPartialGeometry: {
+              policyVersion: 'structured-lattice-v4-lateral-partial-v3',
+              variant: 'structured_lattice_v4_partial_sides',
+            },
+          },
+        },
+      },
+      'game-1',
+      'upload-1',
+      report,
+      'structured_lattice_v4_partial_sides',
     ),
     false,
   );

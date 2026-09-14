@@ -6,6 +6,19 @@ last_updated: 2026-09-14
 
 # Current State
 
+### TASK-0540 — zgodna tożsamość preflightu niepełnych boków v2
+
+- Admin rozpoznaje teraz bieżący snapshot
+  `structured-lattice-v4-lateral-partial-v2` jako prawidłową tożsamość raportu,
+  importu i managed reprocessingu. Historyczny v1 pozostaje obsługiwany, a
+  nieznane wersje nadal są odrzucane.
+- Fałszywy `IMAGE_PAGE_GEOMETRY_PREFLIGHT_IDENTITY_MISMATCH` dla stagingu
+  `117829 - 128268 cut` wynikał z trzech frontendowych porównań wyłącznie do
+  v1; API poprawnie zwracało job v2.
+- Nie zmieniono algorytmu, snapshotów, API ani danych. Job
+  `b028ce0e-0b37-4a3a-9579-a9181b24bb19` pozostał w kolejce bez retry lub
+  anulowania.
+
 ### TASK-0539 — rzeczywisty etap preflightu geometrii w stagingu
 
 - Kafelek stagingu używa teraz fazy `pageGeometryPreflight`, więc po globalnym

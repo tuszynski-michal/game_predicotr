@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   CROP_V12_FINGERPRINT,
   CROP_V12_LEGACY_FINGERPRINT,
+  CROP_V12_PREVIOUS_FINGERPRINT,
   CROP_V12_POLICY,
   cropFromRegisteredBoardBand,
   isCompatibleCropV12Fingerprint,
@@ -139,7 +140,30 @@ test('versions the deterministic registration contract separately from v11', () 
     isCompatibleCropV12Fingerprint(CROP_V12_LEGACY_FINGERPRINT),
     true,
   );
+  assert.equal(
+    isCompatibleCropV12Fingerprint(CROP_V12_PREVIOUS_FINGERPRINT),
+    true,
+  );
   assert.equal(isCompatibleCropV12Fingerprint('stale-v12'), false);
+});
+
+test('registered board band keeps a 45 percent buffer on both sides', () => {
+  const crop = cropFromRegisteredBoardBand({
+    evidence: {
+      status: 'registered',
+      registeredBoardBand: [
+        { x: 50, y: 50 },
+        { x: 270, y: 50 },
+        { x: 50, y: 202 },
+        { x: 270, y: 202 },
+      ],
+      anchorBoardBand: anchor.boardBand,
+    },
+    sourceWidth: 320,
+    sourceHeight: 320,
+    anchorMedianBoardHeight: 42,
+  });
+  assert.deepEqual(crop, { width: 320, height: 320, topY: 31, bottomY: 221 });
 });
 
 test('rejects non-finite persisted registration metrics', () => {

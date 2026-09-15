@@ -8,9 +8,9 @@ export const CROP_V11_CONFIG = Object.freeze({
   minimumTextureTiles: 7,
   luminanceThresholds: [0, 95, 135, 175] as const,
   dilationRadii: [2, 3, 4, 5, 6] as const,
-  paddingRatio: 0.3,
-  bottomPaddingRatio: 0.2,
-  boardOnlyBottomPaddingRatio: 0.65,
+  paddingRatio: 0.45,
+  bottomPaddingRatio: 0.4,
+  boardOnlyBottomPaddingRatio: 0.8,
   maximumCrossRowOverlapRatio: 0.15,
   minimumCrossRowCenterSpacingRatio: 0.8,
   maximumBoardWidthRatio: 1.7,
@@ -24,6 +24,13 @@ export const CROP_V11_CONFIG = Object.freeze({
   candidateBoundsVersion: 'undilated-support-v2',
 });
 export const CROP_V11_FINGERPRINT = `${CROP_V11_POLICY}|bilinear-rgba-v1|number-bands-v3-row-shear-complete-band|${JSON.stringify(CROP_V11_CONFIG)}`;
+const CROP_V11_LEGACY_CONFIG = Object.freeze({
+  ...CROP_V11_CONFIG,
+  paddingRatio: 0.3,
+  bottomPaddingRatio: 0.2,
+  boardOnlyBottomPaddingRatio: 0.65,
+});
+export const CROP_V11_LEGACY_FINGERPRINT = `${CROP_V11_POLICY}|bilinear-rgba-v1|number-bands-v3-row-shear-complete-band|${JSON.stringify(CROP_V11_LEGACY_CONFIG)}`;
 export interface CropBox {
   left: number;
   top: number;

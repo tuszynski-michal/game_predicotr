@@ -418,6 +418,13 @@ obszarów plansz i etykiet. Wyjątkiem jest bezpośredni wynik
 Fingerprint v12 zawiera fingerprint strukturalnego v11 oraz pełną konfigurację
 cech, RANSAC-u i marginesu; replay v10 pozostaje niezmieniony.
 
+TASK-0553 zwiększa pionowy kontekst zapisywanego pasa: bezpośredni v11 używa
+45% mediany wysokości planszy nad panelem, 40% pod kompletnym pasem etykiet i
+80% w ścieżce bez etykiet, a rejestracja v12 45% po obu stronach przeniesionego
+pasa. Bieżący fingerprint opisuje nowe liczby. Odczyt v12 dopuszcza dwa
+zamrożone fingerprinty poprzednich konfiguracji; nowy worker może jednak
+publikować wyłącznie bieżący fingerprint.
+
 TASK-0468 ustanawia niezależny test-only oracle jakości poziomego pasa:
 SHA-256 źródeł, wizualne obwiednie plansz/numerów, przedziały linii i split po
 katalogach. Runner odtwarza v10 bez zapisu obrazów. Adnotacje nie są zależnością

@@ -94,14 +94,14 @@ test('sloping bold labels preserve their complete band, including solid rows', (
     [],
   );
 });
-test('both boundaries use extrema including sloping bottom numbers and buffer', () => {
+test('both boundaries keep the enlarged buffer around sloping bottom numbers', () => {
   const result = boundStructuralCrop(layout, labels, {
     width: 1080,
     height: 1920,
   });
   assert.equal(result.status, 'detected');
-  assert.equal(result.crop.topY, 360);
-  assert.equal(result.crop.bottomY, 978);
+  assert.equal(result.crop.topY, 342);
+  assert.equal(result.crop.bottomY, 1002);
   validateStructuralEvidence(result);
 });
 test('nine boards use a versioned bottom buffer without requiring number regions', () => {
@@ -111,8 +111,8 @@ test('nine boards use a versioned bottom buffer without requiring number regions
   });
   assert.equal(result.status, 'detected');
   assert.equal(result.reason, 'complete_layout_board_buffer');
-  assert.equal(result.crop.topY, 360);
-  assert.equal(result.crop.bottomY, 1002);
+  assert.equal(result.crop.topY, 342);
+  assert.equal(result.crop.bottomY, 1020);
   validateStructuralEvidence(result);
 });
 test('incomplete board layout and incomplete source support retain the FULL original', () => {

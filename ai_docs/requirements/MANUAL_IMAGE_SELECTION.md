@@ -692,6 +692,14 @@ zgodnego pliku. JPEG-i paczki mogą być zapisane równolegle, ale każdy jest
 następnie ponownie odczytany i zweryfikowany SHA-256. Każdy dotknięty shard jest
 zapisywany raz, po czym jeden końcowy zapis sesji usuwa intencję paczki.
 
+TASK-0553: nowe propozycje automatycznego cięcia zachowują pionowy zapas wokół
+panelu plansz: v11 używa 45% mediany wysokości planszy nad panelem, 40% pod
+pełnym pasem numerów oraz 80% pod układem bez kompletu etykiet. Rejestracja v12
+używa 45% z obu stron. Margines jest ograniczony do obrazu i przez istniejące
+granice wysokości cropa; nie zmienia szerokości ani nie uruchamia ponownego
+cięcia zapisanych wyników. Fingerprinty v12 sprzed tej zmiany pozostają
+akceptowane wyłącznie podczas odczytu.
+
 Po restarcie zgodne JPEG-i są finalizowane, brakujące pozostają w kolejce, a
 plik o innej checksumie jest zachowany i trafia do review. Recovery jest
 idempotentne również wtedy, gdy shard został już zapisany, lecz końcowy zapis

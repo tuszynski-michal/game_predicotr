@@ -1,4 +1,7 @@
-import { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
+import {
+  CROP_V11_FINGERPRINT,
+  CROP_V11_LEGACY_FINGERPRINT,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 import type {
   CropBox,
   StructuralSample,
@@ -8,7 +11,7 @@ import type { StructuralCropEvidence } from '@game-predictor/manual-image-select
 export const CROP_V12_POLICY =
   'selected-image-board-band-v12-four-point-anchor-registration' as const;
 
-const CROP_V12_REGISTRATION_CONFIG = {
+const CROP_V12_LEGACY_REGISTRATION_CONFIG = {
   analysisLongEdge: 640,
   descriptorBits: 128,
   descriptorRadius: 11,
@@ -40,7 +43,18 @@ const CROP_V12_REGISTRATION_CONFIG = {
   algorithmVersion: 'oriented-brief-affine-ransac-v1',
 } as const;
 
-export const CROP_V12_LEGACY_FINGERPRINT = `${CROP_V12_POLICY}|structural:${CROP_V11_FINGERPRINT}|${JSON.stringify(CROP_V12_REGISTRATION_CONFIG)}`;
+const CROP_V12_REGISTRATION_CONFIG = {
+  ...CROP_V12_LEGACY_REGISTRATION_CONFIG,
+  cropPaddingBoardHeightRatio: 0.45,
+} as const;
+
+const CROP_V12_PREVIOUS_CONFIG = {
+  ...CROP_V12_LEGACY_REGISTRATION_CONFIG,
+  cropConsensusVersion: 'registered-band-bounded-intersection-v2',
+} as const;
+
+export const CROP_V12_PREVIOUS_FINGERPRINT = `${CROP_V12_POLICY}|structural:${CROP_V11_LEGACY_FINGERPRINT}|${JSON.stringify(CROP_V12_PREVIOUS_CONFIG)}`;
+export const CROP_V12_LEGACY_FINGERPRINT = `${CROP_V12_POLICY}|structural:${CROP_V11_LEGACY_FINGERPRINT}|${JSON.stringify(CROP_V12_LEGACY_REGISTRATION_CONFIG)}`;
 
 export const CROP_V12_CONFIG = Object.freeze({
   ...CROP_V12_REGISTRATION_CONFIG,
@@ -51,7 +65,9 @@ export const CROP_V12_FINGERPRINT = `${CROP_V12_POLICY}|structural:${CROP_V11_FI
 
 export function isCompatibleCropV12Fingerprint(value: string): boolean {
   return (
-    value === CROP_V12_FINGERPRINT || value === CROP_V12_LEGACY_FINGERPRINT
+    value === CROP_V12_FINGERPRINT ||
+    value === CROP_V12_PREVIOUS_FINGERPRINT ||
+    value === CROP_V12_LEGACY_FINGERPRINT
   );
 }
 
@@ -935,14 +951,26 @@ export function cropFromRegisteredBoardBand(input: {
     6,
     Math.ceil(targetBoardHeight * CROP_V12_CONFIG.cropPaddingBoardHeightRatio),
   );
-  const topY = Math.max(
+  let topY = Math.max(
     0,
     Math.floor(Math.min(...band.map((point) => point.y)) - padding),
   );
-  const bottomY = Math.min(
+  let bottomY = Math.min(
     input.sourceHeight,
     Math.ceil(Math.max(...band.map((point) => point.y)) + padding),
   );
+  const maximumHeight = Math.floor(
+    input.sourceHeight * CROP_V12_CONFIG.maximumCropHeightRatio,
+  );
+  if (bottomY - topY > maximumHeight) {
+    const boardHeight =
+      Math.max(...band.map((point) => point.y)) -
+      Math.min(...band.map((point) => point.y));
+    if (boardHeight > maximumHeight) return null;
+    const excess = bottomY - topY - maximumHeight;
+    topY += Math.floor(excess / 2);
+    bottomY -= Math.ceil(excess / 2);
+  }
   const ratio = (bottomY - topY) / input.sourceHeight;
   if (
     ratio < CROP_V12_CONFIG.minimumCropHeightRatio ||

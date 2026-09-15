@@ -6,6 +6,19 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0553 — większy bufor automatycznego cięcia zdjęć
+
+- Nowe propozycje v11 pozostawiają 45% mediany wysokości planszy nad panelem,
+  40% pod kompletnym pasem etykiet i 80% pod układem bez kompletu etykiet.
+  Rejestracja v12 zostawia 45% po obu stronach pasa plansz.
+- Przy niskim źródle v12 nie odrzuca bezpiecznej rejestracji tylko dlatego, że
+  większy margines przekroczył limit 78% wysokości: zachowuje całą planszę i
+  skraca symetrycznie wyłącznie nadmiar marginesu. Pas plansz większy od limitu
+  nadal jest odrzucany.
+- Bieżący fingerprint opisuje nowe liczby, a reader zachowuje zgodność z
+  dwoma poprzednimi fingerprintami v12. Otwarte karty otrzymają nową politykę
+  po odświeżeniu; gotowe cropy nie są zmieniane.
+
 ### TASK-0552 — monotoniczne wznowienie importu po kontroli geometrii
 
 - Przyczyną `JOB_PROGRESS_REGRESSION` w jobie

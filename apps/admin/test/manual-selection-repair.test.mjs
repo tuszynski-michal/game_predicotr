@@ -640,3 +640,27 @@ test('repair workspace shows long-running directory phases and lets manual choic
   assert.match(source, /selectedDirectory: directory/);
   assert.match(source, /mode: null/);
 });
+
+test('gap fill reports source listing and does not wait for the local-state write', async () => {
+  const source = await import('node:fs/promises').then(({ readFile }) =>
+    readFile(
+      new URL(
+        '../src/features/manual-image-selection/manual-selection-repair-workspace.tsx',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+
+  assert.match(
+    source,
+    /const \[sourceListingProgress, setSourceListingProgress\]/,
+  );
+  assert.match(source, /\)\.listImages\(\(progress\) =>/);
+  assert.match(source, /setSourceListingProgress\(progress\)/);
+  assert.match(source, /const nextLocalState = applyLocalState\(/);
+  assert.match(source, /void persistLocalState\(nextLocalState\)\.catch/);
+  assert.match(source, /localStateSaveQueueRef/);
+  assert.match(source, /sprawdzono \$\{sourceListingProgress\.visitedEntries/);
+  assert.match(source, /uchwyt nie zapisał się lokalnie/);
+});

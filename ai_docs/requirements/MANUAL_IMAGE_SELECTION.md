@@ -475,6 +475,14 @@ lukach. `Enter`, `F` lub przycisk zapisują niezmienione bajty jako dokładny
 target `seq_*`, ponownie odczytują plik i weryfikują SHA-256. Akceptacja jest
 dostępna dopiero po poprawnym dekodowaniu i co najmniej 300 ms widoczności.
 
+Podczas listowania UI pokazuje rosnące liczniki sprawdzonych wpisów i znalezionych
+obrazów; nie przedstawia procentu, ponieważ całkowita liczba wpisów jest znana
+dopiero po rekursji. Po otrzymaniu kompletnej, naturalnie posortowanej listy
+workspace natychmiast otwiera pierwszy obraz. Zapis uchwytu katalogu, trybu i
+kursora do IndexedDB jest pomocniczy i nie może zatrzymywać tego przejścia;
+odrzucony zapis informuje operatora o konieczności ponownego wskazania źródła po
+restarcie.
+
 Bezpośrednio po akceptacji workspace przechodzi do następnego obrazu z
 istniejącego okna cache, a pojedyncza kontrolowana kolejka zapisuje JPEG,
 intencję recovery, repair manifest, handoff i output manifest. W trakcie

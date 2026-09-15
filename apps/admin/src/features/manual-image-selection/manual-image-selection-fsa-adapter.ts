@@ -22,6 +22,11 @@ export interface ManualImageFile extends ManualImageDescriptor {
   readonly handle: FileSystemFileHandle;
 }
 
+export interface ManualImageListingProgress {
+  readonly visitedEntries: number;
+  readonly imageCount: number;
+}
+
 export interface ManualSelectionSessionRecord extends ManualSelectionSessionMetadata {
   readonly cursorImagePath?: string;
   readonly cursorSemantics?:
@@ -67,29 +72,49 @@ export class FileSystemManualSelectionSourceAdapter implements ManualSelectionSo
     this.directory = directory;
   }
 
-  async listImages(): Promise<ManualImageFile[]> {
+  async listImages(
+    onProgress?: (progress: ManualImageListingProgress) => void,
+  ): Promise<ManualImageFile[]> {
     const files: ManualImageFile[] = [];
+    let visitedEntries = 0;
+    let lastReportedEntries = 0;
+
+    async function reportProgress(force = false): Promise<void> {
+      if (
+        onProgress === undefined ||
+        (!force && visitedEntries - lastReportedEntries < 64)
+      )
+        return;
+      lastReportedEntries = visitedEntries;
+      onProgress({ imageCount: files.length, visitedEntries });
+      await yieldToBrowser();
+    }
 
     async function visit(
       current: FileSystemDirectoryHandle,
       prefix: string,
     ): Promise<void> {
       for await (const [name, entry] of current.entries()) {
+        visitedEntries += 1;
         const relativePath = prefix === '' ? name : `${prefix}/${name}`;
         if (entry.kind === 'directory') {
           await visit(entry, relativePath);
+          await reportProgress();
           continue;
         }
-        if (entry.kind !== 'file' || !isSupportedManualImage(name)) continue;
-        files.push({
-          handle: entry,
-          name,
-          relativePath,
-        });
+        if (entry.kind === 'file' && isSupportedManualImage(name)) {
+          files.push({
+            handle: entry,
+            name,
+            relativePath,
+          });
+        }
+        await reportProgress();
       }
     }
 
     await visit(this.directory, '');
+    await reportProgress(true);
     return files.sort((left, right) => {
       const pathOrder = naturalCompare(left.relativePath, right.relativePath);
       return pathOrder === 0
@@ -97,6 +122,10 @@ export class FileSystemManualSelectionSourceAdapter implements ManualSelectionSo
         : pathOrder;
     });
   }
+}
+
+function yieldToBrowser(): Promise<void> {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, 0));
 }
 
 export class FileSystemManualSelectionOutputAdapter implements ManualSelectionOutputPort<ManualImageFile> {

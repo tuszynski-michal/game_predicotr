@@ -597,15 +597,41 @@ test('keeps source listing read-only and naturally ordered through the source po
     ['ignore.png', file('ignore.png')],
   ]);
 
+  const progress = [];
   const images = await new FileSystemManualSelectionSourceAdapter(
     directory,
-  ).listImages();
+  ).listImages((current) => progress.push(current));
 
   assert.deepEqual(
     images.map((image) => image.relativePath),
     ['10.jpg', 'nested/2.jpeg'],
   );
   assert.equal(openedFiles, 0);
+  assert.deepEqual(progress, [{ imageCount: 2, visitedEntries: 4 }]);
+});
+
+test('reports monotonic progress while listing a large source directory', async () => {
+  const directory = {
+    entries: async function* () {
+      for (let index = 1; index <= 65; index += 1) {
+        const name = `${String(index).padStart(3, '0')}.jpg`;
+        yield [name, { kind: 'file', name }];
+      }
+    },
+    kind: 'directory',
+    name: 'source',
+  };
+  const progress = [];
+
+  const images = await new FileSystemManualSelectionSourceAdapter(
+    directory,
+  ).listImages((current) => progress.push(current));
+
+  assert.equal(images.length, 65);
+  assert.deepEqual(progress, [
+    { imageCount: 64, visitedEntries: 64 },
+    { imageCount: 65, visitedEntries: 65 },
+  ]);
 });
 
 test('output port writes v2 manifests and never removes a foreign file', async () => {

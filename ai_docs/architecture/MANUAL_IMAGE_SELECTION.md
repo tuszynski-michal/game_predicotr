@@ -168,6 +168,14 @@ aktualnego snapshotu ani uchwytu. Fazy wyboru systemowego, inspekcji i
 listowania są stanem UI, a nie pozornym zawieszeniem; natywny picker pozostaje
 jedyną blokadą współdzielonego pickera katalogów.
 
+Adapter źródła publikuje pomocniczy, monotoniczny postęp rekurencji co najwyżej
+po 64 nowych wpisach i oddaje wówczas kolejkę renderowaniu. Zawiera liczbę
+odwiedzonych wpisów i zaakceptowanych obrazów, lecz nie wpływa na naturalne
+sortowanie ani nie otwiera plików. Po kompletnej liście workspace najpierw
+ustawia pamięciowy tryb `fill`, a następnie zapisuje local state przez osobną
+kolejkę IndexedDB. Kolejka zachowuje porządek rekordów, nie jest źródłem prawdy
+repair i jej błąd nie może cofnąć otwartego podglądu ani zmienić katalogu.
+
 `manual-image-selection-repair-v2.json` zachowuje niezmienne granice kolekcji,
 aktywny indeks plików i checksumy, usunięte zakresy, jedno potwierdzenie źródła
 dla każdego aktywnego delete, aktywne wpisy fill oraz co najwyżej jedną

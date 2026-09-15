@@ -8594,3 +8594,21 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** snapshot nie jest wejściem recovery i nie zmienia manifestu,
   session journalu, JPEG-ów, policy, kolejności publikacji ani liczby workerów.
   Niezgodny katalog lub tryb źródła nie może wyświetlić historycznych wartości.
+
+## D-391 — Listowanie źródła fill nie czeka na pomocniczy zapis sesji
+
+- **Status:** accepted (TASK-0557).
+- **Date:** 2026-09-15.
+- **Decision:** listowanie katalogu bazowego publikuje liczbę odwiedzonych
+  wpisów i znalezionych obrazów co najwyżej co 64 nowe wpisy. Po utworzeniu
+  kompletnej, posortowanej listy workspace od razu ustawia stan `fill`, a
+  uchwyt katalogu i kursor zapisuje przez osobną kolejkę IndexedDB.
+- **Rationale:** wspólna faza listowania i oczekiwania na IndexedDB pokazywała
+  operatorowi trwały komunikat „Wczytuję…”, mimo że katalog był poprawny albo
+  lista była już gotowa.
+- **Compatibility:** adapter nadal jest read-only, listuje rekurencyjnie i
+  zwraca tę samą naturalnie posortowaną listę. Historyczne rekordy lokalne i
+  repair manifest nie zmieniają formatu.
+- **Safety:** kolejka zachowuje kolejność zapisów pomocniczego local state.
+  Błąd nie oznacza sukcesu recovery po restarcie, ale nie może cofnąć otwartego
+  widoku, zmodyfikować JPEG-a, repair manifestu, handoffu ani transakcji fill.

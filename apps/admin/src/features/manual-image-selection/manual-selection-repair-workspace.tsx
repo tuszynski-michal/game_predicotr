@@ -15,6 +15,7 @@ import {
 import {
   FileSystemManualSelectionSourceAdapter,
   type ManualImageFile,
+  type ManualImageListingProgress,
 } from './manual-image-selection-fsa-adapter.ts';
 import { ManualImageViewer, useManualImageViewer } from './manual-image-viewer';
 import {
@@ -46,6 +47,7 @@ type BulkDeleteResult = {
 export function ManualSelectionRepairWorkspace() {
   const store = useMemo(() => new ManualSelectionRepairStore(), []);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const localStateSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const busyRef = useRef(false);
   const backgroundDeletePendingRef = useRef(false);
   const backgroundFillPendingRef = useRef(false);
@@ -83,6 +85,8 @@ export function ManualSelectionRepairWorkspace() {
   >([]);
   const [bulkDeleteRunning, setBulkDeleteRunning] = useState(false);
   const [workPhase, setWorkPhase] = useState<RepairWorkspacePhase>('idle');
+  const [sourceListingProgress, setSourceListingProgress] =
+    useState<ManualImageListingProgress | null>(null);
   const sourceCursor = localState?.sourceCursor ?? 0;
   const mode = localState?.mode ?? null;
   const backgroundMutationPending =
@@ -141,7 +145,10 @@ export function ManualSelectionRepairWorkspace() {
       ) ?? [],
     [bulkDeleteFileNames, snapshot],
   );
-  const workPhaseMessage = repairWorkspacePhaseMessage(workPhase);
+  const workPhaseMessage = repairWorkspacePhaseMessage(
+    workPhase,
+    sourceListingProgress,
+  );
   const interactiveWorkInProgress =
     workPhase !== 'idle' && workPhase !== 'restoring';
   const handleViewerError = useCallback(
@@ -345,25 +352,37 @@ export function ManualSelectionRepairWorkspace() {
       const sourceDirectory = await pickDirectory('read');
       if (recoveryGeneration !== recoveryGenerationRef.current) return;
       setWorkPhase('listing_source');
+      setSourceListingProgress({ imageCount: 0, visitedEntries: 0 });
       const images = await new FileSystemManualSelectionSourceAdapter(
         sourceDirectory,
-      ).listImages();
+      ).listImages((progress) => {
+        if (recoveryGeneration !== recoveryGenerationRef.current) return;
+        setSourceListingProgress(progress);
+      });
       if (recoveryGeneration !== recoveryGenerationRef.current) return;
       if (images.length === 0)
         throw new Error('Bazowy katalog nie zawiera zdjęć JPG/JPEG.');
       setSourceImages(images);
-      await updateLocalState({
+      const nextLocalState = applyLocalState({
         ...localState,
         gapCursor: 0,
         mode: 'fill',
         sourceCursor: 0,
         sourceDirectory,
       });
+      void persistLocalState(nextLocalState).catch(() => {
+        if (recoveryGeneration !== recoveryGenerationRef.current) return;
+        setNotice(
+          'Katalog bazowy jest gotowy, ale jego uchwyt nie zapisał się lokalnie. Po restarcie wskaż go ponownie.',
+        );
+      });
       setUndoFillOperationIds(recentFillOperationIds(snapshot));
       setNotice(null);
     } catch (cause) {
       if (!isPickerCancelled(cause)) setError(errorMessage(cause));
     } finally {
+      if (recoveryGeneration === recoveryGenerationRef.current)
+        setSourceListingProgress(null);
       finishWorkPhase(recoveryGeneration);
     }
   }
@@ -768,10 +787,27 @@ export function ManualSelectionRepairWorkspace() {
   async function updateLocalState(
     next: ManualSelectionRepairLocalState,
   ): Promise<void> {
+    const updated = applyLocalState(next);
+    await persistLocalState(updated);
+  }
+
+  function applyLocalState(
+    next: ManualSelectionRepairLocalState,
+  ): ManualSelectionRepairLocalState {
     const updated = { ...next, updatedAt: new Date().toISOString() };
     localStateRef.current = updated;
     setLocalState(updated);
-    await store.save(updated);
+    return updated;
+  }
+
+  function persistLocalState(
+    state: ManualSelectionRepairLocalState,
+  ): Promise<void> {
+    const saved = localStateSaveQueueRef.current
+      .catch(() => undefined)
+      .then(() => store.save(state));
+    localStateSaveQueueRef.current = saved.catch(() => undefined);
+    return saved;
   }
 
   async function serialize(operation: () => Promise<void>): Promise<void> {
@@ -1277,6 +1313,7 @@ function createInitialLocalState(
 
 function repairWorkspacePhaseMessage(
   phase: RepairWorkspacePhase,
+  sourceListingProgress: ManualImageListingProgress | null,
 ): string | null {
   switch (phase) {
     case 'restoring':
@@ -1288,7 +1325,9 @@ function repairWorkspacePhaseMessage(
     case 'selecting_source':
       return 'Wybierz bazowy katalog zdjęć w otwartym oknie systemowym.';
     case 'listing_source':
-      return 'Wczytuję listę zdjęć z katalogu bazowego…';
+      return sourceListingProgress === null
+        ? 'Wczytuję listę zdjęć z katalogu bazowego…'
+        : `Wczytuję listę zdjęć z katalogu bazowego… sprawdzono ${sourceListingProgress.visitedEntries.toLocaleString('pl-PL')} wpisów, znaleziono ${sourceListingProgress.imageCount.toLocaleString('pl-PL')} obrazów.`;
     case 'idle':
       return null;
   }

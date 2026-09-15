@@ -6,6 +6,18 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0557 — nieblokujące ładowanie źródeł do uzupełniania luk
+
+- Katalog bazowy fill pokazuje podczas rekursji liczbę odwiedzonych wpisów i
+  znalezionych obrazów, a adapter oddaje renderowanie co 64 wpisy.
+- Kompletna lista otwiera pierwszy obraz przed zapisaniem pomocniczego uchwytu
+  i kursora do IndexedDB. Zapisy lokalnego stanu mają własną kolejkę; ich błąd
+  wskazuje potrzebę ponownego wyboru źródła po restarcie, bez zmiany repair
+  manifestu albo aktualnego widoku.
+- Odczyt `D:\777\177562 -200583 cut` potwierdził 2497 JPEG-ów, 61 luk i brak
+  podkatalogów. Katalog bazowy `D:\777\177562 -200583` ma 2558 obrazów bez
+  podkatalogów; problem nie wynikał z danych katalogu.
+
 ### TASK-0556 — telemetria tempa po wznowieniu przycinania
 
 - Lokalna sesja przycinania może zapisać ostatnią niepustą próbkę równoległości,

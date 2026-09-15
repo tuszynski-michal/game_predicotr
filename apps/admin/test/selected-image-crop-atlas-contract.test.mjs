@@ -75,7 +75,8 @@ test('crop worker is recycled, defaults to the active policy and has an explicit
   assert.match(worker, /typeof Worker === 'undefined'/u);
   assert.match(worker, /typeof OffscreenCanvas === 'undefined'/u);
   assert.match(worker, /requestCount >= 128/u);
-  assert.match(worker, /activeWorker\?\.terminate\(\)/u);
+  assert.match(worker, /worker\.terminate\(\)/u);
+  assert.match(worker, /shutdownSelectedImageCropWorkerPool/u);
   assert.match(worker, /policy: string = ACTIVE_SELECTED_IMAGE_CROP_POLICY/u);
   assert.match(
     workerRuntime,

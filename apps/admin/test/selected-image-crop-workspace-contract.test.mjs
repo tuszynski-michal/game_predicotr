@@ -39,6 +39,17 @@ test('crop workspace is local and mounted below semi automatic selection', () =>
   assert.doesNotMatch(workspace, /AdminApiClient|fetch\(|jobId|apiBaseUrl/u);
 });
 
+test('crop preparation exposes bounded parallel throughput telemetry', () => {
+  assert.match(workspace, /performance\.concurrency/u);
+  assert.match(workspace, /averageCommittedMs/u);
+  assert.match(workspace, /lastAnalysisMs/u);
+  assert.match(workspace, /lastWriteMs/u);
+  assert.match(workspace, /worker\.decodeMs/u);
+  assert.match(workspace, /worker\.renderMs/u);
+  assert.match(workspace, /równolegle/u);
+  assert.match(workspace, /tempo/u);
+});
+
 test('crop review provides an atlas grid and opens only selected corrections in the viewer', () => {
   assert.match(workspace, /<ManualImageViewer/u);
   assert.match(workspace, /preparedCount/u);

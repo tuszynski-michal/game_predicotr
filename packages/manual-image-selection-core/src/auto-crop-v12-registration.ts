@@ -102,7 +102,7 @@ export interface FourPointRegistrationEvidence {
   readonly analysisHeight: number;
 }
 
-interface Feature {
+export interface FourPointRegistrationFeature {
   readonly x: number;
   readonly y: number;
   readonly score: number;
@@ -110,8 +110,8 @@ interface Feature {
 }
 
 interface Match {
-  readonly from: Feature;
-  readonly to: Feature;
+  readonly from: FourPointRegistrationFeature;
+  readonly to: FourPointRegistrationFeature;
   readonly distance: number;
 }
 
@@ -124,12 +124,20 @@ interface AffineTransform {
   readonly f: number;
 }
 
-interface AnalysisImage {
+export interface FourPointRegistrationAnalysisImage {
   readonly width: number;
   readonly height: number;
   readonly gray: Uint8Array;
   readonly scaleX: number;
   readonly scaleY: number;
+}
+
+export interface PreparedFourPointRegistrationAnchor {
+  readonly anchor: FourPointCropAnchor;
+  readonly analysis: FourPointRegistrationAnalysisImage;
+  readonly band: FourPointBoardBand;
+  readonly featureBand: FourPointBoardBand;
+  readonly features: readonly FourPointRegistrationFeature[];
 }
 
 const boxHeight = (box: CropBox) => box.bottom - box.top;
@@ -203,7 +211,9 @@ function validateBand(
     throw new Error('CROP_V12_ANCHOR_INVALID');
 }
 
-function sampleGray(source: StructuralSample): AnalysisImage {
+function sampleGray(
+  source: StructuralSample,
+): FourPointRegistrationAnalysisImage {
   const ratio = Math.min(
     1,
     CROP_V12_CONFIG.analysisLongEdge / Math.max(source.width, source.height),
@@ -348,7 +358,11 @@ function descriptorPairs(): readonly [number, number, number, number][] {
 
 const DESCRIPTOR_PAIRS = descriptorPairs();
 
-function describe(image: AnalysisImage, x: number, y: number): Uint32Array {
+function describe(
+  image: FourPointRegistrationAnalysisImage,
+  x: number,
+  y: number,
+): Uint32Array {
   const descriptor = new Uint32Array(CROP_V12_CONFIG.descriptorBits / 32);
   for (const [index, pair] of DESCRIPTOR_PAIRS.entries()) {
     const first = image.gray[(y + pair[1]) * image.width + x + pair[0]]!;
@@ -359,12 +373,12 @@ function describe(image: AnalysisImage, x: number, y: number): Uint32Array {
 }
 
 function detectFeatures(
-  image: AnalysisImage,
+  image: FourPointRegistrationAnalysisImage,
   band: FourPointBoardBand | null,
   limit: number,
-): Feature[] {
+): FourPointRegistrationFeature[] {
   const radius = CROP_V12_CONFIG.descriptorRadius + 2;
-  const candidates: Omit<Feature, 'descriptor'>[] = [];
+  const candidates: Omit<FourPointRegistrationFeature, 'descriptor'>[] = [];
   const minX = band
     ? Math.max(radius, Math.floor(Math.min(...band.map((point) => point.x))))
     : radius;
@@ -391,7 +405,7 @@ function detectFeatures(
     for (let column = 0; column < columns; column += 1) {
       const left = Math.floor(minX + ((maxX - minX) * column) / columns);
       const right = Math.ceil(minX + ((maxX - minX) * (column + 1)) / columns);
-      const local: Omit<Feature, 'descriptor'>[] = [];
+      const local: Omit<FourPointRegistrationFeature, 'descriptor'>[] = [];
       for (let y = Math.max(radius, top); y < Math.min(maxY, bottom); y += 2)
         for (
           let x = Math.max(radius, left);
@@ -409,7 +423,7 @@ function detectFeatures(
     }
   }
   candidates.sort((left, right) => right.score - left.score);
-  const selected: Feature[] = [];
+  const selected: FourPointRegistrationFeature[] = [];
   for (const candidate of candidates) {
     if (
       selected.some(
@@ -441,10 +455,10 @@ function hamming(left: Uint32Array, right: Uint32Array): number {
 }
 
 function matchFeatures(
-  anchor: readonly Feature[],
-  target: readonly Feature[],
-  anchorSize: AnalysisImage,
-  targetSize: AnalysisImage,
+  anchor: readonly FourPointRegistrationFeature[],
+  target: readonly FourPointRegistrationFeature[],
+  anchorSize: FourPointRegistrationAnalysisImage,
+  targetSize: FourPointRegistrationAnalysisImage,
 ): Match[] {
   const matches: Match[] = [];
   const marginX = targetSize.width * CROP_V12_CONFIG.searchMarginRatio;
@@ -452,7 +466,7 @@ function matchFeatures(
   for (const from of anchor) {
     const expectedX = (from.x / anchorSize.width) * targetSize.width;
     const expectedY = (from.y / anchorSize.height) * targetSize.height;
-    let best: Feature | null = null;
+    let best: FourPointRegistrationFeature | null = null;
     let bestDistance = Infinity;
     let secondDistance = Infinity;
     for (const to of target) {
@@ -641,7 +655,7 @@ function coveredQuadrants(
 
 function evidenceBase(
   anchor: FourPointCropAnchor,
-  analysis: AnalysisImage,
+  analysis: FourPointRegistrationAnalysisImage,
 ): Omit<
   FourPointRegistrationEvidence,
   | 'status'
@@ -663,26 +677,67 @@ function evidenceBase(
   };
 }
 
-export function registerFourPointBoardBand(input: {
+export function prepareFourPointRegistrationAnchor(input: {
   readonly anchor: FourPointCropAnchor;
   readonly anchorImage: StructuralSample;
+}): PreparedFourPointRegistrationAnchor {
+  if (
+    input.anchor.sourceWidth !== input.anchorImage.width ||
+    input.anchor.sourceHeight !== input.anchorImage.height
+  )
+    throw new Error('CROP_V12_ANCHOR_INVALID');
+  validateBand(
+    input.anchor.boardBand,
+    input.anchor.sourceWidth,
+    input.anchor.sourceHeight,
+  );
+  const analysis = sampleGray(input.anchorImage);
+  const band = scaleBand(
+    input.anchor.boardBand,
+    analysis.scaleX,
+    analysis.scaleY,
+  );
+  const featureBand = featureContextBand(band, analysis.width, analysis.height);
+  return {
+    anchor: input.anchor,
+    analysis,
+    band,
+    featureBand,
+    features: detectFeatures(
+      analysis,
+      featureBand,
+      CROP_V12_CONFIG.maximumAnchorFeatures,
+    ),
+  };
+}
+
+export function registerFourPointBoardBand(input: {
+  readonly anchor: FourPointCropAnchor;
+  readonly anchorImage?: StructuralSample;
+  readonly preparedAnchor?: PreparedFourPointRegistrationAnchor;
   readonly targetImage: StructuralSample;
   readonly structuralCrossCheck?: boolean;
 }): FourPointRegistrationEvidence {
-  const anchorAnalysis = sampleGray(input.anchorImage);
   const targetAnalysis = sampleGray(input.targetImage);
   const base = evidenceBase(input.anchor, targetAnalysis);
+  let preparedAnchor: PreparedFourPointRegistrationAnchor;
   try {
+    preparedAnchor =
+      input.preparedAnchor ??
+      prepareFourPointRegistrationAnchor({
+        anchor: input.anchor,
+        anchorImage:
+          input.anchorImage ??
+          (() => {
+            throw new Error('CROP_V12_ANCHOR_INVALID');
+          })(),
+      });
     if (
-      input.anchor.sourceWidth !== input.anchorImage.width ||
-      input.anchor.sourceHeight !== input.anchorImage.height
+      preparedAnchor.anchor.sourceName !== input.anchor.sourceName ||
+      preparedAnchor.anchor.sourceChecksumSha256 !==
+        input.anchor.sourceChecksumSha256
     )
       throw new Error('CROP_V12_ANCHOR_INVALID');
-    validateBand(
-      input.anchor.boardBand,
-      input.anchor.sourceWidth,
-      input.anchor.sourceHeight,
-    );
   } catch {
     return {
       ...base,
@@ -696,21 +751,10 @@ export function registerFourPointBoardBand(input: {
       coveredQuadrants: 0,
     };
   }
-  const anchorBand = scaleBand(
-    input.anchor.boardBand,
-    anchorAnalysis.scaleX,
-    anchorAnalysis.scaleY,
-  );
-  const anchorFeatureBand = featureContextBand(
-    anchorBand,
-    anchorAnalysis.width,
-    anchorAnalysis.height,
-  );
-  const anchorFeatures = detectFeatures(
-    anchorAnalysis,
-    anchorFeatureBand,
-    CROP_V12_CONFIG.maximumAnchorFeatures,
-  );
+  const anchorAnalysis = preparedAnchor.analysis;
+  const anchorBand = preparedAnchor.band;
+  const anchorFeatureBand = preparedAnchor.featureBand;
+  const anchorFeatures = preparedAnchor.features;
   const targetFeatures = detectFeatures(
     targetAnalysis,
     null,

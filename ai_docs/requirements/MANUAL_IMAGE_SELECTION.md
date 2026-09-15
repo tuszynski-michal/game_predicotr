@@ -653,6 +653,29 @@ jako źródło. Zmiana zakresu odświeża listę bez ponownego otwierania system
 selektora, a sam wybór zakresu pozostaje dostępny także przy pustej liście
 trybu pełnego.
 
+TASK-0547: przygotowanie brakujących cropów pracuje stałymi paczkami po
+maksymalnie cztery pozycje. Przeglądarka uruchamia od jednego do czterech
+workerów zależnie od `hardwareConcurrency`; limit nigdy nie przekracza czterech
+w jednej karcie. Analiza, render i obliczenie SHA-256 źródła mogą zakończyć się
+w dowolnej kolejności, lecz publikacja JPEG-a, failure, kotwicy i
+`currentIndex` następuje wyłącznie w naturalnej kolejności inwentarza.
+
+Wszystkie zdjęcia paczki używają jednego snapshotu kotwicy z jej początku.
+Worker przygotowuje raz mały zestaw szarości i cech rejestracyjnych kotwicy;
+szybka ścieżka `complete_layout_board_buffer` kończy wynik bez użycia tego
+zestawu. Zmiana sposobu wykonania nie zmienia aktywnej polityki v12,
+fingerprintu, progów ani klasyfikacji review. Każdy zatwierdzony plik nadal ma
+zweryfikowaną checksumę źródła i wyjścia, pending oraz finalny zapis sesji,
+shard i kontrolny odczyt JPEG-a. Przerwanie anuluje workery, a wyniki
+przeanalizowane, lecz jeszcze nieopublikowane, są po wznowieniu liczone
+ponownie z trwałego stanu.
+
+Zwykłe przygotowanie nie zapisuje ponownie identycznego pliku review. Ręczna
+zmiana nadal utrwala review tylko wtedy, gdy jego treść rzeczywiście się
+zmieniła. Widoczna liczba równoległych analiz, tempo oraz czasy detekcji,
+renderu i zapisu są telemetrią bieżącej karty; nie są źródłem prawdy dla
+recovery.
+
 Jeżeli v12 ma jednocześnie udaną rejestrację i dowód strukturalny, wynikowe
 zwężenie musi obejmować wszystkie cztery punkty `registeredBoardBand`.
 Ciaśniejsza granica strukturalna nie może obciąć nawet części rozpoznanej

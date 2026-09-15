@@ -36,6 +36,9 @@ test('batch preparation isolates failures and uses bounded state files', () => {
   assert.match(source, /persistPreparationFailure/u);
   assert.match(source, /RESULTS_DIRECTORY/u);
   assert.match(source, /resultShardName/u);
+  assert.match(source, /mapSelectedImageCropBatch/u);
+  assert.match(source, /SELECTED_IMAGE_CROP_ANALYSIS_BATCH_SIZE/u);
+  assert.match(source, /preparationBatches/u);
 });
 
 test('filled-gap directory listing includes only direct manifest owners', () => {
@@ -68,6 +71,16 @@ test('selected image crop save journals before writing and verifies the output',
   assert.ok(manifestWrite < imageWrite);
   assert.ok(imageWrite < verification);
   assert.ok(verification < finalization);
+  const saveEnd = source.indexOf(
+    'export async function prepareAllSelectedImageCrops',
+    journal,
+  );
+  const saveBody = source.slice(journal, saveEnd);
+  assert.match(source, /verifiedSource/u);
+  assert.match(
+    saveBody,
+    /const reviewChanged = !selectedImageCropReviewsEqual[\s\S]*?if \(reviewChanged\)[\s\S]*?writeSelectedImageCropReview/u,
+  );
 });
 
 test('interrupted conflicting output is retained and sent back to correction', () => {
@@ -110,6 +123,11 @@ test('worker compatibility gets one fresh retry before the current main-thread f
   assert.match(workerClient, /recoverFromStaleWorker/u);
   assert.match(workerClient, /workerFallbackRequired = true/u);
   assert.match(workerClient, /resolve\(null\)/u);
+  assert.match(workerClient, /preparedAnchorCache/u);
+  assert.match(workerClient, /browserWorkerConcurrency/u);
+  assert.match(worker, /prepareFourPointRegistrationAnchor/u);
+  assert.match(worker, /finishFourPointRegisteredCrop/u);
+  assert.doesNotMatch(worker, /setTimeout\(resolve, 0\)/u);
 });
 
 test('batch preparation holds one per-directory lease and releases it in finally', () => {

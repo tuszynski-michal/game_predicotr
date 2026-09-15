@@ -300,6 +300,33 @@ checksum wykonuje dopiero istniejące `selectActiveFilledGapFiles` przy starcie.
 UI ponownie wylicza opcje po zmianie trybu i nie zachowuje nazwy, która przestała
 być dostępna.
 
+TASK-0547 rozdziela przygotowanie cropów na równoległą fazę obliczeniową i
+uporządkowaną fazę publikacji. Koordynator pobiera stałą paczkę najwyżej czterech
+pozycji i uruchamia ograniczony scheduler. Pula browserowych workerów dobiera
+limit 1–4 na podstawie `navigator.hardwareConcurrency`, realizuje po jednym
+żądaniu na worker i odtwarza instancję po 128 żądaniach. Wyniki scheduler
+zwraca w kolejności wejścia niezależnie od kolejności zakończenia. Dopiero
+koordynator wykonuje istniejący journal i aktualizuje kotwicę, failure oraz
+`currentIndex` kolejno według inwentarza.
+
+Kontrakt workera v2 ma dwa żądania. `prepare_anchor` dekoduje pełny obraz raz i
+zwraca klonowalny `PreparedFourPointRegistrationAnchor`: deskryptor źródła,
+szarość przeskalowaną do poziomu rejestracji i ograniczoną listę cech.
+`prepare_crop` dekoduje bieżący obraz, najpierw wykonuje analizę strukturalną i
+dopiero dla ścieżki wymagającej rejestracji korzysta z przygotowanej kotwicy.
+Snapshot kotwicy jest wspólny dla całej paczki; ostatni uporządkowany,
+pełnowartościowy wynik może zostać kotwicą następnej paczki. Oryginalna nazwa,
+SHA-256 i wymiary pozostają w dowodzie rejestracji.
+
+SHA-256 źródła jest liczona równolegle z analizą. Adapter zapisu otrzymuje ten
+sam zweryfikowany `File` i checksumę, więc nie pobiera ani nie hashuje źródła
+drugi raz. Trwała publikacja nie zmienia granicy crash safety: pending w sesji,
+JPEG, ponowne SHA-256 wyjścia, shard, finalna sesja i kontrolny odczyt JPEG-a
+pozostają sekwencyjne. Identyczne review jest no-op. Zatrzymanie workspace'u
+anuluje aktywne żądania i kończy pulę; nieopublikowane wyniki paczki nie
+zwiększają trwałego progresu. Czasy etapów i tempo są tylko stanem React
+bieżącej karty.
+
 Przy udanej rejestracji v12 przecięcie cropa rejestracji i cropa strukturalnego
 jest dodatkowo ograniczone obwiednią `registeredBoardBand`: `topY` nie może być
 niżej niż najmniejszy `y`, a `bottomY` wyżej niż największy `y` czworokąta.

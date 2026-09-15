@@ -6,6 +6,25 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0547 — równoległe przygotowanie cropów w przeglądarce
+
+- Przygotowanie pracuje paczkami najwyżej czterech zdjęć i używa 1–4
+  browserowych workerów zależnie od liczby procesorów logicznych. Analiza,
+  render oraz SHA-256 źródła są równoległe, natomiast JPEG, failure, kotwica i
+  progres są nadal publikowane w naturalnej kolejności inwentarza.
+- Kotwica v12 jest dekodowana i redukowana do współdzielonych cech raz na
+  paczkę. Szybka ścieżka kompletnej siatki nie korzysta z obrazu kotwicy.
+  Zweryfikowany plik źródłowy i jego SHA trafiają bezpośrednio do zapisu, a
+  niezmienione review nie powoduje operacji dyskowej.
+- Journal odporny na restart, checksumy, odczyt kontrolny JPEG-a, blokada
+  jednego writera oraz fingerprint v12 pozostają bez zmian. Wyjście z widoku
+  anuluje aktywne workery; nieopublikowana część paczki jest po wznowieniu
+  liczona ponownie.
+- UI pokazuje aktualną równoległość, tempo oraz czasy dekodowania, detekcji,
+  renderu i zapisu. 35 testów skoncentrowanych, 484 testy Admina i 98 testów
+  core przeszły; oba typechecki, lint Admina, formatowanie i produkcyjny build
+  są zielone.
+
 ### TASK-0546 — katalogi cut w wyborze uzupełnionych luk
 
 - Przyczyną braku katalogów `* cut` było bezwarunkowe `!name.endsWith(' cut')`

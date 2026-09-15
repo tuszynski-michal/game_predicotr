@@ -8479,3 +8479,23 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   trwały ślad pracy zachowuje wersję lub blokadę historyczną; automatyczne
   przypięcie nie usuwa, nie nadpisuje i nie renderuje JPEG-a przed zapisem
   wersji w session journalu.
+
+## D-385 — Obliczenia cropów są równoległe, a publikacja uporządkowana
+
+- **Status:** accepted (TASK-0547).
+- **Date:** 2026-09-15.
+- **Decision:** koordynator analizuje stałe paczki najwyżej czterech zdjęć w
+  puli 1–4 browserowych workerów, lecz publikuje wyniki przez dotychczasowy
+  journal wyłącznie w kolejności naturalnego inwentarza. Każda paczka używa
+  jednego snapshotu przygotowanej kotwicy.
+- **Rationale:** koszt dekodowania, detekcji, renderu i SHA-256 źródła był
+  wykonywany sekwencyjnie i wykorzystywał niewielką część dostępnego CPU.
+  Rozdzielenie faz pozwala użyć kilku rdzeni bez uzależnienia domenowego
+  progresu od kolejności zakończenia workerów.
+- **Compatibility:** przygotowana kotwica jest tylko pochodną istniejącego
+  obrazu i deskryptora. Polityka v12, fingerprint, progi, klasyfikacja oraz
+  format trwałych wyników pozostają bez zmian; zmienia się wersja ulotnego
+  protokołu worker–strona.
+- **Safety:** źródło i wyjście nadal przechodzą checksumy, pending i finalny
+  zapis sesji, shard oraz odczyt kontrolny JPEG-a. Awaria przed uporządkowanym
+  commitem nie publikuje wyniku. Identyczne review nie jest przepisywane.

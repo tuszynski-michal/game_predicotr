@@ -7,6 +7,7 @@ import {
   CROP_V12_POLICY,
   cropFromRegisteredBoardBand,
   isCompatibleCropV12Fingerprint,
+  prepareFourPointRegistrationAnchor,
   registerFourPointBoardBand,
   validateFourPointRegistrationEvidence,
 } from '../src/auto-crop-v12-registration.ts';
@@ -72,6 +73,25 @@ test('registers a four-point board band without requiring 36 board corners', () 
   });
   assert.ok(crop.topY < 48);
   assert.ok(crop.bottomY > 200);
+});
+
+test('prepared anchor features preserve the exact registration result', () => {
+  const anchorImage = textured(320, 240);
+  const targetImage = textured(320, 240, 8, 6);
+  const direct = registerFourPointBoardBand({
+    anchor,
+    anchorImage,
+    targetImage,
+  });
+  const prepared = registerFourPointBoardBand({
+    anchor,
+    preparedAnchor: prepareFourPointRegistrationAnchor({
+      anchor,
+      anchorImage,
+    }),
+    targetImage,
+  });
+  assert.deepEqual(prepared, direct);
 });
 
 test('rejects an unrelated image instead of transferring a crop', () => {

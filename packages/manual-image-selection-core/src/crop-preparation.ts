@@ -20,6 +20,7 @@ import {
   cropFromRegisteredBoardBand,
   registerFourPointBoardBand,
   type FourPointCropAnchor,
+  type PreparedFourPointRegistrationAnchor,
 } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 
 // Activation is a separate quality decision. No hidden shadow/default switch.
@@ -41,6 +42,11 @@ export function assertCropPreparationPolicy(policy: string): void {
 export interface FourPointCropPreparationAnchor {
   readonly descriptor: FourPointCropAnchor;
   readonly image: StructuralSample;
+}
+
+export interface PreparedFourPointCropPreparationAnchor {
+  readonly descriptor: FourPointCropAnchor;
+  readonly prepared: PreparedFourPointRegistrationAnchor;
 }
 
 export function intersectRegisteredAndStructuralCrop(input: {
@@ -73,6 +79,23 @@ export async function prepareFourPointRegisteredCrop(
   yieldBetween: () => Promise<void> = () => Promise.resolve(),
 ): Promise<SelectedImageAutoCropProposal> {
   const structural = await prepareStructuralCrop(source, yieldBetween);
+  return finishFourPointRegisteredCrop(
+    source,
+    structural,
+    anchor,
+    yieldBetween,
+  );
+}
+
+export async function finishFourPointRegisteredCrop(
+  source: StructuralSample,
+  structural: SelectedImageAutoCropProposal,
+  anchor:
+    | FourPointCropPreparationAnchor
+    | PreparedFourPointCropPreparationAnchor
+    | null,
+  yieldBetween: () => Promise<void> = () => Promise.resolve(),
+): Promise<SelectedImageAutoCropProposal> {
   if (anchor === null) {
     return {
       ...structural,
@@ -90,7 +113,9 @@ export async function prepareFourPointRegisteredCrop(
   await yieldBetween();
   const registration = registerFourPointBoardBand({
     anchor: anchor.descriptor,
-    anchorImage: anchor.image,
+    ...('prepared' in anchor
+      ? { preparedAnchor: anchor.prepared }
+      : { anchorImage: anchor.image }),
     targetImage: source,
     structuralCrossCheck: structural.structural?.status === 'detected',
   });

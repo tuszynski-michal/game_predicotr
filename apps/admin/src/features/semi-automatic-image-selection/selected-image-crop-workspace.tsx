@@ -53,6 +53,7 @@ import {
   SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH,
   type SelectedImageCropAtlas,
 } from './selected-image-crop-atlases';
+import { shutdownSelectedImageCropWorkerPool } from './selected-image-crop-worker-client';
 
 const EMPTY_VIEW: ManualImageViewerInitialView = {
   scrollLeft: 0,
@@ -78,6 +79,17 @@ export function SelectedImageCropWorkspace() {
   const [preparationProgress, setPreparationProgress] = useState<{
     readonly completed: number;
     readonly total: number;
+    readonly performance?: {
+      readonly concurrency: number;
+      readonly lastAnalysisMs: number;
+      readonly lastWriteMs: number;
+      readonly averageCommittedMs: number;
+      readonly worker: {
+        readonly decodeMs: number;
+        readonly analysisMs: number;
+        readonly renderMs: number;
+      } | null;
+    } | null;
   } | null>(null);
   const [atlases, setAtlases] = useState<
     ReadonlyMap<number, SelectedImageCropAtlas>
@@ -249,6 +261,7 @@ export function SelectedImageCropWorkspace() {
           setPreparationProgress({
             completed: progress.completed,
             total: progress.total,
+            performance: progress.performance,
           });
         },
         undefined,
@@ -256,6 +269,7 @@ export function SelectedImageCropWorkspace() {
       )
         .then((completed) => {
           if (preparationController.signal.aborted) return;
+          shutdownSelectedImageCropWorkerPool();
           applyPrepared(completed.prepared, requestedIndex);
           setPreparationProgress(null);
           if (atlasesRequestedRef.current)
@@ -268,6 +282,7 @@ export function SelectedImageCropWorkspace() {
         })
         .catch((cause: unknown) => {
           if (preparationController.signal.aborted) return;
+          shutdownSelectedImageCropWorkerPool();
           setPreparationProgress(null);
           setError(errorMessage(cause));
         });
@@ -504,6 +519,7 @@ export function SelectedImageCropWorkspace() {
 
   function leavePreparedWorkspace(clearDirectory = true) {
     preparationAbortRef.current?.abort();
+    shutdownSelectedImageCropWorkerPool();
     preparationAbortRef.current = null;
     atlasAbortRef.current?.abort();
     atlasAbortRef.current = null;
@@ -887,6 +903,11 @@ export function SelectedImageCropWorkspace() {
               value={preparationProgress?.completed ?? preparedCount}
             />
             <span>{manifest?.outputDirectoryName}</span>
+            {preparationProgress?.performance ? (
+              <span>
+                {`${preparationProgress.performance.concurrency} równolegle · tempo ${(60_000 / preparationProgress.performance.averageCommittedMs).toFixed(1)}/min · analiza ${(preparationProgress.performance.lastAnalysisMs / 1000).toFixed(1)} s · ${preparationProgress.performance.worker ? `dekodowanie ${(preparationProgress.performance.worker.decodeMs / 1000).toFixed(1)} s · detekcja ${(preparationProgress.performance.worker.analysisMs / 1000).toFixed(1)} s · kodowanie ${(preparationProgress.performance.worker.renderMs / 1000).toFixed(1)} s · ` : ''}zapis ${(preparationProgress.performance.lastWriteMs / 1000).toFixed(1)} s`}
+              </span>
+            ) : null}
             <span>{proposalLabel(proposal, detecting)}</span>
             <button
               className="secondaryButton"

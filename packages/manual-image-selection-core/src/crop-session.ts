@@ -11,11 +11,39 @@ import {
 } from '@game-predictor/manual-image-selection-core/crop';
 import type { SelectedImageAutoCropProposal } from './auto-crop.ts';
 
+/**
+ * A crop above this share of the canonical source height is treated as a
+ * failed automatic cut. The value matches the upper bound already enforced
+ * by v12 anchor registration, while keeping exactly 78% valid.
+ */
+export const SELECTED_IMAGE_CROP_MAXIMUM_HEIGHT_RATIO = 0.78 as const;
+
+export function selectedImageCropExceedsMaximumHeight(
+  crop: SelectedImageCropBand | null | undefined,
+): boolean {
+  if (
+    crop === null ||
+    crop === undefined ||
+    !Number.isFinite(crop.height) ||
+    !Number.isFinite(crop.topY) ||
+    !Number.isFinite(crop.bottomY) ||
+    crop.height <= 0 ||
+    crop.bottomY <= crop.topY
+  )
+    return false;
+  return (
+    (crop.bottomY - crop.topY) / crop.height >
+    SELECTED_IMAGE_CROP_MAXIMUM_HEIGHT_RATIO
+  );
+}
+
 /** Review policy only: never changes persisted detector pixels or fingerprints. */
 export function selectedImageCropReviewReason(
   proposal: SelectedImageAutoCropProposal | null | undefined,
 ): string | null {
   if (!proposal) return null;
+  if (selectedImageCropExceedsMaximumHeight(proposal.crop))
+    return 'crop_too_tall';
   if (proposal.registration?.reason === 'structural_registration_conflict')
     return 'structural_registration_conflict';
   if (proposal.registration?.status === 'registered') return null;

@@ -3,7 +3,10 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import sharp from 'sharp';
+
 import {
+  SELECTED_IMAGE_CROP_MAXIMUM_HEIGHT_RATIO,
   selectedImageCropAutomaticCorrectionRecalculationFileNames,
   selectedImageCropReviewReason,
 } from '../packages/manual-image-selection-core/src/crop-session.ts';
@@ -175,6 +178,45 @@ function selectedCropFailureRecoveryFileNames(snapshot, sourceResults) {
   return inventoryNames.filter((fileName) => selected.has(fileName));
 }
 
+async function selectedCropExcessiveHeightFileNames(
+  snapshot,
+  sourceResults,
+  currentOutput,
+) {
+  const selected = [];
+  for (const entry of snapshot.inventory.entries) {
+    const result = sourceResults.get(entry.fileName);
+    if (result === undefined) continue;
+    const sourceDimensions = result.crop;
+    if (
+      sourceDimensions === null ||
+      typeof sourceDimensions !== 'object' ||
+      !Number.isInteger(sourceDimensions.width) ||
+      !Number.isInteger(sourceDimensions.height) ||
+      sourceDimensions.width < 1 ||
+      sourceDimensions.height < 1
+    )
+      throw new Error('CROP_PREVIEW_RESULT_DIMENSIONS_INVALID');
+    const outputFile = path.join(currentOutput, entry.fileName);
+    await safe(outputFile);
+    const metadata = await sharp(outputFile).metadata();
+    if (
+      !Number.isInteger(metadata.width) ||
+      !Number.isInteger(metadata.height) ||
+      metadata.width !== sourceDimensions.width ||
+      metadata.height < 1 ||
+      metadata.height > sourceDimensions.height
+    )
+      throw new Error('CROP_PREVIEW_OUTPUT_DIMENSIONS_INVALID');
+    if (
+      metadata.height / sourceDimensions.height >
+      SELECTED_IMAGE_CROP_MAXIMUM_HEIGHT_RATIO
+    )
+      selected.push(entry.fileName);
+  }
+  return selected;
+}
+
 function shardName(index) {
   return `${String(Math.floor(index / RESULT_SHARD_SIZE)).padStart(6, '0')}.json`;
 }
@@ -278,19 +320,24 @@ async function runSelectedCropPreview(
             input.snapshot,
             input.sourceResults,
           )
-        : (() => {
-            throw new Error('CROP_PREVIEW_SELECTION_INVALID');
-          })();
-  if (
-    selection === 'automatic_corrections' &&
-    new Set(candidateNames).size !== candidateNames.length
-  )
+        : selection === 'excessive_height'
+          ? await selectedCropExcessiveHeightFileNames(
+              input.snapshot,
+              input.sourceResults,
+              currentOutput,
+            )
+          : (() => {
+              throw new Error('CROP_PREVIEW_SELECTION_INVALID');
+            })();
+  if (new Set(candidateNames).size !== candidateNames.length)
     throw new Error('CROP_PREVIEW_CORRECTION_LIST_INVALID');
   if (candidateNames.length === 0)
     throw new Error(
       selection === 'missing_failures'
         ? 'CROP_PREVIEW_FAILURE_LIST_EMPTY'
-        : 'CROP_PREVIEW_CORRECTION_LIST_INVALID',
+        : selection === 'excessive_height'
+          ? 'CROP_PREVIEW_EXCESSIVE_HEIGHT_LIST_EMPTY'
+          : 'CROP_PREVIEW_CORRECTION_LIST_INVALID',
     );
   const candidateHash = sha256(Buffer.from(JSON.stringify(candidateNames)));
   if (!(await exists(output))) await fs.mkdir(output);
@@ -313,11 +360,18 @@ async function runSelectedCropPreview(
           correctionListChecksumSha256: candidateHash,
           correctionCount: candidateNames.length,
         }
-      : {
-          selection,
-          failureListChecksumSha256: candidateHash,
-          failureCount: candidateNames.length,
-        }),
+      : selection === 'missing_failures'
+        ? {
+            selection,
+            failureListChecksumSha256: candidateHash,
+            failureCount: candidateNames.length,
+          }
+        : {
+            selection,
+            excessiveHeightListChecksumSha256: candidateHash,
+            excessiveHeightCount: candidateNames.length,
+            maximumCropHeightRatio: SELECTED_IMAGE_CROP_MAXIMUM_HEIGHT_RATIO,
+          }),
     maximumAnchorDistance: MAX_ANCHOR_DISTANCE,
     maximumAnchorAttempts: MAX_ANCHOR_ATTEMPTS,
   };
@@ -625,18 +679,38 @@ export async function runSelectedCropFailureRecoveryPreview(
   );
 }
 
+export async function runSelectedCropExcessiveHeightPreview(
+  sourceArgument,
+  currentOutputArgument,
+  previewOutputArgument,
+  { onProgress = () => {} } = {},
+) {
+  return runSelectedCropPreview(
+    sourceArgument,
+    currentOutputArgument,
+    previewOutputArgument,
+    { onProgress, selection: 'excessive_height' },
+  );
+}
+
 async function main() {
   const [source, currentOutput, previewOutput, mode] = process.argv.slice(2);
   if (!source || !currentOutput || !previewOutput)
     throw new Error(
-      'Usage: <source-directory> <current-cut-directory> <preview-output-directory>',
+      'Usage: <source-directory> <current-cut-directory> <preview-output-directory> [--missing-failures|--too-tall]',
     );
-  if (mode !== undefined && mode !== '--missing-failures')
+  if (
+    mode !== undefined &&
+    mode !== '--missing-failures' &&
+    mode !== '--too-tall'
+  )
     throw new Error('CROP_PREVIEW_MODE_INVALID');
   const runPreview =
     mode === '--missing-failures'
       ? runSelectedCropFailureRecoveryPreview
-      : runSelectedCropCorrectionPreview;
+      : mode === '--too-tall'
+        ? runSelectedCropExcessiveHeightPreview
+        : runSelectedCropCorrectionPreview;
   const report = await runPreview(source, currentOutput, previewOutput, {
     onProgress: (progress) => {
       if (

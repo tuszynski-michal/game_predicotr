@@ -644,6 +644,14 @@ odmawia pracy przy obcej nazwie, duplikacie, istniejącym wyniku lub zmianie
 stanu wejściowego. Nie usuwa failure ani nie zmienia `cut`, review albo
 historycznej polityki; decyzja o przyjęciu wyniku pozostaje osobnym krokiem.
 
+TASK-0560: wynik automatyczny wyższy niż 78% kanonicznej wysokości źródła jest
+zawsze ostrzeżeniem `crop_too_tall`, także gdy inny dowód deklaruje pełną
+strukturę albo udaną rejestrację. Dokładnie 78% pozostaje dopuszczalne. Reguła
+działa z zapisanej propozycji po restarcie i nie zaznacza automatycznie pliku do
+ręcznej poprawki. Historyczne zbyt wysokie JPEG-i można przeliczyć aktywnym v12
+do osobnego preview; kwalifikacja używa rzeczywistych wymiarów pliku, a nie
+wyłącznie potencjalnie nieaktualnego prostokąta w shardzie.
+
 TASK-0536: po jawnej akceptacji operatora v12 jest głównym silnikiem wszystkich
 nowych sesji `Przytnij wybrane zdjęcia` oraz domyślną polityką lokalnego runnera
 katalogowego. Nowa sesja przypina dokładny identyfikator v12 przed pierwszym

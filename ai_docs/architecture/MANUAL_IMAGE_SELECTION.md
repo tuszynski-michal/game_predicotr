@@ -280,6 +280,20 @@ własną proweniencję v12; kandydat z historycznym wynikiem zachowuje istnieją
 kontrolę checksumy. W żadnym wariancie runner nie modyfikuje state v2 ani
 oryginalnych JPEG-ów.
 
+TASK-0560 dodaje do `crop-session.ts` czysty inwariant maksymalnej wysokości:
+`(bottomY - topY) / height > 0.78` daje `crop_too_tall` przed oceną pozytywnego
+dowodu struktury albo rejestracji. Funkcja korzysta z `proposal.crop`, dlatego
+ten sam wynik zasila bieżący UI, filtr po przygotowaniu i ponowne otwarcie
+shardów bez zmiany formatu danych ani fingerprintu detektora.
+
+Selection `excessive_height` niedestrukcyjnego runnera odczytuje nagłówki
+bieżących JPEG-ów w `cut`, wymaga szerokości zgodnej z zapisanym źródłem i
+porównuje wysokość pliku z kanoniczną wysokością źródła w wyniku. Pozwala to
+pominąć plik już poprawnie przycięty, gdy historyczny shard jest nieaktualny.
+Lista, próg i wejściowy stan są checksummowane w metadanych osobnego preview;
+obliczenie, journal, shardy, weryfikacja wyjścia i kotwice pozostają wspólne z
+pozostałymi trybami v12.
+
 TASK-0535 dodaje nad tym runnerem sekwencyjny audyt wielu katalogów. Skanowane
 są tylko bezpośrednie, niesymlinkowane katalogi z dokładnym sufiksem ` cut`.
 Kwalifikacja odtwarza snapshot v2 ze wszystkich shardów i porównuje dokładny

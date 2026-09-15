@@ -1,10 +1,26 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-15
+last_updated: 2026-09-16
 ---
 
 # Current State
+
+### TASK-0560 — proporcje i odzyskanie zbyt wysokich cropów
+
+- Automatyczny wynik wyższy niż 78% kanonicznej wysokości źródła otrzymuje
+  teraz `crop_too_tall` przed pozytywną oceną struktury albo rejestracji.
+  Dokładnie 78% pozostaje poprawne; schema shardów i fingerprint v12 nie
+  zmieniły się.
+- Audyt `303319 -326700 cut` znalazł 235 pełnych prostokątów w starszych
+  shardach, ale tylko 225 rzeczywistych JPEG-ów 1080×1920. Tryb
+  `excessive_height` kwalifikuje według bieżącego nagłówka JPEG-a, dlatego
+  pominął 10 plików już poprawnie skróconych.
+- Preview `303319 -326700 cut v12 aspect-ratio preview` ukończył 225/225 bez
+  failure: 113 cropów zostało odzyskanych rejestracją v12, a 112 nadal ma
+  pełną wysokość i powód `crop_too_tall`, więc wymaga review. Checksum stanu
+  wejściowego przed i po pozostał
+  `6efcd4edbcc4d6f3d8b6e30fd5f42c98a5855becc916f1f3a0eead72d711a616`.
 
 ### TASK-0558 — odzyskanie błędnych wyników przycinania wybranych zdjęć
 

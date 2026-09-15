@@ -17,6 +17,7 @@ import sharp from 'sharp';
 import {
   orderedNeighbourIndexes,
   runSelectedCropCorrectionPreview,
+  runSelectedCropExcessiveHeightPreview,
   runSelectedCropFailureRecoveryPreview,
 } from '../preview_selected_crop_corrections.mjs';
 
@@ -241,6 +242,131 @@ test('failure recovery previews only a missing persisted worker result and resum
     );
     assert.equal(resumed.completed, 1);
     assert.equal(resumed.failures.length, 0);
+  } finally {
+    const resolved = path.resolve(root);
+    assert.ok(resolved.startsWith(path.resolve(os.tmpdir())));
+    await rm(resolved, { recursive: true, force: true });
+  }
+});
+
+test('excessive-height recovery follows current JPEG proportions instead of stale result bounds', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'selected-crop-height-'));
+  const source = path.join(root, 'picked');
+  const current = path.join(root, 'picked cut');
+  const output = path.join(root, 'picked cut v12 height preview');
+  const state = path.join(current, '.manual-image-crop-state');
+  const results = path.join(state, 'results');
+  const names = ['seq_1-9.jpg', 'seq_10-18.jpg'];
+  try {
+    await mkdir(source);
+    await mkdir(results, { recursive: true });
+    const sourceJpeg = await sharp({
+      create: {
+        width: 32,
+        height: 32,
+        channels: 3,
+        background: '#111827',
+      },
+    })
+      .jpeg()
+      .toBuffer();
+    const normalCrop = await sharp({
+      create: {
+        width: 32,
+        height: 20,
+        channels: 3,
+        background: '#111827',
+      },
+    })
+      .jpeg()
+      .toBuffer();
+    const sourceChecksumSha256 = createHash('sha256')
+      .update(sourceJpeg)
+      .digest('hex');
+    const entries = [];
+    for (const [index, fileName] of names.entries()) {
+      await writeFile(path.join(source, fileName), sourceJpeg);
+      await writeFile(
+        path.join(current, fileName),
+        index === 0 ? sourceJpeg : normalCrop,
+      );
+      const sourceStat = await stat(path.join(source, fileName));
+      entries.push({
+        fileName,
+        sizeBytes: sourceJpeg.length,
+        lastModifiedMs: Math.trunc(sourceStat.mtimeMs),
+      });
+    }
+    await writeFile(
+      path.join(state, 'inventory-v2.json'),
+      JSON.stringify({
+        schemaVersion: 2,
+        sourceDirectoryName: 'picked',
+        outputDirectoryName: 'picked cut',
+        sourceInventoryChecksumSha256: 'a'.repeat(64),
+        entries,
+      }),
+    );
+    await writeFile(
+      path.join(state, 'review-v2.json'),
+      JSON.stringify({
+        schemaVersion: 2,
+        reviewedFileNames: [],
+        correctionFileNames: [],
+        acceptedSuggestionFileNames: [],
+        correctionCursor: 0,
+        correctedFileNames: [],
+        completedAt: null,
+      }),
+    );
+    await writeFile(
+      path.join(state, 'session-v2.json'),
+      JSON.stringify({
+        schemaVersion: 2,
+        revision: 1,
+        currentIndex: 2,
+        pendingOperation: null,
+        failures: [],
+        preparationPolicyVersion:
+          'selected-image-board-band-v12-four-point-anchor-registration',
+        updatedAt: '2026-09-16T00:00:00.000Z',
+      }),
+    );
+    await writeFile(
+      path.join(results, '000000.json'),
+      JSON.stringify({
+        schemaVersion: 2,
+        shardIndex: 0,
+        results: Object.fromEntries(
+          names.map((fileName) => [
+            fileName,
+            {
+              status: 'accepted',
+              crop: { width: 32, height: 32, topY: 0, bottomY: 32 },
+              sourceChecksumSha256,
+              outputChecksumSha256: 'b'.repeat(64),
+              autoCropProposal: {
+                crop: { width: 32, height: 32, topY: 0, bottomY: 32 },
+                classification: 'safe_wide',
+                evidence: { fallbackReason: 'no_wide_evidence' },
+              },
+            },
+          ]),
+        ),
+      }),
+    );
+
+    const report = await runSelectedCropExcessiveHeightPreview(
+      source,
+      current,
+      output,
+    );
+
+    assert.equal(report.selection, 'excessive_height');
+    assert.equal(report.total, 1);
+    assert.equal(report.completed, 1);
+    assert.equal(report.observations[0].fileName, names[0]);
+    await assert.rejects(readFile(path.join(output, names[1])), /ENOENT/u);
   } finally {
     const resolved = path.resolve(root);
     assert.ok(resolved.startsWith(path.resolve(os.tmpdir())));

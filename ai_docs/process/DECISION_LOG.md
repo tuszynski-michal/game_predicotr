@@ -8632,3 +8632,20 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** obca nazwa, duplikat, wynik już obecny w shardzie, zmienione
   źródło albo zmiana wejściowego stanu kończą preview fail-closed. Oryginalny
   katalog `cut` pozostaje tylko do odczytu.
+
+## D-393 — Proporcja cropa jest niezależną bramką jakości
+
+- **Status:** accepted (TASK-0560).
+- **Date:** 2026-09-16.
+- **Decision:** automatyczny crop przekraczający 78% kanonicznej wysokości
+  źródła otrzymuje `crop_too_tall` przed oceną pozytywnego dowodu struktury lub
+  rejestracji. Historyczne odzyskanie kwalifikuje plik według rzeczywistego
+  nagłówka JPEG-a i zapisuje wynik wyłącznie do osobnego preview.
+- **Rationale:** pełna klatka może zostać poprawnym technicznie JPEG-em mimo
+  nieudanego wykrycia granic. Wymiary są niezależnym, trwałym dowodem takiego
+  błędu, a historyczne współrzędne mogą pozostać starsze od bieżącego pliku.
+- **Compatibility:** dokładnie 78% jest dozwolone, zgodnie z istniejącym
+  limitem rejestracji v12. Nie zmienia się schema shardów, fingerprint v12 ani
+  znaczenie jawnego `correctionFileNames`.
+- **Safety:** lista preview, próg i stan wejściowy są checksummowane; rozbieżne
+  wymiary kończą wybór błędem, a oryginalne JPEG-i i review są tylko czytane.

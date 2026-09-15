@@ -5,6 +5,8 @@ import {
   acceptRequiredSelectedImageCropCorrections,
   canAdoptActiveSelectedImageCropPolicy,
   clearSelectedImageCropFailure,
+  SELECTED_IMAGE_CROP_MAXIMUM_HEIGHT_RATIO,
+  selectedImageCropExceedsMaximumHeight,
   selectedImageCropReviewReason,
   requiredSelectedImageCropCorrections,
   materializeSelectedImageCropManifestV1,
@@ -235,6 +237,36 @@ test('review decisions override warnings but conflict cannot become an automatic
     null,
   );
   assert.equal(selectedImageCropReviewReason(undefined), null);
+});
+
+test('crop height independently rejects a full-frame automatic result', () => {
+  const atLimit = {
+    width: 1080,
+    height: 1000,
+    topY: 100,
+    bottomY: 100 + 1000 * SELECTED_IMAGE_CROP_MAXIMUM_HEIGHT_RATIO,
+  };
+  const tooTall = { ...atLimit, bottomY: atLimit.bottomY + 1 };
+  assert.equal(selectedImageCropExceedsMaximumHeight(atLimit), false);
+  assert.equal(selectedImageCropExceedsMaximumHeight(tooTall), true);
+  assert.equal(
+    selectedImageCropReviewReason({
+      crop: tooTall,
+      structural: { status: 'detected' },
+      registration: { status: 'registered' },
+    }),
+    'crop_too_tall',
+  );
+
+  const snapshot = migrateSelectedImageCropManifestV1(manifest(3));
+  const name = snapshot.inventory.entries[0].fileName;
+  snapshot.review.reviewedFileNames = [];
+  snapshot.shards[0].results[name].autoCropProposal = {
+    crop: tooTall,
+    structural: { status: 'detected' },
+    registration: { status: 'registered' },
+  };
+  assert.deepEqual(requiredSelectedImageCropCorrections(snapshot), [name]);
 });
 
 function manifest(count = 130) {

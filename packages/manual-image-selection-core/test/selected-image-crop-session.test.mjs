@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  acceptRequiredSelectedImageCropCorrections,
   canAdoptActiveSelectedImageCropPolicy,
   clearSelectedImageCropFailure,
   selectedImageCropReviewReason,
@@ -71,7 +72,10 @@ test('only a completely pristine versionless crop snapshot may adopt the active 
   assert.equal(
     canAdoptActiveSelectedImageCropPolicy({
       ...pristine,
-      session: { ...pristine.session, pendingOperation: { kind: 'write_crop' } },
+      session: {
+        ...pristine.session,
+        pendingOperation: { kind: 'write_crop' },
+      },
     }),
     false,
   );
@@ -129,6 +133,32 @@ test('top-row confidence cannot hide a persisted failed bottom-boundary proof', 
   restored.review = markSelectedImageCropCorrected(restored.review, name);
   assert.deepEqual(requiredSelectedImageCropCorrections(restored), []);
   assert.deepEqual(snapshot.shards[0].results[name].autoCropProposal, proposal);
+});
+
+test('bulk review accepts automatic warnings without consuming explicit correction selections', () => {
+  const snapshot = migrateSelectedImageCropManifestV1(manifest(4));
+  const names = snapshot.inventory.entries.map((entry) => entry.fileName);
+  snapshot.review = {
+    ...snapshot.review,
+    reviewedFileNames: [],
+    correctionFileNames: [names[0]],
+    acceptedSuggestionFileNames: [],
+    correctedFileNames: [],
+  };
+  snapshot.shards[0].results[names[0]].autoCropProposal = {
+    classification: 'conservative',
+    evidence: { fallbackReason: 'crop_too_short' },
+  };
+  snapshot.shards[0].results[names[1]].autoCropProposal = {
+    classification: 'conservative',
+    evidence: { fallbackReason: 'no_wide_evidence' },
+  };
+
+  const accepted = acceptRequiredSelectedImageCropCorrections(snapshot);
+
+  assert.deepEqual(accepted.correctionFileNames, [names[0]]);
+  assert.deepEqual(accepted.acceptedSuggestionFileNames, [names[1]]);
+  assert.equal(accepted.completedAt, null);
 });
 
 test('operator can accept one automatic warning without sending it to correction', () => {

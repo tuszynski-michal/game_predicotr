@@ -8499,3 +8499,21 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** źródło i wyjście nadal przechodzą checksumy, pending i finalny
   zapis sesji, shard oraz odczyt kontrolny JPEG-a. Awaria przed uporządkowanym
   commitem nie publikuje wyniku. Identyczne review nie jest przepisywane.
+
+## D-386 — Ostrzeżenie cropa nie jest wyborem ręcznej poprawki
+
+- **Status:** accepted (TASK-0548).
+- **Date:** 2026-09-15.
+- **Decision:** automatyczny powód review pozostaje poradą w filtrze
+  `Niepewne`. Tylko `correctionFileNames` oznacza border i wejście do ręcznego
+  edytora. Operator wybiera pojedyncze lub widoczne zdjęcia, a jawne
+  odznaczenie albo zakończenie przeglądu akceptuje pozostałe propozycje.
+- **Rationale:** konserwatywny detektor zgłasza także poprawne cropy. Łączenie
+  ostrzeżenia z wyborem zmuszało operatora do otwierania wszystkich wyników,
+  mimo że grid miniaturek pozwala szybko wskazać rzeczywiste błędy.
+- **Compatibility:** schema review i dowody shardów nie zmieniają się.
+  Istniejące `correctionFileNames` pozostają decyzjami i nie są automatycznie
+  usuwane.
+- **Safety:** zakończenie nadal blokują jawne wybory, failures, pending i
+  brakujące wyniki. Detektor, fingerprint, JPEG-i i checksumy pozostają bez
+  zmian.

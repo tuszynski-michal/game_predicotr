@@ -15,7 +15,6 @@ import { CROP_V12_POLICY } from '@game-predictor/manual-image-selection-core/aut
 import { ACTIVE_SELECTED_IMAGE_CROP_POLICY } from '@game-predictor/manual-image-selection-core/crop-preparation';
 import {
   canAdoptActiveSelectedImageCropPolicy,
-  effectiveSelectedImageCropCorrections,
   requiredSelectedImageCropCorrections,
   selectedImageCropReviewReason,
 } from '@game-predictor/manual-image-selection-core/crop-session';
@@ -134,12 +133,16 @@ export function SelectedImageCropWorkspace() {
   const currentEntry = manifest?.entries[currentIndex] ?? null;
   const preparedCount =
     manifest?.entries.filter((entry) => entry.result !== null).length ?? 0;
-  const correctionFileNames = new Set(
-    prepared ? effectiveSelectedImageCropCorrections(prepared.snapshot) : [],
+  const selectedCorrectionFileNames = new Set(
+    prepared?.snapshot.review.correctionFileNames ?? [],
   );
-  const automaticCorrectionCount = prepared
-    ? requiredSelectedImageCropCorrections(prepared.snapshot).length
-    : 0;
+  const selectedCorrectionQueue = (manifest?.entries ?? []).flatMap((entry) =>
+    selectedCorrectionFileNames.has(entry.fileName) ? [entry.fileName] : [],
+  );
+  const automaticWarningFileNames = new Set(
+    prepared ? requiredSelectedImageCropCorrections(prepared.snapshot) : [],
+  );
+  const automaticCorrectionCount = automaticWarningFileNames.size;
   const failures = prepared?.snapshot.session.failures ?? [];
   const done =
     prepared?.snapshot.review.completedAt !== null && prepared !== null;
@@ -578,7 +581,12 @@ export function SelectedImageCropWorkspace() {
       }
       setPrepared(final);
       if (correctionMode) {
-        const remaining = effectiveSelectedImageCropCorrections(final.snapshot);
+        const remainingSelection = new Set(
+          final.snapshot.review.correctionFileNames,
+        );
+        const remaining = final.manifest.entries.flatMap((entry) =>
+          remainingSelection.has(entry.fileName) ? [entry.fileName] : [],
+        );
         if (remaining.length === 0) {
           setCorrectionMode(false);
           if (atlasesRequestedRef.current) void rebuildAtlases(final);
@@ -606,10 +614,11 @@ export function SelectedImageCropWorkspace() {
 
   function goPrevious() {
     if (prepared === null) return;
-    const queue = effectiveSelectedImageCropCorrections(prepared.snapshot);
-    const position = queue.indexOf(currentFile?.fileName ?? '');
+    const position = selectedCorrectionQueue.indexOf(
+      currentFile?.fileName ?? '',
+    );
     if (position <= 0) return;
-    const previousName = queue[position - 1]!;
+    const previousName = selectedCorrectionQueue[position - 1]!;
     setCurrentIndex(
       prepared.sourceFiles.findIndex((item) => item.fileName === previousName),
     );
@@ -629,22 +638,18 @@ export function SelectedImageCropWorkspace() {
     .map((entry, index) => ({ entry, index }))
     .filter(({ entry }) => {
       if (reviewFilter === 'correction')
-        return correctionFileNames.has(entry.fileName);
+        return selectedCorrectionFileNames.has(entry.fileName);
       if (reviewFilter === 'failed') return failureNames.has(entry.fileName);
       if (reviewFilter === 'uncertain')
-        return (
-          selectedImageCropReviewReason(entry.result?.autoCropProposal) !== null
-        );
+        return automaticWarningFileNames.has(entry.fileName);
       return true;
     });
   const visibleSelectableNames = visibleEntries
     .filter(({ entry }) => entry.result !== null)
     .map(({ entry }) => entry.fileName);
-  const allVisibleSelected =
-    visibleSelectableNames.length > 0 &&
-    visibleSelectableNames.every((fileName) =>
-      correctionFileNames.has(fileName),
-    );
+  const visibleSelectedCount = visibleSelectableNames.filter((fileName) =>
+    selectedCorrectionFileNames.has(fileName),
+  ).length;
 
   async function recalculateUnreviewed(automaticCorrections = false) {
     if (prepared === null || preparationProgress !== null || busy) return;
@@ -699,7 +704,7 @@ export function SelectedImageCropWorkspace() {
       const updated = await setSelectedImageCropCorrection({
         prepared,
         fileName,
-        selected: !correctionFileNames.has(fileName),
+        selected: !selectedCorrectionFileNames.has(fileName),
       });
       setPrepared(updated);
     } catch (cause) {
@@ -710,14 +715,9 @@ export function SelectedImageCropWorkspace() {
   }
 
   function beginCorrections() {
-    if (
-      prepared === null ||
-      effectiveSelectedImageCropCorrections(prepared.snapshot).length === 0
-    )
-      return;
-    const firstName = effectiveSelectedImageCropCorrections(
-      prepared.snapshot,
-    )[0]!;
+    if (prepared === null || selectedCorrectionFileNames.size === 0) return;
+    const firstName = selectedCorrectionQueue[0];
+    if (firstName === undefined) return;
     const index = prepared.sourceFiles.findIndex(
       (item) => item.fileName === firstName,
     );
@@ -762,26 +762,43 @@ export function SelectedImageCropWorkspace() {
     );
   }
 
-  async function toggleVisibleCorrections() {
+  async function selectAllVisibleCorrections() {
+    if (prepared === null || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const selected = new Set(prepared.snapshot.review.correctionFileNames);
+      for (const fileName of visibleSelectableNames) selected.add(fileName);
+      const ordered = prepared.manifest.entries.flatMap((entry) =>
+        selected.has(entry.fileName) ? [entry.fileName] : [],
+      );
+      setPrepared(
+        await replaceSelectedImageCropCorrectionSelection({
+          prepared,
+          fileNames: ordered,
+        }),
+      );
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearAllVisibleCorrections() {
     if (prepared === null || busy) return;
     setBusy(true);
     setError('');
     try {
       const visible = new Set(visibleSelectableNames);
       const selected = new Set(prepared.snapshot.review.correctionFileNames);
-      if (allVisibleSelected) {
-        for (const fileName of visible) selected.delete(fileName);
-      } else {
-        for (const fileName of visible) selected.add(fileName);
-      }
+      for (const fileName of visible) selected.delete(fileName);
       const ordered = prepared.manifest.entries.flatMap((entry) =>
         selected.has(entry.fileName) ? [entry.fileName] : [],
       );
       const automaticSuggestionFileNames = visibleEntries.flatMap(
         ({ entry }) =>
-          selectedImageCropReviewReason(entry.result?.autoCropProposal) === null
-            ? []
-            : [entry.fileName],
+          automaticWarningFileNames.has(entry.fileName) ? [entry.fileName] : [],
       );
       setPrepared(
         await replaceSelectedImageCropCorrectionSelection({
@@ -924,14 +941,14 @@ export function SelectedImageCropWorkspace() {
                 busy={busy || detecting}
                 currentLabel={currentFile?.fileName ?? 'Brak zdjęcia'}
                 currentPosition={
-                  correctionFileNames.has(currentFile?.fileName ?? '')
-                    ? effectiveSelectedImageCropCorrections(
-                        prepared.snapshot,
-                      ).indexOf(currentFile?.fileName ?? '') + 1
+                  selectedCorrectionFileNames.has(currentFile?.fileName ?? '')
+                    ? selectedCorrectionQueue.indexOf(
+                        currentFile?.fileName ?? '',
+                      ) + 1
                     : 1
                 }
                 currentRelativePath={currentFile?.relativePath ?? null}
-                imageCount={correctionFileNames.size}
+                imageCount={selectedCorrectionFileNames.size}
                 imageOverlay={
                   crop === null ? null : (
                     <CropBandOverlay
@@ -941,14 +958,14 @@ export function SelectedImageCropWorkspace() {
                     />
                   )
                 }
-                navigationStepLabel={`do poprawy: ${correctionFileNames.size}`}
+                navigationStepLabel={`do poprawy: ${selectedCorrectionFileNames.size}`}
                 nextDisabled={false}
                 onNext={() => void saveCurrentCorrection()}
                 onPrevious={goPrevious}
                 previousDisabled={
-                  effectiveSelectedImageCropCorrections(
-                    prepared.snapshot,
-                  ).indexOf(currentFile?.fileName ?? '') <= 0
+                  selectedCorrectionQueue.indexOf(
+                    currentFile?.fileName ?? '',
+                  ) <= 0
                 }
                 state={viewer}
                 toolbarStart={
@@ -1022,7 +1039,7 @@ export function SelectedImageCropWorkspace() {
                     onClick={() => setReviewFilter('correction')}
                     type="button"
                   >
-                    Do poprawy ({correctionFileNames.size})
+                    Do poprawy ({selectedCorrectionFileNames.size})
                   </button>
                   <button
                     className={
@@ -1037,12 +1054,13 @@ export function SelectedImageCropWorkspace() {
                   </button>
                 </div>
                 <strong>
-                  Do poprawy: {correctionFileNames.size} · obowiązkowe:{' '}
-                  {automaticCorrectionCount}
+                  Wybrane do poprawy: {selectedCorrectionFileNames.size} ·
+                  ostrzeżenia algorytmu: {automaticCorrectionCount}
                 </strong>
                 <p className="selectedImageCropSelectionHint">
-                  Kliknij pojedynczą miniaturkę: obramowanie oznacza poprawkę, a
-                  ponowne kliknięcie potwierdza, że zdjęcie jest dobre.
+                  Ostrzeżenia algorytmu nie są zaznaczane automatycznie. Kliknij
+                  pojedynczą miniaturkę, aby dodać ją do poprawki; ponowne
+                  kliknięcie ją odznacza.
                 </p>
                 {automaticCorrectionCount > 0 ? (
                   <button
@@ -1079,21 +1097,31 @@ export function SelectedImageCropWorkspace() {
                 </button>
                 <button
                   className="secondaryButton"
-                  disabled={busy || visibleSelectableNames.length === 0}
-                  onClick={() => void toggleVisibleCorrections()}
+                  disabled={
+                    busy ||
+                    visibleSelectableNames.length === 0 ||
+                    visibleSelectedCount === visibleSelectableNames.length
+                  }
+                  onClick={() => void selectAllVisibleCorrections()}
                   type="button"
                 >
-                  {allVisibleSelected
-                    ? 'Odznacz wszystkie'
-                    : 'Zaznacz wszystkie'}
+                  Zaznacz wszystkie
+                </button>
+                <button
+                  className="secondaryButton"
+                  disabled={busy || visibleSelectedCount === 0}
+                  onClick={() => void clearAllVisibleCorrections()}
+                  type="button"
+                >
+                  Odznacz wszystkie
                 </button>
                 <button
                   className="primaryButton"
-                  disabled={busy || correctionFileNames.size === 0}
+                  disabled={busy || selectedCorrectionFileNames.size === 0}
                   onClick={beginCorrections}
                   type="button"
                 >
-                  Popraw zaznaczone ({correctionFileNames.size})
+                  Popraw zaznaczone ({selectedCorrectionFileNames.size})
                 </button>
                 <button
                   className="secondaryButton"
@@ -1113,14 +1141,16 @@ export function SelectedImageCropWorkspace() {
                     busy ||
                     preparationProgress !== null ||
                     failures.length > 0 ||
-                    correctionFileNames.size > 0 ||
+                    selectedCorrectionFileNames.size > 0 ||
                     preparedCount !== images.length ||
                     done
                   }
                   onClick={() => void finishReview()}
                   type="button"
                 >
-                  Zatwierdź i zakończ przegląd
+                  {automaticCorrectionCount > 0
+                    ? 'Zatwierdź niewybrane i zakończ przegląd'
+                    : 'Zatwierdź i zakończ przegląd'}
                 </button>
               </div>
               <div
@@ -1130,7 +1160,9 @@ export function SelectedImageCropWorkspace() {
                 {visibleEntries.map(({ entry, index }) => {
                   const position = selectedImageCropAtlasPosition(index);
                   const atlas = atlases.get(position.batchIndex);
-                  const selected = correctionFileNames.has(entry.fileName);
+                  const selected = selectedCorrectionFileNames.has(
+                    entry.fileName,
+                  );
                   const failure = failures.find(
                     (item) => item.fileName === entry.fileName,
                   );

@@ -327,6 +327,22 @@ anuluje aktywne żądania i kończy pulę; nieopublikowane wyniki paczki nie
 zwiększają trwałego progresu. Czasy etapów i tempo są tylko stanem React
 bieżącej karty.
 
+TASK-0548 rozdziela ostrzeżenie detektora od decyzji operatora bez zmiany
+schematu review. `requiredSelectedImageCropCorrections(snapshot)` nadal
+wyprowadza nierozstrzygnięte ostrzeżenia z dowodów shardów i zasila filtr
+`Niepewne`. Border, licznik oraz kolejka ręcznego edytora korzystają wyłącznie
+z `snapshot.review.correctionFileNames`. `synchronizeAutomaticCorrection` nie
+dopisuje już ostrzeżenia do tej tablicy; pozytywny wynik ponownej analizy może
+nadal usunąć historyczny automatyczny wybór.
+
+Dwie akcje zbiorcze budują nową listę w kolejności inventory. Zaznaczenie dodaje
+przygotowane pliki widocznego filtra. Odznaczenie usuwa tylko widoczne pliki i
+przekazuje widoczne ostrzeżenia do `acceptedSuggestionFileNames`. Końcowa,
+jawna akceptacja najpierw sprawdza brak wybranych poprawek, failures, pending i
+brakujących wyników, a następnie dodaje pozostałe niewybrane ostrzeżenia do
+zaakceptowanych sugestii i zapisuje kompletne review. Stare
+`correctionFileNames` nie są migrowane ani czyszczone przy odczycie.
+
 Przy udanej rejestracji v12 przecięcie cropa rejestracji i cropa strukturalnego
 jest dodatkowo ograniczone obwiednią `registeredBoardBand`: `topY` nie może być
 niżej niż najmniejszy `y`, a `bottomY` wyżej niż największy `y` czworokąta.

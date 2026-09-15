@@ -723,8 +723,9 @@ dolnych granic plus 4,5%. Górna granica nie rozszerza się w stronę panelu
 wypłat. Mocny, szeroki sygnał przy dolnej granicy rozszerza crop na zewnątrz
 najwyżej o jeden krok 3%. Kandydat niższy niż 28% obrazu nie jest używany.
 Brak wystarczającego dowodu daje jawny `safe_wide` równy 5–95% wysokości i
-automatycznie kieruje plik do kolejki `Do poprawy`. Propozycja nie jest decyzją
-i zawsze pozostaje edytowalna dwiema liniami.
+pokazuje plik jako nierozstrzygnięte ostrzeżenie w filtrze `Niepewne`.
+Ostrzeżenie nie zaznacza pliku do poprawki; propozycja nie jest decyzją i
+zawsze pozostaje edytowalna dwiema liniami.
 
 Każdy nowy wynik zapisuje w swoim shardzie wersję polityki, klasę
 `high_confidence | conservative | safe_wide`, confidence, lokalne granice,
@@ -743,12 +744,19 @@ powodu, pozostaje chroniony. W bieżącym trybie testowym obie akcje przypinają
 v12 w stanie sesji. Gotowe i ręcznie poprawione wyniki nie są po cichu
 nadpisywane, a istniejący katalog `cut` nie jest przeliczany bez jawnej akcji.
 
-W widoku kafelkowym jeden przycisk przełącza `Zaznacz wszystkie` i `Odznacz
-wszystkie`. Działa na przygotowanych wynikach bieżącego filtra, zachowuje
-zaznaczenia ukryte przez filtr i utrwala cały zbiór jednym małym zapisem review.
-Każda zmiana ponownie sprawdza SHA-256 źródła i bieżącego wyniku oraz przechodzi
-przez ten sam journal co pojedyncza poprawka. Akcja nigdy nie zmienia wyników
-zaakceptowanych przez operatora.
+W widoku kafelkowym border `Do poprawy` wynika wyłącznie z jawnego wyboru
+operatora w `correctionFileNames`. Automatyczne ostrzeżenie pozostaje osobno w
+filtrze `Niepewne` i nie zwiększa licznika `Popraw zaznaczone`. Kliknięcie
+pojedynczego kafelka przełącza jego wybór; odznaczenie ostrzeżonego zdjęcia jest
+jawną akceptacją bieżącej propozycji.
+
+Osobne, stale widoczne przyciski `Zaznacz wszystkie` i `Odznacz wszystkie`
+działają na przygotowanych wynikach bieżącego filtra oraz zachowują wybory
+ukryte przez filtr. Odznaczenie zbiorcze akceptuje widoczne ostrzeżenia.
+`Zatwierdź niewybrane i zakończ przegląd` akceptuje pozostałe niewybrane
+ostrzeżenia, lecz nadal wymaga pustej jawnej kolejki poprawek, braku failures,
+pending i brakujących wyników. Istniejące wybory zapisane przez starszą wersję
+pozostają zaznaczone do działania operatora.
 
 Narzędzie usuwa wyłącznie obszar nad górną i pod dolną przeciąganą linią.
 Zachowuje pełną szerokość, kanoniczną orientację EXIF, perspektywę oraz

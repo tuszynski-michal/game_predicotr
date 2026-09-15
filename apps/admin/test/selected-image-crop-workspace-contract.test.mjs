@@ -20,7 +20,7 @@ const viewer = await readFile(
 test('bad boundary evidence remains in the uncertainty filter without a preview badge', () => {
   assert.match(
     workspace,
-    /selectedImageCropReviewReason\(entry\.result\?\.autoCropProposal\)/u,
+    /reviewFilter === 'uncertain'[\s\S]*automaticWarningFileNames\.has/u,
   );
   assert.match(workspace, /Niepotwierdzone granice — wymagana korekta/u);
   assert.doesNotMatch(workspace, /selectedImageCropTileBadge/u);
@@ -76,13 +76,34 @@ test('crop review provides an atlas grid and opens only selected corrections in 
   assert.match(workspace, /Zaznacz wszystkie/u);
   assert.match(workspace, /Odznacz wszystkie/u);
   assert.match(workspace, /replaceSelectedImageCropCorrectionSelection/u);
+  assert.match(workspace, /prepared\?\.snapshot\.review\.correctionFileNames/u);
+  assert.match(workspace, /automaticWarningFileNames/u);
+  assert.match(workspace, /selectAllVisibleCorrections/u);
+  assert.match(workspace, /clearAllVisibleCorrections/u);
+  assert.doesNotMatch(workspace, /allVisibleSelected/u);
 });
 
 test('each thumbnail can accept or select one automatic crop suggestion', () => {
-  assert.match(workspace, /Kliknij pojedynczą miniaturkę/u);
+  assert.match(workspace, /Kliknij\s+pojedynczą miniaturkę/u);
   assert.match(workspace, /automaticSuggestionFileNames/u);
   assert.match(workspace, /zaznacz do poprawy/u);
   assert.match(workspace, /usuń z poprawki/u);
+  assert.match(workspace, /const selected = selectedCorrectionFileNames\.has/u);
+  assert.match(workspace, /Wybrane do poprawy/u);
+  assert.match(workspace, /ostrzeżenia algorytmu/u);
+});
+
+test('bulk correction actions remain separate and affect only the visible filter', () => {
+  assert.match(
+    workspace,
+    /selectAllVisibleCorrections[\s\S]*for \(const fileName of visibleSelectableNames\) selected\.add/u,
+  );
+  assert.match(
+    workspace,
+    /clearAllVisibleCorrections[\s\S]*const visible = new Set\(visibleSelectableNames\)[\s\S]*selected\.delete/u,
+  );
+  assert.match(workspace, />\s*Zaznacz wszystkie\s*<\/button>/u);
+  assert.match(workspace, />\s*Odznacz wszystkie\s*<\/button>/u);
 });
 
 test('shared viewer overlay is optional and preserves existing image rendering', () => {

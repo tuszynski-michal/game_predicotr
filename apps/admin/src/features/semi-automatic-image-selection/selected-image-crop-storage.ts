@@ -17,10 +17,10 @@ import {
   type SelectedImageCropSourceEntry,
 } from '@game-predictor/manual-image-selection-core/crop';
 import {
+  acceptRequiredSelectedImageCropCorrections,
   canAdoptActiveSelectedImageCropPolicy,
   clearSelectedImageCropFailure,
   selectedImageCropReviewReason,
-  requiredSelectedImageCropCorrections,
   materializeSelectedImageCropManifestV1,
   markSelectedImageCropCorrected,
   migrateSelectedImageCropManifestV1,
@@ -948,11 +948,7 @@ async function synchronizeAutomaticCorrection(
     });
   }
   if (reviewReason === null) return prepared;
-  return setSelectedImageCropCorrection({
-    prepared,
-    fileName,
-    selected: true,
-  });
+  return prepared;
 }
 
 function cropAnchorFromSavedResult(
@@ -1158,13 +1154,15 @@ export async function completeSelectedImageCropReview(
     prepared.manifest.entries.some((entry) => entry.result === null) ||
     prepared.snapshot.session.failures.length > 0 ||
     prepared.snapshot.review.correctionFileNames.length > 0 ||
-    requiredSelectedImageCropCorrections(prepared.snapshot).length > 0 ||
     prepared.snapshot.session.pendingOperation !== null
   ) {
     throw new Error('SELECTED_IMAGE_CROP_REVIEW_INCOMPLETE');
   }
+  const acceptedReview = acceptRequiredSelectedImageCropCorrections(
+    prepared.snapshot,
+  );
   const review: SelectedImageCropReviewV2 = {
-    ...prepared.snapshot.review,
+    ...acceptedReview,
     reviewedFileNames: prepared.manifest.entries.map((entry) => entry.fileName),
     completedAt: new Date().toISOString(),
   };

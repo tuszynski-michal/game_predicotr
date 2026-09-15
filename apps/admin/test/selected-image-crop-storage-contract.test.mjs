@@ -205,14 +205,25 @@ test('a pristine versionless snapshot adopts v12 before the first prepared crop'
   assert.match(preparation, /const missing = current\.sourceFiles/u);
 });
 
-test('unsupported automatic crops are routed to the manual correction queue', () => {
+test('automatic crop warnings stay advisory until the operator selects a correction', () => {
   assert.match(source, /synchronizeAutomaticCorrection/u);
   assert.match(
     source,
     /const reviewReason = selectedImageCropReviewReason\(proposal\)/u,
   );
   assert.match(source, /if \(reviewReason === null\) return prepared/u);
-  assert.match(source, /setSelectedImageCropCorrection\(\{/u);
+  assert.match(
+    source,
+    /if \(reviewReason === null\) return prepared;\s*return prepared;/u,
+  );
+  assert.match(source, /acceptRequiredSelectedImageCropCorrections/u);
+  assert.doesNotMatch(
+    source.slice(
+      source.indexOf('async function synchronizeAutomaticCorrection'),
+      source.indexOf('function cropAnchorFromSavedResult'),
+    ),
+    /selected: true/u,
+  );
 });
 
 test('output ownership rejects foreign files and source mutation', () => {

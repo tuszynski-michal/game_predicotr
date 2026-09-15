@@ -163,6 +163,23 @@ export function effectiveSelectedImageCropCorrections(
     .map((entry) => entry.fileName);
 }
 
+export function acceptRequiredSelectedImageCropCorrections(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+): SelectedImageCropReviewV2 {
+  const acceptedSuggestions = new Set(
+    snapshot.review.acceptedSuggestionFileNames ?? [],
+  );
+  const selected = new Set(snapshot.review.correctionFileNames);
+  for (const fileName of requiredSelectedImageCropCorrections(snapshot)) {
+    if (!selected.has(fileName)) acceptedSuggestions.add(fileName);
+  }
+  return {
+    ...snapshot.review,
+    acceptedSuggestionFileNames: [...acceptedSuggestions],
+    completedAt: null,
+  };
+}
+
 export function selectedImageCropRecalculationFileNames(
   snapshot: SelectedImageCropSessionSnapshotV2,
 ): readonly string[] {

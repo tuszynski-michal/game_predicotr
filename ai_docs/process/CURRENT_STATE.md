@@ -6,6 +6,21 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0548 — jawny wybór cropów do ręcznej poprawki
+
+- Automatyczne ostrzeżenia nie są już kopiowane do wyboru ręcznej poprawki.
+  Pozostają w filtrze `Niepewne`, natomiast border, licznik i przycisk `Popraw
+  zaznaczone` korzystają wyłącznie z kliknięć operatora zapisanych w
+  `correctionFileNames`.
+- `Zaznacz wszystkie` i `Odznacz wszystkie` są osobnymi, jednocześnie
+  widocznymi przyciskami działającymi na bieżącym filtrze. Ukryte wybory są
+  zachowane, a historyczne zapisane wybory nie są automatycznie czyszczone.
+- Jawne zakończenie przeglądu akceptuje niewybrane ostrzeżenia, ale nadal jest
+  zablokowane przez wybrane poprawki, failure, pending albo brakujące wyniki.
+- Zmiana nie modyfikuje detektora v12, fingerprintu, schematu review ani
+  gotowych JPEG-ów. Testy skoncentrowane przeszły 42/42, pełny Admin 485/485,
+  core 99/99; oba typechecki, lint, formatowanie i produkcyjny build są zielone.
+
 ### TASK-0547 — równoległe przygotowanie cropów w przeglądarce
 
 - Przygotowanie pracuje paczkami najwyżej czterech zdjęć i używa 1–4

@@ -6,6 +6,20 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0554 — kompaktowy stan luk i natychmiastowy podgląd po usunięciu
+
+- `Usuń sekwencję F` nie ma już pamięciowego przywracania ani repair trace.
+  Workspace najpierw przełącza się na następny aktywny obraz, wykorzystując
+  zachowany cache Object URL, a następnie zapisuje jedną checksummowaną mutację
+  katalogu w tle. Błąd blokuje kolejne mutacje do ponownego wskazania katalogu.
+- `manual-image-selection-repair-v2.json` przechowuje aktualny stan luk,
+  aktywnych uzupełnień, potwierdzeń delete i pojedynczej operacji recovery;
+  nie rośnie o historię interakcji. Odczyt v1 tworzy v2 deterministycznie i
+  pozostawia oryginalny v1 nietknięty.
+- Recovery rozpoznaje fizyczne usunięcie wykonane przed zapisem output manifestu
+  i odtwarza tylko zgodny manifest aktywnych plików. Handoff aktywnych fillów
+  `manual-image-selection-filled-gaps-v1.json` pozostaje wejściem cięcia.
+
 ### TASK-0553 — większy bufor automatycznego cięcia zdjęć
 
 - Nowe propozycje v11 pozostawiają 45% mediany wysokości planszy nad panelem,

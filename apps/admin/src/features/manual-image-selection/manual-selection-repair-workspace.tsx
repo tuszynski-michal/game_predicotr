@@ -18,7 +18,6 @@ import {
 } from './manual-image-selection-fsa-adapter.ts';
 import { ManualImageViewer, useManualImageViewer } from './manual-image-viewer';
 import {
-  appendRepairTraceEvent,
   deleteRepairFile,
   inspectRepairDirectory,
   ManualSelectionRepairStore,
@@ -47,16 +46,10 @@ export function ManualSelectionRepairWorkspace() {
   const store = useMemo(() => new ManualSelectionRepairStore(), []);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const busyRef = useRef(false);
-  const traceIndexRef = useRef(0);
+  const backgroundDeletePendingRef = useRef(false);
+  const localStateRef = useRef<ManualSelectionRepairLocalState | null>(null);
   const viewStartedAtRef = useRef(0);
   const recoveryGenerationRef = useRef(0);
-  const deleteUndoRef = useRef<{
-    readonly file: File;
-    readonly fileName: string;
-    readonly range: SequenceRange;
-    readonly sourceIndex: number | null;
-    readonly sourcePath: string | null;
-  } | null>(null);
   const [snapshot, setSnapshot] = useState<RepairDirectorySnapshot | null>(
     null,
   );
@@ -70,7 +63,8 @@ export function ManualSelectionRepairWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [viewReady, setViewReady] = useState(false);
-  const [deleteUndoAvailable, setDeleteUndoAvailable] = useState(false);
+  const [backgroundDeletePending, setBackgroundDeletePending] = useState(false);
+  const [backgroundDeleteBlocked, setBackgroundDeleteBlocked] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleteQuery, setBulkDeleteQuery] = useState('');
   const [bulkDeleteFileNames, setBulkDeleteFileNames] = useState<
@@ -131,8 +125,9 @@ export function ManualSelectionRepairWorkspace() {
   }, [bulkDeleteFileNames, bulkDeleteQuery, snapshot]);
   const bulkDeleteFiles = useMemo(
     () =>
-      snapshot?.files.filter((file) => bulkDeleteFileNames.includes(file.fileName)) ??
-      [],
+      snapshot?.files.filter((file) =>
+        bulkDeleteFileNames.includes(file.fileName),
+      ) ?? [],
     [bulkDeleteFileNames, snapshot],
   );
   const workPhaseMessage = repairWorkspacePhaseMessage(workPhase);
@@ -146,6 +141,11 @@ export function ManualSelectionRepairWorkspace() {
     mode === 'fill' ? sourceImages : mode === 'delete' ? selectedImages : [],
     mode === 'fill' ? sourceCursor : mode === 'delete' ? deleteCursor : -1,
     handleViewerError,
+    undefined,
+    undefined,
+    snapshot === null
+      ? undefined
+      : `${snapshot.repairManifest.repairKey}:${mode}`,
   );
 
   useEffect(() => {
@@ -224,28 +224,7 @@ export function ManualSelectionRepairWorkspace() {
       return;
     viewStartedAtRef.current = performance.now();
     const timer = window.setTimeout(() => {
-      const visibleMilliseconds = Math.round(
-        performance.now() - viewStartedAtRef.current,
-      );
       setViewReady(true);
-      void appendRepairTraceEvent(
-        snapshot.directory,
-        snapshot.repairManifest.repairKey,
-        {
-          decoded: true,
-          eventIndex: traceIndexRef.current++,
-          imageChecksum: null,
-          kind: 'viewed',
-          outputName: null,
-          rangeEnd: currentGap.end,
-          rangeStart: currentGap.start,
-          recordedAt: new Date().toISOString(),
-          repairKey: snapshot.repairManifest.repairKey,
-          sourceIndex: sourceCursor,
-          sourcePath: currentSource.relativePath,
-          visibleMilliseconds,
-        },
-      ).catch(() => undefined);
     }, 300);
     return () => window.clearTimeout(timer);
   }, [
@@ -288,13 +267,12 @@ export function ManualSelectionRepairWorkspace() {
         event.preventDefault();
         void deleteCurrentSequence();
       } else if (
+        mode === 'fill' &&
         !event.repeat &&
-        (key === 'a' ||
-          (mode === 'fill' && key === 'z' && (event.ctrlKey || event.metaKey)))
+        (key === 'a' || (key === 'z' && (event.ctrlKey || event.metaKey)))
       ) {
         event.preventDefault();
-        if (mode === 'fill') void undoLastFill();
-        else void restoreLastSequence();
+        void undoLastFill();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -324,6 +302,7 @@ export function ManualSelectionRepairWorkspace() {
       setSnapshot(inspected);
       setSourceImages([]);
       setLocalState(reboundState);
+      setBackgroundDeleteBlocked(false);
       setNotice(
         `${inspected.files.length.toLocaleString('pl-PL')} plików · zakres ${inspected.repairManifest.collectionStart}–${inspected.repairManifest.collectionEnd}.`,
       );
@@ -335,7 +314,8 @@ export function ManualSelectionRepairWorkspace() {
   }
 
   async function startFill(): Promise<void> {
-    if (snapshot === null || localState === null) return;
+    if (snapshot === null || localState === null || backgroundDeleteBlocked)
+      return;
     if (gaps.length === 0) {
       setNotice('Katalog nie zawiera luk do uzupełnienia.');
       return;
@@ -369,10 +349,13 @@ export function ManualSelectionRepairWorkspace() {
   }
 
   async function startDelete(): Promise<void> {
-    if (snapshot === null || localState === null || interactiveWorkInProgress)
+    if (
+      snapshot === null ||
+      localState === null ||
+      interactiveWorkInProgress ||
+      backgroundDeleteBlocked
+    )
       return;
-    deleteUndoRef.current = null;
-    setDeleteUndoAvailable(false);
     setSourceImages([]);
     await updateLocalState({
       ...localState,
@@ -387,7 +370,13 @@ export function ManualSelectionRepairWorkspace() {
   }
 
   function openBulkDelete(): void {
-    if (snapshot === null || busy || interactiveWorkInProgress) return;
+    if (
+      snapshot === null ||
+      busy ||
+      interactiveWorkInProgress ||
+      backgroundDeleteBlocked
+    )
+      return;
     setBulkDeleteOpen(true);
     setBulkDeleteQuery('');
     setBulkDeleteFileNames([]);
@@ -408,7 +397,8 @@ export function ManualSelectionRepairWorkspace() {
       localState === null ||
       !bulkDeleteConfirmed ||
       bulkDeleteFiles.length === 0 ||
-      bulkDeleteRunning
+      bulkDeleteRunning ||
+      backgroundDeleteBlocked
     )
       return;
     setBulkDeleteRunning(true);
@@ -420,23 +410,23 @@ export function ManualSelectionRepairWorkspace() {
         for (const selectedFile of bulkDeleteFiles) {
           let result;
           let outputItem;
-          let priorOperation;
+          let filledGap;
           try {
             outputItem = currentSnapshot.outputManifest?.items.find(
               (item) => item.outputName === selectedFile.fileName,
             );
-            priorOperation = [...currentSnapshot.repairManifest.operations]
-              .reverse()
-              .find((operation) => operation.fileName === selectedFile.fileName);
+            filledGap = currentSnapshot.repairManifest.filledGapEntries.find(
+              (entry) => entry.fileName === selectedFile.fileName,
+            );
             result = await deleteRepairFile({
               directory: currentSnapshot.directory,
               fileName: selectedFile.fileName,
               kind: 'delete',
               manifest: currentSnapshot.repairManifest,
               outputManifest: currentSnapshot.outputManifest,
-              sourceIndex: priorOperation?.sourceIndex ?? null,
+              sourceIndex: filledGap?.sourceIndex ?? null,
               sourcePath:
-                priorOperation?.sourcePath ?? outputItem?.imagePath ?? null,
+                filledGap?.sourcePath ?? outputItem?.imagePath ?? null,
             });
           } catch (cause) {
             setBulkDeleteResults((current) => [
@@ -448,28 +438,6 @@ export function ManualSelectionRepairWorkspace() {
           }
 
           try {
-            await appendRepairTraceEvent(
-              currentSnapshot.directory,
-              result.manifest.repairKey,
-              {
-                decoded: true,
-                eventIndex: traceIndexRef.current++,
-                imageChecksum:
-                  result.manifest.operations[
-                    result.manifest.operations.length - 1
-                  ]?.checksumSha256 ?? null,
-                kind: 'delete',
-                outputName: selectedFile.fileName,
-                rangeEnd: selectedFile.end,
-                rangeStart: selectedFile.start,
-                recordedAt: new Date().toISOString(),
-                repairKey: result.manifest.repairKey,
-                sourceIndex: priorOperation?.sourceIndex ?? null,
-                sourcePath:
-                  priorOperation?.sourcePath ?? outputItem?.imagePath ?? null,
-                visibleMilliseconds: 0,
-              },
-            );
             currentSnapshot = removeSnapshotFile(
               currentSnapshot,
               selectedFile.fileName,
@@ -501,7 +469,7 @@ export function ManualSelectionRepairWorkspace() {
       });
     } catch (cause) {
       setError(
-        `Usuwanie zbiorcze zatrzymano, aby zachować spójność dziennika: ${errorMessage(
+        `Usuwanie zbiorcze zatrzymano, aby zachować spójność stanu luk: ${errorMessage(
           cause,
         )}`,
       );
@@ -511,10 +479,13 @@ export function ManualSelectionRepairWorkspace() {
   }
 
   async function returnToModeSelection(): Promise<void> {
-    if (localState === null || busyRef.current || interactiveWorkInProgress)
+    if (
+      localState === null ||
+      busyRef.current ||
+      interactiveWorkInProgress ||
+      backgroundDeletePending
+    )
       return;
-    deleteUndoRef.current = null;
-    setDeleteUndoAvailable(false);
     await updateLocalState({ ...localState, mode: null });
   }
 
@@ -558,7 +529,8 @@ export function ManualSelectionRepairWorkspace() {
       localState === null ||
       currentGap === null ||
       currentSource === undefined ||
-      !viewReady
+      !viewReady ||
+      backgroundDeleteBlocked
     )
       return;
     await serialize(async () => {
@@ -571,28 +543,6 @@ export function ManualSelectionRepairWorkspace() {
         sourceIndex: sourceCursor,
         sourcePath: currentSource.relativePath,
         target: currentGap,
-      });
-      const manifest = result.manifest;
-      await appendRepairTraceEvent(snapshot.directory, manifest.repairKey, {
-        decoded: true,
-        eventIndex: traceIndexRef.current++,
-        imageChecksum:
-          manifest.activeFiles.find(
-            (file) =>
-              file.start === currentGap.start && file.end === currentGap.end,
-          )?.checksumSha256 ?? null,
-        kind: 'fill',
-        outputName: `seq_${currentGap.start}-${currentGap.end}.jpg`,
-        rangeEnd: currentGap.end,
-        rangeStart: currentGap.start,
-        recordedAt: new Date().toISOString(),
-        repairKey: manifest.repairKey,
-        sourceIndex: sourceCursor,
-        sourcePath: currentSource.relativePath,
-        visibleMilliseconds: Math.max(
-          300,
-          Math.round(performance.now() - viewStartedAtRef.current),
-        ),
       });
       setSnapshot(
         addSnapshotFile(
@@ -615,19 +565,15 @@ export function ManualSelectionRepairWorkspace() {
   }
 
   async function undoLastFill(): Promise<void> {
-    if (snapshot === null || localState === null) return;
-    const operations = snapshot.repairManifest.operations;
-    const undone = new Set(
-      operations
-        .filter((operation) => operation.kind === 'undo_fill')
-        .map((operation) => operation.fileName),
-    );
-    const fill = [...operations]
-      .reverse()
-      .find(
-        (operation) =>
-          operation.kind === 'fill' && !undone.has(operation.fileName),
-      );
+    if (snapshot === null || localState === null || backgroundDeleteBlocked)
+      return;
+    const fill = [...snapshot.repairManifest.filledGapEntries]
+      .sort(
+        (left, right) =>
+          left.filledAt.localeCompare(right.filledAt) ||
+          left.fillOperationId.localeCompare(right.fillOperationId),
+      )
+      .at(-1);
     if (fill === undefined) return;
     await serialize(async () => {
       const result = await deleteRepairFile({
@@ -639,24 +585,6 @@ export function ManualSelectionRepairWorkspace() {
         sourceIndex: fill.sourceIndex,
         sourcePath: fill.sourcePath,
       });
-      await appendRepairTraceEvent(
-        snapshot.directory,
-        result.manifest.repairKey,
-        {
-          decoded: true,
-          eventIndex: traceIndexRef.current++,
-          imageChecksum: fill.checksumSha256,
-          kind: 'undo_fill',
-          outputName: fill.fileName,
-          rangeEnd: fill.rangeEnd,
-          rangeStart: fill.rangeStart,
-          recordedAt: new Date().toISOString(),
-          repairKey: result.manifest.repairKey,
-          sourceIndex: fill.sourceIndex,
-          sourcePath: fill.sourcePath,
-          visibleMilliseconds: 0,
-        },
-      );
       const refreshed = removeSnapshotFile(
         snapshot,
         fill.fileName,
@@ -677,7 +605,7 @@ export function ManualSelectionRepairWorkspace() {
         gapCursor: Math.max(
           0,
           nextGaps.findIndex((gap) =>
-            sameRange(gap, { end: fill.rangeEnd, start: fill.rangeStart }),
+            sameRange(gap, { end: fill.end, start: fill.start }),
           ),
         ),
         sourceCursor: fill.sourceIndex ?? localState.sourceCursor,
@@ -689,142 +617,89 @@ export function ManualSelectionRepairWorkspace() {
     if (
       snapshot === null ||
       localState === null ||
-      currentSelected === undefined
+      currentSelected === undefined ||
+      backgroundDeletePending ||
+      backgroundDeletePendingRef.current ||
+      backgroundDeleteBlocked
     )
       return;
-    await serialize(async () => {
-      const outputItem = snapshot.outputManifest?.items.find(
-        (item) => item.outputName === currentSelected.fileName,
-      );
-      const priorOperation = [...snapshot.repairManifest.operations]
-        .reverse()
-        .find((operation) => operation.fileName === currentSelected.fileName);
-      const result = await deleteRepairFile({
-        directory: snapshot.directory,
-        fileName: currentSelected.fileName,
-        kind: 'delete',
-        manifest: snapshot.repairManifest,
-        outputManifest: snapshot.outputManifest,
-        sourceIndex: priorOperation?.sourceIndex ?? null,
-        sourcePath: priorOperation?.sourcePath ?? outputItem?.imagePath ?? null,
-      });
-      deleteUndoRef.current = {
-        file: result.file,
-        fileName: currentSelected.fileName,
-        range: { end: currentSelected.end, start: currentSelected.start },
-        sourceIndex: priorOperation?.sourceIndex ?? null,
-        sourcePath: priorOperation?.sourcePath ?? outputItem?.imagePath ?? null,
-      };
-      setDeleteUndoAvailable(true);
-      await appendRepairTraceEvent(
-        snapshot.directory,
-        result.manifest.repairKey,
-        {
-          decoded: true,
-          eventIndex: traceIndexRef.current++,
-          imageChecksum:
-            result.manifest.operations[result.manifest.operations.length - 1]
-              ?.checksumSha256 ?? null,
+    const outputItem = snapshot.outputManifest?.items.find(
+      (item) => item.outputName === currentSelected.fileName,
+    );
+    const filledGap = snapshot.repairManifest.filledGapEntries.find(
+      (entry) => entry.fileName === currentSelected.fileName,
+    );
+    const sourceIndex = filledGap?.sourceIndex ?? null;
+    const sourcePath = filledGap?.sourcePath ?? outputItem?.imagePath ?? null;
+    const optimisticManifest = removeFileFromRepairManifest(
+      snapshot.repairManifest,
+      currentSelected,
+    );
+    const optimisticSnapshot = removeSnapshotFile(
+      snapshot,
+      currentSelected.fileName,
+      optimisticManifest,
+      snapshot.outputManifest,
+    );
+    const nextLocalState = {
+      ...localState,
+      fileCursor: clamp(
+        deleteCursor,
+        0,
+        Math.max(0, optimisticSnapshot.files.length - 1),
+      ),
+      updatedAt: new Date().toISOString(),
+    };
+    setSnapshot(optimisticSnapshot);
+    setLocalState(nextLocalState);
+    localStateRef.current = nextLocalState;
+    backgroundDeletePendingRef.current = true;
+    setBackgroundDeletePending(true);
+    setNotice('Usuwanie zapisuje się w tle.');
+    operationQueueRef.current = operationQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const result = await deleteRepairFile({
+          directory: snapshot.directory,
+          fileName: currentSelected.fileName,
           kind: 'delete',
-          outputName: currentSelected.fileName,
-          rangeEnd: currentSelected.end,
-          rangeStart: currentSelected.start,
-          recordedAt: new Date().toISOString(),
-          repairKey: result.manifest.repairKey,
-          sourceIndex: deleteUndoRef.current.sourceIndex,
-          sourcePath: deleteUndoRef.current.sourcePath,
-          visibleMilliseconds: 0,
-        },
-      );
-      const refreshed = removeSnapshotFile(
-        snapshot,
-        currentSelected.fileName,
-        result.manifest,
-        result.outputManifest,
-      );
-      setSnapshot(refreshed);
-      await updateLocalState({
-        ...localState,
-        fileCursor: clamp(
-          deleteCursor,
-          0,
-          Math.max(0, refreshed.files.length - 1),
-        ),
+          manifest: snapshot.repairManifest,
+          outputManifest: snapshot.outputManifest,
+          sourceIndex,
+          sourcePath,
+        });
+        const persisted = removeSnapshotFile(
+          snapshot,
+          currentSelected.fileName,
+          result.manifest,
+          result.outputManifest,
+        );
+        setSnapshot(persisted);
+        await store.save(localStateRef.current ?? nextLocalState);
+      })
+      .catch((cause: unknown) => {
+        setBackgroundDeleteBlocked(true);
+        setError(
+          `Nie udało się zapisać usunięcia. Otwórz ponownie ten katalog przed kolejną zmianą. ${errorMessage(cause)}`,
+        );
+      })
+      .finally(() => {
+        backgroundDeletePendingRef.current = false;
+        setBackgroundDeletePending(false);
       });
-    });
-  }
-
-  async function restoreLastSequence(): Promise<void> {
-    if (snapshot === null || localState === null) return;
-    const undo = deleteUndoRef.current;
-    if (undo === null) return;
-    await serialize(async () => {
-      const sourceHandle = {
-        getFile: async () => undo.file,
-        kind: 'file',
-        name: undo.file.name,
-      } as FileSystemFileHandle;
-      const result = await writeRepairFile({
-        directory: snapshot.directory,
-        kind: 'restore',
-        manifest: snapshot.repairManifest,
-        outputManifest: snapshot.outputManifest,
-        source: sourceHandle,
-        sourceIndex: undo.sourceIndex,
-        sourcePath: undo.sourcePath ?? undo.fileName,
-        target: undo.range,
-      });
-      const manifest = result.manifest;
-      await appendRepairTraceEvent(snapshot.directory, manifest.repairKey, {
-        decoded: true,
-        eventIndex: traceIndexRef.current++,
-        imageChecksum:
-          manifest.activeFiles.find((file) => file.fileName === undo.fileName)
-            ?.checksumSha256 ?? null,
-        kind: 'restore',
-        outputName: undo.fileName,
-        rangeEnd: undo.range.end,
-        rangeStart: undo.range.start,
-        recordedAt: new Date().toISOString(),
-        repairKey: manifest.repairKey,
-        sourceIndex: undo.sourceIndex,
-        sourcePath: undo.sourcePath,
-        visibleMilliseconds: 0,
-      });
-      deleteUndoRef.current = null;
-      setDeleteUndoAvailable(false);
-      const refreshed = addSnapshotFile(
-        snapshot,
-        {
-          end: undo.range.end,
-          fileName: undo.fileName,
-          handle: result.fileHandle,
-          start: undo.range.start,
-        },
-        result.manifest,
-        result.outputManifest,
-      );
-      setSnapshot(refreshed);
-      await updateLocalState({
-        ...localState,
-        fileCursor: Math.max(
-          0,
-          refreshed.files.findIndex((file) => file.fileName === undo.fileName),
-        ),
-      });
-    });
   }
 
   async function updateLocalState(
     next: ManualSelectionRepairLocalState,
   ): Promise<void> {
     const updated = { ...next, updatedAt: new Date().toISOString() };
+    localStateRef.current = updated;
     setLocalState(updated);
     await store.save(updated);
   }
 
   async function serialize(operation: () => Promise<void>): Promise<void> {
-    if (busyRef.current) return;
+    if (busyRef.current || backgroundDeleteBlocked) return;
     busyRef.current = true;
     setBusy(true);
     setError(null);
@@ -994,9 +869,8 @@ export function ManualSelectionRepairWorkspace() {
           </div>
         </header>
         <p className="manualSelectionRepairWarning" role="status">
-          Przywrócić można wyłącznie ostatnio usunięty plik. Możliwość
-          przywrócenia znika po zamknięciu lub odświeżeniu karty, a kolejne
-          usunięcie zastępuje poprzednią kopię w pamięci.
+          Usunięcie jest trwałe. Następny obraz pojawia się od razu, a zapis
+          stanu luk kończy się w tle.
         </p>
         <ManualImageViewer
           busy={busy || interactiveWorkInProgress}
@@ -1021,24 +895,22 @@ export function ManualSelectionRepairWorkspace() {
         <div className="manualImageSelectionActions">
           <button
             className="secondaryButton"
-            disabled={busy || interactiveWorkInProgress}
+            disabled={
+              busy || interactiveWorkInProgress || backgroundDeletePending
+            }
             onClick={() => void returnToModeSelection()}
             type="button"
           >
             Wróć do wyboru trybu
           </button>
           <button
-            className="secondaryButton"
-            disabled={busy || interactiveWorkInProgress || !deleteUndoAvailable}
-            onClick={() => void restoreLastSequence()}
-            type="button"
-          >
-            Przywróć ostatnie A / Ctrl+A
-          </button>
-          <button
             className="dangerButton"
             disabled={
-              busy || interactiveWorkInProgress || currentSelected === undefined
+              busy ||
+              interactiveWorkInProgress ||
+              backgroundDeletePending ||
+              backgroundDeleteBlocked ||
+              currentSelected === undefined
             }
             onClick={() => void deleteCurrentSequence()}
             type="button"
@@ -1046,13 +918,21 @@ export function ManualSelectionRepairWorkspace() {
             Usuń sekwencję F
           </button>
         </div>
+        {backgroundDeletePending ? (
+          <p className="manualImageSelectionStatus" role="status">
+            Trwa zapis usunięcia w katalogu.
+          </p>
+        ) : null}
+        {notice !== null ? (
+          <p className="manualImageSelectionStatus">{notice}</p>
+        ) : null}
         {error !== null ? (
           <p className="formError" role="alert">
             {error}
           </p>
         ) : null}
         <p className="manualImageSelectionHelp">
-          ←/→ przechodzi o jeden plik · F usuwa · A/Ctrl+A przywraca ostatni
+          ←/→ przechodzi o jeden plik · F usuwa trwale
         </p>
       </section>
     );
@@ -1096,6 +976,7 @@ export function ManualSelectionRepairWorkspace() {
               busy ||
               directoryPickerActive ||
               interactiveWorkInProgress ||
+              backgroundDeleteBlocked ||
               snapshot === null
             }
             onClick={() => void startFill()}
@@ -1105,7 +986,12 @@ export function ManualSelectionRepairWorkspace() {
           </button>
           <button
             className="secondaryButton"
-            disabled={busy || interactiveWorkInProgress || snapshot === null}
+            disabled={
+              busy ||
+              interactiveWorkInProgress ||
+              backgroundDeleteBlocked ||
+              snapshot === null
+            }
             onClick={openBulkDelete}
             type="button"
           >
@@ -1113,7 +999,12 @@ export function ManualSelectionRepairWorkspace() {
           </button>
           <button
             className="secondaryButton"
-            disabled={busy || interactiveWorkInProgress || snapshot === null}
+            disabled={
+              busy ||
+              interactiveWorkInProgress ||
+              backgroundDeleteBlocked ||
+              snapshot === null
+            }
             onClick={() => void startDelete()}
             type="button"
           >
@@ -1135,11 +1026,7 @@ export function ManualSelectionRepairWorkspace() {
         ) : null}
       </div>
       {bulkDeleteOpen && snapshot !== null ? (
-        <dialog
-          aria-modal="true"
-          className="manualRepairBulkDeleteDialog"
-          open
-        >
+        <dialog aria-modal="true" className="manualRepairBulkDeleteDialog" open>
           <header className="manualRepairBulkDeleteHeader">
             <div>
               <p className="eyebrow">Lokalnie · bez cofania</p>
@@ -1161,7 +1048,10 @@ export function ManualSelectionRepairWorkspace() {
                 )
               }
               onKeyDown={(event) => {
-                if (event.key === 'Enter' && bulkDeleteCandidates[0] !== undefined) {
+                if (
+                  event.key === 'Enter' &&
+                  bulkDeleteCandidates[0] !== undefined
+                ) {
                   event.preventDefault();
                   addBulkDeleteFile(bulkDeleteCandidates[0].fileName);
                 }
@@ -1184,7 +1074,10 @@ export function ManualSelectionRepairWorkspace() {
               ))}
             </ul>
           ) : null}
-          <section aria-label="Wybrane pliki" className="manualRepairBulkDeleteList">
+          <section
+            aria-label="Wybrane pliki"
+            className="manualRepairBulkDeleteList"
+          >
             <div className="manualRepairBulkDeleteListHeader">
               <span>Nazwa pliku</span>
             </div>
@@ -1221,7 +1114,9 @@ export function ManualSelectionRepairWorkspace() {
             <input
               checked={bulkDeleteConfirmed}
               disabled={bulkDeleteRunning}
-              onChange={(event) => setBulkDeleteConfirmed(event.currentTarget.checked)}
+              onChange={(event) =>
+                setBulkDeleteConfirmed(event.currentTarget.checked)
+              }
               type="checkbox"
             />
             Rozumiem, że wybrane pliki zostaną usunięte bez kosza i bez
@@ -1348,6 +1243,27 @@ function removeSnapshotFile(
     files: snapshot.files.filter((file) => file.fileName !== fileName),
     outputManifest,
     repairManifest,
+  };
+}
+
+function removeFileFromRepairManifest(
+  manifest: RepairDirectorySnapshot['repairManifest'],
+  file: SequenceRange & { readonly fileName: string },
+): RepairDirectorySnapshot['repairManifest'] {
+  const hasDeletedRange = manifest.deletedRanges.some((range) =>
+    sameRange(range, file),
+  );
+  return {
+    ...manifest,
+    activeFiles: manifest.activeFiles.filter(
+      (active) => active.fileName !== file.fileName,
+    ),
+    deletedRanges: hasDeletedRange
+      ? manifest.deletedRanges
+      : [...manifest.deletedRanges, { end: file.end, start: file.start }],
+    filledGapEntries: manifest.filledGapEntries.filter(
+      (entry) => entry.fileName !== file.fileName,
+    ),
   };
 }
 

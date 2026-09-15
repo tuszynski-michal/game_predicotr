@@ -6,7 +6,9 @@ import {
   deriveCollectionBounds,
   finalizePendingRepairOperation,
   findSequenceGaps,
+  migrateLegacyRepairManifest,
   sortAndValidateSequenceFiles,
+  validateLegacyRepairManifest,
   validateRepairManifest,
   validateFilledGapsManifest,
   type ManualSelectionFilledGapsManifest,
@@ -22,25 +24,11 @@ import {
   sha256Hex,
 } from './manual-image-selection-fsa-adapter.ts';
 
-export const REPAIR_MANIFEST_NAME = 'manual-image-selection-repair-v1.json';
-export const REPAIR_TRACE_NAME = 'manual-image-selection-repair-trace-v1.json';
+export const LEGACY_REPAIR_MANIFEST_NAME =
+  'manual-image-selection-repair-v1.json';
+export const REPAIR_MANIFEST_NAME = 'manual-image-selection-repair-v2.json';
 export const FILLED_GAPS_MANIFEST_NAME =
   'manual-image-selection-filled-gaps-v1.json';
-
-export interface ManualSelectionRepairTraceEvent {
-  readonly eventIndex: number;
-  readonly kind: 'viewed' | 'fill' | 'undo_fill' | 'delete' | 'restore';
-  readonly repairKey: string;
-  readonly sourcePath: string | null;
-  readonly sourceIndex: number | null;
-  readonly rangeStart: number;
-  readonly rangeEnd: number;
-  readonly imageChecksum: string | null;
-  readonly outputName: string | null;
-  readonly decoded: boolean;
-  readonly visibleMilliseconds: number;
-  readonly recordedAt: string;
-}
 
 export interface RepairDirectorySnapshot {
   readonly directory: FileSystemDirectoryHandle;
@@ -107,7 +95,7 @@ export async function inspectRepairDirectory(
         updatedAt: new Date().toISOString(),
       }
     : reconciled;
-  if (boundsWereRecovered)
+  if (boundsWereRecovered || reconciled.revision !== repairManifest.revision)
     await writeRepairManifest(directory, boundedManifest);
   const verifiedManifest = await attachVerifiedOutputChecksums(
     directory,
@@ -125,9 +113,11 @@ export async function inspectRepairDirectory(
   );
   const outputNeedsSynchronization =
     outputManifest !== null &&
-    (outputManifest.schemaVersion !== 2 ||
-      outputManifest.selectionComplete !== (gaps.length === 0) ||
-      outputManifest.sequenceUpperBound !== verifiedManifest.collectionEnd);
+    repairOutputManifestNeedsSynchronization(
+      outputManifest,
+      verifiedManifest,
+      gaps.length === 0,
+    );
   const synchronizedOutput = outputNeedsSynchronization
     ? await synchronizeOutputManifest(
         directory,
@@ -154,6 +144,24 @@ export async function readRepairManifest(
       await directory.getFileHandle(REPAIR_MANIFEST_NAME)
     ).getFile();
     return validateRepairManifest(JSON.parse(await file.text()));
+  } catch (cause) {
+    if (!(cause instanceof DOMException && cause.name === 'NotFoundError'))
+      throw cause;
+  }
+  try {
+    const file = await (
+      await directory.getFileHandle(LEGACY_REPAIR_MANIFEST_NAME)
+    ).getFile();
+    const migrated = migrateLegacyRepairManifest(
+      validateLegacyRepairManifest(JSON.parse(await file.text())),
+    );
+    await writeJsonFile(directory, REPAIR_MANIFEST_NAME, migrated);
+    await writeJsonFile(
+      directory,
+      FILLED_GAPS_MANIFEST_NAME,
+      deriveFilledGapsManifest(migrated),
+    );
+    return migrated;
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === 'NotFoundError')
       return null;
@@ -212,41 +220,6 @@ export async function readActiveFilledGapsManifest(
   }
 }
 
-export async function appendRepairTraceEvent(
-  directory: FileSystemDirectoryHandle,
-  repairKey: string,
-  event: ManualSelectionRepairTraceEvent,
-): Promise<void> {
-  let events: ManualSelectionRepairTraceEvent[] = [];
-  try {
-    const file = await (
-      await directory.getFileHandle(REPAIR_TRACE_NAME)
-    ).getFile();
-    const parsed: unknown = JSON.parse(await file.text());
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      !('schemaVersion' in parsed) ||
-      parsed.schemaVersion !== 'manual-image-selection-repair-trace-v1' ||
-      !('repairKey' in parsed) ||
-      parsed.repairKey !== repairKey ||
-      !('events' in parsed) ||
-      !Array.isArray(parsed.events)
-    )
-      throw new Error('INVALID_REPAIR_TRACE');
-    events = parsed.events as ManualSelectionRepairTraceEvent[];
-  } catch (cause) {
-    if (!(cause instanceof DOMException && cause.name === 'NotFoundError'))
-      throw cause;
-  }
-  await writeJsonFile(directory, REPAIR_TRACE_NAME, {
-    events: [...events, event],
-    repairKey,
-    schemaVersion: 'manual-image-selection-repair-trace-v1',
-    updatedAt: event.recordedAt,
-  });
-}
-
 export async function writeRepairFile(input: {
   readonly directory: FileSystemDirectoryHandle;
   readonly manifest: ManualSelectionRepairManifest;
@@ -255,7 +228,7 @@ export async function writeRepairFile(input: {
   readonly sourcePath: string;
   readonly sourceIndex: number | null;
   readonly target: SequenceRange;
-  readonly kind: 'fill' | 'restore';
+  readonly kind: 'fill';
 }): Promise<{
   readonly fileHandle: FileSystemFileHandle;
   readonly manifest: ManualSelectionRepairManifest;
@@ -316,7 +289,6 @@ export async function deleteRepairFile(input: {
   readonly sourceIndex: number | null;
   readonly sourcePath: string | null;
 }): Promise<{
-  readonly file: File;
   readonly manifest: ManualSelectionRepairManifest;
   readonly outputManifest: ManualSelectionOutputManifest | null;
 }> {
@@ -363,7 +335,7 @@ export async function deleteRepairFile(input: {
     input.outputManifest,
     completed,
   );
-  return { file, manifest: completed, outputManifest };
+  return { manifest: completed, outputManifest };
 }
 
 export async function reconcileRepairManifest(
@@ -432,18 +404,37 @@ async function attachVerifiedOutputChecksums(
   const outputByName = new Map(
     outputManifest.items.map((item) => [item.outputName, item]),
   );
-  if (
-    outputByName.size !== actualFiles.length ||
-    actualFiles.some((file) => !outputByName.has(file.fileName))
-  )
-    throw new Error('MANUAL_OUTPUT_MANIFEST_FILES_MISMATCH');
+  const actualByName = new Map(
+    actualFiles.map((file) => [file.fileName, file]),
+  );
+  const filledByName = new Map(
+    manifest.filledGapEntries.map((entry) => [entry.fileName, entry]),
+  );
+  const deletedByName = new Map(
+    manifest.deletedSources.map((entry) => [entry.fileName, entry]),
+  );
+  for (const output of outputManifest.items) {
+    if (actualByName.has(output.outputName)) continue;
+    const deleted = deletedByName.get(output.outputName);
+    if (
+      deleted === undefined ||
+      deleted.start !== output.rangeStart ||
+      deleted.end !== output.rangeEnd
+    ) {
+      throw new Error('MANUAL_OUTPUT_MANIFEST_FILES_MISMATCH');
+    }
+  }
   const verifiedByName = new Map(
     manifest.activeFiles.map((file) => [file.fileName, file.checksumSha256]),
   );
   const activeFiles: RepairActiveFile[] = [];
   for (const file of actualFiles) {
-    const output = outputByName.get(file.fileName)!;
-    if (output.rangeStart !== file.start || output.rangeEnd !== file.end)
+    const output = outputByName.get(file.fileName);
+    const filled = filledByName.get(file.fileName);
+    if (
+      output !== undefined &&
+      (output.rangeStart !== file.start || output.rangeEnd !== file.end)
+    )
       throw new Error('MANUAL_OUTPUT_MANIFEST_RANGE_MISMATCH');
     // `reconcileRepairManifest` has already read and verified a known checksum
     // during this inspection. Reusing it prevents a second complete Blob read
@@ -454,13 +445,43 @@ async function attachVerifiedOutputChecksums(
       (await sha256Hex(
         await (await directory.getFileHandle(file.fileName)).getFile(),
       ));
-    if (checksum !== output.imageChecksum)
+    if (output !== undefined && checksum !== output.imageChecksum)
       throw new Error(
         `MANUAL_OUTPUT_MANIFEST_CHECKSUM_MISMATCH:${file.fileName}`,
       );
+    if (output === undefined && filled === undefined)
+      throw new Error('MANUAL_OUTPUT_MANIFEST_FILES_MISMATCH');
     activeFiles.push({ ...file, checksumSha256: checksum });
   }
   return { ...manifest, activeFiles };
+}
+
+function repairOutputManifestNeedsSynchronization(
+  outputManifest: ManualSelectionOutputManifest,
+  repair: ManualSelectionRepairManifest,
+  selectionComplete: boolean,
+): boolean {
+  if (
+    outputManifest.schemaVersion !== 2 ||
+    outputManifest.selectionComplete !== selectionComplete ||
+    outputManifest.sequenceUpperBound !== repair.collectionEnd ||
+    outputManifest.items.length !== repair.activeFiles.length
+  ) {
+    return true;
+  }
+  const outputByName = new Map(
+    outputManifest.items.map((item) => [item.outputName, item]),
+  );
+  return repair.activeFiles.some((file) => {
+    const output = outputByName.get(file.fileName);
+    return (
+      output === undefined ||
+      output.rangeStart !== file.start ||
+      output.rangeEnd !== file.end ||
+      (file.checksumSha256 !== null &&
+        output.imageChecksum !== file.checksumSha256)
+    );
+  });
 }
 
 async function synchronizeOutputManifest(
@@ -472,14 +493,14 @@ async function synchronizeOutputManifest(
   const originalItems = new Map(
     original.items.map((item) => [item.outputName, item]),
   );
-  const operations = new Map<string, (typeof repair.operations)[number]>();
-  for (const operation of repair.operations)
-    operations.set(operation.fileName, operation);
+  const filledGaps = new Map(
+    repair.filledGapEntries.map((entry) => [entry.fileName, entry]),
+  );
   const items = repair.activeFiles.map((file) => {
     const originalItem = originalItems.get(file.fileName);
-    const operation = operations.get(file.fileName);
+    const filledGap = filledGaps.get(file.fileName);
     const checksum = file.checksumSha256 ?? originalItem?.imageChecksum;
-    const imagePath = operation?.sourcePath ?? originalItem?.imagePath;
+    const imagePath = filledGap?.sourcePath ?? originalItem?.imagePath;
     if (checksum === undefined || imagePath === undefined || imagePath === null)
       throw new Error(`REPAIR_OUTPUT_PROVENANCE_MISSING:${file.fileName}`);
     return {

@@ -201,6 +201,8 @@ test('inspection persists widened bounds for an existing corrupted repair manife
   assert.equal(snapshot.repairManifest.collectionEnd, 36);
   assert.equal(snapshot.repairManifest.revision, 8);
   assert.equal((await readRepairManifest(directory)).collectionStart, 1);
+  assert.ok(directory.files.has('manual-image-selection-repair-v2.json'));
+  assert.equal('operations' in snapshot.repairManifest, false);
   assert.equal(snapshot.outputManifest.selectionComplete, false);
   assert.equal(
     JSON.parse(await (await outputHandle.getFile()).text()).selectionComplete,
@@ -290,7 +292,80 @@ test('checks each persisted seq JPEG once when resuming a verified output', asyn
   assert.equal(directory.files.get('seq_10-18.jpg').getFileCalls, 1);
 });
 
-test('fills exact bytes and safely undoes only the checksummed repair file', async () => {
+test('rebuilds a stale output manifest after a completed delete before output synchronization', async () => {
+  const first = new File(['first'], 'seq_1-9.jpg', { type: 'image/jpeg' });
+  const second = new File(['second'], 'seq_10-18.jpg', {
+    type: 'image/jpeg',
+  });
+  const directory = new MemoryDirectoryHandle('selected', [first, second]);
+  const outputHandle = await directory.getFileHandle(
+    'manual-image-selection-output-v1.json',
+    { create: true },
+  );
+  const outputWritable = await outputHandle.createWritable();
+  await outputWritable.write(
+    JSON.stringify({
+      direction: 'ascending',
+      firstLayout: 1,
+      gameId: 'local',
+      items: [
+        {
+          activeBoardCount: 9,
+          imageChecksum: await sha256Hex(first),
+          imagePath: 'source/first.jpg',
+          outputName: 'seq_1-9.jpg',
+          rangeEnd: 9,
+          rangeStart: 1,
+        },
+        {
+          activeBoardCount: 9,
+          imageChecksum: await sha256Hex(second),
+          imagePath: 'source/second.jpg',
+          outputName: 'seq_10-18.jpg',
+          rangeEnd: 18,
+          rangeStart: 10,
+        },
+      ],
+      schemaVersion: 2,
+      selectionComplete: true,
+      sequenceUpperBound: 18,
+      sessionKey: 'session',
+      sourceDirectoryName: 'source',
+      updatedAt: '2026-09-15T00:00:00.000Z',
+    }),
+  );
+  await outputWritable.close();
+  const snapshot = await inspectRepairDirectory(directory);
+  await directory.removeEntry('seq_1-9.jpg');
+  await writeRepairManifest(directory, {
+    ...snapshot.repairManifest,
+    activeFiles: snapshot.repairManifest.activeFiles.filter(
+      (file) => file.fileName !== 'seq_1-9.jpg',
+    ),
+    deletedRanges: [{ end: 9, start: 1 }],
+    deletedSources: [
+      {
+        checksumSha256: await sha256Hex(first),
+        end: 9,
+        fileName: 'seq_1-9.jpg',
+        sourceIndex: 0,
+        sourcePath: 'source/first.jpg',
+        start: 1,
+      },
+    ],
+    revision: snapshot.repairManifest.revision + 1,
+  });
+
+  const recovered = await inspectRepairDirectory(directory);
+
+  assert.deepEqual(
+    recovered.outputManifest.items.map((item) => item.outputName),
+    ['seq_10-18.jpg'],
+  );
+  assert.equal(recovered.outputManifest.selectionComplete, false);
+});
+
+test('fills exact bytes and safely removes only the checksummed repair file', async () => {
   const directory = new MemoryDirectoryHandle('selected', [
     new File(['left'], 'seq_1-9.jpg', { type: 'image/jpeg' }),
     new File(['right'], 'seq_19-27.jpg', { type: 'image/jpeg' }),
@@ -337,29 +412,10 @@ test('fills exact bytes and safely undoes only the checksummed repair file', asy
     sourceIndex: 4,
     sourcePath: 'base/source.jpg',
   });
-  assert.equal(removed.file.size, 'chosen-original-bytes'.length);
   await assert.rejects(directory.getFileHandle('seq_10-18.jpg'), /missing/);
   assert.deepEqual(removed.manifest.deletedRanges, [{ end: 18, start: 10 }]);
   assert.deepEqual((await readActiveFilledGapsManifest(directory)).entries, []);
-  const restored = await writeRepairFile({
-    directory,
-    kind: 'restore',
-    manifest: removed.manifest,
-    outputManifest: null,
-    source: new MemoryFileHandle('seq_10-18.jpg', removed.file),
-    sourceIndex: 4,
-    sourcePath: 'base/source.jpg',
-    target: { end: 18, start: 10 },
-  });
-  assert.equal(
-    await (
-      await directory.getFileHandle('seq_10-18.jpg')
-    )
-      .getFile()
-      .then((file) => file.text()),
-    'chosen-original-bytes',
-  );
-  assert.deepEqual(restored.manifest.deletedRanges, []);
+  assert.deepEqual(removed.manifest.filledGapEntries, []);
 });
 
 test('refuses a delete when the staged source checksum no longer matches the local file', async () => {
@@ -388,7 +444,7 @@ test('refuses a delete when the staged source checksum no longer matches the loc
   );
 });
 
-test('delete workspace uses fixed step one and keeps only one in-memory restore buffer', async () => {
+test('delete workspace uses fixed step one, immediate snapshot and background persistence', async () => {
   const source = await import('node:fs/promises').then(({ readFile }) =>
     readFile(
       new URL(
@@ -400,12 +456,34 @@ test('delete workspace uses fixed step one and keeps only one in-memory restore 
   );
   assert.match(source, /navigationStepLabel="skok: 1"/);
   assert.match(source, /Usuń sekwencję F/);
-  assert.match(source, /Przywróć ostatnie A \/ Ctrl\+A/);
-  assert.match(source, /deleteUndoRef\.current = \{/);
-  assert.match(source, /deleteUndoRef\.current = null/);
-  assert.doesNotMatch(source, /localStorage.*deleteUndo/s);
+  assert.doesNotMatch(source, /Przywróć ostatnie A \/ Ctrl\+A/);
+  assert.doesNotMatch(source, /deleteUndoRef/);
+  assert.doesNotMatch(source, /restoreLastSequence/);
+  assert.match(source, /setSnapshot\(optimisticSnapshot\)/);
+  assert.match(source, /setBackgroundDeletePending\(true\)/);
+  assert.match(
+    source,
+    /operationQueueRef\.current = operationQueueRef\.current/,
+  );
+  assert.match(source, /Otwórz ponownie ten katalog przed kolejną zmianą/);
   assert.doesNotMatch(source, /inspectRepairDirectory\(snapshot\.directory\)/);
   assert.match(source, /removeSnapshotFile\(/);
+});
+
+test('repair viewer keeps Object URLs keyed by path within an explicit repair scope', async () => {
+  const source = await import('node:fs/promises').then(({ readFile }) =>
+    readFile(
+      new URL(
+        '../src/features/manual-image-selection/manual-image-viewer.tsx',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  assert.match(source, /cacheScope\?: string/);
+  assert.match(source, /Map<string, string>/);
+  assert.match(source, /target\.relativePath/);
+  assert.match(source, /anonymousSourceChanged/);
 });
 
 test('repair workspace supports a non-reversible batch delete by start-number prefix', async () => {

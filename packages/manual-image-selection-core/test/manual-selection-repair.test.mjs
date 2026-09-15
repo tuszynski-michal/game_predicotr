@@ -7,6 +7,7 @@ import {
   deriveCollectionBounds,
   finalizePendingRepairOperation,
   findSequenceGaps,
+  migrateLegacyRepairManifest,
   parseSequenceFileName,
   sortAndValidateSequenceFiles,
   validateRepairManifest,
@@ -160,7 +161,17 @@ test('finalizes an interrupted delete deterministically from the observed file s
     ['seq_10-18.jpg'],
   );
   assert.deepEqual(recovered.deletedRanges, [{ end: 9, start: 1 }]);
-  assert.equal(recovered.operations.length, 1);
+  assert.deepEqual(recovered.deletedSources, [
+    {
+      checksumSha256: 'a'.repeat(64),
+      end: 9,
+      fileName: 'seq_1-9.jpg',
+      sourceIndex: null,
+      sourcePath: null,
+      start: 1,
+    },
+  ]);
+  assert.deepEqual(recovered.filledGapEntries, []);
   assert.equal(recovered.pendingOperation, null);
   assert.throws(
     () =>
@@ -226,4 +237,92 @@ test('derives only active, checksummed fills for the crop handoff', () => {
     '2026-09-04T10:04:00.000Z',
   );
   assert.deepEqual(deriveFilledGapsManifest(undone).entries, []);
+});
+
+test('migrates legacy history to compact active fills and deletion receipts', () => {
+  const legacy = {
+    activeFiles: [
+      {
+        checksumSha256: 'a'.repeat(64),
+        end: 9,
+        fileName: 'seq_1-9.jpg',
+        start: 1,
+      },
+      {
+        checksumSha256: 'b'.repeat(64),
+        end: 18,
+        fileName: 'seq_10-18.jpg',
+        start: 10,
+      },
+    ],
+    collectionEnd: 36,
+    collectionStart: 1,
+    deletedRanges: [{ end: 27, start: 19 }],
+    operations: [
+      {
+        checksumSha256: 'b'.repeat(64),
+        fileName: 'seq_10-18.jpg',
+        id: 'fill-active',
+        kind: 'fill',
+        occurredAt: '2026-09-15T10:00:00.000Z',
+        rangeEnd: 18,
+        rangeStart: 10,
+        sourceIndex: 4,
+        sourcePath: 'source/fill.jpg',
+      },
+      {
+        checksumSha256: 'c'.repeat(64),
+        fileName: 'seq_19-27.jpg',
+        id: 'delete-active',
+        kind: 'delete',
+        occurredAt: '2026-09-15T10:01:00.000Z',
+        rangeEnd: 27,
+        rangeStart: 19,
+        sourceIndex: 7,
+        sourcePath: 'source/deleted.jpg',
+      },
+      {
+        checksumSha256: 'd'.repeat(64),
+        fileName: 'seq_28-36.jpg',
+        id: 'restore-old',
+        kind: 'restore',
+        occurredAt: '2026-09-15T10:02:00.000Z',
+        rangeEnd: 36,
+        rangeStart: 28,
+        sourceIndex: null,
+        sourcePath: null,
+      },
+    ],
+    pendingOperation: null,
+    repairKey: 'legacy-repair',
+    revision: 4,
+    schemaVersion: 'manual-image-selection-repair-v1',
+    selectedDirectoryName: 'selected',
+    updatedAt: '2026-09-15T10:03:00.000Z',
+  };
+  const migrated = migrateLegacyRepairManifest(legacy);
+  assert.equal(migrated.schemaVersion, 'manual-image-selection-repair-v2');
+  assert.equal('operations' in migrated, false);
+  assert.deepEqual(migrated.filledGapEntries, [
+    {
+      checksumSha256: 'b'.repeat(64),
+      end: 18,
+      fileName: 'seq_10-18.jpg',
+      fillOperationId: 'fill-active',
+      filledAt: '2026-09-15T10:00:00.000Z',
+      sourceIndex: 4,
+      sourcePath: 'source/fill.jpg',
+      start: 10,
+    },
+  ]);
+  assert.deepEqual(migrated.deletedSources, [
+    {
+      checksumSha256: 'c'.repeat(64),
+      end: 27,
+      fileName: 'seq_19-27.jpg',
+      sourceIndex: 7,
+      sourcePath: 'source/deleted.jpg',
+      start: 19,
+    },
+  ]);
 });

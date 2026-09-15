@@ -48,12 +48,15 @@ export function useManualImageViewer(
   onError: (message: string) => void,
   initialView?: ManualImageViewerInitialView,
   onViewChange?: (view: ManualImageViewerInitialView) => void,
+  cacheScope?: string,
 ): ManualImageViewerState {
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const imageViewportRef = useRef<HTMLDivElement | null>(null);
-  const imageUrlCacheRef = useRef<Map<number, string>>(new Map());
-  const imageUrlLoadRef = useRef<Map<number, Promise<string>>>(new Map());
+  const imageUrlCacheRef = useRef<Map<string, string>>(new Map());
+  const imageUrlLoadRef = useRef<Map<string, Promise<string>>>(new Map());
   const imageCacheGenerationRef = useRef(0);
+  const previousCacheScopeRef = useRef(cacheScope);
+  const previousImagesRef = useRef(images);
   const imageScrollLeftRef = useRef(Math.max(0, initialView?.scrollLeft ?? 0));
   const imageScrollTopRef = useRef(Math.max(0, initialView?.scrollTop ?? 0));
   const pendingScrollRestoreRef = useRef(false);
@@ -68,7 +71,17 @@ export function useManualImageViewer(
   const [zoom, setZoom] = useState(() =>
     Math.max(1, Math.min(30, initialView?.zoom ?? 1)),
   );
-  const visibleImageUrl = imageUrlIndex === currentImageIndex ? imageUrl : null;
+  const currentImage = images[currentImageIndex];
+  const currentImageKey =
+    currentImage === undefined
+      ? null
+      : viewerCacheKey(cacheScope, currentImage.relativePath);
+  const cachedImageUrl =
+    currentImageKey === null
+      ? undefined
+      : imageUrlCacheRef.current.get(currentImageKey);
+  const visibleImageUrl =
+    cachedImageUrl ?? (imageUrlIndex === currentImageIndex ? imageUrl : null);
   const zoomedImageSize = fitManualImageToViewport(
     loadedImageSize?.sourceUrl === visibleImageUrl
       ? loadedImageSize.size
@@ -92,22 +105,34 @@ export function useManualImageViewer(
   useEffect(() => {
     const cache = imageUrlCacheRef.current;
     const pendingLoads = imageUrlLoadRef.current;
-    pendingScrollRestoreRef.current = true;
-    imageCacheGenerationRef.current += 1;
-    for (const url of cache.values()) URL.revokeObjectURL(url);
-    cache.clear();
-    pendingLoads.clear();
-    queueMicrotask(() => {
-      setImageUrl(null);
-      setImageUrlIndex(-1);
-    });
+    const scopeChanged = previousCacheScopeRef.current !== cacheScope;
+    const anonymousSourceChanged =
+      cacheScope === undefined && previousImagesRef.current !== images;
+    previousCacheScopeRef.current = cacheScope;
+    previousImagesRef.current = images;
+    if (scopeChanged || anonymousSourceChanged) {
+      pendingScrollRestoreRef.current = true;
+      imageCacheGenerationRef.current += 1;
+      for (const url of cache.values()) URL.revokeObjectURL(url);
+      cache.clear();
+      pendingLoads.clear();
+      queueMicrotask(() => {
+        setImageUrl(null);
+        setImageUrlIndex(-1);
+      });
+    }
+  }, [cacheScope, images]);
+
+  useEffect(() => {
+    const cache = imageUrlCacheRef.current;
+    const pendingLoads = imageUrlLoadRef.current;
     return () => {
       imageCacheGenerationRef.current += 1;
       for (const url of cache.values()) URL.revokeObjectURL(url);
       cache.clear();
       pendingLoads.clear();
     };
-  }, [images]);
+  }, []);
 
   useEffect(() => {
     if (previousImageIndexRef.current !== currentImageIndex) {
@@ -115,8 +140,7 @@ export function useManualImageViewer(
       previousImageIndexRef.current = currentImageIndex;
     }
     let cancelled = false;
-    const image = images[currentImageIndex];
-    if (currentImageIndex < 0 || image === undefined) {
+    if (currentImageIndex < 0 || currentImage === undefined) {
       queueMicrotask(() => {
         if (!cancelled) {
           setImageUrl(null);
@@ -131,22 +155,27 @@ export function useManualImageViewer(
       currentImageIndex,
       images.length,
     );
-    const previewIndexSet = new Set(previewIndexes);
-    for (const [index, url] of imageUrlCacheRef.current.entries()) {
-      if (!previewIndexSet.has(index)) {
+    const previewKeys = new Set(
+      previewIndexes.map((index) =>
+        viewerCacheKey(cacheScope, images[index]!.relativePath),
+      ),
+    );
+    for (const [key, url] of imageUrlCacheRef.current.entries()) {
+      if (!previewKeys.has(key)) {
         URL.revokeObjectURL(url);
-        imageUrlCacheRef.current.delete(index);
+        imageUrlCacheRef.current.delete(key);
       }
     }
 
     const loadUrl = (index: number): Promise<string> => {
-      const cached = imageUrlCacheRef.current.get(index);
-      if (cached !== undefined) return Promise.resolve(cached);
-      const pending = imageUrlLoadRef.current.get(index);
-      if (pending !== undefined) return pending;
       const target = images[index];
       if (target === undefined)
         return Promise.reject(new Error('IMAGE_OUT_OF_BOUNDS'));
+      const key = viewerCacheKey(cacheScope, target.relativePath);
+      const cached = imageUrlCacheRef.current.get(key);
+      if (cached !== undefined) return Promise.resolve(cached);
+      const pending = imageUrlLoadRef.current.get(key);
+      if (pending !== undefined) return pending;
       const load = target.handle
         .getFile()
         .then(async (file) => {
@@ -158,19 +187,15 @@ export function useManualImageViewer(
             URL.revokeObjectURL(url);
             throw new Error('STALE_IMAGE_CACHE');
           }
-          if (
-            !manualPreviewWindow(currentImageIndex, images.length).includes(
-              index,
-            )
-          ) {
+          if (!previewKeys.has(key)) {
             URL.revokeObjectURL(url);
             throw new Error('STALE_IMAGE_WINDOW');
           }
-          imageUrlCacheRef.current.set(index, url);
+          imageUrlCacheRef.current.set(key, url);
           return url;
         })
-        .finally(() => imageUrlLoadRef.current.delete(index));
-      imageUrlLoadRef.current.set(index, load);
+        .finally(() => imageUrlLoadRef.current.delete(key));
+      imageUrlLoadRef.current.set(key, load);
       return load;
     };
 
@@ -197,7 +222,7 @@ export function useManualImageViewer(
     return () => {
       cancelled = true;
     };
-  }, [currentImageIndex, images, onError]);
+  }, [cacheScope, currentImage, currentImageIndex, images, onError]);
 
   useEffect(() => {
     const onFullscreenChange = () =>
@@ -429,4 +454,8 @@ function isStaleImageLoad(cause: unknown): boolean {
     (cause.message === 'STALE_IMAGE_CACHE' ||
       cause.message === 'STALE_IMAGE_WINDOW')
   );
+}
+
+function viewerCacheKey(cacheScope: string | undefined, relativePath: string) {
+  return `${cacheScope ?? 'anonymous'}\u0000${relativePath}`;
 }

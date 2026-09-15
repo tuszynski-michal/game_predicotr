@@ -1,7 +1,7 @@
 ---
 title: Local manual image selection architecture
 status: accepted
-last_updated: 2026-09-14
+last_updated: 2026-09-15
 ---
 
 # Architektura lokalnej ręcznej selekcji
@@ -166,9 +166,11 @@ aktualnego snapshotu ani uchwytu. Fazy wyboru systemowego, inspekcji i
 listowania są stanem UI, a nie pozornym zawieszeniem; natywny picker pozostaje
 jedyną blokadą współdzielonego pickera katalogów.
 
-`manual-image-selection-repair-v1.json` zachowuje niezmienne granice kolekcji,
-aktywny indeks plików, checksumy, usunięte zakresy, append-only historię oraz
-co najwyżej jedną operację oczekującą. Każda mutacja ma trzy fazy:
+`manual-image-selection-repair-v2.json` zachowuje niezmienne granice kolekcji,
+aktywny indeks plików i checksumy, usunięte zakresy, jedno potwierdzenie źródła
+dla każdego aktywnego delete, aktywne wpisy fill oraz co najwyżej jedną
+operację oczekującą. Nie zawiera append-only historii ani repair trace. Każda
+mutacja ma trzy fazy:
 
 1. zapis zamiaru z oczekiwaną nazwą i checksumą;
 2. dokładna zmiana jednego pliku przez uchwyt katalogu;
@@ -176,30 +178,40 @@ co najwyżej jedną operację oczekującą. Każda mutacja ma trzy fazy:
 
 Reader naprawia historyczne zawężenie granic przez monotoniczną sumę dowodów:
 dotychczasowe granice, aktualne i zapisane aktywne zakresy, `deletedRanges`,
-operacje zakończone i operację oczekującą. Output malejący wnosi także minimum
+potwierdzenia usunięć i operację oczekującą. Output malejący wnosi także minimum
 i maksimum wszystkich `items`; jego `firstLayout` nie jest interpretowany jako
 minimum kolekcji. Poszerzenie zwiększa rewizję repair manifestu, zapisuje ją
 podczas jawnej inspekcji i synchronizuje stan zakończenia output manifestu.
-Żaden dowód nie może automatycznie zawęzić istniejących granic.
+Żaden dowód nie może automatycznie zawęzić istniejących granic. Reader v1
+wyprowadza v2 przez replay starej historii, zapisuje v2 oraz pozostawia v1 jako
+niemodyfikowany fallback.
 
 Reconciler po reloadzie rozstrzyga stan na podstawie pliku, rozmiaru i
 checksummy. Obcy lub zmieniony cel pozostaje fail-closed. Katalog bazowy fill
-jest zawsze read-only, a zapisany JPEG zachowuje oryginalne bajty. Delete undo
-przechowuje ostatni `File` wyłącznie w pamięci komponentu, więc nie jest
-możliwy po reloadzie.
+jest zawsze read-only, a zapisany JPEG zachowuje oryginalne bajty. Delete nie
+ma restore ani Blobu w pamięci. Wyłącznie recovery starej oczekującej operacji
+`restore` może dokończyć jej stan, zanim v1 zostanie zredukowany do v2.
 
 Pochodny `manual-image-selection-filled-gaps-v1.json` jest materializowany przy
 każdym zapisie repair manifestu. Jego wpisy są deterministycznie wyprowadzane z
-append-only operacji `fill` oraz bieżącego `activeFiles`; nie jest drugim
-źródłem decyzji. Konsument może odtworzyć brakujący handoff bezpośrednio z
-repair manifestu, a uszkodzony plik handoffu blokuje użycie fail-closed.
+aktywnych wpisów fill oraz bieżącego `activeFiles`; nie jest drugim źródłem
+decyzji. Konsument może odtworzyć brakujący handoff bezpośrednio z repair
+manifestu, a uszkodzony plik handoffu blokuje użycie fail-closed.
 
 Output manifest pozostaje bieżącym źródłem aktywnych wyborów i jest
-synchronizowany po fill, undo, delete oraz restore. Repair trace jest osobnym
-źródłem proweniencji. Ranker może scalić z pierwotnym trace tylko poprawnie
-zdekodowane zdarzenia `viewed` i `fill`; pozytywem jest wyłącznie plik nadal
-obecny w aktywnym output manifeście. Zdarzenia delete, restore i undo nie mogą
-samodzielnie utworzyć próbki treningowej.
+synchronizowany po fill, undo fill i delete. Jeżeli przerwanie nastąpi po
+fizycznym delete, ale przed synchronizacją outputu, kolejna inspekcja akceptuje
+tylko brak zgodny z potwierdzeniem delete i odtwarza output manifest. Repair
+nie zapisuje własnego trace; training korzysta wyłącznie z pierwotnego,
+poprawnie utworzonego trace selekcji.
+
+W trybie delete workspace najpierw buduje lokalny snapshot bez usuniętego
+pliku, przełącza kursor i zachowuje wynik read-ahead viewer'a. Następnie jedna
+kolejka wykonuje trwałą mutację katalogu. W trakcie jest zablokowany tylko
+kolejny fill/delete, nie nawigacja. Błąd kolejki przełącza workspace w stan
+fail-closed do jawnej ponownej inspekcji katalogu. Viewer kluczuje bounded
+Object URL cache przez `repairKey`, tryb i `relativePath`, więc przesunięcie
+ordinali po usunięciu nie unieważnia następnego JPEG-a.
 
 Zwykły lokalny selector sprawdza obecność repair manifestu przed startem i
 resume. W takim przypadku nie modyfikuje katalogu ani starej sesji, tylko

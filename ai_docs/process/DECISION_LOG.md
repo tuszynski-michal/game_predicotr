@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-14
+last_updated: 2026-09-15
 ---
 
 # Decision Log
@@ -8535,3 +8535,25 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** wymagane są dotychczasowe bramki rejestracji, pełna lokalna siatka,
   ochrona treści i ręczne potwierdzenie. Propozycja jest wykluczona ze zwykłego
   uczenia geometrii i kotwic; bezpiecznej siatki nie zastępuje się syntetyczną.
+
+## D-388 — Repair przechowuje stan luk, nie historię interakcji
+
+- **Status:** accepted (TASK-0554).
+- **Date:** 2026-09-15.
+- **Decision:** `manual-image-selection-repair-v2.json` zastępuje rosnący
+  log napraw aktualnym stanem: aktywnymi plikami, usuniętymi zakresami,
+  potwierdzeniami aktywnych delete, aktywnymi fillami i pojedynczą intencją
+  recovery. Tryb delete jest nieodwracalny. Dziennik repair trace nie jest już
+  tworzony.
+- **Rationale:** pełny `File` dla undo oraz rosnący trace nie były wejściem
+  importu, a po zmianie snapshotu powodowały kosztowne ponowne dekodowanie
+  całego okna podglądu. Stan aktywny wystarcza weryfikacji nazw, handoffowi
+  fillów, recovery i output manifestowi.
+- **Compatibility:** reader v1 wyprowadza i zapisuje v2 bez zmiany JPEG-ów,
+  pozostawiając v1 jako fallback. Wymagany handoff
+  `manual-image-selection-filled-gaps-v1.json` i output manifest zachowują
+  format.
+- **Safety:** mutacja nadal ma intent → pojedynczy plik → checksum → finalny
+  manifest. UI może zmienić obraz przed zapisem, ale kolejna mutacja jest
+  zablokowana; błąd wymaga jawnej inspekcji. Recovery odtwarza stale output
+  tylko, gdy brak pliku dokładnie odpowiada checksummowanemu delete receipt.

@@ -1136,12 +1136,11 @@ function pendingDeleteWasApplied(
   );
   return (
     missing &&
-    snapshot.repairManifest.operations.some(
-      (operation) =>
-        operation.kind === 'delete' &&
-        operation.sourceIndex === pending.sourceIndex &&
-        operation.sourcePath === pending.sourceRelativePath &&
-        operation.checksumSha256 === pending.sourceChecksumSha256,
+    snapshot.repairManifest.deletedSources.some(
+      (source) =>
+        source.sourceIndex === pending.sourceIndex &&
+        source.sourcePath === pending.sourceRelativePath &&
+        source.checksumSha256 === pending.sourceChecksumSha256,
     )
   );
 }

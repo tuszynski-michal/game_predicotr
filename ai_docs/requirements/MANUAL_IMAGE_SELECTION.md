@@ -1,7 +1,7 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-08-31
+last_updated: 2026-09-15
 ---
 
 # Lokalna ręczna selekcja zdjęć
@@ -460,7 +460,7 @@ dziewięciu plansz, a zła nazwa JPEG-a, duplikat, overlap, obcy manifest albo
 drift checksummy blokują mutację.
 
 Granice kolekcji pochodzą najpierw z
-`manual-image-selection-repair-v1.json`, następnie z poprawnego output
+`manual-image-selection-repair-v2.json`, następnie z poprawnego output
 manifestu, a dopiero na końcu z nazw JPEG-ów. Dzięki temu usunięcie skrajnego
 pliku pozostawia jawną lukę. Braki są sortowane rosnąco i dzielone od lewej na
 targety nie większe niż dziewięć plansz.
@@ -482,11 +482,12 @@ obcego albo zmienionego pliku.
 ### Usuwanie sekwencji
 
 Tryb `Usuń sekwencje` pokazuje jeden istniejący plik `seq_*` i nawiguje zawsze
-o jeden. `F` usuwa bieżący, checksummowany JPEG. `A` lub `Ctrl+A` może
-przywrócić wyłącznie ostatni plik, którego `File` pozostaje w pamięci otwartej
-karty. Reload, zamknięcie karty albo następne usunięcie usuwa możliwość tego
-jednopoziomowego przywrócenia. Trwały repair manifest zachowuje samą decyzję i
-lukę, ale nie przechowuje Blobu.
+o jeden. `F` usuwa bieżący, checksummowany JPEG bez możliwości przywrócenia.
+Bezpośrednio po decyzji workspace przechodzi do następnego aktywnego obrazu;
+zapis systemu plików wykonuje się potem w pojedynczej kontrolowanej kolejce.
+W trakcie zapisu można nawigować, lecz kolejna mutacja jest zablokowana. Błąd
+zapisu pozostawia czytelny komunikat i blokuje dalsze fill/delete do czasu
+ponownego wskazania katalogu.
 
 Obok tej akcji dostępne jest `Usuwanie sekwencji` dla paczki plików. Po
 wskazaniu katalogu `seq_*` modal przyjmuje wyłącznie numeryczny prefiks
@@ -499,13 +500,15 @@ i izolowany błąd. Błąd uchwytu katalogu albo journalu zatrzymuje pozostałą
 paczkę fail-closed; błąd pojedynczego pliku nie unieważnia poprawnie
 przetworzonych pozostałych pozycji.
 
-Zmiana zdjęcia, fill, delete, restore ani undo nie mogą zerować zapamiętanej
+Zmiana zdjęcia, fill, delete ani undo fill nie mogą zerować zapamiętanej
 pozycji viewportu. Wspólny viewer ignoruje przejściowe zdarzenie scrolla
 powstałe podczas wymiany Object URL i odtwarza pozycję dopiero po dekodowaniu
-docelowego zdjęcia. Po bezpiecznej mutacji jednego pliku workspace aktualizuje
-indeks katalogu inkrementalnie; nie wolno ponownie hashować całego katalogu po
-każdym usunięciu. Pełna walidacja nazw i checksum pozostaje obowiązkowa przy
-pierwszym otwarciu oraz po reloadzie.
+docelowego zdjęcia. Cache jest kluczowany trwałą ścieżką względną i tożsamością
+katalogu, dlatego następny obraz pozostający w oknie read-ahead nie jest po
+usunięciu ponownie odczytywany ani dekodowany. Workspace aktualizuje indeks
+katalogu inkrementalnie; nie wolno ponownie hashować całego katalogu po każdym
+usunięciu. Pełna walidacja nazw i checksum pozostaje obowiązkowa przy pierwszym
+otwarciu oraz po reloadzie.
 
 Jedna inspekcja odczytuje i hashuje każdy znany JPEG najwyżej raz. Jeżeli
 repair manifest zawiera już checksumę, reconciler weryfikuje ją na rzeczywistym
@@ -517,7 +520,8 @@ natychmiast utrwalane w IndexedDB.
 
 Granice kolekcji są monotoniczne również dla selekcji malejącej. Inspekcja
 wyznacza je z sumy utrwalonego zakresu, wszystkich aktywnych nazw `seq_*`,
-znanych usunięć i historii operacji. `firstLayout` malejącego output manifestu
+znanych usunięć, potwierdzeń delete i aktywnych wpisów fill. `firstLayout`
+malejącego output manifestu
 jest początkiem pierwszej decyzji, a nie dolną granicą całego katalogu. Jeżeli
 historyczny repair manifest został przez ten błąd zawężony, jawne ponowne
 wybranie katalogu poszerza i utrwala jego granice bez zmiany JPEG-ów oraz
@@ -526,26 +530,30 @@ pliku skrajnego.
 
 ### Trwałość i instrukcja operatora
 
-Repair manifest jest journalem intencji `fill`, `undo_fill`, `delete` i
-`restore`. Przed zmianą pliku zapisuje operację oczekującą, a po restarcie
-obecność pliku i SHA-256 pozwalają ją bezpiecznie dokończyć albo wycofać
-logicznie. Osobna IndexedDB przechowuje tylko uchwyty, tryb, kursory i
-preferencje podglądu — nigdy JPEG-i.
+`manual-image-selection-repair-v2.json` przechowuje wyłącznie bieżący stan:
+granice, aktywne pliki i checksumy, usunięte zakresy, jedno potwierdzenie
+źródła każdego aktywnego usunięcia, aktywne uzupełnienia i co najwyżej jedną
+operację oczekującą. Nie ma append-only historii ani repair trace. Przed zmianą
+pliku zapisuje operację oczekującą, a po restarcie obecność pliku i SHA-256
+pozwalają ją bezpiecznie sfinalizować. Reader migruje v1 deterministycznie do
+v2, zachowując JPEG-i; historyczny plik v1 pozostaje nietkniętym fallbackiem.
+Osobna IndexedDB przechowuje tylko uchwyty, tryb, kursory i preferencje
+podglądu — nigdy JPEG-i.
 
 Każdy zapis repair manifestu synchronizuje też pochodny
 `manual-image-selection-filled-gaps-v1.json`. Zawiera on wyłącznie nadal
 aktywne pliki utworzone przez `fill`: docelową nazwę i zakres `seq_*`, SHA-256,
-ścieżkę źródłową, indeks oraz identyfikator i czas operacji. Cofnięte albo
-ponownie usunięte uzupełnienie znika z aktywnej listy. Repair manifest pozostaje
-źródłem prawdy, więc brakujący historyczny handoff można odtworzyć bez zmiany
-JPEG-ów.
+ścieżkę źródłową, indeks oraz identyfikator i czas fill. Cofnięte albo ponownie
+usunięte uzupełnienie znika z aktywnej listy. Repair manifest pozostaje źródłem
+prawdy, więc brakujący handoff można odtworzyć bez zmiany JPEG-ów.
 
 Operator wykonuje kolejno:
 
 1. wybiera katalog gotowych `seq_*`;
 2. wybiera `Uzupełnij luki` albo `Usuń sekwencje`;
 3. w trybie uzupełniania wskazuje bazowy katalog zdjęć;
-4. wykonuje checksummowane decyzje i może cofnąć ostatnią operację;
+4. wykonuje checksummowane decyzje; w trybie fill może cofnąć ostatnie
+   uzupełnienie, natomiast delete jest trwały;
 5. po zakończeniu importuje bieżącą zawartość katalogu `seq_*`.
 
 Jeżeli zwykła ręczna selekcja wykryje repair manifest, nie próbuje przejąć

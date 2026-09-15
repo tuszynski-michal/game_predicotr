@@ -11,6 +11,7 @@ import {
   markSelectedImageCropCorrected,
   migrateSelectedImageCropManifestV1,
   recordSelectedImageCropFailure,
+  recoverSelectedImageCropPendingBatch,
   replaceSelectedImageCropCorrections,
   selectedImageCropFileState,
   selectedImageCropAutomaticCorrectionRecalculationFileNames,
@@ -21,6 +22,9 @@ import {
 
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
+const HASH_C = 'c'.repeat(64);
+const HASH_D = 'd'.repeat(64);
+const HASH_E = 'e'.repeat(64);
 
 test('only a completely pristine versionless crop snapshot may adopt the active policy', () => {
   const migrated = migrateSelectedImageCropManifestV1(manifest(3));
@@ -75,6 +79,18 @@ test('only a completely pristine versionless crop snapshot may adopt the active 
       session: {
         ...pristine.session,
         pendingOperation: { kind: 'write_crop' },
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    canAdoptActiveSelectedImageCropPolicy({
+      ...pristine,
+      session: {
+        ...pristine.session,
+        pendingBatch: [
+          pendingOperation(pristine.inventory.entries[0].fileName, HASH_C),
+        ],
       },
     }),
     false,
@@ -256,15 +272,139 @@ function manifest(count = 130) {
   };
 }
 
+function pendingOperation(fileName, outputChecksumSha256) {
+  return {
+    kind: 'write_crop',
+    fileName,
+    expectedSourceChecksumSha256: HASH_A,
+    expectedOutputChecksumSha256: outputChecksumSha256,
+    crop: { width: 1080, height: 1920, topY: 400, bottomY: 1100 },
+    startedAt: '2026-09-15T07:59:00.000Z',
+    replacesOutputChecksumSha256: null,
+    markReviewed: false,
+  };
+}
+
 test('migrates prepared and reviewed state without rerendering results', () => {
   const source = manifest();
   const snapshot = migrateSelectedImageCropManifestV1(source);
+  assert.equal(snapshot.session.pendingBatch, null);
   assert.equal(snapshot.shards.length, 3);
   assert.equal(Object.keys(snapshot.shards[0].results).length, 64);
   assert.equal(Object.keys(snapshot.shards[1].results).length, 64);
   assert.equal(Object.keys(snapshot.shards[2].results).length, 0);
   assert.equal(snapshot.review.reviewedFileNames.length, 98);
   assert.deepEqual(materializeSelectedImageCropManifestV1(snapshot), source);
+});
+
+test('recovers a partially written crop batch and remains idempotent after shard publication', () => {
+  const source = manifest(4);
+  source.entries = source.entries.map((entry) => ({ ...entry, result: null }));
+  source.reviewedFileNames = [];
+  source.currentIndex = 0;
+  const base = migrateSelectedImageCropManifestV1(source);
+  const names = base.inventory.entries.map((entry) => entry.fileName);
+  const operations = [
+    pendingOperation(names[0], HASH_C),
+    pendingOperation(names[1], HASH_D),
+    pendingOperation(names[2], HASH_E),
+    pendingOperation(names[3], HASH_C),
+  ];
+  const pending = {
+    ...base,
+    session: { ...base.session, pendingBatch: operations },
+  };
+
+  const recovered = recoverSelectedImageCropPendingBatch(
+    pending,
+    {
+      [names[0]]: HASH_C,
+      [names[1]]: HASH_D,
+      [names[2]]: null,
+      [names[3]]: HASH_B,
+    },
+    '2026-09-15T08:00:00.000Z',
+  );
+
+  assert.equal(recovered.snapshot.session.pendingBatch, null);
+  assert.deepEqual(recovered.missingFileNames, [names[2]]);
+  assert.deepEqual(recovered.touchedShardFileNames, [names[3]]);
+  assert.equal(
+    recovered.snapshot.shards[0].results[names[0]].outputChecksumSha256,
+    HASH_C,
+  );
+  assert.equal(
+    recovered.snapshot.shards[0].results[names[1]].outputChecksumSha256,
+    HASH_D,
+  );
+  assert.equal(recovered.snapshot.shards[0].results[names[2]], undefined);
+  assert.equal(
+    recovered.snapshot.shards[0].results[names[3]].outputChecksumSha256,
+    HASH_B,
+  );
+  assert.deepEqual(recovered.snapshot.review.correctionFileNames, [names[3]]);
+
+  const afterShardBeforeSession = {
+    ...recovered.snapshot,
+    session: pending.session,
+  };
+  const replayed = recoverSelectedImageCropPendingBatch(
+    afterShardBeforeSession,
+    {
+      [names[0]]: HASH_C,
+      [names[1]]: HASH_D,
+      [names[2]]: null,
+      [names[3]]: HASH_B,
+    },
+    '2026-09-15T08:01:00.000Z',
+  );
+  assert.equal(replayed.snapshot.session.pendingBatch, null);
+  assert.deepEqual(replayed.touchedShardFileNames, []);
+  assert.deepEqual(replayed.missingFileNames, [names[2]]);
+  assert.deepEqual(replayed.snapshot.review.correctionFileNames, [names[3]]);
+});
+
+test('pending batch entries are reported as processing', () => {
+  const snapshot = migrateSelectedImageCropManifestV1(manifest(3));
+  const name = snapshot.inventory.entries[2].fileName;
+  snapshot.session.pendingBatch = [pendingOperation(name, HASH_C)];
+  assert.equal(selectedImageCropFileState(snapshot, name), 'processing');
+});
+
+test('batch recovery requests one write for each touched result shard', () => {
+  const source = manifest(66);
+  source.entries = source.entries.map((entry) => ({ ...entry, result: null }));
+  source.reviewedFileNames = [];
+  source.currentIndex = 0;
+  const base = migrateSelectedImageCropManifestV1(source);
+  const names = base.inventory.entries.map((entry) => entry.fileName);
+  const selectedNames = names.slice(62, 66);
+  const pending = {
+    ...base,
+    session: {
+      ...base.session,
+      pendingBatch: selectedNames.map((name) => pendingOperation(name, HASH_C)),
+    },
+  };
+
+  const recovered = recoverSelectedImageCropPendingBatch(
+    pending,
+    Object.fromEntries(selectedNames.map((name) => [name, HASH_C])),
+    '2026-09-15T08:02:00.000Z',
+  );
+
+  assert.deepEqual(recovered.touchedShardFileNames, [
+    selectedNames[1],
+    selectedNames[3],
+  ]);
+  assert.equal(
+    recovered.snapshot.shards[0].results[selectedNames[1]].outputChecksumSha256,
+    HASH_C,
+  );
+  assert.equal(
+    recovered.snapshot.shards[1].results[selectedNames[3]].outputChecksumSha256,
+    HASH_C,
+  );
 });
 
 test('replaces a bulk correction selection deterministically', () => {

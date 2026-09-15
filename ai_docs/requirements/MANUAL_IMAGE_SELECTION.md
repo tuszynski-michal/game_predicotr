@@ -685,6 +685,20 @@ Poprawiony konsensus ma nowy fingerprint; wcześniejszy fingerprint v12 jest
 akceptowany tylko przy odczycie zapisanych wyników, aby rozpoczęte sesje mogły
 bez utraty cropów kontynuować aktualnym workerem.
 
+TASK-0551: automatyczna publikacja jednej paczki najwyżej czterech cropów używa
+jednej intencji `pendingBatch` w `session-v2.json`. Przed zapisem intencji każdy
+wynik ma gotowy render, checksumę wyjścia i decyzję o utworzeniu albo przejęciu
+zgodnego pliku. JPEG-i paczki mogą być zapisane równolegle, ale każdy jest
+następnie ponownie odczytany i zweryfikowany SHA-256. Każdy dotknięty shard jest
+zapisywany raz, po czym jeden końcowy zapis sesji usuwa intencję paczki.
+
+Po restarcie zgodne JPEG-i są finalizowane, brakujące pozostają w kolejce, a
+plik o innej checksumie jest zachowany i trafia do review. Recovery jest
+idempotentne również wtedy, gdy shard został już zapisany, lecz końcowy zapis
+sesji nie doszedł do skutku. Historyczny brak `pendingBatch` oznacza `null`.
+Ręczna korekta jednego zdjęcia nadal używa pojedynczego `pendingOperation` i
+dotychczasowej kolejności journal → JPEG → kontrola SHA-256 → shard → sesja.
+
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
 przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do

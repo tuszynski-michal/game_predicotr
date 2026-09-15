@@ -1,9 +1,14 @@
-import type {
-  SelectedImageCropManifestV1,
-  SelectedImageCropPendingOperation,
-  SelectedImageCropResult,
-  SelectedImageCropSourceEntry,
-} from './crop.ts';
+import {
+  beginSelectedImageCropWrite,
+  finalizeRecoveredSelectedImageCropWrite,
+  finalizeSelectedImageCropWrite,
+  rollbackSelectedImageCropWrite,
+  type SelectedImageCropBand,
+  type SelectedImageCropManifestV1,
+  type SelectedImageCropPendingOperation,
+  type SelectedImageCropResult,
+  type SelectedImageCropSourceEntry,
+} from '@game-predictor/manual-image-selection-core/crop';
 import type { SelectedImageAutoCropProposal } from './auto-crop.ts';
 
 /** Review policy only: never changes persisted detector pixels or fingerprints. */
@@ -52,6 +57,11 @@ export interface SelectedImageCropSessionV2 {
   readonly revision: number;
   readonly currentIndex: number;
   readonly pendingOperation: SelectedImageCropPendingOperation | null;
+  /**
+   * Compatible v2 extension used only by automatic batch publication.
+   * Historical snapshots omit the field and readers normalize it to null.
+   */
+  readonly pendingBatch: readonly SelectedImageCropPendingOperation[] | null;
   readonly failures: readonly SelectedImageCropPreparationFailure[];
   /** Null or absent identifies a historical session that predates policy pinning. */
   readonly preparationPolicyVersion?: string | null;
@@ -92,6 +102,7 @@ export function canAdoptActiveSelectedImageCropPolicy(
   return (
     snapshot.session.preparationPolicyVersion == null &&
     snapshot.session.pendingOperation === null &&
+    snapshot.session.pendingBatch === null &&
     snapshot.session.failures.length === 0 &&
     snapshot.shards.every((shard) => Object.keys(shard.results).length === 0) &&
     snapshot.review.reviewedFileNames.length === 0 &&
@@ -115,6 +126,14 @@ export function selectedImageCropFileState(
   snapshot: SelectedImageCropSessionSnapshotV2,
   fileName: string,
 ): SelectedImageCropFileState {
+  if (snapshot.session.pendingOperation?.fileName === fileName)
+    return 'processing';
+  if (
+    snapshot.session.pendingBatch?.some(
+      (operation) => operation.fileName === fileName,
+    )
+  )
+    return 'processing';
   if (requiredSelectedImageCropCorrections(snapshot).includes(fileName))
     return 'needs_correction';
   if (snapshot.review.correctionFileNames.includes(fileName))
@@ -125,8 +144,6 @@ export function selectedImageCropFileState(
     return 'reviewed';
   if (snapshot.session.failures.some((item) => item.fileName === fileName))
     return 'failed';
-  if (snapshot.session.pendingOperation?.fileName === fileName)
-    return 'processing';
   if (snapshot.shards.some((shard) => fileName in shard.results))
     return 'prepared';
   return 'queued';
@@ -235,6 +252,7 @@ export function migrateSelectedImageCropManifestV1(
       revision: manifest.revision,
       currentIndex: manifest.currentIndex,
       pendingOperation: manifest.pendingOperation,
+      pendingBatch: null,
       failures: [],
       preparationPolicyVersion: null,
       updatedAt: manifest.updatedAt,
@@ -326,6 +344,183 @@ export function materializeSelectedImageCropManifestV1(
     pendingOperation: snapshot.session.pendingOperation,
     updatedAt: snapshot.session.updatedAt,
   };
+}
+
+export interface SelectedImageCropBatchRecoveryResult {
+  readonly snapshot: SelectedImageCropSessionSnapshotV2;
+  /** One representative file name for each shard that must be persisted. */
+  readonly touchedShardFileNames: readonly string[];
+  readonly missingFileNames: readonly string[];
+}
+
+/**
+ * Materializes a pending automatic publication after a restart. JPEG bytes
+ * remain the source of truth: matching files are finalized, missing files are
+ * left queued, and differing bytes are retained but require review.
+ */
+export function recoverSelectedImageCropPendingBatch(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+  observedOutputChecksums: Readonly<Record<string, string | null>>,
+  now: string,
+): SelectedImageCropBatchRecoveryResult {
+  const pendingBatch = snapshot.session.pendingBatch ?? null;
+  if (pendingBatch === null || pendingBatch.length === 0)
+    return { snapshot, touchedShardFileNames: [], missingFileNames: [] };
+  if (snapshot.session.pendingOperation !== null)
+    throw new Error('SELECTED_IMAGE_CROP_OPERATION_ACTIVE');
+  if (
+    new Set(pendingBatch.map((operation) => operation.fileName)).size !==
+    pendingBatch.length
+  )
+    throw new Error('SELECTED_IMAGE_CROP_BATCH_INVALID');
+
+  let manifest = materializeSelectedImageCropManifestV1(snapshot);
+  let recovered = snapshot;
+  let review = snapshot.review;
+  const touchedShardFiles = new Map<number, string>();
+  const missingFileNames: string[] = [];
+
+  for (const operation of pendingBatch) {
+    const observed = observedOutputChecksums[operation.fileName] ?? null;
+    const entryIndex = manifest.entries.findIndex(
+      (entry) => entry.fileName === operation.fileName,
+    );
+    if (entryIndex < 0) throw new Error('SELECTED_IMAGE_CROP_SOURCE_UNKNOWN');
+    const existing = manifest.entries[entryIndex]!.result;
+    const existingMatchesObserved =
+      observed !== null &&
+      existing?.sourceChecksumSha256 ===
+        operation.expectedSourceChecksumSha256 &&
+      existing.outputChecksumSha256 === observed &&
+      selectedImageCropBandsEqual(existing.crop, operation.crop);
+    if (existingMatchesObserved) {
+      manifest = advanceRecoveredSelectedImageCropManifest(
+        manifest,
+        entryIndex,
+        now,
+      );
+      recovered = snapshotWithRecoveredManifest(recovered, manifest);
+      if (observed !== operation.expectedOutputChecksumSha256)
+        review = updateSelectedImageCropCorrections(
+          review,
+          operation.fileName,
+          true,
+        );
+      continue;
+    }
+    if (
+      existing?.outputChecksumSha256 === operation.expectedOutputChecksumSha256
+    )
+      throw new Error('SELECTED_IMAGE_CROP_OUTPUT_CHANGED');
+
+    manifest = beginSelectedImageCropWrite(manifest, operation, now);
+    if (observed === null) {
+      manifest = rollbackSelectedImageCropWrite(manifest, now);
+      recovered = snapshotWithRecoveredManifest(recovered, manifest);
+      missingFileNames.push(operation.fileName);
+      continue;
+    }
+    manifest =
+      observed === operation.expectedOutputChecksumSha256
+        ? finalizeSelectedImageCropWrite(manifest, now)
+        : finalizeRecoveredSelectedImageCropWrite(manifest, observed, now);
+    recovered = snapshotWithRecoveredResult(
+      recovered,
+      manifest,
+      operation.fileName,
+    );
+    touchedShardFiles.set(
+      selectedImageCropShardIndex(entryIndex),
+      operation.fileName,
+    );
+    if (observed !== operation.expectedOutputChecksumSha256)
+      review = updateSelectedImageCropCorrections(
+        review,
+        operation.fileName,
+        true,
+      );
+  }
+
+  const finalized = snapshotWithRecoveredManifest(recovered, manifest);
+  return {
+    snapshot: {
+      ...finalized,
+      session: { ...finalized.session, pendingBatch: null },
+      review,
+    },
+    touchedShardFileNames: [...touchedShardFiles.values()],
+    missingFileNames,
+  };
+}
+
+function advanceRecoveredSelectedImageCropManifest(
+  manifest: SelectedImageCropManifestV1,
+  entryIndex: number,
+  now: string,
+): SelectedImageCropManifestV1 {
+  return {
+    ...manifest,
+    revision: manifest.revision + 1,
+    currentIndex: Math.max(
+      manifest.currentIndex,
+      Math.min(entryIndex + 1, manifest.entries.length - 1),
+    ),
+    updatedAt: now,
+  };
+}
+
+function snapshotWithRecoveredManifest(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+  manifest: SelectedImageCropManifestV1,
+): SelectedImageCropSessionSnapshotV2 {
+  return {
+    ...snapshot,
+    session: {
+      ...snapshot.session,
+      revision: manifest.revision,
+      currentIndex: manifest.currentIndex,
+      pendingOperation: manifest.pendingOperation,
+      updatedAt: manifest.updatedAt,
+    },
+    review: {
+      ...snapshot.review,
+      reviewedFileNames: manifest.reviewedFileNames ?? [],
+    },
+  };
+}
+
+function snapshotWithRecoveredResult(
+  snapshot: SelectedImageCropSessionSnapshotV2,
+  manifest: SelectedImageCropManifestV1,
+  fileName: string,
+): SelectedImageCropSessionSnapshotV2 {
+  const entryIndex = manifest.entries.findIndex(
+    (entry) => entry.fileName === fileName,
+  );
+  const result = manifest.entries[entryIndex]?.result;
+  if (entryIndex < 0 || result === null || result === undefined)
+    throw new Error('SELECTED_IMAGE_CROP_RESULT_NOT_PREPARED');
+  const shardIndex = selectedImageCropShardIndex(entryIndex);
+  return {
+    ...snapshotWithRecoveredManifest(snapshot, manifest),
+    shards: snapshot.shards.map((shard) =>
+      shard.shardIndex === shardIndex
+        ? { ...shard, results: { ...shard.results, [fileName]: result } }
+        : shard,
+    ),
+  };
+}
+
+function selectedImageCropBandsEqual(
+  left: SelectedImageCropBand,
+  right: SelectedImageCropBand,
+): boolean {
+  return (
+    left.width === right.width &&
+    left.height === right.height &&
+    left.topY === right.topY &&
+    left.bottomY === right.bottomY
+  );
 }
 
 export function updateSelectedImageCropCorrections(

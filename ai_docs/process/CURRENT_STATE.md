@@ -6,6 +6,24 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0551 — szybszy trwały zapis paczki cropów
+
+- Cztery automatycznie przygotowane wyniki są publikowane przez jedną intencję
+  `pendingBatch`, równoległy zapis JPEG-ów, kontrolny SHA-256 każdego pliku,
+  jeden zapis każdego dotkniętego sharda i jedną końcową sesję. Typowa paczka w
+  jednym shardzie wykonuje łącznie dwa zapisy sesji i jeden sharda zamiast ośmiu
+  zapisów sesji i czterech shardów.
+- Recovery finalizuje zgodne pliki, brakujące pozostawia w kolejce, a obce bajty
+  zachowuje i kieruje do review. Jest idempotentne również po zapisaniu sharda i
+  utracie końcowego zapisu sesji. Historyczne sesje bez pola `pendingBatch` są
+  odczytywane jako `null`.
+- Ręczny zapis jednego cropa, kontrola źródła i wyjścia, blokada jednego writera
+  oraz polityka v12 nie zmieniły się. Otwarta przed wdrożeniem karta zacznie
+  korzystać z publikacji paczkowej po `Ctrl+R`; podczas implementacji nie
+  zmieniano trwającej sesji ani plików katalogu użytkownika.
+- Skoncentrowane testy przeszły 39/39, pełny core 102/102 i Admin 487/487; oba
+  typechecki, lint, build core oraz produkcyjny build Admina są zielone.
+
 ### TASK-0550 — trwałe odtwarzanie ukończonego preflightu geometrii
 
 - Ukończony preflight i istniejący import wariantu lateral są dopasowywane po

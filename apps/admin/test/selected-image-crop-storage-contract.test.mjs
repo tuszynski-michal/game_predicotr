@@ -41,6 +41,65 @@ test('batch preparation isolates failures and uses bounded state files', () => {
   assert.match(source, /preparationBatches/u);
 });
 
+test('automatic results publish one durable batch instead of one journal per image', () => {
+  const batchWriterStart = source.indexOf(
+    'async function saveSelectedImageCropBatchUnlocked',
+  );
+  const preparationStart = source.indexOf(
+    'export async function prepareAllSelectedImageCrops',
+    batchWriterStart,
+  );
+  const batchWriter = source.slice(batchWriterStart, preparationStart);
+  assert.match(batchWriter, /pendingBatch: staged\.map/u);
+  assert.match(batchWriter, /Promise\.allSettled\(\s*staged\.map/u);
+  assert.match(batchWriter, /assertSelectedImageCropBatchCanStart/u);
+  assert.match(
+    batchWriter,
+    /writeSelectedImageCropSession\(prepared\.outputDirectory, pendingSession\)/u,
+  );
+  assert.match(batchWriter, /recoverSelectedImageCropBatchSnapshot/u);
+
+  const preparationEnd = source.indexOf(
+    'export async function recalculateUnreviewedSelectedImageCrops',
+    preparationStart,
+  );
+  const preparation = source.slice(preparationStart, preparationEnd);
+  assert.match(preparation, /saveSelectedImageCropBatchUnlocked/u);
+  assert.doesNotMatch(preparation, /saveSelectedImageCropUnlocked\(\{/u);
+
+  const recoveryStart = source.indexOf(
+    'async function recoverSelectedImageCropBatchSnapshot',
+  );
+  const recoveryEnd = source.indexOf(
+    'async function recoverSelectedImageCropSnapshot',
+    recoveryStart,
+  );
+  const recovery = source.slice(recoveryStart, recoveryEnd);
+  assert.match(recovery, /recoverSelectedImageCropPendingBatch/u);
+  assert.match(
+    recovery,
+    /for \(const fileName of recovery\.touchedShardFileNames\)/u,
+  );
+  assert.equal(recovery.match(/writeSelectedImageCropSession\(/gu)?.length, 1);
+});
+
+test('successful preparation does not rewrite the session when no failure exists', () => {
+  const clearStart = source.indexOf(
+    'async function clearPersistedPreparationFailure',
+  );
+  const clearEnd = source.indexOf(
+    'interface PreparationErrorDetails',
+    clearStart,
+  );
+  const clear = source.slice(clearStart, clearEnd);
+  assert.match(clear, /session\.failures\.some/u);
+  assert.match(clear, /return prepared/u);
+  assert.ok(
+    clear.indexOf('return prepared') <
+      clear.indexOf('writeSelectedImageCropSession'),
+  );
+});
+
 test('filled-gap directory listing includes only direct manifest owners', () => {
   assert.match(
     source,
@@ -236,7 +295,10 @@ test('output ownership rejects foreign files and source mutation', () => {
 test('a manifest-named orphan is adopted only after exact rendered checksum proof', () => {
   assert.match(source, /selectedImageCropOutputWriteAction/u);
   assert.match(source, /outputAction === 'reject_changed_output'/u);
-  assert.match(source, /if \(outputAction === 'write'\)[\s\S]*writeBlob/u);
+  assert.match(
+    source,
+    /if \(staged\.outputAction === 'write'\)[\s\S]*writeBlob/u,
+  );
   assert.match(
     source,
     /\.\.\.manifest\.entries\.map\(\(entry\) =>[\s\S]*entry\.fileName/u,

@@ -14,6 +14,7 @@ import {
   SELECTED_IMAGE_CROP_JPEG_QUALITY,
   type SelectedImageCropBand,
   type SelectedImageCropManifestV1,
+  type SelectedImageCropPendingOperation,
   type SelectedImageCropSourceEntry,
 } from '@game-predictor/manual-image-selection-core/crop';
 import {
@@ -25,6 +26,7 @@ import {
   markSelectedImageCropCorrected,
   migrateSelectedImageCropManifestV1,
   recordSelectedImageCropFailure,
+  recoverSelectedImageCropPendingBatch,
   replaceSelectedImageCropCorrections,
   selectedImageCropAutomaticCorrectionRecalculationFileNames,
   selectedImageCropRecalculationFileNames,
@@ -127,6 +129,28 @@ export interface SelectedImageCropPreparationPerformance {
   readonly lastWriteMs: number;
   readonly averageCommittedMs: number;
   readonly worker: SelectedImageCropWorkerPerformance | null;
+}
+
+interface SelectedImageCropBatchWriteInput {
+  readonly sourceFile: SelectedImageCropSourceFile;
+  readonly crop: SelectedImageCropBand;
+  readonly markReviewed?: boolean;
+  readonly autoCropProposal?: SelectedImageAutoCropProposal;
+  readonly verifiedSource?: {
+    readonly file: File;
+    readonly checksumSha256: string;
+  };
+  readonly render?: (
+    source: File,
+    crop: SelectedImageCropBand,
+  ) => Promise<SelectedImageCropRenderedFile>;
+}
+
+interface StagedSelectedImageCropWrite {
+  readonly input: SelectedImageCropBatchWriteInput;
+  readonly operation: SelectedImageCropPendingOperation;
+  readonly rendered: SelectedImageCropRenderedFile;
+  readonly outputAction: ReturnType<typeof selectedImageCropOutputWriteAction>;
 }
 
 export interface SelectedImageCropPreparationResult {
@@ -471,6 +495,24 @@ export async function saveSelectedImageCrop(input: {
 async function saveSelectedImageCropUnlocked(
   input: Parameters<typeof saveSelectedImageCrop>[0],
 ): Promise<PreparedSelectedImageCropDirectory> {
+  const staged = await stageSelectedImageCropWrite(
+    {
+      sourceFile: input.sourceFile,
+      crop: input.crop,
+      markReviewed: input.markReviewed,
+      autoCropProposal: input.autoCropProposal,
+      verifiedSource: input.verifiedSource,
+      render: input.render,
+    },
+    input.prepared,
+  );
+  return commitSingleSelectedImageCropWrite(input.prepared, staged);
+}
+
+async function stageSelectedImageCropWrite(
+  input: SelectedImageCropBatchWriteInput,
+  prepared: PreparedSelectedImageCropDirectory,
+): Promise<StagedSelectedImageCropWrite> {
   const render = input.render ?? renderSelectedImageCrop;
   const currentSource =
     input.verifiedSource?.file ?? (await input.sourceFile.handle.getFile());
@@ -483,14 +525,16 @@ async function saveSelectedImageCropUnlocked(
   const sourceChecksum =
     input.verifiedSource?.checksumSha256 ?? (await sha256Blob(currentSource));
   const rendered = await render(currentSource, input.crop);
-  const outputChecksum = await sha256Blob(rendered.blob);
-  const existingResult = input.prepared.manifest.entries.find(
+  const [outputChecksum, observedExistingChecksum] = await Promise.all([
+    sha256Blob(rendered.blob),
+    readOptionalFileChecksum(
+      prepared.outputDirectory,
+      input.sourceFile.fileName,
+    ),
+  ]);
+  const existingResult = prepared.manifest.entries.find(
     (entry) => entry.fileName === input.sourceFile.fileName,
   )?.result;
-  const observedExistingChecksum = await readOptionalFileChecksum(
-    input.prepared.outputDirectory,
-    input.sourceFile.fileName,
-  );
   const outputAction = selectedImageCropOutputWriteAction({
     recordedChecksumSha256: existingResult?.outputChecksumSha256 ?? null,
     observedChecksumSha256: observedExistingChecksum,
@@ -501,9 +545,11 @@ async function saveSelectedImageCropUnlocked(
   }
 
   const now = new Date().toISOString();
-  let manifest = beginSelectedImageCropWrite(
-    input.prepared.manifest,
-    {
+  return {
+    input,
+    rendered,
+    outputAction,
+    operation: {
       kind: 'write_crop',
       fileName: input.sourceFile.fileName,
       expectedSourceChecksumSha256: sourceChecksum,
@@ -515,50 +561,164 @@ async function saveSelectedImageCropUnlocked(
       markReviewed: input.markReviewed,
       autoCropProposal: input.autoCropProposal,
     },
-    now,
+  };
+}
+
+async function commitSingleSelectedImageCropWrite(
+  prepared: PreparedSelectedImageCropDirectory,
+  staged: StagedSelectedImageCropWrite,
+): Promise<PreparedSelectedImageCropDirectory> {
+  let manifest = beginSelectedImageCropWrite(
+    prepared.manifest,
+    staged.operation,
+    staged.operation.startedAt,
   );
-  let snapshot = snapshotWithManifestSession(input.prepared.snapshot, manifest);
+  let snapshot = snapshotWithManifestSession(prepared.snapshot, manifest);
   await writeSelectedImageCropSession(
-    input.prepared.outputDirectory,
+    prepared.outputDirectory,
     snapshot.session,
   );
-  if (outputAction === 'write')
+  if (staged.outputAction === 'write')
     await writeBlob(
-      input.prepared.outputDirectory,
-      input.sourceFile.fileName,
-      rendered.blob,
+      prepared.outputDirectory,
+      staged.input.sourceFile.fileName,
+      staged.rendered.blob,
     );
   const verifiedChecksum = await readOptionalFileChecksum(
-    input.prepared.outputDirectory,
-    input.sourceFile.fileName,
+    prepared.outputDirectory,
+    staged.input.sourceFile.fileName,
   );
-  if (verifiedChecksum !== outputChecksum)
+  if (verifiedChecksum !== staged.operation.expectedOutputChecksumSha256)
     throw new Error('SELECTED_IMAGE_CROP_OUTPUT_CHECKSUM_MISMATCH');
   manifest = finalizeSelectedImageCropWrite(manifest, new Date().toISOString());
   snapshot = snapshotWithFinalizedResult(
     snapshot,
     manifest,
-    input.sourceFile.fileName,
+    staged.input.sourceFile.fileName,
   );
   const reviewChanged = !selectedImageCropReviewsEqual(
-    input.prepared.snapshot.review,
+    prepared.snapshot.review,
     snapshot.review,
   );
   await writeSelectedImageCropResultShard(
-    input.prepared.outputDirectory,
+    prepared.outputDirectory,
     snapshot,
-    input.sourceFile.fileName,
+    staged.input.sourceFile.fileName,
   );
   if (reviewChanged)
     await writeSelectedImageCropReview(
-      input.prepared.outputDirectory,
+      prepared.outputDirectory,
       snapshot.review,
     );
   await writeSelectedImageCropSession(
-    input.prepared.outputDirectory,
+    prepared.outputDirectory,
     snapshot.session,
   );
-  return { ...input.prepared, manifest, snapshot };
+  return { ...prepared, manifest, snapshot };
+}
+
+async function saveSelectedImageCropBatchUnlocked(
+  prepared: PreparedSelectedImageCropDirectory,
+  inputs: readonly SelectedImageCropBatchWriteInput[],
+): Promise<{
+  readonly prepared: PreparedSelectedImageCropDirectory;
+  readonly failures: readonly {
+    readonly fileName: string;
+    readonly cause: unknown;
+  }[];
+}> {
+  if (inputs.length === 0) return { prepared, failures: [] };
+  if (
+    prepared.snapshot.session.pendingOperation !== null ||
+    prepared.snapshot.session.pendingBatch !== null
+  )
+    throw new Error('SELECTED_IMAGE_CROP_OPERATION_ACTIVE');
+
+  const stagedResults = await Promise.allSettled(
+    inputs.map((input) => stageSelectedImageCropWrite(input, prepared)),
+  );
+  const failures = stagedResults.flatMap((result, index) =>
+    result.status === 'rejected'
+      ? [{ fileName: inputs[index]!.sourceFile.fileName, cause: result.reason }]
+      : [],
+  );
+  const staged = stagedResults.flatMap((result) =>
+    result.status === 'fulfilled' ? [result.value] : [],
+  );
+  if (staged.length === 0) return { prepared, failures };
+  assertSelectedImageCropBatchCanStart(
+    prepared.manifest,
+    staged.map((item) => item.operation),
+  );
+
+  const startedAt = new Date().toISOString();
+  const pendingSession = {
+    ...prepared.snapshot.session,
+    revision: prepared.snapshot.session.revision + 1,
+    pendingOperation: null,
+    pendingBatch: staged.map((item) => item.operation),
+    updatedAt: startedAt,
+  };
+  await writeSelectedImageCropSession(prepared.outputDirectory, pendingSession);
+  const pendingSnapshot: SelectedImageCropSessionSnapshotV2 = {
+    ...prepared.snapshot,
+    session: pendingSession,
+  };
+  const writeResults = await Promise.allSettled(
+    staged.map(async (item) => {
+      if (item.outputAction === 'write')
+        await writeBlob(
+          prepared.outputDirectory,
+          item.input.sourceFile.fileName,
+          item.rendered.blob,
+        );
+    }),
+  );
+  const recoveredSnapshot = await recoverSelectedImageCropBatchSnapshot(
+    prepared.outputDirectory,
+    pendingSnapshot,
+  );
+  const recovered: PreparedSelectedImageCropDirectory = {
+    ...prepared,
+    manifest: materializeSelectedImageCropManifestV1(recoveredSnapshot),
+    snapshot: recoveredSnapshot,
+  };
+  for (let index = 0; index < staged.length; index += 1) {
+    const item = staged[index]!;
+    const result = recovered.manifest.entries.find(
+      (entry) => entry.fileName === item.input.sourceFile.fileName,
+    )?.result;
+    if (result !== null && result !== undefined) continue;
+    const writeResult = writeResults[index]!;
+    failures.push({
+      fileName: item.input.sourceFile.fileName,
+      cause:
+        writeResult.status === 'rejected'
+          ? writeResult.reason
+          : new Error('SELECTED_IMAGE_CROP_OUTPUT_CHECKSUM_MISMATCH'),
+    });
+  }
+  return { prepared: recovered, failures };
+}
+
+function assertSelectedImageCropBatchCanStart(
+  manifest: SelectedImageCropManifestV1,
+  operations: readonly SelectedImageCropPendingOperation[],
+): void {
+  if (
+    new Set(operations.map((operation) => operation.fileName)).size !==
+    operations.length
+  )
+    throw new Error('SELECTED_IMAGE_CROP_BATCH_INVALID');
+  let validated = manifest;
+  for (const operation of operations) {
+    validated = beginSelectedImageCropWrite(
+      validated,
+      operation,
+      operation.startedAt,
+    );
+    validated = rollbackSelectedImageCropWrite(validated, operation.startedAt);
+  }
 }
 
 export async function prepareAllSelectedImageCrops(
@@ -674,65 +834,81 @@ async function prepareAllSelectedImageCropsUnlocked(
     );
 
     for (let index = 0; index < analyzed.length; index += 1) {
-      if (cropPreparationAborted(signal)) break preparationBatches;
-      const sourceFile = batch[index]!;
       const result = analyzed[index]!;
-      if (result.status === 'rejected') {
+      if (result.status === 'fulfilled') continue;
+      const sourceFile = batch[index]!;
+      current = await persistPreparationFailure(
+        current,
+        sourceFile.fileName,
+        preparationError(stageFromError(result.reason), result.reason),
+      );
+      emit(sourceFile.fileName);
+    }
+    if (cropPreparationAborted(signal)) break preparationBatches;
+
+    const analyzedSuccessfully = analyzed.flatMap((result, index) =>
+      result.status === 'fulfilled'
+        ? [{ sourceFile: batch[index]!, value: result.value }]
+        : [],
+    );
+    const writeStartedAt = performance.now();
+    const publication = await saveSelectedImageCropBatchUnlocked(
+      current,
+      analyzedSuccessfully.map(({ sourceFile, value }) => ({
+        sourceFile,
+        crop: value.proposal.crop,
+        markReviewed: false,
+        autoCropProposal: value.proposal,
+        verifiedSource: {
+          file: value.source,
+          checksumSha256: value.sourceChecksumSha256,
+        },
+        render:
+          value.workerRendered === null
+            ? undefined
+            : async () => value.workerRendered!,
+      })),
+    );
+    current = publication.prepared;
+    const publicationFailures = new Map(
+      publication.failures.map((failure) => [failure.fileName, failure.cause]),
+    );
+    const batchWriteMs = performance.now() - writeStartedAt;
+    const publishedCount =
+      analyzedSuccessfully.length - publicationFailures.size;
+
+    for (const { sourceFile, value } of analyzedSuccessfully) {
+      const failure = publicationFailures.get(sourceFile.fileName);
+      if (failure !== undefined) {
         current = await persistPreparationFailure(
           current,
           sourceFile.fileName,
-          preparationError(stageFromError(result.reason), result.reason),
+          preparationError(stageFromError(failure), failure),
         );
         emit(sourceFile.fileName);
         continue;
       }
-      const value = result.value;
-      try {
-        const writeStartedAt = performance.now();
-        current = await saveSelectedImageCropUnlocked({
-          prepared: current,
-          sourceFile,
-          crop: value.proposal.crop,
-          markReviewed: false,
-          autoCropProposal: value.proposal,
-          verifiedSource: {
-            file: value.source,
-            checksumSha256: value.sourceChecksumSha256,
-          },
-          render:
-            value.workerRendered === null
-              ? undefined
-              : async () => value.workerRendered!,
-        });
-        current = await clearPersistedPreparationFailure(
-          current,
-          sourceFile.fileName,
-        );
-        current = await synchronizeAutomaticCorrection(
-          current,
-          sourceFile.fileName,
-          value.proposal,
-        );
-        anchor =
-          cropAnchorFromSavedResult(current, sourceFile, value.source) ??
-          anchor;
-        completed += 1;
-        measuredCommits += 1;
-        latestPerformance = {
-          concurrency,
-          lastAnalysisMs: value.analysisMs,
-          lastWriteMs: performance.now() - writeStartedAt,
-          averageCommittedMs:
-            (performance.now() - preparationStartedAt) / measuredCommits,
-          worker: value.workerPerformance,
-        };
-      } catch (cause) {
-        current = await persistPreparationFailure(
-          current,
-          sourceFile.fileName,
-          preparationError(stageFromError(cause), cause),
-        );
-      }
+      current = await clearPersistedPreparationFailure(
+        current,
+        sourceFile.fileName,
+      );
+      current = await synchronizeAutomaticCorrection(
+        current,
+        sourceFile.fileName,
+        value.proposal,
+      );
+      anchor =
+        cropAnchorFromSavedResult(current, sourceFile, value.source) ?? anchor;
+      completed += 1;
+      measuredCommits += 1;
+      latestPerformance = {
+        concurrency,
+        lastAnalysisMs: value.analysisMs,
+        lastWriteMs: batchWriteMs / Math.max(1, publishedCount),
+        averageCommittedMs:
+          (performance.now() - preparationStartedAt) / measuredCommits,
+        worker: value.workerPerformance,
+      };
       emit(sourceFile.fileName);
     }
     await yieldToBrowser();
@@ -1154,7 +1330,8 @@ export async function completeSelectedImageCropReview(
     prepared.manifest.entries.some((entry) => entry.result === null) ||
     prepared.snapshot.session.failures.length > 0 ||
     prepared.snapshot.review.correctionFileNames.length > 0 ||
-    prepared.snapshot.session.pendingOperation !== null
+    prepared.snapshot.session.pendingOperation !== null ||
+    prepared.snapshot.session.pendingBatch !== null
   ) {
     throw new Error('SELECTED_IMAGE_CROP_REVIEW_INCOMPLETE');
   }
@@ -1265,6 +1442,7 @@ async function openSelectedImageCropSnapshot(
   >(stateDirectory, SESSION_NAME);
   const session: SelectedImageCropSessionSnapshotV2['session'] = {
     ...storedSession,
+    pendingBatch: storedSession.pendingBatch ?? null,
     preparationPolicyVersion: storedSession.preparationPolicyVersion ?? null,
   };
   const storedReview = await requiredJsonFile<SelectedImageCropReviewV2>(
@@ -1348,10 +1526,49 @@ function snapshotWithFinalizedResult(
   };
 }
 
+async function recoverSelectedImageCropBatchSnapshot(
+  outputDirectory: FileSystemDirectoryHandle,
+  snapshot: SelectedImageCropSessionSnapshotV2,
+): Promise<SelectedImageCropSessionSnapshotV2> {
+  const pendingBatch = snapshot.session.pendingBatch;
+  if (pendingBatch === null || pendingBatch.length === 0) return snapshot;
+  const observedChecksums = await Promise.all(
+    pendingBatch.map((operation) =>
+      readOptionalFileChecksum(outputDirectory, operation.fileName),
+    ),
+  );
+  const recovery = recoverSelectedImageCropPendingBatch(
+    snapshot,
+    Object.fromEntries(
+      pendingBatch.map((operation, index) => [
+        operation.fileName,
+        observedChecksums[index]!,
+      ]),
+    ),
+    new Date().toISOString(),
+  );
+  const recovered = recovery.snapshot;
+  for (const fileName of recovery.touchedShardFileNames)
+    await writeSelectedImageCropResultShard(
+      outputDirectory,
+      recovered,
+      fileName,
+    );
+  if (!selectedImageCropReviewsEqual(snapshot.review, recovered.review))
+    await writeSelectedImageCropReview(outputDirectory, recovered.review);
+  await writeSelectedImageCropSession(outputDirectory, recovered.session);
+  return recovered;
+}
+
 async function recoverSelectedImageCropSnapshot(
   outputDirectory: FileSystemDirectoryHandle,
   snapshot: SelectedImageCropSessionSnapshotV2,
 ): Promise<SelectedImageCropSessionSnapshotV2> {
+  if (snapshot.session.pendingBatch !== null)
+    snapshot = await recoverSelectedImageCropBatchSnapshot(
+      outputDirectory,
+      snapshot,
+    );
   const pending = snapshot.session.pendingOperation;
   if (pending === null) return snapshot;
   const observed = await readOptionalFileChecksum(

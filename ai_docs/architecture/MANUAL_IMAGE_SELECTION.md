@@ -320,11 +320,21 @@ SHA-256 i wymiary pozostają w dowodzie rejestracji.
 
 SHA-256 źródła jest liczona równolegle z analizą. Adapter zapisu otrzymuje ten
 sam zweryfikowany `File` i checksumę, więc nie pobiera ani nie hashuje źródła
-drugi raz. Trwała publikacja nie zmienia granicy crash safety: pending w sesji,
-JPEG, ponowne SHA-256 wyjścia, shard, finalna sesja i kontrolny odczyt JPEG-a
-pozostają sekwencyjne. Identyczne review jest no-op. Zatrzymanie workspace'u
-anuluje aktywne żądania i kończy pulę; nieopublikowane wyniki paczki nie
-zwiększają trwałego progresu. Czasy etapów i tempo są tylko stanem React
+drugi raz. TASK-0551 publikuje gotowe wyniki paczką: `session-v2.json` dostaje
+jedną tablicę `pendingBatch`, JPEG-i są zapisywane równolegle i każdy przechodzi
+kontrolny odczyt SHA-256, a wszystkie wyniki danego sharda są utrwalane jednym
+zapisem. Jedna końcowa sesja czyści `pendingBatch`. Daje to dwa zapisy sesji i
+po jednym zapisie każdego dotkniętego sharda na paczkę, zamiast pełnego cyklu
+per obraz.
+
+Czysta funkcja `recoverSelectedImageCropPendingBatch` materializuje zgodne
+pliki, wycofuje brakujące do kolejki i oznacza konfliktowe jako wymagające
+review. Ponowienie po zapisaniu shardów, ale przed końcową sesją, rozpoznaje już
+zgodne wyniki i nie zapisuje shardu drugi raz. Odczyt historycznej sesji
+normalizuje brak pola do `null`. Pojedynczy zapis ręczny nadal używa
+`pendingOperation`; blokada jednego writera obejmuje oba warianty. Zatrzymanie
+workspace'u anuluje aktywne żądania i kończy pulę; nieopublikowane wyniki paczki
+nie zwiększają trwałego progresu. Czasy etapów i tempo są tylko stanem React
 bieżącej karty.
 
 TASK-0548 rozdziela ostrzeżenie detektora od decyzji operatora bez zmiany

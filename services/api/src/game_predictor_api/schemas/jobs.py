@@ -482,6 +482,15 @@ class LayoutImportValidateJobPayload(ApiModel):
     rules_version_id: UUID
 
 
+class BasePageGeometryManifestPayload(ApiModel):
+    contract_version: Literal["page-geometry-entry-reuse-v1"]
+    job_id: UUID
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    compatibility_mode: Literal["exact_policy", "lateral_v2_to_v3", "lateral_v3_to_v2"]
+    base_override_fingerprints: dict[str, str] | None = None
+
+
 class PageGeometryPreflightJobPayload(ApiModel):
     schema_version: Literal[2]
     validation_kind: Literal["page_geometry_preflight"]
@@ -505,6 +514,7 @@ class PageGeometryPreflightJobPayload(ApiModel):
     )
     source_exclusions: dict[str, dict[str, str]] = Field(default_factory=dict)
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
+    base_page_geometry_manifest: BasePageGeometryManifestPayload | None = None
 
 
 class ImageGeometryGuardReportReconstructionJobPayload(ApiModel):
@@ -828,6 +838,12 @@ class PageGeometryPreflightJobProgressResponse(ApiModel):
     auto_anchor_pass: int | None = Field(default=None, ge=1)
     auto_anchor_pass_count: int | None = Field(default=None, ge=1)
     provisional_review_required: int | None = Field(default=None, ge=0)
+    reused_source_count: int | None = Field(
+        default=None, ge=0, exclude_if=lambda value: value is None
+    )
+    recomputed_source_count: int | None = Field(
+        default=None, ge=0, exclude_if=lambda value: value is None
+    )
 
 
 class JobErrorResponse(ApiModel):
@@ -962,6 +978,10 @@ def _page_geometry_preflight_progress(
         auto_anchor_pass_count=auto_anchor_pass_count,
         provisional_review_required=_optional_nonnegative_int(
             payload.get("review_required_source_count")
+        ),
+        reused_source_count=_optional_nonnegative_int(payload.get("reused_source_count")),
+        recomputed_source_count=_optional_nonnegative_int(
+            payload.get("recomputed_source_count")
         ),
     )
 

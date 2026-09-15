@@ -198,6 +198,38 @@ export type AutomaticPartialGeometryProposalPayload = {
 };
 
 /**
+ * BasePageGeometryManifestPayload
+ */
+export type BasePageGeometryManifestPayload = {
+  /**
+   * Baseoverridefingerprints
+   */
+  baseOverrideFingerprints?: {
+    [key: string]: string;
+  } | null;
+  /**
+   * Compatibilitymode
+   */
+  compatibilityMode: 'exact_policy' | 'lateral_v2_to_v3' | 'lateral_v3_to_v2';
+  /**
+   * Contractversion
+   */
+  contractVersion: 'page-geometry-entry-reuse-v1';
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+};
+
+/**
  * BoardCellGeometryCorrectionContextResponse
  */
 export type BoardCellGeometryCorrectionContextResponse = {
@@ -7482,6 +7514,7 @@ export type PageGeometryManifestJobPayload = {
  * PageGeometryPreflightJobPayload
  */
 export type PageGeometryPreflightJobPayload = {
+  basePageGeometryManifest?: BasePageGeometryManifestPayload | null;
   /**
    * Canonicalsequencenumbers
    */
@@ -7589,6 +7622,14 @@ export type PageGeometryPreflightJobProgressResponse = {
    * Provisionalreviewrequired
    */
   provisionalReviewRequired?: number | null;
+  /**
+   * Recomputedsourcecount
+   */
+  recomputedSourceCount?: number | null;
+  /**
+   * Reusedsourcecount
+   */
+  reusedSourceCount?: number | null;
 };
 
 /**

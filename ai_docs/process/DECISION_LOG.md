@@ -8666,3 +8666,30 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** rollback nie osłabia wcześniejszych bramek v2, nie usuwa ręcznych
   override'ów i nie modyfikuje gotowych artefaktów. Ponowienie trzech stagingów
   jest jawną operacją użytkownika.
+## D-395 — Preflight geometrii używa przypiętej bazy i trwałych shardów
+
+- **Status:** accepted (TASK-0559).
+- **Date:** 2026-09-16.
+- **Decision:** API przypina do inputu najnowszy zgodny ukończony manifest tej
+  samej gry, selekcji i source manifestu. Worker zachowuje zgodne wpisy,
+  przelicza różnicę i zapisuje postęp w checksummowanych shardach po 25 wyników,
+  atomowym indeksie oraz checkpointcie bazy. Dodatkowe dopasowanie działa
+  równolegle, lecz główny wątek publikuje wyniki w naturalnej kolejności.
+- **Rationale:** ręczna korekta kilkudziesięciu źródeł nie powinna ponownie
+  uruchamiać kosztownego ORB dla całego stagingu ani tracić całego postępu po
+  restarcie. Przypięcie bazy utrzymuje deterministyczny retry.
+- **Compatibility:** exact v2/v3 zachowuje niezmienione `registered` i
+  `skipped_human_resolved`. Przejście v2→v3 zachowuje automatyczne wyniki z
+  zerem albo co najmniej czterema słabymi ramkami; 1–3 słabe ramki i review są
+  przeliczane. Po rollbacku v3→v2 zachowuje `registered` z proweniencją kotwicy,
+  ale przelicza review i zmienione ręczne decyzje. Aktywny/ukończony job
+  zachowuje idempotencję; anulowany bez bazy nie blokuje nowego runu z bazą.
+  Nowe pola inputu, manifestu i odpowiedzi postępu są opcjonalne.
+- **Anchor provenance:** deskryptor przypina odciski tożsamości historycznych
+  ręcznych kotwic, również spoza stagingu. Każde źródło wymagające przeliczenia
+  unieważnia przechodnio wyniki, które korzystały z niego jako kotwicy. Brak
+  porównywalnego dowodu oznacza przeliczenie, nie zachowanie starej geometrii.
+- **Safety:** przypięty brakujący, uszkodzony albo niezgodny manifest kończy job
+  stabilnym błędem. Fingerprint inputu, inwentarz i checksumy shardów są
+  sprawdzane przy wznowieniu. Checkpoint zakończonego joba pozostaje audytem;
+  jego czyszczenie wymaga osobnego zadania.

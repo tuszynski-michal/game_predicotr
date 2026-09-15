@@ -231,6 +231,8 @@ test('shows real page geometry phase progress and a safe fallback for legacy che
         phaseCurrent: 25,
         phaseTotal: 118,
         provisionalReviewRequired: 101,
+        recomputedSourceCount: 1115,
+        reusedSourceCount: 1686,
       },
       review: 0,
       stage: 'page_geometry_auto_anchor_pass_1',
@@ -242,7 +244,8 @@ test('shows real page geometry phase progress and a safe fallback for legacy che
   assert.deepEqual(jobProgressPresentation(detailed), {
     current: 25,
     total: 118,
-    label: 'Dodatkowe dopasowanie 1/2: 25 / 118 zdjęć',
+    label:
+      'Ponownie użyto 1686 · do przeliczenia 1115 · Dodatkowe dopasowanie 1/2: 25 / 118 zdjęć',
   });
   assert.equal(jobProgressPercent(detailed), (25 / 118) * 100);
   assert.equal(

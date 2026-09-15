@@ -20,6 +20,16 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
 from .lateral_partial_contract import LateralPartialContractError, LateralPartialGeometrySnapshot
+from .page_geometry_incremental import (
+    BasePageGeometryManifestDescriptor,
+    LoadedPageGeometryCheckpoint,
+    PageGeometryCheckpointStore,
+    load_base_manifest,
+    parse_base_manifest_descriptor,
+    plan_manifest_reuse,
+    recompute_inventory_checksum,
+    source_inventory_checksum,
+)
 from .page_geometry_registration import (
     PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
     PAGE_REGISTRATION_VERSION,
@@ -91,20 +101,28 @@ class PageGeometryPreflightHandler:
                     "geometry_manifest_checksum_sha256"
                 ):
                     raise JobHandlerError(
-                        "IMAGE_PAGE_GEOMETRY_MANIFEST_DRIFT", "The completed v4 manifest changed."
+                        "IMAGE_PAGE_GEOMETRY_MANIFEST_DRIFT",
+                        "The completed page-geometry manifest changed.",
                     )
                 require_lateral_manifest(
                     manifest,
                     game_id=str(job.game_id),
                     source_selection_id=cast(str, payload["sourceSelectionId"]),
-                    source_manifest_sha256=cast(str, payload["sourceManifestChecksumSha256"]),
+                    source_manifest_sha256=cast(
+                        str, payload["sourceManifestChecksumSha256"]
+                    ),
                     policy=LateralPartialGeometrySnapshot.from_payload(
                         payload["lateralPartialGeometry"]
                     ),
                 )
+            reuse = manifest.get("reuseProvenance")
+            reused_source_count = (
+                reuse.get("reusedSourceCount") if isinstance(reuse, Mapping) else None
+            )
+            recomputed_source_count = (
+                reuse.get("recomputedSourceCount") if isinstance(reuse, Mapping) else None
+            )
             source_count = _manifest_count(manifest, "sourceCount")
-            registered_count = _manifest_count(manifest, "registeredSourceCount")
-            review_count = _manifest_count(manifest, "reviewRequiredSourceCount")
             _checkpoint(
                 context,
                 payload,
@@ -112,12 +130,20 @@ class PageGeometryPreflightHandler:
                 manifest_relative_path=_relative_to_data(self._artifact_root, output),
                 processed=source_count,
                 total=source_count,
-                registered=registered_count,
-                review_required=review_count,
+                registered=_manifest_count(manifest, "registeredSourceCount"),
+                review_required=_manifest_count(manifest, "reviewRequiredSourceCount"),
                 complete=True,
                 phase=_PROGRESS_PHASE_COMPLETE,
                 phase_current=1,
                 phase_total=1,
+                reused_source_count=(
+                    reused_source_count if isinstance(reused_source_count, int) else None
+                ),
+                recomputed_source_count=(
+                    recomputed_source_count
+                    if isinstance(recomputed_source_count, int)
+                    else None
+                ),
             )
             return
 
@@ -152,8 +178,6 @@ class PageGeometryPreflightHandler:
                 source_directory=source_directory,
             )
             if managed_reprepare:
-                # Reuse only checksum-verified managed JPEGs. No browser path or
-                # temporary image copy is needed, including after restart.
                 for original in managed.originals:
                     path = self._artifact_root / original.managed_relative_path
                     if not path.is_file():
@@ -177,6 +201,7 @@ class PageGeometryPreflightHandler:
                 "IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE",
                 "A staged image cannot be decoded for geometry preflight.",
             ) from error
+
         originals_by_checksum = {
             original.checksum_sha256: original for original in managed.originals
         }
@@ -198,76 +223,221 @@ class PageGeometryPreflightHandler:
                 source_directory=managed.source_directory,
             ),
         )
-        entries: dict[str, object] = {}
-        registered = review_required = skipped = 0
+        _prepare_registrar(registrar)
+
         total = len(managed.originals)
-        # Keep the submitted work bounded.  Passing all 2,201 sources to one
-        # executor.map() delayed the first result/checkpoint after a resumed
-        # worker process, making a healthy preflight look stalled and delaying
-        # cancellation.  A bounded page batch has the same deterministic order
-        # and bounded parallel registration, while publishing durable progress
-        # between batches.
-        for batch_start in range(0, total, _CHECKPOINT_BATCH_SIZE):
-            batch = managed.originals[batch_start : batch_start + _CHECKPOINT_BATCH_SIZE]
-            with ThreadPoolExecutor(max_workers=self._registration_workers) as executor:
-                results = executor.map(
-                    lambda original: self._evaluate_source(
-                        original,
-                        source_directory=managed.source_directory,
-                        payload=payload,
-                        registrar=registrar,
-                    ),
-                    batch,
+        descriptor = _base_manifest_descriptor(payload)
+        base_manifest = (
+            None
+            if descriptor is None
+            else load_base_manifest(
+                self._artifact_root,
+                descriptor,
+                game_id=str(job.game_id),
+                source_selection_id=cast(str, payload["sourceSelectionId"]),
+                source_manifest_checksum_sha256=cast(
+                    str, payload["sourceManifestChecksumSha256"]
+                ),
+                preflight_policy_version=cast(str, payload["preflightPolicyVersion"]),
+                page_registration_profile=cast(
+                    Mapping[str, object], payload["pageRegistrationProfile"]
+                ),
+                lateral_partial_geometry=payload.get("lateralPartialGeometry"),
+            )
+        )
+        reuse_plan = plan_manifest_reuse(
+            managed.originals,
+            payload=payload,
+            base_manifest=base_manifest,
+            compatibility_mode=(None if descriptor is None else descriptor.compatibility_mode),
+            base_override_fingerprints=(
+                None if descriptor is None else descriptor.base_override_fingerprints
+            ),
+        )
+        reused_source_count = reuse_plan.reused_source_count
+        recomputed_source_count = reuse_plan.recomputed_source_count
+        recompute_checksum = recompute_inventory_checksum(reuse_plan.recompute_originals)
+        checkpoint_store = PageGeometryCheckpointStore(
+            self._artifact_root,
+            job_id=str(job.id),
+            input_fingerprint_sha256=job.input_key,
+            source_inventory_checksum_sha256=source_inventory_checksum(managed.originals),
+            shard_size=_CHECKPOINT_BATCH_SIZE,
+        )
+        durable_required = (
+            isinstance(job.checkpoint_payload, Mapping)
+            and isinstance(
+                job.checkpoint_payload.get("durable_checkpoint_relative_path"), str
+            )
+        )
+        checkpoint_state = checkpoint_store.load(required=durable_required)
+        if checkpoint_state is None:
+            checkpoint_state = checkpoint_store.initialize(
+                reuse_plan.entries,
+                metadata={
+                    "phase": _PROGRESS_PHASE_SOURCE_REGISTRATION,
+                    "sourceNextIndex": 0,
+                    "recomputeInventoryChecksumSha256": recompute_checksum,
+                    "reusedSourceCount": reused_source_count,
+                    "recomputedSourceCount": recomputed_source_count,
+                    "autoAnchorPasses": [],
+                    "activeAutoAnchorPass": None,
+                },
+            )
+        _validate_resumed_checkpoint(
+            checkpoint_state,
+            recompute_checksum=recompute_checksum,
+            reused_source_count=reused_source_count,
+            recomputed_source_count=recomputed_source_count,
+            source_checksums={original.checksum_sha256 for original in managed.originals},
+        )
+        entries = dict(checkpoint_state.entries)
+        metadata = dict(checkpoint_state.metadata)
+        if metadata.get("phase") == _PROGRESS_PHASE_COMPLETE:
+            checksum_value = metadata.get("geometryManifestChecksumSha256")
+            relative = metadata.get("geometryManifestRelativePath")
+            if (
+                not isinstance(checksum_value, str)
+                or not _is_sha256(checksum_value)
+                or not isinstance(relative, str)
+            ):
+                raise JobHandlerError(
+                    "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+                    "The completed durable page-geometry checkpoint is incomplete.",
                 )
-                for checksum, entry, outcome in results:
-                    entries[checksum] = entry
-                    if outcome == "registered":
-                        registered += 1
-                    elif outcome == "review_required":
-                        review_required += 1
-                    else:
-                        skipped += 1
-            processed = batch_start + len(batch)
+            output = (self._artifact_root / Path(*PurePosixPath(relative).parts)).resolve()
+            if (
+                not output.is_relative_to((self._artifact_root / "data").resolve())
+                or not output.is_file()
+                or hashlib.sha256(output.read_bytes()).hexdigest() != checksum_value
+            ):
+                raise JobHandlerError(
+                    "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+                    "The completed durable page-geometry manifest is unavailable.",
+                )
+            manifest = _load_manifest(output)
             _checkpoint(
                 context,
                 payload,
-                manifest_checksum=None,
-                manifest_relative_path=None,
-                processed=processed,
-                total=total,
-                registered=registered,
-                review_required=review_required,
-                complete=False,
-                phase=_PROGRESS_PHASE_SOURCE_REGISTRATION,
-                phase_current=processed,
-                phase_total=total,
-            )
-        auto_anchor_passes: list[dict[str, object]] = []
-        if _uses_auto_anchors(cast(str, payload["preflightPolicyVersion"])):
-            entries, auto_anchor_passes = self._retry_with_verified_auto_anchors(
-                entries,
-                managed.originals,
-                context=context,
-                source_directory=managed.source_directory,
-                payload=payload,
-                base_profile=registration_profile,
-            )
-            registered = _entry_status_count(entries, "registered")
-            review_required = _entry_status_count(entries, "review_required")
-            _checkpoint(
-                context,
-                payload,
-                manifest_checksum=None,
-                manifest_relative_path=None,
+                manifest_checksum=checksum_value,
+                manifest_relative_path=relative,
                 processed=total,
                 total=total,
-                registered=registered,
-                review_required=review_required,
-                complete=False,
-                phase=_PROGRESS_PHASE_MANIFEST_WRITE,
-                phase_current=0,
+                registered=_manifest_count(manifest, "registeredSourceCount"),
+                review_required=_manifest_count(manifest, "reviewRequiredSourceCount"),
+                complete=True,
+                phase=_PROGRESS_PHASE_COMPLETE,
+                phase_current=1,
                 phase_total=1,
+                reused_source_count=reused_source_count,
+                recomputed_source_count=recomputed_source_count,
+                durable_checkpoint=checkpoint_state,
             )
+            return
+
+        source_next_index = _checkpoint_integer(metadata, "sourceNextIndex")
+        if source_next_index > recomputed_source_count:
+            raise JobHandlerError(
+                "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+                "The durable page-geometry source cursor is invalid.",
+            )
+        if metadata.get("phase") == _PROGRESS_PHASE_SOURCE_REGISTRATION:
+            with ThreadPoolExecutor(max_workers=self._registration_workers) as executor:
+                for batch_start in range(
+                    source_next_index,
+                    recomputed_source_count,
+                    _CHECKPOINT_BATCH_SIZE,
+                ):
+                    batch = reuse_plan.recompute_originals[
+                        batch_start : batch_start + _CHECKPOINT_BATCH_SIZE
+                    ]
+                    results = executor.map(
+                        lambda original, registrar=registrar: self._evaluate_source(
+                            original,
+                            source_directory=managed.source_directory,
+                            payload=payload,
+                            registrar=registrar,
+                        ),
+                        batch,
+                    )
+                    delta: dict[str, object] = {}
+                    for checksum, entry, _outcome in results:
+                        entries[checksum] = entry
+                        delta[checksum] = entry
+                    source_next_index = batch_start + len(batch)
+                    metadata["sourceNextIndex"] = source_next_index
+                    checkpoint_state = checkpoint_store.append(
+                        delta,
+                        metadata=metadata,
+                        all_entries=entries,
+                    )
+                    _checkpoint(
+                        context,
+                        payload,
+                        manifest_checksum=None,
+                        manifest_relative_path=None,
+                        processed=reused_source_count + source_next_index,
+                        total=total,
+                        registered=_entry_status_count(entries, "registered"),
+                        review_required=_entry_status_count(entries, "review_required"),
+                        complete=False,
+                        phase=_PROGRESS_PHASE_SOURCE_REGISTRATION,
+                        phase_current=source_next_index,
+                        phase_total=recomputed_source_count,
+                        reused_source_count=reused_source_count,
+                        recomputed_source_count=recomputed_source_count,
+                        durable_checkpoint=checkpoint_state,
+                    )
+            metadata["phase"] = _PROGRESS_PHASE_AUTO_ANCHOR_RETRY
+            checkpoint_state = checkpoint_store.append(
+                {}, metadata=metadata, all_entries=entries
+            )
+
+        auto_anchor_passes = _checkpoint_reports(
+            checkpoint_state.metadata.get("autoAnchorPasses")
+        )
+        if _uses_auto_anchors(cast(str, payload["preflightPolicyVersion"])):
+            entries, auto_anchor_passes, checkpoint_state = (
+                self._retry_with_verified_auto_anchors(
+                    entries,
+                    managed.originals,
+                    context=context,
+                    source_directory=managed.source_directory,
+                    payload=payload,
+                    base_profile=registration_profile,
+                    checkpoint_store=checkpoint_store,
+                    checkpoint_state=checkpoint_state,
+                    reused_source_count=reused_source_count,
+                    recomputed_source_count=recomputed_source_count,
+                )
+            )
+        registered = _entry_status_count(entries, "registered")
+        review_required = _entry_status_count(entries, "review_required")
+        skipped = _entry_status_count(entries, "skipped_human_resolved")
+        metadata = dict(checkpoint_state.metadata)
+        metadata["phase"] = _PROGRESS_PHASE_MANIFEST_WRITE
+        metadata["autoAnchorPasses"] = auto_anchor_passes
+        metadata["activeAutoAnchorPass"] = None
+        checkpoint_state = checkpoint_store.append(
+            {}, metadata=metadata, all_entries=entries
+        )
+        _checkpoint(
+            context,
+            payload,
+            manifest_checksum=None,
+            manifest_relative_path=None,
+            processed=total,
+            total=total,
+            registered=registered,
+            review_required=review_required,
+            complete=False,
+            phase=_PROGRESS_PHASE_MANIFEST_WRITE,
+            phase_current=0,
+            phase_total=1,
+            reused_source_count=reused_source_count,
+            recomputed_source_count=recomputed_source_count,
+            durable_checkpoint=checkpoint_state,
+        )
         content = _manifest_bytes(
             job,
             payload,
@@ -277,10 +447,21 @@ class PageGeometryPreflightHandler:
             review_required,
             skipped,
             auto_anchor_passes=auto_anchor_passes,
+            base_manifest=descriptor,
+            reused_source_count=reused_source_count,
+            recomputed_source_count=recomputed_source_count,
         )
         checksum = hashlib.sha256(content).hexdigest()
         output = self._output_path(checksum)
         self._write_immutable(output, content)
+        metadata["phase"] = _PROGRESS_PHASE_COMPLETE
+        metadata["geometryManifestChecksumSha256"] = checksum
+        metadata["geometryManifestRelativePath"] = _relative_to_data(
+            self._artifact_root, output
+        )
+        checkpoint_state = checkpoint_store.append(
+            {}, metadata=metadata, all_entries=entries
+        )
         _checkpoint(
             context,
             payload,
@@ -294,6 +475,9 @@ class PageGeometryPreflightHandler:
             phase=_PROGRESS_PHASE_COMPLETE,
             phase_current=1,
             phase_total=1,
+            reused_source_count=reused_source_count,
+            recomputed_source_count=recomputed_source_count,
+            durable_checkpoint=checkpoint_state,
         )
 
     def _evaluate_source(
@@ -392,45 +576,99 @@ class PageGeometryPreflightHandler:
         source_directory: Path,
         payload: Mapping[str, object],
         base_profile: Mapping[str, object],
-    ) -> tuple[dict[str, object], list[dict[str, object]]]:
-        """Retry unresolved views with a bounded, stricter anchor cohort."""
+        checkpoint_store: PageGeometryCheckpointStore,
+        checkpoint_state: LoadedPageGeometryCheckpoint,
+        reused_source_count: int,
+        recomputed_source_count: int,
+    ) -> tuple[dict[str, object], list[dict[str, object]], LoadedPageGeometryCheckpoint]:
+        """Retry unresolved views in bounded parallel batches with durable cursors."""
+
+        metadata = dict(checkpoint_state.metadata)
+        reports = _checkpoint_reports(metadata.get("autoAnchorPasses"))
+        if metadata.get("phase") in {
+            _PROGRESS_PHASE_MANIFEST_WRITE,
+            _PROGRESS_PHASE_COMPLETE,
+        }:
+            return entries, reports, checkpoint_state
 
         by_checksum = {original.checksum_sha256: original for original in originals}
         raw_anchors = base_profile.get("anchors")
-        anchors = (
+        base_anchors = (
             [dict(value) for value in raw_anchors if isinstance(value, Mapping)]
             if isinstance(raw_anchors, Sequence) and not isinstance(raw_anchors, str | bytes)
             else []
         )
-        used = {
-            value.get("sourceChecksumSha256")
-            for value in anchors
-            if isinstance(value.get("sourceChecksumSha256"), str)
-        }
-        reports: list[dict[str, object]] = []
-        for pass_number in range(1, _AUTO_ANCHOR_MAX_PASSES + 1):
-            candidates = [
-                checksum
-                for checksum, entry in entries.items()
-                if checksum not in used
-                and isinstance(entry, Mapping)
-                and _strong_auto_anchor(entry)
-            ]
-            selected = _spread_candidates(candidates, _AUTO_ANCHOR_LIMIT_PER_PASS)
-            if not selected:
+        while len(reports) < _AUTO_ANCHOR_MAX_PASSES:
+            if reports and reports[-1].get("resolvedSourceCount") == 0:
                 break
-            for checksum in selected:
-                entry = cast(Mapping[str, object], entries[checksum])
-                anchors.append(
-                    {
-                        "sourceChecksumSha256": checksum,
-                        "imageWidth": entry["imageWidth"],
-                        "imageHeight": entry["imageHeight"],
-                        "quads": entry["quads"],
-                        "provenance": "strict-auto-anchor-v1",
-                    }
+            pass_number = len(reports) + 1
+            active = metadata.get("activeAutoAnchorPass")
+            if active is None:
+                used = {
+                    value.get("sourceChecksumSha256")
+                    for value in base_anchors
+                    if isinstance(value.get("sourceChecksumSha256"), str)
+                }
+                for report in reports:
+                    promoted = report.get("promotedAnchorChecksums")
+                    if isinstance(promoted, list):
+                        used.update(value for value in promoted if isinstance(value, str))
+                candidates = [
+                    checksum
+                    for checksum, entry in entries.items()
+                    if checksum not in used
+                    and isinstance(entry, Mapping)
+                    and _strong_auto_anchor(entry)
+                ]
+                selected = _spread_candidates(candidates, _AUTO_ANCHOR_LIMIT_PER_PASS)
+                if not selected:
+                    break
+                retry_checksums = [
+                    original.checksum_sha256
+                    for original in originals
+                    if isinstance(entries.get(original.checksum_sha256), Mapping)
+                    and cast(
+                        Mapping[str, object], entries[original.checksum_sha256]
+                    ).get("status")
+                    == "review_required"
+                ]
+                active = {
+                    "pass": pass_number,
+                    "promotedAnchorChecksums": selected,
+                    "retrySourceChecksums": retry_checksums,
+                    "nextIndex": 0,
+                    "resolvedSourceCount": 0,
+                }
+                metadata["activeAutoAnchorPass"] = active
+                checkpoint_state = checkpoint_store.append(
+                    {}, metadata=metadata, all_entries=entries
                 )
-                used.add(checksum)
+            if not isinstance(active, Mapping) or active.get("pass") != pass_number:
+                raise JobHandlerError(
+                    "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+                    "The durable auto-anchor pass is invalid.",
+                )
+            selected = _checkpoint_checksum_list(
+                active.get("promotedAnchorChecksums"), field="promoted anchors"
+            )
+            retry_checksums = _checkpoint_checksum_list(
+                active.get("retrySourceChecksums"), field="retry sources"
+            )
+            next_index = _checkpoint_integer(active, "nextIndex")
+            resolved = _checkpoint_integer(active, "resolvedSourceCount")
+            if next_index > len(retry_checksums):
+                raise JobHandlerError(
+                    "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+                    "The durable auto-anchor cursor is invalid.",
+                )
+
+            anchors = list(base_anchors)
+            for report in reports:
+                promoted = _checkpoint_checksum_list(
+                    report.get("promotedAnchorChecksums"), field="promoted anchors"
+                )
+                anchors.extend(_anchor_payload(checksum, entries) for checksum in promoted)
+            anchors.extend(_anchor_payload(checksum, entries) for checksum in selected)
             registrar = VerifiedPageRegistrar(
                 {**base_profile, "anchors": anchors},
                 load_anchor_rgb=lambda checksum: self._load_preflight_anchor_rgb(
@@ -439,14 +677,7 @@ class PageGeometryPreflightHandler:
                     source_directory=source_directory,
                 ),
             )
-            resolved = 0
-            unresolved = [
-                original
-                for original in originals
-                if isinstance(entries.get(original.checksum_sha256), Mapping)
-                and cast(Mapping[str, object], entries[original.checksum_sha256]).get("status")
-                == "review_required"
-            ]
+            _prepare_registrar(registrar)
             _checkpoint(
                 context,
                 payload,
@@ -455,26 +686,63 @@ class PageGeometryPreflightHandler:
                 processed=len(originals),
                 total=len(originals),
                 registered=_entry_status_count(entries, "registered"),
-                review_required=len(unresolved),
+                review_required=_entry_status_count(entries, "review_required"),
                 complete=False,
                 phase=_PROGRESS_PHASE_AUTO_ANCHOR_RETRY,
-                phase_current=0,
-                phase_total=len(unresolved),
+                phase_current=next_index,
+                phase_total=len(retry_checksums),
                 auto_anchor_pass=pass_number,
                 auto_anchor_pass_count=_AUTO_ANCHOR_MAX_PASSES,
+                reused_source_count=reused_source_count,
+                recomputed_source_count=recomputed_source_count,
+                durable_checkpoint=checkpoint_state,
             )
-            for retry_index, original in enumerate(unresolved, start=1):
-                checksum, entry, outcome = self._evaluate_source(
-                    original,
-                    source_directory=source_directory,
-                    payload=payload,
-                    registrar=registrar,
-                )
-                if outcome == "registered":
-                    entry["automaticAnchorPass"] = pass_number
-                    entries[checksum] = entry
-                    resolved += 1
-                if retry_index % _CHECKPOINT_BATCH_SIZE == 0 or retry_index == len(unresolved):
+            with ThreadPoolExecutor(max_workers=self._registration_workers) as executor:
+                for batch_start in range(
+                    next_index,
+                    len(retry_checksums),
+                    _CHECKPOINT_BATCH_SIZE,
+                ):
+                    batch_checksums = retry_checksums[
+                        batch_start : batch_start + _CHECKPOINT_BATCH_SIZE
+                    ]
+                    try:
+                        batch = [by_checksum[checksum] for checksum in batch_checksums]
+                    except KeyError as error:
+                        raise JobHandlerError(
+                            "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+                            "The durable auto-anchor source inventory changed.",
+                        ) from error
+                    results = executor.map(
+                        lambda original, registrar=registrar: self._evaluate_source(
+                            original,
+                            source_directory=source_directory,
+                            payload=payload,
+                            registrar=registrar,
+                        ),
+                        batch,
+                    )
+                    delta: dict[str, object] = {}
+                    for checksum, entry, outcome in results:
+                        if outcome == "registered":
+                            entry["automaticAnchorPass"] = pass_number
+                            entries[checksum] = entry
+                            delta[checksum] = entry
+                            resolved += 1
+                    next_index = batch_start + len(batch)
+                    active = {
+                        "pass": pass_number,
+                        "promotedAnchorChecksums": selected,
+                        "retrySourceChecksums": retry_checksums,
+                        "nextIndex": next_index,
+                        "resolvedSourceCount": resolved,
+                    }
+                    metadata["activeAutoAnchorPass"] = active
+                    checkpoint_state = checkpoint_store.append(
+                        delta,
+                        metadata=metadata,
+                        all_entries=entries,
+                    )
                     _checkpoint(
                         context,
                         payload,
@@ -486,21 +754,28 @@ class PageGeometryPreflightHandler:
                         review_required=_entry_status_count(entries, "review_required"),
                         complete=False,
                         phase=_PROGRESS_PHASE_AUTO_ANCHOR_RETRY,
-                        phase_current=retry_index,
-                        phase_total=len(unresolved),
+                        phase_current=next_index,
+                        phase_total=len(retry_checksums),
                         auto_anchor_pass=pass_number,
                         auto_anchor_pass_count=_AUTO_ANCHOR_MAX_PASSES,
+                        reused_source_count=reused_source_count,
+                        recomputed_source_count=recomputed_source_count,
+                        durable_checkpoint=checkpoint_state,
                     )
-            reports.append(
-                {
-                    "pass": pass_number,
-                    "promotedAnchorChecksums": selected,
-                    "resolvedSourceCount": resolved,
-                }
+            report = {
+                "pass": pass_number,
+                "promotedAnchorChecksums": selected,
+                "resolvedSourceCount": resolved,
+            }
+            reports.append(report)
+            metadata["autoAnchorPasses"] = reports
+            metadata["activeAutoAnchorPass"] = None
+            checkpoint_state = checkpoint_store.append(
+                {}, metadata=metadata, all_entries=entries
             )
             if resolved == 0:
                 break
-        return entries, reports
+        return entries, reports, checkpoint_state
 
     def _load_preflight_anchor_rgb(
         self,
@@ -634,6 +909,119 @@ class PageGeometryPreflightHandler:
             ) from error
 
 
+def _base_manifest_descriptor(
+    payload: Mapping[str, object],
+) -> BasePageGeometryManifestDescriptor | None:
+    value = payload.get("basePageGeometryManifest")
+    return None if value is None else parse_base_manifest_descriptor(value)
+
+
+def _prepare_registrar(registrar: object) -> None:
+    prepare = getattr(registrar, "prepare", None)
+    if callable(prepare):
+        prepare()
+
+
+def _validate_resumed_checkpoint(
+    checkpoint: LoadedPageGeometryCheckpoint,
+    *,
+    recompute_checksum: str,
+    reused_source_count: int,
+    recomputed_source_count: int,
+    source_checksums: set[str],
+) -> None:
+    metadata = checkpoint.metadata
+    if (
+        metadata.get("phase")
+        not in {
+            _PROGRESS_PHASE_SOURCE_REGISTRATION,
+            _PROGRESS_PHASE_AUTO_ANCHOR_RETRY,
+            _PROGRESS_PHASE_MANIFEST_WRITE,
+            _PROGRESS_PHASE_COMPLETE,
+        }
+        or metadata.get("recomputeInventoryChecksumSha256") != recompute_checksum
+        or metadata.get("reusedSourceCount") != reused_source_count
+        or metadata.get("recomputedSourceCount") != recomputed_source_count
+        or not set(checkpoint.entries).issubset(source_checksums)
+    ):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+            "The durable page-geometry checkpoint does not match the current plan.",
+        )
+    _checkpoint_integer(metadata, "sourceNextIndex")
+    _checkpoint_reports(metadata.get("autoAnchorPasses"))
+
+
+def _checkpoint_integer(value: Mapping[str, object], field: str) -> int:
+    result = value.get(field)
+    if not isinstance(result, int) or isinstance(result, bool) or result < 0:
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+            f"The durable page-geometry checkpoint has an invalid {field}.",
+        )
+    return result
+
+
+def _checkpoint_reports(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+            "The durable page-geometry auto-anchor reports are invalid.",
+        )
+    reports: list[dict[str, object]] = []
+    for expected_pass, raw in enumerate(value, start=1):
+        if (
+            not isinstance(raw, Mapping)
+            or raw.get("pass") != expected_pass
+            or not isinstance(raw.get("resolvedSourceCount"), int)
+            or isinstance(raw.get("resolvedSourceCount"), bool)
+            or cast(int, raw["resolvedSourceCount"]) < 0
+        ):
+            raise JobHandlerError(
+                "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+                "A durable page-geometry auto-anchor report is invalid.",
+            )
+        _checkpoint_checksum_list(
+            raw.get("promotedAnchorChecksums"), field="promoted anchors"
+        )
+        reports.append(dict(raw))
+    return reports
+
+
+def _checkpoint_checksum_list(value: object, *, field: str) -> list[str]:
+    if (
+        not isinstance(value, list)
+        or any(not _is_sha256(item) for item in value)
+        or len(set(cast(list[str], value))) != len(value)
+    ):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+            f"The durable page-geometry {field} are invalid.",
+        )
+    return list(cast(list[str], value))
+
+
+def _anchor_payload(checksum: str, entries: Mapping[str, object]) -> dict[str, object]:
+    entry = entries.get(checksum)
+    if (
+        not isinstance(entry, Mapping)
+        or not isinstance(entry.get("imageWidth"), int)
+        or not isinstance(entry.get("imageHeight"), int)
+        or not isinstance(entry.get("quads"), list)
+    ):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
+            "A promoted page-geometry anchor is unavailable after resume.",
+        )
+    return {
+        "sourceChecksumSha256": checksum,
+        "imageWidth": entry["imageWidth"],
+        "imageHeight": entry["imageHeight"],
+        "quads": entry["quads"],
+        "provenance": "strict-auto-anchor-v1",
+    }
+
+
 def _uses_auto_anchors(preflight_policy_version: str) -> bool:
     return preflight_policy_version in {
         PAGE_GEOMETRY_PREFLIGHT_VERSION,
@@ -674,6 +1062,7 @@ def _input(job: Job) -> dict[str, object]:
         "lateral_partial_geometry",
         "managed_source_job_id",
         "managed_source_manifest_checksum_sha256",
+        "base_page_geometry_manifest",
     }
     policy = payload.get("preflight_policy_version", LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION)
     payload_keys = frozenset(payload)
@@ -747,6 +1136,10 @@ def _input(job: Job) -> dict[str, object]:
             ).to_payload()
         except LateralPartialContractError as error:
             raise JobHandlerError(error.code, str(error)) from error
+    if "base_page_geometry_manifest" in payload:
+        result["basePageGeometryManifest"] = parse_base_manifest_descriptor(
+            payload["base_page_geometry_manifest"]
+        ).to_payload()
     if any(
         key in payload
         for key in ("managed_source_job_id", "managed_source_manifest_checksum_sha256")
@@ -810,6 +1203,9 @@ def _manifest_bytes(
     skipped_human_resolved: int,
     *,
     auto_anchor_passes: Sequence[Mapping[str, object]],
+    base_manifest: BasePageGeometryManifestDescriptor | None = None,
+    reused_source_count: int = 0,
+    recomputed_source_count: int | None = None,
 ) -> bytes:
     version = cast(str, payload["preflightPolicyVersion"])
     value: dict[str, object] = {
@@ -829,6 +1225,14 @@ def _manifest_bytes(
     }
     if _uses_auto_anchors(version):
         value["automaticAnchorPasses"] = list(auto_anchor_passes)
+    value["reuseProvenance"] = {
+        "contractVersion": "page-geometry-entry-reuse-v1",
+        "baseManifest": None if base_manifest is None else base_manifest.to_payload(),
+        "reusedSourceCount": reused_source_count,
+        "recomputedSourceCount": (
+            source_count if recomputed_source_count is None else recomputed_source_count
+        ),
+    }
     if "lateralPartialGeometry" in payload:
         value["lateralPartialGeometry"] = payload["lateralPartialGeometry"]
     return (json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n").encode("utf-8")
@@ -891,6 +1295,9 @@ def _checkpoint(
     phase_total: int,
     auto_anchor_pass: int | None = None,
     auto_anchor_pass_count: int | None = None,
+    reused_source_count: int | None = None,
+    recomputed_source_count: int | None = None,
+    durable_checkpoint: LoadedPageGeometryCheckpoint | None = None,
 ) -> None:
     value: dict[str, object] = {
         "schema_version": 1,
@@ -908,6 +1315,17 @@ def _checkpoint(
     if auto_anchor_pass is not None and auto_anchor_pass_count is not None:
         value["auto_anchor_pass"] = auto_anchor_pass
         value["auto_anchor_pass_count"] = auto_anchor_pass_count
+    if reused_source_count is not None and recomputed_source_count is not None:
+        value["reused_source_count"] = reused_source_count
+        value["recomputed_source_count"] = recomputed_source_count
+    if durable_checkpoint is not None:
+        value["durable_checkpoint_schema_version"] = 1
+        value["durable_checkpoint_relative_path"] = (
+            durable_checkpoint.state_relative_path
+        )
+        value["durable_checkpoint_checksum_sha256"] = (
+            durable_checkpoint.state_checksum_sha256
+        )
     if manifest_checksum is not None and manifest_relative_path is not None:
         value["geometry_manifest_checksum_sha256"] = manifest_checksum
         value["geometry_manifest_relative_path"] = manifest_relative_path

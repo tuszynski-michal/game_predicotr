@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,6 +13,9 @@ import numpy as np
 import pytest
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_worker.images.geometry import Point
+from game_predictor_worker.images.page_geometry_incremental import (
+    PageGeometryCheckpointStore,
+)
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
 from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
@@ -725,3 +730,150 @@ def test_geometry_preflight_retries_unresolved_page_with_strict_auto_anchor(
     assert context.checkpoints[-2]["stage"] == "page_geometry_manifest_writing"
     assert context.checkpoints[-1]["stage"] == "page_geometry_manifest_ready"
     assert all(checkpoint["review_count"] == 0 for checkpoint in context.checkpoints)
+
+
+def test_auto_anchor_retry_resume_stops_after_a_durable_zero_resolution_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checksum = "a" * 64
+    entries: dict[str, object] = {checksum: {"status": "registered"}}
+    reports = [
+        {"pass": 1, "promotedAnchorChecksums": ["b" * 64], "resolvedSourceCount": 0}
+    ]
+    store = PageGeometryCheckpointStore(
+        tmp_path,
+        job_id=str(uuid4()),
+        input_fingerprint_sha256="c" * 64,
+        source_inventory_checksum_sha256="d" * 64,
+    )
+    state = store.initialize(
+        entries,
+        metadata={
+            "phase": "auto_anchor_retry",
+            "autoAnchorPasses": reports,
+            "activeAutoAnchorPass": None,
+        },
+    )
+    monkeypatch.setattr(preflight_module, "_strong_auto_anchor", lambda _entry: True)
+
+    def unexpected_registrar(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("A completed zero-resolution pass must not create another registrar")
+
+    monkeypatch.setattr(preflight_module, "VerifiedPageRegistrar", unexpected_registrar)
+    result_entries, result_reports, result_state = (
+        PageGeometryPreflightHandler(artifact_root=tmp_path)
+        ._retry_with_verified_auto_anchors(  # noqa: SLF001
+            entries,
+            (),
+            context=_Context(),  # type: ignore[arg-type]
+            source_directory=tmp_path,
+            payload={},
+            base_profile={"anchors": []},
+            checkpoint_store=store,
+            checkpoint_state=state,
+            reused_source_count=0,
+            recomputed_source_count=0,
+        )
+    )
+    assert result_entries == entries
+    assert result_reports == reports
+    assert result_state == state
+
+
+def test_geometry_preflight_resumes_from_artifact_ahead_of_database_checkpoint(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    job, _checksums = _cold_start_job(tmp_path, image_count=30)
+    calls = 0
+    original_evaluate = PageGeometryPreflightHandler._evaluate_source
+
+    def counted_evaluate(self, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original_evaluate(self, *args, **kwargs)
+
+    monkeypatch.setattr(PageGeometryPreflightHandler, "_evaluate_source", counted_evaluate)
+
+    class _InterruptedContext:
+        def checkpoint(self, **_kwargs: object) -> None:
+            raise RuntimeError("database response lost after durable state")
+
+    artifact_root = tmp_path / "artifacts"
+    with pytest.raises(RuntimeError, match="database response lost"):
+        PageGeometryPreflightHandler(artifact_root=artifact_root)(
+            _InterruptedContext(), job  # type: ignore[arg-type]
+        )
+    assert calls == 25
+
+    calls = 0
+    context = _Context()
+    PageGeometryPreflightHandler(artifact_root=artifact_root)(
+        context,
+        replace(job, checkpoint_payload=None),  # type: ignore[arg-type]
+    )
+
+    assert calls == 5
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = artifact_root / Path(
+        *checkpoint["geometry_manifest_relative_path"].split("/")
+    )
+    manifest = json.loads(output.read_text(encoding="utf-8"))
+    assert manifest["sourceCount"] == 30
+    assert manifest["reuseProvenance"]["reusedSourceCount"] == 0
+    assert manifest["reuseProvenance"]["recomputedSourceCount"] == 30
+
+
+def test_parallel_registration_writes_same_manifest_as_serial_registration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    job, _checksums = _cold_start_job(tmp_path, image_count=30)
+    _image, raw_quads = _page()
+    quads = tuple(
+        tuple(Point(point["x"], point["y"]) for point in raw_quad)
+        for raw_quad in raw_quads
+    )
+
+    class _DeterministicRegistrar:
+        available = True
+
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def prepare(self) -> None:
+            pass
+
+        def evaluate(self, rgb: np.ndarray) -> PageRegistrationEvaluation:
+            delay = hashlib.sha256(rgb.tobytes()).digest()[0] % 5
+            time.sleep(delay / 1000)
+            return PageRegistrationEvaluation(
+                RegisteredPageGeometry(
+                    anchor_source_checksum_sha256="a" * 64,
+                    quads=quads,
+                    board_red_edge_coverages=(0.9,) * 9,
+                    inlier_count=80,
+                    inlier_ratio=0.5,
+                    p95_reprojection_error=1.0,
+                    mean_red_edge_coverage=0.9,
+                    feature_count=1000,
+                )
+            )
+
+    monkeypatch.setattr(preflight_module, "VerifiedPageRegistrar", _DeterministicRegistrar)
+
+    manifests: list[bytes] = []
+    for worker_count in (1, 7):
+        artifact_root = tmp_path / f"artifacts-{worker_count}"
+        context = _Context()
+        PageGeometryPreflightHandler(
+            artifact_root=artifact_root,
+            registration_workers=worker_count,
+        )(context, job)  # type: ignore[arg-type]
+        checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+        output = artifact_root / Path(
+            *checkpoint["geometry_manifest_relative_path"].split("/")
+        )
+        manifests.append(output.read_bytes())
+
+    assert manifests[0] == manifests[1]

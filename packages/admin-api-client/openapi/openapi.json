@@ -322,6 +322,63 @@
         "title": "AutomaticPartialGeometryProposalPayload",
         "type": "object"
       },
+      "BasePageGeometryManifestPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "baseOverrideFingerprints": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseoverridefingerprints"
+          },
+          "compatibilityMode": {
+            "enum": [
+              "exact_policy",
+              "lateral_v2_to_v3",
+              "lateral_v3_to_v2"
+            ],
+            "title": "Compatibilitymode",
+            "type": "string"
+          },
+          "contractVersion": {
+            "const": "page-geometry-entry-reuse-v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "sourceManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestchecksumsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contractVersion",
+          "jobId",
+          "manifestChecksumSha256",
+          "sourceManifestChecksumSha256",
+          "compatibilityMode"
+        ],
+        "title": "BasePageGeometryManifestPayload",
+        "type": "object"
+      },
       "BoardCellGeometryCorrectionContextResponse": {
         "additionalProperties": false,
         "properties": {
@@ -13485,6 +13542,16 @@
       "PageGeometryPreflightJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "basePageGeometryManifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasePageGeometryManifestPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "canonicalSequenceNumbers": {
             "default": [],
             "items": {
@@ -13708,6 +13775,30 @@
               }
             ],
             "title": "Provisionalreviewrequired"
+          },
+          "recomputedSourceCount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recomputedsourcecount"
+          },
+          "reusedSourceCount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reusedsourcecount"
           }
         },
         "required": [

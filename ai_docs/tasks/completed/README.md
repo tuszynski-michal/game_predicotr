@@ -57,6 +57,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0309 — Wirtualne komórki bezpośrednio ze źródła](0309-v0-10-virtual-cell-source-extraction.md)
 - [TASK-0391 — Bezpieczne usuwanie pustej historii browser stagingu](0391-delete-empty-browser-staging-history.md)
 - [TASK-0533 — Oddzielny profil uczenia niepełnych siatek](0533-partial-grid-learning-profile.md)
+- [TASK-0559 — Inkrementalne i wznawialne tworzenie geometrii siatek](0559-incremental-page-geometry-preflight.md)
 
 ## Zawartość
 

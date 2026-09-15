@@ -292,6 +292,11 @@ function pageGeometryProgressPresentation(
   const phaseTotal = phase?.phaseTotal;
   const autoAnchorPass = phase?.autoAnchorPass;
   const autoAnchorPassCount = phase?.autoAnchorPassCount;
+  const reuseSummary =
+    typeof phase?.reusedSourceCount === 'number' &&
+    typeof phase.recomputedSourceCount === 'number'
+      ? `Ponownie użyto ${phase.reusedSourceCount.toLocaleString('pl-PL')} · do przeliczenia ${phase.recomputedSourceCount.toLocaleString('pl-PL')} · `
+      : '';
   if (
     phase?.phase === 'auto_anchor_retry' &&
     typeof phaseCurrent === 'number' &&
@@ -302,7 +307,7 @@ function pageGeometryProgressPresentation(
     return {
       current: phaseCurrent,
       total: phaseTotal,
-      label: `Dodatkowe dopasowanie ${autoAnchorPass}/${autoAnchorPassCount}: ${phaseCurrent.toLocaleString('pl-PL')} / ${phaseTotal.toLocaleString('pl-PL')} zdjęć`,
+      label: `${reuseSummary}Dodatkowe dopasowanie ${autoAnchorPass}/${autoAnchorPassCount}: ${phaseCurrent.toLocaleString('pl-PL')} / ${phaseTotal.toLocaleString('pl-PL')} zdjęć`,
     };
   }
   if (
@@ -313,14 +318,14 @@ function pageGeometryProgressPresentation(
     return {
       current: phaseCurrent,
       total: phaseTotal,
-      label: `Pierwszy przebieg: ${phaseCurrent.toLocaleString('pl-PL')} / ${phaseTotal.toLocaleString('pl-PL')} zdjęć`,
+      label: `${reuseSummary}Pierwszy przebieg: ${phaseCurrent.toLocaleString('pl-PL')} / ${phaseTotal.toLocaleString('pl-PL')} zdjęć`,
     };
   }
   if (phase?.phase === 'manifest_write') {
     return {
       current: phase.phaseCurrent ?? 0,
       total: phase.phaseTotal ?? 1,
-      label: 'Zapisywanie końcowego manifestu geometrii',
+      label: `${reuseSummary}Zapisywanie końcowego manifestu geometrii`,
     };
   }
   if (

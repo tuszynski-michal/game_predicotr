@@ -1792,6 +1792,21 @@ Kolejny claim zwiększa `attemptCount`. Pozostałe statusy zwracają
 `null` poza `processing`. Wewnętrzne `leaseToken`, `leaseOwner` oraz
 `checkpointPayload` nigdy nie są zwracane przez Admin API.
 
+Nowy `page_geometry_preflight` może zawierać opcjonalny
+`basePageGeometryManifest`. Obiekt przypina `contractVersion`, `jobId`,
+`manifestChecksumSha256`, `sourceManifestChecksumSha256` i
+`compatibilityMode` (`exact_policy`, `lateral_v2_to_v3` albo
+`lateral_v3_to_v2`). Opcjonalne `baseOverrideFingerprints` przypina checksumy
+tożsamości game-wide ręcznych kotwic bazowego joba; worker porównuje je z
+bieżącymi decyzjami przed ponownym użyciem zależnych wpisów. API wybiera
+najnowszy ukończony manifest tej samej gry, selekcji i source manifestu,
+preferując exact policy przed zgodnym przejściem v2↔v3. Anulowany lub
+nieudany run bez bazy może zostać zastąpiony nowym runem z przypiętą bazą,
+natomiast aktywny i ukończony run zachowują idempotencję żądania. Pole należy
+do input key joba;
+worker nie wybiera innej bazy podczas retry. Brak lub drift przypiętego
+artefaktu kończy wykonanie fail-closed.
+
 Dla walidacji `page_geometry_preflight` obiekt `progress` zawiera addytywne
 `pageGeometryPreflight`. Historyczne checkpointy mogą zwrócić wyłącznie pola
 `complete` i checksummy. Nowe checkpointy podają dokładny postęp fazy:
@@ -1805,7 +1820,9 @@ Dla walidacji `page_geometry_preflight` obiekt `progress` zawiera addytywne
   "phaseTotal": 118,
   "autoAnchorPass": 1,
   "autoAnchorPassCount": 2,
-  "provisionalReviewRequired": 101
+  "provisionalReviewRequired": 101,
+  "reusedSourceCount": 1686,
+  "recomputedSourceCount": 1115
 }
 ```
 
@@ -1814,6 +1831,13 @@ albo `complete`. Licznik fazy nie zastępuje monotonicznych agregatów całego
 joba. `provisionalReviewRequired` może maleć podczas dodatkowego dopasowania i
 dlatego nie jest wspólnym licznikiem `review`; ten ostatni otrzymuje wynik
 dopiero z niezmiennego manifestu końcowego.
+
+`reusedSourceCount` i `recomputedSourceCount` są opcjonalne dla zgodności ze
+starszymi checkpointami. Ich suma opisuje pełne pokrycie stagingu. Wspólne
+`current/total` nadal pozostaje monotonicznym postępem całego stagingu, a
+`phaseCurrent/phaseTotal` może opisywać wyłącznie podzbiór do przeliczenia.
+Worker utrwala postęp w checksummowanych shardach po 25 wyników i po restarcie
+wznawia od pierwszego niezapisanego źródła.
 
 Admin odtwarza opis postępu kafelka stagingu z `pageGeometryPreflight`, także
 gdy globalne `current/total` osiągnęło już `N/N`. Przed statusem `completed`

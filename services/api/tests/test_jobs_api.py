@@ -128,6 +128,8 @@ def test_page_geometry_preflight_exposes_bounded_phase_progress() -> None:
             "phase_total": 118,
             "auto_anchor_pass": 1,
             "auto_anchor_pass_count": 2,
+            "reused_source_count": 1_686,
+            "recomputed_source_count": 1_115,
         },
     )
 
@@ -142,6 +144,8 @@ def test_page_geometry_preflight_exposes_bounded_phase_progress() -> None:
         "autoAnchorPass": 1,
         "autoAnchorPassCount": 2,
         "provisionalReviewRequired": 101,
+        "reusedSourceCount": 1_686,
+        "recomputedSourceCount": 1_115,
     }
 
 

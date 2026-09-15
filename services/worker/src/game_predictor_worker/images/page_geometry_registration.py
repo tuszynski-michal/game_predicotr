@@ -285,6 +285,12 @@ class VerifiedPageRegistrar:
     def available(self) -> bool:
         return bool(self._anchors_by_feature_count[_ORB_FEATURE_COUNTS[0]])
 
+    def prepare(self) -> None:
+        """Materialize immutable anchor features before concurrent evaluation."""
+
+        for feature_count in _ORB_FEATURE_COUNTS:
+            self._anchors_for(feature_count)
+
     def register(self, target_rgb: NDArray[np.uint8]) -> RegisteredPageGeometry | None:
         return self.evaluate(target_rgb).result
 

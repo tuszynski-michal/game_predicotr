@@ -18,6 +18,8 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
 )
 from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
 from game_predictor_worker.images.lateral_partial_contract import (
+    LATERAL_PARTIAL_SNAPSHOT_VERSION_V2,
+    LATERAL_PARTIAL_SNAPSHOT_VERSION_V3,
     GeometryEngineVariant,
     LateralPartialContractError,
     LateralPartialGeometrySnapshot,
@@ -93,6 +95,7 @@ _IMAGE_GEOMETRY_SYSTEMIC_GUARD_POLICY: dict[str, object] = {
 }
 _PAGE_REGISTRATION_VARIANTS = frozenset({"standard_v0_10", "board_area_test"})
 _BOARD_AREA_PREFLIGHT_POLICY_VERSION = "page-geometry-preflight-v3-board-area-mask"
+_PAGE_GEOMETRY_REUSE_CONTRACT_VERSION = "page-geometry-entry-reuse-v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -1775,32 +1778,79 @@ class JobService:
                 "IMAGE_PAGE_SOURCE_EXCLUSION_SNAPSHOT_INVALID",
                 "The page source exclusion snapshot is invalid.",
             )
+        input_payload: dict[str, object] = {
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "preflight_policy_version": preflight_policy_version,
+            "source_selection_id": str(selection_id),
+            "source_directory": str(resolved),
+            "source_display_name": source_display_name,
+            "source_manifest_sha256": source_manifest_sha256,
+            "page_registration_profile": registration,
+            "page_geometry_overrides": overrides,
+            **managed_input,
+            **(
+                {"lateral_partial_geometry": partial_policy.to_payload()}
+                if geometry_engine_variant is not None
+                else {}
+            ),
+            "source_exclusions": exclusions,
+            "canonical_sequence_numbers": sorted(
+                {int(number) for number in canonical_sequence_numbers if int(number) > 0}
+            ),
+        }
+        candidates = self._repository.list_jobs(
+            status=None,
+            job_type=JobType.VALIDATE,
+            game_id=game_id,
+            limit=10_000,
+        )
+        base_manifest = self._select_page_geometry_base_manifest(
+            candidates,
+            input_payload=input_payload,
+        )
+        if base_manifest is not None:
+            input_payload["base_page_geometry_manifest"] = base_manifest
+        equivalent = _equivalent_page_geometry_preflight(candidates, input_payload)
+        if equivalent is not None:
+            raise JobConflictError(
+                "JOB_INPUT_ALREADY_EXISTS",
+                "A job with the same type and input already exists.",
+                details={"existingJobId": str(equivalent.id)},
+            )
         return self._persist_job(
             JobType.VALIDATE,
             game_id=game_id,
-            input_payload={
-                "schema_version": 2,
-                "validation_kind": "page_geometry_preflight",
-                "preflight_policy_version": preflight_policy_version,
-                "source_selection_id": str(selection_id),
-                "source_directory": str(resolved),
-                "source_display_name": source_display_name,
-                "source_manifest_sha256": source_manifest_sha256,
-                "page_registration_profile": registration,
-                "page_geometry_overrides": overrides,
-                **managed_input,
-                **(
-                    {"lateral_partial_geometry": partial_policy.to_payload()}
-                    if geometry_engine_variant is not None
-                    else {}
-                ),
-                "source_exclusions": exclusions,
-                "canonical_sequence_numbers": sorted(
-                    {int(number) for number in canonical_sequence_numbers if int(number) > 0}
-                ),
-            },
+            input_payload=input_payload,
             game_already_validated=True,
         )
+
+    def _select_page_geometry_base_manifest(
+        self,
+        candidates: Sequence[Job],
+        *,
+        input_payload: Mapping[str, object],
+    ) -> dict[str, object] | None:
+        if self._artifact_root is None:
+            return None
+        transition: dict[str, object] | None = None
+        for candidate in candidates:
+            mode = _page_geometry_candidate_compatibility(candidate, input_payload)
+            if mode is None:
+                continue
+            descriptor = _completed_page_geometry_manifest_descriptor(
+                candidate,
+                artifact_root=self._artifact_root,
+                target=input_payload,
+                compatibility_mode=mode,
+            )
+            if descriptor is None:
+                continue
+            if mode == "exact_policy":
+                return descriptor
+            if transition is None:
+                transition = descriptor
+        return transition
 
     def list_jobs(
         self,
@@ -2069,6 +2119,171 @@ class JobService:
         for quarantine in pending:
             if self._deletion_artifact_store is not None:
                 self._deletion_artifact_store.restore(quarantine)
+
+
+def _equivalent_page_geometry_preflight(
+    candidates: Sequence[Job],
+    input_payload: Mapping[str, object],
+) -> Job | None:
+    identity = _page_geometry_request_identity(input_payload)
+    for candidate in candidates:
+        if (
+            candidate.input_payload.get("validation_kind") == "page_geometry_preflight"
+            and _page_geometry_request_identity(candidate.input_payload) == identity
+        ):
+            return candidate
+        if (
+            candidate.status in {JobStatus.CANCELLED, JobStatus.FAILED}
+            or candidate.input_payload.get("validation_kind") != "page_geometry_preflight"
+        ):
+            continue
+        # A live or completed run with identical source and decisions still
+        # owns the request even if its historical base pin differs. Failed and
+        # cancelled runs can be replaced when a compatible base became ready.
+        if _page_geometry_request_identity(
+            candidate.input_payload, include_base=False
+        ) == _page_geometry_request_identity(input_payload, include_base=False):
+            return candidate
+    return None
+
+
+def _page_geometry_request_identity(
+    payload: Mapping[str, object], *, include_base: bool = True
+) -> dict[str, object]:
+    return {
+        key: value
+        for key, value in payload.items()
+        if key != "source_display_name"
+        and (include_base or key != "base_page_geometry_manifest")
+    }
+
+
+def _page_geometry_candidate_compatibility(
+    candidate: Job,
+    target: Mapping[str, object],
+) -> str | None:
+    payload = candidate.input_payload
+    if (
+        candidate.status is not JobStatus.COMPLETED
+        or payload.get("validation_kind") != "page_geometry_preflight"
+        or payload.get("source_selection_id") != target.get("source_selection_id")
+        or payload.get("source_manifest_sha256") != target.get("source_manifest_sha256")
+        or payload.get("preflight_policy_version") != target.get("preflight_policy_version")
+        or payload.get("page_registration_profile")
+        != target.get("page_registration_profile")
+    ):
+        return None
+    base_lateral = payload.get("lateral_partial_geometry")
+    target_lateral = target.get("lateral_partial_geometry")
+    if base_lateral == target_lateral:
+        return "exact_policy"
+    if (
+        isinstance(base_lateral, Mapping)
+        and isinstance(target_lateral, Mapping)
+        and base_lateral.get("schemaVersion") == LATERAL_PARTIAL_SNAPSHOT_VERSION_V2
+        and target_lateral.get("schemaVersion") == LATERAL_PARTIAL_SNAPSHOT_VERSION_V3
+        and base_lateral.get("variant") == target_lateral.get("variant")
+        and base_lateral.get("partialGridTrainingProfile")
+        == target_lateral.get("partialGridTrainingProfile")
+    ):
+        return "lateral_v2_to_v3"
+    if (
+        isinstance(base_lateral, Mapping)
+        and isinstance(target_lateral, Mapping)
+        and base_lateral.get("schemaVersion") == LATERAL_PARTIAL_SNAPSHOT_VERSION_V3
+        and target_lateral.get("schemaVersion") == LATERAL_PARTIAL_SNAPSHOT_VERSION_V2
+        and base_lateral.get("variant") == target_lateral.get("variant")
+        and base_lateral.get("partialGridTrainingProfile")
+        == target_lateral.get("partialGridTrainingProfile")
+    ):
+        return "lateral_v3_to_v2"
+    return None
+
+
+def _completed_page_geometry_manifest_descriptor(
+    candidate: Job,
+    *,
+    artifact_root: Path,
+    target: Mapping[str, object],
+    compatibility_mode: str,
+) -> dict[str, object] | None:
+    checkpoint = candidate.checkpoint_payload
+    if not isinstance(checkpoint, Mapping) or checkpoint.get("complete") is not True:
+        return None
+    checksum = checkpoint.get("geometry_manifest_checksum_sha256")
+    relative = checkpoint.get("geometry_manifest_relative_path")
+    if not _lower_sha256(checksum) or not isinstance(relative, str) or not relative.startswith(
+        "data/"
+    ):
+        return None
+    path = (artifact_root / Path(*relative.split("/"))).resolve()
+    data_root = (artifact_root / "data").resolve()
+    if not path.is_relative_to(data_root) or not path.is_file():
+        return None
+    try:
+        content = path.read_bytes()
+        manifest = json.loads(content)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if (
+        hashlib.sha256(content).hexdigest() != checksum
+        or not isinstance(manifest, Mapping)
+        or manifest.get("gameId") != str(candidate.game_id)
+        or manifest.get("sourceSelectionId") != target.get("source_selection_id")
+        or manifest.get("sourceManifestChecksumSha256")
+        != target.get("source_manifest_sha256")
+        or manifest.get("version") != target.get("preflight_policy_version")
+        or manifest.get("pageRegistrationProfile")
+        != target.get("page_registration_profile")
+        or not isinstance(manifest.get("entries"), Mapping)
+    ):
+        return None
+    return {
+        "contractVersion": _PAGE_GEOMETRY_REUSE_CONTRACT_VERSION,
+        "jobId": str(candidate.id),
+        "manifestChecksumSha256": checksum,
+        "sourceManifestChecksumSha256": target["source_manifest_sha256"],
+        "compatibilityMode": compatibility_mode,
+        **(
+            {"baseOverrideFingerprints": fingerprints}
+            if (
+                fingerprints := _page_geometry_override_fingerprints(
+                    candidate.input_payload.get("page_geometry_overrides")
+                )
+            )
+            else {}
+        ),
+    }
+
+
+def _page_geometry_override_fingerprints(value: object) -> dict[str, str]:
+    if not isinstance(value, Mapping):
+        return {}
+    fingerprints: dict[str, str] = {}
+    for checksum, override in value.items():
+        if not _lower_sha256(checksum) or not isinstance(override, Mapping):
+            continue
+        identity = {
+            "decisionChecksumSha256": override.get("decisionChecksumSha256"),
+            "overrideId": override.get("overrideId"),
+            "revision": override.get("revision"),
+        }
+        if (
+            not _lower_sha256(identity["decisionChecksumSha256"])
+            or not isinstance(identity["overrideId"], str)
+            or not isinstance(identity["revision"], int)
+        ):
+            continue
+        fingerprints[checksum] = hashlib.sha256(
+            json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("ascii")
+        ).hexdigest()
+    return dict(sorted(fingerprints.items()))
+
+
+def _lower_sha256(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(
+        character in "0123456789abcdef" for character in value
+    )
 
 
 def _is_filename_verification_job(job: Job) -> bool:

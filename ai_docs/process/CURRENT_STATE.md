@@ -21,8 +21,9 @@ last_updated: 2026-09-16
   `3cbcec50-5406-4848-8571-89387e6da1f2` dla `149626 - 177561 cut`,
   `309d6837-d895-4587-a5eb-80cc2d9f35d6` dla `177562 -200583 cut` oraz
   `0f8a2c88-9477-4486-9962-471ac62ecbc6` dla `45163 - 70371 cut`. General
-  worker pracuje na nowym kodzie; pierwszy job wystartował, a pozostałe dwa
-  czekają w kolejce.
+  worker rozpoczął pierwszy, ale po doprecyzowaniu celu użytkownika został
+  zatrzymany. Wszystkie trzy otrzymały żądanie anulowania: pierwszy zatrzymał
+  się przy `1050/3104`, a dwa oczekujące mają stan `cancelled`.
 - Zewnętrzny proces API działający przed rollbackiem nie został z tej sesji
   zatrzymany z powodu niespójnej widoczności jego PID. Trzy wymagane joby
   utworzono przez ten sam handler aplikacyjny z kodu v2; zwykły kontrolowany
@@ -43,6 +44,27 @@ last_updated: 2026-09-16
   pełną wysokość i powód `crop_too_tall`, więc wymaga review. Checksum stanu
   wejściowego przed i po pozostał
   `6efcd4edbcc4d6f3d8b6e30fd5f42c98a5855becc916f1f3a0eead72d711a616`.
+### TASK-0559 — inkrementalne i wznawialne tworzenie geometrii siatek
+
+- Preflight geometrii przypina najnowszy zgodny manifest tej samej gry,
+  selekcji i source manifestu. Dokładna polityka v2/v3 ma pierwszeństwo przed
+  przejściem v2↔v3. Anulowany run bez bazy nie blokuje nowego z bazą; aktywny
+  lub ukończony run nadal chroni idempotencję.
+- Worker zachowuje bezpieczne wpisy, przelicza review, zmienione ręczne
+  geometrie i przechodnie zależności kotwic. Tożsamość ręcznych kotwic spoza
+  stagingu jest przypięta do joba; niepewne wyniki są przeliczane. Checkpoint składa się z checksummowanych
+  shardów po 25 wyników i atomowego indeksu, więc restart albo utrata odpowiedzi
+  bazy nie powtarza zapisanej pracy.
+- Dodatkowe dopasowanie używa budżetu general workera (domyślnie 7), cache
+  kotwic tylko do odczytu i deterministycznej publikacji w kolejności źródeł.
+  API oraz panel pokazują liczniki ponownego użycia i przeliczenia.
+- Kontrola odczytowa v2→v3 dla stagingu 45163–70371 potwierdziła `1686/1115`
+  przy 2801 źródłach. Po rollbacku do v2 ukończony manifest v2 ma `2761`
+  wyników `registered` i `40` review; część wyników zależnych od zmienionych
+  ręcznych kotwic zostanie przeliczona. Staging 177562–200583 ma ukończoną
+  bazę v3 (`2331` registered, `227` review), więc nowe przejście v3→v2
+  zachowa bezpieczne wyniki. Dla 149626–177561 nie ma ukończonego manifestu;
+  anulowanego częściowego wyniku nie traktujemy jako bazy reuse.
 
 ### TASK-0558 — odzyskanie błędnych wyników przycinania wybranych zdjęć
 

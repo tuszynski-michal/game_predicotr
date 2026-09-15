@@ -6,6 +6,17 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0550 — trwałe odtwarzanie ukończonego preflightu geometrii
+
+- Ukończony preflight i istniejący import wariantu lateral są dopasowywane po
+  grze, stagingu, manifeście źródeł oraz ścisło zwalidowanym przypiętym
+  snapshocie. Późniejsza zmiana game-wide profilu uczenia nie unieważnia ich
+  przy samym otwarciu raportu.
+- Jawne przygotowanie nowego preflightu nadal używa aktualnego profilu i pełnego
+  input key. Nie zmieniono ani nie usunięto jobów
+  `ce92281c-cca1-4ba7-bb1e-5354f14e5afe` i
+  `55fde594-935d-4e0b-8d34-e3a1088dc74b` ani danych stagingu.
+
 ### TASK-0549 — siatki widocznych plansz z uciętą albo zasłoniętą ramką
 
 - Nowa checksumowana polityka v3 zachowuje mocną rejestrację strony, gdy

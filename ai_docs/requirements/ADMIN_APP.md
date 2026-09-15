@@ -944,6 +944,11 @@ poprawił jedną reprezentatywną stronę. Zapis uruchamia następny preflight z
 stroną jako kotwicą; tylko źródła z kompletną geometrią mogą zostać
 zaimportowane.
 
+Ponowne otwarcie raportu odzyskuje najnowszy job z poprawnym, znanym snapshotem
+wybranego wariantu. Ukończony manifest nadal odblokowuje import po późniejszej
+zmianie profilu uczenia wynikającej z korekt innych stagingów. Przycisk
+odświeżenia jest jawną prośbą o nowy snapshot; sam odczyt nie tworzy duplikatu.
+
 Przed startem Admin pokazuje, czy źródłem geometrii jest dokładny manifest czy
 blokada, skróconą checksumę i identyfikator preflightu, pokrycie źródeł,
 fingerprint profilu strony, wersję silnika komórek oraz stan testu ochronnego.

@@ -3081,6 +3081,14 @@ odtwarza zarówno historyczne `structured-lattice-v4-lateral-partial-v1`, jak i
 odrzucana. Ta sama reguła obowiązuje przy dopasowaniu istniejącego importu i
 preflightu managed originals.
 
+Odtworzenie nie przelicza bieżącego profilu uczenia i nie wymaga, aby jego
+checksumma była równa profilowi przypiętemu do historycznego joba. Backend
+ściśle parsuje cały zapisany snapshot wraz z checksumą, a następnie dopasowuje
+wariant. Dzięki temu późniejsza korekta w innej części gry nie unieważnia
+content-addressed manifestu ukończonego preflightu ani istniejącego importu.
+Jawny start kolejnego preflightu nadal wylicza bieżący snapshot i zachowuje
+idempotencję po pełnym input key.
+
 Wynik planszy może zawierać dokładnie jedną automatyczną propozycję. Istniejące
 `automaticPartialProposal` opisuje `pending_partial` i maskę brakujących pól.
 Nowe `automaticFrameProposal` opisuje kompletną siatkę 3×5 przy słabym dowodzie

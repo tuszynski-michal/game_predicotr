@@ -743,6 +743,13 @@ preflightu. Operator uruchamia kosztowną rejestrację jawnie po sprawdzeniu
 raportu i wariantu. Ponowne użycie tej samej komendy zachowuje idempotencję i
 może przywrócić istniejący job bez ponownego przeliczania.
 
+Ukończony, checksumowany preflight pozostaje używalny dla przypiętej gry,
+stagingu, manifestu źródeł i znanej wersji wariantu także wtedy, gdy późniejsza
+ręczna korekta innego źródła zmieni bieżący game-wide profil uczenia. Otwarcie
+raportu odtwarza przypięty snapshot zamiast porównywać go z profilem wyliczonym
+w chwili odczytu. Dopiero jawne przygotowanie kolejnego preflightu przypina
+nowszy profil i może utworzyć nowy job.
+
 Od v0.7.5 polityka `page-geometry-preflight-v2-auto-anchor` wykonuje najwyżej
 dwa dodatkowe przebiegi wyłącznie dla nierozpoznanych źródeł. W każdym
 przebiegu może dodać najwyżej 21 perspektyw rozłożonych po naturalnej kolejności

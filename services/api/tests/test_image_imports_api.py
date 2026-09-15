@@ -58,6 +58,10 @@ from game_predictor_worker.images.lateral_partial_contract import (
     GeometryEngineVariant,
     LateralPartialGeometrySnapshot,
 )
+from game_predictor_worker.images.partial_grid_learning import (
+    PartialGridPattern,
+    PartialGridTrainingProfile,
+)
 from game_predictor_worker.images.pipeline_contract import (
     CellAssetRolloutMode,
     GeometryPipelineRolloutSnapshot,
@@ -106,7 +110,20 @@ def test_legacy_cold_start_preflight_checksum_keeps_the_golden_bytes() -> None:
     assert "symbolModelSnapshotFingerprint" not in payload
 
 
-def test_v4_replay_lookup_requires_exact_manifest_policy_fingerprints_and_variant() -> None:
+def _partial_training_profile(source_count: int) -> PartialGridTrainingProfile:
+    return PartialGridTrainingProfile(
+        patterns=(
+            PartialGridPattern(
+                unavailable_cell_indices=(0, 5, 10),
+                sample_count=source_count,
+                source_count=source_count,
+            ),
+        ),
+        distinct_source_count=source_count,
+    )
+
+
+def test_v4_replay_lookup_keeps_pinned_profile_after_training_changes() -> None:
     game_id = uuid4()
     selection_id = uuid4()
     repository = MemoryJobRepository(game_id)
@@ -129,7 +146,9 @@ def test_v4_replay_lookup_requires_exact_manifest_policy_fingerprints_and_varian
         active_lattice_geometry=StructuredGeometryActivationSnapshot.from_config_payload(
             structured_lattice_active_config_payload()
         ),
-        lateral_partial_geometry=LateralPartialGeometrySnapshot(),
+        lateral_partial_geometry=LateralPartialGeometrySnapshot(
+            training_profile=_partial_training_profile(3),
+        ),
     ).to_payload()
 
     def import_job(**overrides: object):
@@ -188,7 +207,10 @@ def test_v4_preflight_lookup_rejects_an_arbitrary_lateral_mapping() -> None:
             game_id=game_id,
             input_payload={
                 **base,
-                "lateral_partial_geometry": LateralPartialGeometrySnapshot().to_payload(),
+                "lateral_partial_geometry": LateralPartialGeometrySnapshot(
+                    training_profile=_partial_training_profile(3),
+                    frame_support_review=False,
+                ).to_payload(),
             },
             created_at=NOW,
         )
@@ -214,6 +236,80 @@ def test_v4_preflight_lookup_rejects_an_arbitrary_lateral_mapping() -> None:
 
     assert found is not None
     assert found.id == exact.id
+
+
+def test_v4_preflight_lookup_keeps_completed_snapshot_after_training_profile_changes() -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+
+    class ChangedTrainingProfileResolver:
+        def partial_grid_training_profile(self, *, game_id: UUID) -> dict[str, object]:
+            return _partial_training_profile(4).to_payload()
+
+    service = JobService(
+        repository,
+        page_geometry_override_snapshot_resolver=ChangedTrainingProfileResolver(),
+    )
+    pinned = LateralPartialGeometrySnapshot(
+        training_profile=_partial_training_profile(3),
+    )
+    completed = create_job(
+        JobType.VALIDATE,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "source_selection_id": str(selection_id),
+            "source_manifest_sha256": "a" * 64,
+            "lateral_partial_geometry": pinned.to_payload(),
+        },
+        created_at=NOW,
+    )
+    lease_token = uuid4()
+    completed = start_job(
+        completed,
+        worker_version="test-worker",
+        worker_id="test-worker",
+        lease_token=lease_token,
+        lease_expires_at=NOW + timedelta(minutes=5),
+        started_at=NOW,
+    )
+    completed = checkpoint_job(
+        completed,
+        lease_token=lease_token,
+        checkpoint_payload={
+            "schema_version": 1,
+            "complete": True,
+            "geometry_manifest_checksum_sha256": "b" * 64,
+            "geometry_manifest_relative_path": "data/page-geometry-manifests/test.json",
+        },
+        stage="page_geometry_manifest_ready",
+        current=1,
+        total=1,
+        success_count=1,
+        failure_count=0,
+        review_count=0,
+        updated_at=NOW + timedelta(seconds=1),
+    )
+    completed = repository.add_job(
+        complete_job(
+            completed,
+            lease_token=lease_token,
+            finished_at=NOW + timedelta(seconds=2),
+        )
+    )
+
+    found = service.get_page_geometry_preflight_by_source_selection(
+        game_id=game_id,
+        source_selection_id=selection_id,
+        source_manifest_sha256="a" * 64,
+        geometry_engine_variant=GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
+    )
+
+    assert completed.status.value == "completed"
+    assert found is not None
+    assert found.id == completed.id
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-native folder picker")

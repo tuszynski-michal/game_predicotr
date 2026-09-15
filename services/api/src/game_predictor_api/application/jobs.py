@@ -405,6 +405,24 @@ class JobService:
             )
         )
 
+    @staticmethod
+    def _geometry_variant_matches_pinned_lateral_snapshot(
+        value: object,
+        *,
+        geometry_engine_variant: GeometryEngineVariant | None,
+    ) -> bool:
+        """Match a run variant without rebinding its immutable training profile."""
+
+        if geometry_engine_variant is None:
+            return value is None
+        if geometry_engine_variant is not GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES:
+            return False
+        try:
+            LateralPartialGeometrySnapshot.from_payload(value)
+        except LateralPartialContractError:
+            return False
+        return True
+
     def current_image_import_engine_policy(
         self, *, game_id: UUID
     ) -> ImageImportEnginePolicySnapshot:
@@ -1834,11 +1852,6 @@ class JobService:
     ) -> Job | None:
         """Replay the newest run for one staging and one explicit engine variant."""
 
-        expected_lateral = (
-            self._current_lateral_partial_policy(game_id=game_id).to_payload()
-            if geometry_engine_variant is not None
-            else None
-        )
         if symbol_model_snapshot_fingerprint is None:
             return None
         for job in self._repository.list_jobs(
@@ -1881,7 +1894,7 @@ class JobService:
                     engine_policy.geometry_mode != GeometryRolloutMode.LEGACY.value
                     or engine_policy.cell_asset_mode != CellAssetRolloutMode.LEGACY_FILES.value
                     or engine_policy.revision != 0
-                    or expected_lateral is not None
+                    or geometry_engine_variant is not None
                 ):
                     continue
             else:
@@ -1893,12 +1906,14 @@ class JobService:
                     snapshot.geometry_mode.value != engine_policy.geometry_mode
                     or snapshot.cell_asset_mode.value != engine_policy.cell_asset_mode
                     or snapshot.rollout_revision != engine_policy.revision
-                    or (
-                        None
-                        if snapshot.lateral_partial_geometry is None
-                        else snapshot.lateral_partial_geometry.to_payload()
+                    or not self._geometry_variant_matches_pinned_lateral_snapshot(
+                        (
+                            None
+                            if snapshot.lateral_partial_geometry is None
+                            else snapshot.lateral_partial_geometry.to_payload()
+                        ),
+                        geometry_engine_variant=geometry_engine_variant,
                     )
-                    != expected_lateral
                 ):
                     continue
             return job
@@ -1914,11 +1929,6 @@ class JobService:
     ) -> Job | None:
         """Replay a compatible preflight without dispatching any work."""
 
-        expected_lateral = (
-            self._current_lateral_partial_policy(game_id=game_id).to_payload()
-            if geometry_engine_variant is not None
-            else None
-        )
         for job in self._repository.list_jobs(
             status=None,
             job_type=JobType.VALIDATE,
@@ -1932,8 +1942,10 @@ class JobService:
                 or payload.get("source_manifest_sha256") != source_manifest_sha256
             ):
                 continue
-            lateral = payload.get("lateral_partial_geometry")
-            if lateral == expected_lateral:
+            if self._geometry_variant_matches_pinned_lateral_snapshot(
+                payload.get("lateral_partial_geometry"),
+                geometry_engine_variant=geometry_engine_variant,
+            ):
                 return job
         return None
 

@@ -475,9 +475,18 @@ lukach. `Enter`, `F` lub przycisk zapisują niezmienione bajty jako dokładny
 target `seq_*`, ponownie odczytują plik i weryfikują SHA-256. Akceptacja jest
 dostępna dopiero po poprawnym dekodowaniu i co najmniej 300 ms widoczności.
 
-`A`, `Ctrl+A`, `Ctrl+Z` lub przycisk cofają wyłącznie ostatni fill wykonany
-przez ten workflow. Cofnięcie wymaga zgodnej checksummy i nigdy nie usuwa
-obcego albo zmienionego pliku.
+Bezpośrednio po akceptacji workspace przechodzi do następnego obrazu z
+istniejącego okna cache, a pojedyncza kontrolowana kolejka zapisuje JPEG,
+intencję recovery, repair manifest, handoff i output manifest. W trakcie
+zapisu działa nawigacja i podgląd, lecz nie można rozpocząć kolejnego fill,
+delete, paczkowego usuwania ani zmiany trybu. Błąd zapisu pozostawia czytelny
+komunikat i blokuje dalsze mutacje do czasu ponownego wskazania katalogu.
+
+`A`, `Ctrl+A`, `Ctrl+Z` lub przycisk cofają tylko jeden z dwóch ostatnich
+**trwale zapisanych** fillów dostępnych w workspace. Po ponownym wejściu dwa
+najnowsze aktywne fill'e mogą odtworzyć te sloty, ale narzędzie nie zapisuje
+osobnej historii cofnięć. Cofnięcie wymaga zgodnej checksummy i nigdy nie
+usuwa obcego albo zmienionego pliku.
 
 ### Usuwanie sekwencji
 
@@ -505,10 +514,10 @@ pozycji viewportu. Wspólny viewer ignoruje przejściowe zdarzenie scrolla
 powstałe podczas wymiany Object URL i odtwarza pozycję dopiero po dekodowaniu
 docelowego zdjęcia. Cache jest kluczowany trwałą ścieżką względną i tożsamością
 katalogu, dlatego następny obraz pozostający w oknie read-ahead nie jest po
-usunięciu ponownie odczytywany ani dekodowany. Workspace aktualizuje indeks
-katalogu inkrementalnie; nie wolno ponownie hashować całego katalogu po każdym
-usunięciu. Pełna walidacja nazw i checksum pozostaje obowiązkowa przy pierwszym
-otwarciu oraz po reloadzie.
+fill ani delete ponownie odczytywany ani dekodowany. Workspace aktualizuje
+indeks katalogu inkrementalnie; nie wolno ponownie hashować całego katalogu po
+każdej mutacji. Pełna walidacja nazw i checksum pozostaje obowiązkowa przy
+pierwszym otwarciu oraz po reloadzie.
 
 Jedna inspekcja odczytuje i hashuje każdy znany JPEG najwyżej raz. Jeżeli
 repair manifest zawiera już checksumę, reconciler weryfikuje ją na rzeczywistym
@@ -552,8 +561,8 @@ Operator wykonuje kolejno:
 1. wybiera katalog gotowych `seq_*`;
 2. wybiera `Uzupełnij luki` albo `Usuń sekwencje`;
 3. w trybie uzupełniania wskazuje bazowy katalog zdjęć;
-4. wykonuje checksummowane decyzje; w trybie fill może cofnąć ostatnie
-   uzupełnienie, natomiast delete jest trwały;
+4. wykonuje checksummowane decyzje; w trybie fill może cofnąć jedno z dwóch
+   ostatnich trwale zapisanych uzupełnień, natomiast delete jest trwały;
 5. po zakończeniu importuje bieżącą zawartość katalogu `seq_*`.
 
 Jeżeli zwykła ręczna selekcja wykryje repair manifest, nie próbuje przejąć

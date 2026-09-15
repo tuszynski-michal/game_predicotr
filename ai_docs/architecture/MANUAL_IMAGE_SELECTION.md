@@ -138,8 +138,10 @@ Reacta ani File System Access API.
 Adapter Admina `manual-selection-repair-storage.ts` jest jedynym miejscem
 mutacji katalogu. Skanuje top-level JPEG-i, weryfikuje SHA-256, zapisuje
 manifesty i utrzymuje osobną IndexedDB v1 bez Blobów. Wszystkie polecenia
-workspace'u przechodzą przez jedną serializowaną kolejkę. Zmiana katalogu lub
-trybu jest blokowana podczas zapisu.
+workspace'u przechodzą przez jedną serializowaną kolejkę. Fill i delete mogą
+najpierw przełączyć lokalny snapshot oraz indeks podglądu, a potem wpisać
+trwałą mutację do tej kolejki. Podczas takiej mutacji zmiana katalogu i trybu
+oraz kolejna mutacja są blokowane, natomiast nawigacja i cache viewer'a nie.
 
 Pełny skan i weryfikacja output manifestu odbywają się przy otwarciu katalogu
 oraz recovery. Po udanej mutacji adapter zwraca finalny repair/output manifest
@@ -205,13 +207,24 @@ tylko brak zgodny z potwierdzeniem delete i odtwarza output manifest. Repair
 nie zapisuje własnego trace; training korzysta wyłącznie z pierwotnego,
 poprawnie utworzonego trace selekcji.
 
-W trybie delete workspace najpierw buduje lokalny snapshot bez usuniętego
-pliku, przełącza kursor i zachowuje wynik read-ahead viewer'a. Następnie jedna
-kolejka wykonuje trwałą mutację katalogu. W trakcie jest zablokowany tylko
-kolejny fill/delete, nie nawigacja. Błąd kolejki przełącza workspace w stan
-fail-closed do jawnej ponownej inspekcji katalogu. Viewer kluczuje bounded
-Object URL cache przez `repairKey`, tryb i `relativePath`, więc przesunięcie
-ordinali po usunięciu nie unieważnia następnego JPEG-a.
+W trybie fill workspace najpierw buduje lokalny manifest widoku z docelowym
+zakresem w `activeFiles` bez checksummy, usuwa go z lokalnych delete receipts i
+przełącza `sourceCursor`. Nie dodaje jeszcze uchwytu pliku ani
+`filledGapEntries`; robi to wyłącznie sukces adaptera po pełnej transakcji.
+W trybie delete workspace analogicznie najpierw buduje lokalny snapshot bez
+usuniętego pliku i przełącza kursor. Następnie jedna kolejka wykonuje trwałą
+mutację katalogu. W trakcie jest zablokowany tylko kolejny fill/delete,
+paczkowe usuwanie i zmiana trybu, nie nawigacja. Błąd kolejki przełącza
+workspace w stan fail-closed do jawnej ponownej inspekcji katalogu. Viewer
+kluczuje bounded Object URL cache przez `repairKey`, tryb i `relativePath`,
+więc przesunięcie ordinali po fill albo delete nie unieważnia następnego JPEG-a.
+
+Workspace utrzymuje najwyżej dwa identyfikatory cofania fill'a, wyłącznie po
+udanej finalizacji `filledGapEntries`. Po wejściu do trybu fill może je
+odtworzyć z dwóch najnowszych aktywnych proweniencji fill. `undo_fill` pozostaje
+zwykłą checksummowaną mutacją tej samej kolejki, usuwa tylko wskazany slot i
+wraca do `sourceIndex`; limity UI nie tworzą pola ani historii w repair
+manifeście.
 
 Zwykły lokalny selector sprawdza obecność repair manifestu przed startem i
 resume. W takim przypadku nie modyfikuje katalogu ani starej sesji, tylko

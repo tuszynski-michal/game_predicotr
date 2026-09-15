@@ -6,6 +6,19 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0555 — natychmiastowy fill luk i dwa cofnięcia
+
+- `Uzupełnij lukę` najpierw przełącza lokalny target i `sourceCursor`, dzięki
+  czemu następne źródło korzysta z już przygotowanego Object URL. Dopiero potem
+  jedna kolejka wykonuje istniejącą transakcję JPEG → SHA-256 → repair/handoff/
+  output manifest.
+- Gdy taki fill jest w toku, nawigacja, zoom i cache działają dalej, ale kolejny
+  fill, delete, paczkowe usuwanie i zmiana trybu są zablokowane. Awaria wymaga
+  jawnego ponownego wskazania katalogu przed kolejną mutacją.
+- Cofnięcie operuje na najwyżej dwóch ostatnich trwale zakończonych fillach i
+  używa ich checksummowanej proweniencji. Po wejściu do trybu są odtwarzane z
+  dwóch najnowszych aktywnych wpisów; nie wprowadzono nowej historii ani Blobów.
+
 ### TASK-0554 — kompaktowy stan luk i natychmiastowy podgląd po usunięciu
 
 - `Usuń sekwencję F` nie ma już pamięciowego przywracania ani repair trace.

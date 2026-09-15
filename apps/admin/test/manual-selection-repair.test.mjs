@@ -588,6 +588,37 @@ test('fill workspace exposes bounded steps, gap targets, shortcuts and visibilit
   assert.match(source, /sourceCursor \+ 1/);
 });
 
+test('fill workspace advances optimistically, keeps two durable undo slots and blocks overlapping mutations', async () => {
+  const source = await import('node:fs/promises').then(({ readFile }) =>
+    readFile(
+      new URL(
+        '../src/features/manual-image-selection/manual-selection-repair-workspace.tsx',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+
+  assert.match(source, /const MAXIMUM_FILL_UNDOS = 2/);
+  assert.match(source, /function addFileToRepairManifest\(/);
+  assert.match(source, /setSnapshot\(optimisticSnapshot\)/);
+  assert.match(source, /setBackgroundFillPending\(true\)/);
+  assert.match(
+    source,
+    /setSnapshot\(optimisticSnapshot\)[\s\S]*operationQueueRef\.current = operationQueueRef\.current/,
+  );
+  assert.match(source, /backgroundMutationPending/);
+  assert.match(source, /Trwa zapis uzupełnienia w katalogu/);
+  assert.match(source, /function recentFillOperationIds\(/);
+  assert.match(source, /\.slice\(-MAXIMUM_FILL_UNDOS\)/);
+  assert.match(source, /function rememberFillOperation\(/);
+  assert.match(source, /undoFillOperationIds\.at\(-1\)/);
+  assert.match(
+    source,
+    /Cofnij uzupełnienie \(\{undoFillOperationIds\.length\}\/2\)/,
+  );
+});
+
 test('repair workspace shows long-running directory phases and lets manual choice win recovery', async () => {
   const source = await import('node:fs/promises').then(({ readFile }) =>
     readFile(

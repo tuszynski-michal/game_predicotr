@@ -8557,3 +8557,22 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   manifest. UI może zmienić obraz przed zapisem, ale kolejna mutacja jest
   zablokowana; błąd wymaga jawnej inspekcji. Recovery odtwarza stale output
   tylko, gdy brak pliku dokładnie odpowiada checksummowanemu delete receipt.
+
+## D-389 — Fill przełącza podgląd przed zapisem, z dwoma slotami cofania
+
+- **Status:** accepted (TASK-0555).
+- **Date:** 2026-09-15.
+- **Decision:** po fill'u workspace natychmiast ustawia lokalny target i
+  następny `sourceCursor`, a następnie wykonuje pojedynczą istniejącą transakcję
+  zapisu przez kolejkę. UI przechowuje najwyżej dwa identyfikatory cofania,
+  wyłącznie dla finalnie zapisanych aktywnych `filledGapEntries`.
+- **Rationale:** zapis JPEG-a, checksumy i manifestów nie musi opóźniać
+  nawigacji po buforowanych obrazach. Operator potrzebuje ograniczonego cofania
+  uzupełnień, ale nie nieograniczonego logu ani Blobów w pamięci.
+- **Compatibility:** schema repair v2, handoff fillów, output manifest i
+  transakcja intent → plik → checksum → finalizacja nie zmieniają się. Po
+  reloadzie workspace może wyprowadzić dwa sloty z dwóch najnowszych aktywnych
+  wpisów fill.
+- **Safety:** w trakcie opóźnionego fill'a kolejna mutacja i zmiana trybu są
+  zablokowane, a nawigacja pozostaje dostępna. Błąd blokuje dalsze mutacje do
+  jawnej inspekcji; `undo_fill` nadal usuwa tylko checksummowany własny plik.

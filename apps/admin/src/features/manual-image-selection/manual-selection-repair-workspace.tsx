@@ -28,6 +28,7 @@ import {
 } from './manual-selection-repair-storage.ts';
 
 const FILL_NAVIGATION_STEPS = [1, 2, 5, 10, 20, 50, 100] as const;
+const MAXIMUM_FILL_UNDOS = 2;
 
 type RepairWorkspacePhase =
   | 'idle'
@@ -47,6 +48,7 @@ export function ManualSelectionRepairWorkspace() {
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const busyRef = useRef(false);
   const backgroundDeletePendingRef = useRef(false);
+  const backgroundFillPendingRef = useRef(false);
   const localStateRef = useRef<ManualSelectionRepairLocalState | null>(null);
   const viewStartedAtRef = useRef(0);
   const recoveryGenerationRef = useRef(0);
@@ -65,6 +67,11 @@ export function ManualSelectionRepairWorkspace() {
   const [viewReady, setViewReady] = useState(false);
   const [backgroundDeletePending, setBackgroundDeletePending] = useState(false);
   const [backgroundDeleteBlocked, setBackgroundDeleteBlocked] = useState(false);
+  const [backgroundFillPending, setBackgroundFillPending] = useState(false);
+  const [backgroundFillBlocked, setBackgroundFillBlocked] = useState(false);
+  const [undoFillOperationIds, setUndoFillOperationIds] = useState<
+    readonly string[]
+  >([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleteQuery, setBulkDeleteQuery] = useState('');
   const [bulkDeleteFileNames, setBulkDeleteFileNames] = useState<
@@ -78,6 +85,10 @@ export function ManualSelectionRepairWorkspace() {
   const [workPhase, setWorkPhase] = useState<RepairWorkspacePhase>('idle');
   const sourceCursor = localState?.sourceCursor ?? 0;
   const mode = localState?.mode ?? null;
+  const backgroundMutationPending =
+    backgroundDeletePending || backgroundFillPending;
+  const backgroundMutationBlocked =
+    backgroundDeleteBlocked || backgroundFillBlocked;
   const gaps = useMemo(
     () =>
       snapshot === null
@@ -186,6 +197,7 @@ export function ManualSelectionRepairWorkspace() {
         ) {
           setSnapshot(restored);
           setSourceImages(sources);
+          setUndoFillOperationIds(recentFillOperationIds(restored));
           setLocalState({
             ...saved,
             mode:
@@ -303,6 +315,8 @@ export function ManualSelectionRepairWorkspace() {
       setSourceImages([]);
       setLocalState(reboundState);
       setBackgroundDeleteBlocked(false);
+      setBackgroundFillBlocked(false);
+      setUndoFillOperationIds([]);
       setNotice(
         `${inspected.files.length.toLocaleString('pl-PL')} plików · zakres ${inspected.repairManifest.collectionStart}–${inspected.repairManifest.collectionEnd}.`,
       );
@@ -314,7 +328,12 @@ export function ManualSelectionRepairWorkspace() {
   }
 
   async function startFill(): Promise<void> {
-    if (snapshot === null || localState === null || backgroundDeleteBlocked)
+    if (
+      snapshot === null ||
+      localState === null ||
+      backgroundMutationPending ||
+      backgroundMutationBlocked
+    )
       return;
     if (gaps.length === 0) {
       setNotice('Katalog nie zawiera luk do uzupełnienia.');
@@ -340,6 +359,7 @@ export function ManualSelectionRepairWorkspace() {
         sourceCursor: 0,
         sourceDirectory,
       });
+      setUndoFillOperationIds(recentFillOperationIds(snapshot));
       setNotice(null);
     } catch (cause) {
       if (!isPickerCancelled(cause)) setError(errorMessage(cause));
@@ -353,7 +373,8 @@ export function ManualSelectionRepairWorkspace() {
       snapshot === null ||
       localState === null ||
       interactiveWorkInProgress ||
-      backgroundDeleteBlocked
+      backgroundMutationPending ||
+      backgroundMutationBlocked
     )
       return;
     setSourceImages([]);
@@ -374,7 +395,8 @@ export function ManualSelectionRepairWorkspace() {
       snapshot === null ||
       busy ||
       interactiveWorkInProgress ||
-      backgroundDeleteBlocked
+      backgroundMutationPending ||
+      backgroundMutationBlocked
     )
       return;
     setBulkDeleteOpen(true);
@@ -398,7 +420,8 @@ export function ManualSelectionRepairWorkspace() {
       !bulkDeleteConfirmed ||
       bulkDeleteFiles.length === 0 ||
       bulkDeleteRunning ||
-      backgroundDeleteBlocked
+      backgroundMutationPending ||
+      backgroundMutationBlocked
     )
       return;
     setBulkDeleteRunning(true);
@@ -483,7 +506,9 @@ export function ManualSelectionRepairWorkspace() {
       localState === null ||
       busyRef.current ||
       interactiveWorkInProgress ||
-      backgroundDeletePending
+      backgroundMutationPending ||
+      backgroundDeletePendingRef.current ||
+      backgroundFillPendingRef.current
     )
       return;
     await updateLocalState({ ...localState, mode: null });
@@ -530,22 +555,44 @@ export function ManualSelectionRepairWorkspace() {
       currentGap === null ||
       currentSource === undefined ||
       !viewReady ||
-      backgroundDeleteBlocked
+      backgroundMutationPending ||
+      backgroundFillPendingRef.current ||
+      backgroundMutationBlocked
     )
       return;
-    await serialize(async () => {
-      const result = await writeRepairFile({
-        directory: snapshot.directory,
-        kind: 'fill',
-        manifest: snapshot.repairManifest,
-        outputManifest: snapshot.outputManifest,
-        source: currentSource.handle,
-        sourceIndex: sourceCursor,
-        sourcePath: currentSource.relativePath,
-        target: currentGap,
-      });
-      setSnapshot(
-        addSnapshotFile(
+    const optimisticSnapshot: RepairDirectorySnapshot = {
+      ...snapshot,
+      repairManifest: addFileToRepairManifest(
+        snapshot.repairManifest,
+        currentGap,
+      ),
+    };
+    const nextLocalState = {
+      ...localState,
+      sourceCursor: clamp(sourceCursor + 1, 0, sourceImages.length - 1),
+      updatedAt: new Date().toISOString(),
+    };
+    setError(null);
+    setSnapshot(optimisticSnapshot);
+    setLocalState(nextLocalState);
+    localStateRef.current = nextLocalState;
+    backgroundFillPendingRef.current = true;
+    setBackgroundFillPending(true);
+    setNotice('Uzupełnienie zapisuje się w tle.');
+    operationQueueRef.current = operationQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const result = await writeRepairFile({
+          directory: snapshot.directory,
+          kind: 'fill',
+          manifest: snapshot.repairManifest,
+          outputManifest: snapshot.outputManifest,
+          source: currentSource.handle,
+          sourceIndex: sourceCursor,
+          sourcePath: currentSource.relativePath,
+          target: currentGap,
+        });
+        const persisted = addSnapshotFile(
           snapshot,
           {
             end: currentGap.end,
@@ -555,26 +602,51 @@ export function ManualSelectionRepairWorkspace() {
           },
           result.manifest,
           result.outputManifest,
-        ),
-      );
-      await updateLocalState({
-        ...localState,
-        sourceCursor: clamp(sourceCursor + 1, 0, sourceImages.length - 1),
+        );
+        setSnapshot(persisted);
+        const fill = result.manifest.filledGapEntries.find(
+          (entry) =>
+            entry.fileName === `seq_${currentGap.start}-${currentGap.end}.jpg`,
+        );
+        if (fill !== undefined) {
+          setUndoFillOperationIds((current) =>
+            rememberFillOperation(current, fill.fillOperationId),
+          );
+        }
+        await store.save(localStateRef.current ?? nextLocalState);
+        setNotice(null);
+      })
+      .catch((cause: unknown) => {
+        setBackgroundFillBlocked(true);
+        setError(
+          `Nie udało się zapisać uzupełnienia. Otwórz ponownie ten katalog przed kolejną zmianą. ${errorMessage(cause)}`,
+        );
+      })
+      .finally(() => {
+        backgroundFillPendingRef.current = false;
+        setBackgroundFillPending(false);
       });
-    });
   }
 
   async function undoLastFill(): Promise<void> {
-    if (snapshot === null || localState === null || backgroundDeleteBlocked)
+    if (
+      snapshot === null ||
+      localState === null ||
+      backgroundMutationPending ||
+      backgroundMutationBlocked
+    )
       return;
-    const fill = [...snapshot.repairManifest.filledGapEntries]
-      .sort(
-        (left, right) =>
-          left.filledAt.localeCompare(right.filledAt) ||
-          left.fillOperationId.localeCompare(right.fillOperationId),
-      )
-      .at(-1);
-    if (fill === undefined) return;
+    const fillOperationId = undoFillOperationIds.at(-1);
+    if (fillOperationId === undefined) return;
+    const fill = snapshot.repairManifest.filledGapEntries.find(
+      (entry) => entry.fillOperationId === fillOperationId,
+    );
+    if (fill === undefined) {
+      setUndoFillOperationIds((current) =>
+        current.filter((operationId) => operationId !== fillOperationId),
+      );
+      return;
+    }
     await serialize(async () => {
       const result = await deleteRepairFile({
         directory: snapshot.directory,
@@ -592,6 +664,9 @@ export function ManualSelectionRepairWorkspace() {
         result.outputManifest,
       );
       setSnapshot(refreshed);
+      setUndoFillOperationIds((current) =>
+        current.filter((operationId) => operationId !== fill.fillOperationId),
+      );
       const nextGaps = findSequenceGaps(
         {
           end: refreshed.repairManifest.collectionEnd,
@@ -618,9 +693,10 @@ export function ManualSelectionRepairWorkspace() {
       snapshot === null ||
       localState === null ||
       currentSelected === undefined ||
-      backgroundDeletePending ||
+      backgroundMutationPending ||
       backgroundDeletePendingRef.current ||
-      backgroundDeleteBlocked
+      backgroundFillPendingRef.current ||
+      backgroundMutationBlocked
     )
       return;
     const outputItem = snapshot.outputManifest?.items.find(
@@ -699,7 +775,13 @@ export function ManualSelectionRepairWorkspace() {
   }
 
   async function serialize(operation: () => Promise<void>): Promise<void> {
-    if (busyRef.current || backgroundDeleteBlocked) return;
+    if (
+      busyRef.current ||
+      backgroundDeletePendingRef.current ||
+      backgroundFillPendingRef.current ||
+      backgroundMutationBlocked
+    )
+      return;
     busyRef.current = true;
     setBusy(true);
     setError(null);
@@ -787,7 +869,9 @@ export function ManualSelectionRepairWorkspace() {
         <div className="manualImageSelectionActions">
           <button
             className="secondaryButton"
-            disabled={busy || interactiveWorkInProgress}
+            disabled={
+              busy || interactiveWorkInProgress || backgroundMutationPending
+            }
             onClick={() => void returnToModeSelection()}
             type="button"
           >
@@ -817,11 +901,17 @@ export function ManualSelectionRepairWorkspace() {
           </button>
           <button
             className="secondaryButton"
-            disabled={busy || interactiveWorkInProgress}
+            disabled={
+              busy ||
+              interactiveWorkInProgress ||
+              backgroundMutationPending ||
+              backgroundMutationBlocked ||
+              undoFillOperationIds.length === 0
+            }
             onClick={() => void undoLastFill()}
             type="button"
           >
-            Cofnij uzupełnienie A / Ctrl+Z
+            Cofnij uzupełnienie ({undoFillOperationIds.length}/2) A / Ctrl+Z
           </button>
           <button
             className="primaryButton"
@@ -829,6 +919,8 @@ export function ManualSelectionRepairWorkspace() {
               busy ||
               interactiveWorkInProgress ||
               !viewReady ||
+              backgroundMutationPending ||
+              backgroundMutationBlocked ||
               currentGap === null ||
               currentSource === undefined
             }
@@ -838,6 +930,11 @@ export function ManualSelectionRepairWorkspace() {
             Uzupełnij lukę Enter/F
           </button>
         </div>
+        {backgroundFillPending ? (
+          <p className="manualImageSelectionStatus" role="status">
+            Trwa zapis uzupełnienia w katalogu.
+          </p>
+        ) : null}
         {error !== null ? (
           <p className="formError" role="alert">
             {error}
@@ -845,7 +942,7 @@ export function ManualSelectionRepairWorkspace() {
         ) : null}
         <p className="manualImageSelectionHelp">
           ←/→ zdjęcie · ↑/↓ zmienia skok · Enter/F uzupełnia · A/Ctrl+A/Ctrl+Z
-          cofa
+          cofa jedno z 2 ostatnich zapisanych uzupełnień
         </p>
       </section>
     );
@@ -976,7 +1073,8 @@ export function ManualSelectionRepairWorkspace() {
               busy ||
               directoryPickerActive ||
               interactiveWorkInProgress ||
-              backgroundDeleteBlocked ||
+              backgroundMutationPending ||
+              backgroundMutationBlocked ||
               snapshot === null
             }
             onClick={() => void startFill()}
@@ -989,7 +1087,8 @@ export function ManualSelectionRepairWorkspace() {
             disabled={
               busy ||
               interactiveWorkInProgress ||
-              backgroundDeleteBlocked ||
+              backgroundMutationPending ||
+              backgroundMutationBlocked ||
               snapshot === null
             }
             onClick={openBulkDelete}
@@ -1002,7 +1101,8 @@ export function ManualSelectionRepairWorkspace() {
             disabled={
               busy ||
               interactiveWorkInProgress ||
-              backgroundDeleteBlocked ||
+              backgroundMutationPending ||
+              backgroundMutationBlocked ||
               snapshot === null
             }
             onClick={() => void startDelete()}
@@ -1246,6 +1346,31 @@ function removeSnapshotFile(
   };
 }
 
+function addFileToRepairManifest(
+  manifest: RepairDirectorySnapshot['repairManifest'],
+  range: SequenceRange,
+): RepairDirectorySnapshot['repairManifest'] {
+  const fileName = `seq_${range.start}-${range.end}.jpg`;
+  return {
+    ...manifest,
+    activeFiles: [
+      ...manifest.activeFiles.filter((file) => file.fileName !== fileName),
+      { checksumSha256: null, end: range.end, fileName, start: range.start },
+    ].sort(
+      (left, right) =>
+        left.start - right.start ||
+        left.end - right.end ||
+        left.fileName.localeCompare(right.fileName),
+    ),
+    deletedRanges: manifest.deletedRanges.filter(
+      (deleted) => !sameRange(deleted, range),
+    ),
+    deletedSources: manifest.deletedSources.filter(
+      (deleted) => deleted.fileName !== fileName,
+    ),
+  };
+}
+
 function removeFileFromRepairManifest(
   manifest: RepairDirectorySnapshot['repairManifest'],
   file: SequenceRange & { readonly fileName: string },
@@ -1269,6 +1394,31 @@ function removeFileFromRepairManifest(
 
 function sameRange(left: SequenceRange, right: SequenceRange): boolean {
   return left.start === right.start && left.end === right.end;
+}
+
+function recentFillOperationIds(
+  snapshot: RepairDirectorySnapshot,
+): readonly string[] {
+  return [...snapshot.repairManifest.filledGapEntries]
+    .sort(
+      (left, right) =>
+        left.filledAt.localeCompare(right.filledAt) ||
+        left.fillOperationId.localeCompare(right.fillOperationId),
+    )
+    .slice(-MAXIMUM_FILL_UNDOS)
+    .map((fill) => fill.fillOperationId);
+}
+
+function rememberFillOperation(
+  current: readonly string[],
+  operationId: string,
+): readonly string[] {
+  return [
+    ...current.filter(
+      (currentOperationId) => currentOperationId !== operationId,
+    ),
+    operationId,
+  ].slice(-MAXIMUM_FILL_UNDOS);
 }
 
 function isEditable(target: EventTarget | null): boolean {

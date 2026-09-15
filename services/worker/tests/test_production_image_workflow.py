@@ -299,9 +299,23 @@ def test_systemic_geometry_guard_fails_before_file_registration(
     )
 
     if manual_policy:
+        context.job = replace(
+            context.job,
+            progress_current=80,
+            progress_total=112,
+            success_count=4,
+            failure_count=1,
+            review_count=19,
+        )
         with pytest.raises(RuntimeError, match="continued to registration"):
             workflow(context, context.job)
         assert registered
+        assert context.values[-1]["stage"] == "image_geometry_systemic_guard"
+        assert context.values[-1]["current"] == 80
+        assert context.values[-1]["total"] == 112
+        assert context.values[-1]["success_count"] == 4
+        assert context.values[-1]["failure_count"] == 1
+        assert context.values[-1]["review_count"] == 19
         return
 
     with pytest.raises(JobHandlerError) as captured:

@@ -6,6 +6,19 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0552 — monotoniczne wznowienie importu po kontroli geometrii
+
+- Przyczyną `JOB_PROGRESS_REGRESSION` w jobie
+  `b3aad697-5091-4603-b303-3ab001f78a2d` był ponowny checkpoint kontroli
+  geometrii. Po restarcie próbował zapisać granicę kopiowania `2373/4746`,
+  mimo że pipeline miał już większy, trwały postęp.
+- Checkpoint kontroli geometrii zachowuje teraz największy utrwalony progress,
+  total oraz aktualne liczniki wyników z kontekstu wykonania. Checkpointy plików,
+  staging i dane gry nie są resetowane.
+- Pełne 56 testów produkcyjnego workflowu przeszło. Kontrolowany restart
+  rzeczywistego workera przejął ten sam job jako próbę 4, zachował `3530/4746`
+  na etapie kontroli geometrii i kontynuował pipeline od `3533/4746` bez błędu.
+
 ### TASK-0551 — szybszy trwały zapis paczki cropów
 
 - Cztery automatycznie przygotowane wyniki są publikowane przez jedną intencję

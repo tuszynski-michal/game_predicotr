@@ -551,6 +551,7 @@ class ProductionImageImportWorkflow:
                     suite=resolved_guard_suite,
                 )
             if geometry_guard.required:
+                latest_job = context.job
                 context.checkpoint(
                     checkpoint_payload={
                         "checkpoint_kind": "image-geometry-systemic-guard-v1",
@@ -567,11 +568,14 @@ class ProductionImageImportWorkflow:
                         "schema_version": 1,
                     },
                     stage="image_geometry_systemic_guard",
-                    current=all_source_count,
-                    total=all_source_count + source_count,
-                    success_count=job.success_count,
-                    failure_count=job.failure_count,
-                    review_count=job.review_count,
+                    current=max(latest_job.progress_current, all_source_count),
+                    total=max(
+                        latest_job.progress_total or 0,
+                        all_source_count + source_count,
+                    ),
+                    success_count=latest_job.success_count,
+                    failure_count=latest_job.failure_count,
+                    review_count=latest_job.review_count,
                 )
                 if not geometry_guard.allows_import and geometry_guard_resolution is None:
                     ready_rate = geometry_guard.final_cell_grid_ready_rate or 0.0

@@ -6,6 +6,19 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0546 — katalogi cut w wyborze uzupełnionych luk
+
+- Przyczyną braku katalogów `* cut` było bezwarunkowe `!name.endsWith(' cut')`
+  wykonywane przed wyborem zakresu oraz brak odświeżenia listy po zmianie trybu.
+- Tryb pełny zachowuje dotychczasowy filtr. Tryb `filled_gaps` pokazuje tylko
+  bezpośrednie katalogi z handoffem, w tym `* cut`, i wyklucza pochodne
+  `* filled-gaps cut`. Selektor zakresu działa również przy pustej liście.
+- Odczyt `D:\777` potwierdził cztery katalogi `* cut` z aktywnym plikiem
+  handoffu: `117829 - 128268 cut`, `177562 -200583 cut`,
+  `222913 - 248184 cut` i `70363 - 93861 cut`. Nie zmieniono danych użytkownika.
+- Skoncentrowane testy przeszły 29/29, pełny Admin 478/478; typecheck, lint,
+  formatowanie i produkcyjny build są zielone.
+
 ### TASK-0545 — blokada równoległych writerów cropów
 
 - Kilka kart wznowiło katalogi jednocześnie. Dla `200575 - 222912 cut` jedna

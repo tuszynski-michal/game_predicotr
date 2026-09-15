@@ -291,6 +291,15 @@ Klient workera po pierwszej niezgodności protokołu tworzy nową instancję i
 ponawia dokładnie raz. Dopiero dwie kolejne niezgodności wyłączają worker dla
 bieżącego modułu i wybierają istniejący fallback głównego wątku.
 
+TASK-0546 przekazuje `sourceSelection` do
+`listSelectedImageCropSourceDirectories`. W trybie `all` kwalifikacja nadal
+odrzuca `* cut`. W trybie `filled_gaps` każdy bezpośredni uchwyt katalogu jest
+sprawdzany tylko pod kątem obecności `FILLED_GAPS_MANIFEST_NAME`; nazwy
+`* filled-gaps cut` są wykluczone. Pełną walidację manifestu, jego właściciela i
+checksum wykonuje dopiero istniejące `selectActiveFilledGapFiles` przy starcie.
+UI ponownie wylicza opcje po zmianie trybu i nie zachowuje nazwy, która przestała
+być dostępna.
+
 Przy udanej rejestracji v12 przecięcie cropa rejestracji i cropa strukturalnego
 jest dodatkowo ograniczone obwiednią `registeredBoardBand`: `topY` nie może być
 niżej niż najmniejszy `y`, a `bottomY` wyżej niż największy `y` czworokąta.

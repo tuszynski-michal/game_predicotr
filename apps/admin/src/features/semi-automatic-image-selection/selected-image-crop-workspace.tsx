@@ -429,7 +429,7 @@ export function SelectedImageCropWorkspace() {
     try {
       const parent = await pickSelectedImageCropParentDirectory();
       setBusy(true);
-      const names = await listSelectedImageCropSourceDirectories(parent);
+      const names = await listSelectedImageCropSourceDirectories(parent, 'all');
       setParentDirectory(parent);
       restoredRef.current = null;
       setDirectoryNames(names);
@@ -442,6 +442,38 @@ export function SelectedImageCropWorkspace() {
     } catch (cause) {
       if (!(cause instanceof DOMException && cause.name === 'AbortError'))
         setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeSourceSelection(
+    nextSelection: SelectedImageCropSourceSelection,
+  ) {
+    setSourceSelection(nextSelection);
+    if (parentDirectory === null) return;
+    setBusy(true);
+    setError('');
+    setNotice('Odświeżam listę katalogów…');
+    try {
+      const names = await listSelectedImageCropSourceDirectories(
+        parentDirectory,
+        nextSelection,
+      );
+      setDirectoryNames(names);
+      setSourceDirectoryName((current) =>
+        names.includes(current) ? current : (names[0] ?? ''),
+      );
+      setNotice(
+        names.length === 0
+          ? nextSelection === 'filled_gaps'
+            ? 'Brak katalogów z aktywnym manifestem uzupełnionych luk.'
+            : 'Brak katalogów źródłowych do pełnego przycięcia.'
+          : '',
+      );
+    } catch (cause) {
+      setError(errorMessage(cause));
+      setNotice('');
     } finally {
       setBusy(false);
     }
@@ -792,6 +824,25 @@ export function SelectedImageCropWorkspace() {
           {parentDirectory !== null ? (
             <span>{parentDirectory.name}</span>
           ) : null}
+          {parentDirectory !== null ? (
+            <label>
+              Zakres do przycięcia
+              <select
+                disabled={busy}
+                onChange={(event) =>
+                  void changeSourceSelection(
+                    event.target.value as SelectedImageCropSourceSelection,
+                  )
+                }
+                value={sourceSelection}
+              >
+                <option value="all">Wszystkie pliki seq_*</option>
+                <option value="filled_gaps">
+                  Tylko uzupełnione luki z manifestu
+                </option>
+              </select>
+            </label>
+          ) : null}
           {directoryNames.length > 0 ? (
             <label>
               Katalog z plikami seq_*
@@ -805,25 +856,6 @@ export function SelectedImageCropWorkspace() {
                     {name}
                   </option>
                 ))}
-              </select>
-            </label>
-          ) : null}
-          {parentDirectory !== null && sourceDirectoryName !== '' ? (
-            <label>
-              Zakres do przycięcia
-              <select
-                disabled={busy}
-                onChange={(event) =>
-                  setSourceSelection(
-                    event.target.value as SelectedImageCropSourceSelection,
-                  )
-                }
-                value={sourceSelection}
-              >
-                <option value="all">Wszystkie pliki seq_*</option>
-                <option value="filled_gaps">
-                  Tylko uzupełnione luki z manifestu
-                </option>
               </select>
             </label>
           ) : null}

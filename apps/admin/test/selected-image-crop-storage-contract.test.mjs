@@ -38,6 +38,20 @@ test('batch preparation isolates failures and uses bounded state files', () => {
   assert.match(source, /resultShardName/u);
 });
 
+test('filled-gap directory listing includes only direct manifest owners', () => {
+  assert.match(
+    source,
+    /listSelectedImageCropSourceDirectories\(\s*parent:[\s\S]*sourceSelection:/u,
+  );
+  assert.match(source, /FILLED_GAPS_MANIFEST_NAME/u);
+  assert.match(
+    source,
+    /directoryContainsFile\(handle, FILLED_GAPS_MANIFEST_NAME\)/u,
+  );
+  assert.match(source, /directory\.getFileHandle\(expectedName\)/u);
+  assert.match(source, /isSelectedImageCropSourceDirectoryVisible/u);
+});
+
 test('selected image crop save journals before writing and verifies the output', () => {
   const journal = source.indexOf('beginSelectedImageCropWrite(');
   const manifestWrite = source.indexOf(

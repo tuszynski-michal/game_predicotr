@@ -43,8 +43,15 @@ import {
 } from '@game-predictor/manual-image-selection-core/auto-crop';
 
 import { pickLocalDirectory } from '@/lib/local-directory-picker';
-import { readActiveFilledGapsManifest } from '@/features/manual-image-selection/manual-selection-repair-storage';
+import {
+  FILLED_GAPS_MANIFEST_NAME,
+  readActiveFilledGapsManifest,
+} from '@/features/manual-image-selection/manual-selection-repair-storage';
 
+import {
+  isSelectedImageCropSourceDirectoryVisible,
+  type SelectedImageCropSourceSelection,
+} from './selected-image-crop-directory-options.ts';
 import { prepareSelectedImageCropInWorker } from './selected-image-crop-worker-client';
 import { selectedImageCropOutputWriteAction } from './selected-image-crop-output-recovery.ts';
 import { withSelectedImageCropPreparationLease } from './selected-image-crop-preparation-lease.ts';
@@ -75,7 +82,7 @@ const REVIEW_NAME = 'review-v2.json';
 const RESULTS_DIRECTORY = 'results';
 export const SELECTED_IMAGE_CROP_ATLAS_DIRECTORY = 'atlases';
 type SelectedImageCropPermissionMode = 'read' | 'readwrite';
-export type SelectedImageCropSourceSelection = 'all' | 'filled_gaps';
+export type { SelectedImageCropSourceSelection } from './selected-image-crop-directory-options.ts';
 
 export interface SelectedImageCropSourceFile extends SelectedImageCropSourceEntry {
   readonly handle: FileSystemFileHandle;
@@ -211,11 +218,23 @@ export async function pickSelectedImageCropParentDirectory(): Promise<FileSystem
 
 export async function listSelectedImageCropSourceDirectories(
   parent: FileSystemDirectoryHandle,
+  sourceSelection: SelectedImageCropSourceSelection = 'all',
 ): Promise<readonly string[]> {
   await ensureDirectoryPermission(parent, 'readwrite');
   const names: string[] = [];
   for await (const [name, handle] of directoryEntries(parent)) {
-    if (handle.kind === 'directory' && !name.endsWith(' cut')) names.push(name);
+    if (handle.kind !== 'directory') continue;
+    const hasFilledGapsManifest =
+      sourceSelection === 'filled_gaps' &&
+      (await directoryContainsFile(handle, FILLED_GAPS_MANIFEST_NAME));
+    if (
+      isSelectedImageCropSourceDirectoryVisible({
+        directoryName: name,
+        sourceSelection,
+        hasFilledGapsManifest,
+      })
+    )
+      names.push(name);
   }
   return names.sort(naturalCompare);
 }
@@ -1628,6 +1647,19 @@ async function directoryContainsEntry(
     if (name === expectedName) return true;
   }
   return false;
+}
+
+async function directoryContainsFile(
+  directory: FileSystemDirectoryHandle,
+  expectedName: string,
+): Promise<boolean> {
+  try {
+    await directory.getFileHandle(expectedName);
+    return true;
+  } catch (cause) {
+    if (isNotFound(cause)) return false;
+    throw cause;
+  }
 }
 
 function canvasToBlob(

@@ -108,5 +108,11 @@ test('a competing crop tab gets a stable actionable message', () => {
 test('operator can crop only the active gap fills from the repair manifest', () => {
   assert.match(workspace, /Tylko uzupełnione luki z manifestu/u);
   assert.match(workspace, /sourceSelection/u);
+  assert.match(workspace, /changeSourceSelection/u);
+  assert.match(
+    workspace,
+    /listSelectedImageCropSourceDirectories\(\s*parentDirectory,\s*nextSelection/u,
+  );
+  assert.match(workspace, /parentDirectory !== null \? \(\s*<label>/u);
   assert.match(workspace, /SELECTED_IMAGE_CROP_FILLED_GAPS_EMPTY/u);
 });

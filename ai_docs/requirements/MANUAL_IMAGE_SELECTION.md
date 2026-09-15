@@ -644,6 +644,15 @@ zapisu, nie blokuje całej sesji. Jest przejmowany bez ponownego zapisu wyłącz
 po odtworzeniu propozycji i dokładnej zgodności SHA-256. Inna zawartość
 pozostaje `SELECTED_IMAGE_CROP_OUTPUT_CHANGED` i nie jest modyfikowana.
 
+TASK-0546: lista źródeł zależy od wybranego zakresu. `Wszystkie pliki seq_*`
+zachowuje dotychczasową listę katalogów bez końcówki ` cut`. `Tylko uzupełnione
+luki z manifestu` pokazuje bezpośrednie katalogi posiadające
+`manual-image-selection-filled-gaps-v1.json`, również gdy ich nazwa kończy się
+` cut`. Pochodny katalog `* filled-gaps cut` nie może zostać ponownie wybrany
+jako źródło. Zmiana zakresu odświeża listę bez ponownego otwierania systemowego
+selektora, a sam wybór zakresu pozostaje dostępny także przy pustej liście
+trybu pełnego.
+
 Jeżeli v12 ma jednocześnie udaną rejestrację i dowód strukturalny, wynikowe
 zwężenie musi obejmować wszystkie cztery punkty `registeredBoardBand`.
 Ciaśniejsza granica strukturalna nie może obciąć nawet części rozpoznanej

@@ -1247,6 +1247,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
 function errorMessage(cause: unknown): string {
   if (!(cause instanceof Error))
     return 'Nie udało się przygotować przyciętych zdjęć.';
+  if (cause.message === 'SELECTED_IMAGE_CROP_PREPARATION_ALREADY_RUNNING')
+    return 'Ten katalog jest już przycinany w innej karcie lub innym oknie. Pozostaw jedno aktywne okno i odśwież pozostałe.';
   if (cause.message === 'SELECTED_IMAGE_CROP_FILLED_GAPS_MANIFEST_MISSING')
     return 'Ten katalog nie ma manifestu korekty z uzupełnionymi lukami.';
   if (cause.message === 'SELECTED_IMAGE_CROP_FILLED_GAPS_EMPTY')

@@ -56,6 +56,21 @@ export async function prepareSelectedImageCropInWorker(
     readonly descriptor: FourPointCropAnchor;
   } | null,
 ): Promise<WorkerResult | null> {
+  return prepareSelectedImageCropInWorkerAttempt(source, policy, anchor, true);
+}
+
+async function prepareSelectedImageCropInWorkerAttempt(
+  source: File,
+  policy: string,
+  anchor:
+    | {
+        readonly source: File;
+        readonly descriptor: FourPointCropAnchor;
+      }
+    | null
+    | undefined,
+  canRetryStaleWorker: boolean,
+): Promise<WorkerResult | null> {
   if (
     workerFallbackRequired ||
     typeof Worker === 'undefined' ||
@@ -74,6 +89,21 @@ export async function prepareSelectedImageCropInWorker(
   const id = nextRequestId++;
   requestCount += 1;
   return new Promise((resolve, reject) => {
+    const recoverFromStaleWorker = () => {
+      worker.terminate();
+      if (activeWorker === worker) activeWorker = null;
+      if (canRetryStaleWorker) {
+        void prepareSelectedImageCropInWorkerAttempt(
+          source,
+          policy,
+          anchor,
+          false,
+        ).then(resolve, reject);
+        return;
+      }
+      workerFallbackRequired = true;
+      resolve(null);
+    };
     const timeout = setTimeout(() => {
       cleanup();
       worker.terminate();
@@ -106,10 +136,7 @@ export async function prepareSelectedImageCropInWorker(
         event.data.workerProtocolVersion !==
         SELECTED_IMAGE_CROP_WORKER_PROTOCOL_VERSION
       ) {
-        worker.terminate();
-        if (activeWorker === worker) activeWorker = null;
-        workerFallbackRequired = true;
-        resolve(null);
+        recoverFromStaleWorker();
         return;
       }
       if (event.data.error !== undefined) {
@@ -130,10 +157,7 @@ export async function prepareSelectedImageCropInWorker(
           policy,
         )
       ) {
-        worker.terminate();
-        if (activeWorker === worker) activeWorker = null;
-        workerFallbackRequired = true;
-        resolve(null);
+        recoverFromStaleWorker();
         return;
       }
       resolve({

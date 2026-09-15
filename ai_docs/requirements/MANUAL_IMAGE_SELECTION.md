@@ -635,6 +635,24 @@ workera i przygotowuje bieżący oraz kolejne pliki aktualnym kodem głównego
 wątku. Istniejące failures pozostają objęte zwykłym wznowieniem i akcją
 `Ponów błędne`; naprawa nie wymaga resetowania sesji ani usuwania JPEG-ów.
 
+TASK-0545: jeden katalog `cut` może mieć najwyżej jeden aktywny proces
+przygotowania albo przeliczenia. Druga karta kończy próbę czytelnym komunikatem
+i nie może nadpisywać session journalu; blokada jest osobna dla każdego
+katalogu, więc dwa różne katalogi nadal mogą pracować równocześnie. JPEG o
+nazwie brakującego wpisu manifestu, pozostawiony po utracie potwierdzenia
+zapisu, nie blokuje całej sesji. Jest przejmowany bez ponownego zapisu wyłącznie
+po odtworzeniu propozycji i dokładnej zgodności SHA-256. Inna zawartość
+pozostaje `SELECTED_IMAGE_CROP_OUTPUT_CHANGED` i nie jest modyfikowana.
+
+Jeżeli v12 ma jednocześnie udaną rejestrację i dowód strukturalny, wynikowe
+zwężenie musi obejmować wszystkie cztery punkty `registeredBoardBand`.
+Ciaśniejsza granica strukturalna nie może obciąć nawet części rozpoznanej
+planszy; takie obcięcie nie jest błędem pojedynczego zdjęcia i nie może tworzyć
+seryjnych `SELECTED_IMAGE_CROP_PROPOSAL_INVALID`.
+Poprawiony konsensus ma nowy fingerprint; wcześniejszy fingerprint v12 jest
+akceptowany tylko przy odczycie zapisanych wyników, aby rozpoczęte sesje mogły
+bez utraty cropów kontynuować aktualnym workerem.
+
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
 przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do

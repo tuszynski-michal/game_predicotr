@@ -13,6 +13,7 @@ import {
   SELECTED_IMAGE_AUTO_CROP_POLICY,
   type SelectedImageAutoCropProposal,
 } from '@game-predictor/manual-image-selection-core/auto-crop';
+import type { SelectedImageCropBand } from '@game-predictor/manual-image-selection-core/crop';
 import {
   CROP_V12_FINGERPRINT,
   CROP_V12_POLICY,
@@ -40,6 +41,30 @@ export function assertCropPreparationPolicy(policy: string): void {
 export interface FourPointCropPreparationAnchor {
   readonly descriptor: FourPointCropAnchor;
   readonly image: StructuralSample;
+}
+
+export function intersectRegisteredAndStructuralCrop(input: {
+  readonly registeredCrop: SelectedImageCropBand;
+  readonly structuralCrop: SelectedImageCropBand;
+  readonly registeredBoardBand: FourPointCropAnchor['boardBand'];
+}): SelectedImageCropBand {
+  const boardTop = Math.floor(
+    Math.min(...input.registeredBoardBand.map((point) => point.y)),
+  );
+  const boardBottom = Math.ceil(
+    Math.max(...input.registeredBoardBand.map((point) => point.y)),
+  );
+  return {
+    ...input.registeredCrop,
+    topY: Math.min(
+      Math.max(input.registeredCrop.topY, input.structuralCrop.topY),
+      boardTop,
+    ),
+    bottomY: Math.max(
+      Math.min(input.registeredCrop.bottomY, input.structuralCrop.bottomY),
+      boardBottom,
+    ),
+  };
 }
 
 export async function prepareFourPointRegisteredCrop(
@@ -109,11 +134,11 @@ export async function prepareFourPointRegisteredCrop(
   }
   const consensusCrop =
     currentEvidence?.status === 'detected'
-      ? {
-          ...crop,
-          topY: Math.max(crop.topY, structural.crop.topY),
-          bottomY: Math.min(crop.bottomY, structural.crop.bottomY),
-        }
+      ? intersectRegisteredAndStructuralCrop({
+          registeredCrop: crop,
+          structuralCrop: structural.crop,
+          registeredBoardBand: registration.registeredBoardBand!,
+        })
       : crop;
   return {
     ...structural,

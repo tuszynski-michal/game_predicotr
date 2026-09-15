@@ -275,6 +275,32 @@ storage interpretuje `null` jako kontrolowane przejście do
 `proposeSelectedImageCrop` z bieżącego głównego wątku, więc nie zapisuje
 `SELECTED_IMAGE_CROP_PROPOSAL_INVALID` jako failure konkretnego JPEG-a.
 
+TASK-0545 utrzymuje na pliku
+`.manual-image-crop-state/browser-preparation.lock` otwarty writable w trybie
+`exclusive` przez pełny batch przygotowania albo przeliczenia. `finally`
+zwalnia go przez `abort`, a blokada natywnego uchwytu znika również po awarii
+procesu. Odczyt/recovery katalogu oraz pojedynczy ręczny zapis używają tej samej
+granicy. Konflikt `InvalidStateError` lub `NoModificationAllowedError` jest
+normalizowany do `SELECTED_IMAGE_CROP_PREPARATION_ALREADY_RUNNING`.
+
+Audyt top-level nadal odrzuca nazwę spoza manifestu. Plik o nazwie istniejącego
+wpisu z `result=null` przechodzi do deterministycznego renderu; dopiero zgodność
+jego SHA-256 z proponowanym blobem pozwala utworzyć pending i sfinalizować shard
+bez ponownego wywołania `writeBlob`. Rozbieżne bajty pozostają nietknięte.
+Klient workera po pierwszej niezgodności protokołu tworzy nową instancję i
+ponawia dokładnie raz. Dopiero dwie kolejne niezgodności wyłączają worker dla
+bieżącego modułu i wybierają istniejący fallback głównego wątku.
+
+Przy udanej rejestracji v12 przecięcie cropa rejestracji i cropa strukturalnego
+jest dodatkowo ograniczone obwiednią `registeredBoardBand`: `topY` nie może być
+niżej niż najmniejszy `y`, a `bottomY` wyżej niż największy `y` czworokąta.
+Zachowuje to ciasny wynik konsensusu bez naruszenia inwariantu walidatora, że
+cała rozpoznana plansza mieści się w zapisywanym cropie.
+Wersja `registered-band-bounded-intersection-v2` jest częścią bieżącego
+`CROP_V12_FINGERPRINT`. Walidator trwałego manifestu przyjmuje także poprzedni
+fingerprint v12, natomiast granica klient–worker wymaga wyłącznie bieżącego.
+Stary worker zostaje więc odtworzony bez unieważniania istniejących shardów.
+
 Iteracja v0.10.185 dodaje ograniczony poziomy wariant dylatacji (aspekt 2)
 obok izotropowego. Numery są analizowane w lokalnym układzie nachylenia rzędu,
 wyznaczonym z potwierdzonych obszarów plansz. Obszar wyszukiwania i wynik muszą

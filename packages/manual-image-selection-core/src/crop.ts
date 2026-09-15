@@ -8,6 +8,7 @@ import { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-cor
 import {
   CROP_V12_FINGERPRINT,
   CROP_V12_POLICY,
+  isCompatibleCropV12Fingerprint,
   validateFourPointRegistrationEvidence,
 } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 
@@ -410,7 +411,7 @@ function validateSelectedImageAutoCropProposal(
     if (
       !proposal.structural ||
       proposal.confidence !== null ||
-      proposal.preparationFingerprint !== CROP_V12_FINGERPRINT ||
+      !isCompatibleCropV12Fingerprint(proposal.preparationFingerprint ?? '') ||
       !Array.isArray(proposal.analysisLevels) ||
       !proposal.analysisLevels.every(Number.isInteger) ||
       !['960', '960,1600'].includes(proposal.analysisLevels.join(','))

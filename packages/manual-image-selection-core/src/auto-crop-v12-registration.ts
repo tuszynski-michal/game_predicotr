@@ -8,7 +8,7 @@ import type { StructuralCropEvidence } from '@game-predictor/manual-image-select
 export const CROP_V12_POLICY =
   'selected-image-board-band-v12-four-point-anchor-registration' as const;
 
-export const CROP_V12_CONFIG = Object.freeze({
+const CROP_V12_REGISTRATION_CONFIG = {
   analysisLongEdge: 640,
   descriptorBits: 128,
   descriptorRadius: 11,
@@ -38,9 +38,22 @@ export const CROP_V12_CONFIG = Object.freeze({
   minimumCropHeightRatio: 0.22,
   maximumCropHeightRatio: 0.78,
   algorithmVersion: 'oriented-brief-affine-ransac-v1',
+} as const;
+
+export const CROP_V12_LEGACY_FINGERPRINT = `${CROP_V12_POLICY}|structural:${CROP_V11_FINGERPRINT}|${JSON.stringify(CROP_V12_REGISTRATION_CONFIG)}`;
+
+export const CROP_V12_CONFIG = Object.freeze({
+  ...CROP_V12_REGISTRATION_CONFIG,
+  cropConsensusVersion: 'registered-band-bounded-intersection-v2',
 });
 
 export const CROP_V12_FINGERPRINT = `${CROP_V12_POLICY}|structural:${CROP_V11_FINGERPRINT}|${JSON.stringify(CROP_V12_CONFIG)}`;
+
+export function isCompatibleCropV12Fingerprint(value: string): boolean {
+  return (
+    value === CROP_V12_FINGERPRINT || value === CROP_V12_LEGACY_FINGERPRINT
+  );
+}
 
 export interface CropPoint {
   readonly x: number;

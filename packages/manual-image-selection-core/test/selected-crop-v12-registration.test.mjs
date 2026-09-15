@@ -3,8 +3,10 @@ import test from 'node:test';
 
 import {
   CROP_V12_FINGERPRINT,
+  CROP_V12_LEGACY_FINGERPRINT,
   CROP_V12_POLICY,
   cropFromRegisteredBoardBand,
+  isCompatibleCropV12Fingerprint,
   registerFourPointBoardBand,
   validateFourPointRegistrationEvidence,
 } from '../src/auto-crop-v12-registration.ts';
@@ -107,6 +109,17 @@ test('versions the deterministic registration contract separately from v11', () 
     /selected-image-board-band-v11-full-layout-structural/,
   );
   assert.match(CROP_V12_FINGERPRINT, /boardOnlyBottomPaddingRatio/);
+  assert.match(CROP_V12_FINGERPRINT, /registered-band-bounded-intersection-v2/);
+  assert.doesNotMatch(
+    CROP_V12_LEGACY_FINGERPRINT,
+    /registered-band-bounded-intersection-v2/,
+  );
+  assert.equal(isCompatibleCropV12Fingerprint(CROP_V12_FINGERPRINT), true);
+  assert.equal(
+    isCompatibleCropV12Fingerprint(CROP_V12_LEGACY_FINGERPRINT),
+    true,
+  );
+  assert.equal(isCompatibleCropV12Fingerprint('stale-v12'), false);
 });
 
 test('rejects non-finite persisted registration metrics', () => {

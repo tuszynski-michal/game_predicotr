@@ -6,6 +6,30 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0545 — blokada równoległych writerów cropów
+
+- Kilka kart wznowiło katalogi jednocześnie. Dla `200575 - 222912 cut` jedna
+  karta zapisała `seq_215353-215361.jpg`, a druga utraciła świeży pending i
+  zgłosiła plik jako obcy. Podczas diagnozy JPEG istniał pod nazwą należącą do
+  inwentarza i odczytano jego SHA-256 bez modyfikacji. Późniejsza kontrola
+  wykazała świeżą sesję v12 `25/2482`, bez błędów i bez tego outputu; Codex nie
+  usuwał ani nie zmieniał plików w katalogu użytkownika.
+- Przygotowanie, przeliczenie, odczyt z recovery i ręczny zapis utrzymują teraz
+  natywną blokadę `exclusive` per katalog. Druga karta kończy loading stabilnym
+  komunikatem, natomiast różne katalogi nadal mogą pracować równocześnie.
+- Osierocony plik z inwentarza jest finalizowany bez ponownego zapisu tylko po
+  dokładnym porównaniu SHA-256 z aktualnym renderem. Inne bajty pozostają
+  fail-closed. Odpowiedź starego workera dostaje jedno ponowienie na świeżej
+  instancji przed wolniejszym fallbackiem głównego wątku.
+- Pomiar po wdrożeniu ujawnił, że `303319 -326700 cut` po 20 wynikach odrzucał
+  kolejne propozycje: przecięcie cropa rejestracji z cropem strukturalnym mogło
+  obciąć dolne 5 px zarejestrowanego czworokąta. Przecięcie nadal zwęża wynik,
+  ale zachowuje teraz cały zarejestrowany obszar plansz. Nowy fingerprint
+  odrzuca stare workery, a poprzedni pozostaje czytelny w istniejących shardach.
+- Pełne 97 testów core i 475 testów Admina, oba typechecki, lint oraz produkcyjny
+  build Admina są zielone. Otwarta karta z kodem sprzed zmiany wymaga
+  jednorazowego `Ctrl+R`.
+
 ### TASK-0544 — odzyskanie po nieaktualnym workerze cropów
 
 - Przyczyną seryjnych `SELECTED_IMAGE_CROP_PROPOSAL_INVALID` w zwykłych kartach

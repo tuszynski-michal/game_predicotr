@@ -7,6 +7,7 @@ import {
   assertCropPreparationPolicy,
   CROP_V11_RELEASE_ENABLED,
   CROP_V12_RELEASE_ENABLED,
+  intersectRegisteredAndStructuralCrop,
   projectDetectedLayout,
 } from '../src/crop-preparation.ts';
 import { CROP_V12_POLICY } from '../src/auto-crop-v12-registration.ts';
@@ -70,4 +71,34 @@ test('unknown policy fails closed and v12 is the active released policy', () => 
   assert.equal(CROP_V11_RELEASE_ENABLED, false);
   assert.equal(CROP_V12_RELEASE_ENABLED, true);
   assert.equal(ACTIVE_SELECTED_IMAGE_CROP_POLICY, CROP_V12_POLICY);
+});
+
+test('v12 crop intersection keeps the registered board band inside the result', () => {
+  const crop = intersectRegisteredAndStructuralCrop({
+    registeredCrop: {
+      width: 1080,
+      height: 1920,
+      topY: 560,
+      bottomY: 1170,
+    },
+    structuralCrop: {
+      width: 1080,
+      height: 1920,
+      topY: 595,
+      bottomY: 1097,
+    },
+    registeredBoardBand: [
+      { x: 211, y: 630 },
+      { x: 784, y: 690 },
+      { x: 156, y: 1028 },
+      { x: 784, y: 1102 },
+    ],
+  });
+
+  assert.deepEqual(crop, {
+    width: 1080,
+    height: 1920,
+    topY: 595,
+    bottomY: 1102,
+  });
 });

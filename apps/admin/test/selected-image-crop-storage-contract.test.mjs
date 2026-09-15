@@ -74,7 +74,7 @@ test('preparation prefers an off-main-thread worker with a safe fallback', () =>
   );
 });
 
-test('worker compatibility fallback reaches the current main-thread detector', async () => {
+test('worker compatibility gets one fresh retry before the current main-thread fallback', async () => {
   const workerClient = await readFile(
     new URL(
       '../src/features/semi-automatic-image-selection/selected-image-crop-worker-client.ts',
@@ -92,8 +92,16 @@ test('worker compatibility fallback reaches the current main-thread detector', a
 
   assert.match(worker, /workerProtocolVersion/u);
   assert.match(workerClient, /selectedImageCropWorkerResultMatchesRequest/u);
+  assert.match(workerClient, /canRetryStaleWorker/u);
+  assert.match(workerClient, /recoverFromStaleWorker/u);
   assert.match(workerClient, /workerFallbackRequired = true/u);
   assert.match(workerClient, /resolve\(null\)/u);
+});
+
+test('batch preparation holds one per-directory lease and releases it in finally', () => {
+  assert.match(source, /withSelectedImageCropPreparationLease/u);
+  assert.match(source, /prepareAllSelectedImageCropsUnlocked/u);
+  assert.match(source, /saveSelectedImageCropUnlocked/u);
 });
 
 test('four-point registration reuses a bounded neighbouring anchor and retries only unresolved crops', () => {
@@ -180,6 +188,16 @@ test('output ownership rejects foreign files and source mutation', () => {
   assert.match(source, /SELECTED_IMAGE_CROP_OUTPUT_FOREIGN/u);
   assert.match(source, /SELECTED_IMAGE_CROP_SOURCE_CHANGED/u);
   assert.match(source, /SELECTED_IMAGE_CROP_OUTPUT_CHANGED/u);
+});
+
+test('a manifest-named orphan is adopted only after exact rendered checksum proof', () => {
+  assert.match(source, /selectedImageCropOutputWriteAction/u);
+  assert.match(source, /outputAction === 'reject_changed_output'/u);
+  assert.match(source, /if \(outputAction === 'write'\)[\s\S]*writeBlob/u);
+  assert.match(
+    source,
+    /\.\.\.manifest\.entries\.map\(\(entry\) =>[\s\S]*entry\.fileName/u,
+  );
 });
 
 test('filled-gap mode is checksum-bound and uses a separate output directory', () => {

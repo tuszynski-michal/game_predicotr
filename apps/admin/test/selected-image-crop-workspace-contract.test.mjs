@@ -100,6 +100,11 @@ test('reload and preview access require explicit operator actions', () => {
   );
 });
 
+test('a competing crop tab gets a stable actionable message', () => {
+  assert.match(workspace, /SELECTED_IMAGE_CROP_PREPARATION_ALREADY_RUNNING/u);
+  assert.match(workspace, /Pozostaw jedno aktywne okno i odśwież pozostałe/u);
+});
+
 test('operator can crop only the active gap fills from the repair manifest', () => {
   assert.match(workspace, /Tylko uzupełnione luki z manifestu/u);
   assert.match(workspace, /sourceSelection/u);

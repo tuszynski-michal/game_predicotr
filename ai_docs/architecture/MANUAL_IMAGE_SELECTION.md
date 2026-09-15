@@ -264,6 +264,17 @@ dane wywołanie utworzyło pusty manifest. Adapter najpierw trwale zapisuje
 wersję, a dopiero potem przygotowuje pierwszy JPEG. Dowolny ślad pracy zachowuje
 historyczną blokadę i wymaga jawnego przeliczenia.
 
+TASK-0544 dodaje wersjonowany kontrakt pomiędzy modułem strony i browserowym
+workerem. Każda odpowiedź, również błąd wykonania, niesie
+`workerProtocolVersion`; poprawny wynik musi dodatkowo odpowiadać żądanej
+`policyVersion` oraz fingerprintowi v11 albo v12 z aktualnego modułu. Klient
+sprawdza tę tożsamość przed rekonstrukcją propozycji i przed zapisem do
+journalu. Brak wersji albo rozbieżność kończy instancję workera, ustawia
+procesowy bezpiecznik dla bieżącej karty i zwraca `null`. Istniejący adapter
+storage interpretuje `null` jako kontrolowane przejście do
+`proposeSelectedImageCrop` z bieżącego głównego wątku, więc nie zapisuje
+`SELECTED_IMAGE_CROP_PROPOSAL_INVALID` jako failure konkretnego JPEG-a.
+
 Iteracja v0.10.185 dodaje ograniczony poziomy wariant dylatacji (aspekt 2)
 obok izotropowego. Numery są analizowane w lokalnym układzie nachylenia rzędu,
 wyznaczonym z potwierdzonych obszarów plansz. Obszar wyszukiwania i wynik muszą

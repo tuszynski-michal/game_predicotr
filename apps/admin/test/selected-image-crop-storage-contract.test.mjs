@@ -74,6 +74,28 @@ test('preparation prefers an off-main-thread worker with a safe fallback', () =>
   );
 });
 
+test('worker compatibility fallback reaches the current main-thread detector', async () => {
+  const workerClient = await readFile(
+    new URL(
+      '../src/features/semi-automatic-image-selection/selected-image-crop-worker-client.ts',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const worker = await readFile(
+    new URL(
+      '../src/features/semi-automatic-image-selection/selected-image-crop-worker.ts',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+
+  assert.match(worker, /workerProtocolVersion/u);
+  assert.match(workerClient, /selectedImageCropWorkerResultMatchesRequest/u);
+  assert.match(workerClient, /workerFallbackRequired = true/u);
+  assert.match(workerClient, /resolve\(null\)/u);
+});
+
 test('four-point registration reuses a bounded neighbouring anchor and retries only unresolved crops', () => {
   assert.match(source, /CROP_V12_POLICY/u);
   assert.match(source, /findNearestPreparedCropAnchor/u);

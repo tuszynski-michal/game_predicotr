@@ -16,6 +16,8 @@ import {
   type FourPointCropAnchor,
 } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 
+import { SELECTED_IMAGE_CROP_WORKER_PROTOCOL_VERSION } from './selected-image-crop-worker-contract.ts';
+
 interface PrepareRequest {
   readonly id: number;
   readonly source: File;
@@ -35,10 +37,17 @@ const scope = globalThis as unknown as WorkerScope;
 
 scope.onmessage = (event) => {
   void prepare(event.data)
-    .then((result) => scope.postMessage({ id: event.data.id, result }))
+    .then((result) =>
+      scope.postMessage({
+        id: event.data.id,
+        workerProtocolVersion: SELECTED_IMAGE_CROP_WORKER_PROTOCOL_VERSION,
+        result,
+      }),
+    )
     .catch((cause: unknown) =>
       scope.postMessage({
         id: event.data.id,
+        workerProtocolVersion: SELECTED_IMAGE_CROP_WORKER_PROTOCOL_VERSION,
         error: cause instanceof Error ? cause.message : 'UNKNOWN_ERROR',
       }),
     );

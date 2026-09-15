@@ -1,0 +1,1 @@
+export const SELECTED_IMAGE_CROP_WORKER_PROTOCOL_VERSION = 1 as const;

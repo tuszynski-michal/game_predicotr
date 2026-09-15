@@ -1,10 +1,25 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-14
+last_updated: 2026-09-15
 ---
 
 # Current State
+
+### TASK-0544 — odzyskanie po nieaktualnym workerze cropów
+
+- Przyczyną seryjnych `SELECTED_IMAGE_CROP_PROPOSAL_INVALID` w zwykłych kartach
+  był pozostający w pamięci worker z wcześniejszego builda v12. Zwracał stary
+  fingerprint do strony już załadowanej z nowym walidatorem; świeży profil
+  incognito nie miał tej rozbieżności.
+- Odpowiedź workera ma teraz jawną wersję protokołu. Klient przed użyciem
+  sprawdza także żądaną politykę i dokładny fingerprint v11/v12. Niezgodny
+  worker jest kończony, a bieżąca karta przechodzi na aktualny algorytm w
+  głównym wątku bez dopisywania błędu zdjęcia.
+- Pierwsze błędne źródło z sesji `387693 - 379711 cut` i `348256 - 371007 cut`
+  przechodzi walidację aktualnego v12. Zapisane wcześniej failures można
+  ponowić bez usuwania katalogu lub resetowania sesji; źródła i gotowe cropy
+  nie zostały zmienione.
 
 ### TASK-0543 — etap gotowego stagingu importu plansz
 

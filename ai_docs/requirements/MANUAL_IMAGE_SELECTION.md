@@ -627,6 +627,14 @@ nadpisuje JPEG-ów. Inicjalizacja nie może opierać decyzji o wersji na samej
 obecności manifestu, ponieważ może on już istnieć, gdy równoległe otwarcie nadal
 czeka na utworzenie inwentarza i shardów.
 
+TASK-0544: odpowiedź browserowego workera jest związana z bieżącą wersją
+protokołu, żądaną polityką i dokładnym fingerprintem detektora. Odpowiedź bez
+tej tożsamości albo z nieaktualnego builda jest odrzucana przed walidacją i
+zapisem wyniku. Taka niezgodność nie jest błędem zdjęcia: karta kończy starego
+workera i przygotowuje bieżący oraz kolejne pliki aktualnym kodem głównego
+wątku. Istniejące failures pozostają objęte zwykłym wznowieniem i akcją
+`Ponów błędne`; naprawa nie wymaga resetowania sesji ani usuwania JPEG-ów.
+
 Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
 manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
 przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do

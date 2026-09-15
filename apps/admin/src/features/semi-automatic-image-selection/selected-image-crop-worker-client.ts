@@ -2,18 +2,51 @@
 
 import type { SelectedImageAutoCropProposal } from '@game-predictor/manual-image-selection-core/auto-crop';
 import { ACTIVE_SELECTED_IMAGE_CROP_POLICY } from '@game-predictor/manual-image-selection-core/crop-preparation';
-import type { FourPointCropAnchor } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
+import {
+  CROP_V11_FINGERPRINT,
+  CROP_V11_POLICY,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v11';
+import {
+  CROP_V12_FINGERPRINT,
+  CROP_V12_POLICY,
+  type FourPointCropAnchor,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
 
 import type { SelectedImageCropRenderedFile } from './selected-image-crop-storage';
+import { SELECTED_IMAGE_CROP_WORKER_PROTOCOL_VERSION } from './selected-image-crop-worker-contract.ts';
 
 interface WorkerResult {
   readonly proposal: SelectedImageAutoCropProposal;
   readonly rendered: SelectedImageCropRenderedFile;
 }
 
+interface WorkerResultIdentity {
+  readonly workerProtocolVersion?: number;
+  readonly policyVersion: SelectedImageAutoCropProposal['policyVersion'];
+  readonly preparationFingerprint?: string;
+}
+
 let activeWorker: Worker | null = null;
 let requestCount = 0;
 let nextRequestId = 1;
+let workerFallbackRequired = false;
+
+export function selectedImageCropWorkerResultMatchesRequest(
+  result: WorkerResultIdentity,
+  requestedPolicy: string,
+): boolean {
+  if (
+    result.workerProtocolVersion !==
+      SELECTED_IMAGE_CROP_WORKER_PROTOCOL_VERSION ||
+    result.policyVersion !== requestedPolicy
+  )
+    return false;
+  if (requestedPolicy === CROP_V12_POLICY)
+    return result.preparationFingerprint === CROP_V12_FINGERPRINT;
+  if (requestedPolicy === CROP_V11_POLICY)
+    return result.preparationFingerprint === CROP_V11_FINGERPRINT;
+  return true;
+}
 
 export async function prepareSelectedImageCropInWorker(
   source: File,
@@ -23,7 +56,11 @@ export async function prepareSelectedImageCropInWorker(
     readonly descriptor: FourPointCropAnchor;
   } | null,
 ): Promise<WorkerResult | null> {
-  if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined')
+  if (
+    workerFallbackRequired ||
+    typeof Worker === 'undefined' ||
+    typeof OffscreenCanvas === 'undefined'
+  )
     return null;
   if (activeWorker === null || requestCount >= 128) {
     activeWorker?.terminate();
@@ -46,6 +83,7 @@ export async function prepareSelectedImageCropInWorker(
     const onMessage = (
       event: MessageEvent<{
         readonly id: number;
+        readonly workerProtocolVersion?: number;
         readonly result?: {
           readonly crop: SelectedImageAutoCropProposal['crop'];
           readonly strategy: SelectedImageAutoCropProposal['strategy'];
@@ -64,6 +102,16 @@ export async function prepareSelectedImageCropInWorker(
     ) => {
       if (event.data.id !== id) return;
       cleanup();
+      if (
+        event.data.workerProtocolVersion !==
+        SELECTED_IMAGE_CROP_WORKER_PROTOCOL_VERSION
+      ) {
+        worker.terminate();
+        if (activeWorker === worker) activeWorker = null;
+        workerFallbackRequired = true;
+        resolve(null);
+        return;
+      }
       if (event.data.error !== undefined) {
         reject(new Error(event.data.error));
         return;
@@ -71,6 +119,21 @@ export async function prepareSelectedImageCropInWorker(
       const result = event.data.result;
       if (result === undefined) {
         reject(new Error('SELECTED_IMAGE_CROP_WORKER_RESULT_INVALID'));
+        return;
+      }
+      if (
+        !selectedImageCropWorkerResultMatchesRequest(
+          {
+            ...result,
+            workerProtocolVersion: event.data.workerProtocolVersion,
+          },
+          policy,
+        )
+      ) {
+        worker.terminate();
+        if (activeWorker === worker) activeWorker = null;
+        workerFallbackRequired = true;
+        resolve(null);
         return;
       }
       resolve({
@@ -101,8 +164,8 @@ export async function prepareSelectedImageCropInWorker(
     };
     const onError = () => {
       cleanup();
-      activeWorker?.terminate();
-      activeWorker = null;
+      worker.terminate();
+      if (activeWorker === worker) activeWorker = null;
       reject(new Error('SELECTED_IMAGE_CROP_WORKER_FAILED'));
     };
     const cleanup = () => {

@@ -5,11 +5,29 @@ const DATABASE_VERSION = 1;
 const STORE_NAME = 'sessions';
 const SESSION_KEY = 'local-selected-image-crop-v1';
 
+export interface SelectedImageCropLocalTelemetry {
+  readonly sourceDirectoryName: string;
+  readonly sourceSelection: 'all' | 'filled_gaps';
+  readonly measuredAt: string;
+  readonly performance: {
+    readonly concurrency: number;
+    readonly lastAnalysisMs: number;
+    readonly lastWriteMs: number;
+    readonly averageCommittedMs: number;
+    readonly worker: {
+      readonly decodeMs: number;
+      readonly analysisMs: number;
+      readonly renderMs: number;
+    } | null;
+  };
+}
+
 export interface SelectedImageCropLocalSession {
   readonly key: typeof SESSION_KEY;
   readonly parentDirectory: FileSystemDirectoryHandle;
   readonly sourceDirectoryName: string;
   readonly sourceSelection?: 'all' | 'filled_gaps';
+  readonly preparationTelemetry?: SelectedImageCropLocalTelemetry;
   readonly currentIndex: number;
   readonly zoom: number;
   readonly scrollLeft: number;

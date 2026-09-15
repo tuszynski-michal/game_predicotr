@@ -28,6 +28,7 @@ import {
 import {
   SelectedImageCropLocalStore,
   type SelectedImageCropLocalSession,
+  type SelectedImageCropLocalTelemetry,
 } from './selected-image-crop-local-store';
 import {
   completeSelectedImageCropCorrection,
@@ -90,6 +91,8 @@ export function SelectedImageCropWorkspace() {
       } | null;
     } | null;
   } | null>(null);
+  const [preparationTelemetry, setPreparationTelemetry] =
+    useState<SelectedImageCropLocalTelemetry | null>(null);
   const [atlases, setAtlases] = useState<
     ReadonlyMap<number, SelectedImageCropAtlas>
   >(new Map());
@@ -165,6 +168,32 @@ export function SelectedImageCropWorkspace() {
       setProposal(null);
     },
     [],
+  );
+
+  const applyPreparationProgress = useCallback(
+    (progress: {
+      readonly completed: number;
+      readonly total: number;
+      readonly prepared: PreparedSelectedImageCropDirectory;
+      readonly performance?:
+        SelectedImageCropLocalTelemetry['performance'] | null;
+    }) => {
+      setPrepared(progress.prepared);
+      setPreparationProgress({
+        completed: progress.completed,
+        total: progress.total,
+        performance: progress.performance,
+      });
+      if (progress.performance === null || progress.performance === undefined)
+        return;
+      setPreparationTelemetry({
+        sourceDirectoryName,
+        sourceSelection,
+        measuredAt: new Date().toISOString(),
+        performance: progress.performance,
+      });
+    },
+    [sourceDirectoryName, sourceSelection],
   );
 
   const rebuildAtlases = useCallback(
@@ -260,12 +289,7 @@ export function SelectedImageCropWorkspace() {
         result,
         (progress) => {
           if (preparationController.signal.aborted) return;
-          setPrepared(progress.prepared);
-          setPreparationProgress({
-            completed: progress.completed,
-            total: progress.total,
-            performance: progress.performance,
-          });
+          applyPreparationProgress(progress);
         },
         undefined,
         preparationController.signal,
@@ -290,7 +314,7 @@ export function SelectedImageCropWorkspace() {
           setError(errorMessage(cause));
         });
     },
-    [applyPrepared, rebuildAtlases],
+    [applyPreparationProgress, applyPrepared, rebuildAtlases],
   );
 
   useEffect(() => {
@@ -301,6 +325,7 @@ export function SelectedImageCropWorkspace() {
       setParentDirectory(saved.parentDirectory);
       setSourceDirectoryName(saved.sourceDirectoryName);
       setSourceSelection(saved.sourceSelection ?? 'all');
+      setPreparationTelemetry(saved.preparationTelemetry ?? null);
       const view = {
         scrollLeft: saved.scrollLeft,
         scrollTop: saved.scrollTop,
@@ -395,14 +420,17 @@ export function SelectedImageCropWorkspace() {
     )
       return;
     const timeout = window.setTimeout(() => {
-      void store.save({
-        parentDirectory,
-        sourceDirectoryName,
-        sourceSelection,
-        currentIndex,
-        ...viewRef.current,
-        updatedAt: new Date().toISOString(),
-      });
+      void store
+        .save({
+          parentDirectory,
+          sourceDirectoryName,
+          sourceSelection,
+          ...(preparationTelemetry === null ? {} : { preparationTelemetry }),
+          currentIndex,
+          ...viewRef.current,
+          updatedAt: new Date().toISOString(),
+        })
+        .catch(() => undefined);
     }, 150);
     return () => window.clearTimeout(timeout);
   }, [
@@ -412,6 +440,7 @@ export function SelectedImageCropWorkspace() {
     sourceDirectoryName,
     sourceSelection,
     store,
+    preparationTelemetry,
     viewer.zoom,
   ]);
 
@@ -453,6 +482,7 @@ export function SelectedImageCropWorkspace() {
       setDirectoryNames(names);
       setSourceDirectoryName(names[0] ?? '');
       setSourceSelection('all');
+      setPreparationTelemetry(null);
       setPrepared(null);
       setAtlases(new Map());
       if (names.length === 0)
@@ -650,6 +680,23 @@ export function SelectedImageCropWorkspace() {
   const visibleSelectedCount = visibleSelectableNames.filter((fileName) =>
     selectedCorrectionFileNames.has(fileName),
   ).length;
+  const savedPreparationTelemetry = matchesPreparationTelemetry(
+    preparationTelemetry,
+    sourceDirectoryName,
+    sourceSelection,
+  )
+    ? preparationTelemetry
+    : null;
+  const displayedPreparationPerformance =
+    preparationProgress === null
+      ? null
+      : (preparationProgress.performance ??
+        savedPreparationTelemetry?.performance);
+  const displayingSavedPreparationTelemetry =
+    preparationProgress !== null &&
+    (preparationProgress.performance === null ||
+      preparationProgress.performance === undefined) &&
+    savedPreparationTelemetry !== null;
 
   async function recalculateUnreviewed(automaticCorrections = false) {
     if (prepared === null || preparationProgress !== null || busy) return;
@@ -669,11 +716,7 @@ export function SelectedImageCropWorkspace() {
         prepared,
         (progress) => {
           if (controller.signal.aborted) return;
-          setPrepared(progress.prepared);
-          setPreparationProgress({
-            completed: progress.completed,
-            total: progress.total,
-          });
+          applyPreparationProgress(progress);
         },
         controller.signal,
       );
@@ -742,11 +785,7 @@ export function SelectedImageCropWorkspace() {
     const result = await prepareAllSelectedImageCrops(
       prepared,
       (progress) => {
-        setPrepared(progress.prepared);
-        setPreparationProgress({
-          completed: progress.completed,
-          total: progress.total,
-        });
+        applyPreparationProgress(progress);
       },
       retryNames,
       preparationController.signal,
@@ -920,9 +959,13 @@ export function SelectedImageCropWorkspace() {
               value={preparationProgress?.completed ?? preparedCount}
             />
             <span>{manifest?.outputDirectoryName}</span>
-            {preparationProgress?.performance ? (
+            {displayedPreparationPerformance ? (
               <span>
-                {`${preparationProgress.performance.concurrency} równolegle · tempo ${(60_000 / preparationProgress.performance.averageCommittedMs).toFixed(1)}/min · analiza ${(preparationProgress.performance.lastAnalysisMs / 1000).toFixed(1)} s · ${preparationProgress.performance.worker ? `dekodowanie ${(preparationProgress.performance.worker.decodeMs / 1000).toFixed(1)} s · detekcja ${(preparationProgress.performance.worker.analysisMs / 1000).toFixed(1)} s · kodowanie ${(preparationProgress.performance.worker.renderMs / 1000).toFixed(1)} s · ` : ''}zapis ${(preparationProgress.performance.lastWriteMs / 1000).toFixed(1)} s`}
+                {`${displayingSavedPreparationTelemetry ? 'Ostatni pomiar z poprzedniej karty · ' : ''}${preparationPerformanceLabel(displayedPreparationPerformance)}`}
+              </span>
+            ) : preparationProgress !== null ? (
+              <span>
+                Tempo i czasy pojawią się po pierwszej gotowej paczce.
               </span>
             ) : null}
             <span>{proposalLabel(proposal, detecting)}</span>
@@ -1319,6 +1362,72 @@ function proposalLabel(
   const quality =
     proposal.classification === 'high_confidence' ? 'pewna' : 'zachowawcza';
   return `Automatyczna propozycja wielokolumnowa · ${quality} · ${Math.round((proposal.confidence ?? 0) * 100)}%`;
+}
+
+function matchesPreparationTelemetry(
+  telemetry: unknown,
+  sourceDirectoryName: string,
+  sourceSelection: SelectedImageCropSourceSelection,
+): telemetry is SelectedImageCropLocalTelemetry {
+  if (
+    telemetry === null ||
+    typeof telemetry !== 'object' ||
+    !('sourceDirectoryName' in telemetry) ||
+    !('sourceSelection' in telemetry) ||
+    !('measuredAt' in telemetry) ||
+    !('performance' in telemetry) ||
+    telemetry.sourceDirectoryName !== sourceDirectoryName ||
+    telemetry.sourceSelection !== sourceSelection ||
+    typeof telemetry.measuredAt !== 'string' ||
+    telemetry.measuredAt.trim() === '' ||
+    telemetry.performance === null ||
+    typeof telemetry.performance !== 'object' ||
+    !('concurrency' in telemetry.performance) ||
+    !('lastAnalysisMs' in telemetry.performance) ||
+    !('lastWriteMs' in telemetry.performance) ||
+    !('averageCommittedMs' in telemetry.performance) ||
+    !('worker' in telemetry.performance)
+  )
+    return false;
+  const candidatePerformance = telemetry.performance;
+  if (
+    candidatePerformance.worker !== null &&
+    (typeof candidatePerformance.worker !== 'object' ||
+      !('decodeMs' in candidatePerformance.worker) ||
+      !('analysisMs' in candidatePerformance.worker) ||
+      !('renderMs' in candidatePerformance.worker))
+  )
+    return false;
+  const performance =
+    candidatePerformance as SelectedImageCropLocalTelemetry['performance'];
+  const values = [
+    performance.concurrency,
+    performance.lastAnalysisMs,
+    performance.lastWriteMs,
+    performance.averageCommittedMs,
+    ...(performance.worker === null
+      ? []
+      : [
+          performance.worker.decodeMs,
+          performance.worker.analysisMs,
+          performance.worker.renderMs,
+        ]),
+  ];
+  return (
+    performance.concurrency >= 1 &&
+    performance.averageCommittedMs > 0 &&
+    values.every((value) => Number.isFinite(value) && value >= 0)
+  );
+}
+
+function preparationPerformanceLabel(
+  performance: SelectedImageCropLocalTelemetry['performance'],
+): string {
+  const workerTimings =
+    performance.worker === null
+      ? ''
+      : ` · dekodowanie ${(performance.worker.decodeMs / 1000).toFixed(1)} s · detekcja ${(performance.worker.analysisMs / 1000).toFixed(1)} s · kodowanie ${(performance.worker.renderMs / 1000).toFixed(1)} s`;
+  return `${performance.concurrency} równolegle · tempo ${(60_000 / performance.averageCommittedMs).toFixed(1)}/min · analiza ${(performance.lastAnalysisMs / 1000).toFixed(1)} s${workerTimings} · zapis ${(performance.lastWriteMs / 1000).toFixed(1)} s`;
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

@@ -16,6 +16,13 @@ const viewer = await readFile(
   ),
   'utf8',
 );
+const localStore = await readFile(
+  new URL(
+    '../src/features/semi-automatic-image-selection/selected-image-crop-local-store.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 test('bad boundary evidence remains in the uncertainty filter without a preview badge', () => {
   assert.match(
@@ -48,6 +55,33 @@ test('crop preparation exposes bounded parallel throughput telemetry', () => {
   assert.match(workspace, /worker\.renderMs/u);
   assert.match(workspace, /równolegle/u);
   assert.match(workspace, /tempo/u);
+});
+
+test('resume keeps only matching local telemetry until a live batch publishes', () => {
+  assert.match(
+    localStore,
+    /preparationTelemetry\?: SelectedImageCropLocalTelemetry/u,
+  );
+  assert.match(localStore, /sourceDirectoryName: string/u);
+  assert.match(localStore, /sourceSelection: 'all' \| 'filled_gaps'/u);
+  assert.match(
+    workspace,
+    /setPreparationTelemetry\(saved\.preparationTelemetry \?\? null\)/u,
+  );
+  assert.match(
+    workspace,
+    /matchesPreparationTelemetry\([\s\S]*sourceDirectoryName[\s\S]*sourceSelection/u,
+  );
+  assert.match(workspace, /performance: progress\.performance/u);
+  assert.match(workspace, /Ostatni pomiar z poprzedniej karty/u);
+  assert.match(
+    workspace,
+    /Tempo i czasy pojawią się po pierwszej gotowej paczce/u,
+  );
+  assert.match(
+    workspace,
+    /preparationTelemetry === null \? \{\} : \{ preparationTelemetry \}/u,
+  );
 });
 
 test('crop review provides an atlas grid and opens only selected corrections in the viewer', () => {

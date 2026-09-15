@@ -8576,3 +8576,21 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** w trakcie opóźnionego fill'a kolejna mutacja i zmiana trybu są
   zablokowane, a nawigacja pozostaje dostępna. Błąd blokuje dalsze mutacje do
   jawnej inspekcji; `undo_fill` nadal usuwa tylko checksummowany własny plik.
+
+## D-390 — Ostatni pomiar przycinania jest pomocniczym stanem widoku
+
+- **Status:** accepted (TASK-0556).
+- **Date:** 2026-09-15.
+- **Decision:** lokalny rekord IndexedDB może przechować ostatnią niepustą
+  próbkę telemetrii przygotowania cropów, z nazwą katalogu i `sourceSelection`.
+  Po wznowieniu UI pokazuje ją wyłącznie przy zgodnym źródle, oznaczoną jako
+  pomiar z poprzedniej karty, do pierwszej bieżącej publikacji workera.
+- **Rationale:** trwały progress jest odtwarzany z manifestu, lecz tempo i
+  czasy pracy znikają po restarcie karty, mimo że operator potrzebuje ich od
+  razu podczas kontrolowania wznowionego cięcia.
+- **Compatibility:** pole jest opcjonalne, więc historyczny rekord IndexedDB
+  bez telemetrii pozostaje czytelny. Brak próbki pokazuje stan oczekiwania,
+  bez zerowych lub szacowanych wartości.
+- **Safety:** snapshot nie jest wejściem recovery i nie zmienia manifestu,
+  session journalu, JPEG-ów, policy, kolejności publikacji ani liczby workerów.
+  Niezgodny katalog lub tryb źródła nie może wyświetlić historycznych wartości.

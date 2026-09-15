@@ -6,6 +6,16 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0556 — telemetria tempa po wznowieniu przycinania
+
+- Lokalna sesja przycinania może zapisać ostatnią niepustą próbkę równoległości,
+  tempa oraz etapów workera, razem z nazwą katalogu i zakresem źródła.
+- Wznowienie pokazuje ją wyłącznie dla zgodnego katalogu jako „ostatni pomiar
+  z poprzedniej karty”. Pierwsza nowa opublikowana paczka zastępuje ją bieżącą
+  telemetrią; bez próbki UI jasno informuje o oczekiwaniu na pierwszy pomiar.
+- Snapshot jest wyłącznie stanem IndexedDB widoku. Nie zmieniono cropów,
+  manifestu, session journalu, polityki v12, workerów ani danych katalogów.
+
 ### TASK-0555 — natychmiastowy fill luk i dwa cofnięcia
 
 - `Uzupełnij lukę` najpierw przełącza lokalny target i `sourceCursor`, dzięki

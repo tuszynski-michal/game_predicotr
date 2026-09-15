@@ -691,7 +691,10 @@ Zwykłe przygotowanie nie zapisuje ponownie identycznego pliku review. Ręczna
 zmiana nadal utrwala review tylko wtedy, gdy jego treść rzeczywiście się
 zmieniła. Widoczna liczba równoległych analiz, tempo oraz czasy detekcji,
 renderu i zapisu są telemetrią bieżącej karty; nie są źródłem prawdy dla
-recovery.
+recovery. Po wznowieniu ten sam katalog i zakres źródła mogą pokazać ostatnią
+niepustą próbkę lokalnego UI jako „ostatni pomiar z poprzedniej karty”, aż
+pierwsza nowa paczka opublikuje bieżące wartości. Brak takiej próbki pokazuje
+oczekiwanie na pierwszy pomiar; nie wyprowadza zer ani szacunku z manifestu.
 
 Jeżeli v12 ma jednocześnie udaną rejestrację i dowód strukturalny, wynikowe
 zwężenie musi obejmować wszystkie cztery punkty `registeredBoardBand`.

@@ -360,7 +360,12 @@ normalizuje brak pola do `null`. Pojedynczy zapis ręczny nadal używa
 `pendingOperation`; blokada jednego writera obejmuje oba warianty. Zatrzymanie
 workspace'u anuluje aktywne żądania i kończy pulę; nieopublikowane wyniki paczki
 nie zwiększają trwałego progresu. Czasy etapów i tempo są tylko stanem React
-bieżącej karty.
+bieżącej karty. `SelectedImageCropLocalSession` może dodatkowo przechować
+ostatnią niepustą próbkę w IndexedDB jako pomocniczy stan widoku. Snapshot jest
+powiązany z `sourceDirectoryName` i `sourceSelection`, jest walidowany przed
+pokazaniem i nie modyfikuje manifestu, journalu, policy ani recovery. Callback
+z bieżącym `performance` zastępuje go, a callback bez próbki nie usuwa go przed
+pierwszym ukończonym commitem nowej karty.
 
 TASK-0548 rozdziela ostrzeżenie detektora od decyzji operatora bez zmiany
 schematu review. `requiredSelectedImageCropCorrections(snapshot)` nadal

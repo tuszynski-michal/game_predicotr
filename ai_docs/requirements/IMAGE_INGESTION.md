@@ -1426,6 +1426,10 @@ wersjonowaną politykę rozszerzenia, parametry i checksumę. Historyczna polity
 preflighty z oddzielnym profilem uczenia niepełnych siatek używają
 `structured-lattice-v4-lateral-partial-v2`. Brak wyboru zachowuje dotychczasowe
 payloady i fingerprinty.
+Nowe preflighty tego wariantu używają polityki
+`structured-lattice-v4-lateral-partial-v3`. Rozszerza ona detekcję
+o kompletne, widoczne siatki z uciętą albo zasłoniętą ozdobną ramką. Snapshoty
+v1/v2 zachowują dotychczasową interpretację i nie są przeliczane w miejscu.
 Na etapie fundamentu nowy start oraz wykonanie są jawnie blokowane kodem
 `IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED`; detekcja i udostępnienie wymagają
 TASK-0511–0515. Odpowiedź korekty może zawierać `automaticPartialProposals`,
@@ -1637,6 +1641,25 @@ Do `needs_correction` trafiają wyłącznie odroczone sloty bez poprawnej
 automatycznej siatki. W źródle mieszanym rozpoczęcie ręcznego uzupełniania
 zachowuje siatki automatyczne i wcześniej zapisane, a zeruje tylko sloty bez
 wyniku algorytmu.
+
+Polityka v3 rozróżnia brak pikseli planszy od słabego dowodu ozdobnej ramki.
+Jeżeli rejestracja całej strony przechodzi dotychczasowe bramki homografii,
+kolejności, wypukłości, granic i overlapu, może zachować kandydaturę z najwyżej
+trzema słabymi ramkami. Każda z nich musi mieć pokrycie co najmniej `0,30`,
+średnia aktywnych slotów co najmniej `0,70`, a pozostałe sloty stanowią mocny
+dowód układu przy progu `0,65`. Ucięcie góry/dół, brak całej planszy albo
+niespójna geometria nadal kończą się bez propozycji.
+
+Słaby slot przechodzi lokalne dopasowanie symboli. Tylko kompletna siatka 3×5
+z podparciem wszystkich wierszy i kolumn, co najmniej dziewięcioma inlierami,
+p95 do 10 px, pełnym podparciem źródłem i zaliczoną ochroną treści tworzy
+`automaticFrameProposal`. Propozycja ma kwalifikację `complete`, pustą maskę,
+`requiresManualConfirmation=true` oraz
+`excludeFromGeometryTraining=true/manual_exclusion`. Kolejka pokazuje gotową
+nakładkę w `needs_validation`; ręczne wskazywanie narożników jest wymagane
+dopiero wtedy, gdy lokalny refiner nie uzyska bezpiecznej siatki. Propozycja
+nie jest automatycznie akceptowana, nie staje się kotwicą i nie wchodzi do
+zwykłego uczenia geometrii przed decyzją operatora.
 
 TASK-0507: edytory przechowują lokalnie szkice współrzędnych i kwalifikacji,
 bez obrazów, związane ze źródłem, kontekstem i bazową rewizją. Nawigacja

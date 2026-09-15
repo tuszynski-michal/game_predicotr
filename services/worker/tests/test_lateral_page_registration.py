@@ -75,6 +75,74 @@ def test_full_registration_is_unchanged_and_does_not_return_partial_candidate() 
     assert actual.lateral_candidate is None
 
 
+@pytest.mark.parametrize(
+    "coverages,weak_slots",
+    [
+        ((0.3525, 0.9745, 0.8742, 0.8980, 0.9458, 1.0, 1.0, 1.0, 0.9326), (0,)),
+        ((0.6250, 0.9193, 0.8616, 0.9139, 0.9281, 0.8922, 0.9935, 1.0, 1.0), (0,)),
+        ((0.4245, 0.9688, 0.9136, 0.9592, 0.8503, 0.9118, 1.0, 1.0, 0.9663), (0,)),
+    ],
+)
+def test_visible_grid_with_weak_frame_is_retained_for_review(
+    coverages: tuple[float, ...], weak_slots: tuple[int, ...]
+) -> None:
+    anchor, quads = _page()
+    registrar = registration.VerifiedPageRegistrar(
+        _profile(quads), load_anchor_rgb=lambda _: anchor
+    )
+    match = registrar._matched_candidates(registration._half_gray(anchor), feature_count=1000)[0]
+    candidate = registration._frame_support_search_candidate(
+        match,
+        quads=quads,
+        coverages=coverages,
+        thresholds=registration.DEFAULT_PAGE_REGISTRATION_THRESHOLDS,
+        feature_count=1000,
+        policy=LateralPartialGeometrySnapshot(),
+        active_board_slots=tuple(range(9)),
+        target_width=anchor.shape[1],
+        target_height=anchor.shape[0],
+        registration_version=registration.PAGE_REGISTRATION_VERSION,
+        anchor_mask_version=None,
+        anchor_mask_padding_ratio=None,
+    )
+    assert candidate is not None
+    assert candidate.recovery_kind == "frame_support_review"
+    assert candidate.review_required_slots == weak_slots
+    assert candidate.initialization.initialization_quads == quads
+
+
+@pytest.mark.parametrize(
+    "coverages",
+    [
+        (0.29, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
+        (0.60, 0.60, 0.60, 0.60, 1.0, 1.0, 1.0, 1.0, 1.0),
+        (0.31, 0.31, 0.31, 0.65, 0.65, 0.65, 0.65, 0.65, 0.65),
+    ],
+)
+def test_weak_frame_recovery_keeps_global_support_gates(
+    coverages: tuple[float, ...]
+) -> None:
+    anchor, quads = _page()
+    registrar = registration.VerifiedPageRegistrar(
+        _profile(quads), load_anchor_rgb=lambda _: anchor
+    )
+    match = registrar._matched_candidates(registration._half_gray(anchor), feature_count=1000)[0]
+    assert registration._frame_support_search_candidate(
+        match,
+        quads=quads,
+        coverages=coverages,
+        thresholds=registration.DEFAULT_PAGE_REGISTRATION_THRESHOLDS,
+        feature_count=1000,
+        policy=LateralPartialGeometrySnapshot(),
+        active_board_slots=tuple(range(9)),
+        target_width=anchor.shape[1],
+        target_height=anchor.shape[0],
+        registration_version=registration.PAGE_REGISTRATION_VERSION,
+        anchor_mask_version=None,
+        anchor_mask_padding_ratio=None,
+    ) is None
+
+
 @pytest.mark.parametrize("case", ["top", "bottom", "missing_board", "missing_frame"])
 def test_incomplete_evidence_does_not_create_lateral_proposal(case: str) -> None:
     anchor, quads = _page()

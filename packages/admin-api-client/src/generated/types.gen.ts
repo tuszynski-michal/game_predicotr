@@ -106,6 +106,51 @@ export type ApprovedSymbolReferenceSelectionCommand = {
 };
 
 /**
+ * AutomaticFrameGeometryProposalPayload
+ *
+ * A complete local grid retained because its decorative frame is weak.
+ */
+export type AutomaticFrameGeometryProposalPayload = {
+  geometryQualification: GeometryQualificationPayload;
+  /**
+   * Origin
+   */
+  origin: 'automatic_proposal';
+  /**
+   * Policychecksumsha256
+   */
+  policyChecksumSha256: string;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'structured-lattice-v4-lateral-partial-v3';
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reasoncode
+   */
+  reasonCode: 'board_frame_support_incomplete';
+  /**
+   * Requiresmanualconfirmation
+   */
+  requiresManualConfirmation: true;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Trainingprofilechecksumsha256
+   */
+  trainingProfileChecksumSha256?: string | null;
+  /**
+   * Version
+   */
+  version: 'automatic-frame-geometry-proposal-v1';
+};
+
+/**
  * AutomaticPartialGeometryProposalPayload
  *
  * Machine provenance wraps existing availability, never a human decision.
@@ -125,7 +170,8 @@ export type AutomaticPartialGeometryProposalPayload = {
    */
   policyVersion:
     | 'structured-lattice-v4-lateral-partial-v1'
-    | 'structured-lattice-v4-lateral-partial-v2';
+    | 'structured-lattice-v4-lateral-partial-v2'
+    | 'structured-lattice-v4-lateral-partial-v3';
   /**
    * Positionindex
    */
@@ -147,7 +193,8 @@ export type AutomaticPartialGeometryProposalPayload = {
    */
   version:
     | 'automatic-lateral-partial-proposal-v1'
-    | 'automatic-lateral-partial-proposal-v2';
+    | 'automatic-lateral-partial-proposal-v2'
+    | 'automatic-lateral-partial-proposal-v3';
 };
 
 /**
@@ -4101,6 +4148,7 @@ export type ImageGridReviewItemResponse = {
    * Assetmode
    */
   assetMode: string;
+  automaticFrameProposal?: AutomaticFrameGeometryProposalPayload | null;
   automaticPartialProposal?: AutomaticPartialGeometryProposalPayload | null;
   /**
    * Boardconfidence
@@ -6068,6 +6116,10 @@ export type LateralPartialGeometryJobSnapshotPayload = {
    */
   analysisWidth: 500;
   /**
+   * Automaticframeproposalversion
+   */
+  automaticFrameProposalVersion?: 'automatic-frame-geometry-proposal-v1' | null;
+  /**
    * Checksumsha256
    */
   checksumSha256: string;
@@ -6080,13 +6132,33 @@ export type LateralPartialGeometryJobSnapshotPayload = {
    */
   excludeFromPageAnchors: true;
   /**
+   * Framesupportreviewenabled
+   */
+  frameSupportReviewEnabled?: true | null;
+  /**
    * Maximumadditionalpasses
    */
   maximumAdditionalPasses: 1;
   /**
+   * Maximumframereviewslots
+   */
+  maximumFrameReviewSlots?: 3 | null;
+  /**
+   * Minimumautomaticboardrededgecoverage
+   */
+  minimumAutomaticBoardRedEdgeCoverage?: 0.65 | null;
+  /**
    * Minimuminliers
    */
   minimumInliers: 9;
+  /**
+   * Minimumreviewableboardrededgecoverage
+   */
+  minimumReviewableBoardRedEdgeCoverage?: 0.3 | null;
+  /**
+   * Minimumreviewablepagemeanrededgecoverage
+   */
+  minimumReviewablePageMeanRedEdgeCoverage?: 0.7 | null;
   /**
    * Minimumvisiblecolumns
    */
@@ -6101,13 +6173,15 @@ export type LateralPartialGeometryJobSnapshotPayload = {
    */
   policyVersion:
     | 'structured-lattice-v4-lateral-partial-v1'
-    | 'structured-lattice-v4-lateral-partial-v2';
+    | 'structured-lattice-v4-lateral-partial-v2'
+    | 'structured-lattice-v4-lateral-partial-v3';
   /**
    * Proposalversion
    */
   proposalVersion:
     | 'automatic-lateral-partial-proposal-v1'
-    | 'automatic-lateral-partial-proposal-v2';
+    | 'automatic-lateral-partial-proposal-v2'
+    | 'automatic-lateral-partial-proposal-v3';
   /**
    * Requiresmanualconfirmation
    */
@@ -6117,7 +6191,8 @@ export type LateralPartialGeometryJobSnapshotPayload = {
    */
   schemaVersion:
     | 'lateral-partial-geometry-snapshot-v1'
-    | 'lateral-partial-geometry-snapshot-v2';
+    | 'lateral-partial-geometry-snapshot-v2'
+    | 'lateral-partial-geometry-snapshot-v3';
   /**
    * Topologycolumns
    */

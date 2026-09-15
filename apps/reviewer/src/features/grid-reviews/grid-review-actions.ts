@@ -154,7 +154,9 @@ export async function approveGridReviewSource(
   if (
     pendingItems.some(
       (item) =>
-        item.automaticPartialProposal == null || item.symbolGridQuad == null,
+        (item.automaticPartialProposal == null &&
+          item.automaticFrameProposal == null) ||
+        item.symbolGridQuad == null,
     )
   ) {
     return {

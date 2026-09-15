@@ -8,12 +8,19 @@ import math
 import re
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 
 from .geometry import Point, Quad
-from .lateral_partial_contract import LateralPartialContractError, LateralPartialGeometrySnapshot
+from .lateral_partial_contract import (
+    MAXIMUM_FRAME_REVIEW_SLOTS,
+    MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE,
+    MINIMUM_REVIEWABLE_BOARD_RED_EDGE_COVERAGE,
+    MINIMUM_REVIEWABLE_PAGE_MEAN_RED_EDGE_COVERAGE,
+    LateralPartialContractError,
+    LateralPartialGeometrySnapshot,
+)
 from .page_geometry_registration import (
     DEFAULT_PAGE_REGISTRATION_THRESHOLDS,
     PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO,
@@ -25,6 +32,7 @@ from .page_geometry_registration import (
     LateralPageRegistrationCandidate,
     PageRegistrationInitialization,
     _is_lateral_ordered_grid,
+    is_ordered_active_grid,
 )
 
 
@@ -102,12 +110,17 @@ def lateral_candidate_from_entry(
     raw = entry.get("lateralRegistrationCandidate")
     if raw is None:
         return None
+    expected_version = (
+        "lateral-page-registration-candidate-v2"
+        if policy.frame_support_review
+        else "lateral-page-registration-candidate-v1"
+    )
     if (
         not isinstance(raw, Mapping)
         or entry.get("status") != "review_required"
         or entry.get("imageWidth") != width
         or entry.get("imageHeight") != height
-        or raw.get("version") != "lateral-page-registration-candidate-v1"
+        or raw.get("version") != expected_version
         or raw.get("origin") != "automatic_search_proposal"
         or raw.get("requiresLocalRefinement") is not True
         or raw.get("policyChecksumSha256") != policy.checksum_sha256
@@ -157,14 +170,55 @@ def lateral_candidate_from_entry(
             raise ValueError("Invalid edge coverage.")
         coverages = tuple(_number(v) for v in coverage_values)
         thresholds = DEFAULT_PAGE_REGISTRATION_THRESHOLDS
+        recovery_kind = raw.get("recoveryKind", "lateral_source_support")
+        review_required_slots_raw = raw.get("reviewRequiredSlots", [])
         if (
-            inliers < thresholds.minimum_inliers
-            or features not in {1000, 1500, 3000}
-            or not thresholds.minimum_inlier_ratio <= ratio <= 1
-            or not 0 <= residual <= thresholds.maximum_p95_reprojection_error
-            or not all(thresholds.minimum_board_red_edge_coverage <= v <= 1 for v in coverages)
-            or sum(coverages) / len(coverages) < thresholds.minimum_mean_red_edge_coverage
-            or not _is_lateral_ordered_grid(tuple(quads), tuple(range(board_count)), width, height)
+            recovery_kind not in {"lateral_source_support", "frame_support_review"}
+            or not isinstance(review_required_slots_raw, list)
+            or any(type(slot) is not int for slot in review_required_slots_raw)
+        ):
+            raise ValueError("Invalid recovery classification.")
+        review_required_slots = tuple(review_required_slots_raw)
+        common_valid = (
+            inliers >= thresholds.minimum_inliers
+            and features in {1000, 1500, 3000}
+            and thresholds.minimum_inlier_ratio <= ratio <= 1
+            and 0 <= residual <= thresholds.maximum_p95_reprojection_error
+        )
+        if recovery_kind == "frame_support_review":
+            expected_review_slots = tuple(
+                slot
+                for slot, coverage in enumerate(coverages)
+                if coverage < MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE
+            )
+            geometry_valid = (
+                expected_version == "lateral-page-registration-candidate-v2"
+                and review_required_slots == expected_review_slots
+                and 1 <= len(review_required_slots) <= MAXIMUM_FRAME_REVIEW_SLOTS
+                and min(coverages) >= MINIMUM_REVIEWABLE_BOARD_RED_EDGE_COVERAGE
+                and sum(coverages) / len(coverages)
+                >= MINIMUM_REVIEWABLE_PAGE_MEAN_RED_EDGE_COVERAGE
+                and sum(
+                    value >= MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE
+                    for value in coverages
+                )
+                >= max(3, board_count - MAXIMUM_FRAME_REVIEW_SLOTS)
+                and is_ordered_active_grid(
+                    tuple(quads), tuple(range(board_count)), width, height
+                )
+            )
+        else:
+            geometry_valid = (
+                not review_required_slots
+                and all(thresholds.minimum_board_red_edge_coverage <= v <= 1 for v in coverages)
+                and sum(coverages) / len(coverages) >= thresholds.minimum_mean_red_edge_coverage
+                and _is_lateral_ordered_grid(
+                    tuple(quads), tuple(range(board_count)), width, height
+                )
+            )
+        if (
+            not common_valid
+            or not geometry_valid
         ):
             raise ValueError("The candidate no longer meets its registration gates.")
         registration = raw["registrationVersion"]
@@ -197,6 +251,17 @@ def lateral_candidate_from_entry(
             ),
             policy_checksum_sha256=policy.checksum_sha256,
             board_red_edge_coverages=coverages,
+            recovery_kind=cast(
+                Literal["lateral_source_support", "frame_support_review"], recovery_kind
+            ),
+            review_required_slots=review_required_slots,
+            version=cast(
+                Literal[
+                    "lateral-page-registration-candidate-v1",
+                    "lateral-page-registration-candidate-v2",
+                ],
+                expected_version,
+            ),
         )
         # Exact serialization also rejects unknown fields and missing version fields.
         if candidate.to_payload() != dict(raw):

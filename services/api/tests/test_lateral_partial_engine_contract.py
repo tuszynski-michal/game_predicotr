@@ -10,6 +10,7 @@ from game_predictor_api.application.jobs import ImageGeometryRolloutJobReference
 from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
 from game_predictor_api.schemas.geometry_qualification import (
+    AutomaticFrameGeometryProposalPayload,
     AutomaticPartialGeometryProposalPayload,
 )
 from game_predictor_api.schemas.image_imports import BrowserImageImportStart
@@ -97,7 +98,7 @@ def test_new_run_pins_separate_partial_training_profile() -> None:
     snapshot = GeometryPipelineRolloutSnapshot.from_payload(payload["image_geometry_rollout"])
     assert snapshot.lateral_partial_geometry is not None
     assert snapshot.lateral_partial_geometry.training_profile == profile
-    assert snapshot.lateral_partial_geometry.to_payload()["schemaVersion"].endswith("v2")
+    assert snapshot.lateral_partial_geometry.to_payload()["schemaVersion"].endswith("v3")
 
 
 def test_create_service_gate_precedes_files_and_persistence(
@@ -161,7 +162,9 @@ def test_automatic_partial_provenance_is_not_a_human_decision() -> None:
         "sourceChecksumSha256": "a" * 64,
         "positionIndex": 3,
         "policyVersion": "structured-lattice-v4-lateral-partial-v1",
-        "policyChecksumSha256": LateralPartialGeometrySnapshot().checksum_sha256,
+        "policyChecksumSha256": LateralPartialGeometrySnapshot(
+            frame_support_review=False
+        ).checksum_sha256,
         "requiresManualConfirmation": True,
         "geometryQualification": {
             "version": "manual-geometry-qualification-v1",
@@ -187,7 +190,9 @@ def test_learned_automatic_proposal_keeps_manual_confirmation() -> None:
     profile = PartialGridTrainingProfile(
         (PartialGridPattern((0, 5, 10), sample_count=3, source_count=3),), 3
     )
-    policy = LateralPartialGeometrySnapshot(training_profile=profile)
+    policy = LateralPartialGeometrySnapshot(
+        training_profile=profile, frame_support_review=False
+    )
     raw = {
         "version": "automatic-lateral-partial-proposal-v2",
         "origin": "automatic_proposal",
@@ -215,3 +220,37 @@ def test_learned_automatic_proposal_keeps_manual_confirmation() -> None:
     ):
         with pytest.raises(ValidationError):
             AutomaticPartialGeometryProposalPayload.model_validate({**raw, key: value})
+
+
+def test_frame_proposal_requires_complete_excluded_geometry() -> None:
+    policy = LateralPartialGeometrySnapshot()
+    raw = {
+        "version": "automatic-frame-geometry-proposal-v1",
+        "origin": "automatic_proposal",
+        "sourceChecksumSha256": "a" * 64,
+        "positionIndex": 1,
+        "policyVersion": policy.policy_version,
+        "policyChecksumSha256": policy.checksum_sha256,
+        "requiresManualConfirmation": True,
+        "reasonCode": "board_frame_support_incomplete",
+        "geometryQualification": {
+            "version": "manual-geometry-qualification-v2",
+            "completenessStatus": "complete",
+            "unavailableCellIndices": [],
+            "excludeFromGeometryTraining": True,
+            "includeInPartialGridTraining": False,
+            "exclusionReason": "manual_exclusion",
+        },
+    }
+    assert AutomaticFrameGeometryProposalPayload.model_validate(raw).requires_manual_confirmation
+    with pytest.raises(ValidationError):
+        AutomaticFrameGeometryProposalPayload.model_validate(
+            {
+                **raw,
+                "geometryQualification": {
+                    **raw["geometryQualification"],
+                    "excludeFromGeometryTraining": False,
+                    "exclusionReason": None,
+                },
+            }
+        )

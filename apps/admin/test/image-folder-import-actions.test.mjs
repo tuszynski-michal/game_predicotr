@@ -359,7 +359,7 @@ test('completed preflight replay unlocks the current report and ignores a stale 
   );
 });
 
-test('browser preflight identity accepts lateral policy v1 and v2 only', () => {
+test('browser preflight identity accepts every released lateral policy', () => {
   const report = {
     gameId: 'game-1',
     geometryEngineVariant: 'structured_lattice_v4_partial_sides',
@@ -394,6 +394,13 @@ test('browser preflight identity accepts lateral policy v1 and v2 only', () => {
   assert.equal(
     geometryPreflightMatchesReport(
       browserPreflight('structured-lattice-v4-lateral-partial-v3'),
+      report,
+    ),
+    true,
+  );
+  assert.equal(
+    geometryPreflightMatchesReport(
+      browserPreflight('structured-lattice-v4-lateral-partial-v4'),
       report,
     ),
     false,
@@ -589,7 +596,7 @@ test('run identity and history registration use exact pinned snapshots', () => {
           imageGeometryRollout: {
             ...lateralJob.inputPayload.imageGeometryRollout,
             lateralPartialGeometry: {
-              policyVersion: 'structured-lattice-v4-lateral-partial-v3',
+              policyVersion: 'structured-lattice-v4-lateral-partial-v4',
               variant: 'structured_lattice_v4_partial_sides',
             },
           },

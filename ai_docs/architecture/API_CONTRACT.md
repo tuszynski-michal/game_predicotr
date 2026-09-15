@@ -3076,9 +3076,20 @@ Tożsamość preflightu wybranego wariantu bocznych niepełnych plansz wymaga
 zgodności gry, stagingu, manifestu źródeł, wariantu
 `structured_lattice_v4_partial_sides` oraz znanej polityki snapshotu. Admin
 odtwarza zarówno historyczne `structured-lattice-v4-lateral-partial-v1`, jak i
-bieżące `structured-lattice-v4-lateral-partial-v2`; nieznana wersja nadal jest
+`structured-lattice-v4-lateral-partial-v2`, a nowe runy przypinają
+`structured-lattice-v4-lateral-partial-v3`; nieznana wersja nadal jest
 odrzucana. Ta sama reguła obowiązuje przy dopasowaniu istniejącego importu i
 preflightu managed originals.
+
+Wynik planszy może zawierać dokładnie jedną automatyczną propozycję. Istniejące
+`automaticPartialProposal` opisuje `pending_partial` i maskę brakujących pól.
+Nowe `automaticFrameProposal` opisuje kompletną siatkę 3×5 przy słabym dowodzie
+ozdobnej ramki: ma wersję `automatic-frame-geometry-proposal-v1`, źródło, slot,
+checksumę polityki, `requiresManualConfirmation=true` i kwalifikację
+`complete` wykluczoną ze zwykłego uczenia geometrii. Lista review zwraca dla
+obu typów `needs_validation`, gotowy `symbolGridQuad` oraz
+`manualGeometryRequired=false`. Brak bezpiecznej propozycji zachowuje
+`needs_correction` i ręczny szablon.
 
 Odpowiedź `review-sources` rozróżnia `geometryOrigin`: wynik automatyczny,
 bieżący ręczny override albo roboczy szablon edytora. Może dołączyć stabilny

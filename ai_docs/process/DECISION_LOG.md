@@ -8517,3 +8517,21 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** zakończenie nadal blokują jawne wybory, failures, pending i
   brakujące wyniki. Detektor, fingerprint, JPEG-i i checksumy pozostają bez
   zmian.
+
+## D-387 — Słaba ozdobna ramka kieruje kompletną siatkę do walidacji
+
+- **Status:** accepted (TASK-0549).
+- **Date:** 2026-09-15.
+- **Decision:** mocno zarejestrowana strona może zachować najwyżej trzy sloty
+  ze słabym dowodem czerwonej ramki. Lokalny refiner tworzy dla takiego slotu
+  kompletną `automaticFrameProposal` tylko po odzyskaniu bezpiecznej siatki
+  3×5; kolejka pokazuje ją jako `needs_validation` bez ręcznego rysowania.
+- **Rationale:** widoczne symbole wyznaczają siatkę mimo ucięcia lub zasłonięcia
+  dekoracyjnego obramowania. Odrzucanie całej planszy traciło dostępny dowód i
+  kierowało poprawialne przypadki do ręcznego wskazywania czterech narożników.
+- **Compatibility:** nowa checksumowana polityka v3 nie reinterpretowuje
+  snapshotów ani artefaktów v1/v2. Propozycja kompletnej ramki pozostaje
+  oddzielona od bocznej `automaticPartialProposal`.
+- **Safety:** wymagane są dotychczasowe bramki rejestracji, pełna lokalna siatka,
+  ochrona treści i ręczne potwierdzenie. Propozycja jest wykluczona ze zwykłego
+  uczenia geometrii i kotwic; bezpiecznej siatki nie zastępuje się syntetyczną.

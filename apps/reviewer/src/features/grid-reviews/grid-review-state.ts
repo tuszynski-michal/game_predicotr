@@ -181,6 +181,7 @@ export function gridReviewQualification(
 ): GeometryQualificationPayload | undefined {
   return (
     item.geometryQualification ??
+    item.automaticFrameProposal?.geometryQualification ??
     item.automaticPartialProposal?.geometryQualification ??
     undefined
   );
@@ -475,7 +476,9 @@ function parseCorners(
 
 function parseTypedCorners(value: unknown, allowSignedCoordinates = false) {
   if (!Array.isArray(value) || value.length !== 4) return null;
-  const parsed = value.map((point) => parsePoint(point, allowSignedCoordinates));
+  const parsed = value.map((point) =>
+    parsePoint(point, allowSignedCoordinates),
+  );
   return parsed.every((point) => point !== null)
     ? (parsed as OperationalReviewGeometryCorners)
     : null;

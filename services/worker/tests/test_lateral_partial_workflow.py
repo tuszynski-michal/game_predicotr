@@ -17,6 +17,10 @@ from game_predictor_worker.images.lateral_partial_contract import (
     LateralPartialGeometrySnapshot,
 )
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
+from game_predictor_worker.images.page_geometry_registration import (
+    LateralPageRegistrationCandidate,
+    PageRegistrationInitialization,
+)
 from game_predictor_worker.images.partial_grid_learning import (
     PartialGridPattern,
     PartialGridTrainingProfile,
@@ -28,6 +32,7 @@ from game_predictor_worker.images.pipeline_execution import (
 from game_predictor_worker.images.production_workflow import ProductionImageStageAdapterSuite
 from PIL import Image
 from test_page_geometry_preflight import _cold_start_job, _Context
+from test_page_geometry_registration import _page
 from test_production_image_workflow import _candidate_snapshot, _structured_active_lattice_rollout
 from test_structured_lattice_refinement_v4 import _candidate, _crop
 
@@ -182,19 +187,17 @@ def test_real_partial_pass_persists_proposal_without_render_after_restart(tmp_pa
     board = results["board_detection"]["structuredGeometry"]["boards"][0]
     assert board["automaticPartialProposal"]["requiresManualConfirmation"] is True
     assert board["automaticPartialProposal"]["version"] == (
-        "automatic-lateral-partial-proposal-v2"
-        if learned
-        else "automatic-lateral-partial-proposal-v1"
+        "automatic-lateral-partial-proposal-v3"
     )
     qualification = board["automaticPartialProposal"]["geometryQualification"]
+    assert qualification["includeInPartialGridTraining"] is False
     if learned:
-        assert qualification["includeInPartialGridTraining"] is False
         assert (
             board["automaticPartialProposal"]["trainingProfileChecksumSha256"]
             == policy.training_profile.checksum_sha256
         )
     else:
-        assert "includeInPartialGridTraining" not in qualification
+        assert "trainingProfileChecksumSha256" not in board["automaticPartialProposal"]
     assert board["finalQuad"] is None
     assert board["symbolGridQuad"] is not None
     assert results["board_crops"]["boards"] == []
@@ -204,3 +207,61 @@ def test_real_partial_pass_persists_proposal_without_render_after_restart(tmp_pa
         restarted.board_crops(ImageStageContext(**base, previous_results=results))
         == results["board_crops"]
     )
+
+
+def test_historical_v1_candidate_replays_without_new_frame_fields() -> None:
+    rgb, quad = _crop("left")
+    policy = LateralPartialGeometrySnapshot(frame_support_review=False)
+    candidate = replace(
+        _candidate(quad),
+        policy_checksum_sha256=policy.checksum_sha256,
+        version="lateral-page-registration-candidate-v1",
+    )
+    entry = {
+        "status": "review_required",
+        "imageWidth": rgb.shape[1],
+        "imageHeight": rgb.shape[0],
+        "lateralRegistrationCandidate": candidate.to_payload(),
+    }
+    restored = lateral_candidate_from_entry(
+        entry, width=rgb.shape[1], height=rgb.shape[0], board_count=1, policy=policy
+    )
+    assert restored.to_payload() == candidate.to_payload()
+    assert "recoveryKind" not in restored.to_payload()
+
+
+def test_frame_candidate_roundtrip_preserves_review_slots() -> None:
+    image, quads = _page()
+    coverages = (0.35, 0.97, 0.87, 0.90, 0.95, 1.0, 1.0, 1.0, 0.93)
+    candidate = LateralPageRegistrationCandidate(
+        PageRegistrationInitialization(
+            anchor_source_checksum_sha256="a" * 64,
+            active_board_slots=tuple(range(9)),
+            initialization_quads=quads,
+            native_homography=((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)),
+            inlier_count=100,
+            inlier_ratio=0.8,
+            p95_reprojection_error=0.5,
+            feature_count=1000,
+        ),
+        policy_checksum_sha256=POLICY.checksum_sha256,
+        board_red_edge_coverages=coverages,
+        recovery_kind="frame_support_review",
+        review_required_slots=(0,),
+        version="lateral-page-registration-candidate-v2",
+    )
+    entry = {
+        "status": "review_required",
+        "imageWidth": image.shape[1],
+        "imageHeight": image.shape[0],
+        "lateralRegistrationCandidate": candidate.to_payload(),
+    }
+    restored = lateral_candidate_from_entry(
+        entry,
+        width=image.shape[1],
+        height=image.shape[0],
+        board_count=9,
+        policy=POLICY,
+    )
+    assert restored.to_payload() == candidate.to_payload()
+    assert restored.review_required_slots == (0,)

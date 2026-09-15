@@ -11,14 +11,20 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Final, cast
+from typing import Final, Literal, cast
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
 
 from .geometry import Point, Quad
-from .lateral_partial_contract import LateralPartialGeometrySnapshot
+from .lateral_partial_contract import (
+    MAXIMUM_FRAME_REVIEW_SLOTS,
+    MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE,
+    MINIMUM_REVIEWABLE_BOARD_RED_EDGE_COVERAGE,
+    MINIMUM_REVIEWABLE_PAGE_MEAN_RED_EDGE_COVERAGE,
+    LateralPartialGeometrySnapshot,
+)
 
 PAGE_REGISTRATION_VERSION: Final = "verified-page-registration-v1"
 PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION: Final = (
@@ -47,6 +53,7 @@ _REJECTION_STAGE: Final = {
     "PAGE_GEOMETRY_REPROJECTION_ERROR_EXCESSIVE": 5,
     "PAGE_GEOMETRY_QUADS_INVALID": 6,
     "PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT": 7,
+    "PAGE_GEOMETRY_FRAME_SUPPORT_REVIEW_REQUIRED": 8,
 }
 
 
@@ -221,18 +228,30 @@ class LateralPageRegistrationCandidate:
     initialization: PageRegistrationInitialization
     policy_checksum_sha256: str
     board_red_edge_coverages: tuple[float, ...]
+    recovery_kind: Literal["lateral_source_support", "frame_support_review"] = (
+        "lateral_source_support"
+    )
+    review_required_slots: tuple[int, ...] = ()
+    version: Literal[
+        "lateral-page-registration-candidate-v1",
+        "lateral-page-registration-candidate-v2",
+    ] = "lateral-page-registration-candidate-v1"
 
     def to_payload(self) -> dict[str, object]:
         payload = self.initialization.to_payload()
         payload["analysisQuads"] = payload.pop("initializationQuads")
-        return {
+        result = {
             **payload,
-            "version": "lateral-page-registration-candidate-v1",
+            "version": self.version,
             "origin": "automatic_search_proposal",
             "policyChecksumSha256": self.policy_checksum_sha256,
             "requiresLocalRefinement": True,
             "boardRedEdgeCoverages": [round(value, 6) for value in self.board_red_edge_coverages],
         }
+        if self.version == "lateral-page-registration-candidate-v2":
+            result["recoveryKind"] = self.recovery_kind
+            result["reviewRequiredSlots"] = list(self.review_required_slots)
+        return result
 
 
 class VerifiedPageRegistrar:
@@ -840,6 +859,37 @@ def _evaluate_final_registration(
     coverage = tuple(_red_edge_coverage(red_neighbourhood, quad) for quad in quads)
     mean_coverage = sum(coverage) / len(coverage)
     if (
+        lateral_partial_policy is not None
+        and lateral_partial_policy.frame_support_review
+        and lateral_candidates is not None
+    ):
+        candidate = _frame_support_search_candidate(
+            match,
+            quads=quads,
+            coverages=coverage,
+            thresholds=thresholds,
+            feature_count=feature_count,
+            policy=lateral_partial_policy,
+            active_board_slots=active_board_slots,
+            target_width=target_rgb.shape[1],
+            target_height=target_rgb.shape[0],
+            registration_version=registration_version,
+            anchor_mask_version=anchor_mask_version,
+            anchor_mask_padding_ratio=anchor_mask_padding_ratio,
+        )
+        if candidate is not None:
+            lateral_candidates.append(candidate)
+            return None, PageRegistrationAttemptDiagnostic(
+                reason_code="PAGE_GEOMETRY_FRAME_SUPPORT_REVIEW_REQUIRED",
+                feature_count=feature_count,
+                anchor_source_checksum_sha256=match.anchor.source_checksum_sha256,
+                inlier_count=match.inlier_count,
+                inlier_ratio=match.inlier_ratio,
+                p95_reprojection_error=match.p95_reprojection_error,
+                mean_red_edge_coverage=mean_coverage,
+                minimum_board_red_edge_coverage=min(coverage),
+            )
+    if (
         mean_coverage < thresholds.minimum_mean_red_edge_coverage
         or min(coverage) < thresholds.minimum_board_red_edge_coverage
     ):
@@ -942,6 +992,91 @@ def _lateral_search_candidate(
         ),
         policy_checksum_sha256=policy.checksum_sha256,
         board_red_edge_coverages=coverage,
+        version=(
+            "lateral-page-registration-candidate-v2"
+            if policy.frame_support_review
+            else "lateral-page-registration-candidate-v1"
+        ),
+    )
+
+
+def _frame_support_search_candidate(
+    match: _MatchedAnchor,
+    *,
+    quads: tuple[Quad, ...],
+    coverages: tuple[float, ...],
+    thresholds: PageRegistrationThresholds,
+    feature_count: int,
+    policy: LateralPartialGeometrySnapshot,
+    active_board_slots: tuple[int, ...],
+    target_width: int,
+    target_height: int,
+    registration_version: str,
+    anchor_mask_version: str | None,
+    anchor_mask_padding_ratio: float | None,
+) -> LateralPageRegistrationCandidate | None:
+    """Keep strong page evidence while requiring review of weak board frames."""
+
+    homography = match.native_homography
+    active_quads = tuple(quads[slot] for slot in active_board_slots)
+    active_coverages = tuple(coverages[slot] for slot in active_board_slots)
+    weak_slots = tuple(
+        slot
+        for slot, coverage in zip(active_board_slots, active_coverages, strict=True)
+        if coverage < MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE
+    )
+    if (
+        not policy.frame_support_review
+        or len(active_board_slots) < 4
+        or not weak_slots
+        or len(weak_slots) > MAXIMUM_FRAME_REVIEW_SLOTS
+        or min(active_coverages) < MINIMUM_REVIEWABLE_BOARD_RED_EDGE_COVERAGE
+        or sum(active_coverages) / len(active_coverages)
+        < MINIMUM_REVIEWABLE_PAGE_MEAN_RED_EDGE_COVERAGE
+        or sum(
+            coverage >= MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE
+            for coverage in active_coverages
+        )
+        < max(3, len(active_board_slots) - MAXIMUM_FRAME_REVIEW_SLOTS)
+        or not np.isfinite(homography).all()
+        or abs(float(homography[2, 2])) < 1e-12
+        or abs(float(np.linalg.det(homography / homography[2, 2]))) < 1e-12
+        or match.inlier_count < thresholds.minimum_inliers
+        or not np.isfinite(match.inlier_ratio)
+        or match.inlier_ratio < thresholds.minimum_inlier_ratio
+        or not np.isfinite(match.p95_reprojection_error)
+        or match.p95_reprojection_error > thresholds.maximum_p95_reprojection_error
+        or not is_ordered_active_grid(
+            active_quads,
+            active_board_slots,
+            target_width,
+            target_height,
+        )
+    ):
+        return None
+    return LateralPageRegistrationCandidate(
+        initialization=PageRegistrationInitialization(
+            anchor_source_checksum_sha256=match.anchor.source_checksum_sha256,
+            active_board_slots=active_board_slots,
+            # The complete snapped grid already passed the normal ordering,
+            # bounds and overlap gates.  It is the tighter analysis ROI for a
+            # weak decorative frame; the local symbol lattice remains the
+            # only geometry offered to the reviewer.
+            initialization_quads=active_quads,
+            native_homography=_homography_payload(homography),
+            inlier_count=match.inlier_count,
+            inlier_ratio=match.inlier_ratio,
+            p95_reprojection_error=match.p95_reprojection_error,
+            feature_count=feature_count,
+            registration_version=registration_version,
+            anchor_mask_version=anchor_mask_version,
+            anchor_mask_padding_ratio=anchor_mask_padding_ratio,
+        ),
+        policy_checksum_sha256=policy.checksum_sha256,
+        board_red_edge_coverages=active_coverages,
+        recovery_kind="frame_support_review",
+        review_required_slots=weak_slots,
+        version="lateral-page-registration-candidate-v2",
     )
 
 

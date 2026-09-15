@@ -359,7 +359,9 @@ function GridReviewEditorContent({
         new Map(
           items.map((candidate) => [
             candidate.slotId,
-            manualGridFlagsFromQualification(gridReviewQualification(candidate)),
+            manualGridFlagsFromQualification(
+              gridReviewQualification(candidate),
+            ),
           ]),
         ),
       );
@@ -993,7 +995,7 @@ function GridReviewEditorContent({
         {item.localLatticeVersion ? (
           <p className="gridReviewMetadata">
             Dopasowanie lokalne: {item.localLatticeVersion} ·{' '}
-            {item.automaticPartialProposal
+            {item.automaticPartialProposal || item.automaticFrameProposal
               ? 'automatyczna propozycja siatki do potwierdzenia'
               : item.localLatticeStatus === 'estimated'
                 ? 'bezpieczna propozycja siatki'
@@ -1002,9 +1004,11 @@ function GridReviewEditorContent({
         ) : null}
         {item.slotKind === 'deferred_geometry' ? (
           <p className="reviewerAccessError" role="status">
-            {item.automaticPartialProposal
-              ? `Automatyczna propozycja v0.10.4 · slot #${item.positionIndex + 1} · ${item.sequenceNumber}. Brakujące pola (${item.automaticPartialProposal.geometryQualification.unavailableCellIndices.join(', ') || 'brak'}) są poza zdjęciem; propozycja wymaga ręcznego potwierdzenia.`
-              : `Automat nie utworzył tej planszy. Slot #${item.positionIndex + 1} · ${item.sequenceNumber} jest obowiązkowy — popraw roboczy szablon i zapisz komplet plansz zdjęcia.`}
+            {item.automaticFrameProposal
+              ? `Automatyczna propozycja · slot #${item.positionIndex + 1} · ${item.sequenceNumber}. Siatka symboli jest kompletna, ale część ramki planszy jest niewidoczna; propozycja wymaga ręcznego potwierdzenia.`
+              : item.automaticPartialProposal
+                ? `Automatyczna propozycja v0.10.4 · slot #${item.positionIndex + 1} · ${item.sequenceNumber}. Brakujące pola (${item.automaticPartialProposal.geometryQualification.unavailableCellIndices.join(', ') || 'brak'}) są poza zdjęciem; propozycja wymaga ręcznego potwierdzenia.`
+                : `Automat nie utworzył tej planszy. Slot #${item.positionIndex + 1} · ${item.sequenceNumber} jest obowiązkowy — popraw roboczy szablon i zapisz komplet plansz zdjęcia.`}
           </p>
         ) : null}
         {loadingSource ? <p>Wczytywanie obrazu…</p> : null}
@@ -1056,7 +1060,8 @@ function GridReviewEditorContent({
               {candidate.state === 'approved'
                 ? 'zatwierdzona'
                 : candidate.slotKind === 'deferred_geometry'
-                  ? candidate.automaticPartialProposal
+                  ? candidate.automaticPartialProposal ||
+                    candidate.automaticFrameProposal
                     ? 'automatyczna siatka do walidacji'
                     : 'obowiązkowa ręczna geometria'
                   : candidate.state === 'needs_correction'

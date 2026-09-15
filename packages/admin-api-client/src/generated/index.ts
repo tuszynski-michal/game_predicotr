@@ -335,6 +335,7 @@ export type {
   ArchiveRulesVersionErrors,
   ArchiveRulesVersionResponse,
   ArchiveRulesVersionResponses,
+  AutomaticFrameGeometryProposalPayload,
   AutomaticPartialGeometryProposalPayload,
   BoardCellGeometryCorrectionContextResponse,
   BoardCellGeometryJobCountsResponse,

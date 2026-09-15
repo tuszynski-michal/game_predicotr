@@ -6,6 +6,21 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0549 — siatki widocznych plansz z uciętą albo zasłoniętą ramką
+
+- Nowa checksumowana polityka v3 zachowuje mocną rejestrację strony, gdy
+  najwyżej trzy ozdobne ramki mają słabsze pokrycie, ale globalna homografia,
+  kolejność, overlap i średni dowód pozostają bezpieczne.
+- Lokalny refiner symboli tworzy dla słabego slotu kompletną propozycję 3×5.
+  Jest ona widoczna w `Do walidacji`, nie wymaga ponownego wskazywania czterech
+  narożników i pozostaje wykluczona ze zwykłego uczenia geometrii do czasu
+  jawnego potwierdzenia. Brak bezpiecznej siatki nadal kieruje slot do poprawy.
+- Read-only próba na `seq_61741-61749.jpg`, `seq_61651-61659.jpg` i
+  `seq_61786-61794.jpg` zachowała slot 0 i uzyskała odpowiednio 12, 11 i 11
+  inlierów przy p95 `3,2145`, `9,3631` i `7,5987 px`. Snapshoty v1/v2
+  odtwarzają stare zachowanie; nowe API, klient i Reviewer rozpoznają odrębną
+  `automaticFrameProposal`.
+
 ### TASK-0548 — jawny wybór cropów do ręcznej poprawki
 
 - Automatyczne ostrzeżenia nie są już kopiowane do wyboru ręcznej poprawki.

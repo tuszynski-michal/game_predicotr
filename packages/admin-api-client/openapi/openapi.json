@@ -170,6 +170,81 @@
         "title": "ApprovedSymbolReferenceSelectionCommand",
         "type": "object"
       },
+      "AutomaticFrameGeometryProposalPayload": {
+        "additionalProperties": false,
+        "description": "A complete local grid retained because its decorative frame is weak.",
+        "properties": {
+          "geometryQualification": {
+            "$ref": "#/components/schemas/GeometryQualificationPayload"
+          },
+          "origin": {
+            "const": "automatic_proposal",
+            "title": "Origin",
+            "type": "string"
+          },
+          "policyChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Policychecksumsha256",
+            "type": "string"
+          },
+          "policyVersion": {
+            "const": "structured-lattice-v4-lateral-partial-v3",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 9.0,
+            "minimum": 1.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "reasonCode": {
+            "const": "board_frame_support_incomplete",
+            "title": "Reasoncode",
+            "type": "string"
+          },
+          "requiresManualConfirmation": {
+            "const": true,
+            "title": "Requiresmanualconfirmation",
+            "type": "boolean"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "trainingProfileChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingprofilechecksumsha256"
+          },
+          "version": {
+            "const": "automatic-frame-geometry-proposal-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "origin",
+          "sourceChecksumSha256",
+          "positionIndex",
+          "policyVersion",
+          "policyChecksumSha256",
+          "requiresManualConfirmation",
+          "reasonCode",
+          "geometryQualification"
+        ],
+        "title": "AutomaticFrameGeometryProposalPayload",
+        "type": "object"
+      },
       "AutomaticPartialGeometryProposalPayload": {
         "additionalProperties": false,
         "description": "Machine provenance wraps existing availability, never a human decision.",
@@ -190,7 +265,8 @@
           "policyVersion": {
             "enum": [
               "structured-lattice-v4-lateral-partial-v1",
-              "structured-lattice-v4-lateral-partial-v2"
+              "structured-lattice-v4-lateral-partial-v2",
+              "structured-lattice-v4-lateral-partial-v3"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -226,7 +302,8 @@
           "version": {
             "enum": [
               "automatic-lateral-partial-proposal-v1",
-              "automatic-lateral-partial-proposal-v2"
+              "automatic-lateral-partial-proposal-v2",
+              "automatic-lateral-partial-proposal-v3"
             ],
             "title": "Version",
             "type": "string"
@@ -7364,6 +7441,16 @@
             "title": "Assetmode",
             "type": "string"
           },
+          "automaticFrameProposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutomaticFrameGeometryProposalPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "automaticPartialProposal": {
             "anyOf": [
               {
@@ -11055,6 +11142,18 @@
             "title": "Analysiswidth",
             "type": "integer"
           },
+          "automaticFrameProposalVersion": {
+            "anyOf": [
+              {
+                "const": "automatic-frame-geometry-proposal-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automaticframeproposalversion"
+          },
           "checksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Checksumsha256",
@@ -11070,15 +11169,75 @@
             "title": "Excludefrompageanchors",
             "type": "boolean"
           },
+          "frameSupportReviewEnabled": {
+            "anyOf": [
+              {
+                "const": true,
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Framesupportreviewenabled"
+          },
           "maximumAdditionalPasses": {
             "const": 1,
             "title": "Maximumadditionalpasses",
             "type": "integer"
           },
+          "maximumFrameReviewSlots": {
+            "anyOf": [
+              {
+                "const": 3,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximumframereviewslots"
+          },
+          "minimumAutomaticBoardRedEdgeCoverage": {
+            "anyOf": [
+              {
+                "const": 0.65,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimumautomaticboardrededgecoverage"
+          },
           "minimumInliers": {
             "const": 9,
             "title": "Minimuminliers",
             "type": "integer"
+          },
+          "minimumReviewableBoardRedEdgeCoverage": {
+            "anyOf": [
+              {
+                "const": 0.3,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimumreviewableboardrededgecoverage"
+          },
+          "minimumReviewablePageMeanRedEdgeCoverage": {
+            "anyOf": [
+              {
+                "const": 0.7,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimumreviewablepagemeanrededgecoverage"
           },
           "minimumVisibleColumns": {
             "const": 3,
@@ -11103,7 +11262,8 @@
           "policyVersion": {
             "enum": [
               "structured-lattice-v4-lateral-partial-v1",
-              "structured-lattice-v4-lateral-partial-v2"
+              "structured-lattice-v4-lateral-partial-v2",
+              "structured-lattice-v4-lateral-partial-v3"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -11111,7 +11271,8 @@
           "proposalVersion": {
             "enum": [
               "automatic-lateral-partial-proposal-v1",
-              "automatic-lateral-partial-proposal-v2"
+              "automatic-lateral-partial-proposal-v2",
+              "automatic-lateral-partial-proposal-v3"
             ],
             "title": "Proposalversion",
             "type": "string"
@@ -11124,7 +11285,8 @@
           "schemaVersion": {
             "enum": [
               "lateral-partial-geometry-snapshot-v1",
-              "lateral-partial-geometry-snapshot-v2"
+              "lateral-partial-geometry-snapshot-v2",
+              "lateral-partial-geometry-snapshot-v3"
             ],
             "title": "Schemaversion",
             "type": "string"

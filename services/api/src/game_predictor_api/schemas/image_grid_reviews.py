@@ -31,6 +31,7 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.geometry_qualification import (
+    AutomaticFrameGeometryProposalPayload,
     AutomaticPartialGeometryProposalPayload,
     GeometryQualificationPayload,
 )
@@ -44,6 +45,7 @@ Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 class ImageGridReviewItemResponse(ApiModel):
     geometry_qualification: GeometryQualificationPayload | None = None
     automatic_partial_proposal: AutomaticPartialGeometryProposalPayload | None = None
+    automatic_frame_proposal: AutomaticFrameGeometryProposalPayload | None = None
     slot_id: UUID
     slot_kind: ImageGridReviewSlotKind
     review_item_id: UUID | None
@@ -283,6 +285,13 @@ def to_image_grid_review_item_response(
                 geometry["automaticPartialProposal"]
             )
             if geometry.get("automaticPartialProposal") is not None
+            else None
+        ),
+        automatic_frame_proposal=(
+            AutomaticFrameGeometryProposalPayload.model_validate(
+                geometry["automaticFrameProposal"]
+            )
+            if geometry.get("automaticFrameProposal") is not None
             else None
         ),
         slot_id=item.slot_id,

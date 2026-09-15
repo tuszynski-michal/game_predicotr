@@ -40,11 +40,29 @@ def test_learned_partial_policy_v2_roundtrip_and_checksum_binding() -> None:
     profile = PartialGridTrainingProfile(
         (PartialGridPattern((0, 5, 10), sample_count=3, source_count=3),), 3
     )
-    policy = LateralPartialGeometrySnapshot(training_profile=profile)
+    policy = LateralPartialGeometrySnapshot(
+        training_profile=profile, frame_support_review=False
+    )
     raw = json.loads(json.dumps(policy.to_payload()))
     assert raw["schemaVersion"] == "lateral-partial-geometry-snapshot-v2"
     assert LateralPartialGeometrySnapshot.from_payload(raw) == policy
     raw["partialGridTrainingProfile"]["patterns"][0]["sourceCount"] = 4
+    with pytest.raises(LateralPartialContractError):
+        LateralPartialGeometrySnapshot.from_payload(raw)
+
+
+def test_frame_support_policy_v3_roundtrip_and_checksum_binding() -> None:
+    profile = PartialGridTrainingProfile(
+        (PartialGridPattern((0, 5, 10), sample_count=3, source_count=3),), 3
+    )
+    policy = LateralPartialGeometrySnapshot(training_profile=profile)
+    raw = json.loads(json.dumps(policy.to_payload()))
+    assert raw["schemaVersion"] == "lateral-partial-geometry-snapshot-v3"
+    assert raw["frameSupportReviewEnabled"] is True
+    assert raw["minimumAutomaticBoardRedEdgeCoverage"] == 0.65
+    assert raw["minimumReviewableBoardRedEdgeCoverage"] == 0.30
+    assert LateralPartialGeometrySnapshot.from_payload(raw) == policy
+    raw["maximumFrameReviewSlots"] = 4
     with pytest.raises(LateralPartialContractError):
         LateralPartialGeometrySnapshot.from_payload(raw)
 

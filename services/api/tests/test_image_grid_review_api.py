@@ -57,6 +57,9 @@ from game_predictor_api.storage.image_grid_review_repository import (
     _confirmed_partial_expression,
     _pending_automatic_proposal_expression,
 )
+from game_predictor_worker.images.lateral_partial_contract import (
+    LateralPartialGeometrySnapshot,
+)
 from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 
@@ -91,6 +94,7 @@ def test_pending_automatic_proposal_sql_requires_metadata_and_four_corner_grid()
     )
 
     assert "automaticPartialProposal" in sql
+    assert "automaticFrameProposal" in sql
     assert "symbolGridQuad" in sql
     assert "jsonb_array_length" in sql
     assert "CASE WHEN" in sql
@@ -547,6 +551,55 @@ def test_grid_review_response_does_not_replace_explicitly_deferred_lattice_with_
 
     assert response.analysis_quad is not None
     assert response.symbol_grid_quad is None
+
+
+def test_grid_review_response_exposes_complete_weak_frame_proposal() -> None:
+    lattice = [
+        {"x": 5, "y": 6},
+        {"x": 97, "y": 6},
+        {"x": 97, "y": 75},
+        {"x": 5, "y": 75},
+    ]
+    policy = LateralPartialGeometrySnapshot()
+    qualification = {
+        "version": "manual-geometry-qualification-v2",
+        "completenessStatus": "complete",
+        "unavailableCellIndices": [],
+        "excludeFromGeometryTraining": True,
+        "exclusionReason": "manual_exclusion",
+        "includeInPartialGridTraining": False,
+    }
+    item = replace(
+        _item(uuid4(), uuid4(), 1, ImageGridReviewState.NEEDS_VALIDATION),
+        geometry_revision=0,
+        geometry={
+            "analysisQuad": lattice,
+            "symbolGridQuad": lattice,
+            "localLatticeStatus": "pending_review",
+            "localLatticeVersion": policy.policy_version,
+            "automaticFrameProposal": {
+                "version": "automatic-frame-geometry-proposal-v1",
+                "origin": "automatic_proposal",
+                "sourceChecksumSha256": SHA,
+                "positionIndex": 1,
+                "policyVersion": policy.policy_version,
+                "policyChecksumSha256": policy.checksum_sha256,
+                "requiresManualConfirmation": True,
+                "reasonCode": "board_frame_support_incomplete",
+                "geometryQualification": qualification,
+            },
+        },
+    )
+
+    response = to_image_grid_review_item_response(item)
+
+    assert response.symbol_grid_quad is not None
+    assert response.automatic_frame_proposal is not None
+    assert response.automatic_frame_proposal.requires_manual_confirmation is True
+    assert (
+        response.automatic_frame_proposal.geometry_qualification.completeness_status
+        == "complete"
+    )
 
 
 def test_geometry_rollout_start_is_idempotent_and_reports_progress(tmp_path: Path) -> None:

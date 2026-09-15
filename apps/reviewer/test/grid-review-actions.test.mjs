@@ -52,7 +52,11 @@ function partialItem() {
 test('confirmation persists an automatic partial grid with its qualification', async () => {
   let command;
   const api = {
-    async createImageGridReviewSourceGeometryRevision(_gameId, _query, payload) {
+    async createImageGridReviewSourceGeometryRevision(
+      _gameId,
+      _query,
+      payload,
+    ) {
       command = payload;
       return { data: { created: true, geometryRevisions: [{}] } };
     },
@@ -69,6 +73,49 @@ test('confirmation persists an automatic partial grid with its qualification', a
   assert.deepEqual(command.targets[0].corners, item.symbolGridQuad);
   assert.deepEqual(command.targets[0].geometryQualification, qualification);
   assert.equal(command.targets[0].pendingGeometryId, item.pendingGeometryId);
+});
+
+test('confirmation persists a complete grid recovered from a weak frame', async () => {
+  let command;
+  const api = {
+    async createImageGridReviewSourceGeometryRevision(
+      _gameId,
+      _query,
+      payload,
+    ) {
+      command = payload;
+      return { data: { created: true, geometryRevisions: [{}] } };
+    },
+    async approveImageGridReviewSourceGeometry() {
+      assert.fail('a pending proposal must be materialized before approval');
+    },
+  };
+  const item = partialItem();
+  const frameQualification = {
+    completenessStatus: 'complete',
+    excludeFromGeometryTraining: true,
+    exclusionReason: 'manual_exclusion',
+    includeInPartialGridTraining: false,
+    unavailableCellIndices: [],
+    version: 'manual-geometry-qualification-v2',
+  };
+  item.automaticPartialProposal = null;
+  item.automaticFrameProposal = { geometryQualification: frameQualification };
+  item.symbolGridQuad = [
+    { x: 20, y: 80 },
+    { x: 300, y: 80 },
+    { x: 300, y: 500 },
+    { x: 20, y: 500 },
+  ];
+
+  const result = await approveGridReviewSource(api, [item]);
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(command.targets[0].corners, item.symbolGridQuad);
+  assert.deepEqual(
+    command.targets[0].geometryQualification,
+    frameQualification,
+  );
 });
 
 test('a pending slot without an automatic grid still requires manual geometry', async () => {

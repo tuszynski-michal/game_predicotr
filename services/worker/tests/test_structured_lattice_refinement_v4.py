@@ -43,7 +43,9 @@ POLICY = LateralPartialGeometrySnapshot()
 TOPOLOGY = BoardCellTopology(rows=3, columns=5)
 
 
-def _candidate(quad: SourceQuad) -> LateralPageRegistrationCandidate:
+def _candidate(
+    quad: SourceQuad, *, frame_review: bool = False
+) -> LateralPageRegistrationCandidate:
     return LateralPageRegistrationCandidate(
         initialization=PageRegistrationInitialization(
             anchor_source_checksum_sha256="a" * 64,
@@ -57,6 +59,9 @@ def _candidate(quad: SourceQuad) -> LateralPageRegistrationCandidate:
         ),
         policy_checksum_sha256=POLICY.checksum_sha256,
         board_red_edge_coverages=(0.8,),
+        recovery_kind="frame_support_review" if frame_review else "lateral_source_support",
+        review_required_slots=(0,) if frame_review else (),
+        version="lateral-page-registration-candidate-v2",
     )
 
 
@@ -85,6 +90,19 @@ def _refine(source, quad, candidate=True):
         source_checksum_sha256="b" * 64,
         position_index=0,
         lateral_candidate=_candidate(quad) if candidate else None,
+        policy=POLICY,
+    )
+
+
+def _refine_frame(source, quad):
+    return v4.refine_structured_symbol_lattice_v4(
+        source,
+        analysis_quad=quad,
+        board_frame_quad=quad,
+        topology=TOPOLOGY,
+        source_checksum_sha256="b" * 64,
+        position_index=0,
+        lateral_candidate=_candidate(quad, frame_review=True),
         policy=POLICY,
     )
 
@@ -185,6 +203,39 @@ def test_complete_v3_result_remains_identical_without_a_second_detector(monkeypa
     assert result.baseline is baselines[0]
     assert result.to_payload() == baselines[0].to_payload()
     assert result.additional_passes == 0
+
+
+def test_weak_frame_routes_an_existing_complete_grid_to_validation() -> None:
+    source, quad = _source(_board())
+    result = _refine_frame(source, quad)
+    assert result.status == "pending_review"
+    assert result.frame_proposal is not None
+    assert result.frame_proposal.qualification.completeness_status == "complete"
+    assert result.frame_proposal.qualification.unavailable_cell_indices == ()
+    assert result.frame_proposal.qualification.exclude_from_geometry_training
+    assert result.to_payload()["automaticFrameProposal"]["requiresManualConfirmation"] is True
+    assert result.additional_passes == 0
+
+
+def test_weak_frame_runs_one_bounded_symbol_recovery_when_baseline_defers(
+    monkeypatch,
+) -> None:
+    source, quad = _source(_board())
+    deferred = v4._deferred(
+        quad,
+        quad,
+        v4._failure("SYMBOL_LATTICE_INLIER_COVERAGE_INSUFFICIENT", candidate_count=11),
+        "SYMBOL_LATTICE_INLIER_COVERAGE_INSUFFICIENT",
+    )
+    monkeypatch.setattr(v4, "refine_structured_symbol_lattice_v3", lambda *a, **k: deferred)
+    result = _refine_frame(source, quad)
+    assert result.status == "pending_review", result.to_payload()
+    assert result.frame_proposal is not None
+    assert result.frame_proposal.content_safety.status == "passed"
+    assert {row for row, _ in result.frame_proposal.inlier_slots} == {0, 1, 2}
+    assert {column for _, column in result.frame_proposal.inlier_slots} == {0, 1, 2, 3, 4}
+    assert result.additional_passes == 1
+    assert result.hypothesis_count == 1
 
 
 def test_failed_v3_without_registration_does_not_run_extra_pass(monkeypatch) -> None:

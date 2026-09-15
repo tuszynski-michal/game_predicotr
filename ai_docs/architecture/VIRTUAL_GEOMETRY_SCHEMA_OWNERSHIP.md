@@ -114,6 +114,31 @@ operatora. Edycja źródła mieszanego zachowuje wszystkie dostępne quady i
 otwiera ręczne wskazywanie tylko dla slotów z
 `manualGeometryRequired=true`.
 
+## Kompletna siatka przy osłabionej ramce (TASK-0549)
+
+Polityka `structured-lattice-v4-lateral-partial-v3` zachowuje
+historyczne zachowanie v1/v2 i dodaje kandydaturę
+`lateral-page-registration-candidate-v2`. Pole `recoveryKind` rozdziela
+dotychczasowy brak bocznego podparcia od `frame_support_review`, a
+`reviewRequiredSlots` wiąże decyzję ze slotami, których ozdobna ramka nie
+przeszła progu automatycznego. Checksumowany snapshot zawiera przełącznik tej
+gałęzi, dlatego retry i nowy proces odtwarzają dokładnie tę samą politykę.
+
+Kandydatura ramki nie jest geometrią domenową. Powstaje dopiero po pełnych
+bramkach rejestracji strony, bezpiecznym średnim dowodzie czerwonych krawędzi i
+ograniczeniu liczby słabych slotów. Jej quad inicjalizacyjny jest jedynie
+obszarem lokalnego refinera. Refiner musi niezależnie odzyskać kompletną siatkę
+3×5 z podparciem treścią; wynik zapisuje jako
+`automatic-frame-geometry-proposal-v1`, nigdy jako część boczną.
+
+`automaticFrameProposal` ma kwalifikację `complete`, pustą maskę i jawne
+wykluczenie ze zwykłego uczenia geometrii. Projekcja kolejki klasyfikuje go jako
+`needs_validation`, udostępnia quad do nakładki i ustawia
+`manualGeometryRequired=false`. Atomowe potwierdzenie źródła materializuje
+quad oraz tę kwalifikację; brak propozycji zachowuje `needs_correction`.
+`automaticPartialProposal` i jego `pending_partial` pozostają odrębnym
+kontraktem.
+
 ## Szkice ręcznej kwalifikacji (TASK-0507)
 
 Szkic przeglądarki nie jest rewizją źródła. Przechowuje tylko współrzędne,

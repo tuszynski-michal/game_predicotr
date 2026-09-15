@@ -59,13 +59,13 @@ def _confirmed_partial_expression() -> ColumnElement[bool]:
     )
 
 
-def _pending_automatic_proposal_expression() -> ColumnElement[bool]:
+def _pending_proposal_expression(field_name: str) -> ColumnElement[bool]:
     """A proposal is reviewable only when it also carries a four-corner grid."""
 
     geometry = ImageSourceGeometryRevisionModel.board_geometries.op("->")(
         ImageBoardGeometryPendingModel.position_index
     )
-    proposal = geometry.op("->")("automaticPartialProposal")
+    proposal = geometry.op("->")(field_name)
     symbol_grid = geometry.op("->")("symbolGridQuad")
     symbol_grid_length = case(
         (
@@ -77,6 +77,21 @@ def _pending_automatic_proposal_expression() -> ColumnElement[bool]:
     return and_(
         func.jsonb_typeof(proposal) == "object",
         symbol_grid_length == 4,
+    )
+
+
+def _pending_automatic_partial_proposal_expression() -> ColumnElement[bool]:
+    return _pending_proposal_expression("automaticPartialProposal")
+
+
+def _pending_automatic_frame_proposal_expression() -> ColumnElement[bool]:
+    return _pending_proposal_expression("automaticFrameProposal")
+
+
+def _pending_automatic_proposal_expression() -> ColumnElement[bool]:
+    return or_(
+        _pending_automatic_partial_proposal_expression(),
+        _pending_automatic_frame_proposal_expression(),
     )
 
 
@@ -187,7 +202,7 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             or 0
         )
         automatic_proposal = _pending_automatic_proposal_expression()
-        lateral_partial_proposals = int(
+        automatic_proposals = int(
             self._session.scalar(
                 self._pending_statement(review_filter=unrestricted)
                 .with_only_columns(func.count(ImageBoardGeometryPendingModel.id))
@@ -195,15 +210,31 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
             or 0
         )
+        automatic_frame_proposals = int(
+            self._session.scalar(
+                self._pending_statement(review_filter=unrestricted)
+                .with_only_columns(func.count(ImageBoardGeometryPendingModel.id))
+                .where(_pending_automatic_frame_proposal_expression())
+            )
+            or 0
+        )
+        lateral_partial_proposals = int(
+            self._session.scalar(
+                self._pending_statement(review_filter=unrestricted)
+                .with_only_columns(func.count(ImageBoardGeometryPendingModel.id))
+                .where(_pending_automatic_partial_proposal_expression())
+            )
+            or 0
+        )
         needs_validation = (
             counts.get(ImageGridReviewState.NEEDS_VALIDATION.value, 0)
-            + lateral_partial_proposals
+            + automatic_proposals
         )
         approved = counts.get(ImageGridReviewState.APPROVED.value, 0)
         needs_correction = (
             counts.get(ImageGridReviewState.NEEDS_CORRECTION.value, 0)
             + pending_count
-            - lateral_partial_proposals
+            - automatic_proposals
         )
         current_statement = self._visible_statement(review_filter=unrestricted)
         current_count = int(
@@ -225,7 +256,10 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             needs_validation=needs_validation,
             needs_correction=needs_correction,
             approved=approved,
-            full_grids=max(0, current_count - confirmed_partial_grids),
+            full_grids=max(
+                0,
+                current_count - confirmed_partial_grids + automatic_frame_proposals,
+            ),
             lateral_partial_proposals=lateral_partial_proposals,
             confirmed_partial_grids=confirmed_partial_grids,
         )
@@ -741,7 +775,10 @@ def _pending_row_to_item(row: Any) -> ImageGridReviewListItem:
 
 
 def _pending_automatic_quad(geometry: dict[str, object]) -> list[dict[str, int]] | None:
-    if not isinstance(geometry.get("automaticPartialProposal"), dict):
+    if not any(
+        isinstance(geometry.get(key), dict)
+        for key in ("automaticPartialProposal", "automaticFrameProposal")
+    ):
         return None
     value = geometry.get("symbolGridQuad")
     if (

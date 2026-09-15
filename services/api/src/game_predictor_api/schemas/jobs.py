@@ -128,15 +128,20 @@ class PartialGridTrainingJobSnapshotPayload(ApiModel):
 
 class LateralPartialGeometryJobSnapshotPayload(ApiModel):
     schema_version: Literal[
-        "lateral-partial-geometry-snapshot-v1", "lateral-partial-geometry-snapshot-v2"
+        "lateral-partial-geometry-snapshot-v1",
+        "lateral-partial-geometry-snapshot-v2",
+        "lateral-partial-geometry-snapshot-v3",
     ]
     variant: Literal["structured_lattice_v4_partial_sides"]
     policy_version: Literal[
         "structured-lattice-v4-lateral-partial-v1",
         "structured-lattice-v4-lateral-partial-v2",
+        "structured-lattice-v4-lateral-partial-v3",
     ]
     proposal_version: Literal[
-        "automatic-lateral-partial-proposal-v1", "automatic-lateral-partial-proposal-v2"
+        "automatic-lateral-partial-proposal-v1",
+        "automatic-lateral-partial-proposal-v2",
+        "automatic-lateral-partial-proposal-v3",
     ]
     topology_rows: Literal[3]
     topology_columns: Literal[5]
@@ -150,6 +155,24 @@ class LateralPartialGeometryJobSnapshotPayload(ApiModel):
     requires_manual_confirmation: Literal[True]
     exclude_from_geometry_training: Literal[True]
     exclude_from_page_anchors: Literal[True]
+    frame_support_review_enabled: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    automatic_frame_proposal_version: Literal["automatic-frame-geometry-proposal-v1"] | None = (
+        Field(default=None, exclude_if=lambda value: value is None)
+    )
+    minimum_automatic_board_red_edge_coverage: Literal[0.65] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    minimum_reviewable_board_red_edge_coverage: Literal[0.3] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    minimum_reviewable_page_mean_red_edge_coverage: Literal[0.7] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    maximum_frame_review_slots: Literal[3] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     partial_grid_training_profile: PartialGridTrainingJobSnapshotPayload | None = Field(
         default=None, exclude_if=lambda value: value is None
     )

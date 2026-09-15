@@ -57,6 +57,7 @@ export const LATERAL_PARTIAL_VARIANT: GeometryEngineVariant =
 const LATERAL_PARTIAL_POLICY_VERSIONS = new Set([
   'structured-lattice-v4-lateral-partial-v1',
   'structured-lattice-v4-lateral-partial-v2',
+  'structured-lattice-v4-lateral-partial-v3',
 ]);
 
 function isSupportedLateralPartialGeometry(value: unknown): boolean {

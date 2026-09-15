@@ -421,13 +421,57 @@ test('manual completion clears only slots for which the algorithm has no grid', 
 
   const drafts = requiredGridGeometrySourceDrafts([proposed, missing]);
 
-  assert.deepEqual(gridGeometrySourceDraft(drafts, proposed.slotId), automaticQuad);
+  assert.deepEqual(
+    gridGeometrySourceDraft(drafts, proposed.slotId),
+    automaticQuad,
+  );
   assert.deepEqual(gridGeometrySourceDraft(drafts, missing.slotId), []);
-  assert.equal(firstIncompleteGridGeometrySourceItem([proposed, missing], drafts), missing);
+  assert.equal(
+    firstIncompleteGridGeometrySourceItem([proposed, missing], drafts),
+    missing,
+  );
   assert.deepEqual(
     gridReviewQualification(proposed),
     proposed.automaticPartialProposal.geometryQualification,
   );
+});
+
+test('a complete grid recovered from a weak frame is ready for validation', () => {
+  const automaticQuad = [
+    { x: 20, y: 80 },
+    { x: 300, y: 80 },
+    { x: 300, y: 500 },
+    { x: 20, y: 500 },
+  ];
+  const qualification = {
+    completenessStatus: 'complete',
+    excludeFromGeometryTraining: true,
+    exclusionReason: 'manual_exclusion',
+    includeInPartialGridTraining: false,
+    unavailableCellIndices: [],
+    version: 'manual-geometry-qualification-v2',
+  };
+  const proposed = {
+    ...item,
+    automaticFrameProposal: { geometryQualification: qualification },
+    geometry: { manualGeometryRequired: false },
+    geometryRevision: 0,
+    pendingGeometryId: '80000000-0000-4000-8000-000000000003',
+    reviewItemId: null,
+    slotId: '80000000-0000-4000-8000-000000000003',
+    slotKind: 'deferred_geometry',
+    state: 'needs_validation',
+    symbolGridQuad: automaticQuad,
+  };
+
+  const drafts = requiredGridGeometrySourceDrafts([proposed]);
+
+  assert.deepEqual(
+    gridGeometrySourceDraft(drafts, proposed.slotId),
+    automaticQuad,
+  );
+  assert.deepEqual(gridReviewQualification(proposed), qualification);
+  assert.equal(firstIncompleteGridGeometrySourceItem([proposed], drafts), null);
 });
 
 test('pausing source geometry preserves completed drafts and resumes at the next row-major slot', () => {

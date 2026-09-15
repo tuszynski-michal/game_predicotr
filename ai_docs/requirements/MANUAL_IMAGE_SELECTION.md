@@ -635,6 +635,15 @@ obok. Każda zakwalifikowana sesja otrzymuje osobny
 operator-only pozostają bez zmian. Zbiorczy raport pokazuje również powód
 pominięcia każdej pozostałej sesji.
 
+TASK-0558: gdy historyczna sesja ma utrwalone `failures` bez wyniku w shardzie,
+operator może uruchomić osobny preview odzyskania braków. Wejściem jest tylko
+unikalna lista failure names obecnych w inwentarzu i nieobecnych w shardach,
+zachowująca kolejność inwentarza. Preview kontroluje checksumę źródła,
+zapisuje v12 JPEG-i, shardy i raport wyłącznie do własnego katalogu oraz
+odmawia pracy przy obcej nazwie, duplikacie, istniejącym wyniku lub zmianie
+stanu wejściowego. Nie usuwa failure ani nie zmienia `cut`, review albo
+historycznej polityki; decyzja o przyjęciu wyniku pozostaje osobnym krokiem.
+
 TASK-0536: po jawnej akceptacji operatora v12 jest głównym silnikiem wszystkich
 nowych sesji `Przytnij wybrane zdjęcia` oraz domyślną polityką lokalnego runnera
 katalogowego. Nowa sesja przypina dokładny identyfikator v12 przed pierwszym

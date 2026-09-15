@@ -270,6 +270,16 @@ atomowa publikacja przez rename pozwalają wznowić przerwany przebieg także na
 woluminie bez obsługi twardych linków. Raport oraz lokalny HTML są pochodnymi;
 wejściowy katalog `cut` pozostaje tylko do odczytu.
 
+TASK-0558 rozszerza runner o niezależny selection `missing_failures`. Lista jest
+wyprowadzana z `session.failures` tylko po sprawdzeniu, że każda nazwa należy do
+inwentarza, nie ma wyniku w żadnym shardzie i nie powtarza się. To osobna lista
+i osobny checksum w metadanych preview, dlatego nie da się wznowić katalogu
+utworzonego dla automatycznych ostrzeżeń jako odzyskiwania failure. Kandydat
+bez historycznego wyniku sprawdza bieżące źródło względem inwentarza i zapisuje
+własną proweniencję v12; kandydat z historycznym wynikiem zachowuje istniejącą
+kontrolę checksumy. W żadnym wariancie runner nie modyfikuje state v2 ani
+oryginalnych JPEG-ów.
+
 TASK-0535 dodaje nad tym runnerem sekwencyjny audyt wielu katalogów. Skanowane
 są tylko bezpośrednie, niesymlinkowane katalogi z dokładnym sufiksem ` cut`.
 Kwalifikacja odtwarza snapshot v2 ze wszystkich shardów i porównuje dokładny

@@ -138,17 +138,12 @@ async function loadInput(source, currentOutput) {
     inventory.outputDirectoryName !== path.basename(currentOutput)
   )
     throw new Error('CROP_PREVIEW_INPUT_IDENTITY_MISMATCH');
-  const correctionNames = [
-    ...selectedImageCropAutomaticCorrectionRecalculationFileNames(snapshot),
-  ];
-  if (
-    correctionNames.length === 0 ||
-    new Set(correctionNames).size !== correctionNames.length
-  )
-    throw new Error('CROP_PREVIEW_CORRECTION_LIST_INVALID');
   const sourceResults = new Map(
     shards.flatMap((shard) => Object.entries(shard.results)),
   );
+  const correctionNames = [
+    ...selectedImageCropAutomaticCorrectionRecalculationFileNames(snapshot),
+  ];
   return {
     snapshot,
     correctionNames,
@@ -156,6 +151,28 @@ async function loadInput(source, currentOutput) {
     stateDirectory,
     stateChecksum: await inputStateChecksum(stateDirectory),
   };
+}
+
+function selectedCropFailureRecoveryFileNames(snapshot, sourceResults) {
+  if (!Array.isArray(snapshot.session.failures))
+    throw new Error('CROP_PREVIEW_FAILURE_LIST_INVALID');
+  const inventoryNames = snapshot.inventory.entries.map(
+    (entry) => entry.fileName,
+  );
+  const inventorySet = new Set(inventoryNames);
+  const selected = new Set();
+  for (const failure of snapshot.session.failures) {
+    const fileName = failure?.fileName;
+    if (
+      typeof fileName !== 'string' ||
+      !inventorySet.has(fileName) ||
+      sourceResults.has(fileName) ||
+      selected.has(fileName)
+    )
+      throw new Error('CROP_PREVIEW_FAILURE_LIST_INVALID');
+    selected.add(fileName);
+  }
+  return inventoryNames.filter((fileName) => selected.has(fileName));
 }
 
 function shardName(index) {
@@ -235,11 +252,11 @@ async function writeReviewIndex(output, report) {
   await fs.writeFile(path.join(output, INDEX_NAME), html);
 }
 
-export async function runSelectedCropCorrectionPreview(
+async function runSelectedCropPreview(
   sourceArgument,
   currentOutputArgument,
   previewOutputArgument,
-  { onProgress = () => {} } = {},
+  { onProgress = () => {}, selection = 'automatic_corrections' } = {},
 ) {
   const source = path.resolve(sourceArgument);
   const currentOutput = path.resolve(currentOutputArgument);
@@ -253,9 +270,29 @@ export async function runSelectedCropCorrectionPreview(
   )
     throw new Error('CROP_PREVIEW_PATHS_MUST_BE_DISTINCT');
   const input = await loadInput(source, currentOutput);
-  const correctionHash = sha256(
-    Buffer.from(JSON.stringify(input.correctionNames)),
-  );
+  const candidateNames =
+    selection === 'automatic_corrections'
+      ? input.correctionNames
+      : selection === 'missing_failures'
+        ? selectedCropFailureRecoveryFileNames(
+            input.snapshot,
+            input.sourceResults,
+          )
+        : (() => {
+            throw new Error('CROP_PREVIEW_SELECTION_INVALID');
+          })();
+  if (
+    selection === 'automatic_corrections' &&
+    new Set(candidateNames).size !== candidateNames.length
+  )
+    throw new Error('CROP_PREVIEW_CORRECTION_LIST_INVALID');
+  if (candidateNames.length === 0)
+    throw new Error(
+      selection === 'missing_failures'
+        ? 'CROP_PREVIEW_FAILURE_LIST_EMPTY'
+        : 'CROP_PREVIEW_CORRECTION_LIST_INVALID',
+    );
+  const candidateHash = sha256(Buffer.from(JSON.stringify(candidateNames)));
   if (!(await exists(output))) await fs.mkdir(output);
   await safe(output, true);
   const state = path.join(output, STATE_DIRECTORY);
@@ -271,8 +308,16 @@ export async function runSelectedCropCorrectionPreview(
     currentOutputDirectory: currentOutput,
     previewOutputDirectory: output,
     inputStateChecksumSha256: input.stateChecksum,
-    correctionListChecksumSha256: correctionHash,
-    correctionCount: input.correctionNames.length,
+    ...(selection === 'automatic_corrections'
+      ? {
+          correctionListChecksumSha256: candidateHash,
+          correctionCount: candidateNames.length,
+        }
+      : {
+          selection,
+          failureListChecksumSha256: candidateHash,
+          failureCount: candidateNames.length,
+        }),
     maximumAnchorDistance: MAX_ANCHOR_DISTANCE,
     maximumAnchorAttempts: MAX_ANCHOR_ATTEMPTS,
   };
@@ -285,7 +330,7 @@ export async function runSelectedCropCorrectionPreview(
     STATE_DIRECTORY,
     REPORT_NAME,
     INDEX_NAME,
-    ...input.correctionNames,
+    ...candidateNames,
   ]);
   if ((await fs.readdir(output)).some((name) => !allowed.has(name)))
     throw new Error('CROP_PREVIEW_OUTPUT_FOREIGN');
@@ -295,7 +340,7 @@ export async function runSelectedCropCorrectionPreview(
   const partFile = path.join(state, 'output.part');
   if (await exists(pendingFile)) {
     const pending = await readJson(pendingFile);
-    const index = input.correctionNames.indexOf(pending.fileName);
+    const index = candidateNames.indexOf(pending.fileName);
     if (index < 0) throw new Error('CROP_PREVIEW_PENDING_FOREIGN');
     const target = path.join(output, pending.fileName);
     if (await exists(target)) {
@@ -305,12 +350,7 @@ export async function runSelectedCropCorrectionPreview(
         pending.result,
       );
       results.set(pending.fileName, pending.result);
-      await savePreviewShard(
-        resultsDirectory,
-        input.correctionNames,
-        results,
-        index,
-      );
+      await savePreviewShard(resultsDirectory, candidateNames, results, index);
     }
     if (await exists(partFile)) {
       await safe(partFile);
@@ -323,6 +363,9 @@ export async function runSelectedCropCorrectionPreview(
 
   const inventoryNames = input.snapshot.inventory.entries.map(
     (entry) => entry.fileName,
+  );
+  const inventoryEntries = new Map(
+    input.snapshot.inventory.entries.map((entry) => [entry.fileName, entry]),
   );
   const inventoryIndex = new Map(
     inventoryNames.map((name, index) => [name, index]),
@@ -392,15 +435,15 @@ export async function runSelectedCropCorrectionPreview(
   }
 
   const failures = [];
-  for (let index = 0; index < input.correctionNames.length; index += 1) {
-    const fileName = input.correctionNames[index];
+  for (let index = 0; index < candidateNames.length; index += 1) {
+    const fileName = candidateNames[index];
     const sourceFile = path.join(source, fileName);
     const target = path.join(output, fileName);
     if (results.has(fileName)) {
       await verifySavedResult(sourceFile, target, results.get(fileName));
       onProgress({
         completed: results.size,
-        total: input.correctionNames.length,
+        total: candidateNames.length,
         fileName,
       });
       continue;
@@ -409,10 +452,24 @@ export async function runSelectedCropCorrectionPreview(
       throw new Error(`CROP_PREVIEW_OUTPUT_UNTRACKED:${fileName}`);
     try {
       const startedAt = Date.now();
+      const inventoryEntry = inventoryEntries.get(fileName);
+      if (inventoryEntry === undefined)
+        throw new Error('CROP_PREVIEW_SOURCE_NOT_IN_INVENTORY');
+      if (selection === 'missing_failures') {
+        const sourceInfo = await safe(sourceFile);
+        if (
+          sourceInfo.size !== inventoryEntry.sizeBytes ||
+          Math.trunc(sourceInfo.mtimeMs) !== inventoryEntry.lastModifiedMs
+        )
+          throw new Error('CROP_PREVIEW_SOURCE_CHANGED');
+      }
       const bytes = await fs.readFile(sourceFile);
       const previous = input.sourceResults.get(fileName);
       const sourceChecksumSha256 = sha256(bytes);
-      if (previous?.sourceChecksumSha256 !== sourceChecksumSha256)
+      if (
+        previous?.sourceChecksumSha256 !== undefined &&
+        previous.sourceChecksumSha256 !== sourceChecksumSha256
+      )
         throw new Error('CROP_PREVIEW_SOURCE_CHANGED');
       let rendered = await renderCropSource(bytes, CROP_V12_POLICY, null);
       if (rendered.proposal.structural?.status === 'detected') {
@@ -475,12 +532,7 @@ export async function runSelectedCropCorrectionPreview(
       await fs.rename(partFile, target);
       await verifySavedResult(sourceFile, target, result);
       results.set(fileName, result);
-      await savePreviewShard(
-        resultsDirectory,
-        input.correctionNames,
-        results,
-        index,
-      );
+      await savePreviewShard(resultsDirectory, candidateNames, results, index);
       await fs.unlink(pendingFile);
     } catch (cause) {
       if (await exists(pendingFile)) throw cause;
@@ -492,13 +544,13 @@ export async function runSelectedCropCorrectionPreview(
     }
     onProgress({
       completed: results.size,
-      total: input.correctionNames.length,
+      total: candidateNames.length,
       fileName,
     });
   }
   if ((await inputStateChecksum(input.stateDirectory)) !== input.stateChecksum)
     throw new Error('CROP_PREVIEW_INPUT_STATE_CHANGED_DURING_RUN');
-  const observations = input.correctionNames.flatMap((fileName) => {
+  const observations = candidateNames.flatMap((fileName) => {
     const result = results.get(fileName);
     return result
       ? [
@@ -523,8 +575,9 @@ export async function runSelectedCropCorrectionPreview(
     policy: CROP_V12_POLICY,
     fingerprint: CROP_V12_FINGERPRINT,
     inputStateChecksumSha256: input.stateChecksum,
-    correctionListChecksumSha256: correctionHash,
-    total: input.correctionNames.length,
+    selection,
+    candidateListChecksumSha256: candidateHash,
+    total: candidateNames.length,
     completed: observations.length,
     automatic: observations.filter((item) => item.reason === null).length,
     structural: observations.filter((item) => item.method === 'structural')
@@ -544,26 +597,55 @@ export async function runSelectedCropCorrectionPreview(
   return report;
 }
 
+export async function runSelectedCropCorrectionPreview(
+  sourceArgument,
+  currentOutputArgument,
+  previewOutputArgument,
+  options = {},
+) {
+  return runSelectedCropPreview(
+    sourceArgument,
+    currentOutputArgument,
+    previewOutputArgument,
+    options,
+  );
+}
+
+export async function runSelectedCropFailureRecoveryPreview(
+  sourceArgument,
+  currentOutputArgument,
+  previewOutputArgument,
+  { onProgress = () => {} } = {},
+) {
+  return runSelectedCropPreview(
+    sourceArgument,
+    currentOutputArgument,
+    previewOutputArgument,
+    { onProgress, selection: 'missing_failures' },
+  );
+}
+
 async function main() {
-  const [source, currentOutput, previewOutput] = process.argv.slice(2);
+  const [source, currentOutput, previewOutput, mode] = process.argv.slice(2);
   if (!source || !currentOutput || !previewOutput)
     throw new Error(
       'Usage: <source-directory> <current-cut-directory> <preview-output-directory>',
     );
-  const report = await runSelectedCropCorrectionPreview(
-    source,
-    currentOutput,
-    previewOutput,
-    {
-      onProgress: (progress) => {
-        if (
-          progress.completed % 10 === 0 ||
-          progress.completed === progress.total
-        )
-          process.stdout.write(`${JSON.stringify(progress)}\n`);
-      },
+  if (mode !== undefined && mode !== '--missing-failures')
+    throw new Error('CROP_PREVIEW_MODE_INVALID');
+  const runPreview =
+    mode === '--missing-failures'
+      ? runSelectedCropFailureRecoveryPreview
+      : runSelectedCropCorrectionPreview;
+  const report = await runPreview(source, currentOutput, previewOutput, {
+    onProgress: (progress) => {
+      if (
+        progress.completed % 10 === 0 ||
+        progress.completed === progress.total
+      )
+        process.stdout.write(`${JSON.stringify(progress)}\n`);
     },
-  );
+  });
   process.stdout.write(
     `${JSON.stringify({
       total: report.total,

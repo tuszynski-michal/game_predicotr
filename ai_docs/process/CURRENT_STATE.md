@@ -6,6 +6,21 @@ last_updated: 2026-09-15
 
 # Current State
 
+### TASK-0558 — odzyskanie błędnych wyników przycinania wybranych zdjęć
+
+- Sesja `D:\\777\\222913 - 248184 cut` pozostała niezmieniona: ma 2808 pozycji
+  inwentarza, 2795 historycznych wyników, 301 automatycznych ostrzeżeń i 13
+  failures bez wyniku. Jej etykieta v14 nie ma implementacji w obecnym
+  repozytorium, dlatego aktywny silnik v12 utworzył wyłącznie odrębne preview.
+- `222913 - 248184 cut v12 board-buffer preview` ukończył 301/301 ostrzeżeń:
+  242 wyniki nie wymagają ręcznej korekty, 59 pozostało do review, bez błędów.
+  `222913 - 248184 cut v12 missing-failures preview` odzyskał 13/13 braków:
+  8 bez ręcznej korekty i 5 do review, również bez błędów.
+- Nowy tryb `--missing-failures` wybiera tylko brakujące failures z kolejności
+  inwentarza, kontroluje niezmienność źródła i jest wznawialny wyłącznie z tą
+  samą listą. Checksum oryginalnego stanu po obu przebiegach pozostał
+  `4f30856e5e7221adf71c680b7f58e9f24e00f017cc65c7d07326b2817cffa7a5`.
+
 ### TASK-0557 — nieblokujące ładowanie źródeł do uzupełniania luk
 
 - Katalog bazowy fill pokazuje podczas rekursji liczbę odwiedzonych wpisów i

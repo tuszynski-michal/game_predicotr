@@ -8612,3 +8612,23 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** kolejka zachowuje kolejność zapisów pomocniczego local state.
   Błąd nie oznacza sukcesu recovery po restarcie, ale nie może cofnąć otwartego
   widoku, zmodyfikować JPEG-a, repair manifestu, handoffu ani transakcji fill.
+
+## D-392 — Błędy workera cropów odzyskujemy do osobnego preview
+
+- **Status:** accepted (TASK-0558).
+- **Date:** 2026-09-15.
+- **Decision:** wpis `session-v2.json.failures` bez wyniku w shardzie może być
+  przeliczony aktywnym v12 wyłącznie przez dedykowany, niedestrukcyjny preview.
+  Lista obejmuje tylko unikalne nazwy należące do inwentarza i nieobecne w
+  shardach, w ich trwałej kolejności. Preview ma własny katalog, metadane,
+  journal, shardy, raport i checksumę listy.
+- **Rationale:** dawny timeout workera nie jest ręczną decyzją review ani
+  dowodem, że źródło należy pomijać. Ponowne obliczenie jest potrzebne, ale
+  nie może po cichu zastąpić historycznego cropa albo zmienić stanu sesji,
+  zwłaszcza gdy jej polityka nie jest już implementowana w repozytorium.
+- **Compatibility:** tryb automatycznych ostrzeżeń zachowuje poprzednie
+  metadane i wznowienie. Snapshot v2, `correctionFileNames`, failure i
+  historyczne JPEG-i nie zmieniają formatu.
+- **Safety:** obca nazwa, duplikat, wynik już obecny w shardzie, zmienione
+  źródło albo zmiana wejściowego stanu kończą preview fail-closed. Oryginalny
+  katalog `cut` pozostaje tylko do odczytu.

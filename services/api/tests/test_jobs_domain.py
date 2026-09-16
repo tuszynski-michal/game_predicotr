@@ -1,3 +1,6 @@
+import hashlib
+import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -6,6 +9,7 @@ import pytest
 from game_predictor_api.application.jobs import (
     PAYOUT_ALGORITHM_VERSION,
     BoardTopologyJobReference,
+    ImageGeometryRolloutJobReference,
     ImageSelectionJobDeletionReference,
     JobRepository,
     JobService,
@@ -38,6 +42,18 @@ from game_predictor_api.domain.jobs import (
     wait_for_review,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_worker.images.lateral_partial_contract import (
+    GeometryEngineVariant,
+    LateralPartialGeometrySnapshot,
+)
+from game_predictor_worker.images.page_geometry_registration import (
+    PAGE_REGISTRATION_THRESHOLDS_VERSION,
+    PAGE_REGISTRATION_VERSION,
+)
+from game_predictor_worker.images.partial_grid_learning import (
+    PartialGridPattern,
+    PartialGridTrainingProfile,
+)
 
 
 class MemoryJobRepository(JobRepository):
@@ -50,6 +66,8 @@ class MemoryJobRepository(JobRepository):
         self.image_selection_deletions: dict[UUID, ImageSelectionJobDeletionReference] = {}
         self.topology_rules_version_id = uuid4()
         self.board_topology: tuple[int, int] | None = (3, 5)
+        self.image_geometry_rollout: ImageGeometryRolloutJobReference | None = None
+        self.source_bound_additions: list[tuple[UUID, UUID]] = []
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -68,6 +86,14 @@ class MemoryJobRepository(JobRepository):
             rows=rows,
             columns=columns,
         )
+
+    def get_image_geometry_rollout(
+        self,
+        game_id: UUID,
+    ) -> ImageGeometryRolloutJobReference | None:
+        if game_id != self.game_id:
+            return None
+        return self.image_geometry_rollout
 
     def get_layout_import_rules_reference(
         self,
@@ -90,6 +116,15 @@ class MemoryJobRepository(JobRepository):
     def add_job(self, job: Job) -> Job:
         self.items[job.id] = job
         return job
+
+    def add_source_bound_job(
+        self,
+        job: Job,
+        *,
+        source_selection_id: UUID,
+    ) -> Job:
+        self.source_bound_additions.append((job.id, source_selection_id))
+        return self.add_job(job)
 
     def get_job(self, job_id: UUID) -> Job | None:
         return self.items.get(job_id)
@@ -140,6 +175,87 @@ class MemoryJobRepository(JobRepository):
             raise AssertionError("unexpected image-selection deletion")
         del self.image_selection_deletions[job_id]
         del self.items[job_id]
+
+
+class _PageGeometryOverrideResolver:
+    def __init__(self, *, training_profile: PartialGridTrainingProfile) -> None:
+        self.training_profile = training_profile
+
+    def snapshot(self, *, game_id: UUID) -> dict[str, object]:
+        del game_id
+        return {"f" * 64: {"revision": 1}}
+
+    def exclusion_snapshot(self, *, game_id: UUID, browser_selection_id: UUID) -> dict[str, object]:
+        del game_id, browser_selection_id
+        return {}
+
+    def partial_grid_training_profile(self, *, game_id: UUID) -> dict[str, object]:
+        del game_id
+        return self.training_profile.to_payload()
+
+
+def _add_completed_page_geometry_preflight(
+    repository: MemoryJobRepository,
+    *,
+    artifact_root: Path,
+    game_id: UUID,
+    selection_id: UUID,
+    source_directory: Path,
+    source_manifest_sha256: str,
+    lateral_partial_geometry: dict[str, object],
+    page_geometry_overrides: dict[str, object] | None = None,
+) -> Job:
+    profile = {
+        "schemaVersion": 1,
+        "policy": PAGE_REGISTRATION_VERSION,
+        "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
+        "anchors": [],
+    }
+    candidate = create_job(
+        JobType.VALIDATE,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "preflight_policy_version": "page-geometry-preflight-v2-auto-anchor",
+            "source_selection_id": str(selection_id),
+            "source_directory": str(source_directory),
+            "source_manifest_sha256": source_manifest_sha256,
+            "page_registration_profile": profile,
+            "page_geometry_overrides": page_geometry_overrides or {},
+            "lateral_partial_geometry": lateral_partial_geometry,
+            "source_exclusions": {},
+            "canonical_sequence_numbers": [],
+        },
+    )
+    manifest = {
+        "schemaVersion": 2,
+        "version": "page-geometry-preflight-v2-auto-anchor",
+        "gameId": str(game_id),
+        "sourceSelectionId": str(selection_id),
+        "sourceManifestChecksumSha256": source_manifest_sha256,
+        "pageRegistrationProfile": profile,
+        "lateralPartialGeometry": lateral_partial_geometry,
+        "entries": {},
+    }
+    content = (json.dumps(manifest, sort_keys=True) + "\n").encode()
+    checksum = hashlib.sha256(content).hexdigest()
+    relative = f"data/page-geometry-manifests/{checksum}.json"
+    output = artifact_root / Path(*relative.split("/"))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(content)
+    completed = replace(
+        candidate,
+        status=JobStatus.COMPLETED,
+        checkpoint_payload={
+            "complete": True,
+            "geometry_manifest_checksum_sha256": checksum,
+            "geometry_manifest_relative_path": relative,
+        },
+        finished_at=datetime.now(UTC),
+    )
+    repository.add_job(completed)
+    return completed
 
 
 def _job() -> Job:
@@ -500,6 +616,472 @@ def test_service_rejects_import_without_server_source_attestation() -> None:
         )
 
     assert captured.value.code == "IMPORT_SOURCE_NOT_ATTESTED"
+
+
+def test_page_geometry_preflight_uses_atomic_source_bound_persistence(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+
+    job = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=tmp_path,
+        source_display_name="seq import",
+        source_manifest_sha256="a" * 64,
+    )
+
+    assert repository.source_bound_additions == [(job.id, selection_id)]
+
+
+def test_page_geometry_preflight_variant_changes_identity_and_repeats_idempotently(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+    arguments = {
+        "game_id": game_id,
+        "selection_id": selection_id,
+        "source_directory": tmp_path,
+        "source_display_name": "seq import",
+        "source_manifest_sha256": "a" * 64,
+    }
+
+    standard = service.create_page_geometry_preflight_job(**arguments)
+    masked = service.create_page_geometry_preflight_job(
+        **arguments,
+        page_registration_variant="board_area_test",
+    )
+
+    assert standard.input_key != masked.input_key
+    assert (
+        masked.input_payload["preflight_policy_version"]
+        == "page-geometry-preflight-v3-board-area-mask"
+    )
+    with pytest.raises(JobConflictError) as duplicate:
+        service.create_page_geometry_preflight_job(
+            **arguments,
+            page_registration_variant="board_area_test",
+        )
+    assert duplicate.value.code == "JOB_INPUT_ALREADY_EXISTS"
+
+
+def test_page_geometry_preflight_prefers_exact_v3_base_before_newer_v2(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    repository = MemoryJobRepository(game_id)
+    training_profile = PartialGridTrainingProfile(
+        patterns=(
+            PartialGridPattern(
+                unavailable_cell_indices=(0, 5, 10),
+                sample_count=3,
+                source_count=3,
+            ),
+        ),
+        distinct_source_count=3,
+    )
+    exact_policy = LateralPartialGeometrySnapshot(
+        training_profile=training_profile,
+        frame_support_review=True,
+    ).to_payload()
+    transition_policy = LateralPartialGeometrySnapshot(
+        training_profile=training_profile,
+        frame_support_review=False,
+    ).to_payload()
+    exact = _add_completed_page_geometry_preflight(
+        repository,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_manifest_sha256="a" * 64,
+        lateral_partial_geometry=exact_policy,
+    )
+    _add_completed_page_geometry_preflight(
+        repository,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_manifest_sha256="a" * 64,
+        lateral_partial_geometry=transition_policy,
+    )
+    service = JobService(
+        repository,
+        artifact_root=artifact_root,
+        page_geometry_override_snapshot_resolver=_PageGeometryOverrideResolver(
+            training_profile=training_profile
+        ),
+    )
+    monkeypatch.setattr(
+        JobService,
+        "_current_lateral_partial_policy",
+        lambda _self, *, game_id, geometry_engine_variant: LateralPartialGeometrySnapshot(
+            training_profile=training_profile,
+            frame_support_review=True,
+        ),
+    )
+
+    created = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_display_name="seq import",
+        source_manifest_sha256="a" * 64,
+        geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
+    )
+
+    assert created.input_payload["base_page_geometry_manifest"] == {
+        "contractVersion": "page-geometry-entry-reuse-v1",
+        "jobId": str(exact.id),
+        "manifestChecksumSha256": exact.checkpoint_payload["geometry_manifest_checksum_sha256"],
+        "sourceManifestChecksumSha256": "a" * 64,
+        "compatibilityMode": "exact_policy",
+    }
+
+    with pytest.raises(JobConflictError) as duplicate:
+        service.create_page_geometry_preflight_job(
+            game_id=game_id,
+            selection_id=selection_id,
+            source_directory=source_directory,
+            source_display_name="renamed only",
+            source_manifest_sha256="a" * 64,
+            geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
+        )
+    assert duplicate.value.code == "JOB_INPUT_ALREADY_EXISTS"
+    assert duplicate.value.details == {"existingJobId": str(created.id)}
+
+
+def test_page_geometry_preflight_uses_v2_transition_when_exact_base_is_absent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    repository = MemoryJobRepository(game_id)
+    training_profile = PartialGridTrainingProfile(
+        patterns=(PartialGridPattern((0, 5, 10), 3, 3),),
+        distinct_source_count=3,
+    )
+    transition = _add_completed_page_geometry_preflight(
+        repository,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_manifest_sha256="b" * 64,
+        lateral_partial_geometry=LateralPartialGeometrySnapshot(
+            training_profile=training_profile,
+            frame_support_review=False,
+        ).to_payload(),
+    )
+    service = JobService(
+        repository,
+        artifact_root=artifact_root,
+        page_geometry_override_snapshot_resolver=_PageGeometryOverrideResolver(
+            training_profile=training_profile
+        ),
+    )
+    monkeypatch.setattr(
+        JobService,
+        "_current_lateral_partial_policy",
+        lambda _self, *, game_id, geometry_engine_variant: LateralPartialGeometrySnapshot(
+            training_profile=training_profile,
+            frame_support_review=True,
+        ),
+    )
+
+    created = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_display_name="seq import",
+        source_manifest_sha256="b" * 64,
+        geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
+    )
+
+    descriptor = created.input_payload["base_page_geometry_manifest"]
+    assert isinstance(descriptor, dict)
+    assert descriptor["jobId"] == str(transition.id)
+    assert descriptor["compatibilityMode"] == "lateral_v2_to_v3"
+
+    changed_source = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_display_name="seq import changed",
+        source_manifest_sha256="c" * 64,
+        geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
+    )
+    assert "base_page_geometry_manifest" not in changed_source.input_payload
+
+
+def test_replacement_preflight_pins_parent_manifest_without_changing_parent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    game_id = uuid4()
+    parent_id = uuid4()
+    replacement_id = uuid4()
+    source_directory = tmp_path / "replacement"
+    source_directory.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    repository = MemoryJobRepository(game_id)
+    policy = LateralPartialGeometrySnapshot().to_payload()
+    parent = _add_completed_page_geometry_preflight(
+        repository,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=parent_id,
+        source_directory=source_directory,
+        source_manifest_sha256="a" * 64,
+        lateral_partial_geometry=policy,
+    )
+    service = JobService(repository, artifact_root=artifact_root)
+    monkeypatch.setattr(
+        JobService,
+        "_current_lateral_partial_policy",
+        lambda _self, *, game_id, geometry_engine_variant: LateralPartialGeometrySnapshot(),
+    )
+
+    created = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=replacement_id,
+        source_directory=source_directory,
+        source_display_name="replacement",
+        source_manifest_sha256="b" * 64,
+        geometry_engine_variant=GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
+        replacement_parent_upload_id=parent_id,
+        replacement_parent_manifest_sha256="a" * 64,
+    )
+    descriptor = created.input_payload["base_page_geometry_manifest"]
+    assert descriptor["jobId"] == str(parent.id)
+    assert descriptor["sourceManifestChecksumSha256"] == "a" * 64
+    assert descriptor["baseSourceSelectionId"] == str(parent_id)
+    assert descriptor["compatibilityMode"] == "replacement_lineage_exact_policy"
+    assert parent.input_payload["source_manifest_sha256"] == "a" * 64
+
+
+def test_selective_preflight_reuses_completed_v1_baseline_manifest(tmp_path: Path) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    repository = MemoryJobRepository(game_id)
+    baseline = _add_completed_page_geometry_preflight(
+        repository,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_manifest_sha256="d" * 64,
+        lateral_partial_geometry=LateralPartialGeometrySnapshot().to_payload(),
+    )
+    service = JobService(repository, artifact_root=artifact_root)
+    selective = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_display_name="selective",
+        source_manifest_sha256="d" * 64,
+        geometry_engine_variant=GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1,
+    )
+    descriptor = selective.input_payload["base_page_geometry_manifest"]
+    assert isinstance(descriptor, dict)
+    assert descriptor["jobId"] == str(baseline.id)
+    assert descriptor["compatibilityMode"] == "baseline_to_selective_v1_1"
+
+
+def test_page_geometry_preflight_reuses_exact_v2_base_after_frame_review_rollback(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    repository = MemoryJobRepository(game_id)
+    training_profile = PartialGridTrainingProfile(
+        patterns=(PartialGridPattern((0, 5, 10), 3, 3),),
+        distinct_source_count=3,
+    )
+    exact = _add_completed_page_geometry_preflight(
+        repository,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_manifest_sha256="d" * 64,
+        lateral_partial_geometry=LateralPartialGeometrySnapshot(
+            training_profile=training_profile,
+            frame_support_review=False,
+        ).to_payload(),
+        page_geometry_overrides={
+            "e" * 64: {
+                "decisionChecksumSha256": "a" * 64,
+                "overrideId": "00000000-0000-0000-0000-000000000001",
+                "revision": 1,
+            }
+        },
+    )
+    service = JobService(
+        repository,
+        artifact_root=artifact_root,
+        page_geometry_override_snapshot_resolver=_PageGeometryOverrideResolver(
+            training_profile=training_profile
+        ),
+    )
+
+    created = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_display_name="seq import",
+        source_manifest_sha256="d" * 64,
+        geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
+    )
+
+    descriptor = created.input_payload["base_page_geometry_manifest"]
+    assert isinstance(descriptor, dict)
+    assert descriptor["jobId"] == str(exact.id)
+    assert descriptor["compatibilityMode"] == "exact_policy"
+    assert descriptor["baseOverrideFingerprints"] == {
+        "e" * 64: hashlib.sha256(
+            json.dumps(
+                {
+                    "decisionChecksumSha256": "a" * 64,
+                    "overrideId": "00000000-0000-0000-0000-000000000001",
+                    "revision": 1,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("ascii")
+        ).hexdigest()
+    }
+
+
+def test_page_geometry_preflight_reuses_v3_registered_results_after_rollback(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    repository = MemoryJobRepository(game_id)
+    training_profile = PartialGridTrainingProfile(
+        patterns=(PartialGridPattern((0, 5, 10), 3, 3),),
+        distinct_source_count=3,
+    )
+    base = _add_completed_page_geometry_preflight(
+        repository,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_manifest_sha256="d" * 64,
+        lateral_partial_geometry=LateralPartialGeometrySnapshot(
+            training_profile=training_profile,
+            frame_support_review=True,
+        ).to_payload(),
+    )
+    service = JobService(
+        repository,
+        artifact_root=artifact_root,
+        page_geometry_override_snapshot_resolver=_PageGeometryOverrideResolver(
+            training_profile=training_profile
+        ),
+    )
+
+    created = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_display_name="seq import",
+        source_manifest_sha256="d" * 64,
+        geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
+    )
+
+    assert created.input_payload["base_page_geometry_manifest"] == {
+        "contractVersion": "page-geometry-entry-reuse-v1",
+        "jobId": str(base.id),
+        "manifestChecksumSha256": base.checkpoint_payload["geometry_manifest_checksum_sha256"],
+        "sourceManifestChecksumSha256": "d" * 64,
+        "compatibilityMode": "lateral_v3_to_v2",
+    }
+
+
+def test_page_geometry_preflight_replaces_cancelled_unpinned_run_with_base(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    repository = MemoryJobRepository(game_id)
+    training_profile = PartialGridTrainingProfile(
+        patterns=(PartialGridPattern((0, 5, 10), 3, 3),),
+        distinct_source_count=3,
+    )
+    base = _add_completed_page_geometry_preflight(
+        repository,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_manifest_sha256="d" * 64,
+        lateral_partial_geometry=LateralPartialGeometrySnapshot(
+            training_profile=training_profile,
+            frame_support_review=False,
+        ).to_payload(),
+    )
+    existing_input = {
+        **base.input_payload,
+        "page_geometry_overrides": {"f" * 64: {"revision": 1}},
+    }
+    cancelled = replace(
+        create_job(JobType.VALIDATE, game_id=game_id, input_payload=existing_input),
+        status=JobStatus.CANCELLED,
+    )
+    repository.add_job(cancelled)
+    service = JobService(
+        repository,
+        artifact_root=artifact_root,
+        page_geometry_override_snapshot_resolver=_PageGeometryOverrideResolver(
+            training_profile=training_profile
+        ),
+    )
+    arguments = {
+        "game_id": game_id,
+        "selection_id": selection_id,
+        "source_directory": source_directory,
+        "source_display_name": "seq import",
+        "source_manifest_sha256": "d" * 64,
+        "geometry_engine_variant": (GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
+    }
+
+    created = service.create_page_geometry_preflight_job(**arguments)
+    assert created.id != cancelled.id
+    assert created.input_payload["base_page_geometry_manifest"]["jobId"] == str(base.id)
+    with pytest.raises(JobConflictError) as duplicate:
+        service.create_page_geometry_preflight_job(**arguments)
+    assert duplicate.value.details == {"existingJobId": str(created.id)}
 
 
 def test_service_physically_deletes_cancelled_image_selection_job(

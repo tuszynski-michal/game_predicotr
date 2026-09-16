@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from game_predictor_api.domain.grid_calibration import (
     GeometryCohort,
@@ -45,6 +46,46 @@ class CreateGridCalibrationCandidateResponse(ApiModel):
     cohort: GeometryCohortResponse
     profile: GridCalibrationProfileResponse
     created: bool
+
+
+class GridEndToEndGateSource(ApiModel):
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    quality_angle_bucket: str = Field(min_length=1, max_length=100)
+    active_board_count: int = Field(ge=0)
+
+
+class GridEndToEndGateReportCommand(ApiModel):
+    schema_version: Literal["grid-profile-end-to-end-gate-report-v1"]
+    policy_version: Literal["v0.10-page-and-cell-production-gate-v1"]
+    cohort_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    corpus_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_count: int = Field(ge=0)
+    active_board_count: int = Field(ge=0)
+    page_registration_ready_board_count: int = Field(ge=0)
+    final_cell_grid_ready_board_count: int = Field(ge=0)
+    baseline_final_cell_grid_ready_board_count: int = Field(ge=0)
+    quality_angle_bucket_counts: dict[str, int]
+    invariant_violation_counts: dict[str, int]
+    deferral_reason_counts: dict[str, int]
+    known_regression_case_count: int = Field(ge=0)
+    covered_regression_case_count: int = Field(ge=0)
+    regression_corpus_version: str = Field(min_length=1, max_length=200)
+    sources: list[GridEndToEndGateSource]
+
+    @model_validator(mode="after")
+    def validate_non_negative_counts(self) -> GridEndToEndGateReportCommand:
+        mappings = (
+            self.quality_angle_bucket_counts,
+            self.invariant_violation_counts,
+            self.deferral_reason_counts,
+        )
+        if any(not key or value < 0 for mapping in mappings for key, value in mapping.items()):
+            raise ValueError("Gate counter maps require non-empty keys and non-negative values.")
+        return self
+
+
+class CreateGridCalibrationCandidateCommand(ApiModel):
+    end_to_end_report: GridEndToEndGateReportCommand | None = None
 
 
 class GeometryCohortDiagnosticsResponse(ApiModel):
@@ -172,8 +213,10 @@ def to_activation_response(value: GridProfileActivation) -> GridProfileActivatio
 
 __all__ = [
     "CreateGridCalibrationCandidateResponse",
+    "CreateGridCalibrationCandidateCommand",
     "GeometryCohortDiagnosticsResponse",
     "GridCalibrationProfileResponse",
+    "GridEndToEndGateReportCommand",
     "GridProfileActivationCommand",
     "GridProfileActivationCommandResponse",
     "GridProfileActivationPreviewResponse",

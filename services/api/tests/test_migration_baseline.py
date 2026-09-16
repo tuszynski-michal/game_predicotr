@@ -91,9 +91,82 @@ STORAGE_INVENTORY_REVISION = "0078_storage_inventory_job"
 PIPELINE_STATE_COMPACTION_REVISION = "0079_pipeline_state_compaction"
 PIPELINE_STATE_DIGEST_REVISION = "0080_pipeline_state_digest"
 PIPELINE_TERMINAL_MANIFEST_V2_REVISION = "0081_pipeline_terminal_manifest_v2"
+VIRTUAL_GEOMETRY_FOUNDATION_REVISION = "0082_virtual_geometry_foundation"
+IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION = "0083_image_geometry_rollout_backfill_job_type"
+ADDITIVE_VIRTUAL_GEOMETRY_CONTRACTS_REVISION = "0084_additive_virtual_geometry_contracts"
+PER_GAME_IMAGE_ENGINE_POLICY_REVISION = "0085_per_game_image_engine_policy"
+PARTIAL_PAGE_GEOMETRY_OVERRIDES_REVISION = "0086_partial_page_geometry_overrides"
+SEMI_AUTOMATIC_IMAGE_SELECTION_REVISION = "0087_semi_automatic_image_selection"
+SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION = "0088_symbol_review_game_sequence_index"
+BLURRY_SYMBOL_QUALITY_REVISION = "0089_blurry_symbol_quality"
+SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION = "0090_symbol_reference_individual_cell_provenance"
+FILENAME_RANGE_VERIFICATION_HISTORY_REVISION = "0091_filename_range_verification_history"
+FILENAME_VERIFICATION_CLEANUP_REVISION = "0092_filename_verification_cleanup"
+BOARD_SOURCE_CLEANUP_REVISION = "0093_board_source_cleanup"
+GRID_PROFILE_GATE_REVISIONS_REVISION = "0094_grid_profile_gate_revisions"
+STRUCTURED_LATTICE_V3_ROLLOUT_REVISION = "0095_structured_lattice_v3_rollout"
+PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION = "0096_preimport_geometry_guard_decisions"
+PAGE_SOURCE_EXCLUSIONS_REVISION = "0097_page_source_exclusions"
+LEGACY_BOARD_SEARCH_ARCHIVE_REVISION = "0098_legacy_board_search_archive"
+LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION = "0099_legacy_game_operational_cleanup"
+MANUAL_GEOMETRY_QUALIFICATION_REVISION = "0100_manual_geometry_qualification"
+SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION = "0101_symbol_cell_source_availability"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
+
+
+def test_source_availability_migration_preserves_history_and_guards_downgrade() -> None:
+    output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=output),
+        f"{MANUAL_GEOMETRY_QUALIFICATION_REVISION}:{SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION}",
+        sql=True,
+    )
+    sql = output.getvalue().lower()
+    assert "add column source_available boolean default true not null" in sql
+    assert "delete from" not in sql
+    assert "update image_symbol_review_cells" not in sql
+    downgrade = StringIO()
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade),
+        f"{SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION}:{MANUAL_GEOMETRY_QUALIFICATION_REVISION}",
+        sql=True,
+    )
+    sql = downgrade.getvalue().lower()
+    assert (
+        sql.index("access exclusive mode")
+        < sql.index("where not source_available")
+        < sql.index("drop column source_available")
+    )
+    assert "raise exception" in sql
+
+
+def test_manual_qualification_migration_is_additive_and_downgrade_protects_decisions() -> None:
+    output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=output),
+        f"{LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION}:{MANUAL_GEOMETRY_QUALIFICATION_REVISION}",
+        sql=True,
+    )
+    sql = output.getvalue().lower()
+    assert "add column slot_qualifications jsonb" in sql
+    assert sql.count("add column geometry_qualification jsonb") == 2
+    assert "between 1 and 15" in sql
+    assert "delete from" not in sql
+    assert "update recognized_boards" not in sql
+    downgrade = StringIO()
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade),
+        f"{MANUAL_GEOMETRY_QUALIFICATION_REVISION}:{LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION}",
+        sql=True,
+    )
+    rollback = downgrade.getvalue().lower()
+    assert rollback.index("lock table image_page_geometry_overrides") < rollback.index("do $$")
+    assert "image_source_geometry_revisions in access exclusive mode" in rollback
+    assert rollback.index("manual_geometry_qualification_downgrade_has_data") < rollback.index(
+        "drop column"
+    )
 
 
 def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
@@ -171,6 +244,72 @@ def test_pipeline_state_digest_migrations_enable_sha256_and_manifest_v2() -> Non
     assert "create extension if not exists pgcrypto" in upgrade_sql
     assert "schema_version in (1, 2)" in upgrade_sql
     assert "schema_version = 1" in downgrade_output.getvalue().lower()
+
+
+def test_virtual_geometry_foundation_migration_adds_dual_asset_provenance() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{PIPELINE_TERMINAL_MANIFEST_V2_REVISION}:{VIRTUAL_GEOMETRY_FOUNDATION_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{VIRTUAL_GEOMETRY_FOUNDATION_REVISION}:{PIPELINE_TERMINAL_MANIFEST_V2_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table image_source_geometry_revisions" in upgrade_sql
+    assert "create table image_geometry_rollout_states" in upgrade_sql
+    assert "exif-normalized-rgb-pixels-v1" in upgrade_sql
+    assert "asset_mode" in upgrade_sql
+    assert "virtual_source" in upgrade_sql
+    assert "render_spec_checksum_sha256" in upgrade_sql
+    assert "not valid" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "0082 downgrade blocked: virtual geometry provenance exists" in downgrade_sql
+    assert "drop table image_geometry_rollout_states" in downgrade_sql
+    assert "drop table image_source_geometry_revisions" in downgrade_sql
+
+
+def test_image_geometry_rollout_job_type_migration_restores_worker_enum_compatibility() -> None:
+    upgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{VIRTUAL_GEOMETRY_FOUNDATION_REVISION}:{IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION}",
+        sql=True,
+    )
+
+    assert (
+        "alter type job_type add value if not exists 'image_geometry_rollout_backfill'"
+        in upgrade_output.getvalue().lower()
+    )
+
+
+def test_additive_virtual_geometry_contracts_are_nullable_and_not_valid() -> None:
+    upgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION}:"
+        f"{ADDITIVE_VIRTUAL_GEOMETRY_CONTRACTS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "topology_fingerprint_sha256" in upgrade_sql
+    assert "sequence_attestation_checksum_sha256" in upgrade_sql
+    assert "logical_cell_key_v2" in upgrade_sql
+    assert "render_identity_v2_sha256" in upgrade_sql
+    assert "verification_outcome" in upgrade_sql
+    assert "verified_symbol_id_v2" in upgrade_sql
+    assert "validation_input_checksum_sha256" in upgrade_sql
+    assert "not valid" in upgrade_sql
 
 
 def test_parallel_feature_migrations_converge_on_one_head() -> None:
@@ -278,7 +417,62 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     pipeline_state_compaction = script.get_revision(PIPELINE_STATE_COMPACTION_REVISION)
     pipeline_state_digest = script.get_revision(PIPELINE_STATE_DIGEST_REVISION)
     pipeline_terminal_manifest_v2 = script.get_revision(PIPELINE_TERMINAL_MANIFEST_V2_REVISION)
-    assert script.get_heads() == [PIPELINE_TERMINAL_MANIFEST_V2_REVISION]
+    virtual_geometry_foundation = script.get_revision(VIRTUAL_GEOMETRY_FOUNDATION_REVISION)
+    image_geometry_rollout_job_type = script.get_revision(IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION)
+    additive_virtual_geometry_contracts = script.get_revision(
+        ADDITIVE_VIRTUAL_GEOMETRY_CONTRACTS_REVISION
+    )
+    per_game_image_engine_policy = script.get_revision(PER_GAME_IMAGE_ENGINE_POLICY_REVISION)
+    partial_page_geometry_overrides = script.get_revision(PARTIAL_PAGE_GEOMETRY_OVERRIDES_REVISION)
+    semi_automatic_image_selection = script.get_revision(SEMI_AUTOMATIC_IMAGE_SELECTION_REVISION)
+    symbol_review_game_sequence_index = script.get_revision(
+        SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION
+    )
+    blurry_symbol_quality = script.get_revision(BLURRY_SYMBOL_QUALITY_REVISION)
+    symbol_reference_individual_cell = script.get_revision(
+        SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION
+    )
+    filename_range_verification_history = script.get_revision(
+        FILENAME_RANGE_VERIFICATION_HISTORY_REVISION
+    )
+    filename_verification_cleanup = script.get_revision(FILENAME_VERIFICATION_CLEANUP_REVISION)
+    board_source_cleanup = script.get_revision(BOARD_SOURCE_CLEANUP_REVISION)
+    grid_profile_gate_revisions = script.get_revision(GRID_PROFILE_GATE_REVISIONS_REVISION)
+    structured_lattice_v3_rollout = script.get_revision(STRUCTURED_LATTICE_V3_ROLLOUT_REVISION)
+    preimport_geometry_guard_decisions = script.get_revision(
+        PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION
+    )
+    page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
+    legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
+    legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
+    assert script.get_heads() == ["0111_partial_grid_training_qualification"]
+    partial_training = script.get_revision("0111_partial_grid_training_qualification")
+    assert partial_training is not None
+    assert partial_training.down_revision == "0110_game_partition_lifecycle"
+    partition_lifecycle = script.get_revision("0110_game_partition_lifecycle")
+    assert partition_lifecycle is not None
+    assert partition_lifecycle.down_revision == "0109_exact_symbol_review_counts"
+    exact_symbol_counts = script.get_revision("0109_exact_symbol_review_counts")
+    assert exact_symbol_counts is not None
+    assert exact_symbol_counts.down_revision == "0108_indexed_symbol_review_list"
+    indexed_symbol_review = script.get_revision("0108_indexed_symbol_review_list")
+    assert indexed_symbol_review is not None
+    assert indexed_symbol_review.down_revision == "0107_current_symbol_cell_projection"
+    current_symbol_projection = script.get_revision("0107_current_symbol_cell_projection")
+    assert current_symbol_projection is not None
+    assert current_symbol_projection.down_revision == "0106_game_storage_routing_fence"
+    routing_fence = script.get_revision("0106_game_storage_routing_fence")
+    assert routing_fence is not None
+    assert routing_fence.down_revision == "0105_partitioned_game_storage"
+    partitioned_storage = script.get_revision("0105_partitioned_game_storage")
+    assert partitioned_storage is not None
+    assert partitioned_storage.down_revision == "0104_game_deletion_access_paths"
+    availability = script.get_revision(SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION)
+    assert availability is not None
+    assert availability.down_revision == MANUAL_GEOMETRY_QUALIFICATION_REVISION
+    qualification = script.get_revision(MANUAL_GEOMETRY_QUALIFICATION_REVISION)
+    assert qualification is not None
+    assert qualification.down_revision == LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert storage_capacity_guard is not None
@@ -291,6 +485,56 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert pipeline_state_digest.down_revision == PIPELINE_STATE_COMPACTION_REVISION
     assert pipeline_terminal_manifest_v2 is not None
     assert pipeline_terminal_manifest_v2.down_revision == PIPELINE_STATE_DIGEST_REVISION
+    assert virtual_geometry_foundation is not None
+    assert virtual_geometry_foundation.down_revision == PIPELINE_TERMINAL_MANIFEST_V2_REVISION
+    assert image_geometry_rollout_job_type is not None
+    assert image_geometry_rollout_job_type.down_revision == VIRTUAL_GEOMETRY_FOUNDATION_REVISION
+    assert additive_virtual_geometry_contracts is not None
+    assert (
+        additive_virtual_geometry_contracts.down_revision
+        == IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION
+    )
+    assert per_game_image_engine_policy is not None
+    assert (
+        per_game_image_engine_policy.down_revision == ADDITIVE_VIRTUAL_GEOMETRY_CONTRACTS_REVISION
+    )
+    assert partial_page_geometry_overrides is not None
+    assert partial_page_geometry_overrides.down_revision == PER_GAME_IMAGE_ENGINE_POLICY_REVISION
+    assert semi_automatic_image_selection is not None
+    assert semi_automatic_image_selection.down_revision == PARTIAL_PAGE_GEOMETRY_OVERRIDES_REVISION
+    assert symbol_review_game_sequence_index is not None
+    assert (
+        symbol_review_game_sequence_index.down_revision == SEMI_AUTOMATIC_IMAGE_SELECTION_REVISION
+    )
+    assert blurry_symbol_quality is not None
+    assert blurry_symbol_quality.down_revision == SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION
+    assert symbol_reference_individual_cell is not None
+    assert symbol_reference_individual_cell.down_revision == BLURRY_SYMBOL_QUALITY_REVISION
+    assert filename_range_verification_history is not None
+    assert (
+        filename_range_verification_history.down_revision
+        == SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION
+    )
+    assert filename_verification_cleanup is not None
+    assert (
+        filename_verification_cleanup.down_revision == FILENAME_RANGE_VERIFICATION_HISTORY_REVISION
+    )
+    assert board_source_cleanup is not None
+    assert board_source_cleanup.down_revision == FILENAME_VERIFICATION_CLEANUP_REVISION
+    assert grid_profile_gate_revisions is not None
+    assert grid_profile_gate_revisions.down_revision == BOARD_SOURCE_CLEANUP_REVISION
+    assert structured_lattice_v3_rollout is not None
+    assert structured_lattice_v3_rollout.down_revision == GRID_PROFILE_GATE_REVISIONS_REVISION
+    assert preimport_geometry_guard_decisions is not None
+    assert (
+        preimport_geometry_guard_decisions.down_revision == STRUCTURED_LATTICE_V3_ROLLOUT_REVISION
+    )
+    assert page_source_exclusions is not None
+    assert page_source_exclusions.down_revision == PREIMPORT_GEOMETRY_GUARD_DECISIONS_REVISION
+    assert legacy_board_search_archive is not None
+    assert legacy_board_search_archive.down_revision == PAGE_SOURCE_EXCLUSIONS_REVISION
+    assert legacy_game_operational_cleanup is not None
+    assert legacy_game_operational_cleanup.down_revision == LEGACY_BOARD_SEARCH_ARCHIVE_REVISION
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
@@ -464,6 +708,29 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
     )
+
+
+def test_individually_approved_symbol_reference_migration_is_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{BLURRY_SYMBOL_QUALITY_REVISION}:{SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{SYMBOL_REFERENCE_INDIVIDUAL_CELL_REVISION}:{BLURRY_SYMBOL_QUALITY_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "ck_symbol_reference_images_position_replacement" in upgrade_sql
+    assert "resolution_revision >= 0" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "lock table symbol_reference_images" in downgrade_sql
+    assert "individually approved symbol references" in downgrade_sql
 
 
 def test_remote_manual_selection_migration_is_additive_and_reversible() -> None:
@@ -1309,7 +1576,7 @@ def test_catalog_migration_generates_games_symbols_constraints_and_downgrade() -
     upgrade_output = StringIO()
     downgrade_output = StringIO()
 
-    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.upgrade(create_alembic_config(output_buffer=upgrade_output), CATALOG_REVISION, sql=True)
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
         f"{CATALOG_REVISION}:{BASELINE_REVISION}",
@@ -1333,7 +1600,7 @@ def test_rules_migration_generates_constraints_and_downgrade() -> None:
     upgrade_output = StringIO()
     downgrade_output = StringIO()
 
-    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.upgrade(create_alembic_config(output_buffer=upgrade_output), RULES_REVISION, sql=True)
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
         f"{RULES_REVISION}:{CATALOG_REVISION}",
@@ -1357,7 +1624,9 @@ def test_paylines_migration_generates_array_constraints_and_downgrade() -> None:
     upgrade_output = StringIO()
     downgrade_output = StringIO()
 
-    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output), PAYLINES_REVISION, sql=True
+    )
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
         f"{PAYLINES_REVISION}:{RULES_REVISION}",
@@ -1380,7 +1649,7 @@ def test_symbol_payout_migration_generates_constraints_and_downgrade() -> None:
     upgrade_output = StringIO()
     downgrade_output = StringIO()
 
-    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.upgrade(create_alembic_config(output_buffer=upgrade_output), PAYOUTS_REVISION, sql=True)
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
         f"{PAYOUTS_REVISION}:{PAYLINES_REVISION}",
@@ -1407,7 +1676,7 @@ def test_dataset_staging_migration_generates_constraints_and_downgrade() -> None
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        DATASETS_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1460,7 +1729,7 @@ def test_jobs_migration_generates_enums_constraints_indexes_and_downgrade() -> N
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        JOBS_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1490,7 +1759,7 @@ def test_job_leases_migration_generates_fencing_and_checkpoint_schema() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        JOB_LEASES_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1518,7 +1787,7 @@ def test_layout_payouts_migration_generates_versioned_results_and_audit() -> Non
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        LAYOUT_PAYOUTS_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1544,7 +1813,7 @@ def test_mobile_releases_migration_generates_immutable_selections() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        MOBILE_RELEASES_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1577,7 +1846,7 @@ def test_layout_import_staging_migration_generates_isolated_rows() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        LAYOUT_IMPORT_STAGING_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1603,7 +1872,7 @@ def test_layout_import_normalization_migration_generates_staging_and_indexes() -
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        LAYOUT_IMPORT_NORMALIZATION_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1630,7 +1899,7 @@ def test_layout_import_publication_migration_adds_unique_source_job() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        LAYOUT_IMPORT_PUBLICATION_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1653,7 +1922,7 @@ def test_review_batches_migration_adds_immutable_whole_layout_storage() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        REVIEW_BATCHES_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1684,7 +1953,7 @@ def test_review_feedback_migration_adds_audit_and_immutable_exports() -> None:
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        REVIEW_FEEDBACK_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1713,7 +1982,7 @@ def test_verified_training_cohort_cells_migration_adds_v2_sample_projection() ->
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        "head",
+        VERIFIED_TRAINING_COHORT_CELLS_REVISION,
         sql=True,
     )
     command.downgrade(
@@ -1729,3 +1998,48 @@ def test_verified_training_cohort_cells_migration_adds_v2_sample_projection() ->
 
     downgrade_sql = downgrade_output.getvalue().lower()
     assert "drop table verified_training_cohort_cells" in downgrade_sql
+
+
+def test_legacy_game_operational_cleanup_migration_adds_durable_receipt() -> None:
+    script = ScriptDirectory.from_config(create_alembic_config())
+    revision = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
+    assert revision is not None
+    assert revision.down_revision == "0098_legacy_board_search_archive"
+
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION,
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION}:0098_legacy_board_search_archive",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table legacy_game_operational_cleanup_receipts" in upgrade_sql
+    assert "uq_legacy_game_operational_cleanup_receipts_game" in upgrade_sql
+    assert "managed_artifact_summary" in upgrade_sql
+    assert (
+        "drop table legacy_game_operational_cleanup_receipts" in downgrade_output.getvalue().lower()
+    )
+
+
+def test_legacy_cleanup_receipt_upgrade_does_not_modify_operational_data() -> None:
+    output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=output),
+        f"{LEGACY_BOARD_SEARCH_ARCHIVE_REVISION}:{LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION}",
+        sql=True,
+    )
+    sql = output.getvalue().lower()
+    assert sql.count("create table ") == 1
+    assert "create table legacy_game_operational_cleanup_receipts" in sql
+    assert "delete from" not in sql
+    assert "truncate " not in sql
+    assert "drop table" not in sql
+    assert "insert into" not in sql
+    assert "on delete restrict" in sql

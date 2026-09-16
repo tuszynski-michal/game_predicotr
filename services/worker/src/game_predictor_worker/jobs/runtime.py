@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from threading import Event, Thread
@@ -18,11 +19,15 @@ from game_predictor_api.domain.jobs import (
     JobStatus,
     JobType,
 )
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 DEFAULT_LEASE_DURATION = timedelta(seconds=60)
 DEFAULT_POLL_INTERVAL_SECONDS = 2.0
 MAX_LEASE_KEEPALIVE_INTERVAL_SECONDS = 15.0
-GENERAL_JOB_TYPES = frozenset(JobType) - {JobType.IMAGE_SELECTION}
+GENERAL_JOB_TYPES = frozenset(JobType) - {
+    JobType.IMAGE_SELECTION,
+    JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+}
 
 
 class JobExecutionResult(StrEnum):
@@ -339,7 +344,13 @@ class LocalJobWorker:
         keepalive.start()
         try:
             try:
-                handler(context, claimed)
+                storage_scope = (
+                    game_storage_scope(claimed.game_id)
+                    if claimed.game_id is not None
+                    else nullcontext()
+                )
+                with storage_scope:
+                    handler(context, claimed)
             finally:
                 keepalive_error = keepalive.stop()
             if keepalive_error is not None:

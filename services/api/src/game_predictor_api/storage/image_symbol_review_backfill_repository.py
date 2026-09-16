@@ -146,6 +146,15 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
             if latest is None or latest.checkpoint_payload is None
             else latest.checkpoint_payload
         )
+        processed_board_count = (
+            0
+            if state is None
+            else (
+                expected_board_count
+                if state.status == "ready"
+                else int(state.processed_review_item_count)
+            )
+        )
         problem_ids: list[UUID] = []
         raw_problem_ids = checkpoint.get("problem_review_item_ids")
         if isinstance(raw_problem_ids, list):
@@ -164,9 +173,7 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
             ),
             expected_board_count=expected_board_count,
             expected_cell_count=expected_board_count * 15,
-            processed_board_count=(
-                0 if state is None else int(state.processed_review_item_count)
-            ),
+            processed_board_count=processed_board_count,
             persisted_cell_count=persisted_cell_count,
             missing_sequence_count=(0 if state is None else int(state.missing_sequence_count)),
             invalid_crop_count=(0 if state is None else int(state.invalid_crop_count)),

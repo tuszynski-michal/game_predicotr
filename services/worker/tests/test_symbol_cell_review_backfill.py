@@ -13,6 +13,9 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewBackfillStep,
     SymbolCellReviewReconciliationStep,
 )
+from game_predictor_api.storage.symbol_review_statistics import (
+    SymbolReviewStatisticsRefreshError,
+)
 from game_predictor_worker.jobs.runtime import JobHandlerError
 from game_predictor_worker.symbols.review_backfill import SymbolCellReviewBackfillHandler
 
@@ -70,6 +73,7 @@ def test_handler_processes_bounded_batches_and_persists_progress(monkeypatch: An
         )
     )
     batch_sizes: list[int] = []
+    analyzed_sessions: list[object] = []
 
     class _Repository:
         def __init__(self, _session: object) -> None:
@@ -105,7 +109,16 @@ def test_handler_processes_bounded_batches_and_persists_progress(monkeypatch: An
         def finalize_backfill(self, _game_id: UUID):
             return _report(game_id, status="ready", processed=250, cells=3750)
 
+    def _refresh_statistics(session: object) -> tuple[str, ...]:
+        analyzed_sessions.append(session)
+        return ("image_symbol_review_cells",)
+
     monkeypatch.setattr(backfill_module, "SqlAlchemyImageSymbolReviewRepository", _Repository)
+    monkeypatch.setattr(
+        backfill_module,
+        "refresh_symbol_review_query_statistics",
+        _refresh_statistics,
+    )
     context = _Context()
     job = create_job(
         JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
@@ -128,6 +141,10 @@ def test_handler_processes_bounded_batches_and_persists_progress(monkeypatch: An
     ]
     assert context.checkpoints[-1]["success_count"] == 3750
     assert context.checkpoints[-1]["stage"] == "symbol_cell_review_finalization"
+    assert context.checkpoints[-1]["checkpoint_payload"]["analyzed_query_tables"] == [
+        "image_symbol_review_cells"
+    ]
+    assert len(analyzed_sessions) == 1
 
 
 def test_handler_reports_controlled_integrity_failure(monkeypatch: Any) -> None:
@@ -177,6 +194,74 @@ def test_handler_reports_controlled_integrity_failure(monkeypatch: Any) -> None:
         SymbolCellReviewBackfillHandler(_SessionFactory())(_Context(), job)  # type: ignore[arg-type]
 
     assert error.value.code == "SYMBOL_CELL_REVIEW_BACKFILL_FAILED"
+
+
+def test_handler_does_not_publish_success_when_statistics_refresh_fails(
+    monkeypatch: Any,
+) -> None:
+    game_id = uuid4()
+
+    class _Repository:
+        def __init__(self, _session: object) -> None:
+            pass
+
+        def start_or_resume_backfill(self, _game_id: UUID):
+            return _report(game_id, status="rebuilding", processed=0, cells=0)
+
+        def backfill_next_batch(
+            self,
+            _game_id: UUID,
+            *,
+            batch_size: int,
+            finalize_when_exhausted: bool,
+        ):
+            return SymbolCellReviewBackfillStep(
+                report=_report(game_id, status="rebuilding", processed=2, cells=30),
+                processed_review_item_count=2,
+                has_more=False,
+            )
+
+        def begin_reconciliation_pass(self, _game_id: UUID):
+            return _report(game_id, status="rebuilding", processed=2, cells=30)
+
+        def reconcile_next_batch(self, _game_id: UUID, *, batch_size: int):
+            return SymbolCellReviewReconciliationStep(
+                report=_report(game_id, status="rebuilding", processed=2, cells=30),
+                processed_review_item_count=0,
+                has_more=False,
+            )
+
+        def finalize_backfill(self, _game_id: UUID):
+            return _report(game_id, status="ready", processed=2, cells=30)
+
+    def _fail_refresh(_session: object) -> tuple[str, ...]:
+        raise SymbolReviewStatisticsRefreshError("Statistics refresh failed.")
+
+    monkeypatch.setattr(backfill_module, "SqlAlchemyImageSymbolReviewRepository", _Repository)
+    monkeypatch.setattr(
+        backfill_module,
+        "refresh_symbol_review_query_statistics",
+        _fail_refresh,
+    )
+    job = create_job(
+        JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 1,
+            "workflow": "image_symbol_review_backfill",
+            "generation": 1,
+        },
+    )
+    context = _Context()
+
+    with pytest.raises(JobHandlerError) as error:
+        SymbolCellReviewBackfillHandler(_SessionFactory())(context, job)  # type: ignore[arg-type]
+
+    assert error.value.code == "SYMBOL_CELL_REVIEW_STATISTICS_REFRESH_FAILED"
+    assert all(
+        checkpoint["stage"] != "symbol_cell_review_finalization"
+        for checkpoint in context.checkpoints
+    )
 
 
 def test_handler_stops_after_three_failed_reconciliation_passes(monkeypatch: Any) -> None:

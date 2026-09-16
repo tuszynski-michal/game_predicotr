@@ -5,8 +5,9 @@ import { useMemo, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
-import { GridReviewWorkspace } from '@/features/grid-reviews/grid-review-workspace';
 import { OperationalReviewWorkspace } from '@/features/operational-reviews/operational-review-workspace';
+
+import { LocalReviewerWorkspace } from './local-reviewer-workspace';
 
 export function ReviewerAccessGate({
   apiBaseUrl,
@@ -35,7 +36,8 @@ export function ReviewerAccessGate({
     return (
       <main className="reviewerShell">
         {gridValidationEnabled ? (
-          <GridReviewWorkspace
+          <LocalReviewerWorkspace
+            api={api}
             apiBaseUrl={apiBaseUrl}
             gameId={localScope.gameId}
             importJobId={localScope.importJobId}

@@ -17,7 +17,7 @@ import {
 
 type BoardSearchResultsClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
-  'operationalImageReviewBoardAssetUrl'
+  'archivedBoardSearchAssetUrl' | 'operationalImageReviewBoardAssetUrl'
 >;
 
 interface BoardSearchResultsProps {
@@ -32,7 +32,10 @@ export function BoardSearchResults({
   ...props
 }: BoardSearchResultsProps) {
   const resultKey = response.results
-    .map((result) => `${result.reviewItemId}:${result.boardChecksumSha256}`)
+    .map(
+      (result) =>
+        `${result.assetMode}:${result.sequenceNumber}:${result.boardChecksumSha256}`,
+    )
     .join('|');
   return (
     <BoardSearchResultsCarousel
@@ -58,12 +61,7 @@ function BoardSearchResultsCarousel({
   );
   const current = activeBoardSearchResult(state);
 
-  const imageUrl = current
-    ? api.operationalImageReviewBoardAssetUrl(current.reviewItemId, {
-        gameId,
-        importJobId: current.importJobId,
-      })
-    : null;
+  const imageUrl = current ? boardSearchAssetUrl(api, gameId, current) : null;
 
   useEffect(() => {
     for (const index of boardSearchNeighbourIndexes(state)) {
@@ -71,14 +69,11 @@ function BoardSearchResultsCarousel({
       if (neighbour === undefined) {
         continue;
       }
-      const image = new Image();
-      image.src = api.operationalImageReviewBoardAssetUrl(
-        neighbour.reviewItemId,
-        {
-          gameId,
-          importJobId: neighbour.importJobId,
-        },
-      );
+      const neighbourUrl = boardSearchAssetUrl(api, gameId, neighbour);
+      if (neighbourUrl !== null) {
+        const image = new Image();
+        image.src = neighbourUrl;
+      }
     }
   }, [api, gameId, state]);
 
@@ -136,7 +131,10 @@ function BoardSearchResultsCarousel({
         </dl>
       </header>
 
-      <BoardCrop imageUrl={imageUrl} key={current.reviewItemId} />
+      <BoardCrop
+        imageUrl={imageUrl}
+        key={`${current.assetMode}:${current.sequenceNumber}`}
+      />
 
       <dl className="boardSearchEvidence">
         <div>
@@ -178,6 +176,27 @@ function BoardSearchResultsCarousel({
       </footer>
     </section>
   );
+}
+
+function boardSearchAssetUrl(
+  api: BoardSearchResultsClient,
+  gameId: string,
+  result: BoardSearchResponse['results'][number],
+): string | null {
+  if (result.assetMode === 'legacy_archive') {
+    return api.archivedBoardSearchAssetUrl(
+      gameId,
+      result.sequenceNumber,
+      result.boardChecksumSha256,
+    );
+  }
+  if (result.reviewItemId === null || result.importJobId === null) {
+    return null;
+  }
+  return api.operationalImageReviewBoardAssetUrl(result.reviewItemId, {
+    gameId,
+    importJobId: result.importJobId,
+  });
 }
 
 function BoardCrop({ imageUrl }: { readonly imageUrl: string }) {

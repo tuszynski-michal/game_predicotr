@@ -42,6 +42,8 @@ export interface ManualSelectionState {
   readonly firstLayout: number;
   readonly navigationStep?: number;
   readonly nextRangeStart: number;
+  readonly selectionComplete?: boolean;
+  readonly sequenceUpperBound?: number | null;
   readonly updatedAt: string;
 }
 
@@ -68,6 +70,29 @@ export interface ManualSelectionOutputManifestV1 {
     readonly rangeEnd: number;
   }[];
 }
+
+export interface ManualSelectionOutputManifestV2 {
+  readonly schemaVersion: 2;
+  readonly gameId: string;
+  readonly sessionKey: string;
+  readonly sourceDirectoryName: string;
+  readonly direction: 'ascending' | 'descending';
+  readonly firstLayout: number;
+  readonly sequenceUpperBound: number | null;
+  readonly selectionComplete: boolean;
+  readonly updatedAt: string;
+  readonly items: readonly {
+    readonly outputName: string;
+    readonly imagePath: string;
+    readonly imageChecksum: string;
+    readonly rangeStart: number;
+    readonly rangeEnd: number;
+    readonly activeBoardCount: number;
+  }[];
+}
+
+export type ManualSelectionOutputManifest =
+  ManualSelectionOutputManifestV1 | ManualSelectionOutputManifestV2;
 
 export interface ManualSelectionTraceManifestV1 {
   readonly schemaVersion: 1;
@@ -253,11 +278,60 @@ export function naturalCompare(left: string, right: string): number {
   return 0;
 }
 
-export function rangeForStart(rangeStart: number): {
+export function rangeForStart(
+  rangeStart: number,
+  sequenceUpperBound: number | null = null,
+): {
   start: number;
   end: number;
 } {
-  return { end: rangeStart + 8, start: rangeStart };
+  if (!Number.isSafeInteger(rangeStart) || rangeStart < 1) {
+    throw new Error('Początek zakresu musi być dodatnią liczbą całkowitą.');
+  }
+  if (
+    sequenceUpperBound !== null &&
+    (!Number.isSafeInteger(sequenceUpperBound) ||
+      sequenceUpperBound < rangeStart)
+  ) {
+    throw new Error(
+      'Maksymalny numer planszy nie może być mniejszy od początku zakresu.',
+    );
+  }
+  return {
+    end:
+      sequenceUpperBound === null
+        ? rangeStart + 8
+        : Math.min(rangeStart + 8, sequenceUpperBound),
+    start: rangeStart,
+  };
+}
+
+export function manualRangeActiveBoardCount(
+  rangeStart: number,
+  rangeEnd: number,
+): number {
+  if (
+    !Number.isSafeInteger(rangeStart) ||
+    !Number.isSafeInteger(rangeEnd) ||
+    rangeStart < 1 ||
+    rangeEnd < rangeStart ||
+    rangeEnd - rangeStart > 8
+  ) {
+    throw new Error('Zakres musi obejmować od 1 do 9 kolejnych plansz.');
+  }
+  return rangeEnd - rangeStart + 1;
+}
+
+export function isManualSelectionRangeTerminal(
+  direction: 'ascending' | 'descending',
+  rangeStart: number,
+  rangeEnd: number,
+  sequenceUpperBound: number | null = null,
+): boolean {
+  manualRangeActiveBoardCount(rangeStart, rangeEnd);
+  return direction === 'descending'
+    ? rangeStart === 1
+    : sequenceUpperBound !== null && rangeEnd === sequenceUpperBound;
 }
 
 export function nextManualRangeStart(
@@ -272,7 +346,9 @@ export function nextManualRangeStart(
 export function createManualSelectionState(
   firstLayout: number,
   direction: 'ascending' | 'descending',
+  sequenceUpperBound: number | null = null,
 ): ManualSelectionState {
+  rangeForStart(firstLayout, sequenceUpperBound);
   return {
     currentIndex: 0,
     decisions: [],
@@ -280,6 +356,8 @@ export function createManualSelectionState(
     firstLayout,
     navigationStep: 1,
     nextRangeStart: firstLayout,
+    selectionComplete: false,
+    sequenceUpperBound,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -289,11 +367,29 @@ export function nextManualSelectionState(
   decision: ManualSelectionDecision,
   currentIndex: number,
 ): ManualSelectionState {
+  const sequenceUpperBound = state.sequenceUpperBound ?? null;
+  const expectedRange = rangeForStart(decision.rangeStart, sequenceUpperBound);
+  if (
+    decision.rangeEnd !== expectedRange.end ||
+    state.nextRangeStart !== decision.rangeStart ||
+    state.selectionComplete === true
+  ) {
+    throw new Error('Decyzja nie odpowiada bieżącemu zakresowi selekcji.');
+  }
+  const selectionComplete = isManualSelectionRangeTerminal(
+    state.direction,
+    decision.rangeStart,
+    decision.rangeEnd,
+    sequenceUpperBound,
+  );
   return {
     ...state,
     currentIndex,
     decisions: [...state.decisions, decision],
-    nextRangeStart: nextManualRangeStart(state.direction, decision.rangeStart),
+    nextRangeStart: selectionComplete
+      ? decision.rangeStart
+      : nextManualRangeStart(state.direction, decision.rangeStart),
+    selectionComplete,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -308,19 +404,38 @@ export function previousManualSelectionState(
     currentIndex: state.currentIndex,
     decisions: state.decisions.slice(0, -1),
     nextRangeStart: last.rangeStart,
+    selectionComplete: false,
     updatedAt: new Date().toISOString(),
   };
 }
 
 export function reconcileManualSelectionStateWithOutputManifest(
   state: ManualSelectionState,
-  manifest: ManualSelectionOutputManifestV1,
+  manifest: ManualSelectionOutputManifest,
 ): ManualSelectionState {
   if (manifest.direction !== state.direction) {
     throw new Error('Kierunek manifestu nie odpowiada zapisanej sesji.');
   }
   if (!Number.isSafeInteger(manifest.firstLayout) || manifest.firstLayout < 1) {
     throw new Error('Manifest ma nieprawidłowy pierwszy numer planszy.');
+  }
+
+  const manifestUpperBound =
+    manifest.schemaVersion === 2 ? manifest.sequenceUpperBound : null;
+  if (
+    manifestUpperBound !== null &&
+    (!Number.isSafeInteger(manifestUpperBound) ||
+      manifestUpperBound < manifest.firstLayout)
+  ) {
+    throw new Error('Manifest ma nieprawidłowy maksymalny numer planszy.');
+  }
+  const stateUpperBound = state.sequenceUpperBound ?? null;
+  if (
+    manifest.schemaVersion === 2 &&
+    (manifestUpperBound !== stateUpperBound ||
+      manifest.firstLayout !== state.firstLayout)
+  ) {
+    throw new Error('Manifest v2 nie odpowiada granicom zapisanej sesji.');
   }
 
   const accepted = state.decisions.filter(
@@ -330,16 +445,21 @@ export function reconcileManualSelectionStateWithOutputManifest(
     throw new Error('Manifest nie odpowiada liczbie zatwierdzonych zdjęć.');
   }
 
-  const offset = manifest.firstLayout - state.firstLayout;
+  const offset =
+    manifest.schemaVersion === 1 ? manifest.firstLayout - state.firstLayout : 0;
   let acceptedIndex = 0;
   const decisions = state.decisions.map((decision) => {
     const oldRangeStart = decision.rangeStart;
     const oldRangeEnd = decision.rangeEnd;
-    if (oldRangeEnd !== oldRangeStart + 8) {
+    const expectedOldRange = rangeForStart(oldRangeStart, stateUpperBound);
+    if (oldRangeEnd !== expectedOldRange.end) {
       throw new Error('Zapisana sesja zawiera nieprawidłowy zakres decyzji.');
     }
     const rangeStart = oldRangeStart + offset;
-    const rangeEnd = rangeStart + 8;
+    const rangeEnd = rangeForStart(
+      rangeStart,
+      manifest.schemaVersion === 2 ? manifestUpperBound : null,
+    ).end;
     if (decision.action === 'skipped') {
       return { ...decision, rangeEnd, rangeStart };
     }
@@ -353,18 +473,46 @@ export function reconcileManualSelectionStateWithOutputManifest(
       item.imagePath !== decision.imagePath ||
       item.outputName !== outputName ||
       item.rangeStart !== rangeStart ||
-      item.rangeEnd !== rangeEnd
+      item.rangeEnd !== rangeEnd ||
+      (manifest.schemaVersion === 2 &&
+        (!('activeBoardCount' in item) ||
+          item.activeBoardCount !==
+            manualRangeActiveBoardCount(rangeStart, rangeEnd)))
     ) {
       throw new Error('Manifest nie odpowiada zapisanym plikom tej sesji.');
     }
     return { ...decision, outputName, rangeEnd, rangeStart };
   });
+  if (manifest.schemaVersion === 2) {
+    const lastDecision = decisions.at(-1);
+    const expectedSelectionComplete =
+      lastDecision === undefined
+        ? false
+        : isManualSelectionRangeTerminal(
+            manifest.direction,
+            lastDecision.rangeStart,
+            lastDecision.rangeEnd,
+            manifestUpperBound,
+          );
+    if (manifest.selectionComplete !== expectedSelectionComplete) {
+      throw new Error('Manifest v2 ma nieprawidłowy stan zakończenia sesji.');
+    }
+  }
 
   return {
     ...state,
     decisions,
     firstLayout: manifest.firstLayout,
-    nextRangeStart: state.nextRangeStart + offset,
+    nextRangeStart:
+      manifest.schemaVersion === 2
+        ? state.nextRangeStart
+        : state.nextRangeStart + offset,
+    ...(manifest.schemaVersion === 2
+      ? {
+          selectionComplete: manifest.selectionComplete,
+          sequenceUpperBound: manifestUpperBound,
+        }
+      : {}),
     updatedAt: manifest.updatedAt,
   };
 }
@@ -407,7 +555,7 @@ export function manualPreviewWindow(
 export function createManualSelectionOutputManifest(
   record: ManualSelectionSessionMetadata,
   updatedAt = new Date().toISOString(),
-): ManualSelectionOutputManifestV1 {
+): ManualSelectionOutputManifestV2 {
   const items = record.state.decisions
     .filter(
       (
@@ -426,15 +574,21 @@ export function createManualSelectionOutputManifest(
       imageChecksum: decision.imageChecksum,
       imagePath: decision.imagePath,
       outputName: decision.outputName,
+      activeBoardCount: manualRangeActiveBoardCount(
+        decision.rangeStart,
+        decision.rangeEnd,
+      ),
       rangeEnd: decision.rangeEnd,
       rangeStart: decision.rangeStart,
     }));
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     direction: record.state.direction,
     firstLayout: record.state.firstLayout,
     gameId: record.gameId,
     items,
+    selectionComplete: record.state.selectionComplete === true,
+    sequenceUpperBound: record.state.sequenceUpperBound ?? null,
     sessionKey: record.key,
     sourceDirectoryName: record.sourceDirectoryName,
     updatedAt,

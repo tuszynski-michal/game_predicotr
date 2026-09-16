@@ -199,8 +199,8 @@ def test_manifest_contains_individual_cells_without_requiring_a_complete_board()
         game_id=game_id, selection=selection
     )
 
-    assert manifest["schemaVersion"] == 3
-    assert manifest["datasetKind"] == "verified-symbol-cell-training-cohort-v3-crop-provenance"
+    assert manifest["schemaVersion"] == 4
+    assert manifest["datasetKind"] == "verified-symbol-cell-training-cohort-v4-virtual-provenance"
     assert len(manifest["cells"]) == 2
     assert (
         manifest["cells"][0]["approvedCrop"]["cropSampleId"] == manifest["cells"][0]["cropSampleId"]
@@ -208,6 +208,38 @@ def test_manifest_contains_individual_cells_without_requiring_a_complete_board()
     assert "boards" not in manifest
     assert len(content) > 0
     assert len(checksum) == 64
+
+
+def test_v4_manifest_freezes_complete_virtual_render_provenance() -> None:
+    source_geometry_revision_id = uuid4()
+    virtual = replace(
+        _candidate(0),
+        asset_mode="virtual_source",
+        crop_relative_path=None,
+        source_geometry_revision_id=source_geometry_revision_id,
+        normalized_pixel_checksum_sha256="1" * 64,
+        geometry_checksum_sha256="2" * 64,
+        logical_cell_key="3" * 64,
+        logical_cell_key_v2="4" * 64,
+        render_identity_v2_sha256="5" * 64,
+        render_spec={"renderIdentityV2Sha256": "5" * 64},
+        render_spec_checksum_sha256="6" * 64,
+        rendered_pixel_checksum_sha256=_candidate(0).crop_checksum_sha256,
+        extractor_version="virtual-renderer-v1",
+    )
+    selection = select_symbol_cell_training_samples(
+        candidates=[virtual], active_symbol_codes=("cherry",)
+    )
+
+    manifest, _content, _checksum = build_symbol_cell_training_manifest(
+        game_id=uuid4(), selection=selection
+    )
+
+    cell = manifest["cells"][0]
+    assert cell["assetMode"] == "virtual_source"
+    assert "cropRelativePath" not in cell
+    assert cell["sourceGeometryRevisionId"] == str(source_geometry_revision_id)
+    assert cell["approvedCrop"]["renderSpecChecksumSha256"] == "6" * 64
 
 
 def test_changed_crop_is_rejected_before_manifest_creation() -> None:

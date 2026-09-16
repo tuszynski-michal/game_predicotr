@@ -5,12 +5,15 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import cast
 from uuid import UUID
 
 from game_predictor_api.domain.image_reviews import ImageReviewConflictError
 
-SYMBOL_CELL_TRAINING_COHORT_SCHEMA_VERSION = 3
-SYMBOL_CELL_TRAINING_COHORT_DATASET_KIND = "verified-symbol-cell-training-cohort-v3-crop-provenance"
+SYMBOL_CELL_TRAINING_COHORT_SCHEMA_VERSION = 4
+SYMBOL_CELL_TRAINING_COHORT_DATASET_KIND = (
+    "verified-symbol-cell-training-cohort-v4-virtual-provenance"
+)
 DEFAULT_TARGET_SAMPLES_PER_SYMBOL = 1_000
 DEFAULT_MAX_SAMPLES_PER_SYMBOL = 2_000
 DEFAULT_MAX_SIMILARITY_COMPARISONS_PER_BAND = 32
@@ -32,7 +35,7 @@ class ApprovedSymbolCellCandidate:
     cell_revision: int
     geometry_revision: int
     crop_sample_id: str
-    crop_relative_path: str
+    crop_relative_path: str | None
     crop_checksum_sha256: str
     approved_crop_sample_id: str
     approved_crop_checksum_sha256: str
@@ -43,6 +46,17 @@ class ApprovedSymbolCellCandidate:
     prediction_symbol_code: str | None
     perceptual_hash_64: int
     mean_rgb: tuple[int, int, int]
+    asset_mode: str = "legacy_file"
+    source_geometry_revision_id: UUID | None = None
+    normalized_pixel_checksum_sha256: str | None = None
+    geometry_checksum_sha256: str | None = None
+    logical_cell_key: str | None = None
+    logical_cell_key_v2: str | None = None
+    render_identity_v2_sha256: str | None = None
+    render_spec: Mapping[str, object] | None = None
+    render_spec_checksum_sha256: str | None = None
+    rendered_pixel_checksum_sha256: str | None = None
+    extractor_version: str | None = None
 
     @property
     def is_human_correction(self) -> bool:
@@ -88,34 +102,59 @@ def build_symbol_cell_training_manifest(
     cells: list[dict[str, object]] = []
     for sample in selection.samples:
         candidate = sample.candidate
-        cells.append(
-            {
-                "cellIndex": candidate.cell_index,
-                "cellReviewId": str(candidate.cell_review_id),
-                "cellRevision": candidate.cell_revision,
-                "cropChecksumSha256": candidate.crop_checksum_sha256,
-                "cropRelativePath": candidate.crop_relative_path,
-                "cropSampleId": candidate.crop_sample_id,
-                "approvedCrop": {
-                    "cropChecksumSha256": candidate.approved_crop_checksum_sha256,
-                    "cropSampleId": candidate.approved_crop_sample_id,
-                    "geometryRevision": candidate.approved_geometry_revision,
-                },
-                "cropperVersion": candidate.cropper_version,
-                "geometryRevision": candidate.geometry_revision,
-                "importJobId": str(candidate.import_job_id),
-                "recognizedBoardId": str(candidate.recognized_board_id),
-                "reviewItemId": str(candidate.review_item_id),
-                "selectionReason": sample.selection_reason,
-                "sequenceNumber": candidate.sequence_number,
-                "source": {
-                    "checksumSha256": candidate.source_checksum_sha256,
-                    "relativePath": candidate.source_relative_path,
-                },
-                "sourceImageId": str(candidate.source_image_id),
-                "symbolCode": candidate.symbol_code,
-            }
-        )
+        cell: dict[str, object] = {
+            "assetMode": candidate.asset_mode,
+            "cellIndex": candidate.cell_index,
+            "cellReviewId": str(candidate.cell_review_id),
+            "cellRevision": candidate.cell_revision,
+            "cropChecksumSha256": candidate.crop_checksum_sha256,
+            "cropSampleId": candidate.crop_sample_id,
+            "approvedCrop": {
+                "assetMode": candidate.asset_mode,
+                "cropChecksumSha256": candidate.approved_crop_checksum_sha256,
+                "cropSampleId": candidate.approved_crop_sample_id,
+                "geometryRevision": candidate.approved_geometry_revision,
+            },
+            "cropperVersion": candidate.cropper_version,
+            "geometryRevision": candidate.geometry_revision,
+            "importJobId": str(candidate.import_job_id),
+            "recognizedBoardId": str(candidate.recognized_board_id),
+            "reviewItemId": str(candidate.review_item_id),
+            "selectionReason": sample.selection_reason,
+            "sequenceNumber": candidate.sequence_number,
+            "source": {
+                "checksumSha256": candidate.source_checksum_sha256,
+                "relativePath": candidate.source_relative_path,
+            },
+            "sourceImageId": str(candidate.source_image_id),
+            "symbolCode": candidate.symbol_code,
+        }
+        if candidate.asset_mode == "legacy_file":
+            cell["cropRelativePath"] = candidate.crop_relative_path
+        else:
+            approved_crop = cast(dict[str, object], cell["approvedCrop"])
+            approved_crop.update(
+                {
+                    "renderSpecChecksumSha256": candidate.render_spec_checksum_sha256,
+                    "renderedPixelChecksumSha256": (candidate.rendered_pixel_checksum_sha256),
+                    "sourceGeometryRevisionId": str(candidate.source_geometry_revision_id),
+                }
+            )
+            cell.update(
+                {
+                    "extractorVersion": candidate.extractor_version,
+                    "geometryChecksumSha256": candidate.geometry_checksum_sha256,
+                    "logicalCellKeySha256": candidate.logical_cell_key,
+                    "logicalCellKeyV2Sha256": candidate.logical_cell_key_v2,
+                    "normalizedPixelChecksumSha256": (candidate.normalized_pixel_checksum_sha256),
+                    "renderIdentityV2Sha256": candidate.render_identity_v2_sha256,
+                    "renderSpec": candidate.render_spec,
+                    "renderSpecChecksumSha256": candidate.render_spec_checksum_sha256,
+                    "renderedPixelChecksumSha256": (candidate.rendered_pixel_checksum_sha256),
+                    "sourceGeometryRevisionId": str(candidate.source_geometry_revision_id),
+                }
+            )
+        cells.append(cell)
     manifest: dict[str, object] = {
         "cells": cells,
         "counts": {
@@ -280,6 +319,40 @@ def _validate_candidate(
         raise ImageReviewConflictError(
             "SYMBOL_CELL_TRAINING_DESCRIPTOR_INVALID",
             "A symbol-cell training candidate has an invalid visual descriptor.",
+        )
+    if candidate.asset_mode == "legacy_file":
+        if not candidate.crop_relative_path:
+            raise ImageReviewConflictError(
+                "SYMBOL_CELL_TRAINING_CROP_PATH_INVALID",
+                "A legacy training candidate requires a crop path.",
+            )
+        return
+    virtual_checksums = (
+        candidate.normalized_pixel_checksum_sha256,
+        candidate.geometry_checksum_sha256,
+        candidate.logical_cell_key,
+        candidate.logical_cell_key_v2,
+        candidate.render_identity_v2_sha256,
+        candidate.render_spec_checksum_sha256,
+        candidate.rendered_pixel_checksum_sha256,
+    )
+    if (
+        candidate.asset_mode != "virtual_source"
+        or candidate.crop_relative_path is not None
+        or candidate.source_geometry_revision_id is None
+        or candidate.render_spec is None
+        or not candidate.extractor_version
+        or any(
+            value is None
+            or len(value) != 64
+            or any(character not in "0123456789abcdef" for character in value)
+            for value in virtual_checksums
+        )
+        or candidate.rendered_pixel_checksum_sha256 != candidate.crop_checksum_sha256
+    ):
+        raise ImageReviewConflictError(
+            "SYMBOL_CELL_TRAINING_VIRTUAL_PROVENANCE_INVALID",
+            "A virtual training candidate requires complete checksum-bound render provenance.",
         )
 
 

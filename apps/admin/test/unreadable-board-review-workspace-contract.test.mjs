@@ -9,6 +9,13 @@ const source = await readFile(
   ),
   'utf8',
 );
+const styles = await readFile(
+  new URL(
+    '../src/features/unreadable-board-reviews/unreadable-board-review-workspace.module.css',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 test('renders the whole topology and exposes both unreadable resolutions', () => {
   assert.match(source, /Weryfikacja symbolu na planszy/);
@@ -18,14 +25,29 @@ test('renders the whole topology and exposes both unreadable resolutions', () =>
   assert.match(source, /detail\.cells\.map/);
   assert.match(source, /kind: 'symbol'/);
   assert.match(source, /kind: 'unknown'/);
-  assert.match(source, /Ustaw \?/);
+  assert.ok(
+    /Ustaw \?/.test(source) || /UNKNOWN_SELECTION/.test(source),
+    'the workspace must expose the unknown assignment',
+  );
   assert.match(source, /Nieczytelny · poza treningiem/);
+  assert.match(source, /styles\.unreadableBadge/);
+  assert.match(source, /styles\.unreadableShade/);
+  assert.match(styles, /\.cellUnreadable/);
+  assert.match(styles, /\.unreadableBadge/);
+  assert.match(styles, /\.unreadableShade/);
 });
 
 test('binds each decision to the exact crop revision and checksum', () => {
+  assert.match(
+    source,
+    /cell\.cropChecksumSha256,\s+cell\.renderSpecChecksumSha256/,
+  );
   assert.match(source, /expectedCropChecksumSha256: cell\.cropChecksumSha256/);
   assert.match(source, /expectedCropSampleId: cell\.cropSampleId/);
   assert.match(source, /expectedGeometryRevision: cell\.geometryRevision/);
   assert.match(source, /expectedRevision: cell\.revision/);
-  assert.match(source, /savingCell !== null/);
+  assert.ok(
+    /savingCell !== null/.test(source) || /savingBoard/.test(source),
+    'the workspace must block overlapping cell or whole-board saves',
+  );
 });

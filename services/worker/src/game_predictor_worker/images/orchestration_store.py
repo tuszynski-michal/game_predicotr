@@ -9,13 +9,18 @@ from typing import cast
 from uuid import UUID
 
 from game_predictor_api.domain.jobs import JobStatus, require_active_job_lease
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageRouter,
+    GameStorageSchema,
+)
 from game_predictor_api.storage.job_repository import job_from_record
 from game_predictor_api.storage.models import (
     ImageFileExecutionModel,
     ImageImportJobFileModel,
     JobModel,
 )
-from sqlalchemy import case, func, select
+from sqlalchemy import bindparam, case, func, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -31,12 +36,50 @@ from .orchestration import (
     initial_file_checkpoint,
 )
 from .pipeline_contract import (
-    PIPELINE_STAGES,
     canonical_json_bytes,
     file_execution_key,
     validate_checkpoint_transition,
     validate_file_checkpoint,
 )
+
+_V2_ASSOCIATION_INSERT = text(
+    """
+    INSERT INTO image_import_job_files (
+        game_id,
+        job_id,
+        file_execution_key,
+        order_index,
+        source_relative_path,
+        workflow_checkpoint_payload,
+        workflow_status,
+        review_required,
+        failed_stage,
+        error_code,
+        error_message,
+        retry_count,
+        last_failed_at,
+        created_at,
+        updated_at
+    ) VALUES (
+        :game_id,
+        :job_id,
+        :file_execution_key,
+        :order_index,
+        :source_relative_path,
+        :workflow_checkpoint_payload,
+        :workflow_status,
+        :review_required,
+        :failed_stage,
+        :error_code,
+        :error_message,
+        :retry_count,
+        :last_failed_at,
+        :created_at,
+        :updated_at
+    )
+    ON CONFLICT (game_id, job_id, file_execution_key) DO NOTHING
+    """
+).bindparams(bindparam("workflow_checkpoint_payload", type_=JSONB))
 
 
 class ImageOrchestrationStoreError(JobHandlerError):
@@ -121,32 +164,59 @@ class SqlAlchemyImageBatchStore:
                             else cast(str, workflow_checkpoint["status"])
                         )
                         reuse_requires_review = workflow_status == "waiting_for_review"
-                        association = ImageImportJobFileModel(
-                            job_id=job_id,
-                            file_execution_key=execution_key,
-                            order_index=order_index,
-                            source_relative_path=relative_path,
-                            workflow_checkpoint_payload=workflow_checkpoint,
-                            workflow_status=workflow_status,
-                            review_required=(execution.review_required or reuse_requires_review),
-                            failed_stage=(
-                                execution.failed_stage if workflow_status == "failed" else None
-                            ),
-                            error_code=(
-                                execution.error_code if workflow_status == "failed" else None
-                            ),
-                            error_message=(
-                                execution.error_message if workflow_status == "failed" else None
-                            ),
-                            retry_count=execution.retry_count,
-                            last_failed_at=(
-                                execution.last_failed_at if workflow_status == "failed" else None
-                            ),
-                            created_at=registered_at,
-                            updated_at=registered_at,
+                        _insert_job_file_associations(
+                            session,
+                            job=job,
+                            values=[
+                                {
+                                    "job_id": job_id,
+                                    "file_execution_key": execution_key,
+                                    "order_index": order_index,
+                                    "source_relative_path": relative_path,
+                                    "workflow_checkpoint_payload": workflow_checkpoint,
+                                    "workflow_status": workflow_status,
+                                    "review_required": (
+                                        execution.review_required or reuse_requires_review
+                                    ),
+                                    "failed_stage": (
+                                        execution.failed_stage
+                                        if workflow_status == "failed"
+                                        else None
+                                    ),
+                                    "error_code": (
+                                        execution.error_code
+                                        if workflow_status == "failed"
+                                        else None
+                                    ),
+                                    "error_message": (
+                                        execution.error_message
+                                        if workflow_status == "failed"
+                                        else None
+                                    ),
+                                    "retry_count": execution.retry_count,
+                                    "last_failed_at": (
+                                        execution.last_failed_at
+                                        if workflow_status == "failed"
+                                        else None
+                                    ),
+                                    "created_at": registered_at,
+                                    "updated_at": registered_at,
+                                }
+                            ],
                         )
-                        session.add(association)
-                        session.flush()
+                        association = session.scalar(
+                            select(ImageImportJobFileModel)
+                            .where(
+                                ImageImportJobFileModel.job_id == job_id,
+                                ImageImportJobFileModel.file_execution_key == execution_key,
+                            )
+                            .with_for_update()
+                        )
+                        if association is None:
+                            raise ImageOrchestrationStoreError(
+                                "IMAGE_BATCH_PERSISTENCE_CONFLICT",
+                                "The image execution association could not be registered.",
+                            )
                     elif (
                         association.order_index != order_index
                         or association.source_relative_path != relative_path
@@ -296,10 +366,10 @@ class SqlAlchemyImageBatchStore:
                                 "workflow_status": workflow_status,
                             }
                         )
-                    session.execute(
-                        postgresql_insert(ImageImportJobFileModel)
-                        .values(association_values)
-                        .on_conflict_do_nothing(index_elements=["job_id", "file_execution_key"])
+                    _insert_job_file_associations(
+                        session,
+                        job=job,
+                        values=association_values,
                     )
                     associations = session.scalars(
                         select(ImageImportJobFileModel).where(
@@ -705,6 +775,31 @@ def _locked_job(session: Session, job_id: UUID) -> JobModel:
     return job
 
 
+def _insert_job_file_associations(
+    session: Session,
+    *,
+    job: JobModel,
+    values: Sequence[Mapping[str, object]],
+) -> None:
+    if job.game_id is None:
+        raise ImageOrchestrationStoreError(
+            "IMAGE_BATCH_JOB_CONTRACT_MISMATCH",
+            "The image import job must belong to one game.",
+        )
+    location = GameStorageRouter().describe(session, job.game_id)
+    if location.store_schema is GameStorageSchema.V2:
+        session.execute(
+            _V2_ASSOCIATION_INSERT,
+            [{"game_id": job.game_id, **value} for value in values],
+        )
+        return
+    session.execute(
+        postgresql_insert(ImageImportJobFileModel)
+        .values(list(values))
+        .on_conflict_do_nothing(index_elements=["job_id", "file_execution_key"])
+    )
+
+
 def _require_image_job(job: JobModel, pipeline_fingerprint: str) -> None:
     payload = job.input_payload
     if (
@@ -760,16 +855,15 @@ def _initial_job_workflow_checkpoint(
     global_checkpoint_payload: Mapping[str, object],
 ) -> dict[str, object]:
     checkpoint = validate_file_checkpoint(global_checkpoint_payload)
-    completed = cast(list[str], checkpoint["completedStages"])
-    automated_count = PIPELINE_STAGES.index("manual_review")
-    if len(completed) < automated_count:
-        return dict(checkpoint)
-    return {
-        **checkpoint,
-        "completedStages": list(PIPELINE_STAGES[:automated_count]),
-        "nextStage": "manual_review",
-        "status": "waiting_for_review",
-    }
+    # Shared stage results are immutable, but source/review projections are
+    # scoped to the importing job.  A new association therefore starts at the
+    # first stage and cheaply replays existing results into its own projection.
+    # Existing associations keep their durable checkpoint on normal restart,
+    # so this does not rehydrate an already waiting queue repeatedly.
+    return initial_file_checkpoint(
+        cast(str, checkpoint["sourceChecksumSha256"]),
+        cast(str, checkpoint["pipelineFingerprint"]),
+    )
 
 
 def _advance_global_execution_if_current(

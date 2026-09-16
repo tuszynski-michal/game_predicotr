@@ -3,6 +3,8 @@ export const BOARD_SEARCH_COLUMNS = 5;
 export const BOARD_SEARCH_CELL_COUNT = BOARD_SEARCH_ROWS * BOARD_SEARCH_COLUMNS;
 export const BOARD_SEARCH_UNKNOWN = '?';
 
+export type BoardSearchEntryOrder = 'columns' | 'rows';
+
 export interface BoardSearchEditorSnapshot {
   readonly cells: readonly (string | null)[];
   readonly selectedCellIndex: number;
@@ -60,12 +62,29 @@ function currentSnapshot(
   });
 }
 
+function orderedCellIndexes(
+  entryOrder: BoardSearchEntryOrder,
+): readonly number[] {
+  if (entryOrder === 'rows') {
+    return Array.from({ length: BOARD_SEARCH_CELL_COUNT }, (_, index) => index);
+  }
+  return Array.from(
+    { length: BOARD_SEARCH_CELL_COUNT },
+    (_, index) =>
+      (index % BOARD_SEARCH_ROWS) * BOARD_SEARCH_COLUMNS +
+      Math.floor(index / BOARD_SEARCH_ROWS),
+  );
+}
+
 function firstEmptyAfter(
   cells: readonly (string | null)[],
   currentCellIndex: number,
+  entryOrder: BoardSearchEntryOrder,
 ): number {
-  for (let offset = 1; offset <= cells.length; offset += 1) {
-    const candidate = (currentCellIndex + offset) % cells.length;
+  const indexes = orderedCellIndexes(entryOrder);
+  const currentPosition = indexes.indexOf(currentCellIndex);
+  for (let offset = 1; offset <= indexes.length; offset += 1) {
+    const candidate = indexes[(currentPosition + offset) % indexes.length];
     if (cells[candidate] === null) {
       return candidate;
     }
@@ -91,6 +110,7 @@ export function selectBoardSearchCell(
 export function placeBoardSearchSymbol(
   state: BoardSearchEditorState,
   symbolCode: string,
+  entryOrder: BoardSearchEntryOrder = 'columns',
 ): BoardSearchEditorState {
   const normalizedSymbolCode = symbolCode.trim();
   if (!normalizedSymbolCode || normalizedSymbolCode === '?') {
@@ -98,21 +118,40 @@ export function placeBoardSearchSymbol(
   }
   const cells = [...state.cells];
   cells[state.selectedCellIndex] = normalizedSymbolCode;
-  return createState(cells, firstEmptyAfter(cells, state.selectedCellIndex), [
-    ...state.history,
-    currentSnapshot(state),
-  ]);
+  return createState(
+    cells,
+    firstEmptyAfter(cells, state.selectedCellIndex, entryOrder),
+    [...state.history, currentSnapshot(state)],
+  );
 }
 
 export function placeBoardSearchUnknown(
   state: BoardSearchEditorState,
+  entryOrder: BoardSearchEntryOrder = 'columns',
 ): BoardSearchEditorState {
   const cells = [...state.cells];
   cells[state.selectedCellIndex] = BOARD_SEARCH_UNKNOWN;
-  return createState(cells, firstEmptyAfter(cells, state.selectedCellIndex), [
-    ...state.history,
-    currentSnapshot(state),
-  ]);
+  return createState(
+    cells,
+    firstEmptyAfter(cells, state.selectedCellIndex, entryOrder),
+    [...state.history, currentSnapshot(state)],
+  );
+}
+
+export function selectBoardSearchEntryStart(
+  state: BoardSearchEditorState,
+  entryOrder: BoardSearchEntryOrder,
+): BoardSearchEditorState {
+  const firstEmptyCell = orderedCellIndexes(entryOrder).find(
+    (cellIndex) => state.cells[cellIndex] === null,
+  );
+  if (
+    firstEmptyCell === undefined ||
+    firstEmptyCell === state.selectedCellIndex
+  ) {
+    return state;
+  }
+  return createState(state.cells, firstEmptyCell, state.history);
 }
 
 export function undoBoardSearchEdit(

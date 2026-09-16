@@ -2949,9 +2949,7 @@ class SequenceValidatedVisibleSequenceLabelRangeRecognizer(
         normal = self.recognize(rgb_image, boards)
         recognized, reasons, observations = _range_recognition_parts(normal)
         expected_key = (expected_range.start, expected_range.end)
-        recognized_key = (
-            None if recognized is None else (recognized.start, recognized.end)
-        )
+        recognized_key = None if recognized is None else (recognized.start, recognized.end)
         strong_normal_reason = any(
             reason
             in {
@@ -3002,9 +3000,7 @@ class SequenceValidatedVisibleSequenceLabelRangeRecognizer(
                 sequence_number=expected_range.start + position,
                 confidence=min(recognitions[index].confidence, 0.99),
                 route=(
-                    "expected_sequence_exact"
-                    if position in exact
-                    else "expected_sequence_fuzzy"
+                    "expected_sequence_exact" if position in exact else "expected_sequence_fuzzy"
                 ),
             )
             for index, position in sorted(positions.items(), key=lambda item: item[1])
@@ -3094,11 +3090,7 @@ class SequenceValidatedVisibleSequenceLabelRangeRecognizer(
         viewport_positions = set(viewport.values())
         viewport_rows = {position // 3 for position in viewport_positions}
         viewport_columns = {position % 3 for position in viewport_positions}
-        if (
-            len(viewport_positions) >= 4
-            and len(viewport_rows) >= 2
-            and len(viewport_columns) >= 2
-        ):
+        if len(viewport_positions) >= 4 and len(viewport_rows) >= 2 and len(viewport_columns) >= 2:
             return viewport
         return dynamic
 

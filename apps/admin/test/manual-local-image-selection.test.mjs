@@ -37,6 +37,13 @@ const workspaceSource = await readFile(
   ),
   'utf8',
 );
+const viewerSource = await readFile(
+  new URL(
+    '../src/features/manual-image-selection/manual-image-viewer.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const manualSelectionCoreSource = await readFile(
   new URL(
     '../../../packages/manual-image-selection-core/src/index.ts',
@@ -384,10 +391,10 @@ test('derives each inclusive nine-layout range from its first number', () => {
   assert.deepEqual(rangeForStart(352), { start: 352, end: 360 });
 });
 
-test('offers an explicit nine-layout range correction without enabling shortcuts in its editor', () => {
+test('offers an explicit bounded range correction without enabling shortcuts in its editor', () => {
   assert.match(workspaceSource, /manualImageSelectionRangeButton/);
   assert.match(workspaceSource, /openRangeEditor/);
-  assert.match(workspaceSource, /rangeEnd !== rangeStart \+ 8/);
+  assert.match(workspaceSource, /rangeEnd !== expectedRangeEnd/);
   assert.match(workspaceSource, /nextRangeStart: rangeStart/);
   assert.match(workspaceSource, /busyRef\.current \|\| rangeEditorOpen/);
   assert.match(stylesSource, /\.manualImageSelectionRangeEditor\s*\{/);
@@ -491,21 +498,23 @@ test('undo restores the previous range and removes the last decision', () => {
 });
 
 test('offers fullscreen and bounded zoom controls without changing the source file', () => {
-  assert.match(workspaceSource, /toggleFullscreen/);
-  assert.match(workspaceSource, /requestFullscreen/);
-  assert.match(workspaceSource, /Powiększ zdjęcie/);
-  assert.match(workspaceSource, /Math\.min\(30/);
-  assert.match(workspaceSource, /zoom >= 30/);
-  assert.match(workspaceSource, /manualImageSelectionFullscreenInfo/);
-  assert.match(workspaceSource, /Zakres \{range\.start\}–\{range\.end\}/);
+  assert.match(viewerSource, /toggleFullscreen/);
+  assert.match(viewerSource, /requestFullscreen/);
+  assert.match(viewerSource, /Powiększ zdjęcie/);
+  assert.match(viewerSource, /Math\.min\(30/);
+  assert.match(viewerSource, /state\.zoom >= 30/);
+  assert.match(viewerSource, /manualImageSelectionFullscreenInfo/);
+  assert.match(
+    workspaceSource,
+    /currentLabel=\{`Zakres \$\{range\.start\}–\$\{range\.end\}`\}/,
+  );
 });
 
 test('uses scrollable layout dimensions for zoomed images instead of a visual transform', () => {
-  assert.match(workspaceSource, /fitManualImageToViewport/);
-  assert.match(workspaceSource, /manualImageSelectionImageViewport/);
-  assert.match(workspaceSource, /manualImageSelectionImageCanvas/);
-  assert.match(workspaceSource, /imageViewportRef\.current\?\.scrollTo/);
-  assert.doesNotMatch(workspaceSource, /transform:\s*`scale/);
+  assert.match(viewerSource, /fitManualImageToViewport/);
+  assert.match(viewerSource, /manualImageSelectionImageViewport/);
+  assert.match(viewerSource, /manualImageSelectionImageCanvas/);
+  assert.doesNotMatch(viewerSource, /transform:\s*`scale/);
   assert.match(
     stylesSource,
     /\.manualImageSelectionImageViewport\s*\{[\s\S]*overflow-x:\s*hidden;[\s\S]*overflow-y:\s*auto;/,
@@ -521,14 +530,24 @@ test('uses scrollable layout dimensions for zoomed images instead of a visual tr
 });
 
 test('keeps the vertical image position while navigating between photos', () => {
-  assert.match(workspaceSource, /imageScrollTopRef/);
-  assert.match(workspaceSource, /pendingImageScrollRestoreRef/);
+  assert.match(viewerSource, /imageScrollLeftRef/);
+  assert.match(viewerSource, /imageScrollTopRef/);
+  assert.match(viewerSource, /pendingScrollRestoreRef/);
   assert.match(
-    workspaceSource,
+    viewerSource,
+    /viewport\.scrollLeft = imageScrollLeftRef\.current/,
+  );
+  assert.match(
+    viewerSource,
     /viewport\.scrollTop = imageScrollTopRef\.current/,
   );
-  assert.match(workspaceSource, /onScroll=/);
-  assert.doesNotMatch(workspaceSource, /scrollTo\(\{ top: 0 \}\)/);
+  assert.match(viewerSource, /imageUrlIndex === currentImageIndex/);
+  assert.doesNotMatch(
+    viewerSource,
+    /imageViewportRef\.current\?\.scrollTop \?\?/,
+  );
+  assert.match(viewerSource, /onScroll=/);
+  assert.doesNotMatch(viewerSource, /scrollTo\(\{ top: 0 \}\)/);
 });
 
 test('renders the navigation step selector with a readable dark popup', () => {
@@ -550,8 +569,8 @@ test('indexes handles without opening every JPEG and preloads a bounded neighbou
     ) + 2,
   );
   assert.doesNotMatch(listing, /getFile\(/);
-  assert.match(workspaceSource, /manualPreviewWindow\(/);
-  assert.match(workspaceSource, /preview\.decode\(\)/);
+  assert.match(viewerSource, /manualPreviewWindow\(/);
+  assert.match(viewerSource, /preview\.decode\(\)/);
   assert.match(workspaceSource, /saveQueueRef/);
 });
 
@@ -578,24 +597,51 @@ test('keeps source listing read-only and naturally ordered through the source po
     ['ignore.png', file('ignore.png')],
   ]);
 
+  const progress = [];
   const images = await new FileSystemManualSelectionSourceAdapter(
     directory,
-  ).listImages();
+  ).listImages((current) => progress.push(current));
 
   assert.deepEqual(
     images.map((image) => image.relativePath),
     ['10.jpg', 'nested/2.jpeg'],
   );
   assert.equal(openedFiles, 0);
+  assert.deepEqual(progress, [{ imageCount: 2, visitedEntries: 4 }]);
 });
 
-test('output port preserves v1 manifests and never removes a foreign file', async () => {
+test('reports monotonic progress while listing a large source directory', async () => {
+  const directory = {
+    entries: async function* () {
+      for (let index = 1; index <= 65; index += 1) {
+        const name = `${String(index).padStart(3, '0')}.jpg`;
+        yield [name, { kind: 'file', name }];
+      }
+    },
+    kind: 'directory',
+    name: 'source',
+  };
+  const progress = [];
+
+  const images = await new FileSystemManualSelectionSourceAdapter(
+    directory,
+  ).listImages((current) => progress.push(current));
+
+  assert.equal(images.length, 65);
+  assert.deepEqual(progress, [
+    { imageCount: 64, visitedEntries: 64 },
+    { imageCount: 65, visitedEntries: 65 },
+  ]);
+});
+
+test('output port writes v2 manifests and never removes a foreign file', async () => {
   const saved = new Map();
   const directory = {
     getFileHandle: async (name, options) => {
       if (options?.create !== true && !saved.has(name)) {
         throw new DOMException('missing', 'NotFoundError');
       }
+
       return {
         createWritable: async () => ({
           abort: async () => undefined,
@@ -637,7 +683,9 @@ test('output port preserves v1 manifests and never removes a foreign file', asyn
   const manifest = JSON.parse(
     await saved.get('manual-image-selection-output-v1.json').text(),
   );
-  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.sequenceUpperBound, null);
+  assert.equal(manifest.selectionComplete, false);
   assert.deepEqual(manifest.items, [
     {
       imageChecksum: 'a'.repeat(64),
@@ -645,6 +693,7 @@ test('output port preserves v1 manifests and never removes a foreign file', asyn
       outputName: 'seq_1-9.jpg',
       rangeEnd: 9,
       rangeStart: 1,
+      activeBoardCount: 9,
     },
   ]);
 

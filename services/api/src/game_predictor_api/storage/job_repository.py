@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from game_predictor_api.application.jobs import (
     BoardTopologyJobReference,
+    ImageGeometryRolloutJobReference,
     ImageSelectionJobDeletionReference,
     JobRepository,
     LayoutImportRulesReference,
@@ -23,10 +24,16 @@ from game_predictor_api.domain.jobs import (
     JobType,
 )
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+)
 from game_predictor_api.storage.models import (
+    BrowserSelectionRetentionModel,
     CuratedImageImportSourceModel,
     DatasetVersionModel,
     GameModel,
+    ImageGeometryRolloutStateModel,
     ImageSelectionCandidateModel,
     ImageSelectionGroupModel,
     ImageSelectionManualDecisionModel,
@@ -38,8 +45,13 @@ from game_predictor_api.storage.models import (
 
 
 class SqlAlchemyJobRepository(JobRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        storage_router: GameStorageRouter | None = None,
+    ) -> None:
         self._session = session
+        self._storage_router = storage_router or GameStorageRouter()
 
     def game_exists(self, game_id: UUID) -> bool:
         return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None
@@ -71,6 +83,26 @@ class SqlAlchemyJobRepository(JobRepository):
             rules_version_id=rules.id,
             rows=rules.rows,
             columns=rules.columns,
+        )
+
+    def get_image_geometry_rollout(
+        self,
+        game_id: UUID,
+    ) -> ImageGeometryRolloutJobReference | None:
+        # Session.get has only a primary-key parameter, so the session event
+        # cannot infer a game store. Bind explicitly before this V2-owned read.
+        self._storage_router.bind(
+            self._session,
+            game_id,
+            intent=GameStorageIntent.READ,
+        )
+        record = self._session.get(ImageGeometryRolloutStateModel, game_id)
+        if record is None:
+            return None
+        return ImageGeometryRolloutJobReference(
+            geometry_mode=record.geometry_mode,
+            cell_asset_mode=record.cell_asset_mode,
+            revision=record.revision,
         )
 
     def get_layout_import_rules_reference(
@@ -119,6 +151,37 @@ class SqlAlchemyJobRepository(JobRepository):
         record = job_record_from_domain(job)
         self._session.add(record)
         self._flush_or_raise_conflict()
+        return job_from_record(record)
+
+    def add_source_bound_job(
+        self,
+        job: Job,
+        *,
+        source_selection_id: UUID,
+    ) -> Job:
+        retention = self._session.scalar(
+            select(BrowserSelectionRetentionModel)
+            .where(BrowserSelectionRetentionModel.upload_id == source_selection_id)
+            .with_for_update()
+        )
+        if retention is not None and retention.game_id not in {None, job.game_id}:
+            raise JobConflictError(
+                "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
+                "The staged folder belongs to a different game.",
+            )
+
+        record = job_record_from_domain(job)
+        self._session.add(record)
+        self._flush_or_raise_conflict()
+        if retention is not None:
+            retention.game_id = job.game_id
+            retention.import_job_id = job.id
+            retention.state = "in_use"
+            retention.last_dependency_at = job.created_at
+            retention.eligible_at = None
+            retention.blocked_reason = None
+            retention.updated_at = job.created_at
+            self._flush_or_raise_conflict()
         return job_from_record(record)
 
     def get_job(self, job_id: UUID) -> Job | None:

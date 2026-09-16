@@ -1,0 +1,31 @@
+{
+  "corpusId": "structured-geometry-feasibility-m5-local-v1",
+  "schemaVersion": "structured-geometry-feasibility-input-v1",
+  "sources": [
+    {
+      "annotations": "m5-golden-annotations.json",
+      "anchorImageId": "m5-img-001",
+      "conditionAliases": {
+        "ambient-reflection": [
+          "glare"
+        ],
+        "partial-hand-occlusion": [
+          "occlusion"
+        ],
+        "perspective": [
+          "angle"
+        ],
+        "variable-quality": [
+          "brightness"
+        ]
+      },
+      "corpusManifest": "m5-corpus-manifest.json",
+      "gameId": "blazing-hot-7-deluxe",
+      "historicalFalseSuccessImageIds": [
+        "m5-img-008"
+      ],
+      "legacyGeometryAnnotations": "m5-cell-grid-golden.json",
+      "sourceRoot": "../../examples/imgs"
+    }
+  ]
+}

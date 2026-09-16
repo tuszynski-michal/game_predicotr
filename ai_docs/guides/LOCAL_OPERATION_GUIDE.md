@@ -1,10 +1,60 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-08-24
+last_updated: 2026-09-08
 ---
 
 # Lokalne uruchamianie i instalacja
+
+## Testowy wariant v0.10.4 po odbiorze TASK-0515
+
+W Adminie można jawnie wybrać `v0.10.4 — testowy, niepełne boki` dla nowego
+runu. Nie jest to ustawienie domyślne ani zmiana polityki gry. Najpierw otwórz
+raport, przygotuj zgodny preflight dla tego samego stagingu/managed source i
+manifestu, a dopiero potem uruchom reprocessing. Brak zgodnego artefaktu,
+checksumy lub dozwolonego guard rebindu ma pozostać blockerem.
+
+Po wykonaniu runu przejrzyj każdą automatyczną propozycję partial w istniejącym
+edytorze. Sprawdź pochodzenie, quad, maskę niedostępnych indeksów i widoczne
+kolumny. Dopiero jawne potwierdzenie pozwala istniejącej ścieżce renderować
+dostępne pola; propozycja sama nie zapisuje decyzji człowieka. Górne/dolne
+ucięcie, brak planszy i ambiguous wymagają korekty ręcznej lub źródła.
+
+Powtórzenie bramki bez odczytu bazy:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\evaluate_lateral_partial_v4.py --timing-repeats 5
+```
+
+Oczekuj `acceptancePassed: true` i wszystkich pól `gates` równych `true`.
+Szczegóły korpusu, coverage i ograniczeń:
+[odbiór v0.10.4](../quality/LATERAL_PARTIAL_V4_ACCEPTANCE.md).
+
+## Wdrożenie obsługi niepełnych plansz (TASK-0505–0509)
+
+Kod od v0.10.224 wymaga migracji `0100_manual_geometry_qualification` oraz
+`0101_symbol_cell_source_availability`. Nie startuj nowego workera/API na
+starym schemacie. Zaczekaj na bezpieczne zakończenie aktywnych jobów,
+zatrzymaj usługi, wykonaj `npm run db:migrate` i potwierdź `npm run db:current`,
+a następnie uruchom usługi według poniższych instrukcji. Implementacja
+tasków nie wykonała tych operacji na danych operatora.
+
+W ręcznej korekcie Importu Plansz i Zatwierdzaniu cięcia siatki:
+
+- `Niepełna plansza` pozwala wysunąć narożniki poza zdjęcie; brakujące pola
+  otrzymują maskę, a geometria nie trafia do nowych kohort i kotwic.
+- `Nie używaj do uczenia geometrii` można zaznaczyć niezależnie na kompletnej,
+  lecz niepewnej siatce. Nie wyklucza to automatycznie widocznych symboli.
+- Nawigacja nie zapisuje decyzji. `Zapisz i przejdź dalej`, `Zapisz decyzję`
+  lub `Zatwierdź całe zdjęcie (Enter / F)` są jawnymi akcjami zapisu.
+- Boczne przycięcie może być rzeczywistym brakiem źródła. Ucięta góra/dół
+  sygnalizuje błąd auto-cropa i zaleca poprawienie źródłowego zdjęcia.
+
+Pełne kroki testu, wyniki i ograniczenia:
+[odbiór niepełnej geometrii](../quality/PARTIAL_GEOMETRY_ACCEPTANCE.md).
+Eksperymentalny v0.10.4 jest od TASK-0515 dostępny wyłącznie jako jawny wariant
+testowy. Braki nadal są wyliczane z geometrii i podparcia źródłowego, a każda
+propozycja wymaga ręcznego potwierdzenia.
 
 Instrukcja jest przeznaczona dla właściciela projektu i zakłada Windows
 PowerShell oraz repozytorium:
@@ -140,6 +190,19 @@ API po zmianie kodu Pythona. Dzięki temu uruchomiony Admin nie korzysta ze
 starszego kontraktu endpointów. Po aktualizacji repozytorium ze starszej wersji
 tego skryptu zatrzymaj istniejące API raz skrótem `Ctrl+C` i uruchom je ponownie;
 od kolejnych zmian ręczny restart nie jest potrzebny.
+
+Odczyty `Weryfikacji symboli` mają domyślny serwerowy limit 5 sekund dla strony
+i 15 sekund dla liczników. W razie kontrolowanych pomiarów można nadpisać je
+przed uruchomieniem API; wartości muszą być dodatnimi milisekundami:
+
+```powershell
+$env:GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS = '5000'
+$env:GAME_PREDICTOR_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS = '15000'
+npm run api:dev
+```
+
+Timeout chroni połączenie PostgreSQL, ale nie zastępuje optymalizacji zapytania.
+Nie zwiększaj go jako pierwszej reakcji na stale wolne liczniki.
 
 Możesz potwierdzić jego gotowość w drugim oknie:
 
@@ -405,10 +468,13 @@ Następnie:
 4. Reviewer uruchomi się pod `http://127.0.0.1:3001` i od razu otworzy wybrany
    import bez tunelu oraz kodu w widoku `Zatwierdzanie cięcia siatki`.
 
-Lokalny widok geometrii jest obowiązującym workflowem 0.9 i nie ma zmiennej
-przywracającej poprzedni ekran. Zdalny link nadal otwiera osobny, ograniczony
-workflow przypisany do konkretnej gry i importu; nie otrzymuje dostępu do
-game-wide kolejki walidacji.
+Lokalny widok geometrii jest obowiązującym workflowem i nie ma zmiennej
+przywracającej poprzedni ekran. Sekcja nie tworzy linków online, assignmentów,
+sesji ani kodów dostępu. Przycisk najpierw uruchamia albo weryfikuje lokalny
+proces przez `reviewer-local/start`, a po jego gotowości ponownie otwiera
+dokładny URL wybranej gry i importu. Dzięki ponownej nawigacji karta nie
+pozostaje na `ERR_CONNECTION_REFUSED`, gdy port 3001 był zatrzymany przed
+kliknięciem.
 
 Po aktualizacji do 0.9 wykonaj migracje i resumowalny backfill przy wyłączonych
 API, workerze, Adminie i Reviewerze:
@@ -703,10 +769,12 @@ decyzji i kopii danych.
 - build Android trwa długo — nie uruchamiaj drugiego builda. Poczekaj na
   zakończenie kontrolowanego procesu Gradle albo sprawdź jego ostatni błąd.
 
-## Czasowy link HTTPS do zdalnego Reviewera
+## Czasowy link HTTPS do zdalnej ręcznej selekcji
 
-Ten tryb publikuje tylko aplikację Reviewer. Admin, API, PostgreSQL i worker
-pozostają na `127.0.0.1`. Nie konfiguruj przekierowania portów routera.
+Ten tryb dotyczy wyłącznie purpose-scoped zdalnej ręcznej selekcji zdjęć.
+Nie udostępnia ekranu `Zatwierdzanie cięcia siatki`, który jest wyłącznie
+lokalny. Admin, API, PostgreSQL i worker pozostają na `127.0.0.1`. Nie
+konfiguruj przekierowania portów routera.
 
 Jednorazowo zainstaluj oficjalny `cloudflared` i zbuduj produkcyjnego Reviewera:
 
@@ -716,14 +784,8 @@ npm run reviewer:build
 ```
 
 Uruchom PostgreSQL, migracje, API i Admin. Nie uruchamiaj `reviewer:dev`,
-ponieważ serwer developerski nie może zostać wystawiony online. W Adminie:
-
-1. otwórz `Zatwierdzanie`,
-2. wybierz grę, a następnie gotowy import zdjęć z listy,
-3. kliknij `Otwórz lokalnie` albo `Utwórz link online`,
-4. dla pracy online poczekaj na stan `gotowy`,
-5. skopiuj publiczny link oraz osobno kod pokazany wyłącznie po pierwszym
-   utworzeniu assignmentu.
+ponieważ serwer developerski nie może zostać wystawiony online. Capability i
+link twórz wyłącznie w sekcji zdalnej ręcznej selekcji zdjęć.
 
 Praca lokalna uruchamia lub wykorzystuje gotowego Reviewera na loopback i nie
 zajmuje limitu online. Maksymalnie trzy różne importy mogą być jednocześnie

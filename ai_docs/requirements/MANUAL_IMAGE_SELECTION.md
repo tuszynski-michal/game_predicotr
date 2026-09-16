@@ -1,7 +1,7 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-08-25
+last_updated: 2026-09-15
 ---
 
 # Lokalna ręczna selekcja zdjęć
@@ -9,15 +9,16 @@ last_updated: 2026-08-25
 ## Cel
 
 Zakładka `Ręczna selekcja` jest awaryjnym, deterministycznym narzędziem do
-przypisania pojedynczych JPEG-ów do kolejnych dziewięcioplanowych zakresów.
+przypisania pojedynczych JPEG-ów do kolejnych zakresów obejmujących od jednej
+do dziewięciu plansz.
 Pozwala kontynuować pracę, gdy automatyczny selektor nie daje wystarczającej
 pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 
 ## Przebieg
 
 - Ręczna selekcja jest niezależna od gry. Przed rozpoczęciem operator wybiera
-  pierwszy numer layoutu, kierunek numeracji plansz, folder źródłowy i folder
-  wynikowy.
+  pierwszy numer layoutu, opcjonalny ostatni numer planszy, kierunek numeracji,
+  folder źródłowy i folder wynikowy.
 - Folder źródłowy jest odczytywany rekurencyjnie. Uwzględniane są wyłącznie
   `.jpg` i `.jpeg`, sortowane naturalnie po względnej ścieżce (tak jak numery w
   nazwach plików). Ten naturalny porządek jest trwałym porządkiem źródłowym
@@ -28,11 +29,17 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 - Początkowe indeksowanie nie otwiera zawartości każdego JPEG-a. Podczas pracy
   aplikacja wyprzedzająco odczytuje i dekoduje ograniczone okno trzech zdjęć z
   każdej strony bieżącej pozycji, aby nawigacja nie wymagała stagingu.
-- Zakres jest inkluzywny i zawsze ma dziewięć pozycji: `start–start+8`.
+- Zakres jest inkluzywny i domyślnie ma dziewięć pozycji: `start–start+8`.
+  Jeżeli sesja ma jawną górną granicę, końcowa strona ma postać
+  `start–min(start+8, sequenceUpperBound)` i może zawierać 1–8 plansz.
   Domyślnie po decyzji następny zakres zaczyna się od `start+9` dla kolejności
   rosnącej albo od `start-9` dla malejącej; wartość nie spada poniżej `1`.
+  Po osiągnięciu górnej granicy w kierunku rosnącym albo `1` w malejącym
+  selekcja przechodzi w stan zakończony i nie przyjmuje kolejnej decyzji;
+  cofnięcie ostatniej decyzji ponownie ją otwiera.
   Operator może kliknąć bieżący zakres i jawnie podać nowe `Od` oraz `Do`.
-  Formularz przyjmuje wyłącznie dodatni zakres dziewięciu kolejnych plansz.
+  Formularz przyjmuje wyłącznie dodatni zakres do dziewięciu kolejnych plansz,
+  zgodny z granicą sesji.
   Jest to świadoma korekta numeracji: luka między decyzjami może zostać
   zachowana, ale aplikacja nigdy nie uzupełnia jej ani nie zmienia zakresów
   poprzednich decyzji po cichu.
@@ -86,8 +93,10 @@ został świadomie przenumerowany jednym przesunięciem przy zachowaniu tych sam
 źródłowych ścieżek i sum kontrolnych, sesja jest atomowo synchronizowana z
 manifestem: zmienia pierwszy oraz następny zakres i nazwy własnych decyzji, nie
 zmieniając indeksu zdjęcia ani plików. Jawnie poprawione, nieciągłe zakresy są
-odtwarzane dokładnie tak, jak zapisano je w manifestie, pod warunkiem że każda
-decyzja ma dodatni zakres `start–start+8`. Niezgodny manifest, inna sesja,
+odtwarzane dokładnie tak, jak zapisano je w manifestie. Schema v1 zachowuje
+historyczną semantykę pełnych stron `start–start+8`; schema v2 wiąże każdą
+decyzję z `sequenceUpperBound`, `selectionComplete` i `activeBoardCount`.
+Niezgodny manifest, inna sesja,
 źródło, kierunek, checksumy, niepoprawny pojedynczy zakres lub próba nadpisania
 obcego pliku blokują wznowienie zamiast nadpisać wynik błędną numeracją.
 
@@ -97,9 +106,12 @@ nowego postępu. Pokazuje osobno brak folderu źródłowego lub wynikowego, pozw
 wskazać go ponownie i zachowuje `sessionKey`, decyzje, kolejny zakres oraz
 indeks zdjęcia. Naprawione uchwyty są ponownie zapisywane w IndexedDB.
 
-W danym momencie może być aktywne tylko jedno okno wyboru folderu. Oba przyciski
-wyboru są blokowane podczas aktywnego pickera, a ponowne kliknięcie jest
-obsługiwane jako komunikat zamiast drugiego wywołania przeglądarkowego dialogu.
+W całym lokalnym Adminie może być aktywne tylko jedno okno wyboru folderu.
+Wspólny koordynator File System Access utrzymuje blokadę wyłącznie do
+rozstrzygnięcia natywnego pickera; drugi klik nie wywołuje przeglądarkowego
+dialogu i otrzymuje czytelny komunikat. Job weryfikacji zakresów, skan folderu,
+upload i zapis pliku nie trzymają tej blokady, więc `Uzupełnij luki` oraz `Usuń
+sekwencje` mogą działać równolegle z OCR po zamknięciu dialogu wyboru folderu.
 
 Zapis korzysta z File System Access API i kopiuje oryginalne bajty JPEG-a, bez
 skalowania, obrotu ani zmiany perspektywy. Istniejący plik wynikowy jest
@@ -117,7 +129,9 @@ decyzją. Niedekodowane lub szybko przewinięte obrazy nie są etykietowane.
 
 W folderze wynikowym utrzymywany jest kompaktowy
 `manual-image-selection-output-v1.json`. Zawiera wyłącznie zaakceptowane pliki,
-ich zakresy i checksumy. Zapis jest bezpieczny dla obcych plików: istniejący
+ich zakresy, liczbę aktywnych plansz i checksumy. Historyczna nazwa pliku
+pozostaje niezmienna, natomiast nowy zapis ma `schemaVersion = 2`; reader nadal
+obsługuje schema v1 bez zmiany jego znaczenia. Zapis jest bezpieczny dla obcych plików: istniejący
 manifest innej sesji albo o nieprawidłowej strukturze blokuje nadpisanie.
 Pełny `manual-image-selection-trace-v1.json` jest tworzony dopiero po jawnej
 akcji `Eksportuj ślad uczenia`; jego źródłem są zdarzenia z IndexedDB.
@@ -142,9 +156,9 @@ decyzji ani wybranych JPEG-ów. Operator wskazuje na swoim urządzeniu folder
 Ekran przygotowania od początku pokazuje `Wybierz katalog ze zdjęciami` i
 `Wybierz katalog do zapisu`. Katalog nadrzędny może zostać wskazany przed
 źródłem; jego uchwyt jest trwały w IndexedDB, a folder wynikowy powstaje po
-poznaniu nazwy źródła. Pusty wynik prowadzi do konfiguracji pierwszej planszy i
-kierunku, a kompletny manifest automatycznie wznawia zapisane zdjęcie i następny
-zakres.
+poznaniu nazwy źródła. Pusty wynik prowadzi do konfiguracji pierwszej planszy,
+opcjonalnej ostatniej planszy i kierunku, a kompletny manifest automatycznie
+wznawia zapisane zdjęcie, granicę i następny zakres.
 
 Po rozpoczęciu selekcji główny przycisk `Ekran startowy`, umieszczony po lewej
 stronie obok wtórnego `Restart selekcji`, wraca do tego konfiguratora, aby
@@ -222,12 +236,17 @@ Folder `<źródło> wybrane` jest przyjmowany tylko w jednym z dwóch stanów:
 - jest całkowicie pusty i rozpoczyna nową selekcję,
 - zawiera poprawny `manual-image-selection-output-v1.json` oraz dokładnie
   wskazane przez niego pliki `seq_*`, dzięki czemu Reviewer odtwarza pozycję
-  źródłowego JPEG-a, następny dziewięcioplanowy zakres i wszystkie decyzje.
+  źródłowego JPEG-a, następny zakres, granicę końcową i wszystkie decyzje.
 
 Folder niepusty bez manifestu, z obcym plikiem, brakującym `seq_*`, inną nazwą
 źródła, liczbą plików albo checksumą manifestu źródłowego blokuje rozpoczęcie.
-Nowy manifest zapisuje tożsamość źródła, liczbę JPEG-ów, pierwszy zakres i
-kierunek. Podczas wznowienia przez nowy link losowe identyfikatory plików z
+Nowy manifest schema v2 zapisuje tożsamość źródła, liczbę JPEG-ów, pierwszy
+zakres, kierunek, opcjonalną granicę końcową, stan zakończenia oraz semantykę
+naturalnego przechodzenia po źródle. Starszy malejący manifest bez tej
+semantyki jest wznawiany od zdjęcia bezpośrednio po ostatniej zaakceptowanej
+decyzji, a nie od historycznego lustrzanego indeksu. Pominięcie zakresu nie
+zmienia tego zdjęciowego punktu odniesienia. Podczas
+wznowienia przez nowy link losowe identyfikatory plików z
 poprzedniej sesji są bezpiecznie mapowane na bieżący indeks według ordinalu i
 względnej ścieżki; sesja dostępu nie jest właścicielem danych operatora.
 
@@ -430,3 +449,417 @@ Bramkę potwierdza content-addressed raport
 `remote-manual-selection-security-gate-v1`. Raport nie może mieć otwartego
 findingu `critical` lub `high`. Test przez publiczny Quick Tunnel i etapowy
 rollout pozostają osobnym TASK 18.
+
+## Lokalna korekta gotowej selekcji
+
+Pod lokalną `Ręczną selekcją zdjęć` Admin pokazuje niezależną kartę
+`Popraw selekcję`. Operator wskazuje katalog zawierający wybrane JPEG-i
+`seq_<start>-<end>.jpg|jpeg`; narzędzie nie wymaga gry, API ani workera.
+Skanowany jest wyłącznie główny poziom katalogu. Zakres ma od jednej do
+dziewięciu plansz, a zła nazwa JPEG-a, duplikat, overlap, obcy manifest albo
+drift checksummy blokują mutację.
+
+Granice kolekcji pochodzą najpierw z
+`manual-image-selection-repair-v2.json`, następnie z poprawnego output
+manifestu, a dopiero na końcu z nazw JPEG-ów. Dzięki temu usunięcie skrajnego
+pliku pozostawia jawną lukę. Braki są sortowane rosnąco i dzielone od lewej na
+targety nie większe niż dziewięć plansz.
+
+### Uzupełnianie luk
+
+Po wybraniu trybu operator wskazuje osobny bazowy katalog zdjęć. Jest on
+rekurencyjnie listowany i pozostaje tylko do odczytu. Podgląd rozpoczyna się od
+pierwszego naturalnie posortowanego JPEG-a; skok ma wartości
+`1, 2, 5, 10, 20, 50, 100`, natomiast target zmienia się po rzeczywistych
+lukach. `Enter`, `F` lub przycisk zapisują niezmienione bajty jako dokładny
+target `seq_*`, ponownie odczytują plik i weryfikują SHA-256. Akceptacja jest
+dostępna dopiero po poprawnym dekodowaniu i co najmniej 300 ms widoczności.
+
+Podczas listowania UI pokazuje rosnące liczniki sprawdzonych wpisów i znalezionych
+obrazów; nie przedstawia procentu, ponieważ całkowita liczba wpisów jest znana
+dopiero po rekursji. Po otrzymaniu kompletnej, naturalnie posortowanej listy
+workspace natychmiast otwiera pierwszy obraz. Zapis uchwytu katalogu, trybu i
+kursora do IndexedDB jest pomocniczy i nie może zatrzymywać tego przejścia;
+odrzucony zapis informuje operatora o konieczności ponownego wskazania źródła po
+restarcie.
+
+Bezpośrednio po akceptacji workspace przechodzi do następnego obrazu z
+istniejącego okna cache, a pojedyncza kontrolowana kolejka zapisuje JPEG,
+intencję recovery, repair manifest, handoff i output manifest. W trakcie
+zapisu działa nawigacja i podgląd, lecz nie można rozpocząć kolejnego fill,
+delete, paczkowego usuwania ani zmiany trybu. Błąd zapisu pozostawia czytelny
+komunikat i blokuje dalsze mutacje do czasu ponownego wskazania katalogu.
+
+`A`, `Ctrl+A`, `Ctrl+Z` lub przycisk cofają tylko jeden z dwóch ostatnich
+**trwale zapisanych** fillów dostępnych w workspace. Po ponownym wejściu dwa
+najnowsze aktywne fill'e mogą odtworzyć te sloty, ale narzędzie nie zapisuje
+osobnej historii cofnięć. Cofnięcie wymaga zgodnej checksummy i nigdy nie
+usuwa obcego albo zmienionego pliku.
+
+### Usuwanie sekwencji
+
+Tryb `Usuń sekwencje` pokazuje jeden istniejący plik `seq_*` i nawiguje zawsze
+o jeden. `F` usuwa bieżący, checksummowany JPEG bez możliwości przywrócenia.
+Bezpośrednio po decyzji workspace przechodzi do następnego aktywnego obrazu;
+zapis systemu plików wykonuje się potem w pojedynczej kontrolowanej kolejce.
+W trakcie zapisu można nawigować, lecz kolejna mutacja jest zablokowana. Błąd
+zapisu pozostawia czytelny komunikat i blokuje dalsze fill/delete do czasu
+ponownego wskazania katalogu.
+
+Obok tej akcji dostępne jest `Usuwanie sekwencji` dla paczki plików. Po
+wskazaniu katalogu `seq_*` modal przyjmuje wyłącznie numeryczny prefiks
+`start` z nazwy `seq_<start>-<end>.jpg|jpeg`: wpis `45` znajduje zakresy
+zaczynające się od `45`, a wpis `678` nie znajduje `45678`. Enter lub kliknięcie
+dodaje dokładną nazwę pliku do listy „Nazwa pliku”; każdy wiersz można usunąć z
+listy ikoną kosza. Dopiero jawne potwierdzenie usuwa wskazane pliki lokalnie,
+bez kosza i bez możliwości przywrócenia. Wynik pokazuje osobno każdy sukces
+i izolowany błąd. Błąd uchwytu katalogu albo journalu zatrzymuje pozostałą
+paczkę fail-closed; błąd pojedynczego pliku nie unieważnia poprawnie
+przetworzonych pozostałych pozycji.
+
+Zmiana zdjęcia, fill, delete ani undo fill nie mogą zerować zapamiętanej
+pozycji viewportu. Wspólny viewer ignoruje przejściowe zdarzenie scrolla
+powstałe podczas wymiany Object URL i odtwarza pozycję dopiero po dekodowaniu
+docelowego zdjęcia. Cache jest kluczowany trwałą ścieżką względną i tożsamością
+katalogu, dlatego następny obraz pozostający w oknie read-ahead nie jest po
+fill ani delete ponownie odczytywany ani dekodowany. Workspace aktualizuje
+indeks katalogu inkrementalnie; nie wolno ponownie hashować całego katalogu po
+każdej mutacji. Pełna walidacja nazw i checksum pozostaje obowiązkowa przy
+pierwszym otwarciu oraz po reloadzie.
+
+Jedna inspekcja odczytuje i hashuje każdy znany JPEG najwyżej raz. Jeżeli
+repair manifest zawiera już checksumę, reconciler weryfikuje ją na rzeczywistym
+pliku, a synchronizacja output manifestu wykorzystuje ten sam zweryfikowany
+wynik zamiast wykonywać drugi pełny odczyt Blobu. Podczas recovery, wyboru
+katalogu `seq_*` i rekurencyjnego listowania katalogu bazowego UI pokazuje
+aktualną fazę; ręczne wskazanie katalogu unieważnia spóźnione recovery i jest
+natychmiast utrwalane w IndexedDB.
+
+Granice kolekcji są monotoniczne również dla selekcji malejącej. Inspekcja
+wyznacza je z sumy utrwalonego zakresu, wszystkich aktywnych nazw `seq_*`,
+znanych usunięć, potwierdzeń delete i aktywnych wpisów fill. `firstLayout`
+malejącego output manifestu
+jest początkiem pierwszej decyzji, a nie dolną granicą całego katalogu. Jeżeli
+historyczny repair manifest został przez ten błąd zawężony, jawne ponowne
+wybranie katalogu poszerza i utrwala jego granice bez zmiany JPEG-ów oraz
+synchronizuje `selectionComplete`; nie wolno zawężać zakresu po usunięciu
+pliku skrajnego.
+
+### Trwałość i instrukcja operatora
+
+`manual-image-selection-repair-v2.json` przechowuje wyłącznie bieżący stan:
+granice, aktywne pliki i checksumy, usunięte zakresy, jedno potwierdzenie
+źródła każdego aktywnego usunięcia, aktywne uzupełnienia i co najwyżej jedną
+operację oczekującą. Nie ma append-only historii ani repair trace. Przed zmianą
+pliku zapisuje operację oczekującą, a po restarcie obecność pliku i SHA-256
+pozwalają ją bezpiecznie sfinalizować. Reader migruje v1 deterministycznie do
+v2, zachowując JPEG-i; historyczny plik v1 pozostaje nietkniętym fallbackiem.
+Osobna IndexedDB przechowuje tylko uchwyty, tryb, kursory i preferencje
+podglądu — nigdy JPEG-i.
+
+Każdy zapis repair manifestu synchronizuje też pochodny
+`manual-image-selection-filled-gaps-v1.json`. Zawiera on wyłącznie nadal
+aktywne pliki utworzone przez `fill`: docelową nazwę i zakres `seq_*`, SHA-256,
+ścieżkę źródłową, indeks oraz identyfikator i czas fill. Cofnięte albo ponownie
+usunięte uzupełnienie znika z aktywnej listy. Repair manifest pozostaje źródłem
+prawdy, więc brakujący handoff można odtworzyć bez zmiany JPEG-ów.
+
+Operator wykonuje kolejno:
+
+1. wybiera katalog gotowych `seq_*`;
+2. wybiera `Uzupełnij luki` albo `Usuń sekwencje`;
+3. w trybie uzupełniania wskazuje bazowy katalog zdjęć;
+4. wykonuje checksummowane decyzje; w trybie fill może cofnąć jedno z dwóch
+   ostatnich trwale zapisanych uzupełnień, natomiast delete jest trwały;
+5. po zakończeniu importuje bieżącą zawartość katalogu `seq_*`.
+
+Jeżeli zwykła ręczna selekcja wykryje repair manifest, nie próbuje przejąć
+katalogu. Kieruje operatora do `Popraw selekcję`. Aktywny output manifest jest
+jedynym źródłem wybranych pozytywów; usunięte wpisy nie mogą trafić do importu
+ani kohorty treningowej.
+## Przycinanie wybranych zdjęć przed importem
+
+TASK-0492: ocena przeglądu nie ufa samej etykiecie high_confidence.
+Zapisany fallback granicy, klasa zachowawcza/szeroka albo jawny konflikt
+struktury z rejestracją wymaga korekty także po restarcie i odznaczeniu
+wszystkich. UI, filtr niepewnych i obowiązkowa kolejka używają jednej reguły.
+Ręcznie przejrzane lub poprawione wyniki pozostają rozstrzygnięte. To naprawa
+wykrywania niepewności, nie poprawa lokalizacji ani aktywacja v11/v12.
+
+Pod `Semi-auto selekcja` działa lokalna karta `Przytnij wybrane zdjęcia`.
+Operator wskazuje katalog nadrzędny z prawem zapisu i wybiera jego bezpośredni
+podkatalog zawierający poprawnie nazwane JPEG-i
+`seq_<start>-<end>.jpg|jpeg`. Narzędzie tworzy obok katalog
+`<nazwa źródła> cut`; źródła nigdy nie są modyfikowane.
+
+Uwaga jakościowa TASK-0468: opis v10 poniżej dokumentuje historyczną implementację,
+nie gwarancję wykrycia plansz. Rzeczywiste regresje wykazały crop samej reklamy
+z `high_confidence` i niepoprawny dół. Wdrożenie v11 (0469–0472) musi niezależnie
+potwierdzić pełne dziewięć plansz. Gdy wykryto kompletne 3×3, osobne
+potwierdzenie numerów nie jest wymagane: dolna granica musi zachować
+wersjonowany bufor 65% mediany wysokości planszy. Brak dowodu pełnego układu ma
+wymagać ręcznej korekty, której nie kasuje odznaczenie kafelków. Sam zapis JPEG
+nie jest testem jakości. Referencje: `ai_docs/quality/SELECTED_CROP_V11_REGRESSIONS.md`.
+
+TASK-0472: poprawka eksperymentalna jest zaimplementowana, ale pozostaje
+nieaktywna. Najnowsza niezależna próba nie zawiera automatu odcinającego planszę
+lub numer, ale tylko 6/10 wyników mieści się w ścisłych przedziałach obu linii;
+trzy bezpieczne wyniki zachowują za dużo tła, a jeden wymaga korekty. Nie
+przedstawiać tej wersji jako gotowej produkcyjnie; obowiązuje pełna bramka jakości.
+
+TASK-0479 dodaje osobny wariant testowy
+`selected-image-board-band-v12-four-point-anchor-registration`. Nie wymaga on
+36 narożników: kotwica opisuje czterema punktami zewnętrzny obrys całego
+potwierdzonego układu 3×3. Ograniczona rejestracja przenosi ten obrys na bliskie
+zdjęcie, a poziomy crop wynika z jego skrajnych punktów i wersjonowanego
+marginesu. Dopasowanie wymaga niezależnych cech w co najmniej trzech częściach
+obrazu, poprawnej skali, małego residualu i braku odbicia. Słaby albo sprzeczny
+wynik pozostaje obowiązkową korektą; nie wolno używać samego sąsiedztwa plików
+jako dowodu. Gdy bieżące zdjęcie ma również pełny dowód strukturalny, wynik
+używa ciaśniejszego wspólnego pasa, który nadal chroni wszystkie plansze i
+numery. Wariant nie jest domyślny przed odrębną decyzją o aktywacji.
+
+TASK-0534: jawne przeliczenie automatycznych korekt używa reguły
+`complete_layout_board_buffer`. Dziewięć plansz mieszczących się w źródle jest
+wystarczającym dowodem cropa nawet bez dziewięciu wykrytych pasów numerów.
+Niepełny, niejednoznaczny albo dotykający krawędzi układ nadal pozostaje do
+korekty. Wynik z samym buforem nie staje się kotwicą rejestracji dla innych
+zdjęć; kotwica nadal wymaga kompletu etykiet.
+
+TASK-0535: zbiorczy przebieg pod wskazanym katalogiem nadrzędnym kwalifikuje
+wyłącznie bezpośrednie katalogi `* cut`, które mają komplet zapisanych wyników,
+brak pending/failures, brak końcowej akceptacji i co najmniej jedną
+nierozstrzygniętą automatyczną korektę. Dokładny katalog źródłowy musi istnieć
+obok. Każda zakwalifikowana sesja otrzymuje osobny
+`<nazwa cut> v12 board-buffer preview`; sesje zaakceptowane, nieukończone i
+operator-only pozostają bez zmian. Zbiorczy raport pokazuje również powód
+pominięcia każdej pozostałej sesji.
+
+TASK-0558: gdy historyczna sesja ma utrwalone `failures` bez wyniku w shardzie,
+operator może uruchomić osobny preview odzyskania braków. Wejściem jest tylko
+unikalna lista failure names obecnych w inwentarzu i nieobecnych w shardach,
+zachowująca kolejność inwentarza. Preview kontroluje checksumę źródła,
+zapisuje v12 JPEG-i, shardy i raport wyłącznie do własnego katalogu oraz
+odmawia pracy przy obcej nazwie, duplikacie, istniejącym wyniku lub zmianie
+stanu wejściowego. Nie usuwa failure ani nie zmienia `cut`, review albo
+historycznej polityki; decyzja o przyjęciu wyniku pozostaje osobnym krokiem.
+
+TASK-0560: wynik automatyczny wyższy niż 78% kanonicznej wysokości źródła jest
+zawsze ostrzeżeniem `crop_too_tall`, także gdy inny dowód deklaruje pełną
+strukturę albo udaną rejestrację. Dokładnie 78% pozostaje dopuszczalne. Reguła
+działa z zapisanej propozycji po restarcie i nie zaznacza automatycznie pliku do
+ręcznej poprawki. Historyczne zbyt wysokie JPEG-i można przeliczyć aktywnym v12
+do osobnego preview; kwalifikacja używa rzeczywistych wymiarów pliku, a nie
+wyłącznie potencjalnie nieaktualnego prostokąta w shardzie.
+
+TASK-0536: po jawnej akceptacji operatora v12 jest głównym silnikiem wszystkich
+nowych sesji `Przytnij wybrane zdjęcia` oraz domyślną polityką lokalnego runnera
+katalogowego. Nowa sesja przypina dokładny identyfikator v12 przed pierwszym
+cropem. Sesja już rozpoczęta zachowuje własną zapisaną politykę i wyniki;
+przejście z v10/v11 albo nieobsługiwanej wersji wymaga jawnego przeliczenia.
+Aktywacja nie zmienia fingerprintu, progów ani reguł kolejki ręcznej: słaby,
+niepełny lub sprzeczny dowód nadal pozostawia pełny obraz do poprawy.
+
+TASK-0538: całkowicie pusty snapshot bez `preparationPolicyVersion` może
+przypiąć aktywny v12 przed pierwszym wynikiem i od razu rozpocząć
+przygotowanie. Warunek obejmuje puste shardy oraz brak pending, failures,
+decyzji review i `completedAt`. Dowolny trwały ślad pracy zachowuje blokadę
+historycznej sesji i wymaga jawnego przeliczenia. Recovery nie usuwa ani nie
+nadpisuje JPEG-ów. Inicjalizacja nie może opierać decyzji o wersji na samej
+obecności manifestu, ponieważ może on już istnieć, gdy równoległe otwarcie nadal
+czeka na utworzenie inwentarza i shardów.
+
+TASK-0544: odpowiedź browserowego workera jest związana z bieżącą wersją
+protokołu, żądaną polityką i dokładnym fingerprintem detektora. Odpowiedź bez
+tej tożsamości albo z nieaktualnego builda jest odrzucana przed walidacją i
+zapisem wyniku. Taka niezgodność nie jest błędem zdjęcia: karta kończy starego
+workera i przygotowuje bieżący oraz kolejne pliki aktualnym kodem głównego
+wątku. Istniejące failures pozostają objęte zwykłym wznowieniem i akcją
+`Ponów błędne`; naprawa nie wymaga resetowania sesji ani usuwania JPEG-ów.
+
+TASK-0545: jeden katalog `cut` może mieć najwyżej jeden aktywny proces
+przygotowania albo przeliczenia. Druga karta kończy próbę czytelnym komunikatem
+i nie może nadpisywać session journalu; blokada jest osobna dla każdego
+katalogu, więc dwa różne katalogi nadal mogą pracować równocześnie. JPEG o
+nazwie brakującego wpisu manifestu, pozostawiony po utracie potwierdzenia
+zapisu, nie blokuje całej sesji. Jest przejmowany bez ponownego zapisu wyłącznie
+po odtworzeniu propozycji i dokładnej zgodności SHA-256. Inna zawartość
+pozostaje `SELECTED_IMAGE_CROP_OUTPUT_CHANGED` i nie jest modyfikowana.
+
+TASK-0546: lista źródeł zależy od wybranego zakresu. `Wszystkie pliki seq_*`
+zachowuje dotychczasową listę katalogów bez końcówki ` cut`. `Tylko uzupełnione
+luki z manifestu` pokazuje bezpośrednie katalogi posiadające
+`manual-image-selection-filled-gaps-v1.json`, również gdy ich nazwa kończy się
+` cut`. Pochodny katalog `* filled-gaps cut` nie może zostać ponownie wybrany
+jako źródło. Zmiana zakresu odświeża listę bez ponownego otwierania systemowego
+selektora, a sam wybór zakresu pozostaje dostępny także przy pustej liście
+trybu pełnego.
+
+TASK-0547: przygotowanie brakujących cropów pracuje stałymi paczkami po
+maksymalnie cztery pozycje. Przeglądarka uruchamia od jednego do czterech
+workerów zależnie od `hardwareConcurrency`; limit nigdy nie przekracza czterech
+w jednej karcie. Analiza, render i obliczenie SHA-256 źródła mogą zakończyć się
+w dowolnej kolejności, lecz publikacja JPEG-a, failure, kotwicy i
+`currentIndex` następuje wyłącznie w naturalnej kolejności inwentarza.
+
+Wszystkie zdjęcia paczki używają jednego snapshotu kotwicy z jej początku.
+Worker przygotowuje raz mały zestaw szarości i cech rejestracyjnych kotwicy;
+szybka ścieżka `complete_layout_board_buffer` kończy wynik bez użycia tego
+zestawu. Zmiana sposobu wykonania nie zmienia aktywnej polityki v12,
+fingerprintu, progów ani klasyfikacji review. Każdy zatwierdzony plik nadal ma
+zweryfikowaną checksumę źródła i wyjścia, pending oraz finalny zapis sesji,
+shard i kontrolny odczyt JPEG-a. Przerwanie anuluje workery, a wyniki
+przeanalizowane, lecz jeszcze nieopublikowane, są po wznowieniu liczone
+ponownie z trwałego stanu.
+
+Zwykłe przygotowanie nie zapisuje ponownie identycznego pliku review. Ręczna
+zmiana nadal utrwala review tylko wtedy, gdy jego treść rzeczywiście się
+zmieniła. Widoczna liczba równoległych analiz, tempo oraz czasy detekcji,
+renderu i zapisu są telemetrią bieżącej karty; nie są źródłem prawdy dla
+recovery. Po wznowieniu ten sam katalog i zakres źródła mogą pokazać ostatnią
+niepustą próbkę lokalnego UI jako „ostatni pomiar z poprzedniej karty”, aż
+pierwsza nowa paczka opublikuje bieżące wartości. Brak takiej próbki pokazuje
+oczekiwanie na pierwszy pomiar; nie wyprowadza zer ani szacunku z manifestu.
+
+Jeżeli v12 ma jednocześnie udaną rejestrację i dowód strukturalny, wynikowe
+zwężenie musi obejmować wszystkie cztery punkty `registeredBoardBand`.
+Ciaśniejsza granica strukturalna nie może obciąć nawet części rozpoznanej
+planszy; takie obcięcie nie jest błędem pojedynczego zdjęcia i nie może tworzyć
+seryjnych `SELECTED_IMAGE_CROP_PROPOSAL_INVALID`.
+Poprawiony konsensus ma nowy fingerprint; wcześniejszy fingerprint v12 jest
+akceptowany tylko przy odczycie zapisanych wyników, aby rozpoczęte sesje mogły
+bez utraty cropów kontynuować aktualnym workerem.
+
+TASK-0551: automatyczna publikacja jednej paczki najwyżej czterech cropów używa
+jednej intencji `pendingBatch` w `session-v2.json`. Przed zapisem intencji każdy
+wynik ma gotowy render, checksumę wyjścia i decyzję o utworzeniu albo przejęciu
+zgodnego pliku. JPEG-i paczki mogą być zapisane równolegle, ale każdy jest
+następnie ponownie odczytany i zweryfikowany SHA-256. Każdy dotknięty shard jest
+zapisywany raz, po czym jeden końcowy zapis sesji usuwa intencję paczki.
+
+TASK-0553: nowe propozycje automatycznego cięcia zachowują pionowy zapas wokół
+panelu plansz: v11 używa 45% mediany wysokości planszy nad panelem, 40% pod
+pełnym pasem numerów oraz 80% pod układem bez kompletu etykiet. Rejestracja v12
+używa 45% z obu stron. Margines jest ograniczony do obrazu i przez istniejące
+granice wysokości cropa; nie zmienia szerokości ani nie uruchamia ponownego
+cięcia zapisanych wyników. Fingerprinty v12 sprzed tej zmiany pozostają
+akceptowane wyłącznie podczas odczytu.
+
+Po restarcie zgodne JPEG-i są finalizowane, brakujące pozostają w kolejce, a
+plik o innej checksumie jest zachowany i trafia do review. Recovery jest
+idempotentne również wtedy, gdy shard został już zapisany, lecz końcowy zapis
+sesji nie doszedł do skutku. Historyczny brak `pendingBatch` oznacza `null`.
+Ręczna korekta jednego zdjęcia nadal używa pojedynczego `pendingOperation` i
+dotychczasowej kolejności journal → JPEG → kontrola SHA-256 → shard → sesja.
+
+Operator może zamiast pełnego katalogu wybrać `Tylko uzupełnione luki z
+manifestu`. Narzędzie pobiera wtedy dokładną aktywną listę z repair handoffu i
+przed startem sprawdza obecność oraz SHA-256 każdego pliku. Wyniki trafiają do
+osobnego katalogu `<nazwa źródła> filled-gaps cut`, dlatego pełna i ograniczona
+sesja nie współdzielą inwentarza ani postępu.
+
+Historyczny automat v10 dla każdego jeszcze niezatwierdzonego zdjęcia analizuje
+ograniczoną kopię podglądową do 512 px i proponuje pas obejmujący zwarty panel
+plansz. Polityka `selected-image-board-band-v10-top-board-row-guided`
+próbuje dodatkowo znaleźć trzy podobne, poziomo uporządkowane czerwone ramki
+plansz pierwszego rzędu. Ich najwyższa krawędź z buforem definiuje górę cropa;
+brak pełnej trójki nie zaciska wyniku i pozostawia bezpieczną propozycję
+szerokiego panelu v9.
+
+Historyczna polityka `selected-image-board-band-v9-balanced-top-margin`
+wyznacza niebieski panel niezależnie w dziewięciu pionowych pasach i wymaga
+zgodnych granic w co najmniej pięciu pasach oraz w lewej, środkowej i prawej
+części obrazu. Tak potwierdzony panel jest wystarczającym dowodem nawet wtedy,
+gdy ogólny detektor nie zbudował własnego kandydata. Panel wypłat, boczne
+światła i pojedynczy niebieski element nie spełniają tej bramki.
+
+Jeżeli niebieski panel nie ma pełnego wsparcia, automat korzysta z
+wielokolumnowego detektora v4. Historyczna polityka v5 pozostaje akceptowana w
+manifestach i nie jest przeliczana po cichu.
+Historyczna polityka `selected-image-board-band-v4-conservative-multicolumn`
+dzieli środkowe 94% obrazu na dziewięć pasów i łączy niezależny sygnał koloru,
+nasycenia, kontrastu oraz powtarzalnych krawędzi. Automatyczna granica wymaga
+wsparcia w co najmniej pięciu pasach oraz w lewej, środkowej i prawej części;
+pojedyncza tabela, światło albo dłoń nie mogą przesunąć całego cropa.
+
+Pochylenie górnego rzędu jest uwzględniane przez wybór jego najwyższego punktu,
+więc pozioma linia nie przecina skrajnej planszy. Pochylenie całego panelu jest
+uwzględniane przez lokalne granice pasów i bezpieczną
+obwiednię: 10. percentyl górnych granic minus 4,5% wysokości oraz 90. percentyl
+dolnych granic plus 4,5%. Górna granica nie rozszerza się w stronę panelu
+wypłat. Mocny, szeroki sygnał przy dolnej granicy rozszerza crop na zewnątrz
+najwyżej o jeden krok 3%. Kandydat niższy niż 28% obrazu nie jest używany.
+Brak wystarczającego dowodu daje jawny `safe_wide` równy 5–95% wysokości i
+pokazuje plik jako nierozstrzygnięte ostrzeżenie w filtrze `Niepewne`.
+Ostrzeżenie nie zaznacza pliku do poprawki; propozycja nie jest decyzją i
+zawsze pozostaje edytowalna dwiema liniami.
+
+Każdy nowy wynik zapisuje w swoim shardzie wersję polityki, klasę
+`high_confidence | conservative | safe_wide`, confidence, lokalne granice,
+użyte rodziny sygnału oraz powód fallbacku. Kafelki pokazują odpowiednio
+`Pewne`, `Zachowawcze` albo `Szerokie — sprawdź`, a filtr `Niepewne` obejmuje
+dwie ostatnie klasy. Wynik historyczny bez tej proweniencji pozostaje czytelny
+i nie jest automatycznie przeliczany.
+
+Jawna akcja `Przelicz nieprzejrzane nowym detektorem` może przełączyć
+rozpoczętą sesję na bieżącą politykę. Obejmuje wyłącznie wyniki nieprzejrzane,
+niepoprawione ręcznie i niezaznaczone do poprawy, a następnie przygotowuje
+brakujące pliki. Osobna akcja `Przelicz automatyczne do poprawy` obejmuje
+wyłącznie nierozstrzygnięte wyniki, dla których zapisany dowód detektora sam
+wymaga korekty. Crop oznaczony tylko decyzją operatora, bez automatycznego
+powodu, pozostaje chroniony. W bieżącym trybie testowym obie akcje przypinają
+v12 w stanie sesji. Gotowe i ręcznie poprawione wyniki nie są po cichu
+nadpisywane, a istniejący katalog `cut` nie jest przeliczany bez jawnej akcji.
+
+W widoku kafelkowym border `Do poprawy` wynika wyłącznie z jawnego wyboru
+operatora w `correctionFileNames`. Automatyczne ostrzeżenie pozostaje osobno w
+filtrze `Niepewne` i nie zwiększa licznika `Popraw zaznaczone`. Kliknięcie
+pojedynczego kafelka przełącza jego wybór; odznaczenie ostrzeżonego zdjęcia jest
+jawną akceptacją bieżącej propozycji.
+
+Osobne, stale widoczne przyciski `Zaznacz wszystkie` i `Odznacz wszystkie`
+działają na przygotowanych wynikach bieżącego filtra oraz zachowują wybory
+ukryte przez filtr. Odznaczenie zbiorcze akceptuje widoczne ostrzeżenia.
+`Zatwierdź niewybrane i zakończ przegląd` akceptuje pozostałe niewybrane
+ostrzeżenia, lecz nadal wymaga pustej jawnej kolejki poprawek, braku failures,
+pending i brakujących wyników. Istniejące wybory zapisane przez starszą wersję
+pozostają zaznaczone do działania operatora.
+
+Narzędzie usuwa wyłącznie obszar nad górną i pod dolną przeciąganą linią.
+Zachowuje pełną szerokość, kanoniczną orientację EXIF, perspektywę oraz
+rozdzielczość 1:1 wybranego pasa. Nie wykonuje obrotu, homografii, prostowania
+zakrzywionego ekranu ani automatycznej geometrii dziewięciu plansz.
+
+Automat kolejno renderuje brakujące JPEG-i do katalogu `cut`, ale błąd jednego
+pliku nie zatrzymuje pozostałych. Każdy błąd zachowuje nazwę, etap i kod, a
+operator może ponowić wyłącznie brakujące wyniki. Przygotowane cropy są dostępne
+do przeglądu od razu, również gdy dalsze pliki są jeszcze przetwarzane.
+
+Review pokazuje jeden ciągły grid wszystkich źródeł. Gotowe wyniki są
+prezentowane przez lokalne, progresywnie tworzone atlasy WebP po maksymalnie 100
+miniaturek; brakujący lub błędny wynik ma jawny placeholder. Kliknięcie kafelka
+oznacza `Do poprawy`, nie zatwierdza ani nie modyfikuje JPEG-a. `Popraw
+zaznaczone` otwiera wyłącznie wybrane oryginały z liniami cięcia. Zapis poprawki
+zastępuje jeden własny crop i unieważnia tylko jego atlas. Zakończenie przeglądu
+jest możliwe po przygotowaniu wszystkich plików, rozwiązaniu błędów i opróżnieniu
+kolejki korekt. Miniatury 144×96 px pozostają w jednym poziomym, przewijanym
+rzędzie, bez automatycznego zmniejszania albo zawijania.
+
+Historyczny `manual-image-crop-output-v1.json` jest przy pierwszym wznowieniu
+indeksowany do wersji v2 bez ponownego renderowania i hashowania istniejących
+JPEG-ów. Wersja v2 rozdziela niezmienny inwentarz, mały stan sesji, kompaktowy
+stan review oraz wyniki w shardach po maksymalnie 64 pozycje. IndexedDB nadal
+zawiera wyłącznie uchwyty, kursor, zoom i scroll.
+
+Reload nie może automatycznie odczytywać utrwalonego uchwytu ani żądać
+uprawnienia do katalogu. Pokazuje wyłącznie lekką informację o zapisanej sesji;
+operator wznawia ją jawnym kliknięciem. Atlasy miniaturek również są opt-in i
+powstają dopiero po kliknięciu `Wczytaj miniaturki`. Kafelki mają poglądową,
+obniżoną rozdzielczość oraz jakość WebP. `Wyjdź i wybierz inny katalog`
+zatrzymuje przygotowanie między plikami, zachowuje dotychczasowe wyniki i wraca
+do wyboru katalogu.
+
+Po zakończeniu operator wykonuje nowy import katalogu `cut`. Ponowne
+przetworzenie starego importu nadal świadomie używa jego niezmiennych managed
+originals, więc nie może zostać po cichu przełączone na nowe, przycięte pliki.
+Profil geometrii i model symboli pozostają wersjonowane niezależnie.

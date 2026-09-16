@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from importlib.metadata import version
 from pathlib import Path, PurePosixPath
+from time import perf_counter
 from typing import Any, Protocol, cast
 
 import cv2
@@ -144,6 +145,8 @@ class PaddleSequenceNumberRecognizer:
                 "OCR model name must be a non-empty trimmed string.",
             )
         self.model_name = model_name
+        self.preprocessing_seconds = 0.0
+        self.inference_seconds = 0.0
         self.runtime_version = version("paddlepaddle")
         self._model_root = model_root.resolve()
         model_files, self.model_fingerprint = _model_identity(self._model_root)
@@ -188,6 +191,7 @@ class PaddleSequenceNumberRecognizer:
                 "SEQUENCE_OCR_BATCH_INVALID",
                 "Recognizer batch must contain between one and nine images.",
             )
+        preprocessing_started = perf_counter()
         batch: NDArray[np.float32] = np.zeros(
             (len(rgb_images), 3, MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH),
             dtype=np.float32,
@@ -211,6 +215,10 @@ class PaddleSequenceNumberRecognizer:
             )
             normalized = resized.astype(np.float32).transpose((2, 0, 1)) / 255.0
             batch[batch_index, :, :, :resized_width] = (normalized - 0.5) / 0.5
+        self.preprocessing_seconds = float(getattr(self, "preprocessing_seconds", 0.0)) + (
+            perf_counter() - preprocessing_started
+        )
+        inference_started = perf_counter()
         input_handle = self._predictor.get_input_handle(self._input_name)
         input_handle.reshape(batch.shape)
         input_handle.copy_from_cpu(batch)
@@ -218,6 +226,9 @@ class PaddleSequenceNumberRecognizer:
         output = cast(
             NDArray[np.float32],
             self._predictor.get_output_handle(self._output_name).copy_to_cpu(),
+        )
+        self.inference_seconds = float(getattr(self, "inference_seconds", 0.0)) + (
+            perf_counter() - inference_started
         )
         if output.ndim != 3 or output.shape[0] != len(rgb_images):
             raise SequenceOcrError(

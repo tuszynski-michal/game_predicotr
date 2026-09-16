@@ -6,6 +6,7 @@ import type {
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
+import { pickLocalDirectory } from '../../lib/local-directory-picker.ts';
 import type {
   OutputDirectoryHandle,
   OutputFileHandle,
@@ -60,12 +61,6 @@ export interface ResumableImageSelectionUpload {
   readonly gameId: string;
   readonly uploadId: string;
 }
-
-type DirectoryPickerWindow = Window & {
-  showDirectoryPicker?: (options: {
-    readonly mode: 'readwrite';
-  }) => Promise<OutputDirectoryHandle>;
-};
 
 export interface ImageSelectionOutputSaveResult {
   readonly cancelled: boolean;
@@ -648,11 +643,10 @@ function relativePath(file: File | undefined): string {
 }
 
 export function pickImageSelectionOutputDirectory(): Promise<OutputDirectoryHandle> {
-  const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
-  if (picker === undefined) {
-    throw new Error('DIRECTORY_PICKER_UNAVAILABLE');
-  }
-  return picker({ mode: 'readwrite' });
+  return pickLocalDirectory({
+    id: 'gp-image-selection-output',
+    mode: 'readwrite',
+  }) as Promise<OutputDirectoryHandle>;
 }
 
 function pickOutputDirectory(): Promise<OutputDirectoryHandle> {

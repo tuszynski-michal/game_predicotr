@@ -1,14 +1,19 @@
 ---
 title: Local manual image selection architecture
 status: accepted
-last_updated: 2026-08-18
+last_updated: 2026-09-15
 ---
 
 # Architektura lokalnej ręcznej selekcji
 
-Workspace React działa wyłącznie w przeglądarce Admina. `showDirectoryPicker`
-udostępnia dwa uchwyty File System Access API: źródło tylko do odczytu oraz
-folder wynikowy z prawem odczytu i zapisu. Rekurencyjne listowanie i naturalne
+Workspace React działa wyłącznie w przeglądarce Admina. Wspólny lokalny
+koordynator `showDirectoryPicker` serializuje tylko aktywne natywne dialogi
+wszystkich workflowów Admina i zawsze wywołuje metodę z `window` jako receiver.
+Nie kolejkuje późniejszego dialogu, bo browser wymaga bezpośredniego user gesture;
+zamiast tego zwraca stabilny błąd, a po sukcesie, anulowaniu lub konflikcie
+zewnętrznego dialogu natychmiast zwalnia lock. Nie obejmuje on jobów ani
+operacji plikowych. Picker udostępnia dwa uchwyty File System Access API: źródło
+tylko do odczytu oraz folder wynikowy z prawem odczytu i zapisu. Rekurencyjne listowanie i naturalne
 sortowanie są czystą logiką w `manual-image-selection.ts`. Indeks przechowuje
 uchwyty i ścieżki bez otwierania wszystkich Blobów. Workspace utrzymuje
 ograniczony cache Object URL dla bieżącego JPEG-a i trzech sąsiadów z każdej
@@ -42,7 +47,9 @@ checksumami może przesunąć numerację wszystkich decyzji o jeden stały offse
 Synchronizacja utrwala nowy rekord IndexedDB przed pokazaniem następnego JPEG-a;
 nie modyfikuje źródłowych obrazów, istniejących wyników ani append-only trace.
 Operator może także jawnie zmienić wyłącznie bieżący `nextRangeStart` przez
-zakres `start–start+8`. Taka korekta nie zmienia `firstLayout`, poprzednich
+zakres do dziewięciu plansz. Bez granicy jest to `start–start+8`; końcowa
+strona sesji z `sequenceUpperBound` kończy się na
+`min(start+8, sequenceUpperBound)`. Taka korekta nie zmienia `firstLayout`, poprzednich
 decyzji ani plików, a po akceptacji następny zakres jest liczony od ręcznie
 podanej wartości zgodnie z kierunkiem sesji. Dlatego stan i manifest sprawdzają
 każdy zakres niezależnie; nie wymagają sztucznej ciągłości między decyzjami.
@@ -76,6 +83,14 @@ po każdym Enterze, Tabie i Ctrl+Z, natomiast pełny ślad jest materializowany
 poza ścieżką krytyczną sesji. Każdy zapis sprawdza właściciela `sessionKey`, aby
 nie nadpisać artefaktu innej sesji.
 
+Nazwa pliku output pozostaje historyczna, lecz bieżący writer materializuje
+schema v2 z `sequenceUpperBound`, `selectionComplete` oraz
+`activeBoardCount` dla każdego zaakceptowanego zakresu. Reader rozpoznaje
+wersję z pola `schemaVersion`: v1 zawsze oznacza pełne strony dziewięciu
+plansz, a v2 może zakończyć sesję krótszą, ciągłą stroną. Ta sama domena i
+walidacja są współdzielone przez lokalny Admin i operator-local Reviewer;
+historyczny host-transfer pozostaje na kontrakcie v1.
+
 W aktywnej sesji globalny handler klawiatury obsługuje `Enter`/`F` jako
 zatwierdzenie, `Ctrl+Z`/`A` jako cofnięcie, lewo/prawo jako nawigację po
 zdjęciach oraz góra/dół jako przejście po sąsiednich pozycjach wersjonowanej
@@ -104,3 +119,494 @@ dekodowaniu obrazu i obliczeniu jego rzeczywistych wymiarów pojedynczy
 `requestAnimationFrame` ustawia `scrollTop`. Zdarzenia scrolla nie zmieniają
 stanu React, IndexedDB ani trace manifestu, więc nie dodają pracy do ścieżki
 zapisu i dekodowania JPEG-a.
+
+Podczas przejściowego odmontowania canvasa przeglądarka może zgłosić techniczne
+`scrollTop=0`. Viewer przyjmuje nowe współrzędne wyłącznie wtedy, gdy Object URL
+nadal odpowiada bieżącemu indeksowi; zdarzenie z pustego/loading viewportu nie
+może nadpisać ostatniej pozycji. Ta sama reguła obejmuje zwykłą selekcję, fill i
+delete.
+
+## Architektura lokalnej korekty selekcji
+
+`ManualSelectionRepairWorkspace` jest montowany bezpośrednio po lokalnym
+workspace i korzysta ze współdzielonego `ManualImageViewer`. Viewer odpowiada
+wyłącznie za bounded cache Object URL, zoom, fullscreen, scroll i prezentacyjne
+skróty. Domena zakresów i manifestów znajduje się w niezależnym eksporcie
+`@game-predictor/manual-image-selection-core/repair`, dlatego nie zależy od
+Reacta ani File System Access API.
+
+Adapter Admina `manual-selection-repair-storage.ts` jest jedynym miejscem
+mutacji katalogu. Skanuje top-level JPEG-i, weryfikuje SHA-256, zapisuje
+manifesty i utrzymuje osobną IndexedDB v1 bez Blobów. Wszystkie polecenia
+workspace'u przechodzą przez jedną serializowaną kolejkę. Fill i delete mogą
+najpierw przełączyć lokalny snapshot oraz indeks podglądu, a potem wpisać
+trwałą mutację do tej kolejki. Podczas takiej mutacji zmiana katalogu i trybu
+oraz kolejna mutacja są blokowane, natomiast nawigacja i cache viewer'a nie.
+
+Pełny skan i weryfikacja output manifestu odbywają się przy otwarciu katalogu
+oraz recovery. Po udanej mutacji adapter zwraca finalny repair/output manifest
+i uchwyt zmienionego pliku, a workspace aktualizuje posortowany snapshot przez
+dodanie albo usunięcie jednego wpisu. Dzięki temu delete nie wykonuje dwóch
+pełnych przebiegów SHA-256 po wszystkich JPEG-ach; nadal hashuje dokładnie
+usuwany plik i zachowuje journal fail-closed.
+
+Paczka `Usuwanie sekwencji` jest tylko wygodnym frontem tej samej kolejki
+adaptera. Jej autocomplete indeksuje `start` ze zweryfikowanych nazw
+`seq_<start>-<end>`, filtruje go prefiksem tekstowym i przekazuje do kolejki
+dokładne nazwy, a nie wyprowadzony zakres liczbowy. Każdy plik ma własną
+transakcję journal → mutacja → manifest; sukcesy są raportowane inkrementalnie.
+Awaria checksummy jednego pliku jest izolowana, natomiast błąd zapisu journalu,
+odzyskania uprawnienia uchwytu lub synchronizacji manifestu zatrzymuje kolejkę,
+aby nie obiecać spójnego lokalnego stanu. Nie ma trash ani Blobowego restore.
+
+Przy pełnej inspekcji reload/recovery znana checksuma jest weryfikowana w
+`reconcileRepairManifest`; następna synchronizacja output manifestu dostaje
+ten sam wynik i nie odczytuje JPEG-a ponownie. Workspace ma niezależny numer
+generacji recovery: ręczny wybór katalogu lub katalogu bazowego zwiększa go,
+więc późniejsza odpowiedź starego IndexedDB recovery nie może nadpisać
+aktualnego snapshotu ani uchwytu. Fazy wyboru systemowego, inspekcji i
+listowania są stanem UI, a nie pozornym zawieszeniem; natywny picker pozostaje
+jedyną blokadą współdzielonego pickera katalogów.
+
+Adapter źródła publikuje pomocniczy, monotoniczny postęp rekurencji co najwyżej
+po 64 nowych wpisach i oddaje wówczas kolejkę renderowaniu. Zawiera liczbę
+odwiedzonych wpisów i zaakceptowanych obrazów, lecz nie wpływa na naturalne
+sortowanie ani nie otwiera plików. Po kompletnej liście workspace najpierw
+ustawia pamięciowy tryb `fill`, a następnie zapisuje local state przez osobną
+kolejkę IndexedDB. Kolejka zachowuje porządek rekordów, nie jest źródłem prawdy
+repair i jej błąd nie może cofnąć otwartego podglądu ani zmienić katalogu.
+
+`manual-image-selection-repair-v2.json` zachowuje niezmienne granice kolekcji,
+aktywny indeks plików i checksumy, usunięte zakresy, jedno potwierdzenie źródła
+dla każdego aktywnego delete, aktywne wpisy fill oraz co najwyżej jedną
+operację oczekującą. Nie zawiera append-only historii ani repair trace. Każda
+mutacja ma trzy fazy:
+
+1. zapis zamiaru z oczekiwaną nazwą i checksumą;
+2. dokładna zmiana jednego pliku przez uchwyt katalogu;
+3. ponowny odczyt, kontrola SHA-256 i finalizacja obu manifestów.
+
+Reader naprawia historyczne zawężenie granic przez monotoniczną sumę dowodów:
+dotychczasowe granice, aktualne i zapisane aktywne zakresy, `deletedRanges`,
+potwierdzenia usunięć i operację oczekującą. Output malejący wnosi także minimum
+i maksimum wszystkich `items`; jego `firstLayout` nie jest interpretowany jako
+minimum kolekcji. Poszerzenie zwiększa rewizję repair manifestu, zapisuje ją
+podczas jawnej inspekcji i synchronizuje stan zakończenia output manifestu.
+Żaden dowód nie może automatycznie zawęzić istniejących granic. Reader v1
+wyprowadza v2 przez replay starej historii, zapisuje v2 oraz pozostawia v1 jako
+niemodyfikowany fallback.
+
+Reconciler po reloadzie rozstrzyga stan na podstawie pliku, rozmiaru i
+checksummy. Obcy lub zmieniony cel pozostaje fail-closed. Katalog bazowy fill
+jest zawsze read-only, a zapisany JPEG zachowuje oryginalne bajty. Delete nie
+ma restore ani Blobu w pamięci. Wyłącznie recovery starej oczekującej operacji
+`restore` może dokończyć jej stan, zanim v1 zostanie zredukowany do v2.
+
+Pochodny `manual-image-selection-filled-gaps-v1.json` jest materializowany przy
+każdym zapisie repair manifestu. Jego wpisy są deterministycznie wyprowadzane z
+aktywnych wpisów fill oraz bieżącego `activeFiles`; nie jest drugim źródłem
+decyzji. Konsument może odtworzyć brakujący handoff bezpośrednio z repair
+manifestu, a uszkodzony plik handoffu blokuje użycie fail-closed.
+
+Output manifest pozostaje bieżącym źródłem aktywnych wyborów i jest
+synchronizowany po fill, undo fill i delete. Jeżeli przerwanie nastąpi po
+fizycznym delete, ale przed synchronizacją outputu, kolejna inspekcja akceptuje
+tylko brak zgodny z potwierdzeniem delete i odtwarza output manifest. Repair
+nie zapisuje własnego trace; training korzysta wyłącznie z pierwotnego,
+poprawnie utworzonego trace selekcji.
+
+W trybie fill workspace najpierw buduje lokalny manifest widoku z docelowym
+zakresem w `activeFiles` bez checksummy, usuwa go z lokalnych delete receipts i
+przełącza `sourceCursor`. Nie dodaje jeszcze uchwytu pliku ani
+`filledGapEntries`; robi to wyłącznie sukces adaptera po pełnej transakcji.
+W trybie delete workspace analogicznie najpierw buduje lokalny snapshot bez
+usuniętego pliku i przełącza kursor. Następnie jedna kolejka wykonuje trwałą
+mutację katalogu. W trakcie jest zablokowany tylko kolejny fill/delete,
+paczkowe usuwanie i zmiana trybu, nie nawigacja. Błąd kolejki przełącza
+workspace w stan fail-closed do jawnej ponownej inspekcji katalogu. Viewer
+kluczuje bounded Object URL cache przez `repairKey`, tryb i `relativePath`,
+więc przesunięcie ordinali po fill albo delete nie unieważnia następnego JPEG-a.
+
+Workspace utrzymuje najwyżej dwa identyfikatory cofania fill'a, wyłącznie po
+udanej finalizacji `filledGapEntries`. Po wejściu do trybu fill może je
+odtworzyć z dwóch najnowszych aktywnych proweniencji fill. `undo_fill` pozostaje
+zwykłą checksummowaną mutacją tej samej kolejki, usuwa tylko wskazany slot i
+wraca do `sourceIndex`; limity UI nie tworzą pola ani historii w repair
+manifeście.
+
+Zwykły lokalny selector sprawdza obecność repair manifestu przed startem i
+resume. W takim przypadku nie modyfikuje katalogu ani starej sesji, tylko
+kieruje operatora do nowej sekcji. Zapobiega to dwóm writerom utrzymującym
+różne listy aktywnych `seq_*`.
+
+## Architektura lokalnego przycinania wybranych zdjęć
+
+TASK-0492: `crop-session.ts:selectedImageCropReviewReason` ocenia zapisany
+dowód niezależnie od klasy confidence. V10 może zachować fallback dołu przy
+pozornie pewnym górnym rzędzie; taki wynik wymaga korekty. Ta sama funkcja
+steruje storage, obowiązkiem po reloadzie oraz filtrem UI. Status nie jest
+wyświetlany jako plakietka na miniaturze; kafelek zachowuje obramowanie wyboru,
+błędu i fokusu. Nie zmienia historycznych współrzędnych, fingerprintów ani
+manifestów JPEG. Istniejące reviewed/corrected nadal rozwiązują obowiązek.
+Konflikt struktura/rejestracja ma pierwszeństwo przed pozytywnym statusem
+jednego z tych źródeł.
+
+TASK-0534 rozdziela automatyczne ostrzeżenie od wyboru operatora. Czysta funkcja
+`selectedImageCropAutomaticCorrectionRecalculationFileNames` zwraca w porządku
+inwentarza tylko nierozstrzygnięte wyniki z trwałym powodem detektora. Jawna
+akcja przypina v12 nawet w rozpoczętej sesji v10 i nie przygotowuje przy okazji
+pozostałych brakujących plików. Drugi przebieg rejestracji próbuje najwyżej trzy
+najbliższe silne kotwice, kolejno według odległości w inwentarzu; każda nadal
+przechodzi pełne bramki obrazu v12. Brak poprawnej rejestracji zachowuje wynik
+ręczny. Bezpośrednio wykryty pełny układ 3×3 nie wymaga kompletnej detekcji
+numerów: crop kończy się po dolnej planszy plus 65% mediany wysokości planszy i
+nie jest ponownie zwężany przez rejestrację. Taki wynik nie jest źródłem kotwicy;
+kotwice nadal wymagają dziewięciu plansz i dziewięciu etykiet.
+
+Niedestrukcyjny runner odbiorczy czyta tę samą zamkniętą listę z review i
+shardów, sprawdza checksumę źródła względem starego wyniku, a następnie zapisuje
+wyłącznie te cropy do osobnego katalogu. Pojedynczy journal, shardy wyniku i
+atomowa publikacja przez rename pozwalają wznowić przerwany przebieg także na
+woluminie bez obsługi twardych linków. Raport oraz lokalny HTML są pochodnymi;
+wejściowy katalog `cut` pozostaje tylko do odczytu.
+
+TASK-0558 rozszerza runner o niezależny selection `missing_failures`. Lista jest
+wyprowadzana z `session.failures` tylko po sprawdzeniu, że każda nazwa należy do
+inwentarza, nie ma wyniku w żadnym shardzie i nie powtarza się. To osobna lista
+i osobny checksum w metadanych preview, dlatego nie da się wznowić katalogu
+utworzonego dla automatycznych ostrzeżeń jako odzyskiwania failure. Kandydat
+bez historycznego wyniku sprawdza bieżące źródło względem inwentarza i zapisuje
+własną proweniencję v12; kandydat z historycznym wynikiem zachowuje istniejącą
+kontrolę checksumy. W żadnym wariancie runner nie modyfikuje state v2 ani
+oryginalnych JPEG-ów.
+
+TASK-0560 dodaje do `crop-session.ts` czysty inwariant maksymalnej wysokości:
+`(bottomY - topY) / height > 0.78` daje `crop_too_tall` przed oceną pozytywnego
+dowodu struktury albo rejestracji. Funkcja korzysta z `proposal.crop`, dlatego
+ten sam wynik zasila bieżący UI, filtr po przygotowaniu i ponowne otwarcie
+shardów bez zmiany formatu danych ani fingerprintu detektora.
+
+Selection `excessive_height` niedestrukcyjnego runnera odczytuje nagłówki
+bieżących JPEG-ów w `cut`, wymaga szerokości zgodnej z zapisanym źródłem i
+porównuje wysokość pliku z kanoniczną wysokością źródła w wyniku. Pozwala to
+pominąć plik już poprawnie przycięty, gdy historyczny shard jest nieaktualny.
+Lista, próg i wejściowy stan są checksummowane w metadanych osobnego preview;
+obliczenie, journal, shardy, weryfikacja wyjścia i kotwice pozostają wspólne z
+pozostałymi trybami v12.
+
+TASK-0535 dodaje nad tym runnerem sekwencyjny audyt wielu katalogów. Skanowane
+są tylko bezpośrednie, niesymlinkowane katalogi z dokładnym sufiksem ` cut`.
+Kwalifikacja odtwarza snapshot v2 ze wszystkich shardów i porównuje dokładny
+zbiór wyników z inventory przed sprawdzeniem pending, failures, `completedAt`
+oraz automatycznej kolejki korekt. Każdy przebieg zachowuje własny journal i
+raport, a raport zbiorczy jest zapisywany atomowo po każdej sesji. Awaria jednej
+sesji nie ukrywa wyniku pozostałych i daje niezerowy kod końcowy.
+
+TASK-0536 ustanawia
+`crop-preparation.ts:ACTIVE_SELECTED_IMAGE_CROP_POLICY` pojedynczym źródłem
+domyślnej polityki i wskazuje v12. `openSelectedImageCropSnapshot` zapisuje tę
+wartość wyłącznie dla domenowo pustego snapshotu. Odczyt istniejącego
+`session-v2.json` zachowuje przypiętą wersję, więc restart nie przelicza ani nie
+nadpisuje JPEG-ów i decyzji operatora. Browserowy worker, jego fallback oraz
+runner Node przyjmują aktywną stałą jako domyślną, lecz jawny argument i snapshot
+sesji nadal mają pierwszeństwo. V11 pozostaje niewydany.
+
+TASK-0538 domyka przerwanie lub konkurencyjne otwarcie pomiędzy publikacją
+pustego manifestu v1 a przypięciem polityki w session journalu. Czysta
+klasyfikacja pełnego snapshotu pozwala przyjąć aktywny v12 tylko wtedy, gdy
+polityka jest nieobecna, wszystkie shardy wyników i listy review są puste oraz
+nie ma failure, pending ani `completedAt`. Ta sama klasyfikacja działa już w
+inicjalizacji snapshotu, więc nie zależy od podatnej na wyścig informacji, czy
+dane wywołanie utworzyło pusty manifest. Adapter najpierw trwale zapisuje
+wersję, a dopiero potem przygotowuje pierwszy JPEG. Dowolny ślad pracy zachowuje
+historyczną blokadę i wymaga jawnego przeliczenia.
+
+TASK-0544 dodaje wersjonowany kontrakt pomiędzy modułem strony i browserowym
+workerem. Każda odpowiedź, również błąd wykonania, niesie
+`workerProtocolVersion`; poprawny wynik musi dodatkowo odpowiadać żądanej
+`policyVersion` oraz fingerprintowi v11 albo v12 z aktualnego modułu. Klient
+sprawdza tę tożsamość przed rekonstrukcją propozycji i przed zapisem do
+journalu. Brak wersji albo rozbieżność kończy instancję workera, ustawia
+procesowy bezpiecznik dla bieżącej karty i zwraca `null`. Istniejący adapter
+storage interpretuje `null` jako kontrolowane przejście do
+`proposeSelectedImageCrop` z bieżącego głównego wątku, więc nie zapisuje
+`SELECTED_IMAGE_CROP_PROPOSAL_INVALID` jako failure konkretnego JPEG-a.
+
+TASK-0545 utrzymuje na pliku
+`.manual-image-crop-state/browser-preparation.lock` otwarty writable w trybie
+`exclusive` przez pełny batch przygotowania albo przeliczenia. `finally`
+zwalnia go przez `abort`, a blokada natywnego uchwytu znika również po awarii
+procesu. Odczyt/recovery katalogu oraz pojedynczy ręczny zapis używają tej samej
+granicy. Konflikt `InvalidStateError` lub `NoModificationAllowedError` jest
+normalizowany do `SELECTED_IMAGE_CROP_PREPARATION_ALREADY_RUNNING`.
+
+Audyt top-level nadal odrzuca nazwę spoza manifestu. Plik o nazwie istniejącego
+wpisu z `result=null` przechodzi do deterministycznego renderu; dopiero zgodność
+jego SHA-256 z proponowanym blobem pozwala utworzyć pending i sfinalizować shard
+bez ponownego wywołania `writeBlob`. Rozbieżne bajty pozostają nietknięte.
+Klient workera po pierwszej niezgodności protokołu tworzy nową instancję i
+ponawia dokładnie raz. Dopiero dwie kolejne niezgodności wyłączają worker dla
+bieżącego modułu i wybierają istniejący fallback głównego wątku.
+
+TASK-0546 przekazuje `sourceSelection` do
+`listSelectedImageCropSourceDirectories`. W trybie `all` kwalifikacja nadal
+odrzuca `* cut`. W trybie `filled_gaps` każdy bezpośredni uchwyt katalogu jest
+sprawdzany tylko pod kątem obecności `FILLED_GAPS_MANIFEST_NAME`; nazwy
+`* filled-gaps cut` są wykluczone. Pełną walidację manifestu, jego właściciela i
+checksum wykonuje dopiero istniejące `selectActiveFilledGapFiles` przy starcie.
+UI ponownie wylicza opcje po zmianie trybu i nie zachowuje nazwy, która przestała
+być dostępna.
+
+TASK-0547 rozdziela przygotowanie cropów na równoległą fazę obliczeniową i
+uporządkowaną fazę publikacji. Koordynator pobiera stałą paczkę najwyżej czterech
+pozycji i uruchamia ograniczony scheduler. Pula browserowych workerów dobiera
+limit 1–4 na podstawie `navigator.hardwareConcurrency`, realizuje po jednym
+żądaniu na worker i odtwarza instancję po 128 żądaniach. Wyniki scheduler
+zwraca w kolejności wejścia niezależnie od kolejności zakończenia. Dopiero
+koordynator wykonuje istniejący journal i aktualizuje kotwicę, failure oraz
+`currentIndex` kolejno według inwentarza.
+
+Kontrakt workera v2 ma dwa żądania. `prepare_anchor` dekoduje pełny obraz raz i
+zwraca klonowalny `PreparedFourPointRegistrationAnchor`: deskryptor źródła,
+szarość przeskalowaną do poziomu rejestracji i ograniczoną listę cech.
+`prepare_crop` dekoduje bieżący obraz, najpierw wykonuje analizę strukturalną i
+dopiero dla ścieżki wymagającej rejestracji korzysta z przygotowanej kotwicy.
+Snapshot kotwicy jest wspólny dla całej paczki; ostatni uporządkowany,
+pełnowartościowy wynik może zostać kotwicą następnej paczki. Oryginalna nazwa,
+SHA-256 i wymiary pozostają w dowodzie rejestracji.
+
+SHA-256 źródła jest liczona równolegle z analizą. Adapter zapisu otrzymuje ten
+sam zweryfikowany `File` i checksumę, więc nie pobiera ani nie hashuje źródła
+drugi raz. TASK-0551 publikuje gotowe wyniki paczką: `session-v2.json` dostaje
+jedną tablicę `pendingBatch`, JPEG-i są zapisywane równolegle i każdy przechodzi
+kontrolny odczyt SHA-256, a wszystkie wyniki danego sharda są utrwalane jednym
+zapisem. Jedna końcowa sesja czyści `pendingBatch`. Daje to dwa zapisy sesji i
+po jednym zapisie każdego dotkniętego sharda na paczkę, zamiast pełnego cyklu
+per obraz.
+
+Czysta funkcja `recoverSelectedImageCropPendingBatch` materializuje zgodne
+pliki, wycofuje brakujące do kolejki i oznacza konfliktowe jako wymagające
+review. Ponowienie po zapisaniu shardów, ale przed końcową sesją, rozpoznaje już
+zgodne wyniki i nie zapisuje shardu drugi raz. Odczyt historycznej sesji
+normalizuje brak pola do `null`. Pojedynczy zapis ręczny nadal używa
+`pendingOperation`; blokada jednego writera obejmuje oba warianty. Zatrzymanie
+workspace'u anuluje aktywne żądania i kończy pulę; nieopublikowane wyniki paczki
+nie zwiększają trwałego progresu. Czasy etapów i tempo są tylko stanem React
+bieżącej karty. `SelectedImageCropLocalSession` może dodatkowo przechować
+ostatnią niepustą próbkę w IndexedDB jako pomocniczy stan widoku. Snapshot jest
+powiązany z `sourceDirectoryName` i `sourceSelection`, jest walidowany przed
+pokazaniem i nie modyfikuje manifestu, journalu, policy ani recovery. Callback
+z bieżącym `performance` zastępuje go, a callback bez próbki nie usuwa go przed
+pierwszym ukończonym commitem nowej karty.
+
+TASK-0548 rozdziela ostrzeżenie detektora od decyzji operatora bez zmiany
+schematu review. `requiredSelectedImageCropCorrections(snapshot)` nadal
+wyprowadza nierozstrzygnięte ostrzeżenia z dowodów shardów i zasila filtr
+`Niepewne`. Border, licznik oraz kolejka ręcznego edytora korzystają wyłącznie
+z `snapshot.review.correctionFileNames`. `synchronizeAutomaticCorrection` nie
+dopisuje już ostrzeżenia do tej tablicy; pozytywny wynik ponownej analizy może
+nadal usunąć historyczny automatyczny wybór.
+
+Dwie akcje zbiorcze budują nową listę w kolejności inventory. Zaznaczenie dodaje
+przygotowane pliki widocznego filtra. Odznaczenie usuwa tylko widoczne pliki i
+przekazuje widoczne ostrzeżenia do `acceptedSuggestionFileNames`. Końcowa,
+jawna akceptacja najpierw sprawdza brak wybranych poprawek, failures, pending i
+brakujących wyników, a następnie dodaje pozostałe niewybrane ostrzeżenia do
+zaakceptowanych sugestii i zapisuje kompletne review. Stare
+`correctionFileNames` nie są migrowane ani czyszczone przy odczycie.
+
+Przy udanej rejestracji v12 przecięcie cropa rejestracji i cropa strukturalnego
+jest dodatkowo ograniczone obwiednią `registeredBoardBand`: `topY` nie może być
+niżej niż najmniejszy `y`, a `bottomY` wyżej niż największy `y` czworokąta.
+Zachowuje to ciasny wynik konsensusu bez naruszenia inwariantu walidatora, że
+cała rozpoznana plansza mieści się w zapisywanym cropie.
+Wersja `registered-band-bounded-intersection-v2` jest częścią bieżącego
+`CROP_V12_FINGERPRINT`. Walidator trwałego manifestu przyjmuje także poprzedni
+fingerprint v12, natomiast granica klient–worker wymaga wyłącznie bieżącego.
+Stary worker zostaje więc odtworzony bez unieważniania istniejących shardów.
+
+Iteracja v0.10.185 dodaje ograniczony poziomy wariant dylatacji (aspekt 2)
+obok izotropowego. Numery są analizowane w lokalnym układzie nachylenia rzędu,
+wyznaczonym z potwierdzonych obszarów plansz. Obszar wyszukiwania i wynik muszą
+być mapowane spójnie; JPEG nie jest obracany. Cały jasny pas jest zachowywany,
+a dowód przejść ocenia się dla pasa zamiast odrzucać jego pełne białe wiersze.
+Początkowy bufor wynosi 20% mediany wysokości. Fingerprint obejmuje tę zmianę
+i number-bands-v3-row-shear-complete-band. Wariant nadal nie przeszedł odbioru.
+
+Iteracja TASK-0472 zachowuje układ wykryty przy 960 px jako dowód lokalizacji,
+gdy dopiero etykiety wymagają analizy 1600 px. Warianty bbox tego samego położenia
+są redukowane wyłącznie po niejednoznacznym wyniku; odrębne układy nadal są
+odrzucane. Ograniczony fallback perspektywy nie tworzy brakujących plansz.
+Jeżeli wszystkie pasy numerów wskazują, że wykryte bboxy utraciły górę plansz,
+granica może zostać wyłącznie rozszerzona ku górze. Wszystkie te reguły należą
+do fingerprintu; ostatnia bramka precyzji nadal blokuje aktywację.
+
+Poprawka TASK-0472 usuwa sztuczne halo dylatacji przed pomiarem bboxa; halo
+dotykające brzegu pozostaje konserwatywnie niepełnym wsparciem źródła.
+Scalanie wymaga pokrycia większego komponentu, nie tylko zawierania mniejszego.
+Kontrola szerokości i proporcji etykiet poprzedza ranking odległości od dolnej
+granicy. Zmiany identyfikuje fingerprint v11; wariant pozostaje nieaktywny po
+nieprzejściowej bramce, bez zmiany historycznych algorytmów v10.
+
+Eksperymentalny v11 (0469–0471, bez aktywacji) analizuje luminancję i strukturę
+całego 3×3. Wspólny sampler z kanonicznego RGBA ogranicza dłuższy bok do
+960/1600, a wynik zapisuje fingerprint i wykonane poziomy. Brak kompletnego
+układu zwraca pełną wysokość i trwały obowiązek korekty. Kompletne 3×3 bez
+pełnego pasa numerów używa wersjonowanego dolnego bufora zamiast bramki OCR.
+Obowiązek jest wyprowadzany z wyników i ręcznych decyzji, nie ze zbioru zaznaczeń.
+Node zapisuje `.crop-preparation-v11`: metadane, intencje per plik, shardy 64,
+blokadę właściciela i raport błędów. JPEG jest publikowany bez nadpisania,
+następnie weryfikowany SHA przed finalizacją. Browser przejmuje wyłącznie
+zakończony handoff; aktywna blokada lub intencja blokuje równoległy zapis.
+Stare katalogi z ręcznym stanem przeglądarki nie są mutowane przez Node.
+
+Aktywny v12 (TASK-0479, aktywacja TASK-0536) dokłada rejestrację całego pasa plansz bez
+modelowania 36 narożników. Silna obserwacja v11 jest redukowana do czterech
+punktów zewnętrznego obrysu 3×3 wraz z medianą wysokości planszy i checksumą
+źródła. Na obrazie kanonicznym EXIF do 640 px deterministyczny deskryptor
+BRIEF-like i ograniczony affine RANSAC dopasowują sąsiedni kadr. Kontrakt
+dowodu zapisuje kotwicę, liczbę dopasowań i inlierów, pokryte ćwiartki, p90
+residualu oraz przeniesiony obrys. Dodatnia skala, ograniczony shear, pokrycie
+co najmniej trzech ćwiartek i limity residualu są bramkami fail-closed.
+
+Web Worker otrzymuje najwyżej jeden ograniczony obraz kotwicy i jeden obraz
+docelowy; po pierwszym przebiegu browser ponawia wyłącznie nierozwiązane wpisy,
+jeżeli przygotowanie późniejszego zdjęcia dostarczyło bliższą silną kotwicę.
+Rejestracja nigdy nie jest samodzielnym dowodem numeru ani kolejności pliku.
+Gdy struktura bieżącego zdjęcia również jest pełna, finalny pas jest przecięciem
+obu bezpiecznych propozycji i nadal musi zawierać wszystkie 18 chronionych
+obszarów plansz i etykiet. Wyjątkiem jest bezpośredni wynik
+`complete_layout_board_buffer`, który zostaje zachowany bez rejestracji.
+Fingerprint v12 zawiera fingerprint strukturalnego v11 oraz pełną konfigurację
+cech, RANSAC-u i marginesu; replay v10 pozostaje niezmieniony.
+
+TASK-0553 zwiększa pionowy kontekst zapisywanego pasa: bezpośredni v11 używa
+45% mediany wysokości planszy nad panelem, 40% pod kompletnym pasem etykiet i
+80% w ścieżce bez etykiet, a rejestracja v12 45% po obu stronach przeniesionego
+pasa. Bieżący fingerprint opisuje nowe liczby. Odczyt v12 dopuszcza dwa
+zamrożone fingerprinty poprzednich konfiguracji; nowy worker może jednak
+publikować wyłącznie bieżący fingerprint.
+
+TASK-0468 ustanawia niezależny test-only oracle jakości poziomego pasa:
+SHA-256 źródeł, wizualne obwiednie plansz/numerów, przedziały linii i split po
+katalogach. Runner odtwarza v10 bez zapisu obrazów. Adnotacje nie są zależnością
+detektora ani referencją do treningu narożników. Opis v10 poniżej jest opisem
+implementacji z wykrytymi regresjami, nie potwierdzeniem jej bezpieczeństwa.
+V11 pozostaje do wdrożenia w kolejnych taskach; brak nowych kontraktów API.
+
+`SelectedImageCropWorkspace` jest lokalnym konsumentem współdzielonego
+`ManualImageViewer`. Viewer zachowuje ograniczone okno Object URL, zoom,
+fullscreen i scroll; opcjonalny overlay renderuje dwie poziome linie bez
+zmiany zachowania istniejących selektorów.
+
+Czysta domena jest eksportowana jako
+`@game-predictor/manual-image-selection-core/crop`. Operuje na współrzędnych
+całkowitych `topY`/`bottomY` w obrazie po jednokrotnej kanonizacji EXIF i nie
+zna Reacta, canvasa ani File System Access API. Adapter Admina skanuje tylko
+główny poziom źródła, ponownie wykorzystuje rygorystyczny parser `seq_*` i
+utrzymuje osobną IndexedDB v1 bez Blobów.
+
+Adapter ma dwa rozłączne tryby inwentarza: pełny katalog zapisuje do
+`<źródło> cut`, a aktywne uzupełnienia do `<źródło> filled-gaps cut`. Drugi tryb
+czyta handoff repairu, odrzuca pusty lub obcy manifest i sprawdza checksumę
+każdego wskazanego JPEG-a przed utworzeniem albo wznowieniem sesji. Dzięki
+osobnym nazwom katalogów manifest v1 nadal jednoznacznie wiąże swój inwentarz.
+
+Detektor `@game-predictor/manual-image-selection-core/auto-crop` otrzymuje
+wyłącznie RGBA ograniczonego podglądu o szerokości najwyżej 512 px. Polityka
+v10 buduje lekką maskę czerwonych ramek, łączy jej komponenty i szuka trzech
+podobnych kandydatów o rosnących współrzędnych X, zgodnych wysokościach oraz
+lokalnie wspólnej linii. Kandydaci muszą leżeć w ograniczonym sąsiedztwie
+górnej granicy uzyskanej z detektora panelu. Wynik wyznacza wyłącznie górę;
+dół oraz fail-safe nadal pochodzą z v9. Brak pełnego dowodu jest no-opem.
+
+Polityka v9
+dzieli środkowe 88% obrazu na dziewięć pasów i w każdym niezależnie znajduje
+długi klaster niebieskiego tła. Dopiero co najmniej pięć zgodnych klastrów,
+obejmujących lewą, środkową i prawą grupę, tworzy granicę panelu. Rozrzut
+górnych i dolnych granic jest ograniczony, dzięki czemu boczne światła lub
+pojedyncze elementy nie mogą udawać plansz.
+
+Potwierdzony w ten sposób panel jest niezależnym dowodem i może zastąpić
+`safe_wide` ogólnego detektora. Naprawia to regresję v5, która odrzucała nawet
+mocny panel, gdy drugi detektor nie dostarczył równocześnie kandydata.
+Historyczne wyniki v4/v5 pozostają czytelne i nie są przeliczane automatycznie.
+
+Jeżeli nie ma takiego kandydata, zachowana ścieżka wielokolumnowa v4
+analizuje środkowe 94% obrazu w dziewięciu pionowych pasach. Dla każdego pasa
+buduje wygładzone profile chromatyczne i strukturalne, a kandydat musi mieć
+wsparcie co najmniej pięciu pasów oraz wszystkich trzech grup szerokości.
+Zgodne kandydatury obu rodzin dowodu dają `high_confidence`; rozbieżność tworzy
+bezpieczną sumę `conservative`, natomiast brak dowodu zwraca `safe_wide` 5–95%.
+`safe_wide` jest automatycznie utrwalany w kolejce korekty i nie może zostać
+potraktowany jak zwykły gotowy wynik bez świadomego review.
+
+Lokalne granice są agregowane percentylami, więc pochylenie obrazu nie wymusza
+ciasnego cropa według jednego pasa. Padding wynosi 4,5% nad i pod panelem.
+4,5% pod panelem. Górna granica nie jest rozszerzana w stronę panelu wypłat.
+Dolna strefa bezpieczeństwa 3% odsuwa granicę na zewnątrz najwyżej raz, jeżeli
+nadal przecina szeroko wspartą zawartość. Wynik niższy niż 28% wysokości jest
+odrzucany na rzecz `safe_wide`. Adapter mapuje granice proporcjonalnie na
+kanoniczne piksele źródła. Cache propozycji jest ograniczony do bieżącej sesji
+i związany z nazwą, rozmiarem oraz mtime źródła.
+
+Proweniencja propozycji jest częścią `SelectedImageCropResult` w shardzie, a
+nie osobnym globalnym plikiem. Zawiera dokładną politykę, klasę, confidence,
+lokalne granice obu rodzin sygnału, wykorzystane pasy, IoU, informację o
+rozszerzeniu granicy i reason code fallbacku. Ta sama proweniencja znajduje się
+w operacji oczekującej, dlatego recovery po zapisie JPEG-a finalizuje dokładnie
+ten sam wynik.
+
+Mały session journal przypina `preparationPolicyVersion`. Nowa sesja zaczyna z
+aktywnym v12. Brak pola w niepustym historycznym stanie jest interpretowany
+jako legacy, bez zgadywania wersji. Taka sesja nie przygotuje brakujących
+plików nową polityką, dopóki operator jawnie nie uruchomi przeliczenia.
+Całkowicie pusty snapshot może przypiąć aktywną politykę bez reprocessu.
+Recalculator
+wyprowadza zamknięty zbiór nazw z shardów i review state; chroni `reviewed`,
+`corrected` oraz `needs_correction`, a każdy dopuszczony wynik zastępuje przez
+istniejący checksum-bound journal. Po przypięciu polityki zwykłe wznowienie może
+przygotować pozostałe, dotąd brakujące wyniki.
+
+Renderer używa źródłowego JPEG-a bez pośredniej bitmapy na dysku. Canvas ma
+szerokość obrazu kanonicznego i wysokość wybranego pasa, a `drawImage` kopiuje
+ten obszar w skali 1:1. Wynik jest JPEG-em jakości 0.98. Operacja przebiega jako
+manifest intencji → SHA-256 źródła → render → zapis → ponowny SHA-256 →
+finalizacja manifestu. Przy restarcie brak wyniku cofa zamiar, zgodna checksuma
+go finalizuje, a obcy wynik blokuje wznowienie.
+
+Przy pierwszym wznowieniu writer migruje manifest v1 do podkatalogu
+`.manual-image-crop-state`: niezmiennego inwentarza, małego session journalu,
+osobnego review state i shardów wyników obejmujących najwyżej 64 sloty. Plik
+inwentarza jest publikowany jako ostatni krok migracji, dlatego jej przerwanie
+jest idempotentne. Istniejących cropów ani checksum nie przelicza się.
+
+Przygotowanie pozostaje sekwencyjne, lecz decode, detekcja i pierwszy render są
+wykonywane przez okresowo odtwarzany Web Worker z `OffscreenCanvas`. Brak tej
+funkcji uruchamia zgodny fallback. Błąd jednego źródła jest zapisywany z etapem
+i kodem, po czym kolejka przechodzi dalej; retry otrzymuje zamknięty zbiór nazw.
+
+Review używa atlasów WebP po najwyżej 100 cropów. Klucz atlasu obejmuje nazwy,
+checksumy wyników, rozmiar i renderer. Pierwszy atlas jest pokazywany przed
+zakończeniem całej kolejki, stare klucze są usuwane bounded. Grid utrzymuje
+trwały zbiór `needs_correction`; pełny `ManualImageViewer` dekoduje oryginały
+tylko dla tej kolejki. Poprawka aktualizuje jeden shard, review state i atlas.
+Zbiorcze zaznaczenie aktualizuje wyłącznie mały review state jednym zapisem;
+nie przepisuje shardów, JPEG-ów ani atlasów. Przełącznik działa na bieżącym
+filtrze i nie usuwa zaznaczeń niewidocznych w tym filtrze.
+
+Hydratacja po reloadzie kończy się na odczycie rekordu IndexedDB. Wywołanie
+`requestPermission`, skan katalogu i odczyt obrazów następują dopiero w obsłudze
+jawnego kliknięcia wznowienia. Atlasy v2 144×96 px, kodowane jako WebP jakości
+0.58, są budowane osobną akcją operatora i prezentowane w poziomym pasku; samo
+otwarcie sesji ich nie dekoduje.
+Wyjście anuluje kolejkę pomiędzy źródłami i unieważnia późne callbacki, ale nie
+cofa zakończonego journalowanego zapisu bieżącego pliku.
+
+Katalog wynikowy jest bezpieczny wyłącznie, gdy jest pusty albo zawiera zgodny
+`manual-image-crop-output-v1.json` i wskazane przez niego wyniki. Import plansz
+filtruje wejście do JPEG-ów, dlatego pomocniczy JSON jest ignorowany. To nowa
+tożsamość importu; reprocess historycznego importu nadal czyta jego managed
+originals. Prostowanie perspektywy pozostaje poza tym adapterem, ponieważ
+globalna homografia nie modeluje krzywizny ekranu ani dziewięciu niezależnych
+quadów obsługiwanych przez geometrię 36 narożników.

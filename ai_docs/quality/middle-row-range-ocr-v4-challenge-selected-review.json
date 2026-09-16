@@ -1,0 +1,12 @@
+{
+  "contract": "middle-row-range-ocr-v4-selected-review-v1",
+  "reviews": [
+    {
+      "relativePath": "blazing 21400_000014.jpg",
+      "expectedRange": [21169, 21177],
+      "correctRange": true,
+      "ownExactProofVisible": true,
+      "nearEvidenceMidpoint": true
+    }
+  ]
+}

@@ -62,8 +62,6 @@ export function navigatePreparedLocalReviewerWindow(
   reviewUrl: string,
 ): boolean {
   try {
-    // Assigning the cross-origin location is allowed even after the prepared
-    // loopback tab has already reached the Reviewer on another port.
     reviewerWindow.location.href = reviewUrl;
     return true;
   } catch {

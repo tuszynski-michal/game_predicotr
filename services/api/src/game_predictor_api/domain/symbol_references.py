@@ -16,13 +16,20 @@ from typing import Final
 from uuid import UUID
 
 from game_predictor_api.domain.catalog import CatalogConflictError
+from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewAsset
 
 _SHA256: Final = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True, slots=True)
 class ApprovedSymbolReferenceCandidate:
-    """One human-labelled crop belonging to the current canonical board."""
+    """One current, human-approved crop eligible as a catalog reference.
+
+    ``crop_checksum_sha256`` identifies the pixels the operator approved.  A
+    virtual v0.10 crop has no file at this stage; its exact render contract is
+    carried privately in ``virtual_asset`` and is materialized only when the
+    operator selects it as the durable catalog reference.
+    """
 
     observation_id: UUID
     review_item_id: UUID
@@ -31,9 +38,27 @@ class ApprovedSymbolReferenceCandidate:
     cell_index: int
     resolution_revision: int
     geometry_revision: int
-    crop_relative_path: str
+    crop_relative_path: str | None
     crop_checksum_sha256: str
     status: str
+    asset_mode: str = "legacy_file"
+    virtual_asset: SymbolCellReviewAsset | None = None
+
+    def __post_init__(self) -> None:
+        if self.asset_mode == "legacy_file":
+            if not self.crop_relative_path or self.virtual_asset is not None:
+                raise ValueError("legacy reference candidates require one crop path")
+            return
+        if self.asset_mode != "virtual_source":
+            raise ValueError("asset_mode must be legacy_file or virtual_source")
+        if self.crop_relative_path is not None or self.virtual_asset is None:
+            raise ValueError("virtual reference candidates require render provenance")
+        if self.virtual_asset.asset_mode != "virtual_source":
+            raise ValueError("virtual reference candidates require a virtual asset")
+
+    @property
+    def is_virtual(self) -> bool:
+        return self.asset_mode == "virtual_source"
 
     @property
     def cursor_key(self) -> tuple[int, int, int, str]:

@@ -62,6 +62,11 @@ class Game:
     expected_layout_count: int
     created_at: datetime
     updated_at: datetime
+    storage_version: str = "legacy-public-v1"
+    storage_schema: str = "public"
+    storage_generation: int = 1
+    storage_status: str = "active"
+    storage_write_available: bool = True
 
 
 @dataclass(frozen=True, slots=True)

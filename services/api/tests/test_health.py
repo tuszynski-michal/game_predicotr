@@ -39,6 +39,14 @@ def test_cors_allows_configured_local_admin_and_reviewer_origins() -> None:
             "/api/v1/health",
             headers={"Origin": "http://127.0.0.1:3001"},
         )
+        reviewer_localhost = client.get(
+            "/api/v1/health",
+            headers={"Origin": "http://localhost:3001"},
+        )
+        wrong_reviewer_port = client.get(
+            "/api/v1/health",
+            headers={"Origin": "http://localhost:3002"},
+        )
         remote = client.get(
             "/api/v1/health",
             headers={"Origin": "https://admin.example.com"},
@@ -46,4 +54,6 @@ def test_cors_allows_configured_local_admin_and_reviewer_origins() -> None:
 
     assert allowed.headers["access-control-allow-origin"] == "http://localhost:3000"
     assert reviewer.headers["access-control-allow-origin"] == "http://127.0.0.1:3001"
+    assert reviewer_localhost.headers["access-control-allow-origin"] == "http://localhost:3001"
+    assert "access-control-allow-origin" not in wrong_reviewer_port.headers
     assert "access-control-allow-origin" not in remote.headers

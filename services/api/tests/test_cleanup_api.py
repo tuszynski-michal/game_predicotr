@@ -1,8 +1,10 @@
+from dataclasses import replace
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.cleanup import (
+    BoardSourceCleanupSelection,
     CleanupCommand,
     CleanupCount,
     CleanupResult,
@@ -41,6 +43,28 @@ class FakeCleanupService:
 
     def reset_game(self, target_id: UUID, command: CleanupCommand):
         return self._result("game_layout_data", target_id, command)
+
+    def preview_board_sources(
+        self,
+        target_id: UUID,
+        selection: BoardSourceCleanupSelection,
+    ):
+        snapshot = self._snapshot("board_source_ranges", target_id)
+        snapshot = replace(
+            snapshot,
+            confirmation_target=f"{target_id}:1-9",
+            target_label=",".join(str(value) for value in selection.sequence_numbers),
+        )
+        return cleanup_preview(snapshot)
+
+    def delete_board_sources(
+        self,
+        target_id: UUID,
+        selection: BoardSourceCleanupSelection,
+        command: CleanupCommand,
+    ):
+        assert selection.sequence_numbers == tuple(range(1, 10))
+        return self._result("board_source_ranges", target_id, command)
 
     def _result(self, kind: str, target_id: UUID, command: CleanupCommand):
         self.last_command = command
@@ -107,3 +131,34 @@ def test_cleanup_request_rejects_incomplete_confirmation_body() -> None:
         )
     assert response.status_code == 422
     assert response.json()["code"] == "VALIDATION_ERROR"
+
+
+def test_board_source_cleanup_contract_normalizes_selection_and_requires_preview() -> None:
+    service = FakeCleanupService()
+    with TestClient(
+        create_app(
+            ApiSettings.from_environment({}),
+            cleanup_service_dependency=lambda: service,
+        )
+    ) as client:
+        preview_response = client.post(
+            f"/api/v1/admin/games/{service.game_id}/board-source-cleanup-preview",
+            json={"sequenceNumbers": [9, 1, 2, 3, 4, 5, 6, 7, 8, 1]},
+        )
+        assert preview_response.status_code == 200
+        preview = preview_response.json()
+        assert preview["kind"] == "board_source_ranges"
+        assert preview["confirmationTarget"] == f"{service.game_id}:1-9"
+
+        executed = client.request(
+            "DELETE",
+            f"/api/v1/admin/games/{service.game_id}/board-sources",
+            json={
+                "sequenceNumbers": list(range(1, 10)),
+                "previewToken": preview["previewToken"],
+                "confirmationTarget": preview["confirmationTarget"],
+                "confirmed": True,
+            },
+        )
+        assert executed.status_code == 200
+        assert executed.json()["kind"] == "board_source_ranges"

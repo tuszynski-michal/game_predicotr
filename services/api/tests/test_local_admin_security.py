@@ -163,6 +163,7 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     release_id = "22222222-2222-4222-8222-222222222222"
     game_id = "33333333-3333-4333-8333-333333333333"
     job_id = "44444444-4444-4444-8444-444444444444"
+    run_id = "55555555-5555-4555-8555-555555555555"
 
     release_operation, release_target = match_high_impact_operation(
         "DELETE", f"/api/v1/admin/mobile-releases/{release_id}"
@@ -172,6 +173,10 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     )
     job_operation, job_target = match_high_impact_operation(
         "DELETE", f"/api/v1/admin/jobs/{job_id}"
+    )
+    filename_history_operation, filename_history_target = match_high_impact_operation(
+        "DELETE",
+        f"/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verification-history",
     )
     local_reviewer_operation, local_reviewer_target = match_high_impact_operation(
         "POST", "/api/v1/admin/reviewer-local/start"
@@ -202,6 +207,9 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     assert job_operation is not None
     assert job_operation.action == "delete-image-selection-job"
     assert job_target == f"job:{job_id}"
+    assert filename_history_operation is not None
+    assert filename_history_operation.action == "delete-filename-verification-history"
+    assert filename_history_target == f"filename-verification:{run_id}"
     assert local_reviewer_operation is not None
     assert local_reviewer_operation.action == "start-local-reviewer"
     assert local_reviewer_target == "local-reviewer"
@@ -287,6 +295,18 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
     def revise_grid(item_id: str) -> dict[str, str]:
         return {"itemId": item_id, "operation": "revision"}
 
+    @app.post(
+        "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval"
+    )
+    def approve_source_grid(game_id: str) -> dict[str, str]:
+        return {"gameId": game_id, "operation": "source-approval"}
+
+    @app.post(
+        "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions"
+    )
+    def revise_source_grid(game_id: str) -> dict[str, str]:
+        return {"gameId": game_id, "operation": "source-revision"}
+
     @app.post("/api/v1/admin/jobs")
     def create_job() -> dict[str, bool]:
         return {"created": True}
@@ -323,6 +343,22 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
             "/api/v1/admin/image-reviews/review-item/geometry-revisions",
             headers=headers,
         )
+        accepted_source_grid_approval = client.post(
+            "/api/v1/admin/games/game/grid-reviews/source-geometry-approval",
+            headers=headers,
+        )
+        accepted_source_grid_revision = client.post(
+            "/api/v1/admin/games/game/grid-reviews/source-geometry-revisions",
+            headers=headers,
+        )
+        accepted_source_grid_revision_via_localhost = client.post(
+            "/api/v1/admin/games/game/grid-reviews/source-geometry-revisions",
+            headers=headers | {"Origin": "http://localhost:3001"},
+        )
+        wrong_port_reviewer_origin = client.post(
+            "/api/v1/admin/games/game/grid-reviews/source-geometry-revisions",
+            headers=headers | {"Origin": "http://localhost:3002"},
+        )
         forbidden_admin_mutation = client.post(
             "/api/v1/admin/jobs",
             headers=headers,
@@ -345,6 +381,19 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
     assert accepted_grid_preview.json() == {"itemId": "review-item", "operation": "preview"}
     assert accepted_grid_revision.status_code == 200
     assert accepted_grid_revision.json() == {"itemId": "review-item", "operation": "revision"}
+    assert accepted_source_grid_approval.status_code == 200
+    assert accepted_source_grid_approval.json() == {
+        "gameId": "game",
+        "operation": "source-approval",
+    }
+    assert accepted_source_grid_revision.status_code == 200
+    assert accepted_source_grid_revision.json() == {
+        "gameId": "game",
+        "operation": "source-revision",
+    }
+    assert accepted_source_grid_revision_via_localhost.status_code == 200
+    assert wrong_port_reviewer_origin.status_code == 403
+    assert wrong_port_reviewer_origin.json()["code"] == "ADMIN_ORIGIN_FORBIDDEN"
     assert accepted_pending_resolution.status_code == 200
     assert accepted_pending_resolution.json() == {"pendingId": "pending"}
     assert forbidden_admin_mutation.status_code == 403

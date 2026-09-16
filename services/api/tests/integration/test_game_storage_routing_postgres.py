@@ -1,0 +1,832 @@
+"""Isolated PostgreSQL acceptance for TASK-0519 routing and write fences."""
+
+from __future__ import annotations
+
+import os
+import re
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from pathlib import Path
+from uuid import UUID, uuid4
+
+import pytest
+from alembic import command
+from alembic.config import Config
+from game_predictor_api.application.image_reviews import OperationalImageReviewService
+from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.page_geometry_overrides import PageGeometryOverrideService
+from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.board_search import (
+    BoardSearchCandidate,
+    BoardSearchProjectionPayload,
+)
+from game_predictor_api.domain.image_reviews import ImageReviewNotFoundError
+from game_predictor_api.domain.jobs import JobType, create_job
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.database import GameStorageSession
+from game_predictor_api.storage.game_data_v2_manifest_v1 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+    GameStorageRoutingError,
+    GameStorageSchema,
+    game_storage_scope,
+)
+from game_predictor_api.storage.image_job_repository import (
+    SqlAlchemyImageJobOperationsRepository,
+)
+from game_predictor_api.storage.image_review_repository import (
+    SqlAlchemyOperationalImageReviewRepository,
+)
+from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
+from game_predictor_api.storage.models import (
+    CellObservationModel,
+    ImageBoardSearchCandidateModel,
+    ImageFileExecutionModel,
+    ImageGeometryRolloutStateModel,
+    ImageImportJobFileModel,
+    ImageReviewItemModel,
+    RecognizedBoardModel,
+    SourceImageModel,
+    SymbolModel,
+)
+from game_predictor_api.storage.page_geometry_override_repository import (
+    SqlAlchemyPageGeometryOverrideRepository,
+)
+from game_predictor_worker.images.orchestration import ImageFileRegistration
+from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
+from sqlalchemy import Engine, create_engine, select, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import sessionmaker
+
+pytestmark = pytest.mark.skipif(
+    os.environ.get("GAME_PREDICTOR_RUN_POSTGRES_TESTS") != "1",
+    reason="Explicit isolated PostgreSQL tests only",
+)
+
+
+@pytest.fixture
+def database() -> Iterator[Engine]:
+    name = "game_predictor_task0519_" + uuid4().hex[:12]
+    assert re.fullmatch(r"game_predictor_task0519_[0-9a-f]{12}", name)
+    url = make_url(ApiSettings.from_environment().database_url)
+    maintenance = create_engine(
+        url.set(database="postgres"),
+        isolation_level="AUTOCOMMIT",
+        connect_args={"connect_timeout": 5, "options": "-c statement_timeout=10000"},
+    )
+    engine = create_engine(url.set(database=name), connect_args={"connect_timeout": 5})
+    config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
+    config.set_main_option(
+        "sqlalchemy.url",
+        url.set(database=name).render_as_string(hide_password=False).replace("%", "%%"),
+    )
+    with maintenance.connect() as connection:
+        connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+    try:
+        command.upgrade(config, "0106_game_storage_routing_fence")
+        yield engine
+    finally:
+        engine.dispose()
+        with maintenance.connect() as connection:
+            active = connection.execute(
+                text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"), {"name": name}
+            ).scalar_one()
+            assert active == 0
+            connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+        maintenance.dispose()
+
+
+def _game(connection: object, *, code: str) -> UUID:
+    game_id = uuid4()
+    connection.execute(  # type: ignore[attr-defined]
+        text(
+            "INSERT INTO public.games "
+            "(id, code, name, status, expected_layout_count) "
+            "VALUES (:id, :code, :name, 'draft', 500000)"
+        ),
+        {"id": game_id, "code": code, "name": code},
+    )
+    return game_id
+
+
+def test_v2_parents_have_scope_default_rls_and_runtime_triggers(database: Engine) -> None:
+    with database.connect() as connection:
+        guarded = set(
+            connection.execute(
+                text(
+                    "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+                    "WHERE n.nspname='game_data_v2' AND c.relrowsecurity AND c.relforcerowsecurity"
+                )
+            ).scalars()
+        )
+        defaults = set(
+            connection.execute(
+                text(
+                    "SELECT c.relname FROM pg_attrdef d JOIN pg_attribute a "
+                    "ON a.attrelid=d.adrelid "
+                    "AND a.attnum=d.adnum JOIN pg_class c ON c.oid=a.attrelid "
+                    "JOIN pg_namespace n ON n.oid=c.relnamespace "
+                    "WHERE n.nspname='game_data_v2' AND a.attname='game_id' "
+                    "AND pg_get_expr(d.adbin,d.adrelid) LIKE '%current_game_id_v1%'"
+                )
+            ).scalars()
+        )
+        triggers = set(
+            connection.execute(
+                text(
+                    "SELECT tgname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid "
+                    "JOIN pg_namespace n ON n.oid=c.relnamespace "
+                    "WHERE n.nspname='game_data_v2' AND NOT t.tgisinternal"
+                )
+            ).scalars()
+        )
+    assert guarded == set(GAME_TABLES)
+    assert defaults == set(GAME_TABLES)
+    assert len(triggers) == 7
+
+
+def test_router_selects_v2_and_default_injects_exact_game(database: Engine) -> None:
+    with database.begin() as connection:
+        game_id = _game(connection, code="route-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        suffix = game_id.hex
+        connection.exec_driver_sql(
+            f"CREATE TABLE game_data_v2.image_geometry_rollout_states_g_{suffix} "
+            f"PARTITION OF game_data_v2.image_geometry_rollout_states FOR VALUES IN ('{game_id}')"
+        )
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with game_storage_scope(game_id), factory.begin() as session:
+        session.execute(
+            text(
+                "INSERT INTO image_geometry_rollout_states "
+                "(geometry_mode,cell_asset_mode,revision,backfill_status,updated_by) "
+                "VALUES ('legacy','legacy_files',0,'not_started','test')"
+            )
+        )
+        location = GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
+        assert location.store_schema is GameStorageSchema.V2
+        assert session.scalar(text("SELECT game_id FROM image_geometry_rollout_states")) == game_id
+
+
+def test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session(database: Engine) -> None:
+    """A saved correction must survive reopening the report after V2 cutover."""
+
+    with database.begin() as connection:
+        game_id = _game(connection, code="geometry-snapshot-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        connection.exec_driver_sql(
+            "CREATE TABLE game_data_v2.image_page_geometry_overrides_g_"
+            f"{game_id.hex} PARTITION OF game_data_v2.image_page_geometry_overrides "
+            f"FOR VALUES IN ('{game_id}')"
+        )
+
+    quads = tuple(
+        (
+            {"x": column * 100 + 5, "y": row * 100 + 5},
+            {"x": column * 100 + 95, "y": row * 100 + 5},
+            {"x": column * 100 + 95, "y": row * 100 + 95},
+            {"x": column * 100 + 5, "y": row * 100 + 95},
+        )
+        for row in range(3)
+        for column in range(3)
+    )
+    source_checksum = "a" * 64
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+
+    with factory.begin() as session:
+        writer = PageGeometryOverrideService(SqlAlchemyPageGeometryOverrideRepository(session))
+        saved, created = writer.save(
+            game_id=game_id,
+            source_checksum_sha256=source_checksum,
+            image_width=320,
+            image_height=320,
+            expected_board_count=9,
+            final_quads=quads,
+            actor="test-owner",
+        )
+        assert created is True
+
+    # The report opens a separate API session and has no /games/{id} path scope.
+    with factory.begin() as session:
+        report = PageGeometryOverrideService(SqlAlchemyPageGeometryOverrideRepository(session))
+        snapshot = report.snapshot(game_id=game_id)
+
+    assert snapshot[source_checksum]["decisionChecksumSha256"] == saved.decision_checksum_sha256
+    with database.connect() as connection:
+        assert (
+            connection.scalar(
+                text(
+                    "SELECT count(*) FROM public.image_page_geometry_overrides "
+                    "WHERE game_id=:game_id"
+                ),
+                {"game_id": game_id},
+            )
+            == 0
+        )
+
+
+def test_import_policy_reads_v2_rollout_in_a_new_unscoped_session(database: Engine) -> None:
+    """The report and start must pin the same per-game engine policy."""
+
+    with database.begin() as connection:
+        game_id = _game(connection, code="import-policy-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        connection.exec_driver_sql(
+            "CREATE TABLE game_data_v2.image_geometry_rollout_states_g_"
+            f"{game_id.hex} PARTITION OF game_data_v2.image_geometry_rollout_states "
+            f"FOR VALUES IN ('{game_id}')"
+        )
+
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with game_storage_scope(game_id), factory.begin() as session:
+        session.add(
+            ImageGeometryRolloutStateModel(
+                game_id=game_id,
+                geometry_mode="structured_lattice_v3",
+                cell_asset_mode="virtual_default",
+                revision=1,
+                backfill_status="not_started",
+                updated_by="test-owner",
+            )
+        )
+
+    # Browser preflight and Start open separate, unscoped API sessions.
+    with factory.begin() as session:
+        policy = JobService(SqlAlchemyJobRepository(session)).current_image_import_engine_policy(
+            game_id=game_id
+        )
+
+    assert policy.policy.value == "structured_lattice_v3"
+    assert policy.revision == 1
+    with database.connect() as connection:
+        assert (
+            connection.scalar(
+                text(
+                    "SELECT count(*) FROM public.image_geometry_rollout_states "
+                    "WHERE game_id=:game_id"
+                ),
+                {"game_id": game_id},
+            )
+            == 0
+        )
+
+
+def test_image_batch_registration_uses_v2_composite_identity(database: Engine) -> None:
+    pipeline_fingerprint = "f" * 64
+    registered_at = datetime(2026, 9, 14, tzinfo=UTC)
+    with database.begin() as connection:
+        game_id = _game(connection, code="image-batch-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        connection.exec_driver_sql(
+            "CREATE TABLE game_data_v2.image_import_job_files_g_"
+            f"{game_id.hex} PARTITION OF game_data_v2.image_import_job_files "
+            f"FOR VALUES IN ('{game_id}')"
+        )
+
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with factory.begin() as session:
+        job = SqlAlchemyJobRepository(session).add_job(
+            create_job(
+                JobType.IMPORT,
+                game_id=game_id,
+                input_payload={
+                    "schema_version": 1,
+                    "import_kind": "image_directory",
+                    "pipeline_fingerprint": pipeline_fingerprint,
+                },
+                created_at=registered_at,
+            )
+        )
+
+    registrations = tuple(
+        ImageFileRegistration(
+            source_checksum_sha256=str(index) * 64,
+            source_relative_path=f"source-{index}.jpg",
+            order_index=index - 1,
+        )
+        for index in (1, 2)
+    )
+    store = SqlAlchemyImageBatchStore(factory)
+    with game_storage_scope(game_id):
+        store.register_files(
+            job.id,
+            registrations=registrations,
+            pipeline_fingerprint=pipeline_fingerprint,
+            registered_at=registered_at,
+        )
+        store.register_files(
+            job.id,
+            registrations=registrations,
+            pipeline_fingerprint=pipeline_fingerprint,
+            registered_at=registered_at,
+        )
+
+    with database.connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM public.image_file_executions")) == 2
+        assert connection.scalar(text("SELECT count(*) FROM public.image_import_job_files")) == 0
+        rows = connection.execute(
+            text(
+                "SELECT game_id, job_id, file_execution_key, order_index "
+                "FROM game_data_v2.image_import_job_files ORDER BY order_index"
+            )
+        ).all()
+    assert len(rows) == 2
+    assert {row.game_id for row in rows} == {game_id}
+    assert {row.job_id for row in rows} == {job.id}
+    assert [row.order_index for row in rows] == [0, 1]
+
+    failed_key = rows[0].file_execution_key
+    with game_storage_scope(game_id), factory.begin() as session:
+        association = session.scalar(
+            select(ImageImportJobFileModel).where(
+                ImageImportJobFileModel.job_id == job.id,
+                ImageImportJobFileModel.file_execution_key == failed_key,
+            )
+        )
+        execution = session.get(ImageFileExecutionModel, failed_key)
+        assert association is not None and execution is not None
+        association.workflow_status = "failed"
+        association.failed_stage = "discovery"
+        association.error_code = "IMAGE_STAGE_EXECUTION_FAILED"
+        association.error_message = "test failure"
+        association.last_failed_at = registered_at
+        execution.status = "failed"
+        execution.failed_stage = "discovery"
+        execution.error_code = "IMAGE_STAGE_EXECUTION_FAILED"
+        execution.error_message = "test failure"
+        execution.last_failed_at = registered_at
+
+    with factory.begin() as session:
+        operations = SqlAlchemyImageJobOperationsRepository(session).retry_file(
+            job.id,
+            file_execution_key=failed_key,
+            expected_stage="discovery",
+            retried_at=registered_at,
+            file_limit=10,
+        )
+
+    assert operations.total == 2
+    assert operations.failed == 0
+    assert {item.file_execution_key for item in operations.files} == {
+        row.file_execution_key for row in rows
+    }
+
+
+def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engine) -> None:
+    now = datetime(2026, 9, 14, tzinfo=UTC)
+    source_checksum = "8" * 64
+    pipeline_fingerprint = "9" * 64
+    with database.begin() as connection:
+        game_id = _game(connection, code="board-search-candidate-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        for table_name in (
+            "image_import_job_files",
+            "source_images",
+            "recognized_boards",
+            "image_review_queue_states",
+            "image_review_queue_items",
+            "image_review_items",
+            "image_board_search_candidates",
+            "image_board_search_fast_documents",
+        ):
+            connection.exec_driver_sql(
+                f"CREATE TABLE game_data_v2.{table_name}_g_{game_id.hex} "
+                f"PARTITION OF game_data_v2.{table_name} FOR VALUES IN ('{game_id}')"
+            )
+
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with factory.begin() as session:
+        job = SqlAlchemyJobRepository(session).add_job(
+            create_job(
+                JobType.IMPORT,
+                game_id=game_id,
+                input_payload={
+                    "schema_version": 1,
+                    "import_kind": "image_directory",
+                    "pipeline_fingerprint": pipeline_fingerprint,
+                },
+                created_at=now,
+            )
+        )
+    execution = SqlAlchemyImageBatchStore(factory).register_file(
+        job.id,
+        source_checksum_sha256=source_checksum,
+        pipeline_fingerprint=pipeline_fingerprint,
+        source_relative_path="originals/test.jpg",
+        order_index=0,
+        registered_at=now,
+    )
+    file_execution_key = execution.file_execution_key
+
+    with game_storage_scope(game_id), factory.begin() as session:
+        session.add(
+            SymbolModel(
+                game_id=game_id,
+                mobile_code=3,
+                code="CYTRYNA",
+                name="Cytryna",
+                is_wildcard=False,
+                display_order=0,
+            )
+        )
+        source = SourceImageModel(
+            import_job_id=job.id,
+            file_execution_key=file_execution_key,
+            relative_path="originals/test.jpg",
+            checksum_sha256=source_checksum,
+            width=100,
+            height=50,
+            status="waiting_for_review",
+            created_at=now,
+        )
+        session.add(source)
+        session.flush()
+        board = RecognizedBoardModel(
+            source_image_id=source.id,
+            position_index=0,
+            sequence_number_raw="1",
+            sequence_number=1,
+            sequence_confidence=1.0,
+            board_geometry={"source": "v2-upsert-test"},
+            board_relative_path="boards/test.png",
+            board_checksum_sha256="a" * 64,
+            cells_prediction={"cells": []},
+            board_confidence=1.0,
+            pipeline_fingerprint=pipeline_fingerprint,
+            status="pending_review",
+            created_at=now,
+        )
+        session.add(board)
+        session.flush()
+        review = ImageReviewItemModel(
+            game_id=game_id,
+            import_job_id=job.id,
+            sequence_number=1,
+            recognized_board_id=board.id,
+            status="pending",
+            snapshot={"sequenceNumber": 1},
+            resolution_revision=0,
+            created_at=now,
+        )
+        session.add(review)
+        session.flush()
+
+        def payload(status: str, symbol_code: str | None = None) -> BoardSearchProjectionPayload:
+            return BoardSearchProjectionPayload(
+                game_id=game_id,
+                import_job_id=job.id,
+                recognized_board_id=board.id,
+                candidate=BoardSearchCandidate(
+                    review_item_id=review.id,
+                    sequence_number=1,
+                    status=status,
+                    primary_symbol_codes=(symbol_code,) * 15,
+                    alternative_symbol_codes=((),) * 15,
+                ),
+                board_checksum_sha256="a" * 64,
+                board_confidence=1.0,
+                sequence_confidence=1.0,
+                source_pixel_count=5000,
+            )
+
+        repository = SqlAlchemyBoardSearchProjectionRepository(session)
+        repository.upsert_candidate(payload("pending"))
+        loaded_candidate = session.get(ImageBoardSearchCandidateModel, review.id)
+        assert loaded_candidate is not None
+        assert loaded_candidate.primary_symbol_mobile_codes == [None] * 15
+        repository.upsert_candidate(payload("accepted", "CYTRYNA"))
+        repository.reconcile_sequence(game_id, 1)
+
+    with database.connect() as connection:
+        assert (
+            connection.scalar(
+                text(
+                    "SELECT count(*) FROM game_data_v2.image_board_search_candidates "
+                    "WHERE game_id=:game_id"
+                ),
+                {"game_id": game_id},
+            )
+            == 1
+        )
+        assert (
+            connection.scalar(
+                text(
+                    "SELECT status FROM game_data_v2.image_board_search_candidates "
+                    "WHERE game_id=:game_id"
+                ),
+                {"game_id": game_id},
+            )
+            == "accepted"
+        )
+        fast_document = connection.execute(
+            text(
+                "SELECT known_evidence_positions, primary_symbol_mobile_codes "
+                "FROM game_data_v2.image_board_search_fast_documents "
+                "WHERE game_id=:game_id AND sequence_number=1"
+            ),
+            {"game_id": game_id},
+        ).one()
+        assert fast_document.known_evidence_positions == [str(index) for index in range(15)]
+        assert fast_document.primary_symbol_mobile_codes == [3] * 15
+        assert (
+            connection.scalar(text("SELECT count(*) FROM public.image_board_search_candidates"))
+            == 0
+        )
+
+
+def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
+    database: Engine,
+) -> None:
+    now = datetime(2026, 9, 14, tzinfo=UTC)
+    source_checksum = "b" * 64
+    pipeline_fingerprint = "c" * 64
+    with database.begin() as connection:
+        game_id = _game(connection, code="operational-review-item-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        for table_name in (
+            "image_import_job_files",
+            "source_images",
+            "recognized_boards",
+            "cell_observations",
+            "image_review_queue_states",
+            "image_review_items",
+            "image_review_queue_items",
+        ):
+            connection.exec_driver_sql(
+                f"CREATE TABLE game_data_v2.{table_name}_g_{game_id.hex} "
+                f"PARTITION OF game_data_v2.{table_name} FOR VALUES IN ('{game_id}')"
+            )
+
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with factory.begin() as session:
+        job = SqlAlchemyJobRepository(session).add_job(
+            create_job(
+                JobType.IMPORT,
+                game_id=game_id,
+                input_payload={
+                    "schema_version": 1,
+                    "import_kind": "image_directory",
+                    "pipeline_fingerprint": pipeline_fingerprint,
+                },
+                created_at=now,
+            )
+        )
+    execution = SqlAlchemyImageBatchStore(factory).register_file(
+        job.id,
+        source_checksum_sha256=source_checksum,
+        pipeline_fingerprint=pipeline_fingerprint,
+        source_relative_path="originals/review.jpg",
+        order_index=0,
+        registered_at=now,
+    )
+
+    with game_storage_scope(game_id), factory.begin() as session:
+        source = SourceImageModel(
+            import_job_id=job.id,
+            file_execution_key=execution.file_execution_key,
+            relative_path="originals/review.jpg",
+            checksum_sha256=source_checksum,
+            width=500,
+            height=300,
+            status="waiting_for_review",
+            created_at=now,
+        )
+        session.add(source)
+        session.flush()
+        board = RecognizedBoardModel(
+            source_image_id=source.id,
+            position_index=0,
+            sequence_number_raw="12",
+            sequence_number=12,
+            sequence_confidence=1.0,
+            board_geometry={"source": "v2-review-asset-test"},
+            board_relative_path="boards/review.png",
+            board_checksum_sha256="d" * 64,
+            cells_prediction={"cells": []},
+            board_confidence=1.0,
+            pipeline_fingerprint=pipeline_fingerprint,
+            status="pending_review",
+            created_at=now,
+        )
+        session.add(board)
+        session.flush()
+        review = ImageReviewItemModel(
+            game_id=game_id,
+            import_job_id=job.id,
+            sequence_number=12,
+            recognized_board_id=board.id,
+            status="pending",
+            snapshot={"sequenceNumber": 12},
+            resolution_revision=0,
+            created_at=now,
+        )
+        session.add(review)
+        session.flush()
+        session.add_all(
+            CellObservationModel(
+                recognized_board_id=board.id,
+                row_index=index // 5,
+                column_index=index % 5,
+                crop_relative_path=f"cells/review-{index}.png",
+                crop_checksum_sha256=f"{index + 1:064x}",
+                cropper_version="v2-review-asset-test",
+                prediction={
+                    "symbolCode": "?",
+                    "confidence": 0.0,
+                    "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
+                },
+                created_at=now,
+            )
+            for index in range(15)
+        )
+        review_item_id = review.id
+
+    # Asset endpoints begin in a fresh session and carry gameId only in query.
+    with factory() as session:
+        service = OperationalImageReviewService(SqlAlchemyOperationalImageReviewRepository(session))
+        loaded = service.get_item(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=job.id,
+        )
+
+    assert loaded.id == review_item_id
+    assert loaded.game_id == game_id
+    assert loaded.import_job_id == job.id
+    assert loaded.board_relative_path == "boards/review.png"
+    assert len(loaded.cells) == 15
+    with factory() as session:
+        service = OperationalImageReviewService(SqlAlchemyOperationalImageReviewRepository(session))
+        with pytest.raises(ImageReviewNotFoundError) as wrong_job:
+            service.get_item(
+                review_item_id,
+                game_id=game_id,
+                import_job_id=uuid4(),
+            )
+    assert wrong_job.value.code == "IMAGE_REVIEW_ITEM_NOT_FOUND"
+    with database.connect() as connection:
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM public.image_review_items WHERE id=:review_item_id"),
+                {"review_item_id": review_item_id},
+            )
+            == 0
+        )
+
+
+def test_write_status_generation_and_transaction_lock_are_fail_closed(database: Engine) -> None:
+    with database.begin() as connection:
+        game_id = _game(connection, code="fence-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'public',1,:version,'active',0)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    first = factory()
+    try:
+        GameStorageRouter().bind(first, game_id, intent=GameStorageIntent.WRITE)
+        with database.connect() as concurrent:
+            concurrent.execute(text("SET LOCAL lock_timeout='100ms'"))
+            advisory_available = concurrent.scalar(
+                text(
+                    "SELECT pg_try_advisory_xact_lock("
+                    "hashtextextended(CAST(:game_id AS text), 519))"
+                ),
+                {"game_id": game_id},
+            )
+            assert advisory_available is False
+            with pytest.raises(DBAPIError):
+                concurrent.execute(
+                    text(
+                        "UPDATE public.game_storage_locations SET generation=2, revision=1 "
+                        "WHERE game_id=:game_id"
+                    ),
+                    {"game_id": game_id},
+                )
+        first.rollback()
+    finally:
+        first.close()
+    with database.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE public.game_storage_locations "
+                "SET status='migrating', revision=revision+1 WHERE game_id=:game_id"
+            ),
+            {"game_id": game_id},
+        )
+    with factory() as session:
+        with pytest.raises(GameStorageRoutingError) as blocked:
+            GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
+        assert blocked.value.code == "GAME_STORAGE_WRITE_UNAVAILABLE"
+    with game_storage_scope(game_id), factory() as session:
+        with pytest.raises(GameStorageRoutingError) as raw_sql_blocked:
+            session.execute(
+                text("UPDATE public.games SET updated_at=updated_at WHERE id=:game_id"),
+                {"game_id": game_id},
+            )
+        assert raw_sql_blocked.value.code == "GAME_STORAGE_WRITE_UNAVAILABLE"
+    with factory() as session:
+        with pytest.raises(GameStorageRoutingError) as inferred_scope_blocked:
+            session.execute(
+                text("UPDATE public.games SET updated_at=updated_at WHERE id=:game_id"),
+                {"game_id": game_id},
+            )
+        assert inferred_scope_blocked.value.code == "GAME_STORAGE_WRITE_UNAVAILABLE"
+    with database.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE public.game_storage_locations "
+                "SET store_schema='game_data_v2', status='active', generation=2, "
+                "revision=revision+1 WHERE game_id=:game_id"
+            ),
+            {"game_id": game_id},
+        )
+    with factory() as session:
+        with pytest.raises(GameStorageRoutingError) as stale:
+            GameStorageRouter().bind(
+                session,
+                game_id,
+                intent=GameStorageIntent.READ,
+                expected_generation=1,
+            )
+        assert stale.value.code == "GAME_STORAGE_GENERATION_STALE"
+
+
+def test_reused_session_resolves_storage_again_after_commit(database: Engine) -> None:
+    with database.begin() as connection:
+        game_id = _game(connection, code="rebind-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'public',1,:version,'active',0)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with factory() as session:
+        first = GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ)
+        assert first.generation == 1
+        session.commit()
+        with database.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE public.game_storage_locations "
+                    "SET status='migrating', revision=1 WHERE game_id=:game_id"
+                ),
+                {"game_id": game_id},
+            )
+        with pytest.raises(GameStorageRoutingError) as blocked:
+            GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
+        assert blocked.value.code == "GAME_STORAGE_WRITE_UNAVAILABLE"
+        assert blocked.value.details["generation"] == 1

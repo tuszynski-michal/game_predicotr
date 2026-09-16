@@ -53,6 +53,7 @@ from game_predictor_api.domain.image_reviews import (
     validate_image_review_geometry_command,
     validate_image_review_resolution,
 )
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +86,7 @@ class PendingGridReinferencePreview:
     recalculable_board_count: int
     current_v19_board_count: int
     protected_board_count: int
+    unsupported_virtual_board_count: int
     pending_source_count: int
     partially_resolved_source_count: int
     fully_resolved_source_count: int
@@ -127,6 +129,8 @@ class OperationalImageReviewRepository(Protocol):
     ) -> ImageReviewPage: ...
 
     def canonical_pending_count(self, game_id: UUID) -> int: ...
+
+    def pending_symbol_reinference_count(self, game_id: UUID) -> int: ...
 
     def game_counts(self, game_id: UUID) -> ImageReviewCounts: ...
 
@@ -385,8 +389,15 @@ class OperationalImageReviewService:
     def canonical_pending_count(self, game_id: UUID) -> int:
         return self._repository.canonical_pending_count(game_id)
 
+    def pending_symbol_reinference_count(self, game_id: UUID) -> int:
+        """Count the boards the pending-symbol worker will actually revisit."""
+
+        with game_storage_scope(game_id):
+            return self._repository.pending_symbol_reinference_count(game_id)
+
     def game_counts(self, game_id: UUID) -> ImageReviewCounts:
-        return self._repository.game_counts(game_id)
+        with game_storage_scope(game_id):
+            return self._repository.game_counts(game_id)
 
     def pending_grid_reinference_preview(self, game_id: UUID) -> PendingGridReinferencePreview:
         return self._repository.pending_grid_reinference_preview(
@@ -403,11 +414,12 @@ class OperationalImageReviewService:
         game_id: UUID,
         import_job_id: UUID,
     ) -> ImageReviewItem:
-        item = self._repository.get_item(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-        )
+        with game_storage_scope(game_id):
+            item = self._repository.get_item(
+                review_item_id,
+                game_id=game_id,
+                import_job_id=import_job_id,
+            )
         if item is None:
             raise ImageReviewNotFoundError(
                 "IMAGE_REVIEW_ITEM_NOT_FOUND",

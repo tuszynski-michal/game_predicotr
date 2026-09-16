@@ -17,11 +17,13 @@ import {
   serializeAdminNavigation,
 } from '@/features/catalog/admin-navigation-state';
 import { BoardSearchWorkspace } from '@/features/board-search/board-search-workspace';
+import { BoardSourceCleanupControl } from '@/features/cleanup/board-source-cleanup-control';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { ImageSelectionWorkspace } from '@/features/image-selection/image-selection-workspace';
 import { ManualImageSelectionWorkspace } from '@/features/manual-image-selection/manual-image-selection-workspace';
+import { SemiAutomaticSelectionWorkspace } from '@/features/semi-automatic-image-selection/semi-automatic-selection-workspace';
 import { JobMonitor } from '@/features/jobs/job-monitor';
 import { ModelQualityWorkspace } from '@/features/model-quality/model-quality-workspace';
 import { ReleasePanel } from '@/features/releases/release-panel';
@@ -39,50 +41,38 @@ interface CatalogWorkspaceProps {
 const WORKSPACE_OPTIONS: readonly {
   readonly id: AdminWorkspace;
   readonly label: string;
-  readonly description: string;
-  readonly index: string;
 }[] = [
   {
     id: 'games',
     label: 'Zarządzanie grami',
-    description: 'Gry, import, symbole, reguły i zatwierdzanie.',
-    index: '01',
   },
   {
     id: 'releases',
     label: 'Wersje Android',
-    description: 'Snapshoty i paczki instalacyjne APK.',
-    index: '02',
   },
   {
     id: 'jobs',
     label: 'Joby',
-    description: 'Postęp oraz błędy procesów w tle.',
-    index: '03',
   },
   {
     id: 'image-selection',
     label: 'Selekcja zdjęć',
-    description: 'Szybki wybór reprezentatywnych zdjęć przed importem.',
-    index: '04',
   },
   {
     id: 'manual-image-selection',
     label: 'Ręczna selekcja',
-    description: 'Sekwencyjne przypisywanie zdjęć do zakresów bez algorytmu.',
-    index: '05',
+  },
+  {
+    id: 'semi-automatic-image-selection',
+    label: 'Semi-auto selekcja',
   },
   {
     id: 'symbol-verification',
     label: 'Weryfikacja symboli',
-    description: 'Masowy przegląd cropów symboli i problemów siatki.',
-    index: '06',
   },
   {
     id: 'storage',
     label: 'Pamięć i czyszczenie',
-    description: 'Zajętość dysku, retencja i bezpieczny garbage collector.',
-    index: '07',
   },
 ];
 
@@ -95,6 +85,11 @@ const GAME_SECTION_OPTIONS: readonly {
     id: 'imports',
     title: 'Import plansz',
     description: 'Wybór folderu, postęp importu i kompletność plansz.',
+  },
+  {
+    id: 'board-source-cleanup',
+    title: 'Usuń plansze',
+    description: 'Usuń całe źródła zdjęć oraz ich dane zależne.',
   },
   {
     id: 'symbols',
@@ -274,9 +269,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
             onClick={() => selectWorkspace(option.id)}
             type="button"
           >
-            <span className="workspaceTileIndex">{option.index}</span>
             <strong>{option.label}</strong>
-            <span>{option.description}</span>
           </button>
         ))}
       </nav>
@@ -353,6 +346,15 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             onHandoffConsumed={() =>
                               setImageSelectionHandoff(null)
                             }
+                          />
+                        ) : null}
+                        {expanded && section.id === 'board-source-cleanup' ? (
+                          <BoardSourceCleanupControl
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
+                            onCompleted={() => {
+                              setGamesRevision((revision) => revision + 1);
+                            }}
                           />
                         ) : null}
                         {expanded && section.id === 'symbols' ? (
@@ -461,6 +463,9 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ) : null}
         {navigation.workspace === 'manual-image-selection' ? (
           <ManualImageSelectionWorkspace apiBaseUrl={apiBaseUrl} />
+        ) : null}
+        {navigation.workspace === 'semi-automatic-image-selection' ? (
+          <SemiAutomaticSelectionWorkspace apiBaseUrl={apiBaseUrl} />
         ) : null}
         {navigation.workspace === 'symbol-verification' ? (
           <SymbolReviewWorkspace apiBaseUrl={apiBaseUrl} />

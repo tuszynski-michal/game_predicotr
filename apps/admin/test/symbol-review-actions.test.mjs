@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  loadSymbolReviewCounts,
   loadSymbolReviewProjection,
   loadSymbolReviewPage,
   loadSymbolReviewSymbols,
@@ -11,7 +12,6 @@ import {
 const gameId = '11111111-1111-4111-8111-111111111111';
 const page = {
   catalogRevision: 7,
-  counts: { allCount: 3, approvedCount: 2, pendingCount: 1 },
   items: [],
   nextCursor: 'next-page',
   previousCursor: null,
@@ -20,6 +20,12 @@ const page = {
 function client(overrides = {}) {
   return {
     listGames: async () => ({ data: [] }),
+    getSymbolCellReviewCounts: async () => ({
+      data: {
+        catalogRevision: 7,
+        counts: { allCount: 3, approvedCount: 2, pendingCount: 1 },
+      },
+    }),
     listSymbolCellReviews: async () => ({ data: page }),
     listSymbols: async () => ({ data: [] }),
     getSymbolCellReviewProjectionStatus: async () => ({
@@ -122,6 +128,7 @@ test('loads a bounded, checksum-independent metadata page with its keyset cursor
     {
       afterCursor: 'after-page',
       gameId,
+      limit: 42,
       state: 'pending',
       symbolId: 'unknown',
     },
@@ -130,11 +137,143 @@ test('loads a bounded, checksum-independent metadata page with its keyset cursor
   assert.deepEqual(request, {
     afterCursor: 'after-page',
     gameId,
-    limit: 500,
+    limit: 42,
     state: 'pending',
     symbolId: 'unknown',
   });
   assert.deepEqual(result, { ok: true, page });
+});
+
+test('loads counts independently and binds them to the page catalog revision', async () => {
+  let request;
+  const result = await loadSymbolReviewCounts(
+    client({
+      getSymbolCellReviewCounts: async (options) => {
+        request = options;
+        return {
+          data: {
+            catalogRevision: 7,
+            counts: { allCount: 3, approvedCount: 2, pendingCount: 1 },
+          },
+        };
+      },
+    }),
+    {
+      catalogRevision: 7,
+      gameId,
+      state: 'pending',
+      symbolId: 'unknown',
+    },
+  );
+
+  assert.deepEqual(request, {
+    catalogRevision: 7,
+    gameId,
+    state: 'pending',
+    symbolId: 'unknown',
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.snapshot.counts.pendingCount, 1);
+});
+
+test('forwards abort signals to page and counts reads', async () => {
+  const pageController = new AbortController();
+  const countsController = new AbortController();
+  let pageRequest;
+  let countsRequest;
+  const api = client({
+    getSymbolCellReviewCounts: async (options) => {
+      countsRequest = options;
+      return {
+        data: {
+          catalogRevision: 7,
+          counts: { allCount: 3, approvedCount: 2, pendingCount: 1 },
+        },
+      };
+    },
+    listSymbolCellReviews: async (options) => {
+      pageRequest = options;
+      return { data: page };
+    },
+  });
+
+  await loadSymbolReviewPage(api, {
+    gameId,
+    limit: 500,
+    signal: pageController.signal,
+    state: 'all',
+    symbolId: 'unknown',
+  });
+  await loadSymbolReviewCounts(api, {
+    catalogRevision: 7,
+    gameId,
+    signal: countsController.signal,
+    state: 'all',
+    symbolId: 'unknown',
+  });
+
+  assert.equal(pageRequest.signal, pageController.signal);
+  assert.equal(countsRequest.signal, countsController.signal);
+});
+
+test('treats aborted page and counts reads as silent cancellation', async () => {
+  const pageController = new AbortController();
+  const countsController = new AbortController();
+  pageController.abort();
+  countsController.abort();
+  const api = client({
+    getSymbolCellReviewCounts: async () => {
+      throw new Error('aborted');
+    },
+    listSymbolCellReviews: async () => {
+      throw new Error('aborted');
+    },
+  });
+
+  assert.deepEqual(
+    await loadSymbolReviewPage(api, {
+      gameId,
+      limit: 500,
+      signal: pageController.signal,
+      state: 'all',
+      symbolId: 'unknown',
+    }),
+    { aborted: true, ok: false },
+  );
+  assert.deepEqual(
+    await loadSymbolReviewCounts(api, {
+      catalogRevision: 7,
+      gameId,
+      signal: countsController.signal,
+      state: 'all',
+      symbolId: 'unknown',
+    }),
+    { aborted: true, ok: false },
+  );
+});
+
+test('a counts failure remains separate from a successful metadata page', async () => {
+  const api = client({
+    getSymbolCellReviewCounts: async () => ({
+      error: { code: 'COUNTS_TIMEOUT', message: 'slow aggregate' },
+    }),
+  });
+
+  const loadedPage = await loadSymbolReviewPage(api, {
+    gameId,
+    limit: 500,
+    state: 'pending',
+    symbolId: 'unknown',
+  });
+  const loadedCounts = await loadSymbolReviewCounts(api, {
+    catalogRevision: 7,
+    gameId,
+    state: 'pending',
+    symbolId: 'unknown',
+  });
+
+  assert.equal(loadedPage.ok, true);
+  assert.equal(loadedCounts.ok, false);
 });
 
 test('exposes a controlled rebuilding state instead of treating it as an empty page', async () => {
@@ -147,7 +286,7 @@ test('exposes a controlled rebuilding state instead of treating it as an empty p
         },
       }),
     }),
-    { gameId, state: 'all', symbolId: 'symbol-1' },
+    { gameId, limit: 12, state: 'all', symbolId: 'symbol-1' },
   );
 
   assert.equal(result.ok, false);

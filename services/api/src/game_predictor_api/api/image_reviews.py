@@ -233,7 +233,7 @@ def create_image_reviews_router(
         game_id: UUID,
         service: Annotated[OperationalImageReviewService, service_parameter],
     ) -> PendingSymbolReinferencePreviewResponse:
-        pending = service.canonical_pending_count(game_id)
+        pending = service.pending_symbol_reinference_count(game_id)
         counts = service.game_counts(game_id)
         return PendingSymbolReinferencePreviewResponse(
             game_id=game_id,
@@ -258,7 +258,7 @@ def create_image_reviews_router(
                 "IMAGE_SYMBOL_REINFERENCE_UNAVAILABLE",
                 "Pending symbol reinference is not configured.",
             )
-        pending = service.canonical_pending_count(game_id)
+        pending = service.pending_symbol_reinference_count(game_id)
         if pending == 0:
             raise JobError(
                 "IMAGE_SYMBOL_REINFERENCE_EMPTY",

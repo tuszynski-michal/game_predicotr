@@ -117,6 +117,18 @@ class BoardCellGeometryDeferredWriter:
 
         try:
             with self._session_factory() as session, session.begin():
+                from game_predictor_api.storage.lateral_reprocess_protection import (
+                    has_protected_lateral_owner,
+                )
+
+                current_job = session.get(JobModel, context.job_id)
+                if current_job is not None and has_protected_lateral_owner(
+                    session,
+                    job=current_job,
+                    sequence_number=sequence_number,
+                    source_checksum_sha256=context.source_checksum_sha256,
+                ):
+                    return
                 BoardCellGeometryPendingService(
                     SqlAlchemyBoardCellGeometryPendingRepository(session),
                     self._manifest_store,

@@ -34,7 +34,11 @@ from game_predictor_api.application.cleanup import (
 from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.grid_calibration import GridCalibrationService
+from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
+from game_predictor_api.application.image_import_geometry_guard import (
+    ImageImportGeometryGuardService,
+)
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
@@ -124,6 +128,9 @@ from game_predictor_api.application.reviewer_work_lifecycle import (
 )
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
+from game_predictor_api.application.semi_automatic_image_selections import (
+    SemiAutomaticImageSelectionService,
+)
 from game_predictor_api.application.storage_capacity import StorageCapacityGuard
 from game_predictor_api.application.storage_gc import StorageGcArtifactStore, StorageGcService
 from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
@@ -137,6 +144,8 @@ from game_predictor_api.application.verified_training_cohorts import (
     VerifiedTrainingCohortArtifactStore,
     VerifiedTrainingCohortService,
 )
+from game_predictor_api.application.virtual_cell_previews import VirtualCellPreviewService
+from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeometryService
 from game_predictor_api.application.worker_lanes import WorkerLaneStatusService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.board_search import BoardSearchError
@@ -209,6 +218,7 @@ from game_predictor_api.security.local_admin import (
     AppendOnlyAdminAuditLog,
     LocalAdminSecurityMiddleware,
     augment_admin_security_openapi,
+    loopback_origin_aliases,
 )
 from game_predictor_api.storage.board_cell_geometry_pending_repository import (
     SqlAlchemyBoardCellGeometryPendingRepository,
@@ -230,14 +240,27 @@ from game_predictor_api.storage.database import (
 from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
+from game_predictor_api.storage.game_partition_lifecycle import GamePartitionLifecycleError
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageRouter,
+    GameStorageRoutingError,
+    game_id_from_path,
+    game_storage_scope,
+)
 from game_predictor_api.storage.grid_calibration_repository import (
     SqlAlchemyGridCalibrationRepository,
 )
 from game_predictor_api.storage.grid_profile_snapshot_resolver import (
     SqlAlchemyGridProfileSnapshotResolver,
 )
+from game_predictor_api.storage.image_geometry_rollout_backfill_repository import (
+    SqlAlchemyImageGeometryRolloutBackfillRepository,
+)
 from game_predictor_api.storage.image_grid_review_repository import (
     SqlAlchemyImageGridReviewRepository,
+)
+from game_predictor_api.storage.image_import_geometry_guard_repository import (
+    SqlAlchemyImageImportGeometryGuardRepository,
 )
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
@@ -294,6 +317,9 @@ from game_predictor_api.storage.reviewer_work_assignment_repository import (
     SqlAlchemyReviewerWorkAssignmentRepository,
 )
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
+from game_predictor_api.storage.semi_automatic_image_selection_repository import (
+    SqlAlchemySemiAutomaticSelectionRepository,
+)
 from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
 from game_predictor_api.storage.symbol_cell_training_source_repository import (
     SqlAlchemySymbolCellTrainingSourceRepository,
@@ -313,6 +339,9 @@ from game_predictor_api.storage.symbol_references_repository import (
 from game_predictor_api.storage.verified_training_cohort_repository import (
     SqlAlchemyVerifiedTrainingCohortRepository,
 )
+from game_predictor_api.storage.virtual_grid_geometry_repository import (
+    SqlAlchemyVirtualGridGeometryRepository,
+)
 from game_predictor_api.storage.worker_lane_repository import (
     SqlAlchemyWorkerLaneRepository,
 )
@@ -330,6 +359,7 @@ def create_app(
     dataset_service_dependency: Callable[..., object] | None = None,
     job_service_dependency: Callable[..., object] | None = None,
     image_selection_service_dependency: Callable[..., object] | None = None,
+    semi_automatic_image_selection_service_dependency: Callable[..., object] | None = None,
     image_job_service_dependency: Callable[..., object] | None = None,
     image_folder_selection_service_dependency: Callable[..., object] | None = None,
     browser_image_selection_service_dependency: Callable[..., object] | None = None,
@@ -338,6 +368,8 @@ def create_app(
     image_storage_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
     image_grid_review_service_dependency: Callable[..., object] | None = None,
+    image_geometry_rollout_service_dependency: Callable[..., object] | None = None,
+    virtual_grid_geometry_service_dependency: Callable[..., object] | None = None,
     image_review_cohort_service_dependency: Callable[..., object] | None = None,
     layout_import_report_service_dependency: Callable[..., object] | None = None,
     mobile_release_service_dependency: Callable[..., object] | None = None,
@@ -347,6 +379,7 @@ def create_app(
     reviewer_work_lifecycle_service_dependency: Callable[..., object] | None = None,
     symbol_reference_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_query_service_dependency: Callable[..., object] | None = None,
+    virtual_cell_preview_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_mutation_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_bulk_operation_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_backfill_service_dependency: Callable[..., object] | None = None,
@@ -357,6 +390,7 @@ def create_app(
     symbol_model_registry_service_dependency: Callable[..., object] | None = None,
     grid_calibration_service_dependency: Callable[..., object] | None = None,
     page_geometry_override_service_dependency: Callable[..., object] | None = None,
+    image_import_geometry_guard_service_dependency: Callable[..., object] | None = None,
     board_cell_geometry_pending_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_host_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_access_service_dependency: Callable[..., object] | None = None,
@@ -375,6 +409,7 @@ def create_app(
             dataset_service_dependency,
             job_service_dependency,
             image_selection_service_dependency,
+            semi_automatic_image_selection_service_dependency,
             image_job_service_dependency,
             image_folder_selection_service_dependency,
             browser_image_selection_service_dependency,
@@ -383,6 +418,8 @@ def create_app(
             image_storage_service_dependency,
             image_review_service_dependency,
             image_grid_review_service_dependency,
+            image_geometry_rollout_service_dependency,
+            virtual_grid_geometry_service_dependency,
             image_review_cohort_service_dependency,
             layout_import_report_service_dependency,
             mobile_release_service_dependency,
@@ -392,6 +429,7 @@ def create_app(
             reviewer_work_lifecycle_service_dependency,
             symbol_reference_service_dependency,
             symbol_cell_review_query_service_dependency,
+            virtual_cell_preview_service_dependency,
             symbol_cell_review_mutation_service_dependency,
             symbol_cell_review_bulk_operation_service_dependency,
             symbol_cell_review_backfill_service_dependency,
@@ -402,6 +440,7 @@ def create_app(
             symbol_model_registry_service_dependency,
             grid_calibration_service_dependency,
             page_geometry_override_service_dependency,
+            image_import_geometry_guard_service_dependency,
             board_cell_geometry_pending_service_dependency,
             remote_manual_selection_host_service_dependency,
             remote_manual_selection_access_service_dependency,
@@ -416,7 +455,7 @@ def create_app(
     def default_catalog_service_dependency() -> Iterator[CatalogService]:
         with session_factory() as session:
             try:
-                yield CatalogService(SqlAlchemyCatalogRepository(session))
+                yield CatalogService(SqlAlchemyCatalogRepository(session, GameStorageRouter()))
                 session.commit()
             except BaseException:
                 session.rollback()
@@ -439,14 +478,20 @@ def create_app(
 
     def default_cleanup_service_dependency() -> Iterator[CleanupService]:
         with session_factory() as session:
+            repository = SqlAlchemyCleanupRepository(session)
+            artifact_store = ManagedCleanupArtifactStore(resolved_settings.artifact_root)
+            service = CleanupService(repository, artifact_store)
+            committed = False
             try:
-                yield CleanupService(
-                    SqlAlchemyCleanupRepository(session),
-                    ManagedCleanupArtifactStore(resolved_settings.artifact_root),
-                )
+                artifact_store.recover(repository.completed_board_source_quarantine_keys())
+                yield service
                 session.commit()
+                committed = True
+                service.finalize_committed_artifacts()
             except BaseException:
-                session.rollback()
+                if not committed:
+                    session.rollback()
+                    service.restore_uncommitted_artifacts()
                 raise
 
     resolved_cleanup_dependency = cleanup_service_dependency or default_cleanup_service_dependency
@@ -473,7 +518,13 @@ def create_app(
         with session_factory() as session:
             try:
                 yield SymbolCellReviewQueryService(
-                    SqlAlchemySymbolCellReviewQueryRepository(session)
+                    SqlAlchemySymbolCellReviewQueryRepository(session),
+                    page_statement_timeout_ms=(
+                        resolved_settings.symbol_review_page_statement_timeout_ms
+                    ),
+                    counts_statement_timeout_ms=(
+                        resolved_settings.symbol_review_counts_statement_timeout_ms
+                    ),
                 )
                 session.commit()
             except BaseException:
@@ -483,6 +534,15 @@ def create_app(
     resolved_symbol_cell_review_query_dependency = (
         symbol_cell_review_query_service_dependency
         or default_symbol_cell_review_query_service_dependency
+    )
+
+    virtual_cell_preview_service = VirtualCellPreviewService(resolved_settings.artifact_root)
+
+    def default_virtual_cell_preview_service_dependency() -> Iterator[VirtualCellPreviewService]:
+        yield virtual_cell_preview_service
+
+    resolved_virtual_cell_preview_dependency = (
+        virtual_cell_preview_service_dependency or default_virtual_cell_preview_service_dependency
     )
 
     def default_symbol_cell_review_bulk_operation_service_dependency() -> Iterator[
@@ -592,6 +652,7 @@ def create_app(
                     artifact_root=resolved_settings.artifact_root,
                 ),
                 SqlAlchemyGridProfileSnapshotResolver(session),
+                artifact_root=resolved_settings.artifact_root,
                 page_geometry_override_snapshot_resolver=PageGeometryOverrideService(
                     SqlAlchemyPageGeometryOverrideRepository(session)
                 ),
@@ -677,6 +738,28 @@ def create_app(
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
         lambda: default_browser_image_selection_service
+    )
+
+    def default_semi_automatic_image_selection_service_dependency() -> Iterator[
+        SemiAutomaticImageSelectionService
+    ]:
+        with session_factory() as session:
+            try:
+                yield SemiAutomaticImageSelectionService(
+                    SqlAlchemySemiAutomaticSelectionRepository(session),
+                    default_browser_image_selection_service,
+                    enabled=resolved_settings.semi_automatic_image_selection_enabled,
+                    artifact_root=resolved_settings.artifact_root,
+                    folder_selection=default_image_folder_selection_service,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_semi_automatic_image_selection_dependency = (
+        semi_automatic_image_selection_service_dependency
+        or default_semi_automatic_image_selection_service_dependency
     )
     default_remote_manual_selection_host_service = RemoteManualSelectionHostService(
         controlled_folder_picker,
@@ -852,6 +935,7 @@ def create_app(
                         artifact_root=resolved_settings.artifact_root,
                     ),
                     SqlAlchemyGridProfileSnapshotResolver(session),
+                    artifact_root=resolved_settings.artifact_root,
                 )
                 yield IterativeImageImportService(
                     SqlAlchemyIterativeImageImportRepository(session),
@@ -936,6 +1020,40 @@ def create_app(
 
     resolved_image_grid_review_dependency = (
         image_grid_review_service_dependency or default_image_grid_review_service_dependency
+    )
+
+    def default_image_geometry_rollout_service_dependency() -> Iterator[
+        ImageGeometryRolloutService
+    ]:
+        with session_factory() as session:
+            try:
+                yield ImageGeometryRolloutService(
+                    SqlAlchemyImageGeometryRolloutBackfillRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_geometry_rollout_dependency = (
+        image_geometry_rollout_service_dependency
+        or default_image_geometry_rollout_service_dependency
+    )
+
+    def default_virtual_grid_geometry_service_dependency() -> Iterator[VirtualGridGeometryService]:
+        with session_factory() as session:
+            try:
+                yield VirtualGridGeometryService(
+                    SqlAlchemyVirtualGridGeometryRepository(session),
+                    resolved_settings.artifact_root,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_virtual_grid_geometry_dependency = (
+        virtual_grid_geometry_service_dependency or default_virtual_grid_geometry_service_dependency
     )
 
     def default_image_review_cohort_service_dependency() -> Iterator[VerifiedCohortService]:
@@ -1034,6 +1152,25 @@ def create_app(
     resolved_page_geometry_override_dependency = (
         page_geometry_override_service_dependency
         or default_page_geometry_override_service_dependency
+    )
+
+    def default_image_import_geometry_guard_service_dependency() -> Iterator[
+        ImageImportGeometryGuardService
+    ]:
+        with session_factory() as session:
+            try:
+                yield ImageImportGeometryGuardService(
+                    SqlAlchemyImageImportGeometryGuardRepository(session),
+                    resolved_settings.artifact_root,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_import_geometry_guard_dependency = (
+        image_import_geometry_guard_service_dependency
+        or default_image_import_geometry_guard_service_dependency
     )
 
     manual_board_cell_symbol_predictor = ManualBoardCellSymbolPredictor(
@@ -1167,12 +1304,23 @@ def create_app(
             }
         ],
     )
+
+    @application.middleware("http")
+    async def bind_game_storage_request(
+        request: Request, call_next: Callable[[Request], Any]
+    ) -> Any:
+        game_id = game_id_from_path(request.url.path)
+        if game_id is None:
+            return await call_next(request)
+        with game_storage_scope(game_id):
+            return await call_next(request)
+
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            resolved_settings.admin_origin,
-            resolved_settings.reviewer_origin,
-        ],
+        allow_origins=sorted(
+            loopback_origin_aliases(resolved_settings.admin_origin)
+            | loopback_origin_aliases(resolved_settings.reviewer_origin)
+        ),
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=[
@@ -1203,6 +1351,7 @@ def create_app(
             resolved_dataset_dependency,
             resolved_job_dependency,
             resolved_image_selection_dependency,
+            resolved_semi_automatic_image_selection_dependency,
             resolved_image_job_dependency,
             resolved_image_folder_selection_dependency,
             resolved_browser_image_selection_dependency,
@@ -1211,6 +1360,8 @@ def create_app(
             resolved_image_storage_dependency,
             resolved_image_review_dependency,
             resolved_image_grid_review_dependency,
+            resolved_image_geometry_rollout_dependency,
+            resolved_virtual_grid_geometry_dependency,
             resolved_image_review_cohort_dependency,
             resolved_layout_import_report_dependency,
             resolved_mobile_release_dependency,
@@ -1220,6 +1371,7 @@ def create_app(
             resolved_reviewer_work_lifecycle_dependency,
             resolved_symbol_reference_dependency,
             resolved_symbol_cell_review_query_dependency,
+            resolved_virtual_cell_preview_dependency,
             resolved_symbol_cell_review_mutation_dependency,
             resolved_symbol_cell_review_bulk_operation_dependency,
             resolved_symbol_cell_review_backfill_dependency,
@@ -1230,6 +1382,7 @@ def create_app(
             resolved_symbol_model_registry_dependency,
             resolved_grid_calibration_dependency,
             resolved_page_geometry_override_dependency,
+            resolved_image_import_geometry_guard_dependency,
             resolved_board_cell_geometry_pending_dependency,
             resolved_remote_manual_selection_host_dependency,
             resolved_remote_manual_selection_access_dependency,
@@ -1286,6 +1439,36 @@ def create_app(
             },
         )
 
+    @application.exception_handler(GameStorageRoutingError)
+    async def handle_game_storage_routing_error(
+        _request: Request,
+        error: GameStorageRoutingError,
+    ) -> JSONResponse:
+        status_code = 409
+        if error.code == "GAME_NOT_FOUND":
+            status_code = 404
+        elif error.code in {
+            "GAME_STORAGE_LOCATION_INVALID",
+            "GAME_STORAGE_SESSION_SCOPE_CONFLICT",
+            "GAME_STORAGE_TABLE_NOT_OWNED",
+        }:
+            status_code = 500
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
+    @application.exception_handler(GamePartitionLifecycleError)
+    async def handle_game_partition_lifecycle_error(
+        _request: Request,
+        error: GamePartitionLifecycleError,
+    ) -> JSONResponse:
+        status_code = 404 if error.code == "GAME_NOT_FOUND" else 409
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
     @application.exception_handler(BoardSearchError)
     async def handle_board_search_error(
         _request: Request,
@@ -1294,8 +1477,17 @@ def create_app(
         status_code = 422
         if error.code == "GAME_NOT_FOUND":
             status_code = 404
-        elif error.code == "BOARD_SEARCH_PROJECTION_INCOMPLETE":
+        elif error.code in {
+            "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
+            "BOARD_SEARCH_ARCHIVE_ASSET_REVISION_CONFLICT",
+            "BOARD_SEARCH_ARCHIVE_ASSET_PATH_UNSAFE",
+            "BOARD_SEARCH_ARCHIVE_ASSET_MEDIA_TYPE_UNSUPPORTED",
+            "BOARD_SEARCH_ARCHIVE_ASSET_CHECKSUM_DRIFT",
+            "BOARD_SEARCH_PROJECTION_INCOMPLETE",
+        }:
             status_code = 409
+        elif error.code == "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND":
+            status_code = 404
         return JSONResponse(
             status_code=status_code,
             content={"code": error.code, "message": error.message, "details": {}},
@@ -1316,6 +1508,7 @@ def create_app(
             status_code = 404
         elif error.code in {
             "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
+            "SYMBOL_CELL_REVIEW_CATALOG_REVISION_STALE",
             "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",
             "SYMBOL_CELL_REVIEW_CURSOR_DIRECTION_CONFLICT",
             "SYMBOL_CELL_REVIEW_CURRENT_OWNER_CONFLICT",
@@ -1328,6 +1521,11 @@ def create_app(
             "SYMBOL_CELL_REVIEW_BULK_TARGET_STALE",
         }:
             status_code = 409
+        elif error.code in {
+            "SYMBOL_CELL_REVIEW_QUERY_TIMEOUT",
+            "SYMBOL_CELL_REVIEW_QUERY_CANCELLED",
+        }:
+            status_code = 503
         return JSONResponse(
             status_code=status_code,
             content={"code": error.code, "message": error.message, "details": error.details},

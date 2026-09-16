@@ -32,7 +32,11 @@ AUDIT_SCHEMA_VERSION = 1
 SAMPLE_POLICY_VERSION = "sha256-ranked-registered-pages-v1"
 DEFAULT_SAMPLE_SEED = "task-0249-v19-pre-editor-audit-v1"
 EXPECTED_PAGE_GEOMETRY_VERSIONS = frozenset(
-    {"page-geometry-preflight-v1", "page-geometry-preflight-v2-auto-anchor"}
+    {
+        "page-geometry-preflight-v1",
+        "page-geometry-preflight-v2-auto-anchor",
+        "page-geometry-preflight-v3-board-area-mask",
+    }
 )
 _SHA256 = frozenset("0123456789abcdef")
 _SEQUENCE_NAME = re.compile(

@@ -170,6 +170,7 @@ class SqlAlchemyVerifiedTrainingCohortRepository(VerifiedTrainingCohortRepositor
                 )
             for sample_order, cell in enumerate(source.cells):
                 cell_manifest = dict(cell)
+                source_geometry_revision_id = cell.get("sourceGeometryRevisionId")
                 self._session.add(
                     VerifiedTrainingCohortCellModel(
                         cohort_id=record.id,
@@ -182,6 +183,25 @@ class SqlAlchemyVerifiedTrainingCohortRepository(VerifiedTrainingCohortRepositor
                         cell_index=cast(int, cell["cellIndex"]),
                         symbol_code=cast(str, cell["symbolCode"]),
                         crop_checksum_sha256=cast(str, cell["cropChecksumSha256"]),
+                        asset_mode=cast(str, cell.get("assetMode", "legacy_file")),
+                        source_geometry_revision_id=(
+                            UUID(source_geometry_revision_id)
+                            if isinstance(source_geometry_revision_id, str)
+                            else None
+                        ),
+                        logical_cell_key=cast(str | None, cell.get("logicalCellKeySha256")),
+                        logical_cell_key_v2=cast(str | None, cell.get("logicalCellKeyV2Sha256")),
+                        render_identity_v2_sha256=cast(
+                            str | None, cell.get("renderIdentityV2Sha256")
+                        ),
+                        render_spec=cast(dict[str, object] | None, cell.get("renderSpec")),
+                        render_spec_checksum_sha256=cast(
+                            str | None, cell.get("renderSpecChecksumSha256")
+                        ),
+                        rendered_pixel_checksum_sha256=cast(
+                            str | None, cell.get("renderedPixelChecksumSha256")
+                        ),
+                        extractor_version=cast(str | None, cell.get("extractorVersion")),
                         sample_checksum_sha256=hashlib.sha256(
                             canonical_image_review_bytes(cell_manifest)
                         ).hexdigest(),

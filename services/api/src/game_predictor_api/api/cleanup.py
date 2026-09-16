@@ -7,9 +7,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from game_predictor_api.application.cleanup import CleanupService
-from game_predictor_api.domain.cleanup import CleanupCommand
+from game_predictor_api.domain.cleanup import (
+    BoardSourceCleanupSelection,
+    CleanupCommand,
+)
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.cleanup import (
+    BoardSourceCleanupCommandRequest,
+    BoardSourceCleanupPreviewRequest,
     CleanupCommandRequest,
     CleanupPreviewResponse,
     CleanupResultResponse,
@@ -99,7 +104,54 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
             )
         )
 
+    @router.post(
+        "/games/{game_id}/board-source-cleanup-preview",
+        response_model=CleanupPreviewResponse,
+        operation_id="previewBoardSourceCleanup",
+        summary="Preview deletion of complete image-source ranges selected by board number",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_board_source_cleanup(
+        game_id: UUID,
+        payload: BoardSourceCleanupPreviewRequest,
+        service: Annotated[CleanupService, service_parameter],
+    ) -> CleanupPreviewResponse:
+        return CleanupPreviewResponse.from_domain(
+            service.preview_board_sources(
+                game_id,
+                _selection(payload.sequence_numbers),
+            )
+        )
+
+    @router.delete(
+        "/games/{game_id}/board-sources",
+        response_model=CleanupResultResponse,
+        operation_id="deleteBoardSourceRanges",
+        summary="Delete complete image-source ranges and their dependent board data",
+        responses=ERROR_RESPONSES,
+    )
+    def delete_board_source_ranges(
+        game_id: UUID,
+        payload: BoardSourceCleanupCommandRequest,
+        service: Annotated[CleanupService, service_parameter],
+    ) -> CleanupResultResponse:
+        return CleanupResultResponse.from_domain(
+            service.delete_board_sources(
+                game_id,
+                _selection(payload.sequence_numbers),
+                CleanupCommand(
+                    preview_token=payload.preview_token,
+                    confirmation_target=payload.confirmation_target,
+                    confirmed=payload.confirmed,
+                ),
+            )
+        )
+
     return router
+
+
+def _selection(sequence_numbers: tuple[int, ...]) -> BoardSourceCleanupSelection:
+    return BoardSourceCleanupSelection(tuple(sorted(set(sequence_numbers))))
 
 
 __all__ = ["create_cleanup_router"]

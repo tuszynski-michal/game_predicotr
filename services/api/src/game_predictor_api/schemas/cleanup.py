@@ -12,8 +12,16 @@ from game_predictor_api.schemas.catalog import ApiModel
 
 class CleanupCommandRequest(ApiModel):
     preview_token: str = Field(pattern=r"^[0-9a-f]{64}$")
-    confirmation_target: str = Field(min_length=1, max_length=200)
+    confirmation_target: str = Field(min_length=1, max_length=20_000)
     confirmed: bool
+
+
+class BoardSourceCleanupPreviewRequest(ApiModel):
+    sequence_numbers: tuple[int, ...] = Field(min_length=1, max_length=500)
+
+
+class BoardSourceCleanupCommandRequest(CleanupCommandRequest):
+    sequence_numbers: tuple[int, ...] = Field(min_length=1, max_length=500)
 
 
 class CleanupCountResponse(ApiModel):
@@ -31,6 +39,7 @@ class CleanupPreviewResponse(ApiModel):
     artifact_paths: tuple[str, ...]
     retained_shared_artifact_count: int
     blockers: tuple[str, ...]
+    warnings: tuple[str, ...]
 
     @classmethod
     def from_domain(cls, preview: CleanupPreview) -> CleanupPreviewResponse:
@@ -45,6 +54,7 @@ class CleanupPreviewResponse(ApiModel):
             artifact_paths=snapshot.artifact_paths,
             retained_shared_artifact_count=snapshot.retained_shared_artifact_count,
             blockers=snapshot.blockers,
+            warnings=snapshot.warnings,
         )
 
 
@@ -76,6 +86,8 @@ class CleanupResultResponse(ApiModel):
 
 __all__ = [
     "CleanupCommandRequest",
+    "BoardSourceCleanupCommandRequest",
+    "BoardSourceCleanupPreviewRequest",
     "CleanupCountResponse",
     "CleanupPreviewResponse",
     "CleanupResultResponse",

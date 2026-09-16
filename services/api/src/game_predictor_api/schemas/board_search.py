@@ -6,7 +6,11 @@ from uuid import UUID
 
 from pydantic import Field
 
-from game_predictor_api.domain.board_search import BoardSearchResult, BoardSearchScope
+from game_predictor_api.domain.board_search import (
+    BoardSearchAssetMode,
+    BoardSearchResult,
+    BoardSearchScope,
+)
 from game_predictor_api.schemas.catalog import ApiModel
 
 
@@ -20,9 +24,10 @@ class BoardSearchScoreResponse(ApiModel):
 
 
 class BoardSearchResultResponse(ApiModel):
-    review_item_id: UUID
-    recognized_board_id: UUID
-    import_job_id: UUID
+    asset_mode: BoardSearchAssetMode
+    review_item_id: UUID | None
+    recognized_board_id: UUID | None
+    import_job_id: UUID | None
     sequence_number: int = Field(ge=1)
     status: str
     board_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -49,6 +54,7 @@ def to_board_search_response(
         query_cell_count=query_cell_count,
         results=tuple(
             BoardSearchResultResponse(
+                asset_mode=result.asset_mode,
                 review_item_id=result.review_item_id,
                 recognized_board_id=result.recognized_board_id,
                 import_job_id=result.import_job_id,

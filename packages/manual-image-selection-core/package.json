@@ -6,9 +6,45 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./manual-grid-qualification": {
+      "types": "./src/manual-grid-qualification.ts",
+      "default": "./src/manual-grid-qualification.ts"
+    },
+    "./crop-preparation": {
+      "types": "./src/crop-preparation.ts",
+      "default": "./src/crop-preparation.ts"
+    },
+    "./auto-crop-v11-boundaries": {
+      "types": "./src/auto-crop-v11-boundaries.ts",
+      "default": "./src/auto-crop-v11-boundaries.ts"
+    },
+    "./auto-crop-v11": {
+      "types": "./src/auto-crop-v11.ts",
+      "default": "./src/auto-crop-v11.ts"
+    },
+    "./auto-crop-v12-registration": {
+      "types": "./src/auto-crop-v12-registration.ts",
+      "default": "./src/auto-crop-v12-registration.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./repair": {
+      "types": "./src/repair.ts",
+      "default": "./src/repair.ts"
+    },
+    "./crop": {
+      "types": "./src/crop.ts",
+      "default": "./src/crop.ts"
+    },
+    "./auto-crop": {
+      "types": "./src/auto-crop.ts",
+      "default": "./src/auto-crop.ts"
+    },
+    "./crop-session": {
+      "types": "./src/crop-session.ts",
+      "default": "./src/crop-session.ts"
     }
   },
   "scripts": {

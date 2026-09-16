@@ -83,9 +83,9 @@ def test_build_cohort_filters_short_views_and_writes_manifest(tmp_path: Path) ->
     source.mkdir()
     Image.new("RGB", (96, 96), (20, 40, 80)).save(source / "a.jpg", "JPEG")
     Image.new("RGB", (96, 96), (20, 40, 80)).save(source / "b.jpg", "JPEG")
-    output["items"][0]["imageChecksum"] = __import__("hashlib").sha256(
-        (source / "a.jpg").read_bytes()
-    ).hexdigest()
+    output["items"][0]["imageChecksum"] = (
+        __import__("hashlib").sha256((source / "a.jpg").read_bytes()).hexdigest()
+    )
 
     cohort, preview = build_ranking_cohort(trace, output, source_roots=(source,))
 
@@ -115,3 +115,89 @@ def test_train_ranker_exports_shadow_snapshot(tmp_path: Path) -> None:
     assert model_path.is_file()
     features = [sample["features"] for sample in cohort["samples"]]
     assert sorted(shadow_rank(snapshot, features, model_path=model_path)) == [0, 1]
+
+
+def test_build_cohort_merges_visible_repair_fill_and_ignores_deleted_trace(
+    tmp_path: Path,
+) -> None:
+    trace, output = _manifests()
+    source = tmp_path / "source"
+    source.mkdir()
+    selected = source / "repair.jpg"
+    candidate = source / "candidate.jpg"
+    Image.new("RGB", (96, 96), (30, 60, 90)).save(selected, "JPEG")
+    Image.new("RGB", (96, 96), (90, 40, 20)).save(candidate, "JPEG")
+    checksum = __import__("hashlib").sha256(selected.read_bytes()).hexdigest()
+    output["items"] = [
+        {
+            "imageChecksum": checksum,
+            "imagePath": "repair.jpg",
+            "outputName": "seq_10-18.jpg",
+            "rangeEnd": 18,
+            "rangeStart": 10,
+        }
+    ]
+    trace["events"] = [
+        {
+            "decoded": True,
+            "eventIndex": 0,
+            "gameId": "game-1",
+            "imagePath": "candidate.jpg",
+            "kind": "viewed",
+            "rangeEnd": 18,
+            "rangeStart": 10,
+            "sessionKey": "session-1",
+            "sourceIndex": 1,
+            "visibleMilliseconds": 500,
+        }
+    ]
+    repair_trace = {
+        "schemaVersion": "manual-image-selection-repair-trace-v1",
+        "repairKey": "repair-1",
+        "events": [
+            {
+                "decoded": True,
+                "eventIndex": 0,
+                "kind": "viewed",
+                "rangeEnd": 18,
+                "rangeStart": 10,
+                "sourceIndex": 0,
+                "sourcePath": "repair.jpg",
+                "visibleMilliseconds": 500,
+            },
+            {
+                "decoded": True,
+                "eventIndex": 1,
+                "kind": "fill",
+                "rangeEnd": 18,
+                "rangeStart": 10,
+                "sourceIndex": 0,
+                "sourcePath": "repair.jpg",
+                "visibleMilliseconds": 500,
+            },
+            {
+                "decoded": True,
+                "eventIndex": 2,
+                "kind": "delete",
+                "rangeEnd": 9,
+                "rangeStart": 1,
+                "sourceIndex": 3,
+                "sourcePath": "deleted.jpg",
+                "visibleMilliseconds": 500,
+            },
+        ],
+    }
+
+    cohort, preview = build_ranking_cohort(
+        trace,
+        output,
+        source_roots=(source,),
+        repair_trace_manifest=repair_trace,
+    )
+
+    assert preview.group_count == 1
+    assert preview.reliable_pair_count == 1
+    assert {sample["sourceRelativePath"] for sample in cohort["samples"]} == {
+        "candidate.jpg",
+        "repair.jpg",
+    }

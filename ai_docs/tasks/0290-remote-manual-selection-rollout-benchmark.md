@@ -1,7 +1,7 @@
 ---
 title: TASK-0290 — Benchmark i kontrolowany rollout zdalnej ręcznej selekcji
 status: blocked
-last_updated: 2026-08-27
+last_updated: 2026-08-31
 ---
 
 # TASK-0290 — Benchmark i kontrolowany rollout zdalnej ręcznej selekcji
@@ -64,6 +64,18 @@ ani kopiowania JPEG-ów do repozytorium.
 - [ ] Etap 4/5 nie może zostać uruchomiony ani zaliczony przypadkiem.
 
 ## Progress
+
+### 2026-08-31 — trwałe wznowienie malejącego operator-local
+
+- Wynik operator-local zapisuje jawną semantykę naturalnej kolejności źródła,
+  więc ponowne wskazanie katalogów nie interpretuje poprawnego indeksu jako
+  historycznie odwróconego.
+- Starszy malejący manifest bez znacznika jest naprawiany od następnego
+  naturalnego zdjęcia po ostatniej zaakceptowanej decyzji. Pominięty zakres nie
+  przesuwa kursora zdjęć podczas migracji.
+- Celowane oraz pełne testy Reviewera potwierdzają, że `→`/Enter zachowują
+  naturalny kierunek po wznowieniu, a aktualny malejący manifest zachowuje
+  dokładnie zapisany indeks.
 
 ### v0.8.62 — niezależny porządek źródła i numeracji
 
@@ -444,3 +456,7 @@ nie uruchamia Quick Tunnel, transferu ani dodatkowych etapów benchmarku.
 Pion `v0.7.75` ukończono lokalnie: cache kodu właściciela, stałe dane dostępu
 sesji oraz testy Admina nie zmieniają API, modelu danych, ruchu przez Quick
 Tunnel ani benchmarkowych etapów TASK-0290.
+
+Poprawka z 2026-08-31 zamyka regresję wznowienia malejącego workflow
+operator-local. Nie zmienia statusu rolloutowego zadania i nie uruchamia
+publicznego tunelu ani transferu JPEG-ów do hosta.

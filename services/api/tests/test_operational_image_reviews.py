@@ -422,6 +422,7 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             recalculable_board_count=len(pending) - len(current),
             current_v19_board_count=len(current),
             protected_board_count=len(items) - len(pending),
+            unsupported_virtual_board_count=0,
             pending_source_count=len(pending),
             partially_resolved_source_count=0,
             fully_resolved_source_count=len(items) - len(pending),
@@ -574,6 +575,7 @@ def test_pending_grid_preview_distinguishes_v19_from_recalculable_pending_boards
     assert payload["recalculableBoardCount"] == 2
     assert payload["currentV19BoardCount"] == 1
     assert payload["protectedBoardCount"] == 0
+    assert payload["unsupportedVirtualBoardCount"] == 0
     assert payload["geometryVersion"] == ("board-cell-geometry-v19-multi-point-source-direct-v1")
     assert payload["cropperVersion"] == (
         "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"

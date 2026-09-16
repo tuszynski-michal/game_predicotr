@@ -2,8 +2,8 @@ import type {
   BoardCellGeometryJobCountsResponse,
   BrowserReadySelectionResponse,
   GameResponse,
+  ImageGridReviewPageResponse,
   JobResponse,
-  OperationalImageReviewCountsResponse,
 } from '@game-predictor/admin-api-client';
 
 const REVIEW_READY_STATUSES = new Set<JobResponse['status']>([
@@ -61,14 +61,21 @@ export function hasImageImport(
 }
 
 export function hasReviewerWork(
-  reviewCounts: OperationalImageReviewCountsResponse | null,
+  gridReviewCounts: ImageGridReviewPageResponse['counts'] | null,
   deferredGeometryCounts: BoardCellGeometryJobCountsResponse | null,
 ): boolean {
   return (
-    reviewCounts !== null &&
+    gridReviewCounts !== null &&
     deferredGeometryCounts !== null &&
-    (reviewCounts.total > 0 || deferredGeometryCounts.pending > 0)
+    (gridReviewTotal(gridReviewCounts) > 0 ||
+      deferredGeometryCounts.pending > 0)
   );
+}
+
+export function gridReviewTotal(
+  counts: ImageGridReviewPageResponse['counts'],
+): number {
+  return counts.needsValidation + counts.needsCorrection + counts.approved;
 }
 
 export function readyBoardImportStaging(

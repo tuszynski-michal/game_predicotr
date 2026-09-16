@@ -1,0 +1,11 @@
+{
+  "archiveFingerprint": "7053d7ac8db72583fd930d66289a8951b2bdfba96f62be5e2ef5f8431e7f15ff",
+  "documentCount": 369554,
+  "gameId": "80f3c7ec-6110-4e20-a263-2675ee5b15d6",
+  "mode": "preview",
+  "policyVersion": "legacy-board-search-archive-v1",
+  "sequenceEnd": 499995,
+  "sequenceStart": 45163,
+  "sourcePreviewFingerprint": "2250d49f71cd937218222dae3dd62f108ffd7cc5992f3eb4a315a69ad19d19e4",
+  "status": "ready_to_execute"
+}

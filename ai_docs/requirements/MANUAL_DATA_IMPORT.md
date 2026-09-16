@@ -202,3 +202,37 @@ wykrytą podczas samego odczytu.
 - publikacja nie uruchamia automatycznie payoutów, snapshotu ani Android build;
   istniejący release pipeline używa nowego datasetu w kolejnych jawnych
   operacjach.
+
+## Inkrementalny preflight geometrii obrazów
+
+Preflight `page_geometry_preflight` może użyć ukończonego manifestu tej samej
+gry, selekcji źródłowej i checksummy source manifestu. API przypina dokładny
+job, checksumę manifestu i tryb zgodności do niezmiennego inputu nowego joba.
+Brak zgodnego manifestu oznacza pełne przetwarzanie; przypięty manifest, którego
+nie można zweryfikować, kończy job stabilnym błędem.
+
+- zgodność `exact_policy` zachowuje niezmienione wyniki `registered` i
+  `skipped_human_resolved`, ale przelicza review, zmienione ręczne geometrie i
+  wyniki zależne od zmienionej albo usuniętej kotwicy,
+- przejście `lateral_v2_to_v3` zachowuje automatyczne wyniki z zerem albo co
+  najmniej czterema słabymi ramkami; wyniki z 1–3 słabymi ramkami oraz review
+  są przeliczane,
+- po wycofaniu v3 przejście `lateral_v3_to_v2` zachowuje tylko automatyczne
+  `registered` z proweniencją kotwicy; wyniki review, w tym propozycje słabych
+  obramowań, są przeliczane polityką v2,
+- ręczny wynik jest używany ponownie tylko przy zgodnym identyfikatorze,
+  rewizji i checksumie decyzji,
+- tożsamość ręcznych kotwic spoza bieżącej selekcji jest przypięta do joba;
+  brak dowodu jej niezmienności wymusza przeliczenie wyników zależnych,
+- przeliczenie dowolnego źródła użytego jako kotwica unieważnia wszystkie
+  zależne wyniki, także pośrednio przez automatycznie promowane kotwice,
+- worker zapisuje wyniki partiami po 25 jako checksummowane shardy, następnie
+  atomowo publikuje indeks i dopiero potem checkpoint bazy,
+- wznowienie weryfikuje fingerprint inputu, inwentarz źródeł i checksumy
+  shardów; trwały stan plikowy może wyprzedzać checkpoint bazy po utracie
+  odpowiedzi,
+- zakończony checkpoint pozostaje śladem audytowym i wskazuje końcowy manifest.
+
+Równoległe dopasowanie używa istniejącego budżetu CPU workera, po przygotowaniu
+cache kotwic tylko do odczytu. Wyniki są publikowane w naturalnej kolejności
+źródeł, niezależnie od kolejności zakończenia wątków.

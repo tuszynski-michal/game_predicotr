@@ -20,10 +20,22 @@ from game_predictor_api.domain.catalog import (
     SymbolUsageSummary,
     stable_code_stem_from_name,
 )
+from game_predictor_api.storage.game_data_v2_manifest_v1 import CREATE_TABLES
+from game_predictor_api.storage.game_partition_lifecycle import (
+    GamePartitionLifecycleError,
+    GamePartitionLifecycleKind,
+    GamePartitionLifecycleRepository,
+)
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageLocation,
+    GameStorageRouter,
+    GameStorageStatus,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
     GameSymbolModelActivationModel,
+    ImageGeometryRolloutStateModel,
     ImageReviewItemModel,
     ImageSymbolReviewCellModel,
     ImageSymbolReviewEventModel,
@@ -54,18 +66,34 @@ _CONFLICTS = {
 
 
 class SqlAlchemyCatalogRepository(CatalogRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, storage_router: GameStorageRouter | None = None) -> None:
         self._session = session
+        self._storage_router = storage_router
 
     def list_games(self) -> list[Game]:
         records = self._session.scalars(
             select(GameModel).order_by(GameModel.created_at, GameModel.id)
         )
-        return [_to_game(record) for record in records]
+        materialized = list(records)
+        locations = (
+            self._storage_router.describe_many(
+                self._session, tuple(record.id for record in materialized)
+            )
+            if self._storage_router is not None
+            else {}
+        )
+        return [_to_game(record, locations.get(record.id)) for record in materialized]
 
     def get_game(self, game_id: UUID) -> Game | None:
         record = self._session.get(GameModel, game_id)
-        return None if record is None else _to_game(record)
+        if record is None:
+            return None
+        location = (
+            self._storage_router.describe(self._session, game_id)
+            if self._storage_router is not None
+            else None
+        )
+        return _to_game(record, location)
 
     def add_game(
         self,
@@ -75,6 +103,19 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         status: GameStatus,
         expected_layout_count: int,
     ) -> Game:
+        record = self._session.scalar(select(GameModel).where(GameModel.code == code))
+        if record is not None:
+            if not self._is_resumable_create(
+                record,
+                name=name,
+                status=status,
+                expected_layout_count=expected_layout_count,
+            ):
+                raise CatalogConflictError(
+                    "GAME_CODE_ALREADY_EXISTS", "A game with this code already exists."
+                )
+            return self._provision_v2_game(record)
+
         record = GameModel(
             code=code,
             name=name,
@@ -83,8 +124,73 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         )
         self._session.add(record)
         self._flush_or_raise_conflict()
+        if (
+            self._storage_router is not None
+            and self._session.connection().dialect.name == "postgresql"
+        ):
+            return self._provision_v2_game(record)
+
+        location = None
+        self._session.add(
+            ImageGeometryRolloutStateModel(
+                game_id=record.id,
+                geometry_mode="legacy",
+                cell_asset_mode="legacy_files",
+                revision=0,
+                backfill_status="not_started",
+                updated_by="system:catalog-game-create",
+            )
+        )
+        self._flush_or_raise_conflict()
         self._session.refresh(record)
-        return _to_game(record)
+        return _to_game(record, location)
+
+    def _provision_v2_game(self, record: GameModel) -> Game:
+        assert self._storage_router is not None
+        lifecycle = GamePartitionLifecycleRepository(self._session)
+        receipt = lifecycle.start_or_resume(
+            game_id=record.id,
+            kind=GamePartitionLifecycleKind.PROVISION,
+        )
+        operation_id = receipt.operation_id
+        self._session.commit()
+        for _ in range(len(CREATE_TABLES) + 2):
+            try:
+                receipt = GamePartitionLifecycleRepository(self._session).run_next(operation_id)
+            except GamePartitionLifecycleError:
+                # Domain drift is deliberately persisted as `blocked`; the
+                # outer request rollback must not erase that diagnostic.
+                self._session.commit()
+                raise
+            self._session.commit()
+            if receipt.status == "done":
+                location = self._storage_router.describe(self._session, record.id)
+                if (
+                    location.status is not GameStorageStatus.ACTIVE
+                    or not location.write_available
+                ):
+                    raise RuntimeError("Provisioned game storage did not become writable.")
+                self._session.refresh(record)
+                return _to_game(record, location)
+        raise RuntimeError("Game partition provisioning exceeded the frozen manifest bound.")
+
+    def _is_resumable_create(
+        self,
+        record: GameModel,
+        *,
+        name: str,
+        status: GameStatus,
+        expected_layout_count: int,
+    ) -> bool:
+        if self._storage_router is None:
+            return False
+        location = self._storage_router.describe(self._session, record.id)
+        return (
+            location.status is GameStorageStatus.MIGRATING
+            and record.name == name
+            and record.status == status
+            and record.expected_layout_count == expected_layout_count
+        )
 
     def save_game(self, game: Game) -> Game:
         record = self._session.get(GameModel, game.id)
@@ -95,7 +201,12 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record.expected_layout_count = game.expected_layout_count
         record.updated_at = datetime.now(UTC)
         self._flush_or_raise_conflict()
-        return _to_game(record)
+        location = (
+            self._storage_router.describe(self._session, game.id)
+            if self._storage_router is not None
+            else None
+        )
+        return _to_game(record, location)
 
     def list_symbols(self, game_id: UUID) -> list[Symbol]:
         records = self._session.execute(
@@ -351,7 +462,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             raise CatalogConflictError(code, message) from error
 
 
-def _to_game(record: GameModel) -> Game:
+def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> Game:
     return Game(
         id=record.id,
         code=record.code,
@@ -360,6 +471,11 @@ def _to_game(record: GameModel) -> Game:
         expected_layout_count=record.expected_layout_count,
         created_at=record.created_at,
         updated_at=record.updated_at,
+        storage_version=(storage.storage_version if storage is not None else "legacy-public-v1"),
+        storage_schema=(storage.store_schema.value if storage is not None else "public"),
+        storage_generation=(storage.generation if storage is not None else 1),
+        storage_status=(storage.status.value if storage is not None else "active"),
+        storage_write_available=(storage.write_available if storage is not None else True),
     )
 
 

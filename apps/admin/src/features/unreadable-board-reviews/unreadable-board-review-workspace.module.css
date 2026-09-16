@@ -5,7 +5,8 @@
 
 .header,
 .boardHeader,
-.pagination {
+.pagination,
+.saveBar {
   align-items: center;
   display: flex;
   gap: 1rem;
@@ -57,18 +58,61 @@
   padding: 0.65rem;
 }
 
-.cell img {
+.cellUnreadable {
+  border-color: rgb(190 195 205 / 55%);
+}
+
+.imageFrame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.imageFrame img {
+  display: block;
   aspect-ratio: 1;
   background: #111;
-  border-radius: 8px;
   height: auto;
   object-fit: contain;
   width: 100%;
 }
 
+.unreadableShade {
+  position: absolute;
+  inset: 0;
+  background: rgb(190 195 205 / 20%);
+  pointer-events: none;
+}
+
+.unreadableBadge {
+  position: absolute;
+  top: 0.35rem;
+  left: 50%;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: 6px;
+  background: rgb(45 49 58 / 88%);
+  color: #fff;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
 .cell select {
   min-width: 0;
   width: 100%;
+}
+
+.saveBar {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.saveBar p {
+  margin: 0;
 }
 
 .position,

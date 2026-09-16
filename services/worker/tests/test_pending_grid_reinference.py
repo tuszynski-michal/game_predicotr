@@ -245,6 +245,7 @@ def test_v2_conditional_write_rejects_every_resolved_status(status: str) -> None
         board_geometry=snapshot.board_geometry,
         board_relative_path=snapshot.board_relative_path,
         board_checksum_sha256=snapshot.board_checksum_sha256,
+        asset_mode="legacy_file",
     )
 
     assert not _pending_projection_matches(snapshot, item=item, board=board)
@@ -285,6 +286,7 @@ def test_v2_conditional_write_requires_unchanged_resolution_and_geometry_revisio
         board_geometry=snapshot.board_geometry,
         board_relative_path=snapshot.board_relative_path,
         board_checksum_sha256=snapshot.board_checksum_sha256,
+        asset_mode="legacy_file",
     )
 
     assert _pending_projection_matches(snapshot, item=item, board=board)
@@ -292,6 +294,50 @@ def test_v2_conditional_write_requires_unchanged_resolution_and_geometry_revisio
     assert not _pending_projection_matches(snapshot, item=item, board=board)
     item.resolution_revision -= 1
     board.geometry_revision += 1
+    assert not _pending_projection_matches(snapshot, item=item, board=board)
+
+
+def test_v2_conditional_write_rejects_virtual_or_human_approved_geometry() -> None:
+    snapshot = _PendingBoardSnapshot(
+        review_item_id=uuid4(),
+        resolution_revision=0,
+        recognized_board_id=uuid4(),
+        geometry_revision=0,
+        source_image_id=uuid4(),
+        import_job_id=uuid4(),
+        source_order_index=0,
+        sequence_number=1,
+        position_index=0,
+        board_geometry={"quad": []},
+        board_relative_path="board.png",
+        board_checksum_sha256="b" * 64,
+        source_relative_path="source.jpg",
+        source_checksum_sha256="a" * 64,
+        source_width=100,
+        source_height=100,
+    )
+    item = ImageReviewItemModel(
+        id=snapshot.review_item_id,
+        recognized_board_id=snapshot.recognized_board_id,
+        status="pending",
+        snapshot={},
+        resolution_revision=snapshot.resolution_revision,
+    )
+    board = RecognizedBoardModel(
+        id=snapshot.recognized_board_id,
+        source_image_id=snapshot.source_image_id,
+        position_index=snapshot.position_index,
+        sequence_number=snapshot.sequence_number,
+        geometry_revision=snapshot.geometry_revision,
+        board_geometry=snapshot.board_geometry,
+        board_relative_path=snapshot.board_relative_path,
+        board_checksum_sha256=snapshot.board_checksum_sha256,
+        asset_mode="virtual_source",
+    )
+
+    assert not _pending_projection_matches(snapshot, item=item, board=board)
+    board.asset_mode = "legacy_file"
+    board.approved_geometry_revision = snapshot.geometry_revision
     assert not _pending_projection_matches(snapshot, item=item, board=board)
 
 

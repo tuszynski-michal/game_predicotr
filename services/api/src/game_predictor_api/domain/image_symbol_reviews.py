@@ -48,11 +48,13 @@ class SymbolCellReviewAction(StrEnum):
     APPROVE = "approve"
     REASSIGN = "reassign"
     MARK_GRID_ISSUE = "mark_grid_issue"
+    MARK_BLURRY = "mark_blurry"
     MARK_UNREADABLE = "mark_unreadable"
 
 
 class SymbolCellQualityIssue(StrEnum):
     GRID_ISSUE = "grid_issue"
+    BLURRY = "blurry"
     UNREADABLE = "unreadable"
 
 
@@ -66,6 +68,7 @@ class SymbolCellReviewFilterState(StrEnum):
     """A bounded read filter for current symbol-cell review state."""
 
     ALL = "all"
+    ACTIVE_MODEL_COHORT = "active_model_cohort"
     APPROVED = "approved"
     PENDING = "pending"
 
@@ -96,12 +99,57 @@ class SymbolCellReviewListFilter:
     """One local-admin list scope.
 
     ``symbol_id=None`` means the deliberate synthetic ``unknown`` (`?`)
-    filter, never an unfiltered scan of a whole game.
+    filter unless ``include_all_symbols`` is set.  The explicit flag keeps the
+    historical unknown scope distinct from the game-wide crop view.
     """
 
     game_id: UUID
     symbol_id: UUID | None
     state: SymbolCellReviewFilterState
+    min_confidence: float | None = None
+    max_confidence: float | None = None
+    include_all_symbols: bool = False
+    model_cohort_id: UUID | None = None
+    storage_generation: int = 1
+    uses_current_projection: bool = False
+
+    def __post_init__(self) -> None:
+        if self.storage_generation < 1:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_STORAGE_GENERATION_INVALID",
+                "The symbol-cell review storage generation must be positive.",
+            )
+        if self.include_all_symbols and self.symbol_id is not None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_SYMBOL_FILTER_INVALID",
+                "A game-wide crop filter cannot also select one symbol.",
+            )
+        if (
+            self.state is not SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
+            and self.model_cohort_id is not None
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_MODEL_COHORT_SCOPE_INVALID",
+                "A model cohort id is valid only for the active-model cohort filter.",
+            )
+        for name, value in (
+            ("min_confidence", self.min_confidence),
+            ("max_confidence", self.max_confidence),
+        ):
+            if value is not None and (isinstance(value, bool) or not 0.0 <= value <= 1.0):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CONFIDENCE_INVALID",
+                    f"{name} must be a number between 0 and 1.",
+                )
+        if (
+            self.min_confidence is not None
+            and self.max_confidence is not None
+            and self.min_confidence > self.max_confidence
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_CONFIDENCE_RANGE_INVALID",
+                "min_confidence cannot be greater than max_confidence.",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +177,9 @@ class SymbolCellReviewListItem:
     crop_sample_id: str
     crop_checksum_sha256: str
     board_status: str
+    prediction_confidence: float | None = None
+    asset_mode: str = "legacy_file"
+    render_spec_checksum_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if self.sequence_number < 1:
@@ -141,10 +192,18 @@ class SymbolCellReviewListItem:
             raise ValueError("review and geometry revisions cannot be negative")
         if not _is_sha256(self.crop_sample_id) or not _is_sha256(self.crop_checksum_sha256):
             raise ValueError("crop identity must contain SHA-256 digests")
+        if self.prediction_confidence is not None and not 0.0 <= self.prediction_confidence <= 1.0:
+            raise ValueError("prediction_confidence must be between 0 and 1")
+        if self.asset_mode not in {"legacy_file", "virtual_source"}:
+            raise ValueError("asset_mode must be legacy_file or virtual_source")
+        if self.asset_mode == "virtual_source" and not _is_sha256(
+            self.render_spec_checksum_sha256 or ""
+        ):
+            raise ValueError("virtual_source requires a render spec checksum")
 
     @property
-    def cursor_key(self) -> tuple[int, int, str]:
-        return (self.sequence_number, self.cell_index, str(self.review_item_id))
+    def cursor_key(self) -> tuple[int, int, UUID]:
+        return (self.sequence_number, self.cell_index, self.cell_review_id)
 
     @property
     def is_unknown(self) -> bool:
@@ -167,10 +226,19 @@ class SymbolCellReviewCounts:
 @dataclass(frozen=True, slots=True)
 class SymbolCellReviewPage:
     items: tuple[SymbolCellReviewListItem, ...]
-    counts: SymbolCellReviewCounts
     catalog_revision: int
     next_cursor: str | None
     previous_cursor: str | None
+
+    def __post_init__(self) -> None:
+        if self.catalog_revision < 0:
+            raise ValueError("catalog_revision cannot be negative")
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolCellReviewCountSnapshot:
+    counts: SymbolCellReviewCounts
+    catalog_revision: int
 
     def __post_init__(self) -> None:
         if self.catalog_revision < 0:
@@ -182,16 +250,51 @@ class SymbolCellReviewAsset:
     """Current, checksum-bound crop metadata after owner verification."""
 
     cell_review_id: UUID
-    crop_relative_path: str
+    crop_relative_path: str | None
     crop_checksum_sha256: str
     geometry_revision: int
     current_geometry_revision: int
+    revision: int = 0
+    asset_mode: str = "legacy_file"
+    source_checksum_sha256: str | None = None
+    normalized_pixel_checksum_sha256: str | None = None
+    source_geometry_revision_id: UUID | None = None
+    current_source_geometry_revision_id: UUID | None = None
+    geometry_checksum_sha256: str | None = None
+    logical_cell_key: str | None = None
+    render_spec: Mapping[str, object] | None = None
+    render_spec_checksum_sha256: str | None = None
+    rendered_pixel_checksum_sha256: str | None = None
+    extractor_version: str | None = None
 
     def __post_init__(self) -> None:
         if not _is_sha256(self.crop_checksum_sha256):
             raise ValueError("crop_checksum_sha256 must be a SHA-256 digest")
-        if self.geometry_revision < 0 or self.current_geometry_revision < 0:
+        if min(self.geometry_revision, self.current_geometry_revision, self.revision) < 0:
             raise ValueError("geometry revisions cannot be negative")
+        if self.asset_mode == "legacy_file":
+            if not self.crop_relative_path:
+                raise ValueError("legacy symbol-cell assets require a crop path")
+            return
+        if self.asset_mode != "virtual_source":
+            raise ValueError("asset_mode must be legacy_file or virtual_source")
+        required_checksums = (
+            self.source_checksum_sha256,
+            self.normalized_pixel_checksum_sha256,
+            self.geometry_checksum_sha256,
+            self.logical_cell_key,
+            self.render_spec_checksum_sha256,
+            self.rendered_pixel_checksum_sha256,
+        )
+        if (
+            self.crop_relative_path is not None
+            or self.source_geometry_revision_id is None
+            or self.current_source_geometry_revision_id is None
+            or self.render_spec is None
+            or not self.extractor_version
+            or not all(value is not None and _is_sha256(value) for value in required_checksums)
+        ):
+            raise ValueError("virtual symbol-cell assets require complete render provenance")
 
 
 @dataclass(frozen=True, slots=True)
@@ -200,10 +303,11 @@ class SymbolCellCropIdentity:
 
     cell_index: int
     crop_sample_id: str
-    crop_relative_path: str
+    crop_relative_path: str | None
     crop_checksum_sha256: str
     geometry_revision: int
     cropper_version: str
+    asset_mode: str = "legacy_file"
 
     def __post_init__(self) -> None:
         if self.cell_index < 0:
@@ -216,10 +320,22 @@ class SymbolCellCropIdentity:
                 "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
                 "A symbol-cell crop identity requires SHA-256 sample and crop checksums.",
             )
-        if not self.crop_relative_path or self.crop_relative_path.startswith(("/", "\\")):
+        if self.asset_mode == "legacy_file":
+            if not self.crop_relative_path or self.crop_relative_path.startswith(("/", "\\")):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
+                    "A legacy symbol-cell crop path must be a non-empty relative path.",
+                )
+        elif self.asset_mode == "virtual_source":
+            if self.crop_relative_path is not None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
+                    "A virtual symbol-cell crop identity cannot name a crop file.",
+                )
+        else:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
-                "A symbol-cell crop path must be a non-empty relative path.",
+                "A symbol-cell crop identity has an unsupported asset mode.",
             )
         if self.geometry_revision < 0:
             raise SymbolCellReviewError(
@@ -310,6 +426,14 @@ class SymbolCellReview:
                 "A crop marked with a grid issue must remain pending.",
             )
         if (
+            quality_issue is SymbolCellQualityIssue.BLURRY
+            and self.review_state is not SymbolCellReviewState.APPROVED
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_BLURRY_STATE_INVALID",
+                "A blurry crop keeps its recognized label approved.",
+            )
+        if (
             self.review_state is SymbolCellReviewState.APPROVED
             and not _is_known_symbol(self.assigned_symbol_code)
             and quality_issue is not SymbolCellQualityIssue.UNREADABLE
@@ -353,6 +477,7 @@ def map_current_symbol_cell_reviews(
     cropper_version: str,
     assignment_source: SymbolCellAssignmentSource,
     topology: BoardTopology = LEGACY_IMAGE_BOARD_TOPOLOGY,
+    unavailable_cell_indices: tuple[int, ...] | None = None,
 ) -> tuple[SymbolCellReview, ...]:
     """Map current operational crops into topology-bound cell-review state.
 
@@ -363,7 +488,9 @@ def map_current_symbol_cell_reviews(
     different crop identities.
     """
 
-    _validate_complete_cells(cells, topology=topology)
+    _validate_complete_cells(
+        cells, topology=topology, unavailable_cell_indices=unavailable_cell_indices
+    )
     if geometry_revision < 0:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_GEOMETRY_REVISION_INVALID",
@@ -384,6 +511,7 @@ def map_current_symbol_cell_reviews(
                 crop_checksum_sha256=cell.crop_checksum_sha256,
                 geometry_revision=geometry_revision,
                 cropper_version=cropper_version,
+                asset_mode=cell.asset_mode,
             ),
             predicted_symbol_code=_normalize_symbol_code(cell.predicted_symbol_code),
             assigned_symbol_code=_normalize_symbol_code(cell.current_symbol_code),
@@ -404,9 +532,10 @@ def approve_symbol_cell_review(
     """Approve the exact current crop without changing its assigned symbol."""
 
     _require_active_symbol(review.assigned_symbol_code, active_symbol_codes)
+    retained_quality_issue = _retained_quality_issue_after_label_decision(review)
     if (
         review.review_state is SymbolCellReviewState.APPROVED
-        and review.quality_issue is None
+        and review.quality_issue is retained_quality_issue
         and review.crop_approval_state
         in {
             SymbolCellCropApprovalState.CURRENT,
@@ -419,7 +548,7 @@ def approve_symbol_cell_review(
             review,
             review_state=SymbolCellReviewState.APPROVED,
             has_grid_issue=False,
-            quality_issue=None,
+            quality_issue=retained_quality_issue,
             approved_crop=SymbolCellApprovedCropIdentity.from_crop(review.crop),
             assignment_source=SymbolCellAssignmentSource.HUMAN,
             revision=review.revision + 1,
@@ -438,10 +567,11 @@ def reassign_symbol_cell_review(
 
     target = _normalize_symbol_code(target_symbol_code)
     _require_active_symbol(target, active_symbol_codes)
+    retained_quality_issue = _retained_quality_issue_after_label_decision(review)
     if (
         review.review_state is SymbolCellReviewState.APPROVED
         and review.assigned_symbol_code == target
-        and review.quality_issue is None
+        and review.quality_issue is retained_quality_issue
         and review.crop_approval_state
         in {
             SymbolCellCropApprovalState.CURRENT,
@@ -455,13 +585,23 @@ def reassign_symbol_cell_review(
             assigned_symbol_code=target,
             review_state=SymbolCellReviewState.APPROVED,
             has_grid_issue=False,
-            quality_issue=None,
+            quality_issue=retained_quality_issue,
             approved_crop=SymbolCellApprovedCropIdentity.from_crop(review.crop),
             assignment_source=SymbolCellAssignmentSource.HUMAN,
             revision=review.revision + 1,
         ),
         changed=True,
     )
+
+
+def _retained_quality_issue_after_label_decision(
+    review: SymbolCellReview,
+) -> SymbolCellQualityIssue | None:
+    """Keep pixel-bound unreadability while allowing other issues to be resolved."""
+
+    if review.quality_issue is SymbolCellQualityIssue.UNREADABLE:
+        return SymbolCellQualityIssue.UNREADABLE
+    return None
 
 
 def mark_symbol_cell_grid_issue(review: SymbolCellReview) -> SymbolCellReviewTransition:
@@ -475,6 +615,42 @@ def mark_symbol_cell_grid_issue(review: SymbolCellReview) -> SymbolCellReviewTra
             review_state=SymbolCellReviewState.PENDING,
             has_grid_issue=True,
             quality_issue=SymbolCellQualityIssue.GRID_ISSUE,
+            assignment_source=SymbolCellAssignmentSource.HUMAN,
+            revision=review.revision + 1,
+        ),
+        changed=True,
+    )
+
+
+def mark_symbol_cell_blurry(
+    review: SymbolCellReview,
+    *,
+    active_symbol_codes: Iterable[str],
+    target_symbol_code: str | None = None,
+) -> SymbolCellReviewTransition:
+    """Approve one label while excluding the current blurry pixels from training."""
+
+    target = (
+        review.assigned_symbol_code
+        if target_symbol_code is None
+        else _normalize_symbol_code(target_symbol_code)
+    )
+    _require_active_symbol(target, active_symbol_codes)
+    if (
+        review.review_state is SymbolCellReviewState.APPROVED
+        and review.assigned_symbol_code == target
+        and review.quality_issue is SymbolCellQualityIssue.BLURRY
+        and review.crop_approval_state is SymbolCellCropApprovalState.CURRENT
+    ):
+        return SymbolCellReviewTransition(review=review, changed=False)
+    return SymbolCellReviewTransition(
+        review=replace(
+            review,
+            assigned_symbol_code=target,
+            review_state=SymbolCellReviewState.APPROVED,
+            has_grid_issue=False,
+            quality_issue=SymbolCellQualityIssue.BLURRY,
+            approved_crop=SymbolCellApprovedCropIdentity.from_crop(review.crop),
             assignment_source=SymbolCellAssignmentSource.HUMAN,
             revision=review.revision + 1,
         ),
@@ -547,13 +723,30 @@ def invalidate_symbol_cell_reviews_for_geometry(
     geometry_revision: int,
     cropper_version: str,
     topology: BoardTopology = LEGACY_IMAGE_BOARD_TOPOLOGY,
+    unavailable_cell_indices: tuple[int, ...] | None = None,
+    unchanged_available_indices: frozenset[int] = frozenset(),
 ) -> tuple[SymbolCellReview, ...]:
     """Apply new crop identities while preserving only safe logical decisions."""
 
-    _validate_complete_symbol_cell_reviews(existing_reviews, topology=topology)
+    qualified = unavailable_cell_indices is not None
+    if not qualified:
+        _validate_complete_symbol_cell_reviews(existing_reviews, topology=topology)
+    elif len({review.cell_index for review in existing_reviews}) != len(existing_reviews) or any(
+        not 0 <= review.cell_index < topology.cell_count for review in existing_reviews
+    ):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
+            "Qualified source history has invalid or repeated logical cells.",
+        )
     previous_geometry_revisions = {review.crop.geometry_revision for review in existing_reviews}
-    if len(previous_geometry_revisions) != 1 or geometry_revision != (
-        next(iter(previous_geometry_revisions)) + 1
+    if (
+        not qualified
+        and (
+            len(previous_geometry_revisions) != 1
+            or geometry_revision != (next(iter(previous_geometry_revisions)) + 1)
+        )
+    ) or (
+        qualified and any(revision >= geometry_revision for revision in previous_geometry_revisions)
     ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_GEOMETRY_REVISION_INVALID",
@@ -565,11 +758,41 @@ def invalidate_symbol_cell_reviews_for_geometry(
         cropper_version=cropper_version,
         assignment_source=SymbolCellAssignmentSource.MODEL,
         topology=topology,
+        unavailable_cell_indices=unavailable_cell_indices,
     )
     by_index = {review.cell_index: review for review in existing_reviews}
     updated: list[SymbolCellReview] = []
     for current in mapped:
-        previous = by_index[current.cell_index]
+        previous = by_index.get(current.cell_index)
+        if previous is None:
+            updated.append(current)
+            continue
+        if qualified:
+            if (
+                current.cell_index in unchanged_available_indices
+                and current.crop.crop_checksum_sha256 == previous.crop.crop_checksum_sha256
+                and previous.quality_issue is not SymbolCellQualityIssue.GRID_ISSUE
+            ):
+                updated.append(
+                    replace(
+                        previous,
+                        crop=current.crop,
+                        approved_crop=(
+                            SymbolCellApprovedCropIdentity.from_crop(current.crop)
+                            if previous.review_state is SymbolCellReviewState.APPROVED
+                            else previous.approved_crop
+                        ),
+                        revision=previous.revision + 1,
+                    )
+                )
+                continue
+            old_approval = previous.approved_crop
+            if old_approval is None and previous.review_state is SymbolCellReviewState.APPROVED:
+                old_approval = SymbolCellApprovedCropIdentity.from_crop(previous.crop)
+            updated.append(
+                replace(current, approved_crop=old_approval, revision=previous.revision + 1)
+            )
+            continue
         if previous.quality_issue is SymbolCellQualityIssue.GRID_ISSUE:
             updated.append(replace(current, revision=previous.revision + 1))
             continue
@@ -660,18 +883,25 @@ def encode_symbol_cell_review_cursor(
     *,
     review_filter: SymbolCellReviewListFilter,
     direction: SymbolCellReviewCursorDirection,
-    key: tuple[int, int, str],
+    key: tuple[int, int, UUID],
 ) -> str:
     """Encode a keyset cursor that cannot be replayed in another list scope."""
 
     payload = {
         "direction": direction.value,
         "gameId": str(review_filter.game_id),
-        "key": list(key),
+        "key": [key[0], key[1], str(key[2])],
+        "maxConfidence": review_filter.max_confidence,
+        "minConfidence": review_filter.min_confidence,
         "state": review_filter.state.value,
-        "symbolId": "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id),
-        "version": 1,
+        "storageGeneration": review_filter.storage_generation,
+        "symbolId": _symbol_cell_review_filter_scope(review_filter),
+        "version": 6,
     }
+    if review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT:
+        payload["modelCohortId"] = (
+            None if review_filter.model_cohort_id is None else str(review_filter.model_cohort_id)
+        )
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
@@ -681,7 +911,7 @@ def decode_symbol_cell_review_cursor(
     *,
     review_filter: SymbolCellReviewListFilter,
     direction: SymbolCellReviewCursorDirection,
-) -> tuple[int, int, str]:
+) -> tuple[int, int, UUID]:
     """Decode and bind a cursor to game, symbol filter, state and direction."""
 
     try:
@@ -693,19 +923,38 @@ def decode_symbol_cell_review_cursor(
         parsed_symbol_id = payload["symbolId"]
         parsed_direction = SymbolCellReviewCursorDirection(payload["direction"])
         parsed_state = SymbolCellReviewFilterState(payload["state"])
+        parsed_min_confidence = payload.get("minConfidence")
+        parsed_max_confidence = payload.get("maxConfidence")
+        parsed_storage_generation = payload["storageGeneration"]
+        parsed_model_cohort_id = (
+            None if payload.get("modelCohortId") is None else UUID(payload["modelCohortId"])
+        )
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
             "The symbol-cell review cursor is invalid.",
         ) from error
 
-    expected_symbol = "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id)
+    expected_symbol = _symbol_cell_review_filter_scope(review_filter)
     if (
-        payload.get("version") != 1
+        not isinstance(parsed_storage_generation, int)
+        or isinstance(parsed_storage_generation, bool)
+        or parsed_storage_generation < 1
+    ):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
+            "The symbol-cell review cursor storage generation is invalid.",
+        )
+    if (
+        payload.get("version") != 6
         or parsed_game_id != review_filter.game_id
         or parsed_symbol_id != expected_symbol
         or parsed_state is not review_filter.state
         or parsed_direction is not direction
+        or parsed_min_confidence != review_filter.min_confidence
+        or parsed_max_confidence != review_filter.max_confidence
+        or parsed_storage_generation != review_filter.storage_generation
+        or parsed_model_cohort_id != review_filter.model_cohort_id
     ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",
@@ -727,19 +976,26 @@ def decode_symbol_cell_review_cursor(
             "The symbol-cell review cursor key is invalid.",
         )
     try:
-        UUID(key[2])
+        cell_review_id = UUID(key[2])
     except ValueError as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
-            "The symbol-cell review cursor item identity is invalid.",
+            "The symbol-cell review cursor cell identity is invalid.",
         ) from error
-    return key[0], key[1], key[2]
+    return key[0], key[1], cell_review_id
+
+
+def _symbol_cell_review_filter_scope(review_filter: SymbolCellReviewListFilter) -> str:
+    if review_filter.include_all_symbols:
+        return "all"
+    return "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id)
 
 
 def _validate_complete_cells(
     cells: Sequence[ImageReviewCell],
     *,
     topology: BoardTopology,
+    unavailable_cell_indices: tuple[int, ...] | None = None,
 ) -> None:
     indexes = sorted(cell.cell_index for cell in cells)
     try:
@@ -752,7 +1008,15 @@ def _validate_complete_cells(
         coordinates_are_valid = True
     except BoardTopologyError:
         coordinates_are_valid = False
-    if indexes != list(range(topology.cell_count)) or not coordinates_are_valid:
+    missing = set(unavailable_cell_indices or ())
+    if any(type(index) is not int or not 0 <= index < topology.cell_count for index in missing):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE", "Invalid unavailable cell mask."
+        )
+    if (
+        indexes != [index for index in range(topology.cell_count) if index not in missing]
+        or not coordinates_are_valid
+    ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
             "Current symbol-cell mapping requires every configured row-major index exactly once.",
@@ -815,6 +1079,7 @@ __all__ = [
     "SymbolCellReviewAsset",
     "SymbolCellBoardResolution",
     "SymbolCellReviewCounts",
+    "SymbolCellReviewCountSnapshot",
     "SymbolCellCropApprovalState",
     "SymbolCellCropIdentity",
     "SymbolCellReview",
@@ -835,6 +1100,7 @@ __all__ = [
     "invalidate_symbol_cell_reviews_for_geometry",
     "is_symbol_cell_training_eligible",
     "map_current_symbol_cell_reviews",
+    "mark_symbol_cell_blurry",
     "mark_symbol_cell_grid_issue",
     "mark_symbol_cell_unreadable",
     "reassign_symbol_cell_review",

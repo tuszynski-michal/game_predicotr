@@ -33,6 +33,7 @@ __pycache__/
 .g39/
 .tmp/
 .runtime/
+.codex-remote-attachments/
 
 # Editors and operating systems
 .idea/

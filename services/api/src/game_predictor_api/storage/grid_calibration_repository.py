@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.grid_calibration import GridCalibrationRepository
+from game_predictor_api.domain.geometry_qualification import geometry_training_exclusion_reason
 from game_predictor_api.domain.grid_calibration import (
     GeometryCohort,
     GeometryCohortDiagnostics,
@@ -23,6 +24,7 @@ from game_predictor_api.domain.grid_calibration import (
     NormalizedQuad,
     VerifiedGeometrySample,
     build_geometry_manifest,
+    grid_profile_end_to_end_gate_is_current,
     profile_checksum,
     train_grid_profile,
 )
@@ -46,7 +48,7 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
         self._session = session
 
     def create_candidate(
-        self, *, game_id: UUID
+        self, *, game_id: UUID, end_to_end_report: dict[str, object] | None = None
     ) -> tuple[GeometryCohort, GridCalibrationProfile, bool]:
         if self._session.get(GameModel, game_id) is None:
             raise JobNotFoundError("GAME_NOT_FOUND", "Game does not exist.")
@@ -57,6 +59,11 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
                 "No accepted or corrected geometry is available for calibration.",
             )
         manifest, manifest_checksum = build_geometry_manifest(game_id, samples)
+        profile_payload, gate_metrics, rejection_reasons = train_grid_profile(
+            manifest,
+            end_to_end_report=end_to_end_report,
+        )
+        candidate_checksum = profile_checksum(profile_payload)
         existing = self._session.scalar(
             select(GridGeometryCohortModel).where(
                 GridGeometryCohortModel.game_id == game_id,
@@ -66,31 +73,29 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
         if existing is not None:
             profile = self._session.scalar(
                 select(GridCalibrationProfileModel).where(
-                    GridCalibrationProfileModel.cohort_id == existing.id
+                    GridCalibrationProfileModel.cohort_id == existing.id,
+                    GridCalibrationProfileModel.profile_checksum_sha256 == candidate_checksum,
                 )
             )
-            if profile is None:
-                raise JobConflictError(
-                    "GRID_CALIBRATION_PROFILE_MISSING",
-                    "The immutable cohort exists without its profile.",
-                )
-            return _cohort(existing), _profile(profile), False
-        sample_rows = cast(list[dict[str, object]], manifest["samples"])
-        training_count = sum(row.get("split") == "training" for row in sample_rows)
-        validation_count = len(sample_rows) - training_count
-        cohort_record = GridGeometryCohortModel(
-            game_id=game_id,
-            cohort_number=self._next_cohort_number(game_id),
-            manifest_checksum_sha256=manifest_checksum,
-            manifest_payload=manifest,
-            sample_count=len(samples),
-            source_image_count=len({sample.source_image_id for sample in samples}),
-            training_count=training_count,
-            validation_count=validation_count,
-        )
-        self._session.add(cohort_record)
-        self._session.flush()
-        profile_payload, gate_metrics, rejection_reasons = train_grid_profile(manifest)
+            if profile is not None:
+                return _cohort(existing), _profile(profile), False
+            cohort_record = existing
+        else:
+            sample_rows = cast(list[dict[str, object]], manifest["samples"])
+            training_count = sum(row.get("split") == "training" for row in sample_rows)
+            validation_count = len(sample_rows) - training_count
+            cohort_record = GridGeometryCohortModel(
+                game_id=game_id,
+                cohort_number=self._next_cohort_number(game_id),
+                manifest_checksum_sha256=manifest_checksum,
+                manifest_payload=manifest,
+                sample_count=len(samples),
+                source_image_count=len({sample.source_image_id for sample in samples}),
+                training_count=training_count,
+                validation_count=validation_count,
+            )
+            self._session.add(cohort_record)
+            self._session.flush()
         profile_record = GridCalibrationProfileModel(
             game_id=game_id,
             cohort_id=cohort_record.id,
@@ -100,7 +105,7 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
                 if not rejection_reasons
                 else GridProfileStatus.REJECTED.value
             ),
-            profile_checksum_sha256=profile_checksum(profile_payload),
+            profile_checksum_sha256=candidate_checksum,
             profile_payload=profile_payload,
             gate_metrics=gate_metrics,
             rejection_reasons=list(rejection_reasons),
@@ -159,6 +164,10 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
                 corrected += 1
             else:
                 accepted += 1
+            exclusion = _training_exclusion(board)
+            if exclusion is not None:
+                reasons[exclusion] += 1
+                continue
             detected = (
                 None
                 if stage is None
@@ -332,6 +341,8 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
         ).all()
         output: list[VerifiedGeometrySample] = []
         for review, board, source, job, stage, _document in rows:
+            if _training_exclusion(board) is not None:
+                continue
             run_id = _uuid(job.input_payload.get("image_selection_run_id"))
             detected = _detected_quad(stage.result_payload, board.position_index)
             final = _quad(
@@ -367,6 +378,14 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             raise JobConflictError(
                 "GRID_PROFILE_CANDIDATE_NOT_READY",
                 "Only a profile with a passed quality gate can be activated.",
+            )
+        if not grid_profile_end_to_end_gate_is_current(
+            dict(target.profile_payload),
+            dict(target.gate_metrics),
+        ):
+            raise JobConflictError(
+                "GRID_PROFILE_END_TO_END_REVALIDATION_REQUIRED",
+                "Schema-v2 profiles require the current end-to-end page and cell gate.",
             )
         return target
 
@@ -428,6 +447,17 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             )
             + 1
         )
+
+
+def _training_exclusion(board: RecognizedBoardModel) -> str | None:
+    geometry = dict(board.board_geometry)
+    if board.geometry_qualification is not None:
+        geometry["geometryQualification"] = board.geometry_qualification
+    return geometry_training_exclusion_reason(
+        geometry,
+        completeness_status=board.completeness_status,
+        unavailable_cell_indices=tuple(board.unavailable_cell_indices or ()),
+    )
 
 
 def _detected_quad(payload: Mapping[str, object], position: int) -> NormalizedQuad | None:

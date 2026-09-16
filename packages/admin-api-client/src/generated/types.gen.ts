@@ -106,6 +106,140 @@ export type ApprovedSymbolReferenceSelectionCommand = {
 };
 
 /**
+ * AutomaticFrameGeometryProposalPayload
+ *
+ * A complete local grid retained because its decorative frame is weak.
+ */
+export type AutomaticFrameGeometryProposalPayload = {
+  geometryQualification: GeometryQualificationPayload;
+  /**
+   * Origin
+   */
+  origin: 'automatic_proposal';
+  /**
+   * Policychecksumsha256
+   */
+  policyChecksumSha256: string;
+  /**
+   * Policyversion
+   */
+  policyVersion:
+    | 'structured-lattice-v4-lateral-partial-v3'
+    | 'structured-lattice-v4-selective-frame-v1';
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reasoncode
+   */
+  reasonCode: 'board_frame_support_incomplete';
+  /**
+   * Requiresmanualconfirmation
+   */
+  requiresManualConfirmation: true;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Trainingprofilechecksumsha256
+   */
+  trainingProfileChecksumSha256?: string | null;
+  /**
+   * Version
+   */
+  version:
+    | 'automatic-frame-geometry-proposal-v1'
+    | 'automatic-frame-geometry-proposal-v2';
+};
+
+/**
+ * AutomaticPartialGeometryProposalPayload
+ *
+ * Machine provenance wraps existing availability, never a human decision.
+ */
+export type AutomaticPartialGeometryProposalPayload = {
+  geometryQualification: GeometryQualificationPayload;
+  /**
+   * Origin
+   */
+  origin: 'automatic_proposal';
+  /**
+   * Policychecksumsha256
+   */
+  policyChecksumSha256: string;
+  /**
+   * Policyversion
+   */
+  policyVersion:
+    | 'structured-lattice-v4-lateral-partial-v1'
+    | 'structured-lattice-v4-lateral-partial-v2'
+    | 'structured-lattice-v4-lateral-partial-v3'
+    | 'structured-lattice-v4-selective-frame-v1';
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Requiresmanualconfirmation
+   */
+  requiresManualConfirmation: true;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Trainingprofilechecksumsha256
+   */
+  trainingProfileChecksumSha256?: string | null;
+  /**
+   * Version
+   */
+  version:
+    | 'automatic-lateral-partial-proposal-v1'
+    | 'automatic-lateral-partial-proposal-v2'
+    | 'automatic-lateral-partial-proposal-v3'
+    | 'automatic-lateral-partial-proposal-v4';
+};
+
+/**
+ * BasePageGeometryManifestPayload
+ */
+export type BasePageGeometryManifestPayload = {
+  /**
+   * Baseoverridefingerprints
+   */
+  baseOverrideFingerprints?: {
+    [key: string]: string;
+  } | null;
+  /**
+   * Compatibilitymode
+   */
+  compatibilityMode:
+    | 'exact_policy'
+    | 'lateral_v2_to_v3'
+    | 'lateral_v3_to_v2'
+    | 'baseline_to_selective_v1_1';
+  /**
+   * Contractversion
+   */
+  contractVersion: 'page-geometry-entry-reuse-v1';
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+};
+
+/**
  * BoardCellGeometryCorrectionContextResponse
  */
 export type BoardCellGeometryCorrectionContextResponse = {
@@ -526,6 +660,11 @@ export type BoardCellRecropJobSnapshotPayload = {
 };
 
 /**
+ * BoardSearchAssetMode
+ */
+export type BoardSearchAssetMode = 'operational_review' | 'legacy_archive';
+
+/**
  * BoardSearchResponse
  */
 export type BoardSearchResponse = {
@@ -548,6 +687,7 @@ export type BoardSearchResponse = {
  * BoardSearchResultResponse
  */
 export type BoardSearchResultResponse = {
+  assetMode: BoardSearchAssetMode;
   /**
    * Boardchecksumsha256
    */
@@ -555,15 +695,15 @@ export type BoardSearchResultResponse = {
   /**
    * Importjobid
    */
-  importJobId: string;
+  importJobId: string | null;
   /**
    * Recognizedboardid
    */
-  recognizedBoardId: string;
+  recognizedBoardId: string | null;
   /**
    * Reviewitemid
    */
-  reviewItemId: string;
+  reviewItemId: string | null;
   score: BoardSearchScoreResponse;
   /**
    * Sequencenumber
@@ -611,6 +751,52 @@ export type BoardSearchScoreResponse = {
 };
 
 /**
+ * BoardSourceCleanupCommandRequest
+ */
+export type BoardSourceCleanupCommandRequest = {
+  /**
+   * Confirmationtarget
+   */
+  confirmationTarget: string;
+  /**
+   * Confirmed
+   */
+  confirmed: boolean;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+};
+
+/**
+ * BoardSourceCleanupPreviewRequest
+ */
+export type BoardSourceCleanupPreviewRequest = {
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+};
+
+/**
+ * BrowserCanonicalRange
+ */
+export type BrowserCanonicalRange = {
+  /**
+   * Sequencerangeend
+   */
+  sequenceRangeEnd: number;
+  /**
+   * Sequencerangestart
+   */
+  sequenceRangeStart: number;
+};
+
+/**
  * BrowserImageImportJobPayload
  */
 export type BrowserImageImportJobPayload = {
@@ -619,7 +805,9 @@ export type BrowserImageImportJobPayload = {
    * Canonicalsequencenumbers
    */
   canonicalSequenceNumbers?: Array<number>;
+  geometrySystemicGuardPolicy?: ImageGeometrySystemicGuardPolicyJobPayload | null;
   gridProfile: GridProfileJobSnapshotPayload;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
   /**
    * Imageselectionrunid
    */
@@ -680,6 +868,7 @@ export type BrowserImageImportPreflightCreate = {
    * Gameid
    */
   gameId: string;
+  geometryEngineVariant?: GeometryEngineVariant;
 };
 
 /**
@@ -698,6 +887,7 @@ export type BrowserImageImportPreflightResponse = {
    * Displayname
    */
   displayName: string;
+  existingImportJob?: JobResponse | null;
   /**
    * Firstunresolvedsequence
    */
@@ -706,10 +896,45 @@ export type BrowserImageImportPreflightResponse = {
    * Gameid
    */
   gameId: string;
+  geometryEngineVariant?: GeometryEngineVariant | null;
+  /**
+   * Geometryenginevariantblockercode
+   */
+  geometryEngineVariantBlockerCode?: string | null;
+  /**
+   * Geometryenginevariantblockermessage
+   */
+  geometryEngineVariantBlockerMessage?: string | null;
+  /**
+   * Geometryenginevariantenabled
+   */
+  geometryEngineVariantEnabled?: boolean;
+  /**
+   * Geometrypreflightartifactblockercode
+   */
+  geometryPreflightArtifactBlockerCode?: string | null;
+  /**
+   * Geometrypreflightartifactblockermessage
+   */
+  geometryPreflightArtifactBlockerMessage?: string | null;
+  /**
+   * Geometrypreflightartifactready
+   */
+  geometryPreflightArtifactReady?: boolean;
+  geometryPreflightJob?: JobResponse | null;
+  /**
+   * Geometrypreflightrequired
+   */
+  geometryPreflightRequired: boolean;
   /**
    * Gridprofileinferencefingerprint
    */
   gridProfileInferenceFingerprint: string;
+  imageEnginePolicy: ImageImportEnginePolicy;
+  /**
+   * Imageenginepolicyrevision
+   */
+  imageEnginePolicyRevision: number;
   /**
    * Lastunresolvedsequence
    */
@@ -723,6 +948,14 @@ export type BrowserImageImportPreflightResponse = {
    */
   newSequenceCount: number;
   /**
+   * Operatorexcludedsourcecount
+   */
+  operatorExcludedSourceCount?: number;
+  /**
+   * Pageregistrationvariant
+   */
+  pageRegistrationVariant?: 'standard_v0_10' | 'board_area_test' | null;
+  /**
    * Partialsourcecount
    */
   partialSourceCount: number;
@@ -735,6 +968,10 @@ export type BrowserImageImportPreflightResponse = {
    */
   reusedSequenceCount: number;
   /**
+   * Skippedcanonicalranges
+   */
+  skippedCanonicalRanges?: Array<BrowserCanonicalRange>;
+  /**
    * Skippedsourcecount
    */
   skippedSourceCount: number;
@@ -743,13 +980,36 @@ export type BrowserImageImportPreflightResponse = {
    */
   sourceFileCount: number;
   /**
+   * Symbolmodelblockercode
+   */
+  symbolModelBlockerCode?:
+    | 'SYMBOL_MODEL_ACTIVATION_REQUIRED'
+    | 'SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED'
+    | null;
+  /**
    * Symbolmodelinferencefingerprint
    */
-  symbolModelInferenceFingerprint: string;
+  symbolModelInferenceFingerprint?: string | null;
+  /**
+   * Symbolmodelready
+   */
+  symbolModelReady: boolean;
+  /**
+   * Symbolmodelsnapshotfingerprint
+   */
+  symbolModelSnapshotFingerprint?: string | null;
+  /**
+   * Unclassifiedcoldstartallowed
+   */
+  unclassifiedColdStartAllowed?: boolean;
   /**
    * Uploadid
    */
   uploadId: string;
+  /**
+   * Uploadplanchecksumsha256
+   */
+  uploadPlanChecksumSha256?: string | null;
   /**
    * Warnings
    */
@@ -763,23 +1023,45 @@ export type BrowserImageImportStart = {
   /**
    * Boardcellprocessingmode
    */
-  boardCellProcessingMode?: 'historical_v18' | 'verified_v19';
+  boardCellProcessingMode?:
+    | 'verified_v19'
+    | 'structured_shadow'
+    | 'structured_default'
+    | 'structured_lattice_v3'
+    | null;
   /**
    * Gameid
    */
   gameId: string;
   /**
+   * Engine pinned for this import; defaults to v1.0.
+   */
+  geometryEngineVariant?: GeometryEngineVariant;
+  /**
+   * Geometryguardresolutionmanifestchecksumsha256
+   */
+  geometryGuardResolutionManifestChecksumSha256?: string | null;
+  /**
+   * Geometryguardresolutionmanifestid
+   */
+  geometryGuardResolutionManifestId?: string | null;
+  /**
    * Geometrymanifestchecksumsha256
    */
-  geometryManifestChecksumSha256: string;
+  geometryManifestChecksumSha256?: string | null;
   /**
    * Geometrypreflightjobid
    */
-  geometryPreflightJobId: string;
+  geometryPreflightJobId?: string | null;
   /**
    * Gridprofileinferencefingerprint
    */
   gridProfileInferenceFingerprint?: string | null;
+  imageEnginePolicy?: ImageImportEnginePolicy | null;
+  /**
+   * Imageenginepolicyrevision
+   */
+  imageEnginePolicyRevision?: number | null;
   /**
    * Manifestchecksumsha256
    */
@@ -796,6 +1078,10 @@ export type BrowserImageImportStart = {
    * Symbolmodelinferencefingerprint
    */
   symbolModelInferenceFingerprint?: string | null;
+  /**
+   * Symbolmodelsnapshotfingerprint
+   */
+  symbolModelSnapshotFingerprint?: string | null;
 };
 
 /**
@@ -831,6 +1117,14 @@ export type BrowserImageSelectionCreate = {
    */
   gameId?: string | null;
   purpose?: ImageSelectionPurpose;
+  /**
+   * Skippedcanonicalranges
+   */
+  skippedCanonicalRanges?: Array<BrowserCanonicalRange>;
+  /**
+   * Uploadplanchecksumsha256
+   */
+  uploadPlanChecksumSha256?: string | null;
 };
 
 /**
@@ -895,6 +1189,136 @@ export type BrowserImageSelectionUploadResponse = {
 };
 
 /**
+ * BrowserImageUploadPlanCreate
+ */
+export type BrowserImageUploadPlanCreate = {
+  /**
+   * Files
+   */
+  files: Array<BrowserImageUploadPlanSourceCreate>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * BrowserImageUploadPlanFileResponse
+ */
+export type BrowserImageUploadPlanFileResponse = {
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Uploadindex
+   */
+  uploadIndex: number;
+};
+
+/**
+ * BrowserImageUploadPlanResponse
+ */
+export type BrowserImageUploadPlanResponse = {
+  /**
+   * Filestoupload
+   */
+  filesToUpload: Array<BrowserImageUploadPlanFileResponse>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Missingsequencecount
+   */
+  missingSequenceCount: number;
+  /**
+   * Partialsourcecount
+   */
+  partialSourceCount: number;
+  /**
+   * Planchecksumsha256
+   */
+  planChecksumSha256: string;
+  /**
+   * Reusedsequencecount
+   */
+  reusedSequenceCount: number;
+  /**
+   * Selectedfilecount
+   */
+  selectedFileCount: number;
+  /**
+   * Selectedtotalbytes
+   */
+  selectedTotalBytes: number;
+  /**
+   * Skippedcompletesourcecount
+   */
+  skippedCompleteSourceCount: number;
+  /**
+   * Skippedcompletesources
+   */
+  skippedCompleteSources: Array<BrowserImageUploadPlanSkippedSourceResponse>;
+  /**
+   * Uploadfilecount
+   */
+  uploadFileCount: number;
+  /**
+   * Uploadtotalbytes
+   */
+  uploadTotalBytes: number;
+};
+
+/**
+ * BrowserImageUploadPlanSkippedSourceResponse
+ */
+export type BrowserImageUploadPlanSkippedSourceResponse = {
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sequencerangeend
+   */
+  sequenceRangeEnd: number;
+  /**
+   * Sequencerangestart
+   */
+  sequenceRangeStart: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+};
+
+/**
+ * BrowserImageUploadPlanSourceCreate
+ */
+export type BrowserImageUploadPlanSourceCreate = {
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+};
+
+/**
  * BrowserPageGeometryOverrideCreate
  */
 export type BrowserPageGeometryOverrideCreate = {
@@ -903,64 +1327,20 @@ export type BrowserPageGeometryOverrideCreate = {
    */
   actor: string;
   /**
+   * Expectedoverriderevision
+   */
+  expectedOverrideRevision?: number | null;
+  /**
    * Finalquads
    */
-  finalQuads: [
+  finalQuads: Array<
     [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-  ];
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+    ]
+  >;
   /**
    * Gameid
    */
@@ -973,6 +1353,10 @@ export type BrowserPageGeometryOverrideCreate = {
    * Imagewidth
    */
   imageWidth: number;
+  /**
+   * Slotqualifications
+   */
+  slotQualifications?: Array<GeometryQualificationPayload> | null;
   /**
    * Sourcechecksumsha256
    */
@@ -999,6 +1383,29 @@ export type BrowserPageGeometryOverrideResponse = {
    * Revision
    */
   revision: number;
+  /**
+   * Slotqualifications
+   */
+  slotQualifications?: Array<GeometryQualificationPayload> | null;
+};
+
+/**
+ * BrowserPageGeometryPreflightCreate
+ */
+export type BrowserPageGeometryPreflightCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  geometryEngineVariant?: GeometryEngineVariant;
+  /**
+   * Managedsourcejobid
+   */
+  managedSourceJobId?: string | null;
+  /**
+   * Pageregistrationvariant
+   */
+  pageRegistrationVariant?: 'standard_v0_10' | 'board_area_test';
 };
 
 /**
@@ -1016,6 +1423,43 @@ export type BrowserPageGeometryPreflightResponse = {
  * BrowserPageGeometryReviewSourceResponse
  */
 export type BrowserPageGeometryReviewSourceResponse = {
+  /**
+   * Automaticpartialproposals
+   */
+  automaticPartialProposals?: Array<AutomaticPartialGeometryProposalPayload> | null;
+  /**
+   * Existingfinalquads
+   */
+  existingFinalQuads?: Array<Array<ManualSourceGeometryPoint>> | null;
+  /**
+   * Existingoverriderevision
+   */
+  existingOverrideRevision?: number | null;
+  /**
+   * Existingslotqualifications
+   */
+  existingSlotQualifications?: Array<GeometryQualificationPayload> | null;
+  /**
+   * Expectedboardcount
+   */
+  expectedBoardCount: number;
+  /**
+   * Geometryorigin
+   */
+  geometryOrigin: 'automatic' | 'manual_override' | 'manual_template';
+  registrationDiagnostics?: PageGeometryRegistrationDiagnostics | null;
+  /**
+   * Rejectionreasoncode
+   */
+  rejectionReasonCode?: string | null;
+  /**
+   * Reviewreason
+   */
+  reviewReason?: 'manual_override' | 'review_required';
+  /**
+   * Savedsincepreflight
+   */
+  savedSincePreflight?: boolean;
   /**
    * Sequencerangeend
    */
@@ -1044,6 +1488,22 @@ export type BrowserPageGeometryReviewSourcesResponse = {
   geometryManifestChecksumSha256: string;
   job: JobResponse;
   /**
+   * Operatorexcludedsourcecount
+   */
+  operatorExcludedSourceCount?: number;
+  /**
+   * Partialgridreadypatterncount
+   */
+  partialGridReadyPatternCount?: number;
+  /**
+   * Partialgridtrainingsamplecount
+   */
+  partialGridTrainingSampleCount?: number;
+  /**
+   * Partialgridtrainingsourcecount
+   */
+  partialGridTrainingSourceCount?: number;
+  /**
    * Registeredsourcecount
    */
   registeredSourceCount: number;
@@ -1059,6 +1519,86 @@ export type BrowserPageGeometryReviewSourcesResponse = {
    * Sources
    */
   sources: Array<BrowserPageGeometryReviewSourceResponse>;
+};
+
+/**
+ * BrowserPageSourceExclusionCreate
+ */
+export type BrowserPageSourceExclusionCreate = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Geometrymanifestchecksumsha256
+   */
+  geometryManifestChecksumSha256: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+};
+
+/**
+ * BrowserPageSourceExclusionResponse
+ */
+export type BrowserPageSourceExclusionResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Decisionchecksumsha256
+   */
+  decisionChecksumSha256: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Operatorexcludedsourcecount
+   */
+  operatorExcludedSourceCount: number;
+};
+
+/**
+ * BrowserPageSourceReplacementConfirm
+ */
+export type BrowserPageSourceReplacementConfirm = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Replacementchecksumsha256
+   */
+  replacementChecksumSha256: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+};
+
+/**
+ * BrowserPageSourceReplacementDiscard
+ */
+export type BrowserPageSourceReplacementDiscard = {
+  /**
+   * Gameid
+   */
+  gameId: string;
 };
 
 /**
@@ -1094,6 +1634,10 @@ export type BrowserReadySelectionResponse = {
    */
   manifestChecksumSha256: string;
   purpose: ImageSelectionPurpose;
+  /**
+   * Supersededbyuploadid
+   */
+  supersededByUploadId?: string | null;
   /**
    * Uploadid
    */
@@ -1186,7 +1730,7 @@ export type CleanupPreviewResponse = {
   /**
    * Kind
    */
-  kind: 'mobile_release' | 'game_layout_data';
+  kind: 'mobile_release' | 'game_layout_data' | 'board_source_ranges';
   /**
    * Previewtoken
    */
@@ -1203,6 +1747,10 @@ export type CleanupPreviewResponse = {
    * Targetlabel
    */
   targetLabel: string;
+  /**
+   * Warnings
+   */
+  warnings: Array<string>;
 };
 
 /**
@@ -1224,7 +1772,7 @@ export type CleanupResultResponse = {
   /**
    * Kind
    */
-  kind: 'mobile_release' | 'game_layout_data';
+  kind: 'mobile_release' | 'game_layout_data' | 'board_source_ranges';
   /**
    * Previewtoken
    */
@@ -1241,6 +1789,13 @@ export type CleanupResultResponse = {
    * Targetlabel
    */
   targetLabel: string;
+};
+
+/**
+ * CreateGridCalibrationCandidateCommand
+ */
+export type CreateGridCalibrationCandidateCommand = {
+  endToEndReport?: GridEndToEndGateReportCommand | null;
 };
 
 /**
@@ -1353,6 +1908,7 @@ export type CuratedImageImportJobPayload = {
    */
   curatedManifestRelativePath: string;
   gridProfile: GridProfileJobSnapshotPayload;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
   /**
    * Imageselectionrunid
    */
@@ -1727,6 +2283,127 @@ export type ErrorResponse = {
 };
 
 /**
+ * FilenameRangeVerificationItemResponse
+ */
+export type FilenameRangeVerificationItemResponse = {
+  /**
+   * Anchorpositions
+   */
+  anchorPositions: Array<number>;
+  expectedRange: SequenceRangeValueResponse | null;
+  observedRange: SequenceRangeValueResponse | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  reviewDecision?: FilenameRangeVerificationReviewDecision | null;
+  /**
+   * Reviewrevision
+   */
+  reviewRevision?: number | null;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+  /**
+   * Sourcesizebytes
+   */
+  sourceSizeBytes: number;
+  /**
+   * Verificationstatus
+   */
+  verificationStatus:
+    'verified' | 'mismatch' | 'unreadable' | 'invalid_filename';
+};
+
+/**
+ * FilenameRangeVerificationPageResponse
+ */
+export type FilenameRangeVerificationPageResponse = {
+  /**
+   * Items
+   */
+  items: Array<FilenameRangeVerificationItemResponse>;
+  /**
+   * Nextaftersourceindex
+   */
+  nextAfterSourceIndex?: number | null;
+};
+
+/**
+ * FilenameRangeVerificationReviewDecision
+ */
+export type FilenameRangeVerificationReviewDecision = 'keep' | 'reject';
+
+/**
+ * FilenameRangeVerificationReviewDecisionResponse
+ */
+export type FilenameRangeVerificationReviewDecisionResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  decision: FilenameRangeVerificationReviewDecision;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * FilenameRangeVerificationReviewDecisionUpdate
+ */
+export type FilenameRangeVerificationReviewDecisionUpdate = {
+  decision: FilenameRangeVerificationReviewDecision;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Expectedsourcechecksumsha256
+   */
+  expectedSourceChecksumSha256: string;
+};
+
+/**
+ * FilenameVerificationHistoryDeletionResponse
+ */
+export type FilenameVerificationHistoryDeletionResponse = {
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Runid
+   */
+  runId: string;
+};
+
+/**
  * GameCreate
  */
 export type GameCreate = {
@@ -1770,6 +2447,26 @@ export type GameResponse = {
    */
   name: string;
   status: GameStatus;
+  /**
+   * Storagegeneration
+   */
+  storageGeneration: number;
+  /**
+   * Storageschema
+   */
+  storageSchema: string;
+  /**
+   * Storagestatus
+   */
+  storageStatus: string;
+  /**
+   * Storageversion
+   */
+  storageVersion: string;
+  /**
+   * Storagewriteavailable
+   */
+  storageWriteAvailable: boolean;
   /**
    * Updatedat
    */
@@ -1891,6 +2588,66 @@ export type GeometryCohortResponse = {
 };
 
 /**
+ * GeometryEngineVariant
+ */
+export type GeometryEngineVariant =
+  'structured_lattice_v4_partial_sides' | 'selective_board_review_v1_1';
+
+/**
+ * GeometryEngineVariantCapabilityResponse
+ */
+export type GeometryEngineVariantCapabilityResponse = {
+  /**
+   * Blockercode
+   */
+  blockerCode?: string | null;
+  /**
+   * Blockermessage
+   */
+  blockerMessage?: string | null;
+  /**
+   * Enabled
+   */
+  enabled: boolean;
+  /**
+   * Label
+   */
+  label: string;
+  variant: GeometryEngineVariant;
+};
+
+/**
+ * GeometryQualificationPayload
+ */
+export type GeometryQualificationPayload = {
+  /**
+   * Completenessstatus
+   */
+  completenessStatus: 'complete' | 'pending_partial';
+  /**
+   * Excludefromgeometrytraining
+   */
+  excludeFromGeometryTraining: boolean;
+  /**
+   * Exclusionreason
+   */
+  exclusionReason: 'missing_pixels' | 'manual_exclusion' | null;
+  /**
+   * Includeinpartialgridtraining
+   */
+  includeInPartialGridTraining?: boolean | null;
+  /**
+   * Unavailablecellindices
+   */
+  unavailableCellIndices: Array<number>;
+  /**
+   * Version
+   */
+  version:
+    'manual-geometry-qualification-v1' | 'manual-geometry-qualification-v2';
+};
+
+/**
  * GridCalibrationProfileResponse
  */
 export type GridCalibrationProfileResponse = {
@@ -1932,6 +2689,100 @@ export type GridCalibrationProfileResponse = {
    * Status
    */
   status: string;
+};
+
+/**
+ * GridEndToEndGateReportCommand
+ */
+export type GridEndToEndGateReportCommand = {
+  /**
+   * Activeboardcount
+   */
+  activeBoardCount: number;
+  /**
+   * Baselinefinalcellgridreadyboardcount
+   */
+  baselineFinalCellGridReadyBoardCount: number;
+  /**
+   * Cohortchecksumsha256
+   */
+  cohortChecksumSha256: string;
+  /**
+   * Corpuschecksumsha256
+   */
+  corpusChecksumSha256: string;
+  /**
+   * Coveredregressioncasecount
+   */
+  coveredRegressionCaseCount: number;
+  /**
+   * Deferralreasoncounts
+   */
+  deferralReasonCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Finalcellgridreadyboardcount
+   */
+  finalCellGridReadyBoardCount: number;
+  /**
+   * Invariantviolationcounts
+   */
+  invariantViolationCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Knownregressioncasecount
+   */
+  knownRegressionCaseCount: number;
+  /**
+   * Pageregistrationreadyboardcount
+   */
+  pageRegistrationReadyBoardCount: number;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'v0.10-page-and-cell-production-gate-v1';
+  /**
+   * Qualityanglebucketcounts
+   */
+  qualityAngleBucketCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Regressioncorpusversion
+   */
+  regressionCorpusVersion: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-profile-end-to-end-gate-report-v1';
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Sources
+   */
+  sources: Array<GridEndToEndGateSource>;
+};
+
+/**
+ * GridEndToEndGateSource
+ */
+export type GridEndToEndGateSource = {
+  /**
+   * Activeboardcount
+   */
+  activeBoardCount: number;
+  /**
+   * Qualityanglebucket
+   */
+  qualityAngleBucket: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
 };
 
 /**
@@ -2214,20 +3065,6 @@ export type ImageDiagnosticExportResponse = {
 };
 
 /**
- * ImageFolderImportCreate
- */
-export type ImageFolderImportCreate = {
-  /**
-   * Gameid
-   */
-  gameId: string;
-  /**
-   * Selectiontoken
-   */
-  selectionToken: string;
-};
-
-/**
  * ImageFolderImportResponse
  */
 export type ImageFolderImportResponse = {
@@ -2263,6 +3100,790 @@ export type ImageFolderSelectionResponse = {
    * Supportedfilecount
    */
   supportedFileCount?: number;
+};
+
+/**
+ * ImageGeometryGuardBoardContextResponse
+ */
+export type ImageGeometryGuardBoardContextResponse = {
+  /**
+   * Analysisquad
+   */
+  analysisQuad: unknown | null;
+  /**
+   * Evidence
+   */
+  evidence: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Pagegeometry
+   */
+  pageGeometry: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Requiresdecision
+   */
+  requiresDecision: boolean;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+  /**
+   * Symbolgridquad
+   */
+  symbolGridQuad: unknown | null;
+};
+
+/**
+ * ImageGeometryGuardBoardTargetResponse
+ */
+export type ImageGeometryGuardBoardTargetResponse = {
+  /**
+   * Analysisquad
+   */
+  analysisQuad: unknown | null;
+  /**
+   * Evidence
+   */
+  evidence: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Pagegeometry
+   */
+  pageGeometry: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Proposedsymbolgridquad
+   */
+  proposedSymbolGridQuad: unknown | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+};
+
+/**
+ * ImageGeometryGuardCellPreviewResponse
+ */
+export type ImageGeometryGuardCellPreviewResponse = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Currentdataurl
+   */
+  currentDataUrl: string | null;
+  /**
+   * Proposeddataurl
+   */
+  proposedDataUrl: string | null;
+  /**
+   * Sourceunavailable
+   */
+  sourceUnavailable: boolean;
+};
+
+/**
+ * ImageGeometryGuardDecisionBatchCreate
+ */
+export type ImageGeometryGuardDecisionBatchCreate = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Decisions
+   */
+  decisions: Array<ImageGeometryGuardDecisionItemCreate>;
+  /**
+   * Expectedguardreportchecksumsha256
+   */
+  expectedGuardReportChecksumSha256: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * ImageGeometryGuardDecisionBatchResponse
+ */
+export type ImageGeometryGuardDecisionBatchResponse = {
+  /**
+   * Decisions
+   */
+  decisions: Array<ImageGeometryGuardDecisionResponse>;
+};
+
+/**
+ * ImageGeometryGuardDecisionItemCreate
+ */
+export type ImageGeometryGuardDecisionItemCreate = {
+  /**
+   * Disposition
+   */
+  disposition: 'corrected_full' | 'partial' | 'rejected';
+  /**
+   * Expecteddecisionrevision
+   */
+  expectedDecisionRevision?: number | null;
+  geometryQualification?: GeometryQualificationPayload | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reason
+   */
+  reason?: string | null;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Symbolgridquad
+   */
+  symbolGridQuad?:
+    | [
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+      ]
+    | null;
+  /**
+   * Unavailablecellindices
+   */
+  unavailableCellIndices?: Array<number>;
+};
+
+/**
+ * ImageGeometryGuardDecisionResponse
+ */
+export type ImageGeometryGuardDecisionResponse = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Decisionchecksumsha256
+   */
+  decisionChecksumSha256: string;
+  /**
+   * Disposition
+   */
+  disposition: 'corrected_full' | 'partial' | 'rejected';
+  geometryQualification?: GeometryQualificationPayload | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reason
+   */
+  reason: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+  /**
+   * Symbolgridquad
+   */
+  symbolGridQuad: Array<ManualSourceGeometryPoint> | null;
+  /**
+   * Unavailablecellindices
+   */
+  unavailableCellIndices: Array<number>;
+};
+
+/**
+ * ImageGeometryGuardManifestSealCreate
+ */
+export type ImageGeometryGuardManifestSealCreate = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Expectedguardreportchecksumsha256
+   */
+  expectedGuardReportChecksumSha256: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * ImageGeometryGuardPreviewCreate
+ */
+export type ImageGeometryGuardPreviewCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  geometryQualification?: GeometryQualificationPayload | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Symbolgridquad
+   */
+  symbolGridQuad: [
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+  ];
+  /**
+   * Unavailablecellindices
+   */
+  unavailableCellIndices?: Array<number>;
+};
+
+/**
+ * ImageGeometryGuardPreviewResponse
+ */
+export type ImageGeometryGuardPreviewResponse = {
+  /**
+   * Cells
+   */
+  cells: [
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+    ImageGeometryGuardCellPreviewResponse,
+  ];
+  /**
+   * Imageheight
+   */
+  imageHeight: number;
+  /**
+   * Imagewidth
+   */
+  imageWidth: number;
+};
+
+/**
+ * ImageGeometryGuardQueueResponse
+ */
+export type ImageGeometryGuardQueueResponse = {
+  /**
+   * Boards
+   */
+  boards: Array<ImageGeometryGuardBoardContextResponse>;
+  /**
+   * Browserselectionid
+   */
+  browserSelectionId: string;
+  currentResolutionManifest: ImageGeometryGuardResolutionManifestResponse | null;
+  /**
+   * Decisions
+   */
+  decisions: Array<ImageGeometryGuardDecisionResponse>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Guardjobid
+   */
+  guardJobId: string;
+  /**
+   * Guardreportchecksumsha256
+   */
+  guardReportChecksumSha256: string;
+  /**
+   * Pagegeometrymanifestchecksumsha256
+   */
+  pageGeometryManifestChecksumSha256: string;
+  pageGeometryPreflightJob: JobResponse | null;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+  /**
+   * Targets
+   */
+  targets: Array<ImageGeometryGuardBoardTargetResponse>;
+  /**
+   * Unresolvedcount
+   */
+  unresolvedCount: number;
+};
+
+/**
+ * ImageGeometryGuardReportReconstructionCreate
+ */
+export type ImageGeometryGuardReportReconstructionCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * ImageGeometryGuardReportReconstructionJobPayload
+ */
+export type ImageGeometryGuardReportReconstructionJobPayload = {
+  /**
+   * Legacyreportchecksumsha256
+   */
+  legacyReportChecksumSha256: string;
+  /**
+   * Pagegeometrymanifestchecksumsha256
+   */
+  pageGeometryManifestChecksumSha256: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Sourceguardjobid
+   */
+  sourceGuardJobId: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  /**
+   * Validationkind
+   */
+  validationKind: 'image_geometry_guard_report_reconstruction';
+};
+
+/**
+ * ImageGeometryGuardReportReconstructionResponse
+ */
+export type ImageGeometryGuardReportReconstructionResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  job: JobResponse;
+};
+
+/**
+ * ImageGeometryGuardResolutionManifestJobPayload
+ */
+export type ImageGeometryGuardResolutionManifestJobPayload = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Guardjobid
+   */
+  guardJobId: string;
+  /**
+   * Guardreportchecksumsha256
+   */
+  guardReportChecksumSha256: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Pagegeometrymanifestchecksumsha256
+   */
+  pageGeometryManifestChecksumSha256: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+};
+
+/**
+ * ImageGeometryGuardResolutionManifestResponse
+ */
+export type ImageGeometryGuardResolutionManifestResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Decisioncount
+   */
+  decisionCount: number;
+  /**
+   * Guardjobid
+   */
+  guardJobId: string;
+  /**
+   * Guardreportchecksumsha256
+   */
+  guardReportChecksumSha256: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Manifestrelativepath
+   */
+  manifestRelativePath: string;
+  /**
+   * Pagegeometrymanifestchecksumsha256
+   */
+  pageGeometryManifestChecksumSha256: string;
+  /**
+   * Sealedby
+   */
+  sealedBy: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+};
+
+/**
+ * ImageGeometryRolloutBackfillJobPayload
+ */
+export type ImageGeometryRolloutBackfillJobPayload = {
+  /**
+   * Cellassetmode
+   */
+  cellAssetMode: string;
+  /**
+   * Contractbackfillversion
+   */
+  contractBackfillVersion?: 'additive-virtual-geometry-v2-backfill-v1' | null;
+  /**
+   * Generation
+   */
+  generation: number;
+  /**
+   * Geometrymode
+   */
+  geometryMode: string;
+  /**
+   * Rolloutrevision
+   */
+  rolloutRevision: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 1 | 2 | 3;
+  /**
+   * Workflow
+   */
+  workflow: 'image_geometry_rollout_backfill';
+};
+
+/**
+ * ImageGeometryRolloutJobSnapshotPayload
+ */
+export type ImageGeometryRolloutJobSnapshotPayload = {
+  activeLatticeGeometry?: StructuredGeometryActivationJobSnapshotPayload | null;
+  candidateGeometry?: StructuredGeometryCandidateJobSnapshotPayload | null;
+  /**
+   * Cellassetmode
+   */
+  cellAssetMode: 'legacy_files' | 'virtual_shadow' | 'virtual_default';
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Geometryengineversion
+   */
+  geometryEngineVersion: string;
+  /**
+   * Geometrymode
+   */
+  geometryMode:
+    | 'legacy'
+    | 'structured_shadow'
+    | 'structured_review'
+    | 'structured_default'
+    | 'structured_lattice_v3';
+  lateralPartialGeometry?: LateralPartialGeometryJobSnapshotPayload | null;
+  /**
+   * Preprocessingversion
+   */
+  preprocessingVersion: string;
+  /**
+   * Rolloutrevision
+   */
+  rolloutRevision: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion:
+    | 'virtual-geometry-rollout-snapshot-v1'
+    | 'virtual-geometry-rollout-snapshot-v2'
+    | 'virtual-geometry-rollout-snapshot-v3'
+    | 'virtual-geometry-rollout-snapshot-v4';
+  /**
+   * Virtualrendererversion
+   */
+  virtualRendererVersion: string;
+};
+
+/**
+ * ImageGeometryRolloutStartResponse
+ */
+export type ImageGeometryRolloutStartResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  job: JobResponse | null;
+  rollout: ImageGeometryRolloutStatusResponse;
+};
+
+/**
+ * ImageGeometryRolloutStatusResponse
+ */
+export type ImageGeometryRolloutStatusResponse = {
+  /**
+   * Activejobid
+   */
+  activeJobId: string | null;
+  /**
+   * Backfillstatus
+   */
+  backfillStatus: string;
+  /**
+   * Cellassetmode
+   */
+  cellAssetMode: string;
+  /**
+   * Failurecode
+   */
+  failureCode: string | null;
+  /**
+   * Failuremessage
+   */
+  failureMessage: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Geometrymode
+   */
+  geometryMode: string;
+  /**
+   * Lastsourceimageid
+   */
+  lastSourceImageId: string | null;
+  /**
+   * Processedsourcecount
+   */
+  processedSourceCount: number;
+  /**
+   * Rolloutrevision
+   */
+  rolloutRevision: number;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Virtualsourcecount
+   */
+  virtualSourceCount: number;
+};
+
+/**
+ * ImageGeometrySystemicGuardJobProgressResponse
+ */
+export type ImageGeometrySystemicGuardJobProgressResponse = {
+  /**
+   * Activeboardcount
+   */
+  activeBoardCount: number;
+  /**
+   * Correctedfullcount
+   */
+  correctedFullCount?: number;
+  /**
+   * Finalcellgridreadyrate
+   */
+  finalCellGridReadyRate: number;
+  /**
+   * Invariantviolationcount
+   */
+  invariantViolationCount: number;
+  /**
+   * Pageregistrationreadyrate
+   */
+  pageRegistrationReadyRate: number;
+  /**
+   * Partialcount
+   */
+  partialCount?: number;
+  /**
+   * Passed
+   */
+  passed: boolean;
+  /**
+   * Policyversion
+   */
+  policyVersion:
+    | 'image-geometry-systemic-guard-v1'
+    | 'image-geometry-systemic-guard-v2-manual-review';
+  /**
+   * Qualitywarningonly
+   */
+  qualityWarningOnly?: boolean | null;
+  /**
+   * Rejectedcount
+   */
+  rejectedCount?: number;
+  /**
+   * Reportchecksumsha256
+   */
+  reportChecksumSha256: string;
+  /**
+   * Reportrelativepath
+   */
+  reportRelativePath: string;
+  /**
+   * Required
+   */
+  required: boolean;
+  /**
+   * Resolutionapplied
+   */
+  resolutionApplied?: boolean;
+  /**
+   * Resolutionmanifestchecksumsha256
+   */
+  resolutionManifestChecksumSha256?: string | null;
+  /**
+   * Sampleboardcount
+   */
+  sampleBoardCount: number;
+  /**
+   * Samplesourcecount
+   */
+  sampleSourceCount: number;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+};
+
+/**
+ * ImageGeometrySystemicGuardPolicyJobPayload
+ */
+export type ImageGeometrySystemicGuardPolicyJobPayload = {
+  /**
+   * Minimumactiveboardcount
+   */
+  minimumActiveBoardCount: 500;
+  /**
+   * Minimumfinalcellgridreadyrate
+   */
+  minimumFinalCellGridReadyRate: number;
+  /**
+   * Minimumsourcecount
+   */
+  minimumSourceCount: 100;
+  /**
+   * Policyversion
+   */
+  policyVersion:
+    | 'image-geometry-systemic-guard-v1'
+    | 'image-geometry-systemic-guard-v2-manual-review';
+  /**
+   * Requirezeroinvariantviolations
+   */
+  requireZeroInvariantViolations: true;
+  /**
+   * Samplesourcelimit
+   */
+  sampleSourceLimit: 25;
 };
 
 /**
@@ -2319,6 +3940,22 @@ export type ImageGridReviewCountsResponse = {
    */
   approved: number;
   /**
+   * Confirmedpartialgrids
+   */
+  confirmedPartialGrids?: number;
+  /**
+   * Fullgrids
+   */
+  fullGrids?: number;
+  /**
+   * Lateralpartialproposals
+   */
+  lateralPartialProposals?: number;
+  /**
+   * Manualcorrection
+   */
+  manualCorrection?: number;
+  /**
    * Needscorrection
    */
   needsCorrection: number;
@@ -2368,10 +4005,10 @@ export type ImageGridReviewGeometryCommand = {
    * Source-image outer corners in row-major winding
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedgeometryrevision
@@ -2401,6 +4038,7 @@ export type ImageGridReviewGeometryCommand = {
    * Expectedsourcewidth
    */
   expectedSourceWidth: number;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Idempotencykey
    */
@@ -2417,10 +4055,10 @@ export type ImageGridReviewGeometryPreviewCommand = {
    * Source-image outer corners in row-major winding
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedgeometryrevision
@@ -2450,6 +4088,7 @@ export type ImageGridReviewGeometryPreviewCommand = {
    * Expectedsourcewidth
    */
   expectedSourceWidth: number;
+  geometryQualification?: GeometryQualificationPayload | null;
 };
 
 /**
@@ -2468,9 +4107,13 @@ export type ImageGridReviewGeometryResponse = {
  */
 export type ImageGridReviewGeometryRevisionResponse = {
   /**
+   * Assetmode
+   */
+  assetMode?: string;
+  /**
    * Boardchecksumsha256
    */
-  boardChecksumSha256: string;
+  boardChecksumSha256?: string | null;
   /**
    * Cells
    */
@@ -2483,10 +4126,10 @@ export type ImageGridReviewGeometryRevisionResponse = {
    * Corners
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Correctedby
@@ -2504,6 +4147,11 @@ export type ImageGridReviewGeometryRevisionResponse = {
    * Decisionchecksumsha256
    */
   decisionChecksumSha256: string | null;
+  /**
+   * Geometrychecksumsha256
+   */
+  geometryChecksumSha256?: string | null;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Gridcolumns
    */
@@ -2532,6 +4180,14 @@ export type ImageGridReviewGeometryRevisionResponse = {
    * Revision
    */
   revision: number;
+  /**
+   * Sourcegeometryrevisionid
+   */
+  sourceGeometryRevisionId?: string | null;
+  /**
+   * Virtualrenderspecchecksumsha256
+   */
+  virtualRenderSpecChecksumSha256?: string | null;
 };
 
 /**
@@ -2539,9 +4195,41 @@ export type ImageGridReviewGeometryRevisionResponse = {
  */
 export type ImageGridReviewItemResponse = {
   /**
+   * Analysisquad
+   */
+  analysisQuad?:
+    | [
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+      ]
+    | null;
+  /**
    * Approvedgeometryrevision
    */
   approvedGeometryRevision?: number | null;
+  /**
+   * Assetmode
+   */
+  assetMode: string;
+  automaticFrameProposal?: AutomaticFrameGeometryProposalPayload | null;
+  automaticPartialProposal?: AutomaticPartialGeometryProposalPayload | null;
+  /**
+   * Boardconfidence
+   */
+  boardConfidence: number;
+  /**
+   * Boardframequad
+   */
+  boardFrameQuad?:
+    | [
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+      ]
+    | null;
   /**
    * Gameid
    */
@@ -2552,6 +4240,15 @@ export type ImageGridReviewItemResponse = {
   geometry: {
     [key: string]: unknown;
   };
+  /**
+   * Geometryenginename
+   */
+  geometryEngineName: string | null;
+  /**
+   * Geometryengineversion
+   */
+  geometryEngineVersion: string | null;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Geometryrevision
    */
@@ -2569,21 +4266,65 @@ export type ImageGridReviewItemResponse = {
    */
   importJobId: string;
   /**
+   * Locallatticestatus
+   */
+  localLatticeStatus?: string | null;
+  /**
+   * Locallatticeversion
+   */
+  localLatticeVersion?: string | null;
+  /**
+   * Pendinggeometryid
+   */
+  pendingGeometryId: string | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
    * Recognizedboardid
    */
-  recognizedBoardId: string;
+  recognizedBoardId: string | null;
   /**
    * Resolutionrevision
    */
   resolutionRevision: number;
   /**
+   * Reviewdraftorigin
+   */
+  reviewDraftOrigin?: string | null;
+  /**
+   * Reviewdraftquad
+   */
+  reviewDraftQuad?:
+    | [
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+      ]
+    | null;
+  /**
    * Reviewitemid
    */
-  reviewItemId: string;
+  reviewItemId: string | null;
+  /**
+   * Reviewuncertaintyreason
+   */
+  reviewUncertaintyReason?: string | null;
   /**
    * Sequencenumber
    */
   sequenceNumber: number;
+  /**
+   * Slotid
+   */
+  slotId: string;
+  slotKind: ImageGridReviewSlotKind;
   /**
    * Sourcechecksumsha256
    */
@@ -2593,10 +4334,25 @@ export type ImageGridReviewItemResponse = {
    */
   sourceHeight: number;
   /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
    * Sourcewidth
    */
   sourceWidth: number;
   state: ImageGridReviewState;
+  /**
+   * Symbolgridquad
+   */
+  symbolGridQuad?:
+    | [
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+      ]
+    | null;
 };
 
 /**
@@ -2628,6 +4384,171 @@ export type ImageGridReviewPageResponse = {
 };
 
 /**
+ * ImageGridReviewSlotKind
+ */
+export type ImageGridReviewSlotKind = 'current_review' | 'deferred_geometry';
+
+/**
+ * ImageGridReviewSourceApprovalCommand
+ */
+export type ImageGridReviewSourceApprovalCommand = {
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Targets
+   */
+  targets: Array<ImageGridReviewSourceApprovalTargetRequest>;
+};
+
+/**
+ * ImageGridReviewSourceApprovalResponse
+ */
+export type ImageGridReviewSourceApprovalResponse = {
+  /**
+   * Approvedreviewitemids
+   */
+  approvedReviewItemIds: Array<string>;
+  /**
+   * Changedcount
+   */
+  changedCount: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * ImageGridReviewSourceApprovalTargetRequest
+ */
+export type ImageGridReviewSourceApprovalTargetRequest = {
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedgridcolumns
+   */
+  expectedGridColumns: number;
+  /**
+   * Expectedgridrows
+   */
+  expectedGridRows: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Expectedsourcechecksumsha256
+   */
+  expectedSourceChecksumSha256: string;
+  /**
+   * Expectedsourceheight
+   */
+  expectedSourceHeight: number;
+  /**
+   * Expectedsourcewidth
+   */
+  expectedSourceWidth: number;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+};
+
+/**
+ * ImageGridReviewSourceGeometryCommand
+ */
+export type ImageGridReviewSourceGeometryCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Targets
+   */
+  targets: Array<ImageGridReviewSourceGeometryTargetCommand>;
+};
+
+/**
+ * ImageGridReviewSourceGeometryResponse
+ */
+export type ImageGridReviewSourceGeometryResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Geometryrevisions
+   */
+  geometryRevisions: Array<ImageGridReviewGeometryRevisionResponse>;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * ImageGridReviewSourceGeometryTargetCommand
+ */
+export type ImageGridReviewSourceGeometryTargetCommand = {
+  /**
+   * Corners
+   *
+   * Source-image outer corners in row-major winding
+   */
+  corners: [
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+  ];
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedgridcolumns
+   */
+  expectedGridColumns: number;
+  /**
+   * Expectedgridrows
+   */
+  expectedGridRows: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Expectedsourcechecksumsha256
+   */
+  expectedSourceChecksumSha256: string;
+  /**
+   * Expectedsourceheight
+   */
+  expectedSourceHeight: number;
+  /**
+   * Expectedsourcewidth
+   */
+  expectedSourceWidth: number;
+  geometryQualification?: GeometryQualificationPayload | null;
+  /**
+   * Pendinggeometryid
+   */
+  pendingGeometryId?: string | null;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId?: string | null;
+};
+
+/**
  * ImageGridReviewState
  */
 export type ImageGridReviewState =
@@ -2640,6 +4561,80 @@ export type ImageGridReviewView =
   'needs_validation' | 'needs_correction' | 'all';
 
 /**
+ * ImageImportEnginePolicy
+ */
+export type ImageImportEnginePolicy =
+  | 'verified_v19'
+  | 'structured_shadow'
+  | 'structured_default'
+  | 'structured_lattice_v3';
+
+/**
+ * ImageImportEnginePolicyPreviewRequest
+ */
+export type ImageImportEnginePolicyPreviewRequest = {
+  targetPolicy: ImageImportEnginePolicy;
+};
+
+/**
+ * ImageImportEnginePolicyPreviewResponse
+ */
+export type ImageImportEnginePolicyPreviewResponse = {
+  /**
+   * Changesexistingjobs
+   */
+  changesExistingJobs: boolean;
+  current: ImageImportEnginePolicyResponse;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  target: ImageImportEnginePolicyResponse;
+};
+
+/**
+ * ImageImportEnginePolicyResponse
+ */
+export type ImageImportEnginePolicyResponse = {
+  /**
+   * Cellassetmode
+   */
+  cellAssetMode: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Geometryenginevariants
+   */
+  geometryEngineVariants?: Array<GeometryEngineVariantCapabilityResponse>;
+  /**
+   * Geometrymode
+   */
+  geometryMode: string;
+  policy: ImageImportEnginePolicy;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * ImageImportEnginePolicyUpdateRequest
+ */
+export type ImageImportEnginePolicyUpdateRequest = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  targetPolicy: ImageImportEnginePolicy;
+};
+
+/**
  * ImageImportJobPayload
  */
 export type ImageImportJobPayload = {
@@ -2648,6 +4643,7 @@ export type ImageImportJobPayload = {
    * Canonicalsequencenumbers
    */
   canonicalSequenceNumbers?: Array<number>;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
   /**
    * Imageselectionrunid
    */
@@ -2689,6 +4685,36 @@ export type ImageImportJobPayload = {
    */
   sourceSelectionId?: string | null;
   symbolModel: SymbolModelJobSnapshotPayload;
+};
+
+/**
+ * ImageImportPipelineProgressResponse
+ */
+export type ImageImportPipelineProgressResponse = {
+  /**
+   * Failedsources
+   */
+  failedSources: number;
+  /**
+   * Pipelinetotal
+   */
+  pipelineTotal: number;
+  /**
+   * Processedsources
+   */
+  processedSources: number;
+  /**
+   * Reviewsources
+   */
+  reviewSources: number;
+  /**
+   * Sourcetotal
+   */
+  sourceTotal: number;
+  /**
+   * Succeededsources
+   */
+  succeededSources: number;
 };
 
 /**
@@ -3408,7 +5434,8 @@ export type ImageSelectionOutputResponse = {
 /**
  * ImageSelectionPurpose
  */
-export type ImageSelectionPurpose = 'layout_import' | 'photo_selection';
+export type ImageSelectionPurpose =
+  'layout_import' | 'photo_selection' | 'semi_automatic_selection';
 
 /**
  * ImageSelectionRangeConfirmationCommand
@@ -3669,56 +5696,6 @@ export type ImageSelectionRunResponse = {
  * ImageSelectionSequenceDirection
  */
 export type ImageSelectionSequenceDirection = 'ascending' | 'descending';
-
-/**
- * ImageSequenceImportPreflightResponse
- */
-export type ImageSequenceImportPreflightResponse = {
-  /**
-   * Alternativesourcecount
-   */
-  alternativeSourceCount: number;
-  /**
-   * Attestedfilecount
-   */
-  attestedFileCount: number;
-  /**
-   * Firstunresolvedsequence
-   */
-  firstUnresolvedSequence?: number | null;
-  /**
-   * Gameid
-   */
-  gameId: string;
-  /**
-   * Lastunresolvedsequence
-   */
-  lastUnresolvedSequence?: number | null;
-  /**
-   * Newsequencecount
-   */
-  newSequenceCount: number;
-  /**
-   * Partialsourcecount
-   */
-  partialSourceCount: number;
-  /**
-   * Reusedsequencecount
-   */
-  reusedSequenceCount: number;
-  /**
-   * Skippedsourcecount
-   */
-  skippedSourceCount: number;
-  /**
-   * Sourcefilecount
-   */
-  sourceFileCount: number;
-  /**
-   * Warnings
-   */
-  warnings: Array<string>;
-};
 
 /**
  * ImageSequenceSourceCandidateResponse
@@ -4018,6 +5995,8 @@ export type JobProgressResponse = {
    * Failed
    */
   failed: number;
+  geometrySystemicGuard?: ImageGeometrySystemicGuardJobProgressResponse | null;
+  imageImport?: ImageImportPipelineProgressResponse | null;
   imageSelection?: ImageSelectionJobProgressResponse | null;
   pageGeometryPreflight?: PageGeometryPreflightJobProgressResponse | null;
   /**
@@ -4079,18 +6058,23 @@ export type JobResponse = {
     | LegacyImageImportJobPayload
     | ImageImportJobPayload
     | BrowserImageImportJobPayload
+    | ResolvedBrowserImageImportJobPayload
     | CuratedImageImportJobPayload
     | ManagedImageReprocessJobPayload
+    | PinnedManagedImageReprocessJobPayload
     | ImageSelectionJobPayload
+    | SemiAutomaticImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PageGeometryPreflightJobPayload
+    | ImageGeometryGuardReportReconstructionJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
     | SymbolTrainingJobPayload
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
+    | ImageGeometryRolloutBackfillJobPayload
     | StorageGcJobPayload
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
@@ -4115,6 +6099,10 @@ export type JobResponse = {
    * Workerversion
    */
   workerVersion: string | null;
+  /**
+   * Workflowmode
+   */
+  workflowMode?: 'selection' | 'filename_verification' | null;
 };
 
 /**
@@ -4134,6 +6122,7 @@ export type JobStatus =
 export type JobType =
   | 'import'
   | 'image_selection'
+  | 'semi_automatic_image_selection'
   | 'validate'
   | 'payout'
   | 'snapshot'
@@ -4143,9 +6132,137 @@ export type JobType =
   | 'image_grid_reinference'
   | 'image_symbol_review_bulk'
   | 'image_symbol_review_backfill'
+  | 'image_geometry_rollout_backfill'
   | 'storage_gc'
   | 'storage_inventory'
   | 'storage_pipeline_compaction';
+
+/**
+ * LateralPartialGeometryJobSnapshotPayload
+ */
+export type LateralPartialGeometryJobSnapshotPayload = {
+  /**
+   * Analysisheight
+   */
+  analysisHeight: 300;
+  /**
+   * Analysiswidth
+   */
+  analysisWidth: 500;
+  /**
+   * Automaticframeproposalversion
+   */
+  automaticFrameProposalVersion?:
+    | 'automatic-frame-geometry-proposal-v1'
+    | 'automatic-frame-geometry-proposal-v2'
+    | null;
+  /**
+   * Baselinefirst
+   */
+  baselineFirst?: true | null;
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Excludefromgeometrytraining
+   */
+  excludeFromGeometryTraining: true;
+  /**
+   * Excludefrompageanchors
+   */
+  excludeFromPageAnchors: true;
+  /**
+   * Framesupportreviewenabled
+   */
+  frameSupportReviewEnabled?: true | null;
+  /**
+   * Maximumadditionalpasses
+   */
+  maximumAdditionalPasses: 1;
+  /**
+   * Maximumframereviewslots
+   */
+  maximumFrameReviewSlots?: 2 | 3 | null;
+  /**
+   * Minimumautomaticboardrededgecoverage
+   */
+  minimumAutomaticBoardRedEdgeCoverage?: number | null;
+  /**
+   * Minimumconfidentslots
+   */
+  minimumConfidentSlots?: 7 | null;
+  /**
+   * Minimuminliers
+   */
+  minimumInliers: 9;
+  /**
+   * Minimumreviewableboardrededgecoverage
+   */
+  minimumReviewableBoardRedEdgeCoverage?: number | null;
+  /**
+   * Minimumreviewablepagemeanrededgecoverage
+   */
+  minimumReviewablePageMeanRedEdgeCoverage?: number | null;
+  /**
+   * Minimumvisiblecolumns
+   */
+  minimumVisibleColumns: 3;
+  /**
+   * Minimumvisiblerows
+   */
+  minimumVisibleRows: 3;
+  partialGridTrainingProfile?: PartialGridTrainingJobSnapshotPayload | null;
+  /**
+   * Policyversion
+   */
+  policyVersion:
+    | 'structured-lattice-v4-lateral-partial-v1'
+    | 'structured-lattice-v4-lateral-partial-v2'
+    | 'structured-lattice-v4-lateral-partial-v3'
+    | 'structured-lattice-v4-selective-frame-v1';
+  /**
+   * Proposalversion
+   */
+  proposalVersion:
+    | 'automatic-lateral-partial-proposal-v1'
+    | 'automatic-lateral-partial-proposal-v2'
+    | 'automatic-lateral-partial-proposal-v3'
+    | 'automatic-lateral-partial-proposal-v4';
+  /**
+   * Requiresmanualconfirmation
+   */
+  requiresManualConfirmation: true;
+  /**
+   * Reviewdraftrequireshumanconfirmation
+   */
+  reviewDraftRequiresHumanConfirmation?: true | null;
+  /**
+   * Schemaversion
+   */
+  schemaVersion:
+    | 'lateral-partial-geometry-snapshot-v1'
+    | 'lateral-partial-geometry-snapshot-v2'
+    | 'lateral-partial-geometry-snapshot-v3'
+    | 'selective-frame-geometry-snapshot-v1';
+  /**
+   * Topologycolumns
+   */
+  topologyColumns: 5;
+  /**
+   * Topologyrows
+   */
+  topologyRows: 3;
+  /**
+   * Variant
+   */
+  variant:
+    'structured_lattice_v4_partial_sides' | 'selective_board_review_v1_1';
+  /**
+   * Verticalclippingallowed
+   */
+  verticalClippingAllowed: false;
+};
 
 /**
  * LayoutImportDuplicateSequenceGroupResponse
@@ -4529,6 +6646,7 @@ export type LegacyImageImportJobPayload = {
 export type ManagedImageReprocessJobPayload = {
   boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
   gridProfile: GridProfileJobSnapshotPayload;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
   /**
    * Imageselectionrunid
    */
@@ -4570,6 +6688,22 @@ export type ManagedImageReprocessJobPayload = {
    */
   sourceSelectionId?: string | null;
   symbolModel: SymbolModelJobSnapshotPayload;
+};
+
+/**
+ * ManualSourceGeometryPoint
+ *
+ * Signed coordinates; enclosing commands enforce qualified source bounds.
+ */
+export type ManualSourceGeometryPoint = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
 };
 
 /**
@@ -4886,7 +7020,7 @@ export type OperationalImageReviewCellResponse = {
   /**
    * Observationid
    */
-  observationId: string;
+  observationId: string | null;
   /**
    * Predictedsymbolcode
    */
@@ -5398,27 +7532,23 @@ export type PageGeometryManifestJobPayload = {
 };
 
 /**
- * PageGeometryPoint
- */
-export type PageGeometryPoint = {
-  /**
-   * X
-   */
-  x: number;
-  /**
-   * Y
-   */
-  y: number;
-};
-
-/**
  * PageGeometryPreflightJobPayload
  */
 export type PageGeometryPreflightJobPayload = {
+  basePageGeometryManifest?: BasePageGeometryManifestPayload | null;
   /**
    * Canonicalsequencenumbers
    */
   canonicalSequenceNumbers?: Array<number>;
+  lateralPartialGeometry?: LateralPartialGeometryJobSnapshotPayload | null;
+  /**
+   * Managedsourcejobid
+   */
+  managedSourceJobId?: string | null;
+  /**
+   * Managedsourcemanifestchecksumsha256
+   */
+  managedSourceManifestChecksumSha256?: string | null;
   /**
    * Pagegeometryoverrides
    */
@@ -5434,7 +7564,10 @@ export type PageGeometryPreflightJobPayload = {
   /**
    * Preflightpolicyversion
    */
-  preflightPolicyVersion?: 'page-geometry-preflight-v2-auto-anchor' | null;
+  preflightPolicyVersion?:
+    | 'page-geometry-preflight-v2-auto-anchor'
+    | 'page-geometry-preflight-v3-board-area-mask'
+    | null;
   /**
    * Schemaversion
    */
@@ -5447,6 +7580,14 @@ export type PageGeometryPreflightJobPayload = {
    * Sourcedisplayname
    */
   sourceDisplayName?: string | null;
+  /**
+   * Sourceexclusions
+   */
+  sourceExclusions?: {
+    [key: string]: {
+      [key: string]: string;
+    };
+  };
   /**
    * Sourcemanifestsha256
    */
@@ -5466,6 +7607,14 @@ export type PageGeometryPreflightJobPayload = {
  */
 export type PageGeometryPreflightJobProgressResponse = {
   /**
+   * Autoanchorpass
+   */
+  autoAnchorPass?: number | null;
+  /**
+   * Autoanchorpasscount
+   */
+  autoAnchorPassCount?: number | null;
+  /**
    * Complete
    */
   complete: boolean;
@@ -5473,6 +7622,156 @@ export type PageGeometryPreflightJobProgressResponse = {
    * Geometrymanifestchecksumsha256
    */
   geometryManifestChecksumSha256?: string | null;
+  /**
+   * Phase
+   */
+  phase?:
+    | 'source_registration'
+    | 'auto_anchor_retry'
+    | 'manifest_write'
+    | 'complete'
+    | null;
+  /**
+   * Phasecurrent
+   */
+  phaseCurrent?: number | null;
+  /**
+   * Phasetotal
+   */
+  phaseTotal?: number | null;
+  /**
+   * Provisionalreviewrequired
+   */
+  provisionalReviewRequired?: number | null;
+  /**
+   * Recomputedsourcecount
+   */
+  recomputedSourceCount?: number | null;
+  /**
+   * Reusedsourcecount
+   */
+  reusedSourceCount?: number | null;
+};
+
+/**
+ * PageGeometryRegistrationAttemptDiagnostic
+ */
+export type PageGeometryRegistrationAttemptDiagnostic = {
+  /**
+   * Anchorsourcechecksumsha256
+   */
+  anchorSourceChecksumSha256?: string | null;
+  /**
+   * Featurecount
+   */
+  featureCount: number;
+  /**
+   * Inliercount
+   */
+  inlierCount?: number | null;
+  /**
+   * Inlierratio
+   */
+  inlierRatio?: number | null;
+  /**
+   * Matchcount
+   */
+  matchCount?: number | null;
+  /**
+   * Meanrededgecoverage
+   */
+  meanRedEdgeCoverage?: number | null;
+  /**
+   * Minimumboardrededgecoverage
+   */
+  minimumBoardRedEdgeCoverage?: number | null;
+  /**
+   * P95Reprojectionerror
+   */
+  p95ReprojectionError?: number | null;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
+  /**
+   * Targetfeaturecount
+   */
+  targetFeatureCount?: number | null;
+};
+
+/**
+ * PageGeometryRegistrationDiagnostics
+ */
+export type PageGeometryRegistrationDiagnostics = {
+  /**
+   * Attempts
+   */
+  attempts: Array<PageGeometryRegistrationAttemptDiagnostic>;
+  bestAttempt?: PageGeometryRegistrationAttemptDiagnostic | null;
+  /**
+   * Version
+   */
+  version: 'page-registration-diagnostics-v1';
+};
+
+/**
+ * PartialGridPatternJobSnapshotPayload
+ */
+export type PartialGridPatternJobSnapshotPayload = {
+  /**
+   * Ready
+   */
+  ready: boolean;
+  /**
+   * Samplecount
+   */
+  sampleCount: number;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Unavailablecellindices
+   */
+  unavailableCellIndices: Array<number>;
+};
+
+/**
+ * PartialGridTrainingJobSnapshotPayload
+ */
+export type PartialGridTrainingJobSnapshotPayload = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Minimumdistinctsourcecount
+   */
+  minimumDistinctSourceCount: 3;
+  /**
+   * Patterns
+   */
+  patterns: Array<PartialGridPatternJobSnapshotPayload>;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'lateral-missing-column-majority-v1';
+  /**
+   * Readypatterncount
+   */
+  readyPatternCount: number;
+  /**
+   * Samplecount
+   */
+  sampleCount: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'partial-grid-training-profile-v1';
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
 };
 
 /**
@@ -5732,6 +8031,10 @@ export type PendingGridReinferencePreviewResponse = {
    * Requiresexplicitactivation
    */
   requiresExplicitActivation?: boolean;
+  /**
+   * Unsupportedvirtualboardcount
+   */
+  unsupportedVirtualBoardCount: number;
 };
 
 /**
@@ -5769,6 +8072,66 @@ export type PendingSymbolReinferencePreviewResponse = {
    * Requiresexplicitactivation
    */
   requiresExplicitActivation?: boolean;
+};
+
+/**
+ * PinnedManagedImageReprocessJobPayload
+ */
+export type PinnedManagedImageReprocessJobPayload = {
+  boardCellProcessing: BoardCellProcessingJobSnapshotPayload;
+  geometrySystemicGuardPolicy?: ImageGeometrySystemicGuardPolicyJobPayload | null;
+  gridProfile: GridProfileJobSnapshotPayload;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
+  /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId?: string | null;
+  /**
+   * Importkind
+   */
+  importKind: 'image_directory';
+  /**
+   * Managedsourcejobid
+   */
+  managedSourceJobId: string;
+  /**
+   * Managedsourcemanifestchecksumsha256
+   */
+  managedSourceManifestChecksumSha256: string;
+  /**
+   * Normalizationadapterversion
+   */
+  normalizationAdapterVersion?: string | null;
+  pageGeometryManifest: PageGeometryManifestJobPayload;
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 6;
+  /**
+   * Sourcedirectory
+   */
+  sourceDirectory: string;
+  /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName: string;
+  /**
+   * Sourcemanifestsha256
+   */
+  sourceManifestSha256: string;
+  /**
+   * Sourcepipelinefingerprint
+   */
+  sourcePipelineFingerprint: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  symbolModel: SymbolModelJobSnapshotPayload;
 };
 
 /**
@@ -6787,6 +9150,79 @@ export type ResolveUnreadableCellRequest = {
    * Expectedrevision
    */
   expectedRevision: number;
+};
+
+/**
+ * ResolvedBrowserImageImportJobPayload
+ */
+export type ResolvedBrowserImageImportJobPayload = {
+  boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
+  /**
+   * Canonicalsequencenumbers
+   */
+  canonicalSequenceNumbers?: Array<number>;
+  geometryGuardResolutionManifest?: ImageGeometryGuardResolutionManifestJobPayload | null;
+  geometrySystemicGuardPolicy: ImageGeometrySystemicGuardPolicyJobPayload;
+  gridProfile: GridProfileJobSnapshotPayload;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
+  /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId?: string | null;
+  /**
+   * Importkind
+   */
+  importKind: 'image_directory';
+  /**
+   * Normalizationadapterversion
+   */
+  normalizationAdapterVersion?: string | null;
+  pageGeometryManifest: PageGeometryManifestJobPayload;
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Previousjobid
+   */
+  previousJobId?: string | null;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 7;
+  /**
+   * Sourcedirectory
+   */
+  sourceDirectory: string;
+  /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName: string;
+  /**
+   * Sourceexclusions
+   */
+  sourceExclusions?: {
+    [key: string]: {
+      [key: string]: string;
+    };
+  };
+  /**
+   * Sourcemanifestsha256
+   */
+  sourceManifestSha256: string;
+  /**
+   * Sourcepipelinefingerprint
+   */
+  sourcePipelineFingerprint: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  /**
+   * Startmode
+   */
+  startMode: 'reuse_exact' | 'rerun_current_models';
+  symbolModel: SymbolModelJobSnapshotPayload;
 };
 
 /**
@@ -7827,6 +10263,638 @@ export type RulesVersionUpdate = {
 };
 
 /**
+ * SaveUnreadableBoardCellRequest
+ *
+ * One exact visible cell decision supplied by the board workspace.
+ */
+export type SaveUnreadableBoardCellRequest = {
+  /**
+   * Assignment
+   */
+  assignment:
+    | ({
+        kind: 'symbol';
+      } & UnreadableSymbolAssignmentRequest)
+    | ({
+        kind: 'unknown';
+      } & UnreadableUnknownAssignmentRequest);
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Expectedcropchecksumsha256
+   */
+  expectedCropChecksumSha256: string;
+  /**
+   * Expectedcropsampleid
+   */
+  expectedCropSampleId: string;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
+ * SaveUnreadableBoardRequest
+ *
+ * Full topology snapshot for one atomic pending-board save.
+ */
+export type SaveUnreadableBoardRequest = {
+  /**
+   * Cells
+   */
+  cells: Array<SaveUnreadableBoardCellRequest>;
+};
+
+/**
+ * SaveUnreadableBoardResponse
+ */
+export type SaveUnreadableBoardResponse = {
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Changedcellcount
+   */
+  changedCellCount: number;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
+
+/**
+ * SemiAutomaticImageSelectionJobPayload
+ */
+export type SemiAutomaticImageSelectionJobPayload = {
+  /**
+   * Direction
+   */
+  direction: 'ascending' | 'descending';
+  /**
+   * Expectedrangesfingerprint
+   */
+  expectedRangesFingerprint: string;
+  /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber: number;
+  /**
+   * Fullrangesize
+   */
+  fullRangeSize: 9;
+  /**
+   * Groupingpolicyfingerprint
+   */
+  groupingPolicyFingerprint: string;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber: number;
+  /**
+   * Rangeconvention
+   */
+  rangeConvention: 'seq-inclusive-v1';
+  /**
+   * Recognizerfingerprint
+   */
+  recognizerFingerprint: string;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1 | 2 | 3;
+  /**
+   * Selectionkind
+   */
+  selectionKind: 'semi_automatic_image_selection';
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Sourcefingerprint
+   */
+  sourceFingerprint: string;
+  /**
+   * Sourcekind
+   */
+  sourceKind?: 'local_folder' | null;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+  /**
+   * Sourcemanifestrelativepath
+   */
+  sourceManifestRelativePath?: string | null;
+  /**
+   * Sourceuploadid
+   */
+  sourceUploadId: string;
+  /**
+   * Workflowmode
+   */
+  workflowMode?: 'selection' | 'filename_verification' | null;
+};
+
+/**
+ * SemiAutomaticSelectionCapabilitiesResponse
+ */
+export type SemiAutomaticSelectionCapabilitiesResponse = {
+  /**
+   * Contractversion
+   */
+  contractVersion: 1;
+  /**
+   * Enabled
+   */
+  enabled: boolean;
+  /**
+   * Filenameverificationenabled
+   */
+  filenameVerificationEnabled: boolean;
+  /**
+   * Filenameverificationrecognizerfingerprint
+   */
+  filenameVerificationRecognizerFingerprint: string;
+  /**
+   * Fullrangesize
+   */
+  fullRangeSize: 9;
+  /**
+   * Groupingpolicyfingerprint
+   */
+  groupingPolicyFingerprint: string;
+  /**
+   * Maximumboardsperrange
+   */
+  maximumBoardsPerRange: 9;
+  /**
+   * Minimumsequencenumber
+   */
+  minimumSequenceNumber: 1;
+  /**
+   * Rangeconvention
+   */
+  rangeConvention: 'seq-inclusive-v1';
+  /**
+   * Recognizerfingerprint
+   */
+  recognizerFingerprint: string;
+  /**
+   * Selectionrecognizervariants
+   */
+  selectionRecognizerVariants: Array<SemiAutomaticSelectionRecognizerVariantResponse>;
+  /**
+   * Sourcemode
+   */
+  sourceMode?: 'local_folder';
+  /**
+   * Stagingpurpose
+   */
+  stagingPurpose: 'semi_automatic_selection';
+};
+
+/**
+ * SemiAutomaticSelectionCreate
+ */
+export type SemiAutomaticSelectionCreate = {
+  direction?: SemiAutomaticSelectionDirection;
+  /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber: number;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber: number;
+  /**
+   * Mode
+   */
+  mode?: 'selection' | 'filename_verification';
+  /**
+   * Recognizervariant
+   */
+  recognizerVariant?: 'default_v3' | 'five_anchor_v6';
+  /**
+   * Selectiontoken
+   */
+  selectionToken?: string | null;
+  /**
+   * Uploadid
+   */
+  uploadId?: string | null;
+};
+
+/**
+ * SemiAutomaticSelectionCreateResponse
+ */
+export type SemiAutomaticSelectionCreateResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  run: SemiAutomaticSelectionRunResponse;
+};
+
+/**
+ * SemiAutomaticSelectionDiagnosticsResponse
+ */
+export type SemiAutomaticSelectionDiagnosticsResponse = {
+  /**
+   * Available
+   */
+  available: boolean;
+  /**
+   * Checkpoint
+   */
+  checkpoint: {
+    [key: string]: unknown;
+  };
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string | null;
+  /**
+   * Counters
+   */
+  counters: {
+    [key: string]: number;
+  };
+  /**
+   * Relativepath
+   */
+  relativePath: string | null;
+  /**
+   * Runid
+   */
+  runId: string;
+};
+
+/**
+ * SemiAutomaticSelectionDirection
+ */
+export type SemiAutomaticSelectionDirection = 'ascending' | 'descending';
+
+/**
+ * SemiAutomaticSelectionOutputAcknowledgement
+ */
+export type SemiAutomaticSelectionOutputAcknowledgement = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Expectedsourcechecksumsha256
+   */
+  expectedSourceChecksumSha256: string;
+  /**
+   * Outputchecksumsha256
+   */
+  outputChecksumSha256: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex?: number | null;
+};
+
+/**
+ * SemiAutomaticSelectionRangePageResponse
+ */
+export type SemiAutomaticSelectionRangePageResponse = {
+  /**
+   * Items
+   */
+  items: Array<SemiAutomaticSelectionRangeResponse>;
+  /**
+   * Nextafterexpectedindex
+   */
+  nextAfterExpectedIndex?: number | null;
+};
+
+/**
+ * SemiAutomaticSelectionRangeResponse
+ */
+export type SemiAutomaticSelectionRangeResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Expectedindex
+   */
+  expectedIndex: number;
+  /**
+   * Filename
+   */
+  fileName: string;
+  /**
+   * Groupfirstsourceindex
+   */
+  groupFirstSourceIndex?: number | null;
+  /**
+   * Grouplastsourceindex
+   */
+  groupLastSourceIndex?: number | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Outputchecksumsha256
+   */
+  outputChecksumSha256: string | null;
+  /**
+   * Rangeconfidence
+   */
+  rangeConfidence?: number | null;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Selectionmethod
+   */
+  selectionMethod: string | null;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string | null;
+  /**
+   * Sourceindex
+   */
+  sourceIndex?: number | null;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string | null;
+  /**
+   * Sourcesizebytes
+   */
+  sourceSizeBytes?: number | null;
+  status: SemiAutomaticSelectionRangeStatus;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * SemiAutomaticSelectionRangeStatus
+ */
+export type SemiAutomaticSelectionRangeStatus =
+  'missing' | 'auto_selected' | 'output_synced' | 'conflict';
+
+/**
+ * SemiAutomaticSelectionRecognizerVariantResponse
+ */
+export type SemiAutomaticSelectionRecognizerVariantResponse = {
+  /**
+   * Default
+   */
+  default: boolean;
+  /**
+   * Experimental
+   */
+  experimental: boolean;
+  /**
+   * Fingerprint
+   */
+  fingerprint: string;
+  /**
+   * Id
+   */
+  id: 'default_v3' | 'five_anchor_v6';
+  /**
+   * Label
+   */
+  label: string;
+};
+
+/**
+ * SemiAutomaticSelectionRunPageResponse
+ */
+export type SemiAutomaticSelectionRunPageResponse = {
+  /**
+   * Items
+   */
+  items: Array<SemiAutomaticSelectionRunResponse>;
+  /**
+   * Nextoffset
+   */
+  nextOffset?: number | null;
+};
+
+/**
+ * SemiAutomaticSelectionRunResponse
+ */
+export type SemiAutomaticSelectionRunResponse = {
+  /**
+   * Checkpoint
+   */
+  checkpoint: {
+    [key: string]: unknown;
+  };
+  /**
+   * Counters
+   */
+  counters: {
+    [key: string]: number;
+  };
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Diagnosticschecksumsha256
+   */
+  diagnosticsChecksumSha256: string | null;
+  /**
+   * Diagnosticsrelativepath
+   */
+  diagnosticsRelativePath: string | null;
+  direction: SemiAutomaticSelectionDirection;
+  /**
+   * Expectedrangesfingerprint
+   */
+  expectedRangesFingerprint: string;
+  /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber: number;
+  /**
+   * Fullrangesize
+   */
+  fullRangeSize: 9;
+  /**
+   * Gameid
+   */
+  gameId?: null;
+  /**
+   * Groupingpolicyfingerprint
+   */
+  groupingPolicyFingerprint: string;
+  /**
+   * Id
+   */
+  id: string;
+  job: JobResponse;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber: number;
+  /**
+   * Rangeconvention
+   */
+  rangeConvention: 'seq-inclusive-v1';
+  /**
+   * Recognizerfingerprint
+   */
+  recognizerFingerprint: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  source: SemiAutomaticSelectionSourceResponse;
+  status: SemiAutomaticSelectionRunStatus;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+  workflowMode?: SemiAutomaticSelectionWorkflowMode | null;
+};
+
+/**
+ * SemiAutomaticSelectionRunStatus
+ */
+export type SemiAutomaticSelectionRunStatus =
+  | 'ready'
+  | 'running'
+  | 'paused'
+  | 'analysis_complete'
+  | 'syncing_output'
+  | 'review_mode'
+  | 'edit_source_mode'
+  | 'cleanup_pending'
+  | 'cleanup_blocked'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+/**
+ * SemiAutomaticSelectionSourceItemResponse
+ */
+export type SemiAutomaticSelectionSourceItemResponse = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+};
+
+/**
+ * SemiAutomaticSelectionSourcePageResponse
+ */
+export type SemiAutomaticSelectionSourcePageResponse = {
+  /**
+   * Items
+   */
+  items: Array<SemiAutomaticSelectionSourceItemResponse>;
+  /**
+   * Nextaftersourceindex
+   */
+  nextAfterSourceIndex?: number | null;
+};
+
+/**
+ * SemiAutomaticSelectionSourceResponse
+ */
+export type SemiAutomaticSelectionSourceResponse = {
+  /**
+   * Displayname
+   */
+  displayName: string;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Sourcefingerprint
+   */
+  sourceFingerprint: string;
+  /**
+   * Sourcetotalbytes
+   */
+  sourceTotalBytes: number;
+  /**
+   * Uploadid
+   */
+  uploadId: string;
+};
+
+/**
+ * SemiAutomaticSelectionWorkflowMode
+ */
+export type SemiAutomaticSelectionWorkflowMode =
+  'selection' | 'filename_verification';
+
+/**
+ * SequenceRangeValueResponse
+ */
+export type SequenceRangeValueResponse = {
+  /**
+   * End
+   */
+  end: number;
+  /**
+   * Start
+   */
+  start: number;
+};
+
+/**
  * SnapshotJobCreate
  */
 export type SnapshotJobCreate = {
@@ -8112,10 +11180,148 @@ export type StoragePipelineCompactionJobPayload = {
 };
 
 /**
+ * StructuredGeometryActivationJobSnapshotPayload
+ */
+export type StructuredGeometryActivationJobSnapshotPayload = {
+  /**
+   * Config
+   */
+  config: {
+    [key: string]: unknown;
+  };
+  /**
+   * Configchecksumsha256
+   */
+  configChecksumSha256: string;
+  /**
+   * Configversion
+   */
+  configVersion: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'structured-geometry-activation-snapshot-v1';
+};
+
+/**
+ * StructuredGeometryCandidateJobSnapshotPayload
+ */
+export type StructuredGeometryCandidateJobSnapshotPayload = {
+  /**
+   * Config
+   */
+  config: {
+    [key: string]: unknown;
+  };
+  /**
+   * Configchecksumsha256
+   */
+  configChecksumSha256: string;
+  /**
+   * Configversion
+   */
+  configVersion: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'structured-geometry-candidate-snapshot-v1';
+};
+
+/**
+ * SymbolCellPreviewBatchRequest
+ */
+export type SymbolCellPreviewBatchRequest = {
+  /**
+   * Cells
+   */
+  cells: Array<SymbolCellPreviewTargetRequest>;
+  /**
+   * Previewsize
+   */
+  previewSize?: number;
+  /**
+   * Renderermode
+   */
+  rendererMode?: 'current' | 'structured_v0_10';
+};
+
+/**
+ * SymbolCellPreviewBatchResponse
+ */
+export type SymbolCellPreviewBatchResponse = {
+  /**
+   * Atlaschecksumsha256
+   */
+  atlasChecksumSha256: string | null;
+  /**
+   * Atlasurl
+   */
+  atlasUrl: string | null;
+  /**
+   * Availablecount
+   */
+  availableCount: number;
+  /**
+   * Batchkey
+   */
+  batchKey: string | null;
+  /**
+   * Expiresat
+   */
+  expiresAt: string | null;
+  /**
+   * Rendererfingerprintsha256
+   */
+  rendererFingerprintSha256: string;
+  /**
+   * Renderermode
+   */
+  rendererMode: 'current' | 'structured_v0_10';
+  /**
+   * Rendererversion
+   */
+  rendererVersion: string;
+  /**
+   * Tiles
+   */
+  tiles: Array<VirtualCellPreviewTileResponse>;
+  /**
+   * Unavailablecellreviewids
+   */
+  unavailableCellReviewIds: Array<string>;
+};
+
+/**
+ * SymbolCellPreviewTargetRequest
+ */
+export type SymbolCellPreviewTargetRequest = {
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Expectedcropchecksumsha256
+   */
+  expectedCropChecksumSha256: string;
+  /**
+   * Expectedrenderspecchecksumsha256
+   */
+  expectedRenderSpecChecksumSha256?: string | null;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
  * SymbolCellReviewAction
  */
 export type SymbolCellReviewAction =
-  'approve' | 'reassign' | 'mark_grid_issue' | 'mark_unreadable';
+  | 'approve'
+  | 'reassign'
+  | 'mark_grid_issue'
+  | 'mark_blurry'
+  | 'mark_unreadable';
 
 /**
  * SymbolCellReviewBackfillJobPayload
@@ -8133,6 +11339,10 @@ export type SymbolCellReviewBackfillJobPayload = {
    * Indexbytesbefore
    */
   indexBytesBefore?: number | null;
+  /**
+   * Preservereadyprojection
+   */
+  preserveReadyProjection?: boolean;
   /**
    * Schemaversion
    */
@@ -8203,6 +11413,14 @@ export type SymbolCellReviewBulkFilterSelectionRequest = {
    * Kind
    */
   kind: 'filter';
+  /**
+   * Maxconfidence
+   */
+  maxConfidence?: number | null;
+  /**
+   * Minconfidence
+   */
+  minConfidence?: number | null;
   state?: SymbolCellReviewFilterState;
   /**
    * Symbolid
@@ -8380,6 +11598,17 @@ export type SymbolCellReviewBulkPreviewResponse = {
 };
 
 /**
+ * SymbolCellReviewCountSnapshotResponse
+ */
+export type SymbolCellReviewCountSnapshotResponse = {
+  /**
+   * Catalogrevision
+   */
+  catalogRevision: number;
+  counts: SymbolCellReviewCountsResponse;
+};
+
+/**
  * SymbolCellReviewCountsResponse
  */
 export type SymbolCellReviewCountsResponse = {
@@ -8402,12 +11631,17 @@ export type SymbolCellReviewCountsResponse = {
  *
  * A bounded read filter for current symbol-cell review state.
  */
-export type SymbolCellReviewFilterState = 'all' | 'approved' | 'pending';
+export type SymbolCellReviewFilterState =
+  'all' | 'active_model_cohort' | 'approved' | 'pending';
 
 /**
  * SymbolCellReviewListItemResponse
  */
 export type SymbolCellReviewListItemResponse = {
+  /**
+   * Assetmode
+   */
+  assetMode?: 'legacy_file' | 'virtual_source';
   /**
    * Assignedsymbolcode
    */
@@ -8465,6 +11699,10 @@ export type SymbolCellReviewListItemResponse = {
    */
   isUnknown: boolean;
   /**
+   * Predictionconfidence
+   */
+  predictionConfidence?: number | null;
+  /**
    * Predictionsymbolcode
    */
   predictionSymbolCode: string | null;
@@ -8476,6 +11714,10 @@ export type SymbolCellReviewListItemResponse = {
    * Recognizedboardid
    */
   recognizedBoardId: string;
+  /**
+   * Renderspecchecksumsha256
+   */
+  renderSpecChecksumSha256?: string | null;
   /**
    * Reviewitemid
    */
@@ -8587,7 +11829,6 @@ export type SymbolCellReviewPageResponse = {
    * Catalogrevision
    */
   catalogRevision: number;
-  counts: SymbolCellReviewCountsResponse;
   /**
    * Items
    */
@@ -8954,6 +12195,10 @@ export type SymbolModelJobSnapshotPayload = {
    */
   inferenceFingerprint: string;
   /**
+   * Inferencemode
+   */
+  inferenceMode?: 'model' | 'unclassified';
+  /**
    * Inputsize
    */
   inputSize: number;
@@ -9204,6 +12449,10 @@ export type UnreadableBoardReviewCellResponse = {
    */
   qualityIssue: string | null;
   /**
+   * Renderspecchecksumsha256
+   */
+  renderSpecChecksumSha256?: string | null;
+  /**
    * Reviewstate
    */
   reviewState: string;
@@ -9354,7 +12603,8 @@ export type ValidateJobCreate = {
   inputPayload:
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
-    | PageGeometryPreflightJobPayload;
+    | PageGeometryPreflightJobPayload
+    | ImageGeometryGuardReportReconstructionJobPayload;
   /**
    * Jobtype
    */
@@ -9622,6 +12872,94 @@ export type VerifiedTrainingCohortResponse = {
    * Sourceimagecount
    */
   sourceImageCount: number;
+};
+
+/**
+ * VirtualCellPreviewBatchRequest
+ */
+export type VirtualCellPreviewBatchRequest = {
+  /**
+   * Cells
+   */
+  cells: Array<VirtualCellPreviewTargetRequest>;
+  /**
+   * Extractionmode
+   */
+  extractionMode?: 'direct_perspective_cell_v1';
+  /**
+   * Previewsize
+   */
+  previewSize?: number;
+};
+
+/**
+ * VirtualCellPreviewBatchResponse
+ */
+export type VirtualCellPreviewBatchResponse = {
+  /**
+   * Atlaschecksumsha256
+   */
+  atlasChecksumSha256: string;
+  /**
+   * Atlasurl
+   */
+  atlasUrl: string;
+  /**
+   * Batchkey
+   */
+  batchKey: string;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Tiles
+   */
+  tiles: Array<VirtualCellPreviewTileResponse>;
+};
+
+/**
+ * VirtualCellPreviewTargetRequest
+ */
+export type VirtualCellPreviewTargetRequest = {
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Expectedrenderspecchecksumsha256
+   */
+  expectedRenderSpecChecksumSha256: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
+ * VirtualCellPreviewTileResponse
+ */
+export type VirtualCellPreviewTileResponse = {
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Height
+   */
+  height: number;
+  /**
+   * Width
+   */
+  width: number;
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
 };
 
 /**
@@ -10115,6 +13453,140 @@ export type SearchGameBoardsResponses = {
 export type SearchGameBoardsResponse =
   SearchGameBoardsResponses[keyof SearchGameBoardsResponses];
 
+export type GetArchivedBoardSearchAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query: {
+    /**
+     * Expectedboardchecksumsha256
+     */
+    expectedBoardChecksumSha256: string;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}';
+};
+
+export type GetArchivedBoardSearchAssetErrors = {
+  /**
+   * Game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Board-search projection not ready
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid partial board query
+   */
+  422: ErrorResponse;
+};
+
+export type GetArchivedBoardSearchAssetError =
+  GetArchivedBoardSearchAssetErrors[keyof GetArchivedBoardSearchAssetErrors];
+
+export type GetArchivedBoardSearchAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type PreviewBoardSourceCleanupData = {
+  body: BoardSourceCleanupPreviewRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-source-cleanup-preview';
+};
+
+export type PreviewBoardSourceCleanupErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewBoardSourceCleanupError =
+  PreviewBoardSourceCleanupErrors[keyof PreviewBoardSourceCleanupErrors];
+
+export type PreviewBoardSourceCleanupResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupPreviewResponse;
+};
+
+export type PreviewBoardSourceCleanupResponse =
+  PreviewBoardSourceCleanupResponses[keyof PreviewBoardSourceCleanupResponses];
+
+export type DeleteBoardSourceRangesData = {
+  body: BoardSourceCleanupCommandRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-sources';
+};
+
+export type DeleteBoardSourceRangesErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DeleteBoardSourceRangesError =
+  DeleteBoardSourceRangesErrors[keyof DeleteBoardSourceRangesErrors];
+
+export type DeleteBoardSourceRangesResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupResultResponse;
+};
+
+export type DeleteBoardSourceRangesResponse =
+  DeleteBoardSourceRangesResponses[keyof DeleteBoardSourceRangesResponses];
+
 export type ListDatasetVersionsData = {
   body?: never;
   path: {
@@ -10249,7 +13721,10 @@ export type ListGridCalibrationProfilesResponse =
   ListGridCalibrationProfilesResponses[keyof ListGridCalibrationProfilesResponses];
 
 export type CreateGridCalibrationCandidateData = {
-  body?: never;
+  /**
+   * Command
+   */
+  body?: CreateGridCalibrationCandidateCommand | null;
   path: {
     /**
      * Game Id
@@ -10536,6 +14011,10 @@ export type ListImageGridReviewsData = {
      */
     importJobId?: string | null;
     /**
+     * Sourceimageid
+     */
+    sourceImageId?: string | null;
+    /**
      * Aftercursor
      */
     afterCursor?: string | null;
@@ -10578,6 +14057,311 @@ export type ListImageGridReviewsResponses = {
 
 export type ListImageGridReviewsResponse =
   ListImageGridReviewsResponses[keyof ListImageGridReviewsResponses];
+
+export type ApproveImageGridReviewSourceGeometryData = {
+  body: ImageGridReviewSourceApprovalCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval';
+};
+
+export type ApproveImageGridReviewSourceGeometryErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type ApproveImageGridReviewSourceGeometryError =
+  ApproveImageGridReviewSourceGeometryErrors[keyof ApproveImageGridReviewSourceGeometryErrors];
+
+export type ApproveImageGridReviewSourceGeometryResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGridReviewSourceApprovalResponse;
+};
+
+export type ApproveImageGridReviewSourceGeometryResponse =
+  ApproveImageGridReviewSourceGeometryResponses[keyof ApproveImageGridReviewSourceGeometryResponses];
+
+export type CreateImageGridReviewSourceGeometryRevisionData = {
+  body: ImageGridReviewSourceGeometryCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions';
+};
+
+export type CreateImageGridReviewSourceGeometryRevisionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type CreateImageGridReviewSourceGeometryRevisionError =
+  CreateImageGridReviewSourceGeometryRevisionErrors[keyof CreateImageGridReviewSourceGeometryRevisionErrors];
+
+export type CreateImageGridReviewSourceGeometryRevisionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGridReviewSourceGeometryResponse;
+};
+
+export type CreateImageGridReviewSourceGeometryRevisionResponse =
+  CreateImageGridReviewSourceGeometryRevisionResponses[keyof CreateImageGridReviewSourceGeometryRevisionResponses];
+
+export type GetImageGeometryRolloutStatusData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-geometry-rollout';
+};
+
+export type GetImageGeometryRolloutStatusErrors = {
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageGeometryRolloutStatusError =
+  GetImageGeometryRolloutStatusErrors[keyof GetImageGeometryRolloutStatusErrors];
+
+export type GetImageGeometryRolloutStatusResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGeometryRolloutStatusResponse;
+};
+
+export type GetImageGeometryRolloutStatusResponse =
+  GetImageGeometryRolloutStatusResponses[keyof GetImageGeometryRolloutStatusResponses];
+
+export type StartImageGeometryRolloutBackfillData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-geometry-rollout';
+};
+
+export type StartImageGeometryRolloutBackfillErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type StartImageGeometryRolloutBackfillError =
+  StartImageGeometryRolloutBackfillErrors[keyof StartImageGeometryRolloutBackfillErrors];
+
+export type StartImageGeometryRolloutBackfillResponses = {
+  /**
+   * Successful Response
+   */
+  202: ImageGeometryRolloutStartResponse;
+};
+
+export type StartImageGeometryRolloutBackfillResponse =
+  StartImageGeometryRolloutBackfillResponses[keyof StartImageGeometryRolloutBackfillResponses];
+
+export type GetImageImportEnginePolicyData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-import-engine-policy';
+};
+
+export type GetImageImportEnginePolicyErrors = {
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageImportEnginePolicyError =
+  GetImageImportEnginePolicyErrors[keyof GetImageImportEnginePolicyErrors];
+
+export type GetImageImportEnginePolicyResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageImportEnginePolicyResponse;
+};
+
+export type GetImageImportEnginePolicyResponse =
+  GetImageImportEnginePolicyResponses[keyof GetImageImportEnginePolicyResponses];
+
+export type UpdateImageImportEnginePolicyData = {
+  body: ImageImportEnginePolicyUpdateRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-import-engine-policy';
+};
+
+export type UpdateImageImportEnginePolicyErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type UpdateImageImportEnginePolicyError =
+  UpdateImageImportEnginePolicyErrors[keyof UpdateImageImportEnginePolicyErrors];
+
+export type UpdateImageImportEnginePolicyResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageImportEnginePolicyResponse;
+};
+
+export type UpdateImageImportEnginePolicyResponse =
+  UpdateImageImportEnginePolicyResponses[keyof UpdateImageImportEnginePolicyResponses];
+
+export type PreviewImageImportEnginePolicyData = {
+  body: ImageImportEnginePolicyPreviewRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-import-engine-policy/preview';
+};
+
+export type PreviewImageImportEnginePolicyErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewImageImportEnginePolicyError =
+  PreviewImageImportEnginePolicyErrors[keyof PreviewImageImportEnginePolicyErrors];
+
+export type PreviewImageImportEnginePolicyResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageImportEnginePolicyPreviewResponse;
+};
+
+export type PreviewImageImportEnginePolicyResponse =
+  PreviewImageImportEnginePolicyResponses[keyof PreviewImageImportEnginePolicyResponses];
 
 export type ListPendingBoardCellGeometryData = {
   body?: never;
@@ -11220,6 +15004,153 @@ export type CreateRulesVersionResponses = {
 export type CreateRulesVersionResponse =
   CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
 
+export type CreateSymbolCellPreviewBatchData = {
+  body: SymbolCellPreviewBatchRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-preview-batches';
+};
+
+export type CreateSymbolCellPreviewBatchErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type CreateSymbolCellPreviewBatchError =
+  CreateSymbolCellPreviewBatchErrors[keyof CreateSymbolCellPreviewBatchErrors];
+
+export type CreateSymbolCellPreviewBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellPreviewBatchResponse;
+};
+
+export type CreateSymbolCellPreviewBatchResponse =
+  CreateSymbolCellPreviewBatchResponses[keyof CreateSymbolCellPreviewBatchResponses];
+
+export type GetSymbolCellPreviewAtlasData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Key
+     */
+    batch_key: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-preview-batches/{batch_key}/atlas';
+};
+
+export type GetSymbolCellPreviewAtlasErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolCellPreviewAtlasError =
+  GetSymbolCellPreviewAtlasErrors[keyof GetSymbolCellPreviewAtlasErrors];
+
+export type GetSymbolCellPreviewAtlasResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetSymbolCellReviewCountsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Symbolid
+     */
+    symbolId: string;
+    /**
+     * Catalogrevision
+     */
+    catalogRevision: number;
+    state?: SymbolCellReviewFilterState;
+    /**
+     * Minconfidence
+     */
+    minConfidence?: number | null;
+    /**
+     * Maxconfidence
+     */
+    maxConfidence?: number | null;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-review-counts';
+};
+
+export type GetSymbolCellReviewCountsErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+  /**
+   * Symbol-cell review query timed out or was cancelled
+   */
+  503: ErrorResponse;
+};
+
+export type GetSymbolCellReviewCountsError =
+  GetSymbolCellReviewCountsErrors[keyof GetSymbolCellReviewCountsErrors];
+
+export type GetSymbolCellReviewCountsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewCountSnapshotResponse;
+};
+
+export type GetSymbolCellReviewCountsResponse =
+  GetSymbolCellReviewCountsResponses[keyof GetSymbolCellReviewCountsResponses];
+
 export type StartSymbolCellReviewBulkOperationData = {
   body: SymbolCellReviewBulkOperationStartRequest;
   path: {
@@ -11459,6 +15390,14 @@ export type ListSymbolCellReviewsData = {
      */
     beforeCursor?: string | null;
     /**
+     * Minconfidence
+     */
+    minConfidence?: number | null;
+    /**
+     * Maxconfidence
+     */
+    maxConfidence?: number | null;
+    /**
      * Limit
      */
     limit?: number;
@@ -11479,6 +15418,10 @@ export type ListSymbolCellReviewsErrors = {
    * Invalid symbol-cell review query
    */
   422: ErrorResponse;
+  /**
+   * Symbol-cell review query timed out or was cancelled
+   */
+  503: ErrorResponse;
 };
 
 export type ListSymbolCellReviewsError =
@@ -11511,6 +15454,10 @@ export type GetSymbolCellReviewAssetData = {
      * Expectedcropchecksumsha256
      */
     expectedCropChecksumSha256: string;
+    /**
+     * Expectedrenderspecchecksumsha256
+     */
+    expectedRenderSpecChecksumSha256?: string | null;
     /**
      * Thumbnailsize
      */
@@ -12481,6 +16428,54 @@ export type ResolveUnreadableBoardReviewCellResponses = {
 export type ResolveUnreadableBoardReviewCellResponse =
   ResolveUnreadableBoardReviewCellResponses[keyof ResolveUnreadableBoardReviewCellResponses];
 
+export type SaveUnreadableBoardReviewData = {
+  body: SaveUnreadableBoardRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}/save';
+};
+
+export type SaveUnreadableBoardReviewErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type SaveUnreadableBoardReviewError =
+  SaveUnreadableBoardReviewErrors[keyof SaveUnreadableBoardReviewErrors];
+
+export type SaveUnreadableBoardReviewResponses = {
+  /**
+   * Successful Response
+   */
+  200: SaveUnreadableBoardResponse;
+};
+
+export type SaveUnreadableBoardReviewResponse =
+  SaveUnreadableBoardReviewResponses[keyof SaveUnreadableBoardReviewResponses];
+
 export type FreezeVerifiedTrainingCohortData = {
   body: VerifiedTrainingCohortFreezeCommand;
   headers: {
@@ -12569,44 +16564,90 @@ export type PreviewVerifiedTrainingCohortResponses = {
 export type PreviewVerifiedTrainingCohortResponse =
   PreviewVerifiedTrainingCohortResponses[keyof PreviewVerifiedTrainingCohortResponses];
 
-export type CreateImageFolderImportData = {
-  body: ImageFolderImportCreate;
-  path?: never;
+export type CreateVirtualCellPreviewBatchData = {
+  body: VirtualCellPreviewBatchRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
   query?: never;
-  url: '/api/v1/admin/image-imports';
+  url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches';
 };
 
-export type CreateImageFolderImportErrors = {
+export type CreateVirtualCellPreviewBatchErrors = {
   /**
    * Local Admin security guard rejected the request
    */
   403: ErrorResponse;
   /**
-   * Game or folder not found
+   * Game or current crop not found
    */
   404: ErrorResponse;
   /**
-   * Import conflict
+   * Cursor, readiness, or crop conflict
    */
   409: ErrorResponse;
   /**
-   * Folder validation error
+   * Invalid symbol-cell review query
    */
   422: ErrorResponse;
 };
 
-export type CreateImageFolderImportError =
-  CreateImageFolderImportErrors[keyof CreateImageFolderImportErrors];
+export type CreateVirtualCellPreviewBatchError =
+  CreateVirtualCellPreviewBatchErrors[keyof CreateVirtualCellPreviewBatchErrors];
 
-export type CreateImageFolderImportResponses = {
+export type CreateVirtualCellPreviewBatchResponses = {
   /**
    * Successful Response
    */
-  201: ImageFolderImportResponse;
+  200: VirtualCellPreviewBatchResponse;
 };
 
-export type CreateImageFolderImportResponse =
-  CreateImageFolderImportResponses[keyof CreateImageFolderImportResponses];
+export type CreateVirtualCellPreviewBatchResponse =
+  CreateVirtualCellPreviewBatchResponses[keyof CreateVirtualCellPreviewBatchResponses];
+
+export type GetVirtualCellPreviewAtlasData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Key
+     */
+    batch_key: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas';
+};
+
+export type GetVirtualCellPreviewAtlasErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type GetVirtualCellPreviewAtlasError =
+  GetVirtualCellPreviewAtlasErrors[keyof GetVirtualCellPreviewAtlasErrors];
+
+export type GetVirtualCellPreviewAtlasResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ListReadyBrowserImageSelectionsData = {
   body?: never;
@@ -12688,6 +16729,45 @@ export type CreateBrowserImageSelectionResponses = {
 
 export type CreateBrowserImageSelectionResponse =
   CreateBrowserImageSelectionResponses[keyof CreateBrowserImageSelectionResponses];
+
+export type PlanBrowserImageSelectionUploadData = {
+  body: BrowserImageUploadPlanCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/upload-plan';
+};
+
+export type PlanBrowserImageSelectionUploadErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PlanBrowserImageSelectionUploadError =
+  PlanBrowserImageSelectionUploadErrors[keyof PlanBrowserImageSelectionUploadErrors];
+
+export type PlanBrowserImageSelectionUploadResponses = {
+  /**
+   * Successful Response
+   */
+  200: BrowserImageUploadPlanResponse;
+};
+
+export type PlanBrowserImageSelectionUploadResponse =
+  PlanBrowserImageSelectionUploadResponses[keyof PlanBrowserImageSelectionUploadResponses];
 
 export type CancelBrowserImageSelectionData = {
   body?: never;
@@ -12874,8 +16954,299 @@ export type FinalizeBrowserImageSelectionResponses = {
 export type FinalizeBrowserImageSelectionResponse =
   FinalizeBrowserImageSelectionResponses[keyof FinalizeBrowserImageSelectionResponses];
 
+export type ListImageGeometryGuardBoardsData = {
+  body?: never;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Guard Job Id
+     */
+    guard_job_id: string;
+  };
+  query: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/boards';
+};
+
+export type ListImageGeometryGuardBoardsErrors = {
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListImageGeometryGuardBoardsError =
+  ListImageGeometryGuardBoardsErrors[keyof ListImageGeometryGuardBoardsErrors];
+
+export type ListImageGeometryGuardBoardsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGeometryGuardQueueResponse;
+};
+
+export type ListImageGeometryGuardBoardsResponse =
+  ListImageGeometryGuardBoardsResponses[keyof ListImageGeometryGuardBoardsResponses];
+
+export type CreateImageGeometryGuardDecisionsData = {
+  body: ImageGeometryGuardDecisionBatchCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Guard Job Id
+     */
+    guard_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/decisions';
+};
+
+export type CreateImageGeometryGuardDecisionsErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateImageGeometryGuardDecisionsError =
+  CreateImageGeometryGuardDecisionsErrors[keyof CreateImageGeometryGuardDecisionsErrors];
+
+export type CreateImageGeometryGuardDecisionsResponses = {
+  /**
+   * Successful Response
+   */
+  201: ImageGeometryGuardDecisionBatchResponse;
+};
+
+export type CreateImageGeometryGuardDecisionsResponse =
+  CreateImageGeometryGuardDecisionsResponses[keyof CreateImageGeometryGuardDecisionsResponses];
+
+export type PreviewImageGeometryGuardDecisionData = {
+  body: ImageGeometryGuardPreviewCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Guard Job Id
+     */
+    guard_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/preview';
+};
+
+export type PreviewImageGeometryGuardDecisionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewImageGeometryGuardDecisionError =
+  PreviewImageGeometryGuardDecisionErrors[keyof PreviewImageGeometryGuardDecisionErrors];
+
+export type PreviewImageGeometryGuardDecisionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGeometryGuardPreviewResponse;
+};
+
+export type PreviewImageGeometryGuardDecisionResponse =
+  PreviewImageGeometryGuardDecisionResponses[keyof PreviewImageGeometryGuardDecisionResponses];
+
+export type StartImageGeometryGuardReportReconstructionData = {
+  body: ImageGeometryGuardReportReconstructionCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Guard Job Id
+     */
+    guard_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/report-reconstruction';
+};
+
+export type StartImageGeometryGuardReportReconstructionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type StartImageGeometryGuardReportReconstructionError =
+  StartImageGeometryGuardReportReconstructionErrors[keyof StartImageGeometryGuardReportReconstructionErrors];
+
+export type StartImageGeometryGuardReportReconstructionResponses = {
+  /**
+   * Successful Response
+   */
+  201: ImageGeometryGuardReportReconstructionResponse;
+};
+
+export type StartImageGeometryGuardReportReconstructionResponse =
+  StartImageGeometryGuardReportReconstructionResponses[keyof StartImageGeometryGuardReportReconstructionResponses];
+
+export type SealImageGeometryGuardResolutionManifestData = {
+  body: ImageGeometryGuardManifestSealCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Guard Job Id
+     */
+    guard_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/resolution-manifests';
+};
+
+export type SealImageGeometryGuardResolutionManifestErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SealImageGeometryGuardResolutionManifestError =
+  SealImageGeometryGuardResolutionManifestErrors[keyof SealImageGeometryGuardResolutionManifestErrors];
+
+export type SealImageGeometryGuardResolutionManifestResponses = {
+  /**
+   * Successful Response
+   */
+  201: ImageGeometryGuardResolutionManifestResponse;
+};
+
+export type SealImageGeometryGuardResolutionManifestResponse =
+  SealImageGeometryGuardResolutionManifestResponses[keyof SealImageGeometryGuardResolutionManifestResponses];
+
+export type GetImageGeometryGuardSourceAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Guard Job Id
+     */
+    guard_job_id: string;
+    /**
+     * Source Checksum Sha256
+     */
+    source_checksum_sha256: string;
+  };
+  query: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/sources/{source_checksum_sha256}/asset';
+};
+
+export type GetImageGeometryGuardSourceAssetErrors = {
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageGeometryGuardSourceAssetError =
+  GetImageGeometryGuardSourceAssetErrors[keyof GetImageGeometryGuardSourceAssetErrors];
+
+export type GetImageGeometryGuardSourceAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type StartBrowserPageGeometryPreflightData = {
-  body: BrowserImageImportPreflightCreate;
+  body: BrowserPageGeometryPreflightCreate;
   path: {
     /**
      * Upload Id
@@ -12966,6 +17337,123 @@ export type ListBrowserPageGeometryReviewSourcesResponses = {
 
 export type ListBrowserPageGeometryReviewSourcesResponse =
   ListBrowserPageGeometryReviewSourcesResponses[keyof ListBrowserPageGeometryReviewSourcesResponses];
+
+export type ExcludeBrowserPageGeometrySourceData = {
+  body: BrowserPageSourceExclusionCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Preflight Job Id
+     */
+    preflight_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/source-exclusions';
+};
+
+export type ExcludeBrowserPageGeometrySourceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ExcludeBrowserPageGeometrySourceError =
+  ExcludeBrowserPageGeometrySourceErrors[keyof ExcludeBrowserPageGeometrySourceErrors];
+
+export type ExcludeBrowserPageGeometrySourceResponses = {
+  /**
+   * Successful Response
+   */
+  201: BrowserPageSourceExclusionResponse;
+};
+
+export type ExcludeBrowserPageGeometrySourceResponse =
+  ExcludeBrowserPageGeometrySourceResponses[keyof ExcludeBrowserPageGeometrySourceResponses];
+
+export type ReplaceUnconfirmedBrowserPageGeometrySourceData = {
+  /**
+   * Payload
+   */
+  body: Blob | File;
+  headers: {
+    /**
+     * X-Game-Id
+     */
+    'X-Game-Id': string;
+    /**
+     * X-Source-Checksum-Sha256
+     */
+    'X-Source-Checksum-Sha256': string;
+    /**
+     * X-Source-Relative-Path
+     */
+    'X-Source-Relative-Path': string;
+    /**
+     * X-Geometry-Manifest-Checksum-Sha256
+     */
+    'X-Geometry-Manifest-Checksum-Sha256': string;
+  };
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Preflight Job Id
+     */
+    preflight_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/source-replacement';
+};
+
+export type ReplaceUnconfirmedBrowserPageGeometrySourceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ReplaceUnconfirmedBrowserPageGeometrySourceError =
+  ReplaceUnconfirmedBrowserPageGeometrySourceErrors[keyof ReplaceUnconfirmedBrowserPageGeometrySourceErrors];
+
+export type ReplaceUnconfirmedBrowserPageGeometrySourceResponses = {
+  /**
+   * Successful Response
+   */
+  200: BrowserReadySelectionResponse;
+};
+
+export type ReplaceUnconfirmedBrowserPageGeometrySourceResponse =
+  ReplaceUnconfirmedBrowserPageGeometrySourceResponses[keyof ReplaceUnconfirmedBrowserPageGeometrySourceResponses];
 
 export type CreateBrowserPageGeometryOverrideData = {
   body: BrowserPageGeometryOverrideCreate;
@@ -13100,6 +17588,102 @@ export type PreviewReadyBrowserImageImportResponses = {
 
 export type PreviewReadyBrowserImageImportResponse =
   PreviewReadyBrowserImageImportResponses[keyof PreviewReadyBrowserImageImportResponses];
+
+export type ConfirmBrowserPageGeometrySourceReplacementData = {
+  body: BrowserPageSourceReplacementConfirm;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Replacement Upload Id
+     */
+    replacement_upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/replacement-revisions/{replacement_upload_id}/confirm';
+};
+
+export type ConfirmBrowserPageGeometrySourceReplacementErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ConfirmBrowserPageGeometrySourceReplacementError =
+  ConfirmBrowserPageGeometrySourceReplacementErrors[keyof ConfirmBrowserPageGeometrySourceReplacementErrors];
+
+export type ConfirmBrowserPageGeometrySourceReplacementResponses = {
+  /**
+   * Successful Response
+   */
+  200: BrowserReadySelectionResponse;
+};
+
+export type ConfirmBrowserPageGeometrySourceReplacementResponse =
+  ConfirmBrowserPageGeometrySourceReplacementResponses[keyof ConfirmBrowserPageGeometrySourceReplacementResponses];
+
+export type DiscardBrowserPageGeometrySourceReplacementData = {
+  body: BrowserPageSourceReplacementDiscard;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Replacement Upload Id
+     */
+    replacement_upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/replacement-revisions/{replacement_upload_id}/discard';
+};
+
+export type DiscardBrowserPageGeometrySourceReplacementErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DiscardBrowserPageGeometrySourceReplacementError =
+  DiscardBrowserPageGeometrySourceReplacementErrors[keyof DiscardBrowserPageGeometrySourceReplacementErrors];
+
+export type DiscardBrowserPageGeometrySourceReplacementResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type DiscardBrowserPageGeometrySourceReplacementResponse =
+  DiscardBrowserPageGeometrySourceReplacementResponses[keyof DiscardBrowserPageGeometrySourceReplacementResponses];
 
 export type StartReadyBrowserImageImportData = {
   body: BrowserImageImportStart;
@@ -13310,84 +17894,6 @@ export type CreateNextCuratedImageImportBatchResponses = {
 export type CreateNextCuratedImageImportBatchResponse =
   CreateNextCuratedImageImportBatchResponses[keyof CreateNextCuratedImageImportBatchResponses];
 
-export type SelectLocalImageFolderData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/api/v1/admin/image-imports/folder-selection';
-};
-
-export type SelectLocalImageFolderErrors = {
-  /**
-   * Local Admin security guard rejected the request
-   */
-  403: ErrorResponse;
-  /**
-   * Game or folder not found
-   */
-  404: ErrorResponse;
-  /**
-   * Import conflict
-   */
-  409: ErrorResponse;
-  /**
-   * Folder validation error
-   */
-  422: ErrorResponse;
-};
-
-export type SelectLocalImageFolderError =
-  SelectLocalImageFolderErrors[keyof SelectLocalImageFolderErrors];
-
-export type SelectLocalImageFolderResponses = {
-  /**
-   * Successful Response
-   */
-  200: ImageFolderSelectionResponse;
-};
-
-export type SelectLocalImageFolderResponse =
-  SelectLocalImageFolderResponses[keyof SelectLocalImageFolderResponses];
-
-export type PreviewImageSequenceImportData = {
-  body: ImageFolderImportCreate;
-  path?: never;
-  query?: never;
-  url: '/api/v1/admin/image-imports/preflight';
-};
-
-export type PreviewImageSequenceImportErrors = {
-  /**
-   * Local Admin security guard rejected the request
-   */
-  403: ErrorResponse;
-  /**
-   * Game or folder not found
-   */
-  404: ErrorResponse;
-  /**
-   * Import conflict
-   */
-  409: ErrorResponse;
-  /**
-   * Folder validation error
-   */
-  422: ErrorResponse;
-};
-
-export type PreviewImageSequenceImportError =
-  PreviewImageSequenceImportErrors[keyof PreviewImageSequenceImportErrors];
-
-export type PreviewImageSequenceImportResponses = {
-  /**
-   * Successful Response
-   */
-  200: ImageSequenceImportPreflightResponse;
-};
-
-export type PreviewImageSequenceImportResponse =
-  PreviewImageSequenceImportResponses[keyof PreviewImageSequenceImportResponses];
-
 export type ReprocessManagedImageImportData = {
   body?: never;
   path: {
@@ -13396,7 +17902,24 @@ export type ReprocessManagedImageImportData = {
      */
     source_job_id: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * Continuewithmanualgeometry
+     */
+    continueWithManualGeometry?: boolean;
+    /**
+     * Geometryenginevariant
+     */
+    geometryEngineVariant?: GeometryEngineVariant | null;
+    /**
+     * Geometrypreflightjobid
+     */
+    geometryPreflightJobId?: string | null;
+    /**
+     * Geometrymanifestchecksumsha256
+     */
+    geometryManifestChecksumSha256?: string | null;
+  };
   url: '/api/v1/admin/image-imports/{source_job_id}/reprocess';
 };
 
@@ -18584,6 +23107,695 @@ export type UpdateRulesVersionSymbolResponses = {
 
 export type UpdateRulesVersionSymbolResponse =
   UpdateRulesVersionSymbolResponses[keyof UpdateRulesVersionSymbolResponses];
+
+export type ListSemiAutomaticImageSelectionsData = {
+  body?: never;
+  path?: never;
+  query: {
+    workflowMode: SemiAutomaticSelectionWorkflowMode;
+    /**
+     * Offset
+     */
+    offset?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/semi-automatic-image-selections';
+};
+
+export type ListSemiAutomaticImageSelectionsErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type ListSemiAutomaticImageSelectionsError =
+  ListSemiAutomaticImageSelectionsErrors[keyof ListSemiAutomaticImageSelectionsErrors];
+
+export type ListSemiAutomaticImageSelectionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRunPageResponse;
+};
+
+export type ListSemiAutomaticImageSelectionsResponse =
+  ListSemiAutomaticImageSelectionsResponses[keyof ListSemiAutomaticImageSelectionsResponses];
+
+export type CreateSemiAutomaticImageSelectionData = {
+  body: SemiAutomaticSelectionCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections';
+};
+
+export type CreateSemiAutomaticImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type CreateSemiAutomaticImageSelectionError =
+  CreateSemiAutomaticImageSelectionErrors[keyof CreateSemiAutomaticImageSelectionErrors];
+
+export type CreateSemiAutomaticImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionCreateResponse;
+};
+
+export type CreateSemiAutomaticImageSelectionResponse =
+  CreateSemiAutomaticImageSelectionResponses[keyof CreateSemiAutomaticImageSelectionResponses];
+
+export type GetSemiAutomaticImageSelectionCapabilitiesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/capabilities';
+};
+
+export type GetSemiAutomaticImageSelectionCapabilitiesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionCapabilitiesResponse;
+};
+
+export type GetSemiAutomaticImageSelectionCapabilitiesResponse =
+  GetSemiAutomaticImageSelectionCapabilitiesResponses[keyof GetSemiAutomaticImageSelectionCapabilitiesResponses];
+
+export type SelectSemiAutomaticImageSelectionSourceFolderData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/source-folder';
+};
+
+export type SelectSemiAutomaticImageSelectionSourceFolderErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type SelectSemiAutomaticImageSelectionSourceFolderError =
+  SelectSemiAutomaticImageSelectionSourceFolderErrors[keyof SelectSemiAutomaticImageSelectionSourceFolderErrors];
+
+export type SelectSemiAutomaticImageSelectionSourceFolderResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageFolderSelectionResponse;
+};
+
+export type SelectSemiAutomaticImageSelectionSourceFolderResponse =
+  SelectSemiAutomaticImageSelectionSourceFolderResponses[keyof SelectSemiAutomaticImageSelectionSourceFolderResponses];
+
+export type GetSemiAutomaticImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}';
+};
+
+export type GetSemiAutomaticImageSelectionErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type GetSemiAutomaticImageSelectionError =
+  GetSemiAutomaticImageSelectionErrors[keyof GetSemiAutomaticImageSelectionErrors];
+
+export type GetSemiAutomaticImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRunResponse;
+};
+
+export type GetSemiAutomaticImageSelectionResponse =
+  GetSemiAutomaticImageSelectionResponses[keyof GetSemiAutomaticImageSelectionResponses];
+
+export type CancelSemiAutomaticImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/cancel';
+};
+
+export type CancelSemiAutomaticImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type CancelSemiAutomaticImageSelectionError =
+  CancelSemiAutomaticImageSelectionErrors[keyof CancelSemiAutomaticImageSelectionErrors];
+
+export type CancelSemiAutomaticImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRunResponse;
+};
+
+export type CancelSemiAutomaticImageSelectionResponse =
+  CancelSemiAutomaticImageSelectionResponses[keyof CancelSemiAutomaticImageSelectionResponses];
+
+export type GetSemiAutomaticImageSelectionDiagnosticsData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/diagnostics';
+};
+
+export type GetSemiAutomaticImageSelectionDiagnosticsErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type GetSemiAutomaticImageSelectionDiagnosticsError =
+  GetSemiAutomaticImageSelectionDiagnosticsErrors[keyof GetSemiAutomaticImageSelectionDiagnosticsErrors];
+
+export type GetSemiAutomaticImageSelectionDiagnosticsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionDiagnosticsResponse;
+};
+
+export type GetSemiAutomaticImageSelectionDiagnosticsResponse =
+  GetSemiAutomaticImageSelectionDiagnosticsResponses[keyof GetSemiAutomaticImageSelectionDiagnosticsResponses];
+
+export type DeleteSemiAutomaticFilenameVerificationHistoryData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verification-history';
+};
+
+export type DeleteSemiAutomaticFilenameVerificationHistoryErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type DeleteSemiAutomaticFilenameVerificationHistoryError =
+  DeleteSemiAutomaticFilenameVerificationHistoryErrors[keyof DeleteSemiAutomaticFilenameVerificationHistoryErrors];
+
+export type DeleteSemiAutomaticFilenameVerificationHistoryResponses = {
+  /**
+   * Successful Response
+   */
+  200: FilenameVerificationHistoryDeletionResponse;
+};
+
+export type DeleteSemiAutomaticFilenameVerificationHistoryResponse =
+  DeleteSemiAutomaticFilenameVerificationHistoryResponses[keyof DeleteSemiAutomaticFilenameVerificationHistoryResponses];
+
+export type ListSemiAutomaticFilenameRangeVerificationsData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: {
+    /**
+     * After Source Index
+     */
+    after_source_index?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications';
+};
+
+export type ListSemiAutomaticFilenameRangeVerificationsErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type ListSemiAutomaticFilenameRangeVerificationsError =
+  ListSemiAutomaticFilenameRangeVerificationsErrors[keyof ListSemiAutomaticFilenameRangeVerificationsErrors];
+
+export type ListSemiAutomaticFilenameRangeVerificationsResponses = {
+  /**
+   * Successful Response
+   */
+  200: FilenameRangeVerificationPageResponse;
+};
+
+export type ListSemiAutomaticFilenameRangeVerificationsResponse =
+  ListSemiAutomaticFilenameRangeVerificationsResponses[keyof ListSemiAutomaticFilenameRangeVerificationsResponses];
+
+export type DecideSemiAutomaticFilenameRangeVerificationData = {
+  body: FilenameRangeVerificationReviewDecisionUpdate;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Source Index
+     */
+    source_index: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications/{source_index}/review-decision';
+};
+
+export type DecideSemiAutomaticFilenameRangeVerificationErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type DecideSemiAutomaticFilenameRangeVerificationError =
+  DecideSemiAutomaticFilenameRangeVerificationErrors[keyof DecideSemiAutomaticFilenameRangeVerificationErrors];
+
+export type DecideSemiAutomaticFilenameRangeVerificationResponses = {
+  /**
+   * Successful Response
+   */
+  200: FilenameRangeVerificationReviewDecisionResponse;
+};
+
+export type DecideSemiAutomaticFilenameRangeVerificationResponse =
+  DecideSemiAutomaticFilenameRangeVerificationResponses[keyof DecideSemiAutomaticFilenameRangeVerificationResponses];
+
+export type PauseSemiAutomaticImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/pause';
+};
+
+export type PauseSemiAutomaticImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type PauseSemiAutomaticImageSelectionError =
+  PauseSemiAutomaticImageSelectionErrors[keyof PauseSemiAutomaticImageSelectionErrors];
+
+export type PauseSemiAutomaticImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRunResponse;
+};
+
+export type PauseSemiAutomaticImageSelectionResponse =
+  PauseSemiAutomaticImageSelectionResponses[keyof PauseSemiAutomaticImageSelectionResponses];
+
+export type ListSemiAutomaticImageSelectionRangesData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: {
+    /**
+     * After Expected Index
+     */
+    after_expected_index?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges';
+};
+
+export type ListSemiAutomaticImageSelectionRangesErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type ListSemiAutomaticImageSelectionRangesError =
+  ListSemiAutomaticImageSelectionRangesErrors[keyof ListSemiAutomaticImageSelectionRangesErrors];
+
+export type ListSemiAutomaticImageSelectionRangesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRangePageResponse;
+};
+
+export type ListSemiAutomaticImageSelectionRangesResponse =
+  ListSemiAutomaticImageSelectionRangesResponses[keyof ListSemiAutomaticImageSelectionRangesResponses];
+
+export type AcknowledgeSemiAutomaticImageSelectionOutputData = {
+  body: SemiAutomaticSelectionOutputAcknowledgement;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Expected Index
+     */
+    expected_index: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges/{expected_index}/output-acknowledgements';
+};
+
+export type AcknowledgeSemiAutomaticImageSelectionOutputErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type AcknowledgeSemiAutomaticImageSelectionOutputError =
+  AcknowledgeSemiAutomaticImageSelectionOutputErrors[keyof AcknowledgeSemiAutomaticImageSelectionOutputErrors];
+
+export type AcknowledgeSemiAutomaticImageSelectionOutputResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRangeResponse;
+};
+
+export type AcknowledgeSemiAutomaticImageSelectionOutputResponse =
+  AcknowledgeSemiAutomaticImageSelectionOutputResponses[keyof AcknowledgeSemiAutomaticImageSelectionOutputResponses];
+
+export type ResumeSemiAutomaticImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/resume';
+};
+
+export type ResumeSemiAutomaticImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type ResumeSemiAutomaticImageSelectionError =
+  ResumeSemiAutomaticImageSelectionErrors[keyof ResumeSemiAutomaticImageSelectionErrors];
+
+export type ResumeSemiAutomaticImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRunResponse;
+};
+
+export type ResumeSemiAutomaticImageSelectionResponse =
+  ResumeSemiAutomaticImageSelectionResponses[keyof ResumeSemiAutomaticImageSelectionResponses];
+
+export type ListSemiAutomaticImageSelectionSourcesData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: {
+    /**
+     * After Source Index
+     */
+    after_source_index?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/sources';
+};
+
+export type ListSemiAutomaticImageSelectionSourcesErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type ListSemiAutomaticImageSelectionSourcesError =
+  ListSemiAutomaticImageSelectionSourcesErrors[keyof ListSemiAutomaticImageSelectionSourcesErrors];
+
+export type ListSemiAutomaticImageSelectionSourcesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionSourcePageResponse;
+};
+
+export type ListSemiAutomaticImageSelectionSourcesResponse =
+  ListSemiAutomaticImageSelectionSourcesResponses[keyof ListSemiAutomaticImageSelectionSourcesResponses];
+
+export type GetSemiAutomaticImageSelectionSourceAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Source Index
+     */
+    source_index: number;
+  };
+  query: {
+    /**
+     * Expected Checksum Sha256
+     */
+    expected_checksum_sha256: string;
+  };
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/sources/{source_index}/asset';
+};
+
+export type GetSemiAutomaticImageSelectionSourceAssetErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type GetSemiAutomaticImageSelectionSourceAssetError =
+  GetSemiAutomaticImageSelectionSourceAssetErrors[keyof GetSemiAutomaticImageSelectionSourceAssetErrors];
+
+export type GetSemiAutomaticImageSelectionSourceAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ListWorkerLanesData = {
   body?: never;

@@ -71,7 +71,10 @@ test('selects the newest unresolved image import and hides completed history', (
     ['job-ready'],
   );
   assert.equal(selectReviewImportId([older, newest], gameId, ''), newest.id);
-  assert.equal(selectReviewImportId([older, newest], gameId, older.id), newest.id);
+  assert.equal(
+    selectReviewImportId([older, newest], gameId, older.id),
+    newest.id,
+  );
   assert.match(reviewJobLabel(older), /19810 - 45162 · gotowy$/);
   assert.match(reviewJobLabel(newest), /19810 - 45162 · do zatw\.$/);
   assert.doesNotMatch(reviewJobLabel(newest), /job-ready/);
@@ -96,21 +99,20 @@ test('distinguishes an unfinished image import from no image import', () => {
   assert.equal(reviewReadyImports([processing], gameId).length, 0);
 });
 
-test('opens Reviewer for ordinary boards or deferred geometry only', () => {
-  const ordinary = {
-    accepted: 0,
-    completed: 0,
-    corrected: 0,
-    pending: 0,
-    rejected: 0,
-    superseded: 0,
-    total: 0,
+test('opens local grid validation for current boards or deferred geometry', () => {
+  const grid = {
+    approved: 0,
+    needsCorrection: 0,
+    needsValidation: 0,
   };
   const deferred = { pending: 0, resolved: 0, superseded: 0, total: 0 };
 
-  assert.equal(hasReviewerWork(ordinary, deferred), false);
-  assert.equal(hasReviewerWork({ ...ordinary, total: 1 }, deferred), true);
-  assert.equal(hasReviewerWork(ordinary, { ...deferred, pending: 1 }), true);
+  assert.equal(hasReviewerWork(grid, deferred), false);
+  assert.equal(
+    hasReviewerWork({ ...grid, needsValidation: 1 }, deferred),
+    true,
+  );
+  assert.equal(hasReviewerWork(grid, { ...deferred, pending: 1 }), true);
   assert.equal(hasReviewerWork(null, { ...deferred, pending: 1 }), false);
 });
 

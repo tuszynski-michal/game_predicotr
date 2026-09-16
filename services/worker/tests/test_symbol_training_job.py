@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,9 +20,12 @@ from game_predictor_worker.symbols.candidate_gate import (
     build_symbol_candidate,
 )
 from game_predictor_worker.symbols.training_dataset import (
+    CLASS_STRATIFIED_SPLIT_POLICY_VERSION,
+    SplitName,
     TrainingDatasetConfig,
     TrainingSymbol,
     build_balanced_source_assignments,
+    build_class_stratified_source_assignments,
     build_cumulative_training_dataset,
 )
 from game_predictor_worker.symbols.training_job import (
@@ -104,7 +108,14 @@ def _artifact(root: Path, cohort_checksum: str) -> object:
     base = root / "data" / "training" / "fixture" / cohort_checksum
     for index in range(12):
         code = "A" if index % 2 == 0 else "B"
-        split = "train" if index < 8 else "validation"
+        if index < 6:
+            split = "train"
+        elif index < 8:
+            split = "validation"
+        elif index < 10:
+            split = "test"
+        else:
+            split = "regression"
         relative = f"assets/{index:02d}.png"
         path = base / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,7 +135,12 @@ def _artifact(root: Path, cohort_checksum: str) -> object:
         "gameCode": "fixture",
         "seed": "test-seed",
         "samples": samples,
-        "splits": [{"name": "train"}, {"name": "validation"}],
+        "splits": [
+            {"name": "train"},
+            {"name": "validation"},
+            {"name": "test"},
+            {"name": "regression"},
+        ],
         "symbols": [
             {"symbolCode": "A", "symbolId": "symbol-a"},
             {"symbolCode": "B", "symbolId": "symbol-b"},
@@ -349,10 +365,228 @@ def test_failed_training_preserves_input_crop_checksums(tmp_path: Path) -> None:
     store = FakeTrainingStore(tmp_path, artifact, spec)
     context = FakeContext(_job(spec))
 
-    with pytest.raises(JobHandlerError, match="validation must not be empty"):
+    with pytest.raises(JobHandlerError, match=r"required split\(s\): validation, test, regression"):
         SymbolTrainingJobHandler(store, candidate_builder=_candidate_builder)(context, context.job)
 
     assert store.updates[-1]["status"] is SymbolModelIterationStatus.FAILED
     assert source_checksums == {
         path: hashlib.sha256(path.read_bytes()).hexdigest() for path in source_checksums
     }
+
+
+def test_balanced_assignments_repair_an_incomplete_historical_split() -> None:
+    sources = tuple(hashlib.sha256(f"source-{index}".encode()).hexdigest() for index in range(4))
+    broken: dict[str, SplitName] = {source: "train" for source in sources}
+
+    assignments = build_balanced_source_assignments(sources, existing=broken)
+
+    assert {split for _source, split in assignments} == {
+        "train",
+        "validation",
+        "test",
+        "regression",
+    }
+
+
+def test_class_stratified_assignments_cover_every_symbol_without_source_leakage() -> None:
+    codes = ("ARBUZ", "CYTRYNA", "POMARANCZ", "SIEDEM", "SLIWKA", "STAR", "WINOGRON", "WISNIA")
+    # Anonymized class incidence from the rejected 768-sample iteration.  The
+    # former v2 hash put a source containing only ARBUZ/SIEDEM into test.
+    raw_profiles = (
+        {"SIEDEM": 7, "ARBUZ": 4},
+        {
+            "SLIWKA": 14,
+            "CYTRYNA": 1,
+            "ARBUZ": 3,
+            "WISNIA": 7,
+            "POMARANCZ": 8,
+            "STAR": 6,
+            "SIEDEM": 6,
+            "WINOGRON": 7,
+        },
+        {
+            "SLIWKA": 9,
+            "CYTRYNA": 4,
+            "ARBUZ": 4,
+            "WISNIA": 21,
+            "POMARANCZ": 6,
+            "STAR": 7,
+            "SIEDEM": 5,
+            "WINOGRON": 8,
+        },
+        {"ARBUZ": 5, "WINOGRON": 13, "SIEDEM": 7},
+        {"SIEDEM": 6, "ARBUZ": 5},
+        {"SLIWKA": 10, "ARBUZ": 6, "POMARANCZ": 4, "STAR": 3, "SIEDEM": 9, "WINOGRON": 12},
+        {
+            "SLIWKA": 11,
+            "CYTRYNA": 3,
+            "ARBUZ": 2,
+            "WISNIA": 12,
+            "POMARANCZ": 6,
+            "STAR": 6,
+            "SIEDEM": 7,
+            "WINOGRON": 7,
+        },
+        {"SIEDEM": 6, "ARBUZ": 4},
+        {"SIEDEM": 6, "ARBUZ": 6},
+        {
+            "SLIWKA": 4,
+            "CYTRYNA": 2,
+            "ARBUZ": 4,
+            "WISNIA": 17,
+            "POMARANCZ": 5,
+            "STAR": 4,
+            "SIEDEM": 7,
+            "WINOGRON": 9,
+        },
+        {
+            "SLIWKA": 17,
+            "ARBUZ": 4,
+            "WISNIA": 11,
+            "POMARANCZ": 4,
+            "STAR": 7,
+            "SIEDEM": 9,
+            "WINOGRON": 12,
+        },
+        {
+            "SLIWKA": 10,
+            "CYTRYNA": 5,
+            "ARBUZ": 6,
+            "WISNIA": 14,
+            "POMARANCZ": 4,
+            "STAR": 4,
+            "SIEDEM": 5,
+            "WINOGRON": 10,
+        },
+        {
+            "SLIWKA": 17,
+            "CYTRYNA": 4,
+            "ARBUZ": 3,
+            "WISNIA": 4,
+            "POMARANCZ": 4,
+            "STAR": 7,
+            "SIEDEM": 4,
+            "WINOGRON": 9,
+        },
+        {
+            "SLIWKA": 16,
+            "CYTRYNA": 5,
+            "ARBUZ": 8,
+            "WISNIA": 13,
+            "POMARANCZ": 13,
+            "STAR": 6,
+            "SIEDEM": 3,
+            "WINOGRON": 9,
+        },
+        {
+            "SLIWKA": 13,
+            "CYTRYNA": 3,
+            "ARBUZ": 4,
+            "WISNIA": 8,
+            "POMARANCZ": 4,
+            "STAR": 8,
+            "SIEDEM": 7,
+            "WINOGRON": 6,
+        },
+        {"ARBUZ": 3, "WINOGRON": 9, "SIEDEM": 11},
+        {"SIEDEM": 6, "ARBUZ": 1},
+        {
+            "SLIWKA": 9,
+            "CYTRYNA": 5,
+            "ARBUZ": 3,
+            "WISNIA": 8,
+            "POMARANCZ": 2,
+            "STAR": 9,
+            "SIEDEM": 6,
+            "WINOGRON": 7,
+        },
+        {
+            "SLIWKA": 6,
+            "ARBUZ": 7,
+            "WISNIA": 10,
+            "POMARANCZ": 6,
+            "STAR": 9,
+            "SIEDEM": 6,
+            "WINOGRON": 10,
+        },
+    )
+    profiles = {
+        hashlib.sha256(f"source-{index}".encode()).hexdigest(): profile
+        for index, profile in enumerate(raw_profiles)
+    }
+
+    assignments = dict(build_class_stratified_source_assignments(profiles))
+
+    assert len(assignments) == 19
+    assert set(assignments.values()) == {"train", "validation", "test", "regression"}
+    for split in ("train", "validation", "test", "regression"):
+        covered = {
+            code
+            for source, assigned in assignments.items()
+            if assigned == split
+            for code in profiles[source]
+        }
+        assert covered == set(codes)
+    assert Counter(assignments.values()) == Counter(
+        {"train": 12, "validation": 3, "test": 2, "regression": 2}
+    )
+
+
+def test_class_stratified_assignments_are_deterministic_and_stable_when_extended() -> None:
+    initial = {
+        hashlib.sha256(f"stable-{index}".encode()).hexdigest(): {"A": 2, "B": 3}
+        for index in range(8)
+    }
+    first = dict(build_class_stratified_source_assignments(initial))
+    repeated = dict(build_class_stratified_source_assignments(initial))
+    extended = {
+        **initial,
+        **{
+            hashlib.sha256(f"new-{index}".encode()).hexdigest(): {"A": 1, "B": 1}
+            for index in range(4)
+        },
+    }
+
+    grown = dict(build_class_stratified_source_assignments(extended, existing=first))
+
+    assert repeated == first
+    assert all(grown[source] == split for source, split in first.items())
+
+
+def test_v3_training_rejects_missing_test_class_before_first_epoch(tmp_path: Path) -> None:
+    cohort_checksum = hashlib.sha256(b"cohort-v3-incomplete").hexdigest()
+    artifact = _artifact(tmp_path, cohort_checksum)
+    for sample in artifact.manifest["samples"]:
+        if sample["split"] == "test" and sample["symbolCode"] == "B":
+            sample["split"] = "train"
+    spec = _IterationSpec(
+        iteration_id=uuid4(),
+        game_id=uuid4(),
+        game_code="fixture",
+        cohort_id=uuid4(),
+        cohort_checksum=cohort_checksum,
+        configuration=TrainingConfig(epochs=2, batch_size=4, input_size=16),
+        configuration_fingerprint=hashlib.sha256(b"v3-incomplete-config").hexdigest(),
+        iteration_number=1,
+        dataset_config=TrainingDatasetConfig(
+            split_policy_version=CLASS_STRATIFIED_SPLIT_POLICY_VERSION
+        ),
+    )
+    store = FakeTrainingStore(tmp_path, artifact, spec)
+    context = FakeContext(_job(spec))
+
+    SymbolTrainingJobHandler(
+        store,
+        candidate_builder=lambda **_values: pytest.fail("candidate gate must not run"),
+    )(context, context.job)
+
+    assert store.updates[-1]["status"] is SymbolModelIterationStatus.REJECTED
+    assert store.updates[-1]["rejection_reasons"] == (
+        "SYMBOL_TRAINING_EVALUATION_CLASS_COVERAGE_INSUFFICIENT",
+    )
+    assert store.updates[-1]["gate_metrics"] == {
+        "missingClassCoverage": {"test": ["B"]},
+        "splitPolicyVersion": CLASS_STRATIFIED_SPLIT_POLICY_VERSION,
+        "trainingStarted": False,
+    }
+    assert not list((tmp_path / "data" / "models").glob("**/epoch-*.pt"))

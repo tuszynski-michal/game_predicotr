@@ -8,14 +8,27 @@ import {
   placeBoardSearchUnknown,
   resetBoardSearchEditor,
   selectBoardSearchCell,
+  selectBoardSearchEntryStart,
   selectedBoardSearchCells,
   undoBoardSearchEdit,
 } from '../src/features/board-search/board-search-editor-state.ts';
 
-test('places symbols sequentially and advances to the next empty board-search cell', () => {
+test('places symbols by columns by default and preserves canonical cell indexes', () => {
   let state = createBoardSearchEditorState();
   state = placeBoardSearchSymbol(state, 'lemon');
   state = placeBoardSearchSymbol(state, 'bell');
+
+  assert.deepEqual(selectedBoardSearchCells(state), [
+    { cellIndex: 0, symbolCode: 'lemon' },
+    { cellIndex: 5, symbolCode: 'bell' },
+  ]);
+  assert.equal(state.selectedCellIndex, 10);
+});
+
+test('can place symbols by rows when the operator selects row order', () => {
+  let state = createBoardSearchEditorState();
+  state = placeBoardSearchSymbol(state, 'lemon', 'rows');
+  state = placeBoardSearchSymbol(state, 'bell', 'rows');
 
   assert.deepEqual(selectedBoardSearchCells(state), [
     { cellIndex: 0, symbolCode: 'lemon' },
@@ -34,7 +47,7 @@ test('lets the operator replace an explicitly selected cell and undo that exact 
 
   assert.deepEqual(selectedBoardSearchCells(state), [
     { cellIndex: 0, symbolCode: 'lemon' },
-    { cellIndex: 1, symbolCode: 'bell' },
+    { cellIndex: 5, symbolCode: 'bell' },
   ]);
   assert.equal(state.selectedCellIndex, 0);
 });
@@ -54,14 +67,29 @@ test('keeps logical unknown in the editor but omits it from search evidence', ()
   state = placeBoardSearchUnknown(state);
   state = placeBoardSearchSymbol(state, 'bell');
 
-  assert.deepEqual(state.cells.slice(0, 2), ['?', 'bell']);
+  assert.equal(state.cells[0], '?');
+  assert.equal(state.cells[5], 'bell');
   assert.equal(boardSearchPatternCellCount(state), 2);
   assert.deepEqual(selectedBoardSearchCells(state), [
-    { cellIndex: 1, symbolCode: 'bell' },
+    { cellIndex: 5, symbolCode: 'bell' },
   ]);
 
   state = undoBoardSearchEdit(state);
-  assert.deepEqual(state.cells.slice(0, 2), ['?', null]);
+  assert.equal(state.cells[0], '?');
+  assert.equal(state.cells[5], null);
   state = resetBoardSearchEditor(state);
   assert.equal(boardSearchPatternCellCount(state), 0);
+});
+
+test('changing entry order preserves values and selects its first empty cell', () => {
+  let state = createBoardSearchEditorState();
+  state = placeBoardSearchSymbol(state, 'lemon');
+  state = placeBoardSearchSymbol(state, 'bell');
+  state = selectBoardSearchEntryStart(state, 'rows');
+
+  assert.deepEqual(selectedBoardSearchCells(state), [
+    { cellIndex: 0, symbolCode: 'lemon' },
+    { cellIndex: 5, symbolCode: 'bell' },
+  ]);
+  assert.equal(state.selectedCellIndex, 1);
 });

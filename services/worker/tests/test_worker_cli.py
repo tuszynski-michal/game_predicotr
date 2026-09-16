@@ -8,6 +8,9 @@ import pytest
 from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_worker import cli
 from game_predictor_worker.jobs.runtime import JobExecutionResult
+from game_predictor_worker.semi_automatic_selection.job import (
+    SemiAutomaticImageSelectionJobHandler,
+)
 
 
 class FakeEngine:
@@ -156,12 +159,19 @@ def test_cli_runs_image_selection_in_its_dedicated_lane(
     )
 
     worker = FakeWorker.instances[0]
-    assert set(worker.handlers) == {JobType.IMAGE_SELECTION}
+    assert set(worker.handlers) == {
+        JobType.IMAGE_SELECTION,
+        JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+    }
     assert worker.options["execution_slot"] is JobExecutionSlot.IMAGE_SELECTION
     assert worker.options["auxiliary_work"] is None
     selection_handler = worker.handlers[JobType.IMAGE_SELECTION]
     assert selection_handler._scan_workers == 4  # noqa: SLF001
     assert selection_handler._verification_workers == 1  # noqa: SLF001
+    assert isinstance(
+        worker.handlers[JobType.SEMI_AUTOMATIC_IMAGE_SELECTION],
+        SemiAutomaticImageSelectionJobHandler,
+    )
     assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 5
     assert engine.disposed is True
 

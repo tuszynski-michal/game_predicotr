@@ -3,11 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.domain.symbol_model_snapshots import SymbolModelStorageRoot
+from game_predictor_api.storage.game_storage_routing import current_game_storage_scope
 from game_predictor_api.storage.models import (
     GameSymbolModelActivationModel,
     SymbolModelIterationModel,
@@ -29,20 +30,67 @@ class _Session:
         self,
         activation: GameSymbolModelActivationModel | None,
         iteration: SymbolModelIterationModel | None,
+        *,
+        ready_candidate_id: object | None = None,
+        catalog_codes: tuple[str, ...] = ("lemon", "seven"),
     ) -> None:
         self.activation = activation
         self.iteration = iteration
+        self.ready_candidate_id = ready_candidate_id
+        self.catalog_codes = catalog_codes
+        self._scalar_calls = 0
 
-    def scalar(self, _statement: object) -> GameSymbolModelActivationModel | None:
-        return self.activation
+    def scalar(self, _statement: object) -> object | None:
+        self._scalar_calls += 1
+        if self._scalar_calls == 1:
+            return self.activation
+        return self.ready_candidate_id
+
+    def scalars(self, _statement: object) -> tuple[str, ...]:
+        return self.catalog_codes
 
     def get(self, _model: object, _identifier: object) -> SymbolModelIterationModel | None:
         return self.iteration
 
 
+class _ColdStartHistorySession(_Session):
+    def __init__(self, blocked_call: int) -> None:
+        super().__init__(
+            None,
+            None,
+            catalog_codes=("CYTRYNA", "SIEDEM", "WISNIA"),
+        )
+        self._blocked_call = blocked_call
+
+    def scalar(self, _statement: object) -> object | None:
+        self._scalar_calls += 1
+        return object() if self._scalar_calls == self._blocked_call else None
+
+
+class _ScopeCheckingSession(_ColdStartHistorySession):
+    def __init__(self, game_id: UUID) -> None:
+        super().__init__(blocked_call=3)
+        self._game_id = game_id
+
+    def scalar(self, statement: object) -> object | None:
+        scope = current_game_storage_scope()
+        assert scope is not None and scope.game_id == self._game_id
+        return super().scalar(statement)
+
+    def scalars(self, statement: object) -> tuple[str, ...]:
+        scope = current_game_storage_scope()
+        assert scope is not None and scope.game_id == self._game_id
+        return super().scalars(statement)
+
+
 def _resolver_fixture(
     tmp_path: Path,
-) -> tuple[SqlAlchemySymbolModelSnapshotResolver, Path, SymbolModelIterationModel]:
+) -> tuple[
+    SqlAlchemySymbolModelSnapshotResolver,
+    Path,
+    SymbolModelIterationModel,
+    GameSymbolModelActivationModel,
+]:
     artifact_root = tmp_path / "artifacts"
     onnx_path = artifact_root / "models" / "candidate.onnx"
     onnx_path.parent.mkdir(parents=True)
@@ -110,11 +158,11 @@ def _resolver_fixture(
         _Session(activation, iteration),  # type: ignore[arg-type]
         artifact_root=artifact_root,
     )
-    return resolver, onnx_path, iteration
+    return resolver, onnx_path, iteration, activation
 
 
 def test_resolver_returns_a_checksum_verified_active_candidate(tmp_path: Path) -> None:
-    resolver, _onnx_path, iteration = _resolver_fixture(tmp_path)
+    resolver, _onnx_path, iteration, _activation = _resolver_fixture(tmp_path)
 
     snapshot = resolver.resolve(game_id=iteration.game_id)
 
@@ -127,10 +175,124 @@ def test_resolver_returns_a_checksum_verified_active_candidate(tmp_path: Path) -
 
 
 def test_resolver_rejects_an_active_artifact_changed_after_activation(tmp_path: Path) -> None:
-    resolver, onnx_path, iteration = _resolver_fixture(tmp_path)
+    resolver, onnx_path, iteration, _activation = _resolver_fixture(tmp_path)
     onnx_path.write_bytes(b"tampered")
 
     with pytest.raises(JobConflictError) as error:
         resolver.resolve(game_id=iteration.game_id)
 
     assert error.value.code == "SYMBOL_MODEL_ACTIVE_ARTIFACT_DRIFT"
+
+
+def test_resolver_requires_activation_when_a_candidate_is_ready(tmp_path: Path) -> None:
+    resolver, _onnx_path, iteration, _activation = _resolver_fixture(tmp_path)
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _Session(None, None, ready_candidate_id=iteration.id),  # type: ignore[arg-type]
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    with pytest.raises(JobConflictError) as error:
+        resolver.resolve(game_id=iteration.game_id)
+
+    assert error.value.code == "SYMBOL_MODEL_ACTIVATION_REQUIRED"
+
+
+def test_resolver_rejects_bootstrap_that_does_not_match_the_game_catalog(
+    tmp_path: Path,
+) -> None:
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _Session(
+            None,
+            None,
+            catalog_codes=("CYTRYNA", "SIEDEM", "WISNIA"),
+        ),  # type: ignore[arg-type]
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    with pytest.raises(JobConflictError) as error:
+        resolver.resolve(game_id=uuid4())
+
+    assert error.value.code == "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED"
+
+
+def test_resolver_allows_unclassified_snapshot_for_empty_incompatible_game(
+    tmp_path: Path,
+) -> None:
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _Session(
+            None,
+            None,
+            catalog_codes=("CYTRYNA", "SIEDEM", "WISNIA"),
+        ),  # type: ignore[arg-type]
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    snapshot = resolver.resolve_unclassified_cold_start(game_id=uuid4())
+
+    assert snapshot is not None
+    assert snapshot.inference_mode == "unclassified"
+    assert snapshot.class_codes == ("CYTRYNA", "SIEDEM", "WISNIA")
+    assert snapshot.model_version == "cold-start-unclassified-v1"
+
+
+@pytest.mark.parametrize("blocked_call", (1, 2, 3, 4))
+def test_resolver_blocks_unclassified_snapshot_for_any_existing_training_history(
+    tmp_path: Path,
+    blocked_call: int,
+) -> None:
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _ColdStartHistorySession(blocked_call),  # type: ignore[arg-type]
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    assert resolver.resolve_unclassified_cold_start(game_id=uuid4()) is None
+
+
+def test_resolver_scopes_all_cold_start_history_reads_to_the_game() -> None:
+    game_id = uuid4()
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _ScopeCheckingSession(game_id),  # type: ignore[arg-type]
+        artifact_root=Path("artifacts"),
+    )
+
+    assert resolver.resolve_unclassified_cold_start(game_id=game_id) is None
+
+
+def test_resolver_keeps_compatible_bootstrap_for_legacy_catalog(tmp_path: Path) -> None:
+    bootstrap_codes = (
+        "cherries",
+        "grapes",
+        "lemon",
+        "orange",
+        "plum",
+        "seven",
+        "star",
+        "watermelon",
+    )
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        _Session(None, None, catalog_codes=bootstrap_codes),  # type: ignore[arg-type]
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    snapshot = resolver.resolve(game_id=uuid4())
+
+    assert snapshot.iteration_id is None
+    assert snapshot.class_codes == bootstrap_codes
+
+
+def test_resolver_rejects_active_model_class_catalog_drift(tmp_path: Path) -> None:
+    _resolver, _onnx_path, iteration, activation = _resolver_fixture(tmp_path)
+    session = _Session(
+        activation,
+        iteration,
+        catalog_codes=("LEMON", "SEVEN"),
+    )
+    resolver = SqlAlchemySymbolModelSnapshotResolver(
+        session,  # type: ignore[arg-type]
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    with pytest.raises(JobConflictError) as error:
+        resolver.resolve(game_id=iteration.game_id)
+
+    assert error.value.code == "SYMBOL_MODEL_CLASS_CATALOG_MISMATCH"

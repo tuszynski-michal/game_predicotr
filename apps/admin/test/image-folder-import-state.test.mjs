@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { sortReadyBoardImports } from '../src/features/imports/image-folder-import-state.ts';
+import {
+  canStartReadyImport,
+  pageGeometryPreflightOutcomeLabel,
+  readyBoardImportGeometryVariant,
+  readyBoardImportLifecycleLabel,
+  sortReadyBoardImports,
+} from '../src/features/imports/image-folder-import-state.ts';
 
 function staging(displayName, uploadId) {
   return {
@@ -17,6 +23,97 @@ function staging(displayName, uploadId) {
     uploadedBytes: 1,
     uploadedFileCount: 1,
   };
+}
+
+function job({
+  checksum = 'a'.repeat(64),
+  geometryManifestChecksum,
+  id = 'job-1',
+  jobType,
+  variant,
+  createdAt = '2026-09-16T10:00:00Z',
+  sourceSelectionId = 'upload-1',
+  status,
+}) {
+  return {
+    createdAt,
+    gameId: 'game-1',
+    id,
+    inputPayload: {
+      importKind: jobType === 'import' ? 'image_directory' : undefined,
+      sourceManifestSha256: checksum,
+      sourceSelectionId,
+      lateralPartialGeometry: variant === undefined ? undefined : { variant },
+      validationKind:
+        jobType === 'validate' ? 'page_geometry_preflight' : undefined,
+    },
+    jobType,
+    progress: {
+      pageGeometryPreflight:
+        geometryManifestChecksum === undefined
+          ? undefined
+          : { geometryManifestChecksumSha256: geometryManifestChecksum },
+    },
+    status,
+  };
+}
+
+test('reopens a completed v1.1 staging in its pinned variant', () => {
+  const selection = staging('200575 - 222912 cut', 'upload-1');
+  const completedV11 = job({
+    geometryManifestChecksum: 'g'.repeat(64),
+    id: 'v11-completed',
+    jobType: 'validate',
+    status: 'completed',
+    variant: 'selective_board_review_v1_1',
+  });
+  const laterV10 = job({
+    createdAt: '2026-09-16T11:00:00Z',
+    id: 'v10-created',
+    jobType: 'validate',
+    status: 'created',
+    variant: 'structured_lattice_v4_partial_sides',
+  });
+  assert.equal(
+    readyBoardImportGeometryVariant([], selection),
+    'structured_lattice_v4_partial_sides',
+  );
+  assert.equal(
+    readyBoardImportGeometryVariant([laterV10, completedV11], selection),
+    'selective_board_review_v1_1',
+  );
+  assert.equal(
+    readyBoardImportGeometryVariant(
+      [{ ...laterV10, status: 'cancelled' }, completedV11],
+      selection,
+    ),
+    'selective_board_review_v1_1',
+  );
+  assert.equal(
+    readyBoardImportGeometryVariant(
+      [
+        {
+          ...completedV11,
+          inputPayload: {
+            ...completedV11.inputPayload,
+            sourceSelectionId: 'other-upload',
+          },
+        },
+      ],
+      selection,
+    ),
+    'structured_lattice_v4_partial_sides',
+  );
+});
+
+function lifecycle(overrides = {}) {
+  return readyBoardImportLifecycleLabel({
+    geometryPreflightJobs: [],
+    importJobs: [],
+    reportPrepared: false,
+    selection: staging('1-10', 'upload-1'),
+    ...overrides,
+  });
 }
 
 test('orders ready board imports by the leading numeric range', () => {
@@ -45,5 +142,146 @@ test('uses a deterministic name and id fallback for equal or non-range names', (
   assert.deepEqual(
     ordered.map((item) => item.uploadId),
     ['range-a', 'range-b', 'a', 'c', 'b'],
+  );
+});
+
+test('allows a guarded ready import only after both durable manifests are restored', () => {
+  const restored = {
+    geometryGuardResolutionManifestAvailable: true,
+    geometryGuardResolutionRequired: true,
+    geometryManifestAvailable: true,
+    geometryPreflightCompleted: true,
+    geometryPreflightRequired: true,
+    symbolModelAvailable: true,
+  };
+
+  assert.equal(canStartReadyImport(restored), true);
+  assert.equal(
+    canStartReadyImport({
+      ...restored,
+      geometryGuardResolutionManifestAvailable: false,
+    }),
+    false,
+  );
+  assert.equal(
+    canStartReadyImport({ ...restored, geometryPreflightCompleted: false }),
+    false,
+  );
+});
+
+test('labels a staging by its highest durable import stage', () => {
+  assert.equal(lifecycle(), 'oczekuje na operację · załadowano folder');
+  assert.equal(
+    lifecycle({ reportPrepared: true }),
+    'oczekuje na operację · przygotowano preflight',
+  );
+  assert.equal(
+    lifecycle({
+      geometryPreflightJobs: [
+        job({ jobType: 'validate', status: 'processing' }),
+      ],
+    }),
+    'oczekuje na operację · przygotowano preflight',
+  );
+  assert.equal(
+    lifecycle({
+      geometryPreflightJobs: [
+        job({ jobType: 'validate', status: 'completed' }),
+      ],
+    }),
+    'oczekuje na operację · przygotowano preflight',
+  );
+  assert.equal(
+    lifecycle({
+      geometryPreflightJobs: [
+        job({
+          geometryManifestChecksum: 'g'.repeat(64),
+          jobType: 'validate',
+          status: 'completed',
+        }),
+      ],
+    }),
+    'oczekuje na operację · przygotowano siatkę',
+  );
+});
+
+test('labels symbol-cut imports waiting for review or completed as ready', () => {
+  for (const status of ['waiting_for_review', 'completed']) {
+    assert.equal(
+      lifecycle({ importJobs: [job({ jobType: 'import', status })] }),
+      'gotowy',
+    );
+  }
+});
+
+test('does not advance a staging from a foreign id or manifest checksum', () => {
+  assert.equal(
+    lifecycle({
+      geometryPreflightJobs: [
+        job({
+          geometryManifestChecksum: 'g'.repeat(64),
+          jobType: 'validate',
+          sourceSelectionId: 'upload-2',
+          status: 'completed',
+        }),
+      ],
+      importJobs: [
+        job({
+          checksum: 'b'.repeat(64),
+          jobType: 'import',
+          status: 'waiting_for_review',
+        }),
+      ],
+    }),
+    'oczekuje na operację · załadowano folder',
+  );
+});
+
+test('labels an active auto-anchor result as provisional', () => {
+  assert.equal(
+    pageGeometryPreflightOutcomeLabel(
+      {
+        status: 'processing',
+        progress: {
+          pageGeometryPreflight: {
+            phase: 'auto_anchor_retry',
+            provisionalReviewRequired: 7,
+          },
+        },
+      },
+      0,
+    ),
+    'jeszcze nierozstrzygnięte zdjęcia 7',
+  );
+});
+
+test('labels the correction queue as final only after preflight completion', () => {
+  assert.equal(
+    pageGeometryPreflightOutcomeLabel(
+      {
+        status: 'completed',
+        progress: {
+          pageGeometryPreflight: {
+            phase: 'complete',
+            provisionalReviewRequired: 4,
+          },
+        },
+      },
+      4,
+    ),
+    'odroczone zdjęcia 4',
+  );
+});
+
+test('does not claim a final count for a legacy active checkpoint', () => {
+  assert.equal(
+    pageGeometryPreflightOutcomeLabel(
+      {
+        status: 'processing',
+        progress: {},
+      },
+      0,
+    ),
+    'wynik końcowy jeszcze niegotowy',
   );
 });

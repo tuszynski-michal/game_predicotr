@@ -81,7 +81,11 @@ def create_owned_pending_review_item(
             ImageReviewItemModel.sequence_number == sequence_number,
             ImageReviewItemModel.status == "pending",
         )
-        .with_for_update()
+        # Job identity and created_at are immutable after creation. Locking the
+        # incumbent JobModel here creates a Job -> sequence -> source versus
+        # sequence -> source -> Job cycle with a concurrently resumed worker.
+        # Only the review item and its board are mutated by ownership changes.
+        .with_for_update(of=(ImageReviewItemModel, RecognizedBoardModel))
     ).all()
     incoming_order = (import_job.created_at, str(import_job.id))
     incumbent = max(

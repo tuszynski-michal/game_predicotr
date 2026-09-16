@@ -6,23 +6,20 @@ import hashlib
 import json
 import os
 import shutil
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from secrets import token_urlsafe
 from threading import Lock
-from uuid import UUID, uuid4
+from typing import Protocol
+from uuid import UUID, uuid4, uuid5
 
 from game_predictor_worker.images.image_file import (
     ImageFileError,
     read_jpeg_dimensions,
     sha256_file,
-)
-from game_predictor_worker.images.pipeline_contract import (
-    current_pipeline_manifest,
-    pipeline_fingerprint,
 )
 from game_predictor_worker.images.selection.contracts import SelectionContractError
 from game_predictor_worker.images.selection.sequence_bounds import (
@@ -32,7 +29,6 @@ from game_predictor_worker.images.selection.sequence_bounds import (
 from game_predictor_api.application.browser_staging_retention import BrowserStagingRetention
 from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.image_selections import ImageSelectionService
-from game_predictor_api.application.jobs import JobService
 from game_predictor_api.domain.image_selections import (
     ImageSelectionRun,
     ImageSelectionSequenceDirection,
@@ -41,7 +37,7 @@ from game_predictor_api.domain.image_sequence_canonical import (
     BrowserSequenceManifest,
     parse_browser_sequence_manifest,
 )
-from game_predictor_api.domain.jobs import Job, JobConflictError, JobError
+from game_predictor_api.domain.jobs import JobConflictError, JobError
 
 SUPPORTED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg"})
 SELECTION_TTL = timedelta(minutes=15)
@@ -59,6 +55,13 @@ UPLOAD_METRICS_FILE_NAME = "_upload_metrics.json"
 class ImageSelectionPurpose(StrEnum):
     LAYOUT_IMPORT = "layout_import"
     PHOTO_SELECTION = "photo_selection"
+    SEMI_AUTOMATIC_SELECTION = "semi_automatic_selection"
+
+
+class ImageWriteCapacityGuard(Protocol):
+    """Narrow dependency used before a browser upload reserves disk space."""
+
+    def check_image_write(self, input_bytes: int) -> object: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +92,13 @@ class BrowserImageUpload:
     uploaded_indexes: set[int]
     uploaded_files: dict[int, BrowserUploadedFile]
     uploaded_bytes: int = 0
+    upload_plan_checksum_sha256: str | None = None
+    skipped_canonical_ranges: tuple[tuple[int, int], ...] = ()
+    replacement_parent_upload_id: UUID | None = None
+    replacement_parent_manifest_sha256: str | None = None
+    superseded_by_upload_id: UUID | None = None
+    pending_replacement_upload_id: UUID | None = None
+    replacement_confirmed: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +117,27 @@ class BrowserReadySelection:
     completed_at: datetime | None
 
 
+@dataclass(frozen=True, slots=True)
+class BrowserReadySource:
+    source_index: int
+    relative_path: str
+    stored_file_name: str
+    size_bytes: int
+    checksum_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class BrowserReadySourceSelection:
+    upload_id: UUID
+    display_name: str
+    purpose: ImageSelectionPurpose
+    manifest_checksum_sha256: str
+    source_fingerprint: str
+    sources: tuple[BrowserReadySource, ...]
+    total_bytes: int
+    completed_at: datetime | None
+
+
 class ImageFolderSelectionService:
     """Keep short-lived approved paths outside browser-controlled payloads."""
 
@@ -122,7 +153,11 @@ class ImageFolderSelectionService:
         self._lock = Lock()
         self._picker_lock = Lock()
 
-    def select(self) -> SelectedImageFolder | None:
+    def select(
+        self,
+        *,
+        purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT,
+    ) -> SelectedImageFolder | None:
         if not self._picker_lock.acquire(blocking=False):
             raise JobConflictError(
                 "IMAGE_FOLDER_PICKER_ALREADY_OPEN",
@@ -132,7 +167,7 @@ class ImageFolderSelectionService:
             path = self._picker()
         finally:
             self._picker_lock.release()
-        return None if path is None else self.approve(path)
+        return None if path is None else self.approve(path, purpose=purpose)
 
     def approve(
         self,
@@ -153,6 +188,14 @@ class ImageFolderSelectionService:
             raise JobError(
                 "IMAGE_SELECTION_SOURCE_PURPOSE_INVALID",
                 "Photo-selection staging requires a game and an input manifest.",
+            )
+        if purpose is ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION and (
+            game_id is not None or (managed and input_manifest_sha256 is None)
+        ):
+            raise JobError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
+                "Semi-automatic selection sources must be global; managed staging "
+                "must be finalized.",
             )
         now = self._clock()
         stable_selection_id = selection_id or uuid4()
@@ -194,55 +237,8 @@ class ImageFolderSelectionService:
             self._selections[selected.selection_token] = selected
         return selected
 
-    def create_import_job(
-        self,
-        job_service: JobService,
-        *,
-        game_id: UUID,
-        selection_token: str,
-        canonical_sequence_numbers: Sequence[int] | None = None,
-    ) -> Job:
-        now = self._clock()
-        with self._lock:
-            self._remove_expired(now)
-            selected = self._selections.get(selection_token)
-        if selected is None:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_INVALID",
-                "The folder selection is missing, expired, or already used.",
-            )
-        if selected.purpose is not ImageSelectionPurpose.LAYOUT_IMPORT:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
-                "Photo-selection staging cannot be used as a layout import.",
-            )
-        if selected.game_id is not None and selected.game_id != game_id:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
-                "The curated image selection belongs to a different game.",
-            )
-        resolved, _count = inspect_image_folder(selected.path)
-        if resolved != selected.path:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_CHANGED",
-                "The selected image folder no longer resolves to the approved path.",
-            )
-        job = job_service.create_image_import_job(
-            game_id=game_id,
-            selection_id=selected.selection_id,
-            source_directory=selected.path,
-            source_display_name=selected.display_name,
-            pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
-            image_selection_run_id=selected.image_selection_run_id,
-            canonical_sequence_numbers=canonical_sequence_numbers,
-            use_verified_board_cell_geometry=True,
-        )
-        with self._lock:
-            self._selections.pop(selection_token, None)
-        return job
-
-    def get_for_import(self, *, game_id: UUID, selection_token: str) -> SelectedImageFolder:
-        """Return an approved folder without consuming its short-lived token."""
+    def get_for_semi_automatic_selection(self, selection_token: str) -> SelectedImageFolder:
+        """Return one approved local source folder without consuming its token."""
 
         now = self._clock()
         with self._lock:
@@ -251,25 +247,37 @@ class ImageFolderSelectionService:
         if selected is None:
             raise JobError(
                 "IMAGE_FOLDER_SELECTION_INVALID",
-                "The folder selection is missing, expired, or already used.",
+                "The folder selection is missing or expired.",
             )
-        if selected.purpose is not ImageSelectionPurpose.LAYOUT_IMPORT:
+        if (
+            selected.purpose is not ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION
+            or selected.game_id is not None
+            or selected.managed
+        ):
             raise JobError(
-                "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
-                "Photo-selection staging cannot be used as a layout import.",
-            )
-        if selected.game_id is not None and selected.game_id != game_id:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
-                "The selected image folder belongs to a different game.",
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
+                "The selected folder is not an approved local semi-automatic source.",
             )
         resolved, _count = inspect_image_folder(selected.path)
         if resolved != selected.path:
             raise JobError(
-                "IMAGE_FOLDER_SELECTION_CHANGED",
-                "The selected image folder no longer resolves to the approved path.",
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The selected local source folder changed after approval.",
             )
         return selected
+
+    def consume_semi_automatic_selection(
+        self,
+        selection_token: str,
+        *,
+        selection_id: UUID,
+    ) -> None:
+        """Forget only the matching short-lived authorization token."""
+
+        with self._lock:
+            selected = self._selections.get(selection_token)
+            if selected is not None and selected.selection_id == selection_id:
+                self._selections.pop(selection_token, None)
 
     def create_image_selection_run(
         self,
@@ -360,7 +368,7 @@ class BrowserImageSelectionService:
         photo_selection_max_bytes: int | None = None,
         clock: Callable[[], datetime] | None = None,
         retention: BrowserStagingRetention | None = None,
-        capacity_guard: object | None = None,
+        capacity_guard: ImageWriteCapacityGuard | None = None,
     ) -> None:
         self._selection_service = selection_service
         self._upload_root = upload_root.resolve() / "browser-selections"
@@ -372,6 +380,7 @@ class BrowserImageSelectionService:
         self._capacity_guard = capacity_guard
         self._uploads: dict[UUID, BrowserImageUpload] = {}
         self._lock = Lock()
+        self._replacement_lock = Lock()
 
     def begin(
         self,
@@ -381,6 +390,11 @@ class BrowserImageSelectionService:
         expected_total_bytes: int,
         purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT,
         game_id: UUID | None = None,
+        upload_plan_checksum_sha256: str | None = None,
+        skipped_canonical_ranges: tuple[tuple[int, int], ...] = (),
+        stable_upload_id: UUID | None = None,
+        replacement_parent_upload_id: UUID | None = None,
+        replacement_parent_manifest_sha256: str | None = None,
     ) -> BrowserImageUpload:
         normalized_name = display_name.strip()
         if (
@@ -395,7 +409,11 @@ class BrowserImageSelectionService:
             )
         max_files = (
             MAX_PHOTO_SELECTION_FILES
-            if purpose is ImageSelectionPurpose.PHOTO_SELECTION
+            if purpose
+            in {
+                ImageSelectionPurpose.PHOTO_SELECTION,
+                ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+            }
             else MAX_PREFLIGHT_FILES
         )
         if not 1 <= expected_file_count <= max_files:
@@ -405,7 +423,11 @@ class BrowserImageSelectionService:
             )
         max_bytes = (
             self._photo_selection_max_bytes
-            if purpose is ImageSelectionPurpose.PHOTO_SELECTION
+            if purpose
+            in {
+                ImageSelectionPurpose.PHOTO_SELECTION,
+                ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+            }
             else self._max_bytes
         )
         if not 1 <= expected_total_bytes <= max_bytes:
@@ -423,12 +445,39 @@ class BrowserImageSelectionService:
                 "IMAGE_SELECTION_SOURCE_PURPOSE_INVALID",
                 "Photo-selection staging must be scoped to one game.",
             )
+        if purpose is ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION and game_id is not None:
+            raise JobError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
+                "Semi-automatic selection staging cannot be scoped to a game.",
+            )
+        normalized_skipped_ranges = _normalize_skipped_canonical_ranges(skipped_canonical_ranges)
+        if normalized_skipped_ranges and purpose is not ImageSelectionPurpose.LAYOUT_IMPORT:
+            raise JobError(
+                "IMAGE_SEQUENCE_UPLOAD_PLAN_SCOPE_INVALID",
+                "Skipped canonical ranges are only valid for layout-import staging.",
+            )
+        if normalized_skipped_ranges and upload_plan_checksum_sha256 is None:
+            raise JobError(
+                "IMAGE_SEQUENCE_UPLOAD_PLAN_INVALID",
+                "A skipped canonical range requires its upload-plan checksum.",
+            )
+        if upload_plan_checksum_sha256 is not None and (
+            len(upload_plan_checksum_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in upload_plan_checksum_sha256)
+        ):
+            raise JobError(
+                "IMAGE_SEQUENCE_UPLOAD_PLAN_INVALID",
+                "The browser upload-plan checksum is invalid.",
+            )
         now = self._clock()
         with self._lock:
             self._remove_expired(now)
-        if self._capacity_guard is not None:
+        if (
+            self._capacity_guard is not None
+            and purpose is not ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION
+        ):
             self._capacity_guard.check_image_write(expected_total_bytes)
-        upload_id = uuid4()
+        upload_id = stable_upload_id or uuid4()
         upload_path = self._upload_root / str(upload_id)
         free_bytes = shutil.disk_usage(self._upload_root.parent).free
         if expected_total_bytes + MIN_FREE_SPACE_RESERVE_BYTES > free_bytes:
@@ -452,6 +501,11 @@ class BrowserImageSelectionService:
             created_at=now,
             uploaded_indexes=set(),
             uploaded_files={},
+            upload_plan_checksum_sha256=upload_plan_checksum_sha256,
+            skipped_canonical_ranges=normalized_skipped_ranges,
+            replacement_parent_upload_id=replacement_parent_upload_id,
+            replacement_parent_manifest_sha256=replacement_parent_manifest_sha256,
+            replacement_confirmed=replacement_parent_upload_id is None,
         )
         self._write_upload_state(upload)
         with self._lock:
@@ -556,6 +610,11 @@ class BrowserImageSelectionService:
                 "purpose": upload.purpose.value,
                 "gameId": None if upload.game_id is None else str(upload.game_id),
                 "orderingPolicy": "natural_relative_path_v1",
+                "uploadPlanChecksumSha256": upload.upload_plan_checksum_sha256,
+                "skippedCanonicalRanges": [
+                    {"sequenceRangeEnd": end, "sequenceRangeStart": start}
+                    for start, end in upload.skipped_canonical_ranges
+                ],
                 "files": [
                     {
                         "orderIndex": value.file_index,
@@ -590,6 +649,7 @@ class BrowserImageSelectionService:
                 ),
                 "schemaVersion": 1,
                 "startedAt": upload.created_at.isoformat(),
+                "manifestChecksumSha256": manifest_sha256,
             }
             metrics_path = upload.path / UPLOAD_METRICS_FILE_NAME
             temporary_metrics = upload.path / f".{UPLOAD_METRICS_FILE_NAME}.part"
@@ -623,7 +683,13 @@ class BrowserImageSelectionService:
             self._uploads.pop(upload_id, None)
             return selected
 
-    def mark_in_use(self, upload_id: UUID, *, game_id: UUID, job_id: UUID) -> None:
+    def mark_in_use(
+        self,
+        upload_id: UUID,
+        *,
+        game_id: UUID | None,
+        job_id: UUID,
+    ) -> None:
         if self._retention is not None:
             self._retention.record_in_use(
                 upload_id=upload_id,
@@ -645,6 +711,294 @@ class BrowserImageSelectionService:
                     "Only layout-import staging can be used here.",
                 )
             return self._ready_selection(upload, verify_files=True)
+
+    def confirm_ready_replacement(
+        self,
+        upload_id: UUID,
+        replacement_upload_id: UUID,
+        *,
+        game_id: UUID,
+        source_checksum_sha256: str,
+        source_relative_path: str,
+        replacement_checksum_sha256: str,
+    ) -> BrowserReadySelection:
+        """Publish a staged revision only after the operator wrote the cut file."""
+        with self._replacement_lock:
+            # Another API process may have published a newer revision.
+            self._uploads.pop(upload_id, None)
+            original = self.bind_ready_game(upload_id, game_id)
+            replacement = self.bind_ready_game(replacement_upload_id, game_id)
+            if original.upload.superseded_by_upload_id not in {None, replacement_upload_id}:
+                raise JobConflictError(
+                    "IMAGE_REPLACEMENT_REVISION_CONFLICT",
+                    "Another replacement revision has already superseded this staging.",
+                )
+            if original.upload.pending_replacement_upload_id not in {None, replacement_upload_id}:
+                raise JobConflictError(
+                    "IMAGE_REPLACEMENT_REVISION_CONFLICT",
+                    "Another replacement revision is still pending for this staging.",
+                )
+            if (
+                original.upload.superseded_by_upload_id is None
+                and original.upload.pending_replacement_upload_id != replacement_upload_id
+            ):
+                raise JobConflictError(
+                    "IMAGE_REPLACEMENT_REVISION_CONFLICT",
+                    "This replacement was not published or was discarded.",
+                )
+            old_source = next(
+                (
+                    item
+                    for item in original.manifest.files
+                    if item.relative_path == source_relative_path
+                    and item.checksum_sha256 == source_checksum_sha256
+                ),
+                None,
+            )
+            new_source = next(
+                (
+                    item
+                    for item in replacement.manifest.files
+                    if item.relative_path == source_relative_path
+                    and item.checksum_sha256 == replacement_checksum_sha256
+                ),
+                None,
+            )
+            if (
+                old_source is None
+                or new_source is None
+                or new_source.order_index != old_source.order_index
+                or replacement.upload.replacement_parent_upload_id != upload_id
+                or replacement.upload.replacement_parent_manifest_sha256
+                != original.manifest.checksum_sha256
+            ):
+                raise JobConflictError(
+                    "IMAGE_REPLACEMENT_REVISION_CONFLICT",
+                    "The replacement is not a revision of this source.",
+                )
+            replacement.upload.replacement_confirmed = True
+            self._write_upload_state(replacement.upload)
+            original.upload.superseded_by_upload_id = replacement_upload_id
+            original.upload.pending_replacement_upload_id = None
+            self._write_upload_state(original.upload)
+            return replacement
+
+    def discard_pending_replacement(
+        self, upload_id: UUID, replacement_upload_id: UUID, *, game_id: UUID
+    ) -> None:
+        """Release a pending fork only while the original cut source is unchanged."""
+        with self._replacement_lock:
+            self._uploads.pop(upload_id, None)
+            original = self.bind_ready_game(upload_id, game_id)
+            replacement = self.bind_ready_game(replacement_upload_id, game_id)
+            if (
+                original.upload.pending_replacement_upload_id != replacement_upload_id
+                or original.upload.superseded_by_upload_id is not None
+                or replacement.upload.replacement_confirmed
+                or replacement.upload.replacement_parent_upload_id != upload_id
+                or replacement.upload.replacement_parent_manifest_sha256
+                != original.manifest.checksum_sha256
+            ):
+                raise JobConflictError(
+                    "IMAGE_REPLACEMENT_REVISION_CONFLICT",
+                    "The pending replacement can no longer be discarded.",
+                )
+            original.upload.pending_replacement_upload_id = None
+            self._write_upload_state(original.upload)
+
+    def require_current_ready(self, upload_id: UUID, game_id: UUID) -> BrowserReadySelection:
+        """Read the durable revision marker before creating a new job."""
+        with self._lock:
+            self._uploads.pop(upload_id, None)
+        ready = self.bind_ready_game(upload_id, game_id)
+        if ready.upload.superseded_by_upload_id is not None:
+            raise JobConflictError(
+                "IMAGE_BROWSER_SELECTION_SUPERSEDED",
+                "The source staging has already been replaced.",
+            )
+        if ready.upload.pending_replacement_upload_id is not None:
+            raise JobConflictError(
+                "IMAGE_REPLACEMENT_PENDING",
+                "A source replacement is pending for this staging.",
+            )
+        if not ready.upload.replacement_confirmed:
+            raise JobConflictError(
+                "IMAGE_REPLACEMENT_NOT_CONFIRMED",
+                "The replacement source has not been confirmed in its cut folder.",
+            )
+        return ready
+
+    def fork_ready_with_replacement(
+        self,
+        upload_id: UUID,
+        *,
+        game_id: UUID,
+        source_checksum_sha256: str,
+        source_relative_path: str,
+        content: bytes,
+    ) -> BrowserReadySelection:
+        """Keep the old staging immutable and replace one JPEG in a new revision."""
+
+        with self._replacement_lock:
+            return self._fork_ready_with_replacement(
+                upload_id,
+                game_id=game_id,
+                source_checksum_sha256=source_checksum_sha256,
+                source_relative_path=source_relative_path,
+                content=content,
+            )
+
+    def _fork_ready_with_replacement(
+        self,
+        upload_id: UUID,
+        *,
+        game_id: UUID,
+        source_checksum_sha256: str,
+        source_relative_path: str,
+        content: bytes,
+    ) -> BrowserReadySelection:
+        if not content:
+            raise JobError("IMAGE_REPLACEMENT_EMPTY", "The replacement JPEG is empty.")
+        with self._lock:
+            self._uploads.pop(upload_id, None)
+        ready = self.bind_ready_game(upload_id, game_id)
+        if ready.upload.superseded_by_upload_id is not None:
+            raise JobConflictError(
+                "IMAGE_BROWSER_SELECTION_SUPERSEDED",
+                "The source staging has already been replaced.",
+            )
+        old = next(
+            (
+                item
+                for item in ready.manifest.files
+                if item.checksum_sha256 == source_checksum_sha256
+                and item.relative_path == source_relative_path
+            ),
+            None,
+        )
+        if old is None:
+            raise JobConflictError(
+                "IMAGE_REPLACEMENT_SOURCE_CHANGED",
+                "The source is not part of the requested staging revision.",
+            )
+        new_checksum = hashlib.sha256(content).hexdigest()
+        if new_checksum == source_checksum_sha256:
+            raise JobConflictError(
+                "IMAGE_REPLACEMENT_IDENTICAL",
+                "The replacement JPEG has the same checksum as the old source.",
+            )
+        replacement_id = uuid5(
+            upload_id,
+            f"page-source-replacement:{source_relative_path}:{source_checksum_sha256}:{new_checksum}",
+        )
+        if ready.upload.pending_replacement_upload_id not in {None, replacement_id}:
+            raise JobConflictError(
+                "IMAGE_REPLACEMENT_REVISION_CONFLICT",
+                "Another replacement revision is still pending for this staging.",
+            )
+        expected_bytes = ready.upload.expected_total_bytes - old.size_bytes + len(content)
+        if (self._upload_root / str(replacement_id)).exists():
+            upload = self.get(replacement_id)
+            if (
+                upload.replacement_parent_upload_id != upload_id
+                or upload.replacement_parent_manifest_sha256 != ready.manifest.checksum_sha256
+                or upload.game_id != game_id
+                or upload.expected_file_count != ready.upload.expected_file_count
+                or upload.expected_total_bytes != expected_bytes
+            ):
+                raise JobConflictError(
+                    "IMAGE_REPLACEMENT_REVISION_CONFLICT",
+                    "The replacement staging exists but does not match this request.",
+                )
+            if (upload.path / UPLOAD_MANIFEST_FILE_NAME).is_file():
+                existing = self.get_ready(replacement_id)
+                replaced = next(
+                    (
+                        item
+                        for item in existing.manifest.files
+                        if item.relative_path == source_relative_path
+                        and item.checksum_sha256 == new_checksum
+                    ),
+                    None,
+                )
+                if replaced is not None:
+                    ready.upload.pending_replacement_upload_id = replacement_id
+                    self._write_upload_state(ready.upload)
+                    return existing
+                raise JobConflictError(
+                    "IMAGE_REPLACEMENT_REVISION_CONFLICT",
+                    "The completed replacement staging has another source.",
+                )
+        else:
+            upload = self.begin(
+                display_name=ready.upload.display_name,
+                expected_file_count=ready.upload.expected_file_count,
+                expected_total_bytes=expected_bytes,
+                game_id=game_id,
+                upload_plan_checksum_sha256=ready.upload.upload_plan_checksum_sha256,
+                skipped_canonical_ranges=ready.upload.skipped_canonical_ranges,
+                stable_upload_id=replacement_id,
+                replacement_parent_upload_id=upload_id,
+                replacement_parent_manifest_sha256=ready.manifest.checksum_sha256,
+            )
+        for item in ready.manifest.files:
+            expected_checksum = (
+                new_checksum if item.order_index == old.order_index else item.checksum_sha256
+            )
+            existing_file = upload.uploaded_files.get(item.order_index)
+            if existing_file is not None:
+                if (
+                    existing_file.relative_path != item.relative_path
+                    or existing_file.checksum_sha256 != expected_checksum
+                    or not (upload.path / existing_file.stored_file_name).is_file()
+                    or sha256_file(upload.path / existing_file.stored_file_name)
+                    != expected_checksum
+                ):
+                    raise JobConflictError(
+                        "IMAGE_REPLACEMENT_REVISION_CONFLICT",
+                        "A checkpointed replacement file differs from this request.",
+                    )
+                continue
+            if item.order_index == old.order_index:
+                self.upload_file(
+                    replacement_id,
+                    item.order_index,
+                    relative_path=item.relative_path,
+                    content=content,
+                )
+                continue
+            source = ready.upload.path / item.stored_file_name
+            target = upload.path / item.stored_file_name
+            if target.exists():
+                if sha256_file(target) != item.checksum_sha256:
+                    raise JobConflictError(
+                        "IMAGE_REPLACEMENT_REVISION_CONFLICT",
+                        "An uncheckpointed replacement file differs from the source.",
+                    )
+            else:
+                try:
+                    os.link(source, target)
+                except OSError:
+                    shutil.copyfile(source, target)
+            record = BrowserUploadedFile(
+                file_index=item.order_index,
+                relative_path=item.relative_path,
+                stored_file_name=item.stored_file_name,
+                size_bytes=item.size_bytes,
+                checksum_sha256=item.checksum_sha256,
+            )
+            try:
+                self._append_upload_record(upload.path, record)
+            except OSError:
+                target.unlink(missing_ok=True)
+                raise
+            upload.uploaded_indexes.add(item.order_index)
+            upload.uploaded_files[item.order_index] = record
+            upload.uploaded_bytes += item.size_bytes
+        self.finalize(replacement_id)
+        ready.upload.pending_replacement_upload_id = replacement_id
+        self._write_upload_state(ready.upload)
+        return self.get_ready(replacement_id)
 
     def bind_ready_game(self, upload_id: UUID, game_id: UUID) -> BrowserReadySelection:
         """Bind an old game-less staging exactly once before its first start."""
@@ -678,7 +1032,11 @@ class BrowserImageSelectionService:
                 try:
                     upload_id = UUID(path.name)
                     upload = self._get_upload(upload_id)
-                    if upload.purpose is ImageSelectionPurpose.LAYOUT_IMPORT:
+                    if (
+                        upload.purpose is ImageSelectionPurpose.LAYOUT_IMPORT
+                        and upload.superseded_by_upload_id is None
+                        and upload.replacement_confirmed
+                    ):
                         ready.append(self._ready_selection(upload, verify_files=False))
                 except (JobError, ValueError):
                     continue
@@ -686,6 +1044,180 @@ class BrowserImageSelectionService:
 
     def manifest(self, upload_id: UUID) -> BrowserSequenceManifest:
         return self.get_ready(upload_id).manifest
+
+    def get_ready_source_selection(
+        self,
+        upload_id: UUID,
+        *,
+        purpose: ImageSelectionPurpose,
+    ) -> BrowserReadySourceSelection:
+        """Read a finalized generic JPEG staging without interpreting board ranges."""
+
+        with self._lock:
+            upload = self._get_upload(upload_id)
+            if upload.purpose is not purpose:
+                raise JobError(
+                    "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
+                    "The browser staging belongs to another workflow.",
+                )
+            if purpose is ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION and upload.game_id:
+                raise JobError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
+                    "Semi-automatic selection staging cannot reference a game.",
+                )
+            return self._ready_source_selection(upload)
+
+    def get_ready_source_asset(
+        self,
+        upload_id: UUID,
+        *,
+        purpose: ImageSelectionPurpose,
+        source_index: int,
+        expected_checksum_sha256: str,
+    ) -> tuple[Path, str]:
+        ready = self.get_ready_source_selection(upload_id, purpose=purpose)
+        if source_index < 0 or source_index >= len(ready.sources):
+            raise JobError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_NOT_FOUND",
+                "The requested staged source does not exist.",
+            )
+        source = ready.sources[source_index]
+        if source.checksum_sha256 != expected_checksum_sha256:
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The requested source identity no longer matches the staging manifest.",
+            )
+        upload = self.get(upload_id)
+        path = upload.path / source.stored_file_name
+        if not path.is_file() or sha256_file(path) != source.checksum_sha256:
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The requested source file changed after the staging was finalized.",
+            )
+        return path, PurePosixPath(source.relative_path).name
+
+    def _ready_source_selection(
+        self,
+        upload: BrowserImageUpload,
+    ) -> BrowserReadySourceSelection:
+        manifest_path = upload.path / UPLOAD_MANIFEST_FILE_NAME
+        if not manifest_path.is_file():
+            raise JobConflictError(
+                "IMAGE_BROWSER_SELECTION_NOT_FINALIZED",
+                "The browser staging has not been finalized.",
+            )
+        try:
+            manifest_bytes = manifest_path.read_bytes()
+            payload = json.loads(manifest_bytes)
+        except (OSError, json.JSONDecodeError) as error:
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The staged source manifest cannot be read.",
+            ) from error
+        manifest_checksum_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+        metrics_path = upload.path / UPLOAD_METRICS_FILE_NAME
+        try:
+            metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+            completed = metrics.get("completedAt")
+            expected_manifest_checksum = metrics.get("manifestChecksumSha256")
+            if (
+                not isinstance(completed, str)
+                or expected_manifest_checksum != manifest_checksum_sha256
+            ):
+                raise ValueError("finalization identity mismatch")
+            completed_at = datetime.fromisoformat(completed)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The staged source finalization record changed or cannot be read.",
+            ) from error
+        if (
+            not isinstance(payload, dict)
+            or payload.get("schemaVersion") != 1
+            or payload.get("purpose") != upload.purpose.value
+            or payload.get("gameId") is not None
+            or payload.get("orderingPolicy") != "natural_relative_path_v1"
+        ):
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The staged source manifest has an incompatible scope or contract.",
+            )
+        raw_files = payload.get("files")
+        if not isinstance(raw_files, list) or len(raw_files) != upload.expected_file_count:
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The staged source manifest contains an unexpected file set.",
+            )
+        sources: list[BrowserReadySource] = []
+        for expected_index, raw in enumerate(raw_files):
+            if not isinstance(raw, dict) or raw.get("orderIndex") != expected_index:
+                raise JobConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                    "The staged source ordering changed after finalization.",
+                )
+            try:
+                relative_path = PurePosixPath(str(raw["relativePath"]).replace("\\", "/"))
+                stored_file_name = str(raw["storedFileName"])
+                size_bytes = int(raw["sizeBytes"])
+                checksum_sha256 = str(raw["checksumSha256"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise JobConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                    "A staged source record is invalid.",
+                ) from error
+            if (
+                relative_path.is_absolute()
+                or any(part in {"", ".", ".."} for part in relative_path.parts)
+                or relative_path.suffix.casefold() not in SUPPORTED_IMAGE_SUFFIXES
+                or stored_file_name != f"{expected_index + 1:08d}{relative_path.suffix.casefold()}"
+                or size_bytes < 1
+                or len(checksum_sha256) != 64
+                or any(character not in "0123456789abcdef" for character in checksum_sha256)
+            ):
+                raise JobConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                    "A staged source record has unsafe or inconsistent metadata.",
+                )
+            target = upload.path / stored_file_name
+            try:
+                if target.stat().st_size != size_bytes or sha256_file(target) != checksum_sha256:
+                    raise OSError("source identity mismatch")
+            except (OSError, ImageFileError) as error:
+                raise JobConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                    "A staged source file changed after finalization.",
+                ) from error
+            sources.append(
+                BrowserReadySource(
+                    source_index=expected_index,
+                    relative_path=relative_path.as_posix(),
+                    stored_file_name=stored_file_name,
+                    size_bytes=size_bytes,
+                    checksum_sha256=checksum_sha256,
+                )
+            )
+        source_payload = [
+            {
+                "checksumSha256": source.checksum_sha256,
+                "relativePath": source.relative_path,
+                "sizeBytes": source.size_bytes,
+                "sourceIndex": source.source_index,
+            }
+            for source in sources
+        ]
+        source_fingerprint = hashlib.sha256(
+            json.dumps(source_payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        ).hexdigest()
+        return BrowserReadySourceSelection(
+            upload_id=upload.upload_id,
+            display_name=upload.display_name,
+            purpose=upload.purpose,
+            manifest_checksum_sha256=manifest_checksum_sha256,
+            source_fingerprint=source_fingerprint,
+            sources=tuple(sources),
+            total_bytes=sum(source.size_bytes for source in sources),
+            completed_at=completed_at,
+        )
 
     def _ready_selection(
         self,
@@ -748,8 +1280,24 @@ class BrowserImageSelectionService:
             if upload is None:
                 upload = self._load_upload(upload_id)
                 self._uploads.pop(upload_id, None)
-        if upload is not None:
-            shutil.rmtree(upload.path, ignore_errors=True)
+        quarantine: Path | None = None
+        if upload is not None and upload.path.exists():
+            quarantine = upload.path.with_name(f".{upload.upload_id}.deleting")
+            if quarantine.exists():
+                raise JobConflictError(
+                    "IMAGE_BROWSER_SELECTION_DELETE_INCOMPLETE",
+                    "A previous deletion of this browser staging requires recovery.",
+                )
+            upload.path.replace(quarantine)
+        try:
+            if self._retention is not None:
+                self._retention.discard_unused(upload_id=upload_id)
+        except BaseException:
+            if quarantine is not None and quarantine.exists() and upload is not None:
+                quarantine.replace(upload.path)
+            raise
+        if quarantine is not None:
+            shutil.rmtree(quarantine, ignore_errors=True)
 
     def _get_upload(self, upload_id: UUID) -> BrowserImageUpload:
         upload = self._uploads.get(upload_id)
@@ -774,6 +1322,28 @@ class BrowserImageSelectionService:
             "expectedFileCount": upload.expected_file_count,
             "expectedTotalBytes": upload.expected_total_bytes,
             "createdAt": upload.created_at.isoformat(),
+            "uploadPlanChecksumSha256": upload.upload_plan_checksum_sha256,
+            "skippedCanonicalRanges": [
+                {"sequenceRangeEnd": end, "sequenceRangeStart": start}
+                for start, end in upload.skipped_canonical_ranges
+            ],
+            "replacementParentUploadId": (
+                None
+                if upload.replacement_parent_upload_id is None
+                else str(upload.replacement_parent_upload_id)
+            ),
+            "replacementParentManifestSha256": upload.replacement_parent_manifest_sha256,
+            "supersededByUploadId": (
+                None
+                if upload.superseded_by_upload_id is None
+                else str(upload.superseded_by_upload_id)
+            ),
+            "pendingReplacementUploadId": (
+                None
+                if upload.pending_replacement_upload_id is None
+                else str(upload.pending_replacement_upload_id)
+            ),
+            "replacementConfirmed": upload.replacement_confirmed,
         }
         destination = upload.path / UPLOAD_STATE_FILE_NAME
         temporary = upload.path / f".{UPLOAD_STATE_FILE_NAME}.part"
@@ -907,10 +1477,39 @@ class BrowserImageSelectionService:
                 uploaded_indexes=set(files),
                 uploaded_files=files,
                 uploaded_bytes=sum(value.size_bytes for value in files.values()),
+                upload_plan_checksum_sha256=(
+                    None
+                    if payload.get("uploadPlanChecksumSha256") is None
+                    else str(payload["uploadPlanChecksumSha256"])
+                ),
+                skipped_canonical_ranges=_parse_skipped_canonical_ranges(
+                    payload.get("skippedCanonicalRanges", [])
+                ),
+                replacement_parent_upload_id=(
+                    None
+                    if payload.get("replacementParentUploadId") is None
+                    else UUID(str(payload["replacementParentUploadId"]))
+                ),
+                replacement_parent_manifest_sha256=(
+                    None
+                    if payload.get("replacementParentManifestSha256") is None
+                    else str(payload["replacementParentManifestSha256"])
+                ),
+                superseded_by_upload_id=(
+                    None
+                    if payload.get("supersededByUploadId") is None
+                    else UUID(str(payload["supersededByUploadId"]))
+                ),
+                pending_replacement_upload_id=(
+                    None
+                    if payload.get("pendingReplacementUploadId") is None
+                    else UUID(str(payload["pendingReplacementUploadId"]))
+                ),
+                replacement_confirmed=bool(payload.get("replacementConfirmed", True)),
             )
             if schema_version == 1:
                 self._replace_upload_journal(upload)
-        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        except (JobError, OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
             return None
         if (
             upload.created_at + BROWSER_UPLOAD_TTL <= self._clock()
@@ -950,6 +1549,8 @@ class BrowserImageSelectionService:
             "expectedTotalBytes": sum(int(value["sizeBytes"]) for value in files),
             "createdAt": metrics["startedAt"],
             "files": files,
+            "uploadPlanChecksumSha256": manifest.get("uploadPlanChecksumSha256"),
+            "skippedCanonicalRanges": manifest.get("skippedCanonicalRanges", []),
         }
 
     def _remove_expired(self, now: datetime) -> None:
@@ -962,6 +1563,35 @@ class BrowserImageSelectionService:
         for upload_id in expired_ids:
             upload = self._uploads.pop(upload_id)
             shutil.rmtree(upload.path, ignore_errors=True)
+
+
+def _parse_skipped_canonical_ranges(value: object) -> tuple[tuple[int, int], ...]:
+    if not isinstance(value, list):
+        raise ValueError("skipped canonical ranges must be a list")
+    ranges: list[tuple[int, int]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("skipped canonical range is invalid")
+        start = item.get("sequenceRangeStart")
+        end = item.get("sequenceRangeEnd")
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise ValueError("skipped canonical range is invalid")
+        ranges.append((start, end))
+    return _normalize_skipped_canonical_ranges(tuple(ranges))
+
+
+def _normalize_skipped_canonical_ranges(
+    ranges: tuple[tuple[int, int], ...],
+) -> tuple[tuple[int, int], ...]:
+    normalized = tuple(sorted(set(ranges)))
+    if len(normalized) != len(ranges) or any(
+        start <= 0 or end < start or end - start >= 9 for start, end in normalized
+    ):
+        raise JobError(
+            "IMAGE_SEQUENCE_UPLOAD_PLAN_INVALID",
+            "The browser upload plan contains an invalid skipped source range.",
+        )
+    return normalized
 
 
 def inspect_image_folder(path: Path) -> tuple[Path, int]:

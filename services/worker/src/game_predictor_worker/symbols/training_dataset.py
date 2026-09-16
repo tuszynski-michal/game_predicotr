@@ -13,12 +13,28 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, cast
+from uuid import UUID
+
+import numpy as np
+from numpy.typing import NDArray
+from PIL import Image, UnidentifiedImageError
 
 from game_predictor_worker.filesystem import long_path_aware
+from game_predictor_worker.images.normalization import (
+    CanonicalSourceLoader,
+    CanonicalSourceLoadError,
+    rgb_pixel_checksum_sha256,
+)
+from game_predictor_worker.images.virtual_cell_extraction import (
+    VirtualCellExtractionError,
+    render_persisted_virtual_cell_rgb,
+)
 
 TRAINING_DATASET_SCHEMA_VERSION = 1
 TRAINING_DATASET_VERSION = "verified-symbol-training-dataset-v1"
 TRAINING_SPLIT_POLICY_VERSION = "source-family-balanced-split-v2"
+CLASS_STRATIFIED_SPLIT_POLICY_VERSION = "source-family-class-stratified-split-v3"
+CLASS_STRATIFIED_SPLIT_SEED = "game-predictor-symbol-split-v3"
 DEFAULT_SPLIT_SEED = "game-predictor-m6.6-symbol-split-v1"
 MIN_RECOMMENDED_SAMPLES_PER_SYMBOL = 10
 
@@ -116,9 +132,14 @@ class _Sample:
     review_item_id: str
     sequence_number: int
     cell_index: int
+    asset_mode: str = "legacy_file"
+    virtual_source: _VirtualCropSource | None = None
 
     def to_dict(self, split: SplitName) -> dict[str, object]:
         return {
+            "assetChecksumKind": (
+                "rgb-pixel-v1" if self.asset_mode == "virtual_source" else "sha256-bytes"
+            ),
             "assetRelativePath": self.asset_relative_path,
             "cellIndex": self.cell_index,
             "cropChecksumSha256": self.crop_checksum,
@@ -134,6 +155,25 @@ class _Sample:
             "symbolCode": self.symbol_code,
             "symbolId": self.symbol_id,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class _VirtualCropSource:
+    source_path: Path
+    source_checksum: str
+    normalized_pixel_checksum: str
+    source_geometry_revision_id: UUID
+    geometry_checksum: str
+    render_spec: Mapping[str, object]
+    render_spec_checksum: str
+    rendered_pixel_checksum: str
+    cell_index: int
+    row_index: int
+    column_index: int
+    logical_cell_key: str
+    logical_cell_key_v2: str
+    render_identity_v2: str
+    extractor_version: str
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -236,12 +276,16 @@ def _read_cohort(path: Path, expected_checksum: str) -> Mapping[str, object]:
         (1, "verified-training-cohort-v1"),
         (2, "verified-symbol-cell-training-cohort-v2"),
         (3, "verified-symbol-cell-training-cohort-v3-crop-provenance"),
+        (4, "verified-symbol-cell-training-cohort-v4-virtual-provenance"),
     }:
         raise TrainingDatasetBuildError(
             "TRAINING_DATASET_COHORT_UNSUPPORTED",
             "The verified-training cohort schema is not supported.",
         )
-    if identity == (3, "verified-symbol-cell-training-cohort-v3-crop-provenance"):
+    if identity in {
+        (3, "verified-symbol-cell-training-cohort-v3-crop-provenance"),
+        (4, "verified-symbol-cell-training-cohort-v4-virtual-provenance"),
+    }:
         if cohort.get("trainingEligibilityVersion") != "symbol-cell-training-eligible-v1":
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_COHORT_UNSUPPORTED",
@@ -353,6 +397,74 @@ def _managed_crop(data_root: Path, relative_path: str, checksum: str) -> Path:
     return resolved
 
 
+def _parse_virtual_crop_source(
+    cell: Mapping[str, object],
+    *,
+    data_root: Path,
+    crop_checksum: str,
+    cell_index: int,
+) -> _VirtualCropSource:
+    source = _mapping(cell.get("source"), "cell.source")
+    source_checksum = _sha256(source.get("checksumSha256"), "cell.source.checksumSha256")
+    source_relative_path = _safe_relative_path(
+        source.get("relativePath"), "cell.source.relativePath"
+    )
+    source_path = _managed_crop(data_root, source_relative_path, source_checksum)
+    rendered_pixel_checksum = _sha256(
+        cell.get("renderedPixelChecksumSha256"),
+        "cell.renderedPixelChecksumSha256",
+    )
+    if rendered_pixel_checksum != crop_checksum:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
+            "A virtual symbol cell crop checksum differs from its rendered-pixel checksum.",
+        )
+    row_index, column_index = divmod(cell_index, 5)
+    declared_source_revision = _text(
+        cell.get("sourceGeometryRevisionId"), "cell.sourceGeometryRevisionId"
+    )
+    try:
+        source_geometry_revision_id = UUID(declared_source_revision)
+    except ValueError as error:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_COHORT_INVALID",
+            "cell.sourceGeometryRevisionId must be a UUID.",
+        ) from error
+    render_spec = _mapping(cell.get("renderSpec"), "cell.renderSpec")
+    render_identity_v2 = _sha256(cell.get("renderIdentityV2Sha256"), "cell.renderIdentityV2Sha256")
+    if render_spec.get("renderIdentityV2Sha256") != render_identity_v2:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
+            "A virtual symbol cell render identity differs from its render specification.",
+        )
+    return _VirtualCropSource(
+        source_path=source_path,
+        source_checksum=source_checksum,
+        normalized_pixel_checksum=_sha256(
+            cell.get("normalizedPixelChecksumSha256"),
+            "cell.normalizedPixelChecksumSha256",
+        ),
+        source_geometry_revision_id=source_geometry_revision_id,
+        geometry_checksum=_sha256(
+            cell.get("geometryChecksumSha256"), "cell.geometryChecksumSha256"
+        ),
+        render_spec=render_spec,
+        render_spec_checksum=_sha256(
+            cell.get("renderSpecChecksumSha256"), "cell.renderSpecChecksumSha256"
+        ),
+        rendered_pixel_checksum=rendered_pixel_checksum,
+        cell_index=cell_index,
+        row_index=row_index,
+        column_index=column_index,
+        logical_cell_key=_sha256(cell.get("logicalCellKeySha256"), "cell.logicalCellKeySha256"),
+        logical_cell_key_v2=_sha256(
+            cell.get("logicalCellKeyV2Sha256"), "cell.logicalCellKeyV2Sha256"
+        ),
+        render_identity_v2=render_identity_v2,
+        extractor_version=_text(cell.get("extractorVersion"), "cell.extractorVersion"),
+    )
+
+
 def build_balanced_source_assignments(
     sources: Sequence[str],
     *,
@@ -373,6 +485,14 @@ def build_balanced_source_assignments(
         if source in unique and split in SPLIT_ORDER
     }
     pending = [source for source in unique if source not in assignments]
+    missing_splits = [split for split in SPLIT_ORDER if split not in assignments.values()]
+    if assignments and len(unique) >= len(SPLIT_ORDER) and len(pending) < len(missing_splits):
+        # A historical incomplete assignment is not a valid stability anchor: it
+        # can never satisfy the required independent evaluation split. Rebuild it
+        # deterministically for the new iteration instead of training for many
+        # epochs only to fail in the candidate gate.
+        assignments = {}
+        pending = list(unique)
     # For a fresh cohort reserve one source for each independent split, then put
     # the remaining sources in train. This is intentionally explicit rather than
     # ratio-based so small cohorts never silently get an empty validation set.
@@ -403,6 +523,106 @@ def build_balanced_source_assignments(
     return tuple((source, assignments[source]) for source in unique)
 
 
+def build_class_stratified_source_assignments(
+    source_symbol_counts: Mapping[str, Mapping[str, int]],
+    *,
+    seed: str = CLASS_STRATIFIED_SPLIT_SEED,
+    existing: Mapping[str, SplitName] | None = None,
+) -> tuple[tuple[str, SplitName], ...]:
+    """Assign whole source families while preserving every class in every split.
+
+    Coverage is established before ratio balancing.  The feasibility guard keeps
+    enough distinct families for the splits that still need a class, so a common
+    class cannot consume the last source of a rarer one.  If the input cannot
+    provide four independent families for a class, the returned deterministic
+    assignment is rejected by the dataset gate before training starts.
+    """
+
+    profiles = {
+        source: {code: int(count) for code, count in counts.items() if int(count) > 0}
+        for source, counts in source_symbol_counts.items()
+        if source
+    }
+    unique = tuple(sorted(profiles))
+    assignments: dict[str, SplitName] = {
+        source: split
+        for source, split in dict(existing or {}).items()
+        if source in profiles and split in SPLIT_ORDER
+    }
+    pending: set[str] = set(unique) - assignments.keys()
+    class_codes = tuple(sorted({code for counts in profiles.values() for code in counts}))
+
+    def covered(split: SplitName) -> set[str]:
+        return {
+            code
+            for source, assigned in assignments.items()
+            if assigned == split
+            for code in profiles[source]
+        }
+
+    coverage_order: tuple[SplitName, ...] = ("regression", "test", "validation", "train")
+    for split_index, split in enumerate(coverage_order):
+        missing = set(class_codes) - covered(split)
+        while missing and pending:
+            later_splits = coverage_order[split_index + 1 :]
+
+            def feasible(source: str, future_splits: tuple[SplitName, ...] = later_splits) -> bool:
+                remaining = pending - {source}
+                for code in class_codes:
+                    required = sum(code not in covered(later) for later in future_splits)
+                    available = sum(code in profiles[item] for item in remaining)
+                    if available < required:
+                        return False
+                return True
+
+            candidates = [source for source in pending if missing.intersection(profiles[source])]
+            feasible_candidates = [source for source in candidates if feasible(source)]
+            ranked_pool = feasible_candidates or candidates
+            if not ranked_pool:
+                break
+            source = min(
+                ranked_pool,
+                key=lambda item: (
+                    -len(missing.intersection(profiles[item])),
+                    -sum(
+                        1 / max(1, sum(code in profile for profile in profiles.values()))
+                        for code in missing.intersection(profiles[item])
+                    ),
+                    hashlib.sha256(f"{seed}\0coverage\0{split}\0{item}".encode()).hexdigest(),
+                    item,
+                ),
+            )
+            assignments[source] = split
+            pending.remove(source)
+            missing -= profiles[source].keys()
+
+    total = len(unique)
+    raw_targets = {
+        split: total * ratio / 10_000 for split, ratio in TrainingDatasetConfig().split_ratios()
+    }
+    targets = {split: int(raw_targets[split]) for split in SPLIT_ORDER}
+    for split in sorted(
+        SPLIT_ORDER,
+        key=lambda item: (-(raw_targets[item] - targets[item]), SPLIT_ORDER.index(item)),
+    )[: total - sum(targets.values())]:
+        targets[split] += 1
+    if total >= len(SPLIT_ORDER):
+        for split in SPLIT_ORDER:
+            targets[split] = max(1, targets[split])
+    counts = Counter(assignments.values())
+    for source in sorted(
+        pending,
+        key=lambda item: hashlib.sha256(f"{seed}\0balance\0{item}".encode()).hexdigest(),
+    ):
+        split = max(
+            SPLIT_ORDER,
+            key=lambda item: (targets[item] - counts[item], -SPLIT_ORDER.index(item)),
+        )
+        assignments[source] = split
+        counts[split] += 1
+    return tuple((source, assignments[source]) for source in unique)
+
+
 def _source_split(
     source_family: str,
     config: TrainingDatasetConfig,
@@ -410,6 +630,12 @@ def _source_split(
     for source, split in config.source_assignments:
         if source == source_family:
             return split
+    if config.split_policy_version == CLASS_STRATIFIED_SPLIT_POLICY_VERSION:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_SOURCE_ASSIGNMENT_MISSING",
+            "The class-stratified dataset requires a persisted split assignment "
+            f"for source family {source_family}.",
+        )
     bucket = (
         int.from_bytes(
             hashlib.sha256(
@@ -550,7 +776,7 @@ def _parse_cell_samples(
     crop_labels: dict[str, str] = {}
     for index, raw_cell in enumerate(_sequence(cohort.get("cells"), "cells")):
         cell = _mapping(raw_cell, f"cells[{index}]")
-        if cohort.get("schemaVersion") == 3:
+        if cohort.get("schemaVersion") in {3, 4}:
             approved = _mapping(cell.get("approvedCrop"), "cell.approvedCrop")
             approved_sample_id = _sha256(
                 approved.get("cropSampleId"), "cell.approvedCrop.cropSampleId"
@@ -572,6 +798,24 @@ def _parse_cell_samples(
                     "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
                     "A verified symbol cell does not match its approved crop identity.",
                 )
+            if cohort.get("schemaVersion") == 4:
+                asset_mode = str(cell.get("assetMode", "legacy_file"))
+                if approved.get("assetMode") != asset_mode:
+                    raise TrainingDatasetBuildError(
+                        "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
+                        "A verified symbol cell does not match its approved asset mode.",
+                    )
+                if asset_mode == "virtual_source" and (
+                    approved.get("sourceGeometryRevisionId") != cell.get("sourceGeometryRevisionId")
+                    or approved.get("renderSpecChecksumSha256")
+                    != cell.get("renderSpecChecksumSha256")
+                    or approved.get("renderedPixelChecksumSha256")
+                    != cell.get("renderedPixelChecksumSha256")
+                ):
+                    raise TrainingDatasetBuildError(
+                        "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
+                        "A verified virtual cell differs from its approved render provenance.",
+                    )
         symbol_code = _text(cell.get("symbolCode"), "cell.symbolCode")
         symbol_id = catalog.get(symbol_code)
         if symbol_id is None:
@@ -592,9 +836,27 @@ def _parse_cell_samples(
                 "TRAINING_DATASET_CROP_LABEL_CONFLICT",
                 "Identical crop bytes have conflicting human labels.",
             )
-        crop_relative_path = _safe_relative_path(
-            cell.get("cropRelativePath"), "cell.cropRelativePath"
-        )
+        asset_mode = str(cell.get("assetMode", "legacy_file"))
+        crop_relative_path: str | None = None
+        virtual_source: _VirtualCropSource | None = None
+        if asset_mode == "legacy_file":
+            crop_relative_path = _safe_relative_path(
+                cell.get("cropRelativePath"), "cell.cropRelativePath"
+            )
+            crop_source_path = _managed_crop(data_root, crop_relative_path, crop_checksum)
+        elif asset_mode == "virtual_source" and cohort.get("schemaVersion") == 4:
+            virtual_source = _parse_virtual_crop_source(
+                cell,
+                data_root=data_root,
+                crop_checksum=crop_checksum,
+                cell_index=cell_index,
+            )
+            crop_source_path = virtual_source.source_path
+        else:
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_ASSET_MODE_UNSUPPORTED",
+                "The verified symbol cell uses an unsupported asset mode.",
+            )
         sample_id = _sha256(cell.get("cropSampleId"), "cell.cropSampleId")
         if sample_id in sample_ids:
             raise TrainingDatasetBuildError(
@@ -609,7 +871,7 @@ def _parse_cell_samples(
             _Sample(
                 sample_id=sample_id,
                 crop_checksum=crop_checksum,
-                crop_source_path=_managed_crop(data_root, crop_relative_path, crop_checksum),
+                crop_source_path=crop_source_path,
                 asset_relative_path=PurePosixPath(
                     "assets", crop_checksum[:2], f"{crop_checksum}.png"
                 ).as_posix(),
@@ -623,6 +885,8 @@ def _parse_cell_samples(
                 review_item_id=_text(cell.get("reviewItemId"), "cell.reviewItemId"),
                 sequence_number=_integer(cell.get("sequenceNumber"), "cell.sequenceNumber"),
                 cell_index=cell_index,
+                asset_mode=asset_mode,
+                virtual_source=virtual_source,
             )
         )
     if not samples:
@@ -648,6 +912,7 @@ def _is_symbol_cell_cohort(cohort: Mapping[str, object]) -> bool:
     return cohort.get("datasetKind") in {
         "verified-symbol-cell-training-cohort-v2",
         "verified-symbol-cell-training-cohort-v3-crop-provenance",
+        "verified-symbol-cell-training-cohort-v4-virtual-provenance",
     }
 
 
@@ -670,6 +935,7 @@ def _manifest(
 
     symbol_stats: list[dict[str, object]] = []
     advisories: list[dict[str, object]] = []
+    missing_class_coverage: list[dict[str, object]] = []
     for code in sorted(catalog):
         current = [sample for sample in samples if sample.symbol_code == code]
         split_counts = {
@@ -696,13 +962,13 @@ def _manifest(
             )
         missing_splits = [split for split, count in split_counts.items() if count == 0]
         if current and missing_splits:
-            advisories.append(
-                {
-                    "code": "TRAINING_DATASET_SYMBOL_SPLIT_COVERAGE_LOW",
-                    "missingSplits": missing_splits,
-                    "symbolCode": code,
-                }
-            )
+            finding: dict[str, object] = {
+                "code": "TRAINING_DATASET_SYMBOL_SPLIT_COVERAGE_LOW",
+                "missingSplits": missing_splits,
+                "symbolCode": code,
+            }
+            advisories.append(finding)
+            missing_class_coverage.append(finding)
 
     split_reports: list[dict[str, object]] = []
     for split in SPLIT_ORDER:
@@ -748,9 +1014,15 @@ def _manifest(
         "gameCode": game_code,
         "gameId": game_id,
         "qualityGate": {
+            "missingClassCoverage": missing_class_coverage,
             "regressionSamplesInTrain": 0,
             "sourceFamilyLeakageCount": 0,
-            "status": "passed",
+            "status": (
+                "failed"
+                if config.split_policy_version == CLASS_STRATIFIED_SPLIT_POLICY_VERSION
+                and missing_class_coverage
+                else "passed"
+            ),
         },
         "sampleCount": len(samples),
         "samples": sample_rows,
@@ -808,6 +1080,83 @@ def _copy_asset(source: Path, destination: Path) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def _materialize_sample_asset(sample: _Sample, destination: Path) -> None:
+    if sample.asset_mode == "legacy_file":
+        _copy_asset(sample.crop_source_path, destination)
+        return
+    virtual = sample.virtual_source
+    if sample.asset_mode != "virtual_source" or virtual is None:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_ASSET_MODE_UNSUPPORTED",
+            "A training sample has incomplete virtual asset provenance.",
+        )
+    loader = CanonicalSourceLoader()
+    temporary: Path | None = None
+    try:
+        frame = loader.load(
+            virtual.source_path,
+            expected_source_checksum_sha256=virtual.source_checksum,
+        )
+        if frame.source.normalized_pixel_checksum_sha256 != virtual.normalized_pixel_checksum:
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_SOURCE_CHECKSUM_MISMATCH",
+                "The virtual training source differs from its normalized-pixel checksum.",
+            )
+        rgb = render_persisted_virtual_cell_rgb(
+            frame,
+            render_spec=virtual.render_spec,
+            expected_render_spec_checksum_sha256=virtual.render_spec_checksum,
+            expected_rendered_pixel_checksum_sha256=virtual.rendered_pixel_checksum,
+            expected_cell_index=virtual.cell_index,
+            expected_row_index=virtual.row_index,
+            expected_column_index=virtual.column_index,
+            expected_logical_cell_key_sha256=virtual.logical_cell_key,
+            expected_logical_cell_key_v2_sha256=virtual.logical_cell_key_v2,
+            expected_extractor_version=virtual.extractor_version,
+        )
+        filesystem_destination = long_path_aware(destination)
+        filesystem_destination.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            dir=filesystem_destination.parent,
+            prefix=".tmp-",
+            suffix=".png",
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+        Image.fromarray(rgb, mode="RGB").save(temporary, format="PNG", compress_level=9)
+        os.replace(temporary, filesystem_destination)
+        temporary = None
+    except TrainingDatasetBuildError:
+        raise
+    except (CanonicalSourceLoadError, VirtualCellExtractionError) as error:
+        raise TrainingDatasetBuildError(
+            getattr(error, "code", "TRAINING_DATASET_VIRTUAL_RENDER_FAILED"), str(error)
+        ) from error
+    except OSError as error:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_WRITE_FAILED",
+            "A virtual training dataset asset could not be written.",
+        ) from error
+    finally:
+        loader.clear()
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _observed_dataset_asset_checksum(sample: _Sample, path: Path) -> str:
+    if sample.asset_mode == "legacy_file":
+        return hashlib.sha256(long_path_aware(path).read_bytes()).hexdigest()
+    try:
+        with Image.open(long_path_aware(path)) as image:
+            rgb = cast(NDArray[np.uint8], np.asarray(image.convert("RGB"), dtype=np.uint8))
+    except (OSError, UnidentifiedImageError) as error:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_ARTIFACT_INCOMPLETE",
+            "An existing virtual dataset crop is not a decodable image.",
+        ) from error
+    return rgb_pixel_checksum_sha256(rgb)
+
+
 def _verify_existing(
     artifact_directory: Path,
     manifest_path: Path,
@@ -834,7 +1183,7 @@ def _verify_existing(
             *PurePosixPath(_asset_relative_path(sample, config)).parts
         )
         try:
-            observed = hashlib.sha256(long_path_aware(asset).read_bytes()).hexdigest()
+            observed = _observed_dataset_asset_checksum(sample, asset)
         except OSError as error:
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_ARTIFACT_INCOMPLETE",
@@ -920,8 +1269,8 @@ def build_cumulative_training_dataset(
                 if sample.crop_checksum in copied:
                     continue
                 copied.add(sample.crop_checksum)
-                _copy_asset(
-                    sample.crop_source_path,
+                _materialize_sample_asset(
+                    sample,
                     artifact_directory.joinpath(
                         *PurePosixPath(_asset_relative_path(sample, config)).parts
                     ),
@@ -972,11 +1321,14 @@ def build_cumulative_training_dataset(
 
 
 __all__ = [
+    "CLASS_STRATIFIED_SPLIT_POLICY_VERSION",
+    "CLASS_STRATIFIED_SPLIT_SEED",
     "DEFAULT_TRAINING_DATASET_CONFIG",
     "TRAINING_DATASET_SCHEMA_VERSION",
     "TRAINING_DATASET_VERSION",
     "TRAINING_SPLIT_POLICY_VERSION",
     "build_balanced_source_assignments",
+    "build_class_stratified_source_assignments",
     "TrainingDatasetArtifact",
     "TrainingDatasetBuildError",
     "TrainingDatasetConfig",

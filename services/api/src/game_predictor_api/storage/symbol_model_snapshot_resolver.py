@@ -12,15 +12,21 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.jobs import SymbolModelSnapshotResolver
+from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
     bootstrap_symbol_model_snapshot,
+    cold_start_unclassified_symbol_snapshot,
 )
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.models import (
     GameSymbolModelActivationModel,
+    ImageSymbolReviewCellModel,
+    SymbolModel,
     SymbolModelIterationModel,
+    VerifiedTrainingCohortModel,
 )
 
 
@@ -30,6 +36,20 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
         self._artifact_root = artifact_root.resolve()
 
     def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
+        with game_storage_scope(game_id):
+            return self._resolve_in_game_storage(game_id=game_id)
+
+    def _resolve_in_game_storage(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
+        active_catalog_codes = tuple(
+            self._session.scalars(
+                select(SymbolModel.code)
+                .where(
+                    SymbolModel.game_id == game_id,
+                    SymbolModel.status == SymbolStatus.ACTIVE,
+                )
+                .order_by(SymbolModel.code)
+            )
+        )
         activation = self._session.scalar(
             select(GameSymbolModelActivationModel)
             .where(GameSymbolModelActivationModel.game_id == game_id)
@@ -39,7 +59,30 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
             .limit(1)
         )
         if activation is None:
-            return bootstrap_symbol_model_snapshot()
+            ready_candidate_id = self._session.scalar(
+                select(SymbolModelIterationModel.id)
+                .where(
+                    SymbolModelIterationModel.game_id == game_id,
+                    SymbolModelIterationModel.status == "candidate_ready",
+                )
+                .order_by(SymbolModelIterationModel.iteration_number.desc())
+                .limit(1)
+            )
+            if ready_candidate_id is not None:
+                raise JobConflictError(
+                    "SYMBOL_MODEL_ACTIVATION_REQUIRED",
+                    "A verified symbol model candidate is ready for this game. "
+                    "Activate it before starting a new inference job.",
+                )
+            bootstrap = bootstrap_symbol_model_snapshot()
+            if tuple(sorted(bootstrap.class_codes)) != active_catalog_codes:
+                raise JobConflictError(
+                    "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED",
+                    "The bootstrap symbol model does not match this game's active symbol "
+                    "catalog. Train and activate a game-specific model before starting "
+                    "inference.",
+                )
+            return bootstrap
         iteration = self._session.get(SymbolModelIterationModel, activation.model_iteration_id)
         if iteration is None or iteration.game_id != game_id:
             raise JobConflictError(
@@ -93,6 +136,11 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
                 "SYMBOL_MODEL_ACTIVE_CLASSES_DRIFT",
                 "Active model manifest and class catalog differ.",
             )
+        if tuple(sorted(cast(list[str], class_codes_value))) != active_catalog_codes:
+            raise JobConflictError(
+                "SYMBOL_MODEL_CLASS_CATALOG_MISMATCH",
+                "The active symbol model classes do not match the active game catalog.",
+            )
         return SymbolModelJobSnapshot(
             iteration_id=iteration.id,
             model_version="spatial-symbol-cnn-onnx-v1",
@@ -104,6 +152,49 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
             input_size=input_size,
             temperature=float(temperature),
         )
+
+    def resolve_unclassified_cold_start(self, *, game_id: UUID) -> SymbolModelJobSnapshot | None:
+        with game_storage_scope(game_id):
+            return self._resolve_unclassified_cold_start_in_game_storage(game_id=game_id)
+
+    def _resolve_unclassified_cold_start_in_game_storage(
+        self, *, game_id: UUID
+    ) -> SymbolModelJobSnapshot | None:
+        """Return a no-ONNX snapshot only for a genuinely untrained game."""
+
+        active_catalog_codes = tuple(
+            self._session.scalars(
+                select(SymbolModel.code)
+                .where(
+                    SymbolModel.game_id == game_id,
+                    SymbolModel.status == SymbolStatus.ACTIVE,
+                )
+                .order_by(SymbolModel.code)
+            )
+        )
+        blockers = (
+            select(ImageSymbolReviewCellModel.id)
+            .where(
+                ImageSymbolReviewCellModel.game_id == game_id,
+                ImageSymbolReviewCellModel.review_state == "approved",
+            )
+            .limit(1),
+            select(VerifiedTrainingCohortModel.id)
+            .where(VerifiedTrainingCohortModel.game_id == game_id)
+            .limit(1),
+            select(SymbolModelIterationModel.id)
+            .where(SymbolModelIterationModel.game_id == game_id)
+            .limit(1),
+            select(GameSymbolModelActivationModel.id)
+            .where(GameSymbolModelActivationModel.game_id == game_id)
+            .limit(1),
+        )
+        if any(self._session.scalar(statement) is not None for statement in blockers):
+            return None
+        try:
+            return cold_start_unclassified_symbol_snapshot(active_catalog_codes)
+        except ValueError:
+            return None
 
     def _managed_path(self, relative_path: str | None) -> Path:
         if relative_path is None:

@@ -86,6 +86,11 @@ def resolve_operational_cell_asset(
             details={"cellIndex": cell_index},
         )
     cell = item.cells[cell_index]
+    if cell.crop_relative_path is None:
+        raise ImageReviewNotFoundError(
+            "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
+            "Virtual cell assets must be rendered through the structured asset endpoint.",
+        )
     return _resolve(
         artifact_root,
         cell.crop_relative_path,

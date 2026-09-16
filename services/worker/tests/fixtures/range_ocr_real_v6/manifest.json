@@ -1,0 +1,59 @@
+{
+  "contract": "range-ocr-real-regression-corpus-v1",
+  "sanitization": {
+    "policy": "fixture-redaction-preserve-canvas-v1",
+    "rule": "External Admin/browser chrome and filename text are replaced with black pixels. The source canvas dimensions are retained so production localizers see the same coordinate system.",
+    "source": "user-supplied screenshots 2026-09-02"
+  },
+  "cases": [
+    {
+      "relativePath": "screen-a.jpg",
+      "sha256": "26dc4d174ed2773ef24713345c70c3d061d9578d928eeb91f2d88c576f23ac55",
+      "sizeBytes": 147557,
+      "humanLabel": {
+        "kind": "readable_exact",
+        "expectedRange": [64, 72]
+      },
+      "redactedRegions": [[0, 775, 720, 1280]]
+    },
+    {
+      "relativePath": "screen-b.jpg",
+      "sha256": "5e6b5faf576979f32270eada910343602fa8b433cefba8792c0e9f62d3dbfaa9",
+      "sizeBytes": 145030,
+      "humanLabel": {
+        "kind": "readable_exact",
+        "expectedRange": [55, 63]
+      },
+      "redactedRegions": [[0, 820, 720, 1280]]
+    },
+    {
+      "relativePath": "screen-c.jpg",
+      "sha256": "58a895ee4e133d0332d174d07fad066fb05df0b7fd842e9756a5ab73fc5dbcfc",
+      "sizeBytes": 88366,
+      "humanLabel": {
+        "kind": "readable_exact",
+        "expectedRange": [28, 36]
+      },
+      "redactedRegions": [
+        [0, 0, 720, 350],
+        [0, 830, 720, 1280]
+      ]
+    },
+    {
+      "relativePath": "transition-d.jpg",
+      "sha256": "c69f473134ad40501969684e5939d453918448e710515c824f54e90a44f3c2ca",
+      "sizeBytes": 154191,
+      "humanLabel": {
+        "kind": "transition",
+        "visibleRanges": [
+          [124130, 124138],
+          [124139, 124147]
+        ]
+      },
+      "redactedRegions": [
+        [0, 0, 720, 50],
+        [0, 1160, 720, 1280]
+      ]
+    }
+  ]
+}

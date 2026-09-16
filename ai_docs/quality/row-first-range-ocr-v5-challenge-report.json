@@ -1,0 +1,3473 @@
+{
+  "contract": "row-first-range-ocr-v5-acceptance-v1",
+  "gateEvaluation": {
+    "challengeOrGoldenPrecisionPassed": true,
+    "coveragePassed": false,
+    "groupCapturePassed": false,
+    "selectedOwnProofPassed": false,
+    "selectedPrecisionPassed": false
+  },
+  "grouping": {
+    "capturedHumanReadableGroups": 0,
+    "humanReadableGroups": 1,
+    "rangeGroupCaptureRate": 0.0,
+    "selected": [],
+    "allSelectedReviewed": true,
+    "reviewedSelectedRanges": 0,
+    "selectedFrameOwnProofRate": null,
+    "selectedNearEvidenceMidpointRate": null,
+    "selectedRangePrecision": null
+  },
+  "manifest": {
+    "cases": [
+      {
+        "relativePath": "blazing 21400_000001.jpg",
+        "sha256": "be37f55fa59baed1d16148712ec19e357e0c5b2fd4a48650e73b09ef4f9fe457",
+        "sizeBytes": 244847,
+        "sourceIndex": 0
+      },
+      {
+        "relativePath": "blazing 21400_000002.jpg",
+        "sha256": "02f1213bfb3b679002600539eaa0f0e69ab8a8285f70ab15daec5fc0802366e0",
+        "sizeBytes": 238965,
+        "sourceIndex": 1
+      },
+      {
+        "relativePath": "blazing 21400_000003.jpg",
+        "sha256": "5978a8aa8cb11ec73874a7783e1e17170b39127ae7046302611ab4145884d00e",
+        "sizeBytes": 239653,
+        "sourceIndex": 2
+      },
+      {
+        "relativePath": "blazing 21400_000004.jpg",
+        "sha256": "bf0608d8648b2682e1f34d7956f5fcca34be97991ef31d787ea0a43340c7e1e4",
+        "sizeBytes": 239802,
+        "sourceIndex": 3
+      },
+      {
+        "relativePath": "blazing 21400_000005.jpg",
+        "sha256": "eeb7ad5f1a4c3388e33cecdbd9c37d5dc5155309fea3c3559307c1c41b9e4093",
+        "sizeBytes": 247763,
+        "sourceIndex": 4
+      },
+      {
+        "relativePath": "blazing 21400_000006.jpg",
+        "sha256": "f013c7f56a5714d4701f24ae317cf7b0aeff6f2d5232c0104700d36feac8ac2f",
+        "sizeBytes": 251822,
+        "sourceIndex": 5
+      },
+      {
+        "relativePath": "blazing 21400_000007.jpg",
+        "sha256": "62079ff871d66301e8c6972c117f68d45004f619a39f4270d82ca45f7541e08d",
+        "sizeBytes": 264561,
+        "sourceIndex": 6
+      },
+      {
+        "relativePath": "blazing 21400_000008.jpg",
+        "sha256": "21aeeca3505b2ad03e117fa9da6b5ca53156747a194bff1620562bf7230d7ebc",
+        "sizeBytes": 267324,
+        "sourceIndex": 7
+      },
+      {
+        "relativePath": "blazing 21400_000009.jpg",
+        "sha256": "4ec76a3cd233b5142518de98e7d5174271d4923eeac4e26a5ed38d7d998a8686",
+        "sizeBytes": 258028,
+        "sourceIndex": 8
+      },
+      {
+        "relativePath": "blazing 21400_000010.jpg",
+        "sha256": "8887ac0708c0363a3ffa045a05d4222a3858c72ba8c0d8facc2d8d992004c22e",
+        "sizeBytes": 274393,
+        "sourceIndex": 9
+      },
+      {
+        "relativePath": "blazing 21400_000011.jpg",
+        "sha256": "2a9043807a196b1ba1a8cb51b3963a345536e50caa432691b8d7c38ee2718f99",
+        "sizeBytes": 229653,
+        "sourceIndex": 10
+      },
+      {
+        "relativePath": "blazing 21400_000012.jpg",
+        "sha256": "616bf4a78b1afbe2b1a9d3c7b05acf4a3545f248c6b9494c8c5772a51d0ef676",
+        "sizeBytes": 237512,
+        "sourceIndex": 11
+      },
+      {
+        "relativePath": "blazing 21400_000013.jpg",
+        "sha256": "4c6119234122919e298c1dbc602c8e4879212e0cfbbc1b54969b7755b4046b5d",
+        "sizeBytes": 250918,
+        "sourceIndex": 12
+      },
+      {
+        "relativePath": "blazing 21400_000014.jpg",
+        "sha256": "9328441865a72c07c60d91941e5417731093aa3ff612f5e5a9caca9204891666",
+        "sizeBytes": 273046,
+        "sourceIndex": 13
+      },
+      {
+        "relativePath": "blazing 21400_000015.jpg",
+        "sha256": "87e9951ff1f79371d66aa8df9c996e87afe02e45bb04fe7b899665391acc1f6b",
+        "sizeBytes": 271225,
+        "sourceIndex": 14
+      },
+      {
+        "relativePath": "blazing 21400_000016.jpg",
+        "sha256": "1298ed526cab855c5e3dabb3e90e4c5d3786c849fa3e0f3e5a3084be9ce0debe",
+        "sizeBytes": 260180,
+        "sourceIndex": 15
+      },
+      {
+        "relativePath": "blazing 21400_000017.jpg",
+        "sha256": "9908776651ad48559c168882d4c47f331a1882b0a55966eeaf7b07ab244da042",
+        "sizeBytes": 257506,
+        "sourceIndex": 16
+      },
+      {
+        "relativePath": "blazing 21400_000018.jpg",
+        "sha256": "9663d502533c2fa4b7b6cc6514b0ffaf3473f9be3e6e5363176b81a5d1b3fccf",
+        "sizeBytes": 264384,
+        "sourceIndex": 17
+      },
+      {
+        "relativePath": "blazing 21400_000019.jpg",
+        "sha256": "c0d2efc016db240936f38e25a809db9cab922e45dfd8576a98ea4b39b418c839",
+        "sizeBytes": 265403,
+        "sourceIndex": 18
+      }
+    ],
+    "sha256": "65089b84c87ba197a75e2d310b0127e979fc407bbd5ac7097d475f9700ff6f94"
+  },
+  "orientation": {
+    "policy": "exif_canonical_only",
+    "rotationDegrees": 0,
+    "version": "row-first-exif-canonical-orientation-v1"
+  },
+  "quality": {
+    "labelledFrames": 19,
+    "allExactObservations": 0,
+    "correctExactObservations": 0,
+    "exactPrecision": null,
+    "falseExactCount": 0,
+    "humanAmbiguousFrames": 0,
+    "humanReadableFrames": 16,
+    "humanUnreadableFrames": 3,
+    "readableFrameCoverage": 0.0,
+    "unreadableUnknownRate": 1.0
+  },
+  "recognizer": {
+    "contractFingerprint": "0cd3187883ecb56bd27d44cba6cac7b1df10cdae7b8d3d966e0446b04fd6e90b",
+    "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+    "adapterVersion": "middle-row-paddle-recognition-only-v1",
+    "internalBatchSize": 9,
+    "modelFiles": {
+      "inference.json": "fd1b6ec722ea841a72d3ba43e527df1d1066d5d7808e0503ee3eec7265188753",
+      "inference.pdiparams": "3ec8a97ed6cefe8568d3e2ee90bb193299b566a7661aa4fd52d224b96b59f66b",
+      "inference.yml": "27e91d0582f40168aa218303c76e184bc78fa7a5d105aad0cfbad8458b441067"
+    },
+    "modelFingerprint": "397a1e68f494df516a98ff96989d50015448b019915c2be81ad0be2e515c0687",
+    "modelName": "en_PP-OCRv5_mobile_rec",
+    "ocrVersion": "sequence-number-ocr-v1",
+    "runtimeName": "paddlepaddle-cpu",
+    "runtimeVersion": "3.3.1"
+  },
+  "results": [
+    {
+      "actualRange": null,
+      "confidence": 0.16836333333333334,
+      "humanLabel": {
+        "expectedRange": null,
+        "kind": "unreadable"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "4cba8782020df157326aab5907a03d5deee9efe19b5e3b1c35090aa5dba92ff7",
+      "originalSourceIndex": 0,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000001.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.04141419999723439,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.8095385000015085,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 715,
+                "left": 496,
+                "right": 619,
+                "top": 625
+              },
+              {
+                "bottom": 701,
+                "left": 722,
+                "right": 845,
+                "top": 611
+              },
+              {
+                "bottom": 697,
+                "left": 970,
+                "right": 1093,
+                "top": 607
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              "904"
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.50509
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8415204723974534,
+            "rowSlope": -0.037717307795386935
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 861,
+                "left": 496,
+                "right": 609,
+                "top": 746
+              },
+              {
+                "bottom": 849,
+                "left": 726,
+                "right": 839,
+                "top": 734
+              },
+              {
+                "bottom": 821,
+                "left": 928,
+                "right": 1041,
+                "top": 706
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              "8"
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.231305
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.6114947996924676,
+            "rowSlope": -0.09152009202780734
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 991,
+                "left": 510,
+                "right": 610,
+                "top": 876
+              },
+              {
+                "bottom": 993,
+                "left": 693,
+                "right": 793,
+                "top": 878
+              },
+              {
+                "bottom": 997,
+                "left": 895,
+                "right": 995,
+                "top": 882
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9202694608013534,
+            "rowSlope": 0.013019171482756357
+          }
+        ]
+      },
+      "sha256": "be37f55fa59baed1d16148712ec19e357e0c5b2fd4a48650e73b09ef4f9fe457",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.0,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "2281718c154b12fce3ce522c27907b2d53966e46291a1e15852d16d4712d95db",
+      "originalSourceIndex": 1,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000002.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.044630600001255516,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.8095385000015085,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 701,
+                "left": 492,
+                "right": 616,
+                "top": 611
+              },
+              {
+                "bottom": 690,
+                "left": 722,
+                "right": 846,
+                "top": 600
+              },
+              {
+                "bottom": 689,
+                "left": 969,
+                "right": 1093,
+                "top": 599
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8484690566610037,
+            "rowSlope": -0.02489763880997386
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 849,
+                "left": 486,
+                "right": 612,
+                "top": 734
+              },
+              {
+                "bottom": 835,
+                "left": 718,
+                "right": 844,
+                "top": 720
+              },
+              {
+                "bottom": 851,
+                "left": 971,
+                "right": 1097,
+                "top": 736
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              "009"
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.335452
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.733103179506289,
+            "rowSlope": 0.0029230324762499742
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 979,
+                "left": 504,
+                "right": 605,
+                "top": 864
+              },
+              {
+                "bottom": 983,
+                "left": 688,
+                "right": 789,
+                "top": 868
+              },
+              {
+                "bottom": 987,
+                "left": 892,
+                "right": 993,
+                "top": 872
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.939058927326521,
+            "rowSlope": 0.023279397244188697
+          }
+        ]
+      },
+      "sha256": "02f1213bfb3b679002600539eaa0f0e69ab8a8285f70ab15daec5fc0802366e0",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.022922666666666664,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "57ccd1843accae5b4024287855f6d660f09f0c1583310698f1a2188cfbccfc3f",
+      "originalSourceIndex": 2,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000003.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.0805036999990989,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.8095385000015085,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 689,
+                "left": 456,
+                "right": 589,
+                "top": 574
+              },
+              {
+                "bottom": 691,
+                "left": 716,
+                "right": 849,
+                "top": 576
+              },
+              {
+                "bottom": 693,
+                "left": 966,
+                "right": 1099,
+                "top": 578
+              }
+            ],
+            "cropCompleteness": [
+              false,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.7636011437521241,
+            "rowSlope": 0.007872441840798064
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 817,
+                "left": 482,
+                "right": 609,
+                "top": 744
+              },
+              {
+                "bottom": 817,
+                "left": 714,
+                "right": 841,
+                "top": 744
+              },
+              {
+                "bottom": 823,
+                "left": 970,
+                "right": 1097,
+                "top": 750
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "37",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.068768,
+              0.0
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.9002658675448838,
+            "rowSlope": 0.010454375059447903
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 967,
+                "left": 500,
+                "right": 601,
+                "top": 852
+              },
+              {
+                "bottom": 971,
+                "left": 684,
+                "right": 785,
+                "top": 856
+              },
+              {
+                "bottom": 979,
+                "left": 888,
+                "right": 989,
+                "top": 864
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9297363356503667,
+            "rowSlope": 0.030988956534050233
+          }
+        ]
+      },
+      "sha256": "5978a8aa8cb11ec73874a7783e1e17170b39127ae7046302611ab4145884d00e",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.014602333333333333,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "9a6b57085d9073a399ac4fa5bd403e37b56470aa23045c9f97ee628cf82b37ab",
+      "originalSourceIndex": 3,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000004.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.10481780000191065,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.8095385000015085,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 677,
+                "left": 452,
+                "right": 585,
+                "top": 562
+              },
+              {
+                "bottom": 683,
+                "left": 714,
+                "right": 847,
+                "top": 568
+              },
+              {
+                "bottom": 687,
+                "left": 964,
+                "right": 1097,
+                "top": 572
+              }
+            ],
+            "cropCompleteness": [
+              false,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.7620559183759471,
+            "rowSlope": 0.0195984337589277
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 802,
+                "left": 478,
+                "right": 605,
+                "top": 740
+              },
+              {
+                "bottom": 804,
+                "left": 710,
+                "right": 837,
+                "top": 742
+              },
+              {
+                "bottom": 812,
+                "left": 966,
+                "right": 1093,
+                "top": 750
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "3",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.043807,
+              0.0
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.9229979583886372,
+            "rowSlope": 0.020662567350569882
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 957,
+                "left": 493,
+                "right": 595,
+                "top": 842
+              },
+              {
+                "bottom": 965,
+                "left": 679,
+                "right": 781,
+                "top": 850
+              },
+              {
+                "bottom": 973,
+                "left": 884,
+                "right": 986,
+                "top": 858
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9409023910011334,
+            "rowSlope": 0.043485459821701135
+          }
+        ]
+      },
+      "sha256": "bf0608d8648b2682e1f34d7956f5fcca34be97991ef31d787ea0a43340c7e1e4",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.19313466666666665,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "126259b419310b2c03bf489b819a30ec218013076d9155c08c6b3db072c2742c",
+      "originalSourceIndex": 4,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000005.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.03678800000125193,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.8095385000015085,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 669,
+                "left": 448,
+                "right": 581,
+                "top": 554
+              },
+              {
+                "bottom": 677,
+                "left": 712,
+                "right": 845,
+                "top": 562
+              },
+              {
+                "bottom": 685,
+                "left": 962,
+                "right": 1095,
+                "top": 570
+              }
+            ],
+            "cropCompleteness": [
+              false,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              "21"
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.353764
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.7628608181607172,
+            "rowSlope": 0.02924997087413036
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 795,
+                "left": 472,
+                "right": 599,
+                "top": 733
+              },
+              {
+                "bottom": 798,
+                "left": 708,
+                "right": 835,
+                "top": 736
+              },
+              {
+                "bottom": 808,
+                "left": 962,
+                "right": 1089,
+                "top": 746
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "2",
+              "2"
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.166933,
+              0.412471
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.9015187896336209,
+            "rowSlope": 0.026710142916608445
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 949,
+                "left": 488,
+                "right": 590,
+                "top": 834
+              },
+              {
+                "bottom": 957,
+                "left": 675,
+                "right": 777,
+                "top": 842
+              },
+              {
+                "bottom": 969,
+                "left": 880,
+                "right": 982,
+                "top": 854
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9256036836249091,
+            "rowSlope": 0.04855240225788884
+          }
+        ]
+      },
+      "sha256": "eeb7ad5f1a4c3388e33cecdbd9c37d5dc5155309fea3c3559307c1c41b9e4093",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.6979946666666667,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "d0562b93dd159fc7954976a68f2bd64a25117a65a42038e850ea1f3bac07360c",
+      "originalSourceIndex": 5,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000006.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.06352449999758392,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.8095385000015085,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 651,
+                "left": 481,
+                "right": 607,
+                "top": 584
+              },
+              {
+                "bottom": 647,
+                "left": 715,
+                "right": 841,
+                "top": 580
+              },
+              {
+                "bottom": 657,
+                "left": 965,
+                "right": 1091,
+                "top": 590
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "7",
+              "21173",
+              "21174"
+            ],
+            "recognitionConfidences": [
+              0.291877,
+              0.928275,
+              0.873832
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8662034339933067,
+            "rowSlope": 0.010622681444730215
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 789,
+                "left": 469,
+                "right": 597,
+                "top": 722
+              },
+              {
+                "bottom": 795,
+                "left": 706,
+                "right": 834,
+                "top": 728
+              },
+              {
+                "bottom": 807,
+                "left": 961,
+                "right": 1089,
+                "top": 740
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "211",
+              "21177"
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.612508,
+              0.661615
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8835908891346036,
+            "rowSlope": 0.036767256330211294
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 940,
+                "left": 486,
+                "right": 588,
+                "top": 828
+              },
+              {
+                "bottom": 950,
+                "left": 673,
+                "right": 775,
+                "top": 838
+              },
+              {
+                "bottom": 962,
+                "left": 878,
+                "right": 980,
+                "top": 850
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9402657332725252,
+            "rowSlope": 0.05616106963556451
+          }
+        ]
+      },
+      "sha256": "f013c7f56a5714d4701f24ae317cf7b0aeff6f2d5232c0104700d36feac8ac2f",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.5924806666666667,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "16c781cd76a305a729bd83bf566b0d6a07fa04df72506615a585e2ef1b7d5bf3",
+      "originalSourceIndex": 6,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000007.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.030646700000943383,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.488792100000865,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 655,
+                "left": 446,
+                "right": 580,
+                "top": 540
+              },
+              {
+                "bottom": 667,
+                "left": 711,
+                "right": 845,
+                "top": 552
+              },
+              {
+                "bottom": 679,
+                "left": 961,
+                "right": 1095,
+                "top": 564
+              }
+            ],
+            "cropCompleteness": [
+              false,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "5",
+              "",
+              "21"
+            ],
+            "recognitionConfidences": [
+              0.280352,
+              0.0,
+              0.540698
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.7545368288288029,
+            "rowSlope": 0.046588767433094785
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 782,
+                "left": 469,
+                "right": 597,
+                "top": 720
+              },
+              {
+                "bottom": 787,
+                "left": 705,
+                "right": 833,
+                "top": 725
+              },
+              {
+                "bottom": 802,
+                "left": 960,
+                "right": 1088,
+                "top": 740
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "2",
+              "211776",
+              "217"
+            ],
+            "recognitionConfidences": [
+              0.390104,
+              0.634429,
+              0.752909
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8681809970327927,
+            "rowSlope": 0.040975450660859065
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 937,
+                "left": 485,
+                "right": 587,
+                "top": 822
+              },
+              {
+                "bottom": 947,
+                "left": 672,
+                "right": 774,
+                "top": 832
+              },
+              {
+                "bottom": 961,
+                "left": 878,
+                "right": 980,
+                "top": 846
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9031357188939874,
+            "rowSlope": 0.06376857850198814
+          }
+        ]
+      },
+      "sha256": "62079ff871d66301e8c6972c117f68d45004f619a39f4270d82ca45f7541e08d",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.824839,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "71717a20f58990786205ec0a3d0a645401363e85588364d0f49876d21d0888ba",
+      "originalSourceIndex": 7,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000008.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.04395719999956782,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.488792100000865,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 639,
+                "left": 482,
+                "right": 608,
+                "top": 577
+              },
+              {
+                "bottom": 639,
+                "left": 717,
+                "right": 843,
+                "top": 577
+              },
+              {
+                "bottom": 652,
+                "left": 967,
+                "right": 1093,
+                "top": 590
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "211772",
+              "21173",
+              "211174"
+            ],
+            "recognitionConfidences": [
+              0.751537,
+              0.901631,
+              0.821349
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8494509438002429,
+            "rowSlope": 0.027071823204419553
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 781,
+                "left": 469,
+                "right": 597,
+                "top": 714
+              },
+              {
+                "bottom": 789,
+                "left": 706,
+                "right": 834,
+                "top": 722
+              },
+              {
+                "bottom": 805,
+                "left": 961,
+                "right": 1089,
+                "top": 738
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "21117",
+              "211176",
+              "1177"
+            ],
+            "recognitionConfidences": [
+              0.771049,
+              0.694321,
+              0.732687
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8622590464773193,
+            "rowSlope": 0.05101332936920858
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 933,
+                "left": 484,
+                "right": 587,
+                "top": 818
+              },
+              {
+                "bottom": 945,
+                "left": 674,
+                "right": 777,
+                "top": 830
+              },
+              {
+                "bottom": 961,
+                "left": 880,
+                "right": 983,
+                "top": 846
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9025957290414208,
+            "rowSlope": 0.06842114253016852
+          }
+        ]
+      },
+      "sha256": "21aeeca3505b2ad03e117fa9da6b5ca53156747a194bff1620562bf7230d7ebc",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.905261,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "5d291194c999bf1de44af2e2efdefd0fe7ed9fcfc802931d651a6f7fa006bb5d",
+      "originalSourceIndex": 8,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000009.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.04518370000005234,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.488792100000865,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 639,
+                "left": 483,
+                "right": 609,
+                "top": 577
+              },
+              {
+                "bottom": 639,
+                "left": 718,
+                "right": 844,
+                "top": 577
+              },
+              {
+                "bottom": 654,
+                "left": 968,
+                "right": 1094,
+                "top": 592
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "21172",
+              "21173",
+              "211174"
+            ],
+            "recognitionConfidences": [
+              0.827974,
+              0.970294,
+              0.917515
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8432437725424551,
+            "rowSlope": 0.031236719082022624
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 777,
+                "left": 469,
+                "right": 597,
+                "top": 715
+              },
+              {
+                "bottom": 787,
+                "left": 707,
+                "right": 835,
+                "top": 725
+              },
+              {
+                "bottom": 804,
+                "left": 962,
+                "right": 1090,
+                "top": 742
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "2117",
+              "1176",
+              "2117"
+            ],
+            "recognitionConfidences": [
+              0.724984,
+              0.704228,
+              0.797633
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8708010823368433,
+            "rowSlope": 0.05490817563158364
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 931,
+                "left": 486,
+                "right": 589,
+                "top": 819
+              },
+              {
+                "bottom": 944,
+                "left": 676,
+                "right": 779,
+                "top": 832
+              },
+              {
+                "bottom": 960,
+                "left": 882,
+                "right": 985,
+                "top": 848
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9252207822895011,
+            "rowSlope": 0.0732944695604879
+          }
+        ]
+      },
+      "sha256": "4ec76a3cd233b5142518de98e7d5174271d4923eeac4e26a5ed38d7d998a8686",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.7566856666666667,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "8afaff622032cf8d8c14a61aeddcb24617462178024ef6423f6c720dca732bf7",
+      "originalSourceIndex": 9,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000010.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.05601839999872027,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.488792100000865,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 637,
+                "left": 483,
+                "right": 609,
+                "top": 575
+              },
+              {
+                "bottom": 638,
+                "left": 719,
+                "right": 845,
+                "top": 576
+              },
+              {
+                "bottom": 652,
+                "left": 969,
+                "right": 1095,
+                "top": 590
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "1172",
+              "21173",
+              "174"
+            ],
+            "recognitionConfidences": [
+              0.719862,
+              0.739632,
+              0.810563
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8558446676563768,
+            "rowSlope": 0.031112440461409673
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 779,
+                "left": 469,
+                "right": 597,
+                "top": 712
+              },
+              {
+                "bottom": 787,
+                "left": 707,
+                "right": 835,
+                "top": 720
+              },
+              {
+                "bottom": 805,
+                "left": 963,
+                "right": 1091,
+                "top": 738
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "21175",
+              "11176",
+              "117"
+            ],
+            "recognitionConfidences": [
+              0.838547,
+              0.554274,
+              0.848648
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.840248376856556,
+            "rowSlope": 0.05285405334556662
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 933,
+                "left": 486,
+                "right": 589,
+                "top": 818
+              },
+              {
+                "bottom": 945,
+                "left": 676,
+                "right": 779,
+                "top": 830
+              },
+              {
+                "bottom": 961,
+                "left": 882,
+                "right": 985,
+                "top": 846
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.903673466334379,
+            "rowSlope": 0.07081134816854068
+          }
+        ]
+      },
+      "sha256": "8887ac0708c0363a3ffa045a05d4222a3858c72ba8c0d8facc2d8d992004c22e",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.328649,
+      "humanLabel": {
+        "expectedRange": null,
+        "kind": "unreadable"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "1ffd5c18925574ab327d176f67754cf0ceb32b0f48795bff25414c63ebae9955",
+      "originalSourceIndex": 10,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000011.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.05320850000134669,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.488792100000865,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 781,
+                "left": 476,
+                "right": 604,
+                "top": 708
+              },
+              {
+                "bottom": 791,
+                "left": 714,
+                "right": 842,
+                "top": 718
+              },
+              {
+                "bottom": 811,
+                "left": 969,
+                "right": 1097,
+                "top": 738
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "2",
+              "22",
+              "282"
+            ],
+            "recognitionConfidences": [
+              0.468826,
+              0.254601,
+              0.26252
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8550915478460492,
+            "rowSlope": 0.06106087442901099
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 819,
+                "left": 386,
+                "right": 535,
+                "top": 746
+              },
+              {
+                "bottom": 791,
+                "left": 704,
+                "right": 853,
+                "top": 718
+              },
+              {
+                "bottom": 811,
+                "left": 958,
+                "right": 1107,
+                "top": 738
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.6653353355704105,
+            "rowSlope": -0.016951560590868425
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 933,
+                "left": 494,
+                "right": 597,
+                "top": 818
+              },
+              {
+                "bottom": 947,
+                "left": 686,
+                "right": 789,
+                "top": 832
+              },
+              {
+                "bottom": 963,
+                "left": 890,
+                "right": 993,
+                "top": 848
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9326585634075393,
+            "rowSlope": 0.07578551941594962
+          }
+        ]
+      },
+      "sha256": "2a9043807a196b1ba1a8cb51b3963a345536e50caa432691b8d7c38ee2718f99",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.24156733333333333,
+      "humanLabel": {
+        "expectedRange": null,
+        "kind": "unreadable"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "3bac206ac5c8d06f32340f12c46035816fadc2b800ab026ff647fce54316b7de",
+      "originalSourceIndex": 11,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000012.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.044986599998082966,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 6.488792100000865,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 643,
+                "left": 502,
+                "right": 628,
+                "top": 570
+              },
+              {
+                "bottom": 647,
+                "left": 739,
+                "right": 865,
+                "top": 574
+              },
+              {
+                "bottom": 663,
+                "left": 987,
+                "right": 1113,
+                "top": 590
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "2",
+              "",
+              "2"
+            ],
+            "recognitionConfidences": [
+              0.318705,
+              0.0,
+              0.405997
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8119670185015528,
+            "rowSlope": 0.041448237167680244
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 785,
+                "left": 487,
+                "right": 615,
+                "top": 707
+              },
+              {
+                "bottom": 796,
+                "left": 726,
+                "right": 854,
+                "top": 718
+              },
+              {
+                "bottom": 817,
+                "left": 980,
+                "right": 1108,
+                "top": 739
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              "2"
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.387112
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8299356306230872,
+            "rowSlope": 0.0650943551438768
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 935,
+                "left": 506,
+                "right": 609,
+                "top": 820
+              },
+              {
+                "bottom": 949,
+                "left": 696,
+                "right": 799,
+                "top": 834
+              },
+              {
+                "bottom": 967,
+                "left": 902,
+                "right": 1005,
+                "top": 852
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9255634832303898,
+            "rowSlope": 0.08089341413042501
+          }
+        ]
+      },
+      "sha256": "616bf4a78b1afbe2b1a9d3c7b05acf4a3545f248c6b9494c8c5772a51d0ef676",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.9155726666666667,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "943b92623948105c9de072d81e792e325b820b9e337955caf723ab071be8b0b5",
+      "originalSourceIndex": 12,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000013.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.04460819999803789,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 5.533019099999365,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 639,
+                "left": 510,
+                "right": 636,
+                "top": 572
+              },
+              {
+                "bottom": 645,
+                "left": 747,
+                "right": 873,
+                "top": 578
+              },
+              {
+                "bottom": 663,
+                "left": 996,
+                "right": 1122,
+                "top": 596
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "21172",
+              "21173",
+              "21174"
+            ],
+            "recognitionConfidences": [
+              0.835244,
+              0.954532,
+              0.956942
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8381509909067881,
+            "rowSlope": 0.04960972553800289
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 779,
+                "left": 494,
+                "right": 622,
+                "top": 712
+              },
+              {
+                "bottom": 793,
+                "left": 733,
+                "right": 861,
+                "top": 726
+              },
+              {
+                "bottom": 813,
+                "left": 988,
+                "right": 1116,
+                "top": 746
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "21171",
+              "2111766",
+              "12177"
+            ],
+            "recognitionConfidences": [
+              0.703464,
+              0.661236,
+              0.68431
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.882676902683448,
+            "rowSlope": 0.0709783659491726
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 933,
+                "left": 514,
+                "right": 617,
+                "top": 818
+              },
+              {
+                "bottom": 949,
+                "left": 704,
+                "right": 807,
+                "top": 834
+              },
+              {
+                "bottom": 969,
+                "left": 910,
+                "right": 1013,
+                "top": 854
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9152032362388032,
+            "rowSlope": 0.09099021765920733
+          }
+        ]
+      },
+      "sha256": "4c6119234122919e298c1dbc602c8e4879212e0cfbbc1b54969b7755b4046b5d",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.6803516666666667,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "2da49fde8a3252d745b278fc703932ab49d778e010a293de8ff7ce04c84e2afd",
+      "originalSourceIndex": 13,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000014.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.04438949999894248,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 5.533019099999365,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 639,
+                "left": 513,
+                "right": 639,
+                "top": 572
+              },
+              {
+                "bottom": 645,
+                "left": 749,
+                "right": 875,
+                "top": 578
+              },
+              {
+                "bottom": 663,
+                "left": 998,
+                "right": 1124,
+                "top": 596
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "211722",
+              "211173",
+              "21174"
+            ],
+            "recognitionConfidences": [
+              0.716268,
+              0.608414,
+              0.716373
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8256097986975557,
+            "rowSlope": 0.051773479692396644
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 777,
+                "left": 497,
+                "right": 625,
+                "top": 710
+              },
+              {
+                "bottom": 791,
+                "left": 735,
+                "right": 863,
+                "top": 724
+              },
+              {
+                "bottom": 813,
+                "left": 989,
+                "right": 1117,
+                "top": 746
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "1171",
+              "117176",
+              "117"
+            ],
+            "recognitionConfidences": [
+              0.52173,
+              0.587649,
+              0.821301
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8754913183587342,
+            "rowSlope": 0.07537497522190126
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 931,
+                "left": 516,
+                "right": 619,
+                "top": 816
+              },
+              {
+                "bottom": 947,
+                "left": 706,
+                "right": 809,
+                "top": 832
+              },
+              {
+                "bottom": 969,
+                "left": 912,
+                "right": 1015,
+                "top": 854
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9256313545605923,
+            "rowSlope": 0.09378603459320989
+          }
+        ]
+      },
+      "sha256": "9328441865a72c07c60d91941e5417731093aa3ff612f5e5a9caca9204891666",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.6587426666666667,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "0d49aab00e15571ae3b48ddd7a3116c57c1f65dabb0f44a85a0d39e159f9d0a7",
+      "originalSourceIndex": 14,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000015.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.05370009999751346,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 5.533019099999365,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 635,
+                "left": 515,
+                "right": 641,
+                "top": 568
+              },
+              {
+                "bottom": 641,
+                "left": 751,
+                "right": 877,
+                "top": 574
+              },
+              {
+                "bottom": 663,
+                "left": 1000,
+                "right": 1126,
+                "top": 596
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "172",
+              "21173",
+              "21174"
+            ],
+            "recognitionConfidences": [
+              0.522422,
+              0.65135,
+              0.802456
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8342247688609348,
+            "rowSlope": 0.0580128186964828
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 777,
+                "left": 498,
+                "right": 626,
+                "top": 704
+              },
+              {
+                "bottom": 791,
+                "left": 737,
+                "right": 865,
+                "top": 718
+              },
+              {
+                "bottom": 815,
+                "left": 991,
+                "right": 1119,
+                "top": 742
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "177",
+              "2117",
+              "17"
+            ],
+            "recognitionConfidences": [
+              0.446678,
+              0.730739,
+              0.598745
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8554655566916759,
+            "rowSlope": 0.07726098616343921
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 929,
+                "left": 519,
+                "right": 621,
+                "top": 814
+              },
+              {
+                "bottom": 945,
+                "left": 709,
+                "right": 811,
+                "top": 830
+              },
+              {
+                "bottom": 965,
+                "left": 913,
+                "right": 1015,
+                "top": 850
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9087675536686135,
+            "rowSlope": 0.09395927057934683
+          }
+        ]
+      },
+      "sha256": "87e9951ff1f79371d66aa8df9c996e87afe02e45bb04fe7b899665391acc1f6b",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.6173076666666667,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "db5f476fd198bff4ede3b62eb95f8a9c0bf3d57b822ca3322f6299a83ea4682a",
+      "originalSourceIndex": 15,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000016.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.04010479999851668,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 5.533019099999365,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 635,
+                "left": 516,
+                "right": 642,
+                "top": 562
+              },
+              {
+                "bottom": 643,
+                "left": 753,
+                "right": 879,
+                "top": 570
+              },
+              {
+                "bottom": 663,
+                "left": 1002,
+                "right": 1128,
+                "top": 590
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "21722",
+              "21173",
+              "274"
+            ],
+            "recognitionConfidences": [
+              0.509183,
+              0.540236,
+              0.802504
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8305126284184616,
+            "rowSlope": 0.059878769407900316
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 775,
+                "left": 501,
+                "right": 629,
+                "top": 702
+              },
+              {
+                "bottom": 789,
+                "left": 740,
+                "right": 868,
+                "top": 716
+              },
+              {
+                "bottom": 813,
+                "left": 993,
+                "right": 1121,
+                "top": 740
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "2195",
+              "176",
+              "177"
+            ],
+            "recognitionConfidences": [
+              0.488535,
+              0.531234,
+              0.474628
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8668264552801411,
+            "rowSlope": 0.07945891176616326
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 925,
+                "left": 520,
+                "right": 623,
+                "top": 810
+              },
+              {
+                "bottom": 943,
+                "left": 712,
+                "right": 815,
+                "top": 828
+              },
+              {
+                "bottom": 963,
+                "left": 916,
+                "right": 1019,
+                "top": 848
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9250379668391225,
+            "rowSlope": 0.09598123215014316
+          }
+        ]
+      },
+      "sha256": "1298ed526cab855c5e3dabb3e90e4c5d3786c849fa3e0f3e5a3084be9ce0debe",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.7633903333333334,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "df880ff8d569154340b4b0b3467f622c925d000e4df1dc242e56a76fd6d024a3",
+      "originalSourceIndex": 16,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000017.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.043735700000979705,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 5.533019099999365,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 631,
+                "left": 520,
+                "right": 646,
+                "top": 558
+              },
+              {
+                "bottom": 637,
+                "left": 757,
+                "right": 883,
+                "top": 564
+              },
+              {
+                "bottom": 659,
+                "left": 1005,
+                "right": 1131,
+                "top": 586
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "21172",
+              "21173",
+              "2174"
+            ],
+            "recognitionConfidences": [
+              0.755932,
+              0.738665,
+              0.795574
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8374471463042155,
+            "rowSlope": 0.05797142517101229
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 771,
+                "left": 504,
+                "right": 632,
+                "top": 698
+              },
+              {
+                "bottom": 785,
+                "left": 742,
+                "right": 870,
+                "top": 712
+              },
+              {
+                "bottom": 809,
+                "left": 995,
+                "right": 1123,
+                "top": 736
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "2117517",
+              "1176",
+              "2117"
+            ],
+            "recognitionConfidences": [
+              0.517262,
+              0.600538,
+              0.665631
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8693428775985429,
+            "rowSlope": 0.07963310056560849
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 921,
+                "left": 522,
+                "right": 625,
+                "top": 806
+              },
+              {
+                "bottom": 937,
+                "left": 714,
+                "right": 817,
+                "top": 822
+              },
+              {
+                "bottom": 957,
+                "left": 918,
+                "right": 1021,
+                "top": 842
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9045434699081343,
+            "rowSlope": 0.09348467206636017
+          }
+        ]
+      },
+      "sha256": "9908776651ad48559c168882d4c47f331a1882b0a55966eeaf7b07ab244da042",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.8360423333333333,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "2f2c5d35fbc59b6186c2a289afb046f920c83bb256ab89cfef0ef682d8e09972",
+      "originalSourceIndex": 17,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000018.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.038517100001627114,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 5.533019099999365,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 625,
+                "left": 519,
+                "right": 645,
+                "top": 558
+              },
+              {
+                "bottom": 631,
+                "left": 757,
+                "right": 883,
+                "top": 564
+              },
+              {
+                "bottom": 653,
+                "left": 1005,
+                "right": 1131,
+                "top": 586
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "211722",
+              "211173",
+              "21174"
+            ],
+            "recognitionConfidences": [
+              0.878544,
+              0.840342,
+              0.789241
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8377743380106675,
+            "rowSlope": 0.05783080847989555
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 767,
+                "left": 504,
+                "right": 632,
+                "top": 694
+              },
+              {
+                "bottom": 781,
+                "left": 742,
+                "right": 870,
+                "top": 708
+              },
+              {
+                "bottom": 805,
+                "left": 995,
+                "right": 1123,
+                "top": 732
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "21175",
+              "21176",
+              "2117"
+            ],
+            "recognitionConfidences": [
+              0.842288,
+              0.801699,
+              0.696731
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8762851623068293,
+            "rowSlope": 0.07959163363134174
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 917,
+                "left": 522,
+                "right": 625,
+                "top": 802
+              },
+              {
+                "bottom": 933,
+                "left": 712,
+                "right": 815,
+                "top": 818
+              },
+              {
+                "bottom": 955,
+                "left": 918,
+                "right": 1021,
+                "top": 840
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9185194159884541,
+            "rowSlope": 0.09628443305573361
+          }
+        ]
+      },
+      "sha256": "9663d502533c2fa4b7b6cc6514b0ffaf3473f9be3e6e5363176b81a5d1b3fccf",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.832818,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "81644f121a2e90d313271a8d39965e16e1f66c6bb59b143df942a1e5a87b7995",
+      "originalSourceIndex": 18,
+      "reasonCodes": [
+        "COMPLETE_ROW_UNVERIFIED"
+      ],
+      "relativePath": "blazing 21400_000019.jpg",
+      "runtimeDiagnostics": {
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "707c92572f211236b4d2d23d1f6780d1e8ada69254c60fa0b73938c21f14efb8",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runOrientation": "exif_canonical",
+        "locatorSeconds": 0.02837609999915003,
+        "locatorVersion": "row-first-range-locator-v1",
+        "ocrBatchSeconds": 0.7758713000002899,
+        "rows": [
+          {
+            "cropBoxes": [
+              {
+                "bottom": 623,
+                "left": 517,
+                "right": 643,
+                "top": 556
+              },
+              {
+                "bottom": 629,
+                "left": 754,
+                "right": 880,
+                "top": 562
+              },
+              {
+                "bottom": 651,
+                "left": 1003,
+                "right": 1129,
+                "top": 584
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "21172",
+              "21173",
+              "2174"
+            ],
+            "recognitionConfidences": [
+              0.914512,
+              0.710216,
+              0.873726
+            ],
+            "row": "top",
+            "rowLocatorScore": 0.8158593862702889,
+            "rowSlope": 0.05991263270178276
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 761,
+                "left": 501,
+                "right": 629,
+                "top": 694
+              },
+              {
+                "bottom": 777,
+                "left": 739,
+                "right": 867,
+                "top": 710
+              },
+              {
+                "bottom": 801,
+                "left": 993,
+                "right": 1121,
+                "top": 734
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "211751",
+              "211766",
+              "217"
+            ],
+            "recognitionConfidences": [
+              0.776749,
+              0.776159,
+              0.75072
+            ],
+            "row": "middle",
+            "rowLocatorScore": 0.8759428303733645,
+            "rowSlope": 0.08350219148514439
+          },
+          {
+            "cropBoxes": [
+              {
+                "bottom": 915,
+                "left": 520,
+                "right": 623,
+                "top": 800
+              },
+              {
+                "bottom": 931,
+                "left": 710,
+                "right": 813,
+                "top": 816
+              },
+              {
+                "bottom": 953,
+                "left": 916,
+                "right": 1019,
+                "top": 838
+              }
+            ],
+            "cropCompleteness": [
+              true,
+              true,
+              true
+            ],
+            "cropReadability": [
+              true,
+              true,
+              true
+            ],
+            "recognizedTexts": [
+              "",
+              "",
+              ""
+            ],
+            "recognitionConfidences": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "row": "bottom",
+            "rowLocatorScore": 0.9129389104136895,
+            "rowSlope": 0.09609811237368353
+          }
+        ]
+      },
+      "sha256": "c0d2efc016db240936f38e25a809db9cab922e45dfd8576a98ea4b39b418c839",
+      "status": "range_unreadable"
+    }
+  ],
+  "sample": {
+    "firstOriginalSourceIndex": 0,
+    "lastOriginalSourceIndex": 18,
+    "size": 19
+  },
+  "timing": {
+    "batchP50Seconds": 7.272103999999672,
+    "batchP95Seconds": 7.766160799998033,
+    "checkpointSeconds": 0.0,
+    "groupingSeconds": 5.7499990361975506e-05,
+    "locatorSeconds": 0.9391113999918161,
+    "medianTimePerSource": 1.2120173333332787,
+    "modelInitializationSeconds": 10.156073499998456,
+    "ocrCalls": 5,
+    "ocrCrops": 225,
+    "ocrInferenceSeconds": 27.220051400006923,
+    "ocrInternalBatches": 25,
+    "ocrPreprocessingSeconds": 0.0649787000111246,
+    "ocrRecognitionSeconds": 27.31924269999581,
+    "peakMemoryBytes": 427384832,
+    "p95TimePerSource": 1.2943601333330055,
+    "projected42000ScanSeconds": 49012.55807368733,
+    "scanSeconds": 22.17234770000141,
+    "sourceReadSeconds": 0.010358799994719448,
+    "sourcesPerSecond": 0.8569232386698857,
+    "totalSeconds": 41.21712109999862,
+    "warmupSeconds": 8.888699899998755
+  },
+  "diagnostics": {
+    "exactSources": 0,
+    "ocrBatchFillRatio": 1.0,
+    "reasonCounts": {
+      "COMPLETE_ROW_UNVERIFIED": 19
+    },
+    "rejectedBeforeOcrCount": 0,
+    "rejectedBeforeOcrRatio": 0.0,
+    "runtimeCounters": {
+      "locatedRows": 57,
+      "locatedSources": 19,
+      "ocrCalls": 5,
+      "ocrCrops": 225,
+      "ocrInternalBatches": 25,
+      "unknownCompleteRowUnverified": 19
+    }
+  },
+  "versions": {
+    "batchPolicy": {
+      "checkpointIntervalBatches": 1,
+      "cpuMathLibraryNumThreads": 1,
+      "internalOcrBatchSize": 9,
+      "sourceBatchSize": 6,
+      "version": "row-first-source-batches-v1"
+    },
+    "harness": "row-first-range-ocr-v5-harness-v1",
+    "report": "row-first-range-ocr-v5-acceptance-v1"
+  },
+  "corpusManifestSha256": "15854a0b34493ce7ec1c337935ecc35f03612bdfb23733c086b20fce5b9eea37",
+  "selectedReviewSha256": null
+}

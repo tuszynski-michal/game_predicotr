@@ -23,6 +23,7 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.import_max_bytes == 1024 * 1024 * 1024
     assert settings.browser_layout_import_max_bytes == 20 * 1024 * 1024 * 1024
     assert settings.image_selection_max_bytes == 128 * 1024 * 1024 * 1024
+    assert settings.semi_automatic_image_selection_enabled is True
     assert settings.storage_gc_observe_only is False
     assert settings.remote_manual_selection_host_mapping_enabled is True
     assert settings.remote_selection_deselect_enabled is True
@@ -34,6 +35,8 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.remote_selection_materialization_lease_seconds == 60
     assert settings.remote_selection_materialization_max_attempts == 5
     assert settings.remote_selection_materialization_max_actions_per_cycle == 4
+    assert settings.symbol_review_page_statement_timeout_ms == 5_000
+    assert settings.symbol_review_counts_statement_timeout_ms == 15_000
 
 
 @pytest.mark.parametrize(
@@ -155,6 +158,14 @@ def test_defaults_are_loopback_only() -> None:
             {"GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT": "1001"},
             "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT",
         ),
+        (
+            {"GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS": "0"},
+            "GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS",
+        ),
+        (
+            {"GAME_PREDICTOR_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS": "invalid"},
+            "GAME_PREDICTOR_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS",
+        ),
     ],
 )
 def test_rejects_non_local_or_invalid_configuration(
@@ -204,6 +215,14 @@ def test_storage_gc_requires_explicit_rollout_after_observe_only() -> None:
     assert settings.storage_gc_observe_only is False
 
 
+def test_semi_automatic_selection_can_be_disabled_for_rollback() -> None:
+    settings = ApiSettings.from_environment(
+        {"GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION": "false"}
+    )
+
+    assert settings.semi_automatic_image_selection_enabled is False
+
+
 def test_remote_host_mapping_can_be_disabled_for_rollback() -> None:
     settings = ApiSettings.from_environment(
         {"GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED": "false"}
@@ -246,3 +265,15 @@ def test_remote_transfer_limits_are_configurable() -> None:
     assert settings.remote_selection_materialization_max_actions_per_cycle == 6
     assert settings.remote_selection_recovery_enabled is False
     assert settings.remote_selection_recovery_limit == 25
+
+
+def test_symbol_review_statement_timeouts_are_configurable() -> None:
+    settings = ApiSettings.from_environment(
+        {
+            "GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS": "7000",
+            "GAME_PREDICTOR_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS": "19000",
+        }
+    )
+
+    assert settings.symbol_review_page_statement_timeout_ms == 7_000
+    assert settings.symbol_review_counts_statement_timeout_ms == 19_000

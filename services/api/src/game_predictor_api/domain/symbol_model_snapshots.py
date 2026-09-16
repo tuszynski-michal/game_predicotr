@@ -27,6 +27,11 @@ BOOTSTRAP_SYMBOL_CLASS_CODES = (
 )
 BOOTSTRAP_SYMBOL_INPUT_SIZE = 64
 BOOTSTRAP_SYMBOL_TEMPERATURE = 1.0338382913
+COLD_START_UNCLASSIFIED_MODEL_VERSION = "cold-start-unclassified-v1"
+COLD_START_UNCLASSIFIED_INPUT_SIZE = 64
+COLD_START_UNCLASSIFIED_STORAGE_PATH = (
+    "unclassified/cold-start-unclassified-v1.no-onnx"
+)
 
 
 class SymbolModelStorageRoot(StrEnum):
@@ -45,6 +50,7 @@ class SymbolModelJobSnapshot:
     class_codes: tuple[str, ...]
     input_size: int
     temperature: float
+    inference_mode: str = "model"
 
     def to_payload(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -58,6 +64,8 @@ class SymbolModelJobSnapshot:
             "storageRoot": self.storage_root.value,
             "temperature": self.temperature,
         }
+        if self.inference_mode != "model":
+            payload["inferenceMode"] = self.inference_mode
         if self.iteration_id is not None:
             payload["iterationId"] = str(self.iteration_id)
         return payload
@@ -74,6 +82,8 @@ class SymbolModelJobSnapshot:
             "storageRoot": self.storage_root.value,
             "temperature": self.temperature,
         }
+        if self.inference_mode != "model":
+            payload["inferenceMode"] = self.inference_mode
         return hashlib.sha256(
             json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
         ).hexdigest()
@@ -125,11 +135,19 @@ class SymbolModelJobSnapshot:
                 class_codes=class_codes,
                 input_size=input_size,
                 temperature=float(temperature),
+                inference_mode=str(value.get("inferenceMode", "model")),
             )
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("The pinned symbol model snapshot is invalid.") from error
         if value.get("inferenceFingerprint") != snapshot.inference_fingerprint:
             raise ValueError("The pinned symbol model inference fingerprint changed.")
+        if snapshot.inference_mode not in {"model", "unclassified"}:
+            raise ValueError("The pinned symbol inference mode is unsupported.")
+        if (
+            snapshot.inference_mode == "unclassified"
+            and snapshot.model_version != COLD_START_UNCLASSIFIED_MODEL_VERSION
+        ):
+            raise ValueError("The unclassified symbol snapshot version is invalid.")
         return snapshot
 
 
@@ -147,6 +165,39 @@ def bootstrap_symbol_model_snapshot() -> SymbolModelJobSnapshot:
         class_codes=BOOTSTRAP_SYMBOL_CLASS_CODES,
         input_size=BOOTSTRAP_SYMBOL_INPUT_SIZE,
         temperature=BOOTSTRAP_SYMBOL_TEMPERATURE,
+    )
+
+
+def cold_start_unclassified_symbol_snapshot(
+    class_codes: Sequence[str],
+) -> SymbolModelJobSnapshot:
+    normalized_codes = tuple(sorted(set(class_codes)))
+    if len(normalized_codes) < 2 or any(not value for value in normalized_codes):
+        raise ValueError("Cold-start import requires at least two active symbol codes.")
+    descriptor = json.dumps(
+        {
+            "classCodes": list(normalized_codes),
+            "inputSize": COLD_START_UNCLASSIFIED_INPUT_SIZE,
+            "modelVersion": COLD_START_UNCLASSIFIED_MODEL_VERSION,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+    checksum = hashlib.sha256(descriptor).hexdigest()
+    return SymbolModelJobSnapshot(
+        iteration_id=None,
+        model_version=COLD_START_UNCLASSIFIED_MODEL_VERSION,
+        manifest_checksum_sha256=checksum,
+        onnx_checksum_sha256=hashlib.sha256(
+            b"game-predictor-cold-start-unclassified-no-onnx-v1"
+        ).hexdigest(),
+        onnx_relative_path=COLD_START_UNCLASSIFIED_STORAGE_PATH,
+        storage_root=SymbolModelStorageRoot.REPOSITORY,
+        class_codes=normalized_codes,
+        input_size=COLD_START_UNCLASSIFIED_INPUT_SIZE,
+        temperature=1.0,
+        inference_mode="unclassified",
     )
 
 
@@ -177,7 +228,10 @@ __all__ = [
     "BOOTSTRAP_SYMBOL_MODEL_SHA256",
     "BOOTSTRAP_SYMBOL_MODEL_VERSION",
     "BOOTSTRAP_SYMBOL_TEMPERATURE",
+    "COLD_START_UNCLASSIFIED_INPUT_SIZE",
+    "COLD_START_UNCLASSIFIED_MODEL_VERSION",
     "SymbolModelJobSnapshot",
     "SymbolModelStorageRoot",
     "bootstrap_symbol_model_snapshot",
+    "cold_start_unclassified_symbol_snapshot",
 ]

@@ -16,6 +16,8 @@ from sqlalchemy.sql.elements import ColumnElement
 from game_predictor_api.domain.board_search import (
     BOARD_SEARCH_ALTERNATIVE_WEIGHTS,
     BOARD_SEARCH_CELL_COUNT,
+    BoardSearchArchiveAssetReference,
+    BoardSearchAssetMode,
     BoardSearchCandidate,
     BoardSearchError,
     BoardSearchProjectionPayload,
@@ -26,10 +28,19 @@ from game_predictor_api.domain.board_search import (
     select_board_search_document,
 )
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.geometry_qualification import (
+    GeometryQualification,
+    GeometryQualificationError,
+)
 from game_predictor_api.domain.jobs import JobStatus
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageRouter,
+    GameStorageSchema,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
+    ImageBoardGeometryRevisionModel,
     ImageBoardSearchCandidateModel,
     ImageBoardSearchFastDocumentModel,
     ImageBoardSearchProjectionStateModel,
@@ -37,6 +48,8 @@ from game_predictor_api.storage.models import (
     ImageSequenceCanonicalModel,
     ImageSymbolPredictionRevisionModel,
     JobModel,
+    LegacyBoardSearchArchiveDocumentModel,
+    LegacyBoardSearchArchiveStateModel,
     RecognizedBoardModel,
     SourceImageModel,
     SymbolModel,
@@ -89,8 +102,12 @@ class SqlAlchemyBoardSearchProjectionRepository:
             for payload in payloads
         ]
         insert_statement = postgresql_insert(ImageBoardSearchCandidateModel).values(values)
+        location = GameStorageRouter().describe(self._session, payloads[0].game_id)
+        conflict_columns = [ImageBoardSearchCandidateModel.review_item_id]
+        if location.store_schema is GameStorageSchema.V2:
+            conflict_columns.insert(0, ImageBoardSearchCandidateModel.game_id)
         update_statement = insert_statement.on_conflict_do_update(
-            index_elements=[ImageBoardSearchCandidateModel.review_item_id],
+            index_elements=conflict_columns,
             set_={
                 key: getattr(insert_statement.excluded, key)
                 for key in values[0]
@@ -247,12 +264,35 @@ class SqlAlchemyBoardSearchProjectionRepository:
     ) -> tuple[BoardSearchResult, ...]:
         if self._session.get(GameModel, game_id) is None:
             raise BoardSearchError("GAME_NOT_FOUND", "The selected game does not exist.")
-        state = self.state_for_game(game_id)
-        if state is None or state.status != "ready":
-            raise BoardSearchError(
-                "BOARD_SEARCH_PROJECTION_INCOMPLETE",
-                "The board-search projection is not ready for this game.",
+        archive_state = self._session.get(LegacyBoardSearchArchiveStateModel, game_id)
+        document: Any
+        identity_columns: tuple[Any, Any, Any]
+        identity_sort: Any
+        if archive_state is None:
+            state = self.state_for_game(game_id)
+            if state is None or state.status != "ready":
+                raise BoardSearchError(
+                    "BOARD_SEARCH_PROJECTION_INCOMPLETE",
+                    "The board-search projection is not ready for this game.",
+                )
+            document = ImageBoardSearchFastDocumentModel
+            asset_mode = BoardSearchAssetMode.OPERATIONAL_REVIEW
+            identity_columns = (
+                document.review_item_id,
+                document.recognized_board_id,
+                document.import_job_id,
             )
+            identity_sort = document.review_item_id
+        else:
+            if archive_state.status != "ready":
+                raise BoardSearchError(
+                    "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
+                    "The frozen board-search archive is not ready for this game.",
+                )
+            document = LegacyBoardSearchArchiveDocumentModel
+            asset_mode = BoardSearchAssetMode.LEGACY_ARCHIVE
+            identity_columns = (literal(None), literal(None), literal(None))
+            identity_sort = document.board_checksum_sha256
         active_mobile_codes: dict[str, int] = {
             code: int(mobile_code)
             for code, mobile_code in self._session.execute(
@@ -273,7 +313,6 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 "Every board-search symbol must be active in the selected game.",
             )
 
-        document = ImageBoardSearchFastDocumentModel
         mobile_codes_by_cell = {
             cell.cell_index: int(active_mobile_codes[cell.symbol_code])
             for cell in query
@@ -307,9 +346,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
         )
         statement = (
             select(
-                document.review_item_id,
-                document.recognized_board_id,
-                document.import_job_id,
+                *identity_columns,
                 document.sequence_number,
                 document.status,
                 document.board_checksum_sha256,
@@ -328,12 +365,13 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 mismatch.asc(),
                 status_priority.asc(),
                 document.sequence_number.asc(),
-                document.review_item_id.asc(),
+                identity_sort.asc(),
             )
             .limit(limit)
         )
         return tuple(
             BoardSearchResult(
+                asset_mode=asset_mode,
                 review_item_id=review_item_id,
                 recognized_board_id=recognized_board_id,
                 import_job_id=import_job_id,
@@ -365,6 +403,38 @@ class SqlAlchemyBoardSearchProjectionRepository:
             ) in self._session.execute(statement).all()
         )
 
+    def archive_asset(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        expected_checksum_sha256: str,
+    ) -> BoardSearchArchiveAssetReference:
+        state = self._session.get(LegacyBoardSearchArchiveStateModel, game_id)
+        if state is None or state.status != "ready":
+            raise BoardSearchError(
+                "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
+                "The frozen board-search archive is not ready for this game.",
+            )
+        document = self._session.get(
+            LegacyBoardSearchArchiveDocumentModel,
+            (game_id, sequence_number),
+        )
+        if document is None:
+            raise BoardSearchError(
+                "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND",
+                "The archived board image does not exist.",
+            )
+        if document.board_checksum_sha256 != expected_checksum_sha256:
+            raise BoardSearchError(
+                "BOARD_SEARCH_ARCHIVE_ASSET_REVISION_CONFLICT",
+                "The archived board image revision has changed.",
+            )
+        return BoardSearchArchiveAssetReference(
+            relative_path=document.board_relative_path,
+            checksum_sha256=document.board_checksum_sha256,
+        )
+
     def reconcile_review_item(self, review_item_id: UUID) -> None:
         candidate = self._session.get(ImageBoardSearchCandidateModel, review_item_id)
         if candidate is None:
@@ -379,6 +449,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 ImageBoardSearchCandidateModel.game_id == game_id,
                 ImageBoardSearchCandidateModel.sequence_number == sequence_number,
             )
+            .execution_options(populate_existing=True)
         ).all()
         payloads = tuple(_payload_from_candidate(record) for record, _job in rows)
         canonical_review_item_id = self._session.scalar(
@@ -674,6 +745,27 @@ def _payloads_from_rows(
     ):
         latest_predictions[revision.review_item_id] = list(revision.predictions)
 
+    qualified_board_ids = [
+        board.id
+        for _item, board, _source, _job in rows
+        if board.geometry_qualification is not None and board.geometry_revision > 0
+    ]
+    current_geometry: dict[UUID, ImageBoardGeometryRevisionModel] = {}
+    if qualified_board_ids:
+        for geometry_record in session.scalars(
+            select(ImageBoardGeometryRevisionModel)
+            .join(
+                RecognizedBoardModel,
+                (RecognizedBoardModel.id == ImageBoardGeometryRevisionModel.recognized_board_id)
+                & (
+                    RecognizedBoardModel.geometry_revision
+                    == ImageBoardGeometryRevisionModel.revision
+                ),
+            )
+            .where(RecognizedBoardModel.id.in_(qualified_board_ids))
+        ):
+            current_geometry[geometry_record.recognized_board_id] = geometry_record
+
     payloads: list[BoardSearchProjectionPayload] = []
     for item, board, source, job in rows:
         payload = _payload_from_records(
@@ -683,6 +775,7 @@ def _payloads_from_rows(
             job=job,
             observations=observations_by_board[board.id],
             prediction_override=latest_predictions.get(item.id),
+            geometry_revision=current_geometry.get(board.id),
         )
         if payload is not None:
             payloads.append(payload)
@@ -697,6 +790,7 @@ def _payload_from_records(
     job: JobModel,
     observations: Sequence[CellObservationModel],
     prediction_override: Sequence[Mapping[str, object]] | None,
+    geometry_revision: ImageBoardGeometryRevisionModel | None = None,
 ) -> BoardSearchProjectionPayload | None:
     if item.status not in _SEARCHABLE_STATUSES or job.game_id is None:
         return None
@@ -729,11 +823,25 @@ def _payload_from_records(
             raw_predictions = tuple(
                 cast(Mapping[str, object], observation.prediction) for observation in observations
             )
-        parsed = _parse_pending_predictions(raw_predictions)
+        parsed = (
+            _qualified_pending_predictions(
+                board, observations, prediction_override, geometry_revision
+            )
+            if board.geometry_qualification is not None
+            else _parse_pending_predictions(raw_predictions)
+        )
         if parsed is None:
             return None
         primary, alternatives = parsed
         sequence_number = int(board.sequence_number)
+
+    board_identity_checksum = (
+        board.board_checksum_sha256
+        if board.asset_mode == "legacy_file"
+        else board.geometry_checksum_sha256
+    )
+    if board_identity_checksum is None:
+        return None
 
     return BoardSearchProjectionPayload(
         game_id=job.game_id,
@@ -746,10 +854,84 @@ def _payload_from_records(
             primary_symbol_codes=primary,
             alternative_symbol_codes=alternatives,
         ),
-        board_checksum_sha256=board.board_checksum_sha256,
+        board_checksum_sha256=board_identity_checksum,
         board_confidence=board.board_confidence,
         sequence_confidence=board.sequence_confidence,
         source_pixel_count=source.width * source.height,
+    )
+
+
+def _qualified_pending_predictions(
+    board: RecognizedBoardModel,
+    observations: Sequence[CellObservationModel],
+    predictions: Sequence[Mapping[str, object]] | None,
+    revision: ImageBoardGeometryRevisionModel | None,
+) -> tuple[tuple[str | None, ...], tuple[tuple[str | None, ...], ...]] | None:
+    """Keep logical positions, never treat masked or superseded pixels as evidence."""
+    try:
+        qualification = GeometryQualification.from_dict(board.geometry_qualification)
+    except GeometryQualificationError:
+        return None
+    if (
+        qualification.completeness_status != board.completeness_status
+        or qualification.unavailable_cell_indices != tuple(board.unavailable_cell_indices)
+    ):
+        return None
+    unavailable = set(qualification.unavailable_cell_indices)
+    by_index: dict[int, Mapping[str, object]] = {}
+    current_specs: dict[int, object] = {}
+    if board.geometry_revision > 0:
+        manifest = None if revision is None else revision.virtual_render_spec
+        if not isinstance(manifest, Mapping) or not isinstance(manifest.get("cells"), list):
+            return None
+        for cell in cast(list[object], manifest["cells"]):
+            if not isinstance(cell, Mapping) or type(cell.get("cellIndex")) is not int:
+                return None
+            index = cast(int, cell["cellIndex"])
+            if index in current_specs:
+                return None
+            current_specs[index] = cell.get("renderSpecChecksumSha256")
+        if set(current_specs) != set(range(15)) - unavailable:
+            return None
+    else:
+        for observation in observations:
+            index = observation.row_index * 5 + observation.column_index
+            if (
+                index in by_index
+                or not 0 <= observation.row_index < 3
+                or not 0 <= observation.column_index < 5
+            ):
+                return None
+            by_index[index] = observation.prediction
+        if set(by_index) != set(range(15)) - unavailable:
+            return None
+    if predictions is not None:
+        seen: set[int] = set()
+        for prediction in predictions:
+            row, column = prediction.get("rowIndex"), prediction.get("columnIndex")
+            if (
+                type(row) is not int
+                or type(column) is not int
+                or not 0 <= row < 3
+                or not 0 <= column < 5
+            ):
+                return None
+            index = row * 5 + column
+            if index in seen:
+                return None
+            seen.add(index)
+            if index in unavailable:
+                continue
+            virtual = prediction.get("virtualCell")
+            if board.geometry_revision > 0 and (
+                not isinstance(virtual, Mapping)
+                or virtual.get("renderSpecChecksumSha256") != current_specs[index]
+            ):
+                continue
+            by_index[index] = prediction
+    empty: Mapping[str, object] = {"symbolCode": None, "alternatives": []}
+    return _parse_pending_predictions(
+        tuple(empty if index in unavailable else by_index.get(index, empty) for index in range(15))
     )
 
 
@@ -917,7 +1099,11 @@ def _payload_from_candidate(
 
 
 def _search_score_expressions(
-    candidate: type[ImageBoardSearchCandidateModel] | type[ImageBoardSearchFastDocumentModel],
+    candidate: (
+        type[ImageBoardSearchCandidateModel]
+        | type[ImageBoardSearchFastDocumentModel]
+        | type[LegacyBoardSearchArchiveDocumentModel]
+    ),
     query: Sequence[BoardSearchQueryCell],
     *,
     mobile_codes_by_cell: Mapping[int, int],
@@ -1008,7 +1194,9 @@ def _search_score_expressions(
 
 
 def _positive_evidence_expression(
-    document: type[ImageBoardSearchFastDocumentModel],
+    document: (
+        type[ImageBoardSearchFastDocumentModel] | type[LegacyBoardSearchArchiveDocumentModel]
+    ),
     query: Sequence[BoardSearchQueryCell],
     *,
     mobile_codes_by_cell: Mapping[int, int],

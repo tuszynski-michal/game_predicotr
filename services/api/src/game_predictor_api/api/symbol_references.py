@@ -7,7 +7,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from game_predictor_api.application.symbol_references import (
     ApprovedSymbolReferenceService,
@@ -70,11 +70,18 @@ def create_symbol_references_router(
         symbol_id: UUID,
         observation_id: UUID,
         service: Annotated[ApprovedSymbolReferenceService, service_parameter],
-    ) -> FileResponse:
+    ) -> Response:
         candidate = service.candidate(game_id, symbol_id, observation_id)
+        if candidate.is_virtual:
+            rendered = service.virtual_candidate_asset(game_id, symbol_id, observation_id)
+            return Response(
+                content=rendered.content,
+                media_type=rendered.media_type,
+                headers={"Cache-Control": "no-store"},
+            )
         path = resolve_symbol_reference_asset(
             artifact_root,
-            candidate.crop_relative_path,
+            candidate.crop_relative_path or "",
             candidate.crop_checksum_sha256,
         )
         media_type = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from game_predictor_api.application.board_search import BoardSearchService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.board_search import (
+    BoardSearchArchiveAssetReference,
+    BoardSearchAssetMode,
     BoardSearchError,
     BoardSearchQueryCell,
     BoardSearchResult,
@@ -33,6 +37,7 @@ class MemoryBoardSearchRepository:
         self.calls.append((query, scope, limit))
         return (
             BoardSearchResult(
+                asset_mode=BoardSearchAssetMode.OPERATIONAL_REVIEW,
                 review_item_id=uuid4(),
                 recognized_board_id=uuid4(),
                 import_job_id=uuid4(),
@@ -48,6 +53,28 @@ class MemoryBoardSearchRepository:
                     unknown_count=0,
                 ),
             ),
+        )
+
+    def archive_asset(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        expected_checksum_sha256: str,
+    ) -> BoardSearchArchiveAssetReference:
+        if game_id != self.game_id or sequence_number != 37:
+            raise BoardSearchError(
+                "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND",
+                "The archived board image does not exist.",
+            )
+        if expected_checksum_sha256 != "a" * 64:
+            raise BoardSearchError(
+                "BOARD_SEARCH_ARCHIVE_ASSET_REVISION_CONFLICT",
+                "The archived board image revision has changed.",
+            )
+        return BoardSearchArchiveAssetReference(
+            relative_path="legacy-search/37.png",
+            checksum_sha256=expected_checksum_sha256,
         )
 
 
@@ -81,6 +108,7 @@ def test_board_search_endpoint_parses_cells_and_returns_score() -> None:
     assert payload["gameId"] == str(game_id)
     assert payload["scope"] == "all_searchable"
     assert payload["queryCellCount"] == 2
+    assert payload["results"][0]["assetMode"] == "operational_review"
     assert payload["results"][0]["sequenceNumber"] == 37
     assert payload["results"][0]["score"] == {
         "score": 80.0,
@@ -164,3 +192,57 @@ def test_board_search_endpoint_maps_projection_not_ready_to_conflict() -> None:
 
     assert response.status_code == 409
     assert response.json()["code"] == "BOARD_SEARCH_PROJECTION_INCOMPLETE"
+
+
+def test_archived_board_asset_is_checksum_bound(tmp_path: Path) -> None:
+    game_id = uuid4()
+    content = b"archived-board"
+    checksum = hashlib.sha256(content).hexdigest()
+    board_path = tmp_path / "data" / "legacy-board-search" / "37.png"
+    board_path.parent.mkdir(parents=True)
+    board_path.write_bytes(content)
+
+    class ArchiveRepository(MemoryBoardSearchRepository):
+        def archive_asset(
+            self,
+            *,
+            game_id: UUID,
+            sequence_number: int,
+            expected_checksum_sha256: str,
+        ) -> BoardSearchArchiveAssetReference:
+            if expected_checksum_sha256 != checksum:
+                raise BoardSearchError(
+                    "BOARD_SEARCH_ARCHIVE_ASSET_REVISION_CONFLICT",
+                    "The archived board image revision has changed.",
+                )
+            return BoardSearchArchiveAssetReference(
+                relative_path="legacy-board-search/37.png",
+                checksum_sha256=checksum,
+            )
+
+    settings = ApiSettings.from_environment(
+        {
+            "GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path),
+            "GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED": "false",
+        }
+    )
+    repository = ArchiveRepository(game_id)
+    app = create_app(
+        settings,
+        board_search_service_dependency=lambda: BoardSearchService(repository),
+    )
+    with TestClient(app) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{game_id}/board-search/archive-assets/37",
+            params={"expectedBoardChecksumSha256": checksum},
+        )
+        conflict = client.get(
+            f"/api/v1/admin/games/{game_id}/board-search/archive-assets/37",
+            params={"expectedBoardChecksumSha256": "0" * 64},
+        )
+
+    assert response.status_code == 200
+    assert response.content == content
+    assert response.headers["cache-control"] == "private, immutable, max-age=31536000"
+    assert conflict.status_code == 409
+    assert conflict.json()["code"] == "BOARD_SEARCH_ARCHIVE_ASSET_REVISION_CONFLICT"

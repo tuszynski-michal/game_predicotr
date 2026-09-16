@@ -30,6 +30,11 @@ class ImageGridReviewCursorDirection(StrEnum):
     BEFORE = "before"
 
 
+class ImageGridReviewSlotKind(StrEnum):
+    CURRENT_REVIEW = "current_review"
+    DEFERRED_GEOMETRY = "deferred_geometry"
+
+
 class ImageGridReviewError(ValueError):
     """Stable geometry-review failure for later persistence and HTTP adapters."""
 
@@ -58,14 +63,20 @@ class ImageGridReviewListFilter:
     game_id: UUID
     view: ImageGridReviewView
     import_job_id: UUID | None
+    source_image_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class ImageGridReviewListItem:
-    review_item_id: UUID
+    slot_id: UUID
+    slot_kind: ImageGridReviewSlotKind
+    review_item_id: UUID | None
     game_id: UUID
     import_job_id: UUID
-    recognized_board_id: UUID
+    recognized_board_id: UUID | None
+    pending_geometry_id: UUID | None
+    source_image_id: UUID
+    position_index: int
     sequence_number: int
     source_checksum_sha256: str
     source_width: int
@@ -75,11 +86,16 @@ class ImageGridReviewListItem:
     resolution_revision: int
     topology: BoardTopology
     geometry: Mapping[str, object]
+    asset_mode: str
+    geometry_engine_name: str | None
+    geometry_engine_version: str | None
+    board_confidence: float
+    reason_codes: tuple[str, ...]
     state: ImageGridReviewState
 
     @property
     def cursor_key(self) -> tuple[int, str]:
-        return self.sequence_number, str(self.review_item_id)
+        return self.sequence_number, str(self.slot_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +103,13 @@ class ImageGridReviewCounts:
     needs_validation: int
     needs_correction: int
     approved: int
+    full_grids: int | None = None
+    lateral_partial_proposals: int = 0
+    confirmed_partial_grids: int = 0
+
+    @property
+    def manual_correction(self) -> int:
+        return self.needs_correction
 
     @property
     def total(self) -> int:
@@ -104,6 +127,7 @@ class ImageGridReviewPage:
 @dataclass(frozen=True, slots=True)
 class ImageGridReviewSourceAsset:
     review_item_id: UUID
+    source_image_id: UUID
     source_relative_path: str
     source_checksum_sha256: str
     source_width: int
@@ -111,12 +135,37 @@ class ImageGridReviewSourceAsset:
     geometry_revision: int
     resolution_revision: int
     topology: BoardTopology
+    asset_mode: str = "legacy_file"
 
 
 @dataclass(frozen=True, slots=True)
 class ImageGridApprovalResult:
     item: ImageGridReviewListItem
     changed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ImageGridReviewSourceApprovalTarget:
+    """Exact, client-observed identity of one active board slot of a source."""
+
+    review_item_id: UUID
+    expected_resolution_revision: int
+    expected_geometry_revision: int
+    expected_source_checksum_sha256: str
+    expected_source_width: int
+    expected_source_height: int
+    expected_grid_rows: int
+    expected_grid_columns: int
+
+
+@dataclass(frozen=True, slots=True)
+class ImageGridSourceApprovalResult:
+    source_image_id: UUID
+    approved_review_item_ids: tuple[UUID, ...]
+
+    @property
+    def changed_count(self) -> int:
+        return len(self.approved_review_item_ids)
 
 
 def derive_image_grid_review(
@@ -188,6 +237,9 @@ def encode_image_grid_review_cursor(
         "importJobId": (
             None if review_filter.import_job_id is None else str(review_filter.import_job_id)
         ),
+        "sourceImageId": (
+            None if review_filter.source_image_id is None else str(review_filter.source_image_id)
+        ),
         "key": list(key),
         "version": 1,
         "view": review_filter.view.value,
@@ -211,6 +263,9 @@ def decode_image_grid_review_cursor(
         parsed_import_job_id = (
             None if payload["importJobId"] is None else UUID(payload["importJobId"])
         )
+        parsed_source_image_id = (
+            None if payload.get("sourceImageId") is None else UUID(payload["sourceImageId"])
+        )
         parsed_direction = ImageGridReviewCursorDirection(payload["direction"])
         parsed_view = ImageGridReviewView(payload["view"])
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
@@ -222,6 +277,7 @@ def decode_image_grid_review_cursor(
         payload.get("version") != 1
         or parsed_game_id != review_filter.game_id
         or parsed_import_job_id != review_filter.import_job_id
+        or parsed_source_image_id != review_filter.source_image_id
         or parsed_direction is not direction
         or parsed_view is not review_filter.view
     ):
@@ -254,6 +310,8 @@ def decode_image_grid_review_cursor(
 __all__ = [
     "ImageGridApprovalTransition",
     "ImageGridApprovalResult",
+    "ImageGridReviewSourceApprovalTarget",
+    "ImageGridSourceApprovalResult",
     "ImageGridReview",
     "ImageGridReviewCounts",
     "ImageGridReviewCursorDirection",
@@ -261,6 +319,7 @@ __all__ = [
     "ImageGridReviewListFilter",
     "ImageGridReviewListItem",
     "ImageGridReviewPage",
+    "ImageGridReviewSlotKind",
     "ImageGridReviewSourceAsset",
     "ImageGridReviewState",
     "ImageGridReviewView",

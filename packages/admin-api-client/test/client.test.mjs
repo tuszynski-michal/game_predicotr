@@ -3,6 +3,52 @@ import test from 'node:test';
 
 import { createAdminApiClient } from '../src/index.ts';
 
+test('qualified guard commands retain signed corners and all-missing mask', async () => {
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(await request.clone().json());
+      return Response.json({ decisions: [], cells: [] });
+    },
+  });
+  const geometryQualification = {
+    version: 'manual-geometry-qualification-v1',
+    completenessStatus: 'pending_partial',
+    unavailableCellIndices: Array.from({ length: 15 }, (_, i) => i),
+    excludeFromGeometryTraining: true,
+    exclusionReason: 'missing_pixels',
+  };
+  const slot = {
+    sourceChecksumSha256: 'a'.repeat(64),
+    positionIndex: 0,
+    sequenceNumber: 1,
+    disposition: 'partial',
+    geometryQualification,
+    unavailableCellIndices: geometryQualification.unavailableCellIndices,
+    symbolGridQuad: [
+      { x: -10, y: 0 },
+      { x: 0, y: 0 },
+      { x: 0, y: 100 },
+      { x: -10, y: 100 },
+    ],
+  };
+  const body = {
+    gameId: 'game',
+    expectedGuardReportChecksumSha256: 'b'.repeat(64),
+    actor: 'operator',
+    decisions: [slot],
+  };
+  await client.createImageGeometryGuardDecisions('staging', 'guard', body);
+  await client.previewImageGeometryGuardDecision('staging', 'guard', {
+    gameId: 'game',
+    ...slot,
+  });
+  assert.deepEqual(requests[0], body);
+  assert.deepEqual(requests[1].geometryQualification, geometryQualification);
+  assert.equal(requests[1].symbolGridQuad[0].x, -10);
+});
+
 test('generated client previews, starts and reads durable symbol review operations', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';
@@ -534,85 +580,39 @@ test('generated client reads both local worker lanes', async () => {
   );
 });
 
-test('generated client selects a folder and creates its image import', async () => {
-  const requests = [];
+test('generated client starts a ready browser import with checksum-bound geometry', async () => {
+  let captured;
   const gameId = '11111111-1111-4111-8111-111111111111';
-  const mockFetch = async (request) => {
-    requests.push(request);
-    const path = new URL(request.url).pathname;
-    if (path.endsWith('/folder-selection')) {
-      return Response.json({
-        expiresAt: '2026-07-31T12:15:00Z',
-        path: 'C:\\photos',
-        selectionToken: 'approved-token',
-        status: 'selected',
-        supportedFileCount: 2,
-      });
-    }
-    return Response.json(
-      {
-        job: {
-          id: '22222222-2222-4222-8222-222222222222',
-          jobType: 'import',
-          gameId,
-          status: 'created',
-          inputPayload: {
-            schemaVersion: 1,
-            importKind: 'image_directory',
-            sourceSelectionId: '33333333-3333-4333-8333-333333333333',
-            sourceDirectory: 'C:\\photos',
-            sourceDisplayName: 'photos',
-            pipelineFingerprint: 'a'.repeat(64),
-          },
-          progress: {
-            current: 0,
-            total: null,
-            stage: null,
-            succeeded: 0,
-            failed: 0,
-            review: 0,
-          },
-          error: null,
-          workerVersion: null,
-          attemptCount: 0,
-          heartbeatAt: null,
-          leaseExpiresAt: null,
-          createdAt: '2026-07-31T12:00:00Z',
-          updatedAt: '2026-07-31T12:00:00Z',
-          startedAt: null,
-          finishedAt: null,
-          cancelRequestedAt: null,
-        },
-      },
-      { status: 201 },
-    );
+  const uploadId = '33333333-3333-4333-8333-333333333333';
+  const body = {
+    gameId,
+    manifestChecksumSha256: 'a'.repeat(64),
+    preflightChecksumSha256: 'b'.repeat(64),
+    geometryEngineVariant: 'selective_board_review_v1_1',
   };
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000',
-    fetch: mockFetch,
+    fetch: async (request) => {
+      captured = request;
+      return Response.json(
+        { created: true, job: {}, preflight: {} },
+        { status: 202 },
+      );
+    },
   });
 
-  await client.selectLocalImageFolder();
-  await client.createImageFolderImport({
-    gameId,
-    selectionToken: 'approved-token',
-  });
+  await client.startReadyBrowserImageImport(uploadId, body);
 
-  assert.deepEqual(
-    requests.map((request) => [request.method, new URL(request.url).pathname]),
-    [
-      ['POST', '/api/v1/admin/image-imports/folder-selection'],
-      ['POST', '/api/v1/admin/image-imports'],
-    ],
+  assert.equal(captured.method, 'POST');
+  assert.equal(
+    new URL(captured.url).pathname,
+    `/api/v1/admin/image-imports/browser-selections/${uploadId}/start`,
   );
   assert.equal(
-    requests[0].headers.get('X-Admin-Target'),
-    'image-folder:select',
-  );
-  assert.equal(
-    requests[1].headers.get('X-Admin-Target'),
+    captured.headers.get('X-Admin-Target'),
     `image-import:${gameId}`,
   );
+  assert.deepEqual(await captured.json(), body);
 });
 
 test('generated client reprocesses a managed image import with explicit confirmation', async () => {
@@ -636,6 +636,12 @@ test('generated client reprocesses a managed image import with explicit confirma
   assert.equal(
     captured.headers.get('X-Admin-Target'),
     `image-import:${sourceJobId}:reprocess`,
+  );
+  assert.equal(new URL(captured.url).search, '');
+  await client.reprocessManagedImageImport(sourceJobId, true);
+  assert.equal(
+    new URL(captured.url).searchParams.get('continueWithManualGeometry'),
+    'true',
   );
 });
 
@@ -1977,6 +1983,7 @@ test('grid review client binds keyset, source identity and topology-aware writes
   const gameId = '11111111-1111-4111-8111-111111111111';
   const importJobId = '22222222-2222-4222-8222-222222222222';
   const reviewItemId = '33333333-3333-4333-8333-333333333333';
+  const sourceImageId = '55555555-5555-4555-8555-555555555555';
   const checksum = 'a'.repeat(64);
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000',
@@ -2013,6 +2020,7 @@ test('grid review client binds keyset, source identity and topology-aware writes
     gameId,
     importJobId,
     limit: 25,
+    sourceImageId,
     view: 'needs_validation',
   });
   await client.getImageGridReviewSourceAsset(reviewItemId, gameId, checksum);
@@ -2038,6 +2046,30 @@ test('grid review client binds keyset, source identity and topology-aware writes
       idempotencyKey: '44444444-4444-4444-8444-444444444444',
     },
   );
+  const sourceApprovalTarget = {
+    expectedGeometryRevision: geometry.expectedGeometryRevision,
+    expectedGridColumns: geometry.expectedGridColumns,
+    expectedGridRows: geometry.expectedGridRows,
+    expectedResolutionRevision: geometry.expectedResolutionRevision,
+    expectedSourceChecksumSha256: geometry.expectedSourceChecksumSha256,
+    expectedSourceHeight: geometry.expectedSourceHeight,
+    expectedSourceWidth: geometry.expectedSourceWidth,
+    reviewItemId,
+  };
+  const sourceGeometryTarget = { ...geometry, reviewItemId };
+  await client.approveImageGridReviewSourceGeometry(gameId, {
+    sourceImageId,
+    targets: [sourceApprovalTarget],
+  });
+  await client.createImageGridReviewSourceGeometryRevision(
+    gameId,
+    { gameId, importJobId },
+    {
+      idempotencyKey: '66666666-6666-4666-8666-666666666666',
+      sourceImageId,
+      targets: [sourceGeometryTarget],
+    },
+  );
 
   assert.deepEqual(
     requests.map((request) => [request.method, new URL(request.url).pathname]),
@@ -2050,17 +2082,35 @@ test('grid review client binds keyset, source identity and topology-aware writes
         'POST',
         `/api/v1/admin/image-reviews/${reviewItemId}/geometry-revisions`,
       ],
+      [
+        'POST',
+        `/api/v1/admin/games/${gameId}/grid-reviews/source-geometry-approval`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/games/${gameId}/grid-reviews/source-geometry-revisions`,
+      ],
     ],
   );
   const listQuery = new URL(requests[0].url).searchParams;
   assert.equal(listQuery.get('afterCursor'), 'cursor');
   assert.equal(listQuery.get('importJobId'), importJobId);
+  assert.equal(listQuery.get('sourceImageId'), sourceImageId);
   assert.equal(listQuery.get('view'), 'needs_validation');
   assert.equal(
     new URL(requests[1].url).searchParams.get('expectedSourceChecksumSha256'),
     checksum,
   );
   assert.equal('correctedBy' in (await requests[4].clone().json()), false);
+  assert.deepEqual(await requests[5].clone().json(), {
+    sourceImageId,
+    targets: [sourceApprovalTarget],
+  });
+  assert.deepEqual(await requests[6].clone().json(), {
+    idempotencyKey: '66666666-6666-4666-8666-666666666666',
+    sourceImageId,
+    targets: [sourceGeometryTarget],
+  });
 });
 
 test('generated client exposes the checksum-bound deferred geometry workflow', async () => {
@@ -2277,6 +2327,59 @@ test('symbol cell review client binds the keyset filter and checksum asset URL',
     client.symbolCellReviewAssetUrl(gameId, cellReviewId, checksum),
     `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/symbol-cell-reviews/${cellReviewId}/asset?expectedCropChecksumSha256=${checksum}&thumbnailSize=100`,
   );
+  const virtualUrl = new URL(
+    client.symbolCellReviewAssetUrl(
+      gameId,
+      cellReviewId,
+      checksum,
+      'b'.repeat(64),
+    ),
+  );
+  assert.equal(
+    virtualUrl.searchParams.get('expectedCropChecksumSha256'),
+    checksum,
+  );
+  assert.equal(
+    virtualUrl.searchParams.get('expectedRenderSpecChecksumSha256'),
+    'b'.repeat(64),
+  );
+});
+
+test('symbol cell review client forwards abort signals for list and count reads', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const pageController = new AbortController();
+  const countsController = new AbortController();
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        catalogRevision: 2,
+        counts: { allCount: 1, approvedCount: 0, pendingCount: 1 },
+        items: [],
+        nextCursor: null,
+        previousCursor: null,
+      });
+    },
+  });
+
+  await client.listSymbolCellReviews({
+    gameId,
+    signal: pageController.signal,
+    symbolId: 'unknown',
+  });
+  await client.getSymbolCellReviewCounts({
+    catalogRevision: 2,
+    gameId,
+    signal: countsController.signal,
+    symbolId: 'unknown',
+  });
+
+  pageController.abort();
+  countsController.abort();
+  assert.equal(requests[0].signal.aborted, true);
+  assert.equal(requests[1].signal.aborted, true);
 });
 
 test('symbol cell review client reads and starts durable projection preparation', async () => {
@@ -2433,6 +2536,176 @@ test('manual image selection uses scoped binary upload and idempotent approval',
   });
 });
 
+test('semi-automatic output reads a checksum-bound source and acknowledges exact bytes', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const checksum = 'a'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      if (new URL(request.url).pathname.endsWith('/ranges')) {
+        return Response.json({ items: [], nextAfterExpectedIndex: null });
+      }
+      return request.method === 'GET'
+        ? new Response(new Blob(['jpeg'], { type: 'image/jpeg' }))
+        : Response.json({ revision: 2, status: 'output_synced' });
+    },
+  });
+
+  await client.getSemiAutomaticImageSelectionSourceAsset(runId, 12, checksum);
+  await client.listSemiAutomaticImageSelectionRanges(runId, 499, 500);
+  await client.acknowledgeSemiAutomaticImageSelectionOutput(runId, 3, {
+    expectedRevision: 1,
+    expectedSourceChecksumSha256: checksum,
+    outputChecksumSha256: checksum,
+    sourceIndex: 12,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'GET',
+        `/api/v1/admin/semi-automatic-image-selections/${runId}/sources/12/asset`,
+      ],
+      ['GET', `/api/v1/admin/semi-automatic-image-selections/${runId}/ranges`],
+      [
+        'POST',
+        `/api/v1/admin/semi-automatic-image-selections/${runId}/ranges/3/output-acknowledgements`,
+      ],
+    ],
+  );
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('expected_checksum_sha256'),
+    checksum,
+  );
+  assert.equal(
+    new URL(requests[1].url).searchParams.get('after_expected_index'),
+    '499',
+  );
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '500');
+  assert.deepEqual(await requests[2].clone().json(), {
+    expectedRevision: 1,
+    expectedSourceChecksumSha256: checksum,
+    outputChecksumSha256: checksum,
+    sourceIndex: 12,
+  });
+});
+
+test('semi-automatic selection client binds capabilities, lifecycle, and run controls', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  await client.getSemiAutomaticImageSelectionCapabilities();
+  await client.createSemiAutomaticImageSelection({
+    direction: 'descending',
+    firstSequenceNumber: 1,
+    lastSequenceNumber: 99,
+    uploadId: '33333333-3333-4333-8333-333333333333',
+  });
+  await client.getSemiAutomaticImageSelection(runId);
+  await client.pauseSemiAutomaticImageSelection(runId);
+  await client.resumeSemiAutomaticImageSelection(runId);
+  await client.cancelSemiAutomaticImageSelection(runId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', '/api/v1/admin/semi-automatic-image-selections/capabilities'],
+      ['POST', '/api/v1/admin/semi-automatic-image-selections'],
+      ['GET', `/api/v1/admin/semi-automatic-image-selections/${runId}`],
+      ['POST', `/api/v1/admin/semi-automatic-image-selections/${runId}/pause`],
+      ['POST', `/api/v1/admin/semi-automatic-image-selections/${runId}/resume`],
+      ['POST', `/api/v1/admin/semi-automatic-image-selections/${runId}/cancel`],
+    ],
+  );
+  assert.deepEqual(await requests[1].clone().json(), {
+    direction: 'descending',
+    firstSequenceNumber: 1,
+    lastSequenceNumber: 99,
+    uploadId: '33333333-3333-4333-8333-333333333333',
+  });
+});
+
+test('filename range verification client lists history and saves a checksum-bound decision', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const checksum = 'a'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  await client.listSemiAutomaticImageSelections(
+    'filename_verification',
+    20,
+    20,
+  );
+  await client.decideSemiAutomaticFilenameRangeVerification(runId, 12, {
+    decision: 'keep',
+    expectedRevision: 0,
+    expectedSourceChecksumSha256: checksum,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', '/api/v1/admin/semi-automatic-image-selections'],
+      [
+        'PUT',
+        `/api/v1/admin/semi-automatic-image-selections/${runId}/filename-verifications/12/review-decision`,
+      ],
+    ],
+  );
+  assert.deepEqual(Object.fromEntries(new URL(requests[0].url).searchParams), {
+    limit: '20',
+    offset: '20',
+    workflowMode: 'filename_verification',
+  });
+  assert.deepEqual(await requests[1].clone().json(), {
+    decision: 'keep',
+    expectedRevision: 0,
+    expectedSourceChecksumSha256: checksum,
+  });
+});
+
+test('filename range verification history deletion sends the scoped confirmation headers', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  await client.deleteSemiAutomaticFilenameVerificationHistory(runId);
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'DELETE');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/semi-automatic-image-selections/${runId}/filename-verification-history`,
+  );
+  assert.equal(requests[0].headers.get('X-Admin-Confirmation'), 'confirmed');
+  assert.equal(
+    requests[0].headers.get('X-Admin-Target'),
+    `filename-verification:${runId}`,
+  );
+});
+
 test('image selection review queues use scoped idempotent decisions', async () => {
   const requests = [];
   const runId = '22222222-2222-4222-8222-222222222222';
@@ -2571,5 +2844,15 @@ test('board search builds only a scoped board-crop asset URL for a result', () =
       },
     ),
     'http://127.0.0.1:8000/api/v1/admin/image-review-items/22222222-2222-4222-8222-222222222222/assets/board?gameId=11111111-1111-4111-8111-111111111111&importJobId=33333333-3333-4333-8333-333333333333',
+  );
+
+  assert.equal(
+    client.archivedBoardSearchAssetUrl(
+      '11111111-1111-4111-8111-111111111111',
+      45163,
+      'a'.repeat(64),
+    ),
+    'http://127.0.0.1:8000/api/v1/admin/games/11111111-1111-4111-8111-111111111111/board-search/archive-assets/45163?expectedBoardChecksumSha256=' +
+      'a'.repeat(64),
   );
 });

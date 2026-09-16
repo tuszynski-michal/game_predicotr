@@ -607,3 +607,22 @@ def test_one_file_failure_is_isolated_and_retry_resumes_exact_stage() -> None:
         ).succeeded
         == 2
     )
+
+
+def test_failure_only_batch_is_failed_instead_of_presented_for_review() -> None:
+    job = _leased_image_job()
+    store = MemoryImageBatchStore()
+    store.register(
+        job.id,
+        checksum="1" * 64,
+        pipeline_fingerprint=PIPELINE_FINGERPRINT,
+        path="session/page-001.jpg",
+        order_index=0,
+    )
+    context = RecordingContext(job)
+
+    with pytest.raises(JobHandlerError) as raised:
+        ImageBatchHandler(store, FailOnceExecutor())(cast(object, context), job)
+
+    assert raised.value.code == "IMAGE_BATCH_ALL_SOURCES_FAILED"
+    assert context.waiting is False

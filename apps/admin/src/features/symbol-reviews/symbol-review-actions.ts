@@ -1,5 +1,6 @@
 import type {
   GameResponse,
+  SymbolCellReviewCountSnapshotResponse,
   SymbolCellReviewFilterState,
   SymbolCellReviewPageResponse,
   SymbolCellReviewProjectionStartResponse,
@@ -11,16 +12,19 @@ import type { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 
-import { SYMBOL_REVIEW_PAGE_SIZE } from './symbol-review-state.ts';
-
 export type SymbolReviewClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
   | 'listGames'
   | 'listSymbols'
   | 'listSymbolCellReviews'
+  | 'getSymbolCellReviewCounts'
   | 'getSymbolCellReviewProjectionStatus'
   | 'startSymbolCellReviewProjectionBackfill'
   | 'symbolCellReviewAssetUrl'
+  | 'createSymbolCellPreviewBatch'
+  | 'symbolCellPreviewAtlasUrl'
+  | 'createVirtualCellPreviewBatch'
+  | 'virtualCellPreviewAtlasUrl'
 >;
 
 export type SymbolReviewProjectionResult =
@@ -88,17 +92,41 @@ export interface LoadSymbolReviewPageOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly gameId: string;
+  readonly limit: number;
+  readonly maxConfidence?: number;
+  readonly minConfidence?: number;
+  readonly signal?: AbortSignal;
   readonly state: SymbolCellReviewFilterState;
-  readonly symbolId: string | 'unknown';
+  readonly symbolId: string | 'all' | 'unknown';
 }
+
+export interface LoadSymbolReviewCountsOptions {
+  readonly catalogRevision: number;
+  readonly gameId: string;
+  readonly maxConfidence?: number;
+  readonly minConfidence?: number;
+  readonly signal?: AbortSignal;
+  readonly state: SymbolCellReviewFilterState;
+  readonly symbolId: string | 'all' | 'unknown';
+}
+
+export type SymbolReviewCountsResult =
+  | {
+      readonly ok: true;
+      readonly snapshot: SymbolCellReviewCountSnapshotResponse;
+    }
+  | { readonly aborted: true; readonly ok: false }
+  | { readonly aborted?: false; readonly error: string; readonly ok: false };
 
 export type SymbolReviewPageResult =
   | { readonly ok: true; readonly page: SymbolCellReviewPageResponse }
   | {
+      readonly aborted?: false;
       readonly error: string;
       readonly isProjectionRebuilding: boolean;
       readonly ok: false;
-    };
+    }
+  | { readonly aborted: true; readonly ok: false };
 
 export async function loadSymbolReviewGames(
   api: SymbolReviewClient,
@@ -175,7 +203,6 @@ export async function loadSymbolReviewPage(
   try {
     const result = await api.listSymbolCellReviews({
       ...options,
-      limit: SYMBOL_REVIEW_PAGE_SIZE,
     });
     if (result.error !== undefined || result.data === undefined) {
       return {
@@ -192,9 +219,39 @@ export async function loadSymbolReviewPage(
     }
     return { ok: true, page: result.data };
   } catch {
+    if (options.signal?.aborted === true) {
+      return { aborted: true, ok: false };
+    }
     return {
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',
       isProjectionRebuilding: false,
+      ok: false,
+    };
+  }
+}
+
+export async function loadSymbolReviewCounts(
+  api: SymbolReviewClient,
+  options: LoadSymbolReviewCountsOptions,
+): Promise<SymbolReviewCountsResult> {
+  try {
+    const result = await api.getSymbolCellReviewCounts(options);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać liczników weryfikacji.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, snapshot: result.data };
+  } catch {
+    if (options.signal?.aborted === true) {
+      return { aborted: true, ok: false };
+    }
+    return {
+      error: 'Nie udało się pobrać liczników weryfikacji.',
       ok: false,
     };
   }

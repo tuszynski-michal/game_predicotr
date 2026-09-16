@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import importlib
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, cast
 
+import cv2
 import numpy as np
 import onnx
 import onnxruntime as ort  # type: ignore[import-untyped]
@@ -295,6 +296,41 @@ class LocalSymbolOnnxAdapter:
             probabilities=probabilities.astype(np.float32, copy=False),
             class_indexes=np.argmax(logits, axis=1).astype(np.int64, copy=False),
         )
+
+
+def preprocess_rgb_batch(
+    images: Sequence[NDArray[np.uint8]],
+    *,
+    input_size: int,
+) -> NDArray[np.float32]:
+    """Build one bounded NCHW batch without persistent intermediate crops."""
+
+    if not images or input_size < 1:
+        raise SymbolOnnxError(
+            "SYMBOL_ONNX_INPUT_INVALID",
+            "Symbol preprocessing requires at least one RGB image and a positive input size.",
+        )
+    batch = np.empty((len(images), 3, input_size, input_size), dtype=np.float32)
+    for index, rgb in enumerate(images):
+        if (
+            not isinstance(rgb, np.ndarray)
+            or rgb.dtype != np.uint8
+            or rgb.ndim != 3
+            or rgb.shape[2] != 3
+        ):
+            raise SymbolOnnxError(
+                "SYMBOL_ONNX_INPUT_INVALID",
+                "Symbol preprocessing requires RGB uint8 images.",
+            )
+        model_rgb = (
+            rgb
+            if rgb.shape[:2] == (input_size, input_size)
+            else cv2.resize(rgb, (input_size, input_size), interpolation=cv2.INTER_AREA)
+        )
+        chw = model_rgb.transpose(2, 0, 1).astype(np.float32, copy=False)
+        np.multiply(chw, 1.0 / 127.5, out=batch[index])
+        batch[index] -= 1.0
+    return batch
 
 
 def tensor_batch_to_numpy(value: Tensor) -> NDArray[np.float32]:

@@ -1,7 +1,7 @@
 ---
 title: Symbol cell review scalability analysis
 status: accepted
-last_updated: 2026-08-26
+last_updated: 2026-09-07
 ---
 
 # Teoretyczna analiza skali masowej weryfikacji symboli
@@ -67,18 +67,29 @@ rewizji katalogu oraz wykluczenia; nie przenosi do przeglądarki wszystkich
 identyfikatorów. Jawne zaznaczenie ma twardy limit 10 000 checksum-bound
 tożsamości.
 
-### Znane ograniczenie wydajności
+### Pomiar i optymalizacja liczników
 
-Odpowiedź listy zawiera także liczniki. Obecna implementacja
-`SqlAlchemySymbolCellReviewQueryRepository.counts` wykonuje `GROUP BY` dla
-całego aktualnego filtra. Strona z 60 pozycjami pozostaje więc bounded, ale
-jej liczniki mogą wymagać skanu wszystkich pasujących komórek. Kod i indeksy
-nie pozwalają statycznie zagwarantować czasu p95 na 2 000 010 komórek.
+TASK-0500 wykonał odczytowe pomiary na bieżącej bazie operatora: 7 518 540
+komórek łącznie, w tym 6 304 230 dla największej gry i 6 220 575 widocznych
+komórek jej aktualnego właściciela. Historyczne zapytanie szerokiego licznika
+łączyło `recognized_boards` dla każdej komórki i sortowało wynik przed
+`GROUP BY`; `EXPLAIN (ANALYZE, BUFFERS)` osiągnął około 28,7 s na zimniejszym
+przebiegu, a kontrolny przebieg wartości około 18,1 s.
 
-Przed uruchomieniem masowej pracy na skali większej niż lokalne dane należy
-osobno rozstrzygnąć, czy pomiar wskazuje potrzebę osobnego read modelu
-liczników, kontrolowanego cache lub innej optymalizacji. Nie należy zgadywać
-jej skutku ani implementować jej bez tego dowodu.
+Szeroki licznik całej gry bez confidence wykorzystuje teraz zweryfikowany stan
+projekcji `ready`, nadal łączy kanonicznego właściciela z
+`image_board_search_fast_documents`, lecz pomija redundantny per-cell lookup
+geometrii. Dwa `COUNT(*) FILTER` wyliczają stany bez `GROUP BY`. Rzeczywisty
+odczyt przez produkcyjny `bounded_read` zakończył się w 4,669 s i zwrócił
+6 220 575 wszystkich, 38 542 zatwierdzone oraz 6 182 033 oczekujące komórki,
+czyli identyczne wartości jak zapytanie kontrolne i poniżej limitu 15 s.
+
+Nie rozszerzono tego uproszczenia na symbol, `?`, confidence ani aktywną
+kohortę. Pomiary pokazały, że ich selektywne plany z pełnym joinem geometrii są
+równie szybkie lub szybsze; przykładowy filtr confidence bez niego wzrósł z
+około 10,4 s do około 15,0 s. Lista, assety i mutacje nadal zawsze sprawdzają
+bieżącą rewizję planszy. Osobny read model, cache i migracja nie są obecnie
+uzasadnione.
 
 ## Operacje masowe i recovery
 

@@ -23,7 +23,11 @@ def test_image_orchestration_migration_has_reversible_constraints() -> None:
     upgrade_output = StringIO()
     downgrade_output = StringIO()
 
-    command.upgrade(_config(upgrade_output), "head", sql=True)
+    command.upgrade(
+        _config(upgrade_output),
+        f"{PREVIOUS_REVISION}:{REVISION}",
+        sql=True,
+    )
     command.downgrade(
         _config(downgrade_output),
         f"{REVISION}:{PREVIOUS_REVISION}",

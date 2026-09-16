@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter, defaultdict
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID, uuid4
 
 from game_predictor_worker.symbols.training_dataset import (
+    CLASS_STRATIFIED_SPLIT_POLICY_VERSION,
+    CLASS_STRATIFIED_SPLIT_SEED,
     SPLIT_ORDER,
     SplitName,
     TrainingDatasetConfig,
-    build_balanced_source_assignments,
+    build_class_stratified_source_assignments,
 )
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -35,7 +39,9 @@ from game_predictor_api.storage.job_repository import job_from_record, job_recor
 from game_predictor_api.storage.models import (
     GameModel,
     JobModel,
+    SourceImageModel,
     SymbolModelIterationModel,
+    VerifiedTrainingCohortCellModel,
     VerifiedTrainingCohortItemModel,
     VerifiedTrainingCohortModel,
 )
@@ -47,6 +53,66 @@ _ACTIVE = (
     SymbolModelIterationStatus.TRAINED.value,
     SymbolModelIterationStatus.EVALUATING.value,
 )
+
+
+def _cohort_source_checksums(session: Session, cohort_id: UUID) -> tuple[str, ...]:
+    """Return source families for both legacy-board and individual-cell cohorts."""
+
+    legacy_checksums = session.scalars(
+        select(VerifiedTrainingCohortItemModel.source_checksum_sha256).where(
+            VerifiedTrainingCohortItemModel.cohort_id == cohort_id
+        )
+    ).all()
+    cell_checksums = session.scalars(
+        select(SourceImageModel.checksum_sha256)
+        .join(
+            VerifiedTrainingCohortCellModel,
+            VerifiedTrainingCohortCellModel.source_image_id == SourceImageModel.id,
+        )
+        .where(VerifiedTrainingCohortCellModel.cohort_id == cohort_id)
+    ).all()
+    return tuple(sorted(set(legacy_checksums).union(cell_checksums)))
+
+
+def _cohort_source_symbol_counts(session: Session, cohort_id: UUID) -> dict[str, dict[str, int]]:
+    """Return immutable symbol incidence for each source family in a cohort."""
+
+    counts: defaultdict[str, Counter[str]] = defaultdict(Counter)
+    legacy_rows = session.execute(
+        select(
+            VerifiedTrainingCohortItemModel.source_checksum_sha256,
+            VerifiedTrainingCohortItemModel.board_manifest,
+        ).where(VerifiedTrainingCohortItemModel.cohort_id == cohort_id)
+    ).all()
+    for source_checksum, raw_manifest in legacy_rows:
+        if not isinstance(raw_manifest, Mapping):
+            continue
+        raw_cells = raw_manifest.get("cells")
+        if not isinstance(raw_cells, list):
+            continue
+        for raw_cell in raw_cells:
+            if not isinstance(raw_cell, Mapping):
+                continue
+            symbol_code = raw_cell.get("symbolCode")
+            if isinstance(symbol_code, str) and symbol_code:
+                counts[str(source_checksum)][symbol_code] += 1
+    cell_rows = session.execute(
+        select(
+            SourceImageModel.checksum_sha256,
+            VerifiedTrainingCohortCellModel.symbol_code,
+        )
+        .join(
+            VerifiedTrainingCohortCellModel,
+            VerifiedTrainingCohortCellModel.source_image_id == SourceImageModel.id,
+        )
+        .where(VerifiedTrainingCohortCellModel.cohort_id == cohort_id)
+    ).all()
+    for source_checksum, symbol_code in cell_rows:
+        counts[str(source_checksum)][str(symbol_code)] += 1
+    return {
+        source: dict(sorted(symbol_counts.items()))
+        for source, symbol_counts in sorted(counts.items())
+    }
 
 
 class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
@@ -71,13 +137,7 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
                 "TRAINING_COHORT_GAME_MISMATCH", "Cohort belongs to another game."
             )
         model_payload = configuration.to_payload()
-        source_checksums = tuple(
-            self._session.scalars(
-                select(VerifiedTrainingCohortItemModel.source_checksum_sha256)
-                .where(VerifiedTrainingCohortItemModel.cohort_id == cohort_id)
-                .order_by(VerifiedTrainingCohortItemModel.source_checksum_sha256)
-            ).all()
-        )
+        source_symbol_counts = _cohort_source_symbol_counts(self._session, cohort_id)
         prior_assignments: dict[str, SplitName] = {}
         prior_rows = self._session.scalars(
             select(SymbolModelIterationModel)
@@ -87,6 +147,8 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
         for prior in prior_rows:
             raw_dataset = prior.configuration_payload.get("dataset")
             if isinstance(raw_dataset, dict):
+                if raw_dataset.get("splitPolicyVersion") != CLASS_STRATIFIED_SPLIT_POLICY_VERSION:
+                    continue
                 raw = raw_dataset.get("sourceAssignments")
                 if isinstance(raw, dict):
                     prior_assignments = {
@@ -95,11 +157,13 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
                         if (split_name := str(split)) in SPLIT_ORDER
                     }
                     break
-        assignments = build_balanced_source_assignments(
-            source_checksums,
+        assignments = build_class_stratified_source_assignments(
+            source_symbol_counts,
             existing=prior_assignments,
         )
         dataset_payload = TrainingDatasetConfig(
+            seed=CLASS_STRATIFIED_SPLIT_SEED,
+            split_policy_version=CLASS_STRATIFIED_SPLIT_POLICY_VERSION,
             source_assignments=assignments,
         ).to_dict()
         payload = {**model_payload, "dataset": dataset_payload}

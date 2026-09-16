@@ -1,10 +1,2027 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-29
+last_updated: 2026-09-16
 ---
 
 # Current State
+
+### TASK-0570 — podmiana zdjęcia przed zatwierdzeniem geometrii
+
+- Korekta geometrii strony oferuje podmianę JPEG-a z kontrolą nazwy i SHA-256
+  pliku w ponownie wskazanym katalogu `cut`. Po zapisie nowej rewizji stagingu
+  uruchamia preflight w dotychczasowym wariancie v1.0 albo v1.1.
+- Poprzedni staging pozostaje audytowy, ale po potwierdzeniu podmiany nie może
+  rozpocząć nowego preflightu ani importu. Niezmienione źródła kwalifikują się
+  do ponownego użycia z manifestu rodzica; zmieniony obraz i zależne kotwice są
+  przeliczane. Testy nie modyfikują rzeczywistych katalogów użytkownika.
+
+### TASK-0569 — ponowne otwarcie preflightu w jego wariancie
+
+- Staging `200575 - 222912 cut` ma ukończony preflight v1.1
+  `23aec586-7bda-4345-9636-7bc23b648586` (2482/2482). Ponowne otwarcie
+  raportu wybiera jego wariant zamiast domyślnego v1.0. Odświeżenie listy nie
+  resetuje wariantu, a odświeżenie istniejącego preflightu nie uruchamia joba.
+- Niechcący utworzony drugi job v1.0
+  `24c115a3-f120-4404-b040-c33fe3e0ee38` anulowano przy 0/2482;
+  ukończony job v1.1 oraz jego manifest pozostały bez zmian.
+
+### TASK-0568 — przycisk testowego raportu v1.1
+
+- Przy gotowym stagingu dodatkowy przycisk otwiera raport v1.1 zamiast
+  powtarzać domyślne v1.0. „Pokaż raport” dla nowego stagingu przypina v1.0,
+  a „Odśwież raport” zachowuje bieżący wariant. Zmiana wariantu usuwa z lokalnego
+  stanu kontekst guarda poprzedniego raportu. Podgląd nie uruchamia joba.
+
+### TASK-0567 — usunięcie starego selektora silników z Admina
+
+- Stary komponent oferujący v20, strukturalny v2 i v3 nie miał już wywołań w
+  panelu importu, ale jego plik i style nadal pozostawały w repozytorium oraz
+  wcześniejszym pakiecie developerskim. Usunięto komponent, style i test, który
+  wymagał zachowania starych opcji. Odczyt etykiet historycznych jobów pozostaje.
+- Uruchomiony Admin zwraca aktualny pakiet z v1.0/v1.1, bez tekstu starego
+  selektora; jego nieużywany pakiet developerski usunięto z lokalnej kompilacji.
+  Nie zmieniono API, polityki zapisanej dla gry ani istniejących jobów.
+
+### TASK-0566 — poprawny błąd historycznego preflightu
+
+- Brak `lateral_partial_geometry` w historycznym preflighcie oznacza brak
+  przypiętego dowodu v1.0/v1.1 i zwraca teraz
+  `IMAGE_LATERAL_PARTIAL_PREFLIGHT_REQUIRED`. Obecny, ale błędny snapshot nadal
+  zwraca `IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID`.
+- Naprawa zmienia wyłącznie klasyfikację błędu; nie zmienia manifestów ani nie
+  tworzy jobów. Powtórzony zestaw regresji API przeszedł 87/87; mypy dla 429
+  plików źródłowych API/workera jest zielony.
+
+### TASK-0565 — jeden start importu plansz
+
+- Dawny picker folderu importu, tokenowy preflight i `POST /image-imports`
+  zostały usunięte z publicznego API, klienta i panelu. Nowy import wymaga
+  gotowego stagingu oraz przypiętego raportu geometrii. Historia importów i
+  osobna selekcja zdjęć pozostają dostępne.
+- Zmiana nie usuwa danych ani nie uruchamia nowych jobów.
+- Skoncentrowane kontrole przeszły; dodatkowy test historycznego reprocessingu
+  ma wcześniejszy rozjazd kodu błędu `PREFLIGHT_REQUIRED` względem
+  `SNAPSHOT_INVALID` w niezmienionym `JobService`.
+
+### TASK-0564 — typowane liczniki selekcji zdjęć
+
+- Końcowe liczniki ręcznego keep/reject podczas cleanupu weryfikacji nazw są
+  odczytywane z typowanych krotek wyniku SQLAlchemy. Zapytanie i wartości
+  pozostają bez zmian. Mypy dla 429 plików źródłowych API/workera oraz 16
+  testów workera przechodzą. Szerszy mypy z `scripts/` nadal zgłasza 31
+  niezwiązanych, wcześniejszych błędów w pięciu skryptach.
+
+### TASK-0563 — opt-in v1.1 i selektywna korekta plansz
+
+- v1.1 zachowuje zarejestrowane wpisy zgodnego manifestu v1.0 i przelicza
+  nierozstrzygnięte źródła. Dla `45163–70371` odczyt bazowego manifestu
+  potwierdził `2761 registered / 40 review` przy 2801 zdjęciach; stary wariant
+  oceny ramek miał `2446 / 355`. Nie uruchomiono nowego joba.
+- Kandydat 7–8 pewnych siatek zapisuje 1–2 niepotwierdzone obrysy do Reviewera,
+  bez cropów niepewnych plansz i bez równoległej korekty całej strony. Osobna
+  kwalifikacja wyklucza kompletne plansze ze słabą ramką ze zwykłych kotwic i
+  uczenia oraz z puli faktycznie niepełnych siatek. Niewystarczający dowód
+  pozostawia pełną korektę.
+- Ograniczona próba odczytowa na realnych zdjęciach `61741–61749`,
+  `62830–62838`, `61759–61767` dała w każdym przypadku 8 pewnych siatek i
+  jeden lokalny obrys do review. Nakładka pierwszego przykładu została
+  obejrzana; wynik nie oznacza jeszcze jakości całego stagingu.
+
+### TASK-0562 — wybór v1.0 w imporcie przeglądarkowym
+
+- Nowy raport, preflight i import browser stagingu bez jawnego wariantu używają
+  `structured_lattice_v4_partial_sides`, pokazywanego jako v1.0. Panel nie
+  pokazuje historycznego wyboru v20/v2/v3. Wewnętrzny v3 pozostaje bazą v1.0;
+  historyczne joby i zapisany wariant techniczny są zachowane.
+- Tożsamość ponowień rozróżnia efektywny wariant i politykę. Zmiana nie
+  uruchomiła jobów ani nie modyfikowała danych gry. TASK-0563 dodaje osobny,
+  ręcznie wybierany v1.1.
+
+### TASK-0561 — rollback kwalifikacji słabych obramowań
+
+- Rzeczywisty staging `45163 - 70371 cut` miał 40 pozycji ręcznej korekty w
+  jobie v2 `fed795a1-e0a4-46db-bcb6-8b0373625d62` i 355 w jobie v3
+  `07691c10-2c6c-43f4-a1a8-f77f9720c81d`. Nowe preflighty wracają do
+  checksumowanej polityki v1/v2 bez gałęzi `frame_support_review`.
+- Odczyt historycznych snapshotów v3, `automaticFrameProposal`, API i Reviewer
+  pozostają zgodne. Rollback nie usuwa ani nie zmienia istniejących jobów,
+  manifestów i ręcznych override'ów.
+- Job v3 `06c5fe4e-e39e-4f7e-b8c7-f3820b508c7b` dla
+  `149626 - 177561 cut` został anulowany na bezpiecznym checkpointcie
+  `1100/3104`. Trzy nowe joby zostały przypięte do polityki v2:
+  `3cbcec50-5406-4848-8571-89387e6da1f2` dla `149626 - 177561 cut`,
+  `309d6837-d895-4587-a5eb-80cc2d9f35d6` dla `177562 -200583 cut` oraz
+  `0f8a2c88-9477-4486-9962-471ac62ecbc6` dla `45163 - 70371 cut`. General
+  worker rozpoczął pierwszy, ale po doprecyzowaniu celu użytkownika został
+  zatrzymany. Wszystkie trzy otrzymały żądanie anulowania: pierwszy zatrzymał
+  się przy `1050/3104`, a dwa oczekujące mają stan `cancelled`.
+- Zewnętrzny proces API działający przed rollbackiem nie został z tej sesji
+  zatrzymany z powodu niespójnej widoczności jego PID. Trzy wymagane joby
+  utworzono przez ten sam handler aplikacyjny z kodu v2; zwykły kontrolowany
+  restart API załaduje również nową politykę dla kolejnych preflightów.
+
+### TASK-0560 — proporcje i odzyskanie zbyt wysokich cropów
+
+- Automatyczny wynik wyższy niż 78% kanonicznej wysokości źródła otrzymuje
+  teraz `crop_too_tall` przed pozytywną oceną struktury albo rejestracji.
+  Dokładnie 78% pozostaje poprawne; schema shardów i fingerprint v12 nie
+  zmieniły się.
+- Audyt `303319 -326700 cut` znalazł 235 pełnych prostokątów w starszych
+  shardach, ale tylko 225 rzeczywistych JPEG-ów 1080×1920. Tryb
+  `excessive_height` kwalifikuje według bieżącego nagłówka JPEG-a, dlatego
+  pominął 10 plików już poprawnie skróconych.
+- Preview `303319 -326700 cut v12 aspect-ratio preview` ukończył 225/225 bez
+  failure: 113 cropów zostało odzyskanych rejestracją v12, a 112 nadal ma
+  pełną wysokość i powód `crop_too_tall`, więc wymaga review. Checksum stanu
+  wejściowego przed i po pozostał
+  `6efcd4edbcc4d6f3d8b6e30fd5f42c98a5855becc916f1f3a0eead72d711a616`.
+### TASK-0559 — inkrementalne i wznawialne tworzenie geometrii siatek
+
+- Preflight geometrii przypina najnowszy zgodny manifest tej samej gry,
+  selekcji i source manifestu. Dokładna polityka v2/v3 ma pierwszeństwo przed
+  przejściem v2↔v3. Anulowany run bez bazy nie blokuje nowego z bazą; aktywny
+  lub ukończony run nadal chroni idempotencję.
+- Worker zachowuje bezpieczne wpisy, przelicza review, zmienione ręczne
+  geometrie i przechodnie zależności kotwic. Tożsamość ręcznych kotwic spoza
+  stagingu jest przypięta do joba; niepewne wyniki są przeliczane. Checkpoint składa się z checksummowanych
+  shardów po 25 wyników i atomowego indeksu, więc restart albo utrata odpowiedzi
+  bazy nie powtarza zapisanej pracy.
+- Dodatkowe dopasowanie używa budżetu general workera (domyślnie 7), cache
+  kotwic tylko do odczytu i deterministycznej publikacji w kolejności źródeł.
+  API oraz panel pokazują liczniki ponownego użycia i przeliczenia.
+- Kontrola odczytowa v2→v3 dla stagingu 45163–70371 potwierdziła `1686/1115`
+  przy 2801 źródłach. Po rollbacku do v2 ukończony manifest v2 ma `2761`
+  wyników `registered` i `40` review; część wyników zależnych od zmienionych
+  ręcznych kotwic zostanie przeliczona. Staging 177562–200583 ma ukończoną
+  bazę v3 (`2331` registered, `227` review), więc nowe przejście v3→v2
+  zachowa bezpieczne wyniki. Dla 149626–177561 nie ma ukończonego manifestu;
+  anulowanego częściowego wyniku nie traktujemy jako bazy reuse.
+
+### TASK-0558 — odzyskanie błędnych wyników przycinania wybranych zdjęć
+
+- Sesja `D:\\777\\222913 - 248184 cut` pozostała niezmieniona: ma 2808 pozycji
+  inwentarza, 2795 historycznych wyników, 301 automatycznych ostrzeżeń i 13
+  failures bez wyniku. Jej etykieta v14 nie ma implementacji w obecnym
+  repozytorium, dlatego aktywny silnik v12 utworzył wyłącznie odrębne preview.
+- `222913 - 248184 cut v12 board-buffer preview` ukończył 301/301 ostrzeżeń:
+  242 wyniki nie wymagają ręcznej korekty, 59 pozostało do review, bez błędów.
+  `222913 - 248184 cut v12 missing-failures preview` odzyskał 13/13 braków:
+  8 bez ręcznej korekty i 5 do review, również bez błędów.
+- Nowy tryb `--missing-failures` wybiera tylko brakujące failures z kolejności
+  inwentarza, kontroluje niezmienność źródła i jest wznawialny wyłącznie z tą
+  samą listą. Checksum oryginalnego stanu po obu przebiegach pozostał
+  `4f30856e5e7221adf71c680b7f58e9f24e00f017cc65c7d07326b2817cffa7a5`.
+
+### TASK-0557 — nieblokujące ładowanie źródeł do uzupełniania luk
+
+- Katalog bazowy fill pokazuje podczas rekursji liczbę odwiedzonych wpisów i
+  znalezionych obrazów, a adapter oddaje renderowanie co 64 wpisy.
+- Kompletna lista otwiera pierwszy obraz przed zapisaniem pomocniczego uchwytu
+  i kursora do IndexedDB. Zapisy lokalnego stanu mają własną kolejkę; ich błąd
+  wskazuje potrzebę ponownego wyboru źródła po restarcie, bez zmiany repair
+  manifestu albo aktualnego widoku.
+- Odczyt `D:\777\177562 -200583 cut` potwierdził 2497 JPEG-ów, 61 luk i brak
+  podkatalogów. Katalog bazowy `D:\777\177562 -200583` ma 2558 obrazów bez
+  podkatalogów; problem nie wynikał z danych katalogu.
+
+### TASK-0556 — telemetria tempa po wznowieniu przycinania
+
+- Lokalna sesja przycinania może zapisać ostatnią niepustą próbkę równoległości,
+  tempa oraz etapów workera, razem z nazwą katalogu i zakresem źródła.
+- Wznowienie pokazuje ją wyłącznie dla zgodnego katalogu jako „ostatni pomiar
+  z poprzedniej karty”. Pierwsza nowa opublikowana paczka zastępuje ją bieżącą
+  telemetrią; bez próbki UI jasno informuje o oczekiwaniu na pierwszy pomiar.
+- Snapshot jest wyłącznie stanem IndexedDB widoku. Nie zmieniono cropów,
+  manifestu, session journalu, polityki v12, workerów ani danych katalogów.
+
+### TASK-0555 — natychmiastowy fill luk i dwa cofnięcia
+
+- `Uzupełnij lukę` najpierw przełącza lokalny target i `sourceCursor`, dzięki
+  czemu następne źródło korzysta z już przygotowanego Object URL. Dopiero potem
+  jedna kolejka wykonuje istniejącą transakcję JPEG → SHA-256 → repair/handoff/
+  output manifest.
+- Gdy taki fill jest w toku, nawigacja, zoom i cache działają dalej, ale kolejny
+  fill, delete, paczkowe usuwanie i zmiana trybu są zablokowane. Awaria wymaga
+  jawnego ponownego wskazania katalogu przed kolejną mutacją.
+- Cofnięcie operuje na najwyżej dwóch ostatnich trwale zakończonych fillach i
+  używa ich checksummowanej proweniencji. Po wejściu do trybu są odtwarzane z
+  dwóch najnowszych aktywnych wpisów; nie wprowadzono nowej historii ani Blobów.
+
+### TASK-0554 — kompaktowy stan luk i natychmiastowy podgląd po usunięciu
+
+- `Usuń sekwencję F` nie ma już pamięciowego przywracania ani repair trace.
+  Workspace najpierw przełącza się na następny aktywny obraz, wykorzystując
+  zachowany cache Object URL, a następnie zapisuje jedną checksummowaną mutację
+  katalogu w tle. Błąd blokuje kolejne mutacje do ponownego wskazania katalogu.
+- `manual-image-selection-repair-v2.json` przechowuje aktualny stan luk,
+  aktywnych uzupełnień, potwierdzeń delete i pojedynczej operacji recovery;
+  nie rośnie o historię interakcji. Odczyt v1 tworzy v2 deterministycznie i
+  pozostawia oryginalny v1 nietknięty.
+- Recovery rozpoznaje fizyczne usunięcie wykonane przed zapisem output manifestu
+  i odtwarza tylko zgodny manifest aktywnych plików. Handoff aktywnych fillów
+  `manual-image-selection-filled-gaps-v1.json` pozostaje wejściem cięcia.
+
+### TASK-0553 — większy bufor automatycznego cięcia zdjęć
+
+- Nowe propozycje v11 pozostawiają 45% mediany wysokości planszy nad panelem,
+  40% pod kompletnym pasem etykiet i 80% pod układem bez kompletu etykiet.
+  Rejestracja v12 zostawia 45% po obu stronach pasa plansz.
+- Przy niskim źródle v12 nie odrzuca bezpiecznej rejestracji tylko dlatego, że
+  większy margines przekroczył limit 78% wysokości: zachowuje całą planszę i
+  skraca symetrycznie wyłącznie nadmiar marginesu. Pas plansz większy od limitu
+  nadal jest odrzucany.
+- Bieżący fingerprint opisuje nowe liczby, a reader zachowuje zgodność z
+  dwoma poprzednimi fingerprintami v12. Otwarte karty otrzymają nową politykę
+  po odświeżeniu; gotowe cropy nie są zmieniane.
+
+### TASK-0552 — monotoniczne wznowienie importu po kontroli geometrii
+
+- Przyczyną `JOB_PROGRESS_REGRESSION` w jobie
+  `b3aad697-5091-4603-b303-3ab001f78a2d` był ponowny checkpoint kontroli
+  geometrii. Po restarcie próbował zapisać granicę kopiowania `2373/4746`,
+  mimo że pipeline miał już większy, trwały postęp.
+- Checkpoint kontroli geometrii zachowuje teraz największy utrwalony progress,
+  total oraz aktualne liczniki wyników z kontekstu wykonania. Checkpointy plików,
+  staging i dane gry nie są resetowane.
+- Pełne 56 testów produkcyjnego workflowu przeszło. Kontrolowany restart
+  rzeczywistego workera przejął ten sam job jako próbę 4, zachował `3530/4746`
+  na etapie kontroli geometrii i kontynuował pipeline od `3533/4746` bez błędu.
+
+### TASK-0551 — szybszy trwały zapis paczki cropów
+
+- Cztery automatycznie przygotowane wyniki są publikowane przez jedną intencję
+  `pendingBatch`, równoległy zapis JPEG-ów, kontrolny SHA-256 każdego pliku,
+  jeden zapis każdego dotkniętego sharda i jedną końcową sesję. Typowa paczka w
+  jednym shardzie wykonuje łącznie dwa zapisy sesji i jeden sharda zamiast ośmiu
+  zapisów sesji i czterech shardów.
+- Recovery finalizuje zgodne pliki, brakujące pozostawia w kolejce, a obce bajty
+  zachowuje i kieruje do review. Jest idempotentne również po zapisaniu sharda i
+  utracie końcowego zapisu sesji. Historyczne sesje bez pola `pendingBatch` są
+  odczytywane jako `null`.
+- Ręczny zapis jednego cropa, kontrola źródła i wyjścia, blokada jednego writera
+  oraz polityka v12 nie zmieniły się. Otwarta przed wdrożeniem karta zacznie
+  korzystać z publikacji paczkowej po `Ctrl+R`; podczas implementacji nie
+  zmieniano trwającej sesji ani plików katalogu użytkownika.
+- Skoncentrowane testy przeszły 39/39, pełny core 102/102 i Admin 487/487; oba
+  typechecki, lint, build core oraz produkcyjny build Admina są zielone.
+
+### TASK-0550 — trwałe odtwarzanie ukończonego preflightu geometrii
+
+- Ukończony preflight i istniejący import wariantu lateral są dopasowywane po
+  grze, stagingu, manifeście źródeł oraz ścisło zwalidowanym przypiętym
+  snapshocie. Późniejsza zmiana game-wide profilu uczenia nie unieważnia ich
+  przy samym otwarciu raportu.
+- Jawne przygotowanie nowego preflightu nadal używa aktualnego profilu i pełnego
+  input key. Nie zmieniono ani nie usunięto jobów
+  `ce92281c-cca1-4ba7-bb1e-5354f14e5afe` i
+  `55fde594-935d-4e0b-8d34-e3a1088dc74b` ani danych stagingu.
+
+### TASK-0549 — siatki widocznych plansz z uciętą albo zasłoniętą ramką
+
+- Nowa checksumowana polityka v3 zachowuje mocną rejestrację strony, gdy
+  najwyżej trzy ozdobne ramki mają słabsze pokrycie, ale globalna homografia,
+  kolejność, overlap i średni dowód pozostają bezpieczne.
+- Lokalny refiner symboli tworzy dla słabego slotu kompletną propozycję 3×5.
+  Jest ona widoczna w `Do walidacji`, nie wymaga ponownego wskazywania czterech
+  narożników i pozostaje wykluczona ze zwykłego uczenia geometrii do czasu
+  jawnego potwierdzenia. Brak bezpiecznej siatki nadal kieruje slot do poprawy.
+- Read-only próba na `seq_61741-61749.jpg`, `seq_61651-61659.jpg` i
+  `seq_61786-61794.jpg` zachowała slot 0 i uzyskała odpowiednio 12, 11 i 11
+  inlierów przy p95 `3,2145`, `9,3631` i `7,5987 px`. Snapshoty v1/v2
+  odtwarzają stare zachowanie; nowe API, klient i Reviewer rozpoznają odrębną
+  `automaticFrameProposal`.
+
+### TASK-0548 — jawny wybór cropów do ręcznej poprawki
+
+- Automatyczne ostrzeżenia nie są już kopiowane do wyboru ręcznej poprawki.
+  Pozostają w filtrze `Niepewne`, natomiast border, licznik i przycisk `Popraw
+  zaznaczone` korzystają wyłącznie z kliknięć operatora zapisanych w
+  `correctionFileNames`.
+- `Zaznacz wszystkie` i `Odznacz wszystkie` są osobnymi, jednocześnie
+  widocznymi przyciskami działającymi na bieżącym filtrze. Ukryte wybory są
+  zachowane, a historyczne zapisane wybory nie są automatycznie czyszczone.
+- Jawne zakończenie przeglądu akceptuje niewybrane ostrzeżenia, ale nadal jest
+  zablokowane przez wybrane poprawki, failure, pending albo brakujące wyniki.
+- Zmiana nie modyfikuje detektora v12, fingerprintu, schematu review ani
+  gotowych JPEG-ów. Testy skoncentrowane przeszły 42/42, pełny Admin 485/485,
+  core 99/99; oba typechecki, lint, formatowanie i produkcyjny build są zielone.
+
+### TASK-0547 — równoległe przygotowanie cropów w przeglądarce
+
+- Przygotowanie pracuje paczkami najwyżej czterech zdjęć i używa 1–4
+  browserowych workerów zależnie od liczby procesorów logicznych. Analiza,
+  render oraz SHA-256 źródła są równoległe, natomiast JPEG, failure, kotwica i
+  progres są nadal publikowane w naturalnej kolejności inwentarza.
+- Kotwica v12 jest dekodowana i redukowana do współdzielonych cech raz na
+  paczkę. Szybka ścieżka kompletnej siatki nie korzysta z obrazu kotwicy.
+  Zweryfikowany plik źródłowy i jego SHA trafiają bezpośrednio do zapisu, a
+  niezmienione review nie powoduje operacji dyskowej.
+- Journal odporny na restart, checksumy, odczyt kontrolny JPEG-a, blokada
+  jednego writera oraz fingerprint v12 pozostają bez zmian. Wyjście z widoku
+  anuluje aktywne workery; nieopublikowana część paczki jest po wznowieniu
+  liczona ponownie.
+- UI pokazuje aktualną równoległość, tempo oraz czasy dekodowania, detekcji,
+  renderu i zapisu. 35 testów skoncentrowanych, 484 testy Admina i 98 testów
+  core przeszły; oba typechecki, lint Admina, formatowanie i produkcyjny build
+  są zielone.
+
+### TASK-0546 — katalogi cut w wyborze uzupełnionych luk
+
+- Przyczyną braku katalogów `* cut` było bezwarunkowe `!name.endsWith(' cut')`
+  wykonywane przed wyborem zakresu oraz brak odświeżenia listy po zmianie trybu.
+- Tryb pełny zachowuje dotychczasowy filtr. Tryb `filled_gaps` pokazuje tylko
+  bezpośrednie katalogi z handoffem, w tym `* cut`, i wyklucza pochodne
+  `* filled-gaps cut`. Selektor zakresu działa również przy pustej liście.
+- Odczyt `D:\777` potwierdził cztery katalogi `* cut` z aktywnym plikiem
+  handoffu: `117829 - 128268 cut`, `177562 -200583 cut`,
+  `222913 - 248184 cut` i `70363 - 93861 cut`. Nie zmieniono danych użytkownika.
+- Skoncentrowane testy przeszły 29/29, pełny Admin 478/478; typecheck, lint,
+  formatowanie i produkcyjny build są zielone.
+
+### TASK-0545 — blokada równoległych writerów cropów
+
+- Kilka kart wznowiło katalogi jednocześnie. Dla `200575 - 222912 cut` jedna
+  karta zapisała `seq_215353-215361.jpg`, a druga utraciła świeży pending i
+  zgłosiła plik jako obcy. Podczas diagnozy JPEG istniał pod nazwą należącą do
+  inwentarza i odczytano jego SHA-256 bez modyfikacji. Późniejsza kontrola
+  wykazała świeżą sesję v12 `25/2482`, bez błędów i bez tego outputu; Codex nie
+  usuwał ani nie zmieniał plików w katalogu użytkownika.
+- Przygotowanie, przeliczenie, odczyt z recovery i ręczny zapis utrzymują teraz
+  natywną blokadę `exclusive` per katalog. Druga karta kończy loading stabilnym
+  komunikatem, natomiast różne katalogi nadal mogą pracować równocześnie.
+- Osierocony plik z inwentarza jest finalizowany bez ponownego zapisu tylko po
+  dokładnym porównaniu SHA-256 z aktualnym renderem. Inne bajty pozostają
+  fail-closed. Odpowiedź starego workera dostaje jedno ponowienie na świeżej
+  instancji przed wolniejszym fallbackiem głównego wątku.
+- Pomiar po wdrożeniu ujawnił, że `303319 -326700 cut` po 20 wynikach odrzucał
+  kolejne propozycje: przecięcie cropa rejestracji z cropem strukturalnym mogło
+  obciąć dolne 5 px zarejestrowanego czworokąta. Przecięcie nadal zwęża wynik,
+  ale zachowuje teraz cały zarejestrowany obszar plansz. Nowy fingerprint
+  odrzuca stare workery, a poprzedni pozostaje czytelny w istniejących shardach.
+- Pełne 97 testów core i 475 testów Admina, oba typechecki, lint oraz produkcyjny
+  build Admina są zielone. Otwarta karta z kodem sprzed zmiany wymaga
+  jednorazowego `Ctrl+R`.
+
+### TASK-0544 — odzyskanie po nieaktualnym workerze cropów
+
+- Przyczyną seryjnych `SELECTED_IMAGE_CROP_PROPOSAL_INVALID` w zwykłych kartach
+  był pozostający w pamięci worker z wcześniejszego builda v12. Zwracał stary
+  fingerprint do strony już załadowanej z nowym walidatorem; świeży profil
+  incognito nie miał tej rozbieżności.
+- Odpowiedź workera ma teraz jawną wersję protokołu. Klient przed użyciem
+  sprawdza także żądaną politykę i dokładny fingerprint v11/v12. Niezgodny
+  worker jest kończony, a bieżąca karta przechodzi na aktualny algorytm w
+  głównym wątku bez dopisywania błędu zdjęcia.
+- Pierwsze błędne źródło z sesji `387693 - 379711 cut` i `348256 - 371007 cut`
+  przechodzi walidację aktualnego v12. Zapisane wcześniej failures można
+  ponowić bez usuwania katalogu lub resetowania sesji; źródła i gotowe cropy
+  nie zostały zmienione.
+
+### TASK-0543 — etap gotowego stagingu importu plansz
+
+- Lista `Import plansz z manifestu` pokazuje teraz po liczbie plików, rozmiarze
+  i skrócie stagingu jego najwyższy osiągnięty etap: załadowany folder,
+  przygotowany preflight, przygotowaną siatkę albo `gotowy`.
+- Stan wynika po odświeżeniu z checksum-bound historii jobów. `Gotowy` oznacza
+  zgodny import w `waiting_for_review` albo `completed`, czyli zdjęcia zostały
+  już pocięte na symbole; job obcego stagingu albo starego manifestu nie może
+  podnieść etapu.
+- Rzeczywisty staging `c2547b09` jest rozpoznawany jako `gotowy` na podstawie
+  joba importu `ae86a7cc-8921-45a0-ab55-68ff4d8feedd` w
+  `waiting_for_review`. Pełny zestaw 466 testów Admina, lint i typecheck są
+  zielone.
+
+### TASK-0542 — podgląd operacyjnej planszy z magazynu V2
+
+- Przyczyną komunikatu o niedostępnym cropie w `Wyszukaj plansze` był odczyt
+  `OperationalImageReviewService.get_item` bez scope'u magazynu. Endpoint
+  assetu otrzymywał `gameId` wyłącznie w query, więc middleware nie wiązał
+  sesji z `game_data_v2` i zwracał fałszywe `IMAGE_REVIEW_ITEM_NOT_FOUND`.
+- Serwis wiąże teraz cały odczyt elementu z `game_storage_scope(game_id)`.
+  Wspólna poprawka obejmuje podgląd źródła, planszy i komórek oraz odczyt
+  pojedynczego elementu; walidacja `game + import job + item` pozostaje
+  fail-closed.
+- Dla rzeczywistego wyniku sekwencji 12 potwierdzono rekord V2, zgodny JPEG
+  279998 B oraz odpowiedź endpointu `200 image/jpeg`. Izolowana regresja
+  PostgreSQL odtwarza odczyt z nowej, nieskopowanej sesji i brak dostępu dla
+  błędnego import joba.
+
+### TASK-0541 — aktualny kandydat w szybkim indeksie wyszukiwania plansz
+
+- Przyczyną braku dokładnego wyniku dla sekwencji 12 był stary stan obiektu ORM
+  po `INSERT ... ON CONFLICT DO UPDATE`. Kandydat miał prawidłowe 15 symboli,
+  lecz reconcile kopiował wcześniejsze puste tablice z identity map do
+  `image_board_search_fast_documents`.
+- `reconcile_sequence()` odświeża teraz wcześniej załadowanego kandydata z
+  bazy. Regresja PostgreSQL odtwarza upsert pustego kandydata do pełnego układu
+  i potwierdza 15 kodów oraz 15 znanych pozycji w fast documencie.
+- Setowy `UPDATE` naprawił 19 377 pochodnych dokumentów gry bez zmiany symboli,
+  review, obrazów ani kandydatów. Audyt końcowy wykazał 0 rozbieżności.
+- Pełny układ operatora zwraca teraz sekwencję 12 jako pierwszy wynik: 100%,
+  15 exact, 0 alternative, 0 mismatch i 0 unknown. Kolejność wprowadzania
+  kolumnami zachowuje kanoniczne indeksy i nie była przyczyną błędu.
+- API i ogólny worker działają z nowym kodem; ponowny audyt po ich przeładowaniu
+  nadal wykazał 0 niespójnych dokumentów. Restart workera ujawnił, że niejawne
+  odzyskanie aktywnego importu może jeszcze trafić w `JOB_PROGRESS_REGRESSION`.
+  Standardowy retry zachował UUID, manifest i checkpointy plików, wyzerował
+  agregat joba, a po ukończeniu preflightu `70363 - 93861 cut` jako 2611/2611
+  import `117829 - 128268 cut` wznowił próbę 3. Licznik wzrósł do 1444/2320,
+  status pozostał `processing`, a błąd był pusty.
+
+### TASK-0540 — zgodna tożsamość preflightu niepełnych boków v2
+
+- Admin rozpoznaje teraz bieżący snapshot
+  `structured-lattice-v4-lateral-partial-v2` jako prawidłową tożsamość raportu,
+  importu i managed reprocessingu. Historyczny v1 pozostaje obsługiwany, a
+  nieznane wersje nadal są odrzucane.
+- Fałszywy `IMAGE_PAGE_GEOMETRY_PREFLIGHT_IDENTITY_MISMATCH` dla stagingu
+  `117829 - 128268 cut` wynikał z trzech frontendowych porównań wyłącznie do
+  v1; API poprawnie zwracało job v2.
+- Nie zmieniono algorytmu, snapshotów, API ani danych. Job
+  `b028ce0e-0b37-4a3a-9579-a9181b24bb19` pozostał w kolejce bez retry lub
+  anulowania.
+
+### TASK-0539 — rzeczywisty etap preflightu geometrii w stagingu
+
+- Kafelek stagingu używa teraz fazy `pageGeometryPreflight`, więc po globalnym
+  `N/N` nadal pokazuje dodatkowe dopasowanie lub zapis manifestu zamiast
+  sugerować zakończenie całego joba.
+- Podczas pracy pokazuje `provisionalReviewRequired` jako liczbę zdjęć jeszcze
+  nierozstrzygniętych. Ostateczne „odroczone zdjęcia” pojawia się dopiero po
+  statusie `completed`; historyczny checkpoint bez fazy nie deklaruje wyniku.
+- Job `d633a302-7cc1-4472-8349-5f8c8b883ab2` zakończył się bez błędu:
+  2664/2664 źródła, 2660 zarejestrowanych i 4 odroczone. Bramka importu nadal
+  wymaga ukończonego joba i checksummy końcowego manifestu.
+
+### TASK-0538 — odzyskanie pustej sesji przygotowania cropów
+
+- Katalog `348256 - 371007 cut` miał 2528 wpisów, 0 wyników i pusty review,
+  ale brak przypiętej polityki zatrzymywał automat oraz blokował kafelki na
+  `Przygotowano 0 / 2528`.
+- Pusta sesja bez polityki, wyników, decyzji, błędów i pending może teraz
+  trwale przypiąć aktywny v12 przed pierwszym cropem i od razu rozpocząć
+  przygotowanie. Licznik nadal rośnie dopiero po zweryfikowanym zapisie wyniku.
+- Powtórzenie po usunięciu katalogu ujawniło wyścig dwóch otwarć w oknie między
+  manifestem a inwentarzem. Inicjalizacja również używa teraz pełnego snapshotu
+  i nie wyznacza polityki na podstawie samego istnienia manifestu.
+- Jakikolwiek trwały ślad pracy zachowuje dotychczasową blokadę i wymaga jawnej
+  akcji przeliczenia. Nie zmieniono detektora, progów ani fingerprintu.
+
+### TASK-0537 — automatyczne niepełne siatki trafiają do walidacji
+
+- Niepełna plansza z poprawnym automatycznym `symbolGridQuad` jest od razu
+  pokazana z nałożoną siatką w `Do walidacji`; nadal wymaga jawnego
+  potwierdzenia operatora.
+- Potwierdzenie całego zdjęcia atomowo materializuje propozycję z maską i
+  kwalifikacją `pending_partial`, więc plansza pozostaje wykluczona ze zwykłego
+  uczenia geometrii i kotwic.
+- `Do poprawy` i ręczne wskazywanie obejmują tylko sloty bez poprawnego wyniku
+  algorytmu. Źródło mieszane zachowuje automatyczne i wcześniej zapisane
+  siatki, także gdy boczny quad ma współrzędne poza obrazem.
+- Nie zmieniono detektora, jego progów, jobów ani danych użytkownika.
+
+### TASK-0536 — v12 jako główny silnik cropów
+
+- Jawnie zaakceptowany przez operatora v12 jest aktywną polityką nowych sesji
+  `Przytnij wybrane zdjęcia`, browserowego workera i lokalnego runnera.
+- Nowa sesja przypina v12 w `session-v2.json` przed pierwszym wynikiem.
+  Istniejące sesje zachowują własną wersję i nie są przeliczane po restarcie;
+  ich migracja pozostaje jawną akcją.
+- Fingerprint, progi, reguła bufora oraz fail-closed ręczna kolejka nie zostały
+  zmienione. V11 pozostaje wyłączony. Formalny niezależny holdout v12 nie został
+  przedstawiony jako zaliczony.
+
+### TASK-0535 — zbiorcze podglądy korekt cropów
+
+- Wznawialny audyt `D:\777` klasyfikuje wszystkie bezpośrednie katalogi
+  `* cut` na zaakceptowane, nieukończone, bez stanu, bez automatycznych korekt,
+  bez źródła albo gotowe do przeliczenia. Ręczne decyzje nie są kandydatami.
+- Warunek spełniły `149626 - 177561 cut` i `248176 - 272016 cut`. Pierwszy
+  otrzymał nowy katalog podglądu: 67/67 wyników, 63 automatyczne, 4 ręczne,
+  0 błędów. Drugi został bezpiecznie zweryfikowany i wznowiony: 177/177
+  automatycznych, 0 ręcznych, 0 błędów.
+- `128269 - 149634 cut` nie został przeliczony: trwały review ma
+  `completedAt` z 14.09.2026 05:46:29, 2373/2373 przejrzanych, 25 ręcznie
+  poprawionych i 0 nierozstrzygniętych korekt. Późniejszy repair usunął 26
+  osobnych sekwencji; batch nie odtwarza ich i nie zmienia zaakceptowanego
+  crop-review.
+- Nieukończone sesje pozostają pominięte. Raport zbiorczy zapisano jako
+  `D:\777\selected-crop-v12-board-buffer-batch-report.json`.
+
+### TASK-0534 — v12 przelicza automatyczne korekty cropów
+
+- Sekcja `Przytnij wybrane zdjęcia` ma osobną akcję dla automatycznie
+  wymaganych korekt. Przypina ona v12 także w sesji v10, nie rusza pozycji
+  oznaczonych tylko ręcznie ani wyników przejrzanych, poprawionych lub jawnie
+  zaakceptowanych.
+- Ponowna rejestracja próbuje do trzech najbliższych silnych kotwic i zachowuje
+  obowiązek korekty, jeżeli żadna nie przejdzie bramek obrazu.
+- Pełne 3×3 jest wystarczającym dowodem bez osobnego potwierdzenia numerów.
+  Przy braku pełnego pasa etykiet dół cropa otrzymuje bufor 65% mediany
+  wysokości planszy; taki wynik nie może być kotwicą dla kolejnych zdjęć.
+- Niedestrukcyjny przebieg katalogu `248176 - 272016 cut` przetworzył 177/177
+  pozycji do osobnego `cut v12 board-buffer preview`: 166 strukturalnie (35 z
+  buforem), 11 przez rejestrację, 0 ręcznych i 0 błędów. Wejściowy katalog i
+  jego stan nie zostały zmienione.
+
+### TASK-0533 — osobny profil uczenia niepełnych siatek
+
+- Trzeci checkbox pod ręczną geometrią zapisuje
+  `includeInPartialGridTraining` wyłącznie dla jednej lub dwóch pełnych kolumn
+  uciętych z boku. Niepełna plansza nadal jest obowiązkowo wykluczona ze
+  zwykłego uczenia geometrii i kotwic stron.
+- Z najnowszych rewizji page override powstaje osobny, checksum-bound profil
+  częstości masek. Wzorzec staje się gotowy po trzech różnych zdjęciach;
+  odznaczenie opt-inu w nowszej rewizji usuwa źródło z kolejnego profilu.
+- Nowy preflight przypina profil v2, a import i retry odtwarzają jego dokładny
+  snapshot. Profil może wyłącznie rozstrzygnąć wieloznaczne hipotezy, które
+  przeszły istniejące bramki. Wynik pozostaje niepełną propozycją wymagającą
+  dodatkowej ręcznej weryfikacji.
+- Raport korekty pokazuje liczbę próbek, różnych zdjęć i gotowych wzorców.
+  Historyczne kwalifikacje oraz snapshoty v1 zachowują zgodny odczyt.
+
+### Niezależna korekta UI — zwarte kwalifikacje geometrii planszy
+
+- Kontrolki `Niepełna plansza`, `Nie używaj do uczenia geometrii` oraz opis
+  wpływu decyzji są wyrównane w jednym wierszu. Checkboxy są po lewej stronie
+  etykiet z odstępem 10 px, mają 11 × 11 px (około 30% mniej niż wcześniej),
+  a wybór pól częściowych ma układ 5 kolumn × 3 wiersze. Trzeci checkbox jest
+  teraz jawnym opt-inem do osobnej puli niepełnych siatek; zmiana obowiązuje
+  dopiero w kolejnym profilu i nie mutuje już aktywnego joba.
+- Obsługa niepełnych plansz z serii `v0.10.221–v0.10.231` jest obecna także na
+  `origin/version-0.10`: niepełna geometria nie wchodzi do kohort geometrii ani
+  kotwic, natomiast dostępne i ręcznie zatwierdzone cropy symboli pozostają
+  kandydatami do kolejnego uczenia; pola `source_unavailable` są pomijane.
+
+### Niezależna korekta UI — mniejszy margines poza źródłem geometrii
+
+- Po zaznaczeniu `Niepełna plansza` szare pole poza zdjęciem ma teraz 30%
+  powierzchni źródła, zamiast ośmiokrotności jego powierzchni. Widok,
+  hit-test i zakres przeciągania narożników używają tego samego marginesu.
+
+### Niezależna naprawa — cold-start importu korzysta z magazynu gry V2
+
+- Resolver snapshotu modelu sam wiąże scope magazynu gry przed odczytem katalogu,
+  kohort, iteracji i aktywacji. Endpoint browserowego stagingu nie ma gry w
+  ścieżce URL, więc bez tego scope mógł błędnie odczytać pusty legacy store i
+  udostępnić `Rozpocznij pierwszy import bez modelu` dla gry z kandydatem.
+
+### Niezależna korekta UI — bezpośrednie przejście strony wyboru symboli
+
+- Dół sekcji `Weryfikacja symboli` ma pole `Przejdź do strony`, walidowane
+  względem aktualnej liczby stron. Przejście utrzymuje filtry i zaznaczenia;
+  dla keysetowego API odczytuje wyłącznie metadane stron koniecznych do dojścia
+  do wskazanego numeru, z zachowaniem trzech stron cache.
+
+### Niezależna korekta UI — aktualny stan modelu w raporcie stagingu
+
+- `Odśwież status` odtwarza teraz także otwarty raport stagingu, w tym bieżący
+  snapshot modelu symboli. Raport utworzony przed ręcznymi oznaczeniami nie
+  zachowuje już błędnej etykiety `Rozpocznij pierwszy import bez modelu` po
+  pojawieniu się kohorty lub gotowego kandydata.
+- Gdy gotowy kandydat nie został jeszcze aktywowany, ekran wskazuje wymaganą
+  aktywację zamiast sugerować cold-start; samo odświeżenie nie aktywuje modelu.
+
+### Niezależna naprawa — ponowne przeliczanie symboli `?`
+
+- Akcja `Przelicz oczekujące` wybiera teraz plansze mające co najmniej jedną
+  bieżącą komórkę symbolu w stanie `pending` (`?`), także gdy geometria planszy
+  została już zaakceptowana lub skorygowana.
+- Podgląd oraz wykonawca joba stosują ten sam wybór i liczą plansze, nie komórki;
+  kolejne uruchomienie nie nadpisuje ręcznych decyzji dla symboli.
+- Kandydat modelu nadal wymaga osobnego potwierdzenia aktywacji przed utworzeniem
+  joba ponownego przeliczania.
+
+### Niezależna naprawa — odzyskanie przerwanego przycięcia zdjęcia
+
+- Przy ponownym otwarciu `Przytnij wybrane zdjęcia` plik JPEG zapisany przed
+  zamknięciem przeglądarki, lecz różniący się od checkpointu, pozostaje w
+  katalogu wyjściowym. Sesja domyka jego zapis atomowo i kieruje wyłącznie ten
+  plik z powrotem do ręcznej korekty.
+- Usunięto blokadę `SELECTED_IMAGE_CROP_RECOVERY_CONFLICT`; nie ma automatycznego
+  usuwania ani nadpisywania pliku o niezgodnej sumie kontrolnej.
+
+### Niezależna korekta UI — pojedyncze potwierdzanie przycięć
+
+- Kliknięcie pojedynczej miniaturki dodaje ją do ręcznej poprawki albo ją z niej
+  usuwa. Dla automatycznej sugestii drugie kliknięcie zapisuje trwałe
+  potwierdzenie operatora, że crop jest poprawny, i nie kieruje go ponownie do
+  korekty ani przeliczenia.
+
+### Niezależna korekta UI — kafelki przycinania zdjęć
+
+- Kafelki podglądu w `Przytnij wybrane zdjęcia` nie pokazują już plakietek
+  statusu. Pozostają obramowania wyboru, błędu i fokusu; filtry oraz kolejka
+  korekt działają bez zmiany.
+
+### TASK-0532 — retry importu zdjęć odbudowuje postęp joba
+
+- Retry `import/image_directory` zachowuje UUID, input payload i trwałe
+  checkpointy per plik, a zeruje wyłącznie odtwarzane agregaty oraz checkpoint
+  joba.
+- Worker rozpoczyna nową próbę od snapshotu `image_import_job_files`, więc
+  selektywne ponowienie plików nie powoduje fałszywego
+  `JOB_PROGRESS_REGRESSION` względem liczników poprzedniej próby.
+- Regresja serwisu i domenowy test resetu postępu przeszły. Rzeczywisty job
+  `1a1cff95-436e-4054-ae1f-8ef4565cd7b0` osiągnął `waiting_for_review` jako
+  próba 4: `4400/4400`, 2200 źródeł do review i 0 błędów.
+- W V2 zapisano 2200 źródeł, 19380 kompletnych plansz `pending_review` oraz
+  290700 komórek. Wcześniej wstrzymany preflight geometrii
+  `a9914e16-588e-4bf8-84ac-73f90d1cd644` wznowiono jako próbę 6.
+
+### TASK-0531 — routing operacji plików joba do V2
+
+- Repozytorium raportu i retry plików najpierw odczytuje współdzielony job, a
+  następnie wiąże sesję z jego `game_id`: `READ` dla raportu i `WRITE` dla
+  retry. Endpoint nie szuka już asocjacji gry V2 w legacy `public`.
+- Izolowany PostgreSQL potwierdził nieskopowany retry po samym `job_id` i
+  execution key, przejście pliku `failed → processing` oraz widoczność obu
+  asocjacji V2.
+
+### TASK-0530 — idempotentny zapis indeksu plansz w V2
+
+- Projekcja `image_board_search_candidates` dobiera klucz konfliktu do
+  fizycznego magazynu gry. Dla `game_data_v2` używa
+  `(game_id, review_item_id)`, a adapter legacy zachowuje `review_item_id`.
+- Usunięto PostgreSQL 42P10, który po poprawnej inferencji symboli `?`
+  wycofywał zapis plansz i oznaczał każde źródło jako błędne.
+- Izolowany test PostgreSQL potwierdził pierwszy zapis, idempotentną
+  aktualizację tego samego kandydata oraz brak wpisu w legacy `public`.
+
+### TASK-0529 — zapis powiązań importu zdjęć zgodny z V2
+
+- Produkcyjne dane gry pozostają wyłącznie w `game_data_v2`; wspólny katalog,
+  joby i content-addressed `image_file_executions` pozostają celowo w `public`.
+- Rejestracja pojedyncza i zbiorcza zapisuje `image_import_job_files` w V2 z
+  jawnym `game_id` oraz pełnym konfliktem
+  `(game_id, job_id, file_execution_key)`. Usuwa to błąd PostgreSQL 42P10,
+  który zatrzymał import po systemowej bramce geometrii.
+- Izolowany PostgreSQL potwierdził idempotentny retry, brak duplikatów, brak
+  wpisów w legacy `public.image_import_job_files` i pozostawienie wspólnych
+  wykonań w `public.image_file_executions`.
+
+### Niezależna naprawa — odzyskanie gotowego preflightu browserowego
+
+- Panel Admin traktuje `managedSourceJobId: null` z wygenerowanego kontraktu
+  API jako brak źródłowego joba zarządzanego. Ukończony preflight zwykłego
+  browserowego stagingu jest dzięki temu ponownie przypinany do raportu i
+  odblokowuje pierwszy import bez modelu, jeżeli pozostałe bramki są spełnione.
+- Test regresji odtwarza rzeczywistą odpowiedź API z `null`; job powiązany z
+  rzeczywistym managed-original importem nadal nie może zastąpić raportu
+  stagingu.
+
+### Niezależna naprawa — zgodna polityka silnika raportu i startu
+
+- Odczyt polityki silnika przez `JobService` jawnie wiąże magazyn gry przed
+  `Session.get`, którego parametr klucza głównego nie pozwala automatycznemu
+  routerowi wskazać partycji V2. Raport i start odczytują dzięki temu tę samą
+  politykę oraz rewizję.
+- Izolowany PostgreSQL otwiera nową, nieskopowaną sesję i potwierdza odczyt
+  `structured_lattice_v3`, rewizji 1, wyłącznie z partycji V2.
+
+### TASK-0525 — greenfield cutover na V2 zakończony
+
+- Baza użytkownika jest na rewizji 0110 i ma zgodny manifest oraz 65/65
+  partycjonowanych parentów `game_data_v2`; katalog gier, locations i partycje
+  konkretnych gier pozostają puste.
+- Produkcyjne utworzenie gry obowiązkowo zakłada location V2 generacji 2 w
+  stanie `migrating`, wznawia provisioning po jednej partycji na transakcję i
+  aktywuje zapis dopiero po komplecie oraz inicjalizacji polityki geometrii.
+- Brak registry nie korzysta już z legacy fallbacku: katalog pokazuje `blocked`,
+  a data-plane zwraca `GAME_STORAGE_LOCATION_MISSING`.
+- Izolowany PostgreSQL potwierdził 65 partycji, rekord inicjalizacyjny wyłącznie
+  w V2 i poprawny routing. Admin 448 passed; API/routing/lifecycle, Ruff, scoped
+  mypy, OpenAPI i formatowanie przeszły.
+- Pierwsza rzeczywista gra nie została utworzona. TASK-0526 wymaga osobnej,
+  jawnej decyzji użytkownika o jej utworzeniu i tożsamości.
+
+### TASK-0524 — pusty katalog gier potwierdzony
+
+- Po wiążącym preview i dokładnym potwierdzeniu usunięto ostatnią grę `777`
+  (`new-siedem`) oraz 2 479 490 należących do niej rekordów.
+- Receipt ma status `database_done` i 1 947 zatwierdzonych partii. Końcowy
+  audyt wykazał `games = 0`, brak bezpośrednich rekordów z `game_id` oraz brak
+  zależnych rekordów należących do gry. Globalne joby bez właściciela gry
+  pozostały zachowane.
+- Managed assets nie zostały usunięte. Katalog
+  `C:\Users\user\Documents\777` oraz archiwum SQLite `777 v0.1` pozostają
+  dostępne. GC wymaga nowego preview i osobnej zgody.
+- Historyczny stan przed TASK-0525: baza była na rewizji 0104. Greenfield
+  cutover i migracje do 0110 zostały następnie zakończone.
+
+### TASK-0523 — cykl życia partycji gry
+
+- Migracja 0110 dodaje trwały receipt provision/delete bez FK do gry. Każde
+  wywołanie wykonuje najwyżej jedną partycję manifestu i zapisuje checkpoint.
+- Provisioning waliduje nazwę, parent, UUID bound i kolumny, ustawia per-partition
+  autovacuum oraz wykonuje ANALYZE. Location V2 staje się aktywne dopiero po
+  kompletnym zestawie 65 partycji.
+- Delete zamyka zapisy tym samym advisory fence, wyznacza kolejność z FK,
+  odłącza i usuwa partycje bez CASCADE, a katalog usuwa dopiero na końcu.
+  Wspólna lub obca referencja blokuje transakcję zamiast kasować wspólne dane.
+- Izolowany PostgreSQL: dwie gry utworzone, restart między każdym krokiem,
+  jedna usunięta bez naruszenia drugiej. Migracji ani lifecycle nie wykonano na
+  bazie użytkownika.
+
+### TASK-0522 — dokładne liczniki Weryfikacji symboli
+
+- Podstawowe liczniki V2 (`wszystkie`, konkretny symbol, `?` oraz stany) są
+  małą transakcyjną projekcją, odczytywaną bez skanu tabeli komórek.
+- Pojedyncze, zbiorcze i recropowe zapisy stosują zagregowaną deltę przed/po;
+  idempotentny retry daje deltę zero. Backfill liczy wyłącznie rzeczywiście
+  wstawione wiersze przez `RETURNING`.
+- Rekonstrukcja per gra używa keysetowego checkpointu i w czasie pracy zwraca
+  `SYMBOL_CELL_REVIEW_COUNTS_UNAVAILABLE`, nie zero. Confidence i kohorta nadal
+  korzystają z dokładnego ograniczonego SQL.
+- Migracja 0109 dodaje projekcję i checkpoint w `public` oraz `game_data_v2`;
+  nie została zastosowana na bazie użytkownika.
+
+### TASK-0521 — indeksowana lista Weryfikacji symboli
+
+- V2 listuje bez `image_board_search_fast_documents`, historycznych
+  `cell_observations` i JSON-owych rewizji predykcji. Confidence jest częścią
+  bieżącej projekcji i jest utrzymywane przez writer/backfill.
+- Migracja 0108 dodaje kolumnę oraz indeksy wszystkich/symbol+stan/`?`/
+  confidence/aktywnej kohorty. Nie zastosowano jej na bazie użytkownika.
+- Cursor v6 korzysta z `(sequence, cell, cell_review_id)` i jest związany z
+  generacją storage oraz kompletem filtrów. Metadane strony nie pobierają
+  ciężkiego render spec; assety pozostają osobnym odczytem.
+- Skupione testy domeny, zapytań, API i migracji: 139 passed. Ruff i scoped
+  mypy passed. Pełny mypy nadal ma wcześniejsze brakujące `py.typed` workera i
+  wcześniejszy `jobs.py:no-any-return`.
+
+### TASK-0520 — bieżąca projekcja komórek V2
+
+- `game_data_v2.image_symbol_review_cells` ma po migracji 0107 dokładnie jeden
+  wiersz na `(game_id, sequence_number, cell_index)`.
+- Repozytorium V2 aktualizuje stabilny wiersz przy zmianie kanonicznego
+  właściciela; legacy zachowuje dotychczasowe wiersze historyczne i owner join.
+- Historia pozostaje w `image_symbol_review_events`. Niedostępne źródło nie jest
+  widocznym cropem i nie trafia do treningu.
+- Migracji nie zastosowano na bazie użytkownika i nie wykonano backfillu
+  `new-siedem`. Skoncentrowane testy: 22 passed; Ruff passed. Bezpośredni mypy
+  jednego modułu ujawnia istniejące braki stubów workera i wcześniejszy błąd
+  `application/jobs.py`, niezwiązane z tym taskiem.
+
+### TASK-0518 — pusty schemat v2 i audyt zakończone
+
+- Przygotowano migrację 0105 i zamrożony manifest 65 tabel `LIST(game_id)`.
+  Obserwacje, review, zdarzenia, bulk targets, kohorty oraz zależne metadane
+  mają wspólny game_id w PK/FK i indeksy relacji.
+- `jobs` pozostaje wspólnym koordynatorem w public: globalna unikalność lane
+  jest zachowana. V2 wiąże joby, symbole i reguły composite `(game_id,id)`.
+- Registry lokalizacji/generacji oraz checkpoint migracji jest trwały.
+  Brak partycji domyślnej. Nie przełączono aplikacji, nie skopiowano danych
+  i nie uruchomiono migracji na bazie użytkownika.
+- Założenie operacyjne: odłączone managed assets i puste `artifacts/data`
+  pozostają bez zmian; API/workery nie są uruchamiane. Import/trening wymaga
+  zakończenia dalszych zadań routingu, projekcji i migracji.
+- Po poprawce audytu P2 i niezależnej naprawie historycznego harnessu:
+  73 passed (49,04 s), w tym 4 integracyjne PostgreSQL; format/Ruff/mypy passed.
+  Każdy test PG ma własną bazę, a downgrade sprawdza dokładny blocker registry
+  lub danych gry. Niezależny re-review zakończył się bez findings P0–P3.
+- Pełna zgodność kolumn/CHECK z torem migracji; v2 dodatkowo poprawia nawiasy
+  previous/current asset provenance eventu, zgodnie z ORM i modelem danych.
+- Wcześniejszy błąd 16 historycznych testów offline naprawiono osobno przez
+  przypięcie właściwych rewizji zamiast full-head. Baseline: 65 passed.
+  Ograniczony test 0105 offline i cały tor online przechodzą; nie osłabiono 0104.
+
+### TASK-0517 — baza starej gry usunięta, częściowy GC bezpiecznie zatrzymany
+
+- `777 v0.1` (`80f3c7ec-6110-4e20-a263-2675ee5b15d6`) osiągnęła terminalny
+  receipt `database_done`: 81 etapów i 10549 zatwierdzonych porcji.
+- `new-siedem` pozostaje obecne, brak aktywnych jobów starej gry, a zachowane
+  archiwum 414705 układów ma niezmieniony SHA-256
+  `0e1d18a6f9ffe22860c6956f8f5761909df45021465643817c8cbf2426314c5e`.
+- Read-only reference-aware GC preview chroni 80640 żywych ścieżek i wskazuje
+  9599508 osieroconych plików (104,888 GiB). Preview SHA-256:
+  `c4cce437b5f84df95f0ea07e6b68d4f8dffe2696e495c82badeb92946d2b2b2b`.
+- Fizyczny GC przetworzył 15700 rekordów JSONL: 2258144 plików i
+  21271550497 bajtów (19,811 GiB). Receipt ma status `executing`, bez pending.
+  Operacja została zatrzymana przez operatora i nie jest obecnie uruchomiona.
+- Pozostałe managed assets znajdują się w odłączonym katalogu
+  `artifacts/data.detached-20260908-legacy-reset`; aktywny `artifacts/data` jest
+  pusty. Katalog `C:\Users\user\Documents\777` i archiwum czatowe są poza
+  zakresem.
+- Executor GC jest gotowy jako ograniczona do 120 s, wznawialna operacja z
+  atomowym przenoszeniem do kwarantanny, trwałym kursorem i blokadą zapisów do
+  tabel ścieżek. Obsługuje jawnie przypięty katalog `data.detached-*`, blokuje
+  wznowienie przy niepustym aktywnym `data`, wiąże katalog z receiptem i
+  odzyskuje przerwany zapis intention/rename. Wznowienie wymaga nowej dokładnej
+  zgody dla istniejącego SHA; dryf referencji, plików, tożsamości gry lub
+  aktywny job zatrzymuje porcję przed usunięciem.
+
+### TASK-0528 — półautomatyczna selekcja bez stagingu zdjęć
+
+- Nowe runy `selection` wybierają katalog przez kontrolowany lokalny picker i
+  tworzą schema v3 z content-addressed manifestem metadanych. JPEG-i pozostają
+  w katalogu użytkownika; nie są kopiowane do `browser-selections` ani
+  `data/originals` i nie podlegają cleanupowi aplikacji.
+- Worker oraz endpoint assetu rozwiązują źródło z przypiętego rootu i przed
+  użyciem sprawdzają indeks, ścieżkę, rozmiar oraz SHA-256. Zmiana pliku lub
+  manifestu kończy się fail-closed.
+- Admin nie wywołuje już create/upload/finalize browser stagingu dla
+  półautomatycznego wyboru. Po utworzeniu runu pobiera stronicowane metadane, a
+  konkretny JPEG dopiero na potrzeby review lub zapisu zaakceptowanego wyniku.
+- Przygotowanie review zapisuje tylko mały manifest. Automatyczny kandydat ma
+  akcje `Zatwierdź i zapisz` oraz `Zmień źródło`; żaden JPEG nie trafia do
+  katalogu wynikowego przed jawną decyzją operatora.
+- Historyczne schema v1/v2 i `filename_verification` nadal działają na
+  dotychczasowym stagingu. Nie dodano migracji bazy i nie usunięto żadnych
+  istniejących danych.
+- Skoncentrowane testy API/workera: 36 passed; pełne testy Admina: 447 passed;
+  scoped Ruff i mypy, typecheck klienta i Admina, OpenAPI drift check, lint oraz
+  produkcyjny build Admina passed.
+
+### TASK-0527 — półautomat korzysta z rzeczywistej pojemności stagingu
+
+- Browser staging o celu `semi_automatic_selection` nie uruchamia już
+  konserwatywnej estymacji przyszłych cropów i artefaktów, których ten workflow
+  nie tworzy. Usunięto tym samym nieadekwatny blocker
+  `STORAGE_CAPACITY_INSUFFICIENT` dla rozpoczęcia półautomatu.
+- Nadal obowiązują limit wejścia oraz fizyczna kontrola miejsca na cały upload
+  z rezerwą 512 MiB; jej błąd pozostaje
+  `IMAGE_BROWSER_SELECTION_DISK_SPACE_INSUFFICIENT`.
+- `layout_import` i `photo_selection` nadal bez zmian korzystają z pełnego
+  capacity guardu. Nie zmieniono API, OpenAPI, progów GC ani istniejących
+  stagingów.
+- Testy API i półautomatu: 57 passed; Ruff i scoped mypy zmienionego modułu
+  passed. Standardowy import-following mypy nadal ujawnia wcześniejsze braki
+  `py.typed` w workerze i wcześniejszy `no-any-return` w `jobs.py`.
+
+### TASK-0516 — mechanizm porcjowanego usuwania gotowy, wykonanie wstrzymane
+
+- Nowa komenda `scripts/delete_legacy_game_resumable.py` domyślnie wykonuje
+  preview; nie importuje dawnych, niecommitowanych skryptów cleanupu.
+- Porcje mają własne transakcje, cursor, journal artefaktów i rzeczywiste
+  liczniki, także efektów triggerów. Fence sprawdza OLD/NEW i własność rodziców.
+  Terminalny checkpoint powstaje w tym samym commicie co usunięcie `games`.
+- Przygotowano, ale **nie zastosowano na bazie użytkownika**, migracje 0103
+  (receipt/fence) i 0104 (136 brakujących prefiksów indeksów FK/keyset).
+  Indeksy wymagają osobnego okna i oceny miejsca przed wdrożeniem.
+- Końcowy audyt `gpt-6-astra high`: brak otwartych P0/P1 po naprawie wyścigu
+  właścicieli, grupowania parentów, dowodu archiwum i terminalnego restartu.
+- Izolowany PostgreSQL: transakcyjny rollback, restart/lost response, queue,
+  ochrona nowej gry i wspólnych executions; testy jednostkowe obejmują byte-cut
+  i zbyt duży rekord. Ruff/scoped mypy oraz format zmienionych plików passed.
+- Odczytowe porównanie istniejącego SQLite potwierdziło zgodność wszystkich
+  **414705** układów i katalogu symboli z bazą. Archiwum ma 19808256 bajtów.
+- Nie usunięto gry, plików ani danych; nie wykonano restartów. Partycje v2,
+  `new-siedem` i dalsze TASK-0517–0526 nie są wdrożone. Następna bramka wymaga
+  aktualnego preview i osobnego potwierdzenia operacji.
+- Instrukcja: `RESUMABLE_LEGACY_DELETION.md`; audyt i ograniczenia:
+  `../quality/TASK_0516_RESUMABLE_DELETION_REVIEW.md`.
+
+### Prerequisite TASK-0516 — indeks FK zapisany w torze migracji
+
+- Lokalny odczyt 2026-09-08 potwierdził head bazy
+  `0102_index_symbol_review_prediction_revision`, dotąd poza Git.
+- Do toru włączono wyłącznie istniejącą migrację indeksu FK predykcji,
+  odpowiadającą deklarację ORM oraz test offline. Nie wykonano migracji ani
+  cleanupu. Pozostałe zmiany przerwanego TASK-0504 są poza zakresem.
+- TASK-0516 przygotowuje porcjowane transakcje i trwały checkpoint. Stara gra
+  nadal istnieje; wykonanie usuwania w TASK-0517 wymaga aktualnego preview
+  i osobnego potwierdzenia. `new-siedem` oraz katalog operatora są chronione.
+
+### TASK-0515 — real-corpus gate v0.10.4 zaliczony
+
+- 32 unikalne realne źródła (5 current manual page overrides z managed
+  originals oraz 27 zaakceptowanych board refs M5) dały 252 deterministyczne
+  scenariusze: 72 pełne, 84 boczne i 96 negatywów.
+- Pełne v3/v4 mają identyczne coverage 70/70 i payload dla wszystkich sukcesów.
+  Odzyskano 15 lewych i 19 prawych propozycji; 50 pozostało jawnie manualnych.
+  Indeks błędów ma 0 wpisów: brak shift, missing-pixel crop i akceptacji
+  vertical/ambiguous/missing; checksumy źródeł nie zmieniły się.
+- Parowany pomiar 5×: mediana v3/v4 62,05305/62,39175 ms, p95
+  101,401/97,412 ms, łączna różnica -0,3978% przy limicie narzutu 10%.
+- `LATERAL_PARTIAL_RELEASED=True` udostępnia istniejący wariant wyłącznie jako
+  jawny test per-run. v3 nadal jest domyślny, a partial wymaga ręcznego
+  potwierdzenia i nie renderuje brakujących pikseli.
+- Nie wykonano migracji, importu, reprocessingu, restartu ani mutacji danych.
+  Szczegóły: `ai_docs/quality/LATERAL_PARTIAL_V4_ACCEPTANCE.md`.
+
+### TASK-0514 — Admin v0.10.4
+
+- Admin pokazuje per-run wariant `v0.10.4 — testowy, niepełne boki`, ale
+  respektuje readiness zwracany przez tę samą backendową bramkę co mutacje.
+  Odbiór TASK-0515 otworzył ten sam gate; wariant jest teraz dostępny tylko
+  jako jawny wybór testowy.
+- `Pokaż raport` nie tworzy joba: odtwarza zgodny staging, run i preflight po
+  game/staging/manifest/variant. Brak artefaktu ma jawny kod, opis i osobną
+  akcję przygotowania; legacy checksum pozostaje bez pola wariantu.
+- Managed-original v4 działa także po usunięciu browser stagingu: przygotowuje
+  preflight z `managedSourceJobId`, a run przypina dokładny job i checksum
+  manifestu. Jego stan jest odizolowany od otwartego raportu browser stagingu;
+  ponowiona akcja odczytuje aktualny status cached created/processing joba i
+  odblokowuje tylko zgodny start po ukończeniu preflightu, bez ponownego
+  otwierania lub zmiany raportu browserowego. Błąd odczytu nie uruchamia runu.
+- Guard v3 jest wiązany ściśle z game, stagingiem, manifestami, jobem i rewizją;
+  callback zawsze odczytuje bieżące refy, więc odpowiedź sprzed zmiany joba lub
+  rewizji jest ignorowana, a obce evidence lub próba rebindu do v4 ma jawny
+  blocker.
+- Cold-start replay wymaga dokładnego, zapisanego unclassified symbol snapshotu
+  mimo publicznego fingerprintu `null`; obcy model nie pasuje, a zwykły legacy
+  checksum i readiness pozostają bitowo zgodne wstecznie. Fingerprint snapshotu
+  uczestniczy w checksumie dopiero dla jawnie wybranego wariantu v4.
+- Raport rozdziela silnik siatki, wariant rejestracji strony i model symboli,
+  a liczniki pełne/propozycje partial/manual/techniczne. Edytory pokazują
+  pochodzenie automatycznej propozycji i dokładną maskę niedostępnych komórek.
+- Focused API 47, Admin 445, Reviewer 183, klient 57 i interakcje 39 passed;
+  oba web buildy/typecheck/lint, OpenAPI i Ruff passed. Root Python typecheck
+  jest blokowany przed analizą źródeł przez niezwiązany dirty skrypt cleanupu
+  widziany pod dwiema nazwami modułu; source-only retry przerwano po 60 s bez
+  wyniku.
+- Zadanie zostało ukończone i commitowane w `v0.10.230`. Bez migracji,
+  restartu, reimportu i zmian danych.
+
+### TASK-0513 — trwały run v4
+
+- Implementacja spina istniejący preflight, manifest, adapter i reprocessing.
+  Managed originals pozwalają jawnie przygotować preflight po zwolnieniu
+  browser stagingu; źródła są sprawdzane checksumowo, bez nowego uploadu.
+- 82 skupione testy API/workera passed, w tym restart, brak stagingu,
+  integralność, odroczenie partiala i rzeczywiste wejścia transakcji lock-order;
+  57 testów klienta, OpenAPI, Ruff i scoped mypy również passed.
+- Audyt wykrył cykle locków oraz brak managed reprepare / ochrony rejected.
+  Poprawiono je i ograniczono incumbent FOR UPDATE do mutowanych review/board;
+  końcowy re-review zaakceptował bramkę bez findings P0–P2.
+- Guard manifest związany ze starym preflight SHA wymaga jawnego przepięcia;
+  obecny v4 fail-closed przed runem, nie gubi rejected/manual/partial decyzji.
+- Publiczny release gate nadal false. Nie wykonano migracji, restartu,
+  reimportu danych ani zmiany aktywnych jobów; UI/odbiór to TASK-0514/0515.
+
+### TASK-0512 — lokalna propozycja bocznie niepełnej siatki
+
+- Izolowany v4 najpierw wywołuje v3 i zachowuje jego pełny wynik. Boczne
+  odrzucenie ze zgodną kandydaturą ma jeden maskowany przebieg 500×300.
+- Fit i najwyżej trzy algebraiczne hipotezy indeksów są deterministyczne,
+  bez modyfikacji globalnego RNG. Maski pochodzą z kontraktu renderera 0506.
+- 103 testy v4/v3/rejestracji/masek/renderera passed (10,34 s), Ruff i scoped
+  mypy passed; niezależny audyt gpt-6-astra high zaakceptowany bez P0–P3.
+- Wynik pending_partial pozostaje niepotwierdzoną propozycją. Render tylko
+  po jawnym potwierdzeniu istniejącą ręczną ścieżką; publiczny dispatch zamknięty.
+- Nie zmieniono detektora v3, jobów, stagingów, usług ani bazy.
+
+### TASK-0511 — boczna propozycja rejestracji
+
+- Rejestrator zachowuje opt-in `analysisQuads` i dowód dopasowania po bocznym
+  odrzuceniu, w tych samych próbach ORB/RANSAC. To nie `registered` ani crop.
+- Bez zmiany publicznej dostępności v4, geometrii v3, aktywnych jobów czy
+  manifestów; lokalny estimator i uruchomienie pozostają TASK-0512/0513.
+- 86 testów rejestracji/preflightu/structured/kontraktu passed (13,37 s),
+  Ruff, scoped mypy i niezależny audyt gpt-6-astra high passed bez findings.
+- Red coverage pozostaje bez obniżenia progów, więc znaczne boczne ucięcie
+  może nadal wymagać ręcznej korekty. Nie deklarujemy jeszcze pokrycia danych.
+
+### TASK-0510 — kontrakt testowego silnika v0.10.4
+
+- Rozszerzenie per-run `geometryEngineVariant` nie zmienia polityki gry.
+  Snapshot v4 przypina bazę v3 i pełną politykę lateral-partial-v1.
+- Jawna proweniencja automatycznej propozycji jest oddzielona od ręcznej
+  decyzji. Pełne źródłowe sloty i istniejąca maska pending_partial pozostają.
+- Foundation: publiczny start i worker zwracają NOT_ENABLED. Nie jest to
+  działający detektor ani dostępna opcja importu; integracja to TASK-0511–0515.
+- Skupione kontrole: 136 testów API/workera, 55 klienta, jego typecheck,
+  Ruff oraz scoped mypy 8 źródeł passed. Stare hashe porównane z HEAD.
+  OpenAPI i niezależny audyt gpt-6-astra high passed (bez P0–P2); uwagę P3
+  domknięto stałymi golden SHA v1/v2/v3 i ponownymi 25 testami kontraktu.
+  Bez restartu, migracji i danych.
+- Historyczne wpisy 0505–0509 opisują stan wdrożenia w momencie tamtych zadań;
+  nie są bieżącym potwierdzeniem numeru migracji lokalnej bazy. Task 0510
+  nie wykonuje ani nie zmienia migracji 0100–0102.
+
+### TASK-0509 — odbiór inżynierski serii niepełnych plansz
+
+- Zakończono implementację 0505–0508 i niezależne audyty. Odbiór 0509:
+  182 testy API, 120 workera, dodatkowa grupa 13 z dokładną maską dwóch rogów,
+  samą ramką i końcowymi slotami; 431 Admina, 183 Reviewera, 6 interakcji,
+  54 klienta. Oba buildy, lint/typecheck, OpenAPI i mypy 41 źródeł zaliczone.
+- Globalny format check zgłasza wcześniejsze pliki poza zakresem; format
+  zmienionych plików passed. Obcego next-env Admina i cleanupu nie commitowano.
+- Trzy istniejące JPEG-i sprawdzono wyłącznie odczytowo na protokole krawędzi:
+  po 12 dostępnych renderów na bok, identyczny replay i niezmieniona SHA.
+  To nie pomiar jakości automatycznego wykrywania plansz.
+- Raport: `ai_docs/quality/PARTIAL_GEOMETRY_ACCEPTANCE.md`, w tym instrukcja
+  testowania. Odbiór na urządzeniu i rzeczywista konkurencja PostgreSQL
+  pozostają jawnie niezweryfikowane. **Migracje 0100/0101 niezastosowane**,
+  usług nie restartowano, danych/importów/profili nie zmieniono.
+- Warunkowy v0.10.4: automatyczne boczne partial nie jest lekkim dodatkiem
+  bez wpływu na estimator. Audyt potwierdza potrzebę osobnego eksperymentu
+  geometrii i anotowanych danych. Nie dodano ani nie aktywowano nowego silnika.
+
+### TASK-0508 — częściowe rewizje, projekcja symboli i ochrona uczenia
+
+- Guard v3 oraz kwalifikowane ręczne override'y działają w nowych ścieżkach
+  importu bez zmiany automatycznego detektora. Pełna→partial→partial oraz
+  15/15 zachowują sloty i historię komórek; render dotyczy tylko dostępnych pól.
+- Addytywna migracja 0101 dodaje source_available: historyczne FK pozostają,
+  niedostępne obrazy nie wchodzą do list/liczników/treningu. Kwalifikowany
+  zapis przerywa transakcję przy niekompletnej projekcji także nowych slotów.
+- Wykluczenia dotyczą nowych kohort i kotwic, również snapshotu tworzonego
+  ze starego profilu. Nie odtrenowują aktywnego modelu. Niezmienione dostępne
+  piksele zachowują decyzję; nowe obrazy wracają do pending.
+- Audyt gpt-6-astra high: zaakceptowany po poprawie atomowości materializacji,
+  kolejności locków, scope replay i signed HTTP guard. 175 testów API,
+  96 workera, 54 klienta passed; mypy 33 źródeł, oba web typecheck i Ruff
+  passed. Końcowy odbiór integracyjny/buildy pozostają w TASK-0509.
+- **0100/0101 nie zastosowano**, bez restartów, cleanupu, zmian jobów i zdjęć.
+  Legacy asset writer jawnie nie obsługuje nowej kwalifikacji. v0.10.4 nie
+  został dodany; warunkowa analiza nastąpi po odbiorze planu.
+
+### TASK-0507 — edytory, nawigacja i trwałe szkice
+
+- Page correction, guard i Grid Review mają kontrolki kompletności oraz
+  niezależnego wykluczenia z uczenia. Brakujące pola pokazują maskę i licznik;
+  pionowe ucięcie ostrzega o błędzie wcześniejszego przycinania źródła.
+- Nawigacja nie zapisuje API; szkice odtwarzają narożniki i oznaczenia.
+  CAS chroni bazowe rewizje, a cleanup po sukcesie nie usuwa szkicu drugiej
+  karty. Reset dostępny także dla zwykłego zmienionego szkicu guard.
+- Testy interakcji, helperów, API i klienta przeszły; nowy pion jest nadal
+  zabezpieczony bramkami konsumentów do TASK-0508. To nie aktywacja pełnej
+  funkcji ani v0.10.4. Migracja 0100 nie została zastosowana; bez restartów
+  i operacji na danych operatora. Odbiór wizualny na urządzeniu pozostaje 0509.
+
+### TASK-0506 — podparcie ręcznej geometrii i obszar edycji
+
+- Nowy ręczny kontrakt dopuszcza quady poza zdjęciem w ograniczeniu -W..2W,
+  -H..2H. Właściwe komórki poza źródłem automatycznie rozszerzają maskę;
+  nie są renderowane, także dla 15/15. Historyczny automat bez zmian.
+- Page override zapisuje signed współrzędne i wynikową maskę. Edytory dostały
+  opcjonalne szare otoczenie bez powiększania bitmapy; podłączenie kontrolek
+  to 0507, importer/kanoniczne rewizje/read model to 0508.
+- Audyt `gpt-6-astra high`: naprawiony roundoff przy brzegu zdjęcia, brak
+  dalszych blockerów fundamentu. 36 testów Python, 16 Reviewera, 53 klienta;
+  oba typecheck, mypy, Ruff i OpenAPI passed. Bez migracji i operacji na danych.
+
+### TASK-0505 — odebrany fundament kwalifikacji geometrii
+
+- Wersjonowany kontrakt, zapis/odczyt page overrides i guard obsługują
+  kompletność, maskę 15/15 i wykluczenie geometrii. Brak nowych pól zachowuje
+  historyczne checksumy. Rozszerzono istniejące API, OpenAPI oraz klienta.
+- Migracja 0100 jest przygotowana, lecz **nie została zastosowana**. Dodaje
+  nullable metadane, zgodność projekcji i bezpieczne ograniczenia maski;
+  rollback nie usuwa nowych decyzji. Nie uruchamiano cleanupu ani usług.
+- To nie jest jeszcze działająca funkcja w edytorze. Nowe pola nie są
+  wystawione w UI; dotychczasowy zapis Grid Review i konsumenci preflightu/
+  importu odmawiają nowych metadanych do integracji TASK-0506–0508.
+- Przeszło 177 testów API/workera, 53 testy klienta, OpenAPI i typecheck
+  klienta; 12 read-only prób nowych CHECK w PostgreSQL, bez danych aplikacji.
+  Globalny format check wykrywa 35 wcześniejszych problemów poza zmianą.
+  Mypy zmienionych źródeł wskazuje dwa wcześniejsze błędy (guard payload cast
+  oraz opcjonalny board w preview); nowych błędów typu nie pozostawiono.
+- Niezależny review `gpt-6-astra high` przeszedł po naprawie utraty kwalifikacji
+  przez stary formularz page/guard i wyścigu downgrade. Audyt: 41 testów;
+  dodatkowy odbiór page/guard/migracji: 80 testów, Ruff passed. To odbiór
+  foundation, nie całego workflow. Kanoniczny roundtrip Grid Review i zdjęcie
+  bramek są jawnym zakresem TASK-0508. Użytkownik zlecił serię 0505–0509
+  z audytami; dalej 0506. Opcjonalny v0.10.4 wymaga analizy po tej serii.
+
+### Zależność TASK-0505 — utrwalenie istniejącej migracji 0099
+
+- Za osobną zgodą operatora do Git trafia wyłącznie addytywna migracja
+  `0099_legacy_game_operational_cleanup`, jej model receipt i testy schematu.
+  Migracja była już obecna w lokalnej bazie po przerwanym TASK-0504.
+- Uporządkowanie łańcucha rewizji nie uruchamia cleanupu ani nie oznacza
+  ukończenia TASK-0504. Skrypt usuwania, jego testy i preview pozostają poza
+  commitem. Nie usuwamy danych ani plików i nie restartujemy usług.
+- Odbiór: 63 testy migracji w trybie offline SQL, Ruff i izolowana kontrola
+  typów modelu (`--follow-imports=silent`) przeszły. Zwykły mypy uruchomiony
+  na modelu zgłasza 48 wcześniejszych błędów w 20 zależnych modułach
+  (m.in. importy workera bez `py.typed`); nie naprawiamy ich w tym commicie.
+  Nowy kontrakt niepełnych plansz pozostaje zakresem TASK-0505–0509.
+
+### TASK-0503 — niezależne archiwum wyszukiwania starej gry
+
+- Migracja 0098 dodała zamrożone dokumenty oraz fail-closed stan archiwum bez
+  FK do review, recognized boards, importów i jobów.
+- Builder przypięty do preview TASK-0502 zapisał i ponownie porównał 369 554
+  dokumenty zakresu `45163–499995`; fingerprint archiwum to
+  `7053d7ac8db72583fd930d66289a8951b2bdfba96f62be5e2ef5f8431e7f15ff`.
+- Wyszukiwanie `777 v0.1` działa już z `assetMode=legacy_archive`, a obrazy są
+  odczytywane bezpośrednio po numerze i oczekiwanej SHA-256. Nowa gra nadal
+  korzysta z `operational_review`.
+- Żaden rekord ani plik operacyjny nie został usunięty. Następny cleanup musi
+  chronić ścieżki gotowego archiwum i wymaga nowego preview oraz osobnej zgody.
+
+### TASK-0502 — inwentarz odchudzenia starej gry
+
+- Read-only preview jest przypięty do starej gry `777 v0.1`, chronionej gry
+  `new-siedem` oraz zakresu `1–45162`; inna tożsamość kończy się fail-closed.
+- Wykryto 7 769 571 bezpośrednich rekordów starej gry. Zakres `1–45162`
+  obejmuje 45 151 fast documents, a przyszłe archiwum musi zachować 369 554
+  plansze `45163–499995`.
+- Wszystkie 369 554 obrazy archiwum zostały odczytane i mają zgodną SHA-256;
+  zajmują 25 989 394 598 B. Katalog `C:\Users\user\Documents\777` nie był
+  skanowany ani zmieniany.
+- Cleanup pozostaje zablokowany przez `ARCHIVE_MIGRATION_REQUIRED`, ponieważ
+  wyszukiwanie nadal rozwiązuje obrazy przez operacyjne review. Preview nie
+  usuwa danych i przed użyciem wymaga niezależnego review `gpt-6-astra high`.
+
+### TASK-0501 — jednoznaczna mapa modeli dla tasków planu
+
+- Ostatnią sekcją każdego planu jest teraz tabela `Przypisanie modeli do
+  zadań`, zawierająca dla każdego taska dokładny model, reasoning, uzasadnienie
+  i wymagany dodatkowy review.
+- Ogólne rekomendacje oraz skróty „ten sam model” i „jak wyżej” nie spełniają
+  standardu. Plan bez numerowanych tasków otrzymuje jeden wiersz dla całego
+  wykonania.
+- Końcowa tabela planu jest źródłem prawdy dla przypisania, a sekcja
+  `Recommended execution` taska musi być z nią zgodna. Rozbieżność albo
+  niedostępność konfiguracji blokuje rozpoczęcie taska do czasu aktualizacji.
+
+### TASK-0500 — zoptymalizowane liczniki Weryfikacji symboli
+
+- Baza operatora zawiera 7 518 540 komórek; największa gra ma 6 304 230
+  rekordów i 6 220 575 bieżących widocznych komórek.
+- Szeroki licznik gry bez confidence nie wykonuje już lookupu
+  `recognized_boards` dla każdej komórki ani `GROUP BY`. Korzysta z inwariantu
+  gotowej projekcji, kanonicznego właściciela i dwóch agregatów `FILTER`.
+- Produkcyjna ścieżka z limitem 15 s zakończyła rzeczywisty odczyt w 4,669 s,
+  zwracając dokładnie 38 542 zatwierdzone i 6 182 033 oczekujące komórki.
+- Wąskie filtry symbolu, `?`, confidence i kohorty zachowują pełną bramkę
+  geometrii, ponieważ pomiary nie wykazały dla nich korzyści z szerokiego planu.
+  Lista również pozostaje bez zmian.
+
+### TASK-0499 — przerywanie SQL po rozłączeniu klienta
+
+- Dodatkowy audyt `gpt-6-astra high` wykrył i usunął cztery wyścigi pierwszej
+  wersji: niewidoczny disconnect za `BaseHTTPMiddleware`, współdzielony limiter
+  query/cancel, nieskuteczny cancel pomiędzy instrukcjami SQL oraz przedwczesny
+  teardown po wielokrotnym `Task.cancel()`.
+- Endpointy listy i liczników wykonują query poza pętlą ASGI i czekają na
+  właściwy komunikat `http.disconnect` przez middleware.
+- Request-scoped repozytorium wiąże aktywny `bounded_read` z dokładnym
+  połączeniem psycopg oraz trwałym sygnałem anulowania. `cancel_safe()` działa w
+  osobnym executorze i jest ponawiane, a kolejne etapy sprawdzają sygnał przed
+  SQL. Zwolnienie sesji następuje dopiero po zakończeniu wątku query nawet przy
+  powtórnym anulowaniu requestu. Limity 5/15 s pozostają niezależne;
+  optymalizacja licznika pozostaje TASK-0500.
+
+### TASK-0498 — serwerowe limity odczytów Weryfikacji symboli
+
+- Cały use case listy ma transakcyjny PostgreSQL `statement_timeout` 5 s, a
+  liczników 15 s. Ustawienie `SET LOCAL` nie wycieka do kolejnego requestu z puli.
+- SQLSTATE `57014` zwraca kontrolowane HTTP 503
+  `SYMBOL_CELL_REVIEW_QUERY_TIMEOUT` z nazwą operacji i limitem; inne błędy
+  bazy nie są maskowane.
+- Limity są dodatnią konfiguracją środowiskową. Nie zmieniono schematu bazy;
+  natychmiastowe anulowanie SQL po rozłączeniu oraz optymalizacja liczników
+  pozostają kolejnymi taskami planu.
+
+### TASK-0497 — anulowanie nieaktualnych odczytów Weryfikacji symboli
+
+- Lista, prefetch następnej strony i liczniki mają niezależne, pojedyncze
+  kanały `AbortController`; rozpoczęcie nowszego odczytu anuluje poprzedni.
+- Zmiana gry, symbolu, stanu, confidence, limitu, kursora, jawny reload oraz
+  unmount przerywają nieaktualne odczyty. Request ID i scope nadal chronią UI,
+  gdy niestandardowy klient zignoruje sygnał.
+- Świadome anulowanie jest ciche. Nie zmieniono backendu, OpenAPI ani zapytań
+  SQL; serwerowe timeouty i anulowanie SQL należą do kolejnych tasków planu.
+
+### TASK-0496 — klasowo stratyfikowany podział treningu symboli
+
+- Przyczyną odrzucenia iteracji `e0467571-2e55-4267-9142-d9f45a1387c9` nie był
+  brak danych ani błędne predykcje: test zawierał tylko `ARBUZ` i `SIEDEM`, a
+  pozostałych sześć klas bez supportu obniżyło macro recall z faktycznego 1,0
+  do 0,25.
+- Nowe iteracje używają source-disjoint splitu v3 uwzględniającego klasy.
+  Każda aktywna klasa musi wystąpić w train, validation, test i regression;
+  niespełnienie warunku zatrzymuje iterację przed treningiem.
+- Odrzucony kandydat pozostaje niezmienny. Operator powinien ponownie wybrać
+  `Ulepsz rozpoznawanie`; nowa kohorta obejmie również zatwierdzenia dodane po
+  zamrożeniu poprzednich 768 próbek.
+
+### TASK-0495 — odtwarzanie gotowego manifestu rozliczeń
+
+- Kolejka problematycznych plansz zwraca aktualny zamknięty manifest wyłącznie
+  wtedy, gdy jego checksuma odpowiada najnowszym rewizjom decyzji.
+- Razem z manifestem API zwraca przypięty job preflightu geometrii. Admin
+  odtwarza oba warunki po reloadzie i `Pokaż raport`, więc gotowy manifest nie
+  wraca do stanu `do zatwierdzenia`, a spełniony start nie pozostaje disabled.
+- Zmiana decyzji nadal unieważnia manifest fail-closed; import nie uruchamia się
+  automatycznie.
+
+### TASK-0494 — uproszczony edytor bramki geometrii
+
+- Korekta widocznej siatki nie wymaga już osobnego podglądu cropów A/B.
+- Lista `Plansze na zdjęciu` została usunięta; wszystkie siatki wybiera się
+  bezpośrednio na pełnoszerokim overlayu.
+- Minimalistyczna decyzja znajduje się pod zdjęciem, a `Zapisz decyzję` oraz
+  `Następne zdjęcie` są obok siebie i pozostają niezależnymi akcjami.
+
+### TASK-0493 — wieloplanszowa korekta bramki importu
+
+- Workspace `Rozlicz problematyczne plansze` zachowuje osobny szkic każdej
+  planszy bieżącego zdjęcia. Zielone i czerwone sloty są edytowalne, a
+  przejście do innej planszy lub zdjęcia nie zapisuje zmian.
+- `Zapisz decyzję` utrwala atomowo wszystkie zmienione szkice źródła;
+  istniejąca decyzja może otrzymać kolejną append-only rewizję. Nowe manifesty
+  v2 obejmują wymagane decyzje i opcjonalne korekty zielonych slotów; v1 nadal
+  jest odczytywany.
+- Panel ma zoom 75–300%, większy viewport i zwarty boczny panel. Dla gry
+  `new-siedem` odczyt bazy nie wykazał zapisanej decyzji guard, więc nie było
+  rekordu do destrukcyjnego cofnięcia; po wdrożeniu każdy zapisany slot można
+  ponownie edytować.
+
+### TASK-0492 — fałszywie pewne lokalne cropy
+
+- Wspólna ocena dowodu kieruje do korekty także high_confidence z fallbackiem
+  granicy. UI i restart zachowują obowiązek; decyzje operatora są chronione.
+- Odczyt zapisanych 305 korekt: stara reguła safe_wide obejmowała 41, nowa
+  obejmuje 285. To dobrane błędne przypadki, nie skuteczność całego katalogu
+  ani pomiar false positives. 20 pozostałych błędów nadal wymaga analizy.
+- Nie poprawiono jeszcze lokalizacji granic; v11/v12 nadal nieaktywne.
+  Oryginały i ręczne linie są dostępne do następnego odbioru. Nie zmieniono
+  żadnego katalogu cut ani procesu importu.
+
+### Instrukcje planowania i przekazania wykonawcy
+
+- AGENTS wymaga odczytu PLAN_STANDARD przed planowaniem i implementacją planu.
+  Standard i szablon obejmują zweryfikowane symbole, decyzje, błędy, testy
+  oraz dynamiczną rekomendację modelu i poziomu rozumowania, bez stałego rankingu.
+- Zmieniono wyłącznie instrukcje i dokumentację procesu; bez zmian aplikacji.
+
+### TASK-0491 — kontynuacja importu i raport ręcznej korekty
+
+- Seria 0489–0491 jest zaimplementowana. Niska skuteczność nowych importów
+  jest ostrzeżeniem; integralność i bramki pojedynczej siatki pozostają wymagane.
+- Przy błędzie `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION` operator wybiera
+  `Kontynuuj z ręczną korektą`. Powstaje nowy idempotentny run z tymi samymi
+  managed originals, manifestem strony i snapshotami modeli, bez uploadu.
+- Raport rozdziela postęp zdjęć od liczników siatek. Rozwiń `Siatki i ręczna
+  korekta`, następnie `Popraw siatki`, aby otworzyć pełne źródła do edycji.
+- Nie uruchomiono importu, nie zmieniono istniejących jobów i nie restartowano
+  usług. Migracja bazy nie jest potrzebna. Usługi muszą korzystać z nowego kodu.
+- Testy i ograniczenia odbioru opisuje Outcome TASK-0491.
+
+### TASK-0490 — pełne sloty i trwały szkic ręcznej geometrii
+
+- Nazwa wyznacza 9 slotów; krótszy zakres tylko na końcu skonfigurowanej gry.
+  Upload plan i preflight blokują krótki zakres wewnętrzny.
+- Regresje potwierdzają atomowy zapis jednej lub wszystkich odroczonych
+  plansz. Lokalne szkice przetrwają reload, o ile źródło i rewizje są zgodne.
+- API/worker/Reviewer testowane; bez zmiany stagingów. Pozostaje pion 0491.
+
+### TASK-0489 — import z odroczeniem niepewnych geometrii
+
+- Nowe runy przypinają `image-geometry-systemic-guard-v2-manual-review`:
+  wynik próbki poniżej 98% nie blokuje; integralność nadal jest wymagana.
+- Zdjęcia `review_required` zachowują wszystkie sloty, bez quadów i cropów,
+  z trwałą rewizją źródła potrzebną do ręcznej edycji.
+- Historyczne retry pozostają bez zmian. Testy API/workera, Ruff i mypy
+  przeszły; następne w zatwierdzonej serii są 0490 i 0491. Żaden import
+  użytkownika nie został uruchomiony ani zmieniony.
+
+### TASK-0488 — pierwszy import symboli bez zgodnego modelu
+
+- Całkowicie nowa gra może po preflighcie geometrii uruchomić jawny import
+  `cold-start-unclassified`. Worker tworzy zwykłe plansze i cropy, ale zapisuje
+  je jako oczekujące `?` z confidence `0`, bez otwierania ONNX i bez udawanej
+  rewizji predykcji.
+- Tryb jest dostępny wyłącznie bez zatwierdzonych komórek, kohort, iteracji i
+  aktywacji. Stan jest ponownie sprawdzany przy starcie i objęty checksumą
+  raportu; kandydat oczekujący na aktywację nadal blokuje import.
+- Po ręcznym opisaniu części cropów operator może wytrenować i aktywować model,
+  a następnie przeliczyć oczekujące na tych samych cropach bez duplikowania
+  assetów.
+
+### TASK-0487 — odzyskanie luk malejącej korekty selekcji
+
+- Naprawiono interpretację malejącego output manifestu: `firstLayout` nie jest
+  już dolną granicą całej kolekcji. Granice są monotonicznie wyprowadzane z
+  plików, usuniętych zakresów i historii repairu, a odzysk zostaje zapisany.
+- Katalog `437742 - 412605` ma faktyczny zakres `412597–437742`: 2794 logiczne
+  pozycje, 2547 JPEG-ów oraz 247 dokładnych luk. Repair manifest został
+  skorygowany do rewizji 248, output ma `selectionComplete=false`; JPEG-ów nie
+  zmieniono.
+- Testy regresyjne obejmują istniejący uszkodzony manifest, malejący output i
+  synchronizację stanu zakończenia.
+
+### TASK-0486 — jawne uruchamianie preflightu geometrii
+
+- Zakończenie browserowego uploadu oraz `Pokaż raport` wyłącznie pobierają
+  raport. Preflight geometrii powstaje lub jest przywracany dopiero po jawnym
+  `Przygotuj geometrię stron`.
+- Lista gotowych stagingów opisuje teraz, że pokazuje fizyczne kopie gotowe do
+  wznowienia, a nie historię zakończonych importów z zakładki Joby.
+- Odczytowa diagnoza stagingu `6b9de344…` wykazała aktywny preflight oraz
+  istniejący import z wynikami; akcja `Usuń nieużywany staging` prawidłowo nie
+  może go usunąć podczas aktywnego wykorzystania.
+
+### TASK-0485 — stabilne miejsca kafli Weryfikacji symboli
+
+- Lokalnie ukryty target pozostawia niewidoczne miejsce w niezmiennym
+  snapshotcie aktywnej strony. Pozostałe karty nie przesuwają się pomiędzy
+  wierszami wirtualizatora, zachowują swoje klucze React i zamontowane podglądy
+  atlasów podczas kolejnych decyzji.
+- Wybór i operacje nadal obejmują wyłącznie widoczne, nieukryte cropy, a zmiana
+  strony, filtra albo gry nadal usuwa pamięciową mapę tile.
+
+### TASK-0484 — zachowanie podglądów aktywnej strony symboli
+
+- Ładowanie atlasów jest związane z niezmiennym snapshotem pobranej strony, a
+  nie z lokalną listą kart pomniejszaną po każdej udanej decyzji. Pozostałe
+  miniatury nie znikają i nie są ponownie pobierane po zmianie symbolu.
+- React przechowuje tile wyłącznie aktualnie otwartej strony. Nawigacja, zmiana
+  filtra albo gry usuwa referencje poprzedniej strony; trwały cache atlasów
+  pozostaje odtwarzalny i checksum-bound.
+
+### TASK-0483 — stabilna weryfikacja symboli i ochrona nieczytelnych cropów
+
+- Pojedyncza oraz w pełni udana masowa decyzja usuwa dokładne targety z
+  bieżącego ekranu bez ponownego pobierania i bez uzupełniania strony. Konflikt
+  albo częściowy błąd nadal pozostawia crop widoczny.
+- `approve` i `reassign` zachowują związane z pikselami
+  `quality_issue=unreadable`, więc późniejsza zmiana etykiety nie może dopuścić
+  cropa do treningu. Widok całej planszy pokazuje na nim badge `Nieczytelny` i
+  delikatną szarą warstwę.
+- Odczytowy audyt gry `777 v0.2` znalazł 45 bieżących cropów, które kiedykolwiek
+  miały `unreadable` dla tej samej checksummy; wszystkie 45 nadal jest
+  chronionych, a zero utraciło status lub spełnia warunki udziału w treningu.
+  Dane gry nie zostały zmienione.
+
+### TASK-0482 — wykluczenie błędnego zdjęcia przed importem
+
+- `Korekta geometrii strony` udostępnia potwierdzaną akcję `Usuń z importu`.
+  Decyzja jest związana z grą, stagingiem, ścieżką i SHA-256 źródła; poprawiony
+  JPEG o nowej zawartości nie dziedziczy wykluczenia.
+- Niezmienny staging pozostaje fizycznie bez zmian. Bieżąca kolejka i raport
+  pomijają wykluczone źródło, a nowy job przypina snapshot decyzji do inputu i
+  fingerprintu. Worker nie kopiuje go do managed originals ani nie wykonuje na
+  nim geometrii, cropów lub inferencji.
+- Migracja addytywna `0097_page_source_exclusions` została zastosowana. Nie
+  zmieniono istniejących importów ani aktywnych jobów.
+
+### TASK-0480 — odbiór zmian 5–6 września i poprawka efektów geometrii
+
+- Na działającym lokalnym panelu potwierdzono filtr `Kohorta aktywnego modelu`;
+  dla gry `777 v0.2` zwrócił 948 checksum-bound cropów na dwóch stronach wraz z
+  miniaturami. Pozostałe uzgodnione zmiany Weryfikacji symboli również są
+  widoczne. Brak filtra w wcześniej otwartej karcie był starym stanem klienta,
+  nie brakiem implementacji.
+- Audyt commitów i ukończonych tasków z 5–6 września nie wykazał pominiętego
+  wdrożenia w zamkniętym zakresie. V11 pozostaje świadomie nieaktywne z powodu
+  nieprzejściowej bramki jakości TASK-0472; testowe v12 nie zmienia domyślnego
+  workflow.
+- Naprawiono dwa błędy pełnego ESLint w panelu geometry guard: refresh i wybór
+  początkowego celu są odroczone do anulowalnych callbacków, więc zmiana
+  kontekstu nie zostawia spóźnionych aktualizacji stanu.
+- Odbiór: 410 testów Admina, 51 klienta API, 84 lokalnego crop core i 81 API,
+  pełny lint/typecheck Admina, OpenAPI oraz produkcyjny build — wszystkie
+  zielone. Nie zmieniono stagingów, danych ani aktywnych jobów.
+
+### TASK-0479 — czteropunktowa rejestracja pasa plansz
+
+- Dodano testowy wariant v12, który przenosi czteropunktowy obrys całego układu
+  3×3 między bliskimi zdjęciami przez deterministyczne dopasowanie cech i
+  bounded affine RANSAC. Nie wymaga 36 narożników i nie zmienia v10/v11.
+- Browser i runner utrwalają źródło kotwicy, cztery punkty, fingerprint oraz
+  metryki dowodu. Słabe, odbite lub przestrzennie niepełne dopasowanie pozostaje
+  obowiązkową korektą; jawne przeliczenie nie nadpisuje ręcznych wyników.
+- Odczytowy odbiór 30 ujawnionych, source-disjoint referencji: 29 automatów,
+  1 manual, 29/29 bez odcięcia plansz lub numerów (96,7% całej próby), lecz
+  tylko 16/29 w ścisłym przedziale obu linii. V12 pozostaje niedomyślnym trybem
+  testowym do czasu szerszego odbioru ciasności i innej szaty graficznej.
+- Nie przeliczono ani nie zmieniono istniejącego katalogu 2200 cropów.
+
+### TASK-0478 — obowiązkowe deferred w geometrii całego zdjęcia
+
+- Lokalna kolejka `Zatwierdzanie cięcia siatki` zwraca teraz zarówno istniejące
+  review plansz, jak i nierozwiązane sloty `image_board_geometry_pending`.
+- Liczba pozycji źródła wynika z poświadczonego zakresu i aktywnych slotów
+  rewizji geometrii źródła: zwykle jest to dziewięć, a krótszy komplet jest
+  dozwolony wyłącznie dla rzeczywiście krótszego zakresu końcowego.
+- Deferred otrzymuje wyłącznie edytowalny szablon roboczy i stan obowiązkowej
+  korekty. Odczyt kolejki nie tworzy `recognized_board`, cropów ani akceptacji.
+- Atomowy zapis renderuje wszystkie sloty przed transakcją, zapisuje jedną
+  nową rewizję geometrii źródła i dopiero wtedy materializuje brakującą planszę
+  wraz z 15 wirtualnymi komórkami. Nie zmieniono istniejących stagingów ani
+  aktywnych jobów.
+
+### TASK-0477 — naprawa kolejki katalogowego przycinania
+
+- Runner przycinania ponownie rozpoznaje katalogi zaczynające się od numeru;
+  błędnie podwójnie zapisany regex nie zwraca już pustej listy.
+- Czysty filtr zachowuje kolejność numeryczną i pomija outputy `cut`, pliki oraz
+  symlinki. Kolejka katalogów 5–14 została uruchomiona po ukończeniu nr 4.
+
+### TASK-0476 — filtr kohorty aktywnego modelu
+
+- `Weryfikacja symboli` ma dodatkowy stan `Kohorta aktywnego modelu`, który
+  pokazuje bieżące cropy dokładnie zgodne z niezmienną kohortą najnowszej
+  aktywacji modelu wybranej gry.
+- Członkostwo jest związane checksumą i proweniencją, a cursor v5 również
+  identyfikatorem kohorty. Brak aktywnego modelu daje pusty wynik.
+- Operacja masowa na całym filtrze jest fail-closed; jawnie zaznaczone cropy
+  nadal korzystają z istniejących checksum-bound decyzji.
+
+### TASK-0475 — bezpośredni gest edycji gotowej siatki ukończony
+
+- Naprawiono regresję, w której pierwszy gest tylko wybierał planszę i wymagał
+  ponownego złapania narożnika. Aktywny drag jest wiązany z konkretnym
+  slotem i szkicem, a uchwyt może zostać trafiony także tuż poza quadem.
+- Przełącznik `Ukryj/Pokaż overlay` jest usuwany; overlay pozostaje stale
+  widoczny jako powierzchnia wyboru i edycji.
+- „Niepełne siatki do ręcznej korekty” są osobną kolejką brakujących plansz
+  bieżącego importu i mogą pochodzić również z v0.10; nie oznaczają wyłącznie
+  historycznego v19/v20.
+
+### TASK-0474 — bezpośrednia edycja gotowych siatek
+
+- Kliknięcie siatki lub pozycji planszy od razu otwiera edycję bez przycisku
+  `Zmień siatkę`; szkic zaczyna się od bieżących quadów całego źródła.
+- Korekty kolejnych plansz pozostają w jednej mapie, a `Enter`, `F` i
+  `Zatwierdź całe zdjęcie` kierują do jednego atomowego zapisu i zatwierdzenia.
+- Jawne wyznaczanie 36 narożników pozostaje dostępne i niekompletny komplet nie
+  może zostać zapisany. Nawigacja jest zablokowana przy niezapisanym szkicu.
+
+### TASK-0472 — bezpieczeństwo v11 poprawione, precyzja nadal nie przechodzi
+
+- Wielorozdzielcze potwierdzenie numerów, ostrożna deduplikacja wariantów bbox,
+  fallback perspektywy i odzyskanie górnej granicy usunęły wykryte odcięcie.
+- Ujawnione korpusy rozwojowe: 9/10, 7/7 i 10/10. Najnowsza niezależna próba:
+  9 automatów, 1 manual, zero odcięć plansz/numerów, lecz tylko 6/10 cropów w
+  ścisłych przedziałach obu linii z powodu nadmiaru tła.
+- Bramka TASK-0472 nadal nie przeszła. V11 pozostaje nieaktywny; nie zmieniono
+  danych użytkownika. Następna praca dotyczy odróżnienia dolnych numerów od
+  elementów obudowy bez osłabiania obowiązkowej korekty.
+
+### TASK-0473 — miniatury weryfikacji symbolu na planszy
+
+- Naprawiono brak render-spec checksum w odpowiedzi detailu i URL miniatury
+  virtual_source. Testy kontraktu, typecheck, scoped lint/mypy, OpenAPI i build
+  przeszły. Bez migracji i bez restartowania workera. Odbiór działającego panelu
+  niepotwierdzony: lokalny request API przekroczył 8 s.
+- Osobna diagnoza brakujących slotów: gra `siedem` / `777 v0.2`, import
+  `888f9927-b3e1-42b1-8708-1c28b0b5f656`: 602 odroczone plansze w 435 źródłach.
+  Dla 3565–3573 slot 1 / numer 3566 ma
+  `SYMBOL_LATTICE_INSUFFICIENT_COVERAGE`. Stage `board_crops.deferredBoards`
+  zachowuje slot, ale recognized_boards i kolejka geometrii go nie prezentują.
+  Nie jest to błąd numeracji nazw ani kanonicznego właściciela. Przekazanie
+  odroczonych slotów do edytora zostało domknięte w TASK-0478 bez tworzenia
+  fikcyjnego cropa ani automatycznie zatwierdzonego quada podczas odczytu.
+
+### TASK-0472 — trzecia iteracja: 90% regresji, nieprzejściowy nowy odbiór
+
+- Poziome łączenie krawędzi i analiza pochylonych etykiet dały 9/10 poprawnych
+  automatów w znanej próbie, bez błędnych cięć. Bufor v11 wynosi teraz 20%.
+- Niezależne 7 nowych katalogów: 5 poprawnych, 1 granica ponad referencją dolną,
+  1 manual. Nie spełnia bramki. V11 nieaktywny, task pozostaje blocked.
+- 101 testów i typecheck core/Admin OK. Bez zmian źródeł, cut, importów i jobów.
+  Szczegóły i zamrożone referencje opisuje raport SELECTED_CROP_V11_REGRESSIONS.
+
+### TASK-0472 — poprawka detektora, druga bramka nadal nieprzejściowa
+
+- Poprawiono halo dylatacji, scalanie kandydatów i ranking etykiet w v11;
+  stara para regresyjna daje 2/2 poprawnych automatów.
+- Nowy niezależny zbiór: 5/10 poprawnych automatów, 1 z nadmiarem dolnego tła,
+  4 ręczne korekty. Nie osiągnięto >=90%; v11 nadal nieaktywny, task blocked.
+- 100 testów core/runner/Admin contract i oba typechecki OK. Bez zmian źródeł,
+  katalogów cut, geometrii v0.10 i aktywnych jobów. Szczegóły w raporcie jakości.
+- Odbiór dziesięciu zdjęć jest od teraz ujawniony; dalsze strojenie wymaga
+  kolejnego niezależnego materiału. Oryginałów gry literowej nadal brak.
+
+### TASK-0472 — bramka jakości v11 nie przeszła; rollout zatrzymany
+
+- Holdout: 0/2 poprawnych automatów, 0 błędnych automatów, 2 incomplete_layout
+  po analizach 960/1600. Nie osiągnięto wymaganych 90%; nie kontynuujemy strojenia.
+- V11 pozostaje nieaktywny. Katalogi, importy, OCR i aktywne joby bez zmian.
+- 72 core, 18 Admin contract, 7 Node recovery/EXIF, typecheck, scoped lint,
+  scoped format oraz produkcyjny build Admina OK. Pełny lint nadal ma dwa
+  wcześniejsze błędy w geometry-guard-resolution-panel.tsx, poza zakresem.
+- Task pozostaje blocked; raport w SELECTED_CROP_V11_REGRESSIONS.md.
+  Brak oryginałów gry literowej i live QA ogranicza odbiór. Dalsze prace tylko
+  po osobnym poleceniu, bez obniżania ochrony ani automatycznego przeliczenia danych.
+
+### TASK-0471 — wspólny transport i journal v11
+
+- Dodano wspólny sampler i fingerprint; worker/fallback otrzymują przypiętą
+  politykę. V11 nadal nieaktywny; następny krok to bramka 0472.
+- Node ma trwałą intencję per plik, no-clobber publikację, SHA, recovery
+  i ochronę przestrzeni źródłowej. Testy przerwań po 4 fazach przeszły.
+- 72 core, 18 Admin contract, 6 Node recovery, typecheck i scoped lint OK.
+  Pełny lint Admina blokują dwa stare błędy w geometry-guard-resolution-panel.
+
+### TASK-0470 — granice i trwały obowiązek korekty
+
+- V11 ma dowód obu granic z obszarami numerów i buforem; niepewność daje
+  pełny obraz, bez niekalibrowanego procentu confidence.
+- Obowiązkowe korekty wynikają z shardów, nie zaznaczeń: odznaczenie/reload
+  ich nie usuwa. Zapis ręczny zamyka obowiązek; globalne zakończenie jest blokowane.
+- 69 testów core, typecheck core/Admin OK. Domyślny v10 nadal bez zmian.
+
+### TASK-0469 — strukturalny v11 (nieaktywny)
+
+- Dodano osobny lokalizator pełnego 3×3: luminancja, tekstura, ograniczone
+  kandydatury i kontrola rzędów. Produkcyjny v10 pozostaje bez zmian.
+- Development: 1/5 układów, pozostałe odrzucone. Wynik nie stanowi odbioru;
+  bramki końcowe sprawdzimy po integracji 0470–0472.
+
+### Referencje rzeczywistych błędów cropa — TASK-0468
+
+- Siedem oryginałów, 63 plansze i 63 obszary numerów; SHA-256, wizualne
+  obwiednie, przedziały obu linii z tolerancją 8 px i podział po katalogach.
+- Read-only replay v10 odtwarza trzy błędy: obudowę pod planszami, reklamę
+  zamiast plansz i pozostawiony panel górny. `80074–80082` daje 0–538 px
+  z high_confidence mimo usunięcia wszystkich plansz.
+- 61 testów core i typecheck przeszły. Produkcyjny detektor i katalogi cut
+  pozostają bez zmian. Następny task: 0469.
+- Gra literowa nie ma odnalezionego oryginału; odbiór niepotwierdzony. Mały,
+  celowo trudny corpus nie jest pomiarem skuteczności całej populacji.
+- Raport: `ai_docs/quality/SELECTED_CROP_V11_REGRESSIONS.md`.
+
+### Górna granica prowadzona pierwszym rzędem plansz — TASK-0467
+
+- Polityka `selected-image-board-band-v10-top-board-row-guided` wykrywa trzy
+  podobne czerwone ramki pierwszego rzędu i ustawia poziomą granicę nad ich
+  najwyższym punktem z buforem 2% obrazu roboczego.
+- Brak pełnej, geometrycznie zgodnej trójki nie zaciska cropa: wynik bazowy v9
+  pozostaje bez zmian. Dolna granica korzysta ze starego detektora panelu;
+  TASK-0468 potwierdził, że nie jest on wystarczająco wiarygodny.
+- Dwie rzeczywiste, pochylone próbki dały odpowiednio `topY=589` i `topY=454`
+  przy obrazie 1080×1920, zachowując komplet wszystkich dziewięciu plansz.
+- Wznawialne narzędzie operatorskie zapisuje wyniki shardami po 64 pozycje i
+  publikuje zgodny manifest dopiero po ukończeniu katalogu.
+
+### Zbalansowany górny margines lokalnego auto-cropa — TASK-0466
+
+- Polityka v9 zwiększa górny padding z 3% do 4,5%, pozostawiając około 29 px
+  dodatkowego zapasu przy obrazie 1920 px. Górna ekspansja nadal jest wyłączona.
+- Rzeczywisty `seq_70363-70371.jpg` otrzymał `topY=618`, `bottomY=1224` przy
+  1080×1920: pierwszy rząd ma bezpieczniejszy margines, a panel wypłat nadal
+  pozostaje poza wynikiem.
+- Cztery nieprzejrzane katalogi v8 bez ręcznych decyzji zostały usunięte przed
+  ponownym uruchomieniem, aby żaden katalog nie mieszał polityk.
+
+### Ciaśniejsza górna granica lokalnego auto-cropa — TASK-0465
+
+- Polityka v8 używa 3% górnego paddingu i nie rozszerza górnej granicy w stronę
+  panelu wypłat. Jednokrokowa ochrona dolnej granicy pozostaje bez zmian.
+- Rzeczywista próbka `seq_70363-70371.jpg` otrzymała `topY=648`,
+  `bottomY=1224` przy rozmiarze 1080×1920. Pierwszy rząd plansz pozostaje
+  widoczny, a logo i panel wypłat zostały usunięte.
+- Istniejące wyniki v7 nie zostały automatycznie nadpisane; ich ponowne
+  przeliczenie wymaga jawnej decyzji operatora po obejrzeniu próbki.
+
+### Ograniczona ekspansja granic lokalnego auto-cropa — TASK-0464
+
+- Polityka v7 rozszerza wykryty pas najwyżej o jeden krok bezpieczeństwa 3%,
+  więc szeroki sygnał panelu wypłat nie może już przesunąć górnej granicy aż do
+  krawędzi obrazu.
+- Minimalna wysokość wiarygodnego pasa wynosi 32%. Rzeczywisty
+  `seq_70363-70371.jpg` otrzymał `topY=504`, `bottomY=1224` przy rozmiarze
+  1080×1920 zamiast fallbacku 5–95%.
+- Lokalna kolejka brakujących katalogów `cut` działa rosnąco, pomija istniejące
+  odpowiedniki, zapisuje stan zgodny z kafelkowym review i zatrzyma się przed
+  naruszeniem rezerwy 30 GiB z marginesem 20%.
+
+### Bezpieczniejsza górna granica lokalnego auto-cropa — TASK-0463
+
+- Polityka v6 wykrywa niebieski panel niezależnie w dziewięciu pasach i wymaga
+  zgodności lewej, środka i prawej strony. Mocny panel nie jest już odrzucany
+  tylko dlatego, że ogólny detektor zwrócił `safe_wide`.
+- Górny padding wynosi 7,5% zamiast 12%, więc crop zaczyna się bliżej nad
+  planszami i nie zachowuje większości panelu wypłat. Brak szerokiego dowodu
+  nadal kończy się jawnym `Szerokie — sprawdź`.
+- Grid ma jeden przełącznik `Zaznacz wszystkie` / `Odznacz wszystkie`, który
+  zapisuje zbiór bieżącego filtra bez przepisywania obrazów.
+- Istniejące wyniki v4/v5 nie są zmieniane; ich jawne przeliczenie obejmuje
+  wyłącznie nieprzejrzane i niepoprawiane cropy.
+
+### Odbiór rejestracji obszaru plansz — TASK-0462
+
+- Read-only porównanie objęło 19 z 21 kompletnych, ręcznie skorygowanych
+  źródeł; oceniane źródło i jego duplikaty były wykluczane z kotwic po SHA-256.
+- Wariant maskowany rozpoznał 13/19 wobec 14/19 standardu, miał medianę błędu
+  6,36 px wobec 6,20 px i był łącznie o 26,67% wolniejszy.
+- Wariant `board_area_test` nie przeszedł bramek i pozostaje opcjonalnym
+  eksperymentem. `standard_v0_10` nadal jest ustawieniem domyślnym.
+- Rzeczywisty `seq_53119-53127.jpg` został odrzucony przez oba warianty na
+  bramce pokrycia czerwonych krawędzi; bez 36 ręcznych narożników jest tylko
+  przypadkiem diagnostycznym.
+
+### Opcjonalny wybór rejestracji obszaru plansz — TASK-0461
+
+- Start preflightu pozwala wybrać `Standardowe v0.10` albo eksperymentalne
+  `Obszar plansz — testowe`; ustawieniem domyślnym pozostaje wariant standardowy.
+- Wybór, wersja maski i padding są przypięte do payloadu, input key i manifestu.
+  Retry odtwarza tę samą wersję, a inny wariant na tym samym stagingu otrzymuje
+  odrębną tożsamość.
+- Historyczne workflow v1/v2 oraz istniejące decyzje nie są modyfikowane.
+
+### Maskowane cechy kotwicy geometrii strony — TASK-0460
+
+- Rejestrator obsługuje opcjonalną politykę
+  `verified-page-registration-v2-board-area-mask-v1`, która ogranicza ORB
+  kotwicy do otoczki pełnych 36 ręcznie zatwierdzonych narożników.
+- Obraz docelowy nadal jest analizowany w całości, a budżety 1000/1500/3000 i
+  wszystkie dotychczasowe bramki pozostają bez zmian.
+- Wariant nie jest jeszcze dostępny w API ani domyślny; wybór i trwałe
+  przypięcie należą do TASK-0461.
+
+### Pochodzenie geometrii w ekranie korekty — TASK-0459
+
+- Endpoint istniejącej kolejki zwraca `geometryOrigin`, opcjonalny reason code
+  i ograniczoną diagnostykę utrwaloną przez preflight.
+- Admin nazywa domyślne prostokąty roboczym szablonem i nie przedstawia ich
+  jako wyniku automatu. Ręczny override zachowuje pierwszeństwo i semantykę
+  dokładnego resetu.
+- Historyczne manifesty bez diagnostyki nadal otwierają edytor bez nowych
+  obliczeń.
+
+### Diagnostyka odrzucenia geometrii strony — TASK-0458
+
+- Rejestrator rozróżnia zamknięte powody niepowodzenia od braku cech aż po
+  niedostateczne pokrycie czerwonych ramek i zapisuje tylko pomiary faktycznie
+  wykonanych bramek.
+- Preflight zachowuje w tym samym content-addressed manifeście najlepszą
+  nieudaną próbę i najwyżej jedną próbę na budżet 1000/1500/3000. Nie wykonuje
+  dodatkowego ORB/RANSAC i nie zmienia decyzji rejestracji.
+- Historyczne manifesty bez diagnostyki pozostają poprawne. API i ekranowe
+  objaśnienie pochodzenia geometrii należą do TASK-0459.
+
+### Przywrócenie właściwego pasa plansz w auto-cropie — TASK-0457
+
+- Polityka `selected-image-board-band-v5-blue-priority-multicolumn` zachowuje
+  wielokolumnowe zabezpieczenia v4, ale dla aktualnej niebieskiej szafy najpierw
+  izoluje szeroko wsparty panel 3×3. Pełnoszeroki panel wypłat nad planszami nie
+  rozszerza już górnej granicy cropa.
+- Kandydat niebieski może jedynie zawęzić wynik już poparty wielokolumnowo;
+  częściowy niebieski sygnał nie zastępuje `safe_wide`. Brak wiarygodnego
+  wyniku pozostawia `safe_wide`, lecz taki plik jest automatycznie kierowany do
+  `Do poprawy`.
+- Historyczne v4 pozostaje odtwarzalne. Przejście istniejącej sesji na v5 jest
+  jawne i obejmuje tylko nieprzejrzane, niepoprawiane wyniki.
+- Porównanie realnych preflightów potwierdziło wpływ wejścia: 2783 poprawne
+  cropy zakończyły się w 20 min 18 s bez review, a 2801 gorszych wejść wymagało
+  84 min 10 s i pozostawiło 50 zdjęć do review. Algorytm geometrii nie zmienił
+  się w TASK-0457; koszt wynikał z trudniejszych dopasowań i dodatkowych
+  przebiegów auto-anchor.
+
+### Rzeczywisty progres preflightu geometrii — TASK-0456
+
+- Preflight publikuje osobny licznik pierwszego przebiegu, każdego bounded
+  przebiegu auto-anchor i zapisu manifestu. Dodatkowe dopasowanie checkpointuje
+  co najwyżej co 25 źródeł bez naruszania monotonicznych liczników joba.
+- Monitor pokazuje numer i pasek bieżącej fazy oraz świeżość heartbeat workera.
+  Historyczny lub już uruchomiony job bez nowych pól nie udaje `100%`, lecz
+  pokazuje stan indeterminowany i liczbę zarejestrowanych zdjęć.
+- Nie zrestartowano usług ani nie zmieniono joba
+  `abf57847-478f-4469-8e06-6f3ad0ab0d5b`; zakończył się sam wynikiem 2751
+  zarejestrowanych i 50 do review, według kodu załadowanego przed poprawką.
+
+### Trwała proweniencja i jawne przeliczanie auto-cropa — TASK-0455
+
+- Nowe wyniki v4 zapisują w shardzie klasę, confidence, lokalne granice,
+  rodziny sygnału, IoU, rozszerzenie granicy i reason code fallbacku. Operacja
+  oczekująca zachowuje te same dane na potrzeby recovery.
+- Historyczna sesja bez przypiętej polityki pozostaje czytelna, ale nie miesza
+  automatycznie starych wyników z v4. Operator może jawnie przeliczyć wyłącznie
+  nieprzejrzane i niepoprawiane wyniki; checksum-bound journal chroni źródła,
+  bieżące JPEG-i oraz decyzje ręczne.
+- Grid pokazuje badge `Pewne`, `Zachowawcze`, `Szerokie — sprawdź` i filtr
+  `Niepewne`. Nie wykonano przeliczenia żadnego katalogu użytkownika.
+
+### Wielokolumnowy auto-crop wybranych zdjęć — TASK-0454
+
+- Polityka `selected-image-board-band-v4-conservative-multicolumn` analizuje
+  podgląd do 512 px w dziewięciu pasach i wymaga szerokiego dowodu z lewej,
+  środka i prawej strony.
+- Kolor i struktura są niezależnymi rodzinami dowodu. Zgodność daje wynik
+  pewny, rozbieżność bezpieczną sumę zachowawczą, a brak dowodu pas `5–95%`.
+- Lokalne granice uwzględniają pochylenie, a zawartość przy granicy może tylko
+  rozszerzyć crop. Istniejące pliki `cut` i sesje nie są przeliczane.
+
+### Workspace rozliczania wyjątków bramki — TASK-0453
+
+- Karta failed dużego importu pokazuje wszystkie dziewięć slotów źródła i
+  pozwala rozliczyć wyłącznie odroczone plansze jako pełne, częściowe albo
+  odrzucone. Historyczny raport v1 jest odtwarzany osobnym jawnym jobem.
+- Pełna/częściowa siatka ma edytowalny quad i przejściowy podgląd 15 cropów A/B.
+  Brakujące komórki częściowe są `source_unavailable`; podgląd niczego nie
+  zapisuje.
+- Zamknięty manifest jest przekazywany jako ID + SHA-256 do jawnie uruchamianego
+  schema-v7 importu. Nowa rewizja decyzji unieważnia wybór manifestu w UI;
+  failed job nie jest retry'owany ani mutowany automatycznie.
+
+### Audytowa rekonstrukcja raportu bramki v1→v2 — TASK-0452
+
+- Osobny job walidacyjny odtwarza wyłącznie historyczną próbkę zapisaną w
+  raporcie v1, używając managed manifestu i wszystkich snapshotów failed
+  importu. Nie mutuje źródłowego joba, jego checkpointu ani raportu.
+- Wynik v2 jest content-addressed i jawnie wskazuje checksumę raportu v1.
+  Kolejka decyzji akceptuje tylko zakończoną rekonstrukcję zgodną z grą,
+  stagingiem, raportem oraz manifestami źródeł i geometrii strony.
+- Endpoint startu jest idempotentny względem wejścia joba. Wdrożenie nie
+  uruchamia automatycznie rekonstrukcji ani joba `86128f3c…`; to pozostaje
+  krokiem operatorskim po restarcie usług.
+
+### Manifest-bound wykonanie rozliczeń w schema v7 — TASK-0451
+
+- Nowe browser-importy używają schema v7 i mogą przypiąć zamknięty manifest
+  decyzji bramki. API i worker sprawdzają grę, staging, oba manifesty wejściowe,
+  artefakt content-addressed, sloty, numery sekwencji i checksumy decyzji.
+- Surowy wynik bramki pozostaje audytem. Pełne korekty ponownie przechodzą
+  invariants, częściowe plansze tworzą wyłącznie dostępne cropy i pozostają
+  niekanoniczne, a odrzucone nie tworzą recognized board ani cropów.
+- Historyczne schema v5 i reprocess schema v6 zachowują replay. Interfejs
+  rozliczania oraz operatorskie wznowienie joba `86128f3c…` pozostają osobnymi
+  krokami; bieżący failed job nie został zmieniony ani ponowiony.
+
+### Append-only rozliczenia wyjątków przed importem — TASK-0450
+
+- Migracja `0096` dodaje rewizjonowane decyzje full/partial/rejected, rejestr
+  zamkniętych manifestów oraz stan kompletności planszy bez fałszywych
+  obserwacji komórek.
+- API listuje dokładną kolejkę z raportu v2, zapisuje atomowo wiele slotów
+  jednego zdjęcia i blokuje zamknięcie przy choć jednym nierozliczonym błędzie.
+- Obraz kolejki jest odczytywany tylko z właściwego stagingu i ponownie
+  sprawdzany przez rozmiar oraz SHA-256. Zamknięty manifest może zostać
+  przypięty do nowego schema-v7 importu, ale nigdy nie uruchamia go samoczynnie.
+
+### Diagnostyka plansz w bramce dużego importu — TASK-0449
+
+- Nowe raporty `image-geometry-systemic-guard-report-v2` zachowują wynik
+  każdego slotu: logiczne źródło, numer sekwencji, status, reason codes,
+  geometrię strony, `analysisQuad`, `symbolGridQuad` i evidence.
+- Produkcyjny tor oraz próg 98% nie zmieniły się; raport wyłącznie zachowuje
+  dane, które schema v1 redukowało do agregatów.
+- Historyczny raport v1 można odtworzyć diagnostycznie wyłącznie z identycznej
+  listy przypiętych źródeł i poprawnej checksumy, bez zmiany failed joba.
+
+### Większy górny margines automatycznego przycinania
+
+- Polityka lokalnego automatycznego cropa v3 pozostawia 12% wysokości nad
+  wykrytym panelem plansz oraz dotychczasowe 4,5% pod nim. Wynik obejmuje
+  więcej kontekstu nad górnym rzędem na pochyłych ekranach; zapisane pliki
+  `cut` i ich manifesty nie są automatycznie przeliczane.
+
+### Odebrana siatka structured v3 — TASK-0448
+
+- `structured_lattice_v3` jest jawną polityką gry dla nowych runów; nie
+  przelicza istniejących importów. Run przypina accepted-primary config i
+  checksumę raportu odbiorczego w snapshot schema v3.
+- Odbiór na 450 ręcznych siatkach osiągnął 443/450 (98,44%), medianę błędu
+  narożników 2,46 px i board-level p90 3,74 px, bez naruszeń row-major,
+  overlapu, source support ani zaakceptowanych przecięć zawartości.
+- Niepewne sloty mają `finalQuad = null` i trafiają do korekty. Historyczne
+  snapshoty v1/v2, cropy i decyzje pozostają bez zmian.
+
+### Shadow lokalnej siatki structured v3 — TASK-0447
+
+- Nowe runy `structured_shadow` przypinają kandydata
+  `structured-lattice-candidate-v3-config-v1`; historyczne snapshoty v2 nadal
+  odtwarzają poprzedni adapter bez zmiany fingerprintu.
+- Kandydat v3 zapisuje oddzielny obszar analizy, propozycję siatki, evidence,
+  content safety i powód odroczenia w checkpointach detekcji oraz geometrii.
+  Produkcyjne cropy nadal pochodzą z dotychczasowego primary.
+- Lokalny Reviewer pokazuje obszar analizy oddzielnie i zaczyna nową edycję od
+  bezpiecznego `symbolGridQuad`. Ręczna rewizja ma zawsze pierwszeństwo.
+
+### Izolowany refiner siatki structured v3 — TASK-0446
+
+- `structured-opencv-independent-board-refinement-v3-frame-conditioned-lattice-v1`
+  uruchamia istniejący estimator v19 raz na każdym `analysisQuad` i zwraca
+  oddzielny `symbolGridQuad` albo fail-closed `needs_review` bez fallbacku.
+- `lattice-content-safety-v1` sprawdza bboxy wiarygodnych komponentów z
+  marginesem `max(4 px, 5% lokalnego odstępu osi)`; przecięcie komórki daje
+  `content_boundary_conflict`.
+- Adapter deklaruje wyłącznie topologię 3×5. Moduł nie jest jeszcze źródłem
+  produkcyjnych cropów; integracja shadow należy do TASK-0447.
+
+### Jawne role geometrii planszy — TASK-0445
+
+- Addytywny kontrakt structured schema v2 rozdziela `analysisQuad`, opcjonalny
+  `boardFrameQuad` oraz końcowy `symbolGridQuad`; `finalQuad` pozostaje w nowym
+  schema wyłącznie kompatybilnym aliasem siatki symboli.
+- Kolejka walidacji siatki udostępnia role i wersję lokalnego dopasowania jako
+  opcjonalne pola OpenAPI. Historyczne payloady schema v1, ich checksumy i
+  replay pozostają bez zmian.
+- Kontrakt nie uruchamia jeszcze nowego estymatora. Produkcyjny v3 powstaje w
+  TASK-0446–0447.
+
+### Bezpieczniejsze kadrowanie i większe miniatury — TASK-0444
+
+- Polityka automatycznego cropa v2 zachowuje 7,5% wysokości nad wykrytym
+  panelem i nie zmienia dolnego marginesu 4,5%.
+- Klaster prowadzący do `topY = 0` jest odrzucany jako fałszywy sygnał przy
+  krawędzi; operator dostaje bezpieczny, nadal edytowalny pas domyślny.
+- Atlasy v2 mają miniatury 144×96 px w jednym poziomym pasku z przewijaniem.
+  Historyczne cropy i manifesty nie są automatycznie przeliczane.
+
+### Zapis poprawionej siatki po podglądzie A/B — TASK-0443
+
+- Podgląd A/B zapisuje ten sam pełny klucz szkicu, którego używa bramka
+  trwałego zapisu; pojedyncza plansza wiąże klucz z `reviewItemId`, a tryb
+  źródłowy ze wszystkimi szkicami aktywnych slotów.
+- Po wygenerowaniu aktualnego podglądu przycisk zapisu jest dostępny. Kolejne
+  przesunięcie geometrii nadal unieważnia podgląd i ponownie wymaga kontroli
+  A/B.
+- `Zakończ edycję` zachowuje szkic bez automatycznego zapisu zgodnie z D-329;
+  poprawka nie zmienia API, geometrii ani danych gry.
+
+### Decyzje symboli po ręcznej geometrii v0.10 — TASK-0441
+
+- Pojedyncze i zbiorcze przypisanie symbolu odczytuje ręczną geometrię
+  `virtual_source` z kompletnego `virtual_render_spec`, bez wymagania
+  nieistniejących plikowych `crop_artifacts`.
+- Managed original pozostaje assetem kontekstu, a canonical planszy wirtualnej
+  zapisuje checksumę bieżącej geometrii. Legacy file-backed review zachowuje
+  dotychczasową ścieżkę.
+- Konflikt jednej planszy w operacji zbiorczej jest liczony przy jej celach
+  zamiast kończyć cały job z zerowymi licznikami. Admin pokazuje także liczbę
+  oczekujących celów i szczegół błędu operacji.
+- Nie ponowiono historycznych failed jobów i nie zmieniono danych gry.
+
+### Raport importu przed aktywacją modelu symboli — TASK-0440
+
+- `Pokaż raport` nie jest już blokowane przez brak modelu zgodnego z katalogiem
+  symboli gry. Raport zwraca jawny stan gotowości i pozwala przygotować
+  checksum-bound geometrię przed treningiem.
+- Admin pokazuje blokadę oraz polską instrukcję: zatwierdzić bieżące cropy,
+  uruchomić `Ulepsz rozpoznawanie` i aktywować model gry. Przycisk startu importu
+  pozostaje nieaktywny do czasu odświeżenia raportu z gotowym modelem.
+- Backend ponownie wykonuje rygorystyczną kontrolę przy `start`; brak zgodnego
+  modelu nadal nie tworzy joba i nie przywraca globalnego bootstrapu.
+
+### Bezpieczne przeliczanie oczekujących v0.10 — TASK-0439
+
+- Nowy import i reinferencja nie mogą przypiąć globalnego bootstrapu, jeżeli
+  jego klasy nie są dokładnie zgodne z aktywnym katalogiem symboli gry. Taki
+  przypadek wymaga treningu oraz jawnej aktywacji modelu gry zamiast pozornie
+  udanego joba z nierozpoznanymi kodami.
+- Plikowy pending-only recrop v19 kwalifikuje wyłącznie niezatwierdzone
+  `legacy_file`. Zatwierdzenie geometrii jest chronione ponownie w workerze,
+  niezależnie od nierozstrzygniętego statusu całej planszy.
+- `virtual_source` v0.10 jest raportowany osobno i nie uruchamia legacy joba
+  tworzącego PNG. Panel kieruje te pozycje do lokalnej walidacji albo ręcznej
+  korekty, dopóki osobny metadata-only recrop nie otrzyma własnego kontraktu i
+  bramki jakości.
+- Nie ponowiono błędnego joba `90254fc1-efb5-4cb4-b73c-994e616415b8` ani nie
+  zmieniono danych gry.
+
+### Zachowanie szkicu pojedynczej siatki — TASK-0438
+
+- `Zakończ edycję` nie przywraca już automatycznych narożników. Kompletny albo
+  częściowy szkic pozostaje widoczny i można go wznowić, porównać A/B oraz
+  zapisać.
+- Niezapisany szkic blokuje zwykłe zatwierdzenie, nawigację, przełączenie planszy
+  i wejście w tryb całego źródła. Automat wraca wyłącznie po jawnym resecie.
+- Szkic jest lokalny do czasu zapisu i nie jest utrwalany po zamknięciu strony.
+
+### Domyślny zoom 100% w walidacji siatek — TASK-0437
+
+- Lokalny ekran `Zatwierdzanie cięcia siatki` otwiera gotową siatkę przy 100%.
+- Ręczne opcje 125%, 150% i 200% pozostają dostępne bez zmian.
+- Zmiana nie wpływa na geometrię, hit-test ani inne workspace'y obrazowe.
+
+### Przywrócenie startu lokalnego Reviewera — TASK-0436
+
+- `Otwórz lokalnie` ponownie wywołuje ograniczony `reviewer-local/start`, ale
+  nadal nie tworzy assignmentu, sesji, kodu ani tunelu.
+- Karta jest przygotowywana synchronicznie pod dokładnym scoped URL, a po
+  potwierdzeniu `reviewerReady = true` nawigacja jest ponawiana. Zastępuje to
+  ewentualny ekran `ERR_CONNECTION_REFUSED` powstały, gdy port 3001 był wcześniej
+  zatrzymany.
+- Błąd startu zamyka przygotowaną kartę, blokada popupu pokazuje ręczny link
+  dopiero po gotowości procesu, a guard zapobiega podwójnemu uruchomieniu.
+
+### Jawne wznowienie cięcia i lekkie miniaturki — TASK-0435
+
+- Reload przywraca tylko uchwyty i nazwę sesji; dostęp do katalogu jest
+  ponawiany dopiero po kliknięciu `Wznów zapisany katalog`.
+- Atlasy nie są ładowane automatycznie. Operator uruchamia je przyciskiem, a
+  poglądowe kafelki używają WebP 120×80 przy jakości 0.58.
+- Workspace można opuścić bez utraty wyników. Przygotowanie zatrzymuje się
+  bezpiecznie między plikami, a UI wraca do wyboru nowego katalogu.
+
+### Kotwica cold-startu z bieżącego stagingu v0.10 — TASK-0435
+
+- Pierwsza ręczna korekta nowej gry może zostać użyta jako kotwica preflightu
+  bez oczekiwania na skopiowanie JPEG-a do managed originals.
+- Loader pierwszego rejestratora używa bieżącego checksum-bound stagingu, a
+  następnie historycznego `data/originals`; nie zmienia algorytmu ani progów.
+- Brak bieżącego źródła i brak historycznej kotwicy zachowują osobne stabilne
+  błędy bez fallbacku. Panel importu potrafi jawnie ponowić istniejący failed
+  preflight przez standardowy retry joba.
+- Nie ponowiono joba gry `77` i nie zmieniono żadnych danych operatorskich.
+
+### Wznawialne cięcie i kafelkowy review — TASK-0434
+
+- Historyczna sesja `manual-image-crop-output-v1` jest bez przeliczania obrazów
+  indeksowana do niezmiennego inwentarza, małego journalu, stanu review oraz
+  shardów po maksymalnie 64 sloty.
+- Przygotowanie nie jest już fail-fast: błąd ma dokładną nazwę i etap, pozostałe
+  JPEG-i są kontynuowane, a retry obejmuje wyłącznie niegotowe pliki. Detekcja i
+  render używają odnawianego Web Workera z bezpiecznym fallbackiem.
+- Wszystkie źródła są widoczne w jednym gridzie. Gotowe cropy korzystają z
+  lokalnych atlasów WebP po najwyżej 100 miniaturek, a operator zaznacza tylko
+  pozycje kierowane następnie do pełnego edytora linii.
+- Moduł pozostaje lokalny i nie dodaje API, jobów ani danych PostgreSQL.
+
+### Ochrona dużych importów geometrii v0.10 — TASK-0433
+
+- Import od 100 źródeł lub 500 aktywnych plansz wykonuje przed materializacją
+  deterministyczną próbę pełnego produkcyjnego toru do 15 cropów 3×5.
+- Wynik poniżej 98% albo naruszenie niezmiennika kończy się
+  `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION` przed `register_files` i bez tworzenia
+  masowej kolejki `board_cell_geometry_pending`.
+- Niezmienny raport wiąże obie checksumy manifestów, fingerprint pipeline'u i
+  próbę; retry i restart odtwarzają ten sam wynik, a progress API udostępnia go
+  Adminowi.
+- Nowe importy i reprocessy przypinają snapshot polityki ochronnej do
+  fingerprintu. Historyczne joby bez snapshotu zachowują dotychczasowy replay.
+- Admin pokazuje manifest/preflight, pokrycie, profil, silnik komórek i wynik
+  ochronny oraz rozdziela geometrię stron 3×3 od niepełnych siatek symboli 3×5.
+- Nie wykonano żadnej operacji na danych gry `777` ani historycznych jobach.
+
+### Końcowa bramka profilu geometrii v0.10 — TASK-0432
+
+- Profil strony schema v2 nie może już uzyskać `candidate_ready` na podstawie
+  samego kompletu 36 narożników. Wymaga checksum-bound raportu przejścia
+  produkcyjnego toru 3×3 → 3×5 na source-disjoint korpusie.
+- Polityka wymaga minimum 100 źródeł, 500 aktywnych plansz, pięciu bucketów,
+  pełnego pokrycia znanych regresji, co najmniej 98% gotowych siatek 3×5,
+  zerowych naruszeń niezmienników i regresji nie większej niż 0,5 pp.
+- Brak raportu i historyczny schema-v2 gate blokują aktywację oraz snapshot
+  nowego joba. Stare joby nadal odtwarzają własne snapshoty.
+- Ta sama kohorta może mieć kolejne niezmienne rewizje profilu powiązane z
+  różnymi raportami; żaden historyczny profil nie jest nadpisywany.
+
+### Manifest geometrii strony w reprocessie v0.10 — TASK-0431
+
+- Nowy managed reprocess schema v6 dziedziczy checksum-bound manifest managed
+  originals oraz dokładny manifest preflightu strony z ograniczonego,
+  same-game łańcucha źródłowego.
+- API sprawdza kompletność inwentarza i zakończony preflight przed utworzeniem
+  joba, a worker powtarza kontrolę przed pipeline'em. Brak lub drift dowodu
+  kończy się stabilnym błędem bez użycia aktywnego profilu jako fallbacku.
+- Historyczne schema v4 i joby v1–v5 zachowują replay. Nie wykonano reprocessu,
+  cleanupu ani innej operacji na danych gry.
+
+### Wstępne renderowanie całego katalogu `cut` — TASK-0430
+
+- Przed review automat sekwencyjnie wykrywa i zapisuje wszystkie brakujące cropy,
+  z trwałym checkpointem po każdym pliku i jawnym progresem przygotowania.
+- Fizycznie przygotowany JPEG nie jest decyzją człowieka. Manifest utrzymuje
+  osobną listę sprawdzonych plików; historyczne wyniki pozostają zgodne.
+- Szybki przegląd pokazuje mniejsze pliki z `cut`. `F`/`→` aktualizuje wyłącznie
+  stan review, a `Dostosuj linie` ładuje oryginał i przelicza tylko bieżący plik.
+
+### Automatyczna propozycja cięcia wybranych zdjęć — TASK-0429
+
+- Workspace nie inicjalizuje już stałego pasa ani nie kopiuje granic z
+  poprzedniego zdjęcia. Każde niezatwierdzone źródło otrzymuje niezależną,
+  lokalną propozycję na podstawie podglądu do 256 px szerokości.
+- Detektor preferuje zwarty panel chromatyczny, ma fallback oparty na teksturze
+  i jawny bezpieczny wynik dla niepewnego obrazu. Operator akceptuje propozycję
+  przez `F`/`→` albo przesuwa linie; dopiero akceptacja zapisuje JPEG do `cut`.
+- Rzeczywisty przykład `1080×1920` z rozmowy dał pas `414–1068` i pewność
+  `96,5%`, bez OCR, backendu i skalowania finalnego cropa.
+
+### Lokalna domena przycinania wybranych zdjęć — TASK-0425
+
+- Gotowy jest kontrakt `manual-image-crop-output-v1` dla pełnoszerokiego pasa
+  wyznaczanego przez `topY` i `bottomY` w kanonicznej orientacji EXIF.
+- Manifest wiąże inwentarz `seq_*`, wymiary cropa, checksumy źródła i wyniku
+  oraz journal operacji; IndexedDB przechowuje tylko uchwyty, kursor i widok.
+- Renderer plików i workspace operatora powstają w kolejnych taskach 0426–0427.
+
+### Bezpieczny renderer przyciętych zdjęć — TASK-0426
+
+- Admin potrafi utworzyć lub wznowić wyłącznie własny katalog `<źródło> cut`.
+- JPEG jest kanonizowany według EXIF dokładnie raz i zapisywany w rozdzielczości
+  1:1 jako pełnoszeroki pas; źródło pozostaje nietknięte.
+- Każdy zapis jest journalowany i sprawdzany SHA-256 przed finalizacją manifestu.
+
+### Workspace „Przytnij wybrane zdjęcia” — TASK-0427
+
+- Pod `Semi-auto selekcja` działa lokalny workspace pełnoszerokiego cięcia góry
+  i dołu z dwiema przeciąganymi liniami, zoomem, fullscreenem i progressem.
+- `F`/`→` zapisuje i przechodzi dalej, `←` tylko nawiguje, a ponowny zapis
+  zaakceptowanego JPEG-a wymaga jawnego przycisku.
+- Kursor, zoom i scroll wracają z IndexedDB; obrazy pozostają w ograniczonym
+  cache Object URL i nie są zapisywane w bazie przeglądarki.
+
+### Integracja katalogu `cut` — TASK-0428
+
+- Browserowy import jawnie filtruje pliki do JPEG-ów, więc lokalny manifest
+  cropów jest ignorowany, a zakresy `seq_*` zachowują nazwy.
+- Katalog `cut` należy uruchamiać jako nowy import. Reprocess istniejącego
+  importu nadal używa jego historycznych managed originals.
+- Moduł nie dodaje API, joba, tabel ani migracji i nie zmienia wersjonowania
+  geometrii lub modelu symboli.
+
+### Handoff uzupełnionych luk do cropowania — TASK-0442
+
+- `Popraw selekcję` zapisuje pochodny manifest aktywnych uzupełnień z nazwą
+  `seq_*`, zakresem, źródłem i SHA-256; undo lub delete usuwa wpis z listy.
+- `Przytnij wybrane zdjęcia` może przetworzyć wyłącznie te wpisy po kontroli
+  obecności i checksummy, zapisując je do osobnego katalogu
+  `<źródło> filled-gaps cut`.
+- Historyczny repair manifest pozostaje źródłem prawdy i pozwala odtworzyć
+  brakujący handoff bez dotykania JPEG-ów.
 
 Tor `0.5` został zamknięty. Ostatni commit implementacyjny to `v0.5.15`, a
 commit dokumentacyjny zamknięcia otrzymuje `v0.5.16`. Następny tor rozpoczyna
@@ -13,7 +2030,960 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.9 active: bounded storage retention and garbage collection`
+`Version 0.10 active: virtual geometry and structured-CV rollout`
+
+### Kalibracja pełnych 36 narożników źródła — TASK-0424
+
+- Nowy profil siatki schema v2 grupuje ręczne decyzje według zdjęcia i wymaga
+  kompletu dziewięciu niezależnych quadów, czyli 36 narożników. Nie uśrednia
+  korekt pozycji między zdjęciami.
+- Train i validation są rozłączne po checksumie źródła. Z train wybieranych
+  jest maksymalnie 16 geometrycznie różnorodnych kotwic; ich dokładna kolejność
+  jest przypięta w checksum-bound profilu.
+- Produkcyjna rejestracja przenosi pełny zestaw 36 punktów osobną homografią
+  zdjęcia, następnie dopasowuje każdy quad do jego czerwonych krawędzi i nadal
+  kończy się fail-closed przy braku kompletnego dowodu.
+- Stara bramka medianowych przesunięć nie ocenia profilu 36-punktowego. Nowy
+  profil schema v2 wymaga osobnej końcowej bramki produkcyjnego toru 3×3 → 3×5.
+  Profile schema v1 oraz już utworzone snapshoty zachowują historyczne
+  zachowanie.
+- Read-only odbiór bieżącej gry `777` wykazał 32 kompletne źródła: 28 train,
+  4 validation, 1008 narożników treningowych, 144 walidacyjne i 16 kotwic;
+  ówczesna bramka 36 narożników przechodziła bez powodów odrzucenia. Po
+  TASK-0432 ten profil wymaga ponownej walidacji przed użyciem w nowym jobie.
+
+### Lokalny launcher walidacji siatki — TASK-0423
+
+- `Zatwierdzanie cięcia siatki` ma wyłącznie jeden przycisk `Otwórz lokalnie`.
+  Nie pobiera overview assignmentów, nie wykonuje heartbeatów i nie pokazuje
+  kontrolek online, kodów, stanu ingressu ani akcji kończenia pracy.
+- Lokalny Reviewer jest otwierany od razu pod docelowym loopback URL dla
+  wybranej gry i importu. Zablokowany popup pozostawia ten sam URL jako link
+  ręczny.
+- Usunięto nieużywany frontendowy adapter assignmentów, jego testy oraz style
+  przeznaczone wyłącznie dla starej listy prac i wyniku udostępniania.
+
+### Zoom i wybór planszy na obrazie — TASK-0422
+
+- Lokalny ekran `Zatwierdzanie cięcia siatki` otwiera obraz źródłowy domyślnie
+  przy 100% zgodnie z późniejszą zmianą TASK-0437.
+- Kliknięcie widocznej siatki wybiera jej planszę. W trybie `Wyznacz plansze
+  osobno` kliknięcie innej siatki tylko przełącza aktywny szkic; nie przesuwa
+  punktów i nie zapisuje rewizji.
+- Hit-test korzysta z geometrii aktualnie rysowanej na canvasie, w tym z
+  niezapisanych przesuniętych szkiców, zamiast ze starego automatycznego quada.
+
+### Kolejność wpisywania wzoru wyszukiwania plansz — TASK-0421
+
+- Edytor `Wyszukaj plansze` domyślnie przechodzi pola kolumnami: od góry do
+  dołu pierwszej kolumny, a następnie kolejnymi kolumnami.
+- Operator może przełączyć kolejność na wierszową. Przełączenie nie zmienia
+  wpisanych symboli i wskazuje pierwsze wolne pole w wybranym porządku.
+- Sposób wprowadzania jest wyłącznie stanem UI. Zapytanie nadal używa
+  kanonicznych indeksów row-major, więc API i ranking pozostają bez zmian.
+
+### Wybieralny rozmiar strony Weryfikacji symboli
+
+- Operator może wybrać `500`, `1000`, `2000` albo `2500` cropów na stronę;
+  domyślnie pozostaje `500`. Zmiana limitu resetuje kontekst keysetowy,
+  miniatury i zaznaczenie, dzięki czemu nie łączy stron utworzonych różnymi
+  limitami. API pozostaje bounded limitem `2500`.
+
+### Lokalna walidacja geometrii dla cropów wirtualnych
+
+- Rewizje plansz `virtual_source` zapisują brak plikowych `crop_artifacts` jako
+  SQL NULL. Dzięki temu atomowy zapis dziewięciu ręcznie wyznaczonych plansz
+  spełnia istniejący constraint PostgreSQL zamiast kończyć się ogólnym błędem
+  po poprawnym wyrenderowaniu cropów.
+- Recrop pola `grid_issue` usuwa problem jakości, pozostawia pole oczekujące i
+  przywraca modelowe pochodzenie bieżącej sugestii. Nie zachowuje nieaktualnego
+  `human + pending` ani nie zatwierdza automatycznie symbolu.
+- Karta `Zatwierdzanie cięcia siatki` odczytuje stan wyłącznie z kolejki
+  `grid-reviews`, a nie z legacy mappera Reviewera wymagającego trwałych plików
+  cropów. Dzięki temu import `virtual_source` v0.10 można otworzyć lokalnie i
+  zatwierdzać z obrazu źródłowego bez `IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE`.
+- Walidacja geometrii jest wyłącznie lokalna niezależnie od silnika importu;
+  ten ekran nie ma wariantu online.
+- `Zatwierdź całe zdjęcie` nie wykonuje już serii żądań z tym samym snapshotem:
+  lokalny endpoint blokuje i weryfikuje wszystkie aktywne sloty źródła, a potem
+  zatwierdza komplet atomowo. Konflikt nie pozostawia częściowo zatwierdzonego
+  zdjęcia.
+- Dla `virtual_source` edytor udostępnia `Wyznacz plansze osobno`. Operator
+  podaje po cztery narożniki kolejnych slotów row-major, po czym pojedynczy
+  zapis tworzy jedną source geometry revision i aktualizuje cały komplet
+  plansz, cropów oraz audytu. Wstrzymanie tego trybu nie usuwa lokalnych
+  szkiców: kolejne wejście wybiera pierwszy niekompletny slot, a już ustawione
+  quady nadal pozostają widoczne do wspólnego zapisu. Pusty, pierwszy szkic
+  nie ma jeszcze kotwicy overlayu, lecz jest prawidłowym stanem edytora: nie
+  może wywrócić lokalnego Reviewera ani przełączyć go na ekran kodu sesji
+  zdalnej.
+- Globalny rollout backfill nie jest bramką ręcznej korekty bieżącego źródła:
+  status `not_started`, `rebuilding` lub `failed` może dotyczyć innego źródła
+  gry. Zapis nadal fail-closed weryfikuje kompletne lokalne provenance,
+  topologię, rewizję i wszystkie bieżące komórki, a więc nie omija żadnej
+  kontroli integralności konkretnej planszy.
+- Lokalny Reviewer na porcie `3001` ma dokładnie dwie dodatkowe,
+  source-scoped mutacje v0.10: szybkie zatwierdzenie oraz wspólny zapis
+  geometrii źródła. API traktuje `127.0.0.1`, `localhost` oraz `[::1]` jako
+  aliasy wyłącznie tego samego skonfigurowanego portu loopback, dzięki czemu
+  otwarcie lokalnego Reviewera przez `localhost:3001` nie kończy się fałszywym
+  `ADMIN_ORIGIN_FORBIDDEN` ani zablokowanym preflightem CORS. Te same aliasy
+  są używane przez middleware i CORS. Allowlista nie rozszerza dostępu do
+  pozostałych endpointów Admina ani do zdalnej sesji Reviewera.
+
+### Usuwanie źródeł plansz i filtrowanie uploadu — TASK-0411
+
+- Weryfikacja symboli pokazuje numer planszy bez zwiększania kafelka.
+- Admin może lokalnie usunąć paczkę zweryfikowanych plików `seq_*` po prefiksie
+  `start`, z jawnym potwierdzeniem bez restore oraz raportem per plik.
+- Preview serwerowego cleanupu akceptuje wyłącznie kompletne zakresy zdjęć,
+  pokazuje blokady modelu/release i kwarantannuje zarządzane artefakty do czasu
+  commita bazy. Niezależny `candidate_ready` pozostaje kandydatem wymagającym
+  ręcznej aktywacji.
+- Przed browserowym stagingiem plan uploadu pomija pełne zakresy już
+  kanoniczne, bez przesyłania ich bajtów; zakresy częściowe i końcowy preflight
+  zachowują dotychczasowe bramki integralności.
+
+### Niewyraźny jako modyfikator decyzji — TASK-0410
+
+- Toolbar Weryfikacji symboli używa checkboxa `Niewyraźny` zamiast osobnej
+  akcji. Zaznaczenie modyfikuje zarówno zatwierdzenie bieżącej etykiety, jak i
+  zmianę na wskazany symbol.
+- Backend zapisuje przypisanie, zatwierdzenie aktualnego checksum-bound cropa i
+  `quality_issue = blurry` atomowo dla pojedynczej oraz masowej decyzji. Crop
+  pozostaje poza treningiem przez wspólny predykat jakości.
+- Modyfikator jest resetowany przy zmianie gry lub zakresu symbolu, a zwykłe
+  approve/reassign zachowują dotychczasową semantykę.
+
+### Wiązanie modelu symboli z katalogiem gry — TASK-0409
+
+- Gotowy kandydat `candidate_ready` bez jawnej aktywacji blokuje nowy import i
+  reinferencję kodem `SYMBOL_MODEL_ACTIVATION_REQUIRED`; bootstrap pozostaje
+  wyłącznie ścieżką zimnego startu gry bez wytrenowanego kandydata.
+- Resolver aktywnego snapshotu i projekcja predykcji kończą się fail-closed,
+  gdy klasy modelu nie odpowiadają dokładnym stabilnym kodom aktywnych symboli
+  gry. Obca klasa nie jest już po cichu zamieniana w `?`.
+- Pending-only reinferencja obsługuje bieżące cropy `virtual_source`: renderuje
+  je w pamięci z managed original, po kontroli źródła, render spec i checksummy
+  pikseli. Nie tworzy bitmap pośrednich i nie zmienia rozstrzygnięć człowieka.
+- Dla gry `777` aktywowano zweryfikowaną iterację 5
+  `ab9780d1-0082-40de-9c8e-cdc1be736b77`; job naprawczy
+  `c2611039-5aca-4360-922e-c6bb9e01142f` zakończył przeliczenie 19 914 z
+  19 914 plansz bez błędów, ponownego uploadu ani cięcia geometrii. Późniejsza
+  jawna aktywacja numer 2 przełączyła grę na iterację 6
+  `b739e552-ab55-41e4-861a-7ea4f448ab39`.
+
+### Rzeczywisty korpus regresyjny OCR zakresów — TASK-0402 (done)
+
+- Dodano mały, checksum-bound korpus czterech zanonimizowanych ekranów bez
+  panelu Admina i nazwy `seq_*`: trzy czytelne zakresy (`28–36`, `55–63`,
+  `64–72`) oraz jedna klatka przejściowa z mieszanymi zakresami.
+- Read-only runner przeprowadził rzeczywisty łańcuch lokalizator → preprocessing
+  → Paddle OCR wariantów v2–v5. Wszystkie historyczne warianty bezpiecznie
+  pozostawiły przejście jako `unknown`, ale żaden nie uzyskał `exact` dla trzech
+  czytelnych ekranów; jest to punkt wyjścia dla nowego fingerprintu, nie zgoda
+  na zmianę rolloutów ani danych użytkownika.
+
+### Niepuste zbiory oceny treningu symboli — TASK-0397
+
+- Nowe iteracje modelu zbierają rodziny źródeł zarówno z kohort pełnych plansz,
+  jak i z pojedynczo zatwierdzonych cropów. Dataset z co najmniej czterema
+  rodzinami nie może rozpocząć treningu z pustym train, validation, test ani
+  regression.
+- Wadliwe historyczne przypisanie jest naprawiane deterministycznie wyłącznie,
+  gdy nie da się go uzupełnić do pełnego podziału bez przesunięcia źródeł.
+
+### Widoczność wykluczenia zatwierdzonego cropa z uczenia — TASK-0396
+
+- W widoku `Zatwierdzone` Weryfikacji symboli crop, który zachowuje decyzję
+  człowieka, lecz nie spełnia kryteriów bieżącej kohorty, otrzymuje badge
+  `Poza uczeniem` z przyczyną jakościową lub informacją o nieaktualnym cropie.
+- Oznaczenie jedynie wyjaśnia istniejącą politykę kohort; nie zmienia statusu,
+  przypisania symbolu, checksumy ani decyzji review.
+
+### Historia i trwałe wznawianie weryfikacji zakresów — TASK-0393
+
+- Weryfikacja plików `seq_*` ma trwały `workflowMode=filename_verification`,
+  ale nie tworzy nowego `JobType` ani lane. Historyczne runy są przy migracji
+  rozpoznawane po fingerprintcie v2; aktywnego joba nie wolno przerywać ani
+  ponownie tworzyć.
+- Admin przechowuje listę runów oraz ich wybrany kontekst po reloadzie.
+  Podgląd podejrzanych źródeł jest checksum-bound do stagingu, a decyzje
+  `keep/reject` są serwerowe i rewizyjne. Lokalny uchwyt katalogu jest potrzebny
+  wyłącznie dla journalowanego delete.
+
+### Finalizacja OCR weryfikacji nazw — TASK-0394
+
+- Po OCR workflow `filename_verification` nie wybiera reprezentantów, nie
+  tworzy `seq_*` i nie wywołuje zwykłej ścieżki selekcji. Utrwala tylko wynik
+  `verified`, `unreadable`, `mismatch` albo `invalid_filename`.
+- Licznik review joba jest publikowany wyłącznie w terminalnym checkpointcie,
+  więc nie może zmaleć po rozpoczęciu wyborów. Failed run można wznowić z
+  zapisanych obserwacji bez drugiego OCR; Admin pokazuje do tego jawną akcję.
+
+### Domknięcie i cleanup weryfikacji nazw — TASK-0395
+
+- Automatycznie zgodny `filename_verification` albo run po ostatniej ręcznej
+  decyzji przechodzi przez wznawialny `cleanup_pending` do `completed`.
+  Historia zachowuje tylko podsumowanie; staging, OCR, raporty, ranges i
+  decyzje tego runu są usuwane.
+- Przed cleanupem worker blokuje retencję i sprawdza obce joby, runy, outputy
+  oraz referencje. W razie konfliktu zapisuje `cleanup_blocked`, nie usuwa
+  wspólnych danych i pozwala wznowić sam cleanup bez drugiego OCR.
+
+### Trwałe usunięcie lekkiej historii weryfikacji nazw — TASK-0412
+
+- Operator może świadomie usunąć z prawej strony kafla wyłącznie historię
+  `filename_verification` ze stanem `completed · dane robocze usunięte`.
+  Endpoint ponownie waliduje zakończony job, checkpoint cleanup i brak
+  chronionych referencji przed atomowym usunięciem runu oraz joba.
+- Lokalny katalog `seq_*`, dane innych workflowów i aktywne albo zablokowane
+  procesy nie są objęte tą akcją. Po sukcesie znika również wyłącznie lokalny
+  uchwyt i kursor wybranego runu z IndexedDB.
+
+### Bezpieczne usuwanie pustej historii browser stagingu — TASK-0391
+
+- Usuwanie stagingu bez plansz i review kasuje również automatyczne rewizje
+  źródłowej geometrii `0` oraz nierozwiązane rekordy odroczeń, zanim usunie
+  źródła i wykonania pipeline'u.
+- Ręczne lub rozwiązane rewizje geometrii, canonical, rollout i kohorty są
+  nadal fail-closed chronione. Operacja wycofuje się w całości, zamiast usuwać
+  część grafu danych.
+
+### Wspólna blokada lokalnego pickera katalogów — TASK-0392
+
+- Jeden współdzielony koordynator serializuje jedynie czas systemowego dialogu
+  File System Access dla lokalnych workflowów Admina. Nie obejmuje jobów OCR,
+  uploadu, skanu ani zapisu plików, więc aktywna `Weryfikacja zakresów` nie
+  blokuje `Uzupełnij luki` ani `Usuń sekwencje`.
+- Drugi dialog jest fail-fast z czytelną instrukcją zamknięcia pierwszego;
+  lock zwalnia się po anulowaniu, sukcesie i rozpoznanym konflikcie natywnego
+  pickera. Wywołanie zachowuje binding `window`, co eliminuje `Illegal
+  invocation`.
+
+### Produkcyjny import structured z przypiętym preflightem — TASK-0390
+
+- Nowe joby `structured_default` przypinają silnik
+  `structured-opencv-independent-board-refinement-v2-pinned-preflight-v1` i
+  nie mogą ponownie użyć wadliwych wyników etapów v1.
+- Wpis `registered` checksum-bound manifestu strony jest finalnym dowodem
+  zewnętrznego obrysu. Topologia wyprowadza komórki także dla gier bez
+  widocznych linii 5×3; row-major, brak nakładania i padded source support
+  pozostają twardymi bramkami.
+- Structured cropy walidują osobno pozycje `verified` i `deferred`, nie
+  duplikują zapisu odroczeń, a nowy job odtwarza własne projekcje z
+  niezmiennych wyników współdzielonych etapów.
+- Liczniki sukcesów fazy pipeline'u nie obejmują już samego skopiowania
+  źródeł. Awaria wszystkich 2200 źródeł pokazuje `0` poprawnych i `2200`
+  błędów oraz kończy job jako failed, zamiast sugerować gotowość do review.
+- Ograniczona próba na rzeczywistych `seq_1-9.jpg` oraz `seq_10-18.jpg`
+  zwróciła po dziewięć zweryfikowanych obrysów, dziewięć virtual crops i zero
+  odroczeń. Historyczny v1 pozostaje bez zmian.
+
+### Trwałe grafiki z pojedynczo zatwierdzonych cropów — TASK-0389
+
+- Picker `Wybierz grafikę` używa teraz tej samej bieżącej, checksum-bound
+  decyzji pojedynczej komórki co kohorta treningowa; nie wymaga już
+  rozstrzygnięcia całej planszy.
+- Zatwierdzony crop legacy jest kopiowany bez zmiany bajtów. Crop
+  `virtual_source` v0.10 jest przy wyborze jednokrotnie renderowany w pełnym
+  rozmiarze do content-addressed PNG w `data/symbol-references`; aplikacja
+  mobilna odczytuje następnie wyłącznie ten trwały plik.
+- Migracja `0090_symbol_reference_individual_cell_provenance` dopuszcza
+  `resolution_revision = 0` tylko dla referencji utworzonej z pojedynczo
+  zatwierdzonej komórki.
+
+### Produkcyjny silnik v0.10 per gra — TASK-0384
+
+- Admin przywraca jednoznaczny wybór pomiędzy stabilnym v19 i produkcyjnym
+  v0.10 dla nowych importów. Historyczny shadow pozostaje odtwarzalny, ale nie
+  jest opcją operatorską.
+- Weryfikacja symboli renderuje bieżący asset zapisany na komórce; dane legacy
+  pozostają legacy do czasu jawnego ponownego przetworzenia, a nowe wyniki
+  `virtual_default` są bezpośrednio mutowalne.
+
+### Backfill Weryfikacji symboli dla v0.10
+
+- Projekcja komórek Weryfikacji symboli rozpoznaje oba trwałe tryby assetu:
+  legacy `crop_relative_path` oraz `virtual_source` z pełną proweniencją
+  renderu. Backfill v0.10 nie wymaga ani nie tworzy fizycznych cropów.
+- Wznowienie nieudanego backfillu dla poprawnej planszy `virtual_source`
+  zapisuje 15 checksum-bound komórek bez ponownego importu lub korekty
+  geometrii. Zatwierdzenie komórki zachowuje też zatwierdzoną proweniencję
+  renderu, więc późniejsza mutacja nie łamie kontraktu treningowego.
+
+### Kohorty treningowe z cropów v0.10 — TASK-0443
+
+- Podgląd jakości modelu kwalifikuje bieżące, zatwierdzone komórki
+  `virtual_source` przez checksum-bound render z managed original zamiast
+  traktować brak fizycznego PNG jako `missingAsset`.
+- Manifest kohorty v4 zamraża pełną proweniencję renderu v0.10. Worker odtwarza
+  dokładne piksele dopiero przy materializacji datasetu i zapisuje je w jego
+  content-addressed katalogu; nie tworzy źródłowych duplikatów cropów.
+- Historyczne kohorty v1–v3 oraz plikowe cropy legacy pozostają odtwarzalne.
+- Read-only kontrola gry `777 v0.2` wykazała 472 wybrane próbki z 5 źródeł,
+  pokrycie wszystkich 8 aktywnych symboli, `missingAsset = 0` i
+  `canFreeze = true`. Nie zamrożono kohorty ani nie uruchomiono treningu.
+
+### Bezpośredni wybór filtrów Weryfikacji symboli — TASK-0385
+
+- Gra i zakres symbolu startują jako niewybrane, więc samo wejście do zakładki
+  nie pobiera strony cropów.
+- Po wskazaniu obu pól pierwsza strona ładuje się automatycznie. Usunięto
+  dodatkowe akcje `Zatwierdź wybór` i `Zmień wybór`; zmiana gry zeruje symbol,
+  strony oraz viewport, a istniejące zaznaczenie nadal wymaga jawnego
+  potwierdzenia wyczyszczenia.
+
+### Filtr stanu Weryfikacji symboli — TASK-0387
+
+- Radio `Wszystkie / Oczekujące / Zatwierdzone` wykorzystuje istniejący,
+  cursor-bound filtr `state`; zmiana resetuje strony, viewport i zaznaczenie
+  tak samo jak zmiana gry lub zakresu symbolu.
+- `Zła siatka` i `Nieczytelny symbol` nie są sztucznie prezentowane jako
+  status `odrzucone`: pozostają osobnymi problemami jakościowymi.
+
+### Niewyraźne cropy symboli — TASK-0388
+
+- Akcja `Niewyraźny` zachowuje rozpoznany symbol jako zatwierdzony, zapisuje
+  osobny `quality_issue = blurry` i wyklucza crop z kohort treningowych.
+- Pierwotna osobna akcja została w TASK-0410 zastąpiona checkboxem
+  modyfikującym zatwierdzenie albo zmianę symbolu; `blurry` nie trafia do
+  kolejki nieczytelnych ani korekty geometrii.
+
+### Miniatury symboli od krawędzi do krawędzi — TASK-0386
+
+- Bieżący renderer cropów legacy nie dopisuje już czarnego płótna do atlasu;
+  pełny crop wypełnia tile 100 × 100 tak samo jak źródło wirtualne.
+- Obramowanie karty jest nakładką na krawędzi grafiki. Nie zabiera miejsca
+  miniaturze i nie zmienia wirtualizacji, batchingu ani liczby requestów.
+
+### Zakres cropów gry w Weryfikacji symboli — TASK-0371/TASK-0383
+
+- `Weryfikacja symboli` wybiera grę oraz jawny zakres: wszystkie bieżące cropy,
+  jeden aktywny symbol albo nierozpoznane `?`. Stan i confidence nie zawężają
+  listy.
+- Admin API obsługuje odrębny zakres `symbolId=all`; `unknown` zachowuje swoje
+  dotychczasowe znaczenie, cursor game-wide jest związany z własnym scope, a
+  kolejność pełnego katalogu ma dedykowany indeks seek.
+- W mieszanym widoku dostępne jest jawne zaznaczanie kart lub strony. Masowe
+  zaznaczenie całego filtra pozostaje wyłączone, aby nie łączyć niezgodnych
+  mutacji cropów zwykłych i nierozpoznanych.
+
+### Odbiór range-only OCR v4.1 — TASK-0370
+
+- V4.1 przeszedł bramki bezpieczeństwa i wydajności, ale nie przeszedł bramek
+  coverage. Na challenge: `0` false exact, `62,5%` readable coverage i `100%`
+  group capture. Na frozen golden: `0` false exact, lecz tylko `26,3%`
+  readable coverage i `35,3%` group capture.
+- Próby 1000 surowych JPEG-ów osiągnęły `4,83` oraz `5,05` źródła/s. Ręczna
+  kontrola wszystkich 120 wybranych reprezentantów potwierdziła `100%` zakresu
+  i własnego exact proof; koszt skaluje się liniowo.
+- Rollout został odrzucony. Nowe runy nadal używają v3, a v4.1 pozostaje za
+  flagą. Następna iteracja musi poprawić lokalizację środkowego rzędu pod nowym
+  fingerprintem i przejść nowy holdout bez osłabiania proof.
+
+### Batch, orientacja i recovery range-only OCR v4.1 — TASK-0369
+
+- V4.1 ma osobną, fingerprintowaną ścieżkę runtime'u: recognition-only Paddle,
+  stałą orientację runu, bounded lattice prior, batchowanie i checkpoint po
+  pełnym prefiksie. Historyczne v1–v3 nadal wybierają własne adaptery.
+- Rzeczywisty bounded pomiar `1/3/6/12` wybrał `sourceBatchSize=6`: medianowo
+  około `6,23 źródła/s` dla OCR wobec `5,25` dla batcha 3. Jeden wewnętrzny
+  batch Paddle nadal obejmuje najwyżej dziewięć cropów.
+- Unknown nie jest kandydatem i nie przesuwa granic evidence span. Po restarcie
+  audit odcina tylko niezatwierdzony suffix, a observation key oraz checkpoint
+  zapobiegają duplikatom. V4.1 nie jest jeszcze domyślne; próby jakościowe i
+  rollout pozostają zakresem TASK-0370.
+
+### Exact proof środkowego rzędu v4.1 — TASK-0368
+
+- Powstał niezależny komponent przyszłego
+  `semi-automatic-range-only-ocr-v4-middle-row-triple-v2`: jednokrotna
+  kanonizacja EXIF, bounded locator afinicznej siatki 3×3, dokładnie trzy cropy
+  środkowego rzędu i fail-closed bramki kompletności oraz czytelności.
+- `ExpectedRangeTable` i resolver dopuszczają `exact` tylko dla trzech kolejnych
+  odczytów pasujących do dokładnie jednego oczekiwanego zakresu. Brak fuzzy,
+  inferencji z nazwy, indeksu albo sąsiadów; częściowa strona bez pełnego
+  środkowego rzędu pozostaje `unknown`.
+- Dostępny rzeczywisty `seq_21169-21177.jpg` po EXIF wymagał ograniczonego
+  rozszerzenia ROI i został zlokalizowany jako trzy kompletne, czytelne cropy.
+  Produkcyjny Paddle, grouping, checkpoint i przełączenie runów pozostają
+  zakresem TASK-0369; v1–v3 nie zmieniły zachowania.
+
+### Numery końcowej częściowej strony `seq_*` — TASK-0366
+
+- Produkcyjny adapter przypisuje teraz numery z poświadczonej nazwy również
+  kompletnej stronie krótszej niż dziewięć plansz. `seq_499996-500000.jpg`
+  daje deterministycznie numery `499996–500000` dla pozycji `0–4`.
+- Niekompletna geometria nadal pozostaje do korekty i nie przesuwa numerów.
+  Istniejące pięć rekordów gry `777` skorygowano atomowo na podstawie nazwy
+  źródłowej; odbudowa projekcji zostanie wznowiona po zwolnieniu blokady
+  trwających importów.
+- `expectedBoardCount` zawsze wynika z `end - start + 1`, gdy istnieje
+  poświadczony zakres. Fallback dziewięciu dotyczy tylko źródła bez zakresu;
+  niepoprawny zakres kończy się fail-closed.
+
+### Atomowy start browser stagingu — TASK-0365
+
+- Nowy preflight geometrii albo import i przypięcie rekordu retencji stagingu
+  są zapisywane w jednej transakcji. Usuwa to wzajemne oczekiwanie dwóch sesji
+  na FK do jeszcze niezatwierdzonego joba.
+- Idempotentne odzyskanie istniejącego joba nadal odświeża ochronę stagingu.
+  Zakres `seq_*` pozostaje automatycznym źródłem sekwencji i liczby plansz;
+  nie powstaje dodatkowy przycisk ani drugi workflow.
+
+### Szybkie stronicowanie Weryfikacji symboli — TASK-0359
+
+- Lista 500 cropów używa teraz wymuszonego `seek → owner check → hydrate`,
+  dzięki czemu szerokie rekordy i JSONB nie są materializowane przed limitem.
+- Cursor v3 zachowuje natywny UUID; istniejące scoped cursory v2 pozostają
+  czytelne. Na bieżącej bazie pięć odczytów 500 rekordów zajęło
+  `0.066–0.357 s` wobec wcześniejszych około `4.6–5.7 s` bez liczników.
+
+### Liczniki poza krytyczną ścieżką — TASK-0360
+
+- Odpowiedź listy cropów nie wykonuje już globalnych agregacji i nie zawiera
+  liczników. Osobny endpoint zwraca snapshot liczników związany z dokładnym
+  filtrem i `catalogRevision`.
+- Admin renderuje metadane strony od razu, pobiera liczniki niezależnie bez
+  nakładania requestów i ignoruje wyniki starego filtra. Błąd agregacji nie
+  blokuje listy ani mutacji; skuteczna decyzja odświeża licznik z nowej rewizji.
+
+### Stabilne atlasy Weryfikacji symboli — TASK-0361
+
+- Zarówno plikowe cropy legacy, jak i wirtualne cropy źródłowe korzystają z
+  jednego checksum-bound kontraktu atlasu WebP. Strona 500 rekordów tworzy
+  najwyżej pięć deterministycznych grup po 100.
+- Admin pobiera najpierw grupę widocznych kart, następnie sekwencyjnie pozostałe
+  grupy. Klucz cache obejmuje pełną tożsamość cropa, więc powrót na stronę trafia
+  w ten sam atlas, a zmiana rewizji wymusza nowy.
+- Cache ma TTL 24 godziny i nie wykonuje pełnego skanu po każdym renderze;
+  bounded pruning uruchamia się dopiero po przekroczeniu limitu 2 GiB.
+
+### Podgląd A/B cropów — TASK-0362
+
+- Weryfikacja symboli ma jawny wybór bieżących cropów v20/v19 albo
+  eksperymentalnego renderera strukturalnego v0.10. Przełączenie nie zmienia
+  projekcji ani danych gry.
+- Tryb v0.10 jest tylko do odczytu i blokuje zaznaczenia oraz wszystkie mutacje.
+  Komórki bez kompletnej proweniencji source-direct pokazują `Brak v0.10`, bez
+  fallbacku do cropa legacy.
+- API zwraca wersję i fingerprint renderera oraz dostępność per komórka. Tryb i
+  wersja należą do klucza atlasu, dlatego oba warianty cache nie kolidują.
+
+### Odbiór szybkiej Weryfikacji symboli — TASK-0363
+
+- Na rzeczywistej stronie 500 oczekujących cropów metadane osiągnęły p95
+  `1,110 s`, pierwszy atlas `0,488 s`, a komplet pięciu atlasów `2,209 s`.
+- Powrót na stronę wykorzystał te same pięć content-addressed kluczy i zajął
+  `0,085 s`; łączny rozmiar atlasów wyniósł `291 298 B`.
+- Admin pozostaje ograniczony do trzech stron metadanych i wirtualnego okna
+  kart. Liczniki są poza ścieżką krytyczną, a v0.10 pozostaje read-only.
+- Szczegóły odbioru są w
+  `ai_docs/quality/SYMBOL_REVIEW_FAST_PAGE_ACCEPTANCE.md`.
+
+### Odebrany szeroki OCR zakresów v2 — TASK-0357/TASK-0358
+
+- Nowe runy używają dedykowanego filtra małych etykiet i progresji
+  `12/24/36`, zachowując niezmienioną bramkę minimum trzech zgodnych pozycji
+  oraz pary sąsiadującej.
+- Worker rozwiązuje v1 albo v2 z fingerprintu utrwalonego runu; historyczny v1
+  pozostaje odtwarzalny, a nieznany kontrakt jest blokowany przed OCR.
+- Próby 10/100 osiągnęły odpowiednio `7/10` i `68/100` dokładnych zakresów,
+  zawsze z `0` fałszywych przypisań, `0` overlap i bez wywołań geometrii,
+  croppera oraz symbol inference. Koszt próby 100 wyniósł `131.883438 s`,
+  mediana `1.421131 s/JPEG`, a peak RSS `541708288 B`.
+- Pełny raport jest w
+  `ai_docs/quality/SEMI_AUTOMATIC_SELECTION_RANGE_OCR_V2_ACCEPTANCE.md`.
+  Feature flag pozostaje domyślnie wyłączona do osobnej decyzji operatora.
+
+### Adaptacyjne próby OCR zakresów v3 — TASK-0364
+
+- Nowe runy przypinają `semi-automatic-range-only-ocr-v3`. Sam recognizer jest
+  zgodny jakościowo z v2 (`12/24/36`, minimum trzy pozycje, para sąsiednia,
+  confidence `0.90`); zmienia się wyłącznie harmonogram wywołań.
+- Thumbnailowy deskryptor wybiera mocne granice, a próba co piąte źródło
+  ogranicza ryzyko pominięcia subtelnej zmiany. Pominięty JPEG jest jawnie
+  `unproven` i nie może utworzyć zakresu.
+- Scheduler i grouping mają wspólny trwały prefiks. Checkpoint v3 jest bounded
+  do 10 źródeł, więc restart nie zmienia kontraktu ani nie powtarza już
+  zatwierdzonych prób.
+- Golden 10/100 zachował `7/10` i `68/100` exact oraz zero fałszywych
+  przypisań. Modelowa seria 10 rzeczywistych ekranów po 10 ujęć osiągnęła
+  `3,30 JPEG/s`; rzeczywisty fragment 200 zdjęć osiągnął `7,30 JPEG/s`.
+  Projekcja dla 42 000 zdjęć wynosi około `1 h 36 min–3 h 32 min`, zależnie od
+  udziału wymagających prób. Flaga rolloutowa nadal pozostaje wyłączona.
+
+### Kontrakty półautomatycznej selekcji zakresów — TASK-0350
+
+- TASK-0350 tworzy czysty, niezależny od gry kontrakt `seq-inclusive-v1` dla
+  przyszłego półautomatu. Zakresy są dodatnie i inkluzywne, pełny zakres ma
+  obecnie dziewięć plansz, a ostatnia strona może być krótsza.
+- `RangeEvidenceGate` ocenia wyłącznie lokalny dowód OCR dokładnego zakresu
+  względem expected ranges. Nie uruchamia ani nie ocenia geometrii, plansz,
+  cropów, symboli, ostrości, ekspozycji czy refleksów.
+- Sam kontrakt TASK-0350 nie zależy od adaptera OCR, stagingu, migracji, joba,
+  API ani UI. Późniejsze taski dokładają te warstwy bez rozszerzania domeny.
+
+### Range-only OCR półautomatycznej selekcji — TASK-0351
+
+- Adapter `semi-automatic-range-only-ocr-v1` wykorzystuje istniejący
+  Paddle/proof-first OCR przez port przyjmujący wyłącznie RGB. Bridge przekazuje
+  pusty zestaw plansz, więc workflow nie uruchamia geometrii, croppera ani
+  symbol inference i nie ma bramki jakości obrazu.
+- Tylko mocny pozycyjny proof może dać `exact_range`; końcowy krótszy zakres
+  wymaga trzech zgodnych obserwacji mieszczących się w jego granicach.
+- Checksumowany rzeczywisty korpus wyznacza wersjonowany maksymalny odstęp `160`
+  źródeł bez proof. Silnik TASK-0353 konsumuje tę politykę bez dodawania oceny
+  wyglądu plansz.
+
+### Globalny run półautomatycznej selekcji — TASK-0352
+
+- Migracja `0087` utrwala globalny run i jego oczekiwane zakresy bez
+  przypisania do gry. Idempotencja obejmuje cały kontrakt stagingu, granic,
+  kierunku i wersji algorytmów.
+- Purpose `semi_automatic_selection` przechowuje naturalnie uporządkowane
+  JPEG-i, checksumę manifestu i fingerprint źródła. Restart API nie traci
+  stagingu ani runu; zmieniony manifest lub asset jest blokowany fail-closed.
+- Lokalne API udostępnia capabilities, lifecycle runu, listę zakresów,
+  diagnostykę, assety i checksum-bound acknowledgement outputu. Run używa
+  istniejącego selection lane.
+- Rollout jest domyślnie wyłączony flagą
+  `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION=false`.
+
+### Deterministyczny silnik półautomatycznej selekcji — TASK-0353
+
+- Istniejący lane selekcji obsługuje teraz także globalny job
+  `semi_automatic_image_selection`; general worker nadal go nie przejmuje.
+- Scanner wykonuje range-only OCR raz na JPEG, grupuje wyłącznie dokładne
+  lokalne dowody i zapisuje strumieniowe JSONL oraz atomowy checkpoint.
+- Wybór środka nie ocenia geometrii ani jakości plansz. Brak proof pozostaje
+  luką, a duplikat lub zakres poza kolejnością jest diagnostyką bez podmiany
+  pierwszego trwałego właściciela.
+- Pauza i restart wznawiają ostatni zatwierdzony prefiks bez ponownego OCR.
+  Zakończona analiza przechodzi do `waiting_for_review`; zapis lokalnego outputu
+  pozostaje zakresem TASK-0354.
+
+### Lokalny output i recovery półautomatycznej selekcji — TASK-0354
+
+- Admin zapisuje wybrane źródła jako niezmienione `seq_<start>-<end>.jpg` i
+  potwierdza zakres do API dopiero po lokalnym read-backu SHA-256.
+- Manifest outputu v1 jest związany z runem, źródłem, pełnym snapshotem
+  zakresów i fingerprintami. Inny run lub zmieniony plik docelowy blokuje
+  zapis bez silent overwrite.
+- Jedna trwała pending operation pozwala wznowić awarię przed albo po zapisie
+  JPEG-a. Ponowienie nie pobiera ponownie zgodnego pliku i może bezpiecznie
+  dokończyć samo acknowledgement.
+- IndexedDB przechowuje tylko uchwyty katalogów i mały stan UI; obrazy nie są
+  utrwalane w przeglądarce. Konfigurator i ekran progresu pozostają zakresem
+  TASK-0355.
+
+### Konfiguracja i postęp półautomatycznej selekcji — TASK-0355
+
+- Admin ma niezależny od gry workspace `Półautomatyczny wybór zdjęć`. Odczytuje
+  capabilities API przed odblokowaniem konfiguracji; jedna flaga serwerowa
+  steruje dostępnością i UI nie wysyła mutacji, gdy funkcja jest wyłączona.
+- Operator wybiera źródłowy katalog JPEG oraz lokalny katalog docelowy, podaje
+  dodatnie granice i kierunek. Skan źródła jest naturalnie uporządkowany, upload
+  używa purpose `semi_automatic_selection`, a postęp pokazuje potwierdzone pliki
+  i bajty oraz umożliwia bounded retry albo anulowanie.
+- Po finalizacji Admin tworzy lub odzyskuje idempotentny globalny run. Lokalny
+  klucz i operator-local IndexedDB przywracają run oraz uchwyty po reloadzie.
+  Sekwencyjny polling pokazuje etap i liczniki oraz udostępnia trwałe
+  pause/resume/cancel bez nakładających się requestów.
+- Końcowy review i ręczna edycja nie są jeszcze eksponowane; pozostają zakresem
+  TASK-0356.
+
+### Review i ręczna edycja półautomatycznej selekcji — TASK-0356
+
+- Ukończony run otwiera pełny, keysetowo pobrany przegląd expected ranges po
+  lokalnej synchronizacji automatycznych wyborów. Postęp zapisu jest widoczny,
+  a nieciągły snapshot blokuje mutację.
+- `REVIEW MODE` nawiguje po zakresach, natomiast `EDIT SOURCE MODE` blokuje
+  zakres i nawiguje po źródłowych JPEG-ach we wspólnym viewerze. Luka zaczyna
+  po poprzednim wyborze, a zastąpienie od dokładnego zapisanego indeksu.
+- Ręczne dodanie i zastąpienie zachowują oryginalne bajty, journal recovery i
+  ochronę przed silent overwrite. Acknowledgement wiąże rewizję z ponownie
+  zweryfikowanym źródłem stagingu przez opcjonalny `sourceIndex`.
+- TASK-0357 pozostaje odpowiedzialny za rollout flagi i odbiór na rzeczywistych
+  katalogach 10/100 zdjęć.
+
+### Częściowa geometria ostatniej strony — TASK-0349
+
+- Lista ręcznej korekty zwraca `expectedBoardCount` wyliczony z poświadczonej
+  nazwy `seq_<start>-<end>`. Dla `seq_499996-500000.jpg` Admin prowadzi przez
+  dokładnie pięć plansz zamiast wymuszać dziewięć.
+- API, append-only override, preflight i produkcyjny adapter obsługują aktywny
+  prefiks 1–9 quadów w kolejności row-major. Backend ponownie sprawdza liczbę
+  względem manifestu stagingu; częściowa strona nie może zostać globalną
+  kotwicą dla innych zdjęć.
+- Migracja `0086_partial_page_geometry_overrides` luzuje wyłącznie constraint
+  długości JSONB z dokładnie 9 do zakresu 1–9. Istniejące rewizje pozostają
+  niezmienione, a pełne strony nadal używają dziewięciu quadów i 36 uchwytów.
+
+### Wznowienie malejącej zdalnej selekcji ręcznej
+
+- Manifest operator-local zapisuje teraz jawną semantykę naturalnego porządku
+  źródła. Ponowne wskazanie folderów albo wznowienie pod nowym linkiem nie może
+  odwrócić działania `→`/Enter dla kierunku `malejąco`.
+- Historyczny manifest bez znacznika jest naprawiany od następnego naturalnego
+  zdjęcia po ostatniej zaakceptowanej decyzji; `skipped` zmienia wyłącznie
+  zakres i nie przesuwa punktu wznowienia zdjęć.
+
+### Widoczny postęp browser uploadu — TASK-0348
+
+- Admin pokazuje postęp przesyłania na podstawie liczników potwierdzonych przez
+  API, a nie wyłącznie lokalnego indeksu pętli.
+- Po pierwszym pliku i następnie co 25 plików klient jawnie oddaje sterowanie
+  przeglądarce, aby duża seria szybkich requestów nie blokowała odmalowania
+  licznika na wartości `0/N`.
+
+### Czytelne liczniki ręcznej geometrii — TASK-0347
+
+- Preflight i panel korekty opisują liczniki jako zdjęcia źródłowe. Plansze
+  powstają po dziewięć na zdjęcie dopiero w późniejszym imporcie.
+- Panel rozróżnia odroczone zdjęcie od ponownej korekty geometrii, która była
+  już zarejestrowana. Ta druga zmienia quady, ale zgodnie z domeną nie zwiększa
+  licznika zarejestrowanych źródeł.
+- Regresja workera potwierdza, że jeden snapshot partii stosuje wszystkie
+  zapisane override'y, a nie wyłącznie ostatni.
+
+### Edycja wszystkich narożników po wyznaczeniu plansz — TASK-0346
+
+- Zakończenie trybu osobnego wyznaczania dziewięciu plansz automatycznie
+  przełącza korektę na `Wszystkie plansze — 36 narożników`, zamiast pozostawiać
+  aktywne uchwyty tylko planszy 1.
+- Dziewięć niezależnych quadów jest bezstratnie mapowanych na istniejącą siatkę
+  6 × 6. Ponowne wybranie tego zakresu zachowuje bieżące obrysy, odstępy i
+  krzywiznę; nie odtwarza ich z czterech narożników całej strony.
+
+### Osobne wyznaczanie dziewięciu plansz — TASK-0345
+
+- Korekta geometrii strony ma dodatkowy prowadzony tryb, w którym operator
+  wskazuje LT → PT → PD → LD osobno dla każdej z dziewięciu plansz.
+- Plansze są zbierane w domenowej kolejności row-major: 1–3, 4–6, 7–9. Każdy
+  poprawny obrys jest od razu widoczny, a niepoprawny lub przestawiony quad
+  blokuje przejście dalej i można go cofnąć jednym punktem.
+- Wynik korzysta z istniejącego zapisu dziewięciu finalnych quadów. Nie zmienia
+  API, numeracji `seq_*`, preflightu ani source-direct croppera; wcześniejsze
+  tryby obrysu strony, krzywizny i pojedynczej planszy nadal działają.
+
+### Selekcja cropów między stronami — TASK-0344
+
+- Weryfikacja symboli zachowuje jawne, checksum-bound zaznaczenie przy
+  przejściu między stronami keysetowymi. Operator może połączyć do 10 000
+  cropów z wielu stron wybranego rozmiaru w jeden job masowy.
+- Zmiana filtra, jawne wyczyszczenie albo przekazanie operacji nadal czyści
+  selection. Pomyślna operacja ukrywa wszystkie jej jawne targety również po
+  powrocie do wcześniej odwiedzonej strony.
+
+### Zoom korekty geometrii — TASK-0343
+
+- Viewport korekty strony używa wspólnego modelu `fit to viewport` ręcznej
+  selekcji i pozwala powiększyć obraz od 100% do 3000% co 25%.
+- Powiększony obraz jest przewijany w obu osiach, a kliknięcia i przeciąganie
+  nadal zapisują współrzędne źródłowego JPEG-a. Przycisk procentu wraca do
+  dopasowania 100%; zoom nie zmienia resetu ani zapisanej geometrii.
+
+### Elastyczna korekta pełnej strony — TASK-0342
+
+- Edytor ręcznej geometrii strony prowadzi przez narożniki LT → PT → PD → LD,
+  blokuje skrzyżowany obrys i generuje dziewięć rozdzielonych ramek z 36
+  niezależnych punktów krawędzi. Pozwala to odwzorować perspektywę, odstępy i
+  łuk ekranu bez wymuszania prostokątnej, stykającej się siatki.
+- `Reset` przywraca geometrię widoczną przy otwarciu zdjęcia. Kolejne poprawki
+  można zapisywać bez uruchamiania preflightu, a następnie wysłać całą partię
+  jedną akcją. Istniejące ręczne override'y pozostają edytowalne i audytowalne.
+- Lokalny Reviewer rozpoznaje importy z odroczoną, niepełną geometrią i pozwala
+  przełączyć się do istniejącego edytora operacyjnego; zdalny scope nie został
+  rozszerzony.
+
+### Stabilizacja korekty ręcznej selekcji — TASK-0341
+
+- Wspólny viewer zachowuje pozycję obrazu pomiędzy przejściami także wtedy,
+  gdy loading chwilowo redukuje zawartość viewportu. Techniczne zdarzenie
+  scrolla dla nieaktualnego Object URL nie może już nadpisać pozycji zerem.
+- Fill, delete, undo i restore aktualizują lokalny snapshot jednego pliku bez
+  ponownego hashowania całego katalogu po każdej operacji. Pełny audyt nadal
+  odbywa się przy otwarciu/reloadzie, a usuwany plik nadal wymaga SHA-256.
+- Drift istniejącego output manifestu pozostaje fail-closed i otrzymuje
+  czytelny komunikat; aktualna check­suma nie jest przyjmowana automatycznie.
+
+### Korekta ręcznej selekcji — TASK-0336
+
+- `v0.10.29` wydziela wspólny viewer lokalnych zdjęć: bounded cache bieżącego
+  okna, zoom 100–3000%, fullscreen oraz pamięć pionowego scrolla.
+- Dotychczasowy lokalny selector korzysta z nowego komponentu bez zmiany
+  manifestów, skrótów ani operacji plikowych. Jest to fundament niezależnej
+  sekcji `Popraw selekcję`; manifest i mutacje korekty powstaną w TASK-0337.
+
+### Domena korekty ręcznej selekcji — TASK-0337
+
+- `v0.10.30` dodaje lokalny repair manifest v1, walidację top-level plików
+  `seq_*`, trwałe granice kolekcji oraz deterministyczne luki do dziewięciu
+  plansz. Błędna nazwa JPEG-a, duplikat, overlap lub drift checksummy blokują
+  mutację fail-closed.
+- Osobna IndexedDB v1 zapisuje wyłącznie uchwyty, tryb, kursory, zoom, scroll i
+  skok. JPEG-i nie są utrwalane w bazie przeglądarki. Operacja oczekująca jest
+  finalizowana po restarcie na podstawie obecności pliku i SHA-256.
+
+### Uzupełnianie luk ręcznej selekcji — TASK-0338
+
+- `v0.10.31` dodaje lokalny workspace uzupełniania wykrytych luk z katalogu
+  bazowego tylko do odczytu. Nawigacja zdjęć ma skoki 1/2/5/10/20/50/100, a
+  targety przechodzą po rzeczywistych lukach zamiast mechanicznego `start+9`.
+- Enter/F zapisuje oryginalne bajty pod dokładnym `seq_<start>-<end>.jpg`,
+  weryfikuje SHA-256 i aktualizuje repair/output manifest oraz trace. Akceptacja
+  jest dostępna po 300 ms rzeczywistej widoczności; ostatni fill można cofnąć
+  bez usuwania obcego albo zmienionego pliku.
+
+### Usuwanie ręcznie wybranych sekwencji — TASK-0339
+
+- `v0.10.32` dodaje tryb przeglądania `seq_*` ze stałym skokiem 1. F i jawny
+  przycisk usuwają dokładny, checksummowany JPEG oraz aktualizują trwałą listę
+  luk i oba manifesty.
+- Wyłącznie ostatni usunięty Blob pozostaje w pamięci otwartej karty. A/Ctrl+A
+  przywraca go pod pierwotną nazwą po kontroli kolizji i SHA-256; reload albo
+  następne usunięcie bezpowrotnie usuwa wcześniejszą możliwość restore.
+
+### Finalizacja korekty ręcznej selekcji — TASK-0340
+
+- `v0.10.33` montuje kartę `Popraw selekcję` bezpośrednio pod lokalnym
+  selektorem i chroni naprawiany katalog przed ponownym przejęciem przez zwykły
+  start albo resume.
+- Output manifest jest jedynym źródłem aktywnych wyborów. Ranker opcjonalnie
+  scala widoczne repair fill z pierwotnym trace, lecz ignoruje delete/restore i
+  nie może uznać za pozytyw pliku usuniętego z outputu.
+- Workflow pozostaje operator-local: bez API, migracji bazy i Blobów w
+  IndexedDB. Wymagania, architektura oraz D-276 opisują recovery, checksumy i
+  jednopoziomowe przywracanie delete.
+
+### Stabilizacja wznowienia Popraw selekcję — TASK-0403
+
+- `v0.10.105` utrzymuje pełną fail-closed inspekcję po reloadzie, lecz nie
+  odczytuje dwa razy tego samego JPEG-a podczas jednej kontroli repair/output
+  manifestu.
+- Workspace pokazuje fazy recovery, wyboru katalogu, inspekcji i listowania
+  katalogu bazowego. Ręczny wybór unieważnia spóźnione recovery z IndexedDB i
+  zapisuje nowy uchwyt trwale.
+
+### Fundament 0.10 — TASK-0307
+
+- `v0.10.0` definiuje wyłącznie czysty kontrakt przyszłej wirtualnej geometrii.
+  Parser `seq_*` używany przez API i worker waliduje jeden ciągły zakres
+  `1..9`; jego aktywne sloty są zawsze prefiksem row-major strony 3 × 3, więc
+  częściowa ostatnia strona nie może zawierać dziury między planszami.
+- Nowe typy opisują współrzędne RGB po pojedynczej normalizacji EXIF,
+  wypukły source quad bez wymagania prostokąta, geometrię aktywnej planszy oraz
+  geometry-bound render spec komórki. Nie ma jeszcze migracji, endpointu,
+  flagi runtime, pipeline'u OpenCV ani zapisu nowych cropów.
+- Logical identity komórki jest niezależne od rewizji geometrii; render identity
+  wiąże źródło, topologię, quad, rewizję i konfigurację bezpośredniego
+  renderowania. Następny task wykorzysta te kontrakty do addytywnego schematu
+  i bezpiecznej ścieżki kompatybilności.
+
+### Trwałość wirtualnej geometrii — TASK-0308
+
+- `v0.10.1` dodaje migrację `0082_virtual_geometry_foundation`, lecz nie
+  aktywuje nowego pipeline'u. Istniejące plansze, cropy, review i kohorty
+  pozostają w trybie `legacy_file`; stan każdej gry domyślnie wynosi
+  `legacy` / `legacy_files`.
+- `source_images` może zapisać kompletny, all-or-none opis współrzędnych RGB po
+  EXIF. Append-only `image_source_geometry_revisions` wiąże źródło, attested
+  zakres i sloty, topologię, silnik, quady oraz checksumy bez binariów.
+- Dual-schema pozwala przyszłemu rekordowi `virtual_source` nie mieć ścieżki
+  pliku, ale wymaga source geometry, logical cell key, render spec, extractor
+  version i rendered-pixel SHA-256. Dotychczasowe repozytoria legacy odrzucają
+  taki rekord fail-closed do czasu ich jawnego przełączenia w kolejnych
+  taskach.
+- Backfill rolloutów jest idempotentny i ograniczony do 200 gier na partię
+  (maksymalnie 500); nie skanuje obrazów ani wielomilionowych tabel cropów.
+  Lokalna baza użytkownika została zaktualizowana przez
+  `0082_virtual_geometry_foundation` i
+  `0083_image_geometry_rollout_backfill_job_type` 2026-08-29. Stan gier
+  pozostał domyślnie `legacy` / `legacy_files`; druga migracja jedynie dodaje
+  wartość enum wymaganą przez ogólny worker i nie zmienia danych obrazów.
+
+### Source-direct renderer wirtualnych komórek — TASK-0309
+
+- `v0.10.2` dodaje `CanonicalSourceLoader`, który weryfikuje SHA-256 managed
+  original, dekoduje JPEG raz na bieżące wykonanie, stosuje EXIF Orientation
+  1–8 dokładnie raz i zwraca niemodyfikowalne RGB `uint8` wraz z checksumą
+  pikseli. Loader nie zapisuje pełnowymiarowego PNG.
+- `VirtualCellRenderer` konsumuje kontrakty TASK-0307 i wykonuje jeden
+  source-direct `warpPerspective` na każdą komórkę. Zwraca piksele wyłącznie w
+  pamięci, logiczny klucz, niezmienny render spec, jego checksumę oraz checksumę
+  wynikowych pikseli. Przed pierwszym warpem waliduje komplet całej partii i
+  pełne pokrycie źródła.
+- Produkcyjnym kontraktem przyszłego rolloutu jest wariant B — bezpośrednia
+  perspektywa źródło→komórka. Warianty A (native bounding box) i C (pośrednio
+  wyprostowana plansza) istnieją wyłącznie jako diagnostyka A/B/C w pamięci.
+- Historyczny `board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1`
+  nie został zmieniony. Test regresyjny potwierdza dokładną zgodność pikseli B
+  z v19 dla 15 pól. TASK-0309 nie podłącza nowego renderera do pipeline'u, bazy,
+  API ani rolloutu gry.
+
+### Globalna inicjalizacja Structured OpenCV — TASK-0310
+
+- `v0.10.3` dodaje wyłącznie globalny etap
+  `structured-opencv-global-initialization-v1`. Wejście jest związane z
+  kanonicznym RGB, topologią i attested prefiksem slotów; wynik nie zawiera
+  finalnej geometrii plansz i nie uruchamia croppera.
+- Profil zatwierdzonych stron używa ORB/RANSAC na obrazie 50% i wybiera anchor
+  deterministycznie po inlierach, ratio, błędzie oraz checksumie. Dotychczasowy
+  `VerifiedPageRegistrar.register()` zachowuje pełną walidację czerwonych ramek
+  i kontrakt produkcyjny.
+- Cold start bez profilu łączy czerwone ramki, gradienty grayscale oraz LSD,
+  dopasowuje wyłącznie oczekiwane aktywne sloty i zwraca początkowe ROI.
+  Niewystarczający dowód kończy się `needs_manual_review` bez syntetycznych
+  pozycji i bez częściowego rezultatu.
+- Golden testy obejmują pełne i częściowe strony, różne perspektywy, obie
+  strategie, deterministyczność oraz fail-closed bez dowodu. Integracja
+  pipeline'u, finalny local line refinement, UI i rollout pozostają poza
+  TASK-0310.
+
+### Niezależne dopracowanie plansz — TASK-0311
+
+- `v0.10.4` dodaje lokalny refiner LSD dla każdej aktywnej planszy osobno.
+  Tymczasowa rektyfikacja służy wyłącznie analizie sześciu pionowych i czterech
+  poziomych linii; finalny quad wraca do współrzędnych źródła i nie jest
+  wymuszany do prostokąta w zdjęciu.
+- Hard gates wymagają granic zewnętrznych, co najmniej 5/6 pionów, 3/4
+  poziomów, 18/24 przecięć, p95 reprojekcji do 2,5 px na skali 50%, pełnego
+  source support, zachowania row-major i braku nakładania. Niepełny dowód daje
+  stabilny reason code i korektę ręczną zamiast false-success.
+- Osiem składników confidence jest całkowicie niezależnych od modelu symboli.
+  Wynik źródła jest checksumowany i agreguje najgorszy status niezależnych
+  slotów. Testy obejmują glare, mocną okluzję/rękę, brak linii, overlap,
+  kolejność oraz historyczny obraz false-success.
+- TASK-0311 nie zmienia pipeline'u v20, bazy, API, UI, croppera ani rolloutu.
+  Produkcyjna integracja pozostaje odroczona.
+
+### Integracja wirtualnej geometrii z pipeline'em — TASK-0312
+
+- `v0.10.5` przypina do każdego nowego joba niezmienny snapshot rolloutu gry:
+  tryb geometrii, tryb assetów komórek, rewizję oraz wersje silnika,
+  renderera i preprocessingu. Brak stanu gry pozostaje dokładnie historycznym
+  `legacy` / `legacy_files`; fingerprint starego joba nie zmienia się.
+- `structured_shadow` zachowuje legacy jako wynik domenowy i dual-write'uje
+  źródłową geometrię oraz odrębną prediction revision z pełną proweniencją
+  virtual. `structured_review` zapisuje geometrię do ręcznej walidacji bez
+  inferencji, a `structured_default` używa wyłącznie zweryfikowanych slotów
+  Structured OpenCV i wirtualnych komórek.
+- Wariant virtual dekoduje managed original raz w ramach wykonania, renderuje
+  maksymalnie 9 × 15 komórek w pamięci, tworzy jeden tensor NCHW i wykonuje
+  jedno wywołanie ONNX dla całego źródła. Nie zapisuje board ani cell PNG;
+  rekordy `recognized_boards` i `cell_observations` korzystają z
+  `virtual_source`, source geometry revision, render specu i checksummy
+  dokładnych pikseli.
+- Restart odtwarza piksele z managed original i porównuje render spec oraz
+  pixel checksum ze stage checkpointem. Rozbieżność kończy się fail-closed;
+  identyczny replay nie tworzy drugiej geometrii ani prediction revision.
+- Rozstrzygnięte przez człowieka numery pozostają chronione przez canonical
+  ownership przed projekcją automatu. Legacy Reviewer nadal nie serwuje
+  wirtualnych assetów; lokalny Admin korzysta z bounded rendering podglądów
+  wdrożonego przez TASK-0313.
+
+### Bounded podglądy komórek wirtualnych — TASK-0313
+
+- `v0.10.6` udostępnia lokalnemu Admin API batch maksymalnie 100 aktualnych
+  komórek `virtual_source`. Żądanie zawiera oczekiwaną rewizję i checksumę
+  render specu; wynik jest checksumowanym atlasem WebP z deterministycznym
+  deskryptorem tile'ów oraz czasem wygaśnięcia.
+- `VirtualCellPreviewService` dekoduje managed original najwyżej raz na źródło
+  w batchu, waliduje current geometry/source geometry/spec/pixel provenance i
+  renderuje direct-perspective preview bez trwałych cropów. Legacy PNG/JPEG
+  pozostaje obsługiwany niezmienionym endpointem assetu.
+- Atlas pozostaje wyłącznie odtwarzalnym cache'em
+  `data/working/virtual-preview-cache-v1`: 15 minut TTL, 2 GiB LRU,
+  process-local single-flight i brak rekordów domenowych lub binariów w bazie.
+
+### Weryfikacja geometrii całego źródła — TASK-0314
+
+- `v0.10.7` rozszerza wyłącznie lokalny Reviewer o source-scoped workspace
+  geometrii. Anchor kolejki nadal ma bounded keyset po jednej pozycji, a po
+  odczycie jego `sourceImageId` klient pobiera maksymalnie dziewięć aktywnych,
+  row-major slotów tego samego zdjęcia. Cursor jest związany także z opcjonalnym
+  filtrem źródła; zdalny proxy Reviewera nadal nie udostępnia tej powierzchni.
+- Canvas pokazuje pełny EXIF-oriented asset, quady wszystkich aktywnych plansz,
+  linie topologii, numery slotów, confidence i reason codes. Operator wybiera
+  jeden quad, korzysta z drag narożników lub całej siatki, undo/resetu do
+  automatu oraz nietrwałego porównania A/B source-direct cropów. Overlay ani
+  preview nie są zapisywane jako JPEG.
+- Akceptacja i odrzucenie wykonują checksum-bound, revision-bound mutacje dla
+  kompletu aktywnych plansz źródła z blokadą podwójnego submitu. Workspace
+  pokazuje oddzielne liczniki globalnej kolejki i bieżącego źródła. Legacy
+  zapis ręcznej korekty zachowuje istniejący workflow oraz przechodzi do
+  następnego źródła; ręczny zapis `virtual_source` jest celowo fail-closed,
+  aby nie zastąpić proweniencji wirtualnej fizycznymi cropami przed backfillem
+  i walidacją TASK-0317.
+
+### Wirtualizowana Weryfikacja Symboli — TASK-0315
+
+- `v0.10.8` zachowuje keysetową nawigację po stałych stronach 500 cropów, ale
+  Admin renderuje wyłącznie viewport i mały overscan przez
+  `@tanstack/react-virtual`. Metadane są ograniczone do bieżącej strony oraz
+  maksymalnie dwóch sąsiednich; jedyny prefetch pobiera kolejną stronę bez
+  assetów.
+- Wirtualny renderer żąda checksum-bound atlasu wyłącznie dla aktualnie
+  widocznych kart `virtual_source`, maksymalnie 100 komórek. Legacy assety
+  zachowują dotychczasowy lazy thumbnail. W DOM ani w pamięci nie powstaje
+  zestaw 500 obrazów, a tym bardziej lista 10 000 obrazów.
+- Filtr confidence (`niska`, `średnia`, `wysoka`) jest częścią zapytania,
+  cursorów i snapshotu masowej operacji. Operator może wybrać bieżącą stronę
+  jawnie albo wszystkie wyniki filtra przez snapshot rewizji katalogu i
+  ograniczone `excludedIds`; pojedyncza jawna decyzja nadal nie tworzy joba.
+- D-241 została zastąpiona przez D-259. Zdalny Reviewer pozostaje poza nową
+  powierzchnią lokalnego Admin API.
+
+### Bezpieczny rollout wirtualnej geometrii — TASK-0317
+
+- `v0.10.9` dodaje trwały job `image_geometry_rollout_backfill` w general lane.
+  Waliduje najwyżej 100 źródeł na transakcję, zapisuje source cursor i stany
+  `not_started/processing/ready/failed`; drugi start aktywnego joba jest
+  idempotentny. Nie konwertuje legacy ani nie zmienia trybu rolloutu gry.
+
+### Finalny cutover wirtualnej geometrii — TASK-0318
+
+- Domena koduje fail-closed bramkę odbiorczą: minimum 100 źródeł, 500 aktywnych
+  plansz, pięć bucketów, komplet historycznych błędów, holdout i gotowa
+  walidacja proweniencji. Tylko board-level `>=98%` rekomenduje
+  `structured_default/virtual_default`; `95–98%` pozostaje w review, a `<95%`
+  utrzymuje legacy i może uzasadnić TASK-0319.
+- Audyt nie znalazł kompletnego raportu 0.10, a Outcome TASK-0317 potwierdza,
+  że operacyjnego backfillu nie uruchamiano. Decyzja odbiorcza brzmi
+  `insufficient_evidence`: żaden tryb gry ani domyślny engine nie został
+  promowany, a TASK-0319 nie został uruchomiony bez rzeczywistego wyniku `<95%`.
+- Legacy cropy, aliasy Reviewera, source geometry i dual-schema pozostają.
+  Raport `V0_10_VIRTUAL_GEOMETRY_CUTOVER.md` opisuje pełny rollback operacyjny;
+  nie wykonuje się destrukcyjnego downgrade'u 0082 po pojawieniu się danych
+  `virtual_source`.
+- Bramka sprawdza kanoniczne metadane RGB, pełną source geometry, obserwacje,
+  bieżące komórki i manualne rewizje `virtual_source`. Po walidacji odtwarza
+  compact candidate/fast document aktualnego właściciela, dzięki czemu lokalna
+  kolejka geometrii nie zależy od historycznego board PNG.
+- Lokalny Reviewer może po stanie `ready` wykonać preview i zapis ręcznej
+  geometrii virtual. Obie ścieżki renderują komórki source-direct w pamięci;
+  zapis utrwala tylko append-only source/board revision, render specy i
+  checksumy. Etykiety człowieka pozostają, ale nowa tożsamość pikseli nie jest
+  treningowa do czasu ponownego zatwierdzenia cropa.
+
+### Eksperymentalny fallback geometrii keypoint — TASK-0319
+
+- Bezpośrednie polecenie właściciela uruchomiło bounded eksperyment mimo braku
+  raportu `<95%`; D-261 nadal blokuje automatyczną aktywację i zmianę rolloutu.
+- Zamrożony dataset dopuszcza wyłącznie ręcznie zatwierdzone quady i dzieli dane
+  deterministycznie według source family bez przecieku między train,
+  validation i test.
+- Mały model CPU przewiduje `9 × 4` heatmaps oraz obecność slotów. Eksport ONNX
+  jest checksum-bound, sprawdza parity z PyTorch i ma jawny, bounded pomiar
+  czasu po warm-upie.
+- Dekoder respektuje active-slot maskę z poświadczonego zakresu `seq_*`, a
+  niepełna obecność i nieprawidłowy quad kończą się fail-closed. Finalne quady
+  przechodzą przez ten sam lokalny refiner i hard gates co Structured OpenCV.
+- Nie dodano migracji, API ani połączenia z produkcyjnym workflow. Shadow runner
+  nie może zastąpić primary result, trenować na danych użytkownika ani zmienić
+  stanu gry.
 
 ### Ograniczenie zużycia dysku — TASK-0306
 
@@ -308,8 +3278,8 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - `v0.8.47` naprawia kontrakt odpowiedzi strony Weryfikacji symboli. Request i
   repozytorium obsługiwały ustalony limit 500, ale schema odpowiedzi nadal
   odrzucała więcej niż 100 elementów, przez co kompletna strona kończyła się
-  HTTP 500. Limit requestu, odpowiedzi i OpenAPI korzysta teraz z jednego
-  application constant; regresja serializuje rzeczywistą stronę 500 cropów.
+  HTTP 500. Następnie panel i API przeszły na dodatni limit wybierany przez
+  operatora; domyślną wartością pozostaje 500.
 - `v0.8.48` przenosi page-local operacje masowe Weryfikacji symboli do tła UI.
   Każdy trwały job zachowuje osobny status i spinner na swoich targetach, ale
   nie blokuje przejścia na inną stronę ani wysłania kolejnej operacji. Pełny
@@ -3518,6 +6488,11 @@ legacy nie usuwa już sfinalizowanego browser stagingu.
 
 ## Wersja 0.9 — fundament domenowy geometrii i jakości symboli
 
+- `Weryfikacja symboli` nie pobiera już domyślnej strony 500 cropów po samym
+  wejściu do zakładki. Operator jawnie zatwierdza grę, symbol, stan oraz limit
+  `1..500`; po zatwierdzeniu parametry są zablokowane do akcji `Zmień wybór`, a
+  keysetowa paginacja i zakres strony używają zatwierdzonego limitu.
+
 TASK-0304 rozpoczął tor 0.9. Commit `v0.9.1` dodaje wyłącznie czystą domenę:
 topologię planszy wyprowadzaną z wersji reguł, wyliczany stan walidacji
 geometrii oraz niezależne osie etykiety, jakości i proweniencji cropa.
@@ -3669,3 +6644,321 @@ Dodano read-only raport rozmiarów przed/po. Migracja została sprawdzona na
 izolowanym PostgreSQL, ale nie została wykonana na bazie użytkownika; przed tym
 wymagany jest osobny checkpoint. Nie uruchomiono `VACUUM FULL` ani operacji na
 plikach obrazów.
+
+TASK-0320 domyka kontrakt końcowej, częściowej strony ręcznej selekcji. Lokalny
+Admin i operator-local Reviewer przyjmują opcjonalny `sequenceUpperBound`,
+zapisują zakres `start..min(start+8, upperBound)` i zatrzymują dalsze decyzje po
+osiągnięciu granicy. Cofnięcie ostatniej decyzji ponownie otwiera sesję.
+
+Bieżący writer materializuje schema v2 w zachowanym pliku
+`manual-image-selection-output-v1.json`; wersja zawiera granicę, stan terminalny
+i `activeBoardCount`, natomiast reader nadal wznawia schema v1 jako pełne strony
+dziewięciu plansz. Read-only skrypt diagnostyczny raportuje propozycję v2 dla
+niespójnych historycznych nazw bez zmiany plików. Preflight `seq_*` blokuje
+numery przekraczające `games.expected_layout_count`.
+
+TASK-0321 wprowadza dualny kontrakt tożsamości komórki bez migracji danych.
+Historyczne `logical-cell-v1` i `render-id-v1` pozostają bitowo niezmienione.
+Nowe `logical-cell-v2` wiąże komórkę z wystąpieniem
+`importJobId + fileExecutionKey`, fingerprintem przypiętej topologii, slotem
+planszy oraz pozycją komórki. `render-id-v2` dodatkowo wiąże bieżącą geometrię,
+padding, interpolację i rozmiar wyjścia.
+
+Automatyczny pipeline oraz ręczny source-direct preview/save wyprowadzają
+occurrence z tego samego rekordu źródła. Render spec v2 zapisuje równolegle
+identyfikatory v1/v2, occurrence i fingerprint topologii. Bieżąca kolumna
+`logical_cell_key` nadal przechowuje v1; addytywna migracja, backfill i cutover
+indeksowanych odczytów pozostają osobnym kolejnym zadaniem.
+
+TASK-0322 dodaje wyłącznie czysty kontrakt
+`symbol-verification-outcome-v2`. Wyniki `unassigned`, `unknown`, `unreadable`,
+`grid_issue`, `requires_review` i `verified_symbol` są rozłączne, a tylko
+ostatni może posiadać realne `assigned_symbol_id`. Modelowa predykcja pozostaje
+sugestią; `?` jest reprezentacją UI i nie występuje w enumie ani assignment.
+
+Deterministyczny adapter interpretuje obecne pola legacy bez zmiany bazy.
+Pending wynik modelu staje się `requires_review` albo `unknown`, błąd siatki i
+nieczytelność pozostają osobne, a zatwierdzony realny symbol przechodzi jako
+`verified_symbol`. Podejrzane pending przypisanie człowieka oraz zatwierdzony
+NULL bez unreadable są fail-closed. Addytywna kolumna, raport/backfill, API i UI
+pozostają po późniejszym schema ownership review.
+
+TASK-0323 dodał read-only feasibility spike istniejącego Structured OpenCV.
+Wersjonowany manifest wiąże rzeczywiste JPEG-i i ich SHA-256, a runner zapisuje
+wyłącznie regenerowalne JSON-y diagnostyczne, source overlaye i contact sheets.
+Nie zmieniono bazy, API, OpenAPI, canonical ownership, pipeline'u ani trybu
+rolloutu gry.
+
+Ograniczony przebieg objął 43 zdjęcia i 387 plansz jednej gry. Korpus jest
+formalnie niewystarczający: nie zawiera drugiej gry, częściowych stron,
+rozmycia ani trzech false-success. Wynik techniczny pokazał 323/324 poprawnych
+w granicy eksperymentalnej projekcji znanego układu oraz 380/382 lokalnych
+doprecyzowań z oracle. Generyczna inicjalizacja bez profilu nie zwróciła
+finalnych quadów, a bieżące hard gates odrzuciły wszystkie plansze, głównie z
+powodu braku kompletnego dowodu linii wewnętrznych.
+
+Rekomendacja pozostaje warunkowa: rozszerzyć wyłącznie read-only corpus i
+zbadać połączenie ramki zewnętrznej, znanego układu oraz regularności. Wynik nie
+zalicza bramki 95/98 i ma `rolloutAuthorized=false`. Raport znajduje się w
+`ai_docs/quality/STRUCTURED_GEOMETRY_FEASIBILITY_SPIKE_V1.md`.
+
+TASK-0324 zakończył przegląd własności schematu geometrii wirtualnej bez zmian
+bazy i kodu wykonawczego. Jedynym właścicielem finalnego payloadu quadów jest
+`image_source_geometry_revisions.board_geometries`, a bieżąca plansza wybiera
+go przez `recognized_boards.source_geometry_revision_id + position_index`.
+Pole `recognized_boards.board_geometry` pozostaje projekcją zgodnościową,
+board revisions przechowują komendę i audyt, a observations dokładną
+proweniencję renderu.
+
+Active slots oraz snapshot topologii należą do source revision. Rollout
+pozostaje osobnym stanem operacyjnym i jest zamrażany w input joba. Następne
+zadanie może przygotować wyłącznie addytywną migrację po 0082/0083: trwałość
+topology/attestation fingerprint, logical-cell-v2, outcome v2 i związanie
+rollout readiness z dokładnym wejściem walidacji. Nie wykonano backfillu,
+cutoveru, operacji na danych ani zmiany progów geometrii. Pełna mapa znajduje
+się w `ai_docs/architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md`.
+
+TASK-0325 dodał migrację 0084 po faktycznym headzie 0083. Schemat nullable
+utrwala fingerprint topologii i attestation, logical-cell/render-identity v2,
+jawny outcome weryfikacji z osobnym `verified_symbol_id_v2` oraz dokładne
+związanie walidacji rolloutu z rewizją, input checksum i jobem. Legacy
+`assigned_symbol_id`, read pathy oraz API pozostają bez zmian.
+
+Nowe automatyczne i ręczne ścieżki virtual wykonują dual-write. Bounded
+diagnostyka tylko odczytuje maksymalnie 500 historycznych kandydatów i nie
+mapuje stanów niejednoznacznych. Migracji 0084 ani backfillu nie uruchomiono na
+bazie użytkownika; osobne zadanie musi wykonać resumowalny backfill oraz
+cutover dopiero po raporcie zgodności.
+
+TASK-0326 rozszerzył istniejący trwały `image_geometry_rollout_backfill` o
+metadata-only backfill kontraktów dodanych przez 0084. Job w general lane
+przetwarza maksymalnie 100 source images w transakcji, wznawia pracę z trwałego
+kursora i zapisuje osobne liczniki source revisions, observations, current
+review cells oraz frozen verified training cells.
+
+Historyczny render spec wraz z occurrence i przypiętą topologią daje dokładne
+logical/render identity v2 bez dekodowania obrazu. Bieżący outcome jest
+uzupełniany tylko dla jednoznacznego stanu; sugestia modelu pozostaje
+`requires_review`, a niejasność lub konflikt istniejącej wartości blokuje
+`ready`. Finalizacja ponownie sprawdza nowe źródła oraz brakujące pola.
+Append-only eventy, etykiety człowieka, canonical ownership i publiczne read
+pathy pozostają niezmienione. Backfillu ani cutoveru nie uruchomiono na danych
+użytkownika.
+
+TASK-0327 wzmacnia kontrakt source-direct renderera bez zmiany pikseli i
+rolloutu. Nowy `virtual-cell-render-spec-v3-complete-provenance-v1` jawnie
+przechowuje occurrence źródła, snapshot topologii, wersję geometrii,
+normalized-pixel checksum oraz wersję checksummy RGB. Konstruktor renderu
+niezależnie przelicza logical-cell v1/v2 i render identity v1/v2, więc
+wewnętrznie niespójna proweniencja kończy się fail-closed.
+
+Checksum specu i checksum pikseli pozostają rozłączne. Skorygowano preview,
+który wcześniej wymagał checksummy wynikowych pikseli wewnątrz specu, mimo że
+produkcyjny writer zapisywał ją osobno. Dokładna parity z cropperem v19, jeden
+warp na komórkę, walidacja całej partii przed pierwszym warpem oraz brak
+trwałych PNG pozostają zachowane. Nie zmieniono Structured OpenCV, bazy,
+canonical ownership ani trybu rolloutu.
+
+TASK-0328 dodaje wyłącznie eksperymentalny
+`structured-opencv-geometry-config-v2-multi-evidence-experimental-v1`.
+Konfiguracja jest deterministycznie checksummowana, dobiera skalę adaptacyjnie,
+wyraża reprojekcję względem przekątnej komórki i dopuszcza jawne profile gry.
+LSD nie jest wyłączną bramką: mocna ramka, znany układ i regularność mogą
+utworzyć kandydata bez LSD, ale samo LSD bez niezależnych rodzin dowodu kończy
+się fail-closed. Homografia, source support, alignment, kolejność i overlap
+pozostają twardymi invariantami.
+
+V2 ma zawsze `experimental_measurement_only`, `activationAllowed=false` i
+wymaga rozłącznych źródeł strojenia oraz ewaluacji. Nie podłączono jej do
+produkcyjnego engine'u, pipeline'u, jobów ani rolloutu; v1 i jego fingerprinty
+pozostają bez zmian. Rozszerzony read-only corpus wymagany przez D-266 nadal
+nie jest kompletny.
+
+TASK-0329 podłącza config Geometry v2 wyłącznie jako diagnostyczny sidecar
+nowych jobów `structured_shadow`. Addytywny snapshot rolloutu v2 zamraża pełny
+config i checksumę; historyczny snapshot v1 oraz legacy fingerprint pozostają
+niezmienione. Worker mierzy rzeczywiste sygnały na finalnym quadzie Structured
+OpenCV v1 i zapisuje osobny, checksummowany
+`structuredGeometryCandidateV2` w checkpointach detekcji oraz geometrii
+komórek.
+
+Kandydat deklaruje `measurement_only`, `activationAllowed=false` i brak
+własności geometrii. Nie steruje cropami, inferencją, review, canonical ani
+treningiem. Brak finalnego quada albo awaria pomiaru daje jawne
+`not_evaluated`, a nie sztuczną decyzję. Nie zmieniono trybu żadnej gry, nie
+uruchomiono migracji, backfillu ani operacji na danych. Korpus D-266 pozostaje
+niekompletny i rollout produkcyjny nadal nie jest autoryzowany.
+
+TASK-0330 przywrócił zielony pełny typecheck repozytorium bez zmiany zachowania
+produktu. Browserowy upload zależy od minimalnego, statycznie sprawdzalnego
+portu capacity guarda, a liczniki z JSONB, checkpointów i manifestów storage są
+dekodowane fail-closed jako nieujemne liczby całkowite. Doprecyzowano też
+granice typów iteratorów manifestów, opcjonalnych crop artifacts i wyników
+OpenCV oraz usunięto niepotrzebne wyciszenia mypy.
+
+Pełny `python:typecheck` przechodzi dla 470 plików źródłowych, Ruff jest zielony,
+a 70 skoncentrowanych testów API, workera, storage i geometrii przechodzi.
+Nie zmieniono API, OpenAPI, schematu bazy, UI ani polityki storage.
+### TASK-0331 — bezpieczny silnik importu per gra
+
+Dodano trwałą politykę nowych importów osobno dla każdej gry. Stabilny preset
+v20/v19 pozostaje dostępny dla gry historycznej, a nowa gra może używać
+strukturalnej geometrii wyłącznie w trybie shadow. Polityka jest chroniona
+preview tokenem i rewizją oraz unieważnia preflight po zmianie.
+
+### TASK-0332 — cold-start structured shadow
+
+Usunięto cykliczną zależność pierwszego importu nowej gry od profilu geometrii
+budowanego z wcześniej zatwierdzonych plansz. Browser preflight zwraca teraz
+`geometryPreflightRequired`: stabilny `verified_v19` nadal wymaga zakończonego,
+checksum-bound preflightu geometrii, natomiast `structured_shadow` pomija ten
+etap i nie przyjmuje legacy manifestu. Admin pokazuje jawny stan cold-start i
+odblokowuje start raportu bez tworzenia joba kończącego się
+`IMAGE_PAGE_GEOMETRY_PROFILE_EMPTY`.
+
+### TASK-0333 — wybór silnika przed uploadem
+
+Picker polityki silnika jest teraz widoczny przed wskazaniem folderu oraz
+gotowego stagingu. Admin nie pozwala rozpocząć uploadu, dopóki nie odczyta
+ustawienia gry. Zmiana polityki przy aktywnym stagingu automatycznie odtwarza
+raport, dzięki czemu nowa gra może wybrać `structured_shadow` przed próbą
+utworzenia historycznego preflightu `verified_v19`.
+
+### TASK-0334 — etykieta jobów structured shadow
+
+Historia importów rozpoznaje teraz rollout `structured_shadow` przed snapshotem
+stabilnego primary. Job zawierający oba kontrakty pokazuje
+`0.10 — nowy silnik w cieniu · primary v20/v19` i nie może zostać uznany za
+zgodny z polityką `verified_v19`. Istniejące joby nie wymagają ponownego
+przetwarzania; poprawka dotyczy interpretacji ich niezmiennego payloadu.
+
+### TASK-0335 — bootstrap geometrii strony dla nowych gier
+
+Usunięto false-success cold-startu, w którym `structured_shadow` uruchamiał
+primary v20/v19 bez manifestu geometrii i kończył wszystkie źródła na
+`board_detection`. Oba presety wymagają teraz ukończonego preflightu. Nowa gra
+może utworzyć go bez historycznego profilu: pierwszy przebieg tworzy kolejkę
+korekty, a ręczny override jednej strony staje się kotwicą kolejnego
+preflightu. Tylko źródła z kompletną geometrią trafiają do croppera i
+inferencji; Geometry v2 pozostaje pomiarem shadow.
+
+### Usuwanie pustych stagingów — v0.10.35
+
+Naprawiono rozjazd, w którym `Usuń nieużywany staging` kasowało wyłącznie pliki
+uploadu, pozostawiając puste joby w `Zatwierdzaniu cięcia siatki`. Usunięcie
+jest teraz atomowo koordynowane z bazą i obejmuje puste preflighty/importy,
+źródła bez plansz oraz niewspółdzielone wykonania pipeline'u. Istnienie
+jakiejkolwiek planszy, review, aktywnego joba albo chronionej referencji blokuje
+operację. Z lokalnej bazy usunięto zweryfikowane pozostałości stagingów gry
+`7777` z `10:09` i `10:16`; nie miały plansz, review ani wpisów canonical.
+
+### TASK-0371 — podgląd ręcznej korekty geometrii strony
+
+Edytor korekty strony utrzymuje komplet `expectedBoardCount` propozycji:
+częściowo wczytane quady są zachowane, a brakujące pozycje otrzymują roboczą
+geometrię do jawnej korekty. Na każdym kompletnym quadzie widoczne są
+projektowane granice komórek 5 × 3 zgodne z rektyfikacją planszy.
+
+Po rozpoczęciu trybu `Wyznacz 4 narożniki` albo `Wyznacz N plansz osobno`
+poprzednia nakładka systemu jest ukrywana. Tryb osobnych plansz pokazuje jedynie
+quady ukończone w bieżącej operacji i ich linie 5 × 3. Zmiana jest wyłącznie
+narzędziem ręcznej korekty; nie promuje `structured_default`, nie zmienia
+progów Structured OpenCV ani zaakceptowanej bramki cutoveru v0.10.
+
+### TASK-0404 — lokalizator pięciu etykiet zakresu
+
+Dodano izolowany `five-anchor-range-label-locator-v6`. Po jednokrotnej
+kanonizacji EXIF przyjmuje wyłącznie `uint8 RGB` i zwraca pięć source-direct
+cropów `top_left`, `top_right`, `center`, `bottom_left`, `bottom_right` w
+przestrzeni `exif-transposed-rgb-v1`. Lokalna detekcja komponentów może zawęzić
+viewport, a brak komponentu pozostawia ograniczony fallback; oba przypadki są
+diagnostyką lokalizacji, nie dowodem OCR.
+
+Komponent nie zna nazwy źródła, expected range, source indexu ani sąsiadów i nie
+importuje geometrii, detekcji plansz, croppera lub klasyfikatora symboli. Jest
+wyłącznie przygotowaniem do następnego, osobno fingerprintowanego runtime'u;
+v1–v5 pozostają niezmienione. Dziewięć testów obejmuje fixture'y rzeczywiste,
+syntetyczne perturbacje i audyt izolacji modułu.
+
+### TASK-0405 — proof zakresu z pięciu anchorów
+
+Dodano `semi-automatic-range-only-ocr-v6-five-anchor-v1` jako czysty kontrakt
+pomiędzy przyszłym recognition-only OCR a grupowaniem. Tabela wiąże pięć
+pozycji z wartościami slotów `0/2/4/6/8` pełnej strony 3×3. Exact wymaga trzech
+zgodnych wartości wysokiej pewności z centrum oraz rozpięciem od góry do dołu;
+czytelna wartość sprzeczna z kandydatem blokuje wynik.
+
+Brak proofu, clipping, blur, niski confidence, tekst nienumeryczny i częściowa
+strona pozostają jawne jako `unknown`. Resolver nie ma I/O, obrazu, Paddle,
+runtime'u, nazwy pliku, source indexu ani sąsiadów. Nie zmieniono adapterów,
+fingerprintów czy jobów v1–v5; integracja runtime'u v6 została dostarczona
+osobno w TASK-0406.
+
+### TASK-0406 — runtime OCR pięciu anchorów
+
+Dodano `five-anchor-range-runtime-v1`: source-local runtime łączy kanonizację
+EXIF, source-direct lokalizator pięciu etykiet, fail-closed gate czytelności,
+ograniczony batch recognition-only Paddle i proof v6. Zachowuje kolejność
+źródeł, udostępnia telemetryczne diagnostyki oraz własny, checksum-bound
+observation key. Niewyraźny crop nie wywołuje OCR i pozostaje manualnym
+`unknown`.
+
+Runtime nie rejestruje się jeszcze w durable jobie, nie checkpointuje, nie
+grupuje i nie tworzy `seq_*`; nie zmieniono fingerprintów ani retry v1–v5.
+Kolejne zadanie może bezpiecznie dodać jego fingerprint do rejestru joba.
+
+### TASK-0407 — trwały wariant runu pięciu anchorów v6
+
+`five_anchor_v6` jest teraz jawnym, eksperymentalnym wariantem startu zwykłej
+półautomatycznej selekcji. Capabilities zwraca zamkniętą listę wariantów, Admin
+przekazuje wyłącznie ich nazwę, a `default_v3` pozostaje domyślny. Wariant v6
+jest blokowany dla `filename_verification`; nie występuje dowolne wejście
+fingerprintu od klienta.
+
+Run v6 utrwala fingerprint runtime'u, własny fingerprint grupowania i selektor
+środka dokładnych dowodów. Są częścią idempotencji, więc ten sam staging może
+mieć rozłączne runy v3 i v6, a ponowienie identycznego v6 zwraca ten sam run.
+Worker checkpointuje source-local batch po sześć źródeł, wznawia wyłącznie ten
+adapter i wybiera reprezentanta jedynie z własnych proofów exact. Audyt i
+liczniki wyborów rozpoznają selektor v6. Wdrożenie nie uruchomiło OCR ani nie
+utworzyło joba na danych użytkownika; v1–v5 zachowują poprzednie retry.
+
+### TASK-0408 — statystyki dużej projekcji Weryfikacji symboli
+
+Diagnoza nowej gry `777` potwierdziła kompletną projekcję 19 914 plansz i
+298 710 bieżących komórek, lecz brak jakiegokolwiek `ANALYZE` głównych tabel po
+dużym zasileniu. Planner estymował jeden rekord gry, a zapytania strony czekały
+na I/O mimo braku blokad. Jednorazowe odświeżenie statystyk przywróciło plan
+indeksowy i zwróciło pierwsze 500 metadanych w 1,475 s.
+
+Worker backfillu/reconciliacji odświeża teraz statystyki zamkniętej listy tabel
+raz po kompletnej finalizacji i przed terminalnym sukcesem. Nie wykonuje
+`VACUUM FULL`, nie zmienia danych domenowych ani treningowych i jest no-op poza
+PostgreSQL. Nie ma potrzeby ponownie importować 19 000 plansz.
+
+### TASK-0481 — odporność preflightu na osierocone opcjonalne kotwice
+
+Jawnie przypięte kotwice bazowego profilu rejestracji pozostają wymagane i
+fail-closed. Game-wide ręczne override'y są natomiast opcjonalnymi kotwicami:
+preflight dołącza je tylko, gdy checksum-bound JPEG istnieje w bieżącym
+stagingu albo managed originals. Cleanup starego stagingu nie blokuje już
+niepowiązanego nowego importu, a brak dowodu nadal kończy konkretne źródło jako
+`review_required` bez syntetycznej geometrii.
+
+Rzeczywisty job `1681dd2a-27b8-425d-b2f2-192be89e0b07` wznowiono na tym samym
+stagingu bez ponownego uploadu. Zakończył się wynikiem 2531 zarejestrowanych
+źródeł i 80 źródeł wymagających ręcznej korekty, bez technicznych błędów.
+
+### TASK-0519 — routing magazynu gry i write fence
+
+Dodano jeden transakcyjny adapter wyboru `public` / `game_data_v2`. Requesty
+gry, handlery workerów oraz operacje z jawnym parametrem `game_id` przypinają
+lokalizację i generację. Zapis utrzymuje `FOR SHARE` registry do commit/rollback;
+maintenance oraz nieaktualna generacja są fail-closed. Ponowne użycie sesji po
+zakończeniu transakcji rozwiązuje registry od nowa.
+
+Migracja 0106 instaluje transaction-local scope, RLS na 65 parentach oraz
+schema-aware triggery review. Nie tworzy partycji, nie kopiuje danych i nie
+przełącza żadnej gry. Katalog Admina pokazuje wersję, generację i tryb tylko do
+odczytu. Lokalna baza użytkownika pozostaje bez zastosowania migracji i bez
+restartu usług; następny task nie został rozpoczęty.

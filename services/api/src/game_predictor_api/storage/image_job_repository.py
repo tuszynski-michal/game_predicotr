@@ -34,6 +34,10 @@ from game_predictor_api.domain.jobs import (
     create_job,
     requeue_job,
 )
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+)
 from game_predictor_api.storage.job_repository import (
     SqlAlchemyJobRepository,
     apply_job_to_record,
@@ -45,6 +49,14 @@ from game_predictor_api.storage.models import (
     JobModel,
     StorageUsageSnapshotModel,
 )
+
+
+def _non_negative_snapshot_count(value: object) -> int:
+    """Decode one internally generated JSON counter without coercing invalid data."""
+
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return 0
 
 
 class SqlAlchemyImageJobOperationsRepository(
@@ -119,7 +131,9 @@ class SqlAlchemyImageJobOperationsRepository(
                         exists=True,
                         file_count=row.file_count,
                         size_bytes=row.size_bytes,
-                        ignored_symlink_count=int(row.details.get("ignoredSymlinkCount", 0)),
+                        ignored_symlink_count=_non_negative_snapshot_count(
+                            row.details.get("ignoredSymlinkCount", 0)
+                        ),
                     )
                 )
             elif row.measurement_source == "filesystem":
@@ -308,11 +322,17 @@ class SqlAlchemyImageJobOperationsRepository(
             job.job_type is not JobType.IMPORT
             or job.input_payload.get("import_kind") != "image_directory"
             or not isinstance(job.input_payload.get("pipeline_fingerprint"), str)
+            or job.game_id is None
         ):
             raise JobConflictError(
                 "IMAGE_JOB_KIND_INVALID",
                 "Image operations require an image_directory import job.",
             )
+        GameStorageRouter().bind(
+            self._session,
+            job.game_id,
+            intent=GameStorageIntent.WRITE if for_update else GameStorageIntent.READ,
+        )
         return job
 
     def _operations(

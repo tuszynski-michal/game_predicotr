@@ -32,7 +32,10 @@ def _repository(*, status: str, preserve_ready_projection: bool):
 def test_ready_projection_remains_available_during_marked_reconciliation() -> None:
     repository = _repository(status="rebuilding", preserve_ready_projection=True)
 
-    assert repository.require_ready_game(uuid4()) == 17
+    catalog = repository.require_ready_game(uuid4())
+    assert catalog.catalog_revision == 17
+    assert catalog.storage_generation == 1
+    assert catalog.uses_current_projection is False
 
 
 def test_mutation_remains_available_during_marked_reconciliation() -> None:

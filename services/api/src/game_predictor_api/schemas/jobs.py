@@ -501,8 +501,13 @@ class BasePageGeometryManifestPayload(ApiModel):
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     compatibility_mode: Literal[
-        "exact_policy", "lateral_v2_to_v3", "lateral_v3_to_v2", "baseline_to_selective_v1_1"
+        "exact_policy",
+        "lateral_v2_to_v3",
+        "lateral_v3_to_v2",
+        "baseline_to_selective_v1_1",
+        "replacement_lineage_exact_policy",
     ]
+    base_source_selection_id: UUID | None = None
     base_override_fingerprints: dict[str, str] | None = None
 
 
@@ -530,6 +535,10 @@ class PageGeometryPreflightJobPayload(ApiModel):
     source_exclusions: dict[str, dict[str, str]] = Field(default_factory=dict)
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
     base_page_geometry_manifest: BasePageGeometryManifestPayload | None = None
+    replacement_parent_upload_id: UUID | None = None
+    replacement_parent_manifest_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
 
 
 class ImageGeometryGuardReportReconstructionJobPayload(ApiModel):

@@ -214,13 +214,18 @@ export type BasePageGeometryManifestPayload = {
     [key: string]: string;
   } | null;
   /**
+   * Basesourceselectionid
+   */
+  baseSourceSelectionId?: string | null;
+  /**
    * Compatibilitymode
    */
   compatibilityMode:
     | 'exact_policy'
     | 'lateral_v2_to_v3'
     | 'lateral_v3_to_v2'
-    | 'baseline_to_selective_v1_1';
+    | 'baseline_to_selective_v1_1'
+    | 'replacement_lineage_exact_policy';
   /**
    * Contractversion
    */
@@ -7568,6 +7573,14 @@ export type PageGeometryPreflightJobPayload = {
     | 'page-geometry-preflight-v2-auto-anchor'
     | 'page-geometry-preflight-v3-board-area-mask'
     | null;
+  /**
+   * Replacementparentmanifestsha256
+   */
+  replacementParentManifestSha256?: string | null;
+  /**
+   * Replacementparentuploadid
+   */
+  replacementParentUploadId?: string | null;
   /**
    * Schemaversion
    */

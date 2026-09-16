@@ -27,7 +27,7 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelStorageRoot,
 )
 from game_predictor_api.main import create_app
-from game_predictor_api.schemas.jobs import JobResponse
+from game_predictor_api.schemas.jobs import JobResponse, PageGeometryPreflightJobPayload
 from game_predictor_worker.images.board_cell_geometry_activation import (
     PENDING_BOARD_CELL_RECROP_VERSION,
 )
@@ -43,6 +43,39 @@ from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
 )
 from test_jobs_domain import MemoryJobRepository
+
+
+def test_page_geometry_preflight_payload_accepts_replacement_manifest_lineage() -> None:
+    parent_id = uuid4()
+    base_job_id = uuid4()
+    checksum = "a" * 64
+    payload = PageGeometryPreflightJobPayload.model_validate(
+        {
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "source_selection_id": str(uuid4()),
+            "source_directory": "C:/staging/replacement",
+            "source_manifest_sha256": "b" * 64,
+            "page_registration_profile": {},
+            "replacement_parent_upload_id": str(parent_id),
+            "replacement_parent_manifest_sha256": checksum,
+            "base_page_geometry_manifest": {
+                "contractVersion": "page-geometry-entry-reuse-v1",
+                "jobId": str(base_job_id),
+                "manifestChecksumSha256": "c" * 64,
+                "sourceManifestChecksumSha256": checksum,
+                "compatibilityMode": "replacement_lineage_exact_policy",
+                "baseSourceSelectionId": str(parent_id),
+            },
+        }
+    )
+
+    assert payload.replacement_parent_upload_id == parent_id
+    assert payload.base_page_geometry_manifest is not None
+    assert payload.base_page_geometry_manifest.base_source_selection_id == parent_id
+    assert payload.base_page_geometry_manifest.compatibility_mode == (
+        "replacement_lineage_exact_policy"
+    )
 
 
 def _client(

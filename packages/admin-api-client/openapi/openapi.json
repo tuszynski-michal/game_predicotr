@@ -347,12 +347,25 @@
             ],
             "title": "Baseoverridefingerprints"
           },
+          "baseSourceSelectionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basesourceselectionid"
+          },
           "compatibilityMode": {
             "enum": [
               "exact_policy",
               "lateral_v2_to_v3",
               "lateral_v3_to_v2",
-              "baseline_to_selective_v1_1"
+              "baseline_to_selective_v1_1",
+              "replacement_lineage_exact_policy"
             ],
             "title": "Compatibilitymode",
             "type": "string"
@@ -13654,6 +13667,30 @@
               }
             ],
             "title": "Preflightpolicyversion"
+          },
+          "replacementParentManifestSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replacementparentmanifestsha256"
+          },
+          "replacementParentUploadId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replacementparentuploadid"
           },
           "schemaVersion": {
             "const": 2,

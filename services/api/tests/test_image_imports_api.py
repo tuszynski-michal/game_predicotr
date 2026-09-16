@@ -2093,6 +2093,20 @@ def test_page_source_replacement_api_blocks_accepted_geometry(
         assert confirmed.status_code == 200, confirmed.text
         assert confirmed.json()["uploadId"] == replacement_id
         with client:
+            geometry_preflight = client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{replacement_id}"
+                "/geometry-preflight",
+                json={
+                    "gameId": str(game_id),
+                    "pageRegistrationVariant": "standard_v0_10",
+                    "geometryEngineVariant": "selective_board_review_v1_1",
+                },
+            )
+        assert geometry_preflight.status_code == 201, geometry_preflight.text
+        assert geometry_preflight.json()["job"]["inputPayload"]["replacementParentUploadId"] == str(
+            upload.upload_id
+        )
+        with client:
             stale = client.post(
                 f"/api/v1/admin/image-imports/browser-selections/{upload.upload_id}"
                 f"/geometry-preflights/{job.id}/source-replacement",

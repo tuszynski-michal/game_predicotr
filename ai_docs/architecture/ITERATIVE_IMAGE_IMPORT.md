@@ -555,6 +555,15 @@ ponowienia lub ręcznej korekty. Kolejny import ze świeżym manifestem ponownie
 wykorzystuje rejestr kanoniczny, więc wcześniej zatwierdzone plansze nie są
 przetwarzane drugi raz.
 
+Preflight stagingu powstałego po podmianie źródła przenosi w utrwalonym inpucie
+identyfikator rodzica i checksumę jego manifestu. Jeżeli przypięto ukończony
+manifest geometrii rodzica, descriptor bazy może mieć tryb
+`replacement_lineage_exact_policy` i `baseSourceSelectionId` wskazujący
+rodzica. Odpowiedź tworząca job musi serializować te same pola co utrwalony
+input; nieznane pola nie mogą powodować wycofania transakcji po utworzeniu
+joba. Worker używa przypiętej bazy do ponownego wykorzystania niezmienionych
+źródeł, a podmienione źródło oraz zależności przelicza.
+
 Nowy preflight wariantu bocznie niepełnych siatek przypina również opcjonalny
 `partial-grid-training-profile-v1`, wyliczony z bieżących ręcznych opt-inów.
 Profil nie poszerza zbioru analizowanych obrazów ani nie obniża bramek. Gdy

@@ -6,6 +6,17 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0573 — preflight po podmianie zwracał 500 przy zapisie joba
+
+- Dla stagingu po podmianie źródła API potrafiło przygotować input preflightu,
+  ale ścisła serializacja odpowiedzi odrzucała pola pochodzenia rodzica oraz
+  przypiętej bazy. Transakcja była wycofywana i panel pokazywał błąd utworzenia
+  preflightu. Schemat odpowiedzi, OpenAPI i klient obejmują teraz te pola.
+- Preflight w v1.1 po podmianie może przypiąć manifest geometrii stagingu
+  rodzica z trybem `replacement_lineage_exact_policy`, zachowując deterministyczne
+  ponowne użycie niezmienionych wyników. Nowe uruchomienie następuje wyłącznie
+  po jawnym żądaniu operatora.
+
 ### TASK-0572 — przeglądarkowa podmiana zdjęcia nie przechodziła CORS
 
 - API dopuszcza nagłówki żądania podmiany JPEG-a w preflight CORS. Wcześniej

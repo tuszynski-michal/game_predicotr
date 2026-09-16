@@ -74,6 +74,8 @@ from game_predictor_api.schemas.image_imports import (
     BrowserPageGeometryReviewSourcesResponse,
     BrowserPageSourceExclusionCreate,
     BrowserPageSourceExclusionResponse,
+    BrowserPageSourceReplacementConfirm,
+    BrowserPageSourceReplacementDiscard,
     BrowserReadySelectionResponse,
     CuratedImageImportBatchCreate,
     CuratedImageImportSourceCreate,
@@ -759,7 +761,7 @@ def create_image_imports_router(
                     "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED",
                     "v0.10.4 cannot silently rebind a v3 guard resolution manifest.",
                 )
-        ready = service.bind_ready_game(upload_id, payload.game_id)
+        ready = service.require_current_ready(upload_id, payload.game_id)
         if ready.manifest.checksum_sha256 != payload.manifest_checksum_sha256:
             raise JobConflictError(
                 "IMAGE_SEQUENCE_MANIFEST_CHANGED",
@@ -1009,11 +1011,15 @@ def create_image_imports_router(
                 managed_job.input_payload.get("source_display_name", "Import obrazów")
             )
             source_checksum = str(managed_job.input_payload.get("source_manifest_sha256", ""))
+            replacement_parent_upload_id = None
+            replacement_parent_manifest_sha256 = None
         else:
-            ready = service.bind_ready_game(upload_id, payload.game_id)
+            ready = service.require_current_ready(upload_id, payload.game_id)
             source_directory = ready.upload.path
             source_name = ready.upload.display_name
             source_checksum = ready.manifest.checksum_sha256
+            replacement_parent_upload_id = ready.upload.replacement_parent_upload_id
+            replacement_parent_manifest_sha256 = ready.upload.replacement_parent_manifest_sha256
         try:
             job = job_service.create_page_geometry_preflight_job(
                 game_id=payload.game_id,
@@ -1033,6 +1039,8 @@ def create_image_imports_router(
                 page_registration_variant=payload.page_registration_variant,
                 managed_source_job_id=payload.managed_source_job_id,
                 geometry_engine_variant=payload.geometry_engine_variant,
+                replacement_parent_upload_id=replacement_parent_upload_id,
+                replacement_parent_manifest_sha256=replacement_parent_manifest_sha256,
             )
             created = True
         except JobConflictError as error:
@@ -1241,6 +1249,161 @@ def create_image_imports_router(
             ),
             sources=sources,
         )
+
+    @router.post(
+        "/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/source-replacement",
+        response_model=BrowserReadySelectionResponse,
+        operation_id="replaceUnconfirmedBrowserPageGeometrySource",
+        summary="Create a new staging revision for one unconfirmed page source",
+        responses=responses,
+    )
+    def replace_unconfirmed_browser_page_geometry_source(
+        upload_id: UUID,
+        preflight_job_id: UUID,
+        game_id: Annotated[UUID, Header(alias="X-Game-Id")],
+        source_checksum_sha256: Annotated[
+            str, Header(alias="X-Source-Checksum-Sha256", pattern=r"^[0-9a-f]{64}$")
+        ],
+        source_relative_path: Annotated[
+            str, Header(alias="X-Source-Relative-Path", min_length=1, max_length=1000)
+        ],
+        geometry_manifest_checksum_sha256: Annotated[
+            str, Header(alias="X-Geometry-Manifest-Checksum-Sha256", pattern=r"^[0-9a-f]{64}$")
+        ],
+        payload: Annotated[bytes, Body(media_type="application/octet-stream")],
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        job_service: Annotated[JobService, job_parameter],
+        override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
+    ) -> BrowserReadySelectionResponse:
+        if resolved_artifact_root is None:
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_MANIFEST_UNAVAILABLE",
+                "The page geometry manifest store is not configured.",
+            )
+        # A lost response may leave a pending fork; the service permits only
+        # an exact idempotent replay of that same source and JPEG.
+        ready = service.bind_ready_game(upload_id, game_id)
+        descriptor = _geometry_manifest_descriptor(
+            job_service=job_service,
+            game_id=game_id,
+            upload_id=upload_id,
+            preflight_job_id=preflight_job_id,
+            expected_checksum=geometry_manifest_checksum_sha256,
+        )
+        if descriptor is None:
+            raise JobConflictError(
+                "IMAGE_PAGE_GEOMETRY_PREFLIGHT_INVALID",
+                "The geometry preflight is unavailable.",
+            )
+        manifest = _load_page_geometry_manifest(resolved_artifact_root, descriptor)
+        entries = manifest.get("entries")
+        entry = entries.get(source_checksum_sha256) if isinstance(entries, dict) else None
+        source = next(
+            (
+                item
+                for item in ready.manifest.files
+                if item.checksum_sha256 == source_checksum_sha256
+                and item.relative_path == source_relative_path
+            ),
+            None,
+        )
+        current_overrides = (
+            {} if override_service is None else override_service.snapshot(game_id=game_id)
+        )
+        exclusions = (
+            {}
+            if override_service is None
+            else override_service.exclusion_snapshot(
+                game_id=game_id, browser_selection_id=upload_id
+            )
+        )
+        if (
+            source is None
+            or not isinstance(entry, dict)
+            or entry.get("status") != "review_required"
+            or source_checksum_sha256 in current_overrides
+            or source_checksum_sha256 in exclusions
+            or job_service.get_image_import_by_source_selection(
+                game_id=game_id, source_selection_id=upload_id
+            )
+            is not None
+        ):
+            raise JobConflictError(
+                "IMAGE_REPLACEMENT_NOT_ALLOWED",
+                "Only an unconfirmed source in the page-geometry correction queue can be replaced.",
+            )
+        preflight_job = job_service.get_job(preflight_job_id)
+        lateral = preflight_job.input_payload.get("lateral_partial_geometry")
+        if (
+            isinstance(lateral, dict)
+            and lateral.get("variant") == GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1.value
+            and isinstance(entry.get("lateralRegistrationCandidate"), dict)
+        ):
+            raise JobConflictError(
+                "IMAGE_REPLACEMENT_NOT_ALLOWED",
+                "This source belongs to selective board review, not page correction.",
+            )
+        replaced = service.fork_ready_with_replacement(
+            upload_id,
+            game_id=game_id,
+            source_checksum_sha256=source_checksum_sha256,
+            source_relative_path=source_relative_path,
+            content=payload,
+        )
+        return BrowserReadySelectionResponse.from_domain(replaced)
+
+    @router.post(
+        "/browser-selections/{upload_id}/replacement-revisions/{replacement_upload_id}/confirm",
+        response_model=BrowserReadySelectionResponse,
+        operation_id="confirmBrowserPageGeometrySourceReplacement",
+        summary="Publish a replacement revision after the local cut file was written",
+        responses=responses,
+    )
+    def confirm_browser_page_geometry_source_replacement(
+        upload_id: UUID,
+        replacement_upload_id: UUID,
+        payload: BrowserPageSourceReplacementConfirm,
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        job_service: Annotated[JobService, job_parameter],
+        override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
+    ) -> BrowserReadySelectionResponse:
+        if job_service.get_image_import_by_source_selection(
+            game_id=payload.game_id, source_selection_id=upload_id
+        ) is not None or (
+            override_service is not None
+            and payload.source_checksum_sha256 in override_service.snapshot(game_id=payload.game_id)
+        ):
+            raise JobConflictError(
+                "IMAGE_REPLACEMENT_NOT_ALLOWED",
+                "The source geometry was confirmed or its import has started.",
+            )
+        replacement = service.confirm_ready_replacement(
+            upload_id,
+            replacement_upload_id,
+            game_id=payload.game_id,
+            source_checksum_sha256=payload.source_checksum_sha256,
+            source_relative_path=payload.source_relative_path,
+            replacement_checksum_sha256=payload.replacement_checksum_sha256,
+        )
+        return BrowserReadySelectionResponse.from_domain(replacement)
+
+    @router.post(
+        "/browser-selections/{upload_id}/replacement-revisions/{replacement_upload_id}/discard",
+        status_code=status.HTTP_204_NO_CONTENT,
+        operation_id="discardBrowserPageGeometrySourceReplacement",
+        summary="Release a pending replacement whose original cut file is unchanged",
+        responses=responses,
+    )
+    def discard_browser_page_geometry_source_replacement(
+        upload_id: UUID,
+        replacement_upload_id: UUID,
+        payload: BrowserPageSourceReplacementDiscard,
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+    ) -> Response:
+        service.discard_pending_replacement(
+            upload_id, replacement_upload_id, game_id=payload.game_id
+        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.get(
         "/browser-selections/{upload_id}/page-geometry-sources/{source_checksum_sha256}/asset",

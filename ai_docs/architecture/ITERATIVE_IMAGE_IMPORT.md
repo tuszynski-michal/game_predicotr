@@ -7,6 +7,27 @@ release: "0.7"
 
 # Architektura iteracyjnego importu
 
+## Rewizja zdjęcia źródłowego przed importem — TASK-0570
+
+Podmiana nie zmienia bajtów istniejącego stagingu. API tworzy deterministyczną
+rewizję jego manifestu: niezmienione pliki są współdzielone przez hardlink lub
+kopię, jeden JPEG ma nową checksumę. Po zapisie pliku w wybranym przez
+operatora katalogu `cut` klient potwierdza rewizję osobnym żądaniem. W czasie
+tej operacji trwały `pendingReplacementUploadId` blokuje start ze starego
+stagingu, a po potwierdzeniu `supersededByUploadId` blokuje go definitywnie.
+Jeśli plik w `cut` pozostał oryginalny, klient może odrzucić przygotowaną
+rewizję i zwolnić blokadę. Żądania są odtwarzalne po restarcie.
+Nowa rewizja nie jest oferowana na liście gotowych stagingów ani dopuszczona
+do startu joba, dopóki potwierdzenie nie zakończy obu zapisów stanu.
+Klient przechowuje identyfikator przygotowanej rewizji do odzyskania po utracie
+odpowiedzi. Nie pobieramy ani nie zapisujemy oryginalnej ścieżki Windows w API.
+
+Nowy preflight przypina identyfikator i checksumę rodzica. Worker może ponownie
+użyć geometrii niezmienionych źródeł przy tej samej polityce, a podmieniony
+obraz i wyniki zależne od niego jako kotwicy przelicza. Import, cropy i symbole
+korzystają wyłącznie z nowego, checksummowanego manifestu. Stare artefakty
+zostają do odczytu historycznego; nie ma migracji bazy ani przepisywania jobów.
+
 ## Odtworzenie wariantu preflightu — TASK-0569
 
 Lista gotowych stagingów wiąże preflighty po `sourceSelectionId` i

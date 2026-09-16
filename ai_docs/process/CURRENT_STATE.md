@@ -6,6 +6,16 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0570 — podmiana zdjęcia przed zatwierdzeniem geometrii
+
+- Korekta geometrii strony oferuje podmianę JPEG-a z kontrolą nazwy i SHA-256
+  pliku w ponownie wskazanym katalogu `cut`. Po zapisie nowej rewizji stagingu
+  uruchamia preflight w dotychczasowym wariancie v1.0 albo v1.1.
+- Poprzedni staging pozostaje audytowy, ale po potwierdzeniu podmiany nie może
+  rozpocząć nowego preflightu ani importu. Niezmienione źródła kwalifikują się
+  do ponownego użycia z manifestu rodzica; zmieniony obraz i zależne kotwice są
+  przeliczane. Testy nie modyfikują rzeczywistych katalogów użytkownika.
+
 ### TASK-0569 — ponowne otwarcie preflightu w jego wariancie
 
 - Staging `200575 - 222912 cut` ma ukończony preflight v1.1

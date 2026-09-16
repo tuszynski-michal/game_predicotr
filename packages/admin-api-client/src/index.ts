@@ -25,6 +25,9 @@ import {
   planBrowserImageSelectionUpload as planGeneratedBrowserImageSelectionUpload,
   createBrowserPageGeometryOverride as createGeneratedBrowserPageGeometryOverride,
   excludeBrowserPageGeometrySource as excludeGeneratedBrowserPageGeometrySource,
+  replaceUnconfirmedBrowserPageGeometrySource as replaceGeneratedUnconfirmedBrowserPageGeometrySource,
+  confirmBrowserPageGeometrySourceReplacement as confirmGeneratedBrowserPageGeometrySourceReplacement,
+  discardBrowserPageGeometrySourceReplacement as discardGeneratedBrowserPageGeometrySourceReplacement,
   createImageGeometryGuardDecisions as createGeneratedImageGeometryGuardDecisions,
   previewImageGeometryGuardDecision as previewGeneratedImageGeometryGuardDecision,
   listImageGeometryGuardBoards as listGeneratedImageGeometryGuardBoards,
@@ -1261,6 +1264,57 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           `image-import:${body.gameId}:page-source-exclusion`,
         ),
         path: { preflight_job_id: preflightJobId, upload_id: uploadId },
+      }),
+    replaceUnconfirmedBrowserPageGeometrySource: (
+      uploadId: string,
+      preflightJobId: string,
+      gameId: string,
+      sourceChecksumSha256: string,
+      sourceRelativePath: string,
+      geometryManifestChecksumSha256: string,
+      file: Blob | File,
+    ) =>
+      replaceGeneratedUnconfirmedBrowserPageGeometrySource({
+        body: file,
+        client,
+        headers: {
+          ...confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
+          'X-Game-Id': gameId,
+          'X-Source-Checksum-Sha256': sourceChecksumSha256,
+          'X-Source-Relative-Path': sourceRelativePath,
+          'X-Geometry-Manifest-Checksum-Sha256': geometryManifestChecksumSha256,
+        },
+        path: { preflight_job_id: preflightJobId, upload_id: uploadId },
+      }),
+    confirmBrowserPageGeometrySourceReplacement: (
+      uploadId: string,
+      replacementUploadId: string,
+      gameId: string,
+      sourceChecksumSha256: string,
+      sourceRelativePath: string,
+      replacementChecksumSha256: string,
+    ) =>
+      confirmGeneratedBrowserPageGeometrySourceReplacement({
+        body: {
+          gameId,
+          sourceChecksumSha256,
+          sourceRelativePath,
+          replacementChecksumSha256,
+        },
+        client,
+        headers: confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
+        path: { upload_id: uploadId, replacement_upload_id: replacementUploadId },
+      }),
+    discardBrowserPageGeometrySourceReplacement: (
+      uploadId: string,
+      replacementUploadId: string,
+      gameId: string,
+    ) =>
+      discardGeneratedBrowserPageGeometrySourceReplacement({
+        body: { gameId },
+        client,
+        headers: confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
+        path: { upload_id: uploadId, replacement_upload_id: replacementUploadId },
       }),
     cancelBrowserImageSelection: (uploadId: string) =>
       cancelGeneratedBrowserImageSelection({

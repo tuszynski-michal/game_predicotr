@@ -22,6 +22,7 @@ from game_predictor_api.application import controlled_folder_picker as folder_pi
 from game_predictor_api.application import image_imports as image_imports_module
 from game_predictor_api.application.image_imports import (
     BrowserImageSelectionService,
+    BrowserImageUpload,
     ImageFolderSelectionService,
     ImageSelectionPurpose,
     WindowsFolderPicker,
@@ -1759,6 +1760,353 @@ def test_game_less_ready_staging_is_bound_once(tmp_path: Path) -> None:
     with pytest.raises(JobError) as error:
         service.bind_ready_game(upload.upload_id, uuid4())
     assert error.value.code == "IMAGE_FOLDER_SELECTION_GAME_MISMATCH"
+
+
+def test_replacement_forks_staging_and_replays_after_restart(tmp_path: Path) -> None:
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    root = tmp_path / "imports"
+    service = BrowserImageSelectionService(
+        selection_service, root, max_bytes=1024 * 1024, clock=lambda: NOW
+    )
+    game_id = uuid4()
+
+    def jpeg(color: tuple[int, int, int]) -> bytes:
+        stream = BytesIO()
+        Image.new("RGB", (32, 24), color).save(stream, "JPEG")
+        return stream.getvalue()
+
+    originals = (jpeg((20, 30, 40)), jpeg((50, 60, 70)))
+    upload = service.begin(
+        display_name="cut",
+        expected_file_count=2,
+        expected_total_bytes=sum(map(len, originals)),
+        game_id=game_id,
+    )
+    for index, content in enumerate(originals):
+        service.upload_file(
+            upload.upload_id,
+            index,
+            relative_path=f"cut/seq_{index * 9 + 1}-{index * 9 + 9}.jpg",
+            content=content,
+        )
+    service.finalize(upload.upload_id)
+    old_ready = service.get_ready(upload.upload_id)
+    replacement = jpeg((80, 90, 100))
+    old_source = old_ready.manifest.files[1]
+
+    revised = service.fork_ready_with_replacement(
+        upload.upload_id,
+        game_id=game_id,
+        source_checksum_sha256=old_source.checksum_sha256,
+        source_relative_path=old_source.relative_path,
+        content=replacement,
+    )
+
+    assert revised.upload.upload_id != upload.upload_id
+    assert revised.manifest.checksum_sha256 != old_ready.manifest.checksum_sha256
+    assert revised.manifest.files[0].checksum_sha256 == old_ready.manifest.files[0].checksum_sha256
+    assert revised.manifest.files[1].checksum_sha256 == hashlib.sha256(replacement).hexdigest()
+    assert (
+        service.get_ready(upload.upload_id).manifest.checksum_sha256
+        == old_ready.manifest.checksum_sha256
+    )
+    assert revised.upload.replacement_parent_upload_id == upload.upload_id
+    assert revised.upload.replacement_parent_manifest_sha256 == old_ready.manifest.checksum_sha256
+    with pytest.raises(JobConflictError) as unconfirmed:
+        service.require_current_ready(revised.upload.upload_id, game_id)
+    assert unconfirmed.value.code == "IMAGE_REPLACEMENT_NOT_CONFIRMED"
+    assert [item.upload.upload_id for item in service.list_ready()] == [upload.upload_id]
+    with pytest.raises(JobConflictError) as pending:
+        service.require_current_ready(upload.upload_id, game_id)
+    assert pending.value.code == "IMAGE_REPLACEMENT_PENDING"
+
+    restarted = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None, clock=lambda: NOW),
+        root,
+        max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    replayed = restarted.fork_ready_with_replacement(
+        upload.upload_id,
+        game_id=game_id,
+        source_checksum_sha256=old_source.checksum_sha256,
+        source_relative_path=old_source.relative_path,
+        content=replacement,
+    )
+    assert replayed.upload.upload_id == revised.upload.upload_id
+    restarted.discard_pending_replacement(
+        upload.upload_id, revised.upload.upload_id, game_id=game_id
+    )
+    assert (
+        restarted.require_current_ready(upload.upload_id, game_id).upload.upload_id
+        == upload.upload_id
+    )
+    with pytest.raises(JobConflictError) as discarded:
+        restarted.confirm_ready_replacement(
+            upload.upload_id,
+            revised.upload.upload_id,
+            game_id=game_id,
+            source_checksum_sha256=old_source.checksum_sha256,
+            source_relative_path=old_source.relative_path,
+            replacement_checksum_sha256=hashlib.sha256(replacement).hexdigest(),
+        )
+    assert discarded.value.code == "IMAGE_REPLACEMENT_REVISION_CONFLICT"
+    restarted.fork_ready_with_replacement(
+        upload.upload_id,
+        game_id=game_id,
+        source_checksum_sha256=old_source.checksum_sha256,
+        source_relative_path=old_source.relative_path,
+        content=replacement,
+    )
+    write_state = restarted._write_upload_state
+
+    def fail_after_child_state(value: BrowserImageUpload) -> None:
+        if value.upload_id == upload.upload_id:
+            raise OSError("interrupted before parent publication")
+        write_state(value)
+
+    restarted._write_upload_state = fail_after_child_state
+    with pytest.raises(OSError):
+        restarted.confirm_ready_replacement(
+            upload.upload_id,
+            revised.upload.upload_id,
+            game_id=game_id,
+            source_checksum_sha256=old_source.checksum_sha256,
+            source_relative_path=old_source.relative_path,
+            replacement_checksum_sha256=hashlib.sha256(replacement).hexdigest(),
+        )
+    restarted = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None, clock=lambda: NOW),
+        root,
+        max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    assert revised.upload.upload_id in [item.upload.upload_id for item in restarted.list_ready()]
+    published = restarted.confirm_ready_replacement(
+        upload.upload_id,
+        revised.upload.upload_id,
+        game_id=game_id,
+        source_checksum_sha256=old_source.checksum_sha256,
+        source_relative_path=old_source.relative_path,
+        replacement_checksum_sha256=hashlib.sha256(replacement).hexdigest(),
+    )
+    assert published.upload.upload_id == revised.upload.upload_id
+    assert (
+        restarted.confirm_ready_replacement(
+            upload.upload_id,
+            revised.upload.upload_id,
+            game_id=game_id,
+            source_checksum_sha256=old_source.checksum_sha256,
+            source_relative_path=old_source.relative_path,
+            replacement_checksum_sha256=hashlib.sha256(replacement).hexdigest(),
+        ).upload.upload_id
+        == revised.upload.upload_id
+    )
+    cold = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None, clock=lambda: NOW),
+        root,
+        max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    with pytest.raises(JobConflictError) as superseded:
+        cold.require_current_ready(upload.upload_id, game_id)
+    assert superseded.value.code == "IMAGE_BROWSER_SELECTION_SUPERSEDED"
+    assert [item.upload.upload_id for item in cold.list_ready()] == [revised.upload.upload_id]
+
+
+@pytest.mark.parametrize("geometry_accepted", [False, True])
+def test_page_source_replacement_api_blocks_accepted_geometry(
+    tmp_path: Path, geometry_accepted: bool
+) -> None:
+    game_id = uuid4()
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service, tmp_path / "imports", max_bytes=1024 * 1024, clock=lambda: NOW
+    )
+
+    def jpeg(color: tuple[int, int, int]) -> bytes:
+        stream = BytesIO()
+        Image.new("RGB", (32, 24), color).save(stream, "JPEG")
+        return stream.getvalue()
+
+    old_content = jpeg((20, 30, 40))
+    new_content = jpeg((80, 90, 100))
+    upload = browser_service.begin(
+        display_name="cut",
+        expected_file_count=1,
+        expected_total_bytes=len(old_content),
+        game_id=game_id,
+    )
+    browser_service.upload_file(
+        upload.upload_id, 0, relative_path="cut/seq_1-9.jpg", content=old_content
+    )
+    browser_service.finalize(upload.upload_id)
+    source_checksum = hashlib.sha256(old_content).hexdigest()
+    manifest = {
+        "entries": {
+            source_checksum: {"status": "review_required", "sourceRelativePath": "cut/seq_1-9.jpg"}
+        },
+        "registeredSourceCount": 0,
+        "reviewRequiredSourceCount": 1,
+        "skippedHumanResolvedSourceCount": 0,
+    }
+    encoded = json.dumps(manifest).encode()
+    checksum = hashlib.sha256(encoded).hexdigest()
+    relative = f"data/page-geometry-manifests/{checksum}.json"
+    path = tmp_path / "artifacts" / Path(*relative.split("/"))
+    path.parent.mkdir(parents=True)
+    path.write_bytes(encoded)
+    repository = MemoryJobRepository(game_id)
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "source_selection_id": str(upload.upload_id),
+            "source_manifest_sha256": browser_service.get_ready(
+                upload.upload_id
+            ).manifest.checksum_sha256,
+        },
+        created_at=NOW,
+    )
+    lease = uuid4()
+    started = start_job(
+        job,
+        worker_version="test",
+        worker_id="test",
+        lease_token=lease,
+        lease_expires_at=NOW + timedelta(minutes=5),
+        started_at=NOW,
+    )
+    checkpointed = checkpoint_job(
+        started,
+        lease_token=lease,
+        checkpoint_payload={
+            "schema_version": 1,
+            "complete": True,
+            "geometry_manifest_checksum_sha256": checksum,
+            "geometry_manifest_relative_path": relative,
+        },
+        stage="done",
+        current=1,
+        total=1,
+        success_count=0,
+        failure_count=0,
+        review_count=1,
+        updated_at=NOW + timedelta(seconds=1),
+    )
+    repository.add_job(
+        complete_job(checkpointed, lease_token=lease, finished_at=NOW + timedelta(seconds=2))
+    )
+
+    class Overrides:
+        def snapshot(self, *, game_id: UUID) -> dict[str, object]:
+            return {source_checksum: {"revision": 1}} if geometry_accepted else {}
+
+        def exclusion_snapshot(
+            self, *, game_id: UUID, browser_selection_id: UUID
+        ) -> dict[str, object]:
+            return {}
+
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {
+                    "GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts"),
+                    "GAME_PREDICTOR_IMPORT_ROOT": str(tmp_path / "imports"),
+                }
+            ),
+            job_service_dependency=lambda: JobService(repository),
+            browser_image_selection_service_dependency=lambda: browser_service,
+            image_folder_selection_service_dependency=lambda: selection_service,
+            page_geometry_override_service_dependency=lambda: Overrides(),
+        )
+    )
+    with client:
+        response = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload.upload_id}"
+            f"/geometry-preflights/{job.id}/source-replacement",
+            content=new_content,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Game-Id": str(game_id),
+                "X-Source-Checksum-Sha256": source_checksum,
+                "X-Source-Relative-Path": "cut/seq_1-9.jpg",
+                "X-Geometry-Manifest-Checksum-Sha256": checksum,
+            },
+        )
+    assert response.status_code == (409 if geometry_accepted else 200), response.text
+    if geometry_accepted:
+        assert response.json()["code"] == "IMAGE_REPLACEMENT_NOT_ALLOWED"
+    else:
+        assert response.json()["uploadId"] != str(upload.upload_id)
+        replacement_id = response.json()["uploadId"]
+        with client:
+            pending_replay = client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{upload.upload_id}"
+                f"/geometry-preflights/{job.id}/source-replacement",
+                content=new_content,
+                headers={
+                    "Content-Type": "application/octet-stream",
+                    "X-Game-Id": str(game_id),
+                    "X-Source-Checksum-Sha256": source_checksum,
+                    "X-Source-Relative-Path": "cut/seq_1-9.jpg",
+                    "X-Geometry-Manifest-Checksum-Sha256": checksum,
+                },
+            )
+        assert pending_replay.status_code == 200, pending_replay.text
+        assert pending_replay.json()["uploadId"] == replacement_id
+        with client:
+            abandoned = client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{upload.upload_id}"
+                f"/replacement-revisions/{replacement_id}/discard",
+                json={"gameId": str(game_id)},
+            )
+        assert abandoned.status_code == 204, abandoned.text
+        with client:
+            replay = client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{upload.upload_id}"
+                f"/geometry-preflights/{job.id}/source-replacement",
+                content=new_content,
+                headers={
+                    "Content-Type": "application/octet-stream",
+                    "X-Game-Id": str(game_id),
+                    "X-Source-Checksum-Sha256": source_checksum,
+                    "X-Source-Relative-Path": "cut/seq_1-9.jpg",
+                    "X-Geometry-Manifest-Checksum-Sha256": checksum,
+                },
+            )
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["uploadId"] == replacement_id
+        with client:
+            confirmed = client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{upload.upload_id}"
+                f"/replacement-revisions/{replacement_id}/confirm",
+                json={
+                    "gameId": str(game_id),
+                    "sourceChecksumSha256": source_checksum,
+                    "sourceRelativePath": "cut/seq_1-9.jpg",
+                    "replacementChecksumSha256": hashlib.sha256(new_content).hexdigest(),
+                },
+            )
+        assert confirmed.status_code == 200, confirmed.text
+        assert confirmed.json()["uploadId"] == replacement_id
+        with client:
+            stale = client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{upload.upload_id}"
+                f"/geometry-preflights/{job.id}/source-replacement",
+                content=new_content,
+                headers={
+                    "Content-Type": "application/octet-stream",
+                    "X-Game-Id": str(game_id),
+                    "X-Source-Checksum-Sha256": source_checksum,
+                    "X-Source-Relative-Path": "cut/seq_1-9.jpg",
+                    "X-Geometry-Manifest-Checksum-Sha256": checksum,
+                },
+            )
+        assert stale.status_code == 409
+        assert stale.json()["code"] == "IMAGE_BROWSER_SELECTION_SUPERSEDED"
 
 
 def test_finalized_browser_staging_persists_ready_and_in_use_lifecycle(

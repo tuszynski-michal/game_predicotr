@@ -18,12 +18,14 @@ from .source_ingestion import ManagedOriginal
 PAGE_GEOMETRY_REUSE_CONTRACT_VERSION = "page-geometry-entry-reuse-v1"
 PAGE_GEOMETRY_CHECKPOINT_SCHEMA_VERSION = 1
 EXACT_POLICY_COMPATIBILITY = "exact_policy"
+REPLACEMENT_LINEAGE_COMPATIBILITY = "replacement_lineage_exact_policy"
 LATERAL_V2_TO_V3_COMPATIBILITY = "lateral_v2_to_v3"
 LATERAL_V3_TO_V2_COMPATIBILITY = "lateral_v3_to_v2"
 BASELINE_TO_SELECTIVE_COMPATIBILITY = "baseline_to_selective_v1_1"
 _COMPATIBILITY_MODES = frozenset(
     {
         EXACT_POLICY_COMPATIBILITY,
+        REPLACEMENT_LINEAGE_COMPATIBILITY,
         LATERAL_V2_TO_V3_COMPATIBILITY,
         LATERAL_V3_TO_V2_COMPATIBILITY,
         BASELINE_TO_SELECTIVE_COMPATIBILITY,
@@ -43,6 +45,7 @@ class BasePageGeometryManifestDescriptor:
     manifest_checksum_sha256: str
     source_manifest_checksum_sha256: str
     compatibility_mode: str
+    base_source_selection_id: str | None = None
     base_override_fingerprints: dict[str, str] = field(default_factory=dict)
 
     def to_payload(self) -> dict[str, object]:
@@ -52,6 +55,11 @@ class BasePageGeometryManifestDescriptor:
             "manifestChecksumSha256": self.manifest_checksum_sha256,
             "sourceManifestChecksumSha256": self.source_manifest_checksum_sha256,
             "compatibilityMode": self.compatibility_mode,
+            **(
+                {"baseSourceSelectionId": self.base_source_selection_id}
+                if self.base_source_selection_id is not None
+                else {}
+            ),
             **(
                 {"baseOverrideFingerprints": self.base_override_fingerprints}
                 if self.base_override_fingerprints
@@ -93,7 +101,7 @@ def parse_base_manifest_descriptor(value: object) -> BasePageGeometryManifestDes
     if (
         not isinstance(value, Mapping)
         or not required.issubset(value)
-        or not set(value).issubset(required | {"baseOverrideFingerprints"})
+        or not set(value).issubset(required | {"baseOverrideFingerprints", "baseSourceSelectionId"})
     ):
         raise JobHandlerError(
             _BASE_MANIFEST_ERROR,
@@ -103,6 +111,7 @@ def parse_base_manifest_descriptor(value: object) -> BasePageGeometryManifestDes
     manifest_checksum = value.get("manifestChecksumSha256")
     source_checksum = value.get("sourceManifestChecksumSha256")
     compatibility_mode = value.get("compatibilityMode")
+    base_source_selection_id = value.get("baseSourceSelectionId")
     raw_fingerprints = value.get("baseOverrideFingerprints", {})
     if (
         value.get("contractVersion") != PAGE_GEOMETRY_REUSE_CONTRACT_VERSION
@@ -111,6 +120,17 @@ def parse_base_manifest_descriptor(value: object) -> BasePageGeometryManifestDes
         or not _is_sha256(manifest_checksum)
         or not _is_sha256(source_checksum)
         or compatibility_mode not in _COMPATIBILITY_MODES
+        or (
+            compatibility_mode == REPLACEMENT_LINEAGE_COMPATIBILITY
+            and (
+                not isinstance(base_source_selection_id, str)
+                or not _is_uuid(base_source_selection_id)
+            )
+        )
+        or (
+            compatibility_mode != REPLACEMENT_LINEAGE_COMPATIBILITY
+            and base_source_selection_id is not None
+        )
         or not isinstance(raw_fingerprints, Mapping)
         or any(
             not _is_sha256(checksum) or not _is_sha256(fingerprint)
@@ -126,6 +146,7 @@ def parse_base_manifest_descriptor(value: object) -> BasePageGeometryManifestDes
         manifest_checksum_sha256=cast(str, manifest_checksum),
         source_manifest_checksum_sha256=cast(str, source_checksum),
         compatibility_mode=cast(str, compatibility_mode),
+        base_source_selection_id=cast(str | None, base_source_selection_id),
         base_override_fingerprints=dict(sorted(raw_fingerprints.items())),
     )
 
@@ -169,9 +190,18 @@ def load_base_manifest(
     if (
         not isinstance(manifest, Mapping)
         or manifest.get("gameId") != game_id
-        or manifest.get("sourceSelectionId") != source_selection_id
-        or manifest.get("sourceManifestChecksumSha256") != source_manifest_checksum_sha256
-        or descriptor.source_manifest_checksum_sha256 != source_manifest_checksum_sha256
+        or manifest.get("sourceSelectionId")
+        != (
+            descriptor.base_source_selection_id
+            if descriptor.compatibility_mode == REPLACEMENT_LINEAGE_COMPATIBILITY
+            else source_selection_id
+        )
+        or manifest.get("sourceManifestChecksumSha256")
+        != descriptor.source_manifest_checksum_sha256
+        or (
+            descriptor.compatibility_mode != REPLACEMENT_LINEAGE_COMPATIBILITY
+            and descriptor.source_manifest_checksum_sha256 != source_manifest_checksum_sha256
+        )
         or manifest.get("version") != preflight_policy_version
         or manifest.get("pageRegistrationProfile") != page_registration_profile
         or not isinstance(manifest.get("entries"), Mapping)
@@ -181,7 +211,10 @@ def load_base_manifest(
             "The pinned base page-geometry manifest does not match this preflight.",
         )
     base_lateral = manifest.get("lateralPartialGeometry")
-    if descriptor.compatibility_mode == EXACT_POLICY_COMPATIBILITY:
+    if descriptor.compatibility_mode in {
+        EXACT_POLICY_COMPATIBILITY,
+        REPLACEMENT_LINEAGE_COMPATIBILITY,
+    }:
         compatible = base_lateral == lateral_partial_geometry
     elif descriptor.compatibility_mode == LATERAL_V2_TO_V3_COMPATIBILITY:
         compatible = _lateral_v2_to_v3_compatible(base_lateral, lateral_partial_geometry)
@@ -228,6 +261,9 @@ def plan_manifest_reuse(
         if base_fingerprints.get(checksum) != _override_fingerprint(overrides.get(checksum)):
             changed_override_checksums.add(checksum)
     invalidated_anchors = set(changed_override_checksums)
+    if compatibility_mode == REPLACEMENT_LINEAGE_COMPATIBILITY:
+        current_checksums = {original.checksum_sha256 for original in originals}
+        invalidated_anchors.update(set(raw_entries) - current_checksums)
 
     stable_external_anchors = {
         checksum

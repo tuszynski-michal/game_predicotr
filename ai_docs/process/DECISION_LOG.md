@@ -6,6 +6,26 @@ last_updated: 2026-09-16
 
 # Decision Log
 
+## D-399 — Podmiana źródła przez nową rewizję stagingu
+
+- **Status:** accepted (TASK-0570).
+- **Date:** 2026-09-16.
+- **Decision:** podmiana JPEG-a przed akceptacją jego ręcznej geometrii tworzy
+  nowy, checksummowany staging. Plik w oryginalnym `cut` zapisuje przeglądarka
+  po ponownym wskazaniu katalogu i weryfikacji starej checksumy. Osobne,
+  idempotentne potwierdzenie blokuje nowe uruchomienia starego stagingu.
+- **Rationale:** nie można bezpiecznie zmienić bajtów pod ukończonym
+  manifestem ani założyć, że przeglądarkowy upload udostępnił API ścieżkę
+  oryginalnego katalogu Windows.
+- **Compatibility:** historyczne joby i manifesty pozostają niezmienne;
+  opcjonalna linia rodzica pozwala odzyskać geometrię innych źródeł bez
+  ponownego przeliczania całego folderu. Nie ma migracji bazy.
+- **Safety:** po akceptacji geometrii albo starcie importu podmiana jest
+  odrzucana. Stan oczekujący blokuje stary staging; nowy nie startuje przed
+  potwierdzeniem. Jeżeli przeglądarka zostanie przerwana pomiędzy zapisem
+  lokalnym a potwierdzeniem, zachowana w niej rewizja umożliwia dokończenie
+  po weryfikacji checksumy w `cut`. Niezapisana podmiana może zostać odrzucona.
+
 ## D-398 — tylko gotowy staging tworzy nowy import plansz
 
 - **Status:** accepted

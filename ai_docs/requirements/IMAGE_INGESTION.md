@@ -6,6 +6,18 @@ last_updated: 2026-09-16
 
 # Import i rozpoznawanie zdjęć
 
+## Podmiana zdjęcia przed zatwierdzeniem geometrii — TASK-0570
+
+W kolejce „Korekta geometrii strony” operator może zastąpić błędnie przycięty
+JPEG, dopóki geometria tego zdjęcia nie została ręcznie zatwierdzona i nie
+rozpoczęto importu stagingu. Wskazuje oryginalny katalog `cut` z prawem zapisu;
+aplikacja porównuje nazwę i SHA-256 starego pliku, a następnie zapisuje nowy
+JPEG pod tą samą nazwą. Nowy obraz jest widoczny od razu, a przed dalszym
+importem przechodzi nowy preflight geometrii w wariancie przypiętym do raportu.
+Po zatwierdzeniu geometrii lub rozpoczęciu importu podmiana jest niedostępna.
+Historyczny manifest i job pozostają czytelne, lecz nie mogą uruchomić nowego
+importu po potwierdzeniu podmiany.
+
 ## Zachowanie wariantu ukończonego preflightu — TASK-0569
 
 Ponowne otwarcie gotowego stagingu wybiera wariant przypięty do jego ukończonego

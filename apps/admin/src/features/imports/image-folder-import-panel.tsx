@@ -29,6 +29,7 @@ import {
 } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { resolveAdminApiBaseUrl } from '@/config/admin-api';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { jobProgressLabel } from '@/features/jobs/job-state';
 
@@ -230,6 +231,10 @@ export function ImageFolderImportPanel({
   const [readySelections, setReadySelections] = useState<
     readonly BrowserReadySelectionResponse[]
   >([]);
+  const [replacementPreview, setReplacementPreview] = useState<{
+    readonly checksum: string;
+    readonly uploadId: string;
+  } | null>(null);
   const [readyUploadId, setReadyUploadId] = useState<string | null>(null);
   const [preflight, setPreflight] =
     useState<BrowserImageImportPreflightResponse | null>(null);
@@ -902,6 +907,53 @@ export function ImageFolderImportPanel({
     } finally {
       setActiveAction(null);
     }
+  }
+
+  async function handlePageGeometrySourceReplaced(
+    ready: BrowserReadySelectionResponse,
+    replacementChecksumSha256: string,
+  ) {
+    const variant = geometryEngineVariant;
+    const replacedUploadId = readyUploadId;
+    setReplacementPreview({
+      checksum: replacementChecksumSha256,
+      uploadId: ready.uploadId,
+    });
+    setReadySelections((current) =>
+      sortReadyBoardImports([
+        ready,
+        ...current.filter(
+          (item) => item.uploadId !== ready.uploadId && item.uploadId !== replacedUploadId,
+        ),
+      ]),
+    );
+    const report = await previewReadyBrowserImageImport(
+      api,
+      ready.uploadId,
+      gameId,
+      variant,
+    );
+    if (!report.ok) throw new Error(report.error);
+    setReadyUploadId(ready.uploadId);
+    setPreflight(report.data);
+    setGeometryPreflightJob(report.data.geometryPreflightJob ?? null);
+    setGeometryGuardResolutionManifest(null);
+    const started = await startBrowserPageGeometryPreflight(
+      api,
+      ready.uploadId,
+      gameId,
+      pageRegistrationVariant,
+      variant,
+    );
+    if (!started.ok) throw new Error(started.error);
+    setGeometryPreflightJob(started.data.job);
+    setGeometryPreflightJobs((current) => [
+      started.data.job,
+      ...current.filter((job) => job.id !== started.data.job.id),
+    ]);
+    setFeedback(
+      `Nowe zdjęcie jest w katalogu cut i stagingu ${ready.uploadId.slice(0, 8)}. Preflight ${started.data.job.id} zachowuje wariant ${variant === SELECTIVE_BOARD_VARIANT ? 'v1.1' : 'v1.0'}.`,
+    );
   }
 
   async function retryGeometryPreflight() {
@@ -1654,6 +1706,21 @@ export function ImageFolderImportPanel({
                               )}
                             </span>
                           ) : null}
+                          {replacementPreview?.uploadId === ready.uploadId &&
+                          geometryPreflightJob?.status !== 'completed' ? (
+                            <section
+                              aria-label="Korekta geometrii strony"
+                              className="pageGeometryCorrection"
+                            >
+                              <h3>Nowe zdjęcie — geometria w przygotowaniu</h3>
+                              <img
+                                alt="Nowe zdjęcie źródłowe po podmianie"
+                                style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
+                                src={`${resolveAdminApiBaseUrl(apiBaseUrl)}/api/v1/admin/image-imports/browser-selections/${encodeURIComponent(ready.uploadId)}/page-geometry-sources/${encodeURIComponent(replacementPreview.checksum)}/asset?game_id=${encodeURIComponent(gameId)}`}
+                              />
+                              <p>Po ukończeniu preflightu zdjęcie będzie gotowe do korekty lub dalszego importu.</p>
+                            </section>
+                          ) : null}
                           {geometryPreflightJob?.status === 'completed' &&
                           visibleGeometryCorrectionCount > 0 ? (
                             <details>
@@ -1679,6 +1746,7 @@ export function ImageFolderImportPanel({
                                 onSubmitSaved={
                                   rerunGeometryPreflightAfterCorrection
                                 }
+                                onSourceReplaced={handlePageGeometrySourceReplaced}
                                 preflightJobId={geometryPreflightJob.id}
                                 uploadId={ready.uploadId}
                               />

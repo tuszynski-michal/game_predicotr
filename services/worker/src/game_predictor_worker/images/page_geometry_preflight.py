@@ -1037,6 +1037,8 @@ def _input(job: Job) -> dict[str, object]:
         "managed_source_job_id",
         "managed_source_manifest_checksum_sha256",
         "base_page_geometry_manifest",
+        "replacement_parent_upload_id",
+        "replacement_parent_manifest_sha256",
     }
     policy = payload.get("preflight_policy_version", LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION)
     payload_keys = frozenset(payload)

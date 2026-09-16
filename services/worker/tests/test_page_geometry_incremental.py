@@ -10,6 +10,7 @@ from game_predictor_worker.images.page_geometry_incremental import (
     EXACT_POLICY_COMPATIBILITY,
     LATERAL_V2_TO_V3_COMPATIBILITY,
     LATERAL_V3_TO_V2_COMPATIBILITY,
+    REPLACEMENT_LINEAGE_COMPATIBILITY,
     BasePageGeometryManifestDescriptor,
     PageGeometryCheckpointStore,
     load_base_manifest,
@@ -42,6 +43,39 @@ def _registered(original: ManagedOriginal, *, weak_count: int = 0, anchor: str =
         "anchorSourceChecksumSha256": anchor,
         "boardRedEdgeCoverages": [0.4] * weak_count + [0.9] * (9 - weak_count),
         "quads": [],
+    }
+
+
+def test_replacement_recomputes_new_source_and_old_anchor_dependents() -> None:
+    old = tuple(_original(index) for index in range(3))
+    replacement = ManagedOriginal(
+        checksum_sha256="e" * 64,
+        source_relative_path=old[0].source_relative_path,
+        managed_relative_path="data/originals/ee/" + "e" * 64 + ".jpg",
+        size_bytes=100,
+        sequence_range_start=1,
+        sequence_range_end=9,
+    )
+    current = (replacement, old[1], old[2])
+    entries = {
+        old[0].checksum_sha256: _registered(old[0]),
+        old[1].checksum_sha256: _registered(old[1], anchor=old[0].checksum_sha256),
+        old[2].checksum_sha256: _registered(old[2]),
+    }
+    plan = plan_manifest_reuse(
+        current,
+        payload={
+            "pageGeometryOverrides": {},
+            "pageRegistrationProfile": {"anchors": [{"sourceChecksumSha256": "f" * 64}]},
+            "canonicalSequenceNumbers": set(),
+        },
+        base_manifest={"entries": entries},
+        compatibility_mode=REPLACEMENT_LINEAGE_COMPATIBILITY,
+    )
+    assert set(plan.entries) == {old[2].checksum_sha256}
+    assert {item.checksum_sha256 for item in plan.recompute_originals} == {
+        replacement.checksum_sha256,
+        old[1].checksum_sha256,
     }
 
 
@@ -382,6 +416,66 @@ def test_pinned_missing_base_manifest_fails_closed(tmp_path: Path) -> None:
             lateral_partial_geometry=None,
         )
 
+    assert captured.value.code == "IMAGE_PAGE_GEOMETRY_BASE_MANIFEST_INVALID"
+
+
+def test_replacement_lineage_loads_only_pinned_parent_manifest(tmp_path: Path) -> None:
+    import hashlib
+
+    parent_id = "00000000-0000-0000-0000-000000000001"
+    replacement_id = "00000000-0000-0000-0000-000000000002"
+    game_id = "00000000-0000-0000-0000-000000000003"
+    manifest = {
+        "gameId": game_id,
+        "sourceSelectionId": parent_id,
+        "sourceManifestChecksumSha256": "a" * 64,
+        "version": "page-geometry-preflight-v2-auto-anchor",
+        "pageRegistrationProfile": {"schemaVersion": 1},
+        "lateralPartialGeometry": None,
+        "entries": {},
+    }
+    content = json.dumps(manifest).encode()
+    checksum = hashlib.sha256(content).hexdigest()
+    path = tmp_path / "data" / "page-geometry-manifests" / f"{checksum}.json"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(content)
+    descriptor = BasePageGeometryManifestDescriptor(
+        job_id="00000000-0000-0000-0000-000000000004",
+        manifest_checksum_sha256=checksum,
+        source_manifest_checksum_sha256="a" * 64,
+        compatibility_mode=REPLACEMENT_LINEAGE_COMPATIBILITY,
+        base_source_selection_id=parent_id,
+    )
+
+    loaded = load_base_manifest(
+        tmp_path,
+        descriptor,
+        game_id=game_id,
+        source_selection_id=replacement_id,
+        source_manifest_checksum_sha256="b" * 64,
+        preflight_policy_version="page-geometry-preflight-v2-auto-anchor",
+        page_registration_profile={"schemaVersion": 1},
+        lateral_partial_geometry=None,
+    )
+    assert loaded["sourceSelectionId"] == parent_id
+
+    with pytest.raises(JobHandlerError) as captured:
+        load_base_manifest(
+            tmp_path,
+            BasePageGeometryManifestDescriptor(
+                job_id=descriptor.job_id,
+                manifest_checksum_sha256=checksum,
+                source_manifest_checksum_sha256="c" * 64,
+                compatibility_mode=REPLACEMENT_LINEAGE_COMPATIBILITY,
+                base_source_selection_id=parent_id,
+            ),
+            game_id=game_id,
+            source_selection_id=replacement_id,
+            source_manifest_checksum_sha256="b" * 64,
+            preflight_policy_version="page-geometry-preflight-v2-auto-anchor",
+            page_registration_profile={"schemaVersion": 1},
+            lateral_partial_geometry=None,
+        )
     assert captured.value.code == "IMAGE_PAGE_GEOMETRY_BASE_MANIFEST_INVALID"
 
 

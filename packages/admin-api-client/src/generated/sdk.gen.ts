@@ -63,6 +63,9 @@ import type {
   CloseReviewerWorkAssignmentData,
   CloseReviewerWorkAssignmentErrors,
   CloseReviewerWorkAssignmentResponses,
+  ConfirmBrowserPageGeometrySourceReplacementData,
+  ConfirmBrowserPageGeometrySourceReplacementErrors,
+  ConfirmBrowserPageGeometrySourceReplacementResponses,
   ConfirmImageSelectionGroupRangeData,
   ConfirmImageSelectionGroupRangeErrors,
   ConfirmImageSelectionGroupRangeResponses,
@@ -171,6 +174,9 @@ import type {
   DeleteSymbolData,
   DeleteSymbolErrors,
   DeleteSymbolResponses,
+  DiscardBrowserPageGeometrySourceReplacementData,
+  DiscardBrowserPageGeometrySourceReplacementErrors,
+  DiscardBrowserPageGeometrySourceReplacementResponses,
   DiscardDuplicateImageSelectionGroupData,
   DiscardDuplicateImageSelectionGroupErrors,
   DiscardDuplicateImageSelectionGroupResponses,
@@ -635,6 +641,9 @@ import type {
   ReopenRemoteManualSelectionBatchData,
   ReopenRemoteManualSelectionBatchErrors,
   ReopenRemoteManualSelectionBatchResponses,
+  ReplaceUnconfirmedBrowserPageGeometrySourceData,
+  ReplaceUnconfirmedBrowserPageGeometrySourceErrors,
+  ReplaceUnconfirmedBrowserPageGeometrySourceResponses,
   ReprocessManagedImageImportData,
   ReprocessManagedImageImportErrors,
   ReprocessManagedImageImportResponses,
@@ -2876,6 +2885,36 @@ export const excludeBrowserPageGeometrySource = <
   });
 
 /**
+ * Create a new staging revision for one unconfirmed page source
+ */
+export const replaceUnconfirmedBrowserPageGeometrySource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    ReplaceUnconfirmedBrowserPageGeometrySourceData,
+    ThrowOnError
+  >,
+): RequestResult<
+  ReplaceUnconfirmedBrowserPageGeometrySourceResponses,
+  ReplaceUnconfirmedBrowserPageGeometrySourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ReplaceUnconfirmedBrowserPageGeometrySourceResponses,
+    ReplaceUnconfirmedBrowserPageGeometrySourceErrors,
+    ThrowOnError
+  >({
+    bodySerializer: null,
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/source-replacement',
+    ...options,
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      ...options.headers,
+    },
+  });
+
+/**
  * Persist one complete-page geometry correction for a staged source
  */
 export const createBrowserPageGeometryOverride = <
@@ -2941,6 +2980,64 @@ export const previewReadyBrowserImageImport = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Publish a replacement revision after the local cut file was written
+ */
+export const confirmBrowserPageGeometrySourceReplacement = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    ConfirmBrowserPageGeometrySourceReplacementData,
+    ThrowOnError
+  >,
+): RequestResult<
+  ConfirmBrowserPageGeometrySourceReplacementResponses,
+  ConfirmBrowserPageGeometrySourceReplacementErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ConfirmBrowserPageGeometrySourceReplacementResponses,
+    ConfirmBrowserPageGeometrySourceReplacementErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/replacement-revisions/{replacement_upload_id}/confirm',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Release a pending replacement whose original cut file is unchanged
+ */
+export const discardBrowserPageGeometrySourceReplacement = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    DiscardBrowserPageGeometrySourceReplacementData,
+    ThrowOnError
+  >,
+): RequestResult<
+  DiscardBrowserPageGeometrySourceReplacementResponses,
+  DiscardBrowserPageGeometrySourceReplacementErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DiscardBrowserPageGeometrySourceReplacementResponses,
+    DiscardBrowserPageGeometrySourceReplacementErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/replacement-revisions/{replacement_upload_id}/discard',
     ...options,
     headers: {
       'Content-Type': 'application/json',

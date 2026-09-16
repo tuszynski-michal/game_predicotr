@@ -830,6 +830,52 @@ def test_page_geometry_preflight_uses_v2_transition_when_exact_base_is_absent(
     assert "base_page_geometry_manifest" not in changed_source.input_payload
 
 
+def test_replacement_preflight_pins_parent_manifest_without_changing_parent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    game_id = uuid4()
+    parent_id = uuid4()
+    replacement_id = uuid4()
+    source_directory = tmp_path / "replacement"
+    source_directory.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    repository = MemoryJobRepository(game_id)
+    policy = LateralPartialGeometrySnapshot().to_payload()
+    parent = _add_completed_page_geometry_preflight(
+        repository,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=parent_id,
+        source_directory=source_directory,
+        source_manifest_sha256="a" * 64,
+        lateral_partial_geometry=policy,
+    )
+    service = JobService(repository, artifact_root=artifact_root)
+    monkeypatch.setattr(
+        JobService,
+        "_current_lateral_partial_policy",
+        lambda _self, *, game_id, geometry_engine_variant: LateralPartialGeometrySnapshot(),
+    )
+
+    created = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=replacement_id,
+        source_directory=source_directory,
+        source_display_name="replacement",
+        source_manifest_sha256="b" * 64,
+        geometry_engine_variant=GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
+        replacement_parent_upload_id=parent_id,
+        replacement_parent_manifest_sha256="a" * 64,
+    )
+    descriptor = created.input_payload["base_page_geometry_manifest"]
+    assert descriptor["jobId"] == str(parent.id)
+    assert descriptor["sourceManifestChecksumSha256"] == "a" * 64
+    assert descriptor["baseSourceSelectionId"] == str(parent_id)
+    assert descriptor["compatibilityMode"] == "replacement_lineage_exact_policy"
+    assert parent.input_payload["source_manifest_sha256"] == "a" * 64
+
+
 def test_selective_preflight_reuses_completed_v1_baseline_manifest(tmp_path: Path) -> None:
     game_id = uuid4()
     selection_id = uuid4()

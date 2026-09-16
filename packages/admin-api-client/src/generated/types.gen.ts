@@ -1570,6 +1570,38 @@ export type BrowserPageSourceExclusionResponse = {
 };
 
 /**
+ * BrowserPageSourceReplacementConfirm
+ */
+export type BrowserPageSourceReplacementConfirm = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Replacementchecksumsha256
+   */
+  replacementChecksumSha256: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+};
+
+/**
+ * BrowserPageSourceReplacementDiscard
+ */
+export type BrowserPageSourceReplacementDiscard = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
  * BrowserReadySelectionResponse
  */
 export type BrowserReadySelectionResponse = {
@@ -1602,6 +1634,10 @@ export type BrowserReadySelectionResponse = {
    */
   manifestChecksumSha256: string;
   purpose: ImageSelectionPurpose;
+  /**
+   * Supersededbyuploadid
+   */
+  supersededByUploadId?: string | null;
   /**
    * Uploadid
    */
@@ -17350,6 +17386,75 @@ export type ExcludeBrowserPageGeometrySourceResponses = {
 export type ExcludeBrowserPageGeometrySourceResponse =
   ExcludeBrowserPageGeometrySourceResponses[keyof ExcludeBrowserPageGeometrySourceResponses];
 
+export type ReplaceUnconfirmedBrowserPageGeometrySourceData = {
+  /**
+   * Payload
+   */
+  body: Blob | File;
+  headers: {
+    /**
+     * X-Game-Id
+     */
+    'X-Game-Id': string;
+    /**
+     * X-Source-Checksum-Sha256
+     */
+    'X-Source-Checksum-Sha256': string;
+    /**
+     * X-Source-Relative-Path
+     */
+    'X-Source-Relative-Path': string;
+    /**
+     * X-Geometry-Manifest-Checksum-Sha256
+     */
+    'X-Geometry-Manifest-Checksum-Sha256': string;
+  };
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Preflight Job Id
+     */
+    preflight_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/source-replacement';
+};
+
+export type ReplaceUnconfirmedBrowserPageGeometrySourceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ReplaceUnconfirmedBrowserPageGeometrySourceError =
+  ReplaceUnconfirmedBrowserPageGeometrySourceErrors[keyof ReplaceUnconfirmedBrowserPageGeometrySourceErrors];
+
+export type ReplaceUnconfirmedBrowserPageGeometrySourceResponses = {
+  /**
+   * Successful Response
+   */
+  200: BrowserReadySelectionResponse;
+};
+
+export type ReplaceUnconfirmedBrowserPageGeometrySourceResponse =
+  ReplaceUnconfirmedBrowserPageGeometrySourceResponses[keyof ReplaceUnconfirmedBrowserPageGeometrySourceResponses];
+
 export type CreateBrowserPageGeometryOverrideData = {
   body: BrowserPageGeometryOverrideCreate;
   path: {
@@ -17483,6 +17588,102 @@ export type PreviewReadyBrowserImageImportResponses = {
 
 export type PreviewReadyBrowserImageImportResponse =
   PreviewReadyBrowserImageImportResponses[keyof PreviewReadyBrowserImageImportResponses];
+
+export type ConfirmBrowserPageGeometrySourceReplacementData = {
+  body: BrowserPageSourceReplacementConfirm;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Replacement Upload Id
+     */
+    replacement_upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/replacement-revisions/{replacement_upload_id}/confirm';
+};
+
+export type ConfirmBrowserPageGeometrySourceReplacementErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ConfirmBrowserPageGeometrySourceReplacementError =
+  ConfirmBrowserPageGeometrySourceReplacementErrors[keyof ConfirmBrowserPageGeometrySourceReplacementErrors];
+
+export type ConfirmBrowserPageGeometrySourceReplacementResponses = {
+  /**
+   * Successful Response
+   */
+  200: BrowserReadySelectionResponse;
+};
+
+export type ConfirmBrowserPageGeometrySourceReplacementResponse =
+  ConfirmBrowserPageGeometrySourceReplacementResponses[keyof ConfirmBrowserPageGeometrySourceReplacementResponses];
+
+export type DiscardBrowserPageGeometrySourceReplacementData = {
+  body: BrowserPageSourceReplacementDiscard;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Replacement Upload Id
+     */
+    replacement_upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/replacement-revisions/{replacement_upload_id}/discard';
+};
+
+export type DiscardBrowserPageGeometrySourceReplacementErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DiscardBrowserPageGeometrySourceReplacementError =
+  DiscardBrowserPageGeometrySourceReplacementErrors[keyof DiscardBrowserPageGeometrySourceReplacementErrors];
+
+export type DiscardBrowserPageGeometrySourceReplacementResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type DiscardBrowserPageGeometrySourceReplacementResponse =
+  DiscardBrowserPageGeometrySourceReplacementResponses[keyof DiscardBrowserPageGeometrySourceReplacementResponses];
 
 export type StartReadyBrowserImageImportData = {
   body: BrowserImageImportStart;

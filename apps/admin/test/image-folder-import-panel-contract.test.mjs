@@ -179,7 +179,7 @@ test('reopens the completed engine variant and replays a report without dispatch
   assert.doesNotMatch(stagingActions, /Przetwórz w v1\.0/);
   assert.match(
     panelSource,
-    /readyUploadId === uploadId && geometryEngineVariant === requestedVariant/,
+    /readyUploadId === uploadId\s*&&\s*geometryEngineVariant === requestedVariant/,
   );
   assert.match(panelSource, /geometryEngineVariants/);
   assert.match(panelSource, /geometryEngineVariantEnabled/);

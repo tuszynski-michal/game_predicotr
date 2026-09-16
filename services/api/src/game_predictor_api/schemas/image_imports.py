@@ -113,6 +113,7 @@ class BrowserReadySelectionResponse(ApiModel):
     created_at: datetime
     completed_at: datetime | None
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    superseded_by_upload_id: UUID | None = None
 
     @classmethod
     def from_domain(cls, value: BrowserReadySelection) -> "BrowserReadySelectionResponse":
@@ -129,7 +130,19 @@ class BrowserReadySelectionResponse(ApiModel):
             created_at=upload.created_at,
             completed_at=value.completed_at,
             manifest_checksum_sha256=value.manifest.checksum_sha256,
+            superseded_by_upload_id=upload.superseded_by_upload_id,
         )
+
+
+class BrowserPageSourceReplacementConfirm(ApiModel):
+    game_id: UUID
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_relative_path: str = Field(min_length=1, max_length=1000)
+    replacement_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class BrowserPageSourceReplacementDiscard(ApiModel):
+    game_id: UUID
 
 
 class BrowserImageImportPreflightCreate(ApiModel):

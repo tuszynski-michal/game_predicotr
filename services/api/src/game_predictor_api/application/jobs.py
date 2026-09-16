@@ -1692,6 +1692,8 @@ class JobService:
         page_registration_variant: str = "standard_v0_10",
         geometry_engine_variant: GeometryEngineVariant | None = None,
         managed_source_job_id: UUID | None = None,
+        replacement_parent_upload_id: UUID | None = None,
+        replacement_parent_manifest_sha256: str | None = None,
     ) -> Job:
         """Create an idempotent verified-page geometry preflight.
 
@@ -1834,6 +1836,15 @@ class JobService:
             "source_exclusions": exclusions,
             "canonical_sequence_numbers": sorted(
                 {int(number) for number in canonical_sequence_numbers if int(number) > 0}
+            ),
+            **(
+                {
+                    "replacement_parent_upload_id": str(replacement_parent_upload_id),
+                    "replacement_parent_manifest_sha256": replacement_parent_manifest_sha256,
+                }
+                if replacement_parent_upload_id is not None
+                and replacement_parent_manifest_sha256 is not None
+                else {}
             ),
         }
         candidates = self._repository.list_jobs(
@@ -2209,11 +2220,19 @@ def _page_geometry_candidate_compatibility(
     target: Mapping[str, object],
 ) -> str | None:
     payload = candidate.input_payload
+    same_source = payload.get("source_selection_id") == target.get(
+        "source_selection_id"
+    ) and payload.get("source_manifest_sha256") == target.get("source_manifest_sha256")
+    replacement_parent = (
+        payload.get("source_selection_id") == target.get("replacement_parent_upload_id")
+        and payload.get("source_manifest_sha256")
+        == target.get("replacement_parent_manifest_sha256")
+        and isinstance(target.get("replacement_parent_upload_id"), str)
+    )
     if (
         candidate.status is not JobStatus.COMPLETED
         or payload.get("validation_kind") != "page_geometry_preflight"
-        or payload.get("source_selection_id") != target.get("source_selection_id")
-        or payload.get("source_manifest_sha256") != target.get("source_manifest_sha256")
+        or not (same_source or replacement_parent)
         or payload.get("preflight_policy_version") != target.get("preflight_policy_version")
         or payload.get("page_registration_profile") != target.get("page_registration_profile")
     ):
@@ -2221,7 +2240,9 @@ def _page_geometry_candidate_compatibility(
     base_lateral = payload.get("lateral_partial_geometry")
     target_lateral = target.get("lateral_partial_geometry")
     if base_lateral == target_lateral:
-        return "exact_policy"
+        return "exact_policy" if same_source else "replacement_lineage_exact_policy"
+    if replacement_parent:
+        return None
     if (
         isinstance(base_lateral, Mapping)
         and isinstance(target_lateral, Mapping)
@@ -2282,12 +2303,21 @@ def _completed_page_geometry_manifest_descriptor(
         manifest = json.loads(content)
     except (OSError, json.JSONDecodeError):
         return None
+    lineage = compatibility_mode == "replacement_lineage_exact_policy"
+    expected_selection = (
+        target.get("replacement_parent_upload_id") if lineage else target.get("source_selection_id")
+    )
+    expected_source_manifest = (
+        target.get("replacement_parent_manifest_sha256")
+        if lineage
+        else target.get("source_manifest_sha256")
+    )
     if (
         hashlib.sha256(content).hexdigest() != checksum
         or not isinstance(manifest, Mapping)
         or manifest.get("gameId") != str(candidate.game_id)
-        or manifest.get("sourceSelectionId") != target.get("source_selection_id")
-        or manifest.get("sourceManifestChecksumSha256") != target.get("source_manifest_sha256")
+        or manifest.get("sourceSelectionId") != expected_selection
+        or manifest.get("sourceManifestChecksumSha256") != expected_source_manifest
         or manifest.get("version") != target.get("preflight_policy_version")
         or manifest.get("pageRegistrationProfile") != target.get("page_registration_profile")
         or not isinstance(manifest.get("entries"), Mapping)
@@ -2297,8 +2327,9 @@ def _completed_page_geometry_manifest_descriptor(
         "contractVersion": _PAGE_GEOMETRY_REUSE_CONTRACT_VERSION,
         "jobId": str(candidate.id),
         "manifestChecksumSha256": checksum,
-        "sourceManifestChecksumSha256": target["source_manifest_sha256"],
+        "sourceManifestChecksumSha256": expected_source_manifest,
         "compatibilityMode": compatibility_mode,
+        **({"baseSourceSelectionId": expected_selection} if lineage else {}),
         **(
             {"baseOverrideFingerprints": fingerprints}
             if (

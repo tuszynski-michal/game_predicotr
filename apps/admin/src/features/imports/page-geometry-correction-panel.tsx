@@ -7,6 +7,7 @@ import type {
   AdminApiClient,
   BrowserPageGeometryOverrideCreate,
   BrowserPageGeometryReviewSourceResponse,
+  BrowserReadySelectionResponse,
 } from '@game-predictor/admin-api-client';
 import { fitManualImageToViewport } from '@game-predictor/manual-image-selection-core';
 import {
@@ -39,6 +40,12 @@ import {
 
 import { resolveAdminApiBaseUrl } from '@/config/admin-api';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import {
+  choosePageGeometryCutFolder,
+  checksumPageGeometryFile,
+  replacePageGeometryCutSource,
+  verifyPageGeometryCutSource,
+} from './page-geometry-source-replacement';
 
 import {
   appendPageGeometryBoardCorner,
@@ -64,6 +71,9 @@ type GeometryCorrectionClient = Pick<
   AdminApiClient,
   | 'createBrowserPageGeometryOverride'
   | 'excludeBrowserPageGeometrySource'
+  | 'replaceUnconfirmedBrowserPageGeometrySource'
+  | 'confirmBrowserPageGeometrySourceReplacement'
+  | 'discardBrowserPageGeometrySourceReplacement'
   | 'listBrowserPageGeometryReviewSources'
 >;
 
@@ -72,6 +82,13 @@ type Quad = PageGeometryQuad;
 type PageCorners = PageGeometryCorners;
 type CorrectionMode = 'curve' | 'page' | number;
 
+interface PendingSourceReplacement {
+  replacementUploadId: string;
+  replacementChecksum: string;
+  sourceChecksum: string;
+  sourceRelativePath: string;
+}
+
 interface PageGeometryCorrectionPanelProps {
   readonly allowOutsideSource?: boolean;
   readonly api: GeometryCorrectionClient;
@@ -79,6 +96,10 @@ interface PageGeometryCorrectionPanelProps {
   readonly gameId: string;
   readonly onPendingSourceCountChange?: (count: number) => void;
   readonly onSubmitSaved: () => Promise<void>;
+  readonly onSourceReplaced: (
+    ready: BrowserReadySelectionResponse,
+    replacementChecksumSha256: string,
+  ) => Promise<void>;
   readonly preflightJobId: string;
   readonly uploadId: string;
 }
@@ -216,6 +237,7 @@ function PageGeometryCorrectionPanelContent({
   gameId,
   onPendingSourceCountChange,
   onSubmitSaved,
+  onSourceReplaced,
   preflightJobId,
   uploadId,
 }: PageGeometryCorrectionPanelProps) {
@@ -265,6 +287,11 @@ function PageGeometryCorrectionPanelContent({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [excluding, setExcluding] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [cutFolder, setCutFolder] = useState<FileSystemDirectoryHandle | null>(null);
+  const [pendingReplacement, setPendingReplacement] = useState<PendingSourceReplacement | null>(null);
+  const [storageReady, setStorageReady] = useState(false);
+  const replacementInputRef = useRef<HTMLInputElement | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [geometryManifestChecksum, setGeometryManifestChecksum] = useState('');
@@ -336,6 +363,31 @@ function PageGeometryCorrectionPanelContent({
   }, [refresh]);
 
   const source = sources[sourceIndex] ?? null;
+  const replacementRecoveryKey = source === null
+    ? null
+    : `page-geometry-replacement:${gameId}:${uploadId}:${source.sourceChecksumSha256}`;
+  useEffect(() => {
+    queueMicrotask(() => setStorageReady(true));
+  }, []);
+  let storedReplacement: PendingSourceReplacement | null = null;
+  if (storageReady && replacementRecoveryKey !== null && typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem(replacementRecoveryKey);
+      const parsed = raw === null ? null : JSON.parse(raw) as PendingSourceReplacement;
+      if (
+        parsed?.sourceChecksum === source?.sourceChecksumSha256 &&
+        parsed.sourceRelativePath === source.sourceRelativePath &&
+        typeof parsed.replacementUploadId === 'string' &&
+        /^[0-9a-f]{64}$/.test(parsed.replacementChecksum)
+      ) storedReplacement = parsed;
+    } catch {
+      // Browser storage can be unavailable; this leaves the normal replacement flow intact.
+    }
+  }
+  const activePendingReplacement =
+    pendingReplacement?.sourceChecksum === source?.sourceChecksumSha256 &&
+    pendingReplacement.sourceRelativePath === source.sourceRelativePath
+      ? pendingReplacement : storedReplacement;
   const draftScope = useMemo<PageGeometryDraftScope | null>(
     () =>
       source && imageSize
@@ -803,7 +855,9 @@ function PageGeometryCorrectionPanelContent({
       draftConflict ||
       !draftScope ||
       loadedDraftKey.current !== pageGeometryDraftKey(draftScope) ||
-      saving
+      saving ||
+      replacing ||
+      activePendingReplacement !== null
     )
       return;
     setSaving(true);
@@ -887,7 +941,7 @@ function PageGeometryCorrectionPanelContent({
   }
 
   async function submitSaved() {
-    if (submitting || saving || savedCount === 0) return;
+    if (submitting || saving || replacing || activePendingReplacement !== null || savedCount === 0) return;
     setSubmitting(true);
     setError('');
     setFeedback('Tworzę jeden preflight dla całej zapisanej partii…');
@@ -901,7 +955,7 @@ function PageGeometryCorrectionPanelContent({
   }
 
   async function excludeCurrentSource() {
-    if (source === null || saving || submitting || excluding) return;
+    if (source === null || saving || submitting || excluding || replacing || activePendingReplacement !== null) return;
     const confirmed = globalThis.confirm(
       `Usunąć ${source.sourceRelativePath} z tego importu? Zdjęcie pozostanie w bezpiecznym stagingu, ale nie zostanie skopiowane ani przetworzone. Poprawioną wersję będzie można przesłać w nowym imporcie.`,
     );
@@ -951,6 +1005,140 @@ function PageGeometryCorrectionPanelContent({
     }
   }
 
+  async function chooseCutFolder() {
+    try {
+      setCutFolder(await choosePageGeometryCutFolder());
+      setError('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Nie udało się wybrać katalogu cut.');
+    }
+  }
+
+  async function replaceCurrentSource(file: File | undefined) {
+    if (!file || !source || !cutFolder || replacing || saving || submitting) return;
+    setReplacing(true);
+    setError('');
+    try {
+      if (!/\.jpe?g$/i.test(file.name)) {
+        throw new Error('Wybierz nowe zdjęcie JPEG.');
+      }
+      await verifyPageGeometryCutSource(
+        cutFolder,
+        source.sourceRelativePath,
+        source.sourceChecksumSha256,
+      );
+      if (replacementRecoveryKey === null) throw new Error('Brak tożsamości zdjęcia do podmiany.');
+      window.localStorage.setItem(replacementRecoveryKey, 'preparing');
+      window.localStorage.removeItem(replacementRecoveryKey);
+      const result = await api.replaceUnconfirmedBrowserPageGeometrySource(
+        uploadId,
+        preflightJobId,
+        gameId,
+        source.sourceChecksumSha256,
+        source.sourceRelativePath,
+        geometryManifestChecksum,
+        file,
+      );
+      if (result.error !== undefined || result.data === undefined) {
+        throw new Error(apiErrorMessage(result.error, 'Nie udało się przygotować nowej rewizji stagingu.'));
+      }
+      const ready = result.data;
+      const expectedReplacementChecksum = await checksumPageGeometryFile(file);
+      const pending: PendingSourceReplacement = {
+        replacementUploadId: ready.uploadId,
+        replacementChecksum: expectedReplacementChecksum,
+        sourceChecksum: source.sourceChecksumSha256,
+        sourceRelativePath: source.sourceRelativePath,
+      };
+      if (replacementRecoveryKey !== null) {
+        window.localStorage.setItem(replacementRecoveryKey, JSON.stringify(pending));
+      }
+      setPendingReplacement(pending);
+      const replacementChecksum = await replacePageGeometryCutSource(
+        cutFolder,
+        source.sourceRelativePath,
+        source.sourceChecksumSha256,
+        file,
+      );
+      const confirmation = await api.confirmBrowserPageGeometrySourceReplacement(
+        uploadId,
+        ready.uploadId,
+        gameId,
+        source.sourceChecksumSha256,
+        source.sourceRelativePath,
+        replacementChecksum,
+      );
+      if (confirmation.error !== undefined || confirmation.data === undefined) {
+        throw new Error(apiErrorMessage(confirmation.error, 'Zdjęcie zapisano, ale nie udało się potwierdzić nowej rewizji.'));
+      }
+      if (replacementRecoveryKey !== null) window.localStorage.removeItem(replacementRecoveryKey);
+      setPendingReplacement(null);
+      setFeedback('Nowe zdjęcie zapisano w katalogu cut i stagingu. Przygotowuję jego geometrię…');
+      await onSourceReplaced(confirmation.data, replacementChecksum);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Nie udało się podmienić zdjęcia.');
+    } finally {
+      if (replacementInputRef.current) replacementInputRef.current.value = '';
+      setReplacing(false);
+    }
+  }
+
+  async function finishPendingReplacement() {
+    if (!activePendingReplacement || !cutFolder || !source || replacing) return;
+    const pendingReplacement = activePendingReplacement;
+    setReplacing(true);
+    setError('');
+    try {
+      try {
+        await verifyPageGeometryCutSource(
+          cutFolder,
+          pendingReplacement.sourceRelativePath,
+          pendingReplacement.replacementChecksum,
+        );
+      } catch (cause) {
+        try {
+          await verifyPageGeometryCutSource(
+            cutFolder,
+            pendingReplacement.sourceRelativePath,
+            pendingReplacement.sourceChecksum,
+          );
+        } catch {
+          throw cause;
+        }
+        const discarded = await api.discardBrowserPageGeometrySourceReplacement(
+          uploadId,
+          pendingReplacement.replacementUploadId,
+          gameId,
+        );
+        if (discarded.error !== undefined) {
+          throw new Error(apiErrorMessage(discarded.error, 'Nie udało się anulować przygotowanej podmiany.'));
+        }
+        if (replacementRecoveryKey !== null) window.localStorage.removeItem(replacementRecoveryKey);
+        setPendingReplacement(null);
+        setFeedback('Oryginalne zdjęcie nadal jest w katalogu cut. Wybierz nowe zdjęcie ponownie.');
+        return;
+      }
+      const confirmed = await api.confirmBrowserPageGeometrySourceReplacement(
+        uploadId,
+        pendingReplacement.replacementUploadId,
+        gameId,
+        pendingReplacement.sourceChecksum,
+        pendingReplacement.sourceRelativePath,
+        pendingReplacement.replacementChecksum,
+      );
+      if (confirmed.error !== undefined || confirmed.data === undefined) {
+        throw new Error(apiErrorMessage(confirmed.error, 'Nie udało się dokończyć podmiany.'));
+      }
+      if (replacementRecoveryKey !== null) window.localStorage.removeItem(replacementRecoveryKey);
+      setPendingReplacement(null);
+      await onSourceReplaced(confirmed.data, pendingReplacement.replacementChecksum);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Nie udało się dokończyć podmiany.');
+    } finally {
+      setReplacing(false);
+    }
+  }
+
   return (
     <section
       className="pageGeometryCorrection"
@@ -983,7 +1171,7 @@ function PageGeometryCorrectionPanelContent({
           </button>
           <button
             className="primaryButton"
-            disabled={savedCount === 0 || saving || submitting}
+            disabled={savedCount === 0 || saving || submitting || replacing || activePendingReplacement !== null}
             onClick={() => void submitSaved()}
             type="button"
           >
@@ -1195,6 +1383,8 @@ function PageGeometryCorrectionPanelContent({
                 disabled={
                   saving ||
                   submitting ||
+                  replacing ||
+                  activePendingReplacement !== null ||
                   imageSize === null ||
                   cornerPlacement !== null ||
                   boardCornerPlacement !== null
@@ -1206,12 +1396,50 @@ function PageGeometryCorrectionPanelContent({
               </button>
               <button
                 className="dangerButton"
-                disabled={saving || submitting || excluding}
+                disabled={saving || submitting || excluding || replacing || activePendingReplacement !== null}
                 onClick={() => void excludeCurrentSource()}
                 type="button"
               >
                 {excluding ? 'Usuwanie…' : 'Usuń z importu'}
               </button>
+              {source.reviewReason === 'review_required' &&
+              !source.savedSincePreflight ? (
+                <>
+                  <button
+                    className="secondaryButton"
+                    disabled={saving || submitting || replacing}
+                    onClick={() => void chooseCutFolder()}
+                    type="button"
+                  >
+                    {cutFolder === null ? 'Wskaż katalog cut' : `Katalog: ${cutFolder.name}`}
+                  </button>
+                  <input
+                    accept=".jpg,.jpeg,image/jpeg"
+                    hidden
+                    onChange={(event) => void replaceCurrentSource(event.target.files?.[0])}
+                    ref={replacementInputRef}
+                    type="file"
+                  />
+                  <button
+                    className="secondaryButton"
+                    disabled={saving || submitting || replacing || cutFolder === null || activePendingReplacement !== null}
+                    onClick={() => replacementInputRef.current?.click()}
+                    type="button"
+                  >
+                    {replacing ? 'Podmieniam…' : 'Wgraj nowe zdjęcie'}
+                  </button>
+                  {activePendingReplacement !== null ? (
+                    <button
+                      className="secondaryButton"
+                      disabled={saving || submitting || replacing || cutFolder === null}
+                      onClick={() => void finishPendingReplacement()}
+                      type="button"
+                    >
+                      Dokończ podmianę po przerwaniu
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
               <button
                 className="secondaryButton"
                 disabled={saving || submitting || imageSize === null}

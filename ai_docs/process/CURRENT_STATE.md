@@ -6,6 +6,32 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0563 — opt-in v1.1 i selektywna korekta plansz
+
+- v1.1 zachowuje zarejestrowane wpisy zgodnego manifestu v1.0 i przelicza
+  nierozstrzygnięte źródła. Dla `45163–70371` odczyt bazowego manifestu
+  potwierdził `2761 registered / 40 review` przy 2801 zdjęciach; stary wariant
+  oceny ramek miał `2446 / 355`. Nie uruchomiono nowego joba.
+- Kandydat 7–8 pewnych siatek zapisuje 1–2 niepotwierdzone obrysy do Reviewera,
+  bez cropów niepewnych plansz i bez równoległej korekty całej strony. Osobna
+  kwalifikacja wyklucza kompletne plansze ze słabą ramką ze zwykłych kotwic i
+  uczenia oraz z puli faktycznie niepełnych siatek. Niewystarczający dowód
+  pozostawia pełną korektę.
+- Ograniczona próba odczytowa na realnych zdjęciach `61741–61749`,
+  `62830–62838`, `61759–61767` dała w każdym przypadku 8 pewnych siatek i
+  jeden lokalny obrys do review. Nakładka pierwszego przykładu została
+  obejrzana; wynik nie oznacza jeszcze jakości całego stagingu.
+
+### TASK-0562 — wybór v1.0 w imporcie przeglądarkowym
+
+- Nowy raport, preflight i import browser stagingu bez jawnego wariantu używają
+  `structured_lattice_v4_partial_sides`, pokazywanego jako v1.0. Panel nie
+  pokazuje historycznego wyboru v20/v2/v3. Wewnętrzny v3 pozostaje bazą v1.0;
+  historyczne joby i zapisany wariant techniczny są zachowane.
+- Tożsamość ponowień rozróżnia efektywny wariant i politykę. Zmiana nie
+  uruchomiła jobów ani nie modyfikowała danych gry. TASK-0563 dodaje osobny,
+  ręcznie wybierany v1.1.
+
 ### TASK-0561 — rollback kwalifikacji słabych obramowań
 
 - Rzeczywisty staging `45163 - 70371 cut` miał 40 pozycji ręcznej korekty w

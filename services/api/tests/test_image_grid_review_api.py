@@ -553,6 +553,32 @@ def test_grid_review_response_does_not_replace_explicitly_deferred_lattice_with_
     assert response.symbol_grid_quad is None
 
 
+def test_grid_review_response_exposes_unconfirmed_selective_draft() -> None:
+    draft = [
+        {"x": 5, "y": 6},
+        {"x": 97, "y": 6},
+        {"x": 97, "y": 75},
+        {"x": 5, "y": 75},
+    ]
+    item = replace(
+        _item(uuid4(), uuid4(), 1, ImageGridReviewState.NEEDS_CORRECTION),
+        geometry_revision=0,
+        geometry={
+            "reviewDraftQuad": draft,
+            "reviewDraftOrigin": "page_projection_confident_neighbors_v1",
+            "reviewUncertaintyReason": "local_symbol_grid_unavailable",
+            "symbolGridQuad": None,
+            "manualGeometryRequired": True,
+        },
+    )
+    response = to_image_grid_review_item_response(item)
+    assert response.review_draft_quad is not None
+    assert response.review_draft_quad[0].x == 5
+    assert response.review_draft_origin == "page_projection_confident_neighbors_v1"
+    assert response.review_uncertainty_reason == "local_symbol_grid_unavailable"
+    assert response.symbol_grid_quad is None
+
+
 def test_grid_review_response_exposes_complete_weak_frame_proposal() -> None:
     lattice = [
         {"x": 5, "y": 6},
@@ -597,8 +623,7 @@ def test_grid_review_response_exposes_complete_weak_frame_proposal() -> None:
     assert response.automatic_frame_proposal is not None
     assert response.automatic_frame_proposal.requires_manual_confirmation is True
     assert (
-        response.automatic_frame_proposal.geometry_qualification.completeness_status
-        == "complete"
+        response.automatic_frame_proposal.geometry_qualification.completeness_status == "complete"
     )
 
 
@@ -640,11 +665,18 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
     assert current.json()["geometryEngineVariants"] == [
         {
             "variant": "structured_lattice_v4_partial_sides",
-            "label": "v0.10.4 — testowy, niepełne boki",
+            "label": "v1.0 — niepełne boki",
             "enabled": True,
             "blockerCode": None,
             "blockerMessage": None,
-        }
+        },
+        {
+            "variant": "selective_board_review_v1_1",
+            "label": "v1.1 — korekta plansz",
+            "enabled": True,
+            "blockerCode": None,
+            "blockerMessage": None,
+        },
     ]
     assert preview.json()["changesExistingJobs"] is False
     assert applied.status_code == 200

@@ -335,6 +335,11 @@ function GridReviewEditorContent({
   const manualGeometryCount = items.filter(
     gridReviewRequiresManualGeometry,
   ).length;
+  const reviewDraftCount = items.filter(
+    (candidate) =>
+      candidate.reviewDraftQuad !== null &&
+      candidate.reviewDraftQuad !== undefined,
+  ).length;
   const isEditing = editing || sourceEditing;
   const hasPendingSourceDraft =
     sourceRedefining || modifiedSourceItems.size > 0 || qualificationChanged;
@@ -961,10 +966,16 @@ function GridReviewEditorContent({
                       setSourceRedefining(true);
                     }
                     setSourceEditing(true);
-                    const next = firstIncompleteGridGeometrySourceItem(
-                      items,
-                      draftsForNavigation,
-                    );
+                    const next =
+                      items.find(
+                        (candidate) =>
+                          candidate.reviewDraftQuad !== null &&
+                          candidate.reviewDraftQuad !== undefined,
+                      ) ??
+                      firstIncompleteGridGeometrySourceItem(
+                        items,
+                        draftsForNavigation,
+                      );
                     if (next !== null) {
                       onSelect(next.slotId);
                     }
@@ -977,8 +988,10 @@ function GridReviewEditorContent({
                   ? 'Wstrzymaj edycję plansz'
                   : sourceRedefining && sourceEditingProgress > 0
                     ? 'Kontynuuj plansze osobno'
-                    : manualGeometryCount > 0
-                      ? `Uzupełnij brakujące plansze (${manualGeometryCount})`
+                    : reviewDraftCount > 0
+                      ? `Popraw niepewne plansze (${reviewDraftCount})`
+                      : manualGeometryCount > 0
+                        ? `Uzupełnij brakujące plansze (${manualGeometryCount})`
                       : 'Edytuj plansze osobno'}
               </button>
             ) : null}
@@ -1008,6 +1021,9 @@ function GridReviewEditorContent({
               ? `Automatyczna propozycja · slot #${item.positionIndex + 1} · ${item.sequenceNumber}. Siatka symboli jest kompletna, ale część ramki planszy jest niewidoczna; propozycja wymaga ręcznego potwierdzenia.`
               : item.automaticPartialProposal
                 ? `Automatyczna propozycja v0.10.4 · slot #${item.positionIndex + 1} · ${item.sequenceNumber}. Brakujące pola (${item.automaticPartialProposal.geometryQualification.unavailableCellIndices.join(', ') || 'brak'}) są poza zdjęciem; propozycja wymaga ręcznego potwierdzenia.`
+                : item.reviewDraftQuad !== null &&
+                    item.reviewDraftQuad !== undefined
+                  ? `Roboczy obrys v1.1 · slot #${item.positionIndex + 1} · ${item.sequenceNumber}. Sprawdź i w razie potrzeby przeciągnij cztery rogi, a następnie zatwierdź geometrię zdjęcia.`
                 : `Automat nie utworzył tej planszy. Slot #${item.positionIndex + 1} · ${item.sequenceNumber} jest obowiązkowy — popraw roboczy szablon i zapisz komplet plansz zdjęcia.`}
           </p>
         ) : null}

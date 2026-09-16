@@ -34,6 +34,9 @@ from ..lateral_partial_contract import (
     LATERAL_PARTIAL_POLICY_VERSION,
     LATERAL_PARTIAL_POLICY_VERSION_V2,
     LATERAL_PARTIAL_POLICY_VERSION_V3,
+    SELECTIVE_FRAME_PARTIAL_PROPOSAL_VERSION,
+    SELECTIVE_FRAME_POLICY_VERSION,
+    SELECTIVE_FRAME_PROPOSAL_VERSION,
     LateralPartialGeometrySnapshot,
 )
 from ..page_geometry_registration import LateralPageRegistrationCandidate
@@ -72,10 +75,15 @@ class LateralLatticeProposal:
     training_profile_checksum_sha256: str | None = None
 
     def __post_init__(self) -> None:
-        modern = self.policy_version == LATERAL_PARTIAL_POLICY_VERSION_V3
+        modern = self.policy_version in {
+            LATERAL_PARTIAL_POLICY_VERSION_V3,
+            SELECTIVE_FRAME_POLICY_VERSION,
+        }
         learned = self.training_profile_checksum_sha256 is not None
         expected_proposal_version = (
-            AUTOMATIC_PARTIAL_PROPOSAL_VERSION_V3
+            SELECTIVE_FRAME_PARTIAL_PROPOSAL_VERSION
+            if self.policy_version == SELECTIVE_FRAME_POLICY_VERSION
+            else AUTOMATIC_PARTIAL_PROPOSAL_VERSION_V3
             if modern
             else (
                 AUTOMATIC_PARTIAL_PROPOSAL_VERSION_V2
@@ -96,17 +104,12 @@ class LateralLatticeProposal:
                 LATERAL_PARTIAL_POLICY_VERSION,
                 LATERAL_PARTIAL_POLICY_VERSION_V2,
                 LATERAL_PARTIAL_POLICY_VERSION_V3,
+                SELECTIVE_FRAME_POLICY_VERSION,
             }
             or self.proposal_version != expected_proposal_version
             or self.qualification.version != expected_qualification_version
-            or (
-                self.policy_version == LATERAL_PARTIAL_POLICY_VERSION_V2
-                and not learned
-            )
-            or (
-                self.policy_version == LATERAL_PARTIAL_POLICY_VERSION
-                and learned
-            )
+            or (self.policy_version == LATERAL_PARTIAL_POLICY_VERSION_V2 and not learned)
+            or (self.policy_version == LATERAL_PARTIAL_POLICY_VERSION and learned)
             or len(self.policy_checksum_sha256) != 64
             or any(character not in "0123456789abcdef" for character in self.policy_checksum_sha256)
             or type(self.position_index) is not int
@@ -166,8 +169,17 @@ class FrameLatticeProposal:
 
     def __post_init__(self) -> None:
         if (
-            self.policy_version != LATERAL_PARTIAL_POLICY_VERSION_V3
-            or self.proposal_version != AUTOMATIC_FRAME_PROPOSAL_VERSION
+            self.policy_version
+            not in {
+                LATERAL_PARTIAL_POLICY_VERSION_V3,
+                SELECTIVE_FRAME_POLICY_VERSION,
+            }
+            or self.proposal_version
+            != (
+                SELECTIVE_FRAME_PROPOSAL_VERSION
+                if self.policy_version == SELECTIVE_FRAME_POLICY_VERSION
+                else AUTOMATIC_FRAME_PROPOSAL_VERSION
+            )
             or self.qualification.completeness_status != "complete"
             or self.qualification.unavailable_cell_indices
             or not self.qualification.exclude_from_geometry_training
@@ -179,17 +191,11 @@ class FrameLatticeProposal:
             or {column for _, column in self.inlier_slots} != {0, 1, 2, 3, 4}
             or not 0 <= self.p95_residual_px <= _MAX_P95_RESIDUAL
             or len(self.policy_checksum_sha256) != 64
-            or any(
-                character not in "0123456789abcdef"
-                for character in self.policy_checksum_sha256
-            )
+            or any(character not in "0123456789abcdef" for character in self.policy_checksum_sha256)
             or type(self.position_index) is not int
             or not 0 <= self.position_index < 9
             or len(self.source_checksum_sha256) != 64
-            or any(
-                character not in "0123456789abcdef"
-                for character in self.source_checksum_sha256
-            )
+            or any(character not in "0123456789abcdef" for character in self.source_checksum_sha256)
         ):
             raise ValueError("An automatic frame proposal requires complete guarded evidence.")
 
@@ -274,9 +280,7 @@ class StructuredLatticeRefinementV4:
                 self.proposal.p95_residual_px
                 if self.proposal is not None
                 else (
-                    self.frame_proposal.p95_residual_px
-                    if self.frame_proposal is not None
-                    else None
+                    self.frame_proposal.p95_residual_px if self.frame_proposal is not None else None
                 )
             ),
             "columnOffset": None if self.proposal is None else self.proposal.column_offset,
@@ -361,6 +365,12 @@ def refine_structured_symbol_lattice_v4(
                 baseline.estimate.inlier_slots,
                 cast(float, baseline.estimate.inlier_p95_residual_px),
                 baseline.content_safety,
+                policy_version=policy.policy_version,
+                proposal_version=(
+                    SELECTIVE_FRAME_PROPOSAL_VERSION
+                    if policy.selective_frame_review
+                    else AUTOMATIC_FRAME_PROPOSAL_VERSION
+                ),
                 training_profile_checksum_sha256=(
                     None
                     if policy.training_profile is None
@@ -415,11 +425,7 @@ def refine_structured_symbol_lattice_v4(
         return StructuredLatticeRefinementV4(
             "needs_review",
             baseline,
-            reason_code=(
-                "ambiguous_frame_lattice"
-                if len(frame_proposals) > 1
-                else frame_reason
-            ),
+            reason_code=("ambiguous_frame_lattice" if len(frame_proposals) > 1 else frame_reason),
             additional_passes=1,
             hypothesis_count=frame_hypotheses,
             policy_version=policy.policy_version,
@@ -452,9 +458,7 @@ def refine_structured_symbol_lattice_v4(
             policy_version=policy.policy_version,
         )
     return StructuredLatticeRefinementV4(
-        "source_preparation_error"
-        if reason == "source_vertical_crop_defect"
-        else "needs_review",
+        "source_preparation_error" if reason == "source_vertical_crop_defect" else "needs_review",
         baseline,
         reason_code=reason,
         additional_passes=1,
@@ -929,10 +933,14 @@ def _evaluate_origin(
             slots,
             p95,
             safety,
+            policy_version=policy.policy_version,
+            proposal_version=(
+                SELECTIVE_FRAME_PROPOSAL_VERSION
+                if policy.selective_frame_review
+                else AUTOMATIC_FRAME_PROPOSAL_VERSION
+            ),
             training_profile_checksum_sha256=(
-                None
-                if policy.training_profile is None
-                else policy.training_profile.checksum_sha256
+                None if policy.training_profile is None else policy.training_profile.checksum_sha256
             ),
         ), None
     return LateralLatticeProposal(

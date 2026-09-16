@@ -59,6 +59,7 @@ class AutomaticPartialGeometryProposalPayload(ApiModel):
         "automatic-lateral-partial-proposal-v1",
         "automatic-lateral-partial-proposal-v2",
         "automatic-lateral-partial-proposal-v3",
+        "automatic-lateral-partial-proposal-v4",
     ]
     origin: Literal["automatic_proposal"]
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -67,6 +68,7 @@ class AutomaticPartialGeometryProposalPayload(ApiModel):
         "structured-lattice-v4-lateral-partial-v1",
         "structured-lattice-v4-lateral-partial-v2",
         "structured-lattice-v4-lateral-partial-v3",
+        "structured-lattice-v4-selective-frame-v1",
     ]
     policy_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     requires_manual_confirmation: Literal[True]
@@ -75,10 +77,13 @@ class AutomaticPartialGeometryProposalPayload(ApiModel):
 
     @model_validator(mode="after")
     def validate_proposal(self) -> AutomaticPartialGeometryProposalPayload:
+        selective = self.policy_version == "structured-lattice-v4-selective-frame-v1"
         modern = self.policy_version == "structured-lattice-v4-lateral-partial-v3"
         learned = self.training_profile_checksum_sha256 is not None
         expected_proposal_version = (
-            "automatic-lateral-partial-proposal-v3"
+            "automatic-lateral-partial-proposal-v4"
+            if selective
+            else "automatic-lateral-partial-proposal-v3"
             if modern
             else (
                 "automatic-lateral-partial-proposal-v2"
@@ -88,7 +93,7 @@ class AutomaticPartialGeometryProposalPayload(ApiModel):
         )
         expected_qualification_version = (
             "manual-geometry-qualification-v2"
-            if modern or learned
+            if selective or modern or learned
             else "manual-geometry-qualification-v1"
         )
         if self.version != expected_proposal_version:
@@ -113,21 +118,28 @@ class AutomaticPartialGeometryProposalPayload(ApiModel):
 class AutomaticFrameGeometryProposalPayload(ApiModel):
     """A complete local grid retained because its decorative frame is weak."""
 
-    version: Literal["automatic-frame-geometry-proposal-v1"]
+    version: Literal["automatic-frame-geometry-proposal-v1", "automatic-frame-geometry-proposal-v2"]
     origin: Literal["automatic_proposal"]
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     position_index: Annotated[StrictInt, Field(ge=1, le=9)]
-    policy_version: Literal["structured-lattice-v4-lateral-partial-v3"]
+    policy_version: Literal[
+        "structured-lattice-v4-lateral-partial-v3", "structured-lattice-v4-selective-frame-v1"
+    ]
     policy_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     requires_manual_confirmation: Literal[True]
     reason_code: Literal["board_frame_support_incomplete"]
     geometry_qualification: GeometryQualificationPayload
-    training_profile_checksum_sha256: str | None = Field(
-        default=None, pattern=r"^[0-9a-f]{64}$"
-    )
+    training_profile_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
     def validate_proposal(self) -> AutomaticFrameGeometryProposalPayload:
+        expected_version = (
+            "automatic-frame-geometry-proposal-v2"
+            if self.policy_version == "structured-lattice-v4-selective-frame-v1"
+            else "automatic-frame-geometry-proposal-v1"
+        )
+        if self.version != expected_version:
+            raise ValueError("The frame proposal version does not match its policy.")
         qualification = self.geometry_qualification
         if (
             qualification.version != "manual-geometry-qualification-v2"

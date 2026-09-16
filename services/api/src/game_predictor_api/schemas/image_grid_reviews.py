@@ -92,6 +92,17 @@ class ImageGridReviewItemResponse(ApiModel):
         ]
         | None
     ) = None
+    review_draft_quad: (
+        tuple[
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+            OperationalImageReviewGeometryPoint,
+        ]
+        | None
+    ) = None
+    review_draft_origin: str | None = None
+    review_uncertainty_reason: str | None = None
     local_lattice_status: str | None = None
     local_lattice_version: str | None = None
     asset_mode: str
@@ -288,9 +299,7 @@ def to_image_grid_review_item_response(
             else None
         ),
         automatic_frame_proposal=(
-            AutomaticFrameGeometryProposalPayload.model_validate(
-                geometry["automaticFrameProposal"]
-            )
+            AutomaticFrameGeometryProposalPayload.model_validate(geometry["automaticFrameProposal"])
             if geometry.get("automaticFrameProposal") is not None
             else None
         ),
@@ -314,6 +323,9 @@ def to_image_grid_review_item_response(
         grid_columns=item.topology.columns,
         geometry=geometry,
         analysis_quad=_optional_geometry_quad(geometry.get("analysisQuad")),
+        review_draft_quad=_optional_geometry_quad(geometry.get("reviewDraftQuad")),
+        review_draft_origin=_optional_text(geometry.get("reviewDraftOrigin")),
+        review_uncertainty_reason=_optional_text(geometry.get("reviewUncertaintyReason")),
         board_frame_quad=_optional_geometry_quad(geometry.get("boardFrameQuad")),
         symbol_grid_quad=_optional_geometry_quad(symbol_grid_quad),
         local_lattice_status=_optional_text(geometry.get("localLatticeStatus")),

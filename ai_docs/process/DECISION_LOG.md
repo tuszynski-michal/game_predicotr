@@ -8,6 +8,43 @@ last_updated: 2026-09-15
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
+## D-397 — v1.1 odzyskuje tylko niepewne plansze po wyniku bazowym
+
+- **Status:** accepted
+- **Date:** 2026-09-16
+- **Decision:** v1.1 jest opt-in i pozostawia wyniki przyjęte przez v1.0.
+  Ukończony zgodny manifest v1.0 jest bazą ponownego użycia, a dodatkowa
+  analiza dotyczy tylko nierozstrzygniętych źródeł. Przy ważnej perspektywie,
+  7–8 pewnych siatkach i najwyżej dwóch słabych Reviewer dostaje tylko
+  niepotwierdzone obrysy tych plansz. Reszta przechodzi bez ponownej korekty.
+- **Rationale:** historyczna ocena ramek przeniosła 315 już przyjętych zdjęć
+  do korekty (`40→355`), a operator potrzebuje przesuwać rogi jednej planszy,
+  nie odtwarzać dziewięciu.
+- **Safety:** brak automatycznych cropów, kotwic i uczenia z roboczego obrysu.
+  Trzy słabe plansze, niepewna kolejność, pionowe ucięcie lub wadliwy obrys
+  zachowują pełną korektę. Trwała ręczna rewizja ma pierwszeństwo.
+- **Consequences:** nowy checksumowany snapshot i propozycja wymagają
+  wygenerowanego kontraktu API. Historyczne manifesty pozostają bez zmian;
+  bazowe wpisy `registered` można ponownie użyć w pierwszym preflighcie v1.1.
+
+## D-396 — v1.0 jest domyślnym wyborem nowych stagingów plansz
+
+- **Status:** accepted
+- **Date:** 2026-09-16
+- **Decision:** `structured_lattice_v4_partial_sides` zachowuje techniczny
+  identyfikator, a w panelu jest nazwany v1.0 i domyślnie przypinany do nowego
+  raportu, preflightu oraz importu przeglądarkowego. Historyczne v20, v2 i v3
+  nie są oferowane w wyborze nowego stagingu. v3 pozostaje wewnętrzną bazą
+  geometrii v1.0.
+- **Rationale:** zmiana samej nazwy nie powinna unieważnić manifestów ani
+  doprowadzić do powtórnego przetwarzania zdjęć. Jednoznaczny wariant w
+  tożsamości żądania zapobiega myleniu nowych i historycznych jobów.
+- **Safety:** istniejące joby, ich polityki i artefakty pozostają niezmienione.
+  Oddzielny opt-in v1.1 będzie miał nowy identyfikator i snapshot.
+- **Consequences:** polityka zapisana dla gry nie steruje efektywnym silnikiem
+  nowego przeglądarkowego stagingu. Pozostałe starsze kontrakty pozostają
+  czytelne dla historii i niezależnych workflowów.
+
 ## D-382 — V12 jest głównym silnikiem nowych sesji cropów
 
 - **Status:** accepted

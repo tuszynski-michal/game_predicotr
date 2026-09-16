@@ -7,6 +7,43 @@ release: "0.7"
 
 # Architektura iteracyjnego importu
 
+## Przypięty opt-in v1.1 — TASK-0563
+
+Nowy `geometryEngineVariant=selective_board_review_v1_1` ma osobną wersję
+snapshotu, polityki, checksumę i wersje propozycji. API, preflight i worker
+weryfikują dokładną tożsamość wariantu; historyczne snapshoty pozostają
+czytelne. Kompatybilność `baseline_to_selective_v1_1` używa ukończonego
+manifestu v1.0 v1/v2 tylko przy identycznym source manifeście, profilu
+rejestracji i profilu nauki częściowych siatek. Przenosi bezpieczne wpisy
+`registered` i ponownie ocenia review oraz zależności zmienionych kotwic.
+Checkpointy i deterministyczna kolejność wpisów pozostają wspólne.
+
+Rejestrator zachowuje wynik bazy przed próbą odzysku. Kandydat słabej ramki
+przechodzi istniejące bramki homografii, kolejności i pokrycia, ale wymaga 7
+pewnych oraz najwyżej 2 słabych slotów. Worker dopasowuje lokalne siatki, a
+gdy jedna nie powstaje, przenosi medianowe względne położenie siatek sąsiadów
+przez perspektywę strony. Powstaje `reviewDraftQuad` z pochodzeniem i powodem,
+bez `finalQuad`. Pewne plansze zachowują `finalQuad`. Osobna kwalifikacja
+niepewnej kompletnej planszy wyklucza ją z kotwic i obu pul uczenia.
+
+API kieruje źródła z kandydatem v1.1 do lokalnego dopasowania podczas importu,
+bez dublowania ich w kolejce korekty całego zdjęcia przed importem. Po
+niepowodzeniu lokalnym Reviewer dostaje pełną korektę. Typowana odpowiedź
+Reviewera niesie roboczy obrys, pochodzenie i powód; formularz zapisuje
+wszystkie aktywne sloty w jednej istniejącej rewizji źródła. Odczyt późniejszej
+rewizji człowieka ma pierwszeństwo przed propozycją automatu.
+
+## Domyślny wariant v1.0 — TASK-0562
+
+Żądania raportu, preflightu geometrii i startu przeglądarkowego stagingu
+normalizują brak `geometryEngineVariant` do technicznego
+`structured_lattice_v4_partial_sides`. Wariant jest częścią tożsamości raportu,
+preflightu i joba. Nowy job przypina wewnętrzny `structured_lattice_v3` wraz z
+aktywną siatką i polityką bocznych niepełnych plansz niezależnie od starszego
+ustawienia gry. Historyczne snapshoty zachowują swój zapis; odczyt i retry
+opierają się na przypiętej polityce. Panel importu pokazuje v1.0 jako wariant
+domyślny oraz ręcznie wybierany v1.1.
+
 ## Testowy run v0.10.4 po odbiorze TASK-0515
 
 Operator może jawnie wybrać

@@ -227,8 +227,7 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             or 0
         )
         needs_validation = (
-            counts.get(ImageGridReviewState.NEEDS_VALIDATION.value, 0)
-            + automatic_proposals
+            counts.get(ImageGridReviewState.NEEDS_VALIDATION.value, 0) + automatic_proposals
         )
         approved = counts.get(ImageGridReviewState.APPROVED.value, 0)
         needs_correction = (
@@ -794,10 +793,7 @@ def _pending_automatic_quad(geometry: dict[str, object]) -> list[dict[str, int]]
         )
     ):
         return None
-    return [
-        {"x": round(float(point["x"])), "y": round(float(point["y"]))}
-        for point in value
-    ]
+    return [{"x": round(float(point["x"])), "y": round(float(point["y"]))} for point in value]
 
 
 def _pending_suggested_quad(
@@ -807,7 +803,14 @@ def _pending_suggested_quad(
     source_width: int,
     source_height: int,
 ) -> list[dict[str, int]]:
-    for key in ("symbolGridQuad", "finalQuad", "analysisQuad", "initialQuad", "quad"):
+    for key in (
+        "reviewDraftQuad",
+        "symbolGridQuad",
+        "finalQuad",
+        "analysisQuad",
+        "initialQuad",
+        "quad",
+    ):
         value = geometry.get(key)
         if (
             isinstance(value, list | tuple)

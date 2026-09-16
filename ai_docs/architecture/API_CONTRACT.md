@@ -6,6 +6,24 @@ last_updated: 2026-09-08
 
 # Kontrakty API i danych mobilnych
 
+## Warianty geometrii nowych stagingów — TASK-0562/0563
+
+Brak `geometryEngineVariant` w żądaniu raportu, preflightu lub startu nowego
+przeglądarkowego stagingu oznacza techniczne
+`structured_lattice_v4_partial_sides` (v1.0). Jawne
+`selective_board_review_v1_1` przypina odrębny snapshot i pozostaje opcją
+ręczną. Tożsamość raportu, preflightu i importu zawiera efektywny wariant.
+Historyczne joby zachowują zapisane polityki.
+
+Descriptor bazowego manifestu akceptuje
+`compatibilityMode=baseline_to_selective_v1_1`; worker sprawdza checksumę,
+selekcję, profil i wariant bazy przed ponownym użyciem `registered`.
+`ImageGridReviewItemResponse` przenosi opcjonalne `reviewDraftQuad`,
+`reviewDraftOrigin` i `reviewUncertaintyReason`. Obrys nie jest `finalQuad` ani
+decyzją człowieka. Zapis i ponowienie używają istniejącej atomowej rewizji
+geometrii całego źródła. Frontend używa wyłącznie klienta wygenerowanego z
+OpenAPI.
+
 ## Cursor listy Weryfikacji symboli — TASK-0521
 
 Nieprzezroczysty cursor listy ma wersję 6 i jest związany z `gameId`, generacją

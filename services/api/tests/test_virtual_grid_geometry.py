@@ -450,7 +450,21 @@ def test_virtual_source_save_accepts_one_deferred_slot_only_as_part_of_complete_
     repository = service._repository  # noqa: SLF001 - application port fixture
     assert isinstance(repository, MemoryVirtualGridGeometryRepository)
     board_geometries = tuple(
-        {"positionIndex": position, "sequenceNumber": 1234 + position} for position in range(9)
+        {
+            "positionIndex": position,
+            "sequenceNumber": 1234 + position,
+            **(
+                {
+                    "reviewDraftQuad": [
+                        {"x": point.x, "y": point.y} for point in _cell_corners(position)
+                    ],
+                    "reviewDraftOrigin": "page_projection_confident_neighbors_v1",
+                }
+                if position == 5
+                else {}
+            ),
+        }
+        for position in range(9)
     )
     contexts = []
     for position in range(9):
@@ -497,6 +511,7 @@ def test_virtual_source_save_accepts_one_deferred_slot_only_as_part_of_complete_
     assert len(result.revisions) == 9
     assert result.revisions[5].review_item_id == contexts[5].pending_geometry_id
     assert len(repository.saved) == 9
+    assert repository.saved[5].command.corners == _cell_corners(5)
 
 
 def _cell_corners(position_index: int) -> tuple[ImageReviewGeometryPoint, ...]:

@@ -108,9 +108,7 @@ class PageGeometryPreflightHandler:
                     manifest,
                     game_id=str(job.game_id),
                     source_selection_id=cast(str, payload["sourceSelectionId"]),
-                    source_manifest_sha256=cast(
-                        str, payload["sourceManifestChecksumSha256"]
-                    ),
+                    source_manifest_sha256=cast(str, payload["sourceManifestChecksumSha256"]),
                     policy=LateralPartialGeometrySnapshot.from_payload(
                         payload["lateralPartialGeometry"]
                     ),
@@ -140,10 +138,9 @@ class PageGeometryPreflightHandler:
                     reused_source_count if isinstance(reused_source_count, int) else None
                 ),
                 recomputed_source_count=(
-                    recomputed_source_count
-                    if isinstance(recomputed_source_count, int)
-                    else None
+                    recomputed_source_count if isinstance(recomputed_source_count, int) else None
                 ),
+                previous_checkpoint=job.checkpoint_payload,
             )
             return
 
@@ -235,9 +232,7 @@ class PageGeometryPreflightHandler:
                 descriptor,
                 game_id=str(job.game_id),
                 source_selection_id=cast(str, payload["sourceSelectionId"]),
-                source_manifest_checksum_sha256=cast(
-                    str, payload["sourceManifestChecksumSha256"]
-                ),
+                source_manifest_checksum_sha256=cast(str, payload["sourceManifestChecksumSha256"]),
                 preflight_policy_version=cast(str, payload["preflightPolicyVersion"]),
                 page_registration_profile=cast(
                     Mapping[str, object], payload["pageRegistrationProfile"]
@@ -264,11 +259,8 @@ class PageGeometryPreflightHandler:
             source_inventory_checksum_sha256=source_inventory_checksum(managed.originals),
             shard_size=_CHECKPOINT_BATCH_SIZE,
         )
-        durable_required = (
-            isinstance(job.checkpoint_payload, Mapping)
-            and isinstance(
-                job.checkpoint_payload.get("durable_checkpoint_relative_path"), str
-            )
+        durable_required = isinstance(job.checkpoint_payload, Mapping) and isinstance(
+            job.checkpoint_payload.get("durable_checkpoint_relative_path"), str
         )
         checkpoint_state = checkpoint_store.load(required=durable_required)
         if checkpoint_state is None:
@@ -389,27 +381,21 @@ class PageGeometryPreflightHandler:
                         durable_checkpoint=checkpoint_state,
                     )
             metadata["phase"] = _PROGRESS_PHASE_AUTO_ANCHOR_RETRY
-            checkpoint_state = checkpoint_store.append(
-                {}, metadata=metadata, all_entries=entries
-            )
+            checkpoint_state = checkpoint_store.append({}, metadata=metadata, all_entries=entries)
 
-        auto_anchor_passes = _checkpoint_reports(
-            checkpoint_state.metadata.get("autoAnchorPasses")
-        )
+        auto_anchor_passes = _checkpoint_reports(checkpoint_state.metadata.get("autoAnchorPasses"))
         if _uses_auto_anchors(cast(str, payload["preflightPolicyVersion"])):
-            entries, auto_anchor_passes, checkpoint_state = (
-                self._retry_with_verified_auto_anchors(
-                    entries,
-                    managed.originals,
-                    context=context,
-                    source_directory=managed.source_directory,
-                    payload=payload,
-                    base_profile=registration_profile,
-                    checkpoint_store=checkpoint_store,
-                    checkpoint_state=checkpoint_state,
-                    reused_source_count=reused_source_count,
-                    recomputed_source_count=recomputed_source_count,
-                )
+            entries, auto_anchor_passes, checkpoint_state = self._retry_with_verified_auto_anchors(
+                entries,
+                managed.originals,
+                context=context,
+                source_directory=managed.source_directory,
+                payload=payload,
+                base_profile=registration_profile,
+                checkpoint_store=checkpoint_store,
+                checkpoint_state=checkpoint_state,
+                reused_source_count=reused_source_count,
+                recomputed_source_count=recomputed_source_count,
             )
         registered = _entry_status_count(entries, "registered")
         review_required = _entry_status_count(entries, "review_required")
@@ -418,9 +404,7 @@ class PageGeometryPreflightHandler:
         metadata["phase"] = _PROGRESS_PHASE_MANIFEST_WRITE
         metadata["autoAnchorPasses"] = auto_anchor_passes
         metadata["activeAutoAnchorPass"] = None
-        checkpoint_state = checkpoint_store.append(
-            {}, metadata=metadata, all_entries=entries
-        )
+        checkpoint_state = checkpoint_store.append({}, metadata=metadata, all_entries=entries)
         _checkpoint(
             context,
             payload,
@@ -456,12 +440,8 @@ class PageGeometryPreflightHandler:
         self._write_immutable(output, content)
         metadata["phase"] = _PROGRESS_PHASE_COMPLETE
         metadata["geometryManifestChecksumSha256"] = checksum
-        metadata["geometryManifestRelativePath"] = _relative_to_data(
-            self._artifact_root, output
-        )
-        checkpoint_state = checkpoint_store.append(
-            {}, metadata=metadata, all_entries=entries
-        )
+        metadata["geometryManifestRelativePath"] = _relative_to_data(self._artifact_root, output)
+        checkpoint_state = checkpoint_store.append({}, metadata=metadata, all_entries=entries)
         _checkpoint(
             context,
             payload,
@@ -627,9 +607,7 @@ class PageGeometryPreflightHandler:
                     original.checksum_sha256
                     for original in originals
                     if isinstance(entries.get(original.checksum_sha256), Mapping)
-                    and cast(
-                        Mapping[str, object], entries[original.checksum_sha256]
-                    ).get("status")
+                    and cast(Mapping[str, object], entries[original.checksum_sha256]).get("status")
                     == "review_required"
                 ]
                 active = {
@@ -770,9 +748,7 @@ class PageGeometryPreflightHandler:
             reports.append(report)
             metadata["autoAnchorPasses"] = reports
             metadata["activeAutoAnchorPass"] = None
-            checkpoint_state = checkpoint_store.append(
-                {}, metadata=metadata, all_entries=entries
-            )
+            checkpoint_state = checkpoint_store.append({}, metadata=metadata, all_entries=entries)
             if resolved == 0:
                 break
         return entries, reports, checkpoint_state
@@ -981,9 +957,7 @@ def _checkpoint_reports(value: object) -> list[dict[str, object]]:
                 "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID",
                 "A durable page-geometry auto-anchor report is invalid.",
             )
-        _checkpoint_checksum_list(
-            raw.get("promotedAnchorChecksums"), field="promoted anchors"
-        )
+        _checkpoint_checksum_list(raw.get("promotedAnchorChecksums"), field="promoted anchors")
         reports.append(dict(raw))
     return reports
 
@@ -1298,6 +1272,7 @@ def _checkpoint(
     reused_source_count: int | None = None,
     recomputed_source_count: int | None = None,
     durable_checkpoint: LoadedPageGeometryCheckpoint | None = None,
+    previous_checkpoint: Mapping[str, object] | None = None,
 ) -> None:
     value: dict[str, object] = {
         "schema_version": 1,
@@ -1320,12 +1295,19 @@ def _checkpoint(
         value["recomputed_source_count"] = recomputed_source_count
     if durable_checkpoint is not None:
         value["durable_checkpoint_schema_version"] = 1
-        value["durable_checkpoint_relative_path"] = (
-            durable_checkpoint.state_relative_path
-        )
-        value["durable_checkpoint_checksum_sha256"] = (
-            durable_checkpoint.state_checksum_sha256
-        )
+        value["durable_checkpoint_relative_path"] = durable_checkpoint.state_relative_path
+        value["durable_checkpoint_checksum_sha256"] = durable_checkpoint.state_checksum_sha256
+    elif previous_checkpoint is not None and (
+        previous_checkpoint.get("durable_checkpoint_schema_version") == 1
+        and isinstance(previous_checkpoint.get("durable_checkpoint_relative_path"), str)
+        and _is_sha256(previous_checkpoint.get("durable_checkpoint_checksum_sha256"))
+    ):
+        for key in (
+            "durable_checkpoint_schema_version",
+            "durable_checkpoint_relative_path",
+            "durable_checkpoint_checksum_sha256",
+        ):
+            value[key] = previous_checkpoint[key]
     if manifest_checksum is not None and manifest_relative_path is not None:
         value["geometry_manifest_checksum_sha256"] = manifest_checksum
         value["geometry_manifest_relative_path"] = manifest_relative_path

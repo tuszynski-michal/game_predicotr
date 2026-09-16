@@ -20,9 +20,11 @@ from numpy.typing import NDArray
 from .geometry import Point, Quad
 from .lateral_partial_contract import (
     MAXIMUM_FRAME_REVIEW_SLOTS,
+    MAXIMUM_SELECTIVE_REVIEW_SLOTS,
     MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE,
     MINIMUM_REVIEWABLE_BOARD_RED_EDGE_COVERAGE,
     MINIMUM_REVIEWABLE_PAGE_MEAN_RED_EDGE_COVERAGE,
+    MINIMUM_SELECTIVE_CONFIDENT_SLOTS,
     LateralPartialGeometrySnapshot,
 )
 
@@ -235,6 +237,7 @@ class LateralPageRegistrationCandidate:
     version: Literal[
         "lateral-page-registration-candidate-v1",
         "lateral-page-registration-candidate-v2",
+        "lateral-page-registration-candidate-v3",
     ] = "lateral-page-registration-candidate-v1"
 
     def to_payload(self) -> dict[str, object]:
@@ -248,7 +251,10 @@ class LateralPageRegistrationCandidate:
             "requiresLocalRefinement": True,
             "boardRedEdgeCoverages": [round(value, 6) for value in self.board_red_edge_coverages],
         }
-        if self.version == "lateral-page-registration-candidate-v2":
+        if self.version in {
+            "lateral-page-registration-candidate-v2",
+            "lateral-page-registration-candidate-v3",
+        }:
             result["recoveryKind"] = self.recovery_kind
             result["reviewRequiredSlots"] = list(self.review_required_slots)
         return result
@@ -864,10 +870,15 @@ def _evaluate_final_registration(
         )
     coverage = tuple(_red_edge_coverage(red_neighbourhood, quad) for quad in quads)
     mean_coverage = sum(coverage) / len(coverage)
+    baseline_accepted = (
+        mean_coverage >= thresholds.minimum_mean_red_edge_coverage
+        and min(coverage) >= thresholds.minimum_board_red_edge_coverage
+    )
     if (
         lateral_partial_policy is not None
         and lateral_partial_policy.frame_support_review
         and lateral_candidates is not None
+        and (not lateral_partial_policy.selective_frame_review or not baseline_accepted)
     ):
         candidate = _frame_support_search_candidate(
             match,
@@ -999,7 +1010,9 @@ def _lateral_search_candidate(
         policy_checksum_sha256=policy.checksum_sha256,
         board_red_edge_coverages=coverage,
         version=(
-            "lateral-page-registration-candidate-v2"
+            "lateral-page-registration-candidate-v3"
+            if policy.selective_frame_review
+            else "lateral-page-registration-candidate-v2"
             if policy.frame_support_review
             else "lateral-page-registration-candidate-v1"
         ),
@@ -1035,15 +1048,23 @@ def _frame_support_search_candidate(
         not policy.frame_support_review
         or len(active_board_slots) < 4
         or not weak_slots
-        or len(weak_slots) > MAXIMUM_FRAME_REVIEW_SLOTS
+        or len(weak_slots)
+        > (
+            MAXIMUM_SELECTIVE_REVIEW_SLOTS
+            if policy.selective_frame_review
+            else MAXIMUM_FRAME_REVIEW_SLOTS
+        )
         or min(active_coverages) < MINIMUM_REVIEWABLE_BOARD_RED_EDGE_COVERAGE
         or sum(active_coverages) / len(active_coverages)
         < MINIMUM_REVIEWABLE_PAGE_MEAN_RED_EDGE_COVERAGE
         or sum(
-            coverage >= MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE
-            for coverage in active_coverages
+            coverage >= MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE for coverage in active_coverages
         )
-        < max(3, len(active_board_slots) - MAXIMUM_FRAME_REVIEW_SLOTS)
+        < (
+            MINIMUM_SELECTIVE_CONFIDENT_SLOTS
+            if policy.selective_frame_review
+            else max(3, len(active_board_slots) - MAXIMUM_FRAME_REVIEW_SLOTS)
+        )
         or not np.isfinite(homography).all()
         or abs(float(homography[2, 2])) < 1e-12
         or abs(float(np.linalg.det(homography / homography[2, 2]))) < 1e-12
@@ -1082,7 +1103,11 @@ def _frame_support_search_candidate(
         board_red_edge_coverages=active_coverages,
         recovery_kind="frame_support_review",
         review_required_slots=weak_slots,
-        version="lateral-page-registration-candidate-v2",
+        version=(
+            "lateral-page-registration-candidate-v3"
+            if policy.selective_frame_review
+            else "lateral-page-registration-candidate-v2"
+        ),
     )
 
 

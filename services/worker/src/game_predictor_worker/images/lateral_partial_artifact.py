@@ -15,9 +15,11 @@ import numpy as np
 from .geometry import Point, Quad
 from .lateral_partial_contract import (
     MAXIMUM_FRAME_REVIEW_SLOTS,
+    MAXIMUM_SELECTIVE_REVIEW_SLOTS,
     MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE,
     MINIMUM_REVIEWABLE_BOARD_RED_EDGE_COVERAGE,
     MINIMUM_REVIEWABLE_PAGE_MEAN_RED_EDGE_COVERAGE,
+    MINIMUM_SELECTIVE_CONFIDENT_SLOTS,
     LateralPartialContractError,
     LateralPartialGeometrySnapshot,
 )
@@ -111,7 +113,9 @@ def lateral_candidate_from_entry(
     if raw is None:
         return None
     expected_version = (
-        "lateral-page-registration-candidate-v2"
+        "lateral-page-registration-candidate-v3"
+        if policy.selective_frame_review
+        else "lateral-page-registration-candidate-v2"
         if policy.frame_support_review
         else "lateral-page-registration-candidate-v1"
     )
@@ -192,34 +196,38 @@ def lateral_candidate_from_entry(
                 if coverage < MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE
             )
             geometry_valid = (
-                expected_version == "lateral-page-registration-candidate-v2"
+                expected_version
+                in {
+                    "lateral-page-registration-candidate-v2",
+                    "lateral-page-registration-candidate-v3",
+                }
                 and review_required_slots == expected_review_slots
-                and 1 <= len(review_required_slots) <= MAXIMUM_FRAME_REVIEW_SLOTS
+                and 1
+                <= len(review_required_slots)
+                <= (
+                    MAXIMUM_SELECTIVE_REVIEW_SLOTS
+                    if policy.selective_frame_review
+                    else MAXIMUM_FRAME_REVIEW_SLOTS
+                )
                 and min(coverages) >= MINIMUM_REVIEWABLE_BOARD_RED_EDGE_COVERAGE
                 and sum(coverages) / len(coverages)
                 >= MINIMUM_REVIEWABLE_PAGE_MEAN_RED_EDGE_COVERAGE
-                and sum(
-                    value >= MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE
-                    for value in coverages
+                and sum(value >= MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE for value in coverages)
+                >= (
+                    MINIMUM_SELECTIVE_CONFIDENT_SLOTS
+                    if policy.selective_frame_review
+                    else max(3, board_count - MAXIMUM_FRAME_REVIEW_SLOTS)
                 )
-                >= max(3, board_count - MAXIMUM_FRAME_REVIEW_SLOTS)
-                and is_ordered_active_grid(
-                    tuple(quads), tuple(range(board_count)), width, height
-                )
+                and is_ordered_active_grid(tuple(quads), tuple(range(board_count)), width, height)
             )
         else:
             geometry_valid = (
                 not review_required_slots
                 and all(thresholds.minimum_board_red_edge_coverage <= v <= 1 for v in coverages)
                 and sum(coverages) / len(coverages) >= thresholds.minimum_mean_red_edge_coverage
-                and _is_lateral_ordered_grid(
-                    tuple(quads), tuple(range(board_count)), width, height
-                )
+                and _is_lateral_ordered_grid(tuple(quads), tuple(range(board_count)), width, height)
             )
-        if (
-            not common_valid
-            or not geometry_valid
-        ):
+        if not common_valid or not geometry_valid:
             raise ValueError("The candidate no longer meets its registration gates.")
         registration = raw["registrationVersion"]
         if registration not in {
@@ -259,6 +267,7 @@ def lateral_candidate_from_entry(
                 Literal[
                     "lateral-page-registration-candidate-v1",
                     "lateral-page-registration-candidate-v2",
+                    "lateral-page-registration-candidate-v3",
                 ],
                 expected_version,
             ),

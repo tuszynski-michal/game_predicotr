@@ -24,7 +24,10 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
 )
 from game_predictor_api.domain.board_topology import BoardTopology as DomainBoardTopology
-from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.geometry_qualification import (
+    GEOMETRY_QUALIFICATION_VERSION,
+    GeometryQualification,
+)
 from game_predictor_api.domain.image_geometry_v2 import (
     AttestedSequenceRange,
     DirectCellRenderConfiguration,
@@ -2093,6 +2096,7 @@ class ProductionImageStageAdapterSuite:
     ) -> dict[str, object]:
         from .lateral_partial_artifact import lateral_candidate_from_entry
         from .lateral_partial_contract import LateralPartialContractError
+        from .selective_board_review import integer_review_draft, projected_review_draft
         from .structured_geometry.lattice_refinement_v4 import refine_structured_symbol_lattice_v4
 
         policy = self._geometry_rollout.lateral_partial_geometry
@@ -2118,6 +2122,12 @@ class ProductionImageStageAdapterSuite:
         ).to_payload()
         boards = cast(list[dict[str, object]], payload["boards"])
         reasons: set[str] = set()
+        confident_neighbors: list[tuple[SourceQuad, SourceQuad]] = []
+        unresolved_slots: list[int] = []
+        partial_slots: set[int] = set()
+        selective_frame = (
+            policy.selective_frame_review and candidate.recovery_kind == "frame_support_review"
+        )
         for position, raw_quad in enumerate(candidate.initialization.initialization_quads):
             quad = SourceQuad(
                 corners=cast(
@@ -2136,11 +2146,26 @@ class ProductionImageStageAdapterSuite:
                 policy=policy,
             )
             measured = result.to_payload()
-            full = result.status == "full"
-            reason = result.reason_code or (
-                "lateral_partial_confirmation_required"
-                if result.proposal
-                else "insufficient_lattice_evidence"
+            full = result.status == "full" and not (
+                selective_frame and position in candidate.review_required_slots
+            )
+            if result.status == "pending_partial":
+                partial_slots.add(position)
+            if full and result.baseline.symbol_grid_quad is not None:
+                confident_neighbors.append(
+                    (result.baseline.analysis_quad, result.baseline.symbol_grid_quad)
+                )
+            else:
+                unresolved_slots.append(position)
+            reason = (
+                "board_frame_support_incomplete"
+                if selective_frame and position in candidate.review_required_slots
+                else result.reason_code
+                or (
+                    "lateral_partial_confirmation_required"
+                    if result.proposal
+                    else "insufficient_lattice_evidence"
+                )
             )
             board = boards[position]
             board.update(measured)
@@ -2155,6 +2180,85 @@ class ProductionImageStageAdapterSuite:
             )
             if not full:
                 reasons.add(reason)
+        if selective_frame:
+            if (
+                len(confident_neighbors) < 7
+                or len(unresolved_slots) > 2
+                or not set(unresolved_slots).issubset(candidate.review_required_slots)
+            ):
+                return manual_source_geometry_result(
+                    StructuredGeometryInitializationRequest.for_frame(
+                        frame,
+                        topology=DomainBoardTopology(rows=3, columns=5),
+                        topology_rules_version_id=UUID(self._board_topology.rules_version_id),
+                        attested_range=attested,
+                    )
+                ).to_payload()
+            for position in unresolved_slots:
+                board = boards[position]
+                if position in partial_slots:
+                    # Missing cells continue through the separate partial-grid
+                    # confirmation path; a frame draft must not relabel them
+                    # as a complete 15-cell board.
+                    continue
+                local_grid = board.get("symbolGridQuad")
+                if isinstance(local_grid, list):
+                    draft_payload = integer_review_draft(
+                        local_grid, width=frame.source.width, height=frame.source.height
+                    )
+                    draft_origin = "local_symbol_lattice_v1"
+                    uncertainty_reason = "board_frame_support_incomplete"
+                else:
+                    raw_quad = candidate.initialization.initialization_quads[position]
+                    analysis = SourceQuad(
+                        corners=cast(
+                            tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                            tuple(SourcePoint(float(p.x), float(p.y)) for p in raw_quad),
+                        )
+                    )
+                    draft = projected_review_draft(
+                        analysis,
+                        confident_neighbors,
+                        width=frame.source.width,
+                        height=frame.source.height,
+                    )
+                    if draft is None:
+                        return manual_source_geometry_result(
+                            StructuredGeometryInitializationRequest.for_frame(
+                                frame,
+                                topology=DomainBoardTopology(rows=3, columns=5),
+                                topology_rules_version_id=UUID(
+                                    self._board_topology.rules_version_id
+                                ),
+                                attested_range=attested,
+                            )
+                        ).to_payload()
+                    draft_payload = integer_review_draft(
+                        draft.to_dict(), width=frame.source.width, height=frame.source.height
+                    )
+                    draft_origin = "page_projection_confident_neighbors_v1"
+                    uncertainty_reason = "local_symbol_grid_unavailable"
+                if draft_payload is None:
+                    return manual_source_geometry_result(
+                        StructuredGeometryInitializationRequest.for_frame(
+                            frame,
+                            topology=DomainBoardTopology(rows=3, columns=5),
+                            topology_rules_version_id=UUID(self._board_topology.rules_version_id),
+                            attested_range=attested,
+                        )
+                    ).to_payload()
+                board["reviewDraftQuad"] = draft_payload
+                board["reviewDraftOrigin"] = draft_origin
+                board["reviewUncertaintyReason"] = uncertainty_reason
+                board["geometryQualification"] = GeometryQualification(
+                    "complete",
+                    (),
+                    True,
+                    "manual_exclusion",
+                    False,
+                    GEOMETRY_QUALIFICATION_VERSION,
+                ).to_dict()
+                board["excludeFromPageAnchors"] = True
         payload.update(
             {
                 "boards": boards,

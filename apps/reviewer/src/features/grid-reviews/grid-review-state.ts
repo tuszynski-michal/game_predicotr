@@ -94,6 +94,8 @@ export function gridReviewCorners(
   const allowSignedCoordinates =
     gridReviewQualification(item)?.completenessStatus === 'pending_partial';
   if (item.geometryRevision === 0) {
+    const reviewDraft = parseTypedCorners(item.reviewDraftQuad, false);
+    if (reviewDraft !== null) return reviewDraft;
     const symbolGrid = parseTypedCorners(
       item.symbolGridQuad,
       allowSignedCoordinates,
@@ -193,7 +195,10 @@ export function requiredGridGeometrySourceDrafts(
   return new Map(
     items.map((item) => [
       item.slotId,
-      gridReviewRequiresManualGeometry(item) ? [] : gridReviewCorners(item),
+      gridReviewRequiresManualGeometry(item) &&
+      (item.reviewDraftQuad === null || item.reviewDraftQuad === undefined)
+        ? []
+        : gridReviewCorners(item),
     ]),
   );
 }

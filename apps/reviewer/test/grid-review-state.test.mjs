@@ -474,6 +474,49 @@ test('a complete grid recovered from a weak frame is ready for validation', () =
   assert.equal(firstIncompleteGridGeometrySourceItem([proposed], drafts), null);
 });
 
+test('v1.1 projected draft opens with four corners while a saved human revision wins', () => {
+  const draft = [
+    { x: 15, y: 105 },
+    { x: 95, y: 105 },
+    { x: 95, y: 185 },
+    { x: 15, y: 185 },
+  ];
+  const candidate = {
+    ...item,
+    geometry: { manualGeometryRequired: true },
+    geometryRevision: 0,
+    pendingGeometryId: '80000000-0000-4000-8000-000000000004',
+    reviewDraftQuad: draft,
+    reviewDraftOrigin: 'page_projection_confident_neighbors_v1',
+    reviewItemId: null,
+    slotId: '80000000-0000-4000-8000-000000000004',
+    slotKind: 'deferred_geometry',
+    state: 'needs_correction',
+    symbolGridQuad: null,
+  };
+  const drafts = requiredGridGeometrySourceDrafts([candidate]);
+  assert.deepEqual(gridGeometrySourceDraft(drafts, candidate.slotId), draft);
+  assert.equal(firstIncompleteGridGeometrySourceItem([candidate], drafts), null);
+  assert.deepEqual(completeGridGeometrySourceDrafts([candidate], drafts)?.[0].corners, draft);
+  assert.deepEqual(
+    gridReviewGeometryCommand(candidate, draft, 'v1.1-reviewed').corners,
+    draft,
+  );
+  const human = {
+    ...candidate,
+    geometry: {
+      corners: [
+        { x: 20, y: 110 },
+        { x: 100, y: 110 },
+        { x: 100, y: 190 },
+        { x: 20, y: 190 },
+      ],
+    },
+    geometryRevision: 1,
+  };
+  assert.deepEqual(gridReviewCorners(human), human.geometry.corners);
+});
+
 test('pausing source geometry preserves completed drafts and resumes at the next row-major slot', () => {
   const sourceItems = [
     {

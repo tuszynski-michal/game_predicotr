@@ -6,6 +6,44 @@ last_updated: 2026-09-08
 
 # Import i rozpoznawanie zdjęć
 
+## Selektywna korekta plansz v1.1 — TASK-0563
+
+`selective_board_review_v1_1` jest ręcznie wybieranym wariantem nowego
+przeglądarkowego stagingu. Wykorzystuje niezmienione wyniki przyjęte przez
+v1.0. Ukończony manifest v1.0 tej samej gry, selekcji, source manifestu i
+profilu rejestracji może być bazą: zarejestrowane źródła są ponownie używane,
+a nierozstrzygnięte przeliczane. Zmiana ręcznej kotwicy nadal unieważnia wyniki
+od niej zależne.
+
+Na źródle odrzuconym przez bazę automat może zachować 7–8 kompletnych siatek i
+wystawić najwyżej 1–2 niepewne plansze do Reviewera. Wymaga ważnej perspektywy,
+jednoznacznej kolejności i braku pionowego ucięcia. Lokalna kompletna siatka
+przy słabej ramce albo obrys wyliczony z projekcji strony oraz pewnych sąsiadów
+jest wyłącznie roboczą propozycją. Manifest zapisuje jej pochodzenie i powód
+niepewności. Nie tworzy się z niej cropów przed świadomym zatwierdzeniem.
+Reviewer pokazuje cztery uchwyty, całe zdjęcie i zapisuje komplet w jednej
+rewizji źródła; niezmieniony, lecz sprawdzony obrys także wymaga zapisu.
+
+Potwierdzona plansza z 15 polami i uciętą ramką pozostaje wykluczona ze
+zwykłego uczenia geometrii i kotwic. Nie trafia do puli uczenia faktycznie
+niepełnych siatek. Brak siedmiu pewnych siatek, trzy słabe, niepewna kolejność,
+wadliwa perspektywa albo niebezpieczna projekcja zachowują pełną korektę.
+Historycznych jobów ani decyzji człowieka ten wariant nie przepisuje.
+
+## Wybór silnika nowych stagingów — TASK-0562
+
+W przeglądarkowym imporcie plansz nowy raport, preflight i start bez podanego
+wariantu przypinają `structured_lattice_v4_partial_sides`, pokazywany jako
+**v1.0 — niepełne boki**. Techniczny identyfikator i checksumowana polityka
+pozostają bez zmiany, więc historyczne joby są odczytywalne. UI nie oferuje już
+historycznych wariantów v20, strukturalnego v2 ani strukturalnego v3. Funkcje v3
+pozostają bazą obliczeniową v1.0, a zapisany wcześniej tryb gry nie zmienia
+efektywnego silnika nowego stagingu. Ponowienie używa wariantu przypiętego do
+raportu i nie wiąże nowego żądania ze starym jobem.
+
+Opis wcześniejszego jawnego testu v0.10.4 poniżej jest historią wdrożenia;
+od TASK-0562 jego zachowanie jako wariantu domyślnego opisuje ta sekcja.
+
 ## Odbiór i testowe udostępnienie v0.10.4 — TASK-0515
 
 Checksum-bound odbiór na 32 realnych źródłach zaliczył wszystkie bramki:

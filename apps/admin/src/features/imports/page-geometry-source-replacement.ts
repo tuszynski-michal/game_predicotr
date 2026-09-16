@@ -1,5 +1,27 @@
 import { pickLocalDirectory } from '../../lib/local-directory-picker.ts';
 
+export interface PendingPageGeometryReplacement {
+  replacementUploadId: string;
+  replacementChecksum: string;
+  sourceChecksum: string;
+  sourceRelativePath: string;
+}
+
+export function pendingReplacementMatchesSource(
+  source: { sourceChecksumSha256: string; sourceRelativePath: string } | null,
+  candidate: unknown,
+): candidate is PendingPageGeometryReplacement {
+  if (source === null || candidate === null || typeof candidate !== 'object') return false;
+  const pending = candidate as Partial<PendingPageGeometryReplacement>;
+  return (
+    pending.sourceChecksum === source.sourceChecksumSha256 &&
+    pending.sourceRelativePath === source.sourceRelativePath &&
+    typeof pending.replacementUploadId === 'string' &&
+    typeof pending.replacementChecksum === 'string' &&
+    /^[0-9a-f]{64}$/.test(pending.replacementChecksum)
+  );
+}
+
 export async function choosePageGeometryCutFolder(): Promise<FileSystemDirectoryHandle> {
   return pickLocalDirectory({ id: 'gp-page-geometry-cut', mode: 'readwrite' });
 }

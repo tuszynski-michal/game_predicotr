@@ -6,6 +6,13 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0571 — korekta geometrii otwiera się przed wczytaniem źródła
+
+- Porównanie oczekującej podmiany wymaga teraz istniejącego źródła i poprawnych
+  danych podmiany. Pusta lista, pierwszy render oraz pusty wpis w pamięci
+  przeglądarki nie przerywają widoku; poprawny zapis nadal można odzyskać.
+- Nie zmieniono stagingów, jobów ani kontraktu API.
+
 ### TASK-0570 — podmiana zdjęcia przed zatwierdzeniem geometrii
 
 - Korekta geometrii strony oferuje podmianę JPEG-a z kontrolą nazwy i SHA-256

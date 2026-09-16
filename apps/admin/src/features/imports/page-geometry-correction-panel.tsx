@@ -43,8 +43,10 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   choosePageGeometryCutFolder,
   checksumPageGeometryFile,
+  pendingReplacementMatchesSource,
   replacePageGeometryCutSource,
   verifyPageGeometryCutSource,
+  type PendingPageGeometryReplacement,
 } from './page-geometry-source-replacement';
 
 import {
@@ -81,13 +83,6 @@ type Point = PageGeometryPoint;
 type Quad = PageGeometryQuad;
 type PageCorners = PageGeometryCorners;
 type CorrectionMode = 'curve' | 'page' | number;
-
-interface PendingSourceReplacement {
-  replacementUploadId: string;
-  replacementChecksum: string;
-  sourceChecksum: string;
-  sourceRelativePath: string;
-}
 
 interface PageGeometryCorrectionPanelProps {
   readonly allowOutsideSource?: boolean;
@@ -289,7 +284,7 @@ function PageGeometryCorrectionPanelContent({
   const [excluding, setExcluding] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [cutFolder, setCutFolder] = useState<FileSystemDirectoryHandle | null>(null);
-  const [pendingReplacement, setPendingReplacement] = useState<PendingSourceReplacement | null>(null);
+  const [pendingReplacement, setPendingReplacement] = useState<PendingPageGeometryReplacement | null>(null);
   const [storageReady, setStorageReady] = useState(false);
   const replacementInputRef = useRef<HTMLInputElement | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -369,25 +364,18 @@ function PageGeometryCorrectionPanelContent({
   useEffect(() => {
     queueMicrotask(() => setStorageReady(true));
   }, []);
-  let storedReplacement: PendingSourceReplacement | null = null;
+  let storedReplacement: PendingPageGeometryReplacement | null = null;
   if (storageReady && replacementRecoveryKey !== null && typeof window !== 'undefined') {
     try {
       const raw = window.localStorage.getItem(replacementRecoveryKey);
-      const parsed = raw === null ? null : JSON.parse(raw) as PendingSourceReplacement;
-      if (
-        parsed?.sourceChecksum === source?.sourceChecksumSha256 &&
-        parsed.sourceRelativePath === source.sourceRelativePath &&
-        typeof parsed.replacementUploadId === 'string' &&
-        /^[0-9a-f]{64}$/.test(parsed.replacementChecksum)
-      ) storedReplacement = parsed;
+      const parsed: unknown = raw === null ? null : JSON.parse(raw);
+      if (pendingReplacementMatchesSource(source, parsed)) storedReplacement = parsed;
     } catch {
       // Browser storage can be unavailable; this leaves the normal replacement flow intact.
     }
   }
-  const activePendingReplacement =
-    pendingReplacement?.sourceChecksum === source?.sourceChecksumSha256 &&
-    pendingReplacement.sourceRelativePath === source.sourceRelativePath
-      ? pendingReplacement : storedReplacement;
+  const activePendingReplacement = pendingReplacementMatchesSource(source, pendingReplacement)
+    ? pendingReplacement : storedReplacement;
   const draftScope = useMemo<PageGeometryDraftScope | null>(
     () =>
       source && imageSize
@@ -1044,7 +1032,7 @@ function PageGeometryCorrectionPanelContent({
       }
       const ready = result.data;
       const expectedReplacementChecksum = await checksumPageGeometryFile(file);
-      const pending: PendingSourceReplacement = {
+      const pending: PendingPageGeometryReplacement = {
         replacementUploadId: ready.uploadId,
         replacementChecksum: expectedReplacementChecksum,
         sourceChecksum: source.sourceChecksumSha256,

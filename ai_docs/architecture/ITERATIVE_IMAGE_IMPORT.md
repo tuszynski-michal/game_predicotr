@@ -9,6 +9,11 @@ release: "0.7"
 
 ## Rewizja zdjęcia źródłowego przed importem — TASK-0570
 
+Przeglądarkowy upload rewizji wysyła nagłówki `X-Game-Id`,
+`X-Source-Checksum-Sha256`, `X-Source-Relative-Path` i
+`X-Geometry-Manifest-Checksum-Sha256`. Lokalny CORS API dopuszcza je dla
+skonfigurowanego origin Admina; żądanie OPTIONS nie tworzy rewizji stagingu.
+
 Podmiana nie zmienia bajtów istniejącego stagingu. API tworzy deterministyczną
 rewizję jego manifestu: niezmienione pliki są współdzielone przez hardlink lub
 kopię, jeden JPEG ma nową checksumę. Po zapisie pliku w wybranym przez

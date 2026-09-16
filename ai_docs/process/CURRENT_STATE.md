@@ -6,6 +6,15 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0572 — przeglądarkowa podmiana zdjęcia nie przechodziła CORS
+
+- API dopuszcza nagłówki żądania podmiany JPEG-a w preflight CORS. Wcześniej
+  przeglądarka otrzymywała `400 Disallowed CORS headers`, więc właściwy upload
+  nie docierał do API i panel pokazywał ogólny błąd tworzenia rewizji.
+- Zmiana nie dotyka istniejących stagingów, katalogów `cut` ani jobów; wymaga
+  uruchomienia API z nowym kodem. Działające API z automatycznym przeładowaniem
+  zwraca już `200 OK` na OPTIONS. Test obejmuje komplet nagłówków klienta.
+
 ### TASK-0571 — korekta geometrii otwiera się przed wczytaniem źródła
 
 - Porównanie oczekującej podmiany wymaga teraz istniejącego źródła i poprawnych

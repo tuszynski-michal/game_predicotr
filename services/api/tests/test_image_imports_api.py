@@ -2290,6 +2290,35 @@ def test_browser_upload_header_is_allowed_by_cors(tmp_path: Path) -> None:
     assert "x-image-relative-path" in allowed_headers
 
 
+def test_page_source_replacement_headers_are_allowed_by_cors(tmp_path: Path) -> None:
+    client, _game_id = _client(tmp_path, None)
+
+    with client:
+        response = client.options(
+            "/api/v1/admin/image-imports/browser-selections/upload/"
+            "geometry-preflights/preflight/source-replacement",
+            headers={
+                "Origin": "http://127.0.0.1:3000",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": (
+                    "content-type,x-admin-intent,x-admin-confirmation,x-admin-target,"
+                    "x-game-id,x-source-checksum-sha256,x-source-relative-path,"
+                    "x-geometry-manifest-checksum-sha256"
+                ),
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    allowed_headers = response.headers["access-control-allow-headers"].casefold()
+    for header in (
+        "x-game-id",
+        "x-source-checksum-sha256",
+        "x-source-relative-path",
+        "x-geometry-manifest-checksum-sha256",
+    ):
+        assert header in allowed_headers
+
+
 def test_photo_selection_staging_is_resumable_after_service_recreation(
     tmp_path: Path,
 ) -> None:

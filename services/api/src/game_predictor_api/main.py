@@ -1332,6 +1332,10 @@ def create_app(
             ADMIN_INTENT_HEADER,
             ADMIN_CONFIRMATION_HEADER,
             ADMIN_TARGET_HEADER,
+            "X-Game-Id",
+            "X-Source-Checksum-Sha256",
+            "X-Source-Relative-Path",
+            "X-Geometry-Manifest-Checksum-Sha256",
         ],
     )
     application.add_middleware(

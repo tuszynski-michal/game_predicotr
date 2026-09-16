@@ -159,7 +159,19 @@ test('starts page geometry only after the explicit operator action', () => {
 
 test('shows v1.0 readiness and replays a report without dispatch', () => {
   assert.match(panelSource, /v1\.0 — niepełne boki/);
-  assert.match(panelSource, /Przetwórz w v1\.0/);
+  const stagingActions = panelSource.slice(
+    panelSource.indexOf('{readySelections.length > 0 ?'),
+    panelSource.indexOf('{active && preflight !== null ?'),
+  );
+  assert.match(stagingActions, /active \? geometryEngineVariant : LATERAL_PARTIAL_VARIANT/);
+  assert.match(stagingActions, /prepareReadyImport\(\s*ready\.uploadId,\s*SELECTIVE_BOARD_VARIANT/);
+  assert.match(stagingActions, /disabled=\{busy \|\| selectiveCapability\?\.enabled !== true\}/);
+  assert.match(stagingActions, /Przetwórz w v1\.1/);
+  assert.doesNotMatch(stagingActions, /Przetwórz w v1\.0/);
+  assert.match(
+    panelSource,
+    /readyUploadId === uploadId && geometryEngineVariant === requestedVariant/,
+  );
   assert.match(panelSource, /geometryEngineVariants/);
   assert.match(panelSource, /geometryEngineVariantEnabled/);
   assert.match(panelSource, /geometryPreflightArtifactBlockerMessage/);

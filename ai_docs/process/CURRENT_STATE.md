@@ -6,6 +6,13 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0568 — przycisk testowego raportu v1.1
+
+- Przy gotowym stagingu dodatkowy przycisk otwiera raport v1.1 zamiast
+  powtarzać domyślne v1.0. „Pokaż raport” dla nowego stagingu przypina v1.0,
+  a „Odśwież raport” zachowuje bieżący wariant. Zmiana wariantu usuwa z lokalnego
+  stanu kontekst guarda poprzedniego raportu. Podgląd nie uruchamia joba.
+
 ### TASK-0567 — usunięcie starego selektora silników z Admina
 
 - Stary komponent oferujący v20, strukturalny v2 i v3 nie miał już wywołań w

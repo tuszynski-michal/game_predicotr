@@ -711,7 +711,8 @@ export function ImageFolderImportPanel({
     setError('');
     setFeedback('Sprawdzanie gotowego stagingu i decyzji kanonicznych…');
     try {
-      const keepsPersistedGuardContext = readyUploadId === uploadId;
+      const keepsPersistedGuardContext =
+        readyUploadId === uploadId && geometryEngineVariant === requestedVariant;
       const result = await previewReadyBrowserImageImport(
         api,
         uploadId,
@@ -1436,7 +1437,12 @@ export function ImageFolderImportPanel({
                       aria-busy={activeAction === 'preflight' && active}
                       className="secondaryButton"
                       disabled={busy}
-                      onClick={() => void prepareReadyImport(ready.uploadId)}
+                      onClick={() =>
+                        void prepareReadyImport(
+                          ready.uploadId,
+                          active ? geometryEngineVariant : LATERAL_PARTIAL_VARIANT,
+                        )
+                      }
                       type="button"
                     >
                       {activeAction === 'preflight' && active
@@ -1447,16 +1453,16 @@ export function ImageFolderImportPanel({
                     </button>
                     <button
                       className="secondaryButton"
-                      disabled={busy || !lateralVariantAvailable}
+                      disabled={busy || selectiveCapability?.enabled !== true}
                       onClick={() =>
                         void prepareReadyImport(
                           ready.uploadId,
-                          LATERAL_PARTIAL_VARIANT,
+                          SELECTIVE_BOARD_VARIANT,
                         )
                       }
                       type="button"
                     >
-                      Przetwórz w v1.0
+                      Przetwórz w v1.1
                     </button>
                     <button
                       aria-busy={activeAction === 'delete-ready' && active}

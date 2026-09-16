@@ -7,6 +7,15 @@ release: "0.7"
 
 # Architektura iteracyjnego importu
 
+## Wybór testowego raportu v1.1 — TASK-0568
+
+Lista gotowych stagingów przekazuje `structured_lattice_v4_partial_sides` do
+nowo otwieranego raportu oraz `selective_board_review_v1_1` do dodatkowego
+przycisku testowego. Odświeżenie aktywnego raportu zachowuje jego wariant.
+`prepareReadyImport` zachowuje przypięty kontekst guarda tylko wtedy, gdy
+identyfikator stagingu i wariant pozostają takie same. Podgląd raportu nie
+wywołuje startu geometrii ani importu.
+
 ## Jedyny publiczny start nowego importu — TASK-0565
 
 `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/start`

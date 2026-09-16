@@ -6,6 +6,15 @@ last_updated: 2026-09-16
 
 # Import i rozpoznawanie zdjęć
 
+## Testowe otwarcie raportu v1.1 — TASK-0568
+
+Przy gotowym stagingu zwykłe „Pokaż raport” otwiera nowy staging w domyślnym
+v1.0, a dla już otwartego raportu odświeża jego przypięty wariant. Dodatkowy
+przycisk „Przetwórz w v1.1” przygotowuje raport tego samego stagingu z jawnym
+wariantem testowym. Samo otwarcie raportu nie uruchamia joba; preflight geometrii
+i import nadal wymagają osobnych działań. Zmiana wariantu unieważnia lokalny
+kontekst rozliczeń poprzedniego raportu.
+
 ## Jedna ścieżka tworzenia importu plansz — TASK-0565
 
 Nowy import plansz powstaje wyłącznie z gotowego stagingu przeglądarkowego,

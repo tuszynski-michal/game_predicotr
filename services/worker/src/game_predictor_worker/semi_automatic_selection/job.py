@@ -394,16 +394,14 @@ class SemiAutomaticSelectionJobStore:
                     "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
                     "The filename verification staging changed before cleanup completed.",
                 )
-            manual_counts = dict(
-                session.execute(
-                    select(
-                        FilenameRangeVerificationReviewModel.decision,
-                        func.count(),
-                    )
+            manual_counts: dict[str, int] = {
+                decision: int(count)
+                for decision, count in session.execute(
+                    select(FilenameRangeVerificationReviewModel.decision, func.count())
                     .where(FilenameRangeVerificationReviewModel.run_id == run_id)
                     .group_by(FilenameRangeVerificationReviewModel.decision)
-                )
-            )
+                ).tuples()
+            }
             counters = {
                 **dict(run.counters),
                 "filenameManualKept": int(manual_counts.get("keep", 0)),

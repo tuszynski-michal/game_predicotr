@@ -6,6 +6,14 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0564 — typowane liczniki selekcji zdjęć
+
+- Końcowe liczniki ręcznego keep/reject podczas cleanupu weryfikacji nazw są
+  odczytywane z typowanych krotek wyniku SQLAlchemy. Zapytanie i wartości
+  pozostają bez zmian. Mypy dla 429 plików źródłowych API/workera oraz 16
+  testów workera przechodzą. Szerszy mypy z `scripts/` nadal zgłasza 31
+  niezwiązanych, wcześniejszych błędów w pięciu skryptach.
+
 ### TASK-0563 — opt-in v1.1 i selektywna korekta plansz
 
 - v1.1 zachowuje zarejestrowane wpisy zgodnego manifestu v1.0 i przelicza

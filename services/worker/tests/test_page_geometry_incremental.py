@@ -6,6 +6,7 @@ from pathlib import Path
 import game_predictor_worker.images.page_geometry_incremental as incremental_module
 import pytest
 from game_predictor_worker.images.page_geometry_incremental import (
+    BASELINE_TO_SELECTIVE_COMPATIBILITY,
     EXACT_POLICY_COMPATIBILITY,
     LATERAL_V2_TO_V3_COMPATIBILITY,
     LATERAL_V3_TO_V2_COMPATIBILITY,
@@ -61,9 +62,7 @@ def test_lateral_v2_to_v3_reuses_only_safe_registered_classes() -> None:
         originals,
         payload={
             "pageGeometryOverrides": {},
-            "pageRegistrationProfile": {
-                "anchors": [{"sourceChecksumSha256": "f" * 64}]
-            },
+            "pageRegistrationProfile": {"anchors": [{"sourceChecksumSha256": "f" * 64}]},
             "canonicalSequenceNumbers": set(),
             "lateralPartialGeometry": {
                 "minimumAutomaticBoardRedEdgeCoverage": 0.65,
@@ -98,9 +97,7 @@ def test_lateral_v3_to_v2_reuses_registered_and_recomputes_review() -> None:
         originals,
         payload={
             "pageGeometryOverrides": {originals[2].checksum_sha256: {"revision": 2}},
-            "pageRegistrationProfile": {
-                "anchors": [{"sourceChecksumSha256": "f" * 64}]
-            },
+            "pageRegistrationProfile": {"anchors": [{"sourceChecksumSha256": "f" * 64}]},
             "canonicalSequenceNumbers": set(),
         },
         base_manifest={"entries": entries},
@@ -112,6 +109,31 @@ def test_lateral_v3_to_v2_reuses_registered_and_recomputes_review() -> None:
         originals[1].checksum_sha256,
         originals[2].checksum_sha256,
     ]
+
+
+def test_selective_reuses_all_baseline_registered_and_recomputes_only_review() -> None:
+    originals = tuple(_original(index) for index in range(4))
+    entries = {
+        originals[0].checksum_sha256: _registered(originals[0], weak_count=0),
+        originals[1].checksum_sha256: _registered(originals[1], weak_count=1),
+        originals[2].checksum_sha256: _registered(originals[2], weak_count=2),
+        originals[3].checksum_sha256: {
+            "status": "review_required",
+            "sourceRelativePath": originals[3].source_relative_path,
+        },
+    }
+    plan = plan_manifest_reuse(
+        originals,
+        payload={
+            "pageGeometryOverrides": {},
+            "pageRegistrationProfile": {"anchors": [{"sourceChecksumSha256": "f" * 64}]},
+            "canonicalSequenceNumbers": set(),
+        },
+        base_manifest={"entries": entries},
+        compatibility_mode=BASELINE_TO_SELECTIVE_COMPATIBILITY,
+    )
+    assert list(plan.entries) == [item.checksum_sha256 for item in originals[:3]]
+    assert plan.recompute_originals == (originals[3],)
 
 
 def test_registered_entry_without_anchor_provenance_is_recomputed() -> None:
@@ -153,9 +175,7 @@ def test_exact_reuse_invalidates_changed_manual_anchor_and_dependants() -> None:
                     "revision": 2,
                 }
             },
-            "pageRegistrationProfile": {
-                "anchors": [{"sourceChecksumSha256": "f" * 64}]
-            },
+            "pageRegistrationProfile": {"anchors": [{"sourceChecksumSha256": "f" * 64}]},
             "canonicalSequenceNumbers": set(),
         },
         base_manifest={"entries": entries},
@@ -185,12 +205,8 @@ def test_changed_manual_anchor_invalidates_transitive_automatic_dependants() -> 
             "manualOverrideId": override_id,
             "manualOverrideRevision": 1,
         },
-        promoted.checksum_sha256: _registered(
-            promoted, anchor=manual.checksum_sha256
-        ),
-        dependant.checksum_sha256: _registered(
-            dependant, anchor=promoted.checksum_sha256
-        ),
+        promoted.checksum_sha256: _registered(promoted, anchor=manual.checksum_sha256),
+        dependant.checksum_sha256: _registered(dependant, anchor=promoted.checksum_sha256),
         independent.checksum_sha256: _registered(independent),
     }
     plan = plan_manifest_reuse(
@@ -199,9 +215,7 @@ def test_changed_manual_anchor_invalidates_transitive_automatic_dependants() -> 
             "pageGeometryOverrides": {
                 manual.checksum_sha256: {**old, "decisionChecksumSha256": "b" * 64}
             },
-            "pageRegistrationProfile": {
-                "anchors": [{"sourceChecksumSha256": "f" * 64}]
-            },
+            "pageRegistrationProfile": {"anchors": [{"sourceChecksumSha256": "f" * 64}]},
             "canonicalSequenceNumbers": set(),
         },
         base_manifest={"entries": entries},
@@ -226,9 +240,7 @@ def test_external_manual_anchor_reuse_requires_pinned_unchanged_decision() -> No
         "overrideId": "00000000-0000-0000-0000-000000000001",
         "revision": 1,
     }
-    base_entries = {
-        original.checksum_sha256: _registered(original, anchor=external_checksum)
-    }
+    base_entries = {original.checksum_sha256: _registered(original, anchor=external_checksum)}
     fingerprint = incremental_module._override_fingerprint(decision)
     assert fingerprint is not None
     arguments = {
@@ -257,18 +269,14 @@ def test_external_manual_anchor_reuse_requires_pinned_unchanged_decision() -> No
 
 
 def test_recomputed_unknown_provenance_anchor_invalidates_its_descendants() -> None:
-    anchor, dependant, second_dependant, independent = (
-        _original(index) for index in range(4)
-    )
+    anchor, dependant, second_dependant, independent = (_original(index) for index in range(4))
     entries = {
         anchor.checksum_sha256: {
             key: value
             for key, value in _registered(anchor).items()
             if key != "anchorSourceChecksumSha256"
         },
-        dependant.checksum_sha256: _registered(
-            dependant, anchor=anchor.checksum_sha256
-        ),
+        dependant.checksum_sha256: _registered(dependant, anchor=anchor.checksum_sha256),
         second_dependant.checksum_sha256: _registered(
             second_dependant, anchor=dependant.checksum_sha256
         ),
@@ -278,9 +286,7 @@ def test_recomputed_unknown_provenance_anchor_invalidates_its_descendants() -> N
         (anchor, dependant, second_dependant, independent),
         payload={
             "pageGeometryOverrides": {},
-            "pageRegistrationProfile": {
-                "anchors": [{"sourceChecksumSha256": "f" * 64}]
-            },
+            "pageRegistrationProfile": {"anchors": [{"sourceChecksumSha256": "f" * 64}]},
         },
         base_manifest={"entries": entries},
         compatibility_mode=EXACT_POLICY_COMPATIBILITY,

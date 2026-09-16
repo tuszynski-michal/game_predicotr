@@ -40,9 +40,7 @@ def test_learned_partial_policy_v2_roundtrip_and_checksum_binding() -> None:
     profile = PartialGridTrainingProfile(
         (PartialGridPattern((0, 5, 10), sample_count=3, source_count=3),), 3
     )
-    policy = LateralPartialGeometrySnapshot(
-        training_profile=profile, frame_support_review=False
-    )
+    policy = LateralPartialGeometrySnapshot(training_profile=profile, frame_support_review=False)
     raw = json.loads(json.dumps(policy.to_payload()))
     assert raw["schemaVersion"] == "lateral-partial-geometry-snapshot-v2"
     assert LateralPartialGeometrySnapshot.from_payload(raw) == policy
@@ -63,6 +61,23 @@ def test_frame_support_policy_v3_roundtrip_and_checksum_binding() -> None:
     assert raw["minimumReviewableBoardRedEdgeCoverage"] == 0.30
     assert LateralPartialGeometrySnapshot.from_payload(raw) == policy
     raw["maximumFrameReviewSlots"] = 4
+    with pytest.raises(LateralPartialContractError):
+        LateralPartialGeometrySnapshot.from_payload(raw)
+
+
+def test_selective_policy_has_distinct_pinned_replay_identity() -> None:
+    baseline = LateralPartialGeometrySnapshot()
+    selective = LateralPartialGeometrySnapshot(
+        frame_support_review=True, selective_frame_review=True
+    )
+    raw = json.loads(json.dumps(selective.to_payload()))
+    assert raw["variant"] == "selective_board_review_v1_1"
+    assert raw["minimumConfidentSlots"] == 7
+    assert raw["maximumFrameReviewSlots"] == 2
+    assert raw["baselineFirst"] is True
+    assert selective.checksum_sha256 != baseline.checksum_sha256
+    assert LateralPartialGeometrySnapshot.from_payload(raw) == selective
+    raw["minimumConfidentSlots"] = 6
     with pytest.raises(LateralPartialContractError):
         LateralPartialGeometrySnapshot.from_payload(raw)
 

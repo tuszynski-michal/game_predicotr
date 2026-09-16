@@ -5,7 +5,7 @@ from typing import Literal
 from uuid import UUID
 
 from game_predictor_worker.images.lateral_partial_contract import GeometryEngineVariant
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from game_predictor_api.application.image_imports import (
     BrowserReadySelection,
@@ -139,14 +139,28 @@ class BrowserReadySelectionResponse(ApiModel):
 
 class BrowserImageImportPreflightCreate(ApiModel):
     game_id: UUID
-    geometry_engine_variant: GeometryEngineVariant | None = None
+    geometry_engine_variant: GeometryEngineVariant = (
+        GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+    )
+
+    @field_validator("geometry_engine_variant", mode="before")
+    @classmethod
+    def default_engine(cls, value: object) -> object:
+        return value or GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
 
 
 class BrowserPageGeometryPreflightCreate(ApiModel):
     game_id: UUID
     page_registration_variant: Literal["standard_v0_10", "board_area_test"] = "standard_v0_10"
-    geometry_engine_variant: GeometryEngineVariant | None = None
+    geometry_engine_variant: GeometryEngineVariant = (
+        GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+    )
     managed_source_job_id: UUID | None = None
+
+    @field_validator("geometry_engine_variant", mode="before")
+    @classmethod
+    def default_engine(cls, value: object) -> object:
+        return value or GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
 
 
 class BrowserCanonicalRange(ApiModel):
@@ -539,14 +553,16 @@ class BrowserPageSourceExclusionResponse(ApiModel):
 
 
 class BrowserImageImportStart(ApiModel):
-    geometry_engine_variant: GeometryEngineVariant | None = Field(
-        default=None,
-        exclude_if=lambda value: value is None,
-        description=(
-            "Optional per-run engine extension; never changes the game policy. "
-            "Gated until acceptance."
-        ),
+    geometry_engine_variant: GeometryEngineVariant = Field(
+        default=GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
+        description="Engine pinned for this import; defaults to v1.0.",
     )
+
+    @field_validator("geometry_engine_variant", mode="before")
+    @classmethod
+    def default_engine(cls, value: object) -> object:
+        return value or GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+
     game_id: UUID
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

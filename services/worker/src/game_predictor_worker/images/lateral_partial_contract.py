@@ -20,6 +20,12 @@ LATERAL_PARTIAL_POLICY_VERSION_V3 = "structured-lattice-v4-lateral-partial-v3"
 LATERAL_PARTIAL_SNAPSHOT_VERSION_V3 = "lateral-partial-geometry-snapshot-v3"
 AUTOMATIC_PARTIAL_PROPOSAL_VERSION_V3 = "automatic-lateral-partial-proposal-v3"
 AUTOMATIC_FRAME_PROPOSAL_VERSION = "automatic-frame-geometry-proposal-v1"
+SELECTIVE_FRAME_POLICY_VERSION = "structured-lattice-v4-selective-frame-v1"
+SELECTIVE_FRAME_SNAPSHOT_VERSION = "selective-frame-geometry-snapshot-v1"
+SELECTIVE_FRAME_PARTIAL_PROPOSAL_VERSION = "automatic-lateral-partial-proposal-v4"
+SELECTIVE_FRAME_PROPOSAL_VERSION = "automatic-frame-geometry-proposal-v2"
+MINIMUM_SELECTIVE_CONFIDENT_SLOTS = 7
+MAXIMUM_SELECTIVE_REVIEW_SLOTS = 2
 MINIMUM_AUTOMATIC_BOARD_RED_EDGE_COVERAGE = 0.65
 MINIMUM_REVIEWABLE_BOARD_RED_EDGE_COVERAGE = 0.30
 MINIMUM_REVIEWABLE_PAGE_MEAN_RED_EDGE_COVERAGE = 0.70
@@ -32,6 +38,7 @@ LATERAL_PARTIAL_RELEASED = True
 
 class GeometryEngineVariant(StrEnum):
     STRUCTURED_LATTICE_V4_PARTIAL_SIDES = "structured_lattice_v4_partial_sides"
+    SELECTIVE_BOARD_REVIEW_V1_1 = "selective_board_review_v1_1"
 
 
 class LateralPartialContractError(ValueError):
@@ -53,9 +60,16 @@ class LateralPartialGeometrySnapshot:
     # (40 review items with v2 versus 355 with v3). Historical pinned v3
     # snapshots still opt in explicitly through from_payload().
     frame_support_review: bool = False
+    selective_frame_review: bool = False
+
+    def __post_init__(self) -> None:
+        if self.selective_frame_review and not self.frame_support_review:
+            raise ValueError("Selective review requires pinned frame support evidence.")
 
     @property
     def policy_version(self) -> str:
+        if self.selective_frame_review:
+            return SELECTIVE_FRAME_POLICY_VERSION
         if self.frame_support_review:
             return LATERAL_PARTIAL_POLICY_VERSION_V3
         return (
@@ -66,6 +80,8 @@ class LateralPartialGeometrySnapshot:
 
     @property
     def proposal_version(self) -> str:
+        if self.selective_frame_review:
+            return SELECTIVE_FRAME_PARTIAL_PROPOSAL_VERSION
         if self.frame_support_review:
             return AUTOMATIC_PARTIAL_PROPOSAL_VERSION_V3
         return (
@@ -77,7 +93,9 @@ class LateralPartialGeometrySnapshot:
     def to_payload(self, *, include_checksum: bool = True) -> dict[str, object]:
         payload: dict[str, object] = {
             "schemaVersion": (
-                LATERAL_PARTIAL_SNAPSHOT_VERSION_V3
+                SELECTIVE_FRAME_SNAPSHOT_VERSION
+                if self.selective_frame_review
+                else LATERAL_PARTIAL_SNAPSHOT_VERSION_V3
                 if self.frame_support_review
                 else (
                     LATERAL_PARTIAL_SNAPSHOT_VERSION
@@ -85,7 +103,11 @@ class LateralPartialGeometrySnapshot:
                     else LATERAL_PARTIAL_SNAPSHOT_VERSION_V2
                 )
             ),
-            "variant": GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES.value,
+            "variant": (
+                GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1.value
+                if self.selective_frame_review
+                else GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES.value
+            ),
             "policyVersion": self.policy_version,
             "proposalVersion": self.proposal_version,
             "topologyRows": 3,
@@ -116,6 +138,16 @@ class LateralPartialGeometrySnapshot:
                         MINIMUM_REVIEWABLE_PAGE_MEAN_RED_EDGE_COVERAGE
                     ),
                     "maximumFrameReviewSlots": MAXIMUM_FRAME_REVIEW_SLOTS,
+                }
+            )
+        if self.selective_frame_review:
+            payload.update(
+                {
+                    "automaticFrameProposalVersion": SELECTIVE_FRAME_PROPOSAL_VERSION,
+                    "maximumFrameReviewSlots": MAXIMUM_SELECTIVE_REVIEW_SLOTS,
+                    "minimumConfidentSlots": MINIMUM_SELECTIVE_CONFIDENT_SLOTS,
+                    "baselineFirst": True,
+                    "reviewDraftRequiresHumanConfirmation": True,
                 }
             )
         if self.training_profile is not None:
@@ -163,6 +195,23 @@ class LateralPartialGeometrySnapshot:
                     "IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID", str(error)
                 ) from error
             snapshot = cls(training_profile=v3_profile, frame_support_review=True)
+        elif value.get("schemaVersion") == SELECTIVE_FRAME_SNAPSHOT_VERSION:
+            raw_profile = value.get("partialGridTrainingProfile")
+            try:
+                selective_profile = (
+                    None
+                    if raw_profile is None
+                    else PartialGridTrainingProfile.from_payload(raw_profile)
+                )
+            except PartialGridLearningError as error:
+                raise LateralPartialContractError(
+                    "IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID", str(error)
+                ) from error
+            snapshot = cls(
+                training_profile=selective_profile,
+                frame_support_review=True,
+                selective_frame_review=True,
+            )
         else:
             raise LateralPartialContractError(
                 "IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID",
@@ -201,5 +250,5 @@ def require_geometry_engine_variant_available(variant: GeometryEngineVariant | s
         return
     raise LateralPartialContractError(
         "IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED",
-        "v0.10.4 is unavailable until its real-data quality gate is accepted.",
+        "The requested geometry engine is unavailable until its quality gate is accepted.",
     )

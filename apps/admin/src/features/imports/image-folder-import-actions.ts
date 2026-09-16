@@ -54,17 +54,23 @@ export type ImageFolderImportClient = Pick<
 export type PageRegistrationVariant = 'standard_v0_10' | 'board_area_test';
 export const LATERAL_PARTIAL_VARIANT: GeometryEngineVariant =
   'structured_lattice_v4_partial_sides';
+export const SELECTIVE_BOARD_VARIANT: GeometryEngineVariant =
+  'selective_board_review_v1_1';
 const LATERAL_PARTIAL_POLICY_VERSIONS = new Set([
   'structured-lattice-v4-lateral-partial-v1',
   'structured-lattice-v4-lateral-partial-v2',
   'structured-lattice-v4-lateral-partial-v3',
+  'structured-lattice-v4-selective-frame-v1',
 ]);
 
-function isSupportedLateralPartialGeometry(value: unknown): boolean {
+function isSupportedLateralPartialGeometry(
+  value: unknown,
+  variant: GeometryEngineVariant,
+): boolean {
   if (typeof value !== 'object' || value === null) return false;
   const snapshot = value as Record<string, unknown>;
   return (
-    snapshot.variant === LATERAL_PARTIAL_VARIANT &&
+    snapshot.variant === variant &&
     typeof snapshot.policyVersion === 'string' &&
     LATERAL_PARTIAL_POLICY_VERSIONS.has(snapshot.policyVersion)
   );
@@ -100,8 +106,7 @@ export function geometryPreflightMatchesReport(
 ): boolean {
   const payload = jobPayload(job);
   const lateral = payload.lateralPartialGeometry;
-  const expectsLateral =
-    report.geometryEngineVariant === LATERAL_PARTIAL_VARIANT;
+  const variant = report.geometryEngineVariant;
   return (
     job.jobType === 'validate' &&
     job.gameId === report.gameId &&
@@ -110,8 +115,8 @@ export function geometryPreflightMatchesReport(
     payload.sourceManifestSha256 === report.manifestChecksumSha256 &&
     (payload.managedSourceJobId === undefined ||
       payload.managedSourceJobId === null) &&
-    (expectsLateral
-      ? isSupportedLateralPartialGeometry(lateral)
+    (variant !== undefined && variant !== null
+      ? isSupportedLateralPartialGeometry(lateral, variant)
       : lateral === undefined)
   );
 }
@@ -174,7 +179,7 @@ export function persistedGuardContextIdentityStatus(input: {
   ) {
     return 'stale';
   }
-  if (input.geometryEngineVariant === LATERAL_PARTIAL_VARIANT) {
+  if (input.geometryEngineVariant !== undefined) {
     return 'v4_rebind_forbidden';
   }
   if (
@@ -238,8 +243,8 @@ export function imageImportJobMatchesReportIdentity(
       ? (rollout as Record<string, unknown>).lateralPartialGeometry
       : undefined;
   const variantMatches =
-    variant === LATERAL_PARTIAL_VARIANT
-      ? isSupportedLateralPartialGeometry(lateral)
+    variant !== undefined
+      ? isSupportedLateralPartialGeometry(lateral, variant)
       : lateral === undefined;
   const symbol = payload.symbolModel;
   const grid = payload.gridProfile;
@@ -798,7 +803,7 @@ export function findManagedV4GeometryPreflight(
         payload.sourceSelectionId === sourceSelectionId &&
         payload.sourceManifestSha256 === sourceManifestSha256 &&
         payload.managedSourceJobId === sourceJob.id &&
-        isSupportedLateralPartialGeometry(lateral) &&
+        isSupportedLateralPartialGeometry(lateral, LATERAL_PARTIAL_VARIANT) &&
         pageVariantMatches
       );
     }) ?? null

@@ -123,7 +123,9 @@ export type AutomaticFrameGeometryProposalPayload = {
   /**
    * Policyversion
    */
-  policyVersion: 'structured-lattice-v4-lateral-partial-v3';
+  policyVersion:
+    | 'structured-lattice-v4-lateral-partial-v3'
+    | 'structured-lattice-v4-selective-frame-v1';
   /**
    * Positionindex
    */
@@ -147,7 +149,9 @@ export type AutomaticFrameGeometryProposalPayload = {
   /**
    * Version
    */
-  version: 'automatic-frame-geometry-proposal-v1';
+  version:
+    | 'automatic-frame-geometry-proposal-v1'
+    | 'automatic-frame-geometry-proposal-v2';
 };
 
 /**
@@ -171,7 +175,8 @@ export type AutomaticPartialGeometryProposalPayload = {
   policyVersion:
     | 'structured-lattice-v4-lateral-partial-v1'
     | 'structured-lattice-v4-lateral-partial-v2'
-    | 'structured-lattice-v4-lateral-partial-v3';
+    | 'structured-lattice-v4-lateral-partial-v3'
+    | 'structured-lattice-v4-selective-frame-v1';
   /**
    * Positionindex
    */
@@ -194,7 +199,8 @@ export type AutomaticPartialGeometryProposalPayload = {
   version:
     | 'automatic-lateral-partial-proposal-v1'
     | 'automatic-lateral-partial-proposal-v2'
-    | 'automatic-lateral-partial-proposal-v3';
+    | 'automatic-lateral-partial-proposal-v3'
+    | 'automatic-lateral-partial-proposal-v4';
 };
 
 /**
@@ -210,7 +216,11 @@ export type BasePageGeometryManifestPayload = {
   /**
    * Compatibilitymode
    */
-  compatibilityMode: 'exact_policy' | 'lateral_v2_to_v3' | 'lateral_v3_to_v2';
+  compatibilityMode:
+    | 'exact_policy'
+    | 'lateral_v2_to_v3'
+    | 'lateral_v3_to_v2'
+    | 'baseline_to_selective_v1_1';
   /**
    * Contractversion
    */
@@ -858,7 +868,7 @@ export type BrowserImageImportPreflightCreate = {
    * Gameid
    */
   gameId: string;
-  geometryEngineVariant?: GeometryEngineVariant | null;
+  geometryEngineVariant?: GeometryEngineVariant;
 };
 
 /**
@@ -1024,9 +1034,9 @@ export type BrowserImageImportStart = {
    */
   gameId: string;
   /**
-   * Optional per-run engine extension; never changes the game policy. Gated until acceptance.
+   * Engine pinned for this import; defaults to v1.0.
    */
-  geometryEngineVariant?: GeometryEngineVariant | null;
+  geometryEngineVariant?: GeometryEngineVariant;
   /**
    * Geometryguardresolutionmanifestchecksumsha256
    */
@@ -1387,7 +1397,7 @@ export type BrowserPageGeometryPreflightCreate = {
    * Gameid
    */
   gameId: string;
-  geometryEngineVariant?: GeometryEngineVariant | null;
+  geometryEngineVariant?: GeometryEngineVariant;
   /**
    * Managedsourcejobid
    */
@@ -2544,7 +2554,8 @@ export type GeometryCohortResponse = {
 /**
  * GeometryEngineVariant
  */
-export type GeometryEngineVariant = 'structured_lattice_v4_partial_sides';
+export type GeometryEngineVariant =
+  'structured_lattice_v4_partial_sides' | 'selective_board_review_v1_1';
 
 /**
  * GeometryEngineVariantCapabilityResponse
@@ -4261,9 +4272,28 @@ export type ImageGridReviewItemResponse = {
    */
   resolutionRevision: number;
   /**
+   * Reviewdraftorigin
+   */
+  reviewDraftOrigin?: string | null;
+  /**
+   * Reviewdraftquad
+   */
+  reviewDraftQuad?:
+    | [
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+      ]
+    | null;
+  /**
    * Reviewitemid
    */
   reviewItemId: string | null;
+  /**
+   * Reviewuncertaintyreason
+   */
+  reviewUncertaintyReason?: string | null;
   /**
    * Sequencenumber
    */
@@ -6150,7 +6180,14 @@ export type LateralPartialGeometryJobSnapshotPayload = {
   /**
    * Automaticframeproposalversion
    */
-  automaticFrameProposalVersion?: 'automatic-frame-geometry-proposal-v1' | null;
+  automaticFrameProposalVersion?:
+    | 'automatic-frame-geometry-proposal-v1'
+    | 'automatic-frame-geometry-proposal-v2'
+    | null;
+  /**
+   * Baselinefirst
+   */
+  baselineFirst?: true | null;
   /**
    * Checksumsha256
    */
@@ -6174,11 +6211,15 @@ export type LateralPartialGeometryJobSnapshotPayload = {
   /**
    * Maximumframereviewslots
    */
-  maximumFrameReviewSlots?: 3 | null;
+  maximumFrameReviewSlots?: 2 | 3 | null;
   /**
    * Minimumautomaticboardrededgecoverage
    */
-  minimumAutomaticBoardRedEdgeCoverage?: 0.65 | null;
+  minimumAutomaticBoardRedEdgeCoverage?: number | null;
+  /**
+   * Minimumconfidentslots
+   */
+  minimumConfidentSlots?: 7 | null;
   /**
    * Minimuminliers
    */
@@ -6186,11 +6227,11 @@ export type LateralPartialGeometryJobSnapshotPayload = {
   /**
    * Minimumreviewableboardrededgecoverage
    */
-  minimumReviewableBoardRedEdgeCoverage?: 0.3 | null;
+  minimumReviewableBoardRedEdgeCoverage?: number | null;
   /**
    * Minimumreviewablepagemeanrededgecoverage
    */
-  minimumReviewablePageMeanRedEdgeCoverage?: 0.7 | null;
+  minimumReviewablePageMeanRedEdgeCoverage?: number | null;
   /**
    * Minimumvisiblecolumns
    */
@@ -6206,25 +6247,32 @@ export type LateralPartialGeometryJobSnapshotPayload = {
   policyVersion:
     | 'structured-lattice-v4-lateral-partial-v1'
     | 'structured-lattice-v4-lateral-partial-v2'
-    | 'structured-lattice-v4-lateral-partial-v3';
+    | 'structured-lattice-v4-lateral-partial-v3'
+    | 'structured-lattice-v4-selective-frame-v1';
   /**
    * Proposalversion
    */
   proposalVersion:
     | 'automatic-lateral-partial-proposal-v1'
     | 'automatic-lateral-partial-proposal-v2'
-    | 'automatic-lateral-partial-proposal-v3';
+    | 'automatic-lateral-partial-proposal-v3'
+    | 'automatic-lateral-partial-proposal-v4';
   /**
    * Requiresmanualconfirmation
    */
   requiresManualConfirmation: true;
+  /**
+   * Reviewdraftrequireshumanconfirmation
+   */
+  reviewDraftRequiresHumanConfirmation?: true | null;
   /**
    * Schemaversion
    */
   schemaVersion:
     | 'lateral-partial-geometry-snapshot-v1'
     | 'lateral-partial-geometry-snapshot-v2'
-    | 'lateral-partial-geometry-snapshot-v3';
+    | 'lateral-partial-geometry-snapshot-v3'
+    | 'selective-frame-geometry-snapshot-v1';
   /**
    * Topologycolumns
    */
@@ -6236,7 +6284,8 @@ export type LateralPartialGeometryJobSnapshotPayload = {
   /**
    * Variant
    */
-  variant: 'structured_lattice_v4_partial_sides';
+  variant:
+    'structured_lattice_v4_partial_sides' | 'selective_board_review_v1_1';
   /**
    * Verticalclippingallowed
    */

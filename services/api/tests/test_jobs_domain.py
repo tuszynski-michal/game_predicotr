@@ -185,9 +185,7 @@ class _PageGeometryOverrideResolver:
         del game_id
         return {"f" * 64: {"revision": 1}}
 
-    def exclusion_snapshot(
-        self, *, game_id: UUID, browser_selection_id: UUID
-    ) -> dict[str, object]:
+    def exclusion_snapshot(self, *, game_id: UUID, browser_selection_id: UUID) -> dict[str, object]:
         del game_id, browser_selection_id
         return {}
 
@@ -729,7 +727,7 @@ def test_page_geometry_preflight_prefers_exact_v3_base_before_newer_v2(
     monkeypatch.setattr(
         JobService,
         "_current_lateral_partial_policy",
-        lambda _self, *, game_id: LateralPartialGeometrySnapshot(
+        lambda _self, *, game_id, geometry_engine_variant: LateralPartialGeometrySnapshot(
             training_profile=training_profile,
             frame_support_review=True,
         ),
@@ -741,17 +739,13 @@ def test_page_geometry_preflight_prefers_exact_v3_base_before_newer_v2(
         source_directory=source_directory,
         source_display_name="seq import",
         source_manifest_sha256="a" * 64,
-        geometry_engine_variant=(
-            GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
-        ),
+        geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
     )
 
     assert created.input_payload["base_page_geometry_manifest"] == {
         "contractVersion": "page-geometry-entry-reuse-v1",
         "jobId": str(exact.id),
-        "manifestChecksumSha256": exact.checkpoint_payload[
-            "geometry_manifest_checksum_sha256"
-        ],
+        "manifestChecksumSha256": exact.checkpoint_payload["geometry_manifest_checksum_sha256"],
         "sourceManifestChecksumSha256": "a" * 64,
         "compatibilityMode": "exact_policy",
     }
@@ -763,9 +757,7 @@ def test_page_geometry_preflight_prefers_exact_v3_base_before_newer_v2(
             source_directory=source_directory,
             source_display_name="renamed only",
             source_manifest_sha256="a" * 64,
-            geometry_engine_variant=(
-                GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
-            ),
+            geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
         )
     assert duplicate.value.code == "JOB_INPUT_ALREADY_EXISTS"
     assert duplicate.value.details == {"existingJobId": str(created.id)}
@@ -807,7 +799,7 @@ def test_page_geometry_preflight_uses_v2_transition_when_exact_base_is_absent(
     monkeypatch.setattr(
         JobService,
         "_current_lateral_partial_policy",
-        lambda _self, *, game_id: LateralPartialGeometrySnapshot(
+        lambda _self, *, game_id, geometry_engine_variant: LateralPartialGeometrySnapshot(
             training_profile=training_profile,
             frame_support_review=True,
         ),
@@ -819,9 +811,7 @@ def test_page_geometry_preflight_uses_v2_transition_when_exact_base_is_absent(
         source_directory=source_directory,
         source_display_name="seq import",
         source_manifest_sha256="b" * 64,
-        geometry_engine_variant=(
-            GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
-        ),
+        geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
     )
 
     descriptor = created.input_payload["base_page_geometry_manifest"]
@@ -835,11 +825,40 @@ def test_page_geometry_preflight_uses_v2_transition_when_exact_base_is_absent(
         source_directory=source_directory,
         source_display_name="seq import changed",
         source_manifest_sha256="c" * 64,
-        geometry_engine_variant=(
-            GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
-        ),
+        geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
     )
     assert "base_page_geometry_manifest" not in changed_source.input_payload
+
+
+def test_selective_preflight_reuses_completed_v1_baseline_manifest(tmp_path: Path) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    repository = MemoryJobRepository(game_id)
+    baseline = _add_completed_page_geometry_preflight(
+        repository,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_manifest_sha256="d" * 64,
+        lateral_partial_geometry=LateralPartialGeometrySnapshot().to_payload(),
+    )
+    service = JobService(repository, artifact_root=artifact_root)
+    selective = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=source_directory,
+        source_display_name="selective",
+        source_manifest_sha256="d" * 64,
+        geometry_engine_variant=GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1,
+    )
+    descriptor = selective.input_payload["base_page_geometry_manifest"]
+    assert isinstance(descriptor, dict)
+    assert descriptor["jobId"] == str(baseline.id)
+    assert descriptor["compatibilityMode"] == "baseline_to_selective_v1_1"
 
 
 def test_page_geometry_preflight_reuses_exact_v2_base_after_frame_review_rollback(
@@ -888,9 +907,7 @@ def test_page_geometry_preflight_reuses_exact_v2_base_after_frame_review_rollbac
         source_directory=source_directory,
         source_display_name="seq import",
         source_manifest_sha256="d" * 64,
-        geometry_engine_variant=(
-            GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
-        ),
+        geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
     )
 
     descriptor = created.input_payload["base_page_geometry_manifest"]
@@ -951,17 +968,13 @@ def test_page_geometry_preflight_reuses_v3_registered_results_after_rollback(
         source_directory=source_directory,
         source_display_name="seq import",
         source_manifest_sha256="d" * 64,
-        geometry_engine_variant=(
-            GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
-        ),
+        geometry_engine_variant=(GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
     )
 
     assert created.input_payload["base_page_geometry_manifest"] == {
         "contractVersion": "page-geometry-entry-reuse-v1",
         "jobId": str(base.id),
-        "manifestChecksumSha256": base.checkpoint_payload[
-            "geometry_manifest_checksum_sha256"
-        ],
+        "manifestChecksumSha256": base.checkpoint_payload["geometry_manifest_checksum_sha256"],
         "sourceManifestChecksumSha256": "d" * 64,
         "compatibilityMode": "lateral_v3_to_v2",
     }
@@ -1014,16 +1027,12 @@ def test_page_geometry_preflight_replaces_cancelled_unpinned_run_with_base(
         "source_directory": source_directory,
         "source_display_name": "seq import",
         "source_manifest_sha256": "d" * 64,
-        "geometry_engine_variant": (
-            GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
-        ),
+        "geometry_engine_variant": (GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES),
     }
 
     created = service.create_page_geometry_preflight_job(**arguments)
     assert created.id != cancelled.id
-    assert created.input_payload["base_page_geometry_manifest"]["jobId"] == str(
-        base.id
-    )
+    assert created.input_payload["base_page_geometry_manifest"]["jobId"] == str(base.id)
     with pytest.raises(JobConflictError) as duplicate:
         service.create_page_geometry_preflight_job(**arguments)
     assert duplicate.value.details == {"existingJobId": str(created.id)}

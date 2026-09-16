@@ -131,17 +131,20 @@ class LateralPartialGeometryJobSnapshotPayload(ApiModel):
         "lateral-partial-geometry-snapshot-v1",
         "lateral-partial-geometry-snapshot-v2",
         "lateral-partial-geometry-snapshot-v3",
+        "selective-frame-geometry-snapshot-v1",
     ]
-    variant: Literal["structured_lattice_v4_partial_sides"]
+    variant: Literal["structured_lattice_v4_partial_sides", "selective_board_review_v1_1"]
     policy_version: Literal[
         "structured-lattice-v4-lateral-partial-v1",
         "structured-lattice-v4-lateral-partial-v2",
         "structured-lattice-v4-lateral-partial-v3",
+        "structured-lattice-v4-selective-frame-v1",
     ]
     proposal_version: Literal[
         "automatic-lateral-partial-proposal-v1",
         "automatic-lateral-partial-proposal-v2",
         "automatic-lateral-partial-proposal-v3",
+        "automatic-lateral-partial-proposal-v4",
     ]
     topology_rows: Literal[3]
     topology_columns: Literal[5]
@@ -158,19 +161,29 @@ class LateralPartialGeometryJobSnapshotPayload(ApiModel):
     frame_support_review_enabled: Literal[True] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    automatic_frame_proposal_version: Literal["automatic-frame-geometry-proposal-v1"] | None = (
-        Field(default=None, exclude_if=lambda value: value is None)
-    )
-    minimum_automatic_board_red_edge_coverage: Literal[0.65] | None = Field(
+    automatic_frame_proposal_version: (
+        Literal["automatic-frame-geometry-proposal-v1", "automatic-frame-geometry-proposal-v2"]
+        | None
+    ) = Field(default=None, exclude_if=lambda value: value is None)
+    minimum_automatic_board_red_edge_coverage: float | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    minimum_reviewable_board_red_edge_coverage: Literal[0.3] | None = Field(
+    minimum_reviewable_board_red_edge_coverage: float | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    minimum_reviewable_page_mean_red_edge_coverage: Literal[0.7] | None = Field(
+    minimum_reviewable_page_mean_red_edge_coverage: float | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    maximum_frame_review_slots: Literal[3] | None = Field(
+    maximum_frame_review_slots: Literal[2, 3] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    minimum_confident_slots: Literal[7] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    baseline_first: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    review_draft_requires_human_confirmation: Literal[True] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     partial_grid_training_profile: PartialGridTrainingJobSnapshotPayload | None = Field(
@@ -487,7 +500,9 @@ class BasePageGeometryManifestPayload(ApiModel):
     job_id: UUID
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    compatibility_mode: Literal["exact_policy", "lateral_v2_to_v3", "lateral_v3_to_v2"]
+    compatibility_mode: Literal[
+        "exact_policy", "lateral_v2_to_v3", "lateral_v3_to_v2", "baseline_to_selective_v1_1"
+    ]
     base_override_fingerprints: dict[str, str] | None = None
 
 
@@ -980,9 +995,7 @@ def _page_geometry_preflight_progress(
             payload.get("review_required_source_count")
         ),
         reused_source_count=_optional_nonnegative_int(payload.get("reused_source_count")),
-        recomputed_source_count=_optional_nonnegative_int(
-            payload.get("recomputed_source_count")
-        ),
+        recomputed_source_count=_optional_nonnegative_int(payload.get("recomputed_source_count")),
     )
 
 

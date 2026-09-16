@@ -864,7 +864,10 @@ def create_image_imports_router(
             and existing.input_payload.get("source_exclusions", {}) != source_exclusions
         ):
             rerun = True
-        requested_v19 = preflight.image_engine_policy is ImageImportEnginePolicy.VERIFIED_V19
+        requested_v19 = (
+            payload.geometry_engine_variant is None
+            and preflight.image_engine_policy is ImageImportEnginePolicy.VERIFIED_V19
+        )
         if existing is not None and (
             (existing.input_payload.get("board_cell_processing") is not None) != requested_v19
         ):
@@ -1081,6 +1084,12 @@ def create_image_imports_router(
         manifest = _load_page_geometry_manifest(resolved_artifact_root, descriptor)
         entries = cast(dict[str, object], manifest["entries"])
         job = job_service.get_job(preflight_job_id)
+        pinned_selective_policy = job.input_payload.get("lateral_partial_geometry")
+        selective_board_review = (
+            isinstance(pinned_selective_policy, dict)
+            and pinned_selective_policy.get("variant")
+            == GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1.value
+        )
         pinned_overrides = job.input_payload.get("page_geometry_overrides")
         pinned_overrides = pinned_overrides if isinstance(pinned_overrides, dict) else {}
         current_overrides = (
@@ -1106,6 +1115,16 @@ def create_image_imports_router(
             if not isinstance(raw, dict):
                 continue
             current_override = current_overrides.get(checksum)
+            candidate = raw.get("lateralRegistrationCandidate")
+            if (
+                selective_board_review
+                and isinstance(candidate, dict)
+                and not isinstance(current_override, dict)
+            ):
+                # Local refinement decides whether this source has 1–2 board
+                # drafts or needs full correction in Reviewer. Never enqueue
+                # both source-level and board-level correction at once.
+                continue
             has_manual_override = raw.get(
                 "registrationVersion"
             ) == "manual-page-geometry-override-v1" or isinstance(current_override, dict)

@@ -37,11 +37,11 @@ import {
   boardCellProcessingModeLabel,
   jobMatchesBoardCellProcessingMode,
 } from './board-cell-processing-mode';
-import { BoardCellProcessingModePicker } from './board-cell-processing-mode-picker';
 import {
   type ImageFolderImportClient,
   type PageRegistrationVariant,
   LATERAL_PARTIAL_VARIANT,
+  SELECTIVE_BOARD_VARIANT,
   createImageFolderImport,
   filterImageFolderImportFiles,
   geometryPreflightMatchesReport,
@@ -199,7 +199,10 @@ function geometryEngineJobLabel(job: ImageImportJob): string {
       'lateralPartialGeometry'
     ];
     if (typeof lateral === 'object' && lateral !== null) {
-      return 'v0.10.4 — testowy, niepełne boki';
+      if ((lateral as Record<string, unknown>).variant === SELECTIVE_BOARD_VARIANT) {
+        return 'v1.1 — korekta niepewnych plansz';
+      }
+      return 'v1.0 — niepełne boki';
     }
     const version = (rollout as Record<string, unknown>)[
       'geometryEngineVersion'
@@ -240,13 +243,7 @@ export function ImageFolderImportPanel({
     useState<PageRegistrationVariant>('standard_v0_10');
   const [geometryEngineVariant, setGeometryEngineVariant] = useState<
     GeometryEngineVariant | undefined
-  >(() =>
-    globalThis.localStorage?.getItem(
-      `image-import-geometry-engine:${gameId}`,
-    ) === LATERAL_PARTIAL_VARIANT
-      ? LATERAL_PARTIAL_VARIANT
-      : undefined,
-  );
+  >(LATERAL_PARTIAL_VARIANT);
   const [geometryGuardResolutionManifest, setGeometryGuardResolutionManifest] =
     useState<ImageGeometryGuardResolutionManifestResponse | null>(null);
   const [enginePolicy, setEnginePolicy] =
@@ -255,9 +252,10 @@ export function ImageFolderImportPanel({
   const lateralCapability = enginePolicy?.geometryEngineVariants?.find(
     (candidate) => candidate.variant === LATERAL_PARTIAL_VARIANT,
   );
-  const lateralVariantAvailable =
-    lateralCapability?.enabled === true &&
-    boardCellProcessingMode === 'structured_lattice_v3';
+  const lateralVariantAvailable = lateralCapability?.enabled === true;
+  const selectiveCapability = enginePolicy?.geometryEngineVariants?.find(
+    (candidate) => candidate.variant === SELECTIVE_BOARD_VARIANT,
+  );
   const [curatedSources, setCuratedSources] = useState<
     readonly CuratedImageImportSourceResponse[]
   >([]);
@@ -383,7 +381,7 @@ export function ImageFolderImportPanel({
       if (identityStatus === 'stale') return;
       if (identityStatus === 'v4_rebind_forbidden') {
         setError(
-          'IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED: decyzje guarda v3 nie mogą zastąpić raportu v0.10.4.',
+          'IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED: decyzje guarda v3 nie mogą zastąpić raportu v1.0.',
         );
         return;
       }
@@ -473,29 +471,7 @@ export function ImageFolderImportPanel({
     if (policyResult.error === undefined && policyResult.data !== undefined) {
       const policy = policyResult.data;
       setEnginePolicy(policy);
-      const persistedVariant = globalThis.localStorage?.getItem(
-        `image-import-geometry-engine:${gameId}`,
-      );
-      const persistedCapability = policy.geometryEngineVariants?.find(
-        (candidate) => candidate.variant === LATERAL_PARTIAL_VARIANT,
-      );
-      const persistedVariantAvailable =
-        persistedCapability?.enabled === true &&
-        policy.policy === 'structured_lattice_v3';
-      setGeometryEngineVariant(
-        persistedVariant === LATERAL_PARTIAL_VARIANT &&
-          persistedVariantAvailable
-          ? LATERAL_PARTIAL_VARIANT
-          : undefined,
-      );
-      if (
-        persistedVariant === LATERAL_PARTIAL_VARIANT &&
-        !persistedVariantAvailable
-      ) {
-        globalThis.localStorage?.removeItem(
-          `image-import-geometry-engine:${gameId}`,
-        );
-      }
+      setGeometryEngineVariant(LATERAL_PARTIAL_VARIANT);
     }
     if (
       geometryPreflightsResult.error === undefined &&
@@ -855,8 +831,8 @@ export function ImageFolderImportPanel({
       }
       setFeedback(
         result.data.created
-          ? `Import ${imageJob.id} utworzony w trybie ${boardCellProcessingModeLabel(boardCellProcessingMode)} — oczekuje na worker.`
-          : `Import ${imageJob.id} już istnieje w trybie ${boardCellProcessingModeLabel(boardCellProcessingMode)}. Nie utworzono drugiego joba.`,
+          ? `Import ${imageJob.id} utworzony w ${geometryEngineVariant === SELECTIVE_BOARD_VARIANT ? 'v1.1' : 'v1.0'} — oczekuje na worker.`
+          : `Import ${imageJob.id} już istnieje w ${geometryEngineVariant === SELECTIVE_BOARD_VARIANT ? 'v1.1' : 'v1.0'}. Nie utworzono drugiego joba.`,
       );
       setSelection(null);
       setSelectionDisplayName('');
@@ -866,82 +842,6 @@ export function ImageFolderImportPanel({
       await refreshJobs();
     } catch {
       setError('Nie udało się utworzyć importu plansz.');
-    } finally {
-      setActiveAction(null);
-    }
-  }
-
-  async function changeEnginePolicy(
-    targetPolicy:
-      'verified_v19' | 'structured_default' | 'structured_lattice_v3',
-  ) {
-    if (busy || enginePolicy === null || targetPolicy === enginePolicy.policy)
-      return;
-    setActiveAction('engine-policy');
-    setError('');
-    try {
-      const preview = await api.previewImageImportEnginePolicy(gameId, {
-        targetPolicy,
-      });
-      if (preview.error !== undefined || preview.data === undefined) {
-        setError(
-          apiErrorMessage(
-            preview.error,
-            'Nie udało się przygotować zmiany silnika.',
-          ),
-        );
-        return;
-      }
-      const result = await api.updateImageImportEnginePolicy(gameId, {
-        targetPolicy,
-        expectedRevision: preview.data.current.revision,
-        previewToken: preview.data.previewToken,
-      });
-      if (result.error !== undefined || result.data === undefined) {
-        setError(
-          apiErrorMessage(result.error, 'Nie udało się zapisać silnika gry.'),
-        );
-        return;
-      }
-      setEnginePolicy(result.data);
-      setPreflight(null);
-      setGeometryPreflightJob(null);
-      setGeometryGuardResolutionManifest(null);
-      if (readyUploadId !== null) {
-        const refreshed = await previewReadyBrowserImageImport(
-          api,
-          readyUploadId,
-          gameId,
-          geometryEngineVariant,
-        );
-        if (!refreshed.ok) {
-          setError(refreshed.error);
-          return;
-        }
-        if (
-          refreshed.data.imageEnginePolicy !== result.data.policy ||
-          refreshed.data.imageEnginePolicyRevision !== result.data.revision
-        ) {
-          setError(
-            'Raport nie odpowiada zapisanemu ustawieniu silnika. Odśwież status i spróbuj ponownie.',
-          );
-          return;
-        }
-        setPreflight(refreshed.data);
-        setFeedback(
-          result.data.policy === 'structured_lattice_v3'
-            ? 'Ustawienie zapisano. Raport stagingu odświeżono — nowe importy użyją precyzyjnej siatki v0.10 v3.'
-            : result.data.policy === 'structured_default'
-              ? 'Ustawienie zapisano. Raport stagingu odświeżono — nowe importy użyją stabilnego silnika v0.10 v2.'
-              : 'Ustawienie zapisano. Raport stagingu odświeżono — przygotuj wymaganą geometrię stron.',
-        );
-        return;
-      }
-      setFeedback(
-        'Ustawienie zapisano. Będzie użyte przez następny raport i import tej gry.',
-      );
-    } catch {
-      setError('Połączenie z lokalnym Admin API zostało przerwane.');
     } finally {
       setActiveAction(null);
     }
@@ -1254,7 +1154,7 @@ export function ImageFolderImportPanel({
     if (busy || !lateralVariantAvailable) return;
     setActiveAction('reprocess-import');
     setError('');
-    setFeedback('Sprawdzam przypięty preflight v0.10.4…');
+    setFeedback('Sprawdzam przypięty preflight v1.0…');
     try {
       const result = await reprocessManagedV4OrPrepare(
         api,
@@ -1273,7 +1173,7 @@ export function ImageFolderImportPanel({
           ...current.filter((job) => job.id !== imageJob.id),
         ]);
         setFeedback(
-          'Utworzono idempotentny run v0.10.4 z zachowanych oryginałów i przypiętego manifestu.',
+          'Utworzono idempotentny run v1.0 z zachowanych oryginałów i przypiętego manifestu.',
         );
         return;
       }
@@ -1283,11 +1183,11 @@ export function ImageFolderImportPanel({
       ]);
       setFeedback(
         result.kind === 'preflight_created'
-          ? 'Jawnie przygotowano preflight v0.10.4 z zachowanych oryginałów. Po ukończeniu kliknij ponownie „Przetwórz w v0.10.4”.'
-          : 'Preflight v0.10.4 nadal pracuje. Nie utworzono drugiego joba.',
+          ? 'Jawnie przygotowano preflight v1.0 z zachowanych oryginałów. Po ukończeniu kliknij ponownie „Przetwórz w v1.0”.'
+          : 'Preflight v1.0 nadal pracuje. Nie utworzono drugiego joba.',
       );
     } catch {
-      setError('Nie udało się przygotować managed-original runu v0.10.4.');
+      setError('Nie udało się przygotować managed-original runu v1.0.');
     } finally {
       setActiveAction(null);
     }
@@ -1357,31 +1257,8 @@ export function ImageFolderImportPanel({
         </div>
       </div>
 
-      <BoardCellProcessingModePicker
-        disabled={busy || enginePolicy === null}
-        mode={boardCellProcessingMode}
-        onChange={(mode) => void changeEnginePolicy(mode)}
-      />
       <fieldset className="importActionToolbar">
         <legend>Silnik siatki dla tego wykonania</legend>
-        <label>
-          <input
-            checked={geometryEngineVariant === undefined}
-            disabled={busy}
-            name="geometry-engine-variant"
-            onChange={() => {
-              setGeometryEngineVariant(undefined);
-              globalThis.localStorage?.removeItem(
-                `image-import-geometry-engine:${gameId}`,
-              );
-              setPreflight(null);
-              setGeometryPreflightJob(null);
-            }}
-            type="radio"
-          />
-          Bieżący silnik gry (
-          {boardCellProcessingModeLabel(boardCellProcessingMode)})
-        </label>
         <label>
           <input
             checked={geometryEngineVariant === LATERAL_PARTIAL_VARIANT}
@@ -1389,22 +1266,32 @@ export function ImageFolderImportPanel({
             name="geometry-engine-variant"
             onChange={() => {
               setGeometryEngineVariant(LATERAL_PARTIAL_VARIANT);
-              globalThis.localStorage?.setItem(
-                `image-import-geometry-engine:${gameId}`,
-                LATERAL_PARTIAL_VARIANT,
-              );
               setPreflight(null);
               setGeometryPreflightJob(null);
+              setGeometryGuardResolutionManifest(null);
             }}
             type="radio"
           />
-          v0.10.4 — testowy, niepełne boki
+          v1.0 — niepełne boki
+        </label>
+        <label>
+          <input
+            checked={geometryEngineVariant === SELECTIVE_BOARD_VARIANT}
+            disabled={busy || selectiveCapability?.enabled !== true}
+            name="geometry-engine-variant"
+            onChange={() => {
+              setGeometryEngineVariant(SELECTIVE_BOARD_VARIANT);
+              setPreflight(null);
+              setGeometryPreflightJob(null);
+              setGeometryGuardResolutionManifest(null);
+            }}
+            type="radio"
+          />
+          v1.1 — korekta 1–2 niepewnych plansz (testowy)
         </label>
         {!lateralVariantAvailable ? (
           <p className="mutedText" role="status">
-            {boardCellProcessingMode !== 'structured_lattice_v3'
-              ? 'v0.10.4 wymaga bazowego silnika structured lattice v3.'
-              : `${lateralCapability?.blockerCode ?? 'IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED'}: ${lateralCapability?.blockerMessage ?? 'Wariant oczekuje na końcową bramkę jakości.'}`}
+            {`${lateralCapability?.blockerCode ?? 'IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED'}: ${lateralCapability?.blockerMessage ?? 'Silnik v1.0 jest niedostępny.'}`}
           </p>
         ) : null}
       </fieldset>
@@ -1603,7 +1490,7 @@ export function ImageFolderImportPanel({
                       }
                       type="button"
                     >
-                      Przetwórz w v0.10.4
+                      Przetwórz w v1.0
                     </button>
                     <button
                       aria-busy={activeAction === 'delete-ready' && active}
@@ -1685,8 +1572,10 @@ export function ImageFolderImportPanel({
                         <dt>Wersja silnika siatki</dt>
                         <dd>
                           {preflight.geometryEngineVariant ===
-                          LATERAL_PARTIAL_VARIANT
-                            ? 'v0.10.4 — testowy, niepełne boki'
+                          SELECTIVE_BOARD_VARIANT
+                            ? 'v1.1 — korekta plansz'
+                            : preflight.geometryEngineVariant === LATERAL_PARTIAL_VARIANT
+                              ? 'v1.0 — niepełne boki'
                             : boardCellProcessingModeLabel(
                                 boardCellProcessingMode,
                               )}
@@ -1785,7 +1674,7 @@ export function ImageFolderImportPanel({
                             </span>
                           ) : null}
                           {geometryPreflightJob?.status === 'completed' &&
-                          geometryPreflightJob.progress.review > 0 ? (
+                          visibleGeometryCorrectionCount > 0 ? (
                             <details>
                               <summary>
                                 Ręczna korekta zdjęć geometrii — zostaw na
@@ -1900,9 +1789,7 @@ export function ImageFolderImportPanel({
                     ? 'Rozpocznij nowy import z rozliczeniami'
                     : preflight.unclassifiedColdStartAllowed
                       ? 'Rozpocznij pierwszy import bez modelu'
-                      : boardCellProcessingMode === 'verified_v19'
-                        ? 'Rozpocznij import v20 z raportu'
-                        : 'Rozpocznij import z raportu'}
+                      : `Rozpocznij import ${geometryEngineVariant === SELECTIVE_BOARD_VARIANT ? 'v1.1' : 'v1.0'} z raportu`}
           </button>
           <input
             accept=".jpg,.jpeg,image/jpeg"
@@ -2276,7 +2163,7 @@ export function ImageFolderImportPanel({
                         onClick={() => void reprocessManagedV4(job)}
                         type="button"
                       >
-                        Przetwórz w v0.10.4
+                        Przetwórz w v1.0
                       </button>
                     </>
                   ) : null}

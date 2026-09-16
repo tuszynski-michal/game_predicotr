@@ -84,29 +84,34 @@ class ImageImportEnginePolicyUpdateRequest(ApiModel):
 def to_image_import_engine_policy_response(
     value: ImageImportEnginePolicySnapshot,
 ) -> ImageImportEnginePolicyResponse:
-    variant = GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
-    blocker_code: str | None = None
-    blocker_message: str | None = None
-    try:
-        require_geometry_engine_variant_available(variant)
-    except LateralPartialContractError as error:
-        blocker_code = error.code
-        blocker_message = str(error)
+    capabilities: list[GeometryEngineVariantCapabilityResponse] = []
+    for variant, label in (
+        (GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES, "v1.0 — niepełne boki"),
+        (GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1, "v1.1 — korekta plansz"),
+    ):
+        blocker_code: str | None = None
+        blocker_message: str | None = None
+        try:
+            require_geometry_engine_variant_available(variant)
+        except LateralPartialContractError as error:
+            blocker_code = error.code
+            blocker_message = str(error)
+        capabilities.append(
+            GeometryEngineVariantCapabilityResponse(
+                variant=variant,
+                label=label,
+                enabled=blocker_code is None,
+                blocker_code=blocker_code,
+                blocker_message=blocker_message,
+            )
+        )
     return ImageImportEnginePolicyResponse(
         game_id=value.game_id,
         policy=value.policy,
         geometry_mode=value.geometry_mode,
         cell_asset_mode=value.cell_asset_mode,
         revision=value.revision,
-        geometry_engine_variants=[
-            GeometryEngineVariantCapabilityResponse(
-                variant=variant,
-                label="v0.10.4 — testowy, niepełne boki",
-                enabled=blocker_code is None,
-                blocker_code=blocker_code,
-                blocker_message=blocker_message,
-            )
-        ],
+        geometry_engine_variants=capabilities,
     )
 
 

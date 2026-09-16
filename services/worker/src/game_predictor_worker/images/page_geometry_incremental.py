@@ -20,15 +20,19 @@ PAGE_GEOMETRY_CHECKPOINT_SCHEMA_VERSION = 1
 EXACT_POLICY_COMPATIBILITY = "exact_policy"
 LATERAL_V2_TO_V3_COMPATIBILITY = "lateral_v2_to_v3"
 LATERAL_V3_TO_V2_COMPATIBILITY = "lateral_v3_to_v2"
+BASELINE_TO_SELECTIVE_COMPATIBILITY = "baseline_to_selective_v1_1"
 _COMPATIBILITY_MODES = frozenset(
     {
         EXACT_POLICY_COMPATIBILITY,
         LATERAL_V2_TO_V3_COMPATIBILITY,
         LATERAL_V3_TO_V2_COMPATIBILITY,
+        BASELINE_TO_SELECTIVE_COMPATIBILITY,
     }
 )
 _LATERAL_V2_SCHEMA = "lateral-partial-geometry-snapshot-v2"
 _LATERAL_V3_SCHEMA = "lateral-partial-geometry-snapshot-v3"
+_LATERAL_V1_SCHEMA = "lateral-partial-geometry-snapshot-v1"
+_SELECTIVE_SCHEMA = "selective-frame-geometry-snapshot-v1"
 _CHECKPOINT_ERROR = "IMAGE_PAGE_GEOMETRY_CHECKPOINT_INVALID"
 _BASE_MANIFEST_ERROR = "IMAGE_PAGE_GEOMETRY_BASE_MANIFEST_INVALID"
 
@@ -181,8 +185,10 @@ def load_base_manifest(
         compatible = base_lateral == lateral_partial_geometry
     elif descriptor.compatibility_mode == LATERAL_V2_TO_V3_COMPATIBILITY:
         compatible = _lateral_v2_to_v3_compatible(base_lateral, lateral_partial_geometry)
-    else:
+    elif descriptor.compatibility_mode == LATERAL_V3_TO_V2_COMPATIBILITY:
         compatible = _lateral_v2_to_v3_compatible(lateral_partial_geometry, base_lateral)
+    else:
+        compatible = _baseline_to_selective_compatible(base_lateral, lateral_partial_geometry)
     if not compatible:
         raise JobHandlerError(
             _BASE_MANIFEST_ERROR,
@@ -234,8 +240,7 @@ def plan_manifest_reuse(
         {
             anchor.get("sourceChecksumSha256")
             for anchor in profile_anchors
-            if isinstance(anchor, Mapping)
-            and _is_sha256(anchor.get("sourceChecksumSha256"))
+            if isinstance(anchor, Mapping) and _is_sha256(anchor.get("sourceChecksumSha256"))
         }
         if isinstance(profile_anchors, list)
         else set()
@@ -325,11 +330,7 @@ def plan_manifest_reuse(
             for checksum, entry in reused.items()
             if checksum not in invalidated_anchors
         }
-        recompute = [
-            original
-            for original in originals
-            if original.checksum_sha256 not in reused
-        ]
+        recompute = [original for original in originals if original.checksum_sha256 not in reused]
     return PageGeometryReusePlan(reused, tuple(recompute))
 
 
@@ -611,6 +612,16 @@ def _lateral_v2_to_v3_compatible(base: object, target: object) -> bool:
         and base.get("schemaVersion") == _LATERAL_V2_SCHEMA
         and target.get("schemaVersion") == _LATERAL_V3_SCHEMA
         and base.get("variant") == target.get("variant")
+        and base.get("partialGridTrainingProfile") == target.get("partialGridTrainingProfile")
+    )
+
+
+def _baseline_to_selective_compatible(base: object, target: object) -> bool:
+    return (
+        isinstance(base, Mapping)
+        and isinstance(target, Mapping)
+        and base.get("schemaVersion") in {_LATERAL_V1_SCHEMA, _LATERAL_V2_SCHEMA}
+        and target.get("schemaVersion") == _SELECTIVE_SCHEMA
         and base.get("partialGridTrainingProfile") == target.get("partialGridTrainingProfile")
     )
 

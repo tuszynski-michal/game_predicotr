@@ -637,7 +637,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         clock=lambda: NOW,
     )
     canonical_service = ImageSequenceCanonicalService(_BrowserCanonicalRepository())
-    job_service = JobService(repository)
+    job_service = JobService(repository, artifact_root=tmp_path / "artifacts")
     image_bytes: list[bytes] = []
     for color in ((255, 0, 0), (0, 255, 0)):
         stream = BytesIO()
@@ -727,7 +727,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         assert v4_report.status_code == 200
         assert v4_report.json()["geometryEngineVariantEnabled"] is True
         assert v4_report.json()["geometryEngineVariantBlockerCode"] is None
-        assert v4_report.json()["preflightChecksumSha256"] != report["preflightChecksumSha256"]
+        assert v4_report.json()["preflightChecksumSha256"] == report["preflightChecksumSha256"]
         assert (
             tuple(repository.list_jobs(status=None, job_type=None, game_id=game_id, limit=100))
             == jobs_before_v4_report
@@ -744,26 +744,31 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         assert missing_geometry.status_code == 409
         assert missing_geometry.json()["code"] == "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED"
 
-        geometry_checksum = "d" * 64
-        geometry_job = create_job(
-            JobType.VALIDATE,
-            game_id=game_id,
-            input_payload={
-                "schema_version": 2,
-                "validation_kind": "page_geometry_preflight",
-                "source_selection_id": upload_id,
-                "source_directory": str(tmp_path / "imports" / upload_id),
-                "source_display_name": "1-18",
-                "source_manifest_sha256": report["manifestChecksumSha256"],
-                "page_registration_profile": {
-                    "policy": "verified-page-registration-v1",
-                    "anchors": [{}],
-                },
-                "page_geometry_overrides": {},
-                "canonical_sequence_numbers": list(range(1, 10)),
-            },
-            created_at=NOW,
+        geometry_response = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight",
+            json={"gameId": str(game_id)},
         )
+        assert geometry_response.status_code == 201, geometry_response.text
+        geometry_job = repository.get_job(UUID(geometry_response.json()["job"]["id"]))
+        assert geometry_job is not None
+        geometry_manifest = {
+            "gameId": str(game_id),
+            "sourceSelectionId": upload_id,
+            "sourceManifestChecksumSha256": report["manifestChecksumSha256"],
+            "lateralPartialGeometry": geometry_job.input_payload["lateral_partial_geometry"],
+            "entries": {},
+        }
+        manifest_bytes = json.dumps(geometry_manifest, sort_keys=True).encode()
+        geometry_checksum = hashlib.sha256(manifest_bytes).hexdigest()
+        manifest_path = (
+            tmp_path
+            / "artifacts"
+            / "data"
+            / "page-geometry-manifests"
+            / f"{geometry_checksum}.json"
+        )
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_bytes(manifest_bytes)
         lease_token = uuid4()
         geometry_job = start_job(
             geometry_job,
@@ -842,10 +847,9 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     assert started.status_code == 201
     assert started.json()["created"] is True
     assert started.json()["job"]["inputPayload"]["schemaVersion"] == 7
-    assert invalid_resolution_reference.status_code == 422
+    assert invalid_resolution_reference.status_code == 409
     assert (
-        invalid_resolution_reference.json()["code"]
-        == "IMAGE_GEOMETRY_GUARD_MANIFEST_REFERENCE_INVALID"
+        invalid_resolution_reference.json()["code"] == "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED"
     )
     assert replay.status_code == 201, replay.text
     assert replay.json()["created"] is False
@@ -854,18 +858,15 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         replay.json()["job"]["inputPayload"]["sourceManifestSha256"]
         == report["manifestChecksumSha256"]
     )
+    import_payload = started.json()["job"]["inputPayload"]
+    assert import_payload["imageGeometryRollout"]["geometryMode"] == "structured_lattice_v3"
     assert (
-        started.json()["job"]["inputPayload"]["boardCellProcessing"]["activationVersion"]
+        import_payload["boardCellProcessing"]["activationVersion"]
         == "board-cell-processing-v20-verified-v19-v1"
     )
     assert rerun_current_models.status_code == 201, rerun_current_models.text
-    assert rerun_current_models.json()["created"] is True
-    assert (
-        rerun_current_models.json()["job"]["inputPayload"]["boardCellProcessing"][
-            "activationVersion"
-        ]
-        == "board-cell-processing-v20-verified-v19-v1"
-    )
+    assert rerun_current_models.json()["created"] is False
+    assert rerun_current_models.json()["job"]["id"] == started.json()["job"]["id"]
 
 
 def test_browser_report_and_geometry_preflight_remain_available_without_symbol_model(
@@ -984,6 +985,7 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
     job_service = JobService(
         repository,
         symbol_model_snapshot_resolver=_ColdStartSymbolModelResolver(),
+        artifact_root=tmp_path / "artifacts",
     )
     stream = BytesIO()
     Image.new("RGB", (32, 24), (255, 0, 0)).save(stream, "JPEG")
@@ -1036,26 +1038,31 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
         assert preflight["symbolModelInferenceFingerprint"] is None
         assert preflight["symbolModelSnapshotFingerprint"] == cold_start.inference_fingerprint
 
-        geometry_checksum = "d" * 64
-        geometry_job = create_job(
-            JobType.VALIDATE,
-            game_id=game_id,
-            input_payload={
-                "schema_version": 2,
-                "validation_kind": "page_geometry_preflight",
-                "source_selection_id": upload_id,
-                "source_directory": str(tmp_path / "imports" / upload_id),
-                "source_display_name": "10-18",
-                "source_manifest_sha256": preflight["manifestChecksumSha256"],
-                "page_registration_profile": {
-                    "policy": "verified-page-registration-v1",
-                    "anchors": [],
-                },
-                "page_geometry_overrides": {},
-                "canonical_sequence_numbers": [],
-            },
-            created_at=NOW,
+        geometry_response = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight",
+            json={"gameId": str(game_id)},
         )
+        assert geometry_response.status_code == 201, geometry_response.text
+        geometry_job = repository.get_job(UUID(geometry_response.json()["job"]["id"]))
+        assert geometry_job is not None
+        geometry_manifest = {
+            "gameId": str(game_id),
+            "sourceSelectionId": upload_id,
+            "sourceManifestChecksumSha256": preflight["manifestChecksumSha256"],
+            "lateralPartialGeometry": geometry_job.input_payload["lateral_partial_geometry"],
+            "entries": {},
+        }
+        manifest_bytes = json.dumps(geometry_manifest, sort_keys=True).encode()
+        geometry_checksum = hashlib.sha256(manifest_bytes).hexdigest()
+        manifest_path = (
+            tmp_path
+            / "artifacts"
+            / "data"
+            / "page-geometry-manifests"
+            / f"{geometry_checksum}.json"
+        )
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_bytes(manifest_bytes)
         lease_token = uuid4()
         geometry_job = start_job(
             geometry_job,
@@ -1103,6 +1110,7 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
             },
         )
 
+        assert started.status_code == 201, started.text
         started_job = repository.get_job(UUID(started.json()["job"]["id"]))
         assert started_job is not None
         assert (
@@ -1122,7 +1130,10 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
         )
         current_policy = job_service.current_image_import_engine_policy(game_id=game_id)
         assert current_policy.policy is ImageImportEnginePolicy.VERIFIED_V19
-        assert "image_geometry_rollout" not in started_job.input_payload
+        assert (
+            started_job.input_payload["image_geometry_rollout"]["geometryMode"]
+            == "structured_lattice_v3"
+        )
         repository.add_job(
             create_job(
                 JobType.IMPORT,
@@ -1144,7 +1155,7 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
             symbol_model_inference_fingerprint=None,
             symbol_model_snapshot_fingerprint=cold_start.inference_fingerprint,
             grid_profile_inference_fingerprint=preflight["gridProfileInferenceFingerprint"],
-            geometry_engine_variant=None,
+            geometry_engine_variant=GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
         )
         assert exact_replay is not None, started_job.input_payload
         assert exact_replay.id == started_job.id
@@ -1196,7 +1207,7 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
     )
 
     canonical_service = ImageSequenceCanonicalService(_BrowserCanonicalRepository())
-    job_service = JobService(repository)
+    job_service = JobService(repository, artifact_root=tmp_path / "artifacts")
     stream = BytesIO()
     Image.new("RGB", (32, 24), (255, 0, 0)).save(stream, "JPEG")
     image_bytes = stream.getvalue()
@@ -1293,7 +1304,24 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
         )
         assert masked_profile["policy"] == "verified-page-registration-v2-board-area-mask-v1"
         assert masked_profile["anchorMaskPaddingRatio"] == 0.1
-        geometry_checksum = "d" * 64
+        geometry_manifest = {
+            "gameId": str(game_id),
+            "sourceSelectionId": upload_id,
+            "sourceManifestChecksumSha256": report["manifestChecksumSha256"],
+            "lateralPartialGeometry": geometry_job.input_payload["lateral_partial_geometry"],
+            "entries": {},
+        }
+        manifest_bytes = json.dumps(geometry_manifest, sort_keys=True).encode()
+        geometry_checksum = hashlib.sha256(manifest_bytes).hexdigest()
+        manifest_path = (
+            tmp_path
+            / "artifacts"
+            / "data"
+            / "page-geometry-manifests"
+            / f"{geometry_checksum}.json"
+        )
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_bytes(manifest_bytes)
         lease_token = uuid4()
         geometry_job = start_job(
             geometry_job,
@@ -1347,7 +1375,7 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
     assert missing_geometry.json()["code"] == "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED"
     assert started.status_code == 201, started.text
     payload = started.json()["job"]["inputPayload"]
-    assert payload["imageGeometryRollout"]["geometryMode"] == "structured_shadow"
+    assert payload["imageGeometryRollout"]["geometryMode"] == "structured_lattice_v3"
     assert payload["pageGeometryManifest"] == {
         "checksumSha256": geometry_checksum,
         "preflightJobId": str(geometry_job_id),
@@ -1564,8 +1592,10 @@ def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -
     assert descriptor["checksumSha256"] == checksum
 
 
+@pytest.mark.parametrize("selective_board_review", [False, True])
 def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_submit(
     tmp_path: Path,
+    selective_board_review: bool,
 ) -> None:
     game_id = uuid4()
     upload_id = uuid4()
@@ -1596,6 +1626,15 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
                 "sourceRelativePath": "new/seq_10-14.jpg",
                 "status": "review_required",
                 "reasonCode": "PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT",
+                **(
+                    {
+                        "lateralRegistrationCandidate": {
+                            "version": "lateral-page-registration-candidate-v3"
+                        }
+                    }
+                    if selective_board_review
+                    else {}
+                ),
                 "registrationDiagnostics": {
                     "version": "page-registration-diagnostics-v1",
                     "bestAttempt": {
@@ -1628,6 +1667,13 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
             "source_display_name": "new",
             "source_manifest_sha256": "c" * 64,
             "page_registration_profile": {"policy": "test", "anchors": []},
+            "lateral_partial_geometry": (
+                LateralPartialGeometrySnapshot(
+                    frame_support_review=True, selective_frame_review=True
+                ).to_payload()
+                if selective_board_review
+                else None
+            ),
             "page_geometry_overrides": {
                 manual_source_checksum: {"decisionChecksumSha256": old_checksum}
             },
@@ -1675,6 +1721,9 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
                 }
             }
 
+        def partial_grid_training_profile(self, *, game_id: UUID) -> None:
+            return None
+
         def exclusion_snapshot(
             self, *, game_id: UUID, browser_selection_id: UUID
         ) -> dict[str, object]:
@@ -1699,15 +1748,21 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
 
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert [source["sequenceRangeStart"] for source in payload["sources"]] == [1, 10]
-    assert [source["expectedBoardCount"] for source in payload["sources"]] == [9, 5]
-    assert payload["reviewRequiredSourceCount"] == 1
+    assert [source["sequenceRangeStart"] for source in payload["sources"]] == (
+        [1] if selective_board_review else [1, 10]
+    )
+    assert [source["expectedBoardCount"] for source in payload["sources"]] == (
+        [9] if selective_board_review else [9, 5]
+    )
+    assert payload["reviewRequiredSourceCount"] == (0 if selective_board_review else 1)
     manual = payload["sources"][0]
     assert manual["reviewReason"] == "manual_override"
     assert manual["geometryOrigin"] == "manual_override"
     assert manual["existingFinalQuads"] == quads
     assert manual["existingOverrideRevision"] == 2
     assert manual["savedSincePreflight"] is True
+    if selective_board_review:
+        return
     unresolved = payload["sources"][1]
     assert unresolved["reviewReason"] == "review_required"
     assert unresolved["geometryOrigin"] == "manual_template"

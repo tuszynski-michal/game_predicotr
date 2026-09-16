@@ -75,7 +75,7 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
     panelSource,
     /staging \{ready\.uploadId\.slice\(0, 8\)\} · \{lifecycleLabel\}/,
   );
-  assert.match(panelSource, /Rozpocznij import z raportu/);
+  assert.match(panelSource, /Rozpocznij import \$\{geometryEngineVariant === SELECTIVE_BOARD_VARIANT/);
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
   assert.match(panelSource, /Standardowe v0\.10/);
   assert.match(panelSource, /Obszar plansz — testowe/);
@@ -94,9 +94,9 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Rozpocznij pierwszy import bez modelu/);
   assert.match(panelSource, /Każda pozycja oznacza jedno zdjęcie/);
   assert.match(panelSource, /Importuj rozpoznane strony/);
-  assert.match(panelSource, /BoardCellProcessingModePicker/);
+  assert.doesNotMatch(panelSource, /<BoardCellProcessingModePicker/);
   assert.match(panelSource, /jobMatchesBoardCellProcessingMode/);
-  assert.match(panelSource, /Rozpocznij import v20 z raportu/);
+  assert.match(panelSource, /v1\.1 — korekta niepewnych plansz/);
   assert.match(
     panelSource,
     /Ręczna korekta zdjęć geometrii — zostaw na\s+koniec/,
@@ -156,9 +156,9 @@ test('starts page geometry only after the explicit operator action', () => {
   assert.match(panelSource, /historia zakończonych importów pozostaje w/);
 });
 
-test('shows gated v0.10.4 readiness and replays a report without dispatch', () => {
-  assert.match(panelSource, /v0\.10\.4 — testowy, niepełne boki/);
-  assert.match(panelSource, /Przetwórz w v0\.10\.4/);
+test('shows v1.0 readiness and replays a report without dispatch', () => {
+  assert.match(panelSource, /v1\.0 — niepełne boki/);
+  assert.match(panelSource, /Przetwórz w v1\.0/);
   assert.match(panelSource, /geometryEngineVariants/);
   assert.match(panelSource, /geometryEngineVariantEnabled/);
   assert.match(panelSource, /geometryPreflightArtifactBlockerMessage/);
@@ -249,27 +249,19 @@ test('defers geometry guard effect initialization and cancels stale callbacks', 
   );
 });
 
-test('offers stable v19, v0.10 v2 and accepted v0.10 v3 per game', () => {
-  assert.match(modePickerSource, /wyłącznie nowych importów tej gry/);
+test('offers v1.0 and opt-in v1.1 while preserving historical labels', () => {
+  assert.match(panelSource, /v1\.0 — niepełne boki/);
+  assert.match(panelSource, /v1\.1 — korekta niepewnych plansz/);
+  assert.doesNotMatch(panelSource, /<BoardCellProcessingModePicker/);
+  assert.doesNotMatch(panelSource, /changeEnginePolicy/);
   assert.match(modePickerSource, /v20 — geometria i cropy v19/);
-  assert.match(modePickerSource, /v0.10 v2 — stabilny silnik strukturalny/);
-  assert.match(modePickerSource, /v0.10 v3 — precyzyjna siatka symboli/);
-  assert.match(modePickerSource, /98,44% bezpiecznych/);
-  assert.match(modePickerSource, /wirtualne\s+assety source-direct/);
-  assert.doesNotMatch(modePickerSource, /onChange\('structured_shadow'\)/);
-  assert.match(modePickerSource, /Nie ma fallbacku do\s*v18/);
-  assert.doesNotMatch(modePickerSource, /jawny opt-in/);
   assert.doesNotMatch(panelSource, /verifiedV19Confirmed/);
   assert.doesNotMatch(panelSource, /boardCellProcessingStartAllowed/);
-  assert.ok(
-    panelSource.indexOf('<BoardCellProcessingModePicker') <
-      panelSource.indexOf('Gotowy staging do wznowienia'),
-  );
   assert.match(
     panelSource,
     /className="secondaryButton"\s*disabled=\{busy \|\| enginePolicy === null\}[\s\S]*?'Wybierz folder'/,
   );
-  assert.match(panelSource, /Raport stagingu odświeżono/);
+  assert.match(panelSource, /Gotowy staging do wznowienia/);
 });
 
 test('provides styled actions and accessible import help', () => {

@@ -18,8 +18,10 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
 )
 from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
 from game_predictor_worker.images.lateral_partial_contract import (
+    LATERAL_PARTIAL_SNAPSHOT_VERSION,
     LATERAL_PARTIAL_SNAPSHOT_VERSION_V2,
     LATERAL_PARTIAL_SNAPSHOT_VERSION_V3,
+    SELECTIVE_FRAME_SNAPSHOT_VERSION,
     GeometryEngineVariant,
     LateralPartialContractError,
     LateralPartialGeometrySnapshot,
@@ -396,7 +398,9 @@ class JobService:
         self._deletion_artifact_store = deletion_artifact_store
         self._pending_deletion_quarantines: list[ImageSelectionDeletionQuarantine] = []
 
-    def _current_lateral_partial_policy(self, *, game_id: UUID) -> LateralPartialGeometrySnapshot:
+    def _current_lateral_partial_policy(
+        self, *, game_id: UUID, geometry_engine_variant: GeometryEngineVariant | None
+    ) -> LateralPartialGeometrySnapshot:
         resolver = self._page_geometry_override_snapshot_resolver
         method = (
             None if resolver is None else getattr(resolver, "partial_grid_training_profile", None)
@@ -408,7 +412,12 @@ class JobService:
             ),
             # TASK-0561: new runs use the accepted v1/v2 behavior. Pinned v3
             # snapshots remain replayable through from_payload().
-            frame_support_review=False,
+            frame_support_review=(
+                geometry_engine_variant is GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
+            ),
+            selective_frame_review=(
+                geometry_engine_variant is GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
+            ),
         )
 
     @staticmethod
@@ -421,13 +430,13 @@ class JobService:
 
         if geometry_engine_variant is None:
             return value is None
-        if geometry_engine_variant is not GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES:
-            return False
         try:
-            LateralPartialGeometrySnapshot.from_payload(value)
+            pinned = LateralPartialGeometrySnapshot.from_payload(value)
         except LateralPartialContractError:
             return False
-        return True
+        return pinned.selective_frame_review == (
+            geometry_engine_variant is GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
+        )
 
     def current_image_import_engine_policy(
         self, *, game_id: UUID
@@ -463,26 +472,28 @@ class JobService:
     ) -> str:
         getter = getattr(self._repository, "get_image_geometry_rollout", None)
         reference = getter(game_id) if callable(getter) else None
-        if geometry_engine_variant is not None and (
-            geometry_engine_variant is not GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
-            or reference is None
-            or reference.geometry_mode != GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
-        ):
-            raise JobError(
-                "IMAGE_LATERAL_PARTIAL_BASELINE_INVALID",
-                "The per-run partial variant requires the accepted structured lattice v3 baseline.",
-            )
         snapshot = GeometryPipelineRolloutSnapshot(
             geometry_mode=GeometryRolloutMode(
-                "legacy" if reference is None else reference.geometry_mode
+                GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
+                if geometry_engine_variant is not None
+                else "legacy"
+                if reference is None
+                else reference.geometry_mode
             ),
             cell_asset_mode=CellAssetRolloutMode(
-                "legacy_files" if reference is None else reference.cell_asset_mode
+                CellAssetRolloutMode.VIRTUAL_DEFAULT.value
+                if geometry_engine_variant is not None
+                else "legacy_files"
+                if reference is None
+                else reference.cell_asset_mode
             ),
             rollout_revision=0 if reference is None else reference.revision,
             geometry_engine_version=(
                 STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
-                if reference is None or reference.geometry_mode == GeometryRolloutMode.LEGACY.value
+                if geometry_engine_variant is None
+                and (
+                    reference is None or reference.geometry_mode == GeometryRolloutMode.LEGACY.value
+                )
                 else STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION
             ),
             virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
@@ -491,7 +502,8 @@ class JobService:
                 StructuredGeometryCandidateSnapshot.from_config_payload(
                     structured_lattice_candidate_config_payload()
                 )
-                if reference is not None
+                if geometry_engine_variant is None
+                and reference is not None
                 and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_SHADOW.value
                 else None
             ),
@@ -499,12 +511,19 @@ class JobService:
                 StructuredGeometryActivationSnapshot.from_config_payload(
                     structured_lattice_active_config_payload()
                 )
-                if reference is not None
+                if geometry_engine_variant is not None
+                or reference is not None
                 and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
                 else None
             ),
             lateral_partial_geometry=(
-                (lateral_partial_geometry or self._current_lateral_partial_policy(game_id=game_id))
+                (
+                    lateral_partial_geometry
+                    or self._current_lateral_partial_policy(
+                        game_id=game_id,
+                        geometry_engine_variant=geometry_engine_variant,
+                    )
+                )
                 if geometry_engine_variant is not None
                 else None
             ),
@@ -650,6 +669,7 @@ class JobService:
                 game_id=game_id,
                 selection_id=selection_id,
                 source_manifest_sha256=source_manifest_sha256,
+                geometry_engine_variant=geometry_engine_variant,
             )
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
@@ -827,6 +847,7 @@ class JobService:
         game_id: UUID,
         selection_id: UUID,
         source_manifest_sha256: str | None,
+        geometry_engine_variant: GeometryEngineVariant,
     ) -> LateralPartialGeometrySnapshot:
         from game_predictor_worker.images.lateral_partial_artifact import load_lateral_manifest
 
@@ -844,6 +865,13 @@ class JobService:
             policy = LateralPartialGeometrySnapshot.from_payload(
                 preflight.input_payload.get("lateral_partial_geometry")
             )
+            if policy.selective_frame_review != (
+                geometry_engine_variant is GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
+            ):
+                raise JobConflictError(
+                    "IMAGE_LATERAL_PARTIAL_ARTIFACT_INVALID",
+                    "The pinned preflight uses a different geometry engine variant.",
+                )
             load_lateral_manifest(
                 self._artifact_root,
                 descriptor,
@@ -1084,6 +1112,7 @@ class JobService:
                 game_id=source.game_id,
                 selection_id=evidence.source_selection_id,
                 source_manifest_sha256=evidence.source_manifest_sha256,
+                geometry_engine_variant=geometry_engine_variant,
             )
         source_directory = source.input_payload.get("source_directory")
         if not isinstance(source_directory, str) or not source_directory:
@@ -1765,7 +1794,10 @@ class JobService:
                 "IMAGE_PAGE_GEOMETRY_OVERRIDE_SNAPSHOT_INVALID",
                 "The page geometry override snapshot is invalid.",
             )
-        partial_policy = self._current_lateral_partial_policy(game_id=game_id)
+        partial_policy = self._current_lateral_partial_policy(
+            game_id=game_id,
+            geometry_engine_variant=geometry_engine_variant,
+        )
         exclusions = (
             {}
             if self._page_geometry_override_snapshot_resolver is None
@@ -1956,8 +1988,18 @@ class JobService:
                 except (TypeError, ValueError):
                     continue
                 if (
-                    snapshot.geometry_mode.value != engine_policy.geometry_mode
-                    or snapshot.cell_asset_mode.value != engine_policy.cell_asset_mode
+                    snapshot.geometry_mode.value
+                    != (
+                        GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
+                        if geometry_engine_variant is not None
+                        else engine_policy.geometry_mode
+                    )
+                    or snapshot.cell_asset_mode.value
+                    != (
+                        CellAssetRolloutMode.VIRTUAL_DEFAULT.value
+                        if geometry_engine_variant is not None
+                        else engine_policy.cell_asset_mode
+                    )
                     or snapshot.rollout_revision != engine_policy.revision
                     or not self._geometry_variant_matches_pinned_lateral_snapshot(
                         (
@@ -2153,8 +2195,7 @@ def _page_geometry_request_identity(
     return {
         key: value
         for key, value in payload.items()
-        if key != "source_display_name"
-        and (include_base or key != "base_page_geometry_manifest")
+        if key != "source_display_name" and (include_base or key != "base_page_geometry_manifest")
     }
 
 
@@ -2169,14 +2210,23 @@ def _page_geometry_candidate_compatibility(
         or payload.get("source_selection_id") != target.get("source_selection_id")
         or payload.get("source_manifest_sha256") != target.get("source_manifest_sha256")
         or payload.get("preflight_policy_version") != target.get("preflight_policy_version")
-        or payload.get("page_registration_profile")
-        != target.get("page_registration_profile")
+        or payload.get("page_registration_profile") != target.get("page_registration_profile")
     ):
         return None
     base_lateral = payload.get("lateral_partial_geometry")
     target_lateral = target.get("lateral_partial_geometry")
     if base_lateral == target_lateral:
         return "exact_policy"
+    if (
+        isinstance(base_lateral, Mapping)
+        and isinstance(target_lateral, Mapping)
+        and base_lateral.get("schemaVersion")
+        in {LATERAL_PARTIAL_SNAPSHOT_VERSION, LATERAL_PARTIAL_SNAPSHOT_VERSION_V2}
+        and target_lateral.get("schemaVersion") == SELECTIVE_FRAME_SNAPSHOT_VERSION
+        and base_lateral.get("partialGridTrainingProfile")
+        == target_lateral.get("partialGridTrainingProfile")
+    ):
+        return "baseline_to_selective_v1_1"
     if (
         isinstance(base_lateral, Mapping)
         and isinstance(target_lateral, Mapping)
@@ -2212,8 +2262,10 @@ def _completed_page_geometry_manifest_descriptor(
         return None
     checksum = checkpoint.get("geometry_manifest_checksum_sha256")
     relative = checkpoint.get("geometry_manifest_relative_path")
-    if not _lower_sha256(checksum) or not isinstance(relative, str) or not relative.startswith(
-        "data/"
+    if (
+        not _lower_sha256(checksum)
+        or not isinstance(relative, str)
+        or not relative.startswith("data/")
     ):
         return None
     path = (artifact_root / Path(*relative.split("/"))).resolve()
@@ -2230,11 +2282,9 @@ def _completed_page_geometry_manifest_descriptor(
         or not isinstance(manifest, Mapping)
         or manifest.get("gameId") != str(candidate.game_id)
         or manifest.get("sourceSelectionId") != target.get("source_selection_id")
-        or manifest.get("sourceManifestChecksumSha256")
-        != target.get("source_manifest_sha256")
+        or manifest.get("sourceManifestChecksumSha256") != target.get("source_manifest_sha256")
         or manifest.get("version") != target.get("preflight_policy_version")
-        or manifest.get("pageRegistrationProfile")
-        != target.get("page_registration_profile")
+        or manifest.get("pageRegistrationProfile") != target.get("page_registration_profile")
         or not isinstance(manifest.get("entries"), Mapping)
     ):
         return None
@@ -2281,8 +2331,10 @@ def _page_geometry_override_fingerprints(value: object) -> dict[str, str]:
 
 
 def _lower_sha256(value: object) -> bool:
-    return isinstance(value, str) and len(value) == 64 and all(
-        character in "0123456789abcdef" for character in value
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
     )
 
 

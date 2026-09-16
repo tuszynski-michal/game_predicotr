@@ -6,6 +6,16 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0569 — ponowne otwarcie preflightu w jego wariancie
+
+- Staging `200575 - 222912 cut` ma ukończony preflight v1.1
+  `23aec586-7bda-4345-9636-7bc23b648586` (2482/2482). Ponowne otwarcie
+  raportu wybiera jego wariant zamiast domyślnego v1.0. Odświeżenie listy nie
+  resetuje wariantu, a odświeżenie istniejącego preflightu nie uruchamia joba.
+- Niechcący utworzony drugi job v1.0
+  `24c115a3-f120-4404-b040-c33fe3e0ee38` anulowano przy 0/2482;
+  ukończony job v1.1 oraz jego manifest pozostały bez zmian.
+
 ### TASK-0568 — przycisk testowego raportu v1.1
 
 - Przy gotowym stagingu dodatkowy przycisk otwiera raport v1.1 zamiast

@@ -7,10 +7,20 @@ release: "0.7"
 
 # Architektura iteracyjnego importu
 
+## Odtworzenie wariantu preflightu — TASK-0569
+
+Lista gotowych stagingów wiąże preflighty po `sourceSelectionId` i
+`sourceManifestSha256`. Przy ponownym otwarciu preferuje ukończony job z
+manifestem geometrii, zachowując jego wariant v1.0 albo v1.1; anulowany job
+nie zmienia wyboru. Odświeżenie listy jobów nie resetuje wariantu otwartego
+raportu. Akcja odświeżenia istniejącego preflightu wykonuje odczyt, a start
+pozostaje osobną akcją tylko dla raportu bez joba.
+
 ## Wybór testowego raportu v1.1 — TASK-0568
 
-Lista gotowych stagingów przekazuje `structured_lattice_v4_partial_sides` do
-nowo otwieranego raportu oraz `selective_board_review_v1_1` do dodatkowego
+Lista gotowych stagingów bez ukończonego preflightu przekazuje
+`structured_lattice_v4_partial_sides` do nowo otwieranego raportu oraz
+`selective_board_review_v1_1` do dodatkowego
 przycisku testowego. Odświeżenie aktywnego raportu zachowuje jego wariant.
 `prepareReadyImport` zachowuje przypięty kontekst guarda tylko wtedy, gdy
 identyfikator stagingu i wariant pozostają takie same. Podgląd raportu nie

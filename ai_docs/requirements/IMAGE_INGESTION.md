@@ -6,10 +6,19 @@ last_updated: 2026-09-16
 
 # Import i rozpoznawanie zdjęć
 
+## Zachowanie wariantu ukończonego preflightu — TASK-0569
+
+Ponowne otwarcie gotowego stagingu wybiera wariant przypięty do jego ukończonego
+preflightu geometrii, powiązanego z tym samym identyfikatorem stagingu i sumą
+manifestu źródeł. Ukończony wynik v1.1 pozostaje v1.1 podczas ponownego
+otwarcia i odświeżania; odświeżenie istniejącego joba tylko odczytuje stan.
+Operator może jawnie wybrać inny wariant, aby rozpocząć osobny test. Nowy
+staging bez wyniku pozostaje domyślnie w v1.0.
+
 ## Testowe otwarcie raportu v1.1 — TASK-0568
 
-Przy gotowym stagingu zwykłe „Pokaż raport” otwiera nowy staging w domyślnym
-v1.0, a dla już otwartego raportu odświeża jego przypięty wariant. Dodatkowy
+Przy gotowym stagingu bez ukończonego preflightu zwykłe „Pokaż raport” otwiera
+raport w domyślnym v1.0, a dla już otwartego raportu odświeża jego przypięty wariant. Dodatkowy
 przycisk „Przetwórz w v1.1” przygotowuje raport tego samego stagingu z jawnym
 wariantem testowym. Samo otwarcie raportu nie uruchamia joba; preflight geometrii
 i import nadal wymagają osobnych działań. Zmiana wariantu unieważnia lokalny

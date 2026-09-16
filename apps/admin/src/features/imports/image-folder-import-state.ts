@@ -1,5 +1,6 @@
 import type {
   BrowserReadySelectionResponse,
+  GeometryEngineVariant,
   JobResponse,
 } from '@game-predictor/admin-api-client';
 
@@ -33,6 +34,49 @@ function jobMatchesReadySelection(
   );
 }
 
+export function readyBoardImportGeometryVariant(
+  geometryPreflightJobs: readonly JobResponse[],
+  selection: ReadyBoardImportLifecycleState['selection'],
+): GeometryEngineVariant {
+  const latest = geometryPreflightJobs
+    .filter((job) => {
+      const payload = job.inputPayload as unknown as Record<string, unknown>;
+      const lateral = payload.lateralPartialGeometry;
+      const variant =
+        typeof lateral === 'object' && lateral !== null
+          ? (lateral as Record<string, unknown>).variant
+          : null;
+      return (
+        job.jobType === 'validate' &&
+        payload.validationKind === 'page_geometry_preflight' &&
+        jobMatchesReadySelection(job, selection) &&
+        job.status !== 'cancelled' &&
+        (payload.managedSourceJobId === undefined ||
+          payload.managedSourceJobId === null) &&
+        (variant === 'structured_lattice_v4_partial_sides' ||
+          variant === 'selective_board_review_v1_1')
+      );
+    })
+    .sort((left, right) => {
+      const completed = (job: JobResponse) =>
+        job.status === 'completed' &&
+        typeof job.progress.pageGeometryPreflight
+          ?.geometryManifestChecksumSha256 === 'string';
+      return (
+        Number(completed(right)) - Number(completed(left)) ||
+        right.createdAt.localeCompare(left.createdAt) ||
+        right.id.localeCompare(left.id)
+      );
+    })[0];
+  const payload = latest?.inputPayload as unknown as
+    Record<string, unknown> | undefined;
+  const lateral = payload?.lateralPartialGeometry as
+    Record<string, unknown> | undefined;
+  return lateral?.variant === 'selective_board_review_v1_1'
+    ? 'selective_board_review_v1_1'
+    : 'structured_lattice_v4_partial_sides';
+}
+
 export function readyBoardImportLifecycleLabel(
   state: ReadyBoardImportLifecycleState,
 ): string {
@@ -47,16 +91,14 @@ export function readyBoardImportLifecycleLabel(
   });
   if (readyImportExists) return 'gotowy';
 
-  const matchingGeometryJobs = state.geometryPreflightJobs.filter(
-    (job) => {
-      const payload = job.inputPayload as unknown as Record<string, unknown>;
-      return (
-        job.jobType === 'validate' &&
-        payload.validationKind === 'page_geometry_preflight' &&
-        jobMatchesReadySelection(job, state.selection)
-      );
-    },
-  );
+  const matchingGeometryJobs = state.geometryPreflightJobs.filter((job) => {
+    const payload = job.inputPayload as unknown as Record<string, unknown>;
+    return (
+      job.jobType === 'validate' &&
+      payload.validationKind === 'page_geometry_preflight' &&
+      jobMatchesReadySelection(job, state.selection)
+    );
+  });
   const geometryReady = matchingGeometryJobs.some(
     (job) =>
       job.status === 'completed' &&

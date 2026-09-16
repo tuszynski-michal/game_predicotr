@@ -60,6 +60,7 @@ import {
 import {
   canStartReadyImport,
   pageGeometryPreflightOutcomeLabel,
+  readyBoardImportGeometryVariant,
   readyBoardImportLifecycleLabel,
   sortReadyBoardImports,
 } from './image-folder-import-state';
@@ -471,7 +472,6 @@ export function ImageFolderImportPanel({
     if (policyResult.error === undefined && policyResult.data !== undefined) {
       const policy = policyResult.data;
       setEnginePolicy(policy);
-      setGeometryEngineVariant(LATERAL_PARTIAL_VARIANT);
     }
     if (
       geometryPreflightsResult.error === undefined &&
@@ -712,7 +712,8 @@ export function ImageFolderImportPanel({
     setFeedback('Sprawdzanie gotowego stagingu i decyzji kanonicznych…');
     try {
       const keepsPersistedGuardContext =
-        readyUploadId === uploadId && geometryEngineVariant === requestedVariant;
+        readyUploadId === uploadId &&
+        geometryEngineVariant === requestedVariant;
       const result = await previewReadyBrowserImageImport(
         api,
         uploadId,
@@ -1440,7 +1441,12 @@ export function ImageFolderImportPanel({
                       onClick={() =>
                         void prepareReadyImport(
                           ready.uploadId,
-                          active ? geometryEngineVariant : LATERAL_PARTIAL_VARIANT,
+                          active
+                            ? geometryEngineVariant
+                            : readyBoardImportGeometryVariant(
+                                geometryPreflightJobs,
+                                ready,
+                              ),
                         )
                       }
                       type="button"
@@ -1609,7 +1615,9 @@ export function ImageFolderImportPanel({
                             onClick={() =>
                               geometryPreflightJob?.status === 'failed'
                                 ? void retryGeometryPreflight()
-                                : void startGeometryPreflight()
+                                : geometryPreflightJob === null
+                                  ? void startGeometryPreflight()
+                                  : void refreshStatus()
                             }
                             type="button"
                           >

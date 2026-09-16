@@ -157,15 +157,24 @@ test('starts page geometry only after the explicit operator action', () => {
   assert.match(panelSource, /historia zakończonych importów pozostaje w/);
 });
 
-test('shows v1.0 readiness and replays a report without dispatch', () => {
+test('reopens the completed engine variant and replays a report without dispatch', () => {
   assert.match(panelSource, /v1\.0 — niepełne boki/);
   const stagingActions = panelSource.slice(
     panelSource.indexOf('{readySelections.length > 0 ?'),
     panelSource.indexOf('{active && preflight !== null ?'),
   );
-  assert.match(stagingActions, /active \? geometryEngineVariant : LATERAL_PARTIAL_VARIANT/);
-  assert.match(stagingActions, /prepareReadyImport\(\s*ready\.uploadId,\s*SELECTIVE_BOARD_VARIANT/);
-  assert.match(stagingActions, /disabled=\{busy \|\| selectiveCapability\?\.enabled !== true\}/);
+  assert.match(
+    stagingActions,
+    /readyBoardImportGeometryVariant\(\s*geometryPreflightJobs,\s*ready/,
+  );
+  assert.match(
+    stagingActions,
+    /prepareReadyImport\(\s*ready\.uploadId,\s*SELECTIVE_BOARD_VARIANT/,
+  );
+  assert.match(
+    stagingActions,
+    /disabled=\{busy \|\| selectiveCapability\?\.enabled !== true\}/,
+  );
   assert.match(stagingActions, /Przetwórz w v1\.1/);
   assert.doesNotMatch(stagingActions, /Przetwórz w v1\.0/);
   assert.match(
@@ -186,6 +195,25 @@ test('shows v1.0 readiness and replays a report without dispatch', () => {
   );
   assert.doesNotMatch(reportFlow, /startBrowserPageGeometryPreflight/);
   assert.doesNotMatch(reportFlow, /startReadyBrowserImageImport/);
+  const refreshButton = panelSource.slice(
+    panelSource.indexOf("geometryPreflightJob?.status === 'failed'"),
+    panelSource.indexOf('Odśwież preflight geometrii'),
+  );
+  assert.match(
+    refreshButton,
+    /geometryPreflightJob === null\s*\? void startGeometryPreflight\(\)\s*: void refreshStatus\(\)/,
+  );
+  const refreshJobsFlow = panelSource.slice(
+    panelSource.indexOf('const refreshJobs ='),
+    panelSource.indexOf(
+      'useEffect(() => {',
+      panelSource.indexOf('const refreshJobs ='),
+    ),
+  );
+  assert.doesNotMatch(
+    refreshJobsFlow,
+    /setGeometryEngineVariant\(LATERAL_PARTIAL_VARIANT\)/,
+  );
 });
 
 test('keeps managed preflight state outside the active browser report', () => {

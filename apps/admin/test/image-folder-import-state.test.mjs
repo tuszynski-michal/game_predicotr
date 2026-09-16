@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   canStartReadyImport,
   pageGeometryPreflightOutcomeLabel,
+  readyBoardImportGeometryVariant,
   readyBoardImportLifecycleLabel,
   sortReadyBoardImports,
 } from '../src/features/imports/image-folder-import-state.ts';
@@ -27,16 +28,22 @@ function staging(displayName, uploadId) {
 function job({
   checksum = 'a'.repeat(64),
   geometryManifestChecksum,
+  id = 'job-1',
   jobType,
+  variant,
+  createdAt = '2026-09-16T10:00:00Z',
   sourceSelectionId = 'upload-1',
   status,
 }) {
   return {
+    createdAt,
     gameId: 'game-1',
+    id,
     inputPayload: {
       importKind: jobType === 'import' ? 'image_directory' : undefined,
       sourceManifestSha256: checksum,
       sourceSelectionId,
+      lateralPartialGeometry: variant === undefined ? undefined : { variant },
       validationKind:
         jobType === 'validate' ? 'page_geometry_preflight' : undefined,
     },
@@ -50,6 +57,54 @@ function job({
     status,
   };
 }
+
+test('reopens a completed v1.1 staging in its pinned variant', () => {
+  const selection = staging('200575 - 222912 cut', 'upload-1');
+  const completedV11 = job({
+    geometryManifestChecksum: 'g'.repeat(64),
+    id: 'v11-completed',
+    jobType: 'validate',
+    status: 'completed',
+    variant: 'selective_board_review_v1_1',
+  });
+  const laterV10 = job({
+    createdAt: '2026-09-16T11:00:00Z',
+    id: 'v10-created',
+    jobType: 'validate',
+    status: 'created',
+    variant: 'structured_lattice_v4_partial_sides',
+  });
+  assert.equal(
+    readyBoardImportGeometryVariant([], selection),
+    'structured_lattice_v4_partial_sides',
+  );
+  assert.equal(
+    readyBoardImportGeometryVariant([laterV10, completedV11], selection),
+    'selective_board_review_v1_1',
+  );
+  assert.equal(
+    readyBoardImportGeometryVariant(
+      [{ ...laterV10, status: 'cancelled' }, completedV11],
+      selection,
+    ),
+    'selective_board_review_v1_1',
+  );
+  assert.equal(
+    readyBoardImportGeometryVariant(
+      [
+        {
+          ...completedV11,
+          inputPayload: {
+            ...completedV11.inputPayload,
+            sourceSelectionId: 'other-upload',
+          },
+        },
+      ],
+      selection,
+    ),
+    'structured_lattice_v4_partial_sides',
+  );
+});
 
 function lifecycle(overrides = {}) {
   return readyBoardImportLifecycleLabel({

@@ -16,13 +16,6 @@ const actionsSource = await readFile(
   ),
   'utf8',
 );
-const modePickerSource = await readFile(
-  new URL(
-    '../src/features/imports/board-cell-processing-mode-picker.tsx',
-    import.meta.url,
-  ),
-  'utf8',
-);
 const globalStyles = await readFile(
   new URL('../src/app/globals.css', import.meta.url),
   'utf8',
@@ -262,7 +255,8 @@ test('offers v1.0 and opt-in v1.1 while preserving historical labels', () => {
   assert.match(panelSource, /v1\.1 — korekta niepewnych plansz/);
   assert.doesNotMatch(panelSource, /<BoardCellProcessingModePicker/);
   assert.doesNotMatch(panelSource, /changeEnginePolicy/);
-  assert.match(modePickerSource, /v20 — geometria i cropy v19/);
+  assert.doesNotMatch(panelSource, /v20 — geometria i cropy v19/);
+  assert.doesNotMatch(panelSource, /v0\.10 v2 — stabilny silnik strukturalny/);
   assert.doesNotMatch(panelSource, /verifiedV19Confirmed/);
   assert.doesNotMatch(panelSource, /boardCellProcessingStartAllowed/);
   assert.match(
@@ -279,7 +273,7 @@ test('provides styled actions and accessible import help', () => {
   assert.match(panelSource, /role="tooltip"/);
   assert.match(panelSource, /Co robią te akcje\?/);
   assert.match(globalStyles, /\.importActionButtons \{/);
-  assert.match(globalStyles, /\.boardCellProcessingModePicker \{/);
+  assert.doesNotMatch(globalStyles, /\.boardCellProcessingModePicker \{/);
   assert.match(globalStyles, /\.importActionHelp:focus-within/);
 });
 

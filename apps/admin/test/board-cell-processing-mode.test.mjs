@@ -4,7 +4,6 @@ import test from 'node:test';
 import {
   boardCellProcessingJobLabel,
   boardCellProcessingModeLabel,
-  DEFAULT_BOARD_CELL_PROCESSING_MODE,
   jobMatchesBoardCellProcessingMode,
   VERIFIED_V19_ACTIVATION_VERSION,
 } from '../src/features/imports/board-cell-processing-mode.ts';
@@ -22,8 +21,7 @@ function imageImportJob(boardCellProcessing, imageGeometryRollout) {
   };
 }
 
-test('uses verified v19 processing as the default for new imports', () => {
-  assert.equal(DEFAULT_BOARD_CELL_PROCESSING_MODE, 'verified_v19');
+test('retains labels for historical import policies', () => {
   assert.match(boardCellProcessingModeLabel('verified_v19'), /v20/);
   assert.equal(
     boardCellProcessingModeLabel('structured_shadow'),

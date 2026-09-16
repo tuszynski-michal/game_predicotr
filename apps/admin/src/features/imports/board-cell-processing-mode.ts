@@ -2,9 +2,6 @@ import type { JobResponse } from '@game-predictor/admin-api-client';
 
 import type { BoardCellProcessingMode } from './image-folder-import-actions.ts';
 
-export const DEFAULT_BOARD_CELL_PROCESSING_MODE: BoardCellProcessingMode =
-  'verified_v19';
-
 export const VERIFIED_V19_ACTIVATION_VERSION =
   'board-cell-processing-v20-verified-v19-v1';
 

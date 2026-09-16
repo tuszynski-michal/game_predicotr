@@ -6,6 +6,16 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0567 — usunięcie starego selektora silników z Admina
+
+- Stary komponent oferujący v20, strukturalny v2 i v3 nie miał już wywołań w
+  panelu importu, ale jego plik i style nadal pozostawały w repozytorium oraz
+  wcześniejszym pakiecie developerskim. Usunięto komponent, style i test, który
+  wymagał zachowania starych opcji. Odczyt etykiet historycznych jobów pozostaje.
+- Uruchomiony Admin zwraca aktualny pakiet z v1.0/v1.1, bez tekstu starego
+  selektora; jego nieużywany pakiet developerski usunięto z lokalnej kompilacji.
+  Nie zmieniono API, polityki zapisanej dla gry ani istniejących jobów.
+
 ### TASK-0566 — poprawny błąd historycznego preflightu
 
 - Brak `lateral_partial_geometry` w historycznym preflighcie oznacza brak

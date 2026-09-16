@@ -51,12 +51,26 @@ test('reports the current pending-source count after refresh, save, and exclusio
   );
   assert.match(
     panel,
-    /onPendingSourceCountChange\?\.\(pendingSources\.length\)/,
+    /onPendingSourceCountChange\?\.\([\s\S]*pendingSources\.filter\(\(item\) => item\.reviewReason !== 'operator_inspection'\)\.length/,
   );
   assert.match(
     panel,
-    /onPendingSourceCountChange\?\.\(remainingSources\.length\)/,
+    /onPendingSourceCountChange\?\.\([\s\S]*remainingSources\.filter\(\(item\) => item\.reviewReason !== 'operator_inspection'\)\.length/,
   );
+});
+
+test('the replacement opens its registered geometry for optional inspection', () => {
+  assert.match(panel, /focusSourceChecksumSha256/);
+  assert.match(panel, /operator_inspection/);
+  assert.match(panel, /podmienione zdjęcie — sprawdź automatyczną geometrię/);
+});
+
+test('a replacement draft saves against the new staging before any preflight job', () => {
+  assert.match(panel, /if \(initialReplacementSource !== undefined\) \{/);
+  assert.match(panel, /setSources\(\[initialReplacementSource\]\)/);
+  assert.match(panel, /createBrowserPageGeometryOverride\(uploadId/);
+  assert.match(panel, /if \(initialReplacementSource !== undefined\) onDraftSaved\?\.\(\)/);
+  assert.match(panel, /initialReplacementSource === undefined &&\s*source\.reviewReason === 'review_required'/);
 });
 
 test('geometry editor uses the manual-selection fit model and bounded zoom', () => {

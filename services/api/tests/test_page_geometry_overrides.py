@@ -187,10 +187,9 @@ def test_page_override_http_roundtrip_preserves_slot_metadata(tmp_path: Path) ->
     app = FastAPI()
     app.include_router(
         create_image_imports_router(
-            lambda: None,
-            lambda: browser,
-            lambda: None,
-            lambda: None,
+            browser_selection_service_dependency=lambda: browser,
+            job_service_dependency=lambda: None,
+            iterative_import_service_dependency=lambda: None,
             page_geometry_override_service_dependency=lambda: service,
             image_sequence_canonical_service_dependency=lambda: None,
             image_import_geometry_guard_service_dependency=lambda: None,

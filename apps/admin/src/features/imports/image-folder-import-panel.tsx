@@ -6,6 +6,7 @@ import type {
   BrowserImageImportPreflightResponse,
   JobResponse,
   BrowserReadySelectionResponse,
+  BrowserPageGeometryReviewSourceResponse,
   ImageDatasetCompletenessResponse,
   ImageFolderSelectionResponse,
   ImageSelectionHandoffResponse,
@@ -101,6 +102,10 @@ type ImportAction =
   | 'register-curated'
   | 'start-curated'
   | 'engine-policy';
+
+function replacementPreviewStorageKey(gameId: string, uploadId: string) {
+  return `page-geometry-replacement-preview:${gameId}:${uploadId}`;
+}
 
 function isImageImportJob(job: JobResponse): job is ImageImportJob {
   return (
@@ -234,8 +239,46 @@ export function ImageFolderImportPanel({
   const [replacementPreview, setReplacementPreview] = useState<{
     readonly checksum: string;
     readonly uploadId: string;
+    readonly source: BrowserPageGeometryReviewSourceResponse | null;
+    readonly saved: boolean;
   } | null>(null);
   const [readyUploadId, setReadyUploadId] = useState<string | null>(null);
+  useEffect(() => {
+    if (readyUploadId === null) return;
+    try {
+      const stored = window.localStorage.getItem(
+        replacementPreviewStorageKey(gameId, readyUploadId),
+      );
+      if (stored !== null) {
+        const parsed: unknown = JSON.parse(stored);
+        if (
+          typeof parsed === 'object' && parsed !== null &&
+          'checksum' in parsed && typeof parsed.checksum === 'string' &&
+          /^[0-9a-f]{64}$/.test(parsed.checksum)
+        ) {
+          const candidate = 'source' in parsed ? parsed.source : null;
+          const source = (
+            typeof candidate === 'object' && candidate !== null &&
+            'sourceChecksumSha256' in candidate &&
+            candidate.sourceChecksumSha256 === parsed.checksum &&
+            'sourceRelativePath' in candidate &&
+            typeof candidate.sourceRelativePath === 'string' &&
+            'expectedBoardCount' in candidate &&
+            typeof candidate.expectedBoardCount === 'number' &&
+            candidate.expectedBoardCount > 0
+          ) ? candidate as BrowserPageGeometryReviewSourceResponse : null;
+          queueMicrotask(() => setReplacementPreview({
+            checksum: parsed.checksum as string,
+            saved: 'saved' in parsed && parsed.saved === true,
+            source,
+            uploadId: readyUploadId,
+          }));
+        }
+      }
+    } catch {
+      // A private browser session can disable storage; the current view still works.
+    }
+  }, [gameId, readyUploadId]);
   const [preflight, setPreflight] =
     useState<BrowserImageImportPreflightResponse | null>(null);
   const [geometryPreflightJob, setGeometryPreflightJob] =
@@ -576,6 +619,40 @@ export function ImageFolderImportPanel({
 
   useEffect(() => {
     if (
+      replacementPreview?.uploadId !== readyUploadId ||
+      (replacementPreview.source != null && !replacementPreview.saved) ||
+      preflight === null ||
+      geometryPreflightJob !== null ||
+      readyUploadId === null
+    ) return;
+    let cancelled = false;
+    const recoverReplacementPreflight = async () => {
+      const result = await previewReadyBrowserImageImport(
+        api,
+        readyUploadId,
+        gameId,
+        geometryEngineVariant,
+      );
+      if (cancelled || !result.ok || result.data.geometryPreflightJob == null) return;
+      const recovered = result.data.geometryPreflightJob;
+      if (!geometryPreflightMatchesReport(recovered, result.data)) return;
+      setPreflight(result.data);
+      setGeometryPreflightJob(recovered);
+      setGeometryPreflightJobs((current) => [
+        recovered,
+        ...current.filter((job) => job.id !== recovered.id),
+      ]);
+    };
+    void recoverReplacementPreflight();
+    const timer = window.setInterval(() => void recoverReplacementPreflight(), 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [api, gameId, geometryEngineVariant, geometryPreflightJob, preflight, readyUploadId, replacementPreview]);
+
+  useEffect(() => {
+    if (
       initialHandoff === null ||
       initialHandoff.gameId !== gameId ||
       registeredHandoffRef.current === initialHandoff.runId
@@ -841,6 +918,14 @@ export function ImageFolderImportPanel({
           ? `Import ${imageJob.id} utworzony w ${geometryEngineVariant === SELECTIVE_BOARD_VARIANT ? 'v1.1' : 'v1.0'} — oczekuje na worker.`
           : `Import ${imageJob.id} już istnieje w ${geometryEngineVariant === SELECTIVE_BOARD_VARIANT ? 'v1.1' : 'v1.0'}. Nie utworzono drugiego joba.`,
       );
+      try {
+        window.localStorage.removeItem(
+          replacementPreviewStorageKey(gameId, readyUploadId),
+        );
+      } catch {
+        // Import state is durable in the API even when browser storage is unavailable.
+      }
+      setReplacementPreview(null);
       setSelection(null);
       setSelectionDisplayName('');
       setPreflight(null);
@@ -912,13 +997,36 @@ export function ImageFolderImportPanel({
   async function handlePageGeometrySourceReplaced(
     ready: BrowserReadySelectionResponse,
     replacementChecksumSha256: string,
+    source: BrowserPageGeometryReviewSourceResponse,
   ) {
     const variant = geometryEngineVariant;
     const replacedUploadId = readyUploadId;
-    setReplacementPreview({
+    const replacementSource: BrowserPageGeometryReviewSourceResponse = {
+      ...source,
+      sourceChecksumSha256: replacementChecksumSha256,
+      reviewReason: 'review_required',
+      geometryOrigin: 'manual_template',
+      existingFinalQuads: null,
+      existingOverrideRevision: null,
+      existingSlotQualifications: null,
+      automaticPartialProposals: null,
+      savedSincePreflight: false,
+    };
+    const preview = {
       checksum: replacementChecksumSha256,
+      saved: false,
+      source: replacementSource,
       uploadId: ready.uploadId,
-    });
+    };
+    setReplacementPreview(preview);
+    try {
+      window.localStorage.setItem(
+        replacementPreviewStorageKey(gameId, ready.uploadId),
+        JSON.stringify(preview),
+      );
+    } catch {
+      // The in-memory preview remains available for this session.
+    }
     setReadySelections((current) =>
       sortReadyBoardImports([
         ready,
@@ -938,22 +1046,23 @@ export function ImageFolderImportPanel({
     setPreflight(report.data);
     setGeometryPreflightJob(report.data.geometryPreflightJob ?? null);
     setGeometryGuardResolutionManifest(null);
-    const started = await startBrowserPageGeometryPreflight(
-      api,
-      ready.uploadId,
-      gameId,
-      pageRegistrationVariant,
-      variant,
-    );
-    if (!started.ok) throw new Error(started.error);
-    setGeometryPreflightJob(started.data.job);
-    setGeometryPreflightJobs((current) => [
-      started.data.job,
-      ...current.filter((job) => job.id !== started.data.job.id),
-    ]);
     setFeedback(
-      `Nowe zdjęcie jest w katalogu cut i stagingu ${ready.uploadId.slice(0, 8)}. Preflight ${started.data.job.id} zachowuje wariant ${variant === SELECTIVE_BOARD_VARIANT ? 'v1.1' : 'v1.0'}.`,
+      `Nowe zdjęcie jest w katalogu cut i stagingu ${ready.uploadId.slice(0, 8)}. Możesz teraz poprawić jego geometrię, a następnie jawnie uruchomić preflight w ${variant === SELECTIVE_BOARD_VARIANT ? 'v1.1' : 'v1.0'}.`,
     );
+  }
+
+  function markReplacementDraftSaved() {
+    if (replacementPreview === null) return;
+    const savedPreview = { ...replacementPreview, saved: true };
+    setReplacementPreview(savedPreview);
+    try {
+      window.localStorage.setItem(
+        replacementPreviewStorageKey(gameId, savedPreview.uploadId),
+        JSON.stringify(savedPreview),
+      );
+    } catch {
+      // The saved override remains durable in the API.
+    }
   }
 
   async function retryGeometryPreflight() {
@@ -1707,23 +1816,54 @@ export function ImageFolderImportPanel({
                             </span>
                           ) : null}
                           {replacementPreview?.uploadId === ready.uploadId &&
-                          geometryPreflightJob?.status !== 'completed' ? (
+                          geometryPreflightJob === null &&
+                          replacementPreview.source != null &&
+                          !replacementPreview.saved ? (
                             <section
                               aria-label="Korekta geometrii strony"
                               className="pageGeometryCorrection"
                             >
-                              <h3>Nowe zdjęcie — geometria w przygotowaniu</h3>
+                              <h3>Popraw geometrię podmienionego zdjęcia</h3>
+                              <p>Po zapisaniu korekty uruchom preflight przyciskiem powyżej.</p>
+                              <PageGeometryCorrectionPanel
+                                api={api}
+                                apiBaseUrl={apiBaseUrl}
+                                gameId={gameId}
+                                initialReplacementSource={replacementPreview.source}
+                                onDraftSaved={markReplacementDraftSaved}
+                                onSubmitSaved={rerunGeometryPreflightAfterCorrection}
+                                onSourceReplaced={handlePageGeometrySourceReplaced}
+                                preflightJobId={`replacement-draft:${ready.uploadId}`}
+                                uploadId={ready.uploadId}
+                              />
+                            </section>
+                          ) : null}
+                          {replacementPreview?.uploadId === ready.uploadId &&
+                          geometryPreflightJob === null && replacementPreview.saved ? (
+                            <p className="curatedImportStatus" role="status">
+                              Zapisano geometrię podmienionego zdjęcia. Uruchom preflight przyciskiem powyżej.
+                            </p>
+                          ) : null}
+                          {replacementPreview?.uploadId === ready.uploadId &&
+                          geometryPreflightJob !== null &&
+                          geometryPreflightJob.status !== 'completed' ? (
+                            <section
+                              aria-label="Korekta geometrii strony"
+                              className="pageGeometryCorrection"
+                            >
+                              <h3>Preflight podmienionego zdjęcia w toku</h3>
                               <img
                                 alt="Nowe zdjęcie źródłowe po podmianie"
                                 style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
                                 src={`${resolveAdminApiBaseUrl(apiBaseUrl)}/api/v1/admin/image-imports/browser-selections/${encodeURIComponent(ready.uploadId)}/page-geometry-sources/${encodeURIComponent(replacementPreview.checksum)}/asset?game_id=${encodeURIComponent(gameId)}`}
                               />
-                              <p>Po ukończeniu preflightu zdjęcie będzie gotowe do korekty lub dalszego importu.</p>
+                              <p>Po ukończeniu preflightu otworzy się wynik w edytorze geometrii.</p>
                             </section>
                           ) : null}
                           {geometryPreflightJob?.status === 'completed' &&
-                          visibleGeometryCorrectionCount > 0 ? (
-                            <details>
+                          (visibleGeometryCorrectionCount > 0 ||
+                            replacementPreview?.uploadId === ready.uploadId) ? (
+                            <details open={replacementPreview?.uploadId === ready.uploadId}>
                               <summary>
                                 Ręczna korekta zdjęć geometrii — zostaw na
                                 koniec ({visibleGeometryCorrectionCount})
@@ -1739,6 +1879,11 @@ export function ImageFolderImportPanel({
                               <PageGeometryCorrectionPanel
                                 api={api}
                                 apiBaseUrl={apiBaseUrl}
+                                focusSourceChecksumSha256={
+                                  replacementPreview?.uploadId === ready.uploadId
+                                    ? replacementPreview.checksum
+                                    : undefined
+                                }
                                 gameId={gameId}
                                 onPendingSourceCountChange={
                                   handlePendingGeometryCorrectionCountChange

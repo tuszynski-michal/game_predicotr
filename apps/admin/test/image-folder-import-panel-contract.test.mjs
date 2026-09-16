@@ -32,6 +32,26 @@ const guardResolutionSource = await readFile(
   'utf8',
 );
 
+test('a replacement recovers its preflight and opens geometry correction when ready', () => {
+  assert.match(panelSource, /replacementPreviewStorageKey/);
+  assert.match(panelSource, /recoverReplacementPreflight/);
+  assert.match(panelSource, /focusSourceChecksumSha256=\{/);
+  assert.match(panelSource, /<details open=\{replacementPreview\?\.uploadId === ready\.uploadId\}>/);
+});
+
+test('a new replacement stays editable until the operator starts preflight', () => {
+  const replacementFlow = panelSource.slice(
+    panelSource.indexOf('async function handlePageGeometrySourceReplaced'),
+    panelSource.indexOf('async function retryGeometryPreflight'),
+  );
+  assert.doesNotMatch(replacementFlow, /startBrowserPageGeometryPreflight/);
+  assert.match(panelSource, /initialReplacementSource=\{replacementPreview\.source\}/);
+  assert.match(panelSource, /preflightJobId=\{`replacement-draft:/);
+  assert.match(panelSource, /Po zapisaniu korekty uruchom preflight przyciskiem powyżej/);
+  assert.match(panelSource, /onDraftSaved=\{markReplacementDraftSaved\}/);
+  assert.match(panelSource, /replacementPreview\.saved/);
+});
+
 test('distinguishes the active import operation from a disabled prerequisite', () => {
   assert.match(panelSource, /type ImportAction =/);
   assert.match(panelSource, /activeAction === 'choose-folder'/);

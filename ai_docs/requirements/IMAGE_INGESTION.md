@@ -1778,6 +1778,15 @@ zostać automatycznie promowany. Szczegóły znajdują się w
 
 ### Obowiązkowe sloty ręcznej geometrii źródła
 
+Po podmianie zdjęcia przed importem operator pozostaje w edytorze geometrii
+nowej rewizji stagingu. Może zapisać jej ręczną geometrię przed uruchomieniem
+preflightu, a następnie rozpocząć go jawnym przyciskiem razem z wcześniej
+zapisanymi korektami. Jeżeli uruchomiony preflight zaakceptuje podmienione
+zdjęcie automatycznie, operator może nadal obejrzeć i opcjonalnie poprawić jego
+dziewięć obrysów przed startem importu. Po rozpoczęciu importu plansz i symboli
+podmiana oraz dodatkowe otwarcie automatycznie zarejestrowanego zdjęcia do
+korekty są niedostępne.
+
 TASK-0491: zatrzymany progiem jakości import można kontynuować akcją
 `Kontynuuj z ręczną korektą`, bez ponownego uploadu i preflightu, jeżeli
 utrwalone artefakty są dostępne i zgodne. Kontynuacja nie wybiera najnowszych

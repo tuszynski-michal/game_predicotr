@@ -88,12 +88,16 @@ interface PageGeometryCorrectionPanelProps {
   readonly allowOutsideSource?: boolean;
   readonly api: GeometryCorrectionClient;
   readonly apiBaseUrl: string;
+  readonly focusSourceChecksumSha256?: string;
+  readonly initialReplacementSource?: BrowserPageGeometryReviewSourceResponse;
   readonly gameId: string;
   readonly onPendingSourceCountChange?: (count: number) => void;
+  readonly onDraftSaved?: () => void;
   readonly onSubmitSaved: () => Promise<void>;
   readonly onSourceReplaced: (
     ready: BrowserReadySelectionResponse,
     replacementChecksumSha256: string,
+    source: BrowserPageGeometryReviewSourceResponse,
   ) => Promise<void>;
   readonly preflightJobId: string;
   readonly uploadId: string;
@@ -229,8 +233,11 @@ function PageGeometryCorrectionPanelContent({
   allowOutsideSource: outsideSourceOverride = false,
   api,
   apiBaseUrl,
+  focusSourceChecksumSha256,
+  initialReplacementSource,
   gameId,
   onPendingSourceCountChange,
+  onDraftSaved,
   onSubmitSaved,
   onSourceReplaced,
   preflightJobId,
@@ -312,11 +319,21 @@ function PageGeometryCorrectionPanelContent({
   const refresh = useCallback(async () => {
     setLoading(true);
     setError('');
+    if (initialReplacementSource !== undefined) {
+      setSources([initialReplacementSource]);
+      setSavedCount(0);
+      setGeometryManifestChecksum('');
+      onPendingSourceCountChange?.(1);
+      setSourceIndex(0);
+      setLoading(false);
+      return;
+    }
     try {
       const result = await api.listBrowserPageGeometryReviewSources(
         uploadId,
         preflightJobId,
         gameId,
+        focusSourceChecksumSha256,
       );
       if (result.error !== undefined || result.data === undefined) {
         setError(
@@ -330,6 +347,16 @@ function PageGeometryCorrectionPanelContent({
       const pendingSources = result.data.sources.filter(
         (item) => !item.savedSincePreflight,
       );
+      const focusedSources = focusSourceChecksumSha256 === undefined
+        ? pendingSources
+        : [
+            ...pendingSources.filter(
+              (item) => item.sourceChecksumSha256 === focusSourceChecksumSha256,
+            ),
+            ...pendingSources.filter(
+              (item) => item.sourceChecksumSha256 !== focusSourceChecksumSha256,
+            ),
+          ];
       setSavedCount(result.data.sources.length - pendingSources.length);
       setGeometryManifestChecksum(result.data.geometryManifestChecksumSha256);
       setPartialTrainingPool({
@@ -337,15 +364,17 @@ function PageGeometryCorrectionPanelContent({
         samples: result.data.partialGridTrainingSampleCount ?? 0,
         sources: result.data.partialGridTrainingSourceCount ?? 0,
       });
-      setSources(pendingSources);
-      onPendingSourceCountChange?.(pendingSources.length);
+      setSources(focusedSources);
+      onPendingSourceCountChange?.(
+        pendingSources.filter((item) => item.reviewReason !== 'operator_inspection').length,
+      );
       setSourceIndex(0);
     } catch {
       setError('Nie udało się połączyć z lokalnym API korekty geometrii.');
     } finally {
       setLoading(false);
     }
-  }, [api, gameId, onPendingSourceCountChange, preflightJobId, uploadId]);
+  }, [api, focusSourceChecksumSha256, gameId, initialReplacementSource, onPendingSourceCountChange, preflightJobId, uploadId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -898,11 +927,13 @@ function PageGeometryCorrectionPanelContent({
         return;
       }
       setFeedback(
-        source.reviewReason === 'manual_override'
+        source.reviewReason === 'manual_override' ||
+        source.reviewReason === 'operator_inspection'
           ? 'Zapisano aktualizację już zarejestrowanej geometrii. Licznik poprawnych zdjęć nie wzrośnie, ponieważ to źródło było w nim wcześniej.'
           : 'Zapisano geometrię odroczonego zdjęcia. Po wysłaniu partii i ukończeniu preflightu przejdzie ono do zarejestrowanych.',
       );
       setSavedCount((current) => current + 1);
+      if (initialReplacementSource !== undefined) onDraftSaved?.();
       clearCommittedPageGeometryDraft(
         localStorage,
         draftScope,
@@ -913,7 +944,9 @@ function PageGeometryCorrectionPanelContent({
         (item) => item.sourceChecksumSha256 !== source.sourceChecksumSha256,
       );
       setSources(remainingSources);
-      onPendingSourceCountChange?.(remainingSources.length);
+      onPendingSourceCountChange?.(
+        remainingSources.filter((item) => item.reviewReason !== 'operator_inspection').length,
+      );
       setSourceIndex((current) =>
         Math.min(current, Math.max(0, sources.length - 2)),
       );
@@ -976,7 +1009,9 @@ function PageGeometryCorrectionPanelContent({
         (item) => item.sourceChecksumSha256 !== source.sourceChecksumSha256,
       );
       setSources(remainingSources);
-      onPendingSourceCountChange?.(remainingSources.length);
+      onPendingSourceCountChange?.(
+        remainingSources.filter((item) => item.reviewReason !== 'operator_inspection').length,
+      );
       if (source.savedSincePreflight) {
         setSavedCount((current) => Math.max(0, current - 1));
       }
@@ -1062,7 +1097,7 @@ function PageGeometryCorrectionPanelContent({
       if (replacementRecoveryKey !== null) window.localStorage.removeItem(replacementRecoveryKey);
       setPendingReplacement(null);
       setFeedback('Nowe zdjęcie zapisano w katalogu cut i stagingu. Przygotowuję jego geometrię…');
-      await onSourceReplaced(confirmation.data, replacementChecksum);
+      await onSourceReplaced(confirmation.data, replacementChecksum, source);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Nie udało się podmienić zdjęcia.');
     } finally {
@@ -1119,7 +1154,7 @@ function PageGeometryCorrectionPanelContent({
       }
       if (replacementRecoveryKey !== null) window.localStorage.removeItem(replacementRecoveryKey);
       setPendingReplacement(null);
-      await onSourceReplaced(confirmed.data, pendingReplacement.replacementChecksum);
+      await onSourceReplaced(confirmed.data, pendingReplacement.replacementChecksum, source);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Nie udało się dokończyć podmiany.');
     } finally {
@@ -1201,7 +1236,9 @@ function PageGeometryCorrectionPanelContent({
               source.sequenceRangeEnd !== null
                 ? ` · plansze ${source.sequenceRangeStart}–${source.sequenceRangeEnd}`
                 : ''}
-              {source.reviewReason === 'manual_override'
+              {source.reviewReason === 'operator_inspection'
+                ? ' · podmienione zdjęcie — sprawdź automatyczną geometrię'
+                : source.reviewReason === 'manual_override'
                 ? ` · aktualizacja już zarejestrowanej geometrii r${source.existingOverrideRevision ?? '?'}`
                 : ' · odroczone zdjęcie — wymaga geometrii'}
             </p>
@@ -1285,7 +1322,7 @@ function PageGeometryCorrectionPanelContent({
               </p>
             )}
             <p className="geometryInstructions">
-              {source.reviewReason === 'manual_override'
+              {source.reviewReason === 'manual_override' || source.reviewReason === 'operator_inspection'
                 ? 'To zdjęcie jest już uwzględnione w liczniku zarejestrowanych. Zapis zmieni jego obrys, ale nie zwiększy tego licznika.'
                 : `Edytor przygotował komplet ${expectedBoardCount} edytowalnych plansz. Po zapisaniu i wykonaniu preflightu to zdjęcie przejdzie z odroczonych do zarejestrowanych.`}
             </p>
@@ -1382,15 +1419,18 @@ function PageGeometryCorrectionPanelContent({
               >
                 {saving ? 'Zapisywanie…' : 'Zapisz i przejdź dalej'}
               </button>
-              <button
-                className="dangerButton"
-                disabled={saving || submitting || excluding || replacing || activePendingReplacement !== null}
-                onClick={() => void excludeCurrentSource()}
-                type="button"
-              >
-                {excluding ? 'Usuwanie…' : 'Usuń z importu'}
-              </button>
-              {source.reviewReason === 'review_required' &&
+              {initialReplacementSource === undefined ? (
+                <button
+                  className="dangerButton"
+                  disabled={saving || submitting || excluding || replacing || activePendingReplacement !== null}
+                  onClick={() => void excludeCurrentSource()}
+                  type="button"
+                >
+                  {excluding ? 'Usuwanie…' : 'Usuń z importu'}
+                </button>
+              ) : null}
+              {initialReplacementSource === undefined &&
+              source.reviewReason === 'review_required' &&
               !source.savedSincePreflight ? (
                 <>
                   <button

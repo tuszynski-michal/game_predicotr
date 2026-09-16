@@ -1460,7 +1460,7 @@ export type BrowserPageGeometryReviewSourceResponse = {
   /**
    * Reviewreason
    */
-  reviewReason?: 'manual_override' | 'review_required';
+  reviewReason?: 'manual_override' | 'review_required' | 'operator_inspection';
   /**
    * Savedsincepreflight
    */
@@ -17319,6 +17319,10 @@ export type ListBrowserPageGeometryReviewSourcesData = {
      * Game Id
      */
     game_id: string;
+    /**
+     * Include Source Checksum Sha256
+     */
+    include_source_checksum_sha256?: string | null;
   };
   url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/review-sources';
 };

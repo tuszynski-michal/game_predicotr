@@ -2757,7 +2757,8 @@
             "default": "review_required",
             "enum": [
               "manual_override",
-              "review_required"
+              "review_required",
+              "operator_inspection"
             ],
             "title": "Reviewreason",
             "type": "string"
@@ -31351,6 +31352,23 @@
               "format": "uuid",
               "title": "Game Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_source_checksum_sha256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Include Source Checksum Sha256"
             }
           }
         ],

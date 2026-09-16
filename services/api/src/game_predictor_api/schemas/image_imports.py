@@ -491,7 +491,9 @@ class BrowserPageGeometryReviewSourceResponse(ApiModel):
     sequence_range_start: int | None = Field(default=None, ge=1)
     sequence_range_end: int | None = Field(default=None, ge=1)
     expected_board_count: int = Field(ge=1, le=9)
-    review_reason: Literal["manual_override", "review_required"] = "review_required"
+    review_reason: Literal[
+        "manual_override", "review_required", "operator_inspection"
+    ] = "review_required"
     geometry_origin: Literal["automatic", "manual_override", "manual_template"]
     rejection_reason_code: str | None = Field(default=None, min_length=1, max_length=128)
     registration_diagnostics: PageGeometryRegistrationDiagnostics | None = None

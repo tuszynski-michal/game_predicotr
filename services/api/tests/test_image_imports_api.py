@@ -1517,6 +1517,7 @@ def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -
 def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_submit(
     tmp_path: Path,
     selective_board_review: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     game_id = uuid4()
     upload_id = uuid4()
@@ -1526,6 +1527,7 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
     current_checksum = "2" * 64
     manual_source_checksum = "a" * 64
     unresolved_source_checksum = "b" * 64
+    registered_source_checksum = "c" * 64
     quads = [
         [
             {"x": column * 20, "y": row * 20},
@@ -1566,8 +1568,13 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
                     "attempts": [],
                 },
             },
+            registered_source_checksum: {
+                "sourceRelativePath": "new/seq_15-23.jpg",
+                "status": "registered",
+                "quads": quads,
+            },
         },
-        "registeredSourceCount": 1,
+        "registeredSourceCount": 2,
         "reviewRequiredSourceCount": 1,
         "skippedHumanResolvedSourceCount": 0,
     }
@@ -1666,6 +1673,14 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
             f"browser-selections/{upload_id}/geometry-preflights/{job.id}/review-sources",
             params={"game_id": str(game_id)},
         )
+        focused_response = client.get(
+            "/api/v1/admin/image-imports/"
+            f"browser-selections/{upload_id}/geometry-preflights/{job.id}/review-sources",
+            params={
+                "game_id": str(game_id),
+                "include_source_checksum_sha256": registered_source_checksum,
+            },
+        )
 
     assert response.status_code == 200, response.text
     payload = response.json()
@@ -1682,6 +1697,32 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
     assert manual["existingFinalQuads"] == quads
     assert manual["existingOverrideRevision"] == 2
     assert manual["savedSincePreflight"] is True
+    assert focused_response.status_code == 200, focused_response.text
+    focused_sources = focused_response.json()["sources"]
+    assert focused_sources[-1]["sourceChecksumSha256"] == registered_source_checksum
+    assert focused_sources[-1]["reviewReason"] == "operator_inspection"
+    assert focused_sources[-1]["existingFinalQuads"] == quads
+    assert focused_response.json()["reviewRequiredSourceCount"] == payload[
+        "reviewRequiredSourceCount"
+    ]
+    monkeypatch.setattr(
+        service,
+        "get_image_import_by_source_selection",
+        lambda **_kwargs: object(),
+    )
+    with client:
+        imported_response = client.get(
+            "/api/v1/admin/image-imports/"
+            f"browser-selections/{upload_id}/geometry-preflights/{job.id}/review-sources",
+            params={
+                "game_id": str(game_id),
+                "include_source_checksum_sha256": registered_source_checksum,
+            },
+        )
+    assert imported_response.status_code == 200, imported_response.text
+    assert registered_source_checksum not in {
+        item["sourceChecksumSha256"] for item in imported_response.json()["sources"]
+    }
     if selective_board_review:
         return
     unresolved = payload["sources"][1]

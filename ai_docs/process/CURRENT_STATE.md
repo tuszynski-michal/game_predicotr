@@ -6,6 +6,17 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0574 — korekta podmienionego zdjęcia przed preflightem
+
+- Po potwierdzeniu podmiany panel pokazuje od razu edytor nowego źródła.
+  Ręczna geometria zapisuje się w nowym stagingu; preflight v1.0/v1.1 uruchamia
+  dopiero jawny przycisk. Stan podmiany i szkic edytora odtwarzają się po
+  odświeżeniu przeglądarki.
+- Po ukończeniu preflightu podmienione zdjęcie można opcjonalnie skontrolować
+  także wtedy, gdy automat je zarejestrował. Po rozpoczęciu importu API nie
+  dołącza go ponownie do edytora. Żadnego zdjęcia w istniejącym stagingu nie
+  podmieniono ani nie zmieniono jego geometrii w ramach tej poprawki.
+
 ### TASK-0573 — preflight po podmianie zwracał 500 przy zapisie joba
 
 - Dla stagingu po podmianie źródła API potrafiło przygotować input preflightu,

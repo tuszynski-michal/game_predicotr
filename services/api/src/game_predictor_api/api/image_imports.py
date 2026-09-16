@@ -1071,6 +1071,9 @@ def create_image_imports_router(
         preflight_job_id: UUID,
         game_id: Annotated[UUID, Query()],
         job_service: Annotated[JobService, job_parameter],
+        include_source_checksum_sha256: Annotated[
+            str | None, Query(pattern=r"^[0-9a-f]{64}$")
+        ] = None,
         override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
     ) -> BrowserPageGeometryReviewSourcesResponse:
         descriptor = _geometry_manifest_descriptor(
@@ -1087,6 +1090,13 @@ def create_image_imports_router(
             )
         manifest = _load_page_geometry_manifest(resolved_artifact_root, descriptor)
         entries = cast(dict[str, object], manifest["entries"])
+        if (
+            include_source_checksum_sha256 is not None
+            and job_service.get_image_import_by_source_selection(
+                game_id=game_id, source_selection_id=upload_id
+            ) is not None
+        ):
+            include_source_checksum_sha256 = None
         job = job_service.get_job(preflight_job_id)
         pinned_selective_policy = job.input_payload.get("lateral_partial_geometry")
         selective_board_review = (
@@ -1152,7 +1162,16 @@ def create_image_imports_router(
             manual_review_required = has_manual_override and (
                 saved_since_preflight or legacy_touching_grid
             )
-            if raw.get("status") != "review_required" and not manual_review_required:
+            operator_inspection = (
+                checksum == include_source_checksum_sha256
+                and raw.get("status") == "registered"
+                and not manual_review_required
+            )
+            if (
+                raw.get("status") != "review_required"
+                and not manual_review_required
+                and not operator_inspection
+            ):
                 continue
             source_relative_path = raw.get("sourceRelativePath")
             if not isinstance(source_relative_path, str) or not source_relative_path:
@@ -1178,7 +1197,11 @@ def create_image_imports_router(
                         source_relative_path
                     ),
                     review_reason=(
-                        "manual_override" if manual_review_required else "review_required"
+                        "manual_override"
+                        if manual_review_required
+                        else "operator_inspection"
+                        if operator_inspection
+                        else "review_required"
                     ),
                     geometry_origin=geometry_origin,
                     rejection_reason_code=(

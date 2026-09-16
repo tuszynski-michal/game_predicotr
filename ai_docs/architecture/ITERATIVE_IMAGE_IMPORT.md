@@ -32,6 +32,15 @@ użyć geometrii niezmienionych źródeł przy tej samej polityce, a podmieniony
 obraz i wyniki zależne od niego jako kotwicy przelicza. Import, cropy i symbole
 korzystają wyłącznie z nowego, checksummowanego manifestu. Stare artefakty
 zostają do odczytu historycznego; nie ma migracji bazy ani przepisywania jobów.
+Po potwierdzeniu podmiany panel wiąże edytor z nową checksumą i nowym stagingiem;
+zapis ręcznych quadów korzysta z istniejącego endpointu override i nie wymaga
+jeszcze manifestu preflightu. Szkic jest związany z rewizją stagingu i może
+przetrwać odświeżenie. Start preflightu jest osobnym działaniem operatora i
+przypina już zapisane override'y. Po ukończeniu preflightu zapytanie o źródła
+do korekty może dołączyć wskazany checksumą, automatycznie zarejestrowany obraz
+do opcjonalnego sprawdzenia. Nie zmienia to liczby źródeł wymagających korekty.
+Po starcie importu takie dodatkowe dołączenie jest wyłączone; istniejąca bramka
+podmiany również zabrania wymiany źródła po imporcie.
 
 ## Odtworzenie wariantu preflightu — TASK-0569
 

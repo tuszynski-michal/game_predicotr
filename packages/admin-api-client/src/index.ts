@@ -1221,11 +1221,17 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       uploadId: string,
       preflightJobId: string,
       gameId: string,
+      includeSourceChecksumSha256?: string,
     ) =>
       listGeneratedBrowserPageGeometryReviewSources({
         client,
         path: { preflight_job_id: preflightJobId, upload_id: uploadId },
-        query: { game_id: gameId },
+        query: {
+          game_id: gameId,
+          ...(includeSourceChecksumSha256 === undefined
+            ? {}
+            : { include_source_checksum_sha256: includeSourceChecksumSha256 }),
+        },
       }),
     getBrowserPageGeometrySourceAsset: (
       uploadId: string,

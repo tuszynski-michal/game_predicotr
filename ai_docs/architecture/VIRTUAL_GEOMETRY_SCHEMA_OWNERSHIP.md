@@ -114,7 +114,7 @@ operatora. Edycja źródła mieszanego zachowuje wszystkie dostępne quady i
 otwiera ręczne wskazywanie tylko dla slotów z
 `manualGeometryRequired=true`.
 
-## Kompletna siatka przy osłabionej ramce (TASK-0549)
+## Historyczna kompletna siatka przy osłabionej ramce (TASK-0549, TASK-0561)
 
 Polityka `structured-lattice-v4-lateral-partial-v3` zachowuje
 historyczne zachowanie v1/v2 i dodaje kandydaturę
@@ -138,6 +138,12 @@ wykluczenie ze zwykłego uczenia geometrii. Projekcja kolejki klasyfikuje go jak
 quad oraz tę kwalifikację; brak propozycji zachowuje `needs_correction`.
 `automaticPartialProposal` i jego `pending_partial` pozostają odrębnym
 kontraktem.
+
+TASK-0561 wycofuje tę gałąź z nowych preflightów po regresji rzeczywistego
+stagingu `45163 - 70371 cut`: v2 miała 40 pozycji ręcznej korekty, a v3 355.
+Produkcja ponownie tworzy snapshot v1 bez profilu albo v2 z profilem. Parser,
+worker, API i Reviewer zachowują obsługę v3 oraz `automaticFrameProposal`
+wyłącznie po to, aby istniejące joby i manifesty pozostały odtwarzalne.
 
 ## Szkice ręcznej kwalifikacji (TASK-0507)
 

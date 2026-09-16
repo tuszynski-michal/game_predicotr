@@ -3076,10 +3076,11 @@ Tożsamość preflightu wybranego wariantu bocznych niepełnych plansz wymaga
 zgodności gry, stagingu, manifestu źródeł, wariantu
 `structured_lattice_v4_partial_sides` oraz znanej polityki snapshotu. Admin
 odtwarza zarówno historyczne `structured-lattice-v4-lateral-partial-v1`, jak i
-`structured-lattice-v4-lateral-partial-v2`, a nowe runy przypinają
-`structured-lattice-v4-lateral-partial-v3`; nieznana wersja nadal jest
-odrzucana. Ta sama reguła obowiązuje przy dopasowaniu istniejącego importu i
-preflightu managed originals.
+`structured-lattice-v4-lateral-partial-v2` i
+`structured-lattice-v4-lateral-partial-v3`. Po rollbacku TASK-0561 nowe runy
+przypinają v1 bez profilu albo v2 z profilem; v3 pozostaje wyłącznie do replayu
+historycznego. Nieznana wersja nadal jest odrzucana. Ta sama reguła obowiązuje
+przy dopasowaniu istniejącego importu i preflightu managed originals.
 
 Odtworzenie nie przelicza bieżącego profilu uczenia i nie wymaga, aby jego
 checksumma była równa profilowi przypiętemu do historycznego joba. Backend
@@ -3091,13 +3092,14 @@ idempotencję po pełnym input key.
 
 Wynik planszy może zawierać dokładnie jedną automatyczną propozycję. Istniejące
 `automaticPartialProposal` opisuje `pending_partial` i maskę brakujących pól.
-Nowe `automaticFrameProposal` opisuje kompletną siatkę 3×5 przy słabym dowodzie
+Historyczne `automaticFrameProposal` opisuje kompletną siatkę 3×5 przy słabym dowodzie
 ozdobnej ramki: ma wersję `automatic-frame-geometry-proposal-v1`, źródło, slot,
 checksumę polityki, `requiresManualConfirmation=true` i kwalifikację
 `complete` wykluczoną ze zwykłego uczenia geometrii. Lista review zwraca dla
 obu typów `needs_validation`, gotowy `symbolGridQuad` oraz
-`manualGeometryRequired=false`. Brak bezpiecznej propozycji zachowuje
-`needs_correction` i ręczny szablon.
+`manualGeometryRequired=false`. Nowe preflighty po TASK-0561 nie tworzą tego
+rodzaju propozycji. Brak bezpiecznej propozycji zachowuje `needs_correction` i
+ręczny szablon.
 
 Odpowiedź `review-sources` rozróżnia `geometryOrigin`: wynik automatyczny,
 bieżący ręczny override albo roboczy szablon edytora. Może dołączyć stabilny

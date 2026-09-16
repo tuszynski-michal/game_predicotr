@@ -38,7 +38,7 @@ def test_lateral_registration_retains_search_evidence_without_more_orb_or_ransac
     baseline_calls = calls.copy()
     calls.update(orb=0, ransac=0)
     variant = registration.VerifiedPageRegistrar(_profile(quads), load_anchor_rgb=lambda _: anchor)
-    policy = LateralPartialGeometrySnapshot()
+    policy = LateralPartialGeometrySnapshot(frame_support_review=True)
     result = variant.evaluate(target, lateral_partial_policy=policy)
 
     assert result.result is legacy.result is None
@@ -68,7 +68,10 @@ def test_full_registration_is_unchanged_and_does_not_return_partial_candidate() 
         _profile(quads), load_anchor_rgb=lambda _: anchor
     )
     expected = baseline.evaluate(anchor)
-    actual = candidate.evaluate(anchor, lateral_partial_policy=LateralPartialGeometrySnapshot())
+    actual = candidate.evaluate(
+        anchor,
+        lateral_partial_policy=LateralPartialGeometrySnapshot(frame_support_review=True),
+    )
     assert actual.result is not None
     assert actual == expected
     assert actual.result.to_payload() == expected.result.to_payload()
@@ -97,7 +100,7 @@ def test_visible_grid_with_weak_frame_is_retained_for_review(
         coverages=coverages,
         thresholds=registration.DEFAULT_PAGE_REGISTRATION_THRESHOLDS,
         feature_count=1000,
-        policy=LateralPartialGeometrySnapshot(),
+        policy=LateralPartialGeometrySnapshot(frame_support_review=True),
         active_board_slots=tuple(range(9)),
         target_width=anchor.shape[1],
         target_height=anchor.shape[0],
@@ -133,7 +136,7 @@ def test_weak_frame_recovery_keeps_global_support_gates(
         coverages=coverages,
         thresholds=registration.DEFAULT_PAGE_REGISTRATION_THRESHOLDS,
         feature_count=1000,
-        policy=LateralPartialGeometrySnapshot(),
+        policy=LateralPartialGeometrySnapshot(frame_support_review=True),
         active_board_slots=tuple(range(9)),
         target_width=anchor.shape[1],
         target_height=anchor.shape[0],

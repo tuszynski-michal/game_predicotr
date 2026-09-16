@@ -402,7 +402,10 @@ class JobService:
         return LateralPartialGeometrySnapshot(
             training_profile=(
                 None if payload is None else PartialGridTrainingProfile.from_payload(payload)
-            )
+            ),
+            # TASK-0561: new runs use the accepted v1/v2 behavior. Pinned v3
+            # snapshots remain replayable through from_payload().
+            frame_support_review=False,
         )
 
     @staticmethod

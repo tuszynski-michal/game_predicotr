@@ -98,7 +98,8 @@ def test_new_run_pins_separate_partial_training_profile() -> None:
     snapshot = GeometryPipelineRolloutSnapshot.from_payload(payload["image_geometry_rollout"])
     assert snapshot.lateral_partial_geometry is not None
     assert snapshot.lateral_partial_geometry.training_profile == profile
-    assert snapshot.lateral_partial_geometry.to_payload()["schemaVersion"].endswith("v3")
+    assert snapshot.lateral_partial_geometry.to_payload()["schemaVersion"].endswith("v2")
+    assert snapshot.lateral_partial_geometry.frame_support_review is False
 
 
 def test_create_service_gate_precedes_files_and_persistence(
@@ -223,7 +224,7 @@ def test_learned_automatic_proposal_keeps_manual_confirmation() -> None:
 
 
 def test_frame_proposal_requires_complete_excluded_geometry() -> None:
-    policy = LateralPartialGeometrySnapshot()
+    policy = LateralPartialGeometrySnapshot(frame_support_review=True)
     raw = {
         "version": "automatic-frame-geometry-proposal-v1",
         "origin": "automatic_proposal",

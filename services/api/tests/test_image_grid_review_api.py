@@ -560,7 +560,7 @@ def test_grid_review_response_exposes_complete_weak_frame_proposal() -> None:
         {"x": 97, "y": 75},
         {"x": 5, "y": 75},
     ]
-    policy = LateralPartialGeometrySnapshot()
+    policy = LateralPartialGeometrySnapshot(frame_support_review=True)
     qualification = {
         "version": "manual-geometry-qualification-v2",
         "completenessStatus": "complete",

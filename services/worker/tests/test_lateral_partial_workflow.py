@@ -36,7 +36,7 @@ from test_page_geometry_registration import _page
 from test_production_image_workflow import _candidate_snapshot, _structured_active_lattice_rollout
 from test_structured_lattice_refinement_v4 import _candidate, _crop
 
-POLICY = LateralPartialGeometrySnapshot()
+POLICY = LateralPartialGeometrySnapshot(frame_support_review=True)
 
 
 def _entry(source, quad, *, policy=POLICY):
@@ -147,7 +147,8 @@ def test_real_partial_pass_persists_proposal_without_render_after_restart(tmp_pa
         LateralPartialGeometrySnapshot(
             PartialGridTrainingProfile(
                 (PartialGridPattern(mask, sample_count=3, source_count=3),), 3
-            )
+            ),
+            frame_support_review=True,
         )
         if learned
         else POLICY

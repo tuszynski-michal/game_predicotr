@@ -55,7 +55,7 @@ def test_frame_support_policy_v3_roundtrip_and_checksum_binding() -> None:
     profile = PartialGridTrainingProfile(
         (PartialGridPattern((0, 5, 10), sample_count=3, source_count=3),), 3
     )
-    policy = LateralPartialGeometrySnapshot(training_profile=profile)
+    policy = LateralPartialGeometrySnapshot(training_profile=profile, frame_support_review=True)
     raw = json.loads(json.dumps(policy.to_payload()))
     assert raw["schemaVersion"] == "lateral-partial-geometry-snapshot-v3"
     assert raw["frameSupportReviewEnabled"] is True

@@ -8649,3 +8649,20 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   znaczenie jawnego `correctionFileNames`.
 - **Safety:** lista preview, próg i stan wejściowy są checksummowane; rozbieżne
   wymiary kończą wybór błędem, a oryginalne JPEG-i i review są tylko czytane.
+
+## D-394 — Nowe preflighty wracają z polityki słabych obramowań v3 do v1/v2
+
+- **Status:** accepted (TASK-0561); zastępuje część rolloutową D-387.
+- **Date:** 2026-09-16.
+- **Decision:** nowe runy wariantu `structured_lattice_v4_partial_sides`
+  przypinają v1 bez profilu niepełnych siatek albo v2 z profilem. Gałąź
+  `frame_support_review` nie jest wybierana. Snapshot v3, jego kandydatura i
+  `automaticFrameProposal` pozostają obsługiwane dla ścisłego replayu historii.
+- **Rationale:** na tym samym stagingu `45163 - 70371 cut` ukończony job v2
+  odroczył 40 źródeł, a job v3 odroczył 355. Zwiększony koszt i regresja kolejki
+  nie uzasadniają dalszego produkcyjnego rolloutu v3.
+- **Compatibility:** nie usuwamy ani nie reinterpretujemy jobów, manifestów i
+  propozycji v3. Zmiana snapshotu tworzy odrębny input key nowego preflightu.
+- **Safety:** rollback nie osłabia wcześniejszych bramek v2, nie usuwa ręcznych
+  override'ów i nie modyfikuje gotowych artefaktów. Ponowienie trzech stagingów
+  jest jawną operacją użytkownika.

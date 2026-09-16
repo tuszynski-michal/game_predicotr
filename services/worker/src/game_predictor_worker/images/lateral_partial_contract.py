@@ -49,7 +49,10 @@ class LateralPartialGeometrySnapshot:
     """
 
     training_profile: PartialGridTrainingProfile | None = None
-    frame_support_review: bool = True
+    # TASK-0561 rolled back v3 for new runs after the real staging regression
+    # (40 review items with v2 versus 355 with v3). Historical pinned v3
+    # snapshots still opt in explicitly through from_payload().
+    frame_support_review: bool = False
 
     @property
     def policy_version(self) -> str:

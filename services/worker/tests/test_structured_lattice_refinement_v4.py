@@ -39,7 +39,7 @@ from test_manual_partial_geometry import _configuration, _geometry
 from test_structured_geometry_global_initialization import _frame
 from test_structured_lattice_refinement_v3 import _board, _source
 
-POLICY = LateralPartialGeometrySnapshot()
+POLICY = LateralPartialGeometrySnapshot(frame_support_review=True)
 TOPOLOGY = BoardCellTopology(rows=3, columns=5)
 
 

@@ -6,6 +6,28 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0561 — rollback kwalifikacji słabych obramowań
+
+- Rzeczywisty staging `45163 - 70371 cut` miał 40 pozycji ręcznej korekty w
+  jobie v2 `fed795a1-e0a4-46db-bcb6-8b0373625d62` i 355 w jobie v3
+  `07691c10-2c6c-43f4-a1a8-f77f9720c81d`. Nowe preflighty wracają do
+  checksumowanej polityki v1/v2 bez gałęzi `frame_support_review`.
+- Odczyt historycznych snapshotów v3, `automaticFrameProposal`, API i Reviewer
+  pozostają zgodne. Rollback nie usuwa ani nie zmienia istniejących jobów,
+  manifestów i ręcznych override'ów.
+- Job v3 `06c5fe4e-e39e-4f7e-b8c7-f3820b508c7b` dla
+  `149626 - 177561 cut` został anulowany na bezpiecznym checkpointcie
+  `1100/3104`. Trzy nowe joby zostały przypięte do polityki v2:
+  `3cbcec50-5406-4848-8571-89387e6da1f2` dla `149626 - 177561 cut`,
+  `309d6837-d895-4587-a5eb-80cc2d9f35d6` dla `177562 -200583 cut` oraz
+  `0f8a2c88-9477-4486-9962-471ac62ecbc6` dla `45163 - 70371 cut`. General
+  worker pracuje na nowym kodzie; pierwszy job wystartował, a pozostałe dwa
+  czekają w kolejce.
+- Zewnętrzny proces API działający przed rollbackiem nie został z tej sesji
+  zatrzymany z powodu niespójnej widoczności jego PID. Trzy wymagane joby
+  utworzono przez ten sam handler aplikacyjny z kodu v2; zwykły kontrolowany
+  restart API załaduje również nową politykę dla kolejnych preflightów.
+
 ### TASK-0560 — proporcje i odzyskanie zbyt wysokich cropów
 
 - Automatyczny wynik wyższy niż 78% kanonicznej wysokości źródła otrzymuje

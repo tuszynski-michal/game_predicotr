@@ -372,22 +372,20 @@ def _client(
     return client, game_id
 
 
-def test_cancelled_picker_does_not_create_selection(tmp_path: Path) -> None:
-    client, _game_id = _client(tmp_path, None)
+def test_legacy_folder_import_routes_are_absent(tmp_path: Path) -> None:
+    client, game_id = _client(tmp_path, None)
 
     with client:
-        response = client.post("/api/v1/admin/image-imports/folder-selection")
+        paths = client.get("/openapi.json").json()["paths"]
+        old_start = client.post(
+            "/api/v1/admin/image-imports",
+            json={"gameId": str(game_id), "selectionToken": "approved-token"},
+        )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "status": "cancelled",
-        "selectionToken": None,
-        "path": None,
-        "supportedFileCount": 0,
-        "expiresAt": None,
-        "purpose": None,
-        "inputManifestSha256": None,
-    }
+    assert "/api/v1/admin/image-imports" not in paths
+    assert "/api/v1/admin/image-imports/preflight" not in paths
+    assert "/api/v1/admin/image-imports/folder-selection" not in paths
+    assert old_start.status_code == 404
 
 
 def test_only_one_native_folder_picker_can_be_open() -> None:
@@ -437,87 +435,18 @@ def test_fixed_picker_serializes_image_import_and_remote_host_windows() -> None:
         assert first_selection.result(timeout=1) is None
 
 
-def test_approved_folder_token_creates_one_typed_image_job(tmp_path: Path) -> None:
-    source = tmp_path / "photos"
-    source.mkdir()
-    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "layout.jpg", "JPEG")
-    client, game_id = _client(tmp_path, source)
-
-    with client:
-        selection = client.post("/api/v1/admin/image-imports/folder-selection")
-        token = selection.json()["selectionToken"]
-        created = client.post(
-            "/api/v1/admin/image-imports",
-            json={"gameId": str(game_id), "selectionToken": token},
-        )
-        replay = client.post(
-            "/api/v1/admin/image-imports",
-            json={"gameId": str(game_id), "selectionToken": token},
-        )
-
-    assert selection.status_code == 200
-    assert selection.json()["path"] == str(source.resolve())
-    assert selection.json()["supportedFileCount"] == 1
-    assert created.status_code == 201
-    job = created.json()["job"]
-    assert job["jobType"] == "import"
-    assert job["inputPayload"]["importKind"] == "image_directory"
-    assert job["inputPayload"]["schemaVersion"] == 2
-    assert job["inputPayload"]["sourceDirectory"] == str(source.resolve())
-    assert len(job["inputPayload"]["pipelineFingerprint"]) == 64
-    assert job["inputPayload"]["symbolModel"]["modelVersion"] == ("bootstrap-symbol-cnn-onnx-v1")
-    assert (
-        job["inputPayload"]["boardCellProcessing"]["activationVersion"]
-        == "board-cell-processing-v20-verified-v19-v1"
-    )
-    assert replay.status_code == 422
-    assert replay.json()["code"] == "IMAGE_FOLDER_SELECTION_INVALID"
-
-
-@pytest.mark.parametrize("manual", [False, True])
-def test_terminal_image_import_without_preflight_cannot_start_v0_10_reprocess(
-    tmp_path: Path,
-    manual: bool,
-) -> None:
-    source = tmp_path / "photos"
-    source.mkdir()
-    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "layout.jpg", "JPEG")
-    client, game_id = _client(tmp_path, source)
-
-    with client:
-        selection = client.post("/api/v1/admin/image-imports/folder-selection")
-        created = client.post(
-            "/api/v1/admin/image-imports",
-            json={
-                "gameId": str(game_id),
-                "selectionToken": selection.json()["selectionToken"],
-            },
-        )
-        source_job_id = created.json()["job"]["id"]
-        cancelled = client.post(f"/api/v1/admin/jobs/{source_job_id}/cancel")
-        reprocessed = client.post(
-            f"/api/v1/admin/image-imports/{source_job_id}/reprocess",
-            params={"continueWithManualGeometry": str(manual).lower()},
-        )
-
-    assert cancelled.status_code == 200
-    assert reprocessed.status_code == 409
-    assert reprocessed.json()["code"] == "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_REQUIRED"
-
-
 def test_empty_folder_is_rejected_before_selection_token(tmp_path: Path) -> None:
     source = tmp_path / "empty"
     source.mkdir()
-    client, _game_id = _client(tmp_path, source)
+    service = ImageFolderSelectionService(lambda: source, clock=lambda: NOW)
 
-    with client:
-        response = client.post("/api/v1/admin/image-imports/folder-selection")
+    with pytest.raises(JobError) as raised:
+        service.select()
 
-    assert response.status_code == 422
-    assert response.json()["code"] == "IMAGE_FOLDER_EMPTY"
+    assert raised.value.code == "IMAGE_FOLDER_EMPTY"
 
 
-def test_browser_native_folder_upload_creates_an_import_token(tmp_path: Path) -> None:
+def test_browser_native_folder_upload_finalizes_without_legacy_import(tmp_path: Path) -> None:
     game_id = uuid4()
     repository = MemoryJobRepository(game_id)
     selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
@@ -580,17 +509,8 @@ def test_browser_native_folder_upload_creates_an_import_token(tmp_path: Path) ->
         assert selection["status"] == "selected"
         assert selection["supportedFileCount"] == 2
 
-        imported = client.post(
-            "/api/v1/admin/image-imports",
-            json={
-                "gameId": str(game_id),
-                "selectionToken": selection["selectionToken"],
-            },
-        )
-        assert imported.status_code == 201
-        payload = imported.json()["job"]["inputPayload"]
-        assert payload["sourceDisplayName"] == "Zdjecia gry"
-    assert "browser-selections" in payload["sourceDirectory"]
+        assert selection["path"] is None
+        assert selection["selectionToken"] is not None
 
 
 class _BrowserCanonicalRepository:
@@ -2555,10 +2475,6 @@ def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize"
         )
         selection_token = finalized.json()["selectionToken"]
-        wrong_purpose = client.post(
-            "/api/v1/admin/image-imports",
-            json={"gameId": str(game_id), "selectionToken": selection_token},
-        )
         run = client.post(
             "/api/v1/admin/image-selections",
             json={
@@ -2577,8 +2493,6 @@ def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(
     assert finalized.json()["purpose"] == "photo_selection"
     assert finalized.json()["path"] is None
     assert len(finalized.json()["inputManifestSha256"]) == 64
-    assert wrong_purpose.status_code == 422
-    assert wrong_purpose.json()["code"] == "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID"
     assert run.status_code == 200
     assert run.json()["created"] is True
     assert run.json()["run"]["job"]["jobType"] == "image_selection"

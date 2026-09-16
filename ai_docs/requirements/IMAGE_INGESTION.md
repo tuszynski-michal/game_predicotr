@@ -1,10 +1,20 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-09-08
+last_updated: 2026-09-16
 ---
 
 # Import i rozpoznawanie zdjęć
+
+## Jedna ścieżka tworzenia importu plansz — TASK-0565
+
+Nowy import plansz powstaje wyłącznie z gotowego stagingu przeglądarkowego,
+po raporcie, preflighcie geometrii i potwierdzeniu przypiętych sum kontrolnych.
+Panel nie oferuje awaryjnego startu z tokenu lokalnego folderu. Endpointy
+starego wyboru folderu, tokenowego preflightu i tworzenia importu bez raportu
+nie są dostępne. Historyczne joby, ich wyniki i ponowne przetwarzanie z
+oryginałów pozostają czytelne. Osobny wybór folderu dla selekcji zdjęć działa
+dalej i nie tworzy importu plansz.
 
 ## Selektywna korekta plansz v1.1 — TASK-0563
 

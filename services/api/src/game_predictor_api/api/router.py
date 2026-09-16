@@ -166,7 +166,6 @@ def create_api_router(
     )
     router.include_router(
         create_image_imports_router(
-            image_folder_selection_service_dependency,
             browser_image_selection_service_dependency,
             job_service_dependency,
             iterative_image_import_service_dependency,

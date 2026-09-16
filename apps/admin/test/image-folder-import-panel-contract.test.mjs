@@ -42,7 +42,7 @@ const guardResolutionSource = await readFile(
 test('distinguishes the active import operation from a disabled prerequisite', () => {
   assert.match(panelSource, /type ImportAction =/);
   assert.match(panelSource, /activeAction === 'choose-folder'/);
-  assert.match(panelSource, /activeAction === 'start-import'/);
+  assert.doesNotMatch(panelSource, /activeAction === 'start-import'/);
   assert.match(panelSource, /activeAction === 'refresh-status'/);
   assert.match(panelSource, /activeAction === 'reprocess-import'/);
   assert.match(panelSource, /finally \{\s*setActiveAction\(null\)/);
@@ -69,13 +69,18 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /listReadyBrowserImageSelections/);
   assert.match(panelSource, /previewReadyBrowserImageImport/);
   assert.match(panelSource, /startReadyBrowserImageImport/);
+  assert.doesNotMatch(panelSource, /createImageFolderImport|startImport\(/);
+  assert.doesNotMatch(actionsSource, /createImageFolderImport/);
   assert.match(panelSource, /Gotowy staging do wznowienia/);
   assert.match(panelSource, /readyBoardImportLifecycleLabel/);
   assert.match(
     panelSource,
     /staging \{ready\.uploadId\.slice\(0, 8\)\} · \{lifecycleLabel\}/,
   );
-  assert.match(panelSource, /Rozpocznij import \$\{geometryEngineVariant === SELECTIVE_BOARD_VARIANT/);
+  assert.match(
+    panelSource,
+    /Rozpocznij import \$\{geometryEngineVariant === SELECTIVE_BOARD_VARIANT/,
+  );
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
   assert.match(panelSource, /Standardowe v0\.10/);
   assert.match(panelSource, /Obszar plansz — testowe/);
@@ -117,7 +122,10 @@ test('refreshes an open report when symbol-model readiness changes', () => {
   assert.match(refreshFlow, /previewReadyBrowserImageImport/);
   assert.match(refreshFlow, /refreshedReport/);
   assert.match(refreshFlow, /symbolModelNextStep/);
-  assert.match(refreshFlow, /Status importu i raport modelu zostały odświeżone/);
+  assert.match(
+    refreshFlow,
+    /Status importu i raport modelu zostały odświeżone/,
+  );
 });
 
 test('shows the real geometry phase and distinguishes provisional from final counts', () => {

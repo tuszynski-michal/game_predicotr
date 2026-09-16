@@ -36,7 +36,6 @@ import {
   startBrowserPageGeometryPreflight as startGeneratedBrowserPageGeometryPreflight,
   createGridCalibrationCandidate as createGeneratedGridCalibrationCandidate,
   createImageSelection as createGeneratedImageSelection,
-  createImageFolderImport as createGeneratedImageFolderImport,
   createImageGridReviewGeometryRevision as createGeneratedImageGridReviewGeometryRevision,
   createImageGridReviewSourceGeometryRevision as createGeneratedImageGridReviewSourceGeometryRevision,
   createSymbolCellPreviewBatch as createGeneratedSymbolCellPreviewBatch,
@@ -207,7 +206,6 @@ import {
   resumeSemiAutomaticImageSelection as resumeGeneratedSemiAutomaticImageSelection,
   saveUnreadableBoardReview as saveGeneratedUnreadableBoardReview,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
-  selectLocalImageFolder as selectGeneratedLocalImageFolder,
   selectSemiAutomaticImageSelectionSourceFolder as selectGeneratedSemiAutomaticImageSelectionSourceFolder,
   selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
@@ -258,7 +256,6 @@ import type {
   CuratedImageImportBatchCreate,
   CuratedImageImportSourceCreate,
   ImageJobFileRetryRequest,
-  ImageFolderImportCreate,
   ImageGridReviewApprovalCommand,
   ImageGridReviewSourceApprovalCommand,
   ImageGridReviewGeometryCommand,
@@ -452,7 +449,6 @@ export type {
   ImportJobCreate,
   ImportJobPayload,
   ImageImportJobPayload,
-  ImageFolderImportCreate,
   ImageImportEnginePolicyPreviewRequest,
   ImageImportEnginePolicyResponse,
   ImageImportEnginePolicyUpdateRequest,
@@ -1089,11 +1085,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders('job:new'),
       }),
-    selectLocalImageFolder: () =>
-      selectGeneratedLocalImageFolder({
-        client,
-        headers: confirmedTargetHeaders('image-folder:select'),
-      }),
     createBrowserImageSelection: (body: BrowserImageSelectionCreate) =>
       createGeneratedBrowserImageSelection({ body, client }),
     planBrowserImageSelectionUpload: (body: {
@@ -1479,12 +1470,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           `image-selection:${runId}:${groupId}:restore`,
         ),
         path: { group_id: groupId, run_id: runId },
-      }),
-    createImageFolderImport: (body: ImageFolderImportCreate) =>
-      createGeneratedImageFolderImport({
-        body,
-        client,
-        headers: confirmedTargetHeaders(`image-import:${body.gameId}`),
       }),
     reprocessManagedImageImport: (
       sourceJobId: string,

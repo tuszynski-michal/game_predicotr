@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import shutil
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -21,10 +21,6 @@ from game_predictor_worker.images.image_file import (
     read_jpeg_dimensions,
     sha256_file,
 )
-from game_predictor_worker.images.pipeline_contract import (
-    current_pipeline_manifest,
-    pipeline_fingerprint,
-)
 from game_predictor_worker.images.selection.contracts import SelectionContractError
 from game_predictor_worker.images.selection.sequence_bounds import (
     parse_sequence_bounds_display_name,
@@ -33,8 +29,6 @@ from game_predictor_worker.images.selection.sequence_bounds import (
 from game_predictor_api.application.browser_staging_retention import BrowserStagingRetention
 from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.image_selections import ImageSelectionService
-from game_predictor_api.application.jobs import JobService
-from game_predictor_api.domain.image_import_engine_policy import ImageImportEnginePolicy
 from game_predictor_api.domain.image_selections import (
     ImageSelectionRun,
     ImageSelectionSequenceDirection,
@@ -43,7 +37,7 @@ from game_predictor_api.domain.image_sequence_canonical import (
     BrowserSequenceManifest,
     parse_browser_sequence_manifest,
 )
-from game_predictor_api.domain.jobs import Job, JobConflictError, JobError
+from game_predictor_api.domain.jobs import JobConflictError, JobError
 
 SUPPORTED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg"})
 SELECTION_TTL = timedelta(minutes=15)
@@ -236,86 +230,6 @@ class ImageFolderSelectionService:
                     )
                 return existing
             self._selections[selected.selection_token] = selected
-        return selected
-
-    def create_import_job(
-        self,
-        job_service: JobService,
-        *,
-        game_id: UUID,
-        selection_token: str,
-        canonical_sequence_numbers: Sequence[int] | None = None,
-    ) -> Job:
-        now = self._clock()
-        with self._lock:
-            self._remove_expired(now)
-            selected = self._selections.get(selection_token)
-        if selected is None:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_INVALID",
-                "The folder selection is missing, expired, or already used.",
-            )
-        if selected.purpose is not ImageSelectionPurpose.LAYOUT_IMPORT:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
-                "Photo-selection staging cannot be used as a layout import.",
-            )
-        if selected.game_id is not None and selected.game_id != game_id:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
-                "The curated image selection belongs to a different game.",
-            )
-        resolved, _count = inspect_image_folder(selected.path)
-        if resolved != selected.path:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_CHANGED",
-                "The selected image folder no longer resolves to the approved path.",
-            )
-        engine_policy = job_service.current_image_import_engine_policy(game_id=game_id)
-        job = job_service.create_image_import_job(
-            game_id=game_id,
-            selection_id=selected.selection_id,
-            source_directory=selected.path,
-            source_display_name=selected.display_name,
-            pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
-            image_selection_run_id=selected.image_selection_run_id,
-            canonical_sequence_numbers=canonical_sequence_numbers,
-            use_verified_board_cell_geometry=(
-                engine_policy.policy is ImageImportEnginePolicy.VERIFIED_V19
-            ),
-        )
-        with self._lock:
-            self._selections.pop(selection_token, None)
-        return job
-
-    def get_for_import(self, *, game_id: UUID, selection_token: str) -> SelectedImageFolder:
-        """Return an approved folder without consuming its short-lived token."""
-
-        now = self._clock()
-        with self._lock:
-            self._remove_expired(now)
-            selected = self._selections.get(selection_token)
-        if selected is None:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_INVALID",
-                "The folder selection is missing, expired, or already used.",
-            )
-        if selected.purpose is not ImageSelectionPurpose.LAYOUT_IMPORT:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
-                "Photo-selection staging cannot be used as a layout import.",
-            )
-        if selected.game_id is not None and selected.game_id != game_id:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
-                "The selected image folder belongs to a different game.",
-            )
-        resolved, _count = inspect_image_folder(selected.path)
-        if resolved != selected.path:
-            raise JobError(
-                "IMAGE_FOLDER_SELECTION_CHANGED",
-                "The selected image folder no longer resolves to the approved path.",
-            )
         return selected
 
     def get_for_semi_automatic_selection(self, selection_token: str) -> SelectedImageFolder:

@@ -3029,20 +3029,6 @@ export type ImageDiagnosticExportResponse = {
 };
 
 /**
- * ImageFolderImportCreate
- */
-export type ImageFolderImportCreate = {
-  /**
-   * Gameid
-   */
-  gameId: string;
-  /**
-   * Selectiontoken
-   */
-  selectionToken: string;
-};
-
-/**
  * ImageFolderImportResponse
  */
 export type ImageFolderImportResponse = {
@@ -5674,56 +5660,6 @@ export type ImageSelectionRunResponse = {
  * ImageSelectionSequenceDirection
  */
 export type ImageSelectionSequenceDirection = 'ascending' | 'descending';
-
-/**
- * ImageSequenceImportPreflightResponse
- */
-export type ImageSequenceImportPreflightResponse = {
-  /**
-   * Alternativesourcecount
-   */
-  alternativeSourceCount: number;
-  /**
-   * Attestedfilecount
-   */
-  attestedFileCount: number;
-  /**
-   * Firstunresolvedsequence
-   */
-  firstUnresolvedSequence?: number | null;
-  /**
-   * Gameid
-   */
-  gameId: string;
-  /**
-   * Lastunresolvedsequence
-   */
-  lastUnresolvedSequence?: number | null;
-  /**
-   * Newsequencecount
-   */
-  newSequenceCount: number;
-  /**
-   * Partialsourcecount
-   */
-  partialSourceCount: number;
-  /**
-   * Reusedsequencecount
-   */
-  reusedSequenceCount: number;
-  /**
-   * Skippedsourcecount
-   */
-  skippedSourceCount: number;
-  /**
-   * Sourcefilecount
-   */
-  sourceFileCount: number;
-  /**
-   * Warnings
-   */
-  warnings: Array<string>;
-};
 
 /**
  * ImageSequenceSourceCandidateResponse
@@ -16677,45 +16613,6 @@ export type GetVirtualCellPreviewAtlasResponses = {
   200: unknown;
 };
 
-export type CreateImageFolderImportData = {
-  body: ImageFolderImportCreate;
-  path?: never;
-  query?: never;
-  url: '/api/v1/admin/image-imports';
-};
-
-export type CreateImageFolderImportErrors = {
-  /**
-   * Local Admin security guard rejected the request
-   */
-  403: ErrorResponse;
-  /**
-   * Game or folder not found
-   */
-  404: ErrorResponse;
-  /**
-   * Import conflict
-   */
-  409: ErrorResponse;
-  /**
-   * Folder validation error
-   */
-  422: ErrorResponse;
-};
-
-export type CreateImageFolderImportError =
-  CreateImageFolderImportErrors[keyof CreateImageFolderImportErrors];
-
-export type CreateImageFolderImportResponses = {
-  /**
-   * Successful Response
-   */
-  201: ImageFolderImportResponse;
-};
-
-export type CreateImageFolderImportResponse =
-  CreateImageFolderImportResponses[keyof CreateImageFolderImportResponses];
-
 export type ListReadyBrowserImageSelectionsData = {
   body?: never;
   path?: never;
@@ -17795,84 +17692,6 @@ export type CreateNextCuratedImageImportBatchResponses = {
 
 export type CreateNextCuratedImageImportBatchResponse =
   CreateNextCuratedImageImportBatchResponses[keyof CreateNextCuratedImageImportBatchResponses];
-
-export type SelectLocalImageFolderData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/api/v1/admin/image-imports/folder-selection';
-};
-
-export type SelectLocalImageFolderErrors = {
-  /**
-   * Local Admin security guard rejected the request
-   */
-  403: ErrorResponse;
-  /**
-   * Game or folder not found
-   */
-  404: ErrorResponse;
-  /**
-   * Import conflict
-   */
-  409: ErrorResponse;
-  /**
-   * Folder validation error
-   */
-  422: ErrorResponse;
-};
-
-export type SelectLocalImageFolderError =
-  SelectLocalImageFolderErrors[keyof SelectLocalImageFolderErrors];
-
-export type SelectLocalImageFolderResponses = {
-  /**
-   * Successful Response
-   */
-  200: ImageFolderSelectionResponse;
-};
-
-export type SelectLocalImageFolderResponse =
-  SelectLocalImageFolderResponses[keyof SelectLocalImageFolderResponses];
-
-export type PreviewImageSequenceImportData = {
-  body: ImageFolderImportCreate;
-  path?: never;
-  query?: never;
-  url: '/api/v1/admin/image-imports/preflight';
-};
-
-export type PreviewImageSequenceImportErrors = {
-  /**
-   * Local Admin security guard rejected the request
-   */
-  403: ErrorResponse;
-  /**
-   * Game or folder not found
-   */
-  404: ErrorResponse;
-  /**
-   * Import conflict
-   */
-  409: ErrorResponse;
-  /**
-   * Folder validation error
-   */
-  422: ErrorResponse;
-};
-
-export type PreviewImageSequenceImportError =
-  PreviewImageSequenceImportErrors[keyof PreviewImageSequenceImportErrors];
-
-export type PreviewImageSequenceImportResponses = {
-  /**
-   * Successful Response
-   */
-  200: ImageSequenceImportPreflightResponse;
-};
-
-export type PreviewImageSequenceImportResponse =
-  PreviewImageSequenceImportResponses[keyof PreviewImageSequenceImportResponses];
 
 export type ReprocessManagedImageImportData = {
   body?: never;

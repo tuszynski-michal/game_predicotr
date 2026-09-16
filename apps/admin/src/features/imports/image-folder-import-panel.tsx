@@ -42,7 +42,6 @@ import {
   type PageRegistrationVariant,
   LATERAL_PARTIAL_VARIANT,
   SELECTIVE_BOARD_VARIANT,
-  createImageFolderImport,
   filterImageFolderImportFiles,
   geometryPreflightMatchesReport,
   listReadyBrowserImageSelections,
@@ -94,7 +93,6 @@ type ImportAction =
   | 'start-ready'
   | 'delete-ready'
   | 'reprocess-import'
-  | 'start-import'
   | 'refresh-status'
   | 'inspect-sequence'
   | 'choose-source'
@@ -199,7 +197,9 @@ function geometryEngineJobLabel(job: ImageImportJob): string {
       'lateralPartialGeometry'
     ];
     if (typeof lateral === 'object' && lateral !== null) {
-      if ((lateral as Record<string, unknown>).variant === SELECTIVE_BOARD_VARIANT) {
+      if (
+        (lateral as Record<string, unknown>).variant === SELECTIVE_BOARD_VARIANT
+      ) {
         return 'v1.1 — korekta niepewnych plansz';
       }
       return 'v1.0 — niepełne boki';
@@ -965,38 +965,6 @@ export function ImageFolderImportPanel({
     }
   }
 
-  async function startImport() {
-    if (busy || selection?.selectionToken == null) return;
-    setActiveAction('start-import');
-    setError('');
-    setFeedback('');
-    try {
-      const result = await createImageFolderImport(
-        api,
-        gameId,
-        selection.selectionToken,
-      );
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setSelection(null);
-      setSelectionDisplayName('');
-      onHandoffConsumed?.();
-      const imageJob = result.job;
-      if (isImageImportJob(imageJob)) {
-        setJobs((current) => [imageJob, ...current]);
-      }
-      setFeedback(
-        `Import ${result.job.id} utworzony. Postęp jest dostępny w zakładce Joby.`,
-      );
-    } catch {
-      setError('Nie udało się rozpocząć importu. Spróbuj ponownie.');
-    } finally {
-      setActiveAction(null);
-    }
-  }
-
   async function startCuratedBatch(source: CuratedImageImportSourceResponse) {
     const requested = Number(curatedBatchSize);
     if (!Number.isSafeInteger(requested) || requested < 1) {
@@ -1064,9 +1032,7 @@ export function ImageFolderImportPanel({
         }
         refreshedReport = reportResult.data;
         setPreflight(refreshedReport);
-        setGeometryPreflightJob(
-          refreshedReport.geometryPreflightJob ?? null,
-        );
+        setGeometryPreflightJob(refreshedReport.geometryPreflightJob ?? null);
         if (refreshedReport.pageRegistrationVariant != null) {
           setPageRegistrationVariant(refreshedReport.pageRegistrationVariant);
         }
@@ -1574,11 +1540,12 @@ export function ImageFolderImportPanel({
                           {preflight.geometryEngineVariant ===
                           SELECTIVE_BOARD_VARIANT
                             ? 'v1.1 — korekta plansz'
-                            : preflight.geometryEngineVariant === LATERAL_PARTIAL_VARIANT
+                            : preflight.geometryEngineVariant ===
+                                LATERAL_PARTIAL_VARIANT
                               ? 'v1.0 — niepełne boki'
-                            : boardCellProcessingModeLabel(
-                                boardCellProcessingMode,
-                              )}
+                              : boardCellProcessingModeLabel(
+                                  boardCellProcessingMode,
+                                )}
                         </dd>
                       </div>
                       <div className="importMetric">
@@ -1762,26 +1729,16 @@ export function ImageFolderImportPanel({
         </label>
         <div className="importActionButtons">
           <button
-            aria-busy={
-              activeAction === 'start-import' || activeAction === 'start-ready'
-            }
+            aria-busy={activeAction === 'start-ready'}
             className="primaryButton"
-            disabled={
-              busy ||
-              (preflight === null &&
-                (readyUploadId !== null ||
-                  selection?.selectionToken == null)) ||
-              (preflight !== null && !readyImportStartAllowed)
-            }
-            onClick={() =>
-              void (preflight === null ? startImport() : startReadyImport())
-            }
+            disabled={busy || !readyImportStartAllowed}
+            onClick={() => void startReadyImport()}
             type="button"
           >
-            {activeAction === 'start-import' || activeAction === 'start-ready'
+            {activeAction === 'start-ready'
               ? 'Uruchamianie…'
               : preflight === null
-                ? 'Rozpocznij import'
+                ? 'Przygotuj raport, aby rozpocząć import'
                 : geometryPreflightJob !== null &&
                     geometryPreflightJob.progress.review > 0
                   ? 'Importuj rozpoznane strony'

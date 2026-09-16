@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  createImageFolderImport,
   filterImageFolderImportFiles,
   geometryPreflightMatchesReport,
   imageImportJobMatchesReportIdentity,
@@ -932,33 +931,6 @@ test('manual continuation is an explicit flag on the managed reprocess action', 
   );
   assert.deepEqual(args, ['failed-import', true]);
   assert.equal(result.job.id, 'continued');
-});
-
-test('creates an image import only from the approved selection token', async () => {
-  let body;
-  const job = {
-    id: 'job-1',
-    inputPayload: { importKind: 'image_directory' },
-    jobType: 'import',
-    status: 'created',
-  };
-
-  const result = await createImageFolderImport(
-    {
-      createImageFolderImport: async (value) => {
-        body = value;
-        return { data: { job } };
-      },
-    },
-    'game-1',
-    'approved-token',
-  );
-
-  assert.deepEqual(body, {
-    gameId: 'game-1',
-    selectionToken: 'approved-token',
-  });
-  assert.deepEqual(result, { job, ok: true });
 });
 
 test('preserves a stable browser folder validation error', async () => {

@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-09-08
+last_updated: 2026-09-16
 ---
 
 # Kontrakty API i danych mobilnych
@@ -1273,8 +1273,9 @@ Przed odpowiedzią API ponownie liczy checksumę kanonicznego manifestu, każdeg
 JPEG-a, jego rozmiar i wymiary oraz porównuje zakresy z trwałymi grupami runu.
 `collecting`, `manual_required`, brak grupy albo rozjazd pliku blokują handoff.
 Ponowienie aktywnego handoffu zwraca ten sam token, a logiczne źródło zachowuje
-`selectionId = runId`. Panel przechodzi do `Importu layoutów`, lecz dopiero
-osobne kliknięcie `Rozpocznij import` konsumuje token i tworzy job.
+`selectionId = runId`. Panel rejestruje kuratorowane źródło dla importu
+partiami; nowy import plansz ze stagingu przeglądarkowego wymaga osobnego
+raportu i preflightu.
 
 Manifest outputu `curated-image-selection-output-v2` identyfikuje wpis przez
 `groupOrder`, przechowuje oryginalną ścieżkę, checksumy, metryki jakości,
@@ -1366,21 +1367,15 @@ pozycja review albo inna chroniona referencja. Katalog stagingu jest najpierw
 przenoszony do kwarantanny i wraca na miejsce, jeżeli transakcja bazy zostanie
 odrzucona. Operacja jest idempotentna z perspektywy klienta.
 
-### POST `/api/v1/admin/image-imports/folder-selection` (legacy)
+### Wycofany start importu z lokalnego folderu — TASK-0565
 
-Starszy loopback-only kontrakt otwierający dialog Windows pozostaje tymczasowo
-dla zgodności technicznej. Admin `0.2` go nie wywołuje; głównym kontraktem jest
-przeglądarkowy upload opisany wyżej.
-
-### POST `/api/v1/admin/image-imports`
-
-Przyjmuje wyłącznie `gameId` oraz `selectionToken`. Backend ponownie sprawdza
-folder, konsumuje token po udanym zapisie i tworzy job `import` z
-`importKind = image_directory`, `sourceSelectionId`, zatwierdzonym
-`sourceDirectory`, bezpieczną nazwą folderu oraz `pipelineFingerprint`.
-Źródło pochodzące z selektora zapisuje dodatkowo `imageSelectionRunId`, dzięki
-czemu pełny pipeline zachowuje proweniencję niezmiennego outputu.
-Przeglądarka nie może utworzyć image importu przez przesłanie własnej ścieżki.
+`POST /api/v1/admin/image-imports/folder-selection`,
+`POST /api/v1/admin/image-imports/preflight` oraz
+`POST /api/v1/admin/image-imports` nie są już trasami API. Nowy import plansz
+powstaje z gotowego stagingu przeglądarkowego przez
+`POST /api/v1/admin/image-imports/browser-selections/{uploadId}/start` po
+przypięciu preflightu i sum kontrolnych. Selekcja zdjęć ma osobny workflow
+wyboru folderu; odczyt historycznych jobów pozostaje zgodny.
 
 ## Job status
 

@@ -64,11 +64,6 @@ class ImageFolderSelectionResponse(ApiModel):
         return cls(status="cancelled")
 
 
-class ImageFolderImportCreate(ApiModel):
-    game_id: UUID
-    selection_token: str = Field(min_length=32, max_length=200)
-
-
 class ImageFolderImportResponse(ApiModel):
     job: JobResponse
 

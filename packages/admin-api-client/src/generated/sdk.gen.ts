@@ -84,9 +84,6 @@ import type {
   CreateImageDiagnosticExportData,
   CreateImageDiagnosticExportErrors,
   CreateImageDiagnosticExportResponses,
-  CreateImageFolderImportData,
-  CreateImageFolderImportErrors,
-  CreateImageFolderImportResponses,
   CreateImageGeometryGuardDecisionsData,
   CreateImageGeometryGuardDecisionsErrors,
   CreateImageGeometryGuardDecisionsResponses,
@@ -575,9 +572,6 @@ import type {
   PreviewImageSelectionRangeRecoveryData,
   PreviewImageSelectionRangeRecoveryErrors,
   PreviewImageSelectionRangeRecoveryResponses,
-  PreviewImageSequenceImportData,
-  PreviewImageSequenceImportErrors,
-  PreviewImageSequenceImportResponses,
   PreviewMobileReleaseDeletionData,
   PreviewMobileReleaseDeletionErrors,
   PreviewMobileReleaseDeletionResponses,
@@ -701,9 +695,6 @@ import type {
   SelectImageSequenceSourceData,
   SelectImageSequenceSourceErrors,
   SelectImageSequenceSourceResponses,
-  SelectLocalImageFolderData,
-  SelectLocalImageFolderErrors,
-  SelectLocalImageFolderResponses,
   SelectRemoteManualSelectionHostBaseData,
   SelectRemoteManualSelectionHostBaseErrors,
   SelectRemoteManualSelectionHostBaseResponses,
@@ -2503,30 +2494,6 @@ export const getVirtualCellPreviewAtlas = <
   });
 
 /**
- * Create an image import from an approved local folder selection
- */
-export const createImageFolderImport = <ThrowOnError extends boolean = false>(
-  options: Options<CreateImageFolderImportData, ThrowOnError>,
-): RequestResult<
-  CreateImageFolderImportResponses,
-  CreateImageFolderImportErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).post<
-    CreateImageFolderImportResponses,
-    CreateImageFolderImportErrors,
-    ThrowOnError
-  >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/image-imports',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
  * List finalized browser staging folders ready for layout import
  */
 export const listReadyBrowserImageSelections = <
@@ -3091,52 +3058,6 @@ export const createNextCuratedImageImportBatch = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/curated-sources/{source_id}/batches',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Open the controlled native Windows folder picker
- */
-export const selectLocalImageFolder = <ThrowOnError extends boolean = false>(
-  options?: Options<SelectLocalImageFolderData, ThrowOnError>,
-): RequestResult<
-  SelectLocalImageFolderResponses,
-  SelectLocalImageFolderErrors,
-  ThrowOnError
-> =>
-  (options?.client ?? client).post<
-    SelectLocalImageFolderResponses,
-    SelectLocalImageFolderErrors,
-    ThrowOnError
-  >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/image-imports/folder-selection',
-    ...options,
-  });
-
-/**
- * Preview reuse of already resolved seq_* ranges
- */
-export const previewImageSequenceImport = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<PreviewImageSequenceImportData, ThrowOnError>,
-): RequestResult<
-  PreviewImageSequenceImportResponses,
-  PreviewImageSequenceImportErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).post<
-    PreviewImageSequenceImportResponses,
-    PreviewImageSequenceImportErrors,
-    ThrowOnError
-  >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/image-imports/preflight',
     ...options,
     headers: {
       'Content-Type': 'application/json',

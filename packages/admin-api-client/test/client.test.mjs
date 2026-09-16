@@ -580,85 +580,39 @@ test('generated client reads both local worker lanes', async () => {
   );
 });
 
-test('generated client selects a folder and creates its image import', async () => {
-  const requests = [];
+test('generated client starts a ready browser import with checksum-bound geometry', async () => {
+  let captured;
   const gameId = '11111111-1111-4111-8111-111111111111';
-  const mockFetch = async (request) => {
-    requests.push(request);
-    const path = new URL(request.url).pathname;
-    if (path.endsWith('/folder-selection')) {
-      return Response.json({
-        expiresAt: '2026-07-31T12:15:00Z',
-        path: 'C:\\photos',
-        selectionToken: 'approved-token',
-        status: 'selected',
-        supportedFileCount: 2,
-      });
-    }
-    return Response.json(
-      {
-        job: {
-          id: '22222222-2222-4222-8222-222222222222',
-          jobType: 'import',
-          gameId,
-          status: 'created',
-          inputPayload: {
-            schemaVersion: 1,
-            importKind: 'image_directory',
-            sourceSelectionId: '33333333-3333-4333-8333-333333333333',
-            sourceDirectory: 'C:\\photos',
-            sourceDisplayName: 'photos',
-            pipelineFingerprint: 'a'.repeat(64),
-          },
-          progress: {
-            current: 0,
-            total: null,
-            stage: null,
-            succeeded: 0,
-            failed: 0,
-            review: 0,
-          },
-          error: null,
-          workerVersion: null,
-          attemptCount: 0,
-          heartbeatAt: null,
-          leaseExpiresAt: null,
-          createdAt: '2026-07-31T12:00:00Z',
-          updatedAt: '2026-07-31T12:00:00Z',
-          startedAt: null,
-          finishedAt: null,
-          cancelRequestedAt: null,
-        },
-      },
-      { status: 201 },
-    );
+  const uploadId = '33333333-3333-4333-8333-333333333333';
+  const body = {
+    gameId,
+    manifestChecksumSha256: 'a'.repeat(64),
+    preflightChecksumSha256: 'b'.repeat(64),
+    geometryEngineVariant: 'selective_board_review_v1_1',
   };
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000',
-    fetch: mockFetch,
+    fetch: async (request) => {
+      captured = request;
+      return Response.json(
+        { created: true, job: {}, preflight: {} },
+        { status: 202 },
+      );
+    },
   });
 
-  await client.selectLocalImageFolder();
-  await client.createImageFolderImport({
-    gameId,
-    selectionToken: 'approved-token',
-  });
+  await client.startReadyBrowserImageImport(uploadId, body);
 
-  assert.deepEqual(
-    requests.map((request) => [request.method, new URL(request.url).pathname]),
-    [
-      ['POST', '/api/v1/admin/image-imports/folder-selection'],
-      ['POST', '/api/v1/admin/image-imports'],
-    ],
+  assert.equal(captured.method, 'POST');
+  assert.equal(
+    new URL(captured.url).pathname,
+    `/api/v1/admin/image-imports/browser-selections/${uploadId}/start`,
   );
   assert.equal(
-    requests[0].headers.get('X-Admin-Target'),
-    'image-folder:select',
-  );
-  assert.equal(
-    requests[1].headers.get('X-Admin-Target'),
+    captured.headers.get('X-Admin-Target'),
     `image-import:${gameId}`,
   );
+  assert.deepEqual(await captured.json(), body);
 });
 
 test('generated client reprocesses a managed image import with explicit confirmation', async () => {

@@ -1,11 +1,20 @@
 ---
 title: Iterative image import architecture
 status: accepted
-last_updated: 2026-09-08
+last_updated: 2026-09-16
 release: "0.7"
 ---
 
 # Architektura iteracyjnego importu
+
+## Jedyny publiczny start nowego importu — TASK-0565
+
+`POST /api/v1/admin/image-imports/browser-selections/{uploadId}/start`
+tworzy nowy job importu plansz z gotowego stagingu i przypiętego preflightu.
+Wymaga zgodnych sum source manifestu i raportu. Dawny lokalny picker importu,
+tokenowy preflight i `POST /api/v1/admin/image-imports` zostały wycofane z
+routera, OpenAPI i panelu. Wspólna usługa wyboru folderu pozostaje dla selekcji
+zdjęć; odczyt oraz retry historycznych importów nie zmieniają formatu.
 
 ## Przypięty opt-in v1.1 — TASK-0563
 

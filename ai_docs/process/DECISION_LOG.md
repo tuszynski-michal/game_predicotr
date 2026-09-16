@@ -1,10 +1,24 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-15
+last_updated: 2026-09-16
 ---
 
 # Decision Log
+
+## D-398 — tylko gotowy staging tworzy nowy import plansz
+
+- **Status:** accepted
+- **Date:** 2026-09-16
+- **Decision:** usunąć z publicznego API i panelu tokenowy start importu,
+  lokalny picker importu i tokenowy preflight. Nowy import plansz wymaga
+  gotowego stagingu przeglądarkowego oraz przypiętego raportu geometrii.
+- **Rationale:** stara ścieżka mogła tworzyć job bez aktualnego preflightu,
+  mimo że operator używa już wyłącznie nowego workflow.
+- **Safety:** nie usuwać historycznych jobów ani współdzielonego wyboru
+  folderu potrzebnego selekcji zdjęć; zachować odczyt i retry historii.
+- **Consequences:** OpenAPI oraz wygenerowany klient nie zawierają dawnych
+  operacji; stary token nie może uruchomić nowego importu plansz.
 
 Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 

@@ -6,6 +6,17 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0565 — jeden start importu plansz
+
+- Dawny picker folderu importu, tokenowy preflight i `POST /image-imports`
+  zostały usunięte z publicznego API, klienta i panelu. Nowy import wymaga
+  gotowego stagingu oraz przypiętego raportu geometrii. Historia importów i
+  osobna selekcja zdjęć pozostają dostępne.
+- Zmiana nie usuwa danych ani nie uruchamia nowych jobów.
+- Skoncentrowane kontrole przeszły; dodatkowy test historycznego reprocessingu
+  ma wcześniejszy rozjazd kodu błędu `PREFLIGHT_REQUIRED` względem
+  `SNAPSHOT_INVALID` w niezmienionym `JobService`.
+
 ### TASK-0564 — typowane liczniki selekcji zdjęć
 
 - Końcowe liczniki ręcznego keep/reject podczas cleanupu weryfikacji nazw są

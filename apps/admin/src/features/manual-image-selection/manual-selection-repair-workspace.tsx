@@ -87,6 +87,9 @@ export function ManualSelectionRepairWorkspace() {
   const [workPhase, setWorkPhase] = useState<RepairWorkspacePhase>('idle');
   const [sourceListingProgress, setSourceListingProgress] =
     useState<ManualImageListingProgress | null>(null);
+  const [sourceListingDirectoryName, setSourceListingDirectoryName] = useState<
+    string | null
+  >(null);
   const sourceCursor = localState?.sourceCursor ?? 0;
   const mode = localState?.mode ?? null;
   const backgroundMutationPending =
@@ -148,6 +151,7 @@ export function ManualSelectionRepairWorkspace() {
   const workPhaseMessage = repairWorkspacePhaseMessage(
     workPhase,
     sourceListingProgress,
+    sourceListingDirectoryName,
   );
   const interactiveWorkInProgress =
     workPhase !== 'idle' && workPhase !== 'restoring';
@@ -196,7 +200,7 @@ export function ManualSelectionRepairWorkspace() {
         ) {
           sources = await new FileSystemManualSelectionSourceAdapter(
             saved.sourceDirectory,
-          ).listImages();
+          ).listImages(undefined, { includeSubdirectories: false });
         }
         if (
           !cancelled &&
@@ -209,6 +213,10 @@ export function ManualSelectionRepairWorkspace() {
             ...saved,
             mode:
               saved.mode === 'fill' && sources.length === 0 ? null : saved.mode,
+            sourceCursor:
+              saved.mode === 'fill' && sources.length > 0
+                ? clamp(saved.sourceCursor, 0, sources.length - 1)
+                : saved.sourceCursor,
           });
         }
       } catch {
@@ -349,19 +357,28 @@ export function ManualSelectionRepairWorkspace() {
     const recoveryGeneration = beginWorkPhase('selecting_source');
     setError(null);
     try {
-      const sourceDirectory = await pickDirectory('read');
+      const sourceDirectory = await pickDirectory(
+        'read',
+        'gp-manual-repair-source',
+      );
       if (recoveryGeneration !== recoveryGenerationRef.current) return;
+      setSourceListingDirectoryName(sourceDirectory.name);
       setWorkPhase('listing_source');
       setSourceListingProgress({ imageCount: 0, visitedEntries: 0 });
       const images = await new FileSystemManualSelectionSourceAdapter(
         sourceDirectory,
-      ).listImages((progress) => {
-        if (recoveryGeneration !== recoveryGenerationRef.current) return;
-        setSourceListingProgress(progress);
-      });
+      ).listImages(
+        (progress) => {
+          if (recoveryGeneration !== recoveryGenerationRef.current) return;
+          setSourceListingProgress(progress);
+        },
+        { includeSubdirectories: false },
+      );
       if (recoveryGeneration !== recoveryGenerationRef.current) return;
       if (images.length === 0)
-        throw new Error('Bazowy katalog nie zawiera zdjęć JPG/JPEG.');
+        throw new Error(
+          `Wybrany katalog „${sourceDirectory.name}” nie zawiera bezpośrednio zdjęć JPG/JPEG. Wskaż folder z właściwymi zdjęciami, nie katalog nadrzędny.`,
+        );
       setSourceImages(images);
       const nextLocalState = applyLocalState({
         ...localState,
@@ -862,6 +879,10 @@ export function ManualSelectionRepairWorkspace() {
                 ? 'Wszystkie luki zostały uzupełnione.'
                 : `Luka ${gapCursor + 1} z ${gaps.length} · zakres ${currentGap.start}–${currentGap.end}`}
             </p>
+            <p>
+              Źródło: {localState.sourceDirectory?.name} ·{' '}
+              {sourceImages.length.toLocaleString('pl-PL')} zdjęć
+            </p>
           </div>
         </header>
         <ManualImageViewer
@@ -1288,8 +1309,11 @@ export function ManualSelectionRepairWorkspace() {
   );
 }
 
-async function pickDirectory(mode: 'read' | 'readwrite') {
-  return pickLocalDirectory({ id: 'gp-manual-repair', mode });
+async function pickDirectory(
+  mode: 'read' | 'readwrite',
+  id = 'gp-manual-repair',
+) {
+  return pickLocalDirectory({ id, mode });
 }
 
 function createInitialLocalState(
@@ -1314,6 +1338,7 @@ function createInitialLocalState(
 function repairWorkspacePhaseMessage(
   phase: RepairWorkspacePhase,
   sourceListingProgress: ManualImageListingProgress | null,
+  sourceListingDirectoryName: string | null,
 ): string | null {
   switch (phase) {
     case 'restoring':
@@ -1324,10 +1349,15 @@ function repairWorkspacePhaseMessage(
       return 'Sprawdzam nazwy i checksumy wybranego katalogu…';
     case 'selecting_source':
       return 'Wybierz bazowy katalog zdjęć w otwartym oknie systemowym.';
-    case 'listing_source':
+    case 'listing_source': {
+      const directoryLabel =
+        sourceListingDirectoryName === null
+          ? 'katalogu bazowego'
+          : `katalogu „${sourceListingDirectoryName}”`;
       return sourceListingProgress === null
-        ? 'Wczytuję listę zdjęć z katalogu bazowego…'
-        : `Wczytuję listę zdjęć z katalogu bazowego… sprawdzono ${sourceListingProgress.visitedEntries.toLocaleString('pl-PL')} wpisów, znaleziono ${sourceListingProgress.imageCount.toLocaleString('pl-PL')} obrazów.`;
+        ? `Wczytuję zdjęcia bezpośrednio z ${directoryLabel}…`
+        : `Wczytuję zdjęcia bezpośrednio z ${directoryLabel}… sprawdzono ${sourceListingProgress.visitedEntries.toLocaleString('pl-PL')} wpisów, znaleziono ${sourceListingProgress.imageCount.toLocaleString('pl-PL')} obrazów.`;
+    }
     case 'idle':
       return null;
   }

@@ -610,6 +610,69 @@ test('keeps source listing read-only and naturally ordered through the source po
   assert.deepEqual(progress, [{ imageCount: 2, visitedEntries: 4 }]);
 });
 
+test('gap-fill source listing ignores nested collections and exposes only the chosen folder', async () => {
+  let nestedVisited = false;
+  const directory = {
+    kind: 'directory',
+    name: 'chosen',
+    entries: async function* () {
+      yield ['2.jpg', { kind: 'file', name: '2.jpg' }];
+      yield [
+        'other-collections',
+        {
+          kind: 'directory',
+          name: 'other-collections',
+          entries: async function* () {
+            nestedVisited = true;
+            yield ['1.jpg', { kind: 'file', name: '1.jpg' }];
+          },
+        },
+      ];
+      yield ['1.jpg', { kind: 'file', name: '1.jpg' }];
+    },
+  };
+  const progress = [];
+  const images = await new FileSystemManualSelectionSourceAdapter(
+    directory,
+  ).listImages((current) => progress.push(current), {
+    includeSubdirectories: false,
+  });
+
+  assert.deepEqual(
+    images.map((image) => image.relativePath),
+    ['1.jpg', '2.jpg'],
+  );
+  assert.equal(nestedVisited, false);
+  assert.deepEqual(progress, [{ imageCount: 2, visitedEntries: 3 }]);
+});
+
+test('gap-fill does not mistake an ancestor containing only collection folders for a photo source', async () => {
+  let openedCollection = false;
+  const parent = {
+    kind: 'directory',
+    name: 'all-collections',
+    entries: async function* () {
+      yield [
+        'collection',
+        {
+          kind: 'directory',
+          name: 'collection',
+          entries: async function* () {
+            openedCollection = true;
+            yield ['photo.jpg', { kind: 'file', name: 'photo.jpg' }];
+          },
+        },
+      ];
+    },
+  };
+
+  const images = await new FileSystemManualSelectionSourceAdapter(
+    parent,
+  ).listImages(undefined, { includeSubdirectories: false });
+  assert.deepEqual(images, []);
+  assert.equal(openedCollection, false);
+});
+
 test('reports monotonic progress while listing a large source directory', async () => {
   const directory = {
     entries: async function* () {

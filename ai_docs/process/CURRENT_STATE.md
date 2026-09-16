@@ -6,6 +6,17 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0575 — źródło uzupełniania luk bez przeszukiwania innych kolekcji
+
+- Tryb `Uzupełnij luki` listuje tylko bezpośrednie JPEG-i z folderu zwróconego
+  przez picker; podfoldery i katalogi sąsiednich kolekcji nie powiększają już
+  listy. Recovery po odświeżeniu stosuje tę samą regułę. Zwykła ręczna selekcja
+  pozostaje rekurencyjna.
+- W interfejsie widać nazwę faktycznie otwartego katalogu i liczbę zdjęć.
+  Źródło fill ma osobną pamięć pickera. Wybranie katalogu nadrzędnego bez
+  bezpośrednich JPEG-ów daje błąd z jego nazwą zamiast skanowania całego drzewa.
+- Nie zmieniano katalogów ani manifestów użytkownika.
+
 ### TASK-0574 — korekta podmienionego zdjęcia przed preflightem
 
 - Po potwierdzeniu podmiany panel pokazuje od razu edytor nowego źródła.

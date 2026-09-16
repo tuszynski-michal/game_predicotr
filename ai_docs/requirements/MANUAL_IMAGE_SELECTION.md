@@ -468,16 +468,19 @@ targety nie większe niż dziewięć plansz.
 ### Uzupełnianie luk
 
 Po wybraniu trybu operator wskazuje osobny bazowy katalog zdjęć. Jest on
-rekurencyjnie listowany i pozostaje tylko do odczytu. Podgląd rozpoczyna się od
+listowany wyłącznie na wybranym poziomie i pozostaje tylko do odczytu.
+Podfoldery nie należą do listy uzupełniania luk; wybór katalogu nadrzędnego
+bez bezpośrednich JPEG-ów kończy się komunikatem z nazwą wybranego folderu.
+Podgląd rozpoczyna się od
 pierwszego naturalnie posortowanego JPEG-a; skok ma wartości
 `1, 2, 5, 10, 20, 50, 100`, natomiast target zmienia się po rzeczywistych
 lukach. `Enter`, `F` lub przycisk zapisują niezmienione bajty jako dokładny
 target `seq_*`, ponownie odczytują plik i weryfikują SHA-256. Akceptacja jest
 dostępna dopiero po poprawnym dekodowaniu i co najmniej 300 ms widoczności.
 
-Podczas listowania UI pokazuje rosnące liczniki sprawdzonych wpisów i znalezionych
+Podczas listowania UI pokazuje nazwę wybranego folderu oraz rosnące liczniki sprawdzonych wpisów i znalezionych
 obrazów; nie przedstawia procentu, ponieważ całkowita liczba wpisów jest znana
-dopiero po rekursji. Po otrzymaniu kompletnej, naturalnie posortowanej listy
+dopiero po listowaniu. Po otrzymaniu kompletnej, naturalnie posortowanej listy
 workspace natychmiast otwiera pierwszy obraz. Zapis uchwytu katalogu, trybu i
 kursora do IndexedDB jest pomocniczy i nie może zatrzymywać tego przejścia;
 odrzucony zapis informuje operatora o konieczności ponownego wskazania źródła po
@@ -531,7 +534,7 @@ Jedna inspekcja odczytuje i hashuje każdy znany JPEG najwyżej raz. Jeżeli
 repair manifest zawiera już checksumę, reconciler weryfikuje ją na rzeczywistym
 pliku, a synchronizacja output manifestu wykorzystuje ten sam zweryfikowany
 wynik zamiast wykonywać drugi pełny odczyt Blobu. Podczas recovery, wyboru
-katalogu `seq_*` i rekurencyjnego listowania katalogu bazowego UI pokazuje
+katalogu `seq_*` i listowania bezpośrednich plików katalogu bazowego UI pokazuje
 aktualną fazę; ręczne wskazanie katalogu unieważnia spóźnione recovery i jest
 natychmiast utrwalane w IndexedDB.
 

@@ -168,7 +168,10 @@ aktualnego snapshotu ani uchwytu. Fazy wyboru systemowego, inspekcji i
 listowania są stanem UI, a nie pozornym zawieszeniem; natywny picker pozostaje
 jedyną blokadą współdzielonego pickera katalogów.
 
-Adapter źródła publikuje pomocniczy, monotoniczny postęp rekurencji co najwyżej
+Adapter źródła zachowuje rekurencyjny tryb dla zwykłej selekcji, ale uzupełnianie
+luk i jego recovery wywołują go z `includeSubdirectories: false`. Dzięki temu
+źródłem są wyłącznie bezpośrednie JPEG-i z folderu wybranego w osobnym pickerze
+źródła. Adapter publikuje pomocniczy, monotoniczny postęp listowania co najwyżej
 po 64 nowych wpisach i oddaje wówczas kolejkę renderowaniu. Zawiera liczbę
 odwiedzonych wpisów i zaakceptowanych obrazów, lecz nie wpływa na naturalne
 sortowanie ani nie otwiera plików. Po kompletnej liście workspace najpierw

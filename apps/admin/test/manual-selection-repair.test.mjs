@@ -584,7 +584,8 @@ test('fill workspace exposes bounded steps, gap targets, shortcuts and visibilit
   assert.match(source, /key === 'a'/);
   assert.match(source, /setViewReady\(true\)/);
   assert.match(source, /writeRepairFile/);
-  assert.match(source, /pickLocalDirectory\(\{ id: 'gp-manual-repair'/);
+  assert.match(source, /pickLocalDirectory\(\{ id, mode \}\)/);
+  assert.match(source, /id = 'gp-manual-repair'/);
   assert.match(source, /sourceCursor \+ 1/);
 });
 
@@ -633,7 +634,7 @@ test('repair workspace shows long-running directory phases and lets manual choic
   assert.match(source, /type RepairWorkspacePhase/);
   assert.match(source, /Przywracam poprzednią sesję/);
   assert.match(source, /Sprawdzam nazwy i checksumy wybranego katalogu/);
-  assert.match(source, /Wczytuję listę zdjęć z katalogu bazowego/);
+  assert.match(source, /Wczytuję zdjęcia bezpośrednio z/);
   assert.match(source, /recoveryGenerationRef/);
   assert.match(source, /beginWorkPhase\('selecting_selected'\)/);
   assert.match(source, /beginWorkPhase\('selecting_source'\)/);
@@ -656,7 +657,15 @@ test('gap fill reports source listing and does not wait for the local-state writ
     source,
     /const \[sourceListingProgress, setSourceListingProgress\]/,
   );
-  assert.match(source, /\)\.listImages\(\(progress\) =>/);
+  assert.match(source, /\)\.listImages\(\s*\(progress\) =>/);
+  assert.match(
+    source,
+    /listImages\(undefined, \{ includeSubdirectories: false \}\)/,
+  );
+  assert.match(source, /clamp\(saved\.sourceCursor, 0, sources\.length - 1\)/);
+  assert.match(source, /\{ includeSubdirectories: false \},\s*\)/);
+  assert.match(source, /gp-manual-repair-source/);
+  assert.match(source, /sourceListingDirectoryName/);
   assert.match(source, /setSourceListingProgress\(progress\)/);
   assert.match(source, /const nextLocalState = applyLocalState\(/);
   assert.match(source, /void persistLocalState\(nextLocalState\)\.catch/);

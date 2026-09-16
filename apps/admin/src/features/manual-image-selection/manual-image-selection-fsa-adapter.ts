@@ -74,6 +74,7 @@ export class FileSystemManualSelectionSourceAdapter implements ManualSelectionSo
 
   async listImages(
     onProgress?: (progress: ManualImageListingProgress) => void,
+    options: { readonly includeSubdirectories?: boolean } = {},
   ): Promise<ManualImageFile[]> {
     const files: ManualImageFile[] = [];
     let visitedEntries = 0;
@@ -98,7 +99,8 @@ export class FileSystemManualSelectionSourceAdapter implements ManualSelectionSo
         visitedEntries += 1;
         const relativePath = prefix === '' ? name : `${prefix}/${name}`;
         if (entry.kind === 'directory') {
-          await visit(entry, relativePath);
+          if (options.includeSubdirectories !== false)
+            await visit(entry, relativePath);
           await reportProgress();
           continue;
         }

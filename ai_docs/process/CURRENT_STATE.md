@@ -6,6 +6,16 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0566 — poprawny błąd historycznego preflightu
+
+- Brak `lateral_partial_geometry` w historycznym preflighcie oznacza brak
+  przypiętego dowodu v1.0/v1.1 i zwraca teraz
+  `IMAGE_LATERAL_PARTIAL_PREFLIGHT_REQUIRED`. Obecny, ale błędny snapshot nadal
+  zwraca `IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID`.
+- Naprawa zmienia wyłącznie klasyfikację błędu; nie zmienia manifestów ani nie
+  tworzy jobów. Powtórzony zestaw regresji API przeszedł 87/87; mypy dla 429
+  plików źródłowych API/workera jest zielony.
+
 ### TASK-0565 — jeden start importu plansz
 
 - Dawny picker folderu importu, tokenowy preflight i `POST /image-imports`

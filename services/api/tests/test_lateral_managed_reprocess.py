@@ -71,15 +71,82 @@ def test_new_run_reuses_sources_and_retry_after_restart_is_idempotent(tmp_path, 
     assert json.dumps(source.input_payload, sort_keys=True) == old_payload
 
 
-def test_old_preflight_requires_explicit_preparation_not_upload(tmp_path, monkeypatch):
+@pytest.mark.parametrize("explicit_old_manifest", [False, True])
+def test_old_preflight_requires_explicit_preparation_not_upload(
+    tmp_path, monkeypatch, explicit_old_manifest
+):
     repository, source, descriptor, root = _setup(tmp_path, monkeypatch)
+    before = len(repository.items)
+    options = (
+        {"page_geometry_manifest": source.input_payload["page_geometry_manifest"]}
+        if explicit_old_manifest
+        else {}
+    )
     with pytest.raises(JobConflictError) as error:
         JobService(repository, artifact_root=root).create_managed_image_reprocess_job(
             source.id,
             pipeline_fingerprint="d" * 64,
             geometry_engine_variant=contract.GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
+            **options,
         )
     assert error.value.code == "IMAGE_LATERAL_PARTIAL_PREFLIGHT_REQUIRED"
+    assert len(repository.items) == before
+
+
+def test_malformed_pinned_policy_remains_snapshot_invalid(tmp_path, monkeypatch):
+    repository, source, descriptor, root = _setup(tmp_path, monkeypatch)
+    preflight_id = UUID(descriptor["preflightJobId"])
+    preflight = repository.get_job(preflight_id)
+    assert preflight is not None
+    repository.items[preflight_id] = replace(
+        preflight,
+        input_payload={
+            **preflight.input_payload,
+            "lateral_partial_geometry": {"schemaVersion": "unknown"},
+        },
+    )
+    before = len(repository.items)
+
+    with pytest.raises(JobConflictError) as error:
+        JobService(repository, artifact_root=root).create_managed_image_reprocess_job(
+            source.id,
+            pipeline_fingerprint="d" * 64,
+            geometry_engine_variant=contract.GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
+            page_geometry_manifest=descriptor,
+        )
+
+    assert error.value.code == "IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID"
+    assert len(repository.items) == before
+
+
+def test_reprocess_http_reports_new_preflight_required(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from game_predictor_api.config import ApiSettings
+    from game_predictor_api.main import create_app
+
+    repository, source, _descriptor, root = _setup(tmp_path, monkeypatch)
+    before = len(repository.items)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment({"GAME_PREDICTOR_ARTIFACT_ROOT": str(root)}),
+            job_service_dependency=lambda: JobService(repository, artifact_root=root),
+        )
+    )
+
+    with client:
+        response = client.post(
+            f"/api/v1/admin/image-imports/{source.id}/reprocess",
+            params={
+                "geometryEngineVariant": (
+                    contract.GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES.value
+                )
+            },
+            headers={"X-Admin-Target": f"image-import:{source.id}:reprocess"},
+        )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["code"] == "IMAGE_LATERAL_PARTIAL_PREFLIGHT_REQUIRED"
+    assert len(repository.items) == before
 
 
 @pytest.mark.parametrize("change", ["missing", "checksum", "scope"])

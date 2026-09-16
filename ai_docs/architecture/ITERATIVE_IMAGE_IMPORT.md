@@ -162,6 +162,11 @@ obca proweniencja lub niepełne pokrycie
 `IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE`. Schema v4 pozostaje
 obsługiwana wyłącznie jako historyczny kontrakt replayu.
 
+Wariant v1.0/v1.1 dodatkowo wymaga snapshotu polityki bocznych plansz w
+preflighcie. Brak tego pola w historycznym preflighcie oznacza konieczność
+przygotowania nowego preflightu, nie uszkodzenie snapshotu. Dopiero obecny,
+lecz niepoprawny snapshot jest błędem jego integralności.
+
 ### Jawnie przypięty adapter komórek v20
 
 Schema v5 może opcjonalnie zawierać snapshot

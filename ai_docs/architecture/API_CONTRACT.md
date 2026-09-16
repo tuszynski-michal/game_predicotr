@@ -3206,6 +3206,12 @@ preflight albo cykl zwraca
 `IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE`. Historyczne odpowiedzi
 schema v4 pozostają czytelne bez zmiany wire contractu.
 
+Przy wyborze v1.0/v1.1 historyczny preflight bez przypiętego
+`lateral_partial_geometry` zwraca
+`IMAGE_LATERAL_PARTIAL_PREFLIGHT_REQUIRED`: operator przygotowuje nowy
+preflight bez ponownego uploadu. Istniejący, lecz niepoprawny snapshot polityki
+nadal zwraca `IMAGE_LATERAL_PARTIAL_SNAPSHOT_INVALID`.
+
 ### Ręczne źródło półautomatycznego zakresu
 
 `POST /api/v1/admin/semi-automatic-image-selections/source-folder` otwiera

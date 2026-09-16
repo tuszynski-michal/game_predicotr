@@ -862,9 +862,14 @@ class JobService:
             preflight = self._repository.get_job(UUID(str(descriptor.get("preflightJobId"))))
             if preflight is None:
                 raise ValueError("The preflight job is missing.")
-            policy = LateralPartialGeometrySnapshot.from_payload(
-                preflight.input_payload.get("lateral_partial_geometry")
-            )
+            pinned_policy = preflight.input_payload.get("lateral_partial_geometry")
+            if pinned_policy is None:
+                raise JobConflictError(
+                    "IMAGE_LATERAL_PARTIAL_PREFLIGHT_REQUIRED",
+                    "The historical preflight did not pin this geometry engine. "
+                    "Prepare a new preflight; no upload is required.",
+                )
+            policy = LateralPartialGeometrySnapshot.from_payload(pinned_policy)
             if policy.selective_frame_review != (
                 geometry_engine_variant is GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
             ):

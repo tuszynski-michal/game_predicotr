@@ -1,0 +1,57 @@
+{
+  "browserManifestChecksumSha256": "12a81b21b3667e011aae520abb9e77875df27ff0b23c2a2ec01f6665e8ca620b",
+  "contractVersion": "image-source-ingestion-v1",
+  "discovery": {
+    "discoveryVersion": "image-discovery-v1",
+    "duplicateFileCount": 0,
+    "ignoredFileCount": 0,
+    "images": [
+      {
+        "checksumSha256": "efc8fc78dea187b60c0d7c66a568149d0522492978092f8a4089b4df95e8f93b",
+        "contentId": "sha256:efc8fc78dea187b60c0d7c66a568149d0522492978092f8a4089b4df95e8f93b",
+        "files": [
+          {
+            "modifiedAtNs": 1789550389600649400,
+            "relativePath": "seq_1-9.jpg",
+            "sizeBytes": 23999
+          }
+        ],
+        "height": 480,
+        "mediaType": "image/jpeg",
+        "width": 680
+      }
+    ],
+    "issueCount": 0,
+    "issues": [],
+    "schemaVersion": 1,
+    "sourceFileCount": 1,
+    "sourceRoot": ".",
+    "supportedMediaTypes": [
+      "image/jpeg"
+    ],
+    "uniqueImageCount": 1
+  },
+  "gameId": "18b11286-32d7-4bc7-8b06-b3dccf96c8de",
+  "jobId": "1a200702-0b98-43ea-b3e5-bfd3afe1e5ab",
+  "operatorExcludedSources": [],
+  "originals": [
+    {
+      "checksumSha256": "efc8fc78dea187b60c0d7c66a568149d0522492978092f8a4089b4df95e8f93b",
+      "managedRelativePath": "data/originals/ef/efc8fc78dea187b60c0d7c66a568149d0522492978092f8a4089b4df95e8f93b.jpg",
+      "sequenceRangeEnd": 9,
+      "sequenceRangeSource": "filename",
+      "sequenceRangeStart": 1,
+      "sizeBytes": 23999,
+      "sourceRelativePath": "seq_1-9.jpg",
+      "sourceRelativePaths": [
+        "seq_1-9.jpg"
+      ],
+      "sourceStorageRelativePath": "00000000.jpg"
+    }
+  ],
+  "reprocessedFromJobId": "4e57b939-0328-4cfb-85f8-df0850f90624",
+  "schemaVersion": 1,
+  "sequenceRangeSource": "filename",
+  "sequenceRangeWarnings": [],
+  "sourceDirectory": "C:\\Users\\tuszy\\Documents\\game_predicotr\\.codex-task-0563-worker-existing\\test_managed_preflight_uses_ve2\\d7e34d71-aea4-488a-b2ed-27c37c71865b"
+}

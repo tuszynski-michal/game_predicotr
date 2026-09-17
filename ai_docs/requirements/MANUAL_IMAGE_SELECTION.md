@@ -753,6 +753,18 @@ granice wysokości cropa; nie zmienia szerokości ani nie uruchamia ponownego
 cięcia zapisanych wyników. Fingerprinty v12 sprzed tej zmiany pozostają
 akceptowane wyłącznie podczas odczytu.
 
+TASK-0578: aktywny v13 wykonuje najpierw niezmieniony pipeline v12, a następnie
+nie może zapisać pasa niższego niż `ceil(szerokość × 401 / 1080)`. Liczba 401
+pochodzi z odczytowego pomiaru 2482 poprawnych JPEG-ów `200575 - 222912 cut`:
+średnia dolnych 5% wysokości wyniosła 422,96 px, a 5% bufor daje 401 px przy
+szerokości referencyjnej 1080 px. Za niski wynik jest wyłącznie rozszerzany
+w pionie, symetrycznie gdy to możliwe, a przy krawędzi przez dostępną stronę;
+nigdy nie jest dodatkowo zwężany ani skalowany. Gdy całe źródło jest niższe od
+progu, zapisywane jest całe źródło. Dane pomiaru, wzór i strategia rozszerzenia
+są częścią fingerprintu v13, nie zależą runtime od lokalnego katalogu. Puste
+nowe sesje i jawne przeliczenie przypinają v13; rozpoczęta sesja v12 zachowuje
+swoją politykę i dotychczasowe JPEG-i aż do jawnego przeliczenia.
+
 Po restarcie zgodne JPEG-i są finalizowane, brakujące pozostają w kolejce, a
 plik o innej checksumie jest zachowany i trafia do review. Recovery jest
 idempotentne również wtedy, gdy shard został już zapisany, lecz końcowy zapis

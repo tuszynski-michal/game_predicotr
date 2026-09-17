@@ -214,14 +214,14 @@ test('proposal provenance is persisted and historical sessions require an explic
   assert.match(source, /selectedImageCropRecalculationFileNames/u);
 });
 
-test('explicit v12 upgrade can recalculate automatic warnings without touching operator-only selections', () => {
+test('explicit v13 upgrade can recalculate automatic warnings without touching operator-only selections', () => {
   assert.match(source, /recalculateAutomaticCorrectionSelectedImageCrops/u);
   assert.match(
     source,
     /selectedImageCropAutomaticCorrectionRecalculationFileNames/u,
   );
-  assert.match(source, /preparationPolicyVersion === CROP_V12_POLICY/u);
-  assert.match(source, /preparationPolicyVersion: CROP_V12_POLICY/u);
+  assert.match(source, /isFourPointRegistrationCropPolicy/u);
+  assert.match(source, /preparationPolicyVersion: ACTIVE_SELECTED_IMAGE_CROP_POLICY/u);
 });
 
 test('pristine initialization pins the active policy without relying on a racy manifest-existed flag', () => {
@@ -246,7 +246,7 @@ test('pristine initialization pins the active policy without relying on a racy m
   );
 });
 
-test('a pristine versionless snapshot adopts v12 before the first prepared crop', () => {
+test('a pristine versionless snapshot adopts the active policy before the first prepared crop', () => {
   const preparationStart = source.indexOf(
     'export async function prepareAllSelectedImageCrops',
   );

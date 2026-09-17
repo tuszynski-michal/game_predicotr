@@ -2,15 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   ACTIVE_SELECTED_IMAGE_CROP_POLICY,
+  finishFourPointRegisteredCropForPolicy,
   prepareStructuralCrop,
   sampleCanonicalCropImage,
   assertCropPreparationPolicy,
   CROP_V11_RELEASE_ENABLED,
   CROP_V12_RELEASE_ENABLED,
+  CROP_V13_RELEASE_ENABLED,
   intersectRegisteredAndStructuralCrop,
   projectDetectedLayout,
 } from '../src/crop-preparation.ts';
 import { CROP_V12_POLICY } from '../src/auto-crop-v12-registration.ts';
+import { CROP_V13_POLICY } from '../src/auto-crop-v13-minimum-height.ts';
 test('shared sampler preserves full aspect ratio and is deterministic', () => {
   const source = {
     width: 1080,
@@ -63,14 +66,16 @@ test('full source on uncertainty; bounded progressive levels and no arbitrary co
   assert.equal(result.crop.bottomY, 1000);
   assert.ok(result.preparationFingerprint.includes('bilinear-rgba-v1'));
 });
-test('unknown policy fails closed and v12 is the active released policy', () => {
+test('unknown policy fails closed and v13 is the active released policy', () => {
   assert.throws(
     () => assertCropPreparationPolicy('future-v99'),
     /POLICY_UNSUPPORTED/,
   );
   assert.equal(CROP_V11_RELEASE_ENABLED, false);
   assert.equal(CROP_V12_RELEASE_ENABLED, true);
-  assert.equal(ACTIVE_SELECTED_IMAGE_CROP_POLICY, CROP_V12_POLICY);
+  assert.equal(CROP_V13_RELEASE_ENABLED, true);
+  assert.equal(ACTIVE_SELECTED_IMAGE_CROP_POLICY, CROP_V13_POLICY);
+  assert.notEqual(ACTIVE_SELECTED_IMAGE_CROP_POLICY, CROP_V12_POLICY);
 });
 
 test('v12 crop intersection keeps the registered board band inside the result', () => {
@@ -101,4 +106,37 @@ test('v12 crop intersection keeps the registered board band inside the result', 
     topY: 595,
     bottomY: 1102,
   });
+});
+
+test('v13 extends a non-registered structural proposal and keeps its evidence aligned', async () => {
+  const source = {
+    width: 1080,
+    height: 1920,
+    rgba: new Uint8ClampedArray(1080 * 1920 * 4),
+  };
+  const structural = await prepareStructuralCrop(source);
+  const shortCrop = {
+    width: 1080,
+    height: 1920,
+    topY: 600,
+    bottomY: 950,
+  };
+  const proposal = await finishFourPointRegisteredCropForPolicy(
+    CROP_V13_POLICY,
+    source,
+    {
+      ...structural,
+      crop: shortCrop,
+      structural: { ...structural.structural, crop: shortCrop },
+    },
+    null,
+  );
+  assert.deepEqual(proposal.crop, {
+    width: 1080,
+    height: 1920,
+    topY: 575,
+    bottomY: 976,
+  });
+  assert.deepEqual(proposal.structural?.crop, proposal.crop);
+  assert.equal(proposal.policyVersion, CROP_V13_POLICY);
 });

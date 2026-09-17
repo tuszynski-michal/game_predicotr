@@ -494,6 +494,26 @@ pasa. Bieżący fingerprint opisuje nowe liczby. Odczyt v12 dopuszcza dwa
 zamrożone fingerprinty poprzednich konfiguracji; nowy worker może jednak
 publikować wyłącznie bieżący fingerprint.
 
+TASK-0578 dodaje `auto-crop-v13-minimum-height.ts` jako wersjonowaną nakładkę
+na zakończony pipeline v12. Wartość referencyjna jest niezależna od runtime:
+2482 poprawne JPEG-i o szerokości 1080 px dały średnią 422,96 px w dolnych 5%
+wysokości, a 5% bufor daje 401 px. Po policzeniu kompletnej propozycji v12
+`enforceCropV13MinimumHeight` wymaga `ceil(width × 401 / 1080)` i rozszerza
+wyłącznie `topY`/`bottomY`; najpierw dzieli brakującą wysokość wokół środka,
+potem wykorzystuje dostępną stronę obrazu. Jeśli źródło jest niższe od progu,
+pełny obraz jest jedynym możliwym, bezpiecznym wynikiem. Nakładka nie zmienia
+szerokości, rejestracji, strukturalnego dowodu ani cropa v12 przed rozszerzeniem.
+Niezarejestrowana propozycja dostaje tę samą rozszerzoną geometrię w
+`structural.crop`, aby zachować trwały inwariant proweniencji.
+
+V13 ma odrębny policy i fingerprint zawierający bieżący fingerprint v12,
+pomiar, próg oraz strategię rozszerzenia. Walidator manifestu wymaga dokładnego
+fingerprintu i możliwej do osiągnięcia minimalnej wysokości v13. Worker,
+fallback oraz retry rozpoznają wspólnie v12/v13 jako polityki rejestracji;
+przechowywany v12 działa bez migracji. `ACTIVE_SELECTED_IMAGE_CROP_POLICY`
+wskazuje v13 dla pustych sesji i jawnego przeliczenia, a każda niepusta sesja
+zachowuje przypiętą politykę do jawnej akcji operatora.
+
 TASK-0468 ustanawia niezależny test-only oracle jakości poziomego pasa:
 SHA-256 źródeł, wizualne obwiednie plansz/numerów, przedziały linii i split po
 katalogach. Runner odtwarza v10 bez zapisu obrazów. Adnotacje nie są zależnością

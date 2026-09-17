@@ -11,6 +11,11 @@ import {
   isCompatibleCropV12Fingerprint,
   validateFourPointRegistrationEvidence,
 } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
+import {
+  CROP_V13_POLICY,
+  cropMeetsV13MinimumHeight,
+  isCompatibleCropV13Fingerprint,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v13-minimum-height';
 
 export const SELECTED_IMAGE_CROP_SCHEMA_VERSION = 1 as const;
 export const SELECTED_IMAGE_CROP_RENDERER =
@@ -407,14 +412,26 @@ function validateSelectedImageAutoCropProposal(
     proposal.structural !== undefined,
   );
   const evidence = proposal.evidence;
-  if (proposal.policyVersion === CROP_V12_POLICY) {
+  if (
+    proposal.policyVersion === CROP_V12_POLICY ||
+    proposal.policyVersion === CROP_V13_POLICY
+  ) {
     if (
       !proposal.structural ||
       proposal.confidence !== null ||
-      !isCompatibleCropV12Fingerprint(proposal.preparationFingerprint ?? '') ||
+      !(proposal.policyVersion === CROP_V13_POLICY
+        ? isCompatibleCropV13Fingerprint(proposal.preparationFingerprint ?? '')
+        : isCompatibleCropV12Fingerprint(
+            proposal.preparationFingerprint ?? '',
+          )) ||
       !Array.isArray(proposal.analysisLevels) ||
       !proposal.analysisLevels.every(Number.isInteger) ||
       !['960', '960,1600'].includes(proposal.analysisLevels.join(','))
+    )
+      throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
+    if (
+      proposal.policyVersion === CROP_V13_POLICY &&
+      !cropMeetsV13MinimumHeight(proposal.crop)
     )
       throw new Error('SELECTED_IMAGE_CROP_PROPOSAL_INVALID');
     validateStructuralEvidence(proposal.structural);

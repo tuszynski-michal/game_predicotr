@@ -26,6 +26,10 @@
       "types": "./src/auto-crop-v12-registration.ts",
       "default": "./src/auto-crop-v12-registration.ts"
     },
+    "./auto-crop-v13-minimum-height": {
+      "types": "./src/auto-crop-v13-minimum-height.ts",
+      "default": "./src/auto-crop-v13-minimum-height.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"

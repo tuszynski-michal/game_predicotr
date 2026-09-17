@@ -22,21 +22,35 @@ import {
   type FourPointCropAnchor,
   type PreparedFourPointRegistrationAnchor,
 } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
+import {
+  CROP_V13_FINGERPRINT,
+  CROP_V13_POLICY,
+  enforceCropV13MinimumHeight,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v13-minimum-height';
 
 // Activation is a separate quality decision. No hidden shadow/default switch.
 export const CROP_V11_RELEASE_ENABLED = false;
 export const CROP_V12_RELEASE_ENABLED = true;
-export const ACTIVE_SELECTED_IMAGE_CROP_POLICY = CROP_V12_POLICY;
+export const CROP_V13_RELEASE_ENABLED = true;
+export const ACTIVE_SELECTED_IMAGE_CROP_POLICY = CROP_V13_POLICY;
 export { CROP_V12_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
+export { CROP_V13_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v13-minimum-height';
 export { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 import { CROP_V11_FINGERPRINT } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 export function assertCropPreparationPolicy(policy: string): void {
   if (
     policy !== SELECTED_IMAGE_AUTO_CROP_POLICY &&
     policy !== CROP_V11_POLICY &&
-    policy !== CROP_V12_POLICY
+    policy !== CROP_V12_POLICY &&
+    policy !== CROP_V13_POLICY
   )
     throw new Error('SELECTED_IMAGE_CROP_POLICY_UNSUPPORTED');
+}
+
+export function isFourPointRegistrationCropPolicy(
+  policy: string,
+): policy is typeof CROP_V12_POLICY | typeof CROP_V13_POLICY {
+  return policy === CROP_V12_POLICY || policy === CROP_V13_POLICY;
 }
 
 export interface FourPointCropPreparationAnchor {
@@ -173,6 +187,36 @@ export async function finishFourPointRegisteredCrop(
     registration,
     classification: 'conservative',
     strategy: 'multicolumn_panel',
+  };
+}
+
+/** Apply the active v13 floor only after the complete v12 proposal is known. */
+export async function finishFourPointRegisteredCropForPolicy(
+  policy: typeof CROP_V12_POLICY | typeof CROP_V13_POLICY,
+  source: StructuralSample,
+  structural: SelectedImageAutoCropProposal,
+  anchor:
+    | FourPointCropPreparationAnchor
+    | PreparedFourPointCropPreparationAnchor
+    | null,
+  yieldBetween: () => Promise<void> = () => Promise.resolve(),
+): Promise<SelectedImageAutoCropProposal> {
+  const proposal = await finishFourPointRegisteredCrop(
+    source,
+    structural,
+    anchor,
+    yieldBetween,
+  );
+  if (policy === CROP_V12_POLICY) return proposal;
+  const crop = enforceCropV13MinimumHeight(proposal.crop);
+  return {
+    ...proposal,
+    crop,
+    policyVersion: CROP_V13_POLICY,
+    preparationFingerprint: CROP_V13_FINGERPRINT,
+    ...(proposal.registration?.status === 'registered' || !proposal.structural
+      ? {}
+      : { structural: { ...proposal.structural, crop } }),
   };
 }
 // Same deterministic sampler for Canvas pixels and Node pixels. EXIF has already

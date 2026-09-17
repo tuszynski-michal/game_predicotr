@@ -9,6 +9,10 @@ import {
   CROP_V12_FINGERPRINT,
   CROP_V12_POLICY,
 } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
+import {
+  CROP_V13_FINGERPRINT,
+  CROP_V13_POLICY,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v13-minimum-height';
 
 import {
   prepareSelectedImageCropInWorker,
@@ -47,6 +51,17 @@ test('worker result identity binds protocol, policy and detector fingerprint', (
         preparationFingerprint: CROP_V12_FINGERPRINT,
       },
       CROP_V12_POLICY,
+    ),
+    true,
+  );
+  assert.equal(
+    selectedImageCropWorkerResultMatchesRequest(
+      {
+        workerProtocolVersion: SELECTED_IMAGE_CROP_WORKER_PROTOCOL_VERSION,
+        policyVersion: CROP_V13_POLICY,
+        preparationFingerprint: CROP_V13_FINGERPRINT,
+      },
+      CROP_V13_POLICY,
     ),
     true,
   );

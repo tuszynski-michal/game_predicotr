@@ -28,6 +28,7 @@ export const SELECTED_IMAGE_AUTO_CROP_SAFE_WIDE_BOTTOM_RATIO = 0.95 as const;
 const SELECTED_IMAGE_AUTO_CROP_MINIMUM_DETECTED_BAND_RATIO = 0.28;
 
 export type SelectedImageAutoCropPolicyVersion =
+  | 'selected-image-board-band-v13-v12-minimum-height'
   | 'selected-image-board-band-v12-four-point-anchor-registration'
   | 'selected-image-board-band-v11-full-layout-structural'
   | typeof SELECTED_IMAGE_AUTO_CROP_POLICY

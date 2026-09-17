@@ -1,7 +1,10 @@
 'use client';
 
 import type { SelectedImageAutoCropProposal } from '@game-predictor/manual-image-selection-core/auto-crop';
-import { ACTIVE_SELECTED_IMAGE_CROP_POLICY } from '@game-predictor/manual-image-selection-core/crop-preparation';
+import {
+  ACTIVE_SELECTED_IMAGE_CROP_POLICY,
+  isFourPointRegistrationCropPolicy,
+} from '@game-predictor/manual-image-selection-core/crop-preparation';
 import {
   CROP_V11_FINGERPRINT,
   CROP_V11_POLICY,
@@ -12,6 +15,10 @@ import {
   type FourPointCropAnchor,
   type PreparedFourPointRegistrationAnchor,
 } from '@game-predictor/manual-image-selection-core/auto-crop-v12-registration';
+import {
+  CROP_V13_FINGERPRINT,
+  CROP_V13_POLICY,
+} from '@game-predictor/manual-image-selection-core/auto-crop-v13-minimum-height';
 
 import type { SelectedImageCropRenderedFile } from './selected-image-crop-storage';
 import { SELECTED_IMAGE_CROP_WORKER_PROTOCOL_VERSION } from './selected-image-crop-worker-contract.ts';
@@ -93,6 +100,8 @@ export function selectedImageCropWorkerResultMatchesRequest(
     return false;
   if (requestedPolicy === CROP_V12_POLICY)
     return result.preparationFingerprint === CROP_V12_FINGERPRINT;
+  if (requestedPolicy === CROP_V13_POLICY)
+    return result.preparationFingerprint === CROP_V13_FINGERPRINT;
   if (requestedPolicy === CROP_V11_POLICY)
     return result.preparationFingerprint === CROP_V11_FINGERPRINT;
   return true;
@@ -289,10 +298,14 @@ export async function prepareSelectedImageCropInWorker(
   } | null,
 ): Promise<WorkerResult | null> {
   const preparedAnchor =
-    policy === CROP_V12_POLICY && anchor
+    isFourPointRegistrationCropPolicy(policy) && anchor
       ? await prepareAnchorInWorker(anchor)
       : null;
-  if (policy === CROP_V12_POLICY && anchor && preparedAnchor === null)
+  if (
+    isFourPointRegistrationCropPolicy(policy) &&
+    anchor &&
+    preparedAnchor === null
+  )
     return null;
   return sendWorkerRequest(
     () => ({

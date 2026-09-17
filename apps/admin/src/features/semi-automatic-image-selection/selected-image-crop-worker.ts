@@ -7,12 +7,12 @@ import { SELECTED_IMAGE_CROP_JPEG_QUALITY } from '@game-predictor/manual-image-s
 import {
   ACTIVE_SELECTED_IMAGE_CROP_POLICY,
   assertCropPreparationPolicy,
-  finishFourPointRegisteredCrop,
+  finishFourPointRegisteredCropForPolicy,
+  isFourPointRegistrationCropPolicy,
   prepareStructuralCrop,
 } from '@game-predictor/manual-image-selection-core/crop-preparation';
 import { CROP_V11_POLICY } from '@game-predictor/manual-image-selection-core/auto-crop-v11';
 import {
-  CROP_V12_POLICY,
   prepareFourPointRegistrationAnchor,
   type FourPointCropAnchor,
   type PreparedFourPointRegistrationAnchor,
@@ -126,7 +126,7 @@ async function prepareCrop(request: PrepareCropRequest): Promise<
   });
   try {
     const sampleWidth =
-      policy === CROP_V11_POLICY || policy === CROP_V12_POLICY
+      policy === CROP_V11_POLICY || isFourPointRegistrationCropPolicy(policy)
         ? bitmap.width
         : Math.min(SELECTED_IMAGE_AUTO_CROP_SAMPLE_WIDTH, bitmap.width);
     const sampleHeight = Math.max(
@@ -150,13 +150,14 @@ async function prepareCrop(request: PrepareCropRequest): Promise<
     };
     const noTimerYield = () => Promise.resolve();
     const proposal =
-      policy === CROP_V12_POLICY
+      isFourPointRegistrationCropPolicy(policy)
         ? await (async () => {
             const structural = await prepareStructuralCrop(
               sourceSample,
               noTimerYield,
             );
-            return finishFourPointRegisteredCrop(
+            return finishFourPointRegisteredCropForPolicy(
+              policy,
               sourceSample,
               structural,
               request.anchor === null

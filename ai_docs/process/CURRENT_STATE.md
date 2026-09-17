@@ -6,6 +6,19 @@ last_updated: 2026-09-17
 
 # Current State
 
+### TASK-0578 — V13 minimalnej wysokości cropa siatki
+
+- Nowy aktywny v13 najpierw wykonuje v12, a potem rozszerza zbyt niski pas do
+  `ceil(szerokość × 401 / 1080)`. Próg pochodzi z 2482 dobrych JPEG-ów
+  `200575 - 222912 cut`: dolne 5% ma średnią 422,96 px, po 5% buforze 401 px
+  przy szerokości 1080 px. Wysokość nigdy nie jest dodatkowo zwężana; przy
+  krawędzi rozszerzenie wykorzystuje dostępną stronę, a zbyt niskie całe źródło
+  pozostaje całym źródłem.
+- Dane pomiaru i reguła są częścią fingerprintu v13. Nowe puste sesje oraz
+  jawne przeliczenie używają v13, a rozpoczęte sesje v12 pozostają v12 do
+  jawnego przeliczenia. Worker, fallback i retry zachowują zgodność obu wersji.
+- Nie przetworzono ani nie zmodyfikowano żadnego katalogu JPEG użytkownika.
+
 ### TASK-0577 — ręczna kontrola zarejestrowanego zdjęcia przed importem
 
 - Ukończony preflight pokazuje opcjonalną sekcję geometrii również wtedy, gdy

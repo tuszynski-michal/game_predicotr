@@ -462,6 +462,8 @@ export function ImageFolderImportPanel({
         geometryGuardResolutionManifest !== null,
       geometryGuardResolutionRequired: failedGeometryGuardJob !== null,
       geometryManifestAvailable: geometryManifestChecksum !== null,
+      geometryPreflightArtifactReady:
+        preflight.geometryPreflightArtifactReady ?? false,
       geometryPreflightCompleted:
         activeBrowserGeometryPreflightJob?.status === 'completed',
       geometryPreflightRequired: preflight.geometryPreflightRequired,
@@ -1900,8 +1902,7 @@ export function ImageFolderImportPanel({
                               </p>
                             </section>
                           ) : null}
-                          {geometryPreflightJob?.status === 'completed' &&
-                          preflight.existingImportJob === null ? (
+                          {geometryPreflightJob?.status === 'completed' ? (
                             <details
                               open={
                                 replacementPreview?.uploadId === ready.uploadId

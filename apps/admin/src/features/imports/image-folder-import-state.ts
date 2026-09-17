@@ -11,6 +11,7 @@ interface ReadyImportStartState {
   readonly geometryGuardResolutionManifestAvailable: boolean;
   readonly geometryGuardResolutionRequired: boolean;
   readonly geometryManifestAvailable: boolean;
+  readonly geometryPreflightArtifactReady: boolean;
   readonly geometryPreflightCompleted: boolean;
   readonly geometryPreflightRequired: boolean;
   readonly symbolModelAvailable: boolean;
@@ -87,17 +88,6 @@ export function readyBoardImportGeometryVariant(
 export function readyBoardImportLifecycleLabel(
   state: ReadyBoardImportLifecycleState,
 ): string {
-  const readyImportExists = state.importJobs.some((job) => {
-    const payload = job.inputPayload as unknown as Record<string, unknown>;
-    return (
-      job.jobType === 'import' &&
-      payload.importKind === 'image_directory' &&
-      jobMatchesReadySelection(job, state.selection) &&
-      ['waiting_for_review', 'completed'].includes(job.status)
-    );
-  });
-  if (readyImportExists) return 'gotowy';
-
   const matchingGeometryJobs = state.geometryPreflightJobs.filter((job) => {
     const payload = job.inputPayload as unknown as Record<string, unknown>;
     return (
@@ -106,6 +96,35 @@ export function readyBoardImportLifecycleLabel(
       jobMatchesReadySelection(job, state.selection)
     );
   });
+  const latestCompletedGeometry = matchingGeometryJobs
+    .filter(
+      (job) =>
+        job.status === 'completed' &&
+        typeof job.progress.pageGeometryPreflight
+          ?.geometryManifestChecksumSha256 === 'string',
+    )
+    .sort(
+      (left, right) =>
+        right.createdAt.localeCompare(left.createdAt) ||
+        right.id.localeCompare(left.id),
+    )[0];
+  const reviewRequired =
+    latestCompletedGeometry?.progress.pageGeometryPreflight
+      ?.provisionalReviewRequired;
+  if (typeof reviewRequired === 'number' && reviewRequired > 0) {
+    return `wymaga korekty geometrii · odroczone zdjęcia ${reviewRequired.toLocaleString('pl-PL')}`;
+  }
+
+  const readyImportExists = state.importJobs.some((job) => {
+    const payload = job.inputPayload as unknown as Record<string, unknown>;
+    return (
+      job.jobType === 'import' &&
+      payload.importKind === 'image_directory' &&
+      jobMatchesReadySelection(job, state.selection) &&
+      job.status === 'completed'
+    );
+  });
+  if (readyImportExists) return 'gotowy';
   const geometryReady = matchingGeometryJobs.some(
     (job) =>
       job.status === 'completed' &&
@@ -127,7 +146,9 @@ export function canStartReadyImport(state: ReadyImportStartState): boolean {
   return (
     state.symbolModelAvailable &&
     (!state.geometryPreflightRequired ||
-      (state.geometryPreflightCompleted && state.geometryManifestAvailable)) &&
+      (state.geometryPreflightCompleted &&
+        state.geometryManifestAvailable &&
+        state.geometryPreflightArtifactReady)) &&
     (!state.geometryGuardResolutionRequired ||
       state.geometryGuardResolutionManifestAvailable)
   );

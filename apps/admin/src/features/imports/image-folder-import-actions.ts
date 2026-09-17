@@ -91,15 +91,22 @@ export function replayGeometryPreflightProgress(
     job.status === 'completed' &&
     job.progress.pageGeometryPreflight?.geometryManifestChecksumSha256 !==
       undefined;
+  const reviewRequired =
+    job.progress.pageGeometryPreflight?.provisionalReviewRequired ?? 0;
+  const artifactReady = completed && reviewRequired === 0;
   return {
     ...report,
-    geometryPreflightArtifactBlockerCode: completed
+    geometryPreflightArtifactBlockerCode: artifactReady
       ? null
-      : report.geometryPreflightArtifactBlockerCode,
-    geometryPreflightArtifactBlockerMessage: completed
+      : completed
+        ? 'IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED'
+        : report.geometryPreflightArtifactBlockerCode,
+    geometryPreflightArtifactBlockerMessage: artifactReady
       ? null
-      : report.geometryPreflightArtifactBlockerMessage,
-    geometryPreflightArtifactReady: completed,
+      : completed
+        ? `Preflight wymaga ręcznej korekty ${reviewRequired} zdjęć przed rozpoczęciem importu.`
+        : report.geometryPreflightArtifactBlockerMessage,
+    geometryPreflightArtifactReady: artifactReady,
     geometryPreflightJob: job,
   };
 }

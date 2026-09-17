@@ -497,9 +497,26 @@ def create_image_imports_router(
                 and isinstance(checkpoint.get("geometry_manifest_checksum_sha256"), str)
                 and isinstance(checkpoint.get("geometry_manifest_relative_path"), str)
             )
-            if artifact_ready:
-                artifact_blocker_code = None
-                artifact_blocker_message = None
+            if artifact_ready and isinstance(checkpoint, dict):
+                review_required = checkpoint.get("review_required_source_count")
+                if isinstance(review_required, int) and not isinstance(review_required, bool):
+                    if review_required > 0:
+                        artifact_ready = False
+                        artifact_blocker_code = "IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED"
+                        artifact_blocker_message = (
+                            "Preflight wymaga ręcznej korekty "
+                            f"{review_required} zdjęć przed rozpoczęciem importu."
+                        )
+                    else:
+                        artifact_blocker_code = None
+                        artifact_blocker_message = None
+                else:
+                    # Checkpoints written before the count was introduced remain
+                    # readable. Every current worker persists this count together
+                    # with the immutable manifest, so a new import can never
+                    # bypass an unresolved geometry review.
+                    artifact_blocker_code = None
+                    artifact_blocker_message = None
             elif geometry_preflight.status in {JobStatus.CREATED, JobStatus.PROCESSING}:
                 artifact_blocker_code = "IMAGE_PAGE_GEOMETRY_PREFLIGHT_IN_PROGRESS"
                 artifact_blocker_message = "Preflight geometrii jest w trakcie wykonywania."
@@ -816,6 +833,16 @@ def create_image_imports_router(
                 "The canonical sequence projection changed after preflight.",
             )
         if (
+            preflight.geometry_preflight_required
+            and not preflight.geometry_preflight_artifact_ready
+        ):
+            raise JobConflictError(
+                preflight.geometry_preflight_artifact_blocker_code
+                or "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED",
+                preflight.geometry_preflight_artifact_blocker_message
+                or "A completed page geometry preflight is required before import.",
+            )
+        if (
             payload.image_engine_policy is not None
             and payload.image_engine_policy is not preflight.image_engine_policy
         ) or (
@@ -877,6 +904,21 @@ def create_image_imports_router(
             preflight_job_id=payload.geometry_preflight_job_id,
             expected_checksum=payload.geometry_manifest_checksum_sha256,
         )
+        if geometry_manifest is not None and resolved_artifact_root is not None:
+            geometry_manifest_contents = _load_page_geometry_manifest(
+                resolved_artifact_root, geometry_manifest
+            )
+            review_required = geometry_manifest_contents["reviewRequiredSourceCount"]
+            if not isinstance(review_required, int) or isinstance(review_required, bool):
+                raise JobError(
+                    "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+                    "The verified page geometry manifest has an invalid review count.",
+                )
+            if review_required > 0:
+                raise JobConflictError(
+                    "IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED",
+                    "The page geometry preflight requires manual correction before import.",
+                )
         manifest_id = payload.geometry_guard_resolution_manifest_id
         manifest_checksum = payload.geometry_guard_resolution_manifest_checksum_sha256
         if (manifest_id is None) != (manifest_checksum is None):

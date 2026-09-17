@@ -346,6 +346,24 @@ test('completed preflight replay unlocks the current report and ignores a stale 
   assert.equal(unlocked.geometryPreflightArtifactReady, true);
   assert.equal(unlocked.geometryPreflightArtifactBlockerCode, null);
   assert.equal(unlocked.geometryPreflightJob.status, 'completed');
+  const deferred = replayGeometryPreflightProgress(
+    report,
+    {
+      ...completed,
+      progress: {
+        pageGeometryPreflight: {
+          ...completed.progress.pageGeometryPreflight,
+          provisionalReviewRequired: 2,
+        },
+      },
+    },
+    completed.id,
+  );
+  assert.equal(deferred.geometryPreflightArtifactReady, false);
+  assert.equal(
+    deferred.geometryPreflightArtifactBlockerCode,
+    'IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED',
+  );
   assert.strictEqual(
     replayGeometryPreflightProgress(report, completed, 'newer-preflight'),
     report,

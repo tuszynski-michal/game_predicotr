@@ -648,7 +648,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         assert v4_report.status_code == 200
         assert v4_report.json()["geometryEngineVariantEnabled"] is True
         assert v4_report.json()["geometryEngineVariantBlockerCode"] is None
-        assert v4_report.json()["preflightChecksumSha256"] == report["preflightChecksumSha256"]
+        assert v4_report.json()["preflightChecksumSha256"] != report["preflightChecksumSha256"]
         assert (
             tuple(repository.list_jobs(status=None, job_type=None, game_id=game_id, limit=100))
             == jobs_before_v4_report
@@ -678,6 +678,9 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             "sourceManifestChecksumSha256": report["manifestChecksumSha256"],
             "lateralPartialGeometry": geometry_job.input_payload["lateral_partial_geometry"],
             "entries": {},
+            "registeredSourceCount": 2,
+            "reviewRequiredSourceCount": 0,
+            "skippedHumanResolvedSourceCount": 0,
         }
         manifest_bytes = json.dumps(geometry_manifest, sort_keys=True).encode()
         geometry_checksum = hashlib.sha256(manifest_bytes).hexdigest()
@@ -709,6 +712,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
                 "geometry_manifest_relative_path": (
                     f"data/page-geometry-manifests/{geometry_checksum}.json"
                 ),
+                "review_required_source_count": 0,
             },
             stage="page_geometry_manifest_ready",
             current=2,
@@ -734,6 +738,96 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         assert replayed_report.json()["geometryPreflightJob"]["id"] == str(geometry_job.id)
         assert replayed_report.json()["geometryPreflightArtifactReady"] is True
         assert replayed_report.json()["geometryPreflightArtifactBlockerCode"] is None
+
+        deferred_geometry = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight",
+            json={
+                "gameId": str(game_id),
+                "geometryEngineVariant": "structured_lattice_v4_partial_sides",
+            },
+        )
+        assert deferred_geometry.status_code == 201, deferred_geometry.text
+        deferred_job = repository.get_job(UUID(deferred_geometry.json()["job"]["id"]))
+        assert deferred_job is not None
+        deferred_manifest = {
+            **geometry_manifest,
+            "lateralPartialGeometry": deferred_job.input_payload["lateral_partial_geometry"],
+            "registeredSourceCount": 1,
+            "reviewRequiredSourceCount": 1,
+        }
+        deferred_manifest_bytes = json.dumps(deferred_manifest, sort_keys=True).encode()
+        deferred_checksum = hashlib.sha256(deferred_manifest_bytes).hexdigest()
+        deferred_path = (
+            tmp_path
+            / "artifacts"
+            / "data"
+            / "page-geometry-manifests"
+            / f"{deferred_checksum}.json"
+        )
+        deferred_path.write_bytes(deferred_manifest_bytes)
+        deferred_lease = uuid4()
+        deferred_job = start_job(
+            deferred_job,
+            worker_version="test-worker",
+            worker_id="test-worker",
+            lease_token=deferred_lease,
+            lease_expires_at=NOW + timedelta(minutes=5),
+            started_at=NOW,
+        )
+        deferred_job = checkpoint_job(
+            deferred_job,
+            lease_token=deferred_lease,
+            checkpoint_payload={
+                "schema_version": 1,
+                "complete": True,
+                "geometry_manifest_checksum_sha256": deferred_checksum,
+                "geometry_manifest_relative_path": (
+                    f"data/page-geometry-manifests/{deferred_checksum}.json"
+                ),
+                "review_required_source_count": 1,
+            },
+            stage="page_geometry_manifest_ready",
+            current=2,
+            total=2,
+            success_count=1,
+            failure_count=0,
+            review_count=1,
+            updated_at=NOW + timedelta(seconds=1),
+        )
+        repository.add_job(
+            complete_job(
+                deferred_job,
+                lease_token=deferred_lease,
+                finished_at=NOW + timedelta(seconds=2),
+            )
+        )
+        deferred_report_response = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight",
+            json={
+                "gameId": str(game_id),
+                "geometryEngineVariant": "structured_lattice_v4_partial_sides",
+            },
+        )
+        assert deferred_report_response.status_code == 200
+        deferred_report = deferred_report_response.json()
+        assert deferred_report["geometryPreflightArtifactReady"] is False
+        assert (
+            deferred_report["geometryPreflightArtifactBlockerCode"]
+            == "IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED"
+        )
+        deferred_start = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json={
+                "gameId": str(game_id),
+                "manifestChecksumSha256": report["manifestChecksumSha256"],
+                "preflightChecksumSha256": deferred_report["preflightChecksumSha256"],
+                "geometryEngineVariant": "structured_lattice_v4_partial_sides",
+                "geometryPreflightJobId": str(deferred_job.id),
+                "geometryManifestChecksumSha256": deferred_checksum,
+            },
+        )
+        assert deferred_start.status_code == 409
+        assert deferred_start.json()["code"] == "IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED"
 
         start_payload = {
             "gameId": str(game_id),

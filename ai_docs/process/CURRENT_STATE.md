@@ -6,6 +6,18 @@ last_updated: 2026-09-17
 
 # Current State
 
+### TASK-0581 — blokada importu przy odroczonej geometrii strony
+
+- Ukończony preflight z dodatnim `reviewRequiredSourceCount` nie jest już
+  przedstawiany jako gotowy staging. Karta pokazuje liczbę odroczonych zdjęć,
+  a sekcja „Ręczna korekta zdjęć geometrii” pozostaje dostępna także przy
+  wcześniejszym jobie importu `waiting_for_review`.
+- API sprawdza liczbę odroczonych źródeł z checkpointu, a przed startem także z
+  przypiętego manifestu. Zwraca
+  `IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED`, zanim powstanie nowy job importu.
+  Test obejmuje zakończony preflight z jednym odroczonym zdjęciem i odrzucony
+  start importu.
+
 ### TASK-0580 — nieprzetworzone źródła v1.1 w zwykłej ręcznej geometrii
 
 - `review_required` z `lateralRegistrationCandidate` nie znika już z kolejki

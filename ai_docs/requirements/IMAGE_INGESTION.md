@@ -875,6 +875,12 @@ po rozszerzeniu profilu lub poprawione ręcznie na końcu pracy. Niepełna
 geometria nigdy nie trafia do OCR, cropów ani inferencji symboli. Kanoniczne
 numery pozostają pominięte niezależnie od statusu geometrii.
 
+Ukończony preflight jest „gotowy do importu” wyłącznie przy
+`reviewRequiredSourceCount = 0`. Przy dodatniej liczbie odroczonych zdjęć API
+zwraca `IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED` i odrzuca start importu, także gdy
+panel ma nieaktualny stan. Panel nadal udostępnia kolejkę ręcznej korekty, nawet
+jeżeli wcześniejsza, zatrzymana próba importu istnieje w historii stagingu.
+
 Korekta zapisuje dokładnie `expectedBoardCount` finalnych quadów dla checksumy
 źródła jako append-only rewizję. Wartość wynika z poświadczonego zakresu
 `seq_<start>-<end>` i wynosi `end - start + 1`; dla źródeł bez takiego zakresu

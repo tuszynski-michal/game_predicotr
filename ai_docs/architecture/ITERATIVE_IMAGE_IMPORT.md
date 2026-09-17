@@ -564,6 +564,14 @@ ponowienia lub ręcznej korekty. Kolejny import ze świeżym manifestem ponownie
 wykorzystuje rejestr kanoniczny, więc wcześniej zatwierdzone plansze nie są
 przetwarzane drugi raz.
 
+Komenda startu importu sprawdza zarówno checkpoint preflightu, jak i przypięty
+manifest. Dodatnie `review_required_source_count` lub
+`reviewRequiredSourceCount` kończy ją stabilnym
+`IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED`; ukończony job preflightu nie jest sam w
+sobie dowodem gotowości. Ta sama liczba steruje etykietą stagingu i pozostawia
+pełną kolejkę korekty dostępną mimo historycznego joba importu
+`waiting_for_review`.
+
 Preflight stagingu powstałego po podmianie źródła przenosi w utrwalonym inpucie
 identyfikator rodzica i checksumę jego manifestu. Jeżeli przypięto ukończony
 manifest geometrii rodzica, descriptor bazy może mieć tryb

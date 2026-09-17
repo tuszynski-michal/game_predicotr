@@ -28,6 +28,7 @@ function staging(displayName, uploadId) {
 function job({
   checksum = 'a'.repeat(64),
   geometryManifestChecksum,
+  provisionalReviewRequired,
   id = 'job-1',
   jobType,
   variant,
@@ -52,7 +53,12 @@ function job({
       pageGeometryPreflight:
         geometryManifestChecksum === undefined
           ? undefined
-          : { geometryManifestChecksumSha256: geometryManifestChecksum },
+          : {
+              geometryManifestChecksumSha256: geometryManifestChecksum,
+              ...(provisionalReviewRequired === undefined
+                ? {}
+                : { provisionalReviewRequired }),
+            },
     },
     status,
   };
@@ -154,6 +160,7 @@ test('allows a guarded ready import only after both durable manifests are restor
     geometryGuardResolutionManifestAvailable: true,
     geometryGuardResolutionRequired: true,
     geometryManifestAvailable: true,
+    geometryPreflightArtifactReady: true,
     geometryPreflightCompleted: true,
     geometryPreflightRequired: true,
     symbolModelAvailable: true,
@@ -169,6 +176,10 @@ test('allows a guarded ready import only after both durable manifests are restor
   );
   assert.equal(
     canStartReadyImport({ ...restored, geometryPreflightCompleted: false }),
+    false,
+  );
+  assert.equal(
+    canStartReadyImport({ ...restored, geometryPreflightArtifactReady: false }),
     false,
   );
 });
@@ -209,13 +220,36 @@ test('labels a staging by its highest durable import stage', () => {
   );
 });
 
-test('labels symbol-cut imports waiting for review or completed as ready', () => {
-  for (const status of ['waiting_for_review', 'completed']) {
-    assert.equal(
-      lifecycle({ importJobs: [job({ jobType: 'import', status })] }),
-      'gotowy',
-    );
-  }
+test('does not call an unfinished import ready', () => {
+  assert.equal(
+    lifecycle({
+      importJobs: [job({ jobType: 'import', status: 'waiting_for_review' })],
+    }),
+    'oczekuje na operację · załadowano folder',
+  );
+  assert.equal(
+    lifecycle({
+      importJobs: [job({ jobType: 'import', status: 'completed' })],
+    }),
+    'gotowy',
+  );
+});
+
+test('shows a completed preflight with deferred geometry as requiring correction', () => {
+  assert.equal(
+    lifecycle({
+      geometryPreflightJobs: [
+        job({
+          geometryManifestChecksum: 'g'.repeat(64),
+          jobType: 'validate',
+          provisionalReviewRequired: 2,
+          status: 'completed',
+        }),
+      ],
+      importJobs: [job({ jobType: 'import', status: 'waiting_for_review' })],
+    }),
+    'wymaga korekty geometrii · odroczone zdjęcia 2',
+  );
 });
 
 test('does not advance a staging from a foreign id or manifest checksum', () => {

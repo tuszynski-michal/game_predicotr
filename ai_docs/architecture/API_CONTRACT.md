@@ -3145,6 +3145,15 @@ bieżący ręczny override albo roboczy szablon edytora. Może dołączyć stabi
 Pola diagnostyczne są opcjonalne dla zgodności z manifestami historycznymi, a
 ich odczyt nie uruchamia ponownie detektora.
 
+Wariant v1.1 nie może ukryć wpisu `review_required` wyłącznie przez obecność
+`lateralRegistrationCandidate`. Taki wpis nie ma finalnych quadów ani
+materializowanych plansz lub symboli, więc `review-sources` zwraca go jako
+zwykłe źródło `review_required` z `geometryOrigin=manual_template`; opcjonalna
+propozycja pozostaje częścią tej samej odpowiedzi. Do czasu ręcznego override'u,
+wykluczenia albo startu importu istniejący endpoint `source-replacement` stosuje
+do niego te same checksum-bound reguły podmiany co do innych źródeł kolejki.
+Nie zmienia to checksumy ani treści historycznego manifestu.
+
 Start `geometry-preflight` przyjmuje opcjonalne
 `pageRegistrationVariant = standard_v0_10 | board_area_test`. Brak pola oznacza
 wariant standardowy. Wariant testowy ogranicza wyłącznie cechy kotwicy do

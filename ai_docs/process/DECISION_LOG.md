@@ -6,6 +6,27 @@ last_updated: 2026-09-17
 
 # Decision Log
 
+## D-401 — Nierozstrzygnięte źródło v1.1 wraca do pełnej ręcznej geometrii
+
+- **Status:** accepted (TASK-0580).
+- **Date:** 2026-09-17.
+- **Decision:** `lateralRegistrationCandidate` jest wyłącznie roboczą
+  propozycją. Każde źródło ze statusem `review_required` bez
+  zmaterializowanych plansz i symboli jest zwracane przez `review-sources` do
+  zwykłej ręcznej geometrii całej strony oraz może skorzystać z istniejącej,
+  checksum-bound podmiany JPEG-a. Nie tworzymy dla niego odrębnego widoku ani
+  równoległej kolejki plansz.
+- **Rationale:** rzeczywisty staging `45163 - 70371 cut` miał 40 takich
+  źródeł: manifest zapisywał `review_required`, ale filtr v1.1 ukrywał je z
+  jedynego workflowu zdolnego zapisać ich geometrię. Nie miały quadów, cropów,
+  plansz ani symboli.
+- **Safety:** historyczny manifest, job i dane gry pozostają niezmienne. Nadal
+  blokujemy podmianę po ręcznym override'zie, wykluczeniu, starcie importu albo
+  niezgodności stagingu, ścieżki i checksumy. Nie ma automatycznych cropów ani
+  zmiany selektywnego ponownego użycia zarejestrowanych źródeł v1.0.
+- **Supersedes:** część D-397, która kierowała samą propozycję v1.1 poza pełną
+  korektę strony przed materializacją plansz.
+
 ## D-400 — v1.1 jest domyślnym wyborem nowych stagingów plansz
 
 - **Status:** accepted (TASK-0579).

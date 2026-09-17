@@ -1684,13 +1684,9 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
 
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert [source["sequenceRangeStart"] for source in payload["sources"]] == (
-        [1] if selective_board_review else [1, 10]
-    )
-    assert [source["expectedBoardCount"] for source in payload["sources"]] == (
-        [9] if selective_board_review else [9, 5]
-    )
-    assert payload["reviewRequiredSourceCount"] == (0 if selective_board_review else 1)
+    assert [source["sequenceRangeStart"] for source in payload["sources"]] == [1, 10]
+    assert [source["expectedBoardCount"] for source in payload["sources"]] == [9, 5]
+    assert payload["reviewRequiredSourceCount"] == 1
     manual = payload["sources"][0]
     assert manual["reviewReason"] == "manual_override"
     assert manual["geometryOrigin"] == "manual_override"
@@ -1702,9 +1698,9 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
     assert focused_sources[-1]["sourceChecksumSha256"] == registered_source_checksum
     assert focused_sources[-1]["reviewReason"] == "operator_inspection"
     assert focused_sources[-1]["existingFinalQuads"] == quads
-    assert focused_response.json()["reviewRequiredSourceCount"] == payload[
-        "reviewRequiredSourceCount"
-    ]
+    assert (
+        focused_response.json()["reviewRequiredSourceCount"] == payload["reviewRequiredSourceCount"]
+    )
     monkeypatch.setattr(
         service,
         "get_image_import_by_source_selection",
@@ -1723,8 +1719,6 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
     assert registered_source_checksum not in {
         item["sourceChecksumSha256"] for item in imported_response.json()["sources"]
     }
-    if selective_board_review:
-        return
     unresolved = payload["sources"][1]
     assert unresolved["reviewReason"] == "review_required"
     assert unresolved["geometryOrigin"] == "manual_template"
@@ -1955,9 +1949,12 @@ def test_replacement_forks_staging_and_replays_after_restart(tmp_path: Path) -> 
     assert [item.upload.upload_id for item in cold.list_ready()] == [revised.upload.upload_id]
 
 
-@pytest.mark.parametrize("geometry_accepted", [False, True])
+@pytest.mark.parametrize(
+    ("geometry_accepted", "selective_candidate"),
+    [(False, False), (True, False), (False, True)],
+)
 def test_page_source_replacement_api_blocks_accepted_geometry(
-    tmp_path: Path, geometry_accepted: bool
+    tmp_path: Path, geometry_accepted: bool, selective_candidate: bool
 ) -> None:
     game_id = uuid4()
     selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
@@ -1983,10 +1980,16 @@ def test_page_source_replacement_api_blocks_accepted_geometry(
     )
     browser_service.finalize(upload.upload_id)
     source_checksum = hashlib.sha256(old_content).hexdigest()
+    source_entry: dict[str, object] = {
+        "status": "review_required",
+        "sourceRelativePath": "cut/seq_1-9.jpg",
+    }
+    if selective_candidate:
+        source_entry["lateralRegistrationCandidate"] = {
+            "version": "lateral-page-registration-candidate-v3"
+        }
     manifest = {
-        "entries": {
-            source_checksum: {"status": "review_required", "sourceRelativePath": "cut/seq_1-9.jpg"}
-        },
+        "entries": {source_checksum: source_entry},
         "registeredSourceCount": 0,
         "reviewRequiredSourceCount": 1,
         "skippedHumanResolvedSourceCount": 0,
@@ -2008,6 +2011,13 @@ def test_page_source_replacement_api_blocks_accepted_geometry(
             "source_manifest_sha256": browser_service.get_ready(
                 upload.upload_id
             ).manifest.checksum_sha256,
+            "lateral_partial_geometry": (
+                LateralPartialGeometrySnapshot(
+                    frame_support_review=True, selective_frame_review=True
+                ).to_payload()
+                if selective_candidate
+                else None
+            ),
         },
         created_at=NOW,
     )

@@ -66,14 +66,21 @@ profilu rejestracji może być bazą: zarejestrowane źródła są ponownie uży
 a nierozstrzygnięte przeliczane. Zmiana ręcznej kotwicy nadal unieważnia wyniki
 od niej zależne.
 
-Na źródle odrzuconym przez bazę automat może zachować 7–8 kompletnych siatek i
-wystawić najwyżej 1–2 niepewne plansze do Reviewera. Wymaga ważnej perspektywy,
+Na źródle odrzuconym przez bazę automat może zapisać propozycję 7–8 kompletnych
+siatek i najwyżej 1–2 niepewnych plansz. Wymaga ważnej perspektywy,
 jednoznacznej kolejności i braku pionowego ucięcia. Lokalna kompletna siatka
 przy słabej ramce albo obrys wyliczony z projekcji strony oraz pewnych sąsiadów
 jest wyłącznie roboczą propozycją. Manifest zapisuje jej pochodzenie i powód
-niepewności. Nie tworzy się z niej cropów przed świadomym zatwierdzeniem.
-Reviewer pokazuje cztery uchwyty, całe zdjęcie i zapisuje komplet w jednej
-rewizji źródła; niezmieniony, lecz sprawdzony obrys także wymaga zapisu.
+niepewności, ale nie tworzy z niej cropów, plansz ani symboli.
+
+Źródło ze statusem `review_required` pozostaje w zwykłej kolejce „Ręczna
+korekta zdjęć geometrii” również wtedy, gdy ma `lateralRegistrationCandidate`.
+Panel otwiera pełną geometrię strony jako roboczy szablon, pokazuje propozycję
+wyłącznie jako pomoc i pozwala zapisać, wykluczyć albo przed zatwierdzeniem
+podmienić checksum-bound JPEG przez istniejącą rewizję stagingu. Nie powstaje
+odrębny widok ani równoległa kolejka dla źródła bez materializowanych plansz i
+symboli. Wszystkie sloty z atestowanej nazwy pliku wymagają ręcznego
+potwierdzenia.
 
 Potwierdzona plansza z 15 polami i uciętą ramką pozostaje wykluczona ze
 zwykłego uczenia geometrii i kotwic. Nie trafia do puli uczenia faktycznie

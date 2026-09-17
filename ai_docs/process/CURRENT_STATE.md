@@ -6,6 +6,19 @@ last_updated: 2026-09-17
 
 # Current State
 
+### TASK-0580 — nieprzetworzone źródła v1.1 w zwykłej ręcznej geometrii
+
+- `review_required` z `lateralRegistrationCandidate` nie znika już z kolejki
+  „Ręczna korekta zdjęć geometrii”. Kandydat jest tylko pomocą w tym samym
+  edytorze pełnej strony; nie oznacza powstania plansz, cropów ani symboli.
+- Dla istniejącego stagingu `45163 - 70371 cut` job
+  `4c611361-a011-4d48-9a1e-e2983215885a` i manifest
+  `d1b6a2d24077283a8b09874c3c680c0e6b8f0a96adb2c3d5a4955a9cf08dc979`
+  pozostają bez zmian, a odczyt kolejki zwraca 40 odroczonych źródeł.
+- Takie źródło może także użyć istniejącej checksum-bound podmiany JPEG-a do
+  czasu ręcznego zapisu geometrii albo startu importu; pozostałe blokady
+  bezpieczeństwa pozostają fail-closed.
+
 ### TASK-0579 — v1.1 jako domyślny silnik geometrii stron
 
 - Nowy raport, preflight geometrii i start importu browser stagingu bez

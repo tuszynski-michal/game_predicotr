@@ -1094,16 +1094,11 @@ def create_image_imports_router(
             include_source_checksum_sha256 is not None
             and job_service.get_image_import_by_source_selection(
                 game_id=game_id, source_selection_id=upload_id
-            ) is not None
+            )
+            is not None
         ):
             include_source_checksum_sha256 = None
         job = job_service.get_job(preflight_job_id)
-        pinned_selective_policy = job.input_payload.get("lateral_partial_geometry")
-        selective_board_review = (
-            isinstance(pinned_selective_policy, dict)
-            and pinned_selective_policy.get("variant")
-            == GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1.value
-        )
         pinned_overrides = job.input_payload.get("page_geometry_overrides")
         pinned_overrides = pinned_overrides if isinstance(pinned_overrides, dict) else {}
         current_overrides = (
@@ -1129,16 +1124,6 @@ def create_image_imports_router(
             if not isinstance(raw, dict):
                 continue
             current_override = current_overrides.get(checksum)
-            candidate = raw.get("lateralRegistrationCandidate")
-            if (
-                selective_board_review
-                and isinstance(candidate, dict)
-                and not isinstance(current_override, dict)
-            ):
-                # Local refinement decides whether this source has 1–2 board
-                # drafts or needs full correction in Reviewer. Never enqueue
-                # both source-level and board-level correction at once.
-                continue
             has_manual_override = raw.get(
                 "registrationVersion"
             ) == "manual-page-geometry-override-v1" or isinstance(current_override, dict)
@@ -1354,17 +1339,6 @@ def create_image_imports_router(
             raise JobConflictError(
                 "IMAGE_REPLACEMENT_NOT_ALLOWED",
                 "Only an unconfirmed source in the page-geometry correction queue can be replaced.",
-            )
-        preflight_job = job_service.get_job(preflight_job_id)
-        lateral = preflight_job.input_payload.get("lateral_partial_geometry")
-        if (
-            isinstance(lateral, dict)
-            and lateral.get("variant") == GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1.value
-            and isinstance(entry.get("lateralRegistrationCandidate"), dict)
-        ):
-            raise JobConflictError(
-                "IMAGE_REPLACEMENT_NOT_ALLOWED",
-                "This source belongs to selective board review, not page correction.",
             )
         replaced = service.fork_ready_with_replacement(
             upload_id,

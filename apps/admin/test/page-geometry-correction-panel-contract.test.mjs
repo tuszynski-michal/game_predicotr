@@ -62,15 +62,34 @@ test('reports the current pending-source count after refresh, save, and exclusio
 test('the replacement opens its registered geometry for optional inspection', () => {
   assert.match(panel, /focusSourceChecksumSha256/);
   assert.match(panel, /operator_inspection/);
-  assert.match(panel, /podmienione zdjęcie — sprawdź automatyczną geometrię/);
+  assert.match(panel, /zarejestrowane zdjęcie — sprawdź automatyczną geometrię/);
+});
+
+test('an operator can open one registered staging source by its local checksum', () => {
+  assert.match(panel, /allowRegisteredSourceInspection\?: boolean/);
+  assert.match(panel, /Wskaż zarejestrowane zdjęcie/);
+  assert.match(panel, /checksumPageGeometryFile\(file\)/);
+  assert.match(panel, /inspectionSourceChecksumSha256/);
+  assert.match(panel, /activeFocusSourceChecksumSha256/);
+  assert.match(
+    panel,
+    /Wybrane zdjęcie nie jest aktywnym, zarejestrowanym źródłem tego stagingu/,
+  );
+  assert.match(panel, /jego lokalny plik służy tylko do porównania checksumy/);
 });
 
 test('a replacement draft saves against the new staging before any preflight job', () => {
   assert.match(panel, /if \(initialReplacementSource !== undefined\) \{/);
   assert.match(panel, /setSources\(\[initialReplacementSource\]\)/);
   assert.match(panel, /createBrowserPageGeometryOverride\(uploadId/);
-  assert.match(panel, /if \(initialReplacementSource !== undefined\) onDraftSaved\?\.\(\)/);
-  assert.match(panel, /initialReplacementSource === undefined &&\s*source\.reviewReason === 'review_required'/);
+  assert.match(
+    panel,
+    /if \(initialReplacementSource !== undefined\) onDraftSaved\?\.\(\)/,
+  );
+  assert.match(
+    panel,
+    /initialReplacementSource === undefined &&\s*source\.reviewReason === 'review_required'/,
+  );
 });
 
 test('geometry editor uses the manual-selection fit model and bounded zoom', () => {

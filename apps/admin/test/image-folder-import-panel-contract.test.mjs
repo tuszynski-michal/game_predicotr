@@ -36,7 +36,10 @@ test('a replacement recovers its preflight and opens geometry correction when re
   assert.match(panelSource, /replacementPreviewStorageKey/);
   assert.match(panelSource, /recoverReplacementPreflight/);
   assert.match(panelSource, /focusSourceChecksumSha256=\{/);
-  assert.match(panelSource, /<details open=\{replacementPreview\?\.uploadId === ready\.uploadId\}>/);
+  assert.match(
+    panelSource,
+    /<details open=\{replacementPreview\?\.uploadId === ready\.uploadId\}>/,
+  );
 });
 
 test('a new replacement stays editable until the operator starts preflight', () => {
@@ -45,9 +48,15 @@ test('a new replacement stays editable until the operator starts preflight', () 
     panelSource.indexOf('async function retryGeometryPreflight'),
   );
   assert.doesNotMatch(replacementFlow, /startBrowserPageGeometryPreflight/);
-  assert.match(panelSource, /initialReplacementSource=\{replacementPreview\.source\}/);
+  assert.match(
+    panelSource,
+    /initialReplacementSource=\{replacementPreview\.source\}/,
+  );
   assert.match(panelSource, /preflightJobId=\{`replacement-draft:/);
-  assert.match(panelSource, /Po zapisaniu korekty uruchom preflight przyciskiem powyżej/);
+  assert.match(
+    panelSource,
+    /Po zapisaniu korekty uruchom preflight przyciskiem powyżej/,
+  );
   assert.match(panelSource, /onDraftSaved=\{markReplacementDraftSaved\}/);
   assert.match(panelSource, /replacementPreview\.saved/);
 });
@@ -154,6 +163,14 @@ test('shows the real geometry phase and distinguishes provisional from final cou
     /onPendingSourceCountChange=\{\s*handlePendingGeometryCorrectionCountChange\s*\}/,
   );
   assert.match(panelSource, /koniec \(\{visibleGeometryCorrectionCount\}\)/);
+});
+
+test('keeps optional registered-source geometry inspection available before import', () => {
+  assert.match(panelSource, /allowRegisteredSourceInspection/);
+  assert.match(
+    panelSource,
+    /geometryPreflightJob\?\.status === 'completed'\s*&&\s*preflight\.existingImportJob === null/,
+  );
 });
 
 test('starts page geometry only after the explicit operator action', () => {

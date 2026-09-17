@@ -1,10 +1,22 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-16
+last_updated: 2026-09-17
 ---
 
 # Current State
+
+### TASK-0577 — ręczna kontrola zarejestrowanego zdjęcia przed importem
+
+- Ukończony preflight pokazuje opcjonalną sekcję geometrii również wtedy, gdy
+  kolejka odroczona ma wartość zero. Operator wskazuje lokalny JPEG, a Admin
+  oblicza jego SHA-256 wyłącznie w przeglądarce i otwiera pasujące,
+  zarejestrowane źródło stagingu do kontroli albo korekty.
+- Wybór nie przesyła JPEG-a, nie zmienia manifestu i nie uruchamia joba.
+  Zapis pozostaje rewizjonowany, a nowy preflight wymaga istniejącej jawnej
+  akcji operatora. Niezgodny plik oraz `skipped_human_resolved` nie otwierają
+  edytora; druga kategoria oznacza już kanoniczne dane gry i wymaga osobnego
+  workflowu, jeśli ma być zmieniana.
 
 ### TASK-0576 — bufor zapisów pojedynczej naprawy selekcji
 

@@ -86,6 +86,7 @@ type CorrectionMode = 'curve' | 'page' | number;
 
 interface PageGeometryCorrectionPanelProps {
   readonly allowOutsideSource?: boolean;
+  readonly allowRegisteredSourceInspection?: boolean;
   readonly api: GeometryCorrectionClient;
   readonly apiBaseUrl: string;
   readonly focusSourceChecksumSha256?: string;
@@ -231,6 +232,7 @@ export function PageGeometryCorrectionPanel(
 
 function PageGeometryCorrectionPanelContent({
   allowOutsideSource: outsideSourceOverride = false,
+  allowRegisteredSourceInspection = false,
   api,
   apiBaseUrl,
   focusSourceChecksumSha256,
@@ -290,10 +292,16 @@ function PageGeometryCorrectionPanelContent({
   const [saving, setSaving] = useState(false);
   const [excluding, setExcluding] = useState(false);
   const [replacing, setReplacing] = useState(false);
-  const [cutFolder, setCutFolder] = useState<FileSystemDirectoryHandle | null>(null);
-  const [pendingReplacement, setPendingReplacement] = useState<PendingPageGeometryReplacement | null>(null);
+  const [cutFolder, setCutFolder] = useState<FileSystemDirectoryHandle | null>(
+    null,
+  );
+  const [pendingReplacement, setPendingReplacement] =
+    useState<PendingPageGeometryReplacement | null>(null);
   const [storageReady, setStorageReady] = useState(false);
   const replacementInputRef = useRef<HTMLInputElement | null>(null);
+  const inspectionInputRef = useRef<HTMLInputElement | null>(null);
+  const [inspectionSourceChecksumSha256, setInspectionSourceChecksumSha256] =
+    useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [geometryManifestChecksum, setGeometryManifestChecksum] = useState('');
@@ -315,6 +323,8 @@ function PageGeometryCorrectionPanelContent({
   >(null);
   const allowOutsideSource =
     outsideSourceOverride || qualificationFlags.some((value) => value.partial);
+  const activeFocusSourceChecksumSha256 =
+    inspectionSourceChecksumSha256 ?? focusSourceChecksumSha256;
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -333,7 +343,7 @@ function PageGeometryCorrectionPanelContent({
         uploadId,
         preflightJobId,
         gameId,
-        focusSourceChecksumSha256,
+        activeFocusSourceChecksumSha256,
       );
       if (result.error !== undefined || result.data === undefined) {
         setError(
@@ -347,16 +357,47 @@ function PageGeometryCorrectionPanelContent({
       const pendingSources = result.data.sources.filter(
         (item) => !item.savedSincePreflight,
       );
-      const focusedSources = focusSourceChecksumSha256 === undefined
-        ? pendingSources
-        : [
-            ...pendingSources.filter(
-              (item) => item.sourceChecksumSha256 === focusSourceChecksumSha256,
-            ),
-            ...pendingSources.filter(
-              (item) => item.sourceChecksumSha256 !== focusSourceChecksumSha256,
-            ),
-          ];
+      if (
+        inspectionSourceChecksumSha256 !== null &&
+        !pendingSources.some(
+          (item) =>
+            item.sourceChecksumSha256 === inspectionSourceChecksumSha256,
+        )
+      ) {
+        setSavedCount(result.data.sources.length - pendingSources.length);
+        setGeometryManifestChecksum(result.data.geometryManifestChecksumSha256);
+        setSources([]);
+        onPendingSourceCountChange?.(
+          pendingSources.filter(
+            (item) => item.reviewReason !== 'operator_inspection',
+          ).length,
+        );
+        setSourceIndex(0);
+        setError(
+          'Wybrane zdjęcie nie jest aktywnym, zarejestrowanym źródłem tego stagingu.',
+        );
+        return;
+      }
+      const focusedSources =
+        inspectionSourceChecksumSha256 !== null
+          ? pendingSources.filter(
+              (item) =>
+                item.sourceChecksumSha256 === inspectionSourceChecksumSha256,
+            )
+          : activeFocusSourceChecksumSha256 === undefined
+            ? pendingSources
+            : [
+                ...pendingSources.filter(
+                  (item) =>
+                    item.sourceChecksumSha256 ===
+                    activeFocusSourceChecksumSha256,
+                ),
+                ...pendingSources.filter(
+                  (item) =>
+                    item.sourceChecksumSha256 !==
+                    activeFocusSourceChecksumSha256,
+                ),
+              ];
       setSavedCount(result.data.sources.length - pendingSources.length);
       setGeometryManifestChecksum(result.data.geometryManifestChecksumSha256);
       setPartialTrainingPool({
@@ -366,7 +407,9 @@ function PageGeometryCorrectionPanelContent({
       });
       setSources(focusedSources);
       onPendingSourceCountChange?.(
-        pendingSources.filter((item) => item.reviewReason !== 'operator_inspection').length,
+        pendingSources.filter(
+          (item) => item.reviewReason !== 'operator_inspection',
+        ).length,
       );
       setSourceIndex(0);
     } catch {
@@ -374,7 +417,16 @@ function PageGeometryCorrectionPanelContent({
     } finally {
       setLoading(false);
     }
-  }, [api, focusSourceChecksumSha256, gameId, initialReplacementSource, onPendingSourceCountChange, preflightJobId, uploadId]);
+  }, [
+    activeFocusSourceChecksumSha256,
+    api,
+    gameId,
+    initialReplacementSource,
+    inspectionSourceChecksumSha256,
+    onPendingSourceCountChange,
+    preflightJobId,
+    uploadId,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -387,24 +439,34 @@ function PageGeometryCorrectionPanelContent({
   }, [refresh]);
 
   const source = sources[sourceIndex] ?? null;
-  const replacementRecoveryKey = source === null
-    ? null
-    : `page-geometry-replacement:${gameId}:${uploadId}:${source.sourceChecksumSha256}`;
+  const replacementRecoveryKey =
+    source === null
+      ? null
+      : `page-geometry-replacement:${gameId}:${uploadId}:${source.sourceChecksumSha256}`;
   useEffect(() => {
     queueMicrotask(() => setStorageReady(true));
   }, []);
   let storedReplacement: PendingPageGeometryReplacement | null = null;
-  if (storageReady && replacementRecoveryKey !== null && typeof window !== 'undefined') {
+  if (
+    storageReady &&
+    replacementRecoveryKey !== null &&
+    typeof window !== 'undefined'
+  ) {
     try {
       const raw = window.localStorage.getItem(replacementRecoveryKey);
       const parsed: unknown = raw === null ? null : JSON.parse(raw);
-      if (pendingReplacementMatchesSource(source, parsed)) storedReplacement = parsed;
+      if (pendingReplacementMatchesSource(source, parsed))
+        storedReplacement = parsed;
     } catch {
       // Browser storage can be unavailable; this leaves the normal replacement flow intact.
     }
   }
-  const activePendingReplacement = pendingReplacementMatchesSource(source, pendingReplacement)
-    ? pendingReplacement : storedReplacement;
+  const activePendingReplacement = pendingReplacementMatchesSource(
+    source,
+    pendingReplacement,
+  )
+    ? pendingReplacement
+    : storedReplacement;
   const draftScope = useMemo<PageGeometryDraftScope | null>(
     () =>
       source && imageSize
@@ -928,7 +990,7 @@ function PageGeometryCorrectionPanelContent({
       }
       setFeedback(
         source.reviewReason === 'manual_override' ||
-        source.reviewReason === 'operator_inspection'
+          source.reviewReason === 'operator_inspection'
           ? 'Zapisano aktualizację już zarejestrowanej geometrii. Licznik poprawnych zdjęć nie wzrośnie, ponieważ to źródło było w nim wcześniej.'
           : 'Zapisano geometrię odroczonego zdjęcia. Po wysłaniu partii i ukończeniu preflightu przejdzie ono do zarejestrowanych.',
       );
@@ -945,7 +1007,9 @@ function PageGeometryCorrectionPanelContent({
       );
       setSources(remainingSources);
       onPendingSourceCountChange?.(
-        remainingSources.filter((item) => item.reviewReason !== 'operator_inspection').length,
+        remainingSources.filter(
+          (item) => item.reviewReason !== 'operator_inspection',
+        ).length,
       );
       setSourceIndex((current) =>
         Math.min(current, Math.max(0, sources.length - 2)),
@@ -962,7 +1026,14 @@ function PageGeometryCorrectionPanelContent({
   }
 
   async function submitSaved() {
-    if (submitting || saving || replacing || activePendingReplacement !== null || savedCount === 0) return;
+    if (
+      submitting ||
+      saving ||
+      replacing ||
+      activePendingReplacement !== null ||
+      savedCount === 0
+    )
+      return;
     setSubmitting(true);
     setError('');
     setFeedback('Tworzę jeden preflight dla całej zapisanej partii…');
@@ -976,7 +1047,15 @@ function PageGeometryCorrectionPanelContent({
   }
 
   async function excludeCurrentSource() {
-    if (source === null || saving || submitting || excluding || replacing || activePendingReplacement !== null) return;
+    if (
+      source === null ||
+      saving ||
+      submitting ||
+      excluding ||
+      replacing ||
+      activePendingReplacement !== null
+    )
+      return;
     const confirmed = globalThis.confirm(
       `Usunąć ${source.sourceRelativePath} z tego importu? Zdjęcie pozostanie w bezpiecznym stagingu, ale nie zostanie skopiowane ani przetworzone. Poprawioną wersję będzie można przesłać w nowym imporcie.`,
     );
@@ -1010,7 +1089,9 @@ function PageGeometryCorrectionPanelContent({
       );
       setSources(remainingSources);
       onPendingSourceCountChange?.(
-        remainingSources.filter((item) => item.reviewReason !== 'operator_inspection').length,
+        remainingSources.filter(
+          (item) => item.reviewReason !== 'operator_inspection',
+        ).length,
       );
       if (source.savedSincePreflight) {
         setSavedCount((current) => Math.max(0, current - 1));
@@ -1033,12 +1114,17 @@ function PageGeometryCorrectionPanelContent({
       setCutFolder(await choosePageGeometryCutFolder());
       setError('');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Nie udało się wybrać katalogu cut.');
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Nie udało się wybrać katalogu cut.',
+      );
     }
   }
 
   async function replaceCurrentSource(file: File | undefined) {
-    if (!file || !source || !cutFolder || replacing || saving || submitting) return;
+    if (!file || !source || !cutFolder || replacing || saving || submitting)
+      return;
     setReplacing(true);
     setError('');
     try {
@@ -1050,7 +1136,8 @@ function PageGeometryCorrectionPanelContent({
         source.sourceRelativePath,
         source.sourceChecksumSha256,
       );
-      if (replacementRecoveryKey === null) throw new Error('Brak tożsamości zdjęcia do podmiany.');
+      if (replacementRecoveryKey === null)
+        throw new Error('Brak tożsamości zdjęcia do podmiany.');
       window.localStorage.setItem(replacementRecoveryKey, 'preparing');
       window.localStorage.removeItem(replacementRecoveryKey);
       const result = await api.replaceUnconfirmedBrowserPageGeometrySource(
@@ -1063,7 +1150,12 @@ function PageGeometryCorrectionPanelContent({
         file,
       );
       if (result.error !== undefined || result.data === undefined) {
-        throw new Error(apiErrorMessage(result.error, 'Nie udało się przygotować nowej rewizji stagingu.'));
+        throw new Error(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się przygotować nowej rewizji stagingu.',
+          ),
+        );
       }
       const ready = result.data;
       const expectedReplacementChecksum = await checksumPageGeometryFile(file);
@@ -1074,7 +1166,10 @@ function PageGeometryCorrectionPanelContent({
         sourceRelativePath: source.sourceRelativePath,
       };
       if (replacementRecoveryKey !== null) {
-        window.localStorage.setItem(replacementRecoveryKey, JSON.stringify(pending));
+        window.localStorage.setItem(
+          replacementRecoveryKey,
+          JSON.stringify(pending),
+        );
       }
       setPendingReplacement(pending);
       const replacementChecksum = await replacePageGeometryCutSource(
@@ -1083,23 +1178,36 @@ function PageGeometryCorrectionPanelContent({
         source.sourceChecksumSha256,
         file,
       );
-      const confirmation = await api.confirmBrowserPageGeometrySourceReplacement(
-        uploadId,
-        ready.uploadId,
-        gameId,
-        source.sourceChecksumSha256,
-        source.sourceRelativePath,
-        replacementChecksum,
-      );
+      const confirmation =
+        await api.confirmBrowserPageGeometrySourceReplacement(
+          uploadId,
+          ready.uploadId,
+          gameId,
+          source.sourceChecksumSha256,
+          source.sourceRelativePath,
+          replacementChecksum,
+        );
       if (confirmation.error !== undefined || confirmation.data === undefined) {
-        throw new Error(apiErrorMessage(confirmation.error, 'Zdjęcie zapisano, ale nie udało się potwierdzić nowej rewizji.'));
+        throw new Error(
+          apiErrorMessage(
+            confirmation.error,
+            'Zdjęcie zapisano, ale nie udało się potwierdzić nowej rewizji.',
+          ),
+        );
       }
-      if (replacementRecoveryKey !== null) window.localStorage.removeItem(replacementRecoveryKey);
+      if (replacementRecoveryKey !== null)
+        window.localStorage.removeItem(replacementRecoveryKey);
       setPendingReplacement(null);
-      setFeedback('Nowe zdjęcie zapisano w katalogu cut i stagingu. Przygotowuję jego geometrię…');
+      setFeedback(
+        'Nowe zdjęcie zapisano w katalogu cut i stagingu. Przygotowuję jego geometrię…',
+      );
       await onSourceReplaced(confirmation.data, replacementChecksum, source);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Nie udało się podmienić zdjęcia.');
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Nie udało się podmienić zdjęcia.',
+      );
     } finally {
       if (replacementInputRef.current) replacementInputRef.current.value = '';
       setReplacing(false);
@@ -1134,11 +1242,19 @@ function PageGeometryCorrectionPanelContent({
           gameId,
         );
         if (discarded.error !== undefined) {
-          throw new Error(apiErrorMessage(discarded.error, 'Nie udało się anulować przygotowanej podmiany.'));
+          throw new Error(
+            apiErrorMessage(
+              discarded.error,
+              'Nie udało się anulować przygotowanej podmiany.',
+            ),
+          );
         }
-        if (replacementRecoveryKey !== null) window.localStorage.removeItem(replacementRecoveryKey);
+        if (replacementRecoveryKey !== null)
+          window.localStorage.removeItem(replacementRecoveryKey);
         setPendingReplacement(null);
-        setFeedback('Oryginalne zdjęcie nadal jest w katalogu cut. Wybierz nowe zdjęcie ponownie.');
+        setFeedback(
+          'Oryginalne zdjęcie nadal jest w katalogu cut. Wybierz nowe zdjęcie ponownie.',
+        );
         return;
       }
       const confirmed = await api.confirmBrowserPageGeometrySourceReplacement(
@@ -1150,15 +1266,40 @@ function PageGeometryCorrectionPanelContent({
         pendingReplacement.replacementChecksum,
       );
       if (confirmed.error !== undefined || confirmed.data === undefined) {
-        throw new Error(apiErrorMessage(confirmed.error, 'Nie udało się dokończyć podmiany.'));
+        throw new Error(
+          apiErrorMessage(confirmed.error, 'Nie udało się dokończyć podmiany.'),
+        );
       }
-      if (replacementRecoveryKey !== null) window.localStorage.removeItem(replacementRecoveryKey);
+      if (replacementRecoveryKey !== null)
+        window.localStorage.removeItem(replacementRecoveryKey);
       setPendingReplacement(null);
-      await onSourceReplaced(confirmed.data, pendingReplacement.replacementChecksum, source);
+      await onSourceReplaced(
+        confirmed.data,
+        pendingReplacement.replacementChecksum,
+        source,
+      );
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Nie udało się dokończyć podmiany.');
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Nie udało się dokończyć podmiany.',
+      );
     } finally {
       setReplacing(false);
+    }
+  }
+
+  async function inspectRegisteredSource(file: File) {
+    setError('');
+    setFeedback('');
+    try {
+      setInspectionSourceChecksumSha256(await checksumPageGeometryFile(file));
+    } catch {
+      setError(
+        'Nie udało się odczytać wybranego zdjęcia do korekty geometrii.',
+      );
+    } finally {
+      if (inspectionInputRef.current) inspectionInputRef.current.value = '';
     }
   }
 
@@ -1184,6 +1325,39 @@ function PageGeometryCorrectionPanelContent({
           </p>
         </div>
         <div className="pageGeometryCorrectionHeaderActions">
+          {allowRegisteredSourceInspection ? (
+            <>
+              <input
+                accept=".jpg,.jpeg,image/jpeg"
+                aria-label="Wybierz zarejestrowane zdjęcie do korekty geometrii"
+                hidden
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file !== undefined) void inspectRegisteredSource(file);
+                }}
+                ref={inspectionInputRef}
+                type="file"
+              />
+              <button
+                className="secondaryButton"
+                disabled={loading || saving || submitting || replacing}
+                onClick={() => inspectionInputRef.current?.click()}
+                type="button"
+              >
+                Wskaż zarejestrowane zdjęcie
+              </button>
+              {inspectionSourceChecksumSha256 !== null ? (
+                <button
+                  className="secondaryButton"
+                  disabled={loading || saving || submitting || replacing}
+                  onClick={() => setInspectionSourceChecksumSha256(null)}
+                  type="button"
+                >
+                  Wróć do kolejki
+                </button>
+              ) : null}
+            </>
+          ) : null}
           <button
             className="secondaryButton"
             disabled={loading || saving || submitting}
@@ -1194,7 +1368,13 @@ function PageGeometryCorrectionPanelContent({
           </button>
           <button
             className="primaryButton"
-            disabled={savedCount === 0 || saving || submitting || replacing || activePendingReplacement !== null}
+            disabled={
+              savedCount === 0 ||
+              saving ||
+              submitting ||
+              replacing ||
+              activePendingReplacement !== null
+            }
             onClick={() => void submitSaved()}
             type="button"
           >
@@ -1219,7 +1399,9 @@ function PageGeometryCorrectionPanelContent({
       ) : null}
       {!loading && sources.length === 0 ? (
         <p className="curatedImportStatus">
-          Nie ma już stron oczekujących na korektę geometrii.
+          {allowRegisteredSourceInspection
+            ? 'Nie ma stron oczekujących na korektę. Możesz wskazać zarejestrowane zdjęcie powyżej; jego lokalny plik służy tylko do porównania checksumy i nie zostanie przesłany.'
+            : 'Nie ma już stron oczekujących na korektę geometrii.'}
         </p>
       ) : null}
       {source !== null ? (
@@ -1237,10 +1419,10 @@ function PageGeometryCorrectionPanelContent({
                 ? ` · plansze ${source.sequenceRangeStart}–${source.sequenceRangeEnd}`
                 : ''}
               {source.reviewReason === 'operator_inspection'
-                ? ' · podmienione zdjęcie — sprawdź automatyczną geometrię'
+                ? ' · zarejestrowane zdjęcie — sprawdź automatyczną geometrię'
                 : source.reviewReason === 'manual_override'
-                ? ` · aktualizacja już zarejestrowanej geometrii r${source.existingOverrideRevision ?? '?'}`
-                : ' · odroczone zdjęcie — wymaga geometrii'}
+                  ? ` · aktualizacja już zarejestrowanej geometrii r${source.existingOverrideRevision ?? '?'}`
+                  : ' · odroczone zdjęcie — wymaga geometrii'}
             </p>
             {source.automaticPartialProposals?.length ? (
               <p className="geometryOriginNotice" role="status">
@@ -1322,7 +1504,8 @@ function PageGeometryCorrectionPanelContent({
               </p>
             )}
             <p className="geometryInstructions">
-              {source.reviewReason === 'manual_override' || source.reviewReason === 'operator_inspection'
+              {source.reviewReason === 'manual_override' ||
+              source.reviewReason === 'operator_inspection'
                 ? 'To zdjęcie jest już uwzględnione w liczniku zarejestrowanych. Zapis zmieni jego obrys, ale nie zwiększy tego licznika.'
                 : `Edytor przygotował komplet ${expectedBoardCount} edytowalnych plansz. Po zapisaniu i wykonaniu preflightu to zdjęcie przejdzie z odroczonych do zarejestrowanych.`}
             </p>
@@ -1422,7 +1605,13 @@ function PageGeometryCorrectionPanelContent({
               {initialReplacementSource === undefined ? (
                 <button
                   className="dangerButton"
-                  disabled={saving || submitting || excluding || replacing || activePendingReplacement !== null}
+                  disabled={
+                    saving ||
+                    submitting ||
+                    excluding ||
+                    replacing ||
+                    activePendingReplacement !== null
+                  }
                   onClick={() => void excludeCurrentSource()}
                   type="button"
                 >
@@ -1439,18 +1628,28 @@ function PageGeometryCorrectionPanelContent({
                     onClick={() => void chooseCutFolder()}
                     type="button"
                   >
-                    {cutFolder === null ? 'Wskaż katalog cut' : `Katalog: ${cutFolder.name}`}
+                    {cutFolder === null
+                      ? 'Wskaż katalog cut'
+                      : `Katalog: ${cutFolder.name}`}
                   </button>
                   <input
                     accept=".jpg,.jpeg,image/jpeg"
                     hidden
-                    onChange={(event) => void replaceCurrentSource(event.target.files?.[0])}
+                    onChange={(event) =>
+                      void replaceCurrentSource(event.target.files?.[0])
+                    }
                     ref={replacementInputRef}
                     type="file"
                   />
                   <button
                     className="secondaryButton"
-                    disabled={saving || submitting || replacing || cutFolder === null || activePendingReplacement !== null}
+                    disabled={
+                      saving ||
+                      submitting ||
+                      replacing ||
+                      cutFolder === null ||
+                      activePendingReplacement !== null
+                    }
                     onClick={() => replacementInputRef.current?.click()}
                     type="button"
                   >
@@ -1459,7 +1658,9 @@ function PageGeometryCorrectionPanelContent({
                   {activePendingReplacement !== null ? (
                     <button
                       className="secondaryButton"
-                      disabled={saving || submitting || replacing || cutFolder === null}
+                      disabled={
+                        saving || submitting || replacing || cutFolder === null
+                      }
                       onClick={() => void finishPendingReplacement()}
                       type="button"
                     >

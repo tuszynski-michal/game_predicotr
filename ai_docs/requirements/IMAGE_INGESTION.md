@@ -1781,11 +1781,14 @@ zostać automatycznie promowany. Szczegóły znajdują się w
 Po podmianie zdjęcia przed importem operator pozostaje w edytorze geometrii
 nowej rewizji stagingu. Może zapisać jej ręczną geometrię przed uruchomieniem
 preflightu, a następnie rozpocząć go jawnym przyciskiem razem z wcześniej
-zapisanymi korektami. Jeżeli uruchomiony preflight zaakceptuje podmienione
-zdjęcie automatycznie, operator może nadal obejrzeć i opcjonalnie poprawić jego
-dziewięć obrysów przed startem importu. Po rozpoczęciu importu plansz i symboli
-podmiana oraz dodatkowe otwarcie automatycznie zarejestrowanego zdjęcia do
-korekty są niedostępne.
+zapisanymi korektami. Po ukończonym preflighcie operator może również wskazać
+lokalny JPEG aktywnego stagingu; panel oblicza jego SHA-256 lokalnie i otwiera
+wyłącznie zgodne, automatycznie zarejestrowane źródło do opcjonalnej korekty
+dziewięciu obrysów. Wybór nie przesyła JPEG-a i nie uruchamia preflightu.
+Źródło pominięte jako `skipped_human_resolved` nie jest w tym miejscu
+edytowalne, ponieważ reprezentuje już kanoniczne dane gry, których staging nie
+materializuje. Po rozpoczęciu importu plansz i symboli podmiana oraz dodatkowe
+otwarcie automatycznie zarejestrowanego zdjęcia do korekty są niedostępne.
 
 TASK-0491: zatrzymany progiem jakości import można kontynuować akcją
 `Kontynuuj z ręczną korektą`, bez ponownego uploadu i preflightu, jeżeli

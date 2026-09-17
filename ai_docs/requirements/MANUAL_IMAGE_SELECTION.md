@@ -489,9 +489,12 @@ restarcie.
 Bezpośrednio po akceptacji workspace przechodzi do następnego obrazu z
 istniejącego okna cache, a pojedyncza kontrolowana kolejka zapisuje JPEG,
 intencję recovery, repair manifest, handoff i output manifest. W trakcie
-zapisu działa nawigacja i podgląd, lecz nie można rozpocząć kolejnego fill,
-delete, paczkowego usuwania ani zmiany trybu. Błąd zapisu pozostawia czytelny
-komunikat i blokuje dalsze mutacje do czasu ponownego wskazania katalogu.
+zapisu działa nawigacja i podgląd. Kolejka przyjmuje maksymalnie 10 kolejnych
+fillów, wykonując ich zapisy w dokładnej kolejności; delete, paczkowe usuwanie,
+cofanie i zmiana trybu pozostają wtedy zablokowane. Błąd jednego zapisu anuluje
+wszystkie jeszcze nierozpoczęte fill'e, pozostawia wcześniejsze sukcesy,
+przywraca kursor do wadliwego zdjęcia i blokuje kolejne mutacje do ponownego
+wskazania katalogu.
 
 `A`, `Ctrl+A`, `Ctrl+Z` lub przycisk cofają tylko jeden z dwóch ostatnich
 **trwale zapisanych** fillów dostępnych w workspace. Po ponownym wejściu dwa
@@ -504,10 +507,12 @@ usuwa obcego albo zmienionego pliku.
 Tryb `Usuń sekwencje` pokazuje jeden istniejący plik `seq_*` i nawiguje zawsze
 o jeden. `F` usuwa bieżący, checksummowany JPEG bez możliwości przywrócenia.
 Bezpośrednio po decyzji workspace przechodzi do następnego aktywnego obrazu;
-zapis systemu plików wykonuje się potem w pojedynczej kontrolowanej kolejce.
-W trakcie zapisu można nawigować, lecz kolejna mutacja jest zablokowana. Błąd
-zapisu pozostawia czytelny komunikat i blokuje dalsze fill/delete do czasu
-ponownego wskazania katalogu.
+zapis systemu plików wykonuje się potem w pojedynczej kontrolowanej kolejce,
+która przyjmuje maksymalnie 10 pojedynczych usunięć. W trakcie zapisu można
+nawigować i dodać kolejne usunięcie, lecz fill, usuwanie paczkowe i zmiana
+trybu są zablokowane. Błąd anuluje jeszcze nierozpoczęte usunięcia, zachowuje
+wcześniejsze sukcesy, przywraca kursor do pliku z błędem i blokuje dalsze
+fill/delete do czasu ponownego wskazania katalogu.
 
 Obok tej akcji dostępne jest `Usuwanie sekwencji` dla paczki plików. Po
 wskazaniu katalogu `seq_*` modal przyjmuje wyłącznie numeryczny prefiks

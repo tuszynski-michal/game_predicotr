@@ -444,7 +444,7 @@ test('refuses a delete when the staged source checksum no longer matches the loc
   );
 });
 
-test('delete workspace uses fixed step one, immediate snapshot and background persistence', async () => {
+test('delete workspace uses fixed step one and a bounded background write queue', async () => {
   const source = await import('node:fs/promises').then(({ readFile }) =>
     readFile(
       new URL(
@@ -459,12 +459,17 @@ test('delete workspace uses fixed step one, immediate snapshot and background pe
   assert.doesNotMatch(source, /Przywróć ostatnie A \/ Ctrl\+A/);
   assert.doesNotMatch(source, /deleteUndoRef/);
   assert.doesNotMatch(source, /restoreLastSequence/);
-  assert.match(source, /setSnapshot\(optimisticSnapshot\)/);
+  assert.match(source, /const MAXIMUM_QUEUED_SINGLE_REPAIRS = 10/);
+  assert.match(source, /singleRepairQueueRef/);
+  assert.match(source, /enqueueSingleRepair\(/);
+  assert.match(source, /runSingleRepairQueue\(/);
   assert.match(source, /setBackgroundDeletePending\(true\)/);
   assert.match(
     source,
-    /operationQueueRef\.current = operationQueueRef\.current/,
+    /pendingSingleRepairCount >= MAXIMUM_QUEUED_SINGLE_REPAIRS/,
   );
+  assert.match(source, /singleRepairQueueRef\.current = \[\]/);
+  assert.match(source, /restoreLocalStateAfterSingleRepairFailure/);
   assert.match(source, /Otwórz ponownie ten katalog przed kolejną zmianą/);
   assert.doesNotMatch(source, /inspectRepairDirectory\(snapshot\.directory\)/);
   assert.match(source, /removeSnapshotFile\(/);
@@ -582,14 +587,14 @@ test('fill workspace exposes bounded steps, gap targets, shortcuts and visibilit
   assert.match(source, /Luka \$\{gapCursor \+ 1\} z \$\{gaps\.length\}/);
   assert.match(source, /key === 'enter' \|\| key === 'f'/);
   assert.match(source, /key === 'a'/);
-  assert.match(source, /setViewReady\(true\)/);
+  assert.match(source, /setRepairViewReady\(true\)/);
   assert.match(source, /writeRepairFile/);
   assert.match(source, /pickLocalDirectory\(\{ id, mode \}\)/);
   assert.match(source, /id = 'gp-manual-repair'/);
   assert.match(source, /sourceCursor \+ 1/);
 });
 
-test('fill workspace advances optimistically, keeps two durable undo slots and blocks overlapping mutations', async () => {
+test('fill workspace advances optimistically, queues ten writes and keeps two durable undo slots', async () => {
   const source = await import('node:fs/promises').then(({ readFile }) =>
     readFile(
       new URL(
@@ -601,15 +606,22 @@ test('fill workspace advances optimistically, keeps two durable undo slots and b
   );
 
   assert.match(source, /const MAXIMUM_FILL_UNDOS = 2/);
+  assert.match(source, /const MAXIMUM_QUEUED_SINGLE_REPAIRS = 10/);
   assert.match(source, /function addFileToRepairManifest\(/);
-  assert.match(source, /setSnapshot\(optimisticSnapshot\)/);
+  assert.match(source, /replaceSnapshot\(optimisticSnapshot\)/);
   assert.match(source, /setBackgroundFillPending\(true\)/);
   assert.match(
     source,
-    /setSnapshot\(optimisticSnapshot\)[\s\S]*operationQueueRef\.current = operationQueueRef\.current/,
+    /function enqueueSingleRepair[\s\S]*function runSingleRepairQueue/,
   );
+  assert.match(
+    source,
+    /pendingSingleRepairCountRef\.current >= MAXIMUM_QUEUED_SINGLE_REPAIRS/,
+  );
+  assert.match(source, /Anulowano \$\{cancelledCount\} oczekujących operacji/);
+  assert.match(source, /restoreLocalStateAfterSingleRepairFailure/);
   assert.match(source, /backgroundMutationPending/);
-  assert.match(source, /Trwa zapis uzupełnienia w katalogu/);
+  assert.match(source, /Zapisuję uzupełnienia w tle/);
   assert.match(source, /function recentFillOperationIds\(/);
   assert.match(source, /\.slice\(-MAXIMUM_FILL_UNDOS\)/);
   assert.match(source, /function rememberFillOperation\(/);

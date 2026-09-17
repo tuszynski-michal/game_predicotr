@@ -6,6 +6,17 @@ last_updated: 2026-09-16
 
 # Current State
 
+### TASK-0576 — bufor zapisów pojedynczej naprawy selekcji
+
+- `Uzupełnij lukę` i `Usuń pojedynczo` przyjmują do 10 kolejnych decyzji tego
+  samego rodzaju. Zapis JPEG-a, journalu i manifestów wykonuje nadal jeden
+  writer w kolejności decyzji, więc nie tworzy równoległych rewizji manifestu.
+- Przy błędzie bieżącej operacji niezapisany ogon kolejki jest anulowany,
+  wcześniejsze sukcesy pozostają trwałe, a widok wraca do zdjęcia lub pliku,
+  który wymaga ponownej decyzji. Dalsza mutacja jest fail-closed do ponownego
+  otwarcia katalogu.
+- Nie zmieniano katalogów, manifestów ani sesji użytkownika.
+
 ### TASK-0575 — źródło uzupełniania luk bez przeszukiwania innych kolekcji
 
 - Tryb `Uzupełnij luki` listuje tylko bezpośrednie JPEG-i z folderu zwróconego

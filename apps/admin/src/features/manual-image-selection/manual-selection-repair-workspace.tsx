@@ -30,6 +30,7 @@ import {
 
 const FILL_NAVIGATION_STEPS = [1, 2, 5, 10, 20, 50, 100] as const;
 const MAXIMUM_FILL_UNDOS = 2;
+const MAXIMUM_QUEUED_SINGLE_REPAIRS = 10;
 
 type RepairWorkspacePhase =
   | 'idle'
@@ -44,10 +45,31 @@ type BulkDeleteResult = {
   readonly fileName: string;
 };
 
+type QueuedSingleRepair =
+  | {
+      readonly kind: 'fill';
+      readonly localStateAfter: ManualSelectionRepairLocalState;
+      readonly source: ManualImageFile;
+      readonly sourceIndex: number;
+      readonly target: SequenceRange;
+    }
+  | {
+      readonly fileName: string;
+      readonly kind: 'delete';
+      readonly localStateAfter: ManualSelectionRepairLocalState;
+      readonly sourceIndex: number | null;
+      readonly sourcePath: string | null;
+    };
+
 export function ManualSelectionRepairWorkspace() {
   const store = useMemo(() => new ManualSelectionRepairStore(), []);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const localStateSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const snapshotRef = useRef<RepairDirectorySnapshot | null>(null);
+  const durableSnapshotRef = useRef<RepairDirectorySnapshot | null>(null);
+  const singleRepairQueueRef = useRef<QueuedSingleRepair[]>([]);
+  const singleRepairWriterActiveRef = useRef(false);
+  const pendingSingleRepairCountRef = useRef(0);
   const busyRef = useRef(false);
   const backgroundDeletePendingRef = useRef(false);
   const backgroundFillPendingRef = useRef(false);
@@ -67,10 +89,12 @@ export function ManualSelectionRepairWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [viewReady, setViewReady] = useState(false);
+  const viewReadyRef = useRef(false);
   const [backgroundDeletePending, setBackgroundDeletePending] = useState(false);
   const [backgroundDeleteBlocked, setBackgroundDeleteBlocked] = useState(false);
   const [backgroundFillPending, setBackgroundFillPending] = useState(false);
   const [backgroundFillBlocked, setBackgroundFillBlocked] = useState(false);
+  const [pendingSingleRepairCount, setPendingSingleRepairCount] = useState(0);
   const [undoFillOperationIds, setUndoFillOperationIds] = useState<
     readonly string[]
   >([]);
@@ -206,10 +230,10 @@ export function ManualSelectionRepairWorkspace() {
           !cancelled &&
           recoveryGeneration === recoveryGenerationRef.current
         ) {
-          setSnapshot(restored);
+          replaceSnapshot(restored, true);
           setSourceImages(sources);
           setUndoFillOperationIds(recentFillOperationIds(restored));
-          setLocalState({
+          const restoredState = {
             ...saved,
             mode:
               saved.mode === 'fill' && sources.length === 0 ? null : saved.mode,
@@ -217,7 +241,9 @@ export function ManualSelectionRepairWorkspace() {
               saved.mode === 'fill' && sources.length > 0
                 ? clamp(saved.sourceCursor, 0, sources.length - 1)
                 : saved.sourceCursor,
-          });
+          };
+          localStateRef.current = restoredState;
+          setLocalState(restoredState);
         }
       } catch {
         if (
@@ -240,7 +266,7 @@ export function ManualSelectionRepairWorkspace() {
   }, [store]);
 
   useEffect(() => {
-    queueMicrotask(() => setViewReady(false));
+    queueMicrotask(() => setRepairViewReady(false));
     if (
       mode !== 'fill' ||
       snapshot === null ||
@@ -251,7 +277,7 @@ export function ManualSelectionRepairWorkspace() {
       return;
     viewStartedAtRef.current = performance.now();
     const timer = window.setTimeout(() => {
-      setViewReady(true);
+      setRepairViewReady(true);
     }, 300);
     return () => window.clearTimeout(timer);
   }, [
@@ -326,8 +352,9 @@ export function ManualSelectionRepairWorkspace() {
       };
       await store.save(reboundState);
       if (recoveryGeneration !== recoveryGenerationRef.current) return;
-      setSnapshot(inspected);
+      replaceSnapshot(inspected, true);
       setSourceImages([]);
+      localStateRef.current = reboundState;
       setLocalState(reboundState);
       setBackgroundDeleteBlocked(false);
       setBackgroundFillBlocked(false);
@@ -511,7 +538,7 @@ export function ManualSelectionRepairWorkspace() {
                 Math.max(0, currentSnapshot.files.length - 1),
               ),
             };
-            setSnapshot(currentSnapshot);
+            replaceSnapshot(currentSnapshot, true);
             await updateLocalState(currentLocalState);
             setBulkDeleteResults((current) => [
               ...current,
@@ -585,83 +612,55 @@ export function ManualSelectionRepairWorkspace() {
   }
 
   async function fillCurrentGap(): Promise<void> {
+    const actionableSnapshot = snapshotRef.current;
+    const actionableState = localStateRef.current;
     if (
-      snapshot === null ||
-      localState === null ||
-      currentGap === null ||
-      currentSource === undefined ||
-      !viewReady ||
-      backgroundMutationPending ||
-      backgroundFillPendingRef.current ||
-      backgroundMutationBlocked
+      actionableSnapshot === null ||
+      actionableState === null ||
+      !viewReadyRef.current ||
+      backgroundDeletePendingRef.current ||
+      backgroundMutationBlocked ||
+      pendingSingleRepairCountRef.current >= MAXIMUM_QUEUED_SINGLE_REPAIRS
     )
       return;
+    const actionableGaps = findGaps(actionableSnapshot);
+    const actionableGap =
+      actionableGaps[
+        clamp(
+          actionableState.gapCursor,
+          0,
+          Math.max(0, actionableGaps.length - 1),
+        )
+      ];
+    const actionableSource = sourceImages[actionableState.sourceCursor];
+    if (actionableGap === undefined || actionableSource === undefined) return;
     const optimisticSnapshot: RepairDirectorySnapshot = {
-      ...snapshot,
+      ...actionableSnapshot,
       repairManifest: addFileToRepairManifest(
-        snapshot.repairManifest,
-        currentGap,
+        actionableSnapshot.repairManifest,
+        actionableGap,
       ),
     };
     const nextLocalState = {
-      ...localState,
-      sourceCursor: clamp(sourceCursor + 1, 0, sourceImages.length - 1),
+      ...actionableState,
+      sourceCursor: clamp(
+        actionableState.sourceCursor + 1,
+        0,
+        sourceImages.length - 1,
+      ),
       updatedAt: new Date().toISOString(),
     };
     setError(null);
-    setSnapshot(optimisticSnapshot);
-    setLocalState(nextLocalState);
-    localStateRef.current = nextLocalState;
-    backgroundFillPendingRef.current = true;
-    setBackgroundFillPending(true);
-    setNotice('Uzupełnienie zapisuje się w tle.');
-    operationQueueRef.current = operationQueueRef.current
-      .catch(() => undefined)
-      .then(async () => {
-        const result = await writeRepairFile({
-          directory: snapshot.directory,
-          kind: 'fill',
-          manifest: snapshot.repairManifest,
-          outputManifest: snapshot.outputManifest,
-          source: currentSource.handle,
-          sourceIndex: sourceCursor,
-          sourcePath: currentSource.relativePath,
-          target: currentGap,
-        });
-        const persisted = addSnapshotFile(
-          snapshot,
-          {
-            end: currentGap.end,
-            fileName: `seq_${currentGap.start}-${currentGap.end}.jpg`,
-            handle: result.fileHandle,
-            start: currentGap.start,
-          },
-          result.manifest,
-          result.outputManifest,
-        );
-        setSnapshot(persisted);
-        const fill = result.manifest.filledGapEntries.find(
-          (entry) =>
-            entry.fileName === `seq_${currentGap.start}-${currentGap.end}.jpg`,
-        );
-        if (fill !== undefined) {
-          setUndoFillOperationIds((current) =>
-            rememberFillOperation(current, fill.fillOperationId),
-          );
-        }
-        await store.save(localStateRef.current ?? nextLocalState);
-        setNotice(null);
-      })
-      .catch((cause: unknown) => {
-        setBackgroundFillBlocked(true);
-        setError(
-          `Nie udało się zapisać uzupełnienia. Otwórz ponownie ten katalog przed kolejną zmianą. ${errorMessage(cause)}`,
-        );
-      })
-      .finally(() => {
-        backgroundFillPendingRef.current = false;
-        setBackgroundFillPending(false);
-      });
+    setRepairViewReady(false);
+    replaceSnapshot(optimisticSnapshot);
+    applyLocalState(nextLocalState);
+    enqueueSingleRepair({
+      kind: 'fill',
+      localStateAfter: nextLocalState,
+      source: actionableSource,
+      sourceIndex: actionableState.sourceCursor,
+      target: actionableGap,
+    });
   }
 
   async function undoLastFill(): Promise<void> {
@@ -699,7 +698,7 @@ export function ManualSelectionRepairWorkspace() {
         result.manifest,
         result.outputManifest,
       );
-      setSnapshot(refreshed);
+      replaceSnapshot(refreshed, true);
       setUndoFillOperationIds((current) =>
         current.filter((operationId) => operationId !== fill.fillOperationId),
       );
@@ -725,80 +724,207 @@ export function ManualSelectionRepairWorkspace() {
   }
 
   async function deleteCurrentSequence(): Promise<void> {
+    const actionableSnapshot = snapshotRef.current;
+    const actionableState = localStateRef.current;
     if (
-      snapshot === null ||
-      localState === null ||
-      currentSelected === undefined ||
-      backgroundMutationPending ||
-      backgroundDeletePendingRef.current ||
+      actionableSnapshot === null ||
+      actionableState === null ||
       backgroundFillPendingRef.current ||
-      backgroundMutationBlocked
+      backgroundMutationBlocked ||
+      pendingSingleRepairCountRef.current >= MAXIMUM_QUEUED_SINGLE_REPAIRS
     )
       return;
-    const outputItem = snapshot.outputManifest?.items.find(
-      (item) => item.outputName === currentSelected.fileName,
+    const actionableCursor = clamp(
+      actionableState.fileCursor,
+      0,
+      Math.max(0, actionableSnapshot.files.length - 1),
     );
-    const filledGap = snapshot.repairManifest.filledGapEntries.find(
-      (entry) => entry.fileName === currentSelected.fileName,
+    const actionableSelected = actionableSnapshot.files[actionableCursor];
+    if (actionableSelected === undefined) return;
+    const outputItem = actionableSnapshot.outputManifest?.items.find(
+      (item) => item.outputName === actionableSelected.fileName,
+    );
+    const filledGap = actionableSnapshot.repairManifest.filledGapEntries.find(
+      (entry) => entry.fileName === actionableSelected.fileName,
     );
     const sourceIndex = filledGap?.sourceIndex ?? null;
     const sourcePath = filledGap?.sourcePath ?? outputItem?.imagePath ?? null;
     const optimisticManifest = removeFileFromRepairManifest(
-      snapshot.repairManifest,
-      currentSelected,
+      actionableSnapshot.repairManifest,
+      actionableSelected,
     );
     const optimisticSnapshot = removeSnapshotFile(
-      snapshot,
-      currentSelected.fileName,
+      actionableSnapshot,
+      actionableSelected.fileName,
       optimisticManifest,
-      snapshot.outputManifest,
+      actionableSnapshot.outputManifest,
     );
     const nextLocalState = {
-      ...localState,
+      ...actionableState,
       fileCursor: clamp(
-        deleteCursor,
+        actionableCursor,
         0,
         Math.max(0, optimisticSnapshot.files.length - 1),
       ),
       updatedAt: new Date().toISOString(),
     };
-    setSnapshot(optimisticSnapshot);
-    setLocalState(nextLocalState);
-    localStateRef.current = nextLocalState;
-    backgroundDeletePendingRef.current = true;
-    setBackgroundDeletePending(true);
-    setNotice('Usuwanie zapisuje się w tle.');
-    operationQueueRef.current = operationQueueRef.current
-      .catch(() => undefined)
-      .then(async () => {
-        const result = await deleteRepairFile({
-          directory: snapshot.directory,
-          fileName: currentSelected.fileName,
-          kind: 'delete',
-          manifest: snapshot.repairManifest,
-          outputManifest: snapshot.outputManifest,
-          sourceIndex,
-          sourcePath,
-        });
-        const persisted = removeSnapshotFile(
-          snapshot,
-          currentSelected.fileName,
-          result.manifest,
-          result.outputManifest,
+    replaceSnapshot(optimisticSnapshot);
+    applyLocalState(nextLocalState);
+    enqueueSingleRepair({
+      fileName: actionableSelected.fileName,
+      kind: 'delete',
+      localStateAfter: nextLocalState,
+      sourceIndex,
+      sourcePath,
+    });
+  }
+
+  function enqueueSingleRepair(repair: QueuedSingleRepair): void {
+    singleRepairQueueRef.current.push(repair);
+    pendingSingleRepairCountRef.current += 1;
+    setPendingSingleRepairCount(pendingSingleRepairCountRef.current);
+    if (repair.kind === 'fill') {
+      backgroundFillPendingRef.current = true;
+      setBackgroundFillPending(true);
+      setNotice('Uzupełnienia zapisują się kolejno w tle.');
+    } else {
+      backgroundDeletePendingRef.current = true;
+      setBackgroundDeletePending(true);
+      setNotice('Usunięcia zapisują się kolejno w tle.');
+    }
+    void runSingleRepairQueue();
+  }
+
+  async function runSingleRepairQueue(): Promise<void> {
+    if (singleRepairWriterActiveRef.current) return;
+    const repair = singleRepairQueueRef.current.shift();
+    if (repair === undefined) return;
+    singleRepairWriterActiveRef.current = true;
+    try {
+      const persisted = await persistSingleRepair(repair);
+      durableSnapshotRef.current = persisted;
+      if (repair.kind === 'fill') {
+        const fileName = `seq_${repair.target.start}-${repair.target.end}.jpg`;
+        const fill = persisted.repairManifest.filledGapEntries.find(
+          (entry) => entry.fileName === fileName,
         );
-        setSnapshot(persisted);
-        await store.save(localStateRef.current ?? nextLocalState);
-      })
-      .catch((cause: unknown) => {
-        setBackgroundDeleteBlocked(true);
-        setError(
-          `Nie udało się zapisać usunięcia. Otwórz ponownie ten katalog przed kolejną zmianą. ${errorMessage(cause)}`,
+        if (fill !== undefined) {
+          setUndoFillOperationIds((current) =>
+            rememberFillOperation(current, fill.fillOperationId),
+          );
+        }
+      }
+      void persistLocalState(repair.localStateAfter).catch(() => {
+        setNotice(
+          'Plik został zapisany, ale nie udało się zapamiętać kursora lokalnie. Po odświeżeniu wskaż katalog ponownie.',
         );
-      })
-      .finally(() => {
-        backgroundDeletePendingRef.current = false;
-        setBackgroundDeletePending(false);
       });
+      completeSingleRepair();
+    } catch (cause) {
+      failSingleRepair(repair, cause);
+    } finally {
+      singleRepairWriterActiveRef.current = false;
+      if (pendingSingleRepairCountRef.current > 0) void runSingleRepairQueue();
+    }
+  }
+
+  async function persistSingleRepair(
+    repair: QueuedSingleRepair,
+  ): Promise<RepairDirectorySnapshot> {
+    const durableSnapshot = durableSnapshotRef.current;
+    if (durableSnapshot === null) throw new Error('REPAIR_SNAPSHOT_MISSING');
+    if (repair.kind === 'fill') {
+      const result = await writeRepairFile({
+        directory: durableSnapshot.directory,
+        kind: 'fill',
+        manifest: durableSnapshot.repairManifest,
+        outputManifest: durableSnapshot.outputManifest,
+        source: repair.source.handle,
+        sourceIndex: repair.sourceIndex,
+        sourcePath: repair.source.relativePath,
+        target: repair.target,
+      });
+      return addSnapshotFile(
+        durableSnapshot,
+        {
+          end: repair.target.end,
+          fileName: `seq_${repair.target.start}-${repair.target.end}.jpg`,
+          handle: result.fileHandle,
+          start: repair.target.start,
+        },
+        result.manifest,
+        result.outputManifest,
+      );
+    }
+    const result = await deleteRepairFile({
+      directory: durableSnapshot.directory,
+      fileName: repair.fileName,
+      kind: 'delete',
+      manifest: durableSnapshot.repairManifest,
+      outputManifest: durableSnapshot.outputManifest,
+      sourceIndex: repair.sourceIndex,
+      sourcePath: repair.sourcePath,
+    });
+    return removeSnapshotFile(
+      durableSnapshot,
+      repair.fileName,
+      result.manifest,
+      result.outputManifest,
+    );
+  }
+
+  function completeSingleRepair(): void {
+    pendingSingleRepairCountRef.current -= 1;
+    setPendingSingleRepairCount(pendingSingleRepairCountRef.current);
+    if (pendingSingleRepairCountRef.current > 0) return;
+    const durableSnapshot = durableSnapshotRef.current;
+    if (durableSnapshot !== null) replaceSnapshot(durableSnapshot, true);
+    backgroundFillPendingRef.current = false;
+    backgroundDeletePendingRef.current = false;
+    setBackgroundFillPending(false);
+    setBackgroundDeletePending(false);
+    setNotice(null);
+  }
+
+  function failSingleRepair(repair: QueuedSingleRepair, cause: unknown): void {
+    const cancelledCount = singleRepairQueueRef.current.length;
+    singleRepairQueueRef.current = [];
+    pendingSingleRepairCountRef.current = 0;
+    setPendingSingleRepairCount(0);
+    backgroundFillPendingRef.current = false;
+    backgroundDeletePendingRef.current = false;
+    setBackgroundFillPending(false);
+    setBackgroundDeletePending(false);
+    const durableSnapshot = durableSnapshotRef.current;
+    if (durableSnapshot !== null) replaceSnapshot(durableSnapshot, true);
+    const restored = restoreLocalStateAfterSingleRepairFailure(
+      localStateRef.current,
+      durableSnapshot,
+      repair,
+    );
+    if (restored !== null) {
+      applyLocalState(restored);
+      void persistLocalState(restored).catch(() => undefined);
+    }
+    if (repair.kind === 'fill') setBackgroundFillBlocked(true);
+    else setBackgroundDeleteBlocked(true);
+    setError(
+      `${repair.kind === 'fill' ? 'Nie udało się zapisać uzupełnienia' : 'Nie udało się zapisać usunięcia'}. Anulowano ${cancelledCount} oczekujących operacji i wrócono do tej pozycji. Otwórz ponownie ten katalog przed kolejną zmianą. ${errorMessage(cause)}`,
+    );
+  }
+
+  function replaceSnapshot(
+    next: RepairDirectorySnapshot,
+    durable = false,
+  ): void {
+    snapshotRef.current = next;
+    if (durable) durableSnapshotRef.current = next;
+    setSnapshot(next);
+  }
+
+  function setRepairViewReady(next: boolean): void {
+    viewReadyRef.current = next;
+    setViewReady(next);
   }
 
   async function updateLocalState(
@@ -976,8 +1102,9 @@ export function ManualSelectionRepairWorkspace() {
               busy ||
               interactiveWorkInProgress ||
               !viewReady ||
-              backgroundMutationPending ||
+              backgroundDeletePending ||
               backgroundMutationBlocked ||
+              pendingSingleRepairCount >= MAXIMUM_QUEUED_SINGLE_REPAIRS ||
               currentGap === null ||
               currentSource === undefined
             }
@@ -989,7 +1116,8 @@ export function ManualSelectionRepairWorkspace() {
         </div>
         {backgroundFillPending ? (
           <p className="manualImageSelectionStatus" role="status">
-            Trwa zapis uzupełnienia w katalogu.
+            Zapisuję uzupełnienia w tle: {pendingSingleRepairCount}/
+            {MAXIMUM_QUEUED_SINGLE_REPAIRS}. Kolejne są wykonywane po kolei.
           </p>
         ) : null}
         {error !== null ? (
@@ -1062,8 +1190,9 @@ export function ManualSelectionRepairWorkspace() {
             disabled={
               busy ||
               interactiveWorkInProgress ||
-              backgroundDeletePending ||
+              backgroundFillPending ||
               backgroundDeleteBlocked ||
+              pendingSingleRepairCount >= MAXIMUM_QUEUED_SINGLE_REPAIRS ||
               currentSelected === undefined
             }
             onClick={() => void deleteCurrentSequence()}
@@ -1074,7 +1203,8 @@ export function ManualSelectionRepairWorkspace() {
         </div>
         {backgroundDeletePending ? (
           <p className="manualImageSelectionStatus" role="status">
-            Trwa zapis usunięcia w katalogu.
+            Zapisuję usunięcia w tle: {pendingSingleRepairCount}/
+            {MAXIMUM_QUEUED_SINGLE_REPAIRS}. Kolejne są wykonywane po kolei.
           </p>
         ) : null}
         {notice !== null ? (
@@ -1380,6 +1510,44 @@ async function hasPermission(
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
+}
+
+function findGaps(snapshot: RepairDirectorySnapshot): readonly SequenceRange[] {
+  return findSequenceGaps(
+    {
+      end: snapshot.repairManifest.collectionEnd,
+      start: snapshot.repairManifest.collectionStart,
+    },
+    snapshot.repairManifest.activeFiles,
+    snapshot.repairManifest.deletedRanges,
+  );
+}
+
+function restoreLocalStateAfterSingleRepairFailure(
+  localState: ManualSelectionRepairLocalState | null,
+  durableSnapshot: RepairDirectorySnapshot | null,
+  repair: QueuedSingleRepair,
+): ManualSelectionRepairLocalState | null {
+  if (localState === null || durableSnapshot === null) return localState;
+  if (repair.kind === 'fill') {
+    const gapCursor = findGaps(durableSnapshot).findIndex((gap) =>
+      sameRange(gap, repair.target),
+    );
+    return {
+      ...localState,
+      gapCursor: Math.max(0, gapCursor),
+      sourceCursor: repair.sourceIndex,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  const fileCursor = durableSnapshot.files.findIndex(
+    (file) => file.fileName === repair.fileName,
+  );
+  return {
+    ...localState,
+    fileCursor: Math.max(0, fileCursor),
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function addSnapshotFile(

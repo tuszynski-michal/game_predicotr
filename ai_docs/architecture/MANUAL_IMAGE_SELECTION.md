@@ -224,9 +224,13 @@ przełącza `sourceCursor`. Nie dodaje jeszcze uchwytu pliku ani
 `filledGapEntries`; robi to wyłącznie sukces adaptera po pełnej transakcji.
 W trybie delete workspace analogicznie najpierw buduje lokalny snapshot bez
 usuniętego pliku i przełącza kursor. Następnie jedna kolejka wykonuje trwałą
-mutację katalogu. W trakcie jest zablokowany tylko kolejny fill/delete,
-paczkowe usuwanie i zmiana trybu, nie nawigacja. Błąd kolejki przełącza
-workspace w stan fail-closed do jawnej ponownej inspekcji katalogu. Viewer
+mutację katalogu. Przechowuje ona najwyżej 10 intencji tylko jednego rodzaju:
+fill albo delete. Writer pobiera je FIFO i jako jedyny używa uchwytu katalogu,
+więc każdy kolejny manifest bazuje na poprzednim sukcesie. Snapshot widoku może
+wyprzedzać trwały snapshot wyłącznie o te intencje. Błąd bieżącej operacji czyści
+nierozpoczęty ogon kolejki, przywraca trwały snapshot oraz właściwy cursor
+źródła albo pliku i przełącza workspace w stan fail-closed do jawnej ponownej
+inspekcji katalogu. Viewer
 kluczuje bounded Object URL cache przez `repairKey`, tryb i `relativePath`,
 więc przesunięcie ordinali po fill albo delete nie unieważnia następnego JPEG-a.
 

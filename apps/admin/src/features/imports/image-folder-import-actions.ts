@@ -58,6 +58,8 @@ export const LATERAL_PARTIAL_VARIANT: GeometryEngineVariant =
   'structured_lattice_v4_partial_sides';
 export const SELECTIVE_BOARD_VARIANT: GeometryEngineVariant =
   'selective_board_review_v1_1';
+export const DEFAULT_GEOMETRY_ENGINE_VARIANT: GeometryEngineVariant =
+  SELECTIVE_BOARD_VARIANT;
 const LATERAL_PARTIAL_POLICY_VERSIONS = new Set([
   'structured-lattice-v4-lateral-partial-v1',
   'structured-lattice-v4-lateral-partial-v2',

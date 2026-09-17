@@ -1,10 +1,28 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-16
+last_updated: 2026-09-17
 ---
 
 # Decision Log
+
+## D-400 — v1.1 jest domyślnym wyborem nowych stagingów plansz
+
+- **Status:** accepted (TASK-0579).
+- **Date:** 2026-09-17.
+- **Decision:** brak `geometryEngineVariant` w raporcie, preflighcie i starcie
+  importu przeglądarkowego oznacza `selective_board_review_v1_1` (v1.1).
+  v1.0 pozostaje jawną opcją operatora. D-400 zastępuje decyzję o defaultcie
+  z D-396 oraz część „opt-in” D-397; selektywne ponowne użycie przyjętych
+  wyników v1.0 pozostaje niezmienione.
+- **Rationale:** właściciel potwierdził na rzeczywistych danych, że v1.1
+  radzi sobie dobrze jako podstawowy silnik nowych workflowów.
+- **Safety:** nie migrować ani nie przeliczać istniejących jobów, stagingów,
+  manifestów i danych gry. Pinned history pozostaje źródłem prawdy. Brak
+  capability v1.1 pozostaje kontrolowaną blokadą, nie fallbackiem do v1.0.
+- **Consequences:** backendowe domyślne wartości, OpenAPI, klient i początkowy
+  wybór Admina są spójne. Identyfikatory wariantów i checksumowane snapshoty
+  nie zmieniają się.
 
 ## D-399 — Podmiana źródła przez nową rewizję stagingu
 
@@ -44,9 +62,9 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
 ## D-397 — v1.1 odzyskuje tylko niepewne plansze po wyniku bazowym
 
-- **Status:** accepted
+- **Status:** accepted; część o wyborze opt-in zastąpiona przez D-400.
 - **Date:** 2026-09-16
-- **Decision:** v1.1 jest opt-in i pozostawia wyniki przyjęte przez v1.0.
+- **Decision:** v1.1 pozostawia wyniki przyjęte przez v1.0.
   Ukończony zgodny manifest v1.0 jest bazą ponownego użycia, a dodatkowa
   analiza dotyczy tylko nierozstrzygniętych źródeł. Przy ważnej perspektywie,
   7–8 pewnych siatkach i najwyżej dwóch słabych Reviewer dostaje tylko
@@ -63,7 +81,7 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
 ## D-396 — v1.0 jest domyślnym wyborem nowych stagingów plansz
 
-- **Status:** accepted
+- **Status:** superseded by D-400
 - **Date:** 2026-09-16
 - **Decision:** `structured_lattice_v4_partial_sides` zachowuje techniczny
   identyfikator, a w panelu jest nazwany v1.0 i domyślnie przypinany do nowego

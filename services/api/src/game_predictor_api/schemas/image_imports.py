@@ -148,27 +148,27 @@ class BrowserPageSourceReplacementDiscard(ApiModel):
 class BrowserImageImportPreflightCreate(ApiModel):
     game_id: UUID
     geometry_engine_variant: GeometryEngineVariant = (
-        GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+        GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
     )
 
     @field_validator("geometry_engine_variant", mode="before")
     @classmethod
     def default_engine(cls, value: object) -> object:
-        return value or GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+        return value or GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
 
 
 class BrowserPageGeometryPreflightCreate(ApiModel):
     game_id: UUID
     page_registration_variant: Literal["standard_v0_10", "board_area_test"] = "standard_v0_10"
     geometry_engine_variant: GeometryEngineVariant = (
-        GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+        GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
     )
     managed_source_job_id: UUID | None = None
 
     @field_validator("geometry_engine_variant", mode="before")
     @classmethod
     def default_engine(cls, value: object) -> object:
-        return value or GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+        return value or GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
 
 
 class BrowserCanonicalRange(ApiModel):
@@ -564,14 +564,14 @@ class BrowserPageSourceExclusionResponse(ApiModel):
 
 class BrowserImageImportStart(ApiModel):
     geometry_engine_variant: GeometryEngineVariant = Field(
-        default=GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
-        description="Engine pinned for this import; defaults to v1.0.",
+        default=GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1,
+        description="Engine pinned for this import; defaults to v1.1.",
     )
 
     @field_validator("geometry_engine_variant", mode="before")
     @classmethod
     def default_engine(cls, value: object) -> object:
-        return value or GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES
+        return value or GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
 
     game_id: UUID
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

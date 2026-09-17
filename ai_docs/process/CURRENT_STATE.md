@@ -6,6 +6,14 @@ last_updated: 2026-09-17
 
 # Current State
 
+### TASK-0579 — v1.1 jako domyślny silnik geometrii stron
+
+- Nowy raport, preflight geometrii i start importu browser stagingu bez
+  `geometryEngineVariant` przypinają v1.1 (`selective_board_review_v1_1`).
+  Admin rozpoczyna nowy workflow z v1.1, a v1.0 pozostaje jawnym wyborem.
+- Ukończone preflighty i importy zachowują przypięty wariant. Zmiana defaultu
+  nie utworzyła joba ani nie zmodyfikowała stagingu, manifestu lub danych gry.
+
 ### TASK-0578 — V13 minimalnej wysokości cropa siatki
 
 - Nowy aktywny v13 najpierw wykonuje v12, a potem rozszerza zbyt niski pas do

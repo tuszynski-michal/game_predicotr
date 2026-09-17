@@ -13,7 +13,11 @@ from game_predictor_api.schemas.geometry_qualification import (
     AutomaticFrameGeometryProposalPayload,
     AutomaticPartialGeometryProposalPayload,
 )
-from game_predictor_api.schemas.image_imports import BrowserImageImportStart
+from game_predictor_api.schemas.image_imports import (
+    BrowserImageImportPreflightCreate,
+    BrowserImageImportStart,
+    BrowserPageGeometryPreflightCreate,
+)
 from game_predictor_api.schemas.jobs import ImageGeometryRolloutJobSnapshotPayload
 from game_predictor_worker.images import lateral_partial_contract as contract
 from game_predictor_worker.images.lateral_partial_contract import (
@@ -149,16 +153,20 @@ def test_http_gate_precedes_staging_binding(
         assert response.json()["code"] == code
 
 
-def test_omitted_variant_defaults_to_v1_0() -> None:
-    request = BrowserImageImportStart(
+def test_omitted_variant_defaults_to_v1_1() -> None:
+    report_request = BrowserImageImportPreflightCreate(game_id=uuid4())
+    preflight_request = BrowserPageGeometryPreflightCreate(game_id=uuid4())
+    start_request = BrowserImageImportStart(
         game_id=uuid4(), manifest_checksum_sha256="a" * 64, preflight_checksum_sha256="b" * 64
     )
-    assert request.model_dump(mode="json", by_alias=True)["geometryEngineVariant"] == (
-        "structured_lattice_v4_partial_sides"
-    )
+    for request in (report_request, preflight_request, start_request):
+        assert (
+            request.geometry_engine_variant
+            is GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
+        )
 
 
-def test_opt_in_v1_1_snapshot_and_api_contract_are_distinct() -> None:
+def test_v1_1_snapshot_and_api_contract_are_distinct() -> None:
     selective = GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
     repository = MemoryJobRepository(uuid4())
     game_id = repository.game_id

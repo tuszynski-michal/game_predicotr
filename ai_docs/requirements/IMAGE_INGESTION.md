@@ -1,10 +1,21 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-09-16
+last_updated: 2026-09-17
 ---
 
 # Import i rozpoznawanie zdjęć
+
+## Domyślny silnik geometrii v1.1 — TASK-0579
+
+W przeglądarkowym imporcie plansz nowy raport, preflight geometrii i start
+importu bez podanego wariantu przypinają `selective_board_review_v1_1`,
+pokazywany jako **v1.1 — korekta 1–2 niepewnych plansz**. v1.0 pozostaje
+jawnym wyborem operatora. Capability v1.1 jest bramką fail-closed: jej brak
+blokuje żądanie zamiast uruchamiać v1.0.
+
+Wcześniej ukończony preflight lub import pozostaje w zapisanym wariancie.
+Zmiana defaultu nie tworzy joba, nie zmienia stagingu, manifestu ani danych gry.
 
 ## Podmiana zdjęcia przed zatwierdzeniem geometrii — TASK-0570
 
@@ -25,14 +36,14 @@ preflightu geometrii, powiązanego z tym samym identyfikatorem stagingu i sumą
 manifestu źródeł. Ukończony wynik v1.1 pozostaje v1.1 podczas ponownego
 otwarcia i odświeżania; odświeżenie istniejącego joba tylko odczytuje stan.
 Operator może jawnie wybrać inny wariant, aby rozpocząć osobny test. Nowy
-staging bez wyniku pozostaje domyślnie w v1.0.
+staging bez wyniku pozostaje domyślnie w v1.1.
 
-## Testowe otwarcie raportu v1.1 — TASK-0568
+## Jawne przetworzenie historycznego stagingu w v1.1 — TASK-0568
 
 Przy gotowym stagingu bez ukończonego preflightu zwykłe „Pokaż raport” otwiera
-raport w domyślnym v1.0, a dla już otwartego raportu odświeża jego przypięty wariant. Dodatkowy
-przycisk „Przetwórz w v1.1” przygotowuje raport tego samego stagingu z jawnym
-wariantem testowym. Samo otwarcie raportu nie uruchamia joba; preflight geometrii
+raport w domyślnym v1.1, a dla już otwartego raportu odświeża jego przypięty wariant. Dodatkowy
+przycisk „Przetwórz w v1.1” może przygotować osobny raport historycznego stagingu
+z jawnym wariantem v1.1. Samo otwarcie raportu nie uruchamia joba; preflight geometrii
 i import nadal wymagają osobnych działań. Zmiana wariantu unieważnia lokalny
 kontekst rozliczeń poprzedniego raportu.
 
@@ -48,8 +59,8 @@ dalej i nie tworzy importu plansz.
 
 ## Selektywna korekta plansz v1.1 — TASK-0563
 
-`selective_board_review_v1_1` jest ręcznie wybieranym wariantem nowego
-przeglądarkowego stagingu. Wykorzystuje niezmienione wyniki przyjęte przez
+`selective_board_review_v1_1` jest domyślnym wariantem nowego
+przeglądarkowego stagingu; operator nadal może ręcznie wybrać v1.0. Wykorzystuje niezmienione wyniki przyjęte przez
 v1.0. Ukończony manifest v1.0 tej samej gry, selekcji, source manifestu i
 profilu rejestracji może być bazą: zarejestrowane źródła są ponownie używane,
 a nierozstrzygnięte przeliczane. Zmiana ręcznej kotwicy nadal unieważnia wyniki
@@ -70,16 +81,15 @@ niepełnych siatek. Brak siedmiu pewnych siatek, trzy słabe, niepewna kolejnoś
 wadliwa perspektywa albo niebezpieczna projekcja zachowują pełną korektę.
 Historycznych jobów ani decyzji człowieka ten wariant nie przepisuje.
 
-## Wybór silnika nowych stagingów — TASK-0562
+## Wybór silnika nowych stagingów — TASK-0562/0563/0579
 
 W przeglądarkowym imporcie plansz nowy raport, preflight i start bez podanego
-wariantu przypinają `structured_lattice_v4_partial_sides`, pokazywany jako
-**v1.0 — niepełne boki**. Techniczny identyfikator i checksumowana polityka
+wariantu przypinają `selective_board_review_v1_1`, pokazywany jako
+**v1.1 — korekta 1–2 niepewnych plansz**. v1.0 (`structured_lattice_v4_partial_sides`)
+pozostaje jawną opcją. Techniczne identyfikatory i checksumowane polityki
 pozostają bez zmiany, więc historyczne joby są odczytywalne. UI nie oferuje już
-historycznych wariantów v20, strukturalnego v2 ani strukturalnego v3. Funkcje v3
-pozostają bazą obliczeniową v1.0, a zapisany wcześniej tryb gry nie zmienia
-efektywnego silnika nowego stagingu. Ponowienie używa wariantu przypiętego do
-raportu i nie wiąże nowego żądania ze starym jobem.
+historycznych wariantów v20, strukturalnego v2 ani strukturalnego v3. Ponowienie
+używa wariantu przypiętego do raportu i nie wiąże nowego żądania ze starym jobem.
 
 Opis wcześniejszego jawnego testu v0.10.4 poniżej jest historią wdrożenia;
 od TASK-0562 jego zachowanie jako wariantu domyślnego opisuje ta sekcja.

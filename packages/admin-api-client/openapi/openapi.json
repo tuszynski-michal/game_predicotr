@@ -1592,7 +1592,7 @@
           },
           "geometryEngineVariant": {
             "$ref": "#/components/schemas/GeometryEngineVariant",
-            "default": "structured_lattice_v4_partial_sides"
+            "default": "selective_board_review_v1_1"
           }
         },
         "required": [
@@ -1934,8 +1934,8 @@
           },
           "geometryEngineVariant": {
             "$ref": "#/components/schemas/GeometryEngineVariant",
-            "default": "structured_lattice_v4_partial_sides",
-            "description": "Engine pinned for this import; defaults to v1.0."
+            "default": "selective_board_review_v1_1",
+            "description": "Engine pinned for this import; defaults to v1.1."
           },
           "geometryGuardResolutionManifestChecksumSha256": {
             "anyOf": [
@@ -2606,7 +2606,7 @@
           },
           "geometryEngineVariant": {
             "$ref": "#/components/schemas/GeometryEngineVariant",
-            "default": "structured_lattice_v4_partial_sides"
+            "default": "selective_board_review_v1_1"
           },
           "managedSourceJobId": {
             "anyOf": [

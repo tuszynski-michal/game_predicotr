@@ -1,19 +1,20 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-09-16
+last_updated: 2026-09-17
 ---
 
 # Kontrakty API i danych mobilnych
 
-## Warianty geometrii nowych stagingów — TASK-0562/0563
+## Warianty geometrii nowych stagingów — TASK-0562/0563/0579
 
 Brak `geometryEngineVariant` w żądaniu raportu, preflightu lub startu nowego
 przeglądarkowego stagingu oznacza techniczne
-`structured_lattice_v4_partial_sides` (v1.0). Jawne
-`selective_board_review_v1_1` przypina odrębny snapshot i pozostaje opcją
-ręczną. Tożsamość raportu, preflightu i importu zawiera efektywny wariant.
-Historyczne joby zachowują zapisane polityki.
+`selective_board_review_v1_1` (v1.1). Jawne
+`structured_lattice_v4_partial_sides` pozostaje opcją ręczną. Tożsamość raportu,
+preflightu i importu zawiera efektywny wariant. Historyczne joby zachowują
+zapisane polityki. Niedostępność capability v1.1 zwraca kontrolowaną blokadę,
+bez fallbacku do v1.0.
 
 Descriptor bazowego manifestu akceptuje
 `compatibilityMode=baseline_to_selective_v1_1`; worker sprawdza checksumę,

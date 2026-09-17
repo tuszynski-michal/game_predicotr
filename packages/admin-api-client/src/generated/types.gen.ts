@@ -1039,7 +1039,7 @@ export type BrowserImageImportStart = {
    */
   gameId: string;
   /**
-   * Engine pinned for this import; defaults to v1.0.
+   * Engine pinned for this import; defaults to v1.1.
    */
   geometryEngineVariant?: GeometryEngineVariant;
   /**

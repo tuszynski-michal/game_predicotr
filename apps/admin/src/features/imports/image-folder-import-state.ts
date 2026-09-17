@@ -4,6 +4,9 @@ import type {
   JobResponse,
 } from '@game-predictor/admin-api-client';
 
+const DEFAULT_READY_BOARD_IMPORT_GEOMETRY_VARIANT: GeometryEngineVariant =
+  'selective_board_review_v1_1';
+
 interface ReadyImportStartState {
   readonly geometryGuardResolutionManifestAvailable: boolean;
   readonly geometryGuardResolutionRequired: boolean;
@@ -72,9 +75,13 @@ export function readyBoardImportGeometryVariant(
     Record<string, unknown> | undefined;
   const lateral = payload?.lateralPartialGeometry as
     Record<string, unknown> | undefined;
-  return lateral?.variant === 'selective_board_review_v1_1'
-    ? 'selective_board_review_v1_1'
-    : 'structured_lattice_v4_partial_sides';
+  if (lateral?.variant === 'selective_board_review_v1_1') {
+    return 'selective_board_review_v1_1';
+  }
+  if (lateral?.variant === 'structured_lattice_v4_partial_sides') {
+    return 'structured_lattice_v4_partial_sides';
+  }
+  return DEFAULT_READY_BOARD_IMPORT_GEOMETRY_VARIANT;
 }
 
 export function readyBoardImportLifecycleLabel(

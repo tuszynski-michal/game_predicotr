@@ -42,6 +42,7 @@ import {
 import {
   type ImageFolderImportClient,
   type PageRegistrationVariant,
+  DEFAULT_GEOMETRY_ENGINE_VARIANT,
   LATERAL_PARTIAL_VARIANT,
   SELECTIVE_BOARD_VARIANT,
   filterImageFolderImportFiles,
@@ -298,7 +299,7 @@ export function ImageFolderImportPanel({
     useState<PageRegistrationVariant>('standard_v0_10');
   const [geometryEngineVariant, setGeometryEngineVariant] = useState<
     GeometryEngineVariant | undefined
-  >(LATERAL_PARTIAL_VARIANT);
+  >(DEFAULT_GEOMETRY_ENGINE_VARIANT);
   const [geometryGuardResolutionManifest, setGeometryGuardResolutionManifest] =
     useState<ImageGeometryGuardResolutionManifestResponse | null>(null);
   const [enginePolicy, setEnginePolicy] =
@@ -1437,7 +1438,7 @@ export function ImageFolderImportPanel({
             }}
             type="radio"
           />
-          v1.1 — korekta 1–2 niepewnych plansz (testowy)
+          v1.1 — korekta 1–2 niepewnych plansz
         </label>
         {!lateralVariantAvailable ? (
           <p className="mutedText" role="status">

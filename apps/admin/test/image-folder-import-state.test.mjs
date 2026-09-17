@@ -76,6 +76,10 @@ test('reopens a completed v1.1 staging in its pinned variant', () => {
   });
   assert.equal(
     readyBoardImportGeometryVariant([], selection),
+    'selective_board_review_v1_1',
+  );
+  assert.equal(
+    readyBoardImportGeometryVariant([laterV10], selection),
     'structured_lattice_v4_partial_sides',
   );
   assert.equal(
@@ -102,7 +106,7 @@ test('reopens a completed v1.1 staging in its pinned variant', () => {
       ],
       selection,
     ),
-    'structured_lattice_v4_partial_sides',
+    'selective_board_review_v1_1',
   );
 });
 

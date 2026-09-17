@@ -327,9 +327,10 @@ test('defers geometry guard effect initialization and cancels stale callbacks', 
   );
 });
 
-test('offers v1.0 and opt-in v1.1 while preserving historical labels', () => {
+test('defaults to v1.1 while preserving the v1.0 choice and historical labels', () => {
   assert.match(panelSource, /v1\.0 — niepełne boki/);
   assert.match(panelSource, /v1\.1 — korekta niepewnych plansz/);
+  assert.match(panelSource, />\(DEFAULT_GEOMETRY_ENGINE_VARIANT\)/);
   assert.doesNotMatch(panelSource, /<BoardCellProcessingModePicker/);
   assert.doesNotMatch(panelSource, /changeEnginePolicy/);
   assert.doesNotMatch(panelSource, /v20 — geometria i cropy v19/);

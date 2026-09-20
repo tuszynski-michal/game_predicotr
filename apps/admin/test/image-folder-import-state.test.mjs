@@ -120,7 +120,6 @@ test('reopens a completed v1.1 staging in its pinned variant', () => {
 function lifecycle(overrides = {}) {
   return readyBoardImportLifecycleLabel({
     geometryPreflightJobs: [],
-    importJobs: [],
     reportPrepared: false,
     selection: staging('1-10', 'upload-1'),
     ...overrides,
@@ -221,18 +220,24 @@ test('labels a staging by its highest durable import stage', () => {
   );
 });
 
-test('distinguishes completed cutting from pending verification', () => {
+test('keeps a completed board import independent from symbol verification', () => {
   assert.equal(
     lifecycle({
-      importJobs: [job({ jobType: 'import', status: 'waiting_for_review' })],
+      selection: {
+        ...staging('1-10', 'upload-1'),
+        boardImportStatus: 'boards_imported',
+      },
     }),
-    'pocięty · oczekuje na weryfikację plansz i symboli',
+    'plansze utworzone · weryfikacja symboli poza importem',
   );
   assert.equal(
     lifecycle({
-      importJobs: [job({ jobType: 'import', status: 'completed' })],
+      selection: {
+        ...staging('1-10', 'upload-1'),
+        boardImportStatus: 'importing',
+      },
     }),
-    'gotowy · import zakończony',
+    'trwa import plansz',
   );
 });
 
@@ -247,7 +252,6 @@ test('shows a completed preflight with deferred geometry as requiring correction
           status: 'completed',
         }),
       ],
-      importJobs: [],
     }),
     'wymaga korekty geometrii · odroczone zdjęcia 2',
   );
@@ -262,13 +266,6 @@ test('does not advance a staging from a foreign id or manifest checksum', () => 
           jobType: 'validate',
           sourceSelectionId: 'upload-2',
           status: 'completed',
-        }),
-      ],
-      importJobs: [
-        job({
-          checksum: 'b'.repeat(64),
-          jobType: 'import',
-          status: 'waiting_for_review',
         }),
       ],
     }),
@@ -325,30 +322,15 @@ test('does not claim a final count for a legacy active checkpoint', () => {
   );
 });
 
-test('authoritative staging import survives a truncated job history', () => {
+test('uses the durable staging status instead of job history', () => {
   const selection = {
     ...staging('1-10', 'upload-1'),
-    importJobId: 'old-job',
-    importJobStatus: 'waiting_for_review',
+    boardImportStatus: 'boards_imported',
   };
-  assert.equal(readyBoardImportHasImport(selection, []), true);
+  assert.equal(readyBoardImportHasImport(selection), true);
   assert.equal(
     lifecycle({ selection }),
-    'pocięty · oczekuje na weryfikację plansz i symboli',
+    'plansze utworzone · weryfikacja symboli poza importem',
   );
-  for (const status of [
-    'created',
-    'processing',
-    'failed',
-    'cancelled',
-    'completed',
-    'waiting_for_review',
-  ]) {
-    assert.equal(
-      readyBoardImportHasImport(staging('1-10', 'upload-1'), [
-        job({ jobType: 'import', status }),
-      ]),
-      true,
-    );
-  }
+  assert.equal(readyBoardImportHasImport(staging('1-10', 'upload-1')), false);
 });

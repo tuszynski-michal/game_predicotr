@@ -3049,7 +3049,7 @@ Dla `purpose=layout_import` backend udostępnia trzy operacje związane z
 trwałym stagingiem:
 
 - `GET /api/v1/admin/image-imports/browser-selections?purpose=layout_import`
-  zwraca gotowe stagingi i checksumę manifestu,
+  zwraca gotowe stagingi, checksumę manifestu oraz trwały `boardImportStatus`,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/preflight`
   przyjmuje `gameId` i zwraca raport zakresów, `preflightChecksumSha256` oraz
   jawne `symbolModelReady`, `symbolModelBlockerCode` i opcjonalny
@@ -3193,8 +3193,12 @@ stagingu z istniejącym importem (`IMAGE_BROWSER_SELECTION_ALREADY_IMPORTED`).
 Ponowiony start importu zwraca istniejący job (`created=false`) niezależnie od
 zmiany modelu. Blokada tworzenia jest ponownie sprawdzana pod blokadą rekordu
 retencji w transakcji zapisu. Lista stagingów udostępnia nullable
-`importJobId` / `importJobStatus`; UI nie wnioskuje o braku importu wyłącznie
-z ostatnich 200 jobów. Override
+`boardImportStatus` o wartościach `ready`, `importing`, `boards_imported` i
+`failed`; nie przekazuje `importJobId` ani `importJobStatus`. UI nie odczytuje
+historii jobów, by ustalić stan karty. Worker zapisuje `boards_imported` dla
+ukończonego importu oraz dla `waiting_for_review`, ponieważ późniejszy review
+symboli nie jest etapem importu plansz. Job pozostaje w bazie jako proweniencja
+i do diagnostyki. Override
 ma tylko checksumę źródła, rozmiar obrazu, od jednego do dziewięciu row-major
 quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę. Odpowiedź listy
 korekty zawiera `expectedBoardCount` wyliczony przez backend z poświadczonego

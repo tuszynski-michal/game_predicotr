@@ -852,8 +852,9 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             json=start_payload,
         )
         ready_after_import = client.get("/api/v1/admin/image-imports/browser-selections")
-        assert ready_after_import.json()[0]["importJobId"] == started.json()["job"]["id"]
-        assert ready_after_import.json()[0]["importJobStatus"] == "created"
+        assert "importJobId" not in ready_after_import.json()[0]
+        assert "importJobStatus" not in ready_after_import.json()[0]
+        assert ready_after_import.json()[0]["boardImportStatus"] is None
         blocked_geometry = client.post(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight",
             json={"gameId": str(game_id)},

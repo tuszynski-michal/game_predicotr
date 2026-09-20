@@ -26,7 +26,10 @@ from game_predictor_worker.images.selection.sequence_bounds import (
     parse_sequence_bounds_display_name,
 )
 
-from game_predictor_api.application.browser_staging_retention import BrowserStagingRetention
+from game_predictor_api.application.browser_staging_retention import (
+    BrowserStagingBoardImportStatus,
+    BrowserStagingRetention,
+)
 from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.domain.image_selections import (
@@ -115,6 +118,7 @@ class BrowserReadySelection:
     upload: BrowserImageUpload
     manifest: BrowserSequenceManifest
     completed_at: datetime | None
+    board_import_status: BrowserStagingBoardImportStatus | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1272,7 +1276,19 @@ class BrowserImageSelectionService:
                     completed_at = datetime.fromisoformat(completed_value)
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 completed_at = None
-        return BrowserReadySelection(upload=upload, manifest=manifest, completed_at=completed_at)
+        board_import_status: BrowserStagingBoardImportStatus | None = None
+        status_lookup = getattr(self._retention, "board_import_status", None)
+        if callable(status_lookup):
+            board_import_status = status_lookup(
+                upload_id=upload.upload_id,
+                game_id=upload.game_id,
+            )
+        return BrowserReadySelection(
+            upload=upload,
+            manifest=manifest,
+            completed_at=completed_at,
+            board_import_status=board_import_status,
+        )
 
     def cancel(self, upload_id: UUID) -> None:
         with self._lock:

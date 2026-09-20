@@ -1,10 +1,31 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-17
+last_updated: 2026-09-20
 ---
 
 # Decision Log
+
+## D-402 — Status importu plansz jest niezależny od review symboli i historii jobów
+
+- **Status:** accepted (TASK-0583).
+- **Date:** 2026-09-20.
+- **Decision:** browser staging przechowuje trwały `boardImportStatus` o
+  wartościach `ready`, `importing`, `boards_imported`, `failed`. Karta
+  importu korzysta wyłącznie z tej projekcji. Worker zapisuje
+  `boards_imported` po zmaterializowaniu plansz, również gdy import przechodzi
+  do `waiting_for_review`. Review symboli nie jest bramką zakończenia importu
+  plansz.
+- **Rationale:** jeden job może zawierać zarówno zakończone cięcie plansz,
+  jak i późniejszą kolejkę symboli. Wnioskowanie statusu karty z joba mieszało
+  oba etapy i po skróceniu historii jobów mogło odblokować ponowny import.
+- **Consequences:** `importJobId` i `importJobStatus` znikają z odpowiedzi
+  listy stagingów. Joby, ich manifesty i zdarzenia pozostają w bazie jako
+  proweniencja, historia i narzędzie diagnostyczne. Pierwszy import nadal
+  wymaga pełnej geometrii wszystkich źródeł; historyczny import z później
+  wykrytą luką geometrii nie otwiera ponownego cięcia.
+- **Safety:** backfill bierze pod uwagę wszystkie importy danego stagingu,
+  nie tylko historyczny wskaźnik jednego joba. Nie usuwa danych ani jobów.
 
 ## D-401 — Nierozstrzygnięte źródło v1.1 wraca do pełnej ręcznej geometrii
 

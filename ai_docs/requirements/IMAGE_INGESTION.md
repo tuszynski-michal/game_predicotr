@@ -1513,14 +1513,25 @@ Powtórzenie
 tej samej akcji dla tego samego stagingu zwraca istniejący job (`created=false`)
 i nie tworzy duplikatu.
 
-Po TASK-0582 obecność dowolnego joba importu zamyka operacje przygotowawcze
-tego stagingu niezależnie od zmiany modelu lub wariantu. Lista zwraca
-`importJobId` i `importJobStatus` bez zależności od stronicowanej historii.
-`waiting_for_review` oznacza wykonany import z dalszą weryfikacją, a nie
-gotowość do kolejnego importu. Ponowny start odtwarza istniejący job; nowy
-preflight i retry starego browserowego preflightu są blokowane. Retry samego
-importu pozostaje operacją istniejącego joba. Nierozwiązana geometria stron
-blokuje pierwszy import.
+Po TASK-0582/TASK-0583 staging ma trwałe pole `boardImportStatus`:
+`ready`, `importing`, `boards_imported` albo `failed`. Lista nie zwraca
+identyfikatora ani statusu joba jako stanu karty. Joby pozostają historią,
+proweniencją i narzędziem diagnostycznym w osobnym widoku.
+
+`boards_imported` oznacza, że worker zmaterializował plansze. Ustawia się
+także wtedy, gdy job przechodzi do `waiting_for_review`; oczekująca ocena
+symboli nie cofa ukończenia importu plansz i nie otwiera ponownego importu.
+Symbole opisują poprawność rozpoznania komórek po imporcie, a nie gotowość do
+cięcia plansz. Obecność `boards_imported` zamyka operacje przygotowawcze tego
+stagingu niezależnie od zmiany modelu lub wariantu. Ponowny start odtwarza
+istniejący job; nowy preflight i retry starego browserowego preflightu są
+blokowane. Retry samego importu pozostaje operacją istniejącego joba.
+
+Pierwszy import nadal wymaga manifestu z rozliczoną geometrią wszystkich
+źródeł. Nierozwiązana geometria nie może utworzyć nowego importu. Historyczny
+staging, który został zmaterializowany przed tą bramką, zachowuje
+`boards_imported` i jego kolejkę ręcznej korekty; nie jest kandydatem do
+ponownego importu.
 
 Brak finalnego quada pojedynczej planszy po imporcie nie blokuje otwarcia jej
 ręcznej korekty, jeżeli rewizja źródła 0 zawiera jednoznaczny `initialQuad`

@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from game_predictor_api.application.browser_staging_retention import ManagedOriginalsHandoff
+from game_predictor_api.application.browser_staging_retention import (
+    BrowserStagingBoardImportStatus,
+    ManagedOriginalsHandoff,
+)
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 
@@ -38,6 +42,21 @@ class SqlAlchemyBrowserStagingRetentionRepository:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
+    def board_import_status(
+        self,
+        *,
+        upload_id: UUID,
+        game_id: UUID | None,
+    ) -> BrowserStagingBoardImportStatus | None:
+        if game_id is None:
+            return None
+        with self._session_factory() as session:
+            GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ)
+            row = session.get(BrowserSelectionRetentionModel, upload_id)
+            if row is None or row.game_id not in {None, game_id}:
+                return None
+            return cast(BrowserStagingBoardImportStatus, row.board_import_status)
+
     def record_ready(
         self,
         *,
@@ -59,6 +78,7 @@ class SqlAlchemyBrowserStagingRetentionRepository:
                         import_job_id=None,
                         display_name=display_name,
                         state="ready",
+                        board_import_status="ready",
                         manifest_checksum_sha256=manifest_checksum_sha256,
                         managed_manifest_relative_path=None,
                         managed_manifest_checksum_sha256=None,
@@ -102,6 +122,7 @@ class SqlAlchemyBrowserStagingRetentionRepository:
             row.game_id = game_id
             row.import_job_id = job_id
             row.state = "in_use"
+            row.board_import_status = "importing"
             row.last_dependency_at = used_at
             row.eligible_at = None
             row.blocked_reason = None

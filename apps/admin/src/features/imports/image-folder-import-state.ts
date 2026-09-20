@@ -19,24 +19,20 @@ interface ReadyImportStartState {
 
 interface ReadyBoardImportLifecycleState {
   readonly geometryPreflightJobs: readonly JobResponse[];
-  readonly importJobs: readonly JobResponse[];
   readonly reportPrepared: boolean;
   readonly selection: Pick<
     BrowserReadySelectionResponse,
-    'manifestChecksumSha256' | 'uploadId' | 'importJobId' | 'importJobStatus'
+    'manifestChecksumSha256' | 'uploadId' | 'boardImportStatus'
   >;
 }
 
 export function readyBoardImportHasImport(
   selection: ReadyBoardImportLifecycleState['selection'],
-  importJobs: readonly JobResponse[],
 ): boolean {
   return (
-    selection.importJobId != null ||
-    importJobs.some(
-      (job) =>
-        job.jobType === 'import' && jobMatchesReadySelection(job, selection),
-    )
+    selection.boardImportStatus !== null &&
+    selection.boardImportStatus !== undefined &&
+    selection.boardImportStatus !== 'ready'
   );
 }
 
@@ -101,29 +97,15 @@ export function readyBoardImportGeometryVariant(
 export function readyBoardImportLifecycleLabel(
   state: ReadyBoardImportLifecycleState,
 ): string {
-  const imported = state.importJobs.find(
-    (job) =>
-      job.jobType === 'import' &&
-      jobMatchesReadySelection(job, state.selection),
-  );
-  const importStatus = state.selection.importJobStatus ?? imported?.status;
-  if (readyBoardImportHasImport(state.selection, state.importJobs)) {
-    switch (importStatus) {
-      case 'completed':
-        return 'gotowy · import zakończony';
-      case 'waiting_for_review':
-        return 'pocięty · oczekuje na weryfikację plansz i symboli';
-      case 'created':
-        return 'import w kolejce';
-      case 'processing':
-        return 'trwa cięcie plansz i symboli';
-      case 'failed':
-        return 'import przerwany · sprawdź istniejący job';
-      case 'cancelled':
-        return 'import anulowany · sprawdź istniejący job';
-      default:
-        return 'staging przekazany do importu';
-    }
+  switch (state.selection.boardImportStatus) {
+    case 'boards_imported':
+      return 'plansze utworzone · weryfikacja symboli poza importem';
+    case 'importing':
+      return 'trwa import plansz';
+    case 'failed':
+      return 'import przerwany · staging wymaga diagnozy';
+    default:
+      break;
   }
   const matchingGeometryJobs = state.geometryPreflightJobs.filter((job) => {
     const payload = job.inputPayload as unknown as Record<string, unknown>;

@@ -24,11 +24,13 @@ from game_predictor_api.domain.jobs import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 from game_predictor_api.storage.job_repository import (
     apply_job_to_record,
     job_from_record,
 )
 from game_predictor_api.storage.models import (
+    BrowserSelectionRetentionModel,
     ImageSymbolReviewBulkOperationModel,
     JobModel,
 )
@@ -201,6 +203,7 @@ class SqlAlchemyWorkerJobStore:
                 )
             )
             apply_job_to_record(record, updated)
+            _record_browser_staging_board_status(session, updated, updated_at=completed_at)
             _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
             SqlAlchemyBoardSearchProjectionRepository(session).reconcile_import_job(job_id)
@@ -234,6 +237,7 @@ class SqlAlchemyWorkerJobStore:
                 )
             )
             apply_job_to_record(record, updated)
+            _record_browser_staging_board_status(session, updated, updated_at=failed_at)
             _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
             SqlAlchemyBoardSearchProjectionRepository(session).reconcile_import_job(job_id)
@@ -263,6 +267,7 @@ class SqlAlchemyWorkerJobStore:
                 )
             )
             apply_job_to_record(record, updated)
+            _record_browser_staging_board_status(session, updated, updated_at=paused_at)
             session.flush()
             projection = SqlAlchemyBoardSearchProjectionRepository(session)
             projection.reconcile_import_job(job_id)
@@ -347,6 +352,54 @@ def _locked_job(session: Session, job_id: UUID) -> JobModel:
 def _validate_lease_duration(lease_duration: timedelta) -> None:
     if lease_duration <= timedelta(0):
         raise ValueError("lease_duration must be positive.")
+
+
+def _record_browser_staging_board_status(
+    session: Session,
+    job: Job,
+    *,
+    updated_at: datetime,
+) -> None:
+    """Project the board-import milestone without coupling it to symbol review."""
+
+    if job.job_type is not JobType.IMPORT or job.game_id is None:
+        return
+    if job.input_payload.get("import_kind") != "image_directory":
+        return
+    raw_upload_id = job.input_payload.get("source_selection_id")
+    if not isinstance(raw_upload_id, str):
+        return
+    try:
+        upload_id = UUID(raw_upload_id)
+    except ValueError:
+        return
+    status = (
+        "boards_imported"
+        if job.status in {JobStatus.WAITING_FOR_REVIEW, JobStatus.COMPLETED}
+        else "failed"
+        if job.status in {JobStatus.FAILED, JobStatus.CANCELLED}
+        else None
+    )
+    if status is None:
+        return
+    GameStorageRouter().bind(session, job.game_id, intent=GameStorageIntent.WRITE)
+    retention = session.scalar(
+        select(BrowserSelectionRetentionModel)
+        .where(BrowserSelectionRetentionModel.upload_id == upload_id)
+        .with_for_update()
+    )
+    if retention is None:
+        return
+    if retention.game_id not in {None, job.game_id}:
+        raise JobConflictError(
+            "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
+            "The browser staging belongs to a different game.",
+        )
+    if retention.board_import_status == "boards_imported" and status == "failed":
+        return
+    retention.game_id = job.game_id
+    retention.board_import_status = status
+    retention.updated_at = updated_at
 
 
 def _synchronize_bulk_operation_terminal_state(session: Session, job: Job) -> None:

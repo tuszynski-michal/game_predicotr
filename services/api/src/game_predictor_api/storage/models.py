@@ -6102,6 +6102,10 @@ class BrowserSelectionRetentionModel(Base):
             name="ck_browser_selection_retention_state",
         ),
         CheckConstraint(
+            "board_import_status IN ('ready', 'importing', 'boards_imported', 'failed')",
+            name="ck_browser_selection_retention_board_import_status",
+        ),
+        CheckConstraint(
             "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
             "AND (managed_manifest_checksum_sha256 IS NULL OR "
             "managed_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$')",
@@ -6123,6 +6127,9 @@ class BrowserSelectionRetentionModel(Base):
     )
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     state: Mapped[str] = mapped_column(String(24), nullable=False)
+    board_import_status: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="ready"
+    )
     manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     managed_manifest_relative_path: Mapped[str | None] = mapped_column(Text)
     managed_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))

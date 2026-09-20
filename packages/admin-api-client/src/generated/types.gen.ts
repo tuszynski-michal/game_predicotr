@@ -1611,6 +1611,11 @@ export type BrowserPageSourceReplacementDiscard = {
  */
 export type BrowserReadySelectionResponse = {
   /**
+   * Boardimportstatus
+   */
+  boardImportStatus?:
+    'ready' | 'importing' | 'boards_imported' | 'failed' | null;
+  /**
    * Completedat
    */
   completedAt: string | null;
@@ -1634,11 +1639,6 @@ export type BrowserReadySelectionResponse = {
    * Gameid
    */
   gameId: string | null;
-  /**
-   * Importjobid
-   */
-  importJobId?: string | null;
-  importJobStatus?: JobStatus | null;
   /**
    * Manifestchecksumsha256
    */

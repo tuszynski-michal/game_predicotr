@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID
+
+BrowserStagingBoardImportStatus = Literal[
+    "ready", "importing", "boards_imported", "failed"
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +23,13 @@ class ManagedOriginalsHandoff:
 
 
 class BrowserStagingRetention(Protocol):
+    def board_import_status(
+        self,
+        *,
+        upload_id: UUID,
+        game_id: UUID | None,
+    ) -> BrowserStagingBoardImportStatus | None: ...
+
     def record_ready(
         self,
         *,
@@ -49,4 +60,8 @@ class BrowserStagingRetention(Protocol):
         ...
 
 
-__all__ = ["BrowserStagingRetention", "ManagedOriginalsHandoff"]
+__all__ = [
+    "BrowserStagingBoardImportStatus",
+    "BrowserStagingRetention",
+    "ManagedOriginalsHandoff",
+]

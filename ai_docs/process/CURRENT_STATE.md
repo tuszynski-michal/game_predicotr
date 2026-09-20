@@ -6,6 +6,25 @@ last_updated: 2026-09-20
 
 # Current State
 
+### TASK-0583 — status importu plansz i preview duplikatu
+
+- Staging ma trwały `boardImportStatus`, niezależny od statusów/historycznych
+  jobów: `ready`, `importing`, `boards_imported`, `failed`. Karta importu
+  pokazuje „plansze utworzone” już przy `waiting_for_review`; review symboli
+  jest osobnym etapem po imporcie.
+- Lista API nie zwraca `importJobId` ani `importJobStatus`. Joby, manifesty i
+  zdarzenia pozostają jako proweniencja i w zakładce Joby. Pierwszy import
+  nadal wymaga kompletnej geometrii, a staging historycznie zmaterializowany
+  mimo luki jest zamknięty przed ponownym importem i ma dostępną korektę.
+- Backfill naprawił statusy 12 importowanych stagingów gry 777: wszystkie są
+  `boards_imported`, również `200575 - 222912 cut`, którego stary wskaźnik
+  retencji prowadził do wcześniejszego błędu. Audyt pozostaje read-only,
+  bez brakujących plików i bez błędnych szkiców 11 916 korekt.
+- Preview duplikatu `117829 - 128268 cut` zaleca nie usuwać całego importu:
+  starszy ma 44 unikalne plansze, nowszy aktywną kolejkę review. Wyłącznie
+  10 191 zastąpionych starszych plansz może być przedmiotem osobnego cleanupu
+  po pełnym preview proweniencji i jawnej zgodzie.
+
 ### TASK-0582 — spójność stagingów i odzysk ręcznej korekty
 
 - Staging z istniejącym importem nie oferuje kolejnego importu/preflightu.
@@ -19,8 +38,7 @@ last_updated: 2026-09-20
   ręcznej decyzji; finalne geometrie, cropy i trening nie zmieniają się przez odczyt.
 - Audyt gry 777: 11 916 pending wpisów, wszystkie ze zgodnym szkicem i plikami.
   Sprawdzono HTTP correction-context dla próbki każdego z 13 importów (200).
-  Wszystkie manifesty przypięte do wykonanych importów mają 0 odroczonych
-  całych źródeł. Ponowne stagingi nie są potrzebne do odzyskania tej kolejki.
+  Ponowne stagingi nie są potrzebne do odzyskania tej kolejki.
 - Wykryto 10 191 dodatkowych plansz tego samego checksum/slot pomiędzy dwoma
   importami 117829–128268; 0 powielonych numerów canonical. Nie usuwano kopii.
 - Checkpoint ma diagnostykę errno/winerror i ograniczone ponowienia wyłącznie

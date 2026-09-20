@@ -155,6 +155,71 @@ def test_staging_retention_routes_v2_by_owner_after_session_restart(
         )
 
 
+def test_staging_board_status_reaches_completed_before_symbol_review(
+    lifecycle_database: Engine,
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from game_predictor_api.domain.jobs import JobStatus, JobType, create_job
+    from game_predictor_api.storage.browser_staging_retention_repository import (
+        SqlAlchemyBrowserStagingRetentionRepository,
+    )
+    from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
+    from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
+
+    game_id, upload_id = uuid4(), uuid4()
+    _insert_game(lifecycle_database, game_id, "board-status")
+    _run_to_done(lifecycle_database, game_id, GamePartitionLifecycleKind.PROVISION)
+    factory = sessionmaker(bind=lifecycle_database, class_=GameStorageSession)
+    now = datetime.now(UTC)
+    retention = SqlAlchemyBrowserStagingRetentionRepository(factory)
+    retention.record_ready(
+        upload_id=upload_id,
+        game_id=game_id,
+        display_name="staging",
+        manifest_checksum_sha256="a" * 64,
+        finalized_at=now,
+    )
+    with factory.begin() as session:
+        job = SqlAlchemyJobRepository(session).add_source_bound_job(
+            create_job(
+                JobType.IMPORT,
+                game_id=game_id,
+                input_payload={
+                    "schema_version": 2,
+                    "import_kind": "image_directory",
+                    "source_selection_id": str(upload_id),
+                    "pipeline_fingerprint": "b" * 64,
+                },
+                created_at=now,
+            ),
+            source_selection_id=upload_id,
+        )
+    retention.record_in_use(
+        upload_id=upload_id,
+        game_id=game_id,
+        job_id=job.id,
+        used_at=now,
+    )
+    assert retention.board_import_status(upload_id=upload_id, game_id=game_id) == "importing"
+
+    claimed = SqlAlchemyWorkerJobStore(factory).claim_next(
+        worker_id="test-worker",
+        worker_version="test",
+        lease_duration=timedelta(minutes=5),
+        claimed_at=now,
+    )
+    assert claimed is not None
+    paused = SqlAlchemyWorkerJobStore(factory).pause_for_review(
+        claimed.id,
+        lease_token=claimed.lease_token,
+        paused_at=now + timedelta(seconds=1),
+    )
+
+    assert paused.status is JobStatus.WAITING_FOR_REVIEW
+    assert retention.board_import_status(upload_id=upload_id, game_id=game_id) == "boards_imported"
+
+
 def test_restartable_provision_and_delete_keep_other_game_isolated(
     lifecycle_database: Engine,
 ) -> None:

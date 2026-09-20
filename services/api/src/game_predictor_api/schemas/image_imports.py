@@ -7,6 +7,9 @@ from uuid import UUID
 from game_predictor_worker.images.lateral_partial_contract import GeometryEngineVariant
 from pydantic import Field, field_validator, model_validator
 
+from game_predictor_api.application.browser_staging_retention import (
+    BrowserStagingBoardImportStatus,
+)
 from game_predictor_api.application.image_imports import (
     BrowserReadySelection,
     ImageSelectionPurpose,
@@ -26,7 +29,6 @@ from game_predictor_api.domain.image_sequence_canonical import (
     BrowserImageUploadPlan,
     ImageSequenceImportPreflight,
 )
-from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.geometry_qualification import (
     AutomaticPartialGeometryProposalPayload,
@@ -115,8 +117,7 @@ class BrowserReadySelectionResponse(ApiModel):
     completed_at: datetime | None
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     superseded_by_upload_id: UUID | None = None
-    import_job_id: UUID | None = None
-    import_job_status: JobStatus | None = None
+    board_import_status: BrowserStagingBoardImportStatus | None = None
 
     @classmethod
     def from_domain(cls, value: BrowserReadySelection) -> "BrowserReadySelectionResponse":
@@ -134,6 +135,7 @@ class BrowserReadySelectionResponse(ApiModel):
             completed_at=value.completed_at,
             manifest_checksum_sha256=value.manifest.checksum_sha256,
             superseded_by_upload_id=upload.superseded_by_upload_id,
+            board_import_status=value.board_import_status,
         )
 
 

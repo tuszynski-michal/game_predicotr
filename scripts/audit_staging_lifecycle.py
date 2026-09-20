@@ -34,12 +34,16 @@ def audit(game_id: UUID) -> dict[str, object]:
         imports = (
             session.execute(
                 text("""
-            SELECT id, status, input_payload->>'source_selection_id' staging,
-                   input_payload->>'source_display_name' name,
-                   input_payload->'page_geometry_manifest' manifest
-            FROM public.jobs WHERE game_id=:game AND job_type='import'
-              AND input_payload->>'import_kind'='image_directory'
-            ORDER BY created_at, id LIMIT 1000
+            SELECT job.id, job.status, job.input_payload->>'source_selection_id' staging,
+                   job.input_payload->>'source_display_name' name,
+                   retention.board_import_status staging_board_import_status,
+                   job.input_payload->'page_geometry_manifest' manifest
+            FROM public.jobs AS job
+            LEFT JOIN browser_selection_retention_states AS retention
+              ON retention.upload_id = (job.input_payload->>'source_selection_id')::uuid
+            WHERE job.game_id=:game AND job.job_type='import'
+              AND job.input_payload->>'import_kind'='image_directory'
+            ORDER BY job.created_at, job.id LIMIT 1000
         """),
                 params,
             )
@@ -59,6 +63,7 @@ def audit(game_id: UUID) -> dict[str, object]:
                     "staging": job["staging"],
                     "name": job["name"],
                     "status": job["status"],
+                    "stagingBoardImportStatus": job["staging_board_import_status"],
                     "deferredWholeSources": manifest["reviewRequiredSourceCount"],
                 }
             )

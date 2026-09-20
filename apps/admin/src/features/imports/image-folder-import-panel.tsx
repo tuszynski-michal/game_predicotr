@@ -460,7 +460,7 @@ export function ImageFolderImportPanel({
     !readySelections.some(
       (selection) =>
         selection.uploadId === preflight.uploadId &&
-        readyBoardImportHasImport(selection, jobs),
+        readyBoardImportHasImport(selection),
     ) &&
     preflight.geometryEngineVariantEnabled &&
     canStartReadyImport({
@@ -1606,11 +1606,10 @@ export function ImageFolderImportPanel({
           </header>
           <ul className="importCompactList">
             {readySelections.map((ready) => {
-              const imported = readyBoardImportHasImport(ready, jobs);
+              const imported = readyBoardImportHasImport(ready);
               const active = ready.uploadId === readyUploadId && !imported;
               const lifecycleLabel = readyBoardImportLifecycleLabel({
                 geometryPreflightJobs,
-                importJobs: jobs,
                 reportPrepared:
                   preflight?.uploadId === ready.uploadId &&
                   preflight.manifestChecksumSha256 ===
@@ -1676,10 +1675,10 @@ export function ImageFolderImportPanel({
                   ) : null}
                   {imported ? (
                     <p className="curatedImportStatus">
-                      Brakujące plansze popraw w „Zatwierdzanie cięcia siatki” →
-                      „Niepełne siatki do ręcznej korekty”. Zapis przetwarza
-                      tylko poprawianą planszę; ten staging nie wymaga ponownego
-                      importu.
+                      Ten staging nie wymaga ponownego importu. Weryfikacja symboli
+                      nie zmienia statusu importu plansz. Brakujące geometrie
+                      popraw w „Zatwierdzanie cięcia siatki” → „Niepełne siatki do
+                      ręcznej korekty”.
                     </p>
                   ) : null}
                   {active && preflight !== null ? (

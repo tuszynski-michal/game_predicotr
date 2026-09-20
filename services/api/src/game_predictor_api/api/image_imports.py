@@ -716,23 +716,11 @@ def create_image_imports_router(
     )
     def list_ready_browser_selections(
         service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
-        job_service: Annotated[JobService, job_parameter],
         purpose: Annotated[ImageSelectionPurpose | None, Query()] = None,
     ) -> list[BrowserReadySelectionResponse]:
         if purpose not in {None, ImageSelectionPurpose.LAYOUT_IMPORT}:
             return []
-        results = []
-        for item in service.list_ready():
-            response = BrowserReadySelectionResponse.from_domain(item)
-            if item.upload.game_id is not None:
-                imported = job_service.get_image_import_by_source_selection(
-                    game_id=item.upload.game_id, source_selection_id=item.upload.upload_id
-                )
-                if imported is not None:
-                    response.import_job_id = imported.id
-                    response.import_job_status = imported.status
-            results.append(response)
-        return results
+        return [BrowserReadySelectionResponse.from_domain(item) for item in service.list_ready()]
 
     @router.post(
         "/browser-selections/{upload_id}/preflight",

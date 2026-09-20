@@ -173,7 +173,7 @@ test('keeps optional registered-source geometry inspection available before impo
   );
   assert.match(
     panelSource,
-    /const imported = readyBoardImportHasImport\(ready, jobs\)/,
+    /const imported = readyBoardImportHasImport\(ready\)/,
   );
   assert.match(
     panelSource,

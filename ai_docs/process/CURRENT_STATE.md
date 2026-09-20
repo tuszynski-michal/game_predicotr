@@ -6,6 +6,18 @@ last_updated: 2026-09-20
 
 # Current State
 
+### TASK-0585 — kontrakt konfiguracji i korpusu v7
+
+- V7 ma czystą konfigurację pełnych stron 3×3: pojedynczy numer normalizuje
+  stronę, rosnący jest defaultem, malejący zmienia wyłącznie kolejność stron,
+  a output pozostaje `<źródło> cut` z granicami rosnącymi.
+- Zamrożono lokalny inwentarz 3 241 JPEG-ów w 10 katalogach i rozdzielono
+  development/calibration/validation/holdout/reference_only. `wybrane mumie`
+  jest wyłącznie referencją jakości. Ścieżka korpusu jest argumentem narzędzia,
+  nie stałą kodu ani dokumentacji wersjonowanej.
+- T02 nie może wywnioskować kierunku albo stylu ramki z nazw folderów: tylko
+  Treasure ma obecnie świadomie `irregular_or_none`; reszta oczekuje anotacji.
+
 ### TASK-0584 — wykonalność selekcji reprezentantów v7
 
 - Lokalny model `en_PP-OCRv5_mobile_rec` został zweryfikowany sumami plików,

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "corpusRoot": "<operator-provided-corpus-root>",
+  "cases": [
+    {"caseId": "small_777", "directoryName": "777", "split": "development", "borderStyle": null, "expectedDirection": null, "scenarios": ["small_group", "unlabelled_direction"]},
+    {"caseId": "occluded_777", "directoryName": "777 - przysłoniete częściowo plansze", "split": "calibration", "borderStyle": null, "expectedDirection": null, "scenarios": ["partial_occlusion", "left_crop", "right_crop"]},
+    {"caseId": "blazing", "directoryName": "blazing", "split": "development", "borderStyle": null, "expectedDirection": null, "scenarios": ["small_group"]},
+    {"caseId": "gand_big", "directoryName": "gand big", "split": "validation", "borderStyle": null, "expectedDirection": null, "scenarios": ["large_group"]},
+    {"caseId": "gang", "directoryName": "gang", "split": "development", "borderStyle": null, "expectedDirection": null, "scenarios": ["small_group"]},
+    {"caseId": "gang_part_2", "directoryName": "gang part 2", "split": "validation", "borderStyle": null, "expectedDirection": null, "scenarios": ["small_group"]},
+    {"caseId": "reels", "directoryName": "reels", "split": "validation", "borderStyle": null, "expectedDirection": null, "scenarios": ["small_group"]},
+    {"caseId": "rells_big", "directoryName": "rells big", "split": "holdout", "borderStyle": null, "expectedDirection": null, "scenarios": ["large_group"]},
+    {"caseId": "treasure", "directoryName": "tresure", "split": "calibration", "borderStyle": "irregular_or_none", "expectedDirection": null, "scenarios": ["treasure_border"]},
+    {"caseId": "mummies_reference", "directoryName": "wybrane mumie", "split": "reference_only", "borderStyle": null, "expectedDirection": null, "scenarios": ["quality_reference"]}
+  ]
+}

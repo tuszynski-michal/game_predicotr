@@ -6,6 +6,19 @@ last_updated: 2026-09-20
 
 # Current State
 
+### TASK-0584 — wykonalność selekcji reprezentantów v7
+
+- Lokalny model `en_PP-OCRv5_mobile_rec` został zweryfikowany sumami plików,
+  a nowy probe potwierdził bezpieczny write-check pod `.runtime`, 3 241 JPEG-ów
+  w przekazanym korpusie oraz rzeczywiste pięć batchy OCR na zdjęciu 777.
+- Jest to wyłącznie dodatni wynik runtime'u: `RANGE_LABEL_LATTICE_INCOMPLETE`,
+  brak lokalnych etykiet i zakresu w pierwszej próbce; read-only próba 40 zdjęć
+  wykazała ten sam problem. T02 nie może użyć v3 jako potwierdzonego dowodu i
+  musi zmierzyć nowy lokalizator na manifestowym korpusie.
+- Paddle 3.3.1 jest CPU-only mimo zainstalowanego RTX 4050. V7 nie jest aktywne;
+  GPU jest warningiem do T11, a wynik T00 nie zmienia źródeł, katalogów `cut`,
+  historycznych runów ani ustawień aplikacji.
+
 ### TASK-0583 — status importu plansz i preview duplikatu
 
 - Staging ma trwały `boardImportStatus`, niezależny od statusów/historycznych

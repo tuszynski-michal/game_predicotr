@@ -1635,6 +1635,11 @@ export type BrowserReadySelectionResponse = {
    */
   gameId: string | null;
   /**
+   * Importjobid
+   */
+  importJobId?: string | null;
+  importJobStatus?: JobStatus | null;
+  /**
    * Manifestchecksumsha256
    */
   manifestChecksumSha256: string;

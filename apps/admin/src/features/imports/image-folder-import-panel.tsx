@@ -64,6 +64,7 @@ import {
   canStartReadyImport,
   pageGeometryPreflightOutcomeLabel,
   readyBoardImportGeometryVariant,
+  readyBoardImportHasImport,
   readyBoardImportLifecycleLabel,
   sortReadyBoardImports,
 } from './image-folder-import-state';
@@ -456,6 +457,11 @@ export function ImageFolderImportPanel({
   );
   const readyImportStartAllowed =
     preflight !== null &&
+    !readySelections.some(
+      (selection) =>
+        selection.uploadId === preflight.uploadId &&
+        readyBoardImportHasImport(selection, jobs),
+    ) &&
     preflight.geometryEngineVariantEnabled &&
     canStartReadyImport({
       geometryGuardResolutionManifestAvailable:
@@ -1600,7 +1606,8 @@ export function ImageFolderImportPanel({
           </header>
           <ul className="importCompactList">
             {readySelections.map((ready) => {
-              const active = ready.uploadId === readyUploadId;
+              const imported = readyBoardImportHasImport(ready, jobs);
+              const active = ready.uploadId === readyUploadId && !imported;
               const lifecycleLabel = readyBoardImportLifecycleLabel({
                 geometryPreflightJobs,
                 importJobs: jobs,
@@ -1618,53 +1625,63 @@ export function ImageFolderImportPanel({
                     {(ready.expectedTotalBytes / 1_000_000).toFixed(1)} MB ·{' '}
                     staging {ready.uploadId.slice(0, 8)} · {lifecycleLabel}
                   </span>
-                  <div className="importActionButtons">
-                    <button
-                      aria-busy={activeAction === 'preflight' && active}
-                      className="secondaryButton"
-                      disabled={busy}
-                      onClick={() =>
-                        void prepareReadyImport(
-                          ready.uploadId,
-                          active
-                            ? geometryEngineVariant
-                            : readyBoardImportGeometryVariant(
-                                geometryPreflightJobs,
-                                ready,
-                              ),
-                        )
-                      }
-                      type="button"
-                    >
-                      {activeAction === 'preflight' && active
-                        ? 'Sprawdzanie…'
-                        : active
-                          ? 'Odśwież raport'
-                          : 'Pokaż raport'}
-                    </button>
-                    <button
-                      className="secondaryButton"
-                      disabled={busy || selectiveCapability?.enabled !== true}
-                      onClick={() =>
-                        void prepareReadyImport(
-                          ready.uploadId,
-                          SELECTIVE_BOARD_VARIANT,
-                        )
-                      }
-                      type="button"
-                    >
-                      Przetwórz w v1.1
-                    </button>
-                    <button
-                      aria-busy={activeAction === 'delete-ready' && active}
-                      className="secondaryButton"
-                      disabled={busy}
-                      onClick={() => void deleteReadyStaging(ready.uploadId)}
-                      type="button"
-                    >
-                      Usuń nieużywany staging
-                    </button>
-                  </div>
+                  {!imported ? (
+                    <div className="importActionButtons">
+                      <button
+                        aria-busy={activeAction === 'preflight' && active}
+                        className="secondaryButton"
+                        disabled={busy}
+                        onClick={() =>
+                          void prepareReadyImport(
+                            ready.uploadId,
+                            active
+                              ? geometryEngineVariant
+                              : readyBoardImportGeometryVariant(
+                                  geometryPreflightJobs,
+                                  ready,
+                                ),
+                          )
+                        }
+                        type="button"
+                      >
+                        {activeAction === 'preflight' && active
+                          ? 'Sprawdzanie…'
+                          : active
+                            ? 'Odśwież raport'
+                            : 'Pokaż raport'}
+                      </button>
+                      <button
+                        className="secondaryButton"
+                        disabled={busy || selectiveCapability?.enabled !== true}
+                        onClick={() =>
+                          void prepareReadyImport(
+                            ready.uploadId,
+                            SELECTIVE_BOARD_VARIANT,
+                          )
+                        }
+                        type="button"
+                      >
+                        Przetwórz w v1.1
+                      </button>
+                      <button
+                        aria-busy={activeAction === 'delete-ready' && active}
+                        className="secondaryButton"
+                        disabled={busy}
+                        onClick={() => void deleteReadyStaging(ready.uploadId)}
+                        type="button"
+                      >
+                        Usuń nieużywany staging
+                      </button>
+                    </div>
+                  ) : null}
+                  {imported ? (
+                    <p className="curatedImportStatus">
+                      Brakujące plansze popraw w „Zatwierdzanie cięcia siatki” →
+                      „Niepełne siatki do ręcznej korekty”. Zapis przetwarza
+                      tylko poprawianą planszę; ten staging nie wymaga ponownego
+                      importu.
+                    </p>
+                  ) : null}
                   {active && preflight !== null ? (
                     <dl className="importMetrics">
                       <div className="importMetric">

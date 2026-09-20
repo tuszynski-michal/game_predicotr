@@ -738,3 +738,43 @@ def test_manual_pending_geometry_api_materializes_once_from_pinned_source_and_mo
         (artifact_root / "data" / "image-review-board-cell-geometry-v19").rglob("*.png")
     )
     assert len(persisted_cells) == 15
+
+
+def test_missing_final_quad_recovers_only_matching_manual_draft() -> None:
+    import pytest
+    from game_predictor_api.domain.jobs import JobConflictError
+    from game_predictor_api.storage.board_cell_geometry_pending_repository import (
+        _manual_draft_from_source_revision,
+        _validated_detected_board_geometry,
+    )
+
+    quad = [{"x": 480, "y": 73}, {"x": 683, "y": 73}, {"x": 677, "y": 182}, {"x": 473, "y": 180}]
+    board = {
+        "positionIndex": 1,
+        "sequenceNumber": 149636,
+        "initialQuad": quad,
+        "finalQuad": None,
+        "disposition": "needs_manual_review",
+    }
+    draft = _manual_draft_from_source_revision(
+        [board],
+        position_index=1,
+        sequence_number=149636,
+    )
+    assert draft == {"quad": quad, "source": "manual_review_draft"}
+    assert (
+        _validated_detected_board_geometry(
+            draft,
+            source_width=1520,
+            source_height=864,
+        )
+        == draft
+    )
+    assert board["finalQuad"] is None
+    for boards in ([], [board, board], [{**board, "sequenceNumber": 149637}]):
+        with pytest.raises(JobConflictError):
+            _manual_draft_from_source_revision(
+                boards,
+                position_index=1,
+                sequence_number=149636,
+            )

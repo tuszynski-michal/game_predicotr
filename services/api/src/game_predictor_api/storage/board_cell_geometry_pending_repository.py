@@ -39,6 +39,7 @@ from game_predictor_api.storage.models import (
     ImageImportJobFileModel,
     ImagePipelineStageResultModel,
     ImageReviewItemModel,
+    ImageSourceGeometryRevisionModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -353,8 +354,30 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
                 "The deferred geometry import has an invalid pinned symbol model.",
             ) from error
         confidence = board.get("confidence")
+        raw_geometry = board.get("geometry")
+        if (
+            isinstance(raw_geometry, Mapping)
+            and raw_geometry.get("quad") is None
+            and raw_geometry.get("pageBoardQuad") is None
+            and raw_geometry.get("structuredDisposition") == "needs_manual_review"
+        ):
+            revision = self._session.scalar(
+                select(ImageSourceGeometryRevisionModel).where(
+                    ImageSourceGeometryRevisionModel.game_id == game_id,
+                    ImageSourceGeometryRevisionModel.source_image_id == source.id,
+                    ImageSourceGeometryRevisionModel.revision == 0,
+                    ImageSourceGeometryRevisionModel.source_checksum_sha256
+                    == row.source_checksum_sha256,
+                )
+            )
+            if revision is not None:
+                raw_geometry = _manual_draft_from_source_revision(
+                    revision.board_geometries,
+                    position_index=row.position_index,
+                    sequence_number=row.sequence_number,
+                )
         geometry = _validated_detected_board_geometry(
-            board.get("geometry"),
+            raw_geometry,
             source_width=source.width,
             source_height=source.height,
         )
@@ -716,6 +739,32 @@ def _detected_board(
             "The pinned board position is missing or ambiguous.",
         )
     return matches[0]
+
+
+def _manual_draft_from_source_revision(
+    boards: object,
+    *,
+    position_index: int,
+    sequence_number: int,
+) -> dict[str, object]:
+    """Recover only the pinned initial proposal, never approve failed geometry."""
+    matches = (
+        [
+            board
+            for board in boards
+            if isinstance(board, Mapping)
+            and board.get("positionIndex") == position_index
+            and board.get("sequenceNumber") == sequence_number
+        ]
+        if isinstance(boards, list)
+        else []
+    )
+    if len(matches) != 1:
+        raise JobConflictError(
+            "IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID",
+            "The pinned source revision has no unique draft for this board.",
+        )
+    return {"quad": matches[0].get("initialQuad"), "source": "manual_review_draft"}
 
 
 def _validated_detected_board_geometry(

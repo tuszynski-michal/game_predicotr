@@ -23,8 +23,21 @@ interface ReadyBoardImportLifecycleState {
   readonly reportPrepared: boolean;
   readonly selection: Pick<
     BrowserReadySelectionResponse,
-    'manifestChecksumSha256' | 'uploadId'
+    'manifestChecksumSha256' | 'uploadId' | 'importJobId' | 'importJobStatus'
   >;
+}
+
+export function readyBoardImportHasImport(
+  selection: ReadyBoardImportLifecycleState['selection'],
+  importJobs: readonly JobResponse[],
+): boolean {
+  return (
+    selection.importJobId != null ||
+    importJobs.some(
+      (job) =>
+        job.jobType === 'import' && jobMatchesReadySelection(job, selection),
+    )
+  );
 }
 
 function jobMatchesReadySelection(
@@ -88,6 +101,30 @@ export function readyBoardImportGeometryVariant(
 export function readyBoardImportLifecycleLabel(
   state: ReadyBoardImportLifecycleState,
 ): string {
+  const imported = state.importJobs.find(
+    (job) =>
+      job.jobType === 'import' &&
+      jobMatchesReadySelection(job, state.selection),
+  );
+  const importStatus = state.selection.importJobStatus ?? imported?.status;
+  if (readyBoardImportHasImport(state.selection, state.importJobs)) {
+    switch (importStatus) {
+      case 'completed':
+        return 'gotowy · import zakończony';
+      case 'waiting_for_review':
+        return 'pocięty · oczekuje na weryfikację plansz i symboli';
+      case 'created':
+        return 'import w kolejce';
+      case 'processing':
+        return 'trwa cięcie plansz i symboli';
+      case 'failed':
+        return 'import przerwany · sprawdź istniejący job';
+      case 'cancelled':
+        return 'import anulowany · sprawdź istniejący job';
+      default:
+        return 'staging przekazany do importu';
+    }
+  }
   const matchingGeometryJobs = state.geometryPreflightJobs.filter((job) => {
     const payload = job.inputPayload as unknown as Record<string, unknown>;
     return (
@@ -115,16 +152,6 @@ export function readyBoardImportLifecycleLabel(
     return `wymaga korekty geometrii · odroczone zdjęcia ${reviewRequired.toLocaleString('pl-PL')}`;
   }
 
-  const readyImportExists = state.importJobs.some((job) => {
-    const payload = job.inputPayload as unknown as Record<string, unknown>;
-    return (
-      job.jobType === 'import' &&
-      payload.importKind === 'image_directory' &&
-      jobMatchesReadySelection(job, state.selection) &&
-      job.status === 'completed'
-    );
-  });
-  if (readyImportExists) return 'gotowy';
   const geometryReady = matchingGeometryJobs.some(
     (job) =>
       job.status === 'completed' &&

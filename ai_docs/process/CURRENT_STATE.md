@@ -1,10 +1,38 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-17
+last_updated: 2026-09-20
 ---
 
 # Current State
+
+### TASK-0582 — spójność stagingów i odzysk ręcznej korekty
+
+- Staging z istniejącym importem nie oferuje kolejnego importu/preflightu.
+  API listy zwraca trwałą tożsamość i status importu; ponowiony start odtwarza
+  ten sam job także po zmianie modeli. Repozytorium ponownie sprawdza blokadę
+  w transakcji. Retry starego preflightu po imporcie jest blokowany.
+- Usuwanie nieużywanego stagingu przypina magazyn jego gry przed sprawdzeniem
+  referencji. Naprawiono przyczynę błędu ac700907; jego danych nie usuwano.
+- Edytor brakujących plansz odtwarza szkic z initialQuad rewizji źródła 0,
+  gdy Structured OpenCV zapisał quad=null/needs_manual_review. Szkic wymaga
+  ręcznej decyzji; finalne geometrie, cropy i trening nie zmieniają się przez odczyt.
+- Audyt gry 777: 11 916 pending wpisów, wszystkie ze zgodnym szkicem i plikami.
+  Sprawdzono HTTP correction-context dla próbki każdego z 13 importów (200).
+  Wszystkie manifesty przypięte do wykonanych importów mają 0 odroczonych
+  całych źródeł. Ponowne stagingi nie są potrzebne do odzyskania tej kolejki.
+- Wykryto 10 191 dodatkowych plansz tego samego checksum/slot pomiędzy dwoma
+  importami 117829–128268; 0 powielonych numerów canonical. Nie usuwano kopii.
+- Checkpoint ma diagnostykę errno/winerror i ograniczone ponowienia wyłącznie
+  dla Windows sharing/lock violations. Historyczny job 25bb58f8 nie zapisał
+  przyczyny OS; nie uznano jej za ustaloną i nie ponawiano zbędnego preflightu.
+- Raport read-only: artifacts/admin-audit/staging-0582.json; odtwarzalny skrypt
+  scripts/audit_staging_lifecycle.py. Nie utworzono nowej gry, nie migrowano
+  danych, nie usunięto stagingów ani duplikatów, nie uruchomiono cięcia.
+- Weryfikacja: 102 testy API/workera, 1 izolowany PostgreSQL i 56 Node: PASS;
+  Ruff/mypy/typecheck oraz OpenAPI/klient aktualne. Worker general przeładowany
+  na bezczynnej kolejce. Ograniczenia i dalsze kroki:
+  [raport TASK-0582](../quality/STAGING_LIFECYCLE_AUDIT_0582.md).
 
 ### TASK-0581 — blokada importu przy odroczonej geometrii strony
 

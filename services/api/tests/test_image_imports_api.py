@@ -851,6 +851,15 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
             json=start_payload,
         )
+        ready_after_import = client.get("/api/v1/admin/image-imports/browser-selections")
+        assert ready_after_import.json()[0]["importJobId"] == started.json()["job"]["id"]
+        assert ready_after_import.json()[0]["importJobStatus"] == "created"
+        blocked_geometry = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight",
+            json={"gameId": str(game_id)},
+        )
+        assert blocked_geometry.status_code == 409
+        assert blocked_geometry.json()["code"] == "IMAGE_BROWSER_SELECTION_ALREADY_IMPORTED"
         rerun_current_models = client.post(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
             json={
@@ -1065,6 +1074,9 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
             "sourceSelectionId": upload_id,
             "sourceManifestChecksumSha256": preflight["manifestChecksumSha256"],
             "lateralPartialGeometry": geometry_job.input_payload["lateral_partial_geometry"],
+            "registeredSourceCount": 1,
+            "reviewRequiredSourceCount": 0,
+            "skippedHumanResolvedSourceCount": 0,
             "entries": {},
         }
         manifest_bytes = json.dumps(geometry_manifest, sort_keys=True).encode()
@@ -1170,7 +1182,7 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
             symbol_model_inference_fingerprint=None,
             symbol_model_snapshot_fingerprint=cold_start.inference_fingerprint,
             grid_profile_inference_fingerprint=preflight["gridProfileInferenceFingerprint"],
-            geometry_engine_variant=GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES,
+            geometry_engine_variant=GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1,
         )
         assert exact_replay is not None, started_job.input_payload
         assert exact_replay.id == started_job.id
@@ -1202,7 +1214,7 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
         def record_ingested(self, _handoff: object) -> None:
             return None
 
-        def discard_unused(self, *, upload_id: UUID) -> None:
+        def discard_unused(self, *, upload_id: UUID, game_id: UUID | None = None) -> None:
             del upload_id
 
     game_id = uuid4()
@@ -1319,11 +1331,17 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
         )
         assert masked_profile["policy"] == "verified-page-registration-v2-board-area-mask-v1"
         assert masked_profile["anchorMaskPaddingRatio"] == 0.1
+        # Finish the newest, explicitly selected preflight before importing.
+        geometry_job = masked_job
+        geometry_job_id = masked_job.id
         geometry_manifest = {
             "gameId": str(game_id),
             "sourceSelectionId": upload_id,
             "sourceManifestChecksumSha256": report["manifestChecksumSha256"],
             "lateralPartialGeometry": geometry_job.input_payload["lateral_partial_geometry"],
+            "registeredSourceCount": 1,
+            "reviewRequiredSourceCount": 0,
+            "skippedHumanResolvedSourceCount": 0,
             "entries": {},
         }
         manifest_bytes = json.dumps(geometry_manifest, sort_keys=True).encode()
@@ -2285,7 +2303,7 @@ def test_finalized_browser_staging_persists_ready_and_in_use_lifecycle(
         def record_ingested(self, _handoff: object) -> None:
             raise AssertionError("ingestion belongs to the worker")
 
-        def discard_unused(self, *, upload_id: UUID) -> None:
+        def discard_unused(self, *, upload_id: UUID, game_id: UUID | None = None) -> None:
             raise AssertionError(f"unexpected discard of {upload_id}")
 
     retention = RetentionSpy()
@@ -2346,7 +2364,7 @@ def test_cancelled_browser_staging_discards_unused_history_before_files(
         def record_ingested(self, _handoff: object) -> None:
             return None
 
-        def discard_unused(self, *, upload_id: UUID) -> None:
+        def discard_unused(self, *, upload_id: UUID, game_id: UUID | None = None) -> None:
             self.discarded = upload_id
 
     retention = RetentionSpy()
@@ -2392,7 +2410,7 @@ def test_cancelled_browser_staging_restores_files_when_history_is_protected(
         def record_ingested(self, _handoff: object) -> None:
             return None
 
-        def discard_unused(self, *, upload_id: UUID) -> None:
+        def discard_unused(self, *, upload_id: UUID, game_id: UUID | None = None) -> None:
             raise JobConflictError(
                 "IMAGE_BROWSER_SELECTION_DELETE_HAS_RESULTS",
                 f"protected {upload_id}",

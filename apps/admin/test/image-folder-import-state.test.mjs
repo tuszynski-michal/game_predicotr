@@ -5,6 +5,7 @@ import {
   canStartReadyImport,
   pageGeometryPreflightOutcomeLabel,
   readyBoardImportGeometryVariant,
+  readyBoardImportHasImport,
   readyBoardImportLifecycleLabel,
   sortReadyBoardImports,
 } from '../src/features/imports/image-folder-import-state.ts';
@@ -220,18 +221,18 @@ test('labels a staging by its highest durable import stage', () => {
   );
 });
 
-test('does not call an unfinished import ready', () => {
+test('distinguishes completed cutting from pending verification', () => {
   assert.equal(
     lifecycle({
       importJobs: [job({ jobType: 'import', status: 'waiting_for_review' })],
     }),
-    'oczekuje na operację · załadowano folder',
+    'pocięty · oczekuje na weryfikację plansz i symboli',
   );
   assert.equal(
     lifecycle({
       importJobs: [job({ jobType: 'import', status: 'completed' })],
     }),
-    'gotowy',
+    'gotowy · import zakończony',
   );
 });
 
@@ -246,7 +247,7 @@ test('shows a completed preflight with deferred geometry as requiring correction
           status: 'completed',
         }),
       ],
-      importJobs: [job({ jobType: 'import', status: 'waiting_for_review' })],
+      importJobs: [],
     }),
     'wymaga korekty geometrii · odroczone zdjęcia 2',
   );
@@ -322,4 +323,32 @@ test('does not claim a final count for a legacy active checkpoint', () => {
     ),
     'wynik końcowy jeszcze niegotowy',
   );
+});
+
+test('authoritative staging import survives a truncated job history', () => {
+  const selection = {
+    ...staging('1-10', 'upload-1'),
+    importJobId: 'old-job',
+    importJobStatus: 'waiting_for_review',
+  };
+  assert.equal(readyBoardImportHasImport(selection, []), true);
+  assert.equal(
+    lifecycle({ selection }),
+    'pocięty · oczekuje na weryfikację plansz i symboli',
+  );
+  for (const status of [
+    'created',
+    'processing',
+    'failed',
+    'cancelled',
+    'completed',
+    'waiting_for_review',
+  ]) {
+    assert.equal(
+      readyBoardImportHasImport(staging('1-10', 'upload-1'), [
+        job({ jobType: 'import', status }),
+      ]),
+      true,
+    );
+  }
 });

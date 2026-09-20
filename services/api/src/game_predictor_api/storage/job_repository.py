@@ -159,6 +159,8 @@ class SqlAlchemyJobRepository(JobRepository):
         *,
         source_selection_id: UUID,
     ) -> Job:
+        if job.game_id is not None:
+            self._storage_router.bind(self._session, job.game_id, intent=GameStorageIntent.WRITE)
         retention = self._session.scalar(
             select(BrowserSelectionRetentionModel)
             .where(BrowserSelectionRetentionModel.upload_id == source_selection_id)
@@ -169,6 +171,17 @@ class SqlAlchemyJobRepository(JobRepository):
                 "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
                 "The staged folder belongs to a different game.",
             )
+
+        if job.game_id is not None and job.input_payload.get("managed_source_job_id") is None:
+            existing = self.get_image_import_by_source_selection(
+                game_id=job.game_id, source_selection_id=source_selection_id
+            )
+            if existing is not None:
+                raise JobConflictError(
+                    "IMAGE_BROWSER_SELECTION_ALREADY_IMPORTED",
+                    "The staging already has an import; continue the existing job.",
+                    details={"existingJobId": str(existing.id)},
+                )
 
         record = job_record_from_domain(job)
         self._session.add(record)

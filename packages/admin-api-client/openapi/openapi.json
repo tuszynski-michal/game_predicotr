@@ -3050,6 +3050,28 @@
             ],
             "title": "Gameid"
           },
+          "importJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobid"
+          },
+          "importJobStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "manifestChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Manifestchecksumsha256",

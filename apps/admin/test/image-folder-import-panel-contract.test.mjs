@@ -38,7 +38,7 @@ test('a replacement recovers its preflight and opens geometry correction when re
   assert.match(panelSource, /focusSourceChecksumSha256=\{/);
   assert.match(
     panelSource,
-    /<details open=\{replacementPreview\?\.uploadId === ready\.uploadId\}>/,
+    /<details\s+open=\{\s*replacementPreview\?\.uploadId === ready\.uploadId\s*\}\s*>/,
   );
 });
 
@@ -50,12 +50,12 @@ test('a new replacement stays editable until the operator starts preflight', () 
   assert.doesNotMatch(replacementFlow, /startBrowserPageGeometryPreflight/);
   assert.match(
     panelSource,
-    /initialReplacementSource=\{replacementPreview\.source\}/,
+    /initialReplacementSource=\{\s*replacementPreview\.source\s*\}/,
   );
   assert.match(panelSource, /preflightJobId=\{`replacement-draft:/);
   assert.match(
     panelSource,
-    /Po zapisaniu korekty uruchom preflight przyciskiem powyżej/,
+    /Po zapisaniu korekty uruchom preflight\s+przyciskiem powyżej/,
   );
   assert.match(panelSource, /onDraftSaved=\{markReplacementDraftSaved\}/);
   assert.match(panelSource, /replacementPreview\.saved/);
@@ -169,7 +169,15 @@ test('keeps optional registered-source geometry inspection available before impo
   assert.match(panelSource, /allowRegisteredSourceInspection/);
   assert.match(
     panelSource,
-    /geometryPreflightJob\?\.status === 'completed'\s*&&\s*preflight\.existingImportJob === null/,
+    /const active = ready\.uploadId === readyUploadId && !imported/,
+  );
+  assert.match(
+    panelSource,
+    /const imported = readyBoardImportHasImport\(ready, jobs\)/,
+  );
+  assert.match(
+    panelSource,
+    /geometryPreflightJob\?\.status === 'completed' \? \(/,
   );
 });
 

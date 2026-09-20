@@ -21,6 +21,48 @@ from game_predictor_worker.images.source_ingestion import ManagedOriginal
 from game_predictor_worker.jobs.runtime import JobHandlerError
 
 
+def test_atomic_checkpoint_retries_only_windows_sharing_violations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "state.json"
+    path.write_bytes(b"old")
+    replace = incremental_module.os.replace
+    calls = []
+
+    def sharing_once(source: object, target: object) -> None:
+        calls.append(target)
+        if len(calls) == 1:
+            error = OSError(13, "sharing violation")
+            error.winerror = 32
+            raise error
+        replace(source, target)
+
+    monkeypatch.setattr(incremental_module.os, "replace", sharing_once)
+    monkeypatch.setattr(incremental_module.time, "sleep", lambda _: None)
+    incremental_module._write_atomic(path, b"new")
+    assert len(calls) == 2
+    assert path.read_bytes() == b"new"
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_atomic_checkpoint_reports_disk_failure_and_preserves_old_index(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "state.json"
+    path.write_bytes(b"old")
+
+    def disk_full(source: object, target: object) -> None:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(incremental_module.os, "replace", disk_full)
+    with pytest.raises(JobHandlerError, match="errno=28"):
+        incremental_module._write_atomic(path, b"new")
+    assert path.read_bytes() == b"old"
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
 def _original(index: int) -> ManagedOriginal:
     checksum = f"{index + 1:064x}"
     return ManagedOriginal(

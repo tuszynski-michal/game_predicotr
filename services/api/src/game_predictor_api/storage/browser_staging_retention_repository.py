@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_api.application.browser_staging_retention import ManagedOriginalsHandoff
 from game_predictor_api.domain.jobs import JobConflictError
+from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 
 from .models import (
     BrowserSelectionRetentionModel,
@@ -47,6 +48,8 @@ class SqlAlchemyBrowserStagingRetentionRepository:
         finalized_at: datetime,
     ) -> None:
         with self._session_factory.begin() as session:
+            if game_id is not None:
+                GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
             row = session.get(BrowserSelectionRetentionModel, upload_id)
             if row is None:
                 session.add(
@@ -82,6 +85,8 @@ class SqlAlchemyBrowserStagingRetentionRepository:
         used_at: datetime,
     ) -> None:
         with self._session_factory.begin() as session:
+            if game_id is not None:
+                GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
             row = session.execute(
                 select(BrowserSelectionRetentionModel)
                 .where(BrowserSelectionRetentionModel.upload_id == upload_id)
@@ -104,6 +109,7 @@ class SqlAlchemyBrowserStagingRetentionRepository:
 
     def record_ingested(self, handoff: ManagedOriginalsHandoff) -> None:
         with self._session_factory.begin() as session:
+            GameStorageRouter().bind(session, handoff.game_id, intent=GameStorageIntent.WRITE)
             row = session.execute(
                 select(BrowserSelectionRetentionModel)
                 .where(BrowserSelectionRetentionModel.upload_id == handoff.upload_id)
@@ -126,7 +132,7 @@ class SqlAlchemyBrowserStagingRetentionRepository:
             row.blocked_reason = None
             row.updated_at = handoff.completed_at
 
-    def discard_unused(self, *, upload_id: UUID) -> None:
+    def discard_unused(self, *, upload_id: UUID, game_id: UUID | None = None) -> None:
         """Delete an unused staging's empty import/preflight history.
 
         Browser staging deletion is deliberately conservative.  Once an
@@ -139,6 +145,28 @@ class SqlAlchemyBrowserStagingRetentionRepository:
 
         try:
             with self._session_factory.begin() as session:
+                # Jobs are global; resolve the owner before reading any game-owned
+                # tables. Otherwise V2 results look absent and deletion hits a FK.
+                game_ids = set(
+                    session.scalars(
+                        select(JobModel.game_id).where(
+                            JobModel.input_payload["source_selection_id"].as_string()
+                            == str(upload_id),
+                            JobModel.game_id.is_not(None),
+                        )
+                    )
+                )
+                if game_id is not None:
+                    game_ids.add(game_id)
+                if len(game_ids) > 1:
+                    raise JobConflictError(
+                        "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
+                        "The staging is referenced by more than one game.",
+                    )
+                if game_ids:
+                    game_id = next(iter(game_ids))
+                    assert game_id is not None
+                    GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
                 retention = session.execute(
                     select(BrowserSelectionRetentionModel)
                     .where(BrowserSelectionRetentionModel.upload_id == upload_id)

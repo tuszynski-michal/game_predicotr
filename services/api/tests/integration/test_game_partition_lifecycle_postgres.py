@@ -93,6 +93,68 @@ def _run_to_done(engine: Engine, game_id: UUID, kind: GamePartitionLifecycleKind
     raise AssertionError("lifecycle did not reach done")
 
 
+def test_staging_retention_routes_v2_by_owner_after_session_restart(
+    lifecycle_database: Engine,
+) -> None:
+    from datetime import UTC, datetime
+
+    from game_predictor_api.domain.jobs import JobStatus, JobType, create_job
+    from game_predictor_api.storage.browser_staging_retention_repository import (
+        SqlAlchemyBrowserStagingRetentionRepository,
+    )
+    from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
+    from game_predictor_api.storage.models import JobModel
+
+    game_id, upload_id, unused_id = uuid4(), uuid4(), uuid4()
+    _insert_game(lifecycle_database, game_id, "retention-routing")
+    _run_to_done(lifecycle_database, game_id, GamePartitionLifecycleKind.PROVISION)
+    factory = sessionmaker(bind=lifecycle_database, class_=GameStorageSession)
+    now = datetime.now(UTC)
+    for staging_id in (upload_id, unused_id):
+        SqlAlchemyBrowserStagingRetentionRepository(factory).record_ready(
+            upload_id=staging_id,
+            game_id=game_id,
+            display_name="staging",
+            manifest_checksum_sha256="a" * 64,
+            finalized_at=now,
+        )
+    with factory.begin() as session:
+        job = SqlAlchemyJobRepository(session).add_source_bound_job(
+            create_job(
+                JobType.VALIDATE,
+                game_id=game_id,
+                input_payload={
+                    "schema_version": 1,
+                    "validation_kind": "page_geometry_preflight",
+                    "source_selection_id": str(upload_id),
+                },
+                created_at=now,
+            ),
+            source_selection_id=upload_id,
+        )
+        record = session.get(JobModel, job.id)
+        assert record is not None
+        record.status = JobStatus.FAILED
+        record.finished_at = now
+    # New repository and sessions, without ambient game_storage_scope.
+    repository = SqlAlchemyBrowserStagingRetentionRepository(factory)
+    repository.discard_unused(upload_id=upload_id)
+    repository.discard_unused(upload_id=unused_id, game_id=game_id)
+    with lifecycle_database.connect() as connection:
+        assert (
+            connection.execute(
+                text("SELECT count(*) FROM game_data_v2.browser_selection_retention_states")
+            ).scalar_one()
+            == 0
+        )
+        assert (
+            connection.execute(
+                text("SELECT count(*) FROM public.jobs WHERE id=:id"), {"id": job.id}
+            ).scalar_one()
+            == 0
+        )
+
+
 def test_restartable_provision_and_delete_keep_other_game_isolated(
     lifecycle_database: Engine,
 ) -> None:

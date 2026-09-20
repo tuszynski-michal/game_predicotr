@@ -1513,6 +1513,21 @@ Powtórzenie
 tej samej akcji dla tego samego stagingu zwraca istniejący job (`created=false`)
 i nie tworzy duplikatu.
 
+Po TASK-0582 obecność dowolnego joba importu zamyka operacje przygotowawcze
+tego stagingu niezależnie od zmiany modelu lub wariantu. Lista zwraca
+`importJobId` i `importJobStatus` bez zależności od stronicowanej historii.
+`waiting_for_review` oznacza wykonany import z dalszą weryfikacją, a nie
+gotowość do kolejnego importu. Ponowny start odtwarza istniejący job; nowy
+preflight i retry starego browserowego preflightu są blokowane. Retry samego
+importu pozostaje operacją istniejącego joba. Nierozwiązana geometria stron
+blokuje pierwszy import.
+
+Brak finalnego quada pojedynczej planszy po imporcie nie blokuje otwarcia jej
+ręcznej korekty, jeżeli rewizja źródła 0 zawiera jednoznaczny `initialQuad`
+zgodny z checksumą źródła, slotem i numerem sekwencji. Jest to wyłącznie szkic
+do jawnej korekty; nie staje się finalną geometrią ani danymi treningowymi.
+Zapis przez istniejący workflow materializuje wyłącznie poprawianą planszę.
+
 Preflight porównuje także koniec każdego poświadczonego zakresu z
 `games.expected_layout_count`. Końcowy plik może zawierać od jednej do
 dziewięciu plansz, np. `seq_499996-500000.jpg`, ale numer większy od granicy gry

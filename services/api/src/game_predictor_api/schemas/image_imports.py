@@ -26,6 +26,7 @@ from game_predictor_api.domain.image_sequence_canonical import (
     BrowserImageUploadPlan,
     ImageSequenceImportPreflight,
 )
+from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.geometry_qualification import (
     AutomaticPartialGeometryProposalPayload,
@@ -114,6 +115,8 @@ class BrowserReadySelectionResponse(ApiModel):
     completed_at: datetime | None
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     superseded_by_upload_id: UUID | None = None
+    import_job_id: UUID | None = None
+    import_job_status: JobStatus | None = None
 
     @classmethod
     def from_domain(cls, value: BrowserReadySelection) -> "BrowserReadySelectionResponse":

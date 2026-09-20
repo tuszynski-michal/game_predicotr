@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -681,12 +682,23 @@ def _write_atomic(path: Path, content: bytes) -> None:
             stream.write(content)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        # Windows readers/scanners can briefly deny replacement of an open
+        # index. Retry only sharing/lock violations, never disk or ACL errors.
+        for attempt in range(5):
+            try:
+                os.replace(temporary, path)
+                break
+            except OSError as error:
+                if getattr(error, "winerror", None) not in {32, 33} or attempt == 4:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
     except OSError as error:
         temporary.unlink(missing_ok=True)
         raise JobHandlerError(
             _CHECKPOINT_ERROR,
-            "The durable page-geometry checkpoint could not be written.",
+            "The durable page-geometry checkpoint could not be written: "
+            f"{path.name}; errno={error.errno}; winerror={getattr(error, 'winerror', None)}; "
+            f"{error.strerror or str(error)}",
         ) from error
 
 

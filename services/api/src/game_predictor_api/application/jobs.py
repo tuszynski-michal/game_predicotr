@@ -2085,6 +2085,20 @@ class JobService:
             job.job_type is JobType.VALIDATE
             and job.input_payload.get("validation_kind") == "page_geometry_preflight"
         ):
+            selection_id = job.input_payload.get("source_selection_id")
+            if (
+                job.game_id is not None
+                and selection_id is not None
+                and job.input_payload.get("managed_source_job_id") is None
+                and self.get_image_import_by_source_selection(
+                    game_id=job.game_id, source_selection_id=UUID(str(selection_id))
+                )
+                is not None
+            ):
+                raise JobConflictError(
+                    "IMAGE_BROWSER_SELECTION_ALREADY_IMPORTED",
+                    "An imported staging cannot retry its old geometry preflight.",
+                )
             return self._repository.save_job(requeue_job_with_fresh_progress(job))
         if job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION and _is_filename_verification_job(
             job

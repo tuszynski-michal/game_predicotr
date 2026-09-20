@@ -1306,6 +1306,40 @@ def test_failed_job_retry_requeues_the_same_record(tmp_path: Path) -> None:
     assert retried.json()["error"] is None
 
 
+def test_imported_staging_cannot_retry_its_old_page_preflight() -> None:
+    game_id, upload_id = uuid4(), uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+    preflight = replace(
+        create_job(
+            JobType.VALIDATE,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 1,
+                "validation_kind": "page_geometry_preflight",
+                "source_selection_id": str(upload_id),
+            },
+        ),
+        status=JobStatus.FAILED,
+    )
+    repository.add_job(preflight)
+    repository.add_job(
+        create_job(
+            JobType.IMPORT,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 1,
+                "import_kind": "image_directory",
+                "source_selection_id": str(upload_id),
+            },
+        )
+    )
+    with pytest.raises(JobError) as error:
+        service.retry_job(preflight.id)
+    assert error.value.code == "IMAGE_BROWSER_SELECTION_ALREADY_IMPORTED"
+    assert repository.items[preflight.id].status is JobStatus.FAILED
+
+
 def test_image_directory_retry_resets_only_technical_job_progress() -> None:
     game_id = uuid4()
     repository = MemoryJobRepository(game_id)

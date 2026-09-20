@@ -1291,7 +1291,9 @@ class BrowserImageSelectionService:
             upload.path.replace(quarantine)
         try:
             if self._retention is not None:
-                self._retention.discard_unused(upload_id=upload_id)
+                self._retention.discard_unused(
+                    upload_id=upload_id, game_id=None if upload is None else upload.game_id
+                )
         except BaseException:
             if quarantine is not None and quarantine.exists() and upload is not None:
                 quarantine.replace(upload.path)

@@ -3186,9 +3186,15 @@ nie może utworzyć drugiej walidacji tych samych obrazów i manifestu.
 Start importu zawiera `geometryPreflightJobId` oraz
 `geometryManifestChecksumSha256`. Backend ponownie sprawdza, że ukończony job
 dotyczy tego samego stagingu, gry oraz aktualnego manifestu źródłowego. Brak,
-drift albo nieukończony preflight blokują start. Nierozwiązane wpisy manifestu
-nie blokują importu wpisów `registered`; worker filtruje je jeszcze przed
-kopiowaniem do managed originals i nie wraca do klasycznego detektora. Override
+drift albo nieukończony preflight blokują start. Od TASK-0581 nierozwiązane
+wpisy manifestu blokują nowy import kodem `IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED`.
+TASK-0582 dodatkowo blokuje nowe browserowe preflighty oraz retry preflightu
+stagingu z istniejącym importem (`IMAGE_BROWSER_SELECTION_ALREADY_IMPORTED`).
+Ponowiony start importu zwraca istniejący job (`created=false`) niezależnie od
+zmiany modelu. Blokada tworzenia jest ponownie sprawdzana pod blokadą rekordu
+retencji w transakcji zapisu. Lista stagingów udostępnia nullable
+`importJobId` / `importJobStatus`; UI nie wnioskuje o braku importu wyłącznie
+z ostatnich 200 jobów. Override
 ma tylko checksumę źródła, rozmiar obrazu, od jednego do dziewięciu row-major
 quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę. Odpowiedź listy
 korekty zawiera `expectedBoardCount` wyliczony przez backend z poświadczonego

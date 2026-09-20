@@ -716,11 +716,23 @@ def create_image_imports_router(
     )
     def list_ready_browser_selections(
         service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        job_service: Annotated[JobService, job_parameter],
         purpose: Annotated[ImageSelectionPurpose | None, Query()] = None,
     ) -> list[BrowserReadySelectionResponse]:
         if purpose not in {None, ImageSelectionPurpose.LAYOUT_IMPORT}:
             return []
-        return [BrowserReadySelectionResponse.from_domain(item) for item in service.list_ready()]
+        results = []
+        for item in service.list_ready():
+            response = BrowserReadySelectionResponse.from_domain(item)
+            if item.upload.game_id is not None:
+                imported = job_service.get_image_import_by_source_selection(
+                    game_id=item.upload.game_id, source_selection_id=item.upload.upload_id
+                )
+                if imported is not None:
+                    response.import_job_id = imported.id
+                    response.import_job_status = imported.status
+            results.append(response)
+        return results
 
     @router.post(
         "/browser-selections/{upload_id}/preflight",
@@ -764,6 +776,23 @@ def create_image_imports_router(
         guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
         override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
     ) -> BrowserImageImportStartResponse:
+        existing_staging_import = job_service.get_image_import_by_source_selection(
+            game_id=payload.game_id, source_selection_id=upload_id
+        )
+        if existing_staging_import is not None:
+            return BrowserImageImportStartResponse(
+                created=False,
+                job=JobResponse.from_domain(existing_staging_import),
+                preflight=browser_preflight(
+                    upload_id=upload_id,
+                    game_id=payload.game_id,
+                    service=service,
+                    canonical_service=canonical_service,
+                    job_service=job_service,
+                    override_service=override_service,
+                    geometry_engine_variant=payload.geometry_engine_variant,
+                ),
+            )
         # Gate before binding staging or selecting/reusing any historical job.
         try:
             require_geometry_engine_variant_available(payload.geometry_engine_variant)
@@ -1056,6 +1085,15 @@ def create_image_imports_router(
             replacement_parent_upload_id = None
             replacement_parent_manifest_sha256 = None
         else:
+            existing_staging_import = job_service.get_image_import_by_source_selection(
+                game_id=payload.game_id, source_selection_id=upload_id
+            )
+            if existing_staging_import is not None:
+                raise JobConflictError(
+                    "IMAGE_BROWSER_SELECTION_ALREADY_IMPORTED",
+                    "An imported staging cannot start another geometry preflight.",
+                    details={"existingJobId": str(existing_staging_import.id)},
+                )
             ready = service.require_current_ready(upload_id, payload.game_id)
             source_directory = ready.upload.path
             source_name = ready.upload.display_name

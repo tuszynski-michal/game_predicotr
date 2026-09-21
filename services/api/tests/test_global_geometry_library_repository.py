@@ -182,6 +182,37 @@ def test_list_profiles_has_stable_global_order_and_never_routes_by_game() -> Non
     assert "game_id" not in statement
 
 
+def test_list_active_profiles_reads_all_active_versions_with_their_evidence() -> None:
+    candidate = _candidate()
+    stored = _stored_profile(candidate, profile_number=4)
+    stored.status = GlobalGeometryProfileStatus.ACTIVE.value
+    evidence = candidate.evidence[0]
+    session = Mock()
+    session.scalars.side_effect = [
+        SimpleNamespace(all=lambda: [stored]),
+        SimpleNamespace(
+            all=lambda: [
+                SimpleNamespace(
+                    source_game_ref=evidence.source_game_ref,
+                    evidence_checksum_sha256=evidence.evidence_checksum_sha256,
+                    evidence_payload=evidence.evidence_payload,
+                )
+            ]
+        ),
+    ]
+    repository = SqlAlchemyGlobalGeometryLibraryRepository(session)
+
+    records = repository.list_active_profiles_with_evidence(
+        geometry_family=SUPPORTED_GEOMETRY_FAMILY
+    )
+
+    assert [record.profile.profile_number for record in records] == [4]
+    assert records[0].evidence == candidate.evidence
+    statement = str(session.scalars.call_args_list[0].args[0])
+    assert "status" in statement
+    assert "LIMIT" not in statement
+
+
 def test_repository_revalidates_a_manually_tampered_candidate_before_any_query() -> None:
     candidate = _candidate()
     tampered = replace(

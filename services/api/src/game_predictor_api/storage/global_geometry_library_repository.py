@@ -10,9 +10,11 @@ from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.global_geometry_library import (
     GlobalGeometryCandidate,
+    GlobalGeometryEvidence,
     GlobalGeometryLibraryConflictError,
     GlobalGeometryProfileStatus,
     GlobalGeometryProfileVersion,
+    GlobalGeometryProfileWithEvidence,
     GlobalGeometryTopology,
     canonicalize_global_geometry_candidate,
     freeze_global_geometry_snapshot,
@@ -119,6 +121,41 @@ class SqlAlchemyGlobalGeometryLibraryRepository:
             .limit(limit)
         ).all()
         return tuple(_profile(row) for row in rows)
+
+    def list_active_profiles_with_evidence(
+        self, *, geometry_family: str
+    ) -> tuple[GlobalGeometryProfileWithEvidence, ...]:
+        """Read active profiles and evidence without a candidate-history window."""
+
+        rows = self._session.scalars(
+            select(GlobalGeometryProfileVersionModel)
+            .where(
+                GlobalGeometryProfileVersionModel.geometry_family == geometry_family,
+                GlobalGeometryProfileVersionModel.status
+                == GlobalGeometryProfileStatus.ACTIVE.value,
+            )
+            .order_by(GlobalGeometryProfileVersionModel.profile_number.desc())
+        ).all()
+        return tuple(
+            GlobalGeometryProfileWithEvidence(
+                profile=_profile(row),
+                evidence=tuple(
+                    GlobalGeometryEvidence(
+                        source_game_ref=evidence.source_game_ref,
+                        evidence_checksum_sha256=evidence.evidence_checksum_sha256,
+                        evidence_payload=freeze_global_geometry_snapshot(
+                            evidence.evidence_payload
+                        ),
+                    )
+                    for evidence in self._session.scalars(
+                        select(GlobalGeometryEvidenceSampleModel)
+                        .where(GlobalGeometryEvidenceSampleModel.profile_id == row.id)
+                        .order_by(GlobalGeometryEvidenceSampleModel.evidence_number.asc())
+                    ).all()
+                ),
+            )
+            for row in rows
+        )
 
 
 def _profile(model: GlobalGeometryProfileVersionModel) -> GlobalGeometryProfileVersion:

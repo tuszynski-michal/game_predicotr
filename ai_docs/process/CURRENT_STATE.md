@@ -6,6 +6,23 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0606 — resolver i preflight wspólnej geometrii shape v2
+
+- Ukończono G03: resolver API przypina wyłącznie jeden poprawny profil
+  `active` 3 × 3 / 3 × 5 do nowej wersji preflightu. Odtwarza pełną checksumę
+  ze wszystkimi descriptorowymi dowodami, a snapshot wiąże także własne
+  descriptory checksumą i lokalną polityką `structural_only`. Zmiana profilu
+  unieważnia identyczność joba oraz reuse historycznego manifestu.
+- Worker ponownie waliduje snapshot i bieżące piksele rdzeniem G02. Różne
+  kolory ramki nie rozdzielają silnika; sukces i każde niepowodzenie pozostają
+  `review_required` bez `quads` importowych. Brak aktywnego profilu zachowuje
+  istniejący preflight v2/v3, a ręczna override ma pierwszeństwo. V4 omija
+  legacy registrara i jego kotwice.
+- 67 testów G03, Ruff i ograniczony mypy czterech modułów źródłowych przeszły.
+  Astra Medium znalazła trzy P2; wszystkie naprawiono wraz z regresjami, a
+  końcowy re-audyt nie ma P0–P3. Karta zadania została przeniesiona do
+  `ai_docs/tasks/completed/` wraz z commitem G03.
+
 ### TASK-0605 — globalna, wersjonowana biblioteka geometrii shape v2
 
 - Zaimplementowano G06: migracja 0115 tworzy wyłącznie publiczny control plane
@@ -14,7 +31,7 @@ last_updated: 2026-09-21
   oraz lokalnych kotwic chroni izolację danych gier.
 - Content-addressed profil ma globalną kolejność, pełny checksum i status
   początkowy `candidate`; niezmienna treść może w G07 przejść tylko przez
-  dozwolone zmiany statusu. G03 będzie pierwszym konsumentem poprzez lokalny,
+  dozwolone zmiany statusu. G03 jest pierwszym konsumentem poprzez lokalny,
   przypięty snapshot preflightu.
 - 90 testów zakresu G06, Ruff i ograniczony mypy przeszły. Pierwszy audyt
   Astra Medium znalazł pięć P2, re-audyt dwa P2; wszystkie naprawiono razem z

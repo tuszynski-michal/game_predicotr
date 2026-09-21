@@ -9170,3 +9170,29 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   Podsumowanie dowodów musi dokładnie odpowiadać checksummowanym próbkom, a
   częściowy indeks dopuszcza jedną aktywną wersję na rodzinę/topologię.
   Downgrade z dowolnym rekordem jest zablokowany.
+
+## D-423 — Profil shared shape v2 jest przypiętą propozycją preflightu, nie zgodą na import
+
+- **Status:** accepted (TASK-0606/G03).
+- **Date:** 2026-09-21.
+- **Decision:** resolver wybiera wyłącznie jeden aktywny profil
+  `framed_full_page_v2` dla topologii 3 × 3 / 3 × 5. Zamyka go w inputcie
+  `page-geometry-preflight-v4-shape-geometry-v2-profile` razem z identyfikatorem,
+  numerem, pełną checksumą, checksumą descriptorów i lokalną polityką
+  `structural_only`. Resolver odtwarza pełną checksumę z descriptorowych
+  dowodów przed przypięciem, a worker ponownie sprawdza checksumę descriptorów
+  i bieżące piksele rdzeniem G02, zapisując
+  snapshot w manifeście oraz dowód i werdykt przy każdym źródle.
+- **Rationale:** Mumie, Gang i kolejne pełnostronicowe gry mogą współdzielić
+  geometrię bez uzależnienia od koloru ramki albo lokalnej kotwicy. Przypięcie
+  profilu przed idempotencją i reuse zachowuje replay nawet po aktywacji nowszej
+  wersji.
+- **Compatibility:** brak aktywnego profilu pozostawia v2/v3 bez nowego pola;
+  ręczna override ma pierwszeństwo. Profil wspólny nie zmienia historycznych
+  jobów, nie tworzy tabel ani nie modyfikuje game data plane.
+- **Safety:** candidate, rejected, retired, uszkodzony profil lub konflikt
+  aktywnych wersji nie wybiera zastępczej geometrii. Uszkodzony snapshot inputu
+  przerywa job kontrolowanym błędem przed odczytem źródeł. Sukces lokalnego
+  verifiera kończy się `review_required` bez `quads` oraz bez `registered`, więc
+  importer nie może potraktować propozycji jako automatu. Brak ramki, słaba
+  siatka lub niezgodny aspect ratio kończą się review.

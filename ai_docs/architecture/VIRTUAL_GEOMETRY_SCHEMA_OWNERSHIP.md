@@ -6,6 +6,22 @@ last_updated: 2026-09-21
 
 # Virtual geometry schema ownership
 
+## Resolver i preflight shape v2 — TASK-0606
+
+Nowy preflight `page-geometry-preflight-v4-shape-geometry-v2-profile` przypina
+tylko jeden aktywny profil `framed_full_page_v2` 3 × 3 / 3 × 5. Snapshot joba
+zawiera identyfikator, numer i checksumę profilu, pełną kontrolę checksumy
+z descriptorowymi dowodami, checksumę zamkniętych descriptorów oraz
+lokalną politykę `structural_only`; wpis manifestu nie może później odczytać
+innej aktywnej wersji ani użyć `game_id` z biblioteki.
+
+Worker kontroluje bieżące piksele rdzeniem G02 i zapisuje per źródło jego dowód,
+aspect ratio oraz werdykt. Nawet kompletna propozycja dostaje
+`review_required` bez `quads` i bez statusu `registered`; istniejący importer
+nie może jej wykorzystać przed późniejszym, jawnym etapem. Brak aktywnego
+profilu zachowuje preflighty v2/v3, a ręczna override nadal ma pierwszeństwo.
+V4 nie tworzy legacy registrara ani nie ładuje jego kotwic.
+
 ## Wspólna biblioteka shape v2 — TASK-0605
 
 Globalna biblioteka `framed_full_page_v2` jest osobnym publicznym control

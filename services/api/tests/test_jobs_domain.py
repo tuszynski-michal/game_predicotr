@@ -19,6 +19,14 @@ from game_predictor_api.application.jobs import (
     PayoutRulesReference,
 )
 from game_predictor_api.domain.datasets import DatasetVersionStatus
+from game_predictor_api.domain.global_geometry_library import (
+    FRAME_APPEARANCE_SCHEMA_VERSION,
+    NORMALIZED_TEMPLATE_SCHEMA_VERSION,
+    SUPPORTED_GEOMETRY_FAMILY,
+    GlobalGeometryProfileStatus,
+    GlobalGeometryProfileVersion,
+    GlobalGeometryTopology,
+)
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -53,6 +61,10 @@ from game_predictor_worker.images.page_geometry_registration import (
 from game_predictor_worker.images.partial_grid_learning import (
     PartialGridPattern,
     PartialGridTrainingProfile,
+)
+from game_predictor_worker.images.shape_geometry_v2.preflight import (
+    SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
+    build_shape_geometry_v2_preflight_profile,
 )
 
 
@@ -192,6 +204,55 @@ class _PageGeometryOverrideResolver:
     def partial_grid_training_profile(self, *, game_id: UUID) -> dict[str, object]:
         del game_id
         return self.training_profile.to_payload()
+
+
+class _ShapeGeometryV2ProfileResolver:
+    def __init__(self, profile: dict[str, object] | None) -> None:
+        self.profile = profile
+
+    def resolve(self) -> dict[str, object] | None:
+        return self.profile
+
+
+def _shape_geometry_v2_profile(*, number: int = 1) -> dict[str, object]:
+    topology = GlobalGeometryTopology(3, 3, 3, 5)
+    return build_shape_geometry_v2_preflight_profile(
+        GlobalGeometryProfileVersion(
+            id=uuid4(),
+            profile_number=number,
+            status=GlobalGeometryProfileStatus.ACTIVE,
+            geometry_family=SUPPORTED_GEOMETRY_FAMILY,
+            topology=topology,
+            normalized_template={
+                "schemaVersion": NORMALIZED_TEMPLATE_SCHEMA_VERSION,
+                "topology": topology.to_dict(),
+                "frameQuad": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+                "aspectRatioRange": {"minimum": 0.5, "maximum": 2.0},
+            },
+            frame_appearance={
+                "schemaVersion": FRAME_APPEARANCE_SCHEMA_VERSION,
+                "sides": {
+                    "top": {
+                        "clusters": [
+                            {"lab": [44.0, 12.0, -8.0], "hsv": [23.0, 0.5, 0.7]}
+                        ],
+                        "contrast": {"minimum": 0.2, "median": 0.4, "maximum": 0.8},
+                        "continuity": 0.9,
+                    }
+                },
+            },
+            evidence_summary={
+                "schemaVersion": "shape-geometry-evidence-summary-v1",
+                "fullSourceCount": 1,
+                "partialSourceCount": 0,
+                "sourceGameRefs": ["mummies"],
+                "extractorVersion": "shape-frame-geometry-v2-core-v1",
+                "qualityMetrics": {"candidateCount": 1},
+            },
+            profile_checksum_sha256=f"{number:064x}",
+            created_at=datetime.now(UTC),
+        )
+    )
 
 
 def _add_completed_page_geometry_preflight(
@@ -669,6 +730,42 @@ def test_page_geometry_preflight_variant_changes_identity_and_repeats_idempotent
             page_registration_variant="board_area_test",
         )
     assert duplicate.value.code == "JOB_INPUT_ALREADY_EXISTS"
+
+
+def test_page_geometry_preflight_pins_active_shape_profile_in_request_identity(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    resolver = _ShapeGeometryV2ProfileResolver(_shape_geometry_v2_profile(number=1))
+    service = JobService(
+        repository,
+        shape_geometry_v2_profile_snapshot_resolver=resolver,
+    )
+    arguments = {
+        "game_id": game_id,
+        "selection_id": selection_id,
+        "source_directory": tmp_path,
+        "source_display_name": "seq import",
+        "source_manifest_sha256": "a" * 64,
+    }
+
+    first = service.create_page_geometry_preflight_job(**arguments)
+
+    assert first.input_payload["preflight_policy_version"] == (
+        SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION
+    )
+    assert first.input_payload["shape_geometry_v2_profile"]["profileNumber"] == 1
+    with pytest.raises(JobConflictError) as duplicate:
+        service.create_page_geometry_preflight_job(**arguments)
+    assert duplicate.value.code == "JOB_INPUT_ALREADY_EXISTS"
+
+    resolver.profile = _shape_geometry_v2_profile(number=2)
+    second = service.create_page_geometry_preflight_job(**arguments)
+
+    assert second.id != first.id
+    assert second.input_payload["shape_geometry_v2_profile"]["profileNumber"] == 2
 
 
 def test_page_geometry_preflight_prefers_exact_v3_base_before_newer_v2(

@@ -251,6 +251,12 @@ from game_predictor_api.storage.game_storage_routing import (
     game_id_from_path,
     game_storage_scope,
 )
+from game_predictor_api.storage.global_geometry_library_repository import (
+    SqlAlchemyGlobalGeometryLibraryRepository,
+)
+from game_predictor_api.storage.global_geometry_profile_snapshot_resolver import (
+    SqlAlchemyGlobalGeometryProfileSnapshotResolver,
+)
 from game_predictor_api.storage.grid_calibration_repository import (
     SqlAlchemyGridCalibrationRepository,
 )
@@ -662,6 +668,11 @@ def create_app(
                 page_geometry_override_snapshot_resolver=PageGeometryOverrideService(
                     SqlAlchemyPageGeometryOverrideRepository(session)
                 ),
+                shape_geometry_v2_profile_snapshot_resolver=(
+                    SqlAlchemyGlobalGeometryProfileSnapshotResolver(
+                        SqlAlchemyGlobalGeometryLibraryRepository(session)
+                    )
+                ),
                 deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
                     artifact_root=resolved_settings.artifact_root,
                     import_root=resolved_settings.import_root,
@@ -950,6 +961,11 @@ def create_app(
                     ),
                     SqlAlchemyGridProfileSnapshotResolver(session),
                     artifact_root=resolved_settings.artifact_root,
+                    shape_geometry_v2_profile_snapshot_resolver=(
+                        SqlAlchemyGlobalGeometryProfileSnapshotResolver(
+                            SqlAlchemyGlobalGeometryLibraryRepository(session)
+                        )
+                    ),
                 )
                 yield IterativeImageImportService(
                     SqlAlchemyIterativeImageImportRepository(session),

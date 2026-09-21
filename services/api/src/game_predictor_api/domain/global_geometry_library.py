@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from typing import cast
 from uuid import UUID
 
 type JSONValue = None | bool | int | float | str | list[JSONValue] | dict[str, JSONValue]
@@ -168,6 +169,144 @@ class GlobalGeometryProfileVersion:
     created_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class GlobalGeometryProfileWithEvidence:
+    """One persisted profile paired with every descriptor-only evidence row."""
+
+    profile: GlobalGeometryProfileVersion
+    evidence: tuple[GlobalGeometryEvidence, ...]
+
+
+def global_geometry_profile_preflight_reference(
+    profile: GlobalGeometryProfileVersion,
+) -> dict[str, JSONValue]:
+    """Return the descriptor-only, active profile reference safe to pin to a job."""
+
+    topology, template, appearance = validate_global_geometry_profile_for_preflight(profile)
+    return {
+        "profileId": str(profile.id),
+        "profileNumber": profile.profile_number,
+        "profileChecksumSha256": profile.profile_checksum_sha256,
+        "profileDescriptorChecksumSha256": global_geometry_profile_descriptor_checksum(
+            geometry_family=profile.geometry_family,
+            topology=topology,
+            normalized_template=template,
+            frame_appearance=appearance,
+        ),
+        "geometryFamily": profile.geometry_family,
+        "topology": cast(JSONValue, topology.to_dict()),
+        "normalizedTemplate": _freeze_object(template),
+        "frameAppearance": _freeze_object(appearance),
+    }
+
+
+def validate_global_geometry_profile_for_preflight(
+    profile: GlobalGeometryProfileVersion,
+) -> tuple[GlobalGeometryTopology, dict[str, JSONValue], dict[str, JSONValue]]:
+    """Validate the immutable descriptor subset available on a stored profile."""
+
+    if not isinstance(profile.id, UUID) or not isinstance(profile.profile_number, int) or (
+        isinstance(profile.profile_number, bool) or profile.profile_number < 1
+    ):
+        raise GlobalGeometryLibraryError(
+            "GLOBAL_GEOMETRY_PROFILE_REFERENCE_INVALID",
+            "The global geometry profile has an invalid immutable identity.",
+        )
+    if profile.status is not GlobalGeometryProfileStatus.ACTIVE:
+        raise GlobalGeometryLibraryError(
+            "GLOBAL_GEOMETRY_PROFILE_NOT_ACTIVE",
+            "Only an active global geometry profile can be pinned to a preflight.",
+        )
+    if not isinstance(profile.topology, GlobalGeometryTopology):
+        raise GlobalGeometryLibraryError(
+            "GLOBAL_GEOMETRY_TOPOLOGY_UNSUPPORTED",
+            "The global geometry profile has an unsupported topology.",
+        )
+    if not isinstance(profile.profile_checksum_sha256, str) or not _CHECKSUM.fullmatch(
+        profile.profile_checksum_sha256
+    ):
+        raise GlobalGeometryLibraryError(
+            "GLOBAL_GEOMETRY_PROFILE_CHECKSUM_INVALID",
+            "The global geometry profile checksum is invalid.",
+        )
+    template, appearance = validate_global_geometry_profile_descriptor(
+        geometry_family=profile.geometry_family,
+        topology=profile.topology,
+        normalized_template=profile.normalized_template,
+        frame_appearance=profile.frame_appearance,
+    )
+    summary = _canonical_object(profile.evidence_summary, field="evidence_summary")
+    _validate_evidence_summary(summary)
+    return profile.topology, template, appearance
+
+
+def validate_global_geometry_profile_integrity(
+    stored: GlobalGeometryProfileWithEvidence,
+) -> GlobalGeometryCandidate:
+    """Rebuild a persisted profile before it may be selected for a new job."""
+
+    profile = stored.profile
+    validate_global_geometry_profile_for_preflight(profile)
+    return canonicalize_global_geometry_candidate(
+        GlobalGeometryCandidate(
+            geometry_family=profile.geometry_family,
+            topology=profile.topology,
+            normalized_template=profile.normalized_template,
+            frame_appearance=profile.frame_appearance,
+            evidence_summary=profile.evidence_summary,
+            evidence=stored.evidence,
+            profile_checksum_sha256=profile.profile_checksum_sha256,
+        )
+    )
+
+
+def global_geometry_profile_descriptor_checksum(
+    *,
+    geometry_family: object,
+    topology: GlobalGeometryTopology,
+    normalized_template: Mapping[str, object],
+    frame_appearance: Mapping[str, object],
+) -> str:
+    """Bind the descriptor subset copied into the immutable job snapshot."""
+
+    template, appearance = validate_global_geometry_profile_descriptor(
+        geometry_family=geometry_family,
+        topology=topology,
+        normalized_template=normalized_template,
+        frame_appearance=frame_appearance,
+    )
+    return _sha256(
+        {
+            "schemaVersion": "shape-geometry-preflight-descriptor-v1",
+            "geometryFamily": geometry_family,
+            "topology": topology.to_dict(),
+            "normalizedTemplate": template,
+            "frameAppearance": appearance,
+        }
+    )
+
+
+def validate_global_geometry_profile_descriptor(
+    *,
+    geometry_family: object,
+    topology: GlobalGeometryTopology,
+    normalized_template: Mapping[str, object],
+    frame_appearance: Mapping[str, object],
+) -> tuple[dict[str, JSONValue], dict[str, JSONValue]]:
+    """Validate the game-neutral descriptor subset needed by local preflight."""
+
+    if geometry_family != SUPPORTED_GEOMETRY_FAMILY:
+        raise GlobalGeometryLibraryError(
+            "GLOBAL_GEOMETRY_FAMILY_UNSUPPORTED",
+            "The global geometry profile uses an unsupported geometry family.",
+        )
+    template = _canonical_object(normalized_template, field="normalized_template")
+    appearance = _canonical_object(frame_appearance, field="frame_appearance")
+    _validate_template(template, topology)
+    _validate_frame_appearance(appearance)
+    return template, appearance
+
+
 def build_global_geometry_candidate(
     *,
     geometry_family: str,
@@ -289,6 +428,15 @@ def canonicalize_global_geometry_candidate(
         evidence_summary=candidate.evidence_summary,
         evidence=raw_evidence,
     )
+    if tuple(
+        (item.source_game_ref, item.evidence_checksum_sha256) for item in candidate.evidence
+    ) != tuple(
+        (item.source_game_ref, item.evidence_checksum_sha256) for item in rebuilt.evidence
+    ):
+        raise GlobalGeometryLibraryError(
+            "GLOBAL_GEOMETRY_EVIDENCE_CHECKSUM_MISMATCH",
+            "The global geometry evidence differs from its supplied checksum.",
+        )
     if candidate.profile_checksum_sha256 != rebuilt.profile_checksum_sha256:
         raise GlobalGeometryLibraryError(
             "GLOBAL_GEOMETRY_PROFILE_CHECKSUM_MISMATCH",

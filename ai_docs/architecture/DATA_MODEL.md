@@ -25,12 +25,20 @@ Biblioteka nie przechowuje JPEG-ów, pikseli, cropów, OCR, symboli, payoutów,
 sekwencji, layoutów ani lokalnych kotwic. Kontrakt domenowy ma zamknięte pola
 descriptorów i przyjmuje wyłącznie skończone liczby w metrykach; przed każdym
 zapisem odbudowuje checksum, a odczyt zwraca głęboko zamrożony snapshot.
+Przed przypięciem do joba resolver odtwarza pełną checksumę wersji z wszystkimi
+wierszami `global_geometry_evidence_samples`. Job zapisuje descriptor-only
+snapshot z dodatkową checksumą descriptorów, którą worker ponownie sprawdza.
 Treść profilu, dowody i receipty są niezmienne. Trigger pozwala wyłącznie przyszłemu kwalifikatorowi przejść ze
 stanu `candidate` do `active` lub `rejected` oraz z `active` do `retired`, bez
 zmiany snapshotu; G06 nie ma jeszcze operacji aktywacji. Częściowy indeks
 uniemożliwia więcej niż jeden `active` profil o tej samej rodzinie i topologii.
 Manifest własności v2 klasyfikuje tabele jako `shared`, zachowując zamrożony
 manifest partycji gier v1.
+
+TASK-0606 nie dodaje tabel. Zgodny aktywny profil jest serializowany jako
+zamknięty snapshot w istniejącym immutable inputcie joba oraz w manifeście
+preflightu v4. Lokalne dowody i werdykt dotyczą źródła konkretnej gry, podczas
+gdy biblioteka nadal nie otrzymuje obrazu, `game_id` ani danych importu.
 
 ## Indeksowana bieżąca projekcja symboli — TASK-0521
 

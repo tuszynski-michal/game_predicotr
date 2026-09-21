@@ -13,9 +13,11 @@ Protokół ustanawia dane wejściowe dla eksperymentalnego wariantu
 `selective_board_review_v1_1`, nie uruchamia jobów ani importów i nie jest
 bramką aktywacji produkcyjnej.
 
-Obejmuje tylko gry `777`, `blazing`, `gang`, `reels` i `mummies`.
-Treasure jest poza zakresem. `reels_test` jest zarezerwowany dla V7, a
-`rells_big` nie jest niezależnym holdoutem; żaden z nich nie może być użyty.
+Schema corpusu v1 obejmuje wyłącznie gry `777`, `blazing`, `gang`, `reels` i
+`mummies`. Schema v2 dopuszcza kolejną zgodną grę po jawnym zadeklarowaniu
+rodziny `framed_full_page_v2`; nie zmienia rdzenia ani topologii. Treasure jest
+poza zakresem. `reels_test` jest zarezerwowany dla V7, a `rells_big` nie jest
+niezależnym holdoutem; żaden z nich nie może być użyty.
 
 ## Widoczność danych i manifesty
 
@@ -44,9 +46,9 @@ Jedna rodzina ujęć nie może trafić do dwóch splitów. Identyczne SHA wewną
 jednego splitu są raportowane jako kopie, a nie niezależne dowody. Identyczny
 SHA lub rodzina po obu stronach granicy executor/acceptance blokuje protokół.
 
-Każda z pięciu gier ma jawnie zadeklarowaną topologię pełnej strony: 3 × 3
-plansze, dziewięć aktywnych slotów row-major i 3 × 5 komórek na planszę.
-Inna topologia jest błędem corpusów, nie kandydatem do automatycznej adaptacji.
+Każda gra ma jawnie zadeklarowaną topologię pełnej strony: 3 × 3 plansze,
+dziewięć aktywnych slotów row-major i 3 × 5 komórek na planszę. Inna topologia
+jest błędem corpusów, nie kandydatem do automatycznej adaptacji.
 
 ## Anotacje i kotwica
 
@@ -106,8 +108,31 @@ Każdy późniejszy raport per gra ma osobne liczniki i mianowniki:
 
 Nieudane dekodowanie, review, wykluczenie po uruchomieniu oraz source error
 pozostają w odpowiednim raporcie ogólnym. Pusty mianownik daje
-`not_evaluable`, nigdy 0% ani sukces. G00 nie definiuje tolerancji,
-minimalnych liczności ani progów; ustali je i przedstawi do zatwierdzenia G01.
+`not_evaluable`, nigdy 0% ani sukces. G01 utrwala parametry wariantu,
+fingerprinty i mianowniki; liczbową politykę jakości można utworzyć wyłącznie z
+niepustych danych executor. Jej kwalifikacja i automatyczna aktywacja należą do
+G07, więc brak danych nie jest wymówką dla fikcyjnego progu ani blokadą G02–G06.
+
+## Eksperyment G01 i izolacja transferu
+
+Runner `run_shape_geometry_v2_experiment.py` przyjmuje wyłącznie executor,
+zamrożony inventory, checksum-bound anotacje oraz obserwacje operatora. Nie
+dekoduje obrazu poza ponowną kontrolą inventory, nie uruchamia detektora, joba,
+importu ani zapisu do bazy. Każda obserwacja przypina manifest, inventory,
+anotacje, identyfikator i parametry wariantu algorytmu oraz wynik jednego
+źródła.
+
+Stałe warianty to `shape_contrast_v1`, `shape_contrast_color_assist_v1`,
+`shape_contrast_local_anchor_v1` i `shape_contrast_shared_profile_v1`. Raport
+osobno podaje automaty poprawne i błędne, review, korekty, tylko potwierdzenie,
+czas operatora, oczekiwaną i ocenioną liczbę źródeł oraz brakujące źródła.
+Niepełna macierz obserwacji, brak anotacji któregokolwiek źródła pomiarowego
+albo brak lokalnej kotwicy daje `not_evaluable` dla tego wariantu.
+
+Wariant profilu wspólnego wymaga checksummy profilu i niepustej listy gier,
+które go zbudowały. Badana gra nie może znaleźć się na tej liście; naruszenie
+jest błędem fail-closed, a nie lokalnym fallbackiem. Dla jednego wariantu gry
+wszystkie źródła muszą wskazać tę samą proweniencję profilu.
 
 ## Kolejność operatorska
 
@@ -123,6 +148,10 @@ C:\Users\tuszy\Documents\game_predicotr\.venv\Scripts\python.exe scripts\run_sha
 
 # Kontrola driftu przed G01.
 C:\Users\tuszy\Documents\game_predicotr\.venv\Scripts\python.exe scripts\run_shape_geometry_v2_v11_baseline.py --manifest <executor-manifest.json> --inventory <executor-inventory.json> --output <v11-baseline.json> --check
+
+# Read-only raport G01 i jego odtwarzalna kontrola.
+C:\Users\tuszy\Documents\game_predicotr\.venv\Scripts\python.exe scripts\run_shape_geometry_v2_experiment.py --manifest <executor-manifest.json> --inventory <executor-inventory.json> --annotations <annotations.json> --observations <observations.json> --output <g01-experiment.json>
+C:\Users\tuszy\Documents\game_predicotr\.venv\Scripts\python.exe scripts\run_shape_geometry_v2_experiment.py --manifest <executor-manifest.json> --inventory <executor-inventory.json> --annotations <annotations.json> --observations <observations.json> --output <g01-experiment.json> --check
 ```
 
 Pliki wynikowe są operator-owned artefaktami lokalnymi. Nie należy dodawać

@@ -18,6 +18,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any, NoReturn, cast
 
 SHAPE_GEOMETRY_V2_CORPUS_SCHEMA_VERSION = 1
+SHAPE_GEOMETRY_V2_EXTENSIBLE_CORPUS_SCHEMA_VERSION = 2
+SHAPE_GEOMETRY_V2_FRAME_GEOMETRY_FAMILY = "framed_full_page_v2"
 SHAPE_GEOMETRY_V2_ANNOTATION_SCHEMA_VERSION = 1
 SHAPE_GEOMETRY_V2_INVENTORY_VERSION = "shape-geometry-v2-inventory-v1"
 SHAPE_GEOMETRY_V2_ANCHOR_SELECTION_VERSION = "shape-geometry-v2-anchor-selection-v1"
@@ -219,7 +221,9 @@ class ShapeGeometryGame:
     v11_profile: Mapping[str, object] | None
 
     @classmethod
-    def from_mapping(cls, raw: Mapping[str, object]) -> ShapeGeometryGame:
+    def from_mapping(
+        cls, raw: Mapping[str, object], *, allow_extended_game_ids: bool
+    ) -> ShapeGeometryGame:
         _require_exact_keys(
             raw,
             {
@@ -234,7 +238,7 @@ class ShapeGeometryGame:
             "game",
         )
         game_id = _require_identifier(raw["gameId"], "gameId")
-        if game_id not in SUPPORTED_GAME_IDS:
+        if not allow_extended_game_ids and game_id not in SUPPORTED_GAME_IDS:
             _fail(
                 "SHAPE_GEOMETRY_V2_GAME_UNSUPPORTED",
                 "Corpus game is outside the approved scope.",
@@ -277,7 +281,9 @@ class ShapeGeometryCorpusSource:
     scenarios: tuple[str, ...]
 
     @classmethod
-    def from_mapping(cls, raw: Mapping[str, object]) -> ShapeGeometryCorpusSource:
+    def from_mapping(
+        cls, raw: Mapping[str, object], *, allow_extended_game_ids: bool
+    ) -> ShapeGeometryCorpusSource:
         _require_exact_keys(
             raw,
             {
@@ -297,7 +303,7 @@ class ShapeGeometryCorpusSource:
         if not isinstance(source_id, str) or _SOURCE_ID.fullmatch(source_id) is None:
             _fail("SHAPE_GEOMETRY_V2_CORPUS_INVALID", "sourceId is invalid.")
         game_id = _require_identifier(raw["gameId"], "source.gameId")
-        if game_id not in SUPPORTED_GAME_IDS:
+        if not allow_extended_game_ids and game_id not in SUPPORTED_GAME_IDS:
             _fail(
                 "SHAPE_GEOMETRY_V2_GAME_UNSUPPORTED",
                 "Source game is outside the approved scope.",
@@ -372,6 +378,8 @@ class ShapeGeometryCorpusSource:
 
 @dataclass(frozen=True, slots=True)
 class ShapeGeometryCorpusManifest:
+    schema_version: int
+    geometry_family: str | None
     corpus_root: Path
     visibility: CorpusVisibility
     games: tuple[ShapeGeometryGame, ...]
@@ -379,10 +387,28 @@ class ShapeGeometryCorpusManifest:
 
     def __post_init__(self) -> None:
         games_by_id = {game.game_id: game for game in self.games}
-        if len(games_by_id) != len(self.games) or set(games_by_id) != SUPPORTED_GAME_IDS:
+        if self.schema_version == SHAPE_GEOMETRY_V2_CORPUS_SCHEMA_VERSION and (
+            len(games_by_id) != len(self.games) or set(games_by_id) != SUPPORTED_GAME_IDS
+        ):
             _fail(
                 "SHAPE_GEOMETRY_V2_GAME_SET_INVALID",
                 "Corpus must declare exactly 777, Blazing, Gang, Reels, and Mummies.",
+            )
+        if self.schema_version == SHAPE_GEOMETRY_V2_EXTENSIBLE_CORPUS_SCHEMA_VERSION and (
+            not games_by_id
+            or len(games_by_id) != len(self.games)
+            or self.geometry_family != SHAPE_GEOMETRY_V2_FRAME_GEOMETRY_FAMILY
+        ):
+            _fail(
+                "SHAPE_GEOMETRY_V2_GAME_SET_INVALID",
+                "An extensible corpus requires a non-empty framed-full-page game set.",
+            )
+        if self.schema_version == SHAPE_GEOMETRY_V2_EXTENSIBLE_CORPUS_SCHEMA_VERSION and (
+            "treasure" in games_by_id
+        ):
+            _fail(
+                "SHAPE_GEOMETRY_V2_GAME_UNSUPPORTED",
+                "Treasure has no framed-page contract in shape geometry v2.",
             )
         source_ids = tuple(source.source_id for source in self.sources)
         relative_paths = tuple(source.relative_path.as_posix() for source in self.sources)
@@ -452,12 +478,40 @@ class ShapeGeometryCorpusManifest:
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object]) -> ShapeGeometryCorpusManifest:
-        _require_exact_keys(
-            raw,
-            {"schemaVersion", "visibility", "corpusRoot", "games", "sources"},
-            "manifest",
-        )
-        if raw["schemaVersion"] != SHAPE_GEOMETRY_V2_CORPUS_SCHEMA_VERSION:
+        schema_version = raw.get("schemaVersion")
+        if schema_version == SHAPE_GEOMETRY_V2_CORPUS_SCHEMA_VERSION:
+            _require_exact_keys(
+                raw,
+                {"schemaVersion", "visibility", "corpusRoot", "games", "sources"},
+                "manifest",
+            )
+            geometry_family: str | None = None
+        elif schema_version == SHAPE_GEOMETRY_V2_EXTENSIBLE_CORPUS_SCHEMA_VERSION:
+            _require_exact_keys(
+                raw,
+                {
+                    "schemaVersion",
+                    "geometryFamily",
+                    "visibility",
+                    "corpusRoot",
+                    "games",
+                    "sources",
+                },
+                "manifest",
+            )
+            raw_geometry_family = raw["geometryFamily"]
+            if not isinstance(raw_geometry_family, str):
+                _fail(
+                    "SHAPE_GEOMETRY_V2_GEOMETRY_FAMILY_UNSUPPORTED",
+                    "Extensible corpus geometryFamily must be a string.",
+                )
+            geometry_family = raw_geometry_family
+            if geometry_family != SHAPE_GEOMETRY_V2_FRAME_GEOMETRY_FAMILY:
+                _fail(
+                    "SHAPE_GEOMETRY_V2_GEOMETRY_FAMILY_UNSUPPORTED",
+                    "Extensible corpus must explicitly use the framed full-page geometry family.",
+                )
+        else:
             _fail("SHAPE_GEOMETRY_V2_CORPUS_INVALID", "Corpus manifest version is unsupported.")
         try:
             visibility = CorpusVisibility(cast(str, raw["visibility"]))
@@ -469,29 +523,47 @@ class ShapeGeometryCorpusManifest:
         if not isinstance(root, str) or not root.strip():
             _fail("SHAPE_GEOMETRY_V2_CORPUS_INVALID", "corpusRoot is required.")
         games = tuple(
-            ShapeGeometryGame.from_mapping(_require_mapping(item, "game"))
+            ShapeGeometryGame.from_mapping(
+                _require_mapping(item, "game"),
+                allow_extended_game_ids=(
+                    schema_version == SHAPE_GEOMETRY_V2_EXTENSIBLE_CORPUS_SCHEMA_VERSION
+                ),
+            )
             for item in _require_sequence(raw["games"], "games")
         )
         sources = tuple(
-            ShapeGeometryCorpusSource.from_mapping(_require_mapping(item, "source"))
+            ShapeGeometryCorpusSource.from_mapping(
+                _require_mapping(item, "source"),
+                allow_extended_game_ids=(
+                    schema_version == SHAPE_GEOMETRY_V2_EXTENSIBLE_CORPUS_SCHEMA_VERSION
+                ),
+            )
             for item in _require_sequence(raw["sources"], "sources")
         )
-        return cls(corpus_root=Path(root), visibility=visibility, games=games, sources=sources)
+        return cls(
+            schema_version=cast(int, schema_version),
+            geometry_family=geometry_family,
+            corpus_root=Path(root),
+            visibility=visibility,
+            games=games,
+            sources=sources,
+        )
 
     def fingerprint(self) -> str:
-        return _fingerprint(
-            {
-                "games": [
-                    game.as_dict() for game in sorted(self.games, key=lambda value: value.game_id)
-                ],
-                "schemaVersion": SHAPE_GEOMETRY_V2_CORPUS_SCHEMA_VERSION,
-                "sources": [
-                    source.as_dict()
-                    for source in sorted(self.sources, key=lambda value: value.source_id)
-                ],
-                "visibility": self.visibility.value,
-            }
-        )
+        payload: dict[str, object] = {
+            "games": [
+                game.as_dict() for game in sorted(self.games, key=lambda value: value.game_id)
+            ],
+            "schemaVersion": self.schema_version,
+            "sources": [
+                source.as_dict()
+                for source in sorted(self.sources, key=lambda value: value.source_id)
+            ],
+            "visibility": self.visibility.value,
+        }
+        if self.geometry_family is not None:
+            payload["geometryFamily"] = self.geometry_family
+        return _fingerprint(payload)
 
     def game(self, game_id: str) -> ShapeGeometryGame:
         for game in self.games:
@@ -548,6 +620,7 @@ class ShapeGeometryCorpusManifest:
         return ShapeGeometryFrozenInventory(
             manifest_fingerprint=self.fingerprint(),
             visibility=self.visibility,
+            game_ids=tuple(sorted(game.game_id for game in self.games)),
             sources=tuple(entries),
         )
 
@@ -556,6 +629,7 @@ class ShapeGeometryCorpusManifest:
 class ShapeGeometryFrozenInventory:
     manifest_fingerprint: str
     visibility: CorpusVisibility
+    game_ids: tuple[str, ...]
     sources: tuple[dict[str, object], ...]
 
     def fingerprint(self) -> str:
@@ -583,7 +657,7 @@ class ShapeGeometryFrozenInventory:
                     }
                 )
         per_game: list[dict[str, object]] = []
-        for game_id in sorted(SUPPORTED_GAME_IDS):
+        for game_id in self.game_ids:
             game_sources = [value for value in self.sources if value["gameId"] == game_id]
             per_game.append(
                 {
@@ -869,7 +943,7 @@ def select_v2_anchors(
             )
     annotations_by_source = {value.source_id: value for value in annotations.annotations}
     games: list[dict[str, object]] = []
-    for game_id in sorted(SUPPORTED_GAME_IDS):
+    for game_id in sorted(game.game_id for game in manifest.games):
         candidates = sorted(
             (
                 source
@@ -963,7 +1037,7 @@ def run_v11_baseline(
             "Baseline requires the current checksum-bound executor inventory.",
         )
     games: list[dict[str, object]] = []
-    for game_id in sorted(SUPPORTED_GAME_IDS):
+    for game_id in sorted(game.game_id for game in manifest.games):
         game = manifest.game(game_id)
         selected = tuple(
             sorted(

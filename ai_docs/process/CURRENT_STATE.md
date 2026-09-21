@@ -8,17 +8,17 @@ last_updated: 2026-09-21
 
 ### TASK-0603 — eksperyment i kontrakt wejścia geometrii shape v2
 
-- G01 jest w realizacji zgodnie z zaakceptowanym
-  `ai_docs/delivery/SHAPE_GEOMETRY_V2_EXECUTION_PLAN.md`. Budujemy
-  rozszerzalny, read-only kontrakt i runner porównawczy dla obecnych oraz
-  kolejnych gier z ramką. Brak atestowanego corpusów lub anotacji daje
-  `not_evaluable` per gra/źródło; nie blokuje budowy G02–G07.
-- Podział danych rozdziela rodziny zdjęć jednej gry. Wszystkie pięć gier
-  pozostaje w zakresie tworzenia, a późniejsza zgodna gra ma korzystać z
-  profilu wspólnego zamiast własnego detektora.
-- Nowe kandydatury wiedzy będą aktywowane automatycznie tylko po integralności,
-  regresji, jakości i replayu. `reels_test` i `rells_big` pozostają wykluczone;
-  Treasure bez ramki jest zakresem v3/v4.
+- Ukończono G01: schema v1 zachowuje pięć początkowych gier, a jawny schema v2
+  pozwala później dodać zgodną grę z pełną ramką i topologią bez forka silnika.
+  Read-only runner wiąże manifest, inventory, anotacje, wariant i profil
+  transferowy checksumami, odrzuca wkład badanej gry oraz zwraca
+  `not_evaluable` dla niepełnych dowodów.
+- Brak atestowanego corpusów, anotacji i profili dla danych produkcyjnych nadal
+  ogranicza tylko rzeczywisty pomiar i przyszły pilot. Nie powstały fikcyjne
+  bramki liczbowe; G02 może zbudować niezależny rdzeń geometrii.
+- 17 testów, Ruff i ograniczony mypy przeszły. Audyt Astra Medium wykrył trzy
+  P2, wszystkie naprawiono; re-audyt nie ma P0–P2 ani P3. Karta zadania została
+  przeniesiona do `ai_docs/tasks/completed/`.
 
 ### TASK-0602 — korpus i baseline geometrii shape v2
 

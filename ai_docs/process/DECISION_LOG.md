@@ -9106,3 +9106,22 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** po każdym zadaniu wymagany jest niezależny audyt Astra Medium.
   P0/P1 zatrzymuje serię; P2/P3 jest naprawiany, ponownie testowany i audytowany
   przed przejściem dalej. Pusty mianownik nigdy nie kwalifikuje wersji.
+
+## D-420 — Rozszerzalny kontrakt corpusów i fail-closed eksperyment transferu
+
+- **Status:** accepted (TASK-0603/G01).
+- **Date:** 2026-09-21.
+- **Decision:** corpus schema v1 zachowuje dokładnie pięć początkowych gier i
+  własny fingerprint. Schema v2 dodaje przyszłą grę wyłącznie po deklaracji
+  `framed_full_page_v2` oraz obowiązującej topologii 3 × 3 / 3 × 5; Treasure
+  pozostaje odrzucony. G01 wymaga bieżącego checksum-bound inventory, anotacji
+  każdego źródła measurement i kompletnej macierzy obserwacji. Profil transferu
+  ma niepustą proweniencję innych gier i nigdy nie zawiera gry ocenianej.
+- **Rationale:** nowa gra powinna dziedziczyć geometrię, ale nie może osłabić
+  historycznego korpusu ani zawyżyć efektu transferu własnymi korektami,
+  brakującą anotacją albo zestarzałym inwentarzem.
+- **Compatibility:** manifesty v1, ich inwentarze i raporty baseline pozostają
+  bajtowo zgodne. Schema v2 nie tworzy silnika, importu, joba ani wpisu bazy.
+- **Safety:** niepełny dowód zwraca `not_evaluable`; błędny wkład transferowy,
+  drift corpusów i mieszanie widoczności kończą się fail-closed. Wyniki
+  `confirmation_only` pozostają częścią mianownika automatów.

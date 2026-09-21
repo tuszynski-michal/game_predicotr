@@ -1,6 +1,6 @@
 ---
 title: TASK-0603 Shape geometry v2 experiment and input contract
-status: in_progress
+status: done
 last_updated: 2026-09-21
 ---
 
@@ -60,13 +60,13 @@ executor, nigdy z acceptance ani z pustego mianownika.
 
 ## Acceptance criteria
 
-- [ ] Stary manifest G00 zachowuje walidację i fingerprint; nowy schema nie
+- [x] Stary manifest G00 zachowuje walidację i fingerprint; nowy schema nie
       przyjmuje danych acceptance ani zarezerwowanych Reels.
-- [ ] Nowa zgodna gra może otrzymać status per źródło bez forka silnika.
-- [ ] Runner rozdziela mianowniki i raportuje `not_evaluable` dla brakujących
+- [x] Nowa zgodna gra może otrzymać status per źródło bez forka silnika.
+- [x] Runner rozdziela mianowniki i raportuje `not_evaluable` dla brakujących
       dowodów.
-- [ ] Transfer wykrywa udział badanej gry jako błąd fail-closed.
-- [ ] Testy pokrywają zgodność wsteczną, drift, split i transfer.
+- [x] Transfer wykrywa udział badanej gry jako błąd fail-closed.
+- [x] Testy pokrywają zgodność wsteczną, drift, split i transfer.
 
 ## Expected files
 
@@ -78,4 +78,43 @@ executor, nigdy z acceptance ani z pustego mianownika.
 
 ## Outcome
 
-W trakcie realizacji.
+### Changed
+
+- Manifest schema v1 zachowuje zamknięty zestaw pięciu gier i historyczny
+  fingerprint. Nowy schema v2 wymaga rodziny `framed_full_page_v2`, tej samej
+  pełnej topologii oraz niepustej listy gier; nie dopuszcza Treasure.
+- Dodano read-only runner G01 wraz z checksummowanym dokumentem obserwacji.
+  Porównuje cztery warianty, raportuje osobne mianowniki i nie kwalifikuje
+  niepełnej obserwacji, brakującej anotacji measurement ani kotwicy jako
+  sukcesu.
+- Transfer wymaga checksummy oraz niepustej proweniencji profilu; wkład badanej
+  gry jest błędem fail-closed. `confirmation_only` należy do mianownika
+  automatów.
+- Publiczny runner ponownie kontroluje bieżący inventory przed raportem,
+  dlatego nie przyjmie innego ani zestarzałego corpusów poza CLI.
+
+### Verification results
+
+- 17 skoncentrowanych testów corpusów i eksperymentu przeszło.
+- Ruff zmienionych plików przeszedł.
+- Mypy `--no-incremental --follow-imports=skip` dla trzech modułów przeszedł;
+  ostrzega jedynie o nieużywanej, zastanej sekcji dla zależności ONNX.
+- Audyt Astra Medium znalazł trzy P2 (anotacje measurement, mianownik
+  `confirmation_only`, bieżący inventory); wszystkie poprawiono. Re-audyt nie
+  wykazał P0–P2 ani P3.
+
+### Not completed
+
+- Repozytorium nadal nie zawiera atestowanego executor corpusów, anotacji i
+  profilów v1.1 dla realnych pięciu gier. Nie utworzono fikcyjnych progów ani
+  raportu jakości z pustych mianowników; zależny pomiar pozostaje
+  `not_evaluable`.
+
+### Documentation updates
+
+- Zaktualizowano protokół G01 oraz stan projektu o rozszerzalny schema,
+  wymagane anotacje measurement i izolację transferu.
+
+### Recommended next task
+
+- G02 — wspólny, deterministyczny rdzeń geometrii, niezależny od corpusów.

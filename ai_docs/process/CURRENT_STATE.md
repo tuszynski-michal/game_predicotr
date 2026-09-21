@@ -27,9 +27,12 @@ last_updated: 2026-09-21
   sprawdza jej klucz i powiązany `passed` report. Adopcja sama nie aktywuje V7,
   workera ani writera.
 - 25 testów Python, Ruff, Mypy oraz 58 testów i typecheck wygenerowanego klienta
-  Admina przeszły. Rzeczywista kalibracja 777 T0603 nadal jest zablokowana na
-  punktach operatora, dlatego nie powstał prawdziwy report/adopcja i bramka V7
-  nadal pozostaje zamknięta.
+  Admina przeszły. Rzeczywista kalibracja 777 T0603 ma już punkty operatora.
+  Poprawka D-418 usuwa fałszywą blokadę diagnostyki cropa, ale pomiar sesji ma
+  `p95=0,225547` przy limicie `0,04`: pełny i częściowo zasłonięty kadr mają
+  różne położenia całej siatki. Statyczny profil nie może ich połączyć bez
+  obniżenia progu, którego nie zmieniono. Nie powstał prawdziwy report/adopcja,
+  a bramka V7 pozostaje zamknięta.
 
 ### TASK-0604 — obserwator V7 związany z profilem geometrii
 
@@ -60,12 +63,14 @@ last_updated: 2026-09-21
 - Zgodnie z D-415 powstał osobny, ignorowany manifest T0603 w `.runtime/`:
   oba case'y 777 są w nim `calibration`, należą do jednej rodziny i nie
   zmieniają istniejącego manifestu V1, danych wejściowych ani holdoutu.
-  Rzeczywiste punkty nadal wymagają świadomego oznaczenia operatora. Przegląd
-  kadrów potwierdził trwałe zasłonięcie dolnego lewego obszaru w wielu
-  źródłach bazowych, więc nie utworzono pozornie poprawnego profilu przez
-  zgadywanie centrów albo grup ujęć. TASK-0603 jest `blocked` wyłącznie na
-  brakujących danych operatora; profil, runtime observer, adopcje i aktywacja
-  V7 pozostają zablokowane.
+  Operator oznaczył po sześć–siedem pełnych cropów każdej pozycji, w więcej
+  niż dwóch grupach ujęć. Poprawka D-418 sprawia, że pojedyncze zapisane
+  diagnostyki `clipped`/`uncertain` nie blokują już tych pełnych punktów;
+  serwer do profilu bierze wyłącznie `contained` z zapisaną grupą ujęć.
+  Rzeczywisty dry-run nie przeszedł p95, ponieważ pełne źródło ma poprawną,
+  ale przesuniętą geometrię względem pięciu częściowo zasłoniętych źródeł.
+  TASK-0603 pozostaje `blocked` na decyzji: osobne profile framingów albo
+  dynamiczna normalizacja viewportu; V7 pozostaje zablokowane.
 
 ### TASK-0602 — ekran anotacji geometrii etykiet V7
 

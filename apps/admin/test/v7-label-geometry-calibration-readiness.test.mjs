@@ -90,7 +90,7 @@ test('unavailable, clipped, uncertain, missing capture group, and duplicate SHA 
   assert.equal(result.positions[1]?.readyForProfileCheck, false);
 });
 
-test('a clipped annotation blocks the profile check even when five contained points exist', () => {
+test('diagnostic clipped annotations do not block five contained points', () => {
   const sources = Array.from({ length: 6 }, (_, index) => source(index + 1));
   const result = calculateV7LabelGeometryCalibrationReadiness({
     captureGroups: Object.fromEntries(
@@ -116,5 +116,5 @@ test('a clipped annotation blocks the profile check even when five contained poi
   assert.equal(result.positions[0]?.sourceCount, 5);
   assert.equal(result.positions[0]?.captureGroupCount, 2);
   assert.equal(result.positions[0]?.incompleteAnnotationCount, 1);
-  assert.equal(result.positions[0]?.readyForProfileCheck, false);
+  assert.equal(result.positions[0]?.readyForProfileCheck, true);
 });

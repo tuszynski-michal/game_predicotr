@@ -78,8 +78,7 @@ export function calculateV7LabelGeometryCalibrationReadiness(input: {
       positionIndex,
       readyForProfileCheck:
         sourceCount >= V7_LABEL_GEOMETRY_MINIMUM_SOURCES_PER_POSITION &&
-        captureGroupCount >= V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION &&
-        incompleteAnnotationCount === 0,
+        captureGroupCount >= V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION,
       sourceCount,
       unavailableCount,
     };

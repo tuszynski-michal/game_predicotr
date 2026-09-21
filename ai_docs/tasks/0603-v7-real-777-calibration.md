@@ -58,14 +58,14 @@ TASK-0602 udostępnił trwały ekran anotacji, lecz rzeczywisty korpus nie był 
 ## Acceptance criteria
 
 - [ ] Nowy lokalny manifest V2 wybiera oba case’y 777 jako `calibration` tej samej rodziny, zachowuje wszystkie pozostałe case’y i nie dotyka `reels_test`.
-- [ ] UI pokazuje na bieżąco postęp każdej z dziewięciu pozycji względem 5 różnych SHA, 2 capture groups i `contained`; stan nie może udawać, że `unavailable`, `clipped` lub `uncertain` są gotowe do profilu.
+- [ ] UI pokazuje na bieżąco postęp każdej z dziewięciu pozycji względem 5 różnych SHA, 2 capture groups i `contained`; `unavailable`, `clipped` i `uncertain` nie zwiększają liczników, ale wpis diagnostyczny nie blokuje już istniejącego kompletu kwalifikujących się punktów.
 - [ ] Instrukcja operatora rozdziela wybór źródła, capture group, punkt centralny, `unavailable`, ocenę cropa i końcowy profil.
 - [ ] Kontrola lokalna potwierdza split/family dla obu case’ów oraz odrzucenie przypadków niedozwolonych.
 - [ ] Wszelkie rzeczywiste profile są tylko immutable, checksum-bound i `passed`; bez takiego wyniku V7 pozostaje zablokowane.
 
 ## Technical notes
 
-Serwer pozostaje właścicielem inwentarza i sesji. Ekran może wyłącznie obliczać diagnostykę z odpowiedzi sesji: dla każdej pozycji liczy unikalne `sourceChecksumSha256` i `captureGroupId` wyłącznie dla slotów `annotated` z `cropAssessment=contained`. Karta postępu nie jest autoryzacją — endpoint profilu nadal przeprowadza całą walidację pod własną blokadą.
+Serwer pozostaje właścicielem inwentarza i sesji. Ekran może wyłącznie obliczać diagnostykę z odpowiedzi sesji: dla każdej pozycji liczy unikalne `sourceChecksumSha256` i `captureGroupId` wyłącznie dla slotów `annotated` z `cropAssessment=contained` oraz niepustą grupą ujęć. Karta postępu nie jest autoryzacją — endpoint profilu nadal przeprowadza całą walidację pod własną blokadą.
 
 Manifest T0603 ma być nowym plikiem w `.runtime/`, nie edycją `v7-corpus-manifest.local.json`; start API dostaje go jawnie przez `GAME_PREDICTOR_V7_LABEL_GEOMETRY_CORPUS_MANIFEST`. Wersja 2 deklaruje `geometryFamilyId` i `sourceGameRef` dla wyłącznie obu case’ów użytych przez pierwszą rodzinę. Wszystkie pozostałe case’y zachowują role/splity i mają puste pola V2.
 
@@ -82,9 +82,9 @@ Dla źródeł z jednego przejścia ustaw ten sam `captureGroupId`; dla drugiego,
 ## Test cases
 
 - Manifest V2 z `small_777` i `occluded_777` → obie pozycje mają split `calibration`, rodzinę `standard_3x3_numeric_labels_v1`, a `reels_test` nie jest wybieralny.
-- Mniej niż pięć SHA, mniej niż dwie grupy lub choć jeden crop inny niż `contained` → postęp pokazuje brak gotowości; profil pozostaje niedozwolony przez serwer.
+- Mniej niż pięć SHA lub mniej niż dwie grupy → postęp pokazuje brak gotowości; profil pozostaje niedozwolony przez serwer.
 - Pięć różnych SHA z dwoma grupami i pełnymi cropami dla pozycji → UI pokazuje gotowość diagnostyczną; endpoint nadal jest źródłem prawdy dla p95 i finalnej decyzji.
-- `unavailable` / `clipped` / `uncertain` → nie zwiększa liczników kwalifikujących się punktów.
+- `unavailable` / `clipped` / `uncertain` → nie zwiększa liczników kwalifikujących się punktów i nie blokuje istniejącego kompletu `contained`.
 - Holdout lub development → API kończy się stabilnym błędem splitu, bez utworzenia sesji.
 
 ## Verification
@@ -134,7 +134,7 @@ Zadanie kończy się po testach, self-audycie, review Astra Medium, poprawie ka�
   pytest jedno ostrzeżenie deprecacji Starlette.
 - Końcowy review Astra Medium nie znalazł uwag P0–P2.
 
-### Blokada krytyczna
+### Poprzednia blokada i wznowienie
 
 Rzeczywisty przegląd obu katalogów wykazał, że wiele kadrów w `777` ma stale
 zasłonięty dolny lewy obszar, zaś drugi katalog zawiera mieszankę pełnych i
@@ -144,6 +144,17 @@ Nie wolno tworzyć takich grup ani centrów etykiet przez zgadywanie. Bez
 świadomych anotacji operatora serwer poprawnie nie utworzy profilu, a bez
 profilu nie wolno przejść do TASK-0604.
 
-Task pozostaje `blocked` po przygotowaniu i osobnym commicie. Po oznaczeniu
-przez operatora należy wznowić go na istniejącej sesji, sprawdzić snapshot,
-utworzyć profil tylko po `passed` i wykonać ponownie wymagany review.
+Operator wznowił istniejącą sesję i dostarczył sześć–siedem pełnych punktów na
+pozycję. Wykryto, że lokalna gotowość i warstwa aplikacji błędnie traktowały
+pojedyncze wpisy diagnostyczne `clipped`/`uncertain` jako blokadę całego
+profilu. D-418 rozdziela teraz diagnostykę od wejścia profilu.
+
+Pomiar po tej poprawce potwierdza liczbę źródeł i grup, lecz kończy się
+`p95=0,225547` przy limicie `0,04`. Jedno pełne źródło
+`302200 777_000656.jpg` ma prawidłowo zaznaczoną, ale przesuniętą w prawo
+siatkę (`x≈0,26…0,72`); pięć ujęć częściowo zasłoniętych ma tę samą siatkę
+po lewej (`x≈0,06…0,50`). Statyczny profil pojedynczych współrzędnych nie może
+uczciwie obsłużyć obu legalnych framings. Nie obniżono progu i nie zmieniono
+anotacji operatora. TASK-0603 jest ponownie `blocked` na decyzji architektonicznej:
+oddzielne profile dla framingów albo nowy lokalizator dynamicznie normalizujący
+viewport plansz.

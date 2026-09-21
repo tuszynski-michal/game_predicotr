@@ -3383,9 +3383,13 @@ Operacja ma `operationId`, `expectedRevision`, `kind=annotated|unavailable|
 set_capture_group` oraz tylko pola właściwe dla danego rodzaju. Ten sam UUID z
 tym samym payloadem zwraca trwały receipt przed kontrolą nowej rewizji; inny
 payload jest konfliktem. Eksport i profil wymagają dokładnej rewizji. Profil
-powstaje tylko z immutable snapshotu eksportu sesji, gdy przechodzą pięć SHA,
-dwie grupy ujęć, `contained` oraz p95; przy odczycie jest ponownie weryfikowany
-względem własnego fingerprintu, nazwy i checksumy eksportu.
+powstaje tylko z immutable snapshotu eksportu sesji, gdy kwalifikujące się
+punkty `annotated` z `contained` i zapisaną grupą ujęć przechodzą pięć SHA,
+dwie grupy ujęć oraz p95.
+Wpisy `unavailable`, `clipped` i `uncertain` zostają w snapshotcie jako
+diagnostyka, lecz nie stają się wejściem profilu ani nie unieważniają innych,
+pełnych punktów. Przy odczycie profil jest ponownie weryfikowany względem
+własnego fingerprintu, nazwy i checksumy eksportu.
 
 TASK-0605 dodaje `POST /validation-reports` i `POST /adoptions`. Pierwszy
 endpoint przyjmuje UUID operacji, fingerprint profilu, sourceGameRef,

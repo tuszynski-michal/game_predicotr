@@ -6,6 +6,23 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-418 — Diagnostyka niepełnego cropa nie unieważnia pełnej kalibracji
+
+- **Status:** accepted (TASK-0603).
+- **Date:** 2026-09-21.
+- **Decision:** profil geometrii etykiet V7 oraz lokalny wskaźnik gotowości
+  używają wyłącznie slotów `annotated` z oceną `contained` i niepustą grupą
+  ujęć. Sloty
+  `clipped`, `uncertain` i `unavailable` pozostają trwałą diagnostyką sesji,
+  lecz nie podnoszą liczników i nie blokują profilu, jeśli dana pozycja ma już
+  pięć niezależnych pełnych punktów z dwóch rzeczywistych grup ujęć.
+- **Rationale:** zdjęcia zasłonięte służą do opisania granic korpusu, ale nie
+  mogą wymuszać usuwania poprawnych punktów lub powtarzania kalibracji, gdy
+  profil i tak korzysta wyłącznie z pełnych cropów.
+- **Safety:** czysta funkcja kalibracji nadal odrzuca każdy przekazany punkt
+  inny niż `contained`; warstwa aplikacji filtruje snapshot przed wywołaniem
+  tej funkcji. Immutable eksport zachowuje pełną historię diagnostyczną.
+
 ## D-417 — T05 zapisuje surowe predykcje i tworzy adopcję wyłącznie z passed reportu
 
 - **Status:** accepted (TASK-0605).

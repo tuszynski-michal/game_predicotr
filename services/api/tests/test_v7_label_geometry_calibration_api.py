@@ -120,6 +120,7 @@ def _operation(
     source_id: str,
     position_index: int | None = None,
     capture_group_id: str | None = None,
+    crop_assessment: str | None = None,
 ) -> tuple[object, object]:
     return service.mutate_session(
         session.session_id,  # type: ignore[attr-defined]
@@ -131,7 +132,9 @@ def _operation(
             position_index=position_index,
             center_x=0.2 + (position_index or 0) * 0.01 if kind == "annotated" else None,
             center_y=0.3 + (position_index or 0) * 0.01 if kind == "annotated" else None,
-            crop_assessment="contained" if kind == "annotated" else None,
+            crop_assessment=(
+                "contained" if kind == "annotated" and crop_assessment is None else crop_assessment
+            ),
             capture_group_id=capture_group_id,
         ),
     )
@@ -411,6 +414,54 @@ def test_complete_session_creates_content_addressed_profile_and_rejects_incomple
         )
     assert rejected.value.code == "V7_CALIBRATION_PROFILE_REJECTED"
     assert incomplete.list_profiles() == ()
+
+
+def test_profile_uses_only_contained_annotations_and_keeps_crop_diagnostics(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path, calibration_count=6)
+    session = _complete_calibration_session(service)
+    diagnostic_source = session.sources[-1]
+    session, _receipt = _operation(
+        service,
+        session,
+        kind="annotated",
+        source_id=diagnostic_source.source_id,
+        position_index=0,
+        crop_assessment="clipped",
+    )
+
+    profile = service.create_profile(session.session_id, expected_revision=session.revision)
+
+    assert profile.profile.calibration.status.value == "passed"
+    assert profile.profile.calibration.source_count_by_position[0] == 5
+
+
+def test_profile_ignores_contained_points_without_a_capture_group(tmp_path: Path) -> None:
+    service = _service(tmp_path, calibration_count=6)
+    session = service.create_session(geometry_family_id=FAMILY, corpus_case_ids=("game777",))
+    for source_index, source in enumerate(session.sources[:-1]):
+        session, _receipt = _operation(
+            service,
+            session,
+            kind="set_capture_group",
+            source_id=source.source_id,
+            capture_group_id="capture-a" if source_index < 3 else "capture-b",
+        )
+    for position_index in range(9):
+        for source in session.sources:
+            session, _receipt = _operation(
+                service,
+                session,
+                kind="annotated",
+                source_id=source.source_id,
+                position_index=position_index,
+            )
+
+    profile = service.create_profile(session.session_id, expected_revision=session.revision)
+
+    assert profile.profile.calibration.status.value == "passed"
+    assert profile.profile.calibration.source_count_by_position == (5,) * 9
 
 
 def test_profile_read_rejects_tampering_and_a_swapped_content_addressed_path(

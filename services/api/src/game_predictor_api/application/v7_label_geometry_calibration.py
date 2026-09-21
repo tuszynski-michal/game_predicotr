@@ -816,7 +816,13 @@ def _annotations_from_session(
     groups = dict(session.capture_groups)
     annotations: list[V7LabelGeometryAnnotation] = []
     for slot in session.slots:
-        if slot.state is not V7AnnotationState.ANNOTATED:
+        capture_group_id = groups.get(slot.source_id)
+        if (
+            slot.state is not V7AnnotationState.ANNOTATED
+            or slot.crop_assessment is not V7CropAssessment.CONTAINED
+            or capture_group_id is None
+            or not capture_group_id.strip()
+        ):
             continue
         source = source_by_id[slot.source_id]
         annotations.append(
@@ -828,8 +834,8 @@ def _annotations_from_session(
                 center_x=slot.center_x or 0.0,
                 center_y=slot.center_y or 0.0,
                 geometry_family_id=source.geometry_family_id,
-                capture_group_id=groups.get(source.source_id),
-                crop_assessment=slot.crop_assessment or V7CropAssessment.UNCERTAIN,
+                capture_group_id=capture_group_id,
+                crop_assessment=V7CropAssessment.CONTAINED,
             )
         )
     return tuple(annotations)

@@ -51,10 +51,9 @@ konkretnej gry i nie uruchamia automatycznego wyboru zdjęć.
 5. Karta **Gotowość do sprawdzenia profilu** pokazuje postęp osobno dla każdej
    pozycji. Potrzebuje pięciu różnych SHA źródeł oraz dwóch rzeczywistych grup
    ujęć, z pełnymi cropami. `unavailable`, `clipped` i `uncertain` są widoczne
-   diagnostycznie, ale nie zwiększają licznika. Przycisk sprawdzenia profilu
-   uaktywni się dopiero po spełnieniu tych lokalnych warunków dla wszystkich
-   dziewięciu pozycji oraz zastąpieniu każdego `clipped` lub `uncertain`
-   oznaczeniem `contained` albo `unavailable`.
+   diagnostycznie, ale nie zwiększają licznika ani nie unieważniają istniejących
+   pełnych oznaczeń. Do profilu serwer przekazuje wyłącznie punkty
+   `annotated` z `contained` i zapisaną grupą ujęć.
 
 6. Najpierw użyj **Eksportuj snapshot**. Następnie użyj **Sprawdź i utwórz
    profil**. Serwer pod własną blokadą ponownie sprawdza inwentarz, różnorodność,

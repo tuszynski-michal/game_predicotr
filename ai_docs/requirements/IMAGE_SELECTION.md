@@ -1314,3 +1314,20 @@ Przed odbiorem holdoutu T12 backend zwraca w capabilities `v7` ze statusem
 się `SEMI_AUTOMATIC_SELECTION_V7_BLOCKED` zanim wybierze źródło, utworzy job
 lub zużyje token katalogu. Ta blokada nie zależy od widoczności elementu UI ani
 od dotychczasowej flagi półautomatu.
+
+## Trwały skan i finalizacja V7 — TASK-0591
+
+V7 przypina kompletny `LocalSourceManifest`: naturalną kolejność, względne
+ścieżki, rozmiary i SHA-256 każdego JPEG-a. Checkpoint zachowuje tożsamość
+manifestu, postęp workera, monotoniczny kursor sekwencji, niezależny kursor
+podglądu, wystąpienia, pomiary jakości i błędy pojedynczych źródeł. Pauza nie
+zmienia granic wystąpień, a anulowany skan nie wraca do automatycznej pracy.
+
+Po przetworzeniu ostatniego źródła skan przechodzi osobno do
+`finalization_pending`; dopiero wtedy, po ponownej kontroli pełnego manifestu,
+powstają niezmienne propozycje reprezentantów. Ponowiona finalizacja po
+restarcie zwraca ten sam zestaw propozycji i nie jest zapisem JPEG-a. Dodanie,
+usunięcie, zmiana nazwy, kolejności, rozmiaru lub zawartości dowolnego źródła —
+także niewybranego — blokuje dalszą automatyczną finalizację kodem
+`V7_SOURCE_MANIFEST_DRIFT`. Niezmieniony, lecz niedekodowalny JPEG pozostaje
+widocznym `source_error`; nie jest dryfem i nie znika z raportu.

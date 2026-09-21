@@ -6,6 +6,20 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0591 — manifest, checkpoint i finalizacja V7
+
+- `V7ScanRunState` przypina cały local manifest, source IDs, occurrence T03,
+  jakość T04 i jawne błędy dekodowania w jednym checkpointcie JSON. Pause,
+  cancel i trzy niezależne kursory pozostają trwałe; źródło niedekodowalne nie
+  jest mylone z modyfikacją wejścia.
+- Dopiero kompletny EOF przechodzi do `finalization_pending`. Finalizacja
+  ponownie sprawdza kompletny manifest i deterministycznie zwraca propozycje;
+  nie tworzy jeszcze output operation ani JPEG-a.
+- Dodanie/usunięcie/rename/zmiana dowolnego wpisu, także niewybranego, przechodzi
+  do trwałego `blocked_source_drift`. Historyczne propozycje pozostają czytelne
+  po restarcie, lecz nie mogą być automatycznie opublikowane. T08 wykona tę
+  samą kontrolę pod blokadą zapisu.
+
 ### TASK-0590 — domena, API i bramka aktywacji V7
 
 - `v7_selection` jest addytywnym workflowem z kanoniczną konfiguracją pełnych

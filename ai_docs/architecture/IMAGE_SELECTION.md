@@ -1909,3 +1909,27 @@ Migracja 0114 dodaje nullable `v7_configuration` i
 0. Nie przepisuje historycznych runów. Downgrade odmawia, gdy istnieje run V7,
 zamiast usuwać jego dane. T12 będzie jedynym właścicielem przejścia gate do
 `active`; T06 utrzymuje backendową blokadę niezależnie od rekordu.
+
+## Stan skanu i finalizacja V7 — TASK-0591
+
+`V7ScanRunState` jest framework-free warstwą pomiędzy przypiętym
+`LocalSourceManifest`, trackerem wystąpień T03 i rankingiem T04. Własne ID
+źródła jest deterministycznym SHA-256 wersjonowanego wpisu manifestu
+`(sourceIndex, relativePath, sizeBytes, checksumSha256)`. Dzięki temu dwie
+kopie tych samych bajtów pod różnymi ścieżkami pozostają różnymi obserwacjami,
+ale wejście z zewnątrz nie może podmienić ich ID.
+
+Checkpoint schema v1 zawiera pełny manifest, checkpoint trackera, jakość
+każdego zdekodowanego źródła, jawne błędy pojedynczych źródeł oraz opcjonalną,
+zweryfikowaną względem rankingu finalizację. Każdy przetworzony indeks ma
+dokładnie jeden rezultat: jakość albo `source_error`. `scanning`, `paused` i
+`cancelled` są zgodne z fazą trackera; `finalization_pending`, `finalized` i
+`blocked_source_drift` wymagają kompletnego EOF.
+
+`complete_scan()` nie publikuje wyniku; wyłącznie zamyka occurrence po ostatnim
+indeksie. `finalize(current_manifest)` porównuje następnie selection ID,
+ścieżkę root, checksumę manifestu, fingerprint i wszystkie wpisy. Rozbieżność
+blokuje run jako `V7_SOURCE_MANIFEST_DRIFT`, również dla JPEG-a niebędącego
+kandydatem. Zapisane propozycje są deterministycznie odtwarzane i ponowione
+wywołanie niczego nie duplikuje. T08 przed każdą publikacją wykonuje tę samą
+kontrolę już pod wspólną blokadą katalogu; T07 nie dotyka filesystemu outputu.

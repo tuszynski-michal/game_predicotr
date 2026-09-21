@@ -9993,3 +9993,209 @@ div.imageJobInlineError {
     grid-row: 2;
   }
 }
+
+.v7LabelGeometryWorkspace {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-raised);
+}
+
+.v7LabelGeometryHeader,
+.v7LabelGeometryControls,
+.v7LabelGeometryAssessment,
+.v7LabelGeometryFinalization {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.v7LabelGeometryHeader h2,
+.v7LabelGeometrySetup h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.v7LabelGeometryHeader p,
+.v7LabelGeometrySetup p,
+.v7LabelGeometryNotice,
+.v7LabelGeometryQueueStatus span,
+.v7LabelGeometryAssessment > span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.v7LabelGeometrySetup,
+.v7LabelGeometryEditor,
+.v7LabelGeometryQueueStatus {
+  display: grid;
+  gap: 12px;
+}
+
+.v7LabelGeometryCaseList,
+.v7LabelGeometrySlots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.v7LabelGeometryCaseList label,
+.v7LabelGeometryControls label,
+.v7LabelGeometryAssessment label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.v7LabelGeometryCaseList label {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(7, 16, 29, 0.36);
+}
+
+.v7LabelGeometryControls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(260px, 2fr);
+}
+
+.v7LabelGeometryControls select,
+.v7LabelGeometryControls input,
+.v7LabelGeometryAssessment select {
+  min-width: 0;
+}
+
+.v7LabelGeometryQueueStatus {
+  align-content: start;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(7, 16, 29, 0.36);
+}
+
+.v7LabelGeometryQueueStatus strong {
+  color: var(--text);
+}
+
+.v7LabelGeometryQueueStatus .secondaryButton {
+  justify-self: start;
+}
+
+.v7LabelGeometrySlot {
+  display: grid;
+  gap: 3px;
+  min-height: 58px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--muted);
+  background: rgba(7, 16, 29, 0.36);
+  text-align: left;
+}
+
+.v7LabelGeometrySlot strong {
+  color: var(--text);
+}
+
+.v7LabelGeometrySlotActive {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.v7LabelGeometryAssessment {
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: flex-start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.v7LabelGeometryAssessment > span {
+  max-width: 460px;
+  font-size: 13px;
+}
+
+.v7LabelGeometryImageFrame {
+  position: relative;
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #050a12;
+}
+
+.v7LabelGeometryImage {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 72vh;
+  cursor: crosshair;
+  object-fit: contain;
+}
+
+.v7LabelGeometryImageCanvas {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.v7LabelGeometryPointOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.v7LabelGeometryPoint {
+  position: absolute;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  border: 2px solid #070d16;
+  border-radius: 999px;
+  color: #07101d;
+  background: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.v7LabelGeometryFinalization {
+  justify-content: flex-end;
+}
+
+@media (max-width: 860px) {
+  .v7LabelGeometryHeader,
+  .v7LabelGeometryControls {
+    display: grid;
+  }
+
+  .v7LabelGeometryControls {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .v7LabelGeometryWorkspace {
+    padding: 14px;
+  }
+
+  .v7LabelGeometryCaseList {
+    grid-template-columns: 1fr;
+  }
+
+  .v7LabelGeometryFinalization {
+    display: grid;
+  }
+}

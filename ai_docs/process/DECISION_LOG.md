@@ -6,6 +6,28 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-414 — Ekran kalibracji zachowuje zamiar lokalnie, a rewizję na serwerze
+
+- **Status:** accepted (TASK-0602).
+- **Date:** 2026-09-21.
+- **Decision:** ekran Admina zapisuje przed requestem uporządkowany zamiar
+  operationId w IndexedDB wraz z pierwotną oczekiwaną rewizją. Wysyła tylko
+  pierwszy oczekujący wpis, a po receipt usuwa dokładnie ten wpis. Błąd sieci
+  zachowuje UUID do bezpiecznego replayu; 409, blokada driftu lub niezgodność
+  lokalnego wskaźnika zatrzymują kolejkę bez cichego rebase. Operator może
+  jawnie porzucić wyłącznie niepotwierdzone wpisy, potem odczytać bieżącą sesję.
+  Browserowe `sessionId` i `sequence` są metadanymi kolejki, nie polami HTTP;
+  zapis serializuje tylko semantyczną mutację kontraktu API. Porzucenie blokuje
+  równolegle flush i nowe kliknięcia do końca odczytu, a checksum-bound asset
+  może przyjąć kliknięcie wyłącznie dla bieżącej sesji, źródła i SHA.
+- **Rationale:** szybkie kliknięcia oraz utracona odpowiedź nie mogą utracić
+  punktu ani zmienić semantyki operacji po zmianie rewizji w drugiej zakładce.
+- **Safety:** durable browser state nie przechowuje JPEG/PNG, ścieżek ani
+  symboli. Widok pobiera canonical asset checksum-bound z API; reels_test nie
+  jest wyborem UI. Punkt na granicy [0,1] nie jest utrwalany, ponieważ API
+  wymaga ścisłego wnętrza przedziału. To nie zmienia konfiguracji korpusu,
+  profilu, adopcji ani bramki aktywacji V7.
+
 ## D-413 — API kalibracji V7 rozwiązuje korpus po stronie serwera
 
 - **Status:** accepted (TASK-0601).

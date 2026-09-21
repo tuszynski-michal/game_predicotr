@@ -24,6 +24,7 @@ import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-p
 import { ImageSelectionWorkspace } from '@/features/image-selection/image-selection-workspace';
 import { ManualImageSelectionWorkspace } from '@/features/manual-image-selection/manual-image-selection-workspace';
 import { SemiAutomaticSelectionWorkspace } from '@/features/semi-automatic-image-selection/semi-automatic-selection-workspace';
+import { V7LabelGeometryCalibrationWorkspace } from '@/features/v7-label-geometry/v7-label-geometry-calibration-workspace';
 import { JobMonitor } from '@/features/jobs/job-monitor';
 import { ModelQualityWorkspace } from '@/features/model-quality/model-quality-workspace';
 import { ReleasePanel } from '@/features/releases/release-panel';
@@ -65,6 +66,10 @@ const WORKSPACE_OPTIONS: readonly {
   {
     id: 'semi-automatic-image-selection',
     label: 'Semi-auto selekcja',
+  },
+  {
+    id: 'v7-label-geometry',
+    label: 'Kalibracja etykiet V7',
   },
   {
     id: 'symbol-verification',
@@ -466,6 +471,9 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ) : null}
         {navigation.workspace === 'semi-automatic-image-selection' ? (
           <SemiAutomaticSelectionWorkspace apiBaseUrl={apiBaseUrl} />
+        ) : null}
+        {navigation.workspace === 'v7-label-geometry' ? (
+          <V7LabelGeometryCalibrationWorkspace apiBaseUrl={apiBaseUrl} />
         ) : null}
         {navigation.workspace === 'symbol-verification' ? (
           <SymbolReviewWorkspace apiBaseUrl={apiBaseUrl} />

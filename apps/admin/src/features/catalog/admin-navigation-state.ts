@@ -5,6 +5,7 @@ export const ADMIN_WORKSPACES = [
   'image-selection',
   'manual-image-selection',
   'semi-automatic-image-selection',
+  'v7-label-geometry',
   'symbol-verification',
   'storage',
 ] as const;

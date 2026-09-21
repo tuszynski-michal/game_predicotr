@@ -6,6 +6,27 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0602 — ekran anotacji geometrii etykiet V7
+
+- Admin ma niezależny ekran `Kalibracja etykiet V7` dla
+  `standard_3x3_numeric_labels_v1`. Oferuje wyłącznie `small_777` i
+  `occluded_777`; manifest serwera nadal autoryzuje casey, a `reels_test`
+  pozostaje poza UI i splittem kalibracji.
+- Widok i kolejka zamiarów są trwałe w IndexedDB, bez bitmap i ścieżek.
+  Mutacja HTTP dostaje wyłącznie pola API, bez lokalnego `sessionId` i
+  `sequence`. Odtworzenie po utraconym receipt zachowuje pierwotną rewizję;
+  konflikt/drift/blokada zatrzymuje kolejkę trwale, bez automatycznego rebase.
+  Porzucenie lokalnej kolejki blokuje równocześnie flush i nowe kliknięcia do
+  zakończenia odczytu bieżącej sesji.
+- Canonical asset jest kluczowany ID sesji, źródłem i SHA, więc opóźniony
+  obraz nie może zostać kliknięty po zmianie źródła. Punkty na granicy obrazu
+  są odrzucane przed IDB, zgodnie ze ścisłym kontraktem API. Zmienione moduły,
+  testy interakcyjne, lint, typecheck i build przeszły; końcowy Astra Medium
+  nie zgłosił P0–P2. Pełna paczka Admina nadal ma wcześniejszą, niezwiązaną
+  porażkę testu kontraktu `page-geometry-correction-panel`.
+- Następny krok: TASK-0603 — instrukcja operatora i rzeczywiste anotacje
+  calibration; V7 selection, adopcje i bramka aktywacji pozostają zablokowane.
+
 ### TASK-0601 — API i klient kalibracji geometrii etykiet V7
 
 - Lokalny Admin API ma server-owned pion ręcznej kalibracji. Konfiguracja

@@ -1,10 +1,14 @@
 ---
 title: Global geometry library v1 execution plan
-status: proposed
+status: superseded
 last_updated: 2026-09-21
 ---
 
 # Plan wykonania — globalna biblioteka geometrii plansz v1
+
+> Ten dokument jest materiałem badawczym. Obowiązujący zakres, kolejność i
+> zasady aktywacji określa [plan geometrii v2](SHAPE_GEOMETRY_V2_EXECUTION_PLAN.md).
+> Zachowane niżej obserwacje architektury są wejściem do G02, G06 i G03.
 
 ## Cel i zalecana decyzja
 

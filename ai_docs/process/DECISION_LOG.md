@@ -9087,3 +9087,22 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** wspólny profil bez zgodności, odpowiedniej liczności i dowodu
   jakości prowadzi do review albo lokalnej konfiguracji; nie może automatycznie
   zaakceptować źródła. Brak ramki Treasure nie osłabia bramek v2.
+
+## D-419 — Automatyczna kwalifikacja wspólnej wiedzy i ciągłe wykonanie planu v2
+
+- **Status:** accepted (dyspozycja właściciela dla G01–G08).
+- **Date:** 2026-09-21.
+- **Decision:** cały plan geometrii v2 jest realizowany w jednej serii na
+  osobnej gałęzi. Każda zatwierdzona korekta może utworzyć kandydaturę wiedzy
+  wspólnej. Tylko kandydatura, która przejdzie kontrolę integralności,
+  deterministyczny replay, regresję i politykę jakości, jest aktywowana
+  automatycznie. Nieudana kandydatura zachowuje poprzednią wersję aktywną.
+- **Rationale:** wiedza o kształcie planszy i ramce ma zmniejszać ponowne
+  korekty w Mumiach, Gangu i przyszłych zgodnych grach; ręczna aktywacja po
+  każdej poprawnej korekcie nie daje dodatkowego dowodu jakości.
+- **Compatibility:** v1.0, v1.1 i ich aktywacje nie zmieniają się. Brak danych
+  executor lub acceptance ogranicza tylko zależny pomiar, import albo odbiór;
+  niezależne zadania implementacyjne są kontynuowane.
+- **Safety:** po każdym zadaniu wymagany jest niezależny audyt Astra Medium.
+  P0/P1 zatrzymuje serię; P2/P3 jest naprawiany, ponownie testowany i audytowany
+  przed przejściem dalej. Pusty mianownik nigdy nie kwalifikuje wersji.

@@ -6,26 +6,19 @@ last_updated: 2026-09-21
 
 # Current State
 
-### TASK-0603 — eksperyment i bramki geometrii shape v2
+### TASK-0603 — eksperyment i kontrakt wejścia geometrii shape v2
 
-- Zablokowany na warunku wejściowym G01: lokalny worktree nie zawiera
-  zarejestrowanego executor corpusu, przypiętych profili v1.1 ani anotacji dla
-  777, Blazing, Gang, Reels i Mumie. `examples/imgs` ma tylko `README.md`, a
-  przykład manifestu G00 zawiera placeholder root, puste źródła i profile
-  `null`. Poza repo znaleziono niezarządzane JPEG-y, ale nie mają jeszcze
-  atestacji corpusowej ani udokumentowanego przypisania do gier.
-- Do odblokowania potrzebne są operator-owned manifest executor, corpus root,
-  checksum-bound anotacje i profile v1.1. Acceptance nie jest wymagany ani
-  dostępny. Bez danych G01 nie może wyznaczyć liczb ani zatwierdzić bramek;
-  G02–G08 pozostają zależne od tej decyzji.
-- Wszystkie pięć gier pozostaje w zakresie tworzenia. `development` i
-  `calibration` będą rozdzielać rodziny zdjęć w ramach pojedynczej gry; brak
-  konfiguracji lub dowodu daje stan per gra/źródło wymagający doprecyzowania,
-  nie wykluczenie gry z systemu.
-- V2 ma jeden wspólny rdzeń geometrii oraz małe wersjonowane różnice gry. Nowa
-  gra ma korzystać z istniejącej geometrii i profilu kandydującego, nie tworzyć
-  kolejnego silnika. Treasure bez ramki jest odroczony do oddzielnego zakresu
-  v3/v4.
+- G01 jest w realizacji zgodnie z zaakceptowanym
+  `ai_docs/delivery/SHAPE_GEOMETRY_V2_EXECUTION_PLAN.md`. Budujemy
+  rozszerzalny, read-only kontrakt i runner porównawczy dla obecnych oraz
+  kolejnych gier z ramką. Brak atestowanego corpusów lub anotacji daje
+  `not_evaluable` per gra/źródło; nie blokuje budowy G02–G07.
+- Podział danych rozdziela rodziny zdjęć jednej gry. Wszystkie pięć gier
+  pozostaje w zakresie tworzenia, a późniejsza zgodna gra ma korzystać z
+  profilu wspólnego zamiast własnego detektora.
+- Nowe kandydatury wiedzy będą aktywowane automatycznie tylko po integralności,
+  regresji, jakości i replayu. `reels_test` i `rells_big` pozostają wykluczone;
+  Treasure bez ramki jest zakresem v3/v4.
 
 ### TASK-0602 — korpus i baseline geometrii shape v2
 

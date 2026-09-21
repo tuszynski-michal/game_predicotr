@@ -18,6 +18,10 @@ last_updated: 2026-09-21
   checksum-bound anotacje i profile v1.1. Acceptance nie jest wymagany ani
   dostępny. Bez danych G01 nie może wyznaczyć liczb ani zatwierdzić bramek;
   G02–G08 pozostają zależne od tej decyzji.
+- Wszystkie pięć gier pozostaje w zakresie tworzenia. `development` i
+  `calibration` będą rozdzielać rodziny zdjęć w ramach pojedynczej gry; brak
+  konfiguracji lub dowodu daje stan per gra/źródło wymagający doprecyzowania,
+  nie wykluczenie gry z systemu.
 
 ### TASK-0602 — korpus i baseline geometrii shape v2
 

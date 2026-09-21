@@ -64,6 +64,11 @@ katalogu nigdy nie wchodzi do commitów tej gałęzi.
   częściowego.
 - Numery progów, minimalne wielkości korpusu i limity zasobów zatwierdzamy po
   G01, przed G02 i przed ujawnieniem acceptance.
+- Wszystkie gry 777, Blazing, Gang, Reels i Mumie pozostają kandydatami do
+  tworzenia gier. Brak corpusów, konfiguracji albo wystarczającego dowodu dla
+  jednej gry nie wyklucza jej z systemu: daje jej jawny stan konfiguracji lub
+  review per źródło. `development`, `calibration` i `acceptance` dzielą
+  rodziny zdjęć wewnątrz każdej gry, nigdy listę obsługiwanych gier.
 
 ## Dane, pomiary i bramki jakości
 

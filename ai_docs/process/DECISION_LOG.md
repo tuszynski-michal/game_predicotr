@@ -9046,3 +9046,23 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   `not_configured`, nigdy sukcesem. Naruszenie rootu, drift, zduplikowana
   tożsamość lub mieszanie splitów kończy narzędzie fail-closed; bez odczytu
   ani zapisu danych aplikacji.
+
+## D-397 — Podział danych nie ogranicza listy gier tworzenia
+
+- **Status:** accepted (doprecyzowanie właściciela dla G01).
+- **Date:** 2026-09-21.
+- **Decision:** 777, Blazing, Gang, Reels i Mumie pozostają kandydatami do
+  tworzenia gier. `development`, `calibration` i `acceptance` dzielą wyłącznie
+  rodziny zdjęć w obrębie tej samej gry. System zapisuje gotowość, brak
+  konfiguracji oraz potrzebę ręcznego doprecyzowania per gra i per źródło; nie
+  usuwa gry z zakresu, gdy jej corpus albo dowód jest jeszcze niepełny.
+- **Rationale:** podział danych chroni uczciwość pomiaru, a nie definiuje
+  dostępności produktu. Mieszanie tych pojęć prowadziłoby do błędnego pytania,
+  czy gra „należy” do calibration, oraz do fałszywego wykluczenia gry bez
+  wystarczających zdjęć.
+- **Compatibility:** domyślne v1.1, historyczne importy i obowiązujące
+  ograniczenia acceptance pozostają bez zmiany. G01 nadal nie może tworzyć
+  liczbowych bramek bez corpusów executor.
+- **Safety:** brak corpusów nie staje się automatycznym sukcesem ani
+  automatyczną akceptacją. Każde źródło bez dowodu trafia do `not_evaluable`,
+  `not_configured` albo ręcznej korekty zgodnie z właściwym etapem.

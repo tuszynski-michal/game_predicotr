@@ -21,7 +21,10 @@ przed rozpoczęciem G02.
 G00 dostarczył checksum-bound kontrakt corpusów, protokół metryk i baseline
 v1.1. Nie dostarczył obrazów ani anotacji, ponieważ pozostają operator-owned.
 Plan nie pozwala zastąpić ich danymi syntetycznymi ani użyć acceptance do
-projektowania algorytmu.
+projektowania algorytmu. Pięć gier pozostaje w docelowym zakresie tworzenia
+gier niezależnie od stanu ich corpusów. Split klasyfikuje rodziny zdjęć tej
+samej gry, a wynik eksperymentu i późniejszego workflowu jest per źródło oraz
+per gra, nigdy globalnym wykluczeniem gry.
 
 ## Dependencies / entry conditions
 
@@ -37,6 +40,9 @@ projektowania algorytmu.
 - Przed odblokowaniem operator udostępnia lokalny manifest `executor`, jego
   corpus root, checksum-bound manual annotations oraz przypięte profile v1.1
   dla dostępnych gier. Materiał acceptance pozostaje niedostępny.
+- G01 sam utrwala split każdej rodziny w manifeście. Operator nie przypisuje
+  gier do development albo calibration; potwierdza jedynie tożsamość gry i
+  rodziny danych, gdy nie wynika ona z atestowanego źródła.
 - Przed G02 właściciel jawnie zatwierdza liczby bramek ustalone na development
   i calibration. Polecenie realizacji całego planu nie może zatwierdzić
   nieistniejących jeszcze wartości pomiarowych.
@@ -72,6 +78,9 @@ bramek zatrzymuje plan.
   review/korekty, tylko-potwierdzenie, czas operatora i koszt konfiguracji.
 - Zatrzymać G01 z `not_evaluable`, gdy dowód dla gry lub porównania transferu
   nie ma mianownika albo nie spełnia minimum liczności.
+- Utrzymać wszystkie pięć gier jako możliwe do utworzenia; niepewne albo
+  niegotowe źródło prowadzi do konfiguracji lub ręcznego doprecyzowania, nie
+  do skreślenia gry.
 
 ## Out of scope
 

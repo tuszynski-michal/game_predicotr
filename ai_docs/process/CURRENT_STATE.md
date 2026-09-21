@@ -6,6 +6,18 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0603 — eksperyment i bramki geometrii shape v2
+
+- Zablokowany na warunku wejściowym G01: lokalny worktree nie zawiera
+  rzeczywistego executor corpusu, przypiętych profili v1.1 ani anotacji dla
+  777, Blazing, Gang, Reels i Mumie. `examples/imgs` ma tylko `README.md`, a
+  przykład manifestu G00 zawiera placeholder root, puste źródła i profile
+  `null`.
+- Do odblokowania potrzebne są operator-owned manifest executor, corpus root,
+  checksum-bound anotacje i profile v1.1. Acceptance nie jest wymagany ani
+  dostępny. Bez danych G01 nie może wyznaczyć liczb ani zatwierdzić bramek;
+  G02–G08 pozostają zależne od tej decyzji.
+
 ### TASK-0602 — korpus i baseline geometrii shape v2
 
 - Ukończono G00: osobny, read-only kontrakt corpusów dla 777, Blazing, Gang,

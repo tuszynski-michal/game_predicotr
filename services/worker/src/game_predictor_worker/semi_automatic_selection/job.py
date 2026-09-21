@@ -66,7 +66,11 @@ from .five_anchor_range_runtime import (
     FiveAnchorBatchRuntime,
     FiveAnchorSourcePayload,
 )
-from .local_source_manifest import LocalSourceManifestError, load_local_source_manifest
+from .local_source_manifest import (
+    LocalSourceManifest,
+    LocalSourceManifestError,
+    load_local_source_manifest,
+)
 from .middle_row_grouping import (
     FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION,
     FIVE_ANCHOR_GROUPING_VERSION,
@@ -114,6 +118,13 @@ from .row_first_runtime_v5 import (
     ROW_FIRST_RECOGNIZER_CONTRACT_FINGERPRINT_V5,
     RowFirstBatchRuntime,
     RowFirstSourcePayload,
+)
+from .v7_configuration import V7BorderStyle
+from .v7_worker_runtime import (
+    V7WorkerConfiguration,
+    V7WorkerRuntime,
+    V7WorkerRuntimeError,
+    V7WorkerRuntimeProgress,
 )
 
 BROWSER_SELECTION_DIRECTORY = "browser-selections"
@@ -571,6 +582,7 @@ class SemiAutomaticImageSelectionJobHandler:
         row_first_locator_factory: RowFirstLocatorFactory = RowFirstTripleLocator,
         five_anchor_locator_factory: FiveAnchorLocatorFactory = FiveAnchorRangeLabelLocator,
         v4_orientation_override: MiddleRowRunOrientation = MiddleRowRunOrientation.AUTO,
+        v7_runtime: V7WorkerRuntime | None = None,
     ) -> None:
         self._store = store
         self._browser_root = browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
@@ -582,6 +594,7 @@ class SemiAutomaticImageSelectionJobHandler:
         self._row_first_locator_factory = row_first_locator_factory
         self._five_anchor_locator_factory = five_anchor_locator_factory
         self._v4_orientation_override = v4_orientation_override
+        self._v7_runtime = v7_runtime or V7WorkerRuntime()
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         try:
@@ -596,7 +609,8 @@ class SemiAutomaticImageSelectionJobHandler:
                 return
             if run.status is SemiAutomaticSelectionRunStatus.PAUSED:
                 context.wait_for_review()
-            if payload.schema_version == 3:
+            local_manifest = None
+            if payload.schema_version in {3, 4}:
                 relative_manifest = payload.source_manifest_relative_path
                 if payload.source_kind != "local_folder" or relative_manifest is None:
                     raise JobHandlerError(
@@ -612,20 +626,23 @@ class SemiAutomaticImageSelectionJobHandler:
                     )
                 except LocalSourceManifestError as error:
                     raise JobHandlerError(error.code, str(error)) from error
-                source_root = local_manifest.source_root
-                sources = tuple(
-                    _StagedSource(identity=source, stored_file_name=source.relative_path)
-                    for source in local_manifest.sources
-                )
                 if (
                     local_manifest.source_fingerprint != run.source.source_fingerprint
-                    or len(sources) != run.source.source_count
+                    or len(local_manifest.sources) != run.source.source_count
                     or local_manifest.total_bytes != run.source.source_total_bytes
                 ):
                     raise JobHandlerError(
                         "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
                         "The local source manifest differs from its durable run.",
                     )
+                if run.workflow_mode is SemiAutomaticSelectionWorkflowMode.V7_SELECTION:
+                    self._run_v7(context, job, run=run, local_manifest=local_manifest)
+                    return
+                source_root = local_manifest.source_root
+                sources = tuple(
+                    _StagedSource(identity=source, stored_file_name=source.relative_path)
+                    for source in local_manifest.sources
+                )
             else:
                 source_root = _safe_child(self._browser_root, str(run.source.upload_id))
                 sources = _load_staged_sources(source_root, run)
@@ -673,6 +690,8 @@ class SemiAutomaticImageSelectionJobHandler:
                     checkpoint=checkpoint,
                 )
             self._finish(context, job, run=run, audit=audit, checkpoint=checkpoint)
+        except V7WorkerRuntimeError as error:
+            raise JobHandlerError(error.code, str(error)) from error
         except SemiAutomaticSelectionError as error:
             raise JobHandlerError(error.code, error.message) from error
         except JobError:
@@ -686,6 +705,63 @@ class SemiAutomaticImageSelectionJobHandler:
                 "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
                 "The semi-automatic selection could not validate its durable input.",
             ) from error
+
+    def _run_v7(
+        self,
+        context: JobExecutionContext,
+        job: Job,
+        *,
+        run: SemiAutomaticSelectionRun,
+        local_manifest: LocalSourceManifest,
+    ) -> None:
+        """Dispatch V7 before legacy audit, scan and writer code.
+
+        This task persists only the V7 scan state.  It intentionally leaves the
+        legacy selection projection and every output operation untouched.
+        """
+
+        configuration = run.v7_configuration
+        if configuration is None:
+            raise JobHandlerError(
+                "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_REQUIRED",
+                "The V7 run has no durable configuration.",
+            )
+        runtime_configuration = V7WorkerConfiguration(
+            first_sequence_number=configuration.first_sequence_number,
+            last_sequence_number=configuration.last_sequence_number,
+            direction=SemiAutomaticSelectionDirection(configuration.direction.value),
+            border_style=V7BorderStyle(configuration.border_style.value),
+            localizer_fingerprint=configuration.localizer_fingerprint,
+            calibration_fingerprint=configuration.calibration_fingerprint,
+        )
+
+        def persist(progress: V7WorkerRuntimeProgress) -> None:
+            nonlocal run
+            counters = dict(run.counters)
+            counters["processedSources"] = progress.processed_sources
+            counters["v7FinalizationPending"] = int(
+                progress.phase.value in {"finalization_pending", "finalized"}
+            )
+            counters["v7SourceDriftBlocked"] = int(progress.blocked_source_drift)
+            run = self._store.persist_checkpoint(
+                job_id=job.id,
+                run_id=run.id,
+                lease_token=context.lease_token,
+                checkpoint=progress.checkpoint,
+                counters=counters,
+                persisted_at=context.now(),
+            )
+            _v7_job_checkpoint(context, run, progress)
+            if run.status is SemiAutomaticSelectionRunStatus.PAUSED:
+                context.wait_for_review()
+
+        self._v7_runtime.run(
+            manifest=local_manifest,
+            configuration=runtime_configuration,
+            checkpoint=run.checkpoint,
+            persist=persist,
+        )
+        context.wait_for_review()
 
     def _scan(
         self,
@@ -1566,6 +1642,41 @@ class SemiAutomaticImageSelectionJobHandler:
                 "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
                 "The durable job payload differs from its staged source run.",
             )
+        if (
+            payload.workflow_mode == SemiAutomaticSelectionWorkflowMode.V7_SELECTION.value
+            and run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.V7_SELECTION
+        ):
+            raise JobHandlerError(
+                "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_INVALID",
+                "A V7 job payload cannot be paired with a historical selection run.",
+            )
+        if run.workflow_mode is SemiAutomaticSelectionWorkflowMode.V7_SELECTION:
+            configuration = run.v7_configuration
+            payload_configuration = payload.v7_configuration
+            if (
+                configuration is None
+                or payload.schema_version != 4
+                or payload.workflow_mode != SemiAutomaticSelectionWorkflowMode.V7_SELECTION.value
+                or payload_configuration is None
+                or payload.direction != run.direction.value
+                or payload.first_sequence_number != run.first_sequence_number
+                or payload.last_sequence_number != run.last_sequence_number
+                or payload_configuration.mode != configuration.mode.value
+                or payload_configuration.direction != configuration.direction.value
+                or payload_configuration.first_sequence_number
+                != configuration.first_sequence_number
+                or payload_configuration.last_sequence_number != configuration.last_sequence_number
+                or payload_configuration.border_style != configuration.border_style.value
+                or payload_configuration.localizer_fingerprint
+                != configuration.localizer_fingerprint
+                or payload_configuration.calibration_fingerprint
+                != configuration.calibration_fingerprint
+            ):
+                raise JobHandlerError(
+                    "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_INVALID",
+                    "The durable V7 job payload differs from its server-owned configuration.",
+                )
+            return
         if run.recognizer_fingerprint not in SUPPORTED_RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINTS:
             raise JobHandlerError(
                 "SEMI_AUTOMATIC_SELECTION_RECOGNIZER_UNSUPPORTED",
@@ -2007,6 +2118,35 @@ def _middle_row_batch_fill_ratio(counters: Mapping[str, int]) -> float:
     if internal_batches < 1:
         return 0.0
     return counters.get("ocrCrops", 0) / (internal_batches * 9)
+
+
+def _v7_job_checkpoint(
+    context: JobExecutionContext,
+    run: SemiAutomaticSelectionRun,
+    progress: V7WorkerRuntimeProgress,
+) -> None:
+    """Expose durable V7 progress without pretending legacy ranges were selected."""
+
+    scan_state = progress.checkpoint["scanState"]
+    assert isinstance(scan_state, dict)
+    source_errors = scan_state["sourceErrors"]
+    assert isinstance(source_errors, list)
+    context.checkpoint(
+        checkpoint_payload={
+            "schema_version": 1,
+            "v7_semi_automatic_image_selection": dict(progress.checkpoint),
+        },
+        stage=(
+            f"{SEMI_AUTOMATIC_SELECTION_STAGE}:v7:blocked_source_drift"
+            if progress.blocked_source_drift
+            else f"{SEMI_AUTOMATIC_SELECTION_STAGE}:v7:{progress.phase.value}"
+        ),
+        current=progress.processed_sources,
+        total=progress.total_sources,
+        success_count=0,
+        failure_count=len(source_errors),
+        review_count=run.counters.get("missing", 0),
+    )
 
 
 def _job_checkpoint(

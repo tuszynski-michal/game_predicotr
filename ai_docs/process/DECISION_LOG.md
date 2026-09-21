@@ -6,6 +6,29 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-410 — Worker V7 wybiera wyłącznie własny runtime i zablokowaną kalibrację
+
+- **Status:** accepted (TASK-0598).
+- **Date:** 2026-09-21.
+- **Decision:** job półautomatu schema `4` jest obsługiwaną wersją V7. Handler
+  ładuje jego `LocalSourceManifest` tak jak schema `3`, lecz dla
+  `workflow_mode=v7_selection` kończy dispatch przed historycznym audytem,
+  skanerem i writerem. `V7WorkerRuntime` przywraca/persistuje checkpoint
+  `V7ScanRunState`, a domyślna fabryka obserwatora zwraca
+  `V7_CALIBRATION_UNAVAILABLE` przed otwarciem JPEG-a. Zmiana dowolnego pliku
+  przypiętego manifestu zapisuje trwały `blockedReason` i kolejne wznowienie
+  pozostaje zablokowane.
+- **Rationale:** schema V7 istniała w kontrakcie API, ale konstruktor joba
+  odrzucał wersję `4`, a handler rozpoznawał lokalny manifest tylko dla `3`.
+  Zdjęcie bramki w tym stanie uruchomiłoby niewłaściwy legacy workflow albo
+  zapisało niezweryfikowany wynik.
+- **Compatibility:** schema 1–3, historyczne workflowy i ich writer pozostają
+  bez zmian; V7 nie tworzy `cut`, nie aktualizuje legacy range projection i
+  nadal czeka na API gate oraz odbiór.
+- **Safety:** przyszły adapter OCR/geometrii musi być jawnie przypięty do
+  zatwierdzonego server-owned fingerprintu. Nie wolno zastępować go stałymi
+  cropami ani użyć output writera przed ponownym odbiorem T12.
+
 ## D-409 — `reels_test` jest wyłącznym holdoutem odbioru V7
 
 - **Status:** accepted (TASK-0597).

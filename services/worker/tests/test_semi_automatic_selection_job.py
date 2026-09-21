@@ -28,6 +28,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionSourceManifest,
     SemiAutomaticSelectionWorkflowMode,
     create_semi_automatic_selection_run,
+    create_v7_selection_configuration,
 )
 from game_predictor_worker.jobs.runtime import JobHandlerError
 from game_predictor_worker.semi_automatic_selection.contracts import (
@@ -93,6 +94,15 @@ from game_predictor_worker.semi_automatic_selection.row_first_locator_v5 import 
 from game_predictor_worker.semi_automatic_selection.row_first_runtime_v5 import (
     ROW_FIRST_RECOGNIZER_CONTRACT_FINGERPRINT_V5,
 )
+from game_predictor_worker.semi_automatic_selection.v7_range_proof import (
+    V7RangeProofKind,
+    V7RangeProofResult,
+)
+from game_predictor_worker.semi_automatic_selection.v7_run_state import V7ScanObservation
+from game_predictor_worker.semi_automatic_selection.v7_worker_runtime import (
+    V7SourceObservationRequest,
+    V7WorkerRuntime,
+)
 from PIL import Image
 
 
@@ -116,6 +126,33 @@ class _Context:
 
     def wait_for_review(self) -> NoReturn:
         raise _WaitForReview
+
+
+class _V7SourceErrorObserver:
+    def __init__(self) -> None:
+        self.observed_indexes: list[int] = []
+
+    def observe(self, request: V7SourceObservationRequest) -> V7ScanObservation:
+        self.observed_indexes.append(request.source.source_index)
+        return V7ScanObservation(
+            source_index=request.source.source_index,
+            proof=V7RangeProofResult(
+                kind=V7RangeProofKind.NONE,
+                sequence_range=None,
+                supporting_source_ids=(),
+                reason_codes=("TEST_NO_PROOF",),
+            ),
+            quality=None,
+            source_error_code="TEST_SOURCE_ERROR",
+        )
+
+
+class _V7ObserverFactory:
+    def __init__(self, observer: _V7SourceErrorObserver) -> None:
+        self.observer = observer
+
+    def create(self, _configuration: object, _manifest: object) -> _V7SourceErrorObserver:
+        return self.observer
 
 
 class _ScriptedRecognizer:
@@ -774,6 +811,149 @@ def test_handler_reads_schema_v3_sources_directly_without_browser_staging(
     assert recognizer.calls == 4
     assert store.run.counters["autoSelected"] == 2
     assert not (tmp_path / "imports" / "browser-selections").exists()
+
+
+def test_handler_routes_schema_v4_v7_to_local_runtime_without_legacy_scanner(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "v7-local-source"
+    source_root.mkdir()
+    for index in range(2):
+        (source_root / f"photo-{index + 1}.jpg").write_bytes(
+            _jpeg((10 + index, 20 + index, 30 + index))
+        )
+    selection_id = uuid4()
+    local_manifest = build_local_source_manifest(
+        source_root,
+        selection_id=selection_id,
+        display_name="v7-local-source",
+    )
+    artifact_root = tmp_path / "artifacts"
+    relative_manifest = write_local_source_manifest(artifact_root, local_manifest)
+    v7_configuration = create_v7_selection_configuration(
+        first_sequence_number=1,
+        last_sequence_number=9,
+    )
+    run, ranges = create_semi_automatic_selection_run(
+        source=SemiAutomaticSelectionSourceManifest(
+            upload_id=selection_id,
+            display_name=local_manifest.display_name,
+            manifest_checksum_sha256=local_manifest.checksum_sha256,
+            source_fingerprint=local_manifest.source_fingerprint,
+            source_count=len(local_manifest.sources),
+            source_total_bytes=local_manifest.total_bytes,
+        ),
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=ApiDirection.ASCENDING,
+        recognizer_fingerprint="a" * 64,
+        grouping_policy_fingerprint="b" * 64,
+        workflow_mode=SemiAutomaticSelectionWorkflowMode.V7_SELECTION,
+        v7_configuration=v7_configuration,
+        local_source_manifest_relative_path=relative_manifest,
+    )
+    store = _MemoryStore(run, ranges)
+    observer = _V7SourceErrorObserver()
+
+    def fail_if_legacy_scanner_is_called(_path: Path, _contract: str) -> NoReturn:
+        raise AssertionError("V7 must never create a legacy recognizer.")
+
+    handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        recognizer_factory=fail_if_legacy_scanner_is_called,
+        v7_runtime=V7WorkerRuntime(_V7ObserverFactory(observer)),
+    )
+
+    with pytest.raises(_WaitForReview):
+        handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert observer.observed_indexes == [0, 1]
+    assert store.run.checkpoint["scanState"]["phase"] == "finalized"
+    assert store.run.counters["autoSelected"] == 0
+    assert store.run.diagnostics_relative_path is None
+    assert not (tmp_path / "imports" / "browser-selections").exists()
+    assert not (tmp_path / "v7-local-source cut").exists()
+
+    historical_store = _MemoryStore(
+        replace(
+            store.run,
+            workflow_mode=SemiAutomaticSelectionWorkflowMode.SELECTION,
+            v7_configuration=None,
+        ),
+        ranges,
+    )
+    historical_handler = SemiAutomaticImageSelectionJobHandler(
+        historical_store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        recognizer_factory=fail_if_legacy_scanner_is_called,
+    )
+
+    with pytest.raises(JobHandlerError) as inconsistent_error:
+        historical_handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert inconsistent_error.value.code == "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_INVALID"
+    assert not (tmp_path / "v7-local-source cut").exists()
+
+
+def test_handler_v7_without_calibration_fails_before_legacy_scanner(tmp_path: Path) -> None:
+    source_root = tmp_path / "v7-local-source"
+    source_root.mkdir()
+    (source_root / "photo-1.jpg").write_bytes(_jpeg((10, 20, 30)))
+    selection_id = uuid4()
+    local_manifest = build_local_source_manifest(
+        source_root,
+        selection_id=selection_id,
+        display_name="v7-local-source",
+    )
+    artifact_root = tmp_path / "artifacts"
+    relative_manifest = write_local_source_manifest(artifact_root, local_manifest)
+    v7_configuration = create_v7_selection_configuration(
+        first_sequence_number=1,
+        last_sequence_number=9,
+    )
+    run, ranges = create_semi_automatic_selection_run(
+        source=SemiAutomaticSelectionSourceManifest(
+            upload_id=selection_id,
+            display_name=local_manifest.display_name,
+            manifest_checksum_sha256=local_manifest.checksum_sha256,
+            source_fingerprint=local_manifest.source_fingerprint,
+            source_count=len(local_manifest.sources),
+            source_total_bytes=local_manifest.total_bytes,
+        ),
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=ApiDirection.ASCENDING,
+        recognizer_fingerprint="a" * 64,
+        grouping_policy_fingerprint="b" * 64,
+        workflow_mode=SemiAutomaticSelectionWorkflowMode.V7_SELECTION,
+        v7_configuration=v7_configuration,
+        local_source_manifest_relative_path=relative_manifest,
+    )
+    store = _MemoryStore(run, ranges)
+
+    def fail_if_legacy_scanner_is_called(_path: Path, _contract: str) -> NoReturn:
+        raise AssertionError("V7 must never create a legacy recognizer.")
+
+    handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        recognizer_factory=fail_if_legacy_scanner_is_called,
+    )
+
+    with pytest.raises(JobHandlerError) as error:
+        handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert error.value.code == "V7_CALIBRATION_UNAVAILABLE"
+    assert store.run.checkpoint == {}
+    assert not (tmp_path / "imports" / "browser-selections").exists()
+    assert not (tmp_path / "v7-local-source cut").exists()
 
 
 def test_filename_verification_finishes_without_selection_or_progress_regression(

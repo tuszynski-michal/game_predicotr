@@ -6,6 +6,25 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0598 — integracja handlera workera V7
+
+- Konstruktor jobów uznaje schema `4` półautomatu, a handler ładuje lokalny
+  manifest zarówno dla schema `3`, jak i V7/schema `4`. `v7_selection` jest
+  dispatchowane przed historycznym auditorem, skanerem, selektorem i writerem;
+  historyczne runy pozostają bez zmiany.
+- `V7WorkerRuntime` przywraca `V7ScanRunState`, utrwala uporządkowany prefix
+  oraz deterministyczną finalizację bez operacji outputu. Pełna ponowna kontrola
+  manifestu obejmuje również niewybrane JPEG-i; drift zapisuje trwałą blokadę,
+  więc restart nie wraca do skanowania.
+- Domyślna fabryka obserwatora odmawia `V7_CALIBRATION_UNAVAILABLE` przed
+  otwarciem JPEG-a. API/UI nadal ma twardą blokadę startu. Do rzeczywistego
+  snapshotu odbiorowego brakuje zatwierdzonego adaptera kalibracji/OCR/jakości,
+  ręcznej kalibracji i truthu holdoutu.
+- Runtime i handler mają 24 przechodzące testy, API/repository/migracja 33.
+  Self-audyt oraz końcowy Astra Medium wykryły i naprawiły: schema v4 w
+  konstruktorze joba, błędny fallback payloadu V7 do legacy oraz rozróżnienie
+  usuniętego pliku od czasowo niedostępnego katalogu.
+
 ### TASK-0597 — niezależny evaluator holdoutu Reels dla V7
 
 - `reels_test` został lokalnie przypięty jako jedyny holdout: zamrożony
@@ -20,9 +39,9 @@ last_updated: 2026-09-21
   fail-closed. T05 nadal przyjmuje wyłącznie własny truth
   development/calibration/validation.
 - API pozostaje zablokowane, nie uruchomiono OCR ani zapisu JPEG-ów. Do
-  rzeczywistego odbioru nadal brakuje: ręcznej kalibracji, niezależnych anotacji
-  `reels_test`, surowego snapshotu z runtime'u T13b oraz ponownego T12 i
-  świadomej decyzji aktywacyjnej.
+  rzeczywistego odbioru nadal brakuje: ręcznej kalibracji, zatwierdzonego
+  adaptera runtime'u T13b, niezależnych anotacji `reels_test`, surowego snapshotu
+  i ponownego T12 oraz świadomej decyzji aktywacyjnej.
 
 ### TASK-0596 — odbiór holdoutu i bramka wydania V7
 

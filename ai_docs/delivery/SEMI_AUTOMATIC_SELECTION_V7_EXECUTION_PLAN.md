@@ -52,6 +52,8 @@ Splity `development`, `calibration`, `validation`, `holdout` są rozłączne. Od
 | T10 | Formularz v7 i trwały podgląd sąsiadów. |
 | T11 | Pomiar CPU/GPU/RAM i deterministyczna równoległość. |
 | T12 | Holdout, recovery, kompatybilność i aktywacja po odbiorze. |
+| T13a | Odrębny evaluator nowego holdoutu `reels_test`, bez używania go do kalibracji. |
+| T13b | Pion workerowy V7: schema v4, lokalny manifest i trwały runtime bez fallbacku do legacy. |
 
 ## Audyt
 
@@ -74,3 +76,5 @@ Każdy task ma dokument `TASK_TEMPLATE.md`, osobny commit, audyt przed commitem 
 | T10 | `gpt-5.6-terra` | `xhigh` | Workflow UI. | `gpt-6-astra medium` |
 | T11 | `gpt-5.6-terra` | `xhigh` | Pomiar wydajności. | `gpt-6-astra medium` |
 | T12 | `gpt-6-astra` | `high` | Odbiór i aktywacja. | `gpt-6-astra medium` |
+| T13a | `gpt-5.6-terra` | `xhigh` | Niezależny evaluator holdoutu. | `gpt-6-astra medium` |
+| T13b | `gpt-5.6-terra` | `xhigh` | Integracja checkpointu i handlera bez aktywacji. | `gpt-6-astra medium` |

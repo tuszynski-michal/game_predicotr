@@ -2055,3 +2055,19 @@ rekomendacja fail-closed wraca do jednego workera. Pomiar T11 rekomenduje 4
 workery i okno 8 po identycznym digescie pięciu źródeł, lecz zapisuje CPU-only
 Paddle i `unavailable_cpu_runtime` dla VRAM. T12 nie może traktować tej
 rekomendacji jako odbioru proofu, kalibracji lub bramki aktywacji.
+
+## Odbiór i blokada release V7 — TASK-0596
+
+T12 wymaga oddzielnego, checksum-bound holdoutu, a `not_evaluable` jest stanem
+blokującym, nie wariantem `passed`. Audit z 2026-09-21 potwierdził pustą
+kalibrację i odbiór, a także fakt, że obecny holdout zawiera źródło wyłączone
+decyzją D-404. Stale zakodowana blokada `SemiAutomaticImageSelectionService`
+pozostaje więc poprawnym fail-closed zachowaniem: capabilities zwraca `blocked`,
+a `create(mode=v7_selection)` odmawia przed dostępem do lokalnego źródła.
+
+Nie wolno zastąpić tej blokady prostym przełączeniem statusu w bazie. Aktualne
+moduły `V7ScanRunState`, `V7OutputWriter` i `run_v7_ordered_runtime` są czystymi
+komponentami i nie są jeszcze wywoływane przez
+`SemiAutomaticImageSelectionJobHandler`. Przyszła aktywacja wymaga osobnego,
+przetestowanego pionu API → job → V7 checkpoint/runtime → writer, który nie
+zmienia ścieżki historycznego handlera.

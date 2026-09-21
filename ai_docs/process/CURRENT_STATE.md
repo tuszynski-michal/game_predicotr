@@ -6,6 +6,20 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0596 — odbiór holdoutu i bramka wydania V7
+
+- T12 zakończył audyt wynikiem `blocked`, bez aktywacji API. Ponowny evaluator
+  potwierdził manifest T01, ale brak anotacji kalibracji i holdoutu daje
+  `not_evaluable` dla wszystkich progów 95%/95%/zero błędów/100% warningów;
+  puste zera nie są sukcesem.
+- `rells_big` nie jest gotowym niezależnym holdoutem, ponieważ jego wcześniej
+  oglądany plik pozostaje w aktualnym manifeście mimo D-404. Potrzebny jest nowy
+  holdout albo manifest wykluczający plik oraz ręczne, checksummowane dane.
+- 113 testów worker/recovery, 30 API/migracji i 59 Admin wraz z typecheck/lint
+  przeszło. Audit ujawnił też, że komponenty V7 nie są jeszcze podłączone do
+  produkcyjnego handlera joba; usunięcie bramki uruchomiłoby legacy flow.
+  Szczegóły: `ai_docs/quality/V7_T12_ACCEPTANCE.md`.
+
 ### TASK-0595 — wydajność i uporządkowany runtime V7
 
 - `v7_ordered_runtime.py` ogranicza przygotowanie JPEG-ów do okna `1–4`

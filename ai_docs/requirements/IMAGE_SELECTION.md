@@ -1438,3 +1438,19 @@ obserwacji dla 1, 2 i 4 workerów. Najszybszy profil tej ograniczonej próbki to
 3 668,5503 ms cold end-to-end z walidacją i inicjalizacją).
 Jest to ustawienie początkowe runtime'u, nie dowód jakości OCR, kalibracji ani
 zgoda na aktywację V7. Pełny raport: `ai_docs/quality/V7_T11_RUNTIME_PERFORMANCE.json`.
+
+## Odbiór i blokada wydania V7 — TASK-0596
+
+Odbiór T12 z 2026-09-21 ma status `blocked`. Ponowna kontrola przypiętego
+manifestu potwierdziła brak anotacji kalibracji i pusty mianownik każdego
+kryterium jakości, więc `0` automatycznych błędów nie jest sukcesem. Aktualny
+case holdoutu zawiera też plik wyłączony przez D-404 z niezależnego odbioru.
+Do czasu nowego, wcześniej nieoglądanego holdoutu lub manifestu wykluczającego
+ten plik, ręcznej kalibracji i zamrożonych predykcji API pozostaje twardo
+zablokowane przed źródłem i jobem.
+
+Audit wykazał ponadto, że moduły V7 są jeszcze framework-free i nie mają
+produkcyjnego pionu od `SemiAutomaticImageSelectionJobHandler` do run state,
+runtime oraz writera V7. Usunięcie blokady bez tej integracji uruchomiłoby
+niewłaściwy legacy handler. Pełny raport oraz warunki ponownego odbioru:
+`ai_docs/quality/V7_T12_ACCEPTANCE.md`.

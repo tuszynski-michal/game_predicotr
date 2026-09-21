@@ -1,10 +1,27 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-20
+last_updated: 2026-09-21
 ---
 
 # Decision Log
+
+## D-405 — V7 rozdziela occurrence, kursor sekwencji i podgląd operatora
+
+- **Status:** accepted (TASK-0587).
+- **Date:** 2026-09-21.
+- **Decision:** V7 utrzymuje osobno indeks następnego źródła, monotoniczny
+  kursor oczekiwanych zakresów oraz indeks źródła oglądanego przez operatora.
+  Globalne kandydatury occurrence są dostępne wyłącznie po idempotentnej
+  finalizacji EOF. Checkpoint wiąże source-local proof z occurrence oraz pełną
+  mapą zeskanowanych źródeł.
+- **Rationale:** późniejszy lepszy kadr A ma uczestniczyć w rankingu A, ale nie
+  może cofnąć postępu A → B ani zmienić widoku operatora. Sama pozycja kursora
+  nie wystarcza też do odtworzenia bezpiecznego 3+3 po restarcie.
+- **Safety:** brak proofu, pauza i podgląd nie zmieniają granic occurrence.
+  Dowód 3+3 nie przechodzi przez lokalny proof innego occurrence, a checkpoint
+  z overlapem, niepowiązanym potwierdzeniem lub niepełną historią źródeł jest
+  odrzucany fail-closed. T03 nie zapisuje plików ani nie podejmuje rankingu.
 
 ## D-403 — V7 nie uznaje statycznych cropów za dowód geometrii
 

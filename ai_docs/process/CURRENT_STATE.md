@@ -1,10 +1,23 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-20
+last_updated: 2026-09-21
 ---
 
 # Current State
+
+### TASK-0587 — wystąpienia, kursory i finalizacja V7
+
+- T03 rozdziela postęp workera (`next_source_index`), monotoniczny kursor
+  sekwencji i trwały kursor podglądu operatora. Późniejsze occurrence tego
+  samego zakresu pozostaje globalnym kandydatem po EOF, nie cofa jednak
+  sekwencji ani nie tworzy drugiego outputu.
+- Checkpoint zbiera occurrence, luki, phase, kursory i kompletny rejestr
+  source ID. Przy restore wiąże potwierdzenie z lokalnym proof, odrzuca
+  nakładanie zakresów, support przechodzący przez potwierdzone occurrence oraz
+  nieukończony skan bez aktywnego occurrence.
+- Automatyczny proof nadal czeka na kalibrację T05. T03 nie zapisuje JPEG-ów,
+  nie dodaje API ani UI; T07 utrwali ten kontrakt w runie i manifeście.
 
 ### TASK-0586 — lokalizacja etykiet i dowód v7
 

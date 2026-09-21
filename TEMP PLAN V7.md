@@ -22,7 +22,7 @@ zaakceptowanego planu `ai_docs/delivery/SEMI_AUTOMATIC_SELECTION_V7_EXECUTION_PL
 | T00 | done, `v0.10.318` | Model, runtime i korpus sprawdzone. Historyczny OCR v3 nie lokalizuje etykiet; nie jest dowodem v7. |
 | T01 | done, `v0.10.319` | Konfiguracja pełnych stron, kierunek, `cut`, style, zamrożony korpus i role splitów. |
 | T02 | done, `v0.10.320` | Lokalizator poziomej siatki 3×3, OCR własnych etykiet i proof 5 / 3+3; realny pomiar wykazał odczyt na 777, lecz proof pozostaje bezpiecznie zablokowany do kalibracji geometrii T05. |
-| T03 | todo | Wystąpienia, luki, niezależne kursory, EOF, restart i globalna finalizacja bez cofania kursora. |
+| T03 | done, `v0.10.321` | Wystąpienia, luki, niezależne kursory, EOF, restart i globalna finalizacja bez cofania kursora. |
 | T04 | todo | Ocena jakości per plansza, niepewność, ranking kandydatów i warningi góra/dół. |
 | T05 | todo | Anotacje/splity, kalibracja progów, metryki 95%/100% i zamrożony holdout. |
 | T06 | todo | Addytywna migracja, domena/API/OpenAPI, aktywacja zablokowana przed T12. |

@@ -27,6 +27,11 @@ export interface ManualImageListingProgress {
   readonly imageCount: number;
 }
 
+export interface ManualAcceptedOutputOptions {
+  readonly allowReplace?: boolean;
+  readonly expectedChecksum?: string;
+}
+
 export interface ManualSelectionSessionRecord extends ManualSelectionSessionMetadata {
   readonly cursorImagePath?: string;
   readonly cursorSemantics?:
@@ -141,10 +146,18 @@ export class FileSystemManualSelectionOutputAdapter implements ManualSelectionOu
     source: ManualImageFile,
     rangeStart: number,
     rangeEnd: number,
-    options: { readonly allowReplace?: boolean } = {},
+    options: ManualAcceptedOutputOptions = {},
   ): Promise<ManualOutputFileResult> {
     const sourceFile = await source.handle.getFile();
     const checksum = await sha256Hex(sourceFile);
+    if (
+      options.expectedChecksum !== undefined &&
+      options.expectedChecksum !== checksum
+    ) {
+      throw new Error(
+        `Zdjęcie źródłowe ${source.relativePath} zmieniło się przed zapisem.`,
+      );
+    }
     const name = `seq_${rangeStart}-${rangeEnd}.jpg`;
     let existing: File | null = null;
     try {
@@ -241,7 +254,7 @@ export async function writeManualOutput(
   source: ManualImageFile,
   rangeStart: number,
   rangeEnd: number,
-  options: { readonly allowReplace?: boolean } = {},
+  options: ManualAcceptedOutputOptions = {},
 ): Promise<ManualOutputFileResult> {
   return new FileSystemManualSelectionOutputAdapter(
     outputDirectory,

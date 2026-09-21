@@ -22,9 +22,9 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 - Folder źródłowy jest odczytywany rekurencyjnie. Uwzględniane są wyłącznie
   `.jpg` i `.jpeg`, sortowane naturalnie po względnej ścieżce (tak jak numery w
   nazwach plików). Ten naturalny porządek jest trwałym porządkiem źródłowym
-  sesji i indeksu w IndexedDB. Pierwsze zdjęcie ma ordinal `0`, a `→` i Enter
-  zawsze przechodzą do kolejnego ordinalu katalogu; `←` przechodzi do
-  poprzedniego. Kierunek wpływa wyłącznie na kolejną numerację `seq_*` po
+  sesji i indeksu w IndexedDB. Pierwsze zdjęcie ma ordinal `0`, `→` przechodzi
+  do kolejnego ordinalu katalogu, `←` do poprzedniego, a `F` zachowuje
+  bieżący ordinal po akceptacji. Kierunek wpływa wyłącznie na kolejną numerację `seq_*` po
   zatwierdzeniu, nigdy na kolejność zdjęć.
 - Początkowe indeksowanie nie otwiera zawartości każdego JPEG-a. Podczas pracy
   aplikacja wyprzedzająco odczytuje i dekoduje ograniczone okno trzech zdjęć z
@@ -43,30 +43,52 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
   Jest to świadoma korekta numeracji: luka między decyzjami może zostać
   zachowana, ale aplikacja nigdy nie uzupełnia jej ani nie zmienia zakresów
   poprzednich decyzji po cichu.
-- `Enter` zapisuje bieżące zdjęcie jako `seq_<start>-<end>.jpg` w wybranym
-  folderze i przechodzi do następnego zdjęcia oraz zakresu.
+- `F` po krótkim sprawdzeniu SHA-256 bieżącego źródła od razu przechodzi
+  do następnego zakresu, pozostawiając bieżące zdjęcie, i przekazuje zapis `seq_<start>-<end>.jpg`
+  do lokalnej kolejki. Kolejka trzyma wyłącznie uchwyt pliku oraz metadane
+  decyzji, nie Blob obrazu; przyjmuje najwyżej `100` wyborów, wraz z aktualnie
+  zapisywanym. Jeden writer materializuje je FIFO: ponownie sprawdza checksumę
+  źródła, kopiuje i weryfikuje JPEG, a dopiero potem zapisuje decyzję,
+  IndexedDB, manifest wyjściowy i trace. Ta sama źródłowa ścieżka może mieć
+  tylko jedną decyzję `accepted`, również gdy pierwszy zapis jest jeszcze w
+  kolejce; operator przechodzi `→` do innego zdjęcia albo cofa decyzję przed
+  kolejną akceptacją.
+- Licznik `zatwierdzone` pokazuje wyłącznie decyzje trwałe, a oczekujące
+  wybory są pokazywane osobno jako `w kolejce`. Podczas niepustej kolejki
+  operator nadal może oglądać i nawigować po zdjęciach oraz dodawać kolejne
+  akceptacje, lecz nie może zmieniać zakresu, pomijać, cofać ani eksportować
+  śladu.
+- Błąd sprawdzenia źródła, kopiowania, checksummy, IndexedDB albo manifestu
+  kończy kolejkę fail-closed: wcześniejsze sukcesy zostają, niezapisany ogon
+  jest anulowany, a operator jawnie wznawia ostatnią trwałą sesję. Odświeżenie
+  strony nigdy nie odtwarza pozycji oczekujących jako zatwierdzonych.
 - `Tab` pomija bieżące zdjęcie dla zakresu i przechodzi do następnego zakresu,
   pozostawiając ten sam obraz do ponownego wykorzystania.
 - Strzałki lewo/prawo zmieniają wyświetlane zdjęcie bez zmiany zakresu ani
   decyzji. Strzałka w dół wybiera następną wartość skoku, a strzałka w górę
   poprzednią; na krańcach lista pozostaje odpowiednio przy `1` albo `20`.
   Operator wybiera trwały skok `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15` albo `20` zdjęć;
-  Enter po zapisie nadal przechodzi dokładnie o jedno zdjęcie. Select zachowuje
+  F po zapisie pozostaje na tym samym zdjęciu; przejście do następnego
+  zdjęcia wykonuje wyłącznie `→`, a ponowne F tego samego zdjęcia jest
+  zablokowane. Select zachowuje
   czytelne ciemne tło również po rozwinięciu natywnej listy opcji.
 - Podgląd ma natywny tryb pełnoekranowy oraz zoom `100–3000%`; oba dotyczą
   wyłącznie prezentacji bieżącego JPEG-a i nie zmieniają pliku zapisywanego na
   dysku. Powiększony obraz ma pionowy viewport, więc można przewinąć go od
   góry do dołu; poziomo pozostaje wyśrodkowany, a nadmiar jest celowo obcięty
   po bokach bez poziomego scrolla. Pełny ekran zawsze pokazuje także bieżący
-  zakres, pozycję i nazwę pliku. Przejście między JPEG-ami zachowuje bieżącą
+  zakres, pozycję, nazwę pliku oraz `kolejka: <oczekujące>/100`, również dla
+  pustej kolejki. Przejście między JPEG-ami zachowuje bieżącą
   pionową pozycję viewportu w ramach aktywnej sesji; krótszy obraz jest
   naturalnie ograniczany do własnego maksymalnego scrolla.
 - `Ctrl+Z` albo pojedyncze `A` cofa ostatnią decyzję i usuwa tylko plik, który
   aplikacja wcześniej zapisała oraz którego checksum nadal odpowiada źródłu.
-- `Enter` albo pojedyncze `F` zatwierdza bieżące zdjęcie; skróty nie działają,
-  gdy fokus znajduje się w polu formularza, selectu, przycisku lub innym
-  elemencie edytowalnym. Ta sama ochrona dotyczy pionowych strzałek zmiany
-  skoku, dzięki czemu select zachowuje własną natywną obsługę klawiatury.
+- Pojedyncze `F` albo kliknięcie przycisku zatwierdza bieżące zdjęcie. `Enter`
+  poza elementem edytowalnym jest anulowany bez zatwierdzenia, aby nie uruchomił
+  skupionego przycisku; w polu formularza, selectcie, textarea lub
+  `contenteditable` zachowuje natywne działanie. Ta sama ochrona dotyczy
+  pionowych strzałek zmiany skoku, dzięki czemu select zachowuje własną
+  natywną obsługę klawiatury.
 
 ## Trwałość i bezpieczeństwo
 

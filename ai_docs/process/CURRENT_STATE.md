@@ -6,6 +6,20 @@ last_updated: 2026-09-22
 
 # Current State
 
+### Zintegrowana kolejka lokalnej ręcznej selekcji zdjęć
+
+- Lokalny Admin przyjmuje do 100 akceptacji w pamięciowej kolejce FIFO i
+  pokazuje licznik oczekujących również w pełnym ekranie. Zapis pojedynczego
+  zdjęcia nie zatrzymuje operatora; writer kolejki zachowuje checksumę, kolejność
+  oraz trwały manifest.
+- Akceptacja pozostaje na bieżącym zdjęciu, a przejście wykonuje `→`. To samo
+  źródło nie może zostać zaakceptowane drugi raz, a undo usuwa ostatni element
+  i ponownie odblokowuje zdjęcie. `F` oraz kliknięcie zatwierdzają lokalnie;
+  `Enter` poza kontrolką edytowalną jest anulowany i nie uruchamia przycisku.
+- Zmiana została zintegrowana z gałęzi `codex/manual-selection-queue` jako
+  końcowy stan funkcji. Zdalny Reviewer, półautomat, naprawa luk oraz workflow
+  V7 zachowują własne skróty i zachowanie.
+
 ### TASK-0607 — responsywność i ergonomia kalibracji etykiet V7
 
 - Kliknięcie po trwałym wpisie w lokalnej kolejce daje natychmiastowy marker

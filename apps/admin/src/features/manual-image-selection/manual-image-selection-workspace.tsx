@@ -28,6 +28,7 @@ import {
   isMissingManualDirectoryHandleError,
   readManualOutputManifest,
   relinkManualSelectionSession,
+  sha256Hex,
   type ManualImageFile,
   type ManualSelectionSessionRecord,
 } from './manual-image-selection-fsa-adapter';
@@ -48,6 +49,33 @@ import { readRepairManifest } from './manual-selection-repair-storage.ts';
 type ResumeRecoveryTarget = 'source' | 'output';
 
 const CURSOR_PREFIX = 'game-predictor:manual-image-selection-cursor:';
+const MAXIMUM_QUEUED_MANUAL_ACCEPTS = 100;
+
+type QueuedManualAcceptance = {
+  readonly decision: ManualSelectionDecision;
+  readonly nextIndex: number;
+  readonly source: ManualImageFile;
+};
+
+function hasAcceptedManualImage(
+  state: ManualSelectionState,
+  relativePath: string,
+): boolean {
+  return state.decisions.some(
+    (decision) =>
+      decision.action === 'accepted' && decision.imagePath === relativePath,
+  );
+}
+
+function isEditableManualSelectionTarget(target: HTMLElement | null): boolean {
+  if (target === null) return false;
+  return (
+    target.isContentEditable ||
+    target.tagName === 'INPUT' ||
+    target.tagName === 'SELECT' ||
+    target.tagName === 'TEXTAREA'
+  );
+}
 
 export function ManualImageSelectionWorkspace({
   apiBaseUrl,
@@ -69,7 +97,13 @@ function LocalManualImageSelectionWorkspace() {
   const store = useMemo(() => new ManualImageSelectionStore(), []);
   const busyRef = useRef(false);
   const stateRef = useRef<ManualSelectionState | null>(null);
+  const durableStateRef = useRef<ManualSelectionState | null>(null);
+  const recordRef = useRef<ManualSelectionSessionRecord | null>(null);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const acceptedOutputQueueRef = useRef<QueuedManualAcceptance[]>([]);
+  const acceptedOutputWriterActiveRef = useRef(false);
+  const acceptPreparationRef = useRef(false);
+  const pendingAcceptedOutputCountRef = useRef(0);
   const traceEventIndexRef = useRef(0);
   const viewTimerRef = useRef<number | null>(null);
   const [firstLayout, setFirstLayout] = useState('1');
@@ -92,14 +126,20 @@ function LocalManualImageSelectionWorkspace() {
     isLocalDirectoryPickerActive,
   );
   const [busy, setBusy] = useState(false);
+  const [acceptPreparation, setAcceptPreparation] = useState(false);
+  const [pendingAcceptedOutputCount, setPendingAcceptedOutputCount] =
+    useState(0);
   const [error, setError] = useState<string | null>(null);
   const [resumeNotice, setResumeNotice] = useState<string | null>(null);
   const [resumeRecovery, setResumeRecovery] =
     useState<ResumeRecoveryTarget | null>(null);
+  const [queueRecoveryRequired, setQueueRecoveryRequired] = useState(false);
   const [state, setState] = useState<ManualSelectionState | null>(null);
   const [rangeEditorOpen, setRangeEditorOpen] = useState(false);
   const [rangeStartDraft, setRangeStartDraft] = useState('');
   const [rangeEndDraft, setRangeEndDraft] = useState('');
+  const manualAcceptanceInProgress =
+    acceptPreparation || pendingAcceptedOutputCount > 0;
   const currentImageIndex = state?.currentIndex ?? -1;
   const currentRangeStart = state?.nextRangeStart ?? -1;
   const parsedSetupFirstLayout = Number.parseInt(firstLayout, 10);
@@ -127,6 +167,19 @@ function LocalManualImageSelectionWorkspace() {
     handleViewerError,
   );
 
+  function replaceVisibleState(next: ManualSelectionState | null): void {
+    stateRef.current = next;
+    setState(next);
+  }
+
+  function replaceDurableRecord(
+    next: ManualSelectionSessionRecord | null,
+  ): void {
+    recordRef.current = next;
+    durableStateRef.current = next?.state ?? null;
+    setRecord(next);
+  }
+
   useEffect(() => {
     return subscribeLocalDirectoryPickerActive(() => {
       setDirectoryPickerActive(isLocalDirectoryPickerActive());
@@ -149,20 +202,21 @@ function LocalManualImageSelectionWorkspace() {
   }, [store, workspaceId]);
 
   useEffect(() => {
-    if (record === null || state === null) return;
+    if (record === null) return;
+    const durableState = record.state;
     const cursor = {
-      currentIndex: state.currentIndex,
-      direction: state.direction,
-      firstLayout: state.firstLayout,
-      nextRangeStart: state.nextRangeStart,
+      currentIndex: durableState.currentIndex,
+      direction: durableState.direction,
+      firstLayout: durableState.firstLayout,
+      nextRangeStart: durableState.nextRangeStart,
       sourceDirectoryName: record.sourceDirectoryName,
-      updatedAt: state.updatedAt,
+      updatedAt: durableState.updatedAt,
     };
     window.localStorage.setItem(
       `${CURSOR_PREFIX}${workspaceId}`,
       JSON.stringify(cursor),
     );
-  }, [record, state, workspaceId]);
+  }, [record, workspaceId]);
 
   useEffect(() => {
     if (viewTimerRef.current !== null) {
@@ -240,9 +294,8 @@ function LocalManualImageSelectionWorkspace() {
         throw new Error('Wybrany folder nie zawiera plików JPG/JPEG.');
       setSourceDirectory(directory);
       setImages(found);
-      setRecord(null);
-      setState(null);
-      stateRef.current = null;
+      replaceDurableRecord(null);
+      replaceVisibleState(null);
     } catch (cause) {
       if (!(cause instanceof DOMException && cause.name === 'AbortError')) {
         setError(
@@ -272,6 +325,7 @@ function LocalManualImageSelectionWorkspace() {
   }
 
   async function startSession(): Promise<void> {
+    if (queueRecoveryRequired) return;
     const parsed = Number.parseInt(firstLayout, 10);
     const parsedUpperBound =
       sequenceUpperBound.trim() === ''
@@ -332,10 +386,10 @@ function LocalManualImageSelectionWorkspace() {
       sourceDirectoryName: sourceDirectory.name,
       state: next,
     };
-    setRecord(nextRecord);
-    setState(next);
-    stateRef.current = next;
+    replaceDurableRecord(nextRecord);
+    replaceVisibleState(next);
     setSavedRecord(null);
+    setQueueRecoveryRequired(false);
     traceEventIndexRef.current = 0;
     await store.save(nextRecord);
   }
@@ -433,13 +487,13 @@ function LocalManualImageSelectionWorkspace() {
       };
       await store.save(synchronizedRecord);
       setResumeRecovery(null);
+      setQueueRecoveryRequired(false);
       setSavedRecord(synchronizedRecord);
       setSourceDirectory(sourceHandle);
       setOutputDirectory(outputHandle);
       setImages(found);
-      setRecord(synchronizedRecord);
-      setState(resumedState);
-      stateRef.current = resumedState;
+      replaceDurableRecord(synchronizedRecord);
+      replaceVisibleState(resumedState);
       if (
         manifest !== null &&
         resumedState.nextRangeStart !== savedRecord.state.nextRangeStart
@@ -465,17 +519,18 @@ function LocalManualImageSelectionWorkspace() {
   }
 
   async function persist(next: ManualSelectionState): Promise<void> {
-    if (record === null) return;
+    const currentRecord = recordRef.current;
+    if (currentRecord === null) return;
     const nextRecord = {
-      ...record,
+      ...currentRecord,
       cursorImagePath:
-        images[next.currentIndex]?.relativePath ?? record.cursorImagePath,
+        images[next.currentIndex]?.relativePath ??
+        currentRecord.cursorImagePath,
       cursorSemantics: MANUAL_SELECTION_CURSOR_SEMANTICS,
       state: next,
     };
-    stateRef.current = next;
-    setRecord(nextRecord);
-    setState(next);
+    replaceDurableRecord(nextRecord);
+    replaceVisibleState(next);
     const save = saveQueueRef.current
       .catch(() => undefined)
       .then(() => store.save(nextRecord));
@@ -485,7 +540,12 @@ function LocalManualImageSelectionWorkspace() {
 
   function openRangeEditor(): void {
     const currentState = stateRef.current;
-    if (currentState === null) return;
+    if (
+      currentState === null ||
+      acceptPreparationRef.current ||
+      pendingAcceptedOutputCountRef.current > 0
+    )
+      return;
     const currentRange = rangeForStart(
       currentState.nextRangeStart,
       currentState.sequenceUpperBound ?? null,
@@ -497,6 +557,11 @@ function LocalManualImageSelectionWorkspace() {
 
   async function applyRangeEdit(): Promise<void> {
     const currentState = stateRef.current;
+    if (
+      acceptPreparationRef.current ||
+      pendingAcceptedOutputCountRef.current > 0
+    )
+      return;
     const rangeStart = Number(rangeStartDraft);
     const rangeEnd = Number(rangeEndDraft);
     let expectedRangeEnd: number | null = null;
@@ -539,69 +604,218 @@ function LocalManualImageSelectionWorkspace() {
 
   async function acceptCurrent(): Promise<void> {
     if (
-      record === null ||
+      recordRef.current === null ||
       stateRef.current === null ||
       outputDirectory === null ||
       busyRef.current ||
+      acceptPreparationRef.current ||
+      rangeEditorOpen ||
+      pendingAcceptedOutputCountRef.current >= MAXIMUM_QUEUED_MANUAL_ACCEPTS ||
       stateRef.current.selectionComplete === true
     )
       return;
     const currentState = stateRef.current;
     const current = images[currentState.currentIndex];
     if (current === undefined) return;
-    busyRef.current = true;
-    setBusy(true);
+    if (hasAcceptedManualImage(currentState, current.relativePath)) {
+      setError(
+        'To zdjęcie jest już zatwierdzone. Przejdź do kolejnego zdjęcia strzałką →.',
+      );
+      return;
+    }
+    acceptPreparationRef.current = true;
+    setAcceptPreparation(true);
     setError(null);
     const range = rangeForStart(
       currentState.nextRangeStart,
       currentState.sequenceUpperBound ?? null,
     );
     try {
-      const output = await new FileSystemManualSelectionOutputAdapter(
-        outputDirectory,
-      ).writeAcceptedOutput(current, range.start, range.end);
+      const checksum = await sha256Hex(await current.handle.getFile());
       const decision: ManualSelectionDecision = {
         action: 'accepted',
-        imageChecksum: output.checksum,
+        imageChecksum: checksum,
         imagePath: current.relativePath,
-        outputName: output.name,
+        outputName: `seq_${range.start}-${range.end}.jpg`,
         rangeEnd: range.end,
         rangeStart: range.start,
       };
       const nextState = nextManualSelectionState(
         currentState,
         decision,
-        moveManualSelectionCursor(currentState.currentIndex, images.length, 1),
+        currentState.currentIndex,
       );
-      await persist(nextState);
-      await new FileSystemManualSelectionOutputAdapter(
-        outputDirectory,
-      ).writeOutputManifest({ ...record, state: nextState });
-      await appendDecisionTrace(
-        'accepted',
-        current,
-        range,
-        output,
-        currentState.decisions.length,
-      );
+      replaceVisibleState(nextState);
+      enqueueAcceptedOutput({
+        decision,
+        nextIndex: nextState.currentIndex,
+        source: current,
+      });
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
-          : 'Nie udało się zapisać zdjęcia.',
+          : 'Nie udało się przygotować zdjęcia do zapisu.',
       );
     } finally {
-      busyRef.current = false;
-      setBusy(false);
+      acceptPreparationRef.current = false;
+      setAcceptPreparation(false);
     }
+  }
+
+  function enqueueAcceptedOutput(acceptance: QueuedManualAcceptance): void {
+    acceptedOutputQueueRef.current.push(acceptance);
+    pendingAcceptedOutputCountRef.current += 1;
+    setPendingAcceptedOutputCount(pendingAcceptedOutputCountRef.current);
+    void runAcceptedOutputQueue();
+  }
+
+  async function runAcceptedOutputQueue(): Promise<void> {
+    if (acceptedOutputWriterActiveRef.current) return;
+    const acceptance = acceptedOutputQueueRef.current.shift();
+    if (acceptance === undefined) return;
+    acceptedOutputWriterActiveRef.current = true;
+    try {
+      const durableState = durableStateRef.current;
+      const durableRecord = recordRef.current;
+      if (
+        durableState === null ||
+        durableRecord === null ||
+        outputDirectory === null
+      ) {
+        throw new Error('Brakuje trwałego stanu sesji do zapisu kolejki.');
+      }
+      if (durableState.nextRangeStart !== acceptance.decision.rangeStart) {
+        throw new Error(
+          'Kolejka ręcznej selekcji utraciła zgodność kolejności.',
+        );
+      }
+      const output = await new FileSystemManualSelectionOutputAdapter(
+        outputDirectory,
+      ).writeAcceptedOutput(
+        acceptance.source,
+        acceptance.decision.rangeStart,
+        acceptance.decision.rangeEnd,
+        { expectedChecksum: acceptance.decision.imageChecksum ?? undefined },
+      );
+      if (output.checksum !== acceptance.decision.imageChecksum) {
+        throw new Error(
+          'Checksum zapisanego JPEG-a nie odpowiada decyzji kolejki.',
+        );
+      }
+      const nextState = nextManualSelectionState(
+        durableState,
+        acceptance.decision,
+        acceptance.nextIndex,
+      );
+      const nextRecord: ManualSelectionSessionRecord = {
+        ...durableRecord,
+        cursorImagePath:
+          images[nextState.currentIndex]?.relativePath ??
+          durableRecord.cursorImagePath,
+        cursorSemantics: MANUAL_SELECTION_CURSOR_SEMANTICS,
+        state: nextState,
+      };
+      await store.save(nextRecord);
+      await new FileSystemManualSelectionOutputAdapter(
+        outputDirectory,
+      ).writeOutputManifest(nextRecord);
+      replaceDurableRecord(nextRecord);
+      try {
+        await appendDecisionTrace(
+          'accepted',
+          acceptance.source,
+          {
+            start: acceptance.decision.rangeStart,
+            end: acceptance.decision.rangeEnd,
+          },
+          output,
+          durableState.decisions.length,
+          nextRecord,
+        );
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? `Zdjęcie zapisano, ale nie zapisano śladu decyzji: ${cause.message}`
+            : 'Zdjęcie zapisano, ale nie zapisano śladu decyzji.',
+        );
+      }
+      pendingAcceptedOutputCountRef.current -= 1;
+      setPendingAcceptedOutputCount(pendingAcceptedOutputCountRef.current);
+      if (pendingAcceptedOutputCountRef.current === 0) {
+        await synchronizeVisibleNavigationAfterQueue();
+      }
+    } catch (cause) {
+      failAcceptedOutputQueue(cause);
+    } finally {
+      acceptedOutputWriterActiveRef.current = false;
+      if (pendingAcceptedOutputCountRef.current > 0) {
+        void runAcceptedOutputQueue();
+      }
+    }
+  }
+
+  async function synchronizeVisibleNavigationAfterQueue(): Promise<void> {
+    const durableRecord = recordRef.current;
+    const visibleState = stateRef.current;
+    if (
+      durableRecord === null ||
+      visibleState === null ||
+      visibleState.decisions.length !== durableRecord.state.decisions.length ||
+      (visibleState.currentIndex === durableRecord.state.currentIndex &&
+        visibleState.navigationStep === durableRecord.state.navigationStep)
+    ) {
+      return;
+    }
+    const synchronizedState = {
+      ...durableRecord.state,
+      currentIndex: visibleState.currentIndex,
+      navigationStep: visibleState.navigationStep,
+      updatedAt: new Date().toISOString(),
+    };
+    const synchronizedRecord: ManualSelectionSessionRecord = {
+      ...durableRecord,
+      cursorImagePath:
+        images[synchronizedState.currentIndex]?.relativePath ??
+        durableRecord.cursorImagePath,
+      state: synchronizedState,
+    };
+    try {
+      await store.save(synchronizedRecord);
+      replaceDurableRecord(synchronizedRecord);
+      replaceVisibleState(synchronizedState);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? `Wybór zapisano, ale nie utrwalono bieżącej nawigacji: ${cause.message}`
+          : 'Wybór zapisano, ale nie utrwalono bieżącej nawigacji.',
+      );
+    }
+  }
+
+  function failAcceptedOutputQueue(cause: unknown): void {
+    const cancelledCount = acceptedOutputQueueRef.current.length;
+    acceptedOutputQueueRef.current = [];
+    pendingAcceptedOutputCountRef.current = 0;
+    setPendingAcceptedOutputCount(0);
+    const durableRecord = recordRef.current;
+    setSavedRecord(durableRecord);
+    setQueueRecoveryRequired(true);
+    replaceVisibleState(null);
+    replaceDurableRecord(null);
+    setError(
+      `${cause instanceof Error ? cause.message : 'Nie udało się zapisać zdjęcia.'} Anulowano ${cancelledCount.toLocaleString('pl-PL')} oczekujących wyborów. Wznów zapisaną sesję, aby bezpiecznie kontynuować.`,
+    );
   }
 
   async function skipCurrent(): Promise<void> {
     const currentState = stateRef.current;
     if (
-      record === null ||
+      recordRef.current === null ||
       currentState === null ||
       busyRef.current ||
+      acceptPreparationRef.current ||
+      pendingAcceptedOutputCountRef.current > 0 ||
       currentState.selectionComplete === true
     )
       return;
@@ -631,10 +845,11 @@ function LocalManualImageSelectionWorkspace() {
         currentState.currentIndex,
       );
       await persist(nextState);
-      if (outputDirectory !== null) {
+      const persistedRecord = recordRef.current;
+      if (outputDirectory !== null && persistedRecord !== null) {
         await new FileSystemManualSelectionOutputAdapter(
           outputDirectory,
-        ).writeOutputManifest({ ...record, state: nextState });
+        ).writeOutputManifest({ ...persistedRecord, state: nextState });
       }
       await appendDecisionTrace(
         'skipped',
@@ -651,7 +866,14 @@ function LocalManualImageSelectionWorkspace() {
 
   async function undoLast(): Promise<void> {
     const currentState = stateRef.current;
-    if (record === null || currentState === null || busyRef.current) return;
+    if (
+      recordRef.current === null ||
+      currentState === null ||
+      busyRef.current ||
+      acceptPreparationRef.current ||
+      pendingAcceptedOutputCountRef.current > 0
+    )
+      return;
     const last = currentState.decisions.at(-1);
     const previous = previousManualSelectionState(currentState);
     if (last === undefined || previous === null) return;
@@ -665,10 +887,11 @@ function LocalManualImageSelectionWorkspace() {
         ).removeManagedOutput(last);
       }
       await persist(previous);
-      if (outputDirectory !== null) {
+      const persistedRecord = recordRef.current;
+      if (outputDirectory !== null && persistedRecord !== null) {
         await new FileSystemManualSelectionOutputAdapter(
           outputDirectory,
-        ).writeOutputManifest({ ...record, state: previous });
+        ).writeOutputManifest({ ...persistedRecord, state: previous });
       }
       const traceImage =
         (last.imagePath === null
@@ -702,8 +925,9 @@ function LocalManualImageSelectionWorkspace() {
     decisionRange: { readonly start: number; readonly end: number },
     output: { readonly checksum: string; readonly name: string } | null,
     decisionOrdinal: number,
+    traceRecord: ManualSelectionSessionRecord | null = recordRef.current,
   ): Promise<void> {
-    if (record === null) return;
+    if (traceRecord === null) return;
     await store.appendTraceEvent({
       decoded: true,
       decisionOrdinal: kind === 'undo' ? null : decisionOrdinal,
@@ -717,21 +941,32 @@ function LocalManualImageSelectionWorkspace() {
       rangeStart: decisionRange.start,
       recordedAt: new Date().toISOString(),
       revertsDecisionOrdinal: kind === 'undo' ? decisionOrdinal : null,
-      sessionKey: record.key,
+      sessionKey: traceRecord.key,
       sourceIndex: images.indexOf(image),
       visibleMilliseconds: 0,
     });
   }
 
   async function exportTrainingTrace(): Promise<void> {
-    if (record === null || outputDirectory === null || busyRef.current) return;
+    const currentRecord = recordRef.current;
+    if (
+      currentRecord === null ||
+      outputDirectory === null ||
+      busyRef.current ||
+      acceptPreparationRef.current ||
+      pendingAcceptedOutputCountRef.current > 0
+    )
+      return;
     setBusy(true);
     setError(null);
     try {
-      const events = await store.loadTraceEvents(workspaceId, record.key);
+      const events = await store.loadTraceEvents(
+        workspaceId,
+        currentRecord.key,
+      );
       await new FileSystemManualSelectionOutputAdapter(
         outputDirectory,
-      ).writeTraceManifest(record, events);
+      ).writeTraceManifest(currentRecord, events);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -745,58 +980,98 @@ function LocalManualImageSelectionWorkspace() {
 
   function moveImage(delta: number): void {
     const currentState = stateRef.current;
-    if (currentState === null || busyRef.current || images.length === 0) return;
+    if (
+      currentState === null ||
+      busyRef.current ||
+      acceptPreparationRef.current ||
+      images.length === 0
+    )
+      return;
     const navigationStep = normalizeNavigationStep(currentState.navigationStep);
     const nextIndex = moveManualSelectionCursor(
       currentState.currentIndex,
       images.length,
       delta * navigationStep,
     );
-    if (nextIndex === currentState.currentIndex || record === null) return;
-    void persist({
+    if (nextIndex === currentState.currentIndex || recordRef.current === null)
+      return;
+    const nextState = {
       ...currentState,
       currentIndex: nextIndex,
       updatedAt: new Date().toISOString(),
-    });
+    };
+    if (pendingAcceptedOutputCountRef.current > 0) {
+      replaceVisibleState(nextState);
+      return;
+    }
+    void persist(nextState);
   }
 
   function changeNavigationStep(value: string): void {
     const currentState = stateRef.current;
-    if (currentState === null || record === null || busyRef.current) return;
+    if (
+      currentState === null ||
+      recordRef.current === null ||
+      busyRef.current ||
+      acceptPreparationRef.current
+    )
+      return;
     const navigationStep = normalizeNavigationStep(Number.parseInt(value, 10));
-    void persist({
+    const nextState = {
       ...currentState,
       navigationStep,
       updatedAt: new Date().toISOString(),
-    });
+    };
+    if (pendingAcceptedOutputCountRef.current > 0) {
+      replaceVisibleState(nextState);
+      return;
+    }
+    void persist(nextState);
   }
 
   function changeNavigationStepByDirection(direction: -1 | 1): void {
     const currentState = stateRef.current;
-    if (currentState === null || record === null || busyRef.current) return;
+    if (
+      currentState === null ||
+      recordRef.current === null ||
+      busyRef.current ||
+      acceptPreparationRef.current
+    )
+      return;
     const navigationStep = adjacentManualNavigationStep(
       currentState.navigationStep,
       direction,
     );
     if (navigationStep === currentState.navigationStep) return;
-    void persist({
+    const nextState = {
       ...currentState,
       navigationStep,
       updatedAt: new Date().toISOString(),
-    });
+    };
+    if (pendingAcceptedOutputCountRef.current > 0) {
+      replaceVisibleState(nextState);
+      return;
+    }
+    void persist(nextState);
   }
 
   useEffect(() => {
     if (state === null) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (busyRef.current || rangeEditorOpen) return;
+      const target = event.target as HTMLElement | null;
+      if (event.key === 'Enter' && !isEditableManualSelectionTarget(target)) {
+        event.preventDefault();
+        return;
+      }
+      if (busyRef.current || acceptPreparationRef.current || rangeEditorOpen)
+        return;
       const action = resolveManualSelectionShortcut({
         altKey: event.altKey,
         ctrlKey: event.ctrlKey,
         key: event.key,
         metaKey: event.metaKey,
         repeat: event.repeat,
-        target: event.target as HTMLElement | null,
+        target,
       });
       if (action === null) return;
       event.preventDefault();
@@ -918,6 +1193,7 @@ function LocalManualImageSelectionWorkspace() {
             className="primaryButton"
             disabled={
               loading ||
+              queueRecoveryRequired ||
               resumeRecovery !== null ||
               sourceDirectory === null ||
               outputDirectory === null
@@ -969,6 +1245,9 @@ function LocalManualImageSelectionWorkspace() {
     state.sequenceUpperBound ?? null,
   );
   const navigationStep = normalizeNavigationStep(state.navigationStep);
+  const currentImageAlreadyAccepted =
+    current !== undefined &&
+    hasAcceptedManualImage(state, current.relativePath);
   return (
     <section
       className="manualImageSelectionWorkspace manualImageSelectionActive"
@@ -985,7 +1264,11 @@ function LocalManualImageSelectionWorkspace() {
             Zakres{' '}
             <button
               className="manualImageSelectionRangeButton"
-              disabled={busy || state.selectionComplete === true}
+              disabled={
+                busy ||
+                manualAcceptanceInProgress ||
+                state.selectionComplete === true
+              }
               onClick={openRangeEditor}
               type="button"
             >
@@ -995,8 +1278,9 @@ function LocalManualImageSelectionWorkspace() {
           </p>
           {state.selectionComplete === true ? (
             <p className="manualImageSelectionStatus" role="status">
-              Osiągnięto granicę numeracji. Możesz cofnąć ostatnią decyzję albo
-              zakończyć pracę.
+              {pendingAcceptedOutputCount > 0
+                ? 'Osiągnięto granicę numeracji. Ostatnie wybory zapisują się jeszcze w tle.'
+                : 'Osiągnięto granicę numeracji. Możesz cofnąć ostatnią decyzję albo zakończyć pracę.'}
             </p>
           ) : null}
           {rangeEditorOpen ? (
@@ -1049,11 +1333,17 @@ function LocalManualImageSelectionWorkspace() {
           <span>
             zatwierdzone:{' '}
             {
-              state.decisions.filter(
+              record.state.decisions.filter(
                 (decision) => decision.action === 'accepted',
               ).length
             }
           </span>
+          {pendingAcceptedOutputCount > 0 ? (
+            <span>
+              w kolejce: {pendingAcceptedOutputCount}/
+              {MAXIMUM_QUEUED_MANUAL_ACCEPTS}
+            </span>
+          ) : null}
           <span>
             pomiń:{' '}
             {
@@ -1065,10 +1355,16 @@ function LocalManualImageSelectionWorkspace() {
         </div>
       </header>
       <ManualImageViewer
-        busy={busy}
+        busy={busy || acceptPreparation}
         currentLabel={`Zakres ${range.start}–${range.end}`}
         currentPosition={currentImagePosition}
         currentRelativePath={current?.relativePath ?? null}
+        fullscreenExtra={
+          <strong className="manualImageSelectionFullscreenQueue">
+            kolejka: {pendingAcceptedOutputCount}/
+            {MAXIMUM_QUEUED_MANUAL_ACCEPTS}
+          </strong>
+        }
         imageCount={images.length}
         navigationStepLabel={`skok strzałki: ${navigationStep}`}
         nextDisabled={
@@ -1086,7 +1382,7 @@ function LocalManualImageSelectionWorkspace() {
           <label className="manualImageSelectionStep">
             Skok strzałki
             <select
-              disabled={busy}
+              disabled={busy || acceptPreparation}
               onChange={(event) => changeNavigationStep(event.target.value)}
               value={navigationStep}
             >
@@ -1107,7 +1403,11 @@ function LocalManualImageSelectionWorkspace() {
       <div className="manualImageSelectionActions">
         <button
           className="secondaryButton"
-          disabled={busy || state.decisions.length === 0}
+          disabled={
+            busy ||
+            manualAcceptanceInProgress ||
+            record.state.decisions.length === 0
+          }
           onClick={() => void undoLast()}
           type="button"
         >
@@ -1115,7 +1415,11 @@ function LocalManualImageSelectionWorkspace() {
         </button>
         <button
           className="secondaryButton"
-          disabled={busy || state.selectionComplete === true}
+          disabled={
+            busy ||
+            manualAcceptanceInProgress ||
+            state.selectionComplete === true
+          }
           onClick={() => void skipCurrent()}
           type="button"
         >
@@ -1124,30 +1428,51 @@ function LocalManualImageSelectionWorkspace() {
         <button
           className="primaryButton"
           disabled={
-            busy || current === undefined || state.selectionComplete === true
+            busy ||
+            acceptPreparation ||
+            pendingAcceptedOutputCount >= MAXIMUM_QUEUED_MANUAL_ACCEPTS ||
+            currentImageAlreadyAccepted ||
+            current === undefined ||
+            state.selectionComplete === true
           }
           onClick={() => void acceptCurrent()}
           type="button"
         >
-          Zapisz Enter/F jako seq_{range.start}-{range.end}.jpg
+          {currentImageAlreadyAccepted
+            ? 'Zdjęcie już zatwierdzone — przejdź →'
+            : `Zapisz F jako seq_${range.start}-${range.end}.jpg`}
         </button>
         <button
           className="secondaryButton"
-          disabled={busy}
+          disabled={busy || manualAcceptanceInProgress}
           onClick={() => void exportTrainingTrace()}
           type="button"
         >
           Eksportuj ślad uczenia
         </button>
       </div>
+      {pendingAcceptedOutputCount > 0 ? (
+        <p className="manualImageSelectionStatus" role="status">
+          Zapisuję wybory w tle: {pendingAcceptedOutputCount}/
+          {MAXIMUM_QUEUED_MANUAL_ACCEPTS}. Możesz przejść do kolejnego zdjęcia i
+          dodać następny wybór; zapisy są wykonywane po kolei.
+        </p>
+      ) : null}
+      {currentImageAlreadyAccepted ? (
+        <p className="manualImageSelectionStatus" role="status">
+          To zdjęcie jest już zatwierdzone. Przejdź do kolejnego zdjęcia
+          strzałką →, aby wybrać następny zakres.
+        </p>
+      ) : null}
       {error !== null ? (
         <p className="formError" role="alert">
           {error}
         </p>
       ) : null}
       <p className="manualImageSelectionHelp">
-        ←/→ zdjęcie · Enter/F zapisuje i przechodzi dalej · Tab pomija zakres ·
-        A/Ctrl+Z cofa ostatnią decyzję
+        ←/→ zdjęcie · F dodaje wybór do kolejki i pozostaje na zdjęciu · po
+        akceptacji przejdź → · Tab pomija zakres · A/Ctrl+Z cofa ostatnią
+        zapisaną decyzję
       </p>
     </section>
   );

@@ -1751,6 +1751,11 @@ nav {
   overflow-wrap: anywhere;
 }
 
+.manualImageSelectionViewer:fullscreen .manualImageSelectionFullscreenQueue {
+  color: #86efac;
+  font-variant-numeric: tabular-nums;
+}
+
 .manualImageSelectionImageFrame {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;

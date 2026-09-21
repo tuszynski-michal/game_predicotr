@@ -396,7 +396,10 @@ test('offers an explicit bounded range correction without enabling shortcuts in 
   assert.match(workspaceSource, /openRangeEditor/);
   assert.match(workspaceSource, /rangeEnd !== expectedRangeEnd/);
   assert.match(workspaceSource, /nextRangeStart: rangeStart/);
-  assert.match(workspaceSource, /busyRef\.current \|\| rangeEditorOpen/);
+  assert.match(
+    workspaceSource,
+    /busyRef\.current \|\| acceptPreparationRef\.current \|\| rangeEditorOpen/,
+  );
   assert.match(stylesSource, /\.manualImageSelectionRangeEditor\s*\{/);
   assert.match(stylesSource, /\.manualImageSelectionRangeButton\s*\{/);
 });
@@ -445,7 +448,7 @@ test('up and down arrows move by one configured navigation step', () => {
   assert.match(workspaceSource, /changeNavigationStepByDirection\(-1\)/);
 });
 
-test('enter advances the range and tab can keep the same photo', () => {
+test('acceptance advances the range while keeping the current photo, like tab', () => {
   const initial = createManualSelectionState(1, 'ascending');
   const next = nextManualSelectionState(
     initial,
@@ -457,7 +460,7 @@ test('enter advances the range and tab can keep the same photo', () => {
       rangeEnd: 9,
       rangeStart: 1,
     },
-    1,
+    initial.currentIndex,
   );
   const skipped = nextManualSelectionState(
     next,
@@ -469,12 +472,30 @@ test('enter advances the range and tab can keep the same photo', () => {
       rangeEnd: 18,
       rangeStart: 10,
     },
-    1,
+    next.currentIndex,
   );
   assert.equal(next.nextRangeStart, 10);
-  assert.equal(next.currentIndex, 1);
+  assert.equal(next.currentIndex, 0);
   assert.equal(skipped.nextRangeStart, 19);
-  assert.equal(skipped.currentIndex, 1);
+  assert.equal(skipped.currentIndex, 0);
+  assert.match(
+    workspaceSource,
+    /nextManualSelectionState\(\s*currentState,\s*decision,\s*currentState\.currentIndex,\s*\)/,
+  );
+});
+
+test('blocks a second accept for the same current photo, including a queued one', () => {
+  assert.match(workspaceSource, /function hasAcceptedManualImage/);
+  assert.match(
+    workspaceSource,
+    /hasAcceptedManualImage\(currentState, current\.relativePath\)/,
+  );
+  assert.match(workspaceSource, /currentImageAlreadyAccepted/);
+  assert.match(
+    workspaceSource,
+    /pendingAcceptedOutputCount >= MAXIMUM_QUEUED_MANUAL_ACCEPTS \|\|\s*currentImageAlreadyAccepted/,
+  );
+  assert.match(workspaceSource, /Zdjęcie już zatwierdzone — przejdź →/);
 });
 
 test('undo restores the previous range and removes the last decision', () => {
@@ -497,7 +518,7 @@ test('undo restores the previous range and removes the last decision', () => {
   assert.equal(restored.nextRangeStart, 1);
 });
 
-test('offers fullscreen and bounded zoom controls without changing the source file', () => {
+test('offers fullscreen queue count and bounded zoom controls without changing the source file', () => {
   assert.match(viewerSource, /toggleFullscreen/);
   assert.match(viewerSource, /requestFullscreen/);
   assert.match(viewerSource, /Powiększ zdjęcie/);
@@ -508,6 +529,11 @@ test('offers fullscreen and bounded zoom controls without changing the source fi
     workspaceSource,
     /currentLabel=\{`Zakres \$\{range\.start\}–\$\{range\.end\}`\}/,
   );
+  assert.match(
+    workspaceSource,
+    /fullscreenExtra=\{[\s\S]*kolejka: \{pendingAcceptedOutputCount\}\/[\s\S]*MAXIMUM_QUEUED_MANUAL_ACCEPTS/,
+  );
+  assert.match(stylesSource, /manualImageSelectionFullscreenQueue/);
 });
 
 test('uses scrollable layout dimensions for zoomed images instead of a visual transform', () => {
@@ -698,6 +724,33 @@ test('reports monotonic progress while listing a large source directory', async 
   ]);
 });
 
+test('queues up to one hundred manual accepts without treating them as durable first', async () => {
+  assert.match(workspaceSource, /MAXIMUM_QUEUED_MANUAL_ACCEPTS = 100/);
+  assert.match(workspaceSource, /acceptedOutputQueueRef/);
+  assert.match(
+    workspaceSource,
+    /pendingAcceptedOutputCountRef\.current >= MAXIMUM_QUEUED_MANUAL_ACCEPTS/,
+  );
+  assert.match(workspaceSource, /writeAcceptedOutput\([\s\S]*expectedChecksum/);
+  assert.match(workspaceSource, /synchronizeVisibleNavigationAfterQueue/);
+  assert.match(workspaceSource, /Anulowano \$\{cancelledCount/);
+
+  const adapter = new FileSystemManualSelectionOutputAdapter({});
+  await assert.rejects(
+    adapter.writeAcceptedOutput(
+      {
+        handle: { getFile: async () => new File(['changed'], '001.jpg') },
+        name: '001.jpg',
+        relativePath: '001.jpg',
+      },
+      1,
+      9,
+      { expectedChecksum: '0'.repeat(64) },
+    ),
+    /zmieniło się przed zapisem/,
+  );
+});
+
 test('output port writes v2 manifests and never removes a foreign file', async () => {
   const saved = new Map();
   const directory = {
@@ -778,12 +831,28 @@ test('defines durable output and training trace manifests', () => {
   assert.equal(typeof writeManualOutputManifest, 'function');
 });
 
-test('supports single-key accept and undo shortcuts without hijacking form fields', () => {
+test('uses F for local acceptance and blocks Enter outside editable fields', () => {
   assert.match(workspaceSource, /resolveManualSelectionShortcut/);
   assert.match(manualSelectionCoreSource, /key === 'f'/);
   assert.match(manualSelectionCoreSource, /key === 'a'/);
   assert.match(workspaceSource, /void acceptCurrent\(\)/);
   assert.match(workspaceSource, /void undoLast\(\)/);
-  assert.match(manualSelectionCoreSource, /tagName === 'INPUT'/);
-  assert.match(manualSelectionCoreSource, /tagName === 'SELECT'/);
+  assert.match(workspaceSource, /function isEditableManualSelectionTarget/);
+  assert.match(workspaceSource, /target\.isContentEditable/);
+  assert.match(workspaceSource, /target\.tagName === 'INPUT'/);
+  assert.match(workspaceSource, /target\.tagName === 'SELECT'/);
+  assert.match(workspaceSource, /target\.tagName === 'TEXTAREA'/);
+
+  const enterGuardIndex = workspaceSource.indexOf("event.key === 'Enter'");
+  const resolverIndex = workspaceSource.indexOf(
+    'resolveManualSelectionShortcut({',
+  );
+  assert.ok(enterGuardIndex >= 0);
+  assert.ok(enterGuardIndex < resolverIndex);
+  assert.match(
+    workspaceSource.slice(enterGuardIndex, resolverIndex),
+    /event\.preventDefault\(\);\s*return;/,
+  );
+  assert.doesNotMatch(workspaceSource, /Zapisz Enter\/F/);
+  assert.doesNotMatch(workspaceSource, /Enter\/F dodaje wybór/);
 });

@@ -19,8 +19,8 @@ uchwyty i ścieżki bez otwierania wszystkich Blobów. Workspace utrzymuje
 ograniczony cache Object URL dla bieżącego JPEG-a i trzech sąsiadów z każdej
 strony, wywołuje `decode()` jako read-ahead oraz zwalnia URL-e poza oknem.
 Lista `images` zawsze pozostaje w naturalnym porządku. `currentIndex` jest
-trwałym ordinalem tego źródła; nowa sesja zaczyna od `0`, `→` i Enter zwiększają
-ordinal, a `←` go zmniejsza. Kierunek sesji steruje wyłącznie zmianą zakresu
+trwałym ordinalem tego źródła; nowa sesja zaczyna od `0`, `→` zwiększa ordinal,
+`←` go zmniejsza, a `F` zachowuje go po akceptacji. Kierunek sesji steruje wyłącznie zmianą zakresu
 `seq_*` po zatwierdzeniu. Dzięki temu IndexedDB, cache, trace i wznowienie
 wskazują ten sam fizyczny JPEG niezależnie od kierunku numeracji plansz.
 
@@ -79,9 +79,33 @@ utrwalany przed otwarciem przeglądarki zdjęć.
 Workspace zapisuje dwa jawne artefakty przez wybrany uchwyt folderu wynikowego:
 kompaktowy `manual-image-selection-output-v1.json` oraz, na żądanie operatora,
 `manual-image-selection-trace-v1.json`. Manifest wyjściowy jest synchronizowany
-po każdym Enterze, Tabie i Ctrl+Z, natomiast pełny ślad jest materializowany
+po każdym `F`, Tabie i Ctrl+Z, natomiast pełny ślad jest materializowany
 poza ścieżką krytyczną sesji. Każdy zapis sprawdza właściciela `sessionKey`, aby
 nie nadpisać artefaktu innej sesji.
+
+Zwykła lokalna akceptacja ma ograniczoną, pamięciową kolejkę `100` pozycji,
+odrębną od kolejki napraw katalogu. `F` najpierw odczytuje SHA-256 źródła,
+tworzy widoczną decyzję i od razu przechodzi do następnego zakresu, zachowując
+widok bieżącego JPEG-a; do kolejki trafia wyłącznie
+uchwyt pliku, checksummowana decyzja i następny indeks — nigdy `File` ani Blob.
+Przed preflightem workspace odrzuca źródło, którego `relativePath` już ma
+decyzję `accepted` w widocznym stanie; obejmuje to trwałe decyzje i pamięciowy
+ogon kolejki bez nowego stanu lub zapisu. Późniejsze `F` nie tworzy więc
+drugiego zakresu dla tego samego JPEG-a, a undo ponownie go odblokowuje.
+Jeden writer konsumuje FIFO i przed zapisem ponownie porównuje checksumę źródła
+z preflightem. Dopiero po kopii, ponownej weryfikacji outputu, zapisie IndexedDB
+i manifestu decyzja przechodzi do `durableState`; trace jest dopisywany po tym
+jako artefakt pomocniczy. Stan React może tymczasowo zawierać więcej decyzji niż
+stan trwały, dlatego interfejs pokazuje te liczniki oddzielnie, a localStorage
+odczytuje wyłącznie rekord trwały.
+
+Podczas kolejki nawigacja i zmiana skoku zmieniają jedynie stan widoku; po
+opróżnieniu kolejki jego pozycja jest utrwalana razem z kompletnym stanem
+decyzji. Zakres, pominięcie, undo i eksport pozostają zablokowane, aby nie
+utworzyć drugiego porządku decyzji. Błąd jednego writera usuwa nieuruchomiony
+ogon z pamięci, zachowuje wcześniejsze commity i wraca do ekranu jawnego
+wznowienia ostatniej trwałej sesji. Nie ma trwałego outboxu: reload nie może
+oznaczać niedokończonej kolejki jako sukcesu.
 
 Nazwa pliku output pozostaje historyczna, lecz bieżący writer materializuje
 schema v2 z `sequenceUpperBound`, `selectionComplete` oraz
@@ -111,7 +135,9 @@ jawnego importu layoutów. Pełny ekran używa `requestFullscreen` na kontenerze
 podglądu. Zoom oblicza rzeczywiste wymiary layoutu z naturalnego rozmiaru JPEG-a
 i aktualnego viewportu, dzięki czemu pionowy scroll obejmuje cały obraz;
 viewport ukrywa poziomy overflow i centruje nadmiar obrazu bez ingerencji w
-Blob.
+Blob. Istniejący slot `fullscreenExtra` przekazuje do górnego paska wyłącznie
+reaktywny licznik `pendingAcceptedOutputCount/100`; nie tworzy nowego stanu ani
+nie wpływa na kolejkę, jej writera lub widok poza pełnym ekranem.
 
 Bieżący `scrollTop` viewportu jest przechowywany w zwykłym `useRef`. Przejście
 na inny indeks oznacza pozycję jako oczekującą na odtworzenie; dopiero po

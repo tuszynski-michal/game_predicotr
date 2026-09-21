@@ -31,6 +31,7 @@ test('validates and normalizes the game identity draft', () => {
       code: ' game-1 ',
       expectedLayoutCount: '500000',
       name: ' Game 1 ',
+      shapeGeometryConfiguration: 'framed_full_page_v2',
       status: 'draft',
     }),
     {
@@ -39,6 +40,7 @@ test('validates and normalizes the game identity draft', () => {
         code: 'game-1',
         expectedLayoutCount: '500000',
         name: 'Game 1',
+        shapeGeometryConfiguration: 'framed_full_page_v2',
         status: 'draft',
       },
     },
@@ -48,6 +50,7 @@ test('validates and normalizes the game identity draft', () => {
       code: 'game-1',
       expectedLayoutCount: '500000',
       name: '  ',
+      shapeGeometryConfiguration: 'requires_clarification',
       status: 'draft',
     }),
     {

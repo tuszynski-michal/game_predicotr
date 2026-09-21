@@ -257,6 +257,9 @@ from game_predictor_api.storage.global_geometry_library_repository import (
 from game_predictor_api.storage.global_geometry_profile_snapshot_resolver import (
     SqlAlchemyGlobalGeometryProfileSnapshotResolver,
 )
+from game_predictor_api.storage.global_shape_geometry_readiness import (
+    GlobalShapeGeometryReadinessResolver,
+)
 from game_predictor_api.storage.grid_calibration_repository import (
     SqlAlchemyGridCalibrationRepository,
 )
@@ -467,7 +470,12 @@ def create_app(
     def default_catalog_service_dependency() -> Iterator[CatalogService]:
         with session_factory() as session:
             try:
-                yield CatalogService(SqlAlchemyCatalogRepository(session, GameStorageRouter()))
+                yield CatalogService(
+                    SqlAlchemyCatalogRepository(session, GameStorageRouter()),
+                    shape_geometry_readiness_resolver=GlobalShapeGeometryReadinessResolver(
+                        SqlAlchemyGlobalGeometryLibraryRepository(session)
+                    ),
+                )
                 session.commit()
             except BaseException:
                 session.rollback()

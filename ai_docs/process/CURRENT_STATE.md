@@ -6,6 +6,23 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0607 — gotowość wspólnej geometrii przy tworzeniu gry
+
+- Ukończono G04: migracja 0116 dodaje nullable deklarację rodziny strony do
+  katalogu gry. Nowa gra wybiera `framed_full_page_v2` albo
+  `requires_clarification`; historyczne `NULL` pozostaje bez backfillu i jest
+  odczytywane fail-closed jako potrzeba doprecyzowania.
+- Katalog API, wygenerowany klient i Admin zwracają/wyświetlają jeden stan
+  gotowości. Tylko jeden integralny globalny profil `active` może dostarczyć
+  immutable referencję profilu; brak, konflikt albo uszkodzenie prowadzą do
+  ręcznej korekty, bez local anchor, koloru ramki, obrazu czy automatycznego
+  importu.
+- 37 skoncentrowanych testów API, Ruff, ograniczony mypy, aktualność OpenAPI i
+  klienta, typecheck Admina, 18 testów katalogu oraz Prettier przeszły. Astra
+  Medium znalazła jedno P2 obsługi błędu odczytu profilu; poprawiono je wraz z
+  regresją, a końcowy re-audyt nie ma P0–P3. Karta zadania została przeniesiona
+  do `completed` wraz z commitem G04.
+
 ### TASK-0606 — resolver i preflight wspólnej geometrii shape v2
 
 - Ukończono G03: resolver API przypina wyłącznie jeden poprawny profil

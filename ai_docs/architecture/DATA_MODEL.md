@@ -6,6 +6,23 @@ last_updated: 2026-09-21
 
 # Model danych
 
+## Deklaracja gotowości geometrii gry shape v2 — TASK-0607
+
+Migracja 0116 dodaje do `public.games` nullable
+`shape_geometry_configuration`. Nowe gry zapisują jedną jawną deklarację:
+`framed_full_page_v2` albo `requires_clarification`; wartość `NULL` jest
+zachowywana dla rekordów historycznych i w odczycie znaczy
+`requires_clarification`. Migracja nie wykonuje backfillu ani nie klasyfikuje
+gry po nazwie.
+
+Deklaracja nie kopiuje globalnego profilu i nie zawiera barwy ramki, lokalnej
+kotwicy, obrazu, cropa, danych importu ani konfiguracji per źródło. Jest tylko
+control-plane gry potrzebnym do bezpiecznego wyboru wspólnej rodziny strony.
+Aktualny status gotowości jest odczytową projekcją: aktywny profil biblioteki
+może dostarczyć wyłącznie immutable referencję `id`/numer/checksuma. Brak,
+konflikt albo uszkodzenie profilu nie zmienia deklaracji gry i prowadzi do
+ręcznej korekty pierwszego importu.
+
 ## Globalna biblioteka geometrii shape v2 — TASK-0605
 
 Migracja 0115 dodaje do `public` kontrolny plane wspólnej geometrii
@@ -225,6 +242,7 @@ Nie dodano migracji: statusy i typ `remove` są już dopuszczone przez schemat
 | name | varchar | nazwa użytkowa |
 | status | enum | draft/active/archived |
 | expected_layout_count | bigint | dodatnia konfiguracja, domyślnie 500 000 |
+| shape_geometry_configuration | varchar(64), nullable | `framed_full_page_v2` lub `requires_clarification`; `NULL` historycznej gry jest odczytywane fail-closed jako potrzeba doprecyzowania |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 

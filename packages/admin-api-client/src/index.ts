@@ -308,6 +308,7 @@ import type {
   VerifiedCohortFreezeCommand,
   VerifiedTrainingCohortFreezeCommand,
   GameCreate,
+  GameShapeGeometryConfiguration,
   GameUpdate,
   PaylineCreate,
   PaylineUpdate,
@@ -317,6 +318,9 @@ import type {
   RulesVersionSymbolUpdate,
   RulesVersionUpdate,
   ReviewItemStatus,
+  ShapeGeometryReadinessResponse,
+  ShapeGeometryReadinessStatus,
+  SharedShapeGeometryProfileReferenceResponse,
   ReviewFeedbackExportCreate,
   ReviewResolutionCommand,
   ReviewerIngressCommand,
@@ -444,6 +448,7 @@ export type {
   ErrorResponse,
   GameCreate,
   GameResponse,
+  GameShapeGeometryConfiguration,
   GameStatus,
   GameUpdate,
   CreateGridCalibrationCandidateResponse,
@@ -649,6 +654,9 @@ export type {
   ReviewItemPageResponse,
   ReviewItemResponse,
   ReviewItemStatus,
+  ShapeGeometryReadinessResponse,
+  ShapeGeometryReadinessStatus,
+  SharedShapeGeometryProfileReferenceResponse,
   ReviewFeedbackExportCreateResponse,
   ReviewFeedbackExportResponse,
   ReviewResolutionAction,
@@ -830,8 +838,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getHealth: () => getGeneratedHealth({ client }),
-    createV7LabelGeometryCalibrationSession: (body: V7LabelGeometrySessionCreate) =>
-      createGeneratedV7LabelGeometryCalibrationSession({ body, client }),
+    createV7LabelGeometryCalibrationSession: (
+      body: V7LabelGeometrySessionCreate,
+    ) => createGeneratedV7LabelGeometryCalibrationSession({ body, client }),
     getV7LabelGeometryCalibrationSession: (sessionId: string) =>
       getGeneratedV7LabelGeometryCalibrationSession({
         client,
@@ -874,13 +883,15 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { session_id: sessionId, source_id: sourceId },
         query: { expectedSourceChecksumSha256 },
       }),
-    listV7LabelGeometryProfiles: () => listGeneratedV7LabelGeometryProfiles({ client }),
+    listV7LabelGeometryProfiles: () =>
+      listGeneratedV7LabelGeometryProfiles({ client }),
     getV7LabelGeometryProfile: (profileFingerprint: string) =>
       getGeneratedV7LabelGeometryProfile({
         client,
         path: { profile_fingerprint: profileFingerprint },
       }),
-    listV7LabelGeometryAdoptions: () => listGeneratedV7LabelGeometryAdoptions({ client }),
+    listV7LabelGeometryAdoptions: () =>
+      listGeneratedV7LabelGeometryAdoptions({ client }),
     getSemiAutomaticImageSelectionCapabilities: () =>
       getGeneratedSemiAutomaticImageSelectionCapabilities({ client }),
     selectSemiAutomaticImageSelectionSourceFolder: () =>
@@ -1360,7 +1371,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body: file,
         client,
         headers: {
-          ...confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
+          ...confirmedTargetHeaders(
+            `image-import:${gameId}:page-source-replacement`,
+          ),
           'X-Game-Id': gameId,
           'X-Source-Checksum-Sha256': sourceChecksumSha256,
           'X-Source-Relative-Path': sourceRelativePath,
@@ -1384,8 +1397,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           replacementChecksumSha256,
         },
         client,
-        headers: confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
-        path: { upload_id: uploadId, replacement_upload_id: replacementUploadId },
+        headers: confirmedTargetHeaders(
+          `image-import:${gameId}:page-source-replacement`,
+        ),
+        path: {
+          upload_id: uploadId,
+          replacement_upload_id: replacementUploadId,
+        },
       }),
     discardBrowserPageGeometrySourceReplacement: (
       uploadId: string,
@@ -1395,8 +1413,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       discardGeneratedBrowserPageGeometrySourceReplacement({
         body: { gameId },
         client,
-        headers: confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
-        path: { upload_id: uploadId, replacement_upload_id: replacementUploadId },
+        headers: confirmedTargetHeaders(
+          `image-import:${gameId}:page-source-replacement`,
+        ),
+        path: {
+          upload_id: uploadId,
+          replacement_upload_id: replacementUploadId,
+        },
       }),
     cancelBrowserImageSelection: (uploadId: string) =>
       cancelGeneratedBrowserImageSelection({

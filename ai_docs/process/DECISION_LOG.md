@@ -9196,3 +9196,25 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   verifiera kończy się `review_required` bez `quads` oraz bez `registered`, więc
   importer nie może potraktować propozycji jako automatu. Brak ramki, słaba
   siatka lub niezgodny aspect ratio kończą się review.
+
+## D-424 — Deklaracja rodziny strony gry nie jest lokalnym profilem geometrii
+
+- **Status:** accepted (TASK-0607/G04).
+- **Date:** 2026-09-21.
+- **Decision:** katalog gry zapisuje wyłącznie `framed_full_page_v2` albo
+  `requires_clarification`; nullable wartość historyczna jest odczytywana jako
+  drugi z tych stanów. Jedna deklaracja nie zawiera koloru ramki, lokalnej
+  kotwicy, obrazu, cropa ani kopii globalnego profilu. Katalog pokazuje bieżącą
+  gotowość przez status i, wyłącznie przy jednym integralnym profilu `active`,
+  immutable referencję globalnej wersji.
+- **Rationale:** Mumie, Gang i następne zgodne gry mają korzystać z tej samej
+  geometrii bez wymagania ponownej konfiguracji różnic, które nie są dowodem
+  zgodności. Nazwa gry ani istniejący rekord nie może automatycznie klasyfikować
+  Treasure lub przyszłego formatu bez ramki.
+- **Compatibility:** istniejące gry i joby nie są przepisywane, a historyczne
+  `NULL` daje jawne `requires_clarification`. Kontrakt katalogu rozszerza
+  odpowiedź; istniejące importy nie są uruchamiane ani modyfikowane.
+- **Safety:** candidate/rejected/retired, brak, konflikt albo uszkodzenie
+  profilu nie wybiera fallbacku i nie daje automatu. `ready_for_shared_preflight`
+  jest informacją dla operatora przed ręcznym potwierdzeniem, nie zgodą na
+  import.

@@ -14,6 +14,7 @@ from game_predictor_api.application.catalog import CatalogRepository
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
     Game,
+    GameShapeGeometryConfiguration,
     GameStatus,
     Symbol,
     SymbolStatus,
@@ -102,6 +103,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         name: str,
         status: GameStatus,
         expected_layout_count: int,
+        shape_geometry_configuration: GameShapeGeometryConfiguration,
     ) -> Game:
         record = self._session.scalar(select(GameModel).where(GameModel.code == code))
         if record is not None:
@@ -110,6 +112,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
                 name=name,
                 status=status,
                 expected_layout_count=expected_layout_count,
+                shape_geometry_configuration=shape_geometry_configuration,
             ):
                 raise CatalogConflictError(
                     "GAME_CODE_ALREADY_EXISTS", "A game with this code already exists."
@@ -121,6 +124,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             name=name,
             status=status,
             expected_layout_count=expected_layout_count,
+            shape_geometry_configuration=shape_geometry_configuration.value,
         )
         self._session.add(record)
         self._flush_or_raise_conflict()
@@ -181,6 +185,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         name: str,
         status: GameStatus,
         expected_layout_count: int,
+        shape_geometry_configuration: GameShapeGeometryConfiguration,
     ) -> bool:
         if self._storage_router is None:
             return False
@@ -190,6 +195,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             and record.name == name
             and record.status == status
             and record.expected_layout_count == expected_layout_count
+            and record.shape_geometry_configuration == shape_geometry_configuration.value
         )
 
     def save_game(self, game: Game) -> Game:
@@ -199,6 +205,11 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record.name = game.name
         record.status = game.status
         record.expected_layout_count = game.expected_layout_count
+        record.shape_geometry_configuration = (
+            None
+            if game.shape_geometry_configuration is None
+            else game.shape_geometry_configuration.value
+        )
         record.updated_at = datetime.now(UTC)
         self._flush_or_raise_conflict()
         location = (
@@ -476,6 +487,11 @@ def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> G
         storage_generation=(storage.generation if storage is not None else 1),
         storage_status=(storage.status.value if storage is not None else "active"),
         storage_write_available=(storage.write_available if storage is not None else True),
+        shape_geometry_configuration=(
+            None
+            if record.shape_geometry_configuration is None
+            else GameShapeGeometryConfiguration(record.shape_geometry_configuration)
+        ),
     )
 
 

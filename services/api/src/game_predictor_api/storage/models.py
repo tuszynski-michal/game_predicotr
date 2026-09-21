@@ -97,6 +97,10 @@ class GameModel(Base):
         default=500_000,
         server_default=text("500000"),
     )
+    shape_geometry_configuration: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
     board_topology_rules_version_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("rules_versions.id", ondelete="RESTRICT"),
         nullable=True,

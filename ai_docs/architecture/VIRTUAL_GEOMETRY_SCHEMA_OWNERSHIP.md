@@ -6,6 +6,19 @@ last_updated: 2026-09-21
 
 # Virtual geometry schema ownership
 
+## Deklaracja gry i projekcja gotowości shape v2 — TASK-0607
+
+`games.shape_geometry_configuration` należy do control plane katalogu gry i
+określa tylko rodzinę strony. Nie jest profilem lokalnym, nie wskazuje kotwicy
+ani obrazu i nie przenosi danych importu między grami. `NULL` rekordu
+historycznego jest odczytywany fail-closed jako `requires_clarification`.
+
+Read model katalogu może odczytać tylko jeden integralny globalny profil
+`active` rodziny `framed_full_page_v2` i ujawnia wyłącznie jego immutable
+referencję. Nie odczytuje JPEG-ów, dowodów, routingu ani `game_id` z biblioteki;
+candidate/rejected/retired, konflikt i uszkodzenie nie dają gotowości. Projekcja
+nie ma prawa uruchomić preflightu, importu ani zmienić historycznego joba.
+
 ## Resolver i preflight shape v2 — TASK-0606
 
 Nowy preflight `page-geometry-preflight-v4-shape-geometry-v2-profile` przypina

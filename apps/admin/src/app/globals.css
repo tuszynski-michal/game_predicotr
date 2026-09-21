@@ -5455,6 +5455,13 @@ div.imageJobInlineError {
   line-height: 1.35;
 }
 
+.gameGeometryState {
+  margin-top: 5px;
+  color: #8ba3bc;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .symbolMetadata {
   display: flex;
   flex-wrap: wrap;

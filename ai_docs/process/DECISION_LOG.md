@@ -6,6 +6,24 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-406 — Nieczytelny kadr i nieznana widoczność nie mogą wygrać przez brak danych
+
+- **Status:** accepted (TASK-0588).
+- **Date:** 2026-09-21.
+- **Decision:** po własnym proof kandydaty V7 są porównywane według najgorszej
+  planszy. Utrata symboli jest pierwszym zwykłym kryterium, z jednym jawnym
+  wyjątkiem: kadr z choć jedną potwierdzoną nieczytelną planszą przegrywa z
+  kadrem czytelnym o niewielkiej, potwierdzonej utracie. `visibility=unknown`
+  nie może współistnieć z potwierdzonym brakiem albo małą utratą symboli.
+- **Rationale:** pełny, ale nieczytelny obraz nie jest użytecznym
+  reprezentantem, a brak pomiaru nie może być premiowany jako brak ryzyka.
+  Jedna uszkodzona plansza musi być widoczna w wyniku, nawet gdy osiem jest
+  dobrych.
+- **Safety:** mocny proof i 3+3 mają po bramce identyczne prawa rankingowe.
+  Dekoracja zależy od stylu border i nie kompensuje symboli; crop top/bottom
+  zawsze dodaje warning. T04 pozostaje czystą oceną w pamięci bez OCR, zapisu
+  JPEG-a, API lub decyzji ręcznej.
+
 ## D-405 — V7 rozdziela occurrence, kursor sekwencji i podgląd operatora
 
 - **Status:** accepted (TASK-0587).

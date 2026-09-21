@@ -159,6 +159,8 @@ def test_checkpoint_restores_gaps_active_occurrence_and_all_cursors() -> None:
     restored = V7OccurrenceTracker(RANGES, checkpoint=original.checkpoint())
 
     assert restored.cursors == original.cursors
+    assert restored.source_index_for("source-0") == 0
+    assert restored.source_index_for("missing-source") is None
     assert restored.unresolved_gap_indexes == (1,)
     _consume(restored, 2, RANGES[1])
     assert restored.cursors.sequence_cursor_index == 2

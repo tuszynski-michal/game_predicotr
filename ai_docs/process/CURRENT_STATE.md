@@ -6,6 +6,18 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0588 — jakość, ranking i warningi V7
+
+- T04 ocenia najgorszą z dziewięciu plansz zamiast uśredniać defekt. Wyłącznie
+  source-local strong/3+3 jest kandydatem; późniejsze occurrence tego samego
+  zakresu bierze udział w globalnym rankingu dopiero po EOF.
+- Utrata symboli ma pierwszeństwo nad zwykłymi sygnałami jakości, ale całkiem
+  nieczytelny kadr przegrywa z czytelnym kadrem o małej mierzonej utracie.
+  Nieznana widoczność nie może udawać zerowej/małej utraty, a przycięcie góry
+  albo dołu zawsze emituje warning.
+- T04 nie dekoduje obrazów ani nie ustala progów. T05 przypisze pomiary z
+  korpusu do tych klas i oceni mierzalne kryteria odbioru.
+
 ### TASK-0587 — wystąpienia, kursory i finalizacja V7
 
 - T03 rozdziela postęp workera (`next_source_index`), monotoniczny kursor

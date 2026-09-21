@@ -281,6 +281,11 @@ class V7OccurrenceTracker:
     def finalized_occurrences(self) -> tuple[V7Occurrence, ...]:
         return tuple(self._finalized)
 
+    def source_index_for(self, source_id: str) -> int | None:
+        """Return the pinned manifest position for one already scanned source."""
+
+        return self._seen_source_indexes.get(source_id)
+
     def set_viewed_source_index(self, source_index: int | None) -> None:
         if source_index is not None and not 0 <= source_index < self._next_source_index:
             _fail("V7_OCCURRENCE_CURSOR_INVALID", "The selected source has not been scanned.")

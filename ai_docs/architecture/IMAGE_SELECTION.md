@@ -1933,3 +1933,29 @@ blokuje run jako `V7_SOURCE_MANIFEST_DRIFT`, również dla JPEG-a niebędącego
 kandydatem. Zapisane propozycje są deterministycznie odtwarzane i ponowione
 wywołanie niczego nie duplikuje. T08 przed każdą publikacją wykonuje tę samą
 kontrolę już pod wspólną blokadą katalogu; T07 nie dotyka filesystemu outputu.
+
+## Writer i recovery pierwszego outputu V7 — TASK-0592
+
+`V7OutputWriter` jest jedynym właścicielem publikacji pierwszego
+`seq_<start>-<end>.jpg` do sąsiedniego katalogu `<source> cut`. Z requestu
+przyjmuje tylko kanoniczny pełny zakres i źródło związane z przypiętym
+manifestem; sam wyprowadza target i ścieżkę temp. Przed publikacją tworzy
+atomowo journal intentu, kopiuje oryginalne bajty do pliku temp z `fsync`,
+ponownie kontroluje cały manifest oraz wskazane źródło, a następnie używa
+NTFS `hard-link` bez zastępowania targetu. Read-back SHA jest warunkiem
+commitu właściciela.
+
+Journal schema v1 przechowuje operacje `prepared → publishing → published →
+committed` albo terminalne `cancelled`, `superseded`, `conflict`, ich
+niezmienny fingerprint, SHA, generację oraz aktualnego właściciela targetu.
+Idempotency key z innym zakresem, źródłem, SHA albo generacją jest konfliktem.
+Wspólna blokada plikowa obejmuje odczyt journalu i manifestu przez kontrolę
+generacji do publikacji oraz commitu, więc współpracujący worker/API/recovery
+nie mają odstępu między ostatnim sprawdzeniem a zapisem.
+
+Recovery pod tą samą blokadą wymaga identycznego pełnego manifestu. Utrwalony
+target o oczekiwanym SHA przechodzi do `published`, a następnie natychmiast do
+`committed`; obce targety/temp oraz temp bez operacji journalu stają się
+konfliktem fail-closed. Historyczna operacja nie będzie wymagała dawnego SHA
+po świadomej podmianie T09: integralność zawsze sprawdza aktualnego właściciela
+targetu, a historia pozostaje w journalu.

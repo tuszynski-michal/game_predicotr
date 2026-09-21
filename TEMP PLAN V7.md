@@ -27,7 +27,7 @@ zaakceptowanego planu `ai_docs/delivery/SEMI_AUTOMATIC_SELECTION_V7_EXECUTION_PL
 | T05 | done, `v0.10.323` | Wersjonowana kalibracja i metryki fail-closed; realny probe nadal nie ma wiarygodnej geometrii, więc aktywacja pozostaje zablokowana. |
 | T06 | done, `v0.10.324` | Addytywna migracja, kanoniczna konfiguracja i API/OpenAPI; backend blokuje V7 przed odczytem źródła do T12. |
 | T07 | done, `v0.10.325` | Przypięty manifest, JSON checkpoint skanu/finalizacji, pause/cancel/restart oraz blokada driftu bez zapisu JPEG-a. |
-| T08 | todo | Pierwszy output, journal, generacje, właściciel targetu, lock, recovery i bariery wyścigów. |
+| T08 | done, `v0.10.326` | Pierwszy output bez nadpisania, journal operacji, kontrola generacji i manifestu, blokada katalogu oraz recovery po awarii. |
 | T09 | todo | Manual replace, pierwszy półautomat, ręczny no-OCR, częściowa strona 1–8 i retry. |
 | T10 | todo | Zastąpienie nowego półautomatu UI, formularz, podgląd sąsiadów i trwały kursor operatora. |
 | T11 | todo | CPU/GPU/RAM, uporządkowana równoległość, limity buforów i raport czasów. |

@@ -6,6 +6,21 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0592 — pierwszy output, journal i recovery V7
+
+- `V7OutputWriter` tworzy wyłącznie pierwszy `seq_<rosnący-start>-<rosnący-end>.jpg`
+  jako bajtowo identyczną kopię do sąsiedniego `<źródło> cut`. Target, journal
+  i temp są wyprowadzane z kanonicznego requestu; istniejący albo obcy plik
+  nigdy nie jest nadpisywany.
+- Journal schema v1 utrwala intent, SHA, source identity, fingerprint komendy,
+  generację i bieżącego właściciela targetu. Ten sam UUID z inną komendą jest
+  konfliktem. Wspólna blokada katalogu obejmuje pełny manifest, źródło,
+  walidację generacji, publikację non-clobber i commit.
+- Recovery fail-closed odrzuca niepełny journal, obcy/niezgodny temp lub target,
+  nieznany temp i drift dowolnego pliku przypiętego manifestu. Awaria po
+  publikacji przed commitem kończy się przy restarcie `committed`. T09 rozszerzy
+  historię o manual replace oraz ręczne pierwsze zapisy.
+
 ### TASK-0591 — manifest, checkpoint i finalizacja V7
 
 - `V7ScanRunState` przypina cały local manifest, source IDs, occurrence T03,

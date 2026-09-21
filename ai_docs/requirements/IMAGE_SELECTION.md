@@ -1331,3 +1331,27 @@ usunięcie, zmiana nazwy, kolejności, rozmiaru lub zawartości dowolnego źród
 także niewybranego — blokuje dalszą automatyczną finalizację kodem
 `V7_SOURCE_MANIFEST_DRIFT`. Niezmieniony, lecz niedekodowalny JPEG pozostaje
 widocznym `source_error`; nie jest dryfem i nie znika z raportu.
+
+## Pierwszy lokalny output V7 — TASK-0592
+
+Wyłącznie writer V7 może utworzyć pierwszy output pełnej strony. Nazwa jest
+kanonicznym `seq_<rosnący-start>-<rosnący-end>.jpg`, a katalogiem docelowym
+jest sąsiad `<source> cut`. Writer nie przyjmuje ścieżki celu, nazwy tymczasowej
+ani zakresu w postaci swobodnego tekstu. Kopiuje oryginalne bajty JPEG-a,
+porównuje SHA-256 po ponownym odczycie i publikuje bez zastępowania istniejącego
+pliku.
+
+Lokalny journal schema v1 przechowuje przypięty manifest, fingerprint komendy,
+źródło, SHA, `decision_generation`, stan operacji oraz aktualnego właściciela
+targetu. Stany to `prepared`, `publishing`, `published`, `committed`,
+`cancelled`, `superseded` i `conflict`. Ten sam identyfikator operacji może
+być ponowiony wyłącznie z identyczną komendą. Pierwszy zapis wymaga braku
+targetu; obcy plik, obcy temp, niepełny journal albo rozbieżne SHA kończą się
+fail-closed bez nadpisania.
+
+Cały odczyt manifestu, weryfikacja źródła i generacji, publikacja non-clobber
+oraz commit odbywają się pod wspólną blokadą katalogu. Recovery ponownie
+sprawdza pełny manifest, rozlicza utrwaloną publikację do `committed` i
+rozróżnia prawidłowy od obcego temp/targetu. T09 rozszerzy ten sam journal o
+świadomą podmianę i zachowanie historycznych właścicieli; T08 nie wykonuje
+ręcznej mutacji pliku.

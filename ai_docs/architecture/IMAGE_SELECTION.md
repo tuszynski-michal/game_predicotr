@@ -1934,6 +1934,37 @@ kandydatem. Zapisane propozycje są deterministycznie odtwarzane i ponowione
 wywołanie niczego nie duplikuje. T08 przed każdą publikacją wykonuje tę samą
 kontrolę już pod wspólną blokadą katalogu; T07 nie dotyka filesystemu outputu.
 
+## Obserwator związany z profilem V7 — TASK-0604
+
+V7ProfileBoundObserverFactory jest opcjonalną zależnością runtime'u, a nie
+nowym defaultem. Przed utworzeniem recognizera sprawdza status passed, rodzinę
+standard_3x3_numeric_labels_v1, fingerprint profilu i fingerprint canonical
+payloadu lokalizatora. V7WorkerRuntime przekazuje request z przypiętym
+V7PinnedSource oraz bajtami odczytanymi i ponownie sprawdzonymi SHA-256.
+Obserwator nie otrzymuje ścieżki, nie może ponownie otworzyć pliku i
+pojedynczo canonicalizuje EXIF RGB.
+
+Obserwator lokalizuje i rozpoznaje tylko dziewięć cropów numerycznych profilu.
+Mocny dowód pięciu etykiet jest source-local. Dokładnie trzy etykiety są
+serializowane jako V7WeakFrameEvidence bez bitmapy; V7ScanRunState przekazuje
+je dla przypiętego source ID do V7OccurrenceTracker. Tracker v2 jest jedynym
+właścicielem oczekującej słabej hipotezy i serializuje ją do własnego
+checkpointu. Przy wznowieniu waliduje ID źródła, zakres, pozycje, pewności i
+ponownie wyprowadza jednoznaczną hipotezę przed dopuszczeniem 3+3. Visual hash
+jest compression-tolerant average hash 8×8, a 64-bajtowa sygnatura przechowuje
+trzybitowe średnie tych obszarów. Zgodna sygnatura tworzy wspólny klaster
+niezależnie od hash, dlatego rekompresja tego samego obrazu nie może stać się
+drugim dowodem. Także odległość Hamminga nie większa niż cztery tworzy wspólny
+klaster.
+
+Obserwacja zdekodowanego źródła dostaje dziewięć jawnych jakości unknown;
+uszkodzony JPEG dostaje tylko reason-coded SOURCE_DECODE_ERROR. W warstwie
+obserwatora nie ma detekcji plansz, symboli, payoutów, rankingu ani outputu.
+Runtime checkpoint v2 wiąże oba fingerprinty z konfiguracją przed odtworzeniem
+stanu. Nadal odczytuje historyczny v1 dla obserwatorów niezwiązanych z profilem;
+profile-bound observer odmawia wznowienia nieprzypiętego v1. Tracker v2
+odczytuje historyczny v1 jako brak oczekującej hipotezy.
+
 ## Writer i recovery pierwszego outputu V7 — TASK-0592
 
 `V7OutputWriter` jest jedynym właścicielem publikacji pierwszego

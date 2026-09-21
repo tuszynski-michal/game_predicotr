@@ -10,6 +10,7 @@ opened; a later release task must provide that measured observer explicitly.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,8 +34,10 @@ from .v7_run_state import (
     V7ScanRunState,
 )
 
-V7_WORKER_RUNTIME_VERSION = "v7-worker-runtime-v1"
-V7_WORKER_RUNTIME_CHECKPOINT_SCHEMA_VERSION = 1
+V7_WORKER_RUNTIME_VERSION = "v7-worker-runtime-v2"
+V7_WORKER_RUNTIME_CHECKPOINT_SCHEMA_VERSION = 2
+_V7_LEGACY_WORKER_RUNTIME_VERSION = "v7-worker-runtime-v1"
+_V7_LEGACY_WORKER_RUNTIME_CHECKPOINT_SCHEMA_VERSION = 1
 
 
 class V7WorkerRuntimeError(ValueError):
@@ -85,7 +88,11 @@ class V7SourceObservationRequest:
     """One checksum-verified asset available to a calibrated V7 observer."""
 
     source: V7PinnedSource
-    source_path: Path
+    source_content: bytes
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_content, bytes) or not self.source_content:
+            _fail("V7_SCAN_OBSERVATION_INVALID", "The V7 source bytes are invalid.")
 
 
 class V7SourceObserver(Protocol):
@@ -162,12 +169,18 @@ class V7WorkerRuntime:
             manifest,
             expected_ranges=configuration.expected_ranges,
             border_style=configuration.border_style,
-            checkpoint=_scan_state_checkpoint(checkpoint),
+            checkpoint=_scan_state_checkpoint(
+                checkpoint,
+                configuration,
+                require_config_bound_checkpoint=(
+                    getattr(observer, "requires_config_bound_checkpoint", False) is True
+                ),
+            ),
         )
         try:
             _require_manifest_unchanged(manifest)
         except V7WorkerRuntimeError as error:
-            _persist_source_drift(state, persist, error)
+            _persist_source_drift(state, configuration, persist, error)
             raise
         if state.phase is V7RunStatePhase.SCANNING:
             for source_index in range(state.cursors.next_source_index, len(manifest.sources)):
@@ -178,16 +191,26 @@ class V7WorkerRuntime:
                         source_index=source_index,
                         expected_checksum_sha256=pinned_source.checksum_sha256,
                     )
+                    source_content = _read_verified_source_bytes(
+                        source_path,
+                        expected_checksum_sha256=pinned_source.checksum_sha256,
+                    )
                 except LocalSourceManifestError as error:
                     try:
                         _raise_manifest_error(error, manifest=manifest, source_index=source_index)
                     except V7WorkerRuntimeError as runtime_error:
-                        _persist_source_drift(state, persist, runtime_error)
+                        _persist_source_drift(state, configuration, persist, runtime_error)
                         raise
+                except V7WorkerRuntimeError as error:
+                    _persist_source_drift(state, configuration, persist, error)
+                    raise
                 if source != manifest.sources[source_index]:
                     _fail("V7_SOURCE_MANIFEST_DRIFT", "The V7 local source identity changed.")
                 observation = observer.observe(
-                    V7SourceObservationRequest(source=pinned_source, source_path=source_path)
+                    V7SourceObservationRequest(
+                        source=pinned_source,
+                        source_content=source_content,
+                    )
                 )
                 if observation.source_index != source_index:
                     _fail(
@@ -198,28 +221,29 @@ class V7WorkerRuntime:
                     state.consume(observation)
                 except V7RunStateError as error:
                     raise V7WorkerRuntimeError(error.code, str(error)) from error
-                persist(_progress(state))
+                persist(_progress(state, configuration))
             try:
                 state.complete_scan()
             except V7RunStateError as error:
                 raise V7WorkerRuntimeError(error.code, str(error)) from error
-            persist(_progress(state))
+            persist(_progress(state, configuration))
         if state.phase is V7RunStatePhase.FINALIZATION_PENDING:
             try:
                 current_manifest = _require_manifest_unchanged(manifest)
             except V7WorkerRuntimeError as error:
-                _persist_source_drift(state, persist, error)
+                _persist_source_drift(state, configuration, persist, error)
                 raise
             try:
                 finalization = state.finalize(current_manifest)
             except V7RunStateError as error:
                 _persist_source_drift(
                     state,
+                    configuration,
                     persist,
                     V7WorkerRuntimeError(error.code, str(error)),
                 )
                 raise V7WorkerRuntimeError(error.code, str(error)) from error
-            progress = _progress(state)
+            progress = _progress(state, configuration)
             persist(progress)
             return V7WorkerRuntimeResult(
                 checkpoint=progress.checkpoint,
@@ -229,44 +253,72 @@ class V7WorkerRuntime:
             try:
                 current_manifest = _require_manifest_unchanged(manifest)
             except V7WorkerRuntimeError as error:
-                _persist_source_drift(state, persist, error)
+                _persist_source_drift(state, configuration, persist, error)
                 raise
             try:
                 finalization = state.finalize(current_manifest)
             except V7RunStateError as error:
                 _persist_source_drift(
                     state,
+                    configuration,
                     persist,
                     V7WorkerRuntimeError(error.code, str(error)),
                 )
                 raise V7WorkerRuntimeError(error.code, str(error)) from error
             return V7WorkerRuntimeResult(
-                checkpoint=_runtime_checkpoint(state),
+                checkpoint=_runtime_checkpoint(state, configuration),
                 finalization=finalization,
             )
         _fail("V7_RUN_STATE_PHASE_INVALID", "The V7 worker cannot run this scan state.")
 
 
-def _scan_state_checkpoint(checkpoint: Mapping[str, object]) -> dict[str, object] | None:
+def _scan_state_checkpoint(
+    checkpoint: Mapping[str, object],
+    configuration: V7WorkerConfiguration,
+    *,
+    require_config_bound_checkpoint: bool,
+) -> dict[str, object] | None:
     if not checkpoint:
         return None
     if checkpoint.get("blockedReason") == "V7_SOURCE_MANIFEST_DRIFT":
         _fail("V7_SOURCE_MANIFEST_DRIFT", "The V7 run is durably blocked by source drift.")
-    if (
-        checkpoint.get("schemaVersion") != V7_WORKER_RUNTIME_CHECKPOINT_SCHEMA_VERSION
-        or checkpoint.get("runtimeVersion") != V7_WORKER_RUNTIME_VERSION
-        or not isinstance(checkpoint.get("scanState"), dict)
-    ):
+    version = checkpoint.get("runtimeVersion")
+    schema_version = checkpoint.get("schemaVersion")
+    contract = (version, schema_version)
+    if contract not in {
+        (V7_WORKER_RUNTIME_VERSION, V7_WORKER_RUNTIME_CHECKPOINT_SCHEMA_VERSION),
+        (
+            _V7_LEGACY_WORKER_RUNTIME_VERSION,
+            _V7_LEGACY_WORKER_RUNTIME_CHECKPOINT_SCHEMA_VERSION,
+        ),
+    } or not isinstance(checkpoint.get("scanState"), dict):
         _fail("V7_RUN_STATE_CHECKPOINT_INVALID", "The V7 worker checkpoint is invalid.")
+    if contract == (V7_WORKER_RUNTIME_VERSION, V7_WORKER_RUNTIME_CHECKPOINT_SCHEMA_VERSION):
+        if (
+            checkpoint.get("calibrationFingerprint") != configuration.calibration_fingerprint
+            or checkpoint.get("localizerFingerprint") != configuration.localizer_fingerprint
+        ):
+            _fail(
+                "V7_CALIBRATION_FINGERPRINT_MISMATCH",
+                "The V7 worker checkpoint belongs to another calibration profile.",
+            )
+    elif require_config_bound_checkpoint:
+        _fail(
+            "V7_CALIBRATION_FINGERPRINT_MISMATCH",
+            "A profile-bound V7 observer cannot resume an unbound legacy checkpoint.",
+        )
     return dict(cast(dict[str, object], checkpoint["scanState"]))
 
 
 def _runtime_checkpoint(
     state: V7ScanRunState,
+    configuration: V7WorkerConfiguration,
     *,
     blocked_source_drift: bool = False,
 ) -> dict[str, object]:
     checkpoint: dict[str, object] = {
+        "calibrationFingerprint": configuration.calibration_fingerprint,
+        "localizerFingerprint": configuration.localizer_fingerprint,
         "runtimeVersion": V7_WORKER_RUNTIME_VERSION,
         "scanState": state.checkpoint(),
         "schemaVersion": V7_WORKER_RUNTIME_CHECKPOINT_SCHEMA_VERSION,
@@ -278,11 +330,16 @@ def _runtime_checkpoint(
 
 def _progress(
     state: V7ScanRunState,
+    configuration: V7WorkerConfiguration,
     *,
     blocked_source_drift: bool = False,
 ) -> V7WorkerRuntimeProgress:
     return V7WorkerRuntimeProgress(
-        checkpoint=_runtime_checkpoint(state, blocked_source_drift=blocked_source_drift),
+        checkpoint=_runtime_checkpoint(
+            state,
+            configuration,
+            blocked_source_drift=blocked_source_drift,
+        ),
         processed_sources=state.cursors.next_source_index,
         total_sources=len(state.source_manifest.sources),
         phase=state.phase,
@@ -292,11 +349,25 @@ def _progress(
 
 def _persist_source_drift(
     state: V7ScanRunState,
+    configuration: V7WorkerConfiguration,
     persist: V7CheckpointPersister,
     error: V7WorkerRuntimeError,
 ) -> None:
     if error.code == "V7_SOURCE_MANIFEST_DRIFT":
-        persist(_progress(state, blocked_source_drift=True))
+        persist(_progress(state, configuration, blocked_source_drift=True))
+
+
+def _read_verified_source_bytes(path: Path, *, expected_checksum_sha256: str) -> bytes:
+    try:
+        content = path.read_bytes()
+    except OSError as error:
+        raise V7WorkerRuntimeError(
+            "SEMI_AUTOMATIC_SELECTION_SOURCE_UNAVAILABLE",
+            "The local source JPEG is unavailable.",
+        ) from error
+    if hashlib.sha256(content).hexdigest() != expected_checksum_sha256:
+        _fail("V7_SOURCE_MANIFEST_DRIFT", "The pinned V7 source JPEG changed.")
+    return content
 
 
 def _require_manifest_unchanged(manifest: LocalSourceManifest) -> LocalSourceManifest:
@@ -350,11 +421,7 @@ def _has_missing_or_empty_pinned_source(
         return False
     if not S_ISDIR(root_metadata.st_mode):
         return False
-    sources = (
-        manifest.sources
-        if source_index is None
-        else (manifest.sources[source_index],)
-    )
+    sources = manifest.sources if source_index is None else (manifest.sources[source_index],)
     for source in sources:
         try:
             path = manifest.source_root.joinpath(*source.relative_path.split("/"))
@@ -364,7 +431,7 @@ def _has_missing_or_empty_pinned_source(
         except OSError:
             return False
         if not S_ISREG(metadata.st_mode) or metadata.st_size < 1:
-                return True
+            return True
     return False
 
 

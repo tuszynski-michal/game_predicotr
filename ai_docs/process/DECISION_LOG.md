@@ -6,6 +6,30 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-416 — Tracker wystąpień jest jedynym właścicielem słabego dowodu V7 3+3
+
+- **Status:** accepted (TASK-0604).
+- **Date:** 2026-09-21.
+- **Decision:** obserwator związany z profilem zwraca wyłącznie source-local
+  weak evidence trzech zgodnych etykiet, 64-bitowy visual hash i 64-bajtową
+  trzybitową sygnaturę średnich obrazu. Nie przechowuje aktywnego zakresu,
+  granicy wystąpienia ani checkpointu. Tylko V7OccurrenceTracker przechowuje
+  najwyżej jeden taki dowód, zapisuje go w swoim checkpointcie i może połączyć
+  dwa źródła w wynik 3+3.
+- **Rationale:** granice wystąpień, monotoniczny kursor i recovery już należą
+  do trackera. Dublowanie ich w obserwatorze mogłoby po restarcie połączyć
+  źródła z różnych wystąpień albo utracić właściwe potwierdzenie.
+- **Compatibility:** runtime checkpoint v2 nadal czyta checkpoint v1 dla
+  historycznego obserwatora niezwiązanego z profilem, a tracker v2 czyta
+  historyczny tracker v1 jako brak oczekującej hipotezy. Profile-bound
+  obserwator odmawia wznowienia nieprzypiętego checkpointu v1. Nie zmienia się
+  defaultowa, zablokowana fabryka V7 ani format historycznych outputów.
+- **Safety:** dwa słabe dowody wymagają różnych source ID, tego samego
+  nieprzerwanego wystąpienia i różnych klastrów visual-hash. Zgodna sygnatura
+  oznacza zależność nawet po rekompresji; brakujące lub niespójne pole
+  oczekującego dowodu w checkpointcie v2 kończy wznowienie fail-closed;
+  bitmapy nie są utrwalane.
+
 ## D-415 — Kalibracja T0603 używa odrębnego manifestu V2 obu katalogów 777
 
 - **Status:** accepted (TASK-0603).

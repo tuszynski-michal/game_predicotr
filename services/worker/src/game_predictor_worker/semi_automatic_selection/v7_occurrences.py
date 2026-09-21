@@ -7,10 +7,19 @@ from enum import StrEnum
 from typing import NoReturn, cast
 
 from .contracts import SemiAutomaticSelectionRange
-from .v7_range_proof import V7RangeProofKind, V7RangeProofResult
+from .v7_range_proof import (
+    V7LabelEvidence,
+    V7RangeProofKind,
+    V7RangeProofResolver,
+    V7RangeProofResult,
+    V7WeakFrameEvidence,
+)
 
-V7_OCCURRENCE_ALGORITHM_VERSION = "v7-occurrence-tracker-v1"
-V7_OCCURRENCE_CHECKPOINT_SCHEMA_VERSION = 1
+V7_OCCURRENCE_ALGORITHM_VERSION = "v7-occurrence-tracker-v2"
+V7_OCCURRENCE_CHECKPOINT_SCHEMA_VERSION = 2
+_V7_LEGACY_OCCURRENCE_ALGORITHM_VERSION = "v7-occurrence-tracker-v1"
+_V7_LEGACY_OCCURRENCE_CHECKPOINT_SCHEMA_VERSION = 1
+V7_WEAK_EVIDENCE_VISUAL_HAMMING_DISTANCE = 4
 _OCCURRENCE_ID_PREFIX = "v7-occurrence-"
 
 
@@ -227,10 +236,42 @@ class V7OccurrenceObservation:
     source_index: int
     source_id: str
     proof: V7RangeProofResult
+    weak_evidence: V7WeakFrameEvidence | None = None
 
     def __post_init__(self) -> None:
         if self.source_index < 0 or not self.source_id:
             _fail("V7_OCCURRENCE_OBSERVATION_INVALID", "A source observation is invalid.")
+        if self.weak_evidence is not None and (
+            self.weak_evidence.source_id != self.source_id
+            or self.proof.kind is not V7RangeProofKind.NONE
+        ):
+            _fail("V7_OCCURRENCE_OBSERVATION_INVALID", "V7 weak evidence is invalid.")
+
+
+@dataclass(frozen=True, slots=True)
+class _PendingWeakEvidence:
+    """One bounded source-local weak hypothesis owned by the tracker."""
+
+    sequence_range: SemiAutomaticSelectionRange
+    evidence: V7WeakFrameEvidence
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "labels": [
+                {
+                    "positionConfidence": item.position_confidence,
+                    "positionIndex": item.position_index,
+                    "recognitionConfidence": item.recognition_confidence,
+                    "sequenceNumber": item.sequence_number,
+                }
+                for item in self.evidence.labels
+            ],
+            "rangeEnd": self.sequence_range.end,
+            "rangeStart": self.sequence_range.start,
+            "sourceId": self.evidence.source_id,
+            "visualHash": f"{self.evidence.visual_hash:016x}",
+            "visualSignature": self.evidence.visual_signature.hex(),
+        }
 
 
 class V7OccurrenceTracker:
@@ -248,6 +289,7 @@ class V7OccurrenceTracker:
             _fail("V7_OCCURRENCE_CONFIGURATION_INVALID", "V7 occurrences require full 3x3 ranges.")
         self._expected_ranges = expected_ranges
         self._range_indexes = {value: index for index, value in enumerate(expected_ranges)}
+        self._proof_resolver = V7RangeProofResolver(expected_ranges)
         self._phase = V7AnalysisPhase.RUNNING
         self._next_source_index = 0
         self._sequence_cursor_index = -1
@@ -256,6 +298,7 @@ class V7OccurrenceTracker:
         self._unresolved_gap_indexes: set[int] = set()
         self._next_occurrence_number = 0
         self._seen_source_indexes: dict[str, int] = {}
+        self._pending_weak: _PendingWeakEvidence | None = None
         self._active: _OpenOccurrence | None = None
         self._finalized: list[V7Occurrence] = []
         if checkpoint is not None:
@@ -312,35 +355,39 @@ class V7OccurrenceTracker:
             )
         if observation.source_id in self._seen_source_indexes:
             _fail("V7_OCCURRENCE_ORDER_INVALID", "A v7 source ID cannot occur twice.")
-        if observation.proof.kind is V7RangeProofKind.NONE:
-            if (
-                observation.proof.sequence_range is not None
-                or observation.proof.supporting_source_ids
-            ):
+        effective_proof = self._effective_proof(observation)
+        effective_observation = V7OccurrenceObservation(
+            source_index=observation.source_index,
+            source_id=observation.source_id,
+            proof=effective_proof,
+        )
+        if effective_proof.kind is V7RangeProofKind.NONE:
+            if effective_proof.sequence_range is not None or effective_proof.supporting_source_ids:
                 _fail("V7_OCCURRENCE_PROOF_INVALID", "A no-proof observation has proof payload.")
             self._next_source_index += 1
             self._seen_source_indexes[observation.source_id] = observation.source_index
             if self._active is not None:
                 self._active.append_unproven(observation.source_index)
             return
-        sequence_range = observation.proof.sequence_range
+        sequence_range = effective_proof.sequence_range
         if (
             sequence_range is None
             or sequence_range not in self._range_indexes
-            or not observation.proof.supporting_source_ids
-            or observation.source_id not in observation.proof.supporting_source_ids
+            or not effective_proof.supporting_source_ids
+            or observation.source_id not in effective_proof.supporting_source_ids
         ):
             _fail("V7_OCCURRENCE_PROOF_INVALID", "A v7 proof is not valid for this run.")
         expected_index = self._range_indexes[sequence_range]
         source = V7ProvenSource(
             source_index=observation.source_index,
             source_id=observation.source_id,
-            proof_kind=observation.proof.kind,
-            supporting_source_ids=observation.proof.supporting_source_ids,
+            proof_kind=effective_proof.kind,
+            supporting_source_ids=effective_proof.supporting_source_ids,
         )
         first_source_index = self._validate_proof_support(
-            observation, expected_index, source.proof_kind
+            effective_observation, expected_index, source.proof_kind
         )
+        self._pending_weak = None
         self._next_source_index += 1
         self._seen_source_indexes[observation.source_id] = observation.source_index
         self._confirm(expected_index)
@@ -357,6 +404,40 @@ class V7OccurrenceTracker:
             first_source_index=first_source_index,
         )
 
+    def _effective_proof(self, observation: V7OccurrenceObservation) -> V7RangeProofResult:
+        """Resolve only a valid 3+3 pair; all other weak input remains unproven."""
+
+        if observation.proof.kind is not V7RangeProofKind.NONE:
+            return observation.proof
+        evidence = observation.weak_evidence
+        if evidence is None:
+            return observation.proof
+        current_hypotheses = self._proof_resolver.weak_hypotheses(
+            evidence.as_frame(
+                occurrence_id="v7-occurrence-pending",
+                visual_cluster_id=f"v7-visual-{evidence.visual_hash:016x}",
+            )
+        )
+        if len(current_hypotheses) != 1:
+            return observation.proof
+        sequence_range = current_hypotheses[0].sequence_range
+        previous = self._pending_weak
+        if previous is None or previous.sequence_range != sequence_range:
+            self._pending_weak = _PendingWeakEvidence(sequence_range, evidence)
+            return observation.proof
+        first = previous.evidence.as_frame(
+            occurrence_id="v7-occurrence-pending",
+            visual_cluster_id=_visual_cluster_id(previous.evidence, evidence),
+        )
+        second = evidence.as_frame(
+            occurrence_id="v7-occurrence-pending",
+            visual_cluster_id=_visual_cluster_id(evidence, previous.evidence),
+        )
+        proof = self._proof_resolver.resolve_pair(first, second)
+        if proof.kind is V7RangeProofKind.MULTI_FRAME_THREE_PLUS_THREE:
+            self._pending_weak = None
+        return proof
+
     def finish(self) -> tuple[V7Occurrence, ...]:
         """Finalize at EOF once; repeated calls return the same immutable result."""
 
@@ -366,6 +447,7 @@ class V7OccurrenceTracker:
         if self._active is not None:
             self._finalized.append(self._active.close())
             self._active = None
+        self._pending_weak = None
         self._phase = V7AnalysisPhase.COMPLETE
         return self.finalized_occurrences
 
@@ -386,6 +468,9 @@ class V7OccurrenceTracker:
             "expectedRanges": [[item.start, item.end] for item in self._expected_ranges],
             "finalizedOccurrences": [item.as_dict() for item in self._finalized],
             "nextOccurrenceNumber": self._next_occurrence_number,
+            "pendingWeakEvidence": (
+                None if self._pending_weak is None else self._pending_weak.as_dict()
+            ),
             "phase": self._phase.value,
             "schemaVersion": V7_OCCURRENCE_CHECKPOINT_SCHEMA_VERSION,
             "seenSources": [
@@ -461,9 +546,16 @@ class V7OccurrenceTracker:
 
     def _restore(self, checkpoint: dict[str, object]) -> None:
         try:
+            contract = (checkpoint.get("algorithmVersion"), checkpoint.get("schemaVersion"))
             if (
-                checkpoint.get("schemaVersion") != V7_OCCURRENCE_CHECKPOINT_SCHEMA_VERSION
-                or checkpoint.get("algorithmVersion") != V7_OCCURRENCE_ALGORITHM_VERSION
+                contract
+                not in {
+                    (V7_OCCURRENCE_ALGORITHM_VERSION, V7_OCCURRENCE_CHECKPOINT_SCHEMA_VERSION),
+                    (
+                        _V7_LEGACY_OCCURRENCE_ALGORITHM_VERSION,
+                        _V7_LEGACY_OCCURRENCE_CHECKPOINT_SCHEMA_VERSION,
+                    ),
+                }
                 or _ranges(checkpoint.get("expectedRanges")) != self._expected_ranges
             ):
                 raise ValueError("checkpoint contract mismatch")
@@ -495,6 +587,13 @@ class V7OccurrenceTracker:
             seen_source_indexes = _seen_source_indexes(
                 checkpoint["seenSources"], cursors.next_source_index
             )
+            if contract == (
+                _V7_LEGACY_OCCURRENCE_ALGORITHM_VERSION,
+                _V7_LEGACY_OCCURRENCE_CHECKPOINT_SCHEMA_VERSION,
+            ):
+                pending_weak = None
+            else:
+                pending_weak = _pending_weak_from_dict(checkpoint["pendingWeakEvidence"])
         except (KeyError, TypeError, ValueError) as error:
             raise V7OccurrenceError("The v7 occurrence checkpoint is invalid.") from error
         if next_occurrence_number < 0:
@@ -558,6 +657,21 @@ class V7OccurrenceTracker:
             _fail("V7_OCCURRENCE_CHECKPOINT_INVALID", "V7 gap state does not match its cursor.")
         if phase is V7AnalysisPhase.COMPLETE and active is not None:
             _fail("V7_OCCURRENCE_CHECKPOINT_INVALID", "Completed v7 scan has an active occurrence.")
+        if pending_weak is not None and (
+            phase is V7AnalysisPhase.COMPLETE
+            or pending_weak.sequence_range not in self._range_indexes
+            or pending_weak.evidence.source_id not in seen_source_indexes
+        ):
+            _fail("V7_OCCURRENCE_CHECKPOINT_INVALID", "V7 pending weak evidence is invalid.")
+        if pending_weak is not None:
+            hypotheses = self._proof_resolver.weak_hypotheses(
+                pending_weak.evidence.as_frame(
+                    occurrence_id="v7-occurrence-pending",
+                    visual_cluster_id=f"v7-visual-{pending_weak.evidence.visual_hash:016x}",
+                )
+            )
+            if len(hypotheses) != 1 or hypotheses[0].sequence_range != pending_weak.sequence_range:
+                _fail("V7_OCCURRENCE_CHECKPOINT_INVALID", "V7 pending weak evidence is invalid.")
         if (
             phase in {V7AnalysisPhase.RUNNING, V7AnalysisPhase.PAUSED, V7AnalysisPhase.CANCELLED}
             and confirmed
@@ -575,8 +689,64 @@ class V7OccurrenceTracker:
         self._unresolved_gap_indexes = unresolved
         self._next_occurrence_number = next_occurrence_number
         self._seen_source_indexes = seen_source_indexes
+        self._pending_weak = pending_weak
         self._active = active
         self._finalized = finalized
+
+
+def _pending_weak_from_dict(value: object) -> _PendingWeakEvidence | None:
+    if value is None:
+        return None
+    try:
+        raw = _mapping(value, "V7 pending weak evidence must be an object.")
+        visual_hash = raw["visualHash"]
+        visual_signature = raw["visualSignature"]
+        if (
+            not isinstance(visual_hash, str)
+            or len(visual_hash) != 16
+            or any(character not in "0123456789abcdef" for character in visual_hash)
+            or not isinstance(visual_signature, str)
+            or len(visual_signature) != 128
+            or any(character not in "0123456789abcdef" for character in visual_signature)
+        ):
+            raise ValueError("visual hash")
+        labels = tuple(
+            V7LabelEvidence(
+                position_index=_int(_mapping(item, "V7 weak label is invalid.")["positionIndex"]),
+                sequence_number=_int(_mapping(item, "V7 weak label is invalid.")["sequenceNumber"]),
+                recognition_confidence=_number(
+                    _mapping(item, "V7 weak label is invalid.")["recognitionConfidence"]
+                ),
+                position_confidence=_number(
+                    _mapping(item, "V7 weak label is invalid.")["positionConfidence"]
+                ),
+            )
+            for item in _items(raw["labels"])
+        )
+        return _PendingWeakEvidence(
+            sequence_range=SemiAutomaticSelectionRange(
+                _int(raw["rangeStart"]), _int(raw["rangeEnd"])
+            ),
+            evidence=V7WeakFrameEvidence(
+                source_id=_string(raw["sourceId"]),
+                labels=labels,
+                visual_hash=int(visual_hash, 16),
+                visual_signature=bytes.fromhex(visual_signature),
+            ),
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        raise V7OccurrenceError("V7 pending weak evidence is invalid.") from error
+
+
+def _visual_cluster_id(first: V7WeakFrameEvidence, second: V7WeakFrameEvidence) -> str:
+    """Give visually dependent sources the same cluster without storing images."""
+
+    if first.visual_signature == second.visual_signature or (
+        (first.visual_hash ^ second.visual_hash).bit_count()
+        <= V7_WEAK_EVIDENCE_VISUAL_HAMMING_DISTANCE
+    ):
+        return "v7-visual-dependent"
+    return f"v7-visual-{first.visual_hash:016x}"
 
 
 def _mapping(value: object, message: str) -> dict[str, object]:
@@ -640,6 +810,12 @@ def _int(value: object) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         _fail("V7_OCCURRENCE_CHECKPOINT_INVALID", "V7 checkpoint integer is invalid.")
     return value
+
+
+def _number(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        _fail("V7_OCCURRENCE_CHECKPOINT_INVALID", "V7 checkpoint number is invalid.")
+    return float(value)
 
 
 def _optional_int(value: object) -> int | None:

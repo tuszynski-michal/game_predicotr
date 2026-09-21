@@ -54,6 +54,41 @@ class V7FrameEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class V7WeakFrameEvidence:
+    """One source-local weak candidate, before occurrence tracking resolves it."""
+
+    source_id: str
+    labels: tuple[V7LabelEvidence, ...]
+    visual_hash: int
+    visual_signature: bytes
+
+    def __post_init__(self) -> None:
+        positions = tuple(item.position_index for item in self.labels)
+        if (
+            not self.source_id
+            or len(set(positions)) != len(positions)
+            or not 0 <= self.visual_hash < 2**64
+            or not isinstance(self.visual_signature, bytes)
+            or len(self.visual_signature) != 64
+            or any(value > 7 for value in self.visual_signature)
+        ):
+            raise V7RangeProofError("A weak V7 frame evidence payload is invalid.")
+
+    def as_frame(
+        self,
+        *,
+        occurrence_id: str,
+        visual_cluster_id: str,
+    ) -> V7FrameEvidence:
+        return V7FrameEvidence(
+            source_id=self.source_id,
+            occurrence_id=occurrence_id,
+            visual_cluster_id=visual_cluster_id,
+            labels=self.labels,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class V7RangeProofPolicy:
     """Provisional, versioned T02 thresholds; T05 must calibrate replacement values."""
 
@@ -134,6 +169,21 @@ class V7RangeProofResolver:
         if any(item.conflicting_labels for item in hypotheses if len(item.matching_labels) >= 3):
             return self._none("CONFLICTING_RELIABLE_LABEL")
         return self._none("INSUFFICIENT_OWN_LABEL_EVIDENCE")
+
+    def weak_hypotheses(self, frame: V7FrameEvidence) -> tuple[V7FrameHypothesis, ...]:
+        """Return only exact source-local three-label candidates for tracking.
+
+        The caller may retain a bounded candidate until a later independent
+        source arrives.  This does not prove a range: a strong proof remains
+        local to one source, while a weak hypothesis needs ``resolve_pair``.
+        """
+
+        return tuple(
+            item
+            for item in (self._hypothesis(frame, value) for value in self._expected_ranges)
+            if len(item.matching_labels) == self._policy.minimum_weak_labels
+            and not item.conflicting_labels
+        )
 
     def resolve_pair(
         self,

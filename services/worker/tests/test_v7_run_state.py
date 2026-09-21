@@ -27,8 +27,10 @@ from game_predictor_worker.semi_automatic_selection.v7_quality import (
     V7SymbolContentLoss,
 )
 from game_predictor_worker.semi_automatic_selection.v7_range_proof import (
+    V7LabelEvidence,
     V7RangeProofKind,
     V7RangeProofResult,
+    V7WeakFrameEvidence,
 )
 from game_predictor_worker.semi_automatic_selection.v7_run_state import (
     V7RunStateError,
@@ -122,6 +124,19 @@ def _none() -> V7RangeProofResult:
     return V7RangeProofResult(V7RangeProofKind.NONE, None, (), ("NO_LOCAL_PROOF",))
 
 
+def _weak_evidence(source_id: str) -> V7WeakFrameEvidence:
+    return V7WeakFrameEvidence(
+        source_id=source_id,
+        visual_hash=0,
+        visual_signature=bytes(64),
+        labels=(
+            V7LabelEvidence(0, 1, 0.99, 0.99),
+            V7LabelEvidence(4, 5, 0.99, 0.99),
+            V7LabelEvidence(8, 9, 0.99, 0.99),
+        ),
+    )
+
+
 def _three_plus_three(
     state: V7ScanRunState,
     sequence_range: SemiAutomaticSelectionRange,
@@ -173,6 +188,24 @@ def test_complete_global_finalization_uses_later_a_without_rewinding_cursor() ->
         (RANGES[1], 1),
     ]
     assert state.finalize(manifest) == finalization
+
+
+def test_run_state_rejects_weak_evidence_for_another_pinned_source() -> None:
+    manifest = _manifest(b"a")
+    state = _state(manifest)
+
+    with pytest.raises(V7RunStateError) as error:
+        state.consume(
+            V7ScanObservation(
+                source_index=0,
+                proof=_none(),
+                quality=_quality(state, 0),
+                weak_evidence=_weak_evidence("foreign-source"),
+            )
+        )
+
+    assert error.value.code == "V7_SCAN_OBSERVATION_INVALID"
+    assert state.cursors.next_source_index == 0
 
 
 def test_pause_checkpoint_restart_eof_and_finalization_are_idempotent() -> None:

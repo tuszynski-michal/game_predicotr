@@ -46,7 +46,7 @@ from .v7_quality import (
     V7SymbolContentLoss,
     rank_v7_representatives,
 )
-from .v7_range_proof import V7RangeProofKind, V7RangeProofResult
+from .v7_range_proof import V7RangeProofKind, V7RangeProofResult, V7WeakFrameEvidence
 
 V7_RUN_STATE_VERSION = "v7-scan-run-state-v1"
 V7_RUN_STATE_CHECKPOINT_SCHEMA_VERSION = 1
@@ -189,6 +189,7 @@ class V7ScanObservation:
     proof: V7RangeProofResult
     quality: V7FrameQuality | None
     source_error_code: str | None = None
+    weak_evidence: V7WeakFrameEvidence | None = None
 
     def __post_init__(self) -> None:
         if self.source_index < 0:
@@ -198,10 +199,13 @@ class V7ScanObservation:
                 not _REASON_CODE.fullmatch(self.source_error_code)
                 or self.proof.kind is not V7RangeProofKind.NONE
                 or self.quality is not None
+                or self.weak_evidence is not None
             ):
                 _fail("V7_SCAN_OBSERVATION_INVALID", "A V7 source error is invalid.")
         elif self.quality is None:
             _fail("V7_SCAN_OBSERVATION_INVALID", "A decoded V7 source needs frame quality.")
+        if self.weak_evidence is not None and self.proof.kind is not V7RangeProofKind.NONE:
+            _fail("V7_SCAN_OBSERVATION_INVALID", "V7 weak evidence needs a no-proof observation.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,6 +287,14 @@ class V7ScanRunState:
                 "V7 sources must be consumed in pinned manifest order.",
             )
         source = self._source_for(observation.source_index)
+        if (
+            observation.weak_evidence is not None
+            and observation.weak_evidence.source_id != source.source_id
+        ):
+            _fail(
+                "V7_SCAN_OBSERVATION_INVALID",
+                "V7 weak evidence does not belong to its pinned source.",
+            )
         if observation.source_error_code is None:
             quality = observation.quality
             assert quality is not None
@@ -296,7 +308,12 @@ class V7ScanRunState:
             self._source_errors[source.source_index] = observation.source_error_code
         try:
             self._tracker.consume(
-                V7OccurrenceObservation(source.source_index, source.source_id, observation.proof)
+                V7OccurrenceObservation(
+                    source.source_index,
+                    source.source_id,
+                    observation.proof,
+                    observation.weak_evidence,
+                )
             )
         except V7OccurrenceError as error:
             self._qualities.pop(source.source_index, None)

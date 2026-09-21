@@ -6,6 +6,26 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0604 — obserwator V7 związany z profilem geometrii
+
+- Powstał testowalny, recognition-only V7ProfileBoundObserver, który przed
+  utworzeniem OCR wymaga profilu passed, zgodnego fingerprintu kalibracji i
+  fingerprintu lokalizatora. Runtime przekazuje wyłącznie ponownie
+  checksummowane bajty przypiętego JPEG-a, więc adapter nie może otworzyć
+  ścieżki po kontroli SHA.
+- Obserwator tworzy własny mocny proof pięciu etykiet albo source-local
+  evidence dokładnie trzech etykiet z visual-hash oraz 64-bajtową sygnaturą
+  średnich obrazu. Tracker wystąpień v2 jest jedynym właścicielem oczekującego
+  3+3: checkpoint waliduje źródło, zakres i dowód po restarcie, a duplikat
+  wizualny — także teksturowany JPEG po rekompresji — ani 3+2 nie potwierdzają
+  zakresu. Adapter zwraca jawną jakość unknown i reason-coded błąd dekodowania,
+  bez geometrii plansz, symboli, payoutów lub outputu.
+- 70 testów V7/runtime/job, Ruff i formatowanie przeszły. Mypy zmienionych
+  modułów nadal zatrzymują wcześniejsze 13 błędów w
+  images/structured_geometry, bez błędów w zakresie T0604. API pozostaje
+  zablokowane; brak realnego profilu T0603 nadal uniemożliwia adopcję,
+  pomiar jakości i aktywację.
+
 ### TASK-0603 — przygotowanie realnej kalibracji geometrii etykiet 777 V7
 
 - Przygotowano realną kalibrację `standard_3x3_numeric_labels_v1`.

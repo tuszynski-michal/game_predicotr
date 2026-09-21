@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from io import BytesIO
 from pathlib import Path
@@ -35,9 +36,11 @@ class _StopAfterFirst(RuntimeError):
 class _SourceErrorObserver:
     def __init__(self) -> None:
         self.observed_indexes: list[int] = []
+        self.observed_checksums: list[str] = []
 
     def observe(self, request: V7SourceObservationRequest) -> V7ScanObservation:
         self.observed_indexes.append(request.source.source_index)
+        self.observed_checksums.append(hashlib.sha256(request.source_content).hexdigest())
         return V7ScanObservation(
             source_index=request.source.source_index,
             proof=V7RangeProofResult(
@@ -49,6 +52,10 @@ class _SourceErrorObserver:
             quality=None,
             source_error_code="TEST_SOURCE_ERROR",
         )
+
+
+class _ProfileBoundSourceErrorObserver(_SourceErrorObserver):
+    requires_config_bound_checkpoint = True
 
 
 class _Factory:
@@ -120,10 +127,64 @@ def test_runtime_resumes_ordered_prefix_and_finalizes_without_output(tmp_path: P
     )
 
     assert first_observer.observed_indexes == [0]
+    assert first_observer.observed_checksums == [manifest.sources[0].checksum_sha256]
     assert resumed_observer.observed_indexes == [1]
+    assert resumed_observer.observed_checksums == [manifest.sources[1].checksum_sha256]
     assert result.finalization.selections == ()
     assert result.checkpoint["scanState"]["phase"] == "finalized"
     assert not (tmp_path / "source cut").exists()
+
+
+def test_profile_bound_runtime_rejects_a_checkpoint_from_another_profile(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path)
+    persisted: list[V7WorkerRuntimeProgress] = []
+
+    def stop_after_first(progress: V7WorkerRuntimeProgress) -> None:
+        persisted.append(progress)
+        if progress.processed_sources == 1:
+            raise _StopAfterFirst
+
+    with pytest.raises(_StopAfterFirst):
+        V7WorkerRuntime(_Factory((_ProfileBoundSourceErrorObserver(),))).run(
+            manifest=manifest,
+            configuration=_configuration(),
+            checkpoint={},
+            persist=stop_after_first,
+        )
+
+    original = _configuration()
+    another_profile = V7WorkerConfiguration(
+        first_sequence_number=original.first_sequence_number,
+        last_sequence_number=original.last_sequence_number,
+        direction=original.direction,
+        border_style=original.border_style,
+        calibration_fingerprint="c" * 64,
+        localizer_fingerprint="d" * 64,
+    )
+    with pytest.raises(V7WorkerRuntimeError) as error:
+        V7WorkerRuntime(_Factory((_ProfileBoundSourceErrorObserver(),))).run(
+            manifest=manifest,
+            configuration=another_profile,
+            checkpoint=persisted[-1].checkpoint,
+            persist=lambda _progress: None,
+        )
+
+    assert error.value.code == "V7_CALIBRATION_FINGERPRINT_MISMATCH"
+
+    legacy = dict(persisted[-1].checkpoint)
+    legacy["runtimeVersion"] = "v7-worker-runtime-v1"
+    legacy["schemaVersion"] = 1
+    legacy.pop("calibrationFingerprint")
+    legacy.pop("localizerFingerprint")
+    with pytest.raises(V7WorkerRuntimeError) as legacy_error:
+        V7WorkerRuntime(_Factory((_ProfileBoundSourceErrorObserver(),))).run(
+            manifest=manifest,
+            configuration=_configuration(),
+            checkpoint=legacy,
+            persist=lambda _progress: None,
+        )
+
+    assert legacy_error.value.code == "V7_CALIBRATION_FINGERPRINT_MISMATCH"
 
 
 def test_runtime_blocks_changed_unselected_source_before_observer(tmp_path: Path) -> None:
@@ -177,8 +238,7 @@ def test_runtime_keeps_source_drift_block_after_all_jpegs_are_restored(tmp_path:
     manifest = _manifest(tmp_path)
     source_root = tmp_path / "source"
     original = {
-        path.name: path.read_bytes()
-        for path in (source_root / "1.jpg", source_root / "2.jpg")
+        path.name: path.read_bytes() for path in (source_root / "1.jpg", source_root / "2.jpg")
     }
     (source_root / "1.jpg").unlink()
     (source_root / "2.jpg").unlink()

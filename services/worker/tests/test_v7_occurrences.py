@@ -11,8 +11,10 @@ from game_predictor_worker.semi_automatic_selection.v7_occurrences import (
     V7OccurrenceTracker,
 )
 from game_predictor_worker.semi_automatic_selection.v7_range_proof import (
+    V7LabelEvidence,
     V7RangeProofKind,
     V7RangeProofResult,
+    V7WeakFrameEvidence,
 )
 
 RANGES = (
@@ -33,6 +35,28 @@ def _proof(source_id: str, sequence_range: SemiAutomaticSelectionRange) -> V7Ran
 
 def _none() -> V7RangeProofResult:
     return V7RangeProofResult(V7RangeProofKind.NONE, None, (), ("NO_LOCAL_PROOF",))
+
+
+def _weak(
+    source_id: str,
+    labels: dict[int, int],
+    *,
+    visual_hash: int,
+) -> V7WeakFrameEvidence:
+    return V7WeakFrameEvidence(
+        source_id=source_id,
+        visual_hash=visual_hash,
+        visual_signature=bytes([visual_hash % 8]) * 64,
+        labels=tuple(
+            V7LabelEvidence(
+                position_index=position_index,
+                sequence_number=sequence_number,
+                recognition_confidence=0.99,
+                position_confidence=0.99,
+            )
+            for position_index, sequence_number in sorted(labels.items())
+        ),
+    )
 
 
 def _multi_proof(
@@ -237,6 +261,119 @@ def test_three_plus_three_can_open_one_occurrence_after_unproven_source() -> Non
     (occurrence,) = tracker.finish()
     assert (occurrence.first_source_index, occurrence.last_source_index) == (0, 1)
     assert occurrence.proven_sources[0].supporting_source_ids == ("source-0", "source-1")
+
+
+def test_tracker_resolves_independent_three_plus_three_and_restores_pending_evidence() -> None:
+    tracker = V7OccurrenceTracker(RANGES)
+    tracker.consume(
+        V7OccurrenceObservation(
+            0,
+            "source-0",
+            _none(),
+            _weak("source-0", {0: 1, 4: 5, 8: 9}, visual_hash=0),
+        )
+    )
+    checkpoint = tracker.checkpoint()
+    assert checkpoint["pendingWeakEvidence"] is not None
+
+    restored = V7OccurrenceTracker(RANGES, checkpoint=checkpoint)
+    restored.consume(
+        V7OccurrenceObservation(
+            1,
+            "source-1",
+            _none(),
+            _weak(
+                "source-1",
+                {1: 2, 3: 4, 7: 8},
+                visual_hash=(1 << 64) - 1,
+            ),
+        )
+    )
+
+    (occurrence,) = restored.finish()
+    assert occurrence.sequence_range == RANGES[0]
+    assert occurrence.proven_sources[0].proof_kind is V7RangeProofKind.MULTI_FRAME_THREE_PLUS_THREE
+    assert occurrence.proven_sources[0].supporting_source_ids == ("source-0", "source-1")
+
+
+def test_tracker_rejects_duplicate_or_two_label_weak_evidence() -> None:
+    tracker = V7OccurrenceTracker(RANGES)
+    tracker.consume(
+        V7OccurrenceObservation(
+            0,
+            "source-0",
+            _none(),
+            _weak("source-0", {0: 1, 4: 5, 8: 9}, visual_hash=0),
+        )
+    )
+    tracker.consume(
+        V7OccurrenceObservation(
+            1,
+            "source-1",
+            _none(),
+            _weak("source-1", {1: 2, 3: 4, 7: 8}, visual_hash=0),
+        )
+    )
+    assert tracker.finish() == ()
+
+    two_labels = V7OccurrenceTracker(RANGES)
+    two_labels.consume(
+        V7OccurrenceObservation(
+            0,
+            "source-0",
+            _none(),
+            _weak("source-0", {0: 1, 4: 5}, visual_hash=0),
+        )
+    )
+    two_labels.consume(
+        V7OccurrenceObservation(
+            1,
+            "source-1",
+            _none(),
+            _weak("source-1", {1: 2, 3: 4, 7: 8}, visual_hash=(1 << 64) - 1),
+        )
+    )
+    assert two_labels.finish() == ()
+
+
+def test_checkpoint_rejects_missing_or_incoherent_pending_weak_evidence() -> None:
+    tracker = V7OccurrenceTracker(RANGES)
+    tracker.consume(
+        V7OccurrenceObservation(
+            0,
+            "source-0",
+            _none(),
+            _weak("source-0", {0: 1, 4: 5, 8: 9}, visual_hash=0),
+        )
+    )
+    corrupt = deepcopy(tracker.checkpoint())
+    pending = corrupt["pendingWeakEvidence"]
+    assert isinstance(pending, dict)
+    labels = pending["labels"]
+    assert isinstance(labels, list)
+    labels.append(
+        {
+            "positionConfidence": 0.99,
+            "positionIndex": 1,
+            "recognitionConfidence": 0.99,
+            "sequenceNumber": 2,
+        }
+    )
+
+    with pytest.raises(V7OccurrenceError, match="pending weak"):
+        V7OccurrenceTracker(RANGES, checkpoint=corrupt)
+
+    missing = deepcopy(tracker.checkpoint())
+    missing.pop("pendingWeakEvidence")
+    with pytest.raises(V7OccurrenceError, match="checkpoint"):
+        V7OccurrenceTracker(RANGES, checkpoint=missing)
+
+    legacy = deepcopy(tracker.checkpoint())
+    legacy["schemaVersion"] = 1
+    legacy["algorithmVersion"] = "v7-occurrence-tracker-v1"
+    legacy.pop("pendingWeakEvidence")
+    restored = V7OccurrenceTracker(RANGES, checkpoint=legacy)
+    assert restored.cursors == tracker.cursors
 
 
 def test_three_plus_three_can_open_the_next_range_after_restart() -> None:

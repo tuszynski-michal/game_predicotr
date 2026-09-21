@@ -1439,6 +1439,35 @@ obserwacji dla 1, 2 i 4 workerów. Najszybszy profil tej ograniczonej próbki to
 Jest to ustawienie początkowe runtime'u, nie dowód jakości OCR, kalibracji ani
 zgoda na aktywację V7. Pełny raport: `ai_docs/quality/V7_T11_RUNTIME_PERFORMANCE.json`.
 
+## Obserwator profilu etykiet V7 — TASK-0604
+
+Testowalny obserwator V7 przyjmuje wyłącznie profil geometrii ze statusem
+`passed`, którego fingerprint kalibracji oraz canonical fingerprint lokalizatora
+zgadzają się z konfiguracją runu przed otwarciem JPEG-a. Runtime przekazuje mu
+wyłącznie bajty ponownie sprawdzone względem SHA przypiętego manifestu, więc
+obserwator nie otwiera ścieżki źródła po tej kontroli. Po jednym canonical decode
+z orientacją EXIF wykonuje dziewięć cropów numerycznych profilu i recognition-only
+OCR; nie wywołuje geometrii plansz, symboli, payoutów ani writera.
+
+Pięć wiarygodnych, zgodnych etykiet jednego źródła daje mocny dowód. Trzy
+etykiety są wyłącznie source-local słabą hipotezą; 3+2, konflikt szóstej
+wiarygodnej etykiety i błąd dekodowania nie dają automatycznego zakresu.
+Połączenie słabych hipotez jest weryfikowane dokładnie jako 3+3. Wyłącznie
+tracker wystąpień może je połączyć
+po zachowaniu małych metadanych dowodowych i compression-tolerant 8×8
+average visual-hash oraz 64-bajtowej, trzybitowej sygnatury średnich obszarów
+w swoim checkpointcie. Zgodna sygnatura oznacza zależność nawet, gdy hash
+zmienił się przez rekompresję JPEG-a. Wymaga dwóch różnych ID, tego samego
+wystąpienia bez potwierdzonej granicy i różnych klastrów; checkpoint bez
+wymaganego pola lub z niespójnym dowodem jest odrzucany. Dekodowany obraz ma
+jawną jakość `unknown`, dlatego nie udaje pomiaru jakości plansz.
+
+Ten adapter nie zmienia `startEnabled=false`, nie staje się domyślną fabryką
+runtime'u i nie publikuje JPEG-ów. Runtime checkpoint v2 wiąże oba fingerprinty
+z konfiguracją; profile-bound observer odmawia wznowienia historycznego,
+nieprzypiętego checkpointu v1. Rzeczywisty profil nadal wymaga kalibracji
+operatora, zanim będzie możliwa jego adopcja albo aktywacja.
+
 ## Odbiór i blokada wydania V7 — TASK-0596
 
 Odbiór T12 z 2026-09-21 ma status `blocked`. Ponowna kontrola przypiętego

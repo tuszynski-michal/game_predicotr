@@ -6,6 +6,20 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0600 — trwałe sesje kalibracji etykiet V7
+
+- `V7CalibrationSessionStore` przechowuje wyłącznie server-owned, przypięte
+  źródła calibration-only oraz sloty anotacji, grupy ujęć, rewizję i receipts
+  idempotency. Ten sam `operationId` jest zwracany przed kontrolą rewizji;
+  inny payload i source drift są konfliktami fail-closed.
+- Snapshot fsyncuje temp i publikuje atomowo. Recovery wymaga zachowania
+  receiptów oraz nie pozwala cofnąć `blocked_source_drift`; odrzuca snapshot
+  innej sesji. Eksport ma pełny SHA, krótki bezpieczny klucz ścieżki Windows i
+  jest publikowany tylko po ukończonym zapisie.
+- 24 testy wraz z regresją kalibracji oraz Ruff przeszły. Mypy nowego modułu
+  jest czysty; pełne polecenie nadal widzi wcześniejsze 13 błędów w
+  `structured_geometry`. Brakuje API/OpenAPI/EXIF/UI; V7 pozostaje blocked.
+
 ### TASK-0599 — kontrakt profilu geometrii etykiet V7
 
 - Kalibracja etykiet numerycznych używa wyłącznie rodziny

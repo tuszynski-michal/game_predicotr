@@ -6,6 +6,24 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-412 — Sesje geometrii etykiet V7 są server-owned i append-safe
+
+- **Status:** accepted (TASK-0600).
+- **Date:** 2026-09-21.
+- **Decision:** sesja anotacji ma przypięty inwentarz źródeł calibration-only,
+  rewizję i receipt `operationId`; nie przyjmuje ścieżek z przeglądarki. Pod
+  blokadą sesji deduplikuje ID przed rewizją, sprawdza cały snapshot źródeł,
+  a następnie fsyncuje `state.json.tmp` i atomowo publikuje stan. Recovery
+  dopuszcza wyłącznie jeden następny receipt przy `revision + 1` albo identyczny
+  stan z trwałą blokadą driftu.
+- **Rationale:** utracona odpowiedź nie może podwoić kliknięcia, a awaria między
+  temp i replace nie może pozostawić sesji nie do wznowienia lub utracić
+  idempotency history.
+- **Safety:** holdout i reference-only nie mogą wejść do sesji. Eksport jest
+  content-addressed z pełnym SHA odpowiedzi i publikuje kompletny plik przez
+  hard-link; konflikt krótkiego klucza ścieżki odmawia zapisu. Snapshot należący
+  do innego ID i source drift są fail-closed.
+
 ## D-411 — Profil etykiet V7 jest wersjonowany, różnorodny i adoptowany jawnie
 
 - **Status:** accepted (TASK-0599).

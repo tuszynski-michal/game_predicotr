@@ -75,6 +75,7 @@ implementacyjnym.
 - [Milestone 07 execution plan](delivery/MILESTONE_07_EXECUTION_PLAN.md)
 - [Milestone 07.0 image selection execution plan](delivery/MILESTONE_07_0_EXECUTION_PLAN.md)
 - [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
+- [Global geometry library v1 execution plan](delivery/GLOBAL_GEOMETRY_LIBRARY_EXECUTION_PLAN.md)
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
 - [Version 0.2 execution plan](delivery/VERSION_0_2_EXECUTION_PLAN.md)
 - [Version 0.3 execution plan](delivery/VERSION_0_3_EXECUTION_PLAN.md)

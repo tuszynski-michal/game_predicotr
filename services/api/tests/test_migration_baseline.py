@@ -111,6 +111,12 @@ LEGACY_BOARD_SEARCH_ARCHIVE_REVISION = "0098_legacy_board_search_archive"
 LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION = "0099_legacy_game_operational_cleanup"
 MANUAL_GEOMETRY_QUALIFICATION_REVISION = "0100_manual_geometry_qualification"
 SYMBOL_CELL_SOURCE_AVAILABILITY_REVISION = "0101_symbol_cell_source_availability"
+BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION = "0112_browser_staging_board_import_status"
+RECONCILE_BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION = (
+    "0113_reconcile_browser_staging_board_import_status"
+)
+V7_SEMI_AUTOMATIC_ACTIVATION_GATE_REVISION = "0114_v7_semi_automatic_activation_gate"
+GLOBAL_GEOMETRY_LIBRARY_REVISION = "0115_shape_geometry_v2_global_library"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -445,7 +451,27 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
     legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
     legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
-    assert script.get_heads() == ["0111_partial_grid_training_qualification"]
+    assert script.get_heads() == [GLOBAL_GEOMETRY_LIBRARY_REVISION]
+    global_geometry_library = script.get_revision(GLOBAL_GEOMETRY_LIBRARY_REVISION)
+    assert global_geometry_library is not None
+    assert global_geometry_library.down_revision == V7_SEMI_AUTOMATIC_ACTIVATION_GATE_REVISION
+    v7_activation_gate = script.get_revision(V7_SEMI_AUTOMATIC_ACTIVATION_GATE_REVISION)
+    assert v7_activation_gate is not None
+    assert (
+        v7_activation_gate.down_revision
+        == RECONCILE_BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION
+    )
+    reconciled_board_import_status = script.get_revision(
+        RECONCILE_BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION
+    )
+    assert reconciled_board_import_status is not None
+    assert (
+        reconciled_board_import_status.down_revision
+        == BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION
+    )
+    browser_board_import_status = script.get_revision(BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION)
+    assert browser_board_import_status is not None
+    assert browser_board_import_status.down_revision == "0111_partial_grid_training_qualification"
     partial_training = script.get_revision("0111_partial_grid_training_qualification")
     assert partial_training is not None
     assert partial_training.down_revision == "0110_game_partition_lifecycle"

@@ -1,10 +1,36 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-08-24
+last_updated: 2026-09-21
 ---
 
 # Model danych
+
+## Globalna biblioteka geometrii shape v2 — TASK-0605
+
+Migracja 0115 dodaje do `public` kontrolny plane wspólnej geometrii
+`framed_full_page_v2`. Nie jest on tabelą `game_data_v2` i nie ma `game_id`:
+`source_game_ref` jest wyłącznie krótką proweniencją opisową, bez FK do gry i
+bez udziału `GameStorageRouter`.
+
+- `global_geometry_profile_versions` przechowuje rosnący globalny numer,
+  topologię 3 × 3 / 3 × 5, kanoniczny znormalizowany szablon, wielokolorowy
+  opis ramki, podsumowanie dowodów i checksumę pełnego snapshotu;
+- `global_geometry_evidence_samples` przechowuje wyłącznie checksummowany
+  descriptor geometrii, widoczne strony ramki, metryki i `source_game_ref`;
+- `global_geometry_profile_write_receipts` wiąże idempotency key, checksumę
+  polecenia i dokładnie jeden profil.
+
+Biblioteka nie przechowuje JPEG-ów, pikseli, cropów, OCR, symboli, payoutów,
+sekwencji, layoutów ani lokalnych kotwic. Kontrakt domenowy ma zamknięte pola
+descriptorów i przyjmuje wyłącznie skończone liczby w metrykach; przed każdym
+zapisem odbudowuje checksum, a odczyt zwraca głęboko zamrożony snapshot.
+Treść profilu, dowody i receipty są niezmienne. Trigger pozwala wyłącznie przyszłemu kwalifikatorowi przejść ze
+stanu `candidate` do `active` lub `rejected` oraz z `active` do `retired`, bez
+zmiany snapshotu; G06 nie ma jeszcze operacji aktywacji. Częściowy indeks
+uniemożliwia więcej niż jeden `active` profil o tej samej rodzinie i topologii.
+Manifest własności v2 klasyfikuje tabele jako `shared`, zachowując zamrożony
+manifest partycji gier v1.
 
 ## Indeksowana bieżąca projekcja symboli — TASK-0521
 

@@ -14,6 +14,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     ForeignKeyConstraint,
+    Identity,
     Index,
     Integer,
     LargeBinary,
@@ -4184,6 +4185,147 @@ class GameGridProfileActivationModel(Base):
     reason: Mapped[str | None] = mapped_column(Text)
     idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
     command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GlobalGeometryProfileVersionModel(Base):
+    """A public, game-neutral version of a shared shape-geometry profile."""
+
+    __tablename__ = "global_geometry_profile_versions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('candidate', 'active', 'rejected', 'retired')",
+            name="ck_global_geometry_profile_versions_status",
+        ),
+        CheckConstraint(
+            "page_board_rows = 3 AND page_board_columns = 3 "
+            "AND board_cell_rows = 3 AND board_cell_columns = 5",
+            name="ck_global_geometry_profile_versions_topology",
+        ),
+        CheckConstraint(
+            "profile_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_global_geometry_profile_versions_checksum",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(normalized_template) = 'object' "
+            "AND jsonb_typeof(frame_appearance) = 'object' "
+            "AND jsonb_typeof(evidence_summary) = 'object'",
+            name="ck_global_geometry_profile_versions_json",
+        ),
+        UniqueConstraint("profile_number", name="uq_global_geometry_profile_versions_number"),
+        UniqueConstraint(
+            "geometry_family",
+            "profile_checksum_sha256",
+            name="uq_global_geometry_profile_versions_checksum",
+        ),
+        Index(
+            "uq_global_geometry_profile_versions_active_scope",
+            "geometry_family",
+            "page_board_rows",
+            "page_board_columns",
+            "board_cell_rows",
+            "board_cell_columns",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+        ),
+        Index(
+            "ix_global_geometry_profile_versions_family_number",
+            "geometry_family",
+            "profile_number",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    profile_number: Mapped[int] = mapped_column(
+        BigInteger,
+        Identity(always=True),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    geometry_family: Mapped[str] = mapped_column(String(64), nullable=False)
+    page_board_rows: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    page_board_columns: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    board_cell_rows: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    board_cell_columns: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    normalized_template: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    frame_appearance: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    evidence_summary: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    profile_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GlobalGeometryEvidenceSampleModel(Base):
+    """Descriptor-only evidence with descriptive, non-routing game provenance."""
+
+    __tablename__ = "global_geometry_evidence_samples"
+    __table_args__ = (
+        CheckConstraint(
+            "evidence_number > 0 AND source_game_ref ~ '^[a-z0-9][a-z0-9_-]{1,63}$'",
+            name="ck_global_geometry_evidence_samples_values",
+        ),
+        CheckConstraint(
+            "evidence_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_global_geometry_evidence_samples_checksum",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(evidence_payload) = 'object'",
+            name="ck_global_geometry_evidence_samples_json",
+        ),
+        UniqueConstraint(
+            "profile_id",
+            "evidence_number",
+            name="uq_global_geometry_evidence_samples_number",
+        ),
+        UniqueConstraint(
+            "profile_id",
+            "evidence_checksum_sha256",
+            name="uq_global_geometry_evidence_samples_checksum",
+        ),
+        Index(
+            "ix_global_geometry_evidence_samples_profile_number",
+            "profile_id",
+            "evidence_number",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    profile_id: Mapped[UUID] = mapped_column(
+        ForeignKey("global_geometry_profile_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    evidence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_game_ref: Mapped[str] = mapped_column(String(64), nullable=False)
+    evidence_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    evidence_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GlobalGeometryProfileWriteReceiptModel(Base):
+    """A durable idempotency receipt for global profile writes."""
+
+    __tablename__ = "global_geometry_profile_write_receipts"
+    __table_args__ = (
+        CheckConstraint(
+            "command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_global_geometry_profile_write_receipts_command",
+        ),
+        UniqueConstraint(
+            "idempotency_key",
+            name="uq_global_geometry_profile_write_receipts_idempotency",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    profile_id: Mapped[UUID] = mapped_column(
+        ForeignKey("global_geometry_profile_versions.id", ondelete="RESTRICT"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -6,6 +6,21 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0605 — globalna, wersjonowana biblioteka geometrii shape v2
+
+- Zaimplementowano G06: migracja 0115 tworzy wyłącznie publiczny control plane
+  dla checksummowanych kandydatów, descriptorowych dowodów i receiptów retry.
+  Brak `game_id`, routera, JPEG-ów, pikseli, symboli, OCR, payoutów, sekwencji
+  oraz lokalnych kotwic chroni izolację danych gier.
+- Content-addressed profil ma globalną kolejność, pełny checksum i status
+  początkowy `candidate`; niezmienna treść może w G07 przejść tylko przez
+  dozwolone zmiany statusu. G03 będzie pierwszym konsumentem poprzez lokalny,
+  przypięty snapshot preflightu.
+- 90 testów zakresu G06, Ruff i ograniczony mypy przeszły. Pierwszy audyt
+  Astra Medium znalazł pięć P2, re-audyt dwa P2; wszystkie naprawiono razem z
+  regresjami. Końcowy re-audyt nie ma P0–P3. Karta zadania została przeniesiona
+  do `ai_docs/tasks/completed/`.
+
 ### TASK-0604 — wspólny deterministyczny rdzeń geometrii shape v2
 
 - Ukończono G02: niezależny od profilu gry rdzeń proponuje ramkę z kształtu i
@@ -16,7 +31,7 @@ last_updated: 2026-09-21
   `needs_manual_review` bez geometrii importowej.
 - 28 testów, Ruff i ograniczony mypy przeszły. Astra Medium znalazła P1 i
   cztery P2; wszystkie poprawiono wraz z regresjami. Końcowy re-audyt nie ma
-  P0–P2 ani P3. Karta zadania zostanie przeniesiona do `completed`.
+  P0–P2 ani P3. Karta zadania została przeniesiona do `completed`.
 
 ### TASK-0603 — eksperyment i kontrakt wejścia geometrii shape v2
 

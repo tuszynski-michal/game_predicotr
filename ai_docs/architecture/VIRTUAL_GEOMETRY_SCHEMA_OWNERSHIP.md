@@ -1,10 +1,23 @@
 ---
 title: Virtual geometry schema ownership
 status: accepted
-last_updated: 2026-09-08
+last_updated: 2026-09-21
 ---
 
 # Virtual geometry schema ownership
+
+## Wspólna biblioteka shape v2 — TASK-0605
+
+Globalna biblioteka `framed_full_page_v2` jest osobnym publicznym control
+plane, a nie właścicielem geometrii konkretnego źródła. Zapisuje jedynie
+checksummowany szablon, topologię, descriptor ramki i metryki dowodu; nie
+zawiera obrazu, cropa, kotwicy ORB, symbolu, OCR, payoutu ani sekwencji.
+`source_game_ref` pozostaje opisową proweniencją bez `game_id` i bez routingu.
+
+Profil ma status `candidate` po G06. Dopiero G03 może przypiąć zgodny snapshot
+do nowego preflightu, a G07 kwalifikuje i aktywuje go automatycznie. Lokalna
+geometria, snapshot joba, ręczna kwalifikacja i wynik importu nadal należą do
+jednej gry i nie są nadpisywane przez bibliotekę.
 
 ## Finalna bramka wariantu v0.10.4 (TASK-0515)
 

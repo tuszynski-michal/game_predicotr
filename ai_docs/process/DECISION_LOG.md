@@ -9143,3 +9143,30 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** pionowe ucięcie, brak slotu, niejednoznaczna orientacja i słaby
   dowód kończą się review. Nieistotny niejednoznaczny kontur jest pomijany bez
   przerwania oceny poprawnej strony.
+
+## D-422 — Globalna biblioteka shape v2 jest publicznym, descriptor-only control plane
+
+- **Status:** accepted (TASK-0605/G06).
+- **Date:** 2026-09-21.
+- **Decision:** wersje wspólnego profilu `framed_full_page_v2`, ich dowody i
+  receipty retry są przechowywane wyłącznie w trzech tabelach `public`.
+  Zawierają topologię 3 × 3 / 3 × 5, znormalizowany szablon, wielokolorowy
+  descriptor ramki, metryki jakości, checksumy oraz `source_game_ref` jako
+  opisową proweniencję. Nie mają pola `game_id`, FK do gry ani wejścia do
+  `GameStorageRouter`. Treść profilu, dowody i receipty są niezmienne;
+  dopuszczalne przyszłe przejścia statusu bez zmiany snapshotu to
+  `candidate → active/rejected` i `active → retired`.
+- **Rationale:** wspólna geometria ma być dostępna dla Mumii, Gangu i kolejnych
+  zgodnych gier bez mieszania ich data plane, modeli symboli lub lokalnych
+  kotwic. Trwały checksum snapshotu i receipt idempotencji eliminują podwójne
+  wersje po retry albo utracie odpowiedzi.
+- **Compatibility:** profile v1/v1.1, `game_data_v2`, router i istniejące
+  preflighty nie zmieniają zachowania. G06 zapisuje wyłącznie `candidate` i nie
+  aktywuje, nie importuje ani nie proponuje geometrii żadnej grze.
+- **Safety:** walidator odrzuca JPEG/piksele/cropy, OCR, symbole, payouty,
+  sekwencje, layouty, kotwice i `game_id`. Kontrakt descriptorów ma zamknięte
+  pola liczbowe, kandydat jest głęboko zamrożony i przy zapisie ponownie
+  checksummowany; odczyt ORM dostaje niezależny zamrożony snapshot.
+  Podsumowanie dowodów musi dokładnie odpowiadać checksummowanym próbkom, a
+  częściowy indeks dopuszcza jedną aktywną wersję na rodzinę/topologię.
+  Downgrade z dowolnym rekordem jest zablokowany.

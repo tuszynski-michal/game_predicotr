@@ -6,7 +6,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from game_predictor_api.storage import models  # noqa: F401
-from game_predictor_api.storage.game_data_v2_manifest_v1 import (
+from game_predictor_api.storage.game_data_v2_manifest_v2 import (
     CATALOG,
     CONTROL_TABLES,
     CREATE_TABLES,
@@ -42,6 +42,12 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
     assert CREATE_TABLES == MIGRATE_TABLES == DELETE_TABLES == PARTITIONED_TABLES == GAME_TABLES
     assert len(GAME_TABLES) == 65
     assert {ownership(name) for name in CONTROL_TABLES} == {"shared"}
+    assert {
+        "semi_automatic_selection_v7_activation_gate",
+        "global_geometry_profile_versions",
+        "global_geometry_evidence_samples",
+        "global_geometry_profile_write_receipts",
+    } <= SHARED
     with pytest.raises(ValueError, match="GAME_STORAGE_UNKNOWN_TABLE"):
         ownership("future_unreviewed_table")
 

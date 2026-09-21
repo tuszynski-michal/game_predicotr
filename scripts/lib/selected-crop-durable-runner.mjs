@@ -7,7 +7,8 @@ import {
   SELECTED_IMAGE_AUTO_CROP_POLICY,
 } from '../../packages/manual-image-selection-core/src/auto-crop.ts';
 import {
-  prepareFourPointRegisteredCrop,
+  finishFourPointRegisteredCropForPolicy,
+  isFourPointRegistrationCropPolicy,
   prepareStructuralCrop,
   assertCropPreparationPolicy,
   ACTIVE_SELECTED_IMAGE_CROP_POLICY,
@@ -96,7 +97,7 @@ export async function renderCropSource(bytes, policy, anchor = null) {
   assertCropPreparationPolicy(policy);
   const { decoded, sample: decodedSample } = await decodeCropSource(bytes);
   let proposal;
-  if (policy === CROP_V12_POLICY) {
+  if (isFourPointRegistrationCropPolicy(policy)) {
     const preparedAnchor =
       anchor === null
         ? null
@@ -104,8 +105,15 @@ export async function renderCropSource(bytes, policy, anchor = null) {
             descriptor: anchor.descriptor,
             image: (await decodeCropSource(anchor.bytes)).sample,
           };
-    proposal = await prepareFourPointRegisteredCrop(
+    const structural = await prepareStructuralCrop({
+      width: decoded.info.width,
+      height: decoded.info.height,
+      rgba: new Uint8ClampedArray(decoded.data),
+    });
+    proposal = await finishFourPointRegisteredCropForPolicy(
+      policy,
       decodedSample,
+      structural,
       preparedAnchor,
     );
   } else if (policy === CROP_V11_POLICY)
@@ -324,7 +332,7 @@ export async function processCropDirectory(
         if (results.has(file.fileName)) {
           await verifyResult(input, target, results.get(file.fileName));
           if (
-            policy === CROP_V12_POLICY &&
+            isFourPointRegistrationCropPolicy(policy) &&
             results.get(file.fileName)?.autoCropProposal?.structural?.status ===
               'detected'
           ) {
@@ -390,7 +398,7 @@ export async function processCropDirectory(
         await verifyResult(input, target, result);
         results.set(file.fileName, result);
         if (
-          policy === CROP_V12_POLICY &&
+          isFourPointRegistrationCropPolicy(policy) &&
           proposal.structural?.status === 'detected'
         ) {
           anchor = {

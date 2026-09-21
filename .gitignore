@@ -50,3 +50,7 @@ imports/*
 !imports/README.md
 examples/imgs/*
 !examples/imgs/README.md
+
+# Codex and test-run temporary fixtures
+.codex-task-*/
+test-temp-*/

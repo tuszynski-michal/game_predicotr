@@ -10,6 +10,7 @@ import {
 } from '../lib/selected-crop-durable-runner.mjs';
 import { CROP_V11_POLICY } from '../../packages/manual-image-selection-core/src/auto-crop-v11.ts';
 import { ACTIVE_SELECTED_IMAGE_CROP_POLICY } from '../../packages/manual-image-selection-core/src/crop-preparation.ts';
+import { CROP_V13_POLICY } from '../../packages/manual-image-selection-core/src/auto-crop-v13-minimum-height.ts';
 
 test(
   'EXIF 1–8 canonicalized once, full fallback retains 1:1 dimensions and no orientation tag',
@@ -76,6 +77,20 @@ test(
     });
     assert.equal(result.prepared, 1);
     assert.deepEqual(policies, [ACTIVE_SELECTED_IMAGE_CROP_POLICY]);
+  },
+);
+test(
+  'direct durable rendering applies the active v13 policy instead of falling back to the legacy crop',
+  { timeout: 15000 },
+  async () => {
+    const source = await sharp({
+      create: { width: 96, height: 160, channels: 3, background: '#333333' },
+    })
+      .jpeg()
+      .toBuffer();
+    const { proposal } = await renderCropSource(source, CROP_V13_POLICY);
+    assert.equal(proposal.policyVersion, CROP_V13_POLICY);
+    assert.equal(proposal.preparationFingerprint.includes(CROP_V13_POLICY), true);
   },
 );
 for (const phase of ['intent', 'part', 'publish', 'shard'])

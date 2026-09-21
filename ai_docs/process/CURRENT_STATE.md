@@ -6,6 +6,20 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0589 — kalibracja i metryki odbioru V7
+
+- T05 dodaje wersjonaną kalibrację geometrii z pięcioma niezależnymi źródłami
+  na pozycję, medianami i residualem p95 `0.04`, a także osobne metryki
+  zakresu, reprezentanta, ostrzeżeń góra/dół, false-positive i manual review.
+  Pusty mianownik to `not_evaluable`; ręczna poprawka nie zmienia wyniku
+  automatu.
+- Skrypt sprawdza manifest, zamrożony inwentarz oraz SHA anotowanych źródeł;
+  odrzuca kopie tych samych bajtów jako niezależne źródła, a anotację odbioru
+  wiąże z przypadkiem korpusu, zakresem i źródłem predykcji. Holdout/reference-
+  only są zablokowane, a wynik zawsze blokuje aktywację do odbioru T12.
+  Rzeczywisty probe pięciu JPEG-ów nie uzyskał wiarygodnej geometrii ani
+  consensusów, więc V7 nadal nie jest aktywne.
+
 ### TASK-0588 — jakość, ranking i warningi V7
 
 - T04 ocenia najgorszą z dziewięciu plansz zamiast uśredniać defekt. Wyłącznie

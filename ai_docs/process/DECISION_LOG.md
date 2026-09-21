@@ -6,6 +6,28 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-407 — Kalibracja V7 zachowuje pomiar nieudanego progu, ale blokuje aktywację
+
+- **Status:** accepted (TASK-0589).
+- **Date:** 2026-09-21.
+- **Decision:** kalibracja geometrii V7 wymaga co najmniej pięciu niezależnych
+  źródeł na każdą z dziewięciu pozycji wyłącznie ze splitu `calibration`.
+  Konfiguracja używa median normalizowanych centrów, `position_confidence=0.95`
+  i startowego limitu residualu p95 `0.04`. Pomiar powyżej limitu jest zapisanym
+  wynikiem `failed`, a nie konfiguracją zdatną do użycia. Puste mianowniki
+  wyników 95%/95%/zero błędów/100% warningów są `not_evaluable`.
+- **Rationale:** brak anotacji, nieudany pomiar i ręczna poprawka nie mogą
+  wyglądać jak sukces automatu. Zachowanie residualu umożliwia audyt oraz
+  decyzję operatora o dalszym zbieraniu danych bez obniżania progu po cichu.
+- **Safety:** raport jest związany z manifestem, zamrożonym inwentarzem oraz
+  checksumami oznaczonych źródeł; różne ID z tym samym SHA nie są niezależne.
+  Anotacja odbioru wiąże przypadek korpusu, zakres i własne źródła, a predykcja
+  wybrane źródło; jeden zakres w przypadku korpusu może być oceniony tylko raz.
+  Holdout i `reference_only` są odrzucane w T05, a raport zawsze zwraca blokadę
+  aktywacji do T12 i jawnej decyzji. Wynik automatu pozostaje zamrożony przed
+  ręczną korektą; korekta jest osobnym `manual_review`, nie wartością
+  `range_outcome` albo `representative_outcome`.
+
 ## D-406 — Nieczytelny kadr i nieznana widoczność nie mogą wygrać przez brak danych
 
 - **Status:** accepted (TASK-0588).

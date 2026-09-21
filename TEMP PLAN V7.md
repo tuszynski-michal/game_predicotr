@@ -24,7 +24,7 @@ zaakceptowanego planu `ai_docs/delivery/SEMI_AUTOMATIC_SELECTION_V7_EXECUTION_PL
 | T02 | done, `v0.10.320` | Lokalizator poziomej siatki 3×3, OCR własnych etykiet i proof 5 / 3+3; realny pomiar wykazał odczyt na 777, lecz proof pozostaje bezpiecznie zablokowany do kalibracji geometrii T05. |
 | T03 | done, `v0.10.321` | Wystąpienia, luki, niezależne kursory, EOF, restart i globalna finalizacja bez cofania kursora. |
 | T04 | done, `v0.10.322` | Ocena jakości per plansza, niepewność, ranking kandydatów i warningi góra/dół. |
-| T05 | todo | Anotacje/splity, kalibracja progów, metryki 95%/100% i zamrożony holdout. |
+| T05 | done, `v0.10.323` | Wersjonowana kalibracja i metryki fail-closed; realny probe nadal nie ma wiarygodnej geometrii, więc aktywacja pozostaje zablokowana. |
 | T06 | todo | Addytywna migracja, domena/API/OpenAPI, aktywacja zablokowana przed T12. |
 | T07 | todo | Manifest źródeł, checkpoint skanu/finalizacji, pause/cancel/restart i drift. |
 | T08 | todo | Pierwszy output, journal, generacje, właściciel targetu, lock, recovery i bariery wyścigów. |

@@ -9024,3 +9024,25 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   stabilnym błędem. Fingerprint inputu, inwentarz i checksumy shardów są
   sprawdzane przy wznowieniu. Checkpoint zakończonego joba pozostaje audytem;
   jego czyszczenie wymaga osobnego zadania.
+
+## D-396 — Korpus eksperymentalnej geometrii rozdziela dostęp wykonawczy od odbioru
+
+- **Status:** accepted (TASK-0602).
+- **Date:** 2026-09-21.
+- **Decision:** testowy silnik geometrii `shape_frame_geometry_v2_0` używa
+  osobnego manifestu wykonawczego, zawierającego wyłącznie development i
+  calibration, oraz osobnego manifestu acceptance. Baseline i eksperymenty
+  przyjmują tylko pierwszy z nich. Korpus utrwala SHA-256, rodzinę nagrania,
+  rolę danych, ordinal oraz topologię; jedna rodzina ani kopia bajtowa nie może
+  przekroczyć granicy splitów. Jedna kotwica na grę jest wybierana
+  deterministycznie z ręcznie zakwalifikowanego developmentu, przed predykcją.
+- **Rationale:** próg i algorytm nie mogą zostać dostrojone do danych, porażek
+  ani anotacji acceptance. Potrzebny jest także odtwarzalny baseline v1.1,
+  który rozdziela stan zastany od przyszłych regresji v2.
+- **Compatibility:** v1.0 i v1.1 oraz ich profile, snapshoty i importy nie
+  zmieniają się. G00 jest wyłącznie read-only narzędziem jakości i nie dodaje
+  wariantu API, migracji ani polityki rolloutu.
+- **Safety:** brak corpusów, profilu lub anotacji jest `not_evaluable` albo
+  `not_configured`, nigdy sukcesem. Naruszenie rootu, drift, zduplikowana
+  tożsamość lub mieszanie splitów kończy narzędzie fail-closed; bez odczytu
+  ani zapisu danych aplikacji.

@@ -1,6 +1,6 @@
 ---
 title: Testowy silnik geometrii v2.0 — plan wykonawczy po audytach
-status: proposed
+status: accepted
 last_updated: 2026-09-21
 ---
 
@@ -8,10 +8,10 @@ last_updated: 2026-09-21
 
 ## Status, cel i warunki pracy
 
-Ten plik jest trwałą, roboczą kopią planu ustalonego w rozmowie. Nie jest
-jeszcze zaakceptowanym źródłem prawdy i nie zastępuje dokumentów właścicielskich
-w `ai_docs/`. Po akceptacji jego ustalenia należy przenieść do wymagań,
-architektury, Decision Logu i kart zadań.
+Ten plik jest trwałą kopią zaakceptowanego planu ustalonego z właścicielem
+2026-09-21. Nie zastępuje dokumentów właścicielskich w `ai_docs/`; ustalenia
+każdego realizowanego etapu są przenoszone do jego karty, właściwej dokumentacji
+oraz, gdy zmieniają architekturę lub dane, do `DECISION_LOG.md`.
 
 Cel: obsłużyć import zdjęć gier 777, Blazing, Gang, Reels i Mumie przez
 istniejący przepływ `staging → preflight geometrii → korekta → import →

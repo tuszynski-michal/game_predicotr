@@ -6,6 +6,22 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0602 — korpus i baseline geometrii shape v2
+
+- Ukończono G00: osobny, read-only kontrakt corpusów dla 777, Blazing, Gang,
+  Reels i Mumie wiąże źródła z SHA-256, rodziną, ordinalem, rolą i topologią
+  3 × 5. Manifest executor oraz acceptance są rozdzielone fail-closed;
+  `reels_test` i `rells_big` pozostają wykluczone.
+- Narzędzia jakości zamrażają inwentarz, wykrywają drift i wycieki splitów,
+  wybierają kotwicę z anotacji bez predykcji oraz uruchamiają wyłącznie
+  read-only baseline `selective_board_review_v1_1` do dziesięciu źródeł na
+  grę. Obrazy, profile i anotacje operatora nie są w repozytorium, więc wynik
+  lokalny jest świadomie `not_evaluable`/`not_configured`, bez automatu.
+- 9 skoncentrowanych testów, Ruff i mypy modułu przeszły. Końcowy audyt Astra
+  Medium nie wykazał P0–P2. G01 wymaga dostarczenia operator-owned corpusu,
+  przypiętych profili i anotacji; jego bramki liczbowe muszą zostać później
+  zatwierdzone przez właściciela przed G02.
+
 ### TASK-0601 — API i klient kalibracji geometrii etykiet V7
 
 - Lokalny Admin API ma server-owned pion ręcznej kalibracji. Konfiguracja

@@ -1,10 +1,90 @@
 ---
 title: Virtual geometry schema ownership
 status: accepted
-last_updated: 2026-09-08
+last_updated: 2026-09-22
 ---
 
 # Virtual geometry schema ownership
+
+## Niezależny odbiór acceptance shared shape v2 — TASK-0610
+
+Lokalny evaluator G08 jest jedynym właścicielem odczytu acceptance i nie ma
+prawa korzystać z executor jako materiału pomiarowego. Executor służy wyłącznie
+do ponownej kontroli granicy splitów i musi być dokładnie tym, który wskazuje
+zamrożony input G05. Przypięte anotacje i pełny input są ponownie wykonywane
+przez runner G05, a cały wynik musi być identyczny bajt po bajcie z raportem
+wejściowym. Dopiero wtedy G08 odtwarza descriptorowego kandydata, raport G07 i
+profil preflight, ponownie kontroluje SHA odczytanych bajtów, a dwa pełne wyniki
+verifiera wiąże checksumami. Nie otwiera bazy, nie publikuje i nie aktywuje:
+`passed` jest lokalnym dowodem zgodności, `not_evaluable` oznacza brak danych,
+a `rejected` pozostaje lokalnym wynikiem kontroli.
+## Pilot Mumie → Gang shared shape v2 — TASK-0609
+
+Lokalny runner G05 jest wyłącznie właścicielem pomiaru i raportu operator-owned
+corpusów. Wymusza kolejność istniejącego aktywnego profilu, zaakceptowanej
+korekty Mumii, replayu, regresji pełnej kohorty wcześniejszych gier oraz
+transferu do gry spoza wkładu. Każda obserwacja zawiera checksumę badanego
+profilu; zmiana kandydata lub baseline unieważnia jej użycie. Wynik mierzy
+osobno automaty, review, korektę, potwierdzenie i czas operatora, dlatego
+porównanie przed/po odnosi się wyłącznie do identycznej kohorty.
+
+Jedynie wynik `measured` może przejść przez wewnętrzną granicę publicznego
+control plane; runner nie otwiera magazynu gry, nie zapisuje geometrii lokalnej
+ani nie uruchamia importu. Kandydat i raport przekazywane dalej pozostają
+identifier-free względem źródeł: nie zawierają obrazów, ścieżek, `game_id`,
+OCR, symboli, sekwencji ani lokalnych kotwic.
+
+## Kwalifikacja i aktywacja shared shape v2 — TASK-0608
+
+`global_geometry_profile_qualification_results` i receipty kwalifikacji należą
+do globalnego publicznego control plane. Są audytem decyzji o wspólnym profilu,
+nie właścicielem lokalnej geometrii: przechowują wyłącznie descriptor-only
+raport, checksumy i krótkie referencje proweniencji bez `game_id`, obrazów,
+plików, kotwic albo routingu gry. Zmieniają status wersji profilu tylko w
+jednej transakcji po kwalifikacji `passed`; `not_evaluable` i `rejected` nie
+mogą uruchomić preflightu, importu ani wpłynąć na historyczny snapshot joba.
+
+## Deklaracja gry i projekcja gotowości shape v2 — TASK-0607
+
+`games.shape_geometry_configuration` należy do control plane katalogu gry i
+określa tylko rodzinę strony. Nie jest profilem lokalnym, nie wskazuje kotwicy
+ani obrazu i nie przenosi danych importu między grami. `NULL` rekordu
+historycznego jest odczytywany fail-closed jako `requires_clarification`.
+
+Read model katalogu może odczytać tylko jeden integralny globalny profil
+`active` rodziny `framed_full_page_v2` i ujawnia wyłącznie jego immutable
+referencję. Nie odczytuje JPEG-ów, dowodów, routingu ani `game_id` z biblioteki;
+candidate/rejected/retired, konflikt i uszkodzenie nie dają gotowości. Projekcja
+nie ma prawa uruchomić preflightu, importu ani zmienić historycznego joba.
+
+## Resolver i preflight shape v2 — TASK-0606
+
+Nowy preflight `page-geometry-preflight-v4-shape-geometry-v2-profile` przypina
+tylko jeden aktywny profil `framed_full_page_v2` 3 × 3 / 3 × 5. Snapshot joba
+zawiera identyfikator, numer i checksumę profilu, pełną kontrolę checksumy
+z descriptorowymi dowodami, checksumę zamkniętych descriptorów oraz
+lokalną politykę `structural_only`; wpis manifestu nie może później odczytać
+innej aktywnej wersji ani użyć `game_id` z biblioteki.
+
+Worker kontroluje bieżące piksele rdzeniem G02 i zapisuje per źródło jego dowód,
+aspect ratio oraz werdykt. Nawet kompletna propozycja dostaje
+`review_required` bez `quads` i bez statusu `registered`; istniejący importer
+nie może jej wykorzystać przed późniejszym, jawnym etapem. Brak aktywnego
+profilu zachowuje preflighty v2/v3, a ręczna override nadal ma pierwszeństwo.
+V4 nie tworzy legacy registrara ani nie ładuje jego kotwic.
+
+## Wspólna biblioteka shape v2 — TASK-0605
+
+Globalna biblioteka `framed_full_page_v2` jest osobnym publicznym control
+plane, a nie właścicielem geometrii konkretnego źródła. Zapisuje jedynie
+checksummowany szablon, topologię, descriptor ramki i metryki dowodu; nie
+zawiera obrazu, cropa, kotwicy ORB, symbolu, OCR, payoutu ani sekwencji.
+`source_game_ref` pozostaje opisową proweniencją bez `game_id` i bez routingu.
+
+Profil ma status `candidate` po G06. Dopiero G03 może przypiąć zgodny snapshot
+do nowego preflightu, a G07 kwalifikuje i aktywuje go automatycznie. Lokalna
+geometria, snapshot joba, ręczna kwalifikacja i wynik importu nadal należą do
+jednej gry i nie są nadpisywane przez bibliotekę.
 
 ## Finalna bramka wariantu v0.10.4 (TASK-0515)
 

@@ -48,6 +48,11 @@ from game_predictor_worker.images.pipeline_contract import (
     StructuredGeometryCandidateSnapshot,
     effective_pipeline_fingerprint,
 )
+from game_predictor_worker.images.shape_geometry_v2.preflight import (
+    SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
+    ShapeGeometryV2PreflightError,
+    parse_shape_geometry_v2_preflight_profile,
+)
 from game_predictor_worker.images.structured_geometry import (
     structured_lattice_active_config_payload,
     structured_lattice_candidate_config_payload,
@@ -375,6 +380,10 @@ class PageGeometryOverrideSnapshotResolver(Protocol):
     def partial_grid_training_profile(self, *, game_id: UUID) -> dict[str, object] | None: ...
 
 
+class ShapeGeometryV2ProfileSnapshotResolver(Protocol):
+    def resolve(self) -> dict[str, object] | None: ...
+
+
 class JobService:
     def __init__(
         self,
@@ -387,6 +396,9 @@ class JobService:
         page_geometry_override_snapshot_resolver: (
             PageGeometryOverrideSnapshotResolver | None
         ) = None,
+        shape_geometry_v2_profile_snapshot_resolver: (
+            ShapeGeometryV2ProfileSnapshotResolver | None
+        ) = None,
         deletion_artifact_store: ImageSelectionDeletionArtifactStore | None = None,
     ) -> None:
         self._repository = repository
@@ -395,8 +407,30 @@ class JobService:
         self._grid_profile_snapshot_resolver = grid_profile_snapshot_resolver
         self._artifact_root = None if artifact_root is None else artifact_root.resolve()
         self._page_geometry_override_snapshot_resolver = page_geometry_override_snapshot_resolver
+        self._shape_geometry_v2_profile_snapshot_resolver = (
+            shape_geometry_v2_profile_snapshot_resolver
+        )
         self._deletion_artifact_store = deletion_artifact_store
         self._pending_deletion_quarantines: list[ImageSelectionDeletionQuarantine] = []
+
+    def _shape_geometry_v2_profile_snapshot(
+        self, *, page_registration_variant: str
+    ) -> dict[str, object] | None:
+        """Pin a validated active profile only for the standard preflight route."""
+
+        if page_registration_variant != "standard_v0_10":
+            return None
+        resolver = self._shape_geometry_v2_profile_snapshot_resolver
+        value = None if resolver is None else resolver.resolve()
+        if value is None:
+            return None
+        try:
+            return parse_shape_geometry_v2_preflight_profile(value).to_payload()
+        except ShapeGeometryV2PreflightError as error:
+            raise JobConflictError(
+                "SHAPE_GEOMETRY_V2_ACTIVE_PROFILE_INVALID",
+                "The active shared shape-geometry profile cannot be pinned to a preflight.",
+            ) from error
 
     def _current_lateral_partial_policy(
         self, *, game_id: UUID, geometry_engine_variant: GeometryEngineVariant | None
@@ -1775,6 +1809,9 @@ class JobService:
                 "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
                 "anchors": [],
             }
+        shape_geometry_v2_profile = self._shape_geometry_v2_profile_snapshot(
+            page_registration_variant=page_registration_variant
+        )
         if page_registration_variant == "board_area_test":
             registration = {
                 **registration,
@@ -1790,7 +1827,11 @@ class JobService:
                 if key not in {"anchorMaskVersion", "anchorMaskPaddingRatio"}
             }
             registration["policy"] = PAGE_REGISTRATION_VERSION
-            preflight_policy_version = "page-geometry-preflight-v2-auto-anchor"
+            preflight_policy_version = (
+                SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION
+                if shape_geometry_v2_profile is not None
+                else "page-geometry-preflight-v2-auto-anchor"
+            )
         overrides = (
             {}
             if self._page_geometry_override_snapshot_resolver is None
@@ -1827,6 +1868,11 @@ class JobService:
             "source_manifest_sha256": source_manifest_sha256,
             "page_registration_profile": registration,
             "page_geometry_overrides": overrides,
+            **(
+                {"shape_geometry_v2_profile": shape_geometry_v2_profile}
+                if shape_geometry_v2_profile is not None
+                else {}
+            ),
             **managed_input,
             **(
                 {"lateral_partial_geometry": partial_policy.to_payload()}
@@ -2249,6 +2295,8 @@ def _page_geometry_candidate_compatibility(
         or not (same_source or replacement_parent)
         or payload.get("preflight_policy_version") != target.get("preflight_policy_version")
         or payload.get("page_registration_profile") != target.get("page_registration_profile")
+        or payload.get("shape_geometry_v2_profile")
+        != target.get("shape_geometry_v2_profile")
     ):
         return None
     base_lateral = payload.get("lateral_partial_geometry")
@@ -2334,6 +2382,7 @@ def _completed_page_geometry_manifest_descriptor(
         or manifest.get("sourceManifestChecksumSha256") != expected_source_manifest
         or manifest.get("version") != target.get("preflight_policy_version")
         or manifest.get("pageRegistrationProfile") != target.get("page_registration_profile")
+        or manifest.get("shapeGeometryV2Profile") != target.get("shape_geometry_v2_profile")
         or not isinstance(manifest.get("entries"), Mapping)
     ):
         return None

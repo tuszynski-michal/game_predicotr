@@ -11,7 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from game_predictor_api.domain.catalog import (
     DEFAULT_EXPECTED_LAYOUT_COUNT,
     MAX_EXPECTED_LAYOUT_COUNT,
+    GameShapeGeometryConfiguration,
     GameStatus,
+    ShapeGeometryReadinessStatus,
     SymbolStatus,
 )
 
@@ -45,6 +47,9 @@ class GameCreate(ApiModel):
         ge=1,
         le=MAX_EXPECTED_LAYOUT_COUNT,
     )
+    shape_geometry_configuration: GameShapeGeometryConfiguration = (
+        GameShapeGeometryConfiguration.REQUIRES_CLARIFICATION
+    )
 
 
 class GameUpdate(ApiModel):
@@ -55,6 +60,7 @@ class GameUpdate(ApiModel):
         ge=1,
         le=MAX_EXPECTED_LAYOUT_COUNT,
     )
+    shape_geometry_configuration: GameShapeGeometryConfiguration | None = None
 
     @model_validator(mode="after")
     def require_change(self) -> Self:
@@ -66,7 +72,26 @@ class GameUpdate(ApiModel):
             raise ValueError("status cannot be null.")
         if "expected_layout_count" in self.model_fields_set and self.expected_layout_count is None:
             raise ValueError("expectedLayoutCount cannot be null.")
+        if (
+            "shape_geometry_configuration" in self.model_fields_set
+            and self.shape_geometry_configuration is None
+        ):
+            raise ValueError("shapeGeometryConfiguration cannot be null.")
         return self
+
+
+class SharedShapeGeometryProfileReferenceResponse(ApiModel):
+    profile_id: UUID
+    profile_number: int = Field(ge=1)
+    profile_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ShapeGeometryReadinessResponse(ApiModel):
+    configuration: GameShapeGeometryConfiguration
+    status: ShapeGeometryReadinessStatus
+    reason_code: str
+    message: str
+    shared_profile: SharedShapeGeometryProfileReferenceResponse | None
 
 
 class GameResponse(ApiModel):
@@ -82,6 +107,8 @@ class GameResponse(ApiModel):
     storage_generation: int = Field(ge=1)
     storage_status: str
     storage_write_available: bool
+    shape_geometry_configuration: GameShapeGeometryConfiguration | None = None
+    shape_geometry_readiness: ShapeGeometryReadinessResponse
 
 
 class SymbolCreate(ApiModel):

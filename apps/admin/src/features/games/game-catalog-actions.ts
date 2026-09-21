@@ -35,11 +35,13 @@ export async function saveGameIdentity(
             name: draft.name,
             status: draft.status,
             expectedLayoutCount: Number(draft.expectedLayoutCount),
+            shapeGeometryConfiguration: draft.shapeGeometryConfiguration,
           } satisfies GameCreate)
         : await api.updateGame(intent.gameId, {
             name: draft.name,
             status: draft.status,
             expectedLayoutCount: Number(draft.expectedLayoutCount),
+            shapeGeometryConfiguration: draft.shapeGeometryConfiguration,
           } satisfies GameUpdate);
 
     const mutationError = result.error;
@@ -86,7 +88,8 @@ async function reconcileEditedGame(
       game !== undefined &&
       game.name === draft.name &&
       game.status === draft.status &&
-      game.expectedLayoutCount === Number(draft.expectedLayoutCount)
+      game.expectedLayoutCount === Number(draft.expectedLayoutCount) &&
+      game.shapeGeometryConfiguration === draft.shapeGeometryConfiguration
     ) {
       return { game, ok: true };
     }

@@ -1,7 +1,7 @@
 ---
 title: Game data v2 ownership manifest
 status: accepted
-last_updated: 2026-09-08
+last_updated: 2026-09-21
 ---
 
 # Własność tabel game_data_v2 — TASK-0518
@@ -11,6 +11,16 @@ Wersja `game-data-v2-manifest-v1` jest zamrożonym kontraktem migracji 0105.
 zamrożona w `services/api/alembic/sql/game_data_v2_schema_v1.sql`, bez importu
 bieżących modeli ORM przez migrację. Nowa tabela wymaga nowej wersji manifestu
 oraz migracji. Test odrzuca niezaklasyfikowaną tabelę ORM.
+
+## Control plane po manifeście v1 — TASK-0605
+
+`game_data_v2_manifest_v2.py` zachowuje bez zmiany 65 partycjonowanych tabel
+i ich lifecycle z v1, a klasyfikuje późniejsze tabele publiczne jako `shared`.
+W szczególności `global_geometry_profile_versions`,
+`global_geometry_evidence_samples` i `global_geometry_profile_write_receipts`
+są biblioteką control plane. Nie mają `game_id`, nie mogą wejść do partycji
+gry ani uruchomić `GameStorageRouter`; `source_game_ref` jest wyłącznie
+opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 
 ## Reguły i granice
 
@@ -49,6 +59,9 @@ oraz migracji. Test odrzuca niezaklasyfikowaną tabelę ORM.
 | `game_deletion_batches` | shared | — |
 | `game_deletion_operations` | shared | — |
 | `game_grid_profile_activations` | game | `games`, `grid_calibration_profiles` |
+| `global_geometry_evidence_samples` | shared | `global_geometry_profile_versions` |
+| `global_geometry_profile_versions` | shared | — |
+| `global_geometry_profile_write_receipts` | shared | `global_geometry_profile_versions` |
 | `game_storage_locations` | shared | `games` |
 | `game_storage_migrations` | shared | — |
 | `game_storage_table_manifest` | shared | — |

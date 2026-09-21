@@ -6,6 +6,10 @@ const source = await readFile(
   new URL('../src/features/games/game-catalog.tsx', import.meta.url),
   'utf8',
 );
+const stateSource = await readFile(
+  new URL('../src/features/games/game-catalog-state.ts', import.meta.url),
+  'utf8',
+);
 
 test('game catalog exposes status filters and an explicit restore action', () => {
   assert.match(source, /game-filter-\$\{status\}/);
@@ -40,4 +44,12 @@ test('game card exposes storage maintenance and disables mutations', () => {
     source,
     /disabled=\{restorePending \|\| !game\.storageWriteAvailable\}/,
   );
+});
+
+test('game editor records the page format and card exposes its shared-geometry readiness', () => {
+  assert.match(source, /name="shapeGeometryConfiguration"/);
+  assert.match(stateSource, /Pełna strona z ramką/);
+  assert.match(source, /Pierwszy import nadal wymaga/);
+  assert.match(source, /className="gameGeometryState"/);
+  assert.match(source, /profil wspólny #/);
 });

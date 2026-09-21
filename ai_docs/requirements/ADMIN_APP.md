@@ -53,6 +53,12 @@ lub `blocked` wyświetla jawny tryb tylko do odczytu i blokuje mutacje katalogu;
 wybór gry i bezpieczne odczyty pozostają dostępne. Backend pozostaje źródłem
 prawdy i niezależnie od UI odrzuca zapis objęty maintenance.
 
+Przy tworzeniu i edycji gry panel wybiera format strony: pełną stronę z ramką
+albo format wymagający doprecyzowania. Karta katalogu pokazuje bieżący status
+wspólnej geometrii, konkretną przyczynę i, gdy jest bezpiecznie dostępny,
+numer profilu shared. Panel nie prosi o kolor ramki, lokalną kotwicę ani obraz;
+gotowość do preflightu nadal wymaga ręcznej weryfikacji pierwszego importu.
+
 Po greenfield cutoverze nowa gra jest dostępna do dalszej konfiguracji dopiero,
 gdy API zakończy obowiązkowy provisioning V2 i zwróci
 `storageWriteAvailable=true`. Brak registry jest pokazywany jako `blocked`, a

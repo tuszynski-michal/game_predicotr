@@ -6,6 +6,136 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0610 — niezależny odbiór acceptance wspólnej geometrii shape v2
+
+- Ukończono G08: local-only evaluator odbiera wyłącznie operator-owned corpus
+  `acceptance` względem zamrożonego rdzenia, profilu preflight i łańcucha
+  G05/G07. Input przypina anotacje executora; przed odczytem acceptance runner
+  ponownie wykonuje G05 i wymaga bajtowej zgodności całego raportu.
+- Granica splitów blokuje wspólne SHA i capture family, verifier ponownie
+  kontroluje SHA odczytanych bajtów i pełny payload dwóch replayów. Command
+  nie otwiera bazy, nie publikuje ani nie aktywuje profilu; brak kompletu
+  artefaktów daje wyłącznie `not_evaluable`.
+- 30 testów G08+G05, Ruff, format i ograniczony mypy przeszły. Astra Medium
+  wykryła pięć P2 w trzech przebiegach; wszystkie naprawiono z regresjami,
+  a końcowy re-audyt nie ma P0–P3. Karta zadania została przeniesiona do
+  `ai_docs/tasks/completed/` wraz z commitem G08.
+
+### TASK-0609 — pilot korekt i transferu wspólnej geometrii shape v2
+
+- Ukończono G05: local-only runner mierzy kolejność istniejąca wiedza → Mumie →
+  zaakceptowana korekta → Gang bez importu ani zapisu do `game_data_v2`.
+  Obserwacje są przypięte do SHA źródła i checksumy badanego profilu, a zmiana
+  payloadu, niepełna faza lub `acceptance` daje `not_evaluable`.
+- Regresja obejmuje pełną, jawną kohortę wcześniejszych gier. Wynik osobno
+  mierzy automaty, review, korektę, potwierdzenie i czas operatora; porównanie
+  pracy powstaje tylko dla kompletnego identycznego zestawu baseline/kandydat.
+- 27 testów zakresu, szerszy zestaw corpus–biblioteka–kwalifikacja, Ruff,
+  format i ograniczony mypy przeszły. Astra Medium znalazła cztery P2 w dwóch
+  przebiegach; wszystkie naprawiono z regresjami, a końcowy re-audyt nie ma
+  P0–P3. Karta zadania została przeniesiona do `completed` wraz z commitem G05.
+
+### TASK-0608 — kwalifikacja i aktywacja wspólnej geometrii shape v2
+
+- Ukończono G07: descriptor-only kwalifikacja wiąże kandydata z checksummowanym
+  replayem, regresją i transferem. Wynik `not_evaluable` albo `rejected` nie
+  zmienia aktywnej wiedzy, a `passed` atomowo wycofuje poprzedni profil i
+  aktywuje dokładnie zweryfikowanego kandydata.
+- 124 testy zakresu, Ruff i ograniczony mypy przeszły. Astra Medium znalazła
+  P2, które poprawiono z regresjami; końcowy re-audyt nie ma P0–P3. Karta
+  zadania została przeniesiona do `completed` wraz z commitem G07.
+
+### TASK-0607 — gotowość wspólnej geometrii przy tworzeniu gry
+
+- Ukończono G04: migracja 0116 dodaje nullable deklarację rodziny strony do
+  katalogu gry. Nowa gra wybiera `framed_full_page_v2` albo
+  `requires_clarification`; historyczne `NULL` pozostaje bez backfillu i jest
+  odczytywane fail-closed jako potrzeba doprecyzowania.
+- Katalog API, wygenerowany klient i Admin zwracają/wyświetlają jeden stan
+  gotowości. Tylko jeden integralny globalny profil `active` może dostarczyć
+  immutable referencję profilu; brak, konflikt albo uszkodzenie prowadzą do
+  ręcznej korekty, bez local anchor, koloru ramki, obrazu czy automatycznego
+  importu.
+- 37 skoncentrowanych testów API, Ruff, ograniczony mypy, aktualność OpenAPI i
+  klienta, typecheck Admina, 18 testów katalogu oraz Prettier przeszły. Astra
+  Medium znalazła jedno P2 obsługi błędu odczytu profilu; poprawiono je wraz z
+  regresją, a końcowy re-audyt nie ma P0–P3. Karta zadania została przeniesiona
+  do `completed` wraz z commitem G04.
+
+### TASK-0606 — resolver i preflight wspólnej geometrii shape v2
+
+- Ukończono G03: resolver API przypina wyłącznie jeden poprawny profil
+  `active` 3 × 3 / 3 × 5 do nowej wersji preflightu. Odtwarza pełną checksumę
+  ze wszystkimi descriptorowymi dowodami, a snapshot wiąże także własne
+  descriptory checksumą i lokalną polityką `structural_only`. Zmiana profilu
+  unieważnia identyczność joba oraz reuse historycznego manifestu.
+- Worker ponownie waliduje snapshot i bieżące piksele rdzeniem G02. Różne
+  kolory ramki nie rozdzielają silnika; sukces i każde niepowodzenie pozostają
+  `review_required` bez `quads` importowych. Brak aktywnego profilu zachowuje
+  istniejący preflight v2/v3, a ręczna override ma pierwszeństwo. V4 omija
+  legacy registrara i jego kotwice.
+- 67 testów G03, Ruff i ograniczony mypy czterech modułów źródłowych przeszły.
+  Astra Medium znalazła trzy P2; wszystkie naprawiono wraz z regresjami, a
+  końcowy re-audyt nie ma P0–P3. Karta zadania została przeniesiona do
+  `ai_docs/tasks/completed/` wraz z commitem G03.
+
+### TASK-0605 — globalna, wersjonowana biblioteka geometrii shape v2
+
+- Zaimplementowano G06: migracja 0115 tworzy wyłącznie publiczny control plane
+  dla checksummowanych kandydatów, descriptorowych dowodów i receiptów retry.
+  Brak `game_id`, routera, JPEG-ów, pikseli, symboli, OCR, payoutów, sekwencji
+  oraz lokalnych kotwic chroni izolację danych gier.
+- Content-addressed profil ma globalną kolejność, pełny checksum i status
+  początkowy `candidate`; niezmienna treść może w G07 przejść tylko przez
+  dozwolone zmiany statusu. G03 jest pierwszym konsumentem poprzez lokalny,
+  przypięty snapshot preflightu.
+- 90 testów zakresu G06, Ruff i ograniczony mypy przeszły. Pierwszy audyt
+  Astra Medium znalazł pięć P2, re-audyt dwa P2; wszystkie naprawiono razem z
+  regresjami. Końcowy re-audyt nie ma P0–P3. Karta zadania została przeniesiona
+  do `ai_docs/tasks/completed/`.
+
+### TASK-0604 — wspólny deterministyczny rdzeń geometrii shape v2
+
+- Ukończono G02: niezależny od profilu gry rdzeń proponuje ramkę z kształtu i
+  kontrastu, homografię, dziewięć plansz i 135 komórek. Kolor jest wyłącznie
+  późniejszą metryką, a wynik `proposal` nie uruchamia importu.
+- Kontrola siatki wymaga dowodu w każdym slocie. Brak planszy, ucięcie,
+  słaba siatka, niejednoznaczna orientacja lub nieistotny kontur prowadzą do
+  `needs_manual_review` bez geometrii importowej.
+- 28 testów, Ruff i ograniczony mypy przeszły. Astra Medium znalazła P1 i
+  cztery P2; wszystkie poprawiono wraz z regresjami. Końcowy re-audyt nie ma
+  P0–P2 ani P3. Karta zadania została przeniesiona do `completed`.
+
+### TASK-0603 — eksperyment i kontrakt wejścia geometrii shape v2
+
+- Ukończono G01: schema v1 zachowuje pięć początkowych gier, a jawny schema v2
+  pozwala później dodać zgodną grę z pełną ramką i topologią bez forka silnika.
+  Read-only runner wiąże manifest, inventory, anotacje, wariant i profil
+  transferowy checksumami, odrzuca wkład badanej gry oraz zwraca
+  `not_evaluable` dla niepełnych dowodów.
+- Brak atestowanego corpusów, anotacji i profili dla danych produkcyjnych nadal
+  ogranicza tylko rzeczywisty pomiar i przyszły pilot. Nie powstały fikcyjne
+  bramki liczbowe; G02 może zbudować niezależny rdzeń geometrii.
+- 17 testów, Ruff i ograniczony mypy przeszły. Audyt Astra Medium wykrył trzy
+  P2, wszystkie naprawiono; re-audyt nie ma P0–P2 ani P3. Karta zadania została
+  przeniesiona do `ai_docs/tasks/completed/`.
+
+### TASK-0602 — korpus i baseline geometrii shape v2
+
+- Ukończono G00: osobny, read-only kontrakt corpusów dla 777, Blazing, Gang,
+  Reels i Mumie wiąże źródła z SHA-256, rodziną, ordinalem, rolą i topologią
+  3 × 5. Manifest executor oraz acceptance są rozdzielone fail-closed;
+  `reels_test` i `rells_big` pozostają wykluczone.
+- Narzędzia jakości zamrażają inwentarz, wykrywają drift i wycieki splitów,
+  wybierają kotwicę z anotacji bez predykcji oraz uruchamiają wyłącznie
+  read-only baseline `selective_board_review_v1_1` do dziesięciu źródeł na
+  grę. Obrazy, profile i anotacje operatora nie są w repozytorium, więc wynik
+  lokalny jest świadomie `not_evaluable`/`not_configured`, bez automatu.
+- 9 skoncentrowanych testów, Ruff i mypy modułu przeszły. Końcowy audyt Astra
+  Medium nie wykazał P0–P2. G01 wymaga dostarczenia operator-owned corpusu,
+  przypiętych profili i anotacji; jego bramki liczbowe muszą zostać później
+  zatwierdzone przez właściciela przed G02.
+
 ### Zintegrowana kolejka lokalnej ręcznej selekcji zdjęć
 
 - Lokalny Admin przyjmuje do 100 akceptacji w pamięciowej kolejce FIFO i

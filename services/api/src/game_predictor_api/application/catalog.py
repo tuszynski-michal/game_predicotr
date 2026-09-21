@@ -12,7 +12,10 @@ from game_predictor_api.domain.catalog import (
     CatalogConflictError,
     CatalogNotFoundError,
     Game,
+    GameShapeGeometryConfiguration,
     GameStatus,
+    ShapeGeometryReadiness,
+    ShapeGeometryReadinessStatus,
     Symbol,
     SymbolStatus,
     SymbolUsageSummary,
@@ -22,6 +25,7 @@ from game_predictor_api.domain.catalog import (
     validate_mobile_code,
     validate_name,
     validate_optional_name,
+    validate_shape_geometry_configuration,
     validate_stable_code,
 )
 
@@ -38,6 +42,7 @@ class CatalogRepository(Protocol):
         name: str,
         status: GameStatus,
         expected_layout_count: int,
+        shape_geometry_configuration: GameShapeGeometryConfiguration,
     ) -> Game: ...
 
     def save_game(self, game: Game) -> Game: ...
@@ -80,11 +85,61 @@ class CatalogRepository(Protocol):
     def delete_unused_symbol(self, *, game_id: UUID, symbol_id: UUID) -> None: ...
 
 
+class ShapeGeometryReadinessResolver(Protocol):
+    def resolve(
+        self, configuration: GameShapeGeometryConfiguration | None
+    ) -> ShapeGeometryReadiness: ...
+
+
+class DefaultShapeGeometryReadinessResolver:
+    """Safe default used by focused catalog tests and deployments without G06."""
+
+    def resolve(
+        self, configuration: GameShapeGeometryConfiguration | None
+    ) -> ShapeGeometryReadiness:
+        if configuration is GameShapeGeometryConfiguration.FRAMED_FULL_PAGE_V2:
+            return ShapeGeometryReadiness(
+                configuration=configuration,
+                status=ShapeGeometryReadinessStatus.MANUAL_REVIEW_REQUIRED,
+                reason_code="SHAPE_GEOMETRY_V2_ACTIVE_PROFILE_REQUIRED",
+                message=(
+                    "Brak aktywnego wspólnego profilu geometrii; pierwszy import wymaga "
+                    "ręcznej korekty."
+                ),
+            )
+        return shape_geometry_clarification_readiness(configuration)
+
+
+def shape_geometry_clarification_readiness(
+    configuration: GameShapeGeometryConfiguration | None,
+) -> ShapeGeometryReadiness:
+    if configuration is None:
+        return ShapeGeometryReadiness(
+            configuration=GameShapeGeometryConfiguration.REQUIRES_CLARIFICATION,
+            status=ShapeGeometryReadinessStatus.REQUIRES_CLARIFICATION,
+            reason_code="SHAPE_GEOMETRY_CONFIGURATION_REQUIRED",
+            message="Ustal format strony przed użyciem wspólnej geometrii.",
+        )
+    return ShapeGeometryReadiness(
+        configuration=configuration,
+        status=ShapeGeometryReadinessStatus.REQUIRES_CLARIFICATION,
+        reason_code="SHAPE_GEOMETRY_FORMAT_REQUIRES_CLARIFICATION",
+        message="Ten format strony wymaga doprecyzowania przed użyciem wspólnej geometrii.",
+    )
+
+
 class CatalogService:
     """Transactional use cases independent of HTTP and SQLAlchemy."""
 
-    def __init__(self, repository: CatalogRepository) -> None:
+    def __init__(
+        self,
+        repository: CatalogRepository,
+        shape_geometry_readiness_resolver: ShapeGeometryReadinessResolver | None = None,
+    ) -> None:
         self._repository = repository
+        self._shape_geometry_readiness_resolver = (
+            shape_geometry_readiness_resolver or DefaultShapeGeometryReadinessResolver()
+        )
 
     def list_games(self) -> Sequence[Game]:
         return self._repository.list_games()
@@ -99,6 +154,11 @@ class CatalogService:
             )
         return game
 
+    def shape_geometry_readiness(self, game: Game) -> ShapeGeometryReadiness:
+        return self._shape_geometry_readiness_resolver.resolve(
+            game.shape_geometry_configuration
+        )
+
     def create_game(
         self,
         *,
@@ -106,12 +166,18 @@ class CatalogService:
         name: str,
         status: GameStatus,
         expected_layout_count: int = DEFAULT_EXPECTED_LAYOUT_COUNT,
+        shape_geometry_configuration: GameShapeGeometryConfiguration = (
+            GameShapeGeometryConfiguration.REQUIRES_CLARIFICATION
+        ),
     ) -> Game:
         return self._repository.add_game(
             code=validate_stable_code(code, field_name="code"),
             name=validate_name(name),
             status=status,
             expected_layout_count=validate_expected_layout_count(expected_layout_count),
+            shape_geometry_configuration=validate_shape_geometry_configuration(
+                shape_geometry_configuration
+            ),
         )
 
     def update_game(
@@ -121,6 +187,7 @@ class CatalogService:
         name: str | None = None,
         status: GameStatus | None = None,
         expected_layout_count: int | None = None,
+        shape_geometry_configuration: GameShapeGeometryConfiguration | None = None,
     ) -> Game:
         game = self.get_game(game_id)
         updated = replace(
@@ -131,6 +198,11 @@ class CatalogService:
                 game.expected_layout_count
                 if expected_layout_count is None
                 else validate_expected_layout_count(expected_layout_count)
+            ),
+            shape_geometry_configuration=(
+                game.shape_geometry_configuration
+                if shape_geometry_configuration is None
+                else validate_shape_geometry_configuration(shape_geometry_configuration)
             ),
         )
         return self._repository.save_game(updated)

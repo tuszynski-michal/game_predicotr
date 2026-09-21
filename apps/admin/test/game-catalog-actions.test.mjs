@@ -13,6 +13,7 @@ const savedGame = {
   id: '11111111-1111-4111-8111-111111111111',
   expectedLayoutCount: 500000,
   name: 'Game 1',
+  shapeGeometryConfiguration: 'requires_clarification',
   status: 'active',
   updatedAt: '2026-07-26T10:00:00Z',
 };
@@ -44,6 +45,7 @@ test('creates a game with its stable code through the typed client boundary', as
       code: 'game-1',
       expectedLayoutCount: '500000',
       name: 'Game 1',
+      shapeGeometryConfiguration: 'framed_full_page_v2',
       status: 'active',
     },
   );
@@ -52,6 +54,7 @@ test('creates a game with its stable code through the typed client boundary', as
     code: 'game-1',
     expectedLayoutCount: 500000,
     name: 'Game 1',
+    shapeGeometryConfiguration: 'framed_full_page_v2',
     status: 'active',
   });
   assert.deepEqual(result, { game: savedGame, ok: true });
@@ -75,6 +78,7 @@ test('edits only mutable game identity fields and never sends the stable code', 
       code: 'attempted-change',
       expectedLayoutCount: '250',
       name: 'Renamed',
+      shapeGeometryConfiguration: 'requires_clarification',
       status: 'draft',
     },
   );
@@ -83,6 +87,7 @@ test('edits only mutable game identity fields and never sends the stable code', 
   assert.deepEqual(request, {
     expectedLayoutCount: 250,
     name: 'Renamed',
+    shapeGeometryConfiguration: 'requires_clarification',
     status: 'draft',
   });
   assert.equal(result.ok, true);
@@ -105,6 +110,7 @@ test('reconciles an edit when the server saved it but the mutation response was 
       code: savedGame.code,
       expectedLayoutCount: '750000',
       name: 'Game 1 edited',
+      shapeGeometryConfiguration: 'requires_clarification',
       status: 'draft',
     },
   );

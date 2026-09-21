@@ -1,10 +1,110 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-08-24
+last_updated: 2026-09-22
 ---
 
 # Model danych
+
+## Niezależny odbiór acceptance shared shape v2 — TASK-0610
+
+G08 pozostaje lokalnym, regenerowalnym artefaktem poza bazą. Jego pojedyncze
+wejście przypina do konkretnego executora manifest, inventory i anotacje użyte
+w G05, pełny input oraz raport pilota, raport G07, profil preflight, wersję i
+konfigurację rdzenia, a także truth acceptance dla każdego SHA źródła.
+Evaluator ponownie materializuje oba inventory, odrzuca wspólny checksum lub
+capture family, ponownie uruchamia G05 na przypiętym inputcie i anotacjach oraz
+wymaga zgodności całego raportu bajt po bajcie, zanim odczyta acceptance.
+Następnie porównuje pełne checksummowane wyniki w dwóch replayach.
+`passed` oznacza wyłącznie zgodność odbioru na materiałach acceptance; nie
+zapisuje tabel ani nie aktywuje profilu. Brak wszystkich artefaktów oznacza
+`not_evaluable`, a niezgodność łańcucha, truthu lub bajtów źródła — `rejected`.
+## Pilot korekt i transferu shared shape v2 — TASK-0609
+
+Pilot G05 jest lokalnym, regenerowalnym artefaktem poza bazą. Przypina manifest
+executor, inwentarz, anotacje oraz każdą obserwację do SHA źródła i checksumy
+konkretnego badanego profilu. Wejście wskazuje pełny, niepusty zbiór gier,
+z których pochodzi istniejąca wiedza; oba warianty regresji muszą ocenić
+identyczną kohortę tych źródeł. Wynik fazy osobno liczy poprawne i błędne
+automaty, wymagany review, korektę, samo potwierdzenie oraz czas aktywnej pracy,
+a następnie wyprowadza porównanie nakładu przed i po kandydacie.
+
+Pilot nie tworzy tabel, nie zapisuje `game_id` ani danych źródła w globalnym
+control plane. Dopiero kompletny wynik `measured` może przekazać istniejący,
+descriptor-only `GlobalGeometryCandidate` i raport G07 do publicznego
+repozytorium. Niekompletny, niezatwierdzony, dryfujący albo acceptance input
+jest blokowany przed tą granicą; nie uruchamia importu, nie tworzy source
+revision ani nie zmienia `game_data_v2`.
+
+## Kwalifikacja globalnego profilu geometrii shape v2 — TASK-0608
+
+Migracja 0117 dodaje do `public` dwa append-only rekordy control plane:
+`global_geometry_profile_qualification_results` oraz
+`global_geometry_profile_qualification_receipts`. Wynik wiąże wskazanego
+kandydata z checksummowanym raportem polityki, krótkimi kodami powodów oraz
+opcjonalną referencją poprzedniego profilu `active`; receipt wiąże dokładnie
+jeden wynik z kluczem idempotencji i checksumą komendy. Raport opisuje wyłącznie
+checksummy zamrożonych replayów, regresji i transferu, liczniki oraz
+`source_game_ref`. Nie przechowuje obrazów, ścieżek, `game_id`, importów,
+symboli, OCR, sekwencji ani kotwic.
+
+Wynik `not_evaluable` nie zmienia statusu `candidate`; `rejected` zmienia tylko
+wskazanego kandydata. Tylko `passed` pod blokadą zakresu rodziny/topologii
+wycofuje poprzedni profil `active` do `retired`, a potem promuje kandydata do
+`active` w jednej transakcji. Pierwszy flush zwalnia natychmiastowy częściowy
+indeks aktywnego profilu, a każdy późniejszy błąd wycofuje całą transakcję.
+Historyczne joby używają własnych snapshotów i nie są aktualizowane.
+
+## Deklaracja gotowości geometrii gry shape v2 — TASK-0607
+
+Migracja 0116 dodaje do `public.games` nullable
+`shape_geometry_configuration`. Nowe gry zapisują jedną jawną deklarację:
+`framed_full_page_v2` albo `requires_clarification`; wartość `NULL` jest
+zachowywana dla rekordów historycznych i w odczycie znaczy
+`requires_clarification`. Migracja nie wykonuje backfillu ani nie klasyfikuje
+gry po nazwie.
+
+Deklaracja nie kopiuje globalnego profilu i nie zawiera barwy ramki, lokalnej
+kotwicy, obrazu, cropa, danych importu ani konfiguracji per źródło. Jest tylko
+control-plane gry potrzebnym do bezpiecznego wyboru wspólnej rodziny strony.
+Aktualny status gotowości jest odczytową projekcją: aktywny profil biblioteki
+może dostarczyć wyłącznie immutable referencję `id`/numer/checksuma. Brak,
+konflikt albo uszkodzenie profilu nie zmienia deklaracji gry i prowadzi do
+ręcznej korekty pierwszego importu.
+
+## Globalna biblioteka geometrii shape v2 — TASK-0605
+
+Migracja 0115 dodaje do `public` kontrolny plane wspólnej geometrii
+`framed_full_page_v2`. Nie jest on tabelą `game_data_v2` i nie ma `game_id`:
+`source_game_ref` jest wyłącznie krótką proweniencją opisową, bez FK do gry i
+bez udziału `GameStorageRouter`.
+
+- `global_geometry_profile_versions` przechowuje rosnący globalny numer,
+  topologię 3 × 3 / 3 × 5, kanoniczny znormalizowany szablon, wielokolorowy
+  opis ramki, podsumowanie dowodów i checksumę pełnego snapshotu;
+- `global_geometry_evidence_samples` przechowuje wyłącznie checksummowany
+  descriptor geometrii, widoczne strony ramki, metryki i `source_game_ref`;
+- `global_geometry_profile_write_receipts` wiąże idempotency key, checksumę
+  polecenia i dokładnie jeden profil.
+
+Biblioteka nie przechowuje JPEG-ów, pikseli, cropów, OCR, symboli, payoutów,
+sekwencji, layoutów ani lokalnych kotwic. Kontrakt domenowy ma zamknięte pola
+descriptorów i przyjmuje wyłącznie skończone liczby w metrykach; przed każdym
+zapisem odbudowuje checksum, a odczyt zwraca głęboko zamrożony snapshot.
+Przed przypięciem do joba resolver odtwarza pełną checksumę wersji z wszystkimi
+wierszami `global_geometry_evidence_samples`. Job zapisuje descriptor-only
+snapshot z dodatkową checksumą descriptorów, którą worker ponownie sprawdza.
+Treść profilu, dowody i receipty są niezmienne. Trigger pozwala wyłącznie przyszłemu kwalifikatorowi przejść ze
+stanu `candidate` do `active` lub `rejected` oraz z `active` do `retired`, bez
+zmiany snapshotu; G06 nie ma jeszcze operacji aktywacji. Częściowy indeks
+uniemożliwia więcej niż jeden `active` profil o tej samej rodzinie i topologii.
+Manifest własności v2 klasyfikuje tabele jako `shared`, zachowując zamrożony
+manifest partycji gier v1.
+
+TASK-0606 nie dodaje tabel. Zgodny aktywny profil jest serializowany jako
+zamknięty snapshot w istniejącym immutable inputcie joba oraz w manifeście
+preflightu v4. Lokalne dowody i werdykt dotyczą źródła konkretnej gry, podczas
+gdy biblioteka nadal nie otrzymuje obrazu, `game_id` ani danych importu.
 
 ## Indeksowana bieżąca projekcja symboli — TASK-0521
 
@@ -191,6 +291,7 @@ Nie dodano migracji: statusy i typ `remove` są już dopuszczone przez schemat
 | name | varchar | nazwa użytkowa |
 | status | enum | draft/active/archived |
 | expected_layout_count | bigint | dodatnia konfiguracja, domyślnie 500 000 |
+| shape_geometry_configuration | varchar(64), nullable | `framed_full_page_v2` lub `requires_clarification`; `NULL` historycznej gry jest odczytywane fail-closed jako potrzeba doprecyzowania |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 

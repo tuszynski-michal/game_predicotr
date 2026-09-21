@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  GameShapeGeometryConfiguration,
   GameResponse,
   GameStatus,
 } from '@game-predictor/admin-api-client';
@@ -29,6 +30,8 @@ import {
   GAME_STATUS_FILTER_LABELS,
   GAME_STATUS_FILTERS,
   GAME_STATUS_LABELS,
+  SHAPE_GEOMETRY_CONFIGURATION_LABELS,
+  SHAPE_GEOMETRY_READINESS_LABELS,
   type GameDraft,
   markGameArchived,
   upsertGame,
@@ -143,6 +146,8 @@ export function GameCatalog({
       name: game.name,
       status: game.status,
       expectedLayoutCount: String(game.expectedLayoutCount),
+      shapeGeometryConfiguration:
+        game.shapeGeometryConfiguration ?? 'requires_clarification',
     });
     setFormError('');
     setNotice('');
@@ -167,7 +172,13 @@ export function GameCatalog({
       setFormError(validation.error);
       return;
     }
-    const { code, expectedLayoutCount, name, status } = validation.value;
+    const {
+      code,
+      expectedLayoutCount,
+      name,
+      shapeGeometryConfiguration,
+      status,
+    } = validation.value;
 
     mutationInProgress.current = true;
     setIsSubmitting(true);
@@ -180,7 +191,7 @@ export function GameCatalog({
         editor.mode === 'create'
           ? { mode: 'create' }
           : { gameId: editor.game.id, mode: 'edit' },
-        { code, expectedLayoutCount, name, status },
+        { code, expectedLayoutCount, name, shapeGeometryConfiguration, status },
       );
 
       if (!result.ok) {
@@ -515,6 +526,34 @@ function GameEditor({
         </label>
 
         <label>
+          <span>Format strony</span>
+          <select
+            disabled={isSubmitting}
+            name="shapeGeometryConfiguration"
+            onChange={(event) =>
+              onChange({
+                ...draft,
+                shapeGeometryConfiguration: event.currentTarget
+                  .value as GameShapeGeometryConfiguration,
+              })
+            }
+            value={draft.shapeGeometryConfiguration}
+          >
+            {Object.entries(SHAPE_GEOMETRY_CONFIGURATION_LABELS).map(
+              ([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ),
+            )}
+          </select>
+          <small>
+            Wybór określa wspólny format strony. Pierwszy import nadal wymaga
+            weryfikacji i ewentualnej korekty.
+          </small>
+        </label>
+
+        <label>
           <span>Status</span>
           <select
             disabled={isSubmitting}
@@ -596,6 +635,8 @@ function GameRow({
   selectable,
   selected,
 }: GameRowProps) {
+  const readiness = game.shapeGeometryReadiness;
+  const readinessStatus = readiness?.status ?? 'requires_clarification';
   function handleRowClick(event: MouseEvent<HTMLElement>) {
     if (!selectable) {
       return;
@@ -648,6 +689,15 @@ function GameRow({
             {!game.storageWriteAvailable
               ? ` · tryb tylko do odczytu (${game.storageStatus})`
               : ''}
+          </small>
+          <small className="gameGeometryState">
+            Geometria: {SHAPE_GEOMETRY_READINESS_LABELS[readinessStatus]}
+            {readiness?.sharedProfile
+              ? ` · profil wspólny #${readiness.sharedProfile.profileNumber}`
+              : ''}
+            <br />
+            {readiness?.message ??
+              'Ustal format strony przed użyciem wspólnej geometrii.'}
           </small>
         </div>
       </button>

@@ -10,6 +10,7 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
     Game,
+    GameShapeGeometryConfiguration,
     GameStatus,
     Symbol,
     SymbolStatus,
@@ -39,6 +40,7 @@ class MemoryCatalogRepository(CatalogRepository):
         name: str,
         status: GameStatus,
         expected_layout_count: int,
+        shape_geometry_configuration: GameShapeGeometryConfiguration,
     ) -> Game:
         if any(game.code == code for game in self.games.values()):
             raise CatalogConflictError(
@@ -52,6 +54,7 @@ class MemoryCatalogRepository(CatalogRepository):
             name=name,
             status=status,
             expected_layout_count=expected_layout_count,
+            shape_geometry_configuration=shape_geometry_configuration,
             created_at=timestamp,
             updated_at=timestamp,
         )
@@ -183,6 +186,14 @@ def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols()
         assert game["storageGeneration"] == 1
         assert game["storageStatus"] == "active"
         assert game["storageWriteAvailable"] is True
+        assert game["shapeGeometryConfiguration"] == "requires_clarification"
+        assert game["shapeGeometryReadiness"] == {
+            "configuration": "requires_clarification",
+            "message": "Ten format strony wymaga doprecyzowania przed użyciem wspólnej geometrii.",
+            "reasonCode": "SHAPE_GEOMETRY_FORMAT_REQUIRES_CLARIFICATION",
+            "sharedProfile": None,
+            "status": "requires_clarification",
+        }
 
         game_update = client.patch(
             f"/api/v1/admin/games/{game_id}",
@@ -190,11 +201,14 @@ def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols()
                 "name": "Blazing Hot v0.2",
                 "status": "draft",
                 "expectedLayoutCount": 750_000,
+                "shapeGeometryConfiguration": "framed_full_page_v2",
             },
         )
         assert game_update.status_code == 200
         assert game_update.json()["name"] == "Blazing Hot v0.2"
         assert game_update.json()["expectedLayoutCount"] == 750_000
+        assert game_update.json()["shapeGeometryConfiguration"] == "framed_full_page_v2"
+        assert game_update.json()["shapeGeometryReadiness"]["status"] == "manual_review_required"
 
         symbol_response = client.post(
             f"/api/v1/admin/games/{game_id}/symbols",

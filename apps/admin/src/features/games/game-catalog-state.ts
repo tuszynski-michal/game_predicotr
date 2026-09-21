@@ -1,6 +1,8 @@
 import type {
+  GameShapeGeometryConfiguration,
   GameResponse,
   GameStatus,
+  ShapeGeometryReadinessStatus,
 } from '@game-predictor/admin-api-client';
 
 export interface GameDraft {
@@ -8,6 +10,7 @@ export interface GameDraft {
   readonly name: string;
   readonly status: GameStatus;
   readonly expectedLayoutCount: string;
+  readonly shapeGeometryConfiguration: GameShapeGeometryConfiguration;
 }
 
 export type ValidatedGameDraft =
@@ -25,6 +28,7 @@ export const EMPTY_GAME_DRAFT: GameDraft = {
   name: '',
   status: 'draft',
   expectedLayoutCount: '500000',
+  shapeGeometryConfiguration: 'requires_clarification',
 };
 
 export const GAME_STATUS_LABELS: Record<GameStatus, string> = {
@@ -39,6 +43,23 @@ export const GAME_STATUS_FILTER_LABELS: Record<GameStatus, string> = {
   active: 'Aktywne',
   draft: 'Szkice',
   archived: 'Zarchiwizowane',
+};
+
+export const SHAPE_GEOMETRY_CONFIGURATION_LABELS: Record<
+  GameShapeGeometryConfiguration,
+  string
+> = {
+  framed_full_page_v2: 'Pełna strona z ramką',
+  requires_clarification: 'Format wymaga doprecyzowania',
+};
+
+export const SHAPE_GEOMETRY_READINESS_LABELS: Record<
+  ShapeGeometryReadinessStatus,
+  string
+> = {
+  manual_review_required: 'Pierwszy import wymaga ręcznej korekty',
+  ready_for_shared_preflight: 'Wspólna geometria gotowa do preflightu',
+  requires_clarification: 'Trzeba doprecyzować format strony',
 };
 
 export type GameStatusCounts = Readonly<Record<GameStatus, number>>;
@@ -89,6 +110,7 @@ export function validateGameDraft(draft: GameDraft): ValidatedGameDraft {
       name,
       status: draft.status,
       expectedLayoutCount: String(expectedLayoutCount),
+      shapeGeometryConfiguration: draft.shapeGeometryConfiguration,
     },
   };
 }

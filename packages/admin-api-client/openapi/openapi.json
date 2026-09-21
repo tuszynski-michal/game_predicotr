@@ -4411,6 +4411,10 @@
             "title": "Name",
             "type": "string"
           },
+          "shapeGeometryConfiguration": {
+            "$ref": "#/components/schemas/GameShapeGeometryConfiguration",
+            "default": "requires_clarification"
+          },
           "status": {
             "$ref": "#/components/schemas/GameStatus",
             "default": "draft"
@@ -4447,6 +4451,19 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "shapeGeometryConfiguration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GameShapeGeometryConfiguration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shapeGeometryReadiness": {
+            "$ref": "#/components/schemas/ShapeGeometryReadinessResponse"
           },
           "status": {
             "$ref": "#/components/schemas/GameStatus"
@@ -4490,10 +4507,20 @@
           "storageSchema",
           "storageGeneration",
           "storageStatus",
-          "storageWriteAvailable"
+          "storageWriteAvailable",
+          "shapeGeometryReadiness"
         ],
         "title": "GameResponse",
         "type": "object"
+      },
+      "GameShapeGeometryConfiguration": {
+        "description": "A game-local declaration, never a copy of a shared geometry profile.",
+        "enum": [
+          "framed_full_page_v2",
+          "requires_clarification"
+        ],
+        "title": "GameShapeGeometryConfiguration",
+        "type": "string"
       },
       "GameStatus": {
         "enum": [
@@ -4532,6 +4559,16 @@
               }
             ],
             "title": "Name"
+          },
+          "shapeGeometryConfiguration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GameShapeGeometryConfiguration"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "status": {
             "anyOf": [
@@ -19755,6 +19792,80 @@
           "end"
         ],
         "title": "SequenceRangeValueResponse",
+        "type": "object"
+      },
+      "ShapeGeometryReadinessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/GameShapeGeometryConfiguration"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "reasonCode": {
+            "title": "Reasoncode",
+            "type": "string"
+          },
+          "sharedProfile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SharedShapeGeometryProfileReferenceResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ShapeGeometryReadinessStatus"
+          }
+        },
+        "required": [
+          "configuration",
+          "status",
+          "reasonCode",
+          "message",
+          "sharedProfile"
+        ],
+        "title": "ShapeGeometryReadinessResponse",
+        "type": "object"
+      },
+      "ShapeGeometryReadinessStatus": {
+        "enum": [
+          "requires_clarification",
+          "manual_review_required",
+          "ready_for_shared_preflight"
+        ],
+        "title": "ShapeGeometryReadinessStatus",
+        "type": "string"
+      },
+      "SharedShapeGeometryProfileReferenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "profileChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Profilechecksumsha256",
+            "type": "string"
+          },
+          "profileId": {
+            "format": "uuid",
+            "title": "Profileid",
+            "type": "string"
+          },
+          "profileNumber": {
+            "minimum": 1.0,
+            "title": "Profilenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profileId",
+          "profileNumber",
+          "profileChecksumSha256"
+        ],
+        "title": "SharedShapeGeometryProfileReferenceResponse",
         "type": "object"
       },
       "SnapshotJobCreate": {

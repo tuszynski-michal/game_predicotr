@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "visibility": "executor",
+  "corpusRoot": "<operator-owned-executor-corpus-root>",
+  "games": [
+    {"gameId": "777", "pageBoardRows": 3, "pageBoardColumns": 3, "cellRows": 3, "cellColumns": 5, "activeBoardSlots": [0, 1, 2, 3, 4, 5, 6, 7, 8], "v11Profile": null},
+    {"gameId": "blazing", "pageBoardRows": 3, "pageBoardColumns": 3, "cellRows": 3, "cellColumns": 5, "activeBoardSlots": [0, 1, 2, 3, 4, 5, 6, 7, 8], "v11Profile": null},
+    {"gameId": "gang", "pageBoardRows": 3, "pageBoardColumns": 3, "cellRows": 3, "cellColumns": 5, "activeBoardSlots": [0, 1, 2, 3, 4, 5, 6, 7, 8], "v11Profile": null},
+    {"gameId": "reels", "pageBoardRows": 3, "pageBoardColumns": 3, "cellRows": 3, "cellColumns": 5, "activeBoardSlots": [0, 1, 2, 3, 4, 5, 6, 7, 8], "v11Profile": null},
+    {"gameId": "mummies", "pageBoardRows": 3, "pageBoardColumns": 3, "cellRows": 3, "cellColumns": 5, "activeBoardSlots": [0, 1, 2, 3, 4, 5, 6, 7, 8], "v11Profile": null}
+  ],
+  "sources": []
+}

@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response, status
 
+from game_predictor_api.api.catalog_responses import to_game_response
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.schemas.catalog import (
     ErrorResponse,
@@ -40,7 +41,7 @@ def create_catalog_router(
     def list_games(
         service: Annotated[CatalogService, service_parameter],
     ) -> list[GameResponse]:
-        return [GameResponse.model_validate(game) for game in service.list_games()]
+        return [to_game_response(service, game) for game in service.list_games()]
 
     @router.post(
         "/games",
@@ -54,14 +55,14 @@ def create_catalog_router(
         payload: GameCreate,
         service: Annotated[CatalogService, service_parameter],
     ) -> GameResponse:
-        return GameResponse.model_validate(
-            service.create_game(
-                code=payload.code,
-                name=payload.name,
-                status=payload.status,
-                expected_layout_count=payload.expected_layout_count,
-            )
+        game = service.create_game(
+            code=payload.code,
+            name=payload.name,
+            status=payload.status,
+            expected_layout_count=payload.expected_layout_count,
+            shape_geometry_configuration=payload.shape_geometry_configuration,
         )
+        return to_game_response(service, game)
 
     @router.get(
         "/games/{game_id}",
@@ -74,7 +75,7 @@ def create_catalog_router(
         game_id: UUID,
         service: Annotated[CatalogService, service_parameter],
     ) -> GameResponse:
-        return GameResponse.model_validate(service.get_game(game_id))
+        return to_game_response(service, service.get_game(game_id))
 
     @router.patch(
         "/games/{game_id}",
@@ -88,14 +89,14 @@ def create_catalog_router(
         payload: GameUpdate,
         service: Annotated[CatalogService, service_parameter],
     ) -> GameResponse:
-        return GameResponse.model_validate(
-            service.update_game(
-                game_id,
-                name=payload.name,
-                status=payload.status,
-                expected_layout_count=payload.expected_layout_count,
-            )
+        game = service.update_game(
+            game_id,
+            name=payload.name,
+            status=payload.status,
+            expected_layout_count=payload.expected_layout_count,
+            shape_geometry_configuration=payload.shape_geometry_configuration,
         )
+        return to_game_response(service, game)
 
     @router.delete(
         "/games/{game_id}",

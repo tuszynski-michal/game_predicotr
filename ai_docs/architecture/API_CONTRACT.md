@@ -6,6 +6,23 @@ last_updated: 2026-09-17
 
 # Kontrakty API i danych mobilnych
 
+## Gotowość wspólnej geometrii przy tworzeniu gry — TASK-0607
+
+`POST` i `PATCH /api/v1/admin/games` przyjmują opcjonalne
+`shapeGeometryConfiguration`: `framed_full_page_v2` albo
+`requires_clarification`; dla nowej gry domyślne jest
+`requires_clarification`. Wartość nie zawiera koloru ramki, lokalnej kotwicy
+ani profilu gry. `GameResponse` zawsze zwraca zapisaną konfigurację (lub
+historyczne `null`) i `shapeGeometryReadiness` z konfiguracją efektywną,
+statusem, kodem powodu, polską wiadomością oraz nullable `sharedProfile`.
+
+Status `ready_for_shared_preflight` wymaga dokładnie jednego integralnego
+profilu globalnego `active` rodziny `framed_full_page_v2`; jego referencja ma
+wyłącznie `profileId`, `profileNumber` i `profileChecksumSha256`. Brak,
+konflikt lub uszkodzenie profilu zwraca `manual_review_required`, a brak
+deklaracji lub inny format `requires_clarification`. Żaden z tych statusów nie
+jest zgodą na import ani automatycznym uruchomieniem preflightu.
+
 ## Warianty geometrii nowych stagingów — TASK-0562/0563/0579
 
 Brak `geometryEngineVariant` w żądaniu raportu, preflightu lub startu nowego

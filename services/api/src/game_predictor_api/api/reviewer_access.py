@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
+from game_predictor_api.api.catalog_responses import to_game_response
 from game_predictor_api.api.reviewer_security import (
     create_required_reviewer_session_dependency,
 )
@@ -266,7 +267,7 @@ def create_reviewer_access_router(
         session: Annotated[ReviewerAccessSession, authorized_session_parameter],
         catalog: Annotated[CatalogService, catalog_parameter],
     ) -> list[GameResponse]:
-        return [GameResponse.model_validate(catalog.get_game(session.game_id))]
+        return [to_game_response(catalog, catalog.get_game(session.game_id))]
 
     @router.get(
         "/reviewer/context/jobs",

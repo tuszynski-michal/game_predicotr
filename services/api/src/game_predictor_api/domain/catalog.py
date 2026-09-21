@@ -24,6 +24,19 @@ class GameStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class GameShapeGeometryConfiguration(StrEnum):
+    """A game-local declaration, never a copy of a shared geometry profile."""
+
+    FRAMED_FULL_PAGE_V2 = "framed_full_page_v2"
+    REQUIRES_CLARIFICATION = "requires_clarification"
+
+
+class ShapeGeometryReadinessStatus(StrEnum):
+    REQUIRES_CLARIFICATION = "requires_clarification"
+    MANUAL_REVIEW_REQUIRED = "manual_review_required"
+    READY_FOR_SHARED_PREFLIGHT = "ready_for_shared_preflight"
+
+
 class SymbolStatus(StrEnum):
     ACTIVE = "active"
     ARCHIVED = "archived"
@@ -67,6 +80,27 @@ class Game:
     storage_generation: int = 1
     storage_status: str = "active"
     storage_write_available: bool = True
+    shape_geometry_configuration: GameShapeGeometryConfiguration | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SharedShapeGeometryProfileReference:
+    """The safe public reference to one active shared geometry profile."""
+
+    profile_id: UUID
+    profile_number: int
+    profile_checksum_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class ShapeGeometryReadiness:
+    """Current read model for the geometry choice made while creating a game."""
+
+    configuration: GameShapeGeometryConfiguration
+    status: ShapeGeometryReadinessStatus
+    reason_code: str
+    message: str
+    shared_profile: SharedShapeGeometryProfileReference | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +209,18 @@ def validate_expected_layout_count(value: int) -> int:
             "INVALID_EXPECTED_LAYOUT_COUNT",
             "expectedLayoutCount must be between 1 and 10000000.",
             details={"field": "expectedLayoutCount"},
+        )
+    return value
+
+
+def validate_shape_geometry_configuration(
+    value: GameShapeGeometryConfiguration,
+) -> GameShapeGeometryConfiguration:
+    if not isinstance(value, GameShapeGeometryConfiguration):
+        raise CatalogError(
+            "INVALID_SHAPE_GEOMETRY_CONFIGURATION",
+            "shapeGeometryConfiguration is invalid.",
+            details={"field": "shapeGeometryConfiguration"},
         )
     return value
 

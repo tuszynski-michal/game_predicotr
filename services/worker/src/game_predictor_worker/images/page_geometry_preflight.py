@@ -35,6 +35,13 @@ from .page_geometry_registration import (
     PAGE_REGISTRATION_VERSION,
     VerifiedPageRegistrar,
 )
+from .shape_geometry_v2.preflight import (
+    SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
+    ShapeGeometryV2PreflightError,
+    ShapeGeometryV2PreflightProfile,
+    parse_shape_geometry_v2_preflight_profile,
+    verify_shape_geometry_v2_profile,
+)
 from .source_ingestion import (
     BROWSER_SELECTION_MANIFEST,
     ManagedOriginal,
@@ -43,6 +50,7 @@ from .source_ingestion import (
 )
 
 PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION = 2
+PAGE_GEOMETRY_MANIFEST_SHAPE_V2_SCHEMA_VERSION = 3
 LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v1"
 PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v2-auto-anchor"
 PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION = "page-geometry-preflight-v3-board-area-mask"
@@ -207,20 +215,24 @@ class PageGeometryPreflightHandler:
         for checksum in raw_overrides:
             if _is_sha256(checksum) and self._managed_anchor_path(checksum).is_file():
                 available_override_anchor_checksums.add(checksum)
-        registration_profile = _profile_with_manual_override_anchors(
-            cast(Mapping[str, object], payload["pageRegistrationProfile"]),
-            raw_overrides,
-            available_checksums=available_override_anchor_checksums,
-        )
-        registrar = VerifiedPageRegistrar(
-            registration_profile,
-            load_anchor_rgb=lambda checksum: self._load_preflight_anchor_rgb(
-                checksum,
-                by_checksum=originals_by_checksum,
-                source_directory=managed.source_directory,
-            ),
-        )
-        _prepare_registrar(registrar)
+        shape_profile = payload.get("shapeGeometryV2Profile")
+        registration_profile: dict[str, object] | None = None
+        registrar: VerifiedPageRegistrar | None = None
+        if not isinstance(shape_profile, ShapeGeometryV2PreflightProfile):
+            registration_profile = _profile_with_manual_override_anchors(
+                cast(Mapping[str, object], payload["pageRegistrationProfile"]),
+                raw_overrides,
+                available_checksums=available_override_anchor_checksums,
+            )
+            registrar = VerifiedPageRegistrar(
+                registration_profile,
+                load_anchor_rgb=lambda checksum: self._load_preflight_anchor_rgb(
+                    checksum,
+                    by_checksum=originals_by_checksum,
+                    source_directory=managed.source_directory,
+                ),
+            )
+            _prepare_registrar(registrar)
 
         total = len(managed.originals)
         descriptor = _base_manifest_descriptor(payload)
@@ -385,6 +397,11 @@ class PageGeometryPreflightHandler:
 
         auto_anchor_passes = _checkpoint_reports(checkpoint_state.metadata.get("autoAnchorPasses"))
         if _uses_auto_anchors(cast(str, payload["preflightPolicyVersion"])):
+            if registration_profile is None:
+                raise JobHandlerError(
+                    "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
+                    "Automatic anchors require a verified page-registration profile.",
+                )
             entries, auto_anchor_passes, checkpoint_state = self._retry_with_verified_auto_anchors(
                 entries,
                 managed.originals,
@@ -466,7 +483,7 @@ class PageGeometryPreflightHandler:
         *,
         source_directory: Path,
         payload: Mapping[str, object],
-        registrar: VerifiedPageRegistrar,
+        registrar: VerifiedPageRegistrar | None,
     ) -> tuple[str, dict[str, object], str]:
         if _fully_canonical(original.sequence_range_start, original.sequence_range_end, payload):
             return (
@@ -500,7 +517,28 @@ class PageGeometryPreflightHandler:
                 },
                 "registered",
             )
-        if not registrar.available:
+        shape_profile = payload.get("shapeGeometryV2Profile")
+        if isinstance(shape_profile, ShapeGeometryV2PreflightProfile):
+            verification = verify_shape_geometry_v2_profile(rgb, shape_profile)
+            if _expected_board_count(original) != 9:
+                verification = replace(
+                    verification,
+                    verdict="needs_manual_review",
+                    reason_code="SHAPE_GEOMETRY_V2_SOURCE_TOPOLOGY_UNSUPPORTED",
+                )
+            return (
+                original.checksum_sha256,
+                {
+                    "status": "review_required",
+                    "sourceRelativePath": original.source_relative_path,
+                    "imageHeight": int(rgb.shape[0]),
+                    "imageWidth": int(rgb.shape[1]),
+                    "reasonCode": verification.reason_code,
+                    "shapeGeometryV2Verification": verification.to_payload(),
+                },
+                "review_required",
+            )
+        if registrar is None or not registrar.available:
             return (
                 original.checksum_sha256,
                 {
@@ -1013,6 +1051,7 @@ def _registration_policy_matches_preflight(
         LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION: PAGE_REGISTRATION_VERSION,
         PAGE_GEOMETRY_PREFLIGHT_VERSION: PAGE_REGISTRATION_VERSION,
         PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION: (PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION),
+        SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION: PAGE_REGISTRATION_VERSION,
     }
     return expected.get(preflight_policy_version) == registration_policy_version
 
@@ -1039,6 +1078,7 @@ def _input(job: Job) -> dict[str, object]:
         "base_page_geometry_manifest",
         "replacement_parent_upload_id",
         "replacement_parent_manifest_sha256",
+        "shape_geometry_v2_profile",
     }
     policy = payload.get("preflight_policy_version", LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION)
     payload_keys = frozenset(payload)
@@ -1084,6 +1124,7 @@ def _input(job: Job) -> dict[str, object]:
             LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION,
             PAGE_GEOMETRY_PREFLIGHT_VERSION,
             PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION,
+            SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
         }
         or not _registration_policy_matches_preflight(policy, profile.get("policy"))
         or any(
@@ -1105,6 +1146,23 @@ def _input(job: Job) -> dict[str, object]:
         "preflightPolicyVersion": policy,
         "sourceExclusions": dict(source_exclusions),
     }
+    if policy == SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION:
+        if "shape_geometry_v2_profile" not in payload:
+            raise JobHandlerError(
+                "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
+                "The shared shape-geometry preflight requires a pinned profile.",
+            )
+        try:
+            result["shapeGeometryV2Profile"] = parse_shape_geometry_v2_preflight_profile(
+                payload["shape_geometry_v2_profile"]
+            )
+        except ShapeGeometryV2PreflightError as error:
+            raise JobHandlerError(error.code, str(error)) from error
+    elif "shape_geometry_v2_profile" in payload:
+        raise JobHandlerError(
+            "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
+            "Only the shared shape-geometry preflight can pin a shared profile.",
+        )
     if "lateral_partial_geometry" in payload:
         try:
             result["lateralPartialGeometry"] = LateralPartialGeometrySnapshot.from_payload(
@@ -1192,7 +1250,11 @@ def _manifest_bytes(
         "skippedHumanResolvedSourceCount": skipped_human_resolved,
         "registeredSourceCount": registered,
         "schemaVersion": (
-            PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION if _uses_auto_anchors(version) else 1
+            PAGE_GEOMETRY_MANIFEST_SHAPE_V2_SCHEMA_VERSION
+            if version == SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION
+            else PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION
+            if _uses_auto_anchors(version)
+            else 1
         ),
         "sourceCount": source_count,
         "sourceManifestChecksumSha256": payload["sourceManifestChecksumSha256"],
@@ -1211,6 +1273,14 @@ def _manifest_bytes(
     }
     if "lateralPartialGeometry" in payload:
         value["lateralPartialGeometry"] = payload["lateralPartialGeometry"]
+    if "shapeGeometryV2Profile" in payload:
+        profile = payload["shapeGeometryV2Profile"]
+        if not isinstance(profile, ShapeGeometryV2PreflightProfile):
+            raise JobHandlerError(
+                "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
+                "The shared shape-geometry profile was not validated before manifest writing.",
+            )
+        value["shapeGeometryV2Profile"] = profile.to_payload()
     return (json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
@@ -1231,6 +1301,10 @@ def _load_manifest(path: Path) -> Mapping[str, object]:
             (
                 PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION,
                 PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION,
+            ),
+            (
+                PAGE_GEOMETRY_MANIFEST_SHAPE_V2_SCHEMA_VERSION,
+                SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
             ),
         }
         or not isinstance(value.get("sourceCount"), int)
@@ -1503,6 +1577,7 @@ def _spread_candidates(candidates: Sequence[str], limit: int) -> list[str]:
 __all__ = [
     "LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION",
     "PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION",
+    "PAGE_GEOMETRY_MANIFEST_SHAPE_V2_SCHEMA_VERSION",
     "PAGE_GEOMETRY_PREFLIGHT_VERSION",
     "PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION",
     "PageGeometryPreflightHandler",

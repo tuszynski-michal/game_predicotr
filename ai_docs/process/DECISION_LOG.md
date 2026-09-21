@@ -9179,3 +9179,267 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   tworzy URL, a LRU chroni widoczny URL; prefetch ma maksymalnie trzy żądania
   równoległe. Niezależność benchmarku wynika z SHA-256, nie z nazwy pliku;
   raport wskazuje, że nie mierzy rankingu V2 ani writera.
+
+## D-416 — Korpus eksperymentalnej geometrii rozdziela dostęp wykonawczy od odbioru
+
+- **Status:** accepted (TASK-0602).
+- **Date:** 2026-09-21.
+- **Decision:** testowy silnik geometrii `shape_frame_geometry_v2_0` używa
+  osobnego manifestu wykonawczego, zawierającego wyłącznie development i
+  calibration, oraz osobnego manifestu acceptance. Baseline i eksperymenty
+  przyjmują tylko pierwszy z nich. Korpus utrwala SHA-256, rodzinę nagrania,
+  rolę danych, ordinal oraz topologię; jedna rodzina ani kopia bajtowa nie może
+  przekroczyć granicy splitów. Jedna kotwica na grę jest wybierana
+  deterministycznie z ręcznie zakwalifikowanego developmentu, przed predykcją.
+- **Rationale:** próg i algorytm nie mogą zostać dostrojone do danych, porażek
+  ani anotacji acceptance. Potrzebny jest także odtwarzalny baseline v1.1,
+  który rozdziela stan zastany od przyszłych regresji v2.
+- **Compatibility:** v1.0 i v1.1 oraz ich profile, snapshoty i importy nie
+  zmieniają się. G00 jest wyłącznie read-only narzędziem jakości i nie dodaje
+  wariantu API, migracji ani polityki rolloutu.
+- **Safety:** brak corpusów, profilu lub anotacji jest `not_evaluable` albo
+  `not_configured`, nigdy sukcesem. Naruszenie rootu, drift, zduplikowana
+  tożsamość lub mieszanie splitów kończy narzędzie fail-closed; bez odczytu
+  ani zapisu danych aplikacji.
+
+## D-417 — Podział danych nie ogranicza listy gier tworzenia
+
+- **Status:** accepted (doprecyzowanie właściciela dla G01).
+- **Date:** 2026-09-21.
+- **Decision:** 777, Blazing, Gang, Reels i Mumie pozostają kandydatami do
+  tworzenia gier. `development`, `calibration` i `acceptance` dzielą wyłącznie
+  rodziny zdjęć w obrębie tej samej gry. System zapisuje gotowość, brak
+  konfiguracji oraz potrzebę ręcznego doprecyzowania per gra i per źródło; nie
+  usuwa gry z zakresu, gdy jej corpus albo dowód jest jeszcze niepełny.
+- **Rationale:** podział danych chroni uczciwość pomiaru, a nie definiuje
+  dostępności produktu. Mieszanie tych pojęć prowadziłoby do błędnego pytania,
+  czy gra „należy” do calibration, oraz do fałszywego wykluczenia gry bez
+  wystarczających zdjęć.
+- **Compatibility:** domyślne v1.1, historyczne importy i obowiązujące
+  ograniczenia acceptance pozostają bez zmiany. G01 nadal nie może tworzyć
+  liczbowych bramek bez corpusów executor.
+- **Safety:** brak corpusów nie staje się automatycznym sukcesem ani
+  automatyczną akceptacją. Każde źródło bez dowodu trafia do `not_evaluable`,
+  `not_configured` albo ręcznej korekty zgodnie z właściwym etapem.
+
+## D-418 — Wspólny rdzeń geometrii, różnice tylko jako konfiguracja gry
+
+- **Status:** accepted (doprecyzowanie właściciela dla G01–G07).
+- **Date:** 2026-09-21.
+- **Decision:** v2 ma jeden współdzielony rdzeń wykrywania obrysu, perspektywy,
+  układu 3 × 3, siatki 3 × 5 i kompletności. Zweryfikowany profil wspólny może
+  być kandydatem dla nowej gry; konfiguracja gry dopisuje tylko różnice, takie
+  jak pomocniczy kolor ramki, proporcja albo dekoracja. Nie wolno tworzyć
+  niezależnego silnika geometrii dla Mumii, Gangu ani kolejnej gry. Treasure,
+  który nie ma założonej ramki, jest poza v2 i wymaga osobnego wariantu v3/v4.
+- **Rationale:** gry o różnych kolorach ramek mają wspólną geometrię i powinny
+  wzajemnie zwiększać pokrycie oraz ograniczać koszt konfiguracji. Kolor sam
+  nie jest wystarczającym dowodem automatu, lecz może wzmocnić niezależnie
+  potwierdzony wynik strukturalny.
+- **Compatibility:** v1.0 i v1.1 nie używają nowej biblioteki. Pierwszy profil
+  v2 nadal jest lokalny dla gry, a późniejszy transfer przechodzi osobną
+  kwalifikację i snapshot preflightu.
+- **Safety:** wspólny profil bez zgodności, odpowiedniej liczności i dowodu
+  jakości prowadzi do review albo lokalnej konfiguracji; nie może automatycznie
+  zaakceptować źródła. Brak ramki Treasure nie osłabia bramek v2.
+
+## D-419 — Automatyczna kwalifikacja wspólnej wiedzy i ciągłe wykonanie planu v2
+
+- **Status:** accepted (dyspozycja właściciela dla G01–G08).
+- **Date:** 2026-09-21.
+- **Decision:** cały plan geometrii v2 jest realizowany w jednej serii na
+  osobnej gałęzi. Każda zatwierdzona korekta może utworzyć kandydaturę wiedzy
+  wspólnej. Tylko kandydatura, która przejdzie kontrolę integralności,
+  deterministyczny replay, regresję i politykę jakości, jest aktywowana
+  automatycznie. Nieudana kandydatura zachowuje poprzednią wersję aktywną.
+- **Rationale:** wiedza o kształcie planszy i ramce ma zmniejszać ponowne
+  korekty w Mumiach, Gangu i przyszłych zgodnych grach; ręczna aktywacja po
+  każdej poprawnej korekcie nie daje dodatkowego dowodu jakości.
+- **Compatibility:** v1.0, v1.1 i ich aktywacje nie zmieniają się. Brak danych
+  executor lub acceptance ogranicza tylko zależny pomiar, import albo odbiór;
+  niezależne zadania implementacyjne są kontynuowane.
+- **Safety:** po każdym zadaniu wymagany jest niezależny audyt Astra Medium.
+  P0/P1 zatrzymuje serię; P2/P3 jest naprawiany, ponownie testowany i audytowany
+  przed przejściem dalej. Pusty mianownik nigdy nie kwalifikuje wersji.
+
+## D-420 — Rozszerzalny kontrakt corpusów i fail-closed eksperyment transferu
+
+- **Status:** accepted (TASK-0603/G01).
+- **Date:** 2026-09-21.
+- **Decision:** corpus schema v1 zachowuje dokładnie pięć początkowych gier i
+  własny fingerprint. Schema v2 dodaje przyszłą grę wyłącznie po deklaracji
+  `framed_full_page_v2` oraz obowiązującej topologii 3 × 3 / 3 × 5; Treasure
+  pozostaje odrzucony. G01 wymaga bieżącego checksum-bound inventory, anotacji
+  każdego źródła measurement i kompletnej macierzy obserwacji. Profil transferu
+  ma niepustą proweniencję innych gier i nigdy nie zawiera gry ocenianej.
+- **Rationale:** nowa gra powinna dziedziczyć geometrię, ale nie może osłabić
+  historycznego korpusu ani zawyżyć efektu transferu własnymi korektami,
+  brakującą anotacją albo zestarzałym inwentarzem.
+- **Compatibility:** manifesty v1, ich inwentarze i raporty baseline pozostają
+  bajtowo zgodne. Schema v2 nie tworzy silnika, importu, joba ani wpisu bazy.
+- **Safety:** niepełny dowód zwraca `not_evaluable`; błędny wkład transferowy,
+  drift corpusów i mieszanie widoczności kończą się fail-closed. Wyniki
+  `confirmation_only` pozostają częścią mianownika automatów.
+
+## D-421 — Rdzeń v2 daje tylko deterministyczną propozycję z dowodem per slot
+
+- **Status:** accepted (TASK-0604/G02).
+- **Date:** 2026-09-21.
+- **Decision:** wspólny rdzeń v2 wykrywa ramkę bez zależności od jej koloru,
+  rektyfikuje ją do W−1/H−1 i wyprowadza dziewięć plansz 3 × 5 wyłącznie po
+  dowodzie każdej lokalnej siatki. Rezultatem jest `proposal` albo
+  `needs_manual_review`, nigdy import albo aktywacja. Kolor ramki jest
+  późniejszą metryką pomocniczą.
+- **Rationale:** różne kolory ramek są użyteczną wskazówką, ale nie mogą
+  zastąpić geometrii. Globalna miara siatki ukrywałaby brak jednej planszy,
+  dlatego kompletność musi być oceniana per slot.
+- **Compatibility:** v1.0, v1.1 i ich moduły nie są modyfikowane. G03 będzie
+  jedynym miejscem późniejszego połączenia propozycji z lokalnym preflightem.
+- **Safety:** pionowe ucięcie, brak slotu, niejednoznaczna orientacja i słaby
+  dowód kończą się review. Nieistotny niejednoznaczny kontur jest pomijany bez
+  przerwania oceny poprawnej strony.
+
+## D-422 — Globalna biblioteka shape v2 jest publicznym, descriptor-only control plane
+
+- **Status:** accepted (TASK-0605/G06).
+- **Date:** 2026-09-21.
+- **Decision:** wersje wspólnego profilu `framed_full_page_v2`, ich dowody i
+  receipty retry są przechowywane wyłącznie w trzech tabelach `public`.
+  Zawierają topologię 3 × 3 / 3 × 5, znormalizowany szablon, wielokolorowy
+  descriptor ramki, metryki jakości, checksumy oraz `source_game_ref` jako
+  opisową proweniencję. Nie mają pola `game_id`, FK do gry ani wejścia do
+  `GameStorageRouter`. Treść profilu, dowody i receipty są niezmienne;
+  dopuszczalne przyszłe przejścia statusu bez zmiany snapshotu to
+  `candidate → active/rejected` i `active → retired`.
+- **Rationale:** wspólna geometria ma być dostępna dla Mumii, Gangu i kolejnych
+  zgodnych gier bez mieszania ich data plane, modeli symboli lub lokalnych
+  kotwic. Trwały checksum snapshotu i receipt idempotencji eliminują podwójne
+  wersje po retry albo utracie odpowiedzi.
+- **Compatibility:** profile v1/v1.1, `game_data_v2`, router i istniejące
+  preflighty nie zmieniają zachowania. G06 zapisuje wyłącznie `candidate` i nie
+  aktywuje, nie importuje ani nie proponuje geometrii żadnej grze.
+- **Safety:** walidator odrzuca JPEG/piksele/cropy, OCR, symbole, payouty,
+  sekwencje, layouty, kotwice i `game_id`. Kontrakt descriptorów ma zamknięte
+  pola liczbowe, kandydat jest głęboko zamrożony i przy zapisie ponownie
+  checksummowany; odczyt ORM dostaje niezależny zamrożony snapshot.
+  Podsumowanie dowodów musi dokładnie odpowiadać checksummowanym próbkom, a
+  częściowy indeks dopuszcza jedną aktywną wersję na rodzinę/topologię.
+  Downgrade z dowolnym rekordem jest zablokowany.
+
+## D-423 — Profil shared shape v2 jest przypiętą propozycją preflightu, nie zgodą na import
+
+- **Status:** accepted (TASK-0606/G03).
+- **Date:** 2026-09-21.
+- **Decision:** resolver wybiera wyłącznie jeden aktywny profil
+  `framed_full_page_v2` dla topologii 3 × 3 / 3 × 5. Zamyka go w inputcie
+  `page-geometry-preflight-v4-shape-geometry-v2-profile` razem z identyfikatorem,
+  numerem, pełną checksumą, checksumą descriptorów i lokalną polityką
+  `structural_only`. Resolver odtwarza pełną checksumę z descriptorowych
+  dowodów przed przypięciem, a worker ponownie sprawdza checksumę descriptorów
+  i bieżące piksele rdzeniem G02, zapisując
+  snapshot w manifeście oraz dowód i werdykt przy każdym źródle.
+- **Rationale:** Mumie, Gang i kolejne pełnostronicowe gry mogą współdzielić
+  geometrię bez uzależnienia od koloru ramki albo lokalnej kotwicy. Przypięcie
+  profilu przed idempotencją i reuse zachowuje replay nawet po aktywacji nowszej
+  wersji.
+- **Compatibility:** brak aktywnego profilu pozostawia v2/v3 bez nowego pola;
+  ręczna override ma pierwszeństwo. Profil wspólny nie zmienia historycznych
+  jobów, nie tworzy tabel ani nie modyfikuje game data plane.
+- **Safety:** candidate, rejected, retired, uszkodzony profil lub konflikt
+  aktywnych wersji nie wybiera zastępczej geometrii. Uszkodzony snapshot inputu
+  przerywa job kontrolowanym błędem przed odczytem źródeł. Sukces lokalnego
+  verifiera kończy się `review_required` bez `quads` oraz bez `registered`, więc
+  importer nie może potraktować propozycji jako automatu. Brak ramki, słaba
+  siatka lub niezgodny aspect ratio kończą się review.
+
+## D-424 — Deklaracja rodziny strony gry nie jest lokalnym profilem geometrii
+
+- **Status:** accepted (TASK-0607/G04).
+- **Date:** 2026-09-21.
+- **Decision:** katalog gry zapisuje wyłącznie `framed_full_page_v2` albo
+  `requires_clarification`; nullable wartość historyczna jest odczytywana jako
+  drugi z tych stanów. Jedna deklaracja nie zawiera koloru ramki, lokalnej
+  kotwicy, obrazu, cropa ani kopii globalnego profilu. Katalog pokazuje bieżącą
+  gotowość przez status i, wyłącznie przy jednym integralnym profilu `active`,
+  immutable referencję globalnej wersji.
+- **Rationale:** Mumie, Gang i następne zgodne gry mają korzystać z tej samej
+  geometrii bez wymagania ponownej konfiguracji różnic, które nie są dowodem
+  zgodności. Nazwa gry ani istniejący rekord nie może automatycznie klasyfikować
+  Treasure lub przyszłego formatu bez ramki.
+- **Compatibility:** istniejące gry i joby nie są przepisywane, a historyczne
+  `NULL` daje jawne `requires_clarification`. Kontrakt katalogu rozszerza
+  odpowiedź; istniejące importy nie są uruchamiane ani modyfikowane.
+- **Safety:** candidate/rejected/retired, brak, konflikt albo uszkodzenie
+  profilu nie wybiera fallbacku i nie daje automatu. `ready_for_shared_preflight`
+  jest informacją dla operatora przed ręcznym potwierdzeniem, nie zgodą na
+  import.
+
+## D-425 — Kwalifikacja shared shape v2 publikuje wyłącznie pełny, bezwyciekowy raport
+
+- **Status:** accepted (TASK-0608/G07).
+- **Date:** 2026-09-21.
+- **Decision:** kandydat globalnego profilu może zmienić status tylko przez
+  idempotentną kwalifikację zapisaną jako append-only wynik i receipt w
+  `public`. Polityka ponownie odtwarza integralność profilu, wymaga kompletnego
+  replayu, regresji i transferu poza `source_game_ref` wkładu kandydata.
+  Brak lub nieaktualność dowodu jest `not_evaluable`; fałszywy automat,
+  regresja, checksum mismatch albo wyciek transferu odrzuca wyłącznie
+  wskazanego kandydata.
+- **Rationale:** Mumie, Gang i następne zgodne gry mogą zasilać wspólną wiedzę,
+  lecz brak realnego corpusów nie może stać się fikcyjnym sukcesem, ani jedna
+  nieudana kandydatura nie może odebrać działającej geometrii innym grom.
+- **Compatibility:** G05 dopiero dostarczy automatyczne budowanie kandydata i
+  realny raport z korekt. G07 nie wystawia UI, endpointu, importu ani ręcznej
+  aktywacji; profile v1/v1.1 i istniejące joby zachowują zachowanie.
+- **Safety:** rekord kwalifikacji nie zawiera `game_id`, obrazów, ścieżek,
+  symboli, OCR, payoutów, sekwencji ani kotwic. W przypadku `passed` bieżący
+  `active` jest najpierw `retired`, a kandydat następnie `active` w tej samej
+  transakcji i pod blokadą zakresu; błąd lub konflikt wycofuje całość.
+## D-426 — Pilot shared shape v2 publikuje tylko kompletny wynik pomiaru
+
+- **Status:** accepted (TASK-0609/G05).
+- **Date:** 2026-09-22.
+- **Decision:** lokalny pilot wiąże checksumami corpus executor, inwentarz,
+  anotacje i pięć etapów: zaakceptowaną korektę Mumii, replay, regresję
+  istniejącego profilu, regresję kandydata oraz transfer do gry spoza wkładu.
+  Każda obserwacja jest przypięta do checksumy badanego profilu, a oba warianty
+  regresji muszą obejmować pełną, jawną kohortę wcześniejszych gier. Wynik
+  liczy osobno automaty, review, korektę, potwierdzenie i czas operatora.
+  Tworzy kandydata wyłącznie przez kontrakt G06, a raport wyłącznie przez
+  kontrakt G07. Do wewnętrznej granicy zapisu może przejść tylko wynik
+  `measured` z istniejącym baseline; są wymagane różne idempotency keys dla
+  utworzenia kandydata i kwalifikacji.
+- **Rationale:** pozwala mierzyć rzeczywiste zmniejszenie pracy po korekcie
+  Mumii na Gangu lub kolejnej zgodnej grze, w odniesieniu do tej samej
+  wcześniejszej wiedzy, bez przypisywania wyniku do nazwy gry, koloru ramki
+  lub lokalnej kotwicy.
+- **Compatibility:** nie ma nowej migracji, endpointu, UI, joba importowego
+  ani zmiany historycznych preflightów. Brak corpusów lub niepełny etap daje
+  lokalne `not_evaluable`; operator może dostarczyć komplet danych później.
+- **Safety:** corpus executor już odrzuca `acceptance`; runner ponownie
+  kontroluje inventory, SHA, anotacje i zgodność etapów. Lokalny raport może
+  zawierać identyfikatory źródeł tylko przed granicą publiczną. Kandydat i
+  raport G07 nie otrzymują obrazu, ścieżki, `game_id`, OCR, symbolu, payoutu,
+  sekwencji, layoutu ani kotwicy. Pilot nie otwiera `game_data_v2`, nie tworzy
+  source revision i nie uruchamia importu.
+## D-427 — Odbiór G08 jest odrębną, lokalną bramką acceptance
+
+- **Status:** accepted (TASK-0610/G08).
+- **Date:** 2026-09-22.
+- **Decision:** odbiór używa wyłącznie manifestu i truthu `acceptance`,
+  a osobny manifest executor służy wyłącznie do kontroli granicy splitów i
+  musi zgadzać się z manifestem oraz inventory zamrożonym w pełnym input G05.
+  Wejście przypina pełne anotacje executora; evaluator ponownie uruchamia G05
+  na tym inputcie i wymaga bajtowej zgodności całego raportu przed dalszą
+  oceną. Następnie przypina wersję i konfigurację rdzenia, pełnego kandydata G05,
+  raport G07, profil preflight i kompletne wyniki dwóch replayów checksumami.
+  Bajty są kontrolowane ponownie po odczycie, przed dekodowaniem. Pełny
+  niespójny zestaw jest `rejected`, a brak kompletu operator-owned artefaktów
+  jest `not_evaluable`.
+- **Rationale:** rzeczywisty odbiór musi sprawdzać nieużywane wcześniej
+  źródła, odtwarzalność oraz pełną proweniencję bez ponownego użycia danych
+  development/calibration i bez uznania braku danych za sukces.
+- **Compatibility:** brak migracji, endpointu, UI, importu lub automatycznej
+  aktywacji. `passed` jest raportem lokalnym, a nie komendą do G07.
+- **Safety:** raport i command pozostają local-only; nie przechowują obrazów
+  ani ścieżek, nie otwierają bazy i nie zmieniają `game_data_v2`.

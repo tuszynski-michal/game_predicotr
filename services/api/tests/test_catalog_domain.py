@@ -6,6 +6,7 @@ from game_predictor_api.application.catalog import CatalogRepository, CatalogSer
 from game_predictor_api.domain.catalog import (
     CatalogError,
     Game,
+    GameShapeGeometryConfiguration,
     GameStatus,
     Symbol,
     SymbolStatus,
@@ -29,6 +30,7 @@ class EmptyCatalogRepository(CatalogRepository):
         name: str,
         status: GameStatus,
         expected_layout_count: int,
+        shape_geometry_configuration: GameShapeGeometryConfiguration,
     ) -> Game:
         timestamp = datetime.now(UTC)
         return Game(
@@ -39,6 +41,7 @@ class EmptyCatalogRepository(CatalogRepository):
             expected_layout_count,
             timestamp,
             timestamp,
+            shape_geometry_configuration=shape_geometry_configuration,
         )
 
     def save_game(self, game: Game) -> Game:

@@ -11,6 +11,10 @@ import cv2
 import game_predictor_worker.images.page_geometry_preflight as preflight_module
 import numpy as np
 import pytest
+from game_predictor_api.domain.global_geometry_library import (
+    GlobalGeometryTopology,
+    global_geometry_profile_descriptor_checksum,
+)
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.page_geometry_incremental import (
@@ -22,6 +26,9 @@ from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_VERSION,
     PageRegistrationEvaluation,
     RegisteredPageGeometry,
+)
+from game_predictor_worker.images.shape_geometry_v2.preflight import (
+    SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
 )
 from game_predictor_worker.images.source_ingestion import ManagedOriginalStore
 from game_predictor_worker.jobs.runtime import JobHandlerError
@@ -38,6 +45,55 @@ class _Context:
             for key in ("current", "success_count", "failure_count", "review_count"):
                 assert int(kwargs[key]) >= int(previous[key]), f"{key} regressed"
         self.checkpoints.append(kwargs)
+
+
+def _shape_geometry_v2_profile_payload() -> dict[str, object]:
+    payload: dict[str, object] = {
+        "schemaVersion": "shape-geometry-v2-preflight-profile-v1",
+        "profileId": str(uuid4()),
+        "profileNumber": 1,
+        "profileChecksumSha256": "a" * 64,
+        "geometryFamily": "framed_full_page_v2",
+        "topology": {
+            "pageBoardRows": 3,
+            "pageBoardColumns": 3,
+            "boardCellRows": 3,
+            "boardCellColumns": 5,
+        },
+        "normalizedTemplate": {
+            "schemaVersion": "shape-geometry-normalized-template-v1",
+            "topology": {
+                "pageBoardRows": 3,
+                "pageBoardColumns": 3,
+                "boardCellRows": 3,
+                "boardCellColumns": 5,
+            },
+            "frameQuad": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+            "aspectRatioRange": {"minimum": 0.5, "maximum": 2.0},
+        },
+        "frameAppearance": {
+            "schemaVersion": "shape-geometry-frame-appearance-v1",
+            "sides": {
+                "top": {
+                    "clusters": [{"lab": [44.0, 12.0, -8.0], "hsv": [23.0, 0.5, 0.7]}],
+                    "contrast": {"minimum": 0.2, "median": 0.4, "maximum": 0.8},
+                    "continuity": 0.9,
+                }
+            },
+        },
+        "localVerification": {
+            "schemaVersion": "shape-geometry-v2-local-policy-v1",
+            "colorCompatibility": "structural_only",
+        },
+    }
+    topology = GlobalGeometryTopology(3, 3, 3, 5)
+    payload["profileDescriptorChecksumSha256"] = global_geometry_profile_descriptor_checksum(
+        geometry_family=payload["geometryFamily"],
+        topology=topology,
+        normalized_template=payload["normalizedTemplate"],  # type: ignore[arg-type]
+        frame_appearance=payload["frameAppearance"],  # type: ignore[arg-type]
+    )
+    return payload
 
 
 def test_preflight_preserves_qualified_slots_in_pinned_input(tmp_path: Path) -> None:
@@ -217,6 +273,76 @@ def test_geometry_preflight_without_anchor_creates_review_queue(tmp_path: Path) 
     assert {payload["entries"][checksum]["reasonCode"] for checksum in checksums} == {
         "PAGE_GEOMETRY_BOOTSTRAP_ANCHOR_REQUIRED"
     }
+
+
+def test_shape_geometry_profile_is_pinned_to_manifest_and_never_registers_directly(
+    tmp_path: Path,
+) -> None:
+    initial, checksums = _cold_start_job(tmp_path, image_count=1)
+    profile = _shape_geometry_v2_profile_payload()
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial.game_id,
+        input_payload={
+            **initial.input_payload,
+            "preflight_policy_version": SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
+            "shape_geometry_v2_profile": profile,
+        },
+    )
+    context = _Context()
+
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(context, job)  # type: ignore[arg-type]
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = tmp_path / "artifacts" / Path(
+        *checkpoint["geometry_manifest_relative_path"].split("/")
+    )
+    manifest = json.loads(output.read_text(encoding="utf-8"))
+    entry = manifest["entries"][checksums[0]]
+    assert manifest["schemaVersion"] == 3
+    assert manifest["shapeGeometryV2Profile"] == profile
+    assert entry["status"] == "review_required"
+    assert "quads" not in entry
+    assert entry["shapeGeometryV2Verification"]["schemaVersion"] == (
+        "shape-geometry-v2-local-verification-v1"
+    )
+
+
+def test_shape_geometry_profile_ignores_an_unavailable_legacy_anchor(tmp_path: Path) -> None:
+    _image, quads = _page()
+    initial, checksums = _cold_start_job(tmp_path, image_count=1)
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial.game_id,
+        input_payload={
+            **initial.input_payload,
+            "preflight_policy_version": SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
+            "shape_geometry_v2_profile": _shape_geometry_v2_profile_payload(),
+            "page_registration_profile": {
+                "schemaVersion": 1,
+                "policy": PAGE_REGISTRATION_VERSION,
+                "anchors": [
+                    {
+                        "sourceChecksumSha256": "a" * 64,
+                        "imageWidth": 680,
+                        "imageHeight": 480,
+                        "quads": quads,
+                    }
+                ],
+            },
+        },
+    )
+    context = _Context()
+
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(context, job)  # type: ignore[arg-type]
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = tmp_path / "artifacts" / Path(
+        *checkpoint["geometry_manifest_relative_path"].split("/")
+    )
+    entry = json.loads(output.read_text(encoding="utf-8"))["entries"][checksums[0]]
+    assert entry["status"] == "review_required"
+    assert "SHAPE_GEOMETRY_V2" in entry["reasonCode"]
 
 
 def test_manual_override_bootstraps_registration_for_remaining_pages(

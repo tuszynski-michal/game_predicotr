@@ -2429,6 +2429,7 @@ export type GameCreate = {
    * Name
    */
   name: string;
+  shapeGeometryConfiguration?: GameShapeGeometryConfiguration;
   status?: GameStatus;
 };
 
@@ -2456,6 +2457,8 @@ export type GameResponse = {
    * Name
    */
   name: string;
+  shapeGeometryConfiguration?: GameShapeGeometryConfiguration | null;
+  shapeGeometryReadiness: ShapeGeometryReadinessResponse;
   status: GameStatus;
   /**
    * Storagegeneration
@@ -2484,6 +2487,14 @@ export type GameResponse = {
 };
 
 /**
+ * GameShapeGeometryConfiguration
+ *
+ * A game-local declaration, never a copy of a shared geometry profile.
+ */
+export type GameShapeGeometryConfiguration =
+  'framed_full_page_v2' | 'requires_clarification';
+
+/**
  * GameStatus
  */
 export type GameStatus = 'draft' | 'active' | 'archived';
@@ -2500,6 +2511,7 @@ export type GameUpdate = {
    * Name
    */
   name?: string | null;
+  shapeGeometryConfiguration?: GameShapeGeometryConfiguration | null;
   status?: GameStatus | null;
 };
 
@@ -11029,6 +11041,49 @@ export type SequenceRangeValueResponse = {
    * Start
    */
   start: number;
+};
+
+/**
+ * ShapeGeometryReadinessResponse
+ */
+export type ShapeGeometryReadinessResponse = {
+  configuration: GameShapeGeometryConfiguration;
+  /**
+   * Message
+   */
+  message: string;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
+  sharedProfile: SharedShapeGeometryProfileReferenceResponse | null;
+  status: ShapeGeometryReadinessStatus;
+};
+
+/**
+ * ShapeGeometryReadinessStatus
+ */
+export type ShapeGeometryReadinessStatus =
+  | 'requires_clarification'
+  | 'manual_review_required'
+  | 'ready_for_shared_preflight';
+
+/**
+ * SharedShapeGeometryProfileReferenceResponse
+ */
+export type SharedShapeGeometryProfileReferenceResponse = {
+  /**
+   * Profilechecksumsha256
+   */
+  profileChecksumSha256: string;
+  /**
+   * Profileid
+   */
+  profileId: string;
+  /**
+   * Profilenumber
+   */
+  profileNumber: number;
 };
 
 /**

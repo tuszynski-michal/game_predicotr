@@ -1,10 +1,28 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-21
+last_updated: 2026-09-22
 ---
 
 # Current State
+
+### TASK-0607 — responsywność i ergonomia kalibracji etykiet V7
+
+- Kliknięcie po trwałym wpisie w lokalnej kolejce daje natychmiastowy marker
+  widoku, lecz nie zmienia server-confirmed readiness ani eksportu. Grupa ujęć
+  ma wybór `A/B/C`; podstawowa sesja proponuje `small_777`, a trudne kadry są
+  opcjonalne. Ocena cropa i checkbox niedostępnego numeru są nad obrazem.
+- Canonical PNG używa prywatnego cache RAM (3 wpisy/64 MiB) i najwyżej trzech
+  pobrań równocześnie. Nie tworzy URL po unmount, odrzuca spóźnione odpowiedzi
+  poza bieżącym oknem sąsiadów i nigdy nie ewakuje renderowanego URL. Cache nie
+  omija checksum-bound endpointu ani nie zapisuje obrazów do IndexedDB.
+- Skrypt pomiaru obsługuje progi 100/300/500 i deduplikuje pliki po SHA-256;
+  za mały korpus daje `not_evaluable`. Nie zmierzono sprzętu, ponieważ operator
+  polecił nie uruchamiać zbędnych testów. Skrypt mierzy lokalizator V1 i
+  read-only runtime, nie ranking reprezentanta V2 ani writer. Admin typecheck,
+  lint zmienionego pliku, 6 testów interakcji i 8 testów Pythona przeszły. Astra
+  Medium wykryła w kolejnych rundach sześć P2 cache/benchmarku; wszystkie
+  poprawiono, a końcowy re-audyt nie ma P0–P2. V7 nadal jest zablokowane.
 
 ### TASK-0606 — dynamiczny viewport etykiet V7 V2
 

@@ -31,6 +31,8 @@ test('the calibration screen has only calibration case choices and no holdout co
   assert.doesNotMatch(workspace, /id: 'reels_test'/);
   assert.match(workspace, /geometryFamilyId: GEOMETRY_FAMILY_ID/);
   assert.match(workspace, /corpusCaseIds: \[\.\.\.selectedCaseIds\]/);
+  assert.match(workspace, /DEFAULT_CALIBRATION_CASE_IDS = \['small_777'\]/);
+  assert.match(workspace, /opcjonalnie, nie do podstawowej kalibracji/);
 });
 
 test('the screen uses a checksum-bound Blob asset and click coordinates from the image itself', () => {
@@ -44,7 +46,11 @@ test('the screen uses a checksum-bound Blob asset and click coordinates from the
   assert.match(workspace, /assetRef\.current\?\.key !== expectedAssetKey/);
   assert.match(workspace, /asset\.key === activeAssetKey/);
   assert.match(workspace, /Numer zasłonięty \/ nieczytelny/);
+  assert.match(workspace, /type="checkbox"/);
   assert.match(workspace, /kind: 'unavailable'/);
+  assert.match(workspace, /MAX_CACHED_ASSET_COUNT = 3/);
+  assert.match(workspace, /MAX_CACHED_ASSET_BYTES = 64 \* 1024 \* 1024/);
+  assert.match(workspace, /projectV7LabelGeometryPendingSlots/);
 });
 
 test('a durable queue serializes clicks, stops persistently, and never rebases', () => {
@@ -59,8 +65,8 @@ test('a durable queue serializes clicks, stops persistently, and never rebases',
   assert.match(workspace, /const currentView = viewRef\.current/);
   assert.match(workspace, /discardingRef\.current = true/);
   assert.match(workspace, /discardingRef\.current \|\|/);
-  assert.match(workspace, /captureGroupDrafts\.get\(activeSource\.sourceId\)/);
-  assert.match(workspace, /key=\{activeSource\?\.sourceId \?\? 'none'\}/);
+  assert.match(workspace, /CAPTURE_GROUP_OPTIONS/);
+  assert.match(workspace, /Ujęcie A/);
   assert.match(workspace, /Porzuć niepotwierdzone/);
   assert.match(store, /DATABASE_NAME = 'game-predictor-v7-label-geometry-calibration'/);
   assert.match(store, /QUEUE_STORE = 'queue'/);

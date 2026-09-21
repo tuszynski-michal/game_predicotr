@@ -2161,3 +2161,31 @@ payloadu configu. Profile V1 zachowują historyczny payload oraz fingerprint;
 observer wybiera lokalizator z profilu i dopuszcza wyłącznie rodziny V1/V2.
 Wszystkie proofy, checkpointy, gate aktywacji i writer pozostają poza zakresem
 V2.
+
+## Responsywny panel kalibracji V7 — TASK-0607
+
+`projectV7LabelGeometryPendingSlots` nakłada na sloty zwrócone przez API tylko
+trwałe, sekwencyjne wpisy `annotated` i `unavailable` lokalnej kolejki dla
+aktualnego źródła. Nie zmienia obiektu sesji, obliczania readiness ani requestu
+profilu. Receipt usuwa odpowiadający wpis z kolejki, a odtworzona sesja
+przejmuje jedyne źródło potwierdzonego markera.
+
+Admin utrzymuje prywatny cache object URL canonical PNG kluczowany
+`[sessionId, sourceId, checksum]`. LRU ma limit trzech wpisów i 64 MiB,
+prefetchuje tylko bieżący obraz oraz bezpośrednich sąsiadów, zwalnia URL przy
+ewikcji i unmount, a obraz ponad limit nie trafia do cache. Cache nie omija
+endpointu kontroli SHA i nie jest IndexedDB ani trwałym magazynem źródeł.
+
+`benchmark_v7_selection_runtime.py --target-source-count 100|300|500`
+wybiera bez powielania kolejne, niezależne źródła ze splitów development i
+calibration. Jeżeli korpus jest za mały, zapisuje `not_evaluable`; raportuje
+oddzielnie manifest/hash, decode, lokalizację, OCR, finalizację oraz jawny
+brak zapisu (`writeStatus=not_run_read_only_v7_inactive`).
+
+Pobrania canonical assetów mają wspólny limit trzech trwających żądań. Po
+zamknięciu workspace'u ich późne odpowiedzi są odrzucane przed utworzeniem
+object URL; po zmianie źródła cache przyjmuje wyłącznie bieżący asset albo jego
+bezpośredniego sąsiada. Przy ewikcji LRU chroni jednocześnie bieżący viewport i
+renderowany URL. Benchmark przed uruchomieniem OCR deduplikuje wpisy po
+uprzednio sprawdzonym SHA-256; `availableSourceCount` oznacza liczbę takich
+niezależnych plików, a `availablePathCount` zachowuje liczbę nazw.

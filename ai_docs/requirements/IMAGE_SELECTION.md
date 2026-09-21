@@ -1534,3 +1534,27 @@ siatki jest wynikiem bez cropów i bez dowodu, nie fallbackiem do V1.
 V1 i zapisane profile V1 pozostają niezmienne. V2 jest wspólnym silnikiem
 etykiet dla późniejszych gier, ale nie jest biblioteką komórek planszy i nie
 przenosi modeli symboli, payoutów ani baz danych pomiędzy grami.
+
+## Ergonomia kalibracji etykiet V7 — TASK-0607
+
+Panel kalibracji pokazuje adnotację bez czekania na HTTP dopiero po trwałym
+wpisie zamiaru w lokalnej kolejce. Jest to wyłącznie projekcja oczekujących
+operacji: gotowość profilu, eksport i decyzje serwera używają wyłącznie
+potwierdzonej sesji. Po restarcie ten sam marker jest odtwarzany z kolejki,
+a konflikt rewizji, drift źródła lub porzucenie kolejki nie może zamienić go w
+potwierdzoną adnotację.
+
+Nowa sesja proponuje tylko pełne kadry `small_777`; trudne kadry są opcjonalne
+i jasno oznaczone. Capture group jest wyborem `A`, `B` albo `C`. Widok pamięta
+wyłącznie stan interakcji i ograniczony cache canonical PNG bieżącego źródła
+oraz sąsiadów — maksymalnie trzy obrazy i 64 MiB. Nie zapisuje blobów, ścieżek
+ani danych obrazu do IndexedDB; każdy pobrany asset pozostaje związany z ID
+sesji, ID źródła i SHA-256.
+
+Cache nie może przyjąć odpowiedzi po zamknięciu panelu ani zachować spóźnionej
+odpowiedzi spoza aktualnego okna `poprzedni/bieżący/następny`. Ma najwyżej trzy
+trwające pobrania, a usuwanie LRU nigdy nie unieważnia aktualnie wyświetlanego
+obrazu. Pomiar skali liczy niezależne źródła po SHA-256, więc wiele nazw dla
+tych samych bajtów nie może spełnić progu 100/300/500. Raport jawnie określa,
+że mierzy historyczny lokalizator V1 i read-only runtime, a nie ranking
+reprezentanta V2 ani writer.

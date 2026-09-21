@@ -26,6 +26,7 @@ import {
   isV7LabelGeometryPointInsideServerBounds,
   nextV7LabelGeometryOperation,
   normaliseV7LabelGeometryPoint,
+  projectV7LabelGeometryPendingSlots,
   resumeV7LabelGeometryQueue,
   stopV7LabelGeometryQueue,
   type V7LabelGeometryQueueState,
@@ -45,9 +46,30 @@ import {
 
 const GEOMETRY_FAMILY_ID = 'standard_3x3_numeric_labels_v1';
 const CALIBRATION_CASES = [
-  { id: 'small_777', label: '777 — grupy bazowe' },
-  { id: 'occluded_777', label: '777 — częściowo zasłonięte plansze' },
+  {
+    id: 'small_777',
+    label: '777 — pełne kadry podstawowe',
+  },
+  {
+    id: 'occluded_777',
+    label: '777 — trudne kadry (opcjonalnie, nie do podstawowej kalibracji)',
+  },
 ] as const;
+const DEFAULT_CALIBRATION_CASE_IDS = ['small_777'] as const;
+const CAPTURE_GROUP_OPTIONS = [
+  { id: 'A', label: 'Ujęcie A' },
+  { id: 'B', label: 'Ujęcie B' },
+  { id: 'C', label: 'Ujęcie C' },
+] as const;
+const MAX_CACHED_ASSET_COUNT = 3;
+const MAX_CACHED_ASSET_BYTES = 64 * 1024 * 1024;
+const MAX_IN_FLIGHT_ASSET_REQUESTS = 3;
+
+interface CachedV7LabelGeometryAsset {
+  readonly byteSize: number;
+  readonly key: string;
+  readonly url: string;
+}
 
 const EMPTY_QUEUE: V7LabelGeometryQueueState = {
   confirmedRevision: 0,
@@ -99,7 +121,7 @@ export function V7LabelGeometryCalibrationWorkspace({
   );
   const sessionRef = useRef<V7LabelGeometrySessionResponse | null>(null);
   const [selectedCaseIds, setSelectedCaseIds] = useState<readonly string[]>(
-    CALIBRATION_CASES.map((item) => item.id),
+    DEFAULT_CALIBRATION_CASE_IDS,
   );
   const [view, setView] = useState<V7LabelGeometryCalibrationLocalView | null>(
     null,
@@ -113,20 +135,29 @@ export function V7LabelGeometryCalibrationWorkspace({
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [asset, setAsset] = useState<{
+    readonly cached: boolean;
     readonly key: string;
     readonly url: string;
   } | null>(null);
-  const assetRef = useRef<{ readonly key: string; readonly url: string } | null>(
-    null,
-  );
+  const assetRef = useRef<{
+    readonly cached: boolean;
+    readonly key: string;
+    readonly url: string;
+  } | null>(null);
+  const assetCacheRef = useRef(new Map<string, CachedV7LabelGeometryAsset>());
+  const assetRequestKeysRef = useRef(new Set<string>());
+  const assetAttemptedGenerationsRef = useRef(new Map<string, number>());
+  const assetViewportGenerationRef = useRef(0);
+  const assetViewportKeyRef = useRef<string | null>(null);
+  const assetRequestEpochRef = useRef(0);
+  const [assetRequestEpoch, setAssetRequestEpoch] = useState(0);
+  const mountedRef = useRef(true);
   const [assetError, setAssetError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
   const flushingRef = useRef(false);
   const discardingRef = useRef(false);
-  const [captureGroupDrafts, setCaptureGroupDrafts] = useState<
-    ReadonlyMap<string, string>
-  >(new Map());
+  const [unavailableMode, setUnavailableMode] = useState(false);
 
   const replaceSession = useCallback(
     (next: V7LabelGeometrySessionResponse | null) => {
@@ -142,9 +173,96 @@ export function V7LabelGeometryCalibrationWorkspace({
   }, []);
 
   const replaceAsset = useCallback(
-    (next: { readonly key: string; readonly url: string } | null) => {
+    (
+      next: {
+        readonly cached: boolean;
+        readonly key: string;
+        readonly url: string;
+      } | null,
+    ) => {
+      const previous = assetRef.current;
+      if (
+        previous !== null &&
+        previous.url !== next?.url &&
+        !previous.cached
+      ) {
+        URL.revokeObjectURL(previous.url);
+      }
       assetRef.current = next;
       setAsset(next);
+    },
+    [],
+  );
+
+  const readCachedAsset = useCallback((key: string) => {
+    const cached = assetCacheRef.current.get(key);
+    if (cached === undefined) return null;
+    // A Map insertion order is a compact LRU list. Reading an asset makes it
+    // least likely to be evicted while its two neighbours are prefetched.
+    assetCacheRef.current.delete(key);
+    assetCacheRef.current.set(key, cached);
+    return cached;
+  }, []);
+
+  const cacheAsset = useCallback((
+    key: string,
+    blob: Blob,
+    protectedKeys: ReadonlySet<string>,
+  ) => {
+    if (blob.size > MAX_CACHED_ASSET_BYTES) return null;
+    const previous = assetCacheRef.current.get(key);
+    if (previous !== undefined) {
+      assetCacheRef.current.delete(key);
+      URL.revokeObjectURL(previous.url);
+    }
+    const entry: CachedV7LabelGeometryAsset = {
+      byteSize: blob.size,
+      key,
+      url: URL.createObjectURL(blob),
+    };
+    assetCacheRef.current.set(key, entry);
+    let totalBytes = [...assetCacheRef.current.values()].reduce(
+      (total, item) => total + item.byteSize,
+      0,
+    );
+    while (
+      assetCacheRef.current.size > MAX_CACHED_ASSET_COUNT ||
+      totalBytes > MAX_CACHED_ASSET_BYTES
+    ) {
+      const oldest = [...assetCacheRef.current.entries()].find(
+        ([candidateKey]) => !protectedKeys.has(candidateKey),
+      );
+      if (oldest === undefined) {
+        // All cached entries are actively rendered or selected for the current
+        // viewport. A short-lived response must never invalidate that image.
+        assetCacheRef.current.delete(key);
+        URL.revokeObjectURL(entry.url);
+        return null;
+      }
+      assetCacheRef.current.delete(oldest[0]);
+      totalBytes -= oldest[1].byteSize;
+      URL.revokeObjectURL(oldest[1].url);
+    }
+    return assetCacheRef.current.get(key) ?? null;
+  }, []);
+
+  useEffect(
+    () => {
+      const cache = assetCacheRef.current;
+      const requestKeys = assetRequestKeysRef.current;
+      const attemptedGenerations = assetAttemptedGenerationsRef.current;
+      mountedRef.current = true;
+      return () => {
+        mountedRef.current = false;
+        const active = assetRef.current;
+        if (active !== null && !active.cached) URL.revokeObjectURL(active.url);
+        for (const cached of cache.values()) {
+          URL.revokeObjectURL(cached.url);
+        }
+        cache.clear();
+        requestKeys.clear();
+        attemptedGenerations.clear();
+      };
     },
     [],
   );
@@ -288,19 +406,6 @@ export function V7LabelGeometryCalibrationWorkspace({
             );
             replaceSession(result.data.session);
             replaceQueue(acknowledged);
-            if (
-              head.kind === 'set_capture_group' &&
-              head.captureGroupId !== undefined
-            ) {
-              setCaptureGroupDrafts((current) => {
-                if (current.get(head.sourceId) !== head.captureGroupId) {
-                  return current;
-                }
-                const next = new Map(current);
-                next.delete(head.sourceId);
-                return next;
-              });
-            }
           });
         } catch (cause) {
           setError(
@@ -449,14 +554,12 @@ export function V7LabelGeometryCalibrationWorkspace({
 
   useEffect(() => {
     let cancelled = false;
-    const sessionId = session?.sessionId ?? null;
-    const sourceId = activeSource?.sourceId ?? null;
-    const sourceChecksumSha256 = activeSource?.sourceChecksumSha256 ?? null;
+    const currentSession = session;
+    const currentActiveSource = activeSource;
     const assetKey = activeAssetKey;
     if (
-      sessionId === null ||
-      sourceId === null ||
-      sourceChecksumSha256 === null ||
+      currentSession === null ||
+      currentActiveSource === null ||
       assetKey === null
     ) {
       queueMicrotask(() => {
@@ -466,46 +569,179 @@ export function V7LabelGeometryCalibrationWorkspace({
         cancelled = true;
       };
     }
-    let currentUrl: string | null = null;
+    const sessionId = currentSession.sessionId;
+    const viewportChanged = assetViewportKeyRef.current !== assetKey;
+    if (viewportChanged) {
+      assetViewportKeyRef.current = assetKey;
+      assetViewportGenerationRef.current += 1;
+      assetAttemptedGenerationsRef.current.clear();
+    }
+    const viewportGeneration = assetViewportGenerationRef.current;
+    const cached = readCachedAsset(assetKey);
     queueMicrotask(() => {
-      if (!cancelled) setAssetError('');
+      if (cancelled) return;
+      if (!viewportChanged) return;
+      setAssetError('');
+      if (cached !== null) {
+        replaceAsset({ ...cached, cached: true });
+      } else {
+        replaceAsset(null);
+      }
     });
-    void api
-      .getV7LabelGeometryCalibrationSourceAsset(
+    const loadAsset = async (
+      source: NonNullable<typeof activeSource>,
+      activate: boolean,
+    ) => {
+      const key = v7LabelGeometryAssetKey(
         sessionId,
-        sourceId,
-        sourceChecksumSha256,
-      )
-      .then((result) => {
-        if (cancelled) return;
+        source.sourceId,
+        source.sourceChecksumSha256,
+      );
+      if (readCachedAsset(key) !== null || assetRequestKeysRef.current.has(key)) {
+        return;
+      }
+      if (assetAttemptedGenerationsRef.current.get(key) === viewportGeneration) {
+        return;
+      }
+      if (
+        assetRequestKeysRef.current.size >= MAX_IN_FLIGHT_ASSET_REQUESTS
+      ) {
+        return;
+      }
+      assetAttemptedGenerationsRef.current.set(key, viewportGeneration);
+      assetRequestKeysRef.current.add(key);
+      try {
+        const result = await api.getV7LabelGeometryCalibrationSourceAsset(
+          sessionId,
+          source.sourceId,
+          source.sourceChecksumSha256,
+        );
+        const responseBecameActive = () => {
+          const latestSession = sessionRef.current;
+          const latestSource = latestSession?.sources.find(
+            (candidate) => candidate.sourceId === viewRef.current?.activeSourceId,
+          );
+          return (
+            latestSession?.sessionId === sessionId &&
+            latestSource !== undefined &&
+            v7LabelGeometryAssetKey(
+              latestSession.sessionId,
+              latestSource.sourceId,
+              latestSource.sourceChecksumSha256,
+            ) === key
+          );
+        };
         if (
           result.error !== undefined ||
           result.data === undefined ||
           !(result.data instanceof Blob)
         ) {
-          setAssetError(
-            apiErrorMessage(
-              result.error,
-              'Nie udało się pobrać kanonicznego PNG źródła.',
-            ),
-          );
-          replaceAsset(null);
+          if (
+            mountedRef.current &&
+            ((!cancelled && activate) || responseBecameActive())
+          ) {
+            setAssetError(
+              apiErrorMessage(
+                result.error,
+                'Nie udało się pobrać kanonicznego PNG źródła.',
+              ),
+            );
+          }
           return;
         }
-        currentUrl = URL.createObjectURL(result.data);
-        replaceAsset({ key: assetKey, url: currentUrl });
-      })
-      .catch(() => {
-        if (!cancelled) {
+        if (!mountedRef.current) return;
+        const latestSession = sessionRef.current;
+        const latestSourceIndex = latestSession?.sources.findIndex(
+          (candidate) => candidate.sourceId === viewRef.current?.activeSourceId,
+        );
+        const relevantViewportKeys = new Set<string>();
+        if (
+          latestSession !== null &&
+          latestSession !== undefined &&
+          latestSourceIndex !== undefined &&
+          latestSourceIndex >= 0
+        ) {
+          for (const candidate of latestSession.sources.slice(
+            Math.max(0, latestSourceIndex - 1),
+            latestSourceIndex + 2,
+          )) {
+            relevantViewportKeys.add(
+              v7LabelGeometryAssetKey(
+                latestSession.sessionId,
+                candidate.sourceId,
+                candidate.sourceChecksumSha256,
+              ),
+            );
+          }
+        }
+        if (!relevantViewportKeys.has(key)) return;
+        const protectedKeys = new Set(relevantViewportKeys);
+        const rendered = assetRef.current;
+        if (rendered?.cached) protectedKeys.add(rendered.key);
+        const saved = cacheAsset(key, result.data, protectedKeys);
+        if ((cancelled || !activate) && !responseBecameActive()) return;
+        if (saved !== null) {
+          replaceAsset({ ...saved, cached: true });
+          return;
+        }
+        replaceAsset({
+          cached: false,
+          key,
+          url: URL.createObjectURL(result.data),
+        });
+      } catch {
+        const latestSession = sessionRef.current;
+        const latestSource = latestSession?.sources.find(
+          (candidate) => candidate.sourceId === viewRef.current?.activeSourceId,
+        );
+        const responseBecameActive =
+          latestSession?.sessionId === sessionId &&
+          latestSource !== undefined &&
+          v7LabelGeometryAssetKey(
+            latestSession.sessionId,
+            latestSource.sourceId,
+            latestSource.sourceChecksumSha256,
+          ) === key;
+        if (
+          mountedRef.current &&
+          ((!cancelled && activate) || responseBecameActive)
+        ) {
           replaceAsset(null);
           setAssetError('Nie udało się pobrać kanonicznego PNG źródła.');
         }
-      });
+      } finally {
+        assetRequestKeysRef.current.delete(key);
+        if (mountedRef.current) {
+          assetRequestEpochRef.current += 1;
+          setAssetRequestEpoch(assetRequestEpochRef.current);
+        }
+      }
+    };
+    if (cached === null) void loadAsset(currentActiveSource, true);
+    const activeSourceIndex = currentSession.sources.findIndex(
+      (source) => source.sourceId === currentActiveSource.sourceId,
+    );
+    for (const neighbour of currentSession.sources.slice(
+      Math.max(0, activeSourceIndex - 1),
+      activeSourceIndex + 2,
+    )) {
+      if (neighbour.sourceId !== currentActiveSource.sourceId) {
+        void loadAsset(neighbour, false);
+      }
+    }
     return () => {
       cancelled = true;
-      if (currentUrl !== null) URL.revokeObjectURL(currentUrl);
     };
-  }, [activeAssetKey, activeSource, api, replaceAsset, session]);
+  }, [
+    activeAssetKey,
+    activeSource,
+    api,
+    assetRequestEpoch,
+    cacheAsset,
+    readCachedAsset,
+    replaceAsset,
+    session,
+  ]);
 
   const createSession = async () => {
     if (!storageReady || selectedCaseIds.length === 0) return;
@@ -638,6 +874,7 @@ export function V7LabelGeometryCalibrationWorkspace({
           'Kliknij wewnątrz obrazu, nie na jego krawędzi. Punkt na granicy nie może zostać zapisany.',
         );
       }
+      setUnavailableMode(false);
       await enqueue({
         centerX: point.centerX,
         centerY: point.centerY,
@@ -662,6 +899,7 @@ export function V7LabelGeometryCalibrationWorkspace({
       (candidate) => candidate.sourceId === currentView?.activeSourceId,
     );
     if (source === undefined || currentView === null) return;
+    setUnavailableMode(true);
     void enqueue({
       kind: 'unavailable',
       positionIndex: currentView.activePositionIndex,
@@ -761,13 +999,34 @@ export function V7LabelGeometryCalibrationWorkspace({
     );
   };
 
-  const slots =
-    session === null || activeSource === null
-      ? []
-      : session.slots.filter((slot) => slot.sourceId === activeSource.sourceId);
+  const slots = useMemo(
+    () =>
+      session === null || activeSource === null
+        ? []
+        : projectV7LabelGeometryPendingSlots(
+            session.slots,
+            queue.pending,
+            activeSource.sourceId,
+          ),
+    [activeSource, queue.pending, session],
+  );
   const activeSlot = slots.find(
     (slot) => slot.positionIndex === view?.activePositionIndex,
   );
+  const activeCaptureGroup = useMemo(() => {
+    if (session === null || activeSource === null) return '';
+    let group = session.captureGroups[activeSource.sourceId] ?? '';
+    for (const operation of queue.pending) {
+      if (
+        operation.kind === 'set_capture_group' &&
+        operation.sourceId === activeSource.sourceId &&
+        typeof operation.captureGroupId === 'string'
+      ) {
+        group = operation.captureGroupId;
+      }
+    }
+    return group;
+  }, [activeSource, queue.pending, session]);
   const readiness = useMemo(
     () =>
       session === null
@@ -858,9 +1117,10 @@ export function V7LabelGeometryCalibrationWorkspace({
             <label>
               Zdjęcie źródłowe
               <select
-                onChange={(event) =>
-                  void updateView({ activeSourceId: event.target.value })
-                }
+                onChange={(event) => {
+                  setUnavailableMode(false);
+                  void updateView({ activeSourceId: event.target.value });
+                }}
                 value={activeSource?.sourceId ?? ''}
               >
                 {session.sources.map((source, index) => (
@@ -872,32 +1132,35 @@ export function V7LabelGeometryCalibrationWorkspace({
             </label>
             <label>
               Grupa ujęć
-              <input
-                onChange={(event) => {
-                  const sourceId = activeSource?.sourceId;
-                  if (sourceId === undefined) return;
-                  const value = event.currentTarget.value;
-                  setCaptureGroupDrafts((current) => {
-                    const next = new Map(current);
-                    next.set(sourceId, value);
-                    return next;
-                  });
-                }}
-                onBlur={(event) => {
-                  const sourceId = activeSource?.sourceId;
-                  if (sourceId === undefined) return;
-                  assignCaptureGroup(sourceId, event.currentTarget.value);
-                }}
-                value={
+              <select
+                disabled={activeSource === null || queue.stoppedReason !== null}
+                onChange={(event) =>
                   activeSource === null
-                    ? ''
-                    : captureGroupDrafts.get(activeSource.sourceId) ??
-                      session.captureGroups[activeSource.sourceId] ??
-                      ''
+                    ? undefined
+                    : assignCaptureGroup(activeSource.sourceId, event.target.value)
                 }
-                key={activeSource?.sourceId ?? 'none'}
-                placeholder="np. przejście-A"
-              />
+                value={
+                  activeSource === null ? '' : activeCaptureGroup
+                }
+              >
+                <option disabled value="">
+                  Wybierz ujęcie
+                </option>
+                {CAPTURE_GROUP_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+                {activeCaptureGroup !== '' &&
+                !CAPTURE_GROUP_OPTIONS.some(
+                  (option) =>
+                    option.id === activeCaptureGroup,
+                ) ? (
+                  <option value={activeCaptureGroup}>
+                    Istniejąca grupa: {activeCaptureGroup}
+                  </option>
+                ) : null}
+              </select>
             </label>
             <div className="v7LabelGeometryQueueStatus">
               <strong>Trwała kolejka: {queue.pending.length}</strong>
@@ -945,9 +1208,10 @@ export function V7LabelGeometryCalibrationWorkspace({
                       : 'v7LabelGeometrySlot'
                   }
                   key={positionIndex}
-                  onClick={() =>
-                    void updateView({ activePositionIndex: positionIndex })
-                  }
+                  onClick={() => {
+                    setUnavailableMode(false);
+                    void updateView({ activePositionIndex: positionIndex });
+                  }}
                   type="button"
                 >
                   <strong>{positionIndex + 1}</strong>
@@ -1023,22 +1287,30 @@ export function V7LabelGeometryCalibrationWorkspace({
                 <option value="uncertain">Niepewna widoczność</option>
               </select>
             </label>
-            <button
-              className="secondaryButton"
-              disabled={
-                busy ||
-                syncing ||
-                activeSource === null ||
-                queue.stoppedReason !== null
-              }
-              onClick={markUnavailable}
-              type="button"
-            >
+            <label className="v7LabelGeometryUnavailable">
+              <input
+                checked={unavailableMode}
+                disabled={
+                  busy ||
+                  syncing ||
+                  activeSource === null ||
+                  queue.stoppedReason !== null
+                }
+                onChange={(event) => {
+                  if (event.target.checked) {
+                    markUnavailable();
+                  } else {
+                    setUnavailableMode(false);
+                  }
+                }}
+                type="checkbox"
+              />
               Numer zasłonięty / nieczytelny
-            </button>
+            </label>
             <span>
               Pozycja {view.activePositionIndex + 1}: {slotLabel(activeSlot)}.
-              Kliknij środek numeru na obrazie, aby zapisać punkt.
+              Zaznacz checkbox, gdy numeru nie widać; odznacz go i kliknij środek
+              numeru, aby zastąpić ten wpis punktem.
             </span>
           </div>
 

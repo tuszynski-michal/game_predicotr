@@ -1,4 +1,7 @@
-import type { V7LabelGeometrySessionMutation } from '@game-predictor/admin-api-client';
+import type {
+  V7LabelGeometrySessionMutation,
+  V7LabelGeometrySlotResponse,
+} from '@game-predictor/admin-api-client';
 
 export interface PendingV7LabelGeometryOperation
   extends V7LabelGeometrySessionMutation {
@@ -126,6 +129,63 @@ export function discardPendingV7LabelGeometryOperations(
     pending: [],
     stoppedReason: null,
   };
+}
+
+/**
+ * Builds a display-only projection of one source's slots.  The durable queue
+ * remains the authority for the operator's immediate intent, while `session`
+ * remains the authority for profile readiness and all server-side decisions.
+ *
+ * A browser refresh restores the same pending operations from IndexedDB, so a
+ * projected marker never becomes a transient, in-memory-only annotation.
+ */
+export function projectV7LabelGeometryPendingSlots(
+  confirmedSlots: readonly V7LabelGeometrySlotResponse[],
+  pending: readonly PendingV7LabelGeometryOperation[],
+  sourceId: string,
+): readonly V7LabelGeometrySlotResponse[] {
+  const slots = new Map<number, V7LabelGeometrySlotResponse>(
+    confirmedSlots
+      .filter((slot) => slot.sourceId === sourceId)
+      .map((slot) => [slot.positionIndex, slot]),
+  );
+
+  for (const operation of pending) {
+    if (
+      operation.sourceId !== sourceId ||
+      operation.positionIndex === undefined ||
+      operation.positionIndex === null
+    ) {
+      continue;
+    }
+    if (operation.kind === 'annotated') {
+      if (operation.centerX === undefined || operation.centerY === undefined) {
+        continue;
+      }
+      slots.set(operation.positionIndex, {
+        centerX: operation.centerX,
+        centerY: operation.centerY,
+        cropAssessment: operation.cropAssessment ?? null,
+        positionIndex: operation.positionIndex,
+        sourceId,
+        state: 'annotated',
+      });
+      continue;
+    }
+    if (operation.kind === 'unavailable') {
+      slots.set(operation.positionIndex, {
+        centerX: null,
+        centerY: null,
+        cropAssessment: null,
+        positionIndex: operation.positionIndex,
+        sourceId,
+        state: 'unavailable',
+      });
+    }
+  }
+  return [...slots.values()].sort(
+    (left, right) => left.positionIndex - right.positionIndex,
+  );
 }
 
 export function normaliseV7LabelGeometryPoint(

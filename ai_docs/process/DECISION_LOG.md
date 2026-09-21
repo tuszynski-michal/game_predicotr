@@ -9154,3 +9154,28 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   symboli ani payoutów. Brak/konflikt siatki daje brak dowodu; V2 nie aktywuje
   API, workera ani writera i nie zastępuje globalnej biblioteki geometrii
   plansz.
+
+## D-420 — Trwały zamiar może być widoczny przed receiptem serwera
+
+- **Status:** accepted (TASK-0607).
+- **Date:** 2026-09-22.
+- **Decision:** po pomyślnym zapisie operacji do IndexedDB Admin projektuje
+  niepotwierdzone sloty bieżącego źródła wyłącznie do warstwy widoku. `A/B/C`
+  są zamkniętym wyborem grupy ujęć, a nowa sesja zaczyna od pełnych kadrów
+  `small_777`. Cache canonical assetów pozostaje wyłącznie w RAM i ma limit
+  trzech wpisów/64 MiB.
+- **Rationale:** operator nie może czekać na wolny canonical PNG lub receipt,
+  aby zobaczyć własny trwały klik. Równocześnie gotowość profilu nie może
+  liczyć zamiaru, który po konflikcie, drifcie albo restarcie serwera nie
+  został potwierdzony.
+- **Compatibility:** kolejność, UUID i expected revision trwałej kolejki nie
+  zmieniają się; profile V1/V2 i protokół API nie dostają nowych pól. Stare,
+  dowolne ID capture group pozostaje widoczne jako historyczna wartość, ale
+  nowe wybory są ograniczone do A/B/C.
+- **Safety:** cache jest checksum-bound, nie zapisuje blobów/ścieżek w
+  IndexedDB i nie zastępuje walidacji API. Benchmark jest read-only i przy
+  niedostatecznej liczbie niezależnych źródeł raportuje `not_evaluable`, bez
+  duplikowania zdjęć lub używania holdoutu. Późna odpowiedź po unmount nie
+  tworzy URL, a LRU chroni widoczny URL; prefetch ma maksymalnie trzy żądania
+  równoległe. Niezależność benchmarku wynika z SHA-256, nie z nazwy pliku;
+  raport wskazuje, że nie mierzy rankingu V2 ani writera.

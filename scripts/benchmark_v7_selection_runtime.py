@@ -12,7 +12,7 @@ import hashlib
 import json
 import sys
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from time import perf_counter
 
@@ -46,6 +46,7 @@ class BenchmarkSource:
     path: Path
     relative_path: str
     source_index: int
+    source_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +66,17 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--model-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--samples-per-case", type=int, default=1)
+    parser.add_argument(
+        "--target-source-count",
+        choices=(100, 300, 500),
+        type=int,
+        action="append",
+        default=None,
+        help=(
+            "Measure one or more independent source counts. This enumerates every "
+            "eligible source once; an undersized corpus is reported as not_evaluable."
+        ),
+    )
     parser.add_argument("--prepare-workers", type=int, action="append")
     parser.add_argument(
         "--include-split",
@@ -109,10 +121,10 @@ def _select_sources(
     *,
     manifest_path: Path,
     inventory_path: Path,
-    samples_per_case: int,
+    samples_per_case: int | None,
     splits: set[V7CorpusSplit],
 ) -> tuple[str, tuple[BenchmarkSource, ...]]:
-    if not 1 <= samples_per_case <= 3:
+    if samples_per_case is not None and not 1 <= samples_per_case <= 3:
         raise ValueError("--samples-per-case must be between one and three.")
     manifest = load_v7_corpus_manifest(manifest_path)
     frozen_fingerprint, frozen_cases = _frozen_inventory(inventory_path)
@@ -127,23 +139,47 @@ def _select_sources(
         if case.split not in splits:
             continue
         directory = manifest.corpus_root / case.directory_name
-        for path in _direct_jpegs(directory)[:samples_per_case]:
+        paths = _direct_jpegs(directory)
+        if samples_per_case is not None:
+            paths = paths[:samples_per_case]
+        for path in paths:
             selected.append(
                 BenchmarkSource(
                     case_id=case.case_id,
                     path=path,
                     relative_path=str(path.relative_to(manifest.corpus_root)).replace("\\", "/"),
                     source_index=len(selected),
+                    source_sha256=_sha256_file(path),
                 )
             )
     if not selected:
         raise ValueError("No JPEG sources match the requested V7 benchmark splits.")
+    relative_paths = [source.relative_path for source in selected]
+    if len(set(relative_paths)) != len(relative_paths):
+        raise ValueError("V7 benchmark source inventory contains duplicate paths.")
     return manifest.fingerprint(), tuple(selected)
+
+
+def _independent_sources(
+    sources: Sequence[BenchmarkSource],
+) -> tuple[BenchmarkSource, ...]:
+    """Preserve the first path for each immutable JPEG payload identity."""
+
+    seen_sha256: set[str] = set()
+    independent: list[BenchmarkSource] = []
+    for source in sources:
+        if source.source_sha256 in seen_sha256:
+            continue
+        seen_sha256.add(source.source_sha256)
+        independent.append(replace(source, source_index=len(independent)))
+    return tuple(independent)
 
 
 def _decode(source: BenchmarkSource) -> DecodedSource:
     fingerprint_started_at = perf_counter()
     source_sha256 = _sha256_file(source.path)
+    if source_sha256 != source.source_sha256:
+        raise ValueError("V7 benchmark source content changed after source selection.")
     source_fingerprint_milliseconds = round(
         (perf_counter() - fingerprint_started_at) * 1000,
         4,
@@ -277,6 +313,11 @@ def _run_profile(
                 4,
             ),
             "totalMilliseconds": total_milliseconds,
+            # This command is deliberately read-only while V7 is inactive.  A
+            # zero is not a writer speed claim; the status prevents treating it
+            # as an output benchmark.
+            "writeMilliseconds": 0.0,
+            "writeStatus": "not_run_read_only_v7_inactive",
         },
         "throughputSourcesPerSecond": round(
             len(sources) / (total_milliseconds / 1000), 4
@@ -348,6 +389,53 @@ def _write_report(path: Path, payload: dict[str, object]) -> None:
     )
 
 
+def _scale_report(
+    *,
+    available_sources: Sequence[BenchmarkSource],
+    manifest_validation_milliseconds: float,
+    model_root: Path,
+    policies: Sequence[V7OrderedRuntimePolicy],
+    target_source_count: int,
+) -> dict[str, object]:
+    independent_sources = _independent_sources(available_sources)
+    if len(independent_sources) < target_source_count:
+        return {
+            "availablePathCount": len(available_sources),
+            "availableSourceCount": len(independent_sources),
+            "profiles": [],
+            "reason": "V7_BENCHMARK_INSUFFICIENT_INDEPENDENT_SOURCES",
+            "stages": {
+                "decodeMilliseconds": None,
+                "finalizationMilliseconds": None,
+                "locatorMilliseconds": None,
+                "manifestValidationMilliseconds": manifest_validation_milliseconds,
+                "ocrMilliseconds": None,
+                "writeMilliseconds": 0.0,
+                "writeStatus": "not_run_read_only_v7_inactive",
+            },
+            "status": "not_evaluable",
+            "targetSourceCount": target_source_count,
+        }
+    sources = tuple(independent_sources[:target_source_count])
+    profiles = tuple(
+        _run_profile(
+            manifest_validation_milliseconds=manifest_validation_milliseconds,
+            model_root=model_root,
+            policy=policy,
+            sources=sources,
+        )
+        for policy in policies
+    )
+    return {
+        "availablePathCount": len(available_sources),
+        "availableSourceCount": len(independent_sources),
+        "profiles": profiles,
+        "recommendation": _recommended_profile(profiles),
+        "status": "measured_read_only_v7_inactive",
+        "targetSourceCount": target_source_count,
+    }
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -373,11 +461,42 @@ def main() -> int:
     manifest_fingerprint, sources = _select_sources(
         manifest_path=args.manifest,
         inventory_path=args.inventory,
-        samples_per_case=args.samples_per_case,
+        samples_per_case=(None if args.target_source_count else args.samples_per_case),
         splits=selected_splits,
     )
     manifest_validation_milliseconds = round((perf_counter() - manifest_started_at) * 1000, 4)
     device = _runtime_device()
+    if args.target_source_count:
+        targets = tuple(dict.fromkeys(args.target_source_count))
+        independent_sources = _independent_sources(sources)
+        payload: dict[str, object] = {
+            "availablePathCount": len(sources),
+            "availableSourceCount": len(independent_sources),
+            "corpusManifestFingerprint": manifest_fingerprint,
+            "device": device,
+            "selectionRuntimeStatus": "not_activated_read_only",
+            "measurementScope": (
+                "legacy_v1_label_locator_and_read_only_ordered_runtime; "
+                "excludes_v2_representative_ranking_and_output_writer"
+            ),
+            "sourcePaths": [item.relative_path for item in sources],
+            "splits": sorted(item.value for item in selected_splits),
+            "stages": {"manifestValidationMilliseconds": manifest_validation_milliseconds},
+            "targetReports": [
+                _scale_report(
+                    available_sources=sources,
+                    manifest_validation_milliseconds=manifest_validation_milliseconds,
+                    model_root=args.model_root,
+                    policies=policies,
+                    target_source_count=target,
+                )
+                for target in targets
+            ],
+            "version": "v7-runtime-performance-v2",
+        }
+        _write_report(args.output, payload)
+        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
     profiles = tuple(
         _run_profile(
             manifest_validation_milliseconds=manifest_validation_milliseconds,

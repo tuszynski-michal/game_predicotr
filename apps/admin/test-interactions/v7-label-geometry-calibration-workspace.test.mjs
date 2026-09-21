@@ -11,6 +11,7 @@ for (const key of [
   'document',
   'HTMLElement',
   'HTMLInputElement',
+  'HTMLSelectElement',
   'Element',
   'Event',
   'MouseEvent',
@@ -38,8 +39,16 @@ Object.defineProperty(globalThis, 'indexedDB', {
 const originalCreateObjectUrl = URL.createObjectURL;
 const originalRevokeObjectUrl = URL.revokeObjectURL;
 let assetNumber = 0;
-URL.createObjectURL = () => `blob:v7-label-geometry-${++assetNumber}`;
-URL.revokeObjectURL = () => {};
+const createdAssetUrls = [];
+const revokedAssetUrls = [];
+URL.createObjectURL = () => {
+  const url = `blob:v7-label-geometry-${++assetNumber}`;
+  createdAssetUrls.push(url);
+  return url;
+};
+URL.revokeObjectURL = (url) => {
+  revokedAssetUrls.push(url);
+};
 
 const { createRoot } = await import('react-dom/client');
 const { V7LabelGeometryCalibrationWorkspace } = await import(
@@ -77,6 +86,13 @@ function session(revision, captureGroups = {}) {
   };
 }
 
+function sessionWithSources(sources, revision = 0) {
+  return {
+    ...session(revision),
+    sources,
+  };
+}
+
 function deferred() {
   let resolve;
   const promise = new Promise((nextResolve) => {
@@ -107,6 +123,23 @@ function image() {
   return current;
 }
 
+function sourceSelect() {
+  const current = document.querySelector('select');
+  assert.ok(current);
+  return current;
+}
+
+function selectSource(sourceId) {
+  const current = sourceSelect();
+  Object.getOwnPropertyDescriptor(
+    dom.window.HTMLSelectElement.prototype,
+    'value',
+  ).set.call(current, sourceId);
+  return act(async () =>
+    current.dispatchEvent(new dom.window.Event('change', { bubbles: true })),
+  );
+}
+
 function button(text) {
   const current = [...document.querySelectorAll('button')].find((node) =>
     node.textContent.includes(text),
@@ -115,7 +148,7 @@ function button(text) {
   return current;
 }
 
-test('V7 workspace serializes durable clicks, rejects edge points, and preserves capture-group draft through a receipt', async () => {
+test('V7 workspace shows durable pending markers before a delayed receipt and keeps fast clicks ordered', async () => {
   const assetA = deferred();
   const assetB = deferred();
   const firstAppend = deferred();
@@ -124,6 +157,7 @@ test('V7 workspace serializes durable clicks, rejects edge points, and preserves
   const thirdMutation = deferred();
   const appended = [];
   const sent = [];
+  const assetRequests = [];
   const initialView = {
     activePositionIndex: 0,
     activeSourceId: sourceA.sourceId,
@@ -160,8 +194,12 @@ test('V7 workspace serializes durable clicks, rejects edge points, and preserves
       throw new Error('unexpected export');
     },
     getV7LabelGeometryCalibrationSession: async () => ({ data: session(0) }),
-    getV7LabelGeometryCalibrationSourceAsset: async (_sessionId, sourceId) =>
-      sourceId === sourceA.sourceId ? await assetA.promise : await assetB.promise,
+    getV7LabelGeometryCalibrationSourceAsset: async (_sessionId, sourceId) => {
+      assetRequests.push(sourceId);
+      return sourceId === sourceA.sourceId
+        ? await assetA.promise
+        : await assetB.promise;
+    },
     mutateV7LabelGeometryCalibrationSession: async (_sessionId, body) => {
       sent.push(body);
       if (sent.length === 1) return await firstMutation.promise;
@@ -203,11 +241,7 @@ test('V7 workspace serializes durable clicks, rejects edge points, and preserves
   );
   assert.equal(appended.length, 0);
 
-  const sourceSelect = document.querySelector('select');
-  sourceSelect.value = sourceB.sourceId;
-  await act(async () =>
-    sourceSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true })),
-  );
+  await selectSource(sourceB.sourceId);
   assert.equal(document.querySelector('img'), null);
   assetB.resolve({ data: new Blob(['b']) });
   await eventually(
@@ -226,6 +260,15 @@ test('V7 workspace serializes durable clicks, rejects edge points, and preserves
   );
   await eventually(() => appended.length === 1, 'first click should enter IndexedDB');
   await act(async () =>
+    button('2').dispatchEvent(
+      new dom.window.MouseEvent('click', { bubbles: true }),
+    ),
+  );
+  await eventually(
+    () => button('2').getAttribute('aria-pressed') === 'true',
+    'the next fast click should select a different label position',
+  );
+  await act(async () =>
     image().dispatchEvent(
       new dom.window.MouseEvent('click', {
         bubbles: true,
@@ -243,27 +286,28 @@ test('V7 workspace serializes durable clicks, rejects edge points, and preserves
       [1, 1],
     ],
   );
+  await eventually(
+    () => document.querySelectorAll('.v7LabelGeometryPoint').length === 2,
+    'two durable clicks should be visible before the first HTTP receipt',
+  );
+  assert.equal(sent.length, 1);
 
-  const captureInput = [...document.querySelectorAll('input')].find(
-    (node) => node.placeholder === 'np. przejście-A',
-  );
-  captureInput.focus();
+  const captureSelect = [...document.querySelectorAll('select')][1];
+  assert.ok(captureSelect);
   Object.getOwnPropertyDescriptor(
-    dom.window.HTMLInputElement.prototype,
+    dom.window.HTMLSelectElement.prototype,
     'value',
-  ).set.call(captureInput, 'operator-draft');
+  ).set.call(captureSelect, 'B');
   await act(async () =>
-    captureInput.dispatchEvent(new dom.window.Event('input', { bubbles: true })),
+    captureSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true })),
   );
+  await eventually(() => appended.length === 3, 'capture group should become durable');
+  assert.equal(captureSelect.value, 'B');
+  assert.equal(appended[2].captureGroupId, 'B');
   firstMutation.resolve({
     data: { receipt: { revision: 1 }, session: session(1) },
   });
   await eventually(() => sent.length === 2, 'receipt should advance only the head');
-  assert.equal(captureInput.value, 'operator-draft');
-  assert.equal(document.activeElement, captureInput);
-  await act(async () => captureInput.blur());
-  await eventually(() => appended.length === 3, 'capture group should become a durable operation');
-  assert.equal(appended[2].captureGroupId, 'operator-draft');
 
   secondMutation.resolve({
     data: { receipt: { revision: 2 }, session: session(2) },
@@ -273,7 +317,310 @@ test('V7 workspace serializes durable clicks, rejects edge points, and preserves
     data: { receipt: { revision: 3 }, session: session(3) },
   });
   await settle();
+  assert.equal(
+    assetRequests.filter((sourceId) => sourceId === sourceB.sourceId).length,
+    1,
+    'the neighbour prefetch is reused when that source becomes active',
+  );
   await act(async () => root.unmount());
+});
+
+test('V7 workspace ignores delayed asset responses after unmount', async () => {
+  const assetA = deferred();
+  const assetB = deferred();
+  const initialView = {
+    activePositionIndex: 0,
+    activeSourceId: sourceA.sourceId,
+    cropAssessment: 'contained',
+    manifestFingerprint: 'f'.repeat(64),
+    queueStoppedReason: null,
+    sessionId,
+    updatedAt: '2026-09-21T00:00:00.000Z',
+  };
+  const store = {
+    appendOperation: async () => {},
+    discardPending: async () => {},
+    load: async () => ({
+      queue: { confirmedRevision: 0, pending: [], stoppedReason: null },
+      view: initialView,
+    }),
+    loadMostRecent: async () => initialView,
+    removeHead: async () => {},
+    saveView: async () => {},
+  };
+  const client = {
+    createV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected create');
+    },
+    createV7LabelGeometryProfile: async () => {
+      throw new Error('unexpected profile');
+    },
+    exportV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected export');
+    },
+    getV7LabelGeometryCalibrationSession: async () => ({ data: session(0) }),
+    getV7LabelGeometryCalibrationSourceAsset: async (_sessionId, sourceId) =>
+      sourceId === sourceA.sourceId ? await assetA.promise : await assetB.promise,
+    mutateV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected mutation');
+    },
+  };
+  const createdBefore = createdAssetUrls.length;
+  const root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(
+      React.createElement(V7LabelGeometryCalibrationWorkspace, {
+        apiBaseUrl: 'http://127.0.0.1:8000',
+        client,
+        localStore: store,
+      }),
+    ),
+  );
+  await eventually(() => sourceSelect() !== null, 'workspace should restore the session');
+  await act(async () => root.unmount());
+  assetA.resolve({ data: new Blob(['a']) });
+  assetB.resolve({ data: new Blob(['b']) });
+  await settle();
+  assert.equal(
+    createdAssetUrls.length,
+    createdBefore,
+    'a late response must not create an object URL after workspace cleanup',
+  );
+});
+
+test('V7 workspace does not repeatedly fetch a source after a stable asset error', async () => {
+  const assetRequests = [];
+  const initialView = {
+    activePositionIndex: 0,
+    activeSourceId: sourceA.sourceId,
+    cropAssessment: 'contained',
+    manifestFingerprint: 'f'.repeat(64),
+    queueStoppedReason: null,
+    sessionId,
+    updatedAt: '2026-09-21T00:00:00.000Z',
+  };
+  const store = {
+    appendOperation: async () => {},
+    discardPending: async () => {},
+    load: async () => ({
+      queue: { confirmedRevision: 0, pending: [], stoppedReason: null },
+      view: initialView,
+    }),
+    loadMostRecent: async () => initialView,
+    removeHead: async () => {},
+    saveView: async () => {},
+  };
+  const client = {
+    createV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected create');
+    },
+    createV7LabelGeometryProfile: async () => {
+      throw new Error('unexpected profile');
+    },
+    exportV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected export');
+    },
+    getV7LabelGeometryCalibrationSession: async () => ({ data: session(0) }),
+    getV7LabelGeometryCalibrationSourceAsset: async (_sessionId, sourceId) => {
+      assetRequests.push(sourceId);
+      return { error: { code: 'V7_SOURCE_DRIFT' } };
+    },
+    mutateV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected mutation');
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () =>
+      root.render(
+        React.createElement(V7LabelGeometryCalibrationWorkspace, {
+          apiBaseUrl: 'http://127.0.0.1:8000',
+          client,
+          localStore: store,
+        }),
+      ),
+    );
+    await eventually(() => assetRequests.length === 2, 'both initial requests should run once');
+    await settle();
+    await settle();
+    assert.deepEqual(assetRequests, [sourceA.sourceId, sourceB.sourceId]);
+    assert.notEqual(
+      document.querySelector('.v7LabelGeometryImageFrame p')?.textContent,
+      'Wczytuję kanoniczny PNG…',
+      'the stable asset error should remain visible until the source changes',
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('V7 workspace keeps an oversized uncached active asset after scheduler updates', async () => {
+  const neighbour = deferred();
+  const initialView = {
+    activePositionIndex: 0,
+    activeSourceId: sourceA.sourceId,
+    cropAssessment: 'contained',
+    manifestFingerprint: 'f'.repeat(64),
+    queueStoppedReason: null,
+    sessionId,
+    updatedAt: '2026-09-21T00:00:00.000Z',
+  };
+  const oversized = new Blob(['canonical source']);
+  Object.defineProperty(oversized, 'size', { value: 64 * 1024 * 1024 + 1 });
+  const store = {
+    appendOperation: async () => {},
+    discardPending: async () => {},
+    load: async () => ({
+      queue: { confirmedRevision: 0, pending: [], stoppedReason: null },
+      view: initialView,
+    }),
+    loadMostRecent: async () => initialView,
+    removeHead: async () => {},
+    saveView: async () => {},
+  };
+  const client = {
+    createV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected create');
+    },
+    createV7LabelGeometryProfile: async () => {
+      throw new Error('unexpected profile');
+    },
+    exportV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected export');
+    },
+    getV7LabelGeometryCalibrationSession: async () => ({ data: session(0) }),
+    getV7LabelGeometryCalibrationSourceAsset: async (_sessionId, sourceId) =>
+      sourceId === sourceA.sourceId
+        ? { data: oversized }
+        : await neighbour.promise,
+    mutateV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected mutation');
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () =>
+      root.render(
+        React.createElement(V7LabelGeometryCalibrationWorkspace, {
+          apiBaseUrl: 'http://127.0.0.1:8000',
+          client,
+          localStore: store,
+        }),
+      ),
+    );
+    await eventually(() => document.querySelector('img') !== null, 'oversized asset should render');
+    const activeUrl = image().getAttribute('src');
+    await settle();
+    await settle();
+    assert.equal(image().getAttribute('src'), activeUrl);
+  } finally {
+    neighbour.resolve({ data: new Blob(['b']) });
+    await act(async () => root.unmount());
+  }
+});
+
+test('V7 workspace keeps the active asset while delayed neighbours fill the cache', async () => {
+  const sources = ['a', 'b', 'c', 'd', 'e'].map((letter) => ({
+    corpusCaseId: 'small_777',
+    sourceChecksumSha256: letter.repeat(64),
+    sourceId: `source-${letter}`,
+  }));
+  const [sourceOne, sourceTwo, sourceThree, sourceFour, sourceFive] = sources;
+  const assets = new Map(sources.map((source) => [source.sourceId, deferred()]));
+  const initialView = {
+    activePositionIndex: 0,
+    activeSourceId: sourceOne.sourceId,
+    cropAssessment: 'contained',
+    manifestFingerprint: 'f'.repeat(64),
+    queueStoppedReason: null,
+    sessionId,
+    updatedAt: '2026-09-21T00:00:00.000Z',
+  };
+  const store = {
+    appendOperation: async () => {},
+    discardPending: async () => {},
+    load: async () => ({
+      queue: { confirmedRevision: 0, pending: [], stoppedReason: null },
+      view: initialView,
+    }),
+    loadMostRecent: async () => initialView,
+    removeHead: async () => {},
+    saveView: async () => {},
+  };
+  const client = {
+    createV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected create');
+    },
+    createV7LabelGeometryProfile: async () => {
+      throw new Error('unexpected profile');
+    },
+    exportV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected export');
+    },
+    getV7LabelGeometryCalibrationSession: async () => ({
+      data: sessionWithSources(sources),
+    }),
+    getV7LabelGeometryCalibrationSourceAsset: async (_sessionId, sourceId) =>
+      await assets.get(sourceId).promise,
+    mutateV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected mutation');
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () =>
+      root.render(
+        React.createElement(V7LabelGeometryCalibrationWorkspace, {
+          apiBaseUrl: 'http://127.0.0.1:8000',
+          client,
+          localStore: store,
+        }),
+      ),
+    );
+    await eventually(() => sourceSelect() !== null, 'workspace should restore the session');
+    await settle();
+    assets.get(sourceOne.sourceId).resolve({ data: new Blob(['a']) });
+    await eventually(
+      () => document.querySelector('img') !== null,
+      'first asset should render',
+    );
+    await selectSource(sourceThree.sourceId);
+    const createdBeforeThird = createdAssetUrls.length;
+    assets.get(sourceThree.sourceId).resolve({ data: new Blob(['c']) });
+    await eventually(
+      () => createdAssetUrls.length === createdBeforeThird + 1,
+      'third source should create its cached asset',
+    );
+    const thirdUrl = createdAssetUrls.at(-1);
+    await eventually(
+      () => image().getAttribute('src') === thirdUrl,
+      'third source should become active',
+    );
+    await selectSource(sourceFive.sourceId);
+    const createdBeforeFifth = createdAssetUrls.length;
+    assets.get(sourceFive.sourceId).resolve({ data: new Blob(['e']) });
+    await eventually(
+      () => createdAssetUrls.length === createdBeforeFifth + 1,
+      'fifth source should create its cached asset',
+    );
+    const fifthUrl = createdAssetUrls.at(-1);
+    await eventually(
+      () => image().getAttribute('src') === fifthUrl,
+      'fifth source should become active',
+    );
+    const activeUrl = image().getAttribute('src');
+    assets.get(sourceFour.sourceId).resolve({ data: new Blob(['d']) });
+    await settle();
+    assert.equal(image().getAttribute('src'), activeUrl);
+    assert.equal(
+      revokedAssetUrls.includes(activeUrl),
+      false,
+      'a delayed neighbour must not revoke the currently displayed object URL',
+    );
+  } finally {
+    assets.get(sourceTwo.sourceId).resolve({ data: new Blob(['b']) });
+    await act(async () => root.unmount());
+  }
 });
 
 test('discard blocks a delayed local deletion from racing with flush or a new annotation', async () => {

@@ -10112,6 +10112,7 @@ div.imageJobInlineError {
 .v7LabelGeometryReadiness {
   display: grid;
   gap: 10px;
+  order: 5;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -10158,6 +10159,7 @@ div.imageJobInlineError {
   flex-wrap: wrap;
   align-items: end;
   justify-content: flex-start;
+  order: 2;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -10166,6 +10168,21 @@ div.imageJobInlineError {
 .v7LabelGeometryAssessment > span {
   max-width: 460px;
   font-size: 13px;
+}
+
+.v7LabelGeometryUnavailable {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.v7LabelGeometryUnavailable input {
+  width: 18px;
+  height: 18px;
 }
 
 .v7LabelGeometryImageFrame {
@@ -10178,6 +10195,7 @@ div.imageJobInlineError {
   border: 1px solid var(--line-strong);
   border-radius: 12px;
   background: #050a12;
+  order: 3;
 }
 
 .v7LabelGeometryImage {
@@ -10218,6 +10236,7 @@ div.imageJobInlineError {
 
 .v7LabelGeometryFinalization {
   justify-content: flex-end;
+  order: 4;
 }
 
 @media (max-width: 860px) {

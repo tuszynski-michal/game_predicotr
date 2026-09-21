@@ -6,6 +6,7 @@ import {
   enqueueV7LabelGeometryOperation,
   isV7LabelGeometryPointInsideServerBounds,
   normaliseV7LabelGeometryPoint,
+  projectV7LabelGeometryPendingSlots,
   restoreV7LabelGeometryQueue,
   resumeV7LabelGeometryQueue,
   stopV7LabelGeometryQueue,
@@ -158,6 +159,52 @@ test('canonical asset key changes for a new source or checksum', () => {
   assert.notEqual(
     original,
     v7LabelGeometryAssetKey(sessionId, sourceId, 'b'.repeat(64)),
+  );
+});
+
+test('display projection shows durable pending markers without treating them as server confirmations', () => {
+  const queued = enqueueV7LabelGeometryOperation(baseQueue(), {
+    centerX: 0.25,
+    centerY: 0.75,
+    cropAssessment: 'contained',
+    kind: 'annotated',
+    operationId: '00000000-0000-4000-8000-000000000009',
+    positionIndex: 0,
+    sessionId,
+    sourceId,
+  });
+  const unavailable = enqueueV7LabelGeometryOperation(queued, {
+    kind: 'unavailable',
+    operationId: '00000000-0000-4000-8000-000000000010',
+    positionIndex: 1,
+    sessionId,
+    sourceId,
+  });
+
+  assert.deepEqual(
+    projectV7LabelGeometryPendingSlots([], unavailable.pending, sourceId),
+    [
+      {
+        centerX: 0.25,
+        centerY: 0.75,
+        cropAssessment: 'contained',
+        positionIndex: 0,
+        sourceId,
+        state: 'annotated',
+      },
+      {
+        centerX: null,
+        centerY: null,
+        cropAssessment: null,
+        positionIndex: 1,
+        sourceId,
+        state: 'unavailable',
+      },
+    ],
+  );
+  assert.deepEqual(
+    projectV7LabelGeometryPendingSlots([], unavailable.pending, 'other-source'),
+    [],
   );
 });
 

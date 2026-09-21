@@ -1412,3 +1412,29 @@ ustawienie scrolla do czasu załadowania obrazu, więc odtworzona pozycja docier
 do DOM i nie jest zastępowana wartościami domyślnymi. Historyczny run, który
 utracił uchwyt wyniku, może ponownie wskazać wyłącznie własny legacy output;
 ta kontrolka nie jest dostępna dla V7.
+
+## Uporządkowany runtime i pomiar V7 — TASK-0595
+
+V7 może równolegle wyłącznie przygotować następne źródła, w tym odczytać plik,
+ustawić orientację EXIF i zdekodować RGB. Jeden stateful consumer wykonuje
+lokalizację etykiet, OCR, quality i checkpoint dokładnie w rosnącej kolejności
+`source_index` przypiętego manifestu. Okno jest ograniczone do `1–4` workerów
+i `max_in_flight` od liczby workerów do ośmiu; nie przechowuje pełnego katalogu
+JPEG-ów, cropów ani wyników OCR w RAM. Błąd przygotowania anuluje tylko własne
+oczekujące futures i nie przepuszcza późniejszego źródła do consumera. Wcześniej
+przetworzony prefiks jest wyłącznie checkpointem skanu, nigdy outputem JPEG.
+
+Benchmark jest read-only: przed pomiarem OCR porównuje pełny manifest z
+zamrożonym inwentarzem T01, domyślnie nie wybiera validation/holdout jako
+źródła obserwacji i odmawia zapisu istniejącego raportu. Raport rozdziela czas walidacji
+manifestu, inicjalizacji modelu, dekodowania, lokalizatora, OCR, konsumera i
+finalizacji oraz podaje cold `endToEndMilliseconds`, a także throughput, peak RSS/Python i stan VRAM. Na pomiarze T11
+Paddle `3.3.1` działał na CPU (`compiledWithCuda=false`), dlatego VRAM jest
+`unavailable_cpu_runtime`; sprzęt widoczny w systemie nie aktywuje GPU.
+
+Pięć źródeł z development/calibration dało ten sam digest uporządkowanych
+obserwacji dla 1, 2 i 4 workerów. Najszybszy profil tej ograniczonej próbki to
+4 workery / `max_in_flight=8` (777,5305 ms dla pięciu źródeł, 6,4306 źródeł/s;
+3 668,5503 ms cold end-to-end z walidacją i inicjalizacją).
+Jest to ustawienie początkowe runtime'u, nie dowód jakości OCR, kalibracji ani
+zgoda na aktywację V7. Pełny raport: `ai_docs/quality/V7_T11_RUNTIME_PERFORMANCE.json`.

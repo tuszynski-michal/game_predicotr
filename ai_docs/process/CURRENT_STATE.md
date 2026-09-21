@@ -6,6 +6,23 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0595 — wydajność i uporządkowany runtime V7
+
+- `v7_ordered_runtime.py` ogranicza przygotowanie JPEG-ów do okna `1–4`
+  workerów i maksymalnie ośmiu future/payloadów. Tylko prepare jest równoległy;
+  source-local lokalizacja, OCR i checkpoint są jednym consumerem w rosnącej
+  kolejności `source_index`. Błąd anuluje oczekujące futures i nie konsumuje
+  późniejszego źródła; prefix należy wyłącznie do checkpointu wywołującego.
+- Read-only benchmark T11 sprawdza manifest i zamrożony inwentarz przed
+  dekodowaniem, używa validation/holdout wyłącznie do kontroli inwentarza, a
+  obserwacje OCR wykonuje tylko na development/calibration. Raportuje czasy etapów,
+  throughput, RSS/Python oraz VRAM. Pięć źródeł miało identyczny digest dla
+  1/2/4 workerów; 4/8 dało 777,5305 ms i 6,4306 źródeł/s. Paddle 3.3.1 jest
+  nadal CPU-only, więc VRAM ma status `unavailable_cpu_runtime`.
+- Wynik (`ai_docs/quality/V7_T11_RUNTIME_PERFORMANCE.json`) jest pomiarem
+  ograniczonym, nie kalibracją i nie aktywuje V7. T12 nadal wymaga niezależnego
+  odbioru oraz utrzymuje backendową blokadę startu.
+
 ### TASK-0594 — formularz i trwały podgląd V7
 
 - Nowe uruchomienie półautomatu tworzy wyłącznie kanoniczny `v7_selection`.

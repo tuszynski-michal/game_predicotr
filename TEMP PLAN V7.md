@@ -17,21 +17,21 @@ zaakceptowanego planu `ai_docs/delivery/SEMI_AUTOMATIC_SELECTION_V7_EXECUTION_PL
 
 ## Stan
 
-| Task | Status | Rezultat i bramka przejścia |
-|---|---|---|
-| T00 | done, `v0.10.318` | Model, runtime i korpus sprawdzone. Historyczny OCR v3 nie lokalizuje etykiet; nie jest dowodem v7. |
-| T01 | done, `v0.10.319` | Konfiguracja pełnych stron, kierunek, `cut`, style, zamrożony korpus i role splitów. |
-| T02 | done, `v0.10.320` | Lokalizator poziomej siatki 3×3, OCR własnych etykiet i proof 5 / 3+3; realny pomiar wykazał odczyt na 777, lecz proof pozostaje bezpiecznie zablokowany do kalibracji geometrii T05. |
-| T03 | done, `v0.10.321` | Wystąpienia, luki, niezależne kursory, EOF, restart i globalna finalizacja bez cofania kursora. |
-| T04 | done, `v0.10.322` | Ocena jakości per plansza, niepewność, ranking kandydatów i warningi góra/dół. |
-| T05 | done, `v0.10.323` | Wersjonowana kalibracja i metryki fail-closed; realny probe nadal nie ma wiarygodnej geometrii, więc aktywacja pozostaje zablokowana. |
-| T06 | done, `v0.10.324` | Addytywna migracja, kanoniczna konfiguracja i API/OpenAPI; backend blokuje V7 przed odczytem źródła do T12. |
-| T07 | done, `v0.10.325` | Przypięty manifest, JSON checkpoint skanu/finalizacji, pause/cancel/restart oraz blokada driftu bez zapisu JPEG-a. |
-| T08 | done, `v0.10.326` | Pierwszy output bez nadpisania, journal operacji, kontrola generacji i manifestu, blokada katalogu oraz recovery po awarii. |
-| T09 | done, `v0.10.327` | Manual replace, pierwszy półautomat, ręczny no-OCR, częściowa strona 1–8 i retry. |
-| T10 | done, `v0.10.328` | Formularz V7, kanoniczne granice stron, blokada odbioru, target `cut`, read-only sąsiedzi i trwałe kursory. |
-| T11 | todo | CPU/GPU/RAM, uporządkowana równoległość, limity buforów i raport czasów. |
-| T12 | todo | Odbiór holdoutu, recovery/kompatybilność, raport i dopiero aktywacja produkcyjna. |
+| Task | Status            | Rezultat i bramka przejścia                                                                                                                                                             |
+| ---- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T00  | done, `v0.10.318` | Model, runtime i korpus sprawdzone. Historyczny OCR v3 nie lokalizuje etykiet; nie jest dowodem v7.                                                                                     |
+| T01  | done, `v0.10.319` | Konfiguracja pełnych stron, kierunek, `cut`, style, zamrożony korpus i role splitów.                                                                                                    |
+| T02  | done, `v0.10.320` | Lokalizator poziomej siatki 3×3, OCR własnych etykiet i proof 5 / 3+3; realny pomiar wykazał odczyt na 777, lecz proof pozostaje bezpiecznie zablokowany do kalibracji geometrii T05.   |
+| T03  | done, `v0.10.321` | Wystąpienia, luki, niezależne kursory, EOF, restart i globalna finalizacja bez cofania kursora.                                                                                         |
+| T04  | done, `v0.10.322` | Ocena jakości per plansza, niepewność, ranking kandydatów i warningi góra/dół.                                                                                                          |
+| T05  | done, `v0.10.323` | Wersjonowana kalibracja i metryki fail-closed; realny probe nadal nie ma wiarygodnej geometrii, więc aktywacja pozostaje zablokowana.                                                   |
+| T06  | done, `v0.10.324` | Addytywna migracja, kanoniczna konfiguracja i API/OpenAPI; backend blokuje V7 przed odczytem źródła do T12.                                                                             |
+| T07  | done, `v0.10.325` | Przypięty manifest, JSON checkpoint skanu/finalizacji, pause/cancel/restart oraz blokada driftu bez zapisu JPEG-a.                                                                      |
+| T08  | done, `v0.10.326` | Pierwszy output bez nadpisania, journal operacji, kontrola generacji i manifestu, blokada katalogu oraz recovery po awarii.                                                             |
+| T09  | done, `v0.10.327` | Manual replace, pierwszy półautomat, ręczny no-OCR, częściowa strona 1–8 i retry.                                                                                                       |
+| T10  | done, `v0.10.328` | Formularz V7, kanoniczne granice stron, blokada odbioru, target `cut`, read-only sąsiedzi i trwałe kursory.                                                                             |
+| T11  | done, `v0.10.329` | Bounded prepare 1–4 / seryjny OCR, limit 8 payloadów i read-only raport CPU/RAM/VRAM. Pięć źródeł dało ten sam digest; profil 4/8 jest najszybszy, ale V7 pozostaje zablokowane do T12. |
+| T12  | todo              | Odbiór holdoutu, recovery/kompatybilność, raport i dopiero aktywacja produkcyjna.                                                                                                       |
 
 ## T02 — obecne wykonanie
 

@@ -1,0 +1,133 @@
+{
+  "corpusManifestFingerprint": "604185fbe5d8bbfe071788dd38a9bf6cf764d16561415afcf4e29b70d54ffda9",
+  "device": {
+    "compiledWithCuda": false,
+    "device": "cpu",
+    "gpuDeviceCount": 0,
+    "version": "3.3.1",
+    "vramBytes": null,
+    "vramStatus": "unavailable_cpu_runtime"
+  },
+  "profiles": [
+    {
+      "memory": {
+        "baselineRssBytes": 276267008,
+        "peakRssBytes": 327168000,
+        "peakRssDeltaBytes": 50900992,
+        "peakTracedPythonBytes": 9998906
+      },
+      "observationDigest": "26ddad7be83be5065a6ff1409e7c86a09f7c33e1057b8ef021360a4fb1989e29",
+      "policy": {
+        "maxInFlight": 2,
+        "prepareWorkers": 1
+      },
+      "runtime": {
+        "consumeMilliseconds": 1083.4323,
+        "inputCount": 5,
+        "maxInFlightObserved": 2,
+        "maxQueuedReadyObserved": 0,
+        "prepareMilliseconds": 923.3771,
+        "totalMilliseconds": 1164.6741
+      },
+      "stages": {
+        "decodeMilliseconds": 914.6834,
+        "endToEndMilliseconds": 4045.1793,
+        "finalizationMilliseconds": 0.9684,
+        "locatorMilliseconds": 1.5843,
+        "modelInitializationMilliseconds": 370.6088,
+        "ocrMilliseconds": 1081.4826,
+        "orderedConsumeMilliseconds": 1083.4323,
+        "sourceFingerprintMilliseconds": 6.9158,
+        "totalMilliseconds": 1166.9597
+      },
+      "throughputSourcesPerSecond": 4.2846
+    },
+    {
+      "memory": {
+        "baselineRssBytes": 306044928,
+        "peakRssBytes": 338788352,
+        "peakRssDeltaBytes": 32743424,
+        "peakTracedPythonBytes": 15154674
+      },
+      "observationDigest": "26ddad7be83be5065a6ff1409e7c86a09f7c33e1057b8ef021360a4fb1989e29",
+      "policy": {
+        "maxInFlight": 4,
+        "prepareWorkers": 2
+      },
+      "runtime": {
+        "consumeMilliseconds": 848.2382,
+        "inputCount": 5,
+        "maxInFlightObserved": 4,
+        "maxQueuedReadyObserved": 0,
+        "prepareMilliseconds": 1255.7302,
+        "totalMilliseconds": 889.9819
+      },
+      "stages": {
+        "decodeMilliseconds": 1242.2241,
+        "endToEndMilliseconds": 3762.5126,
+        "finalizationMilliseconds": 0.8692,
+        "locatorMilliseconds": 1.3571,
+        "modelInitializationMilliseconds": 363.3257,
+        "ocrMilliseconds": 846.5804,
+        "orderedConsumeMilliseconds": 848.2382,
+        "sourceFingerprintMilliseconds": 11.8625,
+        "totalMilliseconds": 891.5761
+      },
+      "throughputSourcesPerSecond": 5.608
+    },
+    {
+      "memory": {
+        "baselineRssBytes": 307376128,
+        "peakRssBytes": 338079744,
+        "peakRssDeltaBytes": 30703616,
+        "peakTracedPythonBytes": 23115934
+      },
+      "observationDigest": "26ddad7be83be5065a6ff1409e7c86a09f7c33e1057b8ef021360a4fb1989e29",
+      "policy": {
+        "maxInFlight": 8,
+        "prepareWorkers": 4
+      },
+      "runtime": {
+        "consumeMilliseconds": 752.8674,
+        "inputCount": 5,
+        "maxInFlightObserved": 5,
+        "maxQueuedReadyObserved": 2,
+        "prepareMilliseconds": 480.6232,
+        "totalMilliseconds": 775.8577
+      },
+      "stages": {
+        "decodeMilliseconds": 463.4991,
+        "endToEndMilliseconds": 3668.5503,
+        "finalizationMilliseconds": 0.8925,
+        "locatorMilliseconds": 1.338,
+        "modelInitializationMilliseconds": 383.409,
+        "ocrMilliseconds": 751.1672,
+        "orderedConsumeMilliseconds": 752.8674,
+        "sourceFingerprintMilliseconds": 15.3539,
+        "totalMilliseconds": 777.5305
+      },
+      "throughputSourcesPerSecond": 6.4306
+    }
+  ],
+  "recommendation": {
+    "deterministic": true,
+    "maxInFlight": 8,
+    "selectedPrepareWorkers": 4
+  },
+  "sampleCount": 5,
+  "sourcePaths": [
+    "777/302200 777_000645.jpg",
+    "777 - przysłoniete częściowo plansze/45164_027226.jpg",
+    "blazing/blazing135300_000091.jpg",
+    "gang/GANG 73500_000100.jpg",
+    "tresure/tresure375300_000184.jpg"
+  ],
+  "splits": [
+    "calibration",
+    "development"
+  ],
+  "stages": {
+    "manifestValidationMilliseconds": 2507.6108
+  },
+  "version": "v7-runtime-performance-v1"
+}

@@ -2015,3 +2015,43 @@ widok jako oczekujący na restore i aplikuje refy scrolla dopiero po otrzymaniu
 wymiarów obrazu. Historyczny run bez przywróconego uchwytu outputu odzyskuje go
 osobną kontrolką legacy, która zapisuje go razem z bieżącym UI i nie jest
 dostępna dla `v7_selection`.
+
+## Uporządkowany runtime i benchmark V7 — TASK-0595
+
+`v7_ordered_runtime.py` jest framework-free schedulerem pomiędzy przypiętym
+manifestem a mutowalnym consumerem skanu. Przed otwarciem workera waliduje
+unikalne, kolejne i nieujemne `source_index`. Do `ThreadPoolExecutor` trafia
+wyłącznie funkcja `prepare`; drugi etap `consume` odczytuje future o najniższym
+nieprzetworzonym indeksie. W rezultacie dekodowanie późniejszych źródeł może
+zakończyć się wcześniej, ale lokalizator, jeden recognizer Paddle, quality i
+checkpoint pozostają seryjne i deterministyczne.
+
+Scheduler trzyma co najwyżej `max_in_flight` future/payloadów, z polityką
+`max_in_flight = min(8, 2 * prepare_workers)` dla `1–4` workerów. Po każdym
+seryjnym consume planuje najwyżej jedno kolejne źródło. Błąd prepare lub
+consumer'a opakowuje indeks i etap, anuluje własne jeszcze nieuruchomione
+futures oraz nie dopuszcza późniejszego indeksu do consumera. Jeżeli worker
+przygotowywał już źródło w chwili błędu, scheduler czeka na jego bezpieczne
+zakończenie, ale wynik nie jest konsumowany; wcześniej skonsumowany prefiks
+należy do checkpointu wywołującego i nie jest outputem. Scheduler nie zwraca
+listy wyników consume: consumer od razu przekazuje małą metadankę do własnego,
+ograniczonego checkpointu/sinku, aby runtime nie gromadził katalogu OCR w RAM.
+
+`benchmark_v7_selection_runtime.py` pozostaje poza API i runtime'em joba.
+Najpierw porównuje `V7CorpusManifest.freeze_inventory()` z inwentarzem T01,
+potem wybiera deterministycznie najwyżej trzy bezpośrednie JPEG-i z każdego
+case development/calibration, bez używania validation/holdout jako obserwacji
+OCR. Decode wykonuje EXIF →
+RGB równolegle, a serialny consumer używa pojedynczego
+`build_middle_row_paddle_adapter` i `V7GridLabelLocator`. Raport JSON tworzy
+się tylko jako nowy plik wewnątrz checkoutu; nie tworzy runu, katalogu `cut`,
+operacji journalu ani JPEG-a.
+
+Digest benchmarku obejmuje tylko uporządkowane obserwacje (`sourceIndex`,
+ścieżkę, SHA-256 wejścia, case i wszystkie odpowiedzi OCR), a nie czasy ani
+pamięć. Profil `1/2/4` jest
+deterministyczny wyłącznie przy identycznych digestach; w przeciwnym razie
+rekomendacja fail-closed wraca do jednego workera. Pomiar T11 rekomenduje 4
+workery i okno 8 po identycznym digescie pięciu źródeł, lecz zapisuje CPU-only
+Paddle i `unavailable_cpu_runtime` dla VRAM. T12 nie może traktować tej
+rekomendacji jako odbioru proofu, kalibracji lub bramki aktywacji.

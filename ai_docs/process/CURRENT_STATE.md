@@ -6,6 +6,21 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0606 — dynamiczny viewport etykiet V7 V2
+
+- Zakończono wersjonowaną rodzinę `standard_3x3_numeric_labels_v2`. V2 wykrywa
+  lokalną siatkę etykiet niezależnie od koloru ramki i normalizuje cropy względem
+  niej; V1 zachowuje payload i zachowanie. Brak/konflikt/za duży residual siatki
+  kończy się pustym wynikiem, a odwrócona lub osobliwa topologia kalibracji jest
+  odrzucana.
+- Przeszło 30 testów V1/V2, Ruff i Mypy. Pomiar diagnostyczny na pierwszych 30
+  pełnych źródłach 777 dał 21 pełnych siatek; to nie jest odbiór ani aktywacja.
+  Astra Medium znalazła trzy P2 fail-closed i końcowy re-audyt potwierdził ich
+  poprawę bez P0–P2. V7, gate i writer nadal są zablokowane.
+- TASK-0607 zawiera odrębnie wszystkie uwagi operatora o szybkości panelu,
+  markerach, checkboxie, selekcie grup, doborze pełnych kadrów i benchmarkach
+  100/300/500.
+
 ### TASK-0605 — walidacja T05 i adopcje profilu geometrii V7
 
 - Powstał trwały, content-addressed registry raportów T05 i adopcji pod

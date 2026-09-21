@@ -1011,23 +1011,35 @@ def _profile_from_payload(payload: dict[str, object]) -> V7GeometryProfile:
     if not isinstance(calibration_payload, dict):
         raise ValueError("calibration")
     from game_predictor_worker.semi_automatic_selection.v7_label_locator import (
+        V7DynamicGridLabelLocatorConfig,
         V7GridLabelLocatorConfig,
     )
 
     config_payload = calibration_payload["locatorConfig"]
     if not isinstance(config_payload, dict):
         raise ValueError("locatorConfig")
-    centers = config_payload["centers"]
-    if not isinstance(centers, list):
-        raise ValueError("centers")
-    config = V7GridLabelLocatorConfig(
-        centers=tuple((float(item[0]), float(item[1])) for item in centers),
-        width_ratios=tuple(float(value) for value in config_payload["widthRatios"]),
-        height_ratio=float(config_payload["heightRatio"]),
-        minimum_aspect_ratio=float(config_payload["minimumAspectRatio"]),
-        maximum_aspect_ratio=float(config_payload["maximumAspectRatio"]),
-        position_confidence=float(config_payload["positionConfidence"]),
-    )
+    if config_payload.get("kind") == "dynamic_lattice_v2":
+        config = V7DynamicGridLabelLocatorConfig(
+            crop_height_spacing_ratio=float(config_payload["cropHeightSpacingRatio"]),
+            crop_width_spacing_ratio=float(config_payload["cropWidthSpacingRatio"]),
+            minimum_aspect_ratio=float(config_payload["minimumAspectRatio"]),
+            maximum_aspect_ratio=float(config_payload["maximumAspectRatio"]),
+            minimum_lattice_margin=float(config_payload["minimumLatticeMargin"]),
+            maximum_lattice_residual_ratio=float(config_payload["maximumLatticeResidualRatio"]),
+            position_confidence=float(config_payload["positionConfidence"]),
+        )
+    else:
+        centers = config_payload["centers"]
+        if not isinstance(centers, list):
+            raise ValueError("centers")
+        config = V7GridLabelLocatorConfig(
+            centers=tuple((float(item[0]), float(item[1])) for item in centers),
+            width_ratios=tuple(float(value) for value in config_payload["widthRatios"]),
+            height_ratio=float(config_payload["heightRatio"]),
+            minimum_aspect_ratio=float(config_payload["minimumAspectRatio"]),
+            maximum_aspect_ratio=float(config_payload["maximumAspectRatio"]),
+            position_confidence=float(config_payload["positionConfidence"]),
+        )
     calibration = V7GeometryCalibration(
         manifest_fingerprint=str(calibration_payload["manifestFingerprint"]),
         input_fingerprint=str(calibration_payload["inputFingerprint"]),

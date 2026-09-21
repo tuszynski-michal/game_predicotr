@@ -10,9 +10,16 @@ from dataclasses import dataclass
 from enum import StrEnum
 from statistics import median
 
+import cv2
+import numpy as np
+
 from .contracts import validate_sha256
 from .v7_configuration import V7CorpusSplit
-from .v7_label_locator import V7GridLabelLocatorConfig
+from .v7_label_locator import (
+    V7DynamicGridLabelLocatorConfig,
+    V7GridLabelLocatorConfig,
+    V7LabelLocatorConfig,
+)
 
 V7_CALIBRATION_VERSION = "v7-calibration-v2"
 V7_CALIBRATION_MINIMUM_SOURCES_PER_POSITION = 5
@@ -21,6 +28,7 @@ V7_CALIBRATION_MAXIMUM_P95_CENTER_RESIDUAL = 0.04
 V7_CALIBRATION_POSITION_CONFIDENCE = 0.95
 V7_ACCEPTANCE_MINIMUM_PERCENT = 95
 V7_STANDARD_GEOMETRY_FAMILY_ID = "standard_3x3_numeric_labels_v1"
+V7_DYNAMIC_GEOMETRY_FAMILY_ID = "standard_3x3_numeric_labels_v2"
 
 
 class V7CalibrationError(ValueError):
@@ -140,7 +148,7 @@ class V7GeometryCalibration:
     manifest_fingerprint: str
     input_fingerprint: str
     geometry_family_id: str
-    locator_config: V7GridLabelLocatorConfig
+    locator_config: V7LabelLocatorConfig
     source_count_by_position: tuple[int, ...]
     capture_group_count_by_position: tuple[int, ...]
     p95_center_residual_by_position: tuple[float, ...]
@@ -167,6 +175,14 @@ class V7GeometryCalibration:
             or not 0 < self.maximum_p95_center_residual < 1
             or not 0 <= self.p95_center_residual < 1
             or self.locator_config.position_confidence != V7_CALIBRATION_POSITION_CONFIDENCE
+            or (
+                self.geometry_family_id == V7_STANDARD_GEOMETRY_FAMILY_ID
+                and not isinstance(self.locator_config, V7GridLabelLocatorConfig)
+            )
+            or (
+                self.geometry_family_id == V7_DYNAMIC_GEOMETRY_FAMILY_ID
+                and not isinstance(self.locator_config, V7DynamicGridLabelLocatorConfig)
+            )
         ):
             raise V7CalibrationError("V7 geometry calibration is invalid.")
         try:
@@ -747,25 +763,34 @@ def calibrate_v7_label_geometry(
         raise V7CalibrationError(
             "V7 geometry calibration lacks independent capture groups for a position."
         )
-    centers = tuple(
-        (median(item.center_x for item in position), median(item.center_y for item in position))
-        for position in positions
-    )
-    residual_values = tuple(
-        math.hypot(
-            item.center_x - centers[item.position_index][0],
-            item.center_y - centers[item.position_index][1],
+    if geometry_family_id == V7_DYNAMIC_GEOMETRY_FAMILY_ID:
+        config: V7LabelLocatorConfig = V7DynamicGridLabelLocatorConfig(
+            position_confidence=V7_CALIBRATION_POSITION_CONFIDENCE,
         )
-        for item in values
-    )
+        residual_by_annotation = _dynamic_lattice_residuals(values)
+        residual_values = tuple(residual_by_annotation[_geometry_sort_key(item)] for item in values)
+    else:
+        centers = tuple(
+            (median(item.center_x for item in position), median(item.center_y for item in position))
+            for position in positions
+        )
+        residual_by_annotation = {
+            _geometry_sort_key(item): math.hypot(
+                item.center_x - centers[item.position_index][0],
+                item.center_y - centers[item.position_index][1],
+            )
+            for item in values
+        }
+        residual_values = tuple(residual_by_annotation[_geometry_sort_key(item)] for item in values)
+        config = V7GridLabelLocatorConfig(
+            centers=centers,
+            position_confidence=V7_CALIBRATION_POSITION_CONFIDENCE,
+        )
     residuals = sorted(residual_values)
     p95 = residuals[math.ceil(len(residuals) * 0.95) - 1]
     p95_by_position = tuple(
         sorted(
-            math.hypot(
-                item.center_x - centers[position][0],
-                item.center_y - centers[position][1],
-            )
+            residual_by_annotation[_geometry_sort_key(item)]
             for item in values
             if item.position_index == position
         )[math.ceil(len(position_values) * 0.95) - 1]
@@ -775,10 +800,6 @@ def calibrate_v7_label_geometry(
         validate_sha256(manifest_fingerprint, field="manifestFingerprint")
     except ValueError as error:
         raise V7CalibrationError("V7 geometry manifest fingerprint is invalid.") from error
-    config = V7GridLabelLocatorConfig(
-        centers=centers,
-        position_confidence=V7_CALIBRATION_POSITION_CONFIDENCE,
-    )
     return V7GeometryCalibration(
         manifest_fingerprint=manifest_fingerprint,
         geometry_family_id=geometry_family_id,
@@ -800,6 +821,97 @@ def calibrate_v7_label_geometry(
         minimum_sources_per_position=minimum_sources_per_position,
         minimum_capture_groups_per_position=minimum_capture_groups_per_position,
     )
+
+
+def _dynamic_lattice_residuals(
+    values: tuple[V7LabelGeometryAnnotation, ...],
+) -> dict[tuple[int, str, str], float]:
+    """Measure each manual point against its own source-local projective grid.
+
+    This deliberately does not compare image coordinates between camera frames.
+    The unit is a fraction of the median adjacent grid spacing, so the existing
+    p95 threshold has the same interpretation for translated and scaled views.
+    """
+
+    by_source: dict[tuple[str, str], list[V7LabelGeometryAnnotation]] = {}
+    for item in values:
+        by_source.setdefault((item.source_id, item.source_checksum_sha256), []).append(item)
+    residuals: dict[tuple[int, str, str], float] = {}
+    for source_key, source_values in by_source.items():
+        positions = {item.position_index for item in source_values}
+        rows = {position // 3 for position in positions}
+        columns = {position % 3 for position in positions}
+        if len(source_values) < 5 or len(rows) < 2 or len(columns) < 2:
+            raise V7CalibrationError(
+                "V7 dynamic geometry calibration requires five source-local points "
+                "across two rows and columns."
+            )
+        ordered = sorted(source_values, key=_geometry_sort_key)
+        local_grid = np.asarray(
+            [(item.position_index % 3, item.position_index // 3) for item in ordered],
+            dtype=np.float32,
+        )
+        image_points = np.asarray(
+            [(item.center_x, item.center_y) for item in ordered], dtype=np.float32
+        )
+        transform, _ = cv2.findHomography(local_grid, image_points, method=0)
+        if transform is None or not np.isfinite(transform).all():
+            raise V7CalibrationError(
+                "V7 dynamic geometry calibration has a degenerate source-local "
+                f"lattice: {source_key[0]}."
+            )
+        projected = cv2.perspectiveTransform(local_grid.reshape(1, -1, 2), transform).reshape(-1, 2)
+        distance = np.linalg.norm(projected - image_points, axis=1)
+        grid_centers = cv2.perspectiveTransform(
+            np.asarray(
+                [[(column, row) for row in range(3) for column in range(3)]], dtype=np.float32
+            ),
+            transform,
+        )[0].reshape(3, 3, 2)
+        _validate_dynamic_lattice_topology(grid_centers, source_key[0])
+        spacing = [
+            np.linalg.norm(grid_centers[row, column + 1] - grid_centers[row, column])
+            for row in range(3)
+            for column in range(2)
+        ] + [
+            np.linalg.norm(grid_centers[row + 1, column] - grid_centers[row, column])
+            for row in range(2)
+            for column in range(3)
+        ]
+        scale = float(median(float(value) for value in spacing))
+        if not math.isfinite(scale) or scale <= 1e-6:
+            raise V7CalibrationError(
+                "V7 dynamic geometry calibration has a collapsed source-local "
+                f"lattice: {source_key[0]}."
+            )
+        for item, value in zip(ordered, distance, strict=True):
+            residuals[_geometry_sort_key(item)] = float(value / scale)
+    return residuals
+
+
+def _validate_dynamic_lattice_topology(
+    centers: np.ndarray,
+    source_id: str,
+) -> None:
+    """Reject mirrored, folded and near-singular source-local label grids."""
+
+    if np.any(np.diff(centers[:, :, 0], axis=1) <= 0) or np.any(
+        np.diff(centers[:, :, 1], axis=0) <= 0
+    ):
+        raise V7CalibrationError(
+            "V7 dynamic geometry calibration has a mirrored or folded "
+            f"source-local lattice: {source_id}."
+        )
+    signed_areas = []
+    for row in range(2):
+        for column in range(2):
+            right = centers[row, column + 1] - centers[row, column]
+            down = centers[row + 1, column] - centers[row, column]
+            signed_areas.append(float(right[0] * down[1] - right[1] * down[0]))
+    if any(area <= 1e-8 for area in signed_areas):
+        raise V7CalibrationError(
+            f"V7 dynamic geometry calibration has a singular source-local lattice: {source_id}."
+        )
 
 
 def evaluate_v7_acceptance(
@@ -1433,6 +1545,7 @@ __all__ = [
     "V7AnnotationState",
     "V7CalibrationError",
     "V7_CALIBRATION_VERSION",
+    "V7_DYNAMIC_GEOMETRY_FAMILY_ID",
     "V7CropAssessment",
     "V7EvaluationStatus",
     "V7GeometryCalibration",

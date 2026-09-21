@@ -2143,3 +2143,21 @@ komponentami i nie są jeszcze wywoływane przez
 `SemiAutomaticImageSelectionJobHandler`. Przyszła aktywacja wymaga osobnego,
 przetestowanego pionu API → job → V7 checkpoint/runtime → writer, który nie
 zmienia ścieżki historycznego handlera.
+
+## Dynamiczny lokalizator viewportu etykiet V7 V2 — TASK-0606
+
+`V7DynamicGridLabelLocatorConfig` ma wyłącznie parametry cropa w lokalnych
+jednostkach odstępu siatki oraz wersjonowany `kind=dynamic_lattice_v2`. Nie
+zawiera współrzędnych całego JPEG-a. `V7DynamicGridLabelLocator` wykonuje
+kanonizację RGB dostarczoną wcześniej przez observer, wyszukuje komponenty
+kontrastowe niezależnie od barwy i dopasowuje pełną 3 × 3 siatkę. Po wstępnym
+przypisaniu afinicznym dopasowuje homografię, aby cropy tolerowały perspektywę.
+Dwie równorzędne, różne hipotezy lub brak dziewięciu pozycji zwracają pusty
+wynik.
+
+`V7GeometryCalibration.locator_config` jest unią niezmienionego
+`V7GridLabelLocatorConfig` V1 i V2. API odtwarza wariant wyłącznie na podstawie
+payloadu configu. Profile V1 zachowują historyczny payload oraz fingerprint;
+observer wybiera lokalizator z profilu i dopuszcza wyłącznie rodziny V1/V2.
+Wszystkie proofy, checkpointy, gate aktywacji i writer pozostają poza zakresem
+V2.

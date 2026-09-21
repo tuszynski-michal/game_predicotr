@@ -16,11 +16,16 @@ import numpy as np
 
 from .middle_row_locator import canonicalize_source_image
 from .v7_calibration import (
+    V7_DYNAMIC_GEOMETRY_FAMILY_ID,
     V7_STANDARD_GEOMETRY_FAMILY_ID,
     V7EvaluationStatus,
     V7GeometryProfile,
 )
-from .v7_label_locator import V7GridLabelLocator, V7LabelRecognitionBackend, recognize_grid_labels
+from .v7_label_locator import (
+    V7LabelRecognitionBackend,
+    build_v7_label_locator,
+    recognize_grid_labels,
+)
 from .v7_quality import (
     V7BlurSeverity,
     V7BoardQuality,
@@ -85,7 +90,7 @@ class V7ProfileBoundObserver:
     ) -> None:
         _require_profile_matches_configuration(profile, configuration)
         self._recognizer = recognizer
-        self._locator = V7GridLabelLocator(profile.calibration.locator_config)
+        self._locator = build_v7_label_locator(profile.calibration.locator_config)
         self._resolver = V7RangeProofResolver(configuration.expected_ranges)
 
     def observe(self, request: V7SourceObservationRequest) -> V7ScanObservation:
@@ -163,7 +168,10 @@ def _require_profile_matches_configuration(
             "V7_CALIBRATION_PROFILE_REJECTED",
             "The V7 geometry profile did not pass calibration.",
         )
-    if profile.calibration.geometry_family_id != V7_STANDARD_GEOMETRY_FAMILY_ID:
+    if profile.calibration.geometry_family_id not in {
+        V7_STANDARD_GEOMETRY_FAMILY_ID,
+        V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+    }:
         _fail("V7_CALIBRATION_FAMILY_UNSUPPORTED", "The V7 geometry family is unsupported.")
     if configuration.calibration_fingerprint != profile.profile_fingerprint:
         _fail(

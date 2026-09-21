@@ -4,6 +4,7 @@ import hashlib
 from dataclasses import dataclass
 from io import BytesIO
 
+import cv2
 import numpy as np
 import pytest
 from game_predictor_worker.semi_automatic_selection.contracts import (
@@ -13,12 +14,16 @@ from game_predictor_worker.semi_automatic_selection.contracts import (
 )
 from game_predictor_worker.semi_automatic_selection.v7_calibration import (
     V7_CALIBRATION_POSITION_CONFIDENCE,
+    V7_DYNAMIC_GEOMETRY_FAMILY_ID,
     V7_STANDARD_GEOMETRY_FAMILY_ID,
     V7GeometryCalibration,
     V7GeometryProfile,
 )
 from game_predictor_worker.semi_automatic_selection.v7_configuration import V7BorderStyle
-from game_predictor_worker.semi_automatic_selection.v7_label_locator import V7GridLabelLocatorConfig
+from game_predictor_worker.semi_automatic_selection.v7_label_locator import (
+    V7DynamicGridLabelLocatorConfig,
+    V7GridLabelLocatorConfig,
+)
 from game_predictor_worker.semi_automatic_selection.v7_occurrences import (
     V7OccurrenceObservation,
     V7OccurrenceTracker,
@@ -53,13 +58,17 @@ class _ScriptedRecognizer:
         return self._responses.pop(0)
 
 
-def _profile() -> V7GeometryProfile:
+def _profile(*, dynamic: bool = False) -> V7GeometryProfile:
     calibration = V7GeometryCalibration(
         manifest_fingerprint="a" * 64,
         input_fingerprint="b" * 64,
-        geometry_family_id=V7_STANDARD_GEOMETRY_FAMILY_ID,
-        locator_config=V7GridLabelLocatorConfig(
-            position_confidence=V7_CALIBRATION_POSITION_CONFIDENCE
+        geometry_family_id=(
+            V7_DYNAMIC_GEOMETRY_FAMILY_ID if dynamic else V7_STANDARD_GEOMETRY_FAMILY_ID
+        ),
+        locator_config=(
+            V7DynamicGridLabelLocatorConfig(position_confidence=V7_CALIBRATION_POSITION_CONFIDENCE)
+            if dynamic
+            else V7GridLabelLocatorConfig(position_confidence=V7_CALIBRATION_POSITION_CONFIDENCE)
         ),
         source_count_by_position=(5,) * 9,
         capture_group_count_by_position=(2,) * 9,
@@ -115,6 +124,32 @@ def _reencode_jpeg(content: bytes, *, quality: int) -> bytes:
 def _textured_jpeg_bytes() -> bytes:
     random = np.random.default_rng(0)
     rgb = random.integers(0, 256, size=(100, 140, 3), dtype=np.uint8)
+    stream = BytesIO()
+    Image.fromarray(rgb, "RGB").save(stream, format="JPEG", quality=95)
+    return stream.getvalue()
+
+
+def _dynamic_grid_jpeg_bytes() -> bytes:
+    rgb = np.full((360, 560, 3), 18, dtype=np.uint8)
+    destination = np.asarray([[110, 104], [432, 86], [461, 272], [86, 294]], dtype=np.float32)
+    transform = cv2.getPerspectiveTransform(
+        np.asarray([[0, 0], [2, 0], [2, 2], [0, 2]], dtype=np.float32), destination
+    )
+    points = cv2.perspectiveTransform(
+        np.asarray([[(column, row) for row in range(3) for column in range(3)]], dtype=np.float32),
+        transform,
+    )[0]
+    for position, (x, y) in enumerate(points):
+        cv2.putText(
+            rgb,
+            f"{position + 101:06d}",
+            (round(x - 42), round(y + 8)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.52,
+            (248, 248, 248),
+            2,
+            cv2.LINE_AA,
+        )
     stream = BytesIO()
     Image.fromarray(rgb, "RGB").save(stream, format="JPEG", quality=95)
     return stream.getvalue()
@@ -178,6 +213,20 @@ def test_passed_profile_yields_a_strong_source_local_five_label_proof() -> None:
     assert result.quality is not None
     assert len(result.quality.boards) == 9
     assert all(board.visibility.value == "unknown" for board in result.quality.boards)
+
+
+def test_dynamic_profile_uses_only_its_source_local_lattice_for_a_proof() -> None:
+    profile = _profile(dynamic=True)
+    recognizer = _ScriptedRecognizer([_values({0: 1, 1: 2, 3: 4, 5: 6, 8: 9})])
+    observer = V7ProfileBoundObserverFactory(profile, lambda: recognizer).create(
+        _configuration(profile), object()
+    )
+    content = _dynamic_grid_jpeg_bytes()
+
+    result = observer.observe(_request(_source(0, content), content))
+
+    assert result.proof.kind is V7RangeProofKind.STRONG_FIVE_LABEL
+    assert recognizer.crop_counts == [9]
 
 
 def test_profile_binding_fails_before_the_recognizer_or_source_is_opened() -> None:

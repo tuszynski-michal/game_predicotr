@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import pytest
 from game_predictor_worker.semi_automatic_selection.v7_calibration import (
+    V7_DYNAMIC_GEOMETRY_FAMILY_ID,
     V7_STANDARD_GEOMETRY_FAMILY_ID,
     V7AcceptancePrediction,
     V7AcceptanceTruth,
@@ -191,6 +192,102 @@ def test_geometry_calibration_uses_nearest_rank_p95_and_serializes_all_crop_para
         ).status
         is V7EvaluationStatus.FAILED
     )
+
+
+def test_dynamic_geometry_calibration_normalizes_each_source_local_grid() -> None:
+    annotations = []
+    for source_index in range(6):
+        for position_index in range(9):
+            row, column = divmod(position_index, 3)
+            # Every source has a different whole-image viewport.  The local
+            # grid itself remains consistent and is the only V2 calibration
+            # coordinate system.
+            annotations.append(
+                V7LabelGeometryAnnotation(
+                    source_id=f"dynamic-{source_index}",
+                    source_checksum_sha256=f"{source_index + 50:064x}",
+                    split=V7CorpusSplit.CALIBRATION,
+                    position_index=position_index,
+                    center_x=0.12 + source_index * 0.035 + column * (0.19 + source_index * 0.003),
+                    center_y=0.20 + source_index * 0.021 + row * (0.16 + source_index * 0.002),
+                    capture_group_id=f"capture-{source_index % 2}",
+                    crop_assessment=V7CropAssessment.CONTAINED,
+                    geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+                )
+            )
+
+    calibration = calibrate_v7_label_geometry(
+        annotations,
+        manifest_fingerprint=FINGERPRINT,
+        geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+    )
+
+    assert calibration.status is V7EvaluationStatus.PASSED
+    assert calibration.locator_config.as_dict()["kind"] == "dynamic_lattice_v2"
+    assert calibration.p95_center_residual <= calibration.maximum_p95_center_residual
+
+    incomplete_source = tuple(
+        item for item in annotations if item.source_id != "dynamic-0" or item.position_index < 4
+    )
+    with pytest.raises(V7CalibrationError, match="five source-local points"):
+        calibrate_v7_label_geometry(
+            incomplete_source,
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+        )
+
+    mirrored = tuple(
+        replace(
+            item,
+            center_x=0.8 - (item.position_index % 3) * 0.2,
+            center_y=0.2 + (item.position_index // 3) * 0.2,
+        )
+        for item in annotations
+    )
+    with pytest.raises(V7CalibrationError, match="mirrored or folded"):
+        calibrate_v7_label_geometry(
+            mirrored,
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+        )
+
+
+def test_api_profile_reader_reconstructs_the_dynamic_locator_payload() -> None:
+    annotations = []
+    for source_index in range(5):
+        for position_index in range(9):
+            row, column = divmod(position_index, 3)
+            annotations.append(
+                V7LabelGeometryAnnotation(
+                    source_id=f"reader-{source_index}",
+                    source_checksum_sha256=f"{source_index + 90:064x}",
+                    split=V7CorpusSplit.CALIBRATION,
+                    position_index=position_index,
+                    center_x=0.15 + source_index * 0.02 + column * 0.2,
+                    center_y=0.2 + source_index * 0.01 + row * 0.18,
+                    capture_group_id=f"capture-{source_index % 2}",
+                    crop_assessment=V7CropAssessment.CONTAINED,
+                    geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+                )
+            )
+    calibration = calibrate_v7_label_geometry(
+        annotations,
+        manifest_fingerprint=FINGERPRINT,
+        geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+    )
+    from game_predictor_api.application.v7_label_geometry_calibration import (
+        _profile_from_payload,
+    )
+
+    restored = _profile_from_payload(
+        {
+            "calibration": calibration.as_dict(),
+            "profileFingerprint": "b" * 64,
+            "revision": 0,
+        }
+    )
+
+    assert restored.calibration.locator_config.as_dict() == calibration.locator_config.as_dict()
 
 
 def test_profile_adoption_and_exposure_contracts_are_explicit_and_serializable() -> None:

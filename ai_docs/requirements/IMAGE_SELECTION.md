@@ -1514,3 +1514,23 @@ produkcyjnego pionu od `SemiAutomaticImageSelectionJobHandler` do run state,
 runtime oraz writera V7. Usunięcie blokady bez tej integracji uruchomiłoby
 niewłaściwy legacy handler. Pełny raport oraz warunki ponownego odbioru:
 `ai_docs/quality/V7_T12_ACCEPTANCE.md`.
+
+## Dynamiczny viewport etykiet V7 V2 — TASK-0606
+
+Rodzina `standard_3x3_numeric_labels_v2` rozwiązuje lokalizację numerów dla
+pełnej siatki 3 × 3 bez stałego viewportu obrazu. Najpierw lokalizuje
+kontrastowe komponenty przypominające etykiety w obu polaryzacjach, następnie
+wymaga jednej pełnej regularnej siatki i przelicza cropy OCR w jednostkach jej
+lokalnego odstępu. Nie pobiera oczekiwanego zakresu, source indexu, kolejności
+nagrania, koloru ramki, symboli ani payoutu.
+
+Kalibracja V2 ocenia ręczne punkty w układzie każdej pojedynczej strony:
+źródło wymaga pięciu pełnych punktów w co najmniej dwóch wierszach i dwóch
+kolumnach. Własny fit projektowy zwraca residual znormalizowany medianą
+lokalnego odstępu. Globalne bramki pięciu niezależnych SHA, dwóch capture groups,
+`contained` i p95 `<= 0,04` nie zmieniają się. Brak pełnej, jednoznacznej
+siatki jest wynikiem bez cropów i bez dowodu, nie fallbackiem do V1.
+
+V1 i zapisane profile V1 pozostają niezmienne. V2 jest wspólnym silnikiem
+etykiet dla późniejszych gier, ale nie jest biblioteką komórek planszy i nie
+przenosi modeli symboli, payoutów ani baz danych pomiędzy grami.

@@ -9133,3 +9133,24 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   stabilnym błędem. Fingerprint inputu, inwentarz i checksumy shardów są
   sprawdzane przy wznowieniu. Checkpoint zakończonego joba pozostaje audytem;
   jego czyszczenie wymaga osobnego zadania.
+
+## D-419 — V2 normalizuje numery względem lokalnej siatki, nie całego kadru
+
+- **Status:** accepted (TASK-0606).
+- **Date:** 2026-09-22.
+- **Decision:** `standard_3x3_numeric_labels_v2` wykrywa wyłącznie lokalną,
+  kompletną i jednoznaczną siatkę dziewięciu etykiet liczbowych. Kalibracja
+  mierzy ręczne punkty względem projektowej transformacji konkretnego źródła,
+  a runtime tworzy cropy wyłącznie z lokalizacji obrazu. V1 pozostaje odrębnym,
+  niezmiennym kontraktem całego obrazu.
+- **Rationale:** pełny i częściowo przesunięty kadr 777 mają poprawne, lecz
+  niezgodne współrzędne całego zdjęcia. Uśrednienie V1 zwiększa residual i
+  prowadziłoby do nieuczciwego obniżenia progu zamiast obsługi prawidłowego
+  framingu.
+- **Compatibility:** serializacja V1, jej fingerprint i historyczne profile
+  nie zmieniają się. V2 ma własny `kind` configu i własną rodzinę, więc nie
+  może zostać użyty po cichu przez zapisany run V1.
+- **Safety:** detector nie używa expected range, kolejności, koloru ramek,
+  symboli ani payoutów. Brak/konflikt siatki daje brak dowodu; V2 nie aktywuje
+  API, workera ani writera i nie zastępuje globalnej biblioteki geometrii
+  plansz.

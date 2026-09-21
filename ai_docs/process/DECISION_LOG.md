@@ -6,6 +6,33 @@ last_updated: 2026-09-20
 
 # Decision Log
 
+## D-403 — V7 nie uznaje statycznych cropów za dowód geometrii
+
+- **Status:** accepted (TASK-0586).
+- **Date:** 2026-09-21.
+- **Decision:** początkowy lokalizator OCR v7 emituje `position_confidence=0.00`.
+  Tylko konfiguracja pomierzona i zatwierdzona w T05 może przekazać wyższą
+  wartość. W konsekwencji same odczyty cyfr z ustalonych prostokątów nie tworzą
+  automatycznego proofu zakresu.
+- **Rationale:** stałe pozycje cropów nie dowodzą jednoznacznego przypisania do
+  siatki w obrazie przesuniętym, częściowo zasłoniętym lub z innym borderem.
+- **Safety:** niepewna geometria kończy się brakiem dowodu i ręczną decyzją;
+  nie jest zastępowana kolejnością plików, nazwą albo sąsiednim kadrem.
+
+## D-404 — Pierwotna próbka holdoutu V7 jest wyłączona z niezależnego odbioru
+
+- **Status:** accepted (TASK-0586).
+- **Date:** 2026-09-21.
+- **Decision:** plik `rells big/reels 218400_000114.jpg`, otwarty przez
+  wycofany probe przed ograniczeniem splitów, nie może należeć do końcowego
+  niezależnego holdoutu. T05 wykluczy go z jego manifestu albo zbuduje nowy,
+  wcześniej nieoglądany holdout.
+- **Rationale:** nawet read-only wynik nie może później uchodzić za całkowicie
+  niezależną ewaluację po tym, gdy został obejrzany podczas rozwoju.
+- **Safety:** kolejne probe'y wymagają manifestu i zamrożonego inwentarza;
+  domyślnie dopuszczają jedynie development oraz calibration. Validation i
+  holdout wymagają jawnego wyboru.
+
 ## D-402 — Status importu plansz jest niezależny od review symboli i historii jobów
 
 - **Status:** accepted (TASK-0583).

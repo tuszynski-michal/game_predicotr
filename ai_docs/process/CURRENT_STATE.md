@@ -6,6 +6,19 @@ last_updated: 2026-09-20
 
 # Current State
 
+### TASK-0586 — lokalizacja etykiet i dowód v7
+
+- T02 dodaje source-local kontrakt dowodu pięć etykiet albo niezależne 3+3;
+  żaden numer nie pochodzi z kolejności plików ani z sąsiedniego kadru.
+  Wiarygodna sprzeczność blokuje automat, a nieczytelny odczyt jest tylko
+  brakiem dowodu.
+- Prawdziwy kadr `777` dał wysokiej pewności odczyty liczb, ale bez zmierzonej
+  geometrii jego proof jest fail-closed. Bezpieczna próba manifestowa obejmuje
+  wyłącznie development/calibration; V7 pozostaje nieaktywne do kalibracji T05. Wynik:
+  `ai_docs/quality/V7_T02_LABEL_LOCALIZATION_PROBE.md`.
+- Astra Medium zatwierdziła T02 po usunięciu fikcyjnej pewności pozycji i
+  zabezpieczeniu probe'a manifestem, inwentarzem oraz splitami.
+
 ### TASK-0585 — kontrakt konfiguracji i korpusu v7
 
 - V7 ma czystą konfigurację pełnych stron 3×3: pojedynczy numer normalizuje

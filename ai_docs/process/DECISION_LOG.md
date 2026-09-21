@@ -6,6 +6,23 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-411 — Profil etykiet V7 jest wersjonowany, różnorodny i adoptowany jawnie
+
+- **Status:** accepted (TASK-0599).
+- **Date:** 2026-09-21.
+- **Decision:** pierwszy profil `standard_3x3_numeric_labels_v1` kalibruje
+  wyłącznie środki etykiet liczbowych na kanonicznym obrazie 3×3. Wymaga pięciu
+  różnych SHA-256 i minimum dwóch `captureGroupId` na pozycję. Residual to
+  euklidesowa odległość w [0,1], a p95 jest nearest-rank; wyłącznie globalny
+  p95 `<=0,04` jest bramką. Crop ma jawną ocenę operatora, a wszystkie parametry
+  lokalizatora są częścią fingerprintu.
+- **Rationale:** różne SHA nie są same w sobie różnymi obserwacjami, a środek
+  punktu nie dowodzi, że crop obejmuje pełny numer.
+- **Safety:** profile nie zawierają symboli ani payoutów. Zgodność innej gry
+  wymaga późniejszego, niezmiennego rekordu adopcji; taki sam border nie jest
+  dowodem zgodności. `reels_test` pozostaje zarezerwowanym holdoutem i nie może
+  być użyty do kalibracji.
+
 ## D-410 — Worker V7 wybiera wyłącznie własny runtime i zablokowaną kalibrację
 
 - **Status:** accepted (TASK-0598).

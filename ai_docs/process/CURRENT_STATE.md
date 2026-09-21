@@ -6,6 +6,20 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0599 — kontrakt profilu geometrii etykiet V7
+
+- Kalibracja etykiet numerycznych używa wyłącznie rodziny
+  `standard_3x3_numeric_labels_v1`; wymaga pięciu różnych SHA i dwóch grup
+  ujęć na pozycję, pełnego cropu oraz globalnego nearest-rank p95 `<= 0,04`.
+  Nie dotyczy ramek plansz, symboli, payoutów ani baz per-gra.
+- Manifest korpusu V2 wiąże rodzinę i `sourceGameRef`; V1 zachowuje dawny
+  fingerprint, ale odrzuca nowe pola, aby niedostrzegalna zmiana nie wpłynęła
+  na runtime. Treasure pozostaje poza pierwszą rodziną, a `reels_test` jest
+  holdoutem z checksummowaną historią ekspozycji.
+- Kontrakt `v7-calibration-v2` jest wymagany przez evaluator T12, dlatego
+  wcześniejszy raport nie może odblokować odbioru. 50 skoncentrowanych testów
+  oraz Ruff przeszło; mypy zatrzymują istniejące błędy `structured_geometry`.
+
 ### TASK-0598 — integracja handlera workera V7
 
 - Konstruktor jobów uznaje schema `4` półautomatu, a handler ładuje lokalny

@@ -47,6 +47,9 @@ def _payload() -> dict[str, object]:
                 {
                     "centerX": 0.2 + column * 0.25,
                     "centerY": 0.3 + row * 0.2,
+                    "captureGroupId": f"capture-{source_index % 2}",
+                    "cropAssessment": "contained",
+                    "geometryFamilyId": "standard_3x3_numeric_labels_v1",
                     "positionIndex": position_index,
                     "sourceChecksumSha256": checksum,
                     "sourceId": source_id,
@@ -57,8 +60,9 @@ def _payload() -> dict[str, object]:
         "acceptancePredictions": [],
         "acceptanceTruth": [],
         "geometryAnnotations": geometry,
+        "geometryFamilyId": "standard_3x3_numeric_labels_v1",
         "manifestFingerprint": FINGERPRINT,
-        "schemaVersion": 1,
+        "schemaVersion": 2,
     }
 
 
@@ -82,6 +86,7 @@ def test_evaluation_contract_checks_source_identity_and_remains_non_activating(
                 "calibration_case",
                 runner.V7CorpusSplit.CALIBRATION,
                 f"{source_index + 1:064x}",
+                "standard_3x3_numeric_labels_v1",
             )
             for source_index in range(5)
         },
@@ -153,6 +158,7 @@ def test_evaluation_contract_rejects_a_holdout_case_mislabeled_as_calibration(
                 "calibration_case",
                 runner.V7CorpusSplit.CALIBRATION,
                 "1" * 64,
+                "standard_3x3_numeric_labels_v1",
             )
         },
     )

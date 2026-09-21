@@ -64,7 +64,7 @@ def _geometry() -> dict[str, object]:
         "inputFingerprint": "d" * 64,
         "manifestFingerprint": FINGERPRINT,
         "status": "passed",
-        "version": "v7-calibration-v1",
+        "version": "v7-calibration-v2",
     }
 
 
@@ -248,9 +248,7 @@ def test_evaluator_derives_wrong_representative_from_truth_sources(
             "sourceId": "reels_test/source-2.jpg",
         }
     ]
-    truth["sourceObservations"].append(
-        _source_observation("reels_test/source-2.jpg", "d" * 64)
-    )
+    truth["sourceObservations"].append(_source_observation("reels_test/source-2.jpg", "d" * 64))
     _configure_runner(monkeypatch, calibration=calibration, truth=truth, prediction=prediction)
     monkeypatch.setattr(
         runner,
@@ -388,6 +386,12 @@ def test_evaluator_rejects_manual_outcome_labels_in_raw_snapshot(
             "not a passed calibration",
         ),
         (
+            lambda calibration, _truth, _prediction: calibration["geometry"].update(
+                {"version": "v7-calibration-v1"}
+            ),
+            "not a passed calibration",
+        ),
+        (
             lambda _calibration, truth, _prediction: truth.update(
                 {"manifestFingerprint": "e" * 64}
             ),
@@ -402,9 +406,7 @@ def test_evaluator_rejects_manual_outcome_labels_in_raw_snapshot(
         (
             lambda _calibration, _truth, prediction: prediction["cases"][0][
                 "selectedSource"
-            ].update(
-                {"sourceChecksumSha256": "f" * 64}
-            ),
+            ].update({"sourceChecksumSha256": "f" * 64}),
             "prediction source identity or checksum drifted",
         ),
         (

@@ -1,16 +1,17 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "corpusRoot": "<operator-provided-corpus-root>",
   "cases": [
-    {"caseId": "small_777", "directoryName": "777", "split": "development", "borderStyle": null, "expectedDirection": null, "scenarios": ["small_group", "unlabelled_direction"]},
-    {"caseId": "occluded_777", "directoryName": "777 - przysłoniete częściowo plansze", "split": "calibration", "borderStyle": null, "expectedDirection": null, "scenarios": ["partial_occlusion", "left_crop", "right_crop"]},
-    {"caseId": "blazing", "directoryName": "blazing", "split": "development", "borderStyle": null, "expectedDirection": null, "scenarios": ["small_group"]},
-    {"caseId": "gand_big", "directoryName": "gand big", "split": "validation", "borderStyle": null, "expectedDirection": null, "scenarios": ["large_group"]},
-    {"caseId": "gang", "directoryName": "gang", "split": "development", "borderStyle": null, "expectedDirection": null, "scenarios": ["small_group"]},
-    {"caseId": "gang_part_2", "directoryName": "gang part 2", "split": "validation", "borderStyle": null, "expectedDirection": null, "scenarios": ["small_group"]},
-    {"caseId": "reels", "directoryName": "reels", "split": "validation", "borderStyle": null, "expectedDirection": null, "scenarios": ["small_group"]},
-    {"caseId": "rells_big", "directoryName": "rells big", "split": "holdout", "borderStyle": null, "expectedDirection": null, "scenarios": ["large_group"]},
-    {"caseId": "treasure", "directoryName": "tresure", "split": "calibration", "borderStyle": "irregular_or_none", "expectedDirection": null, "scenarios": ["treasure_border"]},
-    {"caseId": "mummies_reference", "directoryName": "wybrane mumie", "split": "reference_only", "borderStyle": null, "expectedDirection": null, "scenarios": ["quality_reference"]}
+    {"caseId": "small_777", "directoryName": "777", "split": "calibration", "borderStyle": null, "expectedDirection": null, "geometryFamilyId": "standard_3x3_numeric_labels_v1", "sourceGameRef": "777", "scenarios": ["small_group", "unlabelled_direction"]},
+    {"caseId": "occluded_777", "directoryName": "777 - przysłoniete częściowo plansze", "split": "calibration", "borderStyle": null, "expectedDirection": null, "geometryFamilyId": "standard_3x3_numeric_labels_v1", "sourceGameRef": "777", "scenarios": ["partial_occlusion", "left_crop", "right_crop"]},
+    {"caseId": "blazing", "directoryName": "blazing", "split": "development", "borderStyle": null, "expectedDirection": null, "geometryFamilyId": "standard_3x3_numeric_labels_v1", "sourceGameRef": "blazing", "scenarios": ["small_group"]},
+    {"caseId": "gand_big", "directoryName": "gand big", "split": "validation", "borderStyle": null, "expectedDirection": null, "geometryFamilyId": "standard_3x3_numeric_labels_v1", "sourceGameRef": "gand", "scenarios": ["large_group"]},
+    {"caseId": "gang", "directoryName": "gang", "split": "development", "borderStyle": null, "expectedDirection": null, "geometryFamilyId": "standard_3x3_numeric_labels_v1", "sourceGameRef": "gang", "scenarios": ["small_group"]},
+    {"caseId": "gang_part_2", "directoryName": "gang part 2", "split": "validation", "borderStyle": null, "expectedDirection": null, "geometryFamilyId": "standard_3x3_numeric_labels_v1", "sourceGameRef": "gang", "scenarios": ["small_group"]},
+    {"caseId": "reels", "directoryName": "reels", "split": "validation", "borderStyle": null, "expectedDirection": null, "geometryFamilyId": "standard_3x3_numeric_labels_v1", "sourceGameRef": "reels", "scenarios": ["small_group"]},
+    {"caseId": "rells_big", "directoryName": "rells big", "split": "development", "borderStyle": null, "expectedDirection": null, "geometryFamilyId": "standard_3x3_numeric_labels_v1", "sourceGameRef": "reels", "scenarios": ["large_group", "exposure_excluded"]},
+    {"caseId": "reels_test", "directoryName": "reels_test", "split": "holdout", "borderStyle": null, "expectedDirection": null, "geometryFamilyId": "standard_3x3_numeric_labels_v1", "sourceGameRef": "reels", "scenarios": ["reserved_holdout"]},
+    {"caseId": "treasure", "directoryName": "tresure", "split": "calibration", "borderStyle": "irregular_or_none", "expectedDirection": null, "geometryFamilyId": "treasure_irregular_labels_v1", "sourceGameRef": "treasure", "scenarios": ["treasure_border"]},
+    {"caseId": "mummies_reference", "directoryName": "wybrane mumie", "split": "reference_only", "borderStyle": null, "expectedDirection": null, "geometryFamilyId": null, "sourceGameRef": "mummies", "scenarios": ["quality_reference"]}
   ]
 }

@@ -274,3 +274,52 @@ def test_load_manifest_keeps_operator_root_out_of_production_configuration(tmp_p
 
     assert manifest.cases[-1].split is V7CorpusSplit.REFERENCE_ONLY
     assert manifest.cases[-1].border_style is None
+    assert manifest.schema_version == 1
+    assert "geometryFamilyId" not in manifest.cases[0].as_dict(schema_version=1)
+
+    payload["cases"][0]["geometryFamilyId"] = "standard_3x3_numeric_labels_v1"
+    manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(V7SelectionConfigurationError) as error:
+        load_v7_corpus_manifest(manifest_path)
+    assert error.value.code == "V7_CORPUS_MANIFEST_INVALID"
+
+
+def test_manifest_v1_fingerprint_is_stable_and_rejects_v2_optional_geometry_fields(
+    tmp_path: Path,
+) -> None:
+    cases = _complete_manifest(tmp_path).cases
+    legacy = V7CorpusManifest(corpus_root=tmp_path, cases=cases, schema_version=1)
+    with_v2_fields = V7CorpusManifest(
+        corpus_root=tmp_path,
+        cases=(
+            *cases[:-1],
+            V7CorpusCase(
+                "reference",
+                "reference",
+                V7CorpusSplit.REFERENCE_ONLY,
+                None,
+                ("quality_reference",),
+                None,
+                geometry_family_id="standard_3x3_numeric_labels_v1",
+                source_game_ref="reference-game",
+            ),
+        ),
+        schema_version=2,
+    )
+
+    assert (
+        legacy.fingerprint()
+        == V7CorpusManifest(
+            corpus_root=tmp_path,
+            cases=cases,
+            schema_version=1,
+        ).fingerprint()
+    )
+    with pytest.raises(V7SelectionConfigurationError) as error:
+        V7CorpusManifest(
+            corpus_root=tmp_path,
+            cases=with_v2_fields.cases,
+            schema_version=1,
+        )
+    assert error.value.code == "V7_CORPUS_MANIFEST_INVALID"
+    assert legacy.fingerprint() != with_v2_fields.fingerprint()

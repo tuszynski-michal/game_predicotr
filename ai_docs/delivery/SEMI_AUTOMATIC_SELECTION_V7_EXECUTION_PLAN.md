@@ -35,6 +35,17 @@ Korpus jest konfiguracją operatora, nigdy ścieżką w kodzie. Obejmuje małe/d
 
 Splity `development`, `calibration`, `validation`, `holdout` są rozłączne. Odbiór wymaga 95% poprawnych zakresów możliwych do automatycznego odzyskania, 95% poprawnie zapisanych kwalifikowanych reprezentantów, zero błędnych automatycznych zapisów z liczbą przypadków oraz 100% oznaczonych ucięć góra/dół. Raportuje fałszywe warningi, manual review, czasy etapów i RAM/VRAM.
 
+## Kalibracja geometrii etykiet
+
+Profil `standard_3x3_numeric_labels_v1` opisuje wyłącznie cropy numerów 3×3,
+nie geometrię ramek plansz ani symbole. Anotacja wskazuje środek widocznej
+etykiety w obrazie po EXIF; niewidoczny slot jest `unavailable`. Dla każdej
+pozycji wymagane jest pięć SHA-256 i dwie grupy ujęć. Środek jest medianą, a
+residual euklidesowy w całym obrazie ma globalną bramkę nearest-rank p95 `0,04`.
+Szerokości, wysokość i granice aspektu cropu wraz z oceną `contained` są częścią
+profilu. Ponowne użycie przez inną grę wymaga jawnej adopcji po walidacji na jej
+własnym korpusie; styl bordera nie wystarcza.
+
 ## Zadania
 
 | Zadanie | Rezultat |

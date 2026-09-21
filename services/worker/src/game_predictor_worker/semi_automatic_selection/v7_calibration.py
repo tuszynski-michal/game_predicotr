@@ -14,11 +14,13 @@ from .contracts import validate_sha256
 from .v7_configuration import V7CorpusSplit
 from .v7_label_locator import V7GridLabelLocatorConfig
 
-V7_CALIBRATION_VERSION = "v7-calibration-v1"
+V7_CALIBRATION_VERSION = "v7-calibration-v2"
 V7_CALIBRATION_MINIMUM_SOURCES_PER_POSITION = 5
+V7_CALIBRATION_MINIMUM_CAPTURE_GROUPS_PER_POSITION = 2
 V7_CALIBRATION_MAXIMUM_P95_CENTER_RESIDUAL = 0.04
 V7_CALIBRATION_POSITION_CONFIDENCE = 0.95
 V7_ACCEPTANCE_MINIMUM_PERCENT = 95
+V7_STANDARD_GEOMETRY_FAMILY_ID = "standard_3x3_numeric_labels_v1"
 
 
 class V7CalibrationError(ValueError):
@@ -37,6 +39,27 @@ class V7EvaluationStatus(StrEnum):
     PASSED = "passed"
     FAILED = "failed"
     NOT_EVALUABLE = "not_evaluable"
+
+
+class V7CropAssessment(StrEnum):
+    """Operator's visible verification of a crop derived from an annotated centre."""
+
+    CONTAINED = "contained"
+    CLIPPED = "clipped"
+    UNCERTAIN = "uncertain"
+
+
+class V7AnnotationState(StrEnum):
+    """One reviewed state for a source/slot in an annotation session."""
+
+    UNREVIEWED = "unreviewed"
+    ANNOTATED = "annotated"
+    UNAVAILABLE = "unavailable"
+
+
+class V7SourceExposureStatus(StrEnum):
+    KNOWN = "known"
+    RESERVED_HOLDOUT = "reserved_holdout"
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +94,9 @@ class V7LabelGeometryAnnotation:
     position_index: int
     center_x: float
     center_y: float
+    geometry_family_id: str | None = None
+    capture_group_id: str | None = None
+    crop_assessment: V7CropAssessment = V7CropAssessment.UNCERTAIN
 
     def __post_init__(self) -> None:
         if (
@@ -89,6 +115,9 @@ class V7LabelGeometryAnnotation:
         return {
             "centerX": self.center_x,
             "centerY": self.center_y,
+            "captureGroupId": self.capture_group_id,
+            "cropAssessment": self.crop_assessment.value,
+            "geometryFamilyId": self.geometry_family_id,
             "positionIndex": self.position_index,
             "sourceChecksumSha256": self.source_checksum_sha256,
             "sourceId": self.source_id,
@@ -102,19 +131,31 @@ class V7GeometryCalibration:
 
     manifest_fingerprint: str
     input_fingerprint: str
+    geometry_family_id: str
     locator_config: V7GridLabelLocatorConfig
     source_count_by_position: tuple[int, ...]
+    capture_group_count_by_position: tuple[int, ...]
+    p95_center_residual_by_position: tuple[float, ...]
     p95_center_residual: float
     maximum_p95_center_residual: float
     minimum_sources_per_position: int
+    minimum_capture_groups_per_position: int
 
     def __post_init__(self) -> None:
         if (
-            len(self.source_count_by_position) != 9
+            not self.geometry_family_id
+            or len(self.source_count_by_position) != 9
+            or len(self.capture_group_count_by_position) != 9
+            or len(self.p95_center_residual_by_position) != 9
+            or any(
+                count < self.minimum_capture_groups_per_position
+                for count in self.capture_group_count_by_position
+            )
             or any(
                 count < self.minimum_sources_per_position for count in self.source_count_by_position
             )
             or self.minimum_sources_per_position < 1
+            or self.minimum_capture_groups_per_position < 1
             or not 0 < self.maximum_p95_center_residual < 1
             or not 0 <= self.p95_center_residual < 1
             or self.locator_config.position_confidence != V7_CALIBRATION_POSITION_CONFIDENCE
@@ -137,19 +178,88 @@ class V7GeometryCalibration:
     def as_dict(self) -> dict[str, object]:
         return {
             "inputFingerprint": self.input_fingerprint,
-            "locatorConfig": {
-                "centers": [list(center) for center in self.locator_config.centers],
-                "heightRatio": self.locator_config.height_ratio,
-                "positionConfidence": self.locator_config.position_confidence,
-                "widthRatios": list(self.locator_config.width_ratios),
-            },
+            "captureGroupCountByPosition": list(self.capture_group_count_by_position),
+            "geometryFamilyId": self.geometry_family_id,
+            "locatorConfig": self.locator_config.as_dict(),
             "manifestFingerprint": self.manifest_fingerprint,
             "maximumP95CenterResidual": self.maximum_p95_center_residual,
+            "minimumCaptureGroupsPerPosition": self.minimum_capture_groups_per_position,
             "minimumSourcesPerPosition": self.minimum_sources_per_position,
             "p95CenterResidual": self.p95_center_residual,
+            "p95CenterResidualByPosition": list(self.p95_center_residual_by_position),
             "sourceCountByPosition": list(self.source_count_by_position),
             "status": self.status.value,
             "version": V7_CALIBRATION_VERSION,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class V7GeometryProfile:
+    """An immutable exported calibration profile, never an activation by itself."""
+
+    profile_fingerprint: str
+    calibration: V7GeometryCalibration
+    revision: int
+
+    def __post_init__(self) -> None:
+        if self.revision < 0:
+            raise V7CalibrationError("V7 geometry profile revision is invalid.")
+        try:
+            validate_sha256(self.profile_fingerprint, field="profileFingerprint")
+        except ValueError as error:
+            raise V7CalibrationError("V7 geometry profile fingerprint is invalid.") from error
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "calibration": self.calibration.as_dict(),
+            "profileFingerprint": self.profile_fingerprint,
+            "revision": self.revision,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class V7GeometryAdoption:
+    """A separate approval that one source-game corpus may use one profile."""
+
+    adoption_key: str
+    source_game_ref: str
+    geometry_family_id: str
+    profile_fingerprint: str
+    validation_report_fingerprint: str
+
+    def __post_init__(self) -> None:
+        if not self.adoption_key or not self.source_game_ref or not self.geometry_family_id:
+            raise V7CalibrationError("V7 geometry adoption identity is invalid.")
+        for field, value in (
+            ("profileFingerprint", self.profile_fingerprint),
+            ("validationReportFingerprint", self.validation_report_fingerprint),
+        ):
+            try:
+                validate_sha256(value, field=field)
+            except ValueError as error:
+                raise V7CalibrationError("V7 geometry adoption fingerprint is invalid.") from error
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "adoptionKey": self.adoption_key,
+            "geometryFamilyId": self.geometry_family_id,
+            "profileFingerprint": self.profile_fingerprint,
+            "sourceGameRef": self.source_game_ref,
+            "validationReportFingerprint": self.validation_report_fingerprint,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class V7SourceExposureRecord:
+    """Checksum-bound history used to keep the final holdout independent."""
+
+    source: V7SourceReference
+    status: V7SourceExposureStatus
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "source": self.source.as_dict(),
+            "status": self.status.value,
         }
 
 
@@ -293,7 +403,8 @@ class V7HoldoutPredictionSnapshot:
                 or self.predicted_range_end < self.predicted_range_start
             )
             or has_range != (self.selected_source is not None)
-            or not has_range and (self.top_warning or self.bottom_warning)
+            or not has_range
+            and (self.top_warning or self.bottom_warning)
         ):
             raise V7CalibrationError("V7 holdout prediction snapshot is invalid.")
 
@@ -463,19 +574,33 @@ def calibrate_v7_label_geometry(
     annotations: Iterable[V7LabelGeometryAnnotation],
     *,
     manifest_fingerprint: str,
+    geometry_family_id: str,
     minimum_sources_per_position: int = V7_CALIBRATION_MINIMUM_SOURCES_PER_POSITION,
+    minimum_capture_groups_per_position: int = (V7_CALIBRATION_MINIMUM_CAPTURE_GROUPS_PER_POSITION),
     maximum_p95_center_residual: float = V7_CALIBRATION_MAXIMUM_P95_CENTER_RESIDUAL,
 ) -> V7GeometryCalibration:
     """Build a locator only from independently annotated calibration sources."""
 
-    if minimum_sources_per_position < 1 or not 0 < maximum_p95_center_residual < 1:
+    if (
+        minimum_sources_per_position < 1
+        or minimum_capture_groups_per_position < 1
+        or not 0 < maximum_p95_center_residual < 1
+    ):
         raise V7CalibrationError("V7 geometry calibration policy is invalid.")
+    if not geometry_family_id:
+        raise V7CalibrationError("V7 geometry family is required for calibration.")
     values = tuple(annotations)
     if not values or any(item.split is not V7CorpusSplit.CALIBRATION for item in values):
         raise V7CalibrationError(
             "V7 geometry calibration requires calibration-split annotations only."
         )
     _validate_geometry_source_identity(values)
+    if any(not item.capture_group_id for item in values):
+        raise V7CalibrationError("V7 geometry calibration requires capture groups.")
+    if any(item.crop_assessment is not V7CropAssessment.CONTAINED for item in values):
+        raise V7CalibrationError("V7 geometry calibration requires contained label crops.")
+    if any(item.geometry_family_id != geometry_family_id for item in values):
+        raise V7CalibrationError("V7 geometry calibration mixes incompatible families.")
     positions = tuple(
         tuple(item for item in values if item.position_index == position) for position in range(9)
     )
@@ -484,18 +609,37 @@ def calibrate_v7_label_geometry(
         raise V7CalibrationError(
             "V7 geometry calibration lacks independent sources for a position."
         )
+    capture_group_counts = tuple(
+        len({item.capture_group_id for item in position}) for position in positions
+    )
+    if any(count < minimum_capture_groups_per_position for count in capture_group_counts):
+        raise V7CalibrationError(
+            "V7 geometry calibration lacks independent capture groups for a position."
+        )
     centers = tuple(
         (median(item.center_x for item in position), median(item.center_y for item in position))
         for position in positions
     )
-    residuals = sorted(
+    residual_values = tuple(
         math.hypot(
             item.center_x - centers[item.position_index][0],
             item.center_y - centers[item.position_index][1],
         )
         for item in values
     )
+    residuals = sorted(residual_values)
     p95 = residuals[math.ceil(len(residuals) * 0.95) - 1]
+    p95_by_position = tuple(
+        sorted(
+            math.hypot(
+                item.center_x - centers[position][0],
+                item.center_y - centers[position][1],
+            )
+            for item in values
+            if item.position_index == position
+        )[math.ceil(len(position_values) * 0.95) - 1]
+        for position, position_values in enumerate(positions)
+    )
     try:
         validate_sha256(manifest_fingerprint, field="manifestFingerprint")
     except ValueError as error:
@@ -506,18 +650,24 @@ def calibrate_v7_label_geometry(
     )
     return V7GeometryCalibration(
         manifest_fingerprint=manifest_fingerprint,
+        geometry_family_id=geometry_family_id,
         input_fingerprint=_fingerprint(
             {
                 "annotations": [item.as_dict() for item in sorted(values, key=_geometry_sort_key)],
+                "geometryFamilyId": geometry_family_id,
                 "maximumP95CenterResidual": maximum_p95_center_residual,
+                "minimumCaptureGroupsPerPosition": minimum_capture_groups_per_position,
                 "minimumSourcesPerPosition": minimum_sources_per_position,
             }
         ),
         locator_config=config,
         source_count_by_position=source_counts,
+        capture_group_count_by_position=capture_group_counts,
+        p95_center_residual_by_position=p95_by_position,
         p95_center_residual=p95,
         maximum_p95_center_residual=maximum_p95_center_residual,
         minimum_sources_per_position=minimum_sources_per_position,
+        minimum_capture_groups_per_position=minimum_capture_groups_per_position,
     )
 
 
@@ -768,10 +918,14 @@ def _holdout_snapshot_as_prediction(
         or not truth.eligible_acceptable_representative
     ):
         representative_outcome = V7AutomaticOutcome.NOT_SELECTED
-    elif selected_source is not None and (
-        selected_source.source_id,
-        selected_source.source_checksum_sha256,
-    ) in acceptable_sources:
+    elif (
+        selected_source is not None
+        and (
+            selected_source.source_id,
+            selected_source.source_checksum_sha256,
+        )
+        in acceptable_sources
+    ):
         representative_outcome = V7AutomaticOutcome.CORRECT
     else:
         representative_outcome = V7AutomaticOutcome.INCORRECT
@@ -904,11 +1058,19 @@ __all__ = [
     "V7HoldoutPredictionSnapshot",
     "V7HoldoutSourceObservation",
     "V7AutomaticOutcome",
+    "V7AnnotationState",
     "V7CalibrationError",
+    "V7_CALIBRATION_VERSION",
+    "V7CropAssessment",
     "V7EvaluationStatus",
     "V7GeometryCalibration",
+    "V7GeometryAdoption",
+    "V7GeometryProfile",
     "V7LabelGeometryAnnotation",
     "V7SourceReference",
+    "V7SourceExposureRecord",
+    "V7SourceExposureStatus",
+    "V7_STANDARD_GEOMETRY_FAMILY_ID",
     "calibrate_v7_label_geometry",
     "evaluate_v7_acceptance",
     "evaluate_v7_holdout_acceptance",

@@ -9,6 +9,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from game_predictor_worker.semi_automatic_selection.v7_calibration import (
+    V7_CALIBRATION_VERSION,
     V7CalibrationError,
     V7EvaluationStatus,
     V7HoldoutAcceptanceTruth,
@@ -24,7 +25,6 @@ from game_predictor_worker.semi_automatic_selection.v7_configuration import (
 )
 
 _SCHEMA_VERSION = 1
-_CALIBRATION_VERSION = "v7-calibration-v1"
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -258,16 +258,14 @@ def _validate_payload_header(
         raise ValueError(f"V7 holdout {kind} inventory fingerprint differs.")
 
 
-def _calibration_fingerprint(
-    payload: Mapping[str, object], *, manifest_fingerprint: str
-) -> str:
+def _calibration_fingerprint(payload: Mapping[str, object], *, manifest_fingerprint: str) -> str:
     if payload.get("schemaVersion") != 1:
         raise ValueError("V7 calibration report schema version is unsupported.")
     if payload.get("corpusManifestFingerprint") != manifest_fingerprint:
         raise ValueError("V7 calibration report manifest fingerprint differs.")
     geometry = _mapping(payload.get("geometry"), "calibration geometry")
     if (
-        geometry.get("version") != _CALIBRATION_VERSION
+        geometry.get("version") != V7_CALIBRATION_VERSION
         or geometry.get("status") != V7EvaluationStatus.PASSED.value
         or geometry.get("manifestFingerprint") != manifest_fingerprint
     ):

@@ -13,6 +13,7 @@ from game_predictor_worker.semi_automatic_selection.v7_calibration import (
     V7AcceptanceTruth,
     V7AutomaticOutcome,
     V7CalibrationError,
+    V7CropAssessment,
     V7LabelGeometryAnnotation,
     V7SourceReference,
     calibrate_v7_label_geometry,
@@ -24,7 +25,7 @@ from game_predictor_worker.semi_automatic_selection.v7_configuration import (
     load_v7_corpus_manifest,
 )
 
-_ANNOTATION_SCHEMA_VERSION = 1
+_ANNOTATION_SCHEMA_VERSION = 2
 _DEFAULT_SPLITS = (V7CorpusSplit.DEVELOPMENT, V7CorpusSplit.CALIBRATION)
 _PERMITTED_SPLITS = {
     V7CorpusSplit.DEVELOPMENT,
@@ -61,14 +62,19 @@ def _sha256_file(path: Path) -> str:
 def _source_identities(
     manifest: V7CorpusManifest,
     selected_splits: set[V7CorpusSplit],
-) -> dict[str, tuple[str, V7CorpusSplit, str]]:
-    result: dict[str, tuple[str, V7CorpusSplit, str]] = {}
+) -> dict[str, tuple[str, V7CorpusSplit, str, str | None]]:
+    result: dict[str, tuple[str, V7CorpusSplit, str, str | None]] = {}
     for case in manifest.cases:
         if case.split not in selected_splits:
             continue
         for path in case_directory_jpegs(manifest.corpus_root / case.directory_name):
             source_id = f"{case.case_id}/{path.name}"
-            result[source_id] = (case.case_id, case.split, _sha256_file(path))
+            result[source_id] = (
+                case.case_id,
+                case.split,
+                _sha256_file(path),
+                case.geometry_family_id,
+            )
     return result
 
 
@@ -90,7 +96,10 @@ def _load_payload(path: Path) -> Mapping[str, object]:
         value = json.loads(path.read_text("utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise ValueError("V7 calibration annotation file cannot be read.") from error
-    if not isinstance(value, dict) or value.get("schemaVersion") != _ANNOTATION_SCHEMA_VERSION:
+    if not isinstance(value, dict) or value.get("schemaVersion") not in {
+        1,
+        _ANNOTATION_SCHEMA_VERSION,
+    }:
         raise ValueError("V7 calibration annotation schema version is unsupported.")
     required = (
         "manifestFingerprint",
@@ -173,6 +182,11 @@ def _geometry_annotations(entries: Sequence[object]) -> tuple[V7LabelGeometryAnn
                 position_index=_integer(value.get("positionIndex"), "positionIndex"),
                 center_x=_number(value.get("centerX"), "centerX"),
                 center_y=_number(value.get("centerY"), "centerY"),
+                geometry_family_id=_text(value.get("geometryFamilyId"), "geometryFamilyId"),
+                capture_group_id=_text(value.get("captureGroupId"), "captureGroupId"),
+                crop_assessment=V7CropAssessment(
+                    _text(value.get("cropAssessment"), "cropAssessment")
+                ),
             )
         )
     return tuple(annotations)
@@ -240,21 +254,25 @@ def _predictions(entries: Sequence[object]) -> tuple[V7AcceptancePrediction, ...
 
 def _validate_annotation_sources(
     annotations: Sequence[V7LabelGeometryAnnotation],
-    identities: Mapping[str, tuple[str, V7CorpusSplit, str]],
+    identities: Mapping[str, tuple[str, V7CorpusSplit, str, str | None]],
     selected_splits: set[V7CorpusSplit],
 ) -> None:
     for annotation in annotations:
         if annotation.split not in selected_splits:
             raise ValueError("V7 calibration annotation uses a split excluded from this run.")
         current = identities.get(annotation.source_id)
-        if current is None or current[1:] != (annotation.split, annotation.source_checksum_sha256):
+        if (
+            current is None
+            or current[1:3] != (annotation.split, annotation.source_checksum_sha256)
+            or current[3] != annotation.geometry_family_id
+        ):
             raise ValueError("V7 calibration annotation source identity or checksum drifted.")
 
 
 def _validate_acceptance_sources(
     truths: Sequence[V7AcceptanceTruth],
     predictions: Sequence[V7AcceptancePrediction],
-    identities: Mapping[str, tuple[str, V7CorpusSplit, str]],
+    identities: Mapping[str, tuple[str, V7CorpusSplit, str, str | None]],
     selected_splits: set[V7CorpusSplit],
 ) -> None:
     predictions_by_case = {item.case_id: item for item in predictions}
@@ -282,13 +300,13 @@ def _validate_acceptance_source(
     source: V7SourceReference,
     *,
     truth: V7AcceptanceTruth,
-    identities: Mapping[str, tuple[str, V7CorpusSplit, str]],
+    identities: Mapping[str, tuple[str, V7CorpusSplit, str, str | None]],
     selected_splits: set[V7CorpusSplit],
 ) -> None:
     actual = identities.get(source.source_id)
     if (
         actual is None
-        or actual
+        or actual[:3]
         != (
             truth.corpus_case_id,
             truth.split,
@@ -337,6 +355,7 @@ def evaluate_annotation_payload(
         geometry_report = calibrate_v7_label_geometry(
             geometry,
             manifest_fingerprint=manifest.fingerprint(),
+            geometry_family_id=_text(payload.get("geometryFamilyId"), "geometryFamilyId"),
         ).as_dict()
     else:
         geometry_report = {

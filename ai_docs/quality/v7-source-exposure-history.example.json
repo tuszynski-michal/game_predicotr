@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "source": {
+        "sourceId": "reels_test/<jpeg-file-name>",
+        "sourceChecksumSha256": "<sha256-of-the-canonical-source>"
+      },
+      "status": "reserved_holdout"
+    }
+  ]
+}

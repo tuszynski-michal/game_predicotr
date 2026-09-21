@@ -4,13 +4,19 @@ from dataclasses import replace
 
 import pytest
 from game_predictor_worker.semi_automatic_selection.v7_calibration import (
+    V7_STANDARD_GEOMETRY_FAMILY_ID,
     V7AcceptancePrediction,
     V7AcceptanceTruth,
     V7AutomaticOutcome,
     V7CalibrationError,
+    V7CropAssessment,
     V7EvaluationStatus,
+    V7GeometryAdoption,
+    V7GeometryProfile,
     V7HoldoutAcceptanceTruth,
     V7LabelGeometryAnnotation,
+    V7SourceExposureRecord,
+    V7SourceExposureStatus,
     V7SourceReference,
     calibrate_v7_label_geometry,
     evaluate_v7_acceptance,
@@ -19,6 +25,7 @@ from game_predictor_worker.semi_automatic_selection.v7_calibration import (
 from game_predictor_worker.semi_automatic_selection.v7_configuration import V7CorpusSplit
 
 FINGERPRINT = "a" * 64
+FAMILY = V7_STANDARD_GEOMETRY_FAMILY_ID
 SOURCE = V7SourceReference(source_id="validation/source.jpg", source_checksum_sha256="c" * 64)
 
 
@@ -36,42 +43,60 @@ def _annotations(*, source_count: int = 5, spread: float = 0.002):
                     position_index=position_index,
                     center_x=0.2 + column * 0.25 + offset,
                     center_y=0.3 + row * 0.2 + offset,
+                    capture_group_id=f"capture-{source_index % 2}",
+                    crop_assessment=V7CropAssessment.CONTAINED,
+                    geometry_family_id=FAMILY,
                 )
             )
     return tuple(result)
 
 
 def test_geometry_calibration_requires_five_independent_calibration_sources_per_position() -> None:
-    calibration = calibrate_v7_label_geometry(_annotations(), manifest_fingerprint=FINGERPRINT)
+    calibration = calibrate_v7_label_geometry(
+        _annotations(), manifest_fingerprint=FINGERPRINT, geometry_family_id=FAMILY
+    )
 
     assert calibration.status is V7EvaluationStatus.PASSED
     assert calibration.source_count_by_position == (5,) * 9
+    assert calibration.capture_group_count_by_position == (2,) * 9
     assert calibration.locator_config.position_confidence == 0.95
     assert calibration.p95_center_residual <= calibration.maximum_p95_center_residual
     assert (
         calibration.input_fingerprint
         == calibrate_v7_label_geometry(
-            tuple(reversed(_annotations())), manifest_fingerprint=FINGERPRINT
+            tuple(reversed(_annotations())),
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=FAMILY,
         ).input_fingerprint
     )
 
     with pytest.raises(V7CalibrationError, match="lacks independent"):
-        calibrate_v7_label_geometry(_annotations(source_count=4), manifest_fingerprint=FINGERPRINT)
+        calibrate_v7_label_geometry(
+            _annotations(source_count=4),
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=FAMILY,
+        )
 
 
 def test_geometry_calibration_rejects_mixed_split_duplicate_or_unstable_positions() -> None:
     mixed = list(_annotations())
     mixed[0] = replace(mixed[0], split=V7CorpusSplit.DEVELOPMENT)
     with pytest.raises(V7CalibrationError, match="calibration-split"):
-        calibrate_v7_label_geometry(mixed, manifest_fingerprint=FINGERPRINT)
+        calibrate_v7_label_geometry(
+            mixed, manifest_fingerprint=FINGERPRINT, geometry_family_id=FAMILY
+        )
 
     duplicate = (*_annotations(), _annotations()[0])
     with pytest.raises(V7CalibrationError, match="more than once"):
-        calibrate_v7_label_geometry(duplicate, manifest_fingerprint=FINGERPRINT)
+        calibrate_v7_label_geometry(
+            duplicate, manifest_fingerprint=FINGERPRINT, geometry_family_id=FAMILY
+        )
 
     duplicate_checksum = (*_annotations(), replace(_annotations()[0], source_id="copy-source"))
     with pytest.raises(V7CalibrationError, match="byte-identical aliases"):
-        calibrate_v7_label_geometry(duplicate_checksum, manifest_fingerprint=FINGERPRINT)
+        calibrate_v7_label_geometry(
+            duplicate_checksum, manifest_fingerprint=FINGERPRINT, geometry_family_id=FAMILY
+        )
 
     unstable = list(_annotations())
     position_zero_indices = [
@@ -80,9 +105,113 @@ def test_geometry_calibration_rejects_mixed_split_duplicate_or_unstable_position
     for index, center_x in zip(position_zero_indices, (0.10, 0.20, 0.30, 0.40, 0.50), strict=True):
         unstable[index] = replace(unstable[index], center_x=center_x)
     assert (
-        calibrate_v7_label_geometry(unstable, manifest_fingerprint=FINGERPRINT).status
+        calibrate_v7_label_geometry(
+            unstable, manifest_fingerprint=FINGERPRINT, geometry_family_id=FAMILY
+        ).status
         is V7EvaluationStatus.FAILED
     )
+
+
+def test_geometry_calibration_requires_capture_diversity_and_contained_crops() -> None:
+    same_capture = tuple(replace(item, capture_group_id="single") for item in _annotations())
+    with pytest.raises(V7CalibrationError, match="capture groups"):
+        calibrate_v7_label_geometry(
+            same_capture, manifest_fingerprint=FINGERPRINT, geometry_family_id=FAMILY
+        )
+
+    clipped = (
+        *_annotations()[:-1],
+        replace(_annotations()[-1], crop_assessment=V7CropAssessment.CLIPPED),
+    )
+    with pytest.raises(V7CalibrationError, match="contained label crops"):
+        calibrate_v7_label_geometry(
+            clipped, manifest_fingerprint=FINGERPRINT, geometry_family_id=FAMILY
+        )
+
+    uncertain = (
+        *_annotations()[:-1],
+        replace(_annotations()[-1], crop_assessment=V7CropAssessment.UNCERTAIN),
+    )
+    with pytest.raises(V7CalibrationError, match="contained label crops"):
+        calibrate_v7_label_geometry(
+            uncertain,
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=FAMILY,
+        )
+
+    incompatible = (*_annotations()[:-1], replace(_annotations()[-1], geometry_family_id="other"))
+    with pytest.raises(V7CalibrationError, match="incompatible families"):
+        calibrate_v7_label_geometry(
+            incompatible,
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=FAMILY,
+        )
+
+
+def test_geometry_calibration_uses_nearest_rank_p95_and_serializes_all_crop_parameters() -> None:
+    values = list(_annotations())
+    # 45 residuals: two largest values must not affect nearest-rank p95 at rank 43.
+    values[-1] = replace(values[-1], center_x=0.99)
+    values[-2] = replace(values[-2], center_x=0.99)
+    calibration = calibrate_v7_label_geometry(
+        values, manifest_fingerprint=FINGERPRINT, geometry_family_id=FAMILY
+    )
+
+    assert calibration.p95_center_residual <= calibration.maximum_p95_center_residual
+    locator = calibration.as_dict()["locatorConfig"]
+    assert locator["minimumAspectRatio"] == 1.0
+    assert locator["maximumAspectRatio"] == 1.8
+
+    assert (
+        replace(
+            calibration,
+            p95_center_residual=0.0399,
+            maximum_p95_center_residual=0.04,
+        ).status
+        is V7EvaluationStatus.PASSED
+    )
+    assert (
+        replace(
+            calibration,
+            p95_center_residual=0.04,
+            maximum_p95_center_residual=0.04,
+        ).status
+        is V7EvaluationStatus.PASSED
+    )
+    assert (
+        replace(
+            calibration,
+            p95_center_residual=0.0401,
+            maximum_p95_center_residual=0.04,
+        ).status
+        is V7EvaluationStatus.FAILED
+    )
+
+
+def test_profile_adoption_and_exposure_contracts_are_explicit_and_serializable() -> None:
+    calibration = calibrate_v7_label_geometry(
+        _annotations(), manifest_fingerprint=FINGERPRINT, geometry_family_id=FAMILY
+    )
+    profile = V7GeometryProfile(
+        profile_fingerprint="b" * 64,
+        calibration=calibration,
+        revision=0,
+    )
+    adoption = V7GeometryAdoption(
+        adoption_key="777-standard-v1",
+        source_game_ref="777",
+        geometry_family_id=FAMILY,
+        profile_fingerprint=profile.profile_fingerprint,
+        validation_report_fingerprint="c" * 64,
+    )
+    exposure = V7SourceExposureRecord(
+        source=SOURCE,
+        status=V7SourceExposureStatus.RESERVED_HOLDOUT,
+    )
+
+    assert profile.as_dict()["calibration"]["geometryFamilyId"] == FAMILY
+    assert adoption.as_dict()["sourceGameRef"] == "777"
+    assert exposure.as_dict()["status"] == "reserved_holdout"
 
 
 def _truth(

@@ -59,6 +59,18 @@ class V7GridLabelLocatorConfig:
         ):
             raise ValueError("V7 grid label locator configuration is invalid.")
 
+    def as_dict(self) -> dict[str, object]:
+        """Return every runtime-affecting crop parameter for fingerprinting."""
+
+        return {
+            "centers": [list(center) for center in self.centers],
+            "heightRatio": self.height_ratio,
+            "maximumAspectRatio": self.maximum_aspect_ratio,
+            "minimumAspectRatio": self.minimum_aspect_ratio,
+            "positionConfidence": self.position_confidence,
+            "widthRatios": list(self.width_ratios),
+        }
+
 
 DEFAULT_V7_GRID_LABEL_LOCATOR_CONFIG = V7GridLabelLocatorConfig()
 

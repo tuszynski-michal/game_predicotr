@@ -13,10 +13,11 @@ from typing import NoReturn
 from .contracts import SemiAutomaticSelectionDirection, SemiAutomaticSelectionRange
 
 V7_CONFIGURATION_VERSION = "v7-selection-configuration-v1"
-V7_CORPUS_MANIFEST_VERSION = 1
+V7_CORPUS_MANIFEST_VERSION = 2
 V7_FULL_PAGE_BOARD_COUNT = 9
 _RANGE_INPUT = re.compile(r"(?P<start>[1-9]\d*)(?:\s*-\s*(?P<end>[1-9]\d*))?")
 _CASE_ID = re.compile(r"[a-z][a-z0-9_]{0,63}")
+_GEOMETRY_FAMILY_ID = re.compile(r"[a-z][a-z0-9_]{0,63}")
 _WINDOWS_FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
 _MUMMIES_REFERENCE_DIRECTORY = "wybrane mumie"
 
@@ -90,20 +91,27 @@ class V7CorpusCase:
     border_style: V7BorderStyle | None
     scenarios: tuple[str, ...]
     expected_direction: SemiAutomaticSelectionDirection | None
+    geometry_family_id: str | None = None
+    source_game_ref: str | None = None
 
     def __post_init__(self) -> None:
         if not _CASE_ID.fullmatch(self.case_id):
             _fail("V7_CORPUS_CASE_INVALID", "Corpus case ID is invalid.")
+        if self.geometry_family_id is not None and not _GEOMETRY_FAMILY_ID.fullmatch(
+            self.geometry_family_id
+        ):
+            _fail("V7_CORPUS_CASE_INVALID", "Geometry family ID is invalid.")
+        if self.source_game_ref is not None and (
+            not self.source_game_ref.strip() or len(self.source_game_ref) > 128
+        ):
+            _fail("V7_CORPUS_CASE_INVALID", "Corpus source game reference is invalid.")
         if not self.directory_name or Path(self.directory_name).name != self.directory_name:
             _fail("V7_CORPUS_CASE_INVALID", "Corpus directory must be one direct child.")
         if not self.scenarios or len(set(self.scenarios)) != len(self.scenarios):
             _fail("V7_CORPUS_CASE_INVALID", "Corpus scenarios must be non-empty and unique.")
-        if (
-            self.directory_name.casefold() == _MUMMIES_REFERENCE_DIRECTORY
-            and (
-                self.split is not V7CorpusSplit.REFERENCE_ONLY
-                or "quality_reference" not in self.scenarios
-            )
+        if self.directory_name.casefold() == _MUMMIES_REFERENCE_DIRECTORY and (
+            self.split is not V7CorpusSplit.REFERENCE_ONLY
+            or "quality_reference" not in self.scenarios
         ):
             _fail(
                 "V7_CORPUS_MUMMIES_ROLE_INVALID",
@@ -121,8 +129,8 @@ class V7CorpusCase:
                 "Only a reference-only case may declare quality_reference.",
             )
 
-    def as_dict(self) -> dict[str, object]:
-        return {
+    def as_dict(self, *, schema_version: int = V7_CORPUS_MANIFEST_VERSION) -> dict[str, object]:
+        value: dict[str, object] = {
             "borderStyle": None if self.border_style is None else self.border_style.value,
             "caseId": self.case_id,
             "directoryName": self.directory_name,
@@ -132,6 +140,10 @@ class V7CorpusCase:
             "scenarios": list(self.scenarios),
             "split": self.split.value,
         }
+        if schema_version >= 2:
+            value["geometryFamilyId"] = self.geometry_family_id
+            value["sourceGameRef"] = self.source_game_ref
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,12 +168,25 @@ class V7CorpusManifest:
 
     corpus_root: Path
     cases: tuple[V7CorpusCase, ...]
+    schema_version: int = V7_CORPUS_MANIFEST_VERSION
 
     def __post_init__(self) -> None:
+        if self.schema_version not in {1, V7_CORPUS_MANIFEST_VERSION}:
+            _fail("V7_CORPUS_MANIFEST_INVALID", "Corpus manifest version is unsupported.")
+        if self.schema_version == 1 and any(
+            item.geometry_family_id is not None or item.source_game_ref is not None
+            for item in self.cases
+        ):
+            _fail(
+                "V7_CORPUS_MANIFEST_INVALID",
+                "Corpus manifest V1 cannot declare V2 geometry fields.",
+            )
         case_ids = tuple(item.case_id for item in self.cases)
         directories = tuple(item.directory_name for item in self.cases)
-        if not self.cases or len(set(case_ids)) != len(case_ids) or len(set(directories)) != len(
-            directories
+        if (
+            not self.cases
+            or len(set(case_ids)) != len(case_ids)
+            or len(set(directories)) != len(directories)
         ):
             _fail(
                 "V7_CORPUS_MANIFEST_INVALID",
@@ -207,7 +232,9 @@ class V7CorpusManifest:
         return tuple(inventory)
 
     def fingerprint(self) -> str:
-        return _fingerprint({"cases": [item.as_dict() for item in self.cases]})
+        return _fingerprint(
+            {"cases": [item.as_dict(schema_version=self.schema_version) for item in self.cases]}
+        )
 
 
 def parse_v7_full_range(value: str) -> SemiAutomaticSelectionRange:
@@ -287,7 +314,10 @@ def load_v7_corpus_manifest(path: Path) -> V7CorpusManifest:
         raise V7SelectionConfigurationError(
             "V7_CORPUS_MANIFEST_UNREADABLE", "Corpus manifest cannot be read."
         ) from error
-    if not isinstance(payload, dict) or payload.get("schemaVersion") != V7_CORPUS_MANIFEST_VERSION:
+    if not isinstance(payload, dict) or payload.get("schemaVersion") not in {
+        1,
+        V7_CORPUS_MANIFEST_VERSION,
+    }:
         _fail("V7_CORPUS_MANIFEST_INVALID", "Corpus manifest version is unsupported.")
     root = payload.get("corpusRoot")
     raw_cases = payload.get("cases")
@@ -297,6 +327,13 @@ def load_v7_corpus_manifest(path: Path) -> V7CorpusManifest:
     for raw_case in raw_cases:
         if not isinstance(raw_case, dict):
             _fail("V7_CORPUS_MANIFEST_INVALID", "Corpus case must be an object.")
+        if payload["schemaVersion"] == 1 and any(
+            raw_case.get(field) is not None for field in ("geometryFamilyId", "sourceGameRef")
+        ):
+            _fail(
+                "V7_CORPUS_MANIFEST_INVALID",
+                "Corpus manifest V1 cannot declare V2 geometry fields.",
+            )
         try:
             raw_border = raw_case.get("borderStyle")
             raw_direction = raw_case.get("expectedDirection")
@@ -317,13 +354,27 @@ def load_v7_corpus_manifest(path: Path) -> V7CorpusManifest:
                         if raw_direction is None
                         else SemiAutomaticSelectionDirection(str(raw_direction))
                     ),
+                    geometry_family_id=(
+                        None
+                        if raw_case.get("geometryFamilyId") is None
+                        else str(raw_case["geometryFamilyId"])
+                    ),
+                    source_game_ref=(
+                        None
+                        if raw_case.get("sourceGameRef") is None
+                        else str(raw_case["sourceGameRef"])
+                    ),
                 )
             )
         except (KeyError, TypeError, ValueError) as error:
             raise V7SelectionConfigurationError(
                 "V7_CORPUS_MANIFEST_INVALID", "Corpus case is invalid."
             ) from error
-    return V7CorpusManifest(corpus_root=Path(root), cases=tuple(cases))
+    return V7CorpusManifest(
+        corpus_root=Path(root),
+        cases=tuple(cases),
+        schema_version=int(payload["schemaVersion"]),
+    )
 
 
 def _direct_jpegs(directory: Path) -> tuple[Path, ...]:

@@ -72,6 +72,8 @@ bramek zatrzymuje plan.
 - Porównać per gra na development/calibration: kształt i kontrast bez/z
   pomocniczym kolorem, bez/z jedną przypiętą kotwicą oraz bez/z transferowym
   profilem, który wyklucza badaną grę.
+- Potwierdzić, że wspólny rdzeń geometrii przenosi się między grami; konfiguracja
+  nowej gry opisuje tylko różnice względem tego rdzenia, a nie osobny algorytm.
 - Zapisać algorytm, pseudokod decyzji, format dowodów, konflikty hipotez,
   tolerancje, limity zasobów i bramki per gra.
 - Raportować osobno automaty plansz, automaty źródeł, błędne automaty,
@@ -97,6 +99,8 @@ bramek zatrzymuje plan.
   przyczyną oraz osobnymi mianownikami.
 - [ ] Transfer dla gry nie używa jej własnych źródeł, kotwic ani wkładów;
   brak wykazanej korzyści jest przekazany właścicielowi jako decyzja zakresu.
+- [ ] Wynik rozdziela wspólny rdzeń geometrii od małej, wersjonowanej
+  konfiguracji różnic gry; nie dopuszcza forka silnika geometrii per gra.
 - [ ] Dokument bramek zawiera liczby, tolerancje, minima prób, budżety czasu i
   pamięci oraz wymaga jawnej akceptacji właściciela przed G02.
 - [ ] v1.1 pozostaje niezmieniony, a dane i wyniki eksperymentu nie tworzą

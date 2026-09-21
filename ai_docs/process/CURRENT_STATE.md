@@ -22,6 +22,10 @@ last_updated: 2026-09-21
   `calibration` będą rozdzielać rodziny zdjęć w ramach pojedynczej gry; brak
   konfiguracji lub dowodu daje stan per gra/źródło wymagający doprecyzowania,
   nie wykluczenie gry z systemu.
+- V2 ma jeden wspólny rdzeń geometrii oraz małe wersjonowane różnice gry. Nowa
+  gra ma korzystać z istniejącej geometrii i profilu kandydującego, nie tworzyć
+  kolejnego silnika. Treasure bez ramki jest odroczony do oddzielnego zakresu
+  v3/v4.
 
 ### TASK-0602 — korpus i baseline geometrii shape v2
 

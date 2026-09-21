@@ -69,6 +69,15 @@ katalogu nigdy nie wchodzi do commitów tej gałęzi.
   jednej gry nie wyklucza jej z systemu: daje jej jawny stan konfiguracji lub
   review per źródło. `development`, `calibration` i `acceptance` dzielą
   rodziny zdjęć wewnątrz każdej gry, nigdy listę obsługiwanych gier.
+- Rdzeń v2 jest wspólną geometrią strony: obrys, perspektywa, układ 3 × 3,
+  siatka 3 × 5 i kompletność. Dodanie Mumii, Gangu lub kolejnej gry ma
+  korzystać z istniejącego rdzenia oraz zweryfikowanych profili wspólnych;
+  nowa konfiguracja opisuje wyłącznie różnicę gry, taką jak pomocniczy kolor,
+  proporcja albo dekoracja. Profil wspólny jest kandydatem wymagającym
+  zgodności i dowodu, nie samodzielną zgodą na automat.
+- Treasure bez rozpoznawalnej ramki nie należy do v2. Zmiana założenia
+  „ramka jako dowód” będzie osobnym zakresem v3 albo v4, bez osłabiania bramek
+  obecnych pięciu gier.
 
 ## Dane, pomiary i bramki jakości
 
@@ -218,8 +227,11 @@ wymaga decyzji o zakresie biblioteki.
 W proponowanym pakiecie `images/shape_geometry_v2/` zaimplementować
 zatwierdzony algorytm bez zmiany historycznych masek, progów i fingerprintów.
 Oddzielić ramkę, sloty, siatkę, widoczność oraz decyzję; utrzymać deterministykę
-i transformacje współrzędnych. Testy obejmują kolor, konflikt hipotez, tła,
-monitor, kolejność, ucięcia i limity. v1.1 nie zmienia wyników.
+i transformacje współrzędnych. Rdzeń oraz format dowodów są wspólne dla gier;
+nie powstaje implementacja geometrii per gra. Różnica gry jest wersjonowaną,
+małą konfiguracją pomocniczą, a wspólny profil może zostać użyty dopiero po
+kontroli zgodności. Testy obejmują kolor, konflikt hipotez, tła, monitor,
+kolejność, ucięcia i limity. v1.1 nie zmienia wyników.
 
 ### G03 — izolacja danych, API, preflight i worker
 
@@ -249,8 +261,10 @@ te same piksele co zatwierdzony quad. Pilot nie jest niezależnym odbiorem.
 Dodać wspólne repozytorium, wersje profili, rejestr wkładów i historię
 kwalifikacji przez migrację Alembic. Intencja publikacji powstaje w transakcji
 gry; konsument publikuje osobno. Wdrożyć tożsamość, deduplikację i generacje z
-tego dokumentu. Testy obejmują retry, kopię JPEG-a w dwóch grach, nowszą korektę
-przed starszą publikacją, wycofanie i opóźnione retry oraz usunięcie gry.
+tego dokumentu. Biblioteka utrwala wspólny rdzeń i zweryfikowane różnice,
+zamiast tworzyć kopię algorytmu na grę. Testy obejmują retry, kopię JPEG-a w
+dwóch grach, nowszą korektę przed starszą publikacją, wycofanie i opóźnione
+retry oraz usunięcie gry.
 
 ### G07 — adopcja wspólnej wiedzy
 

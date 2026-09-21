@@ -9025,7 +9025,7 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   sprawdzane przy wznowieniu. Checkpoint zakończonego joba pozostaje audytem;
   jego czyszczenie wymaga osobnego zadania.
 
-## D-396 — Korpus eksperymentalnej geometrii rozdziela dostęp wykonawczy od odbioru
+## D-416 — Korpus eksperymentalnej geometrii rozdziela dostęp wykonawczy od odbioru
 
 - **Status:** accepted (TASK-0602).
 - **Date:** 2026-09-21.
@@ -9047,7 +9047,7 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   tożsamość lub mieszanie splitów kończy narzędzie fail-closed; bez odczytu
   ani zapisu danych aplikacji.
 
-## D-397 — Podział danych nie ogranicza listy gier tworzenia
+## D-417 — Podział danych nie ogranicza listy gier tworzenia
 
 - **Status:** accepted (doprecyzowanie właściciela dla G01).
 - **Date:** 2026-09-21.
@@ -9066,3 +9066,24 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** brak corpusów nie staje się automatycznym sukcesem ani
   automatyczną akceptacją. Każde źródło bez dowodu trafia do `not_evaluable`,
   `not_configured` albo ręcznej korekty zgodnie z właściwym etapem.
+
+## D-418 — Wspólny rdzeń geometrii, różnice tylko jako konfiguracja gry
+
+- **Status:** accepted (doprecyzowanie właściciela dla G01–G07).
+- **Date:** 2026-09-21.
+- **Decision:** v2 ma jeden współdzielony rdzeń wykrywania obrysu, perspektywy,
+  układu 3 × 3, siatki 3 × 5 i kompletności. Zweryfikowany profil wspólny może
+  być kandydatem dla nowej gry; konfiguracja gry dopisuje tylko różnice, takie
+  jak pomocniczy kolor ramki, proporcja albo dekoracja. Nie wolno tworzyć
+  niezależnego silnika geometrii dla Mumii, Gangu ani kolejnej gry. Treasure,
+  który nie ma założonej ramki, jest poza v2 i wymaga osobnego wariantu v3/v4.
+- **Rationale:** gry o różnych kolorach ramek mają wspólną geometrię i powinny
+  wzajemnie zwiększać pokrycie oraz ograniczać koszt konfiguracji. Kolor sam
+  nie jest wystarczającym dowodem automatu, lecz może wzmocnić niezależnie
+  potwierdzony wynik strukturalny.
+- **Compatibility:** v1.0 i v1.1 nie używają nowej biblioteki. Pierwszy profil
+  v2 nadal jest lokalny dla gry, a późniejszy transfer przechodzi osobną
+  kwalifikację i snapshot preflightu.
+- **Safety:** wspólny profil bez zgodności, odpowiedniej liczności i dowodu
+  jakości prowadzi do review albo lokalnej konfiguracji; nie może automatycznie
+  zaakceptować źródła. Brak ramki Treasure nie osłabia bramek v2.

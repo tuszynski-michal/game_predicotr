@@ -32,6 +32,7 @@ zaakceptowanego planu `ai_docs/delivery/SEMI_AUTOMATIC_SELECTION_V7_EXECUTION_PL
 | T10  | done, `v0.10.328`     | Formularz V7, kanoniczne granice stron, blokada odbioru, target `cut`, read-only sąsiedzi i trwałe kursory.                                                                                                                 |
 | T11  | done, `v0.10.329`     | Bounded prepare 1–4 / seryjny OCR, limit 8 payloadów i read-only raport CPU/RAM/VRAM. Pięć źródeł dało ten sam digest; profil 4/8 jest najszybszy, ale V7 pozostaje zablokowane do T12.                                     |
 | T12  | done, release blocked | Audyt manifestu, recovery i kompatybilności przeszedł, ale kalibracja i holdout mają puste mianowniki, a aktualny holdout zawiera źródło D-404. API pozostaje zablokowane; dodatkowo brakuje produkcyjnego pionu worker V7. |
+| T13a | done, `v0.10.332`     | Odrębny evaluator holdoutu `reels_test`, wiążący truth i surowy snapshot z manifestem, inwentarzem, SHA oraz zaliczoną kalibracją; T05 nadal nie może używać holdoutu do kalibracji. |
 
 ## T02 — obecne wykonanie
 

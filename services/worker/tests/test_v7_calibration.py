@@ -9,10 +9,12 @@ from game_predictor_worker.semi_automatic_selection.v7_calibration import (
     V7AutomaticOutcome,
     V7CalibrationError,
     V7EvaluationStatus,
+    V7HoldoutAcceptanceTruth,
     V7LabelGeometryAnnotation,
     V7SourceReference,
     calibrate_v7_label_geometry,
     evaluate_v7_acceptance,
+    evaluate_v7_holdout_acceptance,
 )
 from game_predictor_worker.semi_automatic_selection.v7_configuration import V7CorpusSplit
 
@@ -206,6 +208,35 @@ def test_acceptance_never_counts_manual_correction_or_empty_denominator_as_succe
 def test_acceptance_rejects_holdout_duplicate_and_mismatched_case_sets() -> None:
     with pytest.raises(V7CalibrationError, match="invalid for T05"):
         replace(_truth("holdout"), split=V7CorpusSplit.HOLDOUT)
+
+    with pytest.raises(V7CalibrationError, match="holdout acceptance truth"):
+        V7HoldoutAcceptanceTruth(
+            case_id="validation",
+            corpus_case_id="validation",
+            split=V7CorpusSplit.VALIDATION,
+            expected_range_start=1,
+            expected_range_end=9,
+            evidence_sources=(SOURCE,),
+            acceptable_representative_sources=(),
+            automatically_recoverable=True,
+            eligible_acceptable_representative=True,
+        )
+
+    holdout_truth = V7HoldoutAcceptanceTruth(
+        case_id="holdout",
+        corpus_case_id="holdout",
+        split=V7CorpusSplit.HOLDOUT,
+        expected_range_start=1,
+        expected_range_end=9,
+        evidence_sources=(SOURCE,),
+        acceptable_representative_sources=(SOURCE,),
+        automatically_recoverable=True,
+        eligible_acceptable_representative=True,
+    )
+    with pytest.raises(V7CalibrationError, match="requires T05 truth only"):
+        evaluate_v7_acceptance((holdout_truth,), (_prediction("holdout"),))
+    with pytest.raises(V7CalibrationError, match="requires holdout truth only"):
+        evaluate_v7_holdout_acceptance((_truth("t05"),), (), ())
 
     truth = _truth("case")
     prediction = _prediction("case")

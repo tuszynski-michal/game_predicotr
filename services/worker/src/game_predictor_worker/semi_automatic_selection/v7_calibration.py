@@ -196,6 +196,122 @@ class V7AcceptanceTruth:
 
 
 @dataclass(frozen=True, slots=True)
+class V7HoldoutSourceObservation:
+    """Independent human truth for one JPEG that may be selected by V7."""
+
+    source: V7SourceReference
+    represented_range_start: int
+    represented_range_end: int
+    top_cropped: bool
+    bottom_cropped: bool
+
+    def __post_init__(self) -> None:
+        if (
+            self.represented_range_start < 1
+            or self.represented_range_end < self.represented_range_start
+        ):
+            raise V7CalibrationError("V7 holdout source observation range is invalid.")
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "bottomCropped": self.bottom_cropped,
+            "representedRangeEnd": self.represented_range_end,
+            "representedRangeStart": self.represented_range_start,
+            "sourceChecksumSha256": self.source.source_checksum_sha256,
+            "sourceId": self.source.source_id,
+            "topCropped": self.top_cropped,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class V7HoldoutAcceptanceTruth:
+    """Independent human ground truth exclusively for the final T12 holdout."""
+
+    case_id: str
+    corpus_case_id: str
+    split: V7CorpusSplit
+    expected_range_start: int
+    expected_range_end: int
+    evidence_sources: tuple[V7SourceReference, ...]
+    acceptable_representative_sources: tuple[V7SourceReference, ...]
+    automatically_recoverable: bool
+    eligible_acceptable_representative: bool
+
+    def __post_init__(self) -> None:
+        if (
+            not self.case_id
+            or not self.corpus_case_id
+            or self.expected_range_start < 1
+            or self.expected_range_end < self.expected_range_start
+            or not self.evidence_sources
+            or len({item.source_id for item in self.evidence_sources}) != len(self.evidence_sources)
+            or len({item.source_id for item in self.acceptable_representative_sources})
+            != len(self.acceptable_representative_sources)
+            or self.eligible_acceptable_representative
+            != bool(self.acceptable_representative_sources)
+            or self.split is not V7CorpusSplit.HOLDOUT
+        ):
+            raise V7CalibrationError("V7 holdout acceptance truth split or case ID is invalid.")
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "automaticallyRecoverable": self.automatically_recoverable,
+            "acceptableRepresentativeSources": [
+                item.as_dict() for item in self.acceptable_representative_sources
+            ],
+            "caseId": self.case_id,
+            "corpusCaseId": self.corpus_case_id,
+            "evidenceSources": [item.as_dict() for item in self.evidence_sources],
+            "eligibleAcceptableRepresentative": self.eligible_acceptable_representative,
+            "expectedRangeEnd": self.expected_range_end,
+            "expectedRangeStart": self.expected_range_start,
+            "split": self.split.value,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class V7HoldoutPredictionSnapshot:
+    """Frozen raw automatic observation evaluated against independent holdout truth."""
+
+    case_id: str
+    predicted_range_start: int | None
+    predicted_range_end: int | None
+    selected_source: V7SourceReference | None
+    top_warning: bool
+    bottom_warning: bool
+    manual_review: bool
+
+    def __post_init__(self) -> None:
+        has_range = self.predicted_range_start is not None or self.predicted_range_end is not None
+        if (
+            not self.case_id
+            or has_range
+            and (
+                self.predicted_range_start is None
+                or self.predicted_range_end is None
+                or self.predicted_range_start < 1
+                or self.predicted_range_end < self.predicted_range_start
+            )
+            or has_range != (self.selected_source is not None)
+            or not has_range and (self.top_warning or self.bottom_warning)
+        ):
+            raise V7CalibrationError("V7 holdout prediction snapshot is invalid.")
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "bottomWarning": self.bottom_warning,
+            "caseId": self.case_id,
+            "manualReview": self.manual_review,
+            "predictedRangeEnd": self.predicted_range_end,
+            "predictedRangeStart": self.predicted_range_start,
+            "selectedSource": (
+                None if self.selected_source is None else self.selected_source.as_dict()
+            ),
+            "topWarning": self.top_warning,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class V7AcceptancePrediction:
     """Frozen automatic output before a user can correct it."""
 
@@ -411,8 +527,53 @@ def evaluate_v7_acceptance(
 ) -> V7AcceptanceEvaluation:
     """Account for V7 automatic performance without absorbing manual corrections."""
 
-    truth_by_case = _unique_by_case_id(truths, "truth")
-    prediction_by_case = _unique_by_case_id(predictions, "prediction")
+    truth_values = tuple(truths)
+    if any(type(value) is not V7AcceptanceTruth for value in truth_values):
+        raise V7CalibrationError("V7 T05 acceptance requires T05 truth only.")
+    return _evaluate_v7_acceptance(truth_values, predictions)
+
+
+def evaluate_v7_holdout_acceptance(
+    truths: Iterable[V7HoldoutAcceptanceTruth],
+    snapshots: Iterable[V7HoldoutPredictionSnapshot],
+    source_observations: Iterable[V7HoldoutSourceObservation],
+) -> V7AcceptanceEvaluation:
+    """Account for the final holdout without permitting it in T05 calibration."""
+
+    truth_values = tuple(truths)
+    snapshot_values = tuple(snapshots)
+    source_values = tuple(source_observations)
+    if any(type(value) is not V7HoldoutAcceptanceTruth for value in truth_values):
+        raise V7CalibrationError("V7 holdout acceptance requires holdout truth only.")
+    if any(type(value) is not V7HoldoutPredictionSnapshot for value in snapshot_values):
+        raise V7CalibrationError("V7 holdout acceptance requires raw prediction snapshots only.")
+    if any(type(value) is not V7HoldoutSourceObservation for value in source_values):
+        raise V7CalibrationError("V7 holdout acceptance requires source observations only.")
+    truth_by_case = _unique_holdout_truth_by_case_id(truth_values)
+    snapshot_by_case = _unique_holdout_snapshot_by_case_id(snapshot_values)
+    if set(truth_by_case) != set(snapshot_by_case):
+        raise V7CalibrationError("V7 holdout truth and prediction snapshot cases differ.")
+    source_by_id = _unique_holdout_source_observations(source_values)
+    _validate_holdout_truth_source_references(truth_values, source_by_id)
+    resolved = tuple(
+        _holdout_snapshot_as_prediction(
+            truth,
+            snapshot_by_case[truth.case_id],
+            source_by_id=source_by_id,
+        )
+        for truth in truth_by_case.values()
+    )
+    return _evaluate_v7_holdout(truth_by_case.values(), resolved, source_values)
+
+
+def _evaluate_v7_acceptance(
+    truths: Iterable[V7AcceptanceTruth],
+    predictions: Iterable[V7AcceptancePrediction],
+) -> V7AcceptanceEvaluation:
+    """Compute shared metrics after the caller selected the permitted truth type."""
+
+    truth_by_case = _unique_truth_by_case_id(truths)
+    prediction_by_case = _unique_prediction_by_case_id(predictions)
     if set(truth_by_case) != set(prediction_by_case):
         raise V7CalibrationError("V7 acceptance truth and prediction cases differ.")
     truth_values = tuple(truth_by_case.values())
@@ -492,24 +653,235 @@ def _validate_geometry_source_identity(values: tuple[V7LabelGeometryAnnotation, 
         positions_by_source.add(key)
 
 
-def _unique_by_case_id[AcceptanceItem: V7AcceptanceTruth | V7AcceptancePrediction](
-    values: Iterable[AcceptanceItem],
-    kind: str,
-) -> dict[str, AcceptanceItem]:
-    result: dict[str, AcceptanceItem] = {}
+def _unique_truth_by_case_id(
+    values: Iterable[V7AcceptanceTruth],
+) -> dict[str, V7AcceptanceTruth]:
+    result: dict[str, V7AcceptanceTruth] = {}
     for value in values:
         if value.case_id in result:
-            raise V7CalibrationError(f"V7 acceptance {kind} case ID is duplicated.")
+            raise V7CalibrationError("V7 acceptance truth case ID is duplicated.")
         result[value.case_id] = value
     return result
 
 
-def _validate_unique_range_cases(values: Iterable[V7AcceptanceTruth]) -> None:
+def _unique_prediction_by_case_id(
+    values: Iterable[V7AcceptancePrediction],
+) -> dict[str, V7AcceptancePrediction]:
+    result: dict[str, V7AcceptancePrediction] = {}
+    for value in values:
+        if value.case_id in result:
+            raise V7CalibrationError("V7 acceptance prediction case ID is duplicated.")
+        result[value.case_id] = value
+    return result
+
+
+def _unique_holdout_truth_by_case_id(
+    values: Iterable[V7HoldoutAcceptanceTruth],
+) -> dict[str, V7HoldoutAcceptanceTruth]:
+    result: dict[str, V7HoldoutAcceptanceTruth] = {}
+    for value in values:
+        if value.case_id in result:
+            raise V7CalibrationError("V7 holdout acceptance truth case ID is duplicated.")
+        result[value.case_id] = value
+    return result
+
+
+def _unique_holdout_snapshot_by_case_id(
+    values: Iterable[V7HoldoutPredictionSnapshot],
+) -> dict[str, V7HoldoutPredictionSnapshot]:
+    result: dict[str, V7HoldoutPredictionSnapshot] = {}
+    for value in values:
+        if value.case_id in result:
+            raise V7CalibrationError("V7 holdout prediction snapshot case ID is duplicated.")
+        result[value.case_id] = value
+    return result
+
+
+def _unique_holdout_source_observations(
+    values: Iterable[V7HoldoutSourceObservation],
+) -> dict[str, V7HoldoutSourceObservation]:
+    result: dict[str, V7HoldoutSourceObservation] = {}
+    source_ids_by_checksum: dict[str, str] = {}
+    for value in values:
+        if value.source.source_id in result:
+            raise V7CalibrationError("V7 holdout source observation ID is duplicated.")
+        other_source_id = source_ids_by_checksum.setdefault(
+            value.source.source_checksum_sha256,
+            value.source.source_id,
+        )
+        if other_source_id != value.source.source_id:
+            raise V7CalibrationError("V7 holdout source observations are byte-identical aliases.")
+        result[value.source.source_id] = value
+    return result
+
+
+def _validate_holdout_truth_source_references(
+    truths: Iterable[V7HoldoutAcceptanceTruth],
+    source_by_id: Mapping[str, V7HoldoutSourceObservation],
+) -> None:
+    for truth in truths:
+        for source in (*truth.evidence_sources, *truth.acceptable_representative_sources):
+            observation = source_by_id.get(source.source_id)
+            if observation is None or observation.source != source:
+                raise V7CalibrationError("V7 holdout truth source lacks an exact observation.")
+            if (
+                observation.represented_range_start,
+                observation.represented_range_end,
+            ) != (truth.expected_range_start, truth.expected_range_end):
+                raise V7CalibrationError("V7 holdout truth source range differs from its case.")
+
+
+def _holdout_snapshot_as_prediction(
+    truth: V7HoldoutAcceptanceTruth,
+    snapshot: V7HoldoutPredictionSnapshot,
+    *,
+    source_by_id: Mapping[str, V7HoldoutSourceObservation],
+) -> tuple[V7AcceptancePrediction, V7HoldoutSourceObservation | None]:
+    selected_observation: V7HoldoutSourceObservation | None = None
+    if snapshot.selected_source is not None:
+        selected_observation = source_by_id.get(snapshot.selected_source.source_id)
+        if selected_observation is None or selected_observation.source != snapshot.selected_source:
+            raise V7CalibrationError("V7 holdout selected source lacks an exact observation.")
+    if snapshot.predicted_range_start is None:
+        range_outcome = V7AutomaticOutcome.NOT_SELECTED
+    elif selected_observation is not None and (
+        snapshot.predicted_range_start,
+        snapshot.predicted_range_end,
+        selected_observation.represented_range_start,
+        selected_observation.represented_range_end,
+    ) == (
+        truth.expected_range_start,
+        truth.expected_range_end,
+        truth.expected_range_start,
+        truth.expected_range_end,
+    ):
+        range_outcome = V7AutomaticOutcome.CORRECT
+    else:
+        range_outcome = V7AutomaticOutcome.INCORRECT
+    acceptable_sources = {
+        (item.source_id, item.source_checksum_sha256)
+        for item in truth.acceptable_representative_sources
+    }
+    selected_source = snapshot.selected_source
+    if (
+        range_outcome is not V7AutomaticOutcome.CORRECT
+        or not truth.eligible_acceptable_representative
+    ):
+        representative_outcome = V7AutomaticOutcome.NOT_SELECTED
+    elif selected_source is not None and (
+        selected_source.source_id,
+        selected_source.source_checksum_sha256,
+    ) in acceptable_sources:
+        representative_outcome = V7AutomaticOutcome.CORRECT
+    else:
+        representative_outcome = V7AutomaticOutcome.INCORRECT
+    return (
+        V7AcceptancePrediction(
+            case_id=snapshot.case_id,
+            range_outcome=range_outcome,
+            representative_outcome=representative_outcome,
+            selected_source=selected_source,
+            top_warning=snapshot.top_warning,
+            bottom_warning=snapshot.bottom_warning,
+            manual_review=snapshot.manual_review,
+        ),
+        selected_observation,
+    )
+
+
+def _evaluate_v7_holdout(
+    truths: Iterable[V7HoldoutAcceptanceTruth],
+    resolved: Iterable[tuple[V7AcceptancePrediction, V7HoldoutSourceObservation | None]],
+    source_observations: Iterable[V7HoldoutSourceObservation],
+) -> V7AcceptanceEvaluation:
+    truth_values = tuple(truths)
+    resolved_values = tuple(resolved)
+    prediction_values = tuple(item[0] for item in resolved_values)
+    selected_observations = tuple(item[1] for item in resolved_values)
+    _validate_unique_holdout_range_cases(truth_values)
+    range_denominator = sum(item.automatically_recoverable for item in truth_values)
+    range_numerator = sum(
+        truth.automatically_recoverable and prediction.range_outcome is V7AutomaticOutcome.CORRECT
+        for truth, prediction in zip(truth_values, prediction_values, strict=True)
+    )
+    representative_denominator = sum(
+        item.eligible_acceptable_representative for item in truth_values
+    )
+    representative_numerator = sum(
+        truth.eligible_acceptable_representative
+        and prediction.representative_outcome is V7AutomaticOutcome.CORRECT
+        for truth, prediction in zip(truth_values, prediction_values, strict=True)
+    )
+    top_denominator = sum(
+        observation is not None and observation.top_cropped for observation in selected_observations
+    )
+    top_numerator = sum(
+        observation is not None and observation.top_cropped and prediction.top_warning
+        for observation, prediction in zip(selected_observations, prediction_values, strict=True)
+    )
+    bottom_denominator = sum(
+        observation is not None and observation.bottom_cropped
+        for observation in selected_observations
+    )
+    bottom_numerator = sum(
+        observation is not None and observation.bottom_cropped and prediction.bottom_warning
+        for observation, prediction in zip(selected_observations, prediction_values, strict=True)
+    )
+    return V7AcceptanceEvaluation(
+        input_fingerprint=_fingerprint(
+            {
+                "predictions": [item.as_dict() for item in prediction_values],
+                "sourceObservations": [item.as_dict() for item in source_observations],
+                "truth": [item.as_dict() for item in truth_values],
+            }
+        ),
+        range_recovery=V7AcceptanceMetric(
+            range_numerator, range_denominator, V7_ACCEPTANCE_MINIMUM_PERCENT
+        ),
+        representative_selection=V7AcceptanceMetric(
+            representative_numerator,
+            representative_denominator,
+            V7_ACCEPTANCE_MINIMUM_PERCENT,
+        ),
+        top_crop_recall=V7AcceptanceMetric(top_numerator, top_denominator, 100),
+        bottom_crop_recall=V7AcceptanceMetric(bottom_numerator, bottom_denominator, 100),
+        incorrect_automatic_range_count=sum(
+            item.range_outcome is V7AutomaticOutcome.INCORRECT for item in prediction_values
+        ),
+        top_crop_false_positive_count=sum(
+            observation is not None and prediction.top_warning and not observation.top_cropped
+            for observation, prediction in zip(
+                selected_observations, prediction_values, strict=True
+            )
+        ),
+        bottom_crop_false_positive_count=sum(
+            observation is not None and prediction.bottom_warning and not observation.bottom_cropped
+            for observation, prediction in zip(
+                selected_observations, prediction_values, strict=True
+            )
+        ),
+        manual_review_count=sum(item.manual_review for item in prediction_values),
+        total_case_count=len(truth_values),
+    )
+
+
+def _validate_unique_range_cases(
+    values: Iterable[V7AcceptanceTruth],
+) -> None:
     seen: set[tuple[str, int, int]] = set()
     for value in values:
         key = (value.corpus_case_id, value.expected_range_start, value.expected_range_end)
         if key in seen:
             raise V7CalibrationError("V7 acceptance corpus range is duplicated.")
+        seen.add(key)
+
+
+def _validate_unique_holdout_range_cases(values: Iterable[V7HoldoutAcceptanceTruth]) -> None:
+    seen: set[tuple[str, int, int]] = set()
+    for value in values:
+        key = (value.corpus_case_id, value.expected_range_start, value.expected_range_end)
+        if key in seen:
+            raise V7CalibrationError("V7 holdout acceptance corpus range is duplicated.")
         seen.add(key)
 
 
@@ -528,6 +900,9 @@ __all__ = [
     "V7AcceptanceMetric",
     "V7AcceptancePrediction",
     "V7AcceptanceTruth",
+    "V7HoldoutAcceptanceTruth",
+    "V7HoldoutPredictionSnapshot",
+    "V7HoldoutSourceObservation",
     "V7AutomaticOutcome",
     "V7CalibrationError",
     "V7EvaluationStatus",
@@ -536,4 +911,5 @@ __all__ = [
     "V7SourceReference",
     "calibrate_v7_label_geometry",
     "evaluate_v7_acceptance",
+    "evaluate_v7_holdout_acceptance",
 ]

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "manifestFingerprint": "<frozen-manifest-sha256>",
+  "holdoutInventoryFingerprint": "<frozen-inventory-sha256>",
+  "sourceObservations": [
+    {
+      "sourceId": "reels_test/<file-name>.jpg",
+      "sourceChecksumSha256": "<source-sha256>",
+      "representedRangeStart": 1,
+      "representedRangeEnd": 9,
+      "topCropped": false,
+      "bottomCropped": false
+    }
+  ],
+  "cases": [
+    {
+      "caseId": "range-1-9",
+      "corpusCaseId": "reels_test",
+      "split": "holdout",
+      "expectedRangeStart": 1,
+      "expectedRangeEnd": 9,
+      "evidenceSources": [
+        {
+          "sourceId": "reels_test/<file-name>.jpg",
+          "sourceChecksumSha256": "<source-sha256>"
+        }
+      ],
+      "acceptableRepresentativeSources": [
+        {
+          "sourceId": "reels_test/<file-name>.jpg",
+          "sourceChecksumSha256": "<source-sha256>"
+        }
+      ],
+      "automaticallyRecoverable": true,
+      "eligibleAcceptableRepresentative": true
+    }
+  ]
+}

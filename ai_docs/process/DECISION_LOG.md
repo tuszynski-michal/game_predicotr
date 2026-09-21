@@ -6,6 +6,25 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-409 — `reels_test` jest wyłącznym holdoutem odbioru V7
+
+- **Status:** accepted (TASK-0597).
+- **Date:** 2026-09-21.
+- **Decision:** lokalny manifest TASK-0597 przypina `reels_test` jako jedyny
+  case splitu `holdout`; wcześniejszy `rells_big` wraca do `development` z
+  adnotacją o wykluczeniu przez D-404. T05 nadal odrzuca holdout. Odrębny
+  evaluator T12 przyjmuje ręczny truth, katalog prawdziwych zakresów/cropów
+  źródeł i surowy snapshot obserwacji, po czym sam wyprowadza wyniki metryk.
+- **Rationale:** nowy, wcześniej nieoglądany katalog pozwala odzyskać
+  niezależny odbiór bez reinterpretowania D-404 albo strojenia na danych
+  przeznaczonych do oceny końcowej.
+- **Safety:** manifest i inwentarz są zamrażane lokalnie wraz z checksumami;
+  evaluator sprawdza je przed i po kontroli źródeł. Wynik zakresu wymaga
+  zgodności deklaracji z katalogiem prawdziwego zakresu wybranego JPEG-a;
+  crop/warning jest przypisany do wybranego JPEG-a. JSON predykcji nie może
+  deklarować `correct` ani `incorrect`, a raport zawsze pozostawia aktywację
+  produkcyjną `blocked`. Zmiana nie uruchamia OCR, joba, API ani zapisu JPEG-a.
+
 ## D-408 — V7 ma osobny workflow i twardą bramkę aktywacji
 
 - **Status:** accepted (TASK-0590).

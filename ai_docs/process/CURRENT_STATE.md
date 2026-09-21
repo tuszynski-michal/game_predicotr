@@ -6,6 +6,24 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0597 — niezależny evaluator holdoutu Reels dla V7
+
+- `reels_test` został lokalnie przypięty jako jedyny holdout: zamrożony
+  inwentarz zawiera 1 287 JPEG-ów. Lokalne artefakty manifestu i checksumów są
+  pod `.runtime` i nie trafiają do Git; `rells_big` nie odzyskuje roli holdoutu,
+  aby zachować wykluczenie D-404.
+- Osobny evaluator T12 wiąże manifest, inventory, zaliczoną kalibrację, ręczny
+  truth, katalog rzeczywistych zakresów/cropów JPEG-ów i surowy snapshot
+  automatu fingerprintami oraz SHA źródeł. Wynik zakresu wymaga zgodności
+  deklaracji z prawdą wybranego JPEG-a, a warning jest oceniany per ten JPEG.
+  Zmiana danych, zły split albo legacy verdict w snapshotcie kończą się błędem
+  fail-closed. T05 nadal przyjmuje wyłącznie własny truth
+  development/calibration/validation.
+- API pozostaje zablokowane, nie uruchomiono OCR ani zapisu JPEG-ów. Do
+  rzeczywistego odbioru nadal brakuje: ręcznej kalibracji, niezależnych anotacji
+  `reels_test`, surowego snapshotu z runtime'u T13b oraz ponownego T12 i
+  świadomej decyzji aktywacyjnej.
+
 ### TASK-0596 — odbiór holdoutu i bramka wydania V7
 
 - T12 zakończył audyt wynikiem `blocked`, bez aktywacji API. Ponowny evaluator

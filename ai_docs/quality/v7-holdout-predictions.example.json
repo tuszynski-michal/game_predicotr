@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "manifestFingerprint": "<frozen-manifest-sha256>",
+  "holdoutInventoryFingerprint": "<frozen-inventory-sha256>",
+  "calibrationFingerprint": "<passed-calibration-sha256>",
+  "algorithmFingerprint": "<v7-runtime-sha256>",
+  "cases": [
+    {
+      "caseId": "range-1-9",
+      "predictedRangeStart": 1,
+      "predictedRangeEnd": 9,
+      "selectedSource": {
+        "sourceId": "reels_test/<file-name>.jpg",
+        "sourceChecksumSha256": "<source-sha256>"
+      },
+      "topWarning": false,
+      "bottomWarning": false,
+      "manualReview": false
+    }
+  ]
+}

@@ -9218,3 +9218,25 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   profilu nie wybiera fallbacku i nie daje automatu. `ready_for_shared_preflight`
   jest informacją dla operatora przed ręcznym potwierdzeniem, nie zgodą na
   import.
+
+## D-425 — Kwalifikacja shared shape v2 publikuje wyłącznie pełny, bezwyciekowy raport
+
+- **Status:** accepted (TASK-0608/G07).
+- **Date:** 2026-09-21.
+- **Decision:** kandydat globalnego profilu może zmienić status tylko przez
+  idempotentną kwalifikację zapisaną jako append-only wynik i receipt w
+  `public`. Polityka ponownie odtwarza integralność profilu, wymaga kompletnego
+  replayu, regresji i transferu poza `source_game_ref` wkładu kandydata.
+  Brak lub nieaktualność dowodu jest `not_evaluable`; fałszywy automat,
+  regresja, checksum mismatch albo wyciek transferu odrzuca wyłącznie
+  wskazanego kandydata.
+- **Rationale:** Mumie, Gang i następne zgodne gry mogą zasilać wspólną wiedzę,
+  lecz brak realnego corpusów nie może stać się fikcyjnym sukcesem, ani jedna
+  nieudana kandydatura nie może odebrać działającej geometrii innym grom.
+- **Compatibility:** G05 dopiero dostarczy automatyczne budowanie kandydata i
+  realny raport z korekt. G07 nie wystawia UI, endpointu, importu ani ręcznej
+  aktywacji; profile v1/v1.1 i istniejące joby zachowują zachowanie.
+- **Safety:** rekord kwalifikacji nie zawiera `game_id`, obrazów, ścieżek,
+  symboli, OCR, payoutów, sekwencji ani kotwic. W przypadku `passed` bieżący
+  `active` jest najpierw `retired`, a kandydat następnie `active` w tej samej
+  transakcji i pod blokadą zakresu; błąd lub konflikt wycofuje całość.

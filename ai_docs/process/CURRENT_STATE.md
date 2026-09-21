@@ -1,10 +1,17 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-21
+last_updated: 2026-09-22
 ---
 
 # Current State
+
+### TASK-0608 — kwalifikacja i aktywacja wspólnej geometrii shape v2
+
+- Trwa G07: przygotowanie descriptor-only, checksummowanej kwalifikacji
+  kandydatów oraz atomowej aktywacji. Brak operator-owned raportu replayu,
+  regresji i transferu ma zachować kandydata w stanie `candidate`; nie wolno
+  utworzyć fikcyjnego wyniku ani zmienić poprzedniej wersji aktywnej.
 
 ### TASK-0607 — gotowość wspólnej geometrii przy tworzeniu gry
 

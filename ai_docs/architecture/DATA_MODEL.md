@@ -6,6 +6,25 @@ last_updated: 2026-09-21
 
 # Model danych
 
+## Kwalifikacja globalnego profilu geometrii shape v2 — TASK-0608
+
+Migracja 0117 dodaje do `public` dwa append-only rekordy control plane:
+`global_geometry_profile_qualification_results` oraz
+`global_geometry_profile_qualification_receipts`. Wynik wiąże wskazanego
+kandydata z checksummowanym raportem polityki, krótkimi kodami powodów oraz
+opcjonalną referencją poprzedniego profilu `active`; receipt wiąże dokładnie
+jeden wynik z kluczem idempotencji i checksumą komendy. Raport opisuje wyłącznie
+checksummy zamrożonych replayów, regresji i transferu, liczniki oraz
+`source_game_ref`. Nie przechowuje obrazów, ścieżek, `game_id`, importów,
+symboli, OCR, sekwencji ani kotwic.
+
+Wynik `not_evaluable` nie zmienia statusu `candidate`; `rejected` zmienia tylko
+wskazanego kandydata. Tylko `passed` pod blokadą zakresu rodziny/topologii
+wycofuje poprzedni profil `active` do `retired`, a potem promuje kandydata do
+`active` w jednej transakcji. Pierwszy flush zwalnia natychmiastowy częściowy
+indeks aktywnego profilu, a każdy późniejszy błąd wycofuje całą transakcję.
+Historyczne joby używają własnych snapshotów i nie są aktualizowane.
+
 ## Deklaracja gotowości geometrii gry shape v2 — TASK-0607
 
 Migracja 0116 dodaje do `public.games` nullable

@@ -4335,6 +4335,77 @@ class GlobalGeometryProfileWriteReceiptModel(Base):
     )
 
 
+class GlobalGeometryProfileQualificationResultModel(Base):
+    """Immutable outcome of one descriptor-only qualification attempt."""
+
+    __tablename__ = "global_geometry_profile_qualification_results"
+    __table_args__ = (
+        CheckConstraint(
+            "outcome IN ('passed', 'rejected', 'not_evaluable')",
+            name="ck_global_geometry_profile_qualification_results_outcome",
+        ),
+        CheckConstraint(
+            "qualification_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_global_geometry_profile_qualification_results_checksum",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(reason_codes) = 'array'",
+            name="ck_global_geometry_profile_qualification_results_reasons",
+        ),
+        CheckConstraint(
+            "report_payload IS NULL OR jsonb_typeof(report_payload) = 'object'",
+            name="ck_global_geometry_profile_qualification_results_report",
+        ),
+        Index(
+            "ix_global_geom_qualification_result_profile_created",
+            "profile_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    profile_id: Mapped[UUID] = mapped_column(
+        ForeignKey("global_geometry_profile_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    previous_active_profile_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("global_geometry_profile_versions.id", ondelete="RESTRICT")
+    )
+    outcome: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason_codes: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    report_payload: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    qualification_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GlobalGeometryProfileQualificationReceiptModel(Base):
+    """Durable idempotency binding for a qualification result."""
+
+    __tablename__ = "global_geometry_profile_qualification_receipts"
+    __table_args__ = (
+        CheckConstraint(
+            "command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_global_geometry_profile_qualification_receipts_command",
+        ),
+        UniqueConstraint(
+            "idempotency_key",
+            name="uq_global_geometry_profile_qualification_receipts_idempotency",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    result_id: Mapped[UUID] = mapped_column(
+        ForeignKey("global_geometry_profile_qualification_results.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ImageLayoutStagingRowModel(Base):
     __tablename__ = "image_layout_staging_rows"
     __table_args__ = (

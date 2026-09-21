@@ -51,6 +51,8 @@ SHARED = frozenset(
         "global_geometry_profile_versions",
         "global_geometry_evidence_samples",
         "global_geometry_profile_write_receipts",
+        "global_geometry_profile_qualification_results",
+        "global_geometry_profile_qualification_receipts",
     }
 )
 

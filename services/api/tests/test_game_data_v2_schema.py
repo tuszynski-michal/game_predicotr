@@ -47,6 +47,8 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "global_geometry_profile_versions",
         "global_geometry_evidence_samples",
         "global_geometry_profile_write_receipts",
+        "global_geometry_profile_qualification_results",
+        "global_geometry_profile_qualification_receipts",
     } <= SHARED
     with pytest.raises(ValueError, match="GAME_STORAGE_UNKNOWN_TABLE"):
         ownership("future_unreviewed_table")

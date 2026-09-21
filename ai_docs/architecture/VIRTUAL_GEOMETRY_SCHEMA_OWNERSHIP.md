@@ -6,6 +6,16 @@ last_updated: 2026-09-21
 
 # Virtual geometry schema ownership
 
+## Kwalifikacja i aktywacja shared shape v2 — TASK-0608
+
+`global_geometry_profile_qualification_results` i receipty kwalifikacji należą
+do globalnego publicznego control plane. Są audytem decyzji o wspólnym profilu,
+nie właścicielem lokalnej geometrii: przechowują wyłącznie descriptor-only
+raport, checksumy i krótkie referencje proweniencji bez `game_id`, obrazów,
+plików, kotwic albo routingu gry. Zmieniają status wersji profilu tylko w
+jednej transakcji po kwalifikacji `passed`; `not_evaluable` i `rejected` nie
+mogą uruchomić preflightu, importu ani wpłynąć na historyczny snapshot joba.
+
 ## Deklaracja gry i projekcja gotowości shape v2 — TASK-0607
 
 `games.shape_geometry_configuration` należy do control plane katalogu gry i

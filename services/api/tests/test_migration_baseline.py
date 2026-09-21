@@ -117,6 +117,8 @@ RECONCILE_BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION = (
 )
 V7_SEMI_AUTOMATIC_ACTIVATION_GATE_REVISION = "0114_v7_semi_automatic_activation_gate"
 GLOBAL_GEOMETRY_LIBRARY_REVISION = "0115_shape_geometry_v2_global_library"
+GAME_SHAPE_GEOMETRY_CONFIGURATION_REVISION = "0116_game_shape_geometry_configuration"
+GLOBAL_GEOMETRY_QUALIFICATION_REVISION = "0117_shape_geometry_v2_qualification"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -451,7 +453,18 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
     legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
     legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
-    assert script.get_heads() == [GLOBAL_GEOMETRY_LIBRARY_REVISION]
+    assert script.get_heads() == [GLOBAL_GEOMETRY_QUALIFICATION_REVISION]
+    global_geometry_qualification = script.get_revision(GLOBAL_GEOMETRY_QUALIFICATION_REVISION)
+    assert global_geometry_qualification is not None
+    assert (
+        global_geometry_qualification.down_revision
+        == GAME_SHAPE_GEOMETRY_CONFIGURATION_REVISION
+    )
+    game_shape_geometry_configuration = script.get_revision(
+        GAME_SHAPE_GEOMETRY_CONFIGURATION_REVISION
+    )
+    assert game_shape_geometry_configuration is not None
+    assert game_shape_geometry_configuration.down_revision == GLOBAL_GEOMETRY_LIBRARY_REVISION
     global_geometry_library = script.get_revision(GLOBAL_GEOMETRY_LIBRARY_REVISION)
     assert global_geometry_library is not None
     assert global_geometry_library.down_revision == V7_SEMI_AUTOMATIC_ACTIVATION_GATE_REVISION

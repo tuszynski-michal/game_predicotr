@@ -9,10 +9,11 @@ last_updated: 2026-09-21
 ### TASK-0603 — eksperyment i bramki geometrii shape v2
 
 - Zablokowany na warunku wejściowym G01: lokalny worktree nie zawiera
-  rzeczywistego executor corpusu, przypiętych profili v1.1 ani anotacji dla
+  zarejestrowanego executor corpusu, przypiętych profili v1.1 ani anotacji dla
   777, Blazing, Gang, Reels i Mumie. `examples/imgs` ma tylko `README.md`, a
   przykład manifestu G00 zawiera placeholder root, puste źródła i profile
-  `null`.
+  `null`. Poza repo znaleziono niezarządzane JPEG-y, ale nie mają jeszcze
+  atestacji corpusowej ani udokumentowanego przypisania do gier.
 - Do odblokowania potrzebne są operator-owned manifest executor, corpus root,
   checksum-bound anotacje i profile v1.1. Acceptance nie jest wymagany ani
   dostępny. Bez danych G01 nie może wyznaczyć liczb ani zatwierdzić bramek;

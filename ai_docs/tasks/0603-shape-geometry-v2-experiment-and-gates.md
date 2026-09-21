@@ -28,7 +28,10 @@ projektowania algorytmu.
 - G00 jest ukończone w commicie `c1e063d3`.
 - 2026-09-21 sprawdzono lokalny worktree: `examples/imgs` zawiera tylko
   `README.md`; w repo nie ma JPEG-ów shape v2 ani wypełnionego manifestu
-  executor.
+  executor. Poza repo istnieją niezarządzane katalogi JPEG-ów, lecz bez
+  manifestu, podziału, przypisania gry, anotacji i profilu v1.1. Pojedyncza
+  obejrzana próbka wskazuje pełną stronę 3 × 3 Blazing, co nie stanowi jeszcze
+  atestacji całego zbioru.
 - `shape-geometry-v2-executor-corpus.local.example.json` ma zastępczy
   `corpusRoot`, pustą listę `sources` i `v11Profile: null` dla każdej gry.
 - Przed odblokowaniem operator udostępnia lokalny manifest `executor`, jego
@@ -136,7 +139,9 @@ G01 pozostaje zablokowane, dopóki powyższe artefakty nie są dostępne i spój
 - Brak rzeczywistych danych dla 777, Blazing, Gang, Reels i Mumie uniemożliwia
   wyznaczenie uczciwych progów między grami.
 - Dostępny historyczny manifest M5 opisuje tylko jedną grę i nie ma obecnie
-  obrazów w `examples/imgs`; nie może zastąpić corpusów G01.
+  obrazów w `examples/imgs`; nie może zastąpić corpusów G01. Niezarządzane
+  JPEG-y poza repo wymagają najpierw jawnej klasyfikacji przez operatora; ich
+  lokalizacja nie jest zapisywana w repozytorium.
 - Wartości bramek nie są jeszcze decyzją produktu i nie mogą zostać wymyślone
   w celu odblokowania G02.
 
@@ -148,8 +153,10 @@ G01 pozostaje zablokowane, dopóki powyższe artefakty nie są dostępne i spój
 
 ### Verification results
 
-- Potwierdzono brak local executor corpus shape v2 w worktree oraz pusty stan
-  przykładowego manifestu; nie wykonano pomiaru na danych zastępczych.
+- Potwierdzono brak zarejestrowanego executor corpus shape v2 w worktree oraz
+  pusty stan przykładowego manifestu. Znaleziono niezarządzane JPEG-y poza
+  repo, lecz bez wymaganej atestacji; nie wykonano pomiaru na danych
+  zastępczych ani nie przypisano ich samodzielnie do gry.
 
 ### Not completed
 

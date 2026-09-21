@@ -376,6 +376,38 @@ test('keeps only directory handles and small UI state in the local record', () =
   );
 });
 
+test('restores V7 scan, sequence and neighbour-view cursors independently', () => {
+  const record = validateLocalSessionRecord({
+    outputDirectory: null,
+    outputManifestChecksumSha256: null,
+    runId: 'v7-run',
+    sourceDirectory: null,
+    ui: {
+      activeExpectedIndex: 2,
+      mode: 'review',
+      scanSourceIndex: 7,
+      sequenceExpectedIndex: 2,
+      scrollLeft: 0,
+      scrollTop: 0,
+      viewSourceIndex: 9,
+      zoomPercent: 100,
+    },
+    updatedAt: '2026-09-21T10:00:00.000Z',
+  });
+
+  assert.equal(record?.ui.scanSourceIndex, 7);
+  assert.equal(record?.ui.sequenceExpectedIndex, 2);
+  assert.equal(record?.ui.viewSourceIndex, 9);
+
+  const movedView = validateLocalSessionRecord({
+    ...record,
+    ui: { ...record.ui, viewSourceIndex: 11 },
+  });
+  assert.equal(movedView?.ui.scanSourceIndex, 7);
+  assert.equal(movedView?.ui.sequenceExpectedIndex, 2);
+  assert.equal(movedView?.ui.viewSourceIndex, 11);
+});
+
 test('starts manual source editing from the exact selection or after the previous source', () => {
   const ranges = [
     { sourceIndex: 10 },

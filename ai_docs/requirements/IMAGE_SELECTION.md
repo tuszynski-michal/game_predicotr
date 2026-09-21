@@ -1379,3 +1379,36 @@ odczycie SHA i przed replace. V1 wykrywa zmiany widoczne przed replace i nigdy
 nie nadpisuje obcego pierwszego targetu; nie obiecuje blokady wrogiego procesu
 filesystemowego. `cancelled` i `superseded` usuwają wyłącznie własny,
 checksummowany temp i po restarcie nie wznawiają publikacji.
+
+## Formularz i podgląd V7 — TASK-0594
+
+Nowe uruchomienie w workspace półautomatu tworzy wyłącznie `v7_selection`.
+Formularz ma katalog źródłowy, `semi_automatic` albo `automatic`, kierunek
+domyślnie `ascending`, pierwszy i ostatni zakres w kolejności nagrania oraz
+styl `top_and_sides`, `full_frame` albo `irregular_or_none`. Pojedyncze `10`
+oznacza pełną stronę `10–18`; zapis `10-18` oznacza to samo. Inny rozmiar,
+liczba niecałkowita, odwrócony zakres lub kierunek sprzeczny z kolejnością
+dwóch granic nie wysyła żądania API.
+
+Granice API i nazwy wyniku zawsze pozostają rosnące. Dlatego `1–9 → 19–27`
+rosnąco i `19–27 → 1–9` malejąco mają trzy oczekiwane grupy i kanoniczne
+granice `1/27`; malejący opisuje wyłącznie kolejność stron w nagraniu. Po
+wyborze źródła UI pokazuje wyprowadzony, sąsiedni katalog `<źródło> cut`.
+Nie wybiera browserowego folderu docelowego i nie wykonuje outputu legacy.
+
+Przed odbiorem T12 `capabilities.v7.startEnabled=false` blokuje wybór źródła i
+start; interfejs pokazuje serwerowy powód i nie może utworzyć runu, zużyć tokenu
+ani obejść blokady. Historyczne runy zachowują istniejący review oraz lokalny
+output File System Access.
+
+Stan lokalny per run rozróżnia `scanSourceIndex`, monotoniczny
+`sequenceExpectedIndex` i dokładny `viewSourceIndex`. Odtwarzany podgląd może
+otworzyć sąsiednie zdjęcie bez zmiany kandydata, kursora skanu lub kursora
+sekwencji. Przegląd V7 jest na tym etapie tylko do odczytu; nie udaje listy
+quality/warnings ani manualnego outputu, dopóki runtime nie wystawi tych danych.
+Viewer montuje się dopiero po restore, a jego kontrolowany callback zapisuje
+zmiany zoomu i scrolla dopiero z aktualnego widoku. Hook odkłada też pierwsze
+ustawienie scrolla do czasu załadowania obrazu, więc odtworzona pozycja dociera
+do DOM i nie jest zastępowana wartościami domyślnymi. Historyczny run, który
+utracił uchwyt wyniku, może ponownie wskazać wyłącznie własny legacy output;
+ta kontrolka nie jest dostępna dla V7.

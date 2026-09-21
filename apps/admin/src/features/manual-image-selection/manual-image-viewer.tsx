@@ -59,7 +59,10 @@ export function useManualImageViewer(
   const previousImagesRef = useRef(images);
   const imageScrollLeftRef = useRef(Math.max(0, initialView?.scrollLeft ?? 0));
   const imageScrollTopRef = useRef(Math.max(0, initialView?.scrollTop ?? 0));
-  const pendingScrollRestoreRef = useRef(false);
+  // The first loaded image needs the same deferred DOM restore as a neighbour.
+  // Without this flag, a persisted initial viewport stays in refs but never
+  // reaches the scroll container after the image has dimensions.
+  const pendingScrollRestoreRef = useRef(initialView !== undefined);
   const previousImageIndexRef = useRef(currentImageIndex);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageUrlIndex, setImageUrlIndex] = useState(-1);

@@ -6,6 +6,25 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0594 — formularz i trwały podgląd V7
+
+- Nowe uruchomienie półautomatu tworzy wyłącznie kanoniczny `v7_selection`.
+  Formularz przyjmuje pojedynczy początek pełnej strony albo zakres 3×3,
+  rozdziela kolejność nagrania od rosnących granic API, ma domyślne
+  `semi_automatic`/`ascending`/`top_and_sides` i pokazuje wyprowadzony target
+  `<źródło> cut`.
+- V7 nie wybiera browserowego katalogu wynikowego i nie może trafić do
+  legacy writera. `capabilities.v7.startEnabled=false` blokuje wybór źródła
+  oraz start, a UI wyświetla powód serwera; historyczne runy nadal korzystają
+  z dotychczasowego review i File System Access.
+- Local session addytywnie przechowuje osobne scan/sequence/view cursors.
+  Read-only viewer V7 przywraca dokładne zdjęcie sąsiada bez zmiany kandydata
+  albo kursora sekwencji; montuje się po pełnym restore i hook odkłada
+  ustawienie scrolla do załadowania obrazu, po czym trwale zapisuje rzeczywisty
+  zoom/scroll. Historyczny run bez uchwytu outputu odzyskuje wyłącznie własny
+  File System Access picker. Runtime, quality/warnings i manual-output API
+  czekają na dalszą integrację oraz odbiór T12.
+
 ### TASK-0593 — ręczne decyzje outputu V7
 
 - `V7ManualOutputRequest` zapisuje `manual_first`, `manual_no_ocr` oraz

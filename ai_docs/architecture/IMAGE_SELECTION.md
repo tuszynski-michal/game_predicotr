@@ -1983,3 +1983,35 @@ usuwany tylko po zgodności SHA. Granica atomowości dotyczy współpracujących
 procesów aplikacji, które pobierają wspólny directory lock; zewnętrzna zmiana
 filesystemu w odstępie po ostatnim SHA i przed `os.replace` nie ma blokady
 systemowej i jest opisana operatorowi jako ograniczenie V1.
+
+## Formularz i trwały podgląd V7 — TASK-0594
+
+`v7-selection-form.ts` jest czystą granicą UI. Parsuje pojedynczy pozytywny
+numer jako początek strony 3×3 albo pełny zakres dokładnie dziewięciu liczb,
+a następnie waliduje kolejność pierwszej i ostatniej strony względem kierunku.
+Zwraca wyłącznie kanoniczne rosnące `firstSequenceNumber` /
+`lastSequenceNumber` i liczbę stron; kierunek zachowuje osobno. Adapter API
+buduje `mode=v7_selection` z tokenem lokalnego źródła oraz `v7.mode` i
+`v7.borderStyle`, bez legacy `recognizerVariant` i bez browserowego outputu.
+
+Local session IndexedDB rozwija rekord addytywnie. Historyczny rekord bez
+trzech nowych kursorów normalizuje je do `null` (kursor sekwencji korzysta
+z historycznego `activeExpectedIndex`), a nowy rekord zawiera osobne
+`scanSourceIndex`, `sequenceExpectedIndex` i `viewSourceIndex`. Dla V7
+`outputDirectory` może być `null`, ponieważ writer T08/T09 wyprowadza target
+z lokalnego źródła. Historyczny review wymaga nadal własnego uchwytu
+read/write i nie jest używany przez V7.
+
+`V7SelectionReviewWorkspace` używa jedynie checksum-bound assetów źródłowych
+z istniejącego manifestu. Zapisuje pozycję oglądanego sąsiada i stan zoomu,
+ale nie ma mutacji wyboru, outputu ani warningów. Jest odseparowany od
+`SemiAutomaticSelectionReviewWorkspace`, który pozostaje implementacją
+historycznego local-output workflowu. Własna inicjalizacja podglądu stosuje
+odtworzony stan tylko raz, aby zapis IndexedDB nie tworzył pętli renderowania.
+Workspace montuje viewer V7 dopiero po zakończeniu asynchronicznego restore'u;
+callback `onViewChange` hooka utrwala zoom i scroll po ich rzeczywistej zmianie,
+zamiast odczytywać pusty DOM przy montowaniu. Wspólny hook oznacza początkowy
+widok jako oczekujący na restore i aplikuje refy scrolla dopiero po otrzymaniu
+wymiarów obrazu. Historyczny run bez przywróconego uchwytu outputu odzyskuje go
+osobną kontrolką legacy, która zapisuje go razem z bieżącym UI i nie jest
+dostępna dla `v7_selection`.

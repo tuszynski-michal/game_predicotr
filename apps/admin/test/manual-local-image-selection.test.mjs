@@ -533,6 +533,7 @@ test('keeps the vertical image position while navigating between photos', () => 
   assert.match(viewerSource, /imageScrollLeftRef/);
   assert.match(viewerSource, /imageScrollTopRef/);
   assert.match(viewerSource, /pendingScrollRestoreRef/);
+  assert.match(viewerSource, /useRef\(initialView !== undefined\)/);
   assert.match(
     viewerSource,
     /viewport\.scrollLeft = imageScrollLeftRef\.current/,

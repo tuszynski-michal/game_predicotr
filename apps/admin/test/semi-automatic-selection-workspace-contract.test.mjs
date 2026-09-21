@@ -30,6 +30,13 @@ const reviewWorkspaceSource = await readFile(
   ),
   'utf8',
 );
+const v7ReviewWorkspaceSource = await readFile(
+  new URL(
+    '../src/features/semi-automatic-image-selection/v7-selection-review-workspace.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const catalogSource = await readFile(
   new URL('../src/features/catalog/catalog-workspace.tsx', import.meta.url),
   'utf8',
@@ -56,32 +63,34 @@ test('configures the direct local source through capabilities and range bounds',
     workspaceSource,
     /getSemiAutomaticImageSelectionCapabilities\(\)/,
   );
-  assert.match(workspaceSource, /capabilities\?\.enabled !== true/);
-  assert.match(workspaceSource, /Pierwsza plansza/);
-  assert.match(workspaceSource, /Ostatnia plansza/);
+  assert.match(workspaceSource, /capabilities\.v7\.startEnabled/);
+  assert.match(workspaceSource, /Pierwszy zakres w nagraniu/);
+  assert.match(workspaceSource, /Ostatni zakres w nagraniu/);
   assert.match(workspaceSource, /Kolejność numeracji/);
+  assert.match(workspaceSource, /Tryb pracy/);
+  assert.match(workspaceSource, /Styl obramowania/);
+  assert.match(workspaceSource, /V7 czeka na odbiór/);
+  assert.match(workspaceSource, /deriveV7OutputDirectory/);
   assert.match(workspaceSource, /fullRangeSize/);
   assert.match(workspaceSource, /Wybierz katalog źródłowy/);
-  assert.match(workspaceSource, /Wybierz katalog docelowy/);
   assert.match(workspaceSource, /Sprawdzanie dostępności/);
 });
 
-test('offers the experimental five-anchor OCR only as an explicit run variant', () => {
-  assert.match(workspaceSource, /Wariant OCR zakresu/);
-  assert.match(workspaceSource, /selectionRecognizerVariants/);
-  assert.match(workspaceSource, /five_anchor_v6/);
+test('builds only the V7 request for a new run and keeps legacy payload separate', () => {
+  assert.match(workspaceSource, /createV7SelectionFromLocalSource/);
+  assert.match(actionsSource, /createV7SelectionPayload/);
+  assert.match(actionsSource, /mode: 'selection'/);
   assert.match(
     workspaceSource,
-    /Wariant testowy: tworzy osobny, checksum-bound run/,
+    /V7 jest zablokowane: \{capabilities\.v7\.reason\}/,
   );
-  assert.match(actionsSource, /recognizerVariant: input\.recognizerVariant/);
 });
 
 test('starts selection from a metadata manifest without creating browser staging', () => {
   assert.match(actionsSource, /selectSemiAutomaticImageSelectionSourceFolder/);
   assert.match(actionsSource, /selectionToken: input\.source\.selectionToken/);
   assert.match(actionsSource, /listSemiAutomaticImageSelectionSources/);
-  assert.match(workspaceSource, /createSemiAutomaticSelectionFromLocalSource/);
+  assert.match(workspaceSource, /createV7SelectionFromLocalSource/);
   assert.match(workspaceSource, /Źródła nie będą kopiowane do stagingu/);
   assert.doesNotMatch(workspaceSource, /createBrowserImageSelection/);
   assert.doesNotMatch(workspaceSource, /uploadBrowserImageSelectionFile/);
@@ -97,7 +106,52 @@ test('polls one active run and hands terminal analysis to the review workspace',
   assert.match(workspaceSource, /Wznów analizę/);
   assert.match(workspaceSource, /Anuluj run/);
   assert.match(workspaceSource, /<SemiAutomaticSelectionReviewWorkspace/);
+  assert.match(workspaceSource, /run\.workflowMode !== 'v7_selection'/);
+  assert.match(workspaceSource, /pickSemiAutomaticOutputDirectory/);
+  assert.match(workspaceSource, /Wskaż katalog wyniku historycznego/);
+  assert.match(workspaceSource, /<V7SelectionReviewWorkspace/);
   assert.match(workspaceSource, /loadSemiAutomaticReviewSourceFiles/);
+});
+
+test('keeps scan, sequence and exact neighbour preview cursors durable and separate', async () => {
+  const storageSource = await readFile(
+    new URL(
+      '../src/features/semi-automatic-image-selection/semi-automatic-selection-output-storage.ts',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  assert.match(storageSource, /scanSourceIndex/);
+  assert.match(storageSource, /sequenceExpectedIndex/);
+  assert.match(storageSource, /viewSourceIndex/);
+  assert.match(
+    storageSource,
+    /outputDirectory: SemiAutomaticOutputDirectoryHandle \| null/,
+  );
+  assert.match(
+    storageSource,
+    /sequenceExpectedIndex:\s*value\.sequenceExpectedIndex \?\? value\.activeExpectedIndex/,
+  );
+  assert.match(v7ReviewWorkspaceSource, /PODGLĄD SĄSIADÓW V7/);
+  assert.match(v7ReviewWorkspaceSource, /viewSourceIndex: sourceIndex/);
+  assert.match(v7ReviewWorkspaceSource, /const persistView = useCallback/);
+  assert.match(v7ReviewWorkspaceSource, /scrollLeft: view\.scrollLeft/);
+  assert.match(
+    v7ReviewWorkspaceSource,
+    /useManualImageViewer\([\s\S]*persistView/,
+  );
+  assert.match(
+    workspaceSource,
+    /const \[restoreComplete, setRestoreComplete\]/,
+  );
+  assert.match(
+    workspaceSource,
+    /run\.workflowMode === 'v7_selection' &&\s*restoreComplete/,
+  );
+  assert.match(
+    v7ReviewWorkspaceSource,
+    /podgląd nie zmienia reprezentanta ani[\s\S]*kursora sekwencji/,
+  );
 });
 
 test('reviews a complete range snapshot and locks source editing to one target range', () => {

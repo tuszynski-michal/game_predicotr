@@ -123,8 +123,11 @@ export function SemiAutomaticSelectionReviewWorkspace({
       {
         activeExpectedIndex,
         mode,
+        scanSourceIndex: null,
+        sequenceExpectedIndex: activeExpectedIndex,
         scrollLeft: viewer.imageViewportRef.current?.scrollLeft ?? 0,
         scrollTop: viewer.imageViewportRef.current?.scrollTop ?? 0,
+        viewSourceIndex: sourceIndex,
         zoomPercent: Math.round(viewer.zoom * 100),
       },
       null,
@@ -133,6 +136,7 @@ export function SemiAutomaticSelectionReviewWorkspace({
     activeExpectedIndex,
     mode,
     onPersistUi,
+    sourceIndex,
     viewer.imageViewportRef,
     viewer.zoom,
   ]);
@@ -181,8 +185,11 @@ export function SemiAutomaticSelectionReviewWorkspace({
         {
           activeExpectedIndex: requestedIndex,
           mode: nextMode,
+          scanSourceIndex: null,
+          sequenceExpectedIndex: requestedIndex,
           scrollLeft: viewer.imageViewportRef.current?.scrollLeft ?? 0,
           scrollTop: viewer.imageViewportRef.current?.scrollTop ?? 0,
+          viewSourceIndex: sourceIndex,
           zoomPercent: initialUi?.zoomPercent ?? 100,
         },
         prepared.manifestChecksumSha256,
@@ -276,8 +283,11 @@ export function SemiAutomaticSelectionReviewWorkspace({
         {
           activeExpectedIndex: nextIndex,
           mode: hasSource(nextRanges[nextIndex]) ? 'review' : 'edit_source',
+          scanSourceIndex: null,
+          sequenceExpectedIndex: nextIndex,
           scrollLeft: initialUi?.scrollLeft ?? 0,
           scrollTop: initialUi?.scrollTop ?? 0,
+          viewSourceIndex: sourceIndex,
           zoomPercent: Math.round(viewer.zoom * 100),
         },
         saved.manifestChecksumSha256,

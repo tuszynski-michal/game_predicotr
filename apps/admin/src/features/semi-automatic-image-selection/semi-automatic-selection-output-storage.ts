@@ -49,15 +49,22 @@ export interface SemiAutomaticSourceDirectoryHandle {
 export interface SemiAutomaticSelectionLocalUiState {
   readonly activeExpectedIndex: number | null;
   readonly mode: 'configuration' | 'syncing_output' | 'review' | 'edit_source';
+  /** Completed source prefix owned by the worker, never the viewer position. */
+  readonly scanSourceIndex: number | null;
+  /** Monotonic expected-range cursor owned by sequence progression. */
+  readonly sequenceExpectedIndex: number | null;
   readonly scrollLeft: number;
   readonly scrollTop: number;
+  /** Exact source currently opened by the operator, including a neighbour. */
+  readonly viewSourceIndex: number | null;
   readonly zoomPercent: number;
 }
 
 export interface SemiAutomaticSelectionLocalSessionRecord {
   readonly runId: string;
   readonly sourceDirectory: SemiAutomaticSourceDirectoryHandle | null;
-  readonly outputDirectory: SemiAutomaticOutputDirectoryHandle;
+  /** V7 output is written by the local writer to `<source> cut`, not the browser. */
+  readonly outputDirectory: SemiAutomaticOutputDirectoryHandle | null;
   readonly outputManifestChecksumSha256: string | null;
   readonly ui: SemiAutomaticSelectionLocalUiState;
   readonly updatedAt: string;
@@ -303,6 +310,7 @@ export async function restoreSemiAutomaticSelectionLocalSession(
   ) {
     return null;
   }
+  if (record.outputDirectory === null) return record;
   const outputGranted = await ensurePermission(
     record.outputDirectory,
     'readwrite',
@@ -342,7 +350,8 @@ export function validateLocalSessionRecord(
     (value.sourceDirectory !== null &&
       !isSourceDirectoryHandle(value.sourceDirectory)) ||
     !('outputDirectory' in value) ||
-    !isOutputDirectoryHandle(value.outputDirectory) ||
+    (value.outputDirectory !== null &&
+      !isOutputDirectoryHandle(value.outputDirectory)) ||
     !('outputManifestChecksumSha256' in value) ||
     (value.outputManifestChecksumSha256 !== null &&
       (typeof value.outputManifestChecksumSha256 !== 'string' ||
@@ -355,7 +364,10 @@ export function validateLocalSessionRecord(
   ) {
     throw new Error('SEMI_AUTOMATIC_SELECTION_LOCAL_SESSION_INVALID');
   }
-  return value as SemiAutomaticSelectionLocalSessionRecord;
+  return {
+    ...(value as Omit<SemiAutomaticSelectionLocalSessionRecord, 'ui'>),
+    ui: normalizeLocalUiState(value.ui),
+  };
 }
 
 async function ensurePermission(
@@ -456,15 +468,27 @@ function isOutputDirectoryHandle(
 
 function isLocalUiState(
   value: unknown,
-): value is SemiAutomaticSelectionLocalUiState {
+): value is Omit<
+  SemiAutomaticSelectionLocalUiState,
+  'scanSourceIndex' | 'sequenceExpectedIndex' | 'viewSourceIndex'
+> &
+  Partial<
+    Pick<
+      SemiAutomaticSelectionLocalUiState,
+      'scanSourceIndex' | 'sequenceExpectedIndex' | 'viewSourceIndex'
+    >
+  > {
   return (
     typeof value === 'object' &&
     value !== null &&
     hasOnlyKeys(value, [
       'activeExpectedIndex',
       'mode',
+      'scanSourceIndex',
+      'sequenceExpectedIndex',
       'scrollLeft',
       'scrollTop',
+      'viewSourceIndex',
       'zoomPercent',
     ]) &&
     'activeExpectedIndex' in value &&
@@ -477,6 +501,8 @@ function isLocalUiState(
     ['configuration', 'syncing_output', 'review', 'edit_source'].includes(
       value.mode,
     ) &&
+    optionalCursor(value, 'scanSourceIndex') &&
+    optionalCursor(value, 'sequenceExpectedIndex') &&
     'scrollLeft' in value &&
     typeof value.scrollLeft === 'number' &&
     Number.isFinite(value.scrollLeft) &&
@@ -485,11 +511,44 @@ function isLocalUiState(
     typeof value.scrollTop === 'number' &&
     Number.isFinite(value.scrollTop) &&
     value.scrollTop >= 0 &&
+    optionalCursor(value, 'viewSourceIndex') &&
     'zoomPercent' in value &&
     typeof value.zoomPercent === 'number' &&
     Number.isFinite(value.zoomPercent) &&
     value.zoomPercent >= 100 &&
     value.zoomPercent <= 3000
+  );
+}
+
+function normalizeLocalUiState(
+  value: unknown,
+): SemiAutomaticSelectionLocalUiState {
+  if (!isLocalUiState(value)) {
+    throw new Error('SEMI_AUTOMATIC_SELECTION_LOCAL_SESSION_INVALID');
+  }
+  return {
+    activeExpectedIndex: value.activeExpectedIndex,
+    mode: value.mode,
+    scanSourceIndex: value.scanSourceIndex ?? null,
+    sequenceExpectedIndex:
+      value.sequenceExpectedIndex ?? value.activeExpectedIndex,
+    scrollLeft: value.scrollLeft,
+    scrollTop: value.scrollTop,
+    viewSourceIndex: value.viewSourceIndex ?? null,
+    zoomPercent: value.zoomPercent,
+  };
+}
+
+function optionalCursor(
+  value: object,
+  key: 'scanSourceIndex' | 'sequenceExpectedIndex' | 'viewSourceIndex',
+): boolean {
+  const candidate = value as Record<string, unknown>;
+  if (!(key in candidate) || candidate[key] === undefined) return true;
+  const cursor = candidate[key];
+  return (
+    cursor === null ||
+    (typeof cursor === 'number' && Number.isSafeInteger(cursor) && cursor >= 0)
   );
 }
 

@@ -29,7 +29,7 @@ zaakceptowanego planu `ai_docs/delivery/SEMI_AUTOMATIC_SELECTION_V7_EXECUTION_PL
 | T07 | done, `v0.10.325` | Przypięty manifest, JSON checkpoint skanu/finalizacji, pause/cancel/restart oraz blokada driftu bez zapisu JPEG-a. |
 | T08 | done, `v0.10.326` | Pierwszy output bez nadpisania, journal operacji, kontrola generacji i manifestu, blokada katalogu oraz recovery po awarii. |
 | T09 | done, `v0.10.327` | Manual replace, pierwszy półautomat, ręczny no-OCR, częściowa strona 1–8 i retry. |
-| T10 | todo | Zastąpienie nowego półautomatu UI, formularz, podgląd sąsiadów i trwały kursor operatora. |
+| T10 | done, `v0.10.328` | Formularz V7, kanoniczne granice stron, blokada odbioru, target `cut`, read-only sąsiedzi i trwałe kursory. |
 | T11 | todo | CPU/GPU/RAM, uporządkowana równoległość, limity buforów i raport czasów. |
 | T12 | todo | Odbiór holdoutu, recovery/kompatybilność, raport i dopiero aktywacja produkcyjna. |
 

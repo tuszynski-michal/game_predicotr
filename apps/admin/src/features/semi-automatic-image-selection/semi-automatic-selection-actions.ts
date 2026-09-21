@@ -12,6 +12,10 @@ import type {
   SemiAutomaticOutputDirectoryHandle,
   SemiAutomaticSourceDirectoryHandle,
 } from './semi-automatic-selection-output-storage.ts';
+import {
+  createV7SelectionPayload,
+  type V7NormalizedSelectionForm,
+} from './v7-selection-form.ts';
 
 const MAX_UPLOAD_CONCURRENCY = 4;
 const MAX_FILE_ATTEMPTS = 3;
@@ -128,6 +132,26 @@ export async function createSemiAutomaticSelectionFromLocalSource(input: {
       apiErrorMessage(
         result.error,
         'Nie udało się utworzyć półautomatycznego procesu selekcji.',
+      ),
+    );
+  }
+  return result.data;
+}
+
+/** Creates only the server-gated V7 workflow; it never falls back to legacy OCR. */
+export async function createV7SelectionFromLocalSource(input: {
+  readonly api: SemiAutomaticSelectionClient;
+  readonly configuration: V7NormalizedSelectionForm;
+  readonly source: SemiAutomaticLocalSourceSelection;
+}): Promise<SemiAutomaticSelectionCreateResponse> {
+  const result = await input.api.createSemiAutomaticImageSelection(
+    createV7SelectionPayload(input.configuration, input.source.selectionToken),
+  );
+  if (result.error !== undefined || result.data === undefined) {
+    throw new Error(
+      apiErrorMessage(
+        result.error,
+        'Nie udało się utworzyć procesu selekcji V7.',
       ),
     );
   }

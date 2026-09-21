@@ -17,6 +17,56 @@ muszą być lokalnymi realnymi katalogami bez dowiązań oraz junctionów w cał
 i nie może być użyty do kalibracji ani podglądu assetu. Konfiguracja nie
 odblokowuje `v7_selection` i nie zapisuje plików `cut`.
 
+### Kalibracja pierwszej rodziny etykiet 777 (TASK-0603)
+
+Ten krok służy wyłącznie do nauczenia położenia **numerów** w regularnej siatce
+3 × 3. Nie rozpoznaje symboli, nie zmienia geometrii plansz, nie używa bazy
+konkretnej gry i nie uruchamia automatycznego wyboru zdjęć.
+
+1. Otwórz nowy PowerShell w katalogu repozytorium. Ustaw manifest T0603 tylko
+   dla procesu API i uruchom API:
+
+   ```powershell
+   $env:GAME_PREDICTOR_V7_LABEL_GEOMETRY_CORPUS_MANIFEST = (Resolve-Path '.runtime\v7-label-geometry-calibration-t0603.local.json')
+   $env:GAME_PREDICTOR_V7_LABEL_GEOMETRY_RUNTIME_ROOT = (Resolve-Path '.runtime')
+   npm run api:dev
+   ```
+
+2. W drugim PowerShellu uruchom `npm run admin:dev`, otwórz lokalny panel
+   Admina i przejdź do **Kalibracja etykiet V7**. Zaznacz oba materiały 777:
+   grupy bazowe i częściowo zasłonięte plansze. `reels_test` nie jest dostępny
+   i nie wolno go dodawać do tej sesji.
+
+3. Dla wybranego zdjęcia wpisz **Grupę ujęć**. Nadaj tę samą nazwę zdjęciom z
+   tego samego przejścia nagrania, na przykład `przejscie-A`; drugie niezależne
+   przejście nazwij inaczej, na przykład `przejscie-B`. Nie twórz drugiej grupy
+   tylko po to, aby spełnić licznik.
+
+4. Wybierz pozycję 1–9, ustaw **Pełny, czytelny crop** i kliknij dokładny
+   środek widocznego numeru. Wartość `contained` wolno wybrać tylko wtedy, gdy
+   proponowany crop obejmie cały czytelny numer. Numer zasłonięty, poza kadrem,
+   przycięty lub nieczytelny oznacz **Numer zasłonięty / nieczytelny**. Nie
+   klikaj przybliżonego środka i nie odtwarzaj numeru z sąsiedniego zdjęcia.
+
+5. Karta **Gotowość do sprawdzenia profilu** pokazuje postęp osobno dla każdej
+   pozycji. Potrzebuje pięciu różnych SHA źródeł oraz dwóch rzeczywistych grup
+   ujęć, z pełnymi cropami. `unavailable`, `clipped` i `uncertain` są widoczne
+   diagnostycznie, ale nie zwiększają licznika. Przycisk sprawdzenia profilu
+   uaktywni się dopiero po spełnieniu tych lokalnych warunków dla wszystkich
+   dziewięciu pozycji oraz zastąpieniu każdego `clipped` lub `uncertain`
+   oznaczeniem `contained` albo `unavailable`.
+
+6. Najpierw użyj **Eksportuj snapshot**. Następnie użyj **Sprawdź i utwórz
+   profil**. Serwer pod własną blokadą ponownie sprawdza inwentarz, różnorodność,
+   ocenę cropa oraz p95 residualu `<= 0,04`. Nieudany wynik nie zmienia progu;
+   zbierz lepsze punkty i utwórz nową sesję tylko na niezmienionych źródłach.
+
+Pauza, odświeżenie przeglądarki i utracona odpowiedź zachowują kolejkę zamiarów
+lokalnie. Nie usuwaj ręcznie plików z `.runtime` podczas aktywnej sesji. Zmiana
+JPEG-a, katalogu lub manifestu po rozpoczęciu sesji powoduje trwałą blokadę
+`source drift`; zachowaj jej stan do audytu i zacznij nową sesję po ustaleniu
+przyczyny. Utworzenie profilu nadal nie odblokowuje V7.
+
 ## Testowy wariant v0.10.4 po odbiorze TASK-0515
 
 W Adminie można jawnie wybrać `v0.10.4 — testowy, niepełne boki` dla nowego

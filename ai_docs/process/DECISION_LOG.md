@@ -6,6 +6,27 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-415 — Kalibracja T0603 używa odrębnego manifestu V2 obu katalogów 777
+
+- **Status:** accepted (TASK-0603).
+- **Date:** 2026-09-21.
+- **Decision:** rzeczywista sesja pierwszej rodziny geometrii używa nowego,
+  lokalnego i ignorowanego manifestu T0603. Wyłącznie `small_777` oraz
+  `occluded_777` mają w nim split `calibration`,
+  `geometryFamilyId=standard_3x3_numeric_labels_v1` oraz
+  `sourceGameRef=777`. Historyczny manifest V1 nie jest zmieniany; pozostałe
+  case'y, w tym holdout, zachowują swoje role i nie uzyskują rodziny przez
+  domyślne dziedziczenie.
+- **Rationale:** ekran TASK-0602 prawidłowo oferuje oba zestawy 777, lecz V1
+  nie opisuje rodziny, a `small_777=development` byłby poprawnie odrzucony
+  przez API. Odrębny manifest rozwiązuje tę niespójność bez
+  reinterpretowania istniejącego benchmarku lub holdoutu.
+- **Safety:** ten plik służy wyłącznie do jawnie skonfigurowanej kalibracji.
+  Nie modyfikuje JPEG-ów, nie uruchamia V7 selection, nie tworzy `cut`, nie
+  zmienia progów kalibracji i nie odblokowuje API. Każda sesja nadal przypina
+  pełny inwentarz oraz checksumy, a profil powstaje tylko po własnej walidacji
+  serwera.
+
 ## D-414 — Ekran kalibracji zachowuje zamiar lokalnie, a rewizję na serwerze
 
 - **Status:** accepted (TASK-0602).

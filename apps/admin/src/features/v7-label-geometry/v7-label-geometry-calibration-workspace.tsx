@@ -37,6 +37,11 @@ import {
   type V7LabelGeometryCropAssessment,
   V7LabelGeometryCalibrationLocalStore,
 } from './v7-label-geometry-calibration-store.ts';
+import {
+  calculateV7LabelGeometryCalibrationReadiness,
+  V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION,
+  V7_LABEL_GEOMETRY_MINIMUM_SOURCES_PER_POSITION,
+} from './v7-label-geometry-calibration-readiness.ts';
 
 const GEOMETRY_FAMILY_ID = 'standard_3x3_numeric_labels_v1';
 const CALIBRATION_CASES = [
@@ -763,6 +768,17 @@ export function V7LabelGeometryCalibrationWorkspace({
   const activeSlot = slots.find(
     (slot) => slot.positionIndex === view?.activePositionIndex,
   );
+  const readiness = useMemo(
+    () =>
+      session === null
+        ? null
+        : calculateV7LabelGeometryCalibrationReadiness({
+            captureGroups: session.captureGroups,
+            slots: session.slots,
+            sources: session.sources,
+          }),
+    [session],
+  );
 
   return (
     <section
@@ -941,6 +957,55 @@ export function V7LabelGeometryCalibrationWorkspace({
             })}
           </div>
 
+          {readiness !== null ? (
+            <section
+              aria-label="Gotowość kalibracji profilu"
+              className="v7LabelGeometryReadiness"
+            >
+              <h3>Gotowość do sprawdzenia profilu</h3>
+              <p>
+                Każda pozycja potrzebuje co najmniej{' '}
+                {V7_LABEL_GEOMETRY_MINIMUM_SOURCES_PER_POSITION} różnych zdjęć
+                i {V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION} grup
+                ujęć z pełnym cropem. Serwer sprawdzi jeszcze residual p95.
+              </p>
+              <div className="v7LabelGeometryReadinessGrid">
+                {readiness.positions.map((position) => (
+                  <div
+                    className={
+                      position.readyForProfileCheck
+                        ? 'v7LabelGeometryReadinessItem ready'
+                        : 'v7LabelGeometryReadinessItem'
+                    }
+                    key={position.positionIndex}
+                  >
+                    <strong>Pozycja {position.positionIndex + 1}</strong>
+                    <span>
+                      Zdjęcia: {position.sourceCount}/
+                      {V7_LABEL_GEOMETRY_MINIMUM_SOURCES_PER_POSITION}
+                    </span>
+                    <span>
+                      Grupy: {position.captureGroupCount}/
+                      {V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION}
+                    </span>
+                    <span>Pełne cropy: {position.containedAnnotationCount}</span>
+                    {position.incompleteAnnotationCount > 0 ? (
+                      <span>Niepełne: {position.incompleteAnnotationCount}</span>
+                    ) : null}
+                    {position.unavailableCount > 0 ? (
+                      <span>Niewidoczne: {position.unavailableCount}</span>
+                    ) : null}
+                    <span>
+                      {position.readyForProfileCheck
+                        ? 'Gotowa do kontroli serwera'
+                        : 'Potrzebne kolejne pełne oznaczenia'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <div className="v7LabelGeometryAssessment">
             <label>
               Ocena cropa wybranej etykiety
@@ -1039,7 +1104,8 @@ export function V7LabelGeometryCalibrationWorkspace({
                 busy ||
                 syncing ||
                 queue.pending.length > 0 ||
-                queue.stoppedReason !== null
+                queue.stoppedReason !== null ||
+                readiness?.readyForProfileCheck !== true
               }
               onClick={() => void exportSession(true)}
               type="button"

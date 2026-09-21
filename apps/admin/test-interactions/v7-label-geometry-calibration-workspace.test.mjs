@@ -184,6 +184,8 @@ test('V7 workspace serializes durable clicks, rejects edge points, and preserves
     () => document.querySelector('select') !== null,
     'workspace should restore the session',
   );
+  assert.ok(document.querySelector('[aria-label="Gotowość kalibracji profilu"]'));
+  assert.equal(button('Sprawdź i utwórz profil').disabled, true);
   assetA.resolve({ data: new Blob(['a']) });
   await eventually(
     () => document.querySelector('img') !== null,

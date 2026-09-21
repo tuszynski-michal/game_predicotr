@@ -6,6 +6,22 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0603 — przygotowanie realnej kalibracji geometrii etykiet 777 V7
+
+- Przygotowano realną kalibrację `standard_3x3_numeric_labels_v1`.
+  Ekran z TASK-0602 oferował `small_777`, lecz aktywny manifest V1 oznaczał go
+  jako `development`, przez co API słusznie nie pozwalało wykorzystać obu
+  wskazanych katalogów 777 w jednej sesji kalibracyjnej.
+- Zgodnie z D-415 powstał osobny, ignorowany manifest T0603 w `.runtime/`:
+  oba case'y 777 są w nim `calibration`, należą do jednej rodziny i nie
+  zmieniają istniejącego manifestu V1, danych wejściowych ani holdoutu.
+  Rzeczywiste punkty nadal wymagają świadomego oznaczenia operatora. Przegląd
+  kadrów potwierdził trwałe zasłonięcie dolnego lewego obszaru w wielu
+  źródłach bazowych, więc nie utworzono pozornie poprawnego profilu przez
+  zgadywanie centrów albo grup ujęć. TASK-0603 jest `blocked` wyłącznie na
+  brakujących danych operatora; profil, runtime observer, adopcje i aktywacja
+  V7 pozostają zablokowane.
+
 ### TASK-0602 — ekran anotacji geometrii etykiet V7
 
 - Admin ma niezależny ekran `Kalibracja etykiet V7` dla

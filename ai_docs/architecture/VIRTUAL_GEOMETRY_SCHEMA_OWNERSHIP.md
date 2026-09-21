@@ -6,6 +6,18 @@ last_updated: 2026-09-22
 
 # Virtual geometry schema ownership
 
+## Niezależny odbiór acceptance shared shape v2 — TASK-0610
+
+Lokalny evaluator G08 jest jedynym właścicielem odczytu acceptance i nie ma
+prawa korzystać z executor jako materiału pomiarowego. Executor służy wyłącznie
+do ponownej kontroli granicy splitów i musi być dokładnie tym, który wskazuje
+zamrożony input G05. Przypięte anotacje i pełny input są ponownie wykonywane
+przez runner G05, a cały wynik musi być identyczny bajt po bajcie z raportem
+wejściowym. Dopiero wtedy G08 odtwarza descriptorowego kandydata, raport G07 i
+profil preflight, ponownie kontroluje SHA odczytanych bajtów, a dwa pełne wyniki
+verifiera wiąże checksumami. Nie otwiera bazy, nie publikuje i nie aktywuje:
+`passed` jest lokalnym dowodem zgodności, `not_evaluable` oznacza brak danych,
+a `rejected` pozostaje lokalnym wynikiem kontroli.
 ## Pilot Mumie → Gang shared shape v2 — TASK-0609
 
 Lokalny runner G05 jest wyłącznie właścicielem pomiaru i raportu operator-owned

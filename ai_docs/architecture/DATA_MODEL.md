@@ -6,6 +6,19 @@ last_updated: 2026-09-22
 
 # Model danych
 
+## Niezależny odbiór acceptance shared shape v2 — TASK-0610
+
+G08 pozostaje lokalnym, regenerowalnym artefaktem poza bazą. Jego pojedyncze
+wejście przypina do konkretnego executora manifest, inventory i anotacje użyte
+w G05, pełny input oraz raport pilota, raport G07, profil preflight, wersję i
+konfigurację rdzenia, a także truth acceptance dla każdego SHA źródła.
+Evaluator ponownie materializuje oba inventory, odrzuca wspólny checksum lub
+capture family, ponownie uruchamia G05 na przypiętym inputcie i anotacjach oraz
+wymaga zgodności całego raportu bajt po bajcie, zanim odczyta acceptance.
+Następnie porównuje pełne checksummowane wyniki w dwóch replayach.
+`passed` oznacza wyłącznie zgodność odbioru na materiałach acceptance; nie
+zapisuje tabel ani nie aktywuje profilu. Brak wszystkich artefaktów oznacza
+`not_evaluable`, a niezgodność łańcucha, truthu lub bajtów źródła — `rejected`.
 ## Pilot korekt i transferu shared shape v2 — TASK-0609
 
 Pilot G05 jest lokalnym, regenerowalnym artefaktem poza bazą. Przypina manifest

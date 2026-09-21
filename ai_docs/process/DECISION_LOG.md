@@ -9267,3 +9267,24 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   raport G07 nie otrzymują obrazu, ścieżki, `game_id`, OCR, symbolu, payoutu,
   sekwencji, layoutu ani kotwicy. Pilot nie otwiera `game_data_v2`, nie tworzy
   source revision i nie uruchamia importu.
+## D-427 — Odbiór G08 jest odrębną, lokalną bramką acceptance
+
+- **Status:** accepted (TASK-0610/G08).
+- **Date:** 2026-09-22.
+- **Decision:** odbiór używa wyłącznie manifestu i truthu `acceptance`,
+  a osobny manifest executor służy wyłącznie do kontroli granicy splitów i
+  musi zgadzać się z manifestem oraz inventory zamrożonym w pełnym input G05.
+  Wejście przypina pełne anotacje executora; evaluator ponownie uruchamia G05
+  na tym inputcie i wymaga bajtowej zgodności całego raportu przed dalszą
+  oceną. Następnie przypina wersję i konfigurację rdzenia, pełnego kandydata G05,
+  raport G07, profil preflight i kompletne wyniki dwóch replayów checksumami.
+  Bajty są kontrolowane ponownie po odczycie, przed dekodowaniem. Pełny
+  niespójny zestaw jest `rejected`, a brak kompletu operator-owned artefaktów
+  jest `not_evaluable`.
+- **Rationale:** rzeczywisty odbiór musi sprawdzać nieużywane wcześniej
+  źródła, odtwarzalność oraz pełną proweniencję bez ponownego użycia danych
+  development/calibration i bez uznania braku danych za sukces.
+- **Compatibility:** brak migracji, endpointu, UI, importu lub automatycznej
+  aktywacji. `passed` jest raportem lokalnym, a nie komendą do G07.
+- **Safety:** raport i command pozostają local-only; nie przechowują obrazów
+  ani ścieżek, nie otwierają bazy i nie zmieniają `game_data_v2`.

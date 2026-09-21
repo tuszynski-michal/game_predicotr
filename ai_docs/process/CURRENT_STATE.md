@@ -6,6 +6,21 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0610 — niezależny odbiór acceptance wspólnej geometrii shape v2
+
+- Ukończono G08: local-only evaluator odbiera wyłącznie operator-owned corpus
+  `acceptance` względem zamrożonego rdzenia, profilu preflight i łańcucha
+  G05/G07. Input przypina anotacje executora; przed odczytem acceptance runner
+  ponownie wykonuje G05 i wymaga bajtowej zgodności całego raportu.
+- Granica splitów blokuje wspólne SHA i capture family, verifier ponownie
+  kontroluje SHA odczytanych bajtów i pełny payload dwóch replayów. Command
+  nie otwiera bazy, nie publikuje ani nie aktywuje profilu; brak kompletu
+  artefaktów daje wyłącznie `not_evaluable`.
+- 30 testów G08+G05, Ruff, format i ograniczony mypy przeszły. Astra Medium
+  wykryła pięć P2 w trzech przebiegach; wszystkie naprawiono z regresjami,
+  a końcowy re-audyt nie ma P0–P3. Karta zadania została przeniesiona do
+  `ai_docs/tasks/completed/` wraz z commitem G08.
+
 ### TASK-0609 — pilot korekt i transferu wspólnej geometrii shape v2
 
 - Ukończono G05: local-only runner mierzy kolejność istniejąca wiedza → Mumie →

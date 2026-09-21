@@ -1,10 +1,26 @@
 ---
 title: Virtual geometry schema ownership
 status: accepted
-last_updated: 2026-09-21
+last_updated: 2026-09-22
 ---
 
 # Virtual geometry schema ownership
+
+## Pilot Mumie → Gang shared shape v2 — TASK-0609
+
+Lokalny runner G05 jest wyłącznie właścicielem pomiaru i raportu operator-owned
+corpusów. Wymusza kolejność istniejącego aktywnego profilu, zaakceptowanej
+korekty Mumii, replayu, regresji pełnej kohorty wcześniejszych gier oraz
+transferu do gry spoza wkładu. Każda obserwacja zawiera checksumę badanego
+profilu; zmiana kandydata lub baseline unieważnia jej użycie. Wynik mierzy
+osobno automaty, review, korektę, potwierdzenie i czas operatora, dlatego
+porównanie przed/po odnosi się wyłącznie do identycznej kohorty.
+
+Jedynie wynik `measured` może przejść przez wewnętrzną granicę publicznego
+control plane; runner nie otwiera magazynu gry, nie zapisuje geometrii lokalnej
+ani nie uruchamia importu. Kandydat i raport przekazywane dalej pozostają
+identifier-free względem źródeł: nie zawierają obrazów, ścieżek, `game_id`,
+OCR, symboli, sekwencji ani lokalnych kotwic.
 
 ## Kwalifikacja i aktywacja shared shape v2 — TASK-0608
 

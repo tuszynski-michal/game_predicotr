@@ -6,12 +6,29 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0609 — pilot korekt i transferu wspólnej geometrii shape v2
+
+- Ukończono G05: local-only runner mierzy kolejność istniejąca wiedza → Mumie →
+  zaakceptowana korekta → Gang bez importu ani zapisu do `game_data_v2`.
+  Obserwacje są przypięte do SHA źródła i checksumy badanego profilu, a zmiana
+  payloadu, niepełna faza lub `acceptance` daje `not_evaluable`.
+- Regresja obejmuje pełną, jawną kohortę wcześniejszych gier. Wynik osobno
+  mierzy automaty, review, korektę, potwierdzenie i czas operatora; porównanie
+  pracy powstaje tylko dla kompletnego identycznego zestawu baseline/kandydat.
+- 27 testów zakresu, szerszy zestaw corpus–biblioteka–kwalifikacja, Ruff,
+  format i ograniczony mypy przeszły. Astra Medium znalazła cztery P2 w dwóch
+  przebiegach; wszystkie naprawiono z regresjami, a końcowy re-audyt nie ma
+  P0–P3. Karta zadania została przeniesiona do `completed` wraz z commitem G05.
+
 ### TASK-0608 — kwalifikacja i aktywacja wspólnej geometrii shape v2
 
-- Trwa G07: przygotowanie descriptor-only, checksummowanej kwalifikacji
-  kandydatów oraz atomowej aktywacji. Brak operator-owned raportu replayu,
-  regresji i transferu ma zachować kandydata w stanie `candidate`; nie wolno
-  utworzyć fikcyjnego wyniku ani zmienić poprzedniej wersji aktywnej.
+- Ukończono G07: descriptor-only kwalifikacja wiąże kandydata z checksummowanym
+  replayem, regresją i transferem. Wynik `not_evaluable` albo `rejected` nie
+  zmienia aktywnej wiedzy, a `passed` atomowo wycofuje poprzedni profil i
+  aktywuje dokładnie zweryfikowanego kandydata.
+- 124 testy zakresu, Ruff i ograniczony mypy przeszły. Astra Medium znalazła
+  P2, które poprawiono z regresjami; końcowy re-audyt nie ma P0–P3. Karta
+  zadania została przeniesiona do `completed` wraz z commitem G07.
 
 ### TASK-0607 — gotowość wspólnej geometrii przy tworzeniu gry
 

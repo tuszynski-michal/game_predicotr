@@ -1,10 +1,27 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-09-21
+last_updated: 2026-09-22
 ---
 
 # Model danych
+
+## Pilot korekt i transferu shared shape v2 — TASK-0609
+
+Pilot G05 jest lokalnym, regenerowalnym artefaktem poza bazą. Przypina manifest
+executor, inwentarz, anotacje oraz każdą obserwację do SHA źródła i checksumy
+konkretnego badanego profilu. Wejście wskazuje pełny, niepusty zbiór gier,
+z których pochodzi istniejąca wiedza; oba warianty regresji muszą ocenić
+identyczną kohortę tych źródeł. Wynik fazy osobno liczy poprawne i błędne
+automaty, wymagany review, korektę, samo potwierdzenie oraz czas aktywnej pracy,
+a następnie wyprowadza porównanie nakładu przed i po kandydacie.
+
+Pilot nie tworzy tabel, nie zapisuje `game_id` ani danych źródła w globalnym
+control plane. Dopiero kompletny wynik `measured` może przekazać istniejący,
+descriptor-only `GlobalGeometryCandidate` i raport G07 do publicznego
+repozytorium. Niekompletny, niezatwierdzony, dryfujący albo acceptance input
+jest blokowany przed tą granicą; nie uruchamia importu, nie tworzy source
+revision ani nie zmienia `game_data_v2`.
 
 ## Kwalifikacja globalnego profilu geometrii shape v2 — TASK-0608
 

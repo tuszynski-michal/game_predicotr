@@ -9240,3 +9240,30 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   symboli, OCR, payoutów, sekwencji ani kotwic. W przypadku `passed` bieżący
   `active` jest najpierw `retired`, a kandydat następnie `active` w tej samej
   transakcji i pod blokadą zakresu; błąd lub konflikt wycofuje całość.
+## D-426 — Pilot shared shape v2 publikuje tylko kompletny wynik pomiaru
+
+- **Status:** accepted (TASK-0609/G05).
+- **Date:** 2026-09-22.
+- **Decision:** lokalny pilot wiąże checksumami corpus executor, inwentarz,
+  anotacje i pięć etapów: zaakceptowaną korektę Mumii, replay, regresję
+  istniejącego profilu, regresję kandydata oraz transfer do gry spoza wkładu.
+  Każda obserwacja jest przypięta do checksumy badanego profilu, a oba warianty
+  regresji muszą obejmować pełną, jawną kohortę wcześniejszych gier. Wynik
+  liczy osobno automaty, review, korektę, potwierdzenie i czas operatora.
+  Tworzy kandydata wyłącznie przez kontrakt G06, a raport wyłącznie przez
+  kontrakt G07. Do wewnętrznej granicy zapisu może przejść tylko wynik
+  `measured` z istniejącym baseline; są wymagane różne idempotency keys dla
+  utworzenia kandydata i kwalifikacji.
+- **Rationale:** pozwala mierzyć rzeczywiste zmniejszenie pracy po korekcie
+  Mumii na Gangu lub kolejnej zgodnej grze, w odniesieniu do tej samej
+  wcześniejszej wiedzy, bez przypisywania wyniku do nazwy gry, koloru ramki
+  lub lokalnej kotwicy.
+- **Compatibility:** nie ma nowej migracji, endpointu, UI, joba importowego
+  ani zmiany historycznych preflightów. Brak corpusów lub niepełny etap daje
+  lokalne `not_evaluable`; operator może dostarczyć komplet danych później.
+- **Safety:** corpus executor już odrzuca `acceptance`; runner ponownie
+  kontroluje inventory, SHA, anotacje i zgodność etapów. Lokalny raport może
+  zawierać identyfikatory źródeł tylko przed granicą publiczną. Kandydat i
+  raport G07 nie otrzymują obrazu, ścieżki, `game_id`, OCR, symbolu, payoutu,
+  sekwencji, layoutu ani kotwicy. Pilot nie otwiera `game_data_v2`, nie tworzy
+  source revision i nie uruchamia importu.

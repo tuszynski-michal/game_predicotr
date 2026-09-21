@@ -37,6 +37,8 @@ class ApiSettings:
     database_url: str = field(default=_DEFAULT_DATABASE_URL, repr=False)
     artifact_root: Path = field(default_factory=lambda: Path("artifacts").resolve())
     import_root: Path = field(default_factory=lambda: Path("imports").resolve())
+    v7_label_geometry_runtime_root: Path = field(default_factory=lambda: Path(".runtime").resolve())
+    v7_label_geometry_corpus_manifest: Path | None = None
     import_max_bytes: int = _DEFAULT_IMPORT_MAX_BYTES
     browser_layout_import_max_bytes: int = _DEFAULT_BROWSER_LAYOUT_IMPORT_MAX_BYTES
     image_selection_max_bytes: int = _DEFAULT_IMAGE_SELECTION_MAX_BYTES
@@ -98,6 +100,16 @@ class ApiSettings:
         if not import_root_value:
             raise ConfigurationError("GAME_PREDICTOR_IMPORT_ROOT cannot be empty.")
         import_root = Path(import_root_value).resolve()
+        v7_runtime_root = _parse_local_root(
+            source.get("GAME_PREDICTOR_V7_LABEL_GEOMETRY_RUNTIME_ROOT", ".runtime"),
+            variable_name="GAME_PREDICTOR_V7_LABEL_GEOMETRY_RUNTIME_ROOT",
+        )
+        raw_v7_manifest = source.get("GAME_PREDICTOR_V7_LABEL_GEOMETRY_CORPUS_MANIFEST")
+        v7_corpus_manifest = (
+            None
+            if raw_v7_manifest is None or not raw_v7_manifest.strip()
+            else Path(raw_v7_manifest.strip()).resolve()
+        )
         import_max_bytes = _parse_positive_integer(
             source.get(
                 "GAME_PREDICTOR_IMPORT_MAX_BYTES",
@@ -246,6 +258,8 @@ class ApiSettings:
             database_url=database_url,
             artifact_root=artifact_root,
             import_root=import_root,
+            v7_label_geometry_runtime_root=v7_runtime_root,
+            v7_label_geometry_corpus_manifest=v7_corpus_manifest,
             import_max_bytes=import_max_bytes,
             browser_layout_import_max_bytes=browser_layout_import_max_bytes,
             image_selection_max_bytes=image_selection_max_bytes,

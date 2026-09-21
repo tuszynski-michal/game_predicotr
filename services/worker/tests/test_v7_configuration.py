@@ -143,6 +143,33 @@ def test_freeze_inventory_requires_exact_direct_directory_coverage_and_detects_c
     assert error.value.code == "V7_CORPUS_DIRECTORY_DRIFT"
 
 
+@pytest.mark.parametrize("directory_name", [".", "..", "nested\\case", "C:\\outside"])
+def test_corpus_case_rejects_paths_other_than_one_direct_child(directory_name: str) -> None:
+    with pytest.raises(V7SelectionConfigurationError) as error:
+        V7CorpusCase(
+            "cal",
+            directory_name,
+            V7CorpusSplit.CALIBRATION,
+            V7BorderStyle.TOP_AND_SIDES,
+            ("left_crop",),
+            None,
+        )
+
+    assert error.value.code == "V7_CORPUS_CASE_INVALID"
+
+
+def test_resolve_case_sources_returns_only_validated_direct_jpegs(tmp_path: Path) -> None:
+    for name in ("development", "calibration", "validation", "holdout", "reference"):
+        _make_case_directory(tmp_path, name, name.encode("ascii"))
+    manifest = _complete_manifest(tmp_path)
+
+    sources = manifest.resolve_case_sources(("cal",))
+
+    assert [source.case_id for source in sources] == ["cal", "cal"]
+    assert all(source.path.parent == tmp_path / "calibration" for source in sources)
+    assert all(len(source.source_checksum_sha256) == 64 for source in sources)
+
+
 def test_freeze_inventory_rejects_an_empty_case_in_any_split(tmp_path: Path) -> None:
     for name in ("development", "calibration", "validation", "holdout", "reference"):
         (tmp_path / name).mkdir()
@@ -175,6 +202,24 @@ def test_windows_reparse_point_attribute_is_treated_like_a_link() -> None:
 
     assert v7_configuration._has_windows_reparse_attribute(reparse_stat)
     assert not v7_configuration._has_windows_reparse_attribute(ordinary_stat)
+
+
+def test_corpus_root_rejects_a_junction_in_an_ancestor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unsafe_parent = tmp_path.absolute().parent
+    original_check = v7_configuration._is_link_or_reparse
+    monkeypatch.setattr(
+        v7_configuration,
+        "_is_link_or_reparse",
+        lambda path: path == unsafe_parent or original_check(path),
+    )
+
+    with pytest.raises(V7SelectionConfigurationError) as error:
+        v7_configuration._resolve_directory(tmp_path, "V7_CORPUS_ROOT_UNAVAILABLE")
+
+    assert error.value.code == "V7_CORPUS_PATH_UNSAFE"
 
 
 def test_direct_jpegs_use_a_stable_name_tiebreak_after_the_natural_number() -> None:

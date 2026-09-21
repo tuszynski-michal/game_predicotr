@@ -105,7 +105,13 @@ class V7CorpusCase:
             not self.source_game_ref.strip() or len(self.source_game_ref) > 128
         ):
             _fail("V7_CORPUS_CASE_INVALID", "Corpus source game reference is invalid.")
-        if not self.directory_name or Path(self.directory_name).name != self.directory_name:
+        directory = Path(self.directory_name)
+        if (
+            not self.directory_name
+            or directory.name != self.directory_name
+            or directory.is_absolute()
+            or self.directory_name in {".", ".."}
+        ):
             _fail("V7_CORPUS_CASE_INVALID", "Corpus directory must be one direct child.")
         if not self.scenarios or len(set(self.scenarios)) != len(self.scenarios):
             _fail("V7_CORPUS_CASE_INVALID", "Corpus scenarios must be non-empty and unique.")
@@ -163,6 +169,16 @@ class V7CorpusCaseInventory:
 
 
 @dataclass(frozen=True, slots=True)
+class V7CorpusSourceFile:
+    """One direct JPEG resolved only from a validated corpus case."""
+
+    case_id: str
+    path: Path
+    source_checksum_sha256: str
+    size_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
 class V7CorpusManifest:
     """A filesystem-validated, split-safe corpus manifest for v7 evaluation."""
 
@@ -203,7 +219,7 @@ class V7CorpusManifest:
             _fail("V7_CORPUS_SPLITS_INCOMPLETE", "Corpus lacks one of the four scored splits.")
 
     def freeze_inventory(self) -> tuple[V7CorpusCaseInventory, ...]:
-        root = _resolve_directory(self.corpus_root, "V7_CORPUS_ROOT_UNAVAILABLE")
+        root = self.resolved_corpus_root()
         direct_entries = tuple(root.iterdir())
         if any(item.is_dir() and _is_link_or_reparse(item) for item in direct_entries):
             _fail(
@@ -235,6 +251,53 @@ class V7CorpusManifest:
         return _fingerprint(
             {"cases": [item.as_dict(schema_version=self.schema_version) for item in self.cases]}
         )
+
+    def resolved_corpus_root(self) -> Path:
+        """Return the physical corpus root after rejecting every linked ancestor."""
+
+        return _resolve_directory(self.corpus_root, "V7_CORPUS_ROOT_UNAVAILABLE")
+
+    def resolve_case_sources(
+        self,
+        case_ids: tuple[str, ...],
+    ) -> tuple[V7CorpusSourceFile, ...]:
+        """Resolve direct JPEGs only after validating the whole corpus topology.
+
+        Paths returned by this method are intentionally server-side values. HTTP
+        callers must expose only a session source identity derived from their
+        checksum, never this path or its file name.
+        """
+
+        if not case_ids or len(set(case_ids)) != len(case_ids):
+            _fail("V7_CORPUS_CASE_INVALID", "Corpus source cases must be unique and non-empty.")
+        cases_by_id = {case.case_id: case for case in self.cases}
+        if any(case_id not in cases_by_id for case_id in case_ids):
+            _fail("V7_CORPUS_CASE_INVALID", "Corpus source case is not declared.")
+        self.freeze_inventory()
+        root = self.resolved_corpus_root()
+        result: list[V7CorpusSourceFile] = []
+        for case_id in case_ids:
+            directory = _resolve_directory(
+                root / cases_by_id[case_id].directory_name,
+                "V7_CORPUS_SOURCE_UNAVAILABLE",
+            )
+            if not directory.is_relative_to(root):
+                _fail("V7_CORPUS_PATH_UNSAFE", "Corpus source directory escapes its root.")
+            for path in _direct_jpegs(directory):
+                try:
+                    result.append(
+                        V7CorpusSourceFile(
+                            case_id=case_id,
+                            path=path,
+                            source_checksum_sha256=_sha256_file(path),
+                            size_bytes=path.stat().st_size,
+                        )
+                    )
+                except OSError as error:
+                    raise V7SelectionConfigurationError(
+                        "V7_CORPUS_SOURCE_UNAVAILABLE", "Corpus JPEG cannot be read."
+                    ) from error
+        return tuple(result)
 
 
 def parse_v7_full_range(value: str) -> SemiAutomaticSelectionRange:
@@ -413,7 +476,7 @@ def _directory_fingerprint(directory: Path) -> str:
 
 
 def _resolve_directory(path: Path, code: str) -> Path:
-    if _is_link_or_reparse(path):
+    if _has_link_or_reparse_ancestor(path):
         _fail("V7_CORPUS_PATH_UNSAFE", "Corpus root cannot be a link or junction.")
     try:
         resolved = path.resolve(strict=True)
@@ -422,6 +485,16 @@ def _resolve_directory(path: Path, code: str) -> Path:
     if not resolved.is_dir() or resolved.is_symlink():
         _fail(code, "Corpus root must be a real directory.")
     return resolved
+
+
+def _has_link_or_reparse_ancestor(path: Path) -> bool:
+    """Reject a link or Windows junction in the path before resolving it."""
+
+    try:
+        absolute = path.absolute()
+    except OSError:
+        return True
+    return any(_is_link_or_reparse(component) for component in (absolute, *absolute.parents))
 
 
 def _is_link_or_reparse(path: Path) -> bool:

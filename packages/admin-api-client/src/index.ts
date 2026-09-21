@@ -54,9 +54,12 @@ import {
   createMobileRelease as createGeneratedMobileRelease,
   createReviewFeedbackExport as createGeneratedReviewFeedbackExport,
   createSemiAutomaticImageSelection as createGeneratedSemiAutomaticImageSelection,
+  createV7LabelGeometryCalibrationSession as createGeneratedV7LabelGeometryCalibrationSession,
+  createV7LabelGeometryProfile as createGeneratedV7LabelGeometryProfile,
   decideSemiAutomaticFilenameRangeVerification as decideGeneratedSemiAutomaticFilenameRangeVerification,
   downloadMobileReleaseApk as downloadGeneratedMobileReleaseApk,
   downloadImageDiagnosticExport as downloadGeneratedImageDiagnosticExport,
+  exportV7LabelGeometryCalibrationSession as exportGeneratedV7LabelGeometryCalibrationSession,
   createPayline as createGeneratedPayline,
   createPayoutRule as createGeneratedPayoutRule,
   createRulesDraftFromPublished as createGeneratedRulesDraftFromPublished,
@@ -100,6 +103,9 @@ import {
   startStorageGcRun as startGeneratedStorageGcRun,
   getSymbolCellReviewProjectionStatus as getGeneratedSymbolCellReviewProjectionStatus,
   getSemiAutomaticImageSelectionSourceAsset as getGeneratedSemiAutomaticImageSelectionSourceAsset,
+  getV7LabelGeometryCalibrationSession as getGeneratedV7LabelGeometryCalibrationSession,
+  getV7LabelGeometryCalibrationSourceAsset as getGeneratedV7LabelGeometryCalibrationSourceAsset,
+  getV7LabelGeometryProfile as getGeneratedV7LabelGeometryProfile,
   getSemiAutomaticImageSelection as getGeneratedSemiAutomaticImageSelection,
   getSemiAutomaticImageSelectionCapabilities as getGeneratedSemiAutomaticImageSelectionCapabilities,
   getUnreadableBoardReview as getGeneratedUnreadableBoardReview,
@@ -162,6 +168,8 @@ import {
   listSemiAutomaticImageSelections as listGeneratedSemiAutomaticImageSelections,
   listSemiAutomaticImageSelectionRanges as listGeneratedSemiAutomaticImageSelectionRanges,
   listSemiAutomaticImageSelectionSources as listGeneratedSemiAutomaticImageSelectionSources,
+  listV7LabelGeometryAdoptions as listGeneratedV7LabelGeometryAdoptions,
+  listV7LabelGeometryProfiles as listGeneratedV7LabelGeometryProfiles,
   listSymbols as listGeneratedSymbols,
   listSymbolCellReviews as listGeneratedSymbolCellReviews,
   listUnreadableBoardReviews as listGeneratedUnreadableBoardReviews,
@@ -227,6 +235,7 @@ import {
   uploadBrowserImageSelectionFile as uploadGeneratedBrowserImageSelectionFile,
   uploadManualImageSelectionFile as uploadGeneratedManualImageSelectionFile,
   unlockReviewerSession as unlockGeneratedReviewerSession,
+  mutateV7LabelGeometryCalibrationSession as mutateGeneratedV7LabelGeometryCalibrationSession,
 } from './generated/sdk.gen';
 import type {
   ReprocessManagedImageImportData,
@@ -359,6 +368,9 @@ import type {
   UnreadableBoardReviewPageResponse,
   UnreadableBoardReviewView,
   WorkerLaneStatusResponse,
+  V7LabelGeometrySessionCreate,
+  V7LabelGeometrySessionExportRequest,
+  V7LabelGeometrySessionMutation,
 } from './generated/types.gen';
 
 export type {
@@ -676,6 +688,19 @@ export type {
   SymbolStatus,
   SymbolUpdate,
   WorkerLaneStatusResponse,
+  V7LabelGeometryAdoptionListResponse,
+  V7LabelGeometryAdoptionResponse,
+  V7LabelGeometryProfileListResponse,
+  V7LabelGeometryProfileResponse,
+  V7LabelGeometryReceiptResponse,
+  V7LabelGeometrySessionCreate,
+  V7LabelGeometrySessionExportRequest,
+  V7LabelGeometrySessionExportResponse,
+  V7LabelGeometrySessionMutation,
+  V7LabelGeometrySessionMutationResponse,
+  V7LabelGeometrySessionResponse,
+  V7LabelGeometrySessionSourceResponse,
+  V7LabelGeometrySlotResponse,
   SnapshotJobCreate,
   SnapshotJobPayload,
   ValidateJobCreate,
@@ -805,6 +830,57 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getHealth: () => getGeneratedHealth({ client }),
+    createV7LabelGeometryCalibrationSession: (body: V7LabelGeometrySessionCreate) =>
+      createGeneratedV7LabelGeometryCalibrationSession({ body, client }),
+    getV7LabelGeometryCalibrationSession: (sessionId: string) =>
+      getGeneratedV7LabelGeometryCalibrationSession({
+        client,
+        path: { session_id: sessionId },
+      }),
+    mutateV7LabelGeometryCalibrationSession: (
+      sessionId: string,
+      body: V7LabelGeometrySessionMutation,
+    ) =>
+      mutateGeneratedV7LabelGeometryCalibrationSession({
+        body,
+        client,
+        path: { session_id: sessionId },
+      }),
+    exportV7LabelGeometryCalibrationSession: (
+      sessionId: string,
+      body: V7LabelGeometrySessionExportRequest,
+    ) =>
+      exportGeneratedV7LabelGeometryCalibrationSession({
+        body,
+        client,
+        path: { session_id: sessionId },
+      }),
+    createV7LabelGeometryProfile: (
+      sessionId: string,
+      body: V7LabelGeometrySessionExportRequest,
+    ) =>
+      createGeneratedV7LabelGeometryProfile({
+        body,
+        client,
+        path: { session_id: sessionId },
+      }),
+    getV7LabelGeometryCalibrationSourceAsset: (
+      sessionId: string,
+      sourceId: string,
+      expectedSourceChecksumSha256: string,
+    ) =>
+      getGeneratedV7LabelGeometryCalibrationSourceAsset({
+        client,
+        path: { session_id: sessionId, source_id: sourceId },
+        query: { expectedSourceChecksumSha256 },
+      }),
+    listV7LabelGeometryProfiles: () => listGeneratedV7LabelGeometryProfiles({ client }),
+    getV7LabelGeometryProfile: (profileFingerprint: string) =>
+      getGeneratedV7LabelGeometryProfile({
+        client,
+        path: { profile_fingerprint: profileFingerprint },
+      }),
+    listV7LabelGeometryAdoptions: () => listGeneratedV7LabelGeometryAdoptions({ client }),
     getSemiAutomaticImageSelectionCapabilities: () =>
       getGeneratedSemiAutomaticImageSelectionCapabilities({ client }),
     selectSemiAutomaticImageSelectionSourceFolder: () =>

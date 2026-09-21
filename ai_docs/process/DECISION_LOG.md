@@ -6,6 +6,29 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-413 — API kalibracji V7 rozwiązuje korpus po stronie serwera
+
+- **Status:** accepted (TASK-0601).
+- **Date:** 2026-09-21.
+- **Decision:** konfiguracja operatora wskazuje manifest korpusu i runtime root;
+  HTTP przyjmuje wyłącznie `geometryFamilyId`, `caseId`, UUID sesji, rewizję i
+  semantyczną operację. API nie przyjmuje ani nie zwraca ścieżki/nazwy JPEG-a.
+  Każdy asset jest odczytany do pamięci, wiązany z SHA i normalizowany EXIF do
+  PNG. Pełny inwentarz manifestu i przypięte SHA są kontrolowane przed assetem,
+  mutacją, eksportem i profilem; drift trwałe blokuje sesję.
+- **Profile/adoption:** profil jest immutable i content-addressed względem
+  eksportu dokładnej rewizji; eksport przekazuje do kalibracji dokładny snapshot
+  spod własnej blokady. Odczyt profilu ponownie weryfikuje fingerprint
+  kalibracji i checksumę eksportu względem nazwy content-addressed. Endpoint
+  adopcji pozostaje read-only do TASK-0605; nie może przyjąć dowolnej checksummy
+  jako zastępstwa własnej walidacji gry.
+- **Safety:** tylko split `calibration` jednej rodziny tworzy sesję. Holdout,
+  reference-only, ścieżki niebezpieczne, junctions/dowiązania, conflict SHA oraz
+  uszkodzone źródło kończą się fail-closed. Kontrola przodków obejmuje manifest
+  i korpus, a fingerprint sesji przypina także bezpiecznie rozwiązany fizyczny
+  korzeń bez zmiany historycznego globalnego fingerprintu manifestu V1. Ten
+  pion nie zmienia bramki V7.
+
 ## D-412 — Sesje geometrii etykiet V7 są server-owned i append-safe
 
 - **Status:** accepted (TASK-0600).

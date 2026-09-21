@@ -175,9 +175,7 @@ def test_restart_temp_recovery_and_invalid_temp_fail_closed(tmp_path: Path) -> N
         _operation("00000000-0000-0000-0000-000000000031"),
         current_sources=_sources(),
     )
-    state_path = (
-        tmp_path / ".runtime" / "v7-label-geometry" / "sessions" / SESSION_ID / "state.json"
-    )
+    state_path = store._state_path(SESSION_ID)
     temporary_path = state_path.with_suffix(".json.tmp")
     state_path.replace(temporary_path)
 
@@ -203,9 +201,7 @@ def test_recovery_commits_fsynced_successor_after_interrupted_publish(
     store = _store(tmp_path)
     _create(store)
     operation = _operation("00000000-0000-0000-0000-000000000035")
-    state_path = (
-        tmp_path / ".runtime" / "v7-label-geometry" / "sessions" / SESSION_ID / "state.json"
-    )
+    state_path = store._state_path(SESSION_ID)
     original_replace = v7_calibration_sessions.os.replace
 
     def interrupt_publish(source: Path, destination: Path) -> None:
@@ -230,9 +226,7 @@ def test_recovery_rejects_successor_that_discards_idempotency_receipt(
     store = _store(tmp_path)
     _create(store)
     operation = _operation("00000000-0000-0000-0000-000000000036")
-    state_path = (
-        tmp_path / ".runtime" / "v7-label-geometry" / "sessions" / SESSION_ID / "state.json"
-    )
+    state_path = store._state_path(SESSION_ID)
     temporary_path = state_path.with_suffix(".json.tmp")
     original_replace = v7_calibration_sessions.os.replace
 
@@ -258,9 +252,7 @@ def test_recovery_rejects_successor_that_discards_idempotency_receipt(
 def test_recovery_rejects_blocked_snapshot_that_changes_annotation_state(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _create(store)
-    state_path = (
-        tmp_path / ".runtime" / "v7-label-geometry" / "sessions" / SESSION_ID / "state.json"
-    )
+    state_path = store._state_path(SESSION_ID)
     temporary_path = state_path.with_suffix(".json.tmp")
     tampered = json.loads(state_path.read_text(encoding="utf-8"))
     tampered["session"]["status"] = "blocked_source_drift"
@@ -283,9 +275,8 @@ def test_session_recovery_rejects_snapshot_from_another_session(tmp_path: Path) 
         sources=_sources(),
         session_id=other_id,
     )
-    sessions_root = tmp_path / ".runtime" / "v7-label-geometry" / "sessions"
-    first_path = sessions_root / SESSION_ID / "state.json"
-    other_path = sessions_root / other_id / "state.json"
+    first_path = store._state_path(SESSION_ID)
+    other_path = store._state_path(other_id)
     other_content = other_path.read_bytes()
     first_path.write_bytes(other_content)
 
@@ -388,6 +379,32 @@ def test_export_recovers_from_interruption_before_atomic_publication(
 
     assert exported.path.exists()
     assert list(exported.path.parent.glob("*.json")) == [exported.path]
+
+
+@pytest.mark.skipif(
+    v7_calibration_sessions.os.name != "nt",
+    reason="extended-length paths are specific to Windows",
+)
+def test_windows_export_uses_extended_root_before_descendant_exceeds_max_path(
+    tmp_path: Path,
+) -> None:
+    runtime_root = tmp_path / ("runtime-" + "x" * 80)
+    plain_sessions_root = runtime_root / "v7-label-geometry" / "sessions"
+    temporary_name = "." + "a" * 24 + "." + "b" * 32 + ".tmp"
+    assert len(str(plain_sessions_root)) < 240
+    assert len(str(plain_sessions_root / SESSION_ID / "exports" / temporary_name)) > 260
+
+    store = V7CalibrationSessionStore(runtime_root)
+    assert str(store._sessions_root).startswith("\\\\?\\")
+    session = _create(store)
+    exported = store.export(
+        SESSION_ID,
+        expected_revision=session.revision,
+        current_sources=_sources(),
+    )
+
+    assert exported.path.exists()
+    assert V7CalibrationSessionStore(runtime_root).read(SESSION_ID).revision == session.revision
 
 
 def test_lock_open_failure_releases_the_process_lock(

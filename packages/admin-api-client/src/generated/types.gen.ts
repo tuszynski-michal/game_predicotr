@@ -12727,6 +12727,278 @@ export type UnreadableUnknownAssignmentRequest = {
 };
 
 /**
+ * V7LabelGeometryAdoptionListResponse
+ */
+export type V7LabelGeometryAdoptionListResponse = {
+  /**
+   * Items
+   */
+  items: Array<V7LabelGeometryAdoptionResponse>;
+};
+
+/**
+ * V7LabelGeometryAdoptionResponse
+ */
+export type V7LabelGeometryAdoptionResponse = {
+  /**
+   * Adoptionkey
+   */
+  adoptionKey: string;
+  /**
+   * Geometryfamilyid
+   */
+  geometryFamilyId: string;
+  /**
+   * Profilefingerprint
+   */
+  profileFingerprint: string;
+  /**
+   * Sourcegameref
+   */
+  sourceGameRef: string;
+  /**
+   * Validationreportfingerprint
+   */
+  validationReportFingerprint: string;
+};
+
+/**
+ * V7LabelGeometryProfileListResponse
+ */
+export type V7LabelGeometryProfileListResponse = {
+  /**
+   * Items
+   */
+  items: Array<V7LabelGeometryProfileResponse>;
+};
+
+/**
+ * V7LabelGeometryProfileResponse
+ */
+export type V7LabelGeometryProfileResponse = {
+  /**
+   * Calibration
+   */
+  calibration: {
+    [key: string]: unknown;
+  };
+  /**
+   * Profilefingerprint
+   */
+  profileFingerprint: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sessionexportchecksumsha256
+   */
+  sessionExportChecksumSha256: string;
+};
+
+/**
+ * V7LabelGeometryReceiptResponse
+ */
+export type V7LabelGeometryReceiptResponse = {
+  /**
+   * Operationfingerprint
+   */
+  operationFingerprint: string;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * V7LabelGeometrySessionCreate
+ */
+export type V7LabelGeometrySessionCreate = {
+  /**
+   * Corpuscaseids
+   */
+  corpusCaseIds: Array<string>;
+  /**
+   * Geometryfamilyid
+   */
+  geometryFamilyId: string;
+};
+
+/**
+ * V7LabelGeometrySessionExportRequest
+ */
+export type V7LabelGeometrySessionExportRequest = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
+ * V7LabelGeometrySessionExportResponse
+ */
+export type V7LabelGeometrySessionExportResponse = {
+  /**
+   * Exportchecksumsha256
+   */
+  exportChecksumSha256: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * V7LabelGeometrySessionMutation
+ */
+export type V7LabelGeometrySessionMutation = {
+  /**
+   * Capturegroupid
+   */
+  captureGroupId?: string | null;
+  /**
+   * Centerx
+   */
+  centerX?: number | null;
+  /**
+   * Centery
+   */
+  centerY?: number | null;
+  /**
+   * Cropassessment
+   */
+  cropAssessment?: 'contained' | 'clipped' | 'uncertain' | null;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Kind
+   */
+  kind: 'annotated' | 'unavailable' | 'set_capture_group';
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Positionindex
+   */
+  positionIndex?: number | null;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+};
+
+/**
+ * V7LabelGeometrySessionMutationResponse
+ */
+export type V7LabelGeometrySessionMutationResponse = {
+  receipt: V7LabelGeometryReceiptResponse;
+  session: V7LabelGeometrySessionResponse;
+};
+
+/**
+ * V7LabelGeometrySessionResponse
+ */
+export type V7LabelGeometrySessionResponse = {
+  /**
+   * Capturegroups
+   */
+  captureGroups: {
+    [key: string]: string;
+  };
+  /**
+   * Geometryfamilyid
+   */
+  geometryFamilyId: string;
+  /**
+   * Manifestfingerprint
+   */
+  manifestFingerprint: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Slots
+   */
+  slots: Array<V7LabelGeometrySlotResponse>;
+  /**
+   * Sources
+   */
+  sources: Array<V7LabelGeometrySessionSourceResponse>;
+  /**
+   * Status
+   */
+  status: 'active' | 'blocked_source_drift';
+};
+
+/**
+ * V7LabelGeometrySessionSourceResponse
+ */
+export type V7LabelGeometrySessionSourceResponse = {
+  /**
+   * Corpuscaseid
+   */
+  corpusCaseId: string;
+  /**
+   * Geometryfamilyid
+   */
+  geometryFamilyId: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Split
+   */
+  split: 'calibration';
+};
+
+/**
+ * V7LabelGeometrySlotResponse
+ */
+export type V7LabelGeometrySlotResponse = {
+  /**
+   * Centerx
+   */
+  centerX?: number | null;
+  /**
+   * Centery
+   */
+  centerY?: number | null;
+  /**
+   * Cropassessment
+   */
+  cropAssessment?: 'contained' | 'clipped' | 'uncertain' | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * State
+   */
+  state: 'unreviewed' | 'annotated' | 'unavailable';
+};
+
+/**
  * ValidateJobCreate
  */
 export type ValidateJobCreate = {
@@ -23932,6 +24204,373 @@ export type GetSemiAutomaticImageSelectionSourceAssetError =
   GetSemiAutomaticImageSelectionSourceAssetErrors[keyof GetSemiAutomaticImageSelectionSourceAssetErrors];
 
 export type GetSemiAutomaticImageSelectionSourceAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ListV7LabelGeometryAdoptionsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/v7-label-geometry/adoptions';
+};
+
+export type ListV7LabelGeometryAdoptionsErrors = {
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type ListV7LabelGeometryAdoptionsError =
+  ListV7LabelGeometryAdoptionsErrors[keyof ListV7LabelGeometryAdoptionsErrors];
+
+export type ListV7LabelGeometryAdoptionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7LabelGeometryAdoptionListResponse;
+};
+
+export type ListV7LabelGeometryAdoptionsResponse =
+  ListV7LabelGeometryAdoptionsResponses[keyof ListV7LabelGeometryAdoptionsResponses];
+
+export type ListV7LabelGeometryProfilesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/v7-label-geometry/profiles';
+};
+
+export type ListV7LabelGeometryProfilesErrors = {
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type ListV7LabelGeometryProfilesError =
+  ListV7LabelGeometryProfilesErrors[keyof ListV7LabelGeometryProfilesErrors];
+
+export type ListV7LabelGeometryProfilesResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7LabelGeometryProfileListResponse;
+};
+
+export type ListV7LabelGeometryProfilesResponse =
+  ListV7LabelGeometryProfilesResponses[keyof ListV7LabelGeometryProfilesResponses];
+
+export type GetV7LabelGeometryProfileData = {
+  body?: never;
+  path: {
+    /**
+     * Profile Fingerprint
+     */
+    profile_fingerprint: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/v7-label-geometry/profiles/{profile_fingerprint}';
+};
+
+export type GetV7LabelGeometryProfileErrors = {
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type GetV7LabelGeometryProfileError =
+  GetV7LabelGeometryProfileErrors[keyof GetV7LabelGeometryProfileErrors];
+
+export type GetV7LabelGeometryProfileResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7LabelGeometryProfileResponse;
+};
+
+export type GetV7LabelGeometryProfileResponse =
+  GetV7LabelGeometryProfileResponses[keyof GetV7LabelGeometryProfileResponses];
+
+export type CreateV7LabelGeometryCalibrationSessionData = {
+  body: V7LabelGeometrySessionCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/v7-label-geometry/sessions';
+};
+
+export type CreateV7LabelGeometryCalibrationSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type CreateV7LabelGeometryCalibrationSessionError =
+  CreateV7LabelGeometryCalibrationSessionErrors[keyof CreateV7LabelGeometryCalibrationSessionErrors];
+
+export type CreateV7LabelGeometryCalibrationSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7LabelGeometrySessionResponse;
+};
+
+export type CreateV7LabelGeometryCalibrationSessionResponse =
+  CreateV7LabelGeometryCalibrationSessionResponses[keyof CreateV7LabelGeometryCalibrationSessionResponses];
+
+export type GetV7LabelGeometryCalibrationSessionData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}';
+};
+
+export type GetV7LabelGeometryCalibrationSessionErrors = {
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type GetV7LabelGeometryCalibrationSessionError =
+  GetV7LabelGeometryCalibrationSessionErrors[keyof GetV7LabelGeometryCalibrationSessionErrors];
+
+export type GetV7LabelGeometryCalibrationSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7LabelGeometrySessionResponse;
+};
+
+export type GetV7LabelGeometryCalibrationSessionResponse =
+  GetV7LabelGeometryCalibrationSessionResponses[keyof GetV7LabelGeometryCalibrationSessionResponses];
+
+export type ExportV7LabelGeometryCalibrationSessionData = {
+  body: V7LabelGeometrySessionExportRequest;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}/exports';
+};
+
+export type ExportV7LabelGeometryCalibrationSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type ExportV7LabelGeometryCalibrationSessionError =
+  ExportV7LabelGeometryCalibrationSessionErrors[keyof ExportV7LabelGeometryCalibrationSessionErrors];
+
+export type ExportV7LabelGeometryCalibrationSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7LabelGeometrySessionExportResponse;
+};
+
+export type ExportV7LabelGeometryCalibrationSessionResponse =
+  ExportV7LabelGeometryCalibrationSessionResponses[keyof ExportV7LabelGeometryCalibrationSessionResponses];
+
+export type MutateV7LabelGeometryCalibrationSessionData = {
+  body: V7LabelGeometrySessionMutation;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}/operations';
+};
+
+export type MutateV7LabelGeometryCalibrationSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type MutateV7LabelGeometryCalibrationSessionError =
+  MutateV7LabelGeometryCalibrationSessionErrors[keyof MutateV7LabelGeometryCalibrationSessionErrors];
+
+export type MutateV7LabelGeometryCalibrationSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7LabelGeometrySessionMutationResponse;
+};
+
+export type MutateV7LabelGeometryCalibrationSessionResponse =
+  MutateV7LabelGeometryCalibrationSessionResponses[keyof MutateV7LabelGeometryCalibrationSessionResponses];
+
+export type CreateV7LabelGeometryProfileData = {
+  body: V7LabelGeometrySessionExportRequest;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}/profiles';
+};
+
+export type CreateV7LabelGeometryProfileErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type CreateV7LabelGeometryProfileError =
+  CreateV7LabelGeometryProfileErrors[keyof CreateV7LabelGeometryProfileErrors];
+
+export type CreateV7LabelGeometryProfileResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7LabelGeometryProfileResponse;
+};
+
+export type CreateV7LabelGeometryProfileResponse =
+  CreateV7LabelGeometryProfileResponses[keyof CreateV7LabelGeometryProfileResponses];
+
+export type GetV7LabelGeometryCalibrationSourceAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+    /**
+     * Source Id
+     */
+    source_id: string;
+  };
+  query: {
+    /**
+     * Expectedsourcechecksumsha256
+     */
+    expectedSourceChecksumSha256: string;
+  };
+  url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}/sources/{source_id}/asset';
+};
+
+export type GetV7LabelGeometryCalibrationSourceAssetErrors = {
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type GetV7LabelGeometryCalibrationSourceAssetError =
+  GetV7LabelGeometryCalibrationSourceAssetErrors[keyof GetV7LabelGeometryCalibrationSourceAssetErrors];
+
+export type GetV7LabelGeometryCalibrationSourceAssetResponses = {
   /**
    * Successful Response
    */

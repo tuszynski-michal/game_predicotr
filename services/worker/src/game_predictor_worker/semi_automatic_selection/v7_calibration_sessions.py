@@ -347,11 +347,12 @@ class V7CalibrationSession:
 
 @dataclass(frozen=True, slots=True)
 class V7CalibrationSessionExport:
-    """An immutable export reference; its checksum identifies its contents."""
+    """An immutable export plus the exact snapshot serialized under its checksum."""
 
     export_checksum_sha256: str
     revision: int
     path: Path
+    session: V7CalibrationSession
 
     def __post_init__(self) -> None:
         try:
@@ -360,7 +361,7 @@ class V7CalibrationSessionExport:
             raise V7CalibrationSessionError(
                 "V7_CALIBRATION_SESSION_EXPORT_INVALID", "Session export checksum is invalid."
             ) from error
-        if self.revision < 0:
+        if self.revision < 0 or self.session.revision != self.revision:
             raise V7CalibrationSessionError(
                 "V7_CALIBRATION_SESSION_EXPORT_INVALID", "Session export revision is invalid."
             )
@@ -373,7 +374,9 @@ class V7CalibrationSessionStore:
     _thread_locks: dict[Path, threading.Lock] = {}
 
     def __init__(self, runtime_root: Path) -> None:
-        self._sessions_root = Path(runtime_root) / "v7-label-geometry" / "sessions"
+        self._sessions_root = _filesystem_path(
+            Path(runtime_root) / "v7-label-geometry" / "sessions"
+        )
 
     def create(
         self,
@@ -417,12 +420,32 @@ class V7CalibrationSessionStore:
         with self._lock(session_id):
             return self._read_state(session_id)
 
+    def verify(
+        self,
+        session_id: str,
+        *,
+        current_sources: Sequence[V7CalibrationSessionSource],
+        current_manifest_fingerprint: str,
+    ) -> V7CalibrationSession:
+        """Check the server-resolved corpus before returning a session or asset."""
+
+        _validate_uuid(session_id, "V7_CALIBRATION_SESSION_INVALID")
+        with self._lock(session_id):
+            session = self._read_state(session_id)
+            self._verify_current_inventory(
+                session,
+                current_sources=current_sources,
+                current_manifest_fingerprint=current_manifest_fingerprint,
+            )
+            return session
+
     def apply(
         self,
         session_id: str,
         operation: V7CalibrationSessionOperation,
         *,
         current_sources: Sequence[V7CalibrationSessionSource],
+        current_manifest_fingerprint: str | None = None,
     ) -> tuple[V7CalibrationSession, V7CalibrationSessionReceipt]:
         """Persist one operation or return its original receipt before revision checking."""
 
@@ -437,7 +460,11 @@ class V7CalibrationSessionStore:
                         "Operation ID was already used with different content.",
                     )
                 return session, receipt
-            self._verify_current_sources(session, current_sources)
+            self._verify_current_inventory(
+                session,
+                current_sources=current_sources,
+                current_manifest_fingerprint=current_manifest_fingerprint,
+            )
             if session.status is not V7CalibrationSessionStatus.ACTIVE:
                 raise V7CalibrationSessionError(
                     "V7_CALIBRATION_SESSION_BLOCKED", "Calibration session is blocked."
@@ -473,13 +500,18 @@ class V7CalibrationSessionStore:
         *,
         expected_revision: int,
         current_sources: Sequence[V7CalibrationSessionSource],
+        current_manifest_fingerprint: str | None = None,
     ) -> V7CalibrationSessionExport:
         """Write a content-addressed, immutable export of the current session state."""
 
         _validate_uuid(session_id, "V7_CALIBRATION_SESSION_INVALID")
         with self._lock(session_id):
             session = self._read_state(session_id)
-            self._verify_current_sources(session, current_sources)
+            self._verify_current_inventory(
+                session,
+                current_sources=current_sources,
+                current_manifest_fingerprint=current_manifest_fingerprint,
+            )
             if session.status is not V7CalibrationSessionStatus.ACTIVE:
                 raise V7CalibrationSessionError(
                     "V7_CALIBRATION_SESSION_BLOCKED", "Calibration session is blocked."
@@ -516,32 +548,56 @@ class V7CalibrationSessionStore:
                 export_checksum_sha256=checksum,
                 revision=session.revision,
                 path=path,
+                session=session,
             )
 
-    def _verify_current_sources(
+    def _verify_current_inventory(
         self,
         session: V7CalibrationSession,
+        *,
         current_sources: Sequence[V7CalibrationSessionSource],
+        current_manifest_fingerprint: str | None,
     ) -> None:
-        if _sorted_sources(current_sources) == session.sources:
-            return
-        if session.status is V7CalibrationSessionStatus.ACTIVE:
-            blocked = V7CalibrationSession(
-                session_id=session.session_id,
-                revision=session.revision,
-                manifest_fingerprint=session.manifest_fingerprint,
-                geometry_family_id=session.geometry_family_id,
-                sources=session.sources,
-                slots=session.slots,
-                capture_groups=session.capture_groups,
-                receipts=session.receipts,
-                status=V7CalibrationSessionStatus.BLOCKED_SOURCE_DRIFT,
+        if current_manifest_fingerprint is not None:
+            validate_sha256(
+                current_manifest_fingerprint,
+                field="current_manifest_fingerprint",
             )
-            self._write_state(blocked)
+        if (
+            current_manifest_fingerprint is None
+            or current_manifest_fingerprint == session.manifest_fingerprint
+        ) and _sorted_sources(current_sources) == session.sources:
+            return
+        self._write_blocked_source_drift(session)
         raise V7CalibrationSessionError(
             "V7_CALIBRATION_SESSION_SOURCE_DRIFT",
             "A source changed after calibration session creation; the session is blocked.",
         )
+
+    def block_source_drift(self, session_id: str) -> V7CalibrationSession:
+        """Persist a fail-closed block when the resolver cannot rebuild inventory."""
+
+        _validate_uuid(session_id, "V7_CALIBRATION_SESSION_INVALID")
+        with self._lock(session_id):
+            session = self._read_state(session_id)
+            return self._write_blocked_source_drift(session)
+
+    def _write_blocked_source_drift(self, session: V7CalibrationSession) -> V7CalibrationSession:
+        if session.status is not V7CalibrationSessionStatus.ACTIVE:
+            return session
+        blocked = V7CalibrationSession(
+            session_id=session.session_id,
+            revision=session.revision,
+            manifest_fingerprint=session.manifest_fingerprint,
+            geometry_family_id=session.geometry_family_id,
+            sources=session.sources,
+            slots=session.slots,
+            capture_groups=session.capture_groups,
+            receipts=session.receipts,
+            status=V7CalibrationSessionStatus.BLOCKED_SOURCE_DRIFT,
+        )
+        self._write_state(blocked)
+        return blocked
 
     def _session_directory(self, session_id: str) -> Path:
         return self._sessions_root / session_id
@@ -797,6 +853,19 @@ def _canonical_json(value: object) -> bytes:
 
 def _fingerprint(value: object) -> str:
     return hashlib.sha256(_canonical_json(value)).hexdigest()
+
+
+def _filesystem_path(path: Path) -> Path:
+    """Use an extended Windows path for durable nested session artifacts."""
+
+    if os.name != "nt":
+        return path
+    absolute = str(path.absolute())
+    if absolute.startswith("\\\\?\\"):
+        return Path(absolute)
+    if absolute.startswith("\\\\"):
+        return Path("\\\\?\\UNC\\" + absolute.lstrip("\\"))
+    return Path("\\\\?\\" + absolute)
 
 
 def _validate_uuid(value: str, code: str) -> None:

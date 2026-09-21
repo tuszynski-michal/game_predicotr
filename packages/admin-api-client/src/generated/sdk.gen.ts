@@ -153,6 +153,12 @@ import type {
   CreateSymbolTrainingData,
   CreateSymbolTrainingErrors,
   CreateSymbolTrainingResponses,
+  CreateV7LabelGeometryCalibrationSessionData,
+  CreateV7LabelGeometryCalibrationSessionErrors,
+  CreateV7LabelGeometryCalibrationSessionResponses,
+  CreateV7LabelGeometryProfileData,
+  CreateV7LabelGeometryProfileErrors,
+  CreateV7LabelGeometryProfileResponses,
   CreateVirtualCellPreviewBatchData,
   CreateVirtualCellPreviewBatchErrors,
   CreateVirtualCellPreviewBatchResponses,
@@ -189,6 +195,9 @@ import type {
   ExcludeBrowserPageGeometrySourceData,
   ExcludeBrowserPageGeometrySourceErrors,
   ExcludeBrowserPageGeometrySourceResponses,
+  ExportV7LabelGeometryCalibrationSessionData,
+  ExportV7LabelGeometryCalibrationSessionErrors,
+  ExportV7LabelGeometryCalibrationSessionResponses,
   FinalizeBrowserImageSelectionData,
   FinalizeBrowserImageSelectionErrors,
   FinalizeBrowserImageSelectionResponses,
@@ -396,6 +405,15 @@ import type {
   GetUnreadableBoardReviewData,
   GetUnreadableBoardReviewErrors,
   GetUnreadableBoardReviewResponses,
+  GetV7LabelGeometryCalibrationSessionData,
+  GetV7LabelGeometryCalibrationSessionErrors,
+  GetV7LabelGeometryCalibrationSessionResponses,
+  GetV7LabelGeometryCalibrationSourceAssetData,
+  GetV7LabelGeometryCalibrationSourceAssetErrors,
+  GetV7LabelGeometryCalibrationSourceAssetResponses,
+  GetV7LabelGeometryProfileData,
+  GetV7LabelGeometryProfileErrors,
+  GetV7LabelGeometryProfileResponses,
   GetVirtualCellPreviewAtlasData,
   GetVirtualCellPreviewAtlasErrors,
   GetVirtualCellPreviewAtlasResponses,
@@ -540,11 +558,20 @@ import type {
   ListUnreadableBoardReviewsData,
   ListUnreadableBoardReviewsErrors,
   ListUnreadableBoardReviewsResponses,
+  ListV7LabelGeometryAdoptionsData,
+  ListV7LabelGeometryAdoptionsErrors,
+  ListV7LabelGeometryAdoptionsResponses,
+  ListV7LabelGeometryProfilesData,
+  ListV7LabelGeometryProfilesErrors,
+  ListV7LabelGeometryProfilesResponses,
   ListVerifiedImageReviewCohortsData,
   ListVerifiedImageReviewCohortsErrors,
   ListVerifiedImageReviewCohortsResponses,
   ListWorkerLanesData,
   ListWorkerLanesResponses,
+  MutateV7LabelGeometryCalibrationSessionData,
+  MutateV7LabelGeometryCalibrationSessionErrors,
+  MutateV7LabelGeometryCalibrationSessionResponses,
   OpenLocalReviewerWorkData,
   OpenLocalReviewerWorkErrors,
   OpenLocalReviewerWorkResponses,
@@ -6011,6 +6038,207 @@ export const getSemiAutomaticImageSelectionSourceAsset = <
     ThrowOnError
   >({
     url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/sources/{source_index}/asset',
+    ...options,
+  });
+
+/**
+ * List Adoptions
+ */
+export const listV7LabelGeometryAdoptions = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListV7LabelGeometryAdoptionsData, ThrowOnError>,
+): RequestResult<
+  ListV7LabelGeometryAdoptionsResponses,
+  ListV7LabelGeometryAdoptionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListV7LabelGeometryAdoptionsResponses,
+    ListV7LabelGeometryAdoptionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/v7-label-geometry/adoptions', ...options });
+
+/**
+ * List Profiles
+ */
+export const listV7LabelGeometryProfiles = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListV7LabelGeometryProfilesData, ThrowOnError>,
+): RequestResult<
+  ListV7LabelGeometryProfilesResponses,
+  ListV7LabelGeometryProfilesErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListV7LabelGeometryProfilesResponses,
+    ListV7LabelGeometryProfilesErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/v7-label-geometry/profiles', ...options });
+
+/**
+ * Get Profile
+ */
+export const getV7LabelGeometryProfile = <ThrowOnError extends boolean = false>(
+  options: Options<GetV7LabelGeometryProfileData, ThrowOnError>,
+): RequestResult<
+  GetV7LabelGeometryProfileResponses,
+  GetV7LabelGeometryProfileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetV7LabelGeometryProfileResponses,
+    GetV7LabelGeometryProfileErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/v7-label-geometry/profiles/{profile_fingerprint}',
+    ...options,
+  });
+
+/**
+ * Create Session
+ */
+export const createV7LabelGeometryCalibrationSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateV7LabelGeometryCalibrationSessionData, ThrowOnError>,
+): RequestResult<
+  CreateV7LabelGeometryCalibrationSessionResponses,
+  CreateV7LabelGeometryCalibrationSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateV7LabelGeometryCalibrationSessionResponses,
+    CreateV7LabelGeometryCalibrationSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/v7-label-geometry/sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get Session
+ */
+export const getV7LabelGeometryCalibrationSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetV7LabelGeometryCalibrationSessionData, ThrowOnError>,
+): RequestResult<
+  GetV7LabelGeometryCalibrationSessionResponses,
+  GetV7LabelGeometryCalibrationSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetV7LabelGeometryCalibrationSessionResponses,
+    GetV7LabelGeometryCalibrationSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}',
+    ...options,
+  });
+
+/**
+ * Export Session
+ */
+export const exportV7LabelGeometryCalibrationSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ExportV7LabelGeometryCalibrationSessionData, ThrowOnError>,
+): RequestResult<
+  ExportV7LabelGeometryCalibrationSessionResponses,
+  ExportV7LabelGeometryCalibrationSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ExportV7LabelGeometryCalibrationSessionResponses,
+    ExportV7LabelGeometryCalibrationSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}/exports',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Mutate Session
+ */
+export const mutateV7LabelGeometryCalibrationSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<MutateV7LabelGeometryCalibrationSessionData, ThrowOnError>,
+): RequestResult<
+  MutateV7LabelGeometryCalibrationSessionResponses,
+  MutateV7LabelGeometryCalibrationSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    MutateV7LabelGeometryCalibrationSessionResponses,
+    MutateV7LabelGeometryCalibrationSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}/operations',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create Profile
+ */
+export const createV7LabelGeometryProfile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateV7LabelGeometryProfileData, ThrowOnError>,
+): RequestResult<
+  CreateV7LabelGeometryProfileResponses,
+  CreateV7LabelGeometryProfileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateV7LabelGeometryProfileResponses,
+    CreateV7LabelGeometryProfileErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}/profiles',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Canonical Asset
+ */
+export const getV7LabelGeometryCalibrationSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetV7LabelGeometryCalibrationSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetV7LabelGeometryCalibrationSourceAssetResponses,
+  GetV7LabelGeometryCalibrationSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetV7LabelGeometryCalibrationSourceAssetResponses,
+    GetV7LabelGeometryCalibrationSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}/sources/{source_id}/asset',
     ...options,
   });
 

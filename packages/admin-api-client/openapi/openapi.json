@@ -22792,6 +22792,501 @@
         "title": "UnreadableUnknownAssignmentRequest",
         "type": "object"
       },
+      "V7LabelGeometryAdoptionListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/V7LabelGeometryAdoptionResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "V7LabelGeometryAdoptionListResponse",
+        "type": "object"
+      },
+      "V7LabelGeometryAdoptionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "adoptionKey": {
+            "minLength": 1,
+            "title": "Adoptionkey",
+            "type": "string"
+          },
+          "geometryFamilyId": {
+            "minLength": 1,
+            "title": "Geometryfamilyid",
+            "type": "string"
+          },
+          "profileFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Profilefingerprint",
+            "type": "string"
+          },
+          "sourceGameRef": {
+            "minLength": 1,
+            "title": "Sourcegameref",
+            "type": "string"
+          },
+          "validationReportFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Validationreportfingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adoptionKey",
+          "sourceGameRef",
+          "geometryFamilyId",
+          "profileFingerprint",
+          "validationReportFingerprint"
+        ],
+        "title": "V7LabelGeometryAdoptionResponse",
+        "type": "object"
+      },
+      "V7LabelGeometryProfileListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/V7LabelGeometryProfileResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "V7LabelGeometryProfileListResponse",
+        "type": "object"
+      },
+      "V7LabelGeometryProfileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "calibration": {
+            "additionalProperties": true,
+            "title": "Calibration",
+            "type": "object"
+          },
+          "profileFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Profilefingerprint",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sessionExportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sessionexportchecksumsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profileFingerprint",
+          "revision",
+          "sessionExportChecksumSha256",
+          "calibration"
+        ],
+        "title": "V7LabelGeometryProfileResponse",
+        "type": "object"
+      },
+      "V7LabelGeometryReceiptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "operationFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Operationfingerprint",
+            "type": "string"
+          },
+          "operationId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operationId",
+          "operationFingerprint",
+          "revision"
+        ],
+        "title": "V7LabelGeometryReceiptResponse",
+        "type": "object"
+      },
+      "V7LabelGeometrySessionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "corpusCaseIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Corpuscaseids",
+            "type": "array"
+          },
+          "geometryFamilyId": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "title": "Geometryfamilyid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "geometryFamilyId",
+          "corpusCaseIds"
+        ],
+        "title": "V7LabelGeometrySessionCreate",
+        "type": "object"
+      },
+      "V7LabelGeometrySessionExportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expectedRevision"
+        ],
+        "title": "V7LabelGeometrySessionExportRequest",
+        "type": "object"
+      },
+      "V7LabelGeometrySessionExportResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "exportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Exportchecksumsha256",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "exportChecksumSha256",
+          "revision"
+        ],
+        "title": "V7LabelGeometrySessionExportResponse",
+        "type": "object"
+      },
+      "V7LabelGeometrySessionMutation": {
+        "additionalProperties": false,
+        "properties": {
+          "captureGroupId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capturegroupid"
+          },
+          "centerX": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 1.0,
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Centerx"
+          },
+          "centerY": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 1.0,
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Centery"
+          },
+          "cropAssessment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "contained",
+                  "clipped",
+                  "uncertain"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropassessment"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "annotated",
+              "unavailable",
+              "set_capture_group"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "operationId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "positionIndex": {
+            "anyOf": [
+              {
+                "maximum": 8.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Positionindex"
+          },
+          "sourceId": {
+            "minLength": 1,
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "expectedRevision",
+          "kind",
+          "sourceId"
+        ],
+        "title": "V7LabelGeometrySessionMutation",
+        "type": "object"
+      },
+      "V7LabelGeometrySessionMutationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "receipt": {
+            "$ref": "#/components/schemas/V7LabelGeometryReceiptResponse"
+          },
+          "session": {
+            "$ref": "#/components/schemas/V7LabelGeometrySessionResponse"
+          }
+        },
+        "required": [
+          "session",
+          "receipt"
+        ],
+        "title": "V7LabelGeometrySessionMutationResponse",
+        "type": "object"
+      },
+      "V7LabelGeometrySessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "captureGroups": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Capturegroups",
+            "type": "object"
+          },
+          "geometryFamilyId": {
+            "minLength": 1,
+            "title": "Geometryfamilyid",
+            "type": "string"
+          },
+          "manifestFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestfingerprint",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sessionId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Sessionid",
+            "type": "string"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/V7LabelGeometrySlotResponse"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/V7LabelGeometrySessionSourceResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "blocked_source_drift"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "revision",
+          "manifestFingerprint",
+          "geometryFamilyId",
+          "status",
+          "sources",
+          "slots",
+          "captureGroups"
+        ],
+        "title": "V7LabelGeometrySessionResponse",
+        "type": "object"
+      },
+      "V7LabelGeometrySessionSourceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "corpusCaseId": {
+            "minLength": 1,
+            "title": "Corpuscaseid",
+            "type": "string"
+          },
+          "geometryFamilyId": {
+            "minLength": 1,
+            "title": "Geometryfamilyid",
+            "type": "string"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceId": {
+            "minLength": 1,
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "split": {
+            "const": "calibration",
+            "title": "Split",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId",
+          "sourceChecksumSha256",
+          "corpusCaseId",
+          "split",
+          "geometryFamilyId"
+        ],
+        "title": "V7LabelGeometrySessionSourceResponse",
+        "type": "object"
+      },
+      "V7LabelGeometrySlotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "centerX": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 1.0,
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Centerx"
+          },
+          "centerY": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 1.0,
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Centery"
+          },
+          "cropAssessment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "contained",
+                  "clipped",
+                  "uncertain"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropassessment"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "sourceId": {
+            "minLength": 1,
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "unreviewed",
+              "annotated",
+              "unavailable"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId",
+          "positionIndex",
+          "state"
+        ],
+        "title": "V7LabelGeometrySlotResponse",
+        "type": "object"
+      },
       "ValidateJobCreate": {
         "additionalProperties": false,
         "properties": {
@@ -43611,6 +44106,644 @@
         "summary": "Source Asset",
         "tags": [
           "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/v7-label-geometry/adoptions": {
+      "get": {
+        "operationId": "listV7LabelGeometryAdoptions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7LabelGeometryAdoptionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "summary": "List Adoptions",
+        "tags": [
+          "v7-label-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/v7-label-geometry/profiles": {
+      "get": {
+        "operationId": "listV7LabelGeometryProfiles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7LabelGeometryProfileListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "summary": "List Profiles",
+        "tags": [
+          "v7-label-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/v7-label-geometry/profiles/{profile_fingerprint}": {
+      "get": {
+        "operationId": "getV7LabelGeometryProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_fingerprint",
+            "required": true,
+            "schema": {
+              "title": "Profile Fingerprint",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7LabelGeometryProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "summary": "Get Profile",
+        "tags": [
+          "v7-label-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/v7-label-geometry/sessions": {
+      "post": {
+        "operationId": "createV7LabelGeometryCalibrationSession",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V7LabelGeometrySessionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7LabelGeometrySessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create Session",
+        "tags": [
+          "v7-label-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/v7-label-geometry/sessions/{session_id}": {
+      "get": {
+        "operationId": "getV7LabelGeometryCalibrationSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7LabelGeometrySessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "summary": "Get Session",
+        "tags": [
+          "v7-label-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/v7-label-geometry/sessions/{session_id}/exports": {
+      "post": {
+        "operationId": "exportV7LabelGeometryCalibrationSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V7LabelGeometrySessionExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7LabelGeometrySessionExportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Export Session",
+        "tags": [
+          "v7-label-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/v7-label-geometry/sessions/{session_id}/operations": {
+      "post": {
+        "operationId": "mutateV7LabelGeometryCalibrationSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V7LabelGeometrySessionMutation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7LabelGeometrySessionMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Mutate Session",
+        "tags": [
+          "v7-label-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/v7-label-geometry/sessions/{session_id}/profiles": {
+      "post": {
+        "operationId": "createV7LabelGeometryProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V7LabelGeometrySessionExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7LabelGeometryProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create Profile",
+        "tags": [
+          "v7-label-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/v7-label-geometry/sessions/{session_id}/sources/{source_id}/asset": {
+      "get": {
+        "operationId": "getV7LabelGeometryCalibrationSourceAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expectedSourceChecksumSha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Expectedsourcechecksumsha256",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "summary": "Canonical Asset",
+        "tags": [
+          "v7-label-geometry"
         ]
       }
     },

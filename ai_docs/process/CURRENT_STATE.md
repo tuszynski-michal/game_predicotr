@@ -6,6 +6,30 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0601 — API i klient kalibracji geometrii etykiet V7
+
+- Lokalny Admin API ma server-owned pion ręcznej kalibracji. Konfiguracja
+  operatora podaje `GAME_PREDICTOR_V7_LABEL_GEOMETRY_CORPUS_MANIFEST` i
+  opcjonalny `GAME_PREDICTOR_V7_LABEL_GEOMETRY_RUNTIME_ROOT`; HTTP przyjmuje
+  wyłącznie rodzinę geometrii, `caseId`, UUID sesji, rewizję i semantyczną
+  operację, bez ścieżek albo nazw JPEG-ów.
+- Sesja może otworzyć tylko case `calibration` jednej rodziny. `reels_test`
+  oraz pozostałe splity są odrzucane. Zmiana manifestu, fizycznego korzenia,
+  inwentarza, nazwy lub SHA dowolnego źródła trwale zapisuje
+  `blocked_source_drift`; junction/dowiązanie w dowolnym przodku manifestu
+  lub korpusu jest odrzucone.
+- Asset jest canonical PNG z EXIF transpose po kontroli tych samych bajtów.
+  Eksport zwraca snapshot objęty checksumą, profil kalibruje wyłącznie ten
+  snapshot i przy odczycie ponownie sprawdza własny fingerprint, nazwę pliku
+  oraz checksumę eksportu. Klient Admina wystawia wszystkie metody przez
+  wspólny `LocalAdminIntent`; adopcje są celowo read-only do TASK-0605. Store
+  stosuje także długie ścieżki Windows dla głęboko zagnieżdżonych artefaktów
+  eksportu.
+- Zestaw Python, Ruff, compileall, OpenAPI i 58 testów klienta przeszły.
+  Astra Medium wykryła pięć P2 (snapshot rewizji, content-addressed profil,
+  tożsamość rootu, junction przodka i publiczne wrappery); wszystkie poprawiono
+  i końcowy re-audyt nie ma uwag P0–P2. V7 nadal jest backendowo `blocked`.
+
 ### TASK-0600 — trwałe sesje kalibracji etykiet V7
 
 - `V7CalibrationSessionStore` przechowuje wyłącznie server-owned, przypięte

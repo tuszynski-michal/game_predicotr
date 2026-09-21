@@ -3346,3 +3346,42 @@ Odpowiedź runu i `JobResponse` rozpoznają `v7_selection`; ewentualny run V7
 ma `v7Configuration`, zaś odpowiedzi historyczne zachowują `null` i poprzedni
 kształt. Schema joba v4 wymaga lokalnego manifestu i kompletnej, server-owned
 konfiguracji V7.
+
+### Kalibracja geometrii etykiet V7
+
+Ten lokalny pion służy wyłącznie do ręcznej kalibracji cropów numerycznych
+etykiet 3×3. Nie jest startem `v7_selection`, nie tworzy outputu JPEG i nie
+udostępnia ścieżek plików. Operator konfiguruje manifest korpusu na serwerze;
+przeglądarka przekazuje tylko `geometryFamilyId`, `corpusCaseIds`, UUID sesji,
+rewizję oraz wybraną akcję.
+
+```text
+POST /api/v1/admin/v7-label-geometry/sessions
+GET  /api/v1/admin/v7-label-geometry/sessions/{sessionId}
+POST /api/v1/admin/v7-label-geometry/sessions/{sessionId}/operations
+GET  /api/v1/admin/v7-label-geometry/sessions/{sessionId}/sources/{sourceId}/asset
+  ?expectedSourceChecksumSha256={sha256}
+POST /api/v1/admin/v7-label-geometry/sessions/{sessionId}/exports
+POST /api/v1/admin/v7-label-geometry/sessions/{sessionId}/profiles
+GET  /api/v1/admin/v7-label-geometry/profiles
+GET  /api/v1/admin/v7-label-geometry/profiles/{profileFingerprint}
+GET  /api/v1/admin/v7-label-geometry/adoptions
+```
+
+Utworzenie sesji dopuszcza wyłącznie przypadki `calibration` jednej rodziny;
+`holdout`, `development`, `validation` i `reference_only` są odrzucane przed
+odczytem assetu. Serwer przypina pełny inwentarz, SHA źródeł oraz bezpiecznie
+rozwiązany fizyczny korzeń korpusu. Zmiana manifestu, katalogu, nazwy albo
+bajtów JPEG-a trwale przełącza sesję na
+`blocked_source_drift`. Canonical asset powstaje wyłącznie z jednorazowo
+odczytanych bajtów o zgodnej SHA po `EXIF transpose`, jest PNG w pamięci i nie
+ma fallbacku do oryginalnego JPEG-a.
+
+Operacja ma `operationId`, `expectedRevision`, `kind=annotated|unavailable|
+set_capture_group` oraz tylko pola właściwe dla danego rodzaju. Ten sam UUID z
+tym samym payloadem zwraca trwały receipt przed kontrolą nowej rewizji; inny
+payload jest konfliktem. Eksport i profil wymagają dokładnej rewizji. Profil
+powstaje tylko z immutable snapshotu eksportu sesji, gdy przechodzą pięć SHA,
+dwie grupy ujęć, `contained` oraz p95; przy odczycie jest ponownie weryfikowany
+względem własnego fingerprintu, nazwy i checksumy eksportu. Katalog adopcji jest read-only i pusty do TASK-0605:
+tworzenie adopcji wymaga wtedy niezależnego raportu walidacyjnego gry.

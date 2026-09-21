@@ -6,6 +6,17 @@ last_updated: 2026-09-08
 
 # Lokalne uruchamianie i instalacja
 
+## Konfiguracja API do ręcznej kalibracji etykiet V7
+
+Przed użyciem przyszłego ekranu kalibracji ustaw dla procesu API
+`GAME_PREDICTOR_V7_LABEL_GEOMETRY_CORPUS_MANIFEST` na lokalny manifest korpusu.
+Opcjonalne `GAME_PREDICTOR_V7_LABEL_GEOMETRY_RUNTIME_ROOT` określa katalog
+trwałych sesji i profili; bez niego używany jest `.runtime`. Manifest i korpus
+muszą być lokalnymi realnymi katalogami bez dowiązań oraz junctionów w całej
+ścieżce. API otwiera wyłącznie case `calibration`; `reels_test` jest holdoutem
+i nie może być użyty do kalibracji ani podglądu assetu. Konfiguracja nie
+odblokowuje `v7_selection` i nie zapisuje plików `cut`.
+
 ## Testowy wariant v0.10.4 po odbiorze TASK-0515
 
 W Adminie można jawnie wybrać `v0.10.4 — testowy, niepełne boki` dla nowego

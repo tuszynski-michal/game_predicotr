@@ -140,6 +140,10 @@ from game_predictor_api.application.symbol_references import (
     ManagedSymbolReferenceArtifactStore,
 )
 from game_predictor_api.application.unreadable_board_reviews import UnreadableBoardReviewService
+from game_predictor_api.application.v7_label_geometry_calibration import (
+    V7LabelGeometryCalibrationApiError,
+    V7LabelGeometryCalibrationService,
+)
 from game_predictor_api.application.verified_training_cohorts import (
     VerifiedTrainingCohortArtifactStore,
     VerifiedTrainingCohortService,
@@ -360,6 +364,7 @@ def create_app(
     job_service_dependency: Callable[..., object] | None = None,
     image_selection_service_dependency: Callable[..., object] | None = None,
     semi_automatic_image_selection_service_dependency: Callable[..., object] | None = None,
+    v7_label_geometry_calibration_service_dependency: Callable[..., object] | None = None,
     image_job_service_dependency: Callable[..., object] | None = None,
     image_folder_selection_service_dependency: Callable[..., object] | None = None,
     browser_image_selection_service_dependency: Callable[..., object] | None = None,
@@ -410,6 +415,7 @@ def create_app(
             job_service_dependency,
             image_selection_service_dependency,
             semi_automatic_image_selection_service_dependency,
+            v7_label_geometry_calibration_service_dependency,
             image_job_service_dependency,
             image_folder_selection_service_dependency,
             browser_image_selection_service_dependency,
@@ -760,6 +766,14 @@ def create_app(
     resolved_semi_automatic_image_selection_dependency = (
         semi_automatic_image_selection_service_dependency
         or default_semi_automatic_image_selection_service_dependency
+    )
+    default_v7_label_geometry_calibration_service = V7LabelGeometryCalibrationService(
+        runtime_root=resolved_settings.v7_label_geometry_runtime_root,
+        corpus_manifest_path=resolved_settings.v7_label_geometry_corpus_manifest,
+    )
+    resolved_v7_label_geometry_calibration_dependency = (
+        v7_label_geometry_calibration_service_dependency
+        or (lambda: default_v7_label_geometry_calibration_service)
     )
     default_remote_manual_selection_host_service = RemoteManualSelectionHostService(
         controlled_folder_picker,
@@ -1356,6 +1370,7 @@ def create_app(
             resolved_job_dependency,
             resolved_image_selection_dependency,
             resolved_semi_automatic_image_selection_dependency,
+            resolved_v7_label_geometry_calibration_dependency,
             resolved_image_job_dependency,
             resolved_image_folder_selection_dependency,
             resolved_browser_image_selection_dependency,
@@ -1672,6 +1687,35 @@ def create_app(
                 "message": error.message,
                 "details": error.details,
             },
+        )
+
+    @application.exception_handler(V7LabelGeometryCalibrationApiError)
+    async def handle_v7_label_geometry_calibration_error(
+        _request: Request,
+        error: V7LabelGeometryCalibrationApiError,
+    ) -> JSONResponse:
+        status_code = 422
+        if error.code in {
+            "V7_CALIBRATION_SESSION_NOT_FOUND",
+            "V7_CALIBRATION_SOURCE_NOT_FOUND",
+            "V7_CALIBRATION_PROFILE_NOT_FOUND",
+        }:
+            status_code = 404
+        elif error.code in {
+            "V7_CALIBRATION_SESSION_EXISTS",
+            "V7_CALIBRATION_SESSION_BLOCKED",
+            "V7_CALIBRATION_SESSION_SOURCE_DRIFT",
+            "V7_CALIBRATION_SESSION_REVISION_CONFLICT",
+            "V7_CALIBRATION_SESSION_OPERATION_ID_CONFLICT",
+            "V7_CALIBRATION_SESSION_RECOVERY_CONFLICT",
+            "V7_CALIBRATION_SOURCE_CHECKSUM_CONFLICT",
+            "V7_CALIBRATION_SOURCE_DUPLICATE",
+            "V7_CALIBRATION_PROFILE_CONFLICT",
+        }:
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": str(error), "details": {}},
         )
 
     @application.exception_handler(JobError)

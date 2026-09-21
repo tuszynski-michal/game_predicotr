@@ -2856,3 +2856,67 @@ test('board search builds only a scoped board-crop asset URL for a result', () =
       'a'.repeat(64),
   );
 });
+
+test('label geometry calibration client uses local-admin typed operations and canonical assets', async () => {
+  const requests = [];
+  const sessionId = '11111111-1111-4111-8111-111111111111';
+  const sourceId = `game777-${'a'.repeat(64)}`;
+  const profileFingerprint = 'b'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      requests.push(request);
+      const pathname = new URL(request.url).pathname;
+      if (pathname.endsWith('/asset')) {
+        return new Response(new Uint8Array([137, 80, 78, 71]), {
+          headers: { 'Content-Type': 'image/png' },
+        });
+      }
+      return Response.json({});
+    },
+  });
+
+  await client.createV7LabelGeometryCalibrationSession({
+    geometryFamilyId: 'standard_3x3_numeric_labels_v1',
+    corpusCaseIds: ['game777'],
+  });
+  await client.getV7LabelGeometryCalibrationSession(sessionId);
+  await client.mutateV7LabelGeometryCalibrationSession(sessionId, {
+    expectedRevision: 0,
+    kind: 'unavailable',
+    operationId: '22222222-2222-4222-8222-222222222222',
+    sourceId,
+  });
+  await client.exportV7LabelGeometryCalibrationSession(sessionId, {
+    expectedRevision: 1,
+  });
+  await client.createV7LabelGeometryProfile(sessionId, { expectedRevision: 1 });
+  await client.getV7LabelGeometryCalibrationSourceAsset(sessionId, sourceId, 'a'.repeat(64));
+  await client.listV7LabelGeometryProfiles();
+  await client.getV7LabelGeometryProfile(profileFingerprint);
+  await client.listV7LabelGeometryAdoptions();
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['POST', '/api/v1/admin/v7-label-geometry/sessions'],
+      ['GET', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}`],
+      ['POST', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/operations`],
+      ['POST', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/exports`],
+      ['POST', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/profiles`],
+      [
+        'GET',
+        `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/sources/${sourceId}/asset`,
+      ],
+      ['GET', '/api/v1/admin/v7-label-geometry/profiles'],
+      ['GET', `/api/v1/admin/v7-label-geometry/profiles/${profileFingerprint}`],
+      ['GET', '/api/v1/admin/v7-label-geometry/adoptions'],
+    ],
+  );
+  assert.equal(requests[0].headers.get('X-Admin-Intent'), 'local-owner');
+  assert.equal(
+    new URL(requests[5].url).searchParams.get('expectedSourceChecksumSha256'),
+    'a'.repeat(64),
+  );
+  assert.equal(requests[5].headers.get('X-Admin-Intent'), 'local-owner');
+});

@@ -43,6 +43,9 @@ from game_predictor_api.api.semi_automatic_image_selections import (
 )
 from game_predictor_api.api.symbol_model_iterations import create_symbol_model_iteration_router
 from game_predictor_api.api.symbol_references import create_symbol_references_router
+from game_predictor_api.api.v7_label_geometry_calibration import (
+    create_v7_label_geometry_calibration_router,
+)
 from game_predictor_api.api.verified_training_cohorts import (
     create_verified_training_cohort_router,
 )
@@ -60,6 +63,7 @@ def create_api_router(
     job_service_dependency: Callable[..., object],
     image_selection_service_dependency: Callable[..., object],
     semi_automatic_image_selection_service_dependency: Callable[..., object],
+    v7_label_geometry_calibration_service_dependency: Callable[..., object],
     image_job_service_dependency: Callable[..., object],
     image_folder_selection_service_dependency: Callable[..., object],
     browser_image_selection_service_dependency: Callable[..., object],
@@ -162,6 +166,11 @@ def create_api_router(
     router.include_router(
         create_semi_automatic_image_selections_router(
             semi_automatic_image_selection_service_dependency
+        )
+    )
+    router.include_router(
+        create_v7_label_geometry_calibration_router(
+            v7_label_geometry_calibration_service_dependency
         )
     )
     router.include_router(

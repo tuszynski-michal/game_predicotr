@@ -20,6 +20,9 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.review_source_root.as_posix().endswith("examples/imgs")
     assert settings.import_root.is_absolute()
     assert settings.import_root.name == "imports"
+    assert settings.v7_label_geometry_runtime_root.is_absolute()
+    assert settings.v7_label_geometry_runtime_root.name == ".runtime"
+    assert settings.v7_label_geometry_corpus_manifest is None
     assert settings.import_max_bytes == 1024 * 1024 * 1024
     assert settings.browser_layout_import_max_bytes == 20 * 1024 * 1024 * 1024
     assert settings.image_selection_max_bytes == 128 * 1024 * 1024 * 1024
@@ -89,6 +92,10 @@ def test_defaults_are_loopback_only() -> None:
         (
             {"GAME_PREDICTOR_IMPORT_ROOT": "  "},
             "GAME_PREDICTOR_IMPORT_ROOT",
+        ),
+        (
+            {"GAME_PREDICTOR_V7_LABEL_GEOMETRY_RUNTIME_ROOT": "  "},
+            "GAME_PREDICTOR_V7_LABEL_GEOMETRY_RUNTIME_ROOT",
         ),
         (
             {"GAME_PREDICTOR_IMPORT_MAX_BYTES": "0"},

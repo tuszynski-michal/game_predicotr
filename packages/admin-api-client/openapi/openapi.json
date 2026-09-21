@@ -22792,6 +22792,39 @@
         "title": "UnreadableUnknownAssignmentRequest",
         "type": "object"
       },
+      "V7LabelGeometryAdoptionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "operationId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "profileFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Profilefingerprint",
+            "type": "string"
+          },
+          "sourceGameRef": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "title": "Sourcegameref",
+            "type": "string"
+          },
+          "validationReportFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Validationreportfingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "profileFingerprint",
+          "sourceGameRef",
+          "validationReportFingerprint"
+        ],
+        "title": "V7LabelGeometryAdoptionCreate",
+        "type": "object"
+      },
       "V7LabelGeometryAdoptionListResponse": {
         "additionalProperties": false,
         "properties": {
@@ -22807,6 +22840,24 @@
           "items"
         ],
         "title": "V7LabelGeometryAdoptionListResponse",
+        "type": "object"
+      },
+      "V7LabelGeometryAdoptionMutationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "adoption": {
+            "$ref": "#/components/schemas/V7LabelGeometryAdoptionResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "adoption",
+          "created"
+        ],
+        "title": "V7LabelGeometryAdoptionMutationResponse",
         "type": "object"
       },
       "V7LabelGeometryAdoptionResponse": {
@@ -23285,6 +23336,324 @@
           "state"
         ],
         "title": "V7LabelGeometrySlotResponse",
+        "type": "object"
+      },
+      "V7ValidationPredictionSnapshotRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "bottomWarning": {
+            "title": "Bottomwarning",
+            "type": "boolean"
+          },
+          "caseId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Caseid",
+            "type": "string"
+          },
+          "manualReview": {
+            "title": "Manualreview",
+            "type": "boolean"
+          },
+          "predictedRangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predictedrangeend"
+          },
+          "predictedRangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predictedrangestart"
+          },
+          "selectedSource": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7ValidationSourceReferenceRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "topWarning": {
+            "title": "Topwarning",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "caseId",
+          "topWarning",
+          "bottomWarning",
+          "manualReview"
+        ],
+        "title": "V7ValidationPredictionSnapshotRequest",
+        "type": "object"
+      },
+      "V7ValidationReportCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "operationId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "predictionSnapshots": {
+            "items": {
+              "$ref": "#/components/schemas/V7ValidationPredictionSnapshotRequest"
+            },
+            "minItems": 1,
+            "title": "Predictionsnapshots",
+            "type": "array"
+          },
+          "profileFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Profilefingerprint",
+            "type": "string"
+          },
+          "sourceGameRef": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "title": "Sourcegameref",
+            "type": "string"
+          },
+          "sourceObservations": {
+            "items": {
+              "$ref": "#/components/schemas/V7ValidationSourceObservationRequest"
+            },
+            "minItems": 1,
+            "title": "Sourceobservations",
+            "type": "array"
+          },
+          "truth": {
+            "items": {
+              "$ref": "#/components/schemas/V7ValidationTruthRequest"
+            },
+            "minItems": 1,
+            "title": "Truth",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operationId",
+          "profileFingerprint",
+          "sourceGameRef",
+          "truth",
+          "sourceObservations",
+          "predictionSnapshots"
+        ],
+        "title": "V7ValidationReportCreate",
+        "type": "object"
+      },
+      "V7ValidationReportResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance": {
+            "additionalProperties": true,
+            "title": "Acceptance",
+            "type": "object"
+          },
+          "corpusInventoryFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Corpusinventoryfingerprint",
+            "type": "string"
+          },
+          "corpusManifestFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Corpusmanifestfingerprint",
+            "type": "string"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "geometryFamilyId": {
+            "minLength": 1,
+            "title": "Geometryfamilyid",
+            "type": "string"
+          },
+          "observerFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Observerfingerprint",
+            "type": "string"
+          },
+          "profileFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Profilefingerprint",
+            "type": "string"
+          },
+          "sourceGameRef": {
+            "minLength": 1,
+            "title": "Sourcegameref",
+            "type": "string"
+          },
+          "validationReportFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Validationreportfingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validationReportFingerprint",
+          "profileFingerprint",
+          "observerFingerprint",
+          "geometryFamilyId",
+          "sourceGameRef",
+          "corpusManifestFingerprint",
+          "corpusInventoryFingerprint",
+          "acceptance",
+          "created"
+        ],
+        "title": "V7ValidationReportResponse",
+        "type": "object"
+      },
+      "V7ValidationSourceObservationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "bottomCropped": {
+            "title": "Bottomcropped",
+            "type": "boolean"
+          },
+          "representedRangeEnd": {
+            "minimum": 1.0,
+            "title": "Representedrangeend",
+            "type": "integer"
+          },
+          "representedRangeStart": {
+            "minimum": 1.0,
+            "title": "Representedrangestart",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "topCropped": {
+            "title": "Topcropped",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sourceId",
+          "sourceChecksumSha256",
+          "representedRangeStart",
+          "representedRangeEnd",
+          "topCropped",
+          "bottomCropped"
+        ],
+        "title": "V7ValidationSourceObservationRequest",
+        "type": "object"
+      },
+      "V7ValidationSourceReferenceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId",
+          "sourceChecksumSha256"
+        ],
+        "title": "V7ValidationSourceReferenceRequest",
+        "type": "object"
+      },
+      "V7ValidationTruthRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptableRepresentativeSources": {
+            "items": {
+              "$ref": "#/components/schemas/V7ValidationSourceReferenceRequest"
+            },
+            "title": "Acceptablerepresentativesources",
+            "type": "array"
+          },
+          "automaticallyRecoverable": {
+            "title": "Automaticallyrecoverable",
+            "type": "boolean"
+          },
+          "caseId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Caseid",
+            "type": "string"
+          },
+          "corpusCaseId": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Corpuscaseid",
+            "type": "string"
+          },
+          "eligibleAcceptableRepresentative": {
+            "title": "Eligibleacceptablerepresentative",
+            "type": "boolean"
+          },
+          "evidenceSources": {
+            "items": {
+              "$ref": "#/components/schemas/V7ValidationSourceReferenceRequest"
+            },
+            "minItems": 1,
+            "title": "Evidencesources",
+            "type": "array"
+          },
+          "expectedRangeEnd": {
+            "minimum": 1.0,
+            "title": "Expectedrangeend",
+            "type": "integer"
+          },
+          "expectedRangeStart": {
+            "minimum": 1.0,
+            "title": "Expectedrangestart",
+            "type": "integer"
+          },
+          "split": {
+            "enum": [
+              "development",
+              "calibration",
+              "validation"
+            ],
+            "title": "Split",
+            "type": "string"
+          }
+        },
+        "required": [
+          "caseId",
+          "corpusCaseId",
+          "split",
+          "expectedRangeStart",
+          "expectedRangeEnd",
+          "evidenceSources",
+          "automaticallyRecoverable",
+          "eligibleAcceptableRepresentative"
+        ],
+        "title": "V7ValidationTruthRequest",
         "type": "object"
       },
       "ValidateJobCreate": {
@@ -44158,6 +44527,81 @@
         "tags": [
           "v7-label-geometry"
         ]
+      },
+      "post": {
+        "operationId": "createV7LabelGeometryAdoption",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V7LabelGeometryAdoptionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7LabelGeometryAdoptionMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create Adoption",
+        "tags": [
+          "v7-label-geometry"
+        ]
       }
     },
     "/api/v1/admin/v7-label-geometry/profiles": {
@@ -44742,6 +45186,83 @@
           }
         },
         "summary": "Canonical Asset",
+        "tags": [
+          "v7-label-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/v7-label-geometry/validation-reports": {
+      "post": {
+        "operationId": "createV7LabelGeometryValidationReport",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V7ValidationReportCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7ValidationReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session, source, or profile not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Calibration session or source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid calibration request"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create Validation Report",
         "tags": [
           "v7-label-geometry"
         ]

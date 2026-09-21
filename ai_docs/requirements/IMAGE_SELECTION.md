@@ -1468,6 +1468,37 @@ z konfiguracją; profile-bound observer odmawia wznowienia historycznego,
 nieprzypiętego checkpointu v1. Rzeczywisty profil nadal wymaga kalibracji
 operatora, zanim będzie możliwa jego adopcja albo aktywacja.
 
+## Walidacja poza holdoutem i adopcja profilu V7 — TASK-0605
+
+Raport T05 powstaje wyłącznie z niezależnego truthu operatora oraz surowego
+snapshotu automatu. Backend sam wyprowadza `correct`, `incorrect` albo
+`not_selected` po porównaniu zakresu i checksummowanego wybranego źródła z
+truth; HTTP nie przyjmuje gotowych outcome'ów. Raport wiąże passed profil,
+rodzinę geometrii, `sourceGameRef`, fingerprint observera wyprowadzony z
+profilu, fingerprint manifestu oraz zamrożony inwentarz. Dopuszcza wyłącznie
+split `development`, `calibration` lub `validation`; `holdout` i
+`reference_only`, zmiana SHA, case'u, rodziny albo gry są odrzucane.
+HTTP snapshot wybranego źródła nie zawiera statusu jakości, ponieważ klient
+nie może sam zgłosić `acceptable`. Obecny backend oznacza taką jakość jako
+server-owned `unknown`, co obniża metrykę reprezentanta i nie może utworzyć
+adopcji. Dopiero przyszły, zweryfikowany snapshot runtime'u będzie mógł
+dostarczyć własny wynik jakości.
+
+Metryki T05 pozostają rozłączne: co najmniej 95% odzyskiwalnych zakresów, co
+najmniej 95% przypadków z dopuszczalnym reprezentantem, zero błędnych zakresów
+automatycznych oraz 100% recallu ostrzeżeń top i bottom. Fałszywe ostrzeżenia
+i liczba manual review są raportowane osobno. Pusty mianownik ma status
+`not_evaluable`; późniejsza ręczna korekta nie podnosi wyniku automatu.
+
+Raport i receipt operacji są canonical oraz immutable pod local runtime root.
+Identyczne `operationId` i treść zwracają ten sam raport po restarcie przed
+ponowną kontrolą zmiennego korpusu; inne
+dane dla tego ID albo inna zawartość tego samego content-addressed pliku są
+konfliktem. Adopcja może powstać wyłącznie dla utrwalonego raportu `passed`,
+który nadal zgadza się z profilem, observerem, rodziną, grą i bieżącym
+manifestem/inwentarzem. Sama adopcja nie aktywuje V7, nie uruchamia OCR i nie
+zapisuje JPEG-ów; `reels_test` pozostaje wyłącznie dla T0606/T12.
+
 ## Odbiór i blokada wydania V7 — TASK-0596
 
 Odbiór T12 z 2026-09-21 ma status `blocked`. Ponowna kontrola przypiętego

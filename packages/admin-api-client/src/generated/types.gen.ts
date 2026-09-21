@@ -12727,6 +12727,28 @@ export type UnreadableUnknownAssignmentRequest = {
 };
 
 /**
+ * V7LabelGeometryAdoptionCreate
+ */
+export type V7LabelGeometryAdoptionCreate = {
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Profilefingerprint
+   */
+  profileFingerprint: string;
+  /**
+   * Sourcegameref
+   */
+  sourceGameRef: string;
+  /**
+   * Validationreportfingerprint
+   */
+  validationReportFingerprint: string;
+};
+
+/**
  * V7LabelGeometryAdoptionListResponse
  */
 export type V7LabelGeometryAdoptionListResponse = {
@@ -12734,6 +12756,17 @@ export type V7LabelGeometryAdoptionListResponse = {
    * Items
    */
   items: Array<V7LabelGeometryAdoptionResponse>;
+};
+
+/**
+ * V7LabelGeometryAdoptionMutationResponse
+ */
+export type V7LabelGeometryAdoptionMutationResponse = {
+  adoption: V7LabelGeometryAdoptionResponse;
+  /**
+   * Created
+   */
+  created: boolean;
 };
 
 /**
@@ -12996,6 +13029,197 @@ export type V7LabelGeometrySlotResponse = {
    * State
    */
   state: 'unreviewed' | 'annotated' | 'unavailable';
+};
+
+/**
+ * V7ValidationPredictionSnapshotRequest
+ */
+export type V7ValidationPredictionSnapshotRequest = {
+  /**
+   * Bottomwarning
+   */
+  bottomWarning: boolean;
+  /**
+   * Caseid
+   */
+  caseId: string;
+  /**
+   * Manualreview
+   */
+  manualReview: boolean;
+  /**
+   * Predictedrangeend
+   */
+  predictedRangeEnd?: number | null;
+  /**
+   * Predictedrangestart
+   */
+  predictedRangeStart?: number | null;
+  selectedSource?: V7ValidationSourceReferenceRequest | null;
+  /**
+   * Topwarning
+   */
+  topWarning: boolean;
+};
+
+/**
+ * V7ValidationReportCreate
+ */
+export type V7ValidationReportCreate = {
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Predictionsnapshots
+   */
+  predictionSnapshots: Array<V7ValidationPredictionSnapshotRequest>;
+  /**
+   * Profilefingerprint
+   */
+  profileFingerprint: string;
+  /**
+   * Sourcegameref
+   */
+  sourceGameRef: string;
+  /**
+   * Sourceobservations
+   */
+  sourceObservations: Array<V7ValidationSourceObservationRequest>;
+  /**
+   * Truth
+   */
+  truth: Array<V7ValidationTruthRequest>;
+};
+
+/**
+ * V7ValidationReportResponse
+ */
+export type V7ValidationReportResponse = {
+  /**
+   * Acceptance
+   */
+  acceptance: {
+    [key: string]: unknown;
+  };
+  /**
+   * Corpusinventoryfingerprint
+   */
+  corpusInventoryFingerprint: string;
+  /**
+   * Corpusmanifestfingerprint
+   */
+  corpusManifestFingerprint: string;
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Geometryfamilyid
+   */
+  geometryFamilyId: string;
+  /**
+   * Observerfingerprint
+   */
+  observerFingerprint: string;
+  /**
+   * Profilefingerprint
+   */
+  profileFingerprint: string;
+  /**
+   * Sourcegameref
+   */
+  sourceGameRef: string;
+  /**
+   * Validationreportfingerprint
+   */
+  validationReportFingerprint: string;
+};
+
+/**
+ * V7ValidationSourceObservationRequest
+ */
+export type V7ValidationSourceObservationRequest = {
+  /**
+   * Bottomcropped
+   */
+  bottomCropped: boolean;
+  /**
+   * Representedrangeend
+   */
+  representedRangeEnd: number;
+  /**
+   * Representedrangestart
+   */
+  representedRangeStart: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Topcropped
+   */
+  topCropped: boolean;
+};
+
+/**
+ * V7ValidationSourceReferenceRequest
+ */
+export type V7ValidationSourceReferenceRequest = {
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+};
+
+/**
+ * V7ValidationTruthRequest
+ */
+export type V7ValidationTruthRequest = {
+  /**
+   * Acceptablerepresentativesources
+   */
+  acceptableRepresentativeSources?: Array<V7ValidationSourceReferenceRequest>;
+  /**
+   * Automaticallyrecoverable
+   */
+  automaticallyRecoverable: boolean;
+  /**
+   * Caseid
+   */
+  caseId: string;
+  /**
+   * Corpuscaseid
+   */
+  corpusCaseId: string;
+  /**
+   * Eligibleacceptablerepresentative
+   */
+  eligibleAcceptableRepresentative: boolean;
+  /**
+   * Evidencesources
+   */
+  evidenceSources: Array<V7ValidationSourceReferenceRequest>;
+  /**
+   * Expectedrangeend
+   */
+  expectedRangeEnd: number;
+  /**
+   * Expectedrangestart
+   */
+  expectedRangeStart: number;
+  /**
+   * Split
+   */
+  split: 'development' | 'calibration' | 'validation';
 };
 
 /**
@@ -24245,6 +24469,45 @@ export type ListV7LabelGeometryAdoptionsResponses = {
 export type ListV7LabelGeometryAdoptionsResponse =
   ListV7LabelGeometryAdoptionsResponses[keyof ListV7LabelGeometryAdoptionsResponses];
 
+export type CreateV7LabelGeometryAdoptionData = {
+  body: V7LabelGeometryAdoptionCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/v7-label-geometry/adoptions';
+};
+
+export type CreateV7LabelGeometryAdoptionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type CreateV7LabelGeometryAdoptionError =
+  CreateV7LabelGeometryAdoptionErrors[keyof CreateV7LabelGeometryAdoptionErrors];
+
+export type CreateV7LabelGeometryAdoptionResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7LabelGeometryAdoptionMutationResponse;
+};
+
+export type CreateV7LabelGeometryAdoptionResponse =
+  CreateV7LabelGeometryAdoptionResponses[keyof CreateV7LabelGeometryAdoptionResponses];
+
 export type ListV7LabelGeometryProfilesData = {
   body?: never;
   path?: never;
@@ -24576,6 +24839,45 @@ export type GetV7LabelGeometryCalibrationSourceAssetResponses = {
    */
   200: unknown;
 };
+
+export type CreateV7LabelGeometryValidationReportData = {
+  body: V7ValidationReportCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/v7-label-geometry/validation-reports';
+};
+
+export type CreateV7LabelGeometryValidationReportErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Calibration session, source, or profile not found
+   */
+  404: ErrorResponse;
+  /**
+   * Calibration session or source conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid calibration request
+   */
+  422: ErrorResponse;
+};
+
+export type CreateV7LabelGeometryValidationReportError =
+  CreateV7LabelGeometryValidationReportErrors[keyof CreateV7LabelGeometryValidationReportErrors];
+
+export type CreateV7LabelGeometryValidationReportResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7ValidationReportResponse;
+};
+
+export type CreateV7LabelGeometryValidationReportResponse =
+  CreateV7LabelGeometryValidationReportResponses[keyof CreateV7LabelGeometryValidationReportResponses];
 
 export type ListWorkerLanesData = {
   body?: never;

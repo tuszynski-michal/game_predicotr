@@ -153,12 +153,18 @@ import type {
   CreateSymbolTrainingData,
   CreateSymbolTrainingErrors,
   CreateSymbolTrainingResponses,
+  CreateV7LabelGeometryAdoptionData,
+  CreateV7LabelGeometryAdoptionErrors,
+  CreateV7LabelGeometryAdoptionResponses,
   CreateV7LabelGeometryCalibrationSessionData,
   CreateV7LabelGeometryCalibrationSessionErrors,
   CreateV7LabelGeometryCalibrationSessionResponses,
   CreateV7LabelGeometryProfileData,
   CreateV7LabelGeometryProfileErrors,
   CreateV7LabelGeometryProfileResponses,
+  CreateV7LabelGeometryValidationReportData,
+  CreateV7LabelGeometryValidationReportErrors,
+  CreateV7LabelGeometryValidationReportResponses,
   CreateVirtualCellPreviewBatchData,
   CreateVirtualCellPreviewBatchErrors,
   CreateVirtualCellPreviewBatchResponses,
@@ -6060,6 +6066,32 @@ export const listV7LabelGeometryAdoptions = <
   >({ url: '/api/v1/admin/v7-label-geometry/adoptions', ...options });
 
 /**
+ * Create Adoption
+ */
+export const createV7LabelGeometryAdoption = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateV7LabelGeometryAdoptionData, ThrowOnError>,
+): RequestResult<
+  CreateV7LabelGeometryAdoptionResponses,
+  CreateV7LabelGeometryAdoptionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateV7LabelGeometryAdoptionResponses,
+    CreateV7LabelGeometryAdoptionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/v7-label-geometry/adoptions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * List Profiles
  */
 export const listV7LabelGeometryProfiles = <
@@ -6240,6 +6272,32 @@ export const getV7LabelGeometryCalibrationSourceAsset = <
   >({
     url: '/api/v1/admin/v7-label-geometry/sessions/{session_id}/sources/{source_id}/asset',
     ...options,
+  });
+
+/**
+ * Create Validation Report
+ */
+export const createV7LabelGeometryValidationReport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateV7LabelGeometryValidationReportData, ThrowOnError>,
+): RequestResult<
+  CreateV7LabelGeometryValidationReportResponses,
+  CreateV7LabelGeometryValidationReportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateV7LabelGeometryValidationReportResponses,
+    CreateV7LabelGeometryValidationReportErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/v7-label-geometry/validation-reports',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

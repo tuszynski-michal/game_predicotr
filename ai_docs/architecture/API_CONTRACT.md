@@ -3365,7 +3365,9 @@ POST /api/v1/admin/v7-label-geometry/sessions/{sessionId}/exports
 POST /api/v1/admin/v7-label-geometry/sessions/{sessionId}/profiles
 GET  /api/v1/admin/v7-label-geometry/profiles
 GET  /api/v1/admin/v7-label-geometry/profiles/{profileFingerprint}
+POST /api/v1/admin/v7-label-geometry/validation-reports
 GET  /api/v1/admin/v7-label-geometry/adoptions
+POST /api/v1/admin/v7-label-geometry/adoptions
 ```
 
 Utworzenie sesji dopuszcza wyłącznie przypadki `calibration` jednej rodziny;
@@ -3383,5 +3385,21 @@ tym samym payloadem zwraca trwały receipt przed kontrolą nowej rewizji; inny
 payload jest konfliktem. Eksport i profil wymagają dokładnej rewizji. Profil
 powstaje tylko z immutable snapshotu eksportu sesji, gdy przechodzą pięć SHA,
 dwie grupy ujęć, `contained` oraz p95; przy odczycie jest ponownie weryfikowany
-względem własnego fingerprintu, nazwy i checksumy eksportu. Katalog adopcji jest read-only i pusty do TASK-0605:
-tworzenie adopcji wymaga wtedy niezależnego raportu walidacyjnego gry.
+względem własnego fingerprintu, nazwy i checksumy eksportu.
+
+TASK-0605 dodaje `POST /validation-reports` i `POST /adoptions`. Pierwszy
+endpoint przyjmuje UUID operacji, fingerprint profilu, sourceGameRef,
+niezależny truth źródeł oraz surowe snapshoty automatu — bez pól
+`rangeOutcome`/`representativeOutcome`, ścieżek i bitmap. Backend wyprowadza
+wyniki metryk i zwraca content-addressed report. Drugi endpoint przyjmuje UUID,
+profil, grę i fingerprint istniejącego reportu. Tworzy rekord wyłącznie wtedy,
+gdy report ma status `passed` i nadal zgadza się z profilem, observerem,
+manifestem oraz inwentarzem. Żaden z endpointów nie odblokowuje startu V7.
+
+Snapshot HTTP nie przyjmuje także `qualityStatus`: bieżący adapter nie umie
+jeszcze zweryfikować jakości reprezentanta, więc backend nadaje takiemu
+snapshotowi `unknown`. Taki report może zostać zapisany dla audytu, lecz nie
+może przejść do adopcji. Fingerprint inwentarza reportu obejmuje bezpiecznie
+rozwiązany fizyczny korzeń korpusu oraz pełny inwentarz; identyczne pliki w
+innym katalogu są driftem. Registry publikuje rekord razem z receiptem pod
+wspólną blokadą procesu/pliku, a obiekt bez receipt pozostaje niewidoczny.

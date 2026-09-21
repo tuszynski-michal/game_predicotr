@@ -6,6 +6,31 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0605 — walidacja T05 i adopcje profilu geometrii V7
+
+- Powstał trwały, content-addressed registry raportów T05 i adopcji pod
+  server-owned runtime root. Każdy report wiąże profil, fingerprint observera,
+  rodzinę, grę, manifest i inventory wraz z bezpiecznie rozwiązanym fizycznym
+  rootem; źródła są ponownie rozwiązywane po stronie serwera, więc ID, SHA,
+  case i split nie mogą zostać podmienione przez klienta. `holdout` i
+  `reference_only` są odrzucone.
+- Endpoint raportu przyjmuje niezależny truth oraz surowy snapshot, bez gotowych
+  outcome'ów. Backend wyprowadza metryki `95/95/zero/100`; puste mianowniki są
+  `not_evaluable`, a ręczna korekta pozostaje wyłącznie informacją. HTTP nie
+  przyjmuje `qualityStatus`; backend przypisuje obecnemu snapshotowi
+  `unknown`, dlatego nie może on doprowadzić do adopcji.
+- Immutable receipt jest sprawdzany przed ponownym odczytem zmiennego korpusu:
+  utracona odpowiedź nadal zwraca pierwotny raport/adopcję po restarcie i po
+  późniejszym drifcie, a inny payload tego samego UUID jest konfliktem. Wspólna
+  blokada procesu i pliku serializuje zapis rekordu z receiptem; osierocony
+  rekord pozostaje niewidoczny do dokładnego replayu. Odczyt adopcji ponownie
+  sprawdza jej klucz i powiązany `passed` report. Adopcja sama nie aktywuje V7,
+  workera ani writera.
+- 25 testów Python, Ruff, Mypy oraz 58 testów i typecheck wygenerowanego klienta
+  Admina przeszły. Rzeczywista kalibracja 777 T0603 nadal jest zablokowana na
+  punktach operatora, dlatego nie powstał prawdziwy report/adopcja i bramka V7
+  nadal pozostaje zamknięta.
+
 ### TASK-0604 — obserwator V7 związany z profilem geometrii
 
 - Powstał testowalny, recognition-only V7ProfileBoundObserver, który przed

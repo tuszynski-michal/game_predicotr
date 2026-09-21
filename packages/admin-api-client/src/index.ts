@@ -54,8 +54,10 @@ import {
   createMobileRelease as createGeneratedMobileRelease,
   createReviewFeedbackExport as createGeneratedReviewFeedbackExport,
   createSemiAutomaticImageSelection as createGeneratedSemiAutomaticImageSelection,
+  createV7LabelGeometryAdoption as createGeneratedV7LabelGeometryAdoption,
   createV7LabelGeometryCalibrationSession as createGeneratedV7LabelGeometryCalibrationSession,
   createV7LabelGeometryProfile as createGeneratedV7LabelGeometryProfile,
+  createV7LabelGeometryValidationReport as createGeneratedV7LabelGeometryValidationReport,
   decideSemiAutomaticFilenameRangeVerification as decideGeneratedSemiAutomaticFilenameRangeVerification,
   downloadMobileReleaseApk as downloadGeneratedMobileReleaseApk,
   downloadImageDiagnosticExport as downloadGeneratedImageDiagnosticExport,
@@ -371,6 +373,8 @@ import type {
   V7LabelGeometrySessionCreate,
   V7LabelGeometrySessionExportRequest,
   V7LabelGeometrySessionMutation,
+  V7LabelGeometryAdoptionCreate,
+  V7ValidationReportCreate,
 } from './generated/types.gen';
 
 export type {
@@ -689,6 +693,8 @@ export type {
   SymbolUpdate,
   WorkerLaneStatusResponse,
   V7LabelGeometryAdoptionListResponse,
+  V7LabelGeometryAdoptionCreate,
+  V7LabelGeometryAdoptionMutationResponse,
   V7LabelGeometryAdoptionResponse,
   V7LabelGeometryProfileListResponse,
   V7LabelGeometryProfileResponse,
@@ -701,6 +707,12 @@ export type {
   V7LabelGeometrySessionResponse,
   V7LabelGeometrySessionSourceResponse,
   V7LabelGeometrySlotResponse,
+  V7ValidationPredictionSnapshotRequest,
+  V7ValidationReportCreate,
+  V7ValidationReportResponse,
+  V7ValidationSourceObservationRequest,
+  V7ValidationSourceReferenceRequest,
+  V7ValidationTruthRequest,
   SnapshotJobCreate,
   SnapshotJobPayload,
   ValidateJobCreate,
@@ -880,7 +892,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { profile_fingerprint: profileFingerprint },
       }),
+    createV7LabelGeometryValidationReport: (body: V7ValidationReportCreate) =>
+      createGeneratedV7LabelGeometryValidationReport({ body, client }),
     listV7LabelGeometryAdoptions: () => listGeneratedV7LabelGeometryAdoptions({ client }),
+    createV7LabelGeometryAdoption: (body: V7LabelGeometryAdoptionCreate) =>
+      createGeneratedV7LabelGeometryAdoption({ body, client }),
     getSemiAutomaticImageSelectionCapabilities: () =>
       getGeneratedSemiAutomaticImageSelectionCapabilities({ client }),
     selectSemiAutomaticImageSelectionSourceFolder: () =>

@@ -12,7 +12,10 @@ from game_predictor_api.application.v7_label_geometry_calibration import (
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.v7_label_geometry_calibration import (
+    V7LabelGeometryAdoptionCreate,
     V7LabelGeometryAdoptionListResponse,
+    V7LabelGeometryAdoptionMutationResponse,
+    V7LabelGeometryAdoptionResponse,
     V7LabelGeometryProfileListResponse,
     V7LabelGeometryProfileResponse,
     V7LabelGeometrySessionCreate,
@@ -21,6 +24,8 @@ from game_predictor_api.schemas.v7_label_geometry_calibration import (
     V7LabelGeometrySessionMutation,
     V7LabelGeometrySessionMutationResponse,
     V7LabelGeometrySessionResponse,
+    V7ValidationReportCreate,
+    V7ValidationReportResponse,
 )
 
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
@@ -202,7 +207,54 @@ def create_v7_label_geometry_calibration_router(
     def list_adoptions(
         service: Annotated[V7LabelGeometryCalibrationService, service_parameter],
     ) -> V7LabelGeometryAdoptionListResponse:
-        return V7LabelGeometryAdoptionListResponse(items=list(service.list_adoptions()))
+        return V7LabelGeometryAdoptionListResponse(
+            items=[_adoption_response(item) for item in service.list_adoptions()]
+        )
+
+    @router.post(
+        "/validation-reports",
+        response_model=V7ValidationReportResponse,
+        operation_id="createV7LabelGeometryValidationReport",
+        responses=ERROR_RESPONSES,
+    )
+    def create_validation_report(
+        payload: V7ValidationReportCreate,
+        service: Annotated[V7LabelGeometryCalibrationService, service_parameter],
+    ) -> V7ValidationReportResponse:
+        report, created = service.create_validation_report(
+            operation_id=payload.operation_id,
+            profile_fingerprint=payload.profile_fingerprint,
+            source_game_ref=payload.source_game_ref,
+            truth_values=tuple(item.model_dump(by_alias=True) for item in payload.truth),
+            source_observation_values=tuple(
+                item.model_dump(by_alias=True) for item in payload.source_observations
+            ),
+            prediction_snapshot_values=tuple(
+                item.model_dump(by_alias=True) for item in payload.prediction_snapshots
+            ),
+        )
+        return _validation_report_response(report, created=created)
+
+    @router.post(
+        "/adoptions",
+        response_model=V7LabelGeometryAdoptionMutationResponse,
+        operation_id="createV7LabelGeometryAdoption",
+        responses=ERROR_RESPONSES,
+    )
+    def create_adoption(
+        payload: V7LabelGeometryAdoptionCreate,
+        service: Annotated[V7LabelGeometryCalibrationService, service_parameter],
+    ) -> V7LabelGeometryAdoptionMutationResponse:
+        adoption, created = service.create_adoption(
+            operation_id=payload.operation_id,
+            profile_fingerprint=payload.profile_fingerprint,
+            source_game_ref=payload.source_game_ref,
+            validation_report_fingerprint=payload.validation_report_fingerprint,
+        )
+        return V7LabelGeometryAdoptionMutationResponse(
+            adoption=_adoption_response(adoption),
+            created=created,
+        )
 
     return router
 
@@ -230,6 +282,36 @@ def _profile_response(record: V7LabelGeometryProfileRecord) -> V7LabelGeometryPr
         revision=value["revision"],
         session_export_checksum_sha256=value["sessionExportChecksumSha256"],
         calibration=value["calibration"],
+    )
+
+
+def _validation_report_response(
+    report: object,
+    *,
+    created: bool,
+) -> V7ValidationReportResponse:
+    value = report.as_dict()  # type: ignore[attr-defined]
+    return V7ValidationReportResponse(
+        validation_report_fingerprint=value["validationReportFingerprint"],
+        profile_fingerprint=value["profileFingerprint"],
+        observer_fingerprint=value["observerFingerprint"],
+        geometry_family_id=value["geometryFamilyId"],
+        source_game_ref=value["sourceGameRef"],
+        corpus_manifest_fingerprint=value["corpusManifestFingerprint"],
+        corpus_inventory_fingerprint=value["corpusInventoryFingerprint"],
+        acceptance=value["acceptance"],
+        created=created,
+    )
+
+
+def _adoption_response(value: object) -> V7LabelGeometryAdoptionResponse:
+    adoption = value.as_dict()  # type: ignore[attr-defined]
+    return V7LabelGeometryAdoptionResponse(
+        adoption_key=adoption["adoptionKey"],
+        source_game_ref=adoption["sourceGameRef"],
+        geometry_family_id=adoption["geometryFamilyId"],
+        profile_fingerprint=adoption["profileFingerprint"],
+        validation_report_fingerprint=adoption["validationReportFingerprint"],
     )
 
 

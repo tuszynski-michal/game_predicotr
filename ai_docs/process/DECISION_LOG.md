@@ -6,6 +6,31 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-417 — T05 zapisuje surowe predykcje i tworzy adopcję wyłącznie z passed reportu
+
+- **Status:** accepted (TASK-0605).
+- **Date:** 2026-09-21.
+- **Decision:** report T05 przyjmuje tylko niezależny truth źródeł oraz surowy
+  snapshot automatu bez client-supplied `qualityStatus`. Backend przypisuje
+  obecnemu snapshotowi jakość `unknown`, sam wyprowadza wynik zakresu i
+  reprezentanta, a
+  immutable report wiąże profil, rodzinę, sourceGameRef, fingerprint observera,
+  manifest i inwentarz. Tylko split development/calibration/validation może
+  wejść do raportu; holdout/reference-only są odrzucane. Adopcja powstaje
+  wyłącznie dla istniejącego reportu `passed` o identycznej tożsamości, po
+  ponownej kontroli manifestu i inwentarza.
+- **Rationale:** wynik `correct` przekazany z klienta lub raport pustych
+  mianowników nie jest dowodem jakości automatu. Tożsamość profilu nie wystarcza
+  też do bezpiecznego użycia go przez inną grę.
+- **Safety:** report, receipt i adopcja są canonical immutable JSON z fsync i
+  hard-link. Wspólna blokada procesu/pliku serializuje rekord i receipt, a
+  niepotwierdzony rekord jest niewidoczny po restarcie do czasu dokładnego
+  replayu. Adopcja ponownie wyprowadza swój klucz, sprawdza linked passed report
+  oraz fingerprint obejmujący fizyczny root i pełny inwentarz. Replay tego samego
+  operationId zwraca oryginalny rekord; inne dane są konfliktem. Adopcja nie
+  odblokowuje API V7, nie wykonuje OCR, nie zapisuje `cut` i nie zmienia
+  T12/reels_test.
+
 ## D-416 — Tracker wystąpień jest jedynym właścicielem słabego dowodu V7 3+3
 
 - **Status:** accepted (TASK-0604).

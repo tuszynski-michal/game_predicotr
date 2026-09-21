@@ -18,9 +18,14 @@ from game_predictor_worker.semi_automatic_selection.v7_calibration import (
     V7SourceExposureRecord,
     V7SourceExposureStatus,
     V7SourceReference,
+    V7ValidationAcceptanceTruth,
+    V7ValidationPredictionSnapshot,
+    V7ValidationQualityStatus,
+    V7ValidationSourceObservation,
     calibrate_v7_label_geometry,
     evaluate_v7_acceptance,
     evaluate_v7_holdout_acceptance,
+    evaluate_v7_validation_acceptance,
 )
 from game_predictor_worker.semi_automatic_selection.v7_configuration import V7CorpusSplit
 
@@ -332,6 +337,76 @@ def test_acceptance_never_counts_manual_correction_or_empty_denominator_as_succe
     assert evaluation.representative_selection.status is V7EvaluationStatus.NOT_EVALUABLE
     assert evaluation.top_crop_false_positive_count == 1
     assert evaluation.manual_review_count == 1
+
+
+def test_non_holdout_validation_derives_outcomes_from_raw_snapshot_and_never_uses_holdout() -> None:
+    truth = V7ValidationAcceptanceTruth(
+        case_id="validation-range",
+        corpus_case_id="validation",
+        split=V7CorpusSplit.VALIDATION,
+        expected_range_start=1,
+        expected_range_end=9,
+        evidence_sources=(SOURCE,),
+        acceptable_representative_sources=(SOURCE,),
+        automatically_recoverable=True,
+        eligible_acceptable_representative=True,
+    )
+    observation = V7ValidationSourceObservation(
+        source=SOURCE,
+        represented_range_start=1,
+        represented_range_end=9,
+        top_cropped=True,
+        bottom_cropped=True,
+    )
+    correct = V7ValidationPredictionSnapshot(
+        case_id="validation-range",
+        predicted_range_start=1,
+        predicted_range_end=9,
+        selected_source=SOURCE,
+        quality_status=V7ValidationQualityStatus.ACCEPTABLE,
+        top_warning=True,
+        bottom_warning=True,
+        manual_review=False,
+    )
+    evaluation = evaluate_v7_validation_acceptance((truth,), (correct,), (observation,))
+    assert evaluation.status is V7EvaluationStatus.PASSED
+
+    assert (
+        evaluate_v7_validation_acceptance(
+            (truth,),
+            (replace(correct, quality_status=V7ValidationQualityStatus.UNKNOWN),),
+            (observation,),
+        ).status
+        is V7EvaluationStatus.FAILED
+    )
+
+    incorrect = replace(correct, predicted_range_start=10, predicted_range_end=18)
+    failed = evaluate_v7_validation_acceptance((truth,), (incorrect,), (observation,))
+    assert failed.incorrect_automatic_range_count == 1
+    assert failed.status is V7EvaluationStatus.FAILED
+
+    not_evaluable_truth = replace(
+        truth,
+        automatically_recoverable=False,
+        acceptable_representative_sources=(),
+        eligible_acceptable_representative=False,
+    )
+    no_output = V7ValidationPredictionSnapshot(
+        case_id="validation-range",
+        predicted_range_start=None,
+        predicted_range_end=None,
+        selected_source=None,
+        quality_status=V7ValidationQualityStatus.UNKNOWN,
+        top_warning=False,
+        bottom_warning=False,
+        manual_review=True,
+    )
+    not_evaluable = evaluate_v7_validation_acceptance(
+        (not_evaluable_truth,),
+        (no_output,),
+        (observation,),
+    )
+    assert not_evaluable.status is V7EvaluationStatus.NOT_EVALUABLE
 
 
 def test_acceptance_rejects_holdout_duplicate_and_mismatched_case_sets() -> None:

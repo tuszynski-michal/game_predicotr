@@ -1699,6 +1699,8 @@ def create_app(
             "V7_CALIBRATION_SESSION_NOT_FOUND",
             "V7_CALIBRATION_SOURCE_NOT_FOUND",
             "V7_CALIBRATION_PROFILE_NOT_FOUND",
+            "V7_VALIDATION_REPORT_NOT_FOUND",
+            "V7_VALIDATION_ADOPTION_NOT_FOUND",
         }:
             status_code = 404
         elif error.code in {
@@ -1711,6 +1713,14 @@ def create_app(
             "V7_CALIBRATION_SOURCE_CHECKSUM_CONFLICT",
             "V7_CALIBRATION_SOURCE_DUPLICATE",
             "V7_CALIBRATION_PROFILE_CONFLICT",
+            "V7_VALIDATION_OPERATION_ID_CONFLICT",
+            "V7_VALIDATION_REPORT_CONFLICT",
+            "V7_VALIDATION_CORPUS_DRIFT",
+            "V7_VALIDATION_ADOPTION_OPERATION_ID_CONFLICT",
+            "V7_VALIDATION_ADOPTION_CONFLICT",
+            "V7_VALIDATION_ADOPTION_IDENTITY_CONFLICT",
+            "V7_VALIDATION_ADOPTION_OBSERVER_CONFLICT",
+            "V7_VALIDATION_ADOPTION_CORPUS_DRIFT",
         }:
             status_code = 409
         return JSONResponse(

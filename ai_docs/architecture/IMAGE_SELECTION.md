@@ -1965,6 +1965,47 @@ stanu. Nadal odczytuje historyczny v1 dla obserwatorów niezwiązanych z profile
 profile-bound observer odmawia wznowienia nieprzypiętego v1. Tracker v2
 odczytuje historyczny v1 jako brak oczekującej hipotezy.
 
+## Walidacja T05 i registry adopcji profilu V7 — TASK-0605
+
+`V7LabelGeometryCalibrationService` jest granicą application dla T05. Najpierw
+normalizuje dane żądania do canonical operation fingerprintu i odtwarza
+istniejący receipt bez ponownego odczytu zmiennego korpusu. Dla nowej operacji
+czyta immutable profil i sprawdza status `passed`, następnie rozwiązuje manifest
+oraz pełny inwentarz po stronie serwera. Tylko zadeklarowane case'y tej samej
+rodziny i `sourceGameRef` o splitach development/calibration/validation mogą
+wejść do reportu. Serwer porównuje każde `sourceId` i SHA z aktualnym źródłem,
+porównuje inwentarz przed i po wyliczeniu oraz przechowuje osobno fingerprint
+observera wyprowadzony z profile-bound lokalizatora.
+
+Nowy czysty kontrakt `V7ValidationAcceptanceTruth`,
+`V7ValidationSourceObservation` i `V7ValidationPredictionSnapshot` jest
+odrębny od legacy T05 outcome i od T12 holdoutu. HTTP snapshot zawiera wyłącznie
+zakres, wybrane źródło, warningi i manual review; evaluator sam wyprowadza
+outcome i rozlicza wynik. Backend przypisuje obecnemu, caller-supplied
+snapshotowi jakość `unknown`, więc formularz/API nie może zaliczyć raportu
+przez przesłanie `correct` ani `acceptable`. `unknown` nie liczy się jako
+poprawny reprezentant i nie tworzy adopcji.
+
+`V7ValidationRegistry` zapisuje canonical JSON przez `temp → fsync → hard-link`
+pod `runtime/v7-label-geometry/validation`. Raport jest kluczowany pełnym SHA,
+zaś nazwa pliku używa bezpiecznego prefiksu i zawartość zawiera pełny digest;
+kolizja prefiksu z inną treścią kończy się fail-closed. Receipt `operationId`
+jest osobnym, immutable obiektem, więc crash po raporcie, a przed receiptem,
+jest bezpiecznie wznawialny. Rekord bez receipt jest niewidoczny dla odczytu;
+każdy odczyt wymaga canonical bajtów i zgodności pełnego payloadu z
+odtworzonym reportem. Krótka blokada procesu i pliku serializuje publikację
+rekordu z receiptem.
+
+Adopcja jest drugim immutable rekordem z deterministycznym kluczem
+`SHA-256(profile, family, sourceGameRef)`. Przed zapisem service ponownie
+sprawdza profil, observer fingerprint, status raportu, manifest i inventory.
+Fingerprint inwentarza walidacji wiąże również bezpiecznie rozwiązany fizyczny
+korzeń korpusu. Registry ponownie wyprowadza klucz adopcji i sprawdza powiązany
+passed report przed każdym odczytem. Inny raport dla już użytego klucza nie
+zastępuje historii. Router udostępnia wyłącznie strukturę
+profilu/reportu/adopcji bez filesystem paths. T0605 nie zmienia V7 activation
+gate, handlera, workera ani writera.
+
 ## Writer i recovery pierwszego outputu V7 — TASK-0592
 
 `V7OutputWriter` jest jedynym właścicielem publikacji pierwszego

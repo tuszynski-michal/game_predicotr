@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -103,8 +103,113 @@ class V7LabelGeometryAdoptionListResponse(ApiModel):
     items: list[V7LabelGeometryAdoptionResponse]
 
 
+class V7ValidationSourceReferenceRequest(ApiModel):
+    source_id: str = Field(min_length=1, max_length=256)
+    source_checksum_sha256: Sha256
+
+
+class V7ValidationSourceObservationRequest(V7ValidationSourceReferenceRequest):
+    represented_range_start: int = Field(ge=1)
+    represented_range_end: int = Field(ge=1)
+    top_cropped: bool
+    bottom_cropped: bool
+
+    @model_validator(mode="after")
+    def validate_range(self) -> Self:
+        if self.represented_range_end < self.represented_range_start:
+            raise ValueError("representedRangeEnd must be at least representedRangeStart.")
+        return self
+
+
+class V7ValidationTruthRequest(ApiModel):
+    case_id: str = Field(min_length=1, max_length=256)
+    corpus_case_id: str = Field(min_length=1, max_length=64)
+    split: Literal["development", "calibration", "validation"]
+    expected_range_start: int = Field(ge=1)
+    expected_range_end: int = Field(ge=1)
+    evidence_sources: list[V7ValidationSourceReferenceRequest] = Field(min_length=1)
+    acceptable_representative_sources: list[V7ValidationSourceReferenceRequest] = Field(
+        default_factory=list
+    )
+    automatically_recoverable: bool
+    eligible_acceptable_representative: bool
+
+    @model_validator(mode="after")
+    def validate_truth(self) -> Self:
+        if self.expected_range_end < self.expected_range_start:
+            raise ValueError("expectedRangeEnd must be at least expectedRangeStart.")
+        if self.eligible_acceptable_representative != bool(self.acceptable_representative_sources):
+            raise ValueError(
+                "eligibleAcceptableRepresentative must match acceptableRepresentativeSources."
+            )
+        return self
+
+
+class V7ValidationPredictionSnapshotRequest(ApiModel):
+    case_id: str = Field(min_length=1, max_length=256)
+    predicted_range_start: int | None = Field(default=None, ge=1)
+    predicted_range_end: int | None = Field(default=None, ge=1)
+    selected_source: V7ValidationSourceReferenceRequest | None = None
+    top_warning: bool
+    bottom_warning: bool
+    manual_review: bool
+
+    @model_validator(mode="after")
+    def validate_snapshot(self) -> Self:
+        has_range = self.predicted_range_start is not None or self.predicted_range_end is not None
+        if has_range != (self.selected_source is not None):
+            raise ValueError("A predicted range requires exactly one selectedSource.")
+        if has_range and (self.predicted_range_start is None or self.predicted_range_end is None):
+            raise ValueError("A predicted range requires both range boundaries.")
+        if (
+            has_range
+            and self.predicted_range_start is not None
+            and self.predicted_range_end is not None
+            and self.predicted_range_end < self.predicted_range_start
+        ):
+            raise ValueError("predictedRangeEnd must be at least predictedRangeStart.")
+        if not has_range and (self.top_warning or self.bottom_warning):
+            raise ValueError("No selected source requires no warnings.")
+        return self
+
+
+class V7ValidationReportCreate(ApiModel):
+    operation_id: SessionId
+    profile_fingerprint: Sha256
+    source_game_ref: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+    truth: list[V7ValidationTruthRequest] = Field(min_length=1)
+    source_observations: list[V7ValidationSourceObservationRequest] = Field(min_length=1)
+    prediction_snapshots: list[V7ValidationPredictionSnapshotRequest] = Field(min_length=1)
+
+
+class V7ValidationReportResponse(ApiModel):
+    validation_report_fingerprint: Sha256
+    profile_fingerprint: Sha256
+    observer_fingerprint: Sha256
+    geometry_family_id: str = Field(min_length=1)
+    source_game_ref: str = Field(min_length=1)
+    corpus_manifest_fingerprint: Sha256
+    corpus_inventory_fingerprint: Sha256
+    acceptance: dict[str, object]
+    created: bool
+
+
+class V7LabelGeometryAdoptionCreate(ApiModel):
+    operation_id: SessionId
+    profile_fingerprint: Sha256
+    source_game_ref: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+    validation_report_fingerprint: Sha256
+
+
+class V7LabelGeometryAdoptionMutationResponse(ApiModel):
+    adoption: V7LabelGeometryAdoptionResponse
+    created: bool
+
+
 __all__ = [
     "V7LabelGeometryAdoptionListResponse",
+    "V7LabelGeometryAdoptionCreate",
+    "V7LabelGeometryAdoptionMutationResponse",
     "V7LabelGeometryAdoptionResponse",
     "V7LabelGeometryProfileListResponse",
     "V7LabelGeometryProfileResponse",
@@ -114,4 +219,10 @@ __all__ = [
     "V7LabelGeometrySessionMutation",
     "V7LabelGeometrySessionMutationResponse",
     "V7LabelGeometrySessionResponse",
+    "V7ValidationPredictionSnapshotRequest",
+    "V7ValidationReportCreate",
+    "V7ValidationReportResponse",
+    "V7ValidationSourceObservationRequest",
+    "V7ValidationSourceReferenceRequest",
+    "V7ValidationTruthRequest",
 ]

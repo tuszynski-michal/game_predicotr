@@ -16,10 +16,18 @@ from game_predictor_worker.semi_automatic_selection.v7_calibration import (
     V7AnnotationState,
     V7CalibrationError,
     V7CropAssessment,
+    V7EvaluationStatus,
+    V7GeometryAdoption,
     V7GeometryCalibration,
     V7GeometryProfile,
     V7LabelGeometryAnnotation,
+    V7SourceReference,
+    V7ValidationAcceptanceTruth,
+    V7ValidationPredictionSnapshot,
+    V7ValidationQualityStatus,
+    V7ValidationSourceObservation,
     calibrate_v7_label_geometry,
+    evaluate_v7_validation_acceptance,
 )
 from game_predictor_worker.semi_automatic_selection.v7_calibration_sessions import (
     V7CalibrationSession,
@@ -34,12 +42,19 @@ from game_predictor_worker.semi_automatic_selection.v7_calibration_sessions impo
 )
 from game_predictor_worker.semi_automatic_selection.v7_configuration import (
     V7CorpusCase,
+    V7CorpusCaseInventory,
     V7CorpusManifest,
     V7CorpusSplit,
     V7SelectionConfigurationError,
     load_v7_corpus_manifest,
 )
 from PIL import Image, ImageOps, UnidentifiedImageError
+
+from game_predictor_api.application.v7_label_geometry_validation import (
+    V7ValidationRegistry,
+    V7ValidationRegistryError,
+    V7ValidationReport,
+)
 
 _PROFILE_SCHEMA_VERSION: Final = 1
 _WINDOWS_FILE_ATTRIBUTE_REPARSE_POINT: Final = 0x0400
@@ -95,6 +110,7 @@ class V7LabelGeometryCalibrationService:
         self._manifest_path = None if corpus_manifest_path is None else Path(corpus_manifest_path)
         self._sessions = V7CalibrationSessionStore(self._runtime_root)
         self._profiles_root = self._runtime_root / "v7-label-geometry" / "profiles"
+        self._validation = V7ValidationRegistry(self._runtime_root)
 
     def create_session(
         self,
@@ -301,10 +317,218 @@ class V7LabelGeometryCalibrationService:
             )
         return tuple(self._read_profile(path.stem) for path in paths)
 
-    def list_adoptions(self) -> tuple[dict[str, object], ...]:
-        """Adoptions are intentionally unavailable until T0605 validates them."""
+    def create_validation_report(
+        self,
+        *,
+        operation_id: str,
+        profile_fingerprint: str,
+        source_game_ref: str,
+        truth_values: tuple[dict[str, object], ...],
+        source_observation_values: tuple[dict[str, object], ...],
+        prediction_snapshot_values: tuple[dict[str, object], ...],
+    ) -> tuple[V7ValidationReport, bool]:
+        """Seal non-holdout T05 inputs after server-owned corpus validation."""
 
-        return ()
+        try:
+            truths = tuple(_validation_truth_from_payload(item) for item in truth_values)
+            source_observations = tuple(
+                _validation_source_observation_from_payload(item)
+                for item in source_observation_values
+            )
+            snapshots = tuple(
+                _validation_prediction_snapshot_from_payload(item)
+                for item in prediction_snapshot_values
+            )
+        except (KeyError, TypeError, ValueError, V7CalibrationError) as error:
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_PAYLOAD_INVALID", "The V7 validation payload is invalid."
+            ) from error
+        canonical_truth = tuple(
+            item.as_dict() for item in sorted(truths, key=lambda item: item.case_id)
+        )
+        canonical_observations = tuple(
+            item.as_dict()
+            for item in sorted(source_observations, key=lambda item: item.source.source_id)
+        )
+        canonical_snapshots = tuple(
+            item.as_dict() for item in sorted(snapshots, key=lambda item: item.case_id)
+        )
+        operation_fingerprint = _fingerprint(
+            {
+                "predictionSnapshots": canonical_snapshots,
+                "profileFingerprint": profile_fingerprint,
+                "sourceGameRef": source_game_ref,
+                "sourceObservations": canonical_observations,
+                "truth": canonical_truth,
+            }
+        )
+        try:
+            replayed = self._validation.replay_report(
+                operation_id=operation_id,
+                operation_fingerprint=operation_fingerprint,
+            )
+        except V7ValidationRegistryError as error:
+            raise _validation_error(error) from error
+        if replayed is not None:
+            return replayed, False
+        profile = self.get_profile(profile_fingerprint).profile
+        if profile.calibration.status is not V7EvaluationStatus.PASSED:
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_PROFILE_REJECTED",
+                "Only a passed geometry profile can be validated for adoption.",
+            )
+        case_ids = tuple(sorted({item.corpus_case_id for item in truths}))
+        manifest, corpus_snapshot_fingerprint, sources = self._resolve_validation_sources(
+            geometry_family_id=profile.calibration.geometry_family_id,
+            source_game_ref=source_game_ref,
+            case_ids=case_ids,
+        )
+        _validate_validation_source_identities(
+            truths=truths,
+            source_observations=source_observations,
+            snapshots=snapshots,
+            sources=sources,
+        )
+        try:
+            acceptance = evaluate_v7_validation_acceptance(
+                truths,
+                snapshots,
+                source_observations,
+            )
+        except V7CalibrationError as error:
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_EVIDENCE_INVALID", str(error)
+            ) from error
+        if (
+            _validation_corpus_fingerprint(manifest, manifest.freeze_inventory())
+            != corpus_snapshot_fingerprint
+        ):
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_CORPUS_DRIFT",
+                "The V7 validation corpus changed while the report was prepared.",
+            )
+        from game_predictor_worker.semi_automatic_selection.v7_profile_bound_observer import (
+            v7_profile_bound_localizer_fingerprint,
+        )
+
+        report = V7ValidationReport.create(
+            profile_fingerprint=profile.profile_fingerprint,
+            observer_fingerprint=v7_profile_bound_localizer_fingerprint(profile),
+            geometry_family_id=profile.calibration.geometry_family_id,
+            source_game_ref=source_game_ref,
+            corpus_manifest_fingerprint=manifest.fingerprint(),
+            corpus_inventory_fingerprint=corpus_snapshot_fingerprint,
+            acceptance=acceptance,
+            truth=canonical_truth,
+            source_observations=canonical_observations,
+            prediction_snapshots=canonical_snapshots,
+        )
+        try:
+            return self._validation.persist_report(
+                operation_id=operation_id,
+                operation_fingerprint=operation_fingerprint,
+                report=report,
+            )
+        except V7ValidationRegistryError as error:
+            raise _validation_error(error) from error
+
+    def create_adoption(
+        self,
+        *,
+        operation_id: str,
+        profile_fingerprint: str,
+        source_game_ref: str,
+        validation_report_fingerprint: str,
+    ) -> tuple[V7GeometryAdoption, bool]:
+        """Approve one exact passed report for one source game without activation."""
+
+        operation_fingerprint = _fingerprint(
+            {
+                "profileFingerprint": profile_fingerprint,
+                "sourceGameRef": source_game_ref,
+                "validationReportFingerprint": validation_report_fingerprint,
+            }
+        )
+        try:
+            replayed = self._validation.replay_adoption(
+                operation_id=operation_id,
+                operation_fingerprint=operation_fingerprint,
+            )
+        except V7ValidationRegistryError as error:
+            raise _validation_error(error) from error
+        if replayed is not None:
+            return replayed, False
+        profile = self.get_profile(profile_fingerprint).profile
+        if profile.calibration.status is not V7EvaluationStatus.PASSED:
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_PROFILE_REJECTED",
+                "Only a passed geometry profile can be adopted.",
+            )
+        try:
+            report = self._validation.get_report(validation_report_fingerprint)
+        except V7ValidationRegistryError as error:
+            raise _validation_error(error) from error
+        if (
+            report.profile_fingerprint != profile.profile_fingerprint
+            or report.geometry_family_id != profile.calibration.geometry_family_id
+            or report.source_game_ref != source_game_ref
+        ):
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_ADOPTION_IDENTITY_CONFLICT",
+                "Validation report identity does not match the requested profile and game.",
+            )
+        from game_predictor_worker.semi_automatic_selection.v7_profile_bound_observer import (
+            v7_profile_bound_localizer_fingerprint,
+        )
+
+        if report.observer_fingerprint != v7_profile_bound_localizer_fingerprint(profile):
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_ADOPTION_OBSERVER_CONFLICT",
+                "Validation report was created by another observer contract.",
+            )
+        if report.acceptance.status is not V7EvaluationStatus.PASSED:
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_ADOPTION_REPORT_REJECTED",
+                "Only a passed, evaluable T05 validation report can create an adoption.",
+            )
+        manifest = self._load_manifest()
+        if (
+            manifest.fingerprint() != report.corpus_manifest_fingerprint
+            or _validation_corpus_fingerprint(manifest, manifest.freeze_inventory())
+            != report.corpus_inventory_fingerprint
+        ):
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_ADOPTION_CORPUS_DRIFT",
+                "The corpus changed after the validation report was sealed.",
+            )
+        adoption_key = _fingerprint(
+            {
+                "geometryFamilyId": report.geometry_family_id,
+                "profileFingerprint": report.profile_fingerprint,
+                "sourceGameRef": report.source_game_ref,
+            }
+        )
+        adoption = V7GeometryAdoption(
+            adoption_key=adoption_key,
+            source_game_ref=report.source_game_ref,
+            geometry_family_id=report.geometry_family_id,
+            profile_fingerprint=report.profile_fingerprint,
+            validation_report_fingerprint=report.validation_report_fingerprint,
+        )
+        try:
+            return self._validation.persist_adoption(
+                operation_id=operation_id,
+                operation_fingerprint=operation_fingerprint,
+                adoption=adoption,
+            )
+        except V7ValidationRegistryError as error:
+            raise _validation_error(error) from error
+
+    def list_adoptions(self) -> tuple[V7GeometryAdoption, ...]:
+        try:
+            return self._validation.list_adoptions()
+        except V7ValidationRegistryError as error:
+            raise _validation_error(error) from error
 
     def operation_from_values(
         self,
@@ -395,6 +619,51 @@ class V7LabelGeometryCalibrationService:
         case_ids = tuple(dict.fromkeys(source.corpus_case_id for source in session.sources))
         resolved = self._resolve_requested_cases(session.geometry_family_id, case_ids)
         return resolved
+
+    def _resolve_validation_sources(
+        self,
+        *,
+        geometry_family_id: str,
+        source_game_ref: str,
+        case_ids: tuple[str, ...],
+    ) -> tuple[V7CorpusManifest, str, tuple[V7CalibrationSessionSource, ...]]:
+        if not case_ids:
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_CASE_INVALID", "Validation requires at least one corpus case."
+            )
+        manifest = self._load_manifest()
+        cases_by_id = {case.case_id: case for case in manifest.cases}
+        for case_id in case_ids:
+            case = cases_by_id.get(case_id)
+            if case is None:
+                raise V7LabelGeometryCalibrationApiError(
+                    "V7_VALIDATION_CASE_NOT_FOUND", "Validation case is not declared by the corpus."
+                )
+            if case.split in {V7CorpusSplit.HOLDOUT, V7CorpusSplit.REFERENCE_ONLY}:
+                raise V7LabelGeometryCalibrationApiError(
+                    "V7_VALIDATION_SPLIT_FORBIDDEN",
+                    "Holdout and reference-only corpus cases cannot create a T05 report.",
+                )
+            if case.geometry_family_id != geometry_family_id:
+                raise V7LabelGeometryCalibrationApiError(
+                    "V7_VALIDATION_GEOMETRY_FAMILY_CONFLICT",
+                    "Validation corpus case belongs to another geometry family.",
+                )
+            if case.source_game_ref != source_game_ref:
+                raise V7LabelGeometryCalibrationApiError(
+                    "V7_VALIDATION_SOURCE_GAME_CONFLICT",
+                    "Validation corpus case belongs to another source game.",
+                )
+        try:
+            initial_inventory = manifest.freeze_inventory()
+        except V7SelectionConfigurationError as error:
+            raise V7LabelGeometryCalibrationApiError(error.code, str(error)) from error
+        resolved = self._resolved_from_manifest(manifest, case_ids)
+        return (
+            manifest,
+            _validation_corpus_fingerprint(manifest, initial_inventory),
+            resolved.sources,
+        )
 
     def _resolved_from_manifest(
         self,
@@ -566,6 +835,169 @@ def _annotations_from_session(
     return tuple(annotations)
 
 
+def _validation_truth_from_payload(value: dict[str, object]) -> V7ValidationAcceptanceTruth:
+    return V7ValidationAcceptanceTruth(
+        case_id=_validation_string(value["caseId"]),
+        corpus_case_id=_validation_string(value["corpusCaseId"]),
+        split=V7CorpusSplit(_validation_string(value["split"])),
+        expected_range_start=_validation_integer(value["expectedRangeStart"]),
+        expected_range_end=_validation_integer(value["expectedRangeEnd"]),
+        evidence_sources=_validation_source_references(value["evidenceSources"]),
+        acceptable_representative_sources=_validation_source_references(
+            value["acceptableRepresentativeSources"]
+        ),
+        automatically_recoverable=_validation_boolean(value["automaticallyRecoverable"]),
+        eligible_acceptable_representative=_validation_boolean(
+            value["eligibleAcceptableRepresentative"]
+        ),
+    )
+
+
+def _validation_source_observation_from_payload(
+    value: dict[str, object],
+) -> V7ValidationSourceObservation:
+    return V7ValidationSourceObservation(
+        source=_validation_source_reference(value),
+        represented_range_start=_validation_integer(value["representedRangeStart"]),
+        represented_range_end=_validation_integer(value["representedRangeEnd"]),
+        top_cropped=_validation_boolean(value["topCropped"]),
+        bottom_cropped=_validation_boolean(value["bottomCropped"]),
+    )
+
+
+def _validation_prediction_snapshot_from_payload(
+    value: dict[str, object],
+) -> V7ValidationPredictionSnapshot:
+    selected_source = value["selectedSource"]
+    return V7ValidationPredictionSnapshot(
+        case_id=_validation_string(value["caseId"]),
+        predicted_range_start=_validation_optional_integer(value["predictedRangeStart"]),
+        predicted_range_end=_validation_optional_integer(value["predictedRangeEnd"]),
+        selected_source=(
+            None
+            if selected_source is None
+            else _validation_source_reference(_validation_mapping(selected_source))
+        ),
+        # This endpoint carries raw, caller-supplied observations only. The
+        # current observer has no server-owned representative-quality result,
+        # therefore it is always fail-closed as UNKNOWN. A later runtime
+        # integration may attach a verifiable, server-owned quality snapshot.
+        quality_status=V7ValidationQualityStatus.UNKNOWN,
+        top_warning=_validation_boolean(value["topWarning"]),
+        bottom_warning=_validation_boolean(value["bottomWarning"]),
+        manual_review=_validation_boolean(value["manualReview"]),
+    )
+
+
+def _validation_source_references(value: object) -> tuple[V7SourceReference, ...]:
+    if not isinstance(value, list):
+        raise ValueError("sources")
+    return tuple(_validation_source_reference(_validation_mapping(item)) for item in value)
+
+
+def _validation_source_reference(value: dict[str, object]) -> V7SourceReference:
+    return V7SourceReference(
+        source_id=_validation_string(value["sourceId"]),
+        source_checksum_sha256=_validation_string(value["sourceChecksumSha256"]),
+    )
+
+
+def _validate_validation_source_identities(
+    *,
+    truths: tuple[V7ValidationAcceptanceTruth, ...],
+    source_observations: tuple[V7ValidationSourceObservation, ...],
+    snapshots: tuple[V7ValidationPredictionSnapshot, ...],
+    sources: tuple[V7CalibrationSessionSource, ...],
+) -> None:
+    source_by_id = {item.source_id: item for item in sources}
+    truth_by_case = {item.case_id: item for item in truths}
+    if len(truth_by_case) != len(truths):
+        raise V7LabelGeometryCalibrationApiError(
+            "V7_VALIDATION_EVIDENCE_INVALID", "Validation truth case ID is duplicated."
+        )
+    for truth in truths:
+        for reference in (*truth.evidence_sources, *truth.acceptable_representative_sources):
+            source = _validated_validation_source(source_by_id, reference)
+            if source.corpus_case_id != truth.corpus_case_id or source.split is not truth.split:
+                raise V7LabelGeometryCalibrationApiError(
+                    "V7_VALIDATION_SOURCE_IDENTITY_CONFLICT",
+                    "Validation truth source belongs to another corpus case or split.",
+                )
+    for observation in source_observations:
+        _validated_validation_source(source_by_id, observation.source)
+    for snapshot in snapshots:
+        truth = truth_by_case.get(snapshot.case_id)
+        if truth is None:
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_SOURCE_IDENTITY_CONFLICT",
+                "Validation prediction has no matching truth case.",
+            )
+        if snapshot.selected_source is None:
+            continue
+        source = _validated_validation_source(source_by_id, snapshot.selected_source)
+        if source.corpus_case_id != truth.corpus_case_id:
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_VALIDATION_SOURCE_IDENTITY_CONFLICT",
+                "Validation selected source belongs to another corpus case.",
+            )
+
+
+def _validated_validation_source(
+    source_by_id: dict[str, V7CalibrationSessionSource],
+    reference: V7SourceReference,
+) -> V7CalibrationSessionSource:
+    source = source_by_id.get(reference.source_id)
+    if source is None or source.source_checksum_sha256 != reference.source_checksum_sha256:
+        raise V7LabelGeometryCalibrationApiError(
+            "V7_VALIDATION_SOURCE_IDENTITY_CONFLICT",
+            "Validation source identity or checksum differs from the frozen corpus.",
+        )
+    return source
+
+
+def _validation_corpus_fingerprint(
+    manifest: V7CorpusManifest,
+    inventory: tuple[V7CorpusCaseInventory, ...],
+) -> str:
+    """Bind validation to the physical corpus root as well as file identities."""
+
+    return _fingerprint(
+        {
+            "corpusRoot": str(manifest.resolved_corpus_root()),
+            "inventory": [item.as_dict() for item in inventory],
+            "manifestFingerprint": manifest.fingerprint(),
+        }
+    )
+
+
+def _validation_mapping(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError("mapping")
+    return value
+
+
+def _validation_string(value: object) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError("string")
+    return value
+
+
+def _validation_integer(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("integer")
+    return value
+
+
+def _validation_optional_integer(value: object) -> int | None:
+    return None if value is None else _validation_integer(value)
+
+
+def _validation_boolean(value: object) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError("boolean")
+    return value
+
+
 def _profile_from_payload(payload: dict[str, object]) -> V7GeometryProfile:
     """Reconstruct only a validated immutable profile payload for the read endpoint."""
 
@@ -622,6 +1054,10 @@ def _session_error(error: ValueError) -> V7LabelGeometryCalibrationApiError:
     return V7LabelGeometryCalibrationApiError(
         getattr(error, "code", "V7_CALIBRATION_SESSION_INVALID"), str(error)
     )
+
+
+def _validation_error(error: V7ValidationRegistryError) -> V7LabelGeometryCalibrationApiError:
+    return V7LabelGeometryCalibrationApiError(error.code, str(error))
 
 
 def _canonical_json(value: object) -> bytes:

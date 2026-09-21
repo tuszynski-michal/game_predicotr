@@ -2894,7 +2894,21 @@ test('label geometry calibration client uses local-admin typed operations and ca
   await client.getV7LabelGeometryCalibrationSourceAsset(sessionId, sourceId, 'a'.repeat(64));
   await client.listV7LabelGeometryProfiles();
   await client.getV7LabelGeometryProfile(profileFingerprint);
+  await client.createV7LabelGeometryValidationReport({
+    operationId: '33333333-3333-4333-8333-333333333333',
+    profileFingerprint,
+    sourceGameRef: '777',
+    truth: [],
+    sourceObservations: [],
+    predictionSnapshots: [],
+  });
   await client.listV7LabelGeometryAdoptions();
+  await client.createV7LabelGeometryAdoption({
+    operationId: '44444444-4444-4444-8444-444444444444',
+    profileFingerprint,
+    sourceGameRef: '777',
+    validationReportFingerprint: 'c'.repeat(64),
+  });
 
   assert.deepEqual(
     requests.map((request) => [request.method, new URL(request.url).pathname]),
@@ -2910,7 +2924,9 @@ test('label geometry calibration client uses local-admin typed operations and ca
       ],
       ['GET', '/api/v1/admin/v7-label-geometry/profiles'],
       ['GET', `/api/v1/admin/v7-label-geometry/profiles/${profileFingerprint}`],
+      ['POST', '/api/v1/admin/v7-label-geometry/validation-reports'],
       ['GET', '/api/v1/admin/v7-label-geometry/adoptions'],
+      ['POST', '/api/v1/admin/v7-label-geometry/adoptions'],
     ],
   );
   assert.equal(requests[0].headers.get('X-Admin-Intent'), 'local-owner');
@@ -2919,4 +2935,6 @@ test('label geometry calibration client uses local-admin typed operations and ca
     'a'.repeat(64),
   );
   assert.equal(requests[5].headers.get('X-Admin-Intent'), 'local-owner');
+  assert.equal(requests[8].headers.get('X-Admin-Intent'), 'local-owner');
+  assert.equal(requests[10].headers.get('X-Admin-Intent'), 'local-owner');
 });

@@ -3,9 +3,9 @@
 Only this module writes the `seq_*.jpg` output.  It persists the intent before
 copying, publishes with an NTFS hard-link that cannot replace a target, and
 uses one advisory process lock for the complete check-to-commit critical
-section.  Manual replacement is intentionally left to T09; the journal already
-retains generations and historical owners so its recovery does not confuse an
-old committed operation with the current target owner.
+section. Manual replacement uses the same journal, generation and shared lock,
+so recovery keeps an old committed operation as history after a new owner
+replaces its target.
 """
 
 from __future__ import annotations
@@ -57,6 +57,13 @@ class V7OutputOperationState(StrEnum):
     CONFLICT = "conflict"
 
 
+class V7OutputDecisionKind(StrEnum):
+    AUTOMATIC_FIRST = "automatic_first"
+    MANUAL_FIRST = "manual_first"
+    MANUAL_NO_OCR = "manual_no_ocr"
+    MANUAL_REPLACE = "manual_replace"
+
+
 @dataclass(frozen=True, slots=True)
 class V7FirstOutputRequest:
     """The immutable identity of one automatic first-output command."""
@@ -85,10 +92,28 @@ class V7FirstOutputRequest:
         return f"seq_{self.sequence_range.start}-{self.sequence_range.end}.jpg"
 
     @property
+    def decision_kind(self) -> V7OutputDecisionKind:
+        return V7OutputDecisionKind.AUTOMATIC_FIRST
+
+    @property
+    def operator_confirmed_range(self) -> bool:
+        return False
+
+    @property
+    def expected_previous_checksum_sha256(self) -> None:
+        return None
+
+    @property
+    def expected_previous_owner_operation_id(self) -> None:
+        return None
+
+    @property
     def command_fingerprint(self) -> str:
         return _fingerprint(
             {
                 "decisionGeneration": self.decision_generation,
+                # Kept byte-for-byte compatible with journal operations
+                # created by T08 before manual decision kinds existed.
                 "kind": "automatic_first_write",
                 "rangeEnd": self.sequence_range.end,
                 "rangeStart": self.sequence_range.start,
@@ -103,6 +128,98 @@ class V7FirstOutputRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class V7ManualOutputRequest:
+    """A confirmed manual output command, optionally replacing a current target."""
+
+    operation_id: UUID
+    sequence_range: SemiAutomaticSelectionRange
+    source_index: int
+    source_relative_path: str
+    source_size_bytes: int
+    source_checksum_sha256: str
+    decision_kind: V7OutputDecisionKind
+    decision_generation: int = 0
+    operator_confirmed_range: bool = False
+    expected_previous_checksum_sha256: str | None = None
+    expected_previous_owner_operation_id: UUID | None = None
+
+    def __post_init__(self) -> None:
+        partial_range = 1 <= self.sequence_range.board_count <= 9
+        has_expected_target = (
+            self.expected_previous_checksum_sha256 is not None
+            and self.expected_previous_owner_operation_id is not None
+        )
+        valid_kind = self.decision_kind in {
+            V7OutputDecisionKind.MANUAL_FIRST,
+            V7OutputDecisionKind.MANUAL_NO_OCR,
+            V7OutputDecisionKind.MANUAL_REPLACE,
+        }
+        requires_confirmation = self.decision_kind in {
+            V7OutputDecisionKind.MANUAL_NO_OCR,
+            V7OutputDecisionKind.MANUAL_REPLACE,
+        }
+        is_replace = self.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE
+        if (
+            not valid_kind
+            or not partial_range
+            or self.source_index < 0
+            or self.source_size_bytes < 1
+            or self.decision_generation < 0
+            or not self.source_relative_path
+            or not _is_sha256(self.source_checksum_sha256)
+            or (
+                self.expected_previous_owner_operation_id is not None
+                and not isinstance(self.expected_previous_owner_operation_id, UUID)
+            )
+            or (requires_confirmation and not self.operator_confirmed_range)
+            or (is_replace and not has_expected_target)
+            or (
+                not is_replace
+                and (
+                    self.expected_previous_checksum_sha256 is not None
+                    or self.expected_previous_owner_operation_id is not None
+                )
+            )
+            or (
+                self.expected_previous_checksum_sha256 is not None
+                and not _is_sha256(self.expected_previous_checksum_sha256)
+            )
+        ):
+            _fail("V7_OUTPUT_REQUEST_INVALID", "V7 manual output request is invalid.")
+
+    @property
+    def target_name(self) -> str:
+        return f"seq_{self.sequence_range.start}-{self.sequence_range.end}.jpg"
+
+    @property
+    def command_fingerprint(self) -> str:
+        return _fingerprint(
+            {
+                "decisionGeneration": self.decision_generation,
+                "expectedPreviousChecksumSha256": self.expected_previous_checksum_sha256,
+                "expectedPreviousOwnerOperationId": (
+                    None
+                    if self.expected_previous_owner_operation_id is None
+                    else str(self.expected_previous_owner_operation_id)
+                ),
+                "kind": self.decision_kind.value,
+                "operatorConfirmedRange": self.operator_confirmed_range,
+                "rangeEnd": self.sequence_range.end,
+                "rangeStart": self.sequence_range.start,
+                "sourceChecksumSha256": self.source_checksum_sha256,
+                "sourceIndex": self.source_index,
+                "sourceRelativePath": self.source_relative_path,
+                "sourceSizeBytes": self.source_size_bytes,
+                "targetName": self.target_name,
+                "version": V7_OUTPUT_WRITER_VERSION,
+            }
+        )
+
+
+V7OutputRequest = V7FirstOutputRequest | V7ManualOutputRequest
+
+
+@dataclass(frozen=True, slots=True)
 class V7OutputOperation:
     operation_id: UUID
     command_fingerprint: str
@@ -113,6 +230,10 @@ class V7OutputOperation:
     source_checksum_sha256: str
     decision_generation: int
     state: V7OutputOperationState
+    decision_kind: V7OutputDecisionKind = V7OutputDecisionKind.AUTOMATIC_FIRST
+    operator_confirmed_range: bool = False
+    expected_previous_checksum_sha256: str | None = None
+    expected_previous_owner_operation_id: UUID | None = None
     conflict_code: str | None = None
 
     @property
@@ -133,7 +254,15 @@ class V7OutputOperation:
             "commandFingerprint": self.command_fingerprint,
             "conflictCode": self.conflict_code,
             "decisionGeneration": self.decision_generation,
+            "decisionKind": self.decision_kind.value,
+            "expectedPreviousChecksumSha256": self.expected_previous_checksum_sha256,
+            "expectedPreviousOwnerOperationId": (
+                None
+                if self.expected_previous_owner_operation_id is None
+                else str(self.expected_previous_owner_operation_id)
+            ),
             "operationId": str(self.operation_id),
+            "operatorConfirmedRange": self.operator_confirmed_range,
             "sourceChecksumSha256": self.source_checksum_sha256,
             "sourceIndex": self.source_index,
             "sourceRelativePath": self.source_relative_path,
@@ -156,6 +285,16 @@ class V7OutputOperation:
                 source_checksum_sha256=_sha256(raw["sourceChecksumSha256"]),
                 decision_generation=_int(raw["decisionGeneration"]),
                 state=V7OutputOperationState(_string(raw["state"])),
+                decision_kind=V7OutputDecisionKind(
+                    _string(raw.get("decisionKind", V7OutputDecisionKind.AUTOMATIC_FIRST.value))
+                ),
+                operator_confirmed_range=_bool(raw.get("operatorConfirmedRange", False)),
+                expected_previous_checksum_sha256=_optional_sha256(
+                    raw.get("expectedPreviousChecksumSha256")
+                ),
+                expected_previous_owner_operation_id=_optional_uuid(
+                    raw.get("expectedPreviousOwnerOperationId")
+                ),
                 conflict_code=_optional_string(raw.get("conflictCode")),
             )
         except (KeyError, TypeError, ValueError) as error:
@@ -169,7 +308,38 @@ class V7OutputOperation:
             and operation.conflict_code is not None
         ):
             _fail("V7_OUTPUT_JOURNAL_INVALID", "Only a V7 output conflict has a code.")
+        operation._validate_decision_fields()
         return operation
+
+    def _validate_decision_fields(self) -> None:
+        has_previous = (
+            self.expected_previous_checksum_sha256 is not None
+            and self.expected_previous_owner_operation_id is not None
+        )
+        if self.decision_kind is V7OutputDecisionKind.AUTOMATIC_FIRST and (
+            self.operator_confirmed_range
+            or has_previous
+            or self.expected_previous_checksum_sha256 is not None
+            or self.expected_previous_owner_operation_id is not None
+        ):
+            _fail("V7_OUTPUT_JOURNAL_INVALID", "Automatic V7 output has manual fields.")
+        if (
+            self.decision_kind
+            in {
+                V7OutputDecisionKind.MANUAL_NO_OCR,
+                V7OutputDecisionKind.MANUAL_REPLACE,
+            }
+            and not self.operator_confirmed_range
+        ):
+            _fail("V7_OUTPUT_JOURNAL_INVALID", "Manual V7 output lacks range confirmation.")
+        if (self.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE) != has_previous or (
+            self.decision_kind is not V7OutputDecisionKind.MANUAL_REPLACE
+            and (
+                self.expected_previous_checksum_sha256 is not None
+                or self.expected_previous_owner_operation_id is not None
+            )
+        ):
+            _fail("V7_OUTPUT_JOURNAL_INVALID", "V7 replace fields are inconsistent.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -304,6 +474,36 @@ class V7OutputWriter:
     def write_first(self, request: V7FirstOutputRequest) -> V7OutputOperation:
         """Prepare, copy, publish and commit one automatic first output safely."""
 
+        return self._write(request)
+
+    def write_manual_first(self, request: V7ManualOutputRequest) -> V7OutputOperation:
+        """Persist an operator-accepted first output, including a 1–8 final page."""
+
+        if request.decision_kind is not V7OutputDecisionKind.MANUAL_FIRST:
+            _fail(
+                "V7_OUTPUT_REQUEST_INVALID", "V7 manual first output has the wrong decision kind."
+            )
+        return self._write(request)
+
+    def write_manual_no_ocr(self, request: V7ManualOutputRequest) -> V7OutputOperation:
+        """Persist a manual range only after explicit operator confirmation."""
+
+        if request.decision_kind is not V7OutputDecisionKind.MANUAL_NO_OCR:
+            _fail(
+                "V7_OUTPUT_REQUEST_INVALID", "V7 manual no-OCR output has the wrong decision kind."
+            )
+        return self._write(request)
+
+    def manual_replace(self, request: V7ManualOutputRequest) -> V7OutputOperation:
+        """Replace the current target only when its owner and old SHA still match."""
+
+        if request.decision_kind is not V7OutputDecisionKind.MANUAL_REPLACE:
+            _fail("V7_OUTPUT_REQUEST_INVALID", "V7 manual replace has the wrong decision kind.")
+        return self._write(request)
+
+    def _write(self, request: V7OutputRequest) -> V7OutputOperation:
+        """Run the common intent → temp → publish → commit state machine."""
+
         self._ensure_directories()
         with _DirectoryLock(self._state_root / _LOCK_FILE):
             journal = self._load_journal()
@@ -338,8 +538,13 @@ class V7OutputWriter:
                     self._save_journal(journal)
                     return operation
                 self._fault_hook("after_generation_validation", operation)
-                self._publish_no_clobber(operation)
-                self._fault_hook("target_linked", operation)
+                if operation.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE:
+                    self._require_replace_preconditions(journal, operation)
+                    self._replace_target(operation)
+                    self._fault_hook("target_replaced", operation)
+                else:
+                    self._publish_no_clobber(operation)
+                    self._fault_hook("target_linked", operation)
                 operation = replace(operation, state=V7OutputOperationState.PUBLISHED)
                 journal = _replace_operation(journal, operation)
                 self._save_journal(journal)
@@ -376,12 +581,35 @@ class V7OutputWriter:
             updated = replace(operation, state=V7OutputOperationState.SUPERSEDED)
             journal = _replace_owner(_replace_operation(journal, updated), updated_owner)
             self._save_journal(journal)
+            self._discard_temp(updated)
             return updated
+
+    def cancel_pending(self, operation_id: UUID) -> V7OutputOperation:
+        """Cancel a not-yet-published intent without touching a current target."""
+
+        self._ensure_directories()
+        with _DirectoryLock(self._state_root / _LOCK_FILE):
+            journal = self._load_journal()
+            self._require_journal_manifest(journal)
+            self._require_current_manifest()
+            journal = self._recover_locked(journal)
+            operation = _operation_by_id(journal, operation_id)
+            if operation is None:
+                _fail("V7_OUTPUT_OPERATION_NOT_FOUND", "V7 output operation was not found.")
+            if operation.state is V7OutputOperationState.CANCELLED:
+                return operation
+            if operation.is_terminal:
+                _fail("V7_OUTPUT_STATE_INVALID", "A completed V7 output cannot be cancelled.")
+            cancelled = replace(operation, state=V7OutputOperationState.CANCELLED)
+            journal = _replace_operation(journal, cancelled)
+            self._save_journal(journal)
+            self._discard_temp(cancelled)
+            return cancelled
 
     def _get_or_prepare(
         self,
         journal: V7OutputJournal,
-        request: V7FirstOutputRequest,
+        request: V7OutputRequest,
     ) -> tuple[V7OutputOperation, V7OutputJournal]:
         existing = _operation_by_id(journal, request.operation_id)
         if existing is not None:
@@ -392,12 +620,14 @@ class V7OutputWriter:
                 )
             return existing, journal
         owner = _owner_for(journal, request.target_name)
-        if owner.operation_id is not None or owner.generation != request.decision_generation:
+        target = self.output_root / request.target_name
+        if request.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE:
+            self._require_replace_request(owner, target, cast(V7ManualOutputRequest, request))
+        elif owner.operation_id is not None or owner.generation != request.decision_generation:
             _fail(
                 "V7_OUTPUT_TARGET_CONFLICT", "V7 output target already has an owner or generation."
             )
-        target = self.output_root / request.target_name
-        if target.exists():
+        elif target.exists():
             _fail("V7_OUTPUT_TARGET_CONFLICT", "V7 output target already exists and is protected.")
         operation = V7OutputOperation(
             operation_id=request.operation_id,
@@ -409,12 +639,22 @@ class V7OutputWriter:
             source_checksum_sha256=request.source_checksum_sha256,
             decision_generation=request.decision_generation,
             state=V7OutputOperationState.PREPARED,
+            decision_kind=request.decision_kind,
+            operator_confirmed_range=request.operator_confirmed_range,
+            expected_previous_checksum_sha256=request.expected_previous_checksum_sha256,
+            expected_previous_owner_operation_id=request.expected_previous_owner_operation_id,
         )
-        return operation, _replace_owner(
-            V7OutputJournal(
-                journal.source_manifest, (*journal.operations, operation), journal.owners
-            ),
-            owner,
+        updated = V7OutputJournal(
+            journal.source_manifest, (*journal.operations, operation), journal.owners
+        )
+        # A replace keeps the older owner until the new bytes were published and
+        # committed. First writes retain the generation reservation without an
+        # owner operation.
+        return (
+            operation,
+            updated
+            if request.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE
+            else _replace_owner(updated, owner),
         )
 
     def _recover_locked(self, journal: V7OutputJournal) -> V7OutputJournal:
@@ -444,11 +684,10 @@ class V7OutputWriter:
         journal: V7OutputJournal,
         operation: V7OutputOperation,
     ) -> V7OutputOperation:
-        if operation.state in {
-            V7OutputOperationState.CANCELLED,
-            V7OutputOperationState.SUPERSEDED,
-            V7OutputOperationState.CONFLICT,
-        }:
+        if operation.state in {V7OutputOperationState.CANCELLED, V7OutputOperationState.SUPERSEDED}:
+            self._discard_temp(operation)
+            return operation
+        if operation.state is V7OutputOperationState.CONFLICT:
             return operation
         target = self.output_root / operation.target_name
         temp = self._temp_path(operation)
@@ -456,11 +695,18 @@ class V7OutputWriter:
         temp_hash = _file_sha256_if_regular(temp)
         if temp_hash is not None and temp_hash != operation.output_checksum_sha256:
             return self._conflict(operation, "V7_OUTPUT_TEMP_CHECKSUM_MISMATCH")
+        if operation.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE:
+            return self._recover_replace_operation(
+                journal,
+                operation,
+                target_hash=target_hash,
+                temp_hash=temp_hash,
+            )
         if target_hash is not None and target_hash != operation.output_checksum_sha256:
             owner = _owner_for(journal, operation.target_name)
-            if (
-                operation.state is V7OutputOperationState.COMMITTED
-                and owner.operation_id != operation.operation_id
+            if operation.state is V7OutputOperationState.COMMITTED and (
+                owner.operation_id != operation.operation_id
+                or _is_pending_replacement_target(journal, operation, target_hash)
             ):
                 return operation  # Historical owner; T09 owns the newer file.
             return self._conflict(operation, "V7_OUTPUT_TARGET_CHECKSUM_MISMATCH")
@@ -490,6 +736,46 @@ class V7OutputWriter:
                 return self._conflict(operation, "V7_OUTPUT_TARGET_MISSING")
         return operation
 
+    def _recover_replace_operation(
+        self,
+        journal: V7OutputJournal,
+        operation: V7OutputOperation,
+        *,
+        target_hash: str | None,
+        temp_hash: str | None,
+    ) -> V7OutputOperation:
+        expected_previous = operation.expected_previous_checksum_sha256
+        expected_owner = operation.expected_previous_owner_operation_id
+        if expected_previous is None or expected_owner is None:
+            return self._conflict(operation, "V7_OUTPUT_REPLACE_JOURNAL_INVALID")
+        owner = _owner_for(journal, operation.target_name)
+        if operation.state is V7OutputOperationState.COMMITTED:
+            if owner.operation_id != operation.operation_id or _is_pending_replacement_target(
+                journal, operation, target_hash or ""
+            ):
+                return operation  # A newer owner superseded this historical output.
+            return (
+                operation
+                if target_hash == operation.output_checksum_sha256
+                else self._conflict(operation, "V7_OUTPUT_TARGET_CHECKSUM_MISMATCH")
+            )
+        if target_hash == operation.output_checksum_sha256:
+            return replace(operation, state=V7OutputOperationState.PUBLISHED)
+        if (
+            owner.operation_id == expected_owner
+            and owner.checksum_sha256 == expected_previous
+            and owner.generation + 1 == operation.decision_generation
+            and target_hash == expected_previous
+        ):
+            if operation.state is V7OutputOperationState.PREPARED and temp_hash is None:
+                return operation
+            return (
+                replace(operation, state=V7OutputOperationState.PUBLISHING)
+                if temp_hash is not None
+                else self._conflict(operation, "V7_OUTPUT_TEMP_MISSING")
+            )
+        return self._conflict(operation, "V7_OUTPUT_REPLACE_STALE_TARGET")
+
     def _commit_locked(
         self,
         journal: V7OutputJournal,
@@ -506,16 +792,27 @@ class V7OutputWriter:
             self._save_journal(journal)
             return operation, journal
         owner = _owner_for(journal, operation.target_name)
-        if owner.generation != operation.decision_generation:
-            operation = replace(operation, state=V7OutputOperationState.SUPERSEDED)
-            journal = _replace_operation(journal, operation)
-            self._save_journal(journal)
-            return operation, journal
-        if owner.operation_id not in {None, operation.operation_id}:
-            operation = self._conflict(operation, "V7_OUTPUT_TARGET_OWNER_CONFLICT")
-            journal = _replace_operation(journal, operation)
-            self._save_journal(journal)
-            return operation, journal
+        if operation.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE:
+            if (
+                owner.operation_id != operation.expected_previous_owner_operation_id
+                or owner.checksum_sha256 != operation.expected_previous_checksum_sha256
+                or owner.generation + 1 != operation.decision_generation
+            ):
+                operation = self._conflict(operation, "V7_OUTPUT_REPLACE_STALE_TARGET")
+                journal = _replace_operation(journal, operation)
+                self._save_journal(journal)
+                return operation, journal
+        else:
+            if owner.generation != operation.decision_generation:
+                operation = replace(operation, state=V7OutputOperationState.SUPERSEDED)
+                journal = _replace_operation(journal, operation)
+                self._save_journal(journal)
+                return operation, journal
+            if owner.operation_id not in {None, operation.operation_id}:
+                operation = self._conflict(operation, "V7_OUTPUT_TARGET_OWNER_CONFLICT")
+                journal = _replace_operation(journal, operation)
+                self._save_journal(journal)
+                return operation, journal
         committed = replace(operation, state=V7OutputOperationState.COMMITTED)
         journal = _replace_owner(
             _replace_operation(journal, committed),
@@ -569,6 +866,14 @@ class V7OutputWriter:
         if digest.hexdigest() != operation.source_checksum_sha256:
             _fail("V7_OUTPUT_SOURCE_CHANGED", "V7 source changed while the output was copied.")
 
+    def _discard_temp(self, operation: V7OutputOperation) -> None:
+        temp = self._temp_path(operation)
+        if not temp.exists():
+            return
+        if _file_sha256_if_regular(temp) != operation.output_checksum_sha256:
+            _fail("V7_OUTPUT_TEMP_CHECKSUM_MISMATCH", "V7 output temp cannot be discarded.")
+        temp.unlink()
+
     def _publish_no_clobber(self, operation: V7OutputOperation) -> None:
         target = self.output_root / operation.target_name
         temp = self._temp_path(operation)
@@ -585,6 +890,50 @@ class V7OutputWriter:
         except OSError as error:
             raise V7OutputWriterError(
                 "V7_OUTPUT_PUBLISH_FAILED", "V7 output cannot be published."
+            ) from error
+
+    def _require_replace_request(
+        self,
+        owner: V7TargetOwner,
+        target: Path,
+        request: V7ManualOutputRequest | V7OutputOperation,
+    ) -> None:
+        expected_checksum = request.expected_previous_checksum_sha256
+        expected_owner = request.expected_previous_owner_operation_id
+        if (
+            expected_checksum is None
+            or expected_owner is None
+            or owner.operation_id != expected_owner
+            or owner.checksum_sha256 != expected_checksum
+            or request.decision_generation != owner.generation + 1
+            or _file_sha256_if_regular(target) != expected_checksum
+        ):
+            _fail(
+                "V7_OUTPUT_REPLACE_STALE_TARGET",
+                "V7 manual replacement target, owner or generation changed.",
+            )
+
+    def _require_replace_preconditions(
+        self,
+        journal: V7OutputJournal,
+        operation: V7OutputOperation,
+    ) -> None:
+        self._require_replace_request(
+            _owner_for(journal, operation.target_name),
+            self.output_root / operation.target_name,
+            operation,
+        )
+
+    def _replace_target(self, operation: V7OutputOperation) -> None:
+        target = self.output_root / operation.target_name
+        temp = self._temp_path(operation)
+        if _file_sha256_if_regular(temp) != operation.output_checksum_sha256:
+            _fail("V7_OUTPUT_TEMP_CHECKSUM_MISMATCH", "V7 replacement temp cannot be published.")
+        try:
+            os.replace(temp, target)
+        except OSError as error:
+            raise V7OutputWriterError(
+                "V7_OUTPUT_REPLACE_FAILED", "V7 output target cannot be replaced."
             ) from error
 
     def _require_current_manifest(self) -> LocalSourceManifest:
@@ -771,6 +1120,24 @@ def _operation_by_id(journal: V7OutputJournal, operation_id: UUID) -> V7OutputOp
     return next((item for item in journal.operations if item.operation_id == operation_id), None)
 
 
+def _is_pending_replacement_target(
+    journal: V7OutputJournal,
+    historical: V7OutputOperation,
+    target_checksum_sha256: str,
+) -> bool:
+    """Keep O1 historical while recovery is about to commit its published O2."""
+
+    return any(
+        operation.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE
+        and not operation.is_terminal
+        and operation.target_name == historical.target_name
+        and operation.expected_previous_owner_operation_id == historical.operation_id
+        and operation.expected_previous_checksum_sha256 == historical.output_checksum_sha256
+        and operation.output_checksum_sha256 == target_checksum_sha256
+        for operation in journal.operations
+    )
+
+
 def _file_sha256_if_regular(path: Path) -> str | None:
     if not path.exists():
         return None
@@ -869,6 +1236,27 @@ def _optional_string(value: object) -> str | None:
     return None if value is None else _string(value)
 
 
+def _bool(value: object) -> bool:
+    if not isinstance(value, bool):
+        _fail("V7_OUTPUT_JOURNAL_INVALID", "V7 journal boolean is invalid.")
+    return value
+
+
+def _optional_sha256(value: object) -> str | None:
+    return None if value is None else _sha256(value)
+
+
+def _optional_uuid(value: object) -> UUID | None:
+    if value is None:
+        return None
+    try:
+        return UUID(_string(value))
+    except (TypeError, ValueError) as error:
+        raise V7OutputWriterError(
+            "V7_OUTPUT_JOURNAL_INVALID", "V7 journal UUID is invalid."
+        ) from error
+
+
 def _int(value: object) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         _fail("V7_OUTPUT_JOURNAL_INVALID", "V7 journal integer is invalid.")
@@ -892,6 +1280,8 @@ def _fail(code: str, message: str) -> NoReturn:
 
 __all__ = [
     "V7FirstOutputRequest",
+    "V7ManualOutputRequest",
+    "V7OutputDecisionKind",
     "V7OutputJournal",
     "V7OutputOperation",
     "V7OutputOperationState",

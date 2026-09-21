@@ -1959,3 +1959,27 @@ target o oczekiwanym SHA przechodzi do `published`, a następnie natychmiast do
 konfliktem fail-closed. Historyczna operacja nie będzie wymagała dawnego SHA
 po świadomej podmianie T09: integralność zawsze sprawdza aktualnego właściciela
 targetu, a historia pozostaje w journalu.
+
+## Ręczny output i podmiana V7 — TASK-0593
+
+`V7ManualOutputRequest` rozszerza writer T08 o `manual_first`,
+`manual_no_ocr` i `manual_replace`. Pierwsze dwa zachowują bezpieczny protokół
+first-write i dopuszczają kanoniczny zakres o długości 1–9 wyłącznie po ręcznej
+decyzji. `manual_no_ocr` oraz `manual_replace` wymagają trwałego
+`operator_confirmed_range=true`.
+Automatyczny `V7FirstOutputRequest` nadal dopuszcza dokładnie dziewięć plansz,
+a jego fingerprint pozostaje kompatybilny z journalem T08.
+
+Podmiana O2 wiąże fingerprint z H1, O1 i nową generacją. Gdy O1/H1 jest
+aktualnym ownerem, writer utrwala intent O2, kopiuje H2 do temp z fsync i pod
+tym samym lockiem drugi raz porównuje O1/H1/generację. Windows `os.replace`
+publikuje H2, a commit przełącza ownera na O2. Crash z targetem H1 utrzymuje
+O2 w oczekiwaniu, crash z H2 przechodzi przez recovery do `committed`; O1
+pozostaje historycznym `committed` i nie porównuje już targetu z H1.
+
+`cancel_pending` i `supersede_pending` najpierw odtwarzają widoczny target,
+a dopiero potem zmieniają stan nieopublikowanej operacji. Własny temp jest
+usuwany tylko po zgodności SHA. Granica atomowości dotyczy współpracujących
+procesów aplikacji, które pobierają wspólny directory lock; zewnętrzna zmiana
+filesystemu w odstępie po ostatnim SHA i przed `os.replace` nie ma blokady
+systemowej i jest opisana operatorowi jako ograniczenie V1.

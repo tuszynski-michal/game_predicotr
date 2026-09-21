@@ -1355,3 +1355,27 @@ sprawdza pełny manifest, rozlicza utrwaloną publikację do `committed` i
 rozróżnia prawidłowy od obcego temp/targetu. T09 rozszerzy ten sam journal o
 świadomą podmianę i zachowanie historycznych właścicieli; T08 nie wykonuje
 ręcznej mutacji pliku.
+
+## Ręczne decyzje outputu V7 — TASK-0593
+
+Półautomat może jawnie zatwierdzić pierwszy plik do pustego targetu, a operator
+może ręcznie dodać końcową stronę zawierającą 1–8 plansz. Oba przypadki tworzą
+oryginalny JPEG pod kanoniczną nazwą `seq_<start>-<end>.jpg`. `manual_no_ocr`
+wymaga pozytywnego potwierdzenia numeracji przez operatora i zapisuje tę metodę
+w journalu; nie jest dowodem OCR ani nie podnosi metryk automatu.
+
+`manual_replace` wymaga expected SHA, identyfikatora bieżącego ownera targetu,
+kolejnej `decision_generation` i jawnego potwierdzenia przez operatora, że
+nowe zdjęcie nadal przedstawia przypisany zakres. Pod wspólną blokadą kontroluje je przed
+zapisem intentu i ponownie tuż przed atomicznym replace. Nowy JPEG staje się
+ownerem dopiero po read-backu i commicie; poprzednia committed operacja oraz
+jej SHA pozostają historią. Recovery rozpoznaje stary SHA jako nieopublikowaną
+podmianę, nowy SHA jako publikację do commitu, a każdą inną zawartość jako
+konflikt. Równoległe worker/API/recovery respektujące blokadę nie mogą
+opublikować starszej decyzji po nowszej.
+
+Zewnętrzny proces nieuczestniczący w blokadzie może zmienić plik po ostatnim
+odczycie SHA i przed replace. V1 wykrywa zmiany widoczne przed replace i nigdy
+nie nadpisuje obcego pierwszego targetu; nie obiecuje blokady wrogiego procesu
+filesystemowego. `cancelled` i `superseded` usuwają wyłącznie własny,
+checksummowany temp i po restarcie nie wznawiają publikacji.

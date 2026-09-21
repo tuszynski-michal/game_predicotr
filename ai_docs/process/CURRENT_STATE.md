@@ -6,6 +6,21 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0593 — ręczne decyzje outputu V7
+
+- `V7ManualOutputRequest` zapisuje `manual_first`, `manual_no_ocr` oraz
+  `manual_replace` w tym samym checksummowanym journalu. Ręczny pierwszy zapis
+  dopuszcza końcowy zakres 1–8, ale automatic first nadal wymaga pełnego 3×3.
+  No-OCR i podmiana wymagają trwałego potwierdzenia operatora, więc nie
+  udają sukcesu automatu.
+- Podmiana wiąże nową operację z current ownerem, expected SHA oraz kolejną
+  generacją. O1/H1 → O2/H2 zachowuje O1 jako historię. Recovery rozpoznaje
+  oczekującą O2/O3, zanim skontroluje historycznego ownera, dlatego awaria po
+  replace nie zmienia O1/O2 w fałszywy konflikt. Cancel/supersede porządkują
+  wyłącznie własny checksumowany temp i nie wznawiają publikacji.
+- T09 jest framework-free i nie otwiera API/UI; T10 musi wystawić te decyzje
+  przez istniejący nowy półautomat oraz trwały podgląd operatora.
+
 ### TASK-0592 — pierwszy output, journal i recovery V7
 
 - `V7OutputWriter` tworzy wyłącznie pierwszy `seq_<rosnący-start>-<rosnący-end>.jpg`

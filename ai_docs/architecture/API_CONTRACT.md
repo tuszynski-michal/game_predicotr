@@ -3330,3 +3330,19 @@ przyjmuje dla każdego targetu dokładnie jedno z `reviewItemId` albo
 jednej rewizji źródła w kolejności row-major. Polecenie pozostaje atomowe i
 idempotentne; deferred jest materializowany dopiero po poprawnym renderze
 pełnego zestawu.
+
+### Kontrakt V7 półautomatu przed aktywacją
+
+`GET /api/v1/admin/semi-automatic-image-selections/capabilities` zawiera blok
+`v7`: `activationStatus=blocked`, `startEnabled=false`, powód, wersję
+konfiguracji, domyślne `semi_automatic`/`ascending`/`top_and_sides` oraz trzy
+dopuszczalne style ramki. `POST /api/v1/admin/semi-automatic-image-selections`
+przyjmuje `mode=v7_selection` i opcjonalny blok UI `v7` (tryb i styl), ale nie
+przyjmuje fingerprintów lokalizatora ani kalibracji. W stanie T06 request jest
+konsekwentnie odrzucany kodem `SEMI_AUTOMATIC_SELECTION_V7_BLOCKED` przed
+odczytem źródła.
+
+Odpowiedź runu i `JobResponse` rozpoznają `v7_selection`; ewentualny run V7
+ma `v7Configuration`, zaś odpowiedzi historyczne zachowują `null` i poprzedni
+kształt. Schema joba v4 wymaga lokalnego manifestu i kompletnej, server-owned
+konfiguracji V7.

@@ -18,6 +18,15 @@ SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION = "seq-inclusive-v1"
 SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE = 9
 SEMI_AUTOMATIC_SELECTION_ORDERING_POLICY = "natural_relative_path_v1"
 SEMI_AUTOMATIC_SELECTION_WORKFLOW = "semi_automatic_image_selection"
+V7_SELECTION_CONFIGURATION_VERSION = "v7-selection-configuration-v1"
+V7_SELECTION_LOCALIZER_FINGERPRINT = hashlib.sha256(
+    b"v7-label-locator-grid-3x3-v1"
+).hexdigest()
+# T05 has no approved calibration artifact yet. This server-owned value makes the
+# blocked state explicit and must be replaced only by the T12 activation workflow.
+V7_SELECTION_UNAVAILABLE_CALIBRATION_FINGERPRINT = hashlib.sha256(
+    b"v7-calibration-unavailable-before-t12"
+).hexdigest()
 _SEQUENCE_FILE_PATTERN = re.compile(
     r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.jpe?g$", re.IGNORECASE
 )
@@ -32,6 +41,78 @@ class SemiAutomaticSelectionDirection(StrEnum):
 class SemiAutomaticSelectionWorkflowMode(StrEnum):
     SELECTION = "selection"
     FILENAME_VERIFICATION = "filename_verification"
+    V7_SELECTION = "v7_selection"
+
+
+class SemiAutomaticV7SelectionMode(StrEnum):
+    SEMI_AUTOMATIC = "semi_automatic"
+    AUTOMATIC = "automatic"
+
+
+class SemiAutomaticV7BorderStyle(StrEnum):
+    TOP_AND_SIDES = "top_and_sides"
+    FULL_FRAME = "full_frame"
+    IRREGULAR_OR_NONE = "irregular_or_none"
+
+
+@dataclass(frozen=True, slots=True)
+class SemiAutomaticV7SelectionConfiguration:
+    """Server-owned, canonical V7 selection configuration.
+
+    OCR/localizer and calibration fingerprints are supplied by the server, never
+    by a browser request. The range limits are already fields of the run and are
+    repeated here only in the canonical V7 contract/identity payload.
+    """
+
+    mode: SemiAutomaticV7SelectionMode
+    direction: SemiAutomaticSelectionDirection
+    first_sequence_number: int
+    last_sequence_number: int
+    border_style: SemiAutomaticV7BorderStyle
+    localizer_fingerprint: str
+    calibration_fingerprint: str
+
+    def __post_init__(self) -> None:
+        if self.first_sequence_number < 1 or self.last_sequence_number < self.first_sequence_number:
+            raise ValueError("V7 selection bounds must be positive and increasing.")
+        page_span = self.last_sequence_number - self.first_sequence_number + 1
+        if page_span % SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE:
+            raise ValueError("V7 selection accepts only complete 3x3 pages.")
+        _require_sha256(self.localizer_fingerprint, "V7 localizer fingerprint")
+        _require_sha256(self.calibration_fingerprint, "V7 calibration fingerprint")
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "version": V7_SELECTION_CONFIGURATION_VERSION,
+            "mode": self.mode.value,
+            "direction": self.direction.value,
+            "firstSequenceNumber": self.first_sequence_number,
+            "lastSequenceNumber": self.last_sequence_number,
+            "borderStyle": self.border_style.value,
+            "localizerFingerprint": self.localizer_fingerprint,
+            "calibrationFingerprint": self.calibration_fingerprint,
+        }
+
+
+def create_v7_selection_configuration(
+    *,
+    first_sequence_number: int,
+    last_sequence_number: int,
+    direction: SemiAutomaticSelectionDirection = SemiAutomaticSelectionDirection.ASCENDING,
+    mode: SemiAutomaticV7SelectionMode = SemiAutomaticV7SelectionMode.SEMI_AUTOMATIC,
+    border_style: SemiAutomaticV7BorderStyle = SemiAutomaticV7BorderStyle.TOP_AND_SIDES,
+    localizer_fingerprint: str = V7_SELECTION_LOCALIZER_FINGERPRINT,
+    calibration_fingerprint: str = V7_SELECTION_UNAVAILABLE_CALIBRATION_FINGERPRINT,
+) -> SemiAutomaticV7SelectionConfiguration:
+    return SemiAutomaticV7SelectionConfiguration(
+        mode=mode,
+        direction=direction,
+        first_sequence_number=first_sequence_number,
+        last_sequence_number=last_sequence_number,
+        border_style=border_style,
+        localizer_fingerprint=localizer_fingerprint,
+        calibration_fingerprint=calibration_fingerprint,
+    )
 
 
 class FilenameRangeVerificationReviewDecision(StrEnum):
@@ -158,6 +239,7 @@ class SemiAutomaticSelectionRun:
     last_sequence_number: int
     direction: SemiAutomaticSelectionDirection
     workflow_mode: SemiAutomaticSelectionWorkflowMode
+    v7_configuration: SemiAutomaticV7SelectionConfiguration | None
     range_convention: str
     full_range_size: int
     expected_ranges_fingerprint: str
@@ -182,6 +264,17 @@ class SemiAutomaticSelectionRun:
             raise ValueError("Run bounds must be positive and increasing.")
         if self.range_convention != SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION:
             raise ValueError("Run range convention is unsupported.")
+        if self.workflow_mode is SemiAutomaticSelectionWorkflowMode.V7_SELECTION:
+            if self.v7_configuration is None:
+                raise ValueError("A V7 run requires its V7 configuration.")
+            if (
+                self.v7_configuration.first_sequence_number != self.first_sequence_number
+                or self.v7_configuration.last_sequence_number != self.last_sequence_number
+                or self.v7_configuration.direction is not self.direction
+            ):
+                raise ValueError("V7 configuration must match run bounds and direction.")
+        elif self.v7_configuration is not None:
+            raise ValueError("Only V7 runs may contain V7 configuration.")
         if self.full_range_size != SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE:
             raise ValueError("Run full range size is unsupported.")
         for value in (
@@ -207,6 +300,7 @@ def create_semi_automatic_selection_run(
     workflow_mode: SemiAutomaticSelectionWorkflowMode = (
         SemiAutomaticSelectionWorkflowMode.SELECTION
     ),
+    v7_configuration: SemiAutomaticV7SelectionConfiguration | None = None,
     local_source_manifest_relative_path: str | None = None,
     created_at: datetime | None = None,
 ) -> tuple[SemiAutomaticSelectionRun, tuple[SemiAutomaticSelectionRange, ...]]:
@@ -217,6 +311,26 @@ def create_semi_automatic_selection_run(
         )
     _require_sha256(recognizer_fingerprint, "recognizer fingerprint")
     _require_sha256(grouping_policy_fingerprint, "grouping policy fingerprint")
+    if workflow_mode is SemiAutomaticSelectionWorkflowMode.V7_SELECTION:
+        if v7_configuration is None:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_REQUIRED",
+                "A V7 selection run requires server-owned V7 configuration.",
+            )
+        if (
+            v7_configuration.first_sequence_number != first_sequence_number
+            or v7_configuration.last_sequence_number != last_sequence_number
+            or v7_configuration.direction is not direction
+        ):
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_INVALID",
+                "V7 configuration must match the requested sequence bounds and direction.",
+            )
+    elif v7_configuration is not None:
+        raise SemiAutomaticSelectionError(
+            "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_INVALID",
+            "V7 configuration is valid only for the V7 workflow.",
+        )
     now = created_at or datetime.now(UTC)
     run_id = uuid4()
     ranges = _expected_ranges(
@@ -244,6 +358,9 @@ def create_semi_automatic_selection_run(
         "recognizer_fingerprint": recognizer_fingerprint,
         "grouping_policy_fingerprint": grouping_policy_fingerprint,
     }
+    if v7_configuration is not None:
+        payload["schema_version"] = 4
+        payload["v7_configuration"] = v7_configuration.as_payload()
     if local_source_manifest_relative_path is not None:
         payload.update(
             {
@@ -266,6 +383,7 @@ def create_semi_automatic_selection_run(
             last_sequence_number=last_sequence_number,
             direction=direction,
             workflow_mode=workflow_mode,
+            v7_configuration=v7_configuration,
             range_convention=SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION,
             full_range_size=SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
             expected_ranges_fingerprint=expected_fingerprint,
@@ -585,8 +703,9 @@ def run_identity_key(
     direction: SemiAutomaticSelectionDirection,
     recognizer_fingerprint: str,
     grouping_policy_fingerprint: str,
+    v7_configuration: SemiAutomaticV7SelectionConfiguration | None = None,
 ) -> str:
-    payload = {
+    payload: dict[str, object] = {
         "contractVersion": SEMI_AUTOMATIC_SELECTION_CONTRACT_VERSION,
         "direction": direction.value,
         "firstSequenceNumber": first_sequence_number,
@@ -599,6 +718,8 @@ def run_identity_key(
         "sourceManifestChecksumSha256": source.manifest_checksum_sha256,
         "sourceUploadId": str(source.upload_id),
     }
+    if v7_configuration is not None:
+        payload["v7Configuration"] = v7_configuration.as_payload()
     return hashlib.sha256(
         json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
     ).hexdigest()
@@ -780,12 +901,18 @@ def _range_counter_key(status: SemiAutomaticSelectionRangeStatus) -> str:
 
 __all__ = [
     "SEMI_AUTOMATIC_SELECTION_CONTRACT_VERSION",
+    "V7_SELECTION_CONFIGURATION_VERSION",
+    "V7_SELECTION_LOCALIZER_FINGERPRINT",
+    "V7_SELECTION_UNAVAILABLE_CALIBRATION_FINGERPRINT",
     "SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE",
     "SEMI_AUTOMATIC_SELECTION_ORDERING_POLICY",
     "SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION",
     "SEMI_AUTOMATIC_SELECTION_WORKFLOW",
     "SemiAutomaticSelectionConflictError",
     "SemiAutomaticSelectionDirection",
+    "SemiAutomaticV7BorderStyle",
+    "SemiAutomaticV7SelectionConfiguration",
+    "SemiAutomaticV7SelectionMode",
     "SemiAutomaticSelectionError",
     "FilenameVerificationHistoryDeletion",
     "SemiAutomaticSelectionNotFoundError",
@@ -803,6 +930,7 @@ __all__ = [
     "classify_filename_range_verification",
     "complete_filename_verification_cleanup",
     "create_semi_automatic_selection_run",
+    "create_v7_selection_configuration",
     "expected_ranges_fingerprint",
     "pause_run",
     "resume_run",

@@ -14,6 +14,7 @@ from game_predictor_api.application.semi_automatic_image_selections import (
 )
 from game_predictor_api.domain.jobs import JobStatus, requeue_job
 from game_predictor_api.domain.semi_automatic_image_selections import (
+    V7_SELECTION_CONFIGURATION_VERSION,
     FilenameRangeVerificationReview,
     FilenameRangeVerificationReviewDecision,
     FilenameVerificationHistoryDeletion,
@@ -25,6 +26,9 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionRunStatus,
     SemiAutomaticSelectionSourceManifest,
     SemiAutomaticSelectionWorkflowMode,
+    SemiAutomaticV7BorderStyle,
+    SemiAutomaticV7SelectionConfiguration,
+    SemiAutomaticV7SelectionMode,
     begin_filename_verification_cleanup,
 )
 from game_predictor_api.storage.job_repository import (
@@ -471,6 +475,14 @@ def _run_record(
         counters=dict(run.counters),
         diagnostics_relative_path=run.diagnostics_relative_path,
         diagnostics_checksum_sha256=run.diagnostics_checksum_sha256,
+        v7_configuration=(
+            None if run.v7_configuration is None else run.v7_configuration.as_payload()
+        ),
+        v7_calibration_fingerprint=(
+            None
+            if run.v7_configuration is None
+            else run.v7_configuration.calibration_fingerprint
+        ),
         revision=run.revision,
         created_at=run.created_at,
         updated_at=run.updated_at,
@@ -519,6 +531,7 @@ def _run_from_records(
         last_sequence_number=record.last_sequence_number,
         direction=SemiAutomaticSelectionDirection(record.direction),
         workflow_mode=SemiAutomaticSelectionWorkflowMode(record.workflow_mode),
+        v7_configuration=_v7_configuration_from_record(record),
         range_convention=record.range_convention,
         full_range_size=record.full_range_size,
         expected_ranges_fingerprint=record.expected_ranges_fingerprint,
@@ -575,3 +588,38 @@ def _review_from_record(
 
 
 __all__ = ["SqlAlchemySemiAutomaticSelectionRepository"]
+
+
+def _v7_configuration_from_record(
+    record: SemiAutomaticImageSelectionRunModel,
+) -> SemiAutomaticV7SelectionConfiguration | None:
+    raw = record.v7_configuration
+    if raw is None:
+        return None
+    try:
+        if raw["version"] != V7_SELECTION_CONFIGURATION_VERSION:
+            raise ValueError("unsupported V7 configuration version")
+        configuration = SemiAutomaticV7SelectionConfiguration(
+            mode=SemiAutomaticV7SelectionMode(str(raw["mode"])),
+            direction=SemiAutomaticSelectionDirection(str(raw["direction"])),
+            first_sequence_number=_v7_configuration_integer(raw, "firstSequenceNumber"),
+            last_sequence_number=_v7_configuration_integer(raw, "lastSequenceNumber"),
+            border_style=SemiAutomaticV7BorderStyle(str(raw["borderStyle"])),
+            localizer_fingerprint=str(raw["localizerFingerprint"]),
+            calibration_fingerprint=str(raw["calibrationFingerprint"]),
+        )
+        if record.v7_calibration_fingerprint != configuration.calibration_fingerprint:
+            raise ValueError("V7 calibration fingerprint does not match configuration")
+        return configuration
+    except (KeyError, TypeError, ValueError) as error:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_INVALID",
+            "The persisted V7 configuration is invalid.",
+        ) from error
+
+
+def _v7_configuration_integer(raw: dict[str, object], key: str) -> int:
+    value = raw[key]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"V7 configuration {key} must be an integer.")
+    return value

@@ -18,6 +18,8 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionRun,
     SemiAutomaticSelectionRunStatus,
     SemiAutomaticSelectionWorkflowMode,
+    SemiAutomaticV7BorderStyle,
+    SemiAutomaticV7SelectionMode,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
@@ -31,6 +33,33 @@ class SemiAutomaticSelectionRecognizerVariantResponse(ApiModel):
     fingerprint: Sha256
     default: bool
     experimental: bool
+
+
+class SemiAutomaticV7CapabilitiesResponse(ApiModel):
+    activation_status: Literal["blocked"]
+    start_enabled: Literal[False]
+    reason: str = Field(min_length=1)
+    configuration_version: Literal["v7-selection-configuration-v1"]
+    default_mode: SemiAutomaticV7SelectionMode
+    default_direction: SemiAutomaticSelectionDirection
+    default_border_style: SemiAutomaticV7BorderStyle
+    border_styles: list[SemiAutomaticV7BorderStyle]
+
+
+class SemiAutomaticV7SelectionCreate(ApiModel):
+    mode: SemiAutomaticV7SelectionMode = SemiAutomaticV7SelectionMode.SEMI_AUTOMATIC
+    border_style: SemiAutomaticV7BorderStyle = SemiAutomaticV7BorderStyle.TOP_AND_SIDES
+
+
+class SemiAutomaticV7SelectionConfigurationResponse(ApiModel):
+    version: Literal["v7-selection-configuration-v1"]
+    mode: SemiAutomaticV7SelectionMode
+    direction: SemiAutomaticSelectionDirection
+    first_sequence_number: int = Field(ge=1)
+    last_sequence_number: int = Field(ge=1)
+    border_style: SemiAutomaticV7BorderStyle
+    localizer_fingerprint: Sha256
+    calibration_fingerprint: Sha256
 
 
 class SemiAutomaticSelectionCapabilitiesResponse(ApiModel):
@@ -47,6 +76,7 @@ class SemiAutomaticSelectionCapabilitiesResponse(ApiModel):
     selection_recognizer_variants: list[SemiAutomaticSelectionRecognizerVariantResponse]
     filename_verification_recognizer_fingerprint: Sha256
     grouping_policy_fingerprint: Sha256
+    v7: SemiAutomaticV7CapabilitiesResponse
 
 
 class SemiAutomaticSelectionCreate(ApiModel):
@@ -55,8 +85,9 @@ class SemiAutomaticSelectionCreate(ApiModel):
     first_sequence_number: int = Field(ge=1)
     last_sequence_number: int = Field(ge=1)
     direction: SemiAutomaticSelectionDirection = SemiAutomaticSelectionDirection.ASCENDING
-    mode: Literal["selection", "filename_verification"] = "selection"
+    mode: Literal["selection", "filename_verification", "v7_selection"] = "selection"
     recognizer_variant: Literal["default_v3", "five_anchor_v6"] = "default_v3"
+    v7: SemiAutomaticV7SelectionCreate | None = None
 
 
 class SequenceRangeValueResponse(ApiModel):
@@ -134,6 +165,7 @@ class SemiAutomaticSelectionRunResponse(ApiModel):
     last_sequence_number: int = Field(ge=1)
     direction: SemiAutomaticSelectionDirection
     workflow_mode: SemiAutomaticSelectionWorkflowMode | None = None
+    v7_configuration: SemiAutomaticV7SelectionConfigurationResponse | None = None
     range_convention: Literal["seq-inclusive-v1"]
     full_range_size: Literal[9]
     expected_ranges_fingerprint: Sha256
@@ -219,6 +251,13 @@ def to_run_response(run: SemiAutomaticSelectionRun) -> SemiAutomaticSelectionRun
         last_sequence_number=run.last_sequence_number,
         direction=run.direction,
         workflow_mode=run.workflow_mode,
+        v7_configuration=(
+            None
+            if run.v7_configuration is None
+            else SemiAutomaticV7SelectionConfigurationResponse.model_validate(
+                run.v7_configuration.as_payload()
+            )
+        ),
         range_convention="seq-inclusive-v1",
         full_range_size=9,
         expected_ranges_fingerprint=run.expected_ranges_fingerprint,

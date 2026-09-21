@@ -6,6 +6,22 @@ last_updated: 2026-09-21
 
 # Decision Log
 
+## D-408 — V7 ma osobny workflow i twardą bramkę aktywacji
+
+- **Status:** accepted (TASK-0590).
+- **Date:** 2026-09-21.
+- **Decision:** V7 używa `workflow_mode=v7_selection`, payloadu schema v4 i
+  server-owned konfiguracji pełnej strony. Przed mierzalnym odbiorem T12 API
+  jest twardo zablokowane: capabilities raportuje `blocked`, a create odrzuca
+  V7 przed wyborem źródła lub konsumpcją tokenu.
+- **Rationale:** dodanie nowego kontraktu nie może reinterpretować historycznych
+  runów ani pozwolić UI lub niezweryfikowanemu klientowi rozpocząć eksperymentu
+  na danych operatora.
+- **Safety:** migracja 0114 jest addytywna i ma jeden rekord gate `blocked`;
+  fingerprinty kalibracji/lokalizatora nie pochodzą z HTTP. Downgrade kończy
+  się fail-closed, jeśli istnieje V7, zamiast usuwać jego rekordy. T12 pozostaje
+  jedynym taskiem, który może odblokować start.
+
 ## D-407 — Kalibracja V7 zachowuje pomiar nieudanego progu, ale blokuje aktywację
 
 - **Status:** accepted (TASK-0589).

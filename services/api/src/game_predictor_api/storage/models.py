@@ -668,7 +668,9 @@ class SemiAutomaticImageSelectionRunModel(Base):
             "grouping_policy_fingerprint ~ '^[0-9a-f]{64}$' AND "
             "identity_key ~ '^[0-9a-f]{64}$' AND "
             "(diagnostics_checksum_sha256 IS NULL OR "
-            "diagnostics_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            "diagnostics_checksum_sha256 ~ '^[0-9a-f]{64}$') AND "
+            "(v7_calibration_fingerprint IS NULL OR "
+            "v7_calibration_fingerprint ~ '^[0-9a-f]{64}$')",
             name="ck_semi_automatic_selection_runs_checksums",
         ),
         CheckConstraint(
@@ -682,7 +684,7 @@ class SemiAutomaticImageSelectionRunModel(Base):
             name="ck_semi_automatic_selection_runs_contract",
         ),
         CheckConstraint(
-            "workflow_mode IN ('selection', 'filename_verification')",
+            "workflow_mode IN ('selection', 'filename_verification', 'v7_selection')",
             name="ck_semi_automatic_selection_runs_workflow_mode",
         ),
         CheckConstraint(
@@ -692,7 +694,8 @@ class SemiAutomaticImageSelectionRunModel(Base):
             name="ck_semi_automatic_selection_runs_status",
         ),
         CheckConstraint(
-            "jsonb_typeof(checkpoint) = 'object' AND jsonb_typeof(counters) = 'object'",
+            "jsonb_typeof(checkpoint) = 'object' AND jsonb_typeof(counters) = 'object' AND "
+            "(v7_configuration IS NULL OR jsonb_typeof(v7_configuration) = 'object')",
             name="ck_semi_automatic_selection_runs_json",
         ),
         CheckConstraint(
@@ -738,7 +741,40 @@ class SemiAutomaticImageSelectionRunModel(Base):
     counters: Mapped[dict[str, int]] = mapped_column(JSONB, nullable=False, default=dict)
     diagnostics_relative_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     diagnostics_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    v7_configuration: Mapped[dict[str, object] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
+    v7_calibration_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class SemiAutomaticV7ActivationGateModel(Base):
+    """Singleton activation record. T06 creates it blocked; T12 owns changes."""
+
+    __tablename__ = "semi_automatic_selection_v7_activation_gate"
+    __table_args__ = (
+        CheckConstraint(
+            "singleton = TRUE", name="ck_semi_automatic_v7_activation_gate_singleton"
+        ),
+        CheckConstraint(
+            "status IN ('blocked', 'active')", name="ck_semi_automatic_v7_activation_gate_status"
+        ),
+        CheckConstraint(
+            "generation >= 0", name="ck_semi_automatic_v7_activation_gate_generation"
+        ),
+    )
+
+    singleton: Mapped[bool] = mapped_column(Boolean, primary_key=True, default=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="blocked")
+    generation: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    accepted_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

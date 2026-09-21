@@ -1894,3 +1894,18 @@ jako nowy zbiór. Filtr klienta przekazuje wyłącznie `.jpg` i `.jpeg`, więc
 manifest przycinania pozostaje lokalnym journalem. Nowa zawartość otrzymuje
 własny staging i managed originals; historyczny reprocess pozostaje związany
 z checksumami pierwotnego importu.
+
+## Kontrakt domeny i aktywacji V7 — TASK-0590
+
+Domena zachowuje addytywny `workflow_mode=v7_selection`.
+`SemiAutomaticV7SelectionConfiguration` jest kanonicznie serializowana do
+payloadu joba schema v4 i klucza idempotencji; weryfikuje identyczność swoich
+granic i kierunku z runem oraz pełne strony 3×3. Historyczne payloady schema
+v1–v3, identity key i odpowiedzi pozostają niezmienione.
+
+Migracja 0114 dodaje nullable `v7_configuration` i
+`v7_calibration_fingerprint`, rozszerza check workflowu oraz tworzy singleton
+`semi_automatic_selection_v7_activation_gate` z rekordem `blocked`, generacją
+0. Nie przepisuje historycznych runów. Downgrade odmawia, gdy istnieje run V7,
+zamiast usuwać jego dane. T12 będzie jedynym właścicielem przejścia gate do
+`active`; T06 utrzymuje backendową blokadę niezależnie od rekordu.

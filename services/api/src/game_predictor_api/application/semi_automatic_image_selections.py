@@ -56,12 +56,15 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionRunStatus,
     SemiAutomaticSelectionSourceManifest,
     SemiAutomaticSelectionWorkflowMode,
+    SemiAutomaticV7BorderStyle,
+    SemiAutomaticV7SelectionMode,
     acknowledge_manual_output,
     acknowledge_output,
     apply_range_status_transition,
     cancel_run,
     classify_filename_range_verification,
     create_semi_automatic_selection_run,
+    create_v7_selection_configuration,
     pause_run,
     resume_run,
     run_identity_key,
@@ -71,6 +74,11 @@ SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRI
 SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT = grouping_policy_fingerprint()
 SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE = "filename_verification"
 SEMI_AUTOMATIC_SELECTION_MODE = "selection"
+SEMI_AUTOMATIC_V7_SELECTION_MODE = "v7_selection"
+V7_SELECTION_ACTIVATION_STATUS = "blocked"
+V7_SELECTION_BLOCKED_REASON = (
+    "V7 selection remains blocked until the T12 holdout acceptance is recorded."
+)
 SEMI_AUTOMATIC_DEFAULT_RECOGNIZER_VARIANT = "default_v3"
 SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT = "five_anchor_v6"
 _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINTS = frozenset(
@@ -209,6 +217,16 @@ class SemiAutomaticImageSelectionService:
                 RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2
             ),
             "groupingPolicyFingerprint": SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT,
+            "v7": {
+                "activationStatus": V7_SELECTION_ACTIVATION_STATUS,
+                "startEnabled": False,
+                "reason": V7_SELECTION_BLOCKED_REASON,
+                "configurationVersion": "v7-selection-configuration-v1",
+                "defaultMode": SemiAutomaticV7SelectionMode.SEMI_AUTOMATIC.value,
+                "defaultDirection": SemiAutomaticSelectionDirection.ASCENDING.value,
+                "defaultBorderStyle": SemiAutomaticV7BorderStyle.TOP_AND_SIDES.value,
+                "borderStyles": [style.value for style in SemiAutomaticV7BorderStyle],
+            },
         }
 
     def select_local_source(self) -> SelectedImageFolder | None:
@@ -234,7 +252,16 @@ class SemiAutomaticImageSelectionService:
         direction: SemiAutomaticSelectionDirection,
         mode: str = SEMI_AUTOMATIC_SELECTION_MODE,
         recognizer_variant: str = SEMI_AUTOMATIC_DEFAULT_RECOGNIZER_VARIANT,
+        v7_mode: SemiAutomaticV7SelectionMode = SemiAutomaticV7SelectionMode.SEMI_AUTOMATIC,
+        v7_border_style: SemiAutomaticV7BorderStyle = SemiAutomaticV7BorderStyle.TOP_AND_SIDES,
     ) -> tuple[SemiAutomaticSelectionRun, bool]:
+        # This check deliberately precedes all source/token processing. V7 cannot
+        # create a job or consume a local-folder capability before T12 acceptance.
+        if mode == SEMI_AUTOMATIC_V7_SELECTION_MODE:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_V7_BLOCKED",
+                V7_SELECTION_BLOCKED_REASON,
+            )
         if mode == SEMI_AUTOMATIC_SELECTION_MODE and not self._enabled:
             raise SemiAutomaticSelectionError(
                 "SEMI_AUTOMATIC_SELECTION_DISABLED",
@@ -243,6 +270,7 @@ class SemiAutomaticImageSelectionService:
         if mode not in {
             SEMI_AUTOMATIC_SELECTION_MODE,
             SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE,
+            SEMI_AUTOMATIC_V7_SELECTION_MODE,
         }:
             raise SemiAutomaticSelectionError(
                 "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
@@ -302,6 +330,17 @@ class SemiAutomaticImageSelectionService:
             )
             local_manifest_path = None
             local_selection = None
+        v7_configuration = (
+            create_v7_selection_configuration(
+                first_sequence_number=first_sequence_number,
+                last_sequence_number=last_sequence_number,
+                direction=direction,
+                mode=v7_mode,
+                border_style=v7_border_style,
+            )
+            if mode == SEMI_AUTOMATIC_V7_SELECTION_MODE
+            else None
+        )
         identity_key = run_identity_key(
             source=source,
             first_sequence_number=first_sequence_number,
@@ -309,6 +348,7 @@ class SemiAutomaticImageSelectionService:
             direction=direction,
             recognizer_fingerprint=recognizer_fingerprint,
             grouping_policy_fingerprint=grouping_policy,
+            v7_configuration=v7_configuration,
         )
         existing = self._repository.find_by_identity(identity_key)
         if existing is not None:
@@ -320,6 +360,7 @@ class SemiAutomaticImageSelectionService:
             last_sequence_number=last_sequence_number,
             direction=direction,
             workflow_mode=SemiAutomaticSelectionWorkflowMode(mode),
+            v7_configuration=v7_configuration,
             recognizer_fingerprint=recognizer_fingerprint,
             grouping_policy_fingerprint=grouping_policy,
             local_source_manifest_relative_path=local_manifest_path,
@@ -830,6 +871,9 @@ __all__ = [
     "SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT",
     "SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE",
     "SEMI_AUTOMATIC_SELECTION_MODE",
+    "SEMI_AUTOMATIC_V7_SELECTION_MODE",
+    "V7_SELECTION_ACTIVATION_STATUS",
+    "V7_SELECTION_BLOCKED_REASON",
     "SemiAutomaticImageSelectionService",
     "SemiAutomaticSelectionRepository",
     "workflow_mode_for_recognizer_fingerprint",

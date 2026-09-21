@@ -1298,3 +1298,19 @@ importu zwykłym nowym źródłem JPEG-ów `seq_*`. Pomocniczy plik
 `manual-image-crop-output-v1.json` nie jest uploadowany. System nie podmienia
 nim managed originals wcześniejszego importu i nie zmienia automatycznie
 wersji profilu geometrii ani modelu symboli.
+
+## Kontrakt startu V7 — TASK-0590
+
+`v7_selection` jest osobnym workflowem, który zastąpi nowe uruchomienia po
+odrębnej aktywacji; nie zmienia znaczenia historycznych `selection` ani
+`filename_verification`. Konfiguracja pełnej strony zawiera tryb
+`semi_automatic` albo `automatic`, kierunek, granice obejmujące wielokrotność
+dziewięciu, jeden ze stylów `top_and_sides`, `full_frame`,
+`irregular_or_none`, oraz server-owned fingerprinty lokalizatora i kalibracji.
+Klient nie przekazuje fingerprintów.
+
+Przed odbiorem holdoutu T12 backend zwraca w capabilities `v7` ze statusem
+`blocked` i `startEnabled=false`, a każde `POST` z `mode=v7_selection` kończy
+się `SEMI_AUTOMATIC_SELECTION_V7_BLOCKED` zanim wybierze źródło, utworzy job
+lub zużyje token katalogu. Ta blokada nie zależy od widoczności elementu UI ani
+od dotychczasowej flagi półautomatu.

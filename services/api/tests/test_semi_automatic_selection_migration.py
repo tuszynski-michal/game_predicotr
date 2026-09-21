@@ -91,3 +91,31 @@ def test_migration_0092_adds_only_resumable_cleanup_states() -> None:
     assert "cleanup_blocked" in source
     assert "UPDATE semi_automatic_image_selection_runs" in source
     assert "drop_table" not in source
+
+
+def test_migration_0114_adds_only_v7_metadata_and_a_blocked_activation_gate() -> None:
+    path = (
+        REPOSITORY_ROOT
+        / "services"
+        / "api"
+        / "alembic"
+        / "versions"
+        / "0114_v7_semi_automatic_activation_gate.py"
+    )
+    source = path.read_text(encoding="utf-8")
+
+    assert "0113_reconcile_browser_staging_board_import_status" in source
+    assert "v7_configuration" in source
+    assert "v7_calibration_fingerprint" in source
+    assert "v7_selection" in source
+    assert "semi_automatic_selection_v7_activation_gate" in source
+    assert "VALUES (TRUE, 'blocked', 0" in source
+    assert 'drop_table(\"semi_automatic_selection_v7_activation_gate\")' in source
+    assert "DELETE FROM semi_automatic_image_selection_runs" not in source
+
+    spec = importlib.util.spec_from_file_location("migration_0114", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.revision == "0114_v7_semi_automatic_activation_gate"
+    assert module.down_revision == "0113_reconcile_browser_staging_board_import_status"

@@ -445,10 +445,21 @@ class ImageSelectionJobPayload(ApiModel):
     )
 
 
+class SemiAutomaticV7SelectionJobConfigurationPayload(ApiModel):
+    version: Literal["v7-selection-configuration-v1"]
+    mode: Literal["semi_automatic", "automatic"]
+    direction: Literal["ascending", "descending"]
+    first_sequence_number: int = Field(ge=1)
+    last_sequence_number: int = Field(ge=1)
+    border_style: Literal["top_and_sides", "full_frame", "irregular_or_none"]
+    localizer_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    calibration_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class SemiAutomaticImageSelectionJobPayload(ApiModel):
-    schema_version: Literal[1, 2, 3] = 1
+    schema_version: Literal[1, 2, 3, 4] = 1
     selection_kind: Literal["semi_automatic_image_selection"]
-    workflow_mode: Literal["selection", "filename_verification"] | None = None
+    workflow_mode: Literal["selection", "filename_verification", "v7_selection"] | None = None
     run_id: UUID
     source_upload_id: UUID
     source_kind: Literal["local_folder"] | None = None
@@ -464,22 +475,31 @@ class SemiAutomaticImageSelectionJobPayload(ApiModel):
     expected_ranges_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     recognizer_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     grouping_policy_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    v7_configuration: SemiAutomaticV7SelectionJobConfigurationPayload | None = None
 
     @model_validator(mode="after")
     def validate_workflow_mode(self) -> Self:
-        if self.schema_version in {2, 3} and self.workflow_mode is None:
-            raise ValueError("schema v2/v3 requires workflowMode")
+        if self.schema_version in {2, 3, 4} and self.workflow_mode is None:
+            raise ValueError("schema v2/v3/v4 requires workflowMode")
         if self.schema_version == 1 and self.workflow_mode is not None:
-            raise ValueError("workflowMode is only valid for schema v2/v3")
-        if self.schema_version == 3:
+            raise ValueError("workflowMode is only valid for schema v2/v3/v4")
+        if self.schema_version == 4:
+            if self.workflow_mode != "v7_selection" or self.v7_configuration is None:
+                raise ValueError("schema v4 requires V7 workflow mode and configuration")
+        elif self.v7_configuration is not None:
+            raise ValueError("V7 configuration is only valid for schema v4")
+        if self.schema_version in {3, 4}:
+            expected_workflow = "selection" if self.schema_version == 3 else "v7_selection"
             if (
-                self.workflow_mode != "selection"
+                self.workflow_mode != expected_workflow
                 or self.source_kind != "local_folder"
                 or not self.source_manifest_relative_path
             ):
-                raise ValueError("schema v3 requires a local selection source manifest")
+                raise ValueError(
+                    f"schema v{self.schema_version} requires a local selection source manifest"
+                )
         elif self.source_kind is not None or self.source_manifest_relative_path is not None:
-            raise ValueError("local source fields are only valid for schema v3")
+            raise ValueError("local source fields are only valid for schema v3/v4")
         return self
 
 
@@ -913,7 +933,7 @@ class JobResponse(ApiModel):
     started_at: datetime | None
     finished_at: datetime | None
     cancel_requested_at: datetime | None
-    workflow_mode: Literal["selection", "filename_verification"] | None = None
+    workflow_mode: Literal["selection", "filename_verification", "v7_selection"] | None = None
 
     @classmethod
     def from_domain(cls, job: Job) -> JobResponse:
@@ -1249,12 +1269,12 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
 
 def _workflow_mode_from_domain(
     job: Job,
-) -> Literal["selection", "filename_verification"] | None:
+) -> Literal["selection", "filename_verification", "v7_selection"] | None:
     if job.job_type is not JobType.SEMI_AUTOMATIC_IMAGE_SELECTION:
         return None
     raw_mode = job.input_payload.get("workflow_mode")
-    if raw_mode in {"selection", "filename_verification"}:
-        return cast(Literal["selection", "filename_verification"], raw_mode)
+    if raw_mode in {"selection", "filename_verification", "v7_selection"}:
+        return cast(Literal["selection", "filename_verification", "v7_selection"], raw_mode)
     raw_recognizer = job.input_payload.get("recognizer_fingerprint")
     return workflow_mode_for_recognizer_fingerprint(
         raw_recognizer if isinstance(raw_recognizer, str) else None

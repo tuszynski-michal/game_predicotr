@@ -6112,7 +6112,7 @@ export type JobResponse = {
   /**
    * Workflowmode
    */
-  workflowMode?: 'selection' | 'filename_verification' | null;
+  workflowMode?: 'selection' | 'filename_verification' | 'v7_selection' | null;
 };
 
 /**
@@ -10395,7 +10395,7 @@ export type SemiAutomaticImageSelectionJobPayload = {
   /**
    * Schemaversion
    */
-  schemaVersion?: 1 | 2 | 3;
+  schemaVersion?: 1 | 2 | 3 | 4;
   /**
    * Selectionkind
    */
@@ -10424,10 +10424,11 @@ export type SemiAutomaticImageSelectionJobPayload = {
    * Sourceuploadid
    */
   sourceUploadId: string;
+  v7Configuration?: SemiAutomaticV7SelectionJobConfigurationPayload | null;
   /**
    * Workflowmode
    */
-  workflowMode?: 'selection' | 'filename_verification' | null;
+  workflowMode?: 'selection' | 'filename_verification' | 'v7_selection' | null;
 };
 
 /**
@@ -10486,6 +10487,7 @@ export type SemiAutomaticSelectionCapabilitiesResponse = {
    * Stagingpurpose
    */
   stagingPurpose: 'semi_automatic_selection';
+  v7: SemiAutomaticV7CapabilitiesResponse;
 };
 
 /**
@@ -10504,7 +10506,7 @@ export type SemiAutomaticSelectionCreate = {
   /**
    * Mode
    */
-  mode?: 'selection' | 'filename_verification';
+  mode?: 'selection' | 'filename_verification' | 'v7_selection';
   /**
    * Recognizervariant
    */
@@ -10517,6 +10519,7 @@ export type SemiAutomaticSelectionCreate = {
    * Uploadid
    */
   uploadId?: string | null;
+  v7?: SemiAutomaticV7SelectionCreate | null;
 };
 
 /**
@@ -10806,6 +10809,7 @@ export type SemiAutomaticSelectionRunResponse = {
    * Updatedat
    */
   updatedAt: string;
+  v7Configuration?: SemiAutomaticV7SelectionConfigurationResponse | null;
   workflowMode?: SemiAutomaticSelectionWorkflowMode | null;
 };
 
@@ -10896,7 +10900,122 @@ export type SemiAutomaticSelectionSourceResponse = {
  * SemiAutomaticSelectionWorkflowMode
  */
 export type SemiAutomaticSelectionWorkflowMode =
-  'selection' | 'filename_verification';
+  'selection' | 'filename_verification' | 'v7_selection';
+
+/**
+ * SemiAutomaticV7BorderStyle
+ */
+export type SemiAutomaticV7BorderStyle =
+  'top_and_sides' | 'full_frame' | 'irregular_or_none';
+
+/**
+ * SemiAutomaticV7CapabilitiesResponse
+ */
+export type SemiAutomaticV7CapabilitiesResponse = {
+  /**
+   * Activationstatus
+   */
+  activationStatus: 'blocked';
+  /**
+   * Borderstyles
+   */
+  borderStyles: Array<SemiAutomaticV7BorderStyle>;
+  /**
+   * Configurationversion
+   */
+  configurationVersion: 'v7-selection-configuration-v1';
+  defaultBorderStyle: SemiAutomaticV7BorderStyle;
+  defaultDirection: SemiAutomaticSelectionDirection;
+  defaultMode: SemiAutomaticV7SelectionMode;
+  /**
+   * Reason
+   */
+  reason: string;
+  /**
+   * Startenabled
+   */
+  startEnabled: false;
+};
+
+/**
+ * SemiAutomaticV7SelectionConfigurationResponse
+ */
+export type SemiAutomaticV7SelectionConfigurationResponse = {
+  borderStyle: SemiAutomaticV7BorderStyle;
+  /**
+   * Calibrationfingerprint
+   */
+  calibrationFingerprint: string;
+  direction: SemiAutomaticSelectionDirection;
+  /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber: number;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber: number;
+  /**
+   * Localizerfingerprint
+   */
+  localizerFingerprint: string;
+  mode: SemiAutomaticV7SelectionMode;
+  /**
+   * Version
+   */
+  version: 'v7-selection-configuration-v1';
+};
+
+/**
+ * SemiAutomaticV7SelectionCreate
+ */
+export type SemiAutomaticV7SelectionCreate = {
+  borderStyle?: SemiAutomaticV7BorderStyle;
+  mode?: SemiAutomaticV7SelectionMode;
+};
+
+/**
+ * SemiAutomaticV7SelectionJobConfigurationPayload
+ */
+export type SemiAutomaticV7SelectionJobConfigurationPayload = {
+  /**
+   * Borderstyle
+   */
+  borderStyle: 'top_and_sides' | 'full_frame' | 'irregular_or_none';
+  /**
+   * Calibrationfingerprint
+   */
+  calibrationFingerprint: string;
+  /**
+   * Direction
+   */
+  direction: 'ascending' | 'descending';
+  /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber: number;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber: number;
+  /**
+   * Localizerfingerprint
+   */
+  localizerFingerprint: string;
+  /**
+   * Mode
+   */
+  mode: 'semi_automatic' | 'automatic';
+  /**
+   * Version
+   */
+  version: 'v7-selection-configuration-v1';
+};
+
+/**
+ * SemiAutomaticV7SelectionMode
+ */
+export type SemiAutomaticV7SelectionMode = 'semi_automatic' | 'automatic';
 
 /**
  * SequenceRangeValueResponse

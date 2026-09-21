@@ -25,7 +25,7 @@ zaakceptowanego planu `ai_docs/delivery/SEMI_AUTOMATIC_SELECTION_V7_EXECUTION_PL
 | T03 | done, `v0.10.321` | Wystąpienia, luki, niezależne kursory, EOF, restart i globalna finalizacja bez cofania kursora. |
 | T04 | done, `v0.10.322` | Ocena jakości per plansza, niepewność, ranking kandydatów i warningi góra/dół. |
 | T05 | done, `v0.10.323` | Wersjonowana kalibracja i metryki fail-closed; realny probe nadal nie ma wiarygodnej geometrii, więc aktywacja pozostaje zablokowana. |
-| T06 | todo | Addytywna migracja, domena/API/OpenAPI, aktywacja zablokowana przed T12. |
+| T06 | done, `v0.10.324` | Addytywna migracja, kanoniczna konfiguracja i API/OpenAPI; backend blokuje V7 przed odczytem źródła do T12. |
 | T07 | todo | Manifest źródeł, checkpoint skanu/finalizacji, pause/cancel/restart i drift. |
 | T08 | todo | Pierwszy output, journal, generacje, właściciel targetu, lock, recovery i bariery wyścigów. |
 | T09 | todo | Manual replace, pierwszy półautomat, ręczny no-OCR, częściowa strona 1–8 i retry. |

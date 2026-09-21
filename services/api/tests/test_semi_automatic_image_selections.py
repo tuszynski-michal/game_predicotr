@@ -46,10 +46,17 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionRun,
     SemiAutomaticSelectionRunStatus,
     SemiAutomaticSelectionWorkflowMode,
+    SemiAutomaticV7BorderStyle,
+    SemiAutomaticV7SelectionMode,
     begin_filename_verification_cleanup,
     block_filename_verification_cleanup,
     complete_filename_verification_cleanup,
+    create_v7_selection_configuration,
     resume_filename_verification_cleanup,
+)
+from game_predictor_api.schemas.jobs import SemiAutomaticImageSelectionJobPayload
+from game_predictor_api.schemas.semi_automatic_image_selections import (
+    SemiAutomaticSelectionCapabilitiesResponse,
 )
 from game_predictor_worker.jobs.runtime import GENERAL_JOB_TYPES as RUNTIME_GENERAL_JOB_TYPES
 from game_predictor_worker.jobs.store import GENERAL_JOB_TYPES as STORE_GENERAL_JOB_TYPES
@@ -1156,3 +1163,96 @@ def test_semi_automatic_jobs_use_only_the_existing_selection_lane(tmp_path: Path
             started_at=now,
         )
     assert wrong_lane.value.code == "INVALID_JOB_EXECUTION_SLOT"
+
+
+def test_v7_configuration_is_canonical_and_requires_complete_pages() -> None:
+    configuration = create_v7_selection_configuration(
+        first_sequence_number=1,
+        last_sequence_number=18,
+    )
+
+    assert configuration.mode is SemiAutomaticV7SelectionMode.SEMI_AUTOMATIC
+    assert configuration.direction is SemiAutomaticSelectionDirection.ASCENDING
+    assert configuration.border_style is SemiAutomaticV7BorderStyle.TOP_AND_SIDES
+    assert configuration.as_payload()["version"] == "v7-selection-configuration-v1"
+    assert configuration.as_payload()["calibrationFingerprint"] != ""
+
+    with pytest.raises(ValueError, match="complete 3x3"):
+        create_v7_selection_configuration(first_sequence_number=1, last_sequence_number=17)
+
+
+def test_v7_start_is_blocked_before_any_source_or_token_access() -> None:
+    repository = MemorySemiAutomaticSelectionRepository()
+    # The guard must run before this deliberately invalid source dependency.
+    service = SemiAutomaticImageSelectionService(repository, object(), enabled=True)  # type: ignore[arg-type]
+
+    with pytest.raises(SemiAutomaticSelectionError) as raised:
+        service.create(
+            selection_token="x" * 32,
+            first_sequence_number=1,
+            last_sequence_number=18,
+            direction=SemiAutomaticSelectionDirection.ASCENDING,
+            mode="v7_selection",
+            v7_mode=SemiAutomaticV7SelectionMode.AUTOMATIC,
+            v7_border_style=SemiAutomaticV7BorderStyle.IRREGULAR_OR_NONE,
+        )
+
+    assert raised.value.code == "SEMI_AUTOMATIC_SELECTION_V7_BLOCKED"
+    assert repository.runs == {}
+    assert repository.identities == {}
+
+
+def test_v7_capabilities_are_blocked_and_legacy_contract_is_unchanged() -> None:
+    service = SemiAutomaticImageSelectionService(
+        MemorySemiAutomaticSelectionRepository(), object(), enabled=True  # type: ignore[arg-type]
+    )
+    capabilities = service.capabilities()
+
+    assert capabilities["v7"] == {
+        "activationStatus": "blocked",
+        "startEnabled": False,
+        "reason": "V7 selection remains blocked until the T12 holdout acceptance is recorded.",
+        "configurationVersion": "v7-selection-configuration-v1",
+        "defaultMode": "semi_automatic",
+        "defaultDirection": "ascending",
+        "defaultBorderStyle": "top_and_sides",
+        "borderStyles": ["top_and_sides", "full_frame", "irregular_or_none"],
+    }
+    assert capabilities["enabled"] is True
+    assert capabilities["contractVersion"] == 1
+    parsed_capabilities = SemiAutomaticSelectionCapabilitiesResponse.model_validate(capabilities)
+    assert parsed_capabilities.v7.start_enabled is False
+
+
+def test_v7_job_payload_requires_server_owned_complete_page_configuration() -> None:
+    payload = {
+        "schemaVersion": 4,
+        "selectionKind": "semi_automatic_image_selection",
+        "workflowMode": "v7_selection",
+        "runId": "00000000-0000-0000-0000-000000000001",
+        "sourceUploadId": "00000000-0000-0000-0000-000000000002",
+        "sourceKind": "local_folder",
+        "sourceManifestRelativePath": "semi-automatic-selection/manifest.json",
+        "sourceManifestChecksumSha256": "a" * 64,
+        "sourceFingerprint": "b" * 64,
+        "sourceCount": 2,
+        "firstSequenceNumber": 1,
+        "lastSequenceNumber": 18,
+        "direction": "ascending",
+        "rangeConvention": "seq-inclusive-v1",
+        "fullRangeSize": 9,
+        "expectedRangesFingerprint": "c" * 64,
+        "recognizerFingerprint": "d" * 64,
+        "groupingPolicyFingerprint": "e" * 64,
+        "v7Configuration": create_v7_selection_configuration(
+            first_sequence_number=1, last_sequence_number=18
+        ).as_payload(),
+    }
+
+    parsed = SemiAutomaticImageSelectionJobPayload.model_validate(payload)
+    assert parsed.workflow_mode == "v7_selection"
+    assert parsed.v7_configuration is not None
+
+    incomplete = {**payload, "v7Configuration": None}
+    with pytest.raises(ValueError, match="requires V7 workflow mode and configuration"):
+        SemiAutomaticImageSelectionJobPayload.model_validate(incomplete)

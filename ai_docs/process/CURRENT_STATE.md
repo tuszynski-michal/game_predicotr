@@ -6,6 +6,17 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0590 — domena, API i bramka aktywacji V7
+
+- `v7_selection` jest addytywnym workflowem z kanoniczną konfiguracją pełnych
+  stron, trzema stylami border, schema joba v4 oraz metadanymi runu; historyczne
+  tryby, payloady, identity i output acknowledgement pozostają bez zmian.
+- API/OpenAPI ujawnia `v7.activationStatus=blocked`; żądanie startu V7 jest
+  odrzucane przed odczytem źródła, utworzeniem joba i zużyciem tokenu.
+  Fingerprinty lokalizatora i kalibracji pozostają server-owned.
+- Migracja 0114 dodaje nullable metadane i singleton gate `blocked`; downgrade
+  odmawia przy istniejącym runie V7. Aktywacja nadal należy wyłącznie do T12.
+
 ### TASK-0589 — kalibracja i metryki odbioru V7
 
 - T05 dodaje wersjonaną kalibrację geometrii z pięcioma niezależnymi źródłami

@@ -12,6 +12,8 @@ from game_predictor_api.application.semi_automatic_image_selections import (
 )
 from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionWorkflowMode,
+    SemiAutomaticV7BorderStyle,
+    SemiAutomaticV7SelectionMode,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_imports import ImageFolderSelectionResponse
@@ -99,6 +101,16 @@ def create_semi_automatic_image_selections_router(
             direction=payload.direction,
             mode=payload.mode,
             recognizer_variant=payload.recognizer_variant,
+            v7_mode=(
+                SemiAutomaticV7SelectionMode.SEMI_AUTOMATIC
+                if payload.v7 is None
+                else payload.v7.mode
+            ),
+            v7_border_style=(
+                SemiAutomaticV7BorderStyle.TOP_AND_SIDES
+                if payload.v7 is None
+                else payload.v7.border_style
+            ),
         )
         return SemiAutomaticSelectionCreateResponse(run=to_run_response(run), created=created)
 

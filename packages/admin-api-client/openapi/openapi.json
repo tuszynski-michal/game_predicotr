@@ -11142,7 +11142,8 @@
               {
                 "enum": [
                   "selection",
-                  "filename_verification"
+                  "filename_verification",
+                  "v7_selection"
                 ],
                 "type": "string"
               },
@@ -18566,7 +18567,8 @@
             "enum": [
               1,
               2,
-              3
+              3,
+              4
             ],
             "title": "Schemaversion",
             "type": "integer"
@@ -18619,12 +18621,23 @@
             "title": "Sourceuploadid",
             "type": "string"
           },
+          "v7Configuration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SemiAutomaticV7SelectionJobConfigurationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "workflowMode": {
             "anyOf": [
               {
                 "enum": [
                   "selection",
-                  "filename_verification"
+                  "filename_verification",
+                  "v7_selection"
                 ],
                 "type": "string"
               },
@@ -18722,6 +18735,9 @@
             "const": "semi_automatic_selection",
             "title": "Stagingpurpose",
             "type": "string"
+          },
+          "v7": {
+            "$ref": "#/components/schemas/SemiAutomaticV7CapabilitiesResponse"
           }
         },
         "required": [
@@ -18736,7 +18752,8 @@
           "recognizerFingerprint",
           "selectionRecognizerVariants",
           "filenameVerificationRecognizerFingerprint",
-          "groupingPolicyFingerprint"
+          "groupingPolicyFingerprint",
+          "v7"
         ],
         "title": "SemiAutomaticSelectionCapabilitiesResponse",
         "type": "object"
@@ -18762,7 +18779,8 @@
             "default": "selection",
             "enum": [
               "selection",
-              "filename_verification"
+              "filename_verification",
+              "v7_selection"
             ],
             "title": "Mode",
             "type": "string"
@@ -18800,6 +18818,16 @@
               }
             ],
             "title": "Uploadid"
+          },
+          "v7": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SemiAutomaticV7SelectionCreate"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -19327,6 +19355,16 @@
             "title": "Updatedat",
             "type": "string"
           },
+          "v7Configuration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SemiAutomaticV7SelectionConfigurationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "workflowMode": {
             "anyOf": [
               {
@@ -19489,9 +19527,213 @@
       "SemiAutomaticSelectionWorkflowMode": {
         "enum": [
           "selection",
-          "filename_verification"
+          "filename_verification",
+          "v7_selection"
         ],
         "title": "SemiAutomaticSelectionWorkflowMode",
+        "type": "string"
+      },
+      "SemiAutomaticV7BorderStyle": {
+        "enum": [
+          "top_and_sides",
+          "full_frame",
+          "irregular_or_none"
+        ],
+        "title": "SemiAutomaticV7BorderStyle",
+        "type": "string"
+      },
+      "SemiAutomaticV7CapabilitiesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activationStatus": {
+            "const": "blocked",
+            "title": "Activationstatus",
+            "type": "string"
+          },
+          "borderStyles": {
+            "items": {
+              "$ref": "#/components/schemas/SemiAutomaticV7BorderStyle"
+            },
+            "title": "Borderstyles",
+            "type": "array"
+          },
+          "configurationVersion": {
+            "const": "v7-selection-configuration-v1",
+            "title": "Configurationversion",
+            "type": "string"
+          },
+          "defaultBorderStyle": {
+            "$ref": "#/components/schemas/SemiAutomaticV7BorderStyle"
+          },
+          "defaultDirection": {
+            "$ref": "#/components/schemas/SemiAutomaticSelectionDirection"
+          },
+          "defaultMode": {
+            "$ref": "#/components/schemas/SemiAutomaticV7SelectionMode"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "startEnabled": {
+            "const": false,
+            "title": "Startenabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "activationStatus",
+          "startEnabled",
+          "reason",
+          "configurationVersion",
+          "defaultMode",
+          "defaultDirection",
+          "defaultBorderStyle",
+          "borderStyles"
+        ],
+        "title": "SemiAutomaticV7CapabilitiesResponse",
+        "type": "object"
+      },
+      "SemiAutomaticV7SelectionConfigurationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "borderStyle": {
+            "$ref": "#/components/schemas/SemiAutomaticV7BorderStyle"
+          },
+          "calibrationFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Calibrationfingerprint",
+            "type": "string"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/SemiAutomaticSelectionDirection"
+          },
+          "firstSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Firstsequencenumber",
+            "type": "integer"
+          },
+          "lastSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Lastsequencenumber",
+            "type": "integer"
+          },
+          "localizerFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Localizerfingerprint",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SemiAutomaticV7SelectionMode"
+          },
+          "version": {
+            "const": "v7-selection-configuration-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "mode",
+          "direction",
+          "firstSequenceNumber",
+          "lastSequenceNumber",
+          "borderStyle",
+          "localizerFingerprint",
+          "calibrationFingerprint"
+        ],
+        "title": "SemiAutomaticV7SelectionConfigurationResponse",
+        "type": "object"
+      },
+      "SemiAutomaticV7SelectionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "borderStyle": {
+            "$ref": "#/components/schemas/SemiAutomaticV7BorderStyle",
+            "default": "top_and_sides"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SemiAutomaticV7SelectionMode",
+            "default": "semi_automatic"
+          }
+        },
+        "title": "SemiAutomaticV7SelectionCreate",
+        "type": "object"
+      },
+      "SemiAutomaticV7SelectionJobConfigurationPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "borderStyle": {
+            "enum": [
+              "top_and_sides",
+              "full_frame",
+              "irregular_or_none"
+            ],
+            "title": "Borderstyle",
+            "type": "string"
+          },
+          "calibrationFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Calibrationfingerprint",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "ascending",
+              "descending"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "firstSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Firstsequencenumber",
+            "type": "integer"
+          },
+          "lastSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Lastsequencenumber",
+            "type": "integer"
+          },
+          "localizerFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Localizerfingerprint",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "semi_automatic",
+              "automatic"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "version": {
+            "const": "v7-selection-configuration-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "mode",
+          "direction",
+          "firstSequenceNumber",
+          "lastSequenceNumber",
+          "borderStyle",
+          "localizerFingerprint",
+          "calibrationFingerprint"
+        ],
+        "title": "SemiAutomaticV7SelectionJobConfigurationPayload",
+        "type": "object"
+      },
+      "SemiAutomaticV7SelectionMode": {
+        "enum": [
+          "semi_automatic",
+          "automatic"
+        ],
+        "title": "SemiAutomaticV7SelectionMode",
         "type": "string"
       },
       "SequenceRangeValueResponse": {

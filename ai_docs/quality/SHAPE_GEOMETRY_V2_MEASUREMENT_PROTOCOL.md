@@ -134,6 +134,21 @@ które go zbudowały. Badana gra nie może znaleźć się na tej liście; narusz
 jest błędem fail-closed, a nie lokalnym fallbackiem. Dla jednego wariantu gry
 wszystkie źródła muszą wskazać tę samą proweniencję profilu.
 
+## Wspólny rdzeń propozycji G02
+
+Moduł `shape_geometry_v2.core` przyjmuje wyłącznie kanoniczną tablicę RGB i
+zwraca propozycję albo `needs_manual_review`; nie ma dostępu do joba, importu,
+bazy, konfiguracji gry ani profilu wspólnego. Neutralny ranking korzysta z
+czterech narożników, pola i kontrastu krawędzi. Pomocnicza miara nasycenia
+ramki jest wyliczana dopiero po tym rankingu, więc sama barwa nie może utworzyć
+propozycji.
+
+Homografia, siatka i komórki używają wspólnego zakresu W−1/H−1. Dowód siatki
+jest liczony osobno dla każdego z dziewięciu slotów; słaby lub brakujący slot,
+pionowe ucięcie albo niejednoznaczny dowód kończy się review z pustą listą
+plansz. Nieistotny kontur poza stroną jest odrzucany lokalnie i nie przerywa
+oceny pozostałych kandydatów.
+
 ## Kolejność operatorska
 
 ```powershell

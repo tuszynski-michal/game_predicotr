@@ -9125,3 +9125,21 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** niepełny dowód zwraca `not_evaluable`; błędny wkład transferowy,
   drift corpusów i mieszanie widoczności kończą się fail-closed. Wyniki
   `confirmation_only` pozostają częścią mianownika automatów.
+
+## D-421 — Rdzeń v2 daje tylko deterministyczną propozycję z dowodem per slot
+
+- **Status:** accepted (TASK-0604/G02).
+- **Date:** 2026-09-21.
+- **Decision:** wspólny rdzeń v2 wykrywa ramkę bez zależności od jej koloru,
+  rektyfikuje ją do W−1/H−1 i wyprowadza dziewięć plansz 3 × 5 wyłącznie po
+  dowodzie każdej lokalnej siatki. Rezultatem jest `proposal` albo
+  `needs_manual_review`, nigdy import albo aktywacja. Kolor ramki jest
+  późniejszą metryką pomocniczą.
+- **Rationale:** różne kolory ramek są użyteczną wskazówką, ale nie mogą
+  zastąpić geometrii. Globalna miara siatki ukrywałaby brak jednej planszy,
+  dlatego kompletność musi być oceniana per slot.
+- **Compatibility:** v1.0, v1.1 i ich moduły nie są modyfikowane. G03 będzie
+  jedynym miejscem późniejszego połączenia propozycji z lokalnym preflightem.
+- **Safety:** pionowe ucięcie, brak slotu, niejednoznaczna orientacja i słaby
+  dowód kończą się review. Nieistotny niejednoznaczny kontur jest pomijany bez
+  przerwania oceny poprawnej strony.

@@ -6,6 +6,18 @@ last_updated: 2026-09-21
 
 # Current State
 
+### TASK-0604 — wspólny deterministyczny rdzeń geometrii shape v2
+
+- Ukończono G02: niezależny od profilu gry rdzeń proponuje ramkę z kształtu i
+  kontrastu, homografię, dziewięć plansz i 135 komórek. Kolor jest wyłącznie
+  późniejszą metryką, a wynik `proposal` nie uruchamia importu.
+- Kontrola siatki wymaga dowodu w każdym slocie. Brak planszy, ucięcie,
+  słaba siatka, niejednoznaczna orientacja lub nieistotny kontur prowadzą do
+  `needs_manual_review` bez geometrii importowej.
+- 28 testów, Ruff i ograniczony mypy przeszły. Astra Medium znalazła P1 i
+  cztery P2; wszystkie poprawiono wraz z regresjami. Końcowy re-audyt nie ma
+  P0–P2 ani P3. Karta zadania zostanie przeniesiona do `completed`.
+
 ### TASK-0603 — eksperyment i kontrakt wejścia geometrii shape v2
 
 - Ukończono G01: schema v1 zachowuje pięć początkowych gier, a jawny schema v2

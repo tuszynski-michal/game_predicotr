@@ -166,6 +166,117 @@ export function addGridGeometryPoint(
   ];
 }
 
+/** Minimum drag size for a board grid to be accepted (width × height in px). */
+export const GRID_DRAG_MIN_SIZE = { width: 80, height: 60 } as const;
+
+/**
+ * Build the four corners of a board grid from a single LT → PD drag.
+ *
+ * The cursor direction relative to the LT → PD diagonal controls the skew of
+ * the resulting quad.  The result is always ordered LT, PT, PD, LD so that
+ * downstream consumers (renderer, preview, backend) stay unchanged.
+ */
+export function dragGeometryCorners(
+  start: OperationalImageReviewGeometryPoint,
+  end: OperationalImageReviewGeometryPoint,
+  cursor: OperationalImageReviewGeometryPoint,
+): OperationalReviewGeometryCorners {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const diagLength = Math.hypot(dx, dy);
+
+  if (diagLength < 1) {
+    // Degenerate drag: return an axis-aligned rectangle from start to end.
+    return [
+      { x: start.x, y: start.y },
+      { x: end.x, y: start.y },
+      { x: end.x, y: end.y },
+      { x: start.x, y: end.y },
+    ];
+  }
+
+  // Unit vector along the LT → PD diagonal and a perpendicular vector.
+  const ex = dx / diagLength;
+  const ey = dy / diagLength;
+  const px = -ey;
+  const py = ex;
+
+  // Angle between the diagonal and the LT → cursor direction, clamped so the
+  // preview never inverts the quad.
+  const cursorDx = cursor.x - start.x;
+  const cursorDy = cursor.y - start.y;
+  const cursorLength = Math.hypot(cursorDx, cursorDy);
+  let skew = 0;
+  if (cursorLength >= 1) {
+    const dot = cursorDx * ex + cursorDy * ey;
+    const cross = cursorDx * px + cursorDy * py;
+    const angle = Math.atan2(cross, dot);
+    const maxAngle = Math.PI / 4;
+    skew = Math.tan(Math.max(-maxAngle, Math.min(maxAngle, angle))) * diagLength * 0.5;
+  }
+
+  // Axis-aligned base corners for an LT → PD box; then shift them along the
+  // diagonal perpendicular to introduce perspective skew.
+  const pt = { x: start.x + dx + px * skew, y: start.y + py * skew };
+  const ld = { x: start.x - px * skew, y: start.y + dy - py * skew };
+
+  return [
+    { x: start.x, y: start.y },
+    pt,
+    { x: end.x, y: end.y },
+    ld,
+  ];
+}
+
+/**
+ * Finalise a drag gesture into a complete grid quad, or return `null` when
+ * the drawn rectangle is too small to be accepted.
+ */
+export function finalizeDragGeometry(
+  start: OperationalImageReviewGeometryPoint,
+  end: OperationalImageReviewGeometryPoint,
+  cursor: OperationalImageReviewGeometryPoint,
+  imageWidth: number,
+  imageHeight: number,
+  allowOutsideSource = false,
+): OperationalReviewGeometryCorners | null {
+  const boundedStart = boundedGridGeometryPoint(
+    start,
+    imageWidth,
+    imageHeight,
+    allowOutsideSource,
+  );
+  const boundedEnd = boundedGridGeometryPoint(
+    end,
+    imageWidth,
+    imageHeight,
+    allowOutsideSource,
+  );
+  const boundedCursor = boundedGridGeometryPoint(
+    cursor,
+    imageWidth,
+    imageHeight,
+    allowOutsideSource,
+  );
+
+  const corners = dragGeometryCorners(boundedStart, boundedEnd, boundedCursor);
+  const minX = Math.min(...corners.map((point) => point.x));
+  const maxX = Math.max(...corners.map((point) => point.x));
+  const minY = Math.min(...corners.map((point) => point.y));
+  const maxY = Math.max(...corners.map((point) => point.y));
+  const width = maxX - minX;
+  const height = maxY - minY;
+
+  if (
+    width < GRID_DRAG_MIN_SIZE.width ||
+    height < GRID_DRAG_MIN_SIZE.height
+  ) {
+    return null;
+  }
+
+  return corners;
+}
+
 export function emptyGridGeometrySourceDrafts(
   items: readonly ImageGridReviewItemResponse[],
 ): GridGeometrySourceDrafts {
@@ -357,7 +468,7 @@ export function moveGridGeometry(
   }));
 }
 
-function boundedGridGeometryPoint(
+export function boundedGridGeometryPoint(
   point: OperationalImageReviewGeometryPoint,
   width: number,
   height: number,

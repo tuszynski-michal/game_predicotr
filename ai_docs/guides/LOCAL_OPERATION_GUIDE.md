@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-09-08
+last_updated: 2026-09-22
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -486,8 +486,15 @@ pozycja tworzy dokładnie 15 cropów albo trwały deferred bez inferencji.
 Po zakończeniu importu wybierz ten sam import w `Zatwierdzaniu plansz`. Licznik
 `Do korekty siatki` prowadzi do osobnego trybu Reviewera. Dla każdej pozycji:
 
-1. ustaw cztery narożniki zewnętrznej siatki symboli 5 × 3,
-2. wygeneruj podgląd wszystkich 15 cropów,
+1. wskaż zewnętrzną siatkę symboli 5 × 3 dwoma kliknięciami:
+   pierwsze kliknięcie ustawia lewy górny narożnik (LT), następnie ruszaj
+   myszką — żywy podgląd 3 × 5 podąża za kursorem — i drugim kliknięciem
+   ustaw prawy dolny narożnik (PD). Escape anuluje rozpoczęte zaznaczenie,
+   a zaznaczenie mniejsze niż 80 × 60 px jest odrzucane.
+2. Jeśli automatyczna siatka wymaga tylko drobnej korekty, kliknij planszę na
+   liście po lewej (wejście w tryb edycji), a potem przeciągnij wybrany narożnik
+   lub środek siatki.
+3. wygeneruj podgląd wszystkich 15 cropów,
 3. zapisz dopiero po sprawdzeniu, że żaden symbol nie jest ucięty ani przesunięty
    do sąsiedniego pola,
 4. wróć do zwykłej kolejki i zatwierdź symbole utworzonej planszy.

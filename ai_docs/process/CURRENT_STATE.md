@@ -6,6 +6,24 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0620 — dwuklikowe wyznaczanie siatki 3 × 5 w Reviewerze
+
+- W edytorze geometrii plansz operator zaznacza każdą planszę dwoma kliknięciami:
+  pierwsze kliknięcie ustawia lewy górny narożnik (LT), kolejne ruchy myszy
+  pokazują żywy podgląd siatki 3 × 5, drugie kliknięcie ustawia prawy dolny
+  narożnik (PD) i zapisuje cztery rogi w kolejności LT, PT, PD, LD.
+- Interakcja jest dwuklikowa (przycisk myszy jest zwolniony między kliknięciami);
+  nie ma fallbacku do starego trybu czterech kliknięć.
+- Aby poprawić istniejącą automatyczną siatkę, operator najpierw klika planszę na
+  liście po lewej (wchodzi w tryb edycji), a potem przeciąga narożniki lub środek.
+- Minimalny rozmiar zaznaczenia: 80 × 60 px; mniejszy prostokąt jest odrzucany.
+- Tryb wsadowy przechodzi do następnej planszy przez istniejący przycisk **Dalej**,
+  bez automatycznego przeskakiwania po zatwierdzeniu siatki.
+- Backendowy kontrakt czterech narożników, model danych i zapisane rewizje
+  pozostają bez zmian; istniejące szkice `localStorage` są kompatybilne.
+- Przeszły testy jednostkowe, interakcyjne, typecheck i lint dla `apps/reviewer`.
+  Karta zadania została przeniesiona do `ai_docs/tasks/completed/`.
+
 ### TASK-0619 — odbiór techniczny V1.2 na Mumii
 
 - Testowa bramka importu V1.2 jest wdrożona, lecz rzeczywisty manifest Mumii

@@ -23,6 +23,8 @@ import {
   useState,
 } from 'react';
 
+import type { OperationalImageReviewGeometryPoint } from '@game-predictor/admin-api-client';
+
 import {
   operationalReviewPointInCanvas,
   operationalReviewPointInLattice,
@@ -36,9 +38,11 @@ import {
   type GridReviewsClient,
 } from './grid-review-actions';
 import {
-  addGridGeometryPoint,
+  boundedGridGeometryPoint,
   completeGridGeometrySourceDrafts,
   currentGridGeometrySourceDrafts,
+  dragGeometryCorners,
+  finalizeDragGeometry,
   firstIncompleteGridGeometrySourceItem,
   GRID_CORNER_LABELS,
   gridGeometryDraftAnchor,
@@ -54,7 +58,6 @@ import {
   requiredGridGeometrySourceDrafts,
   moveGridGeometry,
   moveGridGeometryCorner,
-  nextIncompleteGridGeometrySourceItem,
   replaceGridGeometrySourceDraft,
   type GridGeometryDragTarget,
   type GridGeometryDraft,
@@ -92,6 +95,19 @@ interface ActiveDrag {
   readonly slotId: string;
   readonly sourceWide: boolean;
   readonly target: Exclude<GridGeometryDragTarget, null>;
+}
+
+/**
+ * Two-click drag placement: first click stores LT, subsequent mouse moves draw
+ * a live 3×5 preview, second click finalises PD and commits the four corners.
+ */
+interface ActiveGridDrag {
+  readonly allowOutsideSource?: boolean;
+  readonly imageHeight: number;
+  readonly imageWidth: number;
+  readonly slotId: string;
+  readonly sourceWide: boolean;
+  readonly start: OperationalImageReviewGeometryPoint;
 }
 
 interface GridGeometryItemDraft {
@@ -156,6 +172,9 @@ function GridReviewEditorContent({
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
   const previewUrlsRef = useRef<Set<string>>(new Set());
   const dragRef = useRef<ActiveDrag | null>(null);
+  const gridDragRef = useRef<ActiveGridDrag | null>(null);
+  const [gridDragCursor, setGridDragCursor] =
+    useState<OperationalImageReviewGeometryPoint | null>(null);
   const automaticCorners = useMemo(() => gridReviewCorners(item), [item]);
   const latticeReason = useMemo(() => gridReviewLatticeReason(item), [item]);
   const [draft, setDraft] = useState<GridGeometryItemDraft>(() => ({
@@ -459,15 +478,40 @@ function GridReviewEditorContent({
         selected,
       });
     }
+
+    // Live preview while the operator is placing a grid with two clicks.
+    const placement = gridDragRef.current;
+    const cursor = gridDragCursor;
+    if (placement !== null && cursor !== null) {
+      const previewCorners = dragGeometryCorners(
+        placement.start,
+        cursor,
+        cursor,
+      );
+      drawBoardOverlay(context, {
+        unavailable: [],
+        cellIndex: null,
+        corners: previewCorners,
+        gridColumns: item.gridColumns,
+        gridRows: item.gridRows,
+        label: String(item.positionIndex + 1),
+        selected: true,
+      });
+    }
   }, [
     qualificationFlags,
     allowOutsideSource,
     completeCorners,
     activeDraft,
     item.slotId,
+    item.gridColumns,
+    item.gridRows,
+    item.positionIndex,
     items,
     selectedCellIndex,
     sourceDrafts,
+    gridDragCursor,
+    gridDragRef,
   ]);
 
   useEffect(() => draw(), [draw, loadingSource]);
@@ -490,6 +534,18 @@ function GridReviewEditorContent({
       sourceImageRef.current = null;
     };
   }, [sourceUrl]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && gridDragRef.current !== null) {
+        gridDragRef.current = null;
+        setGridDragCursor(null);
+        setError('');
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const invalidatePreview = useCallback(() => {
     setPreviewKey('');
@@ -579,48 +635,103 @@ function GridReviewEditorContent({
       return;
     const pointer = sourcePoint(event);
     if (pointer === null) return;
+
+    // Second click of a two-click grid placement finalises the grid.
+    const placement = gridDragRef.current;
+    if (placement !== null) {
+      if (placement.slotId !== item.slotId) {
+        gridDragRef.current = null;
+        setGridDragCursor(null);
+        return;
+      }
+      event.preventDefault();
+      const corners = finalizeDragGeometry(
+        placement.start,
+        pointer.point,
+        pointer.point,
+        placement.imageWidth,
+        placement.imageHeight,
+        placement.allowOutsideSource,
+      );
+      gridDragRef.current = null;
+      setGridDragCursor(null);
+      if (corners === null) {
+        setError(
+          'Siatka jest za mała. Przeciągnij dalej lub zacznij od nowa.',
+        );
+        return;
+      }
+      setError('');
+      if (sourceEditing) {
+        replaceSourceItemDraft(item.slotId, corners, automaticCorners);
+      } else {
+        setDraft({ corners, slotId: item.slotId });
+        setEditing(true);
+      }
+      invalidatePreview();
+      return;
+    }
+
     const cornerThreshold = 44 / pointer.scale;
+
+    // Outside any editing mode a click on the canvas immediately starts a fresh
+    // two-click placement for the currently selected board. The operator must
+    // enter editing mode (e.g. by clicking a slot in the list) to adjust an
+    // existing grid by dragging its corners.
     if (!editing && !sourceEditing) {
       if (hasPendingIndividualDraft) return;
-      const selected = gridGeometrySourceItemAtPoint(
-        items,
-        sourceDrafts,
-        item.slotId,
+      event.preventDefault();
+      const allowOutside =
+        outsideSourceOverride ||
+        flags.partial ||
+        qualificationFlags.get(item.slotId)?.partial ||
+        false;
+      gridDragRef.current = {
+        allowOutsideSource: allowOutside,
+        imageHeight: item.sourceHeight,
+        imageWidth: item.sourceWidth,
+        slotId: item.slotId,
+        sourceWide: sourceEditing,
+        start: boundedGridGeometryPoint(
+          pointer.point,
+          item.sourceWidth,
+          item.sourceHeight,
+          allowOutside,
+        ),
+      };
+      setGridDragCursor(pointer.point);
+      return;
+    }
+
+    // An already-complete grid is edited by dragging its corners or body.
+    if (activeDraft.length === 4) {
+      const target = gridGeometryDragTarget(
         activeDraft,
         pointer.point,
         cornerThreshold,
       );
-      if (selected === null) return;
-      const selectedDraft =
-        gridGeometrySourceDraft(sourceDrafts, selected.slotId).length > 0
-          ? gridGeometrySourceDraft(sourceDrafts, selected.slotId)
-          : gridReviewCorners(selected);
-      const target = gridGeometryDragTarget(
-        selectedDraft,
-        pointer.point,
-        cornerThreshold,
-      );
-      beginDirectEditing(selected.slotId);
       if (target !== null) {
         event.preventDefault();
         dragRef.current = {
-          allowOutsideSource:
-            outsideSourceOverride ||
-            qualificationFlags.get(selected.slotId)?.partial,
-          automaticCorners: gridReviewCorners(selected),
-          draft: selectedDraft,
-          imageHeight: selected.sourceHeight,
-          imageWidth: selected.sourceWidth,
+          allowOutsideSource: outsideSourceOverride || flags.partial,
+          automaticCorners,
+          draft: activeDraft,
+          imageHeight: item.sourceHeight,
+          imageWidth: item.sourceWidth,
           lastPoint: pointer.point,
-          slotId: selected.slotId,
-          sourceWide: sourceBatchEnabled,
+          slotId: item.slotId,
+          sourceWide: sourceEditing,
           target,
         };
         event.currentTarget.setPointerCapture(event.pointerId);
       }
       return;
     }
+
+    // First click of a new placement when already editing.
     if (sourceEditing && !sourceRedefining) {
+      // In source editing review mode a click on another board switches to it
+      // instead of starting a new placement.
       const selected = gridGeometrySourceItemAtPoint(
         items,
         sourceDrafts,
@@ -629,37 +740,12 @@ function GridReviewEditorContent({
         pointer.point,
         cornerThreshold,
       );
-      if (selected === null) return;
-      const selectedDraft =
-        gridGeometrySourceDraft(sourceDrafts, selected.slotId).length > 0
-          ? gridGeometrySourceDraft(sourceDrafts, selected.slotId)
-          : gridReviewCorners(selected);
-      const target = gridGeometryDragTarget(
-        selectedDraft,
-        pointer.point,
-        cornerThreshold,
-      );
-      if (target === null) return;
-      if (selected.slotId !== item.slotId) {
+      if (selected !== null && selected.slotId !== item.slotId) {
         onSelect(selected.slotId);
+        return;
       }
-      event.preventDefault();
-      dragRef.current = {
-        allowOutsideSource:
-          outsideSourceOverride ||
-          qualificationFlags.get(selected.slotId)?.partial,
-        automaticCorners: gridReviewCorners(selected),
-        draft: selectedDraft,
-        imageHeight: selected.sourceHeight,
-        imageWidth: selected.sourceWidth,
-        lastPoint: pointer.point,
-        slotId: selected.slotId,
-        sourceWide: true,
-        target,
-      };
-      event.currentTarget.setPointerCapture(event.pointerId);
-      return;
     }
+
     if (sourceEditing && sourceRedefining) {
       const selected = gridGeometrySourceItemAtPoint(
         items,
@@ -674,52 +760,37 @@ function GridReviewEditorContent({
         return;
       }
     }
+
     event.preventDefault();
-    if (activeDraft.length < 4) {
-      const next = addGridGeometryPoint(
-        activeDraft,
+    const allowOutside =
+      outsideSourceOverride ||
+      flags.partial ||
+      qualificationFlags.get(item.slotId)?.partial ||
+      false;
+    gridDragRef.current = {
+      allowOutsideSource: allowOutside,
+      imageHeight: item.sourceHeight,
+      imageWidth: item.sourceWidth,
+      slotId: item.slotId,
+      sourceWide: sourceEditing,
+      start: boundedGridGeometryPoint(
         pointer.point,
         item.sourceWidth,
         item.sourceHeight,
-        outsideSourceOverride || flags.partial,
-      );
-      replaceActiveDraft(next);
-      if (sourceEditing && next.length === 4) {
-        const nextDrafts = replaceGridGeometrySourceDraft(
-          sourceDrafts,
-          item.slotId,
-          next,
-        );
-        const following = nextIncompleteGridGeometrySourceItem(
-          items,
-          nextDrafts,
-          item.slotId,
-        );
-        if (following !== null) onSelect(following.slotId);
-      }
-      return;
-    }
-    const target = gridGeometryDragTarget(
-      activeDraft,
-      pointer.point,
-      cornerThreshold,
-    );
-    if (target === null) return;
-    dragRef.current = {
-      allowOutsideSource: outsideSourceOverride || flags.partial,
-      automaticCorners,
-      draft: activeDraft,
-      imageHeight: item.sourceHeight,
-      imageWidth: item.sourceWidth,
-      lastPoint: pointer.point,
-      slotId: item.slotId,
-      sourceWide: sourceEditing,
-      target,
+        allowOutside,
+      ),
     };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    setGridDragCursor(pointer.point);
   }
 
   function pointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (gridDragRef.current !== null) {
+      const pointer = sourcePoint(event);
+      if (pointer === null) return;
+      setGridDragCursor(pointer.point);
+      return;
+    }
+
     const active = dragRef.current;
     if (active === null) return;
     const pointer = sourcePoint(event);
@@ -754,6 +825,13 @@ function GridReviewEditorContent({
   }
 
   function pointerUp(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (gridDragRef.current !== null) {
+      // Placement is finalised on the second pointerDown, not pointerUp.
+      return;
+    }
+
+    const active = dragRef.current;
+    if (active === null) return;
     pointerMove(event);
     dragRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -1195,14 +1273,15 @@ function GridReviewEditorContent({
         {isEditing ? (
           <div className="gridReviewEditControls">
             <p>
-              {sourceEditing && sourceRedefining
-                ? activeDraft.length < 4
-                  ? `Plansza ${item.positionIndex + 1}/${items.length} · kliknij narożnik ${GRID_CORNER_LABELS[activeDraft.length]} (${activeDraft.length + 1}/4).`
-                  : `Plansza ${item.positionIndex + 1}/${items.length} jest gotowa. Wybierz kolejną albo popraw narożnik.`
-                : activeDraft.length < 4
-                  ? `Kliknij narożnik ${GRID_CORNER_LABELS[activeDraft.length]} (${activeDraft.length + 1}/4).`
-                  : 'Przeciągnij narożnik albo środek wybranej siatki.'}
+              {activeDraft.length < 4
+                ? sourceEditing && sourceRedefining
+                  ? `Plansza ${item.positionIndex + 1}/${items.length} · kliknij lewy górny róg, a następnie prawy dolny. Ruch myszy rysuje podgląd siatki.`
+                  : 'Kliknij lewy górny róg, a następnie prawy dolny. Ruch myszy rysuje podgląd siatki.'
+                : 'Przeciągnij narożnik albo środek wybranej siatki.'}
             </p>
+            {activeDraft.length < 4 ? (
+              <p className="mutedText">Escape anuluje bieżące zaznaczenie.</p>
+            ) : null}
             {sourceEditing ? (
               <p className="mutedText">
                 {sourceRedefining
@@ -1213,13 +1292,20 @@ function GridReviewEditorContent({
             <div>
               <button
                 className="textButton"
-                disabled={activeDraft.length === 0 || saving}
+                disabled={activeDraft.length === 4 || saving}
                 onClick={() => {
-                  replaceActiveDraft(activeDraft.slice(0, -1));
+                  gridDragRef.current = null;
+                  setGridDragCursor(null);
+                  setError('');
+                  if (activeDraft.length > 0 && activeDraft.length < 4) {
+                    replaceActiveDraft([]);
+                  }
                 }}
                 type="button"
               >
-                Cofnij punkt
+                {activeDraft.length === 0
+                  ? 'Anuluj zaznaczenie'
+                  : 'Cofnij punkt'}
               </button>
               <button
                 className="textButton"

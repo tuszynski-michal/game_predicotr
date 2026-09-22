@@ -108,6 +108,10 @@ test('qualification remains dirty when dragged corner returns to baseline; one e
     root.render(React.createElement(GridReviewEditor, props)),
   );
   await dispatch(document.querySelectorAll('input[type=checkbox]')[1], 'click');
+  const slotButton = [...document.querySelectorAll('button')].find((node) =>
+    node.textContent.includes('#1'),
+  );
+  await dispatch(slotButton, 'click');
   const canvas = document.querySelector('canvas');
   await dispatch(canvas, 'pointerdown', { clientX: 5, clientY: 5 });
   await dispatch(canvas, 'pointermove', { clientX: 15, clientY: 5 });
@@ -198,13 +202,17 @@ test('legacy reset remains an individual workflow and does not invoke a source b
       }),
     ),
   );
-  await dispatch(document.querySelector('canvas'), 'pointerdown', {
-    clientX: 5,
-    clientY: 5,
-  });
-  const reset = [...document.querySelectorAll('button')].find((node) =>
+  const canvas = document.querySelector('canvas');
+  await dispatch(canvas, 'pointerdown', { clientX: 5, clientY: 5 });
+  await dispatch(canvas, 'pointermove', { clientX: 50, clientY: 50 });
+  await dispatch(canvas, 'pointerdown', { clientX: 95, clientY: 95 });
+  const buttons = [...document.querySelectorAll('button')];
+  const reset = buttons.find((node) =>
     node.textContent.includes('Resetuj do automatu'),
   );
+  if (!reset) {
+    console.log('Buttons:', buttons.map((b) => b.textContent));
+  }
   await dispatch(reset, 'click');
   let result;
   await act(async () => {

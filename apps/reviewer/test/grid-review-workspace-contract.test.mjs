@@ -95,11 +95,13 @@ test('grid workspace groups active slots by source and guards whole-image action
 });
 
 test('editor overlays every active slot and supports bounded A/B correction without overlay files', () => {
-  assert.match(editor, /GRID_CORNER_LABELS\[activeDraft\.length\]/);
+  assert.match(editor, /dragGeometryCorners/);
+  assert.match(editor, /finalizeDragGeometry/);
   assert.match(editor, /onPointerDown=\{pointerDown\}/);
   assert.match(editor, /moveGridGeometryCorner/);
   assert.match(editor, /moveGridGeometry/);
-  assert.match(editor, /Cofnij punkt/);
+  assert.match(editor, /Kliknij lewy górny róg, a następnie prawy dolny/);
+  assert.match(editor, /Anuluj zaznaczenie/);
   assert.match(editor, /Resetuj do automatu/);
   assert.match(editor, /items\.map/);
   assert.match(editor, /positionIndex \+ 1/);
@@ -116,8 +118,9 @@ test('editor overlays every active slot and supports bounded A/B correction with
     /manualGridFlagsFromQualification\(candidate\.geometryQualification\)/,
   );
   assert.match(editor, /beginDirectEditing/);
-  assert.match(editor, /sourceWide: sourceBatchEnabled/);
-  assert.match(editor, /draft: selectedDraft/);
+  assert.match(editor, /sourceWide: sourceEditing/);
+  assert.match(editor, /interface ActiveGridDrag/);
+  assert.match(editor, /gridDragRef/);
   assert.match(editor, /hasPendingIndividualDraft/);
   assert.match(editor, /showDraftReview/);
   assert.doesNotMatch(editor, /Zmień siatkę/);

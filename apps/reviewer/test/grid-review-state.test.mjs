@@ -5,7 +5,9 @@ import {
   addGridGeometryPoint,
   completeGridGeometrySourceDrafts,
   currentGridGeometrySourceDrafts,
+  dragGeometryCorners,
   emptyGridGeometrySourceDrafts,
+  finalizeDragGeometry,
   firstIncompleteGridGeometrySourceItem,
   GRID_CORNER_LABELS,
   gridGeometryDraftAnchor,
@@ -649,4 +651,57 @@ test('canvas hit testing includes a corner handle slightly outside the quad', ()
     ),
     null,
   );
+});
+
+test('drag geometry produces four corners in LT PT PD LD order', () => {
+  const start = { x: 10, y: 20 };
+  const end = { x: 110, y: 90 };
+  const cursor = { x: 115, y: 85 };
+
+  const corners = dragGeometryCorners(start, end, cursor);
+
+  assert.equal(corners.length, 4);
+  assert.deepEqual(corners[0], start);
+  assert.deepEqual(corners[2], end);
+  assert.equal(corners[1].x > start.x, true);
+  assert.equal(corners[1].y < end.y, true);
+  assert.equal(corners[3].x < end.x, true);
+  assert.equal(corners[3].y > start.y, true);
+});
+
+test('axis-aligned drag keeps PT and LD aligned with start axes', () => {
+  const start = { x: 10, y: 20 };
+  const end = { x: 110, y: 90 };
+  const cursor = { x: 60, y: 55 }; // roughly on the diagonal
+
+  const corners = dragGeometryCorners(start, end, cursor);
+
+  assert.deepEqual(corners[0], start);
+  assert.deepEqual(corners[2], end);
+  assert.equal(Math.round(corners[1].x), end.x);
+  assert.equal(Math.round(corners[1].y), start.y);
+  assert.equal(Math.round(corners[3].x), start.x);
+  assert.equal(Math.round(corners[3].y), end.y);
+});
+
+test('finalize drag geometry rejects rectangles below minimum size', () => {
+  const start = { x: 10, y: 20 };
+  const end = { x: 30, y: 40 };
+
+  assert.equal(
+    finalizeDragGeometry(start, end, end, 200, 200),
+    null,
+  );
+});
+
+test('finalize drag geometry accepts rectangles above minimum size', () => {
+  const start = { x: 10, y: 20 };
+  const end = { x: 110, y: 90 };
+
+  const corners = finalizeDragGeometry(start, end, end, 200, 200);
+
+  assert.notEqual(corners, null);
+  assert.equal(corners.length, 4);
+  assert.deepEqual(corners[0], start);
+  assert.deepEqual(corners[2], end);
 });

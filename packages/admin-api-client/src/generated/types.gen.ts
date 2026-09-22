@@ -9230,6 +9230,10 @@ export type ResolvedBrowserImageImportJobPayload = {
    * Canonicalsequencenumbers
    */
   canonicalSequenceNumbers?: Array<number>;
+  /**
+   * Geometryenginevariant
+   */
+  geometryEngineVariant?: 'contrast_frame_grid_v1_2' | null;
   geometryGuardResolutionManifest?: ImageGeometryGuardResolutionManifestJobPayload | null;
   geometrySystemicGuardPolicy: ImageGeometrySystemicGuardPolicyJobPayload;
   gridProfile: GridProfileJobSnapshotPayload;

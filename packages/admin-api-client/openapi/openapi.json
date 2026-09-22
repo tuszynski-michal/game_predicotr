@@ -16694,6 +16694,18 @@
             "title": "Canonicalsequencenumbers",
             "type": "array"
           },
+          "geometryEngineVariant": {
+            "anyOf": [
+              {
+                "const": "contrast_frame_grid_v1_2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryenginevariant"
+          },
           "geometryGuardResolutionManifest": {
             "anyOf": [
               {

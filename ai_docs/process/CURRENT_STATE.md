@@ -6,6 +6,15 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0618 — import V1.2 po kompletnym preflighcie
+
+- Jawny V1.2 może uruchomić przeglądarkowy import dopiero po ukończonym,
+  zgodnym preflighcie bez nierozstrzygniętych importowanych źródeł.
+- Worker bierze finalne granice pól z `symbolGridQuads`; zewnętrzne
+  `boardFrameQuads` służą do kontroli. Brak pary nie uruchamia V1.1.
+- V1.1 pozostaje domyślny. Managed reprocess V1.2 nadal jest zamknięty;
+  następny TASK-0619 dotyczy odbioru technicznego i dokumentacji.
+
 ### TASK-0617 — kwalifikowane próbki profilu V1.2
 
 - Zwykły profil V1.2 pomija źródła z choć jedną niepełną albo wyłączoną planszą. Jawnie dopuszczona niepełna plansza pozostaje jedynie w istniejącej oddzielnej puli nauki częściowych siatek.

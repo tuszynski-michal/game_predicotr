@@ -1319,6 +1319,85 @@ def test_structured_v2_binds_registered_preflight_quads_to_the_source(
     )
 
 
+@pytest.mark.parametrize("count", (9, 5))
+def test_v12_production_detection_uses_pinned_symbol_grid_without_red_registration(
+    tmp_path: Path, count: int
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _ = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    frames = _grid_quads()[:count]
+    grids = [
+        [
+            {"x": quad[0]["x"] + 8, "y": quad[0]["y"] + 10},
+            {"x": quad[1]["x"] - 6, "y": quad[1]["y"] + 10},
+            {"x": quad[2]["x"] - 6, "y": quad[2]["y"] - 4},
+            {"x": quad[3]["x"] + 8, "y": quad[3]["y"] - 4},
+        ]
+        for quad in frames
+    ]
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        board_cell_processing=board_cell_processing_snapshot(
+            cell_output_size=32,
+            topology=BoardCellTopology(
+                rows=3, columns=5, rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04"
+            ),
+        ),
+        page_geometry_manifest={
+            checksum: {
+                "status": "registered",
+                "registrationVersion": "contrast-frame-grid-v1.2",
+                "imageWidth": 680,
+                "imageHeight": 640,
+                "quads": frames,
+                "boardFrameQuads": frames,
+                "symbolGridQuads": grids,
+            }
+        },
+        geometry_rollout=_structured_default_pinned_preflight_rollout(),
+        geometry_engine_variant="contrast_frame_grid_v1_2",
+    )
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "f" * 64,
+        "source_checksum_sha256": checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, count),
+    }
+    normalized = dict(suite.normalization(ImageStageContext(**base, previous_results={})))
+    detection = suite.board_detection(
+        ImageStageContext(**base, previous_results={"normalization": normalized})
+    )
+    boards = detection["structuredGeometry"]["boards"]
+    assert len(boards) == count
+    assert [board["finalQuad"] for board in boards] == grids
+    assert [board["boardFrameQuad"] for board in boards] == frames
+    assert all(board["disposition"] == "automatic" for board in boards)
+    geometry = suite.board_cell_geometry(
+        ImageStageContext(
+            **base,
+            previous_results={"normalization": normalized, "board_detection": detection},
+        )
+    )
+    crops = suite.board_crops(
+        ImageStageContext(
+            **base,
+            previous_results={
+                "normalization": normalized,
+                "board_detection": detection,
+                "board_cell_geometry": geometry,
+            },
+        )
+    )
+    assert len(crops["boards"]) == count
+    assert all(len(board["cells"]) == 15 for board in crops["boards"])
+
+
 def _structured_shadow_candidate_rollout() -> GeometryPipelineRolloutSnapshot:
     return GeometryPipelineRolloutSnapshot(
         geometry_mode=GeometryRolloutMode.STRUCTURED_SHADOW,

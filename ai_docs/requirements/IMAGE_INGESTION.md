@@ -8,11 +8,17 @@ last_updated: 2026-09-22
 
 ## Testowy silnik geometrii V1.2 — TASK-0613
 
-`contrast_frame_grid_v1_2` jest wyłącznie jawnym, testowym wyborem preflightu
-przeglądarkowego stagingu. Nie zmienia domyślnego V1.1, historycznych jobów ani
-wyników. V1.2 nie uruchamia importu plansz: panel pokazuje jego geometrię do
-oceny operatora, a API blokuje stworzenie importu lub reprocessu w tym
-wariancie do osobnej decyzji odbiorowej.
+`contrast_frame_grid_v1_2` jest jawnym, testowym wyborem preflightu i
+przeglądarkowego importu. Nie zmienia domyślnego V1.1, historycznych jobów ani
+wyników. Operator wykonuje preflight, poprawia nierozstrzygnięte strony,
+uruchamia nowy preflight i dopiero wtedy wybiera Import. API wymaga kompletnego,
+checksummowanego manifestu V1.2 dla wszystkich niewyłączonych, importowanych
+źródeł. Sam preflight nie tworzy wycinków. Managed reprocess V1.2 pozostaje
+zamknięty; zwykłe ponowienie istniejącego joba zachowuje jego przypięte dane.
+
+Podczas importu `boardFrameQuads` potwierdza lokalizację plansz, a pola symboli
+powstają wyłącznie z `symbolGridQuads`. Brak pary, sprzeczna geometria lub
+niezgodny manifest blokują start albo wykonanie, bez cichego użycia V1.1.
 
 Ręczna korekta V1.2 potwierdza dwa osobne, kompletne układy dziewięciu
 czworokątów: zewnętrzne `boardFrameQuads` oraz wewnętrzne

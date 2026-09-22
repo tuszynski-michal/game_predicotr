@@ -545,6 +545,196 @@ class _ColdStartSymbolModelResolver(_UnavailableSymbolModelResolver):
         return cold_start_unclassified_symbol_snapshot(("CYTRYNA", "WISNIA"))
 
 
+def test_v12_browser_import_waits_for_registered_inner_grids(tmp_path: Path) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service, tmp_path / "imports", max_bytes=10 * 1024 * 1024, clock=lambda: NOW
+    )
+    job_service = JobService(repository, artifact_root=tmp_path / "artifacts")
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {
+                    "GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts"),
+                    "GAME_PREDICTOR_IMPORT_ROOT": str(tmp_path / "imports"),
+                }
+            ),
+            job_service_dependency=lambda: job_service,
+            image_folder_selection_service_dependency=lambda: selection_service,
+            browser_image_selection_service_dependency=lambda: browser_service,
+            image_sequence_canonical_service_dependency=lambda: ImageSequenceCanonicalService(
+                _BrowserCanonicalRepository()
+            ),
+            page_geometry_override_service_dependency=lambda: None,
+        )
+    )
+    stream = BytesIO()
+    Image.new("RGB", (400, 300), (80, 120, 160)).save(stream, "JPEG")
+    content = stream.getvalue()
+    variant = GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2.value
+    with client:
+        created = client.post(
+            "/api/v1/admin/image-imports/browser-selections",
+            json={
+                "displayName": "Mumie",
+                "expectedFileCount": 1,
+                "expectedTotalBytes": len(content),
+                "gameId": str(game_id),
+            },
+        )
+        assert created.status_code == 201
+        upload_id = created.json()["uploadId"]
+        uploaded = client.put(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/files/0",
+            content=content,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Image-Relative-Path": "seq_1-9.jpg",
+            },
+        )
+        assert uploaded.status_code == 200
+        assert (
+            client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize"
+            ).status_code
+            == 200
+        )
+        report = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight",
+            json={"gameId": str(game_id), "geometryEngineVariant": variant},
+        ).json()
+        start_payload = {
+            "gameId": str(game_id),
+            "geometryEngineVariant": variant,
+            "manifestChecksumSha256": report["manifestChecksumSha256"],
+            "preflightChecksumSha256": report["preflightChecksumSha256"],
+        }
+        blocked = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json=start_payload,
+        )
+        assert blocked.status_code == 409
+        assert blocked.json()["code"] == "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED"
+
+        started = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight",
+            json={"gameId": str(game_id), "geometryEngineVariant": variant},
+        )
+        assert started.status_code == 201, started.text
+        geometry_job = repository.get_job(UUID(started.json()["job"]["id"]))
+        assert geometry_job is not None
+        frames, grids = [], []
+        for index in range(9):
+            x, y = 20 + index % 3 * 120, 20 + index // 3 * 90
+            frames.append(
+                [
+                    {"x": x, "y": y},
+                    {"x": x + 100, "y": y},
+                    {"x": x + 100, "y": y + 70},
+                    {"x": x, "y": y + 70},
+                ]
+            )
+            grids.append(
+                [
+                    {"x": x + 8, "y": y + 12},
+                    {"x": x + 94, "y": y + 12},
+                    {"x": x + 94, "y": y + 66},
+                    {"x": x + 8, "y": y + 66},
+                ]
+            )
+        source_checksum = hashlib.sha256(content).hexdigest()
+        manifest = {
+            "schemaVersion": 4,
+            "version": "page-geometry-preflight-v12-contrast-frame-grid",
+            "gameId": str(game_id),
+            "sourceSelectionId": upload_id,
+            "sourceManifestChecksumSha256": report["manifestChecksumSha256"],
+            "contrastFrameGridV12Profile": geometry_job.input_payload[
+                "contrast_frame_grid_v12_profile"
+            ],
+            "sourceCount": 1,
+            "registeredSourceCount": 1,
+            "reviewRequiredSourceCount": 0,
+            "skippedHumanResolvedSourceCount": 0,
+            "entries": {
+                source_checksum: {
+                    "status": "registered",
+                    "sourceRelativePath": "seq_1-9.jpg",
+                    "imageWidth": 400,
+                    "imageHeight": 300,
+                    "registrationVersion": "contrast-frame-grid-v1.2",
+                    "quads": frames,
+                    "boardFrameQuads": frames,
+                    "symbolGridQuads": grids,
+                }
+            },
+        }
+        manifest_bytes = json.dumps(manifest, sort_keys=True).encode()
+        checksum = hashlib.sha256(manifest_bytes).hexdigest()
+        path = tmp_path / "artifacts" / "data" / f"{checksum}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(manifest_bytes)
+        lease_token = uuid4()
+        geometry_job = start_job(
+            geometry_job,
+            worker_version="test-worker",
+            worker_id="test-worker",
+            lease_token=lease_token,
+            lease_expires_at=NOW + timedelta(minutes=5),
+            started_at=NOW,
+        )
+        geometry_job = checkpoint_job(
+            geometry_job,
+            lease_token=lease_token,
+            checkpoint_payload={
+                "schema_version": 1,
+                "complete": True,
+                "geometry_manifest_checksum_sha256": checksum,
+                "geometry_manifest_relative_path": f"data/{checksum}.json",
+                "review_required_source_count": 0,
+            },
+            stage="page_geometry_manifest_ready",
+            current=1,
+            total=1,
+            success_count=1,
+            failure_count=0,
+            review_count=0,
+            updated_at=NOW + timedelta(seconds=1),
+        )
+        repository.add_job(
+            complete_job(
+                geometry_job, lease_token=lease_token, finished_at=NOW + timedelta(seconds=2)
+            )
+        )
+        ready = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight",
+            json={"gameId": str(game_id), "geometryEngineVariant": variant},
+        ).json()
+        assert ready["geometryPreflightArtifactReady"] is True
+        ready_payload = {
+            **start_payload,
+            "geometryPreflightJobId": str(geometry_job.id),
+            "geometryManifestChecksumSha256": checksum,
+        }
+        started_import = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json=ready_payload,
+        )
+        assert started_import.status_code == 201, started_import.text
+        assert started_import.json()["created"] is True
+        assert started_import.json()["job"]["inputPayload"]["geometryEngineVariant"] == variant
+        repeated = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json=ready_payload,
+        )
+        assert repeated.status_code == 201, repeated.text
+        assert repeated.json()["created"] is False
+        assert repeated.json()["job"]["id"] == started_import.json()["job"]["id"]
+        assert not tuple((tmp_path / "artifacts").rglob("*cell*.png"))
+
+
 def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     tmp_path: Path,
 ) -> None:
@@ -1651,13 +1841,7 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
         for row in range(3)
         for column in range(3)
     ]
-    frames = [
-        [
-            {"x": point["x"] - 2, "y": point["y"] - 2}
-            for point in quad
-        ]
-        for quad in quads
-    ]
+    frames = [[{"x": point["x"] - 2, "y": point["y"] - 2} for point in quad] for quad in quads]
     manifest = {
         "entries": {
             manual_source_checksum: {

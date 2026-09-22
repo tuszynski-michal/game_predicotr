@@ -810,6 +810,92 @@ def test_v12_preflight_pins_only_the_same_game_frame_grid_profile(tmp_path: Path
     assert second.input_payload["contrast_frame_grid_v12_profile"] != profile
 
 
+def test_v12_import_requires_same_completed_immutable_preflight(tmp_path: Path) -> None:
+    game_id, selection_id = uuid4(), uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository, artifact_root=tmp_path)
+    preflight = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=tmp_path,
+        source_display_name="Mumie",
+        source_manifest_sha256="a" * 64,
+        geometry_engine_variant=GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2,
+    )
+    manifest = {
+        "schemaVersion": 4,
+        "version": "page-geometry-preflight-v12-contrast-frame-grid",
+        "gameId": str(game_id),
+        "sourceSelectionId": str(selection_id),
+        "sourceManifestChecksumSha256": "a" * 64,
+        "contrastFrameGridV12Profile": preflight.input_payload["contrast_frame_grid_v12_profile"],
+        "sourceCount": 1,
+        "registeredSourceCount": 1,
+        "reviewRequiredSourceCount": 0,
+        "skippedHumanResolvedSourceCount": 0,
+        "entries": {"b" * 64: {"status": "registered"}},
+    }
+    path = tmp_path / "data" / "v12.json"
+    path.parent.mkdir()
+    content = json.dumps(manifest).encode("utf-8")
+    path.write_bytes(content)
+    descriptor = {
+        "preflightJobId": str(preflight.id),
+        "relativePath": "data/v12.json",
+        "checksumSha256": hashlib.sha256(content).hexdigest(),
+    }
+    repository.items[preflight.id] = replace(
+        preflight,
+        status=JobStatus.COMPLETED,
+        checkpoint_payload={
+            "complete": True,
+            "geometry_manifest_relative_path": descriptor["relativePath"],
+            "geometry_manifest_checksum_sha256": descriptor["checksumSha256"],
+        },
+    )
+    kwargs = {
+        "game_id": game_id,
+        "selection_id": selection_id,
+        "source_manifest_sha256": "a" * 64,
+    }
+    service._require_v12_preflight(descriptor, **kwargs)
+    unresolved = {
+        **manifest,
+        "registeredSourceCount": 0,
+        "reviewRequiredSourceCount": 1,
+        "entries": {"b" * 64: {"status": "review_required"}},
+    }
+    unresolved_content = json.dumps(unresolved).encode("utf-8")
+    unresolved_checksum = hashlib.sha256(unresolved_content).hexdigest()
+    path.write_bytes(unresolved_content)
+    unresolved_descriptor = {**descriptor, "checksumSha256": unresolved_checksum}
+    repository.items[preflight.id] = replace(
+        repository.items[preflight.id],
+        checkpoint_payload={
+            **repository.items[preflight.id].checkpoint_payload,
+            "geometry_manifest_checksum_sha256": unresolved_checksum,
+        },
+    )
+    with pytest.raises(JobConflictError) as review_required:
+        service._require_v12_preflight(unresolved_descriptor, **kwargs)
+    assert review_required.value.code == "IMAGE_CONTRAST_FRAME_GRID_PREFLIGHT_INVALID"
+    path.write_bytes(content)
+    repository.items[preflight.id] = replace(
+        repository.items[preflight.id],
+        checkpoint_payload={
+            **repository.items[preflight.id].checkpoint_payload,
+            "geometry_manifest_checksum_sha256": descriptor["checksumSha256"],
+        },
+    )
+    with pytest.raises(JobConflictError) as mismatched_source:
+        service._require_v12_preflight(descriptor, **{**kwargs, "source_manifest_sha256": "c" * 64})
+    assert mismatched_source.value.code == "IMAGE_CONTRAST_FRAME_GRID_PREFLIGHT_INVALID"
+    path.write_bytes(content + b" ")
+    with pytest.raises(JobConflictError) as changed_artifact:
+        service._require_v12_preflight(descriptor, **kwargs)
+    assert changed_artifact.value.code == "IMAGE_CONTRAST_FRAME_GRID_PREFLIGHT_INVALID"
+
+
 def test_page_geometry_preflight_pins_active_shape_profile_in_request_identity(
     tmp_path: Path,
 ) -> None:

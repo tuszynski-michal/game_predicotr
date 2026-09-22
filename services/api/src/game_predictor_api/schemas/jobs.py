@@ -355,6 +355,7 @@ class ResolvedBrowserImageImportJobPayload(ApiModel):
     normalization_adapter_version: str | None = Field(default=None, max_length=150)
     source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_exclusions: dict[str, dict[str, str]] = Field(default_factory=dict)
+    geometry_engine_variant: Literal["contrast_frame_grid_v1_2"] | None = None
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
     start_mode: Literal["reuse_exact", "rerun_current_models"]
     previous_job_id: UUID | None = None
@@ -558,9 +559,7 @@ class PageGeometryPreflightJobPayload(ApiModel):
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
     base_page_geometry_manifest: BasePageGeometryManifestPayload | None = None
     replacement_parent_upload_id: UUID | None = None
-    replacement_parent_manifest_sha256: str | None = Field(
-        default=None, pattern=r"^[0-9a-f]{64}$"
-    )
+    replacement_parent_manifest_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class ImageGeometryGuardReportReconstructionJobPayload(ApiModel):

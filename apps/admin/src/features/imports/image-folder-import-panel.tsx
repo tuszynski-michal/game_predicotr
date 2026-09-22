@@ -462,7 +462,6 @@ export function ImageFolderImportPanel({
   );
   const readyImportStartAllowed =
     preflight !== null &&
-    geometryEngineVariant !== CONTRAST_FRAME_GRID_V12_VARIANT &&
     !readySelections.some(
       (selection) =>
         selection.uploadId === preflight.uploadId &&
@@ -1821,9 +1820,9 @@ export function ImageFolderImportPanel({
                   preflight?.geometryEngineVariant ===
                     CONTRAST_FRAME_GRID_V12_VARIANT ? (
                     <p className="curatedImportStatus" role="status">
-                      V1.2 przygotowuje wyłącznie geometrię do Twojej oceny.
-                      Start importu pozostaje zablokowany do osobnej decyzji
-                      odbiorowej.
+                      V1.2: po ukończonym preflighcie wszystkich importowanych
+                      zdjęć możesz uruchomić Import. Dopiero import tworzy
+                      wycinki plansz i pól symboli.
                     </p>
                   ) : null}
                   {active && foreignGeometryGuardJob !== null ? (

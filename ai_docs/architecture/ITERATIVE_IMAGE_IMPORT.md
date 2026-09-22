@@ -28,9 +28,13 @@ zawiera zarówno `boardFrameQuads`, jak i `symbolGridQuads`; każdy brak dowodu
 daje `review_required`.
 
 V1.2 nie używa manifestu bazowego ani polityki bocznych plansz, przez co nie
-łączy się z v1.0/v1.1. Manifest V1.2 ma osobny schema version 4. Jego endpoint
-startu importu i managed reprocess są celowo zamknięte: wariant służy tylko do
-oceny wizualnej w Adminie do chwili osobnego odbioru.
+łączy się z v1.0/v1.1. Manifest V1.2 ma osobny schema version 4. Start
+przeglądarkowego importu sprawdza zgodność preflightu, manifestu, profilu,
+źródeł i par ramek/siatek. Pinned `geometry_engine_variant` prowadzi worker
+do `symbolGridQuads` jako finalnych granic 3 × 5, zachowując `boardFrameQuads`
+jako dowód położenia. Brak pary kończy się błędem, bez fallbacku do V1.1.
+Start tego samego importu po utraconej odpowiedzi zwraca istniejący job.
+Managed reprocess V1.2 pozostaje zamknięty do osobnego kontraktu.
 
 ## Rewizja zdjęcia źródłowego przed importem — TASK-0570
 

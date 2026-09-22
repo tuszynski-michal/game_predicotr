@@ -515,6 +515,9 @@ class ProductionImageImportWorkflow:
                 geometry_rollout=_geometry_rollout_snapshot(job),
                 game_id=job.game_id,
                 normalization_adapter_version=_normalization_adapter_version(job),
+                geometry_engine_variant=cast(
+                    str | None, job.input_payload.get("geometry_engine_variant")
+                ),
             )
             geometry_guard = run_large_import_geometry_guard(
                 artifact_root=self._artifact_root,
@@ -541,6 +544,9 @@ class ProductionImageImportWorkflow:
                     geometry_rollout=_geometry_rollout_snapshot(job),
                     game_id=job.game_id,
                     normalization_adapter_version=_normalization_adapter_version(job),
+                    geometry_engine_variant=cast(
+                        str | None, job.input_payload.get("geometry_engine_variant")
+                    ),
                     geometry_guard_resolutions=geometry_guard_resolutions,
                 )
                 geometry_guard_resolution = validate_large_import_geometry_guard_resolutions(
@@ -610,6 +616,9 @@ class ProductionImageImportWorkflow:
             geometry_rollout=_geometry_rollout_snapshot(job),
             game_id=job.game_id,
             normalization_adapter_version=_normalization_adapter_version(job),
+            geometry_engine_variant=cast(
+                str | None, job.input_payload.get("geometry_engine_variant")
+            ),
             geometry_guard_resolutions=geometry_guard_resolutions,
             board_cell_geometry_deferred_writer=(
                 self._board_cell_geometry_deferred_writer
@@ -852,6 +861,7 @@ class ProductionImageStageAdapterSuite:
         game_id: UUID | None = None,
         geometry_guard_resolutions: GeometryGuardResolutionSet | None = None,
         manual_geometry_import: bool = False,
+        geometry_engine_variant: str | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
@@ -884,6 +894,7 @@ class ProductionImageStageAdapterSuite:
         self._game_id = game_id
         self._geometry_guard_resolutions = geometry_guard_resolutions
         self._manual_geometry_import = manual_geometry_import
+        self._geometry_engine_variant = geometry_engine_variant
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
         # ``seq_*`` import.  Loading the fallback registration anchors in that
@@ -1931,6 +1942,36 @@ class ProductionImageStageAdapterSuite:
             end=context.attested_sequence_range[1],
         )
         manual_entry = self._page_geometry_manifest.get(context.source_checksum_sha256)
+        if self._geometry_engine_variant == "contrast_frame_grid_v1_2":
+            from .qualified_manual_geometry import apply_v12_page_geometry
+
+            if not isinstance(manual_entry, Mapping):
+                raise ImagePipelineExecutionError(
+                    "IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW",
+                    "The V1.2 import has no pinned frame/grid pair for this source.",
+                )
+            base = manual_source_geometry_result(
+                StructuredGeometryInitializationRequest.for_frame(
+                    frame,
+                    topology=topology,
+                    topology_rules_version_id=UUID(self._board_topology.rules_version_id),
+                    attested_range=attested,
+                )
+            ).to_payload()
+            base["rolloutMode"] = self._geometry_rollout.geometry_mode.value
+            return (
+                apply_v12_page_geometry(
+                    base,
+                    manual_entry,
+                    width=frame.source.width,
+                    height=frame.source.height,
+                    start=attested.start,
+                    count=attested.board_count,
+                    topology=topology,
+                ),
+                None,
+                None,
+            )
         if isinstance(manual_entry, Mapping) and "slotQualifications" in manual_entry:
             from .qualified_manual_geometry import apply_qualified_page_override
 
@@ -3103,6 +3144,32 @@ def _page_geometry_manifest(
     entries = value.get("entries")
     if not isinstance(entries, Mapping):
         raise _page_manifest_error(job, "The pinned page geometry manifest has no source entries.")
+    if job.input_payload.get("geometry_engine_variant") == "contrast_frame_grid_v1_2":
+        from .page_geometry_preflight import (
+            PAGE_GEOMETRY_MANIFEST_CONTRAST_FRAME_V12_SCHEMA_VERSION,
+            PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION,
+        )
+
+        originals = () if managed_manifest is None else managed_manifest.originals
+        expected = {item.checksum_sha256: item.source_relative_path for item in originals}
+        if (
+            managed_manifest is None
+            or value.get("schemaVersion")
+            != PAGE_GEOMETRY_MANIFEST_CONTRAST_FRAME_V12_SCHEMA_VERSION
+            or value.get("version") != PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION
+            or value.get("gameId") != str(job.game_id)
+            or value.get("sourceSelectionId") != job.input_payload.get("source_selection_id")
+            or value.get("sourceManifestChecksumSha256")
+            != job.input_payload.get("source_manifest_sha256")
+            or len(expected) != len(originals)
+            or set(entries) != set(expected)
+            or any(
+                not isinstance(entries[key], Mapping)
+                or entries[key].get("sourceRelativePath") != relative
+                for key, relative in expected.items()
+            )
+        ):
+            raise _page_manifest_error(job, "The V1.2 manifest does not match managed originals.")
     rollout = _geometry_rollout_snapshot(job)
     if rollout.lateral_partial_geometry is not None:
         from .lateral_partial_artifact import require_lateral_manifest

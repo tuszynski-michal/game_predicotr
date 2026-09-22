@@ -767,7 +767,11 @@ def create_image_imports_router(
         existing_staging_import = job_service.get_image_import_by_source_selection(
             game_id=payload.game_id, source_selection_id=upload_id
         )
-        if existing_staging_import is not None:
+        if (
+            existing_staging_import is not None
+            and payload.geometry_engine_variant
+            is not GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2
+        ):
             return BrowserImageImportStartResponse(
                 created=False,
                 job=JobResponse.from_domain(existing_staging_import),
@@ -936,6 +940,94 @@ def create_image_imports_router(
                     "IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED",
                     "The page geometry preflight requires manual correction before import.",
                 )
+            if payload.geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
+                from game_predictor_worker.images.pipeline_execution import (
+                    ImagePipelineExecutionError,
+                )
+                from game_predictor_worker.images.qualified_manual_geometry import (
+                    apply_v12_page_geometry,
+                )
+
+                from game_predictor_api.domain.board_topology import BoardTopology
+
+                entries = cast(dict[str, object], geometry_manifest_contents["entries"])
+                expected_sources = {
+                    item.checksum_sha256: item
+                    for item in ready.manifest.files
+                    if item.checksum_sha256 not in source_exclusions
+                }
+                expected = set(expected_sources)
+                if (
+                    geometry_manifest_contents.get("schemaVersion") != 4
+                    or geometry_manifest_contents.get("version")
+                    != "page-geometry-preflight-v12-contrast-frame-grid"
+                    or set(entries) != expected
+                    or any(
+                        not isinstance(entries.get(checksum), dict)
+                        or cast(dict[str, object], entries[checksum]).get("status")
+                        not in {"registered", "skipped_human_resolved"}
+                        for checksum in expected
+                    )
+                ):
+                    raise JobConflictError(
+                        "IMAGE_CONTRAST_FRAME_GRID_PREFLIGHT_INVALID",
+                        "Every imported V1.2 source needs registered geometry in this staging.",
+                    )
+                for checksum, item in expected_sources.items():
+                    entry = cast(dict[str, object], entries[checksum])
+                    if entry.get("status") == "skipped_human_resolved":
+                        continue
+                    sequence_range = item.sequence_range
+                    width, height = entry.get("imageWidth"), entry.get("imageHeight")
+                    if (
+                        entry.get("sourceRelativePath") != item.relative_path
+                        or sequence_range is None
+                        or type(width) is not int
+                        or type(height) is not int
+                        or width <= 0
+                        or height <= 0
+                    ):
+                        raise JobConflictError(
+                            "IMAGE_CONTRAST_FRAME_GRID_PREFLIGHT_INVALID",
+                            "The V1.2 source has no attested range or image dimensions.",
+                        )
+                    try:
+                        apply_v12_page_geometry(
+                            {},
+                            entry,
+                            width=width,
+                            height=height,
+                            start=sequence_range[0],
+                            count=sequence_range[1] - sequence_range[0] + 1,
+                            topology=BoardTopology(rows=3, columns=5),
+                        )
+                    except (ImagePipelineExecutionError, ValueError) as error:
+                        raise JobConflictError(
+                            "IMAGE_CONTRAST_FRAME_GRID_PREFLIGHT_INVALID", str(error)
+                        ) from error
+                same_run = job_service.get_image_import_run_by_source_selection(
+                    game_id=payload.game_id,
+                    source_selection_id=upload_id,
+                    source_manifest_sha256=ready.manifest.checksum_sha256,
+                    engine_policy=job_service.current_image_import_engine_policy(
+                        game_id=payload.game_id
+                    ),
+                    symbol_model_inference_fingerprint=current_symbol,
+                    symbol_model_snapshot_fingerprint=current_symbol_snapshot,
+                    grid_profile_inference_fingerprint=current_grid,
+                    geometry_engine_variant=payload.geometry_engine_variant,
+                )
+                if (
+                    same_run is not None
+                    and same_run.input_payload.get("page_geometry_manifest") == geometry_manifest
+                    and same_run.input_payload.get("source_exclusions", {}) == source_exclusions
+                ):
+                    service.mark_in_use(upload_id, game_id=payload.game_id, job_id=same_run.id)
+                    return BrowserImageImportStartResponse(
+                        created=False,
+                        job=JobResponse.from_domain(same_run),
+                        preflight=preflight,
+                    )
         manifest_id = payload.geometry_guard_resolution_manifest_id
         manifest_checksum = payload.geometry_guard_resolution_manifest_checksum_sha256
         if (manifest_id is None) != (manifest_checksum is None):

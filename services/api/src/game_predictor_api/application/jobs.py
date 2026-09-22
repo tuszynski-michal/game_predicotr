@@ -562,6 +562,7 @@ class JobService:
                     )
                 )
                 if geometry_engine_variant is not None
+                and geometry_engine_variant is not GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2
                 else None
             ),
         )
@@ -679,11 +680,6 @@ class JobService:
             require_geometry_engine_variant_available(geometry_engine_variant)
         except LateralPartialContractError as error:
             raise JobError(error.code, str(error)) from error
-        if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
-            raise JobConflictError(
-                "IMAGE_CONTRAST_FRAME_GRID_IMPORT_NOT_RELEASED",
-                "V1.2 is available for geometry preflight and visual review only.",
-            )
         lateral_partial_geometry: LateralPartialGeometrySnapshot | None = None
         if geometry_engine_variant is not None:
             if geometry_guard_resolution_manifest is not None:
@@ -706,13 +702,21 @@ class JobService:
                     previous_job_id = UUID(str(previous)) if previous is not None else None
                 else:
                     previous_job_id = existing.id
-            lateral_partial_geometry = self._require_lateral_preflight(
-                page_geometry_manifest,
-                game_id=game_id,
-                selection_id=selection_id,
-                source_manifest_sha256=source_manifest_sha256,
-                geometry_engine_variant=geometry_engine_variant,
-            )
+            if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
+                self._require_v12_preflight(
+                    page_geometry_manifest,
+                    game_id=game_id,
+                    selection_id=selection_id,
+                    source_manifest_sha256=source_manifest_sha256,
+                )
+            else:
+                lateral_partial_geometry = self._require_lateral_preflight(
+                    page_geometry_manifest,
+                    game_id=game_id,
+                    selection_id=selection_id,
+                    source_manifest_sha256=source_manifest_sha256,
+                    geometry_engine_variant=geometry_engine_variant,
+                )
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
                 "GAME_NOT_FOUND",
@@ -749,6 +753,8 @@ class JobService:
             "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
             "symbol_model": symbol_model.to_payload(),
         }
+        if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
+            input_payload["geometry_engine_variant"] = geometry_engine_variant.value
         if start_mode is not None:
             if page_geometry_manifest is None:
                 raise JobError(
@@ -948,6 +954,96 @@ class JobService:
             raise
         except ValueError as error:
             raise JobConflictError("IMAGE_LATERAL_PARTIAL_ARTIFACT_INVALID", str(error)) from error
+
+    def _require_v12_preflight(
+        self,
+        descriptor: object,
+        *,
+        game_id: UUID,
+        selection_id: UUID,
+        source_manifest_sha256: str | None,
+    ) -> None:
+        from game_predictor_worker.images.page_geometry_preflight import (
+            PAGE_GEOMETRY_MANIFEST_CONTRAST_FRAME_V12_SCHEMA_VERSION,
+            PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION,
+        )
+
+        code = "IMAGE_CONTRAST_FRAME_GRID_PREFLIGHT_INVALID"
+        if (
+            self._artifact_root is None
+            or source_manifest_sha256 is None
+            or not isinstance(descriptor, Mapping)
+        ):
+            raise JobConflictError(code, "A completed V1.2 preflight is required before import.")
+        try:
+            preflight = self._repository.get_job(UUID(str(descriptor.get("preflightJobId"))))
+            relative = descriptor.get("relativePath")
+            checksum = descriptor.get("checksumSha256")
+            if (
+                preflight is None
+                or preflight.game_id != game_id
+                or preflight.job_type is not JobType.VALIDATE
+                or preflight.status is not JobStatus.COMPLETED
+                or preflight.input_payload.get("validation_kind") != "page_geometry_preflight"
+                or preflight.input_payload.get("source_selection_id") != str(selection_id)
+                or preflight.input_payload.get("source_manifest_sha256") != source_manifest_sha256
+                or preflight.input_payload.get("preflight_policy_version")
+                != PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION
+                or not isinstance(
+                    preflight.input_payload.get("contrast_frame_grid_v12_profile"), Mapping
+                )
+                or not isinstance(preflight.checkpoint_payload, Mapping)
+                or preflight.checkpoint_payload.get("complete") is not True
+                or preflight.checkpoint_payload.get("geometry_manifest_checksum_sha256") != checksum
+                or preflight.checkpoint_payload.get("geometry_manifest_relative_path") != relative
+                or not isinstance(relative, str)
+                or not relative.startswith("data/")
+                or not isinstance(checksum, str)
+                or len(checksum) != 64
+            ):
+                raise ValueError("The V1.2 preflight does not match the source and artifact.")
+            from pathlib import PurePosixPath
+
+            path = (self._artifact_root / Path(*PurePosixPath(relative).parts)).resolve()
+            if not path.is_relative_to((self._artifact_root / "data").resolve()):
+                raise ValueError("The V1.2 artifact path is unsafe.")
+            content = path.read_bytes()
+            if hashlib.sha256(content).hexdigest() != checksum:
+                raise ValueError("The V1.2 artifact checksum changed.")
+            manifest = json.loads(content)
+            entries = manifest.get("entries") if isinstance(manifest, Mapping) else None
+            if (
+                not isinstance(entries, Mapping)
+                or not entries
+                or manifest.get("schemaVersion")
+                != PAGE_GEOMETRY_MANIFEST_CONTRAST_FRAME_V12_SCHEMA_VERSION
+                or manifest.get("version") != PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION
+                or manifest.get("gameId") != str(game_id)
+                or manifest.get("sourceSelectionId") != str(selection_id)
+                or manifest.get("sourceManifestChecksumSha256") != source_manifest_sha256
+                or manifest.get("contrastFrameGridV12Profile")
+                != preflight.input_payload["contrast_frame_grid_v12_profile"]
+                or manifest.get("sourceCount") != len(entries)
+                or manifest.get("reviewRequiredSourceCount") != 0
+                or manifest.get("registeredSourceCount")
+                != sum(
+                    isinstance(entry, Mapping) and entry.get("status") == "registered"
+                    for entry in entries.values()
+                )
+                or manifest.get("skippedHumanResolvedSourceCount")
+                != sum(
+                    isinstance(entry, Mapping) and entry.get("status") == "skipped_human_resolved"
+                    for entry in entries.values()
+                )
+                or any(
+                    not isinstance(entry, Mapping)
+                    or entry.get("status") not in {"registered", "skipped_human_resolved"}
+                    for entry in entries.values()
+                )
+            ):
+                raise ValueError("The V1.2 manifest has unresolved or incompatible sources.")
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+            raise JobConflictError(code, str(error)) from error
 
     def create_pending_symbol_reinference_job(self, *, game_id: UUID) -> Job:
         """Create an explicit job that may update pending symbol predictions only."""
@@ -2046,6 +2142,12 @@ class JobService:
                 continue
             if job.input_payload.get("source_manifest_sha256") != source_manifest_sha256:
                 continue
+            pinned_variant = job.input_payload.get("geometry_engine_variant")
+            if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
+                if pinned_variant != geometry_engine_variant.value:
+                    continue
+            elif pinned_variant is not None:
+                continue
             symbol_model = job.input_payload.get("symbol_model")
             grid_profile = job.input_payload.get("grid_profile")
             try:
@@ -2098,13 +2200,17 @@ class JobService:
                         else engine_policy.cell_asset_mode
                     )
                     or snapshot.rollout_revision != engine_policy.revision
-                    or not self._geometry_variant_matches_pinned_lateral_snapshot(
-                        (
-                            None
-                            if snapshot.lateral_partial_geometry is None
-                            else snapshot.lateral_partial_geometry.to_payload()
-                        ),
-                        geometry_engine_variant=geometry_engine_variant,
+                    or (
+                        snapshot.lateral_partial_geometry is not None
+                        if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2
+                        else not self._geometry_variant_matches_pinned_lateral_snapshot(
+                            (
+                                None
+                                if snapshot.lateral_partial_geometry is None
+                                else snapshot.lateral_partial_geometry.to_payload()
+                            ),
+                            geometry_engine_variant=geometry_engine_variant,
+                        )
                     )
                 ):
                     continue

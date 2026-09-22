@@ -88,6 +88,10 @@ def to_image_import_engine_policy_response(
     for variant, label in (
         (GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES, "v1.0 — niepełne boki"),
         (GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1, "v1.1 — korekta plansz"),
+        (
+            GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2,
+            "v1.2 — kontrastowa ramka i siatka (test)",
+        ),
     ):
         blocker_code: str | None = None
         blocker_message: str | None = None

@@ -1,10 +1,33 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-09-17
+last_updated: 2026-09-22
 ---
 
 # Import i rozpoznawanie zdjęć
+
+## Testowy silnik geometrii V1.2 — TASK-0613
+
+`contrast_frame_grid_v1_2` jest wyłącznie jawnym, testowym wyborem preflightu
+przeglądarkowego stagingu. Nie zmienia domyślnego V1.1, historycznych jobów ani
+wyników. V1.2 nie uruchamia importu plansz: panel pokazuje jego geometrię do
+oceny operatora, a API blokuje stworzenie importu lub reprocessu w tym
+wariancie do osobnej decyzji odbiorowej.
+
+Ręczna korekta V1.2 potwierdza dwa osobne, kompletne układy dziewięciu
+czworokątów: zewnętrzne `boardFrameQuads` oraz wewnętrzne
+`symbolGridQuads`. Siatka symboli musi pozostać w ramce, a kompatybilne
+`finalQuads` jest jej kopią. Stary pojedynczy quad zachowuje zachowanie V1.0
+i V1.1 i nie staje się niejawnie parą V1.2.
+
+Preflight buduje checksummowany profil tylko z aktualnych, ręcznie
+potwierdzonych par tej samej gry. Kotwica tej gry dostarcza wyłącznie
+perspektywę, po czym V1.2 znajduje granice po lokalnym kontraście jasności i
+barwy, bez wymogu czerwonego odcienia. Cztery asymetryczne marginesy między
+ramką a siatką są mierzone po wyprostowaniu perspektywy i służą tylko jako
+wskazówka dla bieżącej analizy symboli. Brak profilu, słaby kontrast,
+nieuporządkowane 3 × 3 lub niebezpieczna siatka prowadzą do
+`review_required`, bez cropa automatycznego ani aktualizacji profilu.
 
 ## Domyślny silnik geometrii v1.1 — TASK-0579
 

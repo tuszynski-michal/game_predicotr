@@ -101,6 +101,23 @@ def _quads() -> tuple[tuple[dict[str, int], ...], ...]:
     return tuple(result)
 
 
+def _frame_quads() -> tuple[tuple[dict[str, int], ...], ...]:
+    result: list[tuple[dict[str, int], ...]] = []
+    for row in range(3):
+        for column in range(3):
+            left, top = column * 100 + 1, row * 100 + 1
+            right, bottom = left + 98, top + 98
+            result.append(
+                (
+                    {"x": left, "y": top},
+                    {"x": right, "y": top},
+                    {"x": right, "y": bottom},
+                    {"x": left, "y": bottom},
+                )
+            )
+    return tuple(result)
+
+
 def test_slot_decisions_survive_retry_and_change_revision_without_changing_quads() -> None:
     repository = MemoryPageGeometryOverrideRepository()
     service = PageGeometryOverrideService(repository)
@@ -205,6 +222,8 @@ def test_page_override_http_roundtrip_preserves_slot_metadata(tmp_path: Path) ->
         "imageWidth": 320,
         "imageHeight": 320,
         "finalQuads": _quads(),
+        "boardFrameQuads": _frame_quads(),
+        "symbolGridQuads": _quads(),
         "actor": "local-owner",
         "slotQualifications": decisions,
     }
@@ -217,9 +236,13 @@ def test_page_override_http_roundtrip_preserves_slot_metadata(tmp_path: Path) ->
     assert repeated.json()["id"] == response.json()["id"]
     assert repeated.json()["created"] is False
     assert len(repository.values) == 1
+    assert repository.values[0].board_frame_quads == _frame_quads()
+    assert repository.values[0].symbol_grid_quads == _quads()
     # Signed corners are legal only on explicitly partial slots. The server expands the mask.
     clipped = list(_quads())
     clipped[0] = tuple({"x": p["x"], "y": p["y"] - 15} for p in clipped[0])
+    body.pop("boardFrameQuads")
+    body.pop("symbolGridQuads")
     decisions[0] = GeometryQualification("pending_partial", (0,), True, "missing_pixels").to_dict()
     body["finalQuads"] = clipped
     partial = client.post(endpoint, json=body)
@@ -274,6 +297,54 @@ def test_page_geometry_override_is_idempotent_and_pinned_in_snapshot() -> None:
             "revision": 1,
         }
     }
+
+
+def test_v12_frame_grid_pair_is_snapshot_bound_and_cannot_escape_the_board_frame() -> None:
+    game_id = uuid4()
+    checksum = "b" * 64
+    repository = MemoryPageGeometryOverrideRepository()
+    service = PageGeometryOverrideService(repository)
+    frames = _frame_quads()
+    grids = _quads()
+
+    saved, created = service.save(
+        game_id=game_id,
+        source_checksum_sha256=checksum,
+        image_width=320,
+        image_height=320,
+        expected_board_count=9,
+        final_quads=grids,
+        board_frame_quads=frames,
+        symbol_grid_quads=grids,
+        actor="local-owner",
+    )
+
+    assert created is True
+    assert saved.final_quads == grids
+    assert saved.board_frame_quads == frames
+    assert saved.symbol_grid_quads == grids
+    snapshot = service.snapshot(game_id=game_id)[checksum]
+    assert snapshot["boardFrameQuads"] == frames
+    assert snapshot["symbolGridQuads"] == grids
+    profile = service.contrast_frame_grid_v12_profile(game_id=game_id)
+    assert profile["sampleSourceCount"] == 1
+    assert profile["sampleCount"] == 9
+
+    outside = list(grids)
+    outside[0] = tuple({"x": point["x"] - 5, "y": point["y"]} for point in outside[0])
+    with pytest.raises(JobError) as error:
+        service.save(
+            game_id=game_id,
+            source_checksum_sha256="c" * 64,
+            image_width=320,
+            image_height=320,
+            expected_board_count=9,
+            final_quads=outside,
+            board_frame_quads=frames,
+            symbol_grid_quads=outside,
+            actor="local-owner",
+        )
+    assert error.value.code == "IMAGE_PAGE_GEOMETRY_V12_GRID_OUTSIDE_FRAME"
 
 
 def test_partial_training_profile_uses_only_latest_opted_in_source_revisions() -> None:

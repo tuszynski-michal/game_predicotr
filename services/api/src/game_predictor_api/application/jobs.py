@@ -17,6 +17,9 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
     board_cell_recrop_snapshot,
 )
 from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
+from game_predictor_worker.images.contrast_frame_grid_v12 import (
+    build_contrast_frame_grid_v12_profile,
+)
 from game_predictor_worker.images.lateral_partial_contract import (
     LATERAL_PARTIAL_SNAPSHOT_VERSION,
     LATERAL_PARTIAL_SNAPSHOT_VERSION_V2,
@@ -676,6 +679,11 @@ class JobService:
             require_geometry_engine_variant_available(geometry_engine_variant)
         except LateralPartialContractError as error:
             raise JobError(error.code, str(error)) from error
+        if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
+            raise JobConflictError(
+                "IMAGE_CONTRAST_FRAME_GRID_IMPORT_NOT_RELEASED",
+                "V1.2 is available for geometry preflight and visual review only.",
+            )
         lateral_partial_geometry: LateralPartialGeometrySnapshot | None = None
         if geometry_engine_variant is not None:
             if geometry_guard_resolution_manifest is not None:
@@ -1105,6 +1113,11 @@ class JobService:
             require_geometry_engine_variant_available(geometry_engine_variant)
         except LateralPartialContractError as error:
             raise JobConflictError(error.code, str(error)) from error
+        if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
+            raise JobConflictError(
+                "IMAGE_CONTRAST_FRAME_GRID_IMPORT_NOT_RELEASED",
+                "V1.2 is available for geometry preflight and visual review only.",
+            )
         if geometry_engine_variant is not None and continue_with_manual_geometry:
             raise JobConflictError(
                 "IMAGE_REPROCESS_MODE_CONFLICT", "Choose a new engine or historical continuation."
@@ -1760,6 +1773,11 @@ class JobService:
             )
         managed_input: dict[str, object] = {}
         if managed_source_job_id is not None:
+            if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
+                raise JobConflictError(
+                    "IMAGE_CONTRAST_FRAME_GRID_MANAGED_PREFLIGHT_UNSUPPORTED",
+                    "V1.2 visual preflight currently accepts browser-staged sources only.",
+                )
             if geometry_engine_variant is None or self._artifact_root is None:
                 raise JobConflictError(
                     "IMAGE_LATERAL_PARTIAL_MANAGED_PREFLIGHT_INVALID",
@@ -1809,8 +1827,13 @@ class JobService:
                 "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
                 "anchors": [],
             }
-        shape_geometry_v2_profile = self._shape_geometry_v2_profile_snapshot(
-            page_registration_variant=page_registration_variant
+        is_v12 = geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2
+        shape_geometry_v2_profile = (
+            None
+            if is_v12
+            else self._shape_geometry_v2_profile_snapshot(
+                page_registration_variant=page_registration_variant
+            )
         )
         if page_registration_variant == "board_area_test":
             registration = {
@@ -1842,10 +1865,17 @@ class JobService:
                 "IMAGE_PAGE_GEOMETRY_OVERRIDE_SNAPSHOT_INVALID",
                 "The page geometry override snapshot is invalid.",
             )
-        partial_policy = self._current_lateral_partial_policy(
-            game_id=game_id,
-            geometry_engine_variant=geometry_engine_variant,
+        partial_policy = (
+            None
+            if is_v12
+            else self._current_lateral_partial_policy(
+                game_id=game_id,
+                geometry_engine_variant=geometry_engine_variant,
+            )
         )
+        contrast_profile = build_contrast_frame_grid_v12_profile(overrides) if is_v12 else None
+        if is_v12:
+            preflight_policy_version = "page-geometry-preflight-v12-contrast-frame-grid"
         exclusions = (
             {}
             if self._page_geometry_override_snapshot_resolver is None
@@ -1876,7 +1906,12 @@ class JobService:
             **managed_input,
             **(
                 {"lateral_partial_geometry": partial_policy.to_payload()}
-                if geometry_engine_variant is not None
+                if partial_policy is not None
+                else {}
+            ),
+            **(
+                {"contrast_frame_grid_v12_profile": contrast_profile}
+                if contrast_profile is not None
                 else {}
             ),
             "source_exclusions": exclusions,
@@ -2099,6 +2134,13 @@ class JobService:
                 or payload.get("source_manifest_sha256") != source_manifest_sha256
             ):
                 continue
+            if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
+                if (
+                    isinstance(payload.get("contrast_frame_grid_v12_profile"), Mapping)
+                    and "lateral_partial_geometry" not in payload
+                ):
+                    return job
+                continue
             if self._geometry_variant_matches_pinned_lateral_snapshot(
                 payload.get("lateral_partial_geometry"),
                 geometry_engine_variant=geometry_engine_variant,
@@ -2295,9 +2337,12 @@ def _page_geometry_candidate_compatibility(
         or not (same_source or replacement_parent)
         or payload.get("preflight_policy_version") != target.get("preflight_policy_version")
         or payload.get("page_registration_profile") != target.get("page_registration_profile")
-        or payload.get("shape_geometry_v2_profile")
-        != target.get("shape_geometry_v2_profile")
+        or payload.get("shape_geometry_v2_profile") != target.get("shape_geometry_v2_profile")
+        or payload.get("contrast_frame_grid_v12_profile")
+        != target.get("contrast_frame_grid_v12_profile")
     ):
+        return None
+    if target.get("contrast_frame_grid_v12_profile") is not None:
         return None
     base_lateral = payload.get("lateral_partial_geometry")
     target_lateral = target.get("lateral_partial_geometry")

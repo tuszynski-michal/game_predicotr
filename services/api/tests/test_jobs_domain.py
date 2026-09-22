@@ -206,6 +206,52 @@ class _PageGeometryOverrideResolver:
         return self.training_profile.to_payload()
 
 
+class _V12PageGeometryOverrideResolver:
+    def __init__(self, *, revision: int) -> None:
+        self.revision = revision
+
+    def snapshot(self, *, game_id: UUID) -> dict[str, object]:
+        del game_id
+        frames: list[list[dict[str, int]]] = []
+        grids: list[list[dict[str, int]]] = []
+        for row in range(3):
+            for column in range(3):
+                left, top = 20 + column * 120, 20 + row * 90
+                right, bottom = left + 100, top + 70
+                frames.append(
+                    [
+                        {"x": left, "y": top},
+                        {"x": right, "y": top},
+                        {"x": right, "y": bottom},
+                        {"x": left, "y": bottom},
+                    ]
+                )
+                grids.append(
+                    [
+                        {"x": left + 8, "y": top + 12},
+                        {"x": right - 6, "y": top + 12},
+                        {"x": right - 6, "y": bottom - 4},
+                        {"x": left + 8, "y": bottom - 4},
+                    ]
+                )
+        return {
+            "a" * 64: {
+                "boardFrameQuads": frames,
+                "decisionChecksumSha256": "b" * 64,
+                "imageHeight": 300,
+                "imageWidth": 400,
+                "overrideId": "manual-v12-sample",
+                "quads": grids,
+                "revision": self.revision,
+                "symbolGridQuads": grids,
+            }
+        }
+
+    def exclusion_snapshot(self, *, game_id: UUID, browser_selection_id: UUID) -> dict[str, object]:
+        del game_id, browser_selection_id
+        return {}
+
+
 class _ShapeGeometryV2ProfileResolver:
     def __init__(self, profile: dict[str, object] | None) -> None:
         self.profile = profile
@@ -233,9 +279,7 @@ def _shape_geometry_v2_profile(*, number: int = 1) -> dict[str, object]:
                 "schemaVersion": FRAME_APPEARANCE_SCHEMA_VERSION,
                 "sides": {
                     "top": {
-                        "clusters": [
-                            {"lab": [44.0, 12.0, -8.0], "hsv": [23.0, 0.5, 0.7]}
-                        ],
+                        "clusters": [{"lab": [44.0, 12.0, -8.0], "hsv": [23.0, 0.5, 0.7]}],
                         "contrast": {"minimum": 0.2, "median": 0.4, "maximum": 0.8},
                         "continuity": 0.9,
                     }
@@ -730,6 +774,40 @@ def test_page_geometry_preflight_variant_changes_identity_and_repeats_idempotent
             page_registration_variant="board_area_test",
         )
     assert duplicate.value.code == "JOB_INPUT_ALREADY_EXISTS"
+
+
+def test_v12_preflight_pins_only_the_same_game_frame_grid_profile(tmp_path: Path) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    resolver = _V12PageGeometryOverrideResolver(revision=1)
+    service = JobService(repository, page_geometry_override_snapshot_resolver=resolver)
+    arguments = {
+        "game_id": game_id,
+        "selection_id": selection_id,
+        "source_directory": tmp_path,
+        "source_display_name": "Mumie",
+        "source_manifest_sha256": "a" * 64,
+        "geometry_engine_variant": GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2,
+    }
+
+    first = service.create_page_geometry_preflight_job(**arguments)
+
+    assert first.input_payload["preflight_policy_version"] == (
+        "page-geometry-preflight-v12-contrast-frame-grid"
+    )
+    assert "lateral_partial_geometry" not in first.input_payload
+    assert "shape_geometry_v2_profile" not in first.input_payload
+    profile = first.input_payload["contrast_frame_grid_v12_profile"]
+    assert profile["sampleSourceCount"] == 1
+    assert profile["sampleCount"] == 9
+    assert profile["variant"] == "contrast_frame_grid_v1_2"
+
+    resolver.revision = 2
+    second = service.create_page_geometry_preflight_job(**arguments)
+
+    assert second.id != first.id
+    assert second.input_payload["contrast_frame_grid_v12_profile"] != profile
 
 
 def test_page_geometry_preflight_pins_active_shape_profile_in_request_identity(

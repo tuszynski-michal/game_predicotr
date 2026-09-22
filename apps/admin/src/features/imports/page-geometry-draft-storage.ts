@@ -24,6 +24,12 @@ export interface PageGeometryDraft {
   readonly pageCorners: PageGeometryQuad;
   readonly cornerPlacement: readonly PageGeometryPoint[] | null;
   readonly boardCornerPlacement: readonly PageGeometryPoint[] | null;
+  readonly v12?: {
+    readonly activeLayer: 'boardFrame' | 'symbolGrid';
+    readonly boardFrameQuads: readonly PageGeometryQuad[];
+    readonly frameConfirmed: boolean;
+    readonly symbolGridQuads: readonly PageGeometryQuad[];
+  };
 }
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export class PageGeometryDraftConflict extends Error {}
@@ -47,7 +53,11 @@ export function serializePageGeometryDraft(
   scope: PageGeometryDraftScope,
   draft: PageGeometryDraft,
 ) {
-  return JSON.stringify({ version: 1, scope, draft });
+  return JSON.stringify({
+    version: draft.v12 === undefined ? 1 : 2,
+    scope,
+    draft,
+  });
 }
 export function clearPageGeometryDraft(
   storage: Storage,
@@ -85,7 +95,7 @@ export function readPageGeometryDraft(
   if (!text) return null;
   const parsed = JSON.parse(text);
   if (
-    parsed.version !== 1 ||
+    (parsed.version !== 1 && parsed.version !== 2) ||
     JSON.stringify(parsed.scope) !== JSON.stringify(scope)
   )
     throw new PageGeometryDraftConflict('Szkic ma inne źródło lub rewizję.');
@@ -119,6 +129,28 @@ export function readPageGeometryDraft(
       points(draft.boardCornerPlacement, scope.count * 4)
     )
   )
+    throw new Error('Uszkodzony szkic geometrii. Resetuj do stanu serwera.');
+  if (
+    parsed.version === 2 &&
+    (!draft.v12 ||
+      (draft.v12.activeLayer !== 'boardFrame' &&
+        draft.v12.activeLayer !== 'symbolGrid') ||
+      typeof draft.v12.frameConfirmed !== 'boolean' ||
+      !Array.isArray(draft.v12.boardFrameQuads) ||
+      draft.v12.boardFrameQuads.length !== scope.count ||
+      !draft.v12.boardFrameQuads.every(
+        (quad) => points(quad, 4) && quad.length === 4,
+      ) ||
+      !Array.isArray(draft.v12.symbolGridQuads) ||
+      draft.v12.symbolGridQuads.length !== scope.count ||
+      !draft.v12.symbolGridQuads.every(
+        (quad) => points(quad, 4) && quad.length === 4,
+      ))
+  )
+    throw new Error(
+      'Uszkodzony szkic geometrii V1.2. Resetuj do stanu serwera.',
+    );
+  if (parsed.version === 1 && draft.v12 !== undefined)
     throw new Error('Uszkodzony szkic geometrii. Resetuj do stanu serwera.');
   return {
     ...draft,

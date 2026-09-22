@@ -3309,6 +3309,12 @@ class ImagePageGeometryOverrideModel(Base):
     image_width: Mapped[int] = mapped_column(Integer, nullable=False)
     image_height: Mapped[int] = mapped_column(Integer, nullable=False)
     final_quads: Mapped[list[list[dict[str, int]]]] = mapped_column(JSONB, nullable=False)
+    board_frame_quads: Mapped[list[list[dict[str, int]]] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
+    symbol_grid_quads: Mapped[list[list[dict[str, int]]] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
     slot_qualifications: Mapped[list[dict[str, object]] | None] = mapped_column(
         JSONB(none_as_null=True), nullable=True
     )

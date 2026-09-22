@@ -1651,6 +1651,13 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
         for row in range(3)
         for column in range(3)
     ]
+    frames = [
+        [
+            {"x": point["x"] - 2, "y": point["y"] - 2}
+            for point in quad
+        ]
+        for quad in quads
+    ]
     manifest = {
         "entries": {
             manual_source_checksum: {
@@ -1685,6 +1692,8 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
                 "sourceRelativePath": "new/seq_15-23.jpg",
                 "status": "registered",
                 "quads": quads,
+                "boardFrameQuads": frames,
+                "symbolGridQuads": quads,
             },
         },
         "registeredSourceCount": 2,
@@ -1811,6 +1820,8 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
     assert focused_sources[-1]["sourceChecksumSha256"] == registered_source_checksum
     assert focused_sources[-1]["reviewReason"] == "operator_inspection"
     assert focused_sources[-1]["existingFinalQuads"] == quads
+    assert focused_sources[-1]["existingBoardFrameQuads"] == frames
+    assert focused_sources[-1]["existingSymbolGridQuads"] == quads
     assert (
         focused_response.json()["reviewRequiredSourceCount"] == payload["reviewRequiredSourceCount"]
     )

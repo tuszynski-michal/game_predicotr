@@ -59,6 +59,9 @@ export function readyBoardImportGeometryVariant(
         typeof lateral === 'object' && lateral !== null
           ? (lateral as Record<string, unknown>).variant
           : null;
+      const isV12 =
+        payload.contrastFrameGridV12Profile !== undefined &&
+        payload.contrastFrameGridV12Profile !== null;
       return (
         job.jobType === 'validate' &&
         payload.validationKind === 'page_geometry_preflight' &&
@@ -67,7 +70,8 @@ export function readyBoardImportGeometryVariant(
         (payload.managedSourceJobId === undefined ||
           payload.managedSourceJobId === null) &&
         (variant === 'structured_lattice_v4_partial_sides' ||
-          variant === 'selective_board_review_v1_1')
+          variant === 'selective_board_review_v1_1' ||
+          isV12)
       );
     })
     .sort((left, right) => {
@@ -90,6 +94,12 @@ export function readyBoardImportGeometryVariant(
   }
   if (lateral?.variant === 'structured_lattice_v4_partial_sides') {
     return 'structured_lattice_v4_partial_sides';
+  }
+  if (
+    payload?.contrastFrameGridV12Profile !== undefined &&
+    payload?.contrastFrameGridV12Profile !== null
+  ) {
+    return 'contrast_frame_grid_v1_2';
   }
   return DEFAULT_READY_BOARD_IMPORT_GEOMETRY_VARIANT;
 }

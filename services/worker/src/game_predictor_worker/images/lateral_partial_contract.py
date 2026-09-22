@@ -39,6 +39,7 @@ LATERAL_PARTIAL_RELEASED = True
 class GeometryEngineVariant(StrEnum):
     STRUCTURED_LATTICE_V4_PARTIAL_SIDES = "structured_lattice_v4_partial_sides"
     SELECTIVE_BOARD_REVIEW_V1_1 = "selective_board_review_v1_1"
+    CONTRAST_FRAME_GRID_V1_2 = "contrast_frame_grid_v1_2"
 
 
 class LateralPartialContractError(ValueError):

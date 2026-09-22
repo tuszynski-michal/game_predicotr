@@ -58,6 +58,8 @@ export const LATERAL_PARTIAL_VARIANT: GeometryEngineVariant =
   'structured_lattice_v4_partial_sides';
 export const SELECTIVE_BOARD_VARIANT: GeometryEngineVariant =
   'selective_board_review_v1_1';
+export const CONTRAST_FRAME_GRID_V12_VARIANT: GeometryEngineVariant =
+  'contrast_frame_grid_v1_2';
 export const DEFAULT_GEOMETRY_ENGINE_VARIANT: GeometryEngineVariant =
   SELECTIVE_BOARD_VARIANT;
 const LATERAL_PARTIAL_POLICY_VERSIONS = new Set([
@@ -118,6 +120,11 @@ export function geometryPreflightMatchesReport(
   const payload = jobPayload(job);
   const lateral = payload.lateralPartialGeometry;
   const variant = report.geometryEngineVariant;
+  const v12Matches =
+    variant === CONTRAST_FRAME_GRID_V12_VARIANT &&
+    typeof payload.contrastFrameGridV12Profile === 'object' &&
+    payload.contrastFrameGridV12Profile !== null &&
+    lateral === undefined;
   return (
     job.jobType === 'validate' &&
     job.gameId === report.gameId &&
@@ -127,7 +134,7 @@ export function geometryPreflightMatchesReport(
     (payload.managedSourceJobId === undefined ||
       payload.managedSourceJobId === null) &&
     (variant !== undefined && variant !== null
-      ? isSupportedLateralPartialGeometry(lateral, variant)
+      ? v12Matches || isSupportedLateralPartialGeometry(lateral, variant)
       : lateral === undefined)
   );
 }

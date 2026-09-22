@@ -6,6 +6,19 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0613 — testowy silnik kontrastowej ramki i siatki V1.2
+
+- Ukończono T02: opt-in `contrast_frame_grid_v1_2` zapisuje oraz przypina
+  per-game pary ręcznej ramki planszy i siatki symboli. Rejestracja używa
+  lokalnego kontrastu, czterech asymetrycznych marginesów i niezależnej bramki
+  estymacji symboli; nie wykonuje kontroli czerwonej ramki.
+- V1.2 jest dostępny wyłącznie do preflightu i wizualnej korekty w Adminie.
+  Start importu i reprocess pozostają zablokowane, V1.1 nadal jest domyślny,
+  a V2.0/V2.1 nie zostały zmienione przez task.
+- Przeszły skoncentrowane testy API, jobów, workera i interakcji Admina,
+  kontrakt OpenAPI, typecheck, lint i format. T03 ma przygotować nakładki dla
+  rzeczywistych Mumii do odbioru wizualnego operatora.
+
 ### TASK-0612 — diagnoza geometrii V1.2 dla Mumii
 
 - Ukończono T01: klasyczny detektor zależny od czerwonej ramki nie wykrywa

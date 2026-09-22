@@ -82,6 +82,16 @@ class SqlAlchemyPageGeometryOverrideRepository:
             image_width=value.image_width,
             image_height=value.image_height,
             final_quads=[list(quad) for quad in value.final_quads],
+            board_frame_quads=(
+                None
+                if value.board_frame_quads is None
+                else [list(quad) for quad in value.board_frame_quads]
+            ),
+            symbol_grid_quads=(
+                None
+                if value.symbol_grid_quads is None
+                else [list(quad) for quad in value.symbol_grid_quads]
+            ),
             slot_qualifications=(
                 None
                 if value.slot_qualifications is None
@@ -171,6 +181,16 @@ def _to_domain(row: ImagePageGeometryOverrideModel) -> ImagePageGeometryOverride
         created_at=row.created_at,
         slot_qualifications=parse_slot_qualifications(
             row.slot_qualifications, expected_board_count=len(row.final_quads)
+        ),
+        board_frame_quads=(
+            None
+            if row.board_frame_quads is None
+            else cast(PageGeometryQuads, tuple(tuple(quad) for quad in row.board_frame_quads))
+        ),
+        symbol_grid_quads=(
+            None
+            if row.symbol_grid_quads is None
+            else cast(PageGeometryQuads, tuple(tuple(quad) for quad in row.symbol_grid_quads))
         ),
     )
 

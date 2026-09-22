@@ -538,6 +538,7 @@ class PageGeometryPreflightJobPayload(ApiModel):
         Literal[
             "page-geometry-preflight-v2-auto-anchor",
             "page-geometry-preflight-v3-board-area-mask",
+            "page-geometry-preflight-v12-contrast-frame-grid",
         ]
         | None
     ) = None
@@ -547,6 +548,7 @@ class PageGeometryPreflightJobPayload(ApiModel):
     source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     page_registration_profile: dict[str, object]
     page_geometry_overrides: dict[str, object] = Field(default_factory=dict)
+    contrast_frame_grid_v12_profile: dict[str, object] | None = None
     lateral_partial_geometry: LateralPartialGeometryJobSnapshotPayload | None = None
     managed_source_job_id: UUID | None = None
     managed_source_manifest_checksum_sha256: str | None = Field(

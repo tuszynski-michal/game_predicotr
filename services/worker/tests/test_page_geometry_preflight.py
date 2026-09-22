@@ -16,11 +16,17 @@ from game_predictor_api.domain.global_geometry_library import (
     global_geometry_profile_descriptor_checksum,
 )
 from game_predictor_api.domain.jobs import Job, JobType, create_job
+from game_predictor_worker.images.contrast_frame_grid_v12 import (
+    build_contrast_frame_grid_v12_profile,
+)
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.page_geometry_incremental import (
     PageGeometryCheckpointStore,
 )
-from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
+from game_predictor_worker.images.page_geometry_preflight import (
+    PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION,
+    PageGeometryPreflightHandler,
+)
 from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
     PAGE_REGISTRATION_VERSION,
@@ -186,6 +192,27 @@ def _page() -> tuple[np.ndarray, list[list[dict[str, int]]]]:
     return image, quads
 
 
+def _inset_quads(
+    quads: list[list[dict[str, int]]],
+    *,
+    left: int = 8,
+    top: int = 12,
+    right: int = 6,
+    bottom: int = 4,
+) -> list[list[dict[str, int]]]:
+    """Produce an asymmetric inner grid inside each manually confirmed frame."""
+
+    return [
+        [
+            {"x": quad[0]["x"] + left, "y": quad[0]["y"] + top},
+            {"x": quad[1]["x"] - right, "y": quad[1]["y"] + top},
+            {"x": quad[2]["x"] - right, "y": quad[2]["y"] - bottom},
+            {"x": quad[3]["x"] + left, "y": quad[3]["y"] - bottom},
+        ]
+        for quad in quads
+    ]
+
+
 def _cold_start_job(
     tmp_path: Path,
     *,
@@ -275,6 +302,89 @@ def test_geometry_preflight_without_anchor_creates_review_queue(tmp_path: Path) 
     }
 
 
+def test_v12_preflight_requires_and_pins_a_manual_frame_grid_profile(tmp_path: Path) -> None:
+    _image, frames = _page()
+    initial, checksums = _cold_start_job(tmp_path, image_count=1)
+    symbol_grids = _inset_quads(frames)
+    override = {
+        checksums[0]: {
+            "boardFrameQuads": frames,
+            "decisionChecksumSha256": "d" * 64,
+            "imageHeight": 480,
+            "imageWidth": 680,
+            "overrideId": str(uuid4()),
+            "quads": symbol_grids,
+            "revision": 1,
+            "symbolGridQuads": symbol_grids,
+        }
+    }
+    profile = build_contrast_frame_grid_v12_profile(override)
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial.game_id,
+        input_payload={
+            **initial.input_payload,
+            "contrast_frame_grid_v12_profile": profile,
+            "page_geometry_overrides": override,
+            "preflight_policy_version": PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION,
+        },
+    )
+    context = _Context()
+
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(context, job)  # type: ignore[arg-type]
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = (
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+    )
+    manifest = json.loads(output.read_text(encoding="utf-8"))
+    entry = manifest["entries"][checksums[0]]
+    assert manifest["schemaVersion"] == 4
+    assert manifest["contrastFrameGridV12Profile"] == profile
+    assert entry["status"] == "registered"
+    assert entry["boardFrameQuads"] == frames
+    assert entry["symbolGridQuads"] == symbol_grids
+    assert "boardRedEdgeCoverages" not in entry
+
+
+def test_v12_frame_grid_pair_does_not_change_legacy_v11_override_payload(tmp_path: Path) -> None:
+    _image, frames = _page()
+    initial, checksums = _cold_start_job(tmp_path, image_count=1)
+    symbol_grids = _inset_quads(frames)
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial.game_id,
+        input_payload={
+            **initial.input_payload,
+            "page_geometry_overrides": {
+                checksums[0]: {
+                    "boardFrameQuads": frames,
+                    "decisionChecksumSha256": "d" * 64,
+                    "imageHeight": 480,
+                    "imageWidth": 680,
+                    "overrideId": str(uuid4()),
+                    "quads": symbol_grids,
+                    "revision": 1,
+                    "symbolGridQuads": symbol_grids,
+                }
+            },
+        },
+    )
+    context = _Context()
+
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(context, job)  # type: ignore[arg-type]
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = (
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+    )
+    entry = json.loads(output.read_text(encoding="utf-8"))["entries"][checksums[0]]
+    assert entry["status"] == "registered"
+    assert entry["quads"] == symbol_grids
+    assert entry["boardRedEdgeCoverages"] == [1.0] * 9
+    assert "boardFrameQuads" not in entry
+
+
 def test_shape_geometry_profile_is_pinned_to_manifest_and_never_registers_directly(
     tmp_path: Path,
 ) -> None:
@@ -294,8 +404,8 @@ def test_shape_geometry_profile_is_pinned_to_manifest_and_never_registers_direct
     PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(context, job)  # type: ignore[arg-type]
 
     checkpoint = context.checkpoints[-1]["checkpoint_payload"]
-    output = tmp_path / "artifacts" / Path(
-        *checkpoint["geometry_manifest_relative_path"].split("/")
+    output = (
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
     )
     manifest = json.loads(output.read_text(encoding="utf-8"))
     entry = manifest["entries"][checksums[0]]
@@ -337,8 +447,8 @@ def test_shape_geometry_profile_ignores_an_unavailable_legacy_anchor(tmp_path: P
     PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(context, job)  # type: ignore[arg-type]
 
     checkpoint = context.checkpoints[-1]["checkpoint_payload"]
-    output = tmp_path / "artifacts" / Path(
-        *checkpoint["geometry_manifest_relative_path"].split("/")
+    output = (
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
     )
     entry = json.loads(output.read_text(encoding="utf-8"))["entries"][checksums[0]]
     assert entry["status"] == "review_required"
@@ -863,9 +973,7 @@ def test_auto_anchor_retry_resume_stops_after_a_durable_zero_resolution_pass(
 ) -> None:
     checksum = "a" * 64
     entries: dict[str, object] = {checksum: {"status": "registered"}}
-    reports = [
-        {"pass": 1, "promotedAnchorChecksums": ["b" * 64], "resolvedSourceCount": 0}
-    ]
+    reports = [{"pass": 1, "promotedAnchorChecksums": ["b" * 64], "resolvedSourceCount": 0}]
     store = PageGeometryCheckpointStore(
         tmp_path,
         job_id=str(uuid4()),
@@ -886,20 +994,19 @@ def test_auto_anchor_retry_resume_stops_after_a_durable_zero_resolution_pass(
         pytest.fail("A completed zero-resolution pass must not create another registrar")
 
     monkeypatch.setattr(preflight_module, "VerifiedPageRegistrar", unexpected_registrar)
-    result_entries, result_reports, result_state = (
-        PageGeometryPreflightHandler(artifact_root=tmp_path)
-        ._retry_with_verified_auto_anchors(  # noqa: SLF001
-            entries,
-            (),
-            context=_Context(),  # type: ignore[arg-type]
-            source_directory=tmp_path,
-            payload={},
-            base_profile={"anchors": []},
-            checkpoint_store=store,
-            checkpoint_state=state,
-            reused_source_count=0,
-            recomputed_source_count=0,
-        )
+    result_entries, result_reports, result_state = PageGeometryPreflightHandler(
+        artifact_root=tmp_path
+    )._retry_with_verified_auto_anchors(  # noqa: SLF001
+        entries,
+        (),
+        context=_Context(),  # type: ignore[arg-type]
+        source_directory=tmp_path,
+        payload={},
+        base_profile={"anchors": []},
+        checkpoint_store=store,
+        checkpoint_state=state,
+        reused_source_count=0,
+        recomputed_source_count=0,
     )
     assert result_entries == entries
     assert result_reports == reports
@@ -928,7 +1035,8 @@ def test_geometry_preflight_resumes_from_artifact_ahead_of_database_checkpoint(
     artifact_root = tmp_path / "artifacts"
     with pytest.raises(RuntimeError, match="database response lost"):
         PageGeometryPreflightHandler(artifact_root=artifact_root)(
-            _InterruptedContext(), job  # type: ignore[arg-type]
+            _InterruptedContext(),
+            job,  # type: ignore[arg-type]
         )
     assert calls == 25
 
@@ -941,9 +1049,7 @@ def test_geometry_preflight_resumes_from_artifact_ahead_of_database_checkpoint(
 
     assert calls == 5
     checkpoint = context.checkpoints[-1]["checkpoint_payload"]
-    output = artifact_root / Path(
-        *checkpoint["geometry_manifest_relative_path"].split("/")
-    )
+    output = artifact_root / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
     manifest = json.loads(output.read_text(encoding="utf-8"))
     assert manifest["sourceCount"] == 30
     assert manifest["reuseProvenance"]["reusedSourceCount"] == 0
@@ -957,8 +1063,7 @@ def test_parallel_registration_writes_same_manifest_as_serial_registration(
     job, _checksums = _cold_start_job(tmp_path, image_count=30)
     _image, raw_quads = _page()
     quads = tuple(
-        tuple(Point(point["x"], point["y"]) for point in raw_quad)
-        for raw_quad in raw_quads
+        tuple(Point(point["x"], point["y"]) for point in raw_quad) for raw_quad in raw_quads
     )
 
     class _DeterministicRegistrar:
@@ -997,9 +1102,7 @@ def test_parallel_registration_writes_same_manifest_as_serial_registration(
             registration_workers=worker_count,
         )(context, job)  # type: ignore[arg-type]
         checkpoint = context.checkpoints[-1]["checkpoint_payload"]
-        output = artifact_root / Path(
-            *checkpoint["geometry_manifest_relative_path"].split("/")
-        )
+        output = artifact_root / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
         manifests.append(output.read_bytes())
 
     assert manifests[0] == manifests[1]

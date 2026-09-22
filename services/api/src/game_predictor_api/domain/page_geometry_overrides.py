@@ -31,6 +31,8 @@ class ImagePageGeometryOverride:
     decision_checksum_sha256: str
     created_at: datetime
     slot_qualifications: tuple[GeometryQualification, ...] | None = None
+    board_frame_quads: PageGeometryQuads | None = None
+    symbol_grid_quads: PageGeometryQuads | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -19,6 +19,12 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
+from .contrast_frame_grid_v12 import (
+    CONTRAST_FRAME_GRID_V12_REGISTRATION_VERSION,
+    ContrastFrameGridV12Error,
+    ContrastFrameGridV12Profile,
+    ContrastFrameGridV12Registrar,
+)
 from .lateral_partial_contract import LateralPartialContractError, LateralPartialGeometrySnapshot
 from .page_geometry_incremental import (
     BasePageGeometryManifestDescriptor,
@@ -51,9 +57,13 @@ from .source_ingestion import (
 
 PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION = 2
 PAGE_GEOMETRY_MANIFEST_SHAPE_V2_SCHEMA_VERSION = 3
+PAGE_GEOMETRY_MANIFEST_CONTRAST_FRAME_V12_SCHEMA_VERSION = 4
 LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v1"
 PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v2-auto-anchor"
 PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION = "page-geometry-preflight-v3-board-area-mask"
+PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION = (
+    "page-geometry-preflight-v12-contrast-frame-grid"
+)
 _CHECKPOINT_BATCH_SIZE = 25
 _AUTO_ANCHOR_MAX_PASSES = 2
 _AUTO_ANCHOR_LIMIT_PER_PASS = 21
@@ -216,9 +226,20 @@ class PageGeometryPreflightHandler:
             if _is_sha256(checksum) and self._managed_anchor_path(checksum).is_file():
                 available_override_anchor_checksums.add(checksum)
         shape_profile = payload.get("shapeGeometryV2Profile")
+        contrast_profile = payload.get("contrastFrameGridV12Profile")
         registration_profile: dict[str, object] | None = None
-        registrar: VerifiedPageRegistrar | None = None
-        if not isinstance(shape_profile, ShapeGeometryV2PreflightProfile):
+        registrar: object | None = None
+        if isinstance(contrast_profile, ContrastFrameGridV12Profile):
+            registrar = ContrastFrameGridV12Registrar(
+                contrast_profile,
+                load_anchor_rgb=lambda checksum: self._load_preflight_anchor_rgb(
+                    checksum,
+                    by_checksum=originals_by_checksum,
+                    source_directory=managed.source_directory,
+                ),
+            )
+            _prepare_registrar(registrar)
+        elif not isinstance(shape_profile, ShapeGeometryV2PreflightProfile):
             registration_profile = _profile_with_manual_override_anchors(
                 cast(Mapping[str, object], payload["pageRegistrationProfile"]),
                 raw_overrides,
@@ -235,7 +256,11 @@ class PageGeometryPreflightHandler:
             _prepare_registrar(registrar)
 
         total = len(managed.originals)
-        descriptor = _base_manifest_descriptor(payload)
+        descriptor = (
+            None
+            if isinstance(contrast_profile, ContrastFrameGridV12Profile)
+            else _base_manifest_descriptor(payload)
+        )
         base_manifest = (
             None
             if descriptor is None
@@ -483,7 +508,7 @@ class PageGeometryPreflightHandler:
         *,
         source_directory: Path,
         payload: Mapping[str, object],
-        registrar: VerifiedPageRegistrar | None,
+        registrar: object | None,
     ) -> tuple[str, dict[str, object], str]:
         if _fully_canonical(original.sequence_range_start, original.sequence_range_end, payload):
             return (
@@ -498,12 +523,15 @@ class PageGeometryPreflightHandler:
             source_directory,
             original.source_storage_relative_path or original.source_relative_path,
         )
+        contrast_profile = payload.get("contrastFrameGridV12Profile")
+        is_v12 = isinstance(contrast_profile, ContrastFrameGridV12Profile)
         override = self._override(
             payload,
             original.checksum_sha256,
             width=int(rgb.shape[1]),
             height=int(rgb.shape[0]),
             expected_board_count=_expected_board_count(original),
+            require_v12_pair=is_v12,
         )
         if override is not None:
             return (
@@ -538,7 +566,34 @@ class PageGeometryPreflightHandler:
                 },
                 "review_required",
             )
-        if registrar is None or not registrar.available:
+        if isinstance(registrar, ContrastFrameGridV12Registrar):
+            evaluation = registrar.evaluate(
+                rgb, active_board_slots=tuple(range(_expected_board_count(original)))
+            )
+            if evaluation.result is None:
+                return (
+                    original.checksum_sha256,
+                    {
+                        "status": "review_required",
+                        "sourceRelativePath": original.source_relative_path,
+                        "imageHeight": int(rgb.shape[0]),
+                        "imageWidth": int(rgb.shape[1]),
+                        **evaluation.failure_payload(),
+                    },
+                    "review_required",
+                )
+            return (
+                original.checksum_sha256,
+                {
+                    "status": "registered",
+                    "sourceRelativePath": original.source_relative_path,
+                    "imageHeight": int(rgb.shape[0]),
+                    "imageWidth": int(rgb.shape[1]),
+                    **evaluation.result.to_payload(),
+                },
+                "registered",
+            )
+        if not isinstance(registrar, VerifiedPageRegistrar) or not registrar.available:
             return (
                 original.checksum_sha256,
                 {
@@ -835,6 +890,7 @@ class PageGeometryPreflightHandler:
         width: int,
         height: int,
         expected_board_count: int,
+        require_v12_pair: bool = False,
     ) -> dict[str, object] | None:
         overrides = payload.get("pageGeometryOverrides")
         raw = overrides.get(source_checksum_sha256) if isinstance(overrides, Mapping) else None
@@ -849,6 +905,39 @@ class PageGeometryPreflightHandler:
             or len(quads) != expected_board_count
         ):
             return None
+        board_frames = raw.get("boardFrameQuads")
+        symbol_grids = raw.get("symbolGridQuads")
+        has_v12_pair = (
+            isinstance(board_frames, Sequence)
+            and not isinstance(board_frames, str | bytes)
+            and len(board_frames) == expected_board_count
+            and isinstance(symbol_grids, Sequence)
+            and not isinstance(symbol_grids, str | bytes)
+            and len(symbol_grids) == expected_board_count
+        )
+        if require_v12_pair and not has_v12_pair:
+            return None
+        if require_v12_pair:
+            return {
+                "anchorSourceChecksumSha256": None,
+                "boardFrameQuads": list(board_frames),
+                "featureCount": 0,
+                "inlierCount": 0,
+                "inlierRatio": 0.0,
+                "manualOverrideDecisionChecksumSha256": raw.get("decisionChecksumSha256"),
+                "manualOverrideId": raw.get("overrideId"),
+                "manualOverrideRevision": raw.get("revision"),
+                "p95ReprojectionError": 0.0,
+                "quads": list(board_frames),
+                "registrationVersion": CONTRAST_FRAME_GRID_V12_REGISTRATION_VERSION,
+                "symbolGridQuads": list(symbol_grids),
+                "thresholdsVersion": "manual-v12-page-frame-grid-override-v1",
+                **(
+                    {"slotQualifications": raw["slotQualifications"]}
+                    if "slotQualifications" in raw
+                    else {}
+                ),
+            }
         return {
             "anchorSourceChecksumSha256": None,
             "boardRedEdgeCoverages": [1.0] * expected_board_count,
@@ -1052,6 +1141,7 @@ def _registration_policy_matches_preflight(
         PAGE_GEOMETRY_PREFLIGHT_VERSION: PAGE_REGISTRATION_VERSION,
         PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION: (PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION),
         SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION: PAGE_REGISTRATION_VERSION,
+        PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION: PAGE_REGISTRATION_VERSION,
     }
     return expected.get(preflight_policy_version) == registration_policy_version
 
@@ -1079,6 +1169,7 @@ def _input(job: Job) -> dict[str, object]:
         "replacement_parent_upload_id",
         "replacement_parent_manifest_sha256",
         "shape_geometry_v2_profile",
+        "contrast_frame_grid_v12_profile",
     }
     policy = payload.get("preflight_policy_version", LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION)
     payload_keys = frozenset(payload)
@@ -1125,6 +1216,7 @@ def _input(job: Job) -> dict[str, object]:
             PAGE_GEOMETRY_PREFLIGHT_VERSION,
             PAGE_GEOMETRY_PREFLIGHT_BOARD_AREA_VERSION,
             SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
+            PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION,
         }
         or not _registration_policy_matches_preflight(policy, profile.get("policy"))
         or any(
@@ -1163,7 +1255,29 @@ def _input(job: Job) -> dict[str, object]:
             "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
             "Only the shared shape-geometry preflight can pin a shared profile.",
         )
+    if policy == PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION:
+        if "contrast_frame_grid_v12_profile" not in payload:
+            raise JobHandlerError(
+                "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
+                "V1.2 contrast-frame preflight requires a pinned game profile.",
+            )
+        try:
+            result["contrastFrameGridV12Profile"] = ContrastFrameGridV12Profile.from_payload(
+                payload["contrast_frame_grid_v12_profile"]
+            )
+        except ContrastFrameGridV12Error as error:
+            raise JobHandlerError(error.code, str(error)) from error
+    elif "contrast_frame_grid_v12_profile" in payload:
+        raise JobHandlerError(
+            "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
+            "Only V1.2 contrast-frame preflight can pin a V1.2 profile.",
+        )
     if "lateral_partial_geometry" in payload:
+        if policy == PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION:
+            raise JobHandlerError(
+                "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
+                "V1.2 contrast-frame preflight cannot pin a legacy red-frame policy.",
+            )
         try:
             result["lateralPartialGeometry"] = LateralPartialGeometrySnapshot.from_payload(
                 payload["lateral_partial_geometry"]
@@ -1250,7 +1364,9 @@ def _manifest_bytes(
         "skippedHumanResolvedSourceCount": skipped_human_resolved,
         "registeredSourceCount": registered,
         "schemaVersion": (
-            PAGE_GEOMETRY_MANIFEST_SHAPE_V2_SCHEMA_VERSION
+            PAGE_GEOMETRY_MANIFEST_CONTRAST_FRAME_V12_SCHEMA_VERSION
+            if version == PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION
+            else PAGE_GEOMETRY_MANIFEST_SHAPE_V2_SCHEMA_VERSION
             if version == SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION
             else PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION
             if _uses_auto_anchors(version)
@@ -1281,6 +1397,14 @@ def _manifest_bytes(
                 "The shared shape-geometry profile was not validated before manifest writing.",
             )
         value["shapeGeometryV2Profile"] = profile.to_payload()
+    if "contrastFrameGridV12Profile" in payload:
+        profile = payload["contrastFrameGridV12Profile"]
+        if not isinstance(profile, ContrastFrameGridV12Profile):
+            raise JobHandlerError(
+                "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
+                "The V1.2 contrast-frame profile was not validated before manifest writing.",
+            )
+        value["contrastFrameGridV12Profile"] = profile.to_payload()
     return (json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
@@ -1305,6 +1429,10 @@ def _load_manifest(path: Path) -> Mapping[str, object]:
             (
                 PAGE_GEOMETRY_MANIFEST_SHAPE_V2_SCHEMA_VERSION,
                 SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
+            ),
+            (
+                PAGE_GEOMETRY_MANIFEST_CONTRAST_FRAME_V12_SCHEMA_VERSION,
+                PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION,
             ),
         }
         or not isinstance(value.get("sourceCount"), int)

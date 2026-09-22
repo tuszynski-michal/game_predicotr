@@ -1,11 +1,34 @@
 ---
 title: Iterative image import architecture
 status: accepted
-last_updated: 2026-09-16
+last_updated: 2026-09-22
 release: "0.7"
 ---
 
 # Architektura iteracyjnego importu
+
+## Kontrastowa ramka i siatka V1.2 — TASK-0613
+
+V1.2 jest oddzielną gałęzią preflightu o polityce
+`page-geometry-preflight-v12-contrast-frame-grid`. Snapshot joba zawiera
+wybrany wariant oraz pełny, checksummowany profil `contrastFrameGridV12Profile`.
+Profil powstaje z aktualnych override'ów jednej gry; każdy sample wiąże SHA-256
+źródła, identyfikator i rewizję decyzji, zewnętrzną ramkę planszy oraz
+wewnętrzną siatkę symboli. Zmiana ręcznej pary daje inny input joba i nowy
+preflight, nigdy nie podmienia wyniku retry.
+
+Adapter V1.2 używa `VerifiedPageRegistrar.initialize` wyłącznie do projekcji
+manualnej kotwicy tej samej gry. Nie wykonuje legacy red-mask ani red-coverage.
+Każdą przewidywaną ramkę dosuwa lokalnie do maksimum kontrastu RGB, sprawdza
+spójny układ 3 × 3, wyprowadza medianę czterech marginesów w wyprostowanej
+perspektywie i uruchamia istniejący bezpieczny estymator siatki symboli. Wynik
+zawiera zarówno `boardFrameQuads`, jak i `symbolGridQuads`; każdy brak dowodu
+daje `review_required`.
+
+V1.2 nie używa manifestu bazowego ani polityki bocznych plansz, przez co nie
+łączy się z v1.0/v1.1. Manifest V1.2 ma osobny schema version 4. Jego endpoint
+startu importu i managed reprocess są celowo zamknięte: wariant służy tylko do
+oceny wizualnej w Adminie do chwili osobnego odbioru.
 
 ## Rewizja zdjęcia źródłowego przed importem — TASK-0570
 

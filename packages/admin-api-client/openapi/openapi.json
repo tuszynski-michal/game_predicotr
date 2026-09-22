@@ -2465,6 +2465,38 @@
             "title": "Actor",
             "type": "string"
           },
+          "boardFrameQuads": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxItems": 4,
+                  "minItems": 4,
+                  "prefixItems": [
+                    {
+                      "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "maxItems": 9,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boardframequads"
+          },
           "expectedOverrideRevision": {
             "anyOf": [
               {
@@ -2537,6 +2569,38 @@
             "pattern": "^[0-9a-f]{64}$",
             "title": "Sourcechecksumsha256",
             "type": "string"
+          },
+          "symbolGridQuads": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxItems": 4,
+                  "minItems": 4,
+                  "prefixItems": [
+                    {
+                      "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "maxItems": 9,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolgridquads"
           }
         },
         "required": [
@@ -2672,6 +2736,23 @@
             ],
             "title": "Automaticpartialproposals"
           },
+          "existingBoardFrameQuads": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existingboardframequads"
+          },
           "existingFinalQuads": {
             "anyOf": [
               {
@@ -2714,6 +2795,23 @@
               }
             ],
             "title": "Existingslotqualifications"
+          },
+          "existingSymbolGridQuads": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existingsymbolgridquads"
           },
           "expectedBoardCount": {
             "maximum": 9.0,
@@ -4732,7 +4830,8 @@
       "GeometryEngineVariant": {
         "enum": [
           "structured_lattice_v4_partial_sides",
-          "selective_board_review_v1_1"
+          "selective_board_review_v1_1",
+          "contrast_frame_grid_v1_2"
         ],
         "title": "GeometryEngineVariant",
         "type": "string"
@@ -13665,6 +13764,18 @@
             "title": "Canonicalsequencenumbers",
             "type": "array"
           },
+          "contrastFrameGridV12Profile": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contrastframegridv12Profile"
+          },
           "lateralPartialGeometry": {
             "anyOf": [
               {
@@ -13714,7 +13825,8 @@
               {
                 "enum": [
                   "page-geometry-preflight-v2-auto-anchor",
-                  "page-geometry-preflight-v3-board-area-mask"
+                  "page-geometry-preflight-v3-board-area-mask",
+                  "page-geometry-preflight-v12-contrast-frame-grid"
                 ],
                 "type": "string"
               },

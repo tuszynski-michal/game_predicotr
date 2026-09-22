@@ -75,6 +75,28 @@ test('corrupted local data never becomes source geometry', () => {
   assert.throws(() => readPageGeometryDraft(store, scope), /Uszkodzony/);
 });
 
+test('v1.2 draft restores both layers, active layer and explicit frame confirmation', () => {
+  const store = storage();
+  const v12Draft = {
+    ...draft,
+    v12: {
+      activeLayer: 'boardFrame',
+      boardFrameQuads: Array(9).fill(
+        quad.map((point) => ({ x: point.x + 2, y: point.y + 2 })),
+      ),
+      frameConfirmed: true,
+      symbolGridQuads: draft.quads,
+    },
+  };
+  writePageGeometryDraft(store, scope, v12Draft);
+
+  assert.match(
+    store.values.get(`page-geometry-draft-v1:g:u:p:${scope.checksum}:1`),
+    /"version":2/,
+  );
+  assert.deepEqual(readPageGeometryDraft(store, scope), v12Draft);
+});
+
 test('successful save cleans only its own submitted draft, not another tab or revision', () => {
   const store = storage();
   const submitted = serializePageGeometryDraft(scope, draft);

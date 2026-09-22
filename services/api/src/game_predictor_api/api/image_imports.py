@@ -1272,6 +1272,20 @@ def create_image_imports_router(
                         if geometry_origin == "automatic"
                         else None
                     ),
+                    existing_board_frame_quads=(
+                        current_override.get("boardFrameQuads")
+                        if isinstance(current_override, dict)
+                        else raw.get("boardFrameQuads")
+                        if geometry_origin == "automatic"
+                        else None
+                    ),
+                    existing_symbol_grid_quads=(
+                        current_override.get("symbolGridQuads")
+                        if isinstance(current_override, dict)
+                        else raw.get("symbolGridQuads")
+                        if geometry_origin == "automatic"
+                        else None
+                    ),
                     existing_override_revision=(
                         current_override.get("revision")
                         if isinstance(current_override, dict)
@@ -1971,6 +1985,22 @@ def create_image_imports_router(
             final_quads=tuple(
                 tuple(point.model_dump(by_alias=True) for point in quad)
                 for quad in payload.final_quads
+            ),
+            board_frame_quads=(
+                None
+                if payload.board_frame_quads is None
+                else tuple(
+                    tuple(point.model_dump(by_alias=True) for point in quad)
+                    for quad in payload.board_frame_quads
+                )
+            ),
+            symbol_grid_quads=(
+                None
+                if payload.symbol_grid_quads is None
+                else tuple(
+                    tuple(point.model_dump(by_alias=True) for point in quad)
+                    for quad in payload.symbol_grid_quads
+                )
             ),
             actor=payload.actor,
         )

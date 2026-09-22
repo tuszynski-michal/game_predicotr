@@ -43,6 +43,7 @@ import {
   type ImageFolderImportClient,
   type PageRegistrationVariant,
   DEFAULT_GEOMETRY_ENGINE_VARIANT,
+  CONTRAST_FRAME_GRID_V12_VARIANT,
   LATERAL_PARTIAL_VARIANT,
   SELECTIVE_BOARD_VARIANT,
   filterImageFolderImportFiles,
@@ -313,6 +314,9 @@ export function ImageFolderImportPanel({
   const selectiveCapability = enginePolicy?.geometryEngineVariants?.find(
     (candidate) => candidate.variant === SELECTIVE_BOARD_VARIANT,
   );
+  const contrastFrameV12Capability = enginePolicy?.geometryEngineVariants?.find(
+    (candidate) => candidate.variant === CONTRAST_FRAME_GRID_V12_VARIANT,
+  );
   const [curatedSources, setCuratedSources] = useState<
     readonly CuratedImageImportSourceResponse[]
   >([]);
@@ -457,6 +461,7 @@ export function ImageFolderImportPanel({
   );
   const readyImportStartAllowed =
     preflight !== null &&
+    geometryEngineVariant !== CONTRAST_FRAME_GRID_V12_VARIANT &&
     !readySelections.some(
       (selection) =>
         selection.uploadId === preflight.uploadId &&
@@ -1448,6 +1453,21 @@ export function ImageFolderImportPanel({
           />
           v1.1 — korekta 1–2 niepewnych plansz
         </label>
+        <label>
+          <input
+            checked={geometryEngineVariant === CONTRAST_FRAME_GRID_V12_VARIANT}
+            disabled={busy || contrastFrameV12Capability?.enabled !== true}
+            name="geometry-engine-variant"
+            onChange={() => {
+              setGeometryEngineVariant(CONTRAST_FRAME_GRID_V12_VARIANT);
+              setPreflight(null);
+              setGeometryPreflightJob(null);
+              setGeometryGuardResolutionManifest(null);
+            }}
+            type="radio"
+          />
+          v1.2 — kontrastowa ramka i siatka (test)
+        </label>
         {!lateralVariantAvailable ? (
           <p className="mutedText" role="status">
             {`${lateralCapability?.blockerCode ?? 'IMAGE_GEOMETRY_ENGINE_VARIANT_NOT_ENABLED'}: ${lateralCapability?.blockerMessage ?? 'Silnik v1.0 jest niedostępny.'}`}
@@ -1675,10 +1695,10 @@ export function ImageFolderImportPanel({
                   ) : null}
                   {imported ? (
                     <p className="curatedImportStatus">
-                      Ten staging nie wymaga ponownego importu. Weryfikacja symboli
-                      nie zmienia statusu importu plansz. Brakujące geometrie
-                      popraw w „Zatwierdzanie cięcia siatki” → „Niepełne siatki do
-                      ręcznej korekty”.
+                      Ten staging nie wymaga ponownego importu. Weryfikacja
+                      symboli nie zmienia statusu importu plansz. Brakujące
+                      geometrie popraw w „Zatwierdzanie cięcia siatki” →
+                      „Niepełne siatki do ręcznej korekty”.
                     </p>
                   ) : null}
                   {active && preflight !== null ? (
@@ -1754,11 +1774,14 @@ export function ImageFolderImportPanel({
                           SELECTIVE_BOARD_VARIANT
                             ? 'v1.1 — korekta plansz'
                             : preflight.geometryEngineVariant ===
-                                LATERAL_PARTIAL_VARIANT
-                              ? 'v1.0 — niepełne boki'
-                              : boardCellProcessingModeLabel(
-                                  boardCellProcessingMode,
-                                )}
+                                CONTRAST_FRAME_GRID_V12_VARIANT
+                              ? 'v1.2 — test wizualny, import zablokowany'
+                              : preflight.geometryEngineVariant ===
+                                  LATERAL_PARTIAL_VARIANT
+                                ? 'v1.0 — niepełne boki'
+                                : boardCellProcessingModeLabel(
+                                    boardCellProcessingMode,
+                                  )}
                         </dd>
                       </div>
                       <div className="importMetric">
@@ -1793,6 +1816,15 @@ export function ImageFolderImportPanel({
                         );
                       })()
                     : null}
+                  {active &&
+                  preflight?.geometryEngineVariant ===
+                    CONTRAST_FRAME_GRID_V12_VARIANT ? (
+                    <p className="curatedImportStatus" role="status">
+                      V1.2 przygotowuje wyłącznie geometrię do Twojej oceny.
+                      Start importu pozostaje zablokowany do osobnej decyzji
+                      odbiorowej.
+                    </p>
+                  ) : null}
                   {active && foreignGeometryGuardJob !== null ? (
                     <p
                       className="feedbackBanner feedbackBannerError"
@@ -1872,6 +1904,7 @@ export function ImageFolderImportPanel({
                                 api={api}
                                 apiBaseUrl={apiBaseUrl}
                                 gameId={gameId}
+                                geometryEngineVariant={geometryEngineVariant}
                                 initialReplacementSource={
                                   replacementPreview.source
                                 }
@@ -1947,6 +1980,7 @@ export function ImageFolderImportPanel({
                                     : undefined
                                 }
                                 gameId={gameId}
+                                geometryEngineVariant={geometryEngineVariant}
                                 onPendingSourceCountChange={
                                   handlePendingGeometryCorrectionCountChange
                                 }

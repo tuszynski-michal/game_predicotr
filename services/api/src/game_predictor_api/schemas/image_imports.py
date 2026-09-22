@@ -503,6 +503,8 @@ class BrowserPageGeometryReviewSourceResponse(ApiModel):
     rejection_reason_code: str | None = Field(default=None, min_length=1, max_length=128)
     registration_diagnostics: PageGeometryRegistrationDiagnostics | None = None
     existing_final_quads: list[list[ManualSourceGeometryPoint]] | None = None
+    existing_board_frame_quads: list[list[ManualSourceGeometryPoint]] | None = None
+    existing_symbol_grid_quads: list[list[ManualSourceGeometryPoint]] | None = None
     existing_override_revision: int | None = Field(default=None, ge=1)
     existing_slot_qualifications: list[GeometryQualificationPayload] | None = None
     saved_since_preflight: bool = False
@@ -542,6 +544,30 @@ class BrowserPageGeometryOverrideCreate(ApiModel):
     slot_qualifications: list[GeometryQualificationPayload] | None = Field(
         default=None, min_length=1, max_length=9
     )
+    board_frame_quads: list[
+        tuple[
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+        ]
+    ] | None = Field(default=None, min_length=1, max_length=9)
+    symbol_grid_quads: list[
+        tuple[
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+        ]
+    ] | None = Field(default=None, min_length=1, max_length=9)
+
+    @model_validator(mode="after")
+    def require_complete_v12_pair(self) -> "BrowserPageGeometryOverrideCreate":
+        if (self.board_frame_quads is None) != (self.symbol_grid_quads is None):
+            raise ValueError("V1.2 requires both boardFrameQuads and symbolGridQuads.")
+        if self.symbol_grid_quads is not None and self.final_quads != self.symbol_grid_quads:
+            raise ValueError("finalQuads must equal symbolGridQuads for V1.2.")
+        return self
 
 
 class BrowserPageGeometryOverrideResponse(ApiModel):

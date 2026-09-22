@@ -28,7 +28,7 @@ test('page geometry editor exposes ordered corners and exact reset', () => {
   assert.match(panel, /Wszystkie plansze — 36 narożników/);
   assert.match(panel, /rząd.*kolumna/s);
   assert.match(panel, /source\?\.expectedBoardCount \?\? PAGE_BOARD_COUNT/);
-  assert.match(panel, /quads\.length !== expectedBoardCount/);
+  assert.match(panel, /symbolQuadsForSave\.length !== expectedBoardCount/);
 });
 
 test('saving a correction is separated from submitting the saved batch', () => {
@@ -51,18 +51,21 @@ test('reports the current pending-source count after refresh, save, and exclusio
   );
   assert.match(
     panel,
-    /onPendingSourceCountChange\?\.\([\s\S]*pendingSources\.filter\(\(item\) => item\.reviewReason !== 'operator_inspection'\)\.length/,
+    /onPendingSourceCountChange\?\.\(\s*pendingSources\.filter\(\s*\(item\) => item\.reviewReason !== 'operator_inspection',\s*\)\.length/,
   );
   assert.match(
     panel,
-    /onPendingSourceCountChange\?\.\([\s\S]*remainingSources\.filter\(\(item\) => item\.reviewReason !== 'operator_inspection'\)\.length/,
+    /onPendingSourceCountChange\?\.\(\s*remainingSources\.filter\(\s*\(item\) => item\.reviewReason !== 'operator_inspection',\s*\)\.length/,
   );
 });
 
 test('the replacement opens its registered geometry for optional inspection', () => {
   assert.match(panel, /focusSourceChecksumSha256/);
   assert.match(panel, /operator_inspection/);
-  assert.match(panel, /zarejestrowane zdjęcie — sprawdź automatyczną geometrię/);
+  assert.match(
+    panel,
+    /zarejestrowane zdjęcie — sprawdź automatyczną geometrię/,
+  );
 });
 
 test('an operator can open one registered staging source by its local checksum', () => {
@@ -145,4 +148,16 @@ test('geometry editor can exclude a checksum-bound source from the import', () =
     /geometryManifestChecksumSha256: geometryManifestChecksum/,
   );
   assert.match(panel, /nie zostanie skopiowane ani przetworzone/);
+});
+
+test('V1.2 separates the board frame from the symbol grid without a color rule', () => {
+  assert.match(panel, /geometryEngineVariant\?: GeometryEngineVariant/);
+  assert.match(
+    panel,
+    /Ramka planszy — zewnętrzna granica kolorowego marginesu/,
+  );
+  assert.match(panel, /Siatka symboli — granica układu 3 × 5/);
+  assert.match(panel, /boardFrameQuads: frameQuadsForSave/);
+  assert.match(panel, /symbolGridQuads: finalQuads/);
+  assert.match(panel, /kolor ramki nie jest częścią warunku/);
 });

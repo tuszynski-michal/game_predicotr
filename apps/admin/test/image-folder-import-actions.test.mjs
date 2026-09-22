@@ -431,6 +431,42 @@ test('browser preflight identity accepts every released lateral policy', () => {
   );
 });
 
+test('v1.2 geometry report matches only its pinned contrast profile', () => {
+  const report = {
+    gameId: 'game-1',
+    geometryEngineVariant: 'contrast_frame_grid_v1_2',
+    manifestChecksumSha256: 'a'.repeat(64),
+    uploadId: 'upload-1',
+  };
+  const job = {
+    gameId: 'game-1',
+    jobType: 'validate',
+    inputPayload: {
+      contrastFrameGridV12Profile: { checksumSha256: 'b'.repeat(64) },
+      sourceManifestSha256: 'a'.repeat(64),
+      sourceSelectionId: 'upload-1',
+      validationKind: 'page_geometry_preflight',
+    },
+  };
+
+  assert.equal(geometryPreflightMatchesReport(job, report), true);
+  assert.equal(
+    geometryPreflightMatchesReport(
+      {
+        ...job,
+        inputPayload: {
+          ...job.inputPayload,
+          lateralPartialGeometry: {
+            variant: 'structured_lattice_v4_partial_sides',
+          },
+        },
+      },
+      report,
+    ),
+    false,
+  );
+});
+
 test('guard replay requires exact job identity and cannot rebind v3 into v0.10.4', () => {
   const report = {
     gridProfileInferenceFingerprint: 'g'.repeat(64),

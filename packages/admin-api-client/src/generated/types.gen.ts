@@ -1332,6 +1332,17 @@ export type BrowserPageGeometryOverrideCreate = {
    */
   actor: string;
   /**
+   * Boardframequads
+   */
+  boardFrameQuads?: Array<
+    [
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+    ]
+  > | null;
+  /**
    * Expectedoverriderevision
    */
   expectedOverrideRevision?: number | null;
@@ -1366,6 +1377,17 @@ export type BrowserPageGeometryOverrideCreate = {
    * Sourcechecksumsha256
    */
   sourceChecksumSha256: string;
+  /**
+   * Symbolgridquads
+   */
+  symbolGridQuads?: Array<
+    [
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+      ManualSourceGeometryPoint,
+    ]
+  > | null;
 };
 
 /**
@@ -1433,6 +1455,10 @@ export type BrowserPageGeometryReviewSourceResponse = {
    */
   automaticPartialProposals?: Array<AutomaticPartialGeometryProposalPayload> | null;
   /**
+   * Existingboardframequads
+   */
+  existingBoardFrameQuads?: Array<Array<ManualSourceGeometryPoint>> | null;
+  /**
    * Existingfinalquads
    */
   existingFinalQuads?: Array<Array<ManualSourceGeometryPoint>> | null;
@@ -1444,6 +1470,10 @@ export type BrowserPageGeometryReviewSourceResponse = {
    * Existingslotqualifications
    */
   existingSlotQualifications?: Array<GeometryQualificationPayload> | null;
+  /**
+   * Existingsymbolgridquads
+   */
+  existingSymbolGridQuads?: Array<Array<ManualSourceGeometryPoint>> | null;
   /**
    * Expectedboardcount
    */
@@ -2613,7 +2643,9 @@ export type GeometryCohortResponse = {
  * GeometryEngineVariant
  */
 export type GeometryEngineVariant =
-  'structured_lattice_v4_partial_sides' | 'selective_board_review_v1_1';
+  | 'structured_lattice_v4_partial_sides'
+  | 'selective_board_review_v1_1'
+  | 'contrast_frame_grid_v1_2';
 
 /**
  * GeometryEngineVariantCapabilityResponse
@@ -7562,6 +7594,12 @@ export type PageGeometryPreflightJobPayload = {
    * Canonicalsequencenumbers
    */
   canonicalSequenceNumbers?: Array<number>;
+  /**
+   * Contrastframegridv12Profile
+   */
+  contrastFrameGridV12Profile?: {
+    [key: string]: unknown;
+  } | null;
   lateralPartialGeometry?: LateralPartialGeometryJobSnapshotPayload | null;
   /**
    * Managedsourcejobid
@@ -7589,6 +7627,7 @@ export type PageGeometryPreflightJobPayload = {
   preflightPolicyVersion?:
     | 'page-geometry-preflight-v2-auto-anchor'
     | 'page-geometry-preflight-v3-board-area-mask'
+    | 'page-geometry-preflight-v12-contrast-frame-grid'
     | null;
   /**
    * Replacementparentmanifestsha256

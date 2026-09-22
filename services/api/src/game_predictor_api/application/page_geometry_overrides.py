@@ -10,6 +10,9 @@ from datetime import UTC, datetime
 from typing import Protocol, cast
 from uuid import UUID, uuid4
 
+from game_predictor_worker.images.contrast_frame_grid_v12 import (
+    build_contrast_frame_grid_v12_profile,
+)
 from game_predictor_worker.images.geometry import Point, Quad
 from game_predictor_worker.images.page_geometry_registration import is_ordered_active_grid
 from game_predictor_worker.images.partial_grid_learning import (
@@ -82,6 +85,8 @@ class PageGeometryOverrideService:
         final_quads: Sequence[Sequence[Mapping[str, object]]],
         actor: str,
         slot_qualifications: object = None,
+        board_frame_quads: Sequence[Sequence[Mapping[str, object]]] | None = None,
+        symbol_grid_quads: Sequence[Sequence[Mapping[str, object]]] | None = None,
         expected_override_revision: int | None = None,
     ) -> tuple[ImagePageGeometryOverride, bool]:
         try:
@@ -97,6 +102,41 @@ class PageGeometryOverrideService:
             expected_board_count=expected_board_count,
             qualifications=qualifications,
         )
+        if (board_frame_quads is None) != (symbol_grid_quads is None):
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_V12_PAIR_REQUIRED",
+                "V1.2 corrections require both board-frame and symbol-grid quadrilaterals.",
+            )
+        parsed_frames: PageGeometryQuads | None = None
+        parsed_symbol_grids: PageGeometryQuads | None = None
+        if board_frame_quads is not None and symbol_grid_quads is not None:
+            parsed_frames = _parse_and_validate(
+                board_frame_quads,
+                image_width=image_width,
+                image_height=image_height,
+                expected_board_count=expected_board_count,
+                qualifications=None,
+            )
+            parsed_symbol_grids = _parse_and_validate(
+                symbol_grid_quads,
+                image_width=image_width,
+                image_height=image_height,
+                expected_board_count=expected_board_count,
+                qualifications=qualifications,
+            )
+            if parsed != parsed_symbol_grids:
+                raise JobError(
+                    "IMAGE_PAGE_GEOMETRY_V12_FINAL_GRID_MISMATCH",
+                    "The compatible final geometry must equal the confirmed symbol grid.",
+                )
+            if any(
+                not _quad_contains(frame, grid)
+                for frame, grid in zip(parsed_frames, parsed_symbol_grids, strict=True)
+            ):
+                raise JobError(
+                    "IMAGE_PAGE_GEOMETRY_V12_GRID_OUTSIDE_FRAME",
+                    "Every symbol grid must be entirely inside its confirmed board frame.",
+                )
         if qualifications is not None:
             try:
                 qualifications = tuple(
@@ -121,6 +161,8 @@ class PageGeometryOverrideService:
             image_height,
             final_quads,
             None if qualifications is None else [item.to_dict() for item in qualifications],
+            board_frame_quads,
+            symbol_grid_quads,
         )
         current = self._repository.get_current(
             game_id=game_id,
@@ -161,6 +203,8 @@ class PageGeometryOverrideService:
             decision_checksum_sha256=checksum,
             created_at=datetime.now(UTC),
             slot_qualifications=qualifications,
+            board_frame_quads=parsed_frames,
+            symbol_grid_quads=parsed_symbol_grids,
         )
         return self._repository.append(value), True
 
@@ -181,6 +225,9 @@ class PageGeometryOverrideService:
             }
             if value.slot_qualifications is not None:
                 entry["slotQualifications"] = [item.to_dict() for item in value.slot_qualifications]
+            if value.board_frame_quads is not None and value.symbol_grid_quads is not None:
+                entry["boardFrameQuads"] = value.board_frame_quads
+                entry["symbolGridQuads"] = value.symbol_grid_quads
             entries[value.source_checksum_sha256] = entry
         return dict(sorted(entries.items()))
 
@@ -189,6 +236,11 @@ class PageGeometryOverrideService:
 
         profile = build_partial_grid_training_profile(self.snapshot(game_id=game_id))
         return None if profile is None else profile.to_payload()
+
+    def contrast_frame_grid_v12_profile(self, *, game_id: UUID) -> dict[str, object]:
+        """Snapshot only complete, explicitly paired V1.2 human corrections."""
+
+        return build_contrast_frame_grid_v12_profile(self.snapshot(game_id=game_id))
 
     def exclude_source(
         self,
@@ -377,6 +429,8 @@ def _checksum(
     image_height: int,
     final_quads: Sequence[Sequence[Mapping[str, object]]],
     slot_qualifications: list[dict[str, object]] | None = None,
+    board_frame_quads: Sequence[Sequence[Mapping[str, object]]] | None = None,
+    symbol_grid_quads: Sequence[Sequence[Mapping[str, object]]] | None = None,
 ) -> str:
     if re.fullmatch(r"[0-9a-f]{64}", source_checksum_sha256) is None:
         raise JobError(
@@ -391,6 +445,9 @@ def _checksum(
     }
     if slot_qualifications is not None:
         payload["slotQualifications"] = slot_qualifications
+    if board_frame_quads is not None and symbol_grid_quads is not None:
+        payload["boardFrameQuads"] = board_frame_quads
+        payload["symbolGridQuads"] = symbol_grid_quads
     canonical = json.dumps(
         payload,
         ensure_ascii=True,
@@ -398,6 +455,34 @@ def _checksum(
         sort_keys=True,
     ).encode("ascii")
     return hashlib.sha256(canonical).hexdigest()
+
+
+def _quad_contains(outer: Sequence[Mapping[str, int]], inner: Sequence[Mapping[str, int]]) -> bool:
+    """Return true only when every inner point is inside a convex outer quad.
+
+    Both inputs have already passed source bounds, winding and ordered-grid
+    validation.  A small integer tolerance accepts a point exactly on the
+    manually confirmed frame while rejecting a symbol grid that would crop
+    outside the board.
+    """
+
+    epsilon = 1e-6
+    signs: list[float] = []
+    for point in inner:
+        point_signs: list[float] = []
+        for index, start in enumerate(outer):
+            end = outer[(index + 1) % len(outer)]
+            point_signs.append(
+                (end["x"] - start["x"]) * (point["y"] - start["y"])
+                - (end["y"] - start["y"]) * (point["x"] - start["x"])
+            )
+        if not (
+            all(value >= -epsilon for value in point_signs)
+            or all(value <= epsilon for value in point_signs)
+        ):
+            return False
+        signs.extend(point_signs)
+    return bool(signs)
 
 
 __all__ = [

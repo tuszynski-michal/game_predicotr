@@ -1075,7 +1075,7 @@ function PageGeometryCorrectionPanelContent({
   }
 
   function updatePoint(next: Point) {
-    if (dragging === null || imageSize === null || pageCorners === null) return;
+    if (dragging === null || imageSize === null) return;
     const point = {
       x: clamp(
         next.x,
@@ -2080,8 +2080,10 @@ function PageGeometryCorrectionPanelContent({
                 />
               ) : null}
                   {imageSize !== null &&
-                  pageCorners !== null &&
-                  loadedSourceChecksum === source.sourceChecksumSha256 ? (
+                  loadedSourceChecksum === source.sourceChecksumSha256 &&
+                  (pageCorners !== null ||
+                    cornerPlacement !== null ||
+                    boardCornerPlacement !== null) ? (
                     <svg
                       aria-label="Nakładka geometrii strony"
                       onPointerDown={placeNextCorner}
@@ -2271,7 +2273,7 @@ function PageGeometryCorrectionPanelContent({
                   ) : null}
                   {cornerPlacement === null && boardCornerPlacement === null
                     ? correctionMode === 'page'
-                      ? pageCorners.map((point, index) => (
+                      ? pageCorners?.map((point, index) => (
                           <circle
                             className="pageGeometryHandle"
                             cx={point.x}

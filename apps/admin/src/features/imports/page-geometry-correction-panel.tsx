@@ -903,11 +903,21 @@ function PageGeometryCorrectionPanelContent({
   function beginBoardCornerPlacement() {
     setCorrectionMode(0);
     setCornerPlacement(null);
-    setBoardCornerPlacement([]);
+    setBoardCornerPlacement(null);
+    setBoardOverrides(new Map());
     setDragging(null);
-    setFeedback(
-      `Plansza 1 z ${expectedBoardCount} (rząd 1, kolumna 1). Wskaż kolejno: lewy górny, prawy górny, prawy dolny i lewy dolny punkt.`,
-    );
+    if (pageCorners !== null) {
+      const generated = pageGeometryQuadsFromMesh(mesh);
+      const initialQuads = generated.slice(0, expectedBoardCount);
+      setBoardOverrides(new Map(initialQuads.map((quad, index) => [index, quad])));
+      setFeedback(
+        `Tryb edycji: kliknij i przeciągnij narożniki dowolnej planszy.`,
+      );
+    } else {
+      setFeedback(
+        `Brak geometrii. Wskaż cztery narożniki strony, aby rozpocząć.`,
+      );
+    }
   }
 
   function showAllBoardCorners(currentQuads: readonly Quad[]) {

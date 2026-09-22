@@ -846,6 +846,14 @@ jest niezmiennym, content-addressed `PageGeometryManifestV1` przypiętym do
 joba. Nieudana strona trafia do `Korekty geometrii strony`, a nie do OCR,
 symboli ani technicznego `board_detection failed`.
 
+Gdy strona ma silny dowód geometryczny, ale jedna plansza ma powtarzalną
+zasłonę (np. lampka nad numerem), stosowana jest relaksacja: udział inlierów
+≥ 0,30, średnie pokrycie czerwonej krawędzi ≥ 0,68, najsłabsza plansza ≥ 0,20
+oraz pozostałe plansze ≥ 0,45. Strona jest wtedy akceptowana automatycznie,
+ale słaba plansza otrzymuje kwalifikację `excludeFromGeometryTraining`, więc
+nie trafia do profilu kotwic ani do uczenia geometrii. Dzięki temu powtarzalna
+zasłona nie obniża progu dla przyszłych kotwic.
+
 Nowe manifesty zachowują również ograniczoną diagnostykę nieudanej
 rejestracji. Powód rozróżnia brak cech lub dopasowań, błędną homografię,
 niewystarczające inliery, błąd reprojekcji, nieprawidłowe quady i brak pokrycia

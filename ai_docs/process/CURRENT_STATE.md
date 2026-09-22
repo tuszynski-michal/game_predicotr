@@ -25,6 +25,28 @@ last_updated: 2026-09-22
 - Przeszły testy jednostkowe, interakcyjne, typecheck i lint dla `apps/reviewer`.
   Karta zadania została przeniesiona do `ai_docs/tasks/completed/`.
 
+### V1.1 geometry detection dla zasłoniętych plansz (777)
+
+- Diagnostyka read-only na stagingach `a139379b` (`302257 - 275698 cut`, 2952
+  źródeł) i `3e3f510a` (`326980 - 302257 cut`, 2750 źródeł) wykazała, że
+  główna przyczyna `review_required` to `PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT`
+  (2490/2504 oraz 1278/1323 przypadków). Średnie red-edge coverage odrzuconych
+  stron wynosi ~0,70, a najsłabsza plansza ~0,38–0,41; ORB jest silny
+  (~190 inlierów, ratio ~0,40).
+- Wprowadzono relaksację w `PageRegistrationThresholds`: przy udziale inlierów
+  ≥ 0,30, średnim pokryciu ≥ 0,68, najsłabszej planszy ≥ 0,20 i pozostałych
+  planszach ≥ 0,45 strona jest akceptowana automatycznie, a słaba plansza
+  otrzymuje `excludeFromGeometryTraining`. Symulacja na istniejących manifestach
+  wskazuje, że ~77,5% odrzuceń red-edge w `a139379b` oraz ~84,0% w
+  `3e3f510a` przejdzie na `registered`.
+- Zaktualizowano `services/worker/src/game_predictor_worker/images/page_geometry_registration.py`
+  oraz testy w `services/worker/tests/test_page_geometry_registration.py`.
+  Przeszły testy jednostkowe page-registration, page-geometry-preflight (poza
+  niezwiązanym błędem shape_geometry_v2) i lateral-partial-workflow. Ruff jest
+  czysty.
+- Decyzja zapisana w `DECISION_LOG.md` jako D-420, wymagania w
+  `requirements/IMAGE_INGESTION.md`.
+
 ### TASK-0619 — odbiór techniczny V1.2 na Mumii
 
 - Testowa bramka importu V1.2 jest wdrożona, lecz rzeczywisty manifest Mumii

@@ -87,9 +87,11 @@ def test_registration_transforms_all_nine_quads_to_target_specific_geometry() ->
 def test_registration_rejects_a_page_when_one_board_has_no_border_evidence() -> None:
     anchor, quads = _page()
     target = anchor.copy()
-    # Erase the final red frame while preserving enough texture for ORB to
-    # match.  A page with a synthetic/missing board must never reach crops.
-    cv2.rectangle(target, (500, 400), (710, 580), (0, 0, 0), -1)
+    # Erase a large area around the final board while preserving enough texture
+    # for ORB to match.  The relaxed red-edge gate accepts a weak board only
+    # when it still has some border evidence; a completely missing board must
+    # never reach crops.
+    cv2.rectangle(target, (480, 380), (730, 600), (0, 0, 0), -1)
     registrar = VerifiedPageRegistrar(
         _profile(quads),
         load_anchor_rgb=lambda checksum: anchor,
@@ -98,12 +100,37 @@ def test_registration_rejects_a_page_when_one_board_has_no_border_evidence() -> 
     assert registrar.register(target) is None
 
 
+def test_registration_accepts_a_page_with_one_weak_board_using_relaxed_thresholds() -> None:
+    anchor, quads = _page()
+    target = anchor.copy()
+    # Erase just the final board's interior.  The surrounding red frame remains,
+    # so the board clears the relaxed gate but not the strict one.
+    cv2.rectangle(target, (500, 400), (710, 580), (0, 0, 0), -1)
+    registrar = VerifiedPageRegistrar(
+        _profile(quads),
+        load_anchor_rgb=lambda checksum: anchor,
+    )
+
+    result = registrar.register(target)
+
+    assert result is not None
+    assert result.mean_red_edge_coverage >= 0.68
+    assert result.slot_qualifications is not None
+    assert len(result.slot_qualifications) == 9
+    assert all(
+        not qualification.exclude_from_geometry_training
+        for qualification in result.slot_qualifications[:8]
+    )
+    assert result.slot_qualifications[8].exclude_from_geometry_training is True
+
+
 def test_registration_reports_red_edge_rejection_without_repeating_orb(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     anchor, quads = _page()
     target = anchor.copy()
-    cv2.rectangle(target, (500, 400), (710, 580), (0, 0, 0), -1)
+    # Erase enough of the final board that even the relaxed gate cannot accept it.
+    cv2.rectangle(target, (480, 380), (730, 600), (0, 0, 0), -1)
     original = page_geometry_registration._orb_features
     calls = 0
 
@@ -122,7 +149,7 @@ def test_registration_reports_red_edge_rejection_without_repeating_orb(
     assert payload["reasonCode"] == "PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT"
     diagnostics = payload["registrationDiagnostics"]
     assert isinstance(diagnostics, dict)
-    assert diagnostics["bestAttempt"]["minimumBoardRedEdgeCoverage"] < 0.45
+    assert diagnostics["bestAttempt"]["minimumBoardRedEdgeCoverage"] < 0.20
     # One anchor + one target extraction at each configured feature budget.
     assert calls == 6
 

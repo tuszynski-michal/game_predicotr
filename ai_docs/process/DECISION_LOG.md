@@ -6,6 +6,30 @@ last_updated: 2026-09-22
 
 # Decision Log
 
+## D-420 — Relaksacja red-edge dla powtarzalnej zasłony planszy
+
+- **Status:** accepted.
+- **Date:** 2026-09-22.
+- **Decision:** verified page registration akceptuje stronę, gdy jedna plansza
+  ma słabe pokrycie czerwonej krawędzi, pod warunkiem silnego dowodu
+  geometrycznego: udział inlierów ORB ≥ 0,30, średnie pokrycie red-edge ≥ 0,68,
+  najsłabsza plansza ≥ 0,20, pozostałe plansze ≥ 0,45 oraz co najwyżej jedna
+  plansza poniżej standardowego progu 0,45. Słaba plansza automatycznie
+  otrzymuje kwalifikację `excludeFromGeometryTraining`, więc nie trafia do
+  profilu kotwic ani do uczenia geometrii.
+- **Rationale:** w grze 777 powtarzalna lampka w lewym dolnym rogu zasłania
+  etykietę numeru planszy, ale nie symbole. Pozostałe osiem plansz i cała
+  homografia są pewne; odrzucanie całej strony z powodu jednej zasłoniętej
+  etykiety wymusza masową ręczną korektę bez korzyści dla jakości geometrii.
+- **Safety:** relaksacja nie obniża progów dla standardowych stron; wymaga
+  silniejszego dowodu ORB (0,30 zamiast 0,23) oraz minimum 0,20 pokrycia nawet
+  najsłabszej planszy, więc całkowicie brakująca plansza nadal jest odrzucana.
+  Wykluczenie słabej planszy z uczenia zapobiega zanieczyszczeniu przyszłych
+  kotwic.
+- **Compatibility:** manifest page geometry zyskuje opcjonalne pole
+  `slotQualifications`; wpisy bez niego pozostają poprawne. Thresholdy są
+  wersjonowane w `PageRegistrationThresholds` i nie zmieniają historii.
+
 ## D-419 — Manual grid placement używa drag-hold zamiast dwukliku
 
 - **Status:** accepted (TASK-0620).

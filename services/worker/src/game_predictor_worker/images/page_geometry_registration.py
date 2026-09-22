@@ -15,6 +15,7 @@ from typing import Final, Literal, cast
 
 import cv2
 import numpy as np
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from numpy.typing import NDArray
 
 from .geometry import Point, Quad
@@ -66,6 +67,14 @@ class PageRegistrationThresholds:
     maximum_p95_reprojection_error: float = 2.5
     minimum_mean_red_edge_coverage: float = 0.70
     minimum_board_red_edge_coverage: float = 0.45
+    # Relaxed gates for repeatable occlusions (e.g. a lamp covering the board
+    # number label).  Strong ORB evidence is required in exchange, and any
+    # board that only clears the relaxed gate is excluded from geometry
+    # training so the occlusion cannot poison future anchor profiles.
+    relaxed_minimum_mean_red_edge_coverage: float = 0.68
+    relaxed_minimum_board_red_edge_coverage: float = 0.20
+    relaxed_minimum_other_boards_red_edge_coverage: float = 0.45
+    relaxed_minimum_inlier_ratio: float = 0.30
 
 
 DEFAULT_PAGE_REGISTRATION_THRESHOLDS = PageRegistrationThresholds()
@@ -84,6 +93,7 @@ class RegisteredPageGeometry:
     registration_version: str = PAGE_REGISTRATION_VERSION
     anchor_mask_version: str | None = None
     anchor_mask_padding_ratio: float | None = None
+    slot_qualifications: tuple[GeometryQualification, ...] | None = None
 
     def to_payload(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -99,6 +109,10 @@ class RegisteredPageGeometry:
             "registrationVersion": self.registration_version,
             "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
         }
+        if self.slot_qualifications is not None:
+            payload["slotQualifications"] = [
+                qualification.to_dict() for qualification in self.slot_qualifications
+            ]
         if self.anchor_mask_version is not None:
             payload["anchorMaskVersion"] = self.anchor_mask_version
         if self.anchor_mask_padding_ratio is not None:
@@ -874,11 +888,13 @@ def _evaluate_final_registration(
         mean_coverage >= thresholds.minimum_mean_red_edge_coverage
         and min(coverage) >= thresholds.minimum_board_red_edge_coverage
     )
+    relaxed_accepted = _relaxed_red_edge_accepted(match, coverage, thresholds=thresholds)
     if (
         lateral_partial_policy is not None
         and lateral_partial_policy.frame_support_review
         and lateral_candidates is not None
         and (not lateral_partial_policy.selective_frame_review or not baseline_accepted)
+        and not relaxed_accepted
     ):
         candidate = _frame_support_search_candidate(
             match,
@@ -906,10 +922,7 @@ def _evaluate_final_registration(
                 mean_red_edge_coverage=mean_coverage,
                 minimum_board_red_edge_coverage=min(coverage),
             )
-    if (
-        mean_coverage < thresholds.minimum_mean_red_edge_coverage
-        or min(coverage) < thresholds.minimum_board_red_edge_coverage
-    ):
+    if not baseline_accepted and not relaxed_accepted:
         return None, PageRegistrationAttemptDiagnostic(
             reason_code="PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT",
             feature_count=feature_count,
@@ -920,6 +933,11 @@ def _evaluate_final_registration(
             mean_red_edge_coverage=mean_coverage,
             minimum_board_red_edge_coverage=min(coverage),
         )
+    slot_qualifications = (
+        None
+        if baseline_accepted
+        else _slot_qualifications_for_relaxed_coverage(coverage, thresholds=thresholds)
+    )
     return (
         RegisteredPageGeometry(
             anchor_source_checksum_sha256=match.anchor.source_checksum_sha256,
@@ -933,8 +951,53 @@ def _evaluate_final_registration(
             registration_version=registration_version,
             anchor_mask_version=anchor_mask_version,
             anchor_mask_padding_ratio=anchor_mask_padding_ratio,
+            slot_qualifications=slot_qualifications,
         ),
         None,
+    )
+
+
+def _relaxed_red_edge_accepted(
+    match: _MatchedAnchor,
+    coverage: tuple[float, ...],
+    *,
+    thresholds: PageRegistrationThresholds,
+) -> bool:
+    """Accept pages with one weak board when the rest of the page is strong.
+
+    The weak board is excluded from geometry training so a repeatable
+    occlusion (e.g. a lamp or sticker) cannot contaminate future anchors.
+    """
+
+    if match.inlier_ratio < thresholds.relaxed_minimum_inlier_ratio:
+        return False
+    mean_coverage = sum(coverage) / len(coverage)
+    min_coverage = min(coverage)
+    if mean_coverage < thresholds.relaxed_minimum_mean_red_edge_coverage:
+        return False
+    if min_coverage < thresholds.relaxed_minimum_board_red_edge_coverage:
+        return False
+    if sum(
+        1 for value in coverage if value < thresholds.relaxed_minimum_other_boards_red_edge_coverage
+    ) > 1:
+        return False
+    return min_coverage < thresholds.minimum_board_red_edge_coverage
+
+
+def _slot_qualifications_for_relaxed_coverage(
+    coverage: tuple[float, ...],
+    *,
+    thresholds: PageRegistrationThresholds,
+) -> tuple[GeometryQualification, ...]:
+    return tuple(
+        GeometryQualification(
+            completeness_status="complete",
+            exclude_from_geometry_training=value < thresholds.minimum_board_red_edge_coverage,
+            exclusion_reason=(
+                "manual_exclusion" if value < thresholds.minimum_board_red_edge_coverage else None
+            ),
+        )
+        for value in coverage
     )
 
 

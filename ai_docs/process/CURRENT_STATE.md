@@ -46,6 +46,9 @@ last_updated: 2026-09-22
 - Naprawiono błąd w `_input` (snake_case vs camelCase dla `lateralPartialGeometry`)
   oraz walidację round-trip `LateralPageRegistrationCandidate` dla `standalone_frame_lines`
   (inliers=0, features=0 wymagają osobnej logiki).
+- **Hotfix v0.10.384**: walidacja `_input` odrzucała payloady ze starszym kluczem
+  `lateral_partial_geometry` po przejściu na camelCase. Obecnie akceptowane są
+  obie nazwy klucza, ale nie jednocześnie; wewnętrznie używany jest camelCase.
 - Zaktualizowano `services/worker/src/game_predictor_worker/images/page_geometry_preflight.py`,
   `page_geometry_registration.py`, `lateral_partial_artifact.py`, `production_workflow.py`,
   `shape_geometry_v2/core.py` (brakująca funkcja `_detect_board_frame_lattice`)

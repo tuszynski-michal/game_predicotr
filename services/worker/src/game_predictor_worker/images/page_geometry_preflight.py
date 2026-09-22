@@ -1299,6 +1299,7 @@ def _input(job: Job) -> dict[str, object]:
         "preflight_policy_version",
         "source_display_name",
         "source_exclusions",
+        "lateral_partial_geometry",
         "lateralPartialGeometry",
         "managed_source_job_id",
         "managed_source_manifest_checksum_sha256",
@@ -1409,7 +1410,19 @@ def _input(job: Job) -> dict[str, object]:
             "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
             "Only V1.2 contrast-frame preflight can pin a V1.2 profile.",
         )
-    if "lateralPartialGeometry" in payload:
+    lateral_partial_key: str | None = None
+    if "lateral_partial_geometry" in payload or "lateralPartialGeometry" in payload:
+        if "lateral_partial_geometry" in payload and "lateralPartialGeometry" in payload:
+            raise JobHandlerError(
+                "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
+                "Only one lateral-partial geometry policy may be provided.",
+            )
+        lateral_partial_key = (
+            "lateralPartialGeometry"
+            if "lateralPartialGeometry" in payload
+            else "lateral_partial_geometry"
+        )
+    if lateral_partial_key is not None:
         if policy == PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION:
             raise JobHandlerError(
                 "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
@@ -1417,7 +1430,7 @@ def _input(job: Job) -> dict[str, object]:
             )
         try:
             result["lateralPartialGeometry"] = LateralPartialGeometrySnapshot.from_payload(
-                payload["lateralPartialGeometry"]
+                payload[lateral_partial_key]
             ).to_payload()
         except LateralPartialContractError as error:
             raise JobHandlerError(error.code, str(error)) from error

@@ -918,7 +918,7 @@ function PageGeometryCorrectionPanelContent({
       setMeshOverrides(new Map());
       setDragging(null);
       setFeedback(
-        `Edycja istniejącej geometrii. Kliknij circle narożnika i przeciągnij, aby go doprecyzować.`,
+        `Geometria wczytana. Kliknij circle narożnika i przeciągnij, aby go doprecyzować.`,
       );
     }
   }

@@ -901,23 +901,16 @@ function PageGeometryCorrectionPanelContent({
   }
 
   function beginBoardCornerPlacement() {
-    setCorrectionMode(0);
-    setCornerPlacement(null);
+    setCorrectionMode('page');
+    setCornerPlacement([]);
     setBoardCornerPlacement(null);
     setBoardOverrides(new Map());
+    setMeshOverrides(new Map());
     setDragging(null);
-    if (pageCorners !== null) {
-      const generated = pageGeometryQuadsFromMesh(mesh);
-      const initialQuads = generated.slice(0, expectedBoardCount);
-      setBoardOverrides(new Map(initialQuads.map((quad, index) => [index, quad])));
-      setFeedback(
-        `Tryb edycji: kliknij i przeciągnij narożniki dowolnej planszy.`,
-      );
-    } else {
-      setFeedback(
-        `Brak geometrii. Wskaż cztery narożniki strony, aby rozpocząć.`,
-      );
-    }
+    setPageCorners(null);
+    setFeedback(
+      `Wymaż istniejącą geometrię i ustaw cztery narożniki strony od nowa.`,
+    );
   }
 
   function showAllBoardCorners(currentQuads: readonly Quad[]) {

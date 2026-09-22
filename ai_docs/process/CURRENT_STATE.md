@@ -6,6 +6,22 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0615 — naprawa migracji geometrii V1.2 dla danych per-game
+
+- Migracja 0118 rozszerzała legacy tabelę `public`, a aktywna gra używa
+  `game_data_v2.image_page_geometry_overrides`. Migracja 0119 addytywnie
+  dodała w tym magazynie parę pól V1.2: `board_frame_quads` i
+  `symbol_grid_quads`, z constraintem wymagającym obu albo żadnego.
+- Na rzeczywistym stagingu `a139379b` endpoint ręcznych korekt nie zwraca już
+  HTTP 500: manifest i liczniki pozostają niezmienione (448 zarejestrowanych,
+  2504 `review_required`). Nie zmieniono zdjęć, stagingu, preflightu ani
+  importu.
+- Przeszło 66 testów migracji, Ruff i format. Test regresji zabezpiecza zakres
+  `game_data_v2`, addytywność upgrade oraz ochronę downgrade'u przed utratą
+  danych V1.2. Astra Medium wykryła P2 wyścigu w downgrade; poprawiono go
+  blokadą parenta i partycji przed kontrolą danych, a re-audyt nie wykazał
+  P0–P3.
+
 ### TASK-0614 — ponowienie anulowanego preflightu geometrii
 
 - Admin traktuje browserowy preflight ze statusem `failed` albo `cancelled`

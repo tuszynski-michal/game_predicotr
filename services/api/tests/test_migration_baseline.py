@@ -119,6 +119,8 @@ V7_SEMI_AUTOMATIC_ACTIVATION_GATE_REVISION = "0114_v7_semi_automatic_activation_
 GLOBAL_GEOMETRY_LIBRARY_REVISION = "0115_shape_geometry_v2_global_library"
 GAME_SHAPE_GEOMETRY_CONFIGURATION_REVISION = "0116_game_shape_geometry_configuration"
 GLOBAL_GEOMETRY_QUALIFICATION_REVISION = "0117_shape_geometry_v2_qualification"
+V12_PAGE_FRAME_GRID_PAIRS_REVISION = "0118_v12_page_frame_grid_pairs"
+V12_GAME_DATA_V2_PAGE_FRAME_GRID_PAIRS_REVISION = "0119_v12_game_data_v2_page_frame_grid_pairs"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -453,13 +455,21 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
     legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
     legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
-    assert script.get_heads() == [GLOBAL_GEOMETRY_QUALIFICATION_REVISION]
+    assert script.get_heads() == [V12_GAME_DATA_V2_PAGE_FRAME_GRID_PAIRS_REVISION]
+    v12_game_data_v2_page_frame_grid_pairs = script.get_revision(
+        V12_GAME_DATA_V2_PAGE_FRAME_GRID_PAIRS_REVISION
+    )
+    assert v12_game_data_v2_page_frame_grid_pairs is not None
+    assert (
+        v12_game_data_v2_page_frame_grid_pairs.down_revision
+        == V12_PAGE_FRAME_GRID_PAIRS_REVISION
+    )
+    v12_page_frame_grid_pairs = script.get_revision(V12_PAGE_FRAME_GRID_PAIRS_REVISION)
+    assert v12_page_frame_grid_pairs is not None
+    assert v12_page_frame_grid_pairs.down_revision == GLOBAL_GEOMETRY_QUALIFICATION_REVISION
     global_geometry_qualification = script.get_revision(GLOBAL_GEOMETRY_QUALIFICATION_REVISION)
     assert global_geometry_qualification is not None
-    assert (
-        global_geometry_qualification.down_revision
-        == GAME_SHAPE_GEOMETRY_CONFIGURATION_REVISION
-    )
+    assert global_geometry_qualification.down_revision == GAME_SHAPE_GEOMETRY_CONFIGURATION_REVISION
     game_shape_geometry_configuration = script.get_revision(
         GAME_SHAPE_GEOMETRY_CONFIGURATION_REVISION
     )
@@ -2082,3 +2092,44 @@ def test_legacy_cleanup_receipt_upgrade_does_not_modify_operational_data() -> No
     assert "drop table" not in sql
     assert "insert into" not in sql
     assert "on delete restrict" in sql
+
+
+def test_v12_per_game_page_frame_grid_pairs_migration_is_additive_and_safe() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{V12_PAGE_FRAME_GRID_PAIRS_REVISION}:{V12_GAME_DATA_V2_PAGE_FRAME_GRID_PAIRS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{V12_GAME_DATA_V2_PAGE_FRAME_GRID_PAIRS_REVISION}:{V12_PAGE_FRAME_GRID_PAIRS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert (
+        "alter table game_data_v2.image_page_geometry_overrides "
+        "add column board_frame_quads jsonb" in upgrade_sql
+    )
+    assert (
+        "alter table game_data_v2.image_page_geometry_overrides "
+        "add column symbol_grid_quads jsonb" in upgrade_sql
+    )
+    assert (
+        "alter table game_data_v2.image_page_geometry_overrides "
+        "add constraint ck_image_page_geometry_overrides_v12_pairs" in upgrade_sql
+    )
+    assert "update game_data_v2.image_page_geometry_overrides" not in upgrade_sql
+    assert "delete from game_data_v2.image_page_geometry_overrides" not in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert (
+        downgrade_sql.index(
+            "lock table game_data_v2.image_page_geometry_overrides in access exclusive mode"
+        )
+        < downgrade_sql.index("v12_game_data_v2_page_frame_grid_pairs_downgrade_has_data")
+        < downgrade_sql.index("drop column")
+    )

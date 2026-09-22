@@ -1058,6 +1058,15 @@ function PageGeometryCorrectionPanelContent({
       ),
     };
     if (dragging.kind === 'page') {
+      if (cornerPlacement !== null) {
+        setCornerPlacement((current) => {
+          if (current === null) return current;
+          const next = [...current];
+          next[dragging.pointIndex] = point;
+          return next;
+        });
+        return;
+      }
       setPageCorners((current) => {
         if (current === null) return current;
         const nextCorners: PageCorners = [
@@ -1079,6 +1088,18 @@ function PageGeometryCorrectionPanelContent({
         return nextOverrides;
       });
       setBoardOverrides(new Map());
+      return;
+    }
+    if (boardCornerPlacement !== null) {
+      setBoardCornerPlacement((current) => {
+        if (current === null) return current;
+        const boardIndex = dragging.boardIndex;
+        const cornerIndex = dragging.pointIndex;
+        const offset = boardIndex * PAGE_BOARD_CORNER_COUNT;
+        const next = [...current];
+        next[offset + cornerIndex] = point;
+        return next;
+      });
       return;
     }
     setBoardOverrides((current) => {

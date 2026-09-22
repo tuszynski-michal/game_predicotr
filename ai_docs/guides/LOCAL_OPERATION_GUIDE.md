@@ -495,9 +495,9 @@ Po zakończeniu importu wybierz ten sam import w `Zatwierdzaniu plansz`. Licznik
    liście po lewej (wejście w tryb edycji), a potem przeciągnij wybrany narożnik
    lub środek siatki.
 3. wygeneruj podgląd wszystkich 15 cropów,
-3. zapisz dopiero po sprawdzeniu, że żaden symbol nie jest ucięty ani przesunięty
+4. zapisz dopiero po sprawdzeniu, że żaden symbol nie jest ucięty ani przesunięty
    do sąsiedniego pola,
-4. wróć do zwykłej kolejki i zatwierdź symbole utworzonej planszy.
+5. wróć do zwykłej kolejki i zatwierdź symbole utworzonej planszy.
 
 Snapshot działającego joba jest niezmienny. Aby wycofać użycie v20, nie wznawiaj
 ani nie przełączaj istniejącego joba. Utwórz kolejny job i wybierz

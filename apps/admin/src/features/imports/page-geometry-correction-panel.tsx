@@ -57,6 +57,7 @@ import {
   completePageGeometryBoardQuads,
   completePageGeometryCorners,
   createPageGeometryMesh,
+  isClockwiseScreenQuad,
   isPageGeometryMeshBoundaryPoint,
   PAGE_BOARD_CORNER_COUNT,
   PAGE_BOARD_COUNT,
@@ -319,6 +320,9 @@ function PageGeometryCorrectionPanelContent({
   const [boardOverrides, setBoardOverrides] = useState<
     ReadonlyMap<number, Quad>
   >(new Map());
+  const [pendingBoardCorner, setPendingBoardCorner] = useState<Point | null>(
+    null,
+  );
   const [v12BoardFrameQuads, setV12BoardFrameQuads] = useState<
     readonly Quad[] | null
   >(null);
@@ -904,23 +908,18 @@ function PageGeometryCorrectionPanelContent({
   }
 
   function beginBoardCornerPlacement() {
-    if (pageCorners === null) {
-      setCorrectionMode('page');
-      setCornerPlacement([]);
-      setFeedback(
-        `Brak geometrii. Ustaw cztery narożniki strony, aby rozpocząć.`,
-      );
-    } else {
-      setCorrectionMode(0);
-      setCornerPlacement(null);
-      setBoardCornerPlacement(null);
-      setBoardOverrides(new Map());
-      setMeshOverrides(new Map());
-      setDragging(null);
-      setFeedback(
-        `Geometria wczytana. Kliknij circle narożnika i przeciągnij, aby go doprecyzować.`,
-      );
-    }
+    setCorrectionMode(0);
+    setCornerPlacement(null);
+    setBoardCornerPlacement([]);
+    setPendingBoardCorner(null);
+    setBoardOverrides(new Map());
+    setMeshOverrides(new Map());
+    setDragging(null);
+    setPageCorners(null);
+    setSelectedPointIndex(null);
+    setFeedback(
+      `Plansza 1 z ${expectedBoardCount}: kliknij lewy górny narożnik (LT), następnie prawy dolny (PD).`,
+    );
   }
 
   function showAllBoardCorners(currentQuads: readonly Quad[]) {
@@ -960,62 +959,66 @@ function PageGeometryCorrectionPanelContent({
       ),
     };
     if (boardCornerPlacement !== null) {
-      const next = appendPageGeometryBoardCorner(
-        boardCornerPlacement,
-        bounded,
-        expectedBoardCount,
-      );
-      const nextQuads = pageGeometryQuadsFromCornerPlacement(
-        next,
-        expectedBoardCount,
-      );
-      const expectedCompletedPoints =
-        nextQuads.length * PAGE_BOARD_CORNER_COUNT;
-      setBoardCornerPlacement(next);
-      if (
-        next.length % PAGE_BOARD_CORNER_COUNT === 0 &&
-        next.length !== expectedCompletedPoints
-      ) {
+      if (pendingBoardCorner === null) {
+        setPendingBoardCorner(bounded);
+        const boardIndex = Math.floor(
+          boardCornerPlacement.length / PAGE_BOARD_CORNER_COUNT,
+        );
         setFeedback(
-          `Plansza ${nextQuads.length + 1} nie tworzy poprawnego obrysu albo nie leży po właściwej stronie poprzedniej planszy. Cofnij błędny punkt i wskaż go ponownie.`,
+          `Plansza ${boardIndex + 1} z ${expectedBoardCount}: LT zaznaczony. Kliknij prawy dolny narożnik (PD).`,
         );
         return;
       }
-      const completeQuads = completePageGeometryBoardQuads(
-        next,
+      const lt: Point = {
+        x: Math.min(pendingBoardCorner.x, bounded.x),
+        y: Math.min(pendingBoardCorner.y, bounded.y),
+      };
+      const pd: Point = {
+        x: Math.max(pendingBoardCorner.x, bounded.x),
+        y: Math.max(pendingBoardCorner.y, bounded.y),
+      };
+      const pt: Point = { x: pd.x, y: lt.y };
+      const ld: Point = { x: lt.x, y: pd.y };
+      const quad: Quad = [lt, pt, pd, ld];
+      if (!isClockwiseScreenQuad([lt, pt, pd, ld] as PageGeometryCorners)) {
+        setFeedback(
+          `Nieprawidłowa kolejność LT → PD. Pierwszy punkt musi być lewym górnym, drugi prawym dolnym.`,
+        );
+        return;
+      }
+      const nextBoardCornerPlacement = [
+        ...boardCornerPlacement,
+        ...quad,
+      ];
+      const completedBoardCount = Math.min(
         expectedBoardCount,
+        Math.floor(nextBoardCornerPlacement.length / PAGE_BOARD_CORNER_COUNT),
       );
-      if (completeQuads !== null) {
-        const outerCorners = outerCornersFromQuads(completeQuads);
+      setBoardCornerPlacement(nextBoardCornerPlacement);
+      setPendingBoardCorner(null);
+      if (completedBoardCount === expectedBoardCount) {
+        const allQuads = pageGeometryQuadsFromCornerPlacement(
+          nextBoardCornerPlacement,
+          expectedBoardCount,
+        );
+        const outerCorners = outerCornersFromQuads(allQuads);
         if (outerCorners !== null) {
           setPageCorners(outerCorners);
-          if (v12Enabled) {
-            setMeshOverrides(new Map());
-            setBoardOverrides(
-              new Map(completeQuads.map((quad, i) => [i, quad])),
-            );
-            setCorrectionMode(0);
-          } else showAllBoardCorners(completeQuads);
-        } else {
-          setBoardOverrides(
-            new Map(completeQuads.map((quad, index) => [index, quad] as const)),
-          );
-          setCorrectionMode(0);
         }
         setBoardCornerPlacement(null);
+        setBoardOverrides(
+          new Map(allQuads.map((q, index) => [index, q] as const)),
+        );
+        setCorrectionMode(0);
         setFeedback(
           expectedBoardCount === PAGE_BOARD_COUNT
-            ? 'Ustawiono osobno wszystkie 9 plansz w kolejności 1–3, 4–6, 7–9. Włączono wszystkie 36 narożników, które możesz teraz doprecyzować przed zapisem.'
-            : `Ustawiono osobno wszystkie ${expectedBoardCount} plansz końcowej strony. Możesz doprecyzować każdą planszę przed zapisem.`,
+            ? 'Ustawiono osobno wszystkie 9 plansz. Możesz teraz doprecyzować każdy narożnik.'
+            : `Ustawiono osobno wszystkie ${expectedBoardCount} plansz. Możesz teraz doprecyzować każdy narożnik.`,
         );
         return;
       }
-      const boardIndex = nextQuads.length;
-      const cornerIndex = next.length - expectedCompletedPoints;
       setFeedback(
-        cornerIndex === 0
-          ? `Plansza ${boardIndex + 1} z ${expectedBoardCount} (rząd ${Math.floor(boardIndex / 3) + 1}, kolumna ${(boardIndex % 3) + 1}). Wskaż lewy górny punkt.`
-          : `Plansza ${boardIndex + 1} z ${expectedBoardCount}: wskaż ${CORNER_NAMES[cornerIndex]}.`,
+        `Plansza ${completedBoardCount + 1} z ${expectedBoardCount}: kliknij lewy górny narożnik (LT), następnie prawy dolny (PD).`,
       );
       return;
     }
@@ -1041,9 +1044,28 @@ function PageGeometryCorrectionPanelContent({
   }
 
   function undoCornerPlacement() {
-    if (boardCornerPlacement !== null) {
-      setBoardCornerPlacement((current) =>
-        current === null ? current : current.slice(0, -1),
+    if (pendingBoardCorner !== null) {
+      setPendingBoardCorner(null);
+      const current = boardCornerPlacement ?? [];
+      const boardIndex = Math.floor(
+        current.length / PAGE_BOARD_CORNER_COUNT,
+      );
+      setFeedback(
+        `Plansza ${boardIndex + 1} z ${expectedBoardCount}: kliknij lewy górny narożnik (LT), następnie prawy dolny (PD).`,
+      );
+      return;
+    }
+    if (boardCornerPlacement !== null && boardCornerPlacement.length > 0) {
+      const next = boardCornerPlacement.slice(
+        0,
+        boardCornerPlacement.length >= PAGE_BOARD_CORNER_COUNT
+          ? -PAGE_BOARD_CORNER_COUNT
+          : 0,
+      );
+      setBoardCornerPlacement(next);
+      const boardIndex = Math.floor(next.length / PAGE_BOARD_CORNER_COUNT);
+      setFeedback(
+        `Plansza ${boardIndex + 1} z ${expectedBoardCount}: kliknij lewy górny narożnik (LT), następnie prawy dolny (PD).`,
       );
       return;
     }
@@ -2194,6 +2216,23 @@ function PageGeometryCorrectionPanelContent({
                           </text>
                         </g>
                       ))}
+                      {pendingBoardCorner !== null ? (
+                        <g key="pending-board-corner">
+                          <circle
+                            className="pageGeometryHandle pageGeometryPlacementHandle"
+                            cx={pendingBoardCorner.x}
+                            cy={pendingBoardCorner.y}
+                            r={handleRadius}
+                          />
+                          <text
+                            className="pageGeometryPlacementLabel"
+                            x={pendingBoardCorner.x + handleRadius + 4 / zoom}
+                            y={pendingBoardCorner.y - handleRadius - 4 / zoom}
+                          >
+                            LT
+                          </text>
+                        </g>
+                      ) : null}
                     </>
                   ) : null}
                   {cornerPlacement !== null ? (

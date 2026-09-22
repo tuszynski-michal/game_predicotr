@@ -1,45 +1,30 @@
 # Board Corner Placement - Status
 
-## Aktualne zachowanie
+## Zaimplementowany model
 
-Po kliknięciu "Wyznacz 9 plansz osobno":
+Po kliknięciu "Wyznacz 9 plansz osobno" uruchamiany jest tryb osadzania plansz:
 
-1. Jeśli brak geometrii (`pageCorners === null`):
-   - Użytkownik musi ustawić 4 narożniki strony (LT, PT, PD, LD)
-   - Klikanie dodaje punkty do `cornerPlacement`
-   - Po 4 punktach wchodzi w tryb edycji
-
-2. Jeśli jest geometria (`pageCorners !== null`):
-   - Wchodzi w tryb edycji pierwszej planszy (`correctionMode = 0`)
-   - Widzi automatyczną geometrię
-   - Może przeciągać narożniki tej planszy (drag-hold)
-
-## Dostępne mechanizmy
-
-### Drag-hold (obecny)
-- Kliknij i trzymaj circle narożnika
-- Przeciągnij myszkę → punkt się przesuwa
-- Puść → koniec
-
-### Wybór planszy
-- Selektor "Zakres korekty" pozwala przełączać między:
-  - `page` - cała strona (4 główne uchwyty)
-  - `curve` - wszystkie plansze (36 narożników)
-  - `0, 1, 2, ...` - konkretne plansze
-
-## Planowane ulepszenia
-
-### click-release-move-click (do zaimplementowania)
-- Kliknij LT → punkt zaznaczony (nie przeciągany)
-- Puść → punkt utwierdzony, siatka preview
-- Przesuń myszkę → preview się porusza
-- Kliknij PD → drugi punkt + automatyczne obliczenie reszty
-- Wszystkie 4 kąty można przeciągać
+1. Stara geometria jest czyszczona (`pageCorners = null`, `boardOverrides = new Map()`, `meshOverrides = new Map()`).
+2. Użytkownik wyznacza każdą planszę za pomocą **dwóch kliknięć**:
+   - **Pierwsze kliknięcie** — lewy górny narożnik (LT).
+   - **Drugie kliknięcie** — prawy dolny narożnik (PD).
+3. Algorytm automatycznie wylicza pozostałe dwa narożniki:
+   - PT = `{ x: PD.x, y: LT.y }`
+   - LD = `{ x: LT.x, y: PD.y }`
+4. Prostokąt jest akceptowany, tylko jeśli tworzy poprawny clockwise quad.
+5. Po wyznaczeniu wszystkich `expectedBoardCount` plansz następuje przejście do trybu edycji.
 
 ## Testy
 
-Brak testów jednostkowych dla tej interakcji. Należy dodać testy zgodnie z wymaganiami użytkownika.
+Testy kontraktu znajdują się w:
+- `apps/admin/test/page-geometry-correction-panel-contract.test.mjs`
 
-## Uwagi
+Uruchomienie:
+```powershell
+node --test apps/admin/test/page-geometry-correction-panel-contract.test.mjs
+```
 
-Użytkownik zgłosił, że obecny drag-hold nie działa poprawnie i chce model click-release-move-click. To wymaga refaktoryzacji całego mechanizmu.
+## Pozostałe kwestie
+
+- Nie ma jeszcze testów jednostkowych logiki dwuklikowego wyznaczania planszy.
+- Interakcja nie obejmuje żadnych testów kliknięć w środowisku przeglądarkowym.

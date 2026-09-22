@@ -15,7 +15,7 @@ const styles = await readFile(
 );
 
 test('page geometry editor exposes ordered corners and exact reset', () => {
-  assert.match(panel, /lewy górny.*prawy górny.*prawy dolny.*lewy dolny/s);
+  assert.match(panel, /lewy górny.*prawy dolny/s);
   assert.match(panel, />\s*Wyznacz 4 narożniki\s*</);
   assert.match(panel, /Wyznacz plansze/);
   assert.match(panel, />\s*Cofnij punkt\s*</);
@@ -23,10 +23,8 @@ test('page geometry editor exposes ordered corners and exact reset', () => {
   assert.match(panel, /setPageCorners\(initialPageCorners\)/);
   assert.match(panel, /setBoardOverrides\(initialBoardOverrides\)/);
   assert.match(panel, /beginBoardCornerPlacement/);
-  assert.match(panel, /completePageGeometryBoardQuads/);
-  assert.match(panel, /showAllBoardCorners\(completeQuads\)/);
-  assert.match(panel, /Wszystkie plansze — 36 narożników/);
-  assert.match(panel, /rząd.*kolumna/s);
+  assert.match(panel, /pendingBoardCorner/);
+  assert.match(panel, /isClockwiseScreenQuad/);
   assert.match(panel, /source\?\.expectedBoardCount \?\? PAGE_BOARD_COUNT/);
   assert.match(panel, /symbolQuadsForSave\.length !== expectedBoardCount/);
 });

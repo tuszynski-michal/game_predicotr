@@ -69,6 +69,12 @@ const LATERAL_PARTIAL_POLICY_VERSIONS = new Set([
   'structured-lattice-v4-selective-frame-v1',
 ]);
 
+export function canRetryPageGeometryPreflight(
+  job: JobResponse | null | undefined,
+): job is JobResponse {
+  return job?.status === 'failed' || job?.status === 'cancelled';
+}
+
 function isSupportedLateralPartialGeometry(
   value: unknown,
   variant: GeometryEngineVariant,
@@ -875,7 +881,7 @@ export async function reprocessManagedV4OrPrepare(
   if (preflight?.status === 'created' || preflight?.status === 'processing') {
     return { job: preflight, kind: 'preflight_waiting', ok: true };
   }
-  if (preflight?.status === 'failed') {
+  if (canRetryPageGeometryPreflight(preflight)) {
     const retried = await retryBrowserPageGeometryPreflight(api, preflight.id);
     return retried.ok
       ? { job: retried.data, kind: 'preflight_created', ok: true }

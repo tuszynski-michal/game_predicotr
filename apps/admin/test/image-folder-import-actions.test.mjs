@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   filterImageFolderImportFiles,
+  canRetryPageGeometryPreflight,
   geometryPreflightMatchesReport,
   imageImportJobMatchesReportIdentity,
   listReadyBrowserImageSelections,
@@ -767,6 +768,15 @@ test('retries the existing failed page geometry preflight job', async () => {
 
   assert.deepEqual(calls, ['preflight-job-1']);
   assert.deepEqual(result, { data: job, ok: true });
+});
+
+test('treats a cancelled page geometry preflight as retryable', () => {
+  assert.equal(canRetryPageGeometryPreflight({ status: 'failed' }), true);
+  assert.equal(canRetryPageGeometryPreflight({ status: 'cancelled' }), true);
+  assert.equal(canRetryPageGeometryPreflight({ status: 'created' }), false);
+  assert.equal(canRetryPageGeometryPreflight({ status: 'processing' }), false);
+  assert.equal(canRetryPageGeometryPreflight({ status: 'completed' }), false);
+  assert.equal(canRetryPageGeometryPreflight(undefined), false);
 });
 
 test('board import accepts cropped seq JPEGs and ignores the local crop manifest', () => {

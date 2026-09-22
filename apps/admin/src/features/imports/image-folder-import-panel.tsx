@@ -46,6 +46,7 @@ import {
   CONTRAST_FRAME_GRID_V12_VARIANT,
   LATERAL_PARTIAL_VARIANT,
   SELECTIVE_BOARD_VARIANT,
+  canRetryPageGeometryPreflight,
   filterImageFolderImportFiles,
   geometryPreflightMatchesReport,
   listReadyBrowserImageSelections,
@@ -1101,7 +1102,7 @@ export function ImageFolderImportPanel({
   }
 
   async function retryGeometryPreflight() {
-    if (busy || geometryPreflightJob?.status !== 'failed') return;
+    if (busy || !canRetryPageGeometryPreflight(geometryPreflightJob)) return;
     setActiveAction('geometry-preflight');
     setError('');
     setFeedback('Ponawiam istniejący preflight pełnej geometrii 3×3…');
@@ -1846,7 +1847,9 @@ export function ImageFolderImportPanel({
                               busy || !preflight.geometryEngineVariantEnabled
                             }
                             onClick={() =>
-                              geometryPreflightJob?.status === 'failed'
+                              canRetryPageGeometryPreflight(
+                                geometryPreflightJob,
+                              )
                                 ? void retryGeometryPreflight()
                                 : geometryPreflightJob === null
                                   ? void startGeometryPreflight()
@@ -1856,7 +1859,9 @@ export function ImageFolderImportPanel({
                           >
                             {activeAction === 'geometry-preflight'
                               ? 'Tworzenie preflightu…'
-                              : geometryPreflightJob?.status === 'failed'
+                              : canRetryPageGeometryPreflight(
+                                    geometryPreflightJob,
+                                  )
                                 ? 'Ponów preflight'
                                 : geometryPreflightJob === null
                                   ? 'Przygotuj geometrię stron'

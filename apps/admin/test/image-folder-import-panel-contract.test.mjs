@@ -108,7 +108,7 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Obszar plansz — testowe/);
   assert.match(panelSource, /pageRegistrationVariant/);
   assert.match(panelSource, /retryBrowserPageGeometryPreflight/);
-  assert.match(panelSource, /geometryPreflightJob\?\.status === 'failed'/);
+  assert.match(panelSource, /canRetryPageGeometryPreflight/);
   assert.match(panelSource, /Ponów preflight/);
   assert.match(panelSource, /preflightResult\.data\.geometryPreflightRequired/);
   assert.match(panelSource, /result\.data\.geometryPreflightRequired/);
@@ -241,7 +241,7 @@ test('reopens the completed engine variant and replays a report without dispatch
   assert.doesNotMatch(reportFlow, /startBrowserPageGeometryPreflight/);
   assert.doesNotMatch(reportFlow, /startReadyBrowserImageImport/);
   const refreshButton = panelSource.slice(
-    panelSource.indexOf("geometryPreflightJob?.status === 'failed'"),
+    panelSource.indexOf('canRetryPageGeometryPreflight('),
     panelSource.indexOf('Odśwież preflight geometrii'),
   );
   assert.match(

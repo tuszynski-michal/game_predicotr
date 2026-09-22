@@ -861,6 +861,11 @@ preflightu. Operator uruchamia kosztowną rejestrację jawnie po sprawdzeniu
 raportu i wariantu. Ponowne użycie tej samej komendy zachowuje idempotencję i
 może przywrócić istniejący job bez ponownego przeliczania.
 
+Jeżeli przypięty browserowy preflight ma terminalny status `failed` albo
+`cancelled`, akcja `Ponów preflight` używa tego samego retry joba i rozpoczyna
+obliczenie od świeżego postępu. Nie tworzy nowego stagingu, nie usuwa plików
+ani nie uruchamia importu.
+
 Ukończony, checksumowany preflight pozostaje używalny dla przypiętej gry,
 stagingu, manifestu źródeł i znanej wersji wariantu także wtedy, gdy późniejsza
 ręczna korekta innego źródła zmieni bieżący game-wide profil uczenia. Otwarcie

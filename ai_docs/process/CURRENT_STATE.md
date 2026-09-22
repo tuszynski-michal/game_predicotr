@@ -6,6 +6,15 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0614 — ponowienie anulowanego preflightu geometrii
+
+- Admin traktuje browserowy preflight ze statusem `failed` albo `cancelled`
+  jako ponawialny i wywołuje istniejący retry tego samego joba. Nie tworzy
+  stagingu, nie usuwa plików ani nie uruchamia importu.
+- Stany `created`, `processing` i `completed` nie są ponawiane. Przeszły 46
+  skoncentrowanych testów Admina, typecheck i lint zmienionych plików. Audyt
+  Astra Medium nie wykazał P0–P3.
+
 ### TASK-0613 — testowy silnik kontrastowej ramki i siatki V1.2
 
 - Ukończono T02: opt-in `contrast_frame_grid_v1_2` zapisuje oraz przypina

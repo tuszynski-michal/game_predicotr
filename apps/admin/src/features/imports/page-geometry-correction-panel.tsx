@@ -918,7 +918,7 @@ function PageGeometryCorrectionPanelContent({
       setMeshOverrides(new Map());
       setDragging(null);
       setFeedback(
-        `Edycja planszy 1 z ${expectedBoardCount}. Kliknij punkt, aby go zaznaczyć i przeciągnąć.`,
+        `Edycja istniejącej geometrii. Kliknij circle narożnika i przeciągnij, aby go doprecyzować.`,
       );
     }
   }

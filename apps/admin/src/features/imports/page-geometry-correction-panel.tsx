@@ -340,6 +340,9 @@ function PageGeometryCorrectionPanelContent({
     | { readonly kind: 'page'; readonly pointIndex: number }
     | null
   >(null);
+  const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [excluding, setExcluding] = useState(false);
@@ -915,7 +918,7 @@ function PageGeometryCorrectionPanelContent({
       setMeshOverrides(new Map());
       setDragging(null);
       setFeedback(
-        `Edycja planszy 1 z ${expectedBoardCount}. Przeciągnij narożniki. Przejdź do następnej planszy po zakończeniu.`,
+        `Edycja planszy 1 z ${expectedBoardCount}. Kliknij punkt, aby go zaznaczyć i przeciągnąć.`,
       );
     }
   }
@@ -1159,6 +1162,7 @@ function PageGeometryCorrectionPanelContent({
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.ownerSVGElement?.setPointerCapture(event.pointerId);
+    setSelectedPointIndex(value.pointIndex);
     setDragging(value);
   }
 
@@ -2063,7 +2067,10 @@ function PageGeometryCorrectionPanelContent({
                         const point = relativePoint(event);
                         if (point !== null) updatePoint(point);
                       }}
-                      onPointerUp={() => setDragging(null)}
+                      onPointerUp={() => {
+                        setDragging(null);
+                        setSelectedPointIndex(null);
+                      }}
                      viewBox={
                        allowOutsideSource
                          ? `${outsideSourceMinimum(imageSize.width)} ${outsideSourceMinimum(imageSize.height)} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.width} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.height}`

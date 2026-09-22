@@ -118,6 +118,30 @@ def _frame_quads() -> tuple[tuple[dict[str, int], ...], ...]:
     return tuple(result)
 
 
+def test_v12_partial_slot_may_have_a_frame_outside_the_source() -> None:
+    frames = list(_frame_quads())
+    frames[0] = tuple({"x": point["x"] - 4, "y": point["y"]} for point in frames[0])
+    decisions = [GeometryQualification().to_dict() for _ in range(9)]
+    decisions[0] = GeometryQualification(
+        "pending_partial", (0,), True, "missing_pixels"
+    ).to_dict()
+    service = PageGeometryOverrideService(MemoryPageGeometryOverrideRepository())
+    value, created = service.save(
+        game_id=uuid4(),
+        source_checksum_sha256="b" * 64,
+        image_width=320,
+        image_height=320,
+        expected_board_count=9,
+        final_quads=_quads(),
+        board_frame_quads=tuple(frames),
+        symbol_grid_quads=_quads(),
+        slot_qualifications=decisions,
+        actor="local-owner",
+    )
+    assert created
+    assert value.board_frame_quads[0][0]["x"] == -3
+
+
 def test_slot_decisions_survive_retry_and_change_revision_without_changing_quads() -> None:
     repository = MemoryPageGeometryOverrideRepository()
     service = PageGeometryOverrideService(repository)

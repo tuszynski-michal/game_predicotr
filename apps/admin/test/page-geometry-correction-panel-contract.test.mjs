@@ -17,7 +17,7 @@ const styles = await readFile(
 test('page geometry editor exposes ordered corners and exact reset', () => {
   assert.match(panel, /lewy górny.*prawy górny.*prawy dolny.*lewy dolny/s);
   assert.match(panel, />\s*Wyznacz 4 narożniki\s*</);
-  assert.match(panel, /Wyznacz \{expectedBoardCount\} plansz osobno/);
+  assert.match(panel, /Wyznacz plansze/);
   assert.match(panel, />\s*Cofnij punkt\s*</);
   assert.match(panel, />\s*Reset\s*</);
   assert.match(panel, /setPageCorners\(initialPageCorners\)/);
@@ -150,14 +150,17 @@ test('geometry editor can exclude a checksum-bound source from the import', () =
   assert.match(panel, /nie zostanie skopiowane ani przetworzone/);
 });
 
-test('V1.2 separates the board frame from the symbol grid without a color rule', () => {
+test('V1.2 derives its frame from one manually clicked symbol grid', () => {
   assert.match(panel, /geometryEngineVariant\?: GeometryEngineVariant/);
-  assert.match(
-    panel,
-    /Ramka planszy — zewnętrzna granica kolorowego marginesu/,
-  );
-  assert.match(panel, /Siatka symboli — granica układu 3 × 5/);
+  assert.match(panel, /v12FrameFromGrid/);
+  assert.match(panel, /Góra/);
+  assert.match(panel, /Dół/);
+  assert.match(panel, /Lewo/);
+  assert.match(panel, /Prawo/);
+  assert.match(panel, /Niepełna plansza/);
+  assert.match(panel, /Nie używaj do uczenia geometrii/);
+  assert.match(panel, /Użyj w oddzielnym uczeniu niepełnych siatek/);
   assert.match(panel, /boardFrameQuads: frameQuadsForSave/);
   assert.match(panel, /symbolGridQuads: finalQuads/);
-  assert.match(panel, /kolor ramki nie jest częścią warunku/);
+  assert.doesNotMatch(panel, /name="v12-geometry-layer"/);
 });

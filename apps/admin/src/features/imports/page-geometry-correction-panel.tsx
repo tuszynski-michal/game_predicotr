@@ -69,6 +69,13 @@ import {
   type PageGeometryPoint,
   type PageGeometryQuad,
 } from './page-geometry-mesh';
+import {
+  v12FrameFromGrid,
+  v12PreviewFrameFromGrid,
+  v12OffsetsFromPair,
+  validV12FrameOffsets,
+  type V12OffsetDraft,
+} from './page-geometry-v12-offsets';
 
 type GeometryCorrectionClient = Pick<
   AdminApiClient,
@@ -318,10 +325,10 @@ function PageGeometryCorrectionPanelContent({
   const [v12SymbolGridQuads, setV12SymbolGridQuads] = useState<
     readonly Quad[] | null
   >(null);
-  const [v12EditingLayer, setV12EditingLayer] = useState<
-    'boardFrame' | 'symbolGrid'
-  >('symbolGrid');
-  const [v12FrameConfirmed, setV12FrameConfirmed] = useState(false);
+  const [v12FrameOffsets, setV12FrameOffsets] = useState<
+    readonly (V12OffsetDraft | null)[]
+  >([]);
+  const [v12LegacyPairConfirmed, setV12LegacyPairConfirmed] = useState(false);
   const [correctionMode, setCorrectionMode] = useState<CorrectionMode>('page');
   const [dragging, setDragging] = useState<
     | {
@@ -563,31 +570,66 @@ function PageGeometryCorrectionPanelContent({
     );
     return generated.map((quad, index) => boardOverrides.get(index) ?? quad);
   }, [boardOverrides, expectedBoardCount, mesh]);
+  const v12DerivedFrames = useMemo(
+    () =>
+      quads.map((grid, index) => {
+        const offsets = v12FrameOffsets[index];
+        if (validV12FrameOffsets(offsets))
+          return v12PreviewFrameFromGrid(grid, offsets);
+        const storedGrid = v12SymbolGridQuads?.[index];
+        const storedFrame = v12BoardFrameQuads?.[index];
+        return offsets === null &&
+          v12LegacyPairConfirmed &&
+          storedGrid &&
+          storedFrame &&
+          JSON.stringify(storedGrid) === JSON.stringify(grid)
+          ? storedFrame
+          : null;
+      }),
+    [
+      quads,
+      v12BoardFrameQuads,
+      v12FrameOffsets,
+      v12LegacyPairConfirmed,
+      v12SymbolGridQuads,
+    ],
+  );
+  const v12FramesReady =
+    v12Enabled &&
+    v12DerivedFrames.length === expectedBoardCount &&
+    v12DerivedFrames.every(
+      (frame, index) =>
+        frame !== null &&
+        (validV12FrameOffsets(v12FrameOffsets[index])
+          ? v12FrameFromGrid(quads[index]!, v12FrameOffsets[index]) !== null
+          : v12FrameOffsets[index] === null && v12LegacyPairConfirmed),
+    );
   const v12Draft = useMemo(() => {
     if (!v12Enabled) return undefined;
-    const symbolGridQuads =
-      v12EditingLayer === 'boardFrame' ? (v12SymbolGridQuads ?? []) : quads;
-    const boardFrameQuads =
-      v12EditingLayer === 'symbolGrid' ? (v12BoardFrameQuads ?? []) : quads;
+    const symbolGridQuads = quads;
+    const boardFrameQuads = v12DerivedFrames.map(
+      (frame, index) => frame ?? v12BoardFrameQuads?.[index] ?? quads[index]!,
+    );
     if (
       symbolGridQuads.length !== expectedBoardCount ||
       boardFrameQuads.length !== expectedBoardCount
     )
       return undefined;
     return {
-      activeLayer: v12EditingLayer,
+      activeLayer: 'symbolGrid' as const,
       boardFrameQuads,
-      frameConfirmed: v12FrameConfirmed,
+      frameConfirmed: v12FramesReady,
+      frameOffsets: v12FrameOffsets,
       symbolGridQuads,
     };
   }, [
     expectedBoardCount,
     quads,
     v12BoardFrameQuads,
-    v12EditingLayer,
+    v12DerivedFrames,
     v12Enabled,
-    v12FrameConfirmed,
-    v12SymbolGridQuads,
+    v12FrameOffsets,
+    v12FramesReady,
   ]);
   const placedBoardQuads = useMemo(
     () =>
@@ -653,14 +695,8 @@ function PageGeometryCorrectionPanelContent({
         );
   const manualPlacementActive =
     cornerPlacement !== null || boardCornerPlacement !== null;
-  const displayedV12SymbolQuads =
-    v12Enabled && v12EditingLayer === 'boardFrame'
-      ? (v12SymbolGridQuads ?? [])
-      : quads;
-  const displayedV12FrameQuads =
-    v12Enabled && v12EditingLayer === 'symbolGrid'
-      ? (v12BoardFrameQuads ?? [])
-      : quads;
+  const displayedV12SymbolQuads = quads;
+  const displayedV12FrameQuads = v12Enabled ? v12DerivedFrames : [];
   const symbolGuideQuads =
     boardCornerPlacement !== null
       ? placedBoardQuads
@@ -727,14 +763,22 @@ function PageGeometryCorrectionPanelContent({
     setBoardOverrides(overrides);
     setV12SymbolGridQuads(v12Enabled ? initialSymbolQuads : null);
     setV12BoardFrameQuads(v12Enabled ? initialFrameQuads : null);
-    setV12EditingLayer('symbolGrid');
-    setV12FrameConfirmed(
+    setV12LegacyPairConfirmed(
       v12Enabled &&
         typeof source?.existingOverrideRevision === 'number' &&
         storedV12FrameQuads.length === expectedBoardCount &&
         storedV12SymbolQuads.length === expectedBoardCount,
     );
-    setCorrectionMode('page');
+    setV12FrameOffsets(
+      v12Enabled
+        ? initialSymbolQuads.map((grid, index) =>
+            storedV12FrameQuads[index]
+              ? v12OffsetsFromPair(grid, storedV12FrameQuads[index])
+              : null,
+          )
+        : [],
+    );
+    setCorrectionMode(v12Enabled ? 0 : 'page');
     setDragging(null);
     const baseFlags = Array.from({ length: expectedBoardCount }, (_, i) =>
       manualGridFlagsFromQualification(source?.existingSlotQualifications?.[i]),
@@ -757,10 +801,7 @@ function PageGeometryCorrectionPanelContent({
         const restored = readPageGeometryDraft(localStorage, scope);
         if (restored && (!v12Enabled || restored.v12 !== undefined)) {
           const restoredV12 = v12Enabled ? restored.v12 : undefined;
-          const restoredQuads =
-            restoredV12?.activeLayer === 'boardFrame'
-              ? restoredV12.boardFrameQuads
-              : (restoredV12?.symbolGridQuads ?? restored.quads);
+          const restoredQuads = restoredV12?.symbolGridQuads ?? restored.quads;
           setPageCorners(
             outerCornersFromQuads(restoredQuads) ?? restored.pageCorners,
           );
@@ -771,8 +812,13 @@ function PageGeometryCorrectionPanelContent({
           if (restoredV12 !== undefined) {
             setV12BoardFrameQuads(restoredV12.boardFrameQuads);
             setV12SymbolGridQuads(restoredV12.symbolGridQuads);
-            setV12EditingLayer(restoredV12.activeLayer);
-            setV12FrameConfirmed(restoredV12.frameConfirmed);
+            setV12LegacyPairConfirmed(restoredV12.frameConfirmed);
+            setV12FrameOffsets(
+              restoredV12.frameOffsets ??
+                restoredV12.symbolGridQuads.map((grid, index) =>
+                  v12OffsetsFromPair(grid, restoredV12.boardFrameQuads[index]!),
+                ),
+            );
           }
         } else if (restored) {
           setFeedback(
@@ -815,14 +861,18 @@ function PageGeometryCorrectionPanelContent({
               expandedFrameQuad(quad, imageSize.width, imageSize.height),
             ),
       );
-      setV12EditingLayer('symbolGrid');
-      setV12FrameConfirmed(
+      setV12LegacyPairConfirmed(
         typeof source.existingOverrideRevision === 'number' &&
           frames.length === expectedBoardCount &&
           symbols.length === expectedBoardCount,
       );
+      setV12FrameOffsets(
+        symbolQuads.map((grid, index) =>
+          frames[index] ? v12OffsetsFromPair(grid, frames[index]) : null,
+        ),
+      );
     }
-    setCorrectionMode('page');
+    setCorrectionMode(v12Enabled ? 0 : 'page');
     setDragging(null);
     setQualificationFlags(
       Array.from({ length: expectedBoardCount }, (_, i) =>
@@ -848,42 +898,6 @@ function PageGeometryCorrectionPanelContent({
     setFeedback(
       'Wskaż kolejno: lewy górny, prawy górny, prawy dolny i lewy dolny punkt.',
     );
-  }
-
-  function selectV12Layer(next: 'boardFrame' | 'symbolGrid') {
-    if (!v12Enabled || next === v12EditingLayer) return;
-    const current = quads;
-    if (v12EditingLayer === 'symbolGrid') {
-      setV12SymbolGridQuads(current);
-    } else {
-      setV12BoardFrameQuads(current);
-    }
-    const destination =
-      next === 'symbolGrid'
-        ? (v12SymbolGridQuads ?? current)
-        : (v12BoardFrameQuads ??
-          (imageSize === null
-            ? current
-            : current.map((quad) =>
-                expandedFrameQuad(quad, imageSize.width, imageSize.height),
-              )));
-    const corners = outerCornersFromQuads(destination);
-    if (corners !== null) setPageCorners(corners);
-    const independentMesh = pageGeometryMeshFromQuads(destination);
-    if (independentMesh !== null) {
-      setMeshOverrides(
-        new Map(independentMesh.map((point, index) => [index, point] as const)),
-      );
-      setBoardOverrides(new Map());
-    } else {
-      setBoardOverrides(
-        new Map(destination.map((quad, index) => [index, quad])),
-      );
-    }
-    setCorrectionMode('curve');
-    setCornerPlacement(null);
-    setBoardCornerPlacement(null);
-    setV12EditingLayer(next);
   }
 
   function beginBoardCornerPlacement() {
@@ -933,8 +947,6 @@ function PageGeometryCorrectionPanelContent({
       ),
     };
     if (boardCornerPlacement !== null) {
-      if (v12Enabled && v12EditingLayer === 'boardFrame')
-        setV12FrameConfirmed(false);
       const next = appendPageGeometryBoardCorner(
         boardCornerPlacement,
         bounded,
@@ -964,7 +976,13 @@ function PageGeometryCorrectionPanelContent({
         const outerCorners = outerCornersFromQuads(completeQuads);
         if (outerCorners !== null) {
           setPageCorners(outerCorners);
-          showAllBoardCorners(completeQuads);
+          if (v12Enabled) {
+            setMeshOverrides(new Map());
+            setBoardOverrides(
+              new Map(completeQuads.map((quad, i) => [i, quad])),
+            );
+            setCorrectionMode(0);
+          } else showAllBoardCorners(completeQuads);
         } else {
           setBoardOverrides(
             new Map(completeQuads.map((quad, index) => [index, quad] as const)),
@@ -989,8 +1007,6 @@ function PageGeometryCorrectionPanelContent({
       return;
     }
     if (cornerPlacement === null) return;
-    if (v12Enabled && v12EditingLayer === 'boardFrame')
-      setV12FrameConfirmed(false);
     const next = appendPageGeometryCorner(cornerPlacement, bounded);
     const complete = completePageGeometryCorners(next);
     if (complete === null) {
@@ -1041,8 +1057,6 @@ function PageGeometryCorrectionPanelContent({
           : imageSize.height - 1,
       ),
     };
-    if (v12Enabled && v12EditingLayer === 'boardFrame')
-      setV12FrameConfirmed(false);
     if (dragging.kind === 'page') {
       setPageCorners((current) => {
         if (current === null) return current;
@@ -1118,20 +1132,16 @@ function PageGeometryCorrectionPanelContent({
   }
 
   async function save() {
-    const symbolQuadsForSave =
-      v12Enabled && v12EditingLayer === 'boardFrame'
-        ? (v12SymbolGridQuads ?? [])
-        : quads;
-    const frameQuadsForSave =
-      v12Enabled && v12EditingLayer === 'symbolGrid'
-        ? (v12BoardFrameQuads ?? [])
-        : quads;
+    const symbolQuadsForSave = quads;
+    const frameQuadsForSave = v12Enabled
+      ? v12DerivedFrames.filter((frame): frame is Quad => frame !== null)
+      : [];
     if (
       source === null ||
       imageSize === null ||
       symbolQuadsForSave.length !== expectedBoardCount ||
       (v12Enabled && frameQuadsForSave.length !== expectedBoardCount) ||
-      (v12Enabled && !v12FrameConfirmed) ||
+      (v12Enabled && !v12FramesReady) ||
       draftConflict ||
       !draftScope ||
       loadedDraftKey.current !== pageGeometryDraftKey(draftScope) ||
@@ -1723,45 +1733,10 @@ function PageGeometryCorrectionPanelContent({
                 : `Edytor przygotował komplet ${expectedBoardCount} edytowalnych plansz. Po zapisaniu i wykonaniu preflightu to zdjęcie przejdzie z odroczonych do zarejestrowanych.`}
             </p>
             {v12Enabled ? (
-              <fieldset className="pageGeometryQualification">
-                <legend>Warstwa V1.2 do ręcznego potwierdzenia</legend>
-                <label>
-                  <input
-                    checked={v12EditingLayer === 'boardFrame'}
-                    disabled={saving || submitting || manualPlacementActive}
-                    name="v12-geometry-layer"
-                    onChange={() => selectV12Layer('boardFrame')}
-                    type="radio"
-                  />
-                  Ramka planszy — zewnętrzna granica kolorowego marginesu
-                </label>
-                <label>
-                  <input
-                    checked={v12EditingLayer === 'symbolGrid'}
-                    disabled={saving || submitting || manualPlacementActive}
-                    name="v12-geometry-layer"
-                    onChange={() => selectV12Layer('symbolGrid')}
-                    type="radio"
-                  />
-                  Siatka symboli — granica układu 3 × 5
-                </label>
-                <p>
-                  Zapis V1.2 wymaga obu warstw. Siatka symboli musi pozostać
-                  wewnątrz ramki; kolor ramki nie jest częścią warunku.
-                </p>
-                <label className="pageGeometryQualificationCheck">
-                  <input
-                    checked={v12FrameConfirmed}
-                    disabled={saving || submitting}
-                    onChange={(event) =>
-                      setV12FrameConfirmed(event.target.checked)
-                    }
-                    type="checkbox"
-                  />
-                  Potwierdzam obrys ramki planszy przed zapisaniem go jako
-                  ręczną geometrię.
-                </label>
-              </fieldset>
+              <p className="geometryInstructions">
+                Wskaż cztery narożniki siatki symboli każdej planszy. Ramka
+                powstanie z czterech odstępów podanych pod zdjęciem.
+              </p>
             ) : null}
             <label>
               Zakres korekty
@@ -1786,8 +1761,10 @@ function PageGeometryCorrectionPanelContent({
                 }}
                 value={String(correctionMode)}
               >
-                <option value="page">Cała strona — 4 główne uchwyty</option>
-                {expectedBoardCount === PAGE_BOARD_COUNT ? (
+                {!v12Enabled ? (
+                  <option value="page">Cała strona — 4 główne uchwyty</option>
+                ) : null}
+                {!v12Enabled && expectedBoardCount === PAGE_BOARD_COUNT ? (
                   <option value="curve">
                     Wszystkie plansze — 36 narożników
                   </option>
@@ -1850,7 +1827,7 @@ function PageGeometryCorrectionPanelContent({
                   imageSize === null ||
                   cornerPlacement !== null ||
                   boardCornerPlacement !== null ||
-                  (v12Enabled && !v12FrameConfirmed)
+                  (v12Enabled && !v12FramesReady)
                 }
                 onClick={() => void save()}
                 type="button"
@@ -1924,21 +1901,25 @@ function PageGeometryCorrectionPanelContent({
                   ) : null}
                 </>
               ) : null}
-              <button
-                className="secondaryButton"
-                disabled={saving || submitting || imageSize === null}
-                onClick={beginCornerPlacement}
-                type="button"
-              >
-                Wyznacz 4 narożniki
-              </button>
+              {!v12Enabled ? (
+                <button
+                  className="secondaryButton"
+                  disabled={saving || submitting || imageSize === null}
+                  onClick={beginCornerPlacement}
+                  type="button"
+                >
+                  Wyznacz 4 narożniki
+                </button>
+              ) : null}
               <button
                 className="secondaryButton"
                 disabled={saving || submitting || imageSize === null}
                 onClick={beginBoardCornerPlacement}
                 type="button"
               >
-                Wyznacz {expectedBoardCount} plansz osobno
+                {v12Enabled
+                  ? 'Wyznacz plansze'
+                  : `Wyznacz ${expectedBoardCount} plansz osobno`}
               </button>
               {(cornerPlacement !== null && cornerPlacement.length > 0) ||
               (boardCornerPlacement !== null &&
@@ -2069,15 +2050,17 @@ function PageGeometryCorrectionPanelContent({
                       <path d="M0 12L12 0" stroke="#ddd" strokeWidth="2" />
                     </pattern>
                   </defs>
-                  {v12Enabled && v12EditingLayer === 'symbolGrid'
-                    ? displayedV12FrameQuads.map((quad, index) => (
-                        <polygon
-                          className="pageGeometryBoardPlacement"
-                          key={`v12-frame-reference-${index}`}
-                          points={quad.map(pointText).join(' ')}
-                          pointerEvents="none"
-                        />
-                      ))
+                  {v12Enabled
+                    ? displayedV12FrameQuads.map((quad, index) =>
+                        quad === null ? null : (
+                          <polygon
+                            className="pageGeometryBoardPlacement"
+                            key={`v12-frame-reference-${index}`}
+                            points={quad.map(pointText).join(' ')}
+                            pointerEvents="none"
+                          />
+                        ),
+                      )
                     : null}
                   {!manualPlacementActive
                     ? quads.map((quad, index) => (
@@ -2252,8 +2235,7 @@ function PageGeometryCorrectionPanelContent({
               ) : null}
             </div>
           </div>
-          {(!v12Enabled || v12EditingLayer === 'symbolGrid') &&
-          typeof correctionMode === 'number' &&
+          {typeof correctionMode === 'number' &&
           imageSize &&
           loadedSourceChecksum === source.sourceChecksumSha256
             ? (() => {
@@ -2291,6 +2273,56 @@ function PageGeometryCorrectionPanelContent({
                         przycięcie zdjęcia. Zalecana poprawa pliku źródłowego;
                         tej geometrii nie używamy do uczenia ani kotwic.
                       </p>
+                    ) : null}
+                    {v12Enabled ? (
+                      <div className="pageGeometryQualificationRow">
+                        {(
+                          [
+                            ['top', 'Góra'],
+                            ['bottom', 'Dół'],
+                            ['left', 'Lewo'],
+                            ['right', 'Prawo'],
+                          ] as const
+                        ).map(([side, label]) => (
+                          <label key={side}>
+                            {label} — odstęp od siatki (%)
+                            <input
+                              aria-label={`${label} — odstęp od siatki (%)`}
+                              max="100"
+                              min="-100"
+                              onChange={(event) => {
+                                const raw = event.target.value;
+                                const parsed = Number(raw);
+                                setV12FrameOffsets((previous) =>
+                                  Array.from(
+                                    { length: expectedBoardCount },
+                                    (_, slot) => {
+                                      const current = previous[slot] ?? {};
+                                      if (slot !== index) return current;
+                                      const next = { ...current };
+                                      if (
+                                        raw === '' ||
+                                        !Number.isFinite(parsed)
+                                      )
+                                        delete next[side];
+                                      else next[side] = parsed;
+                                      return next;
+                                    },
+                                  ),
+                                );
+                              }}
+                              step="0.1"
+                              type="number"
+                              value={v12FrameOffsets[index]?.[side] ?? ''}
+                            />
+                          </label>
+                        ))}
+                        <p>
+                          Dodatnia wartość rozszerza ramkę na zewnątrz. Ujemną
+                          widać w podglądzie; zapis wymaga siatki wewnątrz
+                          ramki.
+                        </p>
+                      </div>
                     ) : null}
                     <div className="pageGeometryQualificationRow">
                       <label className="pageGeometryQualificationCheck">

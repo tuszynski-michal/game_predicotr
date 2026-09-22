@@ -243,26 +243,69 @@ test('partial training checkbox saves one complete lateral missing column', asyn
   await act(async () => root.unmount());
 });
 
-test('v1.2 saves independently confirmed frame and symbol-grid layers', async () => {
+test('v1.2 saves frames derived from one symbol grid and four margins', async () => {
   localStorage.clear();
   const writes = [];
-  const frames = quads.map((quad) =>
-    quad.map((point) => ({ x: point.x - 2, y: point.y - 2 })),
+  const frames = quads.map((quad) => [
+    { x: quad[0].x - 2, y: quad[0].y - 2 },
+    { x: quad[1].x + 2, y: quad[1].y - 2 },
+    { x: quad[2].x + 2, y: quad[2].y + 2 },
+    { x: quad[3].x - 2, y: quad[3].y + 2 },
+  ]);
+  const source = {
+    ...sources[0],
+    existingOverrideRevision: undefined,
+    geometryOrigin: 'automatic',
+    reviewReason: 'operator_inspection',
+    existingBoardFrameQuads: null,
+    existingSymbolGridQuads: null,
+  };
+  const scope = {
+    gameId: 'game',
+    uploadId: 'upload',
+    preflightJobId: 'preflight',
+    checksum: source.sourceChecksumSha256,
+    revision: 0,
+    width: 320,
+    height: 320,
+    count: 9,
+  };
+  localStorage.setItem(
+    `page-geometry-draft-v1:game:upload:preflight:${source.sourceChecksumSha256}:0`,
+    JSON.stringify({
+      version: 2,
+      scope,
+      draft: {
+        quads,
+        pageCorners: [quads[0][0], quads[2][1], quads[8][2], quads[6][3]],
+        flags: Array.from({ length: 9 }, () => ({
+          partial: false,
+          exclude: false,
+          includeInPartialGridTraining: false,
+          manualUnavailable: [],
+        })),
+        cornerPlacement: null,
+        boardCornerPlacement: null,
+        v12: {
+          activeLayer: 'symbolGrid',
+          boardFrameQuads: frames,
+          frameConfirmed: false,
+          symbolGridQuads: quads,
+          frameOffsets: Array.from({ length: 9 }, () => ({
+            top: (2 / 90) * 100,
+            bottom: (2 / 90) * 100,
+            left: (2 / 90) * 100,
+            right: (2 / 90) * 100,
+          })),
+        },
+      },
+    }),
   );
   const props = {
     api: {
       listBrowserPageGeometryReviewSources: async () => ({
         data: {
-          sources: [
-            {
-              ...sources[0],
-              existingOverrideRevision: undefined,
-              geometryOrigin: 'automatic',
-              reviewReason: 'operator_inspection',
-              existingBoardFrameQuads: frames,
-              existingSymbolGridQuads: quads,
-            },
-          ],
+          sources: [source],
           geometryManifestChecksumSha256: 'f'.repeat(64),
         },
       }),
@@ -286,8 +329,7 @@ test('v1.2 saves independently confirmed frame and symbol-grid layers', async ()
   );
   await imageLoaded();
   await selectFirst();
-  assert.equal(button('Zapisz i przejdź dalej').disabled, true);
-  await click(checkbox('Potwierdzam obrys ramki planszy'));
+  assert.equal(button('Zapisz i przejdź dalej').disabled, false);
   await click(button('Zapisz i przejdź dalej'));
 
   assert.equal(writes.length, 1);
@@ -339,7 +381,7 @@ test('v1.2 does not treat a legacy override as confirmation of a proposed frame'
   await act(async () => root.unmount());
 });
 
-test('v1.2 reload restores both draft layers and its active frame layer', async () => {
+test('v1.2 reload preserves a legacy two-layer draft without altering either quad', async () => {
   localStorage.clear();
   const writes = [];
   const frames = quads.map((quad) =>
@@ -421,9 +463,8 @@ test('v1.2 reload restores both draft layers and its active frame layer', async 
   await imageLoaded();
   await selectFirst();
   assert.equal(
-    [...document.querySelectorAll('input[name="v12-geometry-layer"]')][0]
-      .checked,
-    true,
+    document.querySelectorAll('input[name="v12-geometry-layer"]').length,
+    0,
   );
   await click(button('Zapisz i przejdź dalej'));
 

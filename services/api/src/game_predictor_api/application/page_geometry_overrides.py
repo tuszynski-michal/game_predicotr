@@ -115,7 +115,7 @@ class PageGeometryOverrideService:
                 image_width=image_width,
                 image_height=image_height,
                 expected_board_count=expected_board_count,
-                qualifications=None,
+                qualifications=qualifications,
             )
             parsed_symbol_grids = _parse_and_validate(
                 symbol_grid_quads,

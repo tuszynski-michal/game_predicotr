@@ -7,6 +7,10 @@ import type {
   PageGeometryPoint,
   PageGeometryQuad,
 } from './page-geometry-mesh.ts';
+import {
+  validV12OffsetDraft,
+  type V12OffsetDraft,
+} from './page-geometry-v12-offsets.ts';
 
 export interface PageGeometryDraftScope {
   readonly gameId: string;
@@ -29,6 +33,7 @@ export interface PageGeometryDraft {
     readonly boardFrameQuads: readonly PageGeometryQuad[];
     readonly frameConfirmed: boolean;
     readonly symbolGridQuads: readonly PageGeometryQuad[];
+    readonly frameOffsets?: readonly (V12OffsetDraft | null)[];
   };
 }
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -145,7 +150,13 @@ export function readPageGeometryDraft(
       draft.v12.symbolGridQuads.length !== scope.count ||
       !draft.v12.symbolGridQuads.every(
         (quad) => points(quad, 4) && quad.length === 4,
-      ))
+      ) ||
+      (draft.v12.frameOffsets !== undefined &&
+        (!Array.isArray(draft.v12.frameOffsets) ||
+          draft.v12.frameOffsets.length !== scope.count ||
+          !draft.v12.frameOffsets.every(
+            (offset) => offset === null || validV12OffsetDraft(offset),
+          ))))
   )
     throw new Error(
       'Uszkodzony szkic geometrii V1.2. Resetuj do stanu serwera.',

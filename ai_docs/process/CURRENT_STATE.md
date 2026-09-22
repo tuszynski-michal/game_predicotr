@@ -6,6 +6,12 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0616 — edytor jednej siatki V1.2
+
+- V1.2 oznacza ręcznie tylko narożniki siatek symboli; ramki powstają z czterech procentowych odstępów dla każdej planszy. Kwalifikacje niepełnej planszy są widoczne pod wybraną planszą.
+- Zachowano parę `boardFrameQuads`/`symbolGridQuads`, starsze rewizje oraz szkice. Bramka importu V1.2 nadal pozostaje zamknięta do osobnego zadania.
+- Niepowiązane zmiany V2 w worktree nie należą do TASK-0616.
+
 ### TASK-0615 — naprawa migracji geometrii V1.2 dla danych per-game
 
 - Migracja 0118 rozszerzała legacy tabelę `public`, a aktywna gra używa

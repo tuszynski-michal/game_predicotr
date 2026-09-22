@@ -9443,3 +9443,20 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
   aktywacji. `passed` jest raportem lokalnym, a nie komendą do G07.
 - **Safety:** raport i command pozostają local-only; nie przechowują obrazów
   ani ścieżek, nie otwierają bazy i nie zmieniają `game_data_v2`.
+
+## D-429 — V1.2 dopuszcza testowy import po kompletnym preflighcie
+
+- **Status:** accepted (TASK-0618/TASK-0619).
+- **Date:** 2026-09-22.
+- **Decision:** jawny wariant `contrast_frame_grid_v1_2` może uruchomić
+  przeglądarkowy import wyłącznie z ukończonym, checksummowanym manifestem
+  bez nierozstrzygniętych importowanych źródeł. Worker wycina pola symboli
+  z `symbolGridQuads`; `boardFrameQuads` służą do kontroli położenia. Brak
+  pary lub konflikt źródła blokuje pracę bez fallbacku do V1.1.
+- **Rationale:** po ręcznej korekcie operator potrzebuje tego samego ciągu
+  preflight → Import co w V1.1, aby ocenić rzeczywiste wycinki.
+- **Compatibility:** V1.1 pozostaje domyślny; historyczne joby i managed
+  reprocess V1.2 nie zmieniają zachowania. V2.0/V2.1 są poza zakresem.
+- **Safety:** testowe udostępnienie startu nie jest odbiorem dokładności.
+  Mumie mają obecnie pusty profil V1.2 i wymagają ręcznej pary geometrii
+  przed następnym preflightem oraz importem.

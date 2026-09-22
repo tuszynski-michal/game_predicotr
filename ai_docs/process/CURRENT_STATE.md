@@ -6,6 +6,17 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0619 — odbiór techniczny V1.2 na Mumii
+
+- Testowa bramka importu V1.2 jest wdrożona, lecz rzeczywisty manifest Mumii
+  zawiera 0 zarejestrowanych i 24 nierozstrzygnięte źródła. Przypięty profil
+  V1.2 nie ma zatwierdzonych próbek ramka/siatka. Cztery wskazane zdjęcia mają
+  stan `review_required`; ich dokładność i wynik importu są `not_evaluable`.
+- Raport `ai_docs/quality/V1_2_MUMIE_TECHNICAL_HANDOFF.md` przypina sumy źródeł,
+  manifest i ścieżkę operatora: ręczna pełna para, nowy preflight, korekta
+  pozostałych źródeł i import dopiero przy kompletnej geometrii. V1.1 pozostaje
+  domyślny; ocena wizualna wycinków należy do operatora.
+
 ### TASK-0618 — import V1.2 po kompletnym preflighcie
 
 - Jawny V1.2 może uruchomić przeglądarkowy import dopiero po ukończonym,
@@ -13,7 +24,7 @@ last_updated: 2026-09-22
 - Worker bierze finalne granice pól z `symbolGridQuads`; zewnętrzne
   `boardFrameQuads` służą do kontroli. Brak pary nie uruchamia V1.1.
 - V1.1 pozostaje domyślny. Managed reprocess V1.2 nadal jest zamknięty;
-  następny TASK-0619 dotyczy odbioru technicznego i dokumentacji.
+  odbiór techniczny i stan danych Mumii opisuje TASK-0619.
 
 ### TASK-0617 — kwalifikowane próbki profilu V1.2
 

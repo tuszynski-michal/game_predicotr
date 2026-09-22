@@ -339,6 +339,57 @@ test('v1.2 saves frames derived from one symbol grid and four margins', async ()
   await act(async () => root.unmount());
 });
 
+test('v1.2 offset inputs accept a partial value and show its preview line', async () => {
+  localStorage.clear();
+  const source = {
+    ...sources[0],
+    existingOverrideRevision: undefined,
+    geometryOrigin: 'automatic',
+    reviewReason: 'operator_inspection',
+    existingBoardFrameQuads: null,
+    existingSymbolGridQuads: null,
+  };
+  const props = {
+    api: {
+      listBrowserPageGeometryReviewSources: async () => ({
+        data: {
+          sources: [source],
+          geometryManifestChecksumSha256: 'f'.repeat(64),
+        },
+      }),
+    },
+    apiBaseUrl: 'http://127.0.0.1:8000',
+    gameId: 'game',
+    geometryEngineVariant: 'contrast_frame_grid_v1_2',
+    uploadId: 'upload',
+    preflightJobId: 'preflight',
+    onSubmitSaved: async () => {},
+  };
+  const root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(React.createElement(PageGeometryCorrectionPanel, props)),
+  );
+  await imageLoaded();
+  await selectFirst();
+  const input = document.querySelector(
+    'input[aria-label="Góra — odstęp od siatki (%)"]',
+  );
+  assert.ok(input);
+  assert.equal(input.disabled, false);
+  await act(async () => {
+    const setValue = Object.getOwnPropertyDescriptor(
+      dom.window.HTMLInputElement.prototype,
+      'value',
+    ).set;
+    setValue.call(input, '10');
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    input.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  assert.equal(input.value, '10');
+  assert.ok(document.querySelector('polygon.pageGeometryBoardPlacement'));
+  await act(async () => root.unmount());
+});
+
 test('v1.2 does not treat a legacy override as confirmation of a proposed frame', async () => {
   localStorage.clear();
   const source = {

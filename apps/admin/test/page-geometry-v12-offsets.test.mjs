@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   v12FrameFromGrid,
   v12OffsetsFromPair,
+  v12PreviewFrameFromDraft,
   v12PreviewFrameFromGrid,
 } from '../src/features/imports/page-geometry-v12-offsets.ts';
 
@@ -33,4 +34,18 @@ test('negative margin is previewable but cannot become a saved frame', () => {
   const offsets = { top: -5, bottom: 2, left: 2, right: 2 };
   assert.ok(v12PreviewFrameFromGrid(grid, offsets));
   assert.equal(v12FrameFromGrid(grid, offsets), null);
+});
+
+test('partial margin draft previews the entered side before save is ready', () => {
+  const grid = [
+    { x: 20, y: 20 },
+    { x: 120, y: 20 },
+    { x: 120, y: 70 },
+    { x: 20, y: 70 },
+  ];
+  const frame = v12PreviewFrameFromDraft(grid, { top: 10 });
+  assert.ok(frame);
+  assert.ok(frame[0].y < grid[0].y);
+  assert.equal(frame[3].x, grid[3].x);
+  assert.equal(v12PreviewFrameFromDraft(grid, {}), null);
 });

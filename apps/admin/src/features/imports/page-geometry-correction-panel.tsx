@@ -71,7 +71,7 @@ import {
 } from './page-geometry-mesh';
 import {
   v12FrameFromGrid,
-  v12PreviewFrameFromGrid,
+  v12PreviewFrameFromDraft,
   v12OffsetsFromPair,
   validV12FrameOffsets,
   type V12OffsetDraft,
@@ -574,8 +574,8 @@ function PageGeometryCorrectionPanelContent({
     () =>
       quads.map((grid, index) => {
         const offsets = v12FrameOffsets[index];
-        if (validV12FrameOffsets(offsets))
-          return v12PreviewFrameFromGrid(grid, offsets);
+        const preview = v12PreviewFrameFromDraft(grid, offsets);
+        if (preview !== null) return preview;
         const storedGrid = v12SymbolGridQuads?.[index];
         const storedFrame = v12BoardFrameQuads?.[index];
         return offsets === null &&

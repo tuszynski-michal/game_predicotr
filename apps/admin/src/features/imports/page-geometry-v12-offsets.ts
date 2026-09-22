@@ -111,6 +111,24 @@ export function v12PreviewFrameFromGrid(
     : null;
 }
 
+/**
+ * Draws the frame while the operator is entering the four offsets. Missing
+ * sides stay on the symbol-grid edge; save validation still requires all four
+ * values through `validV12FrameOffsets`/`v12FrameFromGrid`.
+ */
+export function v12PreviewFrameFromDraft(
+  grid: PageGeometryQuad,
+  offsets: V12OffsetDraft | null | undefined,
+): PageGeometryQuad | null {
+  if (!offsets || Object.keys(offsets).length === 0) return null;
+  return v12PreviewFrameFromGrid(grid, {
+    top: offsets.top ?? 0,
+    bottom: offsets.bottom ?? 0,
+    left: offsets.left ?? 0,
+    right: offsets.right ?? 0,
+  });
+}
+
 export function v12OffsetsFromPair(
   grid: PageGeometryQuad,
   frame: PageGeometryQuad,

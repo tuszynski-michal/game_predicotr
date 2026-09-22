@@ -2057,12 +2057,12 @@ function PageGeometryCorrectionPanelContent({
                   }
                 />
               ) : null}
-                 {imageSize !== null &&
-                 pageCorners !== null &&
-                 loadedSourceChecksum === source.sourceChecksumSha256 ? (
-                   <svg
-                     aria-label="Nakładka geometrii strony"
-                     onPointerDown={handlePointerDown}
+                  {imageSize !== null &&
+                  pageCorners !== null &&
+                  loadedSourceChecksum === source.sourceChecksumSha256 ? (
+                    <svg
+                      aria-label="Nakładka geometrii strony"
+                      onPointerDown={placeNextCorner}
                       onPointerMove={(event) => {
                         const point = relativePoint(event);
                         if (point !== null) updatePoint(point);
@@ -2071,7 +2071,7 @@ function PageGeometryCorrectionPanelContent({
                         setDragging(null);
                         setSelectedPointIndex(null);
                       }}
-                     viewBox={
+                      viewBox={
                        allowOutsideSource
                          ? `${outsideSourceMinimum(imageSize.width)} ${outsideSourceMinimum(imageSize.height)} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.width} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.height}`
                         : `0 0 ${imageSize.width} ${imageSize.height}`

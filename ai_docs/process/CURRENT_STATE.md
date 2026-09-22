@@ -6,6 +6,16 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0612 — diagnoza geometrii V1.2 dla Mumii
+
+- Ukończono T01: klasyczny detektor zależny od czerwonej ramki nie wykrywa
+  żadnej z czterech stron Mumii bez kotwicy. Bieżący preflight po jednej
+  korekcie ręcznej rejestruje trzy kolejne strony, ale obecny kontrakt
+  utrwala tylko jeden quad planszy i nie rozdziela ramki od siatki symboli.
+- Raport T01 określa dwa osobne, wymagane wejścia V1.2: ręcznie potwierdzony
+  obrys ramki planszy oraz ręcznie potwierdzoną siatkę 3 × 5. Nie zmieniono
+  bieżących wariantów geometrii, danych gry ani źródeł.
+
 ### TASK-0610 — niezależny odbiór acceptance wspólnej geometrii shape v2
 
 - Ukończono G08: local-only evaluator odbiera wyłącznie operator-owned corpus

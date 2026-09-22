@@ -3,7 +3,7 @@ title: TASK-0620 — Drag-to-draw grid geometry for manual board placement
 status: done
 ---
 
-# TASK-0620 — Dwuklikowe wyznaczanie siatki zamiast czterech kliknięć
+# TASK-0620 — Przeciągnięcie zamiast czterech kliknięć przy wyznaczaniu siatki
 
 ## Status
 
@@ -11,12 +11,12 @@ status: done
 
 ## Goal
 
-W edytorze geometrii plansz operator wyznacza siatkę 3 × 5 dwoma kliknięciami:
-kliknięcie lewego górnego narożnika (LT), przesunięcie kursora z odciśniętym
-przyciskiem myszy — podczas ruchu widoczny jest żywy podgląd siatki 3 × 5 —
-oraz drugie kliknięcie w prawym dolnym narożniku (PD). System zapisuje cztery
-narożniki (LT, PT, PD, LD) w kolejności zgodnej z kontraktem. Kolejność plansz
-pozostaje rzędami od lewej do prawej, wiersz po wierszu.
+W edytorze geometrii plansz operator wyznacza siatkę 3 × 5 jednym
+przeciągnięciem: naciśnięcie lewego górnego narożnika (LT), przeciągnięcie z
+wciśniętym przyciskiem myszy do prawego dolnego narożnika (PD) — podczas ruchu
+widoczny jest żywy podgląd siatki 3 × 5 — oraz zwolnienie przycisku. System
+zapisuje cztery narożniki (LT, PT, PD, LD) w kolejności zgodnej z kontraktem.
+Kolejność plansz pozostaje rzędami od lewej do prawej, wiersz po wierszu.
 
 ## Context
 
@@ -43,9 +43,9 @@ Obecny edytor (`grid-review-editor.tsx`) wymaga czterech kliknięć na planszę 
 
 ## Scope
 
-- Zmiana interakcji w `grid-review-editor.tsx` z 4 kliknięć na 2 kliknięcia LT → PD.
+- Zmiana interakcji w `grid-review-editor.tsx` z 4 kliknięć na 1 przeciągnięcie LT → PD z wciśniętym przyciskiem myszy.
 - Wyznaczenie czterech narożników z wektora LT→PD i pozycji kursora (kursor determinuje pochylenie).
-- Wizualizacja siatki 3 × 5 podczas ruchu kursora między kliknięciami.
+- Wizualizacja siatki 3 × 5 w czasie przeciągania.
 - Minimalny rozmiar prostokąta: 80 × 60 px; zbyt mały prostokąt jest odrzucany, plansza pozostaje niewyznaczona.
 - Aktualizacja komunikatów UI i testów interakcyjnych.
 
@@ -58,9 +58,9 @@ Obecny edytor (`grid-review-editor.tsx`) wymaga czterech kliknięć na planszę 
 
 ## Acceptance criteria
 
-- [x] Operator może wyznaczyć planszę przez kliknięcie LT, przesunięcie kursora i drugie kliknięcie PD (przycisk myszy jest zwolniony między kliknięciami).
-- [x] W czasie ruchu kursora widoczna jest siatka 3 × 5 dopasowana do aktualnej pozycji kursora.
-- [x] Po drugim kliknięciu system zapisuje cztery narożniki w kolejności LT, PT, PD, LD zgodnej z kontraktem.
+- [x] Operator może wyznaczyć planszę przez naciśnięcie LT, przeciągnięcie z wciśniętym przyciskiem myszy do PD i zwolnienie przycisku.
+- [x] W czasie przeciągania widoczna jest siatka 3 × 5 dopasowana do aktualnej pozycji kursora.
+- [x] Po zwolnieniu przycisku system zapisuje cztery narożniki w kolejności LT, PT, PD, LD zgodnej z kontraktem.
 - [x] Po zapisie można przeciągać każdy z czterech narożników lub całą siatkę (zachowanie obecne).
 - [x] W trybie wsadowym przejście do następnej planszy odbywa się przez przycisk **Dalej**; brak automatycznego przeskakiwania po zatwierdzeniu siatki.
 - [x] Prostokąt mniejszy niż 80 × 60 px nie jest zapisywany; plansza pozostaje niewyznaczona.
@@ -75,9 +75,9 @@ Obecny edytor (`grid-review-editor.tsx`) wymaga czterech kliknięć na planszę 
 - `GRID_CORNER_LABELS = ['LT', 'PT', 'PD', 'LD']` w `grid-review-state.ts`.
 
 ### Wymagane zachowanie
-- Pierwsze kliknięcie zapisuje LT i rozpoczyna podgląd.
-- `pointerMove` z odciśniętym przyciskiem aktualizuje żywy podgląd siatki.
-- Drugie kliknięcie (`pointerDown`) finalizuje PD, wylicza PT i LD z wektora LT→PD i pozycji kursora, zapisuje cztery narożniki.
+- `pointerDown` zapisuje LT, rozpoczyna drag i przejmuje wskaźnik (`setPointerCapture`).
+- `pointerMove` z wciśniętym przyciskiem aktualizuje żywy podgląd siatki.
+- `pointerUp` finalizuje PD, wylicza PT i LD z wektora LT→PD i pozycji kursora, zapisuje cztery narożniki.
 - Jeśli prostokąt jest za mały, zaznaczenie jest odrzucane i plansza pozostaje niewyznaczona.
 - Aby edytować istniejącą automatyczną siatkę, operator najpierw klika planszę na liście (tryb edycji), a potem przeciąga narożniki.
 
@@ -150,8 +150,8 @@ npm test --workspace=apps/reviewer -- --run test-interactions/grid-geometry-qual
   - `finalizeDragGeometry` odrzuca prostokąty mniejsze niż 80 × 60 px i zwraca
     cztery narożniki w kolejności LT, PT, PD, LD.
 - `apps/reviewer/src/features/grid-reviews/grid-review-editor.tsx`:
-  - nowa interakcja dwuklikowa: pierwszy `pointerDown` zaczyna zaznaczenie,
-    `pointerMove` rysuje żywy podgląd 3 × 5, drugi `pointerDown` finalizuje;
+  - nowa interakcja drag-hold: `pointerDown` zaczyna zaznaczenie i przejmuje
+    wskaźnik, `pointerMove` rysuje żywy podgląd 3 × 5, `pointerUp` finalizuje;
   - Escape anuluje rozpoczęte zaznaczenie;
   - edycja istniejącej siatki wymaga wejścia w tryb edycji przez kliknięcie
     planszy na liście;
@@ -163,8 +163,8 @@ npm test --workspace=apps/reviewer -- --run test-interactions/grid-geometry-qual
 - `apps/reviewer/test-interactions/grid-geometry-qualification.test.mjs`:
   dostosowanie testu legacy reset do nowej interakcji.
 - `ai_docs/process/CURRENT_STATE.md`: nowa sekcja TASK-0620.
-- `ai_docs/guides/LOCAL_OPERATION_GUIDE.md`: instrukcja dwuklikowego
-  wyznaczania siatki.
+- `ai_docs/guides/LOCAL_OPERATION_GUIDE.md`: instrukcja przeciągnięcia
+  (drag-hold) przy wyznaczaniu siatki.
 
 ### Verification results
 
@@ -182,6 +182,7 @@ npm run test:geometry --workspace=apps/reviewer # 3/3 przeszło
 ### Documentation updates
 
 - `ai_docs/process/CURRENT_STATE.md`
+- `ai_docs/process/DECISION_LOG.md` (decyzja D-419: drag-hold zamiast dwukliku)
 - `ai_docs/guides/LOCAL_OPERATION_GUIDE.md`
 - niniejsza karta zadania
 

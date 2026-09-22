@@ -8,12 +8,13 @@ last_updated: 2026-09-22
 
 ### TASK-0620 — dwuklikowe wyznaczanie siatki 3 × 5 w Reviewerze
 
-- W edytorze geometrii plansz operator zaznacza każdą planszę dwoma kliknięciami:
-  pierwsze kliknięcie ustawia lewy górny narożnik (LT), kolejne ruchy myszy
-  pokazują żywy podgląd siatki 3 × 5, drugie kliknięcie ustawia prawy dolny
-  narożnik (PD) i zapisuje cztery rogi w kolejności LT, PT, PD, LD.
-- Interakcja jest dwuklikowa (przycisk myszy jest zwolniony między kliknięciami);
-  nie ma fallbacku do starego trybu czterech kliknięć.
+- W edytorze geometrii plansz operator zaznacza każdą planszę jednym
+  przeciągnięciem: naciska lewy górny narożnik (LT), trzyma przycisk myszy i
+  przeciąga do prawego dolnego narożnika (PD), a następnie puszcza przycisk.
+  W czasie przeciągania widoczny jest żywy podgląd siatki 3 × 5; po zwolnieniu
+  przycisku zapisywane są cztery rogi w kolejności LT, PT, PD, LD.
+- Interakcja to drag-hold (przycisk myszy jest wciśnięty podczas ruchu); nie ma
+  fallbacku do starego trybu czterech kliknięć.
 - Aby poprawić istniejącą automatyczną siatkę, operator najpierw klika planszę na
   liście po lewej (wchodzi w tryb edycji), a potem przeciąga narożniki lub środek.
 - Minimalny rozmiar zaznaczenia: 80 × 60 px; mniejszy prostokąt jest odrzucany.

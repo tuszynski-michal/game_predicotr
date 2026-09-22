@@ -1,10 +1,31 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-21
+last_updated: 2026-09-22
 ---
 
 # Decision Log
+
+## D-419 — Manual grid placement używa drag-hold zamiast dwukliku
+
+- **Status:** accepted (TASK-0620).
+- **Date:** 2026-09-22.
+- **Decision:** w edytorze geometrii plansz operator wyznacza siatkę 3 × 5
+  przeciągnięciem z wciśniętym przyciskiem myszy: naciśnięcie LT, przeciągnięcie
+  do PD, zwolnienie przycisku. W czasie ruchu renderowany jest żywy podgląd
+  siatki, więc operator widzi, gdzie upuści drugi punkt. Finalizacja następuje
+  na `pointerUp`; `pointerDown` tylko rozpoczyna zaznaczenie i przejmuje
+  wskaźnik (`setPointerCapture`).
+- **Rationale:** dwuklik (kliknięcie LT, ruch z odciśniętym przyciskiem, drugie
+  kliknięcie PD) nie daje operatorowi bezpośredniej informacji zwrotnej o
+  dokładnym miejscu zwolnienia. Drag-hold z żywym podglądem pozwala precyzyjnie
+  ustawić PD przed jego zatwierdzeniem.
+- **Safety:** minimalny rozmiar 80 × 60 px odrzuca przypadkowe kliknięcia bez
+  ruchu; istniejąca siatka może być poprawiona tylko po wejściu w tryb edycji
+  przez kliknięcie planszy na liście, co zapobiega przypadkowemu nadpisaniu
+  automatycznej geometrii.
+- **Compatibility:** kontrakt czterech narożników (LT, PT, PD, LD), backend,
+  model danych i szkice `localStorage` pozostają bez zmian.
 
 ## D-418 — Diagnostyka niepełnego cropa nie unieważnia pełnej kalibracji
 

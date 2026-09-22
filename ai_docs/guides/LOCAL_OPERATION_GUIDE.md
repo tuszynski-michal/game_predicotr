@@ -486,10 +486,10 @@ pozycja tworzy dokładnie 15 cropów albo trwały deferred bez inferencji.
 Po zakończeniu importu wybierz ten sam import w `Zatwierdzaniu plansz`. Licznik
 `Do korekty siatki` prowadzi do osobnego trybu Reviewera. Dla każdej pozycji:
 
-1. wskaż zewnętrzną siatkę symboli 5 × 3 dwoma kliknięciami:
-   pierwsze kliknięcie ustawia lewy górny narożnik (LT), następnie ruszaj
-   myszką — żywy podgląd 3 × 5 podąża za kursorem — i drugim kliknięciem
-   ustaw prawy dolny narożnik (PD). Escape anuluje rozpoczęte zaznaczenie,
+1. wskaż zewnętrzną siatkę symboli 5 × 3 przeciągnięciem:
+   naciśnij lewy górny narożnik (LT), trzymaj przycisk myszy i przeciągnij
+   kursor do prawego dolnego narożnika (PD) — żywy podgląd 3 × 5 podąża za
+   kursorem — a następnie puść przycisk. Escape anuluje rozpoczęte zaznaczenie,
    a zaznaczenie mniejsze niż 80 × 60 px jest odrzucane.
 2. Jeśli automatyczna siatka wymaga tylko drobnej korekty, kliknij planszę na
    liście po lewej (wejście w tryb edycji), a potem przeciągnij wybrany narożnik

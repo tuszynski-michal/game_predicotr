@@ -100,7 +100,10 @@ test('editor overlays every active slot and supports bounded A/B correction with
   assert.match(editor, /onPointerDown=\{pointerDown\}/);
   assert.match(editor, /moveGridGeometryCorner/);
   assert.match(editor, /moveGridGeometry/);
-  assert.match(editor, /Kliknij lewy górny róg, a następnie prawy dolny/);
+  assert.match(
+    editor,
+    /Przeciągnij od lewego górnego rogu do prawego dolnego, trzymając przycisk myszy/,
+  );
   assert.match(editor, /Anuluj zaznaczenie/);
   assert.match(editor, /Resetuj do automatu/);
   assert.match(editor, /items\.map/);

@@ -98,8 +98,8 @@ interface ActiveDrag {
 }
 
 /**
- * Two-click drag placement: first click stores LT, subsequent mouse moves draw
- * a live 3×5 preview, second click finalises PD and commits the four corners.
+ * Drag-hold placement: press on LT, drag with the button held to draw a live
+ * 3×5 preview, and release on PD to commit the four corners.
  */
 interface ActiveGridDrag {
   readonly allowOutsideSource?: boolean;
@@ -636,48 +636,13 @@ function GridReviewEditorContent({
     const pointer = sourcePoint(event);
     if (pointer === null) return;
 
-    // Second click of a two-click grid placement finalises the grid.
-    const placement = gridDragRef.current;
-    if (placement !== null) {
-      if (placement.slotId !== item.slotId) {
-        gridDragRef.current = null;
-        setGridDragCursor(null);
-        return;
-      }
-      event.preventDefault();
-      const corners = finalizeDragGeometry(
-        placement.start,
-        pointer.point,
-        pointer.point,
-        placement.imageWidth,
-        placement.imageHeight,
-        placement.allowOutsideSource,
-      );
-      gridDragRef.current = null;
-      setGridDragCursor(null);
-      if (corners === null) {
-        setError(
-          'Siatka jest za mała. Przeciągnij dalej lub zacznij od nowa.',
-        );
-        return;
-      }
-      setError('');
-      if (sourceEditing) {
-        replaceSourceItemDraft(item.slotId, corners, automaticCorners);
-      } else {
-        setDraft({ corners, slotId: item.slotId });
-        setEditing(true);
-      }
-      invalidatePreview();
-      return;
-    }
-
     const cornerThreshold = 44 / pointer.scale;
 
-    // Outside any editing mode a click on the canvas immediately starts a fresh
-    // two-click placement for the currently selected board. The operator must
-    // enter editing mode (e.g. by clicking a slot in the list) to adjust an
-    // existing grid by dragging its corners.
+    // Outside any editing mode a press on the canvas starts a fresh drag
+    // placement for the currently selected board. The operator drags with the
+    // button held and releases to set PD. To adjust an existing automatic grid,
+    // the operator must enter editing mode first (e.g. by clicking a slot in the
+    // list) and then drag a corner or the body.
     if (!editing && !sourceEditing) {
       if (hasPendingIndividualDraft) return;
       event.preventDefault();
@@ -700,6 +665,7 @@ function GridReviewEditorContent({
         ),
       };
       setGridDragCursor(pointer.point);
+      event.currentTarget.setPointerCapture(event.pointerId);
       return;
     }
 
@@ -781,6 +747,7 @@ function GridReviewEditorContent({
       ),
     };
     setGridDragCursor(pointer.point);
+    event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function pointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -825,8 +792,37 @@ function GridReviewEditorContent({
   }
 
   function pointerUp(event: ReactPointerEvent<HTMLCanvasElement>) {
-    if (gridDragRef.current !== null) {
-      // Placement is finalised on the second pointerDown, not pointerUp.
+    const placement = gridDragRef.current;
+    if (placement !== null) {
+      const pointer = sourcePoint(event);
+      if (pointer === null) return;
+      const corners = finalizeDragGeometry(
+        placement.start,
+        pointer.point,
+        pointer.point,
+        placement.imageWidth,
+        placement.imageHeight,
+        placement.allowOutsideSource,
+      );
+      gridDragRef.current = null;
+      setGridDragCursor(null);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      if (corners === null) {
+        setError(
+          'Siatka jest za mała. Przeciągnij dalej lub zacznij od nowa.',
+        );
+        return;
+      }
+      setError('');
+      if (sourceEditing) {
+        replaceSourceItemDraft(item.slotId, corners, automaticCorners);
+      } else {
+        setDraft({ corners, slotId: item.slotId });
+        setEditing(true);
+      }
+      invalidatePreview();
       return;
     }
 
@@ -1275,8 +1271,8 @@ function GridReviewEditorContent({
             <p>
               {activeDraft.length < 4
                 ? sourceEditing && sourceRedefining
-                  ? `Plansza ${item.positionIndex + 1}/${items.length} · kliknij lewy górny róg, a następnie prawy dolny. Ruch myszy rysuje podgląd siatki.`
-                  : 'Kliknij lewy górny róg, a następnie prawy dolny. Ruch myszy rysuje podgląd siatki.'
+                  ? `Plansza ${item.positionIndex + 1}/${items.length} · przeciągnij od lewego górnego rogu do prawego dolnego, trzymając przycisk myszy. Ruch myszy rysuje podgląd siatki.`
+                  : 'Przeciągnij od lewego górnego rogu do prawego dolnego, trzymając przycisk myszy. Ruch myszy rysuje podgląd siatki.'
                 : 'Przeciągnij narożnik albo środek wybranej siatki.'}
             </p>
             {activeDraft.length < 4 ? (

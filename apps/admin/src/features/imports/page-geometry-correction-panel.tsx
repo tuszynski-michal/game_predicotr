@@ -2022,23 +2022,23 @@ function PageGeometryCorrectionPanelContent({
                   }
                 />
               ) : null}
-              {imageSize !== null &&
-              pageCorners !== null &&
-              loadedSourceChecksum === source.sourceChecksumSha256 ? (
-                <svg
-                  aria-label="Nakładka geometrii strony"
-                  onPointerDown={placeNextCorner}
-                  onPointerMove={(event) => {
-                    const point = relativePoint(event);
-                    if (point !== null) updatePoint(point);
-                  }}
-                  onPointerUp={() => setDragging(null)}
-                  viewBox={
-                    allowOutsideSource
-                      ? `${outsideSourceMinimum(imageSize.width)} ${outsideSourceMinimum(imageSize.height)} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.width} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.height}`
-                      : `0 0 ${imageSize.width} ${imageSize.height}`
-                  }
-                >
+                {imageSize !== null &&
+                pageCorners !== null &&
+                loadedSourceChecksum === source.sourceChecksumSha256 ? (
+                  <svg
+                    aria-label="Nakładka geometrii strony"
+                    onPointerDown={placeNextCorner}
+                    onPointerMove={(event) => {
+                      const point = relativePoint(event);
+                      if (point !== null) updatePoint(point);
+                    }}
+                    onPointerUp={() => setDragging(null)}
+                    viewBox={
+                      allowOutsideSource
+                        ? `${outsideSourceMinimum(imageSize.width)} ${outsideSourceMinimum(imageSize.height)} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.width} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.height}`
+                        : `0 0 ${imageSize.width} ${imageSize.height}`
+                    }
+                  >
                   <defs>
                     <pattern
                       id="partial-cell-hatch"
@@ -2137,6 +2137,14 @@ function PageGeometryCorrectionPanelContent({
                             className="pageGeometryHandle pageGeometryPlacementHandle"
                             cx={point.x}
                             cy={point.y}
+                            key={index}
+                            onPointerDown={(event) =>
+                              beginDrag(event, {
+                                boardIndex: activeBoardPlacementIndex,
+                                kind: 'board',
+                                pointIndex: index,
+                              })
+                            }
                             r={handleRadius}
                           />
                           <text
@@ -2164,6 +2172,13 @@ function PageGeometryCorrectionPanelContent({
                             className="pageGeometryHandle pageGeometryPlacementHandle"
                             cx={point.x}
                             cy={point.y}
+                            key={index}
+                            onPointerDown={(event) =>
+                              beginDrag(event, {
+                                kind: 'page',
+                                pointIndex: index,
+                              })
+                            }
                             r={handleRadius}
                           />
                           <text

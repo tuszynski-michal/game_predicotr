@@ -16,7 +16,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-SHAPE_GEOMETRY_V2_CORE_VERSION: Final = "shape-frame-geometry-v2-core-v1"
+SHAPE_GEOMETRY_V2_CORE_VERSION: Final = "shape-frame-geometry-v2-core-v2.1"
 _PAGE_ROWS: Final = 3
 _PAGE_COLUMNS: Final = 3
 _CELL_ROWS: Final = 3
@@ -58,6 +58,9 @@ class ShapeGeometryV2Config:
     minimum_board_grid_support: float = 0.90
     minimum_grid_line_contrast: float = 0.055
     maximum_frame_candidates: int = 32
+    minimum_board_frame_area_fraction: float = 0.006
+    maximum_board_frame_area_fraction: float = 0.18
+    minimum_board_frame_edge_contrast: float = 0.035
 
     def __post_init__(self) -> None:
         if (
@@ -71,6 +74,9 @@ class ShapeGeometryV2Config:
             or not 0.0 < self.minimum_board_grid_support <= 1.0
             or not 0.0 < self.minimum_grid_line_contrast < 1.0
             or not 1 <= self.maximum_frame_candidates <= 256
+            or not 0.0 < self.minimum_board_frame_area_fraction < 1.0
+            or not self.minimum_board_frame_area_fraction < self.maximum_board_frame_area_fraction < 1.0
+            or not 0.0 < self.minimum_board_frame_edge_contrast < 1.0
         ):
             raise ShapeGeometryV2Error(
                 "SHAPE_GEOMETRY_V2_CONFIG_INVALID",
@@ -89,6 +95,9 @@ class ShapeGeometryV2Config:
             "minimumGridLineContrast": _round(self.minimum_grid_line_contrast),
             "minimumGridSupport": _round(self.minimum_grid_support),
             "minimumInputEdge": self.minimum_input_edge,
+            "minimumBoardFrameAreaFraction": _round(self.minimum_board_frame_area_fraction),
+            "maximumBoardFrameAreaFraction": _round(self.maximum_board_frame_area_fraction),
+            "minimumBoardFrameEdgeContrast": _round(self.minimum_board_frame_edge_contrast),
         }
 
 
@@ -229,6 +238,9 @@ def detect_shape_geometry_v2(
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     candidates = _find_frame_candidates(gray, resolved_config)
     if not candidates:
+        lattice = _detect_board_frame_lattice(rgb, gray, resolved_config)
+        if lattice is not None:
+            return lattice
         return ShapeGeometryV2Result(
             status=ShapeGeometryV2Status.NEEDS_MANUAL_REVIEW,
             reason_codes=(ShapeGeometryV2ReasonCode.FRAME_EVIDENCE_INSUFFICIENT,),

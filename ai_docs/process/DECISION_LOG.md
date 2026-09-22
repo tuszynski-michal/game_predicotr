@@ -9460,3 +9460,24 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 - **Safety:** testowe udostępnienie startu nie jest odbiorem dokładności.
   Mumie mają obecnie pusty profil V1.2 i wymagają ręcznej pary geometrii
   przed następnym preflightem oraz importem.
+
+## D-428 — Rzeczywiste gry używają siatki ramek plansz jako wariantu V2.1
+
+- **Status:** accepted (TASK-0611).
+- **Date:** 2026-09-22.
+- **Decision:** nowy, testowy wariant `board-frame-lattice-v2.1` wykrywa dziewięć
+  osobnych ramek plansz i ich układ 3 × 3. Jest używany wyłącznie po braku
+  propozycji z historycznego wariantu jednej ramki strony. Kolor pozostaje
+  metryką pomocniczą; ramki są wybierane po geometrii, kontraście, zgodności
+  rozmiaru i jednoznacznej siatce centroidów.
+- **Rationale:** cztery rzeczywiste Mumie oraz sprawdzone próbki 777 nie mają
+  jednej zewnętrznej ramki strony, lecz dziewięć ramek plansz. Dotychczasowy
+  wariant G02 zwrócił dla wszystkich `frame_evidence_insufficient`; obniżenie
+  progu pola wybrałoby pojedynczą planszę jako całą stronę.
+- **Compatibility:** `framed_full_page_v2`, V1.0 i V1.1 zachowują zachowanie.
+  V2.1 nie tworzy profilu, migracji, API, joba ani importu; przyszły profil
+  globalny musi dostać własną descriptor-only kwalifikację.
+- **Safety:** brak slotu, konflikt kandydatów, ucięcie albo słaba siatka daje
+  wyłącznie `needs_manual_review` bez quadów importowych. V2.1 nie kopiuje
+  profilu V1.1, symboli, payoutów, OCR, sekwencji, obrazów ani ścieżek do
+  publicznej biblioteki.

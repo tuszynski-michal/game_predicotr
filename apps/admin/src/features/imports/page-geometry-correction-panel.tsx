@@ -901,16 +901,24 @@ function PageGeometryCorrectionPanelContent({
   }
 
   function beginBoardCornerPlacement() {
-    setCorrectionMode('page');
-    setCornerPlacement([]);
-    setBoardCornerPlacement(null);
-    setBoardOverrides(new Map());
-    setMeshOverrides(new Map());
-    setDragging(null);
-    setPageCorners(null);
-    setFeedback(
-      `Wymaż istniejącą geometrię i ustaw cztery narożniki strony od nowa.`,
-    );
+    if (pageCorners === null) {
+      setCorrectionMode('page');
+      setCornerPlacement([]);
+      setFeedback(
+        `Brak geometrii. Ustaw cztery narożniki strony, aby rozpocząć.`,
+      );
+    } else {
+      setCorrectionMode(0);
+      setCornerPlacement(null);
+      setBoardCornerPlacement(null);
+      setBoardOverrides(new Map());
+      setMeshOverrides(new Map());
+      setDragging(null);
+      setSelectedPointIndex(null);
+      setFeedback(
+        `Tryb edycji: kliknij i przeciągnij narożniki pierwszej planszy. Przełącz plansze przyciskiem "Następna plansza".`,
+      );
+    }
   }
 
   function showAllBoardCorners(currentQuads: readonly Quad[]) {
@@ -2046,20 +2054,20 @@ function PageGeometryCorrectionPanelContent({
                   }
                 />
               ) : null}
-                {imageSize !== null &&
-                pageCorners !== null &&
-                loadedSourceChecksum === source.sourceChecksumSha256 ? (
-                  <svg
-                    aria-label="Nakładka geometrii strony"
-                    onPointerDown={placeNextCorner}
-                    onPointerMove={(event) => {
-                      const point = relativePoint(event);
-                      if (point !== null) updatePoint(point);
-                    }}
-                    onPointerUp={() => setDragging(null)}
-                    viewBox={
-                      allowOutsideSource
-                        ? `${outsideSourceMinimum(imageSize.width)} ${outsideSourceMinimum(imageSize.height)} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.width} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.height}`
+                 {imageSize !== null &&
+                 pageCorners !== null &&
+                 loadedSourceChecksum === source.sourceChecksumSha256 ? (
+                   <svg
+                     aria-label="Nakładka geometrii strony"
+                     onPointerDown={handlePointerDown}
+                      onPointerMove={(event) => {
+                        const point = relativePoint(event);
+                        if (point !== null) updatePoint(point);
+                      }}
+                      onPointerUp={() => setDragging(null)}
+                     viewBox={
+                       allowOutsideSource
+                         ? `${outsideSourceMinimum(imageSize.width)} ${outsideSourceMinimum(imageSize.height)} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.width} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.height}`
                         : `0 0 ${imageSize.width} ${imageSize.height}`
                     }
                   >

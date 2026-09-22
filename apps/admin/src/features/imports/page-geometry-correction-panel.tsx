@@ -2275,54 +2275,55 @@ function PageGeometryCorrectionPanelContent({
                       </p>
                     ) : null}
                     {v12Enabled ? (
-                      <div className="pageGeometryQualificationRow">
-                        {(
-                          [
-                            ['top', 'Góra'],
-                            ['bottom', 'Dół'],
-                            ['left', 'Lewo'],
-                            ['right', 'Prawo'],
-                          ] as const
-                        ).map(([side, label]) => (
-                          <label key={side}>
-                            {label} — odstęp od siatki (%)
-                            <input
-                              aria-label={`${label} — odstęp od siatki (%)`}
-                              max="100"
-                              min="-100"
-                              onChange={(event) => {
-                                const raw = event.target.value;
-                                const parsed = Number(raw);
-                                setV12FrameOffsets((previous) =>
-                                  Array.from(
-                                    { length: expectedBoardCount },
-                                    (_, slot) => {
-                                      const current = previous[slot] ?? {};
-                                      if (slot !== index) return current;
-                                      const next = { ...current };
-                                      if (
-                                        raw === '' ||
-                                        !Number.isFinite(parsed)
-                                      )
-                                        delete next[side];
-                                      else next[side] = parsed;
-                                      return next;
-                                    },
-                                  ),
-                                );
-                              }}
-                              step="0.1"
-                              type="number"
-                              value={v12FrameOffsets[index]?.[side] ?? ''}
-                            />
-                          </label>
-                        ))}
-                        <p>
+                      <>
+                        <div className="pageGeometryFrameOffsets">
+                          {(
+                            [
+                              ['top', 'Góra'],
+                              ['bottom', 'Dół'],
+                              ['left', 'Lewo'],
+                              ['right', 'Prawo'],
+                            ] as const
+                          ).map(([side, label]) => (
+                            <label key={side}>
+                              {label} — odstęp od siatki (%)
+                              <input
+                                aria-label={`${label} — odstęp od siatki (%)`}
+                                max="100"
+                                min="-100"
+                                onChange={(event) => {
+                                  const raw = event.target.value;
+                                  const parsed = Number(raw);
+                                  setV12FrameOffsets((previous) =>
+                                    Array.from(
+                                      { length: expectedBoardCount },
+                                      (_, slot) => {
+                                        const current = previous[slot] ?? {};
+                                        if (slot !== index) return current;
+                                        const next = { ...current };
+                                        if (
+                                          raw === '' ||
+                                          !Number.isFinite(parsed)
+                                        )
+                                          delete next[side];
+                                        else next[side] = parsed;
+                                        return next;
+                                      },
+                                    ),
+                                  );
+                                }}
+                                step="0.1"
+                                type="number"
+                                value={v12FrameOffsets[index]?.[side] ?? ''}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                        <p className="pageGeometryFrameOffsetsHint">
                           Dodatnia wartość rozszerza ramkę na zewnątrz. Ujemną
-                          widać w podglądzie; zapis wymaga siatki wewnątrz
-                          ramki.
+                          widać w podglądzie; zapis wymaga siatki wewnątrz ramki.
                         </p>
-                      </div>
+                      </>
                     ) : null}
                     <div className="pageGeometryQualificationRow">
                       <label className="pageGeometryQualificationCheck">

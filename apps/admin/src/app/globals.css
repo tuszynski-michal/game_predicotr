@@ -6761,6 +6761,29 @@ div.imageJobInlineError {
   gap: 10px 20px;
 }
 
+.pageGeometryFrameOffsets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px 12px;
+}
+
+.pageGeometryFrameOffsets > label {
+  min-width: 0;
+}
+
+.pageGeometryFrameOffsets > label input {
+  width: 100%;
+  min-width: 0;
+}
+
+.pageGeometryFrameOffsetsHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .pageGeometryQualificationCheck {
   display: inline-flex;
   align-items: center;
@@ -6803,6 +6826,10 @@ div.imageJobInlineError {
 }
 
 @media (max-width: 900px) {
+  .pageGeometryFrameOffsets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .pageGeometryQualificationRow {
     grid-template-columns: repeat(2, minmax(0, max-content));
   }

@@ -39,11 +39,18 @@ last_updated: 2026-09-22
   otrzymuje `excludeFromGeometryTraining`. Symulacja na istniejących manifestach
   wskazuje, że ~77,5% odrzuceń red-edge w `a139379b` oraz ~84,0% w
   `3e3f510a` przejdzie na `registered`.
-- Zaktualizowano `services/worker/src/game_predictor_worker/images/page_geometry_registration.py`
-  oraz testy w `services/worker/tests/test_page_geometry_registration.py`.
-  Przeszły testy jednostkowe page-registration, page-geometry-preflight (poza
-  niezwiązanym błędem shape_geometry_v2) i lateral-partial-workflow. Ruff jest
-  czysty.
+- Wprowadzono fallback `standalone_frame_lines` w preflight: gdy VerifiedPageRegistrar
+  jest niedostępny lub evaluate zwraca None, generowany jest proposal z frame-line
+  detection bez anchora. Fallback wymaga `lateralPartialGeometry` z `frame_support_review=True`
+  i `expected_board_count=9`. Proposal trafia do `review_required` z `reasonCode: "PAGE_GEOMETRY_STANDALONE_FRAME_LINE_CANDIDATE"`.
+- Naprawiono błąd w `_input` (snake_case vs camelCase dla `lateralPartialGeometry`)
+  oraz walidację round-trip `LateralPageRegistrationCandidate` dla `standalone_frame_lines`
+  (inliers=0, features=0 wymagają osobnej logiki).
+- Zaktualizowano `services/worker/src/game_predictor_worker/images/page_geometry_preflight.py`,
+  `page_geometry_registration.py`, `lateral_partial_artifact.py`, `production_workflow.py`,
+  `shape_geometry_v2/core.py` (brakująca funkcja `_detect_board_frame_lattice`)
+  oraz testy. Przeszły testy jednostkowe page-registration, page-geometry-preflight
+  i lateral-partial-workflow. Ruff jest czysty.
 - Decyzja zapisana w `DECISION_LOG.md` jako D-420, wymagania w
   `requirements/IMAGE_INGESTION.md`.
 

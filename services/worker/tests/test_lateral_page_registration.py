@@ -13,6 +13,46 @@ from test_page_geometry_registration import _page, _profile
 from test_structured_geometry_global_initialization import _frame, _request
 
 
+def test_standalone_frame_lines_candidate_round_trips_through_artifact() -> None:
+    from game_predictor_worker.images.lateral_partial_artifact import (
+        lateral_candidate_from_entry,
+    )
+    from game_predictor_worker.images.page_geometry_preflight import (
+        _standalone_frame_line_candidate,
+    )
+
+    image, _quads = _page()
+    policy = LateralPartialGeometrySnapshot(frame_support_review=True)
+    candidate = _standalone_frame_line_candidate(
+        image,
+        source_checksum_sha256="a" * 64,
+        expected_board_count=9,
+    )
+    assert candidate is not None
+    candidate = replace(
+        candidate,
+        policy_checksum_sha256=policy.checksum_sha256,
+        version="lateral-page-registration-candidate-v2",
+    )
+    entry = {
+        "status": "review_required",
+        "sourceRelativePath": "seq_1-9.jpg",
+        "imageHeight": image.shape[0],
+        "imageWidth": image.shape[1],
+        "lateralRegistrationCandidate": candidate.to_payload(),
+    }
+    replay = lateral_candidate_from_entry(
+        entry,
+        width=image.shape[1],
+        height=image.shape[0],
+        board_count=9,
+        policy=policy,
+    )
+    assert replay is not None
+    assert replay.recovery_kind == "standalone_frame_lines"
+    assert replay.review_required_slots == tuple(range(9))
+
+
 @pytest.mark.parametrize("side", ["left", "right"])
 def test_lateral_registration_retains_search_evidence_without_more_orb_or_ransac(
     monkeypatch: pytest.MonkeyPatch, side: str

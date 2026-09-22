@@ -177,19 +177,38 @@ def lateral_candidate_from_entry(
         recovery_kind = raw.get("recoveryKind", "lateral_source_support")
         review_required_slots_raw = raw.get("reviewRequiredSlots", [])
         if (
-            recovery_kind not in {"lateral_source_support", "frame_support_review"}
+            recovery_kind
+            not in {"lateral_source_support", "frame_support_review", "standalone_frame_lines"}
             or not isinstance(review_required_slots_raw, list)
             or any(type(slot) is not int for slot in review_required_slots_raw)
         ):
             raise ValueError("Invalid recovery classification.")
         review_required_slots = tuple(review_required_slots_raw)
-        common_valid = (
-            inliers >= thresholds.minimum_inliers
-            and features in {1000, 1500, 3000}
-            and thresholds.minimum_inlier_ratio <= ratio <= 1
-            and 0 <= residual <= thresholds.maximum_p95_reprojection_error
-        )
-        if recovery_kind == "frame_support_review":
+        if recovery_kind == "standalone_frame_lines":
+            common_valid = (
+                inliers == 0
+                and features == 0
+                and ratio == 0.0
+                and residual == 0.0
+            )
+        else:
+            common_valid = (
+                inliers >= thresholds.minimum_inliers
+                and features in {1000, 1500, 3000}
+                and thresholds.minimum_inlier_ratio <= ratio <= 1
+                and 0 <= residual <= thresholds.maximum_p95_reprojection_error
+            )
+        if recovery_kind == "standalone_frame_lines":
+            geometry_valid = (
+                expected_version
+                in {
+                    "lateral-page-registration-candidate-v2",
+                    "lateral-page-registration-candidate-v3",
+                }
+                and review_required_slots == tuple(range(board_count))
+                and is_ordered_active_grid(tuple(quads), tuple(range(board_count)), width, height)
+            )
+        elif recovery_kind == "frame_support_review":
             expected_review_slots = tuple(
                 slot
                 for slot, coverage in enumerate(coverages)

@@ -75,7 +75,11 @@ class ShapeGeometryV2Config:
             or not 0.0 < self.minimum_grid_line_contrast < 1.0
             or not 1 <= self.maximum_frame_candidates <= 256
             or not 0.0 < self.minimum_board_frame_area_fraction < 1.0
-            or not self.minimum_board_frame_area_fraction < self.maximum_board_frame_area_fraction < 1.0
+            or not (
+                self.minimum_board_frame_area_fraction
+                < self.maximum_board_frame_area_fraction
+                < 1.0
+            )
             or not 0.0 < self.minimum_board_frame_edge_contrast < 1.0
         ):
             raise ShapeGeometryV2Error(
@@ -238,9 +242,6 @@ def detect_shape_geometry_v2(
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     candidates = _find_frame_candidates(gray, resolved_config)
     if not candidates:
-        lattice = _detect_board_frame_lattice(rgb, gray, resolved_config)
-        if lattice is not None:
-            return lattice
         return ShapeGeometryV2Result(
             status=ShapeGeometryV2Status.NEEDS_MANUAL_REVIEW,
             reason_codes=(ShapeGeometryV2ReasonCode.FRAME_EVIDENCE_INSUFFICIENT,),

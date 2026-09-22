@@ -12,8 +12,10 @@ from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from typing import cast
 
+import cv2
 import numpy as np
 from game_predictor_api.domain.geometry_qualification import page_anchor_exclusion_reason
+from game_predictor_api.domain.image_geometry_v2 import SourceQuad
 from game_predictor_api.domain.jobs import Job, JobType
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -25,6 +27,7 @@ from .contrast_frame_grid_v12 import (
     ContrastFrameGridV12Profile,
     ContrastFrameGridV12Registrar,
 )
+from .geometry import Point, Quad
 from .lateral_partial_contract import LateralPartialContractError, LateralPartialGeometrySnapshot
 from .page_geometry_incremental import (
     BasePageGeometryManifestDescriptor,
@@ -39,7 +42,11 @@ from .page_geometry_incremental import (
 from .page_geometry_registration import (
     PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
     PAGE_REGISTRATION_VERSION,
+    LateralPageRegistrationCandidate,
+    PageRegistrationInitialization,
     VerifiedPageRegistrar,
+    _red_edge_coverage,
+    _red_mask,
 )
 from .shape_geometry_v2.preflight import (
     SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
@@ -53,6 +60,10 @@ from .source_ingestion import (
     ManagedOriginal,
     ManagedOriginalStore,
     _safe_source_path,
+)
+from .structured_geometry.global_initialization import (
+    DEFAULT_STRUCTURED_GEOMETRY_INITIALIZATION_THRESHOLDS,
+    _generic_frame_line_initialization,
 )
 
 PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION = 2
@@ -83,6 +94,54 @@ def _expected_board_count(original: ManagedOriginal) -> int:
     if isinstance(start, int) and isinstance(end, int) and 1 <= start <= end <= start + 8:
         return end - start + 1
     return 9
+
+
+def _source_quad_to_quad(quad: SourceQuad) -> Quad:
+    return tuple(
+        Point(int(round(point.x)), int(round(point.y))) for point in quad.corners
+    )
+
+
+def _standalone_frame_line_candidate(
+    rgb: np.ndarray,
+    *,
+    source_checksum_sha256: str,
+    expected_board_count: int,
+) -> LateralPageRegistrationCandidate | None:
+    """Fallback candidate from line-based frame detection without an anchor."""
+
+    if expected_board_count != 9:
+        return None
+    active_slots = tuple(range(expected_board_count))
+    generic, _metrics = _generic_frame_line_initialization(
+        rgb,
+        active_board_slots=active_slots,
+        thresholds=DEFAULT_STRUCTURED_GEOMETRY_INITIALIZATION_THRESHOLDS,
+    )
+    if generic is None:
+        return None
+    red_mask = _red_mask(rgb)
+    red_neighbourhood = cv2.dilate(red_mask, np.ones((3, 3), dtype=np.uint8))
+    quads = tuple(_source_quad_to_quad(quad) for quad in generic.quads)
+    coverage = tuple(_red_edge_coverage(red_neighbourhood, quad) for quad in quads)
+    return LateralPageRegistrationCandidate(
+        initialization=PageRegistrationInitialization(
+            anchor_source_checksum_sha256=source_checksum_sha256,
+            active_board_slots=active_slots,
+            initialization_quads=quads,
+            native_homography=generic.homography,
+            inlier_count=0,
+            inlier_ratio=0.0,
+            p95_reprojection_error=0.0,
+            feature_count=0,
+            registration_version=PAGE_REGISTRATION_VERSION,
+        ),
+        policy_checksum_sha256="0" * 64,
+        board_red_edge_coverages=coverage,
+        recovery_kind="standalone_frame_lines",
+        review_required_slots=active_slots,
+        version="lateral-page-registration-candidate-v2",
+    )
 
 
 class PageGeometryPreflightHandler:
@@ -163,6 +222,12 @@ class PageGeometryPreflightHandler:
             return
 
         source_directory = Path(cast(str, payload["sourceDirectory"]))
+        raw_partial_policy = payload.get("lateralPartialGeometry")
+        lateral_partial_policy = (
+            LateralPartialGeometrySnapshot.from_payload(raw_partial_policy)
+            if isinstance(raw_partial_policy, Mapping)
+            else None
+        )
         managed_reprepare = "managed_source_job_id" in job.input_payload
         if managed_reprepare:
             from uuid import UUID
@@ -386,6 +451,8 @@ class PageGeometryPreflightHandler:
                             source_directory=managed.source_directory,
                             payload=payload,
                             registrar=registrar,
+                            lateral_partial_policy=lateral_partial_policy,
+                            enable_standalone_fallback=True,
                         ),
                         batch,
                     )
@@ -438,6 +505,7 @@ class PageGeometryPreflightHandler:
                 checkpoint_state=checkpoint_state,
                 reused_source_count=reused_source_count,
                 recomputed_source_count=recomputed_source_count,
+                lateral_partial_policy=lateral_partial_policy,
             )
         registered = _entry_status_count(entries, "registered")
         review_required = _entry_status_count(entries, "review_required")
@@ -509,6 +577,8 @@ class PageGeometryPreflightHandler:
         source_directory: Path,
         payload: Mapping[str, object],
         registrar: object | None,
+        lateral_partial_policy: LateralPartialGeometrySnapshot | None = None,
+        enable_standalone_fallback: bool = False,
     ) -> tuple[str, dict[str, object], str]:
         if _fully_canonical(original.sequence_range_start, original.sequence_range_end, payload):
             return (
@@ -593,7 +663,40 @@ class PageGeometryPreflightHandler:
                 },
                 "registered",
             )
+        expected_board_count = _expected_board_count(original)
         if not isinstance(registrar, VerifiedPageRegistrar) or not registrar.available:
+            if (
+                enable_standalone_fallback
+                and lateral_partial_policy is not None
+                and expected_board_count == 9
+            ):
+                standalone_candidate = _standalone_frame_line_candidate(
+                    rgb,
+                    source_checksum_sha256=original.checksum_sha256,
+                    expected_board_count=expected_board_count,
+                )
+                if standalone_candidate is not None:
+                    standalone_candidate = replace(
+                        standalone_candidate,
+                        policy_checksum_sha256=lateral_partial_policy.checksum_sha256,
+                        version=(
+                            "lateral-page-registration-candidate-v3"
+                            if lateral_partial_policy.selective_frame_review
+                            else "lateral-page-registration-candidate-v2"
+                        ),
+                    )
+                    return (
+                        original.checksum_sha256,
+                        {
+                            "status": "review_required",
+                            "sourceRelativePath": original.source_relative_path,
+                            "imageHeight": int(rgb.shape[0]),
+                            "imageWidth": int(rgb.shape[1]),
+                            "reasonCode": "PAGE_GEOMETRY_STANDALONE_FRAME_LINE_CANDIDATE",
+                            "lateralRegistrationCandidate": standalone_candidate.to_payload(),
+                        },
+                        "review_required",
+                    )
             return (
                 original.checksum_sha256,
                 {
@@ -605,17 +708,48 @@ class PageGeometryPreflightHandler:
                 },
                 "review_required",
             )
-        partial_policy = payload.get("lateralPartialGeometry")
         evaluation = (
             registrar.evaluate(rgb)
-            if partial_policy is None
+            if lateral_partial_policy is None
             else registrar.evaluate(
                 rgb,
-                lateral_partial_policy=LateralPartialGeometrySnapshot.from_payload(partial_policy),
-                active_board_slots=tuple(range(_expected_board_count(original))),
+                lateral_partial_policy=lateral_partial_policy,
+                active_board_slots=tuple(range(expected_board_count)),
             )
         )
         if evaluation.result is None:
+            if (
+                enable_standalone_fallback
+                and lateral_partial_policy is not None
+                and expected_board_count == 9
+            ):
+                standalone_candidate = _standalone_frame_line_candidate(
+                    rgb,
+                    source_checksum_sha256=original.checksum_sha256,
+                    expected_board_count=expected_board_count,
+                )
+                if standalone_candidate is not None:
+                    standalone_candidate = replace(
+                        standalone_candidate,
+                        policy_checksum_sha256=lateral_partial_policy.checksum_sha256,
+                        version=(
+                            "lateral-page-registration-candidate-v3"
+                            if lateral_partial_policy.selective_frame_review
+                            else "lateral-page-registration-candidate-v2"
+                        ),
+                    )
+                    return (
+                        original.checksum_sha256,
+                        {
+                            "status": "review_required",
+                            "sourceRelativePath": original.source_relative_path,
+                            "imageHeight": int(rgb.shape[0]),
+                            "imageWidth": int(rgb.shape[1]),
+                            "reasonCode": "PAGE_GEOMETRY_STANDALONE_FRAME_LINE_CANDIDATE",
+                            "lateralRegistrationCandidate": standalone_candidate.to_payload(),
+                        },
+                        "review_required",
+                    )
             return (
                 original.checksum_sha256,
                 {
@@ -653,6 +787,7 @@ class PageGeometryPreflightHandler:
         checkpoint_state: LoadedPageGeometryCheckpoint,
         reused_source_count: int,
         recomputed_source_count: int,
+        lateral_partial_policy: LateralPartialGeometrySnapshot | None = None,
     ) -> tuple[dict[str, object], list[dict[str, object]], LoadedPageGeometryCheckpoint]:
         """Retry unresolved views in bounded parallel batches with durable cursors."""
 
@@ -790,6 +925,8 @@ class PageGeometryPreflightHandler:
                             source_directory=source_directory,
                             payload=payload,
                             registrar=registrar,
+                            lateral_partial_policy=lateral_partial_policy,
+                            enable_standalone_fallback=False,
                         ),
                         batch,
                     )
@@ -1162,7 +1299,7 @@ def _input(job: Job) -> dict[str, object]:
         "preflight_policy_version",
         "source_display_name",
         "source_exclusions",
-        "lateral_partial_geometry",
+        "lateralPartialGeometry",
         "managed_source_job_id",
         "managed_source_manifest_checksum_sha256",
         "base_page_geometry_manifest",
@@ -1272,7 +1409,7 @@ def _input(job: Job) -> dict[str, object]:
             "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
             "Only V1.2 contrast-frame preflight can pin a V1.2 profile.",
         )
-    if "lateral_partial_geometry" in payload:
+    if "lateralPartialGeometry" in payload:
         if policy == PAGE_GEOMETRY_PREFLIGHT_CONTRAST_FRAME_V12_VERSION:
             raise JobHandlerError(
                 "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD",
@@ -1280,7 +1417,7 @@ def _input(job: Job) -> dict[str, object]:
             )
         try:
             result["lateralPartialGeometry"] = LateralPartialGeometrySnapshot.from_payload(
-                payload["lateral_partial_geometry"]
+                payload["lateralPartialGeometry"]
             ).to_payload()
         except LateralPartialContractError as error:
             raise JobHandlerError(error.code, str(error)) from error

@@ -244,9 +244,11 @@ class LateralPageRegistrationCandidate:
     initialization: PageRegistrationInitialization
     policy_checksum_sha256: str
     board_red_edge_coverages: tuple[float, ...]
-    recovery_kind: Literal["lateral_source_support", "frame_support_review"] = (
-        "lateral_source_support"
-    )
+    recovery_kind: Literal[
+        "lateral_source_support",
+        "frame_support_review",
+        "standalone_frame_lines",
+    ] = "lateral_source_support"
     review_required_slots: tuple[int, ...] = ()
     version: Literal[
         "lateral-page-registration-candidate-v1",

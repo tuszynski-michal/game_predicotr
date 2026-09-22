@@ -32,6 +32,7 @@ from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_VERSION,
     PageRegistrationEvaluation,
     RegisteredPageGeometry,
+    VerifiedPageRegistrar,
 )
 from game_predictor_worker.images.shape_geometry_v2.preflight import (
     SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION,
@@ -300,6 +301,65 @@ def test_geometry_preflight_without_anchor_creates_review_queue(tmp_path: Path) 
     assert {payload["entries"][checksum]["reasonCode"] for checksum in checksums} == {
         "PAGE_GEOMETRY_BOOTSTRAP_ANCHOR_REQUIRED"
     }
+
+
+def test_preflight_falls_back_to_standalone_frame_lines(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from game_predictor_worker.images.lateral_partial_contract import (
+        LateralPartialGeometrySnapshot,
+    )
+    from game_predictor_worker.images.page_geometry_preflight import (
+        _standalone_frame_line_candidate,
+    )
+
+    initial, checksums = _cold_start_job(tmp_path, image_count=1)
+    policy = LateralPartialGeometrySnapshot(frame_support_review=True)
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial.game_id,
+        input_payload={
+            **initial.input_payload,
+            "lateralPartialGeometry": policy.to_payload(),
+        },
+    )
+    monkeypatch.setattr(
+        VerifiedPageRegistrar,
+        "available",
+        property(lambda _self: True),
+    )
+    original_evaluate = VerifiedPageRegistrar.evaluate
+
+    def patched_evaluate(self, rgb, **kwargs):
+        result = original_evaluate(self, rgb, **kwargs)
+        return result
+
+    monkeypatch.setattr(VerifiedPageRegistrar, "evaluate", patched_evaluate)
+
+    def patched_standalone(rgb, **kwargs):
+        result = _standalone_frame_line_candidate(rgb, **kwargs)
+        return result
+
+    from game_predictor_worker.images import page_geometry_preflight
+    monkeypatch.setattr(page_geometry_preflight, "_standalone_frame_line_candidate", patched_standalone)
+
+    context = _Context()
+
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(context, job)  # type: ignore[arg-type]
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = (
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+    )
+    manifest = json.loads(output.read_text(encoding="utf-8"))
+    entry = manifest["entries"][checksums[0]]
+    assert entry["status"] == "review_required"
+    assert entry["reasonCode"] == "PAGE_GEOMETRY_STANDALONE_FRAME_LINE_CANDIDATE"
+    candidate = entry["lateralRegistrationCandidate"]
+    assert candidate["recoveryKind"] == "standalone_frame_lines"
+    assert candidate["policyChecksumSha256"] == policy.checksum_sha256
+    assert candidate["reviewRequiredSlots"] == list(range(9))
 
 
 def test_v12_preflight_requires_and_pins_a_manual_frame_grid_profile(tmp_path: Path) -> None:

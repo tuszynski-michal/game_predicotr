@@ -2300,6 +2300,42 @@ class ProductionImageStageAdapterSuite:
                     GEOMETRY_QUALIFICATION_VERSION,
                 ).to_dict()
                 board["excludeFromPageAnchors"] = True
+        elif candidate.recovery_kind == "standalone_frame_lines":
+            for position in unresolved_slots:
+                board = boards[position]
+                if position in partial_slots:
+                    continue
+                raw_quad = candidate.initialization.initialization_quads[position]
+                draft_payload = integer_review_draft(
+                    [point.to_dict() for point in raw_quad],
+                    width=frame.source.width,
+                    height=frame.source.height,
+                )
+                if draft_payload is None:
+                    return manual_source_geometry_result(
+                        StructuredGeometryInitializationRequest.for_frame(
+                            frame,
+                            topology=DomainBoardTopology(rows=3, columns=5),
+                            topology_rules_version_id=UUID(
+                                self._board_topology.rules_version_id
+                            ),
+                            attested_range=attested,
+                        )
+                    ).to_payload()
+                board["reviewDraftQuad"] = draft_payload
+                board["reviewDraftOrigin"] = "standalone_frame_lines_v1"
+                board["reviewUncertaintyReason"] = "standalone_frame_line_evidence"
+                board["geometryQualification"] = GeometryQualification(
+                    "complete",
+                    (),
+                    True,
+                    "manual_exclusion",
+                    False,
+                    GEOMETRY_QUALIFICATION_VERSION,
+                ).to_dict()
+                board["excludeFromPageAnchors"] = True
+            if unresolved_slots:
+                reasons.add("standalone_frame_line_confirmation_required")
         payload.update(
             {
                 "boards": boards,

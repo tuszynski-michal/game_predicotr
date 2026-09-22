@@ -914,9 +914,8 @@ function PageGeometryCorrectionPanelContent({
       setBoardOverrides(new Map());
       setMeshOverrides(new Map());
       setDragging(null);
-      setSelectedPointIndex(null);
       setFeedback(
-        `Tryb edycji: kliknij i przeciągnij narożniki pierwszej planszy. Przełącz plansze przyciskiem "Następna plansza".`,
+        `Edycja planszy 1 z ${expectedBoardCount}. Przeciągnij narożniki. Przejdź do następnej planszy po zakończeniu.`,
       );
     }
   }

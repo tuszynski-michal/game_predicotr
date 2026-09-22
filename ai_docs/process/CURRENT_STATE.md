@@ -6,6 +6,11 @@ last_updated: 2026-09-22
 
 # Current State
 
+### TASK-0617 — kwalifikowane próbki profilu V1.2
+
+- Zwykły profil V1.2 pomija źródła z choć jedną niepełną albo wyłączoną planszą. Jawnie dopuszczona niepełna plansza pozostaje jedynie w istniejącej oddzielnej puli nauki częściowych siatek.
+- Profil nadal pochodzi z aktualnych override'ów jednej gry i jest przypięty do nowego preflightu. Bieżący job zachowuje swój snapshot.
+
 ### TASK-0616 — edytor jednej siatki V1.2
 
 - V1.2 oznacza ręcznie tylko narożniki siatek symboli; ramki powstają z czterech procentowych odstępów dla każdej planszy. Kwalifikacje niepełnej planszy są widoczne pod wybraną planszą.

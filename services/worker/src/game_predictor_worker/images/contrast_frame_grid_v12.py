@@ -19,6 +19,10 @@ from typing import cast
 
 import cv2
 import numpy as np
+from game_predictor_api.domain.geometry_qualification import (
+    GeometryQualificationError,
+    parse_slot_qualifications,
+)
 from numpy.typing import NDArray
 
 from .board_cell_geometry_estimator import estimate_board_cell_geometry
@@ -162,6 +166,19 @@ def build_contrast_frame_grid_v12_profile(overrides: Mapping[str, object]) -> di
     samples: list[FrameGridSample] = []
     for checksum, raw in sorted(overrides.items()):
         if not isinstance(checksum, str) or not isinstance(raw, Mapping):
+            continue
+        try:
+            qualifications = parse_slot_qualifications(
+                raw.get("slotQualifications"), expected_board_count=9
+            )
+        except GeometryQualificationError:
+            continue
+        if qualifications is not None and any(
+            item.completeness_status != "complete"
+            or item.exclude_from_geometry_training
+            or item.include_in_partial_grid_training
+            for item in qualifications
+        ):
             continue
         try:
             sample = _parse_sample({"sourceChecksumSha256": checksum, **raw})

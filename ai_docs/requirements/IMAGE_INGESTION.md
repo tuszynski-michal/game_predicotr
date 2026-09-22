@@ -21,7 +21,10 @@ czworokątów: zewnętrzne `boardFrameQuads` oraz wewnętrzne
 i V1.1 i nie staje się niejawnie parą V1.2.
 
 Preflight buduje checksummowany profil tylko z aktualnych, ręcznie
-potwierdzonych par tej samej gry. Kotwica tej gry dostarcza wyłącznie
+potwierdzonych par tej samej gry, których wszystkie aktywne plansze są
+kompletne i nie są wyłączone z uczenia. Jawnie oznaczone niepełne plansze
+mogą zasilać wyłącznie oddzielną pulę uczenia niepełnych siatek; nie stają się
+kotwicami pełnej strony V1.2. Kotwica tej gry dostarcza wyłącznie
 perspektywę, po czym V1.2 znajduje granice po lokalnym kontraście jasności i
 barwy, bez wymogu czerwonego odcienia. Cztery asymetryczne marginesy między
 ramką a siatką są mierzone po wyprostowaniu perspektywy i służą tylko jako

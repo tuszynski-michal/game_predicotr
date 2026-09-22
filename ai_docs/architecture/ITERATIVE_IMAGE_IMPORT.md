@@ -14,7 +14,9 @@ V1.2 jest oddzielną gałęzią preflightu o polityce
 wybrany wariant oraz pełny, checksummowany profil `contrastFrameGridV12Profile`.
 Profil powstaje z aktualnych override'ów jednej gry; każdy sample wiąże SHA-256
 źródła, identyfikator i rewizję decyzji, zewnętrzną ramkę planszy oraz
-wewnętrzną siatkę symboli. Zmiana ręcznej pary daje inny input joba i nowy
+wewnętrzną siatkę symboli. Źródło z dowolną niepełną albo ręcznie wykluczoną
+planszą nie dostarcza zwykłej kotwicy ani marginesów V1.2. Zmiana ręcznej pary
+lub kwalifikacji daje inny input joba i nowy
 preflight, nigdy nie podmienia wyniku retry.
 
 Adapter V1.2 używa `VerifiedPageRegistrar.initialize` wyłącznie do projekcji

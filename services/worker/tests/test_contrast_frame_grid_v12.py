@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_worker.images.board_cell_geometry_estimator import BoardCellGeometryEstimate
 from game_predictor_worker.images.contrast_frame_grid_v12 import (
     ContrastFrameGridV12Profile,
@@ -12,6 +13,9 @@ from game_predictor_worker.images.contrast_frame_grid_v12 import (
 )
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.page_geometry_registration import PageRegistrationInitialization
+from game_predictor_worker.images.partial_grid_learning import (
+    build_partial_grid_training_profile,
+)
 
 
 def _frame_grid_sample() -> dict[str, object]:
@@ -75,6 +79,40 @@ def test_empty_profile_requires_manual_pair_before_registration() -> None:
 
     assert evaluation.result is None
     assert evaluation.reason_code == "IMAGE_CONTRAST_FRAME_GRID_PROFILE_REQUIRED"
+
+
+def test_full_profile_excludes_partial_and_operator_excluded_sources() -> None:
+    sample = _frame_grid_sample()
+    base = sample["a" * 64]
+    assert isinstance(base, dict)
+    complete = [GeometryQualification().to_dict() for _ in range(9)]
+    partial = list(complete)
+    partial[2] = GeometryQualification(
+        "pending_partial",
+        (0, 5, 10),
+        True,
+        "missing_pixels",
+        True,
+        "manual-geometry-qualification-v2",
+    ).to_dict()
+    excluded = list(complete)
+    excluded[7] = GeometryQualification(
+        exclude_from_geometry_training=True, exclusion_reason="manual_exclusion"
+    ).to_dict()
+    sample["b" * 64] = {**base, "slotQualifications": partial, "overrideId": "partial"}
+    sample["c" * 64] = {**base, "slotQualifications": excluded, "overrideId": "excluded"}
+    sample["d" * 64] = {**base, "slotQualifications": complete, "overrideId": "full"}
+
+    profile = build_contrast_frame_grid_v12_profile(sample)
+
+    assert profile["sampleSourceCount"] == 2
+    assert [item["sourceChecksumSha256"] for item in profile["samples"]] == [
+        "a" * 64,
+        "d" * 64,
+    ]
+    partial_profile = build_partial_grid_training_profile(sample)
+    assert partial_profile is not None
+    assert partial_profile.source_count == 1
 
 
 def test_local_frame_refinement_uses_blue_contrast_not_a_red_hue() -> None:

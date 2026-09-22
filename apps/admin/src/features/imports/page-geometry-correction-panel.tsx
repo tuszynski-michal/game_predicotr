@@ -320,9 +320,9 @@ function PageGeometryCorrectionPanelContent({
   const [boardOverrides, setBoardOverrides] = useState<
     ReadonlyMap<number, Quad>
   >(new Map());
-  const [pendingBoardCorner, setPendingBoardCorner] = useState<Point | null>(
-    null,
-  );
+  const [pendingBoardCorner, setPendingBoardCorner] = useState<
+    readonly Point[]
+  >([]);
   const [v12BoardFrameQuads, setV12BoardFrameQuads] = useState<
     readonly Quad[] | null
   >(null);
@@ -911,14 +911,14 @@ function PageGeometryCorrectionPanelContent({
     setCorrectionMode(0);
     setCornerPlacement(null);
     setBoardCornerPlacement([]);
-    setPendingBoardCorner(null);
+    setPendingBoardCorner([]);
     setBoardOverrides(new Map());
     setMeshOverrides(new Map());
     setDragging(null);
     setPageCorners(null);
     setSelectedPointIndex(null);
     setFeedback(
-      `Plansza 1 z ${expectedBoardCount}: kliknij lewy górny narożnik (LT), następnie prawy dolny (PD).`,
+      `Plansza 1 z ${expectedBoardCount}: kliknij LT, PT, PD (lewy górny, prawy górny, prawy dolny). LD zostanie wyliczony.`,
     );
   }
 
@@ -959,30 +959,34 @@ function PageGeometryCorrectionPanelContent({
       ),
     };
     if (boardCornerPlacement !== null) {
-      if (pendingBoardCorner === null) {
-        setPendingBoardCorner(bounded);
-        const boardIndex = Math.floor(
-          boardCornerPlacement.length / PAGE_BOARD_CORNER_COUNT,
-        );
+      const pendingCount = pendingBoardCorner.length;
+      const boardIndex = Math.floor(
+        boardCornerPlacement.length / PAGE_BOARD_CORNER_COUNT,
+      );
+      if (pendingCount === 0) {
+        setPendingBoardCorner([bounded]);
         setFeedback(
-          `Plansza ${boardIndex + 1} z ${expectedBoardCount}: LT zaznaczony. Kliknij prawy dolny narożnik (PD).`,
+          `Plansza ${boardIndex + 1} z ${expectedBoardCount}: LT zaznaczony. Kliknij prawy górny narożnik (PT).`,
         );
         return;
       }
-      const lt: Point = {
-        x: Math.min(pendingBoardCorner.x, bounded.x),
-        y: Math.min(pendingBoardCorner.y, bounded.y),
-      };
-      const pd: Point = {
-        x: Math.max(pendingBoardCorner.x, bounded.x),
-        y: Math.max(pendingBoardCorner.y, bounded.y),
-      };
-      const pt: Point = { x: pd.x, y: lt.y };
-      const ld: Point = { x: lt.x, y: pd.y };
-      const quad: Quad = [lt, pt, pd, ld];
-      if (!isClockwiseScreenQuad([lt, pt, pd, ld] as PageGeometryCorners)) {
+      if (pendingCount === 1) {
+        setPendingBoardCorner([...pendingBoardCorner, bounded]);
         setFeedback(
-          `Nieprawidłowa kolejność LT → PD. Pierwszy punkt musi być lewym górnym, drugi prawym dolnym.`,
+          `Plansza ${boardIndex + 1} z ${expectedBoardCount}: LT i PT zaznaczone. Kliknij prawy dolny narożnik (PD).`,
+        );
+        return;
+      }
+      const [lt, pt] = pendingBoardCorner as [Point, Point];
+      const pd = bounded;
+      const ld: Point = {
+        x: lt.x + pd.x - pt.x,
+        y: lt.y + pd.y - pt.y,
+      };
+      const quad: Quad = [lt, pt, pd, ld];
+      if (!isClockwiseScreenQuad(quad as PageGeometryCorners)) {
+        setFeedback(
+          `Nieprawidłowa kolejność LT → PT → PD. Ustaw punkty zgodnie z ruchem wskazówek zegara.`,
         );
         return;
       }
@@ -995,7 +999,7 @@ function PageGeometryCorrectionPanelContent({
         Math.floor(nextBoardCornerPlacement.length / PAGE_BOARD_CORNER_COUNT),
       );
       setBoardCornerPlacement(nextBoardCornerPlacement);
-      setPendingBoardCorner(null);
+      setPendingBoardCorner([]);
       if (completedBoardCount === expectedBoardCount) {
         const allQuads = pageGeometryQuadsFromCornerPlacement(
           nextBoardCornerPlacement,
@@ -1018,7 +1022,7 @@ function PageGeometryCorrectionPanelContent({
         return;
       }
       setFeedback(
-        `Plansza ${completedBoardCount + 1} z ${expectedBoardCount}: kliknij lewy górny narożnik (LT), następnie prawy dolny (PD).`,
+        `Plansza ${completedBoardCount + 1} z ${expectedBoardCount}: kliknij LT, PT, PD.`,
       );
       return;
     }
@@ -1044,15 +1048,20 @@ function PageGeometryCorrectionPanelContent({
   }
 
   function undoCornerPlacement() {
-    if (pendingBoardCorner !== null) {
-      setPendingBoardCorner(null);
+    if (pendingBoardCorner.length > 0) {
+      const nextPending = pendingBoardCorner.slice(0, -1);
+      setPendingBoardCorner(nextPending);
       const current = boardCornerPlacement ?? [];
       const boardIndex = Math.floor(
         current.length / PAGE_BOARD_CORNER_COUNT,
       );
-      setFeedback(
-        `Plansza ${boardIndex + 1} z ${expectedBoardCount}: kliknij lewy górny narożnik (LT), następnie prawy dolny (PD).`,
-      );
+      const message =
+        nextPending.length === 0
+          ? `Plansza ${boardIndex + 1} z ${expectedBoardCount}: kliknij lewy górny narożnik (LT).`
+          : nextPending.length === 1
+            ? `Plansza ${boardIndex + 1} z ${expectedBoardCount}: LT zaznaczony. Kliknij prawy górny narożnik (PT).`
+            : `Plansza ${boardIndex + 1} z ${expectedBoardCount}: LT i PT zaznaczone. Kliknij prawy dolny narożnik (PD).`;
+      setFeedback(message);
       return;
     }
     if (boardCornerPlacement !== null && boardCornerPlacement.length > 0) {
@@ -1065,7 +1074,7 @@ function PageGeometryCorrectionPanelContent({
       setBoardCornerPlacement(next);
       const boardIndex = Math.floor(next.length / PAGE_BOARD_CORNER_COUNT);
       setFeedback(
-        `Plansza ${boardIndex + 1} z ${expectedBoardCount}: kliknij lewy górny narożnik (LT), następnie prawy dolny (PD).`,
+        `Plansza ${boardIndex + 1} z ${expectedBoardCount}: kliknij LT, PT, PD.`,
       );
       return;
     }
@@ -2218,22 +2227,48 @@ function PageGeometryCorrectionPanelContent({
                           </text>
                         </g>
                       ))}
-                      {pendingBoardCorner !== null ? (
-                        <g key="pending-board-corner">
-                          <circle
-                            className="pageGeometryHandle pageGeometryPlacementHandle"
-                            cx={pendingBoardCorner.x}
-                            cy={pendingBoardCorner.y}
-                            r={handleRadius}
-                          />
-                          <text
-                            className="pageGeometryPlacementLabel"
-                            x={pendingBoardCorner.x + handleRadius + 4 / zoom}
-                            y={pendingBoardCorner.y - handleRadius - 4 / zoom}
-                          >
-                            LT
-                          </text>
-                        </g>
+                      {pendingBoardCorner.length > 0 ? (
+                        <>
+                          {pendingBoardCorner.map((point, index) => (
+                            <g key={`pending-board-corner-${index}`}>
+                              <circle
+                                className="pageGeometryHandle pageGeometryPlacementHandle"
+                                cx={point.x}
+                                cy={point.y}
+                                r={handleRadius}
+                              />
+                              <text
+                                className="pageGeometryPlacementLabel"
+                                x={point.x + handleRadius + 4 / zoom}
+                                y={point.y - handleRadius - 4 / zoom}
+                              >
+                                {CORNER_LABELS[index]}
+                              </text>
+                            </g>
+                          ))}
+                          {pendingBoardCorner.length === 2 ? (
+                            <>
+                              <polyline
+                                className="pageGeometryPlacementLine"
+                                points={pendingBoardCorner
+                                  .map(pointText)
+                                  .join(' ')}
+                              />
+                              {(() => {
+                                const [lt, pt] = pendingBoardCorner as [
+                                  Point,
+                                  Point,
+                                ];
+                                return (
+                                  <polygon
+                                    className="pageGeometryBoardPlacement"
+                                    points={`${pointText(lt)} ${pointText(pt)} ${pointText({ x: lt.x + 1, y: pt.y })} ${pointText({ x: pt.x, y: lt.y })}`}
+                                  />
+                                );
+                              })()}
+                            </>
+                          ) : null}
+                        </>
                       ) : null}
                     </>
                   ) : null}

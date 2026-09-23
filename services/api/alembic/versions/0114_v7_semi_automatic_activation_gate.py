@@ -75,6 +75,7 @@ def upgrade() -> None:
             "generation >= 0", name="ck_semi_automatic_v7_activation_gate_generation"
         ),
         sa.PrimaryKeyConstraint("singleton"),
+        schema="public",
     )
     op.execute(
         "INSERT INTO semi_automatic_selection_v7_activation_gate "
@@ -91,7 +92,7 @@ def downgrade() -> None:
         "RAISE EXCEPTION 'Cannot downgrade while V7 selection runs exist'; "
         "END IF; END $$"
     )
-    op.drop_table("semi_automatic_selection_v7_activation_gate")
+    op.drop_table("semi_automatic_selection_v7_activation_gate", schema="public")
     op.drop_constraint(_JSON_CONSTRAINT, _RUN_TABLE, type_="check")
     op.create_check_constraint(
         _JSON_CONSTRAINT,

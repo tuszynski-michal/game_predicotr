@@ -1,10 +1,56 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-22
+last_updated: 2026-09-23
 ---
 
 # Current State
+
+### TASK-0621 — maska czerwieni odporna na ciemną ramkę (D-430)
+
+- `page_geometry_registration._red_mask` obniżył dolny próg jasności (V)
+  z 50 do 30 w obu pasmach barwy (hue 0–18, 165–179); nasycenie S ≥ 80 i
+  zakres barwy bez zmian. Żadna bramka akceptacji (`PageRegistrationThresholds`,
+  relaksacja D-420) się nie zmieniła — poprawka dotyczy wyłącznie pomiaru
+  pokrycia czerwonej krawędzi.
+- `RegisteredPageGeometry.to_payload()` zapisuje teraz zawsze
+  `redMaskVersion: "hsv-red-s80-v30-v1"` (`PAGE_REGISTRATION_RED_MASK_VERSION`).
+  Historyczne wpisy manifestu bez tego pola pozostają poprawne.
+- Przyczyna: nowe stagingi `777` (np. `a139379b`) mają ciemnoczerwoną ramkę
+  górnego rzędu (HSV V ≈ 40–45), którą stary próg V ≥ 50 wykluczał z maski.
+  Sprostowano D-420: słaba plansza to górny rząd (sloty 0–2), nie pojedyncza
+  zasłonięta etykieta numeru.
+- Pomiar read-only (krok 1.3, 2026-09-23) na rzeczywistych danych stagingu
+  `a139379b` (profil kotwic zbudowany z 5 w pełni zarejestrowanych stron tego
+  samego stagingu — lokalna baza `image_page_geometry_overrides` nie
+  zawierała historycznych 9 override'ów wspomnianych w planie, więc profil
+  zastąpiono równoważnym zestawem z aktualnego manifestu): 29/30 próbkowanych
+  stron `review_required` zwróciło wynik rejestracji (próg z planu: ≥ 25/30).
+  Kontrola na starszym stagingu `5eafd373`: 30/30 próbkowanych zarejestrowanych
+  stron pozostało `registered`, zero regresji; różnice pokrycia per plansza
+  względem zapisanych w manifeście wynosiły do ok. 0,44 (mediana rzędu
+  0,01–0,03) — wyższe niż orientacyjne ±0,02 z planu, co jest oczekiwane przy
+  innym (zastępczym) zestawie kotwic, a nie przy dokładnym powtórzeniu
+  oryginalnego profilu produkcyjnego.
+- Nowe testy: `test_red_mask_accepts_dark_red_frame_pixels`,
+  `test_registration_accepts_dark_top_row_frames_with_baseline_gate`,
+  `test_registration_payload_pins_red_mask_version` w
+  `services/worker/tests/test_page_geometry_registration.py`. Wszystkie 20
+  testów tego pliku oraz 147 testów w plikach regresyjnych
+  (`test_page_geometry_preflight.py`, `test_lateral_page_registration.py`,
+  `test_lateral_partial_workflow.py`, `test_page_anchor_qualification.py`,
+  `test_production_image_workflow.py`, `test_board_cell_geometry_audit.py`)
+  przechodzą bez zmian w istniejących asercjach. Ruff czysty; mypy dla
+  zmienionego pliku nie wprowadza nowych błędów (14 istniejących błędów
+  `import-not-found` dla `game_predictor_api.domain.*` to preexisting problem
+  środowiska mypy, potwierdzone przez `git stash` — niezwiązane z tym taskiem).
+- Instrukcja operatorska: restart workera (`npm run workers:stop` /
+  `npm run workers:start`) i jedna ręczna korekta geometrii na stagingu
+  `a139379b` lub `3e3f510a` uruchomi przeliczenie istniejących
+  `review_required` nową maską (reuse zachowuje wpisy `registered`).
+- T2 / TASK-0622 (quad słabej planszy z projekcji homografii) pozostaje
+  nierozpoczęty — warunkowy, wymaga osobnego potwierdzenia DA-2 i osobnego
+  polecenia użytkownika.
 
 ### TASK-0620 — dwuklikowe wyznaczanie siatki 3 × 5 w Reviewerze
 

@@ -6,6 +6,43 @@ last_updated: 2026-09-22
 
 # Decision Log
 
+## D-430 — Maska czerwieni odporna na ciemną ramkę (V ≥ 30)
+
+- **Status:** accepted (TASK-0621).
+- **Date:** 2026-09-23.
+- **Decision:** `page_geometry_registration._red_mask` obniża dolny próg
+  jasności (V) z 50 do 30 w obu pasmach barwy (hue 0–18 i 165–179);
+  nasycenie (S ≥ 80) i zakres barwy pozostają bez zmian. Wpis manifestu
+  `RegisteredPageGeometry` zyskuje pole `redMaskVersion:
+  "hsv-red-s80-v30-v1"`, zapisywane zawsze. `PageRegistrationThresholds`,
+  `PAGE_REGISTRATION_THRESHOLDS_VERSION`, `_relaxed_red_edge_accepted` i
+  algorytm `_snap_quad_to_red_edges`/`_red_edge_coverage` nie zmieniają się.
+- **Rationale:** nowe stagingi `777` (np. `a139379b`) mają ciemnoczerwoną
+  ramkę górnego rzędu plansz (HSV V ≈ 40–45), którą poprzedni próg V ≥ 50
+  odrzucał z maski, zaniżając pokrycie czerwonej krawędzi i kierując strony
+  do `review_required` z powodem `PAGE_GEOMETRY_RED_EDGE_COVERAGE_INSUFFICIENT`.
+  Poprawiony pomiar pokrycia pozwala prawidłowym stronom przejść bazową
+  bramkę bez żadnej relaksacji progów.
+- **Sprostowanie D-420:** słaba plansza na nowych stagingach z lampką to
+  **górny rząd** (sloty 0–2), nie pojedyncza zasłonięta etykieta numeru.
+  Przyczyną jest ciemna ramka górnego rzędu, widoczna prawdopodobnie przez
+  niższą ekspozycję kamery przy jasnej lampce w kadrze i kąt widzenia LCD.
+  D-420 pozostaje w mocy jako osobny bezpiecznik dla rzeczywiście zasłoniętej
+  planszy; nie jest zastępowany ani wycofywany.
+- **Safety:** próg V ≥ 30 nadal odrzuca czarne/bardzo ciemne piksele
+  (V < 30) oraz piksele o niskim nasyceniu (S < 80, np. skóra w niskim
+  kontraście, tło ekranu). Kontrola negatywna (quad przesunięty o
+  35%/45% szerokości/wysokości) pokazała, że dyskryminacja wobec losowego
+  tła przy V ≥ 30 nie spada poniżej poziomu historycznie akceptowanego przy
+  V ≥ 50 na starych stagingach. Pomiar read-only na rzeczywistych danych
+  (TASK-0621, krok 1.3): 29/30 próbkowanych stron `review_required` ze
+  stagingu `a139379b` zwraca wynik rejestracji (≥ próg 25/30 z planu);
+  30/30 próbkowanych zarejestrowanych stron starszego stagingu `5eafd373`
+  pozostaje `registered` — zero regresji.
+- **Compatibility:** `redMaskVersion` jest polem addytywnym; historyczne
+  wpisy manifestu bez tego pola pozostają poprawne. Reużyte (`reused`)
+  wpisy `registered` nie dostają nowego pola przy ponownym użyciu.
+
 ## D-420 — Relaksacja red-edge dla powtarzalnej zasłony planszy
 
 - **Status:** accepted.

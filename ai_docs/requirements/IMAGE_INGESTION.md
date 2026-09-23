@@ -841,13 +841,17 @@ zapisuje użyty budżet oraz wersję polityki w manifeście geometrii.
 Wynik jest używalny tylko wtedy, gdy ma wszystkie dziewięć wypukłych,
 niepokrywających się quadów w kolejności row-major, co najmniej 35 inlierów,
 udział 0,23, p95 reprojekcji nie większe niż 2,5 px oraz pokrycie czerwonej
-krawędzi co najmniej 0,70 średnio i 0,45 dla każdej planszy. Wynik preflightu
+krawędzi co najmniej 0,70 średnio i 0,45 dla każdej planszy. Dowodem czerwonej
+ramki jest piksel HSV w zakresie barwy 0–18 lub 165–179 (skala 0–179), o
+nasyceniu co najmniej 80 i jasności (V) co najmniej 30 (D-430); niższa
+jasność (np. ciemnoczerwona ramka przy niższej ekspozycji zdjęcia) nie liczy
+się jako dowód. Wynik preflightu
 jest niezmiennym, content-addressed `PageGeometryManifestV1` przypiętym do
 joba. Nieudana strona trafia do `Korekty geometrii strony`, a nie do OCR,
 symboli ani technicznego `board_detection failed`.
 
-Gdy strona ma silny dowód geometryczny, ale jedna plansza ma powtarzalną
-zasłonę (np. lampka nad numerem), stosowana jest relaksacja: udział inlierów
+Gdy strona ma silny dowód geometryczny, ale jedna plansza ma powtarzalnie
+słabą ramkę, stosowana jest relaksacja: udział inlierów
 ≥ 0,30, średnie pokrycie czerwonej krawędzi ≥ 0,68, najsłabsza plansza ≥ 0,20
 oraz pozostałe plansze ≥ 0,45. Strona jest wtedy akceptowana automatycznie,
 ale słaba plansza otrzymuje kwalifikację `excludeFromGeometryTraining`, więc

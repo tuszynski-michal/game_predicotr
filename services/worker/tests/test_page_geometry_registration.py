@@ -10,6 +10,7 @@ from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_ANCHOR_MASK_VERSION,
     PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION,
     PAGE_REGISTRATION_FEATURES_VERSION,
+    PAGE_REGISTRATION_RED_MASK_VERSION,
     PAGE_REGISTRATION_VERSION,
     VerifiedPageRegistrar,
     build_verified_page_registration_profile,
@@ -58,6 +59,108 @@ def _profile(quads: tuple[tuple[Point, Point, Point, Point], ...]) -> dict[str, 
             }
         ],
     }
+
+
+def _hsv_to_rgb(hue: int, saturation: int, value: int) -> tuple[int, int, int]:
+    pixel = np.uint8([[[hue, saturation, value]]])
+    rgb = cv2.cvtColor(pixel, cv2.COLOR_HSV2RGB)[0, 0]
+    return int(rgb[0]), int(rgb[1]), int(rgb[2])
+
+
+def test_red_mask_accepts_dark_red_frame_pixels() -> None:
+    # D-430: new staging photos have a dark red top-row frame (V approx 40-45).
+    # At the previous V>=50 floor every "dark_red_*" sample below would be 0.
+    samples: dict[str, tuple[tuple[int, int, int], int]] = {
+        "dark_red_low_hue": (_hsv_to_rgb(5, 190, 40), 255),
+        "dark_red_high_hue": (_hsv_to_rgb(172, 150, 30), 255),
+        "below_value_floor": (_hsv_to_rgb(5, 190, 29), 0),
+        "below_saturation_floor": (_hsv_to_rgb(5, 50, 200), 0),
+        "blue": (_hsv_to_rgb(110, 200, 200), 0),
+    }
+    names = list(samples.keys())
+    image = np.zeros((1, len(names), 3), dtype=np.uint8)
+    for index, name in enumerate(names):
+        image[0, index] = samples[name][0]
+
+    mask = page_geometry_registration._red_mask(image)
+
+    for index, name in enumerate(names):
+        expected = samples[name][1]
+        assert int(mask[0, index]) == expected, name
+
+
+def test_registration_accepts_dark_top_row_frames_with_baseline_gate() -> None:
+    # D-430 regression: a photo whose top-row board frame is a dark red
+    # (HSV (3, 200, 40), V=40) rather than the bright anchor red (V=235),
+    # matching the reported new-staging photos.  The background here is
+    # deliberately achromatic (R=G=B), unlike the shared ``_page()`` fixture's
+    # 0-59 RGB noise: that noise occasionally lands inside the red hue/
+    # saturation band by chance and inflates coverage regardless of the V
+    # floor, which would make this regression test pass even against the old,
+    # buggy threshold. With a zero-saturation background only real frame
+    # evidence can move coverage.  At the previous V>=50 mask floor the dark
+    # frame pixels fall out of the mask and every top-row board's coverage
+    # drops under the 0.45 minimum, which was confirmed locally by
+    # temporarily restoring the V>=50 floor.
+    rng = np.random.default_rng(20260923)
+    gray = rng.integers(0, 60, size=(620, 760), dtype=np.uint8)
+    anchor = np.repeat(gray[:, :, np.newaxis], 3, axis=2).copy()
+    quads = []
+    for row in range(3):
+        for column in range(3):
+            left = 85 + column * 210
+            top = 70 + row * 165
+            right, bottom = left + 155, top + 100
+            cv2.rectangle(anchor, (left, top), (right, bottom), (235, 25, 20), 7)
+            cv2.putText(
+                anchor,
+                f"{row * 3 + column + 1}",
+                (left + 65, top + 58),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.9,
+                (255, 255, 255),
+                2,
+            )
+            quads.append(
+                (
+                    Point(left, top),
+                    Point(right, top),
+                    Point(right, bottom),
+                    Point(left, bottom),
+                )
+            )
+    quads = tuple(quads)
+
+    target = anchor.copy()
+    dark_red = _hsv_to_rgb(3, 200, 40)
+    for column in range(3):
+        left = 85 + column * 210
+        top = 70
+        right, bottom = left + 155, top + 100
+        cv2.rectangle(target, (left, top), (right, bottom), dark_red, 7)
+    registrar = VerifiedPageRegistrar(
+        _profile(quads),
+        load_anchor_rgb=lambda checksum: anchor,
+    )
+
+    result = registrar.register(target)
+
+    assert result is not None
+    assert result.slot_qualifications is None
+    assert all(value >= 0.45 for value in result.board_red_edge_coverages)
+
+
+def test_registration_payload_pins_red_mask_version() -> None:
+    anchor, quads = _page()
+    registrar = VerifiedPageRegistrar(
+        _profile(quads),
+        load_anchor_rgb=lambda checksum: anchor,
+    )
+
+    result = registrar.register(anchor.copy())
+
+    assert result is not None
+    assert result.to_payload()["redMaskVersion"] == PAGE_REGISTRATION_RED_MASK_VERSION
 
 
 def test_registration_transforms_all_nine_quads_to_target_specific_geometry() -> None:

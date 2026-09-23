@@ -46,6 +46,12 @@ PAGE_REGISTRATION_ANCHOR_MASK_PADDING_RATIO: Final = 0.10
 # because of an optimisation budget.
 PAGE_REGISTRATION_FEATURES_VERSION: Final = "orb-1000-1500-3000-fallback-v1"
 PAGE_REGISTRATION_DIAGNOSTICS_VERSION: Final = "page-registration-diagnostics-v1"
+# D-430: new staging photos carry a dark red top-row frame (V approx 40-45)
+# that the previous V>=50 floor discarded from the red-edge mask, starving
+# otherwise strong pages of coverage evidence.  Lowering the floor only widens
+# what counts as red-border evidence; it does not touch any acceptance gate.
+PAGE_REGISTRATION_RED_MASK_VERSION: Final = "hsv-red-s80-v30-v1"
+_RED_MASK_MINIMUM_VALUE: Final = 30
 _ORB_FEATURE_COUNTS: Final = (1000, 1500, 3000)
 
 _REJECTION_STAGE: Final = {
@@ -106,6 +112,7 @@ class RegisteredPageGeometry:
             "meanRedEdgeCoverage": round(self.mean_red_edge_coverage, 6),
             "p95ReprojectionError": round(self.p95_reprojection_error, 6),
             "quads": [[point.to_dict() for point in quad] for quad in self.quads],
+            "redMaskVersion": PAGE_REGISTRATION_RED_MASK_VERSION,
             "registrationVersion": self.registration_version,
             "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
         }
@@ -1306,12 +1313,12 @@ def _red_mask(rgb: NDArray[np.uint8]) -> NDArray[np.uint8]:
     hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
     lower = cv2.inRange(
         hsv,
-        np.asarray((0, 80, 50), dtype=np.uint8),
+        np.asarray((0, 80, _RED_MASK_MINIMUM_VALUE), dtype=np.uint8),
         np.asarray((18, 255, 255), dtype=np.uint8),
     )
     upper = cv2.inRange(
         hsv,
-        np.asarray((165, 80, 50), dtype=np.uint8),
+        np.asarray((165, 80, _RED_MASK_MINIMUM_VALUE), dtype=np.uint8),
         np.asarray((179, 255, 255), dtype=np.uint8),
     )
     return cast(NDArray[np.uint8], cv2.bitwise_or(lower, upper))
@@ -1482,6 +1489,7 @@ __all__ = [
     "PAGE_REGISTRATION_BOARD_AREA_MASK_VERSION",
     "PAGE_REGISTRATION_FEATURES_VERSION",
     "PAGE_REGISTRATION_DIAGNOSTICS_VERSION",
+    "PAGE_REGISTRATION_RED_MASK_VERSION",
     "PAGE_REGISTRATION_THRESHOLDS_VERSION",
     "PAGE_REGISTRATION_VERSION",
     "PageRegistrationThresholds",

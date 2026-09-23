@@ -73,6 +73,7 @@ class VirtualCellRender:
     extractor_version: str
     source_quad: SourceQuad
     padded_source_quad: SourceQuad
+    partially_visible: bool
     rgb: NDArray[np.uint8]
 
     def __post_init__(self) -> None:
@@ -265,6 +266,7 @@ class VirtualCellRenderer:
             extractor_version=self.version,
             source_quad=cell.source_quad,
             padded_source_quad=padded_source_quad,
+            partially_visible=cell.partially_visible,
             rgb=rgb,
         )
 

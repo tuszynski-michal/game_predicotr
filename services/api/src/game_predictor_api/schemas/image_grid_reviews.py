@@ -13,6 +13,7 @@ from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometrySourceCommand,
     VirtualGridGeometrySourceSaveResult,
 )
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridApprovalResult,
     ImageGridReviewCounts,
@@ -287,7 +288,9 @@ def to_image_grid_review_item_response(
     )
     return ImageGridReviewItemResponse(
         geometry_qualification=(
-            GeometryQualificationPayload.model_validate(geometry["geometryQualification"])
+            GeometryQualificationPayload.model_validate(
+                GeometryQualification.from_dict(geometry["geometryQualification"]).to_client_dict()
+            )
             if geometry.get("geometryQualification") is not None
             else None
         ),
@@ -509,7 +512,7 @@ def to_virtual_grid_review_geometry_response(
     return ImageGridReviewGeometryResponse(
         geometry_revision=ImageGridReviewGeometryRevisionResponse(
             geometry_qualification=GeometryQualificationPayload.model_validate(
-                revision.geometry_qualification.to_dict()
+                revision.geometry_qualification.to_client_dict()
             )
             if revision.geometry_qualification is not None
             else None,

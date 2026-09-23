@@ -7,6 +7,8 @@ import pytest
 from game_predictor_api.api.image_grid_reviews import _require_expected_source
 from game_predictor_api.domain.geometry_qualification import (
     GEOMETRY_QUALIFICATION_VERSION,
+    GEOMETRY_QUALIFICATION_VERSION_V1,
+    GEOMETRY_QUALIFICATION_VERSION_V3,
     GeometryQualification,
     GeometryQualificationError,
     geometry_training_exclusion_reason,
@@ -45,6 +47,71 @@ def test_qualification_roundtrips_including_all_unavailable(missing: tuple[int, 
     )
     assert GeometryQualification.from_dict(value.to_dict()) == value
     assert GeometryQualificationPayload.model_validate(value.to_dict()).to_domain() == value
+
+
+def test_v3_qualification_roundtrips_with_fully_unavailable_subset() -> None:
+    value = GeometryQualification(
+        completeness_status="pending_partial",
+        unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
+        exclude_from_geometry_training=True,
+        exclusion_reason="missing_pixels",
+        version=GEOMETRY_QUALIFICATION_VERSION_V3,
+        fully_unavailable_cell_indices=(0, 5, 10),
+    )
+
+    payload = value.to_dict()
+
+    assert payload["fullyUnavailableCellIndices"] == [0, 5, 10]
+    assert GeometryQualification.from_dict(payload) == value
+
+
+def test_v3_rejects_fully_unavailable_indices_outside_the_declared_mask() -> None:
+    with pytest.raises(GeometryQualificationError):
+        GeometryQualification(
+            completeness_status="pending_partial",
+            unavailable_cell_indices=(0, 5, 10),
+            exclude_from_geometry_training=True,
+            exclusion_reason="missing_pixels",
+            version=GEOMETRY_QUALIFICATION_VERSION_V3,
+            fully_unavailable_cell_indices=(0, 5, 10, 11),
+        )
+
+
+def test_fully_unavailable_indices_require_v3() -> None:
+    with pytest.raises(GeometryQualificationError):
+        GeometryQualification(
+            completeness_status="pending_partial",
+            unavailable_cell_indices=(0, 5, 10),
+            exclude_from_geometry_training=True,
+            exclusion_reason="missing_pixels",
+            version=GEOMETRY_QUALIFICATION_VERSION,
+            fully_unavailable_cell_indices=(0,),
+        )
+
+
+def test_v1_and_v2_qualifications_still_parse_without_the_new_v3_key() -> None:
+    v1 = GeometryQualification(
+        completeness_status="pending_partial",
+        unavailable_cell_indices=(0,),
+        exclude_from_geometry_training=True,
+        exclusion_reason="missing_pixels",
+        version=GEOMETRY_QUALIFICATION_VERSION_V1,
+    )
+    v2 = GeometryQualification(
+        completeness_status="pending_partial",
+        unavailable_cell_indices=(0,),
+        exclude_from_geometry_training=True,
+        exclusion_reason="missing_pixels",
+        version=GEOMETRY_QUALIFICATION_VERSION,
+        include_in_partial_grid_training=False,
+    )
+
+    assert "fullyUnavailableCellIndices" not in v1.to_dict()
+    assert "fullyUnavailableCellIndices" not in v2.to_dict()
+    assert GeometryQualification.from_dict(v1.to_dict()) == v1
+    assert GeometryQualification.from_dict(v2.to_dict()) == v2
+    # v2 still round-trips through the client-facing HTTP schema unchanged.
+    assert GeometryQualificationPayload.model_validate(v2.to_dict()).to_domain() == v2
 
 
 @pytest.mark.parametrize(

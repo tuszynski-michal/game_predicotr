@@ -271,8 +271,12 @@ class SqlAlchemyImageSourceGeometryRepository:
                     topology=BoardTopology(3, 5),
                     qualification=qualification,
                 )
+                # `resolved` is always minted at the current geometry-
+                # qualification version, which may differ from the persisted
+                # `qualification`'s own version -- compare only the mask this
+                # check protects, not the whole object.
                 if (
-                    resolved != qualification
+                    resolved.unavailable_cell_indices != qualification.unavailable_cell_indices
                     or geometry.get("positionIndex") != position
                     or geometry.get("sequenceNumber") != value.sequence_range_start + position
                 ):

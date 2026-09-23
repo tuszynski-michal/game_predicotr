@@ -51,7 +51,15 @@ def test_new_partial_contract_preserves_all_missing_cells_and_uses_new_manifest(
         commands=(command,),
         source_dimensions=(300, 180),
     )
-    assert results[0].geometry_qualification == qualification
+    # `resolve_manual_geometry_qualification` always mints the current
+    # qualification version when any cell is missing, so the resolved
+    # qualification legitimately outgrows the pinned v1 `qualification`
+    # input's version; the invariant this test protects is the preserved
+    # mask, not byte-identity with the submitted object.
+    assert results[0].geometry_qualification.unavailable_cell_indices == tuple(range(15))
+    assert results[0].geometry_qualification.completeness_status == "pending_partial"
+    assert results[0].geometry_qualification.exclude_from_geometry_training
+    assert results[0].geometry_qualification.exclusion_reason == "missing_pixels"
     assert results[0].unavailable_cell_indices == tuple(range(15))
     assert repository.latest_decisions(guard_job_id=JOB_ID)[0] == results[0]
     from game_predictor_api.domain.image_import_geometry_guard import resolution_manifest_payload
@@ -66,7 +74,9 @@ def test_new_partial_contract_preserves_all_missing_cells_and_uses_new_manifest(
         decisions=results,
     )
     assert payload["schemaVersion"] == "ImageGeometryGuardResolutionManifestV3"
-    assert payload["decisions"][0]["geometryQualification"] == qualification.to_dict()
+    assert payload["decisions"][0]["geometryQualification"] == (
+        results[0].geometry_qualification.to_dict()
+    )
     # V3 metadata is now consumed by the version-aware partial renderer.
     checksum = payload_checksum(payload)
     relative = f"data/image-geometry-guard-resolutions/{checksum}.json"

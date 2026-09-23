@@ -2105,7 +2105,7 @@ def create_image_imports_router(
                 None
                 if value.slot_qualifications is None
                 else [
-                    GeometryQualificationPayload.model_validate(item.to_dict())
+                    GeometryQualificationPayload.model_validate(item.to_client_dict())
                     for item in value.slot_qualifications
                 ]
             ),

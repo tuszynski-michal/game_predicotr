@@ -7,16 +7,48 @@ from dataclasses import dataclass
 from typing import Literal, cast
 
 type GeometryQualificationVersion = Literal[
-    "manual-geometry-qualification-v1", "manual-geometry-qualification-v2"
+    "manual-geometry-qualification-v1",
+    "manual-geometry-qualification-v2",
+    "manual-geometry-qualification-v3",
 ]
 GEOMETRY_QUALIFICATION_VERSION_V1: GeometryQualificationVersion = "manual-geometry-qualification-v1"
 GEOMETRY_QUALIFICATION_VERSION: GeometryQualificationVersion = "manual-geometry-qualification-v2"
+# v3 is deliberately not the "current" client-submittable version: an
+# operator never declares which of their unavailable cells are fully vs
+# partially out of frame. Only the backend (resolve_manual_geometry_
+# qualification) mints v3, after it has recomputed that split from the
+# actual quad. Request/response schemas and the Admin frontend stay on v2.
+GEOMETRY_QUALIFICATION_VERSION_V3: GeometryQualificationVersion = "manual-geometry-qualification-v3"
 type CompletenessStatus = Literal["complete", "pending_partial"]
 type GeometryExclusionReason = Literal["missing_pixels", "manual_exclusion"]
+
+_BASE_KEYS = frozenset(
+    {
+        "version",
+        "completenessStatus",
+        "unavailableCellIndices",
+        "excludeFromGeometryTraining",
+        "exclusionReason",
+    }
+)
+_VERSION_KEYS: dict[GeometryQualificationVersion, frozenset[str]] = {
+    GEOMETRY_QUALIFICATION_VERSION_V1: _BASE_KEYS,
+    GEOMETRY_QUALIFICATION_VERSION: _BASE_KEYS | {"includeInPartialGridTraining"},
+    GEOMETRY_QUALIFICATION_VERSION_V3: _BASE_KEYS
+    | {"includeInPartialGridTraining", "fullyUnavailableCellIndices"},
+}
 
 
 class GeometryQualificationError(ValueError):
     code = "IMAGE_GEOMETRY_QUALIFICATION_INVALID"
+
+
+def _valid_cell_index_mask(indices: object) -> bool:
+    return (
+        isinstance(indices, tuple)
+        and all(type(index) is int and 0 <= index < 15 for index in indices)
+        and indices == tuple(sorted(set(indices)))
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,22 +59,20 @@ class GeometryQualification:
     exclusion_reason: GeometryExclusionReason | None = None
     include_in_partial_grid_training: bool = False
     version: GeometryQualificationVersion = GEOMETRY_QUALIFICATION_VERSION_V1
+    fully_unavailable_cell_indices: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         indices = self.unavailable_cell_indices
+        fully_unavailable = self.fully_unavailable_cell_indices
         if (
             not isinstance(self.completeness_status, str)
             or self.completeness_status not in {"complete", "pending_partial"}
             or type(self.exclude_from_geometry_training) is not bool
             or type(self.include_in_partial_grid_training) is not bool
-            or self.version
-            not in {
-                GEOMETRY_QUALIFICATION_VERSION_V1,
-                GEOMETRY_QUALIFICATION_VERSION,
-            }
-            or not isinstance(indices, tuple)
-            or any(type(index) is not int or not 0 <= index < 15 for index in indices)
-            or indices != tuple(sorted(set(indices)))
+            or self.version not in _VERSION_KEYS
+            or not _valid_cell_index_mask(indices)
+            or not _valid_cell_index_mask(fully_unavailable)
+            or not set(fully_unavailable).issubset(indices)
         ):
             raise GeometryQualificationError("Invalid completeness or unavailable-cell mask.")
         if self.completeness_status == "pending_partial":
@@ -64,9 +94,16 @@ class GeometryQualification:
             raise GeometryQualificationError(
                 "Complete geometry requires an empty mask and a consistent exclusion reason."
             )
-        if self.include_in_partial_grid_training and self.version != GEOMETRY_QUALIFICATION_VERSION:
+        if (
+            self.include_in_partial_grid_training
+            and self.version == GEOMETRY_QUALIFICATION_VERSION_V1
+        ):
             raise GeometryQualificationError(
-                "Partial-grid training opt-in requires geometry qualification v2."
+                "Partial-grid training opt-in requires geometry qualification v2 or later."
+            )
+        if fully_unavailable and self.version != GEOMETRY_QUALIFICATION_VERSION_V3:
+            raise GeometryQualificationError(
+                "Fully-unavailable cell tracking requires geometry qualification v3."
             )
 
     def to_dict(self) -> dict[str, object]:
@@ -77,36 +114,58 @@ class GeometryQualification:
             "excludeFromGeometryTraining": self.exclude_from_geometry_training,
             "exclusionReason": self.exclusion_reason,
         }
-        if self.version == GEOMETRY_QUALIFICATION_VERSION:
+        if self.version in {GEOMETRY_QUALIFICATION_VERSION, GEOMETRY_QUALIFICATION_VERSION_V3}:
             payload["includeInPartialGridTraining"] = self.include_in_partial_grid_training
+        if self.version == GEOMETRY_QUALIFICATION_VERSION_V3:
+            payload["fullyUnavailableCellIndices"] = list(self.fully_unavailable_cell_indices)
         return payload
+
+    def to_client_dict(self) -> dict[str, object]:
+        """Project onto the client-facing v1/v2 contract for HTTP responses.
+
+        v3 is backend-only (see ``GEOMETRY_QUALIFICATION_VERSION_V3``): the
+        Admin frontend and request/response schemas only understand v1/v2, so
+        any endpoint that echoes back a persisted qualification must drop the
+        v3-only ``fully_unavailable_cell_indices`` enrichment rather than
+        serialize it through the v1/v2-only ``GeometryQualificationPayload``.
+        """
+        if self.version != GEOMETRY_QUALIFICATION_VERSION_V3:
+            return self.to_dict()
+        return GeometryQualification(
+            completeness_status=self.completeness_status,
+            unavailable_cell_indices=self.unavailable_cell_indices,
+            exclude_from_geometry_training=self.exclude_from_geometry_training,
+            exclusion_reason=self.exclusion_reason,
+            include_in_partial_grid_training=self.include_in_partial_grid_training,
+            version=GEOMETRY_QUALIFICATION_VERSION,
+        ).to_dict()
 
     @classmethod
     def from_dict(cls, raw: object) -> GeometryQualification:
-        base_keys = {
-            "version",
-            "completenessStatus",
-            "unavailableCellIndices",
-            "excludeFromGeometryTraining",
-            "exclusionReason",
-        }
         if not isinstance(raw, Mapping):
             raise GeometryQualificationError(
                 "Geometry qualification fields are incomplete or unknown."
             )
         version = raw.get("version")
-        keys = base_keys | (
-            {"includeInPartialGridTraining"} if version == GEOMETRY_QUALIFICATION_VERSION else set()
-        )
+        keys = _VERSION_KEYS.get(cast(GeometryQualificationVersion, version))
+        if keys is None:
+            raise GeometryQualificationError("Unsupported geometry qualification version.")
         if set(raw) != keys:
             raise GeometryQualificationError(
                 "Geometry qualification fields are incomplete or unknown."
             )
-        if version not in {GEOMETRY_QUALIFICATION_VERSION_V1, GEOMETRY_QUALIFICATION_VERSION}:
-            raise GeometryQualificationError("Unsupported geometry qualification version.")
         indices = raw["unavailableCellIndices"]
         if not isinstance(indices, Sequence) or isinstance(indices, str | bytes):
             raise GeometryQualificationError("Unavailable cell indices must be an array.")
+        fully_unavailable: Sequence[object] = ()
+        if version == GEOMETRY_QUALIFICATION_VERSION_V3:
+            fully_unavailable = raw["fullyUnavailableCellIndices"]
+            if not isinstance(fully_unavailable, Sequence) or isinstance(
+                fully_unavailable, str | bytes
+            ):
+                raise GeometryQualificationError(
+                    "Fully-unavailable cell indices must be an array."
+                )
         return cls(
             completeness_status=cast(CompletenessStatus, raw["completenessStatus"]),
             unavailable_cell_indices=tuple(indices),
@@ -114,9 +173,10 @@ class GeometryQualification:
             exclusion_reason=raw["exclusionReason"],
             include_in_partial_grid_training=(
                 raw["includeInPartialGridTraining"]
-                if version == GEOMETRY_QUALIFICATION_VERSION
+                if version in {GEOMETRY_QUALIFICATION_VERSION, GEOMETRY_QUALIFICATION_VERSION_V3}
                 else False
             ),
+            fully_unavailable_cell_indices=tuple(cast("Sequence[int]", fully_unavailable)),
             version=cast(GeometryQualificationVersion, version),
         )
 

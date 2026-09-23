@@ -1692,6 +1692,7 @@ class ProductionImageStageAdapterSuite:
                             "extractorVersion": render.extractor_version,
                             "logicalCellKeySha256": render.logical_cell_key_sha256,
                             "logicalCellKeyV2Sha256": render.logical_cell_key_v2_sha256,
+                            "partiallyVisible": render.partially_visible,
                             "renderIdentityV2Sha256": render.render_identity_v2_sha256,
                             "renderSpec": render.render_spec,
                             "renderSpecChecksumSha256": render.render_spec_checksum_sha256,
@@ -1838,13 +1839,10 @@ class ProductionImageStageAdapterSuite:
                 ),
             )
             cells.extend(
-                cell
-                for cell in derive_virtual_cells(
+                derive_virtual_cells(
                     geometry=virtual_geometry,
                     configuration=configuration,
                 )
-                if cell.cell_index
-                not in set(cast(Sequence[int], board.get("unavailableCellIndices", [])))
             )
         try:
             rendered = self._virtual_renderer.render(frame, tuple(cells))
@@ -2534,6 +2532,11 @@ class ProductionImageStageAdapterSuite:
                 "unavailableCellIndices": list(
                     cast(Sequence[int], board.get("unavailableCellIndices", []))
                 ),
+                **(
+                    {"assetMode": board["assetMode"]}
+                    if "assetMode" in board
+                    else {}
+                ),
             }
             for board in cropped_boards
         ]
@@ -2641,6 +2644,15 @@ class ProductionImageStageAdapterSuite:
                     list(cast(Sequence[int], board.get("unavailableCellIndices", [])))
                     for board in cropped_boards
                     if _integer(board, "positionIndex") == position
+                ),
+                **next(
+                    (
+                        {"assetMode": board["assetMode"]}
+                        for board in cropped_boards
+                        if _integer(board, "positionIndex") == position
+                        and "assetMode" in board
+                    ),
+                    {},
                 ),
             }
             for position in sorted(by_position)

@@ -171,12 +171,17 @@ def test_slot_decisions_survive_retry_and_change_revision_without_changing_quads
     assert first.revision == 2
     assert first.final_quads == legacy.final_quads
     assert first.decision_checksum_sha256 != legacy.decision_checksum_sha256
-    assert service.snapshot(game_id=game_id)["a" * 64]["slotQualifications"] == decisions
+    # `resolve_manual_geometry_qualification` always mints the current
+    # qualification version once a slot declares any missing cell, so the
+    # persisted snapshot legitimately outgrows the submitted v1 request.
+    assert first.slot_qualifications is not None
+    expected = [item.to_dict() for item in first.slot_qualifications]
+    assert service.snapshot(game_id=game_id)["a" * 64]["slotQualifications"] == expected
     with pytest.raises(JobError) as missing:
         PageGeometryOverrideService(repository).save(**arguments)
     assert missing.value.code == "IMAGE_PAGE_GEOMETRY_QUALIFICATION_REQUIRED"
     assert len(repository.values) == 2
-    assert service.snapshot(game_id=game_id)["a" * 64]["slotQualifications"] == decisions
+    assert service.snapshot(game_id=game_id)["a" * 64]["slotQualifications"] == expected
 
 
 def test_page_revision_conflict_and_lost_response_preserve_newer_decision() -> None:
@@ -255,7 +260,12 @@ def test_page_override_http_roundtrip_preserves_slot_metadata(tmp_path: Path) ->
     endpoint = f"/admin/image-imports/browser-selections/{upload_id}/page-geometry-overrides"
     response = client.post(endpoint, json=body)
     assert response.status_code == 201, response.text
-    assert response.json()["slotQualifications"] == decisions
+    # `resolve_manual_geometry_qualification` always mints the current
+    # qualification version once a slot declares any missing cell, and the
+    # HTTP response projects that back onto the client-facing v1/v2 contract.
+    saved = repository.values[0].slot_qualifications
+    assert saved is not None
+    assert response.json()["slotQualifications"] == [item.to_client_dict() for item in saved]
     repeated = client.post(endpoint, json=body)
     assert repeated.json()["id"] == response.json()["id"]
     assert repeated.json()["created"] is False

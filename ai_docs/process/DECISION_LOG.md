@@ -1,10 +1,67 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-22
+last_updated: 2026-09-23
 ---
 
 # Decision Log
+
+## D-435 — GeometryQualification v3 wprowadza fully_unavailable_cell_indices (T2/A–D)
+
+- **Status:** accepted (TASK-0626, sekcje A–D z pierwotnego 7-sekcyjnego
+  planu T2; sekcje E/F/G wydzielone do TASK-0627 po odkryciu, że ich
+  zakres jest ~3x większy niż zakładano).
+- **Date:** 2026-09-23.
+- **Decision:** `GeometryQualification` dostaje nową wersję
+  `manual-geometry-qualification-v3` (backend-only — request/response
+  schema `GeometryQualificationPayload` i Admin frontend zostają na v1/v2;
+  nowa metoda `GeometryQualification.to_client_dict()` rzutuje v3 z
+  powrotem na v1/v2 dla każdej odpowiedzi HTTP, która echo'uje zapisaną
+  kwalifikację) z nowym polem `fully_unavailable_cell_indices: tuple[int,
+  ...]` — podzbiór `unavailable_cell_indices`, komórki z 4/4 rogami quada
+  poza źródłem (w odróżnieniu od 1–3/4, czyli częściowo widocznych).
+  `resolve_manual_geometry_qualification` liczy to pole raz, z rzeczywistej
+  geometrii quada, i mintuje v3 zawsze gdy którakolwiek komórka jest
+  brakująca (niezależnie od tego, czy operator zadeklarował maskę czy
+  została wykryta automatycznie). Migracja
+  `0120_fully_unavailable_cell_qualification` rozszerza
+  `ck_recognized_boards_qualification` i `ck_guard_decisions_qualification`
+  o gałąź v3. `production_workflow.py`'s `_virtual_renders` traci
+  redundantny filtr po pełnej `unavailableCellIndices` — `derive_virtual_cells`
+  (T1) już poprawnie filtruje wyłącznie po w pełni niedostępnych komórkach.
+- **Rationale:** TASK-0625 (T1) dodał zdolność renderowania komórek
+  częściowo widocznych, ale nie miał sposobu odróżnienia „w pełni
+  niedostępne" od „częściowo widoczne" bez przeliczania geometrii na żywo
+  w każdym miejscu, które dziś zakłada `unavailable_cell_indices = w pełni
+  wykluczone" (rekoncyliacja, walidacja payloadu pipeline'u). Policzenie
+  raz i persystowanie unika duplikowania geometrii w wielu, niezależnych
+  miejscach kodu (opcja B z planu T2, wybrana przez użytkownika zamiast
+  przeliczania na żywo).
+- **Safety:** `resolve_manual_geometry_qualification` zawsze zwraca
+  `fully_unavailable_cell_indices ⊆ unavailable_cell_indices` (walidacja w
+  `__post_init__`); dla V1/V2 (brak pola) każde miejsce konsumujące musi
+  fallbackować do pełnej maski (bezpieczne, zachowuje dzisiejsze
+  zachowanie dla historycznych wierszy — backfill V1/V2→V3 świadomie nie
+  wykonany).
+- **Ryzyko odkryte podczas implementacji:** trzy miejsca porównywały pełny
+  wynik `resolve_manual_geometry_qualification(...)` przez `==` z
+  wejściową kwalifikacją jako sprawdzenie integralności („maska operatora
+  pokrywa automatycznie wykryte"); to zawsze zawodziło po v3, bo `version`
+  się zmienia nawet gdy `unavailable_cell_indices` się zgadza. Naprawione
+  zawężeniem porównania do `unavailable_cell_indices`
+  (`qualified_manual_geometry.py`, `image_geometry_v2_repository.py`).
+  Podobnie hardkodowany literał `"manual-geometry-qualification-v2"` w
+  `partial_grid_learning.py` cicho odrzucał świeżo zmintowane v3 wiersze z
+  modelu treningu partial-grid — rozszerzony o v3.
+- **Zakres A–D (ten wpis):** domena, migracja, wypełnianie pola, wiring
+  crop-generation workera. **Zapis rekordu recenzji (wymuszony
+  `assignedSymbolId = null` dla komórek częściowo widocznych) i
+  rekoncyliacja (`_synchronize` i 8 innych niezależnych miejsc odkrytych
+  podczas researchu) pozostają niezrobione — TASK-0627, osobne polecenie.**
+- **Compatibility:** `fully_unavailable_cell_indices` domyślnie `()`, nie
+  wymagane dla V1/V2 (`to_dict`/`from_dict` mają per-wersyjną tabelę
+  kluczy). `VirtualCellRender.partially_visible` to nowe, nieczeckowane
+  pole (nie w `render_spec`) — bez bumpu `VIRTUAL_CELL_RENDER_SPEC_VERSION`.
 
 ## D-434 — Częściowo widoczne komórki mogą być renderowane do ręcznej oceny (T1: domena + renderer)
 

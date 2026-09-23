@@ -19,7 +19,10 @@ from pathlib import PurePosixPath
 from uuid import UUID
 
 from game_predictor_api.domain.board_topology import BoardTopology
-from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.geometry_qualification import (
+    GEOMETRY_QUALIFICATION_VERSION_V3,
+    GeometryQualification,
+)
 
 MAX_PAGE_BOARD_SLOTS = 9
 SOURCE_SUPPORT_EPSILON = 1e-6
@@ -817,13 +820,17 @@ def resolve_manual_geometry_qualification(
         )
     missing = tuple(sorted(set(automatic) | set(qualification.unavailable_cell_indices)))
     if missing:
+        fully_missing = fully_unavailable_source_cell_indices(
+            quad, source=source, topology=topology
+        )
         return GeometryQualification(
-            "pending_partial",
-            missing,
-            True,
-            "missing_pixels",
-            qualification.include_in_partial_grid_training,
-            qualification.version,
+            completeness_status="pending_partial",
+            unavailable_cell_indices=missing,
+            exclude_from_geometry_training=True,
+            exclusion_reason="missing_pixels",
+            include_in_partial_grid_training=qualification.include_in_partial_grid_training,
+            version=GEOMETRY_QUALIFICATION_VERSION_V3,
+            fully_unavailable_cell_indices=fully_missing,
         )
     return qualification
 

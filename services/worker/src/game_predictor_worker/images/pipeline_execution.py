@@ -746,6 +746,7 @@ def _available_cell_indices(
     board: Mapping[str, object], cell_count: int, label: str
 ) -> tuple[int, ...]:
     from game_predictor_api.domain.geometry_qualification import (
+        GEOMETRY_QUALIFICATION_VERSION_V3,
         GeometryQualification,
         GeometryQualificationError,
     )
@@ -762,6 +763,7 @@ def _available_cell_indices(
     ):
         _invalid(f"The {label} unavailable-cell mask is invalid.")
     raw_qualification = board.get("geometryQualification")
+    qualification: GeometryQualification | None = None
     if raw_qualification is not None:
         try:
             qualification = GeometryQualification.from_dict(raw_qualification)
@@ -772,6 +774,17 @@ def _available_cell_indices(
             or qualification.unavailable_cell_indices != unavailable
         ):
             _invalid(f"The {label} qualification conflicts with its availability projection.")
+    # Only virtual-source rendering (T2/D-434) renders a partially visible
+    # cell instead of excluding it outright; every other asset mode still
+    # excludes the whole declared mask, so only that combination may shrink
+    # the excluded set down to the fully-unavailable subset.
+    excluded = (
+        qualification.fully_unavailable_cell_indices
+        if qualification is not None
+        and qualification.version == GEOMETRY_QUALIFICATION_VERSION_V3
+        and board.get("assetMode") == "virtual_source"
+        else unavailable
+    )
     if completeness == "complete":
         if unavailable or cell_count != BOARD_CELL_COUNT:
             _invalid(f"A complete {label} must contain exactly 15 cells.")
@@ -783,12 +796,12 @@ def _available_cell_indices(
             _invalid(
                 f"A partial {label} must declare between 1 and {maximum_missing} unavailable cells."
             )
-        if cell_count != BOARD_CELL_COUNT - len(unavailable):
+        if cell_count != BOARD_CELL_COUNT - len(excluded):
             _invalid(f"A partial {label} must contain every available cell exactly once.")
     else:
         _invalid(f"The {label} completeness status is invalid.")
-    unavailable_set = set(unavailable)
-    return tuple(index for index in range(BOARD_CELL_COUNT) if index not in unavailable_set)
+    excluded_set = set(excluded)
+    return tuple(index for index in range(BOARD_CELL_COUNT) if index not in excluded_set)
 
 
 def require_matching_symbol_cells(

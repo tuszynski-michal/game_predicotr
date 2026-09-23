@@ -13,7 +13,13 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
 )
 from game_predictor_api.domain.board_topology import BoardTopology as DomainBoardTopology
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
-from game_predictor_api.domain.image_geometry_v2 import SourcePoint, SourceQuad
+from game_predictor_api.domain.image_geometry_v2 import (
+    SourceImageBounds,
+    SourcePoint,
+    SourceQuad,
+    fully_unavailable_source_cell_indices,
+    unavailable_source_cell_indices,
+)
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
@@ -1898,13 +1904,26 @@ def test_qualified_manual_page_keeps_all_slots_without_detector_or_missing_pixel
     checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
     with Image.open(source_path) as image:
         width, height = image.size
-    qualifications, quads = [], []
+    # `all_missing=True` pushes every board's whole quad off the source
+    # entirely (genuinely 4/4 corners out per cell); `False` pushes only
+    # board 0's left edge out, so only its leftmost column (0, 5, 10) is
+    # genuinely fully outside the frame while its other columns stay whole.
+    # The declared mask and expected counts below are derived from the same
+    # domain functions the pipeline itself uses, rather than hand-picked
+    # literals, since T2 only excludes crops for cells that are genuinely,
+    # not just declaredly, fully out of frame.
+    topology = DomainBoardTopology(3, 5)
+    source_bounds = SourceImageBounds(width, height)
+    qualifications, quads, source_quads = [], [], []
     for position in range(9):
         column, row = position % 3, position // 3
         left, top = column * width // 3 + 5, row * height // 3 + 5
         right, bottom = left + width // 4, top + height // 4
-        if position == 0:
-            left = -width // 20
+        if all_missing:
+            left -= width
+            right -= width
+        elif position == 0:
+            left = -80
         quads.append(
             [
                 {"x": left, "y": top},
@@ -1913,7 +1932,25 @@ def test_qualified_manual_page_keeps_all_slots_without_detector_or_missing_pixel
                 {"x": left, "y": bottom},
             ]
         )
-        missing = tuple(range(15)) if all_missing else (0, 5, 10) if position == 0 else ()
+        source_quads.append(
+            SourceQuad(
+                (
+                    SourcePoint(left, top),
+                    SourcePoint(right, top),
+                    SourcePoint(right, bottom),
+                    SourcePoint(left, bottom),
+                )
+            )
+        )
+    automatic_masks = [
+        unavailable_source_cell_indices(quad, source=source_bounds, topology=topology)
+        for quad in source_quads
+    ]
+    fully_unavailable_masks = [
+        fully_unavailable_source_cell_indices(quad, source=source_bounds, topology=topology)
+        for quad in source_quads
+    ]
+    for missing in automatic_masks:
         qualifications.append(
             GeometryQualification(
                 "pending_partial" if missing else "complete",
@@ -1922,6 +1959,7 @@ def test_qualified_manual_page_keeps_all_slots_without_detector_or_missing_pixel
                 "missing_pixels" if missing else None,
             ).to_dict()
         )
+    expected_cell_count = sum(15 - len(mask) for mask in fully_unavailable_masks)
     snapshot = _candidate_snapshot()
     options = dict(
         repository_root=Path.cwd(),
@@ -1974,8 +2012,13 @@ def test_qualified_manual_page_keeps_all_slots_without_detector_or_missing_pixel
         validate_stage_payload(stage, results[stage], context)
     crops = results["board_crops"]["boards"]
     assert len(crops) == 9
-    assert sum(len(board["cells"]) for board in crops) == (0 if all_missing else 132)
-    assert [board["geometryQualification"] for board in crops] == qualifications
+    assert sum(len(board["cells"]) for board in crops) == expected_cell_count
+    assert [
+        board["geometryQualification"]["unavailableCellIndices"] for board in crops
+    ] == [list(mask) for mask in automatic_masks]
+    assert [board["completenessStatus"] for board in crops] == [
+        "pending_partial" if mask else "complete" for mask in automatic_masks
+    ]
     restarted = ProductionImageStageAdapterSuite(artifact_root, **options)
     context = ImageStageContext(**base, previous_results=results)
     assert restarted.board_crops(context) == results["board_crops"]
@@ -1991,7 +2034,7 @@ def test_qualified_manual_page_keeps_all_slots_without_detector_or_missing_pixel
         context,
     )
     assert len(symbols) == 9 and all("geometryQualification" in board for board in symbols)
-    if all_missing:
+    if expected_cell_count == 0:
         monkeypatch.setattr(suite, "_symbol_adapter", unexpected)
         assert len(suite._infer_symbol_boards(context, crops)) == 9
 

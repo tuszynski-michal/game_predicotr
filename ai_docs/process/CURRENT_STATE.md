@@ -6,6 +6,47 @@ last_updated: 2026-09-23
 
 # Current State
 
+### TASK-0626 — GeometryQualification v3 i podłączenie pipeline'u workera, T2/A–D (D-435)
+
+- Kontynuacja TASK-0625 (T1). T2 miał wg pierwotnego planu 7 sekcji (A–G);
+  ten wpis pokrywa tylko A–D (domena v3, migracja, wypełnianie pola,
+  wiring `production_workflow.py`). Sekcje E/F/G (wymuszony
+  `assignedSymbolId = null` w zapisie recenzji + rekoncyliacja) okazały się
+  ~3x większe niż zakładano i zostały wydzielone do TASK-0627, po
+  potwierdzeniu przez użytkownika.
+- `GeometryQualification` ma nową wersję v3 (backend-only — request/
+  response schema i Admin frontend zostają na v1/v2) z polem
+  `fully_unavailable_cell_indices` (podzbiór `unavailable_cell_indices`,
+  policzony raz z rzeczywistej geometrii quada w
+  `resolve_manual_geometry_qualification`, persystowany). Migracja
+  `0120_fully_unavailable_cell_qualification` rozszerza oba CHECK
+  CONSTRAINT (`recognized_boards`, `image_import_geometry_guard_decisions`)
+  o gałąź v3.
+- `production_workflow.py`: usunięty redundantny filtr w `_virtual_renders`,
+  który po T1 błędnie ponownie wykluczał komórki częściowo widoczne
+  (T1 sam w sobie nie zmieniał zachowania końcowego — patrz wpis
+  TASK-0625 niżej). Crop generation dla `virtual_source` teraz faktycznie
+  materializuje komórki częściowo widoczne; `partiallyVisible` per komórka
+  dopisane do payloadu `board_crops` (jeszcze nie konsumowane — to
+  TASK-0627).
+- Podczas researchu przed E/F odkryto, że „unavailable = w pełni
+  wykluczone" jest zakodowane niezależnie w co najmniej 9 miejscach (nie 3
+  jak zakładał pierwotny plan), i że `partiallyVisible` nie jest dziś w
+  ogóle trwale zapisywane (`CellObservationModel` nie ma na to kolumny) —
+  wymagałoby to nowej migracji nieprzewidzianej w planie. Zob.
+  TASK-0627 dla poprawionego zakresu.
+- Przy okazji napraw D odkryto i naprawiono 8 cichych regresji T1: testy
+  `test_manual_partial_geometry.py`, `test_structured_lattice_refinement_v4.py`
+  i `test_production_image_workflow.py` nigdy nie zostały zaktualizowane po
+  zmianie zachowania `derive_virtual_cells` w v0.10.392, więc fałszywie
+  „przechodziły" na starym (sprzed T1) zachowaniu, nie testując nowego.
+  Pełna regresja: 51 (`test_geometry_qualification.py` +
+  `test_image_geometry_v2*.py`) + worker/API pełne przebiegi — identyczny
+  zestaw przedistniejących, niezwiązanych awarii jak `git stash` baseline
+  (34 worker, 21 API — lokalny korpus/fixture niedostępne). Ruff czysty;
+  mypy bez nowych błędów.
+- Decyzja: `DECISION_LOG.md` D-435.
+
 ### TASK-0625 — częściowo widoczne komórki, T1: domena + renderer (D-434)
 
 - Zgłoszenie użytkownika: komórki z kolumny wychodzącej poza kadr na

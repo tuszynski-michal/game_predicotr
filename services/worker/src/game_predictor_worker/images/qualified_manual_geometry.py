@@ -215,7 +215,13 @@ def apply_qualified_page_override(
             topology=topology,
             qualification=qualification,
         )
-        if resolved != qualification:
+        # `resolved` is always minted at the current geometry-qualification
+        # version (see resolve_manual_geometry_qualification), which may
+        # differ from the pinned entry's own version -- so a full dataclass
+        # equality would reject an otherwise-complete human mask. The only
+        # fact this check protects is that the human mask already covers
+        # every source-external cell the geometry math independently finds.
+        if resolved.unavailable_cell_indices != qualification.unavailable_cell_indices:
             raise ImagePipelineExecutionError(
                 "IMAGE_GEOMETRY_UNAVAILABLE_MASK_INCOMPLETE",
                 "The pinned human mask does not cover source-external cells.",
@@ -239,9 +245,14 @@ def apply_qualified_page_override(
                 "guardResolutionDisposition": "partial"
                 if qualification.completeness_status == "pending_partial"
                 else "corrected_full",
-                "geometryQualification": qualification.to_dict(),
-                "completenessStatus": qualification.completeness_status,
-                "unavailableCellIndices": list(qualification.unavailable_cell_indices),
+                # Persist `resolved`, not the pinned `qualification`: it carries
+                # the same declared mask (checked above) but, when non-empty,
+                # is always minted at the current qualification version, so
+                # downstream fully-unavailable-vs-partially-visible splitting
+                # (crop validation, review-cell creation) sees it consistently.
+                "geometryQualification": resolved.to_dict(),
+                "completenessStatus": resolved.completeness_status,
+                "unavailableCellIndices": list(resolved.unavailable_cell_indices),
             }
         )
     if not is_ordered_active_grid(

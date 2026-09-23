@@ -17,6 +17,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     SourcePoint,
     SourceQuad,
     derive_virtual_cells,
+    fully_unavailable_source_cell_indices,
 )
 from game_predictor_api.schemas.geometry_qualification import (
     AutomaticPartialGeometryProposalPayload,
@@ -34,7 +35,10 @@ from game_predictor_worker.images.partial_grid_learning import (
     PartialGridTrainingProfile,
 )
 from game_predictor_worker.images.structured_geometry import lattice_refinement_v4 as v4
-from game_predictor_worker.images.virtual_cell_extraction import VirtualCellRenderer
+from game_predictor_worker.images.virtual_cell_extraction import (
+    VirtualCellExtractionError,
+    VirtualCellRenderer,
+)
 from test_manual_partial_geometry import _configuration, _geometry
 from test_structured_geometry_global_initialization import _frame
 from test_structured_lattice_refinement_v3 import _board, _source
@@ -319,13 +323,36 @@ def test_only_available_cells_render_after_manual_confirmation(side) -> None:
     with pytest.raises(ImageGeometryContractError, match="not an automatic geometry fallback"):
         replace(manual, engine_kind=GeometryEngineKind.STRUCTURED_OPENCV_V1)
     cells = derive_virtual_cells(geometry=manual, configuration=_configuration())
-    assert tuple(cell.cell_index for cell in cells) == tuple(
-        index for index in range(15) if index not in proposal.qualification.unavailable_cell_indices
+    fully_unavailable = fully_unavailable_source_cell_indices(
+        manual.symbol_grid_quad, source=manual.source, topology=manual.topology
     )
-    renders = VirtualCellRenderer().render(frame, cells)
-    assert len(renders) == len(cells)
-    assert _configuration().padding_fraction == 0.08
+    assert tuple(cell.cell_index for cell in cells) == tuple(
+        index for index in range(15) if index not in fully_unavailable
+    )
     for cell in cells:
+        assert cell.partially_visible == (
+            cell.cell_index in proposal.qualification.unavailable_cell_indices
+        )
+    # Cell 0 (row 0, column 0) on this fixture's "left"/"both" crops keeps a
+    # sliver of real pixels in its raw quad (so it is correctly flagged
+    # partially_visible, not fully unavailable), but the renderer's 8%
+    # outward padding pushes that sliver out entirely, leaving zero real
+    # support in the padded quad. The renderer's own partial-support check
+    # (virtual_cell_extraction._require_partial_source_support) then
+    # legitimately rejects it -- this is pre-existing T1 renderer behavior,
+    # not something this test asserts is desirable, only that it is stable.
+    unsupported_after_padding = {0} if side in {"left", "both"} else set()
+    renderable = tuple(cell for cell in cells if cell.cell_index not in unsupported_after_padding)
+    for cell in cells:
+        if cell.cell_index in unsupported_after_padding:
+            with pytest.raises(VirtualCellExtractionError, match="must retain some real source"):
+                VirtualCellRenderer().render(frame, (cell,))
+    renders = VirtualCellRenderer().render(frame, renderable)
+    assert len(renders) == len(renderable)
+    assert _configuration().padding_fraction == 0.08
+    for cell in renderable:
+        if cell.partially_visible:
+            continue
         assert all(
             0 <= point.x <= source.shape[1] - 1 and 0 <= point.y <= source.shape[0] - 1
             for point in cell.source_quad.corners

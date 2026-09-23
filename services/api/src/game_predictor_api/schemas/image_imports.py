@@ -320,7 +320,7 @@ class ImageGeometryGuardDecisionResponse(ApiModel):
                 None
                 if value.geometry_qualification is None
                 else GeometryQualificationPayload.model_validate(
-                    value.geometry_qualification.to_dict()
+                    value.geometry_qualification.to_client_dict()
                 )
             ),
             reason=value.reason,

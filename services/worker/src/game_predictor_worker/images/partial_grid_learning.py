@@ -164,9 +164,9 @@ def build_partial_grid_training_profile(
         if not isinstance(qualifications, Sequence) or isinstance(qualifications, str | bytes):
             continue
         for raw in qualifications:
-            if (
-                not isinstance(raw, Mapping)
-                or raw.get("version") != "manual-geometry-qualification-v2"
+            if not isinstance(raw, Mapping) or raw.get("version") not in (
+                "manual-geometry-qualification-v2",
+                "manual-geometry-qualification-v3",
             ):
                 continue
             if raw.get("includeInPartialGridTraining") is not True:

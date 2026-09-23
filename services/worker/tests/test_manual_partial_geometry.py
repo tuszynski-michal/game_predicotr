@@ -16,6 +16,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     SourceQuad,
     VirtualBoardGeometry,
     derive_virtual_cells,
+    fully_unavailable_source_cell_indices,
     resolve_manual_geometry_qualification,
     unavailable_source_cell_indices,
 )
@@ -79,16 +80,21 @@ def _configuration():
         (((-280, 0), (-30, 0), (-30, 150), (-280, 150)), tuple(range(15))),
     ],
 )
-def test_missing_cells_keep_indices_and_never_render(frame, points, expected):
+def test_partially_visible_cells_render_but_fully_outside_cells_never_do(frame, points, expected):
     quad = _quad(points)
     mask = unavailable_source_cell_indices(quad, source=frame.source, topology=BoardTopology(3, 5))
     assert mask == expected
+    fully = fully_unavailable_source_cell_indices(
+        quad, source=frame.source, topology=BoardTopology(3, 5)
+    )
     qualification = GeometryQualification("pending_partial", mask, True, "missing_pixels")
     geometry = _geometry(frame, quad, qualification)
     cells = derive_virtual_cells(geometry=geometry, configuration=_configuration())
-    assert tuple(cell.cell_index for cell in cells) == tuple(i for i in range(15) if i not in mask)
+    assert tuple(cell.cell_index for cell in cells) == tuple(i for i in range(15) if i not in fully)
+    for cell in cells:
+        assert cell.partially_visible == (cell.cell_index in mask)
     renders = VirtualCellRenderer().render(frame, cells)
-    assert len(renders) == 15 - len(mask)
+    assert len(renders) == 15 - len(fully)
     for render in renders:
         replay = render_persisted_virtual_cell_rgb(
             frame,

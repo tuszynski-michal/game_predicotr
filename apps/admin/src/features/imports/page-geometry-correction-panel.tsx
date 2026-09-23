@@ -918,7 +918,7 @@ function PageGeometryCorrectionPanelContent({
     setPageCorners(null);
     setSelectedPointIndex(null);
     setFeedback(
-      `Plansza 1 z ${expectedBoardCount}: kliknij LT, PT, PD (lewy górny, prawy górny, prawy dolny). LD zostanie wyliczony.`,
+      `Plansza 1 z ${expectedBoardCount}: kliknij kolejno LT, PT, PD, LD.`,
     );
   }
 
@@ -963,30 +963,24 @@ function PageGeometryCorrectionPanelContent({
       const boardIndex = Math.floor(
         boardCornerPlacement.length / PAGE_BOARD_CORNER_COUNT,
       );
-      if (pendingCount === 0) {
-        setPendingBoardCorner([bounded]);
+      if (pendingCount < PAGE_BOARD_CORNER_COUNT - 1) {
+        const nextPending = [...pendingBoardCorner, bounded];
+        setPendingBoardCorner(nextPending);
+        const nextLabel = CORNER_LABELS[nextPending.length];
+        const currentLabel = CORNER_LABELS[nextPending.length - 1];
         setFeedback(
-          `Plansza ${boardIndex + 1} z ${expectedBoardCount}: LT zaznaczony. Kliknij prawy górny narożnik (PT).`,
+          `Plansza ${boardIndex + 1} z ${expectedBoardCount}: ${currentLabel} zaznaczony. Kliknij ${nextLabel}.`,
         );
         return;
       }
-      if (pendingCount === 1) {
-        setPendingBoardCorner([...pendingBoardCorner, bounded]);
+      const nextPending = [
+        ...pendingBoardCorner,
+        bounded,
+      ] as unknown as PageGeometryCorners;
+      const quad: Quad = nextPending;
+      if (!isClockwiseScreenQuad(nextPending)) {
         setFeedback(
-          `Plansza ${boardIndex + 1} z ${expectedBoardCount}: LT i PT zaznaczone. Kliknij prawy dolny narożnik (PD).`,
-        );
-        return;
-      }
-      const [lt, pt] = pendingBoardCorner as [Point, Point];
-      const pd = bounded;
-      const ld: Point = {
-        x: lt.x + (pd.x - pt.x),
-        y: lt.y + (pd.y - pt.y),
-      };
-      const quad: Quad = [lt, pt, pd, ld];
-      if (!isClockwiseScreenQuad(quad as PageGeometryCorners)) {
-        setFeedback(
-          `Nieprawidłowa kolejność LT → PT → PD. Ustaw punkty zgodnie z ruchem wskazówek zegara.`,
+          `Nieprawidłowa kolejność LT → PT → PD → LD. Ustaw punkty zgodnie z ruchem wskazówek zegara dokładnie na rogach planszy.`,
         );
         return;
       }
@@ -1022,7 +1016,7 @@ function PageGeometryCorrectionPanelContent({
         return;
       }
       setFeedback(
-        `Plansza ${completedBoardCount + 1} z ${expectedBoardCount}: kliknij LT, PT, PD.`,
+        `Plansza ${completedBoardCount + 1} z ${expectedBoardCount}: kliknij kolejno LT, PT, PD, LD.`,
       );
       return;
     }
@@ -1055,13 +1049,12 @@ function PageGeometryCorrectionPanelContent({
       const boardIndex = Math.floor(
         current.length / PAGE_BOARD_CORNER_COUNT,
       );
-      const message =
-        nextPending.length === 0
-          ? `Plansza ${boardIndex + 1} z ${expectedBoardCount}: kliknij lewy górny narożnik (LT).`
-          : nextPending.length === 1
-            ? `Plansza ${boardIndex + 1} z ${expectedBoardCount}: LT zaznaczony. Kliknij prawy górny narożnik (PT).`
-            : `Plansza ${boardIndex + 1} z ${expectedBoardCount}: LT i PT zaznaczone. Kliknij prawy dolny narożnik (PD).`;
-      setFeedback(message);
+      const remaining = nextPending.length;
+      const nextHint =
+        remaining === 0
+          ? `Plansza ${boardIndex + 1} z ${expectedBoardCount}: kliknij LT.`
+          : `Plansza ${boardIndex + 1} z ${expectedBoardCount}: ${CORNER_LABELS.slice(0, remaining).join(', ')} zaznaczone. Kliknij ${CORNER_LABELS[remaining]}.`;
+      setFeedback(nextHint);
       return;
     }
     if (boardCornerPlacement !== null && boardCornerPlacement.length > 0) {
@@ -1074,7 +1067,7 @@ function PageGeometryCorrectionPanelContent({
       setBoardCornerPlacement(next);
       const boardIndex = Math.floor(next.length / PAGE_BOARD_CORNER_COUNT);
       setFeedback(
-        `Plansza ${boardIndex + 1} z ${expectedBoardCount}: kliknij LT, PT, PD.`,
+        `Plansza ${boardIndex + 1} z ${expectedBoardCount}: kliknij kolejno LT, PT, PD, LD.`,
       );
       return;
     }

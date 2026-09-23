@@ -32,12 +32,15 @@ down_revision: str | Sequence[str] | None = "0121_partial_visibility_quality_iss
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# (index_name, table, column_list, where_clause | None) — always public.*
-_CONCURRENT_INDEXES: tuple[tuple[str, str, str, str | None], ...] = (
+# (index_name, table, column_list, where_clause | None, canonical_where | None)
+# — always public.*. canonical_where is the predicate exactly as
+# pg_get_indexdef renders it (casts added), used to recognise our own index.
+_CONCURRENT_INDEXES: tuple[tuple[str, str, str, str | None, str | None], ...] = (
     (
         "ix_image_review_items_game_sequence_status",
         "image_review_items",
         "game_id, sequence_number, status",
+        None,
         None,
     ),
     (
@@ -45,12 +48,13 @@ _CONCURRENT_INDEXES: tuple[tuple[str, str, str, str | None], ...] = (
         "recognized_boards",
         "id",
         "completeness_status = 'pending_partial'",
+        "((completeness_status)::text = 'pending_partial'::text)",
     ),
 )
 
 
-def _expected_def(name: str, table: str, columns: str, where: str | None) -> str:
-    clause = f" WHERE {where}" if where else ""
+def _expected_def(name: str, table: str, columns: str, canonical_where: str | None) -> str:
+    clause = f" WHERE {canonical_where}" if canonical_where else ""
     return f"CREATE INDEX {name} ON public.{table} USING btree ({columns}){clause}"
 
 
@@ -66,8 +70,8 @@ def _upgrade_concurrent_public_indexes() -> None:
         try:
             connection.execute(sa.text("SET statement_timeout='120s'"))
             connection.execute(sa.text("SET lock_timeout='2s'"))
-            for name, table, columns, where in _CONCURRENT_INDEXES:
-                expected = _expected_def(name, table, columns, where)
+            for name, table, columns, where, canonical_where in _CONCURRENT_INDEXES:
+                expected = _expected_def(name, table, columns, canonical_where)
                 existing = connection.execute(
                     sa.text(
                         "SELECT pg_get_indexdef(c.oid),i.indisvalid,i.indisready "
@@ -109,8 +113,8 @@ def _downgrade_concurrent_public_indexes() -> None:
         try:
             connection.execute(sa.text("SET statement_timeout='120s'"))
             connection.execute(sa.text("SET lock_timeout='2s'"))
-            for name, table, columns, where in reversed(_CONCURRENT_INDEXES):
-                expected = _expected_def(name, table, columns, where)
+            for name, table, columns, _where, canonical_where in reversed(_CONCURRENT_INDEXES):
+                expected = _expected_def(name, table, columns, canonical_where)
                 existing = connection.execute(
                     sa.text(
                         "SELECT pg_get_indexdef(c.oid) FROM pg_class c "
@@ -132,6 +136,10 @@ def _downgrade_concurrent_public_indexes() -> None:
 
 
 def upgrade() -> None:
+    # Public indexes first: they commit on their own and are retry-safe. The v2
+    # DDL then runs in the transaction that stamps 0122, so a failure there
+    # rolls it back instead of leaving an index that breaks the next attempt.
+    _upgrade_concurrent_public_indexes()
     op.execute("SET LOCAL lock_timeout = '2s'")
     op.execute("SET LOCAL statement_timeout = '30s'")
     op.execute(
@@ -143,7 +151,6 @@ def upgrade() -> None:
         "ON game_data_v2.recognized_boards (game_id, id) "
         "WHERE completeness_status = 'pending_partial'"
     )
-    _upgrade_concurrent_public_indexes()
 
 
 def downgrade() -> None:

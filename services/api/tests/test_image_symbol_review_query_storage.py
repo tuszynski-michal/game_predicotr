@@ -304,7 +304,10 @@ def test_count_delta_is_aggregated_from_before_and_after_states() -> None:
     assert payload == {
         "all": {"approved": 1, "pending": 1},
         "unknown": {"approved": 0, "pending": 0},
-        f"symbol:{symbol_id}": {"approved": 1, "pending": 0},
+        # A blurry cell keeps its human-assigned symbol scope (it must stay
+        # visible under that symbol's filtered tab, only excluded from
+        # training), so it still counts against `symbol:{id}` here.
+        f"symbol:{symbol_id}": {"approved": 1, "pending": 1},
     }
 
 
@@ -337,6 +340,10 @@ def test_count_statement_preserves_symbol_quality_and_confidence_filters() -> No
 
     assert "image_symbol_review_cells.assigned_symbol_id" in sql
     assert "image_symbol_review_cells.quality_issue IS NULL" in sql
+    # A blurry crop keeps its human-assigned symbol and must stay counted
+    # under that symbol's own tab -- only grid_issue/unreadable route to the
+    # game-wide "unknown" bucket instead.
+    assert "image_symbol_review_cells.quality_issue = 'blurry'" in sql
     assert "image_symbol_review_cells.review_state = 'pending'" in sql
     assert "image_symbol_prediction_revisions" in sql
     assert "cell_observations" in sql

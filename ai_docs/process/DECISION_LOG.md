@@ -6,6 +6,39 @@ last_updated: 2026-09-24
 
 # Decision Log
 
+## D-438 — Komórki `blurry` pozostają widoczne pod filtrem swojego symbolu
+
+- **Status:** accepted.
+- **Date:** 2026-09-24.
+- **Decision:** komórka Weryfikacji symboli z `quality_issue = 'blurry'`
+  (checkbox „Niewyraźny") jest widoczna w liście filtrowanej po jej
+  przypisanym symbolu (`symbolId=<uuid>`), nie tylko w widoku „Wszystkie
+  symbole". Wcześniej filtr wymagał jednocześnie `assigned_symbol_id =
+  <symbol>` **i** `quality_issue IS NULL`, więc każda zatwierdzona zmiana
+  symbolu z jednoczesnym oznaczeniem „Niewyraźny" znikała z obu list — starego
+  i nowego symbolu — i istniała wyłącznie pod „Wszystkie symbole"; game-wide
+  liczniki (`counts`) traktowały ją tak samo. `grid_issue`, `unreadable` i
+  `partial_visibility` nadal kierują wyłącznie do game-wide „Nierozpoznany
+  (?)" — to zachowanie się nie zmienia, bo tam `assigned_symbol_id` odbija
+  nieukończone rozpoznanie, a nie decyzję operatora.
+- **Rationale:** zgłoszenie użytkownika — ręcznie przeniesiony ARBUZ→POMARANCZ
+  z checkboxem „Niewyraźny" (gra 777) zniknął z obu list. Weryfikacja w bazie
+  (`image_symbol_review_events`/`image_symbol_review_cells`, gra 777)
+  potwierdziła, że zapis był poprawny (`assigned_symbol_id = POMARANCZ`,
+  `quality_issue = blurry`, `verification_outcome = verified_symbol`) —
+  usterka była wyłącznie w warunku `WHERE` listy/liczników
+  (`image_symbol_review_repository.py`), nie w domenowym przejściu
+  (`mark_symbol_cell_blurry`). `ADMIN_APP.md` już opisuje badge `Niewyraźny`
+  dla takiej karty — dokument zakładał jej widoczność pod symbolem, kod tego
+  nie realizował.
+- **Compatibility:** czysto addytywne rozszerzenie widoczności — żadna
+  migracja, żaden nowy stan domenowy. `_symbol_scope_filter_clause` scala
+  poprzednio zduplikowaną logikę filtra w `_candidate_seek_statement` i
+  `_base_visible_statement`. Istniejące zapisane liczniki
+  (`count_projection`) doliczają takie komórki do `symbol:{id}` od kolejnej
+  zmiany stanu tej komórki (delta), nie retroaktywnie — pełne przeliczenie
+  historycznych liczników nie wchodziło w zakres tej poprawki.
+
 ## D-436 — Częściowo widoczne komórki trafiają do Weryfikacji symboli jako wymuszony „nierozpoznany" (T2/E–F)
 
 - **Status:** accepted (TASK-0627, dokańcza 3-taskowy plan D-434; T3 — Admin

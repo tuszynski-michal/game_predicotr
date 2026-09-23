@@ -157,9 +157,34 @@ def _count_scope_keys(cell: _CountedCellState | None) -> tuple[str, ...]:
         _TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES
     ):
         return (_COUNT_SCOPE_ALL, _COUNT_SCOPE_UNKNOWN)
-    if cell.quality_issue is None:
+    if cell.quality_issue in (None, SymbolCellQualityIssue.BLURRY.value):
         return (_COUNT_SCOPE_ALL, f"symbol:{cell.assigned_symbol_id}")
     return (_COUNT_SCOPE_ALL,)
+
+
+def _symbol_scope_filter_clause(review_filter: SymbolCellReviewListFilter) -> ColumnElement[bool]:
+    """Restrict a query to the cells visible under one symbol-scoped filter tab.
+
+    A cell with an unresolved recognition (`grid_issue`/`unreadable`, or no
+    assigned symbol) belongs to the game-wide "unknown" tab. A cell marked
+    `blurry` still keeps its human-assigned symbol -- it is excluded from
+    training but must remain visible under that symbol's own tab, not
+    disappear from every filtered view.
+    """
+
+    cell = ImageSymbolReviewCellModel
+    if review_filter.symbol_id is None:
+        return or_(
+            cell.assigned_symbol_id.is_(None),
+            cell.quality_issue.in_(_TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES),
+        )
+    return and_(
+        cell.assigned_symbol_id == review_filter.symbol_id,
+        or_(
+            cell.quality_issue.is_(None),
+            cell.quality_issue == SymbolCellQualityIssue.BLURRY.value,
+        ),
+    )
 
 
 def _count_deltas(
@@ -834,18 +859,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             cell.source_available.is_(True),
         )
         if not review_filter.include_all_symbols:
-            if review_filter.symbol_id is None:
-                statement = statement.where(
-                    or_(
-                        cell.assigned_symbol_id.is_(None),
-                        cell.quality_issue.in_(_TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES),
-                    )
-                )
-            else:
-                statement = statement.where(
-                    cell.assigned_symbol_id == review_filter.symbol_id,
-                    cell.quality_issue.is_(None),
-                )
+            statement = statement.where(_symbol_scope_filter_clause(review_filter))
         statement = _apply_symbol_cell_review_state_filter(
             statement,
             review_filter=review_filter,
@@ -916,18 +930,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             cell.game_id == review_filter.game_id, cell.source_available.is_(True)
         )
         if not review_filter.include_all_symbols:
-            if review_filter.symbol_id is None:
-                statement = statement.where(
-                    or_(
-                        cell.assigned_symbol_id.is_(None),
-                        cell.quality_issue.in_(_TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES),
-                    )
-                )
-            else:
-                statement = statement.where(
-                    cell.assigned_symbol_id == review_filter.symbol_id,
-                    cell.quality_issue.is_(None),
-                )
+            statement = statement.where(_symbol_scope_filter_clause(review_filter))
         statement = _apply_symbol_cell_review_state_filter(
             statement,
             review_filter=review_filter,

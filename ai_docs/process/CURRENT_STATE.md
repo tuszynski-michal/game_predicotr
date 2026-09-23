@@ -6,6 +6,39 @@ last_updated: 2026-09-24
 
 # Current State
 
+### Poprawka błędu — komórki `blurry` znikały z filtra własnego symbolu (D-438)
+
+- Niezależna poprawka błędu zgłoszona bezpośrednio przez użytkownika (gra 777):
+  ręcznie przeniesiony ARBUZ→POMARANCZ z checkboxem „Niewyraźny" zniknął z obu
+  list symboli. Zweryfikowano w bazie, że zapis (`mark_symbol_cell_blurry`) był
+  poprawny — usterka była wyłącznie w warunku `WHERE` listy/liczników
+  (`image_symbol_review_repository.py`): filtr pojedynczego symbolu wymagał
+  `quality_issue IS NULL`, więc komórka `blurry` nie pasowała do żadnego
+  filtra poza „Wszystkie symbole".
+- Naprawa: nowy wspólny helper `_symbol_scope_filter_clause` (scalił
+  zduplikowaną logikę z `_candidate_seek_statement` i
+  `_base_visible_statement`) traktuje `quality_issue IN (NULL, 'blurry')` jako
+  należące do filtra symbolu; `_count_scope_keys` (delty liczników) tak samo.
+  `grid_issue`/`unreadable`/`partial_visibility` bez zmian — nadal wyłącznie
+  w game-wide „Nierozpoznany (?)".
+- Testy: `test_image_symbol_review_query_storage.py` zaktualizowany (nowa
+  asercja SQL `quality_issue = 'blurry'`, poprawiony oczekiwany delta count).
+  `pytest services/api/tests/test_image_symbol_review*.py
+  test_board_import_coverage.py` (98 passed w dotkniętym obszarze), ruff
+  czysty. 2 niepowiązane baseline-failure
+  (`test_qualified_cell_reconciliation.py`,
+  `test_v09_schema_backfill_repository.py`, `SimpleNamespace.asset_mode`)
+  potwierdzone jako istniejące już przed zmianą.
+- Znana luka: stored `count_projection` (liczniki per symbol) nie jest
+  przeliczany retroaktywnie — dwie już istniejące komórki `blurry` z tego
+  zgłoszenia zaczną poprawnie liczyć się w `symbol:{POMARANCZ}` dopiero po
+  kolejnej zmianie stanu tej konkretnej komórki albo pełnym rebuildzie
+  projekcji (`start_count_rebuild`/`rebuild_count_projection_next_batch`, bez
+  wywołującego endpointu — nie uruchomiono, poza zakresem tej poprawki). Sama
+  lista (widok operatora) jest poprawna natychmiast, bo czyta żywy stan
+  komórki, nie projekcję.
+- Decyzja: `DECISION_LOG.md` D-438.
+
 ### TASK-0628 — badge „Poza kadrem" dla częściowo widocznych komórek w Admin (T3)
 
 - Domyka 3-taskowy plan z D-434 (T1: TASK-0625, T2: TASK-0626+0627, T3: ten

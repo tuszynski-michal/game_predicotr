@@ -5,6 +5,7 @@ import type {
   SymbolCellReviewPageResponse,
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
+  SymbolCellReviewSkipResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 
@@ -17,6 +18,7 @@ export type SymbolReviewClient = Pick<
   | 'listGames'
   | 'listSymbols'
   | 'listSymbolCellReviews'
+  | 'skipSymbolCellReviews'
   | 'getSymbolCellReviewCounts'
   | 'getSymbolCellReviewProjectionStatus'
   | 'startSymbolCellReviewProjectionBackfill'
@@ -225,6 +227,52 @@ export async function loadSymbolReviewPage(
     return {
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',
       isProjectionRebuilding: false,
+      ok: false,
+    };
+  }
+}
+
+export interface SkipSymbolReviewPagesOptions {
+  readonly afterCursor?: string;
+  readonly beforeCursor?: string;
+  readonly count: number;
+  readonly gameId: string;
+  readonly maxConfidence?: number;
+  readonly minConfidence?: number;
+  readonly signal?: AbortSignal;
+  readonly state: SymbolCellReviewFilterState;
+  readonly symbolId: string | 'all' | 'unknown';
+}
+
+export type SymbolReviewSkipResult =
+  | { readonly ok: true; readonly skip: SymbolCellReviewSkipResponse }
+  | { readonly aborted?: false; readonly error: string; readonly ok: false }
+  | { readonly aborted: true; readonly ok: false };
+
+export async function skipSymbolReviewPages(
+  api: SymbolReviewClient,
+  options: SkipSymbolReviewPagesOptions,
+): Promise<SymbolReviewSkipResult> {
+  try {
+    const result = await api.skipSymbolCellReviews({
+      ...options,
+    });
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się przeskoczyć do wskazanej strony.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, skip: result.data };
+  } catch {
+    if (options.signal?.aborted === true) {
+      return { aborted: true, ok: false };
+    }
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
       ok: false,
     };
   }

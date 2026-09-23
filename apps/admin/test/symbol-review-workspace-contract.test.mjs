@@ -120,7 +120,7 @@ test('keeps an explicit selection across page navigation and tracks every submit
   assert.match(source, /Object\.keys\(selection\.targetsById\)/);
 });
 
-test('allows a direct, validated jump to a numbered review page', () => {
+test('jumps directly to a numbered review page without hydrating every page in between', () => {
   const jumpFlow = source.slice(
     source.indexOf('const goToPage'),
     source.indexOf('async function prepareProjection'),
@@ -130,7 +130,14 @@ test('allows a direct, validated jump to a numbered review page', () => {
   assert.match(source, /aria-label="Numer strony"/);
   assert.match(source, /parseSymbolReviewPageNumber/);
   assert.match(jumpFlow, /loadSymbolReviewPage/);
-  assert.match(jumpFlow, /while \(pageNumber !== targetPageNumber\)/);
+  // TASK-0624: a >1-page jump computes the target cursor through one
+  // lightweight skip call instead of walking and hydrating every
+  // intermediate page (the previous `while (pageNumber !== targetPageNumber)`
+  // loop).
+  assert.doesNotMatch(jumpFlow, /while \(pageNumber !== targetPageNumber\)/);
+  assert.match(jumpFlow, /skipSymbolReviewPages/);
+  assert.match(jumpFlow, /const skipCount = \(Math\.abs\(hops\) - 1\) \* pageFilters\.limit;/);
+  assert.match(jumpFlow, /findCachedSymbolReviewPage\(workspace, targetPageNumber\)/);
   assert.doesNotMatch(
     jumpFlow,
     /setSelection\(createEmptySymbolReviewSelection\(\)\)/,

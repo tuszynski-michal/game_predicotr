@@ -2345,6 +2345,38 @@ test('symbol cell review client binds the keyset filter and checksum asset URL',
   );
 });
 
+test('symbol cell review client binds the skip filter and count without hydrating a page', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ cursor: 'cursor-landed' });
+    },
+  });
+
+  const result = await client.skipSymbolCellReviews({
+    afterCursor: 'cursor-after',
+    count: 1500,
+    gameId,
+    state: 'pending',
+    symbolId: 'unknown',
+  });
+
+  const requestUrl = new URL(requests[0].url);
+  assert.equal(
+    requestUrl.pathname,
+    `/api/v1/admin/games/${gameId}/symbol-cell-review-skip`,
+  );
+  assert.equal(requestUrl.searchParams.get('symbolId'), 'unknown');
+  assert.equal(requestUrl.searchParams.get('state'), 'pending');
+  assert.equal(requestUrl.searchParams.get('afterCursor'), 'cursor-after');
+  assert.equal(requestUrl.searchParams.get('count'), '1500');
+  assert.equal(requestUrl.searchParams.has('beforeCursor'), false);
+  assert.equal(result.data.cursor, 'cursor-landed');
+});
+
 test('symbol cell review client forwards abort signals for list and count reads', async () => {
   const requests = [];
   const gameId = '22222222-2222-4222-8222-222222222222';

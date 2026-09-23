@@ -470,23 +470,26 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             ),
         )
 
-    def list_items(
+    def _seek_visible_keys(
         self,
         *,
         review_filter: SymbolCellReviewListFilter,
-        after_key: tuple[int, int, UUID] | None,
-        before_key: tuple[int, int, UUID] | None,
-        limit: int,
-    ) -> SymbolCellReviewListSlice:
-        if after_key is not None and before_key is not None:
-            raise ValueError("only one symbol-cell review keyset direction is allowed")
+        seek_key: tuple[int, int, UUID] | None,
+        descending: bool,
+        needed_count: int,
+    ) -> list[tuple[int, int, UUID]]:
+        """Walk the indexed candidate seek, returning up to ``needed_count``
+        currently-visible keys in seek order.
+
+        Shared by full-page hydration and cursor-only skipping so both agree
+        exactly on what counts as a visible item and on batch/cancellation
+        behaviour; only the caller decides whether to hydrate the result.
+        """
         statement = self._candidate_seek_statement(review_filter=review_filter)
         sequence, cell_index, cell_key = _symbol_cell_review_order_columns()
-        seek_key = before_key if before_key is not None else after_key
-        descending = before_key is not None
-        visible_ids: list[UUID] = []
-        seek_batch_size = max(limit + 1, 1_000)
-        while len(visible_ids) < limit + 1:
+        visible_keys: list[tuple[int, int, UUID]] = []
+        seek_batch_size = max(needed_count, 1_000)
+        while len(visible_keys) < needed_count:
             self._raise_if_read_cancelled()
             batch_statement = statement
             if seek_key is not None:
@@ -520,11 +523,36 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                     ).all()
                 }
             )
-            visible_ids.extend(cell_id for cell_id in candidate_ids if cell_id in current_ids)
+            visible_keys.extend(
+                (int(row[1]), int(row[2]), cast(UUID, row[3]))
+                for row in candidate_rows
+                if cast(UUID, row[0]) in current_ids
+            )
             last = candidate_rows[-1]
             seek_key = (int(last[1]), int(last[2]), cast(UUID, last[3]))
             if len(candidate_rows) < seek_batch_size:
                 break
+        return visible_keys
+
+    def list_items(
+        self,
+        *,
+        review_filter: SymbolCellReviewListFilter,
+        after_key: tuple[int, int, UUID] | None,
+        before_key: tuple[int, int, UUID] | None,
+        limit: int,
+    ) -> SymbolCellReviewListSlice:
+        if after_key is not None and before_key is not None:
+            raise ValueError("only one symbol-cell review keyset direction is allowed")
+        seek_key = before_key if before_key is not None else after_key
+        descending = before_key is not None
+        visible_keys = self._seek_visible_keys(
+            review_filter=review_filter,
+            seek_key=seek_key,
+            descending=descending,
+            needed_count=limit + 1,
+        )
+        visible_ids = [key[2] for key in visible_keys]
 
         if before_key is not None:
             has_previous = len(visible_ids) > limit
@@ -554,6 +582,30 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             has_previous=has_previous,
             has_next=has_next,
         )
+
+    def skip_keys(
+        self,
+        *,
+        review_filter: SymbolCellReviewListFilter,
+        after_key: tuple[int, int, UUID] | None,
+        before_key: tuple[int, int, UUID] | None,
+        count: int,
+    ) -> tuple[int, int, UUID] | None:
+        if after_key is not None and before_key is not None:
+            raise ValueError("only one symbol-cell review keyset direction is allowed")
+        if count < 1:
+            raise ValueError("symbol-cell review skip count must be positive")
+        seek_key = before_key if before_key is not None else after_key
+        descending = before_key is not None
+        visible_keys = self._seek_visible_keys(
+            review_filter=review_filter,
+            seek_key=seek_key,
+            descending=descending,
+            needed_count=count,
+        )
+        if len(visible_keys) < count:
+            return None
+        return visible_keys[count - 1]
 
     def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts:
         self._raise_if_read_cancelled()

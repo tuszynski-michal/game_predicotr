@@ -6,6 +6,42 @@ last_updated: 2026-09-22
 
 # Decision Log
 
+## D-433 — Lekki skok stron w Weryfikacji symboli zamiast paginacji offsetowej
+
+- **Status:** accepted (TASK-0624).
+- **Date:** 2026-09-23.
+- **Decision:** dodano `GET /api/v1/admin/games/{game_id}/symbol-cell-review-skip`,
+  zwracający wyłącznie kursor keyset `count` widocznych elementów dalej
+  (lub `null`, gdy danych jest mniej), bez hydratacji żadnej strony
+  pośredniej. Frontend „Przejdź do strony” liczy `hops = docelowa -
+  bieżąca`; dla `|hops| == 1` używa istniejącego `nextCursor`/`previousCursor`
+  bez zmian; dla `|hops| > 1` wykonuje dokładnie jedno wywołanie skip +
+  jedno wywołanie listingu, zamiast chodzić kursor po kursorze i pobierać
+  każdą stronę pośrednią w pełni.
+- **Rationale:** zgłoszenie użytkownika — skok ze strony 1 na 500 w
+  Weryfikacji symboli generował setki pełnych requestów (do 500 elementów z
+  metadanymi crop/miniatur każdy) tylko po to, by odczytać ich kursory.
+  Endpoint listingu (`/symbol-cell-reviews`) świadomie używa wyłącznie
+  keyset pagination (bez offsetu) dla stabilności pod dużym, zmieniającym
+  się zbiorem — ta decyzja pozostaje w mocy. Zamiast wprowadzać paginację
+  offsetową (utrata części gwarancji stabilności kursora), dodano lżejszy,
+  równoległy endpoint działający na tym samym mechanizmie seek co listing.
+- **Reużycie krytycznej logiki:** `image_symbol_review_repository.py` —
+  pętla seek+widoczność (batch ≥1000, dwie ścieżki widoczności: świeża
+  projekcja / zapytanie kontrolne) wydzielona z `list_items` do
+  `_seek_visible_keys`, używana identycznie przez `list_items` (hydratacja)
+  i nowe `skip_keys` (tylko klucz). Eliminuje ryzyko rozjazdu semantyki
+  „widocznego elementu” między dwoma ścieżkami.
+- **Safety:** kursor zwracany przez skip jest kodowany tym samym
+  `encode_symbol_cell_review_cursor` co listing — związany ze scope'em
+  filtra i `storageGeneration`, więc nie może być odtworzony w innym
+  kontekście filtrowania. Brak zmiany progów/limitów istniejącego
+  listingu; `skip_keys` używa tego samego `bounded_read` (statement
+  timeout) co `list_items`.
+- **Compatibility:** nowy endpoint jest addytywny (OpenAPI, wygenerowany
+  klient, wrapper, testy warstwowe). Stary sposób nawigacji (next/previous
+  o jedną stronę) jest bez zmian.
+
 ## D-432 — Routing wpisów manifestu wymaga registrationVersion manualnego override'u
 
 - **Status:** accepted (TASK-0623).

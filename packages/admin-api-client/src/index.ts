@@ -174,6 +174,7 @@ import {
   listV7LabelGeometryProfiles as listGeneratedV7LabelGeometryProfiles,
   listSymbols as listGeneratedSymbols,
   listSymbolCellReviews as listGeneratedSymbolCellReviews,
+  skipSymbolCellReviews as skipGeneratedSymbolCellReviews,
   listUnreadableBoardReviews as listGeneratedUnreadableBoardReviews,
   listApprovedSymbolReferenceCandidates as listGeneratedApprovedSymbolReferenceCandidates,
   listSymbolModelIterations as listGeneratedSymbolModelIterations,
@@ -623,6 +624,7 @@ export type {
   SymbolCellReviewMutationRequest,
   SymbolCellReviewMutationResponse,
   SymbolCellReviewPageResponse,
+  SymbolCellReviewSkipResponse,
   SymbolCellPreviewBatchRequest,
   VirtualCellPreviewBatchRequest,
   VirtualCellPreviewTileResponse,
@@ -788,6 +790,18 @@ export interface ListSymbolCellReviewsOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly limit?: number;
+  readonly maxConfidence?: number;
+  readonly minConfidence?: number;
+  readonly signal?: AbortSignal;
+}
+
+export interface SkipSymbolCellReviewsOptions {
+  readonly gameId: string;
+  readonly symbolId: string | 'unknown';
+  readonly count: number;
+  readonly state?: SymbolCellReviewFilterState;
+  readonly afterCursor?: string;
+  readonly beforeCursor?: string;
   readonly maxConfidence?: number;
   readonly minConfidence?: number;
   readonly signal?: AbortSignal;
@@ -2277,6 +2291,29 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             ? {}
             : { beforeCursor: options.beforeCursor }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
+          ...(options.maxConfidence === undefined
+            ? {}
+            : { maxConfidence: options.maxConfidence }),
+          ...(options.minConfidence === undefined
+            ? {}
+            : { minConfidence: options.minConfidence }),
+        },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    skipSymbolCellReviews: (options: SkipSymbolCellReviewsOptions) =>
+      skipGeneratedSymbolCellReviews({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          symbolId: options.symbolId,
+          count: options.count,
+          ...(options.state === undefined ? {} : { state: options.state }),
+          ...(options.afterCursor === undefined
+            ? {}
+            : { afterCursor: options.afterCursor }),
+          ...(options.beforeCursor === undefined
+            ? {}
+            : { beforeCursor: options.beforeCursor }),
           ...(options.maxConfidence === undefined
             ? {}
             : { maxConfidence: options.maxConfidence }),

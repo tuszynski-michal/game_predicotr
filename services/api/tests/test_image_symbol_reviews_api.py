@@ -424,6 +424,59 @@ class MemorySymbolCellReviewRepository:
             has_next=len(page) < len(filtered),
         )
 
+    def skip_keys(
+        self,
+        *,
+        review_filter: SymbolCellReviewListFilter,
+        after_key: tuple[int, int, UUID] | None,
+        before_key: tuple[int, int, UUID] | None,
+        count: int,
+    ) -> tuple[int, int, UUID] | None:
+        filtered = tuple(
+            item
+            for item in self.items
+            if (
+                review_filter.include_all_symbols
+                or item.assigned_symbol_id == review_filter.symbol_id
+            )
+            and _matches_memory_review_state(
+                item,
+                review_filter,
+                active_model_cohort_cell_ids=self.active_model_cohort_cell_ids,
+            )
+            and (
+                review_filter.min_confidence is None
+                or (
+                    item.prediction_confidence is not None
+                    and item.prediction_confidence >= review_filter.min_confidence
+                )
+            )
+            and (
+                review_filter.max_confidence is None
+                or (
+                    item.prediction_confidence is not None
+                    and item.prediction_confidence <= review_filter.max_confidence
+                )
+            )
+        )
+        if after_key is not None:
+            start = next(
+                (index + 1 for index, item in enumerate(filtered) if item.cursor_key == after_key),
+                len(filtered),
+            )
+            target_index = start + count - 1
+        elif before_key is not None:
+            end = next(
+                (index for index, item in enumerate(filtered) if item.cursor_key == before_key),
+                0,
+            )
+            target_index = end - count
+        else:
+            target_index = count - 1
+        if target_index < 0 or target_index >= len(filtered):
+            return None
+        return filtered[target_index].cursor_key
+
     def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts:
         visible = tuple(
             item
@@ -1144,6 +1197,131 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
     assert repository.filters[-1].include_all_symbols is True
     assert (5_000, "list") in repository.bounded_reads
     assert (15_000, "counts") in repository.bounded_reads
+
+
+def test_skip_endpoint_lands_on_the_same_cursor_as_walking_page_by_page(
+    tmp_path: Path,
+) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    items = tuple(
+        _item(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            sequence_number=index + 1,
+            cell_index=0,
+            review_item_id=UUID(int=index + 1),
+        )
+        for index in range(7)
+    )
+    repository = MemorySymbolCellReviewRepository(game_id=game_id, symbol_id=symbol_id, items=items)
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        page1 = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "limit": 2},
+        )
+        page2 = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={
+                "symbolId": str(symbol_id),
+                "limit": 2,
+                "afterCursor": page1.json()["nextCursor"],
+            },
+        )
+        # Walking cursor-by-cursor from page 1 to page 3 would fetch page 2
+        # in full just to read its nextCursor. The skip endpoint reaches the
+        # same cursor for one extra hop (limit=2) without hydrating page 2.
+        skip = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-skip",
+            params={
+                "symbolId": str(symbol_id),
+                "afterCursor": page1.json()["nextCursor"],
+                "count": 2,
+            },
+        )
+        page3_via_skip = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={
+                "symbolId": str(symbol_id),
+                "limit": 2,
+                "afterCursor": skip.json()["cursor"],
+            },
+        )
+        page3_via_walk = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={
+                "symbolId": str(symbol_id),
+                "limit": 2,
+                "afterCursor": page2.json()["nextCursor"],
+            },
+        )
+
+    assert skip.status_code == 200
+    assert skip.json()["cursor"] == page2.json()["nextCursor"]
+    assert page3_via_skip.status_code == 200
+    assert page3_via_walk.status_code == 200
+    assert page3_via_skip.json()["items"] == page3_via_walk.json()["items"]
+    assert [item["id"] for item in page3_via_skip.json()["items"]] == [
+        str(items[4].cell_review_id),
+        str(items[5].cell_review_id),
+    ]
+
+
+def test_skip_endpoint_returns_null_cursor_past_the_end(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    items = tuple(
+        _item(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            sequence_number=index + 1,
+            cell_index=0,
+            review_item_id=UUID(int=index + 1),
+        )
+        for index in range(3)
+    )
+    repository = MemorySymbolCellReviewRepository(game_id=game_id, symbol_id=symbol_id, items=items)
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        first = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "limit": 1},
+        )
+        too_far = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-skip",
+            params={
+                "symbolId": str(symbol_id),
+                "afterCursor": first.json()["nextCursor"],
+                "count": 10,
+            },
+        )
+
+    assert too_far.status_code == 200
+    assert too_far.json()["cursor"] is None
+
+
+def test_skip_endpoint_rejects_both_or_neither_cursor(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    repository = MemorySymbolCellReviewRepository(game_id=game_id, symbol_id=symbol_id, items=())
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        neither = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-skip",
+            params={"symbolId": str(symbol_id), "count": 1},
+        )
+        both = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-skip",
+            params={
+                "symbolId": str(symbol_id),
+                "count": 1,
+                "afterCursor": "x",
+                "beforeCursor": "y",
+            },
+        )
+
+    assert neither.status_code == 422
+    assert neither.json()["code"] == "SYMBOL_CELL_REVIEW_SKIP_CURSOR_REQUIRED"
+    assert both.status_code == 409
+    assert both.json()["code"] == "SYMBOL_CELL_REVIEW_CURSOR_DIRECTION_CONFLICT"
 
 
 def test_query_service_uses_its_configured_page_and_count_timeouts() -> None:

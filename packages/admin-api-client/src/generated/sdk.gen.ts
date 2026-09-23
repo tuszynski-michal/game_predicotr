@@ -743,6 +743,9 @@ import type {
   SelectSemiAutomaticImageSelectionSourceFolderData,
   SelectSemiAutomaticImageSelectionSourceFolderErrors,
   SelectSemiAutomaticImageSelectionSourceFolderResponses,
+  SkipSymbolCellReviewsData,
+  SkipSymbolCellReviewsErrors,
+  SkipSymbolCellReviewsResponses,
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
@@ -1968,6 +1971,25 @@ export const startSymbolCellReviewProjectionBackfill = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/symbol-cell-review-projection',
+    ...options,
+  });
+
+/**
+ * Compute a keyset cursor several pages ahead without hydrating pages
+ */
+export const skipSymbolCellReviews = <ThrowOnError extends boolean = false>(
+  options: Options<SkipSymbolCellReviewsData, ThrowOnError>,
+): RequestResult<
+  SkipSymbolCellReviewsResponses,
+  SkipSymbolCellReviewsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    SkipSymbolCellReviewsResponses,
+    SkipSymbolCellReviewsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-skip',
     ...options,
   });
 

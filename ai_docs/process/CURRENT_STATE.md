@@ -6,6 +6,41 @@ last_updated: 2026-09-23
 
 # Current State
 
+### TASK-0624 — lekki skok stron w Weryfikacji symboli (D-433)
+
+- Zgłoszenie użytkownika: skok ze strony 1 na 500 w sekcji „Weryfikacja
+  symboli” (Admin) generował setki pełnych requestów — `goToPage()` chodziła
+  kursor po kursorze, pobierając każdą stronę pośrednią w całości.
+- Dodano `GET /api/v1/admin/games/{game_id}/symbol-cell-review-skip`
+  (`skipSymbolCellReviews`), zwracający tylko docelowy kursor keyset bez
+  hydratacji stron pośrednich. Backend: `image_symbol_review_repository.py`
+  (`_seek_visible_keys` wydzielone z `list_items`, nowe `skip_keys`),
+  `application/image_symbol_reviews.py` (`SymbolCellReviewQueryService.skip`),
+  `schemas/image_symbol_reviews.py` (`SymbolCellReviewSkipResponse`),
+  `api/image_symbol_reviews.py` (nowy endpoint).
+- Frontend: `goToPage()` w `symbol-review-workspace.tsx` liczy `hops`; dla
+  skoku o 1 stronę bez zmian (jeden fetch); dla większego skoku — jedno
+  wywołanie skip + jedno wywołanie listingu, niezależnie od odległości.
+  Nowy wrapper `skipSymbolReviewPages` w `symbol-review-actions.ts`.
+- Pełny pion API: OpenAPI wygenerowany (`npm run openapi:generate`/`:check`
+  czyste), `packages/admin-api-client` (wrapper `skipSymbolCellReviews` +
+  test), request test w `apps/admin`.
+- Testy: 3 nowe w `test_image_symbol_reviews_api.py` (w tym test
+  porównawczy: skip vs. chodzenie kursor po kursorze daje identyczny
+  kursor/stronę), `MemorySymbolCellReviewRepository.skip_keys` dodane.
+  Wszystkie 75 testów `test_image_symbol_reviews_*`/`test_image_symbol_review_query_storage.py`
+  zielone bez zmiany istniejących asercji (refaktor `list_items` zachowuje
+  zachowanie 1:1). `symbol-review-workspace-contract.test.mjs` zaktualizowany
+  — świadoma zmiana kontraktu (stara asercja `while (pageNumber !==
+  targetPageNumber)` zastąpiona nową, opisującą skip-based jump). Wszystkie
+  539 testów `@game-predictor/admin` i 59 `@game-predictor/admin-api-client`
+  zielone. Ruff, mypy (bez nowych błędów — baseline 79 potwierdzony
+  `git stash`), typecheck i lint obu workspace'ów czyste.
+- Nie wykonano: test na żywej bazie Postgres (poza zakresem — struktura SQL
+  niezmieniona, potwierdzone testami strukturalnymi + funkcjonalny test
+  porównawczy na fake repository).
+- Decyzja: `DECISION_LOG.md` D-433.
+
 ### TASK-0623 — poprawka routingu wpisów manifestu ze slotQualifications (D-432)
 
 - Zgłoszenie: użytkownik wykonał ręczną korektę geometrii na stagingu

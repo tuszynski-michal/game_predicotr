@@ -12168,6 +12168,16 @@ export type SymbolCellReviewProjectionStatusResponse = {
 };
 
 /**
+ * SymbolCellReviewSkipResponse
+ */
+export type SymbolCellReviewSkipResponse = {
+  /**
+   * Cursor
+   */
+  cursor: string | null;
+};
+
+/**
  * SymbolCreate
  */
 export type SymbolCreate = {
@@ -16097,6 +16107,76 @@ export type StartSymbolCellReviewProjectionBackfillResponses = {
 
 export type StartSymbolCellReviewProjectionBackfillResponse =
   StartSymbolCellReviewProjectionBackfillResponses[keyof StartSymbolCellReviewProjectionBackfillResponses];
+
+export type SkipSymbolCellReviewsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Symbolid
+     */
+    symbolId: string;
+    /**
+     * Count
+     */
+    count: number;
+    state?: SymbolCellReviewFilterState;
+    /**
+     * Aftercursor
+     */
+    afterCursor?: string | null;
+    /**
+     * Beforecursor
+     */
+    beforeCursor?: string | null;
+    /**
+     * Minconfidence
+     */
+    minConfidence?: number | null;
+    /**
+     * Maxconfidence
+     */
+    maxConfidence?: number | null;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-review-skip';
+};
+
+export type SkipSymbolCellReviewsErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+  /**
+   * Symbol-cell review query timed out or was cancelled
+   */
+  503: ErrorResponse;
+};
+
+export type SkipSymbolCellReviewsError =
+  SkipSymbolCellReviewsErrors[keyof SkipSymbolCellReviewsErrors];
+
+export type SkipSymbolCellReviewsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewSkipResponse;
+};
+
+export type SkipSymbolCellReviewsResponse =
+  SkipSymbolCellReviewsResponses[keyof SkipSymbolCellReviewsResponses];
 
 export type ListSymbolCellReviewsData = {
   body?: never;

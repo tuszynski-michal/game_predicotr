@@ -74,6 +74,15 @@ class SymbolCellReviewQueryRepository(Protocol):
         limit: int,
     ) -> SymbolCellReviewListSlice: ...
 
+    def skip_keys(
+        self,
+        *,
+        review_filter: SymbolCellReviewListFilter,
+        after_key: tuple[int, int, UUID] | None,
+        before_key: tuple[int, int, UUID] | None,
+        count: int,
+    ) -> tuple[int, int, UUID] | None: ...
+
     def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts: ...
 
     def get_asset(
@@ -232,6 +241,117 @@ class SymbolCellReviewQueryService:
                 if items and page_slice.has_previous
                 else None
             ),
+        )
+
+    def skip(
+        self,
+        *,
+        game_id: UUID,
+        symbol_id: UUID | None,
+        state: SymbolCellReviewFilterState,
+        after_cursor: str | None,
+        before_cursor: str | None,
+        min_confidence: float | None = None,
+        max_confidence: float | None = None,
+        count: int,
+        include_all_symbols: bool = False,
+    ) -> str | None:
+        with self._repository.bounded_read(
+            timeout_ms=self._page_statement_timeout_ms,
+            operation="skip",
+        ):
+            return self._skip(
+                game_id=game_id,
+                symbol_id=symbol_id,
+                state=state,
+                after_cursor=after_cursor,
+                before_cursor=before_cursor,
+                min_confidence=min_confidence,
+                max_confidence=max_confidence,
+                count=count,
+                include_all_symbols=include_all_symbols,
+            )
+
+    def _skip(
+        self,
+        *,
+        game_id: UUID,
+        symbol_id: UUID | None,
+        state: SymbolCellReviewFilterState,
+        after_cursor: str | None,
+        before_cursor: str | None,
+        min_confidence: float | None,
+        max_confidence: float | None,
+        count: int,
+        include_all_symbols: bool,
+    ) -> str | None:
+        if count < 1:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_SKIP_COUNT_INVALID",
+                "The symbol-cell review skip count must be positive.",
+            )
+        if after_cursor and before_cursor:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_CURSOR_DIRECTION_CONFLICT",
+                "Use either afterCursor or beforeCursor, not both.",
+            )
+        if not after_cursor and not before_cursor:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_SKIP_CURSOR_REQUIRED",
+                "Skipping ahead requires a base afterCursor or beforeCursor.",
+            )
+        catalog = self._repository.require_ready_game(game_id)
+        model_cohort_id = (
+            self._repository.active_model_cohort_id(game_id)
+            if state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
+            else None
+        )
+        review_filter = SymbolCellReviewListFilter(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            state=state,
+            min_confidence=min_confidence,
+            max_confidence=max_confidence,
+            include_all_symbols=include_all_symbols,
+            model_cohort_id=model_cohort_id,
+            storage_generation=catalog.storage_generation,
+            uses_current_projection=catalog.uses_current_projection,
+        )
+        after_key = (
+            decode_symbol_cell_review_cursor(
+                after_cursor,
+                review_filter=review_filter,
+                direction=SymbolCellReviewCursorDirection.AFTER,
+            )
+            if after_cursor
+            else None
+        )
+        before_key = (
+            decode_symbol_cell_review_cursor(
+                before_cursor,
+                review_filter=review_filter,
+                direction=SymbolCellReviewCursorDirection.BEFORE,
+            )
+            if before_cursor
+            else None
+        )
+        landed_key = self._repository.skip_keys(
+            review_filter=review_filter,
+            after_key=after_key,
+            before_key=before_key,
+            count=count,
+        )
+        if landed_key is None:
+            return None
+        direction = (
+            SymbolCellReviewCursorDirection.BEFORE
+            if before_cursor
+            else SymbolCellReviewCursorDirection.AFTER
+        )
+        return encode_symbol_cell_review_cursor(
+            review_filter=review_filter,
+            direction=direction,
+            key=landed_key,
         )
 
     def counts(

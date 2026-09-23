@@ -80,6 +80,10 @@ class SymbolCellReviewPageResponse(ApiModel):
     previous_cursor: str | None
 
 
+class SymbolCellReviewSkipResponse(ApiModel):
+    cursor: str | None
+
+
 class SymbolCellReviewCountSnapshotResponse(ApiModel):
     counts: SymbolCellReviewCountsResponse
     catalog_revision: int = Field(ge=0)
@@ -412,6 +416,10 @@ def to_symbol_cell_review_page_response(
     )
 
 
+def to_symbol_cell_review_skip_response(cursor: str | None) -> SymbolCellReviewSkipResponse:
+    return SymbolCellReviewSkipResponse(cursor=cursor)
+
+
 def to_symbol_cell_review_count_snapshot_response(
     snapshot: SymbolCellReviewCountSnapshot,
 ) -> SymbolCellReviewCountSnapshotResponse:
@@ -679,6 +687,7 @@ __all__ = [
     "SymbolCellReviewPageResponse",
     "SymbolCellReviewProjectionStartResponse",
     "SymbolCellReviewProjectionStatusResponse",
+    "SymbolCellReviewSkipResponse",
     "ResolveUnreadableCellRequest",
     "SaveUnreadableBoardCellRequest",
     "SaveUnreadableBoardRequest",
@@ -695,6 +704,7 @@ __all__ = [
     "to_symbol_cell_review_page_response",
     "to_symbol_cell_review_projection_start_response",
     "to_symbol_cell_review_projection_status_response",
+    "to_symbol_cell_review_skip_response",
     "to_unreadable_board_review_detail_response",
     "to_save_unreadable_board_response",
     "to_unreadable_board_review_page_response",

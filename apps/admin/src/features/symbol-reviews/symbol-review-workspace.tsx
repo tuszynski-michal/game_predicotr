@@ -27,6 +27,7 @@ import {
   loadSymbolReviewPage,
   loadSymbolReviewProjection,
   loadSymbolReviewSymbols,
+  skipSymbolReviewPages,
   startSymbolReviewProjection,
   type LoadSymbolReviewPageOptions,
   type SymbolReviewClient,
@@ -747,6 +748,37 @@ export function SymbolReviewWorkspace({
     }
     if (targetPageNumber === currentPageNumber) return;
 
+    // A page visited earlier in this session may already be cached; that
+    // avoids a network round trip entirely regardless of jump distance.
+    const cachedTarget = findCachedSymbolReviewPage(workspace, targetPageNumber);
+    if (cachedTarget !== null) {
+      pagePositionRef.current = cachedTarget.position;
+      setRequestedPageNumber(String(cachedTarget.position.number));
+      setVisibleItems([]);
+      previewAnchorCellId.current = null;
+      setVirtualPreviewTiles({});
+      setPreviewAvailability(emptyPreviewAvailability());
+      dispatch({
+        page: cachedTarget.page,
+        position: cachedTarget.position,
+        type: 'page_loaded',
+      });
+      setCountsState('loading');
+      setCountsSnapshot(null);
+      setCountsCatalogRevision(cachedTarget.page.catalogRevision);
+      return;
+    }
+
+    const hops = targetPageNumber - currentPageNumber;
+    const forward = hops > 0;
+    const baseCursor = forward
+      ? currentPage.nextCursor
+      : currentPage.previousCursor;
+    if (baseCursor === null) {
+      setError('Wyniki zmieniły się przed osiągnięciem wskazanej strony.');
+      return;
+    }
+
     pagingRef.current = true;
     setPaging(true);
     setError('');
@@ -755,32 +787,19 @@ export function SymbolReviewWorkspace({
     countsRequestId.current += 1;
     const requestId = ++pageRequestId.current;
     const controller = requestCoordinator.begin('page');
-    let page = currentPage;
-    let pageNumber = currentPageNumber;
-    let position = workspace.currentPage?.position ?? { number: pageNumber };
     try {
-      while (pageNumber !== targetPageNumber) {
-        const direction = targetPageNumber > pageNumber ? 1 : -1;
-        const cursor =
-          direction === 1 ? page.nextCursor : page.previousCursor;
-        if (cursor === null) {
-          setError('Wyniki zmieniły się przed osiągnięciem wskazanej strony.');
-          return;
-        }
-        position =
-          direction === 1
-            ? { afterCursor: cursor, number: pageNumber + 1 }
-            : { beforeCursor: cursor, number: pageNumber - 1 };
-        const cached = findCachedSymbolReviewPage(workspace, position.number);
-        if (cached !== null) {
-          page = cached.page;
-          pageNumber = cached.position.number;
-          position = cached.position;
-          continue;
-        }
-        const result = await loadSymbolReviewPage(api, {
+      // One page away needs only the existing next/previous cursor. Farther
+      // jumps skip past the intermediate pages in a single lightweight
+      // request instead of hydrating and discarding each one in turn.
+      let targetCursor = baseCursor;
+      const skipCount = (Math.abs(hops) - 1) * pageFilters.limit;
+      if (skipCount > 0) {
+        const skipResult = await skipSymbolReviewPages(api, {
           ...pageFilters,
-          ...symbolReviewPageCursorOptions(position),
+          ...(forward
+            ? { afterCursor: baseCursor }
+            : { beforeCursor: baseCursor }),
+          count: skipCount,
           signal: controller.signal,
         });
         if (
@@ -789,17 +808,32 @@ export function SymbolReviewWorkspace({
         ) {
           return;
         }
-        if (!result.ok) {
-          if (result.aborted !== true) setError(result.error);
+        if (!skipResult.ok) {
+          if (skipResult.aborted !== true) setError(skipResult.error);
           return;
         }
-        page = result.page;
-        pageNumber = position.number;
+        if (skipResult.skip.cursor === null) {
+          setError('Wyniki zmieniły się przed osiągnięciem wskazanej strony.');
+          return;
+        }
+        targetCursor = skipResult.skip.cursor;
       }
+      const position: SymbolReviewPagePosition = forward
+        ? { afterCursor: targetCursor, number: targetPageNumber }
+        : { beforeCursor: targetCursor, number: targetPageNumber };
+      const result = await loadSymbolReviewPage(api, {
+        ...pageFilters,
+        ...symbolReviewPageCursorOptions(position),
+        signal: controller.signal,
+      });
       if (
         requestId !== pageRequestId.current ||
         !requestCoordinator.isCurrent('page', controller)
       ) {
+        return;
+      }
+      if (!result.ok) {
+        if (result.aborted !== true) setError(result.error);
         return;
       }
       pagePositionRef.current = position;
@@ -808,10 +842,10 @@ export function SymbolReviewWorkspace({
       previewAnchorCellId.current = null;
       setVirtualPreviewTiles({});
       setPreviewAvailability(emptyPreviewAvailability());
-      dispatch({ page, position, type: 'page_loaded' });
+      dispatch({ page: result.page, position, type: 'page_loaded' });
       setCountsState('loading');
       setCountsSnapshot(null);
-      setCountsCatalogRevision(page.catalogRevision);
+      setCountsCatalogRevision(result.page.catalogRevision);
     } finally {
       requestCoordinator.finish('page', controller);
       if (requestId === pageRequestId.current) {

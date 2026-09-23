@@ -64,6 +64,7 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     SymbolCellReviewPageResponse,
     SymbolCellReviewProjectionStartResponse,
     SymbolCellReviewProjectionStatusResponse,
+    SymbolCellReviewSkipResponse,
     UnreadableBoardReviewDetailResponse,
     UnreadableBoardReviewPageResponse,
     UnreadableSymbolAssignmentRequest,
@@ -79,6 +80,7 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     to_symbol_cell_review_page_response,
     to_symbol_cell_review_projection_start_response,
     to_symbol_cell_review_projection_status_response,
+    to_symbol_cell_review_skip_response,
     to_unreadable_board_review_detail_response,
     to_unreadable_board_review_page_response,
 )
@@ -515,6 +517,45 @@ def create_image_symbol_reviews_router(
                     min_confidence=min_confidence,
                     max_confidence=max_confidence,
                     limit=limit,
+                    include_all_symbols=include_all_symbols,
+                ),
+            )
+        )
+
+    @router.get(
+        "/{game_id}/symbol-cell-review-skip",
+        response_model=SymbolCellReviewSkipResponse,
+        operation_id="skipSymbolCellReviews",
+        summary="Compute a keyset cursor several pages ahead without hydrating pages",
+        responses=QUERY_ERROR_RESPONSES,
+    )
+    async def skip_symbol_cell_reviews(
+        game_id: UUID,
+        request: Request,
+        service: Annotated[SymbolCellReviewQueryService, service_parameter],
+        symbol_id: Annotated[str, Query(alias="symbolId")],
+        count: Annotated[int, Query(ge=1)],
+        state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL,
+        after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
+        before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
+        min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
+        max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+    ) -> SymbolCellReviewSkipResponse:
+        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
+        return to_symbol_cell_review_skip_response(
+            await _run_disconnect_cancellable_query(
+                request,
+                service,
+                partial(
+                    service.skip,
+                    game_id=game_id,
+                    symbol_id=parsed_symbol_id,
+                    state=state,
+                    after_cursor=after_cursor,
+                    before_cursor=before_cursor,
+                    min_confidence=min_confidence,
+                    max_confidence=max_confidence,
+                    count=count,
                     include_all_symbols=include_all_symbols,
                 ),
             )

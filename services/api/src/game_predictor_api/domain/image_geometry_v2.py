@@ -408,6 +408,22 @@ class SourceQuad:
                 "A source quadrilateral must lie inside the EXIF-normalized source image.",
             )
 
+    def require_not_fully_outside(
+        self, source: NormalizedSourceImage | SourceImageBounds
+    ) -> None:
+        """Allow a partially visible cell; only reject zero real pixels."""
+        if all(
+            point.x < -SOURCE_SUPPORT_EPSILON
+            or point.x > source.width - 1 + SOURCE_SUPPORT_EPSILON
+            or point.y < -SOURCE_SUPPORT_EPSILON
+            or point.y > source.height - 1 + SOURCE_SUPPORT_EPSILON
+            for point in self.corners
+        ):
+            raise ImageGeometryContractError(
+                "IMAGE_GEOMETRY_QUAD_ENTIRELY_OUT_OF_BOUNDS",
+                "A partially visible cell must retain at least one in-bounds corner.",
+            )
+
     def require_manual_edit_bounds(self, source: NormalizedSourceImage | SourceImageBounds) -> None:
         if _cross(self.corners[0], self.corners[1], self.corners[2]) <= 0:
             raise ImageGeometryContractError(
@@ -594,6 +610,7 @@ class VirtualCell:
     row_index: int
     column_index: int
     source_quad: SourceQuad
+    partially_visible: bool = False
 
     def __post_init__(self) -> None:
         self.geometry.topology.validate_coordinates(
@@ -601,12 +618,15 @@ class VirtualCell:
             row_index=self.row_index,
             column_index=self.column_index,
         )
-        self.source_quad.require_within(
-            self.geometry.source,
-            tolerance=SOURCE_SUPPORT_EPSILON
-            if self.geometry.geometry_qualification is not None
-            else 0.0,
-        )
+        if self.partially_visible:
+            self.source_quad.require_not_fully_outside(self.geometry.source)
+        else:
+            self.source_quad.require_within(
+                self.geometry.source,
+                tolerance=SOURCE_SUPPORT_EPSILON
+                if self.geometry.geometry_qualification is not None
+                else 0.0,
+            )
         expected = self.geometry.symbol_grid_quad.cell_quad(
             topology=self.geometry.topology,
             row_index=self.row_index,
@@ -683,14 +703,28 @@ def derive_virtual_cells(
     geometry: VirtualBoardGeometry,
     configuration: DirectCellRenderConfiguration,
 ) -> tuple[VirtualCell, ...]:
-    """Derive available cells, preserving their original row-major logical indices."""
+    """Derive available cells, preserving their original row-major logical indices.
 
+    A cell fully outside the source (zero real pixels) is skipped entirely.
+    A cell in the operator's unavailable mask but not fully outside — some
+    real pixels remain, whether from partial frame clipping or a manual
+    exclusion inside the frame — is still derived, flagged
+    ``partially_visible``, for mandatory human review downstream.
+    """
+
+    qualification = geometry.geometry_qualification
+    fully_unavailable = (
+        set(
+            fully_unavailable_source_cell_indices(
+                geometry.symbol_grid_quad, source=geometry.source, topology=geometry.topology
+            )
+        )
+        if qualification is not None
+        else set()
+    )
     cells: list[VirtualCell] = []
     for cell_index in range(geometry.topology.cell_count):
-        if (
-            geometry.geometry_qualification is not None
-            and cell_index in geometry.geometry_qualification.unavailable_cell_indices
-        ):
+        if cell_index in fully_unavailable:
             continue
         row_index, column_index = geometry.topology.coordinates(cell_index)
         cells.append(
@@ -705,9 +739,26 @@ def derive_virtual_cells(
                     row_index=row_index,
                     column_index=column_index,
                 ),
+                partially_visible=(
+                    qualification is not None
+                    and cell_index in qualification.unavailable_cell_indices
+                ),
             )
         )
     return tuple(cells)
+
+
+def _out_of_bounds_corner_count(
+    cell: SourceQuad, source: NormalizedSourceImage | SourceImageBounds
+) -> int:
+    return sum(
+        1
+        for point in cell.corners
+        if point.x < -SOURCE_SUPPORT_EPSILON
+        or point.x > source.width - 1 + SOURCE_SUPPORT_EPSILON
+        or point.y < -SOURCE_SUPPORT_EPSILON
+        or point.y > source.height - 1 + SOURCE_SUPPORT_EPSILON
+    )
 
 
 def unavailable_source_cell_indices(
@@ -716,20 +767,35 @@ def unavailable_source_cell_indices(
     """Classify actual cell footprints, not the renderer's inset/padding.
 
     Projective grid cells use the same square-to-quad transform as VirtualCell.
-    All corners of a convex footprint must be inside the source pixel centres.
-    No unavailable cell is instantiated or rendered, including the 15/15 case.
+    Any corner of a convex footprint outside the source pixel centres marks the
+    cell unavailable for geometry-qualification and training-exclusion
+    purposes.  A cell with *some* corners still inside may be instantiated as
+    a partially visible ``VirtualCell`` (see ``fully_unavailable_source_cell_indices``);
+    only a cell with every corner outside is never instantiated or rendered.
     """
     missing: list[int] = []
     for index in range(topology.cell_count):
         row, column = topology.coordinates(index)
         cell = quad.cell_quad(topology=topology, row_index=row, column_index=column)
-        if any(
-            point.x < -SOURCE_SUPPORT_EPSILON
-            or point.x > source.width - 1 + SOURCE_SUPPORT_EPSILON
-            or point.y < -SOURCE_SUPPORT_EPSILON
-            or point.y > source.height - 1 + SOURCE_SUPPORT_EPSILON
-            for point in cell.corners
-        ):
+        if _out_of_bounds_corner_count(cell, source) > 0:
+            missing.append(index)
+    return tuple(missing)
+
+
+def fully_unavailable_source_cell_indices(
+    quad: SourceQuad, *, source: NormalizedSourceImage | SourceImageBounds, topology: BoardTopology
+) -> tuple[int, ...]:
+    """Cells with zero real pixels: every corner lies outside the source.
+
+    A strict subset of ``unavailable_source_cell_indices``.  Only these cells
+    are excluded from ``derive_virtual_cells``; a cell with some corners
+    still inside is instantiated as a partially visible ``VirtualCell``.
+    """
+    missing: list[int] = []
+    for index in range(topology.cell_count):
+        row, column = topology.coordinates(index)
+        cell = quad.cell_quad(topology=topology, row_index=row, column_index=column)
+        if _out_of_bounds_corner_count(cell, source) == 4:
             missing.append(index)
     return tuple(missing)
 

@@ -6,6 +6,52 @@ last_updated: 2026-09-22
 
 # Decision Log
 
+## D-434 — Częściowo widoczne komórki mogą być renderowane do ręcznej oceny (T1: domena + renderer)
+
+- **Status:** accepted (TASK-0625, T1 z 3-taskowego planu; T2/T3 warunkowe,
+  osobne polecenia).
+- **Date:** 2026-09-23.
+- **Decision:** komórka planszy z 1–3 (nie 4) rogami quada poza granicami
+  zdjęcia może zostać zmaterializowana jako `VirtualCell` i wyrenderowana
+  (`services/api/src/game_predictor_api/domain/image_geometry_v2.py`:
+  `derive_virtual_cells`, nowe pole `VirtualCell.partially_visible`, nowa
+  `fully_unavailable_source_cell_indices`; renderer workera
+  `virtual_cell_extraction.py` analogicznie relaksowany). Komórka z 4/4
+  rogami poza kadrem nadal jest w 100% wykluczona — bez zmian. Brakująca
+  część kadru wychodzi czarna z istniejącego `cv2.BORDER_CONSTANT` — bez
+  nowej matematyki przycinania wieloboku.
+- **Rationale:** zgłoszenie użytkownika — komórki z kolumny wychodzącej poza
+  kadr przy „niepełnej planszy" nigdy nie trafiały do Weryfikacji symboli
+  (ani jako „pending", ani „nierozpoznany ?"), bo `derive_virtual_cells`
+  całkowicie pomijał każdy indeks z operatorskiej maski
+  `unavailable_cell_indices`. To było celowe, udokumentowane zachowanie z
+  TASK-0505–0509 („brakujące nie otrzymują sztucznych obrazów",
+  `IMAGE_INGESTION.md` ok. l. 1765–1801) — po przedstawieniu przyczyny
+  użytkownik poprosił o nową zdolność: pozwolić *jemu* ocenić częściowo
+  widoczny symbol, zamiast całkowicie go ukrywać. D-434 częściowo koryguje
+  TASK-0505–0509: „brak syntezy" pozostaje zasadą dla w pełni niedostępnych
+  komórek, ale nie blokuje już renderowania komórek z realnymi, choć
+  niepełnymi pikselami.
+- **Safety:** `unavailable_source_cell_indices` (maska na poziomie
+  planszy, do walidacji override'u i wykluczenia z treningu) — bez zmian
+  semantyki. Zmieniło się wyłącznie to, które z zamaskowanych komórek
+  dostają realny render. Nowy `SourceQuad.require_not_fully_outside` i
+  `_require_partial_source_support` w rendererze to twarde bezpieczniki:
+  odrzucają quad, który nie ma ani jednego realnego piksela (0 z 4 rogów w
+  granicach) — nigdy nie renderujemy czystej syntezy.
+- **Zakres T1 (ten wpis):** wyłącznie domena i renderer — zdolność
+  techniczna. **Produkcyjny pipeline (`production_workflow.py`) ma własny,
+  redundantny filtr, który nadal usuwa wszystkie zamaskowane komórki przed
+  renderowaniem — to zachowanie użytkownika końcowego (Weryfikacja symboli)
+  jest bez zmian, dopóki T2 nie podłączy tej zdolności do pipeline'u**
+  (wymuszony `assignedSymbolId = null`, nowy `quality_issue`, trwałe
+  wykluczenie z treningu). T2 i T3 wymagają osobnych poleceń użytkownika.
+- **Compatibility:** `VirtualCell.partially_visible` to nowe pole z
+  wartością domyślną `False` — nie zmienia istniejących checksumów
+  tożsamości (`logical_id_sha256`, `render_id_sha256` nie zawierają tego
+  pola). `VIRTUAL_CELL_RENDER_SPEC_VERSION`/`VIRTUAL_CELL_RENDERER_VERSION`
+  bez zmian — matematyka warpu dla zwykłych komórek identyczna.
+
 ## D-433 — Lekki skok stron w Weryfikacji symboli zamiast paginacji offsetowej
 
 - **Status:** accepted (TASK-0624).

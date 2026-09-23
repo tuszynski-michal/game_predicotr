@@ -6,6 +6,42 @@ last_updated: 2026-09-23
 
 # Current State
 
+### TASK-0625 — częściowo widoczne komórki, T1: domena + renderer (D-434)
+
+- Zgłoszenie użytkownika: komórki z kolumny wychodzącej poza kadr na
+  „niepełnej planszy" nigdy nie trafiały do Weryfikacji symboli (ani
+  „pending", ani „nierozpoznany ?") — `derive_virtual_cells` całkowicie
+  pomijał każdy indeks z `unavailable_cell_indices`. Zdiagnozowano jako
+  celowe zachowanie z TASK-0505–0509 („brak syntezy dla brakujących
+  pikseli"), nie błąd. Zaakceptowany 3-taskowy plan (T1 domena+renderer,
+  T2 pipeline workera, T3 Admin UI) z potwierdzonymi DA-1…DA-4.
+- T1 (ten wpis, jedyny wykonany dotąd): komórka z 1–3 (nie 4) rogami poza
+  kadrem może zostać zmaterializowana i wyrenderowana — nowe pole
+  `VirtualCell.partially_visible`, nowa `fully_unavailable_source_cell_indices`
+  i `SourceQuad.require_not_fully_outside`
+  (`services/api/src/game_predictor_api/domain/image_geometry_v2.py`),
+  analogiczna relaksacja bezpiecznika w rendererze workera
+  (`virtual_cell_extraction.py`: `_require_partial_source_support`).
+  Komórka w 100% poza kadrem nadal w pełni wykluczona — bez zmian.
+- **Bez zmiany zachowania końcowego użytkownika jeszcze** —
+  `production_workflow.py` ma własny, redundantny filtr, który nadal usuwa
+  wszystkie zamaskowane komórki przed renderowaniem w produkcyjnym
+  pipeline. T1 to wyłącznie zdolność techniczna w domenie/rendererze; T2
+  (wymuszony `assignedSymbolId = null`, nowy `quality_issue`, trwałe
+  wykluczenie z treningu) i T3 (Admin UI) czekają na osobne polecenia.
+- Nowe testy: `test_image_geometry_v2.py` (4: fully-unavailable indices,
+  derive_virtual_cells mix, defense-in-depth na 100%-poza-kadrem),
+  `test_virtual_cell_extraction.py` (2: render częściowo widocznej komórki,
+  regresja odrzucenia niespójnego wywołania). Pełna regresja: 54 testy
+  (`test_image_geometry_v2*.py`, `test_virtual_grid_geometry_repository.py`,
+  `test_image_import_geometry_guard_preview.py`,
+  `test_virtual_cell_extraction.py`) + 68 (`test_production_image_workflow.py`,
+  `test_symbol_references_repository.py`, `test_image_symbol_review_virtual_source.py`)
+  zielone bez zmiany istniejących asercji. Ruff czysty; mypy bez nowych
+  błędów (baseline 27, potwierdzone `git stash`).
+- Decyzja: `DECISION_LOG.md` D-434; korekta TASK-0505–0509 w
+  `IMAGE_INGESTION.md`.
+
 ### TASK-0624 — lekki skok stron w Weryfikacji symboli (D-433)
 
 - Zgłoszenie użytkownika: skok ze strony 1 na 500 w sekcji „Weryfikacja

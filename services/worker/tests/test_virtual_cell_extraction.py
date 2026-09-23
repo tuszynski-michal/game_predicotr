@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import pytest
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_geometry_v2 import (
     ActiveBoardSlot,
     DirectCellRenderConfiguration,
@@ -481,3 +482,101 @@ def test_virtual_renderer_rejects_drift_before_first_warp(
         VirtualCellRenderer().render(frame, cells[:-1] + (foreign[-1],))
 
     assert raised.value.code == "IMAGE_VIRTUAL_CELL_SOURCE_MISMATCH"
+
+
+def _partial_visibility_frame_and_cells() -> tuple[CanonicalSourceFrame, tuple[VirtualCell, ...]]:
+    """A 3x5 axis-aligned grid over a 300x180 source, shifted left by 90px.
+
+    Column 0 (indices 0, 5, 10) has zero corners inside the source and is
+    skipped entirely; column 1 (indices 1, 6, 11) has two of four corners
+    inside and is kept as ``partially_visible``.
+    """
+
+    rgb = np.full((180, 300, 3), 200, dtype=np.uint8)
+    source = NormalizedSourceImage(
+        source_checksum_sha256="a" * 64,
+        normalized_pixel_checksum_sha256=rgb_pixel_checksum_sha256(rgb),
+        width=300,
+        height=180,
+        exif_orientation=None,
+        normalization_adapter_version=CANONICAL_SOURCE_LOADER_VERSION,
+    )
+    frame = CanonicalSourceFrame(
+        source=source,
+        raw_width=300,
+        raw_height=180,
+        source_mode="RGB",
+        orientation_action="none",
+        rgb=rgb,
+    )
+    quad = SourceQuad(
+        corners=(
+            SourcePoint(-90.0, 0.0),
+            SourcePoint(209.0, 0.0),
+            SourcePoint(209.0, 179.0),
+            SourcePoint(-90.0, 179.0),
+        )
+    )
+    topology = BoardTopology(rows=3, columns=5)
+    qualification = GeometryQualification(
+        "pending_partial",
+        (0, 1, 5, 6, 10, 11),
+        True,
+        "missing_pixels",
+    )
+    geometry = VirtualBoardGeometry(
+        source=source,
+        source_occurrence=SourceOccurrence(
+            import_job_id=UUID("20000000-0000-0000-0000-000000000002"),
+            file_execution_key="f" * 64,
+        ),
+        slot=ActiveBoardSlot(range_start=1, range_end=1, position_index=0, sequence_number=1),
+        topology=topology,
+        topology_rules_version_id=RULES_VERSION_ID,
+        geometry_revision=0,
+        geometry_version="source-quad-perspective-grid-v1",
+        engine_kind=GeometryEngineKind.MANUAL_V1,
+        symbol_grid_quad=quad,
+        geometry_qualification=qualification,
+    )
+    cells = derive_virtual_cells(
+        geometry=geometry,
+        configuration=DirectCellRenderConfiguration(
+            extractor_version=VIRTUAL_CELL_RENDERER_VERSION,
+            preprocessing_version="spatial-symbol-cnn-rgb-input-v1",
+            interpolation=VIRTUAL_CELL_INTERPOLATION_VERSION,
+            output_width=64,
+            output_height=64,
+            padding_fraction=0.1,
+        ),
+    )
+    return frame, cells
+
+
+def test_renderer_renders_a_partially_visible_cell_instead_of_rejecting_it() -> None:
+    frame, cells = _partial_visibility_frame_and_cells()
+
+    assert [cell.cell_index for cell in cells] == [1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14]
+
+    rendered = VirtualCellRenderer().render(frame, cells)
+
+    assert len(rendered) == len(cells)
+    for virtual in rendered:
+        assert virtual.rgb.shape == (64, 64, 3)
+        assert virtual.rendered_pixel_checksum_sha256 == rgb_pixel_checksum_sha256(virtual.rgb)
+
+
+def test_renderer_still_rejects_an_unavailable_cell_that_is_not_flagged_partially_visible() -> None:
+    # A validly constructed VirtualCell can never disagree with its own
+    # geometry_qualification (domain __post_init__ bounds already forbid
+    # that), so the inconsistent state this guards against -- an unavailable
+    # index reaching the renderer unflagged -- is only reachable by mutating
+    # a frozen instance directly, standing in for a future construction bug.
+    frame, cells = _partial_visibility_frame_and_cells()
+    inconsistent = cells[0]
+    object.__setattr__(inconsistent, "partially_visible", False)
+
+    with pytest.raises(VirtualCellExtractionError) as raised:
+        VirtualCellRenderer().render(frame, (inconsistent,))
+
+    assert raised.value.code == "IMAGE_VIRTUAL_CELL_UNAVAILABLE"

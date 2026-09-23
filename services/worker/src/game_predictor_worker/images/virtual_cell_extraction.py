@@ -207,27 +207,34 @@ class VirtualCellRenderer:
                 )
             logical_ids.add(cell.logical_id_sha256)
             if cell.geometry.geometry_qualification is not None:
-                if cell.cell_index in cell.geometry.geometry_qualification.unavailable_cell_indices:
+                unavailable = (
+                    cell.cell_index in cell.geometry.geometry_qualification.unavailable_cell_indices
+                )
+                if unavailable and not cell.partially_visible:
                     raise VirtualCellExtractionError(
                         "IMAGE_VIRTUAL_CELL_UNAVAILABLE",
                         "An unavailable logical cell must never be rendered.",
                     )
-                _require_full_source_support(
-                    cell.source_quad, frame=frame, tolerance=SOURCE_SUPPORT_EPSILON
-                )
+                if not cell.partially_visible:
+                    _require_full_source_support(
+                        cell.source_quad, frame=frame, tolerance=SOURCE_SUPPORT_EPSILON
+                    )
             geometry_key = cell.geometry.geometry_fingerprint_sha256
             transform = board_transforms.get(geometry_key)
             if transform is None:
                 transform = _canonical_board_to_source_transform(cell)
                 board_transforms[geometry_key] = transform
             padded_quad = _padded_cell_quad(cell, transform)
-            _require_full_source_support(
-                padded_quad,
-                frame=frame,
-                tolerance=SOURCE_SUPPORT_EPSILON
-                if cell.geometry.geometry_qualification is not None
-                else 0.0,
-            )
+            if cell.partially_visible:
+                _require_partial_source_support(padded_quad, frame=frame)
+            else:
+                _require_full_source_support(
+                    padded_quad,
+                    frame=frame,
+                    tolerance=SOURCE_SUPPORT_EPSILON
+                    if cell.geometry.geometry_qualification is not None
+                    else 0.0,
+                )
             prepared.append((cell, padded_quad))
         return tuple(prepared)
 
@@ -478,6 +485,26 @@ def _require_full_source_support(
         raise VirtualCellExtractionError(
             "IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE",
             "A padded virtual cell must be fully supported by the canonical source.",
+        )
+
+
+def _require_partial_source_support(quad: SourceQuad, *, frame: CanonicalSourceFrame) -> None:
+    """Allow a partially visible cell; only reject a quad with zero real pixels."""
+    points = np.asarray(_quad_coordinates(quad), dtype=np.float32)
+    if (
+        not bool(np.isfinite(points).all())
+        or cv2.contourArea(points) <= 4.0
+        or all(
+            x < -SOURCE_SUPPORT_EPSILON
+            or x > frame.source.width - 1 + SOURCE_SUPPORT_EPSILON
+            or y < -SOURCE_SUPPORT_EPSILON
+            or y > frame.source.height - 1 + SOURCE_SUPPORT_EPSILON
+            for x, y in _quad_coordinates(quad)
+        )
+    ):
+        raise VirtualCellExtractionError(
+            "IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE",
+            "A partially visible virtual cell must retain some real source pixels.",
         )
 
 

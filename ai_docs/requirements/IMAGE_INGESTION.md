@@ -1797,10 +1797,22 @@ i numerów z nazwy źródła; nie można pominąć niewidocznej planszy.
 
 TASK-0508 domyka fundament TASK-0505: guard v3, kwalifikowane page overrides
 i ręczne rewizje virtual geometry mają wspólną interpretację maski. Dostępne
-symbole są renderowane i rozpoznawane; brakujące nie otrzymują sztucznych
-obrazów. Slot i numer planszy pozostają także przy 15/15 niedostępnych polach.
-Legacy assets odmawiają nowej kwalifikacji zamiast zapisywać ją częściowo.
-Historyczne żądania i manifesty bez nowych pól działają bez zmian.
+symbole są renderowane i rozpoznawane. Slot i numer planszy pozostają także
+przy 15/15 niedostępnych polach. Legacy assets odmawiają nowej kwalifikacji
+zamiast zapisywać ją częściowo. Historyczne żądania i manifesty bez nowych
+pól działają bez zmian.
+
+**Sprostowanie D-434 (TASK-0625, T1):** komórka w pełni poza kadrem (4/4
+rogi quada) nadal nie otrzymuje sztucznego obrazu i nigdy nie jest
+materializowana. Komórka w masce `unavailableCellIndices`, ale z choć
+jednym rogiem w kadrze — częściowo widoczna, w tym przypadek ręcznego
+wykluczenia komórki w pełni mieszczącej się w kadrze — jest renderowana
+(`VirtualCell.partially_visible`) z brakującą częścią wypełnioną czarno
+(`cv2.BORDER_CONSTANT`, bez nowej matematyki przycinania), żeby operator
+mógł ocenić ją ręcznie. T1 (domena + renderer) jest zdolnością techniczną;
+produkcyjny pipeline importu nadal usuwa te komórki przed renderowaniem, aż
+osobny task (T2) podłączy tę zdolność do wymuszonego statusu
+„nierozpoznany" i trwałego wykluczenia z treningu.
 
 Nowe kohorty geometrii i kotwice wykluczają niepełne oraz ręcznie wykluczone
 sloty. Nie oznacza to odtrenowania aktywnego modelu ani automatycznego

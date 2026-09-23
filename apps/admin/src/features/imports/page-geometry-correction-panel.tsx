@@ -980,8 +980,8 @@ function PageGeometryCorrectionPanelContent({
       const [lt, pt] = pendingBoardCorner as [Point, Point];
       const pd = bounded;
       const ld: Point = {
-        x: lt.x + pd.x - pt.x,
-        y: lt.y + pd.y - pt.y,
+        x: lt.x + (pd.x - pt.x),
+        y: lt.y + (pd.y - pt.y),
       };
       const quad: Quad = [lt, pt, pd, ld];
       if (!isClockwiseScreenQuad(quad as PageGeometryCorners)) {

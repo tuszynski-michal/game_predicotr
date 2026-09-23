@@ -521,21 +521,8 @@ export function adjacentManualNavigationStep(
   value: number | undefined,
   direction: -1 | 1,
 ): number {
-  const currentIndex = MANUAL_IMAGE_NAVIGATION_STEPS.includes(
-    value as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],
-  )
-    ? MANUAL_IMAGE_NAVIGATION_STEPS.indexOf(
-        value as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],
-      )
-    : 0;
-  const nextIndex = Math.max(
-    0,
-    Math.min(
-      MANUAL_IMAGE_NAVIGATION_STEPS.length - 1,
-      currentIndex + direction,
-    ),
-  );
-  return MANUAL_IMAGE_NAVIGATION_STEPS[nextIndex] ?? 1;
+  const current = value === undefined || Number.isNaN(value) ? 1 : value;
+  return Math.max(1, current + direction);
 }
 
 export function manualPreviewWindow(

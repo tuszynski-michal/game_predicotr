@@ -421,14 +421,12 @@ test('resumes only after synchronizing a matching output manifest', () => {
   assert.match(selectionSource, /manual-image-selection-output-v1\.json/);
 });
 
-test('offers the requested persisted arrow navigation steps', () => {
+test('offers a persisted numeric arrow navigation step', () => {
   const initial = createManualSelectionState(1, 'ascending');
   assert.equal(initial.navigationStep, 1);
-  assert.match(workspaceSource, /MANUAL_IMAGE_NAVIGATION_STEPS\.map/);
-  assert.deepEqual(
-    MANUAL_IMAGE_NAVIGATION_STEPS,
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20],
-  );
+  assert.match(workspaceSource, /type="number"/);
+  assert.match(workspaceSource, /min="1"/);
+  assert.match(workspaceSource, /step="1"/);
   assert.match(workspaceSource, /delta \* navigationStep/);
   assert.match(workspaceSource, /navigationStep,/);
 });
@@ -439,9 +437,10 @@ test('up and down arrows move by one configured navigation step', () => {
   assert.equal(adjacentManualNavigationStep(7, 1), 8);
   assert.equal(adjacentManualNavigationStep(8, 1), 9);
   assert.equal(adjacentManualNavigationStep(9, 1), 10);
+  assert.equal(adjacentManualNavigationStep(50, 1), 51);
   assert.equal(adjacentManualNavigationStep(3, -1), 2);
   assert.equal(adjacentManualNavigationStep(1, -1), 1);
-  assert.equal(adjacentManualNavigationStep(20, 1), 20);
+  assert.equal(adjacentManualNavigationStep(20, 1), 21);
   assert.match(manualSelectionCoreSource, /input\.key === 'ArrowDown'/);
   assert.match(workspaceSource, /changeNavigationStepByDirection\(1\)/);
   assert.match(manualSelectionCoreSource, /input\.key === 'ArrowUp'/);

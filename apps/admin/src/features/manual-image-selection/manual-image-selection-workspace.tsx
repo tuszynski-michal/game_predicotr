@@ -9,10 +9,8 @@ import {
 } from '../../lib/local-directory-picker.ts';
 
 import {
-  adjacentManualNavigationStep,
   createManualSelectionState,
   INDEPENDENT_MANUAL_SELECTION_ID,
-  MANUAL_IMAGE_NAVIGATION_STEPS,
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
@@ -1038,11 +1036,9 @@ function LocalManualImageSelectionWorkspace() {
       acceptPreparationRef.current
     )
       return;
-    const navigationStep = adjacentManualNavigationStep(
-      currentState.navigationStep,
-      direction,
-    );
-    if (navigationStep === currentState.navigationStep) return;
+    const currentStep = currentState.navigationStep ?? 1;
+    const navigationStep = Math.max(1, currentStep + direction);
+    if (navigationStep === currentStep) return;
     const nextState = {
       ...currentState,
       navigationStep,
@@ -1381,22 +1377,14 @@ function LocalManualImageSelectionWorkspace() {
         toolbarStart={
           <label className="manualImageSelectionStep">
             Skok strzałki
-            <select
+            <input
               disabled={busy || acceptPreparation}
+              min="1"
               onChange={(event) => changeNavigationStep(event.target.value)}
+              step="1"
+              type="number"
               value={navigationStep}
-            >
-              {MANUAL_IMAGE_NAVIGATION_STEPS.map((step) => (
-                <option key={step} value={step}>
-                  co {step}{' '}
-                  {step === 1
-                    ? 'zdjęcie'
-                    : step >= 2 && step <= 4
-                      ? 'zdjęcia'
-                      : 'zdjęć'}
-                </option>
-              ))}
-            </select>
+            />
           </label>
         }
       />
@@ -1512,9 +1500,6 @@ async function requestPermission(
 }
 
 function normalizeNavigationStep(value: number | undefined): number {
-  return MANUAL_IMAGE_NAVIGATION_STEPS.includes(
-    value as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],
-  )
-    ? (value as number)
-    : 1;
+  if (value === undefined || Number.isNaN(value)) return 1;
+  return Math.max(1, Math.floor(value));
 }

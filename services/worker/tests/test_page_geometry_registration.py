@@ -227,6 +227,83 @@ def test_registration_accepts_a_page_with_one_weak_board_using_relaxed_threshold
     assert result.slot_qualifications[8].exclude_from_geometry_training is True
 
 
+def test_registration_uses_homography_projection_for_the_relaxed_weak_board() -> None:
+    # T2/DA-2: the one board that only clears the relaxed D-420 gate keeps
+    # the untouched homography projection instead of the snapped quad, since
+    # its red-border evidence is too unreliable to trust the bounded snap.
+    anchor, quads = _page()
+    target = anchor.copy()
+    cv2.rectangle(target, (500, 400), (710, 580), (0, 0, 0), -1)
+    registrar = VerifiedPageRegistrar(
+        _profile(quads),
+        load_anchor_rgb=lambda checksum: anchor,
+    )
+
+    result = registrar.register(target)
+
+    assert result is not None
+    assert result.weak_board_quad_source == "homography_projection"
+    assert result.to_payload()["weakBoardQuadSource"] == "homography_projection"
+    # This scenario keeps the target pixel-identical to the anchor apart from
+    # the erased interior, so the estimated homography is near-identity and
+    # every quad (snapped or projected) lands back on the anchor's own quad.
+    assert result.quads == quads
+
+
+def test_registration_fails_closed_when_weak_board_projection_breaks_the_grid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    anchor, quads = _page()
+    target = anchor.copy()
+    cv2.rectangle(target, (500, 400), (710, 580), (0, 0, 0), -1)
+    registrar = VerifiedPageRegistrar(
+        _profile(quads),
+        load_anchor_rgb=lambda checksum: anchor,
+    )
+
+    real_is_complete_ordered_grid = page_geometry_registration.is_complete_ordered_grid
+    call_count = {"n": 0}
+
+    def flaky_is_complete_ordered_grid(
+        quads_arg: object, width: int, height: int
+    ) -> bool:
+        call_count["n"] += 1
+        # Each retry (1000/1500/3000 ORB features) makes exactly two calls:
+        # the first validates the snapped grid (must stay real so the page
+        # reaches the relaxed-acceptance branch at all) and the second guards
+        # the projected weak-board grid, which every retry forces to fail.
+        if call_count["n"] % 2 == 0:
+            return False
+        return bool(real_is_complete_ordered_grid(quads_arg, width, height))  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        page_geometry_registration,
+        "is_complete_ordered_grid",
+        flaky_is_complete_ordered_grid,
+    )
+
+    evaluation = registrar.evaluate(target)
+
+    assert evaluation.result is None
+    assert call_count["n"] >= 2
+    reason_codes = {attempt.reason_code for attempt in evaluation.attempts}
+    assert "PAGE_GEOMETRY_QUADS_INVALID" in reason_codes
+
+
+def test_registration_omits_weak_board_quad_source_for_baseline_pages() -> None:
+    anchor, quads = _page()
+    registrar = VerifiedPageRegistrar(
+        _profile(quads),
+        load_anchor_rgb=lambda checksum: anchor,
+    )
+
+    result = registrar.register(anchor.copy())
+
+    assert result is not None
+    assert result.weak_board_quad_source is None
+    assert "weakBoardQuadSource" not in result.to_payload()
+
+
 def test_registration_reports_red_edge_rejection_without_repeating_orb(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

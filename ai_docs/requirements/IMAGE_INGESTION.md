@@ -858,6 +858,15 @@ ale słaba plansza otrzymuje kwalifikację `excludeFromGeometryTraining`, więc
 nie trafia do profilu kotwic ani do uczenia geometrii. Dzięki temu powtarzalna
 zasłona nie obniża progu dla przyszłych kotwic.
 
+Na stronie akceptowanej wyłącznie tą relaksacją quad jedynej słabej planszy
+pochodzi z nieprzesuniętej projekcji homografii, a nie z lokalnego dosunięcia
+do czerwonej ramki (D-431); pozostałych osiem plansz nadal używa dosuniętego
+quadu. Dowód akceptacji (pokrycie czerwonej krawędzi) jest mierzony przed tą
+podmianą i się nie zmienia. Jeżeli podmiana psuje uporządkowaną siatkę
+dziewięciu quadów, strona trafia do `Korekty geometrii strony` zamiast
+przyjąć błędną projekcję. Manifest oznacza taką stronę polem
+`weakBoardQuadSource: "homography_projection"`.
+
 Nowe manifesty zachowują również ograniczoną diagnostykę nieudanej
 rejestracji. Powód rozróżnia brak cech lub dopasowań, błędną homografię,
 niewystarczające inliery, błąd reprojekcji, nieprawidłowe quady i brak pokrycia

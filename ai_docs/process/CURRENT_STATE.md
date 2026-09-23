@@ -6,6 +6,42 @@ last_updated: 2026-09-23
 
 # Current State
 
+### TASK-0622 — quad słabej planszy relaksacji D-420 z projekcji homografii (D-431)
+
+- Warunkowy task T2 z planu, zależny od TASK-0621 (`v0.10.388`); DA-2
+  potwierdzone ponownie przez użytkownika 2026-09-23.
+- `_evaluate_final_registration`: na stronie akceptowanej wyłącznie ścieżką
+  relaksacji D-420 (`relaxed_accepted and not baseline_accepted`) quad
+  jedynej planszy poniżej `minimum_board_red_edge_coverage` (0,45) jest teraz
+  brany z nieprzesuniętej `projected_quads[slot]` zamiast ze snapniętego
+  `quads[slot]`. Pozostałe osiem plansz i wszystkie plansze na stronach
+  bazowych są bez zmian. `board_red_edge_coverages`/`mean_red_edge_coverage`
+  (dowód akceptacji) mierzone jak dotąd, przed podmianą quadu.
+- Fail-closed: jeżeli podstawiona siatka nie jest kompletna/uporządkowana
+  (`is_complete_ordered_grid` zwraca fałsz), strona jest odrzucana z
+  `PAGE_GEOMETRY_QUADS_INVALID` zamiast przyjąć błędną projekcję.
+- `RegisteredPageGeometry` ma nowe opcjonalne pole `weak_board_quad_source`
+  (payload: `weakBoardQuadSource: "homography_projection"`), obecne tylko na
+  stronach relaksowanych.
+- Powód (R-1, z planu): pomiar pokazał, że `_snap_quad_to_red_edges` przesuwa
+  quad ~7 px w górę na wszystkich dziewięciu planszach, nie tylko słabej —
+  dla planszy z niepewnym dowodem czerwonej ramki nieprzesunięta projekcja
+  jest bezpieczniejsza niż korekta oparta na tym samym niepewnym dowodzie.
+  Znana, świadomie zaakceptowana niespójność: mocne plansze ze snapu, słaba
+  z czystej projekcji; ogólny bias snapu (R-1) pozostaje nierozwiązany i jest
+  rekomendowany jako osobne zadanie diagnostyczne.
+- Nowe testy w `services/worker/tests/test_page_geometry_registration.py`:
+  `test_registration_uses_homography_projection_for_the_relaxed_weak_board`,
+  `test_registration_fails_closed_when_weak_board_projection_breaks_the_grid`,
+  `test_registration_omits_weak_board_quad_source_for_baseline_pages`.
+  Wszystkie 23 testy pliku oraz 147 testów regresyjnych z T1
+  (`test_page_geometry_preflight.py`, `test_lateral_page_registration.py`,
+  `test_lateral_partial_workflow.py`, `test_page_anchor_qualification.py`,
+  `test_production_image_workflow.py`, `test_board_cell_geometry_audit.py`)
+  przechodzą bez zmian w istniejących asercjach. Ruff czysty; mypy bez nowych
+  błędów (te same 14 preexisting błędów importu co w TASK-0621).
+- Decyzja: `DECISION_LOG.md` D-431.
+
 ### TASK-0621 — maska czerwieni odporna na ciemną ramkę (D-430)
 
 - `page_geometry_registration._red_mask` obniżył dolny próg jasności (V)

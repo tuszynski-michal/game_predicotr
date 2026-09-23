@@ -100,6 +100,7 @@ class RegisteredPageGeometry:
     anchor_mask_version: str | None = None
     anchor_mask_padding_ratio: float | None = None
     slot_qualifications: tuple[GeometryQualification, ...] | None = None
+    weak_board_quad_source: Literal["homography_projection"] | None = None
 
     def to_payload(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -124,6 +125,8 @@ class RegisteredPageGeometry:
             payload["anchorMaskVersion"] = self.anchor_mask_version
         if self.anchor_mask_padding_ratio is not None:
             payload["anchorMaskPaddingRatio"] = self.anchor_mask_padding_ratio
+        if self.weak_board_quad_source is not None:
+            payload["weakBoardQuadSource"] = self.weak_board_quad_source
         return payload
 
 
@@ -947,6 +950,34 @@ def _evaluate_final_registration(
         if baseline_accepted
         else _slot_qualifications_for_relaxed_coverage(coverage, thresholds=thresholds)
     )
+    weak_board_quad_source: Literal["homography_projection"] | None = None
+    if relaxed_accepted and not baseline_accepted:
+        # D-431: a board that only cleared the D-420 relaxed gate has
+        # unreliable red-border evidence, so the bounded snap (tuned to chase
+        # strong evidence) is not trusted for it either.  Its quad falls back
+        # to the untouched homography projection instead of the snapped
+        # position.
+        final_quads = tuple(
+            projected_quads[slot]
+            if coverage[slot] < thresholds.minimum_board_red_edge_coverage
+            else quads[slot]
+            for slot in range(len(quads))
+        )
+        if not is_complete_ordered_grid(
+            final_quads, target_rgb.shape[1], target_rgb.shape[0]
+        ):
+            return None, PageRegistrationAttemptDiagnostic(
+                reason_code="PAGE_GEOMETRY_QUADS_INVALID",
+                feature_count=feature_count,
+                anchor_source_checksum_sha256=match.anchor.source_checksum_sha256,
+                inlier_count=match.inlier_count,
+                inlier_ratio=match.inlier_ratio,
+                p95_reprojection_error=match.p95_reprojection_error,
+                mean_red_edge_coverage=mean_coverage,
+                minimum_board_red_edge_coverage=min(coverage),
+            )
+        quads = final_quads
+        weak_board_quad_source = "homography_projection"
     return (
         RegisteredPageGeometry(
             anchor_source_checksum_sha256=match.anchor.source_checksum_sha256,
@@ -961,6 +992,7 @@ def _evaluate_final_registration(
             anchor_mask_version=anchor_mask_version,
             anchor_mask_padding_ratio=anchor_mask_padding_ratio,
             slot_qualifications=slot_qualifications,
+            weak_board_quad_source=weak_board_quad_source,
         ),
         None,
     )

@@ -6,6 +6,48 @@ last_updated: 2026-09-22
 
 # Decision Log
 
+## D-431 — Quad słabej planszy relaksacji D-420 pochodzi z projekcji homografii
+
+- **Status:** accepted (TASK-0622, warunkowy task T2 zależny od T1/D-430).
+- **Date:** 2026-09-23.
+- **Decision:** na stronie akceptowanej wyłącznie ścieżką relaksacji D-420
+  (`relaxed_accepted and not baseline_accepted`), quad jedynej planszy poniżej
+  `minimum_board_red_edge_coverage` (0,45) pochodzi z nieprzesuniętej
+  projekcji homografii (`projected_quads[slot]`), a nie z
+  `_snap_quad_to_red_edges`. Pozostałych osiem plansz, oraz wszystkie plansze
+  na stronach akceptowanych bazowo, nadal używa snapniętego quadu bez zmian.
+  Jeżeli podstawienie psuje uporządkowaną siatkę
+  (`is_complete_ordered_grid` zwraca fałsz), strona jest odrzucana fail-closed
+  z `PAGE_GEOMETRY_QUADS_INVALID` zamiast przyjąć częściowo niepoprawną
+  projekcję. `RegisteredPageGeometry.to_payload()` zapisuje
+  `weakBoardQuadSource: "homography_projection"` tylko na takich stronach.
+- **Rationale:** pomiar z planu (TASK-0621/0622, `shift30.py`) wykazał, że
+  snap do czerwonej krawędzi przesuwa quad średnio o ~7 px w górę na
+  **wszystkich** dziewięciu planszach, nie tylko na słabej — dla planszy z
+  niepewnym dowodem czerwonej ramki (ta, która przeszła tylko dzięki
+  relaksacji D-420) nie ma podstaw, by ufać, że ten snap trafia we właściwą
+  krawędź. Nieprzesunięta projekcja homografii jest bezpieczniejszym
+  domyślnym wyborem dla niepewnego dowodu niż korekta oparta na tym samym
+  niepewnym dowodzie. Użytkownik ponownie potwierdził DA-2 po zapoznaniu się
+  z tym pomiarem.
+- **Safety:** próg akceptacji (relaksacja D-420) i sposób liczenia
+  `board_red_edge_coverages`/`mean_red_edge_coverage` się nie zmieniają —
+  dowód akceptacji strony jest mierzony na snapniętych quadach jak dotąd,
+  zanim projekcja zastąpi quad słabej planszy. Zmiana dotyczy wyłącznie
+  finalnej pozycji quadu jednej planszy na stronach już zakwalifikowanych do
+  relaksacji. Brak poprawnej siatki po podstawieniu jest fail-closed
+  (`PAGE_GEOMETRY_QUADS_INVALID`), nie cichym fallbackiem.
+- **Known trade-off (R-1, nierozwiązane):** bias snapu (~7 px) dotyczy też
+  ośmiu „mocnych” plansz na stronach relaksowanych i wszystkich plansz na
+  stronach bazowych — ta decyzja go nie usuwa, adresuje tylko slot słabej
+  planszy. Powoduje to świadomą niespójność: mocne plansze pozostają ze
+  snapu, słaba plansza z czystej projekcji. Diagnoza biasu snapu jest
+  rekomendowana jako osobne zadanie.
+- **Compatibility:** `weakBoardQuadSource` jest polem addytywnym w payloadzie
+  manifestu; wpisy bez niego (strony bazowe, wpisy sprzed tej zmiany)
+  pozostają poprawne. `PAGE_REGISTRATION_VERSION` i
+  `PAGE_REGISTRATION_THRESHOLDS_VERSION` bez zmian.
+
 ## D-430 — Maska czerwieni odporna na ciemną ramkę (V ≥ 30)
 
 - **Status:** accepted (TASK-0621).

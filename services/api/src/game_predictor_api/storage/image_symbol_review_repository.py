@@ -12,7 +12,7 @@ from threading import Event, Lock
 from typing import Any, Protocol, TypedDict, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import Float, String, and_, delete, false, func, or_, select, text
+from sqlalchemy import Float, String, and_, case, delete, false, func, or_, select, text
 from sqlalchemy import cast as sql_cast
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import DBAPIError
@@ -43,6 +43,11 @@ from game_predictor_api.application.unreadable_board_reviews import (
 )
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.geometry_qualification import (
+    GEOMETRY_QUALIFICATION_VERSION_V3,
+    available_cell_indices,
+    partially_visible_cell_indices,
+)
 from game_predictor_api.domain.image_grid_reviews import (
     approve_image_grid_review,
     derive_image_grid_review,
@@ -1569,7 +1574,14 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
             .order_by(ImageSymbolReviewCellModel.cell_index)
         ).all()
         topology = _board_topology(board)
-        expected_indices = set(range(topology.cell_count)) - set(board.unavailable_cell_indices)
+        expected_indices = set(
+            available_cell_indices(
+                unavailable_cell_indices=board.unavailable_cell_indices,
+                geometry_qualification=board.geometry_qualification,
+                asset_mode=board.asset_mode,
+                cell_count=topology.cell_count,
+            )
+        )
         if (
             len(rows) != len(expected_indices)
             or {cell.cell_index for cell, _ in rows} != expected_indices
@@ -2173,10 +2185,20 @@ class SymbolCellReviewWriteThroughCoordinator:
             _CountedCellState.from_model(cell) for cell in existing.values()
         )
         topology = _board_topology(board)
-        expected_cell_indices = set(range(topology.cell_count)) - set(
-            board.unavailable_cell_indices
+        expected_cell_indices = set(
+            available_cell_indices(
+                unavailable_cell_indices=board.unavailable_cell_indices,
+                geometry_qualification=board.geometry_qualification,
+                asset_mode=board.asset_mode,
+                cell_count=topology.cell_count,
+            )
         )
         qualified = board.geometry_qualification is not None
+        partially_visible = partially_visible_cell_indices(
+            unavailable_cell_indices=board.unavailable_cell_indices,
+            geometry_qualification=board.geometry_qualification,
+            asset_mode=board.asset_mode,
+        )
         if qualified and {cell.cell_index for cell in current_cells} != expected_cell_indices:
             self._mark_integrity_failure(
                 state,
@@ -2354,6 +2376,10 @@ class SymbolCellReviewWriteThroughCoordinator:
             prediction_symbol_id = active_symbol_ids.get(review_cell.predicted_symbol_code)
             if geometry_changed and existing_cell is not None:
                 target = recropped_targets[review_cell.cell_index]
+                if review_cell.cell_index in partially_visible and not (
+                    _projection_is_human_decision(target)
+                ):
+                    target = _forced_partial_visibility_projection()
                 event_action = "geometry_invalidated"
             elif resolved_symbol_ids is not None:
                 resolved_symbol_id = resolved_symbol_ids[review_cell.cell_index]
@@ -2398,15 +2424,19 @@ class SymbolCellReviewWriteThroughCoordinator:
                 )
                 event_action = "board_synchronized"
             elif geometry_changed or reason == "board_reopened":
-                target = _CellProjection(
-                    assigned_symbol_id=prediction_symbol_id,
-                    review_state=SymbolCellReviewState.PENDING.value,
-                    assignment_source=SymbolCellAssignmentSource.MODEL.value,
-                    quality_issue=None,
-                    approved_crop_sample_id=None,
-                    approved_crop_checksum_sha256=None,
-                    approved_geometry_revision=None,
-                    **_projection_approved_asset_kwargs(_empty_approved_asset_projection()),
+                target = (
+                    _forced_partial_visibility_projection()
+                    if review_cell.cell_index in partially_visible
+                    else _CellProjection(
+                        assigned_symbol_id=prediction_symbol_id,
+                        review_state=SymbolCellReviewState.PENDING.value,
+                        assignment_source=SymbolCellAssignmentSource.MODEL.value,
+                        quality_issue=None,
+                        approved_crop_sample_id=None,
+                        approved_crop_checksum_sha256=None,
+                        approved_geometry_revision=None,
+                        **_projection_approved_asset_kwargs(_empty_approved_asset_projection()),
+                    )
                 )
                 event_action = "geometry_invalidated" if geometry_changed else "board_synchronized"
             elif existing_cell is not None and _is_human_cell_decision(existing_cell):
@@ -2424,15 +2454,19 @@ class SymbolCellReviewWriteThroughCoordinator:
                 )
                 event_action = None
             else:
-                target = _CellProjection(
-                    assigned_symbol_id=prediction_symbol_id,
-                    review_state=SymbolCellReviewState.PENDING.value,
-                    assignment_source=SymbolCellAssignmentSource.MODEL.value,
-                    quality_issue=None,
-                    approved_crop_sample_id=None,
-                    approved_crop_checksum_sha256=None,
-                    approved_geometry_revision=None,
-                    **_projection_approved_asset_kwargs(_empty_approved_asset_projection()),
+                target = (
+                    _forced_partial_visibility_projection()
+                    if review_cell.cell_index in partially_visible
+                    else _CellProjection(
+                        assigned_symbol_id=prediction_symbol_id,
+                        review_state=SymbolCellReviewState.PENDING.value,
+                        assignment_source=SymbolCellAssignmentSource.MODEL.value,
+                        quality_issue=None,
+                        approved_crop_sample_id=None,
+                        approved_crop_checksum_sha256=None,
+                        approved_geometry_revision=None,
+                        **_projection_approved_asset_kwargs(_empty_approved_asset_projection()),
+                    )
                 )
                 event_action = None
             if owner_changed and event_action is None:
@@ -2970,6 +3004,26 @@ def _board_topology(board: RecognizedBoardModel) -> BoardTopology:
     )
 
 
+def _excluded_cell_count_sql(model: type[RecognizedBoardModel]) -> ColumnElement[int]:
+    """SQL mirror of ``geometry_qualification.available_cell_indices``.
+
+    Only virtual-source boards (D-434/435) with a v3 qualification exclude
+    just the genuinely, fully unavailable cells from their expected count;
+    every other board still excludes the whole declared mask.
+    """
+    return case(
+        (
+            and_(
+                model.asset_mode == "virtual_source",
+                model.geometry_qualification["version"].astext
+                == GEOMETRY_QUALIFICATION_VERSION_V3,
+            ),
+            func.jsonb_array_length(model.geometry_qualification["fullyUnavailableCellIndices"]),
+        ),
+        else_=func.cardinality(model.unavailable_cell_indices),
+    )
+
+
 def _active_symbol_maps(
     session: Session,
     game_id: UUID,
@@ -3450,6 +3504,34 @@ def _is_human_cell_decision(cell: ImageSymbolReviewCellModel) -> bool:
         cell.review_state == SymbolCellReviewState.APPROVED.value
         or cell.quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value
         or cell.assignment_source
+        in {
+            SymbolCellAssignmentSource.HUMAN.value,
+            SymbolCellAssignmentSource.BOARD_DECISION.value,
+        }
+    )
+
+
+def _forced_partial_visibility_projection() -> _CellProjection:
+    """A partially visible cell (D-434/435) is never auto-assigned or
+    auto-approved from a model prediction -- only a human, reviewing the
+    real (if incomplete) pixels, may assign or approve it."""
+    return _CellProjection(
+        assigned_symbol_id=None,
+        review_state=SymbolCellReviewState.PENDING.value,
+        assignment_source=SymbolCellAssignmentSource.GEOMETRY_PARTIAL.value,
+        quality_issue=SymbolCellQualityIssue.PARTIAL_VISIBILITY.value,
+        approved_crop_sample_id=None,
+        approved_crop_checksum_sha256=None,
+        approved_geometry_revision=None,
+        **_projection_approved_asset_kwargs(_empty_approved_asset_projection()),
+    )
+
+
+def _projection_is_human_decision(target: _CellProjection) -> bool:
+    return (
+        target.review_state == SymbolCellReviewState.APPROVED.value
+        or target.quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value
+        or target.assignment_source
         in {
             SymbolCellAssignmentSource.HUMAN.value,
             SymbolCellAssignmentSource.BOARD_DECISION.value,
@@ -4207,7 +4289,7 @@ class SqlAlchemyImageSymbolReviewRepository:
     def _selected_items_without_exactly_fifteen_cells(self, game_id: UUID) -> tuple[UUID, ...]:
         expected_count = func.coalesce(RecognizedBoardModel.grid_rows, 3) * func.coalesce(
             RecognizedBoardModel.grid_columns, 5
-        ) - func.cardinality(RecognizedBoardModel.unavailable_cell_indices)
+        ) - _excluded_cell_count_sql(RecognizedBoardModel)
         counts = (
             select(
                 ImageBoardSearchFastDocumentModel.review_item_id.label("review_item_id"),

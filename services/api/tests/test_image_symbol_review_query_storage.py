@@ -14,7 +14,10 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     _apply_count_delta_payload,
     _count_deltas,
     _CountedCellState,
+    _excluded_cell_count_sql,
 )
+from game_predictor_api.storage.models import RecognizedBoardModel
+from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
@@ -143,6 +146,17 @@ def test_active_model_cohort_filter_without_an_activation_is_empty() -> None:
 
     assert "false" in sql.lower()
     assert "verified_training_cohort_cells" not in sql
+
+
+def test_excluded_cell_count_sql_only_uses_fully_unavailable_for_virtual_source_v3() -> None:
+    sql = _compiled(select(_excluded_cell_count_sql(RecognizedBoardModel)))
+
+    assert "CASE WHEN" in sql
+    assert "recognized_boards.asset_mode = 'virtual_source'" in sql
+    assert "'manual-geometry-qualification-v3'" in sql
+    assert "jsonb_array_length" in sql
+    assert "fullyUnavailableCellIndices" in sql
+    assert "ELSE cardinality(recognized_boards.unavailable_cell_indices) END" in sql
 
 
 def test_counts_use_conditional_aggregates_without_per_cell_geometry_lookup() -> None:

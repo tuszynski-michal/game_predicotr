@@ -49,7 +49,7 @@ def test_qualified_reinference_keeps_empty_slot_without_fake_records():
     qualification = GeometryQualification(
         "pending_partial", tuple(range(15)), True, "missing_pixels"
     )
-    indices = _available_indices(qualification.to_dict())
+    indices = _available_indices(qualification.to_dict(), asset_mode="virtual_source")
     assert indices == ()
     revision = ImageBoardGeometryRevisionModel(
         asset_mode="virtual_source", virtual_render_spec={"cells": []}

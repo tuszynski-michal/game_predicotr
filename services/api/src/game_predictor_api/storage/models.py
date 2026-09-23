@@ -2556,7 +2556,8 @@ class ImageSymbolReviewCellModel(Base):
             name="ck_image_symbol_review_cells_state",
         ),
         CheckConstraint(
-            "assignment_source IN ('model', 'human', 'board_decision', 'backfill')",
+            "assignment_source IN "
+            "('model', 'human', 'board_decision', 'backfill', 'geometry_partial')",
             name="ck_image_symbol_review_cells_source",
         ),
         CheckConstraint(
@@ -2565,7 +2566,8 @@ class ImageSymbolReviewCellModel(Base):
             name="ck_image_symbol_review_cells_approved_symbol",
         ),
         CheckConstraint(
-            "quality_issue IS NULL OR quality_issue IN ('grid_issue', 'blurry', 'unreadable')",
+            "quality_issue IS NULL OR quality_issue IN "
+            "('grid_issue', 'blurry', 'unreadable', 'partial_visibility')",
             name="ck_image_symbol_review_cells_quality_issue",
         ),
         CheckConstraint(
@@ -2765,9 +2767,10 @@ class ImageSymbolReviewEventModel(Base):
             name="ck_image_symbol_review_events_states",
         ),
         CheckConstraint(
-            "(previous_quality_issue IS NULL OR "
-            "previous_quality_issue IN ('grid_issue', 'blurry', 'unreadable')) AND "
-            "(quality_issue IS NULL OR quality_issue IN ('grid_issue', 'blurry', 'unreadable'))",
+            "(previous_quality_issue IS NULL OR previous_quality_issue IN "
+            "('grid_issue', 'blurry', 'unreadable', 'partial_visibility')) AND "
+            "(quality_issue IS NULL OR quality_issue IN "
+            "('grid_issue', 'blurry', 'unreadable', 'partial_visibility'))",
             name="ck_image_symbol_review_events_quality_issue",
         ),
         CheckConstraint(

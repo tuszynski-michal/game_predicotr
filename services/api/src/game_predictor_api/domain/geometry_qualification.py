@@ -230,6 +230,61 @@ def qualification_from_geometry(
     )
 
 
+def available_cell_indices(
+    *,
+    unavailable_cell_indices: Sequence[int],
+    geometry_qualification: Mapping[str, object] | None,
+    asset_mode: str,
+    cell_count: int = 15,
+) -> frozenset[int]:
+    """Cell indices a board's current crops/observations are expected to cover.
+
+    Only virtual-source crop generation (D-434, D-435) renders a cell that
+    is merely declared unavailable but not genuinely, fully outside its
+    source frame; every other asset mode still excludes the whole declared
+    mask, matching legacy_file's unchanged crop-generation path. v1/v2
+    qualifications (or no qualification at all) have no fully-unavailable
+    split, so they fall back to the full declared mask too -- safe for
+    historical rows until their geometry is next corrected.
+    """
+    excluded = frozenset(unavailable_cell_indices)
+    if asset_mode == "virtual_source" and geometry_qualification is not None:
+        try:
+            qualification = GeometryQualification.from_dict(geometry_qualification)
+        except GeometryQualificationError:
+            pass
+        else:
+            if qualification.version == GEOMETRY_QUALIFICATION_VERSION_V3:
+                excluded = frozenset(qualification.fully_unavailable_cell_indices)
+    return frozenset(index for index in range(cell_count) if index not in excluded)
+
+
+def partially_visible_cell_indices(
+    *,
+    unavailable_cell_indices: Sequence[int],
+    geometry_qualification: Mapping[str, object] | None,
+    asset_mode: str,
+) -> frozenset[int]:
+    """Cells declared unavailable but not genuinely, fully outside the frame.
+
+    These get a real render for mandatory human review (D-434, D-435) and
+    must never be auto-assigned or auto-approved from a model prediction.
+    Empty for legacy_file boards (DA-4) and for v1/v2 qualifications, which
+    have no fully-unavailable split.
+    """
+    if asset_mode != "virtual_source" or geometry_qualification is None:
+        return frozenset()
+    try:
+        qualification = GeometryQualification.from_dict(geometry_qualification)
+    except GeometryQualificationError:
+        return frozenset()
+    if qualification.version != GEOMETRY_QUALIFICATION_VERSION_V3:
+        return frozenset()
+    return frozenset(qualification.unavailable_cell_indices) - frozenset(
+        qualification.fully_unavailable_cell_indices
+    )
+
+
 def geometry_training_exclusion_reason(
     geometry: Mapping[str, object],
     *,

@@ -18,6 +18,7 @@ from uuid import UUID
 import cv2
 import numpy as np
 from game_predictor_api.domain.geometry_qualification import (
+    GEOMETRY_QUALIFICATION_VERSION_V3,
     GeometryQualification,
     GeometryQualificationError,
 )
@@ -160,6 +161,7 @@ class PendingSymbolReinferenceHandler:
                     adapter=adapter,
                     source_loader=source_loader,
                     geometry_qualification=board.geometry_qualification,
+                    asset_mode=board.asset_mode,
                 )
                 with self._session_factory() as session, session.begin():
                     locked = session.scalar(
@@ -321,6 +323,7 @@ class PendingSymbolReinferenceHandler:
         adapter: LocalSymbolOnnxAdapter,
         source_loader: CanonicalSourceLoader,
         geometry_qualification: Mapping[str, object] | None = None,
+        asset_mode: str = "legacy_file",
     ) -> tuple[list[dict[str, object]], str]:
         with self._session_factory() as session:
             observations = session.scalars(
@@ -336,7 +339,7 @@ class PendingSymbolReinferenceHandler:
                         ImageBoardGeometryRevisionModel.revision == geometry_revision,
                     )
                 )
-        expected_indices = _available_indices(geometry_qualification)
+        expected_indices = _available_indices(geometry_qualification, asset_mode=asset_mode)
         if len(observations) != len(expected_indices) and not (
             geometry_qualification is not None and revised is not None
         ):
@@ -647,16 +650,20 @@ def _virtual_records(
     return records
 
 
-def _available_indices(raw: Mapping[str, object] | None) -> tuple[int, ...]:
+def _available_indices(raw: Mapping[str, object] | None, *, asset_mode: str) -> tuple[int, ...]:
     if raw is None:
         return tuple(range(15))
     try:
         qualification = GeometryQualification.from_dict(raw)
     except GeometryQualificationError as error:
         raise JobHandlerError("IMAGE_GEOMETRY_QUALIFICATION_INVALID", str(error)) from error
-    return tuple(
-        index for index in range(15) if index not in qualification.unavailable_cell_indices
+    excluded = (
+        qualification.fully_unavailable_cell_indices
+        if asset_mode == "virtual_source"
+        and qualification.version == GEOMETRY_QUALIFICATION_VERSION_V3
+        else qualification.unavailable_cell_indices
     )
+    return tuple(index for index in range(15) if index not in excluded)
 
 
 def _checkpoint_payload(*, processed: int, skipped: int) -> dict[str, object]:

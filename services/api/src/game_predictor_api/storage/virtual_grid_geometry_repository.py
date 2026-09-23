@@ -22,7 +22,10 @@ from game_predictor_api.application.virtual_grid_geometry import (
 )
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.catalog import SymbolStatus
-from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.geometry_qualification import (
+    GeometryQualification,
+    available_cell_indices,
+)
 from game_predictor_api.domain.image_geometry_v2 import DirectCellRenderConfiguration
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
@@ -1294,7 +1297,14 @@ class SqlAlchemyVirtualGridGeometryRepository:
         )
         expected_indices = set(range(topology.cell_count))
         if board.geometry_qualification is not None:
-            expected_indices -= set(board.unavailable_cell_indices)
+            expected_indices = set(
+                available_cell_indices(
+                    unavailable_cell_indices=board.unavailable_cell_indices,
+                    geometry_qualification=board.geometry_qualification,
+                    asset_mode=board.asset_mode,
+                    cell_count=topology.cell_count,
+                )
+            )
         # Before the first backfill a valid board can have no review cells.
         # Read only its immutable provenance; GET/preview never initializes state.
         initial_configurations: tuple[DirectCellRenderConfiguration, ...] | None = None

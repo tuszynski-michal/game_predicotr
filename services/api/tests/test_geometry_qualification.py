@@ -11,9 +11,11 @@ from game_predictor_api.domain.geometry_qualification import (
     GEOMETRY_QUALIFICATION_VERSION_V3,
     GeometryQualification,
     GeometryQualificationError,
+    available_cell_indices,
     geometry_training_exclusion_reason,
     page_anchor_exclusion_reason,
     parse_slot_qualifications,
+    partially_visible_cell_indices,
     qualification_from_geometry,
 )
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
@@ -112,6 +114,103 @@ def test_v1_and_v2_qualifications_still_parse_without_the_new_v3_key() -> None:
     assert GeometryQualification.from_dict(v2.to_dict()) == v2
     # v2 still round-trips through the client-facing HTTP schema unchanged.
     assert GeometryQualificationPayload.model_validate(v2.to_dict()).to_domain() == v2
+
+
+def test_to_client_dict_projects_v3_onto_v2_and_leaves_v1_v2_unchanged() -> None:
+    v3 = GeometryQualification(
+        completeness_status="pending_partial",
+        unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
+        exclude_from_geometry_training=True,
+        exclusion_reason="missing_pixels",
+        version=GEOMETRY_QUALIFICATION_VERSION_V3,
+        fully_unavailable_cell_indices=(0, 5, 10),
+    )
+    client_dict = v3.to_client_dict()
+    assert client_dict["version"] == GEOMETRY_QUALIFICATION_VERSION
+    assert "fullyUnavailableCellIndices" not in client_dict
+    assert client_dict["unavailableCellIndices"] == [0, 1, 5, 6, 10, 11]
+    # It is still a valid, client-facing v2 payload.
+    GeometryQualificationPayload.model_validate(client_dict)
+
+    v1 = GeometryQualification()
+    v2 = GeometryQualification(version=GEOMETRY_QUALIFICATION_VERSION)
+    assert v1.to_client_dict() == v1.to_dict()
+    assert v2.to_client_dict() == v2.to_dict()
+
+
+def test_available_cell_indices_excludes_only_fully_unavailable_for_virtual_source_v3() -> None:
+    v3 = GeometryQualification(
+        completeness_status="pending_partial",
+        unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
+        exclude_from_geometry_training=True,
+        exclusion_reason="missing_pixels",
+        version=GEOMETRY_QUALIFICATION_VERSION_V3,
+        fully_unavailable_cell_indices=(0, 5, 10),
+    ).to_dict()
+
+    assert available_cell_indices(
+        unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
+        geometry_qualification=v3,
+        asset_mode="virtual_source",
+    ) == frozenset(range(15)) - {0, 5, 10}
+    # legacy_file boards still exclude the whole declared mask (DA-4).
+    assert available_cell_indices(
+        unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
+        geometry_qualification=v3,
+        asset_mode="legacy_file",
+    ) == frozenset(range(15)) - {0, 1, 5, 6, 10, 11}
+    # v1/v2 (or no qualification at all) always fall back to the full mask.
+    v2 = GeometryQualification(
+        "pending_partial", (0, 1), True, "missing_pixels", version=GEOMETRY_QUALIFICATION_VERSION
+    ).to_dict()
+    assert available_cell_indices(
+        unavailable_cell_indices=(0, 1),
+        geometry_qualification=v2,
+        asset_mode="virtual_source",
+    ) == frozenset(range(15)) - {0, 1}
+    assert available_cell_indices(
+        unavailable_cell_indices=(0, 1),
+        geometry_qualification=None,
+        asset_mode="virtual_source",
+    ) == frozenset(range(15)) - {0, 1}
+
+
+def test_partially_visible_cell_indices_is_the_declared_minus_fully_unavailable_mask() -> None:
+    v3 = GeometryQualification(
+        completeness_status="pending_partial",
+        unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
+        exclude_from_geometry_training=True,
+        exclusion_reason="missing_pixels",
+        version=GEOMETRY_QUALIFICATION_VERSION_V3,
+        fully_unavailable_cell_indices=(0, 5, 10),
+    ).to_dict()
+
+    assert partially_visible_cell_indices(
+        unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
+        geometry_qualification=v3,
+        asset_mode="virtual_source",
+    ) == {1, 6, 11}
+    # DA-4: never for legacy_file, even with the same v3 qualification.
+    assert (
+        partially_visible_cell_indices(
+            unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
+            geometry_qualification=v3,
+            asset_mode="legacy_file",
+        )
+        == frozenset()
+    )
+    # v1/v2 has no fully-unavailable split, so nothing is "merely partial".
+    v2 = GeometryQualification(
+        "pending_partial", (0, 1), True, "missing_pixels", version=GEOMETRY_QUALIFICATION_VERSION
+    ).to_dict()
+    assert (
+        partially_visible_cell_indices(
+            unavailable_cell_indices=(0, 1),
+            geometry_qualification=v2,
+            asset_mode="virtual_source",
+        )
+        == frozenset()
+    )
 
 
 @pytest.mark.parametrize(

@@ -20,6 +20,7 @@ from game_predictor_api.application.image_reviews import (
 )
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.geometry_qualification import available_cell_indices
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_ALTERNATIVES,
@@ -2666,7 +2667,16 @@ def _virtual_current_cells_from_records(
     cell_count = rows * columns
     completeness_status = getattr(board, "completeness_status", "complete")
     unavailable = tuple(getattr(board, "unavailable_cell_indices", ()))
-    available_indices = tuple(index for index in range(cell_count) if index not in set(unavailable))
+    available_indices = tuple(
+        sorted(
+            available_cell_indices(
+                unavailable_cell_indices=unavailable,
+                geometry_qualification=getattr(board, "geometry_qualification", None),
+                asset_mode=board.asset_mode,
+                cell_count=cell_count,
+            )
+        )
+    )
     qualified = getattr(board, "geometry_qualification", None) is not None
     qualified_revision = qualified and board.geometry_revision > 0
     if (
@@ -2857,7 +2867,14 @@ def _virtual_geometry_cells(
     raw_cells = geometry_revision.virtual_render_spec.get("cells")
     expected_indices = set(range(cell_count))
     if getattr(board, "geometry_qualification", None) is not None:
-        expected_indices -= set(board.unavailable_cell_indices)
+        expected_indices = set(
+            available_cell_indices(
+                unavailable_cell_indices=board.unavailable_cell_indices,
+                geometry_qualification=board.geometry_qualification,
+                asset_mode=board.asset_mode,
+                cell_count=cell_count,
+            )
+        )
     if not isinstance(raw_cells, list | tuple) or len(raw_cells) != len(expected_indices):
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",

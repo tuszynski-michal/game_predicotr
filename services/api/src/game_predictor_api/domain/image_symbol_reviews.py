@@ -42,6 +42,7 @@ class SymbolCellAssignmentSource(StrEnum):
     HUMAN = "human"
     BOARD_DECISION = "board_decision"
     BACKFILL = "backfill"
+    GEOMETRY_PARTIAL = "geometry_partial"
 
 
 class SymbolCellReviewAction(StrEnum):
@@ -56,6 +57,7 @@ class SymbolCellQualityIssue(StrEnum):
     GRID_ISSUE = "grid_issue"
     BLURRY = "blurry"
     UNREADABLE = "unreadable"
+    PARTIAL_VISIBILITY = "partial_visibility"
 
 
 class SymbolCellCropApprovalState(StrEnum):
@@ -597,10 +599,19 @@ def reassign_symbol_cell_review(
 def _retained_quality_issue_after_label_decision(
     review: SymbolCellReview,
 ) -> SymbolCellQualityIssue | None:
-    """Keep pixel-bound unreadability while allowing other issues to be resolved."""
+    """Keep pixel-bound issues while allowing other issues to be resolved.
 
-    if review.quality_issue is SymbolCellQualityIssue.UNREADABLE:
-        return SymbolCellQualityIssue.UNREADABLE
+    Unreadable and partially visible crops stay permanently excluded from
+    training (D-434/435) even once a human confidently labels them -- the
+    underlying pixels are still incomplete, so a human's read of them is not
+    the same guarantee as a normal, fully visible crop.
+    """
+
+    if review.quality_issue in (
+        SymbolCellQualityIssue.UNREADABLE,
+        SymbolCellQualityIssue.PARTIAL_VISIBILITY,
+    ):
+        return review.quality_issue
     return None
 
 

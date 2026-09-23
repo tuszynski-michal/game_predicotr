@@ -161,6 +161,34 @@ def test_qualified_context_reopens_partial_and_fully_unavailable_boards(missing)
     assert "source_available IS true" in sql
 
 
+def test_qualified_context_only_excludes_fully_unavailable_cells_for_v3() -> None:
+    row = _complete_current_virtual_row(backfill_status="not_started")
+    board = row[1]
+    declared = (0, 1, 5, 6, 10, 11)
+    fully_unavailable = (0, 5, 10)
+    board.geometry_qualification = GeometryQualification(
+        completeness_status="pending_partial",
+        unavailable_cell_indices=declared,
+        exclude_from_geometry_training=True,
+        exclusion_reason="missing_pixels",
+        version="manual-geometry-qualification-v3",
+        fully_unavailable_cell_indices=fully_unavailable,
+    ).to_dict()
+    board.unavailable_cell_indices = list(declared)
+    session = Mock()
+    # Partially visible cells (1, 6, 11) DO have a real review-cell row --
+    # only the genuinely, fully unavailable ones (0, 5, 10) are absent.
+    session.scalars.return_value = tuple(
+        _review_cell(index) for index in range(15) if index not in fully_unavailable
+    )
+    session.scalar.return_value = SimpleNamespace(virtual_render_spec=_review_cell().render_spec)
+
+    context = SqlAlchemyVirtualGridGeometryRepository(session)._context_from_row(row)
+
+    assert context.position_index == 0
+    assert context.topology.cell_count == 15
+
+
 def test_context_rejects_stale_geometry_cells_even_if_count_matches() -> None:
     session = Mock()
     cells = tuple(_review_cell(index) for index in range(15))

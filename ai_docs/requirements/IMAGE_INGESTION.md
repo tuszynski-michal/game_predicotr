@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-09-22
+last_updated: 2026-09-24
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -1802,17 +1802,28 @@ przy 15/15 niedostępnych polach. Legacy assets odmawiają nowej kwalifikacji
 zamiast zapisywać ją częściowo. Historyczne żądania i manifesty bez nowych
 pól działają bez zmian.
 
-**Sprostowanie D-434 (TASK-0625, T1):** komórka w pełni poza kadrem (4/4
-rogi quada) nadal nie otrzymuje sztucznego obrazu i nigdy nie jest
-materializowana. Komórka w masce `unavailableCellIndices`, ale z choć
-jednym rogiem w kadrze — częściowo widoczna, w tym przypadek ręcznego
-wykluczenia komórki w pełni mieszczącej się w kadrze — jest renderowana
-(`VirtualCell.partially_visible`) z brakującą częścią wypełnioną czarno
-(`cv2.BORDER_CONSTANT`, bez nowej matematyki przycinania), żeby operator
-mógł ocenić ją ręcznie. T1 (domena + renderer) jest zdolnością techniczną;
-produkcyjny pipeline importu nadal usuwa te komórki przed renderowaniem, aż
-osobny task (T2) podłączy tę zdolność do wymuszonego statusu
-„nierozpoznany" i trwałego wykluczenia z treningu.
+**Sprostowanie D-434/D-435/D-436 (TASK-0625, TASK-0626, TASK-0627):** komórka
+w pełni poza kadrem (4/4 rogi quada) nadal nie otrzymuje sztucznego obrazu i
+nigdy nie jest materializowana. Komórka w masce `unavailableCellIndices`,
+ale z choć jednym rogiem w kadrze — częściowo widoczna, w tym przypadek
+ręcznego wykluczenia komórki w pełni mieszczącej się w kadrze — jest
+renderowana (`VirtualCell.partially_visible`) z brakującą częścią
+wypełnioną czarno (`cv2.BORDER_CONSTANT`, bez nowej matematyki
+przycinania) **i trafia do Weryfikacji symboli jako wymuszony
+„nierozpoznany" (`assignedSymbolId = null`, `qualityIssue =
+partial_visibility`, `assignmentSource = geometry_partial`), niezależnie od
+predykcji modelu — podpowiedź modelu (kod + pewność) nadal jest zapisana.
+Trwale wykluczona z treningu (`quality_issue` niezerowy), nawet po ręcznym
+przypisaniu symbolu przez operatora** — tylko `unreadable` i
+`partial_visibility` przeżywają decyzję etykietującą operatora; pozostałe
+`quality_issue` są czyszczone. `GeometryQualification` w wersji v3
+(backend-only; operator nadal zgłasza tylko v1/v2) niesie osobno policzone
+`fullyUnavailableCellIndices` (w pełni niedostępne) w ramach
+`unavailableCellIndices` (zadeklarowane); wszystkie miejsca rekoncyliujące
+liczbę komórek planszy (rekoncyliacja recenzji, backfill, reinferencja
+pending) używają pierwszego zamiast drugiego dla plansz `virtual_source`
+w wersji v3 — dla `legacy_file` i wierszy v1/v2 zachowanie jest bez zmian
+(pełna maska nadal wyklucza cały render).
 
 Nowe kohorty geometrii i kotwice wykluczają niepełne oraz ręcznie wykluczone
 sloty. Nie oznacza to odtrenowania aktywnego modelu ani automatycznego

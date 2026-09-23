@@ -1,10 +1,54 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-23
+last_updated: 2026-09-24
 ---
 
 # Current State
+
+### TASK-0627 — wymuszony „nierozpoznany" dla częściowo widocznych komórek, T2/E–F (D-436)
+
+- Dokańcza 3-taskowy plan z D-434 (T1: TASK-0625, T2: TASK-0626+0627). Od
+  teraz komórka częściowo widoczna (`partially_visible`, na planszy
+  `virtual_source` z kwalifikacją v3) faktycznie trafia do Weryfikacji
+  symboli jako wymuszony „nierozpoznany" — `assignedSymbolId = null`,
+  nowy `qualityIssue = "partial_visibility"`, `assignmentSource =
+  "geometry_partial"`, `reviewState = pending`, podpowiedź modelu
+  (kod + pewność) nadal zapisana. To jest kompletne domknięcie oryginalnego
+  zgłoszenia użytkownika: komórki z kolumny wychodzącej poza kadr na
+  „niepełnej planszy" są teraz widoczne w sekcji `symbolId=unknown`.
+- Trwałe wykluczenie z treningu: `is_symbol_cell_training_eligible`
+  (bramka `quality_issue is None`) już wystarczała; dodatkowo
+  `_retained_quality_issue_after_label_decision` teraz zatrzymuje
+  `PARTIAL_VISIBILITY` na stałe (wzorem `UNREADABLE`) nawet po ręcznym
+  przypisaniu symbolu przez operatora — bez tej zmiany trening
+  odblokowałby się po pierwszym ludzkim labelu.
+- Naprawiono 9 (nie 3, jak zakładał pierwotny plan TASK-0626) niezależnych
+  miejsc kodujących „unavailable_cell_indices = w pełni wykluczone":
+  `image_symbol_review_repository.py` (`_synchronize` ×2, czysty SQL
+  `_selected_items_without_exactly_fifteen_cells`), `image_review_repository.py`
+  (`_virtual_current_cells_from_records`, `_virtual_geometry_cells`),
+  `virtual_grid_geometry_repository.py`, `pending_symbol_reinference.py`.
+  Nowy wspólny helper domenowy `available_cell_indices`/
+  `partially_visible_cell_indices` (`geometry_qualification.py`) używany
+  wszędzie zamiast duplikowanej logiki; `_excluded_cell_count_sql` to jego
+  SQL-owy odpowiednik dla agregacji. 2 dalsze miejsca zweryfikowane jako
+  niewymagające zmian (samo-spójne z D-435).
+- **Bez nowej kolumny na `CellObservationModel`** — wbrew pierwotnemu
+  założeniu TASK-0626 (sekcja G), okazało się niepotrzebne: „czy komórka
+  jest częściowo widoczna" liczy się za każdym razem z już trwałych pól
+  planszy (`unavailable_cell_indices` minus `fully_unavailable_cell_indices`
+  z `geometry_qualification` v3); trwały jest tylko sam fakt wymuszenia
+  (`quality_issue = partial_visibility` na utworzonym rekordzie recenzji).
+  Jedyna migracja: `0121_partial_visibility_quality_issue` (rozszerza 3
+  CHECK CONSTRAINT o nowe wartości enum, żadnej nowej kolumny).
+- Pełna regresja: worker (34 failed — identyczne z baseline, niezwiązane)
+  + 1708 passed, 9 skipped; API (21 failed — identyczne z baseline) + 1364
+  passed, 3 skipped. Ruff czysty; mypy 69 błędów — identyczny zestaw jak
+  przed zmianami. `npm run openapi:check` przechodzi bez zmian (brak zmiany
+  kontraktu HTTP — pola `qualityIssue`/`assignmentSource` to zwykłe `str`,
+  nie `Literal`).
+- Decyzja: `DECISION_LOG.md` D-436.
 
 ### TASK-0626 — GeometryQualification v3 i podłączenie pipeline'u workera, T2/A–D (D-435)
 

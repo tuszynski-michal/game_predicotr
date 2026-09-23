@@ -1,10 +1,83 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-23
+last_updated: 2026-09-24
 ---
 
 # Decision Log
+
+## D-436 — Częściowo widoczne komórki trafiają do Weryfikacji symboli jako wymuszony „nierozpoznany" (T2/E–F)
+
+- **Status:** accepted (TASK-0627, dokańcza 3-taskowy plan D-434; T3 — Admin
+  UI — pozostaje osobnym poleceniem).
+- **Date:** 2026-09-23.
+- **Decision:** komórka `partially_visible` (D-434) na planszy
+  `virtual_source` z kwalifikacją v3 (D-435) trafia teraz do
+  `ImageSymbolReviewCellModel` z wymuszonym `assigned_symbol_id = null`,
+  nową wartością `SymbolCellQualityIssue.PARTIAL_VISIBILITY` i
+  `SymbolCellAssignmentSource.GEOMETRY_PARTIAL`, `review_state = pending`
+  — niezależnie od predykcji modelu (`prediction_symbol_code`/
+  `prediction_confidence` nadal zapisane jako podpowiedź). Migracja
+  `0121_partial_visibility_quality_issue` rozszerza trzy CHECK CONSTRAINT
+  (`ck_image_symbol_review_cells_source`, `_quality_issue`,
+  `ck_image_symbol_review_events_quality_issue`) o nowe wartości — jedyna
+  wymagana zmiana schematu; **nie dodano żadnej nowej kolumny** (patrz
+  Safety). `_retained_quality_issue_after_label_decision` traktuje
+  `PARTIAL_VISIBILITY` jak `UNREADABLE`: zostaje na stałe nawet po ręcznym
+  przypisaniu symbolu przez operatora, więc `is_symbol_cell_training_eligible`
+  (bramka `quality_issue is None`) trwale wyklucza taką komórkę z treningu.
+- **Rationale:** kontynuacja zgłoszenia użytkownika z D-434 — częściowo
+  widoczne komórki mają być oceniane przez operatora, nie automatycznie
+  klasyfikowane ani trenowane na niepełnych pikselach. Trwałe wykluczenie z
+  treningu nawet po ręcznym labelowaniu: operator ocenia to, co widzi, ale
+  bazowe piksele pozostają niekompletne — inaczej niż przy normalnej,
+  w pełni widocznej komórce, więc pewność operatora nie jest tą samą
+  gwarancją jakości danych treningowych.
+- **Zakres odkryty podczas researchu (przed implementacją):** plan
+  TASK-0626 zakładał 3 miejsca kodujące „unavailable = w pełni wykluczone"
+  (`production_workflow.py` — naprawione w D-435 — plus `_synchronize` i
+  `_virtual_current_cells_from_records`). Rzeczywisty inwentarz to 9
+  niezależnych miejsc: `image_symbol_review_repository.py` (`_synchronize`
+  ×1 zapis + rekoncyliacja, zapytanie szczegółów nieczytelnej planszy,
+  `_selected_items_without_exactly_fifteen_cells` czysty SQL),
+  `image_review_repository.py` (`_virtual_current_cells_from_records`,
+  `_virtual_geometry_cells`), `virtual_grid_geometry_repository.py`
+  (`_context_from_row`), `pending_symbol_reinference.py`
+  (`_available_indices`). Wszystkie naprawione nowym wspólnym helperem
+  domenowym `available_cell_indices`/`partially_visible_cell_indices`
+  (`geometry_qualification.py`) — SQL-owy odpowiednik
+  (`_excluded_cell_count_sql`) dla czystego zapytania agregującego. Dwa
+  dodatkowe miejsca (`_current_cropper_version`'s „w pełni nieczytelna
+  plansza" skrót, `pipeline_store.py`'s idempotency-check) zweryfikowane
+  jako **niewymagające zmian** — są samo-spójne z nowym zachowaniem crop
+  generation z D-435 (uzasadnienie w TASK-0627 Outcome).
+- **Safety — decyzja „liczenie w locie" zamiast nowej kolumny:** flaga
+  „czy ta konkretna komórka jest częściowo widoczna" nigdzie nie jest
+  trwale zapisywana per-komórka (ani na `CellObservationModel`, ani na
+  `ImageSymbolReviewCellModel`) — liczona za każdym razem z planszy
+  (`unavailable_cell_indices` minus `fully_unavailable_cell_indices` z
+  `geometry_qualification` v3), bo oba te pola już są trwałe (D-435).
+  Sam fakt „ta komórka została wymuszona jako nierozpoznana" JEST trwały —
+  koduje go `quality_issue = partial_visibility` na
+  `ImageSymbolReviewCellModel`, powstały raz przy tworzeniu rekordu.
+  Tańsze niż pierwotnie zakładana nowa kolumna + migracja na
+  `CellObservationModel` z wielomiejscowym przekazywaniem przez
+  `pipeline_store.py`/`ImageReviewCell`/`materialize_current_image_review_cells`.
+- **Zakres tego wpisu (E/F):** zapis rekordu recenzji dla nowych i
+  ponownie zsynchronizowanych komórek (świeży import, `board_reopened`,
+  zmiana geometrii bez istniejącego rekordu) oraz post-processing ścieżki
+  przycinania geometrii (`recropped_targets`) — pomija istniejące decyzje
+  ludzkie (`assignment_source IN {human, board_decision}` lub
+  `review_state = approved` lub `quality_issue = grid_issue`). Ścieżka
+  pełnego rozwiązania planszy (`resolved_symbol_ids`, operator jawnie
+  zatwierdził całą planszę) pozostaje nietknięta — to również ludzka
+  decyzja.
+- **Compatibility:** nowe wartości enum (`PARTIAL_VISIBILITY`,
+  `GEOMETRY_PARTIAL`) domyślnie nieużywane dla istniejących wierszy;
+  migracja tylko rozszerza dozwolone wartości CHECK CONSTRAINT (nie usuwa
+  starych), więc żadne istniejące dane nie przestają być poprawne.
+  Zachowanie dla `legacy_file` i historycznych wierszy v1/v2 bez zmian we
+  wszystkich 9 miejscach (fallback do pełnej maski).
 
 ## D-435 — GeometryQualification v3 wprowadza fully_unavailable_cell_indices (T2/A–D)
 

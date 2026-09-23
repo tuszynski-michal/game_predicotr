@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-08-15
+last_updated: 2026-09-24
 ---
 
 # Wymagania modułu administracyjnego
@@ -577,11 +577,18 @@ zmianie gry albo zakresu symbolu. `Zła siatka` kieruje pole do kolejki korekty
 geometrii, natomiast `Nieczytelny` pozostawia je poza kolejką geometrii i poza
 kohortą treningową. Dwa ostatnie stany są w game-wide widoku
 listy prezentowane jako `Nierozpoznany (?)`, a ich oryginalne przypisanie
-pozostaje w danych i audycie. Karta pokazuje zwięzły
-badge `Niewyraźny`, `Zła siatka · ?`, `Nieczytelny · ?`, `Nowy crop` albo `?`, gdy taki stan
+pozostaje w danych i audycie. Komórka, której kadr wychodzi poza źródłowe
+zdjęcie (1–3 z 4 rogów quada), jest renderowana z brakującą częścią czarną
+i wymuszona jako nierozpoznana niezależnie od predykcji modelu
+(`quality_issue = partial_visibility`, D-434/D-435/D-436) — operator nie
+może jej ustawić ani usunąć ręcznie, wynika wyłącznie z geometrii planszy.
+Karta pokazuje zwięzły
+badge `Niewyraźny`, `Zła siatka · ?`, `Nieczytelny · ?`, `Poza kadrem · ?`,
+`Nowy crop` albo `?`, gdy taki stan
 dotyczy bieżących pikseli. W widoku `Zatwierdzone` badge zatwierdzonego cropa,
 który nie spełnia aktualnych warunków kohorty treningowej, zawiera również
-tekst `Poza uczeniem` oraz przyczynę: problem jakości albo brak aktualnie
+tekst `Poza uczeniem` oraz przyczynę: problem jakości (w tym `Poza kadrem`)
+albo brak aktualnie
 zatwierdzonego, checksum-bound cropa. Podsumowanie pokazuje aktualną i całkowitą liczbę
 stron oraz jednoznaczny zakres pozycji. Każda akcja najpierw pokazuje niezmienny preview
 liczby cropów i plansz, a potem uruchamia idempotentną operację masową.

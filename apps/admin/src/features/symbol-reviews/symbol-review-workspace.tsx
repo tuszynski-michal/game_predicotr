@@ -1515,6 +1515,9 @@ function symbolReviewCardBadge(
     if (item.qualityIssue === 'unreadable') {
       return 'Nieczytelny · ? · poza uczeniem';
     }
+    if (item.qualityIssue === 'partial_visibility') {
+      return 'Poza kadrem · ? · poza uczeniem';
+    }
     if (item.cropApprovalState === 'changed_since_approval') {
       return 'Nowy crop · poza uczeniem';
     }
@@ -1534,6 +1537,9 @@ function symbolReviewCardBadge(
   }
   if (item.qualityIssue === 'unreadable') {
     return 'Nieczytelny · ?';
+  }
+  if (item.qualityIssue === 'partial_visibility') {
+    return 'Poza kadrem · ?';
   }
   if (item.cropApprovalState === 'changed_since_approval') {
     return 'Nowy crop';

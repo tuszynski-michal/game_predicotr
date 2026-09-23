@@ -6,6 +6,31 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0628 — badge „Poza kadrem" dla częściowo widocznych komórek w Admin (T3)
+
+- Domyka 3-taskowy plan z D-434 (T1: TASK-0625, T2: TASK-0626+0627, T3: ten
+  task). `symbolReviewCardBadge()`
+  (`apps/admin/src/features/symbol-reviews/symbol-review-workspace.tsx`)
+  pokazuje teraz badge `Poza kadrem · ?` (pending) / `Poza kadrem · ? ·
+  poza uczeniem` (approved) dla kart z `qualityIssue === 'partial_visibility'`
+  — wzorem istniejących gałęzi dla `grid_issue`/`blurry`/`unreadable`.
+  Żadnych zmian typów: `qualityIssue` w wygenerowanym kliencie OpenAPI to
+  zwykłe `string | null`, nie literal union. `assignmentSource` pozostaje
+  nieużywane we frontendzie — bez zmian, poza zakresem.
+- Operator widzi teraz PEŁNĄ przyczynę: komórki z kolumny wychodzącej poza
+  kadr na „niepełnej planszy" (oryginalne zgłoszenie z D-434) trafiają pod
+  filtr `Nierozpoznany (?)` (bez zmian, już działało od TASK-0627) I mają
+  teraz widoczne wyjaśnienie na karcie (nowość tego taska).
+- `ai_docs/requirements/ADMIN_APP.md` zaktualizowany — wyliczenie badge'y w
+  sekcji Weryfikacji symboli obejmuje teraz `Poza kadrem · ?`.
+- Weryfikacja: `npm run test --workspace @game-predictor/admin` (539
+  passed, w tym nowa asercja kontraktowa), lint i typecheck czyste. Brak
+  żywej weryfikacji w przeglądarce z rzeczywistą komórką
+  `partial_visibility` — wymagałoby to pełnego importu zdjęcia przez
+  worker; zweryfikowano wyłącznie testem kontraktowym (dopasowanie
+  dokładnego wzorca źródła) + lint/typecheck, zgodnie z zasadą jawnego
+  zgłaszania, gdy UI nie zostało przetestowane na żywo.
+
 ### TASK-0627 — wymuszony „nierozpoznany" dla częściowo widocznych komórek, T2/E–F (D-436)
 
 - Dokańcza 3-taskowy plan z D-434 (T1: TASK-0625, T2: TASK-0626+0627). Od

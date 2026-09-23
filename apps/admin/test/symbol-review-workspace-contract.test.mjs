@@ -156,6 +156,8 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(styles, /\.sequenceNumber/);
   assert.match(styles, /font-variant-numeric:\s*tabular-nums/);
   assert.match(source, /item\.qualityIssue === 'unreadable'/);
+  assert.match(source, /item\.qualityIssue === 'partial_visibility'/);
+  assert.match(source, /Poza kadrem/);
   assert.match(source, /item\.cropApprovalState === 'changed_since_approval'/);
   assert.match(styles, /symbolReviewSpin/);
   assert.match(source, /applySingleSymbolReviewDecision/);

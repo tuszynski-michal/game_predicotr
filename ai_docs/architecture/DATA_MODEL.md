@@ -1,10 +1,41 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-09-22
+last_updated: 2026-09-24
 ---
 
 # Model danych
+
+## Pokrycie importu plansz (D-437) — TASK-0629
+
+Definicja „planszy dodanej" i indeksy pod odczyt braków importu, bez nowej
+kolumny ani flagi (pełna treść decyzji: `ai_docs/process/DECISION_LOG.md`
+D-437). Skrót: plansza `n` gry `g` jest dodana ⇔ `1 ≤ n ≤
+games.expected_layout_count` i (`image_sequence_canonical(g, n)` istnieje, lub
+istnieje żywy `image_review_items` w `{pending, accepted, corrected}` z tym
+`sequence_number`, którego `recognized_boards.completeness_status =
+'complete'`). `pending_partial` bez canonical liczy się jako brakująca.
+
+Migracja `0122_board_import_coverage_indexes` (indeksy CONCURRENTLY, bez
+zmiany danych), w `public` i `game_data_v2`:
+
+- `ix_image_review_items_game_sequence_status` /
+  `v2_ix_image_review_items_game_sequence_status` na
+  `image_review_items(game_id, sequence_number, status)` — istniejący
+  `uq_image_review_items_pending_game_sequence` pokrywa tylko `status =
+  'pending'`; sweep pokrycia potrzebuje wszystkich statusów.
+- `ix_recognized_boards_pending_partial` /
+  `v2_ix_recognized_boards_pending_partial`, częściowy indeks na
+  `recognized_boards(id)` (`(game_id, id)` w `game_data_v2`) `WHERE
+  completeness_status = 'pending_partial'`.
+
+Silnik obliczeniowy (`services/api/src/game_predictor_api/domain/board_import_coverage.py`)
+jest czystą funkcją sweep nad przedziałami dostarczonymi przez
+`SqlAlchemyBoardImportCoverageRepository`
+(`services/api/src/game_predictor_api/storage/board_import_coverage_repository.py`),
+bez nowego stanu trwałego. Endpoint HTTP i UI Admina — patrz
+`ai_docs/tasks/0630-board-import-coverage-endpoint.md` i
+`ai_docs/tasks/0631-missing-boards-admin-ui.md`.
 
 ## Niezależny odbiór acceptance shared shape v2 — TASK-0610
 

@@ -39,6 +39,46 @@ last_updated: 2026-09-24
   zmiany stanu tej komórki (delta), nie retroaktywnie — pełne przeliczenie
   historycznych liczników nie wchodziło w zakres tej poprawki.
 
+## D-437 — Definicja „planszy dodanej" dla pokrycia importu, bez nowej flagi
+
+- **Status:** accepted (TASK-0629).
+- **Date:** 2026-09-24.
+- **Decision:** plansza `n` gry `g` jest **dodana** wtedy i tylko wtedy, gdy
+  `1 ≤ n ≤ games.expected_layout_count` oraz spełniony jest jeden z warunków:
+  (a) istnieje `image_sequence_canonical(g, n)`, albo (b) istnieje żywy
+  `image_review_items` (`status ∈ {pending, accepted, corrected}`) z
+  `game_id=g`, `sequence_number=n`, którego `recognized_boards.completeness_status
+  = 'complete'`. Formalnie `added = (live ∪ canonical) − (partialPending −
+  canonical)`. Oczekiwany zestaw numerów jest zawsze `1..expected_layout_count`
+  — kolumna jest `NOT NULL` z domyślną wartością 500 000, więc nie wprowadzamy
+  nowego stanu „nieznany zakres" w domenie; UI pokazuje tylko źródło celu.
+  Plansza `recognized_boards.completeness_status = 'pending_partial'` (komórki
+  całkowicie poza kadrem) liczy się jako **brakująca**, z powodem
+  `partial_source`, chyba że numer ma już canonical. Zatwierdzenie symboli
+  (`image_symbol_review_cells`) nie wpływa na status „dodana" — to osobny,
+  pochodny podlicznik.
+- **Rationale:** `TASK-0629` potwierdziło (grep wszystkich twórców
+  `ImageReviewItemModel`), że jedyna żywa ścieżka tworzenia itemu —
+  `create_owned_pending_review_item` w `pending_sequence_ownership.py`,
+  wywoływana z `board_cell_geometry_pending_repository.py` i
+  `virtual_grid_geometry_repository.py` — zawsze poprzedza tworzenie itemu
+  zapisem dokładnie 15 `cell_observations` w tej samej transakcji (niezmiennik
+  I1). Korekta geometrii bez kompletu 15 cropów jest odrzucana przez
+  `image_review_repository.py` (I2), a status `accepted`/`corrected` wymaga
+  pełnej liczby komórek (I3). Dzięki temu żywy item + `completeness_status =
+  'complete'` jest wystarczającym i bezpiecznym dowodem ukończonego cięcia,
+  bez potrzeby nowej flagi czy nowej migracji danych. Nieudany późniejszy
+  reprocess tworzy `image_board_geometry_pending` bez nowego itemu, więc
+  starszy żywy item — a więc status „dodana" — nie cofa się.
+- **Compatibility:** endpoint `dataset-completeness` (zatwierdzone plansze)
+  zostaje bez zmian; nowy podlicznik „w tym zatwierdzone" w
+  `TASK-0630`/`TASK-0631` go tylko cytuje. Brak zmiany schematu poza dwoma
+  indeksami pod odczyt (`TASK-0629`); brak nowej kolumny czy flagi na
+  `recognized_boards` lub `image_review_items`.
+- **Safety:** definicja jest wyłącznie do odczytu — nie zmienia pipeline'u,
+  geometrii, cięcia ani zatwierdzania. Numery `> expected_layout_count` są
+  liczone osobno jako `outOfRange`, nigdy jako `added`.
+
 ## D-436 — Częściowo widoczne komórki trafiają do Weryfikacji symboli jako wymuszony „nierozpoznany" (T2/E–F)
 
 - **Status:** accepted (TASK-0627, dokańcza 3-taskowy plan D-434; T3 — Admin

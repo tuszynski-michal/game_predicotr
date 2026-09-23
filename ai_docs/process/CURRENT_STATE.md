@@ -6,6 +6,47 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0629 — definicja „planszy dodanej", indeksy i repozytorium pokrycia importu (D-437)
+
+- Pierwszy z 3-taskowego planu „Brakujące plansze" w „Import plansz"
+  (`TASK-0629` → `TASK-0630` → `TASK-0631`, patrz `ai_docs/tasks/`).
+  Dostarcza wyłącznie czystą domenę i odczyt: `domain/board_import_coverage.py`
+  (sweep po przedziałach — `added` vs `missing`, 7 uporządkowanych powodów
+  braku) i `storage/board_import_coverage_repository.py`
+  (`SqlAlchemyBoardImportCoverageRepository.board_import_coverage`,
+  gaps-and-islands SQL). Bez endpointu i bez UI — to `TASK-0630`/`TASK-0631`.
+- Definicja D-437: plansza jest „dodana" wyłącznie na podstawie żywego
+  `image_review_items` (`pending/accepted/corrected`) z
+  `recognized_boards.completeness_status='complete'` albo
+  `image_sequence_canonical`. Potwierdzone (grep wszystkich twórców
+  `ImageReviewItemModel`), że jedyna żywa ścieżka —
+  `create_owned_pending_review_item` — zawsze poprzedzona zapisem
+  dokładnie 15 `cell_observations` w tej samej transakcji, więc nie trzeba
+  nowej flagi ani migracji danych.
+- Migracja `0122_board_import_coverage_indexes`: dwa indeksy pod odczyt w
+  `public` (CONCURRENTLY) i `game_data_v2` (zwykły `CREATE INDEX` — tabele
+  tam są partycjonowane, `CONCURRENTLY` nie działa na partycjonowanym
+  rodzicu wprost).
+- **Efekt uboczny: naprawiono niepowiązaną, wcześniej scaloną migrację**
+  `0114_v7_semi_automatic_activation_gate` (brakujące `schema="public"` w
+  `op.create_table`). Migracja `0105` świadomie ustawia `search_path` z
+  `pg_catalog` na pierwszym miejscu, by wymusić jawne kwalifikowanie
+  schematu w kolejnych migracjach; `0114` była jedyną, która to złamała, co
+  blokowało budowę **każdej** świeżej bazy (`alembic upgrade head`) i przez
+  to każdy test integracyjny PostgreSQL w repo. Naprawione za zgodą
+  użytkownika po zdiagnozowaniu przyczyny (nie problem uprawnień
+  środowiska, jak wcześniej podejrzewano).
+- Testy: 22/22 unit (`test_board_import_coverage.py`), 8/8 integracyjnych na
+  realnym, świeżo zmigrowanym PostgreSQL (`test_board_import_coverage_repository.py`,
+  `$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'`). Po poprawce `0114` również
+  niepowiązany `test_review_repository.py` przechodzi migracje do końca
+  (zatrzymuje się na osobnym, przedsesyjnym rozjeździe checksumy fixture'u —
+  poza zakresem tego taska).
+- Nieukończone: dodatkowy review (opus-5-5, xhigh) z rekomendacji planu;
+  `npm run python:lint`/`typecheck` na całym repo (sprawdzono punktowo);
+  migracje `0114`/`0122` nie uruchomione na dev DB (wymaga osobnej zgody).
+- Decyzja: `DECISION_LOG.md` D-437.
+
 ### Poprawka błędu — komórki `blurry` znikały z filtra własnego symbolu (D-438)
 
 - Niezależna poprawka błędu zgłoszona bezpośrednio przez użytkownika (gra 777):

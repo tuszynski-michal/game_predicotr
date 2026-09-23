@@ -6,6 +6,45 @@ last_updated: 2026-09-23
 
 # Current State
 
+### TASK-0623 — poprawka routingu wpisów manifestu ze slotQualifications (D-432)
+
+- Zgłoszenie: użytkownik wykonał ręczną korektę geometrii na stagingu
+  `a139379b` (odbiór T1/T2), uruchomił import i dostał
+  `IMAGE_PAGE_GEOMETRY_INVALID: Qualified manual page evidence is
+  incomplete.` (job `562b0cd1-b9dd-4fa5-83d7-2b4908333fab`, `failed`,
+  2952/2952 progress, 0 success).
+- Przyczyna (potwierdzona, pre-existing, **niezwiązana z T1/T2**): w
+  `production_workflow.py::_detect_structured_geometry` routing kierujący
+  wpis manifestu do `apply_qualified_page_override` sprawdzał wyłącznie
+  obecność klucza `slotQualifications`, nie `registrationVersion`. Ten klucz
+  pojawia się zarówno w prawdziwych ręcznych override'ach
+  (`registrationVersion: "manual-page-geometry-override-v1"`), jak i w
+  automatycznych rejestracjach przez relaksację D-420
+  (`registrationVersion: "verified-page-registration-v1"`, wprowadzone
+  `v0.10.367`, 17 commitów po powstaniu samego warunku routingu w
+  `v0.10.224`). Każda strona zaakceptowana przez relaksację D-420 kończyła
+  import tym błędem. Ujawniło się dopiero teraz — pierwsza próba pełnego
+  importu produkcyjnego stagingu, na którym większość zarejestrowanych stron
+  przechodzi przez relaksację D-420.
+- Poprawka: warunek wymaga teraz też
+  `manual_entry.get("registrationVersion") == "manual-page-geometry-override-v1"`.
+  Auto-zarejestrowane strony (relaksowane i bazowe) przechodzą przez zwykłą
+  ścieżkę `_registered_page_geometry` + strukturalny silnik z pinned quads.
+- Nowy test regresyjny
+  `test_relaxed_auto_registration_with_slot_qualifications_skips_manual_override_path`
+  w `test_production_image_workflow.py`, odtwarzający dokładnie zgłoszony
+  przypadek (zweryfikowano, że bez poprawki test faktycznie failuje z tym
+  samym `IMAGE_PAGE_GEOMETRY_INVALID`). Wszystkie 59 testów pliku zielone.
+  Ruff czysty; mypy: 89 błędów `import-not-found`/preexisting identyczne
+  przed i po zmianie (potwierdzone `git stash` na samym pliku źródłowym) —
+  brak nowych błędów.
+- Decyzja: `DECISION_LOG.md` D-432.
+- **Nie wykonano:** ponowne uruchomienie importu na `a139379b` z danymi
+  produkcyjnymi — wymaga osobnej akcji operatora. `production_workflow.py`
+  jest kodem workera (`game_predictor_worker`), więc import jobów wykonuje
+  worker, nie API; poprawka wymaga restartu workera (worker uruchomiony po
+  T2 nie ma jeszcze tej zmiany) przed ponowną próbą importu.
+
 ### TASK-0622 — quad słabej planszy relaksacji D-420 z projekcji homografii (D-431)
 
 - Warunkowy task T2 z planu, zależny od TASK-0621 (`v0.10.388`); DA-2

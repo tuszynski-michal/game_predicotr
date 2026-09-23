@@ -6,6 +6,42 @@ last_updated: 2026-09-22
 
 # Decision Log
 
+## D-432 — Routing wpisów manifestu wymaga registrationVersion manualnego override'u
+
+- **Status:** accepted (TASK-0623).
+- **Date:** 2026-09-23.
+- **Decision:** w `production_workflow.py::_detect_structured_geometry`
+  warunek kierujący wpis manifestu geometrii strony do
+  `apply_qualified_page_override` (ścieżka wyłącznie dla prawdziwych ręcznych
+  override'ów) wymaga teraz również
+  `manual_entry.get("registrationVersion") == "manual-page-geometry-override-v1"`,
+  nie tylko obecności klucza `slotQualifications`.
+- **Rationale:** `slotQualifications` w manifeście pojawia się z dwóch
+  niezależnych źródeł: (1) prawdziwej ręcznej korekty operatora
+  (`registrationVersion: "manual-page-geometry-override-v1"`) oraz (2)
+  automatycznej rejestracji przez relaksację D-420 (jedna słaba plansza,
+  `registrationVersion: "verified-page-registration-v1"`), wprowadzonej w
+  `v0.10.367` — 17 commitów po tym, jak powstał sam warunek routingu
+  (`v0.10.224`). Warunek nie został zaktualizowany, więc każda strona
+  zaakceptowana przez relaksację D-420 kończyła import błędem
+  `IMAGE_PAGE_GEOMETRY_INVALID: Qualified manual page evidence is
+  incomplete.` — zgłoszone przez użytkownika przy pierwszym pełnym imporcie
+  stagingu `a139379b` (job `562b0cd1-b9dd-4fa5-83d7-2b4908333fab`).
+- **Bug pre-existing, niezwiązany z T1/T2:** wprowadzony w `v0.10.367`,
+  przed T1 (`v0.10.388`, D-430) i T2 (`v0.10.389`, D-431). Ujawnił się
+  dopiero teraz, bo to pierwsza próba pełnego importu produkcyjnego stagingu,
+  na którym większość zarejestrowanych stron przechodzi przez relaksację
+  D-420 (patrz fakty w D-420 i planie T1/T2: 2337 z 2681 stron).
+- **Safety:** poprawka nie zmienia logiki `apply_qualified_page_override` ani
+  progów D-420/D-430/D-431 — wyłącznie to, KIEDY ta funkcja jest wywoływana.
+  Prawdziwe ręczne override'y (`registrationVersion:
+  "manual-page-geometry-override-v1"`) nadal przechodzą przez nią bez zmian.
+  Auto-zarejestrowane strony (relaksowane i bazowe) przechodzą przez zwykłą
+  ścieżkę `_registered_page_geometry` + strukturalny silnik z pinned quads,
+  tak jak strony bez `slotQualifications` już wcześniej.
+- **Compatibility:** brak zmian schematu manifestu; poprawka dotyczy
+  wyłącznie odczytu istniejących pól po stronie workera.
+
 ## D-431 — Quad słabej planszy relaksacji D-420 pochodzi z projekcji homografii
 
 - **Status:** accepted (TASK-0622, warunkowy task T2 zależny od T1/D-430).

@@ -1025,6 +1025,70 @@ def test_pinned_final_page_geometry_uses_only_attested_five_boards(tmp_path: Pat
     assert len(detection["boards"]) == 5
 
 
+def test_relaxed_auto_registration_with_slot_qualifications_skips_manual_override_path(
+    tmp_path: Path,
+) -> None:
+    # TASK-0623 regression: a D-420 relaxed auto-registration also carries
+    # slotQualifications (to exclude the weak board from training), but its
+    # registrationVersion is PAGE_REGISTRATION_VERSION, not the manual
+    # override sentinel. Routing this into apply_qualified_page_override
+    # raised IMAGE_PAGE_GEOMETRY_INVALID for every relaxed page on import.
+    # This only reproduces through the non-legacy structured-geometry path
+    # (board_detection -> _detect_structured_geometry); the legacy path
+    # never calls apply_qualified_page_override at all.
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    rules_version_id = "4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04"
+    processing = board_cell_processing_snapshot(
+        cell_output_size=32,
+        topology=BoardCellTopology(rows=3, columns=5, rules_version_id=rules_version_id),
+    )
+    qualifications = [GeometryQualification().to_dict() for _ in range(8)] + [
+        GeometryQualification(
+            completeness_status="complete",
+            exclude_from_geometry_training=True,
+            exclusion_reason="manual_exclusion",
+        ).to_dict()
+    ]
+    manifest_entry = {
+        "status": "registered",
+        "quads": _grid_quads(),
+        "boardRedEdgeCoverages": [0.9] * 9,
+        "featureCount": 1000,
+        "registrationVersion": PAGE_REGISTRATION_VERSION,
+        "thresholdsVersion": "verified-page-registration-thresholds-v1",
+        "slotQualifications": qualifications,
+    }
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        page_geometry_manifest={source_checksum: manifest_entry},
+        geometry_rollout=_structured_default_rollout(),
+    )
+    engine = _StructuredGeometryEngine()
+    suite._structured_geometry_engine = engine  # type: ignore[assignment]
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "f" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    normalization = dict(suite.normalization(ImageStageContext(**base, previous_results={})))
+    context = ImageStageContext(**base, previous_results={"normalization": normalization})
+
+    detection = dict(suite.board_detection(context))
+
+    assert engine.call_count == 1
+    assert len(detection["boards"]) == 9  # type: ignore[arg-type]
+
+
 def test_production_stages_create_review_ready_board_and_cell_artifacts(
     tmp_path: Path,
 ) -> None:

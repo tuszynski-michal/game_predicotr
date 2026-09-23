@@ -1972,7 +1972,11 @@ class ProductionImageStageAdapterSuite:
                 None,
                 None,
             )
-        if isinstance(manual_entry, Mapping) and "slotQualifications" in manual_entry:
+        if (
+            isinstance(manual_entry, Mapping)
+            and manual_entry.get("registrationVersion") == "manual-page-geometry-override-v1"
+            and "slotQualifications" in manual_entry
+        ):
             from .qualified_manual_geometry import apply_qualified_page_override
 
             base = manual_source_geometry_result(

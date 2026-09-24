@@ -10,7 +10,9 @@ last_updated: 2026-09-24
 
 - **Status:** accepted (TASK-0635, naprawa regresji z `v0.10.387`, znaleziona
   przy weryfikacji TASK-0633/TASK-0634 przez czerwony test w
-  `manual-image-selection-core.test.mjs`).
+  `manual-image-selection-core.test.mjs`; TASK-0636 tego samego dnia
+  koryguje niepełną ocenę wpływu na Admin z TASK-0635 — patrz ostatni
+  punkt).
 - **Date:** 2026-09-24.
 - **Decision:** `adjacentManualNavigationStep` (`packages/manual-image-selection-core/src/index.ts`)
   z powrotem szuka bieżącej wartości w `MANUAL_IMAGE_NAVIGATION_STEPS`
@@ -33,13 +35,32 @@ last_updated: 2026-09-24
   wykrywał, ale nie został zauważony jako regresja przy tamtym commicie
   (asercja `adjacentManualNavigationStep(20, 1) === 20` była czerwona:
   zwracało `21`).
-- **Compatibility:** zero wpływu na Admin (nie importuje już tej funkcji).
-  Przywraca dokładnie kod sprzed `v0.10.387`, więc test pakietu (niezmieniony
-  od tamtego czasu) znowu przechodzi bez modyfikacji asercji. `dist/`
-  pakietu jest zignorowany przez git i nie wymaga ręcznej przebudowy —
-  `exports["."]` w `package.json` wskazuje `default`/`types` na `src/index.ts`
-  bezpośrednio, więc `dist/` nigdy nie było źródłem prawdy w runtime dla
-  konsumentów w monorepo.
+- **Compatibility:** zero wpływu na **produkcyjny kod** Admina (nie
+  importuje już tej funkcji). Przywraca dokładnie kod sprzed `v0.10.387`,
+  więc test pakietu (niezmieniony od tamtego czasu) znowu przechodzi bez
+  modyfikacji asercji. `dist/` pakietu jest zignorowany przez git i nie
+  wymaga ręcznej przebudowy — `exports["."]` w `package.json` wskazuje
+  `default`/`types` na `src/index.ts` bezpośrednio, więc `dist/` nigdy nie
+  było źródłem prawdy w runtime dla konsumentów w monorepo.
+- **Korekta (TASK-0636, dopisana tego samego dnia):** pierwotna ocena
+  „zero wpływu na Admin” była niepełna — objęła tylko kod produkcyjny, nie
+  testy. `apps/admin/test/manual-local-image-selection.test.mjs` importował
+  `adjacentManualNavigationStep` bezpośrednio z pakietu (przez lokalną
+  fasadę) i miał własny test z asercjami zgodnymi ze **starym** (free-form,
+  `v0.10.387`) zachowaniem (`adjacentManualNavigationStep(20, 1) === 21`,
+  `(50, 1) === 51`) — sprzecznymi z przywróconym zachowaniem. Ten test nie
+  był uruchomiony przed commitem `v0.10.407` (zweryfikowano wyłącznie
+  `manual-image-selection-core` i `reviewer`), więc regresja w
+  `@game-predictor/admin` (1/564 czerwony) przeszła niezauważona do
+  następnego commita. Naprawione: usunięte martwe asercje wprost na
+  `adjacentManualNavigationStep` (funkcja i tak nieużywana w produkcyjnym
+  kodzie Admina) oraz nieużywany import `MANUAL_IMAGE_NAVIGATION_STEPS`,
+  zastąpione asercjami `workspaceSource` weryfikującymi rzeczywiste,
+  lokalne zachowanie Admina (`Math.max(1, currentStep + direction)`,
+  `normalizeNavigationStep`). **Wniosek na przyszłość:** naprawa
+  współdzielonej funkcji pakietu wymaga uruchomienia testów **każdego**
+  konsumenta (`admin`, `reviewer`), nie tylko pakietu i najbardziej
+  oczywistego konsumenta.
 
 ## D-440 — `board-import-coverage` musi jawnie bindować `GameStorageRouter`; ten sam brak dotyczy sąsiednich endpointów `image-review-items`
 

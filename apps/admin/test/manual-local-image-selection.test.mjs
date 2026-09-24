@@ -3,10 +3,8 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
 import {
-  adjacentManualNavigationStep,
   createManualSelectionState,
   isMissingManualDirectoryHandleError,
-  MANUAL_IMAGE_NAVIGATION_STEPS,
   naturalCompare,
   nextManualSelectionState,
   previousManualSelectionState,
@@ -432,15 +430,14 @@ test('offers a persisted numeric arrow navigation step', () => {
 });
 
 test('up and down arrows move by one configured navigation step', () => {
-  assert.equal(adjacentManualNavigationStep(2, 1), 3);
-  assert.equal(adjacentManualNavigationStep(5, 1), 6);
-  assert.equal(adjacentManualNavigationStep(7, 1), 8);
-  assert.equal(adjacentManualNavigationStep(8, 1), 9);
-  assert.equal(adjacentManualNavigationStep(9, 1), 10);
-  assert.equal(adjacentManualNavigationStep(50, 1), 51);
-  assert.equal(adjacentManualNavigationStep(3, -1), 2);
-  assert.equal(adjacentManualNavigationStep(1, -1), 1);
-  assert.equal(adjacentManualNavigationStep(20, 1), 21);
+  assert.match(
+    workspaceSource,
+    /const navigationStep = Math\.max\(1, currentStep \+ direction\);/,
+  );
+  assert.match(
+    workspaceSource,
+    /function normalizeNavigationStep[\s\S]*?Math\.max\(1, Math\.floor\(value\)\)/,
+  );
   assert.match(manualSelectionCoreSource, /input\.key === 'ArrowDown'/);
   assert.match(workspaceSource, /changeNavigationStepByDirection\(1\)/);
   assert.match(manualSelectionCoreSource, /input\.key === 'ArrowUp'/);

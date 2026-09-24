@@ -6,6 +6,41 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0636 — korekta TASK-0635: admin miał własny czerwony test dla `adjacentManualNavigationStep` (D-441)
+
+- Użytkownik poprosił o naprawę nieużywanego importu
+  `MANUAL_IMAGE_NAVIGATION_STEPS` w `apps/admin/test/manual-local-image-selection.test.mjs`,
+  zgłoszonego wcześniej jako drobny, osobny lint warning. Przy naprawie
+  wyszło na jaw coś poważniejszego: ten sam plik importował też
+  `adjacentManualNavigationStep` i miał test (`'up and down arrows move by
+  one configured navigation step'`) z asercjami zgodnymi ze **starym**
+  (free-form, `v0.10.387`) zachowaniem tej funkcji
+  (`adjacentManualNavigationStep(20, 1) === 21`, `(50, 1) === 51`) —
+  bezpośrednio sprzecznymi z naprawą z TASK-0635/D-441 (która przywróciła
+  zachowanie oparte na tablicy, `(20, 1) === 20`).
+- **To była realna, nieujawniona regresja z commita `v0.10.407`
+  (TASK-0635):** weryfikacja tamtej naprawy uruchomiła tylko
+  `manual-image-selection-core` i `reviewer`, pomijając `admin` — przez co
+  1/564 test w `@game-predictor/admin` był czerwony między `v0.10.407` a tym
+  commitem, niezauważony. Naprawione w tym samym tasku: usunięte martwe
+  asercje wprost na `adjacentManualNavigationStep` (funkcja nieużywana w
+  produkcyjnym kodzie Admina — ma własną, lokalną
+  `changeNavigationStepByDirection`/`normalizeNavigationStep` z
+  `Math.max(1, ...)`, bez górnego ograniczenia) i oba nieużywane importy
+  (`adjacentManualNavigationStep`, `MANUAL_IMAGE_NAVIGATION_STEPS`),
+  zastąpione asercjami `workspaceSource` weryfikującymi rzeczywistą, lokalną
+  logikę Admina.
+- Testy: `apps/admin/test/manual-local-image-selection.test.mjs` 32/32
+  (wcześniej 31/32), pełny `npm run test --workspace @game-predictor/admin`
+  564/564 (dopiero teraz faktycznie zweryfikowany po TASK-0635), `lint`
+  admina: 4 warningi (było 5 — usunięty dotyczył tego importu), 0 błędów.
+  `typecheck` czysty.
+- **Wniosek procesowy zapisany w D-441:** naprawa funkcji współdzielonego
+  pakietu wymaga uruchomienia testów każdego konsumenta (`admin` i
+  `reviewer`), nie tylko pakietu i najbardziej oczywistego z nich.
+- Dokumentacja: `ai_docs/process/DECISION_LOG.md` D-441 (skorygowany punkt
+  „Compatibility”, nowy punkt „Korekta”).
+
 ### TASK-0635 — naprawa regresji `adjacentManualNavigationStep` w Reviewerze (D-441)
 
 - Zgłoszony przez użytkownika bug znaleziony przy okazji weryfikacji

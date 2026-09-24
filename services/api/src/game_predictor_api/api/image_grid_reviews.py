@@ -59,6 +59,7 @@ from game_predictor_api.schemas.image_grid_reviews import (
     to_virtual_grid_review_source_geometry_commands,
     to_virtual_grid_review_source_geometry_response,
 )
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 ImageGridReviewServiceDependency = Callable[..., object]
 OperationalImageReviewServiceDependency = Callable[..., object]
@@ -213,17 +214,18 @@ def create_image_grid_reviews_router(
             Query(alias="expectedSourceChecksumSha256"),
         ],
     ) -> FileResponse:
-        item = service.source_asset(
-            game_id=game_id,
-            review_item_id=review_item_id,
-            expected_source_checksum_sha256=expected_source_checksum_sha256,
-        )
-        asset = resolve_grid_review_source_asset(item, artifact_root)
-        return FileResponse(
-            asset.path,
-            media_type=asset.media_type,
-            headers={"Cache-Control": "private, immutable, max-age=31536000"},
-        )
+        with game_storage_scope(game_id):
+            item = service.source_asset(
+                game_id=game_id,
+                review_item_id=review_item_id,
+                expected_source_checksum_sha256=expected_source_checksum_sha256,
+            )
+            asset = resolve_grid_review_source_asset(item, artifact_root)
+            return FileResponse(
+                asset.path,
+                media_type=asset.media_type,
+                headers={"Cache-Control": "private, immutable, max-age=31536000"},
+            )
 
     @router.post(
         "/image-reviews/{review_item_id}/geometry-approval",
@@ -238,20 +240,21 @@ def create_image_grid_reviews_router(
         service: Annotated[ImageGridReviewService, service_parameter],
         game_id: Annotated[UUID, Query(alias="gameId")],
     ) -> ImageGridReviewApprovalResponse:
-        return to_image_grid_review_approval_response(
-            service.approve(
-                game_id=game_id,
-                review_item_id=review_item_id,
-                expected_resolution_revision=payload.expected_resolution_revision,
-                expected_geometry_revision=payload.expected_geometry_revision,
-                expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
-                expected_source_width=payload.expected_source_width,
-                expected_source_height=payload.expected_source_height,
-                expected_grid_rows=payload.expected_grid_rows,
-                expected_grid_columns=payload.expected_grid_columns,
-                actor=_LOCAL_ADMIN_ACTOR,
+        with game_storage_scope(game_id):
+            return to_image_grid_review_approval_response(
+                service.approve(
+                    game_id=game_id,
+                    review_item_id=review_item_id,
+                    expected_resolution_revision=payload.expected_resolution_revision,
+                    expected_geometry_revision=payload.expected_geometry_revision,
+                    expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
+                    expected_source_width=payload.expected_source_width,
+                    expected_source_height=payload.expected_source_height,
+                    expected_grid_rows=payload.expected_grid_rows,
+                    expected_grid_columns=payload.expected_grid_columns,
+                    actor=_LOCAL_ADMIN_ACTOR,
+                )
             )
-        )
 
     @router.post(
         "/games/{game_id}/grid-reviews/source-geometry-approval",
@@ -299,58 +302,61 @@ def create_image_grid_reviews_router(
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> Response:
-        source = _require_expected_source(service, game_id, review_item_id, payload)
-        corners = tuple(ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners)
-        if source.asset_mode == "virtual_source":
-            virtual_preview = virtual_service.preview(
-                geometry_qualification=payload.geometry_qualification.to_domain()
-                if payload.geometry_qualification is not None
-                else None,
+        with game_storage_scope(game_id):
+            source = _require_expected_source(service, game_id, review_item_id, payload)
+            corners = tuple(
+                ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
+            )
+            if source.asset_mode == "virtual_source":
+                virtual_preview = virtual_service.preview(
+                    geometry_qualification=payload.geometry_qualification.to_domain()
+                    if payload.geometry_qualification is not None
+                    else None,
+                    game_id=game_id,
+                    import_job_id=import_job_id,
+                    review_item_id=review_item_id,
+                    expected_geometry_revision=payload.expected_geometry_revision,
+                    expected_resolution_revision=payload.expected_resolution_revision,
+                    expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
+                    expected_source_width=payload.expected_source_width,
+                    expected_source_height=payload.expected_source_height,
+                    expected_grid_rows=payload.expected_grid_rows,
+                    expected_grid_columns=payload.expected_grid_columns,
+                    corners=corners,
+                )
+                return Response(
+                    content=virtual_preview.contact_sheet_png,
+                    media_type="image/png",
+                    headers={
+                        "Cache-Control": "no-store",
+                        "X-Board-Cell-Count": str(len(virtual_preview.cells)),
+                        "X-Board-Grid-Rows": str(source.topology.rows),
+                        "X-Board-Grid-Columns": str(source.topology.columns),
+                        "X-Board-Cell-Cropper-Version": virtual_preview.cropper_version,
+                    },
+                )
+            legacy_preview = operational_service.preview_geometry(
+                review_item_id,
                 game_id=game_id,
                 import_job_id=import_job_id,
-                review_item_id=review_item_id,
                 expected_geometry_revision=payload.expected_geometry_revision,
                 expected_resolution_revision=payload.expected_resolution_revision,
-                expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
-                expected_source_width=payload.expected_source_width,
-                expected_source_height=payload.expected_source_height,
-                expected_grid_rows=payload.expected_grid_rows,
-                expected_grid_columns=payload.expected_grid_columns,
                 corners=corners,
             )
             return Response(
-                content=virtual_preview.contact_sheet_png,
+                content=legacy_preview.contact_sheet_png,
                 media_type="image/png",
                 headers={
                     "Cache-Control": "no-store",
-                    "X-Board-Cell-Count": str(len(virtual_preview.cells)),
+                    "X-Board-Cell-Count": str(len(legacy_preview.cells)),
                     "X-Board-Grid-Rows": str(source.topology.rows),
                     "X-Board-Grid-Columns": str(source.topology.columns),
-                    "X-Board-Cell-Cropper-Version": virtual_preview.cropper_version,
+                    "X-Board-Cell-Cropper-Fingerprint-Sha256": (
+                        legacy_preview.cropper_fingerprint_sha256
+                    ),
+                    "X-Board-Cell-Cropper-Version": legacy_preview.cropper_version,
                 },
             )
-        legacy_preview = operational_service.preview_geometry(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-            expected_geometry_revision=payload.expected_geometry_revision,
-            expected_resolution_revision=payload.expected_resolution_revision,
-            corners=corners,
-        )
-        return Response(
-            content=legacy_preview.contact_sheet_png,
-            media_type="image/png",
-            headers={
-                "Cache-Control": "no-store",
-                "X-Board-Cell-Count": str(len(legacy_preview.cells)),
-                "X-Board-Grid-Rows": str(source.topology.rows),
-                "X-Board-Grid-Columns": str(source.topology.columns),
-                "X-Board-Cell-Cropper-Fingerprint-Sha256": (
-                    legacy_preview.cropper_fingerprint_sha256
-                ),
-                "X-Board-Cell-Cropper-Version": legacy_preview.cropper_version,
-            },
-        )
 
     @router.post(
         "/image-reviews/{review_item_id}/geometry-revisions",
@@ -374,49 +380,52 @@ def create_image_grid_reviews_router(
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> ImageGridReviewGeometryResponse:
-        source = _require_expected_source(service, game_id, review_item_id, payload)
-        corners = tuple(ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners)
-        if source.asset_mode == "virtual_source":
-            result = virtual_service.save(
-                geometry_qualification=payload.geometry_qualification.to_domain()
-                if payload.geometry_qualification is not None
-                else None,
+        with game_storage_scope(game_id):
+            source = _require_expected_source(service, game_id, review_item_id, payload)
+            corners = tuple(
+                ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
+            )
+            if source.asset_mode == "virtual_source":
+                result = virtual_service.save(
+                    geometry_qualification=payload.geometry_qualification.to_domain()
+                    if payload.geometry_qualification is not None
+                    else None,
+                    game_id=game_id,
+                    import_job_id=import_job_id,
+                    review_item_id=review_item_id,
+                    idempotency_key=payload.idempotency_key,
+                    expected_geometry_revision=payload.expected_geometry_revision,
+                    expected_resolution_revision=payload.expected_resolution_revision,
+                    expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
+                    expected_source_width=payload.expected_source_width,
+                    expected_source_height=payload.expected_source_height,
+                    expected_grid_rows=payload.expected_grid_rows,
+                    expected_grid_columns=payload.expected_grid_columns,
+                    corners=corners,
+                    actor=_LOCAL_ADMIN_ACTOR,
+                    created_at=datetime.now(UTC),
+                )
+                return to_virtual_grid_review_geometry_response(
+                    result,
+                    grid_rows=source.topology.rows,
+                    grid_columns=source.topology.columns,
+                )
+            _item, revision, created = operational_service.correct_geometry(
+                review_item_id,
                 game_id=game_id,
                 import_job_id=import_job_id,
-                review_item_id=review_item_id,
                 idempotency_key=payload.idempotency_key,
                 expected_geometry_revision=payload.expected_geometry_revision,
                 expected_resolution_revision=payload.expected_resolution_revision,
-                expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
-                expected_source_width=payload.expected_source_width,
-                expected_source_height=payload.expected_source_height,
-                expected_grid_rows=payload.expected_grid_rows,
-                expected_grid_columns=payload.expected_grid_columns,
                 corners=corners,
-                actor=_LOCAL_ADMIN_ACTOR,
-                created_at=datetime.now(UTC),
+                corrected_by=_LOCAL_ADMIN_ACTOR,
             )
-            return to_virtual_grid_review_geometry_response(
-                result,
+            return to_image_grid_review_geometry_response(
+                revision=revision,
                 grid_rows=source.topology.rows,
                 grid_columns=source.topology.columns,
+                created=created,
             )
-        _item, revision, created = operational_service.correct_geometry(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-            idempotency_key=payload.idempotency_key,
-            expected_geometry_revision=payload.expected_geometry_revision,
-            expected_resolution_revision=payload.expected_resolution_revision,
-            corners=corners,
-            corrected_by=_LOCAL_ADMIN_ACTOR,
-        )
-        return to_image_grid_review_geometry_response(
-            revision=revision,
-            grid_rows=source.topology.rows,
-            grid_columns=source.topology.columns,
-            created=created,
-        )
 
     @router.post(
         "/games/{game_id}/grid-reviews/source-geometry-revisions",

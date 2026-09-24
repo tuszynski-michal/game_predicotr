@@ -6,6 +6,39 @@ last_updated: 2026-09-24
 
 # Decision Log
 
+## D-442 — trasy z `gameId` wyłącznie w query muszą jawnie bindować `game_storage_scope`
+
+- **Status:** accepted (TASK-0637, naprawa regresji: podgląd oryginału i
+  cropów w Reviewerze na ekranie „Zatwierdzanie cięcia siatki” nie ładował
+  się dla żadnej gry na `game_data_v2`).
+- **Date:** 2026-09-24.
+- **Decision:** cztery trasy `/admin/image-reviews/{review_item_id}/…`
+  (`source-asset`, `geometry-approval`, `geometry-preview`,
+  `geometry-revisions` w `services/api/src/game_predictor_api/api/image_grid_reviews.py`)
+  wykonują teraz całe ciało handlera (łącznie z zagnieżdżonymi wywołaniami
+  `VirtualGridGeometryService`/`OperationalImageReviewService`) w
+  `with game_storage_scope(game_id):`, reużywając istniejący mechanizm z
+  `game_predictor_api.storage.game_storage_routing` (ten sam wzorzec co
+  `OperationalImageReviewService.get_item`, `application/image_reviews.py:437`).
+- **Rationale:** middleware `bind_game_storage_request` binduje scope tylko,
+  gdy `game_id` da się wyciąć ze **ścieżki** (`games/<uuid>/…`). Te cztery
+  trasy przenoszą `gameId` wyłącznie w query, więc scope nigdy nie był
+  ustawiony. `ImageGridReviewRepository.require_game` woła
+  `session.get(GameModel, game_id)` i `session.get(ImageSymbolReviewStateModel,
+  game_id)` — prymarno-kluczowe odczyty `Session.get()`, które (w
+  przeciwieństwie do jawnych `.where(Model.game_id == …)`) nie są wykrywane
+  przez heurystykę nazw parametrów w `_route_orm_statement`
+  (`storage/database.py`), więc bez jawnego scope sesja domyślnie czyta
+  schemat `public`. Dla gry na `game_data_v2` `public.image_symbol_review_states`
+  jest pusty → `require_game` zawsze zwracał 409
+  `IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`, zanim handler w ogóle dotknął
+  pliku obrazu. Oryginały i geometria były przez cały czas kompletne — to
+  wyłącznie błąd routingu sesji, nie utrata ani uszkodzenie danych.
+- **Compatibility:** zero zmian kontraktu HTTP/OpenAPI (`openapi:check` bez
+  różnic), zero zmian danych. Ten sam brak dotyczy nadal endpointów
+  `image-review-items` z D-440 (`dataset-completeness`, `canonical`, …) —
+  pozostaje osobnym, otwartym zakresem.
+
 ## D-441 — `adjacentManualNavigationStep` musi stąpać po `MANUAL_IMAGE_NAVIGATION_STEPS`, nie po surowej liczbie
 
 - **Status:** accepted (TASK-0635, naprawa regresji z `v0.10.387`, znaleziona

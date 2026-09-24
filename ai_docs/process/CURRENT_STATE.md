@@ -6,6 +6,62 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0637 — bindowanie `game_storage_scope` na trasach `/image-reviews/{id}/…` (D-442)
+
+- Naprawiono zgłoszony przez użytkownika brak podglądu oryginału i cropów
+  na ekranie Reviewera „Zatwierdzanie cięcia siatki” dla gry 777
+  (`game_data_v2`, `bfc4f949-5c14-4850-b02a-db99610bcfa5`). Przyczyna
+  (potwierdzona wcześniejszą diagnozą read-only): 4 trasy pod
+  `/admin/image-reviews/{review_item_id}/…` (`source-asset`,
+  `geometry-approval`, `geometry-preview`, `geometry-revisions`) przenoszą
+  `gameId` wyłącznie w query, więc middleware bindujące magazyn gry po
+  ścieżce (`games/<uuid>/…`) nigdy się nie uruchamiał. `require_game`
+  (`session.get(GameModel/ImageSymbolReviewStateModel, game_id)`) czytał
+  wtedy pusty schemat `public` i zwracał 409
+  `IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`, zanim handler w ogóle dotknął
+  pliku obrazu. **Nie było utraty ani uszkodzenia danych** — oryginały
+  (`artifacts/data/originals/…`) i geometria plansz (450 137 rekordów,
+  `asset_mode=virtual_source`, cropy renderowane on-demand z oryginału)
+  były przez cały czas kompletne; potwierdzone próbką 300 sum SHA-256 bez
+  rozbieżności.
+- Naprawa (`services/api/src/game_predictor_api/api/image_grid_reviews.py`):
+  całe ciało tych 4 handlerów (łącznie z zagnieżdżonymi wywołaniami
+  `VirtualGridGeometryService`/`OperationalImageReviewService`) owinięte w
+  `with game_storage_scope(game_id):`, reużywając istniejący mechanizm już
+  używany przez `OperationalImageReviewService.get_item`
+  (`application/image_reviews.py:437`). Zero zmian kontraktu HTTP/OpenAPI
+  (`openapi:check` bez różnic), zero zmian danych. Decyzja: D-442.
+- Testy: nowy `test_item_scoped_grid_review_routes_bind_the_query_game_storage`
+  w `services/api/tests/test_image_grid_review_api.py` (fałszywe
+  repozytorium zapisuje obserwowany `current_game_storage_scope()` przy
+  każdym wywołaniu dla wszystkich 4 tras; mutation-checked: czerwony bez
+  poprawki, zielony po niej). Nowy Postgres integration test
+  `test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session` w
+  `services/api/tests/integration/test_game_storage_routing_postgres.py`
+  (gra na `game_data_v2`, świeża niezbindowana sesja → `PROJECTION_INCOMPLETE`;
+  z `game_storage_scope` → poprawny `ImageGridReviewSourceAsset`) —
+  wymagał lokalnego `command.upgrade(config, "head")` wewnątrz testu, bo
+  wspólna fiksturka `database` w tym pliku jest pinowana na migracji
+  `0106_game_storage_routing_fence` (starsza niż kolumny, których używają
+  aktualne modele `games`/`image_symbol_review_states`; nie zmieniono
+  fiksturki współdzielonej z innymi testami w pliku). Pełny
+  `test_image_grid_review_api.py`: 17/18 (1 błąd pre-existing, niezwiązany
+  — `test_image_import_engine_policy_requires_preview_and_is_per_game`,
+  różnica w `geometryEngineVariants` niezależna od tej zmiany, potwierdzona
+  na czystym checkout). Pełny `test_game_storage_routing_postgres.py`:
+  10/11 (1 błąd pre-existing, niezwiązany —
+  `test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session`, ten sam
+  rodzaj schema-drift fiksturki `database` vs. `games.board_frame_quads`,
+  potwierdzony na czystym checkout). `python:lint` i `python:typecheck`
+  czyste dla zmienionych plików (69 pre-existing błędów typecheck gdzie
+  indziej w repo, niezwiązanych). `openapi:check` bez różnic.
+- **Poza zakresem T1** (zgodnie z planem): endpointy `image-review-items` z
+  D-440 nadal mogą czytać `public` dla gier V2; frontend Reviewera
+  (czytelniejszy komunikat błędu, T2/TASK-0638) i odbiór na żywych danych
+  (T3/TASK-0639) nie zostały wykonane w tym tasku — patrz zadania w planie
+  przekazanym przez użytkownika. Skrypt legacy GC (T4) wymaga osobnej
+  zgody, nie ruszany.
+
 ### TASK-0636 — korekta TASK-0635: admin miał własny czerwony test dla `adjacentManualNavigationStep` (D-441)
 
 - Użytkownik poprosił o naprawę nieużywanego importu

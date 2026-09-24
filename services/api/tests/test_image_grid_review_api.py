@@ -53,6 +53,7 @@ from game_predictor_api.schemas.image_grid_reviews import (
     to_image_grid_review_geometry_response,
     to_image_grid_review_item_response,
 )
+from game_predictor_api.storage.game_storage_routing import current_game_storage_scope
 from game_predictor_api.storage.image_grid_review_repository import (
     _confirmed_partial_expression,
     _pending_automatic_proposal_expression,
@@ -1015,3 +1016,109 @@ def test_grid_geometry_response_uses_the_pinned_topology_for_row_major_indices()
     assert response.geometry_revision.grid_rows == 2
     assert response.geometry_revision.grid_columns == 4
     assert [cell.cell_index for cell in response.geometry_revision.cells] == list(range(8))
+
+
+def test_item_scoped_grid_review_routes_bind_the_query_game_storage(tmp_path: Path) -> None:
+    """Regression for TASK-0637 / D-442.
+
+    Routes under `/image-reviews/{review_item_id}/...` carry `gameId` only in
+    the query string, so the storage-routing middleware (path-based) never
+    binds `game_storage_scope`. Every repository call these routes make must
+    observe an active scope for the query game, otherwise a fresh session
+    would silently fall back to the `public` schema for V2 games.
+    """
+
+    client, repository, items = _client(tmp_path)
+    target = items[0]
+
+    observed_scopes: list[object] = []
+    original_require_game = repository.require_game
+    original_get_source_asset = repository.get_grid_review_source_asset
+    original_approve_grid_geometry = repository.approve_grid_geometry
+
+    def require_game(game_id: UUID) -> None:
+        observed_scopes.append(current_game_storage_scope())
+        original_require_game(game_id)
+
+    def get_grid_review_source_asset(
+        *, game_id: UUID, review_item_id: UUID
+    ) -> ImageGridReviewSourceAsset | None:
+        observed_scopes.append(current_game_storage_scope())
+        return original_get_source_asset(game_id=game_id, review_item_id=review_item_id)
+
+    def approve_grid_geometry(**kwargs: object) -> ImageGridApprovalResult:
+        observed_scopes.append(current_game_storage_scope())
+        return original_approve_grid_geometry(**kwargs)
+
+    repository.require_game = require_game  # type: ignore[method-assign]
+    repository.get_grid_review_source_asset = get_grid_review_source_asset  # type: ignore[method-assign]
+    repository.approve_grid_geometry = approve_grid_geometry  # type: ignore[method-assign]
+
+    corners = [{"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 100, "y": 100}, {"x": 0, "y": 100}]
+
+    asset = client.get(
+        f"/api/v1/admin/image-reviews/{target.review_item_id}/source-asset",
+        params={
+            "gameId": str(target.game_id),
+            "expectedSourceChecksumSha256": target.source_checksum_sha256,
+        },
+    )
+    assert asset.status_code == 200
+
+    approved = client.post(
+        f"/api/v1/admin/image-reviews/{target.review_item_id}/geometry-approval",
+        params={"gameId": str(target.game_id)},
+        json={
+            "expectedResolutionRevision": target.resolution_revision,
+            "expectedGeometryRevision": target.geometry_revision,
+            "expectedSourceChecksumSha256": target.source_checksum_sha256,
+            "expectedSourceWidth": target.source_width,
+            "expectedSourceHeight": target.source_height,
+            "expectedGridRows": target.topology.rows,
+            "expectedGridColumns": target.topology.columns,
+        },
+    )
+    assert approved.status_code == 200
+
+    # Mismatched expected width forces a deterministic 409 (SOURCE_DRIFT)
+    # right after the source lookup, without reaching the geometry engines
+    # (which this fixture does not wire up) — scope is already observed by
+    # that point.
+    preview = client.post(
+        f"/api/v1/admin/image-reviews/{target.review_item_id}/geometry-preview",
+        params={"gameId": str(target.game_id), "importJobId": str(target.import_job_id)},
+        json={
+            "expectedGeometryRevision": target.geometry_revision,
+            "expectedResolutionRevision": target.resolution_revision,
+            "corners": corners,
+            "expectedSourceChecksumSha256": target.source_checksum_sha256,
+            "expectedSourceWidth": target.source_width + 1,
+            "expectedSourceHeight": target.source_height,
+            "expectedGridRows": target.topology.rows,
+            "expectedGridColumns": target.topology.columns,
+        },
+    )
+    assert preview.status_code == 409
+    assert preview.json()["code"] == "IMAGE_GRID_REVIEW_SOURCE_DRIFT"
+
+    revision = client.post(
+        f"/api/v1/admin/image-reviews/{target.review_item_id}/geometry-revisions",
+        params={"gameId": str(target.game_id), "importJobId": str(target.import_job_id)},
+        json={
+            "idempotencyKey": str(uuid4()),
+            "expectedGeometryRevision": target.geometry_revision,
+            "expectedResolutionRevision": target.resolution_revision,
+            "corners": corners,
+            "expectedSourceChecksumSha256": target.source_checksum_sha256,
+            "expectedSourceWidth": target.source_width + 1,
+            "expectedSourceHeight": target.source_height,
+            "expectedGridRows": target.topology.rows,
+            "expectedGridColumns": target.topology.columns,
+        },
+    )
+    assert revision.status_code == 409
+    assert revision.json()["code"] == "IMAGE_GRID_REVIEW_SOURCE_DRIFT"
+
+    assert len(observed_scopes) == 8
+    assert all(scope is not None for scope in observed_scopes)
+    assert all(scope.game_id == target.game_id for scope in observed_scopes)  # type: ignore[union-attr]

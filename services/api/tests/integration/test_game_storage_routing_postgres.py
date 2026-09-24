@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
 from game_predictor_api.application.image_reviews import OperationalImageReviewService
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.page_geometry_overrides import PageGeometryOverrideService
@@ -20,6 +21,7 @@ from game_predictor_api.domain.board_search import (
     BoardSearchCandidate,
     BoardSearchProjectionPayload,
 )
+from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewNotFoundError
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.storage.board_search_projection_repository import (
@@ -33,6 +35,9 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageRoutingError,
     GameStorageSchema,
     game_storage_scope,
+)
+from game_predictor_api.storage.image_grid_review_repository import (
+    SqlAlchemyImageGridReviewRepository,
 )
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
@@ -569,6 +574,181 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
         assert fast_document.primary_symbol_mobile_codes == [3] * 15
         assert (
             connection.scalar(text("SELECT count(*) FROM public.image_board_search_candidates"))
+            == 0
+        )
+
+
+def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: Engine) -> None:
+    """Regression for TASK-0637 / D-442.
+
+    `ImageGridReviewService.source_asset` (used by the `/image-reviews/{id}/…`
+    routes, which carry `gameId` only in the query string) must resolve a V2
+    game's projection state and source row in a fresh, unscoped session once
+    the caller binds `game_storage_scope`. Before the fix, the handler never
+    bound the scope, so `require_game` read the empty `public` schema and
+    always raised `IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`.
+    """
+
+    # `database` is pinned to migration 0106; `ImageGridReviewService.source_asset`
+    # reads columns (e.g. `games.shape_geometry_configuration`) added afterward.
+    config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
+    config.set_main_option(
+        "sqlalchemy.url",
+        database.url.render_as_string(hide_password=False).replace("%", "%%"),
+    )
+    command.upgrade(config, "head")
+
+    now = datetime(2026, 9, 14, tzinfo=UTC)
+    source_checksum = "e" * 64
+    pipeline_fingerprint = "f" * 64
+    with database.begin() as connection:
+        game_id = _game(connection, code="grid-review-source-asset-v2")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        for table_name in (
+            "image_import_job_files",
+            "source_images",
+            "recognized_boards",
+            "image_review_queue_states",
+            "image_review_queue_items",
+            "image_review_items",
+            "image_board_search_candidates",
+            "image_board_search_fast_documents",
+            "image_symbol_review_states",
+        ):
+            connection.exec_driver_sql(
+                f"CREATE TABLE game_data_v2.{table_name}_g_{game_id.hex} "
+                f"PARTITION OF game_data_v2.{table_name} FOR VALUES IN ('{game_id}')"
+            )
+
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with factory.begin() as session:
+        job = SqlAlchemyJobRepository(session).add_job(
+            create_job(
+                JobType.IMPORT,
+                game_id=game_id,
+                input_payload={
+                    "schema_version": 1,
+                    "import_kind": "image_directory",
+                    "pipeline_fingerprint": pipeline_fingerprint,
+                },
+                created_at=now,
+            )
+        )
+    execution = SqlAlchemyImageBatchStore(factory).register_file(
+        job.id,
+        source_checksum_sha256=source_checksum,
+        pipeline_fingerprint=pipeline_fingerprint,
+        source_relative_path="originals/grid-review.jpg",
+        order_index=0,
+        registered_at=now,
+    )
+
+    with game_storage_scope(game_id), factory.begin() as session:
+        # Raw insert, not the ORM model: `database` is pinned to migration
+        # 0106 and does not carry every column the head `image_symbol_review_states`
+        # mapping expects.
+        session.execute(
+            text("INSERT INTO image_symbol_review_states (game_id, status) VALUES (:g, 'ready')"),
+            {"g": game_id},
+        )
+        source = SourceImageModel(
+            import_job_id=job.id,
+            file_execution_key=execution.file_execution_key,
+            relative_path="originals/grid-review.jpg",
+            checksum_sha256=source_checksum,
+            width=1920,
+            height=1080,
+            status="waiting_for_review",
+            created_at=now,
+        )
+        session.add(source)
+        session.flush()
+        board = RecognizedBoardModel(
+            source_image_id=source.id,
+            position_index=0,
+            sequence_number_raw="7",
+            sequence_number=7,
+            sequence_confidence=1.0,
+            board_geometry={"source": "v2-grid-review-asset-test"},
+            board_relative_path="boards/grid-review.png",
+            board_checksum_sha256="d" * 64,
+            cells_prediction={"cells": []},
+            board_confidence=1.0,
+            pipeline_fingerprint=pipeline_fingerprint,
+            status="pending_review",
+            created_at=now,
+        )
+        session.add(board)
+        session.flush()
+        review = ImageReviewItemModel(
+            game_id=game_id,
+            import_job_id=job.id,
+            sequence_number=7,
+            recognized_board_id=board.id,
+            status="pending",
+            snapshot={"sequenceNumber": 7},
+            resolution_revision=0,
+            created_at=now,
+        )
+        session.add(review)
+        session.flush()
+        review_item_id = review.id
+
+        payload = BoardSearchProjectionPayload(
+            game_id=game_id,
+            import_job_id=job.id,
+            recognized_board_id=board.id,
+            candidate=BoardSearchCandidate(
+                review_item_id=review.id,
+                sequence_number=7,
+                status="accepted",
+                primary_symbol_codes=(None,) * 15,
+                alternative_symbol_codes=((),) * 15,
+            ),
+            board_checksum_sha256="d" * 64,
+            board_confidence=1.0,
+            sequence_confidence=1.0,
+            source_pixel_count=5000,
+        )
+        board_search_repository = SqlAlchemyBoardSearchProjectionRepository(session)
+        board_search_repository.upsert_candidate(payload)
+        board_search_repository.reconcile_sequence(game_id, 7)
+
+    # Asset endpoints begin in a fresh session and carry gameId only in query.
+    with factory() as session:
+        service = ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session))
+        with pytest.raises(ImageGridReviewError) as unscoped:
+            service.source_asset(
+                game_id=game_id,
+                review_item_id=review_item_id,
+                expected_source_checksum_sha256=source_checksum,
+            )
+    assert unscoped.value.code == "IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE"
+
+    with game_storage_scope(game_id), factory() as session:
+        service = ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session))
+        asset = service.source_asset(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            expected_source_checksum_sha256=source_checksum,
+        )
+    assert asset.review_item_id == review_item_id
+    assert asset.source_relative_path == "originals/grid-review.jpg"
+    assert asset.source_checksum_sha256 == source_checksum
+    assert asset.asset_mode == "legacy_file"
+    with database.connect() as connection:
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM public.image_review_items WHERE id=:review_item_id"),
+                {"review_item_id": review_item_id},
+            )
             == 0
         )
 

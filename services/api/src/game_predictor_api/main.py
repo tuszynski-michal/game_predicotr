@@ -227,6 +227,9 @@ from game_predictor_api.security.local_admin import (
 from game_predictor_api.storage.board_cell_geometry_pending_repository import (
     SqlAlchemyBoardCellGeometryPendingRepository,
 )
+from game_predictor_api.storage.board_import_coverage_repository import (
+    SqlAlchemyBoardImportCoverageRepository,
+)
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -1037,6 +1040,9 @@ def create_app(
                     SqlAlchemyOperationalImageReviewRepository(session),
                     artifact_root=resolved_settings.artifact_root,
                     board_cell_geometry_previewer=ManualBoardCellGeometryPreviewer(),
+                    board_import_coverage_repository=SqlAlchemyBoardImportCoverageRepository(
+                        session
+                    ),
                 )
                 session.commit()
             except BaseException:

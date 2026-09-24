@@ -6,6 +6,48 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0630 — endpoint `board-import-coverage` i klient TypeScript
+
+- Drugi z 3-taskowego planu „Brakujące plansze" (`TASK-0629` → `TASK-0630` →
+  `TASK-0631`). Wystawia HTTP nad domeną/repozytorium z TASK-0629:
+  `GET /api/v1/admin/image-review-items/board-import-coverage/{gameId}`
+  (`operation_id=getBoardImportCoverage`), query `view/from/to/
+  afterSequenceNumber/limit`. `dataset-completeness` zostaje bez zmian
+  (DU-2).
+- `OperationalImageReviewService.board_import_coverage`: 404 dla nieznanej
+  gry, 422 dla `from > to` i dla braku skonfigurowanego repozytorium
+  (przez bazowy `ImageReviewError`, nie `ImageReviewConflictError` — inaczej
+  handler dałby 409 zamiast wymaganego 422); `limit` poza `1..100` i
+  nieznany `view` odrzuca FastAPI automatycznie.
+- `BoardImportCoverageReport` (TASK-0629) uzupełniony o `computed_at` —
+  brakowało go w pierwszym kroku, a kontrakt endpointu go wymaga.
+- Klient: wygenerowany `getBoardImportCoverage` (`openapi:generate`) plus
+  ręczny wrapper w `admin-api-client/src/index.ts`, wzorem
+  `listImageGridReviews`.
+- **Efekt uboczny: naprawiono nieoczekiwaną regresję w niepowiązanym**
+  `test_semi_automatic_selection_migration.py` — asercjonował dosłowny tekst
+  migracji `0114` sprzed poprawki `schema="public"` z `v0.10.397`
+  (TASK-0629); zaktualizowano do aktualnego tekstu.
+- Testy: 7/7 nowych (`test_board_import_coverage_api.py`), 60/60
+  `admin-api-client` (w tym nowy wrapper i oba testy driftu),
+  `openapi:generate`/`openapi:check` przechodzą. Pełny `pytest
+  services/api/tests`: 1393 passed (+1 vs poprzedni stan), 21 failed — **z
+  procesu weryfikacji potwierdzono, że wszystkie 21 są przedsesyjne i
+  niepowiązane** (odtworzone identycznie na czystym `git stash` do commitu
+  `v0.10.399`), w tym dwa już znane z D-438 oraz jeden stały
+  `test_migration_baseline.py` (asercjonuje head `0119` sprzed migracji
+  `0120`/`0121`, sprzed tego planu) i jeden `test_openapi_contract.py`
+  (brak `minItems` w niepowiązanym schemacie grid-review).
+- **Uwaga o współbieżności:** w trakcie tego taska na tej samej gałęzi
+  pojawił się z zewnątrz (nie z tej sesji) commit `v0.10.399 - fix 0122
+  retry on canonical index predicate` — poprawka idempotencji migracji
+  `0122` (TASK-0629) plus nowy
+  `services/api/tests/integration/test_board_import_coverage_migration.py`.
+  Nie koliduje z tym taskiem; osobna sesja/użytkownik pracuje równolegle
+  nad tą samą gałęzią.
+- Decyzja: brak nowego wpisu `DECISION_LOG.md` — to wyłącznie warstwa API
+  nad już zdecydowanym D-437.
+
 ### TASK-0629 — definicja „planszy dodanej", indeksy i repozytorium pokrycia importu (D-437)
 
 - Pierwszy z 3-taskowego planu „Brakujące plansze" w „Import plansz"

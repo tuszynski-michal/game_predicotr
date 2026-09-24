@@ -13,6 +13,7 @@ from game_predictor_api.application.image_reviews import (
     OperationalImageReviewPage,
     PendingGridReinferencePreview,
 )
+from game_predictor_api.domain.board_import_coverage import BoardImportCoverageView
 from game_predictor_api.domain.image_reviews import (
     IMAGE_REVIEW_CELL_COUNT,
     MAX_IMAGE_REVIEW_ALTERNATIVES,
@@ -28,6 +29,9 @@ from game_predictor_api.domain.image_reviews import (
     crop_sample_id,
 )
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.storage.board_import_coverage_repository import (
+    BoardImportCoverageReport,
+)
 
 Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 Probability = Annotated[float, Field(ge=0.0, le=1.0)]
@@ -146,6 +150,56 @@ class ImageDatasetCompletenessResponse(ApiModel):
     missing_sequence_numbers_truncated: bool
     manual_override_count: int = Field(ge=0)
     completion_percentage: float = Field(ge=0, le=100)
+
+
+class BoardImportCoverageCountsResponse(ApiModel):
+    expected: int = Field(ge=1)
+    added: int = Field(ge=0)
+    missing: int = Field(ge=0)
+    approved: int = Field(ge=0)
+    out_of_range: int = Field(ge=0)
+
+
+class BoardImportCoverageNoticesResponse(ApiModel):
+    unnumbered_cut_board_count: int = Field(ge=0)
+    failed_sources_without_range_count: int = Field(ge=0)
+    active_import_job_count: int = Field(ge=0)
+    active_sources_without_range_count: int = Field(ge=0)
+
+
+class BoardImportCoverageRangeResponse(ApiModel):
+    # "from" is a Python keyword; construct this model with `**{"from": ..., "to": ...}`.
+    from_: int = Field(ge=1, alias="from")
+    to: int = Field(ge=1)
+
+
+class BoardImportCoverageRangeCountsResponse(ApiModel):
+    added: int = Field(ge=0)
+    missing: int = Field(ge=0)
+
+
+class BoardImportCoverageSegmentResponse(ApiModel):
+    start: int = Field(ge=1)
+    end: int = Field(ge=1)
+    count: int = Field(ge=1)
+    state: str = Field(min_length=1)
+    error_code: str | None = None
+    geometry_reason_code: str | None = None
+    import_job_id: UUID | None = None
+
+
+class BoardImportCoverageResponse(ApiModel):
+    game_id: UUID
+    expected_layout_count: int = Field(ge=1)
+    counts: BoardImportCoverageCountsResponse
+    missing_by_reason: dict[str, int]
+    notices: BoardImportCoverageNoticesResponse
+    view: BoardImportCoverageView
+    range: BoardImportCoverageRangeResponse | None
+    range_counts: BoardImportCoverageRangeCountsResponse | None
+    segments: tuple[BoardImportCoverageSegmentResponse, ...] = Field(max_length=100)
+    next_after_sequence_number: int | None
+    computed_at: datetime
 
 
 class ImageSequenceSourceCandidateResponse(ApiModel):
@@ -408,6 +462,71 @@ def to_pending_grid_reinference_preview_response(
     )
 
 
+def to_board_import_coverage_response(
+    report: BoardImportCoverageReport,
+) -> BoardImportCoverageResponse:
+    range_from = report.range_from
+    range_to = report.range_to
+    has_range = range_from is not None or range_to is not None
+    return BoardImportCoverageResponse(
+        game_id=report.game_id,
+        expected_layout_count=report.expected_layout_count,
+        counts=BoardImportCoverageCountsResponse(
+            expected=report.counts.expected,
+            added=report.counts.added,
+            missing=report.counts.missing,
+            approved=report.counts.approved,
+            out_of_range=report.counts.out_of_range,
+        ),
+        missing_by_reason={
+            reason.value: count for reason, count in report.missing_by_reason.items()
+        },
+        notices=BoardImportCoverageNoticesResponse(
+            unnumbered_cut_board_count=report.notices.unnumbered_cut_board_count,
+            failed_sources_without_range_count=report.notices.failed_sources_without_range_count,
+            active_import_job_count=report.notices.active_import_job_count,
+            active_sources_without_range_count=(
+                report.notices.active_sources_without_range_count
+            ),
+        ),
+        view=BoardImportCoverageView(report.view),
+        range=(
+            BoardImportCoverageRangeResponse(
+                **{
+                    "from": range_from if range_from is not None else 1,
+                    "to": (
+                        range_to if range_to is not None else report.expected_layout_count
+                    ),
+                }
+            )
+            if has_range
+            else None
+        ),
+        range_counts=(
+            BoardImportCoverageRangeCountsResponse(
+                added=report.range_counts[0],
+                missing=report.range_counts[1],
+            )
+            if report.range_counts is not None
+            else None
+        ),
+        segments=tuple(
+            BoardImportCoverageSegmentResponse(
+                start=segment.start,
+                end=segment.end,
+                count=segment.count,
+                state=segment.state,
+                error_code=segment.error_code,
+                geometry_reason_code=segment.geometry_reason_code,
+                import_job_id=segment.import_job_id,
+            )
+            for segment in report.page.segments
+        ),
+        next_after_sequence_number=report.page.next_after_sequence_number,
+        computed_at=report.computed_at,
+    )
+
+
 def to_image_dataset_completeness_response(
     report: ImageDatasetCompleteness,
 ) -> ImageDatasetCompletenessResponse:
@@ -520,6 +639,12 @@ __all__ = [
     "PendingSymbolReinferencePreviewResponse",
     "PendingGridReinferencePreviewResponse",
     "ImageDatasetCompletenessResponse",
+    "BoardImportCoverageCountsResponse",
+    "BoardImportCoverageNoticesResponse",
+    "BoardImportCoverageRangeResponse",
+    "BoardImportCoverageRangeCountsResponse",
+    "BoardImportCoverageSegmentResponse",
+    "BoardImportCoverageResponse",
     "ImageSequenceSourceOverrideCommand",
     "ImageSequenceSourceSelectionResponse",
     "OperationalImageReviewGeometryCommand",
@@ -536,5 +661,6 @@ __all__ = [
     "to_canonical_page_response",
     "to_pending_grid_reinference_preview_response",
     "to_image_dataset_completeness_response",
+    "to_board_import_coverage_response",
     "to_image_sequence_source_selection_response",
 ]

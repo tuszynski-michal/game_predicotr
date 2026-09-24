@@ -2114,6 +2114,38 @@ Raport kompletności porównuje zaakceptowane numery z zakresem
 unikalnych sekwencji, luk, nadmiarowych źródeł i numerów poza zakresem oraz
 maksymalnie 100 pierwszych brakujących numerów z flagą obcięcia.
 
+TASK-0630 dodaje osobny endpoint pokrycia importu (D-437), z inną semantyką
+„dodanej" (patrz `DECISION_LOG.md` D-437) i ze stronicowaniem — `dataset-completeness`
+zostaje bez zmian:
+
+```text
+GET /api/v1/admin/image-review-items/board-import-coverage/{gameId}?view=&from=&to=&afterSequenceNumber=&limit=
+```
+
+`view` to `missing` (domyślny) albo `added`, bez wariantu „wszystkie". `from`/`to`
+zawężają okno wyszukiwania (oba `≥ 1`, `from ≤ to` — inaczej `422
+BOARD_IMPORT_COVERAGE_RANGE_INVALID`); `afterSequenceNumber` jest kursorem
+keyset (wyłącznie numer, nie segment); `limit` to liczba **segmentów**, nie
+numerów, `1..100` (domyślnie 100), walidowane przez FastAPI jako `422`.
+Nieznana gra daje `404 IMAGE_REVIEW_GAME_NOT_FOUND`.
+
+Odpowiedź: `gameId, expectedLayoutCount, counts{expected, added, missing,
+approved, outOfRange}, missingByReason` (obiekt kluczowany siedmioma kodami
+priorytetu — `import_in_progress, waiting_for_geometry, partial_source,
+failed, rejected, unknown, no_source`), `notices{unnumberedCutBoardCount,
+failedSourcesWithoutRangeCount, activeImportJobCount,
+activeSourcesWithoutRangeCount}, view, range{from,to} | null,
+rangeCounts{added, missing} | null, segments[{start, end, count, state,
+errorCode?, geometryReasonCode?, importJobId?}], nextAfterSequenceNumber,
+computedAt`. `counts` liczy zawsze cały zakres `1..expectedLayoutCount`;
+`range`/`rangeCounts` odzwierciedlają wyłącznie zawężone okno żądania (i są
+`null`, gdy `from`/`to` nie podano). `segments` to co najwyżej 100 kolejnych
+przedziałów o tym samym stanie — `nextAfterSequenceNumber` niepusty oznacza
+kolejną stronę tego samego `view`. `counts.approved` cytuje ten sam licznik
+zatwierdzonych co `dataset-completeness.acceptedBoardCount`, licząc jednak w
+oknie `1..expectedLayoutCount` — nie jest z nim identyczny przy numerach poza
+zakresem.
+
 Lista źródeł zwraca stabilny ranking zaakceptowanych plansz tej samej sekwencji,
 jawne metryki jakości, provenance, automatyczny rank i aktualny wybór. Komenda
 override przyjmuje `reviewItemId` albo `null` do powrotu do wyboru

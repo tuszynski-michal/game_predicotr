@@ -110,7 +110,10 @@ def test_migration_0114_adds_only_v7_metadata_and_a_blocked_activation_gate() ->
     assert "v7_selection" in source
     assert "semi_automatic_selection_v7_activation_gate" in source
     assert "VALUES (TRUE, 'blocked', 0" in source
-    assert 'drop_table(\"semi_automatic_selection_v7_activation_gate\")' in source
+    assert (
+        'drop_table("semi_automatic_selection_v7_activation_gate", schema="public")'
+        in source
+    )
     assert "DELETE FROM semi_automatic_image_selection_runs" not in source
 
     spec = importlib.util.spec_from_file_location("migration_0114", path)

@@ -95,6 +95,7 @@ import {
   getImageSelectionSelectedGroupFile as getGeneratedImageSelectionSelectedGroupFile,
   getManualImageSelectionFile as getGeneratedManualImageSelectionFile,
   handoffImageSelection as handoffGeneratedImageSelection,
+  getBoardImportCoverage as getGeneratedBoardImportCoverage,
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
@@ -241,6 +242,7 @@ import {
   mutateV7LabelGeometryCalibrationSession as mutateGeneratedV7LabelGeometryCalibrationSession,
 } from './generated/sdk.gen';
 import type {
+  BoardImportCoverageView,
   ReprocessManagedImageImportData,
   BrowserImageSelectionCreate,
   BrowserImageUploadPlanResponse,
@@ -516,6 +518,13 @@ export type {
   ImageSelectionRangeConfirmationCommand,
   ImageDiagnosticExportCreationResponse,
   ImageDatasetCompletenessResponse,
+  BoardImportCoverageView,
+  BoardImportCoverageResponse,
+  BoardImportCoverageCountsResponse,
+  BoardImportCoverageNoticesResponse,
+  BoardImportCoverageRangeResponse,
+  BoardImportCoverageRangeCountsResponse,
+  BoardImportCoverageSegmentResponse,
   ImageDiagnosticExportResponse,
   ImageJobFileErrorResponse,
   ImageJobFileResponse,
@@ -770,6 +779,15 @@ export interface ListImageGridReviewsOptions {
   readonly sourceImageId?: string;
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
+  readonly limit?: number;
+}
+
+export interface GetBoardImportCoverageOptions {
+  readonly gameId: string;
+  readonly view?: BoardImportCoverageView;
+  readonly from?: number;
+  readonly to?: number;
+  readonly afterSequenceNumber?: number;
   readonly limit?: number;
 }
 
@@ -1802,6 +1820,20 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       getGeneratedImageDatasetCompleteness({
         client,
         path: { game_id: gameId },
+      }),
+    getBoardImportCoverage: (options: GetBoardImportCoverageOptions) =>
+      getGeneratedBoardImportCoverage({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.view === undefined ? {} : { view: options.view }),
+          ...(options.from === undefined ? {} : { from: options.from }),
+          ...(options.to === undefined ? {} : { to: options.to }),
+          ...(options.afterSequenceNumber === undefined
+            ? {}
+            : { afterSequenceNumber: options.afterSequenceNumber }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
       }),
     searchGameBoards: (gameId: string, options: SearchGameBoardsOptions) =>
       searchGeneratedGameBoards({

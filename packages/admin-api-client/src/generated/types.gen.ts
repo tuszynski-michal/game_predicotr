@@ -665,6 +665,160 @@ export type BoardCellRecropJobSnapshotPayload = {
 };
 
 /**
+ * BoardImportCoverageCountsResponse
+ */
+export type BoardImportCoverageCountsResponse = {
+  /**
+   * Added
+   */
+  added: number;
+  /**
+   * Approved
+   */
+  approved: number;
+  /**
+   * Expected
+   */
+  expected: number;
+  /**
+   * Missing
+   */
+  missing: number;
+  /**
+   * Outofrange
+   */
+  outOfRange: number;
+};
+
+/**
+ * BoardImportCoverageNoticesResponse
+ */
+export type BoardImportCoverageNoticesResponse = {
+  /**
+   * Activeimportjobcount
+   */
+  activeImportJobCount: number;
+  /**
+   * Activesourceswithoutrangecount
+   */
+  activeSourcesWithoutRangeCount: number;
+  /**
+   * Failedsourceswithoutrangecount
+   */
+  failedSourcesWithoutRangeCount: number;
+  /**
+   * Unnumberedcutboardcount
+   */
+  unnumberedCutBoardCount: number;
+};
+
+/**
+ * BoardImportCoverageRangeCountsResponse
+ */
+export type BoardImportCoverageRangeCountsResponse = {
+  /**
+   * Added
+   */
+  added: number;
+  /**
+   * Missing
+   */
+  missing: number;
+};
+
+/**
+ * BoardImportCoverageRangeResponse
+ */
+export type BoardImportCoverageRangeResponse = {
+  /**
+   * From
+   */
+  from: number;
+  /**
+   * To
+   */
+  to: number;
+};
+
+/**
+ * BoardImportCoverageResponse
+ */
+export type BoardImportCoverageResponse = {
+  /**
+   * Computedat
+   */
+  computedAt: string;
+  counts: BoardImportCoverageCountsResponse;
+  /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Missingbyreason
+   */
+  missingByReason: {
+    [key: string]: number;
+  };
+  /**
+   * Nextaftersequencenumber
+   */
+  nextAfterSequenceNumber: number | null;
+  notices: BoardImportCoverageNoticesResponse;
+  range: BoardImportCoverageRangeResponse | null;
+  rangeCounts: BoardImportCoverageRangeCountsResponse | null;
+  /**
+   * Segments
+   */
+  segments: Array<BoardImportCoverageSegmentResponse>;
+  view: BoardImportCoverageView;
+};
+
+/**
+ * BoardImportCoverageSegmentResponse
+ */
+export type BoardImportCoverageSegmentResponse = {
+  /**
+   * Count
+   */
+  count: number;
+  /**
+   * End
+   */
+  end: number;
+  /**
+   * Errorcode
+   */
+  errorCode?: string | null;
+  /**
+   * Geometryreasoncode
+   */
+  geometryReasonCode?: string | null;
+  /**
+   * Importjobid
+   */
+  importJobId?: string | null;
+  /**
+   * Start
+   */
+  start: number;
+  /**
+   * State
+   */
+  state: string;
+};
+
+/**
+ * BoardImportCoverageView
+ *
+ * Which side of D-437 coverage a page request lists.
+ */
+export type BoardImportCoverageView = 'missing' | 'added';
+
+/**
  * BoardSearchAssetMode
  */
 export type BoardSearchAssetMode = 'operational_review' | 'legacy_archive';
@@ -19158,6 +19312,64 @@ export type ListOperationalImageReviewItemsResponses = {
 
 export type ListOperationalImageReviewItemsResponse =
   ListOperationalImageReviewItemsResponses[keyof ListOperationalImageReviewItemsResponses];
+
+export type GetBoardImportCoverageData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    view?: BoardImportCoverageView;
+    /**
+     * From
+     */
+    from?: number | null;
+    /**
+     * To
+     */
+    to?: number | null;
+    /**
+     * Aftersequencenumber
+     */
+    afterSequenceNumber?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-review-items/board-import-coverage/{game_id}';
+};
+
+export type GetBoardImportCoverageErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetBoardImportCoverageError =
+  GetBoardImportCoverageErrors[keyof GetBoardImportCoverageErrors];
+
+export type GetBoardImportCoverageResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardImportCoverageResponse;
+};
+
+export type GetBoardImportCoverageResponse =
+  GetBoardImportCoverageResponses[keyof GetBoardImportCoverageResponses];
 
 export type ListCanonicalImageReviewItemsData = {
   body?: never;

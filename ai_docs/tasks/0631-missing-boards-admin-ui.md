@@ -20,7 +20,7 @@ zwiniętym bloku.
 
 Ostatni z trzech tasków planu „sekcja Brakujące plansze”
 (`ai_docs/tasks/completed/0629-board-import-coverage-definition.md`,
-`ai_docs/tasks/0630-board-import-coverage-endpoint.md`). Użytkownik
+`ai_docs/tasks/completed/0630-board-import-coverage-endpoint.md`). Użytkownik
 (decyzje DU-1..DU-3, 2026-09-24) chce widzieć braki względem pełnego
 oczekiwanego zakresu numerów zamiast tylko zatwierdzonych plansz, bez utraty
 istniejących akcji reprocess.
@@ -43,7 +43,7 @@ zniknęła i polling się wyłącza).
 - `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/requirements/ADMIN_APP.md`
 - `ai_docs/tasks/completed/0629-board-import-coverage-definition.md`
-- `ai_docs/tasks/0630-board-import-coverage-endpoint.md`
+- `ai_docs/tasks/completed/0630-board-import-coverage-endpoint.md`
 
 ## Scope
 

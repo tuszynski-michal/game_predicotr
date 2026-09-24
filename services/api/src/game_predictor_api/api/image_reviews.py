@@ -25,6 +25,7 @@ from game_predictor_api.application.reviewer_access import (
     ReviewerAccessService,
     ReviewerAccessSession,
 )
+from game_predictor_api.domain.board_import_coverage import BoardImportCoverageView
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_PAGE_SIZE,
     ImageReviewGeometryPoint,
@@ -35,6 +36,7 @@ from game_predictor_api.domain.image_reviews import (
 from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_reviews import (
+    BoardImportCoverageResponse,
     CanonicalImageReviewPageResponse,
     ImageDatasetCompletenessResponse,
     ImageSequenceSourceOverrideCommand,
@@ -49,6 +51,7 @@ from game_predictor_api.schemas.image_reviews import (
     OperationalImageReviewResolutionResponse,
     PendingGridReinferencePreviewResponse,
     PendingSymbolReinferencePreviewResponse,
+    to_board_import_coverage_response,
     to_canonical_page_response,
     to_image_dataset_completeness_response,
     to_image_sequence_source_selection_response,
@@ -111,6 +114,35 @@ def create_image_reviews_router(
         service: Annotated[OperationalImageReviewService, service_parameter],
     ) -> ImageDatasetCompletenessResponse:
         return to_image_dataset_completeness_response(service.dataset_completeness(game_id))
+
+    @router.get(
+        "/board-import-coverage/{game_id}",
+        response_model=BoardImportCoverageResponse,
+        operation_id="getBoardImportCoverage",
+        summary="Get missing/added board segments for one game (D-437)",
+        responses=ERROR_RESPONSES,
+    )
+    def get_board_import_coverage(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        view: BoardImportCoverageView = BoardImportCoverageView.MISSING,
+        range_from: Annotated[int | None, Query(alias="from", ge=1)] = None,
+        range_to: Annotated[int | None, Query(alias="to", ge=1)] = None,
+        after_sequence_number: Annotated[
+            int | None, Query(alias="afterSequenceNumber", ge=1)
+        ] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    ) -> BoardImportCoverageResponse:
+        return to_board_import_coverage_response(
+            service.board_import_coverage(
+                game_id,
+                view=view,
+                range_from=range_from,
+                range_to=range_to,
+                after_sequence_number=after_sequence_number,
+                limit=limit,
+            )
+        )
 
     @router.get(
         "/sequence-sources/{game_id}/{sequence_number}",

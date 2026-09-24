@@ -2970,3 +2970,67 @@ test('label geometry calibration client uses local-admin typed operations and ca
   assert.equal(requests[8].headers.get('X-Admin-Intent'), 'local-owner');
   assert.equal(requests[10].headers.get('X-Admin-Intent'), 'local-owner');
 });
+
+test('getBoardImportCoverage passes gameId as path and options as query params', async () => {
+  const requests = [];
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const mockFetch = async (request) => {
+    requests.push(request);
+    return Response.json({
+      gameId,
+      expectedLayoutCount: 20,
+      counts: { expected: 20, added: 17, missing: 3, approved: 10, outOfRange: 0 },
+      missingByReason: { no_source: 3 },
+      notices: {
+        unnumberedCutBoardCount: 0,
+        failedSourcesWithoutRangeCount: 0,
+        activeImportJobCount: 0,
+        activeSourcesWithoutRangeCount: 0,
+      },
+      view: 'missing',
+      range: null,
+      rangeCounts: null,
+      segments: [],
+      nextAfterSequenceNumber: null,
+      computedAt: '2026-09-24T12:00:00Z',
+    });
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  await client.getBoardImportCoverage({ gameId });
+  await client.getBoardImportCoverage({
+    gameId,
+    view: 'added',
+    from: 100,
+    to: 200,
+    afterSequenceNumber: 150,
+    limit: 25,
+  });
+
+  assert.equal(requests.length, 2);
+  const [bare, full] = requests;
+  assert.equal(
+    new URL(bare.url).pathname,
+    `/api/v1/admin/image-review-items/board-import-coverage/${gameId}`,
+  );
+  assert.equal(new URL(bare.url).search, '');
+
+  const fullUrl = new URL(full.url);
+  assert.equal(
+    fullUrl.pathname,
+    `/api/v1/admin/image-review-items/board-import-coverage/${gameId}`,
+  );
+  assert.deepEqual(
+    Object.fromEntries(fullUrl.searchParams.entries()),
+    {
+      view: 'added',
+      from: '100',
+      to: '200',
+      afterSequenceNumber: '150',
+      limit: '25',
+    },
+  );
+});

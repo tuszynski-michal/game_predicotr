@@ -225,6 +225,9 @@ import type {
   GetArchivedBoardSearchAssetData,
   GetArchivedBoardSearchAssetErrors,
   GetArchivedBoardSearchAssetResponses,
+  GetBoardImportCoverageData,
+  GetBoardImportCoverageErrors,
+  GetBoardImportCoverageResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
@@ -3406,6 +3409,25 @@ export const listOperationalImageReviewItems = <
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items',
+    ...options,
+  });
+
+/**
+ * Get missing/added board segments for one game (D-437)
+ */
+export const getBoardImportCoverage = <ThrowOnError extends boolean = false>(
+  options: Options<GetBoardImportCoverageData, ThrowOnError>,
+): RequestResult<
+  GetBoardImportCoverageResponses,
+  GetBoardImportCoverageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardImportCoverageResponses,
+    GetBoardImportCoverageErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/board-import-coverage/{game_id}',
     ...options,
   });
 

@@ -28,12 +28,14 @@ from game_predictor_worker.images.manual_board_cell_geometry_preview import (
 from game_predictor_api.application.image_review_assets import (
     resolve_operational_source_asset,
 )
+from game_predictor_api.domain.board_import_coverage import BoardImportCoverageView
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_PAGE_SIZE,
     ImageDatasetCompleteness,
     ImageReviewAction,
     ImageReviewConflictError,
     ImageReviewCounts,
+    ImageReviewError,
     ImageReviewGeometryArtifacts,
     ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
@@ -52,6 +54,9 @@ from game_predictor_api.domain.image_reviews import (
     encode_image_review_cursor,
     validate_image_review_geometry_command,
     validate_image_review_resolution,
+)
+from game_predictor_api.storage.board_import_coverage_repository import (
+    BoardImportCoverageReport,
 )
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
@@ -215,6 +220,19 @@ class OperationalImageReviewRepository(Protocol):
     ) -> tuple[ImageReviewItem, ImageReviewGeometryRevision, bool]: ...
 
 
+class BoardImportCoverageRepository(Protocol):
+    def board_import_coverage(
+        self,
+        game_id: UUID,
+        *,
+        view: str,
+        range_from: int | None,
+        range_to: int | None,
+        after_sequence_number: int | None,
+        limit: int,
+    ) -> BoardImportCoverageReport | None: ...
+
+
 class OperationalImageReviewService:
     def __init__(
         self,
@@ -222,10 +240,12 @@ class OperationalImageReviewService:
         *,
         artifact_root: Path | None = None,
         board_cell_geometry_previewer: ManualBoardCellGeometryPreviewer | None = None,
+        board_import_coverage_repository: BoardImportCoverageRepository | None = None,
     ) -> None:
         self._repository = repository
         self._artifact_root = artifact_root
         self._board_cell_geometry_previewer = board_cell_geometry_previewer
+        self._board_import_coverage_repository = board_import_coverage_repository
 
     def list_items(
         self,
@@ -505,6 +525,46 @@ class OperationalImageReviewService:
 
     def dataset_completeness(self, game_id: UUID) -> ImageDatasetCompleteness:
         report = self._repository.dataset_completeness(game_id)
+        if report is None:
+            raise ImageReviewNotFoundError(
+                "IMAGE_REVIEW_GAME_NOT_FOUND",
+                "The selected operational review game does not exist.",
+            )
+        return report
+
+    def board_import_coverage(
+        self,
+        game_id: UUID,
+        *,
+        view: BoardImportCoverageView,
+        range_from: int | None,
+        range_to: int | None,
+        after_sequence_number: int | None,
+        limit: int,
+    ) -> BoardImportCoverageReport:
+        if self._board_import_coverage_repository is None:
+            raise ImageReviewConflictError(
+                "BOARD_IMPORT_COVERAGE_UNAVAILABLE",
+                "Board import coverage is not configured.",
+            )
+        if not 1 <= limit <= 100:
+            raise ImageReviewError(
+                "BOARD_IMPORT_COVERAGE_LIMIT_INVALID",
+                "limit must be between 1 and 100.",
+            )
+        if range_from is not None and range_to is not None and range_from > range_to:
+            raise ImageReviewError(
+                "BOARD_IMPORT_COVERAGE_RANGE_INVALID",
+                "from must be less than or equal to to.",
+            )
+        report = self._board_import_coverage_repository.board_import_coverage(
+            game_id,
+            view=view.value,
+            range_from=range_from,
+            range_to=range_to,
+            after_sequence_number=after_sequence_number,
+            limit=limit,
+        )
         if report is None:
             raise ImageReviewNotFoundError(
                 "IMAGE_REVIEW_GAME_NOT_FOUND",

@@ -41,6 +41,13 @@ _REASON_PRIORITY: dict[MissingReason, int] = {
 }
 
 
+class BoardImportCoverageView(str, Enum):
+    """Which side of D-437 coverage a page request lists."""
+
+    MISSING = "missing"
+    ADDED = "added"
+
+
 @dataclass(frozen=True, slots=True)
 class SequenceInterval:
     """An inclusive, 1-indexed range of sequence numbers: ``[start, end]``."""
@@ -250,6 +257,7 @@ def count_missing_by_reason(
 
 
 __all__ = [
+    "BoardImportCoverageView",
     "CoveragePage",
     "CoverageSegment",
     "MissingReason",

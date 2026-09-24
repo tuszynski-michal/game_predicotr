@@ -11,6 +11,7 @@ with each other.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import BigInteger, and_, func, literal_column, select
@@ -72,6 +73,7 @@ class BoardImportCoverageReport:
     range_to: int | None
     range_counts: tuple[int, int] | None  # (added, missing) in the requested range
     page: CoveragePage
+    computed_at: datetime
 
 
 class SqlAlchemyBoardImportCoverageRepository:
@@ -167,6 +169,7 @@ class SqlAlchemyBoardImportCoverageRepository:
             range_to=range_to,
             range_counts=range_counts,
             page=page,
+            computed_at=datetime.now(UTC),
         )
 
     def _added_islands(self, game_id: UUID, expected: int) -> list[SequenceInterval]:

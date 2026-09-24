@@ -1170,6 +1170,286 @@
         "title": "BoardCellRecropJobSnapshotPayload",
         "type": "object"
       },
+      "BoardImportCoverageCountsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "added": {
+            "minimum": 0.0,
+            "title": "Added",
+            "type": "integer"
+          },
+          "approved": {
+            "minimum": 0.0,
+            "title": "Approved",
+            "type": "integer"
+          },
+          "expected": {
+            "minimum": 1.0,
+            "title": "Expected",
+            "type": "integer"
+          },
+          "missing": {
+            "minimum": 0.0,
+            "title": "Missing",
+            "type": "integer"
+          },
+          "outOfRange": {
+            "minimum": 0.0,
+            "title": "Outofrange",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected",
+          "added",
+          "missing",
+          "approved",
+          "outOfRange"
+        ],
+        "title": "BoardImportCoverageCountsResponse",
+        "type": "object"
+      },
+      "BoardImportCoverageNoticesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeImportJobCount": {
+            "minimum": 0.0,
+            "title": "Activeimportjobcount",
+            "type": "integer"
+          },
+          "activeSourcesWithoutRangeCount": {
+            "minimum": 0.0,
+            "title": "Activesourceswithoutrangecount",
+            "type": "integer"
+          },
+          "failedSourcesWithoutRangeCount": {
+            "minimum": 0.0,
+            "title": "Failedsourceswithoutrangecount",
+            "type": "integer"
+          },
+          "unnumberedCutBoardCount": {
+            "minimum": 0.0,
+            "title": "Unnumberedcutboardcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unnumberedCutBoardCount",
+          "failedSourcesWithoutRangeCount",
+          "activeImportJobCount",
+          "activeSourcesWithoutRangeCount"
+        ],
+        "title": "BoardImportCoverageNoticesResponse",
+        "type": "object"
+      },
+      "BoardImportCoverageRangeCountsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "added": {
+            "minimum": 0.0,
+            "title": "Added",
+            "type": "integer"
+          },
+          "missing": {
+            "minimum": 0.0,
+            "title": "Missing",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "added",
+          "missing"
+        ],
+        "title": "BoardImportCoverageRangeCountsResponse",
+        "type": "object"
+      },
+      "BoardImportCoverageRangeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "minimum": 1.0,
+            "title": "From",
+            "type": "integer"
+          },
+          "to": {
+            "minimum": 1.0,
+            "title": "To",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "title": "BoardImportCoverageRangeResponse",
+        "type": "object"
+      },
+      "BoardImportCoverageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "computedAt": {
+            "format": "date-time",
+            "title": "Computedat",
+            "type": "string"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/BoardImportCoverageCountsResponse"
+          },
+          "expectedLayoutCount": {
+            "minimum": 1.0,
+            "title": "Expectedlayoutcount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "missingByReason": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Missingbyreason",
+            "type": "object"
+          },
+          "nextAfterSequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextaftersequencenumber"
+          },
+          "notices": {
+            "$ref": "#/components/schemas/BoardImportCoverageNoticesResponse"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardImportCoverageRangeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rangeCounts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardImportCoverageRangeCountsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/BoardImportCoverageSegmentResponse"
+            },
+            "maxItems": 100,
+            "title": "Segments",
+            "type": "array"
+          },
+          "view": {
+            "$ref": "#/components/schemas/BoardImportCoverageView"
+          }
+        },
+        "required": [
+          "gameId",
+          "expectedLayoutCount",
+          "counts",
+          "missingByReason",
+          "notices",
+          "view",
+          "range",
+          "rangeCounts",
+          "segments",
+          "nextAfterSequenceNumber",
+          "computedAt"
+        ],
+        "title": "BoardImportCoverageResponse",
+        "type": "object"
+      },
+      "BoardImportCoverageSegmentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "end": {
+            "minimum": 1.0,
+            "title": "End",
+            "type": "integer"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "geometryReasonCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryreasoncode"
+          },
+          "importJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobid"
+          },
+          "start": {
+            "minimum": 1.0,
+            "title": "Start",
+            "type": "integer"
+          },
+          "state": {
+            "minLength": 1,
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "count",
+          "state"
+        ],
+        "title": "BoardImportCoverageSegmentResponse",
+        "type": "object"
+      },
+      "BoardImportCoverageView": {
+        "description": "Which side of D-437 coverage a page request lists.",
+        "enum": [
+          "missing",
+          "added"
+        ],
+        "title": "BoardImportCoverageView",
+        "type": "string"
+      },
       "BoardSearchAssetMode": {
         "enum": [
           "operational_review",
@@ -34911,6 +35191,141 @@
           }
         ],
         "summary": "List one bounded page of job-local image review items",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/board-import-coverage/{game_id}": {
+      "get": {
+        "operationId": "getBoardImportCoverage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/BoardImportCoverageView",
+              "default": "missing"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "afterSequenceNumber",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Aftersequencenumber"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardImportCoverageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get missing/added board segments for one game (D-437)",
         "tags": [
           "image-reviews"
         ]

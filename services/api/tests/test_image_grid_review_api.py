@@ -678,6 +678,13 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
             "blockerCode": None,
             "blockerMessage": None,
         },
+        {
+            "variant": "contrast_frame_grid_v1_2",
+            "label": "v1.2 — kontrastowa ramka i siatka (test)",
+            "enabled": True,
+            "blockerCode": None,
+            "blockerMessage": None,
+        },
     ]
     assert preview.json()["changesExistingJobs"] is False
     assert applied.status_code == 200

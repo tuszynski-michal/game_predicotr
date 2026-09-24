@@ -6,6 +6,22 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0642 — nieaktualna asercja `geometryEngineVariants` (brak v1.2) naprawiona
+
+- Ten sam kontekst co TASK-0641: pre-existing, niezwiązany czerwony test
+  napotkany przy realizacji TASK-0637.
+  `test_image_import_engine_policy_requires_preview_and_is_per_game`
+  oczekiwał dokładnie 2 wariantów `geometryEngineVariants`, a produkcyjny
+  kod od `v0.10.354` (TASK-0613, „add v1.2 contrast frame geometry”)
+  zawsze zwraca 3 (v1.0, v1.1, opt-in testowy v1.2). Ten commit dodał
+  wariant do `image_geometry_rollout.py`, ale nie zaktualizował testu —
+  prawdziwa, deterministyczna regresja (nie flaga środowiskowa;
+  `LATERAL_PARTIAL_RELEASED = True` to stała modułu), niezauważona od
+  dwóch dni. Naprawione: rozszerzona asercja o trzeci wariant
+  (`contrast_frame_grid_v1_2`, `enabled=True`), zweryfikowana programowo
+  (Python `==`) jako bajt-w-bajt zgodna z etykietą w kodzie.
+- Testy: pełny `test_image_grid_review_api.py` 17/17 (wcześniej 16/17).
+
 ### TASK-0641 — dryf migracji fikstury testu routingu Postgres naprawiony
 
 - Zgłoszone przez użytkownika po zamknięciu planu D-442: pre-existing,

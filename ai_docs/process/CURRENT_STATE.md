@@ -6,6 +6,35 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0635 — naprawa regresji `adjacentManualNavigationStep` w Reviewerze (D-441)
+
+- Zgłoszony przez użytkownika bug znaleziony przy okazji weryfikacji
+  TASK-0633/TASK-0634: `npm run test --workspace @game-predictor/manual-image-selection-core`
+  miał 1 czerwony test (`offers contiguous one-to-ten image navigation
+  steps`, `21 !== 20`), wcześniej opisany jako „przedsesyjny i niepowiązany”
+  i zgłoszony jako osobny chip. Po zbadaniu okazał się realną regresją, nie
+  szumem — cofnięty i naprawiony w tym tasku.
+- Przyczyna (`git log -p` na `packages/manual-image-selection-core/src/index.ts`):
+  `v0.10.387 - numeric navigation step input with +/-1 arrows` zamienił
+  `adjacentManualNavigationStep` z przeszukiwania `MANUAL_IMAGE_NAVIGATION_STEPS`
+  na `Math.max(1, current + direction)`, żeby dopasować nowy dowolny
+  numeryczny krok w Adminie — ale ten sam commit przestał wywoływać tę
+  funkcję z Admina w ogóle (dostał własną, lokalną kopię tej samej logiki w
+  `manual-image-selection-workspace.tsx`, l. ok. 1040). Jedynym pozostałym
+  wywołującym jest **Reviewer**
+  (`remote-manual-selection-workspace.tsx`), którego `<select>` kroku
+  nawigacji i skróty „poprzedni/następny krok” zależą od przeskakiwania po
+  liście `[1..10, 15, 20]`. Po zmianie `next_step` z `navigationStep=10`
+  dawał `11` — wartość spoza opcji widocznego `<select>`.
+- Naprawa: przywrócony dokładny kod sprzed `v0.10.387` (indeks w tablicy,
+  ograniczony `Math.max(0, Math.min(length-1, ...))`). Zero wpływu na
+  Admin. `DECISION_LOG.md` D-441.
+- Testy: `npm run test --workspace @game-predictor/manual-image-selection-core`
+  110/110 (poprzednio 109/110), `npm run typecheck` tego pakietu czysty.
+  `npm run test --workspace @game-predictor/reviewer` 193/193 bez zmiany
+  (regresja nie miała dedykowanego testu Reviewera — poza zakresem tej
+  naprawy dodanie takiego testu, niezgłoszone przez użytkownika).
+
 ### TASK-0634 — przesuwanie całej wybranej planszy w edytorze korekty geometrii (D-439, T3)
 
 - Ostatni z 3-taskowego planu „wstępna geometria z automatycznej propozycji

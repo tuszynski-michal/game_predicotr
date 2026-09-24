@@ -6,6 +6,41 @@ last_updated: 2026-09-24
 
 # Decision Log
 
+## D-441 — `adjacentManualNavigationStep` musi stąpać po `MANUAL_IMAGE_NAVIGATION_STEPS`, nie po surowej liczbie
+
+- **Status:** accepted (TASK-0635, naprawa regresji z `v0.10.387`, znaleziona
+  przy weryfikacji TASK-0633/TASK-0634 przez czerwony test w
+  `manual-image-selection-core.test.mjs`).
+- **Date:** 2026-09-24.
+- **Decision:** `adjacentManualNavigationStep` (`packages/manual-image-selection-core/src/index.ts`)
+  z powrotem szuka bieżącej wartości w `MANUAL_IMAGE_NAVIGATION_STEPS`
+  (`[1,2,...,10,15,20]`), przesuwa indeks o `direction` i zwraca wartość pod
+  ograniczonym indeksem — zamiast dodawać/odejmować 1 od surowej liczby.
+- **Rationale:** `v0.10.387 - numeric navigation step input with +/-1
+  arrows` zmienił tę funkcję na `Math.max(1, current + direction)`, żeby
+  obsłużyć nowy, dowolny numeryczny krok w **Adminie**. Ale ten sam commit
+  przestał w ogóle wywoływać tę funkcję z Admina — `manual-image-selection-workspace.tsx`
+  dostał własną, lokalną kopię identycznej logiki
+  (`Math.max(1, currentStep + direction)`, linia ok. 1040) i już nie
+  importuje `adjacentManualNavigationStep` z pakietu. Jedynym pozostałym
+  wywołującym jest **Reviewer**
+  (`apps/reviewer/.../remote-manual-selection-workspace.tsx`), którego skrót
+  klawiszowy „poprzedni/następny krok” nadal woła tę funkcję, a UI nadal
+  pokazuje `<select>` zbudowany wyłącznie z opcji `MANUAL_IMAGE_NAVIGATION_STEPS`.
+  Po zmianie z `v0.10.387`, `next_step` przy `navigationStep=10` dawał `11` —
+  wartość spoza listy opcji `<select>`, niespójną z widocznym UI. Test
+  pakietu (`offers contiguous one-to-ten image navigation steps`) już to
+  wykrywał, ale nie został zauważony jako regresja przy tamtym commicie
+  (asercja `adjacentManualNavigationStep(20, 1) === 20` była czerwona:
+  zwracało `21`).
+- **Compatibility:** zero wpływu na Admin (nie importuje już tej funkcji).
+  Przywraca dokładnie kod sprzed `v0.10.387`, więc test pakietu (niezmieniony
+  od tamtego czasu) znowu przechodzi bez modyfikacji asercji. `dist/`
+  pakietu jest zignorowany przez git i nie wymaga ręcznej przebudowy —
+  `exports["."]` w `package.json` wskazuje `default`/`types` na `src/index.ts`
+  bezpośrednio, więc `dist/` nigdy nie było źródłem prawdy w runtime dla
+  konsumentów w monorepo.
+
 ## D-440 — `board-import-coverage` musi jawnie bindować `GameStorageRouter`; ten sam brak dotyczy sąsiednich endpointów `image-review-items`
 
 - **Status:** accepted (naprawa post-hoc TASK-0629/0630, zgłoszona przez

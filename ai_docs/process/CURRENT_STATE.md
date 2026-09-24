@@ -6,6 +6,16 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0648 — prototyp silnika siatek v3 (model ekranu 3 × 3), status `proposed`
+
+- `game_predictor_worker.images.screen_layout_v3.detect_screen_layout_v3` —
+  bez wzorca per gra: panele z tła ekranu → model ekranu (homografia + człon
+  radialny) → siatka 5 × 3 z rozrzutu między 9 planszami → klasyfikacja
+  (`complete`/`partial` przy bocznym przycięciu/`needs_review`).
+- Podgląd na 36 zdjęciach 6 gier: 278/324 plansz `complete`; szczegóły
+  i ograniczenia w `ai_docs/architecture/GRID_ENGINE_V3_PROPOSAL.md`.
+- Nie zintegrowany z importem, bez zapisów. Czeka na ocenę użytkownika.
+
 ### TASK-0644 — kalibracja weryfikatora siatek 777: weryfikator odrzucony (D-445)
 
 - Plan `ai_docs/delivery/GAME_777_GRID_REVERIFICATION_EXECUTION_PLAN.md`

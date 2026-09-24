@@ -59,6 +59,9 @@ implementacyjnym.
 - [Remote manual image selection proposal](architecture/REMOTE_MANUAL_IMAGE_SELECTION.md)
   — analiza wykonalności, bezpieczeństwa, synchronizacji i breakdown wdrożenia;
   dokument ma status `proposed`.
+- [Grid engine v3 proposal](architecture/GRID_ENGINE_V3_PROPOSAL.md)
+  — silnik siatek bez wzorca per gra (model ekranu 3 × 3, siatka z rozrzutu
+  między planszami); prototyp TASK-0648, status `proposed`.
 
 ### Dostarczanie
 

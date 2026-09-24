@@ -57,8 +57,15 @@ test('formatSegmentRange formats a single number', () => {
   assert.equal(formatSegmentRange(1200, 1200), '1200');
 });
 
-test('formatSegmentRange formats a range with an en dash and locale grouping', () => {
+test('formatSegmentRange formats a range with an en dash', () => {
   assert.equal(formatSegmentRange(1200, 1500), '1200–1500');
+});
+
+test('formatSegmentRange applies pl-PL thousands grouping above four digits', () => {
+  assert.equal(
+    formatSegmentRange(499991, 500000),
+    `${(499991).toLocaleString('pl-PL')}–${(500000).toLocaleString('pl-PL')}`,
+  );
 });
 
 test('missingReasonLabel covers all seven priority codes', () => {
@@ -141,10 +148,7 @@ test('summaryState is all-added when nothing is missing', () => {
 });
 
 test('summaryState is no-results when the searched window returns no segments', () => {
-  assert.equal(
-    summaryState(summaryInput({ segmentCount: 0 })),
-    'no-results',
-  );
+  assert.equal(summaryState(summaryInput({ segmentCount: 0 })), 'no-results');
 });
 
 test('summaryState is list otherwise', () => {

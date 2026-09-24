@@ -39,9 +39,9 @@ export function MissingBoardsSection({
   const [committedRange, setCommittedRange] = useState<CommittedRange | null>(
     null,
   );
-  const [afterSequenceNumber, setAfterSequenceNumber] = useState<
-    number | null
-  >(null);
+  const [afterSequenceNumber, setAfterSequenceNumber] = useState<number | null>(
+    null,
+  );
   const [report, setReport] = useState<BoardImportCoverageResponse | null>(
     null,
   );
@@ -181,10 +181,7 @@ export function MissingBoardsSection({
         </p>
       ) : null}
 
-      {report !== null &&
-      state !== 'loading' &&
-      state !== 'error' &&
-      state !== 'unknown-target' ? (
+      {report !== null && state !== 'error' && state !== 'unknown-target' ? (
         <>
           {error !== null ? (
             <p className="feedbackBanner feedbackBannerError" role="alert">
@@ -324,8 +321,8 @@ export function MissingBoardsSection({
           ) : null}
           {state === 'no-results' ? (
             <p className="importEmptyState">
-              Brak {view === 'missing' ? 'brakujących' : 'dodanych'} plansz w
-              wybranym zakresie.
+              Brak {report.view === 'missing' ? 'brakujących' : 'dodanych'}{' '}
+              plansz w wybranym zakresie.
             </p>
           ) : null}
 
@@ -345,7 +342,7 @@ export function MissingBoardsSection({
                       <td>{formatSegmentRange(segment.start, segment.end)}</td>
                       <td>{segment.count.toLocaleString('pl-PL')}</td>
                       <td>
-                        {view === 'added'
+                        {report.view === 'added'
                           ? 'Dodana'
                           : missingReasonLabel(segment.state)}
                         {segment.geometryReasonCode

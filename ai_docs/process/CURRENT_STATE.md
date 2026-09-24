@@ -48,9 +48,25 @@ last_updated: 2026-09-24
   sprzed cutoveru gry na `game_data_v2` (`storageGeneration: 2`),
   nieskopiowane przy migracji (znany brak kopiowania danych przy cutoverze,
   D-519).
-- Nieukończone: rekomendowany dodatkowy review (opus-5-5, medium); link
-  „zmień cel” do ustawień gry (renderowany jako tekst, bez nawigacji — brak
-  potwierdzonej trasy).
+- **Dodatkowy review (opus-5-5, medium) wykonany**, werdykt „pass with
+  nitpicks”: żadna akcja reprocess nie zniknęła, polling wyłącza się
+  poprawnie. Znalazł jeden realny should-fix (sekcja chowała cały swój
+  korpus, nie tylko licznik, przy każdym odświeżeniu/zmianie filtra/pollingu
+  — naprawione, teraz zależy wyłącznie od `report !== null`) i jeden
+  fałszywie zgłoszony jako should-fix, ale po weryfikacji **potwierdzony
+  jako prawdziwy** (Prettier faktycznie zepsuty na 4 z 5 plików tego taska,
+  wyłącznie na liniach dodanych w tym tasku — naprawione punktowo). Drobne
+  nitpicki naprawione (stare etykiety `view` zamiast `report.view` po
+  nieudanym przełączeniu filtra; słaby test grupowania tysięcy pl-PL; test
+  przycisków reprocess nie sprawdzał `disabled`/widoczności). Dwa nitpicki
+  świadomie pozostawione: `reprocessImport`/`reprocessManagedV4` nie
+  odświeżają `refreshToken` (naprawa złamałaby chronioną logikę tych
+  handlerów) i drobny wizualny inset zwiniętego bloku (konsekwencja
+  reużycia istniejącej klasy CSS zamiast dodawania nowej). Szczegóły:
+  `ai_docs/tasks/completed/0631-missing-boards-admin-ui.md` sekcja
+  „Dodatkowy review”.
+- Nieukończone: link „zmień cel” do ustawień gry (renderowany jako tekst,
+  bez nawigacji — brak potwierdzonej trasy).
 - Dokumentacja: `ai_docs/requirements/ADMIN_APP.md` — nowa sekcja „Sekcja
   „Brakujące plansze” w Import plansz (D-437)”.
 

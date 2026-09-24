@@ -153,10 +153,14 @@ nie uda się sprawdzić na żywych danych, zaraportować to jawnie.
   (`.importRowsTableWrap`/`.importRowsTable`, reużyte z `manual-import-panel`),
   liczniki (`.importMetrics`/`.importMetric`, reużyte), powody, notices,
   stronicowanie „Następna strona”. Polling `window.setInterval` co 15 s
-  wyłącznie gdy `report.notices.activeImportJobCount > 0`, z
-  `window.clearInterval` w cleanup efektu (zeruje się też, gdy licznik
-  spadnie do 0, bo efekt się wtedy nie odpala ponownie) — zweryfikowane
-  osobnym testem kontraktowym i ręcznie na żywych danych.
+  wyłącznie gdy `report.notices.activeImportJobCount > 0`. Efekt zależy od
+  `[load, report]`, więc odpala się ponownie przy każdym nowym `report`
+  (także tym, który sprowadza licznik do 0) — to ponowne odpalenie jest
+  właśnie mechanizmem czyszczenia: `window.clearInterval` w cleanupie
+  poprzedniego przebiegu zatrzymuje stary interwał, zanim nowy przebieg
+  sprawdzi warunek i (przy liczniku = 0) po prostu nie założy nowego —
+  zweryfikowane osobnym testem kontraktowym, niezależnym przeglądem
+  (claude-opus-5-5) i ręcznie na żywych danych.
 - [image-folder-import-panel.tsx](../../apps/admin/src/features/imports/image-folder-import-panel.tsx):
   usunięto stan `completeness`, jego pobieranie w `refreshJobs` i całą kartę
   „Kompletność zaakceptowanych plansz” (JSX); usunięto sekcję „Ostatnie
@@ -190,17 +194,92 @@ nie uda się sprawdzić na żywych danych, zaraportować to jawnie.
   ok. 720 px z istniejących media queries.
 - `ai_docs/requirements/ADMIN_APP.md`: nowa sekcja „Sekcja „Brakujące
   plansze” w Import plansz (D-437)”.
-- Testy: nowy `missing-boards-state.test.mjs` (20 przypadków); zaktualizowany
-  i rozszerzony `image-folder-import-panel-contract.test.mjs` (4 stare
-  asercje zaktualizowane pod usunięte diagnostyki, 4 nowe testy dodane);
-  `image-folder-import-actions.test.mjs` bez zmian asercji (regresja).
+- Testy: nowy `missing-boards-state.test.mjs` (rozszerzony do 21 przypadków po
+  reviewie — dodany test grupowania tysięcy pl-PL powyżej czterech cyfr);
+  zaktualizowany i rozszerzony `image-folder-import-panel-contract.test.mjs`
+  (4 stare asercje zaktualizowane pod usunięte diagnostyki, 4 nowe testy
+  dodane, plus po reviewie dodatkowe asercje na `disabled`/warunki
+  widoczności trzech przycisków reprocess — poprzednia wersja sprawdzała
+  tylko treść `onClick`); `image-folder-import-actions.test.mjs` bez zmian
+  asercji. **Korekta po reviewie:** ten ostatni plik testuje wyłącznie same
+  funkcje akcji (`reprocessImageFolderImport`,
+  `reprocessManagedV4OrPrepare`), nie podpięcie przycisków w panelu — brak
+  zmian w nim potwierdza, że logika akcji jest nietknięta, ale NIE jest
+  dowodem, że przyciski w panelu wciąż są poprawnie podpięte; tę drugą rzecz
+  potwierdza dopiero `image-folder-import-panel-contract.test.mjs` (patrz
+  wyżej).
+
+### Dodatkowy review (claude-opus-5-5, medium) — 2026-09-24
+
+Wykonany. Werdykt: **pass with nitpicks** — żadna akcja reprocess nie
+zniknęła, polling wyłącza się poprawnie, request-id guard działa. Realne
+ustalenia i reakcja:
+
+- **Should-fix, naprawione:** `missing-boards-section.tsx` chowała cały
+  korpus sekcji (liczniki, filtr, pole wyszukiwania, tabelę) za każdym razem,
+  gdy `state === 'loading'` — czyli przy KAŻDYM odświeżeniu (zmiana
+  filtra/zakresu, „Odśwież status” panelu, przycisk „↻ Odśwież”, wejście na
+  ekran), nie tylko przy pierwszym ładowaniu. Pole wyszukiwania było przy tym
+  odmontowywane, więc Enter podczas wpisywania tracił focus. Naprawione:
+  warunek renderowania korpusu zależy teraz tylko od `report !== null` (stan
+  ładowania sygnalizowany wyłącznie przez `aria-busy` na `<section>`); pełny
+  „Ładowanie…” pojawia się tylko, gdy `report === null` (pierwsze wejście).
+- **Should-fix, zweryfikowane jako fałszywy alarm po ponownym sprawdzeniu:**
+  review twierdził, że `image-folder-import-panel.tsx` i
+  `image-folder-import-panel-contract.test.mjs` przechodziły Prettiera przed
+  tym commitem, a przestały po nim. Sprawdzenie na commicie nadrzędnym
+  (`44a442ab~1`) z poprawnym kontekstem configu (`.prettierrc` w repo, nie
+  plik w `/tmp` bez configu) potwierdziło, że **to prawda** — oba pliki były
+  czyste przed commitem. Formatowanie naprawione punktowo (tylko linie, które
+  ja dodałam/am: JSX `<MissingBoardsSection>` rozbite na wiele linii,
+  kilka `assert.match` w nowych testach rozbitych zgodnie z Prettierem) —
+  bez dotykania preexistującego formatowania reszty plików. Potwierdzone
+  `npx prettier --check` na wszystkich 5 plików tego taska: czysto.
+- **Nitpick, naprawiony:** etykieta stanu w tabeli segmentów i komunikat
+  „Brak … plansz w wybranym zakresie” używały lokalnego stanu `view`
+  (aktualny wybór operatora) zamiast `report.view` (widok, dla którego
+  faktycznie pobrano dane) — po nieudanym przełączeniu filtra stare dane
+  „missing” byłyby błędnie podpisane jako „Dodana”. Naprawione: oba miejsca
+  czytają teraz `report.view`; przełącznik `aria-pressed` nadal celowo czyta
+  lokalny `view` (ma pokazywać wybór operatora natychmiast).
+- **Nitpick, testy wzmocnione:** test grupowania tysięcy `pl-PL` używał liczb
+  4-cyfrowych (1200), które `pl-PL` nie grupuje separatorem — nie sprawdzał
+  więc faktycznie grupowania. Dodany nowy test na `499 991–500 000` (z
+  separatorem NBSP, budowany dynamicznie przez `toLocaleString`, nie
+  wpisany literałem). Test bloku reprocess sprawdzał tylko treść `onClick`,
+  nie warunki `disabled`/widoczności — dodane asercje na oba warunki
+  widoczności (`job.status === 'failed' && ...`,
+  `!['created','processing'].includes(...)`) i oba warunki `disabled`.
+- **Nitpick, niezmieniony (świadomie poza zakresem):** `reprocessImport`
+  i `reprocessManagedV4` nie wywołują `refreshJobs`, więc nowy job z
+  reprocessu nie odświeża natychmiast `refreshToken` ani nie uruchamia
+  pollingu, dopóki operator nie kliknie „Odśwież status”. Naprawa
+  wymagałaby zmiany logiki tych dwóch funkcji, a są one jawnie chronione w
+  sekcji „Chronione zachowanie” tego taska („bez zmian logiki, tylko
+  przeniesienie do `<details>`”) — pozostawione jako świadomy,
+  udokumentowany kompromis, nie błąd.
+- **Nitpick, niezmieniony (świadomie poza zakresem):** `.importMissingSequences`
+  ma `margin: 0 20px 20px` (pisane pod użycie wewnątrz karty), więc `<details>`
+  reprocess jest wizualnie wcięte względem sąsiednich sekcji o ~20px. Zgodnie
+  z jawną instrukcją taska („reużywaj klas”, bez nowego CSS) pozostawione bez
+  zmian — kosmetyczne.
+- Dwie nieścisłości we własnej dokumentacji Outcome tego taska poprawione
+  (patrz historia edycji tego pliku): błędny opis mechanizmu czyszczenia
+  interwału pollingu (efekt DOES re-run, gdy licznik spada do 0 — to jest
+  właśnie mechanizm czyszczenia, nie jego brak) i mylące przypisanie
+  `image-folder-import-actions.test.mjs` jako dowodu na podpięcie przycisków
+  w panelu (ten plik testuje tylko same funkcje akcji, nie ich wiring w UI).
 
 ### Verification results
 
-- `npm run test --workspace @game-predictor/admin`: **563/563 passed**
-  (poprzednio 563 - 24 nowe = 539 istniejących testów, wszystkie nadal
-  zielone; `image-folder-import-actions.test.mjs` 26/26 bez zmian asercji —
-  potwierdzona ochrona zachowania reprocess).
+- `npm run test --workspace @game-predictor/admin`: **564/564 passed** po
+  poprawkach z reviewu (563/563 przed reviewem; +1 nowy test grupowania
+  tysięcy, reszta poprawek to nowe asercje w istniejących testach, nie nowe
+  testy). `image-folder-import-actions.test.mjs` 26/26 bez zmian asercji —
+  potwierdza nietkniętą logikę funkcji akcji (nie, samodzielnie, wiring
+  przycisków w panelu — patrz korekta wyżej).
+- `npx prettier --check` na wszystkich 5 plików tego taska: czysto (po
+  poprawkach z reviewu).
 - `npm run typecheck --workspace @game-predictor/admin`: czysto.
 - `npm run lint --workspace @game-predictor/admin`: **0 błędów**, 5 ostrzeżeń
   — wszystkie w plikach spoza zakresu tej zmiany (potwierdzone `git diff
@@ -237,12 +316,16 @@ nie uda się sprawdzić na żywych danych, zaraportować to jawnie.
 
 ### Not completed
 
-- Rekomendowany dodatkowy review (claude-opus-5-5, medium) z sekcji
-  `Recommended execution` nie został wykonany w tej sesji.
 - Link „[zmień]” przy „cel z ustawień gry” z mockupu planu nie został
   zaimplementowany jako nawigacja — brak potwierdzonej trasy do zakładki
   ustawień gry (Katalog gier) w czasie tej sesji; renderowany jako zwykły
   tekst, bez fabrykowania niepewnego linku.
+- `reprocessImport`/`reprocessManagedV4` nie odświeżają `refreshToken` —
+  świadomie pozostawione (patrz „Dodatkowy review” wyżej), bo naprawa
+  wymagałaby zmiany logiki chronionych handlerów.
+- `.importMissingSequences` ma wizualny inset ~20px w kontekście tego
+  `<details>` — kosmetyczne, świadomie pozostawione, żeby nie dodawać nowego
+  CSS wbrew instrukcji taska.
 
 ### Documentation updates
 
@@ -251,9 +334,6 @@ nie uda się sprawdzić na żywych danych, zaraportować to jawnie.
 
 ### Recommended next task
 
-- Zaplanować dodatkowy review (opus-5-5, medium) tego taska — szczególnie
-  pod kątem: czy żadna akcja reprocess nie zniknęła i czy polling faktycznie
-  wyłącza się poprawnie przy spadku `activeImportJobCount` do 0.
 - Rozważyć osobny, mały task: link nawigacyjny „zmień cel” do ustawień gry.
-- 3-taskowy plan „Brakujące plansze” (TASK-0629/0630/0631) jest w całości
-  zrealizowany.
+- 3-taskowy plan „Brakujące plansze” (TASK-0629/0630/0631), łącznie z
+  dodatkowym reviewem tego ostatniego taska, jest w całości zrealizowany.

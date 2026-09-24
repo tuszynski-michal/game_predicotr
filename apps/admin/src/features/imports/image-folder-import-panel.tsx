@@ -2204,7 +2204,11 @@ export function ImageFolderImportPanel({
         ) : null}
       </section>
 
-      <MissingBoardsSection api={api} gameId={gameId} refreshToken={refreshToken} />
+      <MissingBoardsSection
+        api={api}
+        gameId={gameId}
+        refreshToken={refreshToken}
+      />
 
       <details className="importMissingSequences">
         <summary>Ponowne przetwarzanie importów</summary>

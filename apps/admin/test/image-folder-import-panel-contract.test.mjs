@@ -32,7 +32,10 @@ const guardResolutionSource = await readFile(
   'utf8',
 );
 const missingBoardsSectionSource = await readFile(
-  new URL('../src/features/imports/missing-boards-section.tsx', import.meta.url),
+  new URL(
+    '../src/features/imports/missing-boards-section.tsx',
+    import.meta.url,
+  ),
   'utf8',
 );
 
@@ -392,14 +395,8 @@ test('contains completeness and source controls inside responsive components', (
     globalStyles,
     /\.importMetrics,\s*\.importSourceControls \{\s*grid-template-columns: 1fr;/,
   );
-  assert.match(
-    missingBoardsSectionSource,
-    /className="importMetrics"/,
-  );
-  assert.match(
-    missingBoardsSectionSource,
-    /className="importSourceControls"/,
-  );
+  assert.match(missingBoardsSectionSource, /className="importMetrics"/);
+  assert.match(missingBoardsSectionSource, /className="importSourceControls"/);
   assert.match(missingBoardsSectionSource, /className="importRowsTableWrap"/);
 });
 
@@ -440,16 +437,42 @@ test('keeps the reprocess actions in a collapsed details block with all three bu
     panelSource.indexOf('<details className="importMissingSequences">'),
     panelSource.lastIndexOf('</section>'),
   );
-  assert.match(reprocessBlock, /<summary>Ponowne przetwarzanie importów<\/summary>/);
+  assert.match(
+    reprocessBlock,
+    /<summary>Ponowne przetwarzanie importów<\/summary>/,
+  );
   assert.match(reprocessBlock, /Przetwórz ponownie z oryginałów/);
   assert.match(reprocessBlock, /Przetwórz w v1\.0/);
   assert.match(reprocessBlock, /Kontynuuj z ręczną korektą/);
   assert.match(reprocessBlock, /<ImportGeometryReviewSummary/);
-  assert.match(reprocessBlock, /onClick=\{\(\) => void reprocessImport\(job\)\}/);
-  assert.match(reprocessBlock, /onClick=\{\(\) => void reprocessManagedV4\(job\)\}/);
+  assert.match(
+    reprocessBlock,
+    /onClick=\{\(\) => void reprocessImport\(job\)\}/,
+  );
+  assert.match(
+    reprocessBlock,
+    /onClick=\{\(\) => void reprocessManagedV4\(job\)\}/,
+  );
   assert.match(
     reprocessBlock,
     /onClick=\{\(\) => void reprocessImport\(job, true\)\}/,
+  );
+  assert.match(
+    reprocessBlock,
+    /job\.status === 'failed' &&\s*job\.error\?\.code === 'IMAGE_GEOMETRY_SYSTEMIC_REGRESSION' \? \(/,
+  );
+  assert.match(
+    reprocessBlock,
+    /!\['created', 'processing'\]\.includes\(job\.status\) \? \(/,
+  );
+  assert.match(reprocessBlock, /disabled=\{busy\}/);
+  assert.match(
+    reprocessBlock,
+    /disabled=\{busy \|\| !lateralVariantAvailable\}/,
+  );
+  assert.match(
+    reprocessBlock,
+    /technicalErrorCount=\{outcome\?\.failedImages \?\? 0\}/,
   );
 });
 
@@ -458,7 +481,10 @@ test('bumps refreshToken on every refreshJobs call', () => {
     panelSource.indexOf('const refreshJobs = useCallback'),
     panelSource.indexOf('}, [api, gameId]);') + '}, [api, gameId]);'.length,
   );
-  assert.match(refreshJobsFlow, /setRefreshToken\(\(current\) => current \+ 1\)/);
+  assert.match(
+    refreshJobsFlow,
+    /setRefreshToken\(\(current\) => current \+ 1\)/,
+  );
 });
 
 test('polls board import coverage only while an import job is active', () => {

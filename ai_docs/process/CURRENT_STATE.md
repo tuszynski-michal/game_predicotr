@@ -6,6 +6,28 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0643 — zapis niepełnych siatek (cold start) i „Zatwierdź całe zdjęcie” (D-444)
+
+- Zgłoszenie użytkownika dla gry 777 (`bfc4f949-…`, import `1a1cff95-…`).
+- #1 „Niepełne siatki do ręcznej korekty”: zapis kończył się
+  `IMAGE_SYMBOL_ONNX_ARTIFACT_MISSING`, bo import ma przypięty snapshot
+  cold start (`inferenceMode: "unclassified"`, bez pliku ONNX), a
+  `ManualBoardCellSymbolPredictor` zawsze ładował ONNX. Teraz dla
+  `unclassified` zwraca 15 komórek `?` — tak samo jak import.
+- #2 „Zatwierdź całe zdjęcie”: `approve_current_geometry` wstawiał do
+  `image_board_geometry_review_events` `board_checksum_sha256 = NULL` dla
+  planszy `virtual_source` → `NotNullViolation`, rollback całego
+  zatwierdzenia. Dotyczyło każdej planszy na `game_data_v2` (470 197).
+  Teraz zdarzenie używa `geometry_checksum_sha256` (jak `geometry_saved`).
+- Testy: 2 nowe regresyjne; zestaw 5 plików (predyktor, pending geometry,
+  grid-review API, symbol-review API, virtual source) 74/74. `ruff check`
+  czysty; `ruff format` bez nowych różnic (3 wcześniejsze w
+  `image_symbol_review_repository.py` nietknięte).
+- Odbiór na żywo (za zgodą użytkownika): „Zatwierdź całe zdjęcie” dla
+  pierwszego zdjęcia importu → „Zatwierdzono geometrię 9 plansz”, licznik
+  Zatwierdzone 0 → 9. #1 nie klikany na żywo (wymaga ręcznego ustawienia
+  narożników przez użytkownika) — pokryty testem jednostkowym.
+
 ### TASK-0642 — nieaktualna asercja `geometryEngineVariants` (brak v1.2) naprawiona
 
 - Ten sam kontekst co TASK-0641: pre-existing, niezwiązany czerwony test

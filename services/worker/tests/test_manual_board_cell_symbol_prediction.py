@@ -11,6 +11,7 @@ import pytest
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
+    cold_start_unclassified_symbol_snapshot,
 )
 from game_predictor_worker.images.manual_board_cell_geometry_preview import (
     ManualBoardCellGeometryPreviewer,
@@ -112,3 +113,20 @@ def test_manual_prediction_fails_closed_for_wrong_model_input_size(tmp_path: Pat
         predictor.predict(preview, replace(snapshot, input_size=32))
 
     assert error.value.code == "IMAGE_BOARD_CELL_MANUAL_PREDICTION_INPUT_INVALID"
+
+
+def test_manual_prediction_for_cold_start_import_returns_unknown_cells_without_onnx(
+    tmp_path: Path,
+) -> None:
+    snapshot = cold_start_unclassified_symbol_snapshot(("lemon", "seven"))
+    predictor = ManualBoardCellSymbolPredictor(tmp_path, tmp_path)
+
+    result = predictor.predict(_preview(tmp_path), snapshot)
+
+    assert result.model_version == snapshot.model_version
+    assert result.model_manifest_checksum_sha256 == snapshot.manifest_checksum_sha256
+    assert [(cell["rowIndex"], cell["columnIndex"]) for cell in result.cells] == [
+        (row, column) for row in range(3) for column in range(5)
+    ]
+    assert {cell["symbolCode"] for cell in result.cells} == {"?"}
+    assert predictor._cache == {}

@@ -57,6 +57,8 @@ class ManualBoardCellSymbolPredictor:
                 "IMAGE_BOARD_CELL_MANUAL_PREDICTION_ORDER_INVALID",
                 "Manual geometry crops are not complete row-major input.",
             )
+        if snapshot.inference_mode == "unclassified":
+            return self._unclassified(snapshot)
         for cell in preview.cells:
             encoded = np.frombuffer(cell.png, dtype=np.uint8)
             bgr = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
@@ -95,6 +97,30 @@ class ManualBoardCellSymbolPredictor:
                     "rowIndex": index // 5,
                 }
                 for index, prediction in enumerate(predictions)
+            ),
+        )
+
+    @staticmethod
+    def _unclassified(snapshot: SymbolModelJobSnapshot) -> ManualBoardCellSymbolPrediction:
+        # A cold-start import has no ONNX model; mirror the import pipeline's
+        # "?" cells instead of loading the placeholder artifact path.
+        return ManualBoardCellSymbolPrediction(
+            model_iteration_id=None
+            if snapshot.iteration_id is None
+            else str(snapshot.iteration_id),
+            model_manifest_checksum_sha256=snapshot.manifest_checksum_sha256,
+            model_version=snapshot.model_version,
+            temperature_applied=max(0.50, snapshot.temperature),
+            cells=tuple(
+                {
+                    "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
+                    "columnIndex": column,
+                    "confidence": 0.0,
+                    "rowIndex": row,
+                    "symbolCode": "?",
+                }
+                for row in range(3)
+                for column in range(5)
             ),
         )
 

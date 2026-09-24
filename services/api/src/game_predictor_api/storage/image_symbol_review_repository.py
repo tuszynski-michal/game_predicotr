@@ -1981,7 +1981,7 @@ class SymbolCellReviewWriteThroughCoordinator:
                 geometry_revision=board.geometry_revision,
                 grid_rows=topology.rows,
                 grid_columns=topology.columns,
-                board_checksum_sha256=board.board_checksum_sha256,
+                board_checksum_sha256=_geometry_review_event_board_checksum(board),
                 action="approved",
                 previous_approved_geometry_revision=previous,
                 approved_geometry_revision=board.geometry_revision,
@@ -2870,6 +2870,16 @@ class _CellPreviousState:
                 else previous_v2.verified_symbol_id
             ),
         )
+
+
+def _geometry_review_event_board_checksum(board: RecognizedBoardModel) -> str | None:
+    """Audit identity of the approved board geometry.
+
+    A virtual_source board has no board crop; like its geometry_saved event,
+    it is identified by the source geometry checksum.
+    """
+
+    return board.board_checksum_sha256 or board.geometry_checksum_sha256
 
 
 def _asset_provenance_values(review_cell: ImageReviewCell) -> dict[str, object]:

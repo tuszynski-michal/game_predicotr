@@ -6,6 +6,25 @@ last_updated: 2026-09-24
 
 # Decision Log
 
+## D-444 — zdarzenie zatwierdzenia geometrii planszy `virtual_source` identyfikuje checksum geometrii; ręczna korekta cold start nie woła ONNX
+
+- **Status:** accepted (TASK-0643).
+- **Date:** 2026-09-24.
+- **Decision:** (1) `image_board_geometry_review_events.board_checksum_sha256`
+  dla akcji `approved` = `recognized_boards.board_checksum_sha256`, a gdy
+  plansza jest `virtual_source` (brak cropu) —
+  `recognized_boards.geometry_checksum_sha256`; to ta sama konwencja, której
+  już używają zdarzenia `geometry_saved` zapisu wirtualnej geometrii.
+  (2) Ręczna korekta niepełnej siatki dla importu z przypiętym snapshotem
+  `inferenceMode = "unclassified"` przypisuje komórkom `?` bez ładowania
+  modelu — tak samo jak etap `symbol_inference` importu.
+- **Rationale:** kolumna zdarzeń jest NOT NULL z CHECK sha256, a plansze
+  `virtual_source` z definicji (`ck_recognized_boards_asset_provenance`)
+  mają `board_checksum_sha256 IS NULL`; zatwierdzanie było niemożliwe dla
+  każdej gry na `game_data_v2`. Snapshot cold start celowo nie ma pliku ONNX.
+- **Compatibility:** brak zmian schematu, API i OpenAPI; istniejące
+  zdarzenia plansz z cropem bez zmian.
+
 ## D-443 — skrypt legacy GC odmawia skanu, jeśli jakakolwiek gra ma magazyn per-game (V2)
 
 - **Status:** accepted (TASK-0640, T4 planu D-442, wykonane na wyraźną,

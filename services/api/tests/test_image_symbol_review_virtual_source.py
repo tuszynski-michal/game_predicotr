@@ -18,6 +18,7 @@ from game_predictor_api.storage.image_review_repository import (
 from game_predictor_api.storage.image_symbol_review_repository import (
     _apply_symbol_cell_review_transition,
     _asset_provenance_values,
+    _geometry_review_event_board_checksum,
 )
 from game_predictor_api.storage.models import ImageSymbolReviewCellModel
 
@@ -287,3 +288,11 @@ def test_approving_virtual_source_cell_persists_approved_render_provenance() -> 
     assert model.approved_source_geometry_revision_id == source_geometry_revision_id
     assert model.approved_render_spec_checksum_sha256 == cell.render_spec_checksum_sha256
     assert model.approved_rendered_pixel_checksum_sha256 == cell.rendered_pixel_checksum_sha256
+
+
+def test_geometry_approval_event_identifies_virtual_board_by_geometry_checksum() -> None:
+    virtual_board = SimpleNamespace(board_checksum_sha256=None, geometry_checksum_sha256=_sha(7))
+    crop_board = SimpleNamespace(board_checksum_sha256=_sha(8), geometry_checksum_sha256=None)
+
+    assert _geometry_review_event_board_checksum(virtual_board) == _sha(7)  # type: ignore[arg-type]
+    assert _geometry_review_event_board_checksum(crop_board) == _sha(8)  # type: ignore[arg-type]

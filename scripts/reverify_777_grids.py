@@ -1269,7 +1269,7 @@ def refine_board(
         return predicted, 0.0
     matrix, _size, pixel = _unit_homography(predicted)
     corners_in_tile = cv2.perspectiveTransform(
-        pixel.reshape(-1, 1, 2), np.asarray(warp, np.float64)
+        pixel.reshape(-1, 1, 2), np.asarray(found, np.float64)
     )
     corners = cv2.perspectiveTransform(corners_in_tile, matrix).reshape(-1, 2)
     return cast(FloatQuad, tuple((float(x), float(y)) for x, y in corners)), float(correlation)
@@ -1374,12 +1374,16 @@ def hybrid_sample(
                     refined, correlation = refine_board(gray, list(others.values()), predicted)
                     deviation = max_corner_distance(own, refined) / _cell_width(own)
                     loo_errors.append(deviation)
-                    ok = deviation <= tau_cell and correlation >= min_ecc
+                    # Geometry alone separates good from bad boards; appearance scores do not
+                    # (symbols differ, arrows/hands cover edge boards).
+                    ok = deviation <= tau_cell
                     accepted += ok
                     entry.update(
                         {
                             "decision": "pewna" if ok else "niezgodna",
                             "deviationCell": round(deviation, 3),
+                            "ecc": round(correlation, 3),
+                            "edgeColumn": position % 3 in (0, 2),
                         }
                     )
                     cv2.polylines(
@@ -1542,7 +1546,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     hybrid_parser.add_argument("--game-id", type=UUID, default=GAME_777_ID)
     hybrid_parser.add_argument("--per-category", type=int, default=15)
     hybrid_parser.add_argument("--seed", type=int, default=777)
-    hybrid_parser.add_argument("--tau-cell", type=float, default=0.12)
+    hybrid_parser.add_argument("--tau-cell", type=float, default=0.2)
     hybrid_parser.add_argument("--min-ecc", type=float, default=0.7)
     hybrid_parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     arguments = parser.parse_args(argv)

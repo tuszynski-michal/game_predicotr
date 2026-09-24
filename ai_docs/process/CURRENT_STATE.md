@@ -6,6 +6,40 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0651 — czysty kalkulator domenowy „Przybliżonej wygranej” (3/6, plan D-445)
+
+- Trzeci task planu sesji `2026-09-24`. Taski `0652`–`0654` jeszcze nie
+  istnieją jako pliki.
+- Nowy `services/api/.../domain/board_search_approximate_win.py`:
+  `plan_approximate_win_positions` (zakres `S+1…S+N`, zawijanie cykliczne —
+  ta sama formuła co mobilna prognoza celu, ALGORITHMS.md §C/D-116,
+  `evaluated_spin_count = min(N, L−1)`) i `calculate_approximate_win`
+  (kategoryzacja kompletna/częściowa/brakująca, narastające
+  payout/koszt/bilans, wiersze z payoutem > 0, fingerprint danych). Moduł
+  jest w pełni czysty: zero I/O, zero importu SQLAlchemy/FastAPI/
+  `game_predictor_worker` (zweryfikowane grepem) — przyjmuje `evaluate:
+  Callable[[Sequence[int]], int]` jako wstrzykniętą zależność; realne
+  `PreparedPayoutEvaluator.evaluate` (TASK-0650) zostanie podłączone dopiero
+  w serwisie aplikacyjnym TASK-0652. Wyjątek z `evaluate` (np. symbol spoza
+  aktywnych reguł, D6) propaguje się niezłapany — cała kalkulacja zakresu
+  jest wtedy fail-closed, nie pomija pojedynczej planszy po cichu.
+- **Przyjęte założenia D1–D6** (zaakceptowane poleceniem kontynuacji, bez
+  jawnej treści decyzji — pełny opis w tasku): D1 zawijanie cykliczne
+  (wariant A); D2 `mobile_codes` dostarcza wywołujący (TASK-0652 z
+  `image_board_search_fast_documents`); D3 status planszy startowej `S` poza
+  zakresem tego modułu; D4 wybór wersji reguł poza zakresem; D5 limit
+  `requested_spin_count` (stała górna granica, np. 10 000) egzekwowany w
+  API/serwisie, nie tutaj — moduł tylko klamruje do `L−1`; D6 nieznany
+  symbol → wyjątek z `evaluate` propaguje się fail-closed. Jeśli któreś
+  założenie okaże się błędne, wymaga korekty tego pliku i
+  `0651-approximate-win-domain-calculator.md` przed TASK-0652.
+- 32 nowe testy w `test_board_search_approximate_win_domain.py`, w tym
+  przykład kontrolny z planu (1000 spinów, koszt 20, wypłaty 18 000 →
+  koszt 20 000, bilans −2000) i wiersz z payoutem mimo ujemnego bilansu
+  narastającego. `ruff check`/`format`/`mypy --strict` czyste. Regresja
+  `test_board_search_domain.py`/`test_board_search_api.py` (reużyte
+  `BoardSearchError`/`BOARD_SEARCH_CELL_COUNT`): 17/17 bez zmian.
+
 ### TASK-0650 — wspólny kalkulator payout w workerze, `PreparedPayoutEvaluator` (2/6, plan D-445)
 
 - Drugi task planu sesji `2026-09-24` „Przybliżona wygrana” w „Wyszukaj

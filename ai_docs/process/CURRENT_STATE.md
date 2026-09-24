@@ -6,6 +6,27 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0640 — bezpiecznik skryptu legacy GC przed grami na `game_data_v2` (D-443)
+
+- Wykonane na osobną, wyraźną zgodę użytkownika po T1–T3 (D-442). Skrypt
+  `scripts/preview_legacy_game_managed_asset_gc.py` (jednorazowe narzędzie
+  legacy, TASK-0517) skanuje referencje wyłącznie w `public`; od D-374
+  nowe gry są w `game_data_v2`, więc dziś uznałby `data/originals`
+  aktywnych gier (np. 777) za nieużywane. `_operation_guard` (wspólny
+  punkt wejścia preview i `--execute`) teraz jako pierwszy krok sprawdza
+  `SELECT count(*) FROM public.game_storage_locations WHERE store_schema
+  <> 'public'`; wynik > 0 → odmowa (`LEGACY_GC_REFUSED_PER_GAME_STORAGE_PRESENT`,
+  kod wyjścia 2), zanim powstanie jakikolwiek plik preview/detail lub
+  zacznie się skan.
+- Testy: 2 nowe w `services/api/tests/test_legacy_game_managed_asset_gc_preview.py`
+  z fałszywym połączeniem (odmowa przed jakąkolwiek inną kwerendą; brak
+  odmowy, gdy wszystkie gry legacy) — mutation-checked. Pełny plik: 19/19.
+  `python:lint`/`python:typecheck` czyste dla zmienionych plików.
+- Skrypt pozostaje efektywnie nieużywalny, dopóki nie zostanie przepisany
+  na skan wieloschematowy — świadomy, akceptowany koszt (D-443), bo to
+  jednorazowe narzędzie dla już usuniętej gry legacy.
+- **Plan D-442 (T1–T4) w pełni zamknięty.**
+
 ### TASK-0639 — odbiór na żywych danych: podgląd cięcia siatki dla gry 777 naprawiony (read-only)
 
 - Ostatni task planu D-442. Potwierdzone na żywym Reviewerze (uruchomiony

@@ -179,6 +179,23 @@ def _artifact_path(
 
 
 def _operation_guard(connection: Any) -> dict[str, Any]:
+    per_game_storage_count = int(
+        connection.scalar(
+            text(
+                """
+SELECT count(*) FROM public.game_storage_locations WHERE store_schema <> 'public'
+"""
+            )
+        )
+        or 0
+    )
+    if per_game_storage_count:
+        raise PreviewBlocked(
+            "LEGACY_GC_REFUSED_PER_GAME_STORAGE_PRESENT: "
+            f"{per_game_storage_count} game(s) use per-game (non-public) storage; "
+            "this scan only reads public and would misclassify their managed assets "
+            "as unreferenced"
+        )
     operation = (
         connection.execute(
             text(

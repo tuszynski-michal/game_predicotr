@@ -453,3 +453,53 @@ def test_live_path_cache_requires_matching_wal_and_checksum(tmp_path: Path) -> N
         assert "checksum" in str(error)
     else:
         raise AssertionError("changed live-path cache must be rejected")
+
+
+class _FakeGuardConnection:
+    """Fails any query beyond the per-game storage check, to prove ordering."""
+
+    def __init__(self, per_game_storage_count: int) -> None:
+        self._per_game_storage_count = per_game_storage_count
+        self.scalar_calls: list[str] = []
+
+    def scalar(self, statement: Any) -> int:
+        text_value = str(statement)
+        self.scalar_calls.append(text_value)
+        if "game_storage_locations" in text_value:
+            return self._per_game_storage_count
+        raise AssertionError(f"unexpected scalar query reached the database: {text_value}")
+
+    def execute(self, statement: Any, *_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError(f"unexpected execute query reached the database: {statement}")
+
+
+def test_operation_guard_refuses_before_any_scan_when_per_game_storage_exists() -> None:
+    connection = _FakeGuardConnection(per_game_storage_count=1)
+
+    try:
+        SCRIPT._operation_guard(connection)
+    except SCRIPT.PreviewBlocked as error:
+        assert "LEGACY_GC_REFUSED_PER_GAME_STORAGE_PRESENT" in str(error)
+    else:
+        raise AssertionError("a per-game (V2) storage row must refuse the scan")
+    # Exactly the one guard query ran; no deletion-operation, identity or job
+    # query (and no preview/detail file write, since none of those queries
+    # ever run) happened before the refusal.
+    assert len(connection.scalar_calls) == 1
+
+
+def test_operation_guard_proceeds_past_the_new_check_when_every_game_is_legacy() -> None:
+    connection = _FakeGuardConnection(per_game_storage_count=0)
+
+    try:
+        SCRIPT._operation_guard(connection)
+    except AssertionError as error:
+        # The fake raises AssertionError, not PreviewBlocked, once control
+        # reaches the pre-existing deletion-operation query — proving the
+        # new check does not block a database with only legacy storage.
+        assert "unexpected execute query reached the database" in str(error)
+    else:
+        raise AssertionError(
+            "the pre-existing deletion-operation guard must still run "
+            "when no game uses per-game storage"
+        )

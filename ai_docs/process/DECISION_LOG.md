@@ -6,6 +6,39 @@ last_updated: 2026-09-24
 
 # Decision Log
 
+## D-443 — skrypt legacy GC odmawia skanu, jeśli jakakolwiek gra ma magazyn per-game (V2)
+
+- **Status:** accepted (TASK-0640, T4 planu D-442, wykonane na wyraźną,
+  osobną zgodę użytkownika).
+- **Date:** 2026-09-24.
+- **Decision:** `scripts/preview_legacy_game_managed_asset_gc.py`'s
+  `_operation_guard` (współdzielony punkt wejścia obu ścieżek: preview i
+  `--execute`) jako pierwszy krok, przed jakimkolwiek innym zapytaniem,
+  wykonuje `SELECT count(*) FROM public.game_storage_locations WHERE
+  store_schema <> 'public'`; wynik > 0 → `PreviewBlocked` z komunikatem
+  zawierającym `LEGACY_GC_REFUSED_PER_GAME_STORAGE_PRESENT`, kod wyjścia 2,
+  **zanim** powstanie jakikolwiek plik preview/detail lub zacznie się skan
+  referencji.
+- **Rationale:** skrypt (narzędzie jednorazowe z TASK-0517, obsługuje
+  wyłącznie usuniętą już grę legacy) skanuje referencje wyłącznie w
+  schemacie `public` (`_collect_live_paths`). Od D-374 nowe gry są
+  provisionowane w `game_data_v2`; dziś skrypt uznałby cały
+  `data/originals` (i inne współdzielone drzewa managed) za nieużywany,
+  bo nie widzi referencji gier V2 — realne ryzyko usunięcia oryginałów
+  aktywnej gry (np. 777, `bfc4f949-…`). Ustalenia z diagnozy D-442 (§3
+  przekazanego planu) potwierdziły read-only, że skrypt nigdy nie był
+  uruchomiony z `--execute` na obecnych danych — bezpiecznik jest
+  prewencyjny, nie naprawą wycieku.
+- **Compatibility:** brak zmiany reszty logiki skryptu, frazy
+  potwierdzenia (`_required_confirmation`) ani `PROTECTED_OPERATOR_ROOT`.
+  Skrypt jest teraz efektywnie nieużywalny, dopóki nie zostanie przepisany
+  na skan obejmujący wszystkie schematy gier (V2 per gra) — zaakceptowany
+  koszt, bo jest to jednorazowe narzędzie legacy dla gry już usuniętej z
+  bazy. Warunek ponownego dopuszczenia (z planu): skan referencji
+  obejmuje wszystkie schematy gier, zweryfikowany testem na izolowanej
+  bazie `*_test` z grą V2 pokazującym 0 fałszywych kandydatów w
+  `originals` referencjonowanych przez V2 — osobna decyzja użytkownika.
+
 ## D-442 — trasy z `gameId` wyłącznie w query muszą jawnie bindować `game_storage_scope`
 
 - **Status:** accepted (TASK-0637, naprawa regresji: podgląd oryginału i

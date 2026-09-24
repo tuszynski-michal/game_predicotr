@@ -6,6 +6,24 @@ last_updated: 2026-09-24
 
 # Decision Log
 
+## D-445 — reweryfikacja siatek 777 nie opiera się na lokalnym estymatorze; kierunek: silnik v3 bez wzorca per gra
+
+- **Status:** accepted (TASK-0644, decyzja użytkownika 2026-09-24); silnik v3
+  ma status `proposed` (TASK-0648).
+- **Date:** 2026-09-24.
+- **Decision:** `estimate_board_cell_geometry` nie jest weryfikatorem
+  „pewności” siatek 777 — przy tej samej podpowiedzi zwraca siatkę silnika
+  (odchylenie 0,0 px na 190 planszach), a złoty zbiór nie zawiera błędów
+  silnika (ręczne korekty ≤ 2 px), więc fałszywych akceptacji nie da się
+  zmierzyć. Ręczne siatki nie są wzorcem nowego silnika. Kierunek: silnik v3
+  (model ekranu 3 × 3 + siatka z rozrzutu między planszami,
+  `ai_docs/architecture/GRID_ENGINE_V3_PROPOSAL.md`), oceniany wizualnie przez
+  użytkownika przed jakimkolwiek zapisem.
+- **Rationale:** podgląd zdjęć 777 pokazał widocznie przesunięte siatki
+  silnika na części plansz mimo „zgodności” złotego zbioru.
+- **Compatibility:** bez zmian schematu, API i danych; TASK-0645–0647
+  wstrzymane do czasu oceny v3.
+
 ## D-444 — zdarzenie zatwierdzenia geometrii planszy `virtual_source` identyfikuje checksum geometrii; ręczna korekta cold start nie woła ONNX
 
 - **Status:** accepted (TASK-0643).

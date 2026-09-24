@@ -6,6 +6,19 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0644 — kalibracja weryfikatora siatek 777: weryfikator odrzucony (D-445)
+
+- Plan `ai_docs/delivery/GAME_777_GRID_REVERIFICATION_EXECUTION_PLAN.md`
+  (automatyczne zatwierdzanie „Do walidacji” ~474 tys. plansz i rozwiązywanie
+  19 608 slotów „Do poprawy” gry 777, 24 importy). Narzędzie
+  `scripts/reverify_777_grids.py calibrate|review-sheet` — wyłącznie odczyt.
+- Wynik: lokalny estymator przy tej samej podpowiedzi zwraca siatkę silnika
+  (0,0 px), złoty zbiór nie zawiera błędów silnika (ręczne korekty ≤ 2 px),
+  sloty odroczone: błąd 1–6 px przy pokryciu 8–26% → weryfikator nieprzydatny.
+  Podgląd zdjęć pokazał widocznie przesunięte siatki silnika 777.
+- Decyzja użytkownika: bez wzorca z ręcznych siatek; nowy silnik v3
+  (TASK-0648). TASK-0645–0647 wstrzymane. Żadnych zapisów do bazy.
+
 ### TASK-0643 — zapis niepełnych siatek (cold start) i „Zatwierdź całe zdjęcie” (D-444)
 
 - Zgłoszenie użytkownika dla gry 777 (`bfc4f949-…`, import `1a1cff95-…`).

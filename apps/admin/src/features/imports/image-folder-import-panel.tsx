@@ -7,7 +7,6 @@ import type {
   JobResponse,
   BrowserReadySelectionResponse,
   BrowserPageGeometryReviewSourceResponse,
-  ImageDatasetCompletenessResponse,
   ImageFolderSelectionResponse,
   ImageSelectionHandoffResponse,
   ImageImportJobPayload,
@@ -35,7 +34,6 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { jobProgressLabel } from '@/features/jobs/job-state';
 
 import {
-  boardCellProcessingJobLabel,
   boardCellProcessingModeLabel,
   jobMatchesBoardCellProcessingMode,
 } from './board-cell-processing-mode';
@@ -51,7 +49,6 @@ import {
   geometryPreflightMatchesReport,
   listReadyBrowserImageSelections,
   imageImportJobMatchesReportIdentity,
-  pageRegistrationVariantFromJob,
   previewReadyBrowserImageImport,
   persistedGuardContextIdentityStatusFromLatest,
   replayGeometryPreflightProgress,
@@ -70,6 +67,7 @@ import {
   readyBoardImportLifecycleLabel,
   sortReadyBoardImports,
 } from './image-folder-import-state';
+import { MissingBoardsSection } from './missing-boards-section';
 import { PageGeometryCorrectionPanel } from './page-geometry-correction-panel';
 import { GeometryGuardResolutionPanel } from './geometry-guard-resolution-panel';
 import { ImportGeometryReviewSummary } from './import-geometry-review-summary';
@@ -192,37 +190,6 @@ function symbolModelNextStep(
     : 'Raport i geometria są dostępne, ale przed startem importu zatwierdź aktualne cropy w Ulepszaniu modelu symboli, wybierz „Ulepsz rozpoznawanie”, a następnie aktywuj model tej gry.';
 }
 
-function jobSnapshotText(job: ImageImportJob, field: string, key: string) {
-  const payload = job.inputPayload as unknown as Record<string, unknown>;
-  const snapshot = payload[field];
-  if (typeof snapshot !== 'object' || snapshot === null) return null;
-  const value = (snapshot as Record<string, unknown>)[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function geometryEngineJobLabel(job: ImageImportJob): string {
-  const payload = job.inputPayload as unknown as Record<string, unknown>;
-  const rollout = payload.imageGeometryRollout;
-  if (typeof rollout === 'object' && rollout !== null) {
-    const lateral = (rollout as Record<string, unknown>)[
-      'lateralPartialGeometry'
-    ];
-    if (typeof lateral === 'object' && lateral !== null) {
-      if (
-        (lateral as Record<string, unknown>).variant === SELECTIVE_BOARD_VARIANT
-      ) {
-        return 'v1.1 — korekta niepewnych plansz';
-      }
-      return 'v1.0 — niepełne boki';
-    }
-    const version = (rollout as Record<string, unknown>)[
-      'geometryEngineVersion'
-    ];
-    if (typeof version === 'string') return version;
-  }
-  return boardCellProcessingJobLabel(job);
-}
-
 export function ImageFolderImportPanel({
   apiBaseUrl,
   client,
@@ -330,8 +297,7 @@ export function ImageFolderImportPanel({
   const [activeAction, setActiveAction] = useState<ImportAction | null>(null);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
-  const [completeness, setCompleteness] =
-    useState<ImageDatasetCompletenessResponse | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [sequenceNumber, setSequenceNumber] = useState('');
   const [sourceSelection, setSourceSelection] =
     useState<ImageSequenceSourceSelectionResponse | null>(null);
@@ -486,7 +452,6 @@ export function ImageFolderImportPanel({
   const refreshJobs = useCallback(async () => {
     const [
       jobsResult,
-      completenessResult,
       curatedResult,
       readyResult,
       policyResult,
@@ -497,7 +462,6 @@ export function ImageFolderImportPanel({
         jobType: 'import',
         limit: 200,
       }),
-      api.getImageDatasetCompleteness(gameId),
       api.listCuratedImageImportSources(gameId),
       listReadyBrowserImageSelections(api),
       api.getImageImportEnginePolicy(gameId),
@@ -509,12 +473,6 @@ export function ImageFolderImportPanel({
     ]);
     if (jobsResult.error === undefined && jobsResult.data !== undefined) {
       setJobs(jobsResult.data.filter(isImageImportJob));
-    }
-    if (
-      completenessResult.error === undefined &&
-      completenessResult.data !== undefined
-    ) {
-      setCompleteness(completenessResult.data);
     }
     if (curatedResult.error === undefined && curatedResult.data !== undefined) {
       setCuratedSources(curatedResult.data);
@@ -555,6 +513,7 @@ export function ImageFolderImportPanel({
         }),
       );
     }
+    setRefreshToken((current) => current + 1);
   }, [api, gameId]);
 
   useEffect(() => {
@@ -2173,55 +2132,6 @@ export function ImageFolderImportPanel({
         </dl>
       ) : null}
 
-      {completeness ? (
-        <section
-          aria-labelledby="image-import-completeness-title"
-          className="importCompletenessCard"
-        >
-          <header className="importCompletenessHeader">
-            <div>
-              <p className="eyebrow">Kompletność zaakceptowanych plansz</p>
-              <h3 id="image-import-completeness-title">
-                {completeness.uniqueSequenceCount.toLocaleString('pl-PL')} /{' '}
-                {completeness.expectedLayoutCount.toLocaleString('pl-PL')}
-              </h3>
-            </div>
-            <strong className="importCompletionBadge">
-              {completeness.completionPercentage.toFixed(2)}%
-            </strong>
-          </header>
-          <dl className="importMetrics">
-            <div className="importMetric">
-              <dt>Brakujące</dt>
-              <dd>
-                {completeness.missingSequenceCount.toLocaleString('pl-PL')}
-              </dd>
-            </div>
-            <div className="importMetric">
-              <dt>Duplikaty numeru</dt>
-              <dd>{completeness.duplicateSequenceCount}</dd>
-            </div>
-            <div className="importMetric">
-              <dt>Ręczne wybory źródła</dt>
-              <dd>{completeness.manualOverrideCount}</dd>
-            </div>
-          </dl>
-          {completeness.missingSequenceNumbers.length > 0 ? (
-            <details className="importMissingSequences">
-              <summary>
-                Pierwsze luki ({completeness.missingSequenceNumbers.length}
-                {completeness.missingSequenceNumbersTruncated ? '+' : ''})
-              </summary>
-              <div className="importMissingSequenceChips">
-                {completeness.missingSequenceNumbers.map((missingNumber) => (
-                  <span key={missingNumber}>{missingNumber}</span>
-                ))}
-              </div>
-            </details>
-          ) : null}
-        </section>
-      ) : null}
-
       <section className="importSourceInspector">
         <header className="importSubsectionHeader">
           <p className="eyebrow">Źródła tej samej sekwencji</p>
@@ -2294,11 +2204,10 @@ export function ImageFolderImportPanel({
         ) : null}
       </section>
 
-      <section className="importHistorySection">
-        <header className="importSubsectionHeader">
-          <p className="eyebrow">Ostatnie importy tej gry</p>
-          <p>Pełne filtrowanie i diagnostyka pozostają w zakładce Joby.</p>
-        </header>
+      <MissingBoardsSection api={api} gameId={gameId} refreshToken={refreshToken} />
+
+      <details className="importMissingSequences">
+        <summary>Ponowne przetwarzanie importów</summary>
         {jobs.length === 0 ? (
           <p className="importEmptyState">
             Nie utworzono jeszcze importu zdjęć.
@@ -2307,29 +2216,6 @@ export function ImageFolderImportPanel({
           <ul className="importCompactList">
             {jobs.slice(0, 5).map((job) => {
               const outcome = imageImportOutcome(job);
-              const pageManifestChecksum = jobSnapshotText(
-                job,
-                'pageGeometryManifest',
-                'checksumSha256',
-              );
-              const pagePreflightJobId = jobSnapshotText(
-                job,
-                'pageGeometryManifest',
-                'preflightJobId',
-              );
-              const gridProfileVersion = jobSnapshotText(
-                job,
-                'gridProfile',
-                'profileVersion',
-              );
-              const cellGeometryVersion = jobSnapshotText(
-                job,
-                'boardCellProcessing',
-                'geometryVersion',
-              );
-              const pageRegistrationJob = geometryPreflightJobs.find(
-                (candidate) => candidate.id === pagePreflightJobId,
-              );
               return (
                 <li key={job.id}>
                   <strong>
@@ -2339,81 +2225,6 @@ export function ImageFolderImportPanel({
                     {job.status} · {job.progress.current}/
                     {job.progress.total ?? '—'}
                   </span>
-                  <span>
-                    Wersja silnika siatki / Silnik cięcia plansz:{' '}
-                    {geometryEngineJobLabel(job)}
-                  </span>
-                  {pageManifestChecksum !== null &&
-                  pagePreflightJobId !== null ? (
-                    <span>
-                      Geometria stron 3×3: dokładny manifest{' '}
-                      {shortChecksum(pageManifestChecksum)} · preflight{' '}
-                      {pagePreflightJobId}
-                    </span>
-                  ) : (
-                    <span>Geometria stron 3×3: brak manifestu</span>
-                  )}
-                  {gridProfileVersion !== null ? (
-                    <span>
-                      Wariant dopasowania geometrii zdjęcia:{' '}
-                      {pageRegistrationVariantFromJob(pageRegistrationJob)} ·
-                      profil {gridProfileVersion}
-                    </span>
-                  ) : null}
-                  {cellGeometryVersion !== null ? (
-                    <span>Silnik komórek 3×5: {cellGeometryVersion}</span>
-                  ) : null}
-                  <span>
-                    Wersja modelu symboli:{' '}
-                    {jobSnapshotText(
-                      job,
-                      'symbolModel',
-                      'inferenceFingerprint',
-                    ) ?? 'historyczny snapshot'}
-                  </span>
-                  {job.progress.geometrySystemicGuard ? (
-                    <span>
-                      Test ochronny:{' '}
-                      {job.progress.geometrySystemicGuard.passed
-                        ? 'zaliczony'
-                        : job.progress.geometrySystemicGuard.qualityWarningOnly
-                          ? 'ostrzeżenie — import jest kontynuowany, niepewne siatki do ręcznej korekty'
-                          : 'zablokowany'}{' '}
-                      · próbka{' '}
-                      {job.progress.geometrySystemicGuard.sampleBoardCount}{' '}
-                      plansz · 3×3{' '}
-                      {(
-                        job.progress.geometrySystemicGuard
-                          .pageRegistrationReadyRate * 100
-                      ).toFixed(2)}
-                      % · 3×5{' '}
-                      {(
-                        job.progress.geometrySystemicGuard
-                          .finalCellGridReadyRate * 100
-                      ).toFixed(2)}
-                      % · raport{' '}
-                      {shortChecksum(
-                        job.progress.geometrySystemicGuard.reportChecksumSha256,
-                      )}
-                    </span>
-                  ) : (
-                    <span>
-                      Test ochronny: niewymagany albo jeszcze nieuruchomiony
-                    </span>
-                  )}
-                  {outcome === null ? null : (
-                    <span>
-                      Pipeline zdjęć: {outcome.pipelineImages}/
-                      {outcome.sourceCount} · poprawne {outcome.succeededImages}{' '}
-                      · błędy techniczne zdjęć {outcome.failedImages} · zdjęcia
-                      do review {outcome.reviewBoards}
-                    </span>
-                  )}
-                  {outcome !== null && outcome.failedImages > 0 ? (
-                    <small role="alert">
-                      Wynik jest niekompletny: część zdjęć nie utworzyła plansz.
-                    </small>
-                  ) : null}
                   <ImportGeometryReviewSummary
                     api={api}
                     gameId={gameId}
@@ -2458,7 +2269,7 @@ export function ImageFolderImportPanel({
             })}
           </ul>
         )}
-      </section>
+      </details>
     </section>
   );
 }

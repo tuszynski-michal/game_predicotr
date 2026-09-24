@@ -6,6 +6,54 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0631 — sekcja „Brakujące plansze” w Import plansz (Admin UI)
+
+- Ostatni z 3-taskowego planu „Brakujące plansze”
+  (`TASK-0629` → `TASK-0630` → `TASK-0631`, wszystkie `done`). Nowa sekcja w
+  „Import plansz” zastępuje kartę „Kompletność zaakceptowanych plansz” i
+  listę „Ostatnie importy tej gry”: pokazuje liczniki Oczekiwane/Dodane/
+  Brakujące dla całego `1..expectedLayoutCount`, 7 uporządkowanych powodów
+  braku, notices, filtr Brakujące/Dodane, wyszukiwanie zakresu i
+  stronicowane segmenty — nad endpointem z TASK-0630.
+- Nowe pliki: `missing-boards-state.ts` (czysta logika: parser zakresu,
+  formatowanie, etykiety powodów, maszyna 7 stanów ekranu) i
+  `missing-boards-section.tsx` (komponent; polling 15 s wyłącznie przy
+  aktywnym imporcie, request-id guard przeciw wyścigowi odpowiedzi). Sekcja w
+  całości reużywa istniejące klasy CSS (`.importCompletenessCard`,
+  `.importMetrics`, `.operationalReviewViewTabs`, `.importRowsTable` z
+  `manual-import-panel` itd.) — zero nowych reguł, dwie martwe klasy usunięte
+  (`.importMissingSequenceChips`, `.importHistorySection`).
+- Akcje reprocess (`reprocessImport`, `reprocessImport(job, true)`,
+  `reprocessManagedV4`, `ImportGeometryReviewSummary`) przeniesione bez
+  zmiany logiki do domyślnie zwiniętego `<details>` „Ponowne przetwarzanie
+  importów”; per-jobowa diagnostyka techniczna (silnik, manifest, guard,
+  profil, model, outcome) usunięta z tego widoku wraz z dwiema funkcjami,
+  które stały się w pełni martwe (`jobSnapshotText`, `geometryEngineJobLabel`).
+- **Efekt uboczny: naprawiono nieoczekiwaną regresję** w niepowiązanym
+  `test_semi_automatic_selection_migration.py`, który asercjonował dosłowny
+  tekst migracji `0114` sprzed poprawki `schema="public"` z `v0.10.397`
+  (TASK-0629) — zaktualizowano asercję.
+- Testy: 563/563 `npm run test --workspace @game-predictor/admin` (w tym 20
+  nowych w `missing-boards-state.test.mjs`, 4 nowe + 4 zaktualizowane w
+  `image-folder-import-panel-contract.test.mjs`), `image-folder-import-actions.test.mjs`
+  26/26 bez zmian asercji (ochrona zachowania reprocess potwierdzona),
+  typecheck i lint czyste. Ręczna weryfikacja na żywych danych (gra „777”,
+  realny Postgres, `admin:dev`/`api:dev` już uruchomione w tle przez
+  użytkownika/inną sesję) potwierdziła poprawne renderowanie, przełącznik
+  Brakujące/Dodane i rozwijanie bloku akcji.
+- **Ustalenie z weryfikacji:** dla gry „777” endpoint zwraca `Dodane=0` mimo
+  widocznych w UI stagingów „plansze utworzone” — zweryfikowane krzyżowo z
+  istniejącym `dataset-completeness` (też `acceptedBoardCount=0` dla tej
+  gry), więc to nie błąd routingu `game_data_v2` w nowym kodzie, tylko dane
+  sprzed cutoveru gry na `game_data_v2` (`storageGeneration: 2`),
+  nieskopiowane przy migracji (znany brak kopiowania danych przy cutoverze,
+  D-519).
+- Nieukończone: rekomendowany dodatkowy review (opus-5-5, medium); link
+  „zmień cel” do ustawień gry (renderowany jako tekst, bez nawigacji — brak
+  potwierdzonej trasy).
+- Dokumentacja: `ai_docs/requirements/ADMIN_APP.md` — nowa sekcja „Sekcja
+  „Brakujące plansze” w Import plansz (D-437)”.
+
 ### TASK-0630 — endpoint `board-import-coverage` i klient TypeScript
 
 - Drugi z 3-taskowego planu „Brakujące plansze" (`TASK-0629` → `TASK-0630` →

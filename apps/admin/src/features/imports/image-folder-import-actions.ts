@@ -36,7 +36,7 @@ export type ImageFolderImportClient = Pick<
   | 'startImageGeometryGuardReportReconstruction'
   | 'sealImageGeometryGuardResolutionManifest'
   | 'cancelBrowserImageSelection'
-  | 'getImageDatasetCompleteness'
+  | 'getBoardImportCoverage'
   | 'getImageSequenceSourceSelection'
   | 'registerCuratedImageImportSource'
   | 'listCuratedImageImportSources'

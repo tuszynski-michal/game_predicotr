@@ -31,6 +31,10 @@ const guardResolutionSource = await readFile(
   ),
   'utf8',
 );
+const missingBoardsSectionSource = await readFile(
+  new URL('../src/features/imports/missing-boards-section.tsx', import.meta.url),
+  'utf8',
+);
 
 test('a replacement recovers its preflight and opens geometry correction when ready', () => {
   assert.match(panelSource, /replacementPreviewStorageKey/);
@@ -75,14 +79,14 @@ test('distinguishes the active import operation from a disabled prerequisite', (
   );
 });
 
-test('reports incomplete board creation and offers managed-original reprocessing', () => {
-  assert.match(panelSource, /Pipeline zdjęć:/);
-  assert.match(panelSource, /Silnik cięcia plansz:/);
+test('reports staging metrics but keeps per-job diagnostics out of the collapsed reprocess block', () => {
   assert.match(panelSource, /Źródło geometrii 3×3/);
   assert.match(panelSource, /Test ochronny ≥98%/);
-  assert.match(panelSource, /geometrySystemicGuard/);
-  assert.match(panelSource, /boardCellProcessingJobLabel/);
-  assert.match(panelSource, /Wynik jest niekompletny/);
+  assert.doesNotMatch(panelSource, /Pipeline zdjęć:/);
+  assert.doesNotMatch(panelSource, /Silnik cięcia plansz:/);
+  assert.doesNotMatch(panelSource, /geometrySystemicGuard/);
+  assert.doesNotMatch(panelSource, /boardCellProcessingJobLabel/);
+  assert.doesNotMatch(panelSource, /Wynik jest niekompletny/);
   assert.match(panelSource, /Przetwórz ponownie z oryginałów/);
   assert.match(panelSource, /reprocessImageFolderImport/);
 });
@@ -123,7 +127,6 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Importuj rozpoznane strony/);
   assert.doesNotMatch(panelSource, /<BoardCellProcessingModePicker/);
   assert.match(panelSource, /jobMatchesBoardCellProcessingMode/);
-  assert.match(panelSource, /v1\.1 — korekta niepewnych plansz/);
   assert.match(
     panelSource,
     /Ręczna korekta zdjęć geometrii — zostaw na\s+koniec/,
@@ -232,8 +235,6 @@ test('reopens the completed engine variant and replays a report without dispatch
   assert.match(panelSource, /existingImportJob/);
   assert.match(panelSource, /localStorage/);
   assert.match(panelSource, /Wersja silnika siatki/);
-  assert.match(panelSource, /Wariant dopasowania geometrii zdjęcia/);
-  assert.match(panelSource, /Wersja modelu symboli/);
   const reportFlow = panelSource.slice(
     panelSource.indexOf('async function prepareReadyImport'),
     panelSource.indexOf('async function startReadyImport'),
@@ -337,7 +338,6 @@ test('defers geometry guard effect initialization and cancels stale callbacks', 
 
 test('defaults to v1.1 while preserving the v1.0 choice and historical labels', () => {
   assert.match(panelSource, /v1\.0 — niepełne boki/);
-  assert.match(panelSource, /v1\.1 — korekta niepewnych plansz/);
   assert.match(panelSource, />\(DEFAULT_GEOMETRY_ENGINE_VARIANT\)/);
   assert.doesNotMatch(panelSource, /<BoardCellProcessingModePicker/);
   assert.doesNotMatch(panelSource, /changeEnginePolicy/);
@@ -383,15 +383,24 @@ test('orders import actions by workflow priority', () => {
 test('contains completeness and source controls inside responsive components', () => {
   assert.match(panelSource, /className="importCompletenessCard"/);
   assert.match(panelSource, /className="importMetrics"/);
-  assert.match(panelSource, /className="importMissingSequenceChips"/);
   assert.match(panelSource, /className="importSourceControls"/);
   assert.match(panelSource, /className="importCompactList"/);
-  assert.match(globalStyles, /\.importMissingSequenceChips \{/);
+  assert.doesNotMatch(panelSource, /className="importMissingSequenceChips"/);
+  assert.doesNotMatch(globalStyles, /\.importMissingSequenceChips \{/);
   assert.match(globalStyles, /\.importSourceControls \{/);
   assert.match(
     globalStyles,
     /\.importMetrics,\s*\.importSourceControls \{\s*grid-template-columns: 1fr;/,
   );
+  assert.match(
+    missingBoardsSectionSource,
+    /className="importMetrics"/,
+  );
+  assert.match(
+    missingBoardsSectionSource,
+    /className="importSourceControls"/,
+  );
+  assert.match(missingBoardsSectionSource, /className="importRowsTableWrap"/);
 });
 
 test('isolates folder selection state when the active game changes', () => {
@@ -411,4 +420,53 @@ test('uses the browser-native directory input without a blocking OS helper', () 
   assert.match(actionsSource, /uploaded\.data\.uploadedFileCount/);
   assert.doesNotMatch(panelSource, /Otwieranie…/);
   assert.doesNotMatch(panelSource, /selectImageFolder/);
+});
+
+test('replaces the completeness card and import history with the missing-boards section', () => {
+  assert.doesNotMatch(panelSource, /Ostatnie importy tej gry/);
+  assert.doesNotMatch(panelSource, /Kompletność zaakceptowanych plansz/);
+  assert.doesNotMatch(panelSource, /getImageDatasetCompleteness/);
+  assert.doesNotMatch(actionsSource, /'getImageDatasetCompleteness'/);
+  assert.match(panelSource, /<MissingBoardsSection/);
+  assert.match(
+    panelSource,
+    /<MissingBoardsSection\s+api=\{api\}\s+gameId=\{gameId\}\s+refreshToken=\{refreshToken\}\s*\/>/,
+  );
+  assert.match(actionsSource, /'getBoardImportCoverage'/);
+});
+
+test('keeps the reprocess actions in a collapsed details block with all three buttons', () => {
+  const reprocessBlock = panelSource.slice(
+    panelSource.indexOf('<details className="importMissingSequences">'),
+    panelSource.lastIndexOf('</section>'),
+  );
+  assert.match(reprocessBlock, /<summary>Ponowne przetwarzanie importów<\/summary>/);
+  assert.match(reprocessBlock, /Przetwórz ponownie z oryginałów/);
+  assert.match(reprocessBlock, /Przetwórz w v1\.0/);
+  assert.match(reprocessBlock, /Kontynuuj z ręczną korektą/);
+  assert.match(reprocessBlock, /<ImportGeometryReviewSummary/);
+  assert.match(reprocessBlock, /onClick=\{\(\) => void reprocessImport\(job\)\}/);
+  assert.match(reprocessBlock, /onClick=\{\(\) => void reprocessManagedV4\(job\)\}/);
+  assert.match(
+    reprocessBlock,
+    /onClick=\{\(\) => void reprocessImport\(job, true\)\}/,
+  );
+});
+
+test('bumps refreshToken on every refreshJobs call', () => {
+  const refreshJobsFlow = panelSource.slice(
+    panelSource.indexOf('const refreshJobs = useCallback'),
+    panelSource.indexOf('}, [api, gameId]);') + '}, [api, gameId]);'.length,
+  );
+  assert.match(refreshJobsFlow, /setRefreshToken\(\(current\) => current \+ 1\)/);
+});
+
+test('polls board import coverage only while an import job is active', () => {
+  assert.match(
+    missingBoardsSectionSource,
+    /report\.notices\.activeImportJobCount <= 0/,
+  );
+  assert.match(missingBoardsSectionSource, /window\.setInterval/);
+  assert.match(missingBoardsSectionSource, /window\.clearInterval/);
+  assert.match(missingBoardsSectionSource, /POLL_INTERVAL_MS = 15_000/);
 });

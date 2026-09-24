@@ -662,6 +662,53 @@ planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal
 wyświetla dokładne liczniki blokujących zależności. Panel nie oferuje
 automatycznego bootstrapu katalogu ani archiwizowania symbolu.
 
+### Sekcja „Brakujące plansze” w Import plansz (D-437)
+
+Zastępuje dawną kartę „Kompletność zaakceptowanych plansz” (liczącą tylko
+zatwierdzone plansze) i osobną listę „Ostatnie importy tej gry”. Definicja
+„planszy dodanej” jest decyzją D-437 (`DECISION_LOG.md`): numer w zakresie
+`1..expectedLayoutCount` jest dodany, gdy ma kanoniczną sekwencję albo żywy
+(`pending`/`accepted`/`corrected`) element review z ukończonym cięciem na 15
+komórek — zatwierdzenie symboli nie jest do tego wymagane. Sekcja korzysta z
+`GET .../board-import-coverage/{gameId}`.
+
+Zachowanie:
+
+- liczniki `Oczekiwane`/`Dodane`/`Brakujące` liczą zawsze cały zakres
+  `1..expectedLayoutCount`; podlinia cytuje `w tym zatwierdzone` (ten sam
+  licznik co stary raport kompletności, który zostaje bez zmian pod
+  `dataset-completeness`) i wskazuje, że cel pochodzi z ustawień gry
+  (Katalog gier),
+- linia „Powody” pokazuje niezerowe liczniki siedmiu przyczyn braku, w
+  kolejności priorytetu: `import_in_progress`, `waiting_for_geometry`,
+  `partial_source`, `failed`, `rejected`, `unknown`, `no_source`,
+- baner z informacją o pociętych planszach bez ustalonego numeru, zdjęciach z
+  błędem bez znanego zakresu, aktywnych jobach importu i aktywnych źródłach
+  bez zakresu pojawia się tylko, gdy któryś z tych liczników jest dodatni,
+- filtr ma dwa stany, `Brakujące` (domyślny) i `Dodane` — bez wariantu
+  „Wszystkie”; wyszukiwanie przyjmuje pojedynczy numer albo zakres
+  (`a-b`/`a–b`, tolerancyjne na spacje) i zawęża zarówno liczniki okna, jak i
+  listę segmentów,
+- lista pokazuje kolejne segmenty (przedziały o tym samym stanie), maksymalnie
+  100 na stronę, ze stronicowaniem keyset po numerze sekwencji,
+- odświeżanie następuje przy wejściu na ekran, po każdym `Odśwież status`
+  panelu (przez rosnący `refreshToken`), po zmianie filtra/zakresu i co 15 s
+  automatycznie, ale wyłącznie gdy trwa aktywny import tej gry,
+- ekran rozróżnia siedem stanów: ładowanie, błąd pobrania (z przyciskiem
+  ponowienia; poprzednie dane zostają widoczne z osobnym ostrzeżeniem o
+  nieaktualności), nieznany cel kompletności (bez liczników), brak
+  jakiegokolwiek importu, wszystko dodane, pusty wynik filtra/zakresu i
+  zwykła lista.
+
+Akcje ponownego przetwarzania importu („Przetwórz ponownie z oryginałów”,
+„Przetwórz w v1.0”, „Kontynuuj z ręczną korektą”) oraz podgląd siatek
+(`ImportGeometryReviewSummary`) zostają bez zmian logiki, przeniesione do
+domyślnie zwiniętego bloku „Ponowne przetwarzanie importów” z pięcioma
+najnowszymi importami gry. Diagnostyka techniczna per job (wersja silnika
+cięcia, manifest geometrii stron, test ochronny, wersja modelu symboli,
+wynik pipeline'u) została usunięta z tego widoku; pozostaje dostępna w
+zakładce Joby.
+
 ### Minimalistyczne stanowisko zatwierdzania
 
 Operacyjne review dużego importu używa `image_review_items`, a nie ograniczonego

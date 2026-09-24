@@ -6,6 +6,49 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0652 — pion API „Przybliżonej wygranej” (4/6, plan D-445)
+
+- Czwarty task planu sesji `2026-09-24`. Taski `0653`–`0654` jeszcze nie
+  istnieją jako pliki.
+- Nowy endpoint (tylko odczyt, ten sam router co wyszukiwanie plansz):
+  `GET /api/v1/admin/games/{gameId}/board-search/approximate-win
+  ?startSequenceNumber=&spinCount=1..10000`. Łączy TASK-0650
+  (`PreparedPayoutEvaluator` z `RulesPayoutConfiguration` — dodano pole
+  `version: int`) i TASK-0651 (czysty kalkulator zakresu) z realnymi
+  danymi projekcji wyszukiwania plansz.
+- `storage/board_search_projection_repository.py`: `_document_source`
+  wydzielony z `search()` bez zmiany zachowania (34/34 istniejących testów
+  bez zmian) + nowa `range_documents(game_id, first, last)`, czytająca to
+  samo źródło (`image_board_search_fast_documents` albo zamrożone
+  archiwum) i te same błędy gotowości co wyszukiwanie. Nowy
+  `SqlAlchemyBoardSearchApproximateWinRepository` dokłada długość
+  sekwencji gry i najnowsze opublikowane reguły.
+- Nowy `application/board_search_approximate_win.py`:
+  `BoardSearchApproximateWinService` — waliduje `spinCount` (≤ 10 000,
+  D5), planuje pozycje, buduje `PreparedPayoutEvaluator`, czyta zakres w
+  1–2 zapytaniach (zależnie od zawinięcia przez koniec sekwencji) + 1
+  zapytanie o status planszy startowej (D3, `startBoardStatus`), mapuje
+  `DomainValidationError` na nowe kody `BoardSearchError`:
+  `APPROXIMATE_WIN_START_OUT_OF_RANGE`/`_SPIN_COUNT_INVALID`/
+  `_RULES_NOT_PUBLISHED`/`_RULES_INVALID`/`_BOARD_SYMBOL_OUTSIDE_RULES`.
+  Nieznany symbol na planszy przerywa **całą** kalkulację (fail-closed),
+  nie pomija cicho jednej planszy.
+- OpenAPI wygenerowane (`npm run openapi:generate`), klient TS ma nowy
+  `getBoardSearchApproximateWin(gameId, { startSequenceNumber, spinCount })`.
+- Testy: 10 nowych API (fałszywe repozytorium), 1 nowy integracyjny
+  PostgreSQL na grze routowanej do `game_data_v2` (kompletna plansza →
+  parytet z payout-v3; częściowa → potwierdzone minimum; brakująca;
+  **potwierdzone zero zapisów** — liczniki wierszy identyczne przed/po w
+  osobnej transakcji), 1 nowy testu klienta TS. Pełny board_search+payout:
+  169/169 bez Postgresa, 171/172 z Postgresem (1 pre-existing czerwony,
+  niezwiązany — patrz TASK-0650). `openapi:check`, `ruff`, `mypy --strict`
+  czyste dla zmienionych plików (baseline pre-existing błędów bez zmian).
+- **Znalezisko, nienaprawione:** `prettier --check` failuje na
+  `packages/admin-api-client/src/index.ts` i `test/client.test.mjs`
+  niezależnie od tego taska — potwierdzone na wersji z `git show HEAD`
+  sprzed zmian. Masowe przeformatowanie tego dużego, częściowo
+  generowanego pliku wykracza poza zakres.
+
 ### TASK-0651 — czysty kalkulator domenowy „Przybliżonej wygranej” (3/6, plan D-445)
 
 - Trzeci task planu sesji `2026-09-24`. Taski `0652`–`0654` jeszcze nie

@@ -106,6 +106,148 @@ export type ApprovedSymbolReferenceSelectionCommand = {
 };
 
 /**
+ * ApproximateWinCompletenessResponse
+ */
+export type ApproximateWinCompletenessResponse = {
+  /**
+   * Completeboardcount
+   */
+  completeBoardCount: number;
+  /**
+   * Missingboardcount
+   */
+  missingBoardCount: number;
+  /**
+   * Partialboardcount
+   */
+  partialBoardCount: number;
+};
+
+/**
+ * ApproximateWinResponse
+ */
+export type ApproximateWinResponse = {
+  completeness: ApproximateWinCompletenessResponse;
+  /**
+   * Datafingerprintsha256
+   */
+  dataFingerprintSha256: string;
+  dataSource: BoardSearchAssetMode;
+  /**
+   * Evaluatedspincount
+   */
+  evaluatedSpinCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Requestedspincount
+   */
+  requestedSpinCount: number;
+  /**
+   * Rows
+   */
+  rows: Array<ApproximateWinRowResponse>;
+  rules: ApproximateWinRulesResponse;
+  /**
+   * Sequencelength
+   */
+  sequenceLength: number;
+  /**
+   * Startboardstatus
+   */
+  startBoardStatus: string | null;
+  /**
+   * Startsequencenumber
+   */
+  startSequenceNumber: number;
+  summary: ApproximateWinSummaryResponse;
+  /**
+   * Wrappedatsequenceend
+   */
+  wrappedAtSequenceEnd: boolean;
+};
+
+/**
+ * ApproximateWinRowResponse
+ */
+export type ApproximateWinRowResponse = {
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Cumulativebalancecredits
+   */
+  cumulativeBalanceCredits: number;
+  /**
+   * Cumulativecostcredits
+   */
+  cumulativeCostCredits: number;
+  /**
+   * Cumulativepayoutcredits
+   */
+  cumulativePayoutCredits: number;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits: number;
+  /**
+   * Payoutkind
+   */
+  payoutKind: 'exact' | 'confirmed_minimum';
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Spinnumber
+   */
+  spinNumber: number;
+};
+
+/**
+ * ApproximateWinRulesResponse
+ */
+export type ApproximateWinRulesResponse = {
+  /**
+   * Algorithmversion
+   */
+  algorithmVersion: string;
+  /**
+   * Rulesversion
+   */
+  rulesVersion: number;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+  /**
+   * Spincost
+   */
+  spinCost: number;
+};
+
+/**
+ * ApproximateWinSummaryResponse
+ */
+export type ApproximateWinSummaryResponse = {
+  /**
+   * Balancecredits
+   */
+  balanceCredits: number;
+  /**
+   * Recognizedpayoutcredits
+   */
+  recognizedPayoutCredits: number;
+  /**
+   * Spincostcredits
+   */
+  spinCostCredits: number;
+};
+
+/**
  * AutomaticFrameGeometryProposalPayload
  *
  * A complete local grid retained because its decorative frame is weak.
@@ -14371,6 +14513,55 @@ export type SearchGameBoardsResponses = {
 
 export type SearchGameBoardsResponse =
   SearchGameBoardsResponses[keyof SearchGameBoardsResponses];
+
+export type GetBoardSearchApproximateWinData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Startsequencenumber
+     */
+    startSequenceNumber: number;
+    /**
+     * Spincount
+     */
+    spinCount: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-search/approximate-win';
+};
+
+export type GetBoardSearchApproximateWinErrors = {
+  /**
+   * Game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Board-search projection/archive not ready, no published rules, an invalid rules configuration, a board symbol outside the active rules, or a starting board outside the game's sequence
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid range parameters
+   */
+  422: ErrorResponse;
+};
+
+export type GetBoardSearchApproximateWinError =
+  GetBoardSearchApproximateWinErrors[keyof GetBoardSearchApproximateWinErrors];
+
+export type GetBoardSearchApproximateWinResponses = {
+  /**
+   * Successful Response
+   */
+  200: ApproximateWinResponse;
+};
+
+export type GetBoardSearchApproximateWinResponse =
+  GetBoardSearchApproximateWinResponses[keyof GetBoardSearchApproximateWinResponses];
 
 export type GetArchivedBoardSearchAssetData = {
   body?: never;

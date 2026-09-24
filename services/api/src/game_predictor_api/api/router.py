@@ -57,6 +57,7 @@ def create_api_router(
     settings: ApiSettings,
     catalog_service_dependency: Callable[..., object],
     board_search_service_dependency: Callable[..., object],
+    board_search_approximate_win_service_dependency: Callable[..., object],
     cleanup_service_dependency: Callable[..., object],
     rules_service_dependency: Callable[..., object],
     dataset_service_dependency: Callable[..., object],
@@ -116,7 +117,11 @@ def create_api_router(
     )
     router.include_router(create_catalog_router(catalog_service_dependency))
     router.include_router(
-        create_board_search_router(board_search_service_dependency, artifact_root)
+        create_board_search_router(
+            board_search_service_dependency,
+            board_search_approximate_win_service_dependency,
+            artifact_root,
+        )
     )
     router.include_router(create_cleanup_router(cleanup_service_dependency))
     if settings.remote_manual_selection_host_mapping_enabled:

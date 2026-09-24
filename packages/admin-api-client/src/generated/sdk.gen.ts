@@ -228,6 +228,9 @@ import type {
   GetBoardImportCoverageData,
   GetBoardImportCoverageErrors,
   GetBoardImportCoverageResponses,
+  GetBoardSearchApproximateWinData,
+  GetBoardSearchApproximateWinErrors,
+  GetBoardSearchApproximateWinResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
@@ -1029,6 +1032,27 @@ export const searchGameBoards = <ThrowOnError extends boolean = false>(
     SearchGameBoardsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/board-search', ...options });
+
+/**
+ * Calculate a careful, read-only lower-bound payout estimate for a sequence range
+ */
+export const getBoardSearchApproximateWin = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchApproximateWinData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchApproximateWinResponses,
+  GetBoardSearchApproximateWinErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchApproximateWinResponses,
+    GetBoardSearchApproximateWinErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-search/approximate-win',
+    ...options,
+  });
 
 /**
  * Read one checksum-bound board image from a frozen search archive

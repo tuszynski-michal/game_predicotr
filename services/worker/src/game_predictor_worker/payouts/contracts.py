@@ -33,6 +33,7 @@ class RulesPayoutConfiguration:
 
     rules_version_id: UUID
     rules_game_id: UUID
+    version: int
     status: RulesVersionStatus
     rows: int
     columns: int

@@ -10,6 +10,10 @@ from fastapi import Path as ApiPath
 from fastapi.responses import FileResponse
 
 from game_predictor_api.application.board_search import BoardSearchService
+from game_predictor_api.application.board_search_approximate_win import (
+    APPROXIMATE_WIN_SPIN_COUNT_MAX,
+    BoardSearchApproximateWinService,
+)
 from game_predictor_api.application.board_search_assets import (
     resolve_board_search_archive_asset,
 )
@@ -23,22 +27,41 @@ from game_predictor_api.schemas.board_search import (
     BoardSearchResponse,
     to_board_search_response,
 )
+from game_predictor_api.schemas.board_search_approximate_win import (
+    ApproximateWinResponse,
+    to_approximate_win_response,
+)
 from game_predictor_api.schemas.catalog import ErrorResponse
 
 BoardSearchServiceDependency = Callable[..., object]
+BoardSearchApproximateWinServiceDependency = Callable[..., object]
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     404: {"model": ErrorResponse, "description": "Game not found"},
     409: {"model": ErrorResponse, "description": "Board-search projection not ready"},
     422: {"model": ErrorResponse, "description": "Invalid partial board query"},
 }
+APPROXIMATE_WIN_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
+    404: {"model": ErrorResponse, "description": "Game not found"},
+    409: {
+        "model": ErrorResponse,
+        "description": (
+            "Board-search projection/archive not ready, no published rules, an "
+            "invalid rules configuration, a board symbol outside the active "
+            "rules, or a starting board outside the game's sequence"
+        ),
+    },
+    422: {"model": ErrorResponse, "description": "Invalid range parameters"},
+}
 
 
 def create_board_search_router(
     service_dependency: BoardSearchServiceDependency,
+    approximate_win_service_dependency: BoardSearchApproximateWinServiceDependency,
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/games", tags=["board-search"])
     service_parameter = Depends(service_dependency)
+    approximate_win_service_parameter = Depends(approximate_win_service_dependency)
 
     @router.get(
         "/{game_id}/board-search",
@@ -95,6 +118,29 @@ def create_board_search_router(
             media_type=asset.media_type,
             headers={"Cache-Control": "private, immutable, max-age=31536000"},
         )
+
+    @router.get(
+        "/{game_id}/board-search/approximate-win",
+        response_model=ApproximateWinResponse,
+        operation_id="getBoardSearchApproximateWin",
+        summary="Calculate a careful, read-only lower-bound payout estimate for a sequence range",
+        responses=APPROXIMATE_WIN_ERROR_RESPONSES,
+    )
+    def get_board_search_approximate_win(
+        game_id: UUID,
+        service: Annotated[BoardSearchApproximateWinService, approximate_win_service_parameter],
+        start_sequence_number: Annotated[int, Query(alias="startSequenceNumber", ge=1)],
+        spin_count: Annotated[
+            int,
+            Query(alias="spinCount", ge=1, le=APPROXIMATE_WIN_SPIN_COUNT_MAX),
+        ],
+    ) -> ApproximateWinResponse:
+        calculation = service.calculate(
+            game_id=game_id,
+            start_sequence_number=start_sequence_number,
+            requested_spin_count=spin_count,
+        )
+        return to_approximate_win_response(calculation)
 
     return router
 

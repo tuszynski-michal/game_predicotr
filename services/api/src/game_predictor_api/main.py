@@ -26,6 +26,9 @@ from game_predictor_api.application.board_cell_geometry_pending import (
     ManagedBoardCellProcessingManifestStore,
 )
 from game_predictor_api.application.board_search import BoardSearchService
+from game_predictor_api.application.board_search_approximate_win import (
+    BoardSearchApproximateWinService,
+)
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import (
     CleanupService,
@@ -230,6 +233,9 @@ from game_predictor_api.storage.board_cell_geometry_pending_repository import (
 from game_predictor_api.storage.board_import_coverage_repository import (
     SqlAlchemyBoardImportCoverageRepository,
 )
+from game_predictor_api.storage.board_search_approximate_win_repository import (
+    SqlAlchemyBoardSearchApproximateWinRepository,
+)
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -370,6 +376,7 @@ def create_app(
     *,
     catalog_service_dependency: Callable[..., object] | None = None,
     board_search_service_dependency: Callable[..., object] | None = None,
+    board_search_approximate_win_service_dependency: Callable[..., object] | None = None,
     cleanup_service_dependency: Callable[..., object] | None = None,
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
@@ -421,6 +428,7 @@ def create_app(
         for dependency in (
             catalog_service_dependency,
             board_search_service_dependency,
+            board_search_approximate_win_service_dependency,
             cleanup_service_dependency,
             rules_service_dependency,
             dataset_service_dependency,
@@ -497,6 +505,24 @@ def create_app(
 
     resolved_board_search_dependency = (
         board_search_service_dependency or default_board_search_service_dependency
+    )
+
+    def default_board_search_approximate_win_service_dependency() -> Iterator[
+        BoardSearchApproximateWinService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchApproximateWinService(
+                    SqlAlchemyBoardSearchApproximateWinRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_approximate_win_dependency = (
+        board_search_approximate_win_service_dependency
+        or default_board_search_approximate_win_service_dependency
     )
 
     def default_cleanup_service_dependency() -> Iterator[CleanupService]:
@@ -1394,6 +1420,7 @@ def create_app(
             resolved_settings,
             resolved_catalog_dependency,
             resolved_board_search_dependency,
+            resolved_board_search_approximate_win_dependency,
             resolved_cleanup_dependency,
             resolved_rules_dependency,
             resolved_dataset_dependency,
@@ -1533,10 +1560,20 @@ def create_app(
             "BOARD_SEARCH_ARCHIVE_ASSET_MEDIA_TYPE_UNSUPPORTED",
             "BOARD_SEARCH_ARCHIVE_ASSET_CHECKSUM_DRIFT",
             "BOARD_SEARCH_PROJECTION_INCOMPLETE",
+            # TASK-0652 approximate-win range calculator: the starting board
+            # is out of the game's sequence, or the range cannot be
+            # calculated from the current data/rules state. Never a client
+            # input-shape error, so 409 rather than 422.
+            "APPROXIMATE_WIN_START_OUT_OF_RANGE",
+            "APPROXIMATE_WIN_RULES_NOT_PUBLISHED",
+            "APPROXIMATE_WIN_RULES_INVALID",
+            "APPROXIMATE_WIN_BOARD_SYMBOL_OUTSIDE_RULES",
         }:
             status_code = 409
         elif error.code == "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND":
             status_code = 404
+        # "APPROXIMATE_WIN_SPIN_COUNT_INVALID" and any other/unknown code
+        # fall through to the 422 default (malformed query parameters).
         return JSONResponse(
             status_code=status_code,
             content={"code": error.code, "message": error.message, "details": {}},

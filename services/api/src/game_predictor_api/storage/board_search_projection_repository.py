@@ -27,6 +27,7 @@ from game_predictor_api.domain.board_search import (
     BoardSearchScore,
     select_board_search_document,
 )
+from game_predictor_api.domain.board_search_approximate_win import ApproximateWinDocument
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.geometry_qualification import (
     GeometryQualification,
@@ -34,6 +35,7 @@ from game_predictor_api.domain.geometry_qualification import (
 )
 from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
     GameStorageRouter,
     GameStorageSchema,
 )
@@ -264,19 +266,10 @@ class SqlAlchemyBoardSearchProjectionRepository:
     ) -> tuple[BoardSearchResult, ...]:
         if self._session.get(GameModel, game_id) is None:
             raise BoardSearchError("GAME_NOT_FOUND", "The selected game does not exist.")
-        archive_state = self._session.get(LegacyBoardSearchArchiveStateModel, game_id)
-        document: Any
+        document, asset_mode = self._document_source(game_id)
         identity_columns: tuple[Any, Any, Any]
         identity_sort: Any
-        if archive_state is None:
-            state = self.state_for_game(game_id)
-            if state is None or state.status != "ready":
-                raise BoardSearchError(
-                    "BOARD_SEARCH_PROJECTION_INCOMPLETE",
-                    "The board-search projection is not ready for this game.",
-                )
-            document = ImageBoardSearchFastDocumentModel
-            asset_mode = BoardSearchAssetMode.OPERATIONAL_REVIEW
+        if asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW:
             identity_columns = (
                 document.review_item_id,
                 document.recognized_board_id,
@@ -284,13 +277,6 @@ class SqlAlchemyBoardSearchProjectionRepository:
             )
             identity_sort = document.review_item_id
         else:
-            if archive_state.status != "ready":
-                raise BoardSearchError(
-                    "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
-                    "The frozen board-search archive is not ready for this game.",
-                )
-            document = LegacyBoardSearchArchiveDocumentModel
-            asset_mode = BoardSearchAssetMode.LEGACY_ARCHIVE
             identity_columns = (literal(None), literal(None), literal(None))
             identity_sort = document.board_checksum_sha256
         active_mobile_codes: dict[str, int] = {
@@ -402,6 +388,83 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 unknown_count,
             ) in self._session.execute(statement).all()
         )
+
+    def _document_source(self, game_id: UUID) -> tuple[type[Any], BoardSearchAssetMode]:
+        """Resolve which read model backs board-search reads for a game: the
+        live operational projection, or (once fully migrated) a frozen
+        legacy archive. Shared by `search()` and the approximate-win range
+        reader so both stay consistent about which source is authoritative
+        and raise the same readiness errors.
+        """
+        archive_state = self._session.get(LegacyBoardSearchArchiveStateModel, game_id)
+        if archive_state is None:
+            state = self.state_for_game(game_id)
+            if state is None or state.status != "ready":
+                raise BoardSearchError(
+                    "BOARD_SEARCH_PROJECTION_INCOMPLETE",
+                    "The board-search projection is not ready for this game.",
+                )
+            return ImageBoardSearchFastDocumentModel, BoardSearchAssetMode.OPERATIONAL_REVIEW
+        if archive_state.status != "ready":
+            raise BoardSearchError(
+                "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
+                "The frozen board-search archive is not ready for this game.",
+            )
+        return LegacyBoardSearchArchiveDocumentModel, BoardSearchAssetMode.LEGACY_ARCHIVE
+
+    def range_documents(
+        self,
+        *,
+        game_id: UUID,
+        first_sequence_number: int,
+        last_sequence_number: int,
+    ) -> tuple[BoardSearchAssetMode, tuple[ApproximateWinDocument, ...]]:
+        """Read approximate-win evidence for one contiguous sequence range
+        from whichever source `search()` uses for this game.
+
+        Read-only: never touches images, runs inference or writes anything.
+        A caller evaluating a range that wraps past the sequence end calls
+        this twice (once per contiguous sub-range) and concatenates the
+        results; this method itself only ever reads one bounded range.
+        """
+        if self._session.get(GameModel, game_id) is None:
+            raise BoardSearchError("GAME_NOT_FOUND", "The selected game does not exist.")
+        # This route sits under `/admin/games/{game_id}/...`, so the app-wide
+        # `bind_game_storage_request` middleware already binds the session's
+        # game_data_v2 routing scope before this runs. Bind explicitly too
+        # (idempotent, D-440) so this method stays correct even if it is
+        # ever called from a route that does not match that path pattern.
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
+        document, asset_mode = self._document_source(game_id)
+
+        rows = self._session.execute(
+            select(
+                document.sequence_number,
+                document.status,
+                document.board_checksum_sha256,
+                document.primary_symbol_mobile_codes,
+            ).where(
+                document.game_id == game_id,
+                document.sequence_number >= first_sequence_number,
+                document.sequence_number <= last_sequence_number,
+            )
+        ).all()
+
+        documents = tuple(
+            ApproximateWinDocument(
+                sequence_number=int(sequence_number),
+                status=status,
+                board_checksum_sha256=board_checksum_sha256,
+                mobile_codes=tuple(primary_symbol_mobile_codes),
+            )
+            for (
+                sequence_number,
+                status,
+                board_checksum_sha256,
+                primary_symbol_mobile_codes,
+            ) in rows
+        )
+        return asset_mode, documents
 
     def archive_asset(
         self,

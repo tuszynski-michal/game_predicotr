@@ -170,6 +170,235 @@
         "title": "ApprovedSymbolReferenceSelectionCommand",
         "type": "object"
       },
+      "ApproximateWinCompletenessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completeBoardCount": {
+            "minimum": 0.0,
+            "title": "Completeboardcount",
+            "type": "integer"
+          },
+          "missingBoardCount": {
+            "minimum": 0.0,
+            "title": "Missingboardcount",
+            "type": "integer"
+          },
+          "partialBoardCount": {
+            "minimum": 0.0,
+            "title": "Partialboardcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "completeBoardCount",
+          "partialBoardCount",
+          "missingBoardCount"
+        ],
+        "title": "ApproximateWinCompletenessResponse",
+        "type": "object"
+      },
+      "ApproximateWinResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completeness": {
+            "$ref": "#/components/schemas/ApproximateWinCompletenessResponse"
+          },
+          "dataFingerprintSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Datafingerprintsha256",
+            "type": "string"
+          },
+          "dataSource": {
+            "$ref": "#/components/schemas/BoardSearchAssetMode"
+          },
+          "evaluatedSpinCount": {
+            "minimum": 0.0,
+            "title": "Evaluatedspincount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "requestedSpinCount": {
+            "minimum": 1.0,
+            "title": "Requestedspincount",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ApproximateWinRowResponse"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ApproximateWinRulesResponse"
+          },
+          "sequenceLength": {
+            "minimum": 1.0,
+            "title": "Sequencelength",
+            "type": "integer"
+          },
+          "startBoardStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startboardstatus"
+          },
+          "startSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Startsequencenumber",
+            "type": "integer"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ApproximateWinSummaryResponse"
+          },
+          "wrappedAtSequenceEnd": {
+            "title": "Wrappedatsequenceend",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "gameId",
+          "startSequenceNumber",
+          "startBoardStatus",
+          "requestedSpinCount",
+          "evaluatedSpinCount",
+          "sequenceLength",
+          "wrappedAtSequenceEnd",
+          "dataSource",
+          "dataFingerprintSha256",
+          "rules",
+          "summary",
+          "completeness",
+          "rows"
+        ],
+        "title": "ApproximateWinResponse",
+        "type": "object"
+      },
+      "ApproximateWinRowResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardStatus": {
+            "title": "Boardstatus",
+            "type": "string"
+          },
+          "cumulativeBalanceCredits": {
+            "title": "Cumulativebalancecredits",
+            "type": "integer"
+          },
+          "cumulativeCostCredits": {
+            "minimum": 0.0,
+            "title": "Cumulativecostcredits",
+            "type": "integer"
+          },
+          "cumulativePayoutCredits": {
+            "minimum": 0.0,
+            "title": "Cumulativepayoutcredits",
+            "type": "integer"
+          },
+          "payoutCredits": {
+            "exclusiveMinimum": 0.0,
+            "title": "Payoutcredits",
+            "type": "integer"
+          },
+          "payoutKind": {
+            "enum": [
+              "exact",
+              "confirmed_minimum"
+            ],
+            "title": "Payoutkind",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "spinNumber": {
+            "minimum": 1.0,
+            "title": "Spinnumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "spinNumber",
+          "sequenceNumber",
+          "payoutCredits",
+          "cumulativePayoutCredits",
+          "cumulativeCostCredits",
+          "cumulativeBalanceCredits",
+          "payoutKind",
+          "boardStatus"
+        ],
+        "title": "ApproximateWinRowResponse",
+        "type": "object"
+      },
+      "ApproximateWinRulesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithmVersion": {
+            "title": "Algorithmversion",
+            "type": "string"
+          },
+          "rulesVersion": {
+            "minimum": 1.0,
+            "title": "Rulesversion",
+            "type": "integer"
+          },
+          "rulesVersionId": {
+            "format": "uuid",
+            "title": "Rulesversionid",
+            "type": "string"
+          },
+          "spinCost": {
+            "minimum": 0.0,
+            "title": "Spincost",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rulesVersionId",
+          "rulesVersion",
+          "spinCost",
+          "algorithmVersion"
+        ],
+        "title": "ApproximateWinRulesResponse",
+        "type": "object"
+      },
+      "ApproximateWinSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "balanceCredits": {
+            "title": "Balancecredits",
+            "type": "integer"
+          },
+          "recognizedPayoutCredits": {
+            "minimum": 0.0,
+            "title": "Recognizedpayoutcredits",
+            "type": "integer"
+          },
+          "spinCostCredits": {
+            "minimum": 0.0,
+            "title": "Spincostcredits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "recognizedPayoutCredits",
+          "spinCostCredits",
+          "balanceCredits"
+        ],
+        "title": "ApproximateWinSummaryResponse",
+        "type": "object"
+      },
       "AutomaticFrameGeometryProposalPayload": {
         "additionalProperties": false,
         "description": "A complete local grid retained because its decorative frame is weak.",
@@ -25750,6 +25979,90 @@
           }
         },
         "summary": "Find logical boards by a partial symbol pattern",
+        "tags": [
+          "board-search"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-search/approximate-win": {
+      "get": {
+        "operationId": "getBoardSearchApproximateWin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "startSequenceNumber",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Startsequencenumber",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "spinCount",
+            "required": true,
+            "schema": {
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "Spincount",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApproximateWinResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board-search projection/archive not ready, no published rules, an invalid rules configuration, a board symbol outside the active rules, or a starting board outside the game's sequence"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid range parameters"
+          }
+        },
+        "summary": "Calculate a careful, read-only lower-bound payout estimate for a sequence range",
         "tags": [
           "board-search"
         ]

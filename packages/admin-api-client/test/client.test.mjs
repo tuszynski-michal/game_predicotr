@@ -2862,6 +2862,65 @@ test('board search forwards a partial pattern and scope through the generated cl
   assert.equal(new URL(requests[0].url).searchParams.get('limit'), '20');
 });
 
+test('getBoardSearchApproximateWin passes gameId as path and options as query params', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        completeness: {
+          completeBoardCount: 0,
+          missingBoardCount: 0,
+          partialBoardCount: 0,
+        },
+        dataFingerprintSha256: 'a'.repeat(64),
+        dataSource: 'operational_review',
+        evaluatedSpinCount: 0,
+        gameId,
+        requestedSpinCount: 5,
+        rows: [],
+        rules: {
+          algorithmVersion: 'payout-v3-unknown-prefix-stop',
+          rulesVersion: 1,
+          rulesVersionId: '22222222-2222-4222-8222-222222222222',
+          spinCost: 20,
+        },
+        sequenceLength: 500000,
+        startBoardStatus: null,
+        startSequenceNumber: 10,
+        summary: {
+          balanceCredits: 0,
+          recognizedPayoutCredits: 0,
+          spinCostCredits: 0,
+        },
+        wrappedAtSequenceEnd: false,
+      });
+    },
+  });
+
+  const result = await client.getBoardSearchApproximateWin(gameId, {
+    spinCount: 5,
+    startSequenceNumber: 10,
+  });
+
+  assert.equal(requests.length, 1);
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/approximate-win`,
+  );
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('startSequenceNumber'),
+    '10',
+  );
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('spinCount'),
+    '5',
+  );
+  assert.equal(result.data.evaluatedSpinCount, 0);
+});
+
 test('board search builds only a scoped board-crop asset URL for a result', () => {
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000/',

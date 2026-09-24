@@ -82,6 +82,7 @@ import {
   getImageJobOperations as getGeneratedImageJobOperations,
   getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
   getArchivedBoardSearchAsset as getGeneratedArchivedBoardSearchAsset,
+  getBoardSearchApproximateWin as getGeneratedBoardSearchApproximateWin,
   getImageImportEnginePolicy as getGeneratedImageImportEnginePolicy,
   previewImageImportEnginePolicy as previewGeneratedImageImportEnginePolicy,
   updateImageImportEnginePolicy as updateGeneratedImageImportEnginePolicy,
@@ -242,6 +243,11 @@ import {
   mutateV7LabelGeometryCalibrationSession as mutateGeneratedV7LabelGeometryCalibrationSession,
 } from './generated/sdk.gen';
 import type {
+  ApproximateWinCompletenessResponse,
+  ApproximateWinResponse,
+  ApproximateWinRowResponse,
+  ApproximateWinRulesResponse,
+  ApproximateWinSummaryResponse,
   BoardImportCoverageView,
   ReprocessManagedImageImportData,
   BrowserImageSelectionCreate,
@@ -385,6 +391,11 @@ import type {
 } from './generated/types.gen';
 
 export type {
+  ApproximateWinCompletenessResponse,
+  ApproximateWinResponse,
+  ApproximateWinRowResponse,
+  ApproximateWinRulesResponse,
+  ApproximateWinSummaryResponse,
   GeometryQualificationPayload,
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
@@ -861,6 +872,11 @@ export interface SearchGameBoardsOptions {
 export interface BoardSearchQueryCell {
   readonly cellIndex: number;
   readonly symbolCode: string | null;
+}
+
+export interface GetBoardSearchApproximateWinOptions {
+  readonly startSequenceNumber: number;
+  readonly spinCount: number;
 }
 
 export function createAdminApiClient(options: AdminApiClientOptions) {
@@ -1856,6 +1872,18 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: gameId, sequence_number: sequenceNumber },
         query: { expectedBoardChecksumSha256 },
+      }),
+    getBoardSearchApproximateWin: (
+      gameId: string,
+      options: GetBoardSearchApproximateWinOptions,
+    ) =>
+      getGeneratedBoardSearchApproximateWin({
+        client,
+        path: { game_id: gameId },
+        query: {
+          startSequenceNumber: options.startSequenceNumber,
+          spinCount: options.spinCount,
+        },
       }),
     archivedBoardSearchAssetUrl: (
       gameId: string,

@@ -132,6 +132,7 @@ def load_rules_payout_configuration(
     return RulesPayoutConfiguration(
         rules_version_id=rules.id,
         rules_game_id=rules.game_id,
+        version=rules.version,
         status=rules.status,
         rows=rules.rows,
         columns=rules.columns,

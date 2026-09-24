@@ -6,6 +6,21 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0641 — dryf migracji fikstury testu routingu Postgres naprawiony
+
+- Zgłoszone przez użytkownika po zamknięciu planu D-442: pre-existing,
+  niezwiązany czerwony test napotkany przy realizacji TASK-0637.
+  `test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session`
+  w `test_game_storage_routing_postgres.py` był czerwony, bo wspólna
+  fikstura `database` migruje tylko do `0106_game_storage_routing_fence`,
+  a model ORM `image_page_geometry_overrides` oczekuje kolumny
+  `board_frame_quads` dodanej później — ten sam rodzaj rozjazdu
+  (inna kolumna) co naprawiony punktowo w TASK-0637 dla nowego testu.
+  Wydzielono wspólny helper `_upgrade_database_to_head(database)`,
+  użyty w obu testach (nie w reszcie pliku — pozostałe ~8 testów celowo
+  zostaje przypiętych do migracji 0106).
+- Testy: pełny plik 10/10 (wcześniej 9/10).
+
 ### TASK-0640 — bezpiecznik skryptu legacy GC przed grami na `game_data_v2` (D-443)
 
 - Wykonane na osobną, wyraźną zgodę użytkownika po T1–T3 (D-442). Skrypt

@@ -105,6 +105,23 @@ def database() -> Iterator[Engine]:
         maintenance.dispose()
 
 
+def _upgrade_database_to_head(database: Engine) -> None:
+    """Advance a `database`-fixture instance past its pinned migration 0106.
+
+    Use this only in a test whose ORM models read/write columns added by a
+    migration after 0106 (e.g. `games.shape_geometry_configuration`,
+    `image_page_geometry_overrides.board_frame_quads`) — most tests in this
+    file intentionally stay pinned and must not call this.
+    """
+
+    config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
+    config.set_main_option(
+        "sqlalchemy.url",
+        database.url.render_as_string(hide_password=False).replace("%", "%%"),
+    )
+    command.upgrade(config, "head")
+
+
 def _game(connection: object, *, code: str) -> UUID:
     game_id = uuid4()
     connection.execute(  # type: ignore[attr-defined]
@@ -186,6 +203,8 @@ def test_router_selects_v2_and_default_injects_exact_game(database: Engine) -> N
 
 def test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session(database: Engine) -> None:
     """A saved correction must survive reopening the report after V2 cutover."""
+
+    _upgrade_database_to_head(database)
 
     with database.begin() as connection:
         game_id = _game(connection, code="geometry-snapshot-v2")
@@ -589,14 +608,7 @@ def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: E
     always raised `IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`.
     """
 
-    # `database` is pinned to migration 0106; `ImageGridReviewService.source_asset`
-    # reads columns (e.g. `games.shape_geometry_configuration`) added afterward.
-    config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
-    config.set_main_option(
-        "sqlalchemy.url",
-        database.url.render_as_string(hide_password=False).replace("%", "%%"),
-    )
-    command.upgrade(config, "head")
+    _upgrade_database_to_head(database)
 
     now = datetime(2026, 9, 14, tzinfo=UTC)
     source_checksum = "e" * 64

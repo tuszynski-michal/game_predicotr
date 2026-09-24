@@ -3203,6 +3203,16 @@ wykluczenia albo startu importu istniejący endpoint `source-replacement` stosuj
 do niego te same checksum-bound reguły podmiany co do innych źródeł kolejki.
 Nie zmienia to checksumy ani treści historycznego manifestu.
 
+Dla `geometryOrigin=manual_template` odpowiedź może dołączyć opcjonalne
+`automaticPageProposal` (D-439, TASK-0632): walidowana kopia
+`lateralRegistrationCandidate.analysisQuads` wraz z `origin` (klasyfikacja
+odzysku: `lateral_source_support`, `frame_support_review` lub
+`standalone_frame_lines`) i `reviewSlots`. Każde niespełnione ogniwo walidacji
+(niezgodna liczba plansz, punkt poza dozwolonym zakresem, nieznany `origin`,
+brak wymiarów obrazu) cicho pomija pole zamiast blokować listę; pole nigdy nie
+pojawia się przy istniejącym `manual_override` ani `automatic`. To wyłącznie
+robocza podpowiedź dla edytora — nie tworzy cropów, plansz ani decyzji.
+
 Start `geometry-preflight` przyjmuje opcjonalne
 `pageRegistrationVariant = standard_v0_10 | board_area_test`. Brak pola oznacza
 wariant standardowy. Wariant testowy ogranicza wyłącznie cechy kotwicy do

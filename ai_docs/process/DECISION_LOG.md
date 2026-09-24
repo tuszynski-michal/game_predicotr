@@ -6,6 +6,43 @@ last_updated: 2026-09-24
 
 # Decision Log
 
+## D-439 — Wstępna geometria strony z automatycznej propozycji (`automaticPageProposal`)
+
+- **Status:** accepted (TASK-0632, T1 z 3-taskowego planu T1→T2→T3; T2/T3
+  wymagają osobnego polecenia użytkownika i, gdy zostaną zlecone, powinny użyć
+  `TASK-0633`/`TASK-0634`).
+- **Date:** 2026-09-24.
+- **Decision:** `review-sources` może dołączyć opcjonalne
+  `automaticPageProposal` dla źródeł `review_required` bez istniejącej
+  geometrii (`geometryOrigin=manual_template`) — walidowaną kopię
+  `lateralRegistrationCandidate.analysisQuads` z manifestu preflightu, plus
+  `origin` (klasyfikacja odzysku: `lateral_source_support`,
+  `frame_support_review`, `standalone_frame_lines`) i `reviewSlots`.
+  Propozycja jest wyłącznie **roboczym szablonem** edytora korekty geometrii
+  strony (T2, osobny task): nie tworzy cropów, plansz ani decyzji, i nie
+  zastępuje wymogu, że każdy slot strony wymaga ręcznego potwierdzenia
+  operatora przy zapisie (`IMAGE_INGESTION.md`, „Wszystkie sloty... wymagają
+  ręcznego potwierdzenia"). `geometry_origin` pozostaje bez zmian
+  (`"manual_template"`); propozycja jest osobnym, opcjonalnym polem, nie nową
+  wartością enuma. Istniejąca geometria (override, szkic operatora) zawsze ma
+  pierwszeństwo nad propozycją — to ustala T2 przy wypełnianiu edytora.
+- **Rationale:** operator otwierający korektę przyciętej strony (np. staging
+  „45163 - 70371 cut", 33/33 stron `review_required` z pasującym
+  kandydatem) widział pusty, wyśrodkowany szablon 9 plansz, mimo że manifest
+  preflightu już zawiera dobrą propozycję dla pełnych plansz — musiał ustawiać
+  wszystkie 9 plansz ręcznie zamiast poprawiać tylko przycięte. Kod ignorował
+  `lateralRegistrationCandidate` całkowicie.
+- **Compatibility:** czysto addytywne pole (`exclude_if` gdy `None`), zero
+  zmian w workerze, manifeście, `page_geometry_registration.py` ani
+  `page_geometry_preflight.py`. Żadna reguła walidacji zapisu
+  (`PageGeometryOverrideService`) się nie zmienia. Walidacja odczytu jest
+  best-effort: każde niespełnione ogniwo (niezgodna liczba plansz wobec
+  `expectedBoardCount`, punkt poza `[-W, 2W] × [-H, 2H]`, nieznany `origin`,
+  brak wymiarów obrazu) cicho pomija pole zamiast rzucać wyjątek lub blokować
+  listę. Renumeracja: oryginalny roboczy plan tej funkcji proponował
+  `TASK-0624`/`D-433` — oba numery już były zajęte przez niepowiązane,
+  ukończone prace w repo; ten wpis i `TASK-0632` to pierwsze wolne numery.
+
 ## D-438 — Komórki `blurry` pozostają widoczne pod filtrem swojego symbolu
 
 - **Status:** accepted.

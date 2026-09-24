@@ -107,12 +107,12 @@ niepewności, ale nie tworzy z niej cropów, plansz ani symboli.
 
 Źródło ze statusem `review_required` pozostaje w zwykłej kolejce „Ręczna
 korekta zdjęć geometrii” również wtedy, gdy ma `lateralRegistrationCandidate`.
-Panel otwiera pełną geometrię strony jako roboczy szablon, pokazuje propozycję
-wyłącznie jako pomoc i pozwala zapisać, wykluczyć albo przed zatwierdzeniem
-podmienić checksum-bound JPEG przez istniejącą rewizję stagingu. Nie powstaje
-odrębny widok ani równoległa kolejka dla źródła bez materializowanych plansz i
-symboli. Wszystkie sloty z atestowanej nazwy pliku wymagają ręcznego
-potwierdzenia.
+Panel otwiera pełną geometrię strony jako roboczy szablon (API: opcjonalne
+`automaticPageProposal`, D-439), pokazuje propozycję wyłącznie jako pomoc i
+pozwala zapisać, wykluczyć albo przed zatwierdzeniem podmienić checksum-bound
+JPEG przez istniejącą rewizję stagingu. Nie powstaje odrębny widok ani
+równoległa kolejka dla źródła bez materializowanych plansz i symboli.
+Wszystkie sloty z atestowanej nazwy pliku wymagają ręcznego potwierdzenia.
 
 Potwierdzona plansza z 15 polami i uciętą ramką pozostaje wykluczona ze
 zwykłego uczenia geometrii i kotwic. Nie trafia do puli uczenia faktycznie

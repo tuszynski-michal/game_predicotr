@@ -2045,6 +2045,276 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
     }
 
 
+def _lateral_candidate_payload(
+    *, analysis_quads: object = None, active_board_slots: object = None, **overrides: object
+) -> dict[str, object]:
+    quads = (
+        [
+            [
+                {"x": column * 100, "y": row * 100},
+                {"x": column * 100 + 80, "y": row * 100},
+                {"x": column * 100 + 80, "y": row * 100 + 80},
+                {"x": column * 100, "y": row * 100 + 80},
+            ]
+            for row in range(3)
+            for column in range(3)
+        ]
+        if analysis_quads is None
+        else analysis_quads
+    )
+    payload: dict[str, object] = {
+        "origin": "automatic_search_proposal",
+        "analysisQuads": quads,
+        "activeBoardSlots": (
+            list(range(9)) if active_board_slots is None else active_board_slots
+        ),
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _review_sources_client_for_single_source(
+    tmp_path: Path,
+    *,
+    source_entry: dict[str, object],
+    override_snapshot: dict[str, object] | None = None,
+) -> tuple[TestClient, UUID, UUID, str]:
+    game_id = uuid4()
+    upload_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+    source_checksum = "d" * 64
+    manifest = {
+        "entries": {source_checksum: source_entry},
+        "registeredSourceCount": 0,
+        "reviewRequiredSourceCount": 1,
+        "skippedHumanResolvedSourceCount": 0,
+    }
+    content = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+    manifest_checksum = hashlib.sha256(content).hexdigest()
+    relative_path = f"data/page-geometry-manifests/{manifest_checksum}.json"
+    manifest_path = tmp_path / "artifacts" / Path(*relative_path.split("/"))
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_bytes(content)
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "source_selection_id": str(upload_id),
+            "source_directory": "C:/staging",
+            "source_manifest_sha256": "e" * 64,
+            "page_registration_profile": {"policy": "test", "anchors": []},
+        },
+        created_at=NOW,
+    )
+    lease_token = uuid4()
+    started = start_job(
+        job,
+        worker_version="test-worker",
+        worker_id="test-worker",
+        lease_token=lease_token,
+        lease_expires_at=NOW + timedelta(minutes=5),
+        started_at=NOW,
+    )
+    checkpointed = checkpoint_job(
+        started,
+        lease_token=lease_token,
+        checkpoint_payload={
+            "schema_version": 1,
+            "complete": True,
+            "geometry_manifest_checksum_sha256": manifest_checksum,
+            "geometry_manifest_relative_path": relative_path,
+        },
+        stage="page_geometry_manifest_ready",
+        current=1,
+        total=1,
+        success_count=0,
+        failure_count=0,
+        review_count=1,
+        updated_at=NOW + timedelta(seconds=1),
+    )
+    repository.add_job(
+        complete_job(checkpointed, lease_token=lease_token, finished_at=NOW + timedelta(seconds=2))
+    )
+
+    class OverrideSnapshot:
+        def snapshot(self, *, game_id: UUID) -> dict[str, object]:
+            return {} if override_snapshot is None else {source_checksum: override_snapshot}
+
+        def partial_grid_training_profile(self, *, game_id: UUID) -> None:
+            return None
+
+        def exclusion_snapshot(
+            self, *, game_id: UUID, browser_selection_id: UUID
+        ) -> dict[str, object]:
+            return {}
+
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {"GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts")}
+            ),
+            job_service_dependency=lambda: service,
+            page_geometry_override_service_dependency=lambda: OverrideSnapshot(),
+        )
+    )
+    return client, game_id, upload_id, str(job.id)
+
+
+def test_review_sources_expose_automatic_page_proposal_for_cropped_page(tmp_path: Path) -> None:
+    quads = [
+        [
+            {"x": column * 100, "y": row * 100},
+            {"x": column * 100 + 80, "y": row * 100},
+            {"x": column * 100 + 80, "y": row * 100 + 80},
+            {"x": column * 100, "y": row * 100 + 80},
+        ]
+        for row in range(3)
+        for column in range(3)
+    ]
+    quads[6] = [
+        {"x": -27, "y": 200},
+        {"x": 53, "y": 200},
+        {"x": 53, "y": 280},
+        {"x": -27, "y": 280},
+    ]
+    source_entry = {
+        "status": "review_required",
+        "sourceRelativePath": "cut/seq_1-9.jpg",
+        "imageWidth": 1080,
+        "imageHeight": 1920,
+        "lateralRegistrationCandidate": _lateral_candidate_payload(
+            analysis_quads=quads,
+            recoveryKind="lateral_source_support",
+            reviewRequiredSlots=[6],
+        ),
+    }
+    client, game_id, upload_id, job_id = _review_sources_client_for_single_source(
+        tmp_path, source_entry=source_entry
+    )
+    with client:
+        response = client.get(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/"
+            f"geometry-preflights/{job_id}/review-sources",
+            params={"game_id": str(game_id)},
+        )
+    assert response.status_code == 200, response.text
+    source = response.json()["sources"][0]
+    assert source["geometryOrigin"] == "manual_template"
+    proposal = source["automaticPageProposal"]
+    assert proposal["origin"] == "lateral_source_support"
+    assert proposal["reviewSlots"] == [6]
+    assert proposal["quads"] == quads
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda candidate: candidate.pop("analysisQuads"),
+        lambda candidate: candidate.__setitem__(
+            "analysisQuads", candidate["analysisQuads"][:8]
+        ),
+        lambda candidate: candidate["analysisQuads"][0].__setitem__(
+            0, {"x": 0.5, "y": 0}
+        ),
+        lambda candidate: candidate["analysisQuads"][0].__setitem__(
+            0, {"x": 2 * 1080 + 1, "y": 0}
+        ),
+        lambda candidate: candidate.__setitem__("recoveryKind", "unknown_kind"),
+    ],
+    ids=[
+        "missing_analysis_quads",
+        "wrong_quad_count",
+        "float_coordinate",
+        "point_outside_allowed_bounds",
+        "unknown_recovery_kind",
+    ],
+)
+def test_review_sources_omit_automatic_page_proposal_when_candidate_is_invalid(
+    tmp_path: Path, mutate: object
+) -> None:
+    candidate = _lateral_candidate_payload()
+    mutate(candidate)  # type: ignore[operator]
+    source_entry = {
+        "status": "review_required",
+        "sourceRelativePath": "cut/seq_1-9.jpg",
+        "imageWidth": 1080,
+        "imageHeight": 1920,
+        "lateralRegistrationCandidate": candidate,
+    }
+    client, game_id, upload_id, job_id = _review_sources_client_for_single_source(
+        tmp_path, source_entry=source_entry
+    )
+    with client:
+        response = client.get(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/"
+            f"geometry-preflights/{job_id}/review-sources",
+            params={"game_id": str(game_id)},
+        )
+    assert response.status_code == 200, response.text
+    source = response.json()["sources"][0]
+    assert "automaticPageProposal" not in source
+
+
+def test_review_sources_omit_automatic_page_proposal_without_image_dimensions(
+    tmp_path: Path,
+) -> None:
+    source_entry = {
+        "status": "review_required",
+        "sourceRelativePath": "cut/seq_1-9.jpg",
+        "lateralRegistrationCandidate": _lateral_candidate_payload(),
+    }
+    client, game_id, upload_id, job_id = _review_sources_client_for_single_source(
+        tmp_path, source_entry=source_entry
+    )
+    with client:
+        response = client.get(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/"
+            f"geometry-preflights/{job_id}/review-sources",
+            params={"game_id": str(game_id)},
+        )
+    assert response.status_code == 200, response.text
+    source = response.json()["sources"][0]
+    assert "automaticPageProposal" not in source
+
+
+def test_review_sources_prefer_existing_override_over_automatic_proposal(tmp_path: Path) -> None:
+    quads = [
+        [
+            {"x": column * 100, "y": row * 100},
+            {"x": column * 100 + 80, "y": row * 100},
+            {"x": column * 100 + 80, "y": row * 100 + 80},
+            {"x": column * 100, "y": row * 100 + 80},
+        ]
+        for row in range(3)
+        for column in range(3)
+    ]
+    source_entry = {
+        "status": "review_required",
+        "sourceRelativePath": "cut/seq_1-9.jpg",
+        "imageWidth": 1080,
+        "imageHeight": 1920,
+        "lateralRegistrationCandidate": _lateral_candidate_payload(analysis_quads=quads),
+    }
+    client, game_id, upload_id, job_id = _review_sources_client_for_single_source(
+        tmp_path,
+        source_entry=source_entry,
+        override_snapshot={"quads": quads, "revision": 1},
+    )
+    with client:
+        response = client.get(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/"
+            f"geometry-preflights/{job_id}/review-sources",
+            params={"game_id": str(game_id)},
+        )
+    assert response.status_code == 200, response.text
+    source = response.json()["sources"][0]
+    assert source["geometryOrigin"] == "manual_override"
+    assert "automaticPageProposal" not in source
+
+
 def test_legacy_touching_page_grid_is_reopened_but_separated_frames_are_not() -> None:
     touching = [
         [

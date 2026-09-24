@@ -251,6 +251,49 @@
         "title": "AutomaticFrameGeometryProposalPayload",
         "type": "object"
       },
+      "AutomaticPageGeometryProposalPayload": {
+        "additionalProperties": false,
+        "description": "Read-only editor prefill hint; never a materialized decision.",
+        "properties": {
+          "origin": {
+            "enum": [
+              "lateral_source_support",
+              "frame_support_review",
+              "standalone_frame_lines"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "quads": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+              },
+              "type": "array"
+            },
+            "maxItems": 9,
+            "minItems": 1,
+            "title": "Quads",
+            "type": "array"
+          },
+          "reviewSlots": {
+            "items": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "maxItems": 9,
+            "title": "Reviewslots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "origin",
+          "quads"
+        ],
+        "title": "AutomaticPageGeometryProposalPayload",
+        "type": "object"
+      },
       "AutomaticPartialGeometryProposalPayload": {
         "additionalProperties": false,
         "description": "Machine provenance wraps existing availability, never a human decision.",
@@ -3001,6 +3044,16 @@
       "BrowserPageGeometryReviewSourceResponse": {
         "additionalProperties": false,
         "properties": {
+          "automaticPageProposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutomaticPageGeometryProposalPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "automaticPartialProposals": {
             "anyOf": [
               {

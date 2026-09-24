@@ -1,11 +1,11 @@
 """HTTP schemas for controlled local image-folder imports."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from game_predictor_worker.images.lateral_partial_contract import GeometryEngineVariant
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, StrictInt, field_validator, model_validator
 
 from game_predictor_api.application.browser_staging_retention import (
     BrowserStagingBoardImportStatus,
@@ -490,6 +490,18 @@ class PageGeometryRegistrationDiagnostics(ApiModel):
     attempts: list[PageGeometryRegistrationAttemptDiagnostic] = Field(max_length=3)
 
 
+class AutomaticPageGeometryProposalPayload(ApiModel):
+    """Read-only editor prefill hint; never a materialized decision."""
+
+    origin: Literal[
+        "lateral_source_support", "frame_support_review", "standalone_frame_lines"
+    ]
+    quads: list[list[ManualSourceGeometryPoint]] = Field(min_length=1, max_length=9)
+    review_slots: list[Annotated[StrictInt, Field(ge=0, le=8)]] = Field(
+        default_factory=list, max_length=9
+    )
+
+
 class BrowserPageGeometryReviewSourceResponse(ApiModel):
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_relative_path: str = Field(min_length=1, max_length=2048)
@@ -510,6 +522,9 @@ class BrowserPageGeometryReviewSourceResponse(ApiModel):
     saved_since_preflight: bool = False
     automatic_partial_proposals: list[AutomaticPartialGeometryProposalPayload] | None = Field(
         default=None, max_length=9, exclude_if=lambda value: value is None
+    )
+    automatic_page_proposal: AutomaticPageGeometryProposalPayload | None = Field(
+        default=None, exclude_if=lambda value: value is None
     )
 
 

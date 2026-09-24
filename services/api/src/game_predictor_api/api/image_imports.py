@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Literal, cast
@@ -57,6 +57,7 @@ from game_predictor_api.schemas.geometry_qualification import (
     GeometryQualificationPayload,
 )
 from game_predictor_api.schemas.image_imports import (
+    AutomaticPageGeometryProposalPayload,
     BrowserImageImportPreflightCreate,
     BrowserImageImportPreflightResponse,
     BrowserImageImportStart,
@@ -316,6 +317,67 @@ def _attested_range_from_relative_path(value: str) -> tuple[int | None, int | No
 def _expected_board_count_from_relative_path(value: str) -> int:
     start, end = _attested_range_from_relative_path(value)
     return 9 if start is None or end is None else end - start + 1
+
+
+_ALLOWED_AUTOMATIC_PAGE_PROPOSAL_ORIGINS = frozenset(
+    {"lateral_source_support", "frame_support_review", "standalone_frame_lines"}
+)
+
+
+def _automatic_page_proposal(
+    raw: Mapping[str, object], *, expected_board_count: int
+) -> AutomaticPageGeometryProposalPayload | None:
+    candidate = raw.get("lateralRegistrationCandidate")
+    if not isinstance(candidate, Mapping) or candidate.get("origin") != "automatic_search_proposal":
+        return None
+    origin = candidate.get("recoveryKind", "lateral_source_support")
+    if origin not in _ALLOWED_AUTOMATIC_PAGE_PROPOSAL_ORIGINS:
+        return None
+    if candidate.get("activeBoardSlots") != list(range(expected_board_count)):
+        return None
+    width, height = raw.get("imageWidth"), raw.get("imageHeight")
+    if (
+        not isinstance(width, int)
+        or isinstance(width, bool)
+        or width < 1
+        or not isinstance(height, int)
+        or isinstance(height, bool)
+        or height < 1
+    ):
+        return None
+    raw_quads = candidate.get("analysisQuads")
+    if not isinstance(raw_quads, list) or len(raw_quads) != expected_board_count:
+        return None
+    quads: list[list[dict[str, int]]] = []
+    for raw_quad in raw_quads:
+        if not isinstance(raw_quad, list) or len(raw_quad) != 4:
+            return None
+        quad: list[dict[str, int]] = []
+        for point in raw_quad:
+            if not isinstance(point, Mapping) or set(point) != {"x", "y"}:
+                return None
+            x, y = point.get("x"), point.get("y")
+            if (
+                not isinstance(x, int)
+                or isinstance(x, bool)
+                or not isinstance(y, int)
+                or isinstance(y, bool)
+                or not -width <= x <= 2 * width
+                or not -height <= y <= 2 * height
+            ):
+                return None
+            quad.append({"x": x, "y": y})
+        quads.append(quad)
+    review_slots_raw = candidate.get("reviewRequiredSlots", [])
+    if not isinstance(review_slots_raw, list) or any(
+        type(slot) is not int or not 0 <= slot <= 8 for slot in review_slots_raw
+    ):
+        return None
+    if len(set(review_slots_raw)) != len(review_slots_raw):
+        return None
+    return AutomaticPageGeometryProposalPayload.model_validate(
+        {"origin": origin, "quads": quads, "review_slots": review_slots_raw}
+    )
 
 
 def create_image_imports_router(
@@ -1396,6 +1458,16 @@ def create_image_imports_router(
                             for proposal in raw.get("automaticPartialProposals", [])
                         ]
                         if isinstance(raw.get("automaticPartialProposals"), list)
+                        else None
+                    ),
+                    automatic_page_proposal=(
+                        _automatic_page_proposal(
+                            raw,
+                            expected_board_count=_expected_board_count_from_relative_path(
+                                source_relative_path
+                            ),
+                        )
+                        if geometry_origin == "manual_template"
                         else None
                     ),
                 )

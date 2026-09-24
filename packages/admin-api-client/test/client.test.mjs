@@ -3034,3 +3034,59 @@ test('getBoardImportCoverage passes gameId as path and options as query params',
     },
   );
 });
+
+test('geometry review sources response carries automaticPageProposal through the wrapper unchanged', async () => {
+  const gameId = '55555555-5555-4555-8555-555555555555';
+  const uploadId = '66666666-6666-4666-8666-666666666666';
+  const preflightJobId = '77777777-7777-4777-8777-777777777777';
+  const automaticPageProposal = {
+    origin: 'lateral_source_support',
+    reviewSlots: [6],
+    quads: [
+      [
+        { x: -27, y: 200 },
+        { x: 53, y: 200 },
+        { x: 53, y: 280 },
+        { x: -27, y: 280 },
+      ],
+    ],
+  };
+  const responseBody = {
+    job: {
+      id: preflightJobId,
+      jobType: 'validate',
+      status: 'completed',
+      gameId,
+    },
+    geometryManifestChecksumSha256: 'a'.repeat(64),
+    registeredSourceCount: 0,
+    reviewRequiredSourceCount: 1,
+    skippedHumanResolvedSourceCount: 0,
+    sources: [
+      {
+        sourceChecksumSha256: 'b'.repeat(64),
+        sourceRelativePath: 'cut/seq_1-9.jpg',
+        expectedBoardCount: 9,
+        reviewReason: 'review_required',
+        geometryOrigin: 'manual_template',
+        savedSincePreflight: false,
+        automaticPageProposal,
+      },
+    ],
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async () => Response.json(responseBody),
+  });
+
+  const response = await client.listBrowserPageGeometryReviewSources(
+    uploadId,
+    preflightJobId,
+    gameId,
+  );
+
+  assert.deepEqual(
+    response.data?.sources[0].automaticPageProposal,
+    automaticPageProposal,
+  );
+});

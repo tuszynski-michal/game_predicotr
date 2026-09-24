@@ -155,6 +155,29 @@ export type AutomaticFrameGeometryProposalPayload = {
 };
 
 /**
+ * AutomaticPageGeometryProposalPayload
+ *
+ * Read-only editor prefill hint; never a materialized decision.
+ */
+export type AutomaticPageGeometryProposalPayload = {
+  /**
+   * Origin
+   */
+  origin:
+    | 'lateral_source_support'
+    | 'frame_support_review'
+    | 'standalone_frame_lines';
+  /**
+   * Quads
+   */
+  quads: Array<Array<ManualSourceGeometryPoint>>;
+  /**
+   * Reviewslots
+   */
+  reviewSlots?: Array<number>;
+};
+
+/**
  * AutomaticPartialGeometryProposalPayload
  *
  * Machine provenance wraps existing availability, never a human decision.
@@ -1604,6 +1627,7 @@ export type BrowserPageGeometryPreflightResponse = {
  * BrowserPageGeometryReviewSourceResponse
  */
 export type BrowserPageGeometryReviewSourceResponse = {
+  automaticPageProposal?: AutomaticPageGeometryProposalPayload | null;
   /**
    * Automaticpartialproposals
    */

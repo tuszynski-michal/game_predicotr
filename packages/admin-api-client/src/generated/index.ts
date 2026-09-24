@@ -349,6 +349,7 @@ export type {
   ArchiveRulesVersionResponse,
   ArchiveRulesVersionResponses,
   AutomaticFrameGeometryProposalPayload,
+  AutomaticPageGeometryProposalPayload,
   AutomaticPartialGeometryProposalPayload,
   BasePageGeometryManifestPayload,
   BoardCellGeometryCorrectionContextResponse,

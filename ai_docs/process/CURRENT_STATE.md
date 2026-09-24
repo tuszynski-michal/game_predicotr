@@ -6,6 +6,46 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0632 — `automaticPageProposal` w liście korekt geometrii strony (D-439)
+
+- T1 z 3-taskowego planu „wstępna geometria z automatycznej propozycji dla
+  przyciętych stron” (T1→T2→T3). `review-sources`
+  (`api/image_imports.py::list_browser_page_geometry_review_sources`) dołącza
+  opcjonalne `automaticPageProposal` wyłącznie dla źródeł
+  `geometryOrigin=manual_template`: walidowaną kopię
+  `lateralRegistrationCandidate.analysisQuads` z `origin` (klasyfikacja
+  odzysku) i `reviewSlots`. Nowy helper `_automatic_page_proposal` w
+  `api/image_imports.py` (obok `_expected_board_count_from_relative_path`) —
+  każde niespełnione ogniwo walidacji zwraca `None` bez wyjątku, bez zmian w
+  workerze, manifeście ani `geometry_origin`. Zero zmian w edytorze Admin
+  (T2) ani w przesuwaniu planszy (T3) — oba wymagają osobnego polecenia
+  użytkownika.
+- Renumeracja względem roboczego planu użytkownika: plan proponował
+  `TASK-0624`/`D-433`, ale oba numery były już zajęte przez niepowiązane,
+  ukończone prace (`0624-symbol-review-page-skip.md`, decyzja o Weryfikacji
+  symboli). Ten task użył pierwszych wolnych numerów: `TASK-0632`, `D-439`.
+  Jeśli T2/T3 z tego samego planu zostaną zlecone, powinny użyć
+  `TASK-0633`/`TASK-0634`.
+- Nowy schemat `AutomaticPageGeometryProposalPayload`
+  (`schemas/image_imports.py`), pole `automatic_page_proposal` na
+  `BrowserPageGeometryReviewSourceResponse` (`exclude_if` gdy `None`, wzorem
+  `automatic_partial_proposals`). `npm run openapi:generate`/`openapi:check`
+  — diff wyłącznie addytywny (nowy typ + jedno pole w `types.gen.ts`,
+  `sdk.gen.ts` bez zmian, wrapper `listBrowserPageGeometryReviewSources` bez
+  zmiany sygnatury).
+- Testy: 7 nowych w `test_image_imports_api.py` (happy path z planszą poza
+  kadrem, 5 wariantów odrzucenia — brak quadów, zła liczba plansz, punkt
+  float, punkt poza zakresem, nieznany `recoveryKind` — plus brak wymiarów
+  obrazu i pierwszeństwo istniejącego override'u), pełny plik 51/51 zielony.
+  Nowy test w `packages/admin-api-client/test/client.test.mjs` (przelot pola
+  przez wrapper bez zmian), pełny pakiet 61/61 zielony w tym oba testy dryfu.
+  `ruff`/`mypy` na zmienionych plikach `src/` bez nowych błędów (79
+  przedsesyjnych błędów `import-not-found` — potwierdzone identyczne na
+  czystym `git stash` do `v0.10.402` — niezwiązanych z tym taskiem).
+- Dokumentacja: `API_CONTRACT.md` (akapit o `automaticPageProposal` za
+  akapitem `geometryOrigin=manual_template`), `IMAGE_INGESTION.md` (jedno
+  zdanie łączące „roboczy szablon” z nazwą pola), `DECISION_LOG.md` D-439.
+
 ### TASK-0631 — sekcja „Brakujące plansze” w Import plansz (Admin UI)
 
 - Ostatni z 3-taskowego planu „Brakujące plansze”

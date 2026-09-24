@@ -6,6 +6,31 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0639 — odbiór na żywych danych: podgląd cięcia siatki dla gry 777 naprawiony (read-only)
+
+- Ostatni task planu D-442. Potwierdzone na żywym Reviewerze (uruchomiony
+  jako `npm run reviewer:start`, port 3001, wcześniej nieuruchomiony w tej
+  sesji) przeciw żywemu API (`--reload`, już działającemu) i realnym
+  danym gry 777 (`bfc4f949-5c14-4850-b02a-db99610bcfa5`,
+  `game_data_v2`): **dokładny przypadek z pierwotnej diagnozy**
+  „Plansza 1 · sekwencja 379306” (`reviewItemId=0b9166a1-…`,
+  `expectedSourceChecksumSha256=befcf58d…f32f4`) teraz zwraca 200 zamiast
+  409 `IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`; obraz renderuje się z
+  nałożoną siatką. Sprawdzone zakładki „Do walidacji”, „Do poprawy”
+  (w tym deferred slot bez `reviewItemId`, panel „Podgląd 15 cropów”),
+  „Wszystkie” (porównanie A/B → `geometry-preview` → 200). Zero błędów w
+  konsoli JS. **Zero zapisów wykonanych** — żadne żądanie
+  `geometry-revisions`/`geometry-approval`/`source-geometry-approval` nie
+  padło, licznik „Zatwierdzone” pozostał `0`.
+- Nie wykonano (ograniczenia narzędzia zrzutów ekranu w tej sesji po
+  wejściu w tryb edycji, patrz Outcome TASK-0639): pikselowej weryfikacji
+  canvas, scenariusza szybkiego przełączania + F5, ponownej weryfikacji
+  Admin „Weryfikacja symbolu na planszy” (niedotknięty przez ten plan).
+- **Plan D-442 (T1–T3) zamknięty.** T4 (bezpiecznik skryptu legacy GC,
+  `scripts/preview_legacy_game_managed_asset_gc.py`) pozostaje zalecany,
+  ale wymaga osobnej, jawnej zgody użytkownika przed rozpoczęciem —
+  nie rozpoczęty.
+
 ### TASK-0638 — rozróżnialny błąd podglądu w Reviewerze + log API
 
 - Kontynuacja TASK-0637 (D-442). Ekran „Zatwierdzanie cięcia siatki” miał

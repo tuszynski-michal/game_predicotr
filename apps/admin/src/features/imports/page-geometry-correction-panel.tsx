@@ -171,6 +171,50 @@ function existingSourceQuads(
   return raw.map((quad) => [quad[0]!, quad[1]!, quad[2]!, quad[3]!] as Quad);
 }
 
+/**
+ * Prefill hint for a `manual_template` page with no saved geometry: the
+ * automatic lateral search candidate, read-only and never authoritative.
+ * A slot whose raw proposal point falls outside the photo becomes `partial`
+ * and is clamped to the same outside-source range corner dragging allows;
+ * in-frame slots are clamped to the photo bounds as a defensive no-op.
+ */
+function proposalSourceGeometry(
+  source: BrowserPageGeometryReviewSourceResponse,
+  width: number,
+  height: number,
+): { quads: readonly Quad[]; partialSlots: readonly number[] } | null {
+  const proposal = source.automaticPageProposal;
+  if (
+    source.geometryOrigin !== 'manual_template' ||
+    proposal === null ||
+    proposal === undefined ||
+    proposal.quads.length !== source.expectedBoardCount ||
+    proposal.quads.some((quad) => quad.length !== 4)
+  ) {
+    return null;
+  }
+  const partialSlots: number[] = [];
+  const quads = proposal.quads.map((quad, index) => {
+    const isOutside = quad.some(
+      (point) =>
+        point.x < 0 ||
+        point.x > width - 1 ||
+        point.y < 0 ||
+        point.y > height - 1,
+    );
+    if (isOutside) partialSlots.push(index);
+    const minX = isOutside ? outsideSourceMinimum(width) : 0;
+    const maxX = isOutside ? outsideSourceMaximum(width) : width - 1;
+    const minY = isOutside ? outsideSourceMinimum(height) : 0;
+    const maxY = isOutside ? outsideSourceMaximum(height) : height - 1;
+    return quad.map((point) => ({
+      x: clamp(point.x, minX, maxX),
+      y: clamp(point.y, minY, maxY),
+    })) as unknown as Quad;
+  });
+  return { quads, partialSlots };
+}
+
 function existingV12Quads(
   source: BrowserPageGeometryReviewSourceResponse,
   layer: 'boardFrame' | 'symbolGrid',
@@ -308,6 +352,9 @@ function PageGeometryCorrectionPanelContent({
   const [initialBoardOverrides, setInitialBoardOverrides] = useState<
     ReadonlyMap<number, Quad>
   >(new Map());
+  const [initialQualificationFlags, setInitialQualificationFlags] = useState<
+    readonly ManualGridFlags[]
+  >([]);
   const [cornerPlacement, setCornerPlacement] = useState<
     readonly Point[] | null
   >(null);
@@ -544,6 +591,16 @@ function PageGeometryCorrectionPanelContent({
     [source, imageSize, gameId, uploadId, preflightJobId],
   );
   const expectedBoardCount = source?.expectedBoardCount ?? PAGE_BOARD_COUNT;
+  const usedProposal = useMemo(
+    () =>
+      !v12Enabled &&
+      source !== null &&
+      imageSize !== null &&
+      existingSourceQuads(source).length === 0
+        ? proposalSourceGeometry(source, imageSize.width, imageSize.height)
+        : null,
+    [v12Enabled, source, imageSize],
+  );
   const deferredSourceCount = sources.filter(
     (item) => item.reviewReason === 'review_required',
   ).length;
@@ -737,6 +794,11 @@ function PageGeometryCorrectionPanelContent({
     height: number,
     existingQuads: readonly Quad[],
   ) {
+    const proposal =
+      !v12Enabled && source !== null && existingQuads.length === 0
+        ? proposalSourceGeometry(source, width, height)
+        : null;
+    const effectiveQuads = proposal !== null ? proposal.quads : existingQuads;
     const storedV12SymbolQuads =
       v12Enabled && source ? existingV12Quads(source, 'symbolGrid') : [];
     const storedV12FrameQuads =
@@ -744,8 +806,8 @@ function PageGeometryCorrectionPanelContent({
     const initialSymbolQuads = v12Enabled
       ? storedV12SymbolQuads.length === expectedBoardCount
         ? storedV12SymbolQuads
-        : existingQuads
-      : existingQuads;
+        : effectiveQuads
+      : effectiveQuads;
     const initialFrameQuads = v12Enabled
       ? storedV12FrameQuads.length === expectedBoardCount
         ? storedV12FrameQuads
@@ -788,9 +850,14 @@ function PageGeometryCorrectionPanelContent({
     setCorrectionMode(v12Enabled ? 0 : 'page');
     setDragging(null);
     const baseFlags = Array.from({ length: expectedBoardCount }, (_, i) =>
-      manualGridFlagsFromQualification(source?.existingSlotQualifications?.[i]),
+      proposal?.partialSlots.includes(i)
+        ? { ...completeManualGridFlags, partial: true }
+        : manualGridFlagsFromQualification(
+            source?.existingSlotQualifications?.[i],
+          ),
     );
     setQualificationFlags(baseFlags);
+    setInitialQualificationFlags(baseFlags);
     setDraftConflict(false);
     loadedDraftKey.current = null;
     if (source) {
@@ -881,13 +948,7 @@ function PageGeometryCorrectionPanelContent({
     }
     setCorrectionMode(v12Enabled ? 0 : 'page');
     setDragging(null);
-    setQualificationFlags(
-      Array.from({ length: expectedBoardCount }, (_, i) =>
-        manualGridFlagsFromQualification(
-          source?.existingSlotQualifications?.[i],
-        ),
-      ),
-    );
+    setQualificationFlags(initialQualificationFlags);
     if (draftScope) {
       clearPageGeometryDraft(localStorage, draftScope);
       loadedDraftKey.current = pageGeometryDraftKey(draftScope);
@@ -984,10 +1045,7 @@ function PageGeometryCorrectionPanelContent({
         );
         return;
       }
-      const nextBoardCornerPlacement = [
-        ...boardCornerPlacement,
-        ...quad,
-      ];
+      const nextBoardCornerPlacement = [...boardCornerPlacement, ...quad];
       const completedBoardCount = Math.min(
         expectedBoardCount,
         Math.floor(nextBoardCornerPlacement.length / PAGE_BOARD_CORNER_COUNT),
@@ -1046,9 +1104,7 @@ function PageGeometryCorrectionPanelContent({
       const nextPending = pendingBoardCorner.slice(0, -1);
       setPendingBoardCorner(nextPending);
       const current = boardCornerPlacement ?? [];
-      const boardIndex = Math.floor(
-        current.length / PAGE_BOARD_CORNER_COUNT,
-      );
+      const boardIndex = Math.floor(current.length / PAGE_BOARD_CORNER_COUNT);
       const remaining = nextPending.length;
       const nextHint =
         remaining === 0
@@ -1724,12 +1780,47 @@ function PageGeometryCorrectionPanelContent({
                 className="geometryOriginNotice geometryOriginNoticeWarning"
                 role="status"
               >
-                <strong>Nie wykryto geometrii — ustaw plansze ręcznie.</strong>
-                <p>
-                  Widoczne prostokąty są wyłącznie roboczym szablonem edytora, a
-                  nie wynikiem automatycznego wykrycia.{' '}
-                  {rejectionLabel(source.rejectionReasonCode)}
-                </p>
+                {usedProposal !== null ? (
+                  <>
+                    <strong>
+                      Wstępna geometria z automatycznej propozycji — sprawdź
+                      wszystkie plansze przed zapisem.
+                    </strong>
+                    <p>
+                      {usedProposal.partialSlots.length ? (
+                        <>
+                          Poza kadrem:{' '}
+                          {usedProposal.partialSlots
+                            .map((slot) => slot + 1)
+                            .join(', ')}
+                          .{' '}
+                        </>
+                      ) : null}
+                      {source.automaticPageProposal?.reviewSlots?.length ? (
+                        <>
+                          Do sprawdzenia:{' '}
+                          {source.automaticPageProposal.reviewSlots
+                            .map((slot) => slot + 1)
+                            .join(', ')}
+                          .{' '}
+                        </>
+                      ) : null}
+                      {rejectionLabel(source.rejectionReasonCode)}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <strong>
+                      Nie wykryto geometrii — ustaw plansze ręcznie.
+                    </strong>
+                    <p>
+                      {
+                        'Widoczne prostokąty są wyłącznie roboczym szablonem edytora, a nie wynikiem automatycznego wykrycia. '
+                      }
+                      {rejectionLabel(source.rejectionReasonCode)}
+                    </p>
+                  </>
+                )}
                 <details>
                   <summary>Diagnostyka dopasowania</summary>
                   {source.registrationDiagnostics?.bestAttempt ? (
@@ -2081,28 +2172,28 @@ function PageGeometryCorrectionPanelContent({
                   }
                 />
               ) : null}
-                  {imageSize !== null &&
-                  loadedSourceChecksum === source.sourceChecksumSha256 &&
-                  (pageCorners !== null ||
-                    cornerPlacement !== null ||
-                    boardCornerPlacement !== null) ? (
-                    <svg
-                      aria-label="Nakładka geometrii strony"
-                      onPointerDown={placeNextCorner}
-                      onPointerMove={(event) => {
-                        const point = relativePoint(event);
-                        if (point !== null) updatePoint(point);
-                      }}
-                      onPointerUp={() => {
-                        setDragging(null);
-                        setSelectedPointIndex(null);
-                      }}
-                      viewBox={
-                       allowOutsideSource
-                         ? `${outsideSourceMinimum(imageSize.width)} ${outsideSourceMinimum(imageSize.height)} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.width} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.height}`
-                        : `0 0 ${imageSize.width} ${imageSize.height}`
-                    }
-                  >
+              {imageSize !== null &&
+              loadedSourceChecksum === source.sourceChecksumSha256 &&
+              (pageCorners !== null ||
+                cornerPlacement !== null ||
+                boardCornerPlacement !== null) ? (
+                <svg
+                  aria-label="Nakładka geometrii strony"
+                  onPointerDown={placeNextCorner}
+                  onPointerMove={(event) => {
+                    const point = relativePoint(event);
+                    if (point !== null) updatePoint(point);
+                  }}
+                  onPointerUp={() => {
+                    setDragging(null);
+                    setSelectedPointIndex(null);
+                  }}
+                  viewBox={
+                    allowOutsideSource
+                      ? `${outsideSourceMinimum(imageSize.width)} ${outsideSourceMinimum(imageSize.height)} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.width} ${OUTSIDE_SOURCE_VIEWPORT_SCALE * imageSize.height}`
+                      : `0 0 ${imageSize.width} ${imageSize.height}`
+                  }
+                >
                   <defs>
                     <pattern
                       id="partial-cell-hatch"
@@ -2443,7 +2534,8 @@ function PageGeometryCorrectionPanelContent({
                         </div>
                         <p className="pageGeometryFrameOffsetsHint">
                           Dodatnia wartość rozszerza ramkę na zewnątrz. Ujemną
-                          widać w podglądzie; zapis wymaga siatki wewnątrz ramki.
+                          widać w podglądzie; zapis wymaga siatki wewnątrz
+                          ramki.
                         </p>
                       </>
                     ) : null}

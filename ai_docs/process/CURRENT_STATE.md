@@ -6,6 +6,62 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0633 — edytor korekty geometrii startuje od automatycznej propozycji (D-439, T2)
+
+- T2 z 3-taskowego planu „wstępna geometria z automatycznej propozycji dla
+  przyciętych stron” (T1: `TASK-0632`, D-439 → T2: `TASK-0633` → T3:
+  niezlecony, `TASK-0634`). `resetGeometry`
+  (`apps/admin/src/features/imports/page-geometry-correction-panel.tsx`) ma
+  nowe, czyste `proposalSourceGeometry(source, width, height)`: gdy strona ma
+  `geometryOrigin=manual_template` bez żadnej zapisanej geometrii i pasujący
+  `automaticPageProposal` (`quads.length === expectedBoardCount`), zwraca
+  quady propozycji plus `partialSlots` — sloty, których **surowy** punkt
+  wypada poza `[0, W-1] × [0, H-1]`. Kolejność źródeł startowej geometrii:
+  szkic `localStorage` → istniejący override/wynik automatu → propozycja →
+  pusty szablon 8%. Plansza w `partialSlots` dostaje `partial: true`
+  (checkbox „Niepełna plansza” zaznaczony automatycznie); pozostałe pola
+  liczą się same przez istniejącą `automaticUnavailableGridCells` — zero
+  zmian w logice kwalifikacji/zapisu. Punkty poza kadrem przycięte do
+  istniejącego zakresu ±~7% (`outsideSourceMinimum/Maximum`), punkty w kadrze
+  przycięte do granic zdjęcia (defensywnie). V1.2
+  (`contrast_frame_grid_v1_2`) jawnie wyłączony z propozycji.
+- Nowy komunikat w `geometryOriginNotice` gdy propozycja jest użyta:
+  „Wstępna geometria z automatycznej propozycji — sprawdź wszystkie plansze
+  przed zapisem”, z listą „Poza kadrem: N, M” (1-based) i, jeśli niepusta,
+  „Do sprawdzenia” (`automaticPageProposal.reviewSlots`). Bez propozycji
+  tekst „Nie wykryto geometrii — ustaw plansze ręcznie” bez zmian — teraz
+  jako JS-string literal (nie surowy tekst JSX), żeby Prettier nie łamał
+  frazy „roboczym szablonem edytora” w środku słów przy reformatowaniu
+  (ujawniło się przy tym tasku — kontrakt-test sprawdza dosłowny tekst w
+  źródle pliku).
+- **Naprawiony utajony błąd przy okazji:** `resetCurrentGeometry` („Reset”)
+  liczył flagi kwalifikacji od nowa z `source.existingSlotQualifications`
+  zamiast przywracać stan faktycznie ustawiony przy pierwszym wczytaniu. Dla
+  propozycji to kasowało `partial: true` mimo że geometria nadal wychodziła
+  poza kadr — kolejny zapis po „Reset” rzucałby błąd walidacji
+  `manualGridQualification`. Naprawione nowym stanem
+  `initialQualificationFlags` (ustawianym równolegle z `initialBoardOverrides`
+  w `resetGeometry`, reużywanym w `resetCurrentGeometry`); naprawia oba
+  przypadki (z propozycją i bez), nie tylko nowy kod. Zweryfikowano
+  mutation-testingiem: cofnięcie poprawki powoduje czerwony test.
+- Testy: 5 nowych w `apps/admin/test-interactions/page-geometry-qualification.test.mjs`
+  (prefill z propozycją + oznaczenie przyciętej planszy; zapis niezmienionej
+  propozycji z `pending_partial` na slocie 6; szkic `localStorage` wygrywa
+  nad propozycją; `geometryOrigin=automatic` z zapisanymi quadami ignoruje
+  propozycję — regresja; „Reset” przywraca propozycję i jej flagę
+  `partial`), `npm run test:geometry` 18/18 zielone (13 istniejących bez
+  zmiany asercji). `npm run test`/`typecheck`/`lint` dla `@game-predictor/admin`
+  zielone (564/564, 0 błędów lint — te same 4 przedsesyjne warningi co przed
+  taskiem). **Nieukończone, przedsesyjne i niepowiązane:** 1/110 czerwony w
+  `@game-predictor/manual-image-selection-core`
+  (`offers contiguous one-to-ten image navigation steps`, `21 !== 20`) —
+  potwierdzone zerowymi lokalnymi zmianami w tym pakiecie i brakiem
+  powiązania z geometrią strony; niezbadane w tej sesji, poza zgłoszeniem.
+- Dokumentacja: `ai_docs/requirements/ADMIN_APP.md` (sekcja „Pochodzenie
+  geometrii w korekcie strony” — nowy akapit o `automaticPageProposal`),
+  `ai_docs/process/DECISION_LOG.md` D-439 (dopisany akapit T2, status
+  zaktualizowany).
+
 ### Poprawka błędu — `board-import-coverage` czytał pusty schemat dla gier `game_data_v2` (D-440)
 
 - Użytkownik zgłosił podejrzenie: sekcja „Brakujące plansze” wygląda, jakby

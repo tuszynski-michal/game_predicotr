@@ -76,9 +76,10 @@ last_updated: 2026-09-24
 
 ## D-439 — Wstępna geometria strony z automatycznej propozycji (`automaticPageProposal`)
 
-- **Status:** accepted (TASK-0632, T1 z 3-taskowego planu T1→T2→T3; T2/T3
-  wymagają osobnego polecenia użytkownika i, gdy zostaną zlecone, powinny użyć
-  `TASK-0633`/`TASK-0634`).
+- **Status:** accepted (T1: TASK-0632. T2: TASK-0633, edytor Admin wypełnia
+  siatkę propozycją i oznacza przycięte plansze — zlecony i ukończony
+  2026-09-24. T3 pozostaje niezlecony; gdy zostanie zlecony, powinien użyć
+  `TASK-0634`).
 - **Date:** 2026-09-24.
 - **Decision:** `review-sources` może dołączyć opcjonalne
   `automaticPageProposal` dla źródeł `review_required` bez istniejącej
@@ -110,6 +111,26 @@ last_updated: 2026-09-24
   listę. Renumeracja: oryginalny roboczy plan tej funkcji proponował
   `TASK-0624`/`D-433` — oba numery już były zajęte przez niepowiązane,
   ukończone prace w repo; ten wpis i `TASK-0632` to pierwsze wolne numery.
+- **T2 (TASK-0633) — dodano 2026-09-24:** `resetGeometry` w
+  `page-geometry-correction-panel.tsx` używa `automaticPageProposal` jako
+  trzeciego źródła startowej geometrii (po szkicu `localStorage` i po
+  istniejącym override'cie/wyniku automatu, przed pustym szablonem 8%).
+  Plansza, której **surowy** punkt propozycji wypada poza `[0, W-1] × [0,
+  H-1]`, dostaje automatycznie `partial: true` (checkbox „Niepełna plansza”)
+  — reszta pól tej planszy liczy się sama przez istniejącą
+  `automaticUnavailableGridCells`, zgodnie z inwariantem
+  `manualGridQualification` (flaga `partial` musi zgadzać się z tym, czy
+  siatka faktycznie ma pole poza kadrem). Punkty poza kadrem są przycinane do
+  tego samego zakresu ±~7%, który przeciąganie narożnika już dopuszcza
+  (`outsideSourceMinimum`/`outsideSourceMaximum`); punkty w kadrze są
+  przycinane do granic zdjęcia jako operacja defensywna. V1.2
+  (`contrast_frame_grid_v1_2`) jawnie wyłączony z propozycji — ma własną
+  logikę ramek pochodnych. Naprawiono przy okazji utajony błąd: `resetCurrentGeometry`
+  („Reset”) liczył flagi kwalifikacji od nowa z `existingSlotQualifications`
+  zamiast przywracać stan zapisany przy pierwszym wczytaniu — dla propozycji
+  to kasowało flagę `partial` mimo że geometria wracała poza kadr (test
+  regresyjny odtworzył błąd przed poprawką, `initialQualificationFlags`
+  naprawia oba przypadki, nie tylko propozycję).
 
 ## D-438 — Komórki `blurry` pozostają widoczne pod filtrem swojego symbolu
 

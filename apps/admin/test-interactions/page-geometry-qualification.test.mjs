@@ -524,3 +524,266 @@ test('v1.2 reload preserves a legacy two-layer draft without altering either qua
   assert.deepEqual(writes[0].symbolGridQuads, symbols);
   await act(async () => root.unmount());
 });
+
+function selectBoard(index) {
+  const polygon = document.querySelectorAll('polygon.pageGeometryBoard')[index];
+  assert.ok(polygon, `board ${index} polygon not rendered`);
+  return act(async () =>
+    polygon.dispatchEvent(
+      new dom.window.MouseEvent('pointerdown', { bubbles: true }),
+    ),
+  );
+}
+function pointsText(quad) {
+  return quad.map((p) => `${Math.round(p.x)},${Math.round(p.y)}`).join(' ');
+}
+const proposalQuads = quads.map((quad, i) =>
+  i === 6 ? quad.map((p) => ({ x: p.x - 15, y: p.y })) : quad,
+);
+const proposalSource = {
+  sourceChecksumSha256: 'e'.repeat(64),
+  sourceRelativePath: 'seq_1-9.jpg',
+  expectedBoardCount: 9,
+  existingFinalQuads: null,
+  existingBoardFrameQuads: null,
+  existingSymbolGridQuads: null,
+  existingOverrideRevision: null,
+  existingSlotQualifications: null,
+  savedSincePreflight: false,
+  geometryOrigin: 'manual_template',
+  reviewReason: 'review_required',
+  rejectionReasonCode: null,
+  registrationDiagnostics: null,
+  automaticPageProposal: {
+    origin: 'lateral_source_support',
+    quads: proposalQuads,
+    reviewSlots: [6],
+  },
+};
+
+test('a manual_template page prefills the editor from the automatic proposal and marks the cropped board partial', async () => {
+  localStorage.clear();
+  const props = {
+    api: {
+      listBrowserPageGeometryReviewSources: async () => ({
+        data: {
+          sources: [proposalSource],
+          geometryManifestChecksumSha256: 'f'.repeat(64),
+        },
+      }),
+    },
+    apiBaseUrl: 'http://127.0.0.1:8000',
+    gameId: 'game',
+    uploadId: 'upload',
+    preflightJobId: 'preflight',
+    onSubmitSaved: async () => {
+      throw Error('unexpected preflight');
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(React.createElement(PageGeometryCorrectionPanel, props)),
+  );
+  await imageLoaded();
+  const polygons = document.querySelectorAll('polygon.pageGeometryBoard');
+  assert.equal(polygons.length, 9);
+  assert.equal(polygons[0].getAttribute('points'), pointsText(quads[0]));
+  assert.equal(
+    polygons[6].getAttribute('points'),
+    pointsText(proposalQuads[6]),
+  );
+  assert.match(
+    document.body.textContent,
+    /Wstępna geometria z automatycznej propozycji/,
+  );
+  assert.match(document.body.textContent, /Poza kadrem: 7/);
+  assert.match(document.body.textContent, /Do sprawdzenia: 7/);
+  await selectBoard(6);
+  assert.equal(checkbox('Niepełna plansza').checked, true);
+  await act(async () => root.unmount());
+});
+
+test('saving the unmodified proposal writes its quads and the pending_partial slot', async () => {
+  localStorage.clear();
+  const writes = [];
+  const props = {
+    api: {
+      listBrowserPageGeometryReviewSources: async () => ({
+        data: {
+          sources: [proposalSource],
+          geometryManifestChecksumSha256: 'f'.repeat(64),
+        },
+      }),
+      createBrowserPageGeometryOverride: async (_id, body) => {
+        writes.push(body);
+        return { data: { revision: 1 } };
+      },
+    },
+    apiBaseUrl: 'http://127.0.0.1:8000',
+    gameId: 'game',
+    uploadId: 'upload',
+    preflightJobId: 'preflight',
+    onSubmitSaved: async () => {
+      throw Error('unexpected preflight');
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(React.createElement(PageGeometryCorrectionPanel, props)),
+  );
+  await imageLoaded();
+  await click(button('Zapisz i przejdź dalej'));
+  assert.equal(writes.length, 1);
+  assert.deepEqual(writes[0].finalQuads, proposalQuads);
+  assert.equal(
+    writes[0].slotQualifications[6].completenessStatus,
+    'pending_partial',
+  );
+  assert.equal(
+    writes[0].slotQualifications[6].excludeFromGeometryTraining,
+    true,
+  );
+  assert.ok(writes[0].slotQualifications[6].unavailableCellIndices.length > 0);
+  assert.equal(writes[0].slotQualifications[0].completenessStatus, 'complete');
+  await act(async () => root.unmount());
+});
+
+test('an existing localStorage draft wins over the automatic proposal', async () => {
+  localStorage.clear();
+  const draftQuads = quads.map((quad) =>
+    quad.map((p) => ({ x: p.x + 1, y: p.y + 1 })),
+  );
+  const scope = {
+    gameId: 'game',
+    uploadId: 'upload',
+    preflightJobId: 'preflight',
+    checksum: proposalSource.sourceChecksumSha256,
+    revision: 0,
+    width: 320,
+    height: 320,
+    count: 9,
+  };
+  localStorage.setItem(
+    `page-geometry-draft-v1:game:upload:preflight:${proposalSource.sourceChecksumSha256}:0`,
+    JSON.stringify({
+      version: 1,
+      scope,
+      draft: {
+        quads: draftQuads,
+        pageCorners: [
+          draftQuads[0][0],
+          draftQuads[2][1],
+          draftQuads[8][2],
+          draftQuads[6][3],
+        ],
+        flags: Array.from({ length: 9 }, () => ({
+          partial: false,
+          exclude: false,
+          includeInPartialGridTraining: false,
+          manualUnavailable: [],
+        })),
+        cornerPlacement: null,
+        boardCornerPlacement: null,
+      },
+    }),
+  );
+  const props = {
+    api: {
+      listBrowserPageGeometryReviewSources: async () => ({
+        data: {
+          sources: [proposalSource],
+          geometryManifestChecksumSha256: 'f'.repeat(64),
+        },
+      }),
+    },
+    apiBaseUrl: 'http://127.0.0.1:8000',
+    gameId: 'game',
+    uploadId: 'upload',
+    preflightJobId: 'preflight',
+    onSubmitSaved: async () => {
+      throw Error('unexpected preflight');
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(React.createElement(PageGeometryCorrectionPanel, props)),
+  );
+  await imageLoaded();
+  const polygons = document.querySelectorAll('polygon.pageGeometryBoard');
+  assert.equal(polygons[0].getAttribute('points'), pointsText(draftQuads[0]));
+  await selectBoard(6);
+  assert.equal(checkbox('Niepełna plansza').checked, false);
+  await act(async () => root.unmount());
+});
+
+test('an automatic geometryOrigin with saved quads ignores any automaticPageProposal', async () => {
+  localStorage.clear();
+  const source = {
+    ...proposalSource,
+    geometryOrigin: 'automatic',
+    reviewReason: 'operator_inspection',
+    existingFinalQuads: quads,
+  };
+  const props = {
+    api: {
+      listBrowserPageGeometryReviewSources: async () => ({
+        data: {
+          sources: [source],
+          geometryManifestChecksumSha256: 'f'.repeat(64),
+        },
+      }),
+    },
+    apiBaseUrl: 'http://127.0.0.1:8000',
+    gameId: 'game',
+    uploadId: 'upload',
+    preflightJobId: 'preflight',
+    onSubmitSaved: async () => {
+      throw Error('unexpected preflight');
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(React.createElement(PageGeometryCorrectionPanel, props)),
+  );
+  await imageLoaded();
+  const polygons = document.querySelectorAll('polygon.pageGeometryBoard');
+  assert.equal(polygons[6].getAttribute('points'), pointsText(quads[6]));
+  await selectBoard(6);
+  assert.equal(checkbox('Niepełna plansza').checked, false);
+  await act(async () => root.unmount());
+});
+
+test('Reset restores the automatic proposal geometry and its partial flag, not a blank template', async () => {
+  localStorage.clear();
+  const props = {
+    api: {
+      listBrowserPageGeometryReviewSources: async () => ({
+        data: {
+          sources: [proposalSource],
+          geometryManifestChecksumSha256: 'f'.repeat(64),
+        },
+      }),
+    },
+    apiBaseUrl: 'http://127.0.0.1:8000',
+    gameId: 'game',
+    uploadId: 'upload',
+    preflightJobId: 'preflight',
+    onSubmitSaved: async () => {
+      throw Error('unexpected preflight');
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(React.createElement(PageGeometryCorrectionPanel, props)),
+  );
+  await imageLoaded();
+  await click(button('Reset'));
+  const polygons = document.querySelectorAll('polygon.pageGeometryBoard');
+  assert.equal(
+    polygons[6].getAttribute('points'),
+    pointsText(proposalQuads[6]),
+  );
+  await selectBoard(6);
+  assert.equal(checkbox('Niepełna plansza').checked, true);
+  await act(async () => root.unmount());
+});

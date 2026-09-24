@@ -1034,8 +1034,24 @@ wynosi zero.
 # Pochodzenie geometrii w korekcie strony
 
 Ekran korekty musi jawnie rozróżniać wykrytą geometrię, ręczny zapis i roboczy
-szablon. Przy braku wyniku automatu pokazuje „Nie wykryto geometrii — ustaw
-plansze ręcznie”; domyślne prostokąty są wyłącznie pomocą edycyjną. Krótki
-powód jest widoczny bez rozwijania, a dostępne pomiary zapisanej próby znajdują
-się w szczegółach. Historyczny manifest bez diagnostyki pokazuje informację o
-jej braku i nadal pozwala zapisać ręczne 36 narożników.
+szablon. Przy braku wyniku automatu i braku `automaticPageProposal` pokazuje
+„Nie wykryto geometrii — ustaw plansze ręcznie”; domyślne prostokąty są
+wyłącznie pomocą edycyjną. Krótki powód jest widoczny bez rozwijania, a
+dostępne pomiary zapisanej próby znajdują się w szczegółach. Historyczny
+manifest bez diagnostyki pokazuje informację o jej braku i nadal pozwala
+zapisać ręczne 36 narożników.
+
+Gdy manifest ma `automaticPageProposal` (D-439, TASK-0633), roboczy szablon
+startuje wypełniony tą propozycją zamiast pustym prostokątem 8% od krawędzi —
+komunikat zmienia się na „Wstępna geometria z automatycznej propozycji —
+sprawdź wszystkie plansze przed zapisem”, z listą plansz „poza kadrem” (numery
+1–9) i, jeśli niepusta, „do sprawdzenia”. Plansza, której propozycja wychodzi
+poza zdjęcie, dostaje automatycznie zaznaczone „Niepełna plansza”
+(`pending_partial`); operator odznacza to przed zapisem, jeśli po korekcie
+mieści się w kadrze. Kolejność pierwszeństwa źródeł startowej geometrii: szkic
+`localStorage` → istniejący ręczny override lub wynik automatu →
+`automaticPageProposal` → pusty szablon. Wariant V1.2
+(`contrast_frame_grid_v1_2`) nigdy nie dostaje propozycji — używa własnej
+logiki ramek pochodnych. Przycisk „Reset” przywraca dokładnie ten sam stan
+startowy, w tym flagę „Niepełna plansza” pochodzącą z propozycji, a nie pusty
+szablon.

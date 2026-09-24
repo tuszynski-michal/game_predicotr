@@ -6,6 +6,49 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0634 — przesuwanie całej wybranej planszy w edytorze korekty geometrii (D-439, T3)
+
+- Ostatni z 3-taskowego planu „wstępna geometria z automatycznej propozycji
+  dla przyciętych stron” (T1 `TASK-0632` → T2 `TASK-0633` → T3 `TASK-0634`,
+  wszystkie `done`, D-439). Drugie `pointerdown` na już wybranej planszy
+  (pierwsze tylko wybiera — DA-4) startuje nowy rodzaj przeciągania
+  `dragging.kind === 'boardMove'` w
+  `page-geometry-correction-panel.tsx`; czysta `translateBoardQuad(quad, dx,
+  dy, bounds)` przesuwa wszystkie 4 narożniki o ten sam wektor, ograniczając
+  **wektor** (nie punkty osobno), więc kształt planszy nigdy się nie
+  zniekształca — w przeciwieństwie do przeciągania pojedynczego narożnika.
+- `bounds` to dokładnie te same granice, które `updatePoint` już stosuje dla
+  pojedynczych punktów (`allowOutsideSource` — prawda, gdy którakolwiek
+  plansza na stronie jest `partial`, nie tylko przesuwana). To świadoma,
+  drobna korekta względem pierwotnego planu (sugerował granicę tylko z flagi
+  przesuwanej planszy) — zachowuje spójność z istniejącym zachowaniem
+  przeciągania narożnika na tej samej stronie; odnotowane w D-439.
+- Refaktor pomocniczy: `relativePoint` rozbite na `relativePointFromRect`
+  (czysta konwersja, jawny `rect`) + cienki wrapper — potrzebne, bo origin
+  ruchu liczy się z `pointerdown` na `<polygon>` (inny `currentTarget` niż
+  `<svg>`). `beginDrag`'s typ zawężony przez `Exclude<..., {kind:
+  'boardMove'}>`, bo ten wariant nie ma `pointIndex`. Kursor `move` na
+  wybranej planszy (`globals.css`, `.pageGeometryBoardSelected`).
+- Testy: 4 nowe w `page-geometry-qualification.test.mjs` (przesunięcie o
+  stały wektor, inne plansze bez zmian; pierwszy klik tylko wybiera;
+  przeciąganie narożnika nadal zmienia tylko ten narożnik — regresja; ruch
+  bez `partial` zatrzymuje się na krawędzi zdjęcia), `npm run test:geometry`
+  22/22 zielone. Mutation-tested: tymczasowe wyłączenie warunku startu ruchu
+  dało 2 czerwone testy, potwierdzając że chronią właściwe zachowanie.
+  `npm run test`/`typecheck`/`lint` dla `@game-predictor/admin` zielone
+  (564/564, 0 błędów lint — te same przedsesyjne warningi).
+- **Uwaga formatowania:** `npx prettier --write` na całym `globals.css`
+  przy okazji przeformatował niepowiązaną regułę `.v7LabelGeometryControls`
+  (przedsesyjny dryf formatowania w tym pliku, nieujawniony wcześniej —
+  prawdopodobnie inna wersja/konfiguracja Prettiera przy poprzednim
+  zapisie). Cofnięte ręcznie przed commitem, żeby diff obejmował wyłącznie
+  ten task; **plik ma nieujawniony przedsesyjny dryf formatowania poza
+  zakresem tego taska** — `npm run format:check` może to wykryć przy innej
+  okazji.
+- Dokumentacja: `ai_docs/requirements/ADMIN_APP.md` (nowy akapit o
+  przesuwaniu planszy), `ai_docs/process/DECISION_LOG.md` D-439 (akapit T3,
+  status „plan w całości zrealizowany”).
+
 ### TASK-0633 — edytor korekty geometrii startuje od automatycznej propozycji (D-439, T2)
 
 - T2 z 3-taskowego planu „wstępna geometria z automatycznej propozycji dla

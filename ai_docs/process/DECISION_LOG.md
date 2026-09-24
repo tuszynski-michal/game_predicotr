@@ -77,9 +77,9 @@ last_updated: 2026-09-24
 ## D-439 — Wstępna geometria strony z automatycznej propozycji (`automaticPageProposal`)
 
 - **Status:** accepted (T1: TASK-0632. T2: TASK-0633, edytor Admin wypełnia
-  siatkę propozycją i oznacza przycięte plansze — zlecony i ukończony
-  2026-09-24. T3 pozostaje niezlecony; gdy zostanie zlecony, powinien użyć
-  `TASK-0634`).
+  siatkę propozycją i oznacza przycięte plansze. T3: TASK-0634, przesuwanie
+  całej wybranej planszy. Wszystkie trzy zlecone i ukończone 2026-09-24 —
+  plan w całości zrealizowany).
 - **Date:** 2026-09-24.
 - **Decision:** `review-sources` może dołączyć opcjonalne
   `automaticPageProposal` dla źródeł `review_required` bez istniejącej
@@ -131,6 +131,35 @@ last_updated: 2026-09-24
   to kasowało flagę `partial` mimo że geometria wracała poza kadr (test
   regresyjny odtworzył błąd przed poprawką, `initialQualificationFlags`
   naprawia oba przypadki, nie tylko propozycję).
+- **T3 (TASK-0634) — dodano 2026-09-24:** nowy rodzaj przeciągania
+  `dragging.kind === 'boardMove'` w tym samym pliku. Drugie `pointerdown` na
+  już wybranej planszy (`correctionMode === index`, poza trybami
+  `boardCornerPlacement`/`cornerPlacement`) startuje przesunięcie; pierwsze
+  kliknięcie niewybranej planszy nadal tylko wybiera (DA-4 z pierwotnego
+  planu). Czysta `translateBoardQuad(quad, dx, dy, bounds)` przesuwa
+  wszystkie 4 narożniki o ten sam wektor i **ogranicza wektor** (nie punkty
+  osobno) tak, żeby bounding box quada zmieścił się w `bounds` — zachowuje
+  kształt planszy, w przeciwieństwie do dotychczasowego przycinania
+  punkt-po-punkcie używanego przy przeciąganiu pojedynczego narożnika.
+  `bounds` to te same granice co istniejący `updatePoint` już stosuje dla
+  pojedynczych punktów — `allowOutsideSource` (`true`, gdy **którakolwiek**
+  plansza na stronie ma `partial: true`, nie tylko przesuwana), nie osobna
+  reguła per-plansza; pierwotny plan sugerował granicę zależną wyłącznie od
+  flagi przesuwanej planszy, co byłoby niespójne z istniejącym zachowaniem
+  przeciągania narożnika na tej samej stronie — świadoma, drobna korekta
+  planu (PLAN_STANDARD.md „drobne różnice techniczne”), nie zmiana
+  wymagania. Uchwyty narożników (renderowane nad planszą, zatrzymują
+  propagację) i `beginDrag` — działają bez zmian; `beginDrag`'s typ
+  parametru zawężony (`Exclude<..., {kind:'boardMove'}>`), bo `boardMove` nie
+  ma `pointIndex`, którego `beginDrag` wymaga. `relativePoint` rozbite na
+  `relativePointFromRect` (czysta konwersja klient→obraz z jawnym rect) +
+  cienki wrapper dla istniejących wywołań z `<svg>` — potrzebne, bo origin
+  ruchu planszy liczy się z `pointerdown` na `<polygon>`, którego
+  `currentTarget` to inny element niż `<svg>`, więc trzeba było podać jego
+  własny `getBoundingClientRect()`; zero zmian zachowania dla istniejących
+  wywołań. Kursor `move` na wybranej planszy: `cursor: move` w
+  `.pageGeometryBoardSelected` (`globals.css`). Testy zweryfikowane
+  mutation-testingiem (wyłączenie warunku startu ruchu → 2 czerwone testy).
 
 ## D-438 — Komórki `blurry` pozostają widoczne pod filtrem swojego symbolu
 

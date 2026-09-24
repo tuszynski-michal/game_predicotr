@@ -787,3 +787,142 @@ test('Reset restores the automatic proposal geometry and its partial flag, not a
   assert.equal(checkbox('Niepełna plansza').checked, true);
   await act(async () => root.unmount());
 });
+
+function svgOverlay() {
+  const svg = document.querySelector(
+    'svg[aria-label="Nakładka geometrii strony"]',
+  );
+  assert.ok(svg);
+  return svg;
+}
+async function pointerDownOnBoard(index, clientX, clientY) {
+  const polygon = document.querySelectorAll('polygon.pageGeometryBoard')[index];
+  assert.ok(polygon, `board ${index} polygon not rendered`);
+  await act(async () =>
+    polygon.dispatchEvent(
+      new dom.window.MouseEvent('pointerdown', {
+        bubbles: true,
+        clientX,
+        clientY,
+      }),
+    ),
+  );
+}
+async function pointerMoveOnSvg(clientX, clientY) {
+  await act(async () =>
+    svgOverlay().dispatchEvent(
+      new dom.window.MouseEvent('pointermove', {
+        bubbles: true,
+        clientX,
+        clientY,
+      }),
+    ),
+  );
+}
+async function pointerUpOnSvg() {
+  await act(async () =>
+    svgOverlay().dispatchEvent(
+      new dom.window.MouseEvent('pointerup', { bubbles: true }),
+    ),
+  );
+}
+
+async function loadFlatPanel() {
+  const props = {
+    api: {
+      listBrowserPageGeometryReviewSources: async () => ({
+        data: {
+          sources: [sources[0]],
+          geometryManifestChecksumSha256: 'f'.repeat(64),
+        },
+      }),
+    },
+    apiBaseUrl: 'http://127.0.0.1:8000',
+    gameId: 'game',
+    uploadId: 'upload',
+    preflightJobId: 'preflight',
+    onSubmitSaved: async () => {
+      throw Error('unexpected preflight');
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(React.createElement(PageGeometryCorrectionPanel, props)),
+  );
+  await imageLoaded();
+  return root;
+}
+
+test('a second pointerdown on an already-selected board drags the whole quad by a fixed vector', async () => {
+  localStorage.clear();
+  const root = await loadFlatPanel();
+  await pointerDownOnBoard(0, 10, 10);
+  await pointerDownOnBoard(0, 50, 50);
+  await pointerMoveOnSvg(80, 60);
+  await pointerUpOnSvg();
+  const polygons = document.querySelectorAll('polygon.pageGeometryBoard');
+  assert.equal(
+    polygons[0].getAttribute('points'),
+    pointsText(quads[0].map((p) => ({ x: p.x + 30, y: p.y + 10 }))),
+  );
+  assert.equal(polygons[1].getAttribute('points'), pointsText(quads[1]));
+  await act(async () => root.unmount());
+});
+
+test('the first pointerdown on an unselected board only selects it, without moving anything', async () => {
+  localStorage.clear();
+  const root = await loadFlatPanel();
+  await pointerDownOnBoard(3, 50, 50);
+  await pointerMoveOnSvg(200, 200);
+  await pointerUpOnSvg();
+  const polygons = document.querySelectorAll('polygon.pageGeometryBoard');
+  assert.equal(polygons[3].getAttribute('points'), pointsText(quads[3]));
+  assert.match(polygons[3].getAttribute('class'), /pageGeometryBoardSelected/);
+  await act(async () => root.unmount());
+});
+
+test('dragging a selected board corner still moves only that corner, not the whole board', async () => {
+  localStorage.clear();
+  const root = await loadFlatPanel();
+  await selectBoard(0);
+  const handle = document.querySelector('circle.pageGeometryBoardHandle');
+  assert.ok(handle);
+  await act(async () =>
+    handle.dispatchEvent(
+      new dom.window.MouseEvent('pointerdown', {
+        bubbles: true,
+        clientX: quads[0][0].x,
+        clientY: quads[0][0].y,
+      }),
+    ),
+  );
+  await pointerMoveOnSvg(quads[0][0].x + 30, quads[0][0].y + 10);
+  await pointerUpOnSvg();
+  const polygons = document.querySelectorAll('polygon.pageGeometryBoard');
+  assert.equal(
+    polygons[0].getAttribute('points'),
+    pointsText([
+      { x: quads[0][0].x + 30, y: quads[0][0].y + 10 },
+      quads[0][1],
+      quads[0][2],
+      quads[0][3],
+    ]),
+  );
+  await act(async () => root.unmount());
+});
+
+test('moving a non-partial board without allowed outside-source room stops at the photo edge', async () => {
+  localStorage.clear();
+  const root = await loadFlatPanel();
+  await pointerDownOnBoard(0, 10, 10);
+  await pointerDownOnBoard(0, 50, 50);
+  await pointerMoveOnSvg(50 - 1000, 50);
+  await pointerUpOnSvg();
+  const polygons = document.querySelectorAll('polygon.pageGeometryBoard');
+  const minX = Math.min(...quads[0].map((p) => p.x));
+  assert.equal(
+    polygons[0].getAttribute('points'),
+    pointsText(quads[0].map((p) => ({ x: p.x - minX, y: p.y }))),
+  );
+  await act(async () => root.unmount());
+});

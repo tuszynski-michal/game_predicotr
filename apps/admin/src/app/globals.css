@@ -6909,6 +6909,7 @@ div.imageJobInlineError {
   fill: rgba(255, 196, 74, 0.18);
   stroke: #ffd15b;
   stroke-width: 3.4;
+  cursor: move;
 }
 
 .pageGeometrySymbolCut {

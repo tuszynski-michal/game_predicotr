@@ -215,6 +215,41 @@ function proposalSourceGeometry(
   return { quads, partialSlots };
 }
 
+interface AxisBounds {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minY: number;
+  readonly maxY: number;
+}
+
+/**
+ * Moves all four corners by the same vector, clamping the vector (not each
+ * point independently) so the quad's shape never distorts, only its
+ * position — the corner-by-corner `clamp` used elsewhere would skew a quad
+ * that hits a bound on only one side.
+ */
+function translateBoardQuad(
+  quad: Quad,
+  dx: number,
+  dy: number,
+  bounds: AxisBounds,
+): Quad {
+  const xs = quad.map((point) => point.x);
+  const ys = quad.map((point) => point.y);
+  const boundedDx = Math.min(
+    Math.max(dx, bounds.minX - Math.min(...xs)),
+    bounds.maxX - Math.max(...xs),
+  );
+  const boundedDy = Math.min(
+    Math.max(dy, bounds.minY - Math.min(...ys)),
+    bounds.maxY - Math.max(...ys),
+  );
+  return quad.map((point) => ({
+    x: Math.round(point.x + boundedDx),
+    y: Math.round(point.y + boundedDy),
+  })) as unknown as Quad;
+}
+
 function existingV12Quads(
   source: BrowserPageGeometryReviewSourceResponse,
   layer: 'boardFrame' | 'symbolGrid',
@@ -386,6 +421,12 @@ function PageGeometryCorrectionPanelContent({
         readonly kind: 'board';
         readonly pointIndex: number;
         readonly boardIndex: number;
+      }
+    | {
+        readonly kind: 'boardMove';
+        readonly boardIndex: number;
+        readonly origin: Point;
+        readonly startQuad: Quad;
       }
     | { readonly kind: 'mesh'; readonly pointIndex: number }
     | { readonly kind: 'page'; readonly pointIndex: number }
@@ -1134,6 +1175,30 @@ function PageGeometryCorrectionPanelContent({
 
   function updatePoint(next: Point) {
     if (dragging === null || imageSize === null) return;
+    if (dragging.kind === 'boardMove') {
+      const bounds: AxisBounds = {
+        minX: allowOutsideSource ? outsideSourceMinimum(imageSize.width) : 0,
+        maxX: allowOutsideSource
+          ? outsideSourceMaximum(imageSize.width)
+          : imageSize.width - 1,
+        minY: allowOutsideSource ? outsideSourceMinimum(imageSize.height) : 0,
+        maxY: allowOutsideSource
+          ? outsideSourceMaximum(imageSize.height)
+          : imageSize.height - 1,
+      };
+      const moved = translateBoardQuad(
+        dragging.startQuad,
+        next.x - dragging.origin.x,
+        next.y - dragging.origin.y,
+        bounds,
+      );
+      setBoardOverrides((current) => {
+        const nextOverrides = new Map(current);
+        nextOverrides.set(dragging.boardIndex, moved);
+        return nextOverrides;
+      });
+      return;
+    }
     const point = {
       x: clamp(
         next.x,
@@ -1211,12 +1276,15 @@ function PageGeometryCorrectionPanelContent({
     });
   }
 
-  function relativePoint(event: PointerEvent<SVGSVGElement>): Point | null {
+  function relativePointFromRect(
+    rect: { height: number; left: number; top: number; width: number },
+    clientX: number,
+    clientY: number,
+  ): Point | null {
     if (imageSize === null) return null;
-    const rect = event.currentTarget.getBoundingClientRect();
     const point = pageGeometryPointFromRenderedCanvas({
-      clientX: event.clientX,
-      clientY: event.clientY,
+      clientX,
+      clientY,
       imageHeight:
         imageSize.height *
         (allowOutsideSource ? OUTSIDE_SOURCE_VIEWPORT_SCALE : 1),
@@ -1235,9 +1303,20 @@ function PageGeometryCorrectionPanelContent({
     };
   }
 
+  function relativePoint(event: PointerEvent<SVGSVGElement>): Point | null {
+    return relativePointFromRect(
+      event.currentTarget.getBoundingClientRect(),
+      event.clientX,
+      event.clientY,
+    );
+  }
+
   function beginDrag(
     event: PointerEvent<SVGCircleElement>,
-    value: NonNullable<typeof dragging>,
+    value: Exclude<
+      NonNullable<typeof dragging>,
+      { readonly kind: 'boardMove' }
+    >,
   ) {
     event.preventDefault();
     event.stopPropagation();
@@ -2228,6 +2307,33 @@ function PageGeometryCorrectionPanelContent({
                           key={index}
                           onPointerDown={(event) => {
                             event.stopPropagation();
+                            if (
+                              correctionMode === index &&
+                              boardCornerPlacement === null &&
+                              cornerPlacement === null
+                            ) {
+                              const svg = event.currentTarget.ownerSVGElement;
+                              const origin =
+                                svg === null
+                                  ? null
+                                  : relativePointFromRect(
+                                      svg.getBoundingClientRect(),
+                                      event.clientX,
+                                      event.clientY,
+                                    );
+                              if (svg !== null && origin !== null) {
+                                event.preventDefault();
+                                svg.setPointerCapture(event.pointerId);
+                                setSelectedPointIndex(null);
+                                setDragging({
+                                  kind: 'boardMove',
+                                  boardIndex: index,
+                                  origin,
+                                  startQuad: quad,
+                                });
+                                return;
+                              }
+                            }
                             setCorrectionMode(index);
                           }}
                           points={quad.map(pointText).join(' ')}

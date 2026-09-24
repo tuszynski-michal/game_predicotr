@@ -1055,3 +1055,14 @@ mieści się w kadrze. Kolejność pierwszeństwa źródeł startowej geometrii:
 logiki ramek pochodnych. Przycisk „Reset” przywraca dokładnie ten sam stan
 startowy, w tym flagę „Niepełna plansza” pochodzącą z propozycji, a nie pusty
 szablon.
+
+Wybraną planszę można przesunąć jako całość (D-439, TASK-0634): drugie
+kliknięcie w już wybraną planszę (pierwsze tylko ją wybiera) uruchamia
+przeciąganie, które przesuwa wszystkie 4 narożniki o ten sam wektor —
+kształt planszy się nie zmienia, w przeciwieństwie do przeciągania
+pojedynczego narożnika. Wektor przesunięcia jest ograniczany tak, żeby
+żaden narożnik nie wyszedł poza dozwolony obszar: granice zdjęcia dla
+zwykłej planszy, ten sam rozszerzony zakres ±~7%, co przeciąganie
+narożnika, gdy którakolwiek plansza na stronie jest oznaczona „Niepełna”.
+Przeciąganie pojedynczego narożnika (uchwyty renderowane nad planszą)
+działa bez zmian.

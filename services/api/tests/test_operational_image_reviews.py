@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -1524,3 +1525,42 @@ def test_asset_resolution_is_checksum_bound_and_rejects_traversal(tmp_path: Path
             tmp_path,
         )
     assert path_error.value.code == "IMAGE_REVIEW_ASSET_PATH_UNSAFE"
+
+
+def test_asset_resolution_logs_missing_file_with_asset_kind_and_relative_path(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Regression for TASK-0638 / T2: a missing/drifted asset must leave a
+    correlatable warning (asset kind, code, relative path — never the
+    absolute artifact-root path) so an operator can tell "file missing" from
+    a routing failure without reproducing the request against the DB.
+    """
+
+    game_id = uuid4()
+    import_job_id = uuid4()
+    item = _item(
+        game_id,
+        import_job_id,
+        source_order_index=0,
+        suggested_sequence_number=1,
+    )
+    missing = replace(
+        item,
+        source_relative_path="sources/missing.jpg",
+        source_checksum_sha256="1" * 64,
+    )
+    with (
+        caplog.at_level(
+            logging.WARNING, logger="game_predictor_api.application.image_review_assets"
+        ),
+        pytest.raises(ImageReviewNotFoundError) as not_found,
+    ):
+        resolve_operational_source_asset(missing, tmp_path)
+    assert not_found.value.code == "IMAGE_REVIEW_ASSET_NOT_FOUND"
+    [record] = caplog.records
+    assert record.levelno == logging.WARNING
+    assert "IMAGE_REVIEW_ASSET_NOT_FOUND" in record.message
+    assert "sources/missing.jpg" in record.message
+    assert "source" in record.message
+    assert str(tmp_path) not in record.message

@@ -254,6 +254,50 @@ export async function rejectGridReview(
   }
 }
 
+/** Maps the reason `source-asset` refused a grid-review original to a
+ * distinguishable operator message. Called only after the `<img>` element
+ * itself failed to load, to explain why — never to source the image. */
+export async function describeGridSourceAssetFailure(
+  api: GridReviewsClient,
+  item: {
+    readonly gameId: string;
+    readonly slotId: string;
+    readonly sourceChecksumSha256: string;
+  },
+): Promise<string> {
+  try {
+    const result = await api.getImageGridReviewSourceAsset(
+      item.slotId,
+      item.gameId,
+      item.sourceChecksumSha256,
+    );
+    if (result.error === undefined) {
+      return 'Nie udało się zdekodować obrazu źródłowego.';
+    }
+    if (hasCode(result.error, 'IMAGE_REVIEW_ASSET_NOT_FOUND')) {
+      return 'Brak pliku oryginału w magazynie aplikacji.';
+    }
+    if (
+      hasCode(result.error, 'IMAGE_REVIEW_ASSET_CHECKSUM_DRIFT') ||
+      hasCode(result.error, 'IMAGE_GRID_REVIEW_SOURCE_DRIFT')
+    ) {
+      return 'Oryginał zmienił się od wczytania kolejki — odśwież.';
+    }
+    if (hasCode(result.error, 'IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE')) {
+      return 'Projekcja symboli tej gry nie jest gotowa.';
+    }
+    if (hasCode(result.error, 'IMAGE_GRID_REVIEW_ITEM_NOT_FOUND')) {
+      return 'Plansza nie jest już aktualna — odśwież kolejkę.';
+    }
+    return apiErrorMessage(
+      result.error,
+      'Nie udało się wczytać oryginalnego obrazu źródłowego.',
+    );
+  } catch {
+    return disconnected().error;
+  }
+}
+
 export async function previewGridReviewGeometry(
   api: GridReviewsClient,
   item: ImageGridReviewItemResponse,

@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { approveGridReviewSource } from '../src/features/grid-reviews/grid-review-actions.ts';
+import {
+  approveGridReviewSource,
+  describeGridSourceAssetFailure,
+} from '../src/features/grid-reviews/grid-review-actions.ts';
 
 const qualification = {
   completenessStatus: 'pending_partial',
@@ -134,4 +137,92 @@ test('a pending slot without an automatic grid still requires manual geometry', 
   assert.equal(result.ok, false);
   assert.match(result.error, /wymagają zapisania kompletnej geometrii/);
   assert.equal(called, false);
+});
+
+function sourceAssetProbe() {
+  return {
+    gameId: '11111111-1111-4111-8111-111111111111',
+    slotId: '33333333-3333-4333-8333-333333333333',
+    sourceChecksumSha256: 'a'.repeat(64),
+  };
+}
+
+test('describeGridSourceAssetFailure explains a missing original file', async () => {
+  const api = {
+    async getImageGridReviewSourceAsset() {
+      return { error: { code: 'IMAGE_REVIEW_ASSET_NOT_FOUND' } };
+    },
+  };
+
+  const message = await describeGridSourceAssetFailure(api, sourceAssetProbe());
+
+  assert.match(message, /Brak pliku oryginału/);
+});
+
+test('describeGridSourceAssetFailure explains a checksum drift from either error code', async () => {
+  for (const code of [
+    'IMAGE_REVIEW_ASSET_CHECKSUM_DRIFT',
+    'IMAGE_GRID_REVIEW_SOURCE_DRIFT',
+  ]) {
+    const api = {
+      async getImageGridReviewSourceAsset() {
+        return { error: { code } };
+      },
+    };
+
+    const message = await describeGridSourceAssetFailure(
+      api,
+      sourceAssetProbe(),
+    );
+
+    assert.match(message, /zmienił się od wczytania kolejki/);
+  }
+});
+
+test('describeGridSourceAssetFailure explains a not-yet-ready symbol projection', async () => {
+  const api = {
+    async getImageGridReviewSourceAsset() {
+      return { error: { code: 'IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE' } };
+    },
+  };
+
+  const message = await describeGridSourceAssetFailure(api, sourceAssetProbe());
+
+  assert.match(message, /Projekcja symboli tej gry nie jest gotowa/);
+});
+
+test('describeGridSourceAssetFailure explains a stale board no longer in the queue', async () => {
+  const api = {
+    async getImageGridReviewSourceAsset() {
+      return { error: { code: 'IMAGE_GRID_REVIEW_ITEM_NOT_FOUND' } };
+    },
+  };
+
+  const message = await describeGridSourceAssetFailure(api, sourceAssetProbe());
+
+  assert.match(message, /odśwież kolejkę/);
+});
+
+test('describeGridSourceAssetFailure reports a decode failure when the fetch itself succeeded', async () => {
+  const api = {
+    async getImageGridReviewSourceAsset() {
+      return { data: new Uint8Array([1, 2, 3]) };
+    },
+  };
+
+  const message = await describeGridSourceAssetFailure(api, sourceAssetProbe());
+
+  assert.match(message, /Nie udało się zdekodować obrazu źródłowego/);
+});
+
+test('describeGridSourceAssetFailure reports disconnection when the request throws', async () => {
+  const api = {
+    async getImageGridReviewSourceAsset() {
+      throw new Error('network down');
+    },
+  };
+
+  const message = await describeGridSourceAssetFailure(api, sourceAssetProbe());
+
+  assert.match(message, /Połączenie z lokalnym Admin API zostało przerwane/);
 });

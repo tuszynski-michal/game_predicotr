@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import mimetypes
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -16,6 +17,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewNotFoundError,
 )
 
+LOGGER = logging.getLogger(__name__)
 _IMAGE_MEDIA_TYPES: Final = frozenset({"image/jpeg", "image/png", "image/webp"})
 _HASH_CHUNK_BYTES: Final = 1024 * 1024
 
@@ -108,6 +110,12 @@ def _resolve(
 ) -> OperationalReviewAsset:
     relative = PurePosixPath(relative_path)
     if relative.is_absolute() or ".." in relative.parts or "\\" in relative_path:
+        LOGGER.warning(
+            "Operational review asset path unsafe: assetKind=%s code=%s relativePath=%s",
+            asset_kind,
+            "IMAGE_REVIEW_ASSET_PATH_UNSAFE",
+            relative_path,
+        )
         raise ImageReviewNotFoundError(
             "IMAGE_REVIEW_ASSET_PATH_UNSAFE",
             "The stored operational review asset path is unsafe.",
@@ -120,6 +128,12 @@ def _resolve(
         or not candidate.is_file()
         or candidate.is_symlink()
     ):
+        LOGGER.warning(
+            "Operational review asset not found: assetKind=%s code=%s relativePath=%s",
+            asset_kind,
+            "IMAGE_REVIEW_ASSET_NOT_FOUND",
+            relative_path,
+        )
         raise ImageReviewNotFoundError(
             "IMAGE_REVIEW_ASSET_NOT_FOUND",
             "The local operational review image is unavailable.",
@@ -127,12 +141,26 @@ def _resolve(
         )
     media_type, _encoding = mimetypes.guess_type(candidate.name)
     if media_type not in _IMAGE_MEDIA_TYPES:
+        LOGGER.warning(
+            "Operational review asset media type unsupported: "
+            "assetKind=%s code=%s relativePath=%s mediaType=%s",
+            asset_kind,
+            "IMAGE_REVIEW_ASSET_MEDIA_TYPE_UNSUPPORTED",
+            relative_path,
+            media_type,
+        )
         raise ImageReviewNotFoundError(
             "IMAGE_REVIEW_ASSET_MEDIA_TYPE_UNSUPPORTED",
             "The operational review asset is not a supported image.",
             details={"assetKind": asset_kind},
         )
     if _sha256(candidate) != expected_sha256:
+        LOGGER.warning(
+            "Operational review asset checksum drift: assetKind=%s code=%s relativePath=%s",
+            asset_kind,
+            "IMAGE_REVIEW_ASSET_CHECKSUM_DRIFT",
+            relative_path,
+        )
         raise ImageReviewNotFoundError(
             "IMAGE_REVIEW_ASSET_CHECKSUM_DRIFT",
             "The operational review asset checksum differs from persistence.",

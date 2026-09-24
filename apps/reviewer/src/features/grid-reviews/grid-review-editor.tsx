@@ -32,6 +32,7 @@ import {
 } from '@/features/operational-reviews/operational-review-state';
 
 import {
+  describeGridSourceAssetFailure,
   previewGridReviewGeometry,
   saveGridReviewGeometry,
   saveGridReviewSourceGeometry,
@@ -516,7 +517,11 @@ function GridReviewEditorContent({
 
   useEffect(() => draw(), [draw, loadingSource]);
 
+  const sourceAssetReviewItemId = sourceAssetItem.slotId;
+  const sourceAssetGameId = sourceAssetItem.gameId;
+  const sourceAssetChecksum = sourceAssetItem.sourceChecksumSha256;
   useEffect(() => {
+    let cancelled = false;
     const image = new window.Image();
     image.crossOrigin = 'anonymous';
     image.onload = () => {
@@ -525,15 +530,30 @@ function GridReviewEditorContent({
     };
     image.onerror = () => {
       setLoadingSource(false);
-      setError('Nie udało się wczytać oryginalnego obrazu źródłowego.');
+      void describeGridSourceAssetFailure(api, {
+        gameId: sourceAssetGameId,
+        slotId: sourceAssetReviewItemId,
+        sourceChecksumSha256: sourceAssetChecksum,
+      }).then((message) => {
+        // The board or tab may have changed while the describe call was in
+        // flight; a stale failure must not overwrite the current one.
+        if (!cancelled) setError(message);
+      });
     };
     image.src = sourceUrl;
     return () => {
+      cancelled = true;
       image.onload = null;
       image.onerror = null;
       sourceImageRef.current = null;
     };
-  }, [sourceUrl]);
+  }, [
+    sourceUrl,
+    api,
+    sourceAssetReviewItemId,
+    sourceAssetGameId,
+    sourceAssetChecksum,
+  ]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {

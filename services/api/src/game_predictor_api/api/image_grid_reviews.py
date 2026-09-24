@@ -1,5 +1,6 @@
 """Local Admin HTTP surface for grid validation."""
 
+import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,7 +26,10 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewSourceAsset,
     ImageGridReviewView,
 )
-from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
+from game_predictor_api.domain.image_reviews import (
+    ImageReviewGeometryPoint,
+    ImageReviewNotFoundError,
+)
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_geometry_rollout import (
     ImageGeometryRolloutStartResponse,
@@ -61,6 +65,7 @@ from game_predictor_api.schemas.image_grid_reviews import (
 )
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
+LOGGER = logging.getLogger(__name__)
 ImageGridReviewServiceDependency = Callable[..., object]
 OperationalImageReviewServiceDependency = Callable[..., object]
 ImageGeometryRolloutServiceDependency = Callable[..., object]
@@ -214,18 +219,27 @@ def create_image_grid_reviews_router(
             Query(alias="expectedSourceChecksumSha256"),
         ],
     ) -> FileResponse:
-        with game_storage_scope(game_id):
-            item = service.source_asset(
-                game_id=game_id,
-                review_item_id=review_item_id,
-                expected_source_checksum_sha256=expected_source_checksum_sha256,
+        try:
+            with game_storage_scope(game_id):
+                item = service.source_asset(
+                    game_id=game_id,
+                    review_item_id=review_item_id,
+                    expected_source_checksum_sha256=expected_source_checksum_sha256,
+                )
+                asset = resolve_grid_review_source_asset(item, artifact_root)
+                return FileResponse(
+                    asset.path,
+                    media_type=asset.media_type,
+                    headers={"Cache-Control": "private, immutable, max-age=31536000"},
+                )
+        except (ImageGridReviewError, ImageReviewNotFoundError) as error:
+            LOGGER.warning(
+                "Grid review source asset unavailable: reviewItemId=%s gameId=%s code=%s",
+                review_item_id,
+                game_id,
+                error.code,
             )
-            asset = resolve_grid_review_source_asset(item, artifact_root)
-            return FileResponse(
-                asset.path,
-                media_type=asset.media_type,
-                headers={"Cache-Control": "private, immutable, max-age=31536000"},
-            )
+            raise
 
     @router.post(
         "/image-reviews/{review_item_id}/geometry-approval",

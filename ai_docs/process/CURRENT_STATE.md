@@ -6,6 +6,39 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0638 — rozróżnialny błąd podglądu w Reviewerze + log API
+
+- Kontynuacja TASK-0637 (D-442). Ekran „Zatwierdzanie cięcia siatki” miał
+  jeden statyczny komunikat błędu niezależnie od przyczyny odmowy
+  wczytania oryginału. Dodano `describeGridSourceAssetFailure`
+  (`apps/reviewer/src/features/grid-reviews/grid-review-actions.ts`) —
+  wywoływane z `image.onerror`
+  (`grid-review-editor.tsx`) i mapujące `error.code` na 6 rozróżnialnych
+  komunikatów: brak pliku, checksum/source drift, projekcja niegotowa,
+  plansza nieaktualna, rozłączenie sieci, obraz 200 ale niezdekodowany.
+  Efekt ładowania obrazu dostał flagę `cancelled`, żeby spóźniony wynik nie
+  nadpisał błędu po zmianie planszy/zakładki.
+- Backend: `application/image_review_assets.py::_resolve` loguje teraz
+  `WARNING` (asset_kind, kod, **względna** ścieżka — nigdy absolutna)
+  przed każdym z 4 `raise ImageReviewNotFoundError`;
+  `api/image_grid_reviews.py`'s `get_image_grid_review_source_asset`
+  dodatkowo loguje `review_item_id`/`game_id` przy błędzie, bez zmiany
+  kodu/statusu odpowiedzi.
+- Testy: 6 nowych w `apps/reviewer/test/grid-review-actions.test.mjs`
+  (9/9 w pliku), pełny `npm run test --workspace @game-predictor/reviewer`
+  199/199, `typecheck`/`lint` reviewera czyste, `npm run reviewer:build`
+  sukces. Nowy `test_asset_resolution_logs_missing_file_with_asset_kind_and_relative_path`
+  w `test_operational_image_reviews.py` (caplog, `tmp_path`, potwierdza
+  brak absolutnej ścieżki w logu). `test_operational_image_reviews.py` +
+  `test_image_grid_review_api.py`: 31/32 (ten sam 1 pre-existing,
+  niezwiązany błąd co w TASK-0637). `python:lint`/`python:typecheck`
+  czyste dla zmienionych plików. `openapi:check` nie uruchomiony ponownie
+  — brak zmian kontraktu w tym tasku.
+- Poza zakresem: logowanie `review_item_id`/`game_id` w handlerach
+  `geometry-preview`/`geometry-revisions` (świadomie pominięte — `_resolve`
+  i tak loguje resolucję plików cropów w tych ścieżkach); T3 (odbiór na
+  żywych danych) nie wykonany w tym tasku.
+
 ### TASK-0637 — bindowanie `game_storage_scope` na trasach `/image-reviews/{id}/…` (D-442)
 
 - Naprawiono zgłoszony przez użytkownika brak podglądu oryginału i cropów

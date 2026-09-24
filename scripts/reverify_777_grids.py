@@ -1242,10 +1242,56 @@ def _rectify_board(gray: Any, quad: FloatQuad) -> Any:
     )
 
 
+ARROW_BAND = 0.22  # fraction of the board width covered by the "<" / ">" arrow
+ARROW_SIDE = {3: "left", 5: "right"}  # middle-row edge boards of the 3 x 3 screen
+ARROW_TAU_CELL = 0.1  # the arrow can drag one corner of the engine grid
+REPAIR_MIN_ECC = 0.8
+
+
+def _draw_lattice(canvas: Any, quad: FloatQuad, colour: tuple[int, int, int], thick: int) -> None:
+    import cv2
+
+    for k in range(6):
+        a = _lattice_point(quad, k / 5, 0.0)
+        b = _lattice_point(quad, k / 5, 1.0)
+        cv2.line(canvas, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), colour, thick)
+    for k in range(4):
+        a = _lattice_point(quad, 0.0, k / 3)
+        b = _lattice_point(quad, 1.0, k / 3)
+        cv2.line(canvas, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), colour, thick)
+
+
+def _refine_mask(shape: tuple[int, ...], position: int | None) -> Any:
+    """ECC input mask; the arrow band of boards 4 and 6 is excluded."""
+
+    height, width = shape[:2]
+    mask = np.full((height, width), 255, np.uint8)
+    side = ARROW_SIDE.get(position) if position is not None else None
+    if side is None:
+        return mask
+    m = HYBRID_MARGIN
+    board_w = width / (1 + 2 * m)
+    x_left = width * m / (1 + 2 * m)
+    band = int(board_w * ARROW_BAND + x_left)
+    if side == "left":
+        mask[:, :band] = 0
+    else:
+        mask[:, width - band :] = 0
+    return mask
+
+
 def refine_board(
-    gray: Any, neighbours: Sequence[FloatQuad], predicted: FloatQuad
+    gray: Any,
+    neighbours: Sequence[FloatQuad],
+    predicted: FloatQuad,
+    position: int | None = None,
 ) -> tuple[FloatQuad, float]:
-    """Align the predicted board to the median of its neighbours (ECC homography)."""
+    """Align the predicted board to the median of its neighbours.
+
+    The screen model already carries the perspective, so the correction is a
+    similarity-like affine warp: one occluded corner (arrow, hand) cannot move
+    on its own the way it could with a full homography.
+    """
 
     import cv2
 
@@ -1254,23 +1300,22 @@ def refine_board(
     ).astype(np.float32)
     template = cv2.GaussianBlur(template, (0, 0), 1.5)
     tile = cv2.GaussianBlur(_rectify_board(gray, predicted).astype(np.float32), (0, 0), 1.5)
-    warp = np.eye(3, dtype=np.float32)
+    warp = np.eye(2, 3, dtype=np.float32)
     try:
         correlation, found = cv2.findTransformECC(
             template,
             tile,
             warp,
-            cv2.MOTION_HOMOGRAPHY,
+            cv2.MOTION_AFFINE,
             (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 100, 1e-6),
-            cast(Any, None),
+            _refine_mask(tile.shape, position),
             3,
         )
     except cv2.error:
         return predicted, 0.0
+    affine = np.vstack([np.asarray(found, np.float64), [0.0, 0.0, 1.0]])
     matrix, _size, pixel = _unit_homography(predicted)
-    corners_in_tile = cv2.perspectiveTransform(
-        pixel.reshape(-1, 1, 2), np.asarray(found, np.float64)
-    )
+    corners_in_tile = cv2.perspectiveTransform(pixel.reshape(-1, 1, 2), affine)
     corners = cv2.perspectiveTransform(corners_in_tile, matrix).reshape(-1, 2)
     return cast(FloatQuad, tuple((float(x), float(y)) for x, y in corners)), float(correlation)
 
@@ -1371,30 +1416,50 @@ def hybrid_sample(
                 predicted = predict_board(others, position, (height, width))
                 if position in known:
                     own = known[position]
-                    refined, correlation = refine_board(gray, list(others.values()), predicted)
+                    refined, correlation = refine_board(
+                        gray, list(others.values()), predicted, position
+                    )
                     deviation = max_corner_distance(own, refined) / _cell_width(own)
                     loo_errors.append(deviation)
                     # Geometry alone separates good from bad boards; appearance scores do not
                     # (symbols differ, arrows/hands cover edge boards).
-                    ok = deviation <= tau_cell
+                    limit = ARROW_TAU_CELL if position in ARROW_SIDE else tau_cell
+                    ok = deviation <= limit
+                    shift = max_corner_distance(refined, predicted) / _cell_width(predicted)
+                    repair = (
+                        not ok
+                        and correlation >= REPAIR_MIN_ECC
+                        and shift <= 0.5
+                        and quad_inside(refined, width=width, height=height)
+                    )
                     accepted += ok
+                    decision = "pewna" if ok else "poprawiona" if repair else "niezgodna"
                     entry.update(
                         {
-                            "decision": "pewna" if ok else "niezgodna",
+                            "decision": decision,
                             "deviationCell": round(deviation, 3),
                             "ecc": round(correlation, 3),
-                            "edgeColumn": position % 3 in (0, 2),
+                            "refineShiftCell": round(shift, 3),
                         }
                     )
-                    cv2.polylines(
-                        canvas,
-                        [np.array(own, dtype=np.int32)],
-                        True,
-                        (0, 220, 0) if ok else (0, 0, 255),
-                        thick + 1,
-                    )
+                    if repair:
+                        entry["quad"] = [list(p) for p in refined]
+                        cv2.polylines(
+                            canvas, [np.array(own, dtype=np.int32)], True, (255, 160, 0), thick
+                        )
+                        _draw_lattice(canvas, refined, (0, 220, 0), thick)
+                    else:
+                        cv2.polylines(
+                            canvas,
+                            [np.array(own, dtype=np.int32)],
+                            True,
+                            (0, 220, 0) if ok else (0, 0, 255),
+                            thick + 1,
+                        )
                 else:
-                    refined, correlation = refine_board(gray, list(others.values()), predicted)
+                    refined, correlation = refine_board(
+                        gray, list(others.values()), predicted, position
+                    )
                     shift = max_corner_distance(refined, predicted) / _cell_width(predicted)
                     inside = quad_inside(refined, width=width, height=height)
                     ok = correlation >= min_ecc and shift <= 0.5 and inside
@@ -1437,6 +1502,7 @@ def hybrid_sample(
                         gray,
                         list(others.values()),
                         predict_board(others, position, (height, width)),
+                        position,
                     )
                     fill_errors.append(
                         max_corner_distance(refined, known[position]) / _cell_width(known[position])
@@ -1453,7 +1519,8 @@ def hybrid_sample(
             slots = ", ".join(str(p + 1) for p in sorted(pending)) or "—"
             caption = html.escape(
                 f"#{number} · sloty bez siatki: {slots}"
-                f" · pewne {decisions.count('pewna')}, niezgodne {decisions.count('niezgodna')},"
+                f" · pewne {decisions.count('pewna')}, poprawione {decisions.count('poprawiona')},"
+                f" niezgodne {decisions.count('niezgodna')},"
                 f" uzupełnione pewne {decisions.count('uzupelniona_pewna')},"
                 f" uzupełnione niepewne {decisions.count('uzupelniona_niepewna')}"
             )
@@ -1508,6 +1575,8 @@ def hybrid_sample(
         "figcaption{font-size:14px;padding:4px 0}</style></head><body>"
         "<h1>Gra 777 — obecny silnik + model ekranu (podgląd, bez zapisu)</h1>"
         "<p>Ramka zielona: siatka obecnego silnika zgodna z modelem z pozostałych plansz (pewna). "
+        "Siatka 5 × 3 zielona bez „P” na niebieskiej ramce: siatka obecnego silnika odrzucona "
+        "i zastąpiona siatką z sąsiadów (poprawiona). "
         "Ramka czerwona: niezgodna. Siatka 5 × 3 z „P”: slot dziś bez siatki, "
         "dorysowany z sąsiadów "
         "(zielona = pewna, czerwona = niepewna). Niebieska ramka: za mało sąsiadów do oceny.</p>"

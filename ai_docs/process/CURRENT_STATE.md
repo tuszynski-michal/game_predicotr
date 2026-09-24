@@ -6,6 +6,31 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0649 — „Liczba wyników” wyszukiwania plansz + kontrolowany wybór wyniku (1/6, plan D-445)
+
+- Pierwszy task planu sesji `2026-09-24` „Przybliżona wygrana” w „Wyszukaj
+  plansze” (pozostałe taski `0650`–`0654` jeszcze nie zostały napisane jako
+  pliki; plan tylko w historii sesji, nie w `ai_docs/`).
+- `apps/admin/src/features/board-search/board-search-workspace.tsx` ma teraz
+  input „Liczba wyników” (domyślnie 5, zakres 1–100 — istniejący limit
+  techniczny API `board-search?limit=1..100`), zatwierdzany Enterem/blurem;
+  `runSearch` przekazuje `limit` do `api.searchGameBoards` (wcześniej limit
+  nigdy nie był wysyłany, więc API zawsze zwracało domyślne 100).
+  „Zakres wyszukiwania” (scope) pozostaje niezależnym parametrem.
+- `BoardSearchResults` (`board-search-results.tsx`) jest teraz komponentem
+  kontrolowanym (`state`/`onStateChange` z workspace zamiast wewnętrznego
+  `useState` remountowanego przez `key`). Wybrany wynik ma stabilną tożsamość
+  `boardSearchResultIdentity` (`assetMode:sequenceNumber:boardChecksumSha256`).
+  Zmiana samej liczby wyników (`commitLimit`) zachowuje wybraną planszę, jeśli
+  nadal występuje w nowych wynikach (`reconcileBoardSearchResultsState`);
+  w przeciwnym razie wraca do wyniku nr 1. Nowe „Szukaj plansz” (zmiana
+  wzoru/scope) zawsze resetuje wybór do wyniku nr 1, tak jak dotychczas.
+- Testy: 8 nowych w `test/board-search-results-state.test.mjs`, nowy
+  `test-interactions/board-search-limit.test.mjs` (5 scenariuszy jsdom).
+  Pełny `npm run test` Admina 570/570, `test:geometry` 27/27, `typecheck` i
+  `lint` czyste (4 istniejące, niezwiązane ostrzeżenia bez zmian).
+- Backend, endpoint `/board-search`, ranking i scope bez zmian.
+
 ### TASK-0648 — prototyp silnika siatek v3 (model ekranu 3 × 3), status `proposed`
 
 - `game_predictor_worker.images.screen_layout_v3.detect_screen_layout_v3` —

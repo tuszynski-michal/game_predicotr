@@ -29,6 +29,13 @@ import {
   undoBoardSearchEdit,
 } from './board-search-editor-state';
 import { BoardSearchResults } from './board-search-results';
+import {
+  BOARD_SEARCH_LIMIT_DEFAULT,
+  createBoardSearchResultsState,
+  parseBoardSearchLimit,
+  reconcileBoardSearchResultsState,
+  type BoardSearchResultsState,
+} from './board-search-results-state';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type SearchState =
@@ -69,6 +76,12 @@ export function BoardSearchWorkspace({
     useState<BoardSearchEntryOrder>('columns');
   const [scope, setScope] = useState<BoardSearchScope>('all_searchable');
   const [searchState, setSearchState] = useState<SearchState>({ kind: 'idle' });
+  const [resultsState, setResultsState] = useState<BoardSearchResultsState | null>(
+    null,
+  );
+  const [limit, setLimit] = useState(BOARD_SEARCH_LIMIT_DEFAULT);
+  const [limitInput, setLimitInput] = useState(String(BOARD_SEARCH_LIMIT_DEFAULT));
+  const [limitError, setLimitError] = useState<string | null>(null);
   const symbolsRequestId = useRef(0);
   const searchRequestId = useRef(0);
 
@@ -135,11 +148,13 @@ export function BoardSearchWorkspace({
       placeBoardSearchSymbol(current, symbolCode, entryOrder),
     );
     setSearchState({ kind: 'idle' });
+    setResultsState(null);
   }
 
   function placeUnknown() {
     setEditor((current) => placeBoardSearchUnknown(current, entryOrder));
     setSearchState({ kind: 'idle' });
+    setResultsState(null);
   }
 
   function changeEntryOrder(nextEntryOrder: BoardSearchEntryOrder) {
@@ -152,31 +167,46 @@ export function BoardSearchWorkspace({
   function undo() {
     setEditor((current) => undoBoardSearchEdit(current));
     setSearchState({ kind: 'idle' });
+    setResultsState(null);
   }
 
   function reset() {
     setEditor((current) => resetBoardSearchEditor(current));
     setSearchState({ kind: 'idle' });
+    setResultsState(null);
   }
 
   function changeScope(nextScope: BoardSearchScope) {
     setScope(nextScope);
     setSearchState({ kind: 'idle' });
+    setResultsState(null);
   }
 
-  function runSearch() {
+  function runSearch(
+    options: {
+      readonly limit?: number;
+      readonly preserveSelection?: boolean;
+    } = {},
+  ) {
     if (selectedCells.length === 0 || searchState.kind === 'loading') {
       return;
     }
+    const effectiveLimit = options.limit ?? limit;
+    const preserveSelection = options.preserveSelection ?? false;
     const requestId = ++searchRequestId.current;
     setSearchState({ kind: 'loading' });
     void api
-      .searchGameBoards(gameId, { cells: selectedCells, scope })
+      .searchGameBoards(gameId, {
+        cells: selectedCells,
+        limit: effectiveLimit,
+        scope,
+      })
       .then((result) => {
         if (requestId !== searchRequestId.current) {
           return;
         }
-        if (result.error !== undefined || result.data === undefined) {
+        const data = result.data;
+        if (result.error !== undefined || data === undefined) {
           setSearchState({
             kind: 'error',
             message: apiErrorMessage(
@@ -184,9 +214,15 @@ export function BoardSearchWorkspace({
               'Nie udało się wyszukać plansz dla podanego wzoru.',
             ),
           });
+          setResultsState(null);
           return;
         }
-        setSearchState({ kind: 'ready', result: result.data });
+        setSearchState({ kind: 'ready', result: data });
+        setResultsState((previous) =>
+          preserveSelection && previous !== null
+            ? reconcileBoardSearchResultsState(previous, data.results)
+            : createBoardSearchResultsState(data.results),
+        );
       })
       .catch(() => {
         if (requestId === searchRequestId.current) {
@@ -195,8 +231,29 @@ export function BoardSearchWorkspace({
             message:
               'Połączenie z lokalnym Admin API zostało przerwane podczas wyszukiwania.',
           });
+          setResultsState(null);
         }
       });
+  }
+
+  function commitLimit() {
+    const parsed = parseBoardSearchLimit(limitInput);
+    if (!parsed.ok) {
+      setLimitError(parsed.error);
+      return;
+    }
+    setLimitError(null);
+    setLimitInput(String(parsed.value));
+    const changed = parsed.value !== limit;
+    setLimit(parsed.value);
+    if (
+      changed &&
+      resultsState !== null &&
+      searchState.kind !== 'loading' &&
+      selectedCells.length > 0
+    ) {
+      runSearch({ limit: parsed.value, preserveSelection: true });
+    }
   }
 
   return (
@@ -211,6 +268,34 @@ export function BoardSearchWorkspace({
           </p>
         </div>
       </header>
+
+      <div className="boardSearchResultLimit">
+        <label>
+          <span>Liczba wyników</span>
+          <input
+            aria-label="Liczba wyników wyszukiwania"
+            disabled={searchState.kind === 'loading'}
+            inputMode="numeric"
+            max={100}
+            min={1}
+            onBlur={commitLimit}
+            onChange={(event) => setLimitInput(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                commitLimit();
+              }
+            }}
+            type="number"
+            value={limitInput}
+          />
+        </label>
+      </div>
+      {limitError ? (
+        <p className="feedbackBanner feedbackBannerError" role="alert">
+          {limitError}
+        </p>
+      ) : null}
 
       <fieldset
         className="boardSearchScope"
@@ -397,7 +482,7 @@ export function BoardSearchWorkspace({
                 disabled={
                   selectedCells.length === 0 || searchState.kind === 'loading'
                 }
-                onClick={runSearch}
+                onClick={() => runSearch()}
                 type="button"
               >
                 {searchState.kind === 'loading'
@@ -414,12 +499,13 @@ export function BoardSearchWorkspace({
           {searchState.message}
         </p>
       ) : null}
-      {searchState.kind === 'ready' ? (
+      {searchState.kind === 'ready' && resultsState !== null ? (
         <BoardSearchResults
           apiBaseUrl={apiBaseUrl}
           client={api}
           gameId={gameId}
-          response={searchState.result}
+          onStateChange={setResultsState}
+          state={resultsState}
         />
       ) : null}
     </section>

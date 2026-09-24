@@ -11,8 +11,8 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import {
   activeBoardSearchResult,
   boardSearchNeighbourIndexes,
-  createBoardSearchResultsState,
   moveBoardSearchResult,
+  type BoardSearchResultsState,
 } from './board-search-results-state';
 
 type BoardSearchResultsClient = Pick<
@@ -24,40 +24,20 @@ interface BoardSearchResultsProps {
   readonly apiBaseUrl: string;
   readonly client?: BoardSearchResultsClient;
   readonly gameId: string;
-  readonly response: BoardSearchResponse;
+  readonly state: BoardSearchResultsState;
+  readonly onStateChange: (state: BoardSearchResultsState) => void;
 }
 
 export function BoardSearchResults({
-  response,
-  ...props
-}: BoardSearchResultsProps) {
-  const resultKey = response.results
-    .map(
-      (result) =>
-        `${result.assetMode}:${result.sequenceNumber}:${result.boardChecksumSha256}`,
-    )
-    .join('|');
-  return (
-    <BoardSearchResultsCarousel
-      key={resultKey}
-      response={response}
-      {...props}
-    />
-  );
-}
-
-function BoardSearchResultsCarousel({
   apiBaseUrl,
   client,
   gameId,
-  response,
+  onStateChange,
+  state,
 }: BoardSearchResultsProps) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
-  );
-  const [state, setState] = useState(() =>
-    createBoardSearchResultsState(response.results),
   );
   const current = activeBoardSearchResult(state);
 
@@ -78,7 +58,7 @@ function BoardSearchResultsCarousel({
   }, [api, gameId, state]);
 
   function move(direction: -1 | 1) {
-    setState((currentState) => moveBoardSearchResult(currentState, direction));
+    onStateChange(moveBoardSearchResult(state, direction));
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {

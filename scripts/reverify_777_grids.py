@@ -1280,6 +1280,97 @@ def _refine_mask(shape: tuple[int, ...], position: int | None) -> Any:
     return mask
 
 
+SEARCH_MARGIN = 0.5  # search window around the predicted board, in board sizes
+SEARCH_SCALES = (0.95, 1.0, 1.05)
+AMBIGUITY_MARGIN = 0.05  # a second peak this close in score, >= 0.5 cell away -> ambiguous
+
+
+def _rectify_with_margin(gray: Any, quad: FloatQuad, margin: float) -> tuple[Any, Any]:
+    import cv2
+
+    tile = HYBRID_TILE
+    th = int(round(tile * HYBRID_ASPECT))
+    unit = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.float32)
+    pixel = unit * np.array([tile, th], np.float32) + np.array(
+        [margin * tile, margin * th], np.float32
+    )
+    matrix = cv2.getPerspectiveTransform(pixel, np.array(quad, dtype=np.float32))
+    size = (int(tile * (1 + 2 * margin)), int(th * (1 + 2 * margin)))
+    image = cv2.warpPerspective(
+        gray, matrix, size, flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderValue=0
+    )
+    return image.astype(np.float32), matrix
+
+
+MAX_ROTATION_DEG = 3.0
+MAX_ASPECT_CHANGE = 0.08
+
+
+def _edge_angles_and_aspect(quad: FloatQuad) -> tuple[float, float, float]:
+    (x0, y0), (x1, y1), (x2, y2), (x3, y3) = quad
+    top = math.degrees(math.atan2(y1 - y0, x1 - x0))
+    left = math.degrees(math.atan2(x0 - x3, y3 - y0))
+    width = (math.dist(quad[0], quad[1]) + math.dist(quad[3], quad[2])) / 2
+    height = (math.dist(quad[0], quad[3]) + math.dist(quad[1], quad[2])) / 2
+    return top, left, width / max(height, 1e-9)
+
+
+def shape_consistent(quad: FloatQuad, model_quad: FloatQuad) -> bool:
+    """The grid keeps the neighbours' angles and proportions (rotation, skew, aspect)."""
+
+    top, left, aspect = _edge_angles_and_aspect(quad)
+    m_top, m_left, m_aspect = _edge_angles_and_aspect(model_quad)
+    return (
+        abs(top - m_top) <= MAX_ROTATION_DEG
+        and abs(left - m_left) <= MAX_ROTATION_DEG
+        and abs(aspect / m_aspect - 1) <= MAX_ASPECT_CHANGE
+    )
+
+
+def place_board(
+    gray: Any, neighbours: Sequence[FloatQuad], predicted: FloatQuad
+) -> tuple[FloatQuad, float, bool]:
+    """Shape from the screen model; search only translation and +-5% scale.
+
+    Returns the placed quad, the best normalized correlation and whether a
+    clearly different placement (>= 0.5 cell away) scores almost as well.
+    """
+
+    import cv2
+
+    tile = HYBRID_TILE
+    th = int(round(tile * HYBRID_ASPECT))
+    m = HYBRID_MARGIN
+    template = np.median(
+        np.stack([_rectify_with_margin(gray, q, m)[0] for q in neighbours]), axis=0
+    ).astype(np.float32)
+    template = cv2.GaussianBlur(template, (0, 0), 1.5)
+    search, matrix = _rectify_with_margin(gray, predicted, SEARCH_MARGIN)
+    search = cv2.GaussianBlur(search, (0, 0), 1.5)
+    peaks: list[tuple[float, float, float, float]] = []  # score, x_board, y_board, scale
+    for scale in SEARCH_SCALES:
+        scaled = cv2.resize(template, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+        response = cv2.matchTemplate(search, scaled, cv2.TM_CCOEFF_NORMED)
+        for _ in range(4):
+            _, value, _, (x, y) = cv2.minMaxLoc(response)
+            peaks.append((float(value), x + m * tile * scale, y + m * th * scale, scale))
+            rx, ry = int(tile * scale / 10), int(th * scale / 6)
+            response[max(y - ry, 0) : y + ry + 1, max(x - rx, 0) : x + rx + 1] = -1
+    peaks.sort(reverse=True)
+    best = peaks[0]
+    cell_w, cell_h = tile / 5, th / 3
+    ambiguous = any(
+        other[0] >= best[0] - AMBIGUITY_MARGIN
+        and max(abs(other[1] - best[1]) / cell_w, abs(other[2] - best[2]) / cell_h) >= 0.5
+        for other in peaks[1:]
+    )
+    _, bx, by, scale = best
+    unit = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.float64)
+    in_search = unit * np.array([tile * scale, th * scale]) + np.array([bx, by])
+    corners = cv2.perspectiveTransform(in_search.reshape(-1, 1, 2), matrix).reshape(-1, 2)
+    return cast(FloatQuad, tuple((float(x), float(y)) for x, y in corners)), best[0], ambiguous
+
+
 def refine_board(
     gray: Any,
     neighbours: Sequence[FloatQuad],
@@ -1460,13 +1551,25 @@ def hybrid_sample(
                     refined, correlation = refine_board(
                         gray, list(others.values()), predicted, position
                     )
+                    placed, _score, ambiguous = place_board(gray, list(others.values()), predicted)
                     shift = max_corner_distance(refined, predicted) / _cell_width(predicted)
                     inside = quad_inside(refined, width=width, height=height)
-                    ok = correlation >= min_ecc and shift <= 0.5 and inside
+                    shape_ok = shape_consistent(refined, predicted)
+                    agree = max_corner_distance(refined, placed) / _cell_width(predicted) <= 0.3
+                    ok = (
+                        correlation >= min_ecc
+                        and shift <= 0.5
+                        and inside
+                        and shape_ok
+                        and agree
+                        and not ambiguous
+                    )
+                    entry.update({"shapeOk": shape_ok, "placementAgrees": agree})
                     entry.update(
                         {
                             "decision": "uzupelniona_pewna" if ok else "uzupelniona_niepewna",
                             "ecc": round(correlation, 3),
+                            "ambiguous": ambiguous,
                             "refineShiftCell": round(shift, 3),
                             "quad": [list(p) for p in refined],
                         }

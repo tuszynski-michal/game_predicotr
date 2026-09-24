@@ -16,7 +16,7 @@ from game_predictor_worker.domain import (
     PayoutSymbolDefinition,
     SymbolDefinition,
 )
-from game_predictor_worker.domain.payout import evaluate_payout
+from game_predictor_worker.domain.payout import evaluate_payout, prepare_payout_evaluator
 
 FIXTURE_PATH = (
     Path(__file__).parents[3] / "packages" / "domain-fixtures" / "payout-golden-cases.json"
@@ -285,3 +285,204 @@ def test_precomputing_supports_board_wider_than_m1() -> None:
     assert result.total_payout == 100
     assert result.matches[0].start_column == 0
     assert result.matches[0].matched_length == 6
+
+
+# --- PreparedPayoutEvaluator (TASK-0650) -----------------------------------
+#
+# `prepare_payout_evaluator` validates paylines and the payout configuration
+# once; `PreparedPayoutEvaluator.evaluate` reuses the precomputed wildcard
+# set, ordinary-symbol order and payout-by-length lookup for every call. It
+# must be a drop-in equivalent of `evaluate_payout` for every board.
+
+
+@pytest.mark.parametrize(
+    "case",
+    _load_fixture()["cases"],
+    ids=lambda case: cast(Mapping[str, Any], case)["id"],
+)
+def test_prepared_evaluator_matches_evaluate_payout_for_every_golden_case(
+    case: Mapping[str, Any],
+) -> None:
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    paylines_by_id = {
+        payline.id: payline for payline in _paylines_from_fixture(fixture["paylines"])
+    }
+    paylines = tuple(paylines_by_id[payline_id] for payline_id in case["paylineIds"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = _rules_from_fixture(fixture["payoutRules"])
+    cells = tuple(cell for row in case["rows"] for cell in row)
+
+    one_shot = evaluate_payout(game, cells, paylines, payout_symbols, rules)
+    prepared = prepare_payout_evaluator(game, paylines, payout_symbols, rules).evaluate(cells)
+
+    assert prepared == one_shot
+
+
+def test_prepare_payout_evaluator_rejects_invalid_configuration_before_any_board() -> None:
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    incomplete_rules = _rules_from_fixture(fixture["payoutRules"])[:-1]
+    paylines = _paylines_from_fixture(fixture["paylines"][:1])
+
+    _assert_domain_error(
+        "incomplete_payout_rules",
+        lambda: prepare_payout_evaluator(game, paylines, payout_symbols, incomplete_rules),
+    )
+
+
+def test_prepared_evaluator_does_not_sum_shorter_and_longer_match_lengths() -> None:
+    """Five A's on one payline pay only the length-5 rule, never 2+3+4+5."""
+
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = _rules_from_fixture(fixture["payoutRules"])
+    middle = _paylines_from_fixture(fixture["paylines"])[1]
+    assert middle.id == "middle"
+    cells = (0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0)
+    evaluator = prepare_payout_evaluator(game, (middle,), payout_symbols, rules)
+
+    result = evaluator.evaluate(cells)
+
+    assert result.total_payout == 50
+    assert len(result.matches) == 1
+    assert result.matches[0].matched_length == 5
+
+
+def test_prepared_evaluator_confirmed_prefix_pays_only_the_confirmed_length() -> None:
+    """C,C,C,?,? pays the length-3 rule for C; the unknown suffix is never assumed."""
+
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = _rules_from_fixture(fixture["payoutRules"])
+    middle = _paylines_from_fixture(fixture["paylines"])[1]
+    cells = (0, 0, 0, 0, 0, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0)
+    evaluator = prepare_payout_evaluator(game, (middle,), payout_symbols, rules)
+
+    result = evaluator.evaluate(cells)
+
+    assert result.total_payout == 30
+    assert result.matches[0].matched_length == 3
+
+
+def test_prepared_evaluator_does_not_skip_an_unknown_cell_inside_the_line() -> None:
+    """C,C,?,C,C never wins as length 4 or 5: the unknown at index 2 stops the prefix."""
+
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = _rules_from_fixture(fixture["payoutRules"])
+    middle = _paylines_from_fixture(fixture["paylines"])[1]
+    # C's minimum match length is 3, so a stopped 2-cell prefix cannot win either.
+    cells = (0, 0, 0, 0, 0, 3, 3, 0, 3, 3, 0, 0, 0, 0, 0)
+    evaluator = prepare_payout_evaluator(game, (middle,), payout_symbols, rules)
+
+    result = evaluator.evaluate(cells)
+
+    assert result.total_payout == 0
+    assert result.matches == ()
+
+
+def test_prepared_evaluator_never_pays_from_an_unknown_left_column() -> None:
+    """?,C,C,C,C never wins: payout-v3 only ever evaluates a prefix from column 0."""
+
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = _rules_from_fixture(fixture["payoutRules"])
+    middle = _paylines_from_fixture(fixture["paylines"])[1]
+    cells = (0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0)
+    evaluator = prepare_payout_evaluator(game, (middle,), payout_symbols, rules)
+
+    result = evaluator.evaluate(cells)
+
+    assert result.total_payout == 0
+    assert result.matches == ()
+
+
+def test_prepared_evaluator_all_joker_prefix_never_wins() -> None:
+    """J,J,?,?,? does not win, even though A's minimum match length is 2."""
+
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = _rules_from_fixture(fixture["payoutRules"])
+    middle = _paylines_from_fixture(fixture["paylines"])[1]
+    cells = (0, 0, 0, 0, 0, 9, 9, 0, 0, 0, 0, 0, 0, 0, 0)
+    evaluator = prepare_payout_evaluator(game, (middle,), payout_symbols, rules)
+
+    result = evaluator.evaluate(cells)
+
+    assert result.total_payout == 0
+    assert result.matches == ()
+
+
+def test_prepared_evaluator_joker_wraps_a_confirmed_prefix() -> None:
+    """J,C,J,?,? pays the length-3 rule for C, with both jokers interpreted as C."""
+
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = _rules_from_fixture(fixture["payoutRules"])
+    middle = _paylines_from_fixture(fixture["paylines"])[1]
+    cells = (0, 0, 0, 0, 0, 9, 3, 9, 0, 0, 0, 0, 0, 0, 0)
+    evaluator = prepare_payout_evaluator(game, (middle,), payout_symbols, rules)
+
+    result = evaluator.evaluate(cells)
+
+    assert result.total_payout == 30
+    assert len(result.matches) == 1
+    match = result.matches[0]
+    assert match.matched_length == 3
+    assert match.symbol_mobile_code == 3
+    assert {interpretation.cell_index for interpretation in match.interpretation} == {5, 7}
+
+
+def test_prepared_evaluator_sums_two_independent_partial_paylines() -> None:
+    """A confirmed win on one payline and another on a different payline both count."""
+
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = _rules_from_fixture(fixture["payoutRules"])
+    top, middle = _paylines_from_fixture(fixture["paylines"])[:2]
+    # top: A,A,A,?,? (prefix length 3 -> payout 10); middle: C,C,C,?,? (payout 30).
+    cells = (1, 1, 1, 0, 0, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0)
+    evaluator = prepare_payout_evaluator(game, (top, middle), payout_symbols, rules)
+
+    result = evaluator.evaluate(cells)
+
+    assert result.total_payout == 40
+    assert {match.payline_id for match in result.matches} == {"top", "middle"}
+
+
+@pytest.mark.parametrize("known_prefix_length", range(0, 6))
+def test_partial_prefix_payout_is_a_confirmed_lower_bound_of_the_full_board(
+    known_prefix_length: int,
+) -> None:
+    """A truncated, otherwise-unknown prefix never pays more than the full board.
+
+    `payout-v3-unknown-prefix-stop` can only extend or end a prefix at the
+    first unknown cell, and payout strictly increases with match length
+    (D-247, `ALGORITHMS.md` §B); a confirmed shorter prefix is therefore
+    always a safe lower bound on the true payout.
+    """
+
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = _rules_from_fixture(fixture["payoutRules"])
+    top = _paylines_from_fixture(fixture["paylines"][:1])[0]
+    full_line = (1, 1, 1, 1, 1)
+    partial_line = full_line[:known_prefix_length] + (0,) * (5 - known_prefix_length)
+    cells_full = (*full_line, *((0,) * 10))
+    cells_partial = (*partial_line, *((0,) * 10))
+    evaluator = prepare_payout_evaluator(game, (top,), payout_symbols, rules)
+
+    full_result = evaluator.evaluate(cells_full)
+    partial_result = evaluator.evaluate(cells_partial)
+
+    assert partial_result.total_payout <= full_result.total_payout

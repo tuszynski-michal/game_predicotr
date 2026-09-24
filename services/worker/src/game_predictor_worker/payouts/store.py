@@ -31,11 +31,116 @@ from game_predictor_worker.payouts.contracts import (
     CalculatedLayoutPayout,
     PayoutLayout,
     PayoutSource,
+    RulesPayoutConfiguration,
 )
 from game_predictor_worker.payouts.readiness import (
     PAYOUT_DIAGNOSTIC_LIMIT,
     PayoutCompletenessFacts,
 )
+
+
+def load_rules_payout_configuration(
+    session: Session,
+    rules_version_id: UUID,
+) -> RulesPayoutConfiguration | None:
+    """Load one rules version's payout-relevant configuration.
+
+    Independent of any dataset: shared by `SqlAlchemyPayoutStore.load_source`
+    (which additionally needs a dataset and its game) and by read-only
+    callers, such as an admin payout-range calculator, that evaluate payout
+    against live board data and never load a dataset at all.
+    """
+    rules = session.get(RulesVersionModel, rules_version_id)
+    if rules is None:
+        return None
+
+    configured_symbols = tuple(
+        session.execute(
+            select(RulesVersionSymbolModel, SymbolModel)
+            .join(
+                SymbolModel,
+                SymbolModel.id == RulesVersionSymbolModel.symbol_id,
+            )
+            .where(
+                RulesVersionSymbolModel.rules_version_id == rules_version_id,
+                RulesVersionSymbolModel.is_active.is_(True),
+            )
+            .order_by(
+                SymbolModel.display_order,
+                SymbolModel.mobile_code,
+                SymbolModel.id,
+            )
+        )
+    )
+    symbols = tuple(
+        SymbolDefinition(
+            mobile_code=symbol.mobile_code,
+            code=symbol.code,
+            name=symbol.name,
+            is_wildcard=symbol.is_wildcard,
+            display_order=symbol.display_order,
+        )
+        for _, symbol in configured_symbols
+    )
+    payout_symbols = tuple(
+        PayoutSymbolDefinition(
+            symbol_mobile_code=symbol.mobile_code,
+            minimum_match_length=configuration.minimum_match_length,
+        )
+        for configuration, symbol in configured_symbols
+        if not symbol.is_wildcard and configuration.minimum_match_length is not None
+    )
+    paylines = tuple(
+        PaylineDefinition(
+            id=str(record.id),
+            row_path=tuple(record.row_path),
+        )
+        for record in session.scalars(
+            select(PaylineModel)
+            .where(
+                PaylineModel.rules_version_id == rules_version_id,
+                PaylineModel.is_active.is_(True),
+            )
+            .order_by(
+                PaylineModel.display_order,
+                PaylineModel.code,
+                PaylineModel.id,
+            )
+        )
+    )
+    payout_rules = tuple(
+        PayoutRuleDefinition(
+            symbol_mobile_code=symbol.mobile_code,
+            match_length=rule.match_length,
+            payout_credits=rule.payout_credits,
+        )
+        for rule, symbol in session.execute(
+            select(PayoutRuleModel, SymbolModel)
+            .join(SymbolModel, SymbolModel.id == PayoutRuleModel.symbol_id)
+            .where(
+                PayoutRuleModel.rules_version_id == rules_version_id,
+                PayoutRuleModel.is_active.is_(True),
+            )
+            .order_by(
+                SymbolModel.display_order,
+                SymbolModel.mobile_code,
+                PayoutRuleModel.match_length,
+                PayoutRuleModel.id,
+            )
+        )
+    )
+    return RulesPayoutConfiguration(
+        rules_version_id=rules.id,
+        rules_game_id=rules.game_id,
+        status=rules.status,
+        rows=rules.rows,
+        columns=rules.columns,
+        spin_cost=rules.spin_cost,
+        symbols=symbols,
+        paylines=paylines,
+        payout_symbols=payout_symbols,
+        payout_rules=payout_rules,
+    )
 
 
 class SqlAlchemyPayoutStore:
@@ -49,95 +154,22 @@ class SqlAlchemyPayoutStore:
     ) -> PayoutSource | None:
         with self._session_factory() as session:
             dataset = session.get(DatasetVersionModel, dataset_version_id)
-            rules = session.get(RulesVersionModel, rules_version_id)
-            if dataset is None or rules is None:
+            if dataset is None:
+                return None
+            configuration = load_rules_payout_configuration(session, rules_version_id)
+            if configuration is None:
                 return None
             game = session.get(GameModel, dataset.game_id)
             if game is None:
                 return None
 
-            configured_symbols = tuple(
-                session.execute(
-                    select(RulesVersionSymbolModel, SymbolModel)
-                    .join(
-                        SymbolModel,
-                        SymbolModel.id == RulesVersionSymbolModel.symbol_id,
-                    )
-                    .where(
-                        RulesVersionSymbolModel.rules_version_id == rules_version_id,
-                        RulesVersionSymbolModel.is_active.is_(True),
-                    )
-                    .order_by(
-                        SymbolModel.display_order,
-                        SymbolModel.mobile_code,
-                        SymbolModel.id,
-                    )
-                )
-            )
-            symbols = tuple(
-                SymbolDefinition(
-                    mobile_code=symbol.mobile_code,
-                    code=symbol.code,
-                    name=symbol.name,
-                    is_wildcard=symbol.is_wildcard,
-                    display_order=symbol.display_order,
-                )
-                for _, symbol in configured_symbols
-            )
-            payout_symbols = tuple(
-                PayoutSymbolDefinition(
-                    symbol_mobile_code=symbol.mobile_code,
-                    minimum_match_length=configuration.minimum_match_length,
-                )
-                for configuration, symbol in configured_symbols
-                if not symbol.is_wildcard and configuration.minimum_match_length is not None
-            )
-            paylines = tuple(
-                PaylineDefinition(
-                    id=str(record.id),
-                    row_path=tuple(record.row_path),
-                )
-                for record in session.scalars(
-                    select(PaylineModel)
-                    .where(
-                        PaylineModel.rules_version_id == rules_version_id,
-                        PaylineModel.is_active.is_(True),
-                    )
-                    .order_by(
-                        PaylineModel.display_order,
-                        PaylineModel.code,
-                        PaylineModel.id,
-                    )
-                )
-            )
-            payout_rules = tuple(
-                PayoutRuleDefinition(
-                    symbol_mobile_code=symbol.mobile_code,
-                    match_length=rule.match_length,
-                    payout_credits=rule.payout_credits,
-                )
-                for rule, symbol in session.execute(
-                    select(PayoutRuleModel, SymbolModel)
-                    .join(SymbolModel, SymbolModel.id == PayoutRuleModel.symbol_id)
-                    .where(
-                        PayoutRuleModel.rules_version_id == rules_version_id,
-                        PayoutRuleModel.is_active.is_(True),
-                    )
-                    .order_by(
-                        SymbolModel.display_order,
-                        SymbolModel.mobile_code,
-                        PayoutRuleModel.match_length,
-                        PayoutRuleModel.id,
-                    )
-                )
-            )
             return PayoutSource(
                 dataset_version_id=dataset.id,
-                rules_version_id=rules.id,
+                rules_version_id=configuration.rules_version_id,
                 game_id=dataset.game_id,
-                rules_game_id=rules.game_id,
+                rules_game_id=configuration.rules_game_id,
                 dataset_status=dataset.status,
-                rules_status=rules.status,
+                rules_status=configuration.status,
                 dataset_rows=dataset.rows,
                 dataset_columns=dataset.columns,
                 layout_count=dataset.layout_count,
@@ -145,15 +177,15 @@ class SqlAlchemyPayoutStore:
                     id=str(game.id),
                     code=game.code,
                     name=game.name,
-                    rows=rules.rows,
-                    columns=rules.columns,
-                    spin_cost=rules.spin_cost,
+                    rows=configuration.rows,
+                    columns=configuration.columns,
+                    spin_cost=configuration.spin_cost,
                     signature_cell_width=dataset.signature_cell_width,
-                    symbols=symbols,
+                    symbols=configuration.symbols,
                 ),
-                paylines=paylines,
-                payout_symbols=payout_symbols,
-                payout_rules=payout_rules,
+                paylines=configuration.paylines,
+                payout_symbols=configuration.payout_symbols,
+                payout_rules=configuration.payout_rules,
             )
 
     def list_layout_batch(

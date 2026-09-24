@@ -6,6 +6,44 @@ last_updated: 2026-09-24
 
 # Current State
 
+### TASK-0650 — wspólny kalkulator payout w workerze, `PreparedPayoutEvaluator` (2/6, plan D-445)
+
+- Drugi task planu sesji `2026-09-24` „Przybliżona wygrana” w „Wyszukaj
+  plansze”. Taski `0651`–`0654` jeszcze nie zostały napisane jako pliki.
+- `services/worker/.../domain/payout.py`: nowy `PreparedPayoutEvaluator` i
+  `prepare_payout_evaluator(game, paylines, payout_symbols, payout_rules)` —
+  waliduje paylines i macierz payoutu raz, potem tanio ocenia wiele plansz
+  (`payout-v3-unknown-prefix-stop`, D-247). Wspólny prywatny
+  `_evaluate_matches` jest teraz używany zarówno przez nowy evaluator, jak i
+  przez istniejące `evaluate_payout`/`evaluate_payout_v2`, których kolejność
+  walidacji i wyniki pozostają bit-w-bit identyczne (42/42 testów
+  `test_payout.py`, w tym 9 golden cases, zielone bez zmiany oczekiwań).
+- `services/worker/.../payouts/contracts.py` + `payouts/store.py`: nowy
+  `RulesPayoutConfiguration` i funkcja modułowa
+  `load_rules_payout_configuration(session, rules_version_id)` — konfiguracja
+  jednej wersji reguł niezależna od datasetu (rows/columns/spin_cost,
+  symbole, paylines, payout_symbols, payout_rules). `SqlAlchemyPayoutStore.
+  load_source` korzysta z niej zamiast duplikować zapytania; zwraca
+  identyczny `PayoutSource` co przed refaktorem.
+- Cel: TASK-0651/0652 (kalkulator „Przybliżonej wygranej” w Adminie) będą
+  mogły ocenić do 10 000 plansz jednej opublikowanej wersji reguł bez
+  budowania `PayoutSource`/`dataset_version_id` i bez powtarzania walidacji
+  całej macierzy payout przy każdej planszy.
+- 13 nowych testów lower-bound w `test_payout.py` (brak sumowania 3+4+5,
+  potwierdzony minimalny prefiks, brak przeskakiwania `?` w środku, brak
+  naliczania z uciętej lewej strony, sam joker nie wygrywa, joker otaczający
+  potwierdzony prefiks, dwie niezależne paylines, 6 wariantów monotoniczności
+  „plansza częściowa ≤ plansza kompletna”). `test_payout_batch.py`/
+  `test_payout_readiness.py` bez zmian, 60/60 zielone łącznie. `ruff check`/
+  `ruff format --check`/`mypy --strict` czyste dla zmienionych plików.
+- **Znaleziony, niezwiązany pre-existing czerwony test** (nie naprawiony,
+  zgłoszony jako osobna sugestia): `services/api/tests/integration/
+  test_payout_store.py::test_payout_store_loads_versioned_source_and_upserts_without_duplicates`
+  failuje `NotNullViolation` na `dataset_versions.expected_layout_count` —
+  fikstura testu nie ustawia tej kolumny, dziś `NOT NULL`. Potwierdzone jako
+  sprzed TASK-0650 przez tymczasowy `git stash` i ponowne uruchomienie na
+  `v0.10.418`.
+
 ### TASK-0649 — „Liczba wyników” wyszukiwania plansz + kontrolowany wybór wyniku (1/6, plan D-445)
 
 - Pierwszy task planu sesji `2026-09-24` „Przybliżona wygrana” w „Wyszukaj

@@ -17,7 +17,30 @@ from game_predictor_worker.domain.contracts import (
     PayoutEvaluation,
     PayoutRuleDefinition,
     PayoutSymbolDefinition,
+    SymbolDefinition,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class RulesPayoutConfiguration:
+    """Everything payout evaluation needs from one rules version.
+
+    Board dimensions, spin cost and the payout-relevant symbol/payline/rule
+    rows — independent of any dataset, so it can back both the worker's
+    per-dataset payout batches (`PayoutSource`) and read-only calculators
+    that evaluate payout against live board data and never touch a dataset.
+    """
+
+    rules_version_id: UUID
+    rules_game_id: UUID
+    status: RulesVersionStatus
+    rows: int
+    columns: int
+    spin_cost: int
+    symbols: tuple[SymbolDefinition, ...]
+    paylines: tuple[PaylineDefinition, ...]
+    payout_symbols: tuple[PayoutSymbolDefinition, ...]
+    payout_rules: tuple[PayoutRuleDefinition, ...]
 
 
 @dataclass(frozen=True, slots=True)

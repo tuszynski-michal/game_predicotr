@@ -9,6 +9,8 @@ does interval arithmetic, so it is fully unit-testable without PostgreSQL.
 
 from __future__ import annotations
 
+import heapq
+from bisect import bisect_right
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
@@ -128,18 +130,65 @@ def _boundary_points(
     return sorted(p for p in points if window_start <= p <= window_end + 1)
 
 
-def _reason_at(point: int, reasons: Sequence[ReasonSpan]) -> ReasonSpan | None:
-    best: ReasonSpan | None = None
+class _AddedLookup:
+    """O(log n) "is this point added" queries over sorted, disjoint intervals.
+
+    ``added`` is produced by a SQL gaps-and-islands query, so it always
+    arrives sorted by start and non-overlapping — a linear scan per point
+    (the original implementation) is O(points * len(added)), which is
+    quadratic in practice: a game with hundreds of thousands of added
+    numbers has thousands of islands, and a full-range sweep visits
+    thousands of points, so the naive scan took tens of seconds on real
+    data (see D-437 board-import-coverage performance regression). Binary
+    search on the interval starts makes each query O(log len(added)).
+    """
+
+    def __init__(self, added: Sequence[SequenceInterval]) -> None:
+        self._added = added
+        self._starts = [interval.start for interval in added]
+
+    def contains(self, point: int) -> bool:
+        index = bisect_right(self._starts, point) - 1
+        if index < 0:
+            return False
+        interval = self._added[index]
+        return interval.start <= point <= interval.end
+
+
+def _reason_sweep(
+    points: Sequence[int], reasons: Sequence[ReasonSpan]
+) -> dict[int, ReasonSpan]:
+    """Map each of ``points`` to its highest-priority active span, if any.
+
+    A classic interval sweep with a lazily-cleaned priority heap: O((len(
+    points) + len(reasons)) * log(len(reasons))) overall, instead of the
+    O(len(points) * len(reasons)) a per-point linear scan costs — the same
+    quadratic blowup ``_AddedLookup`` above fixes, just for reasons instead
+    of added islands. ``points`` must be sorted ascending.
+    """
+
+    starts_at: dict[int, list[ReasonSpan]] = {}
+    ends_at: dict[int, list[ReasonSpan]] = {}
     for span in reasons:
-        if span.interval.start <= point <= span.interval.end and (
-            best is None or span.reason.priority < best.reason.priority
-        ):
-            best = span
-    return best
+        starts_at.setdefault(span.interval.start, []).append(span)
+        ends_at.setdefault(span.interval.end + 1, []).append(span)
 
-
-def _is_added_at(point: int, added: Sequence[SequenceInterval]) -> bool:
-    return any(interval.start <= point <= interval.end for interval in added)
+    heap: list[tuple[int, int, ReasonSpan]] = []
+    counter = 0
+    live_ids: set[int] = set()
+    result: dict[int, ReasonSpan] = {}
+    for point in points:
+        for span in ends_at.get(point, ()):
+            live_ids.discard(id(span))
+        for span in starts_at.get(point, ()):
+            counter += 1
+            heapq.heappush(heap, (span.reason.priority, counter, span))
+            live_ids.add(id(span))
+        while heap and id(heap[0][2]) not in live_ids:
+            heapq.heappop(heap)
+        if heap:
+            result[point] = heap[0][2]
+    return result
 
 
 def build_coverage_page(
@@ -176,13 +225,15 @@ def build_coverage_page(
         return CoveragePage(segments=(), next_after_sequence_number=None)
 
     points = _boundary_points(window_start, window_end, added, reasons)
+    added_lookup = _AddedLookup(added)
+    reason_by_point = _reason_sweep(points, reasons) if view == "missing" else {}
     segments: list[CoverageSegment] = []
     for index in range(len(points) - 1):
         start = points[index]
         end = points[index + 1] - 1
         if end < start:
             continue
-        is_added = _is_added_at(start, added)
+        is_added = added_lookup.contains(start)
         if view == "added":
             if not is_added:
                 continue
@@ -192,7 +243,7 @@ def build_coverage_page(
         else:
             if is_added:
                 continue
-            span = _reason_at(start, reasons)
+            span = reason_by_point.get(start)
             reason = span.reason if span is not None else MissingReason.NO_SOURCE
             state = reason.value
             error_code = span.error_code if span is not None else None
@@ -245,12 +296,14 @@ def count_missing_by_reason(
 
     counts: dict[MissingReason, int] = {reason: 0 for reason in MissingReason}
     points = _boundary_points(1, expected, added, reasons)
+    added_lookup = _AddedLookup(added)
+    reason_by_point = _reason_sweep(points, reasons)
     for index in range(len(points) - 1):
         start = points[index]
         end = points[index + 1] - 1
-        if end < start or _is_added_at(start, added):
+        if end < start or added_lookup.contains(start):
             continue
-        span = _reason_at(start, reasons)
+        span = reason_by_point.get(start)
         reason = span.reason if span is not None else MissingReason.NO_SOURCE
         counts[reason] += end - start + 1
     return counts

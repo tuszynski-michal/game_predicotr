@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from uuid import UUID
 
 import pytest
@@ -202,3 +203,51 @@ class TestCountMissingByReason:
             expected=5, added=[SequenceInterval(1, 5)], reasons=[]
         )
         assert sum(counts.values()) == 0
+
+
+class TestPerformanceAtProductionScale:
+    """Guards against the quadratic-scan regression found on a real game.
+
+    A per-point linear scan over ``added``/``reasons`` (the original
+    implementation) is fine on the unit tests above, which use a handful of
+    intervals, but costs tens of seconds against a real ~500k-board game
+    with thousands of islands and thousands of individual reason spans —
+    exactly the shape this test builds. ``_AddedLookup``/``_reason_sweep``
+    fixed it to run in low-single-digit seconds; this asserts it stays
+    that way, generously bounded to avoid CI flakiness.
+    """
+
+    @staticmethod
+    def _adversarial_inputs(
+        expected: int,
+    ) -> tuple[list[SequenceInterval], list[ReasonSpan]]:
+        # Alternating added/missing single numbers: worst case for interval
+        # count relative to range size, and forces every boundary point to
+        # differ from its neighbours (no free merging).
+        reason_cycle = list(MissingReason)
+        added = [SequenceInterval(n, n) for n in range(1, expected, 2)]
+        reasons = [
+            ReasonSpan(SequenceInterval(n, n), reason_cycle[n % len(reason_cycle)])
+            for n in range(2, expected, 2)
+        ]
+        return added, reasons
+
+    def test_build_coverage_page_stays_fast_at_production_scale(self) -> None:
+        expected = 200_000
+        added, reasons = self._adversarial_inputs(expected)
+        start = time.monotonic()
+        page = build_coverage_page(
+            expected=expected, added=added, reasons=reasons, view="missing", limit=100
+        )
+        elapsed = time.monotonic() - start
+        assert len(page.segments) == 100
+        assert elapsed < 5.0, f"build_coverage_page took {elapsed:.2f}s, expected < 5s"
+
+    def test_count_missing_by_reason_stays_fast_at_production_scale(self) -> None:
+        expected = 200_000
+        added, reasons = self._adversarial_inputs(expected)
+        start = time.monotonic()
+        counts = count_missing_by_reason(expected=expected, added=added, reasons=reasons)
+        elapsed = time.monotonic() - start
+        assert sum(counts.values()) == expected - len(added)
+        assert elapsed < 5.0, f"count_missing_by_reason took {elapsed:.2f}s, expected < 5s"

@@ -295,6 +295,21 @@ testy są uruchamiane.
 - `ai_docs/architecture/DATA_MODEL.md`: nowa sekcja „Pokrycie importu plansz
   (D-437) — TASK-0629" dodana na górze pliku.
 
+### Poprawka post-hoc (2026-09-24, po TASK-0631) — D-440
+
+Użytkownik zgłosił podejrzenie błędnej definicji „dodanej”; weryfikacja na
+realnych danych ujawniła, że `SqlAlchemyBoardImportCoverageRepository`
+nigdy nie wywoływał `GameStorageRouter().bind()`, więc dla gier
+`game_data_v2` po cichu czytał pusty schemat `public` — definicja D-437 w
+kodzie była poprawna, ale zapytania nigdy nie trafiały w realne dane. Przy
+tej samej weryfikacji ujawnił się też efekt uboczny: liniowe skanowanie w
+`domain/board_import_coverage.py` dawało 90,6 s na jedno żądanie dla gry z
+~420 000 dodanymi planszami; zastąpione wyszukiwaniem binarnym/sweepem,
+~2 s. Pełne szczegóły, przyczyna i naprawa: `DECISION_LOG.md` D-440,
+`CURRENT_STATE.md`. Brak testu na grę `game_data_v2` w oryginalnym zestawie
+integracyjnym tego taska (wszystkie fixture'y używały wyłącznie `public`)
+pozwolił błędowi przejść niezauważonym — dodany teraz.
+
 ### Recommended next task
 
 - `TASK-0630` (endpoint i klient) — zależność spełniona: domena, repozytorium

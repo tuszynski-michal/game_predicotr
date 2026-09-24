@@ -21,6 +21,11 @@ from game_predictor_api.domain.board_import_coverage import MissingReason
 from game_predictor_api.storage.board_import_coverage_repository import (
     SqlAlchemyBoardImportCoverageRepository,
 )
+from game_predictor_api.storage.game_data_v2_manifest_v1 import VERSION
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -73,6 +78,65 @@ def database() -> Iterator[Engine]:
         with maintenance.connect() as connection:
             connection.execute(text(f"DROP DATABASE {_quote(name)}"))
         maintenance.dispose()
+
+
+def _provision_public_storage_location(session: Session, *, game_id: UUID) -> None:
+    """Register the row GameStorageRouter.bind() requires before routing.
+
+    Real games get this row from the game-creation use case; these fixtures
+    build games directly via the ORM, so it has to be inserted by hand. All
+    fixture data here lives in the default `public` schema (generation 1).
+    """
+
+    session.execute(
+        text(
+            "INSERT INTO public.game_storage_locations "
+            "(game_id, store_schema, generation, manifest_version, status, revision) "
+            "VALUES (:game_id, 'public', 1, :version, 'active', 0)"
+        ),
+        {"game_id": game_id, "version": VERSION},
+    )
+
+
+_V2_PARTITIONED_TABLES = (
+    "source_images",
+    "recognized_boards",
+    "cell_observations",
+    "image_review_items",
+    "image_sequence_canonical",
+    "image_import_job_files",
+    "image_review_queue_items",
+    "image_review_queue_states",
+)
+
+
+def _provision_v2_storage_location(session: Session, *, game_id: UUID) -> None:
+    """Route a game to game_data_v2 and create its partitions for this test.
+
+    Mirrors the fixtures in test_game_storage_routing_postgres.py: a real
+    cutover also runs storage_generation-tracking migration steps this
+    fixture skips, but the routing behavior under test only needs the
+    registry row, live partitions for the tables this scenario touches, and
+    GameStorageRouter.bind() to establish the session's search_path/RLS scope
+    before any insert.
+    """
+
+    session.execute(
+        text(
+            "INSERT INTO public.game_storage_locations "
+            "(game_id, store_schema, generation, manifest_version, status, revision) "
+            "VALUES (:game_id, 'game_data_v2', 2, :version, 'active', 0)"
+        ),
+        {"game_id": game_id, "version": VERSION},
+    )
+    for table in _V2_PARTITIONED_TABLES:
+        session.execute(
+            text(
+                f"CREATE TABLE game_data_v2.{table}_g_{game_id.hex} "
+                f"PARTITION OF game_data_v2.{table} FOR VALUES IN ('{game_id}')"
+            )
+        )
+    GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
 
 
 def _import_job(session: Session, *, game_id: UUID, status: str = "processing") -> JobModel:
@@ -261,6 +325,7 @@ def test_pending_complete_board_without_canonical_is_added(database: Engine) -> 
         game = GameModel(code="cov-1", name="Coverage 1", expected_layout_count=20)
         session.add(game)
         session.flush()
+        _provision_public_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="completed")
         source = _source(session, job=job, relative_path="seq_1-1.jpg")
         _add_complete_board(
@@ -281,6 +346,7 @@ def test_partial_only_board_is_missing_with_reason(database: Engine) -> None:
         game = GameModel(code="cov-2", name="Coverage 2", expected_layout_count=10)
         session.add(game)
         session.flush()
+        _provision_public_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="completed")
         source = _source(session, job=job, relative_path="seq_5-5.jpg")
         _add_partial_board(
@@ -301,6 +367,8 @@ def test_number_without_any_trace_is_no_source(database: Engine) -> None:
     with Session(database, expire_on_commit=False) as session, session.begin():
         game = GameModel(code="cov-3", name="Coverage 3", expected_layout_count=5)
         session.add(game)
+        session.flush()
+        _provision_public_storage_location(session, game_id=game.id)
 
     with Session(database) as session:
         repo = SqlAlchemyBoardImportCoverageRepository(session)
@@ -318,6 +386,7 @@ def test_gaps_at_start_middle_and_end(database: Engine) -> None:
         game = GameModel(code="cov-4", name="Coverage 4", expected_layout_count=20)
         session.add(game)
         session.flush()
+        _provision_public_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="completed")
         for order_index, sequence_number in enumerate([*range(3, 8), *range(10, 18)]):
             source = _source(
@@ -347,6 +416,7 @@ def test_active_import_file_marks_in_progress_not_no_source(database: Engine) ->
         game = GameModel(code="cov-5", name="Coverage 5", expected_layout_count=20)
         session.add(game)
         session.flush()
+        _provision_public_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="processing")
         checksum = uuid4().hex * 2
         session.add(
@@ -389,6 +459,7 @@ def test_geometry_pending_resolution_creates_item_and_stays_added(database: Engi
         game = GameModel(code="cov-6", name="Coverage 6", expected_layout_count=5)
         session.add(game)
         session.flush()
+        _provision_public_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="completed")
         source = _source(session, job=job, relative_path="seq_2-2.jpg")
 
@@ -430,6 +501,7 @@ def test_duplicate_supersession_counts_distinct_and_totals_match_expected(databa
         game = GameModel(code="cov-7", name="Coverage 7", expected_layout_count=6)
         session.add(game)
         session.flush()
+        _provision_public_storage_location(session, game_id=game.id)
         job_a = _import_job(session, game_id=game.id, status="completed")
         source_a = _source(session, job=job_a, relative_path="seq_1-6.jpg")
         for sequence_number in range(1, 7):
@@ -487,6 +559,7 @@ def test_numbers_above_expected_are_out_of_range_not_added(database: Engine) -> 
         game = GameModel(code="cov-8", name="Coverage 8", expected_layout_count=3)
         session.add(game)
         session.flush()
+        _provision_public_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="completed")
         source = _source(session, job=job, relative_path="seq_9-9.jpg")
         item = _add_complete_board(
@@ -515,3 +588,38 @@ def test_numbers_above_expected_are_out_of_range_not_added(database: Engine) -> 
         assert report.counts.out_of_range == 1
         assert report.counts.added == 0
         assert [(s.start, s.end) for s in report.page.segments] == [(1, 3)]
+
+
+def test_pending_complete_board_in_a_game_data_v2_routed_game_is_added(
+    database: Engine,
+) -> None:
+    """Regression: board_import_coverage must bind GameStorageRouter itself.
+
+    None of this router's endpoints live under /admin/games/{gameId}/..., so
+    the app-wide bind_game_storage_request middleware never fires for them,
+    and plain `select(...).where(Model.col == value)` queries never populate
+    execute_state.parameters, so the ORM auto-detection fallback in
+    database.py never fires either. Without an explicit
+    GameStorageRouter().bind() call in the repository itself, every query
+    here silently reads the empty public schema instead of game_data_v2 and
+    reports a fully game_data_v2-routed game as 100% missing no matter how
+    much real, pending, fully-cut data it has.
+    """
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        game = GameModel(code="cov-9", name="Coverage 9", expected_layout_count=5)
+        session.add(game)
+        session.flush()
+        _provision_v2_storage_location(session, game_id=game.id)
+        job = _import_job(session, game_id=game.id, status="completed")
+        source = _source(session, job=job, relative_path="seq_1-1.jpg")
+        _add_complete_board(
+            session, game_id=game.id, job=job, source=source, position=0, sequence_number=1
+        )
+
+    with Session(database) as session:
+        repo = SqlAlchemyBoardImportCoverageRepository(session)
+        report = repo.board_import_coverage(game.id, view="missing")
+        assert report is not None
+        assert report.counts.added == 1
+        assert report.counts.missing == 4
+        assert all(segment.start > 1 or segment.end < 1 for segment in report.page.segments)

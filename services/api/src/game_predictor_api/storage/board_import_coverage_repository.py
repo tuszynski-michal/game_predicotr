@@ -31,6 +31,10 @@ from game_predictor_api.domain.image_geometry_v2 import (
     parse_attested_sequence_range_filename,
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+)
 from game_predictor_api.storage.models import (
     GameModel,
     ImageBoardGeometryPendingModel,
@@ -98,9 +102,21 @@ class SqlAlchemyBoardImportCoverageRepository:
         expected = self.expected_layout_count(game_id)
         if expected is None:
             return None
+        # `games`/`jobs` are catalog tables in `public`, always reachable
+        # without routing. Every table touched below (image_review_items,
+        # recognized_boards, image_sequence_canonical, ...) is game-owned and
+        # may live in `game_data_v2` — bind the session's search_path/RLS
+        # scope to this game before touching any of them. Without this, none
+        # of this router's endpoints sit under `/admin/games/{game_id}/...`,
+        # so the app-wide `bind_game_storage_request` middleware never fires
+        # for them, and ORM-level auto-detection never fires either (it only
+        # inspects explicit `session.execute(stmt, params)` parameters, which
+        # plain `select(...).where(Model.col == value)` never populates).
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
 
+        job_files = self._job_file_spans(game_id)
         added = self._added_islands(game_id, expected)
-        reasons = self._reason_spans(game_id, expected)
+        reasons = self._reason_spans(game_id, expected, job_files)
 
         added_total = sum(interval.end - interval.start + 1 for interval in added)
         approved = int(
@@ -130,7 +146,7 @@ class SqlAlchemyBoardImportCoverageRepository:
             out_of_range=out_of_range,
         )
         missing_by_reason = count_missing_by_reason(expected=expected, added=added, reasons=reasons)
-        notices = self._notices(game_id)
+        notices = self._notices(game_id, job_files)
 
         page = build_coverage_page(
             expected=expected,
@@ -208,7 +224,12 @@ class SqlAlchemyBoardImportCoverageRepository:
         ).all()
         return [SequenceInterval(int(start), int(end)) for start, end in rows]
 
-    def _reason_spans(self, game_id: UUID, expected: int) -> list[ReasonSpan]:
+    def _reason_spans(
+        self,
+        game_id: UUID,
+        expected: int,
+        job_files: tuple[list[tuple[UUID, str, str | None]], list[tuple[UUID, str]]],
+    ) -> list[ReasonSpan]:
         spans: list[ReasonSpan] = []
 
         geometry_pending_rows = self._session.execute(
@@ -313,7 +334,7 @@ class SqlAlchemyBoardImportCoverageRepository:
                 )
             )
 
-        failed_files, active_files = self._job_file_spans(game_id)
+        failed_files, active_files = job_files
         for job_id, path, error_code in failed_files:
             try:
                 parsed = parse_attested_sequence_range_filename(path)
@@ -376,7 +397,11 @@ class SqlAlchemyBoardImportCoverageRepository:
             [(row[0], row[1]) for row in active],
         )
 
-    def _notices(self, game_id: UUID) -> BoardImportCoverageNotices:
+    def _notices(
+        self,
+        game_id: UUID,
+        job_files: tuple[list[tuple[UUID, str, str | None]], list[tuple[UUID, str]]],
+    ) -> BoardImportCoverageNotices:
         unnumbered = int(
             self._session.scalar(
                 select(func.count())
@@ -401,7 +426,7 @@ class SqlAlchemyBoardImportCoverageRepository:
             )
             or 0
         )
-        failed_files, active_files = self._job_file_spans(game_id)
+        failed_files, active_files = job_files
         failed_without_range = 0
         for _job_id, path, _error_code in failed_files:
             try:

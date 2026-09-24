@@ -6,6 +6,74 @@ last_updated: 2026-09-24
 
 # Decision Log
 
+## D-440 — `board-import-coverage` musi jawnie bindować `GameStorageRouter`; ten sam brak dotyczy sąsiednich endpointów `image-review-items`
+
+- **Status:** accepted (naprawa post-hoc TASK-0629/0630, zgłoszona przez
+  użytkownika 2026-09-24 jako podejrzenie błędnej definicji „dodanej”).
+- **Date:** 2026-09-24.
+- **Decision:** `SqlAlchemyBoardImportCoverageRepository.board_import_coverage`
+  wywołuje teraz jawnie `GameStorageRouter().bind(session, game_id,
+  intent=GameStorageIntent.READ)` na starcie, zanim dotknie jakiejkolwiek
+  tabeli game-owned (`image_review_items`, `recognized_boards`,
+  `image_sequence_canonical`, `image_board_geometry_pending`,
+  `image_import_job_files`). Bez tego wywołania, dla gry przeniesionej na
+  `game_data_v2`, endpoint po cichu odczytywał pusty schemat `public` i
+  raportował 100% braków niezależnie od realnej liczby pociętych plansz.
+- **Rationale (jak znaleziono):** użytkownik zgłosił podejrzenie, że sekcja
+  „Brakujące plansze” liczy planszę jako dodaną dopiero po ręcznym
+  zatwierdzeniu, a nie od razu po cięciu na 15 komórek (zgodnie z D-437,
+  status `pending` z `completeness_status='complete'` powinien wystarczyć,
+  niezależnie od tego, czy pojedynczy symbol trafił jako „Nierozpoznany ?”).
+  Weryfikacja bezpośrednim zapytaniem do bazy potwierdziła: gra „777”
+  (`storageSchema=game_data_v2`) miała 419 365 żywych `pending` review items
+  z kompletną planszą, a endpoint zwracał `added=0`. Pierwsza próba
+  wyjaśnienia (podczas TASK-0631) — że to dane sprzed cutoveru, nieskopiowane
+  przy migracji — była **błędna**: to porównanie użyło `dataset-completeness`
+  jako punktu odniesienia, a ten endpoint liczy wyłącznie kanoniczne
+  (zatwierdzone) sekwencje, których dla tej gry akurat też było zero,
+  niezależnie od jakiegokolwiek błędu routingu — zbieżność wyników zamaskowała
+  problem zamiast go wykluczyć.
+  Rzeczywista przyczyna: żaden endpoint w routerze `image-review-items`
+  (`dataset-completeness`, `board-import-coverage`, `canonical`,
+  `sequence-sources`, `pending-symbol-reinference`,
+  `pending-grid-reinference`) nie leży pod `/admin/games/{gameId}/...`, więc
+  middleware `bind_game_storage_request` (dopasowanie ścieżki `games/<uuid>/`)
+  nigdy się dla nich nie uruchamia. Automatyczne wykrywanie `game_id` w
+  `database.py` (`_route_orm_statement` → `_parameter_game_id`) też nie
+  działa dla zwykłych zapytań ORM: `execute_state.parameters` jest `None`,
+  gdy wartości trafiają do zapytania przez `.where(Model.col == value)`
+  zamiast jawnego `session.execute(stmt, {"game_id": ...})` — potwierdzone
+  bezpośrednią inspekcją zdarzenia `do_orm_execute`.
+- **Skala:** `dataset_completeness`, `sequence_source_selection` i inne
+  metody w `image_review_repository.py` **nigdy nie wywołują `.bind()`**
+  (potwierdzone grepem). To ten sam brak, ale nie jest jeszcze potwierdzone,
+  czy w praktyce dawał błędne wyniki dla realnych `game_data_v2` gier z
+  danymi kanonicznymi — dla gry „777” `dataset-completeness` przypadkiem
+  zwracał poprawne „0”, bo kanonicznych sekwencji rzeczywiście nie było.
+  **Nie naprawiono** w ramach tej sesji — poza zakresem zgłoszenia
+  użytkownika, wymaga osobnej weryfikacji i taska.
+- **Efekt uboczny, znaleziony przy weryfikacji na realnych danych:**
+  `domain/board_import_coverage.py` liczyło `_is_added_at`/`_reason_at` przez
+  liniowe skanowanie całej listy `added`/`reasons` dla każdego punktu
+  granicznego — O(punkty × rozmiar), kwadratowe w praktyce. Dla gry „777”
+  (~16 000 wysp `added`, tysiące pojedynczych `ReasonSpan`) pojedyncze
+  żądanie trwało **90,6 s**. Zastąpione: `_AddedLookup` (wyszukiwanie binarne
+  po posortowanych, rozłącznych przedziałach) i `_reason_sweep` (sweep
+  liniowy z kopcem priorytetowym i leniwym usuwaniem) — O((added + reasons)
+  log(reasons)). To samo żądanie: **~2 s**. Dodano testy `_adversarial_inputs`
+  (200 000-elementowy zakres, naprzemienne dodane/brakujące) jako straż przed
+  regresją złożoności.
+- **Compatibility:** wyłącznie poprawka błędu i wydajności w kodzie z
+  TASK-0629/0630; brak zmiany kontraktu API, definicji D-437 ani migracji.
+  Dodano regresyjny test integracyjny na realnie zrutowanej grze
+  `game_data_v2` (partycje + `GameStorageRouter().bind()`), którego brak w
+  oryginalnych testach TASK-0629 pozwolił temu błędowi przejść niezauważonym
+  (te testy tworzyły gry wyłącznie w domyślnym schemacie `public`).
+- **Safety:** naprawa jest czysto do odczytu, bez zmiany danych. Nie
+  naprawiono sąsiednich endpointów — jeśli mają ten sam błąd, nadal go mają;
+  wymaga osobnej decyzji użytkownika przed dotknięciem „zaufanych”,
+  wcześniej wysłanych endpointów.
+
 ## D-439 — Wstępna geometria strony z automatycznej propozycji (`automaticPageProposal`)
 
 - **Status:** accepted (TASK-0632, T1 z 3-taskowego planu T1→T2→T3; T2/T3

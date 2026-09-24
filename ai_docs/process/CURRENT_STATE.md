@@ -6,6 +6,45 @@ last_updated: 2026-09-24
 
 # Current State
 
+### Poprawka błędu — `board-import-coverage` czytał pusty schemat dla gier `game_data_v2` (D-440)
+
+- Użytkownik zgłosił podejrzenie: sekcja „Brakujące plansze” wygląda, jakby
+  liczyła planszę jako dodaną dopiero po ręcznym zatwierdzeniu, a powinna od
+  razu po cięciu na 15 komórek (D-437 to już definiuje — status `pending` +
+  `completeness_status='complete'` wystarcza, niezależnie od pojedynczych
+  symboli „Nierozpoznany ?”). Weryfikacja bezpośrednim zapytaniem
+  potwierdziła: gra „777” miała 419 365 żywych `pending` review items z
+  kompletną planszą, a endpoint zwracał `added=0`.
+- Przyczyna: `board_import_coverage` nigdy nie wywoływał
+  `GameStorageRouter().bind()`. Żaden endpoint w routerze
+  `image-review-items` (w tym `board-import-coverage`,
+  `dataset-completeness`, `canonical`, `sequence-sources`,
+  `pending-symbol-reinference`, `pending-grid-reinference`) nie leży pod
+  `/admin/games/{gameId}/...`, więc middleware `bind_game_storage_request`
+  nigdy się dla nich nie uruchamia; automatyczne wykrywanie `game_id` w
+  `database.py` też nie działa dla zwykłych zapytań ORM
+  (`execute_state.parameters` jest `None`, gdy wartości trafiają do
+  zapytania przez `.where(...)`, nie przez jawny `execute(stmt, params)`).
+  Dla gry `game_data_v2` zapytania po cichu czytały pusty `public`.
+  Naprawione jawnym `.bind(session, game_id, intent=READ)` na starcie
+  metody. **Ten sam brak może dotyczyć sąsiednich endpointów — nie
+  sprawdzone ani nie naprawione w tej sesji, poza zgłoszeniem.**
+- Przy weryfikacji na realnych danych (~500 000 oczekiwanych, ~420 000
+  dodanych, ~16 000 wysp) ujawnił się też efekt uboczny: `_is_added_at`/
+  `_reason_at` skanowały całą listę liniowo dla każdego punktu granicznego —
+  jedno żądanie trwało **90,6 s**. Zastąpione wyszukiwaniem binarnym
+  (`_AddedLookup`) i sweepem z kopcem priorytetowym (`_reason_sweep`); to
+  samo żądanie: **~2 s**. Dodano testy wydajnościowe na sztucznym
+  200 000-elementowym, naprzemiennym zakresie jako straż przed regresją.
+  Deduplikowano też podwójne zapytanie `_job_file_spans` (wcześniej
+  wywoływane osobno w `_reason_spans` i `_notices`).
+- Testy: nowy integracyjny `test_pending_complete_board_in_a_game_data_v2_routed_game_is_added`
+  (partycje `game_data_v2` + jawny `.bind()`) — brak takiego testu w
+  oryginalnym TASK-0629 (wszystkie fixture'y tworzyły gry wyłącznie w
+  `public`) pozwolił błędowi przejść niezauważonym. 9/9 integracyjnych,
+  24/24 domenowych (2 nowe wydajnościowe), lint/typecheck czyste.
+- Decyzja: `DECISION_LOG.md` D-440.
+
 ### TASK-0632 — `automaticPageProposal` w liście korekt geometrii strony (D-439)
 
 - T1 z 3-taskowego planu „wstępna geometria z automatycznej propozycji dla

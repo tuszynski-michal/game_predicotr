@@ -671,6 +671,17 @@ po konflikcie przywraca kartę oraz pokazuje błąd. Dwa lub więcej jawnych cro
 z bieżącej strony nadal korzysta z preview i trwałego joba. Toast nie zasłania
 toolbara: jest stały około 50 px od lewego i dolnego brzegu viewportu.
 
+Przycisk `Pełny ekran` w bloku filtrów przełącza widok w nakładkę na cały
+viewport (TASK-0656): filtry, toolbar i podsumowanie pozostają stałe u góry,
+wirtualna siatka wypełnia resztę wysokości i jest jedynym przewijanym
+elementem, a paginacja zostaje na dole. `Esc` albo `Zamknij pełny ekran`
+przywraca zwykły układ. Poza polami tekstowymi i selectami działają skróty:
+`1`–`9` wybiera symbol docelowy `Zmień symbol` (aktywne symbole w kolejności
+`displayOrder` z katalogu gry, numer jest widoczny przy nazwie w selekcie),
+`Enter` wykonuje `Zastosuj zmianę` dla zaznaczonych cropów (z uwzględnieniem
+`Niewyraźny`) albo potwierdza otwarty preview operacji masowej, a `Esc`
+zamyka preview.
+
 ### Weryfikacja symbolu na planszy
 
 Miniatury wirtualne przekazują aktualne `renderSpecChecksumSha256` z detailu

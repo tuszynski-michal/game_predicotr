@@ -14,6 +14,8 @@ import {
 import styles from './symbol-review-virtual-grid.module.css';
 
 interface SymbolReviewVirtualGridProps {
+  /** Stretch to the parent height (full-screen mode) instead of a fixed box. */
+  readonly fill?: boolean;
   readonly items: readonly SymbolCellReviewListItemResponse[];
   readonly onVisibleItemsChange: (
     items: readonly SymbolCellReviewListItemResponse[],
@@ -24,6 +26,7 @@ interface SymbolReviewVirtualGridProps {
 }
 
 export function SymbolReviewVirtualGrid({
+  fill = false,
   items,
   onVisibleItemsChange,
   pageNumber,
@@ -91,7 +94,7 @@ export function SymbolReviewVirtualGrid({
   return (
     <div
       aria-label="Wirtualizowana lista cropów symboli"
-      className={styles.scroller}
+      className={`${styles.scroller}${fill ? ` ${styles.scrollerFill}` : ''}`}
       onScroll={(event) => {
         pageScrollTopsRef.current = {
           ...pageScrollTopsRef.current,

@@ -8,6 +8,11 @@
   background: var(--panel-soft);
 }
 
+.scrollerFill {
+  height: 100%;
+  min-height: 0;
+}
+
 .content {
   position: relative;
   min-width: 100%;
@@ -26,5 +31,10 @@
   .scroller {
     height: 62vh;
     min-height: 360px;
+  }
+
+  .scrollerFill {
+    height: 100%;
+    min-height: 0;
   }
 }

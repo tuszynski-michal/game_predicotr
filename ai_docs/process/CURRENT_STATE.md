@@ -6,6 +6,17 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0656 — pełny ekran i skróty klawiszowe w „Weryfikacji symboli”
+
+- Zgłoszenie użytkownika poza planem: podwójne scrolle w „Weryfikacji
+  symboli”. Dodano tryb `Pełny ekran` (nakładka na viewport; filtry, toolbar
+  i podsumowanie stałe u góry, przewija się tylko siatka) oraz skróty
+  `1`–`9` (symbol docelowy wg `displayOrder` aktywnych symboli), `Enter`
+  (zastosuj zmianę / potwierdź preview operacji), `Esc` (zamknij preview /
+  pełny ekran). Bez zmian API. Opis w `ADMIN_APP.md` → „Weryfikacja symboli”.
+- Testy Admina 596/596, typecheck i lint czyste (4 istniejące ostrzeżenia).
+  Brak odbioru na żywym Adminie.
+
 ### TASK-0655 — kadrowanie podglądu znalezionej planszy w „Wyszukaj plansze”
 
 - Zgłoszenie użytkownika (poza planem „Przybliżona wygrana”): dla gry 777

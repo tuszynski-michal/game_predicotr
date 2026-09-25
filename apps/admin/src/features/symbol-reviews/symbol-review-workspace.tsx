@@ -32,6 +32,11 @@ import {
   type LoadSymbolReviewPageOptions,
   type SymbolReviewClient,
 } from './symbol-review-actions';
+import {
+  isSymbolReviewTextEntryTarget,
+  resolveSymbolReviewKeyboardCommand,
+  symbolReviewShortcutLabel,
+} from './symbol-review-keyboard.ts';
 import { SymbolReviewRequestCoordinator } from './symbol-review-request-coordinator';
 import {
   createSymbolReviewBulkCommand,
@@ -189,6 +194,7 @@ export function SymbolReviewWorkspace({
     string | null
   >(null);
   const [markBlurry, setMarkBlurry] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const [visibleItems, setVisibleItems] = useState<
     readonly SymbolCellReviewListItemResponse[]
   >([]);
@@ -207,6 +213,7 @@ export function SymbolReviewWorkspace({
   const pagePositionRef = useRef<SymbolReviewPagePosition>({ number: 1 });
   const virtualPreviewRequestId = useRef(0);
   const previewAnchorCellId = useRef<string | null>(null);
+  const keyboardHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
 
   const filters = workspace.filters;
   const filtersReady = symbolReviewFiltersReady(filters);
@@ -328,6 +335,22 @@ export function SymbolReviewWorkspace({
     },
     [applyFilters, selectedCount],
   );
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [fullscreen]);
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) =>
+      keyboardHandlerRef.current(event);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
+  }, []);
 
   useEffect(() => {
     if (toast === null) return;
@@ -1062,8 +1085,54 @@ export function SymbolReviewWorkspace({
     });
   }
 
+  function handleKeyboardShortcut(event: KeyboardEvent) {
+    if (
+      event.defaultPrevented ||
+      pendingFilters !== null ||
+      isSymbolReviewTextEntryTarget(event.target)
+    ) {
+      return;
+    }
+    const command = resolveSymbolReviewKeyboardCommand(event, symbols);
+    if (command === null) return;
+    if (operationDialog !== null) {
+      if (command.kind === 'cancel' && !isStartingOperation) {
+        event.preventDefault();
+        setOperationDialog(null);
+      } else if (command.kind === 'apply' && operationDialog.kind === 'ready') {
+        event.preventDefault();
+        void startPreviewedOperation();
+      }
+      return;
+    }
+    if (command.kind === 'cancel') {
+      if (fullscreen) {
+        event.preventDefault();
+        setFullscreen(false);
+      }
+      return;
+    }
+    if (interactionBusy || currentPage === null) return;
+    if (command.kind === 'select_target') {
+      event.preventDefault();
+      setReassignTargetSymbolId(command.symbolId);
+      return;
+    }
+    if (selectedCount === 0 || reassignTargetSymbolId === null) return;
+    // Enter on a focused crop card would otherwise toggle it again.
+    event.preventDefault();
+    void previewOperation('reassign');
+  }
+
+  useEffect(() => {
+    keyboardHandlerRef.current = handleKeyboardShortcut;
+  });
+
   return (
-    <section aria-label="Weryfikacja symboli" className={styles.workspace}>
+    <section
+      aria-label="Weryfikacja symboli"
+      className={`${styles.workspace}${fullscreen ? ` ${styles.workspaceFullscreen}` : ''}`}
+    >
       <header className="pageHeader">
         <div>
           <p className="eyebrow">Lokalny workflow · cropy symboli</p>
@@ -1207,6 +1276,21 @@ export function SymbolReviewWorkspace({
             Kohorta aktywnego modelu
           </label>
         </fieldset>
+        <div className={styles.filterActions}>
+          <button
+            aria-pressed={fullscreen}
+            className="secondaryButton"
+            onClick={() => setFullscreen((current) => !current)}
+            type="button"
+          >
+            {fullscreen ? 'Zamknij pełny ekran' : 'Pełny ekran'}
+          </button>
+          <span>
+            {fullscreen
+              ? 'Esc zamyka pełny ekran.'
+              : 'Filtry i akcje zostają na górze, przewija się tylko lista.'}
+          </span>
+        </div>
       </div>
 
       {projectionStatus?.status === 'ready' && currentPage !== null ? (
@@ -1319,6 +1403,7 @@ export function SymbolReviewWorkspace({
               <SymbolReviewEmpty />
             ) : (
               <SymbolReviewVirtualGrid
+                fill={fullscreen}
                 items={activePagePreviewItems}
                 onVisibleItemsChange={handleVisibleItemsChange}
                 pageNumber={currentPageNumber}
@@ -1502,6 +1587,14 @@ function SymbolReviewCard({
   );
 }
 
+function shortcutSymbolsLabel(symbols: readonly SymbolResponse[]): string {
+  const labelled = symbols.flatMap((symbol, index) => {
+    const shortcut = symbolReviewShortcutLabel(index);
+    return shortcut === null ? [] : [`${shortcut} ${symbol.name}`];
+  });
+  return labelled.length === 0 ? 'brak aktywnych symboli' : labelled.join(', ');
+}
+
 function symbolReviewCardBadge(
   item: SymbolCellReviewListItemResponse,
 ): string | null {
@@ -1631,11 +1724,16 @@ function SymbolReviewSelectionToolbar({
             value={reassignTargetSymbolId ?? ''}
           >
             <option value="">Wybierz symbol</option>
-            {symbols.map((symbol) => (
-              <option key={symbol.id} value={symbol.id}>
-                {symbol.name}
-              </option>
-            ))}
+            {symbols.map((symbol, index) => {
+              const shortcut = symbolReviewShortcutLabel(index);
+              return (
+                <option key={symbol.id} value={symbol.id}>
+                  {shortcut === null
+                    ? symbol.name
+                    : `${shortcut} · ${symbol.name}`}
+                </option>
+              );
+            })}
           </select>
         </label>
         <button
@@ -1674,6 +1772,14 @@ function SymbolReviewSelectionToolbar({
           </button>
         </div>
       </div>
+      {readOnly ? null : (
+        <p className={styles.toolbarShortcuts}>
+          Klawiatura: <kbd>1</kbd>–<kbd>9</kbd> wybiera symbol docelowy (
+          {shortcutSymbolsLabel(symbols)}) · <kbd>Enter</kbd> zmienia symbol
+          zaznaczonych cropów lub potwierdza operację · <kbd>Esc</kbd> anuluje
+          okno albo zamyka pełny ekran
+        </p>
+      )}
     </aside>
   );
 }

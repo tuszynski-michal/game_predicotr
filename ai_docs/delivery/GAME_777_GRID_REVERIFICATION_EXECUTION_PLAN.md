@@ -111,6 +111,12 @@ Stan kolejki wynika z `storage/image_grid_review_repository.py::_state_expressio
 
 ## Aktualizacja 2026-09-24 po TASK-0644
 
+Aktualizacja 2026-09-25 (D-447): TASK-0645–0647 pozostają wstrzymane.
+Plan laboratorium `VISION_LAB_EXECUTION_PLAN.md` traktuje historyczne 777
+wyłącznie jako materiał porównawczy i **nie** dostarcza sieci do uzupełniania
+slotów tej reweryfikacji. Ewentualne wznowienie TASK-0645–0647 wymaga
+osobnej, spójnej decyzji i aktualizacji ich starej reguły weryfikacji.
+
 Kalibracja wykazała, że lokalny estymator nie jest niezależny od silnika
 (przy tej samej podpowiedzi zwraca identyczną siatkę), a złoty zbiór nie
 zawiera błędów silnika, choć na podglądzie siatki silnika 777 są widocznie

@@ -1,13 +1,13 @@
 ---
 title: TASK-0651 — Sieć siatek v3: model, trening CPU i wydanie ONNX
-status: todo
+status: blocked
 ---
 
 # TASK-0651 — Model (etap A + B), trening i wydanie
 
 ## Status
 
-`todo`
+`blocked` — plan zastąpiony przez `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (D-447); trening to TASK-0669/TASK-0670 i warunkowo TASK-0675. Numer koliduje z ukończoną serią „Przybliżona wygrana”; identyfikuj plik pełną ścieżką.
 
 ## Goal
 

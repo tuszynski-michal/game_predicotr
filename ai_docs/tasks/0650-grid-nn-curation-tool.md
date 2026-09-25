@@ -1,13 +1,13 @@
 ---
 title: TASK-0650 — Sieć siatek v3: narzędzie kuracji danych
-status: todo
+status: blocked
 ---
 
 # TASK-0650 — Narzędzie kuracji danych uczących
 
 ## Status
 
-`todo`
+`blocked` — plan zastąpiony przez `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (D-447); nowa kuracja to TASK-0668/TASK-0671. Numer koliduje z ukończoną serią „Przybliżona wygrana”; identyfikuj plik pełną ścieżką.
 
 ## Goal
 

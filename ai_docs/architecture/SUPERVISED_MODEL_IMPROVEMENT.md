@@ -8,6 +8,11 @@ last_updated: 2026-08-23
 
 ## Granica odpowiedzialności
 
+Laboratorium (`VISION_LAB.md`, D-447) utrzymuje plikowe zatwierdzenia
+`lab_human_approved`. Nie są one rekordami `image_symbol_review_cells` ani
+wejściem istniejącego buildera kohort DB. Adapter T12 sprawdza proweniencję
+oraz jawne mapowanie gry i symboli przed rejestracją kandydata.
+
 Ten pion obejmuje model rozpoznawania symboli. Nie zmienia wersji geometrii,
 croppera ani OCR numerów sekwencji. Właścicielem reguł produktowych jest
 `requirements/SUPERVISED_MODEL_IMPROVEMENT.md`; ten dokument opisuje sposób ich

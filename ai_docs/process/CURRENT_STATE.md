@@ -6,6 +6,23 @@ last_updated: 2026-09-25
 
 # Current State
 
+### P00 / TASK-0665 — zapis planu laboratorium wizji (D-447)
+
+- Zaakceptowany plan `delivery/VISION_LAB_EXECUTION_PLAN.md` jest zapisany
+  w repozytorium wraz z taskami TASK-0666–0678 (etapy A–E), wymaganiami,
+  architekturą i decyzją D-447 o `lab_human_approved`. P00 nie uruchamia A.
+- `AGENTS.md` jest właścicielem świadomej reguły: jawne uruchomienie etapu
+  obejmuje wszystkie jego taski, osobne audyty i commity; stop następuje na
+  końcu etapu albo przy blokerze. `CLAUDE.md` i `PLAN_STANDARD.md` odsyłają.
+- `GRID_ENGINE_V3_NEURAL_EXECUTION_PLAN.md` ma status `superseded`.
+  Niewykonane pliki `0649-grid-nn-*.md`–`0653-grid-nn-*.md` są zablokowane;
+  numery 0649–0653 kolidują z ukończoną serią „Przybliżona wygrana”. D-446
+  należy tylko do tamtej serii. Historyczne 777 jest porównawcze; TASK-0645–
+  0647 nie dostają uzupełniania slotów siecią. TASK-0611 pozostaje poza
+  zakresem i nie został zmieniony.
+- Następny krok wymaga jawnego uruchomienia etapu A. STOP A dostarczy galerię,
+  manifest, kandydatów gry niewidzianej oraz budżet etapu B.
+
 ### TASK-0664 — wyrównanie ograniczeń kwalifikacji `game_data_v2`
 
 - Job `f786fed3-9814-42ce-941f-9cb04cbe2c17` przeszedł naprawioną bramkę

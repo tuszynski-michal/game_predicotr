@@ -6,6 +6,28 @@ last_updated: 2026-09-25
 
 # Decision Log
 
+## D-447 — laboratoryjne zatwierdzenia i plan wizji
+
+- **Status:** accepted (P00 / TASK-0665).
+- **Date:** 2026-09-25.
+- **Decision:** lokalne laboratorium może używać osobnych zatwierdzeń
+  `lab_human_approved`. Decyzja człowieka wiąże grę, wersję słownika, obraz
+  źródłowy i SHA-256, planszę, komórkę, rewizję geometrii, dokładny crop i
+  SHA-256, etykietę, rewizję zatwierdzenia i czas. Zmiana geometrii albo
+  cropa wyłącza próbkę z treningu do ponownego zatwierdzenia. Predykcja
+  modelu nie jest decyzją człowieka. Zatwierdzenie lab nie udaje DB review;
+  istniejące reguły kwalifikacji DB pozostają bez zmian.
+- **Integration:** gra bez rekordu DB ma lokalną tożsamość i zatwierdzony
+  słownik. Rejestracja modelu wymaga jawnego mapowania gry i symboli; brak
+  mapowania blokuje wyłącznie jej integrację.
+- **Scope:** lab obejmuje 5 × 3 i 3 × 3, integracja aplikacji tylko 5 × 3.
+  Historyczne 777 jest `comparison_only`; 777 V2 wymaga pozytywnego dowodu
+  pochodzenia. TASK-0645–0647 nie otrzymują w tym projekcie uzupełniania
+  slotów siecią. TASK-0611 jest poza zakresem.
+- **Process:** etapowe wykonanie ma właścicielską regułę w `AGENTS.md`; sama
+  tabela modeli nie deleguje pracy. D-261 i D-262 pozostają bramkami
+  późniejszej aktywacji oraz odniesieniem do starego eksperymentu.
+
 ## D-446 — „Przybliżona wygrana” w Adminie: dolne ograniczenie z payout-v3, bez cache serwerowego
 
 - **Status:** accepted (TASK-0649–0653, sesja `2026-09-24`/`2026-09-25`).

@@ -1,10 +1,44 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-24
+last_updated: 2026-09-25
 ---
 
 # Current State
+
+### TASK-0653 — podsekcja UI Admina „Przybliżona wygrana” (5/6, plan D-445)
+
+- Piąty task planu sesji `2026-09-24`. TASK-0654 (dokumentacja + odbiór)
+  jeszcze nie istnieje jako plik.
+- „Wyszukaj plansze” ma teraz rozwijaną podsekcję „Przybliżona wygrana” pod
+  wynikami wyszukiwania: input „Zakres wygranej” (domyślnie 1000, max
+  10 000 — ta sama wartość co `APPROXIMATE_WIN_SPIN_COUNT_MAX` z API,
+  TASK-0652), zatwierdzany Enterem/blurem, niezależny od „Liczby wyników”
+  (TASK-0649). Dopóki sekcja zwinięta, żadna zmiana wybranej planszy ani
+  zakresu nie wysyła żądania. Pierwsze rozwinięcie z wybraną planszą liczy
+  raz; zmiana planszy albo zatwierdzonego zakresu przy otwartej sekcji
+  automatycznie odświeża. Spóźnione odpowiedzi są ignorowane przez licznik
+  żądań (ten sam wzorzec co reszta panelu).
+- Reużycie wyniku po zwinięciu/rozwinięciu z tym samym kluczem (gra +
+  tożsamość planszy + zakres) pokazuje wynik z pamięci komponentu bez
+  nowego żądania — wyłącznie w ramach jednej sesji przeglądarki, **nie**
+  jest to cache serwerowy (świadomie brak, decyzja z planu).
+- Nowe pliki: `board-search-approximate-win-state.ts` (czysty stan:
+  walidacja zakresu, klucz żądania, decyzja o odświeżeniu, widoczność
+  wyniku, stronicowanie klienckie po 100 wierszy, formatowanie kredytów),
+  `board-search-approximate-win.tsx`. `board-search-workspace.tsx`
+  renderuje nowy komponent pod istniejącą karuzelą wyników.
+- **Napotkana i naprawiona nowa reguła lintera** `react-hooks/
+  set-state-in-effect` (blokuje bezpośrednie `setState` w ciele efektu) —
+  naprawione tym samym wzorcem `queueMicrotask(() => setState(...))`, jaki
+  już istnieje w `missing-boards-section.tsx`. Bez tej poprawki `npm run
+  lint` kończy się błędem, nie ostrzeżeniem.
+- Testy: 14 nowych stanu + 8 nowych interakcji jsdom (w tym: spóźniona
+  odpowiedź nie nadpisuje nowszej; zwinięcie w trakcie ładowania nie
+  crashuje; ponowne rozwinięcie z tym samym kluczem nie odpytuje serwera
+  ponownie). Pełny `npm run test` Admina 584/584, `test:geometry` 35/35,
+  `typecheck`/`lint` czyste (4 istniejące, niezwiązane ostrzeżenia bez
+  zmian).
 
 ### TASK-0652 — pion API „Przybliżonej wygranej” (4/6, plan D-445)
 

@@ -28,9 +28,11 @@ import {
   selectedBoardSearchCells,
   undoBoardSearchEdit,
 } from './board-search-editor-state';
+import { BoardSearchApproximateWin } from './board-search-approximate-win';
 import { BoardSearchResults } from './board-search-results';
 import {
   BOARD_SEARCH_LIMIT_DEFAULT,
+  activeBoardSearchResult,
   createBoardSearchResultsState,
   parseBoardSearchLimit,
   reconcileBoardSearchResultsState,
@@ -47,6 +49,7 @@ type SearchState =
 type BoardSearchClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
   | 'archivedBoardSearchAssetUrl'
+  | 'getBoardSearchApproximateWin'
   | 'listSymbols'
   | 'searchGameBoards'
   | 'symbolImageAssetUrl'
@@ -500,13 +503,21 @@ export function BoardSearchWorkspace({
         </p>
       ) : null}
       {searchState.kind === 'ready' && resultsState !== null ? (
-        <BoardSearchResults
-          apiBaseUrl={apiBaseUrl}
-          client={api}
-          gameId={gameId}
-          onStateChange={setResultsState}
-          state={resultsState}
-        />
+        <>
+          <BoardSearchResults
+            apiBaseUrl={apiBaseUrl}
+            client={api}
+            gameId={gameId}
+            onStateChange={setResultsState}
+            state={resultsState}
+          />
+          <BoardSearchApproximateWin
+            apiBaseUrl={apiBaseUrl}
+            client={api}
+            gameId={gameId}
+            selectedResult={activeBoardSearchResult(resultsState)}
+          />
+        </>
       ) : null}
     </section>
   );

@@ -10032,6 +10032,66 @@ div.imageJobInlineError {
   }
 }
 
+.boardSearchApproximateWin {
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-raised);
+}
+
+.boardSearchApproximateWin summary {
+  padding: 14px 18px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.boardSearchApproximateWin[open] summary {
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+}
+
+.boardSearchApproximateWinBody {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px 20px;
+}
+
+.boardSearchApproximateWinRange {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 14px;
+}
+
+.boardSearchApproximateWinRange label {
+  display: grid;
+  gap: 4px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.boardSearchApproximateWinRange input {
+  width: 120px;
+}
+
+.boardSearchApproximateWinRange small {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.boardSearchApproximateWinSummaryHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.boardSearchApproximateWinSummaryHeader p {
+  margin: 0;
+}
+
 .v7LabelGeometryWorkspace {
   display: grid;
   gap: 16px;

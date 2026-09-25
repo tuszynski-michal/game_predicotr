@@ -11,7 +11,8 @@ last_updated: 2026-09-25
 - Świeży job `7b90689d-8fe0-49ca-9cde-80f0fd51dd9e` ujawnił pięć pozycji z
   `pending_partial`, ale bez zatwierdzonego disposition `partial`. Wyjątek
   virtual cropa wymaga teraz obu tych sygnałów i poprawnej maski; w przeciwnym
-  razie plansza trafia do `incomplete_lattice`. Testy workflowu 77/77 przeszły.
+  razie plansza trafia do `incomplete_lattice`. Kontrakt renderer v3 daje
+  świeży fingerprint reprocessu. Testy workflowu 77/77 przeszły.
 
 ### TASK-0660 — fingerprint reprocessu po zmianie virtual cropów
 

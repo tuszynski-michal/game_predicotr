@@ -57,6 +57,8 @@ decyzję. Tylko decyzja `partial` zezwala na mniejszą liczbę renderów.
 
 - Wymagane jest jednocześnie `pending_partial`, poprawna maska i disposition
   `partial`; w przeciwnym razie brak renderów jest trwałym odroczeniem.
+- Kontrakt renderera virtual jest w wersji v3, więc nowy reprocess nie
+  odzyskuje raportu utworzonego przed tą zmianą semantyki.
 
 ### Verification results
 

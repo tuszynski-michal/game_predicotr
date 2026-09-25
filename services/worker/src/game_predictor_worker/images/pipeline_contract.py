@@ -46,7 +46,7 @@ STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION = "structured-opencv-independent-boa
 STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION = (
     "structured-opencv-independent-board-refinement-v2-pinned-preflight-v1"
 )
-VIRTUAL_CELL_RENDERER_VERSION = "virtual-cell-renderer-source-direct-v2"
+VIRTUAL_CELL_RENDERER_VERSION = "virtual-cell-renderer-source-direct-v3"
 SYMBOL_RGB_PREPROCESSING_VERSION = "rgb-resize64-normalize-half-v1"
 MANUAL_REVIEW_PREDECESSOR = "symbol_inference"
 MODEL_MATURITIES = frozenset(

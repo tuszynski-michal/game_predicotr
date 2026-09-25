@@ -6,6 +6,16 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0659 — odroczenie pustej częściowej planszy virtual
+
+- Live reprocess `51b256c4-1ff5-4a94-a764-d54ee15390da` ujawnił dodatkowy
+  wariant: `pending_partial` bez niepustej maski `unavailableCellIndices`
+  omijał kontrolę kompletności virtual renderów i pięć pustych plansz trafiało
+  do licznika `topology`. Naprawa klasyfikuje ten stan jako
+  `incomplete_lattice` do ręcznej korekty; poprawne maski częściowe (także
+  komplet 15 komórek) zachowują wcześniejsze zachowanie. Testy 77/77 i Ruff są
+  czyste. Zdjęcia nie są usuwane.
+
 ### TASK-0658 — odroczenie niekompletnego virtual cropa zamiast false blocking geometry guard
 
 - Diagnoza joba `753a4776-907f-42ea-81c3-ea2a8c886d4f` (gra

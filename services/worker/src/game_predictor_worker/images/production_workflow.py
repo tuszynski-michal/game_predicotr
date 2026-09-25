@@ -1692,16 +1692,22 @@ class ProductionImageStageAdapterSuite:
             unavailable_cell_indices = tuple(
                 cast(Sequence[int], structured_board.get("unavailableCellIndices", []))
             )
+            expected_complete_indices = set(range(self._board_topology.cell_count))
+            rendered_indices = {render.cell_index for render in board_renders}
             raw_qualification = structured_board.get("geometryQualification")
-            has_partial_qualification = (
+            partial_indices_are_valid = (
                 isinstance(raw_qualification, Mapping)
                 and raw_qualification.get("completenessStatus") == "pending_partial"
+                and bool(unavailable_cell_indices)
+                and unavailable_cell_indices == tuple(sorted(set(unavailable_cell_indices)))
+                and all(
+                    isinstance(index, int)
+                    and not isinstance(index, bool)
+                    and index in expected_complete_indices
+                    for index in unavailable_cell_indices
+                )
             )
-            expected_complete_indices = set(range(self._board_topology.cell_count))
-            if not has_partial_qualification and (
-                len(board_renders) != len(expected_complete_indices)
-                or {render.cell_index for render in board_renders} != expected_complete_indices
-            ):
+            if not partial_indices_are_valid and rendered_indices != expected_complete_indices:
                 deferred_by_position[position] = {
                     "estimatorFailureReason": "VIRTUAL_CELL_RENDER_OUTPUT_INCOMPLETE",
                     "positionIndex": position,

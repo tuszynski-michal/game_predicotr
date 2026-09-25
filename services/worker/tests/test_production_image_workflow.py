@@ -1312,6 +1312,57 @@ def test_virtual_crop_with_missing_render_is_deferred_before_gate(tmp_path: Path
     ]
 
 
+def test_virtual_crop_with_empty_partial_qualification_is_deferred_before_gate(
+    tmp_path: Path,
+) -> None:
+    snapshot = _candidate_snapshot()
+    suite = ProductionImageStageAdapterSuite(
+        tmp_path / "artifacts",
+        repository_root=Path.cwd(),
+        symbol_model=snapshot,
+        board_cell_processing=board_cell_processing_snapshot(cell_output_size=snapshot.input_size),
+        geometry_rollout=_structured_default_rollout(),
+    )
+    suite._virtual_renders = lambda _context: ()  # type: ignore[method-assign]
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256="c" * 64,
+        source_relative_path="originals/c/source.jpg",
+        pipeline_fingerprint="d" * 64,
+        previous_results={
+            "board_cell_geometry": {
+                "boards": [{"positionIndex": 0, "sequenceNumber": 1, "status": "verified"}],
+                "structuredGeometry": {
+                    "configChecksumSha256": "a" * 64,
+                    "engineId": "test-engine",
+                    "engineVersion": "test-v1",
+                    "resultChecksumSha256": "b" * 64,
+                    "boards": [
+                        {
+                            "positionIndex": 0,
+                            "sequenceNumber": 1,
+                            "geometryQualification": {"completenessStatus": "pending_partial"},
+                        }
+                    ],
+                },
+            }
+        },
+    )
+
+    payload = suite.board_crops(context)
+
+    assert payload["boards"] == []
+    assert payload["deferredBoards"] == [
+        {
+            "estimatorFailureReason": "VIRTUAL_CELL_RENDER_OUTPUT_INCOMPLETE",
+            "positionIndex": 0,
+            "reasonCode": "incomplete_lattice",
+            "sequenceNumber": 1,
+        }
+    ]
+
+
 class _OnePageSymbolAdapter:
     def __init__(self) -> None:
         self.call_count = 0

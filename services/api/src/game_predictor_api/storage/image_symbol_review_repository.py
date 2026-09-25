@@ -90,6 +90,7 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     verification_outcome_value,
 )
 from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
     GameStorageRouter,
     GameStorageSchema,
 )
@@ -328,7 +329,10 @@ def _uses_logical_current_cell_identity(session: Session, game_id: UUID) -> bool
     event table while the cell row follows the canonical owner atomically.
     """
 
-    return GameStorageRouter().describe(session, game_id).store_schema is GameStorageSchema.V2
+    return (
+        GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ).store_schema
+        is GameStorageSchema.V2
+    )
 
 
 def _backfill_cell_conflict_columns(
@@ -475,7 +479,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                     "gameId": str(game_id),
                 },
             )
-        location = GameStorageRouter().describe(self._session, game_id)
+        location = GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
         return SymbolCellReviewCatalogState(
             catalog_revision=int(state.catalog_revision),
             storage_generation=location.generation,

@@ -145,7 +145,7 @@ from game_predictor_worker.images.pipeline_store import (
     SqlAlchemyImagePipelineStore,
 )
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
-from sqlalchemy import create_engine, delete, func, null, select
+from sqlalchemy import create_engine, delete, func, null, select, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -313,6 +313,78 @@ def _set_complete_resolution(
     review.resolution_revision = 1
     review.resolved_at = resolved_at
     board.status = action
+
+
+def test_image_batch_store_registers_association_in_v2_store(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 9, 25, 12, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            catalog = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = catalog.create_game(
+                code="image-batch-v2-store",
+                name="Image batch V2 store",
+                status=GameStatus.ACTIVE,
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO public.game_storage_locations
+                        (game_id, store_schema, generation, manifest_version, status, revision)
+                    VALUES
+                        (:game_id, 'game_data_v2', 2, 'game-data-v2-manifest-v1', 'active', 1)
+                    """
+                ),
+                {"game_id": game.id},
+            )
+            session.execute(
+                text(
+                    "CREATE TABLE game_data_v2.image_import_job_files_g_"
+                    f"{game.id.hex} PARTITION OF game_data_v2.image_import_job_files "
+                    f"FOR VALUES IN ('{game.id}')"
+                )
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="1" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="v2-only.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+
+        with Session(engine) as session:
+            assert (
+                session.scalar(
+                    text(
+                        "SELECT count(*) FROM game_data_v2.image_import_job_files "
+                        "WHERE game_id = :game_id AND job_id = :job_id"
+                    ),
+                    {"game_id": game.id, "job_id": job.id},
+                )
+                == 1
+            )
+            assert (
+                session.scalar(
+                    text(
+                        "SELECT count(*) FROM public.image_import_job_files WHERE job_id = :job_id"
+                    ),
+                    {"job_id": job.id},
+                )
+                == 0
+            )
+        assert execution.source_checksum_sha256 == "1" * 64
+    finally:
+        engine.dispose()
 
 
 def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops(

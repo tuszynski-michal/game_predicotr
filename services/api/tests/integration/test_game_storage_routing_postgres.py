@@ -224,6 +224,47 @@ def test_router_rejects_legacy_or_missing_location_in_fresh_transactions(databas
         assert missing_location.value.code == "GAME_STORAGE_LOCATION_MISSING"
 
 
+def test_operational_review_repository_binds_v2_before_game_owned_read(database: Engine) -> None:
+    with database.begin() as connection:
+        game_id = _game(connection, code="operational-review-v2-bind")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',1)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with factory.begin() as session:
+        preview = SqlAlchemyOperationalImageReviewRepository(
+            session
+        ).pending_grid_reinference_preview(
+            game_id,
+            geometry_version="test-v2",
+            cropper_version="test-v2",
+            audit_report_checksum_sha256="a" * 64,
+        )
+        assert preview.pending_board_count == 0
+        assert (
+            session.scalar(text("SELECT current_setting('search_path')"))
+            == "game_data_v2, public, pg_catalog"
+        )
+        assert (
+            session.scalar(
+                text(
+                    """
+                SELECT namespace.nspname
+                FROM pg_class AS relation
+                JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+                WHERE relation.oid = to_regclass('image_review_items')
+                """
+                )
+            )
+            == "game_data_v2"
+        )
+
+
 def test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session(database: Engine) -> None:
     """A saved correction must survive reopening the report after V2 cutover."""
 

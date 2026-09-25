@@ -56,6 +56,7 @@ from game_predictor_api.domain.verified_training_cohorts import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
 )
@@ -174,7 +175,17 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def _bind(self, game_id: UUID, *, intent: GameStorageIntent) -> None:
+        """Route every direct operational-review access before its first game table."""
+
+        # Unit tests use minimal in-memory query doubles rather than a
+        # SQLAlchemy Session. Production repositories always receive Session.
+        if not isinstance(self._session, Session):
+            return
+        GameStorageRouter().bind(self._session, game_id, intent=intent)
+
     def require_context(self, *, game_id: UUID, import_job_id: UUID) -> None:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         if self._session.get(GameModel, game_id) is None:
             raise ImageReviewNotFoundError(
                 "IMAGE_REVIEW_GAME_NOT_FOUND",
@@ -205,6 +216,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         return None if value is None else int(value)
 
     def dataset_completeness(self, game_id: UUID) -> ImageDatasetCompleteness | None:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         expected = self.expected_layout_count(game_id)
         if expected is None:
             return None
@@ -312,6 +324,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         game_id: UUID,
         sequence_number: int,
     ) -> ImageSequenceSourceSelection | None:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         rows = self._session.execute(
             select(
                 ImageReviewItemModel,
@@ -403,6 +416,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         review_item_id: UUID | None,
         selected_by: str,
     ) -> None:
+        self._bind(game_id, intent=GameStorageIntent.WRITE)
         self._acquire_sequence_lock(game_id, sequence_number)
         latest = self._session.scalar(
             select(func.max(ImageSequenceSourceOverrideEventModel.revision)).where(
@@ -443,6 +457,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         resume_at_first_pending: bool,
         limit: int,
     ) -> ImageReviewPage:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         self.require_context(game_id=game_id, import_job_id=import_job_id)
         queue_version, _counts = self._queue_snapshot(import_job_id)
         if expected_queue_version is not None and expected_queue_version != queue_version:
@@ -541,6 +556,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         game_id: UUID,
         import_job_id: UUID,
     ) -> tuple[int, ImageReviewCounts]:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         self.require_context(game_id=game_id, import_job_id=import_job_id)
         return self._queue_snapshot(import_job_id)
 
@@ -559,6 +575,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         assignment.
         """
 
+        self._bind(game_id, intent=GameStorageIntent.READ)
         query = _base_game_query(game_id).where(ImageReviewItemModel.status == "pending")
         canonical_exists = (
             select(ImageSequenceCanonicalModel.sequence_number)
@@ -593,6 +610,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         )
 
     def canonical_pending_count(self, game_id: UUID) -> int:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         canonical_exists = (
             select(ImageSequenceCanonicalModel.sequence_number)
             .where(
@@ -629,6 +647,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         the parent board status must not be used as the pending predicate.
         """
 
+        self._bind(game_id, intent=GameStorageIntent.READ)
         return int(
             self._session.scalar(
                 select(func.count(ImageSymbolReviewCellModel.review_item_id.distinct()))
@@ -670,6 +689,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         import_job_id: UUID,
         for_update: bool = False,
     ) -> ImageReviewItem | None:
+        self._bind(
+            game_id,
+            intent=GameStorageIntent.WRITE if for_update else GameStorageIntent.READ,
+        )
         query = _base_query(game_id, import_job_id, None).where(
             ImageReviewItemModel.id == review_item_id
         )
@@ -713,6 +736,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         game_id: UUID,
         import_job_id: UUID,
     ) -> tuple[Sequence[ImageReviewItem], ImageReviewCounts]:
+        self._bind(game_id, intent=GameStorageIntent.WRITE)
         self.require_context(game_id=game_id, import_job_id=import_job_id)
         self._session.scalar(
             select(JobModel)
@@ -739,6 +763,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         *,
         game_id: UUID,
     ) -> CumulativeVerifiedTrainingSnapshot:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         game = self._session.scalar(select(GameModel).where(GameModel.id == game_id))
         if game is None:
             raise ImageReviewNotFoundError(
@@ -779,6 +804,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         *,
         game_id: UUID,
     ) -> CumulativeVerifiedTrainingSnapshot:
+        self._bind(game_id, intent=GameStorageIntent.WRITE)
         game = self._session.scalar(
             select(GameModel).where(GameModel.id == game_id).with_for_update()
         )
@@ -860,6 +886,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         resolution: ValidatedImageReviewResolution,
         resolved_at: datetime,
     ) -> tuple[ImageReviewItem, ImageReviewResolutionEvent, bool]:
+        self._bind(game_id, intent=GameStorageIntent.WRITE)
         self._acquire_review_sequence_locks(
             game_id=game_id,
             review_item_id=review_item_id,
@@ -1483,6 +1510,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         game_id: UUID,
         import_job_id: UUID,
     ) -> Sequence[ImageReviewResolutionEvent]:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         if (
             self.get_item(
                 review_item_id,
@@ -1509,6 +1537,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         import_job_id: UUID,
         idempotency_key: UUID,
     ) -> ImageReviewGeometryRevision | None:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         if (
             self.get_item(
                 review_item_id,
@@ -1537,6 +1566,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         artifacts: ImageReviewGeometryArtifacts,
         created_at: datetime,
     ) -> tuple[ImageReviewItem, ImageReviewGeometryRevision, bool]:
+        self._bind(game_id, intent=GameStorageIntent.WRITE)
         self._acquire_review_sequence_locks(
             game_id=game_id,
             review_item_id=review_item_id,
@@ -1769,6 +1799,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         has its own stronger path in :meth:`save_geometry_revision`.
         """
 
+        self._bind(game_id, intent=GameStorageIntent.WRITE)
         self._acquire_review_sequence_locks(
             game_id=game_id,
             review_item_id=review_item_id,
@@ -2055,6 +2086,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
     def game_counts(self, game_id: UUID) -> ImageReviewCounts:
         """Return status counts across every import belonging to a game."""
 
+        self._bind(game_id, intent=GameStorageIntent.READ)
         return self._counts_for_game(game_id)
 
     def pending_grid_reinference_preview(
@@ -2065,6 +2097,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         cropper_version: str,
         audit_report_checksum_sha256: str,
     ) -> PendingGridReinferencePreview:
+        self._bind(game_id, intent=GameStorageIntent.READ)
         rows = self._session.execute(
             select(
                 SourceImageModel.id,

@@ -1,6 +1,6 @@
 ---
 title: TASK-0682 — T03 — audit routingu dostępu game-owned
-status: todo
+status: done
 last_updated: 2026-09-25
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-25
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -73,4 +73,38 @@ Audyt kończy się listą sprawdzonych punktów wejścia, nie deklaracją „rg 
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- `SqlAlchemyOperationalImageReviewRepository` wiąże V2 przed każdym
+  publicznym read/write relacji game-owned, także dla endpointów, których URL
+  nie zawiera `/games/{id}`.
+- `SqlAlchemyBoardSearchProjectionRepository.upsert_candidates()` wiąże
+  pojedynczą grę jako write, wymaga batcha jednej gry i stosuje wyłącznie
+  złożony klucz V2.
+- Weryfikacja symboli wiąże V2 przed ustaleniem wariantu projekcji i zwracaniem
+  jej generation.
+- Image batch worker rozwiązuje globalny job, wiąże jego grę przed każdym
+  odczytem/zapisem relacji plików, a raw INSERT otrzymuje nazwę tabeli wyłącznie
+  z `qualified_game_table()` routera.
+- Dodano raport [V2_GAME_OWNED_ACCESS_AUDIT.md](../../quality/V2_GAME_OWNED_ACCESS_AUDIT.md)
+  z punktami wejścia, granicą raw SQL i świadomie nieprodukcyjnymi adapterami.
+
+### Verification results
+
+- 40/40 testów jednostkowych zmienionych repository przeszło.
+- Izolowany PostgreSQL: 2/2 (operacyjny review w świeżej sesji i upsert
+  board-search V2) oraz 1/1 (image batch zapisuje V2, nie `public`) przeszły.
+- Ruff check dla zmienionych modułów przeszedł.
+
+### Not completed
+
+- Pełny historyczny scenariusz image batch nadal zakłada brak location V2 i
+  kończy się `GAME_STORAGE_LOCATION_MISSING`; jego bootstrap/fixture jest
+  zakresem TASK-0683, więc nie został tu globalnie zmieniony.
+- Strict mypy nie zakończył się w limicie 30 s; przed przerwaniem wskazał sześć
+  wcześniejszych błędów `shape_geometry_v2/core.py`, poza zmienionymi modułami.
+  Proces kontroli został zakończony, bez pozostawionego procesu tego przebiegu.
+
+### Recommended next task
+
+- TASK-0683 — V2-only test and bootstrap contract.

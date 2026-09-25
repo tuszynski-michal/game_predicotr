@@ -28,6 +28,17 @@ _VERSIONS = (
     "manual-geometry-qualification-v2",
     "manual-geometry-qualification-v3",
 )
+_PARTIAL_VISIBILITY_CONSTRAINTS = {
+    ("image_symbol_review_cells", "ck_image_symbol_review_cells_source"): "geometry_partial",
+    (
+        "image_symbol_review_cells",
+        "ck_image_symbol_review_cells_quality_issue",
+    ): "partial_visibility",
+    (
+        "image_symbol_review_events",
+        "ck_image_symbol_review_events_quality_issue",
+    ): "partial_visibility",
+}
 
 
 def _quote(name: str) -> str:
@@ -120,3 +131,65 @@ def test_new_v2_partitions_inherit_the_current_qualification_contract(database: 
     for definition in checks.values():
         for version in _VERSIONS:
             assert version in definition
+
+
+def test_v2_partial_visibility_parents_accept_the_public_contract(database: Engine) -> None:
+    with database.connect() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT c.relname, con.conname, pg_get_constraintdef(con.oid) "
+                "FROM pg_constraint con "
+                "JOIN pg_class c ON c.oid = con.conrelid "
+                "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                "WHERE n.nspname = 'game_data_v2' "
+                "AND ((c.relname = 'image_symbol_review_cells' AND con.conname IN "
+                "('ck_image_symbol_review_cells_source', "
+                "'ck_image_symbol_review_cells_quality_issue')) "
+                "OR (c.relname = 'image_symbol_review_events' "
+                "AND con.conname = 'ck_image_symbol_review_events_quality_issue'))"
+            )
+        ).all()
+
+    checks = {(table, name): definition for table, name, definition in rows}
+    assert set(checks) == set(_PARTIAL_VISIBILITY_CONSTRAINTS)
+    for key, expected_value in _PARTIAL_VISIBILITY_CONSTRAINTS.items():
+        assert expected_value in checks[key]
+
+
+def test_new_v2_partitions_inherit_partial_visibility_contract(database: Engine) -> None:
+    game_id = uuid4()
+    children = {
+        table: f"task0664_partial_{table}_{game_id.hex[:12]}"
+        for table, _name in _PARTIAL_VISIBILITY_CONSTRAINTS
+    }
+    with database.begin() as connection:
+        for table, child in children.items():
+            connection.execute(
+                text(
+                    f"CREATE TABLE game_data_v2.{child} PARTITION OF "
+                    f"game_data_v2.{table} FOR VALUES IN ('{game_id}')"
+                )
+            )
+        child_names = ", ".join(f"'{child}'" for child in children.values())
+        rows = connection.execute(
+            text(
+                "SELECT c.relname, con.conname, pg_get_constraintdef(con.oid) "
+                "FROM pg_constraint con "
+                "JOIN pg_class c ON c.oid = con.conrelid "
+                "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                "WHERE n.nspname = 'game_data_v2' "
+                f"AND c.relname IN ({child_names}) "
+                "AND con.conname IN ('ck_image_symbol_review_cells_source', "
+                "'ck_image_symbol_review_cells_quality_issue', "
+                "'ck_image_symbol_review_events_quality_issue')"
+            )
+        ).all()
+
+    child_checks = {(table, name): definition for table, name, definition in rows}
+    expected = {
+        (children[table], name): value
+        for (table, name), value in _PARTIAL_VISIBILITY_CONSTRAINTS.items()
+    }
+    assert set(child_checks) == set(expected)
+    for key, expected_value in expected.items():
+        assert expected_value in child_checks[key]

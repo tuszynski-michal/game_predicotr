@@ -33,6 +33,8 @@ i partycje `game_data_v2` z kontraktem v1.
 ## Scope
 
 - Migracja Alembic aktualizująca oba rodzice `game_data_v2` do kontraktu v1/v2/v3.
+- Migracja Alembic aktualizująca v2 kontrakt `partial_visibility` dla komórek
+  i zdarzeń review.
 - Test izolowanego PostgreSQL potwierdzający obecność pełnego kontraktu.
 - Ponowienie wyłącznie nieudanych etapów joba po zastosowaniu migracji.
 
@@ -43,6 +45,7 @@ i partycje `game_data_v2` z kontraktem v1.
 ## Acceptance criteria
 
 - [x] Rodzice i istniejące partycje `game_data_v2` akceptują kwalifikacje v1/v2/v3.
+- [ ] Komórki i zdarzenia review `game_data_v2` akceptują `partial_visibility`.
 - [ ] Świeży reprocess nie ma błędów `ck_recognized_boards_qualification`.
 - [x] Zdjęcia źródłowe pozostają niezmienione.
 
@@ -82,10 +85,13 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = '1'
 - Dodano migrację 0123 aktualizującą oba CHECK na partycjonowanych rodzicach
   `game_data_v2` do wspólnego kontraktu kwalifikacji v1/v2/v3.
 - Dodano izolowany test PostgreSQL dla rodziców oraz nowych partycji.
+- Diagnoza jednej transakcji zawsze wycofywanej wykazała dodatkowy v2-only
+  kontrakt `image_symbol_review_cells`, odrzucający `partial_visibility`.
 
 ### Verification results
 
-- Test izolowanej migracji PostgreSQL: 2/2 przeszły.
+- Test izolowanej migracji PostgreSQL: 2/2 przeszły przed rozszerzeniem
+  kontroli `partial_visibility`.
 - Ruff dla migracji i testu: czysty.
 
 ### Not completed

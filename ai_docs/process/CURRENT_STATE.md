@@ -14,9 +14,11 @@ last_updated: 2026-09-25
   migracje 0111/0120 zaktualizowały wyłącznie `public`.
 - Migracja 0123 aktualizuje oba partycjonowane rodzice do kontraktu v1/v2/v3
   jako `NOT VALID`; PostgreSQL propaguje go do istniejących i przyszłych
-  partycji. Izolowany test PostgreSQL 2/2 potwierdził kontrakt rodziców i
-  dziedziczenie przez nową partycję. Pozostaje zastosowanie migracji lokalnie
-  i bezpieczne ponowienie zatrzymanych etapów joba.
+  partycji. Migracja 0124 naprawia analogiczną lukę po 0121: v2-only CHECK
+  komórek i zdarzeń review musi dopuścić `geometry_partial` oraz
+  `partial_visibility`. Izolowany test PostgreSQL 4/4 potwierdził oba
+  kontrakty rodziców i dziedziczenie przez nowe partycje. Pozostaje
+  zastosowanie 0124 lokalnie i bezpieczne ponowienie zatrzymanych etapów joba.
 
 ### TASK-0663 — świeży fingerprint po naprawie geometry gate
 

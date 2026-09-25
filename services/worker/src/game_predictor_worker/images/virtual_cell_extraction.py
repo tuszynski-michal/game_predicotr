@@ -227,7 +227,12 @@ class VirtualCellRenderer:
                 board_transforms[geometry_key] = transform
             padded_quad = _padded_cell_quad(cell, transform)
             if cell.partially_visible:
-                _require_partial_source_support(padded_quad, frame=frame)
+                # Same footprint rule as ``derive_virtual_cells``: a sliver
+                # narrower than the padding keeps real pixels in the cell
+                # even when its padded inset falls entirely outside.
+                _require_partial_source_support(
+                    cell.source_quad, padded_quad=padded_quad, frame=frame
+                )
             else:
                 _require_full_source_support(
                     padded_quad,
@@ -490,12 +495,16 @@ def _require_full_source_support(
         )
 
 
-def _require_partial_source_support(quad: SourceQuad, *, frame: CanonicalSourceFrame) -> None:
-    """Allow a partially visible cell; only reject a quad with zero real pixels."""
+def _require_partial_source_support(
+    quad: SourceQuad, *, padded_quad: SourceQuad, frame: CanonicalSourceFrame
+) -> None:
+    """Allow a partially visible cell; only reject a cell footprint with zero real pixels."""
     points = np.asarray(_quad_coordinates(quad), dtype=np.float32)
+    padded_points = np.asarray(_quad_coordinates(padded_quad), dtype=np.float32)
     if (
         not bool(np.isfinite(points).all())
-        or cv2.contourArea(points) <= 4.0
+        or not bool(np.isfinite(padded_points).all())
+        or cv2.contourArea(padded_points) <= 4.0
         or all(
             x < -SOURCE_SUPPORT_EPSILON
             or x > frame.source.width - 1 + SOURCE_SUPPORT_EPSILON

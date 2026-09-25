@@ -566,6 +566,50 @@ def test_renderer_renders_a_partially_visible_cell_instead_of_rejecting_it() -> 
         assert virtual.rendered_pixel_checksum_sha256 == rgb_pixel_checksum_sha256(virtual.rgb)
 
 
+def test_renderer_renders_a_partial_cell_whose_padded_inset_lies_outside_the_source() -> None:
+    # Regression: a manually qualified edge board keeps a sub-padding sliver
+    # (under 1px) of its first column inside the photo. Derivation classifies
+    # cells by their real footprint, so the column is kept as partially
+    # visible; the renderer must use the same footprint rule instead of
+    # rejecting the cell because its padded inset falls entirely outside.
+    frame, reference_cells = _partial_visibility_frame_and_cells()
+    reference = reference_cells[0].geometry
+    geometry = VirtualBoardGeometry(
+        source=reference.source,
+        source_occurrence=reference.source_occurrence,
+        slot=reference.slot,
+        topology=reference.topology,
+        topology_rules_version_id=reference.topology_rules_version_id,
+        geometry_revision=reference.geometry_revision,
+        geometry_version=reference.geometry_version,
+        engine_kind=reference.engine_kind,
+        symbol_grid_quad=SourceQuad(
+            corners=(
+                SourcePoint(-59.0, 0.0),
+                SourcePoint(240.0, 0.0),
+                SourcePoint(240.0, 179.0),
+                SourcePoint(-59.0, 179.0),
+            )
+        ),
+        geometry_qualification=GeometryQualification(
+            "pending_partial",
+            (0, 5, 10),
+            True,
+            "missing_pixels",
+        ),
+    )
+    cells = derive_virtual_cells(geometry=geometry, configuration=reference_cells[0].configuration)
+
+    assert [cell.cell_index for cell in cells] == list(range(15))
+    assert [cell.cell_index for cell in cells if cell.partially_visible] == [0, 5, 10]
+
+    rendered = VirtualCellRenderer().render(frame, cells)
+
+    assert len(rendered) == 15
+    assert all(virtual.rgb.shape == (64, 64, 3) for virtual in rendered)
+    assert [virtual.partially_visible for virtual in rendered].count(True) == 3
+
+
 def test_renderer_still_rejects_an_unavailable_cell_that_is_not_flagged_partially_visible() -> None:
     # A validly constructed VirtualCell can never disagree with its own
     # geometry_qualification (domain __post_init__ bounds already forbid

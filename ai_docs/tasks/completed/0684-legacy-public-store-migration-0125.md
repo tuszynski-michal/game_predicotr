@@ -1,6 +1,6 @@
 ---
 title: TASK-0684 — T05 — migracja 0125 legacy public store
-status: todo
+status: done
 last_updated: 2026-09-25
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-25
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -44,10 +44,10 @@ T01–T04 done; T01 ma `ready`, a T03/T04 udowadniają brak zależności runtime
 
 ## Acceptance criteria
 
-- [ ] Migracja odmawia przed pierwszym dropem, gdy choć jeden guard nie przechodzi.
-- [ ] Happy path usuwa dokładnie 65 legacy relacji, a zostawia catalog, shared/control i `game_data_v2` bez zmian.
-- [ ] Świeża baza Alembic na head 0125 nie tworzy ani nie wymaga 65 relacji legacy `public` przy reprezentatywnym bootstrapie V2.
-- [ ] `downgrade()` jawnie odmawia z komunikatem o nieodwracalności; test nie oczekuje fałszywego odtworzenia.
+- [x] Migracja odmawia przed pierwszym dropem, gdy choć jeden guard nie przechodzi.
+- [x] Happy path usuwa dokładnie 65 legacy relacji, a zostawia catalog, shared/control i `game_data_v2` bez zmian.
+- [x] Świeża baza Alembic na head 0125 nie tworzy ani nie wymaga 65 relacji legacy `public` przy reprezentatywnym bootstrapie V2.
+- [x] `downgrade()` jawnie odmawia z komunikatem o nieodwracalności; test nie oczekuje fałszywego odtworzenia.
 
 ## Technical notes
 
@@ -74,4 +74,18 @@ Sprawdzenie obejmuje wszystkie tabele **przed** pierwszym `DROP`, aby fail nie d
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Dodano migrację `0125` z literalnym snapshotem 65 tabel i stałą kolejnością
+child-before-parent ustaloną z grafu 80 publicznych FK (self-FK nie wpływają
+na `DROP TABLE`). Przed pierwszym dropem migracja sprawdza katalog, rodzaj
+relacji, pustość każdej tabeli oraz zewnętrzne FK i zależności relacyjne; po
+locku `ACCESS EXCLUSIVE` używa wyłącznie `DROP TABLE public.<nazwa> RESTRICT`.
+Nie ma `CASCADE` ani runtime-owego źródła identyfikatorów DDL.
+
+Nowy izolowany pakiet PostgreSQL obejmuje happy path, niepustą tabelę,
+zewnętrzny FK, zależny widok, zły rodzaj relacji, fresh-head z bootstrapem V2
+i odmowę downgrade. Baza użytkownika pozostała bez DDL/DML.
+
+Weryfikacja: Ruff oraz 8/8 testów nowej migracji; test grafu headów Alembic
+przeszedł. Uruchomiony istniejący `test_game_data_v2_postgres.py` wykrył wcześniejszą
+rozbieżność constraintów `0105` w dwóch tabelach geometry qualification,
+poza zakresem T05 i niezależną od `0125`.

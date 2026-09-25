@@ -121,6 +121,8 @@ GAME_SHAPE_GEOMETRY_CONFIGURATION_REVISION = "0116_game_shape_geometry_configura
 GLOBAL_GEOMETRY_QUALIFICATION_REVISION = "0117_shape_geometry_v2_qualification"
 V12_PAGE_FRAME_GRID_PAIRS_REVISION = "0118_v12_page_frame_grid_pairs"
 V12_GAME_DATA_V2_PAGE_FRAME_GRID_PAIRS_REVISION = "0119_v12_game_data_v2_page_frame_grid_pairs"
+LEGACY_PUBLIC_STORE_REMOVAL_REVISION = "0125_remove_legacy_public_game_store"
+LEGACY_PUBLIC_STORE_REMOVAL_PREVIOUS_REVISION = "0124_game_data_v2_partial_visibility_constraints"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -455,14 +457,18 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
     legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
     legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
-    assert script.get_heads() == [V12_GAME_DATA_V2_PAGE_FRAME_GRID_PAIRS_REVISION]
+    assert script.get_heads() == [LEGACY_PUBLIC_STORE_REMOVAL_REVISION]
+    legacy_public_store_removal = script.get_revision(LEGACY_PUBLIC_STORE_REMOVAL_REVISION)
+    assert legacy_public_store_removal is not None
+    assert (
+        legacy_public_store_removal.down_revision == LEGACY_PUBLIC_STORE_REMOVAL_PREVIOUS_REVISION
+    )
     v12_game_data_v2_page_frame_grid_pairs = script.get_revision(
         V12_GAME_DATA_V2_PAGE_FRAME_GRID_PAIRS_REVISION
     )
     assert v12_game_data_v2_page_frame_grid_pairs is not None
     assert (
-        v12_game_data_v2_page_frame_grid_pairs.down_revision
-        == V12_PAGE_FRAME_GRID_PAIRS_REVISION
+        v12_game_data_v2_page_frame_grid_pairs.down_revision == V12_PAGE_FRAME_GRID_PAIRS_REVISION
     )
     v12_page_frame_grid_pairs = script.get_revision(V12_PAGE_FRAME_GRID_PAIRS_REVISION)
     assert v12_page_frame_grid_pairs is not None
@@ -481,16 +487,14 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     v7_activation_gate = script.get_revision(V7_SEMI_AUTOMATIC_ACTIVATION_GATE_REVISION)
     assert v7_activation_gate is not None
     assert (
-        v7_activation_gate.down_revision
-        == RECONCILE_BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION
+        v7_activation_gate.down_revision == RECONCILE_BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION
     )
     reconciled_board_import_status = script.get_revision(
         RECONCILE_BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION
     )
     assert reconciled_board_import_status is not None
     assert (
-        reconciled_board_import_status.down_revision
-        == BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION
+        reconciled_board_import_status.down_revision == BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION
     )
     browser_board_import_status = script.get_revision(BROWSER_STAGING_BOARD_IMPORT_STATUS_REVISION)
     assert browser_board_import_status is not None

@@ -12,6 +12,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import {
+  digitShortcutLabel,
+  isTextEntryKeyboardTarget,
+} from '@/lib/keyboard-shortcuts';
 
 import {
   BOARD_SEARCH_COLUMNS,
@@ -29,6 +33,10 @@ import {
   undoBoardSearchEdit,
 } from './board-search-editor-state';
 import { BoardSearchApproximateWin } from './board-search-approximate-win';
+import {
+  BOARD_SEARCH_UNKNOWN_SHORTCUT,
+  resolveBoardSearchKeyboardCommand,
+} from './board-search-keyboard';
 import { BoardSearchResults } from './board-search-results';
 import {
   BOARD_SEARCH_LIMIT_DEFAULT,
@@ -88,6 +96,8 @@ export function BoardSearchWorkspace({
   const [limitError, setLimitError] = useState<string | null>(null);
   const symbolsRequestId = useRef(0);
   const searchRequestId = useRef(0);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const keyboardHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
 
   const selectedCells = selectedBoardSearchCells(editor);
   const patternCellCount = boardSearchPatternCellCount(editor);
@@ -142,6 +152,13 @@ export function BoardSearchWorkspace({
       searchRequestId.current += 1;
     };
   }, [api, gameId]);
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) =>
+      keyboardHandlerRef.current(event);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
+  }, []);
 
   function selectCell(cellIndex: number) {
     setEditor((current) => selectBoardSearchCell(current, cellIndex));
@@ -260,6 +277,53 @@ export function BoardSearchWorkspace({
     }
   }
 
+  function handleKeyboardShortcut(event: KeyboardEvent) {
+    if (
+      event.defaultPrevented ||
+      symbolsState !== 'ready' ||
+      isTextEntryKeyboardTarget(event.target)
+    ) {
+      return;
+    }
+    const command = resolveBoardSearchKeyboardCommand(event, activeSymbols);
+    if (command === null) return;
+    if (command.kind === 'search') {
+      // Enter on a focused result or other control outside the editor keeps
+      // its native meaning.
+      const target = event.target;
+      const outsideComposer =
+        target instanceof Node &&
+        target !== document.body &&
+        !(composerRef.current?.contains(target) ?? false);
+      if (
+        outsideComposer ||
+        selectedCells.length === 0 ||
+        searchState.kind === 'loading'
+      ) {
+        return;
+      }
+      event.preventDefault();
+      runSearch();
+      return;
+    }
+    if (command.kind === 'undo') {
+      if (editor.history.length === 0) return;
+      event.preventDefault();
+      undo();
+      return;
+    }
+    event.preventDefault();
+    if (command.kind === 'place_unknown') {
+      placeUnknown();
+    } else {
+      placeSymbol(command.symbolCode);
+    }
+  }
+
+  useEffect(() => {
+    keyboardHandlerRef.current = handleKeyboardShortcut;
+  });
+
   return (
     <section aria-label="Wyszukaj plansze" className="boardSearchWorkspace">
       <header className="pageHeader boardSearchHeader">
@@ -340,11 +404,16 @@ export function BoardSearchWorkspace({
       ) : null}
 
       {symbolsState === 'ready' ? (
-        <div className="boardSearchComposer">
+        <div className="boardSearchComposer" ref={composerRef}>
           <aside className="boardSearchPalette" aria-label="Paleta symboli">
             <header>
               <h2>Symbole</h2>
               <p>Kliknij symbol, aby wstawić go do zaznaczonego pola.</p>
+              <p className="boardSearchShortcutHint">
+                Klawiatura: <kbd>1</kbd>–<kbd>9</kbd> symbol · <kbd>0</kbd>{' '}
+                nieznany (?) · <kbd>Backspace</kbd> cofnij · <kbd>Enter</kbd>{' '}
+                szukaj
+              </p>
             </header>
             {activeSymbols.length === 0 ? (
               <p className="boardSearchEmptyPalette">
@@ -352,29 +421,42 @@ export function BoardSearchWorkspace({
               </p>
             ) : (
               <div className="boardSearchPaletteGrid">
-                {activeSymbols.map((symbol) => (
-                  <button
-                    className="boardSearchSymbolButton"
-                    key={symbol.id}
-                    onClick={() => placeSymbol(symbol.code)}
-                    title={symbol.name}
-                    type="button"
-                  >
-                    {symbol.imagePath ? (
-                      <img
-                        alt=""
-                        src={api.symbolImageAssetUrl(gameId, symbol.id)}
-                      />
-                    ) : null}
-                    <span>{symbol.name}</span>
-                  </button>
-                ))}
+                {activeSymbols.map((symbol, index) => {
+                  const shortcut = digitShortcutLabel(index);
+                  return (
+                    <button
+                      aria-keyshortcuts={shortcut ?? undefined}
+                      className="boardSearchSymbolButton"
+                      key={symbol.id}
+                      onClick={() => placeSymbol(symbol.code)}
+                      title={symbol.name}
+                      type="button"
+                    >
+                      {shortcut !== null ? (
+                        <kbd className="boardSearchSymbolShortcut">
+                          {shortcut}
+                        </kbd>
+                      ) : null}
+                      {symbol.imagePath ? (
+                        <img
+                          alt=""
+                          src={api.symbolImageAssetUrl(gameId, symbol.id)}
+                        />
+                      ) : null}
+                      <span>{symbol.name}</span>
+                    </button>
+                  );
+                })}
                 <button
+                  aria-keyshortcuts={BOARD_SEARCH_UNKNOWN_SHORTCUT}
                   className="boardSearchSymbolButton boardSearchUnknownButton"
                   onClick={placeUnknown}
                   title="Nieznany symbol — brak dowodu"
                   type="button"
                 >
+                  <kbd className="boardSearchSymbolShortcut">
+                    {BOARD_SEARCH_UNKNOWN_SHORTCUT}
+                  </kbd>
                   <strong>?</strong>
                   <span>Nieznany</span>
                 </button>

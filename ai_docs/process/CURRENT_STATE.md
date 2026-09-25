@@ -6,6 +6,16 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0657 — skróty klawiszowe w palecie „Wyszukaj plansze”
+
+- Zgłoszenie użytkownika jako kontynuacja TASK-0656: `1`–`9` wstawia symbol
+  (kolejność `displayOrder` aktywnych symboli, numer na przycisku palety),
+  `0`/`?` — nieznany `?`, `Backspace` — `Cofnij`, `Enter` — `Szukaj plansz`.
+  Wspólne helpery wydzielone do `apps/admin/src/lib/keyboard-shortcuts.ts`
+  (używane też przez Weryfikację symboli). Bez zmian API.
+- Testy Admina 602/602, interakcje jsdom 42/42 (2 nowe), typecheck i lint
+  czyste. Brak odbioru na żywym Adminie.
+
 ### TASK-0656 — pełny ekran i skróty klawiszowe w „Weryfikacji symboli”
 
 - Zgłoszenie użytkownika poza planem: podwójne scrolle w „Weryfikacji

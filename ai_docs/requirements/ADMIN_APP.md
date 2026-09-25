@@ -355,6 +355,13 @@ kolejne kolumny. Zmiana kolejności zachowuje zawartość wzoru i wybiera pierws
 wolne pole w nowym porządku. Wizualny układ oraz kanoniczne indeksy komórek
 pozostają row-major niezależnie od sposobu wprowadzania.
 
+Paletę obsługuje też klawiatura (TASK-0657): `1`–`9` wstawia aktywny symbol o
+tym numerze (kolejność `displayOrder` z katalogu gry, numer widoczny na
+przycisku), `0` albo `?` wstawia nieznany `?`, `Backspace` wykonuje `Cofnij`, a
+`Enter` uruchamia wyszukiwanie. Skróty nie działają podczas pisania w polu
+tekstowym (np. „Liczba wyników”) ani z Ctrl/Alt/Meta; `Enter` na kontrolce
+poza edytorem wzoru (np. w wynikach) zachowuje natywne działanie.
+
 Zapisane `?` w znalezionej planszy nie daje punktu, nie zwiększa liczby
 dokładnych dopasowań ani sprzeczności. Znany symbol zapytania zestawiony z `?`
 jest raportowany jako brak danych. Wyniki zachowują deterministyczną kolejność:

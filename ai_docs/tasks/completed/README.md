@@ -59,6 +59,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0682 — audit routingu dostępu game-owned](0682-game-owned-access-routing-audit.md)
 - [TASK-0683 — bootstrap i testy V2-only](0683-v2-only-test-and-bootstrap-contract.md)
 - [TASK-0684 — migracja 0125 legacy public store](0684-legacy-public-store-migration-0125.md)
+- [TASK-0685 — rehearsal migracji legacy public](0685-legacy-public-store-migration-rehearsal.md)
 - [TASK-0692 — grafika symbolu z cropa w Weryfikacji symboli](0692-symbol-image-from-verification-cell.md)
 
 - [TASK-0307 — Kontrakty attested `seq_*` i wirtualnej geometrii](0307-v0-10-attested-virtual-geometry-contracts.md)

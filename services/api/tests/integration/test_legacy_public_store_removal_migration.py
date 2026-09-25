@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import runpy
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from uuid import uuid4
@@ -21,7 +24,10 @@ from game_predictor_api.storage.game_data_v2_manifest_v1 import CREATE_TABLES, G
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
+
+from scripts import audit_legacy_public_game_store as audit_script
 
 PREVIOUS = "0124_game_data_v2_partial_visibility_constraints"
 REVISION = "0125_remove_legacy_public_game_store"
@@ -80,6 +86,33 @@ def _legacy_tables(engine: Engine) -> set[str]:
     return set(inspect(engine).get_table_names(schema="public")) & set(GAME_TABLES)
 
 
+def _report_sha256(report: dict[str, object]) -> str:
+    content = (
+        json.dumps(
+            report, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+        + b"\n"
+    )
+    return hashlib.sha256(content).hexdigest()
+
+
+def _postflight_report(engine: Engine) -> dict[str, object]:
+    inspector = inspect(engine)
+    public_tables = set(inspector.get_table_names(schema="public"))
+    with engine.connect() as connection:
+        revision = connection.scalar(text("SELECT version_num FROM public.alembic_version"))
+        server_version = connection.scalar(text("SELECT current_setting('server_version')"))
+    return {
+        "alembicRevision": revision,
+        "legacyTables": sorted(_legacy_tables(engine)),
+        "retainedPublicTables": sorted(
+            {"games", "symbols", "jobs", "game_storage_locations"} & public_tables
+        ),
+        "serverVersion": server_version,
+        "v2Parents": sorted(inspector.get_table_names(schema="game_data_v2")),
+    }
+
+
 def _assert_guard(engine: Engine, config: Config, code: str, expected: set[str]) -> None:
     with pytest.raises(RuntimeError, match=code):
         command.upgrade(config, REVISION)
@@ -93,6 +126,10 @@ def test_snapshot_is_exact_frozen_manifest() -> None:
     assert namespace["LEGACY_GAME_TABLES"] == tuple(sorted(GAME_TABLES))
     assert len(namespace["DROP_ORDER"]) == len(GAME_TABLES) == 65
     assert set(namespace["DROP_ORDER"]) == set(GAME_TABLES)
+    source = MIGRATION_PATH.read_text(encoding="utf-8")
+    assert "CASCADE" not in source
+    assert "DROP TABLE" in source
+    assert "RESTRICT" in source
 
 
 def test_happy_path_drops_only_legacy_game_tables(database: tuple[Engine, Config]) -> None:
@@ -105,6 +142,71 @@ def test_happy_path_drops_only_legacy_game_tables(database: tuple[Engine, Config
         inspector.get_table_names(schema="public")
     )
     assert set(inspector.get_table_names(schema="game_data_v2")) == set(GAME_TABLES)
+
+
+def test_rehearsal_preflight_apply_and_new_session_postflight(
+    database: tuple[Engine, Config],
+) -> None:
+    """Produce a repeatable isolated transcript for the T06 operator rehearsal."""
+
+    engine, config = database
+    _upgrade_previous(config)
+    preflight = audit_script.audit(engine)
+    assert preflight["status"] == "ready"
+    database_state = preflight["database"]
+    assert isinstance(database_state, dict)
+    assert database_state["alembic_revision"] == PREVIOUS
+    assert database_state["transaction_read_only"] == "on"
+    assert preflight["blockers"] == []
+    assert len(preflight["rowCounts"]) == len(GAME_TABLES)
+    assert {row["rowCount"] for row in preflight["rowCounts"]} == {0}
+    preflight_sha256 = _report_sha256(preflight)
+
+    started = time.monotonic()
+    command.upgrade(config, REVISION)
+    elapsed_seconds = time.monotonic() - started
+    engine.dispose()
+
+    postflight = _postflight_report(engine)
+    assert postflight["alembicRevision"] == REVISION
+    assert postflight["legacyTables"] == []
+    assert postflight["retainedPublicTables"] == [
+        "game_storage_locations",
+        "games",
+        "jobs",
+        "symbols",
+    ]
+    assert postflight["v2Parents"] == sorted(GAME_TABLES)
+    postflight_sha256 = _report_sha256(postflight)
+    print(
+        json.dumps(
+            {
+                "task": "TASK-0685",
+                "preflightSha256": preflight_sha256,
+                "postflightSha256": postflight_sha256,
+                "applyElapsedMilliseconds": round(elapsed_seconds * 1000),
+                "serverVersion": postflight["serverVersion"],
+            },
+            sort_keys=True,
+        )
+    )
+
+
+def test_lock_timeout_happens_before_any_drop(database: tuple[Engine, Config]) -> None:
+    engine, config = database
+    _upgrade_previous(config)
+    with engine.connect() as blocker:
+        transaction = blocker.begin()
+        blocker.exec_driver_sql('LOCK TABLE public."source_images" IN ACCESS SHARE MODE')
+        started = time.monotonic()
+        with pytest.raises(OperationalError, match="lock timeout"):
+            command.upgrade(config, REVISION)
+        elapsed_seconds = time.monotonic() - started
+        transaction.rollback()
+    assert 1 <= elapsed_seconds < 5
+    assert _legacy_tables(engine) == set(GAME_TABLES)
+    with engine.connect() as connection:
+        assert connection.scalar(text("SELECT version_num FROM public.alembic_version")) == PREVIOUS
 
 
 def test_nonempty_guard_happens_before_any_drop(database: tuple[Engine, Config]) -> None:

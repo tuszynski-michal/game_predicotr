@@ -46,7 +46,7 @@ Każdy task ma własny audyt, commit, Outcome i aktualizację `CURRENT_STATE.md`
 | A | [TASK-0682](../tasks/completed/0682-game-owned-access-routing-audit.md) | Wszystkie produkcyjne repository, workery i raw SQL game-owned mają testowany bind. |
 | A | [TASK-0683](../tasks/completed/0683-v2-only-test-and-bootstrap-contract.md) | Bootstrap/fixture provisionuje V2 bez zależności od kopii `public` przed ich usunięciem. |
 | B | [TASK-0684](../tasks/completed/0684-legacy-public-store-migration-0125.md) | Manifest-bound migracja 0125, bez `CASCADE`, ma izolowany dowód PostgreSQL, w tym fresh-head po 0125. |
-| B | [TASK-0685](../tasks/0685-legacy-public-store-migration-rehearsal.md) | Dry-run i odbiór release/migration wykazują warunki startu, timeouty i ścieżkę po błędzie. |
+| B | [TASK-0685](../tasks/completed/0685-legacy-public-store-migration-rehearsal.md) | Rehearsal `ready`: preflight → 0125 → nowa sesja postflight, z testem lock timeoutu; raport quality zawiera transcript i warunki T09. |
 | B | [TASK-0686](../tasks/0686-legacy-public-store-operations-docs.md) | Instrukcja preflight/approval/postflight oraz obserwowalność nie mylą public z data plane. |
 | STOP B | — | Pokaż operatorowi świeży raport T01/T05, review DDL, plan okna i dokładny zakres. Bez jawnego polecenia T09 plan zatrzymuje się tutaj. |
 | C | [TASK-0687](../tasks/0687-v2-only-release-readiness.md) | Wersja aplikacji gotowa do działania bez kopii publicznych; tylko read-only smoke przed operacją. |

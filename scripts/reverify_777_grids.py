@@ -1168,9 +1168,13 @@ def _hybrid_canonical(params: np.ndarray[Any, np.dtype[np.float64]], cell: tuple
 
 
 def fit_board_layout(
-    boards: Mapping[int, FloatQuad], shape: tuple[int, int]
+    boards: Mapping[int, FloatQuad], shape: tuple[int, int], *, radial: bool = True
 ) -> tuple[np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.float64]], float]:
-    """Screen model (homography + pitches + radial term) fitted to known symbol-grid quads."""
+    """Screen model (homography + pitches [+ radial term]) fitted to known symbol-grid quads.
+
+    Without the radial term the model extrapolates linearly, which is safer for a
+    board outside the columns (or rows) covered by the known boards.
+    """
 
     from game_predictor_worker.images.screen_layout_v3.layout import levenberg_marquardt, project
 
@@ -1189,11 +1193,13 @@ def fit_board_layout(
     start[:8] = (homography / homography[2, 2]).ravel()[:8]
 
     def residual(p11: np.ndarray[Any, np.dtype[np.float64]]) -> Any:
-        params = np.concatenate([p11[:10], [HYBRID_ASPECT], p11[10:11]])
+        k1 = p11[10:11] if radial else np.zeros(1)
+        params = np.concatenate([p11[:10], [HYBRID_ASPECT], k1])
         return (project(params, canonical(params), center, scale) - observed).ravel()
 
     p11 = levenberg_marquardt(residual, np.concatenate([start[:10], start[11:12]]), 80)
-    return np.concatenate([p11[:10], [HYBRID_ASPECT], p11[10:11]]), center, scale
+    k1 = p11[10:11] if radial else np.zeros(1)
+    return np.concatenate([p11[:10], [HYBRID_ASPECT], k1]), center, scale
 
 
 def cv2_find_homography(source: Any, target: Any) -> tuple[Any, Any]:
@@ -1205,12 +1211,24 @@ def cv2_find_homography(source: Any, target: Any) -> tuple[Any, Any]:
     return homography, mask
 
 
+def is_extrapolated(boards: Mapping[int, FloatQuad], position: int) -> bool:
+    """True when no known board shares the target's column or none shares its row."""
+
+    column, row = position % 3, position // 3
+    return not any(p % 3 == column for p in boards) or not any(p // 3 == row for p in boards)
+
+
 def predict_board(
-    boards: Mapping[int, FloatQuad], position: int, shape: tuple[int, int]
+    boards: Mapping[int, FloatQuad],
+    position: int,
+    shape: tuple[int, int],
+    *,
+    radial: bool | None = None,
 ) -> FloatQuad:
     from game_predictor_worker.images.screen_layout_v3.layout import project
 
-    params, center, scale = fit_board_layout(boards, shape)
+    use_radial = True if radial is None else radial
+    params, center, scale = fit_board_layout(boards, shape, radial=use_radial)
     quad = project(params, _hybrid_canonical(params, (position % 3, position // 3)), center, scale)
     return cast(FloatQuad, tuple((float(x), float(y)) for x, y in quad))
 
@@ -1371,6 +1389,19 @@ def place_board(
     return cast(FloatQuad, tuple((float(x), float(y)) for x, y in corners)), best[0], ambiguous
 
 
+REFINE_SCALES = (0.97, 1.0, 1.03)
+HALF_MAX_OFFSET_CELL = 0.35  # a half-board offset beyond this means a row jump on one side
+
+
+def _neighbour_template(gray: Any, neighbours: Sequence[FloatQuad]) -> Any:
+    import cv2
+
+    template = np.median(
+        np.stack([_rectify_board(gray, q).astype(np.float32) for q in neighbours]), axis=0
+    ).astype(np.float32)
+    return cv2.GaussianBlur(template, (0, 0), 1.5)
+
+
 def refine_board(
     gray: Any,
     neighbours: Sequence[FloatQuad],
@@ -1379,17 +1410,60 @@ def refine_board(
 ) -> tuple[FloatQuad, float]:
     """Align the predicted board to the median of its neighbours.
 
-    The screen model already carries the perspective, so the correction is a
-    similarity-like affine warp: one occluded corner (arrow, hand) cannot move
-    on its own the way it could with a full homography.
+    Shape (proportions, skew, perspective) comes from the screen model of the
+    neighbours; the correction is only translation, a small rotation and one
+    common scale. Without shear or per-axis scale one side of the grid cannot
+    jump a row relative to the other.
     """
 
     import cv2
 
-    template = np.median(
-        np.stack([_rectify_board(gray, q).astype(np.float32) for q in neighbours]), axis=0
-    ).astype(np.float32)
-    template = cv2.GaussianBlur(template, (0, 0), 1.5)
+    template = _neighbour_template(gray, neighbours)
+    best: tuple[float, FloatQuad] | None = None
+    for scale in REFINE_SCALES:
+        start = scale_quad(predicted, scale)
+        tile = cv2.GaussianBlur(_rectify_board(gray, start).astype(np.float32), (0, 0), 1.5)
+        warp = np.eye(2, 3, dtype=np.float32)
+        try:
+            correlation, found = cv2.findTransformECC(
+                template,
+                tile,
+                warp,
+                cv2.MOTION_EUCLIDEAN,
+                (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 100, 1e-6),
+                _refine_mask(tile.shape, position),
+                3,
+            )
+        except cv2.error:
+            continue
+        affine = np.vstack([np.asarray(found, np.float64), [0.0, 0.0, 1.0]])
+        matrix, _size, pixel = _unit_homography(start)
+        corners_in_tile = cv2.perspectiveTransform(pixel.reshape(-1, 1, 2), affine)
+        corners = cv2.perspectiveTransform(corners_in_tile, matrix).reshape(-1, 2)
+        quad = cast(FloatQuad, tuple((float(x), float(y)) for x, y in corners))
+        if best is None or float(correlation) > best[0]:
+            best = (float(correlation), quad)
+    if best is None:
+        return predicted, 0.0
+    return best[1], best[0]
+
+
+def refine_board_affine(
+    gray: Any,
+    neighbours: Sequence[FloatQuad],
+    predicted: FloatQuad,
+    position: int | None = None,
+) -> tuple[FloatQuad, float]:
+    """Precise affine alignment used only to *check* an existing engine grid.
+
+    It follows local detail better than the rigid refinement (median 0.07 cell on
+    known boards) but may shear on occluded boards, so its result is never
+    written; new grids come from ``refine_board``.
+    """
+
+    import cv2
+
+    template = _neighbour_template(gray, neighbours)
     tile = cv2.GaussianBlur(_rectify_board(gray, predicted).astype(np.float32), (0, 0), 1.5)
     warp = np.eye(2, 3, dtype=np.float32)
     try:
@@ -1404,15 +1478,122 @@ def refine_board(
         )
     except cv2.error:
         return predicted, 0.0
-    affine = np.vstack([np.asarray(found, np.float64), [0.0, 0.0, 1.0]])
+    matrix3 = np.vstack([np.asarray(found, np.float64), [0.0, 0.0, 1.0]])
     matrix, _size, pixel = _unit_homography(predicted)
-    corners_in_tile = cv2.perspectiveTransform(pixel.reshape(-1, 1, 2), affine)
+    corners_in_tile = cv2.perspectiveTransform(pixel.reshape(-1, 1, 2), matrix3)
     corners = cv2.perspectiveTransform(corners_in_tile, matrix).reshape(-1, 2)
     return cast(FloatQuad, tuple((float(x), float(y)) for x, y in corners)), float(correlation)
 
 
+def halves_consistent(
+    gray: Any, neighbours: Sequence[FloatQuad], quad: FloatQuad, position: int | None = None
+) -> tuple[bool, float, float]:
+    """Align the left and right half separately (translation only).
+
+    A grid whose one side sits a row off shows a vertical offset on that half.
+    Returns (consistent, left dy, right dy) with offsets in cell heights.
+    """
+
+    import cv2
+
+    template = _neighbour_template(gray, neighbours)
+    tile = cv2.GaussianBlur(_rectify_board(gray, quad).astype(np.float32), (0, 0), 1.5)
+    height, width = tile.shape[:2]
+    m = HYBRID_MARGIN
+    x0 = width * m / (1 + 2 * m)
+    board_w = width / (1 + 2 * m)
+    cell_h = height / (1 + 2 * m) / 3
+    base = _refine_mask(tile.shape, position)
+    offsets: list[float] = []
+    for left, right in ((0.0, x0 + board_w / 2), (x0 + board_w / 2, float(width))):
+        mask = base.copy()
+        mask[:, : int(left)] = 0
+        mask[:, int(right) :] = 0
+        warp = np.eye(2, 3, dtype=np.float32)
+        try:
+            _c, found = cv2.findTransformECC(
+                template,
+                tile,
+                warp,
+                cv2.MOTION_TRANSLATION,
+                (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 60, 1e-5),
+                mask,
+                3,
+            )
+        except cv2.error:
+            return False, math.nan, math.nan
+        offsets.append(float(np.asarray(found)[1, 2]) / cell_h)
+    dy_left, dy_right = offsets
+    consistent = (
+        abs(dy_left) <= HALF_MAX_OFFSET_CELL
+        and abs(dy_right) <= HALF_MAX_OFFSET_CELL
+        and abs(dy_left - dy_right) <= HALF_MAX_OFFSET_CELL
+    )
+    return consistent, dy_left, dy_right
+
+
 def _cell_width(quad: FloatQuad) -> float:
     return (math.dist(quad[0], quad[1]) + math.dist(quad[3], quad[2])) / 2 / 5
+
+
+DECISION_STYLE: dict[str, tuple[tuple[int, int, int], str]] = {
+    "pewna": ((0, 200, 0), "OK"),
+    "niezgodna": ((0, 0, 255), "BLOK"),
+    "poprawiona": ((0, 165, 255), "POPR."),
+    "uzupelniona_pewna": ((255, 0, 255), "NOWA"),
+    "uzupelniona_niepewna": ((0, 0, 255), "NOWA?"),
+    "za_malo_sasiadow": ((255, 160, 0), "?"),
+}
+
+
+def _draw_decisions(
+    canvas: Any,
+    decisions: Mapping[int, Mapping[str, object]],
+    *,
+    include_confirmed: bool,
+    skip_positions: set[int] | None = None,
+) -> None:
+    """Full 5 x 3 lattice with thin lines for every drawn board, labelled pl.N TAG."""
+
+    import cv2
+
+    thin = max(1, canvas.shape[1] // 1400)
+    for position, decision in sorted(decisions.items()):
+        if skip_positions and position in skip_positions:
+            continue
+        verdict = str(decision.get("decision"))
+        if verdict == "pewna" and not include_confirmed:
+            continue
+        raw = decision.get("quad")
+        if raw is None or verdict not in DECISION_STYLE:
+            continue
+        colour, tag = DECISION_STYLE[verdict]
+        quad = cast(FloatQuad, tuple(tuple(point) for point in cast(list[Any], raw)))
+        _draw_lattice(canvas, quad, colour, thin)
+        cv2.putText(
+            canvas,
+            f"pl.{position + 1} {tag}",
+            (int(quad[0][0]), int(quad[0][1]) - 6),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6 + 0.2 * thin,
+            colour,
+            thin + 1,
+        )
+
+
+def _encode_preview(canvas: Any, width: int = 1100) -> str:
+    import base64
+
+    import cv2
+
+    if canvas.shape[1] > width:
+        canvas = cv2.resize(
+            canvas,
+            (width, int(canvas.shape[0] * width / canvas.shape[1])),
+            interpolation=cv2.INTER_AREA,
+        )
+    _ok, buffer = cv2.imencode(".jpg", canvas, [cv2.IMWRITE_JPEG_QUALITY, 82])
+    return base64.b64encode(buffer.tobytes()).decode("ascii")
 
 
 def hybrid_sample(
@@ -1423,10 +1604,10 @@ def hybrid_sample(
     output_dir: Path,
     tau_cell: float,
     min_ecc: float,
+    only_pending: bool = False,
 ) -> Path:
     """Read-only 777 hybrid: engine grids + leave-one-out screen consensus + slot fill."""
 
-    import base64
     import html
 
     import cv2
@@ -1437,6 +1618,8 @@ def hybrid_sample(
     try:
         with game_storage_scope(game_id), session_factory() as session:
             categories = _sample_source_ids(session, per_category=per_category, seed=seed)
+            if only_pending:
+                categories = {"do_poprawy": categories["do_poprawy"]}
             all_ids = [sid for ids in categories.values() for sid in ids]
             sources = {
                 s.id: s
@@ -1482,121 +1665,21 @@ def hybrid_sample(
                 quad = None if slot is None else engine_quad(slot)
                 if quad is not None and position not in pending:
                     known[position] = quad
-            canvas = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-            thick = max(2, width // 700)
+            decisions = _evaluate_source(
+                gray, (height, width), known, pending, tau_cell=tau_cell, min_ecc=min_ecc
+            )
             boards_payload: list[dict[str, object]] = []
-            accepted = 0
             for position in range(9):
                 entry: dict[str, object] = {
                     "positionIndex": position,
                     "pendingSlot": position in pending,
+                    **decisions[position],
                 }
-                others = {p: q for p, q in known.items() if p != position}
-                if len(others) < HYBRID_MIN_NEIGHBOURS:
-                    entry["decision"] = "za_malo_sasiadow"
-                    boards_payload.append(entry)
-                    if position in known:
-                        cv2.polylines(
-                            canvas,
-                            [np.array(known[position], dtype=np.int32)],
-                            True,
-                            (255, 160, 0),
-                            thick,
-                        )
-                    continue
-                predicted = predict_board(others, position, (height, width))
-                if position in known:
-                    own = known[position]
-                    refined, correlation = refine_board(
-                        gray, list(others.values()), predicted, position
-                    )
-                    deviation = max_corner_distance(own, refined) / _cell_width(own)
-                    loo_errors.append(deviation)
-                    # Geometry alone separates good from bad boards; appearance scores do not
-                    # (symbols differ, arrows/hands cover edge boards).
-                    limit = ARROW_TAU_CELL if position in ARROW_SIDE else tau_cell
-                    ok = deviation <= limit
-                    shift = max_corner_distance(refined, predicted) / _cell_width(predicted)
-                    repair = (
-                        not ok
-                        and correlation >= REPAIR_MIN_ECC
-                        and shift <= 0.5
-                        and quad_inside(refined, width=width, height=height)
-                    )
-                    accepted += ok
-                    decision = "pewna" if ok else "poprawiona" if repair else "niezgodna"
-                    entry.update(
-                        {
-                            "decision": decision,
-                            "deviationCell": round(deviation, 3),
-                            "ecc": round(correlation, 3),
-                            "refineShiftCell": round(shift, 3),
-                        }
-                    )
-                    if repair:
-                        entry["quad"] = [list(p) for p in refined]
-                        cv2.polylines(
-                            canvas, [np.array(own, dtype=np.int32)], True, (255, 160, 0), thick
-                        )
-                        _draw_lattice(canvas, refined, (0, 220, 0), thick)
-                    else:
-                        cv2.polylines(
-                            canvas,
-                            [np.array(own, dtype=np.int32)],
-                            True,
-                            (0, 220, 0) if ok else (0, 0, 255),
-                            thick + 1,
-                        )
-                else:
-                    refined, correlation = refine_board(
-                        gray, list(others.values()), predicted, position
-                    )
-                    placed, _score, ambiguous = place_board(gray, list(others.values()), predicted)
-                    shift = max_corner_distance(refined, predicted) / _cell_width(predicted)
-                    inside = quad_inside(refined, width=width, height=height)
-                    shape_ok = shape_consistent(refined, predicted)
-                    agree = max_corner_distance(refined, placed) / _cell_width(predicted) <= 0.3
-                    ok = (
-                        correlation >= min_ecc
-                        and shift <= 0.5
-                        and inside
-                        and shape_ok
-                        and agree
-                        and not ambiguous
-                    )
-                    entry.update({"shapeOk": shape_ok, "placementAgrees": agree})
-                    entry.update(
-                        {
-                            "decision": "uzupelniona_pewna" if ok else "uzupelniona_niepewna",
-                            "ecc": round(correlation, 3),
-                            "ambiguous": ambiguous,
-                            "refineShiftCell": round(shift, 3),
-                            "quad": [list(p) for p in refined],
-                        }
-                    )
-                    colour = (0, 220, 0) if ok else (0, 0, 255)
-                    for k in range(6):
-                        a = _lattice_point(refined, k / 5, 0.0)
-                        b = _lattice_point(refined, k / 5, 1.0)
-                        cv2.line(
-                            canvas, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), colour, thick
-                        )
-                    for k in range(4):
-                        a = _lattice_point(refined, 0.0, k / 3)
-                        b = _lattice_point(refined, 1.0, k / 3)
-                        cv2.line(
-                            canvas, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), colour, thick
-                        )
-                    cv2.putText(
-                        canvas,
-                        "P",
-                        (int(refined[0][0]), int(refined[0][1]) - 6),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1.0,
-                        colour,
-                        thick,
-                    )
+                if "deviationCell" in entry:
+                    loo_errors.append(float(cast(float, entry["deviationCell"])))
                 boards_payload.append(entry)
+            canvas = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+            _draw_decisions(canvas, decisions, include_confirmed=True)
             # Accuracy estimate of the slot-fill path on boards with a known engine grid.
             for position in list(known)[:3]:
                 others = {p: q for p, q in known.items() if p != position}
@@ -1610,22 +1693,15 @@ def hybrid_sample(
                     fill_errors.append(
                         max_corner_distance(refined, known[position]) / _cell_width(known[position])
                     )
-            if canvas.shape[1] > 1100:
-                canvas = cv2.resize(
-                    canvas,
-                    (1100, int(canvas.shape[0] * 1100 / canvas.shape[1])),
-                    interpolation=cv2.INTER_AREA,
-                )
-            _ok, buffer = cv2.imencode(".jpg", canvas, [cv2.IMWRITE_JPEG_QUALITY, 82])
-            data = base64.b64encode(buffer.tobytes()).decode("ascii")
-            decisions = [str(b.get("decision")) for b in boards_payload]
+            data = _encode_preview(canvas)
+            verdicts = [str(b.get("decision")) for b in boards_payload]
             slots = ", ".join(str(p + 1) for p in sorted(pending)) or "—"
             caption = html.escape(
                 f"#{number} · sloty bez siatki: {slots}"
-                f" · pewne {decisions.count('pewna')}, poprawione {decisions.count('poprawiona')},"
-                f" niezgodne {decisions.count('niezgodna')},"
-                f" uzupełnione pewne {decisions.count('uzupelniona_pewna')},"
-                f" uzupełnione niepewne {decisions.count('uzupelniona_niepewna')}"
+                f" · pewne {verdicts.count('pewna')}, poprawione {verdicts.count('poprawiona')},"
+                f" niezgodne {verdicts.count('niezgodna')},"
+                f" uzupełnione pewne {verdicts.count('uzupelniona_pewna')},"
+                f" uzupełnione niepewne {verdicts.count('uzupelniona_niepewna')}"
             )
             figures.append(
                 f'<figure><img src="data:image/jpeg;base64,{data}" alt="">'
@@ -1692,6 +1768,482 @@ def hybrid_sample(
     return page
 
 
+# --------------------------------------------------------------------------- dry run
+
+DRY_RUN_VERSION = "grid-reverify-777-hybrid-dry-run-v1"
+
+
+def _evaluate_source(
+    gray: Any,
+    shape: tuple[int, int],
+    known: Mapping[int, FloatQuad],
+    pending: set[int],
+    *,
+    tau_cell: float,
+    min_ecc: float,
+) -> dict[int, dict[str, object]]:
+    """Hybrid decision for every board slot of one photo.
+
+    Every grid the tool would write itself (a filled slot or a repair) passes the
+    same checks: alignment strength, bounded correction, inside the photo, the
+    neighbours' shape, agreement with a shape-locked placement search, no almost
+    equally good placement a cell away, and consistent left/right halves.
+    """
+
+    height, width = shape
+    out: dict[int, dict[str, object]] = {}
+    for position in range(9):
+        others = {p: q for p, q in known.items() if p != position}
+        if len(others) < HYBRID_MIN_NEIGHBOURS or (
+            position not in known and position not in pending
+        ):
+            entry: dict[str, object] = {"decision": "za_malo_sasiadow"}
+            if position in known:
+                entry["quad"] = [list(p) for p in known[position]]
+            out[position] = entry
+            continue
+        neighbours = list(others.values())
+        predicted = predict_board(others, position, (height, width))
+        refined, correlation = refine_board(gray, neighbours, predicted, position)
+        shift = max_corner_distance(refined, predicted) / _cell_width(predicted)
+
+        def own_grid_checks(
+            neighbours: list[FloatQuad] = neighbours,
+            predicted: FloatQuad = predicted,
+            refined: FloatQuad = refined,
+            correlation: float = correlation,
+            shift: float = shift,
+            position: int = position,
+        ) -> dict[str, object]:
+            placed, placed_score, ambiguous = place_board(gray, neighbours, predicted)
+            halves_ok, dy_left, dy_right = halves_consistent(gray, neighbours, refined, position)
+            inside = quad_inside(refined, width=width, height=height)
+            shape_ok = shape_consistent(refined, predicted)
+            agree = max_corner_distance(refined, placed) / _cell_width(predicted) <= 0.3
+            return {
+                "ecc": round(correlation, 3),
+                "refineShiftCell": round(shift, 3),
+                "inside": inside,
+                "shapeOk": shape_ok,
+                "placementAgrees": agree,
+                "ambiguous": ambiguous,
+                "halvesOk": halves_ok,
+                "halfOffsetsCell": [round(dy_left, 3), round(dy_right, 3)],
+                "placedQuad": [list(point) for point in placed],
+                "placedScore": round(placed_score, 3),
+                "passed": bool(
+                    correlation >= min_ecc
+                    and shift <= 0.5
+                    and inside
+                    and shape_ok
+                    and agree
+                    and not ambiguous
+                    and halves_ok
+                ),
+            }
+
+        if position in known:
+            own = known[position]
+            checked, _check_ecc = refine_board_affine(gray, neighbours, predicted, position)
+            deviation = max_corner_distance(own, checked) / _cell_width(own)
+            limit = ARROW_TAU_CELL if position in ARROW_SIDE else tau_cell
+            if deviation <= limit:
+                out[position] = {
+                    "decision": "pewna",
+                    "deviationCell": round(deviation, 3),
+                    "quad": [list(p) for p in own],
+                }
+                continue
+            checks = own_grid_checks()
+            repair = bool(checks["passed"]) and correlation >= REPAIR_MIN_ECC
+            out[position] = {
+                "decision": "poprawiona" if repair else "niezgodna",
+                "deviationCell": round(deviation, 3),
+                **checks,
+                "quad": [list(p) for p in (refined if repair else own)],
+                "proposedQuad": [list(p) for p in refined],
+            }
+        else:
+            checks = own_grid_checks()
+            # A diverged refinement (rotated, skewed or moved too far) is never drawn:
+            # the shape-locked placement keeps the neighbours' shape and cannot twist.
+            sane = bool(checks["shapeOk"]) and shift <= 0.5
+            drawn = (
+                refined
+                if sane
+                else cast(FloatQuad, tuple(map(tuple, cast(list[Any], checks["placedQuad"]))))
+            )
+            out[position] = {
+                "decision": "uzupelniona_pewna" if checks["passed"] else "uzupelniona_niepewna",
+                **checks,
+                "drawnFrom": "refine" if sane else "placement",
+                "quad": [list(p) for p in drawn],
+            }
+    return out
+
+
+PAGE_SIZE = 100
+
+
+def _block_reasons(board_payload: Sequence[Mapping[str, object]]) -> list[str]:
+    blocked: list[str] = []
+    for item in board_payload:
+        number = int(cast(int, item["positionIndex"])) + 1
+        if item["kind"] == "missing":
+            blocked.append(f"pl.{number} brak")
+        elif item["kind"] == "pending_slot" and item["decision"] != "uzupelniona_pewna":
+            blocked.append(f"pl.{number} NOWA?")
+        elif (
+            item["kind"] == "board"
+            and not item.get("alreadyApproved")
+            and item["decision"] not in ("pewna", "poprawiona")
+        ):
+            blocked.append(f"pl.{number} BLOK")
+    return blocked
+
+
+def dry_run(
+    *,
+    game_id: UUID,
+    import_job_id: UUID,
+    output_dir: Path,
+    tau_cell: float,
+    min_ecc: float,
+) -> Path:
+    """Read-only: decide every photo of one import that has slots without a grid.
+
+    Writes ``decisions.json`` (the manifest a later execute step reads, with the
+    database identities observed now) and paged previews ordered by sequence
+    number. Only grids the tool would write or that block a photo are drawn,
+    always as a full thin 5 x 3 lattice. A finished import is skipped on rerun.
+    """
+
+    import html
+
+    import cv2
+    from game_predictor_api.storage.models import ImageReviewItemModel
+
+    target = output_dir / f"dry-run-{import_job_id}"
+    if (target / "decisions.json").exists():
+        return target / "index.html"
+    settings = get_settings()
+    engine = _read_only_engine(create_database_engine(settings))
+    session_factory = create_session_factory(engine)
+    try:
+        with game_storage_scope(game_id), session_factory() as session:
+            pending_rows = session.scalars(
+                select(ImageBoardGeometryPendingModel).where(
+                    ImageBoardGeometryPendingModel.status == "pending",
+                    ImageBoardGeometryPendingModel.import_job_id == import_job_id,
+                )
+            ).all()
+            source_ids = sorted({row.source_image_id for row in pending_rows}, key=str)
+            sources = {
+                s.id: s
+                for s in session.scalars(
+                    select(SourceImageModel).where(SourceImageModel.id.in_(source_ids))
+                ).all()
+            }
+            autos = _auto_revisions(session, source_ids)
+            board_rows = session.execute(
+                select(RecognizedBoardModel, ImageReviewItemModel)
+                .join(
+                    ImageReviewItemModel,
+                    ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+                )
+                .where(RecognizedBoardModel.source_image_id.in_(source_ids))
+            ).all()
+            session.expunge_all()
+    finally:
+        engine.dispose()
+
+    pending_by_source: dict[UUID, dict[int, ImageBoardGeometryPendingModel]] = {}
+    for row in pending_rows:
+        pending_by_source.setdefault(row.source_image_id, {})[int(row.position_index)] = row
+    boards_by_source: dict[UUID, dict[int, tuple[RecognizedBoardModel, Any]]] = {}
+    for board, review_row in board_rows:
+        boards_by_source.setdefault(board.source_image_id, {})[int(board.position_index)] = (
+            board,
+            review_row,
+        )
+
+    def sequence_start(source_id: UUID) -> int:
+        auto = autos.get(source_id)
+        return int(auto.sequence_range_start) if auto is not None else 0
+
+    ordered = sorted(source_ids, key=lambda sid: (sequence_start(sid), str(sid)))
+    work = target.with_name(target.name + ".partial")
+    work.mkdir(parents=True, exist_ok=True)
+    manifest: list[dict[str, object]] = []
+    figures: list[str] = []
+    started = time.perf_counter()
+    for number, source_id in enumerate(ordered, start=1):
+        source = sources[source_id]
+        auto = autos.get(source_id)
+        pending = pending_by_source.get(source_id, {})
+        boards = boards_by_source.get(source_id, {})
+        entry: dict[str, object] = {
+            "previewNumber": number,
+            "sourceImageId": str(source_id),
+            "importJobId": str(source.import_job_id),
+            "relativePath": source.relative_path,
+            "sourceChecksumSha256": source.checksum_sha256,
+            "sourceWidth": int(source.oriented_width or source.width),
+            "sourceHeight": int(source.oriented_height or source.height),
+            "sequenceRange": (
+                None
+                if auto is None
+                else [int(auto.sequence_range_start), int(auto.sequence_range_end)]
+            ),
+        }
+        blocked: list[str] = []
+        if auto is None:
+            blocked.append("brak automatycznej geometrii")
+        if any(int(b.geometry_revision) != 0 for b, _i in boards.values()):
+            blocked.append("plansza z ręczną rewizją")
+        try:
+            rgb = load_source_rgb(settings.artifact_root, source)
+        except (OSError, ValueError) as error:
+            blocked.append(f"zdjęcie niedostępne: {error}")
+            rgb = None
+        if rgb is None or auto is None:
+            entry.update({"resolvable": False, "blocked": blocked, "boards": []})
+            manifest.append(entry)
+            continue
+        height, width = rgb.shape[:2]
+        known: dict[int, FloatQuad] = {}
+        for position in boards:
+            slot = _slot_geometry(auto.board_geometries, position)
+            quad = None if slot is None else engine_quad(slot)
+            if quad is not None:
+                known[position] = quad
+        decisions = _evaluate_source(
+            cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY),
+            (height, width),
+            known,
+            set(pending),
+            tau_cell=tau_cell,
+            min_ecc=min_ecc,
+        )
+        board_payload: list[dict[str, object]] = []
+        for position in range(9):
+            item: dict[str, object] = {"positionIndex": position, **decisions[position]}
+            if position in pending:
+                row = pending[position]
+                item.update(
+                    {
+                        "kind": "pending_slot",
+                        "pendingGeometryId": str(row.id),
+                        "expectedGeometryRevision": int(row.expected_geometry_revision),
+                        "expectedResolutionRevision": int(row.expected_review_resolution_revision),
+                    }
+                )
+            elif position in boards:
+                board, review_item = boards[position]
+                item.update(
+                    {
+                        "kind": "board",
+                        "reviewItemId": str(review_item.id),
+                        "expectedGeometryRevision": int(board.geometry_revision),
+                        "expectedResolutionRevision": int(review_item.resolution_revision),
+                        "alreadyApproved": board.approved_geometry_revision
+                        == board.geometry_revision,
+                    }
+                )
+            else:
+                item["kind"] = "missing"
+            board_payload.append(item)
+        blocked.extend(_block_reasons(board_payload))
+        resolvable = not blocked
+        entry.update({"resolvable": resolvable, "blocked": blocked, "boards": board_payload})
+        manifest.append(entry)
+
+        canvas = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        approved = {
+            int(cast(int, b["positionIndex"])) for b in board_payload if b.get("alreadyApproved")
+        }
+        _draw_decisions(canvas, decisions, include_confirmed=False, skip_positions=approved)
+        sequence = cast(list[int] | None, entry["sequenceRange"])
+        seq_text = "?" if sequence is None else f"{sequence[0]}–{sequence[1]}"
+        status = "GOTOWE" if resolvable else "ZABLOKOWANE: " + ", ".join(blocked)
+        caption = html.escape(f"#{number} · sekwencje {seq_text} · {status}")
+        figures.append(
+            f'<figure id="n{number}"><img src="data:image/jpeg;base64,'
+            f'{_encode_preview(canvas)}" alt=""><figcaption>{caption}</figcaption></figure>'
+        )
+        if number % 50 == 0:
+            print(
+                f"{import_job_id}: {number}/{len(ordered)} zdjęć, "
+                f"{time.perf_counter() - started:.0f} s",
+                flush=True,
+            )
+
+    resolvable_sources = [m for m in manifest if m["resolvable"]]
+
+    def count(predicate: Any) -> int:
+        return sum(
+            1
+            for m in resolvable_sources
+            for b in cast(list[dict[str, object]], m["boards"])
+            if predicate(b)
+        )
+
+    summary = {
+        "version": DRY_RUN_VERSION,
+        "gameId": str(game_id),
+        "importJobId": str(import_job_id),
+        "generatedAt": datetime.now(UTC).isoformat(),
+        "tauCell": tau_cell,
+        "minEcc": min_ecc,
+        "sourcesWithSlots": len(ordered),
+        "pendingSlots": len(pending_rows),
+        "resolvableSources": len(resolvable_sources),
+        "filledSlots": count(lambda b: b["kind"] == "pending_slot"),
+        "repairedBoards": count(lambda b: b["decision"] == "poprawiona"),
+        "confidentFills": sum(
+            1
+            for m in manifest
+            for b in cast(list[dict[str, object]], m["boards"])
+            if b.get("decision") == "uzupelniona_pewna"
+        ),
+        "sequenceRange": [
+            min(
+                (cast(list[int], m["sequenceRange"])[0] for m in manifest if m["sequenceRange"]),
+                default=0,
+            ),
+            max(
+                (cast(list[int], m["sequenceRange"])[1] for m in manifest if m["sequenceRange"]),
+                default=0,
+            ),
+        ],
+        "accepted": [],
+        "rejected": [],
+    }
+    legend = (
+        "<p>Rysuję tylko siatki wyznaczone przez silnik lub blokujące zapis, zawsze pełną "
+        "siatką 5 × 3: <span style='color:#f0f'>NOWA</span> = brakujący slot dorysowany "
+        "pewnie, <span style='color:#f33'>NOWA?</span> = dorysowany niepewnie, "
+        "<span style='color:#fa0'>POPR.</span> = siatka obecnego silnika zastąpiona, "
+        "<span style='color:#f33'>BLOK</span> = istniejąca siatka niepotwierdzona. "
+        "Plansze potwierdzone i już zatwierdzone nie są rysowane. „GOTOWE” = zdjęcie "
+        "do zapisu w całości.</p>"
+    )
+    pages: list[tuple[str, int, int]] = []
+    for start in range(0, len(figures), PAGE_SIZE):
+        chunk = figures[start : start + PAGE_SIZE]
+        first, last = start + 1, start + len(chunk)
+        name = f"strona_{first:05d}-{last:05d}.html"
+        pages.append((name, first, last))
+        (work / name).write_text(
+            "<!doctype html><html lang='pl'><head><meta charset='utf-8'>"
+            f"<title>777 dry-run #{first}–{last}</title>"
+            "<style>body{font-family:system-ui,sans-serif;margin:16px;background:#111;"
+            "color:#eee}main{display:grid;grid-template-columns:repeat(auto-fill,"
+            "minmax(640px,1fr));gap:18px}figure{margin:0}img{width:100%;display:block}"
+            "figcaption{font-size:14px;padding:4px 0}a{color:#8cf}</style></head><body>"
+            f"<p><a href='index.html'>← spis</a></p><h1>Import {html.escape(str(import_job_id))}"
+            f" — zdjęcia #{first}–{last}</h1>{legend}<main>{''.join(chunk)}</main></body></html>",
+            encoding="utf-8",
+        )
+    links = "".join(f"<li><a href='{name}'>#{first}–{last}</a></li>" for name, first, last in pages)
+    (work / "index.html").write_text(
+        "<!doctype html><html lang='pl'><head><meta charset='utf-8'><title>777 dry-run</title>"
+        "<style>body{font-family:system-ui,sans-serif;margin:16px;background:#111;color:#eee}"
+        "a{color:#8cf}</style></head><body>"
+        f"<h1>Import {html.escape(str(import_job_id))}</h1>"
+        f"<p>Zdjęcia ze slotami bez siatki: {len(ordered)} ({len(pending_rows)} slotów). "
+        f"Gotowe do zapisu w całości: {summary['resolvableSources']} zdjęć, "
+        f"{summary['filledSlots']} nowych siatek, {summary['repairedBoards']} poprawionych. "
+        f"Wszystkie pewnie dorysowane sloty: {summary['confidentFills']}.</p>"
+        f"{legend}<ul>{links}</ul></body></html>",
+        encoding="utf-8",
+    )
+    (work / "decisions.json").write_text(
+        json.dumps({"summary": summary, "sources": manifest}, indent=2), encoding="utf-8"
+    )
+    work.rename(target)
+    return target / "index.html"
+
+
+def _range_text(row: Mapping[str, object]) -> str:
+    first, last = cast(list[int], row["sequenceRange"])
+    return f"{first}–{last}"
+
+
+def dry_run_all(*, game_id: UUID, output_dir: Path, tau_cell: float, min_ecc: float) -> Path:
+    """Dry-run every import with slots without a grid; finished imports are skipped."""
+
+    import html
+
+    settings = get_settings()
+    engine = _read_only_engine(create_database_engine(settings))
+    session_factory = create_session_factory(engine)
+    try:
+        with game_storage_scope(game_id), session_factory() as session:
+            import_ids = sorted(
+                set(
+                    session.scalars(
+                        select(ImageBoardGeometryPendingModel.import_job_id).where(
+                            ImageBoardGeometryPendingModel.status == "pending"
+                        )
+                    ).all()
+                ),
+                key=str,
+            )
+    finally:
+        engine.dispose()
+    rows: list[dict[str, object]] = []
+    for import_id in import_ids:
+        dry_run(
+            game_id=game_id,
+            import_job_id=import_id,
+            output_dir=output_dir,
+            tau_cell=tau_cell,
+            min_ecc=min_ecc,
+        )
+        data = json.loads(
+            (output_dir / f"dry-run-{import_id}" / "decisions.json").read_text(encoding="utf-8")
+        )
+        rows.append(cast(dict[str, object], data["summary"]))
+        print(f"gotowe: {import_id}", flush=True)
+    rows.sort(key=lambda r: cast(list[int], r["sequenceRange"])[0])
+    table = "".join(
+        "<tr>"
+        f"<td><a href='dry-run-{r['importJobId']}/index.html'>{r['importJobId']}</a></td>"
+        f"<td>{_range_text(r)}</td>"
+        f"<td>{r['sourcesWithSlots']}</td><td>{r['pendingSlots']}</td>"
+        f"<td>{r['resolvableSources']}</td><td>{r['filledSlots']}</td>"
+        f"<td>{r['repairedBoards']}</td><td>{r['confidentFills']}</td></tr>"
+        for r in rows
+    )
+    totals = {
+        key: sum(int(cast(int, r[key])) for r in rows)
+        for key in (
+            "sourcesWithSlots",
+            "pendingSlots",
+            "resolvableSources",
+            "filledSlots",
+            "repairedBoards",
+            "confidentFills",
+        )
+    }
+    index = output_dir / "dry-run-index.html"
+    index.write_text(
+        "<!doctype html><html lang='pl'><head><meta charset='utf-8'><title>777 dry-run</title>"
+        "<style>body{font-family:system-ui,sans-serif;margin:16px;background:#111;color:#eee}"
+        "a{color:#8cf}td,th{padding:4px 10px;border-bottom:1px solid #333}</style></head><body>"
+        "<h1>Gra 777 — dry-run wszystkich importów (bez zapisu)</h1>"
+        f"<p>{html.escape(json.dumps(totals))}</p><table><tr><th>import</th><th>sekwencje</th>"
+        "<th>zdjęcia</th><th>sloty</th><th>gotowe zdjęcia</th><th>nowe siatki</th>"
+        f"<th>poprawione</th><th>pewne sloty</th></tr>{table}</table></body></html>",
+        encoding="utf-8",
+    )
+    (output_dir / "dry-run-totals.json").write_text(
+        json.dumps({"totals": totals, "imports": rows}, indent=2), encoding="utf-8"
+    )
+    return index
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -1721,9 +2273,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     hybrid_parser.add_argument("--tau-cell", type=float, default=0.2)
     hybrid_parser.add_argument("--min-ecc", type=float, default=0.7)
     hybrid_parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    hybrid_parser.add_argument("--only-pending", action="store_true")
+    dry_parser = commands.add_parser("dry-run", help="read-only decisions for one import")
+    dry_parser.add_argument("--game-id", type=UUID, default=GAME_777_ID)
+    dry_parser.add_argument("--import-job-id", type=UUID)
+    dry_parser.add_argument("--all-imports", action="store_true")
+    dry_parser.add_argument("--tau-cell", type=float, default=0.2)
+    dry_parser.add_argument("--min-ecc", type=float, default=0.7)
+    dry_parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     arguments = parser.parse_args(argv)
     if arguments.game_id != GAME_777_ID:
         parser.error("This one-off tool only supports game 777.")
+    if arguments.command == "dry-run" and arguments.all_imports:
+        print(
+            dry_run_all(
+                game_id=arguments.game_id,
+                output_dir=arguments.output_dir,
+                tau_cell=arguments.tau_cell,
+                min_ecc=arguments.min_ecc,
+            ).as_posix()
+        )
+    elif arguments.command == "dry-run":
+        if arguments.import_job_id is None:
+            parser.error("dry-run needs --import-job-id or --all-imports")
+        print(
+            dry_run(
+                game_id=arguments.game_id,
+                import_job_id=arguments.import_job_id,
+                output_dir=arguments.output_dir,
+                tau_cell=arguments.tau_cell,
+                min_ecc=arguments.min_ecc,
+            ).as_posix()
+        )
     if arguments.command == "hybrid-sample":
         print(
             hybrid_sample(
@@ -1733,6 +2314,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output_dir=arguments.output_dir,
                 tau_cell=arguments.tau_cell,
                 min_ecc=arguments.min_ecc,
+                only_pending=arguments.only_pending,
             ).as_posix()
         )
     if arguments.command == "v3-sample":

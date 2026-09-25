@@ -1,6 +1,6 @@
 ---
 title: game_data_v2 qualification constraints
-status: in_progress
+status: done
 last_updated: 2026-09-25
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-25
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -45,8 +45,8 @@ i partycje `game_data_v2` z kontraktem v1.
 ## Acceptance criteria
 
 - [x] Rodzice i istniejące partycje `game_data_v2` akceptują kwalifikacje v1/v2/v3.
-- [ ] Komórki i zdarzenia review `game_data_v2` akceptują `partial_visibility`.
-- [ ] Świeży reprocess nie ma błędów `ck_recognized_boards_qualification`.
+- [x] Komórki i zdarzenia review `game_data_v2` akceptują `partial_visibility`.
+- [x] Świeży reprocess nie ma błędów `ck_recognized_boards_qualification`.
 - [x] Zdjęcia źródłowe pozostają niezmienione.
 
 ## Technical notes
@@ -84,25 +84,29 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = '1'
 
 - Dodano migrację 0123 aktualizującą oba CHECK na partycjonowanych rodzicach
   `game_data_v2` do wspólnego kontraktu kwalifikacji v1/v2/v3.
-- Dodano izolowany test PostgreSQL dla rodziców oraz nowych partycji.
-- Diagnoza jednej transakcji zawsze wycofywanej wykazała dodatkowy v2-only
-  kontrakt `image_symbol_review_cells`, odrzucający `partial_visibility`.
+- Dodano migrację 0124 aktualizującą v2-only kontrakt komórek i zdarzeń
+  review o `geometry_partial` i `partial_visibility`.
+- Dodano izolowany test PostgreSQL rodziców i nowych partycji dla obu kontraktów.
+- Lokalna baza jest na 0124; sprawdzenie projekcji w transakcji wycofywanej
+  potwierdziło zapis bez naruszenia CHECK.
+- Wznowiono wyłącznie 61 etapów `symbol_inference` joba
+  `f786fed3-9814-42ce-941f-9cb04cbe2c17`.
 
 ### Verification results
 
-- Test izolowanej migracji PostgreSQL: 2/2 przeszły przed rozszerzeniem
-  kontroli `partial_visibility`.
+- Test izolowanej migracji PostgreSQL: 4/4 przeszły.
 - Ruff dla migracji i testu: czysty.
+- Końcowy job: 70/70 `waiting_for_review`, 0 `failed`; geometry gate nie
+  zwrócił `IMAGE_GEOMETRY_SYSTEMIC_REGRESSION`.
 
 ### Not completed
 
-- Zastosowanie migracji do lokalnej bazy i ponowienie joba są wykonywane
-  następnie.
+- Ręczne zatwierdzenie 70 pozycji review nie należy do automatycznego importu.
 
 ### Documentation updates
 
-- Zadanie dokumentuje diagnozę oraz bezpieczny zakres naprawy.
+- `CURRENT_STATE.md` opisuje obie trwałe migracje oraz końcowy wynik joba.
 
 ### Recommended next task
 
-- Nie dotyczy; po migracji kontynuować bieżący job.
+- Wykonać ręczny review symboli w Adminie, jeżeli użytkownik zleci odbiór.

@@ -17,8 +17,10 @@ last_updated: 2026-09-25
   partycji. Migracja 0124 naprawia analogiczną lukę po 0121: v2-only CHECK
   komórek i zdarzeń review musi dopuścić `geometry_partial` oraz
   `partial_visibility`. Izolowany test PostgreSQL 4/4 potwierdził oba
-  kontrakty rodziców i dziedziczenie przez nowe partycje. Pozostaje
-  zastosowanie 0124 lokalnie i bezpieczne ponowienie zatrzymanych etapów joba.
+  kontrakty rodziców i dziedziczenie przez nowe partycje. Lokalna baza jest na
+  0124, kontrolna projekcja wycofywana przeszła, a ponowiono tylko błędne etapy.
+  Końcowy job ma 70/70 `waiting_for_review`, 0 `failed`; nie usunięto żadnego
+  zdjęcia. Worker General działa i dalszy krok to zwykły ręczny review symboli.
 
 ### TASK-0663 — świeży fingerprint po naprawie geometry gate
 

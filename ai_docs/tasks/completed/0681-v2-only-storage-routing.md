@@ -1,6 +1,6 @@
 ---
 title: TASK-0681 — T02 — V2-only storage routing
-status: todo
+status: done
 last_updated: 2026-09-25
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-25
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -72,4 +72,43 @@ Nie wystarczy usunięcie stałej tekstowej: zapytanie musi wykonać bind przed p
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- PostgreSQL router akceptuje wyłącznie active location `game_data_v2` z
+  generation co najmniej `2` i manifestem v1. Wpis `public`/generation `1`
+  jest kontrolowanym `GAME_STORAGE_LOCATION_INVALID`; brak wpisu podczas
+  bind pozostaje `GAME_STORAGE_LOCATION_MISSING`.
+- Usunięto projekcję `legacy-public-v1`, `public` schema oraz generation `1`
+  z routera i domyślnych odpowiedzi katalogu. Nie-PostgreSQL adapter unitowy
+  jest wyłącznie wirtualnym V2, nie odwzorowuje fizycznego legacy store.
+- Kontrakt OpenAPI nie zmienił typu pól katalogu; sprawdzono, że artefakt i
+  wygenerowany klient są aktualne.
+
+### Verification results
+
+- `pytest services/api/tests/test_game_storage_routing.py services/api/tests/test_catalog_api.py` — 16 passed.
+- Izolowany PostgreSQL: 4 scenariusze routingu TASK-0681 (active V2 z
+  partycją, `public`/generation 1, brak location oraz rebind po commit) —
+  4 passed. Uruchomienie odbyło się w nowym kontrolowanym procesie.
+- Ruff check i format check dla zmienionych modułów — passed.
+- `npm run openapi:check` — passed; OpenAPI oraz klient Admin są aktualne.
+
+### Not completed
+
+- Pełny, 11-testowy plik integracyjny nie został zaliczony w jednym przebiegu:
+  ograniczenie wykonawcze przerwało pierwszą próbę i pozostawiło procesy oraz
+  trzy tymczasowe bazy `game_predictor_task0519_*`; zostały one zweryfikowane
+  jako testowe i usunięte. Zaliczone są wszystkie cztery scenariusze objęte
+  tym taskiem.
+- Strict mypy dla trzech zmienionych plików pozostaje zablokowany przez
+  wcześniejsze błędy importów API → worker i `no-any-return` poza zakresem
+  TASK-0681 (87 błędów w 28 plikach); zmienione linie nie dodały błędu.
+
+### Documentation updates
+
+- Zaktualizowano `CURRENT_STATE.md`; nie zmieniono decyzji ani schematu bazy.
+
+### Recommended next task
+
+- TASK-0682 — audyt wszystkich produkcyjnych repository, workerów i raw SQL
+  game-owned pod kątem jawnego bind V2.

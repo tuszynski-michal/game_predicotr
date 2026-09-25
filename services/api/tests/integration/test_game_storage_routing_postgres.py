@@ -201,6 +201,29 @@ def test_router_selects_v2_and_default_injects_exact_game(database: Engine) -> N
         assert session.scalar(text("SELECT game_id FROM image_geometry_rollout_states")) == game_id
 
 
+def test_router_rejects_legacy_or_missing_location_in_fresh_transactions(database: Engine) -> None:
+    with database.begin() as connection:
+        legacy_game_id = _game(connection, code="legacy-location-rejected")
+        missing_game_id = _game(connection, code="missing-location-rejected")
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id,store_schema,generation,manifest_version,status,revision) "
+                "VALUES (:game_id,'public',1,:version,'active',0)"
+            ),
+            {"game_id": legacy_game_id, "version": VERSION},
+        )
+    factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
+    with factory() as session:
+        with pytest.raises(GameStorageRoutingError) as legacy_location:
+            GameStorageRouter().bind(session, legacy_game_id, intent=GameStorageIntent.READ)
+        assert legacy_location.value.code == "GAME_STORAGE_LOCATION_INVALID"
+    with factory() as session:
+        with pytest.raises(GameStorageRoutingError) as missing_location:
+            GameStorageRouter().bind(session, missing_game_id, intent=GameStorageIntent.READ)
+        assert missing_location.value.code == "GAME_STORAGE_LOCATION_MISSING"
+
+
 def test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session(database: Engine) -> None:
     """A saved correction must survive reopening the report after V2 cutover."""
 
@@ -919,7 +942,7 @@ def test_write_status_generation_and_transaction_lock_are_fail_closed(database: 
             text(
                 "INSERT INTO public.game_storage_locations "
                 "(game_id,store_schema,generation,manifest_version,status,revision) "
-                "VALUES (:game_id,'public',1,:version,'active',0)"
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',0)"
             ),
             {"game_id": game_id, "version": VERSION},
         )
@@ -940,8 +963,7 @@ def test_write_status_generation_and_transaction_lock_are_fail_closed(database: 
             with pytest.raises(DBAPIError):
                 concurrent.execute(
                     text(
-                        "UPDATE public.game_storage_locations SET generation=2, revision=1 "
-                        "WHERE game_id=:game_id"
+                        "UPDATE public.game_storage_locations SET revision=1 WHERE game_id=:game_id"
                     ),
                     {"game_id": game_id},
                 )
@@ -978,8 +1000,7 @@ def test_write_status_generation_and_transaction_lock_are_fail_closed(database: 
         connection.execute(
             text(
                 "UPDATE public.game_storage_locations "
-                "SET store_schema='game_data_v2', status='active', generation=2, "
-                "revision=revision+1 WHERE game_id=:game_id"
+                "SET status='active', revision=revision+1 WHERE game_id=:game_id"
             ),
             {"game_id": game_id},
         )
@@ -1001,14 +1022,14 @@ def test_reused_session_resolves_storage_again_after_commit(database: Engine) ->
             text(
                 "INSERT INTO public.game_storage_locations "
                 "(game_id,store_schema,generation,manifest_version,status,revision) "
-                "VALUES (:game_id,'public',1,:version,'active',0)"
+                "VALUES (:game_id,'game_data_v2',2,:version,'active',0)"
             ),
             {"game_id": game_id, "version": VERSION},
         )
     factory = sessionmaker(bind=database, class_=GameStorageSession, expire_on_commit=False)
     with factory() as session:
         first = GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ)
-        assert first.generation == 1
+        assert first.generation == 2
         session.commit()
         with database.begin() as connection:
             connection.execute(
@@ -1021,4 +1042,4 @@ def test_reused_session_resolves_storage_again_after_commit(database: Engine) ->
         with pytest.raises(GameStorageRoutingError) as blocked:
             GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
         assert blocked.value.code == "GAME_STORAGE_WRITE_UNAVAILABLE"
-        assert blocked.value.details["generation"] == 1
+        assert blocked.value.details["generation"] == 2

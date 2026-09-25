@@ -181,9 +181,9 @@ def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols()
         game_id = game["id"]
         assert game["name"] == "Blazing Hot"
         assert game["status"] == "draft"
-        assert game["storageVersion"] == "legacy-public-v1"
-        assert game["storageSchema"] == "public"
-        assert game["storageGeneration"] == 1
+        assert game["storageVersion"] == "game-data-v2-manifest-v1"
+        assert game["storageSchema"] == "game_data_v2"
+        assert game["storageGeneration"] == 2
         assert game["storageStatus"] == "active"
         assert game["storageWriteAvailable"] is True
         assert game["shapeGeometryConfiguration"] == "requires_clarification"

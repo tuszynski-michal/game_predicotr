@@ -5,7 +5,6 @@ from uuid import UUID, uuid4
 import pytest
 from game_predictor_api.storage.game_data_v2_manifest_v1 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
-    LEGACY_STORAGE_VERSION,
     GameStorageIntent,
     GameStorageLocation,
     GameStorageRouter,
@@ -20,7 +19,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 
-def test_legacy_fallback_and_safe_raw_table_name() -> None:
+def test_in_memory_adapter_is_v2_and_safe_raw_table_name() -> None:
     game_id = uuid4()
     router = GameStorageRouter()
     with Session(create_engine("sqlite+pysqlite:///:memory:")) as session:
@@ -28,22 +27,22 @@ def test_legacy_fallback_and_safe_raw_table_name() -> None:
 
     assert location == GameStorageLocation(
         game_id=game_id,
-        store_schema=GameStorageSchema.PUBLIC,
-        generation=1,
+        store_schema=GameStorageSchema.V2,
+        generation=2,
         manifest_version=VERSION,
         status=GameStorageStatus.ACTIVE,
         revision=0,
     )
-    assert location.storage_version == LEGACY_STORAGE_VERSION
+    assert location.storage_version == VERSION
     assert location.write_available is True
     assert router.qualified_game_table(location, "recognized_boards") == (
-        '"public"."recognized_boards"'
+        '"game_data_v2"."recognized_boards"'
     )
 
 
 def test_unknown_raw_table_is_rejected() -> None:
     router = GameStorageRouter()
-    location = router._legacy(uuid4())
+    location = router._in_memory_v2(uuid4())
     with pytest.raises(GameStorageRoutingError) as raised:
         router.qualified_game_table(location, "jobs")
     assert raised.value.code == "GAME_STORAGE_TABLE_NOT_OWNED"
@@ -60,7 +59,7 @@ def test_missing_greenfield_registry_is_visible_but_not_writable() -> None:
 
 @pytest.mark.parametrize(
     ("store_schema", "generation"),
-    [("public", 2), ("game_data_v2", 1)],
+    [("public", 1), ("public", 2), ("game_data_v2", 1)],
 )
 def test_schema_generation_mismatch_is_rejected(store_schema: str, generation: int) -> None:
     with pytest.raises(GameStorageRoutingError) as raised:

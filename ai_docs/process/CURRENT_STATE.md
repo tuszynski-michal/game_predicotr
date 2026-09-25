@@ -9,9 +9,10 @@ last_updated: 2026-09-25
 ### P00 / TASK-0679 — plan usunięcia legacy magazynu gier ze schematu `public` (D-448)
 
 - Plan `delivery/LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md` i D-448 zostały zaakceptowane przez użytkownika. **T01 / TASK-0680 jest done:** audyt `REPEATABLE READ READ ONLY` (dwie świeże sesje, raport SHA-256 `081212ac08ce63e132d689e7c23984e16338395e424695326579166fb4a6e95e`) potwierdził 65/65 pustych tabel, trzy active V2 location i zero migracji, aktywnych jobs, zewnętrznych FK/zależności oraz locków. Nie wykonano DDL/DML.
+- **T02 / TASK-0681 jest done:** PostgreSQL router i projekcje katalogu są V2-only — wpis `public`/generation 1 jest odrzucany, brak location przy bind jest fail-closed, a adapter nie-PostgreSQL jest wirtualnym V2. Testy routingu/katalogu przeszły 16/16, cztery izolowane scenariusze PostgreSQL 4/4, Ruff oraz `openapi:check` są zielone. Nie wykonano DDL/DML ani nie zmieniono public catalog/control/shared. Pełny 11-testowy plik integracyjny nie zakończył się w pojedynczym przebiegu z powodu ograniczenia wykonawczego; osierocone procesy i trzy zweryfikowane bazy tymczasowe testu zostały usunięte. Strict mypy pozostaje zablokowany przez 87 wcześniejszych błędów poza zakresem.
 - Na początku P00 potwierdzono wolne numery TASK-0679–0691, D-448 i `0125`; repozytorium kończy migracje na 0124. W worktree są niepowiązane zmiany laboratorium wizji, których P00 nie dotyka.
 - Plan chroni granicę: 65 historycznych, game-owned kopii może zostać usuniętych wyłącznie po świeżym read-only inventory, testach V2-only i osobnej zgodzie na T09. `public.games`, symbole, reguły, `paylines`, `payout_rules`, globalne `jobs`, registry i shared/control plane pozostają poza zakresem.
-- Następny krok to T02 / TASK-0681; wymaga jawnego polecenia rozpoczęcia kolejnego taska. STOP A blokuje dalszy plan przy niepustej tabeli, legacy location, aktywnej migracji lub nierozpoznanej zależności.
+- Następny krok to T03 / TASK-0682; wymaga jawnego polecenia rozpoczęcia kolejnego taska. STOP A blokuje dalszy plan przy niepustej tabeli, legacy location, aktywnej migracji lub nierozpoznanej zależności.
 
 ### TASK-0666 — T01 — eksporter snapshotu laboratorium wizji
 

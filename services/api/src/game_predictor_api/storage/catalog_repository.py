@@ -169,10 +169,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             self._session.commit()
             if receipt.status == "done":
                 location = self._storage_router.describe(self._session, record.id)
-                if (
-                    location.status is not GameStorageStatus.ACTIVE
-                    or not location.write_available
-                ):
+                if location.status is not GameStorageStatus.ACTIVE or not location.write_available:
                     raise RuntimeError("Provisioned game storage did not become writable.")
                 self._session.refresh(record)
                 return _to_game(record, location)
@@ -482,9 +479,11 @@ def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> G
         expected_layout_count=record.expected_layout_count,
         created_at=record.created_at,
         updated_at=record.updated_at,
-        storage_version=(storage.storage_version if storage is not None else "legacy-public-v1"),
-        storage_schema=(storage.store_schema.value if storage is not None else "public"),
-        storage_generation=(storage.generation if storage is not None else 1),
+        storage_version=(
+            storage.storage_version if storage is not None else "game-data-v2-manifest-v1"
+        ),
+        storage_schema=(storage.store_schema.value if storage is not None else "game_data_v2"),
+        storage_generation=(storage.generation if storage is not None else 2),
         storage_status=(storage.status.value if storage is not None else "active"),
         storage_write_available=(storage.write_available if storage is not None else True),
         shape_geometry_configuration=(

@@ -842,16 +842,16 @@
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Corners",
@@ -871,6 +871,16 @@
             "minimum": 0.0,
             "title": "Expectedresolutionrevision",
             "type": "integer"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -890,16 +900,16 @@
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Corners",
@@ -925,6 +935,16 @@
             "minimum": 0.0,
             "title": "Expectedresolutionrevision",
             "type": "integer"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "idempotencyKey": {
             "format": "uuid",

@@ -305,6 +305,58 @@ def test_manual_v19_preview_fails_closed_for_checksum_and_crossed_lattice(
     assert crossed.value.code == "BOARD_CELL_GEOMETRY_QUAD_INVALID"
 
 
+def test_manual_v19_preview_tolerates_declared_unavailable_cells_outside_source(
+    tmp_path: Path,
+) -> None:
+    source, checksum, _ = _source(tmp_path)
+    previewer = ManualBoardCellGeometryPreviewer()
+    # Row 2 (cells 10-14) of this quad falls outside the 420px-tall source.
+    common = dict(
+        source_path=source,
+        expected_source_sha256=checksum,
+        review_item_id="review-id",
+        source_order_index=0,
+        source_image_id="source-id",
+        source_image_relative_path="source.png",
+        source_group="import-id",
+        sequence_number=1,
+        position_index=0,
+        lattice_bounds_quad=((60.0, 50.0), (560.0, 50.0), (560.0, 500.0), (60.0, 500.0)),
+        corrected_by="local-owner",
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+    )
+
+    with pytest.raises(ManualBoardCellGeometryPreviewError) as full_board:
+        previewer.preview(**common, command_checksum_sha256="a" * 64)
+    assert full_board.value.code == "BOARD_CELL_GEOMETRY_QUAD_OUT_OF_BOUNDS"
+
+    preview = previewer.preview(
+        **common,
+        command_checksum_sha256="b" * 64,
+        unavailable_cell_indices=frozenset(range(10, 15)),
+    )
+
+    assert len(preview.cells) == 15
+    assert preview.unavailable_cell_indices == frozenset(range(10, 15))
+
+    artifacts = previewer.persist(
+        preview=preview,
+        managed_data_root=tmp_path / "managed",
+        revision=1,
+    )
+    assert artifacts.unavailable_cell_indices == frozenset(range(10, 15))
+    assert len(artifacts.cells) == 15
+
+    with pytest.raises(ManualBoardCellGeometryPreviewError) as invalid_index:
+        previewer.preview(
+            **common,
+            command_checksum_sha256="c" * 64,
+            unavailable_cell_indices=frozenset({99}),
+        )
+    assert invalid_index.value.code == "BOARD_CELL_GEOMETRY_UNAVAILABLE_INDEX_INVALID"
+
+
 def test_manual_v19_persistence_isolates_concurrent_pending_commands(
     tmp_path: Path,
 ) -> None:

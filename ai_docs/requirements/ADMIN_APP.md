@@ -977,6 +977,17 @@ domyślnej kolejki `pending`, przechodzi do następnego wyjątku i tworzy zwykł
 item do zatwierdzenia symboli w istniejącej kolejce; nie powstaje druga trwała
 kolejka plansz.
 
+Gdy fizyczne zdjęcie przycina planszę, checkbox „Niepełna plansza” (TASK-0693)
+odblokowuje szary obszar poza realnymi pikselami — operator przeciąga tam
+narożniki, żeby poprawnie ekstrapolować siatkę, i jawnie zaznacza, których z 15
+pól naprawdę nie ma na zdjęciu. Zaznaczone pola pomijają rygor pełnego pokrycia
+źródła wyłącznie dla siebie (reszta planszy nadal wymaga kompletnych cropów)
+i po zapisie dostają wymuszony symbol „?” zamiast trafiać do modelu; plansza
+jest wykluczona z uczenia geometrii (`geometryQualification`,
+`completenessStatus=pending_partial`), tak jak w pozostałych dwóch edytorach
+geometrii. Board zostaje `asset_mode=legacy_file` — ta ścieżka nie generuje
+wirtualnych, częściowo widocznych cropów jak `virtual_source`.
+
 Po jawnym poleceniu właściciela, przykładowo po 1000 albo 3000 zweryfikowanych
 planszach, panel pozwala zamrozić nową kohortę feedbacku. Sam licznik nie
 uruchamia treningu. Nowy model używa niezmiennego eksportu i nie zmienia

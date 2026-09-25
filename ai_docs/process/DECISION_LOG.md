@@ -1,10 +1,54 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # Decision Log
+
+## D-449 — niepełna plansza w odroczonej korekcie geometrii komórek (opt-in, bez osłabienia współdzielonego croppera)
+
+- **Status:** accepted (TASK-0693).
+- **Date:** 2026-09-26.
+- **Context:** zgłoszenie użytkownika — na ekranie „Weryfikacja plansz”, w
+  kolejce „Niepełne siatki do ręcznej korekty” (`DeferredBoardCellGeometryEditor`),
+  operator nie mógł oznaczyć planszy jako niepełnej ani przesunąć rogów poza
+  realne zdjęcie, mimo że dwa pozostałe edytory geometrii (Admin „Korekta
+  geometrii strony”, Reviewer „Walidacja gotowych siatek”) już to obsługują
+  przez istniejący `GeometryQualification`.
+- **Decision:** `derive_board_cell_quads`/`_parse_quad`
+  (`board_cell_geometry_contract.py`) i `BoardCellGeometrySourceDirectCropper.crop`
+  (`board_cell_geometry_crops.py`) — współdzielony, produkcyjny pipeline
+  używany też przez automatyczną detekcję (`production_workflow.py`,
+  `board_cell_geometry_estimator.py`, `lattice_refinement_v3.py`,
+  `pending_grid_reinference.py`) — dostają wyłącznie **opcjonalne, domyślnie
+  nieaktywne** parametry (`bounded: bool = True`,
+  `unavailable_cell_indices: frozenset[int] = frozenset()`). Żaden istniejący
+  wywołujący nie przekazuje nowych argumentów, więc automatyczna detekcja i
+  wszystkie inne przepływy pozostają bit-identyczne (zweryfikowane pełnym
+  przebiegiem ich testów bez zmiany asercji). Tylko
+  `ManualBoardCellGeometryPreviewer` (ręczny Reviewer flow) przekazuje
+  `unavailable_cell_indices` pochodzące z jawnie zaznaczonego checkboxa
+  „Niepełna plansza”. `cv2.warpPerspective`'s istniejący
+  `borderMode=BORDER_CONSTANT` już toleruje quad poza obrazem — nie trzeba
+  syntezować pikseli ręcznie, tylko zdjąć bramkę `_quad_has_full_source_support`
+  dla jawnie zadeklarowanych indeksów; taka komórka dostaje `synthesized=true`
+  w metadanych (dopisywane tylko gdy `true`, więc kompletne plansze mają
+  bajtowo identyczny JSON co przed zmianą).
+- **Scope:** board pozostaje `asset_mode=legacy_file` (realne pliki cropów na
+  dysku) — **nie** replikuje się `asset_mode='virtual_source'` ani v3
+  `fully_unavailable_cell_indices` z `virtual_grid_geometry.py`. Wystarczy v2
+  `GeometryQualification`: zadeklarowane niedostępne komórki są w pełni
+  wykluczone (`available_cell_indices()`'s zachowanie dla trybów innych niż
+  `virtual_source`), a `ManualBoardCellSymbolPredictor` wymusza dla nich „?”
+  zamiast wysyłać syntezowany crop do modelu.
+- **Not done:** integracyjny test repozytorium (`materialize_manual_resolution`
+  z `pending_partial` na żywej Postgresie) nie został dodany — istniejący
+  test tej rodziny (`test_manual_deferred_geometry_materializes_one_complete_review_projection`)
+  failuje identycznie z i bez tej zmiany (`relation "source_images" does not
+  exist`), prawdopodobnie efekt niedawnych commitów „legacy public store
+  removal” (v0.10.447–450); to osobny, przedsesyjny blocker poza zakresem
+  TASK-0693.
 
 ## D-447 — laboratoryjne zatwierdzenia i plan wizji
 

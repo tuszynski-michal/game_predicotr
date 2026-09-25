@@ -2244,6 +2244,73 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
   assert.deepEqual(await requests[4].clone().json(), resolutionCommand);
 });
 
+test('generated client forwards signed corners and geometry qualification for a partial deferred board', async () => {
+  const requests = [];
+  const pendingId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const checksum = 'a'.repeat(64);
+  const previewCommand = {
+    corners: [
+      { x: -40, y: 10 },
+      { x: 510, y: 10 },
+      { x: 510, y: 310 },
+      { x: -40, y: 310 },
+    ],
+    expectedGeometryRevision: 0,
+    expectedManifestChecksumSha256: checksum,
+    expectedResolutionRevision: 0,
+    geometryQualification: {
+      completenessStatus: 'pending_partial',
+      excludeFromGeometryTraining: true,
+      exclusionReason: 'missing_pixels',
+      includeInPartialGridTraining: false,
+      unavailableCellIndices: [0, 5, 10],
+      version: 'manual-geometry-qualification-v2',
+    },
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const path = new URL(request.url).pathname;
+      if (path.endsWith('/geometry-preview')) {
+        return new Response(new Blob(['png']), {
+          headers: { 'content-type': 'image/png' },
+          status: 200,
+        });
+      }
+      return Response.json({
+        created: true,
+        geometryRevision: 1,
+        item: { id: pendingId, status: 'resolved' },
+        reviewItemId: '44444444-4444-4444-8444-444444444444',
+      });
+    },
+  });
+
+  await client.previewPendingBoardCellGeometryCorrection(
+    pendingId,
+    context,
+    previewCommand,
+  );
+  const resolutionCommand = {
+    ...previewCommand,
+    correctedBy: 'reviewer-operator',
+    idempotencyKey: '55555555-5555-4555-8555-555555555555',
+  };
+  await client.resolvePendingBoardCellGeometryManually(
+    pendingId,
+    context,
+    resolutionCommand,
+  );
+
+  assert.deepEqual(await requests[0].clone().json(), previewCommand);
+  assert.deepEqual(await requests[1].clone().json(), resolutionCommand);
+});
+
 test('generated client lists and explicitly freezes verified cohorts in one context', async () => {
   const requests = [];
   const context = {
@@ -2947,10 +3014,7 @@ test('getBoardSearchApproximateWin passes gameId as path and options as query pa
     new URL(requests[0].url).searchParams.get('startSequenceNumber'),
     '10',
   );
-  assert.equal(
-    new URL(requests[0].url).searchParams.get('spinCount'),
-    '5',
-  );
+  assert.equal(new URL(requests[0].url).searchParams.get('spinCount'), '5');
   assert.equal(result.data.evaluatedSpinCount, 0);
 });
 
@@ -3015,7 +3079,11 @@ test('label geometry calibration client uses local-admin typed operations and ca
     expectedRevision: 1,
   });
   await client.createV7LabelGeometryProfile(sessionId, { expectedRevision: 1 });
-  await client.getV7LabelGeometryCalibrationSourceAsset(sessionId, sourceId, 'a'.repeat(64));
+  await client.getV7LabelGeometryCalibrationSourceAsset(
+    sessionId,
+    sourceId,
+    'a'.repeat(64),
+  );
   await client.listV7LabelGeometryProfiles();
   await client.getV7LabelGeometryProfile(profileFingerprint);
   await client.createV7LabelGeometryValidationReport({
@@ -3039,9 +3107,15 @@ test('label geometry calibration client uses local-admin typed operations and ca
     [
       ['POST', '/api/v1/admin/v7-label-geometry/sessions'],
       ['GET', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}`],
-      ['POST', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/operations`],
+      [
+        'POST',
+        `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/operations`,
+      ],
       ['POST', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/exports`],
-      ['POST', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/profiles`],
+      [
+        'POST',
+        `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/profiles`,
+      ],
       [
         'GET',
         `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/sources/${sourceId}/asset`,
@@ -3071,7 +3145,13 @@ test('getBoardImportCoverage passes gameId as path and options as query params',
     return Response.json({
       gameId,
       expectedLayoutCount: 20,
-      counts: { expected: 20, added: 17, missing: 3, approved: 10, outOfRange: 0 },
+      counts: {
+        expected: 20,
+        added: 17,
+        missing: 3,
+        approved: 10,
+        outOfRange: 0,
+      },
       missingByReason: { no_source: 3 },
       notices: {
         unnumberedCutBoardCount: 0,
@@ -3115,16 +3195,13 @@ test('getBoardImportCoverage passes gameId as path and options as query params',
     fullUrl.pathname,
     `/api/v1/admin/image-review-items/board-import-coverage/${gameId}`,
   );
-  assert.deepEqual(
-    Object.fromEntries(fullUrl.searchParams.entries()),
-    {
-      view: 'added',
-      from: '100',
-      to: '200',
-      afterSequenceNumber: '150',
-      limit: '25',
-    },
-  );
+  assert.deepEqual(Object.fromEntries(fullUrl.searchParams.entries()), {
+    view: 'added',
+    from: '100',
+    to: '200',
+    afterSequenceNumber: '150',
+    limit: '25',
+  });
 });
 
 test('geometry review sources response carries automaticPageProposal through the wrapper unchanged', async () => {

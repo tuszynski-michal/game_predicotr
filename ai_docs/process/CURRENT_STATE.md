@@ -6,6 +6,64 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0693 — niepełna plansza w odroczonej korekcie geometrii komórek (D-449)
+
+- Zgłoszenie użytkownika: ekran „Weryfikacja plansz” → kolejka „Niepełne
+  siatki do ręcznej korekty” (`DeferredBoardCellGeometryEditor`) nie miała
+  checkboxa „Niepełna plansza” ani sposobu przesunięcia rogów poza realne
+  zdjęcie, w odróżnieniu od Admin „Korekta geometrii strony” i Reviewer
+  „Walidacja gotowych siatek”, które już obsługują `GeometryQualification`.
+  Operator był zmuszony ściskać całą siatkę do widocznego obszaru, co
+  przesuwało wszystkie komórki i myliło symbole przy fizycznie przyciętej
+  planszy.
+- Współdzielony, produkcyjny cropper (`board_cell_geometry_contract.py`,
+  `board_cell_geometry_crops.py`, używany też przez automatyczną detekcję)
+  dostał wyłącznie opcjonalne, domyślnie nieaktywne parametry
+  (`bounded=True`, `unavailable_cell_indices=frozenset()`) — zero zmiany
+  zachowania dla wszystkich istniejących wywołujących, zweryfikowane pełnym
+  przebiegiem ich testów bez zmiany asercji (patrz D-449).
+  `cv2.warpPerspective`'s `BORDER_CONSTANT` już tolerował quad poza obrazem;
+  wystarczyło zdjąć bramkę `_quad_has_full_source_support` tylko dla jawnie
+  zadeklarowanych indeksów (oznaczane `synthesized=true`, dopisywane do
+  metadanych tylko gdy `true` — zero zmiany JSON dla kompletnych plansz).
+  `ManualBoardCellSymbolPredictor` wymusza „?” tylko dla zadeklarowanych
+  komórek, resztę przekazuje normalnie do modelu.
+- API: `BoardCellGeometryManualPreviewCommand`/`ResolutionCommand` mają nowe
+  opcjonalne `geometryQualification` (reużyty istniejący
+  `GeometryQualificationPayload`) i podpisane (signed) rogi
+  (`ManualSourceGeometryPoint`, zamiast `OperationalImageReviewGeometryPoint`
+  z `ge=0`) — plansza cięta z lewej/góry potrzebuje ujemnych współrzędnych.
+  `materialize_manual_resolution` zapisuje `completeness_status`,
+  `geometry_qualification`, `unavailable_cell_indices` na
+  `RecognizedBoardModel` tylko dla `pending_partial` (domyślne wartości już
+  spełniają CHECK constraints dla `complete`). Board zostaje
+  `asset_mode=legacy_file` — brak v3 `fully_unavailable_cell_indices` i
+  `virtual_source`, bo ta ścieżka ma realne pliki cropów, nie wirtualne.
+- Reviewer UI: `DeferredBoardCellGeometryEditor` ma teraz checkbox „Niepełna
+  plansza”, listę 15 pól „poza zdjęciem” i szary obszar poza zdjęciem na
+  canvasie (`operationalReviewGeometryViewport`/`operationalReviewPointInSourceImage`
+  z nowym opcjonalnym `allowOutsideSource`), reużywając
+  `manual-image-selection-core`'s `manualGridQualification` zamiast
+  równoległej kopii logiki.
+- Testy: worker 47/47 (crops 8/8, contract nowe 2/2 + 7 przedsesyjnych,
+  niezwiązanych failów opisanych niżej, manual preview 9/9, symbol
+  prediction 4/4), API `board_cell_geometry_pending` 12/12 (bez regresji),
+  Reviewer 200/200 + `test:geometry` 3/3, admin-api-client 64/64, Ruff,
+  mypy, `openapi:check`, Prettier — wszystkie zielone dla zmienionych
+  plików.
+- **Przedsesyjny, niezwiązany blocker wykryty przy tej okazji:** test
+  integracyjny `test_manual_deferred_geometry_materializes_one_complete_review_projection`
+  (`services/api/tests/integration/test_image_batch_store.py`) failuje na
+  żywej Postgresie identycznie z i bez zmian tego taska —
+  `relation "source_images" does not exist`. Reprodukowalne na czystym
+  `HEAD` (`v0.10.450`), więc to efekt niedawnych commitów „legacy public
+  store removal” (v0.10.447–450), nie tego taska. Integracyjny test
+  repozytorium dla nowej ścieżki `pending_partial` nie mógł zostać
+  uruchomiony/dodany z tego powodu — do zweryfikowania po naprawie migracji.
+- 7 przedsesyjnych, niezwiązanych failów w `test_board_cell_geometry_contract.py`
+  (`corpusDescriptor.annotationManifest checksum differs`) — reprodukowalne
+  też bez zmian tego taska, poza zakresem.
+
 ### TASK-0692 — grafika symbolu z pojedynczego cropa w Weryfikacji symboli
 
 - Zgłoszenie użytkownika poza planem: przycisk `Ustaw jako grafikę symbolu`

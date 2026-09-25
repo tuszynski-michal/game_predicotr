@@ -6,6 +6,11 @@ import type {
   BoardCellGeometryPendingResponse,
   OperationalImageReviewGeometryPoint,
 } from '@game-predictor/admin-api-client';
+import {
+  completeManualGridFlags,
+  manualGridQualification,
+  type ManualGridFlags,
+} from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
 
 import type { OperationalReviewGeometryCorners } from './operational-review-state.ts';
 
@@ -39,13 +44,24 @@ export function deferredBoardCellGeometryCorners(
 export function deferredBoardCellGeometryPreviewCommand(
   context: BoardCellGeometryCorrectionContextResponse,
   corners: OperationalReviewGeometryCorners,
+  flags: ManualGridFlags = completeManualGridFlags,
 ): BoardCellGeometryManualPreviewCommand {
+  const qualification = manualGridQualification(
+    flags,
+    corners,
+    context.sourceWidth,
+    context.sourceHeight,
+  );
   return {
     corners,
     expectedGeometryRevision: context.item.expectedGeometryRevision,
     expectedManifestChecksumSha256:
       context.item.processingManifestChecksumSha256,
     expectedResolutionRevision: context.item.expectedReviewResolutionRevision,
+    geometryQualification:
+      qualification.completenessStatus === 'pending_partial'
+        ? qualification
+        : null,
   };
 }
 
@@ -53,9 +69,10 @@ export function deferredBoardCellGeometryResolutionCommand(
   context: BoardCellGeometryCorrectionContextResponse,
   corners: OperationalReviewGeometryCorners,
   idempotencyKey: string,
+  flags: ManualGridFlags = completeManualGridFlags,
 ): BoardCellGeometryManualResolutionCommand {
   return {
-    ...deferredBoardCellGeometryPreviewCommand(context, corners),
+    ...deferredBoardCellGeometryPreviewCommand(context, corners, flags),
     correctedBy: 'reviewer-operator',
     idempotencyKey,
   };
@@ -64,9 +81,10 @@ export function deferredBoardCellGeometryResolutionCommand(
 export function deferredBoardCellGeometryCommandKey(
   context: BoardCellGeometryCorrectionContextResponse,
   corners: OperationalReviewGeometryCorners,
+  flags: ManualGridFlags = completeManualGridFlags,
 ): string {
   return JSON.stringify(
-    deferredBoardCellGeometryPreviewCommand(context, corners),
+    deferredBoardCellGeometryPreviewCommand(context, corners, flags),
   );
 }
 

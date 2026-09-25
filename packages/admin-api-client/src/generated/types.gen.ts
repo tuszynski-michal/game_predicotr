@@ -510,10 +510,10 @@ export type BoardCellGeometryManualPreviewCommand = {
    * Corners
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedgeometryrevision
@@ -527,6 +527,7 @@ export type BoardCellGeometryManualPreviewCommand = {
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
+  geometryQualification?: GeometryQualificationPayload | null;
 };
 
 /**
@@ -537,10 +538,10 @@ export type BoardCellGeometryManualResolutionCommand = {
    * Corners
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Correctedby
@@ -558,6 +559,7 @@ export type BoardCellGeometryManualResolutionCommand = {
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Idempotencykey
    */

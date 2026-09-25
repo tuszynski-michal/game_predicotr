@@ -52,14 +52,21 @@ class BoardCellGeometrySourceCrop:
     source_quad: Quad
     padded_source_quad: Quad
     rgb: NDArray[np.uint8]
+    synthesized: bool = False
 
     def metadata_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "columnIndex": self.column_index,
             "paddedSourceQuad": _quad_dict(self.padded_source_quad),
             "rowIndex": self.row_index,
             "sourceQuad": _quad_dict(self.source_quad),
         }
+        # Only ever set for the manual, partial-board escape hatch (see
+        # `crop`'s `unavailable_cell_indices`); every other crop keeps the
+        # historical dict shape byte-for-byte.
+        if self.synthesized:
+            payload["synthesized"] = True
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,7 +130,19 @@ class BoardCellGeometrySourceDirectCropper:
         self,
         rgb_image: NDArray[np.uint8],
         geometry: BoardCellGeometryEntry,
+        *,
+        unavailable_cell_indices: frozenset[int] = frozenset(),
     ) -> BoardCellGeometryCropResult:
+        """Project all topology cells from source pixels.
+
+        ``unavailable_cell_indices`` is an opt-in escape hatch for the manual,
+        single-operator deferred geometry flow: cells at these row-major
+        indices are exempt from the full-source-support gate below (their
+        content is a best-effort ``cv2.BORDER_CONSTANT``-padded projection,
+        not a genuine crop, and are marked ``synthesized=True``). Every other
+        cell, and every other caller (which never passes this argument), keeps
+        the unchanged "no-synthesis" contract.
+        """
         if rgb_image.ndim != 3 or rgb_image.shape[2] != 3 or rgb_image.dtype != np.uint8:
             raise BoardCellGeometryCropError(
                 "BOARD_CELL_CROP_INVALID_IMAGE",
@@ -137,22 +156,34 @@ class BoardCellGeometrySourceDirectCropper:
             return self._needs_review(geometry, "BOARD_CELL_CROP_IMAGE_DIMENSIONS_MISMATCH")
         if geometry.topology != self.topology:
             return self._needs_review(geometry, "BOARD_CELL_CROP_TOPOLOGY_MISMATCH")
-        reason = _geometry_review_reason(geometry, topology=self.topology)
+        bounded = not unavailable_cell_indices
+        reason = _geometry_review_reason(geometry, topology=self.topology, bounded=bounded)
         if reason is not None:
             return self._needs_review(geometry, reason)
+        if unavailable_cell_indices and not unavailable_cell_indices.issubset(
+            range(self.topology.cell_count)
+        ):
+            raise BoardCellGeometryCropError(
+                "BOARD_CELL_CROP_UNAVAILABLE_INDEX_INVALID",
+                "unavailable_cell_indices must reference existing topology cells.",
+            )
 
         padded_quads = _padded_source_quads(
             geometry.lattice_bounds_quad,
             topology=self.topology,
         )
-        if len(padded_quads) != self.topology.cell_count or not all(
-            _quad_has_full_source_support(
+        if len(padded_quads) != self.topology.cell_count:
+            return self._needs_review(geometry, "BOARD_CELL_CROP_SOURCE_SUPPORT_INCOMPLETE")
+        unsupported = frozenset(
+            index
+            for index, quad in enumerate(padded_quads)
+            if not _quad_has_full_source_support(
                 quad,
                 source_width=image_width,
                 source_height=image_height,
             )
-            for quad in padded_quads
-        ):
+        )
+        if not unsupported.issubset(unavailable_cell_indices):
             return self._needs_review(geometry, "BOARD_CELL_CROP_SOURCE_SUPPORT_INCOMPLETE")
 
         # Validate the complete board before the first interpolation. A bad
@@ -169,8 +200,9 @@ class BoardCellGeometrySourceDirectCropper:
                     padded_source_quad=padded_quad,
                     output_size=self.cell_output_size,
                 ),
+                synthesized=index in unsupported,
             )
-            for cell, padded_quad in prepared
+            for index, (cell, padded_quad) in enumerate(prepared)
         )
         return BoardCellGeometryCropResult(
             status="cropped",
@@ -234,6 +266,7 @@ def _geometry_review_reason(
     geometry: BoardCellGeometryEntry,
     *,
     topology: BoardCellTopology,
+    bounded: bool = True,
 ) -> str | None:
     if not _evidence_is_valid(geometry.evidence.kind, geometry, topology=topology):
         return "BOARD_CELL_CROP_EVIDENCE_INVALID"
@@ -249,6 +282,7 @@ def _geometry_review_reason(
             source_image_width=geometry.source_image_width,
             source_image_height=geometry.source_image_height,
             topology=topology,
+            bounded=bounded,
         )
     except BoardCellGeometryContractError as error:
         return error.code

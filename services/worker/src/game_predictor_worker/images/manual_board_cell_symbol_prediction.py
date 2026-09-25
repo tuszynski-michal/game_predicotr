@@ -59,7 +59,14 @@ class ManualBoardCellSymbolPredictor:
             )
         if snapshot.inference_mode == "unclassified":
             return self._unclassified(snapshot)
-        for cell in preview.cells:
+        # Cells the operator declared unavailable (outside the photographed
+        # frame) skip inference entirely and are forced to "?" below, instead
+        # of feeding a synthesized/black-padded crop to the model.
+        unavailable = preview.unavailable_cell_indices
+        available = [
+            (index, cell) for index, cell in enumerate(preview.cells) if index not in unavailable
+        ]
+        for _, cell in available:
             encoded = np.frombuffer(cell.png, dtype=np.uint8)
             bgr = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
             if bgr is None or bgr.shape[:2] != (snapshot.input_size, snapshot.input_size):
@@ -71,18 +78,24 @@ class ManualBoardCellSymbolPredictor:
             normalized = rgb.astype(np.float32).transpose(2, 0, 1) / 255.0
             tensors.append(((normalized - 0.5) / 0.5).astype(np.float32))
         try:
-            inference = self._adapter(snapshot).infer(np.stack(tensors).astype(np.float32))
-            predictions = build_symbol_predictions(
-                inference.logits,
-                temperature=max(0.50, snapshot.temperature),
-                class_codes=snapshot.class_codes,
-                alternative_limit=3,
+            predictions = (
+                build_symbol_predictions(
+                    self._adapter(snapshot).infer(np.stack(tensors).astype(np.float32)).logits,
+                    temperature=max(0.50, snapshot.temperature),
+                    class_codes=snapshot.class_codes,
+                    alternative_limit=3,
+                )
+                if available
+                else ()
             )
         except (SymbolOnnxError, SymbolModelReleaseError) as error:
             raise ManualBoardCellSymbolPredictionError(
                 f"IMAGE_{error.code}",
                 str(error),
             ) from error
+        predicted_by_index = {
+            index: prediction for (index, _), prediction in zip(available, predictions, strict=True)
+        }
         return ManualBoardCellSymbolPrediction(
             model_iteration_id=None
             if snapshot.iteration_id is None
@@ -92,11 +105,19 @@ class ManualBoardCellSymbolPredictor:
             temperature_applied=max(0.50, snapshot.temperature),
             cells=tuple(
                 {
-                    **prediction.to_dict(),
+                    "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
+                    "columnIndex": index % 5,
+                    "confidence": 0.0,
+                    "rowIndex": index // 5,
+                    "symbolCode": "?",
+                }
+                if index in unavailable
+                else {
+                    **predicted_by_index[index].to_dict(),
                     "columnIndex": index % 5,
                     "rowIndex": index // 5,
                 }
-                for index, prediction in enumerate(predictions)
+                for index in range(15)
             ),
         )
 

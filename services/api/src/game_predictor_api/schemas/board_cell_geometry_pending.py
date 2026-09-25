@@ -21,6 +21,10 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     ImageBoardGeometryPending,
 )
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.geometry_qualification import (
+    GeometryQualificationPayload,
+    ManualSourceGeometryPoint,
+)
 from game_predictor_api.schemas.image_reviews import OperationalImageReviewGeometryPoint
 
 Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
@@ -88,11 +92,12 @@ class BoardCellGeometryManualPreviewCommand(ApiModel):
     expected_geometry_revision: int = Field(ge=0)
     expected_resolution_revision: int = Field(ge=0)
     corners: tuple[
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ]
+    geometry_qualification: GeometryQualificationPayload | None = None
 
 
 class BoardCellGeometryManualResolutionCommand(BoardCellGeometryManualPreviewCommand):

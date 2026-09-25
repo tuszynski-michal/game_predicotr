@@ -14,6 +14,13 @@ import {
 } from 'react';
 
 import {
+  automaticUnavailableGridCells,
+  completeManualGridFlags,
+  manualGridUnavailable,
+  type ManualGridFlags,
+} from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
+
+import {
   type DeferredBoardCellGeometryClient,
   loadDeferredBoardCellGeometryContext,
   previewDeferredBoardCellGeometry,
@@ -37,7 +44,6 @@ import {
   operationalReviewPointInLattice,
   operationalReviewPointInSourceImage,
   type OperationalReviewGeometryCorners,
-  type OperationalReviewGeometryViewport,
 } from './operational-review-state';
 
 type LoadState = 'error' | 'loading' | 'ready';
@@ -70,18 +76,24 @@ export function DeferredBoardCellGeometryEditor({
   const [contextState, setContextState] = useState<LoadState>('loading');
   const [corners, setCorners] =
     useState<OperationalReviewGeometryCorners | null>(null);
-  const [viewport, setViewport] =
-    useState<OperationalReviewGeometryViewport | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState('');
   const [loadingSource, setLoadingSource] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const commandKey =
-    context === null || corners === null
-      ? ''
-      : deferredBoardCellGeometryCommandKey(context, corners);
+  const [flags, setFlags] = useState<ManualGridFlags>(completeManualGridFlags);
+  const allowOutsideSource = flags.partial;
+  const commandKey = useMemo(() => {
+    if (context === null || corners === null) return '';
+    try {
+      return deferredBoardCellGeometryCommandKey(context, corners, flags);
+    } catch {
+      // Invalid qualification (e.g. "Niepełna plansza" without any field
+      // marked as missing) never matches a preview; save() surfaces it.
+      return '';
+    }
+  }, [context, corners, flags]);
   const previewIsCurrent = previewUrl !== null && previewKey === commandKey;
 
   useEffect(() => {
@@ -106,6 +118,16 @@ export function DeferredBoardCellGeometryEditor({
     [clearPreview],
   );
 
+  const updateFlags = useCallback(
+    (next: ManualGridFlags) => {
+      clearPreview();
+      idempotencyRef.current = null;
+      setError('');
+      setFlags(next);
+    },
+    [clearPreview],
+  );
+
   useEffect(() => {
     let active = true;
     async function load() {
@@ -113,6 +135,7 @@ export function DeferredBoardCellGeometryEditor({
       setError('');
       clearPreview();
       idempotencyRef.current = null;
+      setFlags(completeManualGridFlags);
       const result = await loadDeferredBoardCellGeometryContext(
         api,
         scope,
@@ -147,6 +170,20 @@ export function DeferredBoardCellGeometryEditor({
     [apiBaseUrl, context],
   );
 
+  const viewport = useMemo(() => {
+    if (context === null) return null;
+    const boardCorners = context.boardQuad.map(
+      copyPoint,
+    ) as OperationalReviewGeometryCorners;
+    return operationalReviewGeometryViewport(
+      boardCorners,
+      context.sourceWidth,
+      context.sourceHeight,
+      0.35,
+      allowOutsideSource,
+    );
+  }, [context, allowOutsideSource]);
+
   useEffect(() => {
     if (context === null || sourceUrl === null) return;
     const image = new window.Image();
@@ -154,17 +191,6 @@ export function DeferredBoardCellGeometryEditor({
     image.decoding = 'async';
     image.onload = () => {
       sourceImageRef.current = image;
-      const boardCorners = context.boardQuad.map(
-        copyPoint,
-      ) as OperationalReviewGeometryCorners;
-      setViewport(
-        operationalReviewGeometryViewport(
-          boardCorners,
-          context.sourceWidth,
-          context.sourceHeight,
-          0.35,
-        ),
-      );
       setLoadingSource(false);
     };
     image.onerror = () => {
@@ -203,17 +229,38 @@ export function DeferredBoardCellGeometryEditor({
     const context2d = canvas.getContext('2d');
     if (context2d === null) return;
     context2d.clearRect(0, 0, canvas.width, canvas.height);
-    context2d.drawImage(
-      image,
-      viewport.x,
-      viewport.y,
-      viewport.width,
-      viewport.height,
-      0,
-      0,
-      viewport.width,
-      viewport.height,
+    if (allowOutsideSource) {
+      // The viewport may extend past the real photo when the board is
+      // extrapolated beyond its frame; fill the gap before drawing the
+      // overlapping part of the real image on top of it.
+      context2d.fillStyle = '#555';
+      context2d.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    const sourceLeft = Math.max(0, viewport.x);
+    const sourceTop = Math.max(0, viewport.y);
+    const sourceRight = Math.min(
+      image.naturalWidth,
+      viewport.x + viewport.width,
     );
+    const sourceBottom = Math.min(
+      image.naturalHeight,
+      viewport.y + viewport.height,
+    );
+    const overlapWidth = sourceRight - sourceLeft;
+    const overlapHeight = sourceBottom - sourceTop;
+    if (overlapWidth > 0 && overlapHeight > 0) {
+      context2d.drawImage(
+        image,
+        sourceLeft,
+        sourceTop,
+        overlapWidth,
+        overlapHeight,
+        sourceLeft - viewport.x,
+        sourceTop - viewport.y,
+        overlapWidth,
+        overlapHeight,
+      );
+    }
     context2d.lineWidth = Math.max(2, canvas.width / 500);
     context2d.strokeStyle = '#f4d35e';
     for (let column = 0; column <= 5; column += 1) {
@@ -277,7 +324,7 @@ export function DeferredBoardCellGeometryEditor({
         context2d.font = `bold ${Math.max(12, canvas.width / 65)}px sans-serif`;
         context2d.fillText(String(index + 1), point.x + 10, point.y - 10);
       });
-  }, [corners, viewport]);
+  }, [corners, viewport, allowOutsideSource]);
 
   useEffect(() => {
     drawSource();
@@ -286,6 +333,21 @@ export function DeferredBoardCellGeometryEditor({
   async function refreshPreview() {
     if (context === null || corners === null || loadingPreview || saving)
       return;
+    let command;
+    try {
+      command = deferredBoardCellGeometryPreviewCommand(
+        context,
+        corners,
+        flags,
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Sprawdź oznaczenia niedostępnych pól.',
+      );
+      return;
+    }
     const requestedKey = commandKey;
     setLoadingPreview(true);
     setError('');
@@ -293,7 +355,7 @@ export function DeferredBoardCellGeometryEditor({
       api,
       scope,
       itemId,
-      deferredBoardCellGeometryPreviewCommand(context, corners),
+      command,
     );
     setLoadingPreview(false);
     if (!result.ok) {
@@ -334,6 +396,7 @@ export function DeferredBoardCellGeometryEditor({
         context,
         corners,
         idempotency.idempotencyKey,
+        flags,
       ),
     );
     setSaving(false);
@@ -370,6 +433,7 @@ export function DeferredBoardCellGeometryEditor({
       viewport,
       context.sourceWidth,
       context.sourceHeight,
+      allowOutsideSource,
     );
     const next = [...corners] as OperationalReviewGeometryCorners;
     next[index] = point;
@@ -420,6 +484,24 @@ export function DeferredBoardCellGeometryEditor({
   if (contextState === 'error' || context === null) {
     return <DeferredGeometryState error text={error} />;
   }
+
+  const unavailable =
+    corners === null
+      ? []
+      : manualGridUnavailable(
+          flags,
+          corners,
+          context.sourceWidth,
+          context.sourceHeight,
+        );
+  const automaticUnavailable =
+    corners === null
+      ? []
+      : automaticUnavailableGridCells(
+          corners,
+          context.sourceWidth,
+          context.sourceHeight,
+        );
 
   return (
     <div className="deferredGeometryEditor">
@@ -488,6 +570,64 @@ export function DeferredBoardCellGeometryEditor({
                   : `${viewport.width} / ${viewport.height}`,
             }}
           />
+          <fieldset
+            disabled={saving}
+            style={{ border: 0, fontSize: '0.85rem' }}
+          >
+            <legend>Dostępne {15 - unavailable.length}/15</legend>
+            <label>
+              <input
+                checked={flags.partial}
+                onChange={(event) =>
+                  updateFlags({
+                    ...flags,
+                    exclude: event.target.checked || flags.exclude,
+                    includeInPartialGridTraining: event.target.checked
+                      ? flags.includeInPartialGridTraining
+                      : false,
+                    manualUnavailable: event.target.checked
+                      ? flags.manualUnavailable
+                      : [],
+                    partial: event.target.checked,
+                  })
+                }
+                type="checkbox"
+              />{' '}
+              Niepełna plansza
+            </label>
+            {flags.partial ? (
+              <p className="mutedText">
+                Przeciągnij rogi poza zdjęcie (szary obszar) i zaznacz pola,
+                których naprawdę nie ma na zdjęciu — trafią do Weryfikacji
+                symboli jako „Nierozpoznany ?”.
+              </p>
+            ) : null}
+            {flags.partial ? (
+              <div aria-label="Niedostępne pola">
+                {Array.from({ length: 15 }, (_, index) => (
+                  <label key={index}>
+                    <input
+                      aria-label={`Pole ${index + 1} poza zdjęciem`}
+                      checked={unavailable.includes(index)}
+                      disabled={automaticUnavailable.includes(index)}
+                      onChange={(event) =>
+                        updateFlags({
+                          ...flags,
+                          manualUnavailable: event.target.checked
+                            ? [...flags.manualUnavailable, index]
+                            : flags.manualUnavailable.filter(
+                                (value) => value !== index,
+                              ),
+                        })
+                      }
+                      type="checkbox"
+                    />
+                    {index + 1}{' '}
+                  </label>
+                ))}
+              </div>
+            ) : null}
+          </fieldset>
         </section>
 
         <section className="operationalReviewGeometryPreview">

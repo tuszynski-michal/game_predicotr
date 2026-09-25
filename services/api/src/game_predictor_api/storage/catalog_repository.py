@@ -69,7 +69,10 @@ _CONFLICTS = {
 class SqlAlchemyCatalogRepository(CatalogRepository):
     def __init__(self, session: Session, storage_router: GameStorageRouter | None = None) -> None:
         self._session = session
-        self._storage_router = storage_router
+        # PostgreSQL game creation is never a catalog-only operation: the
+        # router drives the bounded V2 partition lifecycle before returning.
+        # Non-PostgreSQL test adapters retain the router's virtual V2 behavior.
+        self._storage_router = storage_router or GameStorageRouter()
 
     def list_games(self) -> list[Game]:
         records = self._session.scalars(

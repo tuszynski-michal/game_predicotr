@@ -73,6 +73,7 @@ from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
 from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.image_grid_review_repository import (
     SqlAlchemyImageGridReviewRepository,
 )
@@ -223,6 +224,8 @@ def _add_review_projection_source(
     status: str,
     created_at: datetime,
 ) -> tuple[UUID, UUID]:
+    job = session.get(JobModel, job_id)
+    assert job is not None and job.game_id is not None
     source = SourceImageModel(
         import_job_id=job_id,
         file_execution_key=file_execution_key,
@@ -261,6 +264,9 @@ def _add_review_projection_source(
             "resolved_at": created_at,
         }
     review = ImageReviewItemModel(
+        game_id=job.game_id,
+        import_job_id=job.id,
+        sequence_number=sequence_number,
         recognized_board_id=board.id,
         status=status,
         snapshot={"sequenceNumber": sequence_number},
@@ -325,30 +331,12 @@ def test_image_batch_store_registers_association_in_v2_store(
     now = datetime(2026, 9, 25, 12, tzinfo=UTC)
 
     try:
-        with Session(engine, expire_on_commit=False) as session:
+        with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
                 code="image-batch-v2-store",
                 name="Image batch V2 store",
                 status=GameStatus.ACTIVE,
-            )
-            session.execute(
-                text(
-                    """
-                    INSERT INTO public.game_storage_locations
-                        (game_id, store_schema, generation, manifest_version, status, revision)
-                    VALUES
-                        (:game_id, 'game_data_v2', 2, 'game-data-v2-manifest-v1', 'active', 1)
-                    """
-                ),
-                {"game_id": game.id},
-            )
-            session.execute(
-                text(
-                    "CREATE TABLE game_data_v2.image_import_job_files_g_"
-                    f"{game.id.hex} PARTITION OF game_data_v2.image_import_job_files "
-                    f"FOR VALUES IN ('{game.id}')"
-                )
             )
             job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
             session.commit()
@@ -397,7 +385,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
     now = datetime(2026, 8, 26, 12, tzinfo=UTC)
 
     try:
-        with Session(engine, expire_on_commit=False) as session:
+        with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
                 code="symbol-cell-backfill",
@@ -441,7 +429,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             order_index=2,
             registered_at=now,
         )
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             base_review_id, base_board_id = _add_review_projection_source(
                 session,
                 job_id=job.id,
@@ -575,7 +563,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             )
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             repository = SqlAlchemyImageSymbolReviewRepository(session)
             assert repository.start_or_resume_backfill(game.id).status == "rebuilding"
             first_step = repository.backfill_next_batch(game.id, batch_size=1)
@@ -583,7 +571,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             assert first_step.has_more is True
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             repository = SqlAlchemyImageSymbolReviewRepository(session)
             assert repository.start_or_resume_backfill(game.id).status == "rebuilding"
             second_step = repository.backfill_next_batch(game.id, batch_size=1)
@@ -596,7 +584,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             assert final_step.report.cell_count == 45
             session.commit()
 
-        with Session(engine) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             state = session.get(ImageSymbolReviewStateModel, game.id)
             assert state is not None
             assert state.status == "ready"

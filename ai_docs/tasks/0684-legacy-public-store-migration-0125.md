@@ -36,7 +36,7 @@ T01–T04 done; T01 ma `ready`, a T03/T04 udowadniają brak zależności runtime
 
 - Dodać `0125_remove_legacy_public_game_store.py` z literalnym snapshotem 65 nazw manifestu i ich deterministycznym topologicznym porządkiem dropu.
 - Przed pierwszym DDL sprawdzić reltype/schema/listę, pustość wszystkich relacji i brak nieoczekiwanych zależności; następnie użyć tylko `DROP TABLE public.<nazwa> RESTRICT`.
-- Dodać izolowane testy PostgreSQL: happy path, każda klasa guard failure, przetrwanie catalog/shared/V2 i brak downgrade.
+- Dodać izolowane testy PostgreSQL: happy path, każda klasa guard failure, przetrwanie catalog/shared/V2, fresh database podniesiona do head 0125 bez legacy relacji i brak downgrade.
 
 ## Out of scope
 
@@ -46,11 +46,12 @@ T01–T04 done; T01 ma `ready`, a T03/T04 udowadniają brak zależności runtime
 
 - [ ] Migracja odmawia przed pierwszym dropem, gdy choć jeden guard nie przechodzi.
 - [ ] Happy path usuwa dokładnie 65 legacy relacji, a zostawia catalog, shared/control i `game_data_v2` bez zmian.
+- [ ] Świeża baza Alembic na head 0125 nie tworzy ani nie wymaga 65 relacji legacy `public` przy reprezentatywnym bootstrapie V2.
 - [ ] `downgrade()` jawnie odmawia z komunikatem o nieodwracalności; test nie oczekuje fałszywego odtworzenia.
 
 ## Technical notes
 
-Sprawdzenie obejmuje wszystkie tabele **przed** pierwszym `DROP`, aby fail nie dał częściowego początku po wykrytej niepustości. Zależności wylicza się podczas implementacji z testowego katalogu i zamraża w kodzie/testach. Każdy SQL ma jawne, bezpieczne identyfikatory pochodzące z literalnej tuple, nie z requestu ani katalogu runtime.
+Sprawdzenie obejmuje wszystkie tabele **przed** pierwszym `DROP`, aby fail nie dał częściowego początku po wykrytej niepustości. Zależności wylicza się podczas implementacji z testowego katalogu i zamraża w kodzie/testach. Każdy SQL ma jawne, bezpieczne identyfikatory pochodzące z literalnej tuple, nie z requestu ani katalogu runtime. Test fresh-head po 0125 jest tu, a nie w T04, ponieważ ta rewizja powstaje dopiero w tym tasku.
 
 ## Expected files
 

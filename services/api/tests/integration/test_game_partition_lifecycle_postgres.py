@@ -267,9 +267,7 @@ def test_greenfield_catalog_create_provisions_v2_before_return(
     )
 
     with factory() as session:
-        game = CatalogService(
-            SqlAlchemyCatalogRepository(session, GameStorageRouter())
-        ).create_game(
+        game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
             code="greenfield-game",
             name="Greenfield game",
             status=GameStatus.DRAFT,
@@ -316,6 +314,18 @@ def test_greenfield_catalog_create_provisions_v2_before_return(
     assert partition_count == len(CREATE_TABLES)
     assert geometry_state == 1
     assert legacy_state == 0
+
+    # A new, unscoped session must resolve the catalog-created game back to
+    # the V2 parent instead of the historical public copy.
+    with factory() as session:
+        GameStorageRouter().bind(session, game.id, intent=GameStorageIntent.READ)
+        assert (
+            session.scalar(
+                text("SELECT count(*) FROM image_geometry_rollout_states WHERE game_id=:game_id"),
+                {"game_id": game.id},
+            )
+            == 1
+        )
 
 
 def test_missing_registry_fails_closed_without_public_fallback(

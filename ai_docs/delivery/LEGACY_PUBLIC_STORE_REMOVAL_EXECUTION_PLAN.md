@@ -44,8 +44,8 @@ Każdy task ma własny audyt, commit, Outcome i aktualizację `CURRENT_STATE.md`
 | A | [TASK-0680](../tasks/completed/0680-legacy-public-store-inventory.md) | Read-only inventory wykazał dokładny zakres, pustość, location V2 i brak aktywnej migracji. |
 | A | [TASK-0681](../tasks/completed/0681-v2-only-storage-routing.md) | Router i kontrakt katalogu są V2-only na PostgreSQL, bez fallbacku legacy. |
 | A | [TASK-0682](../tasks/completed/0682-game-owned-access-routing-audit.md) | Wszystkie produkcyjne repository, workery i raw SQL game-owned mają testowany bind. |
-| A | [TASK-0683](../tasks/0683-v2-only-test-and-bootstrap-contract.md) | Bootstrap/fixture nie ukrywa zależności od publicznych kopii. |
-| B | [TASK-0684](../tasks/0684-legacy-public-store-migration-0125.md) | Manifest-bound migracja 0125, bez `CASCADE`, ma izolowany dowód PostgreSQL. |
+| A | [TASK-0683](../tasks/completed/0683-v2-only-test-and-bootstrap-contract.md) | Bootstrap/fixture provisionuje V2 bez zależności od kopii `public` przed ich usunięciem. |
+| B | [TASK-0684](../tasks/0684-legacy-public-store-migration-0125.md) | Manifest-bound migracja 0125, bez `CASCADE`, ma izolowany dowód PostgreSQL, w tym fresh-head po 0125. |
 | B | [TASK-0685](../tasks/0685-legacy-public-store-migration-rehearsal.md) | Dry-run i odbiór release/migration wykazują warunki startu, timeouty i ścieżkę po błędzie. |
 | B | [TASK-0686](../tasks/0686-legacy-public-store-operations-docs.md) | Instrukcja preflight/approval/postflight oraz obserwowalność nie mylą public z data plane. |
 | STOP B | — | Pokaż operatorowi świeży raport T01/T05, review DDL, plan okna i dokładny zakres. Bez jawnego polecenia T09 plan zatrzymuje się tutaj. |
@@ -56,6 +56,11 @@ Każdy task ma własny audyt, commit, Outcome i aktualizację `CURRENT_STATE.md`
 | D | [TASK-0691](../tasks/0691-legacy-public-store-final-acceptance.md) | Końcowy audyt i dokumentacja potwierdzają granicę V2-only. |
 
 **STOP A:** jeśli inventory wskazuje choć jedną niepustą relację legacy, location różną od active V2, aktywną migrację, nierozpoznaną zależność lub niezgodny manifest, nie tworzy się migracji usuwającej; potrzebny jest nowy plan migracji danych lub decyzja. **STOP B:** brak pełnego izolowanego testu, niezależnego review DDL lub instrukcji operatorskiej blokuje T08/T09. **STOP C:** błąd postflightu zatrzymuje D; nie rekonstruuje się pustych kopii bez nowej decyzji i dowodu danych.
+
+**Korekta sekwencji 2026-09-25:** T04 testuje bootstrap V2 na aktualnym
+headzie przed migracją usuwającą, ponieważ nie może uczciwie udowodnić stanu
+po rewizji, która jeszcze nie istnieje. Dowód świeżej bazy podniesionej do
+head `0125` bez 65 relacji legacy należy do T05, który tworzy `0125`.
 
 ## Mapa wymagań, dowody i ryzyka
 

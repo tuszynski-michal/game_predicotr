@@ -128,15 +128,13 @@ def run_grid_profile_gate_source(
             )
             else False
         )
-        available_identities = {
-            (index // 5, index % 5)
-            for index in range(15)
-            if unavailable_valid and index not in set(unavailable)
-        }
         raw_qualification = board.get("geometryQualification")
         qualified_partial = False
+        render_unavailable = unavailable
+        permits_empty_render_mask = False
         if raw_qualification is not None:
             from game_predictor_api.domain.geometry_qualification import (
+                GEOMETRY_QUALIFICATION_VERSION_V3,
                 GeometryQualification,
                 GeometryQualificationError,
             )
@@ -147,14 +145,42 @@ def run_grid_profile_gate_source(
                     qualification.completeness_status == "pending_partial"
                     and qualification.unavailable_cell_indices == unavailable
                 )
+                if (
+                    qualified_partial
+                    and board.get("assetMode") == "virtual_source"
+                    and qualification.version == GEOMETRY_QUALIFICATION_VERSION_V3
+                ):
+                    # V3 keeps partially visible cells in the render output.  Only
+                    # cells explicitly marked fully unavailable are absent from the
+                    # crop topology; the wider unavailable mask remains review
+                    # metadata and must still agree with the qualification.
+                    render_unavailable = qualification.fully_unavailable_cell_indices
+                    permits_empty_render_mask = True
             except GeometryQualificationError:
                 topology_violations += 1
+        render_unavailable_valid = (
+            render_unavailable == tuple(sorted(set(render_unavailable)))
+            if all(
+                isinstance(value, int) and not isinstance(value, bool) and 0 <= value < 15
+                for value in render_unavailable
+            )
+            else False
+        )
+        available_identities = {
+            (index // 5, index % 5)
+            for index in range(15)
+            if render_unavailable_valid and index not in set(render_unavailable)
+        }
         explicit_partial = (
             board.get("completenessStatus") == "pending_partial"
             and unavailable_valid
-            and 1 <= len(unavailable) <= (15 if qualified_partial else 14)
+            and render_unavailable_valid
+            and (
+                1 <= len(render_unavailable) <= (15 if qualified_partial else 14)
+                or (permits_empty_render_mask and not render_unavailable)
+            )
             and identities == available_identities
-            and len(cells) == 15 - len(unavailable)
+            and len(cells) == 15 - len(render_unavailable)
         )
         if explicit_partial and isinstance(position, int):
             partial_positions.add(position)

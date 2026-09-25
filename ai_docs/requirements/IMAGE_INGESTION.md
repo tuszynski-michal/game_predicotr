@@ -360,6 +360,12 @@ z checksumą stage result; drift kończy się fail-closed.
 - wariant virtual renderuje najwyżej 135 komórek jednego źródła w pamięci i
   wykonuje jedno zbiorcze wywołanie ONNX. Restart musi odtworzyć identyczny
   render spec i checksumę pikseli z managed original.
+- Dla zatwierdzonego `pending_partial` z kwalifikacją
+  `manual-geometry-qualification-v3` maska `unavailableCellIndices` pozostaje
+  pełnym opisem jakości do ręcznego review, lecz topology cropów pomija wyłącznie
+  `fullyUnavailableCellIndices`. Komórka częściowo widoczna pozostaje
+  renderowana; nie może zostać policzona jako naruszenie topologii tylko dlatego,
+  że jest oznaczona do review.
 
 Render spec v2 emituje równolegle historyczne `logical-cell-v1` i
 `render-id-v1` oraz nowe `logical-cell-v2` i `render-id-v2`. Klucze v1 pozostają

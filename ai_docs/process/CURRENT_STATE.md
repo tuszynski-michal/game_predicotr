@@ -6,6 +6,17 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0662 — poprawna topologia częściowych komórek virtual v3
+
+- Diagnoza świeżego joba `b70f4fce-dc1a-411b-9c3d-49ae41ec02a6` ustaliła, że
+  gate porównywał zestaw cropów z szeroką maską `unavailableCellIndices`, choć
+  renderer v3 celowo zachowuje w nim komórki częściowo widoczne. Gate używa
+  teraz `fullyUnavailableCellIndices` wyłącznie dla topologii virtual v3;
+  szeroka maska nadal musi zgadzać się z kwalifikacją i pozostaje metadanymi
+  ręcznego review. Regresja z pięcioma oznaczonymi polami i jedną rzeczywiście
+  brakującą komórką przechodzi bez `topology`, jako `operator_partial`.
+  Ruff oraz 78/78 testów gate, geometry guard i workflowu przeszły.
+
 ### TASK-0661 — virtual crop tylko dla zatwierdzonej planszy częściowej
 
 - Świeży job `7b90689d-8fe0-49ca-9cde-80f0fd51dd9e` ujawnił pięć pozycji z

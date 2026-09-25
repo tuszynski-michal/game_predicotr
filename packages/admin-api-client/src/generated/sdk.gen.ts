@@ -749,6 +749,9 @@ import type {
   SelectSemiAutomaticImageSelectionSourceFolderData,
   SelectSemiAutomaticImageSelectionSourceFolderErrors,
   SelectSemiAutomaticImageSelectionSourceFolderResponses,
+  SelectSymbolReferenceFromCellReviewData,
+  SelectSymbolReferenceFromCellReviewErrors,
+  SelectSymbolReferenceFromCellReviewResponses,
   SkipSymbolCellReviewsData,
   SkipSymbolCellReviewsErrors,
   SkipSymbolCellReviewsResponses,
@@ -2074,6 +2077,32 @@ export const applySymbolCellReviewDecision = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Persist one approved Symbol Verification crop as its symbol reference
+ */
+export const selectSymbolReferenceFromCellReview = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SelectSymbolReferenceFromCellReviewData, ThrowOnError>,
+): RequestResult<
+  SelectSymbolReferenceFromCellReviewResponses,
+  SelectSymbolReferenceFromCellReviewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SelectSymbolReferenceFromCellReviewResponses,
+    SelectSymbolReferenceFromCellReviewErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/symbol-reference',
     ...options,
     headers: {
       'Content-Type': 'application/json',

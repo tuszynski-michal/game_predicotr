@@ -12,8 +12,75 @@ import type { SymbolReviewExplicitTarget } from './symbol-review-selection-state
 
 export type SymbolReviewMutationClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
-  'applySymbolCellReviewDecision'
+  'applySymbolCellReviewDecision' | 'selectSymbolReferenceFromCellReview'
 >;
+
+export type SymbolImageFromReviewResult =
+  | {
+      readonly decision: SymbolCellReviewMutationResponse;
+      readonly ok: true;
+      readonly symbolName: string;
+    }
+  | {
+      readonly decision: SymbolCellReviewMutationResponse | null;
+      readonly error: string;
+      readonly ok: false;
+    };
+
+/**
+ * Approve one crop (optionally as a newly chosen symbol) and use it as that
+ * symbol's image. The image is shown in "Symbole", "Wyszukaj plansze" and is
+ * the source of the symbol image for later mobile releases.
+ */
+export async function setSymbolImageFromReviewCell(
+  api: SymbolReviewMutationClient,
+  gameId: string,
+  target: SymbolReviewExplicitTarget,
+  targetSymbolId: string | null,
+): Promise<SymbolImageFromReviewResult> {
+  const decision = await applySingleSymbolReviewDecision(
+    api,
+    gameId,
+    targetSymbolId === null ? 'approve' : 'reassign',
+    target,
+    targetSymbolId,
+  );
+  if (!decision.ok) {
+    return { decision: null, error: decision.error, ok: false };
+  }
+  try {
+    const result = await api.selectSymbolReferenceFromCellReview(
+      gameId,
+      target.cellReviewId,
+      {
+        expectedChecksumSha256: target.expectedCropChecksumSha256,
+        selectedBy: 'admin-local',
+      },
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        decision: decision.value,
+        error: `Crop zatwierdzono, ale nie ustawiono grafiki symbolu: ${apiErrorMessage(
+          result.error,
+          'nieznany błąd.',
+        )}`,
+        ok: false,
+      };
+    }
+    return {
+      decision: decision.value,
+      ok: true,
+      symbolName: result.data.name,
+    };
+  } catch {
+    return {
+      decision: decision.value,
+      error:
+        'Crop zatwierdzono, ale połączenie z lokalnym Admin API zostało przerwane przed ustawieniem grafiki.',
+      ok: false,
+    };
+  }
+}
 
 export type SymbolReviewMutationResult =
   | { readonly ok: true; readonly value: SymbolCellReviewMutationResponse }

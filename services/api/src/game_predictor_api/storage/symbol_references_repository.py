@@ -98,6 +98,26 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
             return None
         return self._to_candidates((row,))[0]
 
+    def get_cell_review_candidate(
+        self, *, game_id: UUID, cell_review_id: UUID
+    ) -> tuple[UUID, ApprovedSymbolReferenceCandidate] | None:
+        symbol_id = self._session.scalar(
+            select(ImageSymbolReviewCellModel.assigned_symbol_id).where(
+                ImageSymbolReviewCellModel.id == cell_review_id,
+                ImageSymbolReviewCellModel.game_id == game_id,
+            )
+        )
+        if symbol_id is None:
+            return None
+        row = self._session.execute(
+            self._candidate_query(game_id=game_id, symbol_id=symbol_id).where(
+                ImageSymbolReviewCellModel.id == cell_review_id
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        return symbol_id, self._to_candidates((row,))[0]
+
     def get_reference(self, *, game_id: UUID, symbol_id: UUID) -> SymbolReferenceImage | None:
         row = self._session.execute(
             select(SymbolReferenceImageModel)

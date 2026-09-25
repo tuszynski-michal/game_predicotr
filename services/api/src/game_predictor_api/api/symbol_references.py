@@ -136,6 +136,28 @@ def create_symbol_references_router(
             )
         )
 
+    @router.post(
+        "/{game_id}/symbol-cell-reviews/{cell_review_id}/symbol-reference",
+        response_model=SymbolResponse,
+        operation_id="selectSymbolReferenceFromCellReview",
+        summary="Persist one approved Symbol Verification crop as its symbol reference",
+        responses=ERROR_RESPONSES,
+    )
+    def select_cell_review_reference(
+        game_id: UUID,
+        cell_review_id: UUID,
+        payload: ApprovedSymbolReferenceSelectionCommand,
+        service: Annotated[ApprovedSymbolReferenceService, service_parameter],
+    ) -> SymbolResponse:
+        return SymbolResponse.model_validate(
+            service.select_from_cell_review(
+                game_id,
+                cell_review_id,
+                expected_checksum_sha256=payload.expected_checksum_sha256,
+                selected_by=payload.selected_by,
+            )
+        )
+
     return router
 
 

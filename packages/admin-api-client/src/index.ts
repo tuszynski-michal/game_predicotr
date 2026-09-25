@@ -226,6 +226,7 @@ import {
   selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
   selectApprovedSymbolReferenceCandidate as selectGeneratedApprovedSymbolReferenceCandidate,
+  selectSymbolReferenceFromCellReview as selectGeneratedSymbolReferenceFromCellReview,
   searchGameBoards as searchGeneratedGameBoards,
   startLocalReviewer as startGeneratedLocalReviewer,
   startReviewerIngress as startGeneratedReviewerIngress,
@@ -1830,6 +1831,22 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           game_id: gameId,
           observation_id: observationId,
           symbol_id: symbolId,
+        },
+      }),
+    selectSymbolReferenceFromCellReview: (
+      gameId: string,
+      cellReviewId: string,
+      body: ApprovedSymbolReferenceSelectionCommand,
+    ) =>
+      selectGeneratedSymbolReferenceFromCellReview({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `symbol-reference:${gameId}:cell:${cellReviewId}`,
+        ),
+        path: {
+          cell_review_id: cellReviewId,
+          game_id: gameId,
         },
       }),
     getImageDatasetCompleteness: (gameId: string) =>

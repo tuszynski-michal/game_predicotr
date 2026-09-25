@@ -177,6 +177,39 @@ test('generated client pages and selects checksum-bound approved symbol referenc
   );
 });
 
+test('generated client selects a symbol image from one verification cell', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const cellReviewId = '44444444-4444-4444-8444-444444444444';
+  const checksum = 'b'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  await client.selectSymbolReferenceFromCellReview(gameId, cellReviewId, {
+    expectedChecksumSha256: checksum,
+    selectedBy: 'admin-local',
+  });
+
+  assert.equal(requests[0].method, 'POST');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/symbol-cell-reviews/${cellReviewId}/symbol-reference`,
+  );
+  assert.equal(
+    requests[0].headers.get('X-Admin-Target'),
+    `symbol-reference:${gameId}:cell:${cellReviewId}`,
+  );
+  assert.deepEqual(await requests[0].json(), {
+    expectedChecksumSha256: checksum,
+    selectedBy: 'admin-local',
+  });
+});
+
 test('generated client reads model quality and freezes the confirmed manifest', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

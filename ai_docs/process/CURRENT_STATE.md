@@ -6,6 +6,17 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0692 — grafika symbolu z pojedynczego cropa w Weryfikacji symboli
+
+- Zgłoszenie użytkownika poza planem: przycisk `Ustaw jako grafikę symbolu`
+  dla jednego zaznaczonego cropa zatwierdza go (jako wybrany w `Zmień symbol`
+  albo bieżący symbol) i ustawia jako grafikę symbolu przez nowy endpoint
+  `POST …/symbol-cell-reviews/{cellReviewId}/symbol-reference`, reużywający
+  pickera sekcji `Symbole`. Grafika jest widoczna w `Symbole` i palecie
+  `Wyszukaj plansze`. Wydanie mobilne nadal pokazuje tylko wbudowane obrazki
+  v01 — osobny, niewykonany zakres. Testy API 9/9, Admin 606/606, klient
+  63/63, `openapi:check` czysty. Brak odbioru na żywo (API wymaga restartu).
+
 ### P00 / TASK-0679 — plan usunięcia legacy magazynu gier ze schematu `public` (D-448)
 
 - Plan `delivery/LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md` i D-448 zostały zaakceptowane przez użytkownika. **T01 / TASK-0680 jest done:** audyt `REPEATABLE READ READ ONLY` (dwie świeże sesje, raport SHA-256 `081212ac08ce63e132d689e7c23984e16338395e424695326579166fb4a6e95e`) potwierdził 65/65 pustych tabel, trzy active V2 location i zero migracji, aktywnych jobs, zewnętrznych FK/zależności oraz locków. Nie wykonano DDL/DML.

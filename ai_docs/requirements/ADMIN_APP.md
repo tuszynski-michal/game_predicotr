@@ -689,6 +689,16 @@ przywraca zwykły układ. Poza polami tekstowymi i selectami działają skróty:
 `Niewyraźny`) albo potwierdza otwarty preview operacji masowej, a `Esc`
 zamyka preview.
 
+Przycisk `Ustaw jako grafikę symbolu` (TASK-0692) jest aktywny, gdy zaznaczony
+jest dokładnie jeden crop. Jeżeli w `Zmień symbol` wybrano symbol, crop jest
+najpierw przypisany do niego i zatwierdzony (`reassign`); w przeciwnym razie
+zatwierdzany jest bieżący symbol (`approve`). Następnie crop zostaje grafiką
+symbolu — tą samą, którą ustawia picker w sekcji `Symbole`, widoczną w
+miniaturze `Symbole` i palecie `Wyszukaj plansze`. Opcja `Niewyraźny` blokuje
+akcję. Jeżeli zatwierdzenie się udało, a ustawienie grafiki nie, komunikat
+mówi to wprost, a zatwierdzenie zostaje. Użycie grafiki w wydaniu mobilnym
+jest osobnym, niewykonanym jeszcze zakresem.
+
 ### Weryfikacja symbolu na planszy
 
 Miniatury wirtualne przekazują aktualne `renderSpecChecksumSha256` z detailu

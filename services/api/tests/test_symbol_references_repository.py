@@ -7,6 +7,7 @@ from io import BytesIO
 from unittest.mock import Mock
 from uuid import uuid4
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from game_predictor_api.api.symbol_references import create_symbol_references_router
@@ -14,7 +15,7 @@ from game_predictor_api.application.symbol_references import (
     ApprovedSymbolReferenceService,
     ManagedSymbolReferenceArtifactStore,
 )
-from game_predictor_api.domain.catalog import Symbol, SymbolStatus
+from game_predictor_api.domain.catalog import CatalogConflictError, Symbol, SymbolStatus
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewAsset
 from game_predictor_api.domain.symbol_references import (
@@ -43,9 +44,14 @@ class MemoryApprovedReferences:
         self.candidate = candidate
         self.reference = None
         self.selection = None
+        self.eligible_cells = {}
 
     def game_exists(self, game_id):
         return game_id == self.game_id
+
+    def get_cell_review_candidate(self, *, cell_review_id, **kwargs):
+        symbol_id = self.eligible_cells.get(cell_review_id)
+        return None if symbol_id is None else (symbol_id, self.candidate)
 
     def list_candidates(self, *, after_key, limit, **kwargs):
         return (self.candidate,) if after_key is None else ()
@@ -177,6 +183,58 @@ def test_selection_api_copies_bytes_and_serves_only_durable_reference(tmp_path):
     assert response.json()["imagePath"] == repository.selection["image_relative_path"]
     assert reference.status_code == 200
     assert reference.content == content
+
+
+def test_cell_review_selection_sets_the_assigned_symbol_image(tmp_path):
+    content = b"approved-crop"
+    crop = tmp_path / "data" / "crops" / "approved.png"
+    crop.parent.mkdir(parents=True)
+    crop.write_bytes(content)
+    game_id, symbol_id, cell_review_id = uuid4(), uuid4(), uuid4()
+    candidate = _candidate("data/crops/approved.png", hashlib.sha256(content).hexdigest())
+    repository = MemoryApprovedReferences(game_id, candidate)
+    repository.eligible_cells[cell_review_id] = symbol_id
+    service = ApprovedSymbolReferenceService(
+        repository,
+        ManagedSymbolReferenceArtifactStore(tmp_path),
+    )
+    app = FastAPI()
+    app.include_router(create_symbol_references_router(lambda: service, tmp_path))
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/symbol-reference",
+            json={"expectedChecksumSha256": candidate.crop_checksum_sha256, "selectedBy": "admin"},
+        )
+        reference = client.get(f"/admin/games/{game_id}/symbols/{symbol_id}/image/asset")
+
+    assert response.status_code == 200
+    assert repository.selection is not None
+    assert repository.selection["symbol_id"] == symbol_id
+    assert response.json()["imagePath"] == repository.selection["image_relative_path"]
+    assert reference.status_code == 200
+    assert reference.content == content
+
+
+def test_cell_review_selection_rejects_an_ineligible_cell(tmp_path):
+    game_id = uuid4()
+    candidate = _candidate("data/crops/approved.png", "a" * 64)
+    repository = MemoryApprovedReferences(game_id, candidate)
+    service = ApprovedSymbolReferenceService(
+        repository,
+        ManagedSymbolReferenceArtifactStore(tmp_path),
+    )
+
+    with pytest.raises(CatalogConflictError) as error:
+        service.select_from_cell_review(
+            game_id,
+            uuid4(),
+            expected_checksum_sha256="a" * 64,
+            selected_by="admin",
+        )
+
+    assert error.value.code == "SYMBOL_REFERENCE_CELL_NOT_ELIGIBLE"
+    assert repository.selection is None
 
 
 def test_virtual_selection_materializes_a_durable_full_resolution_png(tmp_path):

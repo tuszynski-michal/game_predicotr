@@ -56,6 +56,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0679 — plan usunięcia legacy magazynu public P00](0679-legacy-public-store-removal-plan.md)
 - [TASK-0680 — read-only inventory legacy public](0680-legacy-public-store-inventory.md)
 - [TASK-0681 — V2-only storage routing](0681-v2-only-storage-routing.md)
+- [TASK-0692 — grafika symbolu z cropa w Weryfikacji symboli](0692-symbol-image-from-verification-cell.md)
 
 - [TASK-0307 — Kontrakty attested `seq_*` i wirtualnej geometrii](0307-v0-10-attested-virtual-geometry-contracts.md)
 - [TASK-0308 — Trwała proweniencja wirtualnej geometrii](0308-v0-10-virtual-geometry-provenance.md)

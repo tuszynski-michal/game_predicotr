@@ -1,7 +1,7 @@
 ---
 title: Usunięcie legacy magazynu gier ze schematu public
 status: accepted
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # `game_data_v2` jako jedyny magazyn danych gier
@@ -47,7 +47,7 @@ Każdy task ma własny audyt, commit, Outcome i aktualizację `CURRENT_STATE.md`
 | A | [TASK-0683](../tasks/completed/0683-v2-only-test-and-bootstrap-contract.md) | Bootstrap/fixture provisionuje V2 bez zależności od kopii `public` przed ich usunięciem. |
 | B | [TASK-0684](../tasks/completed/0684-legacy-public-store-migration-0125.md) | Manifest-bound migracja 0125, bez `CASCADE`, ma izolowany dowód PostgreSQL, w tym fresh-head po 0125. |
 | B | [TASK-0685](../tasks/completed/0685-legacy-public-store-migration-rehearsal.md) | Rehearsal `ready`: preflight → 0125 → nowa sesja postflight, z testem lock timeoutu; raport quality zawiera transcript i warunki T09. |
-| B | [TASK-0686](../tasks/0686-legacy-public-store-operations-docs.md) | Instrukcja preflight/approval/postflight oraz obserwowalność nie mylą public z data plane. |
+| B | [TASK-0686](../tasks/completed/0686-legacy-public-store-operations-docs.md) | Runbook wymaga fresh preflight, dokładnego approval path/hash, bounded apply Alembic oraz jednoznacznego postflightu. |
 | STOP B | — | Pokaż operatorowi świeży raport T01/T05, review DDL, plan okna i dokładny zakres. Bez jawnego polecenia T09 plan zatrzymuje się tutaj. |
 | C | [TASK-0687](../tasks/0687-v2-only-release-readiness.md) | Wersja aplikacji gotowa do działania bez kopii publicznych; tylko read-only smoke przed operacją. |
 | C | [TASK-0688](../tasks/0688-apply-legacy-public-store-removal.md) | Po osobnej zgodzie: 0125 stosuje się raz, z utrwalonym raportem przed/po. |
@@ -76,7 +76,29 @@ Skala 85 GB nie uzasadnia długiej transakcji ani skanowania pełnych danych: pr
 
 Ryzyka: inny proces może stworzyć dane między preflightem a DDL; dlatego T09 wykonuje ostateczną kontrolę w tej samej kontrolowanej sesji przed migracją. Niezrutowany raw SQL może działać na pustym `public`; T02–T04 wymagają regresji na grze V2 z danymi, nie tylko fixture legacy. Nieodwracalność usunięcia pustego schematu jest świadoma: brak danych nie daje prawa do fabrykowania ich podczas downgrade.
 
-Nie wykonano jeszcze testów ani operacji nowej implementacji; wszystkie komendy wskazane w taskach są planowane. Przed każdym taskiem wykonawca ponownie sprawdza wolność numeru, stan repozytorium, Alembic head, aktywny task oraz dostępność przypisanego modelu/reasoning.
+T01–T07 mają wykonane testy i raporty wskazane w ich Outcome; T08–T12 oraz
+produkcyjne DDL pozostają niewykonane. Przed każdym dalszym taskiem wykonawca
+ponownie sprawdza stan repozytorium, Alembic head, aktywny task oraz dostępność
+przypisanego modelu/reasoning.
+
+## Rejestr znalezisk audytów — 2026-09-26
+
+Poniższy rejestr rozdziela naprawione przyczyny od świadomie odroczonych
+problemów. Nie zastępuje świeżego preflightu T09; stan rzeczywistej bazy z
+2026-09-25 mógł się zmienić.
+
+| Przypisanie | Znalezisko | Stan / rezultat |
+|---|---|---|
+| T02 / TASK-0681 | Router PostgreSQL dopuszczał historyczny `public` generation 1 oraz możliwość fallbacku. | **Naprawione.** V2-only, brak location i nieprawidłowa generation są fail-closed. |
+| T03 / TASK-0682 | Operacyjny review obrazów, board-search, symbol review i image-batch worker miały ścieżki, które mogły użyć game-owned danych bez jawnego bind V2. | **Naprawione.** Każdy punkt wejścia wiąże router/scope; raw SQL workera używa kwalifikowanej nazwy V2. |
+| T04 / TASK-0683 | Bootstrap i fixture tworzyły lub zakładały legacy `public`, więc test nie dowodził działania bez kopii. | **Naprawione.** Katalog provisionuje V2, a fixture używa registry, partycji i scope V2. |
+| T05 / TASK-0684 | Baseline testu migracji nie znał head `0125`; brakowało też pełnego, statycznego dowodu kolejności FK i fail-closed DDL. | **Naprawione.** Head/baseline oraz osiem scenariuszy izolowanych obejmują `RESTRICT`, pustość, zależności, fresh head i odmowę downgrade. |
+| T06 / TASK-0685 | Brakowało powtarzalnego transcriptu preflight → apply → nowa sesja postflight oraz realnej próby lock timeout. | **Naprawione.** Raport rehearsal, checksumy i test blokady 2 s są w `quality/LEGACY_PUBLIC_STORE_MIGRATION_REHEARSAL.md`. |
+| Wsparcie T04/T06, commit `v0.10.447` | Test write-through nadal wykonywał bezscope'owe inserty do `public`; dodatkowo `ON CONFLICT ON CONSTRAINT pk_image_sequence_canonical` nie działał na partycji V2. | **Naprawione.** Fixture używa `GameStorageSession` + scope, a insert wskazuje stabilny klucz `(game_id, sequence_number)` zamiast nazwy constraintu parenta. |
+| Wsparcie T05/T06, commit `v0.10.448` | Test rewizji `0105` błędnie wymagał równości v1 `public` i celowo rozszerzonych constraintów V2 dla kwalifikacji geometrii. | **Naprawione.** Dwa nazwane wyjątki są jawne; wszystkie pozostałe constrainty nadal są porównywane identycznie. |
+| T11 / TASK-0690 | `game_deletion_repository.py` i archiwalny eksport stałej legacy gry zawierają historyczne recovery code paths. | **Oczekuje na T11 po udanym T09/T10.** Nie są aktywną ścieżką gier V2; nie usuwać ich przed faktycznym apply i postflightem. |
+| Poza zakresem D-448 — osobny task jakości | Strict mypy zatrzymał się na wcześniej istniejących 87 błędach import/no-any-return między API i workerem oraz sześciu błędach `shape_geometry_v2/core.py`. | **Nie wykonano.** Nie są skutkiem D-448 i wymagają osobnego taska, aby nie maskować regresji ani nie rozszerzać operacji usunięcia magazynu. |
+| T09 / TASK-0688 | Raport inventory z 2026-09-25 i rehearsal na bazie testowej nie dowodzą obecnego stanu produkcyjnego. | **Otwarte, krytyczne dla apply.** T09 wymaga świeżego raportu `ready`, tej samej ścieżki/checksumy w approval oraz braku aktywnej pracy/locków. |
 
 ## Przypisanie modeli do zadań
 

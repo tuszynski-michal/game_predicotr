@@ -123,6 +123,8 @@ implementacyjnym.
 
 - [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
+- [Usunięcie legacy public game store](guides/LEGACY_PUBLIC_STORE_REMOVAL.md)
+  — preflight, odrębne approval, apply i postflight migracji `0125`.
 - [Eksport snapshotu do laboratorium wizji](guides/VISION_LAB_EXPORT.md) —
   manifest wejściowy, uruchomienie eksportera i format wyniku.
 

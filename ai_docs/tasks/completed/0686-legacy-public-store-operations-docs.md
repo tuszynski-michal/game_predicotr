@@ -1,14 +1,14 @@
 ---
 title: TASK-0686 — T07 — instrukcja operacyjna usunięcia legacy public
-status: todo
-last_updated: 2026-09-25
+status: done
+last_updated: 2026-09-26
 ---
 
 # TASK-0686 — T07 — instrukcja operacyjna usunięcia legacy `public`
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -72,4 +72,14 @@ rg -n "CASCADE|approval|preflight|postflight|game_data_v2|shared" ai_docs/guides
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Dodano runbook `ai_docs/guides/LEGACY_PUBLIC_STORE_REMOVAL.md` i indeks w
+`ai_docs/README.md`. Dokument wymaga świeżego checksummowanego preflightu,
+opisuje jedyne dozwolone `alembic upgrade 0125`, osobne approval z path/hash
+raportu oraz postflight ze znanym, dokładnie ograniczonym wynikiem 65 missing
+relacji. Zawiera reakcje na niepustość, lock, timeout, drift i postflight
+failure bez ręcznego DDL, `CASCADE`, downgrade lub auto-retry. Weryfikacja
+`rg` potwierdziła wymagane bramki. Nie uruchomiono komendy apply ani nie
+dotknięto bazy użytkownika.
+
+Następny krok: STOP B — pokazać świeży preflight i review DDL operatorowi.
+T08/T09 nie rozpoczynają się bez tego punktu i odrębnej zgody T09.

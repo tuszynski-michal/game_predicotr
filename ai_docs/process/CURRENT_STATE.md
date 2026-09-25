@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # Current State
@@ -28,6 +28,7 @@ last_updated: 2026-09-25
 - **T04 / TASK-0683 jest done:** domyślny bootstrap katalogu zawsze provisionuje V2, a izolowane fixture lifecycle/image-batch korzystają z registry, partycji i scope V2 zamiast ręcznie tworzyć legacy `public`. Test fresh-head po 0125 pozostaje własnością T05. Ruff, 8 testów jednostkowych, lifecycle PostgreSQL i 2 scenariusze image-batch są zielone. Pełny plik image-batch nie został uruchomiony, ponieważ niezwiązany test write-through jest czerwony również w `HEAD`: nie przekazuje `source_image_id` do obecnego kontraktu `ImageGridReviewService.list`. Następny krok: T05 / TASK-0684; STOP A nadal blokuje dalszy plan przy niepustej tabeli, legacy location, aktywnej migracji lub nierozpoznanej zależności.
 - **T05 / TASK-0684 jest done:** migracja `0125` ma literalny snapshot 65 relacji, statyczną kolejność `DROP RESTRICT` i fail-closed guards katalogu, pustości oraz zewnętrznych FK/zależności przed pierwszym dropem. Izolowany PostgreSQL przeszedł 8/8 scenariuszy, w tym fresh head bez legacy public i bootstrap V2; downgrade jawnie odmawia. Nie zastosowano migracji na bazie użytkownika. Test headów Alembic jest zielony. Istniejący `test_game_data_v2_postgres.py` ma wcześniejszą rozbieżność constraintów `0105` geometry qualification, poza zakresem T05. Następny krok: T06 / TASK-0685 — rehearsal migracji i odbiór release.
 - **T06 / TASK-0685 jest done:** izolowany rehearsal wykonał read-only preflight `ready` → 0125 → postflight z nowej sesji na PostgreSQL 18.4. Usunięto wyłącznie 65 relacji testowych; V2 oraz `games`, `symbols`, `jobs` i registry pozostają. Transcript ma checksumy pre/post w `quality/LEGACY_PUBLIC_STORE_MIGRATION_REHEARSAL.md`; apply trwał 1 312 ms na małej bazie testowej, nie jest benchmarkiem produkcji. Blokada `ACCESS SHARE` zatrzymała 0125 po 2 s bez częściowego DDL. Nie wykonano operacji na bazie użytkownika. Następny krok: T07 / TASK-0686 — runbook operatorski; STOP B nadal wymaga świeżego preflightu i odrębnej zgody przed T09.
+- **T07 / TASK-0686 jest done:** runbook `guides/LEGACY_PUBLIC_STORE_REMOVAL.md` wymaga checksummowanego preflightu `ready`, dokładnego approval path/hash i jedynego apply przez Alembic. Rozróżnia expected postflight (dokładnie 65 missing legacy) od awarii oraz zakazuje ręcznego DDL, `CASCADE`, downgrade i auto-retry. Nie uruchomiono T09 ani nie dotknięto bazy użytkownika. **STOP B:** następny krok wymaga pokazania użytkownikowi świeżego preflightu oraz uzyskania nowej, dokładnej zgody na apply; T08–T12 czekają.
 
 ### TASK-0666 — T01 — eksporter snapshotu laboratorium wizji
 

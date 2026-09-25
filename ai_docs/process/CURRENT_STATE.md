@@ -6,6 +6,47 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0655 — kadrowanie podglądu znalezionej planszy w „Wyszukaj plansze”
+
+- Zgłoszenie użytkownika (poza planem „Przybliżona wygrana”): dla gry 777
+  (`virtual_source`) endpoint `/assets/board` z założenia projektowego
+  serwuje CAŁE zdjęcie źródłowe (`storage/image_review_repository.py::
+  _item_from_records`, gałąź `virtual_source`: „Structured boards
+  deliberately have no persistent board bitmap. The Reviewer displays a
+  bounded source context for this mode.”) — świadoma decyzja
+  architektoniczna, nie błąd. Karuzela „Wyszukaj plansze” nie miała żadnego
+  odpowiednika kadrowania i pokazywała surowe, niekadrowane zdjęcie ze
+  wszystkimi planszami strony, co utrudniało odnalezienie właściwej.
+- **Zero zmian backendu**: `OperationalImageReviewItemResponse` (już
+  wystawiony, wcześniej niewykorzystywany w tym miejscu endpoint
+  `getOperationalImageReviewItem`) już zawiera pole `geometry: dict[str,
+  object]` — surowe `recognized_boards.board_geometry` JSONB z quadem
+  (`sourceQuad`/`quad`, 4 punkty `{x,y}` w pikselach zdjęcia źródłowego).
+- Nowe czyste funkcje w `board-search-results-state.ts`:
+  `parseBoardCropQuad` (bezpieczne, fail-closed wyodrębnienie quadu z
+  `unknown`) i `computeBoardCropTransform` (bbox + 20% padding →
+  niezniekształcona transformacja CSS: kontener z wymuszonym
+  `aspect-ratio`, obraz pozycjonowany absolutnie procentowo, bez canvasu).
+  `BoardCrop` w `board-search-results.tsx` pobiera geometrię wyłącznie dla
+  `assetMode === 'operational_review'` (tryb `legacy_archive` już ma gotowy
+  obraz pojedynczej planszy — nie dotyczy go ten problem) i renderuje
+  kadrowany fragment po załadowaniu obrazu; brak/błędna geometria albo
+  błąd sieci → bezpieczny fallback do pełnego obrazu jak dotychczas
+  (funkcja czysto kosmetyczna, nigdy nie blokuje wyniku wyszukiwania).
+- Testy: 5 nowych czystych (parsowanie quadu, matematyka transformacji) +
+  5 nowych interakcji jsdom (poprawny quad, brak/błędna geometria, błąd
+  sieci, `legacy_archive` nigdy nie odpytuje geometrii, przełączenie
+  planszy poprawnie podmienia kadr bez wycieku poprzedniej geometrii).
+  Naprawiono też fałszywe klienty w istniejących testach
+  `board-search-limit.test.mjs`/`board-search-approximate-win.test.mjs`
+  (nowy wymagany stub `getOperationalImageReviewItem`). Pełny `npm run
+  test` Admina 589/589, `test:geometry` 40/40, `typecheck`/`lint` czyste (4
+  istniejące, niezwiązane ostrzeżenia bez zmian).
+- Nienaprawione: brak odbioru na żywych danych gry 777 (bez zgody na
+  uruchomienie API/Admina — decyzja użytkownika wcześniej w tej samej
+  rozmowie); wartość paddingu (20%) nie była konsultowana liczbowo, łatwa
+  do dostrojenia (jedna stała w kodzie).
+
 ### TASK-0654 — dokumentacja „Przybliżonej wygranej”; plan zaimplementowany, odbiór na żywo wstrzymany (6/6)
 
 - Ostatni task planu sesji `2026-09-24`/`2026-09-25`. Wyłącznie

@@ -50,6 +50,7 @@ type BoardSearchClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
   | 'archivedBoardSearchAssetUrl'
   | 'getBoardSearchApproximateWin'
+  | 'getOperationalImageReviewItem'
   | 'listSymbols'
   | 'searchGameBoards'
   | 'symbolImageAssetUrl'

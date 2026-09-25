@@ -169,6 +169,9 @@ function makeClient({ searchImpl, approximateWinImpl }) {
   return {
     archivedBoardSearchAssetUrl: () => 'http://127.0.0.1:8000/archive.jpg',
     getBoardSearchApproximateWin: approximateWinImpl,
+    // No quad in `geometry`: the crop-preview feature (TASK-0655) falls back
+    // to showing the full image, which is all these tests care about.
+    getOperationalImageReviewItem: async () => ({ data: { geometry: {} } }),
     listSymbols: async () => ({ data: [symbol] }),
     operationalImageReviewBoardAssetUrl: () =>
       'http://127.0.0.1:8000/board.jpg',

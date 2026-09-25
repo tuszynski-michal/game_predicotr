@@ -6,8 +6,10 @@ import {
   BOARD_SEARCH_LIMIT_MAX,
   boardSearchNeighbourIndexes,
   boardSearchResultIdentity,
+  computeBoardCropTransform,
   createBoardSearchResultsState,
   moveBoardSearchResult,
+  parseBoardCropQuad,
   parseBoardSearchLimit,
   reconcileBoardSearchResultsState,
 } from '../src/features/board-search/board-search-results-state.ts';
@@ -149,4 +151,105 @@ test('reconcileBoardSearchResultsState resets to index 0 for an empty previous s
     fullResult({ sequenceNumber: 1 }),
   ]);
   assert.equal(reconciled.activeIndex, 0);
+});
+
+// --- parseBoardCropQuad --------------------------------------------------
+
+function quad(points) {
+  return points.map(([x, y]) => ({ x, y }));
+}
+
+test('parseBoardCropQuad extracts a valid sourceQuad', () => {
+  const points = quad([
+    [10, 20],
+    [110, 20],
+    [110, 80],
+    [10, 80],
+  ]);
+  assert.deepEqual(parseBoardCropQuad({ sourceQuad: points }), points);
+});
+
+test('parseBoardCropQuad falls back to quad when sourceQuad is absent', () => {
+  const points = quad([
+    [0, 0],
+    [50, 0],
+    [50, 50],
+    [0, 50],
+  ]);
+  assert.deepEqual(parseBoardCropQuad({ quad: points }), points);
+});
+
+test('parseBoardCropQuad returns null for anything that is not exactly a 4-point numeric quad', () => {
+  assert.equal(parseBoardCropQuad(null), null);
+  assert.equal(parseBoardCropQuad(undefined), null);
+  assert.equal(parseBoardCropQuad('not an object'), null);
+  assert.equal(parseBoardCropQuad({}), null);
+  assert.equal(
+    parseBoardCropQuad({ sourceQuad: quad([[0, 0], [1, 1], [2, 2]]) }),
+    null,
+  );
+  assert.equal(
+    parseBoardCropQuad({ sourceQuad: [{ x: 0 }, { x: 1 }, { x: 2 }, { x: 3 }] }),
+    null,
+  );
+  assert.equal(
+    parseBoardCropQuad({
+      sourceQuad: [
+        { x: 'nope', y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 2 },
+        { x: 3, y: 3 },
+      ],
+    }),
+    null,
+  );
+  assert.equal(
+    parseBoardCropQuad({ sourceQuad: [null, null, null, null] }),
+    null,
+  );
+});
+
+// --- computeBoardCropTransform --------------------------------------------
+
+test('computeBoardCropTransform pads the bounding box proportionally without distortion', () => {
+  // A 100x60 board at (10, 20) inside a 1000x600 source image.
+  const points = quad([
+    [10, 20],
+    [110, 20],
+    [110, 80],
+    [10, 80],
+  ]);
+  const transform = computeBoardCropTransform(points, 1000, 600);
+  assert.ok(transform !== null);
+  // padding = 20% of 100 = 20 horizontally, 20% of 60 = 12 vertically
+  const paddedWidth = 100 + 2 * 20;
+  const paddedHeight = 60 + 2 * 12;
+  const cropX = 10 - 20;
+  const cropY = 20 - 12;
+  assert.equal(transform.aspectRatioWidth, paddedWidth);
+  assert.equal(transform.aspectRatioHeight, paddedHeight);
+  assert.equal(transform.imageWidthPercent, (1000 / paddedWidth) * 100);
+  assert.equal(transform.imageHeightPercent, (600 / paddedHeight) * 100);
+  assert.equal(transform.imageLeftPercent, (-cropX / paddedWidth) * 100);
+  assert.equal(transform.imageTopPercent, (-cropY / paddedHeight) * 100);
+});
+
+test('computeBoardCropTransform returns null for a degenerate quad or non-positive image size', () => {
+  const zeroWidth = quad([
+    [10, 10],
+    [10, 10],
+    [10, 80],
+    [10, 80],
+  ]);
+  assert.equal(computeBoardCropTransform(zeroWidth, 1000, 600), null);
+
+  const validPoints = quad([
+    [0, 0],
+    [10, 0],
+    [10, 10],
+    [0, 10],
+  ]);
+  assert.equal(computeBoardCropTransform(validPoints, 0, 600), null);
+  assert.equal(computeBoardCropTransform(validPoints, 1000, -1), null);
+  assert.equal(computeBoardCropTransform(validPoints.slice(0, 3), 1000, 600), null);
 });

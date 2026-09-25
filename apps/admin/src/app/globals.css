@@ -9955,6 +9955,27 @@ div.imageJobInlineError {
   object-fit: contain;
 }
 
+.boardSearchBoardAssetFrame {
+  position: relative;
+  overflow: hidden;
+  width: min(100%, 900px);
+  max-height: min(68vh, 760px);
+  margin-inline: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #050a12;
+}
+
+.boardSearchBoardAssetFrame .boardSearchBoardAssetCropped {
+  position: absolute;
+  max-width: none;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  object-fit: fill;
+}
+
 .boardSearchBoardAssetError {
   display: grid;
   min-height: 260px;

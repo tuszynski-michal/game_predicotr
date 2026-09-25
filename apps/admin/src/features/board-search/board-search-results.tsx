@@ -4,20 +4,25 @@
 /* eslint-disable @next/next/no-img-element */
 
 import type { BoardSearchResponse } from '@game-predictor/admin-api-client';
-import { type KeyboardEvent, useEffect, useMemo, useState } from 'react';
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
 import {
   activeBoardSearchResult,
   boardSearchNeighbourIndexes,
+  computeBoardCropTransform,
   moveBoardSearchResult,
+  parseBoardCropQuad,
+  type BoardCropTransform,
   type BoardSearchResultsState,
 } from './board-search-results-state';
 
 type BoardSearchResultsClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
-  'archivedBoardSearchAssetUrl' | 'operationalImageReviewBoardAssetUrl'
+  | 'archivedBoardSearchAssetUrl'
+  | 'getOperationalImageReviewItem'
+  | 'operationalImageReviewBoardAssetUrl'
 >;
 
 interface BoardSearchResultsProps {
@@ -112,8 +117,11 @@ export function BoardSearchResults({
       </header>
 
       <BoardCrop
+        api={api}
+        gameId={gameId}
         imageUrl={imageUrl}
         key={`${current.assetMode}:${current.sequenceNumber}`}
+        result={current}
       />
 
       <dl className="boardSearchEvidence">
@@ -179,8 +187,71 @@ function boardSearchAssetUrl(
   });
 }
 
-function BoardCrop({ imageUrl }: { readonly imageUrl: string }) {
+function BoardCrop({
+  api,
+  gameId,
+  imageUrl,
+  result,
+}: {
+  readonly api: BoardSearchResultsClient;
+  readonly gameId: string;
+  readonly imageUrl: string;
+  readonly result: BoardSearchResponse['results'][number];
+}) {
   const [failed, setFailed] = useState(false);
+  // Only `operational_review` boards can be the whole source photo (virtual
+  // geometry storage has no persistent per-board bitmap); `legacy_archive`
+  // already serves a single-board image, so it never needs this and never
+  // issues the extra request.
+  const [quad, setQuad] = useState<ReturnType<typeof parseBoardCropQuad>>(
+    null,
+  );
+  const [naturalSize, setNaturalSize] = useState<{
+    readonly width: number;
+    readonly height: number;
+  } | null>(null);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    // No reset to null here: this component remounts fully (via the
+    // carousel's `key={assetMode:sequenceNumber}`) whenever the displayed
+    // board changes, so `quad`/`naturalSize` already start out null for a
+    // new board — assigning them again here would be a synchronous
+    // setState in the effect body for no behavioural benefit.
+    if (
+      result.assetMode !== 'operational_review' ||
+      result.reviewItemId === null ||
+      result.importJobId === null
+    ) {
+      return () => {
+        cancelledRef.current = true;
+      };
+    }
+    void api
+      .getOperationalImageReviewItem(result.reviewItemId, {
+        gameId,
+        importJobId: result.importJobId,
+      })
+      .then((response) => {
+        if (cancelledRef.current) {
+          return;
+        }
+        const parsed =
+          response.data !== undefined
+            ? parseBoardCropQuad(response.data.geometry)
+            : null;
+        setQuad(parsed);
+      })
+      .catch(() => {
+        // Purely cosmetic: a failed geometry fetch just keeps the full,
+        // unmodified image instead of blocking a valid search result.
+      });
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, [api, gameId, result]);
+
   if (failed) {
     return (
       <div className="boardSearchBoardAssetError" role="alert">
@@ -189,13 +260,49 @@ function BoardCrop({ imageUrl }: { readonly imageUrl: string }) {
       </div>
     );
   }
+
+  const transform: BoardCropTransform | null =
+    quad !== null && naturalSize !== null
+      ? computeBoardCropTransform(quad, naturalSize.width, naturalSize.height)
+      : null;
+
+  if (transform === null) {
+    return (
+      <img
+        alt="Pełny crop znalezionej planszy"
+        className="boardSearchBoardAsset"
+        onError={() => setFailed(true)}
+        onLoad={(event) =>
+          setNaturalSize({
+            height: event.currentTarget.naturalHeight,
+            width: event.currentTarget.naturalWidth,
+          })
+        }
+        src={imageUrl}
+      />
+    );
+  }
+
   return (
-    <img
-      alt="Pełny crop znalezionej planszy"
-      className="boardSearchBoardAsset"
-      onError={() => setFailed(true)}
-      src={imageUrl}
-    />
+    <div
+      className="boardSearchBoardAssetFrame"
+      style={{
+        aspectRatio: `${transform.aspectRatioWidth} / ${transform.aspectRatioHeight}`,
+      }}
+    >
+      <img
+        alt="Kadrowany fragment zdjęcia wokół znalezionej planszy"
+        className="boardSearchBoardAsset boardSearchBoardAssetCropped"
+        onError={() => setFailed(true)}
+        src={imageUrl}
+        style={{
+          height: `${transform.imageHeightPercent}%`,
+          left: `${transform.imageLeftPercent}%`,
+          top: `${transform.imageTopPercent}%`,
+          width: `${transform.imageWidthPercent}%`,
+        }}
+      />
+    </div>
   );
 }
 

@@ -6,6 +6,15 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0660 — fingerprint reprocessu po zmianie virtual cropów
+
+- Po zmianie klasyfikacji cropa reprocess zwrócił dotychczasowy failed job,
+  ponieważ wersja virtual renderera była częścią niezmienionego snapshotu.
+  Bump kontraktu renderera do v2 tworzy nowy fingerprint i nowy immutable
+  raport bez zmiany starych danych. Test reprocessu przeszedł; kontrola
+  pełnego manifestu ma wcześniejszy drift
+  `ai_docs/quality/m5-image-benchmark-report.json`, poza zakresem tej poprawki.
+
 ### TASK-0659 — odroczenie pustej częściowej planszy virtual
 
 - Live reprocess `51b256c4-1ff5-4a94-a764-d54ee15390da` ujawnił dodatkowy

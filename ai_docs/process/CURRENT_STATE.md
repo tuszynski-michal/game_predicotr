@@ -6,6 +6,13 @@ last_updated: 2026-09-25
 
 # Current State
 
+### P00 / TASK-0679 — plan usunięcia legacy magazynu gier ze schematu `public` (D-448)
+
+- Zapisano **proposed** plan `delivery/LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md`, decyzję D-448 oraz TASK-0680–0691. P00 nie uruchamia etapu A, nie tworzy migracji 0125 i nie wykonuje DDL ani zmian danych.
+- Na początku P00 potwierdzono wolne numery TASK-0679–0691, D-448 i `0125`; repozytorium kończy migracje na 0124. W worktree są niepowiązane zmiany laboratorium wizji, których P00 nie dotyka.
+- Plan chroni granicę: 65 historycznych, game-owned kopii może zostać usuniętych wyłącznie po świeżym read-only inventory, testach V2-only i osobnej zgodzie na T09. `public.games`, symbole, reguły, `paylines`, `payout_rules`, globalne `jobs`, registry i shared/control plane pozostają poza zakresem.
+- Następny krok wymaga jawnego uruchomienia etapu A; STOP A blokuje dalszy plan przy niepustej tabeli, legacy location, aktywnej migracji lub nierozpoznanej zależności.
+
 ### TASK-0666 — T01 — eksporter snapshotu laboratorium wizji
 
 - Dodano osobny eksporter tylko do odczytu, ograniczony manifestem v1.

@@ -85,6 +85,8 @@ implementacyjnym.
 - [Global geometry library v1 execution plan](delivery/GLOBAL_GEOMETRY_LIBRARY_EXECUTION_PLAN.md)
 - [Vision lab execution plan](delivery/VISION_LAB_EXECUTION_PLAN.md) —
   zaakceptowany plan P00/T01–T13 i punkty STOP A–E.
+- [Legacy public store removal execution plan](delivery/LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md) —
+  propozycja przejścia na V2-only; DDL wymaga odrębnej zgody operacyjnej.
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
 - [Version 0.2 execution plan](delivery/VERSION_0_2_EXECUTION_PLAN.md)
 - [Version 0.3 execution plan](delivery/VERSION_0_3_EXECUTION_PLAN.md)

@@ -6,6 +6,23 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0666 — T01 — eksporter snapshotu laboratorium wizji
+
+- Dodano osobny eksporter tylko do odczytu, ograniczony manifestem v1.
+  Zamraża ID, generacje routingu i fingerprinty powiązanych wierszy w
+  transakcji `REPEATABLE READ READ ONLY`, wykrywa drift przy odczycie partiami,
+  kopiuje źródła i artefakty po SHA-256 i publikuje zweryfikowany snapshot
+  atomowo. Ponowienie sprawdza wszystkie pliki i odrzuca konflikt lub reparse.
+- Snapshot zachowuje surowe rewizje oraz konserwatywną projekcję aktualnych
+  zatwierdzonych etykiet plikowych. Historyczne V1.1 jest ustalane z
+  najwcześniejszej jednoznacznej rewizji geometrii źródła o odpowiednim
+  silniku, slocie i sekwencji; późniejsza ręczna korekta pozostaje osobna.
+  Brak dowodu oznacza niedostępne porównanie, nie rekonstrukcję.
+- 11/11 testów eksportera, Ruff i mypy przeszły; trzy cykle niezależnego
+  audytu zakończyły się bez otwartych P0–P2. Routing PostgreSQL przetestowano
+  mockami. Nie wykonano eksportu na żywej bazie ani operacji na zdjęciach
+  użytkownika. Następny krok to T02 w etapie A.
+
 ### P00 / TASK-0665 — zapis planu laboratorium wizji (D-447)
 
 - Zaakceptowany plan `delivery/VISION_LAB_EXECUTION_PLAN.md` jest zapisany

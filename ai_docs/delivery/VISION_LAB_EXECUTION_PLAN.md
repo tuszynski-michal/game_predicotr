@@ -128,7 +128,7 @@ reguły pracy etapami i D-447, a **nie uruchamia A**.
 | Etap | Task | Wynik i bramka |
 |---|---|---|
 | P00 | [TASK-0665](../tasks/completed/0665-vision-lab-plan.md) | Plan, dokumenty, zadania i spójne reguły; stary plan zastąpiony. |
-| A | [TASK-0666](../tasks/0666-vision-lab-export.md) | Ograniczony eksporter read-only; bez częściowych snapshotów. |
+| A | [TASK-0666](../tasks/completed/0666-vision-lab-export.md) | Ograniczony eksporter read-only; bez częściowych snapshotów. |
 | A | [TASK-0667](../tasks/0667-vision-lab-gallery.md) | Kontrakty, baseline, galeria i bezpieczne lokalne API; błędny obraz nie zatrzymuje galerii. |
 | B | [TASK-0668](../tasks/0668-vision-lab-geometry-annotations.md) | Edytor, warstwowy zbiór, backup, zamrożony split i pomiar kosztu. |
 | B | [TASK-0669](../tasks/0669-vision-lab-training-core.md) | Neutralny rdzeń, trwały backend runów, izolowane GPU, checkpoint v2 i odczyt v1; bez przepięcia produkcji. |

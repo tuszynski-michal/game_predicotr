@@ -1,6 +1,6 @@
 ---
 title: TASK-0666 — T01 — eksporter tylko do odczytu
-status: todo
+status: done
 last_updated: 2026-09-25
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-25
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -43,8 +43,8 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 
 ## Acceptance criteria
 
-- [ ] Brak zapisu DB i częściowego snapshotu; idempotentny import; V1.1 oznacza selective_board_review_v1_1, a późniejsza rewizja jest osobna.
-- [ ] Audyt przypisanym modelem nie pozostawia P0–P2; zmiana ma osobny commit, Outcome i CURRENT_STATE.
+- [x] Brak zapisu DB i częściowego snapshotu; idempotentny import; V1.1 oznacza selective_board_review_v1_1, a późniejsza rewizja jest osobna.
+- [x] Audyt przypisanym modelem nie pozostawia P0–P2; zmiana ma osobny commit, Outcome i CURRENT_STATE.
 
 ## Technical notes
 
@@ -81,20 +81,35 @@ Wypełnia agent po pracy.
 
 ### Changed
 
-- Do uzupełnienia po wykonaniu.
+- `scripts/vision_lab_export.py`: walidacja manifestu, zamrożenie tożsamości
+  w transakcji tylko do odczytu, odczyt partiami z kontrolą driftu, kopie
+  artefaktów po SHA-256, bezpieczna publikacja i weryfikacja ponowienia.
+- Projekcje etykiet z bieżącą bramką kwalifikacji oraz porównanie historycznego
+  V1.1 z ręcznymi rewizjami bez użycia bieżącego wskaźnika źródła planszy.
+- `services/worker/tests/test_vision_lab_export.py`: 11 testów jednostkowych i
+  procesowych, w tym routing, przerwanie, konflikt, reparse i korekta ręczna.
 
 ### Verification results
 
-- Do uzupełnienia po wykonaniu.
+- `pytest -p no:tmpdir services/worker/tests/test_vision_lab_export.py -q`: 11/11.
+- `ruff check` i `ruff format --check` dla obu plików Python: PASS.
+- `mypy --explicit-package-bases --follow-imports=silent` dla obu plików
+  Python, z `MYPYPATH` obu pakietów: PASS.
+- `git diff --check`: PASS. Niezależny audyt `gpt-6-astra/high`: PASS,
+  bez otwartych P0–P2 po dwóch cyklach poprawek.
 
 ### Not completed
 
-- Do uzupełnienia po wykonaniu.
+- Nie uruchomiono eksportu na żywej bazie ani migracji; nie otrzymano
+  produkcyjnego manifestu. Routing PostgreSQL zweryfikowano mockami, bez
+  integracyjnej bazy danych.
+- Nie wykonano T02 ani dalszych zadań etapu A w tym commicie.
 
 ### Documentation updates
 
-- Do uzupełnienia po wykonaniu.
+- Dodano `ai_docs/guides/VISION_LAB_EXPORT.md`, odnośniki w indeksie i
+  architekturze oraz aktualizację `CURRENT_STATE.md`.
 
 ### Recommended next task
 
-- Do uzupełnienia po wykonaniu.
+- TASK-0667 (T02) zgodnie z etapem A zatwierdzonego planu.

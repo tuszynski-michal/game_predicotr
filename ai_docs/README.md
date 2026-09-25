@@ -121,6 +121,8 @@ implementacyjnym.
 
 - [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
+- [Eksport snapshotu do laboratorium wizji](guides/VISION_LAB_EXPORT.md) —
+  manifest wejściowy, uruchomienie eksportera i format wyniku.
 
 ### Materiały warunkowe
 

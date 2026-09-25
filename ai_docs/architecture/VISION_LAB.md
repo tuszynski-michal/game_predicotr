@@ -17,6 +17,10 @@ porównanie. Laboratorium nie ma połączenia z bazą.
 
 Manifest wejściowy v1 ma `schemaVersion`, `datasetName` i pozycje
 `{gameId, sourceImageId, expectedSourceSha256, sourceFamilyId, role}`.
+`role` przyjmuje `data`, `comparison_only` albo `777_v2_declared`; ostatnia
+wartość dokumentuje deklarację pochodzenia, nie rozstrzyga samodzielnie
+kwalifikacji treningowej. Format uruchomienia i katalogu wynikowego opisuje
+`guides/VISION_LAB_EXPORT.md`.
 Eksporter czyta tylko wskazane `source_images`, związane
 `image_source_geometry_revisions`, `image_page_geometry_overrides`,
 `recognized_boards`, `image_board_geometry_revisions`,

@@ -761,7 +761,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             order_index=0,
             registered_at=now,
         )
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             review_item_id, board_id = _add_review_projection_source(
                 session,
                 job_id=job.id,
@@ -779,7 +779,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game.id)
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             backfill = SqlAlchemyImageSymbolReviewRepository(session)
             assert backfill.start_or_resume_backfill(game.id).status == "rebuilding"
             backfill.backfill_next_batch(game.id, batch_size=10)
@@ -789,12 +789,13 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert finished.report.catalog_revision == 1
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             grid_service = ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session))
             grid_page = grid_service.list(
                 game_id=game.id,
                 view=ImageGridReviewView.NEEDS_VALIDATION,
                 import_job_id=None,
+                source_image_id=None,
                 after_cursor=None,
                 before_cursor=None,
                 limit=10,
@@ -834,7 +835,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert approval.item.state is ImageGridReviewState.APPROVED
             session.rollback()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             repository = SqlAlchemyOperationalImageReviewRepository(session)
             service = OperationalImageReviewService(repository)
             item = service.get_item(
@@ -866,7 +867,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert resolved.status == "accepted"
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             cells = session.scalars(
                 select(ImageSymbolReviewCellModel)
                 .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
@@ -924,7 +925,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             )
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             cells = session.scalars(
                 select(ImageSymbolReviewCellModel)
                 .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
@@ -979,7 +980,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert revision.revision == 1
             session.commit()
 
-        with Session(engine) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             cells = session.scalars(
                 select(ImageSymbolReviewCellModel)
                 .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
@@ -1049,7 +1050,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert coordinator.synchronize_after_projection_change(game_id=game.id)
             session.commit()
 
-        with Session(engine) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             assert (
                 session.scalar(
                     select(func.count())
@@ -1073,6 +1074,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
                 game_id=game.id,
                 view=ImageGridReviewView.ALL,
                 import_job_id=None,
+                source_image_id=None,
                 after_cursor=None,
                 before_cursor=None,
                 limit=10,

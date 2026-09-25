@@ -1201,7 +1201,15 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 created_at=created_at,
                 updated_at=created_at,
             )
-            .on_conflict_do_nothing(constraint="pk_image_sequence_canonical")
+            # A V2 game writes through a partition, whose inherited primary-key
+            # constraint does not retain the parent's constraint name. Target
+            # the stable key columns instead of a public-table constraint name.
+            .on_conflict_do_nothing(
+                index_elements=(
+                    ImageSequenceCanonicalModel.game_id,
+                    ImageSequenceCanonicalModel.sequence_number,
+                )
+            )
         )
         canonical = self._session.scalar(
             select(ImageSequenceCanonicalModel)

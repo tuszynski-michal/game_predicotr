@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-09-24
+last_updated: 2026-09-25
 ---
 
 # Wymagania modułu administracyjnego
@@ -368,6 +368,63 @@ recognized board, importu lub joba. Admin wybiera adres obrazu według jawnego
 `assetMode`; checksum-bound odczyt archiwalny nie może wrócić do assetu
 operacyjnego jako fallback. Częściowe albo nieudane archiwum blokuje odczyt tej
 gry zamiast mieszać dwa źródła.
+
+Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
+wyników” nad panelem, domyślnie 5, w zakresie 1–100 (istniejący limit
+techniczny endpointu). Zmiana liczby wyników nigdy nie zmienia dopasowania,
+rankingu ani zakresu wygranej opisanego niżej — to dwa niezależne parametry.
+Jeżeli wybrana plansza pozostaje w nowych wynikach, wybór jest zachowywany;
+w przeciwnym razie operator jednoznacznie wraca do pierwszego wyniku.
+
+### Przybliżona wygrana
+
+Pod podglądem aktualnie wybranej znalezionej planszy dostępna jest rozwijana
+podsekcja „Przybliżona wygrana”. Liczy ostrożne, dolnoograniczone
+oszacowanie payoutu dla `N` kolejnych pozycji sekwencji po wybranej planszy
+`S` (zakres `S+1…S+N`; `S` nigdy nie wchodzi do wyniku), używając tego
+samego kalkulatora payoutu co wydania mobilne (`payout-v3-unknown-prefix-stop`)
+i tej samej definicji pełnego cyklu z zawijaniem co mobilna prognoza celu.
+„Zakres wygranej” (domyślnie 1000, maksymalnie 10 000) jest niezależny od
+„Liczby wyników”.
+
+Sekcja jest domyślnie zwinięta i nie liczy niczego, dopóki operator jej nie
+rozwinie — przeglądanie kandydatów wyszukiwania przy zwiniętej sekcji nie
+uruchamia żadnej kalkulacji. Pierwsze rozwinięcie liczy dla aktualnie
+wybranej planszy; zmiana wybranej planszy albo zatwierdzonego zakresu przy
+otwartej sekcji automatycznie odświeża wynik. Zmiana zakresu wymaga
+zatwierdzenia (Enter albo utrata fokusu) — samo wpisywanie cyfr nie wysyła
+żądania. Spóźniona odpowiedź dla wcześniej wybranej planszy nigdy nie
+nadpisuje wyniku aktualnie wybranej. Bez wybranego wyniku wyszukiwania
+kalkulacja się nie uruchamia.
+
+Wynik rozróżnia dla każdej pozycji zakresu trzy rozłączne kategorie:
+kompletna (wszystkie 15 symboli znanych), częściowa (co najmniej jeden
+nieznany) i brakująca (brak zapisanej planszy dla tej pozycji sekwencji).
+Dla planszy częściowej payout jest naliczany tylko wtedy, gdy widoczny
+prefiks od lewej strony gwarantuje tę wypłatę niezależnie od nieznanego
+zakończenia (potwierdzone minimum); plansza pozostaje „częściowa” nawet po
+naliczeniu takiej wypłaty. Brakująca pozycja dolicza koszt spinu i zero
+rozpoznanej wypłaty — nigdy nie jest pomijana ani nie skraca zakresu. Symbol
+na planszy spoza aktywnych symboli opublikowanej wersji reguł przerywa całą
+kalkulację zakresu jako błąd, zamiast po cichu pominąć jedną planszę.
+
+Podsumowanie pokazuje osobno: rozpoznane wypłaty, koszt spinów (suma
+kosztu wszystkich spinów zakresu, również brakujących) i bilans
+(wypłaty minus koszt) — nigdy nie nazywane „zyskiem”. Tabela wyników
+zawiera wyłącznie spiny z dodatnią wypłatą, ze wskazaną sumą narastającą
+wypłat, kosztów i bilansu — również wtedy, gdy bilans narastający
+pozostaje ujemny. Puste wyniki (brak jakiejkolwiek dodatniej wypłaty) nadal
+pokazują poprawne podsumowanie i kompletność danych, z zastrzeżeniem że przy
+niepełnych danych nie można wykluczyć niewykrytej wygranej. Liczniki
+kompletności (kompletne/częściowe/brakujące) sumują się do liczby ocenianych
+pozycji, niezależnie od liczby zdjęć czy rewizji jednej planszy.
+
+Kalkulacja jest operacją wyłącznie do odczytu: nie zapisuje oszacowań jako
+rozpoznanych symboli, zatwierdzeń ani danych treningowych, nie pobiera
+zdjęć ani nie uruchamia ponownego rozpoznawania. Nie ma cache serwerowego —
+każde nowe (gra, plansza, zakres) jest liczone od nowa; klient jedynie
+zachowuje w pamięci wynik dla ostatniego niezmienionego wyboru w ramach
+jednej sesji przeglądarki.
 
 ### Walidacja cięcia siatki 0.9
 

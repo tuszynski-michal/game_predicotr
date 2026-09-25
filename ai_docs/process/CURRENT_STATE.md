@@ -6,6 +6,38 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0654 — dokumentacja „Przybliżonej wygranej”; plan zaimplementowany, odbiór na żywo wstrzymany (6/6)
+
+- Ostatni task planu sesji `2026-09-24`/`2026-09-25`. Wyłącznie
+  dokumentacyjny, bez zmiany kodu.
+- Zaktualizowano `ai_docs/requirements/ADMIN_APP.md` (akapit „Liczba
+  wyników” + nowa sekcja „Przybliżona wygrana”),
+  `ai_docs/architecture/API_CONTRACT.md` (pełny kontrakt endpointu
+  `GET .../board-search/approximate-win`) i
+  `ai_docs/requirements/ALGORITHMS.md` (nowe `## D. Przybliżona wygrana w
+  Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
+  dolnym ograniczeniem — właściwość istniejącego `payout-v3-unknown-prefix-stop`,
+  nie nowy algorytm).
+- Nowy wpis **D-446** w `DECISION_LOG.md`, zbierający całą serię
+  TASK-0649–0653 w jedną decyzję referencyjną. **Kolizja numeracji:** plan i
+  pliki tasków 0649–0653 odwoływały się do tego pakietu decyzji jako
+  „D-445”; ten numer zajęła w międzyczasie inna, równoległa sesja (siatki
+  777). D-446 jest właściwym, ostatecznym numerem.
+- **Plan „Przybliżona wygrana” (D-446) jest w pełni zaimplementowany i
+  przetestowany** (TASK-0649 „Liczba wyników”; TASK-0650
+  `PreparedPayoutEvaluator`; TASK-0651 czysty kalkulator zakresu; TASK-0652
+  pion API; TASK-0653 UI Admina). **Odbiór na żywych danych gry 777 nie
+  został wykonany** — wymaga osobnej, jawnej zgody użytkownika na
+  uruchomienie lokalnego API i Admina (zasady bezpieczeństwa tej sesji).
+  TASK-0654 pozostaje `in_progress` do czasu tego odbioru;
+  `ai_docs/tasks/0654-approximate-win-docs-and-acceptance.md` nie jest
+  jeszcze przeniesiony do `completed/`.
+- Znane, zgłoszone wcześniej i celowo nienaprawione w tym planie: pre-existing
+  błąd fikstury `test_payout_store.py` (TASK-0650, chip `task_4008a087`) i
+  pre-existing `prettier --check` na `packages/admin-api-client/src/index.ts`/
+  `test/client.test.mjs` (TASK-0652). Limit `spinCount ≤ 10 000` jest
+  oszacowaniem bez pomiaru (do weryfikacji przy pierwszym realnym użyciu).
+
 ### TASK-0653 — podsekcja UI Admina „Przybliżona wygrana” (5/6, plan D-445)
 
 - Piąty task planu sesji `2026-09-24`. TASK-0654 (dokumentacja + odbiór)

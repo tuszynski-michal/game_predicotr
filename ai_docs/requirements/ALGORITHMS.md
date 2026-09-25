@@ -1,7 +1,7 @@
 ---
 title: Algorithms specification
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-09-25
 ---
 
 # Specyfikacja algorytmów
@@ -363,6 +363,75 @@ Wiersze są uporządkowane rosnąco według `spin_number`.
 - długie obliczenie można przenieść poza główny wątek JS po pomiarach,
 - tabela używa wirtualizacji,
 - wynik jest deterministyczny dla tej samej wersji wydania.
+
+## D. Przybliżona wygrana w Adminie
+
+Podsekcja „Przybliżona wygrana” w „Wyszukaj plansze” (panel administracyjny)
+liczy ostrożne, dolnoograniczone oszacowanie payoutu dla `N` kolejnych pozycji
+sekwencji po wybranej planszy `S`. Wykorzystuje ten sam kalkulator co §B
+(`payout-v3-unknown-prefix-stop`, `PreparedPayoutEvaluator`) i tę samą
+definicję pełnego cyklu z zawijaniem co §C (mobilna prognoza celu), ale
+liczy z żywych danych projekcji wyszukiwania plansz, nie z prekomputowanego
+snapshotu — jest to operacja wyłącznie do odczytu, bez cache serwerowego.
+
+### Zakres
+
+Dla planszy startowej o `sequence_number = S`:
+
+- `S` jest punktem startowym i nie wchodzi do zakresu,
+- analizowany zakres to `S+1…S+N`,
+- `evaluated_spin_count = min(N, sequence_length − 1)`, gdzie
+  `sequence_length = games.expected_layout_count`,
+- numer pozycji zawija się cyklicznie z `sequence_length` do `1`, dokładnie
+  jak w §C.
+
+### Kategoryzacja i naliczanie
+
+Każda pozycja zakresu trafia do dokładnie jednej z trzech rozłącznych
+kategorii, sumujących się do `evaluated_spin_count`:
+
+- **kompletna** — wszystkich 15 symboli logicznej planszy jest znanych;
+  payout jest identyczny z wynikiem `payout-v3-unknown-prefix-stop` dla
+  pełnej planszy,
+- **częściowa** — co najmniej jeden symbol jest nieznany (`?`, brak dowodu
+  albo ucięta geometria); plansza pozostaje częściowa również wtedy, gdy
+  udało się dla niej naliczyć potwierdzoną wypłatę,
+- **brakująca** — brak zapisanej planszy dla tej pozycji sekwencji; koszt
+  spinu jest doliczany, rozpoznana wypłata wynosi 0, a kalkulator payoutu w
+  ogóle nie jest wywoływany dla tej pozycji.
+
+**Dlaczego naliczenie z widocznego prefiksu planszy częściowej jest zawsze
+bezpiecznym dolnym ograniczeniem prawdziwej wypłaty:** dla każdej pary
+`(payline, symbol)` `payout-v3-unknown-prefix-stop` buduje prefiks ze
+znanych komórek od lewej strony i zatrzymuje się na pierwszej nieznanej
+komórce (§B). Nieznana komórka może więc tylko *wydłużyć* albo *zakończyć w
+tym samym miejscu* prawdziwy prefiks — nigdy go skrócić. Ponieważ payout
+danego symbolu rośnie ściśle wraz z długością dopasowania (wymóg
+precomputingu, §B), a symbol obecny w krótszym potwierdzonym prefiksie jest
+obecny również w każdym dłuższym prefiksie go zawierającym, wypłata policzona
+z widocznego prefiksu nigdy nie przekracza prawdziwej wypłaty dla faktycznie
+kompletnej planszy. Wszystkie pary `(payline, symbol)` są sumowane
+niezależnie (§B „Sumowanie”), więc nieznane komórki mogą co najwyżej dodać
+kolejne, jeszcze nienaliczone wypłaty — nigdy nie usuwają już potwierdzonej.
+To samo dotyczy jokerów: prefiks złożony wyłącznie z jokerów nadal nie
+wygrywa (§B „Joker”), więc nieznana komórka nigdy nie zamienia przegranego
+prefiksu w wygrany przez zgadywanie. Ta własność jest wewnętrzna dla
+`payout-v3-unknown-prefix-stop` (nie jest osobnym trzecim algorytmem) i nie
+wymaga zmiany reguł domenowych.
+
+Symbol spoza aktywnych symboli opublikowanej wersji reguł (błąd
+integralności danych, nie normalny brak dowodu) przerywa całą kalkulację
+zakresu jako błąd zamiast po cichu pomijać jedną planszę.
+
+### Podsumowanie i wiersze
+
+Wynik rozdziela trzy wartości: rozpoznane wypłaty (suma naliczonych
+payoutów), koszt spinów (suma kosztu wszystkich `evaluated_spin_count`
+spinów, w tym brakujących) i bilans (wypłaty minus koszt) — bilans może
+pozostać ujemny mimo występujących wypłat i nigdy nie jest nazywany
+„zyskiem”. Tabela wyników pokazuje wyłącznie spiny z dodatnią wypłatą, z
+narastającą sumą wypłat/kosztu/bilansu obejmującą wszystkie wcześniejsze
+spiny zakresu — również te bez własnego wiersza w tabeli.
 
 ## Wersjonowanie algorytmu
 

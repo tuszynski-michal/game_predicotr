@@ -1,10 +1,65 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-24
+last_updated: 2026-09-25
 ---
 
 # Decision Log
+
+## D-446 — „Przybliżona wygrana” w Adminie: dolne ograniczenie z payout-v3, bez cache serwerowego
+
+- **Status:** accepted (TASK-0649–0653, sesja `2026-09-24`/`2026-09-25`).
+- **Date:** 2026-09-25.
+- **Decision:** „Wyszukaj plansze” zyskuje niezależny input „Liczba
+  wyników” (domyślnie 5, 1–100 — istniejący limit techniczny) i rozwijaną
+  podsekcję „Przybliżona wygrana”, licząca payout dla `S+1…S+N` po wybranej
+  planszy `S` (`N` domyślnie 1000, maksymalnie 10 000). Kalkulator używa
+  wyłącznie istniejącego `payout-v3-unknown-prefix-stop` (bez nowego
+  algorytmu) i tej samej definicji pełnego cyklu z zawijaniem co mobilna
+  prognoza celu (§C `ALGORITHMS.md`, D-116). Plansza częściowa nalicza
+  payout tylko gdy widoczny prefiks od lewej gwarantuje wypłatę niezależnie
+  od nieznanego zakończenia (dowód dolnego ograniczenia:
+  `ALGORITHMS.md` §D) i pozostaje „częściowa” nawet po takim naliczeniu.
+  Symbol spoza aktywnych symboli reguł przerywa całą kalkulację zakresu
+  fail-closed. Operacja jest wyłącznie do odczytu, bez cache serwerowego —
+  każde żądanie liczy od nowa; klient jedynie zachowuje w pamięci ostatni
+  wynik dla niezmienionego (gra, plansza, zakres) w ramach jednej sesji.
+- **Context:** operator „Wyszukaj plansze” potrzebował orientacyjnego
+  payoutu dla znalezionej pozycji bez czekania na pełny snapshot mobilny
+  ani na ręczne przeliczanie. Sześć decyzji interakcyjnych/domenowych
+  (koniec sekwencji z zawijaniem; źródło symboli = ten sam fast document co
+  wyszukiwanie; status planszy startowej poza zakresem kalkulatora, osobne
+  pole `startBoardStatus`; wybór najnowszej opublikowanej wersji reguł;
+  limit zakresu 10 000 jako oszacowanie bez pomiaru; nieznany symbol
+  fail-closed) zostały przyjęte jako założenia robocze w
+  `0651-approximate-win-domain-calculator.md` i skonkretyzowane w kontrakcie
+  API bez zmiany.
+- **Rationale:** payout-v3 już gwarantuje matematycznie, że wypłata policzona
+  z potwierdzonego prefiksu nigdy nie przekracza prawdziwej wypłaty pełnej
+  planszy (payout rośnie ściśle z długością, pary `(payline, symbol)` sumują
+  się niezależnie, prefiks z samych jokerów nie wygrywa) — nie było potrzeby
+  nowego algorytmu ani szacowania statystycznego.
+- **Safety:** brak zapisów (potwierdzone integracyjnie: liczniki wierszy
+  `recognized_boards`/`image_review_items`/`image_board_search_candidates`/
+  `image_board_search_fast_documents` identyczne przed i po kalkulacji w
+  osobnej transakcji). Brak nowych zależności, brak zmiany aplikacji
+  mobilnej ani istniejącego rankingu wyszukiwania.
+- **Compatibility:** addytywne — nowy endpoint
+  `GET /admin/games/{gameId}/board-search/approximate-win`, nowe pole
+  `RulesPayoutConfiguration.version` (jedyne miejsce konstrukcji
+  zaktualizowane), zero zmiany istniejącego kontraktu `board-search`. Brak
+  migracji.
+- **Known follow-ups:** limit 10 000 spinów nie jest zmierzony (do
+  weryfikacji przy realnym użyciu); `prettier --check` na
+  `packages/admin-api-client/src/index.ts`/`test/client.test.mjs`
+  pozostaje czerwony niezależnie od tej zmiany (potwierdzone jako
+  pre-existing, TASK-0652); integracyjny `test_payout_store.py` ma
+  niezwiązany błąd fikstury sprzed TASK-0650, zgłoszony osobno.
+- **Numbering note:** wcześniejsze pliki tasków tej serii
+  (`0649`–`0653` w `ai_docs/tasks/completed/`) odwołują się do tego pakietu
+  decyzji jako „D-445” — numer ten okazał się w międzyczasie zajęty przez
+  równoległą decyzję o reweryfikacji siatek 777. Ten wpis jest właściwym,
+  ostatecznym numerem `D-446`.
 
 ## D-445 — reweryfikacja siatek 777 nie opiera się na lokalnym estymatorze; kierunek: silnik v3 bez wzorca per gra
 

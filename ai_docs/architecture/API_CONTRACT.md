@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-09-17
+last_updated: 2026-09-25
 ---
 
 # Kontrakty API i danych mobilnych
@@ -249,6 +249,73 @@ Algorytm `partial-board-ranking-v2-unknown-missing-evidence` traktuje zapisane
 `NULL`/`?` analogicznie: zero punktów i zero twardych niedopasowań. Remisy są
 rozstrzygane przez score, exact matches, ważone alternatywy, mniejszą liczbę
 sprzeczności, status zatwierdzony, `sequence_number` i UUID.
+
+### Przybliżona wygrana (kalkulator zakresu)
+
+```text
+GET /api/v1/admin/games/{gameId}/board-search/approximate-win
+  ?startSequenceNumber={S}
+  &spinCount={N, 1..10000}
+```
+
+Endpoint jest wyłącznie do odczytu, na tym samym routerze co wyszukiwanie
+plansz. Liczy ostrożne oszacowanie payoutu dla zakresu `S+1…S+N` (`S` nigdy
+nie wchodzi do wyniku), zawijając cyklicznie z `N` do `1` na tej samej
+zasadzie co pełny cykl mobilnej prognozy celu
+(`evaluatedSpinCount = min(N, sequenceLength − 1)`); `sequenceLength` to
+`games.expected_layout_count`. Czyta to samo źródło co wyszukiwanie
+(`image_board_search_fast_documents` albo zamrożone archiwum, zależnie od
+stanu gry) w co najwyżej dwóch zapytaniach zakresowych (dwa tylko gdy zakres
+przechodzi przez koniec sekwencji), plus jedno dodatkowe zapytanie o status
+planszy startowej. Payout liczony jest tym samym kalkulatorem co wydania
+mobilne (`payout-v3-unknown-prefix-stop`) na podstawie najnowszej
+opublikowanej wersji reguł gry.
+
+Odpowiedź:
+
+```text
+gameId
+startSequenceNumber
+startBoardStatus        # status planszy S: "pending"|"accepted"|"corrected"|null
+requestedSpinCount
+evaluatedSpinCount
+sequenceLength
+wrappedAtSequenceEnd    # true, gdy zakres przeszedł przez granicę L → 1
+dataSource              # "operational_review"|"legacy_archive"
+dataFingerprintSha256
+rules: { rulesVersionId, rulesVersion, spinCost, algorithmVersion }
+summary: { recognizedPayoutCredits, spinCostCredits, balanceCredits }
+completeness: { completeBoardCount, partialBoardCount, missingBoardCount }
+rows[]:                 # wyłącznie spiny z payoutCredits > 0
+  spinNumber, sequenceNumber, payoutCredits,
+  cumulativePayoutCredits, cumulativeCostCredits, cumulativeBalanceCredits,
+  payoutKind             # "exact"|"confirmed_minimum"
+  boardStatus
+```
+
+`completeness` jest rozłączna i sumuje się do `evaluatedSpinCount`: kompletna
+(15/15 znanych symboli), częściowa (≥1 nieznany, również gdy naliczono dla
+niej `confirmed_minimum`) albo brakująca (brak zapisanej planszy dla tej
+pozycji — koszt spinu doliczony, payout 0, `evaluate` nigdy nie jest
+wywoływane dla takiej pozycji). Narastające sumy w każdym wierszu obejmują
+wszystkie wcześniejsze spiny zakresu, również te bez własnego wiersza
+(przegrane i brakujące).
+
+Błędy: `404 GAME_NOT_FOUND`; `409 BOARD_SEARCH_PROJECTION_INCOMPLETE` /
+`BOARD_SEARCH_ARCHIVE_INCOMPLETE` (to samo źródło co wyszukiwanie);
+`409 APPROXIMATE_WIN_START_OUT_OF_RANGE` (`startSequenceNumber` poza
+`1..sequenceLength`); `409 APPROXIMATE_WIN_RULES_NOT_PUBLISHED` (gra bez
+opublikowanej wersji reguł); `409 APPROXIMATE_WIN_RULES_INVALID` (reguły o
+wymiarach innych niż 3 × 5 albo niekompletna/niemonotoniczna macierz payout);
+`409 APPROXIMATE_WIN_BOARD_SYMBOL_OUTSIDE_RULES` (plansza w zakresie zawiera
+kod symbolu spoza aktywnych symboli reguł — cała kalkulacja zakresu jest
+wtedy przerywana, żadna plansza nie jest po cichu pomijana);
+`422 APPROXIMATE_WIN_SPIN_COUNT_INVALID` albo standardowa walidacja FastAPI
+dla brakujących/nieprawidłowych parametrów zapytania.
+
+Kalkulacja nigdy nie zapisuje wyniku ani nie zmienia rozpoznanych symboli,
+zatwierdzeń czy danych treningowych; nie ma serwerowego cache — każde
+żądanie liczy od nowa dla aktualnego stanu danych i reguł.
 
 ### Odczyt pojedynczych cropów do weryfikacji symboli
 

@@ -7,7 +7,7 @@ import json
 import shutil
 from collections.abc import Mapping, Sequence
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol, cast
 from uuid import UUID
@@ -1290,9 +1290,16 @@ class JobService:
                     "IMAGE_REPROCESS_PINNED_SNAPSHOTS_REQUIRED",
                     "Manual continuation requires the original model and geometry snapshots.",
                 )
+            rollout = GeometryPipelineRolloutSnapshot.from_payload(
+                source.input_payload["image_geometry_rollout"]
+            )
+            continuation_rollout = replace(
+                rollout, virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION
+            )
             continuation: dict[str, object] = {
                 key: source.input_payload[key] for key in required_snapshots
             }
+            continuation["image_geometry_rollout"] = continuation_rollout.to_payload()
             for key in ("normalization_adapter_version", "image_selection_run_id"):
                 if key in source.input_payload:
                     continuation[key] = source.input_payload[key]

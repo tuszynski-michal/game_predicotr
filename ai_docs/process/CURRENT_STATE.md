@@ -10,8 +10,9 @@ last_updated: 2026-09-25
 
 - Po zmianie klasyfikacji cropa reprocess zwrócił dotychczasowy failed job,
   ponieważ wersja virtual renderera była częścią niezmienionego snapshotu.
-  Bump kontraktu renderera do v2 tworzy nowy fingerprint i nowy immutable
-  raport bez zmiany starych danych. Test reprocessu przeszedł; kontrola
+  Bump kontraktu renderera do v2 oraz rebind historycznego snapshotu manual
+  continuation tworzą nowy fingerprint i nowy immutable raport bez zmiany
+  starych danych. Test reprocessu 9/9 przeszedł; kontrola
   pełnego manifestu ma wcześniejszy drift
   `ai_docs/quality/m5-image-benchmark-report.json`, poza zakresem tej poprawki.
 

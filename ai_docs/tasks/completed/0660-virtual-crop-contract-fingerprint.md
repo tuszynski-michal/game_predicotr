@@ -8,7 +8,7 @@ last_updated: 2026-09-25
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -39,8 +39,8 @@ zgodności starych snapshotów.
 
 ## Scope
 
-- Bump wersji kontraktu renderera virtual do v2, zachowując odczyt istniejących
-  snapshotów v1.
+- Bump wersji kontraktu renderera virtual do v2 i rebind managed manual
+  continuation z historycznego snapshotu v1, zachowując jego odczyt.
 - Test kontraktu i utworzenie nowego live reprocessu.
 
 ## Out of scope
@@ -50,7 +50,8 @@ zgodności starych snapshotów.
 ## Acceptance criteria
 
 - [ ] Nowy pipeline fingerprint różni się od joba `51b256c4-1ff5-4a94-a764-d54ee15390da`.
-- [ ] Istniejące snapshoty v1 nadal parsują się.
+- [ ] Historyczny snapshot v1 nadal parsuje się, a manual continuation tworzy
+  jego snapshot v2.
 
 ## Technical notes
 
@@ -75,10 +76,14 @@ dla zmiany klasyfikacji outputu i nie modyfikuje już istniejących jobów.
 
 - Wersja `virtual-cell-renderer-source-direct-v2` zamraża nową semantykę
   odraczania virtual cropów w rollout snapshot i efektywnym fingerprintie.
+- Manual continuation odczytuje historyczny snapshot, lecz zawsze buduje nowy
+  rollout snapshot z tym kontraktem renderera; nie modyfikuje źródłowego joba
+  ani jego raportu.
 
 ### Verification results
 
-- `test_managed_reprocess_evidence.py`: 9/9 przeszło.
+- `test_managed_reprocess_evidence.py`: 9/9 przeszło, w tym idempotentny
+  rebind snapshotu v1 do v2.
 - `test_image_pipeline_contract.py`: 25/26 przeszło; jeden wcześniejszy błąd
   `IMAGE_PIPELINE_ARTIFACT_DRIFT` dla
   `ai_docs/quality/m5-image-benchmark-report.json`, pliku poza zakresem taska.

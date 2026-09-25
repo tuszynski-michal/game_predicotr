@@ -20,6 +20,10 @@ from game_predictor_api.domain.jobs import (
 )
 from game_predictor_api.domain.symbol_model_snapshots import cold_start_unclassified_symbol_snapshot
 from game_predictor_api.schemas.jobs import JobResponse
+from game_predictor_worker.images.pipeline_contract import (
+    VIRTUAL_CELL_RENDERER_VERSION,
+    GeometryPipelineRolloutSnapshot,
+)
 from test_jobs_domain import MemoryJobRepository
 
 NOW = datetime(2026, 9, 4, 12, tzinfo=UTC)
@@ -225,7 +229,9 @@ def test_managed_reprocess_v6_pins_exact_source_and_page_manifests(tmp_path: Pat
     assert JobResponse.from_domain(job).input_payload.schema_version == 6
 
 
-def test_manual_continuation_reuses_exact_snapshots_and_is_idempotent(tmp_path: Path) -> None:
+def test_manual_continuation_rebinds_virtual_crop_contract_and_is_idempotent(
+    tmp_path: Path,
+) -> None:
     repository, source, _checksum, descriptor = _arrange_source_with_evidence(tmp_path)
     service = JobService(repository, artifact_root=tmp_path / "artifacts")
     baseline = service.create_managed_image_reprocess_job(source.id, pipeline_fingerprint="d" * 64)
@@ -242,6 +248,10 @@ def test_manual_continuation_reuses_exact_snapshots_and_is_idempotent(tmp_path: 
         },
         "symbol_model": cold_start_unclassified_symbol_snapshot(("lemon", "cherry")).to_payload(),
     }
+    old_rollout = GeometryPipelineRolloutSnapshot.from_payload(payload["image_geometry_rollout"])
+    payload["image_geometry_rollout"] = replace(
+        old_rollout, virtual_renderer_version="virtual-cell-renderer-source-direct-v1"
+    ).to_payload()
     source = replace(
         source,
         input_payload=payload,
@@ -257,8 +267,16 @@ def test_manual_continuation_reuses_exact_snapshots_and_is_idempotent(tmp_path: 
     )
     assert first.id == second.id and first.id != source.id
     assert first.input_payload["page_geometry_manifest"] == descriptor
-    for key in ("symbol_model", "grid_profile", "image_geometry_rollout", "board_cell_processing"):
+    for key in ("symbol_model", "grid_profile", "board_cell_processing"):
         assert first.input_payload[key] == source.input_payload[key]
+    assert (
+        first.input_payload["image_geometry_rollout"]["virtualRendererVersion"]
+        == VIRTUAL_CELL_RENDERER_VERSION
+    )
+    assert (
+        first.input_payload["image_geometry_rollout"]
+        != source.input_payload["image_geometry_rollout"]
+    )
     assert first.input_payload["geometry_systemic_guard_policy"]["policyVersion"].endswith(
         "manual-review"
     )

@@ -1,6 +1,6 @@
 ---
 title: Usunięcie legacy magazynu gier ze schematu public
-status: proposed
+status: accepted
 last_updated: 2026-09-25
 ---
 
@@ -18,7 +18,7 @@ W `public` nadal znajdują się historyczne kopie tych 65 tabel. Według odczytu
 
 ## Rekomendowana decyzja D-448
 
-**D-448 (proposed):** dla PostgreSQL `game_data_v2` jest jedynym fizycznym magazynem relacji game-owned. `public` nie jest fallbackiem dla game-owned read/write; brak poprawnej aktywnej location V2 jest stanem fail-closed. Historyczne, puste kopie 65 relacji z manifestu v1 usuwa migracja `0125_remove_legacy_public_game_store` wyłącznie przez statyczną, manifest-bound listę `DROP TABLE ... RESTRICT` w kolejności od zależnych do rodziców. Nie używa `CASCADE`, dynamicznego DDL z katalogu, migracji danych ani rollbacku udającego odtworzenie utraconych danych.
+**D-448 (accepted):** dla PostgreSQL `game_data_v2` jest jedynym fizycznym magazynem relacji game-owned. `public` nie jest fallbackiem dla game-owned read/write; brak poprawnej aktywnej location V2 jest stanem fail-closed. Historyczne, puste kopie 65 relacji z manifestu v1 usuwa migracja `0125_remove_legacy_public_game_store` wyłącznie przez statyczną, manifest-bound listę `DROP TABLE ... RESTRICT` w kolejności od zależnych do rodziców. Nie używa `CASCADE`, dynamicznego DDL z katalogu, migracji danych ani rollbacku udającego odtworzenie utraconych danych.
 
 Uzasadnienie: greenfield cutover już potwierdził V2 jako jedyną aktywną ścieżkę, a legacy kopie zwiększają ryzyko przypadkowego odczytu pustego `public` (por. regresję D-440). `RESTRICT`, dwa niezależne preflighty i połączenie routera z testami zarówno V2, jak i braku location chronią przed usunięciem relacji wspólnych albo niezauważonym fallbackiem. `downgrade()` 0125 ma jawnie odmówić działania; nie istnieje bezstratne odtworzenie nieznanej historycznej zawartości tabel.
 
@@ -41,7 +41,7 @@ Każdy task ma własny audyt, commit, Outcome i aktualizację `CURRENT_STATE.md`
 | Etap | Task | Wynik i bramka |
 |---|---|---|
 | P00 | [TASK-0679](../tasks/completed/0679-legacy-public-store-removal-plan.md) | Plan, D-448 i taski; nie uruchamia A. |
-| A | [TASK-0680](../tasks/0680-legacy-public-store-inventory.md) | Read-only inventory wykazuje dokładny zakres, pustość, location V2 i brak aktywnej migracji. |
+| A | [TASK-0680](../tasks/completed/0680-legacy-public-store-inventory.md) | Read-only inventory wykazał dokładny zakres, pustość, location V2 i brak aktywnej migracji. |
 | A | [TASK-0681](../tasks/0681-v2-only-storage-routing.md) | Router i kontrakt katalogu są V2-only na PostgreSQL, bez fallbacku legacy. |
 | A | [TASK-0682](../tasks/0682-game-owned-access-routing-audit.md) | Wszystkie produkcyjne repository, workery i raw SQL game-owned mają testowany bind. |
 | A | [TASK-0683](../tasks/0683-v2-only-test-and-bootstrap-contract.md) | Bootstrap/fixture nie ukrywa zależności od publicznych kopii. |

@@ -1,6 +1,6 @@
 ---
 title: TASK-0680 — T01 — read-only inventory legacy public
-status: todo
+status: done
 last_updated: 2026-09-25
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-25
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -44,9 +44,9 @@ Jakikolwiek zapis, DDL, naprawa danych, migracja 0125 lub uruchamianie workera.
 
 ## Acceptance criteria
 
-- [ ] Raport rozróżnia dokładnie game-owned, catalog oraz shared/control i potwierdza albo odrzuca pustość każdej z 65 relacji.
-- [ ] Zawiera stan location/migracji/jobs/locków i jest powtarzalny z nowej read-only sesji.
-- [ ] Wynik nieprzechodzący ustawia STOP A, bez próby dalszej naprawy.
+- [x] Raport rozróżnia dokładnie game-owned, catalog oraz shared/control i potwierdza pustość każdej z 65 relacji.
+- [x] Zawiera stan location/migracji/jobs/locków i jest powtarzalny z nowej read-only sesji.
+- [x] Wynik jest `ready`; mechanizm fail-closed raportuje blocker bez próby dalszej naprawy.
 
 ## Technical notes
 
@@ -73,4 +73,34 @@ Zapytania mają `default_transaction_read_only=on`, bounded statement/lock timeo
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- Dodano `scripts/audit_legacy_public_game_store.py`: bounded
+  `REPEATABLE READ READ ONLY`, manifest-bound inventory, kontroli location,
+  migracji, aktywnych jobów, FK/zależności i locków oraz atomowy raport JSON.
+- Dodano 9 testów audytora i raport jakości z dowodem z lokalnej bazy.
+
+### Verification results
+
+- Raport `ready`, SHA-256
+  `081212ac08ce63e132d689e7c23984e16338395e424695326579166fb4a6e95e`:
+  65/65 pustych tabel, 3 active V2 locations, zero migracji, aktywnych jobs,
+  zewnętrznych FK/zależności i locków. Druga świeża sesja dała identyczny wynik
+  merytoryczny.
+- `pytest services/api/tests/test_legacy_public_store_inventory.py` — 9/9;
+  Ruff check/format — czyste.
+- Mypy pełnego API wykrywa wcześniejsze, niezwiązane błędy importów API → worker;
+  nie zmieniono ich w tym tasku.
+
+### Not completed
+
+- Nie wykonano DDL, DML, migracji 0125, zmian routingu ani operacji na danych.
+
+### Documentation updates
+
+- Dodano `ai_docs/quality/LEGACY_PUBLIC_STORE_INVENTORY.md` oraz raport JSON;
+  zaktualizowano Current State.
+
+### Recommended next task
+
+- T02 / TASK-0681 — wyłącznie po jawnym poleceniu rozpoczęcia kolejnego taska.

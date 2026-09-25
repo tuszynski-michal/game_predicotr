@@ -122,7 +122,7 @@ last_updated: 2026-09-25
 
 ## D-448 — `game_data_v2` jako jedyny magazyn game-owned; `public` zachowuje catalog/control/shared
 
-- **Status:** proposed (P00 / TASK-0679; wykonanie wymaga zaakceptowania planu i osobnej zgody na T09).
+- **Status:** accepted (P00 / TASK-0679; osobna zgoda na T09 nadal jest wymagana).
 - **Date:** 2026-09-25.
 - **Decision:** w PostgreSQL `game_data_v2` jest jedynym fizycznym data plane relacji game-owned z zamrożonego manifestu v1. `public` nie jest fallbackiem tych danych; pozostaje właścicielem katalogu (`games`, `symbols`, reguł, `paylines`, `payout_rules`), globalnych `jobs`, registry storage i tabel shared/control. Po auditach i testach planowana migracja `0125_remove_legacy_public_game_store` usunie dokładnie 65 pustych, historycznych kopii game-owned przez statyczną listę i `DROP TABLE ... RESTRICT`, bez `CASCADE`. Downgrade ma odmówić, ponieważ nie potrafi bezstratnie odtworzyć ewentualnych danych historycznych.
 - **Rationale:** TASK-0525 potwierdził greenfield V2 jako aktywną ścieżkę, a D-440 pokazała, że pominięty bind może po cichu czytać pusty `public`. Dwie fizyczne kopie zwiększają ryzyko regresji i mylą granicę własności.

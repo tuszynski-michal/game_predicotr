@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, cast
-from uuid import UUID
+from uuid import UUID, uuid5
 
 import numpy as np
 from game_predictor_api.config import get_settings
@@ -2244,6 +2244,165 @@ def dry_run_all(*, game_id: UUID, output_dir: Path, tau_cell: float, min_ecc: fl
     return index
 
 
+EXECUTE_ACTOR = "system:grid-reverify-777-v1"
+EXECUTE_NAMESPACE = UUID("6f3c1e1a-7a77-4c2b-9d3e-777000000001")
+
+
+def _source_commands(source: Mapping[str, object], clamp_px: int = 0) -> list[Any] | str:
+    """Commands for every active slot of one photo, or the reason it cannot be written.
+
+    ``clamp_px`` > 0 moves corners that lie at most that far outside the photo onto
+    its edge (user decision 2026-09-25, "opcja 1"); larger overflows stay unwritable.
+    """
+
+    from game_predictor_api.application.virtual_grid_geometry import (
+        VirtualGridGeometrySourceCommand,
+    )
+    from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
+
+    commands: list[Any] = []
+    for board in cast(list[Mapping[str, object]], source["boards"]):
+        kind = board.get("kind")
+        quad = board.get("quad")
+        if kind == "missing":
+            return f"pl.{int(cast(int, board['positionIndex'])) + 1} brak planszy"
+        if quad is None:
+            return f"pl.{int(cast(int, board['positionIndex'])) + 1} brak siatki"
+        width = int(cast(int, source["sourceWidth"]))
+        height = int(cast(int, source["sourceHeight"]))
+        points: list[tuple[int, int]] = []
+        for x, y in cast(list[list[float]], quad):
+            px, py = int(round(float(x))), int(round(float(y)))
+            overflow = max(-px, -py, px - (width - 1), py - (height - 1), 0)
+            if overflow > 0:
+                if overflow > clamp_px:
+                    return (
+                        f"pl.{int(cast(int, board['positionIndex'])) + 1} "
+                        f"poza kadrem o {overflow} px"
+                    )
+                px = min(max(px, 0), width - 1)
+                py = min(max(py, 0), height - 1)
+            points.append((px, py))
+        corners = tuple(ImageReviewGeometryPoint(x=x, y=y) for x, y in points)
+        commands.append(
+            VirtualGridGeometrySourceCommand(
+                review_item_id=UUID(cast(str, board["reviewItemId"])) if kind == "board" else None,
+                pending_geometry_id=UUID(cast(str, board["pendingGeometryId"]))
+                if kind == "pending_slot"
+                else None,
+                expected_geometry_revision=int(cast(int, board["expectedGeometryRevision"])),
+                expected_resolution_revision=int(cast(int, board["expectedResolutionRevision"])),
+                expected_source_checksum_sha256=cast(str, source["sourceChecksumSha256"]),
+                expected_source_width=int(cast(int, source["sourceWidth"])),
+                expected_source_height=int(cast(int, source["sourceHeight"])),
+                expected_grid_rows=3,
+                expected_grid_columns=5,
+                corners=corners,
+            )
+        )
+    return commands
+
+
+def execute(
+    *,
+    game_id: UUID,
+    import_job_id: UUID,
+    output_dir: Path,
+    only_preview_numbers: set[int] | None,
+    limit: int | None,
+    clamp_px: int = 0,
+) -> Path:
+    """Write the reviewed decisions of one import through the Reviewer source-save service.
+
+    Everything in ``decisions.json`` except photos listed in ``summary.rejected`` is
+    written; one photo per transaction; the service re-checks every expected
+    revision and checksum, so a photo changed since the dry run is skipped, never
+    overwritten. Idempotency keys make reruns replays. Results go to execute-log.jsonl.
+    """
+
+    from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeometryService
+    from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
+    from game_predictor_api.storage.virtual_grid_geometry_repository import (
+        SqlAlchemyVirtualGridGeometryRepository,
+    )
+
+    folder = output_dir / f"dry-run-{import_job_id}"
+    data = json.loads((folder / "decisions.json").read_text(encoding="utf-8"))
+    rejected = {int(r["previewNumber"]) for r in data["summary"].get("rejected", [])}
+    log_path = folder / "execute-log.jsonl"
+    done = set()
+    if log_path.exists():
+        for line in log_path.read_text(encoding="utf-8").splitlines():
+            logged = json.loads(line)
+            if logged.get("result") in ("written", "replay"):
+                done.add(int(logged["previewNumber"]))
+    settings = get_settings()
+    engine = create_database_engine(settings)
+    session_factory = create_session_factory(engine)
+    counts: dict[str, int] = {}
+    processed = 0
+    try:
+        for source in data["sources"]:
+            number = int(source["previewNumber"])
+            if only_preview_numbers is not None and number not in only_preview_numbers:
+                continue
+            if number in rejected or number in done:
+                continue
+            if limit is not None and processed >= limit:
+                break
+            processed += 1
+            row: dict[str, object] = {
+                "previewNumber": number,
+                "sourceImageId": source["sourceImageId"],
+                "at": datetime.now(UTC).isoformat(),
+            }
+            commands = _source_commands(source, clamp_px)
+            if isinstance(commands, str):
+                row.update({"result": "not_writable", "reason": commands})
+            else:
+                key = uuid5(
+                    EXECUTE_NAMESPACE,
+                    f"{source['sourceImageId']}:{data['summary']['generatedAt']}",
+                )
+                with game_storage_scope(game_id), session_factory() as session:
+                    service = VirtualGridGeometryService(
+                        SqlAlchemyVirtualGridGeometryRepository(session), settings.artifact_root
+                    )
+                    try:
+                        result = service.save_source(
+                            game_id=game_id,
+                            import_job_id=UUID(cast(str, source["importJobId"])),
+                            commands=commands,
+                            idempotency_key=key,
+                            actor=EXECUTE_ACTOR,
+                            created_at=datetime.now(UTC),
+                        )
+                        session.commit()
+                        row.update(
+                            {
+                                "result": "written" if result.created else "replay",
+                                "revisions": len(result.revisions),
+                            }
+                        )
+                    except ImageGridReviewError as error:
+                        session.rollback()
+                        row.update(
+                            {
+                                "result": "skipped_conflict",
+                                "code": error.code,
+                                "message": error.message,
+                            }
+                        )
+            counts[str(row["result"])] = counts.get(str(row["result"]), 0) + 1
+            with log_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row) + "\n")
+            print(json.dumps(row), flush=True)
+    finally:
+        engine.dispose()
+    print(json.dumps({"importJobId": str(import_job_id), "counts": counts}), flush=True)
+    return log_path
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -2281,9 +2440,31 @@ def main(argv: Sequence[str] | None = None) -> int:
     dry_parser.add_argument("--tau-cell", type=float, default=0.2)
     dry_parser.add_argument("--min-ecc", type=float, default=0.7)
     dry_parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    exec_parser = commands.add_parser("execute", help="WRITE reviewed decisions of one import")
+    exec_parser.add_argument("--game-id", type=UUID, default=GAME_777_ID)
+    exec_parser.add_argument("--import-job-id", type=UUID, required=True)
+    exec_parser.add_argument("--confirm-game-id", type=UUID, required=True)
+    exec_parser.add_argument("--only", type=int, nargs="*", default=None)
+    exec_parser.add_argument("--limit", type=int, default=None)
+    exec_parser.add_argument("--clamp-px", type=int, default=0)
+    exec_parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     arguments = parser.parse_args(argv)
     if arguments.game_id != GAME_777_ID:
         parser.error("This one-off tool only supports game 777.")
+    if arguments.command == "execute":
+        if arguments.confirm_game_id != arguments.game_id:
+            parser.error("execute requires --confirm-game-id equal to --game-id")
+        print(
+            execute(
+                game_id=arguments.game_id,
+                import_job_id=arguments.import_job_id,
+                output_dir=arguments.output_dir,
+                only_preview_numbers=None if arguments.only is None else set(arguments.only),
+                limit=arguments.limit,
+                clamp_px=arguments.clamp_px,
+            ).as_posix()
+        )
+        return 0
     if arguments.command == "dry-run" and arguments.all_imports:
         print(
             dry_run_all(

@@ -1665,6 +1665,15 @@ class ProductionImageStageAdapterSuite:
                 )
             by_position.setdefault(board_slot, []).append(render)
         boards: list[dict[str, object]] = []
+        deferred_by_position: dict[int, dict[str, object]] = {
+            _integer(board, "positionIndex"): {
+                "positionIndex": board["positionIndex"],
+                "reasonCode": board["reasonCode"],
+                "sequenceNumber": board["sequenceNumber"],
+            }
+            for board in _boards(geometry_stage)
+            if board.get("status") == "deferred"
+        }
         active_positions = sorted(
             _integer(board, "positionIndex")
             for board in _boards(geometry_stage)
@@ -1680,6 +1689,26 @@ class ProductionImageStageAdapterSuite:
                 if _integer(_mapping(value, "structured board"), "positionIndex") == position
             )
             resolution_disposition = structured_board.get("guardResolutionDisposition")
+            unavailable_cell_indices = tuple(
+                cast(Sequence[int], structured_board.get("unavailableCellIndices", []))
+            )
+            raw_qualification = structured_board.get("geometryQualification")
+            has_partial_qualification = (
+                isinstance(raw_qualification, Mapping)
+                and raw_qualification.get("completenessStatus") == "pending_partial"
+            )
+            expected_complete_indices = set(range(self._board_topology.cell_count))
+            if not has_partial_qualification and (
+                len(board_renders) != len(expected_complete_indices)
+                or {render.cell_index for render in board_renders} != expected_complete_indices
+            ):
+                deferred_by_position[position] = {
+                    "estimatorFailureReason": "VIRTUAL_CELL_RENDER_OUTPUT_INCOMPLETE",
+                    "positionIndex": position,
+                    "reasonCode": BoardCellGeometryPendingReason.INCOMPLETE_LATTICE.value,
+                    "sequenceNumber": _integer(structured_board, "sequenceNumber"),
+                }
+                continue
             boards.append(
                 {
                     "assetMode": "virtual_source",
@@ -1711,9 +1740,7 @@ class ProductionImageStageAdapterSuite:
                     "completenessStatus": (
                         "pending_partial" if resolution_disposition == "partial" else "complete"
                     ),
-                    "unavailableCellIndices": list(
-                        cast(Sequence[int], structured_board.get("unavailableCellIndices", []))
-                    ),
+                    "unavailableCellIndices": list(unavailable_cell_indices),
                     "topologyRulesVersionId": self._board_topology.rules_version_id,
                     **(
                         {"geometryQualification": structured_board["geometryQualification"]}
@@ -1726,13 +1753,7 @@ class ProductionImageStageAdapterSuite:
             "assetMode": "virtual_source",
             "boards": boards,
             "deferredBoards": [
-                {
-                    "positionIndex": board["positionIndex"],
-                    "reasonCode": board["reasonCode"],
-                    "sequenceNumber": board["sequenceNumber"],
-                }
-                for board in _boards(geometry_stage)
-                if board.get("status") == "deferred"
+                deferred_by_position[position] for position in sorted(deferred_by_position)
             ],
             "rejectedBoards": [
                 {
@@ -1872,14 +1893,15 @@ class ProductionImageStageAdapterSuite:
         context: ImageStageContext,
         payload: Mapping[str, object],
     ) -> None:
-        # Structured virtual crops carry forward the exact deferrals already
-        # persisted by ``board_cell_geometry``.  Replaying them here would both
-        # duplicate the durable pending projection and try to interpret the
-        # structured ``reasonCode`` as the legacy estimator failure contract.
-        if payload.get("assetMode") == "virtual_source":
-            return
         for value in _sequence(payload.get("deferredBoards", []), "deferredBoards"):
             board = _mapping(value, "deferredBoard")
+            # Structured virtual crops normally carry forward deferrals already
+            # persisted by ``board_cell_geometry``. A failed virtual render is
+            # different: it is first discovered here and must become durable.
+            if payload.get("assetMode") == "virtual_source" and not isinstance(
+                board.get("estimatorFailureReason"), str
+            ):
+                continue
             self._defer_board_cell_geometry(
                 context,
                 position_index=_integer(board, "positionIndex"),
@@ -2318,9 +2340,7 @@ class ProductionImageStageAdapterSuite:
                         StructuredGeometryInitializationRequest.for_frame(
                             frame,
                             topology=DomainBoardTopology(rows=3, columns=5),
-                            topology_rules_version_id=UUID(
-                                self._board_topology.rules_version_id
-                            ),
+                            topology_rules_version_id=UUID(self._board_topology.rules_version_id),
                             attested_range=attested,
                         )
                     ).to_payload()
@@ -2532,11 +2552,7 @@ class ProductionImageStageAdapterSuite:
                 "unavailableCellIndices": list(
                     cast(Sequence[int], board.get("unavailableCellIndices", []))
                 ),
-                **(
-                    {"assetMode": board["assetMode"]}
-                    if "assetMode" in board
-                    else {}
-                ),
+                **({"assetMode": board["assetMode"]} if "assetMode" in board else {}),
             }
             for board in cropped_boards
         ]
@@ -2649,8 +2665,7 @@ class ProductionImageStageAdapterSuite:
                     (
                         {"assetMode": board["assetMode"]}
                         for board in cropped_boards
-                        if _integer(board, "positionIndex") == position
-                        and "assetMode" in board
+                        if _integer(board, "positionIndex") == position and "assetMode" in board
                     ),
                     {},
                 ),

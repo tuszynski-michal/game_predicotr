@@ -6,6 +6,25 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0658 — odroczenie niekompletnego virtual cropa zamiast false blocking geometry guard
+
+- Diagnoza joba `753a4776-907f-42ea-81c3-ea2a8c886d4f` (gra
+  `bfc4f949-5c14-4850-b02a-db99610bcfa5`) potwierdziła politykę
+  `image-geometry-systemic-guard-v2-manual-review`: wynik 96,89% jest w niej
+  ostrzeżeniem, lecz pięć brakujących finalnych cropów zostało błędnie
+  zliczonych jako `topology`, więc zatrzymało import.
+- `ProductionImageStageAdapterSuite` nie publikuje już kompletnej planszy z
+  niepełnym zestawem virtual renderów. Tworzy deterministyczny
+  `deferredBoard` (`incomplete_lattice`,
+  `VIRTUAL_CELL_RENDER_OUTPUT_INCOMPLETE`), a pipeline waliduje i utrwala
+  właśnie to nowe odroczenie. Zwykłe structured deferrals nadal nie są
+  zapisywane podwójnie.
+- Testy workerów: 76/76; Ruff czysty. Strict mypy pozostaje zablokowany przez
+  wcześniejsze błędy w niezwiązanym `shape_geometry_v2/core.py` i historyczne
+  zwroty `Any` poza zmienionymi fragmentami. Nie wykonano reprocessu ani
+  operacji na zdjęciach. Należy wdrożyć nowego workera i utworzyć **nowy
+  reprocess**, nie retry starego joba z niezmiennym raportem.
+
 ### TASK-0657 — skróty klawiszowe w palecie „Wyszukaj plansze”
 
 - Zgłoszenie użytkownika jako kontynuacja TASK-0656: `1`–`9` wstawia symbol

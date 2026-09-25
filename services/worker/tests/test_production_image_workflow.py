@@ -1227,6 +1227,90 @@ def test_structured_crop_deferrals_are_not_persisted_twice(tmp_path: Path) -> No
 
     assert writer.values == []
 
+    suite.persist_board_crop_deferrals(
+        ImageStageContext(
+            job_id=uuid4(),
+            file_execution_key="f" * 64,
+            source_checksum_sha256="c" * 64,
+            source_relative_path="originals/c/source.jpg",
+            pipeline_fingerprint="d" * 64,
+            previous_results={},
+        ),
+        {
+            "assetMode": "virtual_source",
+            "boards": [],
+            "deferredBoards": [
+                {
+                    "estimatorFailureReason": "VIRTUAL_CELL_RENDER_OUTPUT_INCOMPLETE",
+                    "positionIndex": 0,
+                    "reasonCode": "incomplete_lattice",
+                    "sequenceNumber": 1,
+                }
+            ],
+        },
+    )
+
+    assert writer.values == [(0, 1, BoardCellGeometryPendingReason.INCOMPLETE_LATTICE)]
+
+
+def test_virtual_crop_with_missing_render_is_deferred_before_gate(tmp_path: Path) -> None:
+    snapshot = _candidate_snapshot()
+    suite = ProductionImageStageAdapterSuite(
+        tmp_path / "artifacts",
+        repository_root=Path.cwd(),
+        symbol_model=snapshot,
+        board_cell_processing=board_cell_processing_snapshot(cell_output_size=snapshot.input_size),
+        geometry_rollout=_structured_default_rollout(),
+    )
+    renders = tuple(
+        SimpleNamespace(
+            cell_index=index,
+            row_index=index // 5,
+            column_index=index % 5,
+            logical_cell_key_sha256="a" * 64,
+            logical_cell_key_v2_sha256="b" * 64,
+            partially_visible=False,
+            render_identity_v2_sha256="c" * 64,
+            render_spec={"boardSlot": 0},
+            render_spec_checksum_sha256="d" * 64,
+            rendered_pixel_checksum_sha256="e" * 64,
+            extractor_version="test-v1",
+        )
+        for index in range(14)
+    )
+    suite._virtual_renders = lambda _context: renders  # type: ignore[method-assign]
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256="c" * 64,
+        source_relative_path="originals/c/source.jpg",
+        pipeline_fingerprint="d" * 64,
+        previous_results={
+            "board_cell_geometry": {
+                "boards": [{"positionIndex": 0, "sequenceNumber": 1, "status": "verified"}],
+                "structuredGeometry": {
+                    "configChecksumSha256": "a" * 64,
+                    "engineId": "test-engine",
+                    "engineVersion": "test-v1",
+                    "resultChecksumSha256": "b" * 64,
+                    "boards": [{"positionIndex": 0, "sequenceNumber": 1}],
+                },
+            }
+        },
+    )
+
+    payload = suite.board_crops(context)
+
+    assert payload["boards"] == []
+    assert payload["deferredBoards"] == [
+        {
+            "estimatorFailureReason": "VIRTUAL_CELL_RENDER_OUTPUT_INCOMPLETE",
+            "positionIndex": 0,
+            "reasonCode": "incomplete_lattice",
+            "sequenceNumber": 1,
+        }
+    ]
+
 
 class _OnePageSymbolAdapter:
     def __init__(self) -> None:
@@ -2013,9 +2097,9 @@ def test_qualified_manual_page_keeps_all_slots_without_detector_or_missing_pixel
     crops = results["board_crops"]["boards"]
     assert len(crops) == 9
     assert sum(len(board["cells"]) for board in crops) == expected_cell_count
-    assert [
-        board["geometryQualification"]["unavailableCellIndices"] for board in crops
-    ] == [list(mask) for mask in automatic_masks]
+    assert [board["geometryQualification"]["unavailableCellIndices"] for board in crops] == [
+        list(mask) for mask in automatic_masks
+    ]
     assert [board["completenessStatus"] for board in crops] == [
         "pending_partial" if mask else "complete" for mask in automatic_masks
     ]

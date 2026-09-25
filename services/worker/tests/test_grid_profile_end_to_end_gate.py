@@ -157,3 +157,122 @@ def test_source_runner_executes_production_stage_contract_through_final_crops() 
     assert [item.position_index for item in result.board_results] == list(range(9))
     assert [item.sequence_number for item in result.board_results] == list(range(1, 10))
     assert {item.status for item in result.board_results} == {"ready"}
+
+
+def test_source_runner_treats_an_explicit_crop_deferral_as_non_topological() -> None:
+    checksum = "a" * 64
+
+    def adapter(stage: str, payload: dict[str, object]) -> FunctionImageStageAdapter:
+        return FunctionImageStageAdapter(stage, f"{stage}-v1", lambda _context: payload)
+
+    boards = [{"positionIndex": position} for position in range(9)]
+    crop_boards = [
+        {
+            "positionIndex": position,
+            "cells": [
+                {"rowIndex": row, "columnIndex": column} for row in range(3) for column in range(5)
+            ],
+        }
+        for position in range(8)
+    ]
+    suite = SimpleNamespace(
+        adapters=lambda: (
+            adapter("discovery", {"sourceChecksumSha256": checksum}),
+            adapter("normalization", {}),
+            adapter("board_detection", {"boards": boards}),
+            adapter(
+                "board_cell_geometry",
+                {
+                    "boards": [
+                        {
+                            **board,
+                            "status": ("verified" if board["positionIndex"] < 8 else "deferred"),
+                        }
+                        for board in boards
+                    ],
+                    "gridRows": 3,
+                    "gridColumns": 5,
+                },
+            ),
+            adapter(
+                "board_crops",
+                {
+                    "boards": crop_boards,
+                    "deferredBoards": [
+                        {
+                            "positionIndex": 8,
+                            "reasonCode": "incomplete_lattice",
+                        }
+                    ],
+                },
+            ),
+        )
+    )
+    result = run_grid_profile_gate_source(
+        suite=suite,
+        context=ImageStageContext(
+            job_id=uuid4(),
+            file_execution_key="b" * 64,
+            source_checksum_sha256=checksum,
+            source_relative_path="seq_1_9.jpg",
+            pipeline_fingerprint="c" * 64,
+            previous_results={},
+            attested_sequence_range=(1, 9),
+        ),
+        quality_angle_bucket="front-clear",
+        baseline_final_cell_grid_ready_board_count=9,
+    )
+
+    assert result.final_cell_grid_ready_board_count == 8
+    assert result.invariant_violation_counts["topology"] == 0
+    assert result.board_results[8].reason_codes == ("incomplete_lattice",)
+
+
+def test_source_runner_keeps_an_unmarked_incomplete_crop_topological() -> None:
+    checksum = "a" * 64
+
+    def adapter(stage: str, payload: dict[str, object]) -> FunctionImageStageAdapter:
+        return FunctionImageStageAdapter(stage, f"{stage}-v1", lambda _context: payload)
+
+    boards = [{"positionIndex": position} for position in range(9)]
+    crop_boards = [
+        {
+            "positionIndex": position,
+            "cells": [
+                {"rowIndex": row, "columnIndex": column} for row in range(3) for column in range(5)
+            ][: (14 if position == 8 else 15)],
+        }
+        for position in range(9)
+    ]
+    suite = SimpleNamespace(
+        adapters=lambda: (
+            adapter("discovery", {"sourceChecksumSha256": checksum}),
+            adapter("normalization", {}),
+            adapter("board_detection", {"boards": boards}),
+            adapter(
+                "board_cell_geometry",
+                {
+                    "boards": [{**board, "status": "verified"} for board in boards],
+                    "gridRows": 3,
+                    "gridColumns": 5,
+                },
+            ),
+            adapter("board_crops", {"boards": crop_boards, "deferredBoards": []}),
+        )
+    )
+    result = run_grid_profile_gate_source(
+        suite=suite,
+        context=ImageStageContext(
+            job_id=uuid4(),
+            file_execution_key="b" * 64,
+            source_checksum_sha256=checksum,
+            source_relative_path="seq_1_9.jpg",
+            pipeline_fingerprint="c" * 64,
+            previous_results={},
+            attested_sequence_range=(1, 9),
+        ),
+        quality_angle_bucket="front-clear",
+        baseline_final_cell_grid_ready_board_count=9,
+    )
+
+    assert result.invariant_violation_counts["topology"] == 1

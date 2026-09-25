@@ -1104,16 +1104,23 @@ def _v20_crop_positions(
         for item in rejected
     ]
     if payload.get("assetMode") == "virtual_source":
+        crop_deferral_positions = [
+            _nonnegative_integer(item.get("positionIndex"), "deferredBoards.positionIndex")
+            for item in deferred
+            if isinstance(item.get("estimatorFailureReason"), str)
+            and bool(item["estimatorFailureReason"])
+        ]
         combined = sorted([*crop_positions, *deferred_positions, *rejected_positions])
         if (
-            crop_positions != verified_geometry_positions
-            or deferred_positions != deferred_geometry_positions
+            sorted([*crop_positions, *crop_deferral_positions]) != verified_geometry_positions
+            or sorted(set(deferred_positions) - set(crop_deferral_positions))
+            != deferred_geometry_positions
             or rejected_positions != rejected_geometry_positions
             or combined != all_geometry_positions
             or len(combined) != len(set(combined))
         ):
             _invalid(
-                "Structured crop results must exactly partition verified and deferred geometry."
+                "Structured crop results must partition verified geometry and durable deferrals."
             )
         return
     combined = sorted([*crop_positions, *deferred_positions])

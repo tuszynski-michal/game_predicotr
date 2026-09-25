@@ -1698,6 +1698,7 @@ class ProductionImageStageAdapterSuite:
             partial_indices_are_valid = (
                 isinstance(raw_qualification, Mapping)
                 and raw_qualification.get("completenessStatus") == "pending_partial"
+                and resolution_disposition == "partial"
                 and bool(unavailable_cell_indices)
                 and unavailable_cell_indices == tuple(sorted(set(unavailable_cell_indices)))
                 and all(

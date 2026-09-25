@@ -6,6 +6,13 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0661 — virtual crop tylko dla zatwierdzonej planszy częściowej
+
+- Świeży job `7b90689d-8fe0-49ca-9cde-80f0fd51dd9e` ujawnił pięć pozycji z
+  `pending_partial`, ale bez zatwierdzonego disposition `partial`. Wyjątek
+  virtual cropa wymaga teraz obu tych sygnałów i poprawnej maski; w przeciwnym
+  razie plansza trafia do `incomplete_lattice`. Testy workflowu 77/77 przeszły.
+
 ### TASK-0660 — fingerprint reprocessu po zmianie virtual cropów
 
 - Po zmianie klasyfikacji cropa reprocess zwrócił dotychczasowy failed job,

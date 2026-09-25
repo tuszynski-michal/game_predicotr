@@ -1312,7 +1312,7 @@ def test_virtual_crop_with_missing_render_is_deferred_before_gate(tmp_path: Path
     ]
 
 
-def test_virtual_crop_with_empty_partial_qualification_is_deferred_before_gate(
+def test_virtual_crop_with_unapproved_partial_qualification_is_deferred_before_gate(
     tmp_path: Path,
 ) -> None:
     snapshot = _candidate_snapshot()
@@ -1342,6 +1342,8 @@ def test_virtual_crop_with_empty_partial_qualification_is_deferred_before_gate(
                         {
                             "positionIndex": 0,
                             "sequenceNumber": 1,
+                            "guardResolutionDisposition": "automatic",
+                            "unavailableCellIndices": [0],
                             "geometryQualification": {"completenessStatus": "pending_partial"},
                         }
                     ],

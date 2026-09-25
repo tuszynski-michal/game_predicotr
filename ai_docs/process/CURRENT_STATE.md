@@ -6,6 +6,18 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0664 — wyrównanie ograniczeń kwalifikacji `game_data_v2`
+
+- Job `f786fed3-9814-42ce-941f-9cb04cbe2c17` przeszedł naprawioną bramkę
+  geometrii, lecz 61 etapów symboli odrzuciła baza. Powodem nie są zdjęcia ani
+  model: rodzice i partycje `game_data_v2` miały jeszcze v1-only CHECK, bo
+  migracje 0111/0120 zaktualizowały wyłącznie `public`.
+- Migracja 0123 aktualizuje oba partycjonowane rodzice do kontraktu v1/v2/v3
+  jako `NOT VALID`; PostgreSQL propaguje go do istniejących i przyszłych
+  partycji. Izolowany test PostgreSQL 2/2 potwierdził kontrakt rodziców i
+  dziedziczenie przez nową partycję. Pozostaje zastosowanie migracji lokalnie
+  i bezpieczne ponowienie zatrzymanych etapów joba.
+
 ### TASK-0663 — świeży fingerprint po naprawie geometry gate
 
 - Zmiana semantyki gate z TASK-0662 wymaga nowego immutable raportu. Kontrakt

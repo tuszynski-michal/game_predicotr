@@ -36,7 +36,6 @@ from game_predictor_worker.images.partial_grid_learning import (
 )
 from game_predictor_worker.images.structured_geometry import lattice_refinement_v4 as v4
 from game_predictor_worker.images.virtual_cell_extraction import (
-    VirtualCellExtractionError,
     VirtualCellRenderer,
 )
 from test_manual_partial_geometry import _configuration, _geometry
@@ -47,9 +46,7 @@ POLICY = LateralPartialGeometrySnapshot(frame_support_review=True)
 TOPOLOGY = BoardCellTopology(rows=3, columns=5)
 
 
-def _candidate(
-    quad: SourceQuad, *, frame_review: bool = False
-) -> LateralPageRegistrationCandidate:
+def _candidate(quad: SourceQuad, *, frame_review: bool = False) -> LateralPageRegistrationCandidate:
     return LateralPageRegistrationCandidate(
         initialization=PageRegistrationInitialization(
             anchor_source_checksum_sha256="a" * 64,
@@ -335,18 +332,11 @@ def test_only_available_cells_render_after_manual_confirmation(side) -> None:
         )
     # Cell 0 (row 0, column 0) on this fixture's "left"/"both" crops keeps a
     # sliver of real pixels in its raw quad (so it is correctly flagged
-    # partially_visible, not fully unavailable), but the renderer's 8%
-    # outward padding pushes that sliver out entirely, leaving zero real
-    # support in the padded quad. The renderer's own partial-support check
-    # (virtual_cell_extraction._require_partial_source_support) then
-    # legitimately rejects it -- this is pre-existing T1 renderer behavior,
-    # not something this test asserts is desirable, only that it is stable.
-    unsupported_after_padding = {0} if side in {"left", "both"} else set()
-    renderable = tuple(cell for cell in cells if cell.cell_index not in unsupported_after_padding)
-    for cell in cells:
-        if cell.cell_index in unsupported_after_padding:
-            with pytest.raises(VirtualCellExtractionError, match="must retain some real source"):
-                VirtualCellRenderer().render(frame, (cell,))
+    # partially_visible, not fully unavailable), while the renderer's 8%
+    # padded inset lies entirely outside the source. The renderer applies the
+    # same footprint rule as derivation, so the cell still renders (for
+    # mandatory human review) instead of failing the whole import.
+    renderable = cells
     renders = VirtualCellRenderer().render(frame, renderable)
     assert len(renders) == len(renderable)
     assert _configuration().padding_fraction == 0.08

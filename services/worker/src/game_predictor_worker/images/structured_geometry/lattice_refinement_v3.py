@@ -11,6 +11,7 @@ from typing import Literal, cast
 import cv2
 import numpy as np
 from game_predictor_api.domain.image_geometry_v2 import (
+    ImageGeometryContractError,
     SourcePoint,
     SourceQuad,
     canonical_json_bytes,
@@ -270,7 +271,18 @@ def refine_structured_symbol_lattice_v3(
             "source_support_incomplete",
             safety=safety,
         )
-    symbol_grid_quad = _source_quad(estimate.lattice_bounds_quad)
+    try:
+        symbol_grid_quad = _source_quad(estimate.lattice_bounds_quad)
+    except ImageGeometryContractError:
+        # A degenerate estimate (e.g. a self-intersecting lattice) is a board
+        # for manual review, never a failure of the whole import.
+        return _deferred(
+            analysis_quad,
+            board_frame_quad,
+            estimate,
+            "lattice_quad_invalid",
+            safety=safety,
+        )
     return StructuredLatticeRefinementV3(
         status="estimated",
         analysis_quad=analysis_quad,

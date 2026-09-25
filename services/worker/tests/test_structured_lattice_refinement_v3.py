@@ -91,6 +91,41 @@ def test_v3_defers_without_any_fallback_when_lattice_evidence_is_incomplete() ->
     assert result.reason_code is not None
 
 
+def test_v3_defers_instead_of_failing_when_the_lattice_bounds_are_not_a_valid_quad(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regression: a real 777 photo produced a self-intersecting lattice bounds
+    # quad; the raw ImageGeometryContractError aborted the whole import job.
+    import game_predictor_worker.images.structured_geometry.lattice_refinement_v3 as module
+
+    source, analysis = _source(_board())
+    estimate = estimate_board_cell_geometry(source, _detector_quad(analysis))
+    assert estimate.lattice_bounds_quad is not None
+    top_left, top_right, bottom_right, bottom_left = estimate.lattice_bounds_quad
+    crossed = replace(
+        estimate,
+        lattice_bounds_quad=(top_left, bottom_right, top_right, bottom_left),
+    )
+    monkeypatch.setattr(module, "estimate_board_cell_geometry", lambda *_args: crossed)
+    monkeypatch.setattr(
+        module,
+        "evaluate_lattice_content_safety",
+        lambda _estimate: evaluate_lattice_content_safety(estimate),
+    )
+
+    result = refine_structured_symbol_lattice_v3(
+        source,
+        analysis_quad=analysis,
+        board_frame_quad=analysis,
+        topology=BoardCellTopology(rows=3, columns=5),
+    )
+
+    assert result.status == "needs_review"
+    assert result.symbol_grid_quad is None
+    assert result.final_quad is None
+    assert result.reason_code == "lattice_quad_invalid"
+
+
 def test_content_safety_rejects_a_component_crossing_a_cell_boundary() -> None:
     source, analysis = _source(_board())
     estimate = estimate_board_cell_geometry(

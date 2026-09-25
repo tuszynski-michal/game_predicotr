@@ -344,7 +344,7 @@ z checksumą stage result; drift kończy się fail-closed.
   dekodować tego samego managed original ponownie w obrębie wykonania;
 - źródłowy SHA-256, wymiary po EXIF oraz checksum pikseli muszą zgadzać się z
   przypiętą proweniencją przed użyciem geometrii;
-- `virtual-cell-renderer-source-direct-v3` najpierw waliduje wszystkie komórki
+- `virtual-cell-renderer-source-direct-v4` najpierw waliduje wszystkie komórki
   źródła, a następnie wykonuje dokładnie jeden source-direct resampling na
   komórkę; nie materializuje pośredniej planszy ani trwałego cropa;
 - wynik zawiera RGB, logiczny klucz komórki, content-addressed render spec,

@@ -6,6 +6,13 @@ last_updated: 2026-09-25
 
 # Current State
 
+### TASK-0663 — świeży fingerprint po naprawie geometry gate
+
+- Zmiana semantyki gate z TASK-0662 wymaga nowego immutable raportu. Kontrakt
+  virtual renderer v4 zapewnia, że manual continuation nie zwróci poprzedniego
+  joba v3 z błędną kontrolą `topology`; zachowuje historię wszystkich raportów
+  i pozostałe przypięte snapshoty. Test reprocessu API 9/9 oraz Ruff przeszły.
+
 ### TASK-0662 — poprawna topologia częściowych komórek virtual v3
 
 - Diagnoza świeżego joba `b70f4fce-dc1a-411b-9c3d-49ae41ec02a6` ustaliła, że

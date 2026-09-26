@@ -125,10 +125,7 @@ export default function Page() {
       });
       return false;
     }
-    return (
-      !protection.dirty ||
-      window.confirm('Odrzucić niezapisane zmiany przed zmianą widoku?')
-    );
+    return true;
   }
   function resetSelection() {
     setSelected(null);

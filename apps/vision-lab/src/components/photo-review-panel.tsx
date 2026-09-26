@@ -108,14 +108,7 @@ export function PhotoReviewPanel({
     }
   }
   async function reconcile() {
-    if (
-      submitting.current ||
-      geometryLocked ||
-      !window.confirm(
-        'Odczytać bieżący stan przeglądu i porzucić niepotwierdzone żądanie? Sprawdź wynik przed nową decyzją.',
-      )
-    )
-      return;
+    if (submitting.current || geometryLocked) return;
     submitting.current = true;
     setBusy(true);
     try {

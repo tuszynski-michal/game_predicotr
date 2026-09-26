@@ -98,13 +98,6 @@ export function GeometryEditor({
     onProtectionChange(dirty || reviewProtection.dirty, locked);
   }, [dirty, reviewProtection.dirty, locked, onProtectionChange]);
   useEffect(() => {
-    const prevent = (event: BeforeUnloadEvent) => {
-      if (dirty || reviewProtection.dirty || locked) event.preventDefault();
-    };
-    window.addEventListener('beforeunload', prevent);
-    return () => window.removeEventListener('beforeunload', prevent);
-  }, [dirty, reviewProtection.dirty, locked]);
-  useEffect(() => {
     const order = previewOrder.current;
     const element = photoRef.current;
     const observer = new ResizeObserver(() => {
@@ -242,10 +235,7 @@ export function GeometryEditor({
     corrections.current = 0;
   }
   function canLeave() {
-    return (
-      !locked &&
-      (!dirty || window.confirm('Odrzucić niezapisane zmiany tej planszy?'))
-    );
+    return !locked;
   }
   useEffect(() => {
     let cancelled = false;
@@ -817,13 +807,6 @@ export function GeometryEditor({
         disabled={busy || reviewProtection.pending}
         onClick={() => {
           if (submitting.current || reviewProtection.pending) return;
-          if (
-            (dirty || pending) &&
-            !window.confirm(
-              'Odczytać aktualny zapis i zastąpić lokalną edycję? Niepotwierdzone żądanie nie będzie ponawiane automatycznie.',
-            )
-          )
-            return;
           submitting.current = true;
           setBusy(true);
           refresh()

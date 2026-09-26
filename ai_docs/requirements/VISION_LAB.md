@@ -34,7 +34,10 @@ siatką” oznacza co najmniej jedną pełną geometrię, nie ukończenie zdjęc
 kwalifikację treningową. Pozycje 1–9 i istniejące dalsze zapisy mają jawne statusy.
 Kliknięcie pozycji lub numerowanego obrysu na pełnym zdjęciu wczytuje dokładny
 zapis wraz z topologią i cropami; brak zapisu pozwala jawnie utworzyć propozycję.
-Niezapisane zmiany wymagają decyzji przed nawigacją. Zatwierdzenie pozycji 1–8
+Nawigacja porzuca niezapisane lokalne zmiany bez modalnego pytania i bez
+automatycznego zapisu. Nie ma promptu przy opuszczeniu karty. Busy/pending
+blokuje nawigację w aplikacji; jawny przycisk odczytu po konflikcie wystarcza
+bez dodatkowego potwierdzenia. Zatwierdzenie pozycji 1–8
 otwiera kolejną na tym samym zdjęciu; szkic i pozycja 9 pozostają na miejscu.
 Pełne zatwierdzenie jest jawnym kliknięciem bez checkboxa; aktor nowych decyzji
 geometrii to stały operator. Powiadomienia są wyłącznie toastami w lewym dolnym

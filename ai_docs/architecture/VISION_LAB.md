@@ -35,8 +35,9 @@ Odczyt GET /annotations oraz wyniki zapisu odświeżają ten stan monotonicznie
 według rewizji. Istniejący GET /sources jest pobierany partiami do pełnego
 katalogu metadanych; filtry anotacji poprzedzają paginację UI. Nie zmienia się API.
 Statusy i liczniki wynikają wyłącznie z trwałych anotacji; obecna pełna geometria
-wymaga full_approved i presence=present. Nawigacja chroni lokalne zmiany,
-a pending request blokuje opuszczenie edytora do retry lub jawnego odczytu.
+wymaga full_approved i presence=present. Nawigacja porzuca lokalne zmiany
+bez confirm i bez autosave; brak beforeunload. Busy/pending blokuje
+nawigację w aplikacji do retry lub jawnego odczytu przyciskiem bez modalu.
 Wspólna baza powiadomień packages/ui obsługuje kolejkę, deduplikację i zegar
 niezależnie od operacji; zamknięcie toastu nie zmienia stanu zapisu.
 

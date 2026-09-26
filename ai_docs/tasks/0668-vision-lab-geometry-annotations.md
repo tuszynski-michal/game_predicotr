@@ -192,8 +192,8 @@ zatwierdzenie. Nierozwiązane P0–P2 po dwóch cyklach blokują odbiór.
   (po automatycznym przejściu propozycja jest przygotowana bez zapisu).
   Przegląd pełnego zdjęcia pokazuje numerowane, klikalne obrysy zapisanych plansz.
 - Jeden właściciel stanu anotacji odświeża galerię, geometrię i rodziny po zapisie
-  oraz odczycie. Nawigacja, filtry i zmiana topologii wymagają jawnego odrzucenia
-  niezapisanych zmian; niepotwierdzone żądanie blokuje nawigację do rozstrzygnięcia.
+  oraz odczycie. Nawigacja, filtry i zmiana topologii porzucają niezapisane
+  zmiany bez pytania (korekta T03d); niepotwierdzone żądanie blokuje nawigację do rozstrzygnięcia.
   Baza toastów jest współdzielona w packages/ui, bez importu z Admina.
 
 - Ukryć pole osoby w edytorze geometrii; nowe decyzje mają `actor=operator`.
@@ -416,6 +416,29 @@ Skończone procesy limit120s. Bez zapisu realnych danych, roli777 i treningu.
 
 ### Outcome T03d
 
+Korekta bez modalnych potwierdzeń, zlecona 2026-09-27: usunąć window.confirm
+z nawigacji i jawnego reconcile oraz beforeunload. Nawigacja porzuca lokalne
+niezapisane zmiany bez autosave/autoapproval; busy/pending nadal blokuje
+nawigację w aplikacji, a CAS i retry bez zmian. Ten kontrakt zastępuje
+wcześniejszy wymóg pytania o odrzucenie lokalnej edycji. Pliki: Page,
+GeometryEditor, PhotoReviewPanel i test interakcji; dokumenty wymagań,
+architektury, plan i guide. Testy UI/lint/typecheck limit120s. Brak pytań
+blokujących i zmian API/danych; wykonanie/audyt według istniejącego T03d.
+
+Wynik korekty bez dialogów: wszystkie wywołania confirm i rejestracja
+beforeunload usunięte z lab UI. Testy **28/28 PASS** (0,89 s), format,
+ESLint, typecheck i diffcheck PASS. Mock confirm rzuca przy każdym wywołaniu,
+mock rejestracji zdarzeń odrzuca beforeunload. Regresje potwierdzają dirty
+nawigację bez zapisów, jawne odczyty geometrii/review bez pytania oraz
+zachowane blokady pending/busy i identyczne retry. API/backend bez zmian.
+Audyt Astra medium PASS bez P0–P2; niezależne testy interakcji 13/13 PASS
+(0,93 s). Produkcyjny build i nowy proces UI PASS, HTTP200 na3102.
+Przeglądarka: niezapisana propozycja → pozycja2 bez dialogu; ponowna
+niezapisana propozycja → reload bez dialogu. Testowano osobną kartę,
+bez zapisów/akceptacji; API i dane pozostają nietknięte. DoD korekty
+spełnione w tym zakresie; fizyczny Android i restart komputera niebadane.
+Commit korekty v1.7.10 (hash po commicie); nadrzędny T03 nadal blocked.
+
 Korekta ergonomii zlecona 2026-09-27 po odbiorze: przegląd zapisanych plansz
 na całym zdjęciu ma być domyślnie zwinięty przy wejściu na ekran, żeby
 ograniczyć przewijanie. Zakres: usunięcie `open` z istniejącego `details`
@@ -428,8 +451,9 @@ osobnego testu remount; natywna kontrolka zachowuje ręczne rozwijanie.
 Audyt korekty Astra medium PASS bez P0–P2; niezależne 12/12 testów (0,93 s).
 Build i restart wyłącznie UI PASS, HTTP 200 na 3102. Przeglądarka potwierdza
 open=false po wejściu i ręczne false→true→false przez nagłówek. API i dane
-pozostały nietknięte; fizycznego Androida nie badano. Commit korekty v1.7.9
-(hash uzupełniany po commicie); CURRENT_STATE prowadzi koordynator.
+pozostały nietknięte; fizycznego Androida nie badano. Commit korekty `v1.7.9`
+/ `f5680ba60b093c852389b234b34102e878ed564e`. Hash dopisany po commicie;
+następny patch v1.7.10 po kontroli historii. CURRENT_STATE prowadzi koordynator.
 
 Implementacja zamrożona do audytu 2026-09-27. Dodano trwały przegląd zdjęcia
 w istniejącym kontrakcie `/annotations`, mapę wersji zapisanych pozycji i SHA

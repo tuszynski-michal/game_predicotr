@@ -6,6 +6,23 @@ last_updated: 2026-09-26
 
 # Current State
 
+### Korekta T03d — bez przeglądarkowych potwierdzeń
+
+- Zlecenie użytkownika: usunąć modalne pytania o niezapisane zmiany w labie.
+  Nawigacja porzuca lokalny szkic bez pytania, autosave lub autoakceptacji;
+  jawne odświeżenie po konflikcie nie wymaga drugiego potwierdzenia.
+  Nie instalujemy ostrzeżenia beforeunload. Pending/busy nadal blokuje
+  nawigację wewnątrz aplikacji; CAS, retry i toasty pozostają.
+- Zakres: Page, GeometryEditor, PhotoReviewPanel, regresje i dokumentacja.
+  Bez zmian API, danych i innych aplikacji. Wykonanie Sol medium,
+  niezależny audyt Astra medium zgodnie z T03d. Baza v1.7.9 / f5680ba6;
+  commit korekty v1.7.10 (hash po commicie).
+- UI 28/28, format, lint i typecheck PASS. Audyt Astra medium PASS bez
+  P0–P2, niezależne interakcje 13/13 PASS. Build i restart wyłącznie UI
+  PASS, HTTP200 na3102. Browser QA: niezapisana propozycja → pozycja2
+  oraz reload z niezapisaną propozycją bez dialogów. Osobna karta, zero
+  zapisów/akceptacji. Nie badano fizycznego Androida ani restartu komputera.
+
 ### Korekta T03d — domyślnie zwinięty przegląd zdjęcia
 
 - Zlecenie użytkownika: ograniczyć przewijanie; sekcja „Przegląd zapisanych
@@ -14,7 +31,8 @@ last_updated: 2026-09-26
   Bez zmian API, danych, cropów ani akceptacji; ręczne rozwijanie pozostaje.
   Wykonanie i audyt według T03d: Sol medium / Astra medium.
 - Baza v1.7.8 / 067a0350d1f5569ffdafa4aa2cf60ae65168e2c9;
-  commit korekty v1.7.9 (hash po commicie).
+  commit korekty `v1.7.9` / `f5680ba60b093c852389b234b34102e878ed564e`.
+  Hash dopisany po commicie; następny patch v1.7.10 po kontroli historii.
 - Testy interakcji 12/12, lint, typecheck i build PASS. Niezależny audyt
   Astra medium PASS bez P0–P2, testy 12/12. Restart tylko UI (3102 HTTP 200);
   browser potwierdza domyślne zwinięcie i ręczne rozwijanie/zwijanie.

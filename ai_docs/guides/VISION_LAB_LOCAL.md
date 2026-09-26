@@ -181,9 +181,9 @@ planszy odtwarza jej topologię bez konwersji.
 bez dodatkowego checkboxa. Po zatwierdzeniu lokalizacji lub pełnej siatki
 pozycji 1–8 otwiera się kolejna pozycja tego samego zdjęcia: istniejący zapis
 albo niezapisana propozycja. Szkic i pozycja 9 pozostają na miejscu.
-Zmiana widoku wymaga odrzucenia niezapisanej pracy. Po utracie odpowiedzi
+Zmiana widoku porzuca niezapisaną pracę bez pytania i bez zapisu. Po utracie odpowiedzi
 „Ponów identyczne żądanie” bezpiecznie odtwarza wynik; „Odśwież po konflikcie”
-wymaga decyzji o zastąpieniu edycji aktualnym zapisem.
+zastępuje edycję aktualnym zapisem bez dodatkowego potwierdzenia.
 
 Powiadomienia pojawiają się w lewym dolnym rogu: sukces zielony, błąd czerwony,
 ostrzeżenie pomarańczowe, informacja neutralna. Kliknięcie lub „Zamknij” usuwa
@@ -217,8 +217,10 @@ Filtry „Do przeglądu”, „Do poprawy” i „Zaakceptowane” wraz z liczni
 obejmują całą grę. Akceptacja jest dodatkową bramką kwalifikacji/splitu,
 nie dowodem gotowości treningowej i nie zmienia roli `777`.
 
-Niezapisana geometria, wybór lub uwaga wymagają jawnej decyzji przed zmianą
-widoku. Przy niepewnym wyniku zapisu panel zachowuje identyczne żądanie do
+Nawigacja nie pyta o niezapisaną geometrię, wybór ani uwagę; lokalna praca
+może zostać porzucona bez zapisu. Opuszczenie karty także nie wyświetla pytania.
+Trwający lub niepotwierdzony zapis nadal blokuje nawigację w aplikacji.
+Przy niepewnym wyniku zapisu panel zachowuje identyczne żądanie do
 ponowienia; nie wysyłaj nowej decyzji, zanim wynik nie zostanie rozstrzygnięty.
 Stan przeglądu, historia i potwierdzenia są trwałe oraz objęte backupem.
 

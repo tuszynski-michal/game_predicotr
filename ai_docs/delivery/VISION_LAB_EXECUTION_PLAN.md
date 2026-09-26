@@ -243,7 +243,8 @@ na zdjęciu, filtry całej gry przed paginacją, statusy pozycji 1–9 i istniej
 dalszych, dokładne wczytanie zapisanej geometrii oraz klikalne numerowane obrysy
 na pełnym zdjęciu. Filtr „Z pełną siatką” oznacza co najmniej jeden taki zapis,
 nie kompletność zdjęcia ani kwalifikację treningową. Stan anotacji ma jednego
-właściciela, a niezapisane zmiany wymagają decyzji przed opuszczeniem edytora.
+właściciela. Zgodnie z korektą T03d nawigacja porzuca niezapisane zmiany
+bez potwierdzenia; busy/pending nadal blokuje nawigację w aplikacji.
 Testy obejmują ponowny odczyt, aktualizację po zapisie, paginację i różne topologie.
 
 ## T14 — końcowe ujednolicenie toastów w aplikacjach webowych
@@ -296,6 +297,10 @@ Korekta ergonomii T03d z 2026-09-27: istniejący przegląd całego zdjęcia
 domyślnie zwinięty przy wejściu; ręczne rozwijanie przez natywne `details`.
 Wyłącznie usunięcie `open`, regresja UI, lint/typecheck i zgodna dokumentacja;
 bez nowego stanu, API lub zmiany danych. Przypisanie modeli T03d bez zmian.
+Kolejna korekta T03d: usunięcie window.confirm i beforeunload z laboratorium.
+Nawigacja świadomie porzuca lokalny szkic bez autosave/autoapproval; busy/
+pending, CAS i retry pozostają. Jawny przycisk reconcile działa bez modalu.
+Regresje obejmują brak dialogów, brak zapisów przy nawigacji i blokadę pending.
 
 T03c (done po T03b): aktualizacja niezmiennego snapshotu folderu istniejącym
 importerem i bezpieczne przeniesienie anotacji do nowego katalogu. Preflight

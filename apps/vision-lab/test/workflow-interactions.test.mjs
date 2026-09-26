@@ -55,9 +55,13 @@ const { ToastProvider, useToast } =
   await import('../../../packages/ui/src/toasts.tsx');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 globalThis.window = {
-  addEventListener() {},
+  addEventListener(type) {
+    assert.notEqual(type, 'beforeunload');
+  },
   removeEventListener() {},
-  confirm: () => true,
+  confirm() {
+    throw new Error('Browser confirmation is forbidden in lab workflow');
+  },
 };
 globalThis.document = {
   addEventListener() {},
@@ -369,6 +373,58 @@ test('photo review mark and full repair stay on the corrected board until explic
   }
 });
 
+test('explicit review reconciliation needs no dialog and keeps navigation locked until read completes', async () => {
+  const harness = await mount({
+    revision: 1,
+    annotations: { 'source:0': annotation(0) },
+  });
+  try {
+    harness.failOnce();
+    await act(async () =>
+      button(harness.root, 'Akceptuj całe zdjęcie').props.onClick(),
+    );
+    let resolve;
+    harness.setRead(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    await act(async () => {
+      void button(
+        harness.root,
+        'Odśwież przegląd po konflikcie',
+      ).props.onClick();
+    });
+    assert.equal(
+      harness.root.root.findByProps({ 'aria-label': 'Edycja geometrii' }).props
+        .disabled,
+      true,
+    );
+    await act(async () =>
+      harness.root.root
+        .findByProps({ type: 'number' })
+        .props.onChange({ target: { value: '2' } }),
+    );
+    assert.equal(
+      harness.root.root.findByProps({ type: 'number' }).props.value,
+      1,
+    );
+    await act(async () =>
+      resolve({ revision: 2, annotations: { 'source:0': annotation(0) } }),
+    );
+    assert.equal(
+      harness.root.root.findByProps({ 'aria-label': 'Edycja geometrii' }).props
+        .disabled,
+      false,
+    );
+    assert.equal(harness.reviewRequests.length, 1);
+    assert.equal(harness.requests.length, 0);
+  } finally {
+    await act(async () => harness.root.unmount());
+  }
+});
+
 test('review response loss retains exact request, blocks geometry, and retry never repeats a new decision', async () => {
   const harness = await mount({
     revision: 1,
@@ -585,32 +641,32 @@ test('gallery filter finds approvals beyond first source page and restores persi
     await act(async () =>
       button(root, 'Nowa propozycja z narożników').props.onClick(),
     );
-    window.confirm = () => false;
-    await act(async () => filter.props.onChange({ target: { value: 'all' } }));
-    assert.equal(
-      root.root
-        .findAllByType('select')
-        .find((node) => node.props.value === 'full')?.props.value,
-      'full',
-    );
     const topology = root.root
       .findAllByType('select')
       .find((node) => node.props.value === 5);
     await act(async () => topology.props.onChange({ target: { value: '3' } }));
     assert.equal(
-      root.root.findAllByType('select').some((node) => node.props.value === 5),
+      root.root.findAllByType('select').some((node) => node.props.value === 3),
       true,
+    );
+    await act(async () => filter.props.onChange({ target: { value: 'all' } }));
+    assert.equal(
+      root.root
+        .findAllByType('select')
+        .find((node) => node.props.value === 'all')?.props.value,
+      'all',
     );
     const game = root.root
       .findAllByType('select')
       .find((node) => node.props.value === '');
     await act(async () => game.props.onChange({ target: { value: 'game' } }));
     assert.equal(
-      root.root.findAllByType('select').some((node) => node.props.value === ''),
+      root.root
+        .findAllByType('select')
+        .some((node) => node.props.value === 'game'),
       true,
     );
   } finally {
-    window.confirm = () => true;
     await act(async () => root.unmount());
   }
 });
@@ -668,7 +724,7 @@ test('lost response keeps request and position, toast dismissal does not clear r
     await act(async () => harness.root.unmount());
   }
 });
-test('dirty navigation requires a decision and conflict refresh locks until restored state is loaded', async () => {
+test('dirty navigation discards without confirmation or writes and conflict refresh still locks', async () => {
   const harness = await mount({
     revision: 1,
     annotations: { 'source:0': annotation(0) },
@@ -677,7 +733,6 @@ test('dirty navigation requires a decision and conflict refresh locks until rest
     await act(async () =>
       button(harness.root, 'Nowa propozycja z narożników').props.onClick(),
     );
-    window.confirm = () => false;
     await act(async () =>
       harness.root.root
         .findByProps({ type: 'number' })
@@ -685,9 +740,17 @@ test('dirty navigation requires a decision and conflict refresh locks until rest
     );
     assert.equal(
       harness.root.root.findByProps({ type: 'number' }).props.value,
-      1,
+      2,
     );
-    window.confirm = () => true;
+    assert.equal(harness.requests.length, 0);
+    await act(async () =>
+      harness.root.root
+        .findByProps({ type: 'number' })
+        .props.onChange({ target: { value: '1' } }),
+    );
+    await act(async () =>
+      button(harness.root, 'Nowa propozycja z narożników').props.onClick(),
+    );
     let resolve;
     harness.setRead(
       () =>
@@ -713,7 +776,6 @@ test('dirty navigation requires a decision and conflict refresh locks until rest
     );
     assert.equal(harness.previews.at(-1)[1], 3);
   } finally {
-    window.confirm = () => true;
     await act(async () => harness.root.unmount());
   }
 });

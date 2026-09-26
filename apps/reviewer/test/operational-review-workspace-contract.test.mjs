@@ -136,6 +136,14 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(deferredGeometryEditor, /Array\.from\(\{ length: 15 \}/);
   assert.match(deferredGeometryEditor, /previewIsCurrent/);
   assert.match(deferredGeometryEditor, /idempotencyRef/);
+  assert.match(
+    deferredGeometryEditor,
+    /operationalReviewTranslatedGeometryViewport/,
+  );
+  assert.match(deferredGeometryEditor, /panViewportRef/);
+  assert.match(deferredGeometryEditor, /Wycentruj widok na siatce/);
+  assert.match(deferredGeometryEditor, /przesunąć zdjęcie w widoku/);
+  assert.match(deferredGeometryEditor, /onPointerDown=\{startCanvasGesture\}/);
   assert.match(deferredGeometryEditor, /Zapisz geometrię i dalej/);
   assert.match(deferredGeometry, /onOrdinaryQueueChanged/);
   assert.match(reviewerStyles, /\.deferredGeometryQueue\s*\{/);

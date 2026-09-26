@@ -6,6 +6,24 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0699 — przesuwanie i centrowanie widoku w odroczonej korekcie siatki
+
+- Użytkownik potwierdził wykonanie kompletnego rozwiązania po weryfikacji
+  TASK-0693. `DeferredBoardCellGeometryEditor` pozwala teraz przeciągnąć tło,
+  aby lokalnie przesunąć viewport zdjęcia, albo użyć „Wycentruj widok na
+  siatce”. Uchwyt narożnika nadal zmienia tylko geometrię; przesunięcie widoku
+  nie zmienia qualification, preview, idempotency ani danych trwałych.
+- Czysta translacja viewportu ogranicza kompletną planszę do źródła i pozwala
+  częściowej obejmować szare tło poza nim. Zmiana narożnika, flagi częściowej
+  albo przywrócenie sugestii ponownie centruje widok na bieżącej geometrii.
+- Testy: 201/201 Reviewera, lint, typecheck i production build zielone. Test
+  `test:geometry` nie uruchamia się przed ładowaniem testów: Node 24 zwraca
+  `uv_os_get_passwd ENOMEM`. Żywy wpis Reviewera zwrócił błąd pobrania z API,
+  więc nie wykonano mutacji danych podczas ręcznego odbioru.
+- Nie wolno traktować przesunięcia widoku jako korekty geometrii ani próbować
+  odtwarzać brakujących pikseli. Faktycznie brakujące komórki nadal wymagają
+  `geometryQualification` z TASK-0693.
+
 ### TASK-0697 — ukończona naprawa upsertów V2
 
 - Trzy targety ON CONFLICT raw/normalized/payout zawierają wymagany `game_id`.

@@ -558,6 +558,31 @@ export function operationalReviewGeometryViewport(
   };
 }
 
+/**
+ * Moves only the source-space window shown by a geometry canvas. The saved
+ * lattice remains in the original image coordinate system.
+ */
+export function operationalReviewTranslatedGeometryViewport(
+  viewport: OperationalReviewGeometryViewport,
+  offset: OperationalImageReviewGeometryPoint,
+  imageWidth: number,
+  imageHeight: number,
+  allowOutsideSource = false,
+): OperationalReviewGeometryViewport {
+  const x = Math.round(viewport.x + offset.x);
+  const y = Math.round(viewport.y + offset.y);
+  if (allowOutsideSource) {
+    return { ...viewport, x, y };
+  }
+  const maxX = Math.max(0, Math.round(imageWidth) - viewport.width);
+  const maxY = Math.max(0, Math.round(imageHeight) - viewport.height);
+  return {
+    ...viewport,
+    x: Math.min(maxX, Math.max(0, x)),
+    y: Math.min(maxY, Math.max(0, y)),
+  };
+}
+
 export function operationalReviewNativeContextViewport(
   item: OperationalImageReviewItemResponse,
   imageWidth: number,

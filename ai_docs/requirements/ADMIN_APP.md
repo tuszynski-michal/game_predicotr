@@ -988,6 +988,16 @@ jest wykluczona z uczenia geometrii (`geometryQualification`,
 geometrii. Board zostaje `asset_mode=legacy_file` — ta ścieżka nie generuje
 wirtualnych, częściowo widocznych cropów jak `virtual_source`.
 
+W tym samym edytorze operator może przesunąć widok źródła, chwytając tło canvasu
+poza uchwytami narożników, oraz użyć akcji „Wycentruj widok na siatce”. Ruch
+zmienia wyłącznie lokalny viewport prezentacji: cztery narożniki, kwalifikacja,
+podgląd, klucz idempotencji i zapis pozostają w niezmienionych współrzędnych
+oryginalnego zdjęcia. Viewport jest ponownie centrowany także po zmianie
+narożnika, aby aktualna siatka nie znikała poza canvasem. W trybie „Niepełna
+plansza” może obejmować obszar poza zdjęciem, widoczny jako szare tło. Nie
+tworzy to brakujących pikseli; komórkę rzeczywiście poza kadrem operator nadal
+oznacza jako niedostępną i system zapisuje ją jako „?”.
+
 Po jawnym poleceniu właściciela, przykładowo po 1000 albo 3000 zweryfikowanych
 planszach, panel pozwala zamrozić nową kohortę feedbacku. Sam licznik nie
 uruchamia treningu. Nowy model używa niezmiennego eksportu i nie zmienia

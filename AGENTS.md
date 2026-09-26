@@ -75,13 +75,20 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 
 - Każdy ukończony task otrzymuje osobny commit. Niezależna poprawka błędu
   wykonana przed taskiem również wymaga osobnego commita.
-- Numer następnego commita wyznacz z najnowszego wersjonowanego commita w
-  bieżącym torze. Każdy kolejny commit zwiększa patch o jeden.
+- Dla pierwszego commita w bieżącym torze sprawdź historię aktualnego brancha
+  (`git log`) i ustal wersję na podstawie najnowszego wersjonowanego commita na
+  tym branchu. Nie zakładaj wersji z nazwy brancha ani nie używaj przykładowej
+  lub zapamiętanej wersji, takiej jak `v1.1`.
+- Każdy następny commit zwiększa patch o jeden względem poprzedniego commita w
+  tym torze. Po każdym commicie zapisz jego pełną wersję i hash w sekcji
+  `Outcome` aktywnego zadania oraz w `ai_docs/process/CURRENT_STATE.md`.
+  Przy kontynuacji odczytaj ten zapis i potwierdź go z historią bieżącego
+  brancha; w razie rozbieżności obowiązuje rzeczywisty commit na branchu.
 - Numer patch jest przypisany do kolejności commitów, nie do liczby zadań w
   commicie. Nie wolno ponownie użyć ani pominąć numeru bez jawnej decyzji
   użytkownika.
-- Komunikat commita zaczyna się od pełnej bieżącej wersji `vX.Y.N`; po niej może
-  zawierać krótki opis zakresu.
+- Komunikat commita ma format `vX.Y.N - {opis}`: zaczyna się od pełnej bieżącej
+  wersji ustalonej dla brancha, po której następuje krótki opis zakresu.
 - Przed commitem sprawdź `git diff --cached --check`, staged statystykę i listę
   staged plików. Po commicie sprawdź `git show --stat` oraz pozostały
   `git status`.

@@ -93,6 +93,7 @@ export function DeferredBoardCellGeometryEditor({
   const [viewportPanningEnabled, setViewportPanningEnabled] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState('');
+  const [sourceImageVersion, setSourceImageVersion] = useState(0);
   const [loadingSource, setLoadingSource] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -241,10 +242,14 @@ export function DeferredBoardCellGeometryEditor({
   useEffect(() => {
     if (context === null || sourceUrl === null) return;
     const image = new window.Image();
+    sourceImageRef.current = null;
+    setSourceImageVersion((version) => version + 1);
+    setLoadingSource(true);
     image.crossOrigin = 'anonymous';
     image.decoding = 'async';
     image.onload = () => {
       sourceImageRef.current = image;
+      setSourceImageVersion((version) => version + 1);
       setLoadingSource(false);
     };
     image.onerror = () => {
@@ -271,18 +276,13 @@ export function DeferredBoardCellGeometryEditor({
   const drawSource = useCallback(() => {
     const canvas = canvasRef.current;
     const image = sourceImageRef.current;
-    if (
-      canvas === null ||
-      image === null ||
-      corners === null ||
-      viewport === null
-    )
-      return;
+    if (canvas === null || corners === null || viewport === null) return;
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     const context2d = canvas.getContext('2d');
     if (context2d === null) return;
     context2d.clearRect(0, 0, canvas.width, canvas.height);
+    if (image === null) return;
     if (allowOutsideSource) {
       // The viewport may extend past the real photo when the board is
       // extrapolated beyond its frame; fill the gap before drawing the
@@ -378,7 +378,7 @@ export function DeferredBoardCellGeometryEditor({
         context2d.font = `bold ${Math.max(12, canvas.width / 65)}px sans-serif`;
         context2d.fillText(String(index + 1), point.x + 10, point.y - 10);
       });
-  }, [corners, viewport, allowOutsideSource]);
+  }, [corners, viewport, allowOutsideSource, sourceImageVersion]);
 
   useEffect(() => {
     drawSource();

@@ -150,6 +150,18 @@ test('operational workspace compares square cell crops with one cropped board', 
   );
   assert.match(deferredGeometryEditor, /panViewportRef/);
   assert.match(deferredGeometryEditor, /translateGridRef/);
+  assert.match(
+    deferredGeometryEditor,
+    /sourceImageVersion, setSourceImageVersion\] = useState\(0\)/,
+  );
+  assert.match(
+    deferredGeometryEditor,
+    /sourceImageRef\.current = null;[\s\S]*setSourceImageVersion\(\(version\) => version \+ 1\);[\s\S]*image\.onload = \(\) => \{[\s\S]*sourceImageRef\.current = image;[\s\S]*setSourceImageVersion\(\(version\) => version \+ 1\);/,
+  );
+  assert.match(
+    deferredGeometryEditor,
+    /\[corners, viewport, allowOutsideSource, sourceImageVersion\]/,
+  );
   assert.match(deferredGeometryEditor, /Wycentruj widok na siatce/);
   assert.match(deferredGeometryEditor, /Aktywne przesuwanie/);
   assert.match(

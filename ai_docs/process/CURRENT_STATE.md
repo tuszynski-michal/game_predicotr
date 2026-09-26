@@ -6,6 +6,14 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0705 — redraw obrazu po wejściu do odroczonej korekty
+
+- Zakończono: `Image.onload` inkrementuje stan-wersję źródła, więc canvas
+  rysuje obraz automatycznie po pierwszym wejściu do pozycji. Nowe ładowanie
+  czyści stary ref i redraw przed sukcesem, aby nie pokazać poprzedniej planszy
+  dla nowej pozycji. Nie zmieniono geometrii ani viewportu.
+- Weryfikacja: testy Reviewera 203/203, Prettier i `git diff --check` zielone.
+
 ### TASK-0704 — przesuwanie całej odroczonej siatki przy stałym kadrze
 
 - Zakończono: w kolejce „Niepełne siatki do ręcznej korekty” wnętrze siatki

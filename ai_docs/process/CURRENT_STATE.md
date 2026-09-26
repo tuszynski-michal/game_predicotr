@@ -6,6 +6,15 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0706 — domyślna zakładka niepełnych siatek
+
+- Zakończono: lokalny przełącznik dwóch kolejek otwiera „Niepełne siatki do
+  ręcznej korekty”, jeśli ma choć jedną pozycję, także gdy istnieją gotowe
+  siatki do walidacji. Przy zerowym liczniku pozostaje walidacja gotowych.
+- Weryfikacja kodu: testy Reviewera 203/203, Prettier i `git diff --check`
+  zielone. Lokalny serwer musi zostać przeładowany z aktualnego checkoutu
+  przed odbiorem URL-u.
+
 ### TASK-0705 — redraw obrazu po wejściu do odroczonej korekty
 
 - Zakończono: `Image.onload` inkrementuje stan-wersję źródła, więc canvas

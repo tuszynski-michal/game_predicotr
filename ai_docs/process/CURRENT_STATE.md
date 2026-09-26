@@ -6,6 +6,16 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0701 — dostęp do odczytu kolejki siatek przy niespójnej projekcji symboli
+
+- Zakończono: lokalny Reviewer może odczytać filtrowaną listę i asset źródłowy,
+  gdy globalny stan `image_symbol_review_states` gry jest `failed`; odczyt nie
+  wymaga projekcji komórek symboli. Mutacje geometrii nadal są fail-closed przy
+  `IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`.
+- Weryfikacja: 18 testów API, Ruff, format i mypy są zielone. Żywy lokalny
+  odczyt importu `f786fed3-9814-42ce-941f-9cb04cbe2c17` oraz jego assetu zwrócił
+  `200`; nie uruchomiono joba odbudowy i nie zmieniono danych użytkownika.
+
 ### TASK-0700 — jawny tryb przesuwania kadru odroczonej siatki
 
 - Usunięto regresję TASK-0699: checkbox „Aktywne przesuwanie” jest lokalny i

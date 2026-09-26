@@ -36,6 +36,8 @@ class ImageGridReviewListSlice:
 class ImageGridReviewRepository(Protocol):
     def require_game(self, game_id: UUID) -> None: ...
 
+    def require_ready_game(self, game_id: UUID) -> None: ...
+
     def list_grid_reviews(
         self,
         *,
@@ -203,7 +205,7 @@ class ImageGridReviewService:
         actor: str,
     ) -> ImageGridApprovalResult:
         _validate_sha256(expected_source_checksum_sha256)
-        self._repository.require_game(game_id)
+        self._repository.require_ready_game(game_id)
         return self._repository.approve_grid_geometry(
             game_id=game_id,
             review_item_id=review_item_id,
@@ -237,7 +239,7 @@ class ImageGridReviewService:
             )
         for target in targets:
             _validate_sha256(target.expected_source_checksum_sha256)
-        self._repository.require_game(game_id)
+        self._repository.require_ready_game(game_id)
         return self._repository.approve_source_grid_geometry(
             game_id=game_id,
             source_image_id=source_image_id,

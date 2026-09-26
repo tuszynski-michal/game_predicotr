@@ -2388,6 +2388,14 @@ z grą, widokiem, importem, źródłem i kierunkiem; nie może zostać odtworzon
 innym scope. Odpowiedź zwraca liczniki wszystkich trzech stanów dla tego samego
 scope gry/importu/źródła.
 
+Odczyt listy oraz checksum-bound assetu źródłowego sprawdza istnienie gry, ale
+nie wymaga gotowej projekcji pojedynczych komórek symboli: kolejka geometrii
+czyta własne aktualne plansze i źródła. Każda mutacja geometrii nadal wymaga
+tej projekcji; stan `failed` albo niegotowy zwraca przed zapisem `409
+IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`. Dzięki temu operator może obejrzeć
+i zdiagnozować wskazany import bez ryzyka zapisania geometrii przy niespójnych
+cropach.
+
 Element kolejki zawiera ponadto immutable identity zdjęcia źródłowego,
 `positionIndex` aktywnego slotu, `assetMode`, nazwę i wersję silnika geometrii,
 `boardConfidence` oraz wersjonowane `reasonCodes`. Lokalny Reviewer może dzięki

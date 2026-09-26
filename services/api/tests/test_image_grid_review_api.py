@@ -150,10 +150,19 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
         self.items = items
         self.source_path = source_path
         self.approved: list[UUID] = []
+        self.projection_ready = True
 
     def require_game(self, game_id: UUID) -> None:
         if not self.items or self.items[0].game_id != game_id:
             raise ImageGridReviewError("GAME_NOT_FOUND", "missing")
+
+    def require_ready_game(self, game_id: UUID) -> None:
+        self.require_game(game_id)
+        if not self.projection_ready:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE",
+                "The current symbol-cell projection is not ready for grid validation.",
+            )
 
     def list_grid_reviews(
         self,
@@ -796,6 +805,68 @@ def test_grid_review_api_lists_keyset_page_and_approves_exact_revision(tmp_path:
     )
     assert asset.status_code == 200
     assert asset.content == SOURCE_BYTES
+
+
+def test_grid_review_read_paths_remain_available_when_symbol_projection_is_incomplete(
+    tmp_path: Path,
+) -> None:
+    client, repository, items = _client(tmp_path)
+    repository.projection_ready = False
+    target = replace(items[0], source_image_id=uuid4())
+    repository.items = (target,)
+
+    listing = client.get(
+        f"/api/v1/admin/games/{target.game_id}/grid-reviews",
+        params={"view": "all", "importJobId": str(target.import_job_id), "limit": 1},
+    )
+    asset = client.get(
+        f"/api/v1/admin/image-reviews/{target.review_item_id}/source-asset",
+        params={
+            "gameId": str(target.game_id),
+            "expectedSourceChecksumSha256": target.source_checksum_sha256,
+        },
+    )
+    approval = client.post(
+        f"/api/v1/admin/image-reviews/{target.review_item_id}/geometry-approval",
+        params={"gameId": str(target.game_id)},
+        json={
+            "expectedResolutionRevision": target.resolution_revision,
+            "expectedGeometryRevision": target.geometry_revision,
+            "expectedSourceChecksumSha256": target.source_checksum_sha256,
+            "expectedSourceWidth": target.source_width,
+            "expectedSourceHeight": target.source_height,
+            "expectedGridRows": target.topology.rows,
+            "expectedGridColumns": target.topology.columns,
+        },
+    )
+    source_approval = client.post(
+        f"/api/v1/admin/games/{target.game_id}/grid-reviews/source-geometry-approval",
+        json={
+            "sourceImageId": str(target.source_image_id),
+            "targets": [
+                {
+                    "reviewItemId": str(target.review_item_id),
+                    "expectedResolutionRevision": target.resolution_revision,
+                    "expectedGeometryRevision": target.geometry_revision,
+                    "expectedSourceChecksumSha256": target.source_checksum_sha256,
+                    "expectedSourceWidth": target.source_width,
+                    "expectedSourceHeight": target.source_height,
+                    "expectedGridRows": target.topology.rows,
+                    "expectedGridColumns": target.topology.columns,
+                }
+            ],
+        },
+    )
+
+    assert listing.status_code == 200
+    assert [item["importJobId"] for item in listing.json()["items"]] == [str(target.import_job_id)]
+    assert asset.status_code == 200
+    assert asset.content == SOURCE_BYTES
+    assert approval.status_code == 409
+    assert approval.json()["code"] == "IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE"
+    assert source_approval.status_code == 409
+    assert source_approval.json()["code"] == "IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE"
+    assert repository.approved == []
 
 
 def test_grid_review_api_approves_one_source_atomically_from_one_snapshot(

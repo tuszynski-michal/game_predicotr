@@ -102,6 +102,17 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
     def require_game(self, game_id: UUID) -> None:
         if self._session.get(GameModel, game_id) is None:
             raise ImageGridReviewError("GAME_NOT_FOUND", "The selected game does not exist.")
+
+    def require_ready_game(self, game_id: UUID) -> None:
+        """Reject geometry writes until the checksum-bound cell projection is usable.
+
+        Grid-list and source-asset reads deliberately do not need this guard:
+        they read their own current board/source projections and let an operator
+        inspect the affected import.  A geometry decision, by contrast, invokes
+        write-through synchronization of symbol cells and must remain fail-closed.
+        """
+
+        self.require_game(game_id)
         state = self._session.get(ImageSymbolReviewStateModel, game_id)
         if not symbol_cell_review_projection_is_available(
             self._session,

@@ -237,6 +237,7 @@ class SqlAlchemyPayoutStore:
         statement = insert(LayoutPayoutModel).values(values)
         statement = statement.on_conflict_do_update(
             index_elements=[
+                "game_id",
                 LayoutPayoutModel.dataset_version_id,
                 LayoutPayoutModel.rules_version_id,
                 LayoutPayoutModel.sequence_number,

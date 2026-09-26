@@ -6,6 +6,57 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0697 — ukończona naprawa upsertów V2
+
+- Trzy targety ON CONFLICT raw/normalized/payout zawierają wymagany `game_id`.
+- Regresje: 3 passed w41,41s, retry po dispose/nowej sesji, brak scope42P01,
+  obca gra23503. Ruff/format/mypy czterech plików passed (MYPYPATH jawnie).
+- Niezależny audit gpt-6-astra/medium: brak P0–P2, kryteria taska spełnione.
+  Task przeniesiony do completed; naprawa nie zmienia API, schematu ani danych
+  użytkownika. Nie rozwiązuje globalnego owner routing — to TASK-0698.
+
+### TASK-0687 — T08 readiness release V2-only: krytyczna bramka przed T09–T12
+
+- Użytkownik polecił dokończyć T08 i samodzielnie rozstrzygać zwykłe kwestie
+  techniczne. Baza użytkownika została tylko odczytana i nadal ma Alembic
+  `0124`; migracji 0125 nie zastosowano. Kod bazowy to commit `v0.10.451` z
+  niezatwierdzonymi zmianami fixture. Release jest source-run; smoke zapisuje
+  revision i hash źródeł/config, osobna binarka nie jest wymagana.
+- Na izolowanym head 0125 po naprawie części fixture przeszły browser
+  retention 1/1, katalog 1/1 i worker job store 1/1. Raport importu po
+  usunięciu błędu routingu nadal ma wcześniejszy dryf kodu błędu, a test
+  HTTP M2 kończy się 422 na tworzeniu symbolu. Poprzednia sesja zgłosiła
+  49 failed / 64 passed w pełnych 28 plikach integracyjnych; tego przebiegu
+  nie powtórzono. Szczegóły i granice dowodu:
+  `quality/LEGACY_PUBLIC_STORE_RELEASE_READINESS.md`.
+- Użytkownik doprecyzował zlecenie całego pozostałego planu do T12 i auditów;
+  T08 wznowiono. TASK-0694 grupuje naprawy fixture/asercji po 0125,
+  TASK-0695 niezwiązane rozjazdy kontraktu, TASK-0697 trzy rzeczywiste klucze
+  konfliktu upsertów workera bez `game_id`.
+- Sprostowanie środowiska: `.venv` działa z Pythonem 3.12.10 poza sandboxem.
+  Brak startu w sandboxie nie dowodził brakującej instalacji; błędnie utworzone
+  TASK-0696 wycofano. Mypy ma dodatkowo niepoprawny separator `;` w wartości
+  config `mypy_path`; sam Python nie wymaga reinstalacji.
+- Nowy smoke ujawnił rzeczywiste nieobsłużone globalne wejścia V2: odczyt
+  layoutów przez `datasetId` oraz wielogrowe release bez bind. T09 pozostaje
+  `no-go` do rozstrzygnięcia tych problemów; nie wolno ukrywać ich dodatkowym
+  scope w fixture. Przygotowawczy read-only preflight z 07:16:30 CEST jest
+  `ready` (65 pustych tabel, 3 active V2), ale nie jest zgodą na apply.
+- Końcowy smoke rzeczywistych procesów trwał67,56s: trwały worker completed,
+  restart API i drugi worker no_job,65 public absent, missing location409.
+  Pozostały HTTP500 dataset layouts/review-batches i422 geometry schema3.
+  Test oraz wynik zachowane; procesy/bazy izolowane posprzątane.
+- Naprawione fixture: imagebatch15/16, catalog2/2, image selection4/4.
+  Pozostały duplicate pending oraz wcześniejsze błędy typów zgrupowano z
+  dryfem kontraktów i schema3 w TASK-0695. Pełnej suite nie powtórzono;
+  TASK-0694 nie jest done. Audit fixture/smoke: brak nowych P0–P2.
+- Krytyczny audit potwierdził konflikt accepted D-038 (źródła i rodzic
+  release w jednej transakcji) z pojedynczą grą per transakcja V2.
+  TASK-0698 zapisuje pytanie i rekomendację jawnego koordynatora atomowej
+  operacji wielu gier. Nie podjęto ukrytej zmiany D-038/RLS. To warunek
+  wymagający decyzji użytkownika; T09–T12 nie wykonano. Samo polecenie całego
+  planu nie zastępuje wymaganej później zgody na exact path/hash preflightu.
+
 ### TASK-0693 — niepełna plansza w odroczonej korekcie geometrii komórek (D-449)
 
 - Zgłoszenie użytkownika: ekran „Weryfikacja plansz” → kolejka „Niepełne

@@ -153,6 +153,15 @@ test('operational workspace compares square cell crops with one cropped board', 
     /else if \(viewportPanningEnabled\) \{[\s\S]*panViewportRef\.current/,
   );
   assert.match(deferredGeometryEditor, /Obraz\s+pozostaje statyczny/);
+  assert.match(
+    deferredGeometryEditor,
+    /\{\s*recenterViewport = false,\s*\}: \{ readonly recenterViewport\?: boolean \} = \{\}/,
+  );
+  assert.match(deferredGeometryEditor, /replaceCorners\(next\);/);
+  assert.match(
+    deferredGeometryEditor,
+    /replaceCorners\(deferredBoardCellGeometryCorners\(context\), \{\s*recenterViewport: true,/,
+  );
   assert.match(deferredGeometryEditor, /onPointerDown=\{startCanvasGesture\}/);
   assert.match(deferredGeometryEditor, /Zapisz geometrię i dalej/);
   assert.match(deferredGeometry, /onOrdinaryQueueChanged/);

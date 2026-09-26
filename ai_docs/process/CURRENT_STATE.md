@@ -6,6 +6,17 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0703 — stały viewport podczas korekty odroczonej siatki
+
+- Zakończono: drag narożnika w `DeferredBoardCellGeometryEditor` aktualizuje
+  tylko geometrię. Domyślny viewport zachowuje stałe `x`, `y`, szerokość i
+  wysokość, więc obraz nie zmienia już pozornego zoomu przy wyłączonym
+  „Aktywnym przesuwaniu”. Centrowanie jest możliwe wyłącznie po jawnym
+  przywróceniu sugestii albo kliknięciu „Wycentruj widok na siatce”.
+- Weryfikacja: testy Reviewera 201/201, Prettier i `git diff --check` zielone.
+  Lokalne lint/typecheck/test geometry nie wystartowały z powodu brakujących
+  binariów `eslint`, `tsc`, `tsx` w `node_modules`; nie zmieniano zależności.
+
 ### TASK-0702 — kanoniczna rewizja przy ręcznym zapisie odroczonej geometrii
 
 - Zakończono: `manual-resolution` z kolejki „Niepełne siatki do ręcznej

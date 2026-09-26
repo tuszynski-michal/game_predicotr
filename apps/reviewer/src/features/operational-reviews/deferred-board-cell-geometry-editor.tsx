@@ -119,11 +119,16 @@ export function DeferredBoardCellGeometryEditor({
   }, []);
 
   const replaceCorners = useCallback(
-    (next: OperationalReviewGeometryCorners) => {
+    (
+      next: OperationalReviewGeometryCorners,
+      {
+        recenterViewport = false,
+      }: { readonly recenterViewport?: boolean } = {},
+    ) => {
       clearPreview();
       idempotencyRef.current = null;
       setCorners(next);
-      if (context !== null) {
+      if (recenterViewport && context !== null) {
         setViewport(
           operationalReviewGeometryViewport(
             next,
@@ -601,7 +606,9 @@ export function DeferredBoardCellGeometryEditor({
               className="textButton"
               disabled={saving}
               onClick={() =>
-                replaceCorners(deferredBoardCellGeometryCorners(context))
+                replaceCorners(deferredBoardCellGeometryCorners(context), {
+                  recenterViewport: true,
+                })
               }
               type="button"
             >

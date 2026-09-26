@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus
 from game_predictor_api.domain.jobs import JobConflictError, JobStatus, JobType, create_job
@@ -16,11 +17,12 @@ from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.browser_staging_retention_repository import (
     SqlAlchemyBrowserStagingRetentionRepository,
 )
+from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
     BrowserSelectionRetentionModel,
-    GameModel,
     ImageBoardGeometryPendingModel,
     ImageFileExecutionModel,
     ImageImportJobFileModel,
@@ -87,166 +89,165 @@ def _seed_staging(
     geometry_source: str,
     geometry_revision: int,
     now: datetime,
-) -> UUID:
-    game = GameModel(
+) -> tuple[UUID, UUID]:
+    game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
         code=f"browser-retention-{suffix}",
         name=f"Browser retention {suffix}",
         status=GameStatus.ACTIVE,
     )
-    session.add(game)
-    session.flush()
-    rules = RulesVersionModel(
-        game_id=game.id,
-        version=1,
-        rows=3,
-        columns=3,
-        spin_cost=0,
-        status=RulesVersionStatus.DRAFT,
-        created_at=now,
-        published_at=None,
-    )
-    session.add(rules)
-    session.flush()
-    job = SqlAlchemyJobRepository(session).add_job(
-        create_job(
-            JobType.IMPORT,
+    with game_storage_scope(game.id):
+        rules = RulesVersionModel(
             game_id=game.id,
-            input_payload={
-                "schema_version": 1,
-                "import_kind": "image_directory",
-                "source_selection_id": str(upload_id),
-                "pipeline_fingerprint": "c" * 64,
-            },
+            version=1,
+            rows=3,
+            columns=3,
+            spin_cost=0,
+            status=RulesVersionStatus.DRAFT,
             created_at=now,
+            published_at=None,
         )
-    )
-    job_record = session.get(JobModel, job.id)
-    assert job_record is not None
-    job_record.status = JobStatus.CANCELLED
-    job_record.finished_at = now
-
-    execution_key = suffix * 64
-    source_checksum = suffix * 64
-    session.add(
-        ImageFileExecutionModel(
-            file_execution_key=execution_key,
-            source_checksum_sha256=source_checksum,
-            pipeline_fingerprint="c" * 64,
-            checkpoint_payload={"schemaVersion": 1},
-            status="waiting_for_review",
-            review_required=True,
-            created_at=now,
-        )
-    )
-    session.add(
-        ImageImportJobFileModel(
-            job_id=job.id,
-            file_execution_key=execution_key,
-            order_index=0,
-            source_relative_path=f"page-{suffix}.jpg",
-            workflow_checkpoint_payload={"schemaVersion": 1},
-            workflow_status="waiting_for_review",
-            review_required=True,
-            created_at=now,
-        )
-    )
-    session.add(
-        ImagePipelineStageResultModel(
-            file_execution_key=execution_key,
-            stage="board_cell_geometry",
-            adapter_version="browser-retention-test-v1",
-            result_payload={},
-            created_at=now,
-        )
-    )
-    source = SourceImageModel(
-        import_job_id=job.id,
-        file_execution_key=execution_key,
-        relative_path=f"page-{suffix}.jpg",
-        checksum_sha256=source_checksum,
-        width=1440,
-        height=1920,
-        status="waiting_for_review",
-        created_at=now,
-    )
-    session.add(source)
-    session.flush()
-    session.add(
-        ImageSourceGeometryRevisionModel(
-            game_id=game.id,
-            source_image_id=source.id,
-            topology_rules_version_id=rules.id,
-            revision=geometry_revision,
-            sequence_range_start=1,
-            sequence_range_end=9,
-            active_board_slots=list(range(9)),
-            coordinate_space="exif-normalized-rgb-pixels-v1",
-            source_checksum_sha256=source_checksum,
-            normalized_pixel_checksum_sha256="b" * 64,
-            oriented_width=1440,
-            oriented_height=1920,
-            normalization_adapter_version="normalization-test-v1",
-            global_initialization={},
-            board_geometries=[{} for _ in range(9)],
-            engine_kind="structured_opencv_v1",
-            engine_version="structured-test-v1",
-            geometry_source=geometry_source,
-            status="needs_review",
-            geometry_checksum_sha256="d" * 64,
-            topology_fingerprint_sha256=None,
-            sequence_attestation_schema_version=None,
-            sequence_attestation_checksum_sha256=None,
-            processing_time_ms=1,
-            warnings=[],
-            created_by="browser-retention-test",
-            created_at=now,
-        )
-    )
-    for position_index in range(9):
-        session.add(
-            ImageBoardGeometryPendingModel(
+        session.add(rules)
+        session.flush()
+        job = SqlAlchemyJobRepository(session).add_job(
+            create_job(
+                JobType.IMPORT,
                 game_id=game.id,
-                import_job_id=job.id,
-                source_image_id=source.id,
-                recognized_board_id=None,
-                review_item_id=None,
-                sequence_number=position_index + 1,
-                position_index=position_index,
-                source_checksum_sha256=source_checksum,
-                source_relative_path=f"page-{suffix}.jpg",
-                status="pending",
-                reason_code="residual_too_high",
-                processing_manifest_checksum_sha256="e" * 64,
-                processing_manifest_relative_path="manifests/processing.json",
-                pipeline_fingerprint_sha256="c" * 64,
-                expected_geometry_revision=0,
-                expected_review_resolution_revision=0,
-                resolved_geometry_revision=None,
+                input_payload={
+                    "schema_version": 1,
+                    "import_kind": "image_directory",
+                    "source_selection_id": str(upload_id),
+                    "pipeline_fingerprint": "c" * 64,
+                },
                 created_at=now,
-                updated_at=now,
-                resolved_at=None,
-                superseded_at=None,
             )
         )
-    session.add(
-        BrowserSelectionRetentionModel(
-            upload_id=upload_id,
-            game_id=game.id,
-            import_job_id=job.id,
-            display_name=f"browser-retention-{suffix}",
-            state="in_use",
-            manifest_checksum_sha256="f" * 64,
-            managed_manifest_relative_path=None,
-            managed_manifest_checksum_sha256=None,
-            finalized_at=now,
-            last_dependency_at=now,
-            eligible_at=None,
-            blocked_reason=None,
-            updated_at=now,
+        job_record = session.get(JobModel, job.id)
+        assert job_record is not None
+        job_record.status = JobStatus.CANCELLED
+        job_record.finished_at = now
+
+        execution_key = suffix * 64
+        source_checksum = suffix * 64
+        session.add(
+            ImageFileExecutionModel(
+                file_execution_key=execution_key,
+                source_checksum_sha256=source_checksum,
+                pipeline_fingerprint="c" * 64,
+                checkpoint_payload={"schemaVersion": 1},
+                status="waiting_for_review",
+                review_required=True,
+                created_at=now,
+            )
         )
-    )
-    session.flush()
-    return job.id
+        session.add(
+            ImageImportJobFileModel(
+                job_id=job.id,
+                file_execution_key=execution_key,
+                order_index=0,
+                source_relative_path=f"page-{suffix}.jpg",
+                workflow_checkpoint_payload={"schemaVersion": 1},
+                workflow_status="waiting_for_review",
+                review_required=True,
+                created_at=now,
+            )
+        )
+        session.add(
+            ImagePipelineStageResultModel(
+                file_execution_key=execution_key,
+                stage="board_cell_geometry",
+                adapter_version="browser-retention-test-v1",
+                result_payload={},
+                created_at=now,
+            )
+        )
+        source = SourceImageModel(
+            import_job_id=job.id,
+            file_execution_key=execution_key,
+            relative_path=f"page-{suffix}.jpg",
+            checksum_sha256=source_checksum,
+            width=1440,
+            height=1920,
+            status="waiting_for_review",
+            created_at=now,
+        )
+        session.add(source)
+        session.flush()
+        session.add(
+            ImageSourceGeometryRevisionModel(
+                game_id=game.id,
+                source_image_id=source.id,
+                topology_rules_version_id=rules.id,
+                revision=geometry_revision,
+                sequence_range_start=1,
+                sequence_range_end=9,
+                active_board_slots=list(range(9)),
+                coordinate_space="exif-normalized-rgb-pixels-v1",
+                source_checksum_sha256=source_checksum,
+                normalized_pixel_checksum_sha256="b" * 64,
+                oriented_width=1440,
+                oriented_height=1920,
+                normalization_adapter_version="normalization-test-v1",
+                global_initialization={},
+                board_geometries=[{} for _ in range(9)],
+                engine_kind="structured_opencv_v1",
+                engine_version="structured-test-v1",
+                geometry_source=geometry_source,
+                status="needs_review",
+                geometry_checksum_sha256="d" * 64,
+                topology_fingerprint_sha256=None,
+                sequence_attestation_schema_version=None,
+                sequence_attestation_checksum_sha256=None,
+                processing_time_ms=1,
+                warnings=[],
+                created_by="browser-retention-test",
+                created_at=now,
+            )
+        )
+        for position_index in range(9):
+            session.add(
+                ImageBoardGeometryPendingModel(
+                    game_id=game.id,
+                    import_job_id=job.id,
+                    source_image_id=source.id,
+                    recognized_board_id=None,
+                    review_item_id=None,
+                    sequence_number=position_index + 1,
+                    position_index=position_index,
+                    source_checksum_sha256=source_checksum,
+                    source_relative_path=f"page-{suffix}.jpg",
+                    status="pending",
+                    reason_code="residual_too_high",
+                    processing_manifest_checksum_sha256="e" * 64,
+                    processing_manifest_relative_path="manifests/processing.json",
+                    pipeline_fingerprint_sha256="c" * 64,
+                    expected_geometry_revision=0,
+                    expected_review_resolution_revision=0,
+                    resolved_geometry_revision=None,
+                    created_at=now,
+                    updated_at=now,
+                    resolved_at=None,
+                    superseded_at=None,
+                )
+            )
+        session.add(
+            BrowserSelectionRetentionModel(
+                upload_id=upload_id,
+                game_id=game.id,
+                import_job_id=job.id,
+                display_name=f"browser-retention-{suffix}",
+                state="in_use",
+                manifest_checksum_sha256="f" * 64,
+                managed_manifest_relative_path=None,
+                managed_manifest_checksum_sha256=None,
+                finalized_at=now,
+                last_dependency_at=now,
+                eligible_at=None,
+                blocked_reason=None,
+                updated_at=now,
+            )
+        )
+        session.flush()
+        return job.id, game.id
 
 
 def test_discard_unused_removes_only_automatic_empty_geometry_history(
@@ -260,8 +261,8 @@ def test_discard_unused_removes_only_automatic_empty_geometry_history(
     manual_upload_id = uuid4()
 
     try:
-        with Session(engine, expire_on_commit=False) as session:
-            automatic_job_id = _seed_staging(
+        with session_factory() as session:
+            automatic_job_id, automatic_game_id = _seed_staging(
                 session,
                 upload_id=automatic_upload_id,
                 suffix="1",
@@ -269,7 +270,7 @@ def test_discard_unused_removes_only_automatic_empty_geometry_history(
                 geometry_revision=0,
                 now=now,
             )
-            manual_job_id = _seed_staging(
+            manual_job_id, manual_game_id = _seed_staging(
                 session,
                 upload_id=manual_upload_id,
                 suffix="2",
@@ -282,7 +283,7 @@ def test_discard_unused_removes_only_automatic_empty_geometry_history(
         repository = SqlAlchemyBrowserStagingRetentionRepository(session_factory)
         repository.discard_unused(upload_id=automatic_upload_id)
 
-        with Session(engine) as session:
+        with game_storage_scope(automatic_game_id), session_factory() as session:
             assert session.get(BrowserSelectionRetentionModel, automatic_upload_id) is None
             assert session.get(JobModel, automatic_job_id) is None
             assert (
@@ -294,14 +295,28 @@ def test_discard_unused_removes_only_automatic_empty_geometry_history(
                 == 0
             )
             assert (
-                session.scalar(select(func.count()).select_from(ImageSourceGeometryRevisionModel))
-                == 1
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSourceGeometryRevisionModel)
+                    .where(ImageSourceGeometryRevisionModel.game_id == automatic_game_id)
+                )
+                == 0
             )
-            assert session.scalar(select(func.count()).select_from(SourceImageModel)) == 1
-            assert session.scalar(select(func.count()).select_from(ImageImportJobFileModel)) == 1
-            assert session.scalar(select(func.count()).select_from(ImageFileExecutionModel)) == 1
             assert (
-                session.scalar(select(func.count()).select_from(ImagePipelineStageResultModel)) == 1
+                session.scalar(
+                    select(func.count())
+                    .select_from(SourceImageModel)
+                    .where(SourceImageModel.import_job_id == automatic_job_id)
+                )
+                == 0
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageImportJobFileModel)
+                    .where(ImageImportJobFileModel.job_id == automatic_job_id)
+                )
+                == 0
             )
 
         with pytest.raises(JobConflictError) as protected_error:
@@ -309,7 +324,7 @@ def test_discard_unused_removes_only_automatic_empty_geometry_history(
         assert protected_error.value.code == "IMAGE_BROWSER_SELECTION_DELETE_HAS_RESULTS"
         assert protected_error.value.details["protectedSourceGeometryRevisionCount"] == 1
 
-        with Session(engine) as session:
+        with game_storage_scope(manual_game_id), session_factory() as session:
             assert session.get(BrowserSelectionRetentionModel, manual_upload_id) is not None
             assert session.get(JobModel, manual_job_id) is not None
             assert (
@@ -319,6 +334,36 @@ def test_discard_unused_removes_only_automatic_empty_geometry_history(
                     .where(ImageBoardGeometryPendingModel.import_job_id == manual_job_id)
                 )
                 == 9
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSourceGeometryRevisionModel)
+                    .where(ImageSourceGeometryRevisionModel.game_id == manual_game_id)
+                )
+                == 1
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(SourceImageModel)
+                    .where(SourceImageModel.import_job_id == manual_job_id)
+                )
+                == 1
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageImportJobFileModel)
+                    .where(ImageImportJobFileModel.job_id == manual_job_id)
+                )
+                == 1
+            )
+
+        with session_factory() as session:
+            assert session.scalar(select(func.count()).select_from(ImageFileExecutionModel)) == 1
+            assert (
+                session.scalar(select(func.count()).select_from(ImagePipelineStageResultModel)) == 1
             )
     finally:
         engine.dispose()

@@ -1,10 +1,23 @@
 ---
 title: Audyt dostępu game-owned przez V2
-status: accepted
-last_updated: 2026-09-25
+status: needs_revision
+last_updated: 2026-09-26
 ---
 
 # Audyt TASK-0682 — dostęp game-owned przez V2
+
+## Korekta po T08 — 2026-09-26
+
+Poniższy historyczny audyt nie pokrył wszystkich globalnych wejść i nie
+jest pełnym dowodem V2 readiness. Fresh-process smoke potwierdził HTTP500
+dataset layouts po ID i globalnej listy review batches. Release workflow
+również czyta game-owned bez bind; ANDROID_BUILD ma game_id=None, więc
+gwarancja generic workera z tabeli dotyczy tylko jobów z przypisaną grą.
+Niezależny audit gpt-6-astra/medium potwierdził dwa P1 i konflikt D-038
+z zasadą jednej gry per transakcja. Wyniki/przyczyny:
+`LEGACY_PUBLIC_STORE_RELEASE_READINESS.md`; rozstrzygnięcie: TASK-0698.
+Nie zmieniono historycznych dowodów dla prawidłowo zbadanych powierzchni;
+wniosek o kompletności wycofano. T09 pozostaje no-go.
 
 ## Zakres i metoda
 

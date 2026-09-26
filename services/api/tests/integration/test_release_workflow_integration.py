@@ -3,11 +3,12 @@ import os
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.mobile_releases import MobileReleaseService
 from game_predictor_api.config import ApiSettings
@@ -19,14 +20,15 @@ from game_predictor_api.domain.mobile_releases import (
     MobileReleaseStatus,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.mobile_release_repository import (
     SqlAlchemyMobileReleaseRepository,
 )
 from game_predictor_api.storage.models import (
     DatasetVersionModel,
-    GameModel,
     LayoutModel,
     LayoutPayoutModel,
     RulesVersionModel,
@@ -136,21 +138,11 @@ class _DeterministicAndroidBuilder:
         )
 
 
-def _seed_complete_release_source(session: Session) -> MobileReleaseGameInput:
-    game_id = uuid4()
+def _seed_complete_release_source(session: Session, game_id: UUID) -> MobileReleaseGameInput:
     rules_id = uuid4()
     dataset_id = uuid4()
     symbol_id = uuid4()
     created_at = datetime(2026, 7, 27, 12, tzinfo=UTC)
-    session.add(
-        GameModel(
-            id=game_id,
-            code="release-game",
-            name="Release game",
-            status=GameStatus.ACTIVE,
-        )
-    )
-    session.flush()
     session.add(
         SymbolModel(
             id=symbol_id,
@@ -274,8 +266,15 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
     )
 
     try:
-        with Session(engine) as session, session.begin():
-            source = _seed_complete_release_source(session)
+        with session_factory() as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="release-game",
+                name="Release game",
+                status=GameStatus.ACTIVE,
+            )
+            with game_storage_scope(game.id):
+                source = _seed_complete_release_source(session, game.id)
+                session.commit()
 
         release_ids = []
         for version in ("m3.4-integration.1", "m3.4-integration.2"):

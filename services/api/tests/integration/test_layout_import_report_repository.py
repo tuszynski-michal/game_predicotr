@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from contextlib import ExitStack
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,6 +28,8 @@ from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
+from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.job_repository import (
     SqlAlchemyJobRepository,
 )
@@ -44,7 +47,6 @@ from game_predictor_api.storage.models import (
 )
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import URL, make_url
-from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -102,14 +104,17 @@ def test_postgres_report_has_exact_counts_bounded_groups_and_filtered_rows(
         pool_pre_ping=True,
     )
     now = datetime.now(UTC)
+    session_factory = create_session_factory(engine)
     try:
-        with Session(engine, expire_on_commit=False) as session:
+        with ExitStack() as stack:
+            session = stack.enter_context(session_factory())
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
                 code="import-report-game",
                 name="Import report game",
                 status=GameStatus.ACTIVE,
             )
+            stack.enter_context(game_storage_scope(game.id))
             first_symbol = catalog.create_symbol(
                 game.id,
                 mobile_code=1,

@@ -83,6 +83,13 @@ przypisanego modelu/reasoning.
 
 ## Rejestr znalezisk audytów — 2026-09-26
 
+Aktualizacja po rzeczywistym smoke T08: wcześniejszy audit T03 nie pokrył
+globalnych dataset/review/release. Dwa P1 i sprzeczność accepted D-038 z
+jedną grą per transakcja V2 zapisano w TASK-0698. T08 jest blocked/no-go;
+T09–T12 nie wykonano. TASK-0697 naprawia trzy upserty (commit v0.10.452,
+niezależny audit bez P0–P2). Fixture TASK-0694 pozostają częściowo wykonane.
+Dokładne dowody: `quality/LEGACY_PUBLIC_STORE_RELEASE_READINESS.md`.
+
 Poniższy rejestr rozdziela naprawione przyczyny od świadomie odroczonych
 problemów. Nie zastępuje świeżego preflightu T09; stan rzeczywistej bazy z
 2026-09-25 mógł się zmienić.
@@ -112,8 +119,14 @@ problemów. Nie zastępuje świeżego preflightu T09; stan rzeczywistej bazy z
 | T05 / TASK-0684 | `gpt-6-astra` | `high` | Destrukcyjny DDL, zależności FK i nieodwracalna migracja wymagają rygorystycznego review. | `gpt-6-sol`, `high` |
 | T06 / TASK-0685 | `gpt-6-astra` | `high` | Rehearsal ocenia locki, timeouty i scenariusze awarii. | `gpt-6-sol`, `high` |
 | T07 / TASK-0686 | `gpt-6-sol` | `high` | Instrukcja operatorska musi zachować dokładne bramki bezpieczeństwa. | `gpt-6-astra`, `medium` |
-| T08 / TASK-0687 | `gpt-6-sol` | `high` | Readiness łączy istniejące kontrakty bez zmiany danych. | `gpt-6-astra`, `high` |
+| T08 / TASK-0687 | `gpt-6-sol` | `high` | Readiness łączy istniejące kontrakty bez zmiany danych. | `gpt-6-astra`, `medium` |
 | T09 / TASK-0688 | `gpt-6-astra` | `high` | Zastosowanie zatwierdzonego DDL na danych użytkownika wymaga najwyższej ostrożności. | `gpt-6-sol`, `high` |
 | T10 / TASK-0689 | `gpt-6-astra` | `high` | Postflight musi niezależnie wykryć routing lub kontraktowy regres. | `gpt-6-sol`, `high` |
 | T11 / TASK-0690 | `gpt-6-sol` | `high` | Usunięcie martwych ścieżek wymaga pełnego testu kompatybilności. | `gpt-6-astra`, `high` |
 | T12 / TASK-0691 | `gpt-6-astra` | `high` | Końcowy odbiór ustala trwałą granicę danych i ryzyka resztkowe. | `gpt-6-sol`, `high` |
+
+**Aktualizacja 2026-09-26:** T01–T07 wykonano modelami `gpt-6-sol`/`gpt-6-astra`
+(inna sesja/narzędzie). Użytkownik doprecyzował polecenie wykonania całego
+pozostałego planu do T12 z auditami, także napraw blokerów T08. Przypisania
+T08–T12 są spójne z dostępnymi modelami Codex i sekcjami tasków. T09 nadal
+wymaga osobnej zgody na DDL dla konkretnego świeżego raportu.

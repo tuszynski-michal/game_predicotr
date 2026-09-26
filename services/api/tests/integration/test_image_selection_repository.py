@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -19,6 +20,7 @@ from game_predictor_api.domain.image_selections import (
 from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.image_selection_repository import (
     SqlAlchemyImageSelectionRepository,
 )
@@ -63,6 +65,12 @@ def _migration_config(database_url: URL) -> Config:
 
 
 @pytest.fixture
+def game_scope_stack() -> Iterator[ExitStack]:
+    with ExitStack() as stack:
+        yield stack
+
+
+@pytest.fixture
 def isolated_image_selection_database() -> Iterator[URL]:
     maintenance_engine = create_engine(
         _database_url("postgres"),
@@ -84,6 +92,7 @@ def isolated_image_selection_database() -> Iterator[URL]:
 
 def test_create_run_persists_job_before_foreign_key_dependent_run(
     isolated_image_selection_database: URL,
+    game_scope_stack: ExitStack,
 ) -> None:
     command.upgrade(_migration_config(isolated_image_selection_database), "head")
     engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
@@ -96,6 +105,7 @@ def test_create_run_persists_job_before_foreign_key_dependent_run(
                 name="Image selection test",
                 status=GameStatus.DRAFT,
             )
+            game_scope_stack.enter_context(game_storage_scope(game.id))
             service = ImageSelectionService(SqlAlchemyImageSelectionRepository(session))
             source_selection_id = uuid4()
 
@@ -161,6 +171,7 @@ def test_create_run_persists_job_before_foreign_key_dependent_run(
 
 def test_final_projection_reassigns_selected_ranges_atomically(
     isolated_image_selection_database: URL,
+    game_scope_stack: ExitStack,
 ) -> None:
     command.upgrade(_migration_config(isolated_image_selection_database), "head")
     engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
@@ -221,6 +232,7 @@ def test_final_projection_reassigns_selected_ranges_atomically(
                 name="Atomic projection test",
                 status=GameStatus.DRAFT,
             )
+            game_scope_stack.enter_context(game_storage_scope(game.id))
             run, created = ImageSelectionService(
                 SqlAlchemyImageSelectionRepository(session)
             ).create_run(
@@ -258,7 +270,7 @@ def test_final_projection_reassigns_selected_ranges_atomically(
         # Reproduce the historical inconsistency from the 32,079-image run:
         # the mutable group is automatic, while its old representative still
         # carries a selected_manual candidate decision.
-        with session_factory() as session, session.begin():
+        with game_storage_scope(game.id), session_factory() as session, session.begin():
             session.execute(
                 update(ImageSelectionCandidateModel)
                 .where(
@@ -299,6 +311,7 @@ def test_final_projection_reassigns_selected_ranges_atomically(
 
 def test_proof_first_projection_keeps_review_candidate_eligible(
     isolated_image_selection_database: URL,
+    game_scope_stack: ExitStack,
 ) -> None:
     command.upgrade(_migration_config(isolated_image_selection_database), "head")
     engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
@@ -337,6 +350,7 @@ def test_proof_first_projection_keeps_review_candidate_eligible(
                 name="Proof-first review candidate test",
                 status=GameStatus.DRAFT,
             )
+            game_scope_stack.enter_context(game_storage_scope(game.id))
             run, created = ImageSelectionService(
                 SqlAlchemyImageSelectionRepository(session)
             ).create_run(

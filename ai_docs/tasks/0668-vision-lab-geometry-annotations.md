@@ -231,9 +231,9 @@ Doprecyzowanie T03b — komunikaty wyłącznie w toastach:
 - Sukces: zielone tło, błąd: czerwone, ostrzeżenie: pomarańczowe.
   Informacje i postęp: neutralny wariant informacyjny, bez sugerowania sukcesu.
   Treść/ikona i dostępna nazwa opisują typ niezależnie od koloru.
-- Proponowany czas: sukces/informacja 120 s, ostrzeżenie/błąd 180 s;
+- Czas wszystkich rodzajów: 4 s (korekta użytkownika 2026-09-27);
   odliczanie od pokazania, wstrzymane na hover/focus i w ukrytej karcie.
-  Kliknięcie komunikatu lub dostępnego przycisku zamknięcia zamyka go;
+  Kliknięcie body zamyka; przycisk Kopiuj kopiuje samą wiadomość bez zamknięcia;
   przyciski akcji (np. ponów) nie mogą przypadkowo zamykać komunikatu.
 - Kolejka nie nadpisuje niezauważonych błędów sukcesem; powtarzający się
   identyczny komunikat scala się z licznikiem. Nie tworzyć toastu na każdy
@@ -269,6 +269,31 @@ typecheck, build i browser. Każda skończona komenda z timeoutem do 120 s.
 
 ### Outcome T03b
 
+Korekta zlecona 2026-09-27: wszystkie toasty 4 s zamiast dawnych120/180 s,
+przycisk „Kopiuj” zamiast „Zamknij” kopiuje wyłącznie item.message i nie
+zamyka powiadomienia. Potwierdzenie dopiero po sukcesie clipboard; odmowa/
+brak clipboard pokazuje lokalny status bez alertu i dodatkowych toastów.
+Pauzy hover/focus/ukryta karta, kolejka/deduplikacja, akcje i kliknięcie body
+zamykające pozostają. Timeout nie zmienia pending/retry. Pliki: wspólne
+toasts.tsx/toast-store.ts, regresje lab i dokumentacja. Kontrakt zastępuje
+wcześniejsze czasy także w planowanym T14, bez uruchamiania T14. Testy:
+fakeclock4s/pauzy/kolejka, clipboard success/fail, retry po timeout; następnie
+lint/typecheck do120s. Wykonawca Sol medium/audyt Astra medium według T03b.
+
+Wynik korekty: wspólna baza toastów ma4000ms dla każdego rodzaju i przycisk
+Kopiuj z lokalnym statusem. Testy UI **29/29 PASS** (1,34 s), format,
+ESLint (lab i oba pliki wspólne), typecheck oraz diffcheck PASS. Testy
+potwierdzają dokładny timeout/pauzy/kolejkę, oryginalną treść clipboard,
+brak sukcesu przed odpowiedzią, odmowę i brak clipboard, izolację kliknięcia
+oraz skuteczne identyczne retry po wygaśnięciu toastu. Dane i usługi nietknięte.
+Audyt Astra medium PASS bez P0–P2, niezależne testy20/20 (1,89s).
+Build/restart wyłącznie UI PASS, HTTP200. Browser: Kopiuj pokazuje Skopiowano
+po sukcesie, schowek zawiera dokładną treść, focus zachowuje toast,
+po opuszczeniu przycisku toast znika. Odbiór
+na osobnej karcie, bez anotowania danych; API bez restartu. DoD korekty
+potwierdzone testami; fizyczny Android i restart komputera niebadane.
+Commit v1.7.11 (hash po commicie); T14 nie uruchomiono, nadrzędny T03 blocked.
+
 - Wdrożono stałego operatora, pełną zgodę przez kliknięcie, odstępy i opisy,
   auto-przejście po potwierdzonym zapisie z idempotentnym retry, dokładne
   wczytanie istniejącej geometrii/topologii, statusy pozycji i klikalny przegląd.
@@ -277,7 +302,7 @@ typecheck, build i browser. Każda skończona komenda z timeoutem do 120 s.
   starsze odpowiedzi nie cofają rewizji. Zmiana tej samej planszy w innym
   odczycie wymaga jej ponownego sprawdzenia przed zapisem lokalnej edycji.
 - Powiadomienia korzystają ze współdzielonej bazy packages/ui: kolejka,
-  deduplikacja, czasy 120/180 s, pauza hover/focus/hidden, zamknięcie i akcje.
+  deduplikacja, obecnie czas4 s, pauza hover/focus/hidden, kopiowanie i akcje.
   Raport pomiarów pozostaje danymi. Timeout toastu nie resetuje pending request.
 - Testy UI: helpery oraz rzeczywiste komponenty React z izolowanym transportem;
   double submit, utrata odpowiedzi po persist/retry, szkic i pozycja 9,
@@ -437,7 +462,9 @@ Przeglądarka: niezapisana propozycja → pozycja2 bez dialogu; ponowna
 niezapisana propozycja → reload bez dialogu. Testowano osobną kartę,
 bez zapisów/akceptacji; API i dane pozostają nietknięte. DoD korekty
 spełnione w tym zakresie; fizyczny Android i restart komputera niebadane.
-Commit korekty v1.7.10 (hash po commicie); nadrzędny T03 nadal blocked.
+Commit korekty `v1.7.10` / `729970227d1968ff34f752e65c57e1128c040b03`.
+Hash dopisany po commicie; kolejny patch v1.7.11 po kontroli historii.
+Nadrzędny T03 nadal blocked.
 
 Korekta ergonomii zlecona 2026-09-27 po odbiorze: przegląd zapisanych plansz
 na całym zdjęciu ma być domyślnie zwinięty przy wejściu na ekran, żeby

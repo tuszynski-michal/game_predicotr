@@ -448,12 +448,11 @@ test('review response loss retains exact request, blocks geometry, and retry nev
       button(harness.root, 'Odśwież po konflikcie').props.disabled,
       true,
     );
-    const close = harness.root.root
-      .findAllByType('button')
-      .find((node) =>
-        node.props['aria-label']?.startsWith('Zamknij: Decyzja przeglądu'),
-      );
-    await act(async () => close.props.onClick({ stopPropagation() {} }));
+    await act(async () =>
+      harness.root.root
+        .findByProps({ className: 'shared-toast shared-toast-error' })
+        .props.onClick(),
+    );
     await act(async () =>
       button(
         harness.root,
@@ -670,7 +669,10 @@ test('gallery filter finds approvals beyond first source page and restores persi
     await act(async () => root.unmount());
   }
 });
-test('lost response keeps request and position, toast dismissal does not clear retry; draft and ninth position stay', async () => {
+test('lost response keeps request and position, toast timeout does not clear retry; draft and ninth position stay', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  let clock = 0;
+  t.mock.method(performance, 'now', () => clock);
   const harness = await mount({
     revision: 1,
     annotations: { 'source:0': annotation(0), 'source:8': annotation(8) },
@@ -684,12 +686,16 @@ test('lost response keeps request and position, toast dismissal does not clear r
       harness.root.root.findByProps({ type: 'number' }).props.value,
       1,
     );
-    const close = harness.root.root
-      .findAllByType('button')
-      .find((node) =>
-        node.props['aria-label']?.startsWith('Zamknij: Zapis niepotwierdzony'),
-      );
-    await act(async () => close.props.onClick({ stopPropagation() {} }));
+    await act(async () => {
+      clock += 4000;
+      t.mock.timers.tick(250);
+    });
+    assert.equal(
+      harness.root.root.findAllByProps({
+        className: 'shared-toast shared-toast-error',
+      }).length,
+      0,
+    );
     await act(async () =>
       button(
         harness.root,
@@ -846,7 +852,7 @@ test('toast hover/focus pause, action isolation and dismissal keep the notificat
     assert.ok(toast());
     document.hidden = false;
     await act(async () => {
-      clock += 180001;
+      clock += 4000;
       t.mock.timers.tick(250);
     });
     assert.equal(
@@ -868,6 +874,80 @@ test('toast hover/focus pause, action isolation and dismissal keep the notificat
     );
   } finally {
     document.hidden = false;
+    await act(async () => root.unmount());
+  }
+});
+
+test('toast copies only original message, reports success after resolution and handles unavailable or rejected clipboard', async () => {
+  let notify;
+  function Producer() {
+    notify = useToast();
+    return null;
+  }
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  let resolveCopy;
+  const copied = [];
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      clipboard: {
+        writeText(message) {
+          copied.push(message);
+          return new Promise((resolve) => {
+            resolveCopy = resolve;
+          });
+        },
+      },
+    },
+  });
+  let root;
+  await act(async () => {
+    root = create(
+      React.createElement(ToastProvider, null, React.createElement(Producer)),
+    );
+  });
+  try {
+    await act(async () =>
+      notify({ kind: 'error', message: 'Original failure' }),
+    );
+    let stopped = false;
+    await act(async () => {
+      void button(root, 'Kopiuj').props.onClick({
+        stopPropagation() {
+          stopped = true;
+        },
+      });
+    });
+    assert.equal(stopped, true);
+    assert.deepEqual(copied, ['Original failure']);
+    assert.doesNotMatch(text(root.toJSON()), /Skopiowano/);
+    assert.equal(button(root, 'Kopiuj').props.disabled, true);
+    await act(async () => resolveCopy());
+    assert.match(text(root.toJSON()), /Skopiowano/);
+    navigator.clipboard.writeText = async (message) => {
+      copied.push(message);
+      throw new Error('denied');
+    };
+    await act(async () =>
+      button(root, 'Kopiuj').props.onClick({ stopPropagation() {} }),
+    );
+    assert.doesNotMatch(text(root.toJSON()), /Skopiowano/);
+    assert.match(text(root.toJSON()), /Nie udało się skopiować/);
+    assert.deepEqual(copied, ['Original failure', 'Original failure']);
+    delete navigator.clipboard;
+    await act(async () =>
+      button(root, 'Kopiuj').props.onClick({ stopPropagation() {} }),
+    );
+    assert.match(text(root.toJSON()), /Nie udało się skopiować/);
+    assert.equal(
+      root.root.findAllByProps({ className: 'shared-toast shared-toast-error' })
+        .length,
+      1,
+    );
+    assert.equal(button(root, 'Kopiuj').props.disabled, false);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'navigator', previous);
+    else delete globalThis.navigator;
     await act(async () => root.unmount());
   }
 });

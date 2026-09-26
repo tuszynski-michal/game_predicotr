@@ -186,8 +186,10 @@ Zmiana widoku porzuca niezapisaną pracę bez pytania i bez zapisu. Po utracie o
 zastępuje edycję aktualnym zapisem bez dodatkowego potwierdzenia.
 
 Powiadomienia pojawiają się w lewym dolnym rogu: sukces zielony, błąd czerwony,
-ostrzeżenie pomarańczowe, informacja neutralna. Kliknięcie lub „Zamknij” usuwa
-komunikat. Sukces/informacja pozostają 120 s, błąd/ostrzeżenie 180 s; hover,
+ostrzeżenie pomarańczowe, informacja neutralna. Kliknięcie treści usuwa
+komunikat; „Kopiuj” kopiuje samą wiadomość bez zamykania. „Skopiowano”
+pojawia się dopiero po sukcesie; brak dostępu do schowka pokazuje błąd
+wewnątrz powiadomienia i pozwala ponowić. Wszystkie toasty pozostają 4 s; hover,
 focus i ukryta karta wstrzymują zegar. Zamknięcie komunikatu nie usuwa retry.
 Raport pomiarów nadal pozostaje w panelu rodzin jako dane.
 

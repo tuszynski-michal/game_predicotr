@@ -117,17 +117,23 @@ test('toast clock starts only when visible and pauses for hidden tabs and intera
   let items = [];
   for (let i = 0; i < 4; i++)
     items = enqueueToast(items, { kind: 'success', message: `ok${i}` }, i);
-  assert.equal(toastDuration('error'), 180000);
-  assert.equal(toastDuration('warning'), 180000);
-  assert.equal(toastDuration('info'), 120000);
+  assert.equal(toastDuration(), 4000);
+  assert.ok(items.every((item) => item.remaining === 4000));
+  for (const kind of ['error', 'warning', 'info'])
+    assert.equal(
+      enqueueToast([], { kind, message: kind }, 5)[0].remaining,
+      4000,
+    );
   assert.deepEqual(tickToasts(items, 5000, true), items);
   items[0].paused = true;
-  const next = tickToasts(items, 120000, false);
+  const next = tickToasts(items, 4000, false);
   assert.deepEqual(
     next.map((item) => item.id),
     [0, 3],
   );
-  assert.equal(next[1].remaining, 120000);
+  assert.equal(next[1].remaining, 4000);
+  assert.equal(tickToasts(next, 3999, false)[1].remaining, 1);
+  assert.equal(tickToasts(next, 4000, false).length, 1);
 });
 test('toast results preserve errors and repeated result removes same-operation progress', () => {
   let items = enqueueToast([], { kind: 'error', message: 'failed' }, 1);

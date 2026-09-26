@@ -6,6 +6,22 @@ last_updated: 2026-09-26
 
 # Current State
 
+### Korekta T03b — krótkie toasty i kopiowanie
+
+- Zlecenie użytkownika: wszystkie toasty laboratorium znikają po4s,
+  z pauzą na hover; przycisk Kopiuj zastępuje Zamknij i kopiuje treść.
+  Zachowujemy również pauzę focus/ukryta karta i zamykanie kliknięciem tła.
+  Kopiowanie nie zamyka komunikatu; błąd schowka nie udaje sukcesu.
+- Zakres: wspólny toast-store/ToastProvider (jedyny konsument produkcyjny:
+  lab), testy i dokumenty. Bez zmian API/danych/innych aplikacji; T14 tylko
+  aktualizacja planowanego kontraktu. Wykonanie Sol medium / audyt Astra
+  medium według T03b. Baza v1.7.10 / 72997022; commit v1.7.11 (hash po commicie).
+- UI29/29, format, lint lab/shared i typecheck PASS. Niezależny audyt
+  Astra medium PASS bez P0–P2, testy20/20. Build/restart tylko UI PASS,
+  HTTP200. Browser: Kopiuj → Skopiowano i dokładna treść w schowku;
+  toast pozostaje przy focus i znika po jego opuszczeniu. API, anotacje i bieżąca karta użytkownika
+  nietknięte. Fizyczny Android i restart komputera niebadane.
+
 ### Korekta T03d — bez przeglądarkowych potwierdzeń
 
 - Zlecenie użytkownika: usunąć modalne pytania o niezapisane zmiany w labie.
@@ -16,7 +32,8 @@ last_updated: 2026-09-26
 - Zakres: Page, GeometryEditor, PhotoReviewPanel, regresje i dokumentacja.
   Bez zmian API, danych i innych aplikacji. Wykonanie Sol medium,
   niezależny audyt Astra medium zgodnie z T03d. Baza v1.7.9 / f5680ba6;
-  commit korekty v1.7.10 (hash po commicie).
+  commit korekty `v1.7.10` / `729970227d1968ff34f752e65c57e1128c040b03`.
+  Hash dopisany po commicie; kolejny patch v1.7.11 po kontroli historii.
 - UI 28/28, format, lint i typecheck PASS. Audyt Astra medium PASS bez
   P0–P2, niezależne interakcje 13/13 PASS. Build i restart wyłącznie UI
   PASS, HTTP200 na3102. Browser QA: niezapisana propozycja → pozycja2

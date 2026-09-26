@@ -11,8 +11,7 @@ export type Toast = ToastInput & {
   remaining: number;
   paused: boolean;
 };
-export const toastDuration = (kind: ToastKind) =>
-  kind === 'error' || kind === 'warning' ? 180000 : 120000;
+export const toastDuration = () => 4000;
 export function enqueueToast(
   items: Toast[],
   input: ToastInput,
@@ -35,7 +34,7 @@ export function enqueueToast(
           ? {
               ...item,
               count: item.count + 1,
-              remaining: toastDuration(input.kind),
+              remaining: toastDuration(),
             }
           : item,
       );
@@ -43,7 +42,7 @@ export function enqueueToast(
     ...input,
     id,
     count: 1,
-    remaining: toastDuration(input.kind),
+    remaining: toastDuration(),
     paused: false,
   };
   // Only replace progress from the same operation; unread outcomes stay queued.

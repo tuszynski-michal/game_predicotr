@@ -23,6 +23,36 @@ const names = {
 };
 let serial = 0;
 export const useToast = () => useContext(Context);
+function CopyToast({ message }: { message: string }) {
+  const [status, setStatus] = useState('');
+  const [copying, setCopying] = useState(false);
+  return (
+    <>
+      <button
+        aria-label={`Kopiuj: ${message}`}
+        disabled={copying}
+        onClick={async (event) => {
+          event.stopPropagation();
+          setCopying(true);
+          setStatus('');
+          try {
+            if (!navigator.clipboard?.writeText)
+              throw new Error('Clipboard unavailable');
+            await navigator.clipboard.writeText(message);
+            setStatus('Skopiowano');
+          } catch {
+            setStatus('Nie udało się skopiować. Spróbuj ponownie.');
+          } finally {
+            setCopying(false);
+          }
+        }}
+      >
+        Kopiuj
+      </button>
+      {status && <span role="status">{status}</span>}
+    </>
+  );
+}
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Toast[]>([]);
   const notify = useCallback(
@@ -103,15 +133,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 {item.action.label}
               </button>
             )}
-            <button
-              aria-label={`Zamknij: ${item.message}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                dismiss(item.id);
-              }}
-            >
-              Zamknij
-            </button>
+            <CopyToast message={item.message} />
           </div>
         ))}
         {items.length > 3 && (

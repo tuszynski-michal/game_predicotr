@@ -40,6 +40,9 @@ bez confirm i bez autosave; brak beforeunload. Busy/pending blokuje
 nawigację w aplikacji do retry lub jawnego odczytu przyciskiem bez modalu.
 Wspólna baza powiadomień packages/ui obsługuje kolejkę, deduplikację i zegar
 niezależnie od operacji; zamknięcie toastu nie zmienia stanu zapisu.
+Wszystkie warianty mają 4 s widocznego czasu; hover/focus/hidden pauzuje.
+Przycisk Kopiuj używa clipboard wyłącznie dla wiadomości i izoluje kliknięcie
+od zamykania. Wynik kopiowania pozostaje lokalny w toaście, bez nowych toastów.
 
 POST `/geometry` przyjmuje opcjonalne `preview_board` zgodne z Board.
 Bez niego zachowuje detekcję baseline; z nim waliduje bieżące węzły przez

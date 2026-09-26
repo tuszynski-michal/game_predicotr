@@ -234,8 +234,11 @@ nie nadpisywane. Szczegóły, błędy i regresje: T03b w TASK-0668.
 
 T03b obejmuje również wszystkie powiadomienia laboratorium w toastach
 w lewym dolnym rogu, bez bannerów sukcesu/błędu/ostrzeżenia w body.
-Kolory: zielony/czerwony/pomarańczowy; proponowany timeout 120 s dla
-sukcesu/informacji i 180 s dla ostrzeżenia/błędu, zamknięcie kliknięciem.
+Kolory: zielony/czerwony/pomarańczowy; timeout4 s dla wszystkich rodzajów,
+pauza hover/focus/hidden, zamknięcie kliknięciem body. Przycisk Kopiuj zamiast
+Zamknij kopiuje tylko wiadomość, bez zamykania; sukces dopiero po clipboard,
+błąd lokalny w toaście bez alertu/rekurencji. Korekta T03b z2026-09-27;
+testy fakeclock/pauzy/kolejka, clipboard success/fail oraz niezależność retry.
 Szczegółowy kontrakt dostępności, kolejki i retry zapisano w TASK-0668.
 
 Rozszerzenie użytkownika: liczniki obecnych pełnych siatek, lokalizacji i szkiców
@@ -272,7 +275,7 @@ reguł zatwierdzeń, retry, danych ani mobilnych konsumentów przy okazji.
 
 **Acceptance/testy planowane:** macierz ekran → komunikaty → test;
 widoczność po scrollu/nawigacji wewnątrz aplikacji, poprawne kolory i treści,
-120/180 s oraz ręczne zamknięcie, dostępność klawiaturą/czytnikiem,
+4 s oraz Kopiuj/ręczne zamknięcie body, dostępność klawiaturą/czytnikiem,
 kolejka bez utraty błędów, brak kopii w body, brak zasłaniania kluczowych
 kontrolek na małych ekranach, regresje istniejącego workflow zapisu i retry.
 Najpierw testy danego pionu, lint/typecheck, następnie build i browser

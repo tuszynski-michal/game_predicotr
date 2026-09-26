@@ -41,7 +41,8 @@ bez dodatkowego potwierdzenia. Zatwierdzenie pozycji 1–8
 otwiera kolejną na tym samym zdjęciu; szkic i pozycja 9 pozostają na miejscu.
 Pełne zatwierdzenie jest jawnym kliknięciem bez checkboxa; aktor nowych decyzji
 geometrii to stały operator. Powiadomienia są wyłącznie toastami w lewym dolnym
-rogu (sukces/informacja 120 s, błąd/ostrzeżenie 180 s, ręczne zamknięcie,
+rogu (wszystkie rodzaje 4 s, kliknięcie body zamyka, przycisk Kopiuj kopiuje
+wyłącznie wiadomość bez zamykania; sukces kopiowania dopiero po jego wykonaniu,
 wstrzymanie przy hover/focus/ukrytej karcie). Raporty i instrukcje pozostają w body.
 
 Edytor pokazuje duże zdjęcie po lewej i zwarte cropy aktualnej siatki po

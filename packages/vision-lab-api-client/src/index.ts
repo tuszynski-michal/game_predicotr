@@ -12,6 +12,7 @@ import type {
   AnnotationRequest,
   FamilyRequest,
   SplitRequest,
+  BoardInput,
 } from './generated/types.gen';
 export type {
   GeometryResult,
@@ -41,6 +42,23 @@ export async function detectGeometry(sourceId: string, columns: 3 | 5) {
     throwOnError: true,
   });
   return response.data;
+}
+export async function previewGeometry(
+  sourceId: string,
+  columns: 3 | 5,
+  board: BoardInput,
+) {
+  return (
+    await detect({
+      baseUrl,
+      body: {
+        source_id: sourceId,
+        topology: { columns, rows: 3 },
+        preview_board: board,
+      },
+      throwOnError: true,
+    })
+  ).data;
 }
 export function assetUrl(assetId: string) {
   return `${baseUrl}/assets/${encodeURIComponent(assetId)}`;

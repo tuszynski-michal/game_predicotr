@@ -222,6 +222,13 @@ ponownie sprawdzane na początku odpowiednich etapów.
 
 ## Przypisanie modeli do zadań
 
+T03a (podzadanie TASK-0668, zlecone 2026-09-26) poprawia wyłącznie ergonomię
+laboratorium: duży edytor i zwarte cropy, stabilne etykiety, dopasowanie kadru
+po puszczeniu uchwytu i automatyczny preview bieżących węzłów. Zgodne
+rozszerzenie POST `/geometry` o opcjonalne `preview_board` używa istniejącego
+croppera. Podgląd pozostaje nietrwały. Szczegóły i kryteria są w aktywnym
+TASK-0668; bramka danych T03 pozostaje obowiązująca.
+
 Decyzja użytkownika z 2026-09-26: audyt wykonuje najmniejszy model
 wystarczający do ryzyka; najwyższa dopuszczona konfiguracja audytora to
 `gpt-6-astra`, reasoning `medium`. Najtrudniejsze zadania wykonuje najwyżej
@@ -241,6 +248,7 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T01 / TASK-0666 | `gpt-6-sol` | `medium` | Ochrona DB i snapshotu. | `gpt-6-astra`, `medium` |
 | T02 / TASK-0667 | `gpt-6-sol` | `medium` | Kontrakt UI/API i HTTP. | `gpt-6-astra`, `medium` |
 | T03 / TASK-0668 | `gpt-6-sol` | `medium` | Trwałość anotacji i podziały. | `gpt-6-astra`, `medium` |
+| T03a / TASK-0668 | `gpt-6-sol` | `medium` | Transformacja widoku i aktualność cropów bez zapisów. | `gpt-6-astra`, `medium` |
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |

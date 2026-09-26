@@ -110,3 +110,27 @@ test('backup sends explicit JSON through the same mutation boundary', async () =
   assert.equal(captured.headers.get('content-type'), 'application/json');
   assert.deepEqual(await captured.json(), {});
 });
+
+test('manual preview extends the geometry route without annotation writes', async () => {
+  const body = {
+    source_id: 'source',
+    topology: { columns: 3, rows: 3 },
+    preview_board: {
+      position_index: 2,
+      status: 'complete',
+      nodes: [{ x: 12, y: 34, provenance: 'human' }],
+    },
+  };
+  await detectGeometry({
+    baseUrl: 'http://127.0.0.1:3102/api/lab',
+    body,
+    throwOnError: true,
+    fetch: async (request) => {
+      assert.equal(request.url, 'http://127.0.0.1:3102/api/lab/geometry');
+      assert.deepEqual(await request.json(), body);
+      return new Response('{}', {
+        headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+});

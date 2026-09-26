@@ -152,12 +152,61 @@
         "title": "BackupResult",
         "type": "object"
       },
-      "Board": {
+      "Board-Input": {
         "additionalProperties": false,
         "properties": {
           "cells": {
             "items": {
-              "$ref": "#/components/schemas/Cell"
+              "$ref": "#/components/schemas/Cell-Input"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Input"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "position_index": {
+            "title": "Position Index",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "complete",
+              "partial",
+              "needs_review",
+              "absent",
+              "occluded",
+              "unreadable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position_index",
+          "status",
+          "nodes"
+        ],
+        "title": "Board",
+        "type": "object"
+      },
+      "Board-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/Cell-Output"
             },
             "title": "Cells",
             "type": "array"
@@ -203,7 +252,42 @@
         "title": "Board",
         "type": "object"
       },
-      "Cell": {
+      "Cell-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "outside_source",
+              "geometry_invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "status"
+        ],
+        "title": "Cell",
+        "type": "object"
+      },
+      "Cell-Output": {
         "additionalProperties": false,
         "properties": {
           "asset_id": {
@@ -242,6 +326,16 @@
       "DetectRequest": {
         "additionalProperties": false,
         "properties": {
+          "preview_board": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Board-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "source_id": {
             "title": "Source Id",
             "type": "string"
@@ -607,7 +701,7 @@
         "properties": {
           "boards": {
             "items": {
-              "$ref": "#/components/schemas/Board"
+              "$ref": "#/components/schemas/Board-Output"
             },
             "title": "Boards",
             "type": "array"

@@ -120,7 +120,7 @@ def create_app(catalog: Catalog | None = None, annotation_root: Path | None = No
     @application.post("/geometry", response_model=GeometryResult, operation_id="detect_geometry")
     def geometry(body: DetectRequest) -> GeometryResult:
         try:
-            return current().detect(body.source_id, body.topology)
+            return current().detect(body.source_id, body.topology, body.preview_board)
         except KeyError as error:
             raise HTTPException(404, "SOURCE_NOT_FOUND") from error
         except ValueError as error:

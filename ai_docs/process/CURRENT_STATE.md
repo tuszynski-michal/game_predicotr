@@ -6,8 +6,35 @@ last_updated: 2026-09-26
 
 # Current State
 
+### T03a — udogodnienia anotacji laboratorium (gotowe)
+
+- Użytkownik zlecił zapis i wykonanie podzadania dla portu 3102: zdjęcie
+  i siatka po lewej, zwarte cropy po prawej, dopasowanie kadru do siatki
+  dopiero po puszczeniu uchwytu, bez ruchu widoku podczas przeciągania.
+  Mniejsze oznaczenia zachowują wygodny obszar chwytania; dostępny powrót
+  do całego zdjęcia. Podgląd używa bieżącej geometrii, nie wyniku baseline.
+- Zakres tej realizacji nie obejmuje portu 3001, treningu ani zapisania
+  zatwierdzeń za użytkownika. T03 nadal wymaga rzeczywistych danych.
+- Wykonawca Sol medium; niezależny audyt Astra medium. Bazowy commit
+  `v1.7.2` / `cea04bcf243e13a42b87669ced0d04ec8f6aa055`.
+  Istniejące dopiski hashów T03 zachowane, Reviewer i `.claude/` poza zakresem.
+- Gotowe i uruchomione na 3102: automatyczne cropy aktualnej siatki, fit
+  po release, małe etykiety/44 px hit area, powrót do całego zdjęcia.
+  POST `/geometry` rozszerzony kompatybilnie, bez trwałych zapisów preview.
+- Weryfikacja: UI 9/9, klient 4/4, backend 30/30, lint/format/TypeScript,
+  OpenAPI/generated-check, skoncentrowany mypy i końcowy production build.
+  Domyślny mypy ma wcześniejsze błędy zależności, opisane w Outcome.
+- Audyt Astra medium PASS po naprawie przerywania drag; browser potwierdza
+  jedną powiększoną planszę i 15 cropów, 3 × 3 oraz widok 390 px.
+  Fizyczny Android niesprawdzony. Nie zapisano anotacji za użytkownika.
+  T03a done, T03 pozostaje blocked na rzeczywistym pilocie; T04/T05 nie ruszyły.
+
 ### Etap B laboratorium — narzędzia T03 odebrane, bramka danych
 
+- Commit części narzędziowej T03: `v1.7.2` —
+  `cea04bcf243e13a42b87669ced0d04ec8f6aa055`. Kolejny patch to `v1.7.3`
+  (potwierdzić z historią przy wznowieniu). Hash dopisany po commicie
+  w tym pliku i Outcome; dwa lokalne uzupełnienia do następnego commita.
 - Użytkownik uruchomił cały etap B (T03–T05) autonomicznie, z audytami
   według tabeli modeli. T03: Sol medium i Astra medium; T04/T05: Sol high
   i Astra medium. Nie obejmuje etapu C, aktywacji, push/merge ani operacji DB.

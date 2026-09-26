@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from game_predictor_worker.vision_lab import catalog as catalog_module
 from game_predictor_worker.vision_lab import snapshot as snapshot_module
 from game_predictor_worker.vision_lab.api import create_app
-from game_predictor_worker.vision_lab.catalog import Catalog
+from game_predictor_worker.vision_lab.catalog import Catalog, encode
 from game_predictor_worker.vision_lab.contracts import Board, GeometryResult, Point, Topology
 from game_predictor_worker.vision_lab.geometry import BaselineEngine, cell_quads, crop_cell
 from game_predictor_worker.vision_lab.snapshot import canonical, import_folder, safe_file
@@ -51,6 +51,53 @@ class FakeEngine:
             width=rgb.shape[1],
             height=rgb.shape[0],
         )
+
+
+@pytest.mark.parametrize("columns", [3, 5])
+def test_manual_preview_uses_current_nodes_and_cropper_without_persisting(
+    tmp_path: Path, columns: int
+) -> None:
+    input_root = tmp_path / "textured"
+    (input_root / "game").mkdir(parents=True)
+    pixels = np.zeros((81, 121, 3), dtype=np.uint8)
+    pixels[:, :, 0] = np.arange(121, dtype=np.uint8)[None, :] * 2
+    pixels[:, :, 1] = np.arange(81, dtype=np.uint8)[:, None] * 3
+    Image.fromarray(pixels).save(input_root / "game" / "grid.jpg")
+    registry = Catalog(import_folder(input_root, tmp_path / "snapshots"), FakeEngine())
+    source = next(iter(registry.sources.values()))
+    topology = Topology(columns=columns)
+    edited = board(topology)
+    for point in edited.nodes:
+        point.x += 7
+        point.y += 8
+    root = tmp_path / "annotations"
+    client = TestClient(create_app(registry, root), base_url="http://127.0.0.1:8102")
+    body = {
+        "source_id": source.id,
+        "topology": topology.model_dump(),
+        "preview_board": edited.model_dump(),
+    }
+    response = client.post("/geometry", json=body, headers={"Origin": "http://127.0.0.1:3102"})
+    assert response.status_code == 200
+    result = response.json()
+    assert result["model_version"] == "manual-preview"
+    assert result["boards"][0]["nodes"] == edited.model_dump()["nodes"]
+    rgb = np.asarray(registry.image(source), dtype=np.uint8)
+    for cell, quad in zip(result["boards"][0]["cells"], cell_quads(edited, topology), strict=True):
+        crop = crop_cell(rgb, quad)
+        assert crop is not None
+        assert registry.asset(cell["asset_id"]) == encode(Image.fromarray(crop))
+    assert not root.exists()
+    edited.nodes[0], edited.nodes[1] = edited.nodes[1], edited.nodes[0]
+    bad = registry.detect(source.id, topology, edited)
+    assert bad.status == "failed" and not bad.boards
+    edited.nodes = []
+    assert registry.detect(source.id, topology, edited).status == "failed"
+    edited.status = "absent"
+    assert not registry.detect(source.id, topology, edited).boards[0].cells
+    baseline = registry.detect(source.id, topology)
+    assert baseline.model_version == "test"
+    assert baseline.boards[0].cells[0].asset_id != result["boards"][0]["cells"][0]["asset_id"]
 
 
 def test_snapshot_restart_duplicates_and_tamper(tmp_path: Path) -> None:

@@ -100,11 +100,37 @@ export type BackupResult = {
 /**
  * Board
  */
-export type Board = {
+export type BoardInput = {
     /**
      * Cells
      */
-    cells: Array<Cell>;
+    cells?: Array<CellInput>;
+    /**
+     * Nodes
+     */
+    nodes: Array<PointInput>;
+    /**
+     * Position Index
+     */
+    position_index: number;
+    /**
+     * Reasons
+     */
+    reasons?: Array<string>;
+    /**
+     * Status
+     */
+    status: 'complete' | 'partial' | 'needs_review' | 'absent' | 'occluded' | 'unreadable';
+};
+
+/**
+ * Board
+ */
+export type BoardOutput = {
+    /**
+     * Cells
+     */
+    cells: Array<CellOutput>;
     /**
      * Nodes
      */
@@ -126,7 +152,25 @@ export type Board = {
 /**
  * Cell
  */
-export type Cell = {
+export type CellInput = {
+    /**
+     * Asset Id
+     */
+    asset_id?: string | null;
+    /**
+     * Index
+     */
+    index: number;
+    /**
+     * Status
+     */
+    status: 'available' | 'outside_source' | 'geometry_invalid';
+};
+
+/**
+ * Cell
+ */
+export type CellOutput = {
     /**
      * Asset Id
      */
@@ -145,6 +189,7 @@ export type Cell = {
  * DetectRequest
  */
 export type DetectRequest = {
+    preview_board?: BoardInput | null;
     /**
      * Source Id
      */
@@ -372,7 +417,7 @@ export type GeometryResult = {
     /**
      * Boards
      */
-    boards: Array<Board>;
+    boards: Array<BoardOutput>;
     /**
      * Height
      */

@@ -122,6 +122,14 @@ działa, lecz zapis anotacji jest niedostępny. Po uruchomieniu wybierz zdjęcie
 topologię i pozycję planszy. Wczytaj propozycję albo zapis, a następnie popraw
 narożniki lub wszystkie węzły. Wprowadź osobę podejmującą decyzję.
 
+T03a: duży edytor ma po prawej zwarte cropy bieżącej siatki. Przeciągnij
+uchwyt i puść: kadr dopasuje się do siatki z marginesem, a cropy odświeżą się
+automatycznie. Podczas przeciągania kadr pozostaje nieruchomy. „Pokaż całe
+zdjęcie” przywraca pełny widok bez zmiany geometrii. „Ponów podgląd” odświeża
+cropy po błędzie lub restarcie API. Żadna z tych czynności nie zapisuje
+anotacji ani zatwierdzenia. Błędna siatka pokazuje komunikat zamiast starych
+cropów. W wąskim oknie cropy znajdują się pod edytorem.
+
 - Szkic nie jest zatwierdzeniem.
 - Zatwierdzenie lokalizacji dotyczy obecności i narożników; interpolowane
   węzły nie stają się przez to pełną referencją.

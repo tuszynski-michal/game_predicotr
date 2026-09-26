@@ -6,6 +6,14 @@ last_updated: 2026-09-26
 
 # Architektura laboratorium wizji
 
+POST `/geometry` przyjmuje opcjonalne `preview_board` zgodne z Board.
+Bez niego zachowuje detekcję baseline; z nim waliduje bieżące węzły przez
+`cell_quads` i generuje cropy przez wspólne `crop_cell`. GeometryResult
+oznacza wynik `manual-preview`; assety pozostają w ograniczonym rejestrze
+pamięci, bez mutacji anotacji. UI unieważnia odpowiedzi po zmianie węzłów
+i przyjmuje wyłącznie najnowsze żądanie. Viewport jest osobną transformacją
+źródło→ekran, zamrożoną na czas gestu; nie zmienia pikseli źródła ani węzłów.
+
 Właścicielami reguł i kolejności są `requirements/VISION_LAB.md` oraz
 `delivery/VISION_LAB_EXECUTION_PLAN.md`. Eksporter jest osobnym narzędziem
 głównego środowiska. Czyta manifestem wskazane źródła, dostępne rewizje,

@@ -171,5 +171,68 @@ textarea {
   min-height: 44px;
 }
 .editor-photo {
-  max-width: 100%;
+  position: relative;
+  width: 100%;
+  background: #080d14;
+  margin-top: 12px;
+  overflow: hidden;
+  user-select: none;
+}
+.editor-photo > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.editor-source-loader {
+  display: none;
+}
+.editor-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 20px;
+  align-items: start;
+}
+.editor-preview {
+  position: sticky;
+  top: 16px;
+}
+.editor-preview h4 {
+  margin: 0 0 8px;
+}
+.editor-preview p {
+  font-size: 12px;
+}
+.editor-crops {
+  display: grid;
+  gap: 3px;
+}
+.editor-crops figure {
+  margin: 0;
+  min-width: 0;
+  position: relative;
+}
+.editor-crops img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+}
+.editor-crops figcaption {
+  position: absolute;
+  bottom: 1px;
+  left: 1px;
+  font-size: 10px;
+  background: #101827cc;
+  padding: 1px 3px;
+}
+.editor-preview button {
+  margin-top: 12px;
+}
+@media (max-width: 850px) {
+  .editor-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editor-preview {
+    position: static;
+    max-width: 330px;
+  }
 }

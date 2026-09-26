@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   assetUrl,
+  previewGeometry,
   readAnnotations,
   writeAnnotation,
   type AnnotationRequest,
@@ -16,6 +17,14 @@ import {
   activeIntervals,
   interpolateCorners,
 } from '../lib/annotation-geometry';
+import {
+  captureHandlePointer,
+  fitViewport,
+  fullViewport,
+  sourcePoint,
+  type Viewport,
+} from '../lib/editor-viewport';
+import { LatestPreview } from '../lib/latest-preview';
 
 export function GeometryEditor({
   source,
@@ -28,6 +37,21 @@ export function GeometryEditor({
 }) {
   const [state, setState] = useState<AnnotationState | null>(null);
   const [size, setSize] = useState({ width: 1, height: 1 });
+  const [viewport, setViewport] = useState<Viewport>({
+    x: 0,
+    y: 0,
+    width: 1,
+    height: 1,
+  });
+  const [preview, setPreview] = useState<GeometryResult | null>(null);
+  const [previewMessage, setPreviewMessage] = useState(
+    'Wczytaj siatkę, aby zobaczyć cropy.',
+  );
+  const previewOrder = useRef(new LatestPreview());
+  const photoRef = useRef<HTMLDivElement>(null);
+  const [displayWidth, setDisplayWidth] = useState(800);
+  const latestNodes = useRef<Point[]>([]);
+  const dragViewport = useRef<Viewport | null>(null);
   const [board, setBoard] = useState(0);
   const [corners, setCorners] = useState<Point[]>([]);
   const [nodes, setNodes] = useState<Point[]>([]);
@@ -45,6 +69,57 @@ export function GeometryEditor({
   const [elapsed, setElapsed] = useState(0);
   const corrections = useRef(0);
   const locked = busy || pending !== null;
+  useEffect(() => {
+    const order = previewOrder.current;
+    const element = photoRef.current;
+    const observer = new ResizeObserver(() => {
+      if (element) setDisplayWidth(element.getBoundingClientRect().width);
+    });
+    if (element) observer.observe(element);
+    return () => {
+      observer.disconnect();
+      order.invalidate();
+    };
+  }, []);
+  function clearPreview() {
+    previewOrder.current.invalidate();
+    setPreview(null);
+    setPreviewMessage('Podgląd wymaga bieżącej kompletnej siatki.');
+  }
+  function refreshPreview(next: Point[], nextPresence = presence) {
+    clearPreview();
+    if (nextPresence !== 'present' || next.length !== 4 * (columns + 1)) return;
+    setPreviewMessage('Odświeżanie cropów…');
+    void previewOrder.current.run(
+      () =>
+        previewGeometry(source.id, columns, {
+          position_index: board,
+          status: 'complete',
+          nodes: next,
+        }),
+      (value) => {
+        setPreview(value);
+        setPreviewMessage(
+          value.status === 'detected'
+            ? 'Cropy bieżącej siatki — bez zapisu.'
+            : `Nieprawidłowa siatka: ${value.reasons.join(', ')}`,
+        );
+      },
+      () => setPreviewMessage('Nie można pobrać cropów. Ponów podgląd.'),
+    );
+  }
+  function updateNodes(next: Point[]) {
+    latestNodes.current = next;
+    setNodes(next);
+  }
+  function finishDrag() {
+    if (drag.current === null) return;
+    corrections.current += 1;
+    drag.current = null;
+    dragViewport.current = null;
+    setViewport(fitViewport(latestNodes.current, size));
+    refreshPreview(latestNodes.current);
+  }
   useEffect(() => {
     let cancelled = false;
     readAnnotations()
@@ -90,8 +165,9 @@ export function GeometryEditor({
         return;
       }
       setCorners(stored.corners);
-      setNodes(stored.nodes);
+      updateNodes(stored.nodes);
       setPresence(stored.presence);
+      refreshPreview(stored.nodes, stored.presence);
     } else {
       const c: Point[] = suggested?.length
         ? [
@@ -107,10 +183,13 @@ export function GeometryEditor({
             { x: size.width * 0.15, y: size.height * 0.85 },
           ].map((p) => ({ ...p, provenance: 'baseline_proposal' }));
       setCorners(c);
-      setNodes(interpolateCorners(c, columns));
+      const next = interpolateCorners(c, columns);
+      updateNodes(next);
       setPresence('present');
+      refreshPreview(next, 'present');
     }
     activity.current = [];
+    setViewport(fullViewport(size));
     last.current = performance.now();
     setPending(null);
     setElapsed(0);
@@ -192,7 +271,9 @@ export function GeometryEditor({
             onChange={(e) => {
               setBoard(Number(e.target.value) - 1);
               setCorners([]);
-              setNodes([]);
+              updateNodes([]);
+              clearPreview();
+              setViewport(fullViewport(size));
               setReviewed(false);
               setPending(null);
             }}
@@ -212,6 +293,10 @@ export function GeometryEditor({
             onChange={(e) => {
               mark();
               setPresence(e.target.value as GeometryAnnotation['presence']);
+              refreshPreview(
+                nodes,
+                e.target.value as GeometryAnnotation['presence'],
+              );
             }}
           >
             <option value="present">Obecna</option>
@@ -231,130 +316,184 @@ export function GeometryEditor({
             <option value="nodes">Wszystkie węzły</option>
           </select>
         </label>
-        <div className="photo editor-photo">
-          <img
-            src={assetUrl(source.asset_id)}
-            alt="Zdjęcie do ręcznej anotacji"
-            onLoad={(e) =>
-              setSize({
-                width: e.currentTarget.naturalWidth,
-                height: e.currentTarget.naturalHeight,
-              })
-            }
-          />
-          <svg
-            viewBox={`0 0 ${size.width} ${size.height}`}
-            style={{ touchAction: 'none', pointerEvents: 'auto' }}
-            onPointerMove={(e) => {
-              if (drag.current === null || locked) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const point: Point = {
-                x: Math.max(
-                  0,
-                  Math.min(
-                    size.width - 1,
-                    ((e.clientX - rect.left) / rect.width) * size.width,
-                  ),
-                ),
-                y: Math.max(
-                  0,
-                  Math.min(
-                    size.height - 1,
-                    ((e.clientY - rect.top) / rect.height) * size.height,
-                  ),
-                ),
-                provenance: 'human',
-              };
-              mark();
-              if (mode === 'corners') {
-                const next = corners.map((p, i) =>
-                  i === drag.current ? point : p,
-                );
-                setCorners(next);
-                setNodes(interpolateCorners(next, columns));
-              } else {
-                const next = nodes.map((p, i) =>
-                  i === drag.current ? point : p,
-                );
-                setNodes(next);
-                setCorners([
-                  next[0],
-                  next[columns],
-                  next.at(-1)!,
-                  next[next.length - columns - 1],
-                ]);
-              }
-            }}
-            onPointerUp={() => {
-              if (drag.current !== null) corrections.current += 1;
-              drag.current = null;
-            }}
-            onPointerCancel={() => {
-              drag.current = null;
-            }}
-          >
-            <title>Przeciągnij numerowane uchwyty</title>
-            {presence === 'present' && (
-              <>
-                {Array.from({ length: 4 }, (_, row) => (
-                  <polyline
-                    key={row}
-                    points={nodes
-                      .slice(row * (columns + 1), (row + 1) * (columns + 1))
-                      .map((p) => `${p.x},${p.y}`)
-                      .join(' ')}
-                    fill="none"
-                    stroke="#ffce54"
-                    strokeWidth={size.width / 500}
-                  />
+        <div className="editor-workspace">
+          <div>
+            <button
+              type="button"
+              onClick={() => setViewport(fullViewport(size))}
+            >
+              Pokaż całe zdjęcie
+            </button>
+            <div
+              className="editor-photo"
+              ref={photoRef}
+              style={{ aspectRatio: `${viewport.width} / ${viewport.height}` }}
+            >
+              <img
+                className="editor-source-loader"
+                src={assetUrl(source.asset_id)}
+                alt="Zdjęcie do ręcznej anotacji"
+                onLoad={(e) => {
+                  const nextSize = {
+                    width: e.currentTarget.naturalWidth,
+                    height: e.currentTarget.naturalHeight,
+                  };
+                  setSize(nextSize);
+                  setViewport(fullViewport(nextSize));
+                }}
+              />
+              <svg
+                viewBox={`${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}`}
+                preserveAspectRatio="none"
+                onDragStart={(e) => e.preventDefault()}
+                style={{ touchAction: 'none', pointerEvents: 'auto' }}
+                onPointerMove={(e) => {
+                  if (drag.current === null || locked) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const point = sourcePoint(
+                    e.clientX,
+                    e.clientY,
+                    rect,
+                    dragViewport.current ?? viewport,
+                    size,
+                  );
+                  mark();
+                  if (mode === 'corners') {
+                    const next = corners.map((p, i) =>
+                      i === drag.current ? point : p,
+                    );
+                    setCorners(next);
+                    updateNodes(interpolateCorners(next, columns));
+                  } else {
+                    const next = nodes.map((p, i) =>
+                      i === drag.current ? point : p,
+                    );
+                    updateNodes(next);
+                    setCorners([
+                      next[0],
+                      next[columns],
+                      next.at(-1)!,
+                      next[next.length - columns - 1],
+                    ]);
+                  }
+                }}
+                onPointerUp={finishDrag}
+                onPointerCancel={finishDrag}
+                onLostPointerCapture={finishDrag}
+              >
+                <title>Przeciągnij numerowane uchwyty</title>
+                <image
+                  href={assetUrl(source.asset_id)}
+                  x={0}
+                  y={0}
+                  width={size.width}
+                  height={size.height}
+                />
+                {presence === 'present' && (
+                  <>
+                    {Array.from({ length: 4 }, (_, row) => (
+                      <polyline
+                        key={row}
+                        points={nodes
+                          .slice(row * (columns + 1), (row + 1) * (columns + 1))
+                          .map((p) => `${p.x},${p.y}`)
+                          .join(' ')}
+                        fill="none"
+                        stroke="#ffce54"
+                        strokeWidth={(1.5 * viewport.width) / displayWidth}
+                      />
+                    ))}
+                    {Array.from({ length: columns + 1 }, (_, col) => (
+                      <polyline
+                        key={`c${col}`}
+                        points={nodes
+                          .filter((_, i) => i % (columns + 1) === col)
+                          .map((p) => `${p.x},${p.y}`)
+                          .join(' ')}
+                        fill="none"
+                        stroke="#ffce54"
+                        strokeWidth={(1.5 * viewport.width) / displayWidth}
+                      />
+                    ))}
+                    {(mode === 'corners' ? corners : nodes).map((p, i) => (
+                      <g
+                        key={i}
+                        onPointerDown={(e) => {
+                          if (locked) return;
+                          captureHandlePointer(e);
+                          drag.current = i;
+                          dragViewport.current = viewport;
+                          clearPreview();
+                          setPreviewMessage(
+                            'Podgląd odświeży się po puszczeniu uchwytu.',
+                          );
+                          mark();
+                        }}
+                      >
+                        <circle
+                          cx={p.x}
+                          cy={p.y}
+                          r={(22 * viewport.width) / displayWidth}
+                          fill="transparent"
+                        />
+                        <circle
+                          cx={p.x}
+                          cy={p.y}
+                          r={(9 * viewport.width) / displayWidth}
+                          fill="#263a4e"
+                          stroke="white"
+                          strokeWidth={viewport.width / displayWidth}
+                        />
+                        <text
+                          x={p.x}
+                          y={p.y}
+                          fill="white"
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fontSize={(11 * viewport.width) / displayWidth}
+                        >
+                          {i + 1}
+                        </text>
+                      </g>
+                    ))}
+                  </>
+                )}
+              </svg>
+            </div>
+          </div>
+          <aside className="editor-preview" aria-label="Cropy bieżącej siatki">
+            <h4>Podgląd symboli</h4>
+            <p role="status">{previewMessage}</p>
+            <div
+              className="editor-crops"
+              style={{
+                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+              }}
+            >
+              {preview?.boards
+                .flatMap((b) => b.cells)
+                .map((cell) => (
+                  <figure key={cell.index}>
+                    {cell.asset_id ? (
+                      <img
+                        src={assetUrl(cell.asset_id)}
+                        alt={`Komórka ${cell.index + 1}`}
+                      />
+                    ) : (
+                      <span>Poza zdjęciem</span>
+                    )}
+                    <figcaption>{cell.index + 1}</figcaption>
+                  </figure>
                 ))}
-                {Array.from({ length: columns + 1 }, (_, col) => (
-                  <polyline
-                    key={`c${col}`}
-                    points={nodes
-                      .filter((_, i) => i % (columns + 1) === col)
-                      .map((p) => `${p.x},${p.y}`)
-                      .join(' ')}
-                    fill="none"
-                    stroke="#ffce54"
-                    strokeWidth={size.width / 500}
-                  />
-                ))}
-                {(mode === 'corners' ? corners : nodes).map((p, i) => (
-                  <g
-                    key={i}
-                    onPointerDown={(e) => {
-                      if (locked) return;
-                      drag.current = i;
-                      e.currentTarget.ownerSVGElement?.setPointerCapture(
-                        e.pointerId,
-                      );
-                      mark();
-                    }}
-                  >
-                    <circle
-                      cx={p.x}
-                      cy={p.y}
-                      r={size.width / 45}
-                      fill="#263a4e"
-                      stroke="white"
-                      strokeWidth={size.width / 600}
-                    />
-                    <text
-                      x={p.x}
-                      y={p.y}
-                      fill="white"
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fontSize={size.width / 45}
-                    >
-                      {i + 1}
-                    </text>
-                  </g>
-                ))}
-              </>
-            )}
-          </svg>
+            </div>
+            <button
+              type="button"
+              disabled={!nodes.length || presence !== 'present'}
+              onClick={() => refreshPreview(nodes)}
+            >
+              Ponów podgląd
+            </button>
+          </aside>
         </div>
         <label>
           <input

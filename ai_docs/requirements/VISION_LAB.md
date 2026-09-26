@@ -6,6 +6,13 @@ last_updated: 2026-09-25
 
 # Laboratorium wizji
 
+Edytor pokazuje duże zdjęcie po lewej i zwarte cropy aktualnej siatki po
+prawej (na małych ekranach poniżej). Po puszczeniu uchwytu odświeża cropy
+i dopasowuje kadr do granic siatki z niewielkim marginesem. Podczas gestu
+kadr jest stały. Zdjęcie zachowuje perspektywę i współrzędne źródła;
+kontrolka przywraca pełne zdjęcie. Numeracja jest mała i stabilna ekranowo,
+z wygodnym obszarem chwytania. Preview nie zatwierdza ani nie zapisuje danych.
+
 Lokalna galeria pokazuje dostarczone zdjęcia, siatki i cropy. Użytkownik może
 poprawiać, zatwierdzać, trenować i porównywać modele. Obsługuje 5 × 3 i 3 × 3;
 integracja z obecną aplikacją obejmuje wyłącznie 5 × 3. Pełne 3 × 3 wymaga

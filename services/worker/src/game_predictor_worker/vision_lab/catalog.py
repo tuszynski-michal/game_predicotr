@@ -10,7 +10,7 @@ from threading import Lock
 import numpy as np
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from .contracts import Cell, GeometryEngine, GeometryResult, Source, Topology
+from .contracts import Board, Cell, GeometryEngine, GeometryResult, Source, Topology
 from .geometry import BaselineEngine, cell_quads, crop_cell
 from .snapshot import VERSION, canonical, reject_links, safe_file, verify
 
@@ -94,7 +94,9 @@ class Catalog:
                 raise KeyError(asset_id)
             return encode(self.image(source))
 
-    def detect(self, source_id: str, topology: Topology) -> GeometryResult:
+    def detect(
+        self, source_id: str, topology: Topology, preview_board: Board | None = None
+    ) -> GeometryResult:
         source = self.sources[source_id]
         with self.lock:
             try:
@@ -107,7 +109,37 @@ class Catalog:
                     status="invalid_image",
                     reasons=["IMAGE_DECODE_FAILED"],
                 )
-            result = self.engine.detect(source_id, rgb, topology)
+            if preview_board is None:
+                result = self.engine.detect(source_id, rgb, topology)
+            else:
+                # Never trust caller-supplied cells, status or reasons as crop results.
+                board = preview_board.model_copy(deep=True)
+                board.cells = []
+                board.reasons = []
+                try:
+                    if board.nodes or board.status not in {"absent", "occluded", "unreadable"}:
+                        cell_quads(board, topology)
+                    if board.position_index < 0:
+                        raise ValueError("BOARD_ORDER_INVALID")
+                except ValueError as error:
+                    return GeometryResult(
+                        source_id=source_id,
+                        topology=topology,
+                        model_version="manual-preview",
+                        status="failed",
+                        reasons=[str(error)],
+                        width=rgb.shape[1],
+                        height=rgb.shape[0],
+                    )
+                result = GeometryResult(
+                    source_id=source_id,
+                    topology=topology,
+                    model_version="manual-preview",
+                    status="detected",
+                    boards=[board],
+                    width=rgb.shape[1],
+                    height=rgb.shape[0],
+                )
             for board in result.boards:
                 if board.status in {"absent", "occluded", "unreadable"} and not board.nodes:
                     continue

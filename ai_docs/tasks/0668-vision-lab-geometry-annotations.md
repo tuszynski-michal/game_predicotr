@@ -91,9 +91,85 @@ Po teście wykonaj lint/typecheck zmienionych modułów i wymagane kontrole kont
 
 - Zmiana schematu danych, zakresu zdjęć lub kosztu poza planem wymaga jawnej aktualizacji przed zależnym działaniem.
 
-## Outcome
+## T03a — ergonomia edytora i bieżące cropy
+
+Status: `done` (podzadanie; nadrzędny T03 nadal blocked na danych). Polecenie użytkownika 2026-09-26; wyłącznie laboratorium
+3102. Wykonawca `gpt-6-sol` / `medium`, niezależny audyt `gpt-6-astra` / `medium`.
+Duży edytor po lewej i zwarte cropy po prawej, automatyczny podgląd bieżących
+węzłów po puszczeniu uchwytu. Kadr zdjęcia dopasowuje się do granic siatki
+z 8% marginesem dopiero po puszczeniu; podczas gestu pozostaje zamrożony.
+Zdjęcie nie jest rektyfikowane, współrzędne źródła i rewizje są zachowane.
+Powrót do pełnego zdjęcia jest jawny; małe etykiety mają stabilny rozmiar
+ekranowy i większy obszar chwytania. Początkowa propozycja obejmuje 70% zdjęcia.
+
+Istniejący POST `/geometry` otrzymuje opcjonalne `preview_board` (kontrakt
+Board); brak pola zachowuje baseline. Preview używa `cell_quads` i `crop_cell`,
+zwraca istniejący GeometryResult i tylko nietrwałe assety. Błędna geometria
+nie pokazuje starych cropów; nieobecność i brak węzłów nie uruchamiają żądania.
+Frontend unieważnia trwające odpowiedzi przy każdej zmianie geometrii,
+źródła, planszy i topologii; najnowsze żądanie jest jedynym przyjmowanym.
+Podgląd nie zapisuje szkicu, decyzji, rewizji ani podziału.
+
+Pliki: geometry-editor.tsx, nowy lib/editor-viewport.ts i lib/latest-preview.ts,
+style.css, vision_lab/contracts.py, catalog.py, api.py, OpenAPI i generowany
+klient/wrapper oraz testy UI, API i klienta. Dokumenty wymagań/architektury
+i plan są aktualizowane; CURRENT_STATE prowadzi koordynator.
+
+Kryteria/testy: mapowanie pointera po zoomie, nieruchomy kadr podczas drag,
+dopasowanie po release, powrót do pełnego zdjęcia, obie topologie, zgodność
+bajtów cropów z crop_cell, błędna/brak geometrii, odwrócona kolejność
+odpowiedzi i zmiana źródła. Testy skoncentrowane → lint/typecheck → kontrola
+OpenAPI/generowania → build i odbiór przeglądarkowy; każdy proces limit 120 s.
+Nie obejmuje rzeczywistych zatwierdzeń ani odblokowania T04/T05.
+
+### Outcome T03a
+
+- Wdrożono edytor/kadr, małe uchwyty z 44 px obszarem chwytania, sidebar
+  cropów i automatyczny preview po release. Viewport nie zmienia geometrii.
+  Stare odpowiedzi są unieważniane również na początku kolejnego drag.
+- POST `/geometry` przyjmuje `preview_board`; cropper i walidacja pozostają
+  wspólne z baseline, a brak pola zachowuje dotychczasowe zachowanie.
+  Wygenerowano OpenAPI i klienta. Podgląd nie tworzy katalogu anotacji.
+- Testy: UI 9/9, klient 4/4, backend API/anotacje 30/30. Po wzmocnieniu
+  testu teksturowanym obrazem ponownie API 21/21; porównanie dokładnych
+  bajtów JPEG croppera i odmienności wobec baseline dla obu topologii.
+- ESLint, TypeScript obu pakietów, Ruff, formatowanie, OpenAPI i kontrola
+  generowanego klienta zaliczone. Skoncentrowany mypy
+  `--follow-imports=silent services/worker/src/game_predictor_worker/vision_lab`
+  zaliczony (11 modułów). Domyślny mypy zgłosił 14 wcześniejszych błędów
+  zależności `images` (brak importów `game_predictor_api.domain` i pochodny
+  `no-any-return`); nie zmieniano ich w T03a.
+- Koordynator potwierdził production build i odczyt przez 3102: 15/9 cropów,
+  asset 200, rewizja anotacji nadal 0. Końcowy build dokładnego kodu
+  po wydzieleniu helpera gestu także zaliczony; nowe procesy API i UI działają.
+- Niezależny audyt Astra medium: PASS, brak otwartych P0–P2. Audytor
+  uruchomił API 21/21 i końcowe helpery UI 4/4. Wykryte przerywanie gestu
+  na numerze uchwytu naprawiono i potwierdzono czterema długimi gestami.
+- Przeglądarka: pojedyncza plansza przybliżona po lewej i 15 aktualnych
+  symboli po prawej, 3 × 3 z 9 cropami, powrót do pełnego zdjęcia,
+  szerokość 390 px bez poziomego przepełnienia. Dowód lokalny:
+  `artifacts/vision-lab/t03a-editor.png` (szkic, bez zatwierdzenia).
+  Fizyczny Android niesprawdzony; stałość kadru w środku gestu potwierdzono
+  kodem/testem, ponieważ narzędzie przeglądarkowe wykonuje drag atomowo.
+- Kryteria podzadania zestawiono z implementacją i testami: fit/release,
+  poprawne współrzędne źródła, kompaktowy layout, oba rozmiary siatki,
+  zgodny cropper, obsługa braku/błędu geometrii i odrzucanie starych odpowiedzi
+  zaliczone. Cały task pozostaje w aktywnych ze względu na bramkę danych.
+- Audyt przeglądarkowy wykrył przerwanie długiego gestu z numeru uchwytu
+  przez domyślny drag tekstu/obrazu. Dodano preventDefault przed capture,
+  blokadę natywnego drag SVG i zaznaczania tekstu. Test regresji sprawdza
+  kolejność preventDefault/capture; UI 9/9, lint i typecheck po poprawce
+  zaliczone. Ponowny build/odbiór prowadzi koordynator i audytor.
+- Nie zapisano zatwierdzeń ani pilota, nie uruchomiono T04/T05. Dane T03
+  pozostają blokadą etapu B. Commit/hash dopisze koordynator po audycie.
+
+## Outcome T03
 
 Część narzędziowa odebrana 2026-09-26. Cały T03 i etap B nie są ukończone.
+
+Commit części narzędziowej: `v1.7.2` —
+`cea04bcf243e13a42b87669ced0d04ec8f6aa055`. Hash dopisany po commicie;
+ten wpis pozostaje lokalnym uzupełnieniem do następnego commita.
 
 ### Changed
 

@@ -109,3 +109,4 @@ class SourcePage(Contract):
 class DetectRequest(Contract):
     source_id: str
     topology: Topology = Field(default_factory=Topology)
+    preview_board: Board | None = None

@@ -165,6 +165,34 @@ label select {
   display: block;
   margin: 0.8rem 0;
 }
+.action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0;
+}
+.annotation-badge {
+  padding: 7px;
+  border: 1px solid #547565;
+  border-radius: 6px;
+}
+.saved-overview {
+  max-width: 900px;
+  margin: 12px auto;
+}
+.saved-overview svg {
+  width: 100%;
+  height: 100%;
+}
+.saved-overview [role='button'] {
+  cursor: pointer;
+}
+.saved-overview [role='button']:focus {
+  outline: 3px solid white;
+}
+fieldset {
+  min-width: 0;
+}
 .annotation-editor input,
 .annotation-editor select,
 textarea {

@@ -4,10 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import {
   assetUrl,
   previewGeometry,
-  readAnnotations,
   writeAnnotation,
   type AnnotationRequest,
-  type AnnotationState,
   type GeometryResult,
   type GeometryAnnotation,
   type Point,
@@ -25,17 +23,37 @@ import {
   type Viewport,
 } from '../lib/editor-viewport';
 import { LatestPreview } from '../lib/latest-preview';
+import { useAnnotations } from './annotation-context';
+import { useToast } from '../../../../packages/ui/src/toasts';
+import {
+  approvalSummary,
+  boardStatus,
+  nextApprovedPosition,
+  positionIndices,
+  sourceAnnotations,
+  statusLabel,
+} from '../lib/annotation-status';
 
 export function GeometryEditor({
   source,
   proposal,
-  columns,
+  columns: initialColumns,
+  onProtectionChange,
+  onColumnsChange,
 }: {
   source: Source;
   proposal: GeometryResult | null;
   columns: 3 | 5;
+  onProtectionChange: (dirty: boolean, pending: boolean) => void;
+  onColumnsChange: (columns: 3 | 5) => void;
 }) {
-  const [state, setState] = useState<AnnotationState | null>(null);
+  const { state, accept, refresh } = useAnnotations();
+  const notify = useToast();
+  const [columns, setColumns] = useState<3 | 5>(initialColumns);
+  const [dirty, setDirty] = useState(false);
+  const submitting = useRef(false);
+  const initialized = useRef(false);
+  const loadedRevision = useRef<number | null>(null);
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [viewport, setViewport] = useState<Viewport>({
     x: 0,
@@ -44,9 +62,6 @@ export function GeometryEditor({
     height: 1,
   });
   const [preview, setPreview] = useState<GeometryResult | null>(null);
-  const [previewMessage, setPreviewMessage] = useState(
-    'Wczytaj siatkę, aby zobaczyć cropy.',
-  );
   const previewOrder = useRef(new LatestPreview());
   const photoRef = useRef<HTMLDivElement>(null);
   const [displayWidth, setDisplayWidth] = useState(800);
@@ -58,10 +73,7 @@ export function GeometryEditor({
   const [mode, setMode] = useState<'corners' | 'nodes'>('corners');
   const [presence, setPresence] =
     useState<GeometryAnnotation['presence']>('present');
-  const [actor, setActor] = useState('');
-  const [reviewed, setReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('Wczytywanie anotacji…');
   const drag = useRef<number | null>(null);
   const activity = useRef<number[]>([]);
   const last = useRef<number | null>(null);
@@ -69,6 +81,17 @@ export function GeometryEditor({
   const [elapsed, setElapsed] = useState(0);
   const corrections = useRef(0);
   const locked = busy || pending !== null;
+  const rows = sourceAnnotations(state, source.id);
+  useEffect(() => {
+    onProtectionChange(dirty, locked);
+  }, [dirty, locked, onProtectionChange]);
+  useEffect(() => {
+    const prevent = (event: BeforeUnloadEvent) => {
+      if (dirty || locked) event.preventDefault();
+    };
+    window.addEventListener('beforeunload', prevent);
+    return () => window.removeEventListener('beforeunload', prevent);
+  }, [dirty, locked]);
   useEffect(() => {
     const order = previewOrder.current;
     const element = photoRef.current;
@@ -84,28 +107,38 @@ export function GeometryEditor({
   function clearPreview() {
     previewOrder.current.invalidate();
     setPreview(null);
-    setPreviewMessage('Podgląd wymaga bieżącej kompletnej siatki.');
   }
-  function refreshPreview(next: Point[], nextPresence = presence) {
+  function refreshPreview(
+    next: Point[],
+    nextPresence = presence,
+    nextBoard = board,
+    nextColumns = columns,
+  ) {
     clearPreview();
-    if (nextPresence !== 'present' || next.length !== 4 * (columns + 1)) return;
-    setPreviewMessage('Odświeżanie cropów…');
+    if (nextPresence !== 'present' || next.length !== 4 * (nextColumns + 1))
+      return;
     void previewOrder.current.run(
       () =>
-        previewGeometry(source.id, columns, {
-          position_index: board,
+        previewGeometry(source.id, nextColumns, {
+          position_index: nextBoard,
           status: 'complete',
           nodes: next,
         }),
       (value) => {
         setPreview(value);
-        setPreviewMessage(
-          value.status === 'detected'
-            ? 'Cropy bieżącej siatki — bez zapisu.'
-            : `Nieprawidłowa siatka: ${value.reasons.join(', ')}`,
-        );
+        if (value.status !== 'detected')
+          notify({
+            kind: 'warning',
+            message: `Nieprawidłowa siatka: ${value.reasons.join(', ')}`,
+            operation: 'preview',
+          });
       },
-      () => setPreviewMessage('Nie można pobrać cropów. Ponów podgląd.'),
+      () =>
+        notify({
+          kind: 'error',
+          message: 'Nie można pobrać cropów. Ponów podgląd.',
+          operation: 'preview',
+        }),
     );
   }
   function updateNodes(next: Point[]) {
@@ -120,25 +153,6 @@ export function GeometryEditor({
     setViewport(fitViewport(latestNodes.current, size));
     refreshPreview(latestNodes.current);
   }
-  useEffect(() => {
-    let cancelled = false;
-    readAnnotations()
-      .then((value) => {
-        if (!cancelled) {
-          setState(value);
-          setMessage('');
-        }
-      })
-      .catch(() => {
-        if (!cancelled)
-          setMessage(
-            'Nie można wczytać anotacji. Wymagana konfiguracja VISION_LAB_ANNOTATIONS.',
-          );
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
   function trackActivity() {
     if (locked) return;
     const now = performance.now();
@@ -149,32 +163,45 @@ export function GeometryEditor({
   }
   function mark() {
     trackActivity();
-    setReviewed(false);
+    setDirty(true);
   }
-  function load(saved = true) {
-    const stored = state?.annotations[`${source.id}:${board}`];
+  function load(
+    saved = true,
+    nextBoard = board,
+    nextState = state,
+    proposeMissing = true,
+  ) {
+    const stored = nextState?.annotations[`${source.id}:${nextBoard}`];
+    loadedRevision.current = stored?.revision ?? null;
+    const nextColumns = saved && stored ? stored.topology.columns : columns;
+    if (stored && saved && nextColumns !== columns)
+      notify({
+        kind: 'info',
+        message: `Wczytano zapisaną topologię ${nextColumns} × 3 pozycji ${nextBoard + 1}, bez konwersji węzłów.`,
+      });
+    setColumns(nextColumns);
+    onColumnsChange(nextColumns);
+    setBoard(nextBoard);
+    drag.current = null;
+    dragViewport.current = null;
+    clearPreview();
     const suggested =
-      proposal?.topology.columns === columns
-        ? proposal.boards.find((b) => b.position_index === board)?.nodes
+      proposal?.topology.columns === nextColumns
+        ? proposal.boards.find((b) => b.position_index === nextBoard)?.nodes
         : undefined;
     if (saved && stored) {
-      if (stored.topology.columns !== columns) {
-        setMessage(
-          'Zapisana plansza ma inną topologię. Ustaw właściwą topologię przed wczytaniem.',
-        );
-        return;
-      }
       setCorners(stored.corners);
       updateNodes(stored.nodes);
       setPresence(stored.presence);
-      refreshPreview(stored.nodes, stored.presence);
-    } else {
+      refreshPreview(stored.nodes, stored.presence, nextBoard, nextColumns);
+      setDirty(false);
+    } else if (proposeMissing) {
       const c: Point[] = suggested?.length
         ? [
             suggested[0],
-            suggested[columns],
+            suggested[nextColumns],
             suggested.at(-1)!,
-            suggested[suggested.length - columns - 1],
+            suggested[suggested.length - nextColumns - 1],
           ]
         : [
             { x: size.width * 0.15, y: size.height * 0.15 },
@@ -183,10 +210,16 @@ export function GeometryEditor({
             { x: size.width * 0.15, y: size.height * 0.85 },
           ].map((p) => ({ ...p, provenance: 'baseline_proposal' }));
       setCorners(c);
-      const next = interpolateCorners(c, columns);
+      const next = interpolateCorners(c, nextColumns);
       updateNodes(next);
       setPresence('present');
-      refreshPreview(next, 'present');
+      refreshPreview(next, 'present', nextBoard, nextColumns);
+      setDirty(true);
+    } else {
+      setCorners([]);
+      updateNodes([]);
+      setPresence('present');
+      setDirty(false);
     }
     activity.current = [];
     setViewport(fullViewport(size));
@@ -194,18 +227,52 @@ export function GeometryEditor({
     setPending(null);
     setElapsed(0);
     corrections.current = 0;
-    setReviewed(false);
-    setMessage('Wczytano do edycji. Każdy zapis wymaga osobnej decyzji.');
+  }
+  function canLeave() {
+    return (
+      !locked &&
+      (!dirty || window.confirm('Odrzucić niezapisane zmiany tej planszy?'))
+    );
+  }
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled && !initialized.current && state && size.width > 1) {
+        initialized.current = true;
+        load(true, 0, state, false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Initial load only: subsequent shared revisions must not overwrite local edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, size]);
+  function selectBoard(index: number) {
+    if (canLeave()) load(true, index, state, false);
   }
   async function save(action: AnnotationRequest['action'], retry = false) {
-    if (!state || busy) return;
+    if (!state || submitting.current) return;
     if (pending && !retry) return;
+    if (
+      !pending &&
+      (state.annotations[`${source.id}:${board}`]?.revision ?? null) !==
+        loadedRevision.current
+    ) {
+      notify({
+        kind: 'warning',
+        message:
+          'Zapis tej planszy zmienił się. Odśwież i sprawdź aktualny zapis przed nową decyzją.',
+      });
+      return;
+    }
     if (!pending) trackActivity();
+    submitting.current = true;
     setBusy(true);
     const body: AnnotationRequest = pending ?? {
       request_id: crypto.randomUUID(),
       expected_revision: state.revision,
-      actor,
+      actor: 'operator',
       annotation: {
         source_id: source.id,
         board_index: board,
@@ -220,26 +287,34 @@ export function GeometryEditor({
             : [],
       },
       action,
-      reviewed_all_nodes: reviewed,
+      reviewed_all_nodes: action === 'approve_full',
       activity_intervals_ms: [...activity.current],
       correction_count: corrections.current,
     };
     setPending(body);
     try {
       const next = await writeAnnotation(body);
-      setState(next);
+      accept(next);
       setPending(null);
       activity.current = [];
       corrections.current = 0;
       last.current = null;
-      setMessage(
-        `Zapisano rewizję ${next.revision}. ${action === 'approve_full' ? 'Pełna siatka zatwierdzona.' : 'Brak zatwierdzenia pełnej siatki.'}`,
-      );
+      setDirty(false);
+      const target = nextApprovedPosition(body);
+      if (target !== body.annotation.board_index) load(true, target, next);
+      else load(true, body.annotation.board_index, next, false);
+      notify({
+        kind: 'success',
+        message: `Zapisano pozycję ${body.annotation.board_index + 1}, rewizja ${next.revision}. ${body.action === 'draft' ? 'Szkic bez zatwierdzenia.' : body.action === 'approve_full' ? 'Pełna siatka zatwierdzona.' : 'Lokalizacja zatwierdzona.'} ${body.annotation.board_index === 8 ? approvalSummary(sourceAnnotations(next, source.id)) : ''}`,
+      });
     } catch {
-      setMessage(
-        'Zapis niepotwierdzony. Ponów identyczne żądanie; przy konflikcie rewizji odśwież stan i sprawdź zmiany.',
-      );
+      notify({
+        kind: 'error',
+        message:
+          'Zapis niepotwierdzony. Ponów identyczne żądanie; przy konflikcie rewizji odśwież stan i sprawdź zmiany.',
+      });
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -251,14 +326,113 @@ export function GeometryEditor({
         propozycją. Pełne zatwierdzenie wymaga oceny wszystkich{' '}
         {4 * (columns + 1)} węzłów i granic komórek.
       </p>
+      <p>
+        Pozycja {board + 1} ·{' '}
+        {dirty
+          ? 'Niezapisane zmiany / propozycja'
+          : !nodes.length && presence === 'present'
+            ? 'Brak wczytanej siatki'
+            : statusLabel[
+                boardStatus(state?.annotations[`${source.id}:${board}`])
+              ]}{' '}
+        · {columns} × 3
+      </p>
+      <nav aria-label="Pozycje plansz">
+        {positionIndices(rows).map((index) => (
+          <button
+            key={index}
+            disabled={locked || !state}
+            aria-pressed={board === index}
+            className={board === index ? 'selected' : ''}
+            onClick={() => selectBoard(index)}
+          >
+            {index + 1} ·{' '}
+            {
+              statusLabel[
+                boardStatus(state?.annotations[`${source.id}:${index}`])
+              ]
+            }
+          </button>
+        ))}
+      </nav>
+      <details>
+        <summary>Przegląd zapisanych plansz na całym zdjęciu</summary>
+        <div
+          className="saved-overview"
+          style={{ aspectRatio: `${size.width} / ${size.height}` }}
+        >
+          <svg
+            viewBox={`0 0 ${size.width} ${size.height}`}
+            aria-label="Zapisane plansze"
+          >
+            <image
+              href={assetUrl(source.asset_id)}
+              width={size.width}
+              height={size.height}
+            />
+            {rows
+              .filter((row) => row.corners.length === 4)
+              .map((row) => (
+                <g
+                  key={row.board_index}
+                  role="button"
+                  tabIndex={locked ? -1 : 0}
+                  aria-label={`Wczytaj zapisaną pozycję ${row.board_index + 1}: ${statusLabel[boardStatus(row)]}`}
+                  onClick={() => selectBoard(row.board_index)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      selectBoard(row.board_index);
+                    }
+                  }}
+                >
+                  <polygon
+                    points={row.corners
+                      .map((point) => `${point.x},${point.y}`)
+                      .join(' ')}
+                    fill="#74dcba22"
+                    stroke={boardStatus(row) === 'full' ? '#74dcba' : '#ffce54'}
+                    strokeWidth={size.width / 300}
+                  />
+                  <text
+                    x={row.corners[0].x}
+                    y={row.corners[0].y + size.width / 35}
+                    fontSize={size.width / 35}
+                    fill="white"
+                    stroke="#101827"
+                    strokeWidth={size.width / 700}
+                    paintOrder="stroke"
+                  >
+                    {row.board_index + 1}
+                  </text>
+                </g>
+              ))}
+          </svg>
+        </div>
+      </details>
       <fieldset disabled={locked}>
         <label>
-          Osoba podejmująca decyzję{' '}
-          <input
-            value={actor}
-            disabled={busy}
-            onChange={(e) => setActor(e.target.value)}
-          />
+          Topologia planszy{' '}
+          <select
+            value={columns}
+            onChange={(event) => {
+              if (!canLeave()) return;
+              const value = Number(event.target.value) as 3 | 5;
+              setColumns(value);
+              onColumnsChange(value);
+              setCorners([]);
+              updateNodes([]);
+              clearPreview();
+              setPresence('present');
+              setDirty(false);
+              setViewport(fullViewport(size));
+              drag.current = null;
+              dragViewport.current = null;
+            }}
+          >
+            <option value={5}>5 kolumn × 3 wiersze</option>
+            <option value={3}>3 kolumny × 3 wiersze</option>
+          </select>
         </label>
         <label>
           Pozycja planszy (od 1){' '}
@@ -269,22 +443,34 @@ export function GeometryEditor({
             value={board + 1}
             disabled={busy}
             onChange={(e) => {
-              setBoard(Number(e.target.value) - 1);
-              setCorners([]);
-              updateNodes([]);
-              clearPreview();
-              setViewport(fullViewport(size));
-              setReviewed(false);
-              setPending(null);
+              const index = Number(e.target.value) - 1;
+              if (Number.isInteger(index) && index >= 0 && index <= 100)
+                selectBoard(index);
             }}
           />
         </label>
-        <button disabled={busy || !state} onClick={() => load(true)}>
-          Wczytaj zapis / propozycję
-        </button>
-        <button disabled={busy || !state} onClick={() => load(false)}>
-          Nowa propozycja z narożników
-        </button>
+        <div className="action-group">
+          <button
+            disabled={busy || !state}
+            onClick={() => {
+              if (canLeave()) load(true, board, state, false);
+            }}
+          >
+            Wczytaj dokładny zapis
+          </button>
+          <button
+            disabled={busy || !state || size.width <= 1}
+            onClick={() => {
+              if (canLeave()) load(false);
+            }}
+          >
+            Nowa propozycja z narożników
+          </button>
+        </div>
+        <p>
+          Wczytanie odtwarza zapisane węzły. Nowa propozycja wymaga osobnego
+          zapisu i nie jest zatwierdzona.
+        </p>
         <label>
           Obecność{' '}
           <select
@@ -424,9 +610,6 @@ export function GeometryEditor({
                           drag.current = i;
                           dragViewport.current = viewport;
                           clearPreview();
-                          setPreviewMessage(
-                            'Podgląd odświeży się po puszczeniu uchwytu.',
-                          );
                           mark();
                         }}
                       >
@@ -463,7 +646,10 @@ export function GeometryEditor({
           </div>
           <aside className="editor-preview" aria-label="Cropy bieżącej siatki">
             <h4>Podgląd symboli</h4>
-            <p role="status">{previewMessage}</p>
+            <p>
+              Cropy bieżącej siatki, bez zapisu. Odświeżają się po puszczeniu
+              uchwytu.
+            </p>
             <div
               className="editor-crops"
               style={{
@@ -495,43 +681,46 @@ export function GeometryEditor({
             </button>
           </aside>
         </div>
-        <label>
-          <input
-            type="checkbox"
-            checked={reviewed}
-            disabled={
-              busy ||
-              nodes.length !== 4 * (columns + 1) ||
-              presence !== 'present'
-            }
-            onChange={(e) => setReviewed(e.target.checked)}
-          />{' '}
-          Sprawdziłem każdy węzeł i wszystkie granice komórek; zatwierdzam pełną
-          referencję.
-        </label>
         <p>
           Aktywny czas tego odcinka: {(elapsed / 1000).toFixed(1)} s. Przerwy
           ponad 30 s są wyłączone. Zmiana geometrii unieważnia poprzednie
           zatwierdzenie i podział.
         </p>
-        <button
-          disabled={busy || !state || !actor.trim()}
-          onClick={() => save('draft')}
-        >
-          Zapisz szkic
-        </button>
-        <button
-          disabled={busy || !state || !actor.trim()}
-          onClick={() => save('approve_location')}
-        >
-          Zatwierdź tylko lokalizację
-        </button>
-        <button
-          disabled={busy || !state || !actor.trim() || !reviewed}
-          onClick={() => save('approve_full')}
-        >
-          Zatwierdź pełną siatkę
-        </button>
+        <div className="action-group">
+          <button
+            disabled={
+              busy || !state || (presence === 'present' && corners.length !== 4)
+            }
+            onClick={() => save('draft')}
+          >
+            Zapisz szkic
+          </button>
+          <button
+            disabled={
+              busy || !state || (presence === 'present' && corners.length !== 4)
+            }
+            onClick={() => save('approve_location')}
+          >
+            Zatwierdź tylko lokalizację
+          </button>
+          <button
+            disabled={
+              busy ||
+              !state ||
+              presence !== 'present' ||
+              nodes.length !== 4 * (columns + 1)
+            }
+            onClick={() => save('approve_full')}
+          >
+            Zatwierdź pełną siatkę
+          </button>
+        </div>
+        <p>
+          Szkic zachowuje pracę bez zatwierdzenia. Lokalizacja potwierdza
+          obecność i narożniki. Klikając pełne zatwierdzenie, potwierdzasz
+          wszystkie węzły oraz granice komórek. Zatwierdzenie pozycji 1–8
+          otwiera kolejną; po pozycji 9 pozostajesz na zdjęciu.
+        </p>
       </fieldset>
       {pending && (
         <button disabled={busy} onClick={() => save(pending.action, true)}>
@@ -540,19 +729,38 @@ export function GeometryEditor({
       )}
       <button
         disabled={busy}
-        onClick={() =>
-          readAnnotations()
+        onClick={() => {
+          if (submitting.current) return;
+          if (
+            (dirty || pending) &&
+            !window.confirm(
+              'Odczytać aktualny zapis i zastąpić lokalną edycję? Niepotwierdzone żądanie nie będzie ponawiane automatycznie.',
+            )
+          )
+            return;
+          submitting.current = true;
+          setBusy(true);
+          refresh()
             .then((next) => {
-              setState(next);
               setPending(null);
-              setMessage('Odświeżono stan. Wczytaj zapis przed nową decyzją.');
+              load(true, board, next, false);
+              notify({
+                kind: 'info',
+                message:
+                  'Odświeżono i wczytano zapis. Sprawdź go przed nową decyzją.',
+              });
             })
-            .catch(() => setMessage('Odczyt nie powiódł się.'))
-        }
+            .catch(() =>
+              notify({ kind: 'error', message: 'Odczyt nie powiódł się.' }),
+            )
+            .finally(() => {
+              submitting.current = false;
+              setBusy(false);
+            });
+        }}
       >
         Odśwież po konflikcie
       </button>
-      <p role="status">{message}</p>
     </section>
   );
 }

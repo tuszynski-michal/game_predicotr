@@ -1,7 +1,15 @@
 'use client';
 
 /* eslint-disable @next/next/no-img-element -- registered local assets; no image optimizer proxy */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToast } from '../../../../packages/ui/src/toasts';
+import { useAnnotations } from '../components/annotation-context';
+import {
+  matchesPhotoFilter,
+  photoCounts,
+  sourceAnnotations,
+  type PhotoFilter,
+} from '../lib/annotation-status';
 import { GeometryEditor } from '../components/geometry-editor';
 import { FamilyEditor } from '../components/family-editor';
 import {
@@ -13,49 +21,123 @@ import {
 } from '../../../../packages/vision-lab-api-client/src/index';
 
 export default function Page() {
-  const [sources, setSources] = useState<Source[]>([]);
-  const [total, setTotal] = useState(0);
+  const [catalog, setCatalog] = useState<Source[]>([]);
+  const { state, refresh } = useAnnotations();
+  const notify = useToast();
+  const [filter, setFilter] = useState<PhotoFilter>('all');
+  const [reload, setReload] = useState(0);
+  const [protection, setProtection] = useState({
+    dirty: false,
+    pending: false,
+  });
+  const onProtectionChange = useCallback(
+    (dirty: boolean, pending: boolean) => setProtection({ dirty, pending }),
+    [],
+  );
   const [games, setGames] = useState<Record<string, string>>({});
   const [game, setGame] = useState('');
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<Source | null>(null);
   const [result, setResult] = useState<GeometryResult | null>(null);
   const [columns, setColumns] = useState<3 | 5>(5);
+  const detectionOrder = useRef(0);
+  const onColumnsChange = useCallback((next: 3 | 5) => {
+    detectionOrder.current++;
+    setColumns(next);
+    setResult(null);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [galleryFailed, setGalleryFailed] = useState(false);
   const [familySources, setFamilySources] = useState<Source[]>([]);
+  const filtered = catalog.filter(
+    (source) =>
+      (!game || source.game_id === game) &&
+      matchesPhotoFilter(sourceAnnotations(state, source.id), filter),
+  );
+  const total = filtered.length;
+  const pageOffset = Math.min(
+    offset,
+    Math.max(0, Math.ceil(total / 24) - 1) * 24,
+  );
+  const sources = filtered.slice(pageOffset, pageOffset + 24);
   useEffect(() => {
     let cancelled = false;
-    listSources(offset, game || undefined)
+    async function readCatalog() {
+      notify({
+        kind: 'info',
+        message: 'Wczytywanie katalogu zdjęć…',
+        operation: 'catalog',
+      });
+      const all: Source[] = [];
+      let data = await listSources();
+      const games = data.games;
+      all.push(...data.sources);
+      while (all.length < data.total && !cancelled) {
+        data = await listSources(all.length);
+        if (!data.sources.length) throw new Error('Incomplete source catalog');
+        all.push(...data.sources);
+      }
+      return { sources: all, games };
+    }
+    readCatalog()
       .then((data) => {
         if (!cancelled) {
-          setSources(data.sources);
-          setTotal(data.total);
+          setCatalog(data.sources);
           setGames(data.games);
           setLoading(false);
+          notify({
+            kind: 'success',
+            message: `Wczytano ${data.sources.length} zdjęć.`,
+            operation: 'catalog',
+          });
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setError(
-            'Nie można wczytać galerii. Sprawdź lokalne API i snapshot.',
-          );
+          setGalleryFailed(true);
+          notify({
+            kind: 'error',
+            message:
+              'Nie można wczytać galerii. Sprawdź lokalne API i snapshot.',
+            operation: 'catalog',
+          });
           setLoading(false);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [offset, game]);
+  }, [reload, notify]);
+  function canNavigate() {
+    if (protection.pending) {
+      notify({
+        kind: 'warning',
+        message:
+          'Najpierw rozstrzygnij niepotwierdzony zapis lub zakończ odczyt.',
+      });
+      return false;
+    }
+    return (
+      !protection.dirty ||
+      window.confirm('Odrzucić niezapisane zmiany przed zmianą widoku?')
+    );
+  }
+  function resetSelection() {
+    setSelected(null);
+    setResult(null);
+    setProtection({ dirty: false, pending: false });
+  }
   function changePage(next: number) {
-    setLoading(true);
+    if (!canNavigate()) return;
+    resetSelection();
     setOffset(next);
   }
   function choose(source: Source) {
+    if (selected?.id === source.id || !canNavigate()) return;
     setSelected(source);
     setResult(null);
-    setError('');
+    setProtection({ dirty: false, pending: false });
     setTimeout(
       () =>
         document
@@ -68,13 +150,23 @@ export default function Page() {
     if (!selected || busy) return;
     setBusy(true);
     setResult(null);
-    setError('');
+    const order = ++detectionOrder.current;
     try {
-      setResult(await detectGeometry(selected.id, columns));
+      const next = await detectGeometry(selected.id, columns);
+      if (order !== detectionOrder.current) return;
+      setResult(next);
+      if (next.status !== 'detected')
+        notify({
+          kind: 'warning',
+          message: `Baseline: ${next.status}. ${next.reasons.join(', ')}`,
+        });
     } catch {
-      setError(
-        'Analiza nie powiodła się. Możesz ponowić lub wybrać inne zdjęcie.',
-      );
+      if (order !== detectionOrder.current) return;
+      notify({
+        kind: 'error',
+        message:
+          'Analiza nie powiodła się. Możesz ponowić lub wybrać inne zdjęcie.',
+      });
     } finally {
       setBusy(false);
     }
@@ -89,27 +181,20 @@ export default function Page() {
           człowieka.
         </p>
       </header>
-      <aside className="notice">
-        Materiał wyłącznie do podglądu i testowania. Brak zatwierdzonych etykiet
-        i kwalifikacji treningowej. 777: tylko porównanie. Rodziny nagrań
-        wymagają weryfikacji.
-      </aside>
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
+      <p>
+        Liczniki opisują zapisane anotacje, nie kwalifikację treningową. 777:
+        tylko porównanie. Rodziny nagrań wymagają weryfikacji.
+      </p>
       <label>
         Gra{' '}
         <select
           value={game}
           disabled={busy}
           onChange={(event) => {
-            setLoading(true);
+            if (!canNavigate()) return;
             setGame(event.target.value);
             setOffset(0);
-            setSelected(null);
-            setResult(null);
+            resetSelection();
           }}
         >
           <option value="">Wszystkie gry</option>
@@ -120,29 +205,77 @@ export default function Page() {
           ))}
         </select>
       </label>
+      <label>
+        Stan zdjęcia{' '}
+        <select
+          value={filter}
+          disabled={!state || busy}
+          onChange={(event) => {
+            if (!canNavigate()) return;
+            setFilter(event.target.value as PhotoFilter);
+            setOffset(0);
+            resetSelection();
+          }}
+        >
+          <option value="all">Wszystkie</option>
+          <option value="missing">Bez zapisów</option>
+          <option value="started">Rozpoczęte (dowolny zapis)</option>
+          <option value="full">Z pełną siatką (co najmniej jedną)</option>
+        </select>
+      </label>
+      <div className="action-group">
+        <button
+          disabled={busy || protection.pending}
+          onClick={() => {
+            void refresh()
+              .then(() =>
+                notify({
+                  kind: 'info',
+                  message: 'Odświeżono statusy zapisanych anotacji.',
+                }),
+              )
+              .catch(() =>
+                notify({
+                  kind: 'error',
+                  message: 'Odczyt anotacji nie powiódł się.',
+                }),
+              );
+          }}
+        >
+          Odśwież statusy
+        </button>
+        {galleryFailed && (
+          <button
+            onClick={() => {
+              setLoading(true);
+              setGalleryFailed(false);
+              setReload((value) => value + 1);
+            }}
+          >
+            Ponów wczytanie galerii
+          </button>
+        )}
+      </div>
       {loading ? (
-        <p role="status">Wczytywanie zdjęć…</p>
+        <div aria-busy="true" aria-label="Galeria" />
       ) : total === 0 ? (
-        <p>
-          Brak zdjęć. Uruchom API ze zmienną VISION_LAB_SNAPSHOT wskazującą
-          opublikowany snapshot.
-        </p>
+        <p>Brak zdjęć w tym widoku.</p>
       ) : (
         <>
           <nav>
             <strong>{total} zdjęć</strong>
             <button
-              disabled={offset === 0 || busy}
-              onClick={() => changePage(Math.max(0, offset - 24))}
+              disabled={pageOffset === 0 || busy}
+              onClick={() => changePage(Math.max(0, pageOffset - 24))}
             >
               Poprzednie
             </button>
             <span>
-              {offset + 1}–{Math.min(total, offset + 24)}
+              {pageOffset + 1}–{Math.min(total, pageOffset + 24)}
             </span>
             <button
-              disabled={offset + 24 >= total || busy}
-              onClick={() => changePage(offset + 24)}
+              disabled={pageOffset + 24 >= total || busy}
+              onClick={() => changePage(pageOffset + 24)}
             >
               Następne
             </button>
@@ -163,10 +296,26 @@ export default function Page() {
                   alt={source.filename}
                   onError={(event) => {
                     event.currentTarget.alt = 'Nie można odczytać zdjęcia';
+                    notify({
+                      kind: 'error',
+                      message: `Nie można odczytać zdjęcia: ${source.filename}`,
+                    });
                   }}
                 />
                 <strong>{source.game_name}</strong>
                 <small>{source.filename}</small>
+                {state ? (
+                  <small className="annotation-badge">
+                    Pełne:{' '}
+                    {photoCounts(sourceAnnotations(state, source.id)).full} ·
+                    Lokalizacje:{' '}
+                    {photoCounts(sourceAnnotations(state, source.id)).location}{' '}
+                    · Szkice:{' '}
+                    {photoCounts(sourceAnnotations(state, source.id)).draft}
+                  </small>
+                ) : (
+                  <small>Stan anotacji niedostępny</small>
+                )}
                 {source.duplicate_count > 1 && (
                   <small>Duplikat: {source.duplicate_count} wystąpienia</small>
                 )}
@@ -185,10 +334,12 @@ export default function Page() {
           <h2>{selected.game_name} — podgląd</h2>
           <p>{selected.filename}</p>
           <GeometryEditor
-            key={`${selected.id}:${columns}`}
+            key={selected.id}
             source={selected}
             proposal={result}
             columns={columns}
+            onProtectionChange={onProtectionChange}
+            onColumnsChange={onColumnsChange}
           />
           <p>
             Kandydat rodziny: {selected.family_candidate} ·{' '}
@@ -196,20 +347,6 @@ export default function Page() {
               ? 'Tylko porównanie'
               : 'Materiał testowy'}
           </p>
-          <label>
-            Topologia planszy{' '}
-            <select
-              value={columns}
-              disabled={busy}
-              onChange={(event) => {
-                setColumns(Number(event.target.value) as 3 | 5);
-                setResult(null);
-              }}
-            >
-              <option value={5}>5 kolumn × 3 wiersze</option>
-              <option value={3}>3 kolumny × 3 wiersze</option>
-            </select>
-          </label>
           <button disabled={busy} onClick={detect}>
             {busy ? 'Analiza zdjęcia…' : 'Pokaż wynik baseline'}
           </button>
@@ -271,7 +408,7 @@ export default function Page() {
           </div>
           {result && (
             <>
-              <p role="status">
+              <p>
                 {result.status} · {result.model_version}{' '}
                 {result.reasons.join(', ')}
               </p>

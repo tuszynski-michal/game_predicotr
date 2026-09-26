@@ -124,6 +124,8 @@ Nie obejmuje rzeczywistych zatwierdzeń ani odblokowania T04/T05.
 
 ### Outcome T03a
 
+- Commit `v1.7.3` — `5db0a10bfa464526a6eb08dd6611cdafc9c262bf`.
+  Hash uzupełniony po commicie, lokalnie do kolejnego commita.
 - Wdrożono edytor/kadr, małe uchwyty z 44 px obszarem chwytania, sidebar
   cropów i automatyczny preview po release. Viewport nie zmienia geometrii.
   Stare odpowiedzi są unieważniane również na początku kolejnego drag.
@@ -162,6 +164,146 @@ Nie obejmuje rzeczywistych zatwierdzeń ani odblokowania T04/T05.
   zaliczone. Ponowny build/odbiór prowadzi koordynator i audytor.
 - Nie zapisano zatwierdzeń ani pilota, nie uruchomiono T04/T05. Dane T03
   pozostają blokadą etapu B. Commit/hash dopisze koordynator po audycie.
+
+## T03b — uproszczenie zatwierdzania i następna plansza
+
+### Status i cel
+
+`done` — implementacja odebrana testami i audytem kodu; ograniczenie browser QA opisano w Outcome.
+Uprościć jawne zapisy operatora i rozpoczęcie kolejnej planszy na tym samym
+zdjęciu. Wymaga ukończonego T03a, nie wymaga zakończenia pilota danych.
+Relevant docs pozostają jak w T03 oraz sekcja T03b zaakceptowanego planu.
+
+### Recommended execution
+
+`gpt-6-sol` / `medium`; niezależny audyt `gpt-6-astra` / `medium`.
+Ryzyko: zapis niewłaściwej pozycji, podwójna nawigacja po retry i niejawne
+zatwierdzenie. Nierozwiązane P0–P2 po dwóch cyklach blokują odbiór.
+
+### Scope i kontrakt
+
+- Rozszerzenie zatwierdzone przed kodowaniem: miniatury pokazują osobno liczbę
+  obecnych pełnych siatek, lokalizacji i szkiców. Filtry wszystkie / bez zapisów /
+  rozpoczęte / z pełną siatką obejmują całą grę, przed paginacją. Pełna siatka
+  oznacza przynajmniej jedną zapisaną obecną pełną geometrię, nie komplet zdjęcia
+  ani kwalifikację do treningu. Wszystkie metadane pobierane partiami istniejącym API.
+- Pozycje 1–9 oraz istniejące dalsze pozycje mają jawne statusy; wybór wczytuje
+  dokładny zapis i jego topologię. Brak zapisu pozostaje pusty do jawnej propozycji
+  (po automatycznym przejściu propozycja jest przygotowana bez zapisu).
+  Przegląd pełnego zdjęcia pokazuje numerowane, klikalne obrysy zapisanych plansz.
+- Jeden właściciel stanu anotacji odświeża galerię, geometrię i rodziny po zapisie
+  oraz odczycie. Nawigacja, filtry i zmiana topologii wymagają jawnego odrzucenia
+  niezapisanych zmian; niepotwierdzone żądanie blokuje nawigację do rozstrzygnięcia.
+  Baza toastów jest współdzielona w packages/ui, bez importu z Admina.
+
+- Ukryć pole osoby w edytorze geometrii; nowe decyzje mają `actor=operator`.
+  Nie przepisywać autorów wcześniejszych rewizji ani panelu rodzin.
+- Grupy przycisków wczytania/propozycji i trzech zapisów mają odstępy
+  poziome/pionowe także po zawinięciu, z krótkim opisem znaczenia akcji.
+- Usunąć checkbox sprawdzenia węzłów. Kliknięcie „Zatwierdź pełną siatkę”
+  jest świadomym potwierdzeniem wszystkich granic: tylko ta akcja wysyła
+  `reviewed_all_nodes=true`. Szkic, lokalizacja i preview nie zatwierdzają
+  pełnej geometrii. Pozostają walidacja backendu oraz wymaganie pełnych węzłów.
+- Po potwierdzonym sukcesie `approve_full` lub `approve_location` pozycji
+  1–8 otworzyć następną pozycję na tym samym źródle, przywrócić cały kadr,
+  unieważnić stary preview i stan gestu. Nie kopiować zatwierdzenia ani
+  geometrii poprzedniej planszy jako zapisu nowej. Wczytać istniejący zapis
+  następnej pozycji; dla braku zapisu przygotować niezatwierdzoną propozycję.
+  Niezgodna topologia zapisu: komunikat, bez nadpisania lub konwersji.
+- „Zapisz szkic” pozostaje na pozycji. Po zatwierdzeniu pozycji 9 zatrzymać
+  automatyczną nawigację; nie przełączać zdjęcia. Komunikat „Zatwierdzono
+  9 plansz” tylko jeśli stan potwierdza pełne zatwierdzenia pozycji 1–9;
+  w pozostałych przypadkach podać faktyczną liczbę i brakujące pozycje.
+  Dziewięć to koniec tego automatycznego przebiegu, nie limit domenowy.
+- Błąd/konflikt/utrata odpowiedzi pozostawia bieżącą planszę i identyczny
+  request do retry. Sukces retry przechodzi raz, względem pozycji zapisanej
+  w request, nie ruchomego stanu UI; zablokować podwójny submit. Restart
+  odczytuje trwałe zapisy i nie powtarza zatwierdzeń automatycznie.
+
+### Expected files i testy
+
+Doprecyzowanie T03b — komunikaty wyłącznie w toastach:
+
+- Wszystkie powiadomienia ekranu laboratorium (galeria, edytor, rodziny,
+  backup, preview, zapis, konflikt i błędy odczytu) trafiają do wspólnego
+  stosu `position: fixed` w lewym dolnym rogu viewportu. Usunąć ich kopie
+  z body; scroll ani przejście między planszami nie ukrywa komunikatu.
+- Sukces: zielone tło, błąd: czerwone, ostrzeżenie: pomarańczowe.
+  Informacje i postęp: neutralny wariant informacyjny, bez sugerowania sukcesu.
+  Treść/ikona i dostępna nazwa opisują typ niezależnie od koloru.
+- Proponowany czas: sukces/informacja 120 s, ostrzeżenie/błąd 180 s;
+  odliczanie od pokazania, wstrzymane na hover/focus i w ukrytej karcie.
+  Kliknięcie komunikatu lub dostępnego przycisku zamknięcia zamyka go;
+  przyciski akcji (np. ponów) nie mogą przypadkowo zamykać komunikatu.
+- Kolejka nie nadpisuje niezauważonych błędów sukcesem; powtarzający się
+  identyczny komunikat scala się z licznikiem. Nie tworzyć toastu na każdy
+  pointermove; aktualizacja jednej operacji zastępuje jej postęp wynikiem.
+  Timeout toastu nigdy nie resetuje stanu błędu, blokady ani pending request.
+- Toast informuje o niepoprawnym polu i pozwala do niego przejść; pole może
+  zachować aria-invalid/oznaczenie, ale nie osobny banner komunikatu w body.
+  Etykiety, instrukcje, dane raportu i kontrolki nie są powiadomieniami
+  i pozostają w układzie. Niedostępna sekcja zachowuje bezpieczny stan
+  oraz kontrolkę retry; szczegółowy komunikat pojawia się w toaście.
+- Istniejący wzorzec to lokalny toast w
+  `apps/admin/src/features/symbol-reviews/symbol-review-workspace.tsx`
+  (stan SymbolReviewToast) i module CSS `.toast`; ma timeout 4 s i dwa
+  warianty, nie jest gotowym wspólnym komponentem. Wydzielić/reużyć bazę
+  bez zależności laboratorium od aplikacji Admin; nie kopiować kilku implementacji.
+  Zmiana zachowania pozostałych ekranów dopiero w końcowym T14.
+- Dodać regresje kolorów/semantyki, zamykania klik/klawiatura, zegara,
+  hover/focus, kolejki/deduplikacji, widoczności po scrollu i zmianie planszy,
+  konfliktu/retry po zniknięciu toastu, braku zdublowanych komunikatów w body.
+
+Istniejące: `apps/vision-lab/src/components/geometry-editor.tsx::GeometryEditor`
+(save/load), `src/app/style.css`, testy `apps/vision-lab/test/` i kontraktu
+anotacji. Proponowany nowy czysty helper przejścia pozycji, jeśli potrzebny.
+Bez zmian DB, treningu, portu 3001 i automatycznych decyzji za człowieka.
+
+Kryteria odbioru/testy planowane: stały operator i brak pola/checkboxa;
+pełna zgoda wyłącznie przez akcję; odstępy desktop/mobile; sukces 1→2,
+szkic 1→1, 9→9; brak nadpisania istniejącej pozycji; mniej niż 9 plansz;
+niezgodna topologia; błąd i konflikt bez przejścia; utrata odpowiedzi/retry
+bez podwójnej nawigacji; restart zachowuje zapis i autora; regresje 5×3/3×3.
+Najpierw testy UI/klienta i istniejące testy anotacji, następnie lint,
+typecheck, build i browser. Każda skończona komenda z timeoutem do 120 s.
+
+### Outcome T03b
+
+- Wdrożono stałego operatora, pełną zgodę przez kliknięcie, odstępy i opisy,
+  auto-przejście po potwierdzonym zapisie z idempotentnym retry, dokładne
+  wczytanie istniejącej geometrii/topologii, statusy pozycji i klikalny przegląd.
+- Galeria filtruje pełny katalog przed paginacją i rozdziela pełne siatki,
+  lokalizacje i szkice. Wspólny stan anotacji aktualizuje wszystkich odbiorców;
+  starsze odpowiedzi nie cofają rewizji. Zmiana tej samej planszy w innym
+  odczycie wymaga jej ponownego sprawdzenia przed zapisem lokalnej edycji.
+- Powiadomienia korzystają ze współdzielonej bazy packages/ui: kolejka,
+  deduplikacja, czasy 120/180 s, pauza hover/focus/hidden, zamknięcie i akcje.
+  Raport pomiarów pozostaje danymi. Timeout toastu nie resetuje pending request.
+- Testy UI: helpery oraz rzeczywiste komponenty React z izolowanym transportem;
+  double submit, utrata odpowiedzi po persist/retry, szkic i pozycja 9,
+  dokładne zapisane cropy 3×3/5×3, dirty guard, odczyt po konflikcie,
+  wspólna i monotoniczna rewizja, filtr obejmujący dalszą stronę katalogu,
+  hover/focus/hidden, osobne akcje i zamknięcie toastu.
+- Backend anotacji 9/9 i klient 4/4 potwierdzone przez koordynatora.
+  Końcowe UI 22/22, lint aplikacji i wspólnej bazy, format, TypeScript
+  i production build PASS, również po poprawce topologii.
+- Audyt Astra medium: brak otwartych P0–P2; niezależne 13/13 testów
+  workflow (8 React + 5 helperów). Naprawiono wyścig odczytu po konflikcie,
+  deduplikację postępu toastów i rozjazd selektora zapisanej topologii.
+- Nowy proces UI na 3102, HTTP 200 i katalog dostępny. Odczyt anotacji
+  po restarcie UI identyczny: rewizja 20, cztery pełne geometrie na dwóch
+  źródłach (3 i 1), historyczni autorzy zachowani. SHA-256 odpowiedzi:
+  `4D665227F4AF308BBAA1F51A9252514F7DB669AB5A77821C1DC56D086E805AB3`.
+- Końcowy browser QA i screenshot nie zostały wykonane: connector nie
+  udostępnia żadnej przeglądarki, także po próbie open_in_codex. Nie użyto
+  wcześniejszego zrzutu T03a jako dowodu nowego UI. Zachowania sprawdzają
+  testy React; odbiór wizualny w rzeczywistej przeglądarce pozostaje ryzykiem.
+- Zakres porównano z kryteriami T03b: wszystkie funkcje wdrożone, testy
+  scenariuszy zapisu/retry/statusów/topologii/toastów zaliczone. Brak wyłącznie
+  końcowego odbioru przeglądarkowego. Commit `v1.7.5`; hash po commicie.
+- Nie zmieniono API, DB ani danych użytkownika; testy nie zapisują rzeczywistych
+  decyzji. T03 pozostaje blocked na pilocie, T04/T05/T14 nie uruchomiono.
+  Fizyczny Android i restart komputera pozostają niesprawdzone.
 
 ## Outcome T03
 

@@ -220,6 +220,67 @@ kandydat gry testowej oraz granice STOP A są zapisane w
 GPU ani treningu hybrydy. Porty, gałąź, dostępność GPU i wolne numery są
 ponownie sprawdzane na początku odpowiednich etapów.
 
+## T03b — uproszczenie zatwierdzania i następna plansza (wdrożone)
+
+Na polecenie użytkownika zapisano podzadanie dla laboratorium 3102,
+z uruchomieniem implementacji całości: stały niewidoczny `operator`, odstępy
+między przyciskami, pełne zatwierdzenie samym jawnym kliknięciem bez
+dodatkowego checkboxa oraz przejście do następnej pozycji na tym samym
+zdjęciu dopiero po potwierdzonym zatwierdzeniu. Szkic nie zmienia pozycji.
+Po pozycji 9 nie przechodzimy na inne zdjęcie ani automatycznie na pozycję 10.
+Nie oznacza to wymagania dziewięciu plansz dla każdego źródła ani zmiany
+kontraktu topologii. Istniejące zapisy następnej pozycji są wczytywane,
+nie nadpisywane. Szczegóły, błędy i regresje: T03b w TASK-0668.
+
+T03b obejmuje również wszystkie powiadomienia laboratorium w toastach
+w lewym dolnym rogu, bez bannerów sukcesu/błędu/ostrzeżenia w body.
+Kolory: zielony/czerwony/pomarańczowy; proponowany timeout 120 s dla
+sukcesu/informacji i 180 s dla ostrzeżenia/błędu, zamknięcie kliknięciem.
+Szczegółowy kontrakt dostępności, kolejki i retry zapisano w TASK-0668.
+
+Rozszerzenie użytkownika: liczniki obecnych pełnych siatek, lokalizacji i szkiców
+na zdjęciu, filtry całej gry przed paginacją, statusy pozycji 1–9 i istniejących
+dalszych, dokładne wczytanie zapisanej geometrii oraz klikalne numerowane obrysy
+na pełnym zdjęciu. Filtr „Z pełną siatką” oznacza co najmniej jeden taki zapis,
+nie kompletność zdjęcia ani kwalifikację treningową. Stan anotacji ma jednego
+właściciela, a niezapisane zmiany wymagają decyzji przed opuszczeniem edytora.
+Testy obejmują ponowny odczyt, aktualizację po zapisie, paginację i różne topologie.
+
+## T14 — końcowe ujednolicenie toastów w aplikacjach webowych
+
+**Status:** `todo`, zaplanowane na polecenie użytkownika; bez implementacji
+w tej turze i poza automatycznym zakresem etapu B. Ostatnie zadanie
+refaktoryzacyjne po dotychczasowym T13, uruchamiane osobno.
+
+**Cel/scope:** wszystkie ekrany aplikacji webowych (Admin, Reviewer,
+laboratorium i inne webowe powierzchnie ustalone przy inwentaryzacji)
+korzystają z tego samego komponentu i kontraktu toastów T03b. Usunąć
+rozproszone bannery/statusy sukcesów, ostrzeżeń i błędów w body. Nie usuwać
+danych, instrukcji, potwierdzeń wymagających decyzji ani stanu blokad operacji.
+Aplikacja mobilna wyłączona; ewentualne poprawki mobilne są osobnym torem.
+
+**Dependencies/wykonanie:** wspólna baza sprawdzona w T03b; przed kodowaniem
+zinwentaryzować każdy ekran i producenta komunikatów, uzupełnić osobny task
+według TASK_TEMPLATE o sprawdzone pliki i testy. Relevant docs: wymagania
+oraz architektura każdego migrowanego obszaru, AGENTS, PLAN_STANDARD,
+TASK-0668/T03b. Potwierdzony istniejący wzorzec to lokalny toast w
+`apps/admin/src/features/symbol-reviews/symbol-review-workspace.tsx`
+i `.toast` w sąsiednim module CSS, obecnie z timeoutem 4 s.
+Nie tworzyć równoległych systemów powiadomień. Nie zmieniać kontraktów API,
+reguł zatwierdzeń, retry, danych ani mobilnych konsumentów przy okazji.
+
+**Acceptance/testy planowane:** macierz ekran → komunikaty → test;
+widoczność po scrollu/nawigacji wewnątrz aplikacji, poprawne kolory i treści,
+120/180 s oraz ręczne zamknięcie, dostępność klawiaturą/czytnikiem,
+kolejka bez utraty błędów, brak kopii w body, brak zasłaniania kluczowych
+kontrolek na małych ekranach, regresje istniejącego workflow zapisu i retry.
+Najpierw testy danego pionu, lint/typecheck, następnie build i browser
+każdej aplikacji. Skończone komendy z limitem do 120 s. Audyt przed commitem;
+nierozwiązane P0–P2 po dwóch cyklach wymagają zatrzymania.
+
+**Outcome:** zapisano zakres; wdrożenie i testy jeszcze niewykonane.
+T14 nie zastępuje odbioru modelu T13 i nie odblokowuje treningu.
+
 ## Przypisanie modeli do zadań
 
 T03a (podzadanie TASK-0668, zlecone 2026-09-26) poprawia wyłącznie ergonomię
@@ -249,6 +310,7 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T02 / TASK-0667 | `gpt-6-sol` | `medium` | Kontrakt UI/API i HTTP. | `gpt-6-astra`, `medium` |
 | T03 / TASK-0668 | `gpt-6-sol` | `medium` | Trwałość anotacji i podziały. | `gpt-6-astra`, `medium` |
 | T03a / TASK-0668 | `gpt-6-sol` | `medium` | Transformacja widoku i aktualność cropów bez zapisów. | `gpt-6-astra`, `medium` |
+| T03b / TASK-0668 | `gpt-6-sol` | `medium` | Jawna zgoda, retry i bezpieczne przejście między zapisami plansz. | `gpt-6-astra`, `medium` |
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |
@@ -259,3 +321,4 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T11 / TASK-0676 | `gpt-6-sol` | `medium` | Rewizje i przepływ 5 × 3. | `gpt-6-astra`, `medium` |
 | T12 / TASK-0677 | `gpt-6-sol` | `high` | ONNX, pochodzenie i regresja produkcji. | `gpt-6-astra`, `medium` |
 | T13 / TASK-0678 | `gpt-6-sol` | `medium` | Test końcowy i odbiór. | `gpt-6-astra`, `medium` |
+| T14 / końcowa refaktoryzacja web | `gpt-6-sol` | `medium` | Wspólny komponent i regresje komunikatów w wielu aplikacjach. | `gpt-6-astra`, `medium` |

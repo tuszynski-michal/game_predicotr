@@ -1,9 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useAnnotations } from './annotation-context';
+import { useToast } from '../../../../packages/ui/src/toasts';
 import {
   backupAnnotations,
   annotationTimings,
-  readAnnotations,
   writeFamily,
   type Source,
   type FamilyRequest,
@@ -18,28 +19,39 @@ export function FamilyEditor({
   selected: Source[];
   onSelected: (sources: Source[]) => void;
 }) {
+  const { accept, refresh } = useAnnotations();
+  const notify = useToast();
+  const writing = useRef(false);
+  const preparing = useRef(false);
   const [actor, setActor] = useState('');
   const [family, setFamily] = useState('');
   const [evidence, setEvidence] = useState('');
   const [verified, setVerified] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [report, setReport] = useState('');
   const [pending, setPending] = useState<FamilyRequest | null>(null);
   async function submit(body: FamilyRequest) {
+    if (writing.current) return;
+    writing.current = true;
     setBusy(true);
     setPending(body);
     try {
-      await writeFamily(body);
+      accept(await writeFamily(body));
       setPending(null);
-      setMessage(
-        'Zapisano jawne powiązanie źródeł. Wspólny SHA i relacje są łączone przechodnio.',
-      );
+      notify({
+        kind: 'success',
+        message:
+          'Zapisano jawne powiązanie źródeł. Wspólny SHA i relacje są łączone przechodnio.',
+      });
     } catch {
-      setMessage(
-        'Zapis niepotwierdzony. Ponów identyczne żądanie lub odśwież stan po konflikcie.',
-      );
+      notify({
+        kind: 'error',
+        message:
+          'Zapis niepotwierdzony. Ponów identyczne żądanie lub odśwież stan po konflikcie.',
+      });
     } finally {
       setBusy(false);
+      writing.current = false;
     }
   }
   return (
@@ -126,9 +138,11 @@ export function FamilyEditor({
             evidence.trim().length < 5
           }
           onClick={async () => {
+            if (preparing.current) return;
+            preparing.current = true;
             setBusy(true);
             try {
-              const state = await readAnnotations();
+              const state = await refresh();
               await submit({
                 request_id: crypto.randomUUID(),
                 expected_revision: state.revision,
@@ -145,11 +159,14 @@ export function FamilyEditor({
                 },
               });
             } catch {
-              setMessage(
-                'Zapis niepotwierdzony lub konflikt rewizji. Sprawdź stan przed ponowieniem.',
-              );
+              notify({
+                kind: 'error',
+                message:
+                  'Zapis niepotwierdzony lub konflikt rewizji. Sprawdź stan przed ponowieniem.',
+              });
             } finally {
               setBusy(false);
+              preparing.current = false;
             }
           }}
         >
@@ -165,13 +182,14 @@ export function FamilyEditor({
             disabled={busy}
             onClick={async () => {
               try {
-                const state = await readAnnotations();
+                const state = await refresh();
                 setPending(null);
-                setMessage(
-                  `Odczytano rewizję ${state.revision}. Sprawdź zapisaną decyzję przed zmianą.`,
-                );
+                notify({
+                  kind: 'info',
+                  message: `Odczytano rewizję ${state.revision}. Sprawdź zapisaną decyzję przed zmianą.`,
+                });
               } catch {
-                setMessage('Odczyt nie powiódł się.');
+                notify({ kind: 'error', message: 'Odczyt nie powiódł się.' });
               }
             }}
           >
@@ -185,11 +203,12 @@ export function FamilyEditor({
           setBusy(true);
           try {
             const result = await backupAnnotations();
-            setMessage(
-              `Backup rewizji ${result.revision}: ${result.backup_id}. Odtworzenie jest dostępne wyłącznie do nowego katalogu przez narzędzie operatorskie.`,
-            );
+            notify({
+              kind: 'success',
+              message: `Backup rewizji ${result.revision}: ${result.backup_id}. Odtworzenie jest dostępne wyłącznie do nowego katalogu przez narzędzie operatorskie.`,
+            });
           } catch {
-            setMessage('Backup nie powiódł się.');
+            notify({ kind: 'error', message: 'Backup nie powiódł się.' });
           } finally {
             setBusy(false);
           }
@@ -202,7 +221,7 @@ export function FamilyEditor({
         onClick={async () => {
           try {
             const rows = await annotationTimings();
-            setMessage(
+            setReport(
               rows
                 .map(
                   (row) =>
@@ -211,13 +230,13 @@ export function FamilyEditor({
                 .join(' | '),
             );
           } catch {
-            setMessage('Nie można odczytać pomiaru.');
+            notify({ kind: 'error', message: 'Nie można odczytać pomiaru.' });
           }
         }}
       >
         Pokaż pomiar pierwszych 10 zdjęć na grę
       </button>
-      <p role="status">{message}</p>
+      {report && <p aria-label="Raport pomiaru anotacji">{report}</p>}
     </section>
   );
 }

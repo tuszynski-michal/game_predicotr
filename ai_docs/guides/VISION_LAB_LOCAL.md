@@ -120,7 +120,34 @@ API wymaga jawnego `--annotations` (alternatywnie `VISION_LAB_ANNOTATIONS`).
 Nie wskazuj wnętrza katalogu snapshotu. Bez tej konfiguracji galeria nadal
 działa, lecz zapis anotacji jest niedostępny. Po uruchomieniu wybierz zdjęcie,
 topologię i pozycję planszy. Wczytaj propozycję albo zapis, a następnie popraw
-narożniki lub wszystkie węzły. Wprowadź osobę podejmującą decyzję.
+narożniki lub wszystkie węzły. Nowe decyzje geometrii mają stałego aktora
+`operator`; historyczni autorzy pozostają zachowani.
+
+Galeria pokazuje osobno pełne obecne siatki, lokalizacje i szkice. Filtry
+„Bez zapisów”, „Rozpoczęte” i „Z pełną siatką” obejmują całą grę przed
+paginacją. Ostatni oznacza co najmniej jedną pełną siatkę, nie kompletne
+zdjęcie ani gotowość do treningu. „Odśwież statusy” pobiera trwały stan.
+
+W edytorze wybierz numer pozycji albo obrys w rozwijanym przeglądzie całego
+zdjęcia. Wczytany zostanie dokładny zapis z jego topologią i cropami.
+Pozycje 1–9 są dostępne zawsze, a istniejące dalsze zapisy także pojawiają się
+na liście. Brak zapisu wymaga kliknięcia „Nowa propozycja z narożników”.
+Topologię pustej pozycji zmienisz bez powrotu do pozycji 1. Wczytanie zapisanej
+planszy odtwarza jej topologię bez konwersji.
+
+„Zatwierdź pełną siatkę” potwierdza wszystkie węzły samym jawnym kliknięciem,
+bez dodatkowego checkboxa. Po zatwierdzeniu lokalizacji lub pełnej siatki
+pozycji 1–8 otwiera się kolejna pozycja tego samego zdjęcia: istniejący zapis
+albo niezapisana propozycja. Szkic i pozycja 9 pozostają na miejscu.
+Zmiana widoku wymaga odrzucenia niezapisanej pracy. Po utracie odpowiedzi
+„Ponów identyczne żądanie” bezpiecznie odtwarza wynik; „Odśwież po konflikcie”
+wymaga decyzji o zastąpieniu edycji aktualnym zapisem.
+
+Powiadomienia pojawiają się w lewym dolnym rogu: sukces zielony, błąd czerwony,
+ostrzeżenie pomarańczowe, informacja neutralna. Kliknięcie lub „Zamknij” usuwa
+komunikat. Sukces/informacja pozostają 120 s, błąd/ostrzeżenie 180 s; hover,
+focus i ukryta karta wstrzymują zegar. Zamknięcie komunikatu nie usuwa retry.
+Raport pomiarów nadal pozostaje w panelu rodzin jako dane.
 
 T03a: duży edytor ma po prawej zwarte cropy bieżącej siatki. Przeciągnij
 uchwyt i puść: kadr dopasuje się do siatki z marginesem, a cropy odświeżą się

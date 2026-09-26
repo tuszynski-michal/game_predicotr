@@ -6,6 +6,16 @@ last_updated: 2026-09-26
 
 # Architektura laboratorium wizji
 
+UI ma jednego właściciela AnnotationState dla galerii, geometrii i rodzin.
+Odczyt GET /annotations oraz wyniki zapisu odświeżają ten stan monotonicznie
+według rewizji. Istniejący GET /sources jest pobierany partiami do pełnego
+katalogu metadanych; filtry anotacji poprzedzają paginację UI. Nie zmienia się API.
+Statusy i liczniki wynikają wyłącznie z trwałych anotacji; obecna pełna geometria
+wymaga full_approved i presence=present. Nawigacja chroni lokalne zmiany,
+a pending request blokuje opuszczenie edytora do retry lub jawnego odczytu.
+Wspólna baza powiadomień packages/ui obsługuje kolejkę, deduplikację i zegar
+niezależnie od operacji; zamknięcie toastu nie zmienia stanu zapisu.
+
 POST `/geometry` przyjmuje opcjonalne `preview_board` zgodne z Board.
 Bez niego zachowuje detekcję baseline; z nim waliduje bieżące węzły przez
 `cell_quads` i generuje cropy przez wspólne `crop_cell`. GeometryResult

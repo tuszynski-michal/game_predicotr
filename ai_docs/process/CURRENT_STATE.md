@@ -6,6 +6,43 @@ last_updated: 2026-09-26
 
 # Current State
 
+### T03b — pełne usprawnienia laboratorium (wdrożone lokalnie)
+
+- Użytkownik uruchomił implementację całego pakietu laboratorium 3102,
+  również liczników na miniaturach, statusów pozycji plansz, filtrów galerii
+  i obrysów zapisanych plansz. Wykonawca Sol medium; audyt Astra medium.
+- Odczyt wejściowy API: rewizja 20, cztery zapisane anotacje, zero rodzin.
+  To dane użytkownika: nie wykonywać zapisów ani zatwierdzeń podczas QA.
+  Testy mutacji wyłącznie na odizolowanych danych testowych.
+- Baza commita `v1.7.4` / `be27ec553d0a9acf418cd809d8b4bcef9ba82cc5`;
+  patch T03b: `v1.7.5`, hash zostanie dopisany po commicie. Zmiany TASK-0707,
+  Reviewera i `.claude/` pozostają poza commitem.
+
+- Wdrożono toasty w lewym dolnym rogu dla wszystkich powiadomień
+  laboratorium, bez bannerów w body; zielone sukcesy, czerwone błędy,
+  pomarańczowe ostrzeżenia, proponowane 120/180 s i zamknięcie kliknięciem.
+  Wspólna baza packages/ui jest używana przez laboratorium.
+- Na końcu planu zapisano osobny T14: ujednolicenie wszystkich aplikacji
+  webowych. Mobile wyłączony. To zapis planu, nie wdrożenie ani uruchomienie
+  końcowej refaktoryzacji w etapie B.
+- Wdrożono: niewidoczny stały
+  operator, odstępy przycisków, pełna zgoda przez kliknięcie bez checkboxa,
+  kolejna pozycja na tym samym zdjęciu po udanym zatwierdzeniu, bez przejścia
+  po szkicu i bez automatycznej nawigacji dalej po pozycji 9.
+- Liczniki pełnych siatek/lokalizacji/szkiców, statusy pozycji, klikalne
+  obrysy i filtry całej galerii gotowe. Wczytanie zachowuje topologię;
+  ochrona niezapisanej edycji i pending request działa niezależnie od toastu.
+- UI 22/22, backend 9/9, klient 4/4; lint, format, TypeScript i production
+  build PASS. Audyt Astra medium: brak P0–P2, niezależne 13/13 testów.
+  Poprawiono wyścig odczytu, toast postępu i rozjazd topologii.
+- Nowy proces UI na 3102: HTTP 200, katalog dostępny. Po restarcie odczyt
+  anotacji bitowo zgodny z wejściowym SHA-256, nadal rewizja 20 i cztery
+  pełne siatki na dwóch źródłach (3 i 1), bez zmian autorów.
+- Końcowy browser QA/screenshot niewykonane: connector ma puste listy
+  przeglądarek nawet po próbie otwarcia panelu. Interakcje sprawdzone
+  testami React z izolowanym transportem; fizyczny Android i restart
+  komputera niesprawdzone. T03/T04/T05 nadal za bramką rzeczywistych danych.
+
 ### TASK-0707 — odroczona siatka: dopasowanie i preview po puszczeniu
 
 - Zakończono: checkbox zastąpiony dopasowaniem kadru po release. Podczas
@@ -20,6 +57,9 @@ last_updated: 2026-09-26
 
 ### T03a — udogodnienia anotacji laboratorium (gotowe)
 
+- Commit T03a: `v1.7.3` — `5db0a10bfa464526a6eb08dd6611cdafc9c262bf`.
+  Następny patch `v1.7.4` po potwierdzeniu historii. Hash dopisany po
+  commicie tutaj i w Outcome; oba wpisy lokalnie do następnego commita.
 - Użytkownik zlecił zapis i wykonanie podzadania dla portu 3102: zdjęcie
   i siatka po lewej, zwarte cropy po prawej, dopasowanie kadru do siatki
   dopiero po puszczeniu uchwytu, bez ruchu widoku podczas przeciągania.

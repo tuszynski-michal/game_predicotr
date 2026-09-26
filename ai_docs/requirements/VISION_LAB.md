@@ -6,6 +6,19 @@ last_updated: 2026-09-25
 
 # Laboratorium wizji
 
+Galeria pokazuje osobne liczniki zapisanych obecnych pełnych siatek, lokalizacji
+i szkiców. Filtry obejmują całą wybraną grę przed podziałem na strony; „Z pełną
+siatką” oznacza co najmniej jedną pełną geometrię, nie ukończenie zdjęcia ani
+kwalifikację treningową. Pozycje 1–9 i istniejące dalsze zapisy mają jawne statusy.
+Kliknięcie pozycji lub numerowanego obrysu na pełnym zdjęciu wczytuje dokładny
+zapis wraz z topologią i cropami; brak zapisu pozwala jawnie utworzyć propozycję.
+Niezapisane zmiany wymagają decyzji przed nawigacją. Zatwierdzenie pozycji 1–8
+otwiera kolejną na tym samym zdjęciu; szkic i pozycja 9 pozostają na miejscu.
+Pełne zatwierdzenie jest jawnym kliknięciem bez checkboxa; aktor nowych decyzji
+geometrii to stały operator. Powiadomienia są wyłącznie toastami w lewym dolnym
+rogu (sukces/informacja 120 s, błąd/ostrzeżenie 180 s, ręczne zamknięcie,
+wstrzymanie przy hover/focus/ukrytej karcie). Raporty i instrukcje pozostają w body.
+
 Edytor pokazuje duże zdjęcie po lewej i zwarte cropy aktualnej siatki po
 prawej (na małych ekranach poniżej). Po puszczeniu uchwytu odświeża cropy
 i dopasowuje kadr do granic siatki z niewielkim marginesem. Podczas gestu

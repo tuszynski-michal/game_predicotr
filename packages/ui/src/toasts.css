@@ -1,0 +1,50 @@
+.shared-toast-stack {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  width: min(390px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 45vh;
+  overflow: auto;
+  pointer-events: none;
+}
+.shared-toast {
+  pointer-events: auto;
+  border: 1px solid #ffffff66;
+  border-radius: 10px;
+  padding: 12px;
+  color: white;
+  box-shadow: 0 6px 24px #0006;
+  overflow-wrap: anywhere;
+}
+.shared-toast p {
+  margin: 6px 0 10px;
+  color: inherit;
+  line-height: 1.4;
+}
+.shared-toast button {
+  background: #0003;
+  color: white;
+  margin-right: 8px;
+  min-height: 44px;
+}
+.shared-toast-success {
+  background: #155d39;
+}
+.shared-toast-error {
+  background: #9b252d;
+}
+.shared-toast-warning {
+  background: #873f08;
+}
+.shared-toast-info {
+  background: #283d57;
+}
+.shared-toast-queue {
+  background: #172334;
+  padding: 6px;
+  border-radius: 6px;
+}

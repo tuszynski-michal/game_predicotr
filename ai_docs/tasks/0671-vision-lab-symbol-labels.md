@@ -1,7 +1,7 @@
 ---
 title: TASK-0671 — T06 — etykiety symboli
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0671 — T06 — etykiety symboli
@@ -24,7 +24,7 @@ T03 done; zatwierdzone słowniki lokalnych gier. Przed kodowaniem ponownie spraw
 
 ## Recommended execution
 
-`gpt-6-sol`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `high`. Proweniencja cropów i słowniki decydują o legalnym wejściu danych do treningu. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-6-sol`, reasoning `medium`; osobny audyt `gpt-6-sol`, reasoning `medium`. Proweniencja cropów i słowniki decydują o legalnym wejściu danych do treningu. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

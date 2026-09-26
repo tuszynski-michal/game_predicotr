@@ -1,7 +1,7 @@
 ---
 title: TASK-0673 — T08 — panel treningu
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0673 — T08 — panel treningu
@@ -24,7 +24,7 @@ T04–T07 done, w tym trwały `RunManager` z T04 i gotowy kontrakt API. Przed ko
 
 ## Recommended execution
 
-`gpt-5.6-terra`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `medium`. Panel korzysta z gotowego protokołu runów T04; ryzyko koncentruje się na interakcjach i stanie UI. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-5.6-terra`, reasoning `high`; osobny audyt `gpt-5.6-terra`, reasoning `high`. Panel korzysta z gotowego protokołu runów T04; ryzyko koncentruje się na interakcjach i stanie UI. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

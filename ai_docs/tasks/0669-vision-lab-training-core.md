@@ -1,7 +1,7 @@
 ---
 title: TASK-0669 — T04 — izolowany rdzeń treningu
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0669 — T04 — izolowany rdzeń treningu
@@ -24,7 +24,7 @@ T03 done, zamrożony manifest i split. Przed kodowaniem ponownie sprawdź bież�
 
 ## Recommended execution
 
-`gpt-6-sol`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `high`. Granice importów, protokół runów i checkpointy wpływają na odtwarzalność treningu. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-6-sol`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `medium`. Granice importów, protokół runów i checkpointy wpływają na odtwarzalność treningu. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

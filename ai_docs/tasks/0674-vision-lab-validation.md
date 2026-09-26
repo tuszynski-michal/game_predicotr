@@ -1,7 +1,7 @@
 ---
 title: TASK-0674 — T09 — walidacja i wybór
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0674 — T09 — walidacja i wybór
@@ -24,7 +24,7 @@ T05, T07, T08 done; walidacja odseparowana od testu. Przed kodowaniem ponownie s
 
 ## Recommended execution
 
-`gpt-6-astra`, reasoning `high`; osobny audyt `gpt-6-sol`, reasoning `high`. Wybór kierunku wymaga oceny dowodów bez użycia testu końcowego. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-6-sol`, reasoning `medium`; osobny audyt `gpt-6-astra`, reasoning `medium`. Wybór kierunku wymaga oceny dowodów bez użycia testu końcowego. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

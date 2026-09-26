@@ -1,7 +1,7 @@
 ---
 title: TASK-0668 — T03 — edytor i zbiór geometrii
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0668 — T03 — edytor i zbiór geometrii
@@ -24,7 +24,7 @@ STOP A; wybór gry niewidzianej zapisany przed pierwszym treningiem; zatwierdzon
 
 ## Recommended execution
 
-`gpt-6-sol`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `high`. Trwałość decyzji oraz brak przecieku rodzin źródeł wymagają kontroli rewizji i podziałów. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-6-sol`, reasoning `medium`; osobny audyt `gpt-6-astra`, reasoning `medium`. Trwałość decyzji oraz brak przecieku rodzin źródeł wymagają kontroli rewizji i podziałów. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

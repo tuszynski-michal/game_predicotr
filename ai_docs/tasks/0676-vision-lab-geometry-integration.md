@@ -1,7 +1,7 @@
 ---
 title: TASK-0676 — T11 — geometria w aplikacji
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0676 — T11 — geometria w aplikacji
@@ -24,7 +24,7 @@ STOP C lub D z zamrożonym kandydatem i jawne uruchomienie E. Przed kodowaniem p
 
 ## Recommended execution
 
-`gpt-6-sol`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `high`. Rewizje geometrii i ochrona decyzji człowieka wymagają spójnego pionu API–UI. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-6-sol`, reasoning `medium`; osobny audyt `gpt-6-astra`, reasoning `medium`. Rewizje geometrii i ochrona decyzji człowieka wymagają spójnego pionu API–UI. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii plansz i rozpoznawania symboli — plan wykonawczy
 status: accepted
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # Laboratorium geometrii i symboli
@@ -79,6 +79,16 @@ per gra.
 
 ## Kontrakty, środowisko i bezpieczeństwo
 
+Wznowienie etapu A (2026-09-26): użytkownik dostarczył surowe JPEG-i w
+`C:\Users\tuszy\Documents\new_traning_set` i katalog danych laboratorium.
+T02 obejmuje przygotowanie snapshotu plikowego tego wejścia, obok obsługi
+snapshotów eksportera DB z T01. Import zachowuje oryginały, publikuje kopie
+z SHA-256 atomowo i nadaje lokalne tożsamości gry/źródła. Nie tworzy rekordów
+DB, zatwierdzeń, podziału train/test ani etykiet. Wszystkie zdjęcia służą
+podglądowi/testowaniu; folder `777` pozostaje `comparison_only`.
+Prefiksy nazw są wyłącznie kandydatami rodzin do sprawdzenia w T03.
+Liczność galerii nie rozszerza budżetu pilota anotacji ani treningów.
+
 Proponowane `GeometryEngine`, `GeometryResult` i `SymbolRecognizer` pozwalają
 podmienić `baseline`, `hybrid` i `neural_grid` bez zmiany odbiorców. Wynik
 zawiera źródło, topologię, plansze, wszystkie węzły, pochodzenie punktów,
@@ -129,7 +139,7 @@ reguły pracy etapami i D-447, a **nie uruchamia A**.
 |---|---|---|
 | P00 | [TASK-0665](../tasks/completed/0665-vision-lab-plan.md) | Plan, dokumenty, zadania i spójne reguły; stary plan zastąpiony. |
 | A | [TASK-0666](../tasks/completed/0666-vision-lab-export.md) | Ograniczony eksporter read-only; bez częściowych snapshotów. |
-| A | [TASK-0667](../tasks/0667-vision-lab-gallery.md) | Kontrakty, baseline, galeria i bezpieczne lokalne API; błędny obraz nie zatrzymuje galerii. |
+| A | [TASK-0667](../tasks/completed/0667-vision-lab-gallery.md) | Kontrakty, baseline, galeria i bezpieczne lokalne API; błędny obraz nie zatrzymuje galerii. |
 | B | [TASK-0668](../tasks/0668-vision-lab-geometry-annotations.md) | Edytor, warstwowy zbiór, backup, zamrożony split i pomiar kosztu. |
 | B | [TASK-0669](../tasks/0669-vision-lab-training-core.md) | Neutralny rdzeń, trwały backend runów, izolowane GPU, checkpoint v2 i odczyt v1; bez przepięcia produkcji. |
 | B | [TASK-0670](../tasks/0670-vision-lab-hybrid.md) | Hybryda i pierwszy checkpoint widoczny w galerii; ONNX. |
@@ -204,25 +214,40 @@ podmienia się niejawnie. Sama tabela modeli nie jest zgodą na delegowanie;
 wyraźne polecenie etapu jest taką zgodą. Reguła właścicielska jest w
 `AGENTS.md`.
 
-Nie wykonano instalacji, treningu ani testów nowej implementacji. Porty,
-gałąź, dostępność GPU i wolne numery są ponownie sprawdzane na początku
-odpowiednich etapów.
+T02 dostarczył galerię, snapshot plikowy i adapter baseline. Wyniki kontroli,
+kandydat gry testowej oraz granice STOP A są zapisane w
+`quality/VISION_LAB_STAGE_A_ACCEPTANCE.md`. Nie wykonano instalacji środowiska
+GPU ani treningu hybrydy. Porty, gałąź, dostępność GPU i wolne numery są
+ponownie sprawdzane na początku odpowiednich etapów.
 
 ## Przypisanie modeli do zadań
 
+Decyzja użytkownika z 2026-09-26: audyt wykonuje najmniejszy model
+wystarczający do ryzyka; najwyższa dopuszczona konfiguracja audytora to
+`gpt-6-astra`, reasoning `medium`. Najtrudniejsze zadania wykonuje najwyżej
+`gpt-6-sol` / `high`; trudne i bardzo trudne `gpt-6-sol` / `medium`.
+Dla pozostałych wybieramy `gpt-5.6-terra` / `high` albo `xhigh`, jeśli
+wystarcza do zakresu. Dostępny poziom `xhigh` odpowiada określeniu użytkownika
+„very high”; nie istnieje osobny parametr o tej nazwie. Konfiguracje są
+potwierdzone w narzędziu agentów bieżącej sesji. W razie zmiany dostępności
+obowiązuje ponowna weryfikacja, bez niejawnego zamiennika.
+Tabela określa dalsze wykonanie i ewentualne ponowienia. Zakończone P00/T01
+zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
+
+
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| P00 / TASK-0665 | `gpt-6-sol` | `high` | Spójność wymagań, decyzji i reguł etapów. | `gpt-6-astra`, `medium` |
-| T01 / TASK-0666 | `gpt-6-sol` | `high` | Ochrona DB i snapshotu. | `gpt-6-astra`, `high` |
-| T02 / TASK-0667 | `gpt-6-sol` | `high` | Kontrakt UI/API i HTTP. | `gpt-6-astra`, `high` |
-| T03 / TASK-0668 | `gpt-6-sol` | `high` | Trwałość anotacji i podziały. | `gpt-6-astra`, `high` |
-| T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `high` |
-| T05 / TASK-0670 | `gpt-6-astra` | `high` | Geometria i trening. | `gpt-6-sol`, `high` |
-| T06 / TASK-0671 | `gpt-6-sol` | `high` | Słowniki i tożsamość cropów. | `gpt-6-astra`, `high` |
-| T07 / TASK-0672 | `gpt-6-astra` | `high` | Kalibracja i odporność na kolor. | `gpt-6-sol`, `high` |
-| T08 / TASK-0673 | `gpt-5.6-terra` | `high` | UI gotowych kontraktów. | `gpt-6-astra`, `medium` |
-| T09 / TASK-0674 | `gpt-6-astra` | `high` | Ocena dowodów i wybór kierunku. | `gpt-6-sol`, `high` |
-| T10 / TASK-0675 | `gpt-6-astra` | `high` | Sieć obu topologii. | `gpt-6-sol`, `high` |
-| T11 / TASK-0676 | `gpt-6-sol` | `high` | Rewizje i przepływ 5 × 3. | `gpt-6-astra`, `high` |
-| T12 / TASK-0677 | `gpt-6-sol` | `high` | ONNX, pochodzenie i regresja produkcji. | `gpt-6-astra`, `high` |
-| T13 / TASK-0678 | `gpt-6-astra` | `high` | Test końcowy i odbiór. | `gpt-6-sol`, `high` |
+| P00 / TASK-0665 | `gpt-5.6-terra` | `high` | Spójność wymagań, decyzji i reguł etapów. | `gpt-6-sol`, `medium` |
+| T01 / TASK-0666 | `gpt-6-sol` | `medium` | Ochrona DB i snapshotu. | `gpt-6-astra`, `medium` |
+| T02 / TASK-0667 | `gpt-6-sol` | `medium` | Kontrakt UI/API i HTTP. | `gpt-6-astra`, `medium` |
+| T03 / TASK-0668 | `gpt-6-sol` | `medium` | Trwałość anotacji i podziały. | `gpt-6-astra`, `medium` |
+| T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
+| T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
+| T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |
+| T07 / TASK-0672 | `gpt-6-sol` | `medium` | Kalibracja i odporność na kolor. | `gpt-6-astra`, `medium` |
+| T08 / TASK-0673 | `gpt-5.6-terra` | `high` | UI gotowych kontraktów. | `gpt-5.6-terra`, `high` |
+| T09 / TASK-0674 | `gpt-6-sol` | `medium` | Ocena dowodów i wybór kierunku. | `gpt-6-astra`, `medium` |
+| T10 / TASK-0675 | `gpt-6-sol` | `high` | Sieć obu topologii. | `gpt-6-astra`, `medium` |
+| T11 / TASK-0676 | `gpt-6-sol` | `medium` | Rewizje i przepływ 5 × 3. | `gpt-6-astra`, `medium` |
+| T12 / TASK-0677 | `gpt-6-sol` | `high` | ONNX, pochodzenie i regresja produkcji. | `gpt-6-astra`, `medium` |
+| T13 / TASK-0678 | `gpt-6-sol` | `medium` | Test końcowy i odbiór. | `gpt-6-astra`, `medium` |

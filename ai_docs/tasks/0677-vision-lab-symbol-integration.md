@@ -1,7 +1,7 @@
 ---
 title: TASK-0677 — T12 — symbole i wspólny trening
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0677 — T12 — symbole i wspólny trening
@@ -24,7 +24,7 @@ T11 done; mapowanie gry i symboli zatwierdzone. Przed kodowaniem ponownie sprawd
 
 ## Recommended execution
 
-`gpt-6-sol`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `high`. ONNX, mapowanie danych i zmiana produkcyjnego handlera mają duże ryzyko regresji. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-6-sol`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `medium`. ONNX, mapowanie danych i zmiana produkcyjnego handlera mają duże ryzyko regresji. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

@@ -6,6 +6,44 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0667 — galeria laboratorium i STOP A
+
+- Użytkownik wskazał `C:\Users\tuszy\Documents\new_traning_set` do testowania
+  modelu oraz utworzył `C:\Users\tuszy\Documents\game_predictor_vision_data`.
+  Inwentaryzacja wykazała 1180 JPEG-ów w sześciu folderach gier, około 390 MiB.
+- T02 przygotował snapshot plikowy i galerię; dostarczone pliki nie są
+  eksportem DB. Lokalne tożsamości nie tworzą rekordów aplikacji. Na tym
+  etapie nie ma zatwierdzonych etykiet ani kwalifikacji treningowej;
+  historyczne `777` pozostaje `comparison_only`.
+- 118 prefiksów nazw to kandydaci rodzin nagrań do weryfikacji w T03,
+  nie dowód niezależności. Limit pilota anotacji pozostaje bez zmian.
+- Read-only SHA-256 wszystkich plików: 1160 unikalnych obrazów, 20 par
+  duplikatów w `reels`. Prefiksy `REELS450100`/`REELS451200` oraz
+  `REELS471200`/`REELS475500` mają po 10 identycznych par; nie mogą trafić
+  do różnych podziałów. Żadnego źródła nie usunięto.
+- Dobór modeli zgodnie z aktualną decyzją użytkownika: audyt maksymalnie
+  Astra medium, mniejszy model tam, gdzie wystarcza; wykonawca maksymalnie
+  Sol high dla najtrudniejszych tasków, Sol medium dla trudnych i bardzo
+  trudnych, Terra high/xhigh dla pozostałych. Plan i aktywne taski są spójne.
+- Przed rozpoczęciem zmian HEAD to `6eb1d646` (`v1.7`); istniejące zmiany
+  `apps/reviewer/next-env.d.ts` i nieśledzone `.claude/` są poza zakresem.
+- Galeria: `http://127.0.0.1:3102`, osobne API loopback 8102. Snapshot
+  `8a6035046a5746959c826489e2d7b0453f25b62ce04ccba80c52cd89fb38bce9`
+  jest w `game_predictor_vision_data/snapshots`; retry w nowym procesie
+  zwrócił ten sam wynik. Nie zmieniano bazy ani źródłowych zdjęć.
+- Python 19/19, proxy UI 2/2, klient 1/1; lint/format/typecheck, production
+  build i główne `openapi:check` zielone. Niezależny audyt Astra medium po
+  poprawkach: brak P0–P2. Odbiór przeglądarkowy: zdjęcia, filtr, nakładka,
+  cropy i jawne unsupported 3 × 3; fizyczny Android niesprawdzony.
+- Szczegóły: `quality/VISION_LAB_STAGE_A_ACCEPTANCE.md`, uruchomienie po
+  restarcie: `guides/VISION_LAB_LOCAL.md`. Baseline ma błędy na dostarczonych
+  zdjęciach; nie jest nową wytrenowaną hybrydą. Następny etap B wymaga
+  osobnego uruchomienia; T03 sprawdzi rodziny i zamrozi podziały.
+- Użytkownik wybrał wymagany przez AGENTS.md format `vX.Y.N`: task ma
+  wersję `v1.7.1` po historycznym `v1.7` (`6eb1d646`). Kolejny commit
+  zwiększa patch do `v1.7.2`. TASK-0667 przeniesiono do completed;
+  etap A zamknięty na STOP A, bez rozpoczęcia etapu B.
+
 ### TASK-0706 — domyślna zakładka niepełnych siatek
 
 - Zakończono: lokalny przełącznik dwóch kolejek otwiera „Niepełne siatki do

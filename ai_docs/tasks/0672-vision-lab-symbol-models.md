@@ -1,7 +1,7 @@
 ---
 title: TASK-0672 — T07 — RGB, szarość i fuzja
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0672 — T07 — RGB, szarość i fuzja
@@ -24,7 +24,7 @@ T06 done i walidacyjna reprezentacja klas. Przed kodowaniem ponownie sprawdź bi
 
 ## Recommended execution
 
-`gpt-6-astra`, reasoning `high`; osobny audyt `gpt-6-sol`, reasoning `high`. Kalibracja i odporność na barwę wymagają rozdzielenia walidacji od testu. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-6-sol`, reasoning `medium`; osobny audyt `gpt-6-astra`, reasoning `medium`. Kalibracja i odporność na barwę wymagają rozdzielenia walidacji od testu. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

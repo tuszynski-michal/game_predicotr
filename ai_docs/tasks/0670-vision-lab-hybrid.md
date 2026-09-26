@@ -1,7 +1,7 @@
 ---
 title: TASK-0670 — T05 — hybryda
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0670 — T05 — hybryda
@@ -24,7 +24,7 @@ T04 done, zamrożone podziały i zatwierdzony budżet eksperymentu. Przed kodowa
 
 ## Recommended execution
 
-`gpt-6-astra`, reasoning `high`; osobny audyt `gpt-6-sol`, reasoning `high`. Model geometrii i bramki pewności wymagają oceny błędów na obrazach. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-6-sol`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `medium`. Model geometrii i bramki pewności wymagają oceny błędów na obrazach. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

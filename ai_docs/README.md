@@ -129,6 +129,8 @@ implementacyjnym.
   — preflight, odrębne approval, apply i postflight migracji `0125`.
 - [Eksport snapshotu do laboratorium wizji](guides/VISION_LAB_EXPORT.md) —
   manifest wejściowy, uruchomienie eksportera i format wyniku.
+- [Lokalna galeria laboratorium wizji](guides/VISION_LAB_LOCAL.md) — import
+  folderu zdjęć, uruchomienie galerii i ograniczenia baseline.
 
 ### Materiały warunkowe
 

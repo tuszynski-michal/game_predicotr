@@ -1,7 +1,7 @@
 ---
 title: TASK-0678 — T13 — test końcowy i raport
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0678 — T13 — test końcowy i raport
@@ -24,7 +24,7 @@ T11–T12 done; test końcowy nietknięty podczas wyboru. Przed kodowaniem ponow
 
 ## Recommended execution
 
-`gpt-6-astra`, reasoning `high`; osobny audyt `gpt-6-sol`, reasoning `high`. Odbiór zamrożonego kandydata wymaga niezależnej oceny całego przepływu. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-6-sol`, reasoning `medium`; osobny audyt `gpt-6-astra`, reasoning `medium`. Odbiór zamrożonego kandydata wymaga niezależnej oceny całego przepływu. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

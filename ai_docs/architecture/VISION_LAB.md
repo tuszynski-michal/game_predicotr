@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # Architektura laboratorium wizji
@@ -39,7 +39,7 @@ Dane poza repo pod `C:\Users\tuszy\Documents\game_predictor_vision_data`
 obejmują niezmienne manifesty, zarządzane kopie obrazów, anotacje,
 checkpointy, raporty i backupy. Zapisy są atomowe; wykonuje się próbę
 odtworzenia. `GeometryEngine`, `GeometryResult` i `SymbolRecognizer` są
-proponowanymi wspólnymi kontraktami dla baseline, hybrid i neural_grid.
+wspólnymi kontraktami dla baseline oraz przyszłych hybrid i neural_grid.
 Wynik zachowuje źródło, topologię, plansze, węzły, pochodzenie punktów,
 wersję modelu i powody korekty. Układ plansz ekranu jest niezależny od
 `BoardTopology` pojedynczej planszy. 5 × 3 ma 24 węzły, 3 × 3 ma 16.
@@ -47,13 +47,22 @@ Nie zakłada się dziewięciu plansz; nieobecność, zasłonięcie i nieczytelno
 są osobnymi stanami. Bramka kontroluje kolejność, przecięcia, dodatnie pola
 i kompletność bez wymogu konkretnej techniki OpenCV.
 
+T02 przyjmuje również dostarczony przez użytkownika folder zdjęć bez
+powiązania z DB. Importer plikowy tworzy osobno wersjonowany snapshot,
+lokalne identyfikatory, pochodzenie pliku, SHA-256 i zarządzane kopie.
+Publikacja jest atomowa, ponowienie sprawdza checksumy, a konflikt nie
+nadpisuje istniejącego snapshotu. Snapshot plikowy nie udaje eksportu DB
+i nie tworzy zatwierdzeń ani uprawnień do treningu. Prefiks nazwy nagrania
+jest kandydatem rodziny, wymagającym weryfikacji w T03. Oba formaty wejścia
+są adaptowane do wspólnego katalogu galerii, bez zależności runtime od bazy.
+
 Hybryda używa MobileNetV3-Small, narożników, perspektywy i opcjonalnego
 dopasowania. Neural_grid przewiduje pełne węzły. Symbole bazują na
 `SpatialSymbolCnn`: RGB, szarość powielona na trzy kanały i fuzja z
 udziałem RGB 0/0,1/0,2/0,3. Kalibracja jest tylko na walidacji;
 niezgodność modeli jest sygnałem niepewności.
 
-Proponowany FastAPI `game_predictor_worker.vision_lab` działa na
+FastAPI `game_predictor_worker.vision_lab` działa na
 `127.0.0.1:8102`, a Next.js `apps/vision-lab` na `127.0.0.1:3102`.
 Frontend używa proxy z zamkniętą listą tras. FastAPI posiada OpenAPI i
 osobny generowany klient kontrolowany w `openapi:check`/`quality`.

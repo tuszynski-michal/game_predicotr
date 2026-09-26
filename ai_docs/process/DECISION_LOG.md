@@ -64,6 +64,12 @@ last_updated: 2026-09-26
 - **Integration:** gra bez rekordu DB ma lokalną tożsamość i zatwierdzony
   słownik. Rejestracja modelu wymaga jawnego mapowania gry i symboli; brak
   mapowania blokuje wyłącznie jej integrację.
+- **Doprecyzowanie 2026-09-26:** użytkownik dostarczył folder zdjęć do
+  testowania modelu. T02 przyjmuje snapshot plikowy z lokalnymi tożsamościami
+  obok snapshotu DB. Zarządzane kopie i SHA-256 zachowują pochodzenie bez
+  tworzenia rekordów bazy ani zatwierdzeń. Materiał do podglądu nie uzyskuje
+  automatycznie kwalifikacji do treningu; nazwa folderu/prefiks nie dowodzi
+  niezależności rodzin. Historyczne `777` pozostaje porównawcze.
 - **Scope:** lab obejmuje 5 × 3 i 3 × 3, integracja aplikacji tylko 5 × 3.
   Historyczne 777 jest `comparison_only`; 777 V2 wymaga pozytywnego dowodu
   pochodzenia. TASK-0645–0647 nie otrzymują w tym projekcie uzupełniania

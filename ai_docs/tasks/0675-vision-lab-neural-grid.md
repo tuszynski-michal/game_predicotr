@@ -1,7 +1,7 @@
 ---
 title: TASK-0675 — T10 — pełna sieć węzłów
 status: todo
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # TASK-0675 — T10 — pełna sieć węzłów
@@ -24,7 +24,7 @@ Osobne uruchomienie etapu D po STOP C; T09 uzasadnia T10; wystarczające pełne 
 
 ## Recommended execution
 
-`gpt-6-astra`, reasoning `high`; osobny audyt `gpt-6-sol`, reasoning `high`. Predykcja pełnych siatek obu topologii wymaga oceny architektury i danych. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
+`gpt-6-sol`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `medium`. Predykcja pełnych siatek obu topologii wymaga oceny architektury i danych. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.
 
 ## Relevant docs
 

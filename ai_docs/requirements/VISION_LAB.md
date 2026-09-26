@@ -6,6 +6,13 @@ last_updated: 2026-09-25
 
 # Laboratorium wizji
 
+Aktualizacja folderu zdjęć tworzy nowy niezmienny snapshot. Istniejące decyzje
+można przenieść wyłącznie do nowego katalogu i tylko gdy każde źródło użyte
+w zapisach, timingach i historii zachowuje id, SHA oraz metadane. Zmiana lub
+brak takiego źródła zatrzymuje operację. Historia, autorzy, rewizje i zgody
+pozostają identyczne; operacja nie zatwierdza nowych zdjęć. Wersja T03c nie
+przenosi zbiorów z rodzinami lub podziałem. Rola 777 nie zmienia się przy imporcie.
+
 Galeria pokazuje osobne liczniki zapisanych obecnych pełnych siatek, lokalizacji
 i szkiców. Filtry obejmują całą wybraną grę przed podziałem na strony; „Z pełną
 siatką” oznacza co najmniej jedną pełną geometrię, nie ukończenie zdjęcia ani

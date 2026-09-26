@@ -6,6 +6,19 @@ last_updated: 2026-09-26
 
 # Architektura laboratorium wizji
 
+CLI `vision_lab.rebase_annotations` przenosi payload anotacji pomiędzy dwoma
+zweryfikowanymi Catalog, wyłącznie do nowego katalogu. Domyślny preflight jest
+bez zapisu; `--apply` ponownie czyta aktualny state pod blokadą exclusive.
+Sprawdza referencje bieżących anotacji, timingów, requestów i wyników historii,
+całe metadane Source oraz zgodność receipts. Rodziny/split i nieznany format
+blokują operację. Zmienia tylko state.snapshot_id (digest katalogu, odrębny od
+snapshotId manifestu); oryginalny payload i obrazy pozostają nietknięte.
+State i checksummed rebase-report z digestami wejścia/wyjścia publikowane są
+w jednym rename tymczasowego katalogu na tym samym wolumenie. Retry akceptuje
+tylko identyczny raport i payload; istniejący nowszy cel kończy konfliktem bez
+nadpisania. API należy zatrzymać przed końcowym apply i uruchomić na nowych
+ścieżkach. Import zdjęć pozostaje istniejącym snapshot.import_folder.
+
 UI ma jednego właściciela AnnotationState dla galerii, geometrii i rodzin.
 Odczyt GET /annotations oraz wyniki zapisu odświeżają ten stan monotonicznie
 według rewizji. Istniejący GET /sources jest pobierany partiami do pełnego

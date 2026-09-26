@@ -307,7 +307,68 @@ typecheck, build i browser. Każda skończona komenda z timeoutem do 120 s.
   decyzji. T03 pozostaje blocked na pilocie, T04/T05/T14 nie uruchomiono.
   Fizyczny Android i restart komputera pozostają niesprawdzone.
 
-## Outcome T03
+## T03c — aktualizacja snapshotu z zachowaniem anotacji
+
+Status `done`; użytkownik jawnie zlecił aktualizację zdjęć z folderu
+`new_traning_set`, nie tylko odtworzenie starego katalogu. Wykonawca
+`gpt-6-sol` / `medium`, audyt `gpt-6-astra` / `medium`.
+
+Scope: istniejący importer tworzy nowy niezmienny snapshot. Nowy CLI
+`vision_lab/rebase_annotations.py` domyślnie wykonuje tylko preflight;
+`--apply` publikuje atomowo stan w nowym katalogu. Porównuje wszystkie
+referencje bieżących anotacji, timingów i historii: identyczne id, SHA oraz
+pełne metadane Catalog. Brak, zmiana albo rodziny/split (także w historii)
+blokują przeniesienie. Zachowuje cały payload, receipts, historię, autorów,
+rewizje i geometrię; zmienia wyłącznie state.snapshot_id. Osobny raport wiąże
+digest wejścia/wyjścia oraz starego/nowego katalogu. Retry rozpoznaje dokładnie
+ten sam wynik; nigdy nie nadpisuje istniejącego lub nowszego stanu celu.
+
+Expected files: nowy moduł rebase_annotations.py, nowy
+tests/test_vision_lab_rebase.py, guide VISION_LAB_LOCAL, wymagania i architektura
+VISION_LAB oraz plan. API i schematy bez zmian. Root prowadzi CURRENT_STATE,
+rzeczywisty import, zatrzymanie API na czas rebase, restart i commit.
+
+Testy/DoD: zachowana pełna geometria i wszystkie metadane w nowym procesie;
+zmienione anotowane zdjęcie blokuje, także referencja tylko historyczna;
+rodziny/split blokują, istniejący cel/nowszy stan nie jest nadpisywany,
+idempotentny retry i dry-run nie publikują zmian. Pytest, Ruff i mypy z
+limitami 120 s, audyt przed operacją. Stary snapshot i anotacje pozostają.
+777 zachowuje obecną rolę, bez treningu ani zmiany kwalifikacji w tym tasku.
+
+### Outcome T03c
+
+- Gotowy osobny CLI preflight/apply, bez zmian API. Referencje historii,
+  timingów i anotacji zachowują komplet metadanych; nieznane formaty,
+  rodziny/split i zmiany użytych źródeł blokują operację. Payload zachowany
+  poza state.snapshot_id; osobny raport ma digests wejścia i wyjścia.
+- Testy rebase 9/9 oraz istniejących anotacji 9/9: 18/18 PASS (16,68 s).
+  Obejmują nowy proces, retry po utracie wyniku, nowszy cel, zapis źródłowy
+  po preflight, konflikt późniejszego retry, historię, metadane i overlap.
+  Ruff check i format PASS, mypy --follow-imports=silent PASS (1 moduł).
+  Niezależny audytor potwierdził 9/9 (4,98 s), końcowy audyt PASS bez P0–P2.
+  Koordynator wykonał preflight i apply przy zatrzymanym API.
+- Guide wskazuje nowy snapshot/katalog anotacji
+  `82c3c29dd35e17a1df74da249fd8687f86db6be0b781e0bb1a64f1dbbc1962c9`,
+  procedurę preflight/apply/restart oraz zachowanie starego snapshotu.
+- Wykonawca nie modyfikował danych użytkownika ani usług. Koordynator
+  zaimportował 993 źródła i przeniósł aktualny stan: rewizja 46, 30 anotacji,
+  46 zdarzeń historii. Cały payload zachowano poza state.snapshot_id;
+  wejście `5ff8beaa258cc6f462fa1da3ae367fa542bde2a1502c8240ed25ac94f476860d`,
+  wyjście `b480bcd288646b5a849c58a89e7531c72768610cf09c134ea6541f3384d468b7`.
+  Stary katalog anotacji i snapshot pozostają nietknięte.
+- Nowy proces API potwierdził przez proxy 3102 kompletny katalog zgodny
+  z nowym snapshotem. SHA wszystkich 993 plików zgodne z new_traning_set;
+  po jednym podglądzie każdej gry zgodnym bajtowo z encode aktualnego obrazu.
+  Sprawdzone Blazing 1520×954, Gang 1520×1304, Mumie 1520×1054,
+  Reels 1520×1004, Treasure 1520×1154; 777 pozostało bez zmian.
+- DoD T03c: preflight/apply, zachowanie danych, retry/konflikty i atomowość
+  sprawdzone testami; rzeczywisty katalog/anotacje i odczyt nowego procesu
+  sprawdzone operacyjnie. Nie wykonywano browser QA, restartu komputera ani
+  nowego UI builda (UI nie zmieniono). Commit T03c po kontroli historii.
+  Liczba zatwierdzeń jest odczytem operacyjnym, nie stałą fixture.
+  Bez zmiany roli 777, splitu, treningu, push lub merge.
+
+## Outcome T03 (część narzędziowa)
 
 ### Operacyjne przywrócenie ścieżki danych
 
@@ -323,7 +384,9 @@ siatek na 10 zdjęciach 777. Proxy 3102 potwierdza ten sam stan oraz HTTP 200
 dla zdjęcia. Nie ustalono przyczyny wcześniejszej zmiany lokalizacji.
 Nie zmieniono kodu ani geometrii, nie wykonano treningu ani browser QA.
 Aktualizacja przyciętych zdjęć pozostałych gier nie jest częścią przeniesienia:
-aktywny pozostaje odzyskany snapshot 1180 źródeł. Commit operacji po kontroli historii.
+aktywny pozostaje odzyskany snapshot 1180 źródeł. Commit `v1.7.6` —
+`95e0915f6175e3dc38509212460bbcc3b61b168d`. Hash dopisany po commicie;
+kolejny patch v1.7.7 po kontroli historii.
 
 Część narzędziowa odebrana 2026-09-26. Cały T03 i etap B nie są ukończone.
 

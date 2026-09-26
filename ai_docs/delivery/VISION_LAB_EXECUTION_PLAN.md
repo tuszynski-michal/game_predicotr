@@ -283,6 +283,15 @@ T14 nie zastępuje odbioru modelu T13 i nie odblokowuje treningu.
 
 ## Przypisanie modeli do zadań
 
+T03c (done po T03b): aktualizacja niezmiennego snapshotu folderu istniejącym
+importerem i bezpieczne przeniesienie anotacji do nowego katalogu. Preflight
+kontroluje wszystkie zapisane referencje także w historii; zmienione id/SHA/
+metadane oraz rodziny lub split blokują. Jawne apply zachowuje cały payload,
+zmienia tylko powiązanie snapshot_id i zapisuje osobny raport pochodzenia.
+Retry nie nadpisuje istniejącego/nowszego celu. Testy i kryteria w T03c TASK-0668.
+Bez zmiany roli 777, treningu i zmian API; realną operację wykonuje koordynator
+po audycie, zachowując oba snapshoty i oba katalogi anotacji.
+
 T03a (podzadanie TASK-0668, zlecone 2026-09-26) poprawia wyłącznie ergonomię
 laboratorium: duży edytor i zwarte cropy, stabilne etykiety, dopasowanie kadru
 po puszczeniu uchwytu i automatyczny preview bieżących węzłów. Zgodne
@@ -311,6 +320,7 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T03 / TASK-0668 | `gpt-6-sol` | `medium` | Trwałość anotacji i podziały. | `gpt-6-astra`, `medium` |
 | T03a / TASK-0668 | `gpt-6-sol` | `medium` | Transformacja widoku i aktualność cropów bez zapisów. | `gpt-6-astra`, `medium` |
 | T03b / TASK-0668 | `gpt-6-sol` | `medium` | Jawna zgoda, retry i bezpieczne przejście między zapisami plansz. | `gpt-6-astra`, `medium` |
+| T03c / TASK-0668 | `gpt-6-sol` | `medium` | Zachowanie zatwierdzeń i atomowe powiązanie z nowym snapshotem. | `gpt-6-astra`, `medium` |
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |

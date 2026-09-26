@@ -6,6 +6,33 @@ last_updated: 2026-09-26
 
 # Current State
 
+### T03c — aktualizacja zdjęć laboratorium (gotowe)
+
+- Użytkownik zlecił faktyczne przełączenie laboratorium na aktualne pliki
+  z `Documents/new_traning_set`; samo odświeżenie usług nie zmienia snapshotu.
+- Nowy niezmienny snapshot pod `game_predictor_vision_data/snapshots`:
+  `82c3c29dd35e17a1df74da249fd8687f86db6be0b781e0bb1a64f1dbbc1962c9`.
+  993 źródła: 240 niezmienionych 777; 99 Blazing, 160 Gang, 226 Reels,
+  143 Treasure ze zmienionymi bajtami; 125 nowych nazw Mumii.
+- Odczyt wejściowy: rewizja 46, 30 anotacji; wszystkie źródłowe ID/SHA
+  są zgodne z nowym snapshotem. Transfer wykonano po zatrzymaniu API,
+  bez modyfikacji geometrii, autorów lub dat i bez usuwania starego zbioru.
+- T03c: wykonawca Sol medium, niezależny audyt Astra medium. Mały CLI
+  preflight/apply rebinduje wyłącznie niezmienione referencje do nowego
+  katalogu anotacji; nie nadpisuje istniejącego celu. Testy 18/18, niezależne
+  9/9, Ruff/format i mypy PASS, audyt bez P0–P2 przed operacją.
+- Nowy proces API i proxy 3102 serwują 993 aktualne źródła. Wszystkie
+  ID/metadane API zgodne z nowym katalogiem, wszystkie SHA zgodne ze źródłami
+  w new_traning_set. Po jednym podglądzie każdej z 6 gier zgodnym bajtowo
+  z renderem nowego zdjęcia. Cały payload anotacji/historii/receipts/timingów
+  identyczny poza snapshot_id: 30 siatek, 46 wpisów historii, rewizja 46.
+  Instrukcja startu wskazuje nowe ścieżki; UI nie wymaga nowego buildu.
+  Nie wykonano odbioru przeglądarkowego ani testu restartu komputera.
+- Baza `v1.7.6` / `95e0915f6175e3dc38509212460bbcc3b61b168d`;
+  następny patch po kontroli historii. Reviewer i TASK-0707 poza zakresem.
+  Zmiana przeznaczenia nowych anotacji 777 do treningu wymaga osobnej
+  aktualizacji kwalifikacji; ta operacja nie uruchamia treningu ani splitu.
+
 ### Przywrócenie katalogu laboratorium — operacja T03
 
 - Na jawne polecenie użytkownika przeniesiono snapshot i state.json z
@@ -21,7 +48,8 @@ last_updated: 2026-09-26
   Aktualizacja pozostałych gier wymaga zachowania powiązań anotacji;
   nie wykonano treningu ani zmian kwalifikacji 777.
 - Nie zmieniano kodu, API ani danych geometrii; brak nowego browser QA.
-  Raport operacji otrzyma osobny commit po potwierdzeniu wersji brancha.
+  Commit `v1.7.6` / `95e0915f6175e3dc38509212460bbcc3b61b168d`.
+  Hash dopisany po commicie; kolejny patch v1.7.7 po kontroli historii.
 
 ### T03b — pełne usprawnienia laboratorium (wdrożone lokalnie)
 

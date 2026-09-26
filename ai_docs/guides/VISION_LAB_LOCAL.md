@@ -34,7 +34,7 @@ SHA-256 współdzielą kopię pliku. Ponowienie sprawdza istniejący snapshot.
 Niezgodność pliku lub manifestu kończy się błędem bez nadpisania.
 Nie wskazuj katalogu docelowego wewnątrz źródła ani odwrotnie.
 
-Snapshot dostarczonego zbioru ma ID
+Pierwszy, zachowany historyczny snapshot dostarczonego zbioru ma ID
 `8a6035046a5746959c826489e2d7b0453f25b62ce04ccba80c52cd89fb38bce9`.
 Obejmuje 1180 wystąpień i 1160 unikalnych obrazów. Folder `777` ma rolę
 `comparison_only`. Żaden obraz nie otrzymuje automatycznie etykiety,
@@ -64,8 +64,8 @@ PowerShell bez zmiennych ustawionych w poprzedniej sesji:
 $repo = (Get-Location).Path
 $logs = Join-Path $repo 'artifacts\vision-lab'
 New-Item -ItemType Directory -Path $logs -Force | Out-Null
-$snapshot = 'C:\Users\tuszy\Documents\game_predictor_vision_data\snapshots\8a6035046a5746959c826489e2d7b0453f25b62ce04ccba80c52cd89fb38bce9'
-$annotations = 'C:\Users\tuszy\Documents\game_predictor_vision_data\annotations\8a6035046a5746959c826489e2d7b0453f25b62ce04ccba80c52cd89fb38bce9'
+$snapshot = 'C:\Users\tuszy\Documents\game_predictor_vision_data\snapshots\82c3c29dd35e17a1df74da249fd8687f86db6be0b781e0bb1a64f1dbbc1962c9'
+$annotations = 'C:\Users\tuszy\Documents\game_predictor_vision_data\annotations\82c3c29dd35e17a1df74da249fd8687f86db6be0b781e0bb1a64f1dbbc1962c9'
 $labApi = Start-Process -FilePath '.\.venv\Scripts\python.exe' -ArgumentList @(
   '-m', 'game_predictor_worker.vision_lab', '--snapshot', ('"' + $snapshot + '"'),
   '--annotations', ('"' + $annotations + '"')
@@ -103,7 +103,49 @@ Przy zmianie kodu backendu uruchom ponownie własne API; przy zmianie UI
 zatrzymaj własny UI, wykonaj build i uruchom go ponownie. Nie wykonuj buildu
 współbieżnie z serwerem developerskim zapisującym tę samą `.next`.
 
-## Granice i błędy
+## Aktualizacja zdjęć i zachowanie anotacji (T03c)
+
+Aktualny import folderu z 2026-09-26 zawiera 993 zdjęcia i ma ID
+`82c3c29dd35e17a1df74da249fd8687f86db6be0b781e0bb1a64f1dbbc1962c9`.
+Ścieżki w instrukcji uruchomienia powyżej wskazują ten snapshot i odpowiadający
+mu katalog anotacji. Przy pierwszym przejściu użyj poniższej procedury przed
+startem API. Stary snapshot 1180 zdjęć i jego katalog anotacji pozostają kopią
+historyczną; nie uruchamiaj dwóch API zapisujących do różnych kopii podczas pracy.
+
+1. Uruchom istniejący importer folderu (sekcja Import), zachowując źródła i stare
+   snapshoty. Zapisz zwróconą ścieżkę nowego snapshotu.
+2. Uruchom poniższy preflight. Nie zmienia anotacji ani nie tworzy celu.
+3. Po wyniku `ready` zatrzymaj własny proces API laboratorium (8102), aby objąć
+   ostatnie decyzje użytkownika. Powtórz polecenie z dodanym `--apply`; narzędzie
+   ponownie sprawdzi aktualny stan. Odmowa wskazuje zmienione źródło lub konflikt;
+   nie omijaj jej ręczną edycją identyfikatorów.
+4. Uruchom API na nowych ścieżkach z sekcji powyżej i odśwież galerię. Sprawdź
+   rewizję, pełne siatki, autorów i liczniki. Zwykły restart API/Admina aplikacji
+   nie zastępuje restartu osobnego laboratorium.
+
+```powershell
+$rebaseArgs = @(
+  '-m', 'game_predictor_worker.vision_lab.rebase_annotations',
+  '--old-snapshot', 'C:\Users\tuszy\Documents\game_predictor_vision_data\snapshots\8a6035046a5746959c826489e2d7b0453f25b62ce04ccba80c52cd89fb38bce9',
+  '--new-snapshot', 'C:\Users\tuszy\Documents\game_predictor_vision_data\snapshots\82c3c29dd35e17a1df74da249fd8687f86db6be0b781e0bb1a64f1dbbc1962c9',
+  '--annotations', 'C:\Users\tuszy\Documents\game_predictor_vision_data\annotations\8a6035046a5746959c826489e2d7b0453f25b62ce04ccba80c52cd89fb38bce9',
+  '--destination', 'C:\Users\tuszy\Documents\game_predictor_vision_data\annotations\82c3c29dd35e17a1df74da249fd8687f86db6be0b781e0bb1a64f1dbbc1962c9'
+)
+# Preflight; po jego ocenie i zatrzymaniu API dodaj do argumentów '--apply'.
+$p = Start-Process -FilePath '.\.venv\Scripts\python.exe' -ArgumentList $rebaseArgs -PassThru -NoNewWindow
+if (-not $p.WaitForExit(120000)) { $p.Kill($true); throw 'Rebase timeout 120 s' }
+if ($p.ExitCode -ne 0) { throw "Rebase exit $($p.ExitCode)" }
+```
+
+Raport `rebase-report.json` w nowym katalogu zawiera digest starego i nowego
+katalogu/payloadu, rewizję i listę wszystkich zachowanych referencji. Stan i raport
+publikowane są atomowo. Identyczne retry zwraca `already_applied`; jeśli na celu
+pojawiły się nowe decyzje, ponowienie zwraca konflikt i niczego nie nadpisuje.
+Również historia musi odwoływać się do niezmienionych zdjęć. Rodziny lub split
+są w tej wersji blokadą wymagającą osobnego rozwiązania. Operacja nie zmienia
+roli 777 ani kwalifikacji treningowej.
+
+## Granice i błędy galerii
 
 - Brak wykrytej siatki oraz niepewne propozycje wymagają późniejszej oceny.
 - Wadliwy obraz ma własny błąd; pozostałe pozycje galerii pozostają dostępne.

@@ -6,6 +6,12 @@ from uuid import uuid4
 
 import pytest
 from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewError
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageLocation,
+    GameStorageRouter,
+    GameStorageSchema,
+    GameStorageStatus,
+)
 from game_predictor_api.storage.image_symbol_review_bulk_operation_repository import (
     _require_ready_state as require_bulk_ready_state,
 )
@@ -29,13 +35,25 @@ def _repository(*, status: str, preserve_ready_projection: bool):
     return SqlAlchemySymbolCellReviewQueryRepository(session)
 
 
-def test_ready_projection_remains_available_during_marked_reconciliation() -> None:
+def test_ready_projection_remains_available_during_marked_reconciliation(monkeypatch) -> None:
+    monkeypatch.setattr(
+        GameStorageRouter,
+        "bind",
+        lambda *_args, **_kwargs: GameStorageLocation(
+            game_id=_args[2],
+            store_schema=GameStorageSchema.V2,
+            generation=2,
+            manifest_version="game-data-v2-manifest-v1",
+            status=GameStorageStatus.ACTIVE,
+            revision=1,
+        ),
+    )
     repository = _repository(status="rebuilding", preserve_ready_projection=True)
 
     catalog = repository.require_ready_game(uuid4())
     assert catalog.catalog_revision == 17
-    assert catalog.storage_generation == 1
-    assert catalog.uses_current_projection is False
+    assert catalog.storage_generation == 2
+    assert catalog.uses_current_projection is True
 
 
 def test_mutation_remains_available_during_marked_reconciliation() -> None:

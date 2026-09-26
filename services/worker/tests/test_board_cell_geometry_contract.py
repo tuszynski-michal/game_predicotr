@@ -15,6 +15,7 @@ from game_predictor_worker.images.board_cell_geometry_contract import (
     BOARD_CELL_GEOMETRY_VERSION,
     BoardCellGeometryContractError,
     BoardCellGeometryManifestV1,
+    derive_board_cell_quads,
     load_board_cell_geometry_manifest,
     load_real_board_cell_geometry_corpus,
     parse_board_cell_geometry_manifest,
@@ -105,6 +106,34 @@ def test_manifest_rejects_a_cell_not_derived_from_the_lattice_bounds() -> None:
     assert raised.value.code == "BOARD_CELL_GEOMETRY_CELL_DERIVATION_MISMATCH"
 
 
+def test_derive_board_cell_quads_rejects_out_of_bounds_corners_by_default() -> None:
+    quad = ((100.0, 50.0), (600.0, 50.0), (600.0, 950.0), (100.0, 950.0))
+
+    with pytest.raises(BoardCellGeometryContractError) as raised:
+        derive_board_cell_quads(quad, source_image_width=900, source_image_height=700)
+    assert raised.value.code == "BOARD_CELL_GEOMETRY_QUAD_OUT_OF_BOUNDS"
+
+
+def test_derive_board_cell_quads_bounded_false_allows_out_of_frame_corners() -> None:
+    quad = ((100.0, 50.0), (600.0, 50.0), (600.0, 950.0), (100.0, 950.0))
+
+    cells = derive_board_cell_quads(
+        quad, source_image_width=900, source_image_height=700, bounded=False
+    )
+
+    assert len(cells) == 15
+    assert [(cell.row_index, cell.column_index) for cell in cells] == [
+        (row, column) for row in range(3) for column in range(5)
+    ]
+    # Shape validation (convexity, winding, minimum area) still applies.
+    crossed = (quad[0], quad[3], quad[2], quad[1])
+    with pytest.raises(BoardCellGeometryContractError) as raised:
+        derive_board_cell_quads(
+            crossed, source_image_width=900, source_image_height=700, bounded=False
+        )
+    assert raised.value.code == "BOARD_CELL_GEOMETRY_QUAD_INVALID"
+
+
 def test_manifest_rejects_a_crossed_lattice_bounds_quad() -> None:
     payload = deepcopy(_manifest().to_dict())
     quad = payload["entries"][0]["latticeBoundsQuad"]  # type: ignore[index]
@@ -143,9 +172,7 @@ def test_manifest_accepts_complete_versioned_automatic_evidence() -> None:
             "inlierCount": 15,
             "inlierP95ResidualPx": 2.5,
             "inlierSlots": [
-                {"columnIndex": column, "rowIndex": row}
-                for row in range(3)
-                for column in range(5)
+                {"columnIndex": column, "rowIndex": row} for row in range(3) for column in range(5)
             ],
             "kind": "automatic",
             "locatorVersion": "test-locator-v1",

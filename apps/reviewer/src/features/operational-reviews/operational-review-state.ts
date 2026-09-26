@@ -516,14 +516,19 @@ export function operationalReviewGeometryViewport(
   imageWidth: number,
   imageHeight: number,
   paddingRatio = 0.25,
+  allowOutsideSource = false,
 ): OperationalReviewGeometryViewport {
   const boundedWidth = Math.max(1, Math.round(imageWidth));
   const boundedHeight = Math.max(1, Math.round(imageHeight));
   const xs = corners.map((point) =>
-    Math.min(boundedWidth - 1, Math.max(0, point.x)),
+    allowOutsideSource
+      ? point.x
+      : Math.min(boundedWidth - 1, Math.max(0, point.x)),
   );
   const ys = corners.map((point) =>
-    Math.min(boundedHeight - 1, Math.max(0, point.y)),
+    allowOutsideSource
+      ? point.y
+      : Math.min(boundedHeight - 1, Math.max(0, point.y)),
   );
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
@@ -533,15 +538,48 @@ export function operationalReviewGeometryViewport(
   const boardHeight = Math.max(1, maxY - minY);
   const paddingX = Math.max(16, Math.round(boardWidth * paddingRatio));
   const paddingY = Math.max(16, Math.round(boardHeight * paddingRatio));
-  const x = Math.max(0, Math.floor(minX - paddingX));
-  const y = Math.max(0, Math.floor(minY - paddingY));
-  const right = Math.min(boundedWidth, Math.ceil(maxX + paddingX));
-  const bottom = Math.min(boundedHeight, Math.ceil(maxY + paddingY));
+  const x = allowOutsideSource
+    ? Math.floor(minX - paddingX)
+    : Math.max(0, Math.floor(minX - paddingX));
+  const y = allowOutsideSource
+    ? Math.floor(minY - paddingY)
+    : Math.max(0, Math.floor(minY - paddingY));
+  const right = allowOutsideSource
+    ? Math.ceil(maxX + paddingX)
+    : Math.min(boundedWidth, Math.ceil(maxX + paddingX));
+  const bottom = allowOutsideSource
+    ? Math.ceil(maxY + paddingY)
+    : Math.min(boundedHeight, Math.ceil(maxY + paddingY));
   return {
     height: Math.max(1, bottom - y),
     width: Math.max(1, right - x),
     x,
     y,
+  };
+}
+
+/**
+ * Moves only the source-space window shown by a geometry canvas. The saved
+ * lattice remains in the original image coordinate system.
+ */
+export function operationalReviewTranslatedGeometryViewport(
+  viewport: OperationalReviewGeometryViewport,
+  offset: OperationalImageReviewGeometryPoint,
+  imageWidth: number,
+  imageHeight: number,
+  allowOutsideSource = false,
+): OperationalReviewGeometryViewport {
+  const x = Math.round(viewport.x + offset.x);
+  const y = Math.round(viewport.y + offset.y);
+  if (allowOutsideSource) {
+    return { ...viewport, x, y };
+  }
+  const maxX = Math.max(0, Math.round(imageWidth) - viewport.width);
+  const maxY = Math.max(0, Math.round(imageHeight) - viewport.height);
+  return {
+    ...viewport,
+    x: Math.min(maxX, Math.max(0, x)),
+    y: Math.min(maxY, Math.max(0, y)),
   };
 }
 
@@ -619,12 +657,12 @@ export function operationalReviewPointInSourceImage(
   viewport: OperationalReviewGeometryViewport,
   imageWidth: number,
   imageHeight: number,
+  allowOutsideSource = false,
 ): OperationalImageReviewGeometryPoint {
-  return clampOperationalReviewGeometryPoint(
-    { x: point.x + viewport.x, y: point.y + viewport.y },
-    imageWidth,
-    imageHeight,
-  );
+  const absolute = { x: point.x + viewport.x, y: point.y + viewport.y };
+  return allowOutsideSource
+    ? { x: Math.round(absolute.x), y: Math.round(absolute.y) }
+    : clampOperationalReviewGeometryPoint(absolute, imageWidth, imageHeight);
 }
 
 export function buildOperationalReviewGeometryPreviewCommand(

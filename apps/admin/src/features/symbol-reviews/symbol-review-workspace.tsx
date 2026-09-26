@@ -49,6 +49,7 @@ import {
 } from './symbol-review-bulk-actions';
 import {
   applySingleSymbolReviewDecision,
+  setSymbolImageFromReviewCell,
   type SymbolReviewMutationClient,
 } from './symbol-review-mutation-actions';
 import {
@@ -994,6 +995,44 @@ export function SymbolReviewWorkspace({
     });
   }
 
+  async function setSymbolImage() {
+    if (filters.gameId === null || selection.kind !== 'explicit') return;
+    const targets = Object.values(selection.targetsById);
+    if (targets.length !== 1) return;
+    if (markBlurry) {
+      setToast({
+        kind: 'error',
+        message:
+          'Niewyraźny crop nie może być grafiką symbolu. Odznacz „Niewyraźny”.',
+      });
+      return;
+    }
+    const target = targets[0]!;
+    setDirectPendingCellIds(new Set([target.cellReviewId]));
+    const result = await setSymbolImageFromReviewCell(
+      api,
+      filters.gameId,
+      target,
+      reassignTargetSymbolId,
+    );
+    setDirectPendingCellIds(new Set());
+    if (result.decision !== null) {
+      setSelection(createEmptySymbolReviewSelection());
+      setHiddenCellIds((current) => new Set([...current, target.cellReviewId]));
+      setCountsState('loading');
+      setCountsSnapshot(null);
+      setCountsCatalogRevision(result.decision.catalogRevision);
+    }
+    setToast(
+      result.ok
+        ? {
+            kind: 'success',
+            message: `Crop zatwierdzony i ustawiony jako grafika symbolu „${result.symbolName}”.`,
+          }
+        : { kind: 'error', message: result.error },
+    );
+  }
+
   const finishOperation = useCallback(
     (
       tracked: TrackedSymbolReviewOperation,
@@ -1307,6 +1346,11 @@ export function SymbolReviewWorkspace({
           onMarkUnreadable={() => void previewOperation('mark_unreadable')}
           onReassign={() => void previewOperation('reassign')}
           onSelectVisible={selectVisiblePage}
+          onSetSymbolImage={() => void setSymbolImage()}
+          canSetSymbolImage={
+            selection.kind === 'explicit' &&
+            Object.keys(selection.targetsById).length === 1
+          }
           onTargetSymbolChange={setReassignTargetSymbolId}
           reassignTargetSymbolId={reassignTargetSymbolId}
           selectedCount={selectedCount}
@@ -1656,6 +1700,8 @@ function SymbolReviewSelectionToolbar({
   onMarkUnreadable,
   onReassign,
   onSelectVisible,
+  onSetSymbolImage,
+  canSetSymbolImage,
   onTargetSymbolChange,
   reassignTargetSymbolId,
   selectedCount,
@@ -1664,6 +1710,8 @@ function SymbolReviewSelectionToolbar({
 }: {
   readonly busy: boolean;
   readonly canApprove: boolean;
+  readonly canSetSymbolImage: boolean;
+  readonly onSetSymbolImage: () => void;
   readonly canSelectVisible: boolean;
   readonly hasActiveSymbols: boolean;
   readonly markBlurry: boolean;
@@ -1743,6 +1791,19 @@ function SymbolReviewSelectionToolbar({
           type="button"
         >
           Zastosuj zmianę
+        </button>
+        <button
+          className="secondaryButton"
+          disabled={actionsDisabled || !canSetSymbolImage}
+          onClick={onSetSymbolImage}
+          title={
+            canSetSymbolImage
+              ? 'Zatwierdza crop (jako wybrany symbol, jeśli wskazano) i ustawia go jako grafikę symbolu.'
+              : 'Zaznacz dokładnie jeden crop.'
+          }
+          type="button"
+        >
+          Ustaw jako grafikę symbolu
         </button>
         <div className={styles.qualityActions}>
           <label>

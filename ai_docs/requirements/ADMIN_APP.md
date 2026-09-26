@@ -689,6 +689,16 @@ przywraca zwykły układ. Poza polami tekstowymi i selectami działają skróty:
 `Niewyraźny`) albo potwierdza otwarty preview operacji masowej, a `Esc`
 zamyka preview.
 
+Przycisk `Ustaw jako grafikę symbolu` (TASK-0692) jest aktywny, gdy zaznaczony
+jest dokładnie jeden crop. Jeżeli w `Zmień symbol` wybrano symbol, crop jest
+najpierw przypisany do niego i zatwierdzony (`reassign`); w przeciwnym razie
+zatwierdzany jest bieżący symbol (`approve`). Następnie crop zostaje grafiką
+symbolu — tą samą, którą ustawia picker w sekcji `Symbole`, widoczną w
+miniaturze `Symbole` i palecie `Wyszukaj plansze`. Opcja `Niewyraźny` blokuje
+akcję. Jeżeli zatwierdzenie się udało, a ustawienie grafiki nie, komunikat
+mówi to wprost, a zatwierdzenie zostaje. Użycie grafiki w wydaniu mobilnym
+jest osobnym, niewykonanym jeszcze zakresem.
+
 ### Weryfikacja symbolu na planszy
 
 Miniatury wirtualne przekazują aktualne `renderSpecChecksumSha256` z detailu
@@ -966,6 +976,30 @@ przeładowanie bez nadpisania wyniku człowieka. Skuteczny zapis usuwa wyjątek 
 domyślnej kolejki `pending`, przechodzi do następnego wyjątku i tworzy zwykły
 item do zatwierdzenia symboli w istniejącej kolejce; nie powstaje druga trwała
 kolejka plansz.
+
+Gdy fizyczne zdjęcie przycina planszę, checkbox „Niepełna plansza” (TASK-0693)
+odblokowuje szary obszar poza realnymi pikselami — operator przeciąga tam
+narożniki, żeby poprawnie ekstrapolować siatkę, i jawnie zaznacza, których z 15
+pól naprawdę nie ma na zdjęciu. Zaznaczone pola pomijają rygor pełnego pokrycia
+źródła wyłącznie dla siebie (reszta planszy nadal wymaga kompletnych cropów)
+i po zapisie dostają wymuszony symbol „?” zamiast trafiać do modelu; plansza
+jest wykluczona z uczenia geometrii (`geometryQualification`,
+`completenessStatus=pending_partial`), tak jak w pozostałych dwóch edytorach
+geometrii. Board zostaje `asset_mode=legacy_file` — ta ścieżka nie generuje
+wirtualnych, częściowo widocznych cropów jak `virtual_source`.
+
+W tym samym edytorze operator może przesunąć widok źródła wyłącznie po jawnym
+zaznaczeniu checkboxa „Aktywne przesuwanie”, chwytając tło canvasu poza
+uchwytami narożników, oraz użyć akcji „Wycentruj widok na siatce”. Checkbox
+jest domyślnie wyłączony dla każdej wczytanej planszy, więc zwykły gest poza
+uchwytem nie porusza zdjęcia. Ruch zmienia wyłącznie lokalny viewport
+prezentacji: cztery narożniki, kwalifikacja, podgląd, klucz idempotencji i zapis
+pozostają w niezmienionych współrzędnych oryginalnego zdjęcia. Viewport jest
+ponownie centrowany także po zmianie narożnika, aby aktualna siatka nie znikała
+poza canvasem. W trybie „Niepełna plansza” może obejmować obszar poza zdjęciem,
+widoczny jako szare tło. Nie tworzy to brakujących pikseli; komórkę rzeczywiście
+poza kadrem operator nadal oznacza jako niedostępną i system zapisuje ją jako
+„?”.
 
 Po jawnym poleceniu właściciela, przykładowo po 1000 albo 3000 zweryfikowanych
 planszach, panel pozwala zamrozić nową kohortę feedbacku. Sam licznik nie

@@ -45,6 +45,8 @@ implementacyjnym.
 - [Local manual image selection](requirements/MANUAL_IMAGE_SELECTION.md)
 - [Manual data import](requirements/MANUAL_DATA_IMPORT.md)
 - [Iterative supervised model improvement](requirements/SUPERVISED_MODEL_IMPROVEMENT.md)
+- [Vision lab requirements](requirements/VISION_LAB.md) — zatwierdzenia
+  laboratoryjne, podziały, topologie i granice integracji (D-447).
 
 ### Architektura
 
@@ -54,6 +56,8 @@ implementacyjnym.
 - [Virtual geometry schema ownership](architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md)
 - [API contract](architecture/API_CONTRACT.md)
 - [Supervised model improvement architecture](architecture/SUPERVISED_MODEL_IMPROVEMENT.md)
+- [Vision lab architecture](architecture/VISION_LAB.md) — izolacja,
+  kontrakty, eksport, UI i środowisko treningowe.
 - [Fast representative image selection architecture](architecture/IMAGE_SELECTION.md)
 - [Local manual image selection architecture](architecture/MANUAL_IMAGE_SELECTION.md)
 - [Remote manual image selection proposal](architecture/REMOTE_MANUAL_IMAGE_SELECTION.md)
@@ -79,6 +83,10 @@ implementacyjnym.
 - [Milestone 07.0 image selection execution plan](delivery/MILESTONE_07_0_EXECUTION_PLAN.md)
 - [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
 - [Global geometry library v1 execution plan](delivery/GLOBAL_GEOMETRY_LIBRARY_EXECUTION_PLAN.md)
+- [Vision lab execution plan](delivery/VISION_LAB_EXECUTION_PLAN.md) —
+  zaakceptowany plan P00/T01–T13 i punkty STOP A–E.
+- [Legacy public store removal execution plan](delivery/LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md) —
+  zaakceptowane przejście na V2-only; DDL wymaga odrębnej zgody operacyjnej.
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
 - [Version 0.2 execution plan](delivery/VERSION_0_2_EXECUTION_PLAN.md)
 - [Version 0.3 execution plan](delivery/VERSION_0_3_EXECUTION_PLAN.md)
@@ -115,6 +123,10 @@ implementacyjnym.
 
 - [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
+- [Usunięcie legacy public game store](guides/LEGACY_PUBLIC_STORE_REMOVAL.md)
+  — preflight, odrębne approval, apply i postflight migracji `0125`.
+- [Eksport snapshotu do laboratorium wizji](guides/VISION_LAB_EXPORT.md) —
+  manifest wejściowy, uruchomienie eksportera i format wyniku.
 
 ### Materiały warunkowe
 

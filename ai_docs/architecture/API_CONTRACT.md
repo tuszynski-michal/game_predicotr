@@ -344,6 +344,7 @@ POST /api/v1/admin/games/{gameId}/symbol-cell-preview-batches
 GET  /api/v1/admin/games/{gameId}/symbol-cell-preview-batches/{batchKey}/atlas
 
 POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/decision
+POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/symbol-reference
 
 GET /api/v1/admin/games/{gameId}/unreadable-board-reviews
   ?view=pending|all
@@ -355,6 +356,14 @@ GET /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}
 POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/cells/{cellIndex}/resolve
 POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/save
 ```
+
+`symbol-reference` (TASK-0692) ustawia grafikę symbolu z jednej komórki
+weryfikacji: body jak przy `approved-image-candidates/{observationId}/selection`
+(`expectedChecksumSha256` = checksum cropa, `selectedBy`). Symbol to bieżący
+`assigned_symbol_id` komórki. Komórka musi spełniać te same warunki co kandydat
+pickera (zatwierdzony dokładny crop, bieżąca geometria, brak `quality_issue`,
+aktywny symbol), inaczej 409 `SYMBOL_REFERENCE_CELL_NOT_ELIGIBLE`. Zapis i plik
+są te same co w pickerze sekcji `Symbole`.
 
 Stan `active_model_cohort` jest rozwiązywany przez najnowsze zdarzenie
 `game_symbol_model_activations` dla gry. Odczyt wymaga zgodności identyfikatora

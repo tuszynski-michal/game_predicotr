@@ -510,10 +510,10 @@ export type BoardCellGeometryManualPreviewCommand = {
    * Corners
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedgeometryrevision
@@ -527,6 +527,7 @@ export type BoardCellGeometryManualPreviewCommand = {
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
+  geometryQualification?: GeometryQualificationPayload | null;
 };
 
 /**
@@ -537,10 +538,10 @@ export type BoardCellGeometryManualResolutionCommand = {
    * Corners
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Correctedby
@@ -558,6 +559,7 @@ export type BoardCellGeometryManualResolutionCommand = {
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Idempotencykey
    */
@@ -16718,6 +16720,54 @@ export type ApplySymbolCellReviewDecisionResponses = {
 
 export type ApplySymbolCellReviewDecisionResponse =
   ApplySymbolCellReviewDecisionResponses[keyof ApplySymbolCellReviewDecisionResponses];
+
+export type SelectSymbolReferenceFromCellReviewData = {
+  body: ApprovedSymbolReferenceSelectionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cell Review Id
+     */
+    cell_review_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/symbol-reference';
+};
+
+export type SelectSymbolReferenceFromCellReviewErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game, symbol, or crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Candidate cursor conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SelectSymbolReferenceFromCellReviewError =
+  SelectSymbolReferenceFromCellReviewErrors[keyof SelectSymbolReferenceFromCellReviewErrors];
+
+export type SelectSymbolReferenceFromCellReviewResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolResponse;
+};
+
+export type SelectSymbolReferenceFromCellReviewResponse =
+  SelectSymbolReferenceFromCellReviewResponses[keyof SelectSymbolReferenceFromCellReviewResponses];
 
 export type ListSymbolModelIterationsData = {
   body?: never;

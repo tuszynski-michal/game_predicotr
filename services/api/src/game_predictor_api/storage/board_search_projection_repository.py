@@ -37,7 +37,6 @@ from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
-    GameStorageSchema,
 )
 from game_predictor_api.storage.models import (
     CellObservationModel,
@@ -98,18 +97,24 @@ class SqlAlchemyBoardSearchProjectionRepository:
     def upsert_candidates(self, payloads: Sequence[BoardSearchProjectionPayload]) -> None:
         if not payloads:
             return
+        game_id = payloads[0].game_id
+        if any(payload.game_id != game_id for payload in payloads[1:]):
+            raise BoardSearchError(
+                "BOARD_SEARCH_PROJECTION_CROSS_GAME_BATCH",
+                "One projection write batch must belong to one game.",
+            )
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.WRITE)
         mobile_codes_by_game = _symbol_mobile_codes_by_game(self._session, payloads)
         values = [
             _candidate_values(payload, mobile_codes_by_game[payload.game_id])
             for payload in payloads
         ]
         insert_statement = postgresql_insert(ImageBoardSearchCandidateModel).values(values)
-        location = GameStorageRouter().describe(self._session, payloads[0].game_id)
-        conflict_columns = [ImageBoardSearchCandidateModel.review_item_id]
-        if location.store_schema is GameStorageSchema.V2:
-            conflict_columns.insert(0, ImageBoardSearchCandidateModel.game_id)
         update_statement = insert_statement.on_conflict_do_update(
-            index_elements=conflict_columns,
+            index_elements=[
+                ImageBoardSearchCandidateModel.game_id,
+                ImageBoardSearchCandidateModel.review_item_id,
+            ],
             set_={
                 key: getattr(insert_statement.excluded, key)
                 for key in values[0]

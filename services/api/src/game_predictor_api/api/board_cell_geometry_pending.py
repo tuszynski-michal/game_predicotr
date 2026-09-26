@@ -230,6 +230,11 @@ def create_board_cell_geometry_pending_router(
             expected_geometry_revision=payload.expected_geometry_revision,
             expected_resolution_revision=payload.expected_resolution_revision,
             corners=tuple(ImageReviewGeometryPoint(x=p.x, y=p.y) for p in payload.corners),
+            geometry_qualification=(
+                None
+                if payload.geometry_qualification is None
+                else payload.geometry_qualification.to_domain()
+            ),
         )
         return Response(
             content=preview.contact_sheet_png,
@@ -280,6 +285,11 @@ def create_board_cell_geometry_pending_router(
                 ),
                 corrected_by=reviewer_actor or payload.corrected_by,
                 resolved_at=datetime.now(UTC),
+                geometry_qualification=(
+                    None
+                    if payload.geometry_qualification is None
+                    else payload.geometry_qualification.to_domain()
+                ),
             )
         )
 

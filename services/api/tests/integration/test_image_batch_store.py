@@ -73,6 +73,7 @@ from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
 from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.image_grid_review_repository import (
     SqlAlchemyImageGridReviewRepository,
 )
@@ -145,7 +146,7 @@ from game_predictor_worker.images.pipeline_store import (
     SqlAlchemyImagePipelineStore,
 )
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
-from sqlalchemy import create_engine, delete, func, null, select
+from sqlalchemy import create_engine, delete, func, null, select, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -223,6 +224,8 @@ def _add_review_projection_source(
     status: str,
     created_at: datetime,
 ) -> tuple[UUID, UUID]:
+    job = session.get(JobModel, job_id)
+    assert job is not None and job.game_id is not None
     source = SourceImageModel(
         import_job_id=job_id,
         file_execution_key=file_execution_key,
@@ -261,6 +264,9 @@ def _add_review_projection_source(
             "resolved_at": created_at,
         }
     review = ImageReviewItemModel(
+        game_id=job.game_id,
+        import_job_id=job.id,
+        sequence_number=sequence_number,
         recognized_board_id=board.id,
         status=status,
         snapshot={"sequenceNumber": sequence_number},
@@ -315,6 +321,60 @@ def _set_complete_resolution(
     board.status = action
 
 
+def test_image_batch_store_registers_association_in_v2_store(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 9, 25, 12, tzinfo=UTC)
+
+    try:
+        with session_factory() as session:
+            catalog = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = catalog.create_game(
+                code="image-batch-v2-store",
+                name="Image batch V2 store",
+                status=GameStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="1" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="v2-only.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+
+        with Session(engine) as session:
+            assert (
+                session.scalar(
+                    text(
+                        "SELECT count(*) FROM game_data_v2.image_import_job_files "
+                        "WHERE game_id = :game_id AND job_id = :job_id"
+                    ),
+                    {"game_id": game.id, "job_id": job.id},
+                )
+                == 1
+            )
+            assert (
+                session.scalar(
+                    text(
+                        "SELECT count(*) FROM public.image_import_job_files WHERE job_id = :job_id"
+                    ),
+                    {"job_id": job.id},
+                )
+                == 0
+            )
+        assert execution.source_checksum_sha256 == "1" * 64
+    finally:
+        engine.dispose()
+
+
 def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops(
     isolated_image_batch_database: URL,
 ) -> None:
@@ -325,7 +385,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
     now = datetime(2026, 8, 26, 12, tzinfo=UTC)
 
     try:
-        with Session(engine, expire_on_commit=False) as session:
+        with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
                 code="symbol-cell-backfill",
@@ -369,7 +429,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             order_index=2,
             registered_at=now,
         )
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             base_review_id, base_board_id = _add_review_projection_source(
                 session,
                 job_id=job.id,
@@ -503,7 +563,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             )
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             repository = SqlAlchemyImageSymbolReviewRepository(session)
             assert repository.start_or_resume_backfill(game.id).status == "rebuilding"
             first_step = repository.backfill_next_batch(game.id, batch_size=1)
@@ -511,7 +571,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             assert first_step.has_more is True
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             repository = SqlAlchemyImageSymbolReviewRepository(session)
             assert repository.start_or_resume_backfill(game.id).status == "rebuilding"
             second_step = repository.backfill_next_batch(game.id, batch_size=1)
@@ -524,7 +584,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             assert final_step.report.cell_count == 45
             session.commit()
 
-        with Session(engine) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             state = session.get(ImageSymbolReviewStateModel, game.id)
             assert state is not None
             assert state.status == "ready"
@@ -701,7 +761,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             order_index=0,
             registered_at=now,
         )
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             review_item_id, board_id = _add_review_projection_source(
                 session,
                 job_id=job.id,
@@ -719,7 +779,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game.id)
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             backfill = SqlAlchemyImageSymbolReviewRepository(session)
             assert backfill.start_or_resume_backfill(game.id).status == "rebuilding"
             backfill.backfill_next_batch(game.id, batch_size=10)
@@ -729,12 +789,13 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert finished.report.catalog_revision == 1
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             grid_service = ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session))
             grid_page = grid_service.list(
                 game_id=game.id,
                 view=ImageGridReviewView.NEEDS_VALIDATION,
                 import_job_id=None,
+                source_image_id=None,
                 after_cursor=None,
                 before_cursor=None,
                 limit=10,
@@ -774,7 +835,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert approval.item.state is ImageGridReviewState.APPROVED
             session.rollback()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             repository = SqlAlchemyOperationalImageReviewRepository(session)
             service = OperationalImageReviewService(repository)
             item = service.get_item(
@@ -806,7 +867,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert resolved.status == "accepted"
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             cells = session.scalars(
                 select(ImageSymbolReviewCellModel)
                 .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
@@ -864,7 +925,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             )
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             cells = session.scalars(
                 select(ImageSymbolReviewCellModel)
                 .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
@@ -919,7 +980,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert revision.revision == 1
             session.commit()
 
-        with Session(engine) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             cells = session.scalars(
                 select(ImageSymbolReviewCellModel)
                 .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
@@ -989,7 +1050,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert coordinator.synchronize_after_projection_change(game_id=game.id)
             session.commit()
 
-        with Session(engine) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             assert (
                 session.scalar(
                     select(func.count())
@@ -1013,6 +1074,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
                 game_id=game.id,
                 view=ImageGridReviewView.ALL,
                 import_job_id=None,
+                source_image_id=None,
                 after_cursor=None,
                 before_cursor=None,
                 limit=10,

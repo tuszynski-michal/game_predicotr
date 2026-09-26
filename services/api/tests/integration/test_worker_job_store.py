@@ -1,6 +1,7 @@
 import os
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -28,6 +29,7 @@ from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
 from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
     LayoutImportNormalizedRowModel,
@@ -44,6 +46,7 @@ from game_predictor_worker.imports.store import SqlAlchemyLayoutImportStagingSto
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
 from sqlalchemy import create_engine, select
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
@@ -803,10 +806,17 @@ def test_layout_import_staging_upsert_is_idempotent_on_postgres(
             error_message="Line 2 is invalid.",
         )
 
-        store.upsert_rows(job.id, (first, invalid))
-        store.upsert_rows(job.id, (corrected, invalid))
+        with game_storage_scope(game.id):
+            store.upsert_rows(job.id, (first, invalid))
+        engine.dispose()
+        store = SqlAlchemyLayoutImportStagingStore(create_session_factory(engine))
+        with pytest.raises(ProgrammingError) as missing_scope:
+            store.upsert_rows(job.id, (corrected, invalid))
+        assert getattr(missing_scope.value.orig, "sqlstate", None) == "42P01"
+        with game_storage_scope(game.id):
+            store.upsert_rows(job.id, (corrected, invalid))
 
-        with Session(engine) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             rows = session.scalars(
                 select(LayoutImportRowModel)
                 .where(LayoutImportRowModel.job_id == job.id)
@@ -816,6 +826,15 @@ def test_layout_import_staging_upsert_is_idempotent_on_postgres(
         assert rows[0].sequence_number == 2
         assert rows[0].cells == [3, 2, 1]
         assert rows[1].error_code == "import_record_invalid"
+        with session_factory() as session:
+            other_game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="other-import-game",
+                name="Other import game",
+                status=GameStatus.ACTIVE,
+            )
+        with game_storage_scope(other_game.id), pytest.raises(IntegrityError) as wrong_game:
+            store.upsert_rows(job.id, (corrected, invalid))
+        assert getattr(wrong_game.value.orig, "sqlstate", None) == "23503"
     finally:
         engine.dispose()
 
@@ -828,13 +847,15 @@ def test_layout_import_normalization_uses_published_rules_and_is_idempotent(
     session_factory = create_session_factory(engine)
 
     try:
-        with Session(engine, expire_on_commit=False) as session:
+        with ExitStack() as stack:
+            session = stack.enter_context(session_factory())
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
                 code="normalized-import-game",
                 name="Normalized import game",
                 status=GameStatus.ACTIVE,
             )
+            stack.enter_context(game_storage_scope(game.id))
             first_symbol = catalog.create_symbol(
                 game.id,
                 mobile_code=1,
@@ -915,31 +936,38 @@ def test_layout_import_normalization_uses_published_rules_and_is_idempotent(
             session.commit()
 
         store = SqlAlchemyLayoutImportStagingStore(session_factory)
-        store.upsert_rows(
-            import_job.id,
-            (
-                StagedLayoutImportRow(1, 50, 1, (1, 12, 1, 12), None, None),
-                StagedLayoutImportRow(2, 100, 2, (1, 99, 1, 12), None, None),
-            ),
-        )
-        source = store.load_normalization_source(
-            validation_job_id=validation_job.id,
-            game_id=game.id,
-            import_job_id=import_job.id,
-            rules_version_id=rules.id,
-        )
-        assert source.signature_cell_width == 2
-        assert source.allowed_mobile_codes == frozenset({1, 12})
-        raw_rows = store.fetch_raw_rows(
-            import_job.id,
-            after_line_number=0,
-            limit=100,
-        )
-        normalized = tuple(normalize_layout_import_row(row, source) for row in raw_rows)
-        store.upsert_normalized_rows(validation_job.id, source, normalized)
-        store.upsert_normalized_rows(validation_job.id, source, normalized)
+        with game_storage_scope(game.id):
+            store.upsert_rows(
+                import_job.id,
+                (
+                    StagedLayoutImportRow(1, 50, 1, (1, 12, 1, 12), None, None),
+                    StagedLayoutImportRow(2, 100, 2, (1, 99, 1, 12), None, None),
+                ),
+            )
+            source = store.load_normalization_source(
+                validation_job_id=validation_job.id,
+                game_id=game.id,
+                import_job_id=import_job.id,
+                rules_version_id=rules.id,
+            )
+            assert source.signature_cell_width == 2
+            assert source.allowed_mobile_codes == frozenset({1, 12})
+            raw_rows = store.fetch_raw_rows(
+                import_job.id,
+                after_line_number=0,
+                limit=100,
+            )
+            normalized = tuple(normalize_layout_import_row(row, source) for row in raw_rows)
+            store.upsert_normalized_rows(validation_job.id, source, normalized)
+        engine.dispose()
+        store = SqlAlchemyLayoutImportStagingStore(create_session_factory(engine))
+        with pytest.raises(ProgrammingError) as missing_scope:
+            store.upsert_normalized_rows(validation_job.id, source, normalized)
+        assert getattr(missing_scope.value.orig, "sqlstate", None) == "42P01"
+        with game_storage_scope(game.id):
+            store.upsert_normalized_rows(validation_job.id, source, normalized)
 
-        with Session(engine) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             records = session.scalars(
                 select(LayoutImportNormalizedRowModel)
                 .where(LayoutImportNormalizedRowModel.validation_job_id == validation_job.id)
@@ -949,5 +977,14 @@ def test_layout_import_normalization_uses_published_rules_and_is_idempotent(
         assert records[0].signature == "01120112"
         assert records[1].error_code == "import_symbol_not_in_rules"
         assert records[1].cells == [1, 99, 1, 12]
+        with session_factory() as session:
+            other_game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="other-normalized-import-game",
+                name="Other normalized import game",
+                status=GameStatus.ACTIVE,
+            )
+        with game_storage_scope(other_game.id), pytest.raises(IntegrityError) as wrong_game:
+            store.upsert_normalized_rows(validation_job.id, source, normalized)
+        assert getattr(wrong_game.value.orig, "sqlstate", None) == "23503"
     finally:
         engine.dispose()

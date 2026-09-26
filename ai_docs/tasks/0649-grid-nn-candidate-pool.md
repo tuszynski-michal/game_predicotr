@@ -1,13 +1,13 @@
 ---
 title: TASK-0649 — Sieć siatek v3: pula kandydatów i kontrakt datasetu
-status: todo
+status: blocked
 ---
 
 # TASK-0649 — Pula kandydatów i kontrakt datasetu (tylko odczyt)
 
 ## Status
 
-`todo`
+`blocked` — plan zastąpiony przez `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (D-447); odpowiednik zakresu danych to TASK-0666/TASK-0668. Numer TASK-0649 koliduje z ukończonym zadaniem „Przybliżona wygrana”; identyfikuj ten plik pełną ścieżką.
 
 ## Goal
 

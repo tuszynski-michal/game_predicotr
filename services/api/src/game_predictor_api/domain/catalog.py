@@ -75,9 +75,9 @@ class Game:
     expected_layout_count: int
     created_at: datetime
     updated_at: datetime
-    storage_version: str = "legacy-public-v1"
-    storage_schema: str = "public"
-    storage_generation: int = 1
+    storage_version: str = "game-data-v2-manifest-v1"
+    storage_schema: str = "game_data_v2"
+    storage_generation: int = 2
     storage_status: str = "active"
     storage_write_available: bool = True
     shape_geometry_configuration: GameShapeGeometryConfiguration | None = None

@@ -16,6 +16,7 @@ import {
   operationalReviewGeometryCorners,
   operationalReviewGeometryEdgeHandles,
   operationalReviewGeometryViewport,
+  operationalReviewTranslatedGeometryViewport,
   operationalReviewNativeContextViewport,
   operationalReviewPageAfterResolution,
   operationalReviewPageBufferAdvance,
@@ -695,5 +696,38 @@ test('limits geometry editing to one board viewport and preserves source coordin
   assert.deepEqual(
     operationalReviewPointInSourceImage(visiblePoint, viewport, 1200, 900),
     corners[0],
+  );
+});
+
+test('geometry viewport translation moves only the source window', () => {
+  const viewport = { x: 100, y: 80, width: 400, height: 300 };
+
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryViewport(
+      viewport,
+      { x: -60, y: 40 },
+      1200,
+      900,
+    ),
+    { x: 40, y: 120, width: 400, height: 300 },
+  );
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryViewport(
+      viewport,
+      { x: -500, y: 900 },
+      1200,
+      900,
+    ),
+    { x: 0, y: 600, width: 400, height: 300 },
+  );
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryViewport(
+      viewport,
+      { x: -500, y: 900 },
+      1200,
+      900,
+      true,
+    ),
+    { x: -400, y: 980, width: 400, height: 300 },
   );
 });

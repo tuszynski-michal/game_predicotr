@@ -1,13 +1,13 @@
 ---
 title: TASK-0646 — Gra 777: ścieżka execute reweryfikacji siatek
-status: todo
+status: blocked
 ---
 
 # TASK-0646 — Ścieżka `execute` (bez uruchomienia na żywych danych)
 
 ## Status
 
-`todo`
+`blocked` — zależy od przepisania TASK-0645 po osobnej decyzji. D-447 nie upoważnia do uzupełniania slotów historycznego 777 siecią.
 
 ## Goal
 

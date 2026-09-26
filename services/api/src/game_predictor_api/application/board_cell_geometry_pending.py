@@ -37,6 +37,7 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     ImageBoardGeometryPending,
     board_cell_processing_artifact_relative_path,
 )
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_reviews import (
     ImageReviewGeometryArtifacts,
     ImageReviewGeometryCellArtifact,
@@ -78,6 +79,7 @@ class BoardCellGeometryManualResolutionProjection:
     prediction: ManualBoardCellSymbolPrediction
     model_inference_fingerprint: str
     board_confidence: float
+    geometry_qualification: GeometryQualification | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -311,6 +313,7 @@ class BoardCellGeometryPendingService:
         corners: Sequence[ImageReviewGeometryPoint],
         corrected_by: str = "local-admin-preview",
         allow_resolved: bool = False,
+        geometry_qualification: GeometryQualification | None = None,
     ) -> ManualBoardCellGeometryPreview:
         context = self.correction_context(
             pending_id,
@@ -329,6 +332,12 @@ class BoardCellGeometryPendingService:
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=corrected_by,
+            geometry_qualification=geometry_qualification,
+        )
+        unavailable_cell_indices = (
+            frozenset(geometry_qualification.unavailable_cell_indices)
+            if geometry_qualification is not None
+            else frozenset()
         )
         previewer, artifact_root = self._manual_dependencies()
         source_path = _managed_source_path(artifact_root, context.pending.source_relative_path)
@@ -353,6 +362,7 @@ class BoardCellGeometryPendingService:
                 expected_geometry_revision=command.expected_geometry_revision,
                 expected_resolution_revision=command.expected_resolution_revision,
                 command_checksum_sha256=command.command_sha256,
+                unavailable_cell_indices=unavailable_cell_indices,
             )
         except ManualBoardCellGeometryPreviewError as error:
             raise JobConflictError(error.code, str(error)) from error
@@ -370,6 +380,7 @@ class BoardCellGeometryPendingService:
         corners: Sequence[ImageReviewGeometryPoint],
         corrected_by: str,
         resolved_at: datetime,
+        geometry_qualification: GeometryQualification | None = None,
     ) -> BoardCellGeometryManualResolution:
         context = self.correction_context(
             pending_id,
@@ -388,6 +399,7 @@ class BoardCellGeometryPendingService:
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=corrected_by,
+            geometry_qualification=geometry_qualification,
         )
         resolution_command_sha256 = _manual_resolution_command_sha256(
             pending_id=pending_id,
@@ -424,6 +436,7 @@ class BoardCellGeometryPendingService:
             corners=corners,
             corrected_by=corrected_by,
             allow_resolved=True,
+            geometry_qualification=geometry_qualification,
         )
         previewer, artifact_root = self._manual_dependencies()
         if self._predictor is None:
@@ -444,7 +457,7 @@ class BoardCellGeometryPendingService:
             ManualBoardCellSymbolPredictionError,
         ) as error:
             raise JobConflictError(error.code, str(error)) from error
-        geometry = _manual_geometry_payload(context, persisted)
+        geometry = _manual_geometry_payload(context, persisted, geometry_qualification)
         artifacts = ImageReviewGeometryArtifacts(
             geometry=geometry,
             board_relative_path=context.pending.source_relative_path,
@@ -473,6 +486,7 @@ class BoardCellGeometryPendingService:
                 prediction=prediction,
                 model_inference_fingerprint=context.symbol_model.inference_fingerprint,
                 board_confidence=context.board_confidence,
+                geometry_qualification=geometry_qualification,
             ),
             created_at=resolved_at,
         )
@@ -544,6 +558,7 @@ def _managed_source_path(artifact_root: Path, relative_path: str) -> Path:
 def _manual_geometry_payload(
     context: BoardCellGeometryCorrectionContext,
     persisted: ManualBoardCellGeometryArtifacts,
+    geometry_qualification: GeometryQualification | None,
 ) -> dict[str, object]:
     geometry = dict(context.board_geometry)
     geometry.update(
@@ -590,6 +605,14 @@ def _manual_geometry_payload(
             "sourceOrderIndex": persisted.source_order_index,
         }
     )
+    if geometry_qualification is not None:
+        geometry.update(
+            {
+                "geometryQualification": geometry_qualification.to_dict(),
+                "completenessStatus": geometry_qualification.completeness_status,
+                "unavailableCellIndices": list(geometry_qualification.unavailable_cell_indices),
+            }
+        )
     return geometry
 
 

@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from contextlib import ExitStack
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -7,14 +8,16 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.models import (
     DatasetVersionModel,
-    GameModel,
     LayoutModel,
     LayoutPayoutModel,
     PaylineModel,
@@ -28,7 +31,7 @@ from game_predictor_worker.payouts.readiness import PayoutReadinessService
 from game_predictor_worker.payouts.store import SqlAlchemyPayoutStore
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import URL, make_url
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -80,7 +83,6 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
     engine = create_engine(isolated_payout_database, pool_pre_ping=True)
     session_factory = create_session_factory(engine)
     store = SqlAlchemyPayoutStore(session_factory)
-    game_id = uuid4()
     rules_id = uuid4()
     other_rules_id = uuid4()
     dataset_id = uuid4()
@@ -88,18 +90,18 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
     ordinary_id = uuid4()
     wildcard_id = uuid4()
     calculated_at = datetime(2026, 7, 27, 21, tzinfo=UTC)
+    game_scope = ExitStack()
 
     try:
-        with Session(engine) as session, session.begin():
-            session.add(
-                GameModel(
-                    id=game_id,
-                    code="payout-game",
-                    name="Payout game",
-                    status=GameStatus.ACTIVE,
-                )
+        with session_factory() as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="payout-game",
+                name="Payout game",
+                status=GameStatus.ACTIVE,
             )
-            session.flush()
+            game_id = game.id
+        game_scope.enter_context(game_storage_scope(game_id))
+        with session_factory() as session, session.begin():
             session.add_all(
                 [
                     SymbolModel(
@@ -204,6 +206,7 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
                     columns=3,
                     signature_cell_width=2,
                     layout_count=2,
+                    expected_layout_count=2,
                     status=DatasetVersionStatus.PUBLISHED,
                     generation_seed=1,
                     generator_version="test-v1",
@@ -228,7 +231,7 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
                 ]
             )
 
-        with Session(engine) as session, session.begin():
+        with session_factory() as session, session.begin():
             session.add(
                 DatasetVersionModel(
                     id=other_dataset_id,
@@ -238,6 +241,7 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
                     columns=3,
                     signature_cell_width=2,
                     layout_count=1,
+                    expected_layout_count=1,
                     status=DatasetVersionStatus.PUBLISHED,
                     generation_seed=2,
                     generator_version="test-v1",
@@ -278,9 +282,16 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
             calculated_at=calculated_at,
         )
         store.upsert_payouts((first,))
+        game_scope.close()
+        engine.dispose()
+        store = SqlAlchemyPayoutStore(create_session_factory(engine))
+        with pytest.raises(ProgrammingError) as missing_scope:
+            store.upsert_payouts((first,))
+        assert getattr(missing_scope.value.orig, "sqlstate", None) == "42P01"
+        game_scope.enter_context(game_storage_scope(game_id))
         store.upsert_payouts((first,))
 
-        with Session(engine) as session:
+        with session_factory() as session:
             assert session.scalar(select(func.count()).select_from(LayoutPayoutModel)) == 1
             persisted = session.get(
                 LayoutPayoutModel,
@@ -340,7 +351,7 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
         assert still_incomplete.payout_count == 1
         assert still_incomplete.missing_sequence_numbers == (2,)
 
-        with Session(engine) as session, session.begin():
+        with session_factory() as session, session.begin():
             session.add(
                 LayoutPayoutModel(
                     dataset_version_id=dataset_id,
@@ -382,5 +393,23 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
         )
         assert ready.ready is True
         assert ready.payout_count == 2
+        game_scope.close()
+        with session_factory() as session:
+            other_game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="other-payout-game",
+                name="Other payout game",
+                status=GameStatus.ACTIVE,
+            )
+        with game_storage_scope(other_game.id), pytest.raises(IntegrityError) as wrong_game:
+            store.upsert_payouts((first,))
+        assert getattr(wrong_game.value.orig, "sqlstate", None) == "23503"
+        with game_storage_scope(game_id):
+            assert (
+                PayoutReadinessService(store)
+                .require(dataset_id, rules_id, "payout-v2")
+                .payout_count
+                == 2
+            )
     finally:
+        game_scope.close()
         engine.dispose()

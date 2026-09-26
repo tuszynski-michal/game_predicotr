@@ -35,9 +35,12 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
   `ai_docs/process/PLAN_STANDARD.md`.
 
 - Nie rozszerzaj zakresu zadania bez wyraźnej potrzeby.
-- Implementuj wyłącznie task wskazany przez użytkownika. Nie rozpoczynaj
-  kolejnego taska, nawet jeżeli jego zależności są gotowe, bez osobnego
-  polecenia użytkownika.
+- Domyślnie implementuj wyłącznie task wskazany przez użytkownika. Wyraźne
+  polecenie uruchomienia etapu zaakceptowanego planu obejmuje wszystkie jego
+  taski w kolejności planu oraz delegowanie wykonawców i audytorów według
+  tabeli modeli. Sama tabela nie jest zgodą na delegowanie. Dla planu bez
+  etapów obowiązuje zatrzymanie po tasku, chyba że użytkownik wyraźnie
+  polecił wykonanie całego planu.
 - Przed kodowaniem ponownie przeczytaj aktywny task oraz odpowiadające mu
   fragmenty zaakceptowanego planu. Jeżeli zakres taska i plan są sprzeczne,
   zgłoś konflikt przed implementacją.
@@ -177,8 +180,14 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
    - jakie są następne kroki lub ryzyka.
 7. Porównaj rezultat punkt po punkcie z Definition of Done taska oraz jego
    zaakceptowanym planem.
-8. Po raporcie zatrzymaj się. Kontynuuj wyłącznie po osobnym poleceniu
-   użytkownika wskazującym następny task.
+8. Po raporcie zatrzymaj się, chyba że użytkownik wyraźnie uruchomił cały
+   etap albo cały plan bez etapów. Wtedy po audycie, osobnym commicie,
+   Outcome i aktualizacji CURRENT_STATE.md każdego taska kontynuuj do końca
+   zleconego zakresu. Zatrzymaj się na końcu etapu albo przy sprzeczności
+   wymagań, koniecznej decyzji, niedostępnym modelu/reasoning, nierozwiązanych
+   uwagach P0–P2 po dwóch cyklach poprawek lub przed operacją czy kosztem poza
+   zatwierdzonym zakresem. Nie wykonuj automatycznego push, merge, aktywacji
+   modelu ani wdrożenia.
 
 ## Hierarchia źródeł prawdy
 

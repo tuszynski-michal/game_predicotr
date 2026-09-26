@@ -1,10 +1,207 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # Current State
+
+### TASK-0700 — jawny tryb przesuwania kadru odroczonej siatki
+
+- Usunięto regresję TASK-0699: checkbox „Aktywne przesuwanie” jest lokalny i
+  domyślnie wyłączony dla każdej nowo wczytanej planszy. Gest tła bez checkboxa
+  nie przechwytuje pointera ani nie zmienia viewportu; po zaznaczeniu wykorzystuje
+  dotychczasową translację. Uchwyt narożnika zachowuje pierwszeństwo w obu
+  trybach. Checkbox nie trafia do preview, zapisu, kwalifikacji ani API.
+- Testy skoncentrowane Reviewera 20/20 i pełne 201/201, lint, typecheck oraz
+  production build są zielone; artefakt buildu zawiera nową kontrolkę. Ręczny
+  odbiór po zmianie pozostaje zablokowany przez lokalny błąd API
+  `IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`, bez mutacji danych.
+
+### TASK-0699 — przesuwanie i centrowanie widoku w odroczonej korekcie siatki
+
+- Użytkownik potwierdził wykonanie kompletnego rozwiązania po weryfikacji
+  TASK-0693. `DeferredBoardCellGeometryEditor` pozwala teraz przeciągnąć tło,
+  aby lokalnie przesunąć viewport zdjęcia, albo użyć „Wycentruj widok na
+  siatce”. Uchwyt narożnika nadal zmienia tylko geometrię; przesunięcie widoku
+  nie zmienia qualification, preview, idempotency ani danych trwałych.
+- Czysta translacja viewportu ogranicza kompletną planszę do źródła i pozwala
+  częściowej obejmować szare tło poza nim. Zmiana narożnika, flagi częściowej
+  albo przywrócenie sugestii ponownie centruje widok na bieżącej geometrii.
+- Testy: 201/201 Reviewera, lint, typecheck i production build zielone. Test
+  `test:geometry` nie uruchamia się przed ładowaniem testów: Node 24 zwraca
+  `uv_os_get_passwd ENOMEM`. Żywy wpis Reviewera zwrócił błąd pobrania z API,
+  więc nie wykonano mutacji danych podczas ręcznego odbioru.
+- Nie wolno traktować przesunięcia widoku jako korekty geometrii ani próbować
+  odtwarzać brakujących pikseli. Faktycznie brakujące komórki nadal wymagają
+  `geometryQualification` z TASK-0693.
+
+### TASK-0697 — ukończona naprawa upsertów V2
+
+- Trzy targety ON CONFLICT raw/normalized/payout zawierają wymagany `game_id`.
+- Regresje: 3 passed w41,41s, retry po dispose/nowej sesji, brak scope42P01,
+  obca gra23503. Ruff/format/mypy czterech plików passed (MYPYPATH jawnie).
+- Niezależny audit gpt-6-astra/medium: brak P0–P2, kryteria taska spełnione.
+  Task przeniesiony do completed; naprawa nie zmienia API, schematu ani danych
+  użytkownika. Nie rozwiązuje globalnego owner routing — to TASK-0698.
+
+### TASK-0687 — T08 readiness release V2-only: krytyczna bramka przed T09–T12
+
+- Użytkownik polecił dokończyć T08 i samodzielnie rozstrzygać zwykłe kwestie
+  techniczne. Baza użytkownika została tylko odczytana i nadal ma Alembic
+  `0124`; migracji 0125 nie zastosowano. Kod bazowy to commit `v0.10.451` z
+  niezatwierdzonymi zmianami fixture. Release jest source-run; smoke zapisuje
+  revision i hash źródeł/config, osobna binarka nie jest wymagana.
+- Na izolowanym head 0125 po naprawie części fixture przeszły browser
+  retention 1/1, katalog 1/1 i worker job store 1/1. Raport importu po
+  usunięciu błędu routingu nadal ma wcześniejszy dryf kodu błędu, a test
+  HTTP M2 kończy się 422 na tworzeniu symbolu. Poprzednia sesja zgłosiła
+  49 failed / 64 passed w pełnych 28 plikach integracyjnych; tego przebiegu
+  nie powtórzono. Szczegóły i granice dowodu:
+  `quality/LEGACY_PUBLIC_STORE_RELEASE_READINESS.md`.
+- Użytkownik doprecyzował zlecenie całego pozostałego planu do T12 i auditów;
+  T08 wznowiono. TASK-0694 grupuje naprawy fixture/asercji po 0125,
+  TASK-0695 niezwiązane rozjazdy kontraktu, TASK-0697 trzy rzeczywiste klucze
+  konfliktu upsertów workera bez `game_id`.
+- Sprostowanie środowiska: `.venv` działa z Pythonem 3.12.10 poza sandboxem.
+  Brak startu w sandboxie nie dowodził brakującej instalacji; błędnie utworzone
+  TASK-0696 wycofano. Mypy ma dodatkowo niepoprawny separator `;` w wartości
+  config `mypy_path`; sam Python nie wymaga reinstalacji.
+- Nowy smoke ujawnił rzeczywiste nieobsłużone globalne wejścia V2: odczyt
+  layoutów przez `datasetId` oraz wielogrowe release bez bind. T09 pozostaje
+  `no-go` do rozstrzygnięcia tych problemów; nie wolno ukrywać ich dodatkowym
+  scope w fixture. Przygotowawczy read-only preflight z 07:16:30 CEST jest
+  `ready` (65 pustych tabel, 3 active V2), ale nie jest zgodą na apply.
+- Końcowy smoke rzeczywistych procesów trwał67,56s: trwały worker completed,
+  restart API i drugi worker no_job,65 public absent, missing location409.
+  Pozostały HTTP500 dataset layouts/review-batches i422 geometry schema3.
+  Test oraz wynik zachowane; procesy/bazy izolowane posprzątane.
+- Naprawione fixture: imagebatch15/16, catalog2/2, image selection4/4.
+  Pozostały duplicate pending oraz wcześniejsze błędy typów zgrupowano z
+  dryfem kontraktów i schema3 w TASK-0695. Pełnej suite nie powtórzono;
+  TASK-0694 nie jest done. Audit fixture/smoke: brak nowych P0–P2.
+- Krytyczny audit potwierdził konflikt accepted D-038 (źródła i rodzic
+  release w jednej transakcji) z pojedynczą grą per transakcja V2.
+  TASK-0698 zapisuje pytanie i rekomendację jawnego koordynatora atomowej
+  operacji wielu gier. Nie podjęto ukrytej zmiany D-038/RLS. To warunek
+  wymagający decyzji użytkownika; T09–T12 nie wykonano. Samo polecenie całego
+  planu nie zastępuje wymaganej później zgody na exact path/hash preflightu.
+
+### TASK-0693 — niepełna plansza w odroczonej korekcie geometrii komórek (D-449)
+
+- Zgłoszenie użytkownika: ekran „Weryfikacja plansz” → kolejka „Niepełne
+  siatki do ręcznej korekty” (`DeferredBoardCellGeometryEditor`) nie miała
+  checkboxa „Niepełna plansza” ani sposobu przesunięcia rogów poza realne
+  zdjęcie, w odróżnieniu od Admin „Korekta geometrii strony” i Reviewer
+  „Walidacja gotowych siatek”, które już obsługują `GeometryQualification`.
+  Operator był zmuszony ściskać całą siatkę do widocznego obszaru, co
+  przesuwało wszystkie komórki i myliło symbole przy fizycznie przyciętej
+  planszy.
+- Współdzielony, produkcyjny cropper (`board_cell_geometry_contract.py`,
+  `board_cell_geometry_crops.py`, używany też przez automatyczną detekcję)
+  dostał wyłącznie opcjonalne, domyślnie nieaktywne parametry
+  (`bounded=True`, `unavailable_cell_indices=frozenset()`) — zero zmiany
+  zachowania dla wszystkich istniejących wywołujących, zweryfikowane pełnym
+  przebiegiem ich testów bez zmiany asercji (patrz D-449).
+  `cv2.warpPerspective`'s `BORDER_CONSTANT` już tolerował quad poza obrazem;
+  wystarczyło zdjąć bramkę `_quad_has_full_source_support` tylko dla jawnie
+  zadeklarowanych indeksów (oznaczane `synthesized=true`, dopisywane do
+  metadanych tylko gdy `true` — zero zmiany JSON dla kompletnych plansz).
+  `ManualBoardCellSymbolPredictor` wymusza „?” tylko dla zadeklarowanych
+  komórek, resztę przekazuje normalnie do modelu.
+- API: `BoardCellGeometryManualPreviewCommand`/`ResolutionCommand` mają nowe
+  opcjonalne `geometryQualification` (reużyty istniejący
+  `GeometryQualificationPayload`) i podpisane (signed) rogi
+  (`ManualSourceGeometryPoint`, zamiast `OperationalImageReviewGeometryPoint`
+  z `ge=0`) — plansza cięta z lewej/góry potrzebuje ujemnych współrzędnych.
+  `materialize_manual_resolution` zapisuje `completeness_status`,
+  `geometry_qualification`, `unavailable_cell_indices` na
+  `RecognizedBoardModel` tylko dla `pending_partial` (domyślne wartości już
+  spełniają CHECK constraints dla `complete`). Board zostaje
+  `asset_mode=legacy_file` — brak v3 `fully_unavailable_cell_indices` i
+  `virtual_source`, bo ta ścieżka ma realne pliki cropów, nie wirtualne.
+- Reviewer UI: `DeferredBoardCellGeometryEditor` ma teraz checkbox „Niepełna
+  plansza”, listę 15 pól „poza zdjęciem” i szary obszar poza zdjęciem na
+  canvasie (`operationalReviewGeometryViewport`/`operationalReviewPointInSourceImage`
+  z nowym opcjonalnym `allowOutsideSource`), reużywając
+  `manual-image-selection-core`'s `manualGridQualification` zamiast
+  równoległej kopii logiki.
+- Testy: worker 47/47 (crops 8/8, contract nowe 2/2 + 7 przedsesyjnych,
+  niezwiązanych failów opisanych niżej, manual preview 9/9, symbol
+  prediction 4/4), API `board_cell_geometry_pending` 12/12 (bez regresji),
+  Reviewer 200/200 + `test:geometry` 3/3, admin-api-client 64/64, Ruff,
+  mypy, `openapi:check`, Prettier — wszystkie zielone dla zmienionych
+  plików.
+- **Przedsesyjny, niezwiązany blocker wykryty przy tej okazji:** test
+  integracyjny `test_manual_deferred_geometry_materializes_one_complete_review_projection`
+  (`services/api/tests/integration/test_image_batch_store.py`) failuje na
+  żywej Postgresie identycznie z i bez zmian tego taska —
+  `relation "source_images" does not exist`. Reprodukowalne na czystym
+  `HEAD` (`v0.10.450`), więc to efekt niedawnych commitów „legacy public
+  store removal” (v0.10.447–450), nie tego taska. Integracyjny test
+  repozytorium dla nowej ścieżki `pending_partial` nie mógł zostać
+  uruchomiony/dodany z tego powodu — do zweryfikowania po naprawie migracji.
+- 7 przedsesyjnych, niezwiązanych failów w `test_board_cell_geometry_contract.py`
+  (`corpusDescriptor.annotationManifest checksum differs`) — reprodukowalne
+  też bez zmian tego taska, poza zakresem.
+
+### TASK-0692 — grafika symbolu z pojedynczego cropa w Weryfikacji symboli
+
+- Zgłoszenie użytkownika poza planem: przycisk `Ustaw jako grafikę symbolu`
+  dla jednego zaznaczonego cropa zatwierdza go (jako wybrany w `Zmień symbol`
+  albo bieżący symbol) i ustawia jako grafikę symbolu przez nowy endpoint
+  `POST …/symbol-cell-reviews/{cellReviewId}/symbol-reference`, reużywający
+  pickera sekcji `Symbole`. Grafika jest widoczna w `Symbole` i palecie
+  `Wyszukaj plansze`. Wydanie mobilne nadal pokazuje tylko wbudowane obrazki
+  v01 — osobny, niewykonany zakres. Testy API 9/9, Admin 606/606, klient
+  63/63, `openapi:check` czysty. Brak odbioru na żywo (API wymaga restartu).
+
+### P00 / TASK-0679 — plan usunięcia legacy magazynu gier ze schematu `public` (D-448)
+
+- Plan `delivery/LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md` i D-448 zostały zaakceptowane przez użytkownika. **T01 / TASK-0680 jest done:** audyt `REPEATABLE READ READ ONLY` (dwie świeże sesje, raport SHA-256 `081212ac08ce63e132d689e7c23984e16338395e424695326579166fb4a6e95e`) potwierdził 65/65 pustych tabel, trzy active V2 location i zero migracji, aktywnych jobs, zewnętrznych FK/zależności oraz locków. Nie wykonano DDL/DML.
+- **T02 / TASK-0681 jest done:** PostgreSQL router i projekcje katalogu są V2-only — wpis `public`/generation 1 jest odrzucany, brak location przy bind jest fail-closed, a adapter nie-PostgreSQL jest wirtualnym V2. Testy routingu/katalogu przeszły 16/16, cztery izolowane scenariusze PostgreSQL 4/4, Ruff oraz `openapi:check` są zielone. Nie wykonano DDL/DML ani nie zmieniono public catalog/control/shared. Pełny 11-testowy plik integracyjny nie zakończył się w pojedynczym przebiegu z powodu ograniczenia wykonawczego; osierocone procesy i trzy zweryfikowane bazy tymczasowe testu zostały usunięte. Strict mypy pozostaje zablokowany przez 87 wcześniejszych błędów poza zakresem.
+- **T03 / TASK-0682 jest done:** audyt 65 relacji game-owned doprowadził jawny bind V2 do operacyjnego review obrazów, wsadowego upsertu board-search, weryfikacji symboli i image batch workera; raw INSERT workera używa wyłącznie `qualified_game_table()` routera. Raport `quality/V2_GAME_OWNED_ACCESS_AUDIT.md` dokumentuje wszystkie sprawdzone punkty wejścia i testowe adaptery. Testy zmienionych repository 40/40, izolowane PostgreSQL 3/3 i Ruff są zielone. Historyczny image-batch fixture bez V2 location pozostaje celowo dla T04 / TASK-0683. Kontrola mypy zatrzymała się na sześciu wcześniejszych błędach `shape_geometry_v2/core.py` poza zakresem; proces przerwano po 30 s.
+- Użytkownik zaakceptował korektę kolejności testów: T04 / TASK-0683 usuwa zależność bootstrapu i fixture od legacy na bieżącym headzie 0124, natomiast dowód fresh-head po usunięciu 65 relacji przechodzi do T05 / TASK-0684, który jako jedyny tworzy 0125. T04 nie duplikuje przyszłego DDL.
+- Na początku P00 potwierdzono wolne numery TASK-0679–0691, D-448 i `0125`; repozytorium kończy migracje na 0124. W worktree są niepowiązane zmiany laboratorium wizji, których P00 nie dotyka.
+- Plan chroni granicę: 65 historycznych, game-owned kopii może zostać usuniętych wyłącznie po świeżym read-only inventory, testach V2-only i osobnej zgodzie na T09. `public.games`, symbole, reguły, `paylines`, `payout_rules`, globalne `jobs`, registry i shared/control plane pozostają poza zakresem.
+- **T04 / TASK-0683 jest done:** domyślny bootstrap katalogu zawsze provisionuje V2, a izolowane fixture lifecycle/image-batch korzystają z registry, partycji i scope V2 zamiast ręcznie tworzyć legacy `public`. Test fresh-head po 0125 pozostaje własnością T05. Ruff, 8 testów jednostkowych, lifecycle PostgreSQL i 2 scenariusze image-batch są zielone. Pełny plik image-batch nie został uruchomiony, ponieważ niezwiązany test write-through jest czerwony również w `HEAD`: nie przekazuje `source_image_id` do obecnego kontraktu `ImageGridReviewService.list`. Następny krok: T05 / TASK-0684; STOP A nadal blokuje dalszy plan przy niepustej tabeli, legacy location, aktywnej migracji lub nierozpoznanej zależności.
+- **T05 / TASK-0684 jest done:** migracja `0125` ma literalny snapshot 65 relacji, statyczną kolejność `DROP RESTRICT` i fail-closed guards katalogu, pustości oraz zewnętrznych FK/zależności przed pierwszym dropem. Izolowany PostgreSQL przeszedł 8/8 scenariuszy, w tym fresh head bez legacy public i bootstrap V2; downgrade jawnie odmawia. Nie zastosowano migracji na bazie użytkownika. Test headów Alembic jest zielony. Istniejący `test_game_data_v2_postgres.py` ma wcześniejszą rozbieżność constraintów `0105` geometry qualification, poza zakresem T05. Następny krok: T06 / TASK-0685 — rehearsal migracji i odbiór release.
+- **T06 / TASK-0685 jest done:** izolowany rehearsal wykonał read-only preflight `ready` → 0125 → postflight z nowej sesji na PostgreSQL 18.4. Usunięto wyłącznie 65 relacji testowych; V2 oraz `games`, `symbols`, `jobs` i registry pozostają. Transcript ma checksumy pre/post w `quality/LEGACY_PUBLIC_STORE_MIGRATION_REHEARSAL.md`; apply trwał 1 312 ms na małej bazie testowej, nie jest benchmarkiem produkcji. Blokada `ACCESS SHARE` zatrzymała 0125 po 2 s bez częściowego DDL. Nie wykonano operacji na bazie użytkownika. Następny krok: T07 / TASK-0686 — runbook operatorski; STOP B nadal wymaga świeżego preflightu i odrębnej zgody przed T09.
+- **T07 / TASK-0686 jest done:** runbook `guides/LEGACY_PUBLIC_STORE_REMOVAL.md` wymaga checksummowanego preflightu `ready`, dokładnego approval path/hash i jedynego apply przez Alembic. Rozróżnia expected postflight (dokładnie 65 missing legacy) od awarii oraz zakazuje ręcznego DDL, `CASCADE`, downgrade i auto-retry. Nie uruchomiono T09 ani nie dotknięto bazy użytkownika. **STOP B:** następny krok wymaga pokazania użytkownikowi świeżego preflightu oraz uzyskania nowej, dokładnej zgody na apply; T08–T12 czekają.
+
+### TASK-0666 — T01 — eksporter snapshotu laboratorium wizji
+
+- Dodano osobny eksporter tylko do odczytu, ograniczony manifestem v1.
+  Zamraża ID, generacje routingu i fingerprinty powiązanych wierszy w
+  transakcji `REPEATABLE READ READ ONLY`, wykrywa drift przy odczycie partiami,
+  kopiuje źródła i artefakty po SHA-256 i publikuje zweryfikowany snapshot
+  atomowo. Ponowienie sprawdza wszystkie pliki i odrzuca konflikt lub reparse.
+- Snapshot zachowuje surowe rewizje oraz konserwatywną projekcję aktualnych
+  zatwierdzonych etykiet plikowych. Historyczne V1.1 jest ustalane z
+  najwcześniejszej jednoznacznej rewizji geometrii źródła o odpowiednim
+  silniku, slocie i sekwencji; późniejsza ręczna korekta pozostaje osobna.
+  Brak dowodu oznacza niedostępne porównanie, nie rekonstrukcję.
+- 11/11 testów eksportera, Ruff i mypy przeszły; trzy cykle niezależnego
+  audytu zakończyły się bez otwartych P0–P2. Routing PostgreSQL przetestowano
+  mockami. Nie wykonano eksportu na żywej bazie ani operacji na zdjęciach
+  użytkownika. Następny krok to T02 w etapie A.
+
+### P00 / TASK-0665 — zapis planu laboratorium wizji (D-447)
+
+- Zaakceptowany plan `delivery/VISION_LAB_EXECUTION_PLAN.md` jest zapisany
+  w repozytorium wraz z taskami TASK-0666–0678 (etapy A–E), wymaganiami,
+  architekturą i decyzją D-447 o `lab_human_approved`. P00 nie uruchamia A.
+- `AGENTS.md` jest właścicielem świadomej reguły: jawne uruchomienie etapu
+  obejmuje wszystkie jego taski, osobne audyty i commity; stop następuje na
+  końcu etapu albo przy blokerze. `CLAUDE.md` i `PLAN_STANDARD.md` odsyłają.
+- `GRID_ENGINE_V3_NEURAL_EXECUTION_PLAN.md` ma status `superseded`.
+  Niewykonane pliki `0649-grid-nn-*.md`–`0653-grid-nn-*.md` są zablokowane;
+  numery 0649–0653 kolidują z ukończoną serią „Przybliżona wygrana”. D-446
+  należy tylko do tamtej serii. Historyczne 777 jest porównawcze; TASK-0645–
+  0647 nie dostają uzupełniania slotów siecią. TASK-0611 pozostaje poza
+  zakresem i nie został zmieniony.
+- Następny krok wymaga jawnego uruchomienia etapu A. STOP A dostarczy galerię,
+  manifest, kandydatów gry niewidzianej oraz budżet etapu B.
 
 ### TASK-0664 — wyrównanie ograniczeń kwalifikacji `game_data_v2`
 

@@ -71,6 +71,7 @@ test('binds deferred preview and resolution to manifest and both revisions', () 
     expectedGeometryRevision: 2,
     expectedManifestChecksumSha256: 'a'.repeat(64),
     expectedResolutionRevision: 3,
+    geometryQualification: null,
   });
   const command = deferredBoardCellGeometryResolutionCommand(
     context,
@@ -86,6 +87,48 @@ test('binds deferred preview and resolution to manifest and both revisions', () 
   assert.equal(
     deferredBoardCellGeometryReasonLabel('incomplete_lattice'),
     'Niepełna siatka symboli',
+  );
+});
+
+test('embeds a partial-board qualification for declared unavailable cells', () => {
+  const corners = deferredBoardCellGeometryCorners(context);
+  const flags = {
+    exclude: false,
+    includeInPartialGridTraining: false,
+    manualUnavailable: [0, 5],
+    partial: true,
+  };
+
+  const preview = deferredBoardCellGeometryPreviewCommand(
+    context,
+    corners,
+    flags,
+  );
+  assert.deepEqual(preview.geometryQualification, {
+    completenessStatus: 'pending_partial',
+    excludeFromGeometryTraining: true,
+    exclusionReason: 'missing_pixels',
+    includeInPartialGridTraining: false,
+    unavailableCellIndices: [0, 5],
+    version: 'manual-geometry-qualification-v2',
+  });
+
+  const resolution = deferredBoardCellGeometryResolutionCommand(
+    context,
+    corners,
+    '55555555-5555-4555-8555-555555555555',
+    flags,
+  );
+  assert.deepEqual(
+    resolution.geometryQualification,
+    preview.geometryQualification,
+  );
+
+  assert.throws(() =>
+    deferredBoardCellGeometryPreviewCommand(context, corners, {
+      ...flags,
+      manualUnavailable: [],
+    }),
   );
 });
 

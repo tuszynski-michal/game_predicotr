@@ -75,6 +75,10 @@ class ApprovedSymbolReferenceRepository(Protocol):
         self, *, game_id: UUID, symbol_id: UUID, observation_id: UUID
     ) -> ApprovedSymbolReferenceCandidate | None: ...
 
+    def get_cell_review_candidate(
+        self, *, game_id: UUID, cell_review_id: UUID
+    ) -> tuple[UUID, ApprovedSymbolReferenceCandidate] | None: ...
+
     def get_reference(self, *, game_id: UUID, symbol_id: UUID) -> SymbolReferenceImage | None: ...
 
     def select_reference(
@@ -227,6 +231,39 @@ class ApprovedSymbolReferenceService:
             selected_by=actor,
             image_relative_path=stored_asset.relative_path,
             image_checksum_sha256=stored_asset.checksum_sha256,
+        )
+
+    def select_from_cell_review(
+        self,
+        game_id: UUID,
+        cell_review_id: UUID,
+        *,
+        expected_checksum_sha256: str,
+        selected_by: str,
+    ) -> Symbol:
+        """Use one approved Symbol Verification crop as its symbol's reference.
+
+        The cell must already satisfy every picker eligibility rule: approved
+        exact crop, current geometry, no quality issue and an active symbol.
+        """
+
+        self._require_game(game_id)
+        resolved = self._repository.get_cell_review_candidate(
+            game_id=game_id, cell_review_id=cell_review_id
+        )
+        if resolved is None:
+            raise CatalogConflictError(
+                "SYMBOL_REFERENCE_CELL_NOT_ELIGIBLE",
+                "Only an approved current crop without a quality issue can become "
+                "the symbol image.",
+            )
+        symbol_id, candidate = resolved
+        return self.select(
+            game_id,
+            symbol_id,
+            candidate.observation_id,
+            expected_checksum_sha256=expected_checksum_sha256,
+            selected_by=selected_by,
         )
 
     def _require_game(self, game_id: UUID) -> None:

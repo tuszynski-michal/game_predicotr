@@ -83,6 +83,7 @@ class ManualBoardCellGeometryPreview:
     cropper_fingerprint_sha256: str
     cells: tuple[ManualBoardCellGeometryCellPreview, ...]
     topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY
+    unavailable_cell_indices: frozenset[int] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +120,7 @@ class ManualBoardCellGeometryArtifacts:
     cropper_fingerprint_sha256: str
     cells: tuple[ManualBoardCellGeometryCellArtifact, ...]
     topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY
+    unavailable_cell_indices: frozenset[int] = frozenset()
 
 
 class ManualBoardCellGeometryPreviewer:
@@ -155,7 +157,13 @@ class ManualBoardCellGeometryPreviewer:
         expected_geometry_revision: int,
         expected_resolution_revision: int,
         command_checksum_sha256: str,
+        unavailable_cell_indices: frozenset[int] = frozenset(),
     ) -> ManualBoardCellGeometryPreview:
+        if not unavailable_cell_indices.issubset(range(self._topology.cell_count)):
+            raise ManualBoardCellGeometryPreviewError(
+                "BOARD_CELL_GEOMETRY_UNAVAILABLE_INDEX_INVALID",
+                "unavailable_cell_indices must reference existing topology cells.",
+            )
         content = _read_source(source_path)
         if hashlib.sha256(content).hexdigest() != expected_source_sha256:
             raise ManualBoardCellGeometryPreviewError(
@@ -194,6 +202,7 @@ class ManualBoardCellGeometryPreviewer:
                 source_image_width=image_width,
                 source_image_height=image_height,
                 topology=self._topology,
+                bounded=not unavailable_cell_indices,
             )
         except ValueError as error:
             code = getattr(error, "code", "BOARD_CELL_GEOMETRY_PREVIEW_INVALID")
@@ -226,7 +235,9 @@ class ManualBoardCellGeometryPreviewer:
             ),
             topology=self._topology,
         )
-        result = self._cropper.crop(rgb, geometry)
+        result = self._cropper.crop(
+            rgb, geometry, unavailable_cell_indices=unavailable_cell_indices
+        )
         if result.status != "cropped" or len(result.cells) != self._topology.cell_count:
             reason = result.review_reasons[0] if result.review_reasons else "unknown"
             raise ManualBoardCellGeometryPreviewError(
@@ -271,6 +282,7 @@ class ManualBoardCellGeometryPreviewer:
             cropper_fingerprint_sha256=result.cropper_fingerprint_sha256,
             cells=previews,
             topology=self._topology,
+            unavailable_cell_indices=unavailable_cell_indices,
         )
 
     def persist(
@@ -395,6 +407,7 @@ class ManualBoardCellGeometryPreviewer:
             cropper_fingerprint_sha256=preview.cropper_fingerprint_sha256,
             cells=tuple(artifacts),
             topology=preview.topology,
+            unavailable_cell_indices=preview.unavailable_cell_indices,
         )
 
 

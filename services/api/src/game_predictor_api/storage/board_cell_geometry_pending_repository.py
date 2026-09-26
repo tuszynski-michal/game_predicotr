@@ -537,6 +537,16 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
             "modelVersion": projection.prediction.model_version,
             "temperatureApplied": projection.prediction.temperature_applied,
         }
+        qualification = projection.geometry_qualification
+        qualification_columns: dict[str, object] = (
+            {
+                "completeness_status": qualification.completeness_status,
+                "geometry_qualification": qualification.to_dict(),
+                "unavailable_cell_indices": list(qualification.unavailable_cell_indices),
+            }
+            if qualification is not None and qualification.completeness_status == "pending_partial"
+            else {}
+        )
         board = RecognizedBoardModel(
             source_image_id=source.id,
             position_index=row.position_index,
@@ -552,6 +562,7 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
             geometry_revision=row.expected_geometry_revision + 1,
             status="pending_review",
             created_at=created_at,
+            **qualification_columns,
         )
         self._session.add(board)
         self._session.flush()

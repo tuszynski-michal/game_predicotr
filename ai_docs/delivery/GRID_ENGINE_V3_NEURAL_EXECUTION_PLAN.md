@@ -1,10 +1,19 @@
 ---
 title: Silnik siatek v3 oparty na sieci neuronowej — plan wdrożenia
-status: proposed
+status: superseded
 last_updated: 2026-09-25
 ---
 
 # Silnik siatek v3 na sieci neuronowej
+
+> **Zastąpiony.** Obowiązujący plan to
+> [VISION_LAB_EXECUTION_PLAN.md](VISION_LAB_EXECUTION_PLAN.md), D-447.
+> Niewykonane taski wskazane poniżej rozpoznaje się po pełnych ścieżkach
+> `0649-grid-nn-candidate-pool.md` … `0653-grid-nn-777-slot-fill.md`, gdyż
+> numery 0649–0653 zostały niezależnie użyte przez serię „Przybliżona wygrana”.
+> Stary kierunek uzupełniania slotów historycznego 777 siecią jest wycofany.
+> D-446 dotyczy wyłącznie „Przybliżonej wygranej” i nigdy nie zatwierdzał
+> niniejszego planu.
 
 ## Wymaganie użytkownika
 
@@ -62,7 +71,7 @@ rollout geometrii innych gier, GPU.
    to, co użytkownik zaakceptował w narzędziu kuracji. Zgodne z życzeniem
    użytkownika i z D-262 („tylko ręcznie zatwierdzone”) — rozszerzamy znaczenie
    „ręcznie zatwierdzone” na „przejrzane i zaakceptowane przez użytkownika
-   w narzędziu kuracji”, co wymaga nowego wpisu D-446.
+   w narzędziu kuracji” — historyczna propozycja; obowiązujące źródło to D-447.
 2. **Punkty siatki, nie tylko narożniki.** 24 punkty na planszę dają lokalne
    pochylenie i zakrzywienie bez ekstrapolacji modelu (przyczyna przechyłu prawej
    kolumny). Etykietę 24 punktów wyznaczamy z zatwierdzonego quada przez
@@ -116,7 +125,7 @@ rollout geometrii innych gier, GPU.
 2. [TASK-0650](../tasks/0650-grid-nn-curation-tool.md) — narzędzie kuracji HTML + import decyzji; kuracja zbioru złotego.
 3. [TASK-0651](../tasks/0651-grid-nn-training.md) — model (etap A + B), augmentacje, trening CPU, ONNX, manifest wydania.
 4. [TASK-0652](../tasks/0652-grid-nn-shadow-evaluation.md) — ocena shadow na zbiorze złotym vs hybryda, kalibracja pewności.
-5. [TASK-0653](../tasks/0653-grid-nn-777-slot-fill.md) — użycie w reweryfikacji 777 (dorysowanie slotów) + dry-run i przegląd użytkownika; D-446.
+5. [TASK-0653](../tasks/0653-grid-nn-777-slot-fill.md) — wycofana propozycja uzupełniania slotów 777.
 
 Zależność wstępna: zakończone przeglądy dry-runu 777 i zapis (TASK-0645–0647
 przepisane na hybrydę) — decyzje z przeglądu zasilają pulę kandydatów.
@@ -130,7 +139,7 @@ przepisane na hybrydę) — decyzje z przeglądu zasilają pulę kandydatów.
 | Siatka tam, gdzie symbole | T3, T4 | błąd 24 punktów na zbiorze złotym (mediana ≤ 0,05 komórki, p95 ≤ 0,15) |
 | Brak fałszywie pewnych siatek | T4 | 0 fałszywie zielonych na zbiorze złotym; ≥ 98% poprawności board-level (D-261) |
 | Lepiej niż hybryda na trudnych | T4 | pokrycie pewnych slotów ≥ 1,5 × hybryda przy zerze fałszywie zielonych |
-| Bezpieczne wdrożenie | T5 | shadow → dry-run → przegląd → zapis za zgodą; D-446 |
+| Bezpieczne wdrożenie | T5 | wycofane; obowiązuje nowy plan i D-447 |
 
 ## Ryzyka
 
@@ -144,8 +153,8 @@ przepisane na hybrydę) — decyzje z przeglądu zasilają pulę kandydatów.
 - Punkty 24 z interpolacji quada nie oddają zakrzywienia wewnątrz planszy —
   akceptowalne (plansza mała); w razie potrzeby etykiety punktowe z narzędzia
   kuracji (przeciąganie punktów) jako rozszerzenie T2.
-- Zmiana decyzji D-262 musi być jawna (D-446) i ograniczona do narzędzia
-  reweryfikacji 777 z przeglądem użytkownika.
+- Historyczna propozycja zmiany D-262 dla uzupełniania slotów 777 została
+  wycofana; D-447 dotyczy wyłącznie nowego planu laboratoryjnego.
 
 ## Otwarte pytania (do użytkownika)
 
@@ -162,4 +171,4 @@ przepisane na hybrydę) — decyzje z przeglądu zasilają pulę kandydatów.
 | TASK-0650 | claude-sonnet-5 | high | Lokalny HTML/JS i import JSON; ważna idempotencja i brak utraty decyzji użytkownika. | Tak: claude-opus-5-5, reasoning medium — review importu decyzji. |
 | TASK-0651 | claude-opus-5-5 | high | Projekt architektury sieci, augmentacji i treningu CPU; decyzje wpływają na jakość całego silnika. | Tak: claude-opus-5-5, reasoning high — review kontraktu ONNX i splitu. |
 | TASK-0652 | claude-opus-5-5 | high | Kalibracja pewności i interpretacja wyników decyduje o bezpieczeństwie danych. | Nie. |
-| TASK-0653 | claude-opus-5-5 | high | Integracja z narzędziem zapisującym do domeny i zmiana decyzji D-262 (D-446). | Tak: claude-opus-5-5, reasoning high — review przed zapisem. |
+| TASK-0653 | claude-opus-5-5 | high | Historyczna, wycofana propozycja integracji z narzędziem 777. | Tak: claude-opus-5-5, reasoning high — historyczny wpis. |

@@ -1,10 +1,76 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 ---
 
 # Decision Log
+
+## D-449 — niepełna plansza w odroczonej korekcie geometrii komórek (opt-in, bez osłabienia współdzielonego croppera)
+
+- **Status:** accepted (TASK-0693).
+- **Date:** 2026-09-26.
+- **Context:** zgłoszenie użytkownika — na ekranie „Weryfikacja plansz”, w
+  kolejce „Niepełne siatki do ręcznej korekty” (`DeferredBoardCellGeometryEditor`),
+  operator nie mógł oznaczyć planszy jako niepełnej ani przesunąć rogów poza
+  realne zdjęcie, mimo że dwa pozostałe edytory geometrii (Admin „Korekta
+  geometrii strony”, Reviewer „Walidacja gotowych siatek”) już to obsługują
+  przez istniejący `GeometryQualification`.
+- **Decision:** `derive_board_cell_quads`/`_parse_quad`
+  (`board_cell_geometry_contract.py`) i `BoardCellGeometrySourceDirectCropper.crop`
+  (`board_cell_geometry_crops.py`) — współdzielony, produkcyjny pipeline
+  używany też przez automatyczną detekcję (`production_workflow.py`,
+  `board_cell_geometry_estimator.py`, `lattice_refinement_v3.py`,
+  `pending_grid_reinference.py`) — dostają wyłącznie **opcjonalne, domyślnie
+  nieaktywne** parametry (`bounded: bool = True`,
+  `unavailable_cell_indices: frozenset[int] = frozenset()`). Żaden istniejący
+  wywołujący nie przekazuje nowych argumentów, więc automatyczna detekcja i
+  wszystkie inne przepływy pozostają bit-identyczne (zweryfikowane pełnym
+  przebiegiem ich testów bez zmiany asercji). Tylko
+  `ManualBoardCellGeometryPreviewer` (ręczny Reviewer flow) przekazuje
+  `unavailable_cell_indices` pochodzące z jawnie zaznaczonego checkboxa
+  „Niepełna plansza”. `cv2.warpPerspective`'s istniejący
+  `borderMode=BORDER_CONSTANT` już toleruje quad poza obrazem — nie trzeba
+  syntezować pikseli ręcznie, tylko zdjąć bramkę `_quad_has_full_source_support`
+  dla jawnie zadeklarowanych indeksów; taka komórka dostaje `synthesized=true`
+  w metadanych (dopisywane tylko gdy `true`, więc kompletne plansze mają
+  bajtowo identyczny JSON co przed zmianą).
+- **Scope:** board pozostaje `asset_mode=legacy_file` (realne pliki cropów na
+  dysku) — **nie** replikuje się `asset_mode='virtual_source'` ani v3
+  `fully_unavailable_cell_indices` z `virtual_grid_geometry.py`. Wystarczy v2
+  `GeometryQualification`: zadeklarowane niedostępne komórki są w pełni
+  wykluczone (`available_cell_indices()`'s zachowanie dla trybów innych niż
+  `virtual_source`), a `ManualBoardCellSymbolPredictor` wymusza dla nich „?”
+  zamiast wysyłać syntezowany crop do modelu.
+- **Not done:** integracyjny test repozytorium (`materialize_manual_resolution`
+  z `pending_partial` na żywej Postgresie) nie został dodany — istniejący
+  test tej rodziny (`test_manual_deferred_geometry_materializes_one_complete_review_projection`)
+  failuje identycznie z i bez tej zmiany (`relation "source_images" does not
+  exist`), prawdopodobnie efekt niedawnych commitów „legacy public store
+  removal” (v0.10.447–450); to osobny, przedsesyjny blocker poza zakresem
+  TASK-0693.
+
+## D-447 — laboratoryjne zatwierdzenia i plan wizji
+
+- **Status:** accepted (P00 / TASK-0665).
+- **Date:** 2026-09-25.
+- **Decision:** lokalne laboratorium może używać osobnych zatwierdzeń
+  `lab_human_approved`. Decyzja człowieka wiąże grę, wersję słownika, obraz
+  źródłowy i SHA-256, planszę, komórkę, rewizję geometrii, dokładny crop i
+  SHA-256, etykietę, rewizję zatwierdzenia i czas. Zmiana geometrii albo
+  cropa wyłącza próbkę z treningu do ponownego zatwierdzenia. Predykcja
+  modelu nie jest decyzją człowieka. Zatwierdzenie lab nie udaje DB review;
+  istniejące reguły kwalifikacji DB pozostają bez zmian.
+- **Integration:** gra bez rekordu DB ma lokalną tożsamość i zatwierdzony
+  słownik. Rejestracja modelu wymaga jawnego mapowania gry i symboli; brak
+  mapowania blokuje wyłącznie jej integrację.
+- **Scope:** lab obejmuje 5 × 3 i 3 × 3, integracja aplikacji tylko 5 × 3.
+  Historyczne 777 jest `comparison_only`; 777 V2 wymaga pozytywnego dowodu
+  pochodzenia. TASK-0645–0647 nie otrzymują w tym projekcie uzupełniania
+  slotów siecią. TASK-0611 jest poza zakresem.
+- **Process:** etapowe wykonanie ma właścicielską regułę w `AGENTS.md`; sama
+  tabela modeli nie deleguje pracy. D-261 i D-262 pozostają bramkami
+  późniejszej aktywacji oraz odniesieniem do starego eksperymentu.
 
 ## D-446 — „Przybliżona wygrana” w Adminie: dolne ograniczenie z payout-v3, bez cache serwerowego
 
@@ -97,6 +163,15 @@ last_updated: 2026-09-25
   każdej gry na `game_data_v2`. Snapshot cold start celowo nie ma pliku ONNX.
 - **Compatibility:** brak zmian schematu, API i OpenAPI; istniejące
   zdarzenia plansz z cropem bez zmian.
+
+## D-448 — `game_data_v2` jako jedyny magazyn game-owned; `public` zachowuje catalog/control/shared
+
+- **Status:** accepted (P00 / TASK-0679; osobna zgoda na T09 nadal jest wymagana).
+- **Date:** 2026-09-25.
+- **Decision:** w PostgreSQL `game_data_v2` jest jedynym fizycznym data plane relacji game-owned z zamrożonego manifestu v1. `public` nie jest fallbackiem tych danych; pozostaje właścicielem katalogu (`games`, `symbols`, reguł, `paylines`, `payout_rules`), globalnych `jobs`, registry storage i tabel shared/control. Po auditach i testach planowana migracja `0125_remove_legacy_public_game_store` usunie dokładnie 65 pustych, historycznych kopii game-owned przez statyczną listę i `DROP TABLE ... RESTRICT`, bez `CASCADE`. Downgrade ma odmówić, ponieważ nie potrafi bezstratnie odtworzyć ewentualnych danych historycznych.
+- **Rationale:** TASK-0525 potwierdził greenfield V2 jako aktywną ścieżkę, a D-440 pokazała, że pominięty bind może po cichu czytać pusty `public`. Dwie fizyczne kopie zwiększają ryzyko regresji i mylą granicę własności.
+- **Compatibility:** decyzja nie usuwa katalogu, shared/control plane, partycji V2 ani nie zmienia active location trzech istniejących gier. Zmiana API/OpenAPI nastąpi tylko, gdy T02 wykryje faktycznie eksponowany legacy kontrakt, w jednym spójnym pionie.
+- **Safety:** przed DDL wymagane są read-only inventory aktualne dla chwili operacji, izolowany test PostgreSQL, review i jawna zgoda użytkownika obejmująca dokładny raport. Nieużywana, niepusta lub zewnętrznie zależna tabela, aktywna migracja/job, lock, drift albo timeout zatrzymują operację. Brak automatycznego DDL, migracji danych, dual-write, GC ani pozornego rollbacku.
 
 ## D-443 — skrypt legacy GC odmawia skanu, jeśli jakakolwiek gra ma magazyn per-game (V2)
 

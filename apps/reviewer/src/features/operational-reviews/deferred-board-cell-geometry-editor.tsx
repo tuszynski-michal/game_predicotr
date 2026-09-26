@@ -14,6 +14,13 @@ import {
 } from 'react';
 
 import {
+  automaticUnavailableGridCells,
+  completeManualGridFlags,
+  manualGridUnavailable,
+  type ManualGridFlags,
+} from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
+
+import {
   type DeferredBoardCellGeometryClient,
   loadDeferredBoardCellGeometryContext,
   previewDeferredBoardCellGeometry,
@@ -36,6 +43,7 @@ import {
   operationalReviewPointInGeometryViewport,
   operationalReviewPointInLattice,
   operationalReviewPointInSourceImage,
+  operationalReviewTranslatedGeometryViewport,
   type OperationalReviewGeometryCorners,
   type OperationalReviewGeometryViewport,
 } from './operational-review-state';
@@ -61,6 +69,10 @@ export function DeferredBoardCellGeometryEditor({
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
   const previewUrlRef = useRef<string | null>(null);
   const dragIndexRef = useRef<number | null>(null);
+  const panViewportRef = useRef<{
+    readonly point: OperationalImageReviewGeometryPoint;
+    readonly viewport: OperationalReviewGeometryViewport;
+  } | null>(null);
   const currentCommandKeyRef = useRef('');
   const idempotencyRef = useRef<DeferredBoardCellGeometryIdempotency | null>(
     null,
@@ -72,16 +84,25 @@ export function DeferredBoardCellGeometryEditor({
     useState<OperationalReviewGeometryCorners | null>(null);
   const [viewport, setViewport] =
     useState<OperationalReviewGeometryViewport | null>(null);
+  const [viewportPanningEnabled, setViewportPanningEnabled] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState('');
   const [loadingSource, setLoadingSource] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const commandKey =
-    context === null || corners === null
-      ? ''
-      : deferredBoardCellGeometryCommandKey(context, corners);
+  const [flags, setFlags] = useState<ManualGridFlags>(completeManualGridFlags);
+  const allowOutsideSource = flags.partial;
+  const commandKey = useMemo(() => {
+    if (context === null || corners === null) return '';
+    try {
+      return deferredBoardCellGeometryCommandKey(context, corners, flags);
+    } catch {
+      // Invalid qualification (e.g. "Niepełna plansza" without any field
+      // marked as missing) never matches a preview; save() surfaces it.
+      return '';
+    }
+  }, [context, corners, flags]);
   const previewIsCurrent = previewUrl !== null && previewKey === commandKey;
 
   useEffect(() => {
@@ -102,8 +123,40 @@ export function DeferredBoardCellGeometryEditor({
       clearPreview();
       idempotencyRef.current = null;
       setCorners(next);
+      if (context !== null) {
+        setViewport(
+          operationalReviewGeometryViewport(
+            next,
+            context.sourceWidth,
+            context.sourceHeight,
+            0.35,
+            allowOutsideSource,
+          ),
+        );
+      }
     },
-    [clearPreview],
+    [allowOutsideSource, clearPreview, context],
+  );
+
+  const updateFlags = useCallback(
+    (next: ManualGridFlags) => {
+      clearPreview();
+      idempotencyRef.current = null;
+      setError('');
+      setFlags(next);
+      if (context !== null && corners !== null) {
+        setViewport(
+          operationalReviewGeometryViewport(
+            corners,
+            context.sourceWidth,
+            context.sourceHeight,
+            0.35,
+            next.partial,
+          ),
+        );
+      }
+    },
+    [clearPreview, context, corners],
   );
 
   useEffect(() => {
@@ -113,6 +166,8 @@ export function DeferredBoardCellGeometryEditor({
       setError('');
       clearPreview();
       idempotencyRef.current = null;
+      setFlags(completeManualGridFlags);
+      setViewportPanningEnabled(false);
       const result = await loadDeferredBoardCellGeometryContext(
         api,
         scope,
@@ -130,7 +185,16 @@ export function DeferredBoardCellGeometryEditor({
       }
       setLoadingSource(true);
       setContext(result.context);
-      setCorners(deferredBoardCellGeometryCorners(result.context));
+      const initialCorners = deferredBoardCellGeometryCorners(result.context);
+      setCorners(initialCorners);
+      setViewport(
+        operationalReviewGeometryViewport(
+          initialCorners,
+          result.context.sourceWidth,
+          result.context.sourceHeight,
+          0.35,
+        ),
+      );
       setContextState('ready');
     }
     void load();
@@ -147,6 +211,19 @@ export function DeferredBoardCellGeometryEditor({
     [apiBaseUrl, context],
   );
 
+  const centerViewport = useCallback(() => {
+    if (context === null || corners === null) return;
+    setViewport(
+      operationalReviewGeometryViewport(
+        corners,
+        context.sourceWidth,
+        context.sourceHeight,
+        0.35,
+        allowOutsideSource,
+      ),
+    );
+  }, [allowOutsideSource, context, corners]);
+
   useEffect(() => {
     if (context === null || sourceUrl === null) return;
     const image = new window.Image();
@@ -154,17 +231,6 @@ export function DeferredBoardCellGeometryEditor({
     image.decoding = 'async';
     image.onload = () => {
       sourceImageRef.current = image;
-      const boardCorners = context.boardQuad.map(
-        copyPoint,
-      ) as OperationalReviewGeometryCorners;
-      setViewport(
-        operationalReviewGeometryViewport(
-          boardCorners,
-          context.sourceWidth,
-          context.sourceHeight,
-          0.35,
-        ),
-      );
       setLoadingSource(false);
     };
     image.onerror = () => {
@@ -203,17 +269,38 @@ export function DeferredBoardCellGeometryEditor({
     const context2d = canvas.getContext('2d');
     if (context2d === null) return;
     context2d.clearRect(0, 0, canvas.width, canvas.height);
-    context2d.drawImage(
-      image,
-      viewport.x,
-      viewport.y,
-      viewport.width,
-      viewport.height,
-      0,
-      0,
-      viewport.width,
-      viewport.height,
+    if (allowOutsideSource) {
+      // The viewport may extend past the real photo when the board is
+      // extrapolated beyond its frame; fill the gap before drawing the
+      // overlapping part of the real image on top of it.
+      context2d.fillStyle = '#555';
+      context2d.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    const sourceLeft = Math.max(0, viewport.x);
+    const sourceTop = Math.max(0, viewport.y);
+    const sourceRight = Math.min(
+      image.naturalWidth,
+      viewport.x + viewport.width,
     );
+    const sourceBottom = Math.min(
+      image.naturalHeight,
+      viewport.y + viewport.height,
+    );
+    const overlapWidth = sourceRight - sourceLeft;
+    const overlapHeight = sourceBottom - sourceTop;
+    if (overlapWidth > 0 && overlapHeight > 0) {
+      context2d.drawImage(
+        image,
+        sourceLeft,
+        sourceTop,
+        overlapWidth,
+        overlapHeight,
+        sourceLeft - viewport.x,
+        sourceTop - viewport.y,
+        overlapWidth,
+        overlapHeight,
+      );
+    }
     context2d.lineWidth = Math.max(2, canvas.width / 500);
     context2d.strokeStyle = '#f4d35e';
     for (let column = 0; column <= 5; column += 1) {
@@ -277,7 +364,7 @@ export function DeferredBoardCellGeometryEditor({
         context2d.font = `bold ${Math.max(12, canvas.width / 65)}px sans-serif`;
         context2d.fillText(String(index + 1), point.x + 10, point.y - 10);
       });
-  }, [corners, viewport]);
+  }, [corners, viewport, allowOutsideSource]);
 
   useEffect(() => {
     drawSource();
@@ -286,6 +373,21 @@ export function DeferredBoardCellGeometryEditor({
   async function refreshPreview() {
     if (context === null || corners === null || loadingPreview || saving)
       return;
+    let command;
+    try {
+      command = deferredBoardCellGeometryPreviewCommand(
+        context,
+        corners,
+        flags,
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Sprawdź oznaczenia niedostępnych pól.',
+      );
+      return;
+    }
     const requestedKey = commandKey;
     setLoadingPreview(true);
     setError('');
@@ -293,7 +395,7 @@ export function DeferredBoardCellGeometryEditor({
       api,
       scope,
       itemId,
-      deferredBoardCellGeometryPreviewCommand(context, corners),
+      command,
     );
     setLoadingPreview(false);
     if (!result.ok) {
@@ -334,6 +436,7 @@ export function DeferredBoardCellGeometryEditor({
         context,
         corners,
         idempotency.idempotencyKey,
+        flags,
       ),
     );
     setSaving(false);
@@ -347,17 +450,10 @@ export function DeferredBoardCellGeometryEditor({
     await onMaterialized(result.resolution.reviewItemId);
   }
 
-  function updateDraggedCorner(event: ReactPointerEvent<HTMLCanvasElement>) {
+  function updateCanvasGesture(event: ReactPointerEvent<HTMLCanvasElement>) {
     const index = dragIndexRef.current;
     const canvas = canvasRef.current;
-    if (
-      index === null ||
-      canvas === null ||
-      context === null ||
-      corners === null ||
-      viewport === null
-    )
-      return;
+    if (canvas === null || context === null || viewport === null) return;
     const rect = canvas.getBoundingClientRect();
     const pointer = operationalReviewPointInCanvas(
       { x: event.clientX, y: event.clientY },
@@ -365,20 +461,38 @@ export function DeferredBoardCellGeometryEditor({
       canvas.width,
       canvas.height,
     );
+    if (index === null) {
+      const pan = panViewportRef.current;
+      if (pan === null) return;
+      setViewport(
+        operationalReviewTranslatedGeometryViewport(
+          pan.viewport,
+          {
+            x: pan.point.x - pointer.point.x,
+            y: pan.point.y - pointer.point.y,
+          },
+          context.sourceWidth,
+          context.sourceHeight,
+          allowOutsideSource,
+        ),
+      );
+      return;
+    }
+    if (corners === null) return;
     const point = operationalReviewPointInSourceImage(
       pointer.point,
       viewport,
       context.sourceWidth,
       context.sourceHeight,
+      allowOutsideSource,
     );
     const next = [...corners] as OperationalReviewGeometryCorners;
     next[index] = point;
     replaceCorners(next);
   }
 
-  function startDragging(event: ReactPointerEvent<HTMLCanvasElement>) {
+  function startCanvasGesture(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (corners === null || viewport === null) return;
-    event.preventDefault();
     const canvas = event.currentTarget;
     const rect = canvas.getBoundingClientRect();
     const pointer = operationalReviewPointInCanvas(
@@ -398,15 +512,22 @@ export function DeferredBoardCellGeometryEditor({
         index,
       }))
       .sort((left, right) => left.distance - right.distance)[0];
-    if (candidate === undefined || candidate.distance > threshold) return;
-    dragIndexRef.current = candidate.index;
+    if (candidate !== undefined && candidate.distance <= threshold) {
+      dragIndexRef.current = candidate.index;
+    } else if (viewportPanningEnabled) {
+      panViewportRef.current = { point: pointer.point, viewport };
+    } else {
+      return;
+    }
+    event.preventDefault();
     canvas.setPointerCapture(event.pointerId);
-    updateDraggedCorner(event);
+    updateCanvasGesture(event);
   }
 
-  function finishDragging(event: ReactPointerEvent<HTMLCanvasElement>) {
-    updateDraggedCorner(event);
+  function finishCanvasGesture(event: ReactPointerEvent<HTMLCanvasElement>) {
+    updateCanvasGesture(event);
     dragIndexRef.current = null;
+    panViewportRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -420,6 +541,24 @@ export function DeferredBoardCellGeometryEditor({
   if (contextState === 'error' || context === null) {
     return <DeferredGeometryState error text={error} />;
   }
+
+  const unavailable =
+    corners === null
+      ? []
+      : manualGridUnavailable(
+          flags,
+          corners,
+          context.sourceWidth,
+          context.sourceHeight,
+        );
+  const automaticUnavailable =
+    corners === null
+      ? []
+      : automaticUnavailableGridCells(
+          corners,
+          context.sourceWidth,
+          context.sourceHeight,
+        );
 
   return (
     <div className="deferredGeometryEditor">
@@ -452,8 +591,10 @@ export function DeferredBoardCellGeometryEditor({
             <div>
               <h3>Oryginał i edytowalna siatka</h3>
               <p>
-                Przeciągnij tylko cztery numerowane narożniki. Szare punkty są
-                wyliczane automatycznie.
+                Przeciągnij numerowany narożnik, aby zmienić siatkę. Obraz
+                pozostaje statyczny; włącz aktywne przesuwanie, aby przeciągać
+                tło i zmienić wyłącznie kadr widoku. Szare punkty są wyliczane
+                automatycznie.
               </p>
             </div>
             <button
@@ -466,20 +607,42 @@ export function DeferredBoardCellGeometryEditor({
             >
               Przywróć sugestię
             </button>
+            <button
+              className="textButton"
+              disabled={context === null || corners === null || saving}
+              onClick={centerViewport}
+              type="button"
+            >
+              Wycentruj widok na siatce
+            </button>
           </div>
+          <label className="deferredGeometryPanToggle">
+            <input
+              checked={viewportPanningEnabled}
+              disabled={saving}
+              onChange={(event) => {
+                panViewportRef.current = null;
+                setViewportPanningEnabled(event.target.checked);
+              }}
+              type="checkbox"
+            />{' '}
+            Aktywne przesuwanie
+          </label>
           {loadingSource ? <p>Wczytywanie obrazu…</p> : null}
           <canvas
             aria-label="Odroczona plansza z edytowalną siatką 5 na 3"
             className="operationalReviewGeometryCanvas deferredGeometryCanvas"
             onLostPointerCapture={() => {
               dragIndexRef.current = null;
+              panViewportRef.current = null;
             }}
             onPointerCancel={() => {
               dragIndexRef.current = null;
+              panViewportRef.current = null;
             }}
-            onPointerDown={startDragging}
-            onPointerMove={updateDraggedCorner}
-            onPointerUp={finishDragging}
+            onPointerDown={startCanvasGesture}
+            onPointerMove={updateCanvasGesture}
+            onPointerUp={finishCanvasGesture}
             ref={canvasRef}
             style={{
               aspectRatio:
@@ -488,6 +651,64 @@ export function DeferredBoardCellGeometryEditor({
                   : `${viewport.width} / ${viewport.height}`,
             }}
           />
+          <fieldset
+            disabled={saving}
+            style={{ border: 0, fontSize: '0.85rem' }}
+          >
+            <legend>Dostępne {15 - unavailable.length}/15</legend>
+            <label>
+              <input
+                checked={flags.partial}
+                onChange={(event) =>
+                  updateFlags({
+                    ...flags,
+                    exclude: event.target.checked || flags.exclude,
+                    includeInPartialGridTraining: event.target.checked
+                      ? flags.includeInPartialGridTraining
+                      : false,
+                    manualUnavailable: event.target.checked
+                      ? flags.manualUnavailable
+                      : [],
+                    partial: event.target.checked,
+                  })
+                }
+                type="checkbox"
+              />{' '}
+              Niepełna plansza
+            </label>
+            {flags.partial ? (
+              <p className="mutedText">
+                Przeciągnij rogi poza zdjęcie (szary obszar) i zaznacz pola,
+                których naprawdę nie ma na zdjęciu — trafią do Weryfikacji
+                symboli jako „Nierozpoznany ?”.
+              </p>
+            ) : null}
+            {flags.partial ? (
+              <div aria-label="Niedostępne pola">
+                {Array.from({ length: 15 }, (_, index) => (
+                  <label key={index}>
+                    <input
+                      aria-label={`Pole ${index + 1} poza zdjęciem`}
+                      checked={unavailable.includes(index)}
+                      disabled={automaticUnavailable.includes(index)}
+                      onChange={(event) =>
+                        updateFlags({
+                          ...flags,
+                          manualUnavailable: event.target.checked
+                            ? [...flags.manualUnavailable, index]
+                            : flags.manualUnavailable.filter(
+                                (value) => value !== index,
+                              ),
+                        })
+                      }
+                      type="checkbox"
+                    />
+                    {index + 1}{' '}
+                  </label>
+                ))}
+              </div>
+            ) : null}
+          </fieldset>
         </section>
 
         <section className="operationalReviewGeometryPreview">
@@ -579,12 +800,6 @@ function DeferredGeometryState({
       <p>{text}</p>
     </div>
   );
-}
-
-function copyPoint(
-  point: OperationalImageReviewGeometryPoint,
-): OperationalImageReviewGeometryPoint {
-  return { x: point.x, y: point.y };
 }
 
 function drawLine(

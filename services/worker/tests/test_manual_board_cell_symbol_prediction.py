@@ -115,6 +115,48 @@ def test_manual_prediction_fails_closed_for_wrong_model_input_size(tmp_path: Pat
     assert error.value.code == "IMAGE_BOARD_CELL_MANUAL_PREDICTION_INPUT_INVALID"
 
 
+class _SizedCapturingAdapter(CapturingAdapter):
+    def infer(self, images: np.ndarray) -> OnnxInference:
+        self.inputs.append(images)
+        count = images.shape[0]
+        logits = np.zeros((count, 2), dtype=np.float32)
+        logits[:, 0] = np.arange(count, dtype=np.float32) % 2
+        logits[:, 1] = 1 - logits[:, 0]
+        shifted = logits - logits.max(axis=1, keepdims=True)
+        probabilities = np.exp(shifted)
+        probabilities /= probabilities.sum(axis=1, keepdims=True)
+        return OnnxInference(
+            logits=logits,
+            probabilities=probabilities.astype(np.float32),
+            class_indexes=np.argmax(logits, axis=1).astype(np.int64),
+        )
+
+
+def test_manual_prediction_forces_declared_unavailable_cells_to_unknown(
+    tmp_path: Path,
+) -> None:
+    snapshot = _snapshot()
+    predictor = ManualBoardCellSymbolPredictor(tmp_path, tmp_path)
+    adapter = _SizedCapturingAdapter()
+    predictor._cache[snapshot.inference_fingerprint] = adapter  # type: ignore[attr-defined]
+    preview = replace(_preview(tmp_path), unavailable_cell_indices=frozenset({2, 7}))
+
+    result = predictor.predict(preview, snapshot)
+
+    assert len(result.cells) == 15
+    assert [(cell["rowIndex"], cell["columnIndex"]) for cell in result.cells] == [
+        (row, column) for row in range(3) for column in range(5)
+    ]
+    unavailable_cells = [cell for index, cell in enumerate(result.cells) if index in {2, 7}]
+    assert all(
+        cell["symbolCode"] == "?" and cell["confidence"] == 0.0 for cell in unavailable_cells
+    )
+    available_cells = [cell for index, cell in enumerate(result.cells) if index not in {2, 7}]
+    assert all("symbolCode" in cell for cell in available_cells)
+    # Only the 13 available cells reach the model, never a synthesized crop.
+    assert adapter.inputs[0].shape == (13, 3, 64, 64)
+
+
 def test_manual_prediction_for_cold_start_import_returns_unknown_cells_without_onnx(
     tmp_path: Path,
 ) -> None:

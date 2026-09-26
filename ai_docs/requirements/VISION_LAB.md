@@ -7,6 +7,8 @@ last_updated: 2026-09-25
 # Laboratorium wizji
 
 Przegląd zdjęcia pokazuje numerowane zapisane siatki oraz cropy wybranej planszy.
+Przegląd zapisanych plansz na całym zdjęciu jest przy wejściu domyślnie
+zwinięty; użytkownik może ręcznie rozwinąć lub zwinąć go nagłówkiem.
 Operator może oznaczyć wybrane plansze „Do poprawy” z opcjonalną uwagą lub
 wycofać błędne oznaczenie. Zapis poprawki daje „Do ponownego sprawdzenia”, bez
 automatycznej akceptacji i bez przejścia do następnej planszy. Po sprawdzeniu

@@ -6,6 +6,20 @@ last_updated: 2026-09-26
 
 # Current State
 
+### Korekta T03d — domyślnie zwinięty przegląd zdjęcia
+
+- Zlecenie użytkownika: ograniczyć przewijanie; sekcja „Przegląd zapisanych
+  plansz na całym zdjęciu” ma być zwinięta przy wejściu do edytora.
+- Zakres: natywne details w GeometryEditor, regresja UI i dokumentacja.
+  Bez zmian API, danych, cropów ani akceptacji; ręczne rozwijanie pozostaje.
+  Wykonanie i audyt według T03d: Sol medium / Astra medium.
+- Baza v1.7.8 / 067a0350d1f5569ffdafa4aa2cf60ae65168e2c9;
+  commit korekty v1.7.9 (hash po commicie).
+- Testy interakcji 12/12, lint, typecheck i build PASS. Niezależny audyt
+  Astra medium PASS bez P0–P2, testy 12/12. Restart tylko UI (3102 HTTP 200);
+  browser potwierdza domyślne zwinięcie i ręczne rozwijanie/zwijanie.
+  API, dane i zatwierdzenia bez zmian; fizycznego Androida nie badano.
+
 ### T03d — przegląd zdjęcia i poprawki wybranych siatek (gotowe)
 
 - Użytkownik zatwierdził implementację panelu przeglądu całego zdjęcia:
@@ -39,7 +53,9 @@ last_updated: 2026-09-26
   decyzji podczas odbioru; mutacje pokryte izolowanymi testami. Fizyczny
   Android i restart komputera niesprawdzone. Pełny mypy ma 27 zastanych
   błędów poza labem; skoncentrowany mypy 13 modułów PASS. API 21/21 PASS.
-- Commit T03d: v1.7.8 (hash po commicie). Parent T03 nadal blocked na
+- Commit T03d: `v1.7.8` / `067a0350d1f5569ffdafa4aa2cf60ae65168e2c9`.
+  Hash dopisany po commicie; następny patch v1.7.9 po kontroli historii.
+  Parent T03 nadal blocked na
   danych/splitach; treningu nie uruchomiono. Obce zmiany pozostają poza commitem.
 
 ### T03c — aktualizacja zdjęć laboratorium (gotowe)

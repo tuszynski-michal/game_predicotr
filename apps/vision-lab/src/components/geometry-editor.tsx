@@ -385,7 +385,7 @@ export function GeometryEditor({
           </button>
         ))}
       </nav>
-      <details open>
+      <details>
         <summary>Przegląd zapisanych plansz na całym zdjęciu</summary>
         <p>
           Pomarańczowy obrys i „!”: Do poprawy. „↻”: Do ponownego sprawdzenia.

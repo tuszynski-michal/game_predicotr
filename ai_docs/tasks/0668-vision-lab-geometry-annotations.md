@@ -416,6 +416,21 @@ Skończone procesy limit120s. Bez zapisu realnych danych, roli777 i treningu.
 
 ### Outcome T03d
 
+Korekta ergonomii zlecona 2026-09-27 po odbiorze: przegląd zapisanych plansz
+na całym zdjęciu ma być domyślnie zwinięty przy wejściu na ekran, żeby
+ograniczyć przewijanie. Zakres: usunięcie `open` z istniejącego `details`
+w GeometryEditor i aktualizacja asercji interakcji; natywne ręczne rozwijanie
+pozostaje bez nowego stanu/mechanizmu. Bez zmian API, danych i workflow.
+Weryfikacja: testy interakcji UI **12/12 PASS** (0,83 s), ESLint i
+typecheck PASS (limit120s). Usunięto wyłącznie `open`, istniejąca asercja
+sprawdza brak wymuszonego otwarcia. Bez nowego mechanizmu wymagającego
+osobnego testu remount; natywna kontrolka zachowuje ręczne rozwijanie.
+Audyt korekty Astra medium PASS bez P0–P2; niezależne 12/12 testów (0,93 s).
+Build i restart wyłącznie UI PASS, HTTP 200 na 3102. Przeglądarka potwierdza
+open=false po wejściu i ręczne false→true→false przez nagłówek. API i dane
+pozostały nietknięte; fizycznego Androida nie badano. Commit korekty v1.7.9
+(hash uzupełniany po commicie); CURRENT_STATE prowadzi koordynator.
+
 Implementacja zamrożona do audytu 2026-09-27. Dodano trwały przegląd zdjęcia
 w istniejącym kontrakcie `/annotations`, mapę wersji zapisanych pozycji i SHA
 źródła, CAS oraz idempotentne ponowienie. `mark` nie zmienia geometrii,
@@ -426,7 +441,7 @@ Zmiana geometrii unieważnia tylko akceptację tego zdjęcia. Stare rekordy
 pozostają nieprzejrzane, z zachowaniem zatwierdzeń i historii. Stan przeglądu
 jest objęty backupem, restartem i bezpiecznym rebase T03c.
 
-UI ma domyślnie otwarty widok całego zdjęcia z zapisanymi siatkami, numerami,
+UI ma rozwijany (po korekcie domyślnie zwinięty) widok całego zdjęcia z zapisanymi siatkami, numerami,
 wyborem/cropami i tekstowymi oznaczeniami statusu; panel decyzji, filtry oraz
 liczniki działają dla całej gry. Dirty/pending guards chronią edycję i retry.
 Poprawiana oznaczona pozycja pozostaje wybrana; nieoznaczone pozycje zachowują
@@ -461,7 +476,9 @@ mają identyczny SHA-256
 Odbiór przeglądarkowy read-only: filtry, pusty widok Do poprawy, numerowane
 siatki, wybór pozycji 2/3 klawiaturą i 15 cropów. Oględziny w wąskim panelu
 bez poziomego przepełnienia; fizyczny Android i restart komputera niebadane.
-Commit T03d: `v1.7.8` (hash po commicie). Nadrzędny T03 pozostaje blocked.
+Commit T03d: `v1.7.8` / `067a0350d1f5569ffdafa4aa2cf60ae65168e2c9`.
+Hash dopisany po commicie; następny patch v1.7.9 po kontroli historii.
+Nadrzędny T03 pozostaje blocked.
 Nie wykonano
 zapisu na rzeczywistych danych, akceptacji zdjęć użytkownika, treningu ani
 zmiany roli `777`; CURRENT_STATE i usługi należą do koordynatora.

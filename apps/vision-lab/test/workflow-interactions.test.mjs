@@ -320,7 +320,7 @@ test('photo review mark and full repair stay on the corrected board until explic
       harness.root.root.findByProps({
         'aria-label': 'Przegląd całego zdjęcia',
       });
-    assert.equal(harness.root.root.findByType('details').props.open, true);
+    assert.equal(harness.root.root.findByType('details').props.open, undefined);
     await act(async () =>
       panel()
         .findAllByProps({ type: 'checkbox' })[0]

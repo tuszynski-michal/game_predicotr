@@ -170,8 +170,8 @@ Galeria pokazuje osobno pełne obecne siatki, lokalizacje i szkice. Filtry
 paginacją. Ostatni oznacza co najmniej jedną pełną siatkę, nie kompletne
 zdjęcie ani gotowość do treningu. „Odśwież statusy” pobiera trwały stan.
 
-W edytorze wybierz numer pozycji albo obrys w domyślnie otwartym przeglądzie całego
-zdjęcia. Wczytany zostanie dokładny zapis z jego topologią i cropami.
+W edytorze wybierz numer pozycji albo rozwiń nagłówkiem domyślnie zwinięty
+przegląd całego zdjęcia i wybierz obrys. Wczytany zostanie dokładny zapis z jego topologią i cropami.
 Pozycje 1–9 są dostępne zawsze, a istniejące dalsze zapisy także pojawiają się
 na liście. Brak zapisu wymaga kliknięcia „Nowa propozycja z narożników”.
 Topologię pustej pozycji zmienisz bez powrotu do pozycji 1. Wczytanie zapisanej

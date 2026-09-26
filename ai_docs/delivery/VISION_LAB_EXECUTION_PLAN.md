@@ -292,6 +292,10 @@ Zmiana zdjęcia unieważnia jego akceptację, split wymaga jej dodatkowo.
 Statusy/filtry/cropy i toasty korzystają ze wspólnego stanu. Stare dane i
 backup/rebase zachowują historyczne decyzje; domyślnie nieprzejrzane. Testy
 kontraktu, race/retry/restart i UI oraz granice w T03d TASK-0668 i D-450.
+Korekta ergonomii T03d z 2026-09-27: istniejący przegląd całego zdjęcia
+domyślnie zwinięty przy wejściu; ręczne rozwijanie przez natywne `details`.
+Wyłącznie usunięcie `open`, regresja UI, lint/typecheck i zgodna dokumentacja;
+bez nowego stanu, API lub zmiany danych. Przypisanie modeli T03d bez zmian.
 
 T03c (done po T03b): aktualizacja niezmiennego snapshotu folderu istniejącym
 importerem i bezpieczne przeniesienie anotacji do nowego katalogu. Preflight

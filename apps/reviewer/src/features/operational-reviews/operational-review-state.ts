@@ -583,6 +583,63 @@ export function operationalReviewTranslatedGeometryViewport(
   };
 }
 
+/**
+ * Returns whether a point is inside a convex geometry quad, including its
+ * border. Deferred-board quads use the fixed clockwise corner ordering.
+ */
+export function operationalReviewGeometryContainsPoint(
+  corners: OperationalReviewGeometryCorners,
+  point: OperationalImageReviewGeometryPoint,
+): boolean {
+  let direction = 0;
+  for (let index = 0; index < corners.length; index += 1) {
+    const start = corners[index];
+    const end = corners[(index + 1) % corners.length];
+    const cross =
+      (end.x - start.x) * (point.y - start.y) -
+      (end.y - start.y) * (point.x - start.x);
+    if (Math.abs(cross) <= Number.EPSILON) continue;
+    const nextDirection = Math.sign(cross);
+    if (direction !== 0 && nextDirection !== direction) return false;
+    direction = nextDirection;
+  }
+  return true;
+}
+
+/**
+ * Moves a complete geometry quad as one rigid source-space translation. A
+ * bounded quad stops as a whole at the source image edge, so its perspective
+ * cannot change while it is being repositioned.
+ */
+export function operationalReviewTranslatedGeometryCorners(
+  corners: OperationalReviewGeometryCorners,
+  offset: OperationalImageReviewGeometryPoint,
+  imageWidth: number,
+  imageHeight: number,
+  allowOutsideSource = false,
+): OperationalReviewGeometryCorners {
+  let offsetX = offset.x;
+  let offsetY = offset.y;
+  if (!allowOutsideSource) {
+    const minX = Math.min(...corners.map((point) => point.x));
+    const maxX = Math.max(...corners.map((point) => point.x));
+    const minY = Math.min(...corners.map((point) => point.y));
+    const maxY = Math.max(...corners.map((point) => point.y));
+    offsetX = Math.min(
+      Math.max(0, Math.round(imageWidth) - 1) - maxX,
+      Math.max(-minX, offsetX),
+    );
+    offsetY = Math.min(
+      Math.max(0, Math.round(imageHeight) - 1) - maxY,
+      Math.max(-minY, offsetY),
+    );
+  }
+  return corners.map((point) => ({
+    x: Math.round(point.x + offsetX),
+    y: Math.round(point.y + offsetY),
+  })) as OperationalReviewGeometryCorners;
+}
+
 export function operationalReviewNativeContextViewport(
   item: OperationalImageReviewItemResponse,
   imageWidth: number,

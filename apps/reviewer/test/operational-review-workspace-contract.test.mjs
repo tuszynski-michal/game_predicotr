@@ -140,7 +140,16 @@ test('operational workspace compares square cell crops with one cropped board', 
     deferredGeometryEditor,
     /operationalReviewTranslatedGeometryViewport/,
   );
+  assert.match(
+    deferredGeometryEditor,
+    /operationalReviewTranslatedGeometryCorners/,
+  );
+  assert.match(
+    deferredGeometryEditor,
+    /operationalReviewGeometryContainsPoint/,
+  );
   assert.match(deferredGeometryEditor, /panViewportRef/);
+  assert.match(deferredGeometryEditor, /translateGridRef/);
   assert.match(deferredGeometryEditor, /Wycentruj widok na siatce/);
   assert.match(deferredGeometryEditor, /Aktywne przesuwanie/);
   assert.match(
@@ -152,7 +161,8 @@ test('operational workspace compares square cell crops with one cropped board', 
     deferredGeometryEditor,
     /else if \(viewportPanningEnabled\) \{[\s\S]*panViewportRef\.current/,
   );
-  assert.match(deferredGeometryEditor, /Obraz\s+pozostaje statyczny/);
+  assert.match(deferredGeometryEditor, /obraz pozostaje statyczny/i);
+  assert.match(deferredGeometryEditor, /przesunąć cały obrys/i);
   assert.match(
     deferredGeometryEditor,
     /\{\s*recenterViewport = false,\s*\}: \{ readonly recenterViewport\?: boolean \} = \{\}/,

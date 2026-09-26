@@ -14,8 +14,10 @@ import {
   operationalReviewBufferedAssetUrls,
   operationalReviewKeyboardAction,
   operationalReviewGeometryCorners,
+  operationalReviewGeometryContainsPoint,
   operationalReviewGeometryEdgeHandles,
   operationalReviewGeometryViewport,
+  operationalReviewTranslatedGeometryCorners,
   operationalReviewTranslatedGeometryViewport,
   operationalReviewNativeContextViewport,
   operationalReviewPageAfterResolution,
@@ -729,5 +731,75 @@ test('geometry viewport translation moves only the source window', () => {
       true,
     ),
     { x: -400, y: 980, width: 400, height: 300 },
+  );
+});
+
+test('translates a complete geometry quad rigidly and stops it at source edges', () => {
+  const corners = [
+    { x: 100, y: 70 },
+    { x: 420, y: 90 },
+    { x: 390, y: 300 },
+    { x: 80, y: 280 },
+  ];
+
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryCorners(
+      corners,
+      { x: 200, y: -100 },
+      500,
+      400,
+    ),
+    [
+      { x: 179, y: 0 },
+      { x: 499, y: 20 },
+      { x: 469, y: 230 },
+      { x: 159, y: 210 },
+    ],
+  );
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryCorners(
+      corners,
+      { x: -500, y: 500 },
+      500,
+      400,
+    ),
+    [
+      { x: 20, y: 169 },
+      { x: 340, y: 189 },
+      { x: 310, y: 399 },
+      { x: 0, y: 379 },
+    ],
+  );
+});
+
+test('keeps partial-grid translation outside the source and recognizes the quad interior', () => {
+  const corners = [
+    { x: -20, y: 30 },
+    { x: 220, y: 40 },
+    { x: 200, y: 210 },
+    { x: -10, y: 190 },
+  ];
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryCorners(
+      corners,
+      { x: -50, y: 30 },
+      300,
+      240,
+      true,
+    ),
+    [
+      { x: -70, y: 60 },
+      { x: 170, y: 70 },
+      { x: 150, y: 240 },
+      { x: -60, y: 220 },
+    ],
+  );
+  assert.equal(
+    operationalReviewGeometryContainsPoint(corners, { x: 80, y: 120 }),
+    true,
+  );
+  assert.equal(
+    operationalReviewGeometryContainsPoint(corners, { x: 280, y: 120 }),
+    false,
   );
 });

@@ -6,6 +6,18 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0704 — przesuwanie całej odroczonej siatki przy stałym kadrze
+
+- Zakończono: w kolejce „Niepełne siatki do ręcznej korekty” wnętrze siatki
+  przy wyłączonym „Aktywnym przesuwaniu” translatuje wszystkie cztery rogi
+  jednym wektorem, bez zmiany perspektywy i bez ruchu viewportu. Kompletna
+  siatka zatrzymuje się jako całość na granicach zdjęcia.
+- Włączony checkbox ma pierwszeństwo dla dragów poza numerowanymi narożnikami
+  i przesuwa wyłącznie viewport. Narożnik pozostaje precyzyjną korektą jednego
+  rogu. Testy Reviewera: 203/203; Prettier i `git diff --check` zielone.
+  Lokalne lint/typecheck pozostają niewykonalne przez brak binariów w
+  checkoutcie, bez modyfikacji zależności.
+
 ### TASK-0703 — stały viewport podczas korekty odroczonej siatki
 
 - Zakończono: drag narożnika w `DeferredBoardCellGeometryEditor` aktualizuje

@@ -38,11 +38,13 @@ import {
 } from './deferred-board-cell-geometry-state';
 import {
   operationalReviewGeometryEdgeHandles,
+  operationalReviewGeometryContainsPoint,
   operationalReviewGeometryViewport,
   operationalReviewPointInCanvas,
   operationalReviewPointInGeometryViewport,
   operationalReviewPointInLattice,
   operationalReviewPointInSourceImage,
+  operationalReviewTranslatedGeometryCorners,
   operationalReviewTranslatedGeometryViewport,
   type OperationalReviewGeometryCorners,
   type OperationalReviewGeometryViewport,
@@ -69,6 +71,10 @@ export function DeferredBoardCellGeometryEditor({
   const sourceImageRef = useRef<HTMLImageElement | null>(null);
   const previewUrlRef = useRef<string | null>(null);
   const dragIndexRef = useRef<number | null>(null);
+  const translateGridRef = useRef<{
+    readonly corners: OperationalReviewGeometryCorners;
+    readonly point: OperationalImageReviewGeometryPoint;
+  } | null>(null);
   const panViewportRef = useRef<{
     readonly point: OperationalImageReviewGeometryPoint;
     readonly viewport: OperationalReviewGeometryViewport;
@@ -173,6 +179,9 @@ export function DeferredBoardCellGeometryEditor({
       idempotencyRef.current = null;
       setFlags(completeManualGridFlags);
       setViewportPanningEnabled(false);
+      dragIndexRef.current = null;
+      panViewportRef.current = null;
+      translateGridRef.current = null;
       const result = await loadDeferredBoardCellGeometryContext(
         api,
         scope,
@@ -467,6 +476,29 @@ export function DeferredBoardCellGeometryEditor({
       canvas.height,
     );
     if (index === null) {
+      const translation = translateGridRef.current;
+      if (translation !== null) {
+        const point = operationalReviewPointInSourceImage(
+          pointer.point,
+          viewport,
+          context.sourceWidth,
+          context.sourceHeight,
+          allowOutsideSource,
+        );
+        replaceCorners(
+          operationalReviewTranslatedGeometryCorners(
+            translation.corners,
+            {
+              x: point.x - translation.point.x,
+              y: point.y - translation.point.y,
+            },
+            context.sourceWidth,
+            context.sourceHeight,
+            allowOutsideSource,
+          ),
+        );
+        return;
+      }
       const pan = panViewportRef.current;
       if (pan === null) return;
       setViewport(
@@ -522,7 +554,15 @@ export function DeferredBoardCellGeometryEditor({
     } else if (viewportPanningEnabled) {
       panViewportRef.current = { point: pointer.point, viewport };
     } else {
-      return;
+      const point = operationalReviewPointInSourceImage(
+        pointer.point,
+        viewport,
+        context.sourceWidth,
+        context.sourceHeight,
+        allowOutsideSource,
+      );
+      if (!operationalReviewGeometryContainsPoint(corners, point)) return;
+      translateGridRef.current = { corners, point };
     }
     event.preventDefault();
     canvas.setPointerCapture(event.pointerId);
@@ -532,6 +572,7 @@ export function DeferredBoardCellGeometryEditor({
   function finishCanvasGesture(event: ReactPointerEvent<HTMLCanvasElement>) {
     updateCanvasGesture(event);
     dragIndexRef.current = null;
+    translateGridRef.current = null;
     panViewportRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -596,10 +637,12 @@ export function DeferredBoardCellGeometryEditor({
             <div>
               <h3>Oryginał i edytowalna siatka</h3>
               <p>
-                Przeciągnij numerowany narożnik, aby zmienić siatkę. Obraz
-                pozostaje statyczny; włącz aktywne przesuwanie, aby przeciągać
-                tło i zmienić wyłącznie kadr widoku. Szare punkty są wyliczane
-                automatycznie.
+                Przeciągnij numerowany narożnik, aby skorygować perspektywę,
+                albo wnętrze siatki, aby przesunąć cały obrys bez jej zmiany.
+                Bez aktywnego przesuwania obraz pozostaje statyczny, a kompletna
+                siatka zatrzymuje się na jego krawędzi. Włącz aktywne
+                przesuwanie, aby przeciągać wyłącznie kadr obrazu. Szare punkty
+                są wyliczane automatycznie.
               </p>
             </div>
             <button
@@ -629,6 +672,7 @@ export function DeferredBoardCellGeometryEditor({
               disabled={saving}
               onChange={(event) => {
                 panViewportRef.current = null;
+                translateGridRef.current = null;
                 setViewportPanningEnabled(event.target.checked);
               }}
               type="checkbox"

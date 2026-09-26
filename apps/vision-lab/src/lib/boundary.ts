@@ -21,8 +21,14 @@ export function boundary(request: Request): Response | null {
 
 export function allowedRoute(method: string, parts: string[]): boolean {
   return (
-    (method === 'GET' && parts.length === 1 && parts[0] === 'sources') ||
-    (method === 'POST' && parts.length === 1 && parts[0] === 'geometry') ||
+    (method === 'GET' &&
+      parts.length === 1 &&
+      ['sources', 'annotations', 'timings'].includes(parts[0])) ||
+    (method === 'POST' &&
+      parts.length === 1 &&
+      ['geometry', 'annotations', 'families', 'splits', 'backups'].includes(
+        parts[0],
+      )) ||
     (method === 'GET' &&
       parts.length === 2 &&
       parts[0] === 'assets' &&

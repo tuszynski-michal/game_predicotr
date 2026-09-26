@@ -96,6 +96,10 @@ Implementacja i audyt zakończone. Użytkownik wybrał numerację zgodną
 z AGENTS.md: `v1.7.1` po historycznym `v1.7` (`6eb1d646`). Następny
 commit w tym torze zwiększa patch do `v1.7.2`. Etap A kończy się na STOP A.
 
+Commit: `v1.7.1` — `fb188b9ee6bd9263604a19cc7b1904f6d11edd3a`.
+Hash dopisano po commicie; ten wpis pozostaje lokalną aktualizacją
+dokumentacji do kolejnego commita, bez zmiany hasha ukończonego taska.
+
 ### Changed
 
 - Kontrakty geometrii/symboli, adapter istniejącego baseline, galeria Next.js,

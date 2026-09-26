@@ -18,7 +18,7 @@ async function forward(
   )
     return new Response('QUERY_FORBIDDEN', { status: 400 });
   const body = request.method === 'POST' ? await request.text() : undefined;
-  if (body && body.length > 4096)
+  if (body && body.length > 1024 * 1024)
     return new Response('BODY_TOO_LARGE', { status: 413 });
   try {
     const response = await fetch(

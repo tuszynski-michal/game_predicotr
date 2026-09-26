@@ -1,0 +1,223 @@
+'use client';
+import { useState } from 'react';
+import {
+  backupAnnotations,
+  annotationTimings,
+  readAnnotations,
+  writeFamily,
+  type Source,
+  type FamilyRequest,
+} from '../../../../packages/vision-lab-api-client/src/index';
+
+export function FamilyEditor({
+  sources,
+  selected,
+  onSelected,
+}: {
+  sources: Source[];
+  selected: Source[];
+  onSelected: (sources: Source[]) => void;
+}) {
+  const [actor, setActor] = useState('');
+  const [family, setFamily] = useState('');
+  const [evidence, setEvidence] = useState('');
+  const [verified, setVerified] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [pending, setPending] = useState<FamilyRequest | null>(null);
+  async function submit(body: FamilyRequest) {
+    setBusy(true);
+    setPending(body);
+    try {
+      await writeFamily(body);
+      setPending(null);
+      setMessage(
+        'Zapisano jawne powiązanie źródeł. Wspólny SHA i relacje są łączone przechodnio.',
+      );
+    } catch {
+      setMessage(
+        'Zapis niepotwierdzony. Ponów identyczne żądanie lub odśwież stan po konflikcie.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section>
+      <h2>Powiązane zdjęcia i rodziny</h2>
+      <p>
+        Zaznacz powiązane ujęcia, pochodne i powtórzenia układu. Wybór zachowuje
+        się między stronami i grami. Nazwa pliku nie dowodzi rodziny, a SHA
+        wykrywa wyłącznie identyczne pliki. Nie potwierdzaj niezależności bez
+        wiedzy o pochodzeniu.
+      </p>
+      <fieldset disabled={busy || pending !== null}>
+        <div className="family-options">
+          {sources.map((source) => (
+            <label key={source.id}>
+              <input
+                type="checkbox"
+                disabled={busy}
+                checked={selected.some((s) => s.id === source.id)}
+                onChange={(e) =>
+                  onSelected(
+                    e.target.checked
+                      ? [...selected, source]
+                      : selected.filter((s) => s.id !== source.id),
+                  )
+                }
+              />
+              {source.game_name}: {source.filename}
+            </label>
+          ))}
+        </div>
+        <p>
+          Wybrano {selected.length}:{' '}
+          {selected.map((s) => s.filename).join(', ')}
+        </p>
+        <button disabled={busy} onClick={() => onSelected([])}>
+          Wyczyść wybór
+        </button>
+        <label>
+          Osoba weryfikująca{' '}
+          <input
+            value={actor}
+            onChange={(e) => setActor(e.target.value)}
+            disabled={busy}
+          />
+        </label>
+        <label>
+          Wspólna rodzina / grupa powiązań{' '}
+          <input
+            value={family}
+            onChange={(e) => setFamily(e.target.value)}
+            disabled={busy}
+          />
+        </label>
+        <label>
+          Dowód i opis powiązań{' '}
+          <textarea
+            value={evidence}
+            onChange={(e) => setEvidence(e.target.value)}
+            disabled={busy}
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={verified}
+            onChange={(e) => setVerified(e.target.checked)}
+            disabled={busy}
+          />{' '}
+          Znam pochodzenie wszystkich wybranych źródeł i zweryfikowałem ich
+          powiązania z pozostałymi rodzinami.
+        </label>
+        <p>
+          Bez potwierdzenia grupa pozostanie nierozstrzygnięta i wyłączona z
+          treningu. Historyczne 777 i nierozstrzygnięte 777 V2 pozostają
+          wykluczone również po zapisie grupy. Zmiana unieważni bieżący podział.
+        </p>
+        <button
+          disabled={
+            busy ||
+            !selected.length ||
+            !actor.trim() ||
+            !family.trim() ||
+            evidence.trim().length < 5
+          }
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const state = await readAnnotations();
+              await submit({
+                request_id: crypto.randomUUID(),
+                expected_revision: state.revision,
+                actor,
+                decision: {
+                  source_ids: selected.map((s) => s.id),
+                  related_source_ids: [],
+                  family_id: family,
+                  evidence,
+                  provenance: verified ? 'verified' : 'unresolved',
+                  declaration: '',
+                  checksum_reviewed: false,
+                  similarity_reviewed: false,
+                },
+              });
+            } catch {
+              setMessage(
+                'Zapis niepotwierdzony lub konflikt rewizji. Sprawdź stan przed ponowieniem.',
+              );
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Zapisz decyzję o grupie
+        </button>
+      </fieldset>
+      {pending && (
+        <>
+          <button disabled={busy} onClick={() => submit(pending)}>
+            Ponów identyczną decyzję o grupie
+          </button>
+          <button
+            disabled={busy}
+            onClick={async () => {
+              try {
+                const state = await readAnnotations();
+                setPending(null);
+                setMessage(
+                  `Odczytano rewizję ${state.revision}. Sprawdź zapisaną decyzję przed zmianą.`,
+                );
+              } catch {
+                setMessage('Odczyt nie powiódł się.');
+              }
+            }}
+          >
+            Odśwież po konflikcie
+          </button>
+        </>
+      )}
+      <button
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            const result = await backupAnnotations();
+            setMessage(
+              `Backup rewizji ${result.revision}: ${result.backup_id}. Odtworzenie jest dostępne wyłącznie do nowego katalogu przez narzędzie operatorskie.`,
+            );
+          } catch {
+            setMessage('Backup nie powiódł się.');
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        Utwórz backup anotacji
+      </button>
+      <button
+        disabled={busy}
+        onClick={async () => {
+          try {
+            const rows = await annotationTimings();
+            setMessage(
+              rows
+                .map(
+                  (row) =>
+                    `${row.game_id}: ${row.measured_sources}/10 zmierzonych, ${(row.active_ms / 60000).toFixed(1)} min; pozostały pilot: ${row.estimated_remaining_ms === null ? 'brak pomiaru' : (row.estimated_remaining_ms / 60000).toFixed(1) + ' min'}`,
+                )
+                .join(' | '),
+            );
+          } catch {
+            setMessage('Nie można odczytać pomiaru.');
+          }
+        }}
+      >
+        Pokaż pomiar pierwszych 10 zdjęć na grę
+      </button>
+      <p role="status">{message}</p>
+    </section>
+  );
+}

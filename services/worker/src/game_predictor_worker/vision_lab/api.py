@@ -6,6 +6,16 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
+from .annotation_contracts import (
+    AnnotationRequest,
+    AnnotationState,
+    BackupRequest,
+    BackupResult,
+    FamilyRequest,
+    SplitRequest,
+    TimingReport,
+)
+from .annotations import AnnotationStore
 from .catalog import Catalog, InvalidImageError
 from .contracts import DetectRequest, GeometryResult, SourcePage
 
@@ -28,13 +38,66 @@ class LocalBoundary(BaseHTTPMiddleware):
                 != "application/json"
             ):
                 return Response("JSON_REQUIRED", 415)
-        return await call_next(request)
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
 
-def create_app(catalog: Catalog | None = None) -> FastAPI:
+def create_app(catalog: Catalog | None = None, annotation_root: Path | None = None) -> FastAPI:
     application = FastAPI(title="Vision Lab API", version="1.0.0", docs_url=None, redoc_url=None)
     application.add_middleware(LocalBoundary)
     registry = catalog
+
+    def annotations() -> AnnotationStore:
+        configured = os.environ.get("VISION_LAB_ANNOTATIONS")
+        root = annotation_root or (Path(configured) if configured else None)
+        if root is None:
+            raise HTTPException(503, "ANNOTATION_DIRECTORY_NOT_CONFIGURED")
+        return AnnotationStore(root, current())
+
+    @application.get("/annotations", response_model=AnnotationState, operation_id="get_annotations")
+    def get_annotations() -> AnnotationState:
+        try:
+            return annotations().read()
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @application.post(
+        "/annotations", response_model=AnnotationState, operation_id="save_annotation"
+    )
+    def save_annotation(body: AnnotationRequest) -> AnnotationState:
+        try:
+            return annotations().mutate(body)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @application.post("/families", response_model=AnnotationState, operation_id="save_family")
+    def save_family(body: FamilyRequest) -> AnnotationState:
+        try:
+            return annotations().mutate(body)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @application.post("/splits", response_model=AnnotationState, operation_id="freeze_split")
+    def freeze_split(body: SplitRequest) -> AnnotationState:
+        try:
+            return annotations().mutate(body)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @application.post("/backups", response_model=BackupResult, operation_id="create_backup")
+    def create_backup(body: BackupRequest) -> BackupResult:
+        try:
+            return annotations().backup()
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @application.get("/timings", response_model=list[TimingReport], operation_id="get_timings")
+    def get_timings() -> list[TimingReport]:
+        try:
+            return annotations().timing_report()
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
 
     def current() -> Catalog:
         nonlocal registry

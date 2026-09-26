@@ -5,6 +5,99 @@ export type ClientOptions = {
 };
 
 /**
+ * AnnotationRequest
+ */
+export type AnnotationRequest = {
+    /**
+     * Action
+     */
+    action: 'draft' | 'approve_location' | 'approve_full';
+    /**
+     * Activity Intervals Ms
+     */
+    activity_intervals_ms?: Array<number>;
+    /**
+     * Actor
+     */
+    actor: string;
+    annotation: GeometryAnnotationInput;
+    /**
+     * Correction Count
+     */
+    correction_count?: number;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Request Id
+     */
+    request_id: string;
+    /**
+     * Reviewed All Nodes
+     */
+    reviewed_all_nodes?: boolean;
+};
+
+/**
+ * AnnotationState
+ */
+export type AnnotationState = {
+    /**
+     * Annotations
+     */
+    annotations: {
+        [key: string]: GeometryAnnotationOutput;
+    };
+    /**
+     * Families
+     */
+    families: {
+        [key: string]: StoredFamily;
+    };
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Snapshot Id
+     */
+    snapshot_id: string;
+    split: FrozenSplit | null;
+    /**
+     * Split Stale
+     */
+    split_stale: boolean;
+    /**
+     * Timings
+     */
+    timings: Array<Timing>;
+};
+
+/**
+ * BackupRequest
+ *
+ * An explicit JSON request, required by the local mutation boundary.
+ */
+export type BackupRequest = {
+    [key: string]: never;
+};
+
+/**
+ * BackupResult
+ */
+export type BackupResult = {
+    /**
+     * Backup Id
+     */
+    backup_id: string;
+    /**
+     * Revision
+     */
+    revision: number;
+};
+
+/**
  * Board
  */
 export type Board = {
@@ -15,7 +108,7 @@ export type Board = {
     /**
      * Nodes
      */
-    nodes: Array<Point>;
+    nodes: Array<PointOutput>;
     /**
      * Position Index
      */
@@ -57,6 +150,219 @@ export type DetectRequest = {
      */
     source_id: string;
     topology?: TopologyInput;
+};
+
+/**
+ * FamilyDecision
+ */
+export type FamilyDecision = {
+    /**
+     * Checksum Reviewed
+     */
+    checksum_reviewed?: boolean;
+    /**
+     * Declaration
+     */
+    declaration?: string;
+    /**
+     * Evidence
+     */
+    evidence: string;
+    /**
+     * Family Id
+     */
+    family_id: string;
+    /**
+     * Provenance
+     */
+    provenance?: 'unresolved' | 'verified' | '777_v2_verified';
+    /**
+     * Related Source Ids
+     */
+    related_source_ids?: Array<string>;
+    /**
+     * Similarity Reviewed
+     */
+    similarity_reviewed?: boolean;
+    /**
+     * Source Ids
+     */
+    source_ids: Array<string>;
+};
+
+/**
+ * FamilyRequest
+ */
+export type FamilyRequest = {
+    /**
+     * Actor
+     */
+    actor: string;
+    decision: FamilyDecision;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Request Id
+     */
+    request_id: string;
+};
+
+/**
+ * FrozenSplit
+ */
+export type FrozenSplit = {
+    /**
+     * Annotation Fingerprints
+     */
+    annotation_fingerprints: {
+        [key: string]: string;
+    };
+    /**
+     * Assignments
+     */
+    assignments: {
+        [key: string]: string;
+    };
+    /**
+     * Exclusions
+     */
+    exclusions: {
+        [key: string]: string;
+    };
+    /**
+     * Fingerprint
+     */
+    fingerprint: string;
+    /**
+     * Measurement
+     */
+    measurement: {
+        [key: string]: string;
+    };
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Seed
+     */
+    seed: number;
+    /**
+     * Unseen Game Id
+     */
+    unseen_game_id: string;
+};
+
+/**
+ * GeometryAnnotation
+ */
+export type GeometryAnnotationInput = {
+    /**
+     * Actor
+     */
+    actor?: string;
+    /**
+     * Board Index
+     */
+    board_index: number;
+    /**
+     * Corners
+     */
+    corners?: Array<PointInput>;
+    /**
+     * Decided At
+     */
+    decided_at?: string;
+    /**
+     * Full Approved
+     */
+    full_approved?: boolean;
+    /**
+     * Geometry Sha256
+     */
+    geometry_sha256?: string;
+    /**
+     * Location Approved
+     */
+    location_approved?: boolean;
+    /**
+     * Nodes
+     */
+    nodes?: Array<PointInput>;
+    /**
+     * Presence
+     */
+    presence?: 'present' | 'absent' | 'occluded' | 'unreadable';
+    /**
+     * Revision
+     */
+    revision?: number;
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Source Sha256
+     */
+    source_sha256?: string;
+    topology: TopologyInput;
+};
+
+/**
+ * GeometryAnnotation
+ */
+export type GeometryAnnotationOutput = {
+    /**
+     * Actor
+     */
+    actor: string;
+    /**
+     * Board Index
+     */
+    board_index: number;
+    /**
+     * Corners
+     */
+    corners: Array<PointOutput>;
+    /**
+     * Decided At
+     */
+    decided_at: string;
+    /**
+     * Full Approved
+     */
+    full_approved: boolean;
+    /**
+     * Geometry Sha256
+     */
+    geometry_sha256: string;
+    /**
+     * Location Approved
+     */
+    location_approved: boolean;
+    /**
+     * Nodes
+     */
+    nodes: Array<PointOutput>;
+    /**
+     * Presence
+     */
+    presence: 'present' | 'absent' | 'occluded' | 'unreadable';
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Source Sha256
+     */
+    source_sha256: string;
+    topology: TopologyOutput;
 };
 
 /**
@@ -107,7 +413,25 @@ export type HttpValidationError = {
 /**
  * Point
  */
-export type Point = {
+export type PointInput = {
+    /**
+     * Provenance
+     */
+    provenance?: 'baseline_proposal' | 'human' | 'model';
+    /**
+     * X
+     */
+    x: number;
+    /**
+     * Y
+     */
+    y: number;
+};
+
+/**
+ * Point
+ */
+export type PointOutput = {
     /**
      * Provenance
      */
@@ -197,6 +521,136 @@ export type SourcePage = {
 };
 
 /**
+ * SplitRequest
+ */
+export type SplitRequest = {
+    /**
+     * Actor
+     */
+    actor: string;
+    /**
+     * Difficulties
+     */
+    difficulties?: {
+        [key: string]: string;
+    };
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Measurement Source Ids
+     */
+    measurement_source_ids?: Array<string>;
+    /**
+     * Request Id
+     */
+    request_id: string;
+    /**
+     * Seed
+     */
+    seed: number;
+    /**
+     * Unseen Game Id
+     */
+    unseen_game_id: string;
+};
+
+/**
+ * StoredFamily
+ */
+export type StoredFamily = {
+    /**
+     * Actor
+     */
+    actor: string;
+    /**
+     * Checksum Reviewed
+     */
+    checksum_reviewed: boolean;
+    /**
+     * Decided At
+     */
+    decided_at: string;
+    /**
+     * Declaration
+     */
+    declaration: string;
+    /**
+     * Evidence
+     */
+    evidence: string;
+    /**
+     * Family Id
+     */
+    family_id: string;
+    /**
+     * Provenance
+     */
+    provenance: 'unresolved' | 'verified' | '777_v2_verified';
+    /**
+     * Related Source Ids
+     */
+    related_source_ids: Array<string>;
+    /**
+     * Similarity Reviewed
+     */
+    similarity_reviewed: boolean;
+    /**
+     * Source Ids
+     */
+    source_ids: Array<string>;
+};
+
+/**
+ * Timing
+ */
+export type Timing = {
+    /**
+     * Active Ms
+     */
+    active_ms: number;
+    /**
+     * Corrections
+     */
+    corrections: number;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Source Id
+     */
+    source_id: string;
+};
+
+/**
+ * TimingReport
+ */
+export type TimingReport = {
+    /**
+     * Active Ms
+     */
+    active_ms: number;
+    /**
+     * Estimated Remaining Ms
+     */
+    estimated_remaining_ms: number | null;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Measured Sources
+     */
+    measured_sources: number;
+    /**
+     * Target Sources
+     */
+    target_sources: number;
+};
+
+/**
  * Topology
  */
 export type TopologyInput = {
@@ -252,6 +706,47 @@ export type ValidationError = {
     type: string;
 };
 
+export type GetAnnotationsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/annotations';
+};
+
+export type GetAnnotationsResponses = {
+    /**
+     * Successful Response
+     */
+    200: AnnotationState;
+};
+
+export type GetAnnotationsResponse = GetAnnotationsResponses[keyof GetAnnotationsResponses];
+
+export type SaveAnnotationData = {
+    body: AnnotationRequest;
+    path?: never;
+    query?: never;
+    url: '/annotations';
+};
+
+export type SaveAnnotationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SaveAnnotationError = SaveAnnotationErrors[keyof SaveAnnotationErrors];
+
+export type SaveAnnotationResponses = {
+    /**
+     * Successful Response
+     */
+    200: AnnotationState;
+};
+
+export type SaveAnnotationResponse = SaveAnnotationResponses[keyof SaveAnnotationResponses];
+
 export type GetAssetData = {
     body?: never;
     path: {
@@ -279,6 +774,56 @@ export type GetAssetResponses = {
      */
     200: unknown;
 };
+
+export type CreateBackupData = {
+    body: BackupRequest;
+    path?: never;
+    query?: never;
+    url: '/backups';
+};
+
+export type CreateBackupErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateBackupError = CreateBackupErrors[keyof CreateBackupErrors];
+
+export type CreateBackupResponses = {
+    /**
+     * Successful Response
+     */
+    200: BackupResult;
+};
+
+export type CreateBackupResponse = CreateBackupResponses[keyof CreateBackupResponses];
+
+export type SaveFamilyData = {
+    body: FamilyRequest;
+    path?: never;
+    query?: never;
+    url: '/families';
+};
+
+export type SaveFamilyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SaveFamilyError = SaveFamilyErrors[keyof SaveFamilyErrors];
+
+export type SaveFamilyResponses = {
+    /**
+     * Successful Response
+     */
+    200: AnnotationState;
+};
+
+export type SaveFamilyResponse = SaveFamilyResponses[keyof SaveFamilyResponses];
 
 export type DetectGeometryData = {
     body: DetectRequest;
@@ -342,3 +887,46 @@ export type ListSourcesResponses = {
 };
 
 export type ListSourcesResponse = ListSourcesResponses[keyof ListSourcesResponses];
+
+export type FreezeSplitData = {
+    body: SplitRequest;
+    path?: never;
+    query?: never;
+    url: '/splits';
+};
+
+export type FreezeSplitErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type FreezeSplitError = FreezeSplitErrors[keyof FreezeSplitErrors];
+
+export type FreezeSplitResponses = {
+    /**
+     * Successful Response
+     */
+    200: AnnotationState;
+};
+
+export type FreezeSplitResponse = FreezeSplitResponses[keyof FreezeSplitResponses];
+
+export type GetTimingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/timings';
+};
+
+export type GetTimingsResponses = {
+    /**
+     * Response Get Timings
+     *
+     * Successful Response
+     */
+    200: Array<TimingReport>;
+};
+
+export type GetTimingsResponse = GetTimingsResponses[keyof GetTimingsResponses];

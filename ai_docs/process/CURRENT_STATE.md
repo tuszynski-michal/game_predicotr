@@ -6,6 +6,34 @@ last_updated: 2026-09-26
 
 # Current State
 
+### Etap B laboratorium — narzędzia T03 odebrane, bramka danych
+
+- Użytkownik uruchomił cały etap B (T03–T05) autonomicznie, z audytami
+  według tabeli modeli. T03: Sol medium i Astra medium; T04/T05: Sol high
+  i Astra medium. Nie obejmuje etapu C, aktywacji, push/merge ani operacji DB.
+- Start z `v1.7.1` / `fb188b9ee6bd9263604a19cc7b1904f6d11edd3a`.
+  Lokalne dopiski hashów T02 są znane i zostaną zachowane w następnym
+  commicie. Zmiany Reviewera oraz `.claude/` pozostają poza zakresem.
+- T03 implementuje edytor, rewizje, backup i kontrolę podziałów. Na wejściu
+  nie ma ręcznie zatwierdzonych anotacji ani potwierdzonej niezależności
+  rodzin. Użytkownik potwierdził brak standardu nazw i możliwość tego samego
+  układu plansz pod różnymi nazwami. SHA wykrywa tylko identyczne pliki;
+  powiązane zdjęcia wymagają wspólnej grupy niezależnie od nazw.
+  Brak rozstrzygnięcia rodzin nie blokuje budowy narzędzi, ale blokuje
+  wiarygodny split i trening. Nazwy nie stanowią dowodu niezależności.
+  Wynik AI nie może otrzymać statusu `lab_human_approved`.
+- Edytor 24/16 węzłów, rewizje/retry, historia, backup/restore oraz
+  grupowanie powiązanych zdjęć gotowe. Zamrożone przydziały pozostają
+  niezmienne po edycji; `split_stale` blokuje dalsze użycie podziału.
+- Testy: backend 9+19, UI 5, klient 3; lint/format/typecheck,
+  OpenAPI/generated-check i końcowy production build zaliczone.
+  Audyt Astra medium: PASS kodu, bez P0–P2. Odbiór przeglądarkowy i restart
+  nowych procesów zaliczone, bez zapisania zatwierdzeń na danych użytkownika.
+- TASK-0668 pozostaje `blocked`: potrzebny rzeczywisty pilot, rozstrzygnięte
+  grupy, pomiar czasu 10 zdjęć/grę i zamrożony split. Nierozstrzygnięte
+  777 V2 wykluczone. T04/T05 nie rozpoczęte; nie pominięto zależności planu.
+  Szczegóły DoD i ograniczeń: `quality/VISION_LAB_STAGE_B_ACCEPTANCE.md`.
+
 ### TASK-0667 — galeria laboratorium i STOP A
 
 - Użytkownik wskazał `C:\Users\tuszy\Documents\new_traning_set` do testowania
@@ -43,6 +71,9 @@ last_updated: 2026-09-26
   wersję `v1.7.1` po historycznym `v1.7` (`6eb1d646`). Kolejny commit
   zwiększa patch do `v1.7.2`. TASK-0667 przeniesiono do completed;
   etap A zamknięty na STOP A, bez rozpoczęcia etapu B.
+- Commit taska: `v1.7.1` — `fb188b9ee6bd9263604a19cc7b1904f6d11edd3a`.
+  Hash zapisano po commicie w CURRENT_STATE i Outcome; te dwa wpisy są
+  lokalnym uzupełnieniem dokumentacji do kolejnego commita.
 
 ### TASK-0706 — domyślna zakładka niepełnych siatek
 

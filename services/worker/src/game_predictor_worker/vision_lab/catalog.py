@@ -23,6 +23,7 @@ class InvalidImageError(ValueError):
 
 class Catalog:
     def __init__(self, root: Path | None, engine: GeometryEngine | None = None) -> None:
+        self.root = root
         self.sources: dict[str, Source] = {}
         self.paths: dict[str, Path] = {}
         self.assets: OrderedDict[str, bytes] = OrderedDict()

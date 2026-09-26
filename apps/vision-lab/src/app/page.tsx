@@ -2,6 +2,8 @@
 
 /* eslint-disable @next/next/no-img-element -- registered local assets; no image optimizer proxy */
 import { useEffect, useState } from 'react';
+import { GeometryEditor } from '../components/geometry-editor';
+import { FamilyEditor } from '../components/family-editor';
 import {
   detectGeometry,
   listSources,
@@ -22,6 +24,7 @@ export default function Page() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [familySources, setFamilySources] = useState<Source[]>([]);
   useEffect(() => {
     let cancelled = false;
     listSources(offset, game || undefined)
@@ -79,7 +82,7 @@ export default function Page() {
   return (
     <main>
       <header>
-        <p className="eyebrow">WIZJA / ETAP A</p>
+        <p className="eyebrow">WIZJA / ANOTACJE</p>
         <h1>Laboratorium geometrii</h1>
         <p>
           Zdjęcia, propozycje siatek i cropy. Wynik silnika wymaga oceny
@@ -172,10 +175,21 @@ export default function Page() {
           </section>
         </>
       )}
+      <FamilyEditor
+        sources={sources}
+        selected={familySources}
+        onSelected={setFamilySources}
+      />
       {selected && (
         <section id="inspector" className="inspector">
           <h2>{selected.game_name} — podgląd</h2>
           <p>{selected.filename}</p>
+          <GeometryEditor
+            key={`${selected.id}:${columns}`}
+            source={selected}
+            proposal={result}
+            columns={columns}
+          />
           <p>
             Kandydat rodziny: {selected.family_candidate} ·{' '}
             {selected.role === 'comparison_only'

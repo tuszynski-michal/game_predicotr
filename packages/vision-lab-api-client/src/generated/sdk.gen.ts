@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { DetectGeometryData, DetectGeometryErrors, DetectGeometryResponses, GetAssetData, GetAssetErrors, GetAssetResponses, ListSourcesData, ListSourcesErrors, ListSourcesResponses } from './types.gen';
+import type { CreateBackupData, CreateBackupErrors, CreateBackupResponses, DetectGeometryData, DetectGeometryErrors, DetectGeometryResponses, FreezeSplitData, FreezeSplitErrors, FreezeSplitResponses, GetAnnotationsData, GetAnnotationsResponses, GetAssetData, GetAssetErrors, GetAssetResponses, GetTimingsData, GetTimingsResponses, ListSourcesData, ListSourcesErrors, ListSourcesResponses, SaveAnnotationData, SaveAnnotationErrors, SaveAnnotationResponses, SaveFamilyData, SaveFamilyErrors, SaveFamilyResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -19,9 +19,50 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
+ * Get Annotations
+ */
+export const getAnnotations = <ThrowOnError extends boolean = false>(options?: Options<GetAnnotationsData, ThrowOnError>): RequestResult<GetAnnotationsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetAnnotationsResponses, unknown, ThrowOnError>({ url: '/annotations', ...options });
+
+/**
+ * Save Annotation
+ */
+export const saveAnnotation = <ThrowOnError extends boolean = false>(options: Options<SaveAnnotationData, ThrowOnError>): RequestResult<SaveAnnotationResponses, SaveAnnotationErrors, ThrowOnError> => (options.client ?? client).post<SaveAnnotationResponses, SaveAnnotationErrors, ThrowOnError>({
+    url: '/annotations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Asset
  */
 export const getAsset = <ThrowOnError extends boolean = false>(options: Options<GetAssetData, ThrowOnError>): RequestResult<GetAssetResponses, GetAssetErrors, ThrowOnError> => (options.client ?? client).get<GetAssetResponses, GetAssetErrors, ThrowOnError>({ url: '/assets/{asset_id}', ...options });
+
+/**
+ * Create Backup
+ */
+export const createBackup = <ThrowOnError extends boolean = false>(options: Options<CreateBackupData, ThrowOnError>): RequestResult<CreateBackupResponses, CreateBackupErrors, ThrowOnError> => (options.client ?? client).post<CreateBackupResponses, CreateBackupErrors, ThrowOnError>({
+    url: '/backups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Save Family
+ */
+export const saveFamily = <ThrowOnError extends boolean = false>(options: Options<SaveFamilyData, ThrowOnError>): RequestResult<SaveFamilyResponses, SaveFamilyErrors, ThrowOnError> => (options.client ?? client).post<SaveFamilyResponses, SaveFamilyErrors, ThrowOnError>({
+    url: '/families',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Geometry
@@ -39,3 +80,20 @@ export const detectGeometry = <ThrowOnError extends boolean = false>(options: Op
  * Sources
  */
 export const listSources = <ThrowOnError extends boolean = false>(options?: Options<ListSourcesData, ThrowOnError>): RequestResult<ListSourcesResponses, ListSourcesErrors, ThrowOnError> => (options?.client ?? client).get<ListSourcesResponses, ListSourcesErrors, ThrowOnError>({ url: '/sources', ...options });
+
+/**
+ * Freeze Split
+ */
+export const freezeSplit = <ThrowOnError extends boolean = false>(options: Options<FreezeSplitData, ThrowOnError>): RequestResult<FreezeSplitResponses, FreezeSplitErrors, ThrowOnError> => (options.client ?? client).post<FreezeSplitResponses, FreezeSplitErrors, ThrowOnError>({
+    url: '/splits',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Timings
+ */
+export const getTimings = <ThrowOnError extends boolean = false>(options?: Options<GetTimingsData, ThrowOnError>): RequestResult<GetTimingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetTimingsResponses, unknown, ThrowOnError>({ url: '/timings', ...options });

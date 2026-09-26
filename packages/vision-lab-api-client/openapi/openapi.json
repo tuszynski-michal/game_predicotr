@@ -1,6 +1,157 @@
 {
   "components": {
     "schemas": {
+      "AnnotationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "draft",
+              "approve_location",
+              "approve_full"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "activity_intervals_ms": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 10000,
+            "title": "Activity Intervals Ms",
+            "type": "array"
+          },
+          "actor": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "annotation": {
+            "$ref": "#/components/schemas/GeometryAnnotation-Input"
+          },
+          "correction_count": {
+            "default": 0,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Correction Count",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "reviewed_all_nodes": {
+            "default": false,
+            "title": "Reviewed All Nodes",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "actor",
+          "annotation",
+          "action"
+        ],
+        "title": "AnnotationRequest",
+        "type": "object"
+      },
+      "AnnotationState": {
+        "additionalProperties": false,
+        "properties": {
+          "annotations": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GeometryAnnotation-Output"
+            },
+            "title": "Annotations",
+            "type": "object"
+          },
+          "families": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StoredFamily"
+            },
+            "title": "Families",
+            "type": "object"
+          },
+          "revision": {
+            "default": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "split": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenSplit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "split_stale": {
+            "default": false,
+            "title": "Split Stale",
+            "type": "boolean"
+          },
+          "timings": {
+            "items": {
+              "$ref": "#/components/schemas/Timing"
+            },
+            "title": "Timings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "revision",
+          "annotations",
+          "families",
+          "timings",
+          "split",
+          "split_stale"
+        ],
+        "title": "AnnotationState",
+        "type": "object"
+      },
+      "BackupRequest": {
+        "additionalProperties": false,
+        "description": "An explicit JSON request, required by the local mutation boundary.",
+        "properties": {},
+        "title": "BackupRequest",
+        "type": "object"
+      },
+      "BackupResult": {
+        "additionalProperties": false,
+        "properties": {
+          "backup_id": {
+            "title": "Backup Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "backup_id",
+          "revision"
+        ],
+        "title": "BackupResult",
+        "type": "object"
+      },
       "Board": {
         "additionalProperties": false,
         "properties": {
@@ -13,7 +164,7 @@
           },
           "nodes": {
             "items": {
-              "$ref": "#/components/schemas/Point"
+              "$ref": "#/components/schemas/Point-Output"
             },
             "title": "Nodes",
             "type": "array"
@@ -105,6 +256,352 @@
         "title": "DetectRequest",
         "type": "object"
       },
+      "FamilyDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum_reviewed": {
+            "default": false,
+            "title": "Checksum Reviewed",
+            "type": "boolean"
+          },
+          "declaration": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Declaration",
+            "type": "string"
+          },
+          "evidence": {
+            "maxLength": 2000,
+            "minLength": 5,
+            "title": "Evidence",
+            "type": "string"
+          },
+          "family_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Family Id",
+            "type": "string"
+          },
+          "provenance": {
+            "default": "unresolved",
+            "enum": [
+              "unresolved",
+              "verified",
+              "777_v2_verified"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "related_source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Related Source Ids",
+            "type": "array"
+          },
+          "similarity_reviewed": {
+            "default": false,
+            "title": "Similarity Reviewed",
+            "type": "boolean"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Source Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_ids",
+          "family_id",
+          "evidence"
+        ],
+        "title": "FamilyDecision",
+        "type": "object"
+      },
+      "FamilyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/FamilyDecision"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "actor",
+          "decision"
+        ],
+        "title": "FamilyRequest",
+        "type": "object"
+      },
+      "FrozenSplit": {
+        "additionalProperties": false,
+        "properties": {
+          "annotation_fingerprints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Annotation Fingerprints",
+            "type": "object"
+          },
+          "assignments": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Assignments",
+            "type": "object"
+          },
+          "exclusions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Exclusions",
+            "type": "object"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "measurement": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Measurement",
+            "type": "object"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "unseen_game_id": {
+            "title": "Unseen Game Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "revision",
+          "unseen_game_id",
+          "seed",
+          "assignments",
+          "measurement",
+          "annotation_fingerprints",
+          "exclusions"
+        ],
+        "title": "FrozenSplit",
+        "type": "object"
+      },
+      "GeometryAnnotation-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "default": "",
+            "title": "Actor",
+            "type": "string"
+          },
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "corners": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Input"
+            },
+            "maxItems": 4,
+            "title": "Corners",
+            "type": "array"
+          },
+          "decided_at": {
+            "default": "",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "full_approved": {
+            "default": false,
+            "title": "Full Approved",
+            "type": "boolean"
+          },
+          "geometry_sha256": {
+            "default": "",
+            "title": "Geometry Sha256",
+            "type": "string"
+          },
+          "location_approved": {
+            "default": false,
+            "title": "Location Approved",
+            "type": "boolean"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Input"
+            },
+            "maxItems": 24,
+            "title": "Nodes",
+            "type": "array"
+          },
+          "presence": {
+            "default": "present",
+            "enum": [
+              "present",
+              "absent",
+              "occluded",
+              "unreadable"
+            ],
+            "title": "Presence",
+            "type": "string"
+          },
+          "revision": {
+            "default": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "default": "",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Input"
+          }
+        },
+        "required": [
+          "source_id",
+          "board_index",
+          "topology"
+        ],
+        "title": "GeometryAnnotation",
+        "type": "object"
+      },
+      "GeometryAnnotation-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "default": "",
+            "title": "Actor",
+            "type": "string"
+          },
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "corners": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Output"
+            },
+            "maxItems": 4,
+            "title": "Corners",
+            "type": "array"
+          },
+          "decided_at": {
+            "default": "",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "full_approved": {
+            "default": false,
+            "title": "Full Approved",
+            "type": "boolean"
+          },
+          "geometry_sha256": {
+            "default": "",
+            "title": "Geometry Sha256",
+            "type": "string"
+          },
+          "location_approved": {
+            "default": false,
+            "title": "Location Approved",
+            "type": "boolean"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Output"
+            },
+            "maxItems": 24,
+            "title": "Nodes",
+            "type": "array"
+          },
+          "presence": {
+            "default": "present",
+            "enum": [
+              "present",
+              "absent",
+              "occluded",
+              "unreadable"
+            ],
+            "title": "Presence",
+            "type": "string"
+          },
+          "revision": {
+            "default": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "default": "",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Output"
+          }
+        },
+        "required": [
+          "source_id",
+          "board_index",
+          "topology",
+          "presence",
+          "corners",
+          "nodes",
+          "revision",
+          "source_sha256",
+          "location_approved",
+          "full_approved",
+          "geometry_sha256",
+          "actor",
+          "decided_at"
+        ],
+        "title": "GeometryAnnotation",
+        "type": "object"
+      },
       "GeometryResult": {
         "additionalProperties": false,
         "properties": {
@@ -180,7 +677,36 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
-      "Point": {
+      "Point-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "provenance": {
+            "default": "baseline_proposal",
+            "enum": [
+              "baseline_proposal",
+              "human",
+              "model"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "Point",
+        "type": "object"
+      },
+      "Point-Output": {
         "additionalProperties": false,
         "properties": {
           "provenance": {
@@ -322,6 +848,215 @@
         "title": "SourcePage",
         "type": "object"
       },
+      "SplitRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "difficulties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Difficulties",
+            "type": "object"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "measurement_source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Measurement Source Ids",
+            "type": "array"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "unseen_game_id": {
+            "title": "Unseen Game Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "actor",
+          "unseen_game_id",
+          "seed"
+        ],
+        "title": "SplitRequest",
+        "type": "object"
+      },
+      "StoredFamily": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "checksum_reviewed": {
+            "default": false,
+            "title": "Checksum Reviewed",
+            "type": "boolean"
+          },
+          "decided_at": {
+            "title": "Decided At",
+            "type": "string"
+          },
+          "declaration": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Declaration",
+            "type": "string"
+          },
+          "evidence": {
+            "maxLength": 2000,
+            "minLength": 5,
+            "title": "Evidence",
+            "type": "string"
+          },
+          "family_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Family Id",
+            "type": "string"
+          },
+          "provenance": {
+            "default": "unresolved",
+            "enum": [
+              "unresolved",
+              "verified",
+              "777_v2_verified"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "related_source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Related Source Ids",
+            "type": "array"
+          },
+          "similarity_reviewed": {
+            "default": false,
+            "title": "Similarity Reviewed",
+            "type": "boolean"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Source Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_ids",
+          "family_id",
+          "evidence",
+          "related_source_ids",
+          "provenance",
+          "declaration",
+          "checksum_reviewed",
+          "similarity_reviewed",
+          "actor",
+          "decided_at"
+        ],
+        "title": "StoredFamily",
+        "type": "object"
+      },
+      "Timing": {
+        "additionalProperties": false,
+        "properties": {
+          "active_ms": {
+            "title": "Active Ms",
+            "type": "integer"
+          },
+          "corrections": {
+            "title": "Corrections",
+            "type": "integer"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "game_id",
+          "active_ms",
+          "corrections"
+        ],
+        "title": "Timing",
+        "type": "object"
+      },
+      "TimingReport": {
+        "additionalProperties": false,
+        "properties": {
+          "active_ms": {
+            "title": "Active Ms",
+            "type": "integer"
+          },
+          "estimated_remaining_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Remaining Ms"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "measured_sources": {
+            "title": "Measured Sources",
+            "type": "integer"
+          },
+          "target_sources": {
+            "title": "Target Sources",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "game_id",
+          "measured_sources",
+          "active_ms",
+          "estimated_remaining_ms",
+          "target_sources"
+        ],
+        "title": "TimingReport",
+        "type": "object"
+      },
       "Topology-Input": {
         "additionalProperties": false,
         "properties": {
@@ -418,6 +1153,60 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/annotations": {
+      "get": {
+        "operationId": "get_annotations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Annotations"
+      },
+      "post": {
+        "operationId": "save_annotation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnotationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Annotation"
+      }
+    },
     "/assets/{asset_id}": {
       "get": {
         "operationId": "get_asset",
@@ -454,6 +1243,82 @@
           }
         },
         "summary": "Asset"
+      }
+    },
+    "/backups": {
+      "post": {
+        "operationId": "create_backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Backup"
+      }
+    },
+    "/families": {
+      "post": {
+        "operationId": "save_family",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FamilyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Family"
       }
     },
     "/geometry": {
@@ -561,6 +1426,66 @@
           }
         },
         "summary": "Sources"
+      }
+    },
+    "/splits": {
+      "post": {
+        "operationId": "freeze_split",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SplitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Freeze Split"
+      }
+    },
+    "/timings": {
+      "get": {
+        "operationId": "get_timings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TimingReport"
+                  },
+                  "title": "Response Get Timings",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Timings"
       }
     }
   }

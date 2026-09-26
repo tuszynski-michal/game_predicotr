@@ -1,6 +1,6 @@
 ---
 title: TASK-0668 — T03 — edytor i zbiór geometrii
-status: todo
+status: blocked
 last_updated: 2026-09-26
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-26
 
 ## Status
 
-`todo`
+`blocked` — narzędzia odebrane; wymagane rzeczywiste anotacje i pochodzenie danych.
 
 ## Goal
 
@@ -48,6 +48,23 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 
 ## Technical notes
 
+Etap B uruchomiony jawnie przez użytkownika 2026-09-26. Na wejściu jest
+snapshot plikowy T02 (1180 wystąpień, 1160 SHA), bez ręcznych anotacji.
+Prefiksy rodzin są kandydatami, nie potwierdzonym pochodzeniem. Budowa
+edytora i mechanizmów splitu jest możliwa; zamrożenie rzeczywistych danych
+oraz trening wymagają potwierdzonego pochodzenia i decyzji człowieka.
+Nie wolno zastąpić tych decyzji automatycznym zatwierdzaniem baseline.
+Kandydat niewidzianej gry `gang zd` pozostaje warunkowy do kontroli rodzin
+i pokrycia topologii. Pomiar czasu anotacji musi być rzeczywisty, nie
+oszacowany z czasu działania agenta.
+
+Doprecyzowanie użytkownika: foldery mają różne konwencje numeracji,
+prefiksy nie mają wspólnego standardu, a różne nazwy mogą przedstawiać ten
+sam układ plansz. SHA-256 wykrywa tylko identyczne bajty, nie wszystkie
+takie powtórzenia. Relacje powiązanych źródeł/pochodnych muszą być jawnie
+grupowane wraz z duplikatami SHA; brak dopasowania nie potwierdza
+niezależności. Nie wolno automatycznie zamrozić splitu według nazw.
+
 Zachowaj kontrakty z planu i właścicieli istniejących decyzji. Błędy wejścia oznaczaj per źródło lub próbka, a błąd integralności i infrastruktury zatrzymuje zależny run. Nie promuj predykcji do ręcznego zatwierdzenia. Istotne odstępstwo wymaga aktualizacji planu przed implementacją.
 
 ## Expected files
@@ -76,24 +93,51 @@ Po teście wykonaj lint/typecheck zmienionych modułów i wymagane kontrole kont
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Część narzędziowa odebrana 2026-09-26. Cały T03 i etap B nie są ukończone.
 
 ### Changed
 
-- Do uzupełnienia po wykonaniu.
+- Edytor narożników i 24/16 węzłów, osobne zatwierdzenia lokalizacji oraz
+  pełnej siatki, pomiar aktywności i korekt. Wyniki AI pozostają propozycją.
+- Atomowy magazyn rewizji z kontrolą konfliktu, idempotentnym retry,
+  historią wynikowych decyzji i backup/restore do nowego katalogu.
+- Grupowanie rodzin, pochodnych i duplikatów SHA; niezweryfikowane grupy
+  wykluczone. Edycja oznacza podział jako `split_stale`, zachowuje jego
+  przydziały i nie pozwala ponownie losować holdoutów.
+- API, OpenAPI, wygenerowany klient, wrapper i testy żądań są spójne.
 
 ### Verification results
 
-- Do uzupełnienia po wykonaniu.
+- Backend: 9 testów anotacji i 19 istniejącego laboratorium; UI 5/5,
+  klient 3/3. Ruff/format, ESLint, TypeScript, mypy 11 modułów i kontrole
+  OpenAPI/generowanego klienta zaliczone.
+- Production build oraz restart obu usług zaliczone. Odbiór przeglądarkowy:
+  24/16 węzłów, przesunięcie uchwytu, brak automatycznego approval,
+  zachowanie wyboru rodziny między stronami. Nie zapisano decyzji na danych
+  użytkownika; po restarcie rewizja 0, brak anotacji, rodzin i podziału.
+- Niezależny audyt Astra medium: PASS kodu, bez otwartych P0–P2.
+  Audytor niezależnie uruchomił wcześniejsze 7 testów anotacji; końcowe
+  rozszerzone zestawy pochodzą od wykonawcy Sol medium.
 
 ### Not completed
 
-- Do uzupełnienia po wykonaniu.
+- Brak rzeczywistych zatwierdzeń człowieka, potwierdzonego pochodzenia
+  rodzin, pomiaru pierwszych 10 zdjęć/grę i prognozy pracy oraz zamrożonego
+  splitu. Kryterium braku przecieku jest przetestowane mechanicznie, ale
+  nieudowodnione dla rzeczywistych danych.
+- 777 V2 pozostaje fail-closed: nie dostarczono dowodu pochodzenia i
+  podobieństwa dopuszczającego dane. Historyczne 777 tylko porównawcze.
+- Nie uruchomiono T04/T05, instalacji treningowych, treningu, aktywacji,
+  pełnej kontroli repozytorium ani testu fizycznego Androida. Brak push/merge.
 
 ### Documentation updates
 
-- Do uzupełnienia po wykonaniu.
+- CURRENT_STATE, instrukcja VISION_LAB_LOCAL i raport
+  VISION_LAB_STAGE_B_ACCEPTANCE. Zadanie pozostaje aktywne, nie w completed.
 
 ### Recommended next task
 
-- Do uzupełnienia po wykonaniu.
+- Rzeczywisty pilot anotacji w gotowym edytorze i rozstrzygnięcie powiązań
+  zdjęć. Dopiero po spełnieniu bramek T03 można uruchomić zależny T04.
+  Odblokowanie samego kodowania T04 wcześniej wymaga zmiany zaakceptowanego
+  planu; nie przyjęto jej samodzielnie.

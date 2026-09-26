@@ -149,3 +149,27 @@ label select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.family-options {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 20rem;
+  overflow: auto;
+}
+.family-options label {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 44px;
+}
+.annotation-editor label {
+  display: block;
+  margin: 0.8rem 0;
+}
+.annotation-editor input,
+.annotation-editor select,
+textarea {
+  min-height: 44px;
+}
+.editor-photo {
+  max-width: 100%;
+}

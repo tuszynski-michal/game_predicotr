@@ -1,8 +1,29 @@
 import {
   detectGeometry as detect,
   listSources as list,
+  getAnnotations,
+  saveAnnotation,
+  saveFamily,
+  freezeSplit,
+  createBackup,
+  getTimings,
 } from './generated/sdk.gen';
-export type { GeometryResult, Source } from './generated/types.gen';
+import type {
+  AnnotationRequest,
+  FamilyRequest,
+  SplitRequest,
+} from './generated/types.gen';
+export type {
+  GeometryResult,
+  Source,
+  AnnotationState,
+  GeometryAnnotationOutput as GeometryAnnotation,
+  AnnotationRequest,
+  FamilyRequest,
+  SplitRequest,
+  TimingReport,
+  PointOutput as Point,
+} from './generated/types.gen';
 
 const baseUrl = '/api/lab';
 export async function listSources(offset = 0, game?: string) {
@@ -23,4 +44,23 @@ export async function detectGeometry(sourceId: string, columns: 3 | 5) {
 }
 export function assetUrl(assetId: string) {
   return `${baseUrl}/assets/${encodeURIComponent(assetId)}`;
+}
+
+export async function readAnnotations() {
+  return (await getAnnotations({ baseUrl, throwOnError: true })).data;
+}
+export async function writeAnnotation(body: AnnotationRequest) {
+  return (await saveAnnotation({ baseUrl, body, throwOnError: true })).data;
+}
+export async function writeFamily(body: FamilyRequest) {
+  return (await saveFamily({ baseUrl, body, throwOnError: true })).data;
+}
+export async function freezeAnnotations(body: SplitRequest) {
+  return (await freezeSplit({ baseUrl, body, throwOnError: true })).data;
+}
+export async function backupAnnotations() {
+  return (await createBackup({ baseUrl, body: {}, throwOnError: true })).data;
+}
+export async function annotationTimings() {
+  return (await getTimings({ baseUrl, throwOnError: true })).data;
 }

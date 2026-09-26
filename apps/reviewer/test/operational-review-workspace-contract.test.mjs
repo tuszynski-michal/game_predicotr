@@ -142,7 +142,17 @@ test('operational workspace compares square cell crops with one cropped board', 
   );
   assert.match(deferredGeometryEditor, /panViewportRef/);
   assert.match(deferredGeometryEditor, /Wycentruj widok na siatce/);
-  assert.match(deferredGeometryEditor, /przesunąć zdjęcie w widoku/);
+  assert.match(deferredGeometryEditor, /Aktywne przesuwanie/);
+  assert.match(
+    deferredGeometryEditor,
+    /viewportPanningEnabled, setViewportPanningEnabled\] = useState\(false\)/,
+  );
+  assert.match(deferredGeometryEditor, /setViewportPanningEnabled\(false\)/);
+  assert.match(
+    deferredGeometryEditor,
+    /else if \(viewportPanningEnabled\) \{[\s\S]*panViewportRef\.current/,
+  );
+  assert.match(deferredGeometryEditor, /Obraz\s+pozostaje statyczny/);
   assert.match(deferredGeometryEditor, /onPointerDown=\{startCanvasGesture\}/);
   assert.match(deferredGeometryEditor, /Zapisz geometrię i dalej/);
   assert.match(deferredGeometry, /onOrdinaryQueueChanged/);

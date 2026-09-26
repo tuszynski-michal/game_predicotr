@@ -6,6 +6,18 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0700 — jawny tryb przesuwania kadru odroczonej siatki
+
+- Usunięto regresję TASK-0699: checkbox „Aktywne przesuwanie” jest lokalny i
+  domyślnie wyłączony dla każdej nowo wczytanej planszy. Gest tła bez checkboxa
+  nie przechwytuje pointera ani nie zmienia viewportu; po zaznaczeniu wykorzystuje
+  dotychczasową translację. Uchwyt narożnika zachowuje pierwszeństwo w obu
+  trybach. Checkbox nie trafia do preview, zapisu, kwalifikacji ani API.
+- Testy skoncentrowane Reviewera 20/20 i pełne 201/201, lint, typecheck oraz
+  production build są zielone; artefakt buildu zawiera nową kontrolkę. Ręczny
+  odbiór po zmianie pozostaje zablokowany przez lokalny błąd API
+  `IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`, bez mutacji danych.
+
 ### TASK-0699 — przesuwanie i centrowanie widoku w odroczonej korekcie siatki
 
 - Użytkownik potwierdził wykonanie kompletnego rozwiązania po weryfikacji

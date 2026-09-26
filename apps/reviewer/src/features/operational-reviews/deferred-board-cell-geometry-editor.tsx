@@ -84,6 +84,7 @@ export function DeferredBoardCellGeometryEditor({
     useState<OperationalReviewGeometryCorners | null>(null);
   const [viewport, setViewport] =
     useState<OperationalReviewGeometryViewport | null>(null);
+  const [viewportPanningEnabled, setViewportPanningEnabled] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState('');
   const [loadingSource, setLoadingSource] = useState(false);
@@ -166,6 +167,7 @@ export function DeferredBoardCellGeometryEditor({
       clearPreview();
       idempotencyRef.current = null;
       setFlags(completeManualGridFlags);
+      setViewportPanningEnabled(false);
       const result = await loadDeferredBoardCellGeometryContext(
         api,
         scope,
@@ -491,7 +493,6 @@ export function DeferredBoardCellGeometryEditor({
 
   function startCanvasGesture(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (corners === null || viewport === null) return;
-    event.preventDefault();
     const canvas = event.currentTarget;
     const rect = canvas.getBoundingClientRect();
     const pointer = operationalReviewPointInCanvas(
@@ -513,9 +514,12 @@ export function DeferredBoardCellGeometryEditor({
       .sort((left, right) => left.distance - right.distance)[0];
     if (candidate !== undefined && candidate.distance <= threshold) {
       dragIndexRef.current = candidate.index;
-    } else {
+    } else if (viewportPanningEnabled) {
       panViewportRef.current = { point: pointer.point, viewport };
+    } else {
+      return;
     }
+    event.preventDefault();
     canvas.setPointerCapture(event.pointerId);
     updateCanvasGesture(event);
   }
@@ -587,8 +591,9 @@ export function DeferredBoardCellGeometryEditor({
             <div>
               <h3>Oryginał i edytowalna siatka</h3>
               <p>
-                Przeciągnij numerowany narożnik, aby zmienić siatkę, albo tło,
-                aby przesunąć zdjęcie w widoku. Szare punkty są wyliczane
+                Przeciągnij numerowany narożnik, aby zmienić siatkę. Obraz
+                pozostaje statyczny; włącz aktywne przesuwanie, aby przeciągać
+                tło i zmienić wyłącznie kadr widoku. Szare punkty są wyliczane
                 automatycznie.
               </p>
             </div>
@@ -611,6 +616,18 @@ export function DeferredBoardCellGeometryEditor({
               Wycentruj widok na siatce
             </button>
           </div>
+          <label className="deferredGeometryPanToggle">
+            <input
+              checked={viewportPanningEnabled}
+              disabled={saving}
+              onChange={(event) => {
+                panViewportRef.current = null;
+                setViewportPanningEnabled(event.target.checked);
+              }}
+              type="checkbox"
+            />{' '}
+            Aktywne przesuwanie
+          </label>
           {loadingSource ? <p>Wczytywanie obrazu…</p> : null}
           <canvas
             aria-label="Odroczona plansza z edytowalną siatką 5 na 3"

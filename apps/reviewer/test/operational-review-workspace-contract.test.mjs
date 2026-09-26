@@ -138,41 +138,15 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(deferredGeometryEditor, /idempotencyRef/);
   assert.match(
     deferredGeometryEditor,
-    /operationalReviewTranslatedGeometryViewport/,
-  );
-  assert.match(
-    deferredGeometryEditor,
     /operationalReviewTranslatedGeometryCorners/,
   );
   assert.match(
     deferredGeometryEditor,
     /operationalReviewGeometryContainsPoint/,
   );
-  assert.match(deferredGeometryEditor, /panViewportRef/);
   assert.match(deferredGeometryEditor, /translateGridRef/);
-  assert.match(
-    deferredGeometryEditor,
-    /sourceImageVersion, setSourceImageVersion\] = useState\(0\)/,
-  );
-  assert.match(
-    deferredGeometryEditor,
-    /sourceImageRef\.current = null;[\s\S]*setSourceImageVersion\(\(version\) => version \+ 1\);[\s\S]*image\.onload = \(\) => \{[\s\S]*sourceImageRef\.current = image;[\s\S]*setSourceImageVersion\(\(version\) => version \+ 1\);/,
-  );
-  assert.match(
-    deferredGeometryEditor,
-    /\[corners, viewport, allowOutsideSource, sourceImageVersion\]/,
-  );
   assert.match(deferredGeometryEditor, /Wycentruj widok na siatce/);
-  assert.match(deferredGeometryEditor, /Aktywne przesuwanie/);
-  assert.match(
-    deferredGeometryEditor,
-    /viewportPanningEnabled, setViewportPanningEnabled\] = useState\(false\)/,
-  );
-  assert.match(deferredGeometryEditor, /setViewportPanningEnabled\(false\)/);
-  assert.match(
-    deferredGeometryEditor,
-    /else if \(viewportPanningEnabled\) \{[\s\S]*panViewportRef\.current/,
-  );
+  assert.doesNotMatch(deferredGeometryEditor, /Aktywne przesuwanie/);
   assert.match(deferredGeometryEditor, /obraz pozostaje statyczny/i);
   assert.match(deferredGeometryEditor, /przesunąć cały obrys/i);
   assert.match(

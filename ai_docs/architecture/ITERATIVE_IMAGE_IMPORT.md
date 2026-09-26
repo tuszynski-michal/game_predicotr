@@ -619,6 +619,13 @@ ręcznej weryfikacji, a retry używa profilu z joba zamiast aktualnego stanu gry
 
 ## Walidacja geometrii w Reviewerze
 
+Edytor pojedynczej odroczonej planszy utrzymuje snapshot viewportu i obszaru
+pointera podczas gestu. Release dopasowuje kadr do ostatniej geometrii;
+preview jest automatyczny po zakończeniu gestu i zmianach kwalifikacji.
+Numer żądania unieważnia stare odpowiedzi, również błędy i zmianę pozycji.
+Obraz jest stanem React powiązanym z URL źródła; layout effect rysuje również
+nowo zamontowany canvas, nawet gdy dane obrazu pozostały niezmienne.
+
 Etap OCR zachowuje quad obszaru etykiety numeru. Reviewer pobiera checksum-bound
 oryginał i renderuje w canvasie viewport będący sumą planszy oraz etykiety.
 Nie tworzy kolejnego dużego artefaktu. Dla danych historycznych viewport

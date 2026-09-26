@@ -6,6 +6,18 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0707 — odroczona siatka: dopasowanie i preview po puszczeniu
+
+- Zakończono: checkbox zastąpiony dopasowaniem kadru po release. Podczas
+  gestu kadr stały; preview automatyczny po nim, po wejściu i zmianie kwalifikacji.
+  Obraz jako stan powiązany z URL, redraw przy montażu canvasa. Numer żądania
+  odrzuca spóźnione odpowiedzi i błędy preview. Zapis nadal jawny.
+- Testy 203/203, interakcje 4/4, lint, typecheck, format i build zielone.
+  Port 3001 miał stary production build; przebudowany i uruchomiony przez
+  start_local_reviewer.ps1. Browser: plansze 122404 i 122446, obraz od razu,
+  automatyczny preview po dragu i nawigacji. Bez zapisu korekt użytkownika.
+  Fizyczny Android i restart komputera niesprawdzone; nowy proces odebrany.
+
 ### T03a — udogodnienia anotacji laboratorium (gotowe)
 
 - Użytkownik zlecił zapis i wykonanie podzadania dla portu 3102: zdjęcie

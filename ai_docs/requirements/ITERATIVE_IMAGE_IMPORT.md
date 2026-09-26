@@ -124,6 +124,13 @@ przełączony w locie między v18 i v20.
 
 ## Reviewer i jakość obrazu
 
+- W kolejce niepełnych siatek pojedynczej planszy kadr pozostaje nieruchomy
+  przez cały gest przeciągania narożnika lub wnętrza siatki. Dopiero puszczenie
+  dopasowuje kadr do końcowej geometrii i automatycznie odświeża 15 cropów.
+  Checkbox przesuwania nie jest wymagany. Podgląd nie zapisuje decyzji;
+  zapis geometrii pozostaje jawną akcją z aktualnym podglądem.
+  Każda kolejna plansza pokazuje zdjęcie bez dodatkowego kliknięcia.
+
 - Prawy podgląd pokazuje natywny fragment oryginalnego zdjęcia obejmujący
   planszę oraz obszar numeru sekwencji.
 - Numer ma być widoczny bez otwierania edytora siatki.

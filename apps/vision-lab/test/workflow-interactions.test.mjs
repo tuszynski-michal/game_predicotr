@@ -29,7 +29,7 @@ registerHooks({
         format: 'module',
         shortCircuit: true,
         source:
-          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = async () => ({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => [];',
+          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = async () => ({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => [];',
       };
     if (/\.(tsx|ts)$/.test(url))
       return {
@@ -71,7 +71,7 @@ globalThis.ResizeObserver = class {
   observe() {}
   disconnect() {}
 };
-const source = { id: 'source', asset_id: 'photo' };
+const source = { id: 'source', asset_id: 'photo', sha256: 'a'.repeat(64) };
 const points = (columns, offset = 0) =>
   Array.from({ length: 4 * (columns + 1) }, (_, i) => ({
     x: offset + 10 + (i % (columns + 1)) * 20,
@@ -107,6 +107,7 @@ async function mount(initial) {
   const requests = [],
     previews = [];
   const replies = new Map();
+  const reviewRequests = [];
   let stored = initial;
   let fail = false;
   let shared;
@@ -136,10 +137,67 @@ async function mount(initial) {
           },
         },
       };
+      if (stored.photo_reviews?.source) {
+        const review = structuredClone(stored.photo_reviews.source);
+        review.accepted_board_revisions = {};
+        const issue = review.issues?.[String(body.annotation.board_index)];
+        if (issue) {
+          issue.status = 'needs_review';
+          issue.board_revision =
+            stored.annotations[
+              `source:${body.annotation.board_index}`
+            ].revision;
+        }
+        stored = {
+          ...stored,
+          photo_reviews: { ...stored.photo_reviews, source: review },
+        };
+      }
       replies.set(body.request_id, stored);
       if (fail) {
         fail = false;
         throw new Error('lost response after commit');
+      }
+      return stored;
+    },
+    review: async (body) => {
+      reviewRequests.push(body);
+      if (replies.has(body.request_id)) return replies.get(body.request_id);
+      const review = structuredClone(
+        stored.photo_reviews?.source ?? {
+          source_id: 'source',
+          source_sha256: source.sha256,
+          accepted_board_revisions: {},
+          issues: {},
+        },
+      );
+      if (body.action === 'mark') {
+        review.accepted_board_revisions = {};
+        for (const index of body.board_indices)
+          review.issues[String(index)] = {
+            status: 'needs_correction',
+            board_revision: stored.annotations[`source:${index}`].revision,
+            note: body.note,
+            actor: 'operator',
+            decided_at: 'test',
+          };
+      } else if (body.action === 'withdraw') {
+        for (const index of body.board_indices)
+          delete review.issues[String(index)];
+        review.accepted_board_revisions = {};
+      } else {
+        review.accepted_board_revisions = body.expected_board_revisions;
+        review.issues = {};
+      }
+      stored = {
+        ...stored,
+        revision: stored.revision + 1,
+        photo_reviews: { ...stored.photo_reviews, source: review },
+      };
+      replies.set(body.request_id, stored);
+      if (fail) {
+        fail = false;
+        throw new Error('review response lost after commit');
       }
       return stored;
     },
@@ -173,6 +231,7 @@ async function mount(initial) {
   return {
     root,
     requests,
+    reviewRequests,
     previews,
     failOnce: () => {
       fail = true;
@@ -208,9 +267,193 @@ test('explicit full approval uses operator, advances once and loads exact existi
       3,
       { position_index: 1, status: 'complete', nodes: saved.nodes },
     ]);
+    assert.doesNotMatch(text(harness.root.toJSON()), /Sprawdziłem każdy węzeł/);
+  } finally {
+    await act(async () => harness.root.unmount());
+  }
+});
+
+test('unflagged geometry keeps auto-next even after a previous photo review', async () => {
+  const harness = await mount({
+    revision: 1,
+    annotations: { 'source:0': annotation(0), 'source:1': annotation(1) },
+    photo_reviews: {
+      source: {
+        source_id: 'source',
+        source_sha256: source.sha256,
+        accepted_board_revisions: { 0: 1, 1: 1 },
+        issues: {},
+      },
+    },
+  });
+  try {
+    harness.failOnce();
+    await act(async () =>
+      button(harness.root, 'Zatwierdź pełną siatkę').props.onClick(),
+    );
+    await act(async () =>
+      button(
+        harness.root,
+        'Ponów identyczne żądanie: approve_full',
+      ).props.onClick(),
+    );
     assert.equal(
-      harness.root.root.findAllByProps({ type: 'checkbox' }).length,
-      0,
+      harness.root.root.findByProps({ type: 'number' }).props.value,
+      2,
+    );
+    assert.equal(
+      harness.requests[0].request_id,
+      harness.requests[1].request_id,
+    );
+  } finally {
+    await act(async () => harness.root.unmount());
+  }
+});
+
+test('photo review mark and full repair stay on the corrected board until explicit whole-photo acceptance', async () => {
+  const harness = await mount({
+    revision: 1,
+    annotations: { 'source:0': annotation(0), 'source:4': annotation(4) },
+  });
+  try {
+    const panel = () =>
+      harness.root.root.findByProps({
+        'aria-label': 'Przegląd całego zdjęcia',
+      });
+    assert.equal(harness.root.root.findByType('details').props.open, true);
+    await act(async () =>
+      panel()
+        .findAllByProps({ type: 'checkbox' })[0]
+        .props.onChange({ target: { checked: true } }),
+    );
+    await act(async () =>
+      panel()
+        .findByType('textarea')
+        .props.onChange({ target: { value: 'Róg do poprawy' } }),
+    );
+    await act(async () =>
+      button(harness.root, 'Oznacz wybrane: Do poprawy').props.onClick(),
+    );
+    assert.deepEqual(harness.reviewRequests[0].board_indices, [0]);
+    assert.equal(harness.reviewRequests[0].note, 'Róg do poprawy');
+    assert.deepEqual(harness.reviewRequests[0].expected_board_revisions, {
+      0: 1,
+      4: 1,
+    });
+    assert.match(text(panel()), /Do poprawy: 1/);
+    assert.equal(
+      button(harness.root, 'Akceptuj całe zdjęcie').props.disabled,
+      true,
+    );
+    await act(async () =>
+      button(harness.root, 'Zatwierdź pełną siatkę').props.onClick(),
+    );
+    assert.equal(
+      harness.root.root.findByProps({ type: 'number' }).props.value,
+      1,
+    );
+    assert.match(text(panel()), /Do ponownego sprawdzenia: 1/);
+    assert.equal(
+      button(harness.root, 'Akceptuj całe zdjęcie').props.disabled,
+      false,
+    );
+    await act(async () =>
+      button(harness.root, 'Akceptuj całe zdjęcie').props.onClick(),
+    );
+    assert.equal(harness.reviewRequests.length, 2);
+    assert.equal(harness.reviewRequests[1].action, 'accept');
+    assert.match(text(panel()), /Zaakceptowane/);
+    assert.equal(harness.requests.length, 1);
+  } finally {
+    await act(async () => harness.root.unmount());
+  }
+});
+
+test('review response loss retains exact request, blocks geometry, and retry never repeats a new decision', async () => {
+  const harness = await mount({
+    revision: 1,
+    annotations: { 'source:0': annotation(0) },
+  });
+  try {
+    harness.failOnce();
+    const accept = button(harness.root, 'Akceptuj całe zdjęcie');
+    await act(async () => {
+      const first = accept.props.onClick();
+      accept.props.onClick();
+      await first;
+    });
+    assert.equal(harness.reviewRequests.length, 1);
+    assert.equal(
+      harness.root.root.findByProps({ 'aria-label': 'Edycja geometrii' }).props
+        .disabled,
+      true,
+    );
+    assert.equal(
+      button(harness.root, 'Odśwież po konflikcie').props.disabled,
+      true,
+    );
+    const close = harness.root.root
+      .findAllByType('button')
+      .find((node) =>
+        node.props['aria-label']?.startsWith('Zamknij: Decyzja przeglądu'),
+      );
+    await act(async () => close.props.onClick({ stopPropagation() {} }));
+    await act(async () =>
+      button(
+        harness.root,
+        'Ponów identyczną decyzję przeglądu',
+      ).props.onClick(),
+    );
+    assert.equal(harness.reviewRequests[0], harness.reviewRequests[1]);
+    assert.equal(
+      harness.root.root.findByProps({ 'aria-label': 'Edycja geometrii' }).props
+        .disabled,
+      false,
+    );
+  } finally {
+    await act(async () => harness.root.unmount());
+  }
+});
+
+test('dirty geometry prevents acceptance and a draft correction cannot be accepted as repaired', async () => {
+  const harness = await mount({
+    revision: 1,
+    annotations: { 'source:0': annotation(0), 'source:4': annotation(4) },
+    photo_reviews: {
+      source: {
+        source_id: 'source',
+        source_sha256: source.sha256,
+        accepted_board_revisions: {},
+        issues: {
+          0: { status: 'needs_correction', note: '', board_revision: 1 },
+        },
+      },
+    },
+  });
+  try {
+    await act(async () =>
+      button(harness.root, 'Nowa propozycja z narożników').props.onClick(),
+    );
+    assert.equal(
+      button(harness.root, 'Akceptuj całe zdjęcie').props.disabled,
+      true,
+    );
+    await act(async () => button(harness.root, 'Zapisz szkic').props.onClick());
+    assert.equal(
+      harness.root.root.findByProps({ type: 'number' }).props.value,
+      1,
+    );
+    assert.equal(
+      button(harness.root, 'Akceptuj całe zdjęcie').props.disabled,
+      true,
+    );
+    assert.match(
+      text(
+        harness.root.root.findByProps({
+          'aria-label': 'Przegląd całego zdjęcia',
+        }),
+      ),
+      /Do ponownego sprawdzenia: 1/,
     );
   } finally {
     await act(async () => harness.root.unmount());
@@ -455,12 +698,17 @@ test('dirty navigation requires a decision and conflict refresh locks until rest
     await act(async () =>
       button(harness.root, 'Odśwież po konflikcie').props.onClick(),
     );
-    assert.equal(harness.root.root.findByType('fieldset').props.disabled, true);
+    assert.equal(
+      harness.root.root.findByProps({ 'aria-label': 'Edycja geometrii' }).props
+        .disabled,
+      true,
+    );
     await act(async () =>
       resolve({ revision: 2, annotations: { 'source:0': annotation(0, 3) } }),
     );
     assert.equal(
-      harness.root.root.findByType('fieldset').props.disabled,
+      harness.root.root.findByProps({ 'aria-label': 'Edycja geometrii' }).props
+        .disabled,
       false,
     );
     assert.equal(harness.previews.at(-1)[1], 3);

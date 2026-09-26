@@ -6,6 +6,17 @@ last_updated: 2026-09-26
 
 # Architektura laboratorium wizji
 
+T03d rozszerza istniejący POST /annotations o PhotoReviewRequest, a stan o
+photo_reviews z domyślnym pustym zbiorem. Source SHA i mapa rewizji wszystkich
+pozycji są sprawdzane pod tym samym exclusive/CAS co zapis, przed decyzją.
+Review przechowuje aktora/czas, zaakceptowaną mapę i oddzielne issues
+needs_correction/needs_review; historia i receipts zachowują zdarzenia.
+Zapis geometrii unieważnia akceptację zdjęcia; accept zamyka needs_review tylko
+dla full/present, a needs_correction blokuje. Nie ma dodatkowego resolve.
+Klient generowany z OpenAPI; panel korzysta ze wspólnego AnnotationState.
+Rebase uwzględnia bieżące/historyczne referencje review. Freeze wymaga aktualnej
+akceptacji obok dotychczasowej kwalifikacji; nigdy nie zmienia roli źródła.
+
 CLI `vision_lab.rebase_annotations` przenosi payload anotacji pomiędzy dwoma
 zweryfikowanymi Catalog, wyłącznie do nowego katalogu. Domyślny preflight jest
 bez zapisu; `--apply` ponownie czyta aktualny state pod blokadą exclusive.

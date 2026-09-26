@@ -9,7 +9,13 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
-from .annotation_contracts import AnnotationRequest, AnnotationState, GeometryAnnotation
+from .annotation_contracts import (
+    AnnotationRequest,
+    AnnotationState,
+    GeometryAnnotation,
+    PhotoReview,
+    PhotoReviewRequest,
+)
 from .annotations import (
     AnnotationStore,
     annotation_key,
@@ -30,6 +36,17 @@ def _references(payload: dict[str, Any], catalog: Catalog) -> set[str]:
     if state.families or state.split is not None or state.split_stale:
         raise ValueError("REBASE_FAMILIES_OR_SPLIT_UNSUPPORTED")
     references: set[str] = set()
+
+    def check_review(review: PhotoReview) -> None:
+        source = catalog.sources.get(review.source_id)
+        if source is None or review.source_sha256 != source.sha256:
+            raise ValueError(f"REBASE_REVIEW_SOURCE_INVALID:{review.source_id}")
+        references.add(review.source_id)
+
+    for key, review in state.photo_reviews.items():
+        if key != review.source_id:
+            raise ValueError("REBASE_REVIEW_KEY_INVALID")
+        check_review(review)
 
     def check_annotation(item: GeometryAnnotation, *, stored: bool) -> None:
         source = catalog.sources.get(item.source_id)
@@ -52,27 +69,40 @@ def _references(payload: dict[str, Any], catalog: Catalog) -> set[str]:
         raise ValueError("REBASE_HISTORY_UNSUPPORTED")
     receipts: dict[str, Any] = {}
     for event in payload["history"]:
-        if not isinstance(event, dict) or set(event) != {
+        required = {
             "request",
             "at",
             "revision",
             "split",
             "annotation",
             "family",
-        }:
+        }
+        if not isinstance(event, dict) or set(event) not in (required, required | {"photo_review"}):
             raise ValueError("REBASE_HISTORY_UNSUPPORTED")
         if event["family"] is not None or event["split"] is not None:
             raise ValueError("REBASE_FAMILIES_OR_SPLIT_UNSUPPORTED")
-        request = AnnotationRequest.model_validate(event["request"])
-        check_annotation(request.annotation, stored=False)
-        historical = GeometryAnnotation.model_validate(event["annotation"])
-        check_annotation(historical, stored=True)
-        if (historical.source_id, historical.board_index) != (
-            request.annotation.source_id,
-            request.annotation.board_index,
-        ):
-            raise ValueError("REBASE_HISTORY_SOURCE_INVALID")
-        receipts[request.request_id] = {"fingerprint": digest(event["request"])}
+        if "photo_review" in event:
+            review_request = PhotoReviewRequest.model_validate(event["request"])
+            historical_review = PhotoReview.model_validate(event["photo_review"])
+            check_review(historical_review)
+            if (review_request.source_id, review_request.source_sha256) != (
+                historical_review.source_id,
+                historical_review.source_sha256,
+            ) or event["annotation"] is not None:
+                raise ValueError("REBASE_HISTORY_SOURCE_INVALID")
+            request_id = review_request.request_id
+        else:
+            request = AnnotationRequest.model_validate(event["request"])
+            check_annotation(request.annotation, stored=False)
+            historical = GeometryAnnotation.model_validate(event["annotation"])
+            check_annotation(historical, stored=True)
+            if (historical.source_id, historical.board_index) != (
+                request.annotation.source_id,
+                request.annotation.board_index,
+            ):
+                raise ValueError("REBASE_HISTORY_SOURCE_INVALID")
+            request_id = request.request_id
+        receipts[request_id] = {"fingerprint": digest(event["request"])}
     if receipts != payload["receipts"]:
         raise ValueError("REBASE_RECEIPTS_UNSUPPORTED")
     return references

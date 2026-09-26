@@ -48,6 +48,32 @@ class FamilyDecision(Contract):
     similarity_reviewed: bool = False
 
 
+class PhotoReviewRequest(Mutation):
+    action: Literal["mark", "withdraw", "accept"]
+    source_id: str
+    source_sha256: str = Field(min_length=64, max_length=64)
+    expected_board_revisions: dict[str, int]
+    board_indices: list[int] = Field(default_factory=list, max_length=101)
+    note: str = Field(default="", max_length=1000)
+
+
+class BoardReviewIssue(Contract):
+    status: Literal["needs_correction", "needs_review"]
+    note: str = ""
+    board_revision: int
+    actor: str
+    decided_at: str
+
+
+class PhotoReview(Contract):
+    source_id: str
+    source_sha256: str
+    accepted_board_revisions: dict[str, int] = Field(default_factory=dict)
+    issues: dict[str, BoardReviewIssue] = Field(default_factory=dict)
+    actor: str = ""
+    decided_at: str = ""
+
+
 class FamilyRequest(Mutation):
     decision: FamilyDecision
 
@@ -90,6 +116,7 @@ class AnnotationState(Contract):
     timings: list[Timing] = Field(default_factory=list)
     split: FrozenSplit | None = None
     split_stale: bool = False
+    photo_reviews: dict[str, PhotoReview] = Field(default_factory=dict)
 
 
 class BackupResult(Contract):

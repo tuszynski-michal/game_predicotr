@@ -7,6 +7,8 @@ import { useAnnotations } from '../components/annotation-context';
 import {
   matchesPhotoFilter,
   photoCounts,
+  photoReviewStatus,
+  photoReviewLabel,
   sourceAnnotations,
   type PhotoFilter,
 } from '../lib/annotation-status';
@@ -53,7 +55,12 @@ export default function Page() {
   const filtered = catalog.filter(
     (source) =>
       (!game || source.game_id === game) &&
-      matchesPhotoFilter(sourceAnnotations(state, source.id), filter),
+      matchesPhotoFilter(
+        sourceAnnotations(state, source.id),
+        filter,
+        state?.photo_reviews?.[source.id],
+        source.sha256,
+      ),
   );
   const total = filtered.length;
   const pageOffset = Math.min(
@@ -221,6 +228,9 @@ export default function Page() {
           <option value="missing">Bez zapisów</option>
           <option value="started">Rozpoczęte (dowolny zapis)</option>
           <option value="full">Z pełną siatką (co najmniej jedną)</option>
+          <option value="review">Do przeglądu</option>
+          <option value="correction">Do poprawy</option>
+          <option value="accepted">Zaakceptowane</option>
         </select>
       </label>
       <div className="action-group">
@@ -312,6 +322,32 @@ export default function Page() {
                     {photoCounts(sourceAnnotations(state, source.id)).location}{' '}
                     · Szkice:{' '}
                     {photoCounts(sourceAnnotations(state, source.id)).draft}
+                    <br />
+                    {
+                      photoReviewLabel[
+                        photoReviewStatus(
+                          sourceAnnotations(state, source.id),
+                          state.photo_reviews?.[source.id],
+                          source.sha256,
+                        ).status
+                      ]
+                    }{' '}
+                    · Do poprawy:{' '}
+                    {
+                      photoReviewStatus(
+                        sourceAnnotations(state, source.id),
+                        state.photo_reviews?.[source.id],
+                        source.sha256,
+                      ).correction
+                    }{' '}
+                    · Ponowny przegląd:{' '}
+                    {
+                      photoReviewStatus(
+                        sourceAnnotations(state, source.id),
+                        state.photo_reviews?.[source.id],
+                        source.sha256,
+                      ).recheck
+                    }
                   </small>
                 ) : (
                   <small>Stan anotacji niedostępny</small>

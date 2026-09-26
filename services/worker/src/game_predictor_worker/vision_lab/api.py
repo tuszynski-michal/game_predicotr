@@ -12,6 +12,7 @@ from .annotation_contracts import (
     BackupRequest,
     BackupResult,
     FamilyRequest,
+    PhotoReviewRequest,
     SplitRequest,
     TimingReport,
 )
@@ -65,7 +66,7 @@ def create_app(catalog: Catalog | None = None, annotation_root: Path | None = No
     @application.post(
         "/annotations", response_model=AnnotationState, operation_id="save_annotation"
     )
-    def save_annotation(body: AnnotationRequest) -> AnnotationState:
+    def save_annotation(body: AnnotationRequest | PhotoReviewRequest) -> AnnotationState:
         try:
             return annotations().mutate(body)
         except ValueError as error:

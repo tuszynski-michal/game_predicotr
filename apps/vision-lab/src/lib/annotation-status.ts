@@ -2,8 +2,49 @@ import type {
   AnnotationRequest,
   AnnotationState,
   GeometryAnnotation,
+  PhotoReview,
 } from '../../../../packages/vision-lab-api-client/src/index';
-export type PhotoFilter = 'all' | 'missing' | 'started' | 'full';
+export type PhotoFilter =
+  'all' | 'missing' | 'started' | 'full' | 'review' | 'accepted' | 'correction';
+export function photoVersions(rows: GeometryAnnotation[]) {
+  return Object.fromEntries(
+    rows.map((row) => [String(row.board_index), row.revision]),
+  );
+}
+export function photoReviewStatus(
+  rows: GeometryAnnotation[],
+  review?: PhotoReview,
+  sha?: string,
+) {
+  const issues = Object.values(review?.issues ?? {});
+  const correction = issues.filter(
+    (issue) => issue.status === 'needs_correction',
+  ).length;
+  const recheck = issues.filter(
+    (issue) => issue.status === 'needs_review',
+  ).length;
+  const accepted = review?.accepted_board_revisions ?? {};
+  const versions = photoVersions(rows);
+  const complete =
+    !issues.length &&
+    sha === review?.source_sha256 &&
+    Object.keys(accepted).length > 0 &&
+    Object.keys(accepted).length === rows.length &&
+    Object.entries(versions).every(
+      ([index, revision]) => accepted[index] === revision,
+    ) &&
+    rows.some((row) => boardStatus(row) === 'full');
+  return {
+    status: correction ? 'correction' : complete ? 'accepted' : 'review',
+    correction,
+    recheck,
+  } as const;
+}
+export const photoReviewLabel = {
+  correction: 'Do poprawy',
+  accepted: 'Zaakceptowane',
+  review: 'Do przeglądu',
+};
 export function boardStatus(annotation?: GeometryAnnotation) {
   if (!annotation) return 'missing';
   if (annotation.presence === 'present' && annotation.full_approved)
@@ -35,13 +76,17 @@ export function photoCounts(rows: GeometryAnnotation[]) {
 export function matchesPhotoFilter(
   rows: GeometryAnnotation[],
   filter: PhotoFilter,
+  review?: PhotoReview,
+  sha?: string,
 ) {
   const counts = photoCounts(rows);
   return (
     filter === 'all' ||
     (filter === 'missing' && !counts.saved) ||
     (filter === 'started' && counts.saved > 0) ||
-    (filter === 'full' && counts.full > 0)
+    (filter === 'full' && counts.full > 0) ||
+    (['review', 'accepted', 'correction'].includes(filter) &&
+      photoReviewStatus(rows, review, sha).status === filter)
   );
 }
 export function positionIndices(rows: GeometryAnnotation[]) {

@@ -56,6 +56,12 @@ export type AnnotationState = {
         [key: string]: StoredFamily;
     };
     /**
+     * Photo Reviews
+     */
+    photo_reviews: {
+        [key: string]: PhotoReview;
+    };
+    /**
      * Revision
      */
     revision: number;
@@ -147,6 +153,32 @@ export type BoardOutput = {
      * Status
      */
     status: 'complete' | 'partial' | 'needs_review' | 'absent' | 'occluded' | 'unreadable';
+};
+
+/**
+ * BoardReviewIssue
+ */
+export type BoardReviewIssue = {
+    /**
+     * Actor
+     */
+    actor: string;
+    /**
+     * Board Revision
+     */
+    board_revision: number;
+    /**
+     * Decided At
+     */
+    decided_at: string;
+    /**
+     * Note
+     */
+    note: string;
+    /**
+     * Status
+     */
+    status: 'needs_correction' | 'needs_review';
 };
 
 /**
@@ -453,6 +485,84 @@ export type HttpValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
+};
+
+/**
+ * PhotoReview
+ */
+export type PhotoReview = {
+    /**
+     * Accepted Board Revisions
+     */
+    accepted_board_revisions: {
+        [key: string]: number;
+    };
+    /**
+     * Actor
+     */
+    actor: string;
+    /**
+     * Decided At
+     */
+    decided_at: string;
+    /**
+     * Issues
+     */
+    issues: {
+        [key: string]: BoardReviewIssue;
+    };
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Source Sha256
+     */
+    source_sha256: string;
+};
+
+/**
+ * PhotoReviewRequest
+ */
+export type PhotoReviewRequest = {
+    /**
+     * Action
+     */
+    action: 'mark' | 'withdraw' | 'accept';
+    /**
+     * Actor
+     */
+    actor: string;
+    /**
+     * Board Indices
+     */
+    board_indices?: Array<number>;
+    /**
+     * Expected Board Revisions
+     */
+    expected_board_revisions: {
+        [key: string]: number;
+    };
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Note
+     */
+    note?: string;
+    /**
+     * Request Id
+     */
+    request_id: string;
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Source Sha256
+     */
+    source_sha256: string;
 };
 
 /**
@@ -768,7 +878,10 @@ export type GetAnnotationsResponses = {
 export type GetAnnotationsResponse = GetAnnotationsResponses[keyof GetAnnotationsResponses];
 
 export type SaveAnnotationData = {
-    body: AnnotationRequest;
+    /**
+     * Body
+     */
+    body: AnnotationRequest | PhotoReviewRequest;
     path?: never;
     query?: never;
     url: '/annotations';

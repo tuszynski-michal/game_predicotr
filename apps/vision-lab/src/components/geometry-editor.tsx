@@ -1,6 +1,7 @@
 'use client';
 /* eslint-disable @next/next/no-img-element -- registered local image */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { PhotoReviewPanel } from './photo-review-panel';
 import {
   assetUrl,
   previewGeometry,
@@ -51,9 +52,18 @@ export function GeometryEditor({
   const notify = useToast();
   const [columns, setColumns] = useState<3 | 5>(initialColumns);
   const [dirty, setDirty] = useState(false);
+  const [reviewProtection, setReviewProtection] = useState({
+    dirty: false,
+    pending: false,
+  });
+  const onReviewProtection = useCallback(
+    (dirty: boolean, pending: boolean) =>
+      setReviewProtection({ dirty, pending }),
+    [],
+  );
   const submitting = useRef(false);
   const initialized = useRef(false);
-  const loadedRevision = useRef<number | null>(null);
+  const [loadedRevision, setLoadedRevision] = useState<number | null>(null);
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [viewport, setViewport] = useState<Viewport>({
     x: 0,
@@ -78,20 +88,22 @@ export function GeometryEditor({
   const activity = useRef<number[]>([]);
   const last = useRef<number | null>(null);
   const [pending, setPending] = useState<AnnotationRequest | null>(null);
+  const pendingTarget = useRef<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const corrections = useRef(0);
-  const locked = busy || pending !== null;
+  const geometryLocked = busy || pending !== null;
+  const locked = geometryLocked || reviewProtection.pending;
   const rows = sourceAnnotations(state, source.id);
   useEffect(() => {
-    onProtectionChange(dirty, locked);
-  }, [dirty, locked, onProtectionChange]);
+    onProtectionChange(dirty || reviewProtection.dirty, locked);
+  }, [dirty, reviewProtection.dirty, locked, onProtectionChange]);
   useEffect(() => {
     const prevent = (event: BeforeUnloadEvent) => {
-      if (dirty || locked) event.preventDefault();
+      if (dirty || reviewProtection.dirty || locked) event.preventDefault();
     };
     window.addEventListener('beforeunload', prevent);
     return () => window.removeEventListener('beforeunload', prevent);
-  }, [dirty, locked]);
+  }, [dirty, reviewProtection.dirty, locked]);
   useEffect(() => {
     const order = previewOrder.current;
     const element = photoRef.current;
@@ -172,7 +184,7 @@ export function GeometryEditor({
     proposeMissing = true,
   ) {
     const stored = nextState?.annotations[`${source.id}:${nextBoard}`];
-    loadedRevision.current = stored?.revision ?? null;
+    setLoadedRevision(stored?.revision ?? null);
     const nextColumns = saved && stored ? stored.topology.columns : columns;
     if (stored && saved && nextColumns !== columns)
       notify({
@@ -225,6 +237,7 @@ export function GeometryEditor({
     setViewport(fullViewport(size));
     last.current = performance.now();
     setPending(null);
+    pendingTarget.current = null;
     setElapsed(0);
     corrections.current = 0;
   }
@@ -252,12 +265,12 @@ export function GeometryEditor({
     if (canLeave()) load(true, index, state, false);
   }
   async function save(action: AnnotationRequest['action'], retry = false) {
-    if (!state || submitting.current) return;
+    if (!state || submitting.current || reviewProtection.pending) return;
     if (pending && !retry) return;
     if (
       !pending &&
       (state.annotations[`${source.id}:${board}`]?.revision ?? null) !==
-        loadedRevision.current
+        loadedRevision
     ) {
       notify({
         kind: 'warning',
@@ -291,6 +304,12 @@ export function GeometryEditor({
       activity_intervals_ms: [...activity.current],
       correction_count: corrections.current,
     };
+    if (!pending)
+      pendingTarget.current = state.photo_reviews?.[source.id]?.issues?.[
+        String(body.annotation.board_index)
+      ]
+        ? body.annotation.board_index
+        : nextApprovedPosition(body);
     setPending(body);
     try {
       const next = await writeAnnotation(body);
@@ -300,7 +319,7 @@ export function GeometryEditor({
       corrections.current = 0;
       last.current = null;
       setDirty(false);
-      const target = nextApprovedPosition(body);
+      const target = pendingTarget.current ?? body.annotation.board_index;
       if (target !== body.annotation.board_index) load(true, target, next);
       else load(true, body.annotation.board_index, next, false);
       notify({
@@ -320,6 +339,17 @@ export function GeometryEditor({
   }
   return (
     <section className="annotation-editor" onKeyDown={trackActivity}>
+      <PhotoReviewPanel
+        source={source}
+        geometryDirty={dirty}
+        geometryLocked={geometryLocked}
+        geometryStale={
+          (state?.annotations[`${source.id}:${board}`]?.revision ?? null) !==
+          loadedRevision
+        }
+        onProtectionChange={onReviewProtection}
+        onSelect={selectBoard}
+      />
       <h3>Ręczna anotacja geometrii</h3>
       <p>
         Lokalizacja zatwierdza narożniki. Interpolowane węzły pozostają
@@ -355,8 +385,12 @@ export function GeometryEditor({
           </button>
         ))}
       </nav>
-      <details>
+      <details open>
         <summary>Przegląd zapisanych plansz na całym zdjęciu</summary>
+        <p>
+          Pomarańczowy obrys i „!”: Do poprawy. „↻”: Do ponownego sprawdzenia.
+          „◀”: wybrana pozycja i jej cropy poniżej.
+        </p>
         <div
           className="saved-overview"
           style={{ aspectRatio: `${size.width} / ${size.height}` }}
@@ -391,9 +425,49 @@ export function GeometryEditor({
                       .map((point) => `${point.x},${point.y}`)
                       .join(' ')}
                     fill="#74dcba22"
-                    stroke={boardStatus(row) === 'full' ? '#74dcba' : '#ffce54'}
+                    stroke={
+                      state?.photo_reviews?.[source.id]?.issues?.[
+                        String(row.board_index)
+                      ]?.status === 'needs_correction'
+                        ? '#f5a142'
+                        : boardStatus(row) === 'full'
+                          ? '#74dcba'
+                          : '#ffce54'
+                    }
                     strokeWidth={size.width / 300}
                   />
+                  {Array.from({ length: 4 }, (_, gridRow) => (
+                    <polyline
+                      key={`row-${gridRow}`}
+                      points={row.nodes
+                        .slice(
+                          gridRow * (row.topology.columns + 1),
+                          (gridRow + 1) * (row.topology.columns + 1),
+                        )
+                        .map((point) => `${point.x},${point.y}`)
+                        .join(' ')}
+                      fill="none"
+                      stroke="#fff9"
+                      strokeWidth={size.width / 700}
+                    />
+                  ))}
+                  {Array.from(
+                    { length: row.topology.columns + 1 },
+                    (_, col) => (
+                      <polyline
+                        key={`col-${col}`}
+                        points={row.nodes
+                          .filter(
+                            (_, i) => i % (row.topology.columns + 1) === col,
+                          )
+                          .map((point) => `${point.x},${point.y}`)
+                          .join(' ')}
+                        fill="none"
+                        stroke="#fff9"
+                        strokeWidth={size.width / 700}
+                      />
+                    ),
+                  )}
                   <text
                     x={row.corners[0].x}
                     y={row.corners[0].y + size.width / 35}
@@ -404,13 +478,23 @@ export function GeometryEditor({
                     paintOrder="stroke"
                   >
                     {row.board_index + 1}
+                    {state?.photo_reviews?.[source.id]?.issues?.[
+                      String(row.board_index)
+                    ]?.status === 'needs_correction'
+                      ? ' !'
+                      : state?.photo_reviews?.[source.id]?.issues?.[
+                            String(row.board_index)
+                          ]?.status === 'needs_review'
+                        ? ' ↻'
+                        : ''}
+                    {board === row.board_index ? ' ◀' : ''}
                   </text>
                 </g>
               ))}
           </svg>
         </div>
       </details>
-      <fieldset disabled={locked}>
+      <fieldset disabled={locked} aria-label="Edycja geometrii">
         <label>
           Topologia planszy{' '}
           <select
@@ -718,8 +802,10 @@ export function GeometryEditor({
         <p>
           Szkic zachowuje pracę bez zatwierdzenia. Lokalizacja potwierdza
           obecność i narożniki. Klikając pełne zatwierdzenie, potwierdzasz
-          wszystkie węzły oraz granice komórek. Zatwierdzenie pozycji 1–8
-          otwiera kolejną; po pozycji 9 pozostajesz na zdjęciu.
+          wszystkie węzły oraz granice komórek. Zapis pozycji oznaczonej do
+          poprawy lub ponownego sprawdzenia pozostawia bieżącą pozycję. W
+          pozostałych zatwierdzenie pozycji 1–8 otwiera kolejną; po pozycji9
+          pozostajesz na zdjęciu.
         </p>
       </fieldset>
       {pending && (
@@ -728,9 +814,9 @@ export function GeometryEditor({
         </button>
       )}
       <button
-        disabled={busy}
+        disabled={busy || reviewProtection.pending}
         onClick={() => {
-          if (submitting.current) return;
+          if (submitting.current || reviewProtection.pending) return;
           if (
             (dirty || pending) &&
             !window.confirm(

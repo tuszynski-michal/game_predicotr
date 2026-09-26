@@ -13,6 +13,7 @@ import type {
   FamilyRequest,
   SplitRequest,
   BoardInput,
+  PhotoReviewRequest,
 } from './generated/types.gen';
 export type {
   GeometryResult,
@@ -23,6 +24,8 @@ export type {
   FamilyRequest,
   SplitRequest,
   TimingReport,
+  PhotoReviewRequest,
+  PhotoReview,
   PointOutput as Point,
 } from './generated/types.gen';
 
@@ -68,6 +71,9 @@ export async function readAnnotations() {
   return (await getAnnotations({ baseUrl, throwOnError: true })).data;
 }
 export async function writeAnnotation(body: AnnotationRequest) {
+  return (await saveAnnotation({ baseUrl, body, throwOnError: true })).data;
+}
+export async function writePhotoReview(body: PhotoReviewRequest) {
   return (await saveAnnotation({ baseUrl, body, throwOnError: true })).data;
 }
 export async function writeFamily(body: FamilyRequest) {

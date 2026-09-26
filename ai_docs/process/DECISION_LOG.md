@@ -6,6 +6,25 @@ last_updated: 2026-09-26
 
 # Decision Log
 
+## D-450 — przegląd zdjęcia jako dodatkowa bramka laboratoryjna
+
+- **Status:** accepted (TASK-0668/T03d, jawne polecenie użytkownika).
+- **Date:** 2026-09-27.
+- **Decision:** akceptacja zdjęcia wiąże SHA źródła i mapę rewizji wszystkich
+  zapisanych pozycji; dotyczy niepustego zbioru obecnych pełnych geometrii.
+  Szkice/lokalizacje nie są promowane. Nie wymaga dziewięciu plansz.
+  Oznaczenia do poprawy pozostają oddzielne od istniejących zgód geometrii.
+  Zapis oznaczonej pozycji daje stan do ponownego sprawdzenia; accept zamyka
+  te uwagi tylko dla obecnych full/present. Needs_correction oraz poprawka
+  zapisana wyłącznie jako szkic/lokalizacja blokują accept. Withdraw wycofuje
+  błędne zgłoszenie bez akceptowania zdjęcia; brak dodatkowego resolve.
+- **Invalidation:** każdy zapis geometrii zdjęcia lub oznaczenie do poprawy
+  unieważnia akceptację tylko tego zdjęcia oraz oznacza istniejący split stale.
+  Zmiana innego zdjęcia nie cofa tej akceptacji. Stare dane są nieprzejrzane,
+  zachowują autorów, historię i approval poszczególnych geometrii.
+- **Boundary:** dodatkowa bramka freeze/split, bez osłabienia pochodzenia rodzin,
+  roli 777 ani reguł zatwierdzeń. Brak treningu i automatycznej akceptacji danych.
+
 ## D-449 — niepełna plansza w odroczonej korekcie geometrii komórek (opt-in, bez osłabienia współdzielonego croppera)
 
 - **Status:** accepted (TASK-0693).

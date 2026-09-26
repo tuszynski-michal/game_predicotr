@@ -16,6 +16,7 @@ from .annotation_contracts import (
     AnnotationState,
     BackupResult,
     FamilyRequest,
+    PhotoReviewRequest,
     SplitRequest,
     StoredFamily,
     Timing,
@@ -24,6 +25,7 @@ from .annotation_contracts import (
 from .catalog import Catalog
 from .contracts import Board, Point, Topology
 from .geometry import cell_quads
+from .photo_review import apply_photo_review, geometry_changed, photo_accepted
 from .snapshot import canonical, reject_links
 
 
@@ -152,9 +154,19 @@ class AnnotationStore:
 
     def read(self) -> AnnotationState:
         with exclusive(self.root):
-            return AnnotationState.model_validate(self._load()["state"])
+            return self._view(AnnotationState.model_validate(self._load()["state"]))
 
-    def mutate(self, request: AnnotationRequest | FamilyRequest | SplitRequest) -> AnnotationState:
+    def _view(self, state: AnnotationState) -> AnnotationState:
+        if state.split and any(
+            not photo_accepted(state, self.catalog.sources[source_id])
+            for source_id in state.split.assignments
+        ):
+            state.split_stale = True
+        return state
+
+    def mutate(
+        self, request: AnnotationRequest | FamilyRequest | SplitRequest | PhotoReviewRequest
+    ) -> AnnotationState:
         with exclusive(self.root):
             payload = self._load()
             fingerprint = digest(request.model_dump())
@@ -162,8 +174,8 @@ class AnnotationStore:
             if receipt is not None:
                 if receipt["fingerprint"] != fingerprint:
                     raise ValueError("REQUEST_ID_CONFLICT")
-                return AnnotationState.model_validate(payload["state"])
-            state = AnnotationState.model_validate(payload["state"])
+                return self._view(AnnotationState.model_validate(payload["state"]))
+            state = self._view(AnnotationState.model_validate(payload["state"]))
             if request.expected_revision != state.revision:
                 raise ValueError("ANNOTATION_REVISION_CONFLICT")
             if not request.actor.strip():
@@ -171,6 +183,11 @@ class AnnotationStore:
             now = datetime.now(UTC).isoformat()
             if isinstance(request, AnnotationRequest):
                 self._annotate(state, request, now)
+            elif isinstance(request, PhotoReviewRequest):
+                source = self.catalog.sources.get(request.source_id)
+                if source is None:
+                    raise ValueError("SOURCE_NOT_FOUND")
+                apply_photo_review(state, source, request, now)
             elif isinstance(request, FamilyRequest):
                 decision = request.decision
                 ids = decision.source_ids + decision.related_source_ids
@@ -204,6 +221,11 @@ class AnnotationStore:
                     "family": state.families[request.decision.source_ids[0]].model_dump()
                     if isinstance(request, FamilyRequest)
                     else None,
+                    **(
+                        {"photo_review": state.photo_reviews[request.source_id].model_dump()}
+                        if isinstance(request, PhotoReviewRequest)
+                        else {}
+                    ),
                 }
             )
             payload["receipts"][request.request_id] = {"fingerprint": fingerprint}
@@ -265,6 +287,7 @@ class AnnotationStore:
             ]
         )
         state.annotations[key] = item
+        geometry_changed(state, source.id, item.board_index, item.revision)
         state.split_stale = state.split is not None
         elapsed = active_time(request.activity_intervals_ms)
         state.timings.append(

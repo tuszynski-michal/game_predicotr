@@ -364,11 +364,109 @@ limitami 120 s, audyt przed operacją. Stary snapshot i anotacje pozostają.
 - DoD T03c: preflight/apply, zachowanie danych, retry/konflikty i atomowość
   sprawdzone testami; rzeczywisty katalog/anotacje i odczyt nowego procesu
   sprawdzone operacyjnie. Nie wykonywano browser QA, restartu komputera ani
-  nowego UI builda (UI nie zmieniono). Commit T03c po kontroli historii.
+  nowego UI builda (UI nie zmieniono). Commit T03c `v1.7.7` —
+  `dd4aae3268439299da1a208f49361673c298cec4`. Hash dopisany po commicie;
+  następny patch v1.7.8 po kontroli historii.
   Liczba zatwierdzeń jest odczytem operacyjnym, nie stałą fixture.
   Bez zmiany roli 777, splitu, treningu, push lub merge.
 
-## Outcome T03 (część narzędziowa)
+## T03d — przegląd zdjęcia i poprawki wybranych plansz
+
+Status `done`; wykonawca `gpt-6-sol` / `medium`, niezależny audyt
+`gpt-6-astra` / `medium`. Zlecony przez użytkownika pełny pion UI/API, zależy
+od gotowych T03b/c. Relevant docs: niniejszy task, plan T03d, VISION_LAB
+wymagania/architektura, D-450, Definition of Done.
+
+Cel: pełne zdjęcie z numerowanymi zapisanymi siatkami, wyborem/cropami,
+oznaczeniem wybranych pozycji do poprawy (opcjonalna uwaga), wycofaniem
+błędnego oznaczenia i jawnym przyjęciem bieżącego zestawu geometrii zdjęcia.
+Filtry: Do przeglądu (niezaakceptowane bez needs_correction), Do poprawy,
+Zaakceptowane; osobny licznik pozycji wymagających poprawy/przeglądu.
+
+Kontrakt: istniejący POST /annotations przyjmuje dodatkowo PhotoReviewRequest
+z mark/withdraw/accept, source SHA i expected_board_revisions całego
+zdjęcia. AnnotationState rozszerzony kompatybilnie o photo_reviews (domyślnie
+pusty). Istniejące request_id/CAS/history/backup chronią wszystkie decyzje.
+Accept wymaga co najmniej jednej full/present i braku needs_correction;
+wiąże wszystkie bieżące rewizje, bez promowania draft/location. Mark czyści
+akceptację. Zapis oznaczonej pozycji → needs_review, pozostaje na tej pozycji.
+Accept domyka needs_review tylko gdy każda taka pozycja jest full/present;
+szkic/lokalizacja blokuje akceptację poprawki. Nie wymaga osobnego resolve.
+Withdraw wycofuje błędne zgłoszenie niezależnie od poprawki, bez akceptacji.
+
+Split wymaga dotychczasowych warunków i aktualnej akceptacji zdjęcia. Edycja
+lub otwarcie uwagi oznacza istniejący split stale bez zmiany jego przydziałów.
+Rebase zachowuje nowe review/history z kontrolą wszystkich referencji; stare
+dane domyślnie nieprzejrzane. UI blokuje review przy dirty geometrii i wszystkie
+nawigacje przy pending; retry zachowuje identyczny request, konflikt wymaga
+odczytu i ponownego sprawdzenia. Komunikaty wyłącznie toastami.
+
+Pliki: annotation_contracts.py, annotations.py, api.py, splits.py,
+rebase_annotations.py; nowy photo_review.py; OpenAPI/generowany klient/wrapper;
+GeometryEditor, nowy PhotoReviewPanel, status/gallery; testy backend/request/UI;
+dokumenty właścicielskie i guide. CURRENT_STATE/build/restart/commit: koordynator.
+
+DoD/testy: stary payload bez zmian po odczycie; mark→edit→needs_review→
+accept; wycofanie; niepusty full/present bez wymagania9; każda zmiana/dodanie
+pozycji unieważnia, inne zdjęcie nie; stale versions/CAS, utrata odpowiedzi,
+nowy proces i backup, rebase zachowuje review. API/OpenAPI/client spójne;
+UI filtry/liczniki/dirty/pending/wybór/cropy i brak auto-next po naprawie.
+Kolejność: testy skoncentrowane → lint/typecheck → OpenAPI/check → audit/build.
+Skończone procesy limit120s. Bez zapisu realnych danych, roli777 i treningu.
+
+### Outcome T03d
+
+Implementacja zamrożona do audytu 2026-09-27. Dodano trwały przegląd zdjęcia
+w istniejącym kontrakcie `/annotations`, mapę wersji zapisanych pozycji i SHA
+źródła, CAS oraz idempotentne ponowienie. `mark` nie zmienia geometrii,
+poprawka przechodzi do `needs_review`, a osobne `accept` zamyka sprawdzone
+poprawki i wiąże bieżący zestaw. `needs_correction` oraz korekta będąca tylko
+szkicem/lokalizacją blokują akceptację. `withdraw` nie zatwierdza zdjęcia.
+Zmiana geometrii unieważnia tylko akceptację tego zdjęcia. Stare rekordy
+pozostają nieprzejrzane, z zachowaniem zatwierdzeń i historii. Stan przeglądu
+jest objęty backupem, restartem i bezpiecznym rebase T03c.
+
+UI ma domyślnie otwarty widok całego zdjęcia z zapisanymi siatkami, numerami,
+wyborem/cropami i tekstowymi oznaczeniami statusu; panel decyzji, filtry oraz
+liczniki działają dla całej gry. Dirty/pending guards chronią edycję i retry.
+Poprawiana oznaczona pozycja pozostaje wybrana; nieoznaczone pozycje zachowują
+poprzedni auto-next także po wcześniejszym review i utracie odpowiedzi.
+Akceptacja jest dodatkową bramką splitu; efektywny `split_stale` dawnych
+splitów jest spójny dla GET, retry i nowych mutacji, bez zapisu przy odczycie.
+
+Kontrole: backend annotations/review/rebase **25/25 PASS** (22,96 s), po
+dodaniu regresji legacy splitu review **8/8 PASS** (9,27 s), czyli wszystkie
+26 przypadków zakresu zaliczone. UI **27/27 PASS**, request client **4/4 PASS**;
+Ruff, app ESLint, app/client typecheck, mypy zmienionych 13 modułów lab
+(`--follow-imports=silent`), OpenAPI check, generated-client check oraz
+`git diff --check` PASS. Pełne mypy z importami poza zakresem ujawniło
+zastane błędy typów NumPy w `images/shape_geometry_v2/core.py` i
+`images/contrast_frame_grid_v12.py` oraz zastane błędy w dwóch modułach API
+`v7_label_geometry_calibration`, `images/qualified_manual_geometry.py`
+i `images/page_geometry_preflight.py` (łącznie 27 błędów w 6 plikach);
+nie zmieniano tych modułów. Ostrzeżenia
+testów: istniejące Starlette/AnyIO, react-test-renderer i module type.
+
+DoD i plan porównano punktowo: kontrakt, zachowanie statusów, izolowane
+race/retry, restart/backup/rebase, wybór/cropy, filtry i ochrona edycji mają
+implementację oraz regresje. Dokumenty wymagań, architektury, D-450 i guide
+są zaktualizowane. Audyt Astra medium **PASS, bez P0–P2**, niezależne
+review **8/8 PASS** (9,98 s). Koordynator dodatkowo potwierdził istniejące
+API **21/21 PASS** (2,11 s), review **8/8 PASS** (13,10 s) i UI **27/27 PASS**.
+Produkcyjny build i restart laboratorium PASS. Nowy proces API i proxy 3102
+odczytują rewizję 93, 77 pełnych siatek na 27 zdjęciach. Kopia stanu
+`artifacts/vision-lab/t03d-before-restart-revision-93.json` i plik po restarcie
+mają identyczny SHA-256
+`B5B13E5723F3FE5345E0BA730FD9BA967EB6894761E3A2D1D99142969A0AC45A`.
+Odbiór przeglądarkowy read-only: filtry, pusty widok Do poprawy, numerowane
+siatki, wybór pozycji 2/3 klawiaturą i 15 cropów. Oględziny w wąskim panelu
+bez poziomego przepełnienia; fizyczny Android i restart komputera niebadane.
+Commit T03d: `v1.7.8` (hash po commicie). Nadrzędny T03 pozostaje blocked.
+Nie wykonano
+zapisu na rzeczywistych danych, akceptacji zdjęć użytkownika, treningu ani
+zmiany roli `777`; CURRENT_STATE i usługi należą do koordynatora.
+
+## Outcome T03 (narzędzia i operacje)
 
 ### Operacyjne przywrócenie ścieżki danych
 

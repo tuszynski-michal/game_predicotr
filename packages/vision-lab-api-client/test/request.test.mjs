@@ -73,6 +73,21 @@ test('annotation and family requests preserve revision, explicit intent and idem
         },
       },
     ],
+    [
+      saveAnnotation,
+      'annotations',
+      {
+        request_id: 'review-request-03',
+        expected_revision: 9,
+        actor: 'operator',
+        action: 'mark',
+        source_id: 'source',
+        source_sha256: 'a'.repeat(64),
+        expected_board_revisions: { 0: 2, 4: 1 },
+        board_indices: [4],
+        note: 'Left corner',
+      },
+    ],
   ]) {
     let captured;
     await call({

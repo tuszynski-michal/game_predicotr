@@ -6,6 +6,7 @@ from collections import defaultdict
 from .annotation_contracts import AnnotationState, FrozenSplit, SplitRequest
 from .annotations import digest
 from .catalog import Catalog
+from .photo_review import photo_accepted
 
 
 def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitRequest) -> FrozenSplit:
@@ -50,6 +51,8 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
             reason = "FAMILY_PROVENANCE_UNRESOLVED"
         elif any(s not in approved for s in ids):
             reason = "HUMAN_LOCATION_APPROVAL_REQUIRED"
+        elif any(not photo_accepted(state, catalog.sources[s]) for s in ids):
+            reason = "PHOTO_REVIEW_ACCEPTANCE_REQUIRED"
         if reason:
             exclusions.update(dict.fromkeys(ids, reason))
         else:

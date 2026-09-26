@@ -170,7 +170,7 @@ Galeria pokazuje osobno pełne obecne siatki, lokalizacje i szkice. Filtry
 paginacją. Ostatni oznacza co najmniej jedną pełną siatkę, nie kompletne
 zdjęcie ani gotowość do treningu. „Odśwież statusy” pobiera trwały stan.
 
-W edytorze wybierz numer pozycji albo obrys w rozwijanym przeglądzie całego
+W edytorze wybierz numer pozycji albo obrys w domyślnie otwartym przeglądzie całego
 zdjęcia. Wczytany zostanie dokładny zapis z jego topologią i cropami.
 Pozycje 1–9 są dostępne zawsze, a istniejące dalsze zapisy także pojawiają się
 na liście. Brak zapisu wymaga kliknięcia „Nowa propozycja z narożników”.
@@ -190,6 +190,37 @@ ostrzeżenie pomarańczowe, informacja neutralna. Kliknięcie lub „Zamknij” 
 komunikat. Sukces/informacja pozostają 120 s, błąd/ostrzeżenie 180 s; hover,
 focus i ukryta karta wstrzymują zegar. Zamknięcie komunikatu nie usuwa retry.
 Raport pomiarów nadal pozostaje w panelu rodzin jako dane.
+
+### Przegląd zdjęcia i poprawki T03d
+
+Panel „Przegląd całego zdjęcia” pokazuje zapisane pozycje oraz ich statusy.
+Numery obrysów pozwalają wybrać dokładną zapisaną siatkę i jej cropy.
+Pomarańczowy znak `!` oznacza „Do poprawy”, `↻` — „Do ponownego
+sprawdzenia”, a `◀` wskazuje wybraną pozycję. Zaznacz wyłącznie błędne
+plansze, opcjonalnie dodaj uwagę i kliknij „Oznacz wybrane: Do poprawy”.
+Pozostałe geometrie i ich zatwierdzenia nie zmieniają się. Błędne zgłoszenie
+można jawnie wycofać przyciskiem „Wycofaj błędne oznaczenie”.
+
+Zapis poprawianej planszy pozostaje na tej pozycji i zmienia jej status na
+„Do ponownego sprawdzenia”; sam szkic lub lokalizacja nie wystarcza do
+zamknięcia poprawki. Sprawdź węzły i zatwierdź pełną siatkę. Nieoznaczone
+pozycje nadal korzystają ze zwykłego przechodzenia do następnej pozycji.
+Na końcu kliknij „Akceptuj całe zdjęcie”: nie trzeba oddzielnie zamykać
+każdego „Do ponownego sprawdzenia”, lecz nierozwiązane „Do poprawy” blokuje
+akceptację. Wymagana jest przynajmniej jedna pełna obecna siatka, nie dziewięć.
+Szkice i lokalizacje nie są przy tej okazji promowane.
+
+Akceptacja dotyczy bieżących zapisanych wersji całego zdjęcia i jego źródła.
+Dodanie lub zmiana geometrii na tym zdjęciu unieważnia akceptację; praca na
+innym zdjęciu jej nie unieważnia. Starsze zdjęcia domyślnie są nieprzejrzane.
+Filtry „Do przeglądu”, „Do poprawy” i „Zaakceptowane” wraz z licznikami
+obejmują całą grę. Akceptacja jest dodatkową bramką kwalifikacji/splitu,
+nie dowodem gotowości treningowej i nie zmienia roli `777`.
+
+Niezapisana geometria, wybór lub uwaga wymagają jawnej decyzji przed zmianą
+widoku. Przy niepewnym wyniku zapisu panel zachowuje identyczne żądanie do
+ponowienia; nie wysyłaj nowej decyzji, zanim wynik nie zostanie rozstrzygnięty.
+Stan przeglądu, historia i potwierdzenia są trwałe oraz objęte backupem.
 
 T03a: duży edytor ma po prawej zwarte cropy bieżącej siatki. Przeciągnij
 uchwyt i puść: kadr dopasuje się do siatki z marginesem, a cropy odświeżą się

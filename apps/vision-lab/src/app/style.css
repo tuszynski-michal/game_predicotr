@@ -171,6 +171,35 @@ label select {
   gap: 12px;
   margin: 16px 0;
 }
+.photo-review-panel {
+  border: 1px solid #547565;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  background: #152734;
+}
+.photo-review-panel h3 {
+  margin-top: 0;
+}
+.photo-review-panel textarea {
+  width: 100%;
+  max-width: 700px;
+}
+.review-positions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.review-positions > div {
+  padding: 10px;
+  border: 1px solid #42526a;
+  border-radius: 8px;
+}
+.review-positions input {
+  width: 20px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
 .annotation-badge {
   padding: 7px;
   border: 1px solid #547565;

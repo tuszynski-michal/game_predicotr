@@ -13,6 +13,7 @@ from game_predictor_worker.vision_lab.annotation_contracts import (
     FamilyDecision,
     FamilyRequest,
     GeometryAnnotation,
+    PhotoReviewRequest,
     SplitRequest,
 )
 from game_predictor_worker.vision_lab.annotations import (
@@ -24,6 +25,7 @@ from game_predictor_worker.vision_lab.annotations import (
 from game_predictor_worker.vision_lab.api import create_app
 from game_predictor_worker.vision_lab.catalog import Catalog
 from game_predictor_worker.vision_lab.contracts import Point, Topology
+from game_predictor_worker.vision_lab.photo_review import board_revisions
 from game_predictor_worker.vision_lab.snapshot import import_folder
 from PIL import Image
 
@@ -151,7 +153,7 @@ def populate(store):
     for source_id, source in store.catalog.sources.items():
         if source.role != "data":
             continue
-        store.mutate(request_for(store, source_id))
+        approve_full_photo(store, source_id)
         revision = store.read().revision
         store.mutate(
             FamilyRequest(
@@ -177,6 +179,31 @@ def populate(store):
         measurement_source_ids=ordinary[:2],
         difficulties=dict.fromkeys(ordinary[:2], "normal"),
     )
+
+
+def accept_photo(store, source_id):
+    state = store.read()
+    return store.mutate(
+        PhotoReviewRequest(
+            request_id=f"review-{state.revision}",
+            expected_revision=state.revision,
+            actor="human",
+            action="accept",
+            source_id=source_id,
+            source_sha256=store.catalog.sources[source_id].sha256,
+            expected_board_revisions=board_revisions(state, source_id),
+        )
+    )
+
+
+def approve_full_photo(store, source_id, columns=5):
+    request = request_for(store, source_id, columns, "approve_full")
+    request.reviewed_all_nodes = True
+    request.annotation.nodes = interpolate(request.annotation.corners, request.annotation.topology)
+    for node in request.annotation.nodes:
+        node.provenance = "human"
+    store.mutate(request)
+    return accept_photo(store, source_id)
 
 
 def test_freeze_is_immutable_after_draft_or_family_change(tmp_path: Path):
@@ -329,7 +356,7 @@ def test_absent_board_does_not_supply_topology_coverage(tmp_path: Path):
     store = setup_store(tmp_path)
     request = populate(store)
     unseen = next(s.id for s in store.catalog.sources.values() if s.game_name == "unseen")
-    store.mutate(request_for(store, unseen, columns=3))
+    approve_full_photo(store, unseen, columns=3)
     for source in store.catalog.sources.values():
         if source.game_name != "ordinary":
             continue
@@ -338,6 +365,7 @@ def test_absent_board_does_not_supply_topology_coverage(tmp_path: Path):
         observation.annotation.presence = "absent"
         observation.annotation.corners = []
         store.mutate(observation)
+        accept_photo(store, source.id)
     request.expected_revision = store.read().revision
     with pytest.raises(ValueError, match="REMOVES_TRAINING_TOPOLOGY"):
         store.mutate(request)

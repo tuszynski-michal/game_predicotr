@@ -7,6 +7,7 @@ import {
   positionIndices,
   nextApprovedPosition,
   approvalSummary,
+  photoReviewStatus,
 } from '../src/lib/annotation-status.ts';
 import {
   enqueueToast,
@@ -20,6 +21,41 @@ const row = (board_index, fields = {}) => ({
   full_approved: false,
   location_approved: false,
   ...fields,
+});
+
+test('photo review filters distinguish correction, recheck and current acceptance', () => {
+  const rows = [row(0, { revision: 2, full_approved: true })];
+  const review = {
+    source_sha256: 'sha',
+    accepted_board_revisions: { 0: 2 },
+    issues: {},
+  };
+  assert.equal(matchesPhotoFilter(rows, 'accepted', review, 'sha'), true);
+  assert.equal(matchesPhotoFilter(rows, 'accepted', review, 'other'), false);
+  assert.equal(
+    matchesPhotoFilter(
+      [row(0, { revision: 3, full_approved: true })],
+      'accepted',
+      review,
+      'sha',
+    ),
+    false,
+  );
+  assert.equal(
+    matchesPhotoFilter(
+      [...rows, row(1, { revision: 1 })],
+      'review',
+      review,
+      'sha',
+    ),
+    true,
+  );
+  review.issues['0'] = { status: 'needs_correction' };
+  assert.equal(matchesPhotoFilter(rows, 'correction', review, 'sha'), true);
+  assert.equal(photoReviewStatus(rows, review, 'sha').correction, 1);
+  review.issues['0'].status = 'needs_review';
+  assert.equal(matchesPhotoFilter(rows, 'review', review, 'sha'), true);
+  assert.equal(photoReviewStatus(rows, review, 'sha').recheck, 1);
 });
 test('counts separate present full grids, locations and drafts; absence never counts as a full grid', () => {
   const rows = [

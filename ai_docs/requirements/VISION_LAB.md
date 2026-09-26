@@ -6,6 +6,19 @@ last_updated: 2026-09-25
 
 # Laboratorium wizji
 
+Przegląd zdjęcia pokazuje numerowane zapisane siatki oraz cropy wybranej planszy.
+Operator może oznaczyć wybrane plansze „Do poprawy” z opcjonalną uwagą lub
+wycofać błędne oznaczenie. Zapis poprawki daje „Do ponownego sprawdzenia”, bez
+automatycznej akceptacji i bez przejścia do następnej planszy. Po sprawdzeniu
+poprawek użytkownik klika „Akceptuj całe zdjęcie”, co domyka ich uwagi.
+Ta decyzja obejmuje bieżący niepusty zestaw pełnych obecnych geometrii (nie
+wymaga9), nie promuje szkiców ani lokalizacji. Needs_correction i poprawki
+zapisane wyłącznie jako szkic/lokalizacja blokują akceptację.
+Zmiana/dodanie geometrii unieważnia akceptację tylko tego zdjęcia. Stare dane
+pozostają nieprzejrzane. Filtry i badge rozróżniają „Do przeglądu”, „Do poprawy”
+i „Zaakceptowane”. Akceptacja jest dodatkową bramką splitu, nie uprawnieniem
+do treningu ani zmianą roli777 (D-450).
+
 Aktualizacja folderu zdjęć tworzy nowy niezmienny snapshot. Istniejące decyzje
 można przenieść wyłącznie do nowego katalogu i tylko gdy każde źródło użyte
 w zapisach, timingach i historii zachowuje id, SHA oraz metadane. Zmiana lub

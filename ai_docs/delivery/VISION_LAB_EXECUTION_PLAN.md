@@ -283,6 +283,16 @@ T14 nie zastępuje odbioru modelu T13 i nie odblokowuje treningu.
 
 ## Przypisanie modeli do zadań
 
+T03d: zlecony przegląd zdjęcia z poprawkami wybranych plansz oraz dodatkową
+bramką akceptacji. Istniejący POST /annotations rozszerzony o decyzje review;
+SHA i mapa wszystkich rewizji chronią zestaw przed wyścigiem. Mark→zapis→
+ponowny przegląd→jawny accept; withdraw wycofuje błędne zgłoszenie.
+Akceptacja niepustego zestawu full/present nie wymaga9 i nie promuje szkiców.
+Zmiana zdjęcia unieważnia jego akceptację, split wymaga jej dodatkowo.
+Statusy/filtry/cropy i toasty korzystają ze wspólnego stanu. Stare dane i
+backup/rebase zachowują historyczne decyzje; domyślnie nieprzejrzane. Testy
+kontraktu, race/retry/restart i UI oraz granice w T03d TASK-0668 i D-450.
+
 T03c (done po T03b): aktualizacja niezmiennego snapshotu folderu istniejącym
 importerem i bezpieczne przeniesienie anotacji do nowego katalogu. Preflight
 kontroluje wszystkie zapisane referencje także w historii; zmienione id/SHA/
@@ -321,6 +331,7 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T03a / TASK-0668 | `gpt-6-sol` | `medium` | Transformacja widoku i aktualność cropów bez zapisów. | `gpt-6-astra`, `medium` |
 | T03b / TASK-0668 | `gpt-6-sol` | `medium` | Jawna zgoda, retry i bezpieczne przejście między zapisami plansz. | `gpt-6-astra`, `medium` |
 | T03c / TASK-0668 | `gpt-6-sol` | `medium` | Zachowanie zatwierdzeń i atomowe powiązanie z nowym snapshotem. | `gpt-6-astra`, `medium` |
+| T03d / TASK-0668 | `gpt-6-sol` | `medium` | Trwałe review zdjęcia, wersje geometrii i zgodny pion API/UI. | `gpt-6-astra`, `medium` |
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |

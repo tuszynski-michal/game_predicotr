@@ -6,6 +6,42 @@ last_updated: 2026-09-26
 
 # Current State
 
+### T03d — przegląd zdjęcia i poprawki wybranych siatek (gotowe)
+
+- Użytkownik zatwierdził implementację panelu przeglądu całego zdjęcia:
+  numerowane zapisane siatki, oznaczenie konkretnych plansz do poprawy,
+  filtry i licznik problemów oraz jawna akceptacja całego zdjęcia.
+- Zapis poprawki nie zatwierdza zdjęcia automatycznie. Pozostałe siatki
+  pozostają nietknięte; można wycofać pomyłkowe oznaczenie bez edycji.
+  Akceptacja wiąże aktualne wersje zapisów, a zmiana/dodanie siatki wymaga
+  ponownego przeglądu. Nie wymaga dziewięciu plansz i nie promuje szkiców.
+- Zgodne rozszerzenie API zapowiedziano przed kodowaniem. Dotychczasowe
+  decyzje pozostają zachowane, stare zdjęcia nie są autoakceptowane.
+  Testy zapisów wyłącznie na izolowanych danych; odczyt wejściowy API
+  wskazuje rewizję 67 (liczność operacyjna, nie stała fixture).
+- Wykonawca gpt-6-sol / medium; niezależny audyt gpt-6-astra / medium.
+  Root prowadzi CURRENT_STATE, odbiór usług i commit. Bez treningu,
+  zmiany roli 777, zmian Reviewera/TASK-0707 ani rzeczywistych zatwierdzeń.
+- Audyt Astra medium PASS, bez P0–P2; niezależne 8/8 testów review.
+  Koordynator niezależnie potwierdził
+  27/27 testów UI (1,08 s) i 8/8 testów photo review (13,10 s): celowane
+  poprawki, CAS/retry, restart/backup/rebase oraz zgodność starych splitów.
+  Odczyt live w trakcie prac: rewizja 82, 66 pełnych siatek na 23 zdjęciach;
+  użytkownik anotował w trakcie wdrażania.
+- Końcowy build i restart API/UI PASS, proxy 3102 HTTP 200. Kopia przed
+  restartem: artifacts/vision-lab/t03d-before-restart-revision-93.json;
+  rewizja 93, 77 pełnych siatek na 27 zdjęciach. SHA-256 kopii i stanu po
+  odczycie w nowym procesie identyczny:
+  B5B13E5723F3FE5345E0BA730FD9BA967EB6894761E3A2D1D99142969A0AC45A.
+  Zero akceptacji zdjęć utworzonych przez agenta. Liczności operacyjne.
+- Browser read-only: filtry, pusty widok Do poprawy, trzy numerowane siatki,
+  wybór pozycji 2/3 klawiaturą i 15 cropów PASS. Nie wykonywano rzeczywistych
+  decyzji podczas odbioru; mutacje pokryte izolowanymi testami. Fizyczny
+  Android i restart komputera niesprawdzone. Pełny mypy ma 27 zastanych
+  błędów poza labem; skoncentrowany mypy 13 modułów PASS. API 21/21 PASS.
+- Commit T03d: v1.7.8 (hash po commicie). Parent T03 nadal blocked na
+  danych/splitach; treningu nie uruchomiono. Obce zmiany pozostają poza commitem.
+
 ### T03c — aktualizacja zdjęć laboratorium (gotowe)
 
 - Użytkownik zlecił faktyczne przełączenie laboratorium na aktualne pliki
@@ -29,7 +65,9 @@ last_updated: 2026-09-26
   Instrukcja startu wskazuje nowe ścieżki; UI nie wymaga nowego buildu.
   Nie wykonano odbioru przeglądarkowego ani testu restartu komputera.
 - Baza `v1.7.6` / `95e0915f6175e3dc38509212460bbcc3b61b168d`;
-  następny patch po kontroli historii. Reviewer i TASK-0707 poza zakresem.
+  commit T03c `v1.7.7` / `dd4aae3268439299da1a208f49361673c298cec4`.
+  Hash dopisany po commicie; następny patch v1.7.8 po kontroli historii.
+  Reviewer i TASK-0707 poza zakresem.
   Zmiana przeznaczenia nowych anotacji 777 do treningu wymaga osobnej
   aktualizacji kwalifikacji; ta operacja nie uruchamia treningu ani splitu.
 

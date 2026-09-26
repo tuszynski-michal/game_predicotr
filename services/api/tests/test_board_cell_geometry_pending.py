@@ -33,6 +33,7 @@ from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
 from game_predictor_api.domain.jobs import JobConflictError, JobError
 from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
 from game_predictor_api.main import create_app
+from game_predictor_api.storage import board_cell_geometry_pending_repository
 from game_predictor_worker.images.manual_board_cell_geometry_preview import (
     ManualBoardCellGeometryPreviewer,
 )
@@ -49,6 +50,14 @@ class MemoryManifestStore(BoardCellProcessingManifestStore):
     def put(self, manifest: BoardCellProcessingManifestV1) -> str:
         self.values.setdefault(manifest.checksum_sha256, manifest.canonical_bytes())
         return f"manifests/{manifest.checksum_sha256}.json"
+
+
+class GeometryRevisionSession:
+    def __init__(self, revisions: tuple[int, ...]) -> None:
+        self._revisions = revisions
+
+    def scalars(self, _statement: object) -> tuple[int, ...]:
+        return self._revisions
 
 
 class MemoryPendingRepository(BoardCellGeometryPendingRepository):
@@ -396,6 +405,44 @@ def test_reason_codes_are_closed_and_stable() -> None:
         "residual_too_high",
         "source_unavailable",
     }
+
+
+def test_manual_resolution_continues_the_canonical_crop_revision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        board_cell_geometry_pending_repository,
+        "_uses_logical_current_cell_identity",
+        lambda _session, _game_id: True,
+    )
+
+    next_revision = board_cell_geometry_pending_repository._next_manual_geometry_revision(
+        GeometryRevisionSession((1,) * 15),  # type: ignore[arg-type]
+        game_id=uuid4(),
+        sequence_number=412_597,
+        expected_geometry_revision=0,
+    )
+
+    assert next_revision == 2
+
+
+def test_manual_resolution_uses_pending_revision_without_current_crops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        board_cell_geometry_pending_repository,
+        "_uses_logical_current_cell_identity",
+        lambda _session, _game_id: True,
+    )
+
+    next_revision = board_cell_geometry_pending_repository._next_manual_geometry_revision(
+        GeometryRevisionSession(()),  # type: ignore[arg-type]
+        game_id=uuid4(),
+        sequence_number=64,
+        expected_geometry_revision=3,
+    )
+
+    assert next_revision == 4
 
 
 def test_defer_is_idempotent_and_new_manifest_supersedes_previous() -> None:

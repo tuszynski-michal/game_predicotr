@@ -1592,6 +1592,15 @@ tylko jeden bieżący `pending` dla `job + source + position`. Nowy manifest
 superseduje poprzedni. Rozwiązanie zapisuje wyłącznie numer nowej rewizji;
 zmiana planszy albo review po snapshotcie kończy rekord jako `superseded`.
 
+Jeżeli ręczne rozwiązanie przejmuje w magazynie V2 aktywną
+`game_id + sequence_number`, `resolved_geometry_revision` nie może ponownie
+użyć rewizji przypiętej wyłącznie do jego źródła. Repozytorium blokuje bieżące
+15 logicznych cropów sekwencji i zapisuje dokładnie ich wspólną rewizję plus
+jeden w `recognized_boards`, append-only audycie geometrii, pending recordzie
+i bieżącej projekcji komórek. Brak wcześniejszych cropów zachowuje wynik
+`expected_geometry_revision + 1`; niepełna albo niespójna wcześniejsza
+projekcja pozostaje fail-closed bez częściowego zapisu.
+
 ### reviewer_access_sessions i reviewer_access_audit_events
 
 Trwała sesja Reviewera wiąże dokładnie `game_id` i `import_job_id`. Przechowuje

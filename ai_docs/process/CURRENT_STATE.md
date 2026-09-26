@@ -6,6 +6,18 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0702 — kanoniczna rewizja przy ręcznym zapisie odroczonej geometrii
+
+- Zakończono: `manual-resolution` z kolejki „Niepełne siatki do ręcznej
+  korekty” kontynuuje wspólną rewizję logicznych cropów V2 po przejęciu
+  `game_id + sequence_number`, zamiast ponownie użyć wyłącznie rewizji pending
+  manifestu. Dla zgłoszonego przypadku `expected=0` i 15 cropów na rewizji `1`
+  daje zapis rewizji `2`, eliminując
+  `SYMBOL_CELL_REVIEW_GEOMETRY_REVISION_INVALID`.
+- Weryfikacja: testy pending 14/14, Ruff, format i mypy strict są zielone.
+  Odczyt lokalnej bazy potwierdził dokładnie 15 cropów wspólnej rewizji `1` dla
+  sekwencji `412597`; nie wykonano zapisu na danych użytkownika.
+
 ### TASK-0701 — dostęp do odczytu kolejki siatek przy niespójnej projekcji symboli
 
 - Zakończono: lokalny Reviewer może odczytać filtrowaną listę i asset źródłowy,

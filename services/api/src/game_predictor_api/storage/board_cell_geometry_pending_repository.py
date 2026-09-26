@@ -31,6 +31,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
+    _uses_logical_current_cell_identity,
 )
 from game_predictor_api.storage.models import (
     CellObservationModel,
@@ -40,6 +41,7 @@ from game_predictor_api.storage.models import (
     ImagePipelineStageResultModel,
     ImageReviewItemModel,
     ImageSourceGeometryRevisionModel,
+    ImageSymbolReviewCellModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -609,7 +611,13 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
             created_at=created_at,
             resolution_revision=row.expected_review_resolution_revision,
         )
-        revision = board.geometry_revision
+        revision = _next_manual_geometry_revision(
+            self._session,
+            game_id=game_id,
+            sequence_number=row.sequence_number,
+            expected_geometry_revision=row.expected_geometry_revision,
+        )
+        board.geometry_revision = revision
         self._session.add(
             ImageBoardGeometryRevisionModel(
                 review_item_id=review.id,
@@ -695,6 +703,46 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
                 created=False,
             ),
         )
+
+
+def _next_manual_geometry_revision(
+    session: Session,
+    *,
+    game_id: UUID,
+    sequence_number: int,
+    expected_geometry_revision: int,
+) -> int:
+    """Continue the V2 logical crop revision after a sequence-owner handoff.
+
+    A pending manifest pins the source board's revision, but a manual result can
+    become the newest owner of a sequence whose current V2 crop projection was
+    created by another import.  In that case the crop revision is shared by the
+    logical 3 x 5 board, so it must advance from the existing projection rather
+    than restart from the pending source's pinned revision.
+
+    Legacy storage still keeps crop rows per review item.  Its coordinator does
+    not reuse rows from the former owner, so the original pending revision
+    remains authoritative there.
+    """
+
+    fallback = expected_geometry_revision + 1
+    if not _uses_logical_current_cell_identity(session, game_id):
+        return fallback
+    existing_revisions = tuple(
+        session.scalars(
+            select(ImageSymbolReviewCellModel.geometry_revision)
+            .where(
+                ImageSymbolReviewCellModel.game_id == game_id,
+                ImageSymbolReviewCellModel.sequence_number == sequence_number,
+            )
+            .with_for_update()
+        )
+    )
+    if len(existing_revisions) != 15 or len(set(existing_revisions)) != 1:
+        # Preserve the existing coordinator's fail-closed validation for an
+        # incomplete or internally inconsistent current projection.
+        return fallback
+    return existing_revisions[0] + 1
 
 
 def _to_domain(row: ImageBoardGeometryPendingModel) -> ImageBoardGeometryPending:

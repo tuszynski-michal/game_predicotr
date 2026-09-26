@@ -300,12 +300,30 @@ typecheck, build i browser. Każda skończona komenda z timeoutem do 120 s.
   testy React; odbiór wizualny w rzeczywistej przeglądarce pozostaje ryzykiem.
 - Zakres porównano z kryteriami T03b: wszystkie funkcje wdrożone, testy
   scenariuszy zapisu/retry/statusów/topologii/toastów zaliczone. Brak wyłącznie
-  końcowego odbioru przeglądarkowego. Commit `v1.7.5`; hash po commicie.
+  końcowego odbioru przeglądarkowego. Commit `v1.7.5` —
+  `07f8e02f5270710e498315c30a48968fadc40441`. Hash dopisany po commicie,
+  lokalnie do kolejnego commita; następny patch v1.7.6 po kontroli historii.
 - Nie zmieniono API, DB ani danych użytkownika; testy nie zapisują rzeczywistych
   decyzji. T03 pozostaje blocked na pilocie, T04/T05/T14 nie uruchomiono.
   Fizyczny Android i restart komputera pozostają niesprawdzone.
 
 ## Outcome T03
+
+### Operacyjne przywrócenie ścieżki danych
+
+Na jawne polecenie użytkownika przeniesiono odnaleziony snapshot oraz
+`state.json` z `Documents/Nowy folder` do udokumentowanego
+`Documents/game_predictor_vision_data`, bez nadpisania istniejących danych.
+Przed przeniesieniem zatrzymano zweryfikowany proces API; kopię zapisów
+zachowano w `recovery-backups/777-state-revision45/state.json`.
+SHA-256 kopii i przeniesionego pliku jest identyczny:
+`F0BF79E1BDB96F09140AED26C0F7BAFCA063D96A4C5C14BCD78F79E57DB9E490`.
+Nowy proces API weryfikuje snapshot i odczytuje rewizję 45: 29 pełnych
+siatek na 10 zdjęciach 777. Proxy 3102 potwierdza ten sam stan oraz HTTP 200
+dla zdjęcia. Nie ustalono przyczyny wcześniejszej zmiany lokalizacji.
+Nie zmieniono kodu ani geometrii, nie wykonano treningu ani browser QA.
+Aktualizacja przyciętych zdjęć pozostałych gier nie jest częścią przeniesienia:
+aktywny pozostaje odzyskany snapshot 1180 źródeł. Commit operacji po kontroli historii.
 
 Część narzędziowa odebrana 2026-09-26. Cały T03 i etap B nie są ukończone.
 

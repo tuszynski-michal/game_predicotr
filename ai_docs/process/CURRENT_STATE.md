@@ -6,6 +6,23 @@ last_updated: 2026-09-26
 
 # Current State
 
+### Przywrócenie katalogu laboratorium — operacja T03
+
+- Na jawne polecenie użytkownika przeniesiono snapshot i state.json z
+  `C:\Users\tuszy\Documents\Nowy folder` do udokumentowanego
+  `C:\Users\tuszy\Documents\game_predictor_vision_data`.
+  Przyczyna wcześniejszej zmiany lokalizacji nie została ustalona.
+- Nie nadpisano istniejących danych; kopia anotacji znajduje się w
+  `recovery-backups/777-state-revision45/state.json`. Przeniesiony plik
+  zachował SHA-256 `F0BF79E1BDB96F09140AED26C0F7BAFCA063D96A4C5C14BCD78F79E57DB9E490`.
+- Nowy proces API sprawdził snapshot przy starcie. Odczyt przez 3102:
+  rewizja 45, 29 pełnych siatek na 10 zdjęciach 777; zdjęcie HTTP 200.
+  Przywrócono dotychczasowy snapshot 1180 zdjęć, nie aktualizację 993 źródeł.
+  Aktualizacja pozostałych gier wymaga zachowania powiązań anotacji;
+  nie wykonano treningu ani zmian kwalifikacji 777.
+- Nie zmieniano kodu, API ani danych geometrii; brak nowego browser QA.
+  Raport operacji otrzyma osobny commit po potwierdzeniu wersji brancha.
+
 ### T03b — pełne usprawnienia laboratorium (wdrożone lokalnie)
 
 - Użytkownik uruchomił implementację całego pakietu laboratorium 3102,
@@ -15,7 +32,8 @@ last_updated: 2026-09-26
   To dane użytkownika: nie wykonywać zapisów ani zatwierdzeń podczas QA.
   Testy mutacji wyłącznie na odizolowanych danych testowych.
 - Baza commita `v1.7.4` / `be27ec553d0a9acf418cd809d8b4bcef9ba82cc5`;
-  patch T03b: `v1.7.5`, hash zostanie dopisany po commicie. Zmiany TASK-0707,
+  commit T03b: `v1.7.5` / `07f8e02f5270710e498315c30a48968fadc40441`.
+  Hash dopisany po commicie; następny patch v1.7.6 po kontroli historii. Zmiany TASK-0707,
   Reviewera i `.claude/` pozostają poza commitem.
 
 - Wdrożono toasty w lewym dolnym rogu dla wszystkich powiadomień
